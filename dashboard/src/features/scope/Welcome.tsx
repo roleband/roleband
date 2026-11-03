@@ -26,11 +26,25 @@ import { MotionStage } from "./motion/primitives";
 
 const RadarIntro = lazy(() => import("./welcome/RadarIntro"));
 
+const SHARING_WAIT_MS = 3000;
+
 function WelcomeBody({ page }: { page: RefObject<HTMLElement | null> }) {
   const navigate = useNavigate();
   const sharing = useAsyncResource((signal) => api.usage(signal), []);
   const toAsk = sharing.data && !sharing.data.blocked_by ? groupsToAsk(sharing.data) : [];
-  const [asking, setAsking] = useState(false);
+  // A press before the read has answered waits for it, since the answer
+  // decides whether the question comes first. A failed read opens the walk,
+  // and so does a read still unanswered once the wait is up.
+  const [begun, setBegun] = useState(false);
+  const [waitedOut, setWaitedOut] = useState(false);
+  useEffect(() => {
+    if (!begun || !sharing.loading) return;
+    const later = window.setTimeout(() => setWaitedOut(true), SHARING_WAIT_MS);
+    return () => window.clearTimeout(later);
+  }, [begun, sharing.loading]);
+  const decided = begun && (!sharing.loading || waitedOut);
+  const asking = decided && toAsk.length > 0;
+  const walkNext = decided && toAsk.length === 0;
   // The question opens at the top: on a short screen the intro is scrolled to
   // reach its button, and the question would otherwise open part-way down.
   useLayoutEffect(() => {
@@ -46,6 +60,9 @@ function WelcomeBody({ page }: { page: RefObject<HTMLElement | null> }) {
   // Pushed, not replaced: Back from setup's first step comes back here
   // rather than leaving RoleBand.
   const toWalk = () => navigate(SETUP_PATH);
+  useEffect(() => {
+    if (walkNext) navigate(SETUP_PATH);
+  }, [walkNext, navigate]);
   // The walk comes next: its catalog is asked while the welcome is read, once
   // the welcome is on screen. Loaded apart, so the welcome does not carry the
   // draft's code.
@@ -59,7 +76,7 @@ function WelcomeBody({ page }: { page: RefObject<HTMLElement | null> }) {
   return (
     <Suspense fallback={<div className="welcome-intro-fallback" aria-hidden="true" />}>
       <RadarIntro
-        onBegin={() => (toAsk.length > 0 ? setAsking(true) : toWalk())}
+        onBegin={() => setBegun(true)}
         question={asking && sharing.data ? (
           <ConsentPane
             look="scene"
