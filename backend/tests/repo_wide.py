@@ -18,9 +18,10 @@ from pathlib import Path
 
 TESTS = Path(__file__).resolve().parent
 
-#: A path above backend/: the repository root by depth or by name, or a relative `..`.
+#: A path above backend/: the repository root by depth or by name, backend's parent, or a relative `..`.
 REACHES_PAST_BACKEND = re.compile(
-    r"parents\[[2-9]\]|parent\.parent\.parent|\bREPO_ROOT\b|[\"']\.\./|/\s*[\"']\.\.[\"']|\bos\.pardir\b"
+    r"parents\[[2-9]\]|parent\.parent\.parent|\bREPO_ROOT\b|\bBACKEND(?:_DIR)?\.parent\b"
+    r"|[\"']\.\./|/\s*[\"']\.\.[\"']|\bos\.pardir\b"
 )
 
 

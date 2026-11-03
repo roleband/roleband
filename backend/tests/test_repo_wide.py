@@ -29,6 +29,7 @@ def module(tmp_path):
         'from tests.plugin_web import serve\n',
         'ROOT = HERE / ".." / ".."\n',
         'ROOT = os.path.join(HERE, os.pardir, os.pardir)\n',
+        'LOCK = BACKEND.parent / "launcher" / "macos" / "runtime-lock.txt"\n',
     ],
 )
 def test_a_module_naming_a_path_above_backend_is_repo_wide(module, source):
@@ -41,6 +42,7 @@ def test_a_module_naming_a_path_above_backend_is_repo_wide(module, source):
         'FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"\n',
         'URL = "https://jobs.example.test/../acme"\n',
         'from tests.skip_policy import ALLOWED\n',
+        'FIXTURE = Path(__file__).parent / "fixtures" / "a.json"\n',
     ],
 )
 def test_a_module_reading_inside_backend_is_not(module, source):
@@ -59,7 +61,14 @@ def test_helpers_that_import_each_other_are_read_once(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "name", ["test_gitleaks_config.py", "test_release_gate.py", "test_docs_closed_set.py", "test_ci_workflow_triggers.py"]
+    "name",
+    [
+        "test_gitleaks_config.py",
+        "test_release_gate.py",
+        "test_docs_closed_set.py",
+        "test_ci_workflow_triggers.py",
+        "test_check_dependency_audit.py",
+    ],
 )
 def test_the_whole_tree_scans_are_repo_wide(name):
     assert repo_wide.reaches_past_backend(repo_wide.TESTS / name)
