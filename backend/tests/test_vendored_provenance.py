@@ -107,7 +107,7 @@ def _artifact(sha: str) -> VendoredArtifact:
 def _client(*, pinned: bytes, latest_tag: str, latest: bytes | None = None, api_status: int = 200):
     def handler(request: httpx.Request) -> httpx.Response:
         url = str(request.url)
-        if "api.github.com" in url:
+        if request.url.host == "api.github.com":
             return httpx.Response(api_status, json={"tag_name": latest_tag})
         if f"/{latest_tag}/" in url:
             return httpx.Response(200, content=latest if latest is not None else pinned)
