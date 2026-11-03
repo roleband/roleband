@@ -66,6 +66,21 @@ describe("browser shards", () => {
     }
   });
 
+  it("tells apart two files of one name in different directories", () => {
+    const spec = (name: string) => `${name}.spec.ts`;
+    const dir = mkdtempSync(join(tmpdir(), "ux-shards-"));
+    mkdirSync(join(dir, "nested"));
+    const files = [spec("top"), `nested/${spec("top")}`];
+    for (const file of files) writeFileSync(join(dir, file), "");
+    writeFileSync(join(dir, "shard-weights.json"), JSON.stringify({ [files[0]]: 5, [files[1]]: 5 }));
+    const matchers = [1, 2].map((index) => shardTestMatch(dir, { index, total: 2 }));
+    expect(matchers.map((patterns) => patterns.length)).toEqual([1, 1]);
+    for (const file of files) {
+      const owners = matchers.filter((patterns) => patterns.some((pattern) => pattern.test(join(dir, file))));
+      expect(owners, file).toHaveLength(1);
+    }
+  });
+
   it("splits the recorded suite into four shards within a tenth of their mean", () => {
     // A spec heavier than a quarter of the suite cannot balance: split it.
     const weights = recordedWeights(testDir);

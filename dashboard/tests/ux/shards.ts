@@ -58,9 +58,10 @@ export function testFiles(testDir: string): string[] {
 }
 
 /** The test files of `testDir` that fall to `shard`, each matched by its whole
- *  path below `testDir`, so `a.spec.ts` never matches `b-a.spec.ts`. */
+ *  absolute path, as Playwright matches `testMatch`: `a.spec.ts` matches neither
+ *  `b-a.spec.ts` nor `nested/a.spec.ts`. */
 export function shardTestMatch(testDir: string, shard: Shard): RegExp[] {
-  const escape = (part: string) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const escape = (path: string) => path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return splitSpecs(testFiles(testDir), recordedWeights(testDir), shard.total)[shard.index - 1]
-    .map((file) => new RegExp(`[\\\\/]${file.split("/").map(escape).join("[\\\\/]")}$`));
+    .map((file) => new RegExp(`^${escape(join(testDir, ...file.split("/")))}$`));
 }
