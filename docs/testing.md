@@ -373,7 +373,7 @@ Main-branch pushes use independent run groups and do not cancel one another.
 
 ## Triaging a flaky UX failure
 
-A red UX run is not automatically your change.
+A red UX run is not necessarily your change.
 
 1. **Check the load.** On a busy machine timeouts look like regressions; a
    slower total run time is the tell. Compare baseline and change by
