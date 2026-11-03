@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "./fixtures";
+import { expect, mockGet, test, type Page } from "./fixtures";
 import { msg } from "../../src/test/msg";
 import {
   facetsFixture, jobListFixture, notificationsFixture, settingsSaveFixture, statsFixture, statusFixture,
@@ -830,6 +830,44 @@ test("the sharing question, opened by keyboard, puts focus on No thanks", async 
   await page.keyboard.press("Enter");
   await expect(page.getByRole("region", { name: "Help us improve" }).getByRole("button", { name: "No thanks" })).toBeFocused();
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
+});
+
+/* Tune the radar pressed before the sharing state has been read waits for the
+   read, so a quick press never skips the question. A read that fails never
+   blocks setup: the walk opens. */
+for (const read of ["undecided", "failed"] as const) {
+  test(`Tune the radar pressed before the sharing state is read waits for it (${read})`, async ({ page }) => {
+    await install(page, FRESH);
+    let answer!: () => void;
+    const held = new Promise<void>((resolve) => { answer = resolve; });
+    await mockGet(page, "/api/usage", async (route) => {
+      await held;
+      await route.fulfill(read === "failed" ? { status: 503, json: { detail: "unavailable" } } : { json: usageStateFixture("undecided") });
+    });
+    await page.goto("/welcome");
+    await page.getByRole("button", { name: "Tune the radar" }).click();
+    await expect(page).toHaveURL(/\/welcome$/);
+    await expect(page.getByRole("region", { name: "Help us improve" })).toHaveCount(0);
+    answer();
+    if (read === "failed") {
+      await expect(page).toHaveURL(SETUP_URL);
+      return;
+    }
+    await expect(page.getByRole("region", { name: "Help us improve" }).getByRole("button", { name: "No thanks" })).toBeFocused();
+    await expect(page).toHaveURL(/\/welcome$/);
+  });
+}
+
+/* A read that never answers holds the press only for a few seconds: then the
+   walk opens, as it does for a failed read. */
+test("Tune the radar pressed while the sharing state never arrives still opens setup", async ({ page }) => {
+  await install(page, FRESH);
+  await mockGet(page, "/api/usage", () => new Promise<void>(() => undefined));
+  await page.goto("/welcome");
+  await page.getByRole("button", { name: "Tune the radar" }).click();
+  await expect(page).toHaveURL(/\/welcome$/);
+  await expect(page).toHaveURL(SETUP_URL, { timeout: 10_000 });
+  await expect(page.getByRole("heading", { name: "What kind of role are you looking for?" })).toBeVisible();
 });
 
 /* On a phone a place's reach switch has a line of its own, so a metro, its
