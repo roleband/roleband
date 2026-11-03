@@ -39,9 +39,10 @@ that does not fit the project's direction; opening an issue first avoids that.
 
 ### Automated review
 
-CodeRabbit reviews every pull request against [AGENTS.md](AGENTS.md) and the doc
-that owns each subject (`.coderabbit.yaml`). Its comments and checks are
-suggestions; only a maintainer's request has to be met.
+CodeRabbit reviews pull requests against [AGENTS.md](AGENTS.md) and the doc that
+owns each subject; its settings, including the pull requests it skips, are in
+`.coderabbit.yaml`. Its comments and checks are suggestions; only a maintainer's
+request has to be met.
 
 - Check each finding against the code before you act on it. Fix the ones that hold,
   and reply with the reason to the ones that do not.
