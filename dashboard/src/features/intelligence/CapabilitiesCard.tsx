@@ -147,6 +147,14 @@ export function CapabilitiesCard({
     }
   };
 
+  // Turning the row on opens its setup, as the gear does. With no connection
+  // saved the switch stays off until one is: the row counts as on only with a
+  // profile (`localOn`), and the saved preference already says "use it".
+  const switchLocal = (next: boolean) => {
+    if (next) setLocalOpen(true);
+    if (local && next !== local.enabled) void setLocalEnabled(next);
+  };
+
   const controlServer = async (action: "start" | "stop") => {
     setServerBusy(true);
     setError(null);
@@ -245,8 +253,8 @@ export function CapabilitiesCard({
         <div className="intel-cap">
           <Switch
             checked={localOn}
-            disabled={local == null || activeProfile == null}
-            onChange={setLocalEnabled}
+            disabled={local == null}
+            onChange={switchLocal}
             label={aiCapabilitiesCardUseYourOwnModel()}
           />
           <span className="intel-cap-mark" aria-hidden="true">

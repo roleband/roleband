@@ -554,6 +554,51 @@ test("a computer without oMLX gets no Start button it could not honour", async (
   await expect(capabilities.getByRole("button", { name: /^(Start|Stop)$/ })).toHaveCount(0);
 });
 
+test("every switched-off capability looks alike, and turning your own model on opens its setup", async ({ page }) => {
+  // Nothing saved and nothing on: the state a fresh install opens to.
+  await mockGet(page, "/api/intelligence", (route) => route.fulfill({ json: { ...intelligence, enabled: false } }));
+  await mockGet(page, "/api/intelligence/local-models", (route) => route.fulfill({
+    json: { enabled: true, active_profile_id: null, profiles: [] } satisfies LocalLLMState,
+  }));
+  await mockGet(page, "/api/intelligence/local-models/server", (route) => route.fulfill({
+    json: {
+      ...localServerStatusFixture, installed: false, binary: null, managed: false, profile_id: null,
+      provider: null, model: null, base_url: null, state: "not_configured", reachable: false,
+      detail: "No local model connection is saved.",
+    } satisfies LocalServerStatus,
+  }));
+  let enabledWrites = 0;
+  await mockApi(page, "PUT", "/api/intelligence/local-models/enabled", (route) => {
+    enabledWrites += 1;
+    return route.fulfill({ json: { enabled: true, active_profile_id: null, profiles: [] } satisfies LocalLLMState });
+  });
+  await page.goto("/settings/intelligence");
+  const capabilities = page.getByRole("region", { name: "Extended capabilities" });
+
+  const own = capabilities.getByLabel("Use your own model");
+  const apple = capabilities.getByLabel("Enable Apple Intelligence");
+  const online = capabilities.getByLabel("Send postings to online services");
+  for (const control of [own, apple, online]) {
+    await expect(control).not.toBeChecked();
+    await expect(control).toBeEnabled();
+  }
+  const look = (el: Element) => {
+    const style = getComputedStyle(el);
+    return `${style.opacity} ${style.backgroundColor} ${style.cursor}`;
+  };
+  const ownLook = await own.evaluate(look);
+  expect(await apple.evaluate(look)).toBe(ownLook);
+  expect(await online.evaluate(look)).toBe(ownLook);
+
+  // The switch is the way in, as the gear is. With no connection there is
+  // nothing to turn on yet, so it stays off behind the dialog.
+  await own.click();
+  const dialog = page.getByRole("dialog", { name: "Configure your own model" });
+  await expect(dialog).toBeVisible();
+  await expect(own).not.toBeChecked();
+  expect(enabledWrites).toBe(0);
+});
+
 test("the standing permission is confirmed before connecting an online service", async ({ page }) => {
   await page.goto("/settings/intelligence");
   const capabilities = page.getByRole("region", { name: "Extended capabilities" });

@@ -36,6 +36,7 @@ vi.mock("../../api", () => ({
     setAiEgressEnabled: vi.fn(),
     testIntelligence: vi.fn(),
     localLLMProfiles: vi.fn(),
+    addLocalLLMProfile: vi.fn(),
     updateLocalLLMProfile: vi.fn(),
     deleteLocalLLMProfile: vi.fn(),
     selectLocalLLMProfile: vi.fn(),
@@ -879,9 +880,8 @@ describe("capabilities card", () => {
     expect(within(card).getByLabelText("Send postings to online services")).not.toBeChecked();
     expect(within(card).getByLabelText("Use OpenAI API")).not.toBeChecked();
     // ...and every path to changing that is still open. Gating configuration
-    // behind the switch it configures is a row that can never be turned on:
-    // "Use your own model" is itself disabled until a connection is saved, and
-    // the gear is the only place to save one.
+    // behind the switch it configures is a row that can never be turned on.
+    expect(within(card).getByLabelText("Use your own model")).toBeEnabled();
     expect(within(card).getByRole("button", { name: "Configure your own model" })).toBeEnabled();
     expect(within(card).getByRole("button", { name: "Configure OpenAI API" })).toBeEnabled();
     expect(within(card).getByRole("button", { name: "Add" })).toBeEnabled();
@@ -996,7 +996,68 @@ describe("capabilities card", () => {
     const card = await screen.findByRole("region", { name: "Extended capabilities" });
     expect(card).toHaveTextContent("1 of 2 on");
     expect(within(card).getByLabelText("Use your own model")).not.toBeChecked();
-    expect(within(card).getByLabelText("Use your own model")).toBeDisabled();
+  });
+
+  it("turning your own model on with nothing saved opens setup, and saving turns it on", async () => {
+    const empty = { enabled: true, active_profile_id: null, profiles: [] };
+    const saved = { ...empty, active_profile_id: "p1", profiles: [{ ...localModelProfileFixture, id: "p1" }] };
+    mocked.localLLMProfiles.mockResolvedValue(empty);
+    mount();
+
+    const card = await screen.findByRole("region", { name: "Extended capabilities" });
+    const own = within(card).getByLabelText("Use your own model");
+    // Off like every other off switch, not greyed out as unavailable.
+    expect(own).toBeEnabled();
+    await userEvent.click(own);
+
+    const dialog = screen.getByRole("dialog", { name: "Configure your own model" });
+    // The preference already says "use it"; only a saved connection is missing.
+    expect(mocked.setLocalLLMEnabled).not.toHaveBeenCalled();
+    expect(own).not.toBeChecked();
+
+    mocked.addLocalLLMProfile.mockResolvedValue(saved.profiles[0]);
+    mocked.localLLMProfiles.mockResolvedValue(saved);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(mocked.addLocalLLMProfile).toHaveBeenCalledOnce();
+    await waitFor(() => expect(own).toBeChecked());
+  });
+
+  it("turning a saved model on switches it on and opens its setup", async () => {
+    mocked.setLocalLLMEnabled.mockResolvedValue({
+      enabled: true,
+      active_profile_id: "p1",
+      profiles: [{ ...localModelProfileFixture, id: "p1", name: "Qwen3.5 (9B-4bit)" }],
+    });
+    mount();
+
+    const card = await screen.findByRole("region", { name: "Extended capabilities" });
+    const own = within(card).getByLabelText("Use your own model");
+    expect(own).not.toBeChecked();
+    await userEvent.click(own);
+
+    expect(mocked.setLocalLLMEnabled).toHaveBeenCalledExactlyOnceWith(true);
+    expect(screen.getByRole("dialog", { name: "Configure your own model" })).toBeInTheDocument();
+    await waitFor(() => expect(own).toBeChecked());
+  });
+
+  it("turning your own model off opens nothing", async () => {
+    const on = {
+      enabled: true,
+      active_profile_id: "p1",
+      profiles: [{ ...localModelProfileFixture, id: "p1", name: "Qwen3.5 (9B-4bit)" }],
+    };
+    mocked.localLLMProfiles.mockResolvedValue(on);
+    mocked.setLocalLLMEnabled.mockResolvedValue({ ...on, enabled: false });
+    mount();
+
+    const card = await screen.findByRole("region", { name: "Extended capabilities" });
+    const own = within(card).getByLabelText("Use your own model");
+    await waitFor(() => expect(own).toBeChecked());
+    await userEvent.click(own);
+
+    expect(mocked.setLocalLLMEnabled).toHaveBeenCalledExactlyOnceWith(false);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(own).not.toBeChecked());
   });
 });
 
