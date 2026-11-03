@@ -1,4 +1,4 @@
-"""A test that reads past backend/ is marked to run on every pull request."""
+"""A test that reads past backend/ is marked, so it runs on every pull request."""
 
 from __future__ import annotations
 
