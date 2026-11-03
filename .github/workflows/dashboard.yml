@@ -102,13 +102,13 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # The suite split by test across four runners, two workers each
-  # (playwright.config.ts). `fullyParallel` makes `--shard` split by test, so no
-  # spec file lands whole on one shard. A shard is cut in order from the test
-  # list, which holds the chromium project before the mobile one, so one run over
-  # both projects would hand the later shards the slower WebKit tests; the steps
-  # below shard each project apart. Each shard serves its own build: the cost of
-  # sharding is that build and the browser install, paid once per shard.
+  # The suite split across four runners, two workers each (playwright.config.ts).
+  # ROLEBAND_UX_SHARD hands each shard whole spec files of about equal recorded
+  # time (tests/ux/shards.ts, weighed by tests/ux/shard-weights.json), and both
+  # projects run that shard's files. Playwright's `--shard` cuts equal test counts
+  # in file order instead, which leaves the heavy specs that sort late to the last
+  # shard. Each shard serves its own build: the cost of sharding is that build and
+  # the browser install, paid once per shard.
   #
   # Every shard starts and skips its steps when the change does not need them: a matrix job
   # skipped whole reports one check, `ux`, and the required `ux (1)` to `ux (4)` would wait
@@ -175,24 +175,25 @@ jobs:
         if: env.NEEDED == 'true'
         timeout-minutes: 3
         run: node scripts/warm-browsers.mjs
-      # Each project is sharded on its own, so every shard carries a quarter of the
-      # chromium tests and a quarter of the slower mobile ones. The second run serves
-      # the build the first one made. It runs whatever the first one did: a red
-      # chromium quarter must not hide the mobile one.
+      # The second run serves the build the first one made. It runs whatever the
+      # first one did: a red chromium shard must not hide the mobile one.
       - name: playwright chromium, shard ${{ matrix.shard }} of 4
         if: env.NEEDED == 'true'
         timeout-minutes: 12
         env:
+          ROLEBAND_UX_SHARD: ${{ matrix.shard }}/4
           ROLEBAND_UX_OUTPUT_DIR: test-results/chromium
-        run: npm run test:ux -- --project=chromium --shard=${{ matrix.shard }}/4
+        run: npm run test:ux -- --project=chromium
       - name: playwright mobile, shard ${{ matrix.shard }} of 4
         if: ${{ !cancelled() && env.NEEDED == 'true' }}
         timeout-minutes: 12
         env:
+          ROLEBAND_UX_SHARD: ${{ matrix.shard }}/4
           ROLEBAND_UX_MODE: preview
           ROLEBAND_UX_OUTPUT_DIR: test-results/mobile
-        run: npm run test:ux -- --project=mobile --shard=${{ matrix.shard }}/4
-      # Successful timings make shard imbalance visible; failures also retain traces.
+        run: npm run test:ux -- --project=mobile
+      # The JSON reports are what tests/ux/shard-weights.json is refreshed from;
+      # failures also retain traces.
       - name: upload browser timings and outcomes
         if: always() && env.NEEDED == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
