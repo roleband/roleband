@@ -114,7 +114,7 @@ jobs:
   # forever.
   ux:
     needs: changes
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && needs.changes.outputs.dashboard != 'false' }}
     runs-on: ubuntu-latest
     # About three times what a shard needs, so a slow runner still finishes and
     # a stall is still cut short. Below the job cap, the Playwright step has its
