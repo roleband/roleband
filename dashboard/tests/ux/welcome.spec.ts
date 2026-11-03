@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "./fixtures";
+import { expect, mockGet, test, type Page } from "./fixtures";
 import { msg } from "../../src/test/msg";
 import {
   facetsFixture, jobListFixture, notificationsFixture, settingsSaveFixture, statsFixture, statusFixture,
@@ -790,8 +790,7 @@ for (const read of ["undecided", "failed"] as const) {
     await install(page, FRESH);
     let answer!: () => void;
     const held = new Promise<void>((resolve) => { answer = resolve; });
-    await page.route("/api/usage", async (route) => {
-      if (route.request().method() !== "GET") return route.fallback();
+    await mockGet(page, "/api/usage", async (route) => {
       await held;
       await route.fulfill(read === "failed" ? { status: 503, json: { detail: "unavailable" } } : { json: usageStateFixture("undecided") });
     });
@@ -813,14 +812,12 @@ for (const read of ["undecided", "failed"] as const) {
    walk opens, as it does for a failed read. */
 test("Tune the radar pressed while the sharing state never arrives still opens setup", async ({ page }) => {
   await install(page, FRESH);
-  await page.route("/api/usage", (route) => {
-    if (route.request().method() !== "GET") return route.fallback();
-    return new Promise<void>(() => undefined);
-  });
+  await mockGet(page, "/api/usage", () => new Promise<void>(() => undefined));
   await page.goto("/welcome");
   await page.getByRole("button", { name: "Tune the radar" }).click();
   await expect(page).toHaveURL(/\/welcome$/);
   await expect(page).toHaveURL(SETUP_URL, { timeout: 10_000 });
+  await expect(page.getByRole("heading", { name: "What kind of role are you looking for?" })).toBeVisible();
 });
 
 /* On a phone a place's reach switch has a line of its own, so a metro, its
