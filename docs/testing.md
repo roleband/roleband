@@ -313,7 +313,7 @@ misjudged.
 | Workflow | Runs on | Steps |
 |---|---|---|
 | `backend.yml` | Every push and PR; a PR that changes no backend input runs only the tests that read past `backend/` | Dependency audit of the locked graph; the MiniLM model for the embedding golden test; Postgres 16 with pgvector; install the prebuilt `pg_trgm`; ruff; mypy; import-linter; pytest with `ROLEBAND_REQUIRE_INTEGRATION=1` |
-| `dashboard.yml` | Every push and PR; a PR that changes no dashboard input skips its checks | Dependency audit of production packages; lint; knip; build; Vitest; Playwright on both projects against the built app, split by test across four shards |
+| `dashboard.yml` | Every push and PR; a PR that changes no dashboard input skips its checks | Dependency audit of production packages; lint; knip; build; Vitest; Playwright on both projects against the built app, split by test across four shards, each project sharded on its own |
 | `contract-drift.yml` | Every push and PR | Regenerates `openapi.json` and `api.gen.ts`, fails on any diff |
 | `hygiene.yml` | Every push and PR | `backend/scripts/check_project_name.py`, `backend/scripts/check_comment_hygiene.py` |
 | `mac-launcher.yml` | Every push and PR, weekly, and each release; its jobs run only when needed | A Linux `changes` job picks the tiers. Native tier (macOS): copy export check, Swift tests, installer and release tests, install guide in Chromium and WebKit, source app build, transport test. Bundle tier (macOS, never on a PR): the dashboard and the standalone app with its engine, launched read-only, packaged as a candidate for local signing |
