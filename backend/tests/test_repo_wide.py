@@ -30,6 +30,8 @@ def module(tmp_path):
         'ROOT = HERE / ".." / ".."\n',
         'ROOT = os.path.join(HERE, os.pardir, os.pardir)\n',
         'LOCK = BACKEND.parent / "launcher" / "macos" / "runtime-lock.txt"\n',
+        'REPO = TRACKER.parent.parent\n',
+        'ROOT = Path(__file__).resolve().parents[1].parent\n',
     ],
 )
 def test_a_module_naming_a_path_above_backend_is_repo_wide(module, source):
@@ -68,6 +70,7 @@ def test_helpers_that_import_each_other_are_read_once(tmp_path, monkeypatch):
         "test_docs_closed_set.py",
         "test_ci_workflow_triggers.py",
         "test_check_dependency_audit.py",
+        "test_no_compat_shims.py",
     ],
 )
 def test_the_whole_tree_scans_are_repo_wide(name):
