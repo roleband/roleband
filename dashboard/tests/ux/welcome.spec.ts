@@ -809,6 +809,20 @@ for (const read of ["undecided", "failed"] as const) {
   });
 }
 
+/* A read that never answers holds the press only for a few seconds: then the
+   walk opens, as it does for a failed read. */
+test("Tune the radar pressed while the sharing state never arrives still opens setup", async ({ page }) => {
+  await install(page, FRESH);
+  await page.route("/api/usage", (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    return new Promise<void>(() => undefined);
+  });
+  await page.goto("/welcome");
+  await page.getByRole("button", { name: "Tune the radar" }).click();
+  await expect(page).toHaveURL(/\/welcome$/);
+  await expect(page).toHaveURL(SETUP_URL, { timeout: 10_000 });
+});
+
 /* On a phone a place's reach switch has a line of its own, so a metro, its
    country and its region read side by side, with Remove on the line below. */
 test("on a phone a place's reach reads in full, with Remove below it", async ({ page, isMobile }) => {

@@ -26,15 +26,25 @@ import { MotionStage } from "./motion/primitives";
 
 const RadarIntro = lazy(() => import("./welcome/RadarIntro"));
 
+const SHARING_WAIT_MS = 3000;
+
 function WelcomeBody({ page }: { page: RefObject<HTMLElement | null> }) {
   const navigate = useNavigate();
   const sharing = useAsyncResource((signal) => api.usage(signal), []);
   const toAsk = sharing.data && !sharing.data.blocked_by ? groupsToAsk(sharing.data) : [];
   // A press before the read has answered waits for it, since the answer
-  // decides whether the question comes first. A failed read opens the walk.
+  // decides whether the question comes first. A failed read opens the walk,
+  // and so does a read still unanswered once the wait is up.
   const [begun, setBegun] = useState(false);
-  const asking = begun && !sharing.loading && toAsk.length > 0;
-  const walkNext = begun && !sharing.loading && toAsk.length === 0;
+  const [waitedOut, setWaitedOut] = useState(false);
+  useEffect(() => {
+    if (!begun || !sharing.loading) return;
+    const later = window.setTimeout(() => setWaitedOut(true), SHARING_WAIT_MS);
+    return () => window.clearTimeout(later);
+  }, [begun, sharing.loading]);
+  const decided = begun && (!sharing.loading || waitedOut);
+  const asking = decided && toAsk.length > 0;
+  const walkNext = decided && toAsk.length === 0;
   // The question opens at the top: on a short screen the intro is scrolled to
   // reach its button, and the question would otherwise open part-way down.
   useLayoutEffect(() => {
