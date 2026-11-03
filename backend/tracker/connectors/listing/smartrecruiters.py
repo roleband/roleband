@@ -168,7 +168,7 @@ def board_is_published(final_url: str, status: int, body: str) -> bool | None:
     tenant that publishes its own career site to that site.
     """
     host = urlsplit(final_url).hostname or ""
-    if not host.endswith("smartrecruiters.com"):
+    if host != "smartrecruiters.com" and not host.endswith(".smartrecruiters.com"):
         return False
     if status == 200 and declared_group_pages(body) is not None:
         return True

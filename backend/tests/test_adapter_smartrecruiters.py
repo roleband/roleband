@@ -38,6 +38,7 @@ from tests.test_description_hydration import _SCOPE, _NoComp
 from tracker import company_discovery
 from tracker.company_store import CompanyError, record_route
 from tracker.connectors import ADAPTER_REGISTRY, RateLimiterPool, RouteMoved, build_adapter
+from tracker.connectors.listing.smartrecruiters import board_is_published
 from tracker.connectors.recipes.outcome import classify_source_outcome
 from tracker.db.models import ScrapeRun, SourceBinding, TrackedCompany
 from tracker.platform.drift import SchemaDriftDetector
@@ -731,6 +732,17 @@ async def test_a_board_that_left_smartrecruiters_moves_the_company_to_the_api_ro
     assert isinstance(raised.value, CollectionPolicyDenied), "local decision: unattempted, health untouched"
     assert "wise.jobs" in raised.value.access.reason
     assert [r.url.host for r in requests] == ["careers.smartrecruiters.com", "wise.jobs"]
+
+
+@pytest.mark.parametrize(("final_url", "published"), [
+    ("https://careers.smartrecruiters.com/Wise", True),
+    ("https://smartrecruiters.com/Wise", True),
+    # A host that only ends in the same letters is another site, whatever its page looks like.
+    ("https://careers.notsmartrecruiters.com/Wise", False),
+    ("https://evil-smartrecruiters.com/Wise", False),
+])
+def test_only_a_smartrecruiters_host_counts_as_the_board(final_url, published):
+    assert board_is_published(final_url, 200, INDEX) is published
 
 
 @pytest.mark.asyncio
