@@ -782,6 +782,33 @@ test("the sharing question, opened by keyboard, puts focus on No thanks", async 
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
 });
 
+/* Tune the radar pressed before the sharing state has been read waits for the
+   read, so a quick press never skips the question. A read that fails never
+   blocks setup: the walk opens. */
+for (const read of ["undecided", "failed"] as const) {
+  test(`Tune the radar pressed before the sharing state is read waits for it (${read})`, async ({ page }) => {
+    await install(page, FRESH);
+    let answer!: () => void;
+    const held = new Promise<void>((resolve) => { answer = resolve; });
+    await page.route("/api/usage", async (route) => {
+      if (route.request().method() !== "GET") return route.fallback();
+      await held;
+      await route.fulfill(read === "failed" ? { status: 503, json: { detail: "unavailable" } } : { json: usageStateFixture("undecided") });
+    });
+    await page.goto("/welcome");
+    await page.getByRole("button", { name: "Tune the radar" }).click();
+    await expect(page).toHaveURL(/\/welcome$/);
+    await expect(page.getByRole("region", { name: "Help us improve" })).toHaveCount(0);
+    answer();
+    if (read === "failed") {
+      await expect(page).toHaveURL(SETUP_URL);
+      return;
+    }
+    await expect(page.getByRole("region", { name: "Help us improve" }).getByRole("button", { name: "No thanks" })).toBeFocused();
+    await expect(page).toHaveURL(/\/welcome$/);
+  });
+}
+
 /* On a phone a place's reach switch has a line of its own, so a metro, its
    country and its region read side by side, with Remove on the line below. */
 test("on a phone a place's reach reads in full, with Remove below it", async ({ page, isMobile }) => {
