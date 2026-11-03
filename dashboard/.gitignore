@@ -7,3 +7,4 @@
 # Generated from src/copy/*/*.ftl by scripts/gen-copy.mjs on install, dev, build, lint and tests.
 # Its ids are positions, so a committed copy would merge parallel additions wrong.
 /src/copy/gen/
+/throwaway-gating-probe/
