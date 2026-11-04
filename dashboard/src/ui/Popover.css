@@ -6,8 +6,9 @@
 }
 .ui-popover .ui-popover-inner {
   width: max-content;
-  max-width: calc(100vw - 16px);
-  max-height: 66vh;
+  /* Window units are divided by the setup zoom, which magnifies them (setupZoom.css). */
+  max-width: calc(100vw / var(--page-zoom, 1) - 16px);
+  max-height: calc(66vh / var(--page-zoom, 1));
   overflow-y: auto;
   background: var(--app-surface-glass);
   backdrop-filter: blur(28px) saturate(160%);

@@ -3,8 +3,8 @@ import { useEffect, useRef } from "react";
 import { INTRO_CITIES } from "../../../introCities.gen";
 import { RESTING, coast, grab, move, onPlanet, release, type DragState } from "./globeDrag";
 import {
-  STILL_AT, facingLon, facingShare, horizon, litness, perspective, place, projectionScale, scanEntry, scanLon,
-  sinceScan, trailAt, viewDistance, visible, type Placement,
+  STILL_AT, backingDensity, facingLon, facingShare, horizon, litness, onCanvas, pageScale, perspective, place,
+  projectionScale, scanEntry, scanLon, sinceScan, trailAt, viewDistance, visible, type Placement,
 } from "./globeView";
 import { loadWorld, type WorldShapes } from "./worldData";
 
@@ -82,9 +82,10 @@ export function Globe() {
     let frame = 0;
 
     const resize = () => {
-      const density = Math.min(devicePixelRatio || 1, MAX_DENSITY);
       width = canvas.clientWidth;
       height = canvas.clientHeight;
+      const zoom = pageScale(canvas.getBoundingClientRect().width, width);
+      const density = backingDensity(devicePixelRatio, zoom, MAX_DENSITY);
       canvas.width = Math.round(width * density);
       canvas.height = Math.round(height * density);
       ctx.setTransform(density, 0, 0, density, 0, 0);
@@ -175,10 +176,8 @@ export function Globe() {
     };
     const redraw = () => { if (reduced) draw(performance.now()); };
 
-    const local = (event: PointerEvent): [number, number] => {
-      const box = canvas.getBoundingClientRect();
-      return [event.clientX - box.left, event.clientY - box.top];
-    };
+    const local = (event: PointerEvent): [number, number] =>
+      onCanvas(event.clientX, event.clientY, canvas.getBoundingClientRect(), canvas.clientWidth);
     const onDown = (event: PointerEvent) => {
       const [x, y] = local(event);
       if (!onPlanet(x, y, at)) return;
@@ -200,6 +199,16 @@ export function Globe() {
 
     const observer = new ResizeObserver(() => { resize(); redraw(); });
     observer.observe(canvas);
+    // A window resized in proportion changes setup's zoom and not the canvas's
+    // own size, which the observer misses. Measured two frames on: the zoom is
+    // set in the window's resize event and, under reduced motion, every
+    // property change is a short transition.
+    let settling = 0;
+    const onWindow = () => {
+      cancelAnimationFrame(settling);
+      settling = requestAnimationFrame(() => { settling = requestAnimationFrame(() => { resize(); redraw(); }); });
+    };
+    window.addEventListener("resize", onWindow);
     canvas.addEventListener("pointerdown", onDown);
     canvas.addEventListener("pointermove", onMove);
     canvas.addEventListener("pointerup", onUp);
@@ -216,6 +225,8 @@ export function Globe() {
     return () => {
       alive = false;
       cancelAnimationFrame(frame);
+      cancelAnimationFrame(settling);
+      window.removeEventListener("resize", onWindow);
       observer.disconnect();
       canvas.removeEventListener("pointerdown", onDown);
       canvas.removeEventListener("pointermove", onMove);

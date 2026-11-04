@@ -6,8 +6,9 @@
   padding: 24px;
 }
 .ui-dialog {
-  max-width: calc(100vw - 32px);
-  max-height: calc(100vh - 48px);
+  /* Window units are divided by the setup zoom, which magnifies them (setupZoom.css). */
+  max-width: calc(100vw / var(--page-zoom, 1) - 32px);
+  max-height: calc(100vh / var(--page-zoom, 1) - 48px);
   overflow-y: auto;
   background: var(--app-surface-glass);
   backdrop-filter: blur(28px) saturate(160%);

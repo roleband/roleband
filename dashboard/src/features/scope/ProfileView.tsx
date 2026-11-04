@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { PROFILE_TABS } from "../../navTabs";
 import { useTabRoute } from "../../routing/useTabRoute";
 import { SETUP_PATH, useSetupMode, type SetupCompaniesProps } from "../../routing/setupMode";
+import { useSetupZoom } from "./setupZoom";
 import { useInstallSetUp } from "../../routing/installSetUp";
 import { ScopeDraftProvider } from "./useScopeDraft";
 import { Walk } from "./walk/Walk";
@@ -43,6 +44,7 @@ export function ProfileView({
   const navigate = useNavigate();
   const setup = useSetupMode();
   const inSetup = setup === "on" && tab === "direction";
+  useSetupZoom(inSetup);
   const setUp = useInstallSetUp();
   /* No material: the walk paints the app's own action set, so a chosen card is
      gold. A `data-material` here would need its stylesheet loaded by this

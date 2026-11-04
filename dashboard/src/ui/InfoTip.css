@@ -43,7 +43,8 @@
   top: calc(100% + 7px);
   left: 0;
   width: max-content;
-  max-width: min(320px, calc(100vw - 40px));
+  /* A window unit is divided by the setup zoom, which magnifies it (setupZoom.css). */
+  max-width: min(320px, calc(100vw / var(--page-zoom, 1) - 40px));
   padding: 9px 11px;
   border: 1px solid var(--app-border-strong);
   border-radius: var(--app-radius-sm);
