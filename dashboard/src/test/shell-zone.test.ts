@@ -5,7 +5,7 @@ import { ESLint } from "eslint";
 import { describe, expect, it } from "vitest";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const RULE = "import/no-restricted-paths";
+const RULE = "import-x/no-restricted-paths";
 
 /* The shell tier's two boundaries, checked from the FAILING end.
  *
