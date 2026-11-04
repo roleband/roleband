@@ -1,13 +1,29 @@
-/* Which columns the board hides: a preference of this browser, as the theme
- * is, never a setting. Storage can throw on access (blocked site data, a
- * private window), so a failed read shows every column and a failed write is
- * dropped: the choice still holds for this visit. */
+/* A column's name, and which columns the board hides. Hiding is a
+ * preference of this browser, as the theme is, never a setting. Storage can
+ * throw on access (blocked site data, a private window), so a failed read
+ * shows every column and a failed write is dropped: the choice still holds
+ * for this visit. */
 
+import { STAGE_LABEL } from "../../copy/vocabulary";
+import { applicationsColumnClosed, applicationsColumnDecided } from "../../copy/gen/applications";
 import { COLUMNS, type ColumnId } from "./board";
 
 const KEY = "roleband.pipeline-hidden-columns";
 /** Where a browser kept the one choice the board offered before: hiding Closed. */
 const CLOSED_KEY = "roleband.pipeline-closed-hidden";
+
+const NAME: Record<ColumnId, () => string> = {
+  saved: () => STAGE_LABEL.saved,
+  researching: () => STAGE_LABEL.researching,
+  applied: () => STAGE_LABEL.applied,
+  interviewing: () => STAGE_LABEL.interviewing,
+  offer: () => STAGE_LABEL.offer,
+  decided: () => applicationsColumnDecided(),
+  closed: () => applicationsColumnClosed(),
+};
+
+/** A column's name: its stage's, or the name of the stages it gathers. */
+export const columnName = (id: ColumnId): string => NAME[id]();
 
 const IDS: readonly ColumnId[] = COLUMNS.map((column) => column.id);
 

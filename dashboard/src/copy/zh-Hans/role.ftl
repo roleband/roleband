@@ -86,10 +86,6 @@ role-job-detail-to-apply = 申请方式
 role-job-detail-more-like-this = 更多类似职位
 role-job-detail-other-companies = 其他公司
 role-job-detail-same-company = 同一公司 · { $company }
-role-job-detail-could-not-unsave-this-role = { $choice ->
-    [yes] 无法保存这个职位
-   *[no] 无法将这个职位从已保存中移除
-}
 role-job-detail-couldn-t-update-the-stage = 无法更新阶段
 role-job-detail-role = { $choice ->
     [yes] 职位：{ $title }

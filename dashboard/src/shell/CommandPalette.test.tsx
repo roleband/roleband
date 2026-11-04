@@ -184,8 +184,8 @@ describe("CommandPalette", () => {
     const row = (name: string) => screen.getByRole("option", { name });
 
     // Opened under a resting pointer: the first report only places it.
-    fireEvent.mouseEnter(row("Saved"));
-    fireEvent.mouseMove(row("Saved"), { clientX: 300, clientY: 200 });
+    fireEvent.mouseEnter(row("Pipeline"));
+    fireEvent.mouseMove(row("Pipeline"), { clientX: 300, clientY: 200 });
     expect(p.selected()).toBe("Radar");
 
     // A real move takes the highlight.

@@ -8,7 +8,7 @@ import { installEveryRoute } from "./routesHarness";
 import { uxProfile } from "./runProfile";
 
 const ROUTES = [
-  "/", "/favorites", "/pipeline", "/profile", "/compare", "/statistics", "/company", "/review",
+  "/", "/pipeline", "/profile", "/compare", "/statistics", "/company", "/review",
   "/notifications", "/settings", "/settings/privacy", "/welcome",
 ];
 

@@ -24,16 +24,10 @@ import {
   applicationsQuickNeedsNext,
   applicationsQuickOverdue,
   applicationsQuickQuiet,
-  applicationsResults,
-  applicationsResultsDue,
-  applicationsResultsDueOf,
-  applicationsResultsOf,
   applicationsSearchLabel,
   applicationsSearchPlaceholder,
 } from "../../copy/gen/applications";
 import { Button, FilterChip, Icon, Kbd, Menu, MenuCheck, MenuGroup, MenuItem, MenuRadio, SearchField } from "../../ui";
-import { Msg } from "../../ui/Msg";
-import type { ColumnId } from "./board";
 import { QUICK_FILTERS, isFiltering, type BoardFilter, type FilterMode, type QuickFilter } from "./filters";
 
 const QUICK_LABEL: Record<QuickFilter, () => string> = {
@@ -50,42 +44,37 @@ const MODES: readonly [FilterMode, () => string, () => string][] = [
   ["highlight", applicationsModeHighlight, applicationsModeHighlightHint],
 ];
 
-/** What the count counts: the board's applications, or Up next's rows. */
-const SAY = {
-  application: { count: applicationsResults, of: applicationsResultsOf },
-  due: { count: applicationsResultsDue, of: applicationsResultsDueOf },
-} as const;
-
-export interface ColumnChoice {
-  id: ColumnId;
+export interface ColumnChoice<C extends string> {
+  id: C;
   name: string;
-  count: number;
+  /** How many the column holds, where that is a fact worth showing. */
+  count?: number;
 }
 
-export interface PipelineToolbarProps {
+export interface PipelineToolbarProps<C extends string = string> {
   filter: BoardFilter;
   onFilter: (next: Partial<BoardFilter>) => void;
-  /** How many of `total` match the filter; the same as `total` while nothing filters. */
-  count: number;
-  total: number;
-  noun: keyof typeof SAY;
   /** How many applications each quick filter would match on its own. */
   quickCounts: Record<QuickFilter, number>;
-  /** The board's columns, for the Columns menu. Up next has none. */
+  /** The view's columns, for the Columns menu. Up next has none. */
   columns?: {
-    all: readonly ColumnChoice[];
-    hidden: readonly ColumnId[];
-    onHidden: (hidden: ColumnId[]) => void;
+    all: readonly ColumnChoice<C>[];
+    hidden: readonly C[];
+    onHidden: (hidden: C[]) => void;
+    /** A column outside the menu always shows (the List's role), so every
+     *  column in it can hide. Unset, the last shown one stays. */
+    anchored?: boolean;
   };
 }
 
 /**
- * The one row of tools over the board and Up next, in Radar's order: the
- * search, the count with its way back, the filters that are on, and at the
- * row's end the menus. A quick filter shows as a chip only while it is on,
- * so the row holds what narrows the view and nothing else.
+ * A pipeline view's row of tools: the search, while filtering the way to
+ * fade instead and the way back, the filters that are on, and at the row's
+ * end the menus. A quick filter shows as a chip only while it is on, so the
+ * row holds what narrows the view and nothing else. Each view draws its own,
+ * over its own filter.
  */
-export function PipelineToolbar({ filter, onFilter, count, total, noun, quickCounts, columns }: PipelineToolbarProps) {
+export function PipelineToolbar<C extends string>({ filter, onFilter, quickCounts, columns }: PipelineToolbarProps<C>) {
   const { boardSearchRef } = useMissionActions();
   const [filterButton, setFilterButton] = useState<HTMLButtonElement | null>(null);
   const [columnsButton, setColumnsButton] = useState<HTMLButtonElement | null>(null);
@@ -95,7 +84,6 @@ export function PipelineToolbar({ filter, onFilter, count, total, noun, quickCou
     onFilter({ quick: filter.quick.includes(quick) ? filter.quick.filter((q) => q !== quick) : [...filter.quick, quick] });
   const highlight = filter.mode === "highlight";
 
-  const n = <strong>{number(count)}</strong>;
   return (
     <div className="app-toolbar app-pipeline-toolbar" data-selection="chrome">
       <SearchField
@@ -107,25 +95,17 @@ export function PipelineToolbar({ filter, onFilter, count, total, noun, quickCou
         onChange={(query) => onFilter({ query })}
         trailing={<Kbd>/</Kbd>}
       />
-      <div className="results-count">
-        {filtering ? (
-          <Msg of={SAY[noun].of} args={{ total }} elems={{ n, t: <strong>{number(total)}</strong> }} />
-        ) : (
-          <Msg of={SAY[noun].count} args={{ count }} elems={{ n }} />
-        )}
-        {filtering && (
-          <>
-            {" "}<span className="results-sep" aria-hidden="true">·</span>{" "}
-            <Button variant="link" className="ui-btn-quiet" onClick={() => onFilter({ mode: highlight ? "only" : "highlight" })}>
-              {highlight ? applicationsModeOnly() : applicationsFilterHighlightInstead()}
-            </Button>
-            {" "}<span className="results-sep" aria-hidden="true">·</span>{" "}
-            <Button variant="link" className="ui-btn-quiet" onClick={() => onFilter({ quick: [], query: "" })}>
-              {applicationsFilterReset()}
-            </Button>
-          </>
-        )}
-      </div>
+      {filtering && (
+        <div className="app-filter-ways">
+          <Button variant="link" className="ui-btn-quiet" onClick={() => onFilter({ mode: highlight ? "only" : "highlight" })}>
+            {highlight ? applicationsModeOnly() : applicationsFilterHighlightInstead()}
+          </Button>
+          <span className="app-filter-sep" aria-hidden="true">·</span>
+          <Button variant="link" className="ui-btn-quiet" onClick={() => onFilter({ quick: [], query: "" })}>
+            {applicationsFilterReset()}
+          </Button>
+        </div>
+      )}
       {filter.quick.map((quick) => (
         <FilterChip
           key={quick}
@@ -158,6 +138,9 @@ export function PipelineToolbar({ filter, onFilter, count, total, noun, quickCou
             onClick={() => setOpen(open === "columns" ? null : "columns")}
           >
             <Icon name="columns" size={14} /> {applicationsColumns()}
+            {/* A space between the label and the count, so the text shown
+                reads as the start of the button's spoken name. */}
+            {columns.hidden.length > 0 && " "}
             {columns.hidden.length > 0 && (
               <span className="app-columns-hidden" aria-hidden="true">
                 <Icon name="eyeOff" size={13} />
@@ -201,15 +184,15 @@ export function PipelineToolbar({ filter, onFilter, count, total, noun, quickCou
           <MenuGroup label={applicationsColumnsShow()}>
             {columns.all.map((column) => {
               const shown = !columns.hidden.includes(column.id);
-              // The last shown column cannot go: a board always shows one.
-              const last = shown && columns.hidden.length === columns.all.length - 1;
+              // The last shown column cannot go: a view always shows one.
+              const last = !columns.anchored && shown && columns.hidden.length === columns.all.length - 1;
               return (
                 <MenuCheck
                   key={column.id}
                   checked={shown}
                   disabled={last}
                   title={last ? applicationsColumnHideLast() : undefined}
-                  count={number(column.count)}
+                  count={column.count == null ? undefined : number(column.count)}
                   onChange={() => columns.onHidden(
                     shown ? [...columns.hidden, column.id] : columns.hidden.filter((id) => id !== column.id),
                   )}

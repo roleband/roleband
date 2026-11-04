@@ -33,32 +33,12 @@ applications-column-hide = Hide column
 # kind=tooltip note="Why Hide column is off: the board always shows one column"
 applications-column-hide-last = One column always stays on the board
 
-## The toolbar over the board and Up next
+## Each view's toolbar, over the board and over Up next
 # kind=aria
 applications-search-label = Search applications by company or title
 # kind=tooltip note="The search field's placeholder"
 applications-search-placeholder = Search company or title…
-# kind=status note="The board's count; $n is the styled number, $count selects the plural"
-applications-results = { $count ->
-        [one] { $n } application
-       *[other] { $n } applications
-    }
-# kind=status note="The board's count while filtering: $n of $t; $total selects the plural"
-applications-results-of = { $total ->
-        [one] { $n } of { $t } application
-       *[other] { $n } of { $t } applications
-    }
-# kind=status note="Up next's count: the interviews and dated next steps; $n is the styled number"
-applications-results-due = { $count ->
-        [one] { $n } thing due
-       *[other] { $n } things due
-    }
-# kind=status note="Up next's count while filtering: $n of $t"
-applications-results-due-of = { $total ->
-        [one] { $n } of { $t } thing due
-       *[other] { $n } of { $t } things due
-    }
-# kind=button note="Beside the count while filtering: keep every card and fade the rest instead of hiding them"
+# kind=button note="Beside the search while filtering: keep every card and fade the rest instead of hiding them"
 applications-filter-highlight-instead = Highlight instead
 # kind=button note="Clears the search and every quick filter"
 applications-filter-reset = Reset all
@@ -229,6 +209,20 @@ applications-interview-failed = Couldn't save the interview. Try again.
 ## The pipeline's tabs
 # kind=aria
 applications-tabs-label = Pipeline views
+
+## The List: every application as a row of a table
+# kind=label note="The List's column of each application's stage" same-as=role-job-detail-stage
+applications-list-head-stage = Stage
+# kind=label note="The List's column of the next interview or next step, and when it is due"
+applications-list-head-next = Next step
+# kind=aria note="A row's stage button, which opens every move; $stage is its stage now"
+applications-list-stage = { $stage }. Move { $title }
+# kind=heading note="The List when nothing is starred or pursued"
+applications-list-empty = Nothing in your pipeline yet
+# kind=sentence note="$icon is the star glyph itself"
+applications-list-empty-hint = Tap the { $icon } on any role on your radar to add it here.
+# kind=empty note="The List while the filters match no application"
+applications-list-no-matches = No applications match these filters.
 
 ## Up next: interviews and dated next steps, by day
 # kind=heading

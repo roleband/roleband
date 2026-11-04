@@ -18,7 +18,9 @@ import {
 } from "../../copy/gen/applications";
 import { applicationPath, daysOverdue } from "./board";
 import { upNext, type UpNextItem } from "./dueByDay";
-import { isFiltering, matches, type BoardFilter } from "./filters";
+import { isFiltering, matches, quickCounts } from "./filters";
+import { PipelineToolbar } from "./PipelineToolbar";
+import { useViewFilter } from "./useViewFilter";
 
 function ItemRow({ item, now, match }: { item: UpNextItem; now: Date; match?: boolean }) {
   const { card } = item;
@@ -56,53 +58,58 @@ function ItemRow({ item, now, match }: { item: UpNextItem; now: Date; match?: bo
 
 /** The pipeline's daily door: every interview and dated next step, by the
  *  day it falls on, with what is overdue first. Each row opens its
- *  application. The board's filters apply here too, by the application a
- *  row belongs to. */
-export function UpNext({ resource, filter, now }: {
+ *  application. It owns its filter, which matches a row by the application
+ *  it belongs to; the page lends it only the applications. */
+export function UpNext({ resource, now }: {
   resource: AsyncResource<ApplicationBoard>;
-  filter: BoardFilter;
-  /** The board's clock, so a row and the toolbar's count agree. */
+  /** The page's clock, so a row says the same day the board's card does. */
   now: Date;
 }) {
+  const [filter, setFilter] = useViewFilter();
   const filtering = isFiltering(filter);
   const highlight = filtering && filter.mode === "highlight";
   const hits = (item: UpNextItem) => matches(item.card, filter, now);
+  // The quick filters count the applications that have a row here.
+  const due = upNext(resource.data?.applications ?? [], now).flatMap((day) => day.items.map((item) => item.card));
   return (
-    <AsyncBoundary resource={resource} failed={applicationsBoardLoadFailed()}>
-      {(board) => {
-        const all = upNext(board.applications, now);
-        if (all.length === 0) return <p className="app-column-empty app-upnext-empty">{applicationsUpnextEmpty()}</p>;
-        const days = filtering && !highlight
-          ? all.map((day) => ({ ...day, items: day.items.filter(hits) })).filter((day) => day.items.length > 0)
-          : all;
-        if (days.length === 0) return <p className="app-column-empty app-upnext-empty">{applicationsUpnextNoMatches()}</p>;
-        return (
-          <div className="app-upnext" data-highlight={highlight ? "" : undefined}>
-            {days.map((day) => {
-              const first = day.items[0].at;
-              const heading = day.key === "overdue"
-                ? applicationsUpnextOverdue()
-                : applicationsUpnextDay({ offset: day.key, date: formatDate(first, "weekday") });
-              const id = `app-upnext-${day.key}`;
-              return (
-                <section key={String(day.key)} className="app-upnext-day" aria-labelledby={id} data-overdue={day.key === "overdue" || undefined}>
-                  <h2 id={id} className="app-panel-title">{heading}</h2>
-                  <ul>
-                    {day.items.map((item) => (
-                      <ItemRow
-                        key={`${item.kind}-${item.card.job_id}`}
-                        item={item}
-                        now={now}
-                        match={highlight ? hits(item) : undefined}
-                      />
-                    ))}
-                  </ul>
-                </section>
-              );
-            })}
-          </div>
-        );
-      }}
-    </AsyncBoundary>
+    <>
+      <PipelineToolbar filter={filter} onFilter={setFilter} quickCounts={quickCounts([...new Set(due)], now)} />
+      <AsyncBoundary resource={resource} failed={applicationsBoardLoadFailed()}>
+        {(board) => {
+          const all = upNext(board.applications, now);
+          if (all.length === 0) return <p className="app-column-empty app-upnext-empty">{applicationsUpnextEmpty()}</p>;
+          const days = filtering && !highlight
+            ? all.map((day) => ({ ...day, items: day.items.filter(hits) })).filter((day) => day.items.length > 0)
+            : all;
+          if (days.length === 0) return <p className="app-column-empty app-upnext-empty">{applicationsUpnextNoMatches()}</p>;
+          return (
+            <div className="app-upnext" data-highlight={highlight ? "" : undefined}>
+              {days.map((day) => {
+                const first = day.items[0].at;
+                const heading = day.key === "overdue"
+                  ? applicationsUpnextOverdue()
+                  : applicationsUpnextDay({ offset: day.key, date: formatDate(first, "weekday") });
+                const id = `app-upnext-${day.key}`;
+                return (
+                  <section key={String(day.key)} className="app-upnext-day" aria-labelledby={id} data-overdue={day.key === "overdue" || undefined}>
+                    <h2 id={id} className="app-panel-title">{heading}</h2>
+                    <ul>
+                      {day.items.map((item) => (
+                        <ItemRow
+                          key={`${item.kind}-${item.card.job_id}`}
+                          item={item}
+                          now={now}
+                          match={highlight ? hits(item) : undefined}
+                        />
+                      ))}
+                    </ul>
+                  </section>
+                );
+              })}
+            </div>
+          );
+        }}
+      </AsyncBoundary>
+    </>
   );
 }

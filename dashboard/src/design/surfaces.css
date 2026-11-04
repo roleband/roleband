@@ -112,13 +112,6 @@
   text-transform: uppercase;
 }
 
-[data-design-system="app"] .results-head {
-  margin-bottom: var(--app-space-3);
-  display: flex;
-  align-items: center;
-  gap: var(--app-space-3);
-  flex-wrap: wrap;
-}
 
 /* A count is a fact, so it stops at `meta`. */
 [data-design-system="app"] .results-count {
@@ -409,8 +402,3 @@
   }
 }
 
-@media (max-width: 540px) {
-  [data-design-system="app"] .results-head {
-    gap: var(--app-space-2);
-  }
-}

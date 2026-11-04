@@ -7,8 +7,7 @@ import { installEveryRoute } from "./routesHarness";
 
 const TABS = [
   { rail: "Radar", path: "/" },
-  { rail: "Saved", path: "/favorites" },
-  { rail: "Application pipeline", path: "/pipeline" },
+  { rail: "Pipeline", path: "/pipeline" },
   { rail: "Profile", path: "/profile" },
   { rail: "Insights", path: "/statistics" },
   { rail: "Companies", path: "/company" },
@@ -131,25 +130,4 @@ test("the Duplicates tab row takes a surface only while it is pinned", async ({ 
   await page.getByRole("main").first().evaluate((main) => main.scrollTo({ top: 400 }));
   await expect(toolbar).toHaveAttribute("data-stuck", "true");
   await expect.poll(band).toBe("1");
-});
-
-/* Saved's header must not take the Board's wide measure while its count and
-   list keep the app's centred 1200 (at 1440 the header rule would run
-   115..1397 over content starting at 156). The page is one measure; the list keeps the
-   Board's beacon margin inside it, as on the Board. */
-test("Saved's header, count and list share the page's edges", async ({ page, isMobile }) => {
-  test.skip(isMobile, "one column on a phone; the drift is a wide-screen measure");
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/favorites");
-  const main = page.getByRole("main").first();
-  await expect(main.getByRole("heading", { level: 1, name: "Saved" })).toBeVisible();
-  await expect(main.locator(".results-head")).toBeVisible();
-  const edges = await main.evaluate((root) =>
-    [...root.children].map((child) => {
-      const box = child.getBoundingClientRect();
-      return `${child.className.toString().split(" ")[0]} ${Math.round(box.left)}..${Math.round(box.right)}`;
-    }),
-  );
-  const spans = new Set(edges.map((line) => line.split(" ")[1]));
-  expect(spans.size, edges.join("\n")).toBe(1);
 });

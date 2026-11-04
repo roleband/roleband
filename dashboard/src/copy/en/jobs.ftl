@@ -1,4 +1,4 @@
-## Role rows and their controls (src/patterns/jobs/), shared by Radar, Saved and Compare
+## Role rows and their controls (src/patterns/jobs/), shared by Radar, Compare and the pipeline's List
 
 ## Career tracks (fixed product names)
 # kind=name

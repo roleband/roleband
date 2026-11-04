@@ -16,8 +16,8 @@ describe("Opportunities ownership", () => {
     expect(read("features/opportunities/BoardScreen.tsx")).not.toMatch(/api\.|\.then\(/);
   });
 
-  it("Board and Saved import the same row/list owners, with no legacy implementations", () => {
-    for (const consumer of ["features/opportunities/BoardScreen.tsx", "features/saved/SavedScreen.tsx"]) {
+  it("the Board imports the shared row/list owners, with no legacy implementations", () => {
+    for (const consumer of ["features/opportunities/BoardScreen.tsx"]) {
       expect(read(consumer)).toContain('patterns/jobs/JobCard"');
       expect(read(consumer)).toContain('patterns/jobs/JobList"');
       expect(read(consumer)).toContain('patterns/jobs/job-page.css"');

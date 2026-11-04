@@ -38,7 +38,6 @@ export const SURFACES = [
   ["features/scope/welcome/", "welcome"],
   ["features/opportunities/", "radar"],
   ["features/job-detail/", "role"],
-  ["features/saved/", "saved"],
   ["features/compare/", "compare"],
   ["features/notifications/", "notifications"],
   ["features/scope/", "profile"],

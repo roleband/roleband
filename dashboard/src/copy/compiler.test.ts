@@ -88,7 +88,7 @@ describe("Spanish and Chinese, pinned as text", () => {
       "1 puesto", "2 puestos", "1.000.000 de puestos", "2.000.000 de puestos",
     ]);
     expect(spike.spikeSavedClosed({ company: "Stripe" })).toBe("Stripe cerró un puesto que guardaste");
-    expect(shell.shellNavSaved()).toBe("Guardados");
+    expect(shell.shellNavProfile()).toBe("Perfil");
     // Consent wording is never machine translated: English in every language.
     expect(spike.spikeConsentWall()).toBe(SITE_WALL_SENTENCE);
   });
@@ -109,9 +109,9 @@ describe("Spanish and Chinese, pinned as text", () => {
 
   it("switching back restores English without a reload", async () => {
     await activate("es", { region: "es-ES" });
-    expect(shell.shellNavSaved()).toBe("Guardados");
+    expect(shell.shellNavProfile()).toBe("Perfil");
     await activate("en");
-    expect(shell.shellNavSaved()).toBe("Saved");
+    expect(shell.shellNavProfile()).toBe("Profile");
     expect(spike.spikeRoleCount({ count: 1000 })).toBe("1,000 roles");
   });
 });

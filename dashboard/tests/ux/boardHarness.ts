@@ -102,8 +102,9 @@ export async function installJobDetailRoutes(page: Page) {
 
 export async function installBoardRoutes(page: Page) {
   await installJobDetailRoutes(page);
-  // Saved reads the pursuits for each tracked role's stage; none by default.
   await page.route("/api/pursuits**", (route) => route.fulfill({ json: { pursuits: [] } }));
+  // The top bar's saved count opens the pipeline; it holds nothing by default.
+  await mockGet(page, "/api/applications", (route) => route.fulfill({ json: { applications: [] } }));
   // The compare selection is server state, so the harness has to be
   // a STORE and not a canned response: a reload asks for it again, and a route
   // that always answers empty would report the persistence bug as fixed while

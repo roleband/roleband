@@ -31,7 +31,7 @@ import {
   compareScreenRemoveFromComparison,
   compareScreenRemove,
   compareScreenSame,
-  compareScreenSaved,
+  compareScreenPipeline,
   compareScreenSharedPassagesHidden,
   compareScreenShowOrHide,
   compareScreenDescriptionView,
@@ -116,7 +116,7 @@ export function CompareScreen({
           of={compareScreenOnYourOrInUse}
           elems={{
             radar: <Link to="/">{compareScreenRadar()}</Link>,
-            saved: <Link to="/favorites">{compareScreenSaved()}</Link>,
+            pipeline: <Link to="/pipeline/list">{compareScreenPipeline()}</Link>,
             icon: <Icon name="columns" size={13} />,
           }}
         />

@@ -76,7 +76,7 @@ const zones = [
  * failure, so the gate would vanish silently. The test owns the disk read. */
 export const FEATURES = [
   'applications', 'companies', 'company-profiles', 'compare', 'intelligence', 'job-detail',
-  'notifications', 'opportunities', 'review', 'saved', 'scope', 'settings',
+  'notifications', 'opportunities', 'review', 'scope', 'settings',
   'statistics', 'sync',
 ]
 
@@ -144,7 +144,7 @@ export default [
     /* Without a resolver, `import-x/no-restricted-paths` cannot resolve an
        EXTENSIONLESS specifier — and every import in this codebase is
        extensionless, so every zone above would silently pass everything:
-       `import "../features/saved/SavedScreen"` in a ui/ primitive reports "No
+       `import "../features/compare/CompareScreen"` in a ui/ primitive reports "No
        issues found", while the same line with an explicit `.tsx` errors. */
     settings: {
       /* The resolver answers "what file is this specifier?". It is NOT enough

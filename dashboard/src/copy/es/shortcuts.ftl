@@ -11,7 +11,6 @@ shortcuts-keyboard-shortcuts-on-a-role-in-a = En un puesto de una lista
 shortcuts-keyboard-shortcuts-next-role = Puesto siguiente
 shortcuts-keyboard-shortcuts-previous-role = Puesto anterior
 shortcuts-keyboard-shortcuts-open-the-role = Abrir el puesto
-shortcuts-keyboard-shortcuts-save-it-or-unsave-it = Guardarlo o quitarlo de guardados
 shortcuts-keyboard-shortcuts-add-to-compare-or-take = Añadirlo a Comparar o quitarlo
 shortcuts-keyboard-shortcuts-possible-duplicates = Posibles duplicados
 shortcuts-keyboard-shortcuts-same-role = Mismo puesto

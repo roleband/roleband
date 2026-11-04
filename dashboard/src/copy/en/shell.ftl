@@ -4,10 +4,8 @@
 ## Navigation (src/navigation.ts NAV_TABS)
 # kind=label
 shell-nav-radar = Radar
-# kind=label
-shell-nav-saved = Saved
-# kind=label note="The rail place for the roles the person is applying to, as columns of stages"
-shell-nav-pipeline = Application pipeline
+# kind=label note="The rail place for every role the person starred or is pursuing, from first interest to the end"
+shell-nav-pipeline = Pipeline
 # kind=label
 shell-nav-profile = Profile
 # kind=label
@@ -58,6 +56,8 @@ shell-tab-settings-retention = Data retention
 shell-tab-settings-plugins = Plugins
 
 ## Profile tabs (PROFILE_TABS)
+# kind=label note="The pipeline's table: every application as a row, with its posting's facts"
+shell-tab-pipeline-list = List
 # kind=label note="The application pipeline's view of every application as columns of stages"
 shell-tab-pipeline-board = Board
 # kind=label note="The application pipeline's daily list: interviews and next steps that are due, by day"

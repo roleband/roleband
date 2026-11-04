@@ -1,10 +1,11 @@
-/* The board's filters, apart from how they look: which cards a quick filter
- * or a search matches, and how the choice is kept in the address. Filters
- * decide which cards show; they never add or remove a column.
+/* A pipeline view's filters, apart from how they look: which cards a quick
+ * filter or a search matches, and how the choice is kept in the address.
+ * Filters decide which cards show; they never add or remove a column.
  *
- * A filter lives in the query (`useTabRoute`'s rule: a tab is a place, a
- * filter is not), so it survives opening an application and coming back,
- * and leaving the pipeline from the rail starts it afresh. */
+ * A filter lives in the query of its view's own path (`useTabRoute`'s rule:
+ * a tab is a place, a filter is not), so each view has its own, it survives
+ * opening an application and coming back, and leaving the pipeline from the
+ * rail starts it afresh. */
 
 import type { ApplicationCard } from "../../api";
 import { companyName } from "../../format";
@@ -70,7 +71,14 @@ export function matches(card: ApplicationCard, filter: BoardFilter, now: Date): 
   return filter.quick.every((quick) => matchesQuick(card, quick, now)) && matchesSearch(card, filter.query);
 }
 
-const isQuick = (value: string): value is QuickFilter => (QUICK_FILTERS as readonly string[]).includes(value);
+/** How many of a view's cards each quick filter would match on its own. */
+export function quickCounts(cards: readonly ApplicationCard[], now: Date): Record<QuickFilter, number> {
+  return Object.fromEntries(
+    QUICK_FILTERS.map((quick) => [quick, cards.filter((card) => matchesQuick(card, quick, now)).length]),
+  ) as Record<QuickFilter, number>;
+}
+
+const isQuick =(value: string): value is QuickFilter => (QUICK_FILTERS as readonly string[]).includes(value);
 
 /** The filter an address holds: `?q=` the search, `?only=` the quick filters,
  *  `?show=highlight` the mode. Anything it does not know is ignored. */

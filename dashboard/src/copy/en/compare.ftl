@@ -9,12 +9,12 @@ compare-screen-clear = Clear
 compare-screen-add-another = Add another
 # kind=heading wording=as-is
 compare-screen-compare = Compare
-# kind=sentence wording=as-is note="$radar and $saved are links, $icon the Compare button's icon"
-compare-screen-on-your-or-in-use = On your { $radar } or in { $saved }, use the { $icon } button on a row to add it here.
+# kind=sentence note="$radar and $pipeline are links, $icon the Compare button's icon"
+compare-screen-on-your-or-in-use = On your { $radar } or in your { $pipeline }, use the { $icon } button on a row to add it here.
 # kind=link wording=as-is
 compare-screen-radar = Radar
-# kind=link wording=as-is
-compare-screen-saved = Saved
+# kind=link note="The pipeline's List, where every starred role is a row" same-as=shell-nav-pipeline
+compare-screen-pipeline = Pipeline
 # kind=label wording=as-is
 compare-screen-same = Same
 # kind=label wording=as-is
@@ -100,10 +100,10 @@ compare-attributes-reposts = Reposts
 compare-use-compare-controller-removed-from-compare = Removed { $title } from compare
 # kind=label wording=as-is
 compare-use-compare-controller-undo = Undo
-# kind=toast note="Saving a role, or removing it from Saved, failed; $title is the role's title"
+# kind=toast note="Saving a role, or removing it from the pipeline, failed; $title is the role's title"
 compare-use-compare-controller-could-not-unsave = { $direction ->
     [save] Couldn't save { $title }
-   *[unsave] Couldn't remove { $title } from Saved
+   *[unsave] Couldn't remove { $title } from your pipeline
 }
 # kind=label wording=as-is
 compare-use-compare-controller-couldn-t-restore = Couldn't restore { $title }

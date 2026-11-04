@@ -176,7 +176,7 @@ role-job-detail-same-company = Same company · { $company }
 # kind=toast
 role-job-detail-could-not-unsave-this-role = { $choice ->
     [yes] Couldn't save this role
-   *[no] Couldn't remove this role from Saved
+   *[no] Couldn't remove this role from your pipeline
 }
 # kind=label wording=as-is
 role-job-detail-couldn-t-update-the-stage = Couldn't update the stage

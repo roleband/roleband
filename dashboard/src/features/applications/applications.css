@@ -19,20 +19,25 @@
   padding-bottom: var(--app-space-3);
 }
 
+/* The columns shown share the board's width equally, so hiding one gives its
+   room to the rest. A column never narrows below the floor: past that the
+   board scrolls sideways instead. A hidden column is not rendered, so it
+   takes no track. */
 .app-board {
-  display: flex;
-  align-items: flex-start;
+  --app-column-floor: 252px;
+  display: grid;
+  grid-auto-columns: minmax(var(--app-column-floor), 1fr);
+  grid-auto-flow: column;
+  align-items: start;
   gap: var(--app-space-3);
-  min-width: max-content;
 }
 
 .app-column {
   display: flex;
-  flex: 0 0 252px;
   flex-direction: column;
   gap: var(--app-space-2);
   box-sizing: border-box;
-  width: 252px;
+  min-width: 0;
   min-height: 420px;
   padding: var(--app-space-2);
   border-radius: var(--app-radius-lg);
@@ -269,24 +274,23 @@
   margin-bottom: var(--app-space-4);
 }
 
-/* ---- the toolbar over both tabs ------------------------------------------ */
+/* ---- each view's toolbar ------------------------------------------------- */
 
 .app-pipeline-search {
   flex: 1 1 240px;
   max-width: 340px;
 }
 
-/* The count is a fact, in the data voice, as on Radar. */
-.app-pipeline-toolbar .results-count {
+/* While filtering: fade instead, or start over. */
+.app-filter-ways {
   display: flex;
   align-items: baseline;
-  gap: 5px;
+  gap: var(--app-space-2);
   white-space: nowrap;
-  font-family: var(--app-font-mono);
-  font-variant-numeric: tabular-nums;
+  font-size: var(--app-type-meta);
 }
 
-.app-pipeline-toolbar .results-sep {
+.app-filter-sep {
   color: var(--app-text-faint);
 }
 
@@ -307,6 +311,108 @@
   gap: 3px;
   color: var(--app-text-muted);
   font-variant-numeric: tabular-nums;
+}
+
+/* ---- the List ------------------------------------------------------------ */
+
+/* A table on the data vocabulary (`.data-table`), in one bordered surface that
+   scrolls sideways when its columns outgrow the page. */
+.app-list-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface);
+}
+
+.app-list th,
+.app-list td {
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.app-list thead th {
+  padding-top: var(--app-space-2);
+  padding-bottom: var(--app-space-2);
+}
+
+/* A row's header cell is its role, in the row's voice: `.data-table th` is
+   the column-head voice, mono and spaced, and would shout every name. */
+.data-table.app-list tbody th {
+  padding: var(--app-space-2);
+  border-top: 1px solid var(--app-border);
+  color: var(--app-text);
+  font-family: inherit;
+  font-size: var(--app-type-meta);
+  font-weight: var(--app-weight-body);
+  letter-spacing: normal;
+  text-align: left;
+  text-transform: none;
+}
+
+.app-list-role {
+  width: 40%;
+  min-width: 240px;
+  white-space: normal;
+}
+
+.app-list-company {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-1);
+  color: var(--app-text-muted);
+}
+
+.app-list-title {
+  display: block;
+  margin-top: 2px;
+  color: var(--app-text);
+  font-size: var(--app-type-body);
+  font-weight: var(--app-weight-body);
+  text-decoration: none;
+}
+
+.app-list-title:hover {
+  text-decoration: underline;
+}
+
+/* A posting not opened yet keeps its name's weight, as on Radar. */
+.app-list-row[data-unread] .app-list-title {
+  font-weight: var(--app-weight-name);
+}
+
+.app-list-stage > svg {
+  color: var(--app-text-faint);
+}
+
+.app-list-next {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: normal;
+}
+
+.app-list-next-when,
+.app-list-age,
+.app-list-more,
+.app-list-none {
+  color: var(--app-text-muted);
+}
+
+.app-list-next[data-state="overdue"] .app-list-next-when {
+  color: var(--app-danger);
+}
+
+.app-list-compare {
+  width: 1%;
+  text-align: right;
+}
+
+[data-highlight] .app-list-row[data-match="false"] {
+  opacity: 0.4;
+}
+
+[data-highlight] .app-list-row[data-match="false"]:focus-within {
+  opacity: 1;
 }
 
 /* ---- Up next ------------------------------------------------------------- */

@@ -11,7 +11,6 @@ shortcuts-keyboard-shortcuts-on-a-role-in-a = 在列表中的职位上
 shortcuts-keyboard-shortcuts-next-role = 下一个职位
 shortcuts-keyboard-shortcuts-previous-role = 上一个职位
 shortcuts-keyboard-shortcuts-open-the-role = 打开职位
-shortcuts-keyboard-shortcuts-save-it-or-unsave-it = 保存，或从已保存中移除
 shortcuts-keyboard-shortcuts-add-to-compare-or-take = 加入对比或移出
 shortcuts-keyboard-shortcuts-possible-duplicates = 可能的重复项
 shortcuts-keyboard-shortcuts-same-role = 相同职位

@@ -86,10 +86,6 @@ role-job-detail-to-apply = Para postular
 role-job-detail-more-like-this = Más como este
 role-job-detail-other-companies = Otras empresas
 role-job-detail-same-company = Misma empresa · { $company }
-role-job-detail-could-not-unsave-this-role = { $choice ->
-    [yes] No se pudo guardar este puesto
-   *[no] No se pudo quitar este puesto de guardados
-}
 role-job-detail-couldn-t-update-the-stage = No se pudo actualizar la etapa
 role-job-detail-role = { $choice ->
     [yes] Puesto: { $title }

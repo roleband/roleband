@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation, useParams } from "react-router-dom";
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type ApplicationCard } from "../../api";
@@ -38,9 +38,12 @@ const rejected = applicationCardFixture({
   job_id: 3, pursuit_id: 30, stage: "rejected", ended_at_stage: "interviewing", title: "Head of Platform",
 });
 
+/** On the Board: the pipeline opens on its List, and these are the Board's contracts. */
 const withProviders = (ui: ReactElement) => (
   <ToastProvider>
-    <MemoryRouter>{ui}</MemoryRouter>
+    <MemoryRouter initialEntries={["/pipeline/board"]}>
+      <Routes><Route path="/pipeline/:tab" element={ui} /></Routes>
+    </MemoryRouter>
   </ToastProvider>
 );
 
@@ -217,6 +220,18 @@ const atRoute = (path: string) => (
     </MemoryRouter>
   </ToastProvider>
 );
+/** As the app mounts a screen: anew on every path, since its route boundary
+ *  is keyed on the path. Whatever a tab must remember has to outlive that. */
+function RemountedOnPath() {
+  return <ApplicationsScreen key={useLocation().pathname} />;
+}
+const atRouteRemounting = (path: string) => (
+  <ToastProvider>
+    <MemoryRouter initialEntries={[path]}>
+      <Routes><Route path="/pipeline/:tab" element={<RemountedOnPath />} /></Routes>
+    </MemoryRouter>
+  </ToastProvider>
+);
 const columnsButton = () => screen.getByRole("button", { name: /^Columns/ });
 const openColumnsMenu = async () => {
   await userEvent.click(columnsButton());
@@ -300,8 +315,6 @@ describe("filtering", () => {
     expect(within(column("Applied")).getByText("Director of Product")).toBeInTheDocument();
     expect(within(column("Applied")).getByText(msg("applications-column-count-of", { count: 1, total: 2 }))).toBeInTheDocument();
     expect(within(column("Considering")).getByText(msg("applications-column-no-matches"))).toBeInTheDocument();
-    expect(screen.getByText((_, node) => node?.classList.contains("results-count") === true
-      && node.textContent?.startsWith("1 of 4") === true)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: msg("applications-filter-remove", { filter: msg("applications-quick-overdue") }) }));
     expect(screen.getByText("Principal Engineering Manager")).toBeInTheDocument();
@@ -335,19 +348,61 @@ describe("filtering", () => {
     expect(screen.getByRole("searchbox", { name: msg("applications-search-label") })).toHaveValue("");
   });
 
-  it("turns on Needs a next step from the summary, and the filter follows to Up next", async () => {
-    render(atRoute("/pipeline/board"));
+  it("keeps each view's filter to itself: the board's is not on Up next, and each tab finds its own again", async () => {
+    render(atRouteRemounting("/pipeline/board"));
     await screen.findByText("Director of Product");
+    const search = () => screen.getByRole("searchbox", { name: msg("applications-search-label") });
 
-    await userEvent.click(screen.getByRole("button", { name: msg("applications-board-need-next", { count: 1 }) }));
-    expect(screen.getByText("Principal Engineering Manager")).toBeInTheDocument();
+    await userEvent.type(search(), "stripe");
     expect(screen.queryByText("Director of Product")).toBeNull();
-    expect(screen.getByRole("button", { name: msg("applications-filter-remove", { filter: msg("applications-quick-needs-next") }) }))
-      .toBeInTheDocument();
+
+    // Up next holds Notion's overdue step, which the board's search hides.
+    await userEvent.click(screen.getByRole("tab", { name: msg("shell-tab-pipeline-up-next") }));
+    expect(await screen.findByText(msg("applications-upnext-step", { step: "Send the case study" }))).toBeInTheDocument();
+    expect(search()).toHaveValue("");
+    expect(screen.queryByRole("button", { name: msg("applications-filter-reset") })).toBeNull();
+    await userEvent.type(search(), "zzz");
+    expect(screen.getByText(msg("applications-upnext-no-matches"))).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: msg("shell-tab-pipeline-board") }));
+    expect(search()).toHaveValue("stripe");
+    expect(await screen.findByText("Principal Engineering Manager")).toBeInTheDocument();
+    expect(screen.queryByText("Director of Product")).toBeNull();
 
     await userEvent.click(screen.getByRole("tab", { name: msg("shell-tab-pipeline-up-next") }));
-    expect(await screen.findByText(msg("applications-upnext-no-matches"))).toBeInTheDocument();
+    expect(search()).toHaveValue("zzz");
+    expect(screen.getByText(msg("applications-upnext-no-matches"))).toBeInTheDocument();
+  });
+
+  it("opens the board with Needs a next step from the summary, from Up next too, keeping the board's own search", async () => {
+    render(atRouteRemounting("/pipeline/board"));
+    await screen.findByText("Director of Product");
+    const search = () => screen.getByRole("searchbox", { name: msg("applications-search-label") });
+    await userEvent.type(search(), "stripe");
+    await userEvent.click(screen.getByRole("tab", { name: msg("shell-tab-pipeline-up-next") }));
+    await userEvent.type(search(), "notion");
+
+    await userEvent.click(screen.getByRole("button", { name: msg("applications-board-need-next", { count: 1 }) }));
+
+    expect(screen.getByRole("tab", { name: msg("shell-tab-pipeline-board") })).toHaveAttribute("aria-selected", "true");
+    expect(search()).toHaveValue("stripe");
+    expect(screen.getByRole("button", { name: msg("applications-filter-remove", { filter: msg("applications-quick-needs-next") }) }))
+      .toBeInTheDocument();
+    expect(await screen.findByText("Principal Engineering Manager")).toBeInTheDocument();
+    // The board shows the filter, so the summary's count is no longer a way to it.
+    expect(screen.queryByRole("button", { name: msg("applications-board-need-next", { count: 1 }) })).toBeNull();
+
+    await userEvent.click(screen.getByRole("tab", { name: msg("shell-tab-pipeline-up-next") }));
+    expect(search()).toHaveValue("notion");
     expect(screen.queryByRole("button", { name: /^Columns/ })).toBeNull();
+  });
+
+  it("draws no count in the toolbar, filtering or not: the views show what they hold", async () => {
+    render(atRoute("/pipeline/board?only=overdue"));
+    await screen.findByText("Director of Product");
+    const toolbar = document.querySelector<HTMLElement>(".app-pipeline-toolbar")!;
+    expect(toolbar.textContent).not.toMatch(/\d+ of \d+|\bapplications?\b|things? due/);
+    expect(within(toolbar).getByRole("button", { name: msg("applications-filter-reset") })).toBeInTheDocument();
   });
 });
 
@@ -420,12 +475,15 @@ async function carry(card: ApplicationCard, to: { clientX: number; clientY: numb
   return tile;
 }
 
+/** The board, or a stand-in for the application page a press opens. */
+function BoardOrOpened() {
+  return /^\d+$/.test(useParams().tab ?? "") ? <p>Opened the application</p> : <ApplicationsScreen />;
+}
 const renderRouted = () => render(
   <ToastProvider>
     <MemoryRouter initialEntries={["/pipeline/board"]}>
       <Routes>
-        <Route path="/pipeline/board" element={<ApplicationsScreen />} />
-        <Route path="/pipeline/:id" element={<p>Opened the application</p>} />
+        <Route path="/pipeline/:tab" element={<BoardOrOpened />} />
       </Routes>
     </MemoryRouter>
   </ToastProvider>,

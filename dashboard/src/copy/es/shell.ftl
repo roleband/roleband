@@ -3,7 +3,6 @@
 
 ## Navegación
 shell-nav-radar = Radar
-shell-nav-saved = Guardados
 shell-nav-profile = Perfil
 shell-nav-insights = Análisis
 shell-nav-companies = Empresas

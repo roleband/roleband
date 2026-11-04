@@ -39,7 +39,7 @@ describe("Job detail ownership", () => {
      direction that would silently reappear -- a panel reaching back into
      components/, or sideways into a sibling feature.
      Resolved rather than pattern-matched, because from INSIDE the feature a
-     sibling is spelled `../saved/`, not `features/saved/`: matching only the
+     sibling is spelled `../compare/`, not `features/compare/`: matching only the
      second spelling would pass a real sibling import. */
   it("nothing in the feature imports the legacy tier or a sibling feature", () => {
     const here = join(src, "features/job-detail");

@@ -417,23 +417,6 @@ for (const [theme, os] of [["dark", "light"], ["light", "dark"]] as const) {
   });
 }
 
-test("Saved shows each tracked role's stage on its row", async ({ page }) => {
-  await page.route("/api/jobs?**", (route) => route.fulfill({ json: {
-    items: [{ ...jobFixture, id: 101, is_favorite: true }, { ...jobFixture, id: 102, title: "Untracked role", is_favorite: true }],
-    total: 2, related: [], related_total: 0, ranked_by: "date",
-  } }));
-  await page.route("/api/pursuits**", (route) => route.fulfill({ json: { pursuits: [{
-    id: 7, job_id: 101, stage: "applied", priority: 3, notes: null, next_action: null, next_action_due: null,
-    created_at: "2026-08-08T19:00:00Z", updated_at: "2026-08-08T19:00:00Z",
-    opportunity: { company: "openai", status: "open", title: jobFixture.title, url: jobFixture.url },
-  }] } }));
-  await page.goto("/favorites");
-  const rows = page.locator(".job-row");
-  await expect(rows).toHaveCount(2);
-  await expect(rows.first()).toContainText(msg("saved-screen-progress", { stage: "Applied" }));
-  await expect(rows.nth(1)).not.toContainText("Your progress");
-});
-
 /* Radar's read is a hint for the reader. The stored rationale, model id and
    confidence are bench material: none of them may reach the screen, and the
    world appears by its name, never its slug. Fixtures carry what the anchor

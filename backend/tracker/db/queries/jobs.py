@@ -550,7 +550,7 @@ def structured_conds(
         conds.append(Job.id.in_(select(Favorite.job_id)))
     # Dismissed rows ("not for me") hide from browse by default and are
     # filterable back. By-ID picks and saved roles stay resolvable — a saved
-    # job the user later dismissed must still open from Favorites/Compare.
+    # job the user later dismissed must still show in the pipeline and Compare.
     # Not for me is the role's: marking any member of a place set
     # hides every member, so no filter brings it back through a sibling.
     dismissed_ids = select(JobFeedback.job_id).where(JobFeedback.verdict == "dismissed")
@@ -570,8 +570,8 @@ def structured_conds(
     ):
         conds.append(Job.in_scope.is_(True))
     # Hidden-company exclusion for browse surfaces. By-ID picks are exempt: an
-    # explicit `ids` (Compare) or `favorites_only` (Favorites) request must still
-    # return a saved job whose company was later hidden.
+    # explicit `ids` (Compare, the pipeline's List) or `favorites_only` (saved
+    # only) request must still return a saved job whose company was later hidden.
     hidden = params.get("hidden")
     if hidden and browse_visibility and not params.get("ids") and not params.get("favorites_only"):
         conds.append(Job.company.notin_(hidden))
@@ -579,7 +579,7 @@ def structured_conds(
     # posting filter and the caller's match, so a place filter
     # admits a set when ANY member is at one of its places, a Remote filter
     # when any member is remote, and every total counts the set once. Rows a
-    # person names (ids, Saved) and the Not-for-me lens list each posting they
+    # person names (ids, saved only) and the Not-for-me lens list each posting they
     # hold. The New and Reposted lenses stay the role's: they read the
     # representative the posting filters chose.
     if (

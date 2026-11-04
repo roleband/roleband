@@ -1,6 +1,6 @@
-import type { ApplicationCard, InterviewWrite } from "../../src/api";
+import type { ApplicationCard, InterviewWrite, Job } from "../../src/api";
 import { msg } from "../../src/test/msg";
-import { applicationCardFixture, applicationDetailFixture } from "../../src/test/fixtures";
+import { applicationCardFixture, applicationDetailFixture, jobFixture, jobListFixture } from "../../src/test/fixtures";
 import { installBoardRoutes, installJobDetailRoutes } from "./boardHarness";
 import { expect, mockApi, mockGet, test, type Page } from "./fixtures";
 
@@ -9,7 +9,8 @@ import { expect, mockApi, mockGet, test, type Page } from "./fixtures";
  * a whole card that opens its application's page, a drag that moves a card
  * and scrolls the board under it, Interviewing's question,
  * hidden columns a browser remembers, filters kept in the address, the
- * page's own stage button and Mark done, and Up next. The API is a small store, so a re-read
+ * page's own stage button and Mark done, Up next, and the List's rows,
+ * sort and columns. The API is a small store, so a re-read
  * after a write shows the write. */
 
 const cards: ApplicationCard[] = [
@@ -72,11 +73,20 @@ test.beforeEach(async ({ page }) => {
   await installJobDetailRoutes(page);
 });
 
-test("the rail place opens on the board, titled by its rail label", async ({ page }) => {
+test("the rail place opens on the List, titled by its rail label, and the old Saved address lands there too", async ({ page }) => {
   await installPipeline(page);
   await page.goto("/pipeline");
-  await expect(page).toHaveURL(/\/pipeline\/board$/);
+  await expect(page).toHaveURL(/\/pipeline\/list$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(msg("shell-nav-pipeline"));
+  await expect(page.getByRole("table").getByRole("link", { name: "Staff Product Manager, API" })).toBeVisible();
+  const rail = page.getByRole("navigation").first();
+  await expect(rail.getByRole("link", { name: msg("shell-nav-pipeline") })).toBeVisible();
+  await expect(rail.getByRole("link", { name: "Saved", exact: true })).toHaveCount(0);
+
+  await page.goto("/favorites");
+  await expect(page).toHaveURL(/\/pipeline\/list$/);
+
+  await page.getByRole("tab", { name: msg("shell-tab-pipeline-board") }).click();
   await expect(column(page, "Considering").getByText("Staff Product Manager, API")).toBeVisible();
   await expect(page.getByText(msg("applications-board-summary", {
     moving: 2, decided: 0, closed: 1, needNext: msg("applications-board-need-next", { count: 1 }),
@@ -270,9 +280,7 @@ test("a column hidden from its menu takes no room, stays hidden after a reload, 
   await page.getByRole("button", { name: msg("applications-column-hide") }).click();
   await expect(column(page, closedName)).toHaveCount(0);
   // Nothing stands in for it: Decided is now the board's last column.
-  const board = await page.locator(".app-board").boundingBox();
-  const decided = await column(page, msg("applications-column-decided")).boundingBox();
-  expect(Math.round(board!.x + board!.width)).toBe(Math.round(decided!.x + decided!.width));
+  await expect(page.locator(".app-board > :last-child")).toHaveAttribute("aria-labelledby", "app-column-decided");
 
   await page.reload();
   await expect(column(page, "Considering").getByText("Staff Product Manager, API")).toBeVisible();
@@ -282,6 +290,60 @@ test("a column hidden from its menu takes no room, stays hidden after a reload, 
   await page.getByRole("dialog", { name: msg("applications-columns") })
     .getByRole("checkbox", { name: new RegExp(`^${closedName}`) }).check();
   await expect(column(page, closedName).getByText("Head of Platform")).toBeVisible();
+});
+
+/** Where the shown columns sit against the board's scroller. */
+async function columnFit(page: Page) {
+  return page.evaluate(() => {
+    const scroller = document.querySelector(".app-board-scroll")!;
+    const box = scroller.getBoundingClientRect();
+    const columns = [...document.querySelectorAll(".app-column")].map((one) => one.getBoundingClientRect());
+    return {
+      startGap: columns[0].left - box.left,
+      endGap: box.right - columns[columns.length - 1].right,
+      widths: columns.map((one) => one.width),
+      scrolls: scroller.scrollWidth > scroller.clientWidth + 1,
+    };
+  });
+}
+
+test("the columns shown share the board's width, and never shrink below their floor", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "a desktop layout: the phone width is the floor case, checked below at 1280");
+  await installPipeline(page);
+  await page.setViewportSize({ width: 2000, height: 1000 });
+  await page.addInitScript(() => localStorage.setItem("roleband.pipeline-hidden-columns", JSON.stringify(["decided", "closed"])));
+  await page.goto("/pipeline/board");
+  await expect(column(page, "Considering").getByText("Staff Product Manager, API")).toBeVisible();
+
+  // Five columns at 2000px: they run from the board's left edge to its right
+  // one, all the same width, wider than the floor, with nothing left over.
+  const five = await columnFit(page);
+  expect(five.widths).toHaveLength(5);
+  expect(Math.abs(five.startGap)).toBeLessThanOrEqual(1);
+  expect(Math.abs(five.endGap)).toBeLessThanOrEqual(1);
+  expect(Math.max(...five.widths) - Math.min(...five.widths)).toBeLessThanOrEqual(1);
+  expect(Math.min(...five.widths)).toBeGreaterThan(300);
+  expect(five.scrolls).toBe(false);
+
+  // Showing a column back takes its share from the others.
+  await page.getByRole("button", { name: msg("applications-columns-hidden", { count: 2 }) }).click();
+  await page.getByRole("dialog", { name: msg("applications-columns") })
+    .getByRole("checkbox", { name: msg("applications-column-decided") }).check();
+  await page.keyboard.press("Escape");
+  const six = await columnFit(page);
+  expect(six.widths).toHaveLength(6);
+  expect(Math.abs(six.endGap)).toBeLessThanOrEqual(1);
+  expect(Math.max(...six.widths)).toBeLessThan(Math.min(...five.widths));
+
+  // Every column at 1280px: the floor holds and the board scrolls instead.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.getByRole("button", { name: msg("applications-columns-hidden", { count: 1 }) }).click();
+  await page.getByRole("button", { name: msg("applications-columns-show-all") }).click();
+  await page.keyboard.press("Escape");
+  const seven = await columnFit(page);
+  expect(seven.widths).toHaveLength(7);
+  expect(seven.widths.every((width) => Math.round(width) === 252)).toBe(true);
+  expect(seven.scrolls).toBe(true);
 });
 
 test("a filter lives in the address: it survives opening a card and coming back, and / goes to the search", async ({ page }) => {
@@ -306,4 +368,125 @@ test("a filter lives in the address: it survives opening a card and coming back,
 
   await page.locator("body").press("/");
   await expect(page.getByRole("searchbox", { name: msg("applications-search-label") })).toBeFocused();
+});
+
+test("each tab keeps its own filter: the board's stays off Up next, and both come back as they were left", async ({ page }) => {
+  await installPipeline(page, [
+    { ...cards[0], next_action: "Ask for an intro", next_action_due: new Date(Date.now() - 2 * 86_400_000).toISOString() },
+    cards[1],
+    cards[2],
+  ]);
+  await page.goto("/pipeline/board?only=needs_next");
+  await expect(page.getByText("Staff Product Manager, API")).toHaveCount(0);
+  const search = page.getByRole("searchbox", { name: msg("applications-search-label") });
+
+  await page.getByRole("tab", { name: msg("shell-tab-pipeline-up-next") }).click();
+  await expect(page).toHaveURL(/\/pipeline\/up-next$/);
+  await expect(search).toHaveValue("");
+  await expect(page.getByRole("button", { name: msg("applications-filter-reset") })).toHaveCount(0);
+  await expect(page.getByText(msg("applications-upnext-step", { step: "Ask for an intro" }))).toBeVisible();
+  await search.fill("zzz");
+  await expect(page.getByText(msg("applications-upnext-no-matches"))).toBeVisible();
+
+  await page.getByRole("tab", { name: msg("shell-tab-pipeline-board") }).click();
+  await expect(page).toHaveURL(/\/pipeline\/board\?only=needs_next$/);
+  await expect(page.getByText("Staff Product Manager, API")).toHaveCount(0);
+
+  await page.getByRole("tab", { name: msg("shell-tab-pipeline-up-next") }).click();
+  await expect(page).toHaveURL(/\/pipeline\/up-next\?q=zzz$/);
+  await expect(search).toHaveValue("zzz");
+
+  // Back walks the tabs as they were, each with its own filter.
+  await page.goBack();
+  await expect(page).toHaveURL(/\/pipeline\/board\?only=needs_next$/);
+  await expect(page.getByText("Staff Product Manager, API")).toHaveCount(0);
+});
+
+/** The postings behind the List's rows, as the jobs list answers them. */
+async function installPostings(page: Page) {
+  const asked: string[] = [];
+  const posting = (over: Partial<Job> & { id: number }): Job => ({ ...jobFixture, ...over });
+  await mockGet(page, "/api/jobs?**", (route, request) => {
+    const url = new URL(request.url());
+    if (!url.searchParams.has("ids")) return route.fallback();
+    asked.push(url.search);
+    return route.fulfill({ json: { ...jobListFixture, total: 3, limit: 500, items: [
+      posting({ id: 101, company: "openai", locations: ["San Francisco, CA", "New York, NY"], level_band: "staff",
+        level_basis: "title", posted_base: { min: 240_000, max: 300_000, period: "year", currency: "USD" } }),
+      posting({ id: 202, company: "stripe", locations: ["Dublin, Ireland"], posted_base: null, comp_base_median: null }),
+      posting({ id: 303, company: "apple", status: "closed", locations: ["Cupertino, CA"], posted_base: null, comp_base_median: null }),
+    ] } });
+  });
+  return asked;
+}
+
+const listRow = (page: Page, title: string) => page.getByRole("row").filter({ has: page.getByRole("link", { name: title }) });
+
+test("the List moves a row from its stage with the keyboard alone, and shows each posting's facts", async ({ page }) => {
+  const { stageWrites } = await installPipeline(page);
+  const asked = await installPostings(page);
+  await page.goto("/pipeline/list");
+
+  const first = listRow(page, "Staff Product Manager, API");
+  await expect(first).toContainText("San Francisco, CA +1");
+  await expect(first).toContainText(/240/);
+  expect(new URLSearchParams(asked[0]).get("status")).toBe("");
+
+  const stage = page.getByRole("button", {
+    name: msg("applications-list-stage", { stage: "Applied", title: "Principal Engineering Manager" }),
+  });
+  await stage.focus();
+  await page.keyboard.press("Enter");
+  const moves = menu(page, "Principal Engineering Manager");
+  await expect(moves).toBeVisible();
+  await moves.getByRole("button", { name: "Offer" }).focus();
+  await page.keyboard.press("Enter");
+
+  await expect(page.getByRole("button", {
+    name: msg("applications-list-stage", { stage: "Offer", title: "Principal Engineering Manager" }),
+  })).toBeVisible();
+  await expect.poll(() => stageWrites).toContainEqual({ jobId: 202, stage: "offer" });
+});
+
+test("the List's sort lives in the address and its hidden columns in the browser, both kept over a reload", async ({ page }) => {
+  await installPipeline(page);
+  await installPostings(page);
+  await page.goto("/pipeline/list");
+  const table = page.getByRole("table");
+  const role = table.getByRole("columnheader", { name: msg("jobs-head-role") });
+
+  await role.getByRole("button").click();
+  await expect(page).toHaveURL(/\/pipeline\/list\?sort=role&order=asc$/);
+  await expect(role).toHaveAttribute("aria-sort", "ascending");
+  // Apple, OpenAI, Stripe: by the company's name.
+  await expect(table.locator("tbody tr").first()).toContainText("Head of Platform");
+
+  await page.getByRole("button", { name: /^Columns/ }).click();
+  await page.getByRole("dialog", { name: msg("applications-columns") })
+    .getByRole("checkbox", { name: msg("jobs-head-location") }).uncheck();
+  await page.keyboard.press("Escape");
+  await expect(table.getByRole("columnheader", { name: msg("jobs-head-location") })).toHaveCount(0);
+
+  await page.reload();
+  await expect(role).toHaveAttribute("aria-sort", "ascending");
+  await expect(table.locator("tbody tr").first()).toContainText("Head of Platform");
+  await expect(table.getByRole("columnheader", { name: msg("jobs-head-location") })).toHaveCount(0);
+  await expect(table.getByRole("columnheader", { name: msg("jobs-head-pay") })).toBeVisible();
+});
+
+test("the List never widens the page: a narrow window scrolls the table inside its frame", async ({ page }, testInfo) => {
+  await installPipeline(page);
+  await installPostings(page);
+  await page.goto("/pipeline/list");
+  await expect(page.getByRole("table").getByRole("link", { name: "Head of Platform" })).toBeVisible();
+  const fit = await page.evaluate(() => {
+    const frame = document.querySelector(".app-list-scroll")!;
+    return {
+      pageScrolls: document.documentElement.scrollWidth > window.innerWidth + 1,
+      tableScrolls: frame.scrollWidth > frame.clientWidth + 1,
+    };
+  });
+  expect(fit.pageScrolls).toBe(false);
+  // At a desktop width the default columns fit without a sideways scroll.
+  if (testInfo.project.name !== "mobile") expect(fit.tableScrolls).toBe(false);
 });

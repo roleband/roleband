@@ -28,6 +28,7 @@ import {
   shellTabProfileLookingFor,
   shellTabProfileExperience,
   shellTabPipelineBoard,
+  shellTabPipelineList,
   shellTabPipelineUpNext,
 } from "./copy/gen/shell";
 
@@ -80,9 +81,10 @@ export const PROFILE_TABS: SubTabDef[] = [
   { slug: "experience", get label() { return shellTabProfileExperience(); } },
 ];
 
-// Application pipeline sub-tabs: the Board, every application as columns of
-// stages.
+// Pipeline sub-tabs: the List, every application as a row of a table; the
+// Board, the same applications as columns of stages; and Up next, what is due.
 export const PIPELINE_TABS: SubTabDef[] = [
+  { slug: "list", get label() { return shellTabPipelineList(); } },
   { slug: "board", get label() { return shellTabPipelineBoard(); } },
   { slug: "up-next", get label() { return shellTabPipelineUpNext(); } },
 ];

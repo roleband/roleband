@@ -113,6 +113,8 @@ const RoutedScreens = memo(function RoutedScreens({ location }: { location: Loca
       <Route path="/settings/roles" element={<Navigate to="/profile/direction" replace />} />
       {/* /settings/integrations lands on Settings > Plugins, where pay sources are set. */}
       <Route path="/settings/integrations" element={<Navigate to="/settings/plugins" replace />} />
+      {/* Saved is the pipeline's List: every starred role is a row there. */}
+      <Route path="/favorites" element={<Navigate to="/pipeline/list" replace />} />
       {/* One plugin's settings: the Settings shell on the Plugins tab,
           which reads `:pluginId` (any other tab sends it back). */}
       <Route path="/settings/:tab/:pluginId" element={<SettingsItemRoute />} />
@@ -425,7 +427,7 @@ function Shell() {
             )}
             <StatChip
               kind="link"
-              to="/favorites"
+              to="/pipeline/list"
               n={stats?.saved_total ?? "—"}
               label={shellStatSaved()}
               ariaLabel={stats ? shellStatSavedAria({ count: stats.saved_total }) : shellStatSavedAriaUnknown()}

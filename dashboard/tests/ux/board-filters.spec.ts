@@ -253,8 +253,8 @@ test("the Mac panel's new-roles address opens the board on New, then leaves the 
    reposted, saved. Whichever was clicked last is the one lit, and it is what
    the page shows. A lens kept beside the route rather than in it fails three
    ways: "open roles" leaves a lens on, so the board keeps filtering under a
-   chip that says it is not; "saved" leaves "new" lit on the Saved
-   screen; and the lens comes back the next time the board opens, from any
+   chip that says it is not; "saved" leaves "new" lit on the pipeline's
+   List; and the lens comes back the next time the board opens, from any
    door. */
 test("the top-bar counts are one choice: whatever you click is what you see", async ({
   page, isMobile,
@@ -263,7 +263,8 @@ test("the top-bar counts are one choice: whatever you click is what you see", as
   const lists: URLSearchParams[] = [];
   await page.route("/api/jobs?**", (route) => {
     const url = new URL(route.request().url());
-    if (url.searchParams.get("limit") !== "1" && url.searchParams.get("favorites_only") !== "true") {
+    // The List reads its postings by id; that is not the board's list.
+    if (url.searchParams.get("limit") !== "1" && !url.searchParams.has("ids")) {
       lists.push(url.searchParams);
     }
     return route.fulfill({ json: twoJobList });
@@ -324,9 +325,9 @@ test("the top-bar counts are one choice: whatever you click is what you see", as
   await expect(lensChip).toBeVisible();
   expect(lensesSent()).toBe("true/false");
 
-  // Saved: only saved is lit there.
+  // Saved roles are the pipeline's List: only saved is lit there.
   await saved.click();
-  await expect(page).toHaveURL(/\/favorites$/);
+  await expect(page).toHaveURL(/\/pipeline\/list$/);
   await expect(saved).toHaveAttribute("aria-current", "page");
   await expect(newToday).toHaveAttribute("aria-pressed", "false");
   await expect(openRoles).not.toHaveAttribute("aria-current", "page");
@@ -812,9 +813,9 @@ test("the register remembers how you narrowed it, through a reload and a fresh v
   const lists: URLSearchParams[] = [];
   await page.route("/api/jobs?**", (route) => {
     const url = new URL(route.request().url());
-    // The baseline asks for one row; Saved asks for favourites. Neither is
-    // the board's list.
-    if (url.searchParams.get("limit") !== "1" && url.searchParams.get("favorites_only") !== "true") {
+    // The baseline asks for one row; the List asks for its postings by id.
+    // Neither is the board's list.
+    if (url.searchParams.get("limit") !== "1" && !url.searchParams.has("ids")) {
       lists.push(url.searchParams);
     }
     return route.fulfill({ json: twoJobList });
@@ -836,7 +837,7 @@ test("the register remembers how you narrowed it, through a reload and a fresh v
   await expect(rail.getByRole("checkbox", { name: "Silicon Valley" })).toBeChecked();
 
   // ...and a fresh visit from another screen, which lands on a bare `/`.
-  await page.goto("/favorites");
+  await page.goto("/pipeline/list");
   await page.goto("/");
   await expect.poll(() => lists.at(-1)?.getAll("location_group")).toEqual(["silicon_valley"]);
   expect(lists.at(-1)!.get("discloses_pay")).toBe("true");

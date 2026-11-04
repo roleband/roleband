@@ -1,6 +1,5 @@
 import {
   shellNavRadar,
-  shellNavSaved,
   shellNavPipeline,
   shellNavProfile,
   shellNavInsights,
@@ -54,8 +53,7 @@ export interface NavTabDef {
 // listed: a Compare entry would advertise an empty room (docs/ui.md "Cover").
 export const NAV_TABS: NavTabDef[] = [
   { path: "/", get label() { return shellNavRadar(); }, icon: "grid", end: true },
-  { path: "/favorites", get label() { return shellNavSaved(); }, icon: "star" },
-  { path: "/pipeline", get label() { return shellNavPipeline(); }, icon: "pipeline", tabs: PIPELINE_TABS, indexRedirect: "board" },
+  { path: "/pipeline", get label() { return shellNavPipeline(); }, icon: "pipeline", tabs: PIPELINE_TABS, indexRedirect: "list" },
   { path: "/profile", get label() { return shellNavProfile(); }, icon: "person", tabs: PROFILE_TABS, indexRedirect: "direction" },
   {
     path: "/statistics",

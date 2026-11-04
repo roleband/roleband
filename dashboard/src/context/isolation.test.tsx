@@ -392,7 +392,7 @@ describe("context isolation — cadence, not just topic", () => {
     // so a verb closing over it directly re-creates the whole actions object on
     // every route change. `openJob`, `showNewSignals` and `showReposts` all
     // navigate; each reads the current `navigate` through a ref instead.
-    await act(async () => go("/favorites"));
+    await act(async () => go("/pipeline/list"));
     await act(async () => go("/compare"));
 
     // One object each, for the life of the app.

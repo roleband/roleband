@@ -17,31 +17,31 @@ test.beforeEach(async ({ page }) => {
   await installBoardRoutes(page);
 });
 
-/** Kill the Saved screen's chunk, open Saved, and return the failure it shows
+/** Kill the Pipeline screen's chunk, open Pipeline, and return the failure it shows
  *  with a switch that lets the chunk through again. */
-async function openSavedWithADeadChunk(page: Page) {
-  /* Kill the Saved screen's chunk, BEFORE the first navigation.
+async function openPipelineWithADeadChunk(page: Page) {
+  /* Kill the Pipeline screen's chunk, BEFORE the first navigation.
      Matched by MODULE NAME, which holds in both forms this suite can run
-     against: `/src/features/saved/SavedScreen.tsx` from a dev server, and
-     `SavedScreen-<hash>.js` from a build (rollup names each chunk after the
+     against: `/src/features/applications/ApplicationsScreen.tsx` from a dev server, and
+     `ApplicationsScreen-<hash>.js` from a build (rollup names each chunk after the
      module it loads — routeRegistry's header relies on that).
 
      The ordering is the part that matters. A BUILT shell carries
      `<link rel="modulepreload">` for its route chunks, so the browser fetches
-     SavedScreen during the initial load, before a route installed after
+     ApplicationsScreen during the initial load, before a route installed after
      `goto` exists. Installed late, the abort never fires, the click finds the
      module already resident, and the failure under test does not happen.
      Installed first, the preload is what gets aborted, which poisons the
      module map as the retry test explains and makes the later import reject
      without issuing a request of its own. */
   let failing = true;
-  await page.route(/SavedScreen/, (route) =>
+  await page.route(/ApplicationsScreen/, (route) =>
     failing ? route.abort("failed") : route.continue(),
   );
 
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Radar", level: 1 })).toBeVisible();
-  await page.getByRole("link", { name: "Saved", exact: true }).click();
+  await page.getByRole("link", { name: "Pipeline", exact: true }).click();
   const alert = page.getByRole("alert");
   /* The failure must have happened before a caller lets the chunk through,
      or the import can race the switch and load, and there is nothing to retry. */
@@ -51,7 +51,7 @@ async function openSavedWithADeadChunk(page: Page) {
 
 test("a route chunk that fails to load is reported, not a blank page", async ({ page }) => {
   // Both engines: chrome intact, the failure stated, a way out offered.
-  const { alert } = await openSavedWithADeadChunk(page);
+  const { alert } = await openPipelineWithADeadChunk(page);
   await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
   await expect(alert).toContainText(/couldn't load|could not load/i);
   await expect(alert.getByRole("button", { name: "Try again" })).toBeVisible();
@@ -68,8 +68,8 @@ test("trying again after a dead route chunk recovers the screen", async ({ page 
      across a same-context reload: the reloaded document re-requests nothing and
      renders the boundary again. Measured, with a control that separates the two
      explanations — removing the interception entirely before the retry does NOT
-     recover, while a plain navigation to /favorites in the same browser renders
-     the Saved heading normally. So the application recovers on WebKit and the
+     recover, while a plain navigation to /pipeline in the same browser renders
+     the Pipeline heading normally. So the application recovers on WebKit and the
      abort is what does not clear; asserting otherwise would be asserting a
      Playwright behaviour. The half that matters — a dead chunk is a stated,
      recoverable failure and not a blank page — is asserted above on BOTH
@@ -78,16 +78,16 @@ test("trying again after a dead route chunk recovers the screen", async ({ page 
     test.info().project.name === "mobile",
     "WebKit holds an aborted module fetch across the reload; the app recovers, the interception does not.",
   );
-  const { alert, letThrough } = await openSavedWithADeadChunk(page);
+  const { alert, letThrough } = await openPipelineWithADeadChunk(page);
   letThrough();
   await alert.getByRole("button", { name: "Try again" }).click();
-  await expect(page.getByRole("heading", { name: "Saved", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pipeline", level: 1 })).toBeVisible();
 });
 
 test("a dead chunk does not poison the routes either side of it", async ({ page }) => {
-  await page.route(/SavedScreen/, (route) => route.abort("failed"));
+  await page.route(/ApplicationsScreen/, (route) => route.abort("failed"));
   await page.goto("/");
-  await page.getByRole("link", { name: "Saved", exact: true }).click();
+  await page.getByRole("link", { name: "Pipeline", exact: true }).click();
   await expect(page.getByRole("alert")).toBeVisible();
 
   // Navigating away must clear the boundary — otherwise one bad chunk blanks
@@ -147,7 +147,7 @@ test("every route offers exactly one main landmark", async ({ page }) => {
   // invisible to landmark navigation. This one is not keyboard-specific, so it
   // runs on both projects — a phone user with a screen reader navigates by
   // landmark too.
-  for (const path of ["/", "/favorites", "/statistics", "/company", "/notifications"]) {
+  for (const path of ["/", "/pipeline/list", "/statistics", "/company", "/notifications"]) {
     await page.goto(path);
     await expect(page.getByRole("main"), path).toHaveCount(1);
   }
@@ -163,7 +163,7 @@ test("every route offers exactly one main landmark", async ({ page }) => {
    how long a fixture happens to make the page. */
 test("a hidden label far down a screen cannot make the window scroll", async ({ page, isMobile }) => {
   await installEveryRoute(page);
-  for (const path of ["/", "/favorites", "/statistics", "/company", "/review", "/notifications", "/settings"]) {
+  for (const path of ["/", "/pipeline/list", "/statistics", "/company", "/review", "/notifications", "/settings"]) {
     await page.goto(path);
     const main = page.getByRole("main");
     await expect(main, path).toBeVisible();

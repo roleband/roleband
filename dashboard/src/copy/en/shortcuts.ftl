@@ -22,7 +22,7 @@ shortcuts-keyboard-shortcuts-previous-role = Previous role
 # kind=label wording=as-is
 shortcuts-keyboard-shortcuts-open-the-role = Open the role
 # kind=tooltip
-shortcuts-keyboard-shortcuts-save-it-or-unsave-it = Save it, or remove it from Saved
+shortcuts-keyboard-shortcuts-save-it-or-unsave-it = Save it, or remove it from your pipeline
 # kind=label wording=as-is
 shortcuts-keyboard-shortcuts-add-to-compare-or-take = Add to compare or take it out
 # kind=tooltip wording=as-is

@@ -20,7 +20,7 @@ import { installSettingsRoutes } from "./settingsHarness";
 
 const SCREENS = [
   "/",
-  "/favorites",
+  "/pipeline/list",
   "/pipeline/board",
   "/statistics/overview",
   "/profile/direction",
