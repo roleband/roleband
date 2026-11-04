@@ -542,9 +542,12 @@ migrations.
   `closure_capability`, which RoleBand's validation assigns; a source definition
   never declares its own authority to close jobs.
 - **Saved keys.** A key saved in Settings is stored as `sealed:v1:<Fernet token>`
-  (`tracker/platform/secrets.py`). The Fernet key is `~/.roleband/secret.key`,
-  mode 0600, created on the first save and never inside `data/`, so no dump or
-  backup holds it. Only the stores read those rows (`profiles/prices.py`,
+  (`tracker/platform/secrets.py`). The Fernet key is `~/.roleband/secret.key`
+  unless `ROLEBAND_SECRET_KEY_FILE` names another file, mode 0600, created on the
+  first save and never inside `data/`, so no dump or database backup holds it; a
+  copy of the whole home folder or of `~/.roleband` holds the default file. To
+  restore a database backup on another computer, copy that file too, or enter the
+  keys again. Only the stores read those rows (`profiles/prices.py`,
   `intelligence_runtime/cloud_profiles.py`, `intelligence_runtime/local_profiles.py`):
   each seals on save and opens on read. A value without the prefix reads as
   itself, and `scripts.seal_secrets --apply` seals it in place. A sealed value
