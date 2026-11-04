@@ -444,8 +444,8 @@ it("writes an interest with the verb first, reads it back on the Summary, and sa
   await user.click(stripButton("World"));
   expect(screen.getByRole("heading", { name: "Anything you care about, or want to avoid?" })).toBeVisible();
   // The list is chosen first, and both lists stay on screen: each says what
-  // it does and how many it holds, the chosen one says "Picking now" and the
-  // other offers the switch. The picker is named by the list it fills.
+  // it does, the chosen one says "Picking now" and the other offers the
+  // switch, and nothing more. The picker is named by the list it fills.
   const lists = screen.getByRole("group", { name: "Choose a list, then tick what goes in it" });
   const interestedList = within(lists).getByRole("radio", { name: "Interested in" });
   const avoidList = within(lists).getByRole("radio", { name: "Not interested in" });
@@ -454,8 +454,7 @@ it("writes an interest with the verb first, reads it back on the Summary, and sa
   expect(avoidList).toHaveAccessibleDescription(/Roles about these drop off/);
   const option = (radio: HTMLElement) => radio.closest("label")!;
   expect(option(interestedList)).toHaveTextContent(/Picking now/);
-  expect(option(avoidList)).toHaveTextContent(/Switch to this/);
-  expect(option(avoidList)).toHaveTextContent(/None yet/);
+  expect(option(avoidList)).toHaveTextContent(/^Not interested inSwitch to thisRoles about these drop off, even if they also match an interest\.$/);
   expect(screen.queryByRole("group", { name: "Not interested in" })).toBeNull();
   await user.click(avoidList);
   expect(avoidList).toBeChecked();
@@ -476,9 +475,8 @@ it("writes an interest with the verb first, reads it back on the Summary, and sa
   await user.click(within(picker).getByLabelText("Logistics & Fulfillment"));
   expect(within(picker).getByLabelText("Logistics & Fulfillment")).toBeChecked();
   await user.clear(within(picker).getByLabelText("Filter worlds"));
-  // The list's count moves with the tick, so the chooser says where it landed.
-  expect(option(avoidList)).toHaveTextContent(/1 picked/);
-  expect(option(interestedList)).toHaveTextContent(/None yet/);
+  // The picks show on the cards, so the lists carry no count of them.
+  expect(option(avoidList)).toHaveTextContent(/^Not interested inPicking nowRoles about these drop off, even if they also match an interest\.$/);
 
   // Seen from the other verb, the pick wears its verb as a tag instead of vanishing.
   await user.click(interestedList);

@@ -13,7 +13,6 @@ import {
   profileSubjectsStepFilterInterests2,
   profileSubjectsStepNothingCalled,
   profileSubjectsStepOfYourRolesArenT,
-  profileSubjectsStepPicked,
   profileSubjectsStepRemovesOfTheRolesYou,
   profileSubjectsStepRolesAboutTheseDropOff,
   profileSubjectsStepSwitchToThis,
@@ -26,8 +25,8 @@ import { domainHint, domainName } from "../../../copy/vocab";
 /* Step 5: interests. Two lists, filled the same way: choose a list, then
    tick what goes in it. The list is the step's first decision and stays in
    sight the whole time: two large radio cards, "Interested in" and "Not
-   interested in", each saying what it does and how many it holds, the chosen
-   one filled and marked "Picking now", the other offering the switch. The
+   interested in", each saying what it does, the chosen one filled and
+   marked "Picking now", the other offering the switch. The
    pair sticks to the top of the scroll while the cards pass beneath it, and
    the chosen list's colour carries into the cards below (ink for interested,
    the danger hue for not interested), so a tick always shows which list it
@@ -94,7 +93,6 @@ export function SubjectsStep({
         <div className="walk-mode-options">
           {VERBS.map((option) => {
             const current = verb === option.value;
-            const picked = lines.filter((line) => line.verb === option.value).length;
             return (
               <label
                 className="select-card walk-mode-option"
@@ -114,9 +112,6 @@ export function SubjectsStep({
                   {profileSubjectsStepSwitchToThis({ choice: (current) ? "yes" : "no" })}
                 </span>
                 <small id={`walk-mode-${option.value}`}>{option.effect}</small>
-                <span className="walk-mode-count" data-selection="chrome">
-                  {profileSubjectsStepPicked({ choice: (picked === 0) ? "yes" : "no", picked: (picked === 0) ? "" : picked })}
-                </span>
               </label>
             );
           })}
