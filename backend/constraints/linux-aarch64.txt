@@ -17,7 +17,7 @@ anyio==4.14.2
     #   watchfiles
 ast-serialize==0.13.1
     # via mypy
-asyncpg==0.30.0
+asyncpg==0.32.0
     # via -r requirements.txt
 attrs==26.1.0
     # via
