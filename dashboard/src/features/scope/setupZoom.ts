@@ -74,13 +74,15 @@ function sampleWidths(family: string, zoom: number): number[] {
   return widths;
 }
 
-const verdicts = new Map<number, boolean>();
+const verdicts = new Map<string, boolean>();
 
 /** Whether this browser draws text in proportion at `factor`: measured once
-    per factor, and at the cap, so a factor where whole-pixel rounding happens
-    to cancel out cannot pass an engine that rounds. */
+    per factor and screen density, and at the cap, so a factor where
+    whole-pixel rounding happens to cancel out cannot pass an engine that
+    rounds. The browser's own zoom changes the density, and with it the
+    rounding. */
 function textScales(factor: number): boolean {
-  const key = Math.round(factor * 1000);
+  const key = `${Math.round(factor * 1000)}@${devicePixelRatio}`;
   const known = verdicts.get(key);
   if (known !== undefined) return known;
   const family = sans();
@@ -104,6 +106,11 @@ function pageZoom(): number {
   return zoom;
 }
 
+/** Fired on the window when setup's zoom changes. A late font can change it
+    with no resize, and a canvas that sizes its backing store by the zoom
+    listens for it. */
+export const SETUP_ZOOM_CHANGE = "setupzoomchange";
+
 /** Magnifies first-run setup while `active`, following the window's size. */
 export function useSetupZoom(active: boolean): void {
   useLayoutEffect(() => {
@@ -114,8 +121,10 @@ export function useSetupZoom(active: boolean): void {
     let fonts = !family || document.fonts.check(query, SAMPLE);
     const apply = () => {
       const wanted = setupFactor(window.innerWidth, window.innerHeight);
-      const factor = wanted > 1 && fonts && textScales(wanted) ? wanted : 1;
-      root.style.setProperty("--setup-zoom", String(factor));
+      const factor = String(wanted > 1 && fonts && textScales(wanted) ? wanted : 1);
+      if (root.style.getPropertyValue("--setup-zoom") === factor) return;
+      root.style.setProperty("--setup-zoom", factor);
+      window.dispatchEvent(new Event(SETUP_ZOOM_CHANGE));
     };
     apply();
     let live = true;

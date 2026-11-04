@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "./fixtures";
+import { expect, mockApi, mockGet, test, type Page } from "./fixtures";
 import {
   facetsFixture, jobListFixture, notificationsFixture, settingsSaveFixture, statsFixture, statusFixture,
   usageStateFixture,
@@ -27,28 +27,26 @@ import { installCompanyRegisterRoutes } from "./settingsHarness";
 const FRESH = { profile: null, scope_configured: false, intent_statement: "" };
 
 async function installSetup(page: Page) {
-  await page.route("/api/profile", (route) => route.fulfill({ json: FRESH }));
-  await page.route("/api/stats", (route) => route.fulfill({ json: statsFixture }));
-  await page.route("/api/status", (route) => route.fulfill({ json: statusFixture }));
-  await page.route("/api/facets", (route) => route.fulfill({ json: facetsFixture }));
-  await page.route("/api/notifications**", (route) => route.fulfill({ json: notificationsFixture }));
-  await page.route("/api/jobs?**", (route) => route.fulfill({ json: { ...jobListFixture, items: [], total: 0 } }));
-  await page.route("/api/scope/catalog", (route) => route.fulfill({ json: scopeCatalog }));
-  await page.route("/api/scope/preview", (route) => route.fulfill({ json: scopePreview }));
-  await page.route("/api/scope/rules", (route) => route.fulfill({ json: { rules: [] } }));
-  await page.route("/api/scope/places?**", (route) => route.fulfill({ json: { places: [], unions: [] } }));
-  await page.route("/api/companies", (route) => route.fulfill({ json: { companies: [] } }));
-  await page.route("/api/profile/suggestions", (route) => route.fulfill({ json: { suggestions: [] } }));
-  await page.route("/api/profile/pay-floor", (route) => route.fulfill({ json: { pay_floor: null } }));
-  await page.route("/api/settings", async (route) => {
-    if (route.request().method() !== "PUT") return route.fallback();
+  await mockGet(page, "/api/profile", (route) => route.fulfill({ json: FRESH }));
+  await mockGet(page, "/api/stats", (route) => route.fulfill({ json: statsFixture }));
+  await mockGet(page, "/api/status", (route) => route.fulfill({ json: statusFixture }));
+  await mockGet(page, "/api/facets", (route) => route.fulfill({ json: facetsFixture }));
+  await mockGet(page, "/api/notifications**", (route) => route.fulfill({ json: notificationsFixture }));
+  await mockGet(page, "/api/jobs?**", (route) => route.fulfill({ json: { ...jobListFixture, items: [], total: 0 } }));
+  await mockGet(page, "/api/scope/catalog", (route) => route.fulfill({ json: scopeCatalog }));
+  await mockApi(page, "POST", "/api/scope/preview", (route) => route.fulfill({ json: scopePreview }));
+  await mockGet(page, "/api/scope/rules", (route) => route.fulfill({ json: { rules: [] } }));
+  await mockGet(page, "/api/scope/places?**", (route) => route.fulfill({ json: { places: [], unions: [] } }));
+  await mockGet(page, "/api/companies", (route) => route.fulfill({ json: { companies: [] } }));
+  await mockGet(page, "/api/profile/suggestions", (route) => route.fulfill({ json: { suggestions: [] } }));
+  await mockGet(page, "/api/profile/pay-floor", (route) => route.fulfill({ json: { pay_floor: null } }));
+  await mockApi(page, "PUT", "/api/settings", async (route) => {
     const body = route.request().postDataJSON() as ScopeSettingsPayload;
     await route.fulfill({ json: settingsSaveFixture(body, { in_scope_changed: 0, on_board: 0 }) });
   });
   await installCompanyRegisterRoutes(page);
-  await page.route("/api/usage", (route) => route.request().method() === "GET"
-    ? route.fulfill({ json: usageStateFixture("undecided") }) : route.fallback());
-  await page.route("/api/usage/consent", (route) => route.fulfill({ json: usageStateFixture("declined") }));
+  await mockGet(page, "/api/usage", (route) => route.fulfill({ json: usageStateFixture("undecided") }));
+  await mockApi(page, "PUT", "/api/usage/consent", (route) => route.fulfill({ json: usageStateFixture("declined") }));
 }
 
 /** The zoom the page is drawn at, from a 100 px box made for the reading. */
@@ -404,30 +402,49 @@ export function magnificationTests({ browser, magnifies }: Engine) {
 
   test.describe("on a high-density screen", () => {
     test.use({ deviceScaleFactor: 2 });
+    // One backing pixel per screen pixel: the page's density times its zoom.
+    const sharpAt = async (page: Page, factor: number, when: string) => {
+      const zoom = await settledZoom(page);
+      expect(zoom, when).toBeCloseTo(factor, 3);
+      const off = () => page.locator("canvas.welcome-globe").evaluate((el: HTMLCanvasElement, z) => {
+        if (devicePixelRatio !== 2) return Infinity;
+        return Math.max(Math.abs(el.width - el.clientWidth * 2 * z), Math.abs(el.height - el.clientHeight * 2 * z));
+      }, zoom);
+      // The canvas's page size is read in whole pixels, so its backing size is
+      // known to half a page pixel at the screen's density, and a pixel more
+      // for the backing store's own rounding.
+      await expect.poll(off, { message: when, timeout: 2_000 }).toBeLessThanOrEqual(zoom + 1);
+    };
     test("the planet is drawn at the screen's own density, magnified", async ({ page }) => {
       await installSetup(page);
       await page.setViewportSize({ width: 2160, height: 1350 });
       await page.goto("/welcome");
       await expect(page.getByRole("button", { name: "Tune the radar" })).toBeVisible();
-      // One backing pixel per screen pixel: the page's density times its zoom.
-      const sharp = async (factor: number, when: string) => {
-        const zoom = await settledZoom(page);
-        expect(zoom, when).toBeCloseTo(factor, 3);
-        const off = () => page.locator("canvas.welcome-globe").evaluate((el: HTMLCanvasElement, z) => {
-          if (devicePixelRatio !== 2) return Infinity;
-          return Math.max(Math.abs(el.width - el.clientWidth * 2 * z), Math.abs(el.height - el.clientHeight * 2 * z));
-        }, zoom);
-        // The canvas's page size is read in whole pixels, so its backing size is
-        // known to half a page pixel at the screen's density, and a pixel more
-        // for the backing store's own rounding.
-        await expect.poll(off, { message: when, timeout: 2_000 }).toBeLessThanOrEqual(zoom + 1);
-      };
+      const sharp = (factor: number, when: string) => sharpAt(page, factor, when);
       await sharp(1.3, "opened magnified");
       // In proportion: the canvas keeps its own size and only the zoom changes.
       await page.setViewportSize({ width: 1440, height: 900 });
       await sharp(1, "made smaller in proportion");
       await page.setViewportSize({ width: 2160, height: 1350 });
       await sharp(1.3, "made larger in proportion");
+    });
+    /* Setup waits for its typeface before it magnifies, so a font that
+       arrives after the planet is drawn changes the zoom with no resize. A
+       face the page has not declared yet has nothing to wait for, so the
+       zoom may already be set when the planet is drawn: only the end state
+       is the contract. */
+    test("a typeface that arrives late still leaves the planet sharp", async ({ page }) => {
+      await installSetup(page);
+      let release = () => {};
+      const held = new Promise<void>((done) => { release = done; });
+      await page.route(/\.woff2?(\?.*)?$/, async (route) => { await held; await route.continue(); });
+      await page.setViewportSize({ width: 2160, height: 1350 });
+      await page.goto("/welcome");
+      await expect(page.getByRole("button", { name: "Tune the radar" })).toBeVisible();
+      await expect(page.locator("canvas.welcome-globe")).toBeVisible();
+      release();
+      await expect.poll(() => measuredZoom(page)).toBeCloseTo(1.3, 3);
+      await sharpAt(page, 1.3, "magnified once it arrived");
     });
   });
 

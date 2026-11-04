@@ -7,6 +7,7 @@ import {
   projectionScale, scanEntry, scanLon, sinceScan, trailAt, viewDistance, visible, type Placement,
 } from "./globeView";
 import { loadWorld, type WorldShapes } from "./worldData";
+import { SETUP_ZOOM_CHANGE } from "../setupZoom";
 
 /* The welcome planet: a slowly turning globe on a canvas, with a gold scan
    line crossing it and the cities RoleBand reads lighting as it passes. The
@@ -199,16 +200,17 @@ export function Globe() {
 
     const observer = new ResizeObserver(() => { resize(); redraw(); });
     observer.observe(canvas);
-    // A window resized in proportion changes setup's zoom and not the canvas's
-    // own size, which the observer misses. Measured two frames on: the zoom is
-    // set in the window's resize event and, under reduced motion, every
-    // property change is a short transition.
+    // A window resized in proportion, or a font that arrives late, changes
+    // setup's zoom and not the canvas's own size, which the observer misses.
+    // Measured two frames on: under reduced motion every property change is a
+    // short transition.
     let settling = 0;
     const onWindow = () => {
       cancelAnimationFrame(settling);
       settling = requestAnimationFrame(() => { settling = requestAnimationFrame(() => { resize(); redraw(); }); });
     };
     window.addEventListener("resize", onWindow);
+    window.addEventListener(SETUP_ZOOM_CHANGE, onWindow);
     canvas.addEventListener("pointerdown", onDown);
     canvas.addEventListener("pointermove", onMove);
     canvas.addEventListener("pointerup", onUp);
@@ -227,6 +229,7 @@ export function Globe() {
       cancelAnimationFrame(frame);
       cancelAnimationFrame(settling);
       window.removeEventListener("resize", onWindow);
+      window.removeEventListener(SETUP_ZOOM_CHANGE, onWindow);
       observer.disconnect();
       canvas.removeEventListener("pointerdown", onDown);
       canvas.removeEventListener("pointermove", onMove);
