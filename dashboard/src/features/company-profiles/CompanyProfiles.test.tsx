@@ -1313,6 +1313,54 @@ describe("CompanyProfilesView — search + branding", () => {
     expect(screen.getByRole("button", { name: "Google" })).toBeInTheDocument();
   });
 
+  /* Past a thousand companies every figure in the count is grouped by the
+     reader's region. The figures differ, so an ungrouped one shows as four
+     bare digits beside grouped ones. A thousand rows take seconds to draw in
+     jsdom, hence the longer timeouts. */
+  describe("with more than a thousand companies", () => {
+    afterEach(() => activate("en"));
+
+    // 1,201 stale profiles, plus two current ones, one of which a search for
+    // "acme" still matches.
+    const ROSTER = [
+      ...Array.from({ length: 1201 }, (_, i) =>
+        summary(`acme-${i}`, `Acme ${String(i).padStart(4, "0")}`, { data_health: "stale" }),
+      ),
+      summary("acme-health", "Acme Health"),
+      summary("google", "Google", { ticker: "GOOG" }),
+    ];
+    const needReview = (shown: string) =>
+      `· ${shown} ${msg("profiles-company-profiles-view-need-review", { count: 1201 })}`;
+
+    it("groups every figure by the region, on the roster and on a search", async () => {
+      await activate("en", { region: "en-US" });
+      mockList(ROSTER);
+      render(<CompanyProfilesView />);
+      await screen.findByRole("button", { name: "Google" }, { timeout: 10_000 });
+
+      expect(count()).toBe(`${msg("shared-results-company", { count: 1203, n: "1,203" })} ${needReview("1,201")}`);
+
+      fireEvent.change(screen.getByLabelText("Search companies"), { target: { value: "acme" } });
+      await waitFor(
+        () =>
+          expect(count()).toBe(
+            `${msg("shared-results-of-company", { total: 1203, n: "1,202", t: "1,203" })} ${needReview("1,201")}`,
+          ),
+        { timeout: 10_000 },
+      );
+      expect(count()).not.toMatch(/\d{4}/);
+    }, 20_000);
+
+    it("groups by the region, not by English: a German region writes 1.201", async () => {
+      await activate("en", { region: "de-DE" });
+      mockList(ROSTER);
+      render(<CompanyProfilesView />);
+      await screen.findByRole("button", { name: "Google" }, { timeout: 10_000 });
+
+      expect(count()).toBe(`${msg("shared-results-company", { count: 1203, n: "1.203" })} ${needReview("1.201")}`);
+    }, 20_000);
+  });
+
 
   it("filters the company list by name as you type", async () => {
     mockList(LIST);

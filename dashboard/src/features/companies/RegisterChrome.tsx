@@ -142,12 +142,12 @@ export function LedgerToolbar({ toolbarRef }: { toolbarRef: RefObject<HTMLDivEle
         <Msg
           of={companiesRegisterChromeToolbarStats}
           elems={{
-            followed: <b>{trackedTotal}</b>,
-            total: catalogTotal,
+            followed: <b>{copyNumber(trackedTotal)}</b>,
+            total: copyNumber(catalogTotal),
             sep: <i>·</i>,
             openRoles: <b>{trackedOpenRoles === null ? "—" : copyNumber(trackedOpenRoles)}</b>,
-            live: <b>{trackedLive}</b>,
-            ready: <b>{trackedReady}</b>,
+            live: <b>{copyNumber(trackedLive)}</b>,
+            ready: <b>{copyNumber(trackedReady)}</b>,
           }}
         />
       </span>
