@@ -230,6 +230,8 @@ def test_a_mac_without_the_apple_sdk_is_told_why_and_how_to_add_it(tmp_path):
     assert "needs Xcode 26 or later as the active developer directory" in step
     assert "sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer" in step
     assert "install Xcode if this Mac does not have it" in step
+    assert "open it once" in step
+    assert "Nothing is affected. Pay extraction is built in." in step
     assert "then run ./setup.sh again" in step
     assert "off macOS" not in step
     assert "only on a Mac" not in step
@@ -244,6 +246,7 @@ def test_off_macos_a_missing_apple_sdk_is_reported_as_not_applying(tmp_path, pla
     assert proc.returncode == 0, proc.stdout + proc.stderr
     step = _apple_step(proc)
     assert "only on a Mac, so it does not apply here" in step
+    assert "Nothing is affected. Pay extraction is built in." in step
     assert "Xcode" not in step
     assert "\u2014" not in step
 
