@@ -1044,6 +1044,13 @@ nothing.
 **Look and wording.** The visual system is in [ui.md](ui.md). Every user-facing
 string is a catalog message, never a literal: see [copy.md](copy.md).
 
+**Setup magnification.** First-run setup grows on a large window with CSS `zoom`
+on the root, so it keeps its 1440 x 900 layout at a larger size. Media queries and scripts
+still read the real window, so setup code that places a box or reads a pointer in
+pixels converts between the window and the magnified page. The rules are in
+[ui.md](ui.md#first-run-setup-magnification), and why zoom over a re-layout is
+[decision 0001](decisions/0001-setup-magnification.md).
+
 ## What can leave the computer
 
 Everything that can leave the machine, and when, is listed in
