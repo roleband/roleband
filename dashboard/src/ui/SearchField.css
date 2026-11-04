@@ -62,11 +62,12 @@
 
 /* The app's one ring, on the field: a halo or a wash does not reach 3:1
    against the page. A text field takes focus on a click too, and the ring
-   then says where typing goes. */
+   then says where typing goes. Drawn inside, over the field's own border, as
+   every field's is (shell.css). */
 .ui-search:focus-within {
   background: var(--app-surface-raised);
   outline: var(--app-ring-width) solid var(--app-action);
-  outline-offset: var(--app-ring-offset);
+  outline-offset: calc(-1 * var(--app-ring-offset));
 }
 
 .ui-search-trailing {

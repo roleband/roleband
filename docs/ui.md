@@ -545,8 +545,8 @@ where the ring is drawn:
 
 | Variant | When |
 |---|---|
-| Outside, `--app-ring-offset` | The default: buttons, chips, fields, switches |
-| Inside, `calc(-1 * var(--app-ring-offset))` | The control is flush with its container, or the container clips: tabs, list rows, index entries |
+| Outside, `--app-ring-offset` | The default: buttons, chips, switches, boxes and radios |
+| Inside, `calc(-1 * var(--app-ring-offset))` | A field (text, search, select, textarea), where the ring takes the place of the field's own border, so the two never read as two lines with a gap; or the control is flush with its container, or the container clips: tabs, list rows, index entries |
 | On a carrier (`:focus-within`, `:has(:focus-visible)`) | The focused element is hidden or is only part of the visible control: `.ui-search`, the filter rail's search row |
 | As an SVG stroke at `--app-ring-width` | A mark inside a chart or map |
 | In `--rail-accent` | Anything inside the dark nav rail |

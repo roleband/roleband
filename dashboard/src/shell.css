@@ -55,8 +55,8 @@ button { cursor: pointer; }
 
 /* THE ONE FOCUS RING (docs/ui.md "One focus ring").
    Every focusable thing wears this, and a sheet changes only WHERE it is drawn:
-   inside (`calc(-1 * --app-ring-offset)`) on a flush or clipped control, on a
-   wrapper that IS the visible control, as a stroke on an SVG shape. Never a
+   inside (`calc(-1 * --app-ring-offset)`) on a field, or a flush or clipped
+   control, on a wrapper that IS the visible control, as a stroke on an SVG shape. Never a
    tint, a halo, a glow or another hue: those fall well under the 3:1 a focus
    indicator needs.
    A date or time field is several Tab stops (hours, minutes, the period, the
@@ -73,6 +73,17 @@ summary:focus-visible,
 [tabindex]:focus-visible {
   outline: var(--app-ring-width) solid var(--app-action);
   outline-offset: var(--app-ring-offset);
+}
+
+/* A field has an edge of its own, so its ring is drawn inside, over that edge,
+   and takes its place: outside it, the field's border and the ring would be two
+   lines with a gap between. A box, a radio, a slider or a button-like input has
+   no such edge and keeps the ring outside. */
+input:is([type="time"], [type="date"], [type="datetime-local"], [type="month"], [type="week"]):focus-within,
+input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="button"], [type="submit"], [type="reset"], [type="image"]):focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-offset: calc(-1 * var(--app-ring-offset));
 }
 
 /* The rail is dark in both themes, so the ring takes the rail's own gold:

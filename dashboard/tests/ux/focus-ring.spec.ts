@@ -12,7 +12,11 @@
    exactly two ways, both named here: by a CARRIER (an ancestor that IS the
    control the user sees, because the focused element is hidden or is only its
    text) and, for SVG marks, as a STROKE on the shape (an outline on an SVG `g`
-   draws its bounding box). The source half is `src/design/focus-ring.test.ts`. */
+   draws its bounding box). The source half is `src/design/focus-ring.test.ts`.
+
+   A field has an edge of its own, and its ring is drawn over that edge: one
+   line where the border was, never the border and a ring outside it with a gap
+   between, which reads as two or three lines. */
 
 import { expect, test, type Page } from "./fixtures";
 import { installEveryRoute } from "./routesHarness";
@@ -77,8 +81,22 @@ async function focusedRing(page: Page) {
       return `outline ${cs.outlineStyle} ${cs.outlineWidth} ${cs.outlineColor}; shadow ${cs.boxShadow.slice(0, 60)}`;
     };
 
-    if (rings(el)) return { sig, ok: true };
-    if (owners.some(rings)) return { sig, ok: true };
+    // A field's ring, on the field or on the carrier that is the field, covers
+    // the field's border: the outline spans [offset, offset + width] outward
+    // from the border box, the border [-border, 0]. The fields are listed
+    // here, not read from shell.css, so a field dropped from that rule is
+    // still checked.
+    const FIELD = 'input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="button"], [type="submit"], [type="reset"], [type="image"]), select, textarea';
+    const onEdge = (node: Element) => {
+      const cs = getComputedStyle(node);
+      const border = parseFloat(cs.borderTopWidth);
+      if (!el.matches(FIELD) || border === 0) return true;
+      const offset = parseFloat(cs.outlineOffset);
+      return offset <= -border && offset + parseFloat(cs.outlineWidth) >= 0;
+    };
+    const painter = rings(el) ? el : owners.find(rings);
+    if (painter && !onEdge(painter)) return { sig, ok: false, what: `a field ringed outside its own edge: ${describe(painter)} offset ${getComputedStyle(painter).outlineOffset}` };
+    if (painter) return { sig, ok: true };
     if (el instanceof SVGElement) {
       const stroked = Array.from(el.querySelectorAll("*")).some((shape) => {
         const cs = getComputedStyle(shape);
@@ -139,6 +157,18 @@ for (const theme of ["light", "dark"] as const) {
     await expect.poll(async () => (await focusedRing(page))?.ok ?? false).toBe(true);
   });
 }
+
+test("the ring verifier refuses a field ringed outside its own edge", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  const search = page.locator(".ui-search-input").first();
+  await search.focus();
+  await expect.poll(async () => (await focusedRing(page))?.ok ?? false).toBe(true);
+  await page.addStyleTag({ content: ".ui-search:focus-within { outline-offset: var(--app-ring-offset) !important; }" });
+  const verdict = await focusedRing(page);
+  expect(verdict?.ok).toBe(false);
+  expect(verdict?.what).toContain("outside its own edge");
+});
 
 test("the ring verifier refuses a control whose painted ring is removed", async ({ page }) => {
   await page.goto("/");
