@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { IntelligenceFit } from "../../api";
 import { msg } from "../../test/msg";
@@ -25,8 +25,8 @@ const moved: IntelligenceFit = {
   ],
 };
 
-function draw(fit: IntelligenceFit) {
-  const { container } = render(<FitField fit={fit} topCount={3} selected={null} onSelect={vi.fn()} />);
+function draw(fit: IntelligenceFit, onSelect = vi.fn()) {
+  const { container } = render(<FitField fit={fit} topCount={3} selected={null} onSelect={onSelect} />);
   const lines = [...container.querySelectorAll("line.fit-grid")].map((line) => Number(line.getAttribute("y1")));
   const zones = [...container.querySelectorAll("rect.fit-band-zone")].map((rect) => ({
     top: Number(rect.getAttribute("y")) - 1,
@@ -42,18 +42,21 @@ function draw(fit: IntelligenceFit) {
   const left = shape.slice(1, 1 + fit.bins.length);
   expect(shape[1 + fit.bins.length].x).toBe(cx);
   // Each band's label as drawn: the name's baseline and the count's.
-  const labels = [...container.querySelectorAll("g.fit-band")].map((band) => ({
-    name: Number(band.querySelector("text.fit-band-name")?.getAttribute("y")),
-    count: Number(band.querySelector("text.fit-band-count")?.getAttribute("y")),
+  const labels = [...container.querySelectorAll("g.fit-band")].map((band) => {
     // The band's hit area in the label gutter (x = 0).
-    gutter: [...band.querySelectorAll("rect.fit-band-hit")]
-      .filter((rect) => rect.getAttribute("x") === "0")
-      .map((rect) => ({
-        top: Number(rect.getAttribute("y")),
-        bottom: Number(rect.getAttribute("y")) + Number(rect.getAttribute("height")),
-      }))[0],
-  }));
-  return { lines, zones, left, shape, labels };
+    const gutter = [...band.querySelectorAll("rect.fit-band-hit")].filter((rect) => rect.getAttribute("x") === "0");
+    expect(gutter).toHaveLength(1);
+    return {
+      name: Number(band.querySelector("text.fit-band-name")?.getAttribute("y")),
+      count: Number(band.querySelector("text.fit-band-count")?.getAttribute("y")),
+      gutterRect: gutter[0],
+      gutter: {
+        top: Number(gutter[0].getAttribute("y")),
+        bottom: Number(gutter[0].getAttribute("y")) + Number(gutter[0].getAttribute("height")),
+      },
+    };
+  });
+  return { lines, zones, left, shape, labels, onSelect };
 }
 
 // The installed app's board with no saved role and no aim, only "Not for me":
@@ -173,7 +176,7 @@ describe("FitField", () => {
   });
 
   it("keeps band labels apart when the bands are thinner than their labels", () => {
-    const { labels, lines } = draw(awayFromEverything);
+    const { labels, lines, onSelect } = draw(awayFromEverything);
     // The three upper bands are thin here: their middles are closer together
     // than one label is tall, so drawn at their middles they would overprint.
     expect(lines[1] - lines[0]).toBeLessThan(34);
@@ -194,6 +197,12 @@ describe("FitField", () => {
     for (let i = 1; i < labels.length; i++) {
       expect(labels[i].gutter.top).toBeGreaterThanOrEqual(labels[i - 1].gutter.bottom);
     }
+    // And each gutter slice is wired to its own band.
+    labels.forEach((label, i) => {
+      fireEvent.click(label.gutterRect);
+      expect(onSelect).toHaveBeenLastCalledWith(awayFromEverything.bands[i].key);
+    });
+    expect(onSelect).toHaveBeenCalledTimes(labels.length);
   });
 
   it("leaves labels at their band's middle when the bands have room", () => {
