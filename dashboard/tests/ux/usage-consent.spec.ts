@@ -22,7 +22,7 @@ import { scopeCatalog, scopePreview } from "./scopeFixtures";
    Every request is mocked; the catch-all below fails any other. */
 
 const SAID_USAGE = "Anonymous usage data: Which screens and features you use, and how scans go.";
-const SAID_NEVER = "Never sent: company names, role titles, compensation, your CV or anything you type.";
+const SAID_NEVER = "Never sent: Company names, role titles, compensation, your CV or anything you type.";
 
 test.beforeEach(async ({ page }) => {
   await page.route("/api/**", async (route) => {
@@ -175,7 +175,7 @@ test("an answer given on the welcome is the shell's too: leaving setup does not 
   expect(usage.answers.map((a) => a.answers)).toEqual([{ usage: false, crashes: false, questions: false }]);
 });
 
-test("Back from setup's first step asks again on the answer given, and Keep records nothing", async ({ page }) => {
+test("Back from setup's first step asks again on the answer given, marked, and Enter on it records nothing", async ({ page }) => {
   await fresh(page);
   const usage = await usageServer(page, usageStateFixture("undecided"));
   await page.goto("/welcome");
@@ -187,11 +187,19 @@ test("Back from setup's first step asks again on the answer given, and Keep reco
   await page.getByRole("button", { name: "Back" }).click();
   await expect(page).toHaveURL(/\/welcome$/);
   const question = page.getByRole("region", { name: "Help us improve" });
-  await expect(question).toContainText("You said no thanks, so nothing is shared.");
-  // The intro is not played again, and Enter still never shares.
+  const no = question.getByRole("button", { name: "No thanks" });
+  const yes = question.getByRole("button", { name: "Happy to help" });
+  await expect(no).toHaveAccessibleDescription("Your answer");
+  await expect(yes).not.toHaveAccessibleDescription("Your answer");
+  // Marked by its look too, not only by its caption.
+  const edge = (button: typeof no) => button.evaluate((el) => getComputedStyle(el).borderColor);
+  expect(await edge(no)).not.toBe(await edge(yes));
+  // A mark, not a third answer.
+  await expect(question.getByRole("button", { name: "Keep my answer" })).toHaveCount(0);
+  // The intro is not played again, and Enter is on the answer given.
   await expect(page.getByRole("button", { name: "Tune the radar" })).toHaveCount(0);
-  await expect(question.getByRole("button", { name: "No thanks" })).toBeFocused();
-  await question.getByRole("button", { name: "Keep my answer" }).click();
+  await expect(no).toBeFocused();
+  await page.keyboard.press("Enter");
 
   await expect(page).toHaveURL(WALK);
   await expect(page.getByLabel("Leading a team")).toBeChecked();
@@ -208,7 +216,9 @@ test("the browser's Back from the walk asks again too, and a changed answer reco
 
   await page.goBack();
   const question = page.getByRole("region", { name: "Help us improve" });
-  await expect(question).toContainText("You said happy to help, so every kind above is shared.");
+  await expect(question.getByRole("button", { name: "Happy to help" })).toHaveAccessibleDescription("Your answer");
+  // Enter on the marked answer changes nothing, so it has the keyboard.
+  await expect(question.getByRole("button", { name: "Happy to help" })).toBeFocused();
   // Changing the answer: only crash reports now.
   await question.getByRole("button", { name: "Let me choose" }).click();
   for (const kind of [/Anonymous usage data/, /Crash reports/, /Feedback surveys/]) {
@@ -227,7 +237,7 @@ test("the browser's Back from the walk asks again too, and a changed answer reco
 
   // Asked a third time, it opens on exactly that choice.
   await page.getByRole("button", { name: "Back" }).click();
-  await expect(question).toContainText("You share the kinds ticked above.");
+  await expect(question.getByRole("button", { name: "Happy to help" })).toHaveAccessibleDescription("Your answer");
   await expect(question.getByRole("checkbox", { name: /Crash reports/ })).toBeChecked();
   await expect(question.getByRole("checkbox", { name: /Anonymous usage data/ })).not.toBeChecked();
   await expect(question.getByRole("checkbox", { name: /Feedback surveys/ })).not.toBeChecked();

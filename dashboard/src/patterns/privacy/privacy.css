@@ -35,6 +35,11 @@
   color: var(--app-text-muted);
 }
 
+/* One sentence a line: the reason, then what the data does. */
+.privacy-consent-intro-line {
+  display: block;
+}
+
 /* The decision: one bordered list, a hairline between kinds. */
 .privacy-consent-groups {
   display: grid;
@@ -132,9 +137,22 @@ div.privacy-consent-choice {
   border-top: 1px solid var(--app-border);
 }
 
-/* Keeping an answer is not a third answer: it spans the row under the two. */
-.privacy-consent-keep {
-  grid-column: 1 / -1;
+/* The answer given, asked again: chosen, as a ticked kind is, and captioned.
+   Pressing it keeps that answer. */
+.privacy-consent-actions .ui-btn.privacy-consent-yours {
+  border-color: var(--app-chosen-line);
+  background: var(--app-chosen-wash);
+  color: var(--app-chosen-text);
+}
+
+.privacy-consent-yours-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--app-space-1);
+  margin-inline-start: var(--app-space-2);
+  font-size: var(--app-type-micro);
+  font-weight: var(--app-weight-name);
+  color: var(--app-chosen-mark);
 }
 
 @media (max-width: 640px) {
@@ -145,11 +163,19 @@ div.privacy-consent-choice {
 }
 
 /* ---- The welcome's scene (`look="scene"`): the welcome's type, no table.
-   Each kind under its own gold icon, a box in the icon's place once someone
-   chooses; the never-sent promise in full ink with its own mark; "Change it"
-   and "Let me choose" on one line; the two answers larger, still equal. */
+   Four steps of weight, top to bottom: the title; the reason, muted; the
+   kinds, each a name in full ink over a muted sentence under its own gold
+   icon (a box in the icon's place once someone chooses), and below a rule the
+   never-sent promise in the same shape, its mark muted because it is not a
+   kind to share; then "Change it" and "Let me choose" in quiet type. The two
+   answers close it, larger, still equal. */
 .privacy-consent--scene {
   max-width: none;
+  gap: var(--app-space-5);
+}
+
+.privacy-consent--scene .privacy-consent-head {
+  gap: var(--app-space-3);
 }
 
 .privacy-consent--scene .privacy-consent-title {
@@ -187,30 +213,31 @@ div.privacy-consent-choice {
   color: var(--app-action);
 }
 
-/* "Let me choose" follows "Change it" on its line, and moves to the next one
-   whole when the line is full. */
+.privacy-consent--scene .privacy-consent-group-label {
+  font-size: var(--app-type-title);
+}
+
 .privacy-consent--scene .privacy-consent-notes {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--app-space-2) var(--app-space-3);
+  gap: var(--app-space-4);
+  justify-items: stretch;
 }
 
-.privacy-consent--scene .privacy-consent-notes .ui-btn-link {
-  white-space: nowrap;
-}
-
+/* The promise sits on the text's edge, not inset like a kind: it has no
+   wash to make room for, and its rule runs the width of the words. */
 .privacy-consent--scene .privacy-consent-never {
-  flex-basis: 100%;
-  display: flex;
-  gap: var(--app-space-2);
-  align-items: flex-start;
-  color: var(--app-text);
+  margin-inline: 0;
+  padding: var(--app-space-4) 0 0;
+  border-top: 1px solid var(--app-border);
+  border-radius: 0;
 }
 
 .privacy-consent--scene .privacy-consent-never .privacy-consent-icon {
-  padding-top: 1px;
   color: var(--app-text-muted);
+}
+
+/* "Let me choose" stays whole: it moves to the next line rather than break. */
+.privacy-consent-change .ui-btn-link {
+  white-space: nowrap;
 }
 
 .privacy-consent--scene .privacy-consent-actions {

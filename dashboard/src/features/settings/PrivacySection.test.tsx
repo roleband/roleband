@@ -91,7 +91,7 @@ it("turning one on records only it, with the words beside it", async () => {
     [
       "Help us improve",
       "Anonymous usage data: Which screens and features you use, and how scans go.",
-      "Never sent: company names, role titles, compensation, your CV or anything you type.",
+      "Never sent: Company names, role titles, compensation, your CV or anything you type.",
     ].join("\n\n"),
   );
   await waitFor(() => expect(usageSwitch()).toBeChecked());

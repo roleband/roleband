@@ -1,3 +1,4 @@
+import { createRef } from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
@@ -6,6 +7,7 @@ import { ApiError } from "../../api/transport";
 import { usageStateFixture } from "../../test/fixtures";
 import { ConsentPane } from "./ConsentPane";
 import { consentText, consentWords, groupsToAsk } from "./consentCopy";
+import { msg } from "../../test/msg";
 
 /* The usage-sharing question (docs/architecture.md): the record carries
    exactly the words on screen, "Happy to help" shares every kind asked in one
@@ -53,7 +55,7 @@ it("the welcome's look records the same words, keeps the answers equal, and puts
 
   await userEvent.click(screen.getByRole("button", { name: "Let me choose" }));
   expect(screen.getAllByRole("checkbox")).toHaveLength(3);
-  expect(container.querySelectorAll(".privacy-consent-choice .privacy-consent-icon")).toHaveLength(0);
+  expect(container.querySelectorAll(".privacy-consent-groups .privacy-consent-icon")).toHaveLength(0);
   await userEvent.click(screen.getByRole("checkbox", { name: /Crash reports/ }));
   await userEvent.click(screen.getByRole("button", { name: "Happy to help" }));
   await waitFor(() => expect(api.saveUsageConsent).toHaveBeenCalled());
@@ -71,8 +73,19 @@ it("speaks as us, gives a reason to help, and says what is never sent", () => {
   for (const name of ["Anonymous usage data", "Crash reports", "Feedback surveys"]) {
     expect(within(region()).getByText(name)).toBeVisible();
   }
-  expect(region()).toHaveTextContent("Never sent: company names, role titles, compensation, your CV or anything you type.");
+  expect(region()).toHaveTextContent("Never sent: Company names, role titles, compensation, your CV or anything you type.");
   expect(region()).not.toHaveTextContent(/Where it goes|PostHog|Session recordings/);
+});
+
+it("lays the reason out a sentence a line, and records it as the one paragraph it reads as", () => {
+  render(<ConsentPane look="scene" state={usageStateFixture("undecided")} groups={[...ALL]} onAnswered={vi.fn()} />);
+  const lines = [msg("privacy-consent-intro"), msg("privacy-consent-intro-data")];
+  for (const line of lines) expect(screen.getByText(line)).toHaveClass("privacy-consent-intro-line");
+  const paragraphs = consentText(consentWords([...ALL])).split("\n\n");
+  expect(paragraphs[1]).toBe(lines.join(" "));
+  expect(paragraphs).toContain(`${msg("privacy-never-label")}: ${msg("privacy-never")}`);
+  // Read aloud, the two lines are one description, a space between them.
+  expect(region()).toHaveAccessibleDescription(lines.join(" "));
 });
 
 it("asks with nothing ticked: no box until someone chooses", () => {
@@ -153,7 +166,8 @@ it("asks only about groups never answered or widened since", () => {
 });
 
 /* Asked again (`review`): the welcome walk's way back to a question already
-   answered. It says the answer, opens on it, and Keep records nothing. */
+   answered. It opens on the answer, marks that answer's own button "Your
+   answer", and pressing it records nothing. */
 
 /** An answered state: each kind shared or declined as given. */
 function answered(shared: readonly (typeof ALL)[number][]) {
@@ -162,21 +176,29 @@ function answered(shared: readonly (typeof ALL)[number][]) {
   return state;
 }
 
-it("asked again after No thanks, says so, opens with no boxes, and Keep records nothing", async () => {
+const yours = () => within(region()).queryAllByRole("button", { description: "Your answer" });
+
+it("asked again after No thanks, marks No thanks as the answer, and pressing it records nothing", async () => {
   const state = answered([]);
   const onAnswered = vi.fn();
   render(<ConsentPane review state={state} groups={[...ALL]} onAnswered={onAnswered} />);
-  expect(region()).toHaveTextContent("You said no thanks, so nothing is shared.");
   expect(screen.queryByRole("checkbox")).toBeNull();
-  expect(answerNames()).toEqual(["Let me choose", "No thanks", "Happy to help", "Keep my answer"]);
-  await userEvent.click(screen.getByRole("button", { name: "Keep my answer" }));
+  expect(yours()).toEqual([screen.getByRole("button", { name: "No thanks" })]);
+  // A mark, not a third answer: still two answers and the way to choose.
+  expect(within(region()).getAllByRole("button").map((button) => button.getAttribute("aria-describedby") ? "marked" : button.textContent))
+    .toEqual(["Let me choose", "marked", "Happy to help"]);
+  await userEvent.click(screen.getByRole("button", { name: "No thanks" }));
   expect(onAnswered).toHaveBeenCalledWith(state);
   expect(api.saveUsageConsent).not.toHaveBeenCalled();
 });
 
-it("asked again after Happy to help, No thanks withdraws every kind and records the words again", async () => {
-  render(<ConsentPane review state={answered([...ALL])} groups={[...ALL]} onAnswered={vi.fn()} />);
-  expect(region()).toHaveTextContent("You said happy to help, so every kind above is shared.");
+it("asked again after Happy to help, marks it, takes the keyboard to it, and No thanks records the words again", async () => {
+  const safe = createRef<HTMLButtonElement>();
+  render(<ConsentPane review safeRef={safe} state={answered([...ALL])} groups={[...ALL]} onAnswered={vi.fn()} />);
+  const happy = screen.getByRole("button", { name: "Happy to help" });
+  expect(yours()).toEqual([happy]);
+  // Enter on the marked answer changes nothing, so it is the safe one here.
+  expect(safe.current).toBe(happy);
   await userEvent.click(screen.getByRole("button", { name: "No thanks" }));
   await waitFor(() => expect(api.saveUsageConsent).toHaveBeenCalled());
   const { answers, text } = sent();
@@ -186,8 +208,8 @@ it("asked again after Happy to help, No thanks withdraws every kind and records 
 
 it("asked again after choosing some, opens on exactly the person's own ticks and records a change", async () => {
   render(<ConsentPane review state={answered(["crashes"])} groups={[...ALL]} onAnswered={vi.fn()} />);
-  expect(region()).toHaveTextContent("You share the kinds ticked above.");
-  // Open from the start, the boxes do not take the keyboard from the safe answer.
+  expect(yours()).toEqual([screen.getByRole("button", { name: "Happy to help" })]);
+  // Open from the start, the boxes do not take the keyboard from the answer.
   for (const box of screen.getAllByRole("checkbox")) expect(box).not.toHaveFocus();
   expect(screen.getByRole("checkbox", { name: /Anonymous usage data/ })).not.toBeChecked();
   expect(screen.getByRole("checkbox", { name: /Crash reports/ })).toBeChecked();
@@ -198,36 +220,42 @@ it("asked again after choosing some, opens on exactly the person's own ticks and
   expect(sent().answers).toEqual({ usage: false, crashes: true, questions: true });
 });
 
-it("asked again after choosing some, offers Keep only while the boxes show that answer", async () => {
+it("asked again after choosing some, marks the answer only while the boxes show it", async () => {
+  const onAnswered = vi.fn();
+  const state = answered(["usage", "crashes"]);
+  render(<ConsentPane review state={state} groups={[...ALL]} onAnswered={onAnswered} />);
+  const crashes = screen.getByRole("checkbox", { name: /Crash reports/ });
+  // Unticking a kind that is shared makes a new answer: a mark on it would
+  // keep that kind shared under a screen that shows it off.
+  await userEvent.click(crashes);
+  expect(yours()).toEqual([]);
+  await userEvent.click(crashes);
+  expect(yours()).toHaveLength(1);
+  await userEvent.click(screen.getByRole("button", { name: "Happy to help" }));
+  expect(onAnswered).toHaveBeenCalledWith(state);
+  expect(api.saveUsageConsent).not.toHaveBeenCalled();
+});
+
+it("asked again after choosing some, records the change once a tick moves", async () => {
   const onAnswered = vi.fn();
   render(<ConsentPane review state={answered(["usage", "crashes"])} groups={[...ALL]} onAnswered={onAnswered} />);
-  const crashes = screen.getByRole("checkbox", { name: /Crash reports/ });
-  // Unticking a kind that is shared makes a new answer: keeping the old one
-  // beside it would leave that kind shared under a screen that shows it off.
-  await userEvent.click(crashes);
-  expect(screen.queryByRole("button", { name: "Keep my answer" })).toBeNull();
-  expect(region()).not.toHaveTextContent(/You said|You share/);
-  await userEvent.click(crashes);
-  expect(region()).toHaveTextContent("You share the kinds ticked above.");
-  expect(screen.getByRole("button", { name: "Keep my answer" })).toBeVisible();
-  await userEvent.click(crashes);
+  await userEvent.click(screen.getByRole("checkbox", { name: /Crash reports/ }));
   await userEvent.click(screen.getByRole("button", { name: "Happy to help" }));
   await waitFor(() => expect(api.saveUsageConsent).toHaveBeenCalled());
   expect(sent().answers).toEqual({ usage: true, crashes: false, questions: false });
   expect(onAnswered).toHaveBeenCalledTimes(1);
 });
 
-it("asked again with a kind widened since, has nothing to keep and ticks nothing for it", () => {
+it("asked again with a kind widened since, marks nothing and ticks nothing for it", () => {
   const state = answered([...ALL]);
   state.groups[1].status = "stale";
   render(<ConsentPane review state={state} groups={[...ALL]} onAnswered={vi.fn()} />);
-  expect(screen.queryByRole("button", { name: "Keep my answer" })).toBeNull();
-  expect(region()).not.toHaveTextContent(/You said|You share/);
+  expect(yours()).toEqual([]);
   expect(screen.queryByRole("checkbox")).toBeNull();
 });
 
-it("asked the first time, never offers Keep, even on a state that has an answer", () => {
+it("asked the first time, marks nothing, even on a state that has an answer", () => {
   render(<ConsentPane state={answered(["usage"])} groups={[...ALL]} onAnswered={vi.fn()} />);
-  expect(screen.queryByRole("button", { name: "Keep my answer" })).toBeNull();
+  expect(yours()).toEqual([]);
   expect(screen.queryByRole("checkbox")).toBeNull();
 });

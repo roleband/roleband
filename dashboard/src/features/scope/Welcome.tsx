@@ -27,7 +27,7 @@ import { MotionStage } from "./motion/primitives";
    The question has a way back. Before the walk is opened, the welcome's own
    history entry is marked (routing/setupMode.ts), and setup's first step has
    a Back to it: coming back to a marked entry opens the question at once, on
-   every kind, with the answer given and "Keep my answer". With nothing to ask
+   every kind, on the answer given, marked "Your answer". With nothing to ask
    (sharing switched off here, or the state unreadable) it opens the intro,
    whose button goes on to the walk, so Back never bounces straight forward.
 
@@ -66,7 +66,8 @@ function WelcomeBody({ page }: { page: RefObject<HTMLElement | null> }) {
   }, [page, asking]);
   // The question takes the keyboard to its safe answer, as the dialog that
   // asks an existing install does: Enter on a question that just opened
-  // never shares. The page stays at its top.
+  // never shares, unless sharing is the answer already given and Enter keeps
+  // it. The page stays at its top.
   const safe = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (asking) safe.current?.focus({ preventScroll: true });
