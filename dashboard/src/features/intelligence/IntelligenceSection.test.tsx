@@ -422,21 +422,35 @@ describe("ranking card", () => {
       .mockImplementationOnce(() => stalePoll);
     mocked.stopMatchingSwitch.mockResolvedValue(stoppedBack);
 
-    let poll!: () => void;
-    const interval = vi.spyOn(window, "setInterval").mockImplementation((handler) => {
+    // Only the screen's status poll (every 4 s) is held for the test to fire by
+    // hand. Every other interval runs for real: Testing Library's own `findBy`
+    // and `waitFor` poll on an interval too, and capturing theirs instead would
+    // hand the test a checker that never fetches.
+    const STATUS_POLL_MS = 4000;
+    const HELD = -1;
+    const realSetInterval = window.setInterval.bind(window);
+    const realClearInterval = window.clearInterval.bind(window);
+    let poll: (() => void) | undefined;
+    const interval = vi.spyOn(window, "setInterval").mockImplementation(((handler: () => void, ms?: number) => {
+      if (ms !== STATUS_POLL_MS) return realSetInterval(handler, ms);
       poll = handler;
-      return 1 as unknown as ReturnType<typeof setInterval>;
+      return HELD;
+    }) as typeof window.setInterval);
+    const clearInterval = vi.spyOn(window, "clearInterval").mockImplementation((id) => {
+      if (id !== HELD) realClearInterval(id);
     });
-    const clearInterval = vi.spyOn(window, "clearInterval").mockImplementation(() => {});
     try {
       mount();
       const stop = await screen.findByRole("button", {
         name: "Stop and go back to the big model",
       });
+      // The poll starts in an effect after the render that shows the button,
+      // so it may not exist yet when the button is found.
+      await waitFor(() => expect(poll).toBeDefined());
 
       // This GET began before the stop mutation and returns after it. Its
       // converting payload is older than the POST response and must be ignored.
-      poll();
+      poll!();
       expect(mocked.intelligence).toHaveBeenCalledTimes(2);
       await userEvent.click(stop);
       expect(await screen.findByText("Big model")).toBeInTheDocument();
