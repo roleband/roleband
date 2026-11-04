@@ -4,7 +4,7 @@ import type { ApplicationCard } from "../../api";
 import { date as formatDate } from "../../copy/format";
 import { STAGE_LABEL, type StageSlug } from "../../copy/vocabulary";
 import { companyName } from "../../format";
-import { Badge, Button, CompanyIcon, Content, Icon, dragSurface } from "../../ui";
+import { Badge, Button, CompanyIcon, Content, Icon, MenuItem, dragSurface } from "../../ui";
 import { Abbr } from "../../ui/Abbr";
 import {
   applicationsCardActions,
@@ -166,17 +166,14 @@ export function ApplicationTile({ card, now, onMove, onRemove, drag, dragged, ma
         {/* Leaving the pipeline is offered only in Considering: past it an
             application keeps its history, and Withdrawn is how it ends. */}
         {card.stage === "saved" && card.starred && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="app-menu-option"
-            onClick={() => {
+          <MenuItem
+            onSelect={() => {
               setMenuOpen(false);
               onRemove(card);
             }}
           >
             {applicationsMenuRemove()}
-          </Button>
+          </MenuItem>
         )}
       </StageMenu>
     </>

@@ -78,7 +78,7 @@ const SUPPRESSIONS: { file: string; selector: string; drawnBy: string; why: stri
   { file: "features/intelligence/IntelligenceSection.css", selector: ".intel-field-svg .fit-band", drawnBy: ".intel-field-svg .fit-band:focus-visible .fit-band-zone", why: "an SVG band takes the ring as a stroke on its shape; an outline on a `g` boxes its bounds" },
   { file: "features/scope/walk/walk.css", selector: ".walk-pyramid-layer", drawnBy: ".walk-pyramid-layer:focus-visible .walk-pyramid-hit", why: "an SVG layer takes the ring as a stroke" },
   { file: "ui/Overlay.css", selector: ".ui-overlay-content", drawnBy: "", why: "focused only by script when a dialog opens with nothing focusable; never a Tab stop" },
-  { file: "ui/Overlay.css", selector: ".ui-overlay-content:focus-visible", drawnBy: "", why: "the same, on the focus state" },
+  { file: "ui/Overlay.css", selector: ".ui-overlay-content[tabindex]:focus-visible", drawnBy: "", why: "the same, on the focus state, heavy enough to beat the global ring whatever order the sheets load in" },
   { file: "shell.css", selector: ".body:focus", drawnBy: "", why: "the page region the skip link sends focus to by script; never a Tab stop" },
 ];
 
@@ -257,5 +257,23 @@ describe("the ring clears 3:1 wherever it lands", () => {
   it("--rail-accent on the rail, in both themes (the rail is dark in both)", () => {
     const b = block(shell, ".nav-rail {");
     expect(ratio(hex(b, "--rail-accent")!, hex(b, "--rail-canvas")!)).toBeGreaterThanOrEqual(3);
+  });
+});
+
+/* The popover's shell takes focus on open; the ring it must not wear is the
+ * app's global `[tabindex]:focus-visible` (shell.css), which loads after the
+ * overlay's stylesheet. A tie in weight goes to whichever sheet comes last,
+ * so the suppression must outweigh it outright. */
+const weight = (selector: string) =>
+  (selector.match(/\.[\w-]+|\[[^\]]+\]|:(?!:)[\w-]+/g) ?? []).length;
+
+describe("the overlay shell's ring", () => {
+  it("is switched off by a selector heavier than the global ring, whatever order the sheets load in", () => {
+    const css = readFileSync(join(SRC, "ui", "Overlay.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    const rule = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)]
+      .find(([, selector, body]) => selector.includes(".ui-overlay-content") && selector.includes(":focus-visible")
+        && /outline:\s*none/.test(body));
+    expect(rule).toBeDefined();
+    expect(weight(rule![1].trim())).toBeGreaterThan(weight("[tabindex]:focus-visible"));
   });
 });

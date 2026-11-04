@@ -4,6 +4,7 @@ import { number } from "../../copy/format";
 import { sharedFilters, sharedFiltersCount } from "../../copy/gen/shared";
 import {
   applicationsCardPostingClosed,
+  applicationsColumnHideLast,
   applicationsColumns,
   applicationsColumnsHidden,
   applicationsColumnsShow,
@@ -30,7 +31,7 @@ import {
   applicationsSearchLabel,
   applicationsSearchPlaceholder,
 } from "../../copy/gen/applications";
-import { Button, FilterChip, Icon, Kbd, Popover, SearchField } from "../../ui";
+import { Button, FilterChip, Icon, Kbd, Menu, MenuCheck, MenuGroup, MenuItem, MenuRadio, SearchField } from "../../ui";
 import { Msg } from "../../ui/Msg";
 import type { ColumnId } from "./board";
 import { QUICK_FILTERS, isFiltering, type BoardFilter, type FilterMode, type QuickFilter } from "./filters";
@@ -167,89 +168,63 @@ export function PipelineToolbar({ filter, onFilter, count, total, noun, quickCou
         )}
       </div>
 
-      <Popover
-        isOpen={open === "filter"}
-        onClose={() => setOpen(null)}
-        anchor={filterButton}
-        align="end"
-        label={applicationsFilterMenu()}
-        className="app-overlay app-menu app-filter-menu"
-      >
-        <fieldset className="app-menu-group">
-          <legend className="app-menu-heading">{applicationsFilterQuick()}</legend>
+      <Menu isOpen={open === "filter"} onClose={() => setOpen(null)} anchor={filterButton} label={applicationsFilterMenu()}>
+        <MenuGroup label={applicationsFilterQuick()}>
           {QUICK_FILTERS.map((quick) => (
-            <label key={quick} className="check-row">
-              <input type="checkbox" aria-label={QUICK_LABEL[quick]()} checked={filter.quick.includes(quick)} onChange={() => toggleQuick(quick)} />
-              <span className="app-menu-name">{QUICK_LABEL[quick]()}</span>
-              <span className="cnt">{number(quickCounts[quick])}</span>
-            </label>
+            <MenuCheck
+              key={quick}
+              checked={filter.quick.includes(quick)}
+              onChange={() => toggleQuick(quick)}
+              count={number(quickCounts[quick])}
+            >
+              {QUICK_LABEL[quick]()}
+            </MenuCheck>
           ))}
-        </fieldset>
-        <fieldset className="app-menu-group">
-          <legend className="app-menu-heading">{applicationsFilterWhile()}</legend>
+        </MenuGroup>
+        <MenuGroup label={applicationsFilterWhile()}>
           {MODES.map(([mode, label, hint]) => (
-            <label key={mode} className="check-row app-menu-mode">
-              <input
-                type="radio"
-                name="app-filter-mode"
-                aria-label={label()}
-                aria-describedby={`app-filter-mode-${mode}`}
-                checked={filter.mode === mode}
-                onChange={() => onFilter({ mode })}
-              />
-              <span className="app-menu-name" aria-hidden="true">
-                {label()}
-                <span id={`app-filter-mode-${mode}`} className="app-menu-hint">{hint()}</span>
-              </span>
-            </label>
+            <MenuRadio
+              key={mode}
+              name="app-filter-mode"
+              checked={filter.mode === mode}
+              onChange={() => onFilter({ mode })}
+              hint={hint()}
+            >
+              {label()}
+            </MenuRadio>
           ))}
-        </fieldset>
-      </Popover>
+        </MenuGroup>
+      </Menu>
 
       {columns && (
-        <Popover
-          isOpen={open === "columns"}
-          onClose={() => setOpen(null)}
-          anchor={columnsButton}
-          align="end"
-          label={applicationsColumns()}
-          className="app-overlay app-menu app-columns-menu"
-        >
-          <fieldset className="app-menu-group">
-            <legend className="app-menu-heading">{applicationsColumnsShow()}</legend>
+        <Menu isOpen={open === "columns"} onClose={() => setOpen(null)} anchor={columnsButton} label={applicationsColumns()}>
+          <MenuGroup label={applicationsColumnsShow()}>
             {columns.all.map((column) => {
               const shown = !columns.hidden.includes(column.id);
               // The last shown column cannot go: a board always shows one.
               const last = shown && columns.hidden.length === columns.all.length - 1;
               return (
-                <label key={column.id} className="check-row">
-                  <input
-                    type="checkbox"
-                    aria-label={column.name}
-                    checked={shown}
-                    disabled={last}
-                    onChange={() => columns.onHidden(
-                      shown ? [...columns.hidden, column.id] : columns.hidden.filter((id) => id !== column.id),
-                    )}
-                  />
-                  <span className="app-menu-name">{column.name}</span>
-                  <span className="cnt">{number(column.count)}</span>
-                </label>
+                <MenuCheck
+                  key={column.id}
+                  checked={shown}
+                  disabled={last}
+                  title={last ? applicationsColumnHideLast() : undefined}
+                  count={number(column.count)}
+                  onChange={() => columns.onHidden(
+                    shown ? [...columns.hidden, column.id] : columns.hidden.filter((id) => id !== column.id),
+                  )}
+                >
+                  {column.name}
+                </MenuCheck>
               );
             })}
-          </fieldset>
-          <div className="app-menu-group">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="app-menu-option"
-              disabled={columns.hidden.length === 0}
-              onClick={() => columns.onHidden([])}
-            >
-              <span className="app-menu-name">{applicationsColumnsShowAll()}</span>
-            </Button>
-          </div>
-        </Popover>
+          </MenuGroup>
+          <MenuGroup>
+            <MenuItem icon="eye" disabled={columns.hidden.length === 0} onSelect={() => columns.onHidden([])}>
+              {applicationsColumnsShowAll()}
+            </MenuItem>
+          </MenuGroup>
+        </Menu>
       )}
     </div>
   );

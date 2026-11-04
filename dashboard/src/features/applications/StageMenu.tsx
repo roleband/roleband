@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { STAGE_LABEL, type StageSlug } from "../../copy/vocabulary";
 import { date as formatDate } from "../../copy/format";
-import { Button, Icon, Kbd, Popover } from "../../ui";
+import { Kbd, Menu, MenuGroup, MenuItem } from "../../ui";
 import {
   applicationsColumnClosed,
   applicationsColumnDecided,
@@ -41,37 +41,31 @@ export function StageMenu({ current, label, anchor, isOpen, onClose, onMove, rea
   }, [isOpen, onMove]);
 
   const group = (heading: string, stages: readonly StageSlug[], keyed: boolean) => (
-    <div className="app-menu-group" role="group" aria-label={heading}>
-      <span className="app-menu-heading" aria-hidden="true">{heading}</span>
+    <MenuGroup label={heading}>
       {stages.map((stage, index) => {
-        const chosen = stage === boardStage(current);
         const on = reached?.get(stage);
         return (
-          <Button
+          <MenuItem
             key={stage}
-            variant="ghost"
-            size="sm"
-            className="app-menu-option"
-            aria-current={chosen || undefined}
-            aria-keyshortcuts={keyed ? String(index + 1) : undefined}
-            onClick={() => onMove(stage)}
+            current={stage === boardStage(current)}
+            shortcut={keyed ? String(index + 1) : undefined}
+            lead={keyed ? <Kbd>{index + 1}</Kbd> : undefined}
+            detail={on ? formatDate(on, "day") : undefined}
+            onSelect={() => onMove(stage)}
           >
-            {keyed && <span className="app-menu-key" aria-hidden="true"><Kbd>{index + 1}</Kbd></span>}
-            <span className="app-menu-name">{STAGE_LABEL[stage]}</span>
-            {on && <span className="app-menu-reached">{formatDate(on, "day")}</span>}
-            {chosen && <Icon name="check" size={14} />}
-          </Button>
+            {STAGE_LABEL[stage]}
+          </MenuItem>
         );
       })}
-    </div>
+    </MenuGroup>
   );
 
   return (
-    <Popover isOpen={isOpen} onClose={onClose} anchor={anchor} align="end" label={label} className="app-overlay app-menu">
+    <Menu isOpen={isOpen} onClose={onClose} anchor={anchor} label={label}>
       {group(applicationsMenuMoveTo(), MOVING_STAGES, true)}
       {group(applicationsColumnDecided(), DECIDED_STAGES, false)}
       {group(applicationsColumnClosed(), CLOSED_STAGES, false)}
-      {children && <div className="app-menu-group">{children}</div>}
-    </Popover>
+      {children && <MenuGroup>{children}</MenuGroup>}
+    </Menu>
   );
 }

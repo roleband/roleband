@@ -241,39 +241,6 @@
   opacity: 1;
 }
 
-/* The card's menu: every stage, in groups. */
-.app-menu {
-  display: flex;
-  flex-direction: column;
-  gap: var(--app-space-1);
-  width: 220px;
-  padding: var(--app-space-2);
-}
-
-.app-menu-group {
-  display: flex;
-  flex-direction: column;
-}
-
-.app-menu-group + .app-menu-group {
-  padding-top: var(--app-space-1);
-  border-top: 1px solid var(--app-border);
-}
-
-.app-menu-heading {
-  padding: var(--app-space-1) var(--app-space-2);
-  color: var(--app-text-faint);
-  font-family: var(--app-font-mono);
-  font-size: var(--app-type-whisper);
-  font-weight: var(--app-type-whisper-weight);
-  letter-spacing: var(--app-type-whisper-track);
-  text-transform: uppercase;
-}
-
-.app-menu-option {
-  justify-content: space-between;
-}
-
 .app-interview-note {
   margin: 0;
   color: var(--app-text-muted);
@@ -294,21 +261,6 @@
   display: flex;
   justify-content: flex-end;
   gap: var(--app-space-2);
-}
-
-.app-menu-option .kbd {
-  min-width: 18px;
-}
-
-.app-menu-name {
-  flex: 1;
-  text-align: start;
-}
-
-.app-menu-reached {
-  color: var(--app-text-faint);
-  font-size: var(--app-type-meta);
-  font-weight: var(--app-weight-body);
 }
 
 /* ---- the place's tabs ---------------------------------------------------- */
@@ -355,44 +307,6 @@
   gap: 3px;
   color: var(--app-text-muted);
   font-variant-numeric: tabular-nums;
-}
-
-/* The filter and column menus: the filter rail's checkbox rows (ui/FilterRail.css). */
-.app-filter-menu,
-.app-columns-menu {
-  width: 260px;
-}
-
-fieldset.app-menu-group {
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-fieldset.app-menu-group + .app-menu-group {
-  padding-top: var(--app-space-1);
-  border-top: 1px solid var(--app-border);
-}
-
-/* A mode's row carries a line under its name, so its radio sits at the top. */
-.app-menu-mode {
-  align-items: flex-start;
-}
-
-.app-menu-mode > input {
-  margin-top: 3px;
-}
-
-.app-columns-menu .check-row:has(input:disabled) {
-  color: var(--app-text-faint);
-  cursor: default;
-}
-
-.app-menu-hint {
-  display: block;
-  color: var(--app-text-faint);
-  font-size: var(--app-type-meta);
 }
 
 /* ---- Up next ------------------------------------------------------------- */

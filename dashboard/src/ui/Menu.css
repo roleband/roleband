@@ -1,0 +1,139 @@
+/* ui/Menu — the dropdown menu's one recipe (ui/Menu.tsx).
+ *
+ * Spacing from the scale and nothing else: the body pads the glass by
+ * space-1, every row is the small control (28px tall, the small control's
+ * inset, the small corner), so a row's text starts where a Button's would,
+ * and a heading starts on the same line as the rows under it. */
+
+.ui-menu-body {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-width: 200px;
+  max-width: min(320px, calc(100vw - 16px));
+  padding: var(--app-space-1);
+}
+
+.ui-menu-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.ui-menu-group + .ui-menu-group {
+  margin-top: var(--app-space-1);
+  padding-top: var(--app-space-1);
+  border-top: 1px solid var(--app-border);
+}
+
+.ui-menu-heading {
+  padding: var(--app-space-2) var(--app-control-sm-pad) var(--app-space-1);
+  color: var(--app-text-faint);
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-whisper);
+  font-weight: var(--app-type-whisper-weight);
+  letter-spacing: var(--app-type-whisper-track);
+  text-transform: uppercase;
+}
+
+/* An action row is ui/Button's ghost rank, refined to a row: no edge or fill
+   until it is pointed at, and its text at the start. Its focus ring, disabled
+   state and press stay the Button's. */
+.ui-btn.ui-menu-item {
+  justify-content: flex-start;
+  width: 100%;
+  border-color: transparent;
+  background: transparent;
+  color: var(--app-text);
+  font-weight: var(--app-weight-body);
+  text-align: start;
+}
+
+.ui-btn.ui-menu-item:not(:disabled):hover {
+  border-color: transparent;
+  background: var(--app-surface-hover);
+}
+
+.ui-btn.ui-menu-item:disabled {
+  color: var(--app-text-faint);
+}
+
+/* A box or a mode: the same row, with the native control as its lead. */
+.ui-menu-row {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  box-sizing: border-box;
+  min-height: var(--app-control-sm);
+  padding: var(--app-space-1) var(--app-control-sm-pad);
+  border-radius: var(--app-radius-sm);
+  color: var(--app-text);
+  font-size: var(--app-type-body);
+  cursor: pointer;
+  transition: background var(--app-duration-fast);
+}
+
+.ui-menu-row:hover {
+  background: var(--app-surface-hover);
+}
+
+.ui-menu-row:has(input:disabled) {
+  color: var(--app-text-faint);
+  cursor: default;
+}
+
+.ui-menu-row:has(input:disabled):hover {
+  background: transparent;
+}
+
+.ui-menu-row > input {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--app-action);
+}
+
+/* A mode with a line under its name keeps its radio on the name's line. */
+.ui-menu-row[data-hinted] {
+  align-items: flex-start;
+}
+
+.ui-menu-row[data-hinted] > input {
+  margin-top: 3px;
+}
+
+.ui-menu-lead {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  color: var(--app-text-muted);
+}
+
+.ui-menu-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.ui-menu-hint {
+  display: block;
+  margin-top: 2px;
+  color: var(--app-text-faint);
+  font-size: var(--app-type-meta);
+}
+
+.ui-menu-detail {
+  flex: none;
+  margin-left: auto;
+  padding-left: var(--app-space-3);
+  color: var(--app-text-faint);
+  font-size: var(--app-type-meta);
+  font-weight: var(--app-weight-body);
+}
+
+/* A count is a fact: mono and tabular, as the filter rail's are. */
+.ui-menu-count {
+  font-family: var(--app-font-mono);
+  font-variant-numeric: tabular-nums;
+}

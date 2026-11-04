@@ -6,7 +6,7 @@ import { STAGE_LABEL, type StageSlug } from "../../copy/vocabulary";
 import { companyName } from "../../format";
 import { JobLinkRow } from "../../patterns/jobs/JobLinkRow";
 import { postingPlaces } from "../../patterns/jobs/location";
-import { AsyncBoundary, Button, CompanyIcon, Content, Icon, Kbd, Popover, useToast } from "../../ui";
+import { AsyncBoundary, Button, CompanyIcon, Content, Icon, Kbd, Menu, MenuGroup, MenuItem, useToast } from "../../ui";
 import { errorApplicationNotFound } from "../../copy/gen/errors";
 import {
   applicationsCrossingClosed,
@@ -276,46 +276,31 @@ export function ApplicationPage({ jobId }: { jobId: number }) {
                 onMove={choose}
                 reached={reached}
               />
-              <Popover
-                isOpen={moreOpen}
-                onClose={() => setMoreOpen(false)}
-                anchor={moreButton}
-                align="end"
-                label={applicationsPageMoreLabel()}
-                className="app-overlay app-menu"
-              >
-                <div className="app-menu-group">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="app-menu-option"
-                    aria-keyshortcuts="i"
-                    onClick={() => {
+              <Menu isOpen={moreOpen} onClose={() => setMoreOpen(false)} anchor={moreButton} label={applicationsPageMoreLabel()}>
+                <MenuGroup>
+                  <MenuItem
+                    shortcut="i"
+                    detail={<Kbd>I</Kbd>}
+                    onSelect={() => {
                       setMoreOpen(false);
                       setAsking({ kind: "add" });
                     }}
                   >
-                    <span className="app-menu-name">{applicationsInterviewAdd()}</span>
-                    <span className="app-menu-key" aria-hidden="true"><Kbd>I</Kbd></span>
-                  </Button>
-                  <Button variant="ghost" size="sm" className="app-menu-option" onClick={() => void copyLink()}>
-                    <span className="app-menu-name">{applicationsPageCopyLink()}</span>
-                  </Button>
+                    {applicationsInterviewAdd()}
+                  </MenuItem>
+                  <MenuItem onSelect={() => void copyLink()}>{applicationsPageCopyLink()}</MenuItem>
                   {!ended && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="app-menu-option"
-                      onClick={() => {
+                    <MenuItem
+                      onSelect={() => {
                         setMoreOpen(false);
                         void move(shown, "withdrawn");
                       }}
                     >
-                      <span className="app-menu-name">{applicationsPageWithdraw()}</span>
-                    </Button>
+                      {applicationsPageWithdraw()}
+                    </MenuItem>
                   )}
-                </div>
-              </Popover>
+                </MenuGroup>
+              </Menu>
               {asking && (
                 <InterviewDialog
                   card={shown}

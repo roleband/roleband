@@ -4,7 +4,7 @@ import type { ApplicationCard, InterviewWrite } from "../../api";
 import { STAGE_LABEL, type StageSlug } from "../../copy/vocabulary";
 import { PageHeader } from "../../patterns/PageHeader";
 import { useTabRoute } from "../../routing/useTabRoute";
-import { AsyncBoundary, Button, Icon, Popover, TabBar } from "../../ui";
+import { AsyncBoundary, Button, Icon, Menu, MenuGroup, MenuItem, TabBar } from "../../ui";
 import { Msg } from "../../ui/Msg";
 import { shellNavPipeline, shellTabPipelineBoard, shellTabPipelineUpNext } from "../../copy/gen/shell";
 import {
@@ -94,24 +94,21 @@ function ColumnMenu({ name, last, onHide }: { name: string; last: boolean; onHid
       >
         <Icon name="more" size={16} />
       </Button>
-      <Popover isOpen={open} onClose={() => setOpen(false)} anchor={button} align="end" label={label} className="app-overlay app-menu">
-        <div className="app-menu-group">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="app-menu-option"
+      <Menu isOpen={open} onClose={() => setOpen(false)} anchor={button} label={label}>
+        <MenuGroup>
+          <MenuItem
+            icon="eyeOff"
             disabled={last}
             title={last ? applicationsColumnHideLast() : undefined}
-            onClick={() => {
+            onSelect={() => {
               setOpen(false);
               onHide();
             }}
           >
-            <Icon name="eyeOff" size={14} />
-            <span className="app-menu-name">{applicationsColumnHide()}</span>
-          </Button>
-        </div>
-      </Popover>
+            {applicationsColumnHide()}
+          </MenuItem>
+        </MenuGroup>
+      </Menu>
     </>
   );
 }
