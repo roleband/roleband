@@ -25,7 +25,7 @@ import {
  * It lives apart from `SyncProgressPanel` because the panel's own children
  * (`SyncStream`, `SyncContribution`) need these types and predicates, and
  * importing them from the panel module would import the composition root that
- * renders them: an import cycle `import/no-cycle` refuses.
+ * renders them: an import cycle `import-x/no-cycle` refuses.
  */
 export type SyncPhase = "collecting" | "persisting" | "finishing";
 

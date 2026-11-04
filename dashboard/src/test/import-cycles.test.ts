@@ -7,11 +7,11 @@ import { describe, expect, it } from "vitest";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const FIXTURE = join(ROOT, "src", "test", "cycle-fixture");
 
-/* `import/no-cycle` is an error with no allowlist, which makes it the one gate
+/* `import-x/no-cycle` is an error with no allowlist, which makes it the one gate
  * whose passing state is indistinguishable from its broken state: a clean tree
  * reports nothing, and so does a rule that has silently stopped resolving.
  *
- * The rule needs `settings['import/parsers']` to parse the modules a file
+ * The rule needs `settings['import-x/parsers']` to parse the modules a file
  * imports; the resolver alone only answers which FILE a specifier names.
  * Configured with the resolver and nothing else, a two-file cycle in `src/`
  * lints clean, and `npm run lint` says "no issues" for the opposite reason.
@@ -33,13 +33,13 @@ describe("the import cycle gate", () => {
 
     expect(results.length, "the fixture files were not linted at all").toBe(2);
     const cycles = results.flatMap((r) =>
-      r.messages.filter((m) => m.ruleId === "import/no-cycle"),
+      r.messages.filter((m) => m.ruleId === "import-x/no-cycle"),
     );
     expect(
       cycles.length,
-      "`import/no-cycle` did not fire on a pair of modules that import each " +
+      "`import-x/no-cycle` did not fire on a pair of modules that import each " +
         "other. The rule is configured but enforcing nothing — check that " +
-        "settings['import/parsers'] is still present in eslint.config.js, " +
+        "settings['import-x/parsers'] is still present in eslint.config.js, " +
         "since without it the rule cannot parse a file's dependencies and " +
         "every cycle in src/ reports clean.",
     ).toBeGreaterThan(0);

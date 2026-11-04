@@ -4,8 +4,8 @@
 // -> F3 patterns/ -> F4 features/ -> F5 routes/ -> F6 shell.
 // F6 is App.tsx, main.tsx and src/shell/ — the chrome App composes. Every zone
 // below is an error with no allowlist.
-import importPlugin from 'eslint-plugin-import'
-import jsxA11y from 'eslint-plugin-jsx-a11y'
+import importX from 'eslint-plugin-import-x'
+import jsxA11yX from 'eslint-plugin-jsx-a11y-x'
 import reactHooks from 'eslint-plugin-react-hooks'
 import tsParser from '@typescript-eslint/parser'
 
@@ -109,7 +109,7 @@ export const LEGACY_EDGES = []
 
 export default [
   /* `src/test/cycle-fixture/` is a deliberate import cycle — the positive
-     control for `import/no-cycle`, linted explicitly by
+     control for `import-x/no-cycle`, linted explicitly by
      `src/test/import-cycles.test.ts` with ignores disabled. It is excluded
      here because the whole point is that it violates the rule. */
   /* `*.fixture.ts` are the zone probes (`src/test/shell-zone.test.ts`): two
@@ -141,7 +141,7 @@ export default [
       // disabled inline, so ignore inline config entirely.
       noInlineConfig: true,
     },
-    /* Without a resolver, `import/no-restricted-paths` cannot resolve an
+    /* Without a resolver, `import-x/no-restricted-paths` cannot resolve an
        EXTENSIONLESS specifier — and every import in this codebase is
        extensionless, so every zone above would silently pass everything:
        `import "../features/saved/SavedScreen"` in a ui/ primitive reports "No
@@ -149,26 +149,26 @@ export default [
     settings: {
       /* The resolver answers "what file is this specifier?". It is NOT enough
          for the graph rules, which must also PARSE that file to see what it
-         imports in turn — and under flat config eslint-plugin-import cannot
+         imports in turn — and under flat config eslint-plugin-import-x cannot
          infer a parser for a dependency it was not handed directly. Without
-         this line `import/no-cycle` below is inert: configured, reported by
+         this line `import-x/no-cycle` below is inert: configured, reported by
          `npm run lint`, and enforcing nothing: a two-file cycle in `src/`
          lints clean with the resolver alone, and errors with this key present
          (`src/test/import-cycles.test.ts`). */
-      'import/parsers': { '@typescript-eslint/parser': ['.ts', '.tsx'] },
-      'import/resolver': {
+      'import-x/parsers': { '@typescript-eslint/parser': ['.ts', '.tsx'] },
+      'import-x/resolver': {
         typescript: { project: './tsconfig.json' },
       },
     },
     plugins: {
-      import: importPlugin,
-      'jsx-a11y': jsxA11y,
+      'import-x': importX,
+      'jsx-a11y-x': jsxA11yX,
       'react-hooks': reactHooks,
     },
     rules: {
-      ...jsxA11y.configs.recommended.rules,
-      'import/no-restricted-paths': ['error', { zones: [...zones, ...boundaryZones] }],
-      'import/no-duplicates': 'error',
+      ...jsxA11yX.configs.recommended.rules,
+      'import-x/no-restricted-paths': ['error', { zones: [...zones, ...boundaryZones] }],
+      'import-x/no-duplicates': 'error',
       /* An error with no allowlist. A module that is both a domain model and
          the composition root rendering it makes a child importing a type
          import its own parent; the model goes in a module of its own
@@ -176,7 +176,7 @@ export default [
          `src/test/import-cycles.test.ts` holds the positive control: a rule
          this one silently stops enforcing looks exactly like a rule that
          passes. */
-      'import/no-cycle': ['error', { maxDepth: Infinity }],
+      'import-x/no-cycle': ['error', { maxDepth: Infinity }],
       // The compiler-oriented rules in react-hooks' current "recommended"
       // preset assume a React Compiler adoption this React 18 app has not
       // made. Enforce the two runtime hook contracts now; compiler adoption
@@ -210,10 +210,10 @@ export default [
       'src/features/scope/ScopeGuide.tsx',
     ],
     rules: {
-      'jsx-a11y/click-events-have-key-events': 'off',
-      'jsx-a11y/no-static-element-interactions': 'off',
-      'jsx-a11y/no-noninteractive-element-interactions': 'off',
-      'jsx-a11y/no-noninteractive-tabindex': 'off',
+      'jsx-a11y-x/click-events-have-key-events': 'off',
+      'jsx-a11y-x/no-static-element-interactions': 'off',
+      'jsx-a11y-x/no-noninteractive-element-interactions': 'off',
+      'jsx-a11y-x/no-noninteractive-tabindex': 'off',
     },
   },
   {
@@ -224,8 +224,8 @@ export default [
     // are neither.
     files: ['src/features/review/ComparisonLedger.tsx'],
     rules: {
-      'jsx-a11y/no-redundant-roles': ['error', { thead: ['rowgroup'], tbody: ['rowgroup'] }],
-      'jsx-a11y/no-interactive-element-to-noninteractive-role': ['error', { td: ['cell'] }],
+      'jsx-a11y-x/no-redundant-roles': ['error', { thead: ['rowgroup'], tbody: ['rowgroup'] }],
+      'jsx-a11y-x/no-interactive-element-to-noninteractive-role': ['error', { td: ['cell'] }],
     },
   },
   {
@@ -244,19 +244,19 @@ export default [
     //   TabBar: roving tabindex — the TABS are focusable, the tablist itself
     //     need not be; the rule cannot see the pattern.
     files: ['src/features/settings/ChronographDial.tsx'],
-    rules: { 'jsx-a11y/no-static-element-interactions': 'off' },
+    rules: { 'jsx-a11y-x/no-static-element-interactions': 'off' },
   },
   {
     files: ['src/ui/FilterSelect.tsx'],
     rules: {
-      'jsx-a11y/no-static-element-interactions': 'off',
-      'jsx-a11y/no-autofocus': 'off',
-      'jsx-a11y/aria-activedescendant-has-tabindex': 'off',
+      'jsx-a11y-x/no-static-element-interactions': 'off',
+      'jsx-a11y-x/no-autofocus': 'off',
+      'jsx-a11y-x/aria-activedescendant-has-tabindex': 'off',
     },
   },
   {
     files: ['src/ui/TabBar.tsx'],
-    rules: { 'jsx-a11y/interactive-supports-focus': 'off' },
+    rules: { 'jsx-a11y-x/interactive-supports-focus': 'off' },
   },
   /* The copy system's two source rules (docs/copy.md).
      1. A test names the message it expects with a LITERAL key: `msg("radar-count")`.

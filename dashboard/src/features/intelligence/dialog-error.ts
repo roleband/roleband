@@ -2,7 +2,7 @@
  *
  * It lives apart from `CapabilitiesCard` because both dialogs are their own
  * modules and the card composes them: importing this from the card would be a
- * child importing its own parent, which `import/no-cycle` refuses. */
+ * child importing its own parent, which `import-x/no-cycle` refuses. */
 
 import { errorText } from "../../api/errorText";
 

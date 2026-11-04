@@ -89,8 +89,9 @@ updates:
           - "vitest"
           - "@vitejs/plugin-react"
       # The two ecosystem-lag pairs. Each plugin peers a range of its partner
-      # (@typescript-eslint/* on typescript, eslint-plugin-import on eslint),
-      # so a partner major is BLOCKED UPSTREAM until the plugin widens it.
+      # (@typescript-eslint/* on typescript; eslint-plugin-import-x and
+      # eslint-plugin-jsx-a11y-x on eslint), so a partner major is BLOCKED
+      # UPSTREAM until the plugin widens it.
       #
       # Grouped, each becomes a readiness indicator: it stays red while the
       # ecosystem lags and goes green on its own the moment the partner widens
@@ -103,7 +104,8 @@ updates:
       eslint:
         patterns:
           - "eslint"
-          - "eslint-plugin-import"
+          - "eslint-plugin-import-x"
+          - "eslint-plugin-jsx-a11y-x"
       # Everything else in devDependencies, minor/patch only, so a major is
       # always read on its own.
       dev-tooling:
@@ -117,7 +119,8 @@ updates:
           - "vitest"
           - "@vitejs/plugin-react"
           - "eslint"
-          - "eslint-plugin-import"
+          - "eslint-plugin-import-x"
+          - "eslint-plugin-jsx-a11y-x"
         update-types: ["minor", "patch"]
 
   - package-ecosystem: github-actions
