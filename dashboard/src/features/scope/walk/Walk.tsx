@@ -93,6 +93,11 @@ function setupStepOf(state: unknown): WalkView {
   return typeof step === "string" && (SETUP_ORDER as readonly string[]).includes(step) ? step as WalkView : "accountable";
 }
 
+/** Whether a setup history entry was opened by the Summary's Adjust. */
+function fromSummaryOf(state: unknown): boolean {
+  return (state as { fromSummary?: unknown } | null)?.fromSummary === true;
+}
+
 /** What a step still needs before Continue opens. The optional steps are
     always answered, so they need none. */
 const CONTINUE_REASON: Partial<Record<StepId, () => string>> = {
@@ -117,10 +122,21 @@ export function Walk({ setup }: { setup?: WalkSetup } = {}) {
     selectedAnswers, experienceStage, targetStage, replaceDomains, replaceExcluded, dirty, save,
   } = draft;
   const [walkView, setWalkView] = useState<WalkView>("accountable");
+  const [walkFromSummary, setWalkFromSummary] = useState(false);
   const asked = setup ? setupStepOf(location.state) : walkView;
-  const setView = (next: WalkView) => {
-    if (!setup) { setWalkView(next); return; }
-    if (next !== asked) navigate({ pathname: location.pathname, search: location.search }, { state: { setupStep: next } });
+  /* A step the Summary's Adjust opened: Continue goes back to the Summary,
+     not through every later step. Setup keeps it in the history entry, so
+     the browser's Back and a reload reopen the step as it was opened. */
+  const fromSummary = setup ? fromSummaryOf(location.state) : walkFromSummary;
+  const setView = (next: WalkView, opened: { fromSummary?: boolean } = {}) => {
+    const marked = opened.fromSummary === true;
+    if (!setup) { setWalkView(next); setWalkFromSummary(marked); return; }
+    if (next !== asked || marked !== fromSummary) {
+      navigate(
+        { pathname: location.pathname, search: location.search },
+        { state: marked ? { setupStep: next, fromSummary: true } : { setupStep: next } },
+      );
+    }
   };
   /* Setup's pay floor, held from the Summary until Start writes it:
      undefined while untouched, so Start writes nothing. */
@@ -222,11 +238,14 @@ export function Walk({ setup }: { setup?: WalkSetup } = {}) {
   const currentAnswered = view === "summary" || view === "companies" || answered[view];
   const next = () => {
     if (!currentAnswered) return;
+    const open = (["accountable", "level", "where"] as const).find((step) => !answered[step]);
+    /* The deciding answers still come first: one left open is asked on
+       the way back to the Summary. */
+    if (fromSummary) { setView(open ?? "summary", { fromSummary: open !== undefined }); return; }
     const following = order[at + 1];
     if (following === undefined) { setView("summary"); return; }
     /* Past the three that decide, every step waits for them: Continue goes
        back to the first one still open rather than doing nothing. */
-    const open = (["accountable", "level", "where"] as const).find((step) => !answered[step]);
     if (open && !DECIDING.includes(following)) { setView(open); return; }
     setView(following);
   };
@@ -351,7 +370,7 @@ export function Walk({ setup }: { setup?: WalkSetup } = {}) {
               key="summary"
               headingRef={headingRef}
               lines={lines}
-              onGo={setView}
+              onGo={(step) => setView(step, { fromSummary: true })}
               onLeave={leave}
               onContinue={setup ? () => setView("companies") : undefined}
               onBack={setup ? back : undefined}
