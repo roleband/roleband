@@ -6,11 +6,13 @@ import { errorText } from "../../api/errorText";
 import { Button, Icon, type IconName } from "../../ui";
 import {
   privacyChoose,
+  privacyConsentCurrent,
   privacyHappyToHelp,
+  privacyKeepAnswer,
   privacyNoThanks,
   privacySaveError,
 } from "../../copy/gen/privacy";
-import { consentPayload, consentWords } from "./consentCopy";
+import { consentPayload, consentWords, currentAnswer } from "./consentCopy";
 import "./privacy.css";
 
 /* The usage-sharing question (docs/architecture.md), asked the way
@@ -29,6 +31,12 @@ import "./privacy.css";
    Used by the welcome walk (a phase before the first step) and by the dialog
    that asks an existing install once. Settings has its own switches.
 
+   Asked again (`review`: the welcome walk's way back to the question), it says
+   what the person answered and opens on that answer: their own earlier ticks,
+   never a default, so the boxes show only when they chose some kinds. "Keep my
+   answer" moves on and records nothing; either answer records anew. Keep is
+   offered only when every kind asked has an answer that still holds.
+
    The welcome asks it in its own scene (`look="scene"`): each kind under an
    icon of its own, the never-sent promise in full ink with its own mark, the
    two answers larger. Only the look changes; the words, and so the record,
@@ -42,6 +50,7 @@ export function ConsentPane({
   onAnswered,
   safeRef,
   look = "plain",
+  review = false,
 }: {
   state: UsageState;
   /** The groups this screen asks about; the record names only these. */
@@ -49,21 +58,26 @@ export function ConsentPane({
   onAnswered: (next: UsageState) => void;
   safeRef?: Ref<HTMLButtonElement>;
   look?: "plain" | "scene";
+  /** Asked again after an answer: the answer shows, and can be kept. */
+  review?: boolean;
 }) {
   const scene = look === "scene";
   const titleId = useId();
   const introId = useId();
   const words = consentWords(groups);
   const single = words.groups.length === 1;
-  const [choosing, setChoosing] = useState(false);
-  const [chosen, setChosen] = useState<Partial<Record<UsageGroup, boolean>>>({});
+  const held = review ? currentAnswer(state, groups) : null;
+  const [choosing, setChoosing] = useState(held?.answer === "some");
+  const [chosen, setChosen] = useState<Partial<Record<UsageGroup, boolean>>>(() => held?.shared ?? {});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const picked = words.groups.some((group) => chosen[group.group] === true);
   // The link that opened the boxes is gone: keep the keyboard where it was going.
+  // Boxes open from the start (asked again) leave focus to the safe answer.
   const firstBox = useRef<HTMLInputElement>(null);
+  const openedByLink = useRef(false);
   useEffect(() => {
-    if (choosing) firstBox.current?.focus();
+    if (choosing && openedByLink.current) firstBox.current?.focus();
   }, [choosing]);
 
   const answer = async (share: (group: UsageGroup) => boolean) => {
@@ -119,9 +133,10 @@ export function ConsentPane({
           {scene && <span className="privacy-consent-icon"><Icon name="eyeOff" /></span>}
           {words.never}
         </p>
+        {held && <p className="privacy-consent-current">{privacyConsentCurrent({ answer: held.answer })}</p>}
         <p>{words.change}</p>
         {!single && !choosing && (
-          <Button variant="link" onClick={() => setChoosing(true)} disabled={saving}>
+          <Button variant="link" onClick={() => { openedByLink.current = true; setChoosing(true); }} disabled={saving}>
             {privacyChoose()}
           </Button>
         )}
@@ -146,6 +161,17 @@ export function ConsentPane({
         >
           {privacyHappyToHelp()}
         </Button>
+        {held && (
+          <Button
+            variant="ghost"
+            size={scene ? "lg" : undefined}
+            className="privacy-consent-keep"
+            onClick={() => onAnswered(state)}
+            disabled={saving}
+          >
+            {privacyKeepAnswer()}
+          </Button>
+        )}
       </div>
     </section>
   );

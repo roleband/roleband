@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "./fixtures";
+import { expect, mockGet, test } from "./fixtures";
 import type { Page } from "./fixtures";
 import type { Request } from "@playwright/test";
 import {
@@ -11,7 +11,9 @@ import { scopeCatalog, scopePreview } from "./scopeFixtures";
 /* Usage sharing asks once, records the words it showed, and never asks over
    the welcome walk (docs/architecture.md):
 
-   - a fresh install is asked between the radar intro and the walk;
+   - a fresh install is asked between the radar intro and the walk, and Back
+     from the walk's first step (setup's, or the browser's) asks again, on the
+     answer given, which can be kept or changed;
    - a configured install from before sharing existed is asked once, in a
      dialog whose safe answer has focus and whose Escape is "No thanks";
    - an answered install is not asked; a group widened since is asked alone;
@@ -149,6 +151,86 @@ test("an answered install goes straight from the intro to the walk", async ({ pa
   await expect(page).toHaveURL(/\/profile\/direction\?setup=1$/);
   await expect(page.getByRole("heading", { name: "What kind of role are you looking for?" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Help us improve" })).toHaveCount(0);
+});
+
+const fresh = (page: Page) => mockGet(page, "/api/profile", (route) => route.fulfill({
+  json: { profile: null, scope_configured: false, intent_statement: "" },
+}));
+const WALK = /\/profile\/direction\?setup=1$/;
+const firstStep = (page: Page) => page.getByRole("heading", { name: "What kind of role are you looking for?" });
+
+test("Back from setup's first step asks again on the answer given, and Keep records nothing", async ({ page }) => {
+  await fresh(page);
+  const usage = await usageServer(page, usageStateFixture("undecided"));
+  await page.goto("/welcome");
+  await page.getByRole("button", { name: "Tune the radar" }).click();
+  await page.getByRole("button", { name: "No thanks" }).click();
+  await expect(firstStep(page)).toBeVisible();
+  await page.getByLabel("Leading a team").check();
+
+  await page.getByRole("button", { name: "Back" }).click();
+  await expect(page).toHaveURL(/\/welcome$/);
+  const question = page.getByRole("region", { name: "Help us improve" });
+  await expect(question).toContainText("You said no thanks, so nothing is shared.");
+  // The intro is not played again, and Enter still never shares.
+  await expect(page.getByRole("button", { name: "Tune the radar" })).toHaveCount(0);
+  await expect(question.getByRole("button", { name: "No thanks" })).toBeFocused();
+  await question.getByRole("button", { name: "Keep my answer" }).click();
+
+  await expect(page).toHaveURL(WALK);
+  await expect(page.getByLabel("Leading a team")).toBeChecked();
+  expect(usage.answers.map((a) => a.answers)).toEqual([{ usage: false, crashes: false, questions: false }]);
+});
+
+test("the browser's Back from the walk asks again too, and a changed answer records the words anew", async ({ page }) => {
+  await fresh(page);
+  const usage = await usageServer(page, usageStateFixture("undecided"));
+  await page.goto("/welcome");
+  await page.getByRole("button", { name: "Tune the radar" }).click();
+  await page.getByRole("button", { name: "Happy to help" }).click();
+  await expect(firstStep(page)).toBeVisible();
+
+  await page.goBack();
+  const question = page.getByRole("region", { name: "Help us improve" });
+  await expect(question).toContainText("You said happy to help, so every kind above is shared.");
+  // Changing the answer: only crash reports now.
+  await question.getByRole("button", { name: "Let me choose" }).click();
+  for (const kind of [/Anonymous usage data/, /Crash reports/, /Feedback surveys/]) {
+    await expect(question.getByRole("checkbox", { name: kind })).toBeChecked();
+  }
+  await question.getByRole("checkbox", { name: /Anonymous usage data/ }).uncheck();
+  await question.getByRole("checkbox", { name: /Feedback surveys/ }).uncheck();
+  await question.getByRole("button", { name: "Happy to help" }).click();
+  await expect(firstStep(page)).toBeVisible();
+
+  expect(usage.answers.map((a) => a.answers)).toEqual([
+    { usage: true, crashes: true, questions: true },
+    { usage: false, crashes: true, questions: false },
+  ]);
+  expect(usage.answers[1].text).toBe(usage.answers[0].text);
+
+  // Asked a third time, it opens on exactly that choice.
+  await page.getByRole("button", { name: "Back" }).click();
+  await expect(question).toContainText("You share the kinds ticked above.");
+  await expect(question.getByRole("checkbox", { name: /Crash reports/ })).toBeChecked();
+  await expect(question.getByRole("checkbox", { name: /Anonymous usage data/ })).not.toBeChecked();
+  await expect(question.getByRole("checkbox", { name: /Feedback surveys/ })).not.toBeChecked();
+});
+
+test("with sharing switched off on this computer, Back from the walk opens the intro, whose button goes on", async ({ page }) => {
+  await fresh(page);
+  const usage = await usageServer(page, usageStateFixture("undecided", { blocked_by: "DO_NOT_TRACK" }));
+  await page.goto("/welcome");
+  await page.getByRole("button", { name: "Tune the radar" }).click();
+  await expect(firstStep(page)).toBeVisible();
+  await page.getByRole("button", { name: "Back" }).click();
+  await expect(page).toHaveURL(/\/welcome$/);
+  // No bounce straight back to the walk, and no question to ask.
+  await expect(page.getByRole("button", { name: "Tune the radar" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Help us improve" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Tune the radar" }).click();
+  await expect(firstStep(page)).toBeVisible();
+  expect(usage.answers).toEqual([]);
 });
 
 test("a configured install is asked once; the safe answer has focus and Escape declines", async ({ page }) => {

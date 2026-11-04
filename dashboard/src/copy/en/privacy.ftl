@@ -32,6 +32,14 @@ privacy-choose = Let me choose
 privacy-no-thanks = No thanks
 # kind=button
 privacy-happy-to-help = Happy to help
+# kind=button note="Shown when someone comes back to the question they already answered: moves on and changes nothing"
+privacy-keep-answer = Keep my answer
+# kind=sentence note="Shown when someone comes back to the question they already answered. answer is none (shares nothing), all (shares every kind listed) or some (shares the ticked kinds)"
+privacy-consent-current = { $answer ->
+    [none] You said no thanks, so nothing is shared.
+    [all] You said happy to help, so every kind above is shared.
+   *[some] You share the kinds ticked above.
+}
 # kind=error
 privacy-save-error = Couldn't save your choice. Try again.
 

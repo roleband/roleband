@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { PROFILE_TABS } from "../../navTabs";
 import { useTabRoute } from "../../routing/useTabRoute";
 import { SETUP_PATH, useSetupMode, type SetupCompaniesProps } from "../../routing/setupMode";
+import { SHARING_REVIEW } from "./sharingReview";
 import { useInstallSetUp } from "../../routing/installSetUp";
 import { ScopeDraftProvider } from "./useScopeDraft";
 import { Walk } from "./walk/Walk";
@@ -75,7 +76,14 @@ export function ProfileView({
             <ResourceLoadState error={null} loading={radarLoading()} />
           ) : (
             <ScopeDraftProvider key={inSetup ? "setup" : "profile"} initialSelection={inSetup ? "empty" : "saved"}>
-              <Walk setup={inSetup ? { companies: setupCompanies, onLater: () => navigate("/", { replace: true }) } : undefined} />
+              <Walk
+                setup={inSetup ? {
+                  companies: setupCompanies,
+                  onLater: () => navigate("/", { replace: true }),
+                  // The welcome's sharing question, opened on the answer given.
+                  onBack: () => navigate("/welcome", { state: SHARING_REVIEW }),
+                } : undefined}
+              />
             </ScopeDraftProvider>
           )}
         </div>

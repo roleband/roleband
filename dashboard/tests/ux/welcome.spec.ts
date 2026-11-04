@@ -110,8 +110,8 @@ test("a fresh install goes from the intro through Profile's walk to a board that
     expect(said.y + said.height).toBeLessThanOrEqual(bar.y + bar.height + 1);
   }
   await expect(page.getByLabel("Leading a team")).not.toBeChecked();
-  // The first step has nowhere to go back to.
-  await expect(page.getByRole("button", { name: "Back" })).toBeHidden();
+  // The first step's Back goes to the sharing question before the walk.
+  await expect(page.getByRole("button", { name: "Back" })).toBeVisible();
   await page.getByLabel("Hands-on, as the expert").check();
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByText("Setup, step 2 of 7")).toBeVisible();
@@ -231,8 +231,9 @@ test("Set up later leaves without saving, and the next launch offers setup again
 
 /* Setup saves nothing before Start, so its steps are the browser's history
    and its answers are the tab's: Back, the browser's or a phone's gesture,
-   steps back through setup and from its first step to the welcome, never out
-   of RoleBand, and a reload opens the step it left with every answer. */
+   steps back through setup and from its first step to the welcome's sharing
+   question, never out of RoleBand, and a reload opens the step it left with
+   every answer. */
 test("Back steps back through setup, and a reload keeps the step and its answers", async ({ page }) => {
   const saves = await install(page, FRESH);
   await page.goto("/");
@@ -262,9 +263,10 @@ test("Back steps back through setup, and a reload keeps the step and its answers
   await expect(page.getByLabel("Leading a team")).toBeChecked();
   await page.goBack();
   await expect(page).toHaveURL(/\/welcome$/);
+  await expect(page.getByRole("region", { name: "Help us improve" })).toContainText("You said no thanks");
 
   // Into the walk again, the answers are still there.
-  await page.getByRole("button", { name: "Tune the radar" }).click();
+  await page.getByRole("button", { name: "Keep my answer" }).click();
   await expect(page.getByLabel("Leading a team")).toBeChecked();
   expect(saves).toEqual([]);
 });

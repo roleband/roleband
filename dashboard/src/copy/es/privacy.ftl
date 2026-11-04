@@ -15,6 +15,12 @@ privacy-sent-load-failed = No se pudo cargar lo enviado
 privacy-choose = Déjame elegir
 privacy-no-thanks = No, gracias
 privacy-happy-to-help = Encantado de ayudar
+privacy-keep-answer = Mantener mi respuesta
+privacy-consent-current = { $answer ->
+    [none] Dijiste que no, así que no se comparte nada.
+    [all] Dijiste que sí, así que se comparte cada tipo de arriba.
+   *[some] Compartes los tipos marcados arriba.
+}
 privacy-save-error = No se pudo guardar tu elección. Inténtalo de nuevo.
 privacy-settings-title = Privacidad
 privacy-settings-intro = Cada tipo de envío está desactivado hasta que lo actives. Al desactivar uno, se detiene al momento.

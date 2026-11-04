@@ -151,3 +151,64 @@ it("asks only about groups never answered or widened since", () => {
   state.groups[2].status = "shared";
   expect(groupsToAsk(state)).toEqual(["usage", "crashes"]);
 });
+
+/* Asked again (`review`): the welcome walk's way back to a question already
+   answered. It says the answer, opens on it, and Keep records nothing. */
+
+/** An answered state: each kind shared or declined as given. */
+function answered(shared: readonly (typeof ALL)[number][]) {
+  const state = usageStateFixture("declined");
+  for (const group of state.groups) group.status = shared.includes(group.group) ? "shared" : "declined";
+  return state;
+}
+
+it("asked again after No thanks, says so, opens with no boxes, and Keep records nothing", async () => {
+  const state = answered([]);
+  const onAnswered = vi.fn();
+  render(<ConsentPane review state={state} groups={[...ALL]} onAnswered={onAnswered} />);
+  expect(region()).toHaveTextContent("You said no thanks, so nothing is shared.");
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  expect(answerNames()).toEqual(["Let me choose", "No thanks", "Happy to help", "Keep my answer"]);
+  await userEvent.click(screen.getByRole("button", { name: "Keep my answer" }));
+  expect(onAnswered).toHaveBeenCalledWith(state);
+  expect(api.saveUsageConsent).not.toHaveBeenCalled();
+});
+
+it("asked again after Happy to help, No thanks withdraws every kind and records the words again", async () => {
+  render(<ConsentPane review state={answered([...ALL])} groups={[...ALL]} onAnswered={vi.fn()} />);
+  expect(region()).toHaveTextContent("You said happy to help, so every kind above is shared.");
+  await userEvent.click(screen.getByRole("button", { name: "No thanks" }));
+  await waitFor(() => expect(api.saveUsageConsent).toHaveBeenCalled());
+  const { answers, text } = sent();
+  expect(answers).toEqual({ usage: false, crashes: false, questions: false });
+  expect(text).toBe(consentText(consentWords([...ALL])));
+});
+
+it("asked again after choosing some, opens on exactly the person's own ticks and records a change", async () => {
+  render(<ConsentPane review state={answered(["crashes"])} groups={[...ALL]} onAnswered={vi.fn()} />);
+  expect(region()).toHaveTextContent("You share the kinds ticked above.");
+  // Open from the start, the boxes do not take the keyboard from the safe answer.
+  for (const box of screen.getAllByRole("checkbox")) expect(box).not.toHaveFocus();
+  expect(screen.getByRole("checkbox", { name: /Anonymous usage data/ })).not.toBeChecked();
+  expect(screen.getByRole("checkbox", { name: /Crash reports/ })).toBeChecked();
+  expect(screen.getByRole("checkbox", { name: /Feedback surveys/ })).not.toBeChecked();
+  await userEvent.click(screen.getByRole("checkbox", { name: /Feedback surveys/ }));
+  await userEvent.click(screen.getByRole("button", { name: "Happy to help" }));
+  await waitFor(() => expect(api.saveUsageConsent).toHaveBeenCalled());
+  expect(sent().answers).toEqual({ usage: false, crashes: true, questions: true });
+});
+
+it("asked again with a kind widened since, has nothing to keep and ticks nothing for it", () => {
+  const state = answered([...ALL]);
+  state.groups[1].status = "stale";
+  render(<ConsentPane review state={state} groups={[...ALL]} onAnswered={vi.fn()} />);
+  expect(screen.queryByRole("button", { name: "Keep my answer" })).toBeNull();
+  expect(region()).not.toHaveTextContent(/You said|You share/);
+  expect(screen.queryByRole("checkbox")).toBeNull();
+});
+
+it("asked the first time, never offers Keep, even on a state that has an answer", () => {
+  render(<ConsentPane state={answered(["usage"])} groups={[...ALL]} onAnswered={vi.fn()} />);
+  expect(screen.queryByRole("button", { name: "Keep my answer" })).toBeNull();
+  expect(screen.queryByRole("checkbox")).toBeNull();
+});

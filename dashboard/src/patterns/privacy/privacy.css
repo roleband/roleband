@@ -132,6 +132,11 @@ div.privacy-consent-choice {
   border-top: 1px solid var(--app-border);
 }
 
+/* Keeping an answer is not a third answer: it spans the row under the two. */
+.privacy-consent-keep {
+  grid-column: 1 / -1;
+}
+
 @media (max-width: 640px) {
   .privacy-consent-dialog .privacy-consent {
     padding: var(--app-space-4);

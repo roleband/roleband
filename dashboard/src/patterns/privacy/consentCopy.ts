@@ -86,6 +86,21 @@ export function groupsToAsk(state: UsageState): UsageGroup[] {
     .map((group) => group.group);
 }
 
+/** The answer that still holds for `groups`: which of them are shared, and
+ *  whether that is none, all or some. Null while any of them has no answer
+ *  that holds (never answered, or shared before it was widened), since there
+ *  is then nothing to keep. */
+export function currentAnswer(
+  state: UsageState,
+  groups: readonly UsageGroup[],
+): { answer: "none" | "all" | "some"; shared: Partial<Record<UsageGroup, boolean>> } | null {
+  const asked = state.groups.filter((group) => groups.includes(group.group));
+  if (asked.length === 0 || asked.some((group) => group.status !== "shared" && group.status !== "declined")) return null;
+  const shared = Object.fromEntries(asked.map((group) => [group.group, group.status === "shared"]));
+  const count = asked.filter((group) => group.status === "shared").length;
+  return { answer: count === 0 ? "none" : count === asked.length ? "all" : "some", shared };
+}
+
 /** The PUT body for answering `answers`, with the words shown and the
  *  fingerprints the screen was built from (a stale one is refused with 409). */
 export function consentPayload(
