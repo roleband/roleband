@@ -46,8 +46,8 @@ import {
    fields: what to write while the box is empty, the amount it will set once
    it reads as one, and why not once it cannot (a separator just typed after
    an amount is still being typed, not a mistake). Set is offered only for an
-   amount it can set, so it is plain until then and takes the action's edge
-   once it can. */
+   amount it can set: dimmed until then, and the band's action once it can,
+   never a second primary beside the Summary's way out. */
 
 const CURRENCIES = ["USD", "CAD", "GBP", "EUR", "CHF", "AUD", "SGD", "INR", "JPY"];
 
@@ -229,6 +229,7 @@ export function PayFloorRow({
             <Button
               type="submit"
               variant="ghost"
+              className="ui-btn-strong"
               disabled={writing || reading !== "ready"}
             >
               {held ? profilePayFloorRowSetFloor() : profilePayFloorRowSaveFloor({ choice: (writing) ? "yes" : "no" })}

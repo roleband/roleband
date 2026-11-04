@@ -180,8 +180,8 @@ test("a fresh install goes from the intro through Profile's walk to a board that
   await expect(page.getByRole("heading", { name: "Summary" })).toBeVisible();
   // The pay floor is set here but held: Start is setup's one save.
   await page.getByRole("button", { name: "Add a minimum base" }).click();
-  const amount = page.getByLabel("Lowest yearly base salary");
-  const setFloor = page.getByRole("button", { name: "Set minimum base" });
+  const amount = page.getByLabel(msg("profile-pay-floor-row-lowest-yearly-base-pay"));
+  const setFloor = page.getByRole("button", { name: msg("profile-pay-floor-row-set-floor") });
   await expect(setFloor).toBeDisabled();
   // Something that is not an amount says why, in ink that can be read on the
   // editor's ground, and Set waits.
@@ -193,8 +193,8 @@ test("a fresh install goes from the intro through Profile's walk to a board that
   const yearly = msg("profile-pay-floor-row-set-your-pay-floor", { choice: "yes", amount: "$200,000" });
   await expect(amount).toHaveAccessibleDescription(yearly);
   await setFloor.click();
-  await expect(page.getByRole("button", { name: "Adjust minimum base" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Minimum base" })).toContainText(yearly);
+  await expect(page.getByRole("button", { name: msg("profile-pay-floor-row-add-a-pay-floor", { choice: "yes" }) })).toBeVisible();
+  await expect(page.getByRole("region", { name: msg("profile-pay-floor-row-pay-floor") })).toContainText(yearly);
   expect(saves).toEqual([]);
   expect(floorWrites).toEqual([]);
   const onward = (await page.getByRole("button", { name: "Continue" }).boundingBox())!;
