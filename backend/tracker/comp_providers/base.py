@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from tracker.blueprint import BLUEPRINT
-from tracker.schema import LevelBand
+from tracker.schema import LevelBand, LevelBasis
 
 #: The provider value of the core's own dataset.
 BUILTIN = "builtin"
@@ -43,6 +43,10 @@ class CompContext:
     #: for one country and is never shown for a posting in another.
     country: str | None
     title: str
+    #: What decided `band`. An unplaced basis (`schema.UNPLACED_BASES`) means the
+    #: band is a guess kept for sorting, and the resolver prices no rung for it.
+    #: None reads as generic, as a NULL stored basis does.
+    level_basis: LevelBasis | None = None
 
 
 @dataclass

@@ -372,6 +372,7 @@ role-job-comp-panel-estimate-of-total = 估算总薪酬：{ $range }
 role-job-comp-panel-split-not-reported = 无构成数据
 role-job-comp-panel-the-plugin-reports-no-split = 提供薪酬的插件给出了这个级别的数字，但没有说明它如何分为基本工资、奖金和股权，因此不做拆分。
 role-job-comp-panel-roleband-splits-us-pay-only = 薪酬仅依据美国数据拆分为基本工资、奖金和股权。此职位在美国以外或跨多个国家，因此不做拆分。
+role-job-comp-panel-the-posting-names-no-matching-level = 招聘信息没有注明与该公司职级相符的级别，因此薪酬不拆分为基本工资、奖金和股权，也不估算总额。
 role-job-comp-panel-not-read-yet = 尚未读取
 role-job-comp-panel-estimated-base = 估算基本工资
 role-job-comp-panel-from-roleband-data = 来自内置数据。

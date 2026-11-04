@@ -85,7 +85,10 @@ corrects one; `db/pay_band.py` holds the rule all of them apply.
 
 `enrich/comp.CompResolver` asks its providers in order. The first answer is the
 headline; every answer is kept in `comp_sources` for the job detail. No band
-below Senior gets an estimate, because no reference data starts lower.
+below Senior gets an estimate, because no reference data starts lower. Nor does
+a level we cannot place (`level_basis` `none` or `unmapped`,
+`schema.UNPLACED_BASES`): its band is a guess kept for sorting, so no source
+prices it, ours or a plugin's. The pay the posting states still shows.
 
 Each provider answers a `CompEstimate`: a total (`median`, `low`, `high`), a
 base range (`base_median`, `base_low`, `base_high`), or both. A missing part is
@@ -162,7 +165,8 @@ you make the estimate read a new file, add it to `ESTIMATE_SOURCES`
 imports into `tracker.levels` and `tracker.comp_providers` so a module it reads
 cannot be left out).
 
-The hash never covers a job's own fields (company, band, family, place, title).
+The hash never covers a job's own fields (company, band and its basis, family,
+place, title).
 Code that moves them outside a scan calls `reestimate.refresh_jobs(ids)`: the
 levels backfill, the role reclassify (pass and script) and a held row's fresh
 read do. It re-estimates those jobs under the set that applies: settled, their
@@ -254,6 +258,7 @@ bonus and equity are unknown, not zero.
 | `plugin_without_split` | A plugin answers pay and its rows give no split for this level. Our heuristic and policy are our data and never split a plugin's figure. |
 | `plugin_not_covered` | A plugin answers pay and has not read this company. |
 | `not_us_pay` | RoleBand answers pay and the posting's pay is not US pay: another country, or places in several. Our split is measured on US pay only. |
+| `level_unplaced` | The posting names no level, or one we cannot place. Its band is a guess, so no row is read for it: no bonus, equity or total is built on it, and nothing is reconciled against it. |
 
 While a plugin answers pay, the package also omits the offer `policy` line,
 which is RoleBand's data.
@@ -339,6 +344,8 @@ Staff and Principal: blueprint checks `offer_policy` and `pay_reference` in
 
 - Never split a band whose basis is `unclear`, never annualise an hourly or
   monthly rate, never split a stated total.
+- Never price a level we cannot place. Its band is kept for sorting only: it
+  gets no estimate, and a stated band at it is shown whole.
 - Equity's range comes from equity's own tolerance, never from the width of
   the base band. For the same reason `tc_target_minus_base` is not used as a
   second equity estimator: evaluated at both ends of a posted band it rebuilds

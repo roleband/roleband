@@ -79,7 +79,7 @@ from tracker.enrich.builtin_pay import Index as BuiltinIndex
 from tracker.enrich.comp import OURS, CompResolver, EstimateSet
 from tracker.enrich.enricher import ESTIMATE_FIELDS, estimate_values
 from tracker.plugins.registry import ESTIMATE_SLOTS, PAY_LEVELS, Providers, load_providers
-from tracker.schema import LevelBand
+from tracker.schema import LevelBand, LevelBasis
 from tracker.taxonomy.locations import pay_country
 
 logger = logging.getLogger(__name__)
@@ -319,6 +319,14 @@ class ReestimateResult:
     inputs: ReferenceInputs | None = None
 
 
+def _basis(value: str | None) -> LevelBasis | None:
+    """A stored basis; NULL or an unknown value reads as generic, as relevel reads it."""
+    try:
+        return LevelBasis(value) if value else None
+    except ValueError:
+        return None
+
+
 async def _estimates(estimates: EstimateSet, job: Any) -> dict[str, dict[str, Any]]:
     """Each source's estimate fields, providers' answers and fingerprint for one
     stored job."""
@@ -337,6 +345,7 @@ async def _estimates(estimates: EstimateSet, job: Any) -> dict[str, dict[str, An
             location_group=(job.location_groups or [None])[0],
             country=pay_country(job.location_groups),
             title=job.title,
+            level_basis=_basis(job.level_basis),
         )
         answers = await estimates.resolve(ctx)
     return {
@@ -396,7 +405,7 @@ async def refresh_jobs(session: AsyncSession, job_ids: Iterable[int]) -> int:
             return 0
     estimates = inputs.estimate_set()
     jobs = (await session.execute(
-        select(Job.id, Job.company, Job.level_band, Job.family, Job.location_groups, Job.title)
+        select(Job.id, Job.company, Job.level_band, Job.level_basis, Job.family, Job.location_groups, Job.title)
         .where(Job.id.in_(ids))
     )).all()
     rows: list[dict[str, Any]] = []
@@ -544,7 +553,8 @@ async def reestimate(
         jobs = (
             await session.execute(
                 select(
-                    Job.id, Job.company, Job.level_band, Job.family, Job.location_groups, Job.title,
+                    Job.id, Job.company, Job.level_band, Job.level_basis, Job.family, Job.location_groups,
+                    Job.title,
                     Job.comp_median, Job.comp_base_median,
                 )
                 .where(Job.id > cursor)

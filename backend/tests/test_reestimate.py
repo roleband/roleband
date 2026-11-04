@@ -834,7 +834,8 @@ async def test_the_level_and_role_passes_refresh_what_they_moved(db_session, mon
     monkeypatch.setattr(reestimate_module, "refresh_jobs", spy)
     reading = SimpleNamespace(band=LevelBand.SENIOR, confidence=LevelConfidence.CONFIRMED,
                               basis=SimpleNamespace(value="title"))
-    pending = [SimpleNamespace(row=SimpleNamespace(id=mid.id), reading=reading, band_moved=True)]
+    pending = [SimpleNamespace(row=SimpleNamespace(id=mid.id), reading=reading, band_moved=True,
+                               estimate_moved=True)]
 
     async def fake_pending(session, *, company=None):
         return 1, pending

@@ -110,6 +110,41 @@ describe("JobCompPanel", () => {
     expect(screen.getAllByText("$479K–$648K").length).toBeGreaterThan(0);
   });
 
+  // A level we cannot place: the posted base stands, nothing is built on the guess.
+  const UNPLACED: JobCompPackage = compPackageFixture({
+    state: "band",
+    basis: "base",
+    currency: "USD",
+    pay_period: "year",
+    stated: { low: 151200, high: 223200 },
+    components: [],
+    total: null,
+    estimate: null,
+    split_source: null,
+    no_split_reason: "level_unplaced",
+    snippet: "$151,200 - $223,200 base",
+    confidence: "high",
+  });
+
+  function expectPostedBaseWhole() {
+    expect(screen.getAllByText("$151K–$223K").length).toBeGreaterThan(0);
+    expect(screen.getByText(msg("role-job-comp-panel-the-posting-names-no-matching-level"))).toBeInTheDocument();
+    expect(screen.queryByText("Equity")).not.toBeInTheDocument();
+  }
+
+  it("shows an unmapped level's posted base whole, tagged as the job card tags it", () => {
+    render(<JobCompPanel job={{ ...withPackage(UNPLACED), level_basis: "unmapped" }} />);
+    expectPostedBaseWhole();
+    expect(screen.getByText(msg("taxonomy-level-not-mapped"))).toBeInTheDocument();
+  });
+
+  it("tags a posting that names no level as not stated, never as not mapped", () => {
+    render(<JobCompPanel job={{ ...withPackage(UNPLACED), level_basis: "none" }} />);
+    expectPostedBaseWhole();
+    expect(screen.getByText(msg("taxonomy-level-not-stated"))).toBeInTheDocument();
+    expect(screen.queryByText(msg("taxonomy-level-not-mapped"))).not.toBeInTheDocument();
+  });
+
   it("names the posting's own employer for an employee-selected mix, never a fixed one", () => {
     // The reason comes from the atlas (`equity_rule`), not from this panel: a
     // second employer with the rule is named as itself.

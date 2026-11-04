@@ -388,6 +388,7 @@ role-job-comp-panel-estimate-of-total = Compensación total estimada: { $range }
 role-job-comp-panel-split-not-reported = reparto no disponible
 role-job-comp-panel-the-plugin-reports-no-split = El plugin que aporta la compensación da una cifra para este nivel, pero no cómo se reparte entre base, bonus y equity, así que no se divide.
 role-job-comp-panel-roleband-splits-us-pay-only = La compensación se divide en base, bonus y acciones solo con datos de EE. UU. Este puesto está fuera de EE. UU. o en varios países, así que no se divide.
+role-job-comp-panel-the-posting-names-no-matching-level = La oferta no indica un nivel que coincida con los niveles de esta empresa, así que su compensación no se divide en base, bonus y acciones, y no se estima un total.
 role-job-comp-panel-not-read-yet = aún sin leer
 role-job-comp-panel-estimated-base = Salario base estimado
 role-job-comp-panel-from-roleband-data = De los datos integrados.

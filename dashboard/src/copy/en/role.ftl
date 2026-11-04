@@ -106,6 +106,8 @@ role-job-comp-panel-split-not-reported = split unavailable
 role-job-comp-panel-the-plugin-reports-no-split = The plugin that supplies compensation gives a figure for this level but not how it divides into base, bonus and equity, so it is not split.
 # kind=sentence note="RoleBand's own split is measured on US pay; this posting is in another country, or names places in several"
 role-job-comp-panel-roleband-splits-us-pay-only = Compensation is split into base, bonus and equity from US data only. This role is outside the US or in several countries, so it isn't split.
+# kind=sentence note="The posting names no level, or one that matches none of this company's levels: its pay is shown as posted, with no estimated bonus, equity or total"
+role-job-comp-panel-the-posting-names-no-matching-level = The posting doesn't name a level that matches this company's levels, so its pay isn't split into base, bonus and equity, and no total is estimated.
 # kind=label note="A plugin answers pay app-wide and has not read this posting's company yet"
 role-job-comp-panel-not-read-yet = not read yet
 # kind=label wording=as-is

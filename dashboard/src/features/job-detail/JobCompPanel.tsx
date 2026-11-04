@@ -63,6 +63,7 @@ import {
   roleJobCompPanelPostedBandSitsWellAbove,
   roleJobCompPanelPostedBandSitsWellBelow,
   roleJobCompPanelRolebandSplitsUsPayOnly,
+  roleJobCompPanelThePostingNamesNoMatchingLevel,
   roleJobCompPanelSplitFromAnotherDiscipline,
   roleJobCompPanelStated,
   roleJobCompPanelStatedByTheEmployer,
@@ -90,6 +91,7 @@ import {
   roleJobCompPanelSplitFromRoleband,
 } from "../../copy/gen/role";
 import { sharedPayEstBaseHint, sharedPayNotCovered, sharedPayNotCoveredHint } from "../../copy/gen/shared";
+import { LEVEL_NOT_MAPPED, LEVEL_NOT_STATED } from "../../copy/vocabulary";
 import { Msg } from "../../ui/Msg";
 
 const KIND_LABEL: Record<CompComponent["kind"], string> = {
@@ -192,7 +194,7 @@ const PERIOD_UNIT: Record<string, string> = { get year() { return (" " + roleJob
     `companies.json` may name a company here). */
 const NO_SPLIT: Record<
   NonNullable<JobCompPackage["no_split_reason"]>,
-  { tag: string; why: string | ((company: string, plugin: string) => string) }
+  { tag: string | ((job: Job) => string); why: string | ((company: string, plugin: string) => string) }
 > = {
   hourly: {
     get tag() { return roleJobCompPanelHourlyRate(); },
@@ -236,7 +238,18 @@ const NO_SPLIT: Record<
     get tag() { return roleJobCompPanelSplitNotReported(); },
     get why() { return roleJobCompPanelRolebandSplitsUsPayOnly(); },
   },
+  // The level is a guess kept for sorting: the posted pay stands, and nothing
+  // is built on that level. The tag is the one the job card shows.
+  level_unplaced: {
+    tag: (job) => (job.level_basis === "none" ? LEVEL_NOT_STATED() : LEVEL_NOT_MAPPED()),
+    get why() { return roleJobCompPanelThePostingNamesNoMatchingLevel(); },
+  },
 };
+
+function noSplitTag(reason: NonNullable<JobCompPackage["no_split_reason"]>, job: Job): string {
+  const tag = NO_SPLIT[reason].tag;
+  return typeof tag === "function" ? tag(job) : tag;
+}
 
 function noSplitWhy(reason: NonNullable<JobCompPackage["no_split_reason"]>, job: Job): string {
   const why = NO_SPLIT[reason].why;
@@ -472,7 +485,7 @@ export default function JobCompPanel({ job }: { job: Job }) {
           headline is its estimate, and this says why there is no bar. */}
       {pkg.no_split_reason && !stated && (
         <p className="pkg-note" data-testid="pkg-no-split">
-          <span className="pkg-tag pkg-tag-warn">{NO_SPLIT[pkg.no_split_reason].tag}</span>{" "}
+          <span className="pkg-tag pkg-tag-warn">{noSplitTag(pkg.no_split_reason, job)}</span>{" "}
           {noSplitWhy(pkg.no_split_reason, job)}
         </p>
       )}
@@ -483,7 +496,7 @@ export default function JobCompPanel({ job }: { job: Job }) {
           <div className="pkg-unclear-n">
             {span(stated, cur)}
             {statedUnit}
-            <span className="pkg-tag pkg-tag-warn">{NO_SPLIT[pkg.no_split_reason].tag}</span>
+            <span className="pkg-tag pkg-tag-warn">{noSplitTag(pkg.no_split_reason, job)}</span>
           </div>
           <p>{noSplitWhy(pkg.no_split_reason, job)}</p>
           {estimate?.median != null && (
