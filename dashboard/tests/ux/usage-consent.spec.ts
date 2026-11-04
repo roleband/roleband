@@ -281,11 +281,11 @@ test("the browser's Back from the walk asks again too, and a changed answer reco
   await expect(question.getByRole("button", { name: msg("privacy-happy-to-help") })).toBeFocused();
   // Changing the answer: only crash reports now.
   await question.getByRole("button", { name: msg("privacy-choose") }).click();
-  for (const kind of [/Anonymous usage data/, /Crash reports/, /Feedback surveys/]) {
+  for (const kind of [msg("privacy-group-usage"), msg("privacy-group-crashes"), msg("privacy-group-questions")]) {
     await expect(question.getByRole("checkbox", { name: kind })).toBeChecked();
   }
-  await question.getByRole("checkbox", { name: /Anonymous usage data/ }).uncheck();
-  await question.getByRole("checkbox", { name: /Feedback surveys/ }).uncheck();
+  await question.getByRole("checkbox", { name: msg("privacy-group-usage") }).uncheck();
+  await question.getByRole("checkbox", { name: msg("privacy-group-questions") }).uncheck();
   await question.getByRole("button", { name: msg("privacy-happy-to-help") }).click();
   await expect(firstStep(page)).toBeVisible();
 
@@ -298,9 +298,9 @@ test("the browser's Back from the walk asks again too, and a changed answer reco
   // Asked a third time, it opens on exactly that choice.
   await page.getByRole("button", { name: msg("profile-welcome-wizard-back") }).click();
   await expect(question.getByRole("button", { name: msg("privacy-happy-to-help") })).toHaveAccessibleDescription(msg("privacy-your-answer"));
-  await expect(question.getByRole("checkbox", { name: /Crash reports/ })).toBeChecked();
-  await expect(question.getByRole("checkbox", { name: /Anonymous usage data/ })).not.toBeChecked();
-  await expect(question.getByRole("checkbox", { name: /Feedback surveys/ })).not.toBeChecked();
+  await expect(question.getByRole("checkbox", { name: msg("privacy-group-crashes") })).toBeChecked();
+  await expect(question.getByRole("checkbox", { name: msg("privacy-group-usage") })).not.toBeChecked();
+  await expect(question.getByRole("checkbox", { name: msg("privacy-group-questions") })).not.toBeChecked();
 });
 
 test("with sharing switched off on this computer, Back from the walk opens the intro, whose button goes on", async ({ page }) => {
@@ -343,8 +343,8 @@ test("ticking kinds in the dialog shares exactly those, and the dialog fits a ph
   await dialog.getByRole("button", { name: msg("privacy-choose") }).click();
   // Clicking the row's sentence ticks its box: the row is the hit target.
   await dialog.getByText(msg("privacy-group-questions-detail")).click();
-  await expect(dialog.getByRole("checkbox", { name: /Feedback surveys/ })).toBeChecked();
-  await expect(dialog.getByRole("checkbox", { name: /Crash reports/ })).not.toBeChecked();
+  await expect(dialog.getByRole("checkbox", { name: msg("privacy-group-questions") })).toBeChecked();
+  await expect(dialog.getByRole("checkbox", { name: msg("privacy-group-crashes") })).not.toBeChecked();
   // Nothing is cut off at phone width: no sideways scroll, both answers visible side by side.
   const overflow = await dialog.evaluate((node) => node.scrollWidth - node.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
