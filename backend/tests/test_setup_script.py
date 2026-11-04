@@ -14,6 +14,7 @@ from __future__ import annotations
 import shutil
 import stat
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -227,7 +228,7 @@ def test_a_mac_without_the_apple_sdk_is_told_why_and_how_to_add_it(tmp_path):
     assert proc.returncode == 0, proc.stdout + proc.stderr
     step = _apple_step(proc)
     assert "needs a full Xcode" in step
-    assert "install Xcode and run ./setup.sh again" in step
+    assert "install Xcode if this Mac does not have it, then run ./setup.sh again" in step
     assert "off macOS" not in step
     assert "only on a Mac" not in step
     assert "\u2014" not in step
@@ -254,6 +255,44 @@ def test_an_importable_apple_sdk_gets_neither_missing_message(tmp_path):
     assert "Apple Intelligence available" in step
     assert "not installed" not in step
     assert "does not apply" not in step
+
+
+def _apple_check_exit(tmp_path: Path, sdk_init: str | None) -> int:
+    """Run setup.sh's own Apple Intelligence check with `sdk_init` as the
+    package body of `apple_fm_sdk` (None: no such package). `-S` keeps any SDK
+    installed in this interpreter's site-packages out of the answer."""
+    script = (REPO / "setup.sh").read_text().split(".venv/bin/python - <<'PY'\n", 1)[1].split("\nPY\n", 1)[0]
+    path = tmp_path / "site"
+    path.mkdir()
+    if sdk_init is not None:
+        (path / "apple_fm_sdk").mkdir()
+        (path / "apple_fm_sdk" / "__init__.py").write_text(sdk_init)
+    proc = subprocess.run(
+        [sys.executable, "-S", "-"], input=script, env={"PYTHONPATH": str(path)},
+        capture_output=True, text=True, timeout=30,
+    )
+    return proc.returncode
+
+
+def test_the_apple_check_reports_a_missing_sdk_as_status_3(tmp_path):
+    assert _apple_check_exit(tmp_path, None) == 3
+
+
+@pytest.mark.parametrize(
+    "sdk_init",
+    ["import a_dependency_that_is_not_installed\n", "raise ImportError('broken native library')\n"],
+    ids=["missing-dependency", "broken-import"],
+)
+def test_an_installed_sdk_that_fails_to_import_is_not_reported_as_missing(tmp_path, sdk_init):
+    """Status 3 gets the Xcode advice, which is wrong for an SDK that is
+    installed but breaks on import."""
+    assert _apple_check_exit(tmp_path, sdk_init) == 4
+
+
+def test_an_sdk_that_imports_and_answers_ready_passes_the_check(tmp_path):
+    """The control for the two tests above: the fake package is importable at all."""
+    ready = "class SystemLanguageModel:\n    def is_available(self):\n        return True, None\n"
+    assert _apple_check_exit(tmp_path, ready) == 0
 
 
 def _setup_steps(action: str) -> list[tuple[str, dict]]:

@@ -159,8 +159,13 @@ if .venv/bin/python - <<'PY'
 import sys
 try:
     import apple_fm_sdk as fm
-except Exception:
-    sys.exit(3)
+except Exception as exc:
+    # 3 means the SDK itself is absent. An installed SDK whose import breaks
+    # (a missing dependency of its own) is a different fault with other advice.
+    if isinstance(exc, ModuleNotFoundError) and exc.name == "apple_fm_sdk":
+        sys.exit(3)
+    print(f"SDK installed, but it could not be imported: {exc}")
+    sys.exit(4)
 try:
     available, reason = fm.SystemLanguageModel().is_available()
 except Exception as exc:
@@ -180,7 +185,7 @@ else
       # Off macOS the marker in requirements-optional.txt keeps the SDK out. On a
       # Mac it is missing when the optional pass above could not build it.
       if [ "$(uname -s)" = Darwin ]; then
-        warn "apple-fm-sdk is not installed: building it needs a full Xcode, not only the Command Line Tools. Nothing is affected. Pay extraction is built in. To add it, install Xcode and run ./setup.sh again."
+        warn "apple-fm-sdk is not installed. Building it needs a full Xcode, not only the Command Line Tools. Nothing is affected. Pay extraction is built in. To add it, install Xcode if this Mac does not have it, then run ./setup.sh again."
       else
         warn "Apple Intelligence runs only on a Mac, so it does not apply here. Nothing is affected. Pay extraction is built in."
       fi
