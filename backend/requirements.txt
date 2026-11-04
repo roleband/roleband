@@ -1,7 +1,7 @@
 # Core
 httpx[http2]==0.28.1
 curl_cffi==0.15.0  # TLS-fingerprint fetch tier, consent-gated per walled company (connectors/runtime/tiers.py)
-ijson==3.3.0
+ijson==3.6.0
 selectolax==1.0.2
 python-dateutil==2.9.0.post0
 cryptography==50.0.2  # seals saved API keys at rest (platform/secrets.py)

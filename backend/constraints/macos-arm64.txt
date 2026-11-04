@@ -109,7 +109,7 @@ idna==3.18
     #   anyio
     #   httpx
     #   requests
-ijson==3.3.0
+ijson==3.6.0
     # via -r requirements.txt
 import-linter==2.15
     # via -r requirements-dev.txt
