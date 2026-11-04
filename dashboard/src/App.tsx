@@ -57,6 +57,7 @@ import { useMissionActions, useMissionState, useMissionStats } from "./context/M
 import { modeFromParam } from "./features/opportunities/boardMode";
 import { BEHIND_COVER } from "./ui/Overlay";
 import { BrandMark } from "./ui/BrandMark";
+import { onSharingAnswered } from "./diagnostics/sharingAnswered";
 
 // Usage sharing asks a configured install once (docs/architecture.md); lazy,
 // so its words stay out of the startup chunk.
@@ -199,6 +200,9 @@ function Shell() {
     setSharingState(next);
     startSharing(next);
   }, []);
+  // The welcome records its own answer (and starts sharing itself); the state
+  // the question is asked from follows it.
+  useEffect(() => onSharingAnswered(setSharingState), []);
 
   // First run: a fresh install (no persona profile, scope never configured)
   // starts in the onboarding wizard. Configured installs are never redirected.

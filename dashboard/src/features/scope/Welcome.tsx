@@ -8,6 +8,7 @@ import { SHARING_REVIEW, isSharingReview } from "./sharingReview";
 import { ConsentPane } from "../../patterns/privacy/ConsentPane";
 import { GROUPS, groupsToAsk } from "../../patterns/privacy/consentCopy";
 import { applySharing } from "../../diagnostics/sharing";
+import { sharingAnswered } from "../../diagnostics/sharingAnswered";
 import { MotionStage } from "./motion/primitives";
 
 /* The front door of first-run setup: the radar intro (the product narrative
@@ -103,6 +104,7 @@ function WelcomeBody({ page }: { page: RefObject<HTMLElement | null> }) {
             safeRef={safe}
             onAnswered={(next) => {
               void applySharing(next);
+              sharingAnswered(next);
               toWalk();
             }}
           />

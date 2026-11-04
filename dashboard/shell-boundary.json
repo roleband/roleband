@@ -54,6 +54,13 @@
       "why": "the copy runtime every lazy catalog chunk and formatter calls; the shell's own messages need the module."
     },
     {
+      "module": "src/diagnostics/sharingAnswered.ts",
+      "exports": [
+        "sharingAnswered"
+      ],
+      "why": "the shell asks a configured install the sharing question from the state it read at startup; the welcome answers that question on its own screen and tells the shell through this, so leaving setup never asks again what was just answered."
+    },
+    {
       "module": "src/routing/setupMode.ts",
       "exports": [
         "SETUP_PATH",

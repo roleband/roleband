@@ -159,6 +159,22 @@ const fresh = (page: Page) => mockGet(page, "/api/profile", (route) => route.ful
 const WALK = /\/profile\/direction\?setup=1$/;
 const firstStep = (page: Page) => page.getByRole("heading", { name: "What kind of role are you looking for?" });
 
+test("an answer given on the welcome is the shell's too: leaving setup does not ask again", async ({ page }) => {
+  await fresh(page);
+  const usage = await usageServer(page, usageStateFixture("undecided"));
+  // The welcome loaded itself (a reload, a bookmark), so the shell may ask on
+  // any screen after it, from the state it read before the answer.
+  await page.goto("/welcome");
+  await page.getByRole("button", { name: "Tune the radar" }).click();
+  await page.getByRole("button", { name: "No thanks" }).click();
+  await expect(firstStep(page)).toBeVisible();
+  await page.getByRole("button", { name: "Set up later" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await page.waitForTimeout(400);
+  await expect(page.getByRole("dialog", { name: "Help us improve" })).toHaveCount(0);
+  expect(usage.answers.map((a) => a.answers)).toEqual([{ usage: false, crashes: false, questions: false }]);
+});
+
 test("Back from setup's first step asks again on the answer given, and Keep records nothing", async ({ page }) => {
   await fresh(page);
   const usage = await usageServer(page, usageStateFixture("undecided"));
