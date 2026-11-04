@@ -272,7 +272,7 @@ starlette==1.9.0
     #   fastapi
     #   mcp
     #   sse-starlette
-threadpoolctl==3.6.0
+threadpoolctl==3.7.0
     # via scikit-learn
 tokenizers==0.23.3
     # via -r requirements.txt
