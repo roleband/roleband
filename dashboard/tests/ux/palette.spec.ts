@@ -195,6 +195,25 @@ test("over a role's detail, Escape closes the palette and the detail stays open"
   await expect(page.getByText("Staff Product Manager, API")).toBeVisible();
 });
 
+/* "/" reaches the search of the screen on show. Behind an open cover that
+   search is inert and cannot take focus, so the key opens the palette there
+   rather than doing nothing. */
+test("/ focuses the screen's search, and over a role's detail opens the palette instead", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "a hardware-keyboard shortcut");
+  await openRadar(page);
+  await page.locator("body").press("/");
+  await expect(page.getByPlaceholder(msg("radar-search-placeholder"))).toBeFocused();
+  await page.keyboard.press("Escape");
+
+  await page.getByText("Staff Product Manager, API").click();
+  const cover = page.getByRole("dialog", { name: /^Role:/ });
+  await expect(cover).toBeVisible();
+  await cover.getByRole("heading").first().click();
+  await page.keyboard.press("/");
+  await expect(page.getByRole("dialog", { name: "Command palette" })).toBeVisible();
+  await expect(page.getByPlaceholder(msg("radar-search-placeholder"))).not.toBeFocused();
+});
+
 test("signal rows support keyboard open and arrow movement", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "Keyboard row navigation is a desktop flow.");
 
@@ -256,7 +275,7 @@ test("the palette holds focus and the page: Tab never reaches what is behind it,
 test("a re-render while the palette is open keeps focus where the user put it", async ({ page }) => {
   let answer: () => void = () => {};
   const held = new Promise<void>((resolve) => { answer = resolve; });
-  await page.route("/api/compare-selection", async (route) => {
+  await page.route("/api/compare-selection**", async (route) => {
     if (route.request().method() !== "GET") return route.fallback();
     await held;
     await route.fulfill({ json: { job_ids: [] } });
@@ -275,7 +294,7 @@ test("a re-render while the palette is open keeps focus where the user put it", 
   await option.focus();
   await expect(option).toBeFocused();
 
-  const hydrated = page.waitForResponse((r) => r.url().endsWith("/api/compare-selection"));
+  const hydrated = page.waitForResponse((r) => new URL(r.url()).pathname === "/api/compare-selection");
   answer();
   await hydrated;
   // Let the state update commit before judging it.

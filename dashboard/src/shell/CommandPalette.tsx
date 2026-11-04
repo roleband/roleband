@@ -18,8 +18,9 @@ import {
   shellPaletteThemeLight,
 } from "../copy/gen/shell";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { NAV_TABS } from "../navigation";
+import { listScreenOf, pageUnder } from "../routing/paths";
 import { useJobActions, useJobWorkspace } from "../context/JobWorkspace";
 import { useMissionActions } from "../context/MissionState";
 import { useClearCompare } from "../patterns/compare/useClearCompare";
@@ -70,6 +71,7 @@ export function CommandPalette({
   onShowShortcuts?: () => void;
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { setSearch } = useMissionActions();
   const { compareIds } = useJobWorkspace();
   const { openCompare } = useJobActions();
@@ -171,7 +173,15 @@ export function CommandPalette({
         label: shellPaletteSearch({ query: query.trim() }),
         icon: "search",
         hint: "↵",
+        // The search of the screen the reader is on: the Pipeline's lives in
+        // its address (`?q=`), on the tab that has the search box; Radar's is
+        // the board's query.
         run: () => {
+          if (listScreenOf(location) === "pipeline") {
+            const tab = pageUnder(location).pathname === "/pipeline/board" ? "board" : "list";
+            navigate({ pathname: `/pipeline/${tab}`, search: `?${new URLSearchParams({ q: query.trim() })}` });
+            return;
+          }
           setSearch(query.trim());
           navigate("/");
         },

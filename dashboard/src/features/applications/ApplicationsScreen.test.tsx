@@ -23,10 +23,14 @@ vi.mock("../../api", async (importOriginal) => ({
     setFavorite: vi.fn(),
     addInterview: vi.fn(),
     deleteInterview: vi.fn(),
+    jobs: vi.fn(),
   },
 }));
 
-const appState = { openJob: vi.fn(), refreshStats: vi.fn(), favVersion: 0 };
+const appState = {
+  openJob: vi.fn(), refreshStats: vi.fn(), favVersion: 0,
+  compareIds: new Set<number>(), viewedIds: new Set<number>(), compareFull: false, compareCap: 3, toggleCompare: vi.fn(),
+};
 vi.mock("../../context/JobWorkspace", () => ({ useJobWorkspace: () => appState, useJobActions: () => appState }));
 vi.mock("../../context/MissionState", () => ({ useMissionActions: () => appState }));
 
@@ -291,6 +295,20 @@ describe("hiding columns", () => {
       .toBeInTheDocument();
     expect(screen.queryByText("Principal Engineering Manager")).toBeNull();
     expect(screen.getByRole("button", { name: msg("applications-move-undo") })).toBeInTheDocument();
+  });
+
+  it("on the List a move says only where the role went: the hidden columns are the Board's", async () => {
+    localStorage.setItem("roleband.pipeline-hidden-columns", JSON.stringify(["offer"]));
+    vi.mocked(api.jobs).mockResolvedValue({ items: [], total: 0, limit: 500, offset: 0 } as never);
+    render(atRoute("/pipeline/list"));
+    await screen.findByText("Principal Engineering Manager");
+
+    await userEvent.click(screen.getByRole("button", { name: msg("applications-list-stage", { stage: "Applied", title: applied.title }) }));
+    const menu = await screen.findByRole("dialog", { name: msg("applications-menu-label", { title: applied.title }) });
+    await userEvent.click(within(menu).getByRole("button", { name: "Offer" }));
+
+    expect(await screen.findByText(msg("applications-moved", { title: applied.title, stage: "Offer" }))).toBeInTheDocument();
+    expect(screen.queryByText(msg("applications-moved-hidden", { title: applied.title, stage: "Offer", column: "Offer" }))).toBeNull();
   });
 });
 

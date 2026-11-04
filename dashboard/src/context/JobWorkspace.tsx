@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { shellApi } from "../api/shell";
-import { COMPARE_ROUTE, coverBackground, positionPath } from "../routing/paths";
+import { shellApi, type CompareScope } from "../api/shell";
+import { COMPARE_ROUTE, coverBackground, listScreenOf, positionPath } from "../routing/paths";
 
 /* Three roles, not four (docs/ui.md "Cover"). The screen is a grid plus one
  * full description diff per role past the first: at four there are six
@@ -15,6 +15,12 @@ const COMPARE_CAP = 3;
 const sameOrder = (a: readonly number[], b: readonly number[]) =>
   a.length === b.length && a.every((id, i) => id === b[i]);
 
+const SCOPES: readonly CompareScope[] = ["radar", "pipeline"];
+
+/** One value per list screen. */
+type PerScope<T> = Record<CompareScope, T>;
+const perScope = <T,>(make: () => T): PerScope<T> => ({ radar: make(), pipeline: make() });
+
 /**
  * What the reader is DOING with jobs: the compare selection, what they have
  * opened, and the verbs that change either.
@@ -25,10 +31,14 @@ const sameOrder = (a: readonly number[], b: readonly number[]) =>
  * would re-render on every compare toggle on any screen.
  */
 export interface JobWorkspaceValue {
-  /** The compare selection: pick on any tab, view on Compare. Server-backed,
-   *  so a reload keeps the roles and the rail count the way it keeps the star
-   *  beside the same row. */
+  /** The compare selection of the list screen the reader is on (`compareScope`):
+   *  Radar and the Pipeline each keep their own, so what is picked on one is not
+   *  picked on the other (docs/decisions/0001-compare-per-screen.md). A role or
+   *  Compare opened over a screen works on that screen's. Server-backed, so a
+   *  reload keeps the roles the way it keeps the star beside the same row. */
   compareIds: Set<number>;
+  /** Which screen's selection `compareIds` is. */
+  compareScope: CompareScope;
   compareFull: boolean;
   /** How many roles the comparison holds. A value, not an import: every
    *  surface that states the cap ("Compare is full (max 3)", "2 of 3") reads
@@ -60,6 +70,7 @@ export interface SavedChange {
   saved: boolean;
 }
 
+/** The verbs act on the selection of the screen the reader is on when they run. */
 export interface JobActions {
   toggleCompare: (id: number) => void;
   setCompare: (ids: number[]) => void;
@@ -104,45 +115,59 @@ export function JobWorkspaceProvider({ children }: { children: React.ReactNode }
   const navigateRef = useRef(navigate);
   navigateRef.current = navigate;
 
-  const [compareIds, setCompareIds] = useState<Set<number>>(new Set());
-  const [compareHydrated, setCompareHydrated] = useState(false);
-  const [compareSyncFailed, setCompareSyncFailed] = useState(false);
+  // The screen whose selection is on show and whose selection the verbs
+  // change. A string, so a navigation within one screen changes nothing here.
+  const scope = listScreenOf(location);
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
+
+  const [selections, setSelections] = useState<PerScope<readonly number[]>>(() => perScope(() => []));
+  const [hydrated, setHydrated] = useState<PerScope<boolean>>(() => perScope(() => false));
+  const [syncFailed, setSyncFailed] = useState<PerScope<boolean>>(() => perScope(() => false));
   const [viewedIds, setViewedIds] = useState<Set<number>>(new Set());
   const viewedIdsRef = useRef<Set<number>>(new Set());
   // One state, so a save re-renders readers once: the version the lists key
   // on and the change a patching screen reads move together.
   const [saves, setSaves] = useState<{ version: number; last: SavedChange | null }>({ version: 0, last: null });
 
-  // The selection as an ORDERED list, mirrored in a ref. Order is contract —
-  // the beacon docks level with the role picked last — and the verbs need to
-  // read the current set without depending on it, or the actions object would
-  // change identity on every toggle and undo the value/verb split.
-  const compareRef = useRef<number[]>([]);
-  // The set we want stored, and whether a write is already in flight. Writes
-  // are serialized rather than fired per toggle: two PUTs racing can land out
-  // of order, and the loser would be the newer one.
-  const desiredRef = useRef<number[] | null>(null);
-  const writingRef = useRef(false);
-  // Set by the first local change. A hydrate that arrives after the user has
-  // already picked something must not overwrite them with the older stored set.
-  const touchedRef = useRef(false);
+  // Each screen's selection as an ORDERED list, mirrored in a ref. Order is
+  // contract — the beacon docks level with the role picked last — and the verbs
+  // need to read the current set without depending on it, or the actions object
+  // would change identity on every toggle and undo the value/verb split.
+  const compareRef = useRef<PerScope<number[]>>(perScope(() => []));
+  // Per screen, the set we want stored, and whether a write is already in
+  // flight. Writes are serialized rather than fired per toggle: two PUTs
+  // racing can land out of order, and the loser would be the newer one.
+  const desiredRef = useRef<PerScope<number[] | null>>(perScope(() => null));
+  const writingRef = useRef<PerScope<boolean>>(perScope(() => false));
+  // Set by a screen's first local change. A hydrate that arrives after the
+  // user has already picked something must not overwrite it with the older
+  // stored set.
+  const touchedRef = useRef<PerScope<boolean>>(perScope(() => false));
 
-  const flush = useCallback(async () => {
-    if (writingRef.current) return;
-    writingRef.current = true;
+  const show = useCallback((at: CompareScope, ids: number[]) => {
+    compareRef.current[at] = ids;
+    setSelections((prev) => ({ ...prev, [at]: ids }));
+  }, []);
+  const markFailed = useCallback((at: CompareScope, failed: boolean) => {
+    setSyncFailed((prev) => (prev[at] === failed ? prev : { ...prev, [at]: failed }));
+  }, []);
+
+  const flush = useCallback(async (at: CompareScope) => {
+    if (writingRef.current[at]) return;
+    writingRef.current[at] = true;
     try {
-      while (desiredRef.current !== null) {
-        const send = desiredRef.current;
-        desiredRef.current = null;
+      while (desiredRef.current[at] !== null) {
+        const send = desiredRef.current[at];
+        desiredRef.current[at] = null;
         try {
-          const stored = await shellApi.setCompareSelection(send);
-          setCompareSyncFailed(false);
+          const stored = await shellApi.setCompareSelection(at, send);
+          markFailed(at, false);
           // The response is authoritative — it has dropped ids past the cap and
           // ids whose job is gone. Adopt it only when nothing newer is queued;
           // an echo for a superseded write would walk the selection backwards.
-          if (desiredRef.current === null && !sameOrder(compareRef.current, stored.job_ids)) {
-            compareRef.current = stored.job_ids;
-            setCompareIds(new Set(stored.job_ids));
+          if (desiredRef.current[at] === null && !sameOrder(compareRef.current[at], stored.job_ids)) {
+            show(at, stored.job_ids);
           }
         } catch {
           // The selection stays on screen: it is the user's work, and discarding
@@ -152,57 +177,58 @@ export function JobWorkspaceProvider({ children }: { children: React.ReactNode }
           // Replace-all is what makes recovery free: the next successful write
           // carries the whole set, so a restored connection self-heals with no
           // retry queue.
-          setCompareSyncFailed(true);
+          markFailed(at, true);
         }
       }
     } finally {
-      writingRef.current = false;
+      writingRef.current[at] = false;
     }
-  }, []);
+  }, [markFailed, show]);
 
-  /** Move the selection locally NOW and persist behind it. The gesture is
-   *  hover-speed and must not wait on a round trip. */
+  /** Move the selection of the screen the reader is on locally NOW and
+   *  persist behind it. The gesture is hover-speed and must not wait on a
+   *  round trip. */
   const applyCompare = useCallback(
     (next: number[]) => {
-      touchedRef.current = true;
-      compareRef.current = next;
-      setCompareIds(new Set(next));
-      desiredRef.current = next;
-      void flush();
+      const at = scopeRef.current;
+      touchedRef.current[at] = true;
+      show(at, next);
+      desiredRef.current[at] = next;
+      void flush(at);
     },
-    [flush],
+    [flush, show],
   );
 
-  // Read the stored selection once, on mount.
+  // Read every screen's stored selection once, on mount.
   useEffect(() => {
     let live = true;
-    shellApi
-      .compareSelection()
-      .then((stored) => {
-        if (!live || touchedRef.current) return;
-        // Clamped: a selection stored under an older, larger cap must not come
-        // back over it. The store clamps too — this is the client refusing to
-        // render more columns than the screen has.
-        const held = stored.job_ids.slice(0, COMPARE_CAP);
-        compareRef.current = held;
-        setCompareIds(new Set(held));
-      })
-      .catch(() => {
-        // Nothing to show but the empty set, which is what is already on screen.
-        // A background read that fails stays quiet; the
-        // first write will surface any real outage.
-      })
-      .finally(() => {
-        if (live) setCompareHydrated(true);
-      });
+    for (const at of SCOPES) {
+      shellApi
+        .compareSelection(at)
+        .then((stored) => {
+          if (!live || touchedRef.current[at]) return;
+          // Clamped: a selection stored under an older, larger cap must not
+          // come back over it. The store clamps too — this is the client
+          // refusing to render more columns than the screen has.
+          show(at, stored.job_ids.slice(0, COMPARE_CAP));
+        })
+        .catch(() => {
+          // Nothing to show but the empty set, which is what is already on
+          // screen. A background read that fails stays quiet; the first write
+          // will surface any real outage.
+        })
+        .finally(() => {
+          if (live) setHydrated((prev) => ({ ...prev, [at]: true }));
+        });
+    }
     return () => {
       live = false;
     };
-  }, []);
+  }, [show]);
 
   const toggleCompare = useCallback(
     (id: number) => {
-      const current = compareRef.current;
+      const current = compareRef.current[scopeRef.current];
       if (current.includes(id)) {
         applyCompare(current.filter((existing) => existing !== id));
       } else if (current.length < COMPARE_CAP) {
@@ -224,17 +250,19 @@ export function JobWorkspaceProvider({ children }: { children: React.ReactNode }
     (ids: number[]) => {
       if (ids.length === 0) return;
       const gone = new Set(ids);
-      const next = compareRef.current.filter((id) => !gone.has(id));
-      if (next.length !== compareRef.current.length) applyCompare(next);
+      const current = compareRef.current[scopeRef.current];
+      const next = current.filter((id) => !gone.has(id));
+      if (next.length !== current.length) applyCompare(next);
     },
     [applyCompare],
   );
 
   const retryCompare = useCallback(() => {
-    setCompareSyncFailed(false);
-    desiredRef.current = compareRef.current;
-    void flush();
-  }, [flush]);
+    const at = scopeRef.current;
+    markFailed(at, false);
+    desiredRef.current[at] = compareRef.current[at];
+    void flush(at);
+  }, [flush, markFailed]);
 
   const markJobViewed = useCallback((id: number) => {
     if (viewedIdsRef.current.has(id)) return;
@@ -276,18 +304,21 @@ export function JobWorkspaceProvider({ children }: { children: React.ReactNode }
     [],
   );
 
+  const shown = selections[scope];
+  const compareIds = useMemo(() => new Set(shown), [shown]);
   const value = useMemo<JobWorkspaceValue>(
     () => ({
       compareIds,
+      compareScope: scope,
       compareFull: compareIds.size >= COMPARE_CAP,
       compareCap: COMPARE_CAP,
-      compareHydrated,
-      compareSyncFailed,
+      compareHydrated: hydrated[scope],
+      compareSyncFailed: syncFailed[scope],
       viewedIds,
       favVersion: saves.version,
       lastSaved: saves.last,
     }),
-    [compareIds, compareHydrated, compareSyncFailed, viewedIds, saves],
+    [compareIds, scope, hydrated, syncFailed, viewedIds, saves],
   );
 
   // Every dep is stable, so this object is created once and no consumer of the

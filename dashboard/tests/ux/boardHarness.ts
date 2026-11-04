@@ -109,16 +109,19 @@ export async function installBoardRoutes(page: Page) {
   // a STORE and not a canned response: a reload asks for it again, and a route
   // that always answers empty would report the persistence bug as fixed while
   // reproducing it exactly. One route for both verbs, because the PUT's reply
-  // IS the new state.
-  let compareSelection: number[] = [];
-  await mockApi(page, ["GET", "PUT"], "/api/compare-selection", async (route) => {
+  // IS the new state. One selection per list screen (`?scope=`), as the store
+  // keeps them: a harness holding one would pass a spec that leaks a pick from
+  // one screen to the other.
+  const compareSelection: Record<string, number[]> = { radar: [], pipeline: [] };
+  await mockApi(page, ["GET", "PUT"], "/api/compare-selection**", async (route) => {
+    const scope = new URL(route.request().url()).searchParams.get("scope") ?? "radar";
     if (route.request().method() === "PUT") {
       const body = route.request().postDataJSON() as { job_ids: number[] };
       // Clamped like the store: COMPARE_CAP is 3, and a harness
       // that stored more would let a spec pass on a selection the API refuses.
-      compareSelection = body.job_ids.slice(0, 3);
+      compareSelection[scope] = body.job_ids.slice(0, 3);
     }
-    await route.fulfill({ json: { job_ids: compareSelection } });
+    await route.fulfill({ json: { job_ids: compareSelection[scope] ?? [] } });
   });
   await mockGet(page, "/api/profile", (route) => route.fulfill({ json: {
     profile: null, scope_configured: true,

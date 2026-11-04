@@ -250,28 +250,28 @@
 
 /* ---- beacon: a consequence's tick in the margin -------------------------- */
 
-/* One modifier on the small rank (docs/ui.md): the
-   rail badge's pill grown to control height, worn by the two margin beacons
-   the job lists raise. On `primary` it is a STANDING state (there is a
-   comparison); on `ghost` it is a WAY BACK (you can undo). Same pill, same
-   28px, same radius-999 as the badge — the count inside is the badge
-   inverted. The ring and glow are the new-signal bar's own (job-row.css),
-   so the two "something happened here" marks on a list share one light. */
+/* One modifier (docs/ui.md), worn by the two margin beacons the job lists
+   raise. On `primary` it is a STANDING state (there is a comparison); on
+   `ghost` it is a WAY BACK (you can undo). A pill at the page's control
+   height, so it stands level with the toolbar's buttons rather than reading
+   as a badge; the count inside is the rail badge inverted, its numeral in
+   mono, the words beside it in the interface face. The light around it is a
+   glow with no hard ring: a ring a shade off the ground reads as an unfinished
+   border on the dark theme. */
 .ui-btn.ui-beacon {
   gap: var(--app-space-1);
-  padding: 0 var(--app-control-sm-pad);
+  padding: 0 var(--app-control-md-pad) 0 var(--app-control-sm-pad);
   border-radius: 999px;
-  font-family: var(--app-font-mono);
-  font-size: var(--app-type-micro);
+  font-size: var(--app-type-meta);
   font-weight: var(--app-weight-strong);
 }
 
 .ui-btn-primary.ui-beacon {
-  box-shadow: 0 0 0 5px var(--app-action-soft), 0 0 22px var(--app-action-glow);
+  box-shadow: 0 0 18px var(--app-action-glow);
 }
 
 .ui-btn-primary.ui-beacon:not(:disabled):not([aria-disabled="true"]):hover {
-  box-shadow: 0 0 0 6px var(--app-action-soft), 0 0 30px var(--app-action-glow);
+  box-shadow: 0 0 26px var(--app-action-glow);
 }
 
 .ui-btn-ghost.ui-beacon {
@@ -279,27 +279,28 @@
   background: var(--app-surface-glass);
   backdrop-filter: blur(20px);
   color: var(--app-action-text);
-  /* Derived from the theme's own action colour, never a literal of the dark
-     theme's gold that the light theme's undo beacon would also wear. */
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--app-action) 6%, transparent);
 }
 
 .ui-btn-ghost.ui-beacon:not(:disabled):not([aria-disabled="true"]):hover {
   border-color: var(--app-action);
   background: var(--app-surface-glass);
   color: var(--app-action-text);
-  box-shadow: 0 0 0 6px var(--app-action-soft);
 }
 
+/* A circle that holds a numeral, so its line box is its own height: an
+   inherited line-height taller than the circle drops the digit below centre. */
 .ui-beacon-count {
   display: inline-grid;
   place-items: center;
-  min-width: 16px;
-  height: 16px;
+  min-width: 20px;
+  height: 20px;
   padding: 0 var(--app-space-1);
   border-radius: 999px;
   background: var(--app-action-ink);
   color: var(--app-action);
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-label);
+  line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 

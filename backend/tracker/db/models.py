@@ -1036,8 +1036,18 @@ class Favorite(Base):
     __table_args__ = (UniqueConstraint("job_id", name="uq_favorite_job"),)
 
 
+# The list screens that keep a comparison of their own. A vocabulary the store
+# checks, so a misspelt scope is refused rather than starting a third selection.
+COMPARE_SCOPES = ("radar", "pipeline")
+
+
 class CompareSelection(Base):
-    """The roles currently held side by side. Global (single-user tool).
+    """The roles held side by side, one selection per list screen.
+
+    `scope` names the screen the roles were picked on (`COMPARE_SCOPES`): what
+    is picked on Radar is not picked in the Pipeline, so one role can be in
+    both selections and each screen's count says only its own
+    (docs/decisions/0001-compare-per-screen.md).
 
     Durable for the same reason `favorites` is: selecting a role for comparison
     is the user's work, and it lives with the rest of user state under the
@@ -1058,12 +1068,16 @@ class CompareSelection(Base):
     job_id: Mapped[int] = mapped_column(
         ForeignKey("jobs.id", ondelete="CASCADE"), index=True
     )
+    scope: Mapped[str] = mapped_column(String(16), server_default="radar")
     position: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 
-    __table_args__ = (UniqueConstraint("job_id", name="uq_compare_selection_job"),)
+    __table_args__ = (
+        UniqueConstraint("scope", "job_id", name="uq_compare_selection_scope_job"),
+        CheckConstraint("scope IN ('radar','pipeline')", name="ck_compare_selection_scope"),
+    )
 
 
 # Optional structured reason on a dismissal. A vocabulary, not free text, so a

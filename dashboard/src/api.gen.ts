@@ -12352,7 +12352,10 @@ export interface operations {
     };
     get_compare_selection_api_compare_selection_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The list screen whose comparison this is. */
+                scope?: "radar" | "pipeline";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -12368,11 +12371,23 @@ export interface operations {
                     "application/json": components["schemas"]["CompareSelectionOut"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     put_compare_selection_api_compare_selection_put: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The list screen whose comparison this is. */
+                scope?: "radar" | "pipeline";
+            };
             header?: never;
             path?: never;
             cookie?: never;

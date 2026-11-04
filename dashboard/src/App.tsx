@@ -129,7 +129,7 @@ function Shell() {
   // query, so it must not re-render on a keystroke.
   const stats = useMissionStats();
   const { newSignalsOnly, repostsOnly } = useMissionState();
-  const { boardSearchRef, showNewSignals, showReposts, clearLenses } = useMissionActions();
+  const { screenSearchRef, showNewSignals, showReposts, clearLenses } = useMissionActions();
   const [theme, setTheme] = useState<Theme>(readTheme);
   const [navExpanded, setNavExpanded] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -300,10 +300,11 @@ function Shell() {
   const toggleTheme = useCallback(() => setTheme((t) => (t === "dark" ? "light" : "dark")), []);
 
   // Global keyboard surface: ⌘K/Ctrl-K opens the palette anywhere; "/" focuses
-  // the board search when not already typing in a field. The input itself
-  // lives in the Board's own toolbar (the settings idiom) and reaches the
-  // shell only through the context ref — null on every other route, where "/"
-  // falls back to the palette.
+  // the search of the screen on show when not already typing in a field. The
+  // input lives in that screen's own toolbar (the settings idiom) and reaches
+  // the shell only through the context ref. Where there is none, or it stands
+  // behind an open cover (inert, so it cannot take focus), "/" opens the
+  // palette instead, so the key never does nothing.
   useEffect(() => {
     if (muted) return;
     const onKey = (e: KeyboardEvent) => {
@@ -316,7 +317,8 @@ function Shell() {
       const typing = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
       if (e.key === "/" && !typing && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
-        if (boardSearchRef.current) boardSearchRef.current.focus();
+        const box = screenSearchRef.current;
+        if (box && !box.closest("[inert]")) box.focus();
         else setPaletteOpen(true);
         return;
       }
@@ -329,7 +331,7 @@ function Shell() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [boardSearchRef, muted]);
+  }, [screenSearchRef, muted]);
 
   return (
     <div className={`app${navExpanded ? " nav-expanded" : ""}${room ? " in-setup" : ""}`}>

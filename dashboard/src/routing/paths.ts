@@ -27,3 +27,27 @@ export function coverBackground(location: { pathname: string; state: unknown }):
 }
 
 export const COMPARE_ROUTE = "/compare";
+
+type Place = { pathname: string; state: unknown };
+
+/** The page at the bottom of a stack of covers: a cover opens over a page, and
+ *  a role opened from Compare over Compare, which opens over the list. */
+export function pageUnder(location: Place): Place {
+  let page = location;
+  for (let depth = 0; depth < 4; depth += 1) {
+    const behind = (page.state as { backgroundLocation?: Place } | null)?.backgroundLocation;
+    if (!behind) break;
+    page = behind;
+  }
+  return page;
+}
+
+/** The list screen a page belongs to, for the state each screen keeps of its
+ *  own (the compare selection, the search the palette runs). A cover belongs
+ *  to the page under it (`pageUnder`). The Pipeline is its tabs and every
+ *  application's page under `/pipeline`; every other page is Radar's,
+ *  including Compare reached by its address alone. */
+export function listScreenOf(location: Place): "radar" | "pipeline" {
+  const { pathname } = pageUnder(location);
+  return pathname === "/pipeline" || pathname.startsWith("/pipeline/") ? "pipeline" : "radar";
+}

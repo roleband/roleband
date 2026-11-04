@@ -559,3 +559,75 @@ test("the List never widens the page: a narrow window scrolls the table inside i
   expect(star!.x + star!.width).toBeLessThanOrEqual(width);
   expect(star!.x).toBeGreaterThan(width / 2);
 });
+
+test("the List's compare beacon stands in Radar's margin, level with the role picked last and clear of every star", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "the margin exists from 1100px; a phone docks the beacon");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await installPipeline(page);
+  await installPostings(page);
+  await page.goto("/pipeline/list");
+  for (const title of ["Staff Product Manager, API", "Head of Platform"]) {
+    const row = listRow(page, title);
+    await row.hover();
+    await row.getByRole("button", { name: msg("jobs-compare") }).click();
+  }
+  const pill = page.getByRole("button", { name: "2 in compare. Compare 2 roles" });
+  await expect(pill).toBeVisible();
+
+  const table = (await page.locator(".app-list-scroll").boundingBox())!;
+  const toolbar = (await page.locator(".app-pipeline-toolbar").boundingBox())!;
+  const filters = (await page.getByRole("button", { name: msg("shared-filters") }).boundingBox())!;
+  const last = (await listRow(page, "Head of Platform").boundingBox())!;
+  const box = (await pill.boundingBox())!;
+  // One right edge for the toolbar and the rows, with the margin past both.
+  expect(Math.abs(toolbar.x + toolbar.width - (table.x + table.width))).toBeLessThanOrEqual(1);
+  // In the margin, never over the pinned stars, and inside the window.
+  expect(box.x).toBeGreaterThan(table.x + table.width);
+  expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  // Level with the row picked last.
+  const centre = box.y + box.height / 2;
+  expect(centre).toBeGreaterThan(last.y);
+  expect(centre).toBeLessThan(last.y + last.height);
+  // A control of the page's own height, as the toolbar's buttons are.
+  expect(Math.round(box.height)).toBe(Math.round(filters.height));
+});
+
+test("the Pipeline and Radar each keep their own comparison, through a visit to the other and a reload", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "the rail is a desktop control");
+  await installPipeline(page);
+  await installPostings(page);
+  const rail = page.getByRole("navigation").first();
+  const pipelinePill = page.getByRole("button", { name: "2 in compare. Compare 2 roles" });
+  const compareOf = (row: ReturnType<typeof listRow>) => row.getByRole("button", { name: msg("jobs-compare") });
+  await page.goto("/pipeline/list");
+  for (const title of ["Staff Product Manager, API", "Head of Platform"]) {
+    await listRow(page, title).hover();
+    await compareOf(listRow(page, title)).click();
+  }
+  await expect(pipelinePill).toBeVisible();
+  await expect(page.getByRole("link", { name: msg("shell-compare-chip-aria", { count: 2 }) })).toBeVisible();
+
+  // Radar holds none of the Pipeline's picks: no beacon, no count, no row pressed.
+  await rail.getByRole("link", { name: msg("shell-nav-radar") }).click();
+  const radarRow = (title: string) => page.getByRole("article").filter({ hasText: title });
+  await expect(radarRow("Staff Product Manager, API")).toBeVisible();
+  await expect(page.getByRole("button", { name: /in compare\. Compare/ })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /roles in compare$/ })).toHaveCount(0);
+  await expect(compareOf(radarRow("Staff Product Manager, API"))).toHaveAttribute("aria-pressed", "false");
+
+  // Role 202 is in the Pipeline too, unpicked there; picked here it stays Radar's.
+  await compareOf(radarRow("Principal Engineer, Platform")).click();
+  await expect(compareOf(radarRow("Principal Engineer, Platform"))).toHaveAttribute("aria-pressed", "true");
+
+  await rail.getByRole("link", { name: msg("shell-nav-pipeline") }).click();
+  await expect(pipelinePill).toBeVisible();
+  await expect(compareOf(listRow(page, "Principal Engineering Manager"))).toHaveAttribute("aria-pressed", "false");
+  await page.reload();
+  await expect(pipelinePill).toBeVisible();
+  await expect(compareOf(listRow(page, "Staff Product Manager, API"))).toHaveAttribute("aria-pressed", "true");
+  await expect(compareOf(listRow(page, "Principal Engineering Manager"))).toHaveAttribute("aria-pressed", "false");
+
+  await page.goto("/");
+  await expect(compareOf(radarRow("Principal Engineer, Platform"))).toHaveAttribute("aria-pressed", "true");
+  await expect(compareOf(radarRow("Staff Product Manager, API"))).toHaveAttribute("aria-pressed", "false");
+});

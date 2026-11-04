@@ -728,6 +728,10 @@ roles (`COMPARE_CAP` in `context/JobWorkspace.tsx`): sticky column heads with
 the role and its verbs (save, not for me, remove), a field ledger from
 `attributes.tsx`, and one description column per role. It is not a rail entry;
 it opens from the margin beacon, Job detail, the top-bar chip and the palette.
+Radar and the Pipeline each keep their own selection
+([0001](decisions/0001-compare-per-screen.md)): a pick on one is not a pick on
+the other, and a cover works on the selection of the screen under it
+(`listScreenOf` in `routing/paths.ts`).
 
 ### Duplicate review
 

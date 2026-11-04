@@ -11,14 +11,14 @@ import { msg } from "../../test/msg";
 /* The docked toolbar: search + count + lens chips + sort, plus (below rail
  * widths) the "Filters · N" opener over the same register the rail shows. The search
  * input's STATE lives in AppState (the shell's "/" shortcut reaches it through
- * boardSearchRef), so the context is mocked to the two fields this component
+ * screenSearchRef), so the context is mocked to the two fields this component
  * reads. */
 
 const setSearch = vi.fn();
-const boardSearchRef = { current: null };
+const screenSearchRef = { current: null };
 vi.mock("../../context/MissionState", () => ({
   useBoardQuery: () => ({ search: "" }),
-  useMissionActions: () => ({ setSearch, boardSearchRef }),
+  useMissionActions: () => ({ setSearch, screenSearchRef }),
 }));
 
 const renderToolbar = (overrides: Partial<Parameters<typeof BoardToolbar>[0]> = {}) => {
@@ -57,7 +57,7 @@ const renderToolbar = (overrides: Partial<Parameters<typeof BoardToolbar>[0]> = 
 
 beforeEach(() => {
   setSearch.mockClear();
-  boardSearchRef.current = null;
+  screenSearchRef.current = null;
 });
 
 describe("the board toolbar", () => {
@@ -79,7 +79,7 @@ describe("the board toolbar", () => {
     renderToolbar();
     const input = screen.getByLabelText("Search titles and descriptions");
     // The shell's "/" shortcut focuses whatever this ref holds.
-    expect(boardSearchRef.current).toBe(input);
+    expect(screenSearchRef.current).toBe(input);
     await user.type(input, "d");
     expect(setSearch).toHaveBeenCalledWith("d");
   });

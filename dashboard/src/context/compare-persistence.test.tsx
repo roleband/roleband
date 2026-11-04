@@ -1,5 +1,5 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useNavigate } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
 import { COMPARE_CAP, JobWorkspaceProvider, useJobActions, useJobWorkspace } from "./JobWorkspace";
@@ -67,7 +67,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.compareSelection).mockResolvedValue({ job_ids: [] });
   // The honest default: the store echoes what it stored.
-  vi.mocked(api.setCompareSelection).mockImplementation(async (jobIds: number[]) => ({
+  vi.mocked(api.setCompareSelection).mockImplementation(async (_scope, jobIds: number[]) => ({
     job_ids: jobIds,
   }));
 });
@@ -104,7 +104,7 @@ describe("the compare selection survives the tab", () => {
 
     // On screen immediately — the gesture is hover-speed.
     expect(ids()).toBe("4");
-    expect(vi.mocked(api.setCompareSelection)).toHaveBeenCalledWith([4]);
+    expect(vi.mocked(api.setCompareSelection)).toHaveBeenCalledWith("radar", [4]);
   });
 
   it("sends the whole selection, so a failed write is repaired by the next one", async () => {
@@ -114,7 +114,7 @@ describe("the compare selection survives the tab", () => {
     await act(async () => verbs.toggleCompare(1));
     await act(async () => verbs.toggleCompare(2));
 
-    expect(vi.mocked(api.setCompareSelection).mock.calls.map(([arg]) => arg)).toEqual([[1], [1, 2]]);
+    expect(vi.mocked(api.setCompareSelection).mock.calls.map(([, arg]) => arg)).toEqual([[1], [1, 2]]);
   });
 });
 
@@ -198,7 +198,7 @@ describe("what a write-behind cache gets wrong", () => {
 
     await waitFor(() => expect(screen.getByTestId("unsaved").textContent).toBe("false"));
     expect(ids()).toBe("5,6");
-    expect(vi.mocked(api.setCompareSelection)).toHaveBeenLastCalledWith([5, 6]);
+    expect(vi.mocked(api.setCompareSelection)).toHaveBeenLastCalledWith("radar", [5, 6]);
   });
 
   it("stays quiet when the initial read fails, and still reports itself hydrated", async () => {
@@ -247,7 +247,7 @@ describe("the cap and the verbs", () => {
     await act(async () => verbs.clearCompare());
 
     expect(ids()).toBe("");
-    expect(vi.mocked(api.setCompareSelection)).toHaveBeenLastCalledWith([]);
+    expect(vi.mocked(api.setCompareSelection)).toHaveBeenLastCalledWith("radar", []);
   });
 
   it("drops roles that are gone, and leaves the rest alone", async () => {
@@ -258,7 +258,7 @@ describe("the cap and the verbs", () => {
     await act(async () => verbs.dropCompare([2]));
 
     expect(ids()).toBe("1,3");
-    expect(vi.mocked(api.setCompareSelection)).toHaveBeenLastCalledWith([1, 3]);
+    expect(vi.mocked(api.setCompareSelection)).toHaveBeenLastCalledWith("radar", [1, 3]);
   });
 
   it("writes nothing when there is nothing to drop", async () => {
@@ -271,5 +271,86 @@ describe("the cap and the verbs", () => {
 
     expect(ids()).toBe("1,2");
     expect(vi.mocked(api.setCompareSelection)).not.toHaveBeenCalled();
+  });
+});
+
+describe("each list screen keeps its own selection", () => {
+  let go: ReturnType<typeof useNavigate>;
+  function Screen() {
+    go = useNavigate();
+    return <span data-testid="scope">{useJobWorkspace().compareScope}</span>;
+  }
+  function mountAt(path: string) {
+    return render(
+      <MemoryRouter initialEntries={[path]}>
+        <JobWorkspaceProvider>
+          <Probe />
+          <Screen />
+        </JobWorkspaceProvider>
+      </MemoryRouter>,
+    );
+  }
+  const scope = () => screen.getByTestId("scope").textContent;
+
+  it("reads Radar's and the Pipeline's stored selections, and shows only the one of the screen on show", async () => {
+    vi.mocked(api.compareSelection).mockImplementation(async (at) => ({ job_ids: at === "pipeline" ? [8, 9] : [1] }));
+    mountAt("/pipeline/list");
+    await waitFor(() => expect(ids()).toBe("8,9"));
+    expect(scope()).toBe("pipeline");
+
+    await act(async () => go("/"));
+    expect(scope()).toBe("radar");
+    expect(ids()).toBe("1");
+  });
+
+  it("a pick in the Pipeline is not a pick on Radar, and is still there on the way back", async () => {
+    mountAt("/pipeline/list");
+    await waitFor(() => expect(screen.getByTestId("hydrated").textContent).toBe("true"));
+    await act(async () => verbs.toggleCompare(4));
+    await act(async () => verbs.toggleCompare(5));
+    expect(vi.mocked(api.setCompareSelection)).toHaveBeenLastCalledWith("pipeline", [4, 5]);
+
+    await act(async () => go("/"));
+    expect(ids()).toBe("");
+    await act(async () => verbs.toggleCompare(4));
+    expect(vi.mocked(api.setCompareSelection)).toHaveBeenLastCalledWith("radar", [4]);
+
+    await act(async () => go("/pipeline/board"));
+    expect(ids()).toBe("4,5");
+  });
+
+  it("a role or Compare opened over the Pipeline works on the Pipeline's selection", async () => {
+    mountAt("/pipeline/list");
+    await waitFor(() => expect(screen.getByTestId("hydrated").textContent).toBe("true"));
+    const pipeline = { pathname: "/pipeline/list", search: "", hash: "", state: null, key: "p" };
+    await act(async () => go("/compare", { state: { backgroundLocation: pipeline } }));
+    expect(scope()).toBe("pipeline");
+
+    // A role opened from a column stacks on Compare, which stands on the list.
+    const compare = { pathname: "/compare", search: "", hash: "", state: { backgroundLocation: pipeline }, key: "c" };
+    await act(async () => go("/company/openai/job/7", { state: { backgroundLocation: compare } }));
+    await act(async () => verbs.toggleCompare(7));
+    expect(scope()).toBe("pipeline");
+    expect(vi.mocked(api.setCompareSelection)).toHaveBeenLastCalledWith("pipeline", [7]);
+  });
+
+  it("Compare reached by its address alone is Radar's", async () => {
+    mountAt("/compare");
+    await waitFor(() => expect(screen.getByTestId("hydrated").textContent).toBe("true"));
+    expect(scope()).toBe("radar");
+  });
+
+  it("a write that fails on one screen does not mark the other unsaved", async () => {
+    vi.mocked(api.setCompareSelection).mockImplementation(async (at, jobIds) => {
+      if (at === "pipeline") throw new Error("offline");
+      return { job_ids: jobIds };
+    });
+    mountAt("/pipeline/list");
+    await waitFor(() => expect(screen.getByTestId("hydrated").textContent).toBe("true"));
+    await act(async () => verbs.toggleCompare(4));
+    await waitFor(() => expect(screen.getByTestId("unsaved").textContent).toBe("true"));
+
+    await act(async () => go("/"));
+    expect(screen.getByTestId("unsaved").textContent).toBe("false");
   });
 });

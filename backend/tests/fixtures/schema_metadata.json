@@ -451,10 +451,12 @@
     "CREATE TABLE compare_selection (",
     "    id SERIAL NOT NULL,",
     "    job_id INTEGER NOT NULL,",
+    "    scope VARCHAR(16) DEFAULT 'radar' NOT NULL,",
     "    position INTEGER NOT NULL,",
     "    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,",
     "    PRIMARY KEY (id),",
-    "    CONSTRAINT uq_compare_selection_job UNIQUE (job_id),",
+    "    CONSTRAINT uq_compare_selection_scope_job UNIQUE (scope, job_id),",
+    "    CONSTRAINT ck_compare_selection_scope CHECK (scope IN ('radar','pipeline')),",
     "    FOREIGN KEY(job_id) REFERENCES jobs (id) ON DELETE CASCADE",
     ")"
    ],

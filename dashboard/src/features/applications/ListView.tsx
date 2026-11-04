@@ -520,9 +520,7 @@ export function ListView({ board, now }: {
         {() => rows.length === 0 ? (
           <p className="app-column-empty app-list-empty">{applicationsListNoMatches()}</p>
         ) : (
-          // The List runs to the page edge, so its compare beacon docks at
-          // the window's edge rather than in a margin beside the rows.
-          <div className="app-list-host" ref={host}>
+          <div className="app-list-host job-margin-host" ref={host}>
             <div className="app-list-scroll" ref={setFrame} data-overflowing={overflowing || undefined}>
               <table className="data-table app-list" data-highlight={highlight ? "" : undefined} data-dragging={dragged ? "" : undefined}>
                 <thead data-selection="chrome">
@@ -545,7 +543,7 @@ export function ListView({ board, now }: {
                 </tbody>
               </table>
             </div>
-            <CompareBeacon host={host} anchorVersion={rows} docked />
+            <CompareBeacon host={host} anchorVersion={rows} />
           </div>
         )}
       </AsyncBoundary>

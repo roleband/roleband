@@ -66,7 +66,7 @@ const RELEVANCE_SORT: [JobSort, () => string] = ["relevance", radarSortBestFit];
  *
  * The search input LIVES here but its state lives in AppState: the query
  * composes with lenses set from the topbar chips, and the shell's "/"
- * shortcut focuses it through `boardSearchRef`. Filtering itself lives in the
+ * shortcut focuses it through `screenSearchRef`. Filtering itself lives in the
  * filter register (BoardFilters), rendered as the left rail at rail widths;
  * below them this toolbar grows a "Filters · N" opener so active state stays
  * countable even while the register is folded away.
@@ -113,7 +113,7 @@ export function BoardToolbar({
   bestFitUnranked?: boolean;
 }) {
   const { search } = useBoardQuery();
-  const { setSearch, boardSearchRef } = useMissionActions();
+  const { setSearch, screenSearchRef } = useMissionActions();
 
   const lenses = { newSignalsOnly, repostsOnly };
   const activeCount = countActiveFilters(filters, lenses);
@@ -149,7 +149,7 @@ export function BoardToolbar({
   return (
     <div className="board-toolbar app-toolbar" data-selection="chrome" ref={toolbarRef}>
       <SearchField
-        ref={boardSearchRef}
+        ref={screenSearchRef}
         className="board-search-box"
         label={radarSearchLabel()}
         placeholder={radarSearchPlaceholder()}

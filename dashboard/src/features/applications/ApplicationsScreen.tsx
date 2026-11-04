@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { STAGE_LABEL, type StageSlug } from "../../copy/vocabulary";
 import { PageHeader } from "../../patterns/PageHeader";
@@ -54,11 +54,16 @@ function PipelineTabs() {
   const { tab } = useTabRoute<PipelineTab>({ base: "/pipeline", slugs: PIPELINE_SLUGS, fallback: "list" });
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  // A move's toast reads the columns hidden when it lands, from where the
-  // board keeps them.
+  // On the Board, a move's toast reads the columns hidden when it lands, from
+  // where the board keeps them: a card that leaves for a hidden column is
+  // said to. The hidden columns are the Board's alone, so a move on another
+  // tab says only where the role went. Read through a ref, because the toast
+  // is worded when the move lands, on whichever tab is open by then.
+  const onBoard = useRef(tab === "board");
+  onBoard.current = tab === "board";
   const said = useCallback((title: string, stage: StageSlug) => {
     const column = columnOf(stage);
-    return readHiddenColumns().includes(column.id)
+    return onBoard.current && readHiddenColumns().includes(column.id)
       ? applicationsMovedHidden({ title, stage: STAGE_LABEL[stage], column: columnName(column.id) })
       : applicationsMoved({ title, stage: STAGE_LABEL[stage] });
   }, []);
@@ -115,7 +120,14 @@ function PipelineTabs() {
         onChange={(next) => open(next)}
         tabs={PIPELINE_SLUGS.map((slug) => ({ id: slug, label: TAB_LABEL[slug]() }))}
       />
-      <div id="pipeline-tabpanel" className="app-tabpanel" role="tabpanel" aria-labelledby={`pipeline-tab-${tab}`}>
+      <div
+        id="pipeline-tabpanel"
+        // The List keeps Radar's ledger margin (patterns/jobs/margin.css) for
+        // its compare beacon; the board's columns and Up next have none.
+        className={tab === "list" ? "app-tabpanel job-margin-page" : "app-tabpanel"}
+        role="tabpanel"
+        aria-labelledby={`pipeline-tab-${tab}`}
+      >
         {tab === "list" && <ListView board={board} now={now} />}
         {tab === "board" && <BoardView board={board} now={now} />}
         {tab === "up-next" && <UpNext resource={board.resource} now={now} />}

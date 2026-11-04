@@ -52,7 +52,7 @@ export { ApiError, isNotFound } from "./transport";
 export { DEFAULT_FILTERS } from "./jobs";
 export { PRICE_FEED_KEY_URL } from "./companies";
 export type {
-  CompComponent, CompProvenance, CompSource, CompareSelection, DisclosedComp, DismissResult,
+  CompComponent, CompProvenance, CompSource, CompareScope, CompareSelection, DisclosedComp, DismissResult,
   Facets, Filters, ImportanceBand, Job, JobCompPackage, JobCompPolicy, JobCompReconciliation,
   JobDescriptionSection, JobDetail, JobDetailRow, JobList, JobQualification, JobRequirements,
   JobSkill, JobSkillEvidence, JobSort, JobViewResult, LifecycleEvent, ListingEvent, ListingHistory, ParsedQuery,

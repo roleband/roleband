@@ -25858,6 +25858,24 @@
   "/api/compare-selection": {
    "get": {
     "operationId": "get_compare_selection_api_compare_selection_get",
+    "parameters": [
+     {
+      "description": "The list screen whose comparison this is.",
+      "in": "query",
+      "name": "scope",
+      "required": false,
+      "schema": {
+       "default": "radar",
+       "description": "The list screen whose comparison this is.",
+       "enum": [
+        "radar",
+        "pipeline"
+       ],
+       "title": "Scope",
+       "type": "string"
+      }
+     }
+    ],
     "responses": {
      "200": {
       "content": {
@@ -25868,6 +25886,16 @@
        }
       },
       "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
      }
     },
     "summary": "Get Compare Selection"
@@ -25875,6 +25903,24 @@
    "put": {
     "description": "Replace the selection, and answer with what survived.\n\nUnknown ids are dropped rather than refused. A stale id is not a client bug\nworth failing the whole write over \u2014 it is a job that closed while the tab\nwas open, and the useful response is the selection minus that role, which\nthe dashboard then renders. Deduplication is order-preserving: `position`\nis what the beacon reads to dock level with the role selected last.",
     "operationId": "put_compare_selection_api_compare_selection_put",
+    "parameters": [
+     {
+      "description": "The list screen whose comparison this is.",
+      "in": "query",
+      "name": "scope",
+      "required": false,
+      "schema": {
+       "default": "radar",
+       "description": "The list screen whose comparison this is.",
+       "enum": [
+        "radar",
+        "pipeline"
+       ],
+       "title": "Scope",
+       "type": "string"
+      }
+     }
+    ],
     "requestBody": {
      "content": {
       "application/json": {

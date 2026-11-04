@@ -146,7 +146,7 @@ test("a selection that did not save says so with one role picked, and Try again 
   const sent: number[][] = [];
   let failNext = true;
   let stored: number[] = [];
-  await mockApi(page, ["GET", "PUT"], "/api/compare-selection", async (route) => {
+  await mockApi(page, ["GET", "PUT"], "/api/compare-selection**", async (route) => {
     if (route.request().method() === "PUT") {
       const body = route.request().postDataJSON() as { job_ids: number[] };
       sent.push(body.job_ids);

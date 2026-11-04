@@ -701,6 +701,12 @@ async def remove_favorite(job_id: int, session: SessionDep) -> dict:
 # client's opinion about it.
 COMPARE_CAP = 3
 
+# The list screen a comparison belongs to (`db.models.COMPARE_SCOPES`). Unset,
+# a request means Radar's, the selection every client read before screens kept
+# their own.
+CompareScope = Literal["radar", "pipeline"]
+ScopeQuery = Annotated[CompareScope, Query(description="The list screen whose comparison this is.")]
+
 
 class CompareSelectionOut(BaseModel):
     """What is STORED, which is not always what was asked for.
@@ -727,11 +733,13 @@ class CompareSelectionPayload(BaseModel):
 
 
 @router.get("/api/compare-selection", response_model=CompareSelectionOut)
-async def get_compare_selection(session: SessionDep) -> CompareSelectionOut:
+async def get_compare_selection(
+    session: SessionDep, scope: ScopeQuery = "radar"
+) -> CompareSelectionOut:
     rows = await session.scalars(
-        select(CompareSelection.job_id).order_by(
-            CompareSelection.position, CompareSelection.id
-        )
+        select(CompareSelection.job_id)
+        .where(CompareSelection.scope == scope)
+        .order_by(CompareSelection.position, CompareSelection.id)
     )
     # Clamped on the way out too, not only on the way in: a stored selection
     # can hold more rows than the cap, and the read is what a reload
@@ -742,7 +750,7 @@ async def get_compare_selection(session: SessionDep) -> CompareSelectionOut:
 
 @router.put("/api/compare-selection", response_model=CompareSelectionOut)
 async def put_compare_selection(
-    payload: CompareSelectionPayload, session: SessionDep
+    payload: CompareSelectionPayload, session: SessionDep, scope: ScopeQuery = "radar"
 ) -> CompareSelectionOut:
     """Replace the selection, and answer with what survived.
 
@@ -766,10 +774,11 @@ async def put_compare_selection(
     kept = [job_id for job_id in wanted if job_id in live]
 
     # Replace-all in one transaction: no window in which the selection is
-    # partially written, which a toggle-shaped API could not promise.
-    await session.execute(delete(CompareSelection))
+    # partially written, which a toggle-shaped API could not promise. Only
+    # this screen's rows: the other screen's comparison is not touched.
+    await session.execute(delete(CompareSelection).where(CompareSelection.scope == scope))
     for position, job_id in enumerate(kept):
-        session.add(CompareSelection(job_id=job_id, position=position))
+        session.add(CompareSelection(job_id=job_id, position=position, scope=scope))
     await session.commit()
     return CompareSelectionOut(job_ids=kept)
 

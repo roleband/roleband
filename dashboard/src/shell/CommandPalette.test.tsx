@@ -27,11 +27,16 @@ vi.mock("../context/JobWorkspace", () => ({
 }));
 
 function Location() {
-  const { pathname } = useLocation();
-  return <div data-testid="pathname">{pathname}</div>;
+  const { pathname, search } = useLocation();
+  return (
+    <>
+      <div data-testid="pathname">{pathname}</div>
+      <div data-testid="search">{search}</div>
+    </>
+  );
 }
 
-function renderPalette({ compareIds = [] as number[] } = {}) {
+function renderPalette({ compareIds = [] as number[], at = "/" } = {}) {
   mocks.setSearch.mockClear();
   mocks.clearCompare.mockClear();
   mocks.setCompare.mockClear();
@@ -39,7 +44,7 @@ function renderPalette({ compareIds = [] as number[] } = {}) {
   const onClose = vi.fn();
   const onShowShortcuts = vi.fn();
   const tree = (open: boolean) => (
-    <MemoryRouter initialEntries={["/"]}>
+    <MemoryRouter initialEntries={[at]}>
       <ToastProvider>
         <CommandPalette
           open={open}
@@ -59,6 +64,7 @@ function renderPalette({ compareIds = [] as number[] } = {}) {
     input: () => screen.getByLabelText("Command query"),
     type: (value: string) => fireEvent.change(screen.getByLabelText("Command query"), { target: { value } }),
     pathname: () => screen.getByTestId("pathname").textContent,
+    search: () => screen.getByTestId("search").textContent,
     selected: () => screen.getByRole("option", { selected: true }).textContent,
     reopen: () => {
       rerender(tree(false));
@@ -160,6 +166,24 @@ describe("CommandPalette", () => {
     press("Enter");
     expect(mocks.setSearch).toHaveBeenCalledWith("Overlap");
     expect(p.pathname()).toBe("/");
+  });
+
+  it("free text searches the screen the reader is on: in the Pipeline, its own search, never Radar's", () => {
+    const board = renderPalette({ at: "/pipeline/board" });
+    board.type("stripe & co");
+    press("Enter");
+    expect(board.pathname()).toBe("/pipeline/board");
+    expect(new URLSearchParams(board.search() ?? "").get("q")).toBe("stripe & co");
+    expect(mocks.setSearch).not.toHaveBeenCalled();
+  });
+
+  it("from an application's page the search opens the Pipeline's List", () => {
+    const page = renderPalette({ at: "/pipeline/202" });
+    page.type("stripe");
+    press("Enter");
+    expect(page.pathname()).toBe("/pipeline/list");
+    expect(page.search()).toBe("?q=stripe");
+    expect(mocks.setSearch).not.toHaveBeenCalled();
   });
 
   it("reopening resets the query and the selection", () => {

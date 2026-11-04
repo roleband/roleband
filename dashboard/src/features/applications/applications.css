@@ -317,9 +317,15 @@
 
 /* A register, as Settings' company list is: no card around it, a header band
    over a strong rule, rows between hairlines, from the toolbar's left edge to
-   its right. It scrolls sideways only when its columns outgrow the page. */
+   its right. It scrolls sideways only when its columns outgrow the page. To
+   the right of both is Radar's ledger margin, where the compare beacon stands
+   level with the role picked last. */
 .app-list-host {
   position: relative;
+}
+
+.job-margin-page .app-pipeline-toolbar {
+  margin-right: var(--job-margin);
 }
 
 .app-list-scroll {
@@ -350,12 +356,12 @@
    "$240K+" and "San Francisco" read as one phrase. */
 .data-table.app-list th.num,
 .data-table.app-list td.num {
-  padding-right: var(--app-space-5);
+  padding-right: var(--app-space-4);
 }
 
 /* A next step reads on one line where the page allows. */
 .data-table.app-list td[data-col="next"] {
-  min-width: 160px;
+  min-width: 136px;
 }
 
 .app-list-row {
@@ -485,6 +491,7 @@
   right: 0;
   z-index: 1;
   width: 1%;
+  padding-left: var(--app-space-1);
   padding-right: 0;
   background-color: var(--app-canvas);
   background-image: var(--app-ambient-image);

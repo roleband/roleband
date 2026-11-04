@@ -80,7 +80,7 @@ export interface PipelineToolbarProps<C extends string = string> {
  * over its own filter.
  */
 export function PipelineToolbar<C extends string>({ filter, onFilter, quickCounts, columns }: PipelineToolbarProps<C>) {
-  const { boardSearchRef } = useMissionActions();
+  const { screenSearchRef } = useMissionActions();
   const [filterButton, setFilterButton] = useState<HTMLButtonElement | null>(null);
   const [columnsButton, setColumnsButton] = useState<HTMLButtonElement | null>(null);
   const [open, setOpen] = useState<"filter" | "columns" | null>(null);
@@ -92,7 +92,7 @@ export function PipelineToolbar<C extends string>({ filter, onFilter, quickCount
   return (
     <div className="app-toolbar app-pipeline-toolbar" data-selection="chrome">
       <SearchField
-        ref={boardSearchRef}
+        ref={screenSearchRef}
         className="app-pipeline-search"
         label={applicationsSearchLabel()}
         placeholder={applicationsSearchPlaceholder()}

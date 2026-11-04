@@ -104,9 +104,6 @@ export interface MarginBeaconProps {
   present?: boolean;
   /** Docked beacons stack from the bottom edge; 0 is the lowest. */
   dockSlot?: number;
-  /** Always docked: the list it serves runs to the page edge and keeps no
-   *  margin to be level in. */
-  docked?: boolean;
   className?: string;
 }
 
@@ -149,13 +146,12 @@ export function MarginBeacon({
   reveal,
   present = true,
   dockSlot = 0,
-  docked: alwaysDocked = false,
   className,
 }: MarginBeaconProps) {
   const wide = useMediaQuery(MARGIN_QUERY);
   const canHover = useMediaQuery(HOVER_QUERY);
   const top = useMarginAnchor(host, anchorSelector, anchorVersion);
-  const docked = alwaysDocked || !wide || top === null;
+  const docked = !wide || top === null;
 
   const [pillEl, setPillEl] = useState<HTMLButtonElement | null>(null);
   const [open, setOpen] = useState(false);
@@ -206,7 +202,7 @@ export function MarginBeacon({
       <Button
         ref={setPillEl}
         variant={variant === "standing" ? "primary" : "ghost"}
-        size="sm"
+        size="md"
         className="ui-beacon"
         aria-label={label}
         aria-haspopup="dialog"
