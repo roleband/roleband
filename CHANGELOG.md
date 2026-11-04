@@ -6,6 +6,29 @@ Notable changes to RoleBand, newest first. The format follows
 
 ## [Unreleased]
 
+## [0.1.1]
+
+Fixes and polish.
+
+- **Tune the radar asks about sharing first**, even when pressed before the
+  sharing state has loaded. If that state cannot be read, setup opens.
+- **Your own model's switch** looks like the other off switches. Turning it on
+  opens its setup, and it stays off until a connection is saved.
+- **Counts are grouped the same way**: every figure in the Followed companies
+  and Companies toolbars uses your region's number format.
+- **The listing history panel stays on screen** on a phone, even after its
+  events load.
+- **An empty price chart's key** link and button respond to clicks.
+- **Focus stays where you are typing** when a setup step appears, and closing a
+  cover returns focus to its row in Safari as well.
+- **Messages point to the right place**: three of them now name Decided and
+  Settings › AI.
+- **Pay text is read in time proportional to its length**, so a page full of
+  spaces can no longer stall a scan, and only a SmartRecruiters address counts as
+  a SmartRecruiters board.
+- **Pay figures are computed faster**: each filed title is classified once.
+- Updated dependencies, among them tokenizers 0.23.3 in the Mac app.
+
 ## [0.1.0]
 
 First public release.
