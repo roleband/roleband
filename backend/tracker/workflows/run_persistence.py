@@ -234,6 +234,7 @@ async def persist_rows(
     reads, so it is not extended with the rows written here.
     """
     created: list[int] = []
+    moved: list[int] = []
     for enriched in rows:
         key = enriched.raw.dedupe_key()
         if (
@@ -241,11 +242,20 @@ async def persist_rows(
             and not discovery_should_persist(existing.get(key))
         ):
             continue
+        held = existing.get(key)
+        # Read before the write: `upsert_job` updates the held row in place.
+        before = reestimate.job_context(held) if held is not None else None
         job, is_new = await upsert_job(session, run, enriched, existing, binding_id=binding_id)
         touched_ids.append(job.id)
         if is_new:
             created.append(job.id)
+        # A deferred read keeps the figures the job shows (`repo._apply_fields`),
+        # which are stale once it moved what they were computed from: a level
+        # read as unplaced would keep a rung's pay.
+        elif not enriched.estimated and reestimate.job_context(job) != before:
+            moved.append(job.id)
     await classify_arrivals(session, created)
+    await reestimate.refresh_jobs(session, moved)
     return len(created)
 
 

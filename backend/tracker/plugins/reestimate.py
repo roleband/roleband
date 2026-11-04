@@ -79,7 +79,7 @@ from tracker.enrich.builtin_pay import Index as BuiltinIndex
 from tracker.enrich.comp import OURS, CompResolver, EstimateSet
 from tracker.enrich.enricher import ESTIMATE_FIELDS, estimate_values
 from tracker.plugins.registry import ESTIMATE_SLOTS, PAY_LEVELS, Providers, load_providers
-from tracker.schema import LevelBand
+from tracker.schema import LevelBand, LevelBasis
 from tracker.taxonomy.locations import pay_country
 
 logger = logging.getLogger(__name__)
@@ -319,25 +319,40 @@ class ReestimateResult:
     inputs: ReferenceInputs | None = None
 
 
-async def _estimates(estimates: EstimateSet, job: Any) -> dict[str, dict[str, Any]]:
-    """Each source's estimate fields, providers' answers and fingerprint for one
-    stored job."""
+def _basis(value: str | None) -> LevelBasis | None:
+    """A stored basis; NULL or an unknown value reads as generic, as relevel reads it."""
+    try:
+        return LevelBasis(value) if value else None
+    except ValueError:
+        return None
+
+
+def job_context(job: Any) -> CompContext | None:
+    """What an estimate reads of one stored job; None for a band no ladder
+    names, which nothing prices."""
     try:
         band = LevelBand(job.level_band)
     except ValueError:
-        band = None
+        return None
+    return CompContext(
+        company=job.company,
+        band=band,
+        family=job.family,
+        location_group=(job.location_groups or [None])[0],
+        country=pay_country(job.location_groups),
+        title=job.title,
+        level_basis=_basis(job.level_basis),
+    )
+
+
+async def _estimates(estimates: EstimateSet, job: Any) -> dict[str, dict[str, Any]]:
+    """Each source's estimate fields, providers' answers and fingerprint for one
+    stored job."""
+    ctx = job_context(job)
     answers: dict[str, tuple[CompEstimate | None, list[dict]]]
-    if band is None:
+    if ctx is None:
         answers = {source: (None, []) for source in estimates.resolvers()}
     else:
-        ctx = CompContext(
-            company=job.company,
-            band=band,
-            family=job.family,
-            location_group=(job.location_groups or [None])[0],
-            country=pay_country(job.location_groups),
-            title=job.title,
-        )
         answers = await estimates.resolve(ctx)
     return {
         source: {**estimate_values(est), "sources": answered, "ref_fp": estimates.fingerprints.get(source)}
@@ -372,7 +387,8 @@ async def _show(session: AsyncSession, selected: str, target: str, ids: Sequence
 
 async def refresh_jobs(session: AsyncSession, job_ids: Iterable[int]) -> int:
     """Re-estimate jobs whose OWN inputs moved outside a scan: the level
-    backfill, the role reclassify, a held row's fresh read. The fingerprint names
+    backfill, the role reclassify, a held row's fresh read, a read whose
+    estimate was deferred. The fingerprint names
     what every estimate reads, never a job's own fields, so nothing else moved
     them. Commits nothing: the pass that moved them owns the transaction; the
     reference row stays locked until it commits.
@@ -396,7 +412,7 @@ async def refresh_jobs(session: AsyncSession, job_ids: Iterable[int]) -> int:
             return 0
     estimates = inputs.estimate_set()
     jobs = (await session.execute(
-        select(Job.id, Job.company, Job.level_band, Job.family, Job.location_groups, Job.title)
+        select(Job.id, Job.company, Job.level_band, Job.level_basis, Job.family, Job.location_groups, Job.title)
         .where(Job.id.in_(ids))
     )).all()
     rows: list[dict[str, Any]] = []
@@ -544,7 +560,8 @@ async def reestimate(
         jobs = (
             await session.execute(
                 select(
-                    Job.id, Job.company, Job.level_band, Job.family, Job.location_groups, Job.title,
+                    Job.id, Job.company, Job.level_band, Job.level_basis, Job.family, Job.location_groups,
+                    Job.title,
                     Job.comp_median, Job.comp_base_median,
                 )
                 .where(Job.id > cursor)
