@@ -83,7 +83,8 @@ async function configured(page: Page) {
 const posthogRequests = (page: Page) => {
   const seen: Request[] = [];
   page.on("request", (request) => {
-    if (new URL(request.url()).hostname.endsWith("posthog.com")) seen.push(request);
+    const { hostname } = new URL(request.url());
+    if (hostname === "posthog.com" || hostname.endsWith(".posthog.com")) seen.push(request);
   });
   return seen;
 };

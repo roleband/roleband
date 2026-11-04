@@ -135,7 +135,7 @@ _PERIOD_LEANS: tuple[tuple[PayPeriod, re.Pattern[str]], ...] = (
 #: and a salary reads `unclear`. Never after a currency sign or inside a
 #: number: "$65 hour" states an amount.
 _SCHEDULE_RE = _words(
-    r"(?<![\d.,$£€])\d+(?:\.\d+)?\s*-?\s*(?:hours?|hrs?|days?)\b"
+    r"(?<![\d.,$£€])\d+(?:\.\d+)?\s*(?:-\s*)?(?:hours?|hrs?|days?)\b"
     r"(?:\s*(?:per\s+|an?\s+|each\s+|/\s*)?(?:work\s*)?(?:week|wk|day|month)\b)?"
 )
 
