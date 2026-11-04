@@ -3,7 +3,7 @@ import { STAGES } from "../../copy/vocabulary";
 import { applicationCardFixture as card } from "../../test/fixtures";
 import { COLUMNS, boardCounts, byStage, dueOf, dueState, isStale, sortColumn } from "./board";
 
-/* The board's rules as the spec states them: eleven stages in eight columns,
+/* The board's rules as the spec states them: ten stages in seven columns,
  * one due field that is the sooner of two dates, three due states, a stale
  * threshold per stage, and a column order of urgent first, then latest
  * activity. Each rule carries the case a plausible wrong version gets wrong. */
@@ -13,12 +13,19 @@ const hours = (n: number) => new Date(NOW.getTime() + n * 3_600_000).toISOString
 const days = (n: number) => hours(n * 24);
 
 describe("the columns", () => {
-  it("place every stage in exactly one column, in the taxonomy's order", () => {
+  it("place every stage but Networking in exactly one column, in the taxonomy's order", () => {
     const placed = COLUMNS.flatMap((column) => column.stages);
-    expect(placed).toEqual(STAGES);
+    expect(placed).toEqual(STAGES.filter((stage) => stage !== "networking"));
     expect(COLUMNS.map((column) => column.id)).toEqual([
-      "saved", "researching", "networking", "applied", "interviewing", "offer", "decided", "closed",
+      "saved", "researching", "applied", "interviewing", "offer", "decided", "closed",
     ]);
+  });
+
+  it("show a Networking card in Researching, keeping its own stage", () => {
+    const groups = byStage([card({ job_id: 1, stage: "networking" }), card({ job_id: 2, stage: "researching" })], NOW);
+    expect(groups.get("researching")!.map((c) => c.job_id).sort()).toEqual([1, 2]);
+    expect(groups.get("researching")!.find((c) => c.job_id === 1)!.stage).toBe("networking");
+    expect(groups.has("networking")).toBe(false);
   });
 
   it("split the endings by who decided: the person's in Decided, the company's in Closed", () => {
@@ -30,7 +37,7 @@ describe("the columns", () => {
     const groups = byStage([card({ job_id: 1, stage: "applied" })], NOW);
     expect(groups.get("applied")!.map((c) => c.job_id)).toEqual([1]);
     expect(groups.get("saved")).toEqual([]);
-    expect(groups.size).toBe(STAGES.length);
+    expect(groups.size).toBe(STAGES.length - 1);
   });
 });
 

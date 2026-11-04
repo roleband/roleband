@@ -46,8 +46,20 @@ async def board(session: AsyncSession, *, now: datetime, job_id: int | None = No
     on_board = union(select(Favorite.job_id), select(Pursuit.job_id)).subquery()
 
     last_change = (
-        select(PursuitEvent.pursuit_id, PursuitEvent.from_stage, PursuitEvent.created_at)
+        select(PursuitEvent.pursuit_id, PursuitEvent.created_at)
         .where(_stage_changes())
+        .distinct(PursuitEvent.pursuit_id)
+        .order_by(PursuitEvent.pursuit_id, PursuitEvent.created_at.desc(), PursuitEvent.id.desc())
+        .subquery()
+    )
+    # The stage an ending was reached from is the last one still moving: a
+    # change from one ending to another (Declined, then Accepted) keeps it.
+    ended_from = (
+        select(PursuitEvent.pursuit_id, PursuitEvent.from_stage)
+        .where(
+            PursuitEvent.from_stage.not_in(sorted(ENDED_STAGES)),
+            PursuitEvent.to_stage.in_(sorted(ENDED_STAGES)),
+        )
         .distinct(PursuitEvent.pursuit_id)
         .order_by(PursuitEvent.pursuit_id, PursuitEvent.created_at.desc(), PursuitEvent.id.desc())
         .subquery()
@@ -82,7 +94,7 @@ async def board(session: AsyncSession, *, now: datetime, job_id: int | None = No
             Job,
             Pursuit,
             Favorite.created_at.label("starred_at"),
-            last_change.c.from_stage.label("left_stage"),
+            ended_from.c.from_stage.label("ended_from"),
             last_change.c.created_at.label("stage_since"),
             func.coalesce(comments.c.n, 0).label("comment_count"),
             comments.c.last_at.label("last_comment_at"),
@@ -98,6 +110,7 @@ async def board(session: AsyncSession, *, now: datetime, job_id: int | None = No
         .outerjoin(Pursuit, Pursuit.job_id == Job.id)
         .outerjoin(Favorite, Favorite.job_id == Job.id)
         .outerjoin(last_change, last_change.c.pursuit_id == Pursuit.id)
+        .outerjoin(ended_from, ended_from.c.pursuit_id == Pursuit.id)
         .outerjoin(comments, comments.c.pursuit_id == Pursuit.id)
         .outerjoin(next_interview, next_interview.c.pursuit_id == Pursuit.id)
         .outerjoin(interview_touched, interview_touched.c.pursuit_id == Pursuit.id)
@@ -145,7 +158,7 @@ async def board(session: AsyncSession, *, now: datetime, job_id: int | None = No
             "comment_count": row.comment_count,
             "stage_since": row.stage_since or row.starred_at,
             "last_activity_at": max(touched) if touched else None,
-            "ended_at_stage": row.left_stage if stage in ENDED_STAGES else None,
+            "ended_at_stage": row.ended_from if stage in ENDED_STAGES else None,
         })
     return cards
 

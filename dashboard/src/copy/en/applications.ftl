@@ -3,10 +3,12 @@
 ## taxonomy's stage names.
 
 ## The board
-# kind=status note="Under the page title: how many applications are moving, ended by the person, ended by the company, and how many past Considering have no next step or interview"
-applications-board-summary = { $moving } in motion · { $decided } decided · { $closed } closed · { $needNext } { $needNext ->
-        [one] needs
-       *[other] need
+# kind=status note="Under the page title: how many applications are moving, ended by the person, ended by the company; $needNext is the link that follows, applications-board-need-next"
+applications-board-summary = { $moving } in motion · { $decided } decided · { $closed } closed · { $needNext }
+# kind=link note="The summary's last part, a link that turns on the Needs a next step filter: how many past Considering have no next step or interview"
+applications-board-need-next = { $count ->
+        [one] { $count } needs
+       *[other] { $count } need
     } a next step
 # kind=heading
 applications-board-load-failed = Couldn't load your pipeline
@@ -20,12 +22,82 @@ applications-column-empty-saved = Star a role on your radar to start here.
 applications-column-empty = Nothing here yet.
 # kind=empty note="One ending's section inside Decided or Closed, with no application in it"
 applications-section-empty = None yet.
+# kind=status note="A column's count while filters are on: how many of its applications match"
+applications-column-count-of = { $count } of { $total }
+# kind=empty note="A column whose applications all fail the filters"
+applications-column-no-matches = No matches.
+# kind=aria note="Opens one column's menu"
+applications-column-menu = { $column } column options
 # kind=button
-applications-closed-hide = Hide
+applications-column-hide = Hide column
+# kind=tooltip note="Why Hide column is off: the board always shows one column"
+applications-column-hide-last = One column always stays on the board
+
+## The toolbar over the board and Up next
 # kind=aria
-applications-closed-hide-label = Hide the Closed column
-# kind=aria note="The hidden Closed column, folded to a button that brings it back"
-applications-closed-show = Show the Closed column
+applications-search-label = Search applications by company or title
+# kind=tooltip note="The search field's placeholder"
+applications-search-placeholder = Search company or title…
+# kind=status note="The board's count; $n is the styled number, $count selects the plural"
+applications-results = { $count ->
+        [one] { $n } application
+       *[other] { $n } applications
+    }
+# kind=status note="The board's count while filtering: $n of $t; $total selects the plural"
+applications-results-of = { $total ->
+        [one] { $n } of { $t } application
+       *[other] { $n } of { $t } applications
+    }
+# kind=status note="Up next's count: the interviews and dated next steps; $n is the styled number"
+applications-results-due = { $count ->
+        [one] { $n } thing due
+       *[other] { $n } things due
+    }
+# kind=status note="Up next's count while filtering: $n of $t"
+applications-results-due-of = { $total ->
+        [one] { $n } of { $t } thing due
+       *[other] { $n } of { $t } things due
+    }
+# kind=button note="Beside the count while filtering: keep every card and fade the rest instead of hiding them"
+applications-filter-highlight-instead = Highlight instead
+# kind=button note="Clears the search and every quick filter"
+applications-filter-reset = Reset all
+# kind=aria note="A chip for one quick filter that is on; pressing it turns the filter off"
+applications-filter-remove = Remove the filter { $filter }
+# kind=aria
+applications-filter-menu = Filter applications
+# kind=heading
+applications-filter-quick = Quick filters
+# kind=label note="A quick filter: a next step whose day has passed"
+applications-quick-overdue = Overdue
+# kind=label note="A quick filter: a next step or interview within the next seven days"
+applications-quick-due-week = Due in 7 days
+# kind=label note="A quick filter: past Considering, with no next step and no interview"
+applications-quick-needs-next = Needs a next step
+# kind=label note="A quick filter: no activity for longer than its stage expects"
+applications-quick-quiet = Gone quiet
+# kind=label note="A quick filter: priority 4 or 5 of 5"
+applications-quick-high-priority = Priority 4+
+# kind=heading note="The filter menu's last group: what an application that does not match does"
+applications-filter-while = While filtering
+# kind=label
+applications-mode-only = Show only matches
+# kind=sentence note="Under Show only matches in the filter menu"
+applications-mode-only-hint = What doesn't match leaves the view.
+# kind=label
+applications-mode-highlight = Highlight matches
+# kind=sentence note="Under Highlight matches in the filter menu"
+applications-mode-highlight-hint = Everything stays, and what doesn't match fades.
+# kind=button note="Opens the column menu; also the menu's name"
+applications-columns = Columns
+# kind=aria note="The column menu's opener while columns are hidden; the button itself shows an eye icon and the number"
+applications-columns-hidden = Columns, { $count } hidden
+# kind=heading
+applications-columns-show = Show columns
+# kind=button
+applications-columns-show-all = Show all columns
+# kind=empty note="Up next while the filters match nothing due"
+applications-upnext-no-matches = Nothing due matches these filters.
 
 ## A card
 # kind=aria
@@ -85,6 +157,8 @@ applications-menu-remove = Remove from pipeline
 ## A move, said after it lands
 # kind=toast
 applications-moved = Moved { $title } to { $stage }
+# kind=toast note="A move into a column the board hides: $column is that column's name"
+applications-moved-hidden = Moved { $title } to { $stage }. The { $column } column is hidden.
 # kind=button
 applications-move-undo = Undo
 # kind=toast
@@ -183,7 +257,7 @@ applications-page-back = Pipeline / { $stage }
 applications-page-back-board = Open the board
 # kind=heading
 applications-page-load-failed = Couldn't load this application
-# kind=status note="Where the application stands among the cards of its column"
+# kind=status note="Where the application stands among the cards of its column" same-as=applications-column-count-of
 applications-page-place = { $index } of { $total }
 # kind=aria
 applications-page-previous = Previous in this column: { $title }

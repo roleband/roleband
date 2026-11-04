@@ -21,7 +21,7 @@ import {
   applicationsMenuLabel,
   applicationsMenuRemove,
 } from "../../copy/gen/applications";
-import { applicationPath, dayOffset, daysInStage, daysOverdue, daysQuiet, dueOf, dueState, isStale } from "./board";
+import { applicationPath, boardStage, dayOffset, daysInStage, daysOverdue, daysQuiet, dueOf, dueState, isStale } from "./board";
 import { StageMenu } from "./StageMenu";
 import type { CardDragHandlers } from "./useCardDrag";
 
@@ -65,13 +65,16 @@ export interface ApplicationTileProps {
   drag?: CardDragHandlers;
   /** How far the card is drawn from its place while it is dragged. */
   dragged?: { dx: number; dy: number } | null;
+  /** Whether the card matches the filters while the board highlights
+   *  matches; unset when nothing highlights. */
+  match?: boolean;
 }
 
 /** One application on the board. The title opens the application, and its
  *  link covers the card; the one button beside the company holds every move.
  *  The card itself drags to another column, the pointer's fast path for the
  *  same moves. */
-export function ApplicationTile({ card, now, onMove, onRemove, drag, dragged }: ApplicationTileProps) {
+export function ApplicationTile({ card, now, onMove, onRemove, drag, dragged, match }: ApplicationTileProps) {
   const [menuButton, setMenuButton] = useState<HTMLButtonElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const company = companyName(card.company);
@@ -89,6 +92,7 @@ export function ApplicationTile({ card, now, onMove, onRemove, drag, dragged }: 
       data-job-id={card.job_id}
       data-posting-closed={card.posting_status === "closed" || undefined}
       data-dragging={dragged ? "" : undefined}
+      data-match={match == null ? undefined : String(match)}
       style={dragged ? { transform: `translate(${dragged.dx}px, ${dragged.dy}px)` } : undefined}
       {...dragSurface}
       {...drag}
@@ -114,7 +118,7 @@ export function ApplicationTile({ card, now, onMove, onRemove, drag, dragged }: 
       </Link>
       {ending && (
         <span className="app-tile-ended">
-          {applicationsCardEnded({ ending: STAGE_LABEL[card.stage], stage: STAGE_LABEL[ending] })}
+          {applicationsCardEnded({ ending: STAGE_LABEL[card.stage], stage: STAGE_LABEL[boardStage(ending)] })}
         </span>
       )}
       <div className="app-tile-foot">

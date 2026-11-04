@@ -8,8 +8,8 @@ import { expect, mockApi, mockGet, test, type Page } from "./fixtures";
  * keyboard (the path the spec requires; dragging is only ever the fast one),
  * a whole card that opens its application's page, a drag that moves a card
  * and scrolls the board under it, Interviewing's question,
- * the Closed column that a browser remembers hiding, the page's own stage
- * button and Mark done, and Up next. The API is a small store, so a re-read
+ * hidden columns a browser remembers, filters kept in the address, the
+ * page's own stage button and Mark done, and Up next. The API is a small store, so a re-read
  * after a write shows the write. */
 
 const cards: ApplicationCard[] = [
@@ -78,8 +78,9 @@ test("the rail place opens on the board, titled by its rail label", async ({ pag
   await expect(page).toHaveURL(/\/pipeline\/board$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(msg("shell-nav-pipeline"));
   await expect(column(page, "Considering").getByText("Staff Product Manager, API")).toBeVisible();
-  await expect(page.getByText(msg("applications-board-summary", { moving: 2, decided: 0, closed: 1, needNext: 1 })))
-    .toBeVisible();
+  await expect(page.getByText(msg("applications-board-summary", {
+    moving: 2, decided: 0, closed: 1, needNext: msg("applications-board-need-next", { count: 1 }),
+  }))).toBeVisible();
 });
 
 test("a card moves from its menu with the keyboard alone, and Undo moves it back", async ({ page }) => {
@@ -190,7 +191,8 @@ test("the application page moves its stage from the keyboard: S opens the menu, 
   await page.keyboard.press("s");
   await expect(page.getByRole("dialog", { name: msg("applications-stage-menu-label", { title: "Principal Engineering Manager" }) }))
     .toBeVisible();
-  await page.keyboard.press("6");
+  // Networking shows as Researching, so the five moving stages are 1 to 5.
+  await page.keyboard.press("5");
   await expect(stage("Offer")).toBeVisible();
   await expect.poll(() => stageWrites).toEqual([{ jobId: 202, stage: "offer" }]);
 });
@@ -259,16 +261,49 @@ test("moving into Interviewing asks when the interview is, and records it with t
   expect([sent.getFullYear(), sent.getMonth(), sent.getDate(), sent.getHours()]).toEqual([2026, 10, 12, 14]);
 });
 
-test("a hidden Closed column stays hidden after a reload, and comes back from its folded button", async ({ page }) => {
+test("a column hidden from its menu takes no room, stays hidden after a reload, and comes back from Columns", async ({ page }) => {
   await installPipeline(page);
   await page.goto("/pipeline/board");
+  const closedName = msg("applications-column-closed");
 
-  await page.getByRole("button", { name: msg("applications-closed-hide-label") }).click();
-  await expect(column(page, msg("applications-column-closed"))).toHaveCount(0);
+  await page.getByRole("button", { name: msg("applications-column-menu", { column: closedName }) }).click();
+  await page.getByRole("button", { name: msg("applications-column-hide") }).click();
+  await expect(column(page, closedName)).toHaveCount(0);
+  // Nothing stands in for it: Decided is now the board's last column.
+  const board = await page.locator(".app-board").boundingBox();
+  const decided = await column(page, msg("applications-column-decided")).boundingBox();
+  expect(Math.round(board!.x + board!.width)).toBe(Math.round(decided!.x + decided!.width));
+
   await page.reload();
   await expect(column(page, "Considering").getByText("Staff Product Manager, API")).toBeVisible();
   await expect(page.getByText("Head of Platform")).toHaveCount(0);
+  const columns = page.getByRole("button", { name: msg("applications-columns-hidden", { count: 1 }) });
+  await columns.click();
+  await page.getByRole("dialog", { name: msg("applications-columns") })
+    .getByRole("checkbox", { name: new RegExp(`^${closedName}`) }).check();
+  await expect(column(page, closedName).getByText("Head of Platform")).toBeVisible();
+});
 
-  await page.getByRole("button", { name: msg("applications-closed-show") }).click();
-  await expect(column(page, msg("applications-column-closed")).getByText("Head of Platform")).toBeVisible();
+test("a filter lives in the address: it survives opening a card and coming back, and / goes to the search", async ({ page }) => {
+  await installPipeline(page);
+  await page.goto("/pipeline/board");
+  await expect(column(page, "Considering").getByText("Staff Product Manager, API")).toBeVisible();
+
+  await page.getByRole("button", { name: msg("applications-board-need-next", { count: 1 }) }).click();
+  await expect(page).toHaveURL(/\/pipeline\/board\?only=needs_next$/);
+  await expect(page.getByText("Staff Product Manager, API")).toHaveCount(0);
+  await expect(column(page, "Applied").getByText(msg("applications-column-count-of", { count: 1, total: 1 }))).toBeVisible();
+
+  await page.getByText("Principal Engineering Manager").click();
+  await expect(page).toHaveURL(/\/pipeline\/202$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/only=needs_next/);
+  await expect(page.getByText("Staff Product Manager, API")).toHaveCount(0);
+
+  await page.getByRole("button", { name: msg("applications-filter-highlight-instead") }).click();
+  await expect(page.locator(".app-tile", { hasText: "Staff Product Manager, API" })).toHaveAttribute("data-match", "false");
+  await expect(page.locator(".app-tile", { hasText: "Principal Engineering Manager" })).toHaveAttribute("data-match", "true");
+
+  await page.locator("body").press("/");
+  await expect(page.getByRole("searchbox", { name: msg("applications-search-label") })).toBeFocused();
 });

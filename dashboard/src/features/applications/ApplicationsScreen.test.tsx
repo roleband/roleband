@@ -45,6 +45,7 @@ const withProviders = (ui: ReactElement) => (
 );
 
 const column = (name: string) => screen.getByRole("region", { name });
+const tileOf = (card: ApplicationCard) => document.querySelector<HTMLElement>(`.app-tile[data-job-id="${card.job_id}"]`)!;
 const openMenu = async (card: ApplicationCard) => {
   await userEvent.click(screen.getByRole("button", { name: msg("applications-card-actions", { title: card.title }) }));
   return screen.findByRole("dialog", { name: msg("applications-menu-label", { title: card.title }) });
@@ -94,13 +95,13 @@ describe("the board", () => {
     await screen.findByText("Staff Product Manager, API");
 
     const menu = await openMenu(considering);
-    await userEvent.click(within(menu).getByRole("button", { name: "Networking" }));
+    await userEvent.click(within(menu).getByRole("button", { name: "Researching" }));
 
-    expect(within(column("Networking")).getByText("Staff Product Manager, API")).toBeInTheDocument();
+    expect(within(column("Researching")).getByText("Staff Product Manager, API")).toBeInTheDocument();
     expect(within(column("Considering")).queryByText("Staff Product Manager, API")).toBeNull();
-    await waitFor(() => expect(api.setPursuit).toHaveBeenCalledWith(1, { stage: "networking" }));
+    await waitFor(() => expect(api.setPursuit).toHaveBeenCalledWith(1, { stage: "researching" }));
 
-    const toast = await screen.findByText(msg("applications-moved", { title: considering.title, stage: "Networking" }));
+    const toast = await screen.findByText(msg("applications-moved", { title: considering.title, stage: "Researching" }));
     await userEvent.click(within(toast.closest("[role=status], .ui-toast")! as HTMLElement)
       .getByRole("button", { name: msg("applications-move-undo") }));
     await waitFor(() => expect(api.setPursuit).toHaveBeenLastCalledWith(1, { stage: "saved" }));
@@ -209,22 +210,144 @@ describe("moving into Interviewing", () => {
   });
 });
 
-describe("the Closed column", () => {
-  it("hides on request and stays hidden on the next visit, folded to a button with its count", async () => {
+const atRoute = (path: string) => (
+  <ToastProvider>
+    <MemoryRouter initialEntries={[path]}>
+      <Routes><Route path="/pipeline/:tab" element={<ApplicationsScreen />} /></Routes>
+    </MemoryRouter>
+  </ToastProvider>
+);
+const columnsButton = () => screen.getByRole("button", { name: /^Columns/ });
+const openColumnsMenu = async () => {
+  await userEvent.click(columnsButton());
+  return screen.findByRole("dialog", { name: msg("applications-columns") });
+};
+const openFilterMenu = async () => {
+  await userEvent.click(screen.getByRole("button", { name: msg("shared-filters") }));
+  return screen.findByRole("dialog", { name: msg("applications-filter-menu") });
+};
+
+describe("hiding columns", () => {
+  it("hides a column from its own menu, leaving no trace on the board, and remembers it on the next visit", async () => {
     const { unmount } = render(withProviders(<ApplicationsScreen />));
     await screen.findByText("Head of Platform");
+    const closedName = msg("applications-column-closed");
 
-    await userEvent.click(screen.getByRole("button", { name: msg("applications-closed-hide-label") }));
-    expect(screen.queryByRole("region", { name: msg("applications-column-closed") })).toBeNull();
-    const show = screen.getByRole("button", { name: msg("applications-closed-show") });
-    expect(show).toHaveTextContent("1");
+    await userEvent.click(screen.getByRole("button", { name: msg("applications-column-menu", { column: closedName }) }));
+    const menu = await screen.findByRole("dialog", { name: msg("applications-column-menu", { column: closedName }) });
+    await userEvent.click(within(menu).getByRole("button", { name: msg("applications-column-hide") }));
+
+    expect(screen.queryByRole("region", { name: closedName })).toBeNull();
+    expect(screen.queryByText("Head of Platform")).toBeNull();
+    expect(columnsButton()).toHaveAccessibleName(msg("applications-columns-hidden", { count: 1 }));
     unmount();
 
     render(withProviders(<ApplicationsScreen />));
     await screen.findByText("Staff Product Manager, API");
-    expect(screen.queryByText("Head of Platform")).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: msg("applications-closed-show") }));
-    expect(within(column(msg("applications-column-closed"))).getByText("Head of Platform")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: closedName })).toBeNull();
+    const columns = await openColumnsMenu();
+    await userEvent.click(within(columns).getByRole("checkbox", { name: new RegExp(`^${closedName}`) }));
+    expect(within(column(closedName)).getByText("Head of Platform")).toBeInTheDocument();
+    expect(columnsButton()).toHaveAccessibleName(msg("applications-columns"));
+  });
+
+  it("keeps the last shown column: its box and its Hide are off", async () => {
+    render(withProviders(<ApplicationsScreen />));
+    await screen.findByText("Staff Product Manager, API");
+    const columns = await openColumnsMenu();
+    const boxes = within(columns).getAllByRole("checkbox");
+    for (const box of boxes.slice(1)) await userEvent.click(box);
+
+    expect(screen.getAllByRole("region")).toHaveLength(1);
+    expect(boxes[0]).toBeChecked();
+    expect(boxes[0]).toBeDisabled();
+    await userEvent.click(within(columns).getByRole("button", { name: msg("applications-columns-show-all") }));
+    expect(screen.getAllByRole("region")).toHaveLength(7);
+  });
+
+  it("says so when a move sends a card into a hidden column, and keeps its Undo", async () => {
+    localStorage.setItem("roleband.pipeline-hidden-columns", JSON.stringify(["offer"]));
+    render(withProviders(<ApplicationsScreen />));
+    await screen.findByText("Principal Engineering Manager");
+
+    await userEvent.click(within(await openMenu(applied)).getByRole("button", { name: "Offer" }));
+
+    expect(await screen.findByText(msg("applications-moved-hidden", { title: applied.title, stage: "Offer", column: "Offer" })))
+      .toBeInTheDocument();
+    expect(screen.queryByText("Principal Engineering Manager")).toBeNull();
+    expect(screen.getByRole("button", { name: msg("applications-move-undo") })).toBeInTheDocument();
+  });
+});
+
+describe("filtering", () => {
+  const due = applicationCardFixture({
+    job_id: 4, pursuit_id: 40, stage: "applied", title: "Director of Product", company: "notion",
+    next_action: "Send the case study", next_action_due: new Date(Date.now() - 2 * 86_400_000).toISOString(),
+  });
+  beforeEach(() => {
+    stored = [considering, applied, due, rejected];
+  });
+
+  it("shows only the matches, counts each column as matches of all, and says a column emptied by it has no matches", async () => {
+    render(atRoute("/pipeline/board"));
+    await screen.findByText("Director of Product");
+
+    const menu = await openFilterMenu();
+    await userEvent.click(within(menu).getByRole("checkbox", { name: new RegExp(`^${msg("applications-quick-overdue")}`) }));
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.queryByText("Principal Engineering Manager")).toBeNull();
+    expect(within(column("Applied")).getByText("Director of Product")).toBeInTheDocument();
+    expect(within(column("Applied")).getByText(msg("applications-column-count-of", { count: 1, total: 2 }))).toBeInTheDocument();
+    expect(within(column("Considering")).getByText(msg("applications-column-no-matches"))).toBeInTheDocument();
+    expect(screen.getByText((_, node) => node?.classList.contains("results-count") === true
+      && node.textContent?.startsWith("1 of 4") === true)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: msg("applications-filter-remove", { filter: msg("applications-quick-overdue") }) }));
+    expect(screen.getByText("Principal Engineering Manager")).toBeInTheDocument();
+    expect(screen.queryByText(msg("applications-column-no-matches"))).toBeNull();
+  });
+
+  it("highlights instead: every card stays, the matches marked and the rest not", async () => {
+    render(atRoute("/pipeline/board?only=overdue"));
+    await screen.findByText("Director of Product");
+    expect(screen.queryByText("Principal Engineering Manager")).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: msg("applications-filter-highlight-instead") }));
+
+    expect(tileOf(due)).toHaveAttribute("data-match", "true");
+    expect(tileOf(applied)).toHaveAttribute("data-match", "false");
+    expect(tileOf(considering)).toHaveAttribute("data-match", "false");
+    await userEvent.click(screen.getByRole("button", { name: msg("applications-mode-only") }));
+    expect(screen.queryByText("Principal Engineering Manager")).toBeNull();
+  });
+
+  it("searches the company and the title, and Reset all clears it", async () => {
+    render(atRoute("/pipeline/board"));
+    await screen.findByText("Director of Product");
+
+    await userEvent.type(screen.getByRole("searchbox", { name: msg("applications-search-label") }), "stripe");
+    expect(screen.getByText("Principal Engineering Manager")).toBeInTheDocument();
+    expect(screen.queryByText("Director of Product")).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: msg("applications-filter-reset") }));
+    expect(screen.getByText("Director of Product")).toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: msg("applications-search-label") })).toHaveValue("");
+  });
+
+  it("turns on Needs a next step from the summary, and the filter follows to Up next", async () => {
+    render(atRoute("/pipeline/board"));
+    await screen.findByText("Director of Product");
+
+    await userEvent.click(screen.getByRole("button", { name: msg("applications-board-need-next", { count: 1 }) }));
+    expect(screen.getByText("Principal Engineering Manager")).toBeInTheDocument();
+    expect(screen.queryByText("Director of Product")).toBeNull();
+    expect(screen.getByRole("button", { name: msg("applications-filter-remove", { filter: msg("applications-quick-needs-next") }) }))
+      .toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: msg("shell-tab-pipeline-up-next") }));
+    expect(await screen.findByText(msg("applications-upnext-no-matches"))).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Columns/ })).toBeNull();
   });
 });
 
@@ -264,7 +387,7 @@ describe("the cards and the tabs", () => {
 /* jsdom lays nothing out, so the board's geometry is drawn here: a column
  * every 264px from the left, 252px wide, and a split column's sections
  * stacked 200px apart from y 40. */
-const COLUMN_ORDER = ["saved", "researching", "networking", "applied", "interviewing", "offer", "decided", "closed"];
+const COLUMN_ORDER = ["saved", "researching", "applied", "interviewing", "offer", "decided", "closed"];
 const box = (x: number, y: number, width: number, height: number) =>
   ({ x, y, width, height, left: x, top: y, right: x + width, bottom: y + height, toJSON: () => ({}) }) as DOMRect;
 
@@ -287,7 +410,6 @@ const over = (columnId: string, section = 0) => ({
   clientY: 40 + section * 200 + 90,
 });
 const nextFrame = () => act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
-const tileOf = (card: ApplicationCard) => document.querySelector<HTMLElement>(`.app-tile[data-job-id="${card.job_id}"]`)!;
 
 /** Press a card, carry it to `to`, and let a frame draw it there. */
 async function carry(card: ApplicationCard, to: { clientX: number; clientY: number }) {

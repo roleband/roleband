@@ -20,8 +20,10 @@ import { useStageMove } from "./useStageMove";
  *
  * A move is `useStageMove`, the same as the application page's. Leaving
  * the pipeline removes the star, in order with every other write to the role.
+ * `said` words the move's toast, so the board can say a card left for a
+ * column it hides.
  */
-export function useBoardController() {
+export function useBoardController({ said }: { said?: (title: string, stage: StageSlug) => string } = {}) {
   const { favVersion } = useJobWorkspace();
   const { refreshStats } = useMissionActions();
   const { toast } = useToast();
@@ -45,7 +47,7 @@ export function useBoardController() {
   );
 
   const reread = useCallback(() => refresh({ preserveData: true }), [refresh]);
-  const move = useStageMove({ paint, refresh: reread });
+  const move = useStageMove({ paint, refresh: reread, said });
 
   /** Takes a role in Considering off the board by removing its star. Past
    *  Considering the server refuses, and the menu offers Withdrawn instead. */

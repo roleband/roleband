@@ -121,6 +121,8 @@ describe("the application page", () => {
     const menu = await screen.findByRole("dialog", { name: msg("applications-stage-menu-label", { title: TITLE }) });
     expect(within(menu).getByRole("button", { name: /Applied/ })).toHaveAttribute("aria-current", "true");
     await userEvent.keyboard("6");
+    expect(api.setPursuit).not.toHaveBeenCalled();
+    await userEvent.keyboard("5");
     await waitFor(() => expect(api.setPursuit).toHaveBeenCalledWith(101, { stage: "offer" }));
     expect(await screen.findByRole("button", { name: stageNamed("Offer") }))
       .toBeInTheDocument();

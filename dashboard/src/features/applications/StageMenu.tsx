@@ -7,7 +7,7 @@ import {
   applicationsColumnDecided,
   applicationsMenuMoveTo,
 } from "../../copy/gen/applications";
-import { CLOSED_STAGES, DECIDED_STAGES, MOVING_STAGES } from "./board";
+import { CLOSED_STAGES, DECIDED_STAGES, MOVING_STAGES, boardStage } from "./board";
 
 export interface StageMenuProps {
   current: StageSlug;
@@ -23,8 +23,8 @@ export interface StageMenuProps {
 }
 
 /** Every stage an application can move to, the one path that needs no
- *  pointer, shared by a board card and the application page. The six moving
- *  stages answer to the number keys 1 to 6 while the menu is open. The
+ *  pointer, shared by a board card and the application page. The moving
+ *  stages answer to the number keys 1 to 5 while the menu is open. The
  *  current stage carries a tick, and choosing it changes nothing. */
 export function StageMenu({ current, label, anchor, isOpen, onClose, onMove, reached, children }: StageMenuProps) {
   useEffect(() => {
@@ -44,7 +44,7 @@ export function StageMenu({ current, label, anchor, isOpen, onClose, onMove, rea
     <div className="app-menu-group" role="group" aria-label={heading}>
       <span className="app-menu-heading" aria-hidden="true">{heading}</span>
       {stages.map((stage, index) => {
-        const chosen = stage === current;
+        const chosen = stage === boardStage(current);
         const on = reached?.get(stage);
         return (
           <Button

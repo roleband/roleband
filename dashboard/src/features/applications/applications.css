@@ -59,7 +59,7 @@
   font-weight: var(--app-weight-body);
 }
 
-.app-column-hide {
+.app-column-menu {
   margin-left: auto;
 }
 
@@ -224,10 +224,21 @@
   box-shadow: 0 0 0 4px var(--app-surface-sunken), 0 0 0 5px var(--app-border-strong);
 }
 
-/* The hidden Closed column, folded to one button at the end of the row. */
-.app-closed-show {
-  flex: 0 0 auto;
-  writing-mode: vertical-rl;
+/* While the board highlights matches, every card stays: the matches are
+   outlined in the action colour and the rest fade. */
+[data-highlight] .app-tile[data-match="true"] {
+  border-color: var(--app-action);
+  box-shadow: inset 0 0 0 1px var(--app-action);
+}
+
+[data-highlight] .app-tile[data-match="false"],
+[data-highlight] .app-upnext-item[data-match="false"] {
+  opacity: 0.4;
+}
+
+[data-highlight] .app-tile[data-match="false"]:focus-within,
+[data-highlight] .app-upnext-item[data-match="false"]:focus-within {
+  opacity: 1;
 }
 
 /* The card's menu: every stage, in groups. */
@@ -304,6 +315,84 @@
 
 .app-tabbar {
   margin-bottom: var(--app-space-4);
+}
+
+/* ---- the toolbar over both tabs ------------------------------------------ */
+
+.app-pipeline-search {
+  flex: 1 1 240px;
+  max-width: 340px;
+}
+
+/* The count is a fact, in the data voice, as on Radar. */
+.app-pipeline-toolbar .results-count {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  white-space: nowrap;
+  font-family: var(--app-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.app-pipeline-toolbar .results-sep {
+  color: var(--app-text-faint);
+}
+
+.app-filter-chip > svg {
+  color: var(--app-text-faint);
+}
+
+.app-pipeline-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  margin-left: auto;
+}
+
+.app-columns-hidden {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--app-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The filter and column menus: the filter rail's checkbox rows (ui/FilterRail.css). */
+.app-filter-menu,
+.app-columns-menu {
+  width: 260px;
+}
+
+fieldset.app-menu-group {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+fieldset.app-menu-group + .app-menu-group {
+  padding-top: var(--app-space-1);
+  border-top: 1px solid var(--app-border);
+}
+
+/* A mode's row carries a line under its name, so its radio sits at the top. */
+.app-menu-mode {
+  align-items: flex-start;
+}
+
+.app-menu-mode > input {
+  margin-top: 3px;
+}
+
+.app-columns-menu .check-row:has(input:disabled) {
+  color: var(--app-text-faint);
+  cursor: default;
+}
+
+.app-menu-hint {
+  display: block;
+  color: var(--app-text-faint);
+  font-size: var(--app-type-meta);
 }
 
 /* ---- Up next ------------------------------------------------------------- */

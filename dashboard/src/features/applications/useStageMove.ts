@@ -30,15 +30,19 @@ export function usePursuitWrite() {
   );
 }
 
+const moved = (title: string, stage: StageSlug) => applicationsMoved({ title, stage: STAGE_LABEL[stage] });
+
 /**
  * A stage move, the same from a board card and from the application page.
  * It paints at once and the server catches up. Undo is one move back, and
  * takes back the interview the move added. A failed move re-reads rather
  * than restoring a remembered copy: another tab may have changed it.
  */
-export function useStageMove({ paint, refresh }: {
+export function useStageMove({ paint, refresh, said = moved }: {
   paint: (jobId: number, stage: StageSlug) => void;
   refresh: () => unknown;
+  /** What the toast says once the move lands. */
+  said?: (title: string, stage: StageSlug) => string;
 }) {
   const { refreshStats } = useMissionActions();
   const { toast } = useToast();
@@ -72,7 +76,7 @@ export function useStageMove({ paint, refresh }: {
       void refresh();
       toast({
         key: "applications",
-        text: applicationsMoved({ title, stage: STAGE_LABEL[stage] }),
+        text: said(title, stage),
         action: {
           label: applicationsMoveUndo(),
           onClick: () => {
@@ -90,6 +94,6 @@ export function useStageMove({ paint, refresh }: {
         },
       });
     },
-    [paint, write, refresh, refreshStats, toast],
+    [paint, write, refresh, refreshStats, toast, said],
   );
 }

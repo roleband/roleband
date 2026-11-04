@@ -4,6 +4,7 @@ import type { ApplicationCard } from "../../api";
 import type { StageSlug } from "../../copy/vocabulary";
 import { useEscapeLayer } from "../../ui";
 import { dropStageAt, edgeSpeed, readDropColumns, scrollStep } from "./dropTarget";
+import { boardStage } from "./board";
 
 /* Dragging a card to another column: the fast path for a move the card's menu
  * also makes, which stays the keyboard's path.
@@ -111,7 +112,7 @@ function cardDragMachine(scroller: RefObject<HTMLElement | null>, show: (state: 
     if (step) root.scrollLeft = before + step;
     show({
       jobId: held.card.job_id,
-      stage: held.card.stage,
+      stage: boardStage(held.card.stage),
       target: targetAt(held.x, held.y),
       dx: held.x - held.startX + root.scrollLeft - held.scrollStart,
       dy: held.y - held.startY,
@@ -169,7 +170,7 @@ function cardDragMachine(scroller: RefObject<HTMLElement | null>, show: (state: 
       const was = end();
       if (!was?.moved) return null;
       swallowNextClick();
-      return target && target !== was.card.stage ? { card: was.card, stage: target } : null;
+      return target && target !== boardStage(was.card.stage) ? { card: was.card, stage: target } : null;
     },
     /** The pointer is gone: the browser took it, or the card lost it. */
     cancel(pointerId: number) {

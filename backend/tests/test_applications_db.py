@@ -141,6 +141,27 @@ async def test_an_ended_card_says_the_stage_it_ended_from(api_client, db_session
     assert card["stage"] == ending and card["ended_at_stage"] == "interviewing"
 
 
+async def test_an_ending_changed_to_another_ending_keeps_the_stage_it_ended_from(api_client, db_session):
+    job = await _job(db_session)
+    await _move(api_client, job.id, "offer")
+    await _move(api_client, job.id, "declined")
+    await _move(api_client, job.id, "accepted")
+
+    card = (await _board(api_client))[job.id]
+
+    assert card["stage"] == "accepted" and card["ended_at_stage"] == "offer"
+
+
+async def test_a_reopened_application_that_ends_again_names_the_stage_it_left_last(api_client, db_session):
+    job = await _job(db_session)
+    await _move(api_client, job.id, "applied")
+    await _move(api_client, job.id, "rejected")
+    await _move(api_client, job.id, "interviewing")
+    await _move(api_client, job.id, "withdrawn")
+
+    assert (await _board(api_client))[job.id]["ended_at_stage"] == "interviewing"
+
+
 async def test_a_moving_card_names_no_ending(api_client, db_session):
     job = await _job(db_session)
     await _move(api_client, job.id, "researching")

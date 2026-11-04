@@ -7,7 +7,7 @@ import type { ApplicationCard } from "../../api";
 import type { StageSlug } from "../../copy/vocabulary";
 
 export type ColumnId =
-  | "saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "decided" | "closed";
+  | "saved" | "researching" | "applied" | "interviewing" | "offer" | "decided" | "closed";
 
 /** A column and the stages it holds, in board order. A column of one stage
  *  is that stage; Decided and Closed are split into a section per ending. */
@@ -16,8 +16,8 @@ export interface ColumnDef {
   stages: readonly StageSlug[];
 }
 
-/** The six stages an application moves through, in order. */
-export const MOVING_STAGES = ["saved", "researching", "networking", "applied", "interviewing", "offer"] as const;
+/** The five stages an application moves through, in order. */
+export const MOVING_STAGES = ["saved", "researching", "applied", "interviewing", "offer"] as const;
 /** The endings the person chose. */
 export const DECIDED_STAGES = ["accepted", "declined", "withdrawn"] as const;
 /** The endings the company or the world decided. */
@@ -28,6 +28,13 @@ export const COLUMNS: readonly ColumnDef[] = [
   { id: "decided", stages: DECIDED_STAGES },
   { id: "closed", stages: CLOSED_STAGES },
 ];
+
+/** The stage a card shows as. Networking is part of Researching: the
+ *  vocabulary keeps it, so an application recorded there still reads, and
+ *  the board never offers it. */
+export function boardStage(stage: StageSlug): StageSlug {
+  return stage === "networking" ? "researching" : stage;
+}
 
 const DAY = 86_400_000;
 /** A due date this close reads as urgent. */
@@ -136,7 +143,7 @@ export function byStage(cards: readonly ApplicationCard[], now: Date): Map<Stage
   const groups = new Map<StageSlug, ApplicationCard[]>(
     COLUMNS.flatMap((column) => column.stages.map((stage) => [stage, []] as [StageSlug, ApplicationCard[]])),
   );
-  for (const card of cards) groups.get(card.stage)?.push(card);
+  for (const card of cards) groups.get(boardStage(card.stage))?.push(card);
   for (const [stage, list] of groups) groups.set(stage, sortColumn(list, now));
   return groups;
 }
@@ -151,20 +158,31 @@ export interface BoardCounts {
   needNextStep: number;
 }
 
+/** Still moving: in one of the moving stages, not ended. */
+export function isMoving(card: ApplicationCard): boolean {
+  return (MOVING_STAGES as readonly StageSlug[]).includes(boardStage(card.stage));
+}
+
+/** Past Considering and still moving, with neither a next step nor an
+ *  interview booked. */
+export function needsNextStep(card: ApplicationCard): boolean {
+  return isMoving(card) && card.stage !== "saved" && !card.next_action && !card.next_interview;
+}
+
 export function boardCounts(cards: readonly ApplicationCard[]): BoardCounts {
   const of = (stages: readonly string[]) => cards.filter((card) => stages.includes(card.stage));
   return {
-    moving: of(MOVING_STAGES).length,
+    moving: cards.filter(isMoving).length,
     decided: of(DECIDED_STAGES).length,
     closed: of(CLOSED_STAGES).length,
-    needNextStep: of(MOVING_STAGES.slice(1)).filter((card) => !card.next_action && !card.next_interview).length,
+    needNextStep: cards.filter(needsNextStep).length,
   };
 }
 
 /** The application's own page. */
 export const applicationPath = (jobId: number): string => `/pipeline/${jobId}`;
 
-function columnOf(stage: StageSlug): ColumnDef {
+export function columnOf(stage: StageSlug): ColumnDef {
   return COLUMNS.find((column) => column.stages.includes(stage)) ?? COLUMNS[0];
 }
 
@@ -179,7 +197,7 @@ export function placeInColumn(
   const card = cards.find((other) => other.job_id === jobId);
   if (!card) return null;
   const groups = byStage(cards, now);
-  const order = columnOf(card.stage).stages.flatMap((stage) => groups.get(stage) ?? []);
+  const order = columnOf(boardStage(card.stage)).stages.flatMap((stage) => groups.get(stage) ?? []);
   const index = order.findIndex((other) => other.job_id === jobId);
   return {
     index,
