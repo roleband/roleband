@@ -8,6 +8,7 @@ import { installEveryRoute } from "./routesHarness";
 const TABS = [
   { rail: "Radar", path: "/" },
   { rail: "Saved", path: "/favorites" },
+  { rail: "Application pipeline", path: "/pipeline" },
   { rail: "Profile", path: "/profile" },
   { rail: "Insights", path: "/statistics" },
   { rail: "Companies", path: "/company" },

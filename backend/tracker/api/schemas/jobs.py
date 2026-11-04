@@ -58,7 +58,8 @@ OfferPolicyFact = Literal[
     "bonus_rule", "equity_rule", "equity_vehicle", "vesting", "sign_on_bridges_vesting", "base_cap_usd", "annual_refresh"
 ]
 PursuitStage = Literal[
-    "saved", "researching", "networking", "applied", "interviewing", "offer", "rejected", "withdrawn"
+    "saved", "researching", "networking", "applied", "interviewing", "offer",
+    "accepted", "declined", "withdrawn", "rejected", "role_closed",
 ]
 ReviewRelevance = Literal["relevant", "irrelevant", "uncertain"]
 RequirementsState = Literal["ready", "pending", "unavailable"]

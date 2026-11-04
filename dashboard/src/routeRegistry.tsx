@@ -55,6 +55,9 @@ export const ROUTE_COMPONENTS: Record<string, Screen> = {
   "/favorites": preloadable(() =>
     import("./features/saved/SavedScreen").then((m) => ({ default: m.SavedScreen })),
   ),
+  "/pipeline": preloadable(() =>
+    import("./features/applications/ApplicationsScreen").then((m) => ({ default: m.ApplicationsScreen })),
+  ),
   "/profile": ProfileScreen,
   "/statistics": preloadable(() =>
     import("./routes/StatisticsRoute").then((m) => ({ default: m.StatisticsRoute })),

@@ -2,14 +2,21 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracker.db.models import Favorite, Job, Pursuit, PursuitEvent
+from tracker.db.models import (
+    Favorite,
+    Job,
+    Pursuit,
+    PursuitComment,
+    PursuitEvent,
+    PursuitInterview,
+)
 from tracker.platform.locks import advisory_xact_lock_pair
 
 PursuitStage = Literal[
@@ -19,9 +26,20 @@ PursuitStage = Literal[
     "applied",
     "interviewing",
     "offer",
-    "rejected",
+    "accepted",
+    "declined",
     "withdrawn",
+    "rejected",
+    "role_closed",
 ]
+
+#: The user's own endings: each can be reversed, and Withdrawn can re-engage
+#: while the posting is open.
+DECIDED_STAGES = frozenset({"accepted", "declined", "withdrawn"})
+#: Endings the company or the world decided. Only these never move again.
+CLOSED_STAGES = frozenset({"rejected", "role_closed"})
+#: A role at one of these has left the moving stages.
+ENDED_STAGES = DECIDED_STAGES | CLOSED_STAGES
 
 
 # A partial write: an ABSENT field is left alone, and `None` is how the model
@@ -172,6 +190,183 @@ async def upsert_pursuit(
         )
     await session.flush()
     return pursuit
+
+
+async def ensure_pursuit(
+    session: AsyncSession, job_id: int, *, actor: Literal["user", "agent"]
+) -> Pursuit:
+    """The pursuit for one role, created at Considering if it has none yet.
+
+    A star alone is a Considering card with no row behind it; the first
+    comment or interview on it needs one to hang from. Raises `LookupError`
+    for an unknown job."""
+    return await upsert_pursuit(session, job_id, PursuitUpdate(), actor=actor)
+
+
+# --- comments ------------------------------------------------------------------
+
+
+class CommentWrite(BaseModel):
+    body: str = Field(json_schema_extra={"x-text": "content"}, min_length=1, max_length=20_000)
+
+    @field_validator("body")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("a comment needs some text")
+        return value
+
+
+class CommentNotEditable(Exception):
+    """An agent's comment: the user may read it, not rewrite it."""
+
+
+async def _comment_on(session: AsyncSession, job_id: int, comment_id: int) -> PursuitComment:
+    """The comment, if it belongs to this role's pursuit. `LookupError` otherwise,
+    so an id from another role is never reached through this one's route."""
+    comment = await session.scalar(
+        select(PursuitComment)
+        .join(Pursuit, Pursuit.id == PursuitComment.pursuit_id)
+        .where(PursuitComment.id == comment_id, Pursuit.job_id == job_id)
+    )
+    if comment is None:
+        raise LookupError("comment not found")
+    return comment
+
+
+async def add_comment(
+    session: AsyncSession, job_id: int, payload: CommentWrite, *, actor: Literal["user", "agent"]
+) -> PursuitComment:
+    pursuit = await ensure_pursuit(session, job_id, actor=actor)
+    comment = PursuitComment(pursuit_id=pursuit.id, actor=actor, body=payload.body)
+    session.add(comment)
+    await session.flush()
+    return comment
+
+
+async def edit_comment(
+    session: AsyncSession, job_id: int, comment_id: int, payload: CommentWrite
+) -> PursuitComment:
+    await lock_role_writes(session, job_id)
+    comment = await _comment_on(session, job_id, comment_id)
+    if comment.actor != "user":
+        raise CommentNotEditable("only the user's own comments can be edited")
+    if comment.body != payload.body:
+        comment.body = payload.body
+        comment.edited_at = datetime.now(UTC)
+        await session.flush()
+    return comment
+
+
+async def delete_comment(session: AsyncSession, job_id: int, comment_id: int) -> None:
+    await lock_role_writes(session, job_id)
+    comment = await _comment_on(session, job_id, comment_id)
+    if comment.actor != "user":
+        raise CommentNotEditable("only the user's own comments can be deleted")
+    await session.delete(comment)
+    await session.flush()
+
+
+def public_comment(comment: PursuitComment) -> dict:
+    return {
+        "id": comment.id,
+        "actor": comment.actor,
+        "body": comment.body,
+        "source": comment.source,
+        "created_at": comment.created_at,
+        "edited_at": comment.edited_at,
+    }
+
+
+# --- interviews ----------------------------------------------------------------
+
+InterviewFormat = Literal["video", "phone", "onsite"]
+InterviewOutcome = Literal["passed", "not_passed", "cancelled"]
+
+
+class InterviewWrite(BaseModel):
+    label: str = Field(json_schema_extra={"x-text": "content"}, min_length=1, max_length=120)
+    scheduled_at: datetime
+    all_day: bool = False
+    format: InterviewFormat | None = None
+    link: str | None = Field(default=None, max_length=2_000)
+    outcome: InterviewOutcome | None = None
+    notes: str | None = Field(json_schema_extra={"x-text": "content"}, default=None, max_length=20_000)
+
+
+# A partial write, as `PursuitUpdate`: absent is "leave it". `label`,
+# `scheduled_at` and `all_day` are NOT NULL, so an explicit null for them is
+# refused; a null on the others clears them.
+class InterviewUpdate(BaseModel):
+    label: str | None = Field(json_schema_extra={"x-text": "content"}, default=None, min_length=1, max_length=120)
+    scheduled_at: datetime | None = None
+    all_day: bool | None = None
+    format: InterviewFormat | None = None
+    link: str | None = Field(default=None, max_length=2_000)
+    outcome: InterviewOutcome | None = None
+    notes: str | None = Field(json_schema_extra={"x-text": "content"}, default=None, max_length=20_000)
+
+    @field_validator("label", "scheduled_at", "all_day", mode="before")
+    @classmethod
+    def _reject_explicit_null(cls, value: object) -> object:
+        if value is None:
+            raise ValueError("cannot be null; omit the field to leave it unchanged")
+        return value
+
+
+async def _interview_on(session: AsyncSession, job_id: int, interview_id: int) -> PursuitInterview:
+    interview = await session.scalar(
+        select(PursuitInterview)
+        .join(Pursuit, Pursuit.id == PursuitInterview.pursuit_id)
+        .where(PursuitInterview.id == interview_id, Pursuit.job_id == job_id)
+        .execution_options(populate_existing=True)
+    )
+    if interview is None:
+        raise LookupError("interview not found")
+    return interview
+
+
+async def add_interview(
+    session: AsyncSession, job_id: int, payload: InterviewWrite, *, actor: Literal["user", "agent"]
+) -> PursuitInterview:
+    pursuit = await ensure_pursuit(session, job_id, actor=actor)
+    interview = PursuitInterview(pursuit_id=pursuit.id, **payload.model_dump())
+    session.add(interview)
+    await session.flush()
+    return interview
+
+
+async def update_interview(
+    session: AsyncSession, job_id: int, interview_id: int, payload: InterviewUpdate
+) -> PursuitInterview:
+    await lock_role_writes(session, job_id)
+    interview = await _interview_on(session, job_id, interview_id)
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(interview, field, value)
+    await session.flush()
+    return interview
+
+
+async def delete_interview(session: AsyncSession, job_id: int, interview_id: int) -> None:
+    await lock_role_writes(session, job_id)
+    interview = await _interview_on(session, job_id, interview_id)
+    await session.delete(interview)
+    await session.flush()
+
+
+def public_interview(interview: PursuitInterview) -> dict:
+    return {
+        "id": interview.id,
+        "label": interview.label,
+        "scheduled_at": interview.scheduled_at,
+        "all_day": interview.all_day,
+        "format": interview.format,
+        "link": interview.link,
+        "outcome": interview.outcome,
+        "notes": interview.notes,
+        "created_at": interview.created_at,
+        "updated_at": interview.updated_at,
+    }
 
 
 async def list_pursuits(

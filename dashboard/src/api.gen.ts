@@ -4,6 +4,57 @@
  */
 
 export interface paths {
+    "/api/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Board Ep */
+        get: operations["board_ep_api_applications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Application Ep */
+        get: operations["application_ep_api_applications__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{job_id}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Activity Ep */
+        get: operations["activity_ep_api_applications__job_id__activity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/clusters": {
         parameters: {
             query?: never;
@@ -1352,6 +1403,76 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}/pursuit/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Comment Ep */
+        post: operations["add_comment_ep_api_jobs__job_id__pursuit_comments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}/pursuit/comments/{comment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Edit Comment Ep */
+        put: operations["edit_comment_ep_api_jobs__job_id__pursuit_comments__comment_id__put"];
+        post?: never;
+        /** Delete Comment Ep */
+        delete: operations["delete_comment_ep_api_jobs__job_id__pursuit_comments__comment_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}/pursuit/interviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Interview Ep */
+        post: operations["add_interview_ep_api_jobs__job_id__pursuit_interviews_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}/pursuit/interviews/{interview_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Interview Ep */
+        delete: operations["delete_interview_ep_api_jobs__job_id__pursuit_interviews__interview_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Interview Ep */
+        patch: operations["update_interview_ep_api_jobs__job_id__pursuit_interviews__interview_id__patch"];
         trace?: never;
     };
     "/api/jobs/{job_id}/similar": {
@@ -3147,6 +3268,144 @@ export interface components {
             to: number | null;
         };
         /**
+         * ApplicationActivityResponse
+         * @description `GET /api/applications/{job_id}/activity`: newest first. Pass the last
+         *     item's `created_at` as `before` for the page after it.
+         */
+        ApplicationActivityResponse: {
+            /** Items */
+            items: (components["schemas"]["ApplicationComment"] | components["schemas"]["ApplicationEvent"])[];
+        };
+        /**
+         * ApplicationBoardResponse
+         * @description `GET /api/applications`: every application, in no particular order.
+         */
+        ApplicationBoardResponse: {
+            /** Applications */
+            applications: components["schemas"]["ApplicationCard"][];
+        };
+        /**
+         * ApplicationCard
+         * @description One application as the board shows it.
+         */
+        ApplicationCard: {
+            /** Comment Count */
+            comment_count: number;
+            /** Company */
+            company: string;
+            /** Ended At Stage */
+            ended_at_stage: ("saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed") | null;
+            /** Job Id */
+            job_id: number;
+            /** Last Activity At */
+            last_activity_at: string | null;
+            /** Level Band */
+            level_band: string | null;
+            /** Next Action */
+            next_action: string | null;
+            /** Next Action Due */
+            next_action_due: string | null;
+            next_interview: components["schemas"]["ApplicationNextInterview"] | null;
+            /** Posting Status */
+            posting_status: string;
+            /** Priority */
+            priority: number;
+            /** Pursuit Id */
+            pursuit_id: number | null;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed";
+            /** Stage Since */
+            stage_since: string | null;
+            /** Starred */
+            starred: boolean;
+            /** Title */
+            title: string;
+        };
+        /** ApplicationComment */
+        ApplicationComment: {
+            /**
+             * Actor
+             * @enum {string}
+             */
+            actor: "user" | "agent";
+            /** Body */
+            body: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Edited At */
+            edited_at: string | null;
+            /** Id */
+            id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "comment";
+            /** Source */
+            source: string;
+        };
+        /** ApplicationCommentResponse */
+        ApplicationCommentResponse: {
+            comment: components["schemas"]["ApplicationComment"];
+        };
+        /** ApplicationDeleted */
+        ApplicationDeleted: {
+            /** Deleted */
+            deleted: boolean;
+            /** Id */
+            id: number;
+        };
+        /**
+         * ApplicationDetailResponse
+         * @description `GET /api/applications/{job_id}`: interviews newest first, stages in the order reached.
+         */
+        ApplicationDetailResponse: {
+            application: components["schemas"]["ApplicationCard"];
+            /** Interviews */
+            interviews: components["schemas"]["ApplicationInterview"][];
+            /** Stages Reached */
+            stages_reached: components["schemas"]["StageReached"][];
+        };
+        /** ApplicationEvent */
+        ApplicationEvent: {
+            /**
+             * Actor
+             * @enum {string}
+             */
+            actor: "user" | "agent";
+            /** Changed */
+            changed: string[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Event Type */
+            event_type: string;
+            /** From Stage */
+            from_stage: ("saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed") | null;
+            /** Id */
+            id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "event";
+            /** Source */
+            source: string;
+            /**
+             * To Stage
+             * @enum {string}
+             */
+            to_stage: "saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed";
+        };
+        /**
          * ApplicationForm
          * @description What the posting's application form asks beyond name, contact and resume:
          *     counts only, never a question's wording. `required` employer
@@ -3164,6 +3423,58 @@ export interface components {
             required: number;
             /** Written */
             written: number;
+        };
+        /** ApplicationInterview */
+        ApplicationInterview: {
+            /** All Day */
+            all_day: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Format */
+            format: ("video" | "phone" | "onsite") | null;
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+            /** Link */
+            link: string | null;
+            /** Notes */
+            notes: string | null;
+            /** Outcome */
+            outcome: ("passed" | "not_passed" | "cancelled") | null;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ApplicationInterviewResponse */
+        ApplicationInterviewResponse: {
+            interview: components["schemas"]["ApplicationInterview"];
+        };
+        /** ApplicationNextInterview */
+        ApplicationNextInterview: {
+            /** All Day */
+            all_day: boolean;
+            /** Format */
+            format: ("video" | "phone" | "onsite") | null;
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
         };
         /**
          * BandChange
@@ -3469,6 +3780,11 @@ export interface components {
             weight: number;
         } & {
             [key: string]: unknown;
+        };
+        /** CommentWrite */
+        CommentWrite: {
+            /** Body */
+            body: string;
         };
         /**
          * CompBaseEstimate
@@ -5024,7 +5340,7 @@ export interface components {
          * ErrorCode
          * @enum {string}
          */
-        ErrorCode: "job-not-found" | "company-not-found" | "company-profile-not-found" | "local-model-not-found" | "cloud-model-not-found" | "notification-not-found" | "link-not-found" | "suggestion-not-found" | "recipe-not-found" | "rule-not-found" | "cluster-not-found" | "fit-band-not-found" | "schedule-not-found" | "page-not-found" | "plugin-not-found" | "invalid-input" | "careers-page-refused" | "careers-page-unreachable" | "company-conflict" | "company-refused" | "consent-required" | "scope-refused" | "schedule-refused" | "scheduling-unavailable" | "discovery-unsupported" | "manual-scan-queued" | "switch-running" | "switch-not-started" | "no-switch-running" | "switch-not-stopped" | "price-key-refused" | "switch-not-managed" | "server-not-managed" | "model-unreachable" | "local-models-off" | "ai-egress-off" | "no-local-model" | "model-profiles-unreadable" | "plugin-not-runnable" | "plugin-running" | "plugin-approval-stale" | "plugin-still-enabled" | "plugin-confirm-mismatch" | "plugin-estimates-moving" | "field-answered-by-plugin" | "link-to-itself" | "already-linked" | "verdict-decided" | "pair-refused" | "not-a-member" | "suggestion-decided" | "last-world" | "recipe-invalid" | "recipe-conflict" | "usage-catalogue-changed";
+        ErrorCode: "job-not-found" | "company-not-found" | "company-profile-not-found" | "local-model-not-found" | "cloud-model-not-found" | "notification-not-found" | "link-not-found" | "suggestion-not-found" | "recipe-not-found" | "rule-not-found" | "cluster-not-found" | "fit-band-not-found" | "schedule-not-found" | "page-not-found" | "application-not-found" | "comment-not-found" | "interview-not-found" | "plugin-not-found" | "invalid-input" | "careers-page-refused" | "careers-page-unreachable" | "company-conflict" | "company-refused" | "consent-required" | "scope-refused" | "schedule-refused" | "scheduling-unavailable" | "discovery-unsupported" | "manual-scan-queued" | "switch-running" | "switch-not-started" | "no-switch-running" | "switch-not-stopped" | "price-key-refused" | "switch-not-managed" | "server-not-managed" | "model-unreachable" | "local-models-off" | "ai-egress-off" | "no-local-model" | "model-profiles-unreadable" | "plugin-not-runnable" | "plugin-running" | "plugin-approval-stale" | "plugin-still-enabled" | "plugin-confirm-mismatch" | "plugin-estimates-moving" | "field-answered-by-plugin" | "link-to-itself" | "already-linked" | "verdict-decided" | "pair-refused" | "not-a-member" | "suggestion-decided" | "last-world" | "recipe-invalid" | "recipe-conflict" | "usage-catalogue-changed" | "comment-not-yours" | "application-under-way";
         /**
          * ErrorDetail
          * @description The `detail` of every error the API answers on purpose.
@@ -5389,6 +5705,46 @@ export interface components {
         IntentStatementResponse: {
             /** Intent Statement */
             intent_statement: string;
+        };
+        /** InterviewUpdate */
+        InterviewUpdate: {
+            /** All Day */
+            all_day?: boolean | null;
+            /** Format */
+            format?: ("video" | "phone" | "onsite") | null;
+            /** Label */
+            label?: string | null;
+            /** Link */
+            link?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Outcome */
+            outcome?: ("passed" | "not_passed" | "cancelled") | null;
+            /** Scheduled At */
+            scheduled_at?: string | null;
+        };
+        /** InterviewWrite */
+        InterviewWrite: {
+            /**
+             * All Day
+             * @default false
+             */
+            all_day: boolean;
+            /** Format */
+            format?: ("video" | "phone" | "onsite") | null;
+            /** Label */
+            label: string;
+            /** Link */
+            link?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Outcome */
+            outcome?: ("passed" | "not_passed" | "cancelled") | null;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
         };
         /**
          * JobCompPackage
@@ -5948,7 +6304,7 @@ export interface components {
              * Stage
              * @enum {string}
              */
-            stage: "saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "rejected" | "withdrawn";
+            stage: "saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed";
             /**
              * Updated At
              * Format: date-time
@@ -8382,7 +8738,7 @@ export interface components {
              * Stage
              * @enum {string}
              */
-            stage: "saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "rejected" | "withdrawn";
+            stage: "saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed";
             /**
              * Updated At
              * Format: date-time
@@ -8419,7 +8775,7 @@ export interface components {
             /** Priority */
             priority?: number | null;
             /** Stage */
-            stage?: ("saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "rejected" | "withdrawn") | null;
+            stage?: ("saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed") | null;
         };
         /**
          * PursuitWriteResponse
@@ -10061,6 +10417,19 @@ export interface components {
          * @enum {string}
          */
         SourceOutcome: "ok" | "capped" | "bounded" | "truncated" | "suspended" | "lossy" | "empty" | "degraded" | "failed" | "blocked" | "unattempted";
+        /** StageReached */
+        StageReached: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed";
+        };
         /**
          * StaleBinding
          * @description A binding whose last authoritative reconcile is older than the window.
@@ -11079,6 +11448,91 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    board_ep_api_applications_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationBoardResponse"];
+                };
+            };
+        };
+    };
+    application_ep_api_applications__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    activity_ep_api_applications__job_id__activity_get: {
+        parameters: {
+            query?: {
+                before?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationActivityResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     clusters_api_clusters_get: {
         parameters: {
             query?: {
@@ -13354,6 +13808,212 @@ export interface operations {
             };
         };
     };
+    add_comment_ep_api_jobs__job_id__pursuit_comments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationCommentResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_comment_ep_api_jobs__job_id__pursuit_comments__comment_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+                comment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationCommentResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_comment_ep_api_jobs__job_id__pursuit_comments__comment_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+                comment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDeleted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_interview_ep_api_jobs__job_id__pursuit_interviews_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InterviewWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationInterviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_interview_ep_api_jobs__job_id__pursuit_interviews__interview_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+                interview_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDeleted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_interview_ep_api_jobs__job_id__pursuit_interviews__interview_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+                interview_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InterviewUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationInterviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     similar_jobs_api_jobs__job_id__similar_get: {
         parameters: {
             query?: {
@@ -14427,7 +15087,7 @@ export interface operations {
     list_pursuits_ep_api_pursuits_get: {
         parameters: {
             query?: {
-                stage?: ("saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "rejected" | "withdrawn") | null;
+                stage?: ("saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed") | null;
                 limit?: number;
             };
             header?: never;

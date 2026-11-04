@@ -122,6 +122,19 @@ NOT_COUNTED: Mapping[tuple[str, str], str] = {
         "a consent the user gives a plugin past its sites' robots rules: recorded on its install, "
         "not counted"),
     ("POST", "/api/usage/install-id/reset"): "usage sharing's own control: a reset must not leave a trace",
+    **{
+        (method, path): (
+            "an application's own comments and interviews: the stage change is the counted step, and a "
+            "new action would widen the catalogue and re-ask every sharer")
+        for method, path in (
+            ("POST", "/api/jobs/{job_id}/pursuit/comments"),
+            ("PUT", "/api/jobs/{job_id}/pursuit/comments/{comment_id}"),
+            ("DELETE", "/api/jobs/{job_id}/pursuit/comments/{comment_id}"),
+            ("POST", "/api/jobs/{job_id}/pursuit/interviews"),
+            ("PATCH", "/api/jobs/{job_id}/pursuit/interviews/{interview_id}"),
+            ("DELETE", "/api/jobs/{job_id}/pursuit/interviews/{interview_id}"),
+        )
+    },
     ("POST", "/api/settings/price-feed/refresh"): (
         "asks now for what the prices job does on its own; the key saved and removed are the counted "
         "choices, and a new action would widen the catalogue and re-ask every sharer"),

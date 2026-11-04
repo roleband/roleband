@@ -4,7 +4,7 @@
    plugin routes (`PluginRouteContract`), the AI settings, matching, self-test,
    fit and agent routes, the local and cloud model connection routes, the
    company-profile routes and company card, the statistics and demand routes,
-   the skills and cluster routes, the pursuit routes, the similar-postings and
+   the skills and cluster routes, the pursuit and application routes, the similar-postings and
    facets routes, the connector schedule read and move, and the velocity route.
 
    `tsc -b` (the first step of `npm run build`) type-checks every file under
@@ -28,6 +28,7 @@ import type { operations } from "../api.gen";
 import {
   api,
   type AgentAccessState,
+  type ApplicationCard,
   type CloudLLMTestResult,
   type ClusterDetail,
   type ClusterSummary,
@@ -513,6 +514,39 @@ export type ProfileRouteContract = [
   Expect<Equals<Returns<typeof api.setPursuit>, Ok<"set_pursuit_ep_api_jobs__job_id__pursuit_put">>>,
   Expect<Equals<Parameters<typeof api.setPursuit>[1], Sends<"set_pursuit_ep_api_jobs__job_id__pursuit_put">>>,
 ];
+
+export type ApplicationsRouteContract = [
+  Expect<Equals<Returns<typeof api.applications>, Ok<"board_ep_api_applications_get">>>,
+  Expect<Equals<Returns<typeof api.addInterview>, Ok<"add_interview_ep_api_jobs__job_id__pursuit_interviews_post">>>,
+  Expect<Equals<Parameters<typeof api.addInterview>[1], Sends<"add_interview_ep_api_jobs__job_id__pursuit_interviews_post">>>,
+  Expect<Equals<
+    Returns<typeof api.deleteInterview>,
+    Ok<"delete_interview_ep_api_jobs__job_id__pursuit_interviews__interview_id__delete">
+  >>,
+  Expect<Equals<Returns<typeof api.application>, Ok<"application_ep_api_applications__job_id__get">>>,
+  Expect<Equals<Returns<typeof api.activity>, Ok<"activity_ep_api_applications__job_id__activity_get">>>,
+  Expect<Equals<Returns<typeof api.addComment>, Ok<"add_comment_ep_api_jobs__job_id__pursuit_comments_post">>>,
+  Expect<Equals<
+    Returns<typeof api.editComment>,
+    Ok<"edit_comment_ep_api_jobs__job_id__pursuit_comments__comment_id__put">
+  >>,
+  Expect<Equals<
+    Returns<typeof api.deleteComment>,
+    Ok<"delete_comment_ep_api_jobs__job_id__pursuit_comments__comment_id__delete">
+  >>,
+  Expect<Equals<
+    Returns<typeof api.updateInterview>,
+    Ok<"update_interview_ep_api_jobs__job_id__pursuit_interviews__interview_id__patch">
+  >>,
+  Expect<Equals<
+    Parameters<typeof api.updateInterview>[2],
+    Sends<"update_interview_ep_api_jobs__job_id__pursuit_interviews__interview_id__patch">
+  >>,
+];
+
+declare const cardWithoutStage: Omit<ApplicationCard, "stage">;
+// @ts-expect-error — a card always names the stage whose column it sits in.
+export const missingStage: ApplicationCard = cardWithoutStage;
 
 declare const listedWithoutOpportunity: Omit<PursuitListItem, "opportunity">;
 // @ts-expect-error — a listed pursuit always names the opportunity it tracks.

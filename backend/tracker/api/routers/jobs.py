@@ -678,8 +678,15 @@ async def add_favorite(job_id: int, session: SessionDep) -> dict:
 @router.delete("/api/jobs/{job_id}/favorite", response_model=FavoriteResponse)
 async def remove_favorite(job_id: int, session: SessionDep) -> dict:
     # Serialized with the star and a pursuit's implicit save.
-    # Unsaving keeps the pursuit.
+    # Unsaving keeps the pursuit. The star and Considering are one: past
+    # Considering the star stays, and the way out is Withdraw.
     await lock_role_writes(session, job_id)
+    stage = await session.scalar(select(Pursuit.stage).where(Pursuit.job_id == job_id))
+    if stage is not None and stage != "saved":
+        raise api_error(
+            409, ErrorCode.APPLICATION_UNDER_WAY, "the role is past Considering; withdraw it instead",
+            stage=stage,
+        )
     row = await session.scalar(select(Favorite).where(Favorite.job_id == job_id))
     if row is not None:
         await session.delete(row)

@@ -1,7 +1,7 @@
 {
  "_why": "The route table is frozen so the router split cannot add or drop an endpoint silently. `modelled_count` is the SECOND claim: how many of these routes declare a response_model. It is deliberately reported as 'N of M' rather than as a pass, because this gate does not verify response shapes it was never given. The number may only rise.",
- "modelled_count": 161,
- "route_count": 167,
+ "modelled_count": 170,
+ "route_count": 176,
  "routes": [
   {
    "method": "DELETE",
@@ -27,6 +27,16 @@
    "method": "DELETE",
    "path": "/api/jobs/{job_id}/feedback",
    "response_schema": "UndismissResponse"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/jobs/{job_id}/pursuit/comments/{comment_id}",
+   "response_schema": "ApplicationDeleted"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/jobs/{job_id}/pursuit/interviews/{interview_id}",
+   "response_schema": "ApplicationDeleted"
   },
   {
    "method": "DELETE",
@@ -57,6 +67,21 @@
    "method": "GET",
    "path": "/",
    "response_schema": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/applications",
+   "response_schema": "ApplicationBoardResponse"
+  },
+  {
+   "method": "GET",
+   "path": "/api/applications/{job_id}",
+   "response_schema": "ApplicationDetailResponse"
+  },
+  {
+   "method": "GET",
+   "path": "/api/applications/{job_id}/activity",
+   "response_schema": "ApplicationActivityResponse"
   },
   {
    "method": "GET",
@@ -465,6 +490,11 @@
   },
   {
    "method": "PATCH",
+   "path": "/api/jobs/{job_id}/pursuit/interviews/{interview_id}",
+   "response_schema": "ApplicationInterviewResponse"
+  },
+  {
+   "method": "PATCH",
    "path": "/api/schedule/{binding_id}",
    "response_schema": "SchedulePayload"
   },
@@ -572,6 +602,16 @@
    "method": "POST",
    "path": "/api/jobs/{job_id}/posting-page",
    "response_schema": "PostingPageResponse"
+  },
+  {
+   "method": "POST",
+   "path": "/api/jobs/{job_id}/pursuit/comments",
+   "response_schema": "ApplicationCommentResponse"
+  },
+  {
+   "method": "POST",
+   "path": "/api/jobs/{job_id}/pursuit/interviews",
+   "response_schema": "ApplicationInterviewResponse"
   },
   {
    "method": "POST",
@@ -787,6 +827,11 @@
    "method": "PUT",
    "path": "/api/jobs/{job_id}/pursuit",
    "response_schema": "PursuitWriteResponse"
+  },
+  {
+   "method": "PUT",
+   "path": "/api/jobs/{job_id}/pursuit/comments/{comment_id}",
+   "response_schema": "ApplicationCommentResponse"
   },
   {
    "method": "PUT",

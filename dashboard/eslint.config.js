@@ -75,7 +75,7 @@ const zones = [
  * import time. Vitest reports that as a suite with NO tests rather than as a
  * failure, so the gate would vanish silently. The test owns the disk read. */
 export const FEATURES = [
-  'companies', 'company-profiles', 'compare', 'intelligence', 'job-detail',
+  'applications', 'companies', 'company-profiles', 'compare', 'intelligence', 'job-detail',
   'notifications', 'opportunities', 'review', 'saved', 'scope', 'settings',
   'statistics', 'sync',
 ]

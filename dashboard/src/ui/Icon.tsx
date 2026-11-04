@@ -13,6 +13,9 @@
 // aliases still resolve but are deprecated upstream.
 import {
   Activity,
+  Ellipsis,
+  MessageSquare,
+  SquareKanban,
   Undo2,
   Cloud,
   ArrowDown,
@@ -110,12 +113,17 @@ const ICONS = {
   help: CircleHelp,
   info: Info,
   minus: Minus,
+  // A role's actions behind one button: a card's menu.
+  more: Ellipsis,
+  message: MessageSquare,
   moon: Moon,
   panelCollapse: PanelLeftClose,
   panelExpand: PanelLeftOpen,
   cloud: Cloud,
   laptop: Laptop,
   pause: Pause,
+  // Columns of cards: the application pipeline.
+  pipeline: SquareKanban,
   play: Play,
   // A plugin: an add-on piece that fits into RoleBand.
   plugin: Puzzle,

@@ -1192,7 +1192,7 @@ class Pursuit(Base):
     __table_args__ = (
         CheckConstraint(
             "stage IN ('saved','researching','networking','applied','interviewing',"
-            "'offer','rejected','withdrawn')",
+            "'offer','accepted','declined','withdrawn','rejected','role_closed')",
             name="ck_pursuit_stage",
         ),
         CheckConstraint("priority BETWEEN 1 AND 5", name="ck_pursuit_priority"),
@@ -1294,8 +1294,77 @@ class PursuitEvent(Base):
     from_stage: Mapped[str | None] = mapped_column(String(24), nullable=True)
     to_stage: Mapped[str] = mapped_column(String(24))
     detail: Mapped[dict] = mapped_column(JSONB, default=dict)
+    # Where the change came from: `app` for the dashboard and the agent. A
+    # synced calendar or mailbox will write its own value here.
+    source: Mapped[str] = mapped_column(String(16), server_default="app")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
+class PursuitComment(Base):
+    """A comment on one pursuit. The author may edit or delete it, which is why
+    comments are kept apart from the append-only `pursuit_events`."""
+
+    __tablename__ = "pursuit_comments"
+    __mapper_args__ = {"eager_defaults": True}
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    pursuit_id: Mapped[int] = mapped_column(
+        ForeignKey("pursuits.id", ondelete="CASCADE"), index=True
+    )
+    actor: Mapped[str] = mapped_column(String(16))  # user | agent
+    body: Mapped[str] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(16), server_default="app")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("actor IN ('user','agent')", name="ck_pursuit_comment_actor"),
+    )
+
+
+class PursuitInterview(Base):
+    """One interview round on a pursuit: when, how, and how it went.
+
+    `outcome` NULL is a round with no outcome yet. `all_day` marks a round
+    whose day is known and whose time is not; `scheduled_at` then holds that
+    day's midnight in the user's zone."""
+
+    __tablename__ = "pursuit_interviews"
+    __mapper_args__ = {"eager_defaults": True}
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    pursuit_id: Mapped[int] = mapped_column(
+        ForeignKey("pursuits.id", ondelete="CASCADE"), index=True
+    )
+    label: Mapped[str] = mapped_column(String(120))
+    scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    all_day: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    format: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    link: Mapped[str | None] = mapped_column(Text, nullable=True)
+    outcome: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The id of the matching event in a synced calendar.
+    external_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "format IS NULL OR format IN ('video','phone','onsite')",
+            name="ck_pursuit_interview_format",
+        ),
+        CheckConstraint(
+            "outcome IS NULL OR outcome IN ('passed','not_passed','cancelled')",
+            name="ck_pursuit_interview_outcome",
+        ),
     )
 
 

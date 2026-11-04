@@ -1,5 +1,7 @@
 import {
   AgentAccessState,
+  ApplicationCard,
+  ApplicationDetail,
   CloudLLMProfile,
   CloudLLMTestResult,
   CompanyCard,
@@ -349,6 +351,43 @@ export const jobFixture: Job & Pick<JobList["items"][number], "posting_reality">
   comp_sources: [],
   lifecycle: [],
 };
+
+/** One application on the board: a role in Considering, starred, with no
+ *  pursuit yet, and nothing due. */
+export function applicationCardFixture(overrides: Partial<ApplicationCard> = {}): ApplicationCard {
+  return {
+    job_id: 101,
+    pursuit_id: null,
+    stage: "saved",
+    priority: 3,
+    starred: true,
+    company: "openai",
+    title: "Staff Product Manager, API",
+    level_band: "staff",
+    posting_status: "open",
+    next_action: null,
+    next_action_due: null,
+    next_interview: null,
+    comment_count: 0,
+    stage_since: "2026-11-01T09:00:00Z",
+    last_activity_at: "2026-11-01T09:00:00Z",
+    ended_at_stage: null,
+    ...overrides,
+  };
+}
+
+/** One application's page as `GET /api/applications/{id}` answers it. */
+export function applicationDetailFixture(overrides: Partial<ApplicationDetail> = {}): ApplicationDetail {
+  return {
+    application: applicationCardFixture({ pursuit_id: 10, stage: "applied", stage_since: "2026-11-01T09:00:00Z" }),
+    interviews: [],
+    stages_reached: [
+      { stage: "saved", at: "2026-10-20T09:00:00Z" },
+      { stage: "applied", at: "2026-11-01T09:00:00Z" },
+    ],
+    ...overrides,
+  };
+}
 
 export const statsFixture: Stats = {
   open_total: 1,

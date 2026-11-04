@@ -30,6 +30,7 @@ from tracker import __version__
 from tracker.api.boundary import LoopbackBoundary
 from tracker.api.errors import ErrorDetail
 from tracker.api.routers import (
+    applications,
     companies,
     intelligence,
     jobs,
@@ -127,6 +128,7 @@ app.include_router(statistics.router)
 app.include_router(notifications.router)
 app.include_router(settings.router)
 app.include_router(profile.router)
+app.include_router(applications.router)
 app.include_router(intelligence.router)
 app.include_router(companies.router)
 app.include_router(recipes.router)

@@ -19,6 +19,7 @@ const read = (path: string) => readFileSync(join(src, path), "utf8");
 const PAGE_HEADER: Record<string, string> = {
   "/": "features/opportunities/BoardScreen.tsx",
   "/favorites": "features/saved/SavedScreen.tsx",
+  "/pipeline": "features/applications/ApplicationsScreen.tsx",
   "/profile": "features/scope/ProfileView.tsx",
   "/statistics": "features/statistics/StatisticsView.tsx",
   "/company": "features/company-profiles/CompanyProfilesView.tsx",

@@ -17,6 +17,9 @@ import { installEveryRoute } from "./routesHarness";
 const ROUTES = [
   "/",
   "/favorites",
+  "/pipeline",
+  "/pipeline/up-next",
+  "/pipeline/101",
   "/profile",
   "/compare",
   "/statistics",

@@ -1,6 +1,6 @@
 import type { Page } from "./fixtures";
 import { installBoardRoutes } from "./boardHarness";
-import { overviewFixture } from "../../src/test/fixtures";
+import { applicationCardFixture, applicationDetailFixture, overviewFixture } from "../../src/test/fixtures";
 import { companyDiscovery, companyOpenCounts } from "./settingsHarness";
 import { companyList, scopeCatalog, scopePreview } from "./scopeFixtures";
 
@@ -43,5 +43,10 @@ export async function installEveryRoute(page: Page) {
     route.fulfill({ json: { total: 0, limit: 50, offset: 0, items: [] } }));
   await page.route("/api/sync/targets", (route) =>
     route.fulfill({ json: { companies: [], freshness_max_hours: 24 } }));
+  await page.route("/api/applications", (route) =>
+    route.fulfill({ json: { applications: [applicationCardFixture()] } }));
+  await page.route("/api/applications/101", (route) =>
+    route.fulfill({ json: applicationDetailFixture() }));
+  await page.route("/api/applications/101/activity", (route) => route.fulfill({ json: { items: [] } }));
   await installBoardRoutes(page);
 }

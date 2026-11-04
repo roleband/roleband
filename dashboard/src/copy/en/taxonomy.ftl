@@ -71,10 +71,16 @@ taxonomy-stage-applied = Applied
 taxonomy-stage-interviewing = Interviewing
 # kind=name note="A progress stage; slug offer"
 taxonomy-stage-offer = Offer
+# kind=name note="An ending the user chose; slug accepted. They took the offer"
+taxonomy-stage-accepted = Accepted
+# kind=name note="An ending the user chose; slug declined. They turned the offer down"
+taxonomy-stage-declined = Declined
 # kind=name note="A progress stage; slug rejected"
 taxonomy-stage-rejected = Rejected
 # kind=name note="A progress stage; slug withdrawn"
 taxonomy-stage-withdrawn = Withdrawn
+# kind=name note="An ending nobody chose; slug role_closed. The posting closed or hiring paused before a decision"
+taxonomy-stage-role-closed = Role closed
 # kind=label note="A role whose posting names no level"
 taxonomy-level-not-stated = level not stated
 # kind=label note="A role whose title names a level we cannot place yet"

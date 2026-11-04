@@ -1,7 +1,7 @@
 {
  "_why": "The schema as the models declare it, frozen so a change to a column, index, constraint or default cannot land without showing up in a reviewer's diff. `alembic check` already answers 'do the models and the migrations agree?', but only against a live cluster and only in a CI log; this fixture answers 'did the models change at all?' with no database, in the pull request itself. The two claims are independent: a model edit WITH a matching migration keeps `check` green and still belongs in review, which is what this catches. Regenerate deliberately, in the same change as the migration: `.venv/bin/python -m scripts.freeze_schema_metadata`.",
  "embedding_dim": 768,
- "table_count": 71,
+ "table_count": 73,
  "classes": {
   "AiTaskLog": "ai_task_log",
   "AppSetting": "app_settings",
@@ -57,7 +57,9 @@
   "ProfileSuggestion": "profile_suggestions",
   "ProviderPressureState": "provider_pressure_state",
   "Pursuit": "pursuits",
+  "PursuitComment": "pursuit_comments",
   "PursuitEvent": "pursuit_events",
+  "PursuitInterview": "pursuit_interviews",
   "ReferenceChange": "reference_change",
   "ReferenceState": "reference_state",
   "RoleCatalog": "role_catalog",
@@ -1718,6 +1720,30 @@
    "comment": null,
    "column_comments": {}
   },
+  "pursuit_comments": {
+   "create": [
+    "CREATE TABLE pursuit_comments (",
+    "    id BIGSERIAL NOT NULL,",
+    "    pursuit_id INTEGER NOT NULL,",
+    "    actor VARCHAR(16) NOT NULL,",
+    "    body TEXT NOT NULL,",
+    "    source VARCHAR(16) DEFAULT 'app' NOT NULL,",
+    "    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,",
+    "    edited_at TIMESTAMP WITH TIME ZONE,",
+    "    PRIMARY KEY (id),",
+    "    CONSTRAINT ck_pursuit_comment_actor CHECK (actor IN ('user','agent')),",
+    "    FOREIGN KEY(pursuit_id) REFERENCES pursuits (id) ON DELETE CASCADE",
+    ")"
+   ],
+   "indexes": [
+    "CREATE INDEX ix_pursuit_comments_created_at ON pursuit_comments (created_at)",
+    "CREATE INDEX ix_pursuit_comments_pursuit_id ON pursuit_comments (pursuit_id)"
+   ],
+   "python_defaults": {},
+   "python_onupdate": {},
+   "comment": null,
+   "column_comments": {}
+  },
   "pursuit_events": {
    "create": [
     "CREATE TABLE pursuit_events (",
@@ -1728,6 +1754,7 @@
     "    from_stage VARCHAR(24),",
     "    to_stage VARCHAR(24) NOT NULL,",
     "    detail JSONB NOT NULL,",
+    "    source VARCHAR(16) DEFAULT 'app' NOT NULL,",
     "    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,",
     "    PRIMARY KEY (id),",
     "    FOREIGN KEY(pursuit_id) REFERENCES pursuits (id) ON DELETE CASCADE",
@@ -1744,6 +1771,40 @@
    "comment": null,
    "column_comments": {}
   },
+  "pursuit_interviews": {
+   "create": [
+    "CREATE TABLE pursuit_interviews (",
+    "    id SERIAL NOT NULL,",
+    "    pursuit_id INTEGER NOT NULL,",
+    "    label VARCHAR(120) NOT NULL,",
+    "    scheduled_at TIMESTAMP WITH TIME ZONE NOT NULL,",
+    "    all_day BOOLEAN DEFAULT false NOT NULL,",
+    "    format VARCHAR(16),",
+    "    link TEXT,",
+    "    outcome VARCHAR(16),",
+    "    notes TEXT,",
+    "    external_ref VARCHAR(255),",
+    "    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,",
+    "    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,",
+    "    PRIMARY KEY (id),",
+    "    CONSTRAINT ck_pursuit_interview_format CHECK (format IS NULL OR format IN ('video','phone','onsite')),",
+    "    CONSTRAINT ck_pursuit_interview_outcome CHECK (outcome IS NULL OR outcome IN ('passed','not_passed','cancelled')),",
+    "    FOREIGN KEY(pursuit_id) REFERENCES pursuits (id) ON DELETE CASCADE",
+    ")"
+   ],
+   "indexes": [
+    "CREATE INDEX ix_pursuit_interviews_pursuit_id ON pursuit_interviews (pursuit_id)",
+    "CREATE INDEX ix_pursuit_interviews_scheduled_at ON pursuit_interviews (scheduled_at)"
+   ],
+   "python_defaults": {
+    "all_day": "False"
+   },
+   "python_onupdate": {
+    "updated_at": "now()"
+   },
+   "comment": null,
+   "column_comments": {}
+  },
   "pursuits": {
    "create": [
     "CREATE TABLE pursuits (",
@@ -1757,7 +1818,7 @@
     "    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,",
     "    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,",
     "    PRIMARY KEY (id),",
-    "    CONSTRAINT ck_pursuit_stage CHECK (stage IN ('saved','researching','networking','applied','interviewing','offer','rejected','withdrawn')),",
+    "    CONSTRAINT ck_pursuit_stage CHECK (stage IN ('saved','researching','networking','applied','interviewing','offer','accepted','declined','withdrawn','rejected','role_closed')),",
     "    CONSTRAINT ck_pursuit_priority CHECK (priority BETWEEN 1 AND 5),",
     "    FOREIGN KEY(job_id) REFERENCES jobs (id) ON DELETE CASCADE",
     ")"

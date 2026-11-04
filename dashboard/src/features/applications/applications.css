@@ -1,0 +1,757 @@
+/* The application pipeline's board: a row of stage columns wider than the
+ * page, so the board alone scrolls sideways. */
+
+/* The page header pays the top air (surfaces.css, one header), so the
+   scroller does not. */
+.main.app-main { padding-top: 0; }
+/* The full width between the gutters, like Statistics: capped at the app's
+   1200 and centred, the title would start right of every other tab's. */
+.main.app-main > * { max-width: none; }
+
+.app-summary {
+  margin: var(--app-space-1) 0 0;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+
+.app-board-scroll {
+  overflow-x: auto;
+  padding-bottom: var(--app-space-3);
+}
+
+.app-board {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--app-space-3);
+  min-width: max-content;
+}
+
+.app-column {
+  display: flex;
+  flex: 0 0 252px;
+  flex-direction: column;
+  gap: var(--app-space-2);
+  box-sizing: border-box;
+  width: 252px;
+  min-height: 420px;
+  padding: var(--app-space-2);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface-hover);
+}
+
+.app-column-head {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  min-height: var(--app-control-sm);
+  padding: 0 var(--app-space-1);
+}
+
+.app-column-name {
+  margin: 0;
+  font-size: var(--app-type-body);
+  font-weight: var(--app-weight-name);
+}
+
+.app-column-count {
+  color: var(--app-text-faint);
+  font-size: var(--app-type-meta);
+  font-weight: var(--app-weight-body);
+}
+
+.app-column-hide {
+  margin-left: auto;
+}
+
+.app-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-2);
+}
+
+.app-section-name {
+  margin: var(--app-space-1) 0 0;
+  padding: 0 var(--app-space-1);
+  color: var(--app-text-muted);
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-label);
+  font-weight: var(--app-weight-name);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.app-column-empty {
+  margin: 0;
+  padding: var(--app-space-2) var(--app-space-1);
+  color: var(--app-text-faint);
+  font-size: var(--app-type-meta);
+}
+
+/* A card is a container with one control on its title, stretched over the
+ * card; the menu button sits above the stretch, a sibling, so nothing nests. */
+.app-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-2);
+  padding: var(--app-space-2) var(--app-space-3);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface-raised);
+}
+
+.app-tile:has(.app-tile-open:hover) {
+  background: var(--app-surface-subtle);
+}
+
+.app-tile[data-posting-closed] {
+  border-color: var(--app-warning);
+}
+
+.app-tile-head {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  min-width: 0;
+}
+
+.app-tile-company {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-tile-menu {
+  position: relative;
+  z-index: 1;
+}
+
+.app-tile-open {
+  color: var(--app-text);
+  text-decoration: none;
+}
+
+.app-tile-open::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  content: "";
+}
+
+.app-tile-title {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: var(--app-type-body);
+  font-weight: var(--app-weight-name);
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.app-tile-ended {
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+
+.app-tile-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--app-space-2);
+  color: var(--app-text-faint);
+  font-size: var(--app-type-label);
+}
+
+.app-tile-spacer {
+  flex: 1;
+}
+
+.app-tile-fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.app-tile-days[data-stale] {
+  color: var(--app-warning);
+  font-weight: var(--app-weight-name);
+}
+
+.app-tile-priority {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.app-tile-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--app-border-strong);
+}
+
+.app-tile-dot[data-filled] {
+  background: var(--app-text-muted);
+  box-shadow: none;
+}
+
+/* Under a drag the card rides above every column, and the column a drop
+   would land in, or the section in a split column, is sunk and ringed. The
+   column the card came from never marks: a drop there changes nothing. */
+.app-board[data-dragging],
+.app-board[data-dragging] * {
+  cursor: grabbing;
+}
+
+.app-tile[data-dragging] {
+  z-index: 2;
+  box-shadow: var(--app-shadow-pop);
+}
+
+.app-column[data-drop-target] {
+  background: var(--app-surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--app-border-strong);
+}
+
+/* A section has no padding of its own, so its ring stands 4px off it, inside
+   the column's padding: the section's name never touches the line. */
+.app-section[data-drop-target] {
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-sunken);
+  box-shadow: 0 0 0 4px var(--app-surface-sunken), 0 0 0 5px var(--app-border-strong);
+}
+
+/* The hidden Closed column, folded to one button at the end of the row. */
+.app-closed-show {
+  flex: 0 0 auto;
+  writing-mode: vertical-rl;
+}
+
+/* The card's menu: every stage, in groups. */
+.app-menu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-1);
+  width: 220px;
+  padding: var(--app-space-2);
+}
+
+.app-menu-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.app-menu-group + .app-menu-group {
+  padding-top: var(--app-space-1);
+  border-top: 1px solid var(--app-border);
+}
+
+.app-menu-heading {
+  padding: var(--app-space-1) var(--app-space-2);
+  color: var(--app-text-faint);
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-whisper);
+  font-weight: var(--app-type-whisper-weight);
+  letter-spacing: var(--app-type-whisper-track);
+  text-transform: uppercase;
+}
+
+.app-menu-option {
+  justify-content: space-between;
+}
+
+.app-interview-note {
+  margin: 0;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-body);
+}
+
+.ledger-form > .app-interview-when {
+  grid-template-columns: 1fr 1fr;
+  gap: var(--app-space-3);
+}
+
+.app-interview-when > div {
+  display: grid;
+  gap: var(--app-space-1);
+}
+
+.ledger-form > .app-interview-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--app-space-2);
+}
+
+.app-menu-option .kbd {
+  min-width: 18px;
+}
+
+.app-menu-name {
+  flex: 1;
+  text-align: start;
+}
+
+.app-menu-reached {
+  color: var(--app-text-faint);
+  font-size: var(--app-type-meta);
+  font-weight: var(--app-weight-body);
+}
+
+/* ---- the place's tabs ---------------------------------------------------- */
+
+.app-tabbar {
+  margin-bottom: var(--app-space-4);
+}
+
+/* ---- Up next ------------------------------------------------------------- */
+
+.app-upnext {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-5);
+  max-width: 760px;
+}
+
+.app-upnext-day > ul {
+  display: flex;
+  flex-direction: column;
+  margin: var(--app-space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.app-upnext-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-3);
+  padding: var(--app-space-2) var(--app-space-3);
+  border-bottom: 1px solid var(--app-border);
+}
+
+.app-upnext-item:has(.app-tile-open:hover) {
+  background: var(--app-surface-subtle);
+}
+
+.app-upnext-when {
+  flex: 0 0 96px;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+.app-upnext-what {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.app-upnext-role {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+  text-decoration: none;
+}
+
+.app-upnext-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-upnext-empty {
+  max-width: 520px;
+}
+
+/* ---- one application's page ---------------------------------------------- */
+
+.app-page-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  padding: var(--app-space-3) 0;
+}
+
+.app-page-place {
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+/* An arrow with no neighbour keeps its place, so the other does not move. */
+.app-page-arrow {
+  display: inline-block;
+  width: var(--app-control-sm);
+}
+
+.app-page-head {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-3);
+  padding: var(--app-space-2) 0 var(--app-space-4);
+}
+
+.app-page-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.app-page-name h1 {
+  margin: 0;
+  font-size: var(--app-type-page);
+  font-weight: var(--app-weight-strong);
+}
+
+.app-page-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--app-space-2);
+  margin: var(--app-space-1) 0 0;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+
+.app-page-meta > span + span::before {
+  margin-inline-end: var(--app-space-2);
+  content: "·";
+}
+
+.app-stage-button {
+  flex: 0 0 auto;
+}
+
+.app-alert {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  margin-bottom: var(--app-space-4);
+  padding: var(--app-space-2) var(--app-space-3);
+  border: 1px solid var(--app-warning-line);
+  border-radius: var(--app-radius-md);
+  background: var(--app-warning-soft);
+  font-size: var(--app-type-body);
+}
+
+.app-alert-text {
+  flex: 1;
+}
+
+/* The page's own width decides when the facts column drops below the main
+   one, so the rail and any panel beside the page count. */
+.app-page {
+  container: app-page / inline-size;
+}
+
+.app-page-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: var(--app-space-5);
+  align-items: start;
+  max-width: 1200px;
+}
+
+@container app-page (max-width: 860px) {
+  .app-page-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.app-page-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-4);
+  min-width: 0;
+}
+
+.app-panel {
+  padding: var(--app-space-3) var(--app-space-4);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface);
+}
+
+.app-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--app-space-2);
+}
+
+.app-panel-title {
+  margin: 0;
+  color: var(--app-text-faint);
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-whisper);
+  font-weight: var(--app-type-whisper-weight);
+  letter-spacing: var(--app-type-whisper-track);
+  text-transform: uppercase;
+}
+
+.app-next-row {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  padding: var(--app-space-2) 0;
+}
+
+.app-next-row + .app-next-row {
+  border-top: 1px solid var(--app-border);
+}
+
+.app-next-what {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--app-space-1) var(--app-space-2);
+  min-width: 0;
+}
+
+.app-next-name {
+  font-size: var(--app-type-body);
+  font-weight: var(--app-weight-name);
+}
+
+.app-next-meta {
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+
+.app-next-empty {
+  flex: 1;
+  margin: 0;
+  color: var(--app-text-faint);
+  font-size: var(--app-type-meta);
+}
+
+.app-next-form,
+.app-notes-form {
+  display: grid;
+  flex: 1;
+  gap: var(--app-space-1);
+}
+
+.app-next-form label {
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+
+.app-next-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--app-space-2);
+  padding-top: var(--app-space-1);
+}
+
+.app-notes-text {
+  margin: var(--app-space-2) 0 0;
+  font-size: var(--app-type-body);
+  white-space: pre-wrap;
+}
+
+.app-notes-text[data-clamped] {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.app-composer {
+  display: grid;
+  gap: var(--app-space-2);
+  margin: var(--app-space-3) 0;
+}
+
+.app-composer > .ui-btn {
+  justify-self: end;
+}
+
+.app-feed-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.app-comment {
+  padding: var(--app-space-2) 0;
+  border-top: 1px solid var(--app-border);
+}
+
+.app-comment-head {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  font-size: var(--app-type-meta);
+}
+
+.app-comment-author {
+  font-weight: var(--app-weight-name);
+}
+
+.app-comment-edited,
+.app-feed-when {
+  color: var(--app-text-faint);
+  font-size: var(--app-type-meta);
+}
+
+.app-comment-body {
+  margin: var(--app-space-1) 0 0;
+  font-size: var(--app-type-body);
+  white-space: pre-wrap;
+}
+
+.app-comment-confirm {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  padding-top: var(--app-space-2);
+  font-size: var(--app-type-meta);
+}
+
+.app-event {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  padding: var(--app-space-1) 0;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+
+.app-event-text {
+  flex: 1;
+}
+
+.app-event-actor {
+  margin-inline-start: var(--app-space-1);
+  color: var(--app-text-faint);
+}
+
+.app-facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-4);
+}
+
+.app-facts-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-2);
+}
+
+.app-facts-group dl {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-1);
+  margin: 0;
+}
+
+.app-fact {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: var(--app-space-2);
+  align-items: center;
+  font-size: var(--app-type-meta);
+}
+
+.app-fact dt {
+  color: var(--app-text-muted);
+}
+
+.app-fact dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--app-space-1);
+  margin: 0;
+}
+
+.app-fact-more {
+  color: var(--app-text-muted);
+}
+
+.app-read-posting {
+  align-self: flex-start;
+}
+
+.app-interviews {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.app-interview {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  padding: var(--app-space-1) 0;
+}
+
+.app-interview + .app-interview {
+  border-top: 1px solid var(--app-border);
+}
+
+.app-interview-what {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.app-interview-actions > .app-interview-delete {
+  margin-inline-end: auto;
+}
+
+.app-page-gone {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--app-space-3);
+  padding: var(--app-space-6) 0;
+}
+
+/* The page's own text fields, in the box the register forms use: the
+   control scale's md rank, the control border, the surface behind. */
+.app-composer textarea,
+.app-notes-form textarea,
+.app-next-form input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--app-control-md);
+  padding: var(--app-space-2) var(--app-control-md-pad);
+  border: 1px solid var(--app-border-control);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface);
+  color: var(--app-text);
+  font: inherit;
+  font-size: var(--app-type-body);
+}
+
+.app-composer textarea,
+.app-notes-form textarea {
+  resize: vertical;
+}
+
+.app-composer textarea::placeholder {
+  color: var(--app-text-faint);
+}
+
+/* A card's priority and days keep together, at the end of the footer, and
+   wrap as one when the due field and the comments fill the line. */
+.app-tile-end {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  margin-inline-start: auto;
+}
