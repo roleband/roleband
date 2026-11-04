@@ -8,6 +8,7 @@ question's label, required flag and field names/types, and the pay ranges.
 from __future__ import annotations
 
 import json
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -184,6 +185,17 @@ def test_a_tier_title_names_its_basis_by_the_text_parsers_rule():
     assert basis("Annual base salary range (excluding equity and bonus):") == "base"
     assert basis("Annual Salary:") == "unclear"
     assert basis("OTE range") == "total"
+
+
+def test_a_hostile_tier_title_is_read_in_linear_time():
+    """A tier title is the employer's page text, of any length: a long run of
+    spaces after "+0" is read in time in proportion to its length."""
+    started = time.perf_counter()
+    assert stated_band(_one_tier("+0" + " " * 20_000 + "range"))["disclosed_pay_basis"] == "unclear"
+    assert time.perf_counter() - started < 1.0
+    # Controls: the marker still reads with and without the percent sign.
+    assert stated_band(_one_tier("Salary range + 15 % bonus target"))["disclosed_pay_basis"] == "base"
+    assert stated_band(_one_tier("Salary range +15 annual bonus"))["disclosed_pay_basis"] == "base"
 
 
 def test_a_page_with_no_pay_field_states_no_pay():

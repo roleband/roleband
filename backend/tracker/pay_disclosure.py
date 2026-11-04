@@ -133,13 +133,20 @@ class DisclosedComp(BaseModel):
 # "is $184,050" reads as Singapore and the band comes back SGD.
 _DOLLAR_PREFIX = r"(?:(?<![A-Za-z])(?:US|CA|C|A|NZ|HK|S)\s?)?"
 _MONEY_AHEAD = r"(?=" + _DOLLAR_PREFIX + r"[$£€])"
-_PER_PERIOD = r"(?:\s*/\s*(?:year|yr|annum|month|mo|hour|hr))?"
+# An optional piece carries its own leading whitespace, `(?:\s*X)?`, never
+# `\s*X?\s*`: two `\s*` beside an absent piece can split one run of spaces
+# every possible way, and a run that leads nowhere then costs cubic time.
+_PERIOD_WORD = r"(?:year|yr|annum|month|mo|hour|hr)"
+_PER_PERIOD = r"(?:\s*/\s*" + _PERIOD_WORD + r")?"
 _EXPLICIT_BAND_RE = re.compile(
+    # Never from inside a run of whitespace: a match from there is a match from
+    # the run's first space, and every start in the run would read the rest of it.
+    r"(?!(?<=\s)\s)"
     # A code before the low amount, Workday's and SAP's "USD 150,000 - 200,000".
-    r"(?:(?P<lead_currency>" + CURRENCY_CODE + r")\s*)?"
+    r"(?:(?P<lead_currency>" + CURRENCY_CODE + r")\s*+)?"
     r"(?:(?<![A-Za-z])(?P<prefix>US|CA|C|A|NZ|HK|S)\s?)?(?P<symbol>[$£€])?\s*"
-    r"(?P<low>" + AMOUNT + r")\s*(?P<low_suffix>[kKmM](?![A-Za-z]))?"
-    r"\s*(?P<low_currency>" + CURRENCY_CODE + r")?" + _PER_PERIOD +
+    r"(?P<low>" + AMOUNT + r")(?:\s*(?P<low_suffix>[kKmM](?![A-Za-z])))?"
+    r"(?:\s*(?P<low_currency>" + CURRENCY_CODE + r"))?" + _PER_PERIOD +
     r"(?:\s*(?:[-–—]|to\b|and\b)\s*|\s+" + _MONEY_AHEAD + r")"
     r"(?:(?:(?<![A-Za-z])(?P<high_prefix>US|CA|C|A|NZ|HK|S)\s?)?[$£€]\s*)?"
     r"(?P<high>" + AMOUNT + r")\s*(?P<high_suffix>[kKmM](?![A-Za-z]))?" + _PER_PERIOD +
@@ -161,8 +168,8 @@ _EXPLICIT_BAND_RE = re.compile(
 #: other band.
 _FROM_UP_TO_RE = re.compile(
     r"\bfrom\s+(?:(?<![A-Za-z])(?P<prefix>US|CA|C|A|NZ|HK|S)\s?)?(?P<symbol>[$£€])\s*"
-    r"(?P<low>" + AMOUNT + r")\s*(?P<low_suffix>[kKmM](?![A-Za-z]))?"
-    r"\s*(?P<low_currency>" + CURRENCY_CODE + r")?" + _PER_PERIOD +
+    r"(?P<low>" + AMOUNT + r")(?:\s*(?P<low_suffix>[kKmM](?![A-Za-z])))?"
+    r"\s*(?:(?P<low_currency>" + CURRENCY_CODE + r")" + _PER_PERIOD + r"|/\s*" + _PERIOD_WORD + r")?"
     r"[^\d$£€.;!?\n]{0,80}?\b(?:up\s+)?to\s+"
     r"(?:(?<![A-Za-z])(?P<high_prefix>US|CA|C|A|NZ|HK|S)\s?)?[$£€]\s*"
     r"(?P<high>" + AMOUNT + r")\s*(?P<high_suffix>[kKmM](?![A-Za-z]))?" + _PER_PERIOD +
@@ -334,7 +341,7 @@ _LABEL_BREAK_RE = re.compile(r"[.!?](?=\s+[A-Z])|\n")
 #: $235,000 - $317,000 in Chicago". A code or a period word may come between.
 _PLACE_AFTER_RE = re.compile(
     r"\s*(?:(?:[A-Z]{3}|annually|per\s+(?:year|annum)|a\s+year|/\s*(?:year|yr))\b\.?\s*)*"
-    r"[,(]?\s*(?:in|for|within|at)\b",
+    r"(?:[,(]\s*)?(?:in|for|within|at)\b",
     re.IGNORECASE,
 )
 #: A place a band is NOT for: "California (excluding Bay Area)".
@@ -584,7 +591,7 @@ _INCLUSIVE_RE = re.compile(
 
 # Bonus/equity are stated as ADDED to the band => the band itself is "base".
 _ADDITIVE_RE = re.compile(
-    r"\+\s*\d+\s*%?\s*(annual\s+)?(bonus|target)"
+    r"\+\s*\d+\s*(?:%\s*)?(annual\s+)?(bonus|target)"
     r"|\+\s*(equity|bonus|stock|benefits)"
     r"|\bplus\b[^.]{0,40}\b(bonus|equity|stock|commission)\b"
     r"|\b(in\s+addition(\s+to)?|additionally)\b[^.]{0,90}\b(bonus|equity|stock)\b"
@@ -816,7 +823,7 @@ _FORWARD_SALARY_RE = re.compile(
     r"The annual salary range for this (?:position|role) is (?:displayed|listed) below\.",
     re.I,
 )
-_RANGE_HEADING_RE = re.compile(r"(?:^|\n)(?:Pay|Salary)\s+Range\s*:?\s*[$€£]?\s*$", re.I)
+_RANGE_HEADING_RE = re.compile(r"(?:^|\n)(?:Pay|Salary)\s+Range(?:\s*:)?(?:\s*[$€£])?\s*$", re.I)
 
 
 def _forward_salary(text: str, span: tuple[int, int]) -> bool:

@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import time
+
+import pytest
+
 from tests.factories import ADYEN_PAY_TEXT
+from tracker import pay_disclosure
 from tracker.pay_disclosure import extract_grounded_band
 from tracker.pay_period import PayPeriod
 
@@ -419,3 +424,35 @@ def test_the_first_place_is_the_first_a_location_lists():
     assert first_place(["Denver, CO or Long Beach, CA"]) == specific_places("Denver, CO")
     assert first_place(["Portland, OR"]) == specific_places("Portland, OR"), "a state code, not 'or'"
     assert first_place(["Remote, US", "Austin, TX"]) == frozenset(), "the first place names no city"
+
+
+# --------------------------------------------------------------------------- #
+# Hostile text: a posting's words cost time in proportion to their length
+# --------------------------------------------------------------------------- #
+
+#: Each pattern on a long run of whitespace that leads to no match, with a
+#: text it must still read. Plain-text sources keep their spacing; only HTML
+#: descriptions are collapsed before the scan.
+HOSTILE = [
+    ("_EXPLICIT_BAND_RE", "search", "0" + " " * 600 + "x", "$120,000   USD  /year  -  $150,000"),
+    ("_FROM_UP_TO_RE", "search", "from $0" + " " * 2000 + "x", "from $133,900 k  USD /year in our lowest market up to $231,400"),
+    ("_PLACE_AFTER_RE", "match", " " * 20_000 + "x", "  USD annually , in San Francisco"),
+    ("_RANGE_HEADING_RE", "search", "Pay Range" + " " * 1500 + "x", "\nPay Range  :  $  "),
+]
+
+
+@pytest.mark.parametrize(("name", "how", "hostile", "control"), HOSTILE, ids=[h[0] for h in HOSTILE])
+def test_a_run_of_whitespace_is_read_in_linear_time(name, how, hostile, control):
+    read = getattr(getattr(pay_disclosure, name), how)
+    started = time.perf_counter()
+    assert read(hostile) is None
+    assert time.perf_counter() - started < 0.5
+    assert read(control) is not None
+
+
+def test_a_band_after_a_spaced_out_number_is_still_found_quickly():
+    text = "A team of 40" + " " * 600 + "engineers. The salary range is $120,000 - $150,000 per year."
+    started = time.perf_counter()
+    band = extract_grounded_band(text, text)
+    assert time.perf_counter() - started < 1.0
+    assert (band.base_min, band.base_max) == (120000, 150000)
