@@ -102,7 +102,7 @@ export function ConsentPane({
     }
   };
 
-  // The button of the answer given is marked and keeps that answer; its
+  // The button of the answer given is current (`aria-current`) and keeps that answer; its
   // caption is its description, so its name stays the answer's own. The
   // keyboard starts on it, or on No thanks when there is none.
   const answerButton = (which: "no" | "yes", label: string, record: () => void, disabled: boolean) => {
@@ -111,7 +111,8 @@ export function ConsentPane({
       <Button
         ref={(yours ?? "no") === which ? safeRef : undefined}
         size={scene ? "lg" : undefined}
-        className={[scene && "ui-btn-strong", given && "privacy-consent-yours"].filter(Boolean).join(" ") || undefined}
+        className={scene ? "ui-btn-strong" : undefined}
+        aria-current={given || undefined}
         aria-describedby={given ? yoursId : undefined}
         onClick={given ? () => onAnswered(state) : record}
         disabled={disabled}

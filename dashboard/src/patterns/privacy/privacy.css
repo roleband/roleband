@@ -137,20 +137,12 @@ div.privacy-consent-choice {
   border-top: 1px solid var(--app-border);
 }
 
-/* The answer given, asked again: chosen, as a ticked kind is, and captioned.
-   Pressing it keeps that answer. */
-.privacy-consent-actions .ui-btn.privacy-consent-yours {
-  border-color: var(--app-chosen-line);
-  background: var(--app-chosen-wash);
-  color: var(--app-chosen-text);
-}
-
 .privacy-consent-yours-mark {
   display: inline-flex;
   align-items: center;
   gap: var(--app-space-1);
   margin-inline-start: var(--app-space-2);
-  font-size: var(--app-type-micro);
+  font-size: var(--app-type-meta);
   font-weight: var(--app-weight-name);
   color: var(--app-chosen-mark);
 }

@@ -132,8 +132,18 @@
   color: var(--app-text);
 }
 
-.ui-btn-ghost.ui-btn-strong:not(:disabled):not([aria-disabled="true"]):not([aria-pressed="true"]):hover {
+.ui-btn-ghost.ui-btn-strong:not(:disabled):not([aria-disabled="true"]):not([aria-pressed="true"]):not([aria-current="true"]):hover {
   background: var(--app-surface-hover);
+}
+
+/* The current one of a set of one-shot actions, such as the answer already
+   given when it is asked again: chosen, as a mode that is on, without
+   claiming to toggle. After the strong rank, which it outranks. */
+.ui-btn-ghost[aria-current="true"],
+.ui-btn-ghost.ui-btn-strong[aria-current="true"] {
+  border-color: var(--app-chosen-line);
+  background: var(--app-chosen-wash);
+  color: var(--app-chosen-text);
 }
 
 /* A full-width opener with a short description. Ghost owns its states; this

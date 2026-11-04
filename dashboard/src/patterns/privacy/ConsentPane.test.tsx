@@ -176,7 +176,12 @@ function answered(shared: readonly (typeof ALL)[number][]) {
   return state;
 }
 
-const yours = () => within(region()).queryAllByRole("button", { description: "Your answer" });
+const yours = () => {
+  const marked = within(region()).queryAllByRole("button", { description: "Your answer" });
+  // The caption and the current state go together, on the same button.
+  expect(within(region()).queryAllByRole("button").filter((button) => button.getAttribute("aria-current") === "true")).toEqual(marked);
+  return marked;
+};
 
 it("asked again after No thanks, marks No thanks as the answer, and pressing it records nothing", async () => {
   const state = answered([]);

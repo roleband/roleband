@@ -76,6 +76,19 @@ async function usageServer(page: Page, state: UsageState) {
   return { answers, reads: () => reads };
 }
 
+/** The shell's question has loaded and drawn its decision, so whether it asks
+    is settled. Its lazy module has arrived; React shows content that suspended
+    no sooner than 300 ms after its fallback, so a page timer set after that
+    began, past it, fires after the reveal is scheduled, under any load; and
+    two frames let it draw. */
+async function questionDecided(page: Page) {
+  await page.waitForFunction(() =>
+    performance.getEntriesByType("resource").some((entry) => entry.name.includes("UsageConsentGate")));
+  await page.evaluate(() => new Promise((done) => {
+    setTimeout(() => requestAnimationFrame(() => requestAnimationFrame(() => done(null))), 400);
+  }));
+}
+
 async function configured(page: Page) {
   await page.route("/api/profile", (route) => route.fulfill({
     json: { profile: null, scope_configured: true, intent_statement: "" },
@@ -170,7 +183,38 @@ test("an answer given on the welcome is the shell's too: leaving setup does not 
   await expect(firstStep(page)).toBeVisible();
   await page.getByRole("button", { name: "Set up later" }).click();
   await expect(page).toHaveURL(/\/$/);
-  await page.waitForTimeout(400);
+  await questionDecided(page);
+  await expect(page.getByRole("dialog", { name: "Help us improve" })).toHaveCount(0);
+  expect(usage.answers.map((a) => a.answers)).toEqual([{ usage: false, crashes: false, questions: false }]);
+});
+
+/* The shell reads the sharing state once at startup. A read that answers
+   after the welcome's answer is older than it, and never undoes it. */
+test("a startup read that answers after the welcome's answer does not ask again", async ({ page }) => {
+  await fresh(page);
+  const usage = await usageServer(page, usageStateFixture("undecided"));
+  // The first read is the shell's, sent before the welcome is drawn: held,
+  // with the state as it was, until the answer is in.
+  let release = () => {};
+  const held = new Promise<void>((done) => { release = done; });
+  let delivered: Promise<void> | null = null;
+  await page.route("/api/usage", (route) => {
+    if (delivered || route.request().method() !== "GET") return route.fallback();
+    const before = usageStateFixture("undecided");
+    delivered = held.then(() => route.fulfill({ json: before }));
+    return delivered;
+  });
+  await page.goto("/welcome");
+  await page.getByRole("button", { name: "Tune the radar" }).click();
+  await page.getByRole("button", { name: "No thanks" }).click();
+  await expect(firstStep(page)).toBeVisible();
+  expect(delivered, "the shell's read was held").not.toBeNull();
+  release();
+  await delivered;
+  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done(null)))));
+  await page.getByRole("button", { name: "Set up later" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await questionDecided(page);
   await expect(page.getByRole("dialog", { name: "Help us improve" })).toHaveCount(0);
   expect(usage.answers.map((a) => a.answers)).toEqual([{ usage: false, crashes: false, questions: false }]);
 });
@@ -310,7 +354,7 @@ test("an answered install is not asked", async ({ page }) => {
   });
   await page.goto("/");
   await expect.poll(() => finished).toBeGreaterThan(0);
-  await page.waitForTimeout(400);
+  await questionDecided(page);
   await expect(page.getByRole("dialog", { name: "Help us improve" })).toHaveCount(0);
   expect(finished, "the sharing state is read once").toBe(1);
 });
