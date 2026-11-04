@@ -229,6 +229,7 @@ def test_a_mac_without_the_apple_sdk_is_told_why_and_how_to_add_it(tmp_path):
     step = _apple_step(proc)
     assert "needs Xcode 26 or later as the active developer directory" in step
     assert "sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer" in step
+    assert "install Xcode if this Mac does not have it" in step
     assert "then run ./setup.sh again" in step
     assert "off macOS" not in step
     assert "only on a Mac" not in step

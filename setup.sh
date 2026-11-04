@@ -185,7 +185,7 @@ else
       # Off macOS the marker in requirements-optional.txt keeps the SDK out. On a
       # Mac it is missing when the optional pass above could not build it.
       if [ "$(uname -s)" = Darwin ]; then
-        warn "apple-fm-sdk is not installed. Building it needs Xcode 26 or later as the active developer directory, not only the Command Line Tools. Nothing is affected. Pay extraction is built in. To add it, install Xcode, open it once, run  sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer  then run ./setup.sh again."
+        warn "apple-fm-sdk is not installed. Building it needs Xcode 26 or later as the active developer directory, not only the Command Line Tools. Nothing is affected. Pay extraction is built in. To add it, install Xcode if this Mac does not have it, open it once, run  sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer  then run ./setup.sh again."
       else
         warn "Apple Intelligence runs only on a Mac, so it does not apply here. Nothing is affected. Pay extraction is built in."
       fi
