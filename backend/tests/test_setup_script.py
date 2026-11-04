@@ -46,7 +46,7 @@ class Host:
     venv: str | None = PY_WANT  # None: no backend/.venv yet
     node: str = f"{NODE_MIN}.4.0"
     npm_ci_fails: bool = False
-    apple_sdk_importable: bool = True  # False: the Apple Intelligence check exits 3
+    apple_check_status: int = 0  # exit status of the Apple Intelligence check (3: no SDK)
 
 
 def _stub(path: Path, body: str) -> None:
@@ -90,7 +90,7 @@ def run_setup(tmp_path: Path, host: Host, *args: str) -> tuple[subprocess.Comple
     _stub(bin_dir / "uname", f'case "$1" in -m) echo "{host.arch}" ;; *) echo "{host.os}" ;; esac\n')
     if host.venv is not None:
         venv = root / "backend" / ".venv" / "bin"
-        _stub(venv / "python", _python_stub(host.venv, 0 if host.apple_sdk_importable else 3))
+        _stub(venv / "python", _python_stub(host.venv, host.apple_check_status))
         _stub(venv / "pip", 'echo "pip $*" >> "$SETUP_LOG"\n')
         _stub(venv / "alembic", 'echo "alembic $*" >> "$SETUP_LOG"\n')
 
@@ -223,12 +223,13 @@ def _apple_step(proc: subprocess.CompletedProcess) -> str:
 def test_a_mac_without_the_apple_sdk_is_told_why_and_how_to_add_it(tmp_path):
     """On a Mac the SDK is missing because it could not be built, not because
     the feature does not apply there."""
-    proc, _calls = run_setup(tmp_path, Host(apple_sdk_importable=False))
+    proc, _calls = run_setup(tmp_path, Host(apple_check_status=3))
 
     assert proc.returncode == 0, proc.stdout + proc.stderr
     step = _apple_step(proc)
-    assert "needs a full Xcode" in step
-    assert "install Xcode if this Mac does not have it, then run ./setup.sh again" in step
+    assert "needs Xcode 26 or later as the active developer directory" in step
+    assert "sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer" in step
+    assert "then run ./setup.sh again" in step
     assert "off macOS" not in step
     assert "only on a Mac" not in step
     assert "\u2014" not in step
@@ -237,13 +238,26 @@ def test_a_mac_without_the_apple_sdk_is_told_why_and_how_to_add_it(tmp_path):
 @pytest.mark.parametrize("platform", ["linux-x86_64", "linux-aarch64"])
 def test_off_macos_a_missing_apple_sdk_is_reported_as_not_applying(tmp_path, platform):
     os_name, arch = UNAME[platform]
-    proc, _calls = run_setup(tmp_path, Host(os=os_name, arch=arch, apple_sdk_importable=False))
+    proc, _calls = run_setup(tmp_path, Host(os=os_name, arch=arch, apple_check_status=3))
 
     assert proc.returncode == 0, proc.stdout + proc.stderr
     step = _apple_step(proc)
     assert "only on a Mac, so it does not apply here" in step
     assert "Xcode" not in step
     assert "\u2014" not in step
+
+
+def test_an_installed_but_unusable_apple_sdk_gets_the_general_message(tmp_path):
+    """Status 4 (installed, failed to import or to answer) is not a missing SDK,
+    so it gets neither the Xcode build advice nor the off-macOS line."""
+    proc, _calls = run_setup(tmp_path, Host(apple_check_status=4))
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    step = _apple_step(proc)
+    assert "Apple Intelligence not usable here" in step
+    assert "not installed" not in step
+    assert "xcode-select" not in step
+    assert "does not apply" not in step
 
 
 def test_an_importable_apple_sdk_gets_neither_missing_message(tmp_path):
