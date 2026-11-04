@@ -26,8 +26,8 @@ Fixes and polish.
 - **Pay text is read in time proportional to its length**, so a page full of
   spaces can no longer stall a scan, and only a SmartRecruiters address counts as
   a SmartRecruiters board.
-- **Pay figures are computed faster**: each filed title is classified once.
-- Updated dependencies, among them tokenizers 0.23.3 in the Mac app.
+- **Pay figures are computed faster.**
+- Updated dependencies, including the Mac app's built-in runtime.
 
 ## [0.1.0]
 
