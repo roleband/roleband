@@ -35,7 +35,10 @@ import "./privacy.css";
    what the person answered and opens on that answer: their own earlier ticks,
    never a default, so the boxes show only when they chose some kinds. "Keep my
    answer" moves on and records nothing; either answer records anew. Keep is
-   offered only when every kind asked has an answer that still holds.
+   offered only when every kind asked has an answer that still holds, and only
+   while the boxes show that answer: once a tick changes, what the screen shows
+   is a new answer, which only No thanks or Happy to help records, so neither
+   Keep nor the sentence about the earlier answer stays beside it.
 
    The welcome asks it in its own scene (`look="scene"`): each kind under an
    icon of its own, the never-sent promise in full ink with its own mark, the
@@ -72,6 +75,9 @@ export function ConsentPane({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const picked = words.groups.some((group) => chosen[group.group] === true);
+  const kept = held && words.groups.every((group) => (chosen[group.group] === true) === (held.shared[group.group] === true))
+    ? held
+    : null;
   // The link that opened the boxes is gone: keep the keyboard where it was going.
   // Boxes open from the start (asked again) leave focus to the safe answer.
   const firstBox = useRef<HTMLInputElement>(null);
@@ -133,7 +139,7 @@ export function ConsentPane({
           {scene && <span className="privacy-consent-icon"><Icon name="eyeOff" /></span>}
           {words.never}
         </p>
-        {held && <p className="privacy-consent-current">{privacyConsentCurrent({ answer: held.answer })}</p>}
+        {kept && <p className="privacy-consent-current">{privacyConsentCurrent({ answer: kept.answer })}</p>}
         <p>{words.change}</p>
         {!single && !choosing && (
           <Button variant="link" onClick={() => { openedByLink.current = true; setChoosing(true); }} disabled={saving}>
@@ -161,7 +167,7 @@ export function ConsentPane({
         >
           {privacyHappyToHelp()}
         </Button>
-        {held && (
+        {kept && (
           <Button
             variant="ghost"
             size={scene ? "lg" : undefined}

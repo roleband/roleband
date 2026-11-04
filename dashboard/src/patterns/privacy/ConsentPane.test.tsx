@@ -198,6 +198,25 @@ it("asked again after choosing some, opens on exactly the person's own ticks and
   expect(sent().answers).toEqual({ usage: false, crashes: true, questions: true });
 });
 
+it("asked again after choosing some, offers Keep only while the boxes show that answer", async () => {
+  const onAnswered = vi.fn();
+  render(<ConsentPane review state={answered(["usage", "crashes"])} groups={[...ALL]} onAnswered={onAnswered} />);
+  const crashes = screen.getByRole("checkbox", { name: /Crash reports/ });
+  // Unticking a kind that is shared makes a new answer: keeping the old one
+  // beside it would leave that kind shared under a screen that shows it off.
+  await userEvent.click(crashes);
+  expect(screen.queryByRole("button", { name: "Keep my answer" })).toBeNull();
+  expect(region()).not.toHaveTextContent(/You said|You share/);
+  await userEvent.click(crashes);
+  expect(region()).toHaveTextContent("You share the kinds ticked above.");
+  expect(screen.getByRole("button", { name: "Keep my answer" })).toBeVisible();
+  await userEvent.click(crashes);
+  await userEvent.click(screen.getByRole("button", { name: "Happy to help" }));
+  await waitFor(() => expect(api.saveUsageConsent).toHaveBeenCalled());
+  expect(sent().answers).toEqual({ usage: true, crashes: false, questions: false });
+  expect(onAnswered).toHaveBeenCalledTimes(1);
+});
+
 it("asked again with a kind widened since, has nothing to keep and ticks nothing for it", () => {
   const state = answered([...ALL]);
   state.groups[1].status = "stale";
