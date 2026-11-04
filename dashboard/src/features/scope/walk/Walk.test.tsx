@@ -1130,7 +1130,8 @@ it("adds an optional pay floor on the Summary without touching the Walk's answer
   await user.click(screen.getByRole("button", { name: "Add a minimum base" }));
   const amount = screen.getByLabelText("Lowest yearly base salary");
   const set = screen.getByRole("button", { name: "Save minimum base" });
-  const howTo = "Enter a yearly amount, like 250,000 or 250k.";
+  const howTo = msg("profile-pay-floor-row-enter-a-yearly-amount-like");
+  const yearly = (amount: string) => msg("profile-pay-floor-row-set-your-pay-floor", { choice: "yes", amount });
   // Empty, it says what to write, and there is nothing to save yet.
   expect(amount).toHaveAccessibleDescription(howTo);
   expect(amount).not.toHaveAttribute("aria-invalid");
@@ -1151,6 +1152,11 @@ it("adds an optional pay floor on the Summary without touching the Walk's answer
   await user.clear(amount);
   await user.type(amount, "250.");
   expect(amount).not.toHaveAttribute("aria-invalid");
+  expect(set).toBeDisabled();
+  // "250," is on its way to 250,000: never set as 250.
+  await user.clear(amount);
+  await user.type(amount, "250,");
+  expect(amount).not.toHaveAttribute("aria-invalid");
   expect(spoken()).toBeEmptyDOMElement();
   expect(set).toBeDisabled();
   await user.clear(amount);
@@ -1161,13 +1167,13 @@ it("adds an optional pay floor on the Summary without touching the Walk's answer
   await user.type(amount, "250k");
   expect(spoken()).toBeEmptyDOMElement();
   // Read back as the amount it will save, before it is saved.
-  expect(amount).toHaveAccessibleDescription("$250,000 a year");
+  expect(amount).toHaveAccessibleDescription(yearly("$250,000"));
   expect(amount).not.toHaveAttribute("aria-invalid");
   expect(set).toBeEnabled();
   await user.click(set);
   expect(save).toHaveBeenCalledWith({ amount: 250000, currency: "USD" });
   expect(await screen.findByRole("button", { name: "Adjust minimum base" })).toBeVisible();
-  expect(fact("Minimum base")).toHaveTextContent("$250,000 a year");
+  expect(fact("Minimum base")).toHaveTextContent(yearly("$250,000"));
   expect(screen.getByRole("region", { name: "What it keeps" }).textContent).toEqual(funnelBefore);
   // Saving the floor is not a Walk save: the scope was never written.
   expect(api.saveSettings).not.toHaveBeenCalled();
@@ -1219,7 +1225,7 @@ it("keeps the pay floor editor open and says so when a save fails", async () => 
   // A second try clears the old message before it runs.
   await user.click(screen.getByRole("button", { name: "Save minimum base" }));
   expect(await screen.findByRole("button", { name: "Adjust minimum base" })).toBeVisible();
-  expect(fact("Minimum base")).toHaveTextContent("$200,000 a year");
+  expect(fact("Minimum base")).toHaveTextContent(msg("profile-pay-floor-row-set-your-pay-floor", { choice: "yes", amount: "$200,000" }));
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
@@ -1462,7 +1468,7 @@ it("setup holds the pay floor until Start and writes it after the scope", async 
   expect(screen.queryByRole("button", { name: "Save minimum base" })).toBeNull();
   await user.click(screen.getByRole("button", { name: "Set minimum base" }));
   expect(await screen.findByRole("button", { name: "Adjust minimum base" })).toBeVisible();
-  expect(fact("Minimum base")).toHaveTextContent("£180,000 a year");
+  expect(fact("Minimum base")).toHaveTextContent(msg("profile-pay-floor-row-set-your-pay-floor", { choice: "yes", amount: "£180,000" }));
   expect(floorSave).not.toHaveBeenCalled();
 
   // The held floor outlives the Summary: on to Companies and back.

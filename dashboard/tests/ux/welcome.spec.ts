@@ -190,10 +190,11 @@ test("a fresh install goes from the intro through Profile's walk to a board that
   await expect(setFloor).toBeDisabled();
   expect(await textContrast(page.locator(".walk-floor-reading"), page.locator(".walk-floor-form"))).toBeGreaterThanOrEqual(4.5);
   await amount.fill("200k");
-  await expect(amount).toHaveAccessibleDescription("$200,000 a year");
+  const yearly = msg("profile-pay-floor-row-set-your-pay-floor", { choice: "yes", amount: "$200,000" });
+  await expect(amount).toHaveAccessibleDescription(yearly);
   await setFloor.click();
   await expect(page.getByRole("button", { name: "Adjust minimum base" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Minimum base" })).toContainText("$200,000 a year");
+  await expect(page.getByRole("region", { name: "Minimum base" })).toContainText(yearly);
   expect(saves).toEqual([]);
   expect(floorWrites).toEqual([]);
   const onward = (await page.getByRole("button", { name: "Continue" }).boundingBox())!;

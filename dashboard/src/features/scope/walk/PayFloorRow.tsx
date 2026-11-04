@@ -86,8 +86,10 @@ const PAY_FLOOR_MAX = 100_000_000;
 /** A yearly amount as people write one: "250000", "250,000", "250,000.00",
     "250k" or "1.5m" (the app itself prints "$250K"). Whole units. At most two
     decimals, so "250.000", a thousands separator in much of Europe, is never
-    read as 250. */
+    read as 250. A separator at the end is an amount still being typed: "250,"
+    is on its way to 250,000, never 250. */
 export function parseAmount(raw: string): number | null {
+  if (/[.,]\s*$/.test(raw)) return null;
   const match = /^(\d+(?:\.\d{1,2})?)([km])?$/i.exec(raw.replace(/[\s,]/g, ""));
   if (!match) return null;
   const unit = { k: 1_000, m: 1_000_000 }[(match[2] ?? "").toLowerCase()] ?? 1;
@@ -227,7 +229,6 @@ export function PayFloorRow({
             <Button
               type="submit"
               variant="ghost"
-              className={reading === "ready" ? "walk-floor-set" : undefined}
               disabled={writing || reading !== "ready"}
             >
               {held ? profilePayFloorRowSetFloor() : profilePayFloorRowSaveFloor({ choice: (writing) ? "yes" : "no" })}

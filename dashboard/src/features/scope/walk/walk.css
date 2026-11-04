@@ -576,7 +576,7 @@
 .walk-floor-amount[aria-invalid="true"] { border-color: var(--app-danger); }
 /* Set, once there is an amount to set: the action's edge, not a second
    primary beside the Summary's way out. */
-.walk-floor-actions .ui-btn.walk-floor-set { border-color: var(--app-chosen-line); color: var(--app-chosen-text); }
+.walk-floor-actions .ui-btn[type="submit"]:enabled { border-color: var(--app-chosen-line); color: var(--app-chosen-text); }
 .walk-floor-amount {
   width: 12ch;
   /* The control scale's md rank, the height of the Select and the Save
