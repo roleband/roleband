@@ -29,7 +29,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 describe("the feature list the sibling zones are built from", () => {
   /* One zone is generated per name in FEATURES, so a feature the list omits has
      NO zone and a name the list invents has a zone that matches nothing —
-     `import/no-restricted-paths` reports neither, so a list that drifts both
+     `import-x/no-restricted-paths` reports neither, so a list that drifts both
      ways (a deleted feature still named, new ones never added) says nothing.
 
      The read lives here rather than in the config on purpose. Doing it there is
