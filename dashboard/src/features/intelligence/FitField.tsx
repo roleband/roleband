@@ -27,6 +27,17 @@ const HEIGHT = 300;
 const AXIS = 96; // left gutter for band names + counts
 /** Empty fit above and below what is drawn, so nothing touches the frame. */
 const MARGIN = 0.02;
+/** Fit is cosine similarity, so it spans -1 to 1. An intent built only from
+ *  "Not for me" points away from the whole board and every fit is negative;
+ *  the field reaches down to wherever the bins are. */
+const FIT_FLOOR = -1;
+const FIT_CEIL = 1;
+/** A band's name sits 3 above its label point and its count 13 below; two
+ *  labels closer than this overlap. */
+const LABEL_PITCH = 34;
+/** Room above the first name's baseline and below the last count's. */
+const LABEL_TOP = 16;
+const LABEL_BOTTOM = HEIGHT - 17;
 
 interface Layout {
   y: (fit: number) => number;
@@ -47,9 +58,9 @@ function layout(fit: IntelligenceFit, edges: number[]): Layout {
   const bins = fit.bins.map((b) => b.fit);
   // The field always reaches one bin past the outermost band edges, so the
   // open-ended top and bottom bands always have a height to draw.
-  const lo = Math.max(0, Math.min(...bins, ...edges.map((e) => e - bin)) - MARGIN);
+  const lo = Math.max(FIT_FLOOR, Math.min(...bins, ...edges.map((e) => e - bin)) - MARGIN);
   // A bin's `fit` is its lower edge, so the top bin reaches one width higher.
-  const hi = Math.min(1, Math.max(...bins, ...edges.map((e) => e + bin)) + bin + MARGIN);
+  const hi = Math.min(FIT_CEIL, Math.max(...bins, ...edges.map((e) => e + bin)) + bin + MARGIN);
   const y = (v: number) => HEIGHT - 6 - ((v - lo) / (hi - lo)) * (HEIGHT - 12);
   return { y, lo, hi, bin };
 }
@@ -75,6 +86,32 @@ function bandStops(fit: IntelligenceFit, l: Layout): number[] {
   return [l.hi, ...fit.bands.map((b) => b.lower_edge ?? l.lo)];
 }
 
+/** Where each band's label sits: its band's middle, pushed apart where bands
+ *  are thinner than two lines of text, and kept inside the frame. Bands are
+ *  ordered top to bottom, so the labels keep that order. */
+function labelPoints(mids: number[]): number[] {
+  const points = [...mids];
+  for (let i = 0; i < points.length; i++) {
+    points[i] = Math.max(points[i], i === 0 ? LABEL_TOP : points[i - 1] + LABEL_PITCH);
+  }
+  for (let i = points.length - 1; i >= 0; i--) {
+    points[i] = Math.min(points[i], i === points.length - 1 ? LABEL_BOTTOM : points[i + 1] - LABEL_PITCH);
+  }
+  return points;
+}
+
+/** The label gutter cut into one slice per band, top to bottom. A slice ends
+ *  at its band's lower line, moved only as far as needed to hold the whole of
+ *  its own label and none of the next, so a click on a label always reaches
+ *  that label's band. */
+function gutterCuts(lines: number[], points: number[]): number[] {
+  const half = LABEL_PITCH / 2;
+  const inner = lines.map((line, i) =>
+    Math.min(Math.max(line, points[i] + half), points[i + 1] - half),
+  );
+  return [0, ...inner, HEIGHT];
+}
+
 export function FitField({
   fit,
   topCount,
@@ -92,6 +129,10 @@ export function FitField({
   const cx = AXIS + (WIDTH - AXIS) / 2;
   const stops = bandStops(fit, l);
   const best = fit.bins[fit.bins.length - 1];
+  const tops = stops.slice(0, -1).map(l.y);
+  const bottoms = stops.slice(1).map(l.y);
+  const points = labelPoints(tops.map((top, i) => (top + bottoms[i]) / 2));
+  const cuts = gutterCuts(bottoms.slice(0, -1), points);
 
   // The bracket marks what the preview list shows: the selected few at the
   // top by default, the selected band's whole span otherwise.
@@ -150,9 +191,9 @@ export function FitField({
         }
       />
       {fit.bands.map((band, i) => {
-        const top = l.y(stops[i]);
-        const bottom = l.y(stops[i + 1]);
-        const mid = (top + bottom) / 2;
+        const top = tops[i];
+        const bottom = bottoms[i];
+        const label = points[i];
         return (
           <g
             key={band.key}
@@ -171,18 +212,27 @@ export function FitField({
               width={WIDTH - AXIS}
               height={Math.max(bottom - top - 2, 0)}
             />
-            <text className="fit-band-name" x={AXIS - 12} y={mid - 3} textAnchor="end">
+            <text className="fit-band-name" x={AXIS - 12} y={label - 3} textAnchor="end">
               {fitBandName(band.key)}
             </text>
-            <text className="fit-band-count" x={AXIS - 12} y={mid + 13} textAnchor="end">
+            <text className="fit-band-count" x={AXIS - 12} y={label + 13} textAnchor="end">
               {copyNumber(band.count)}
             </text>
+            {/* Two hit areas: the band's own span across the field, and its
+                slice of the label gutter, which follows the label. */}
+            <rect
+              className="fit-band-hit"
+              x={AXIS}
+              y={top}
+              width={WIDTH - AXIS}
+              height={Math.max(bottom - top, 0)}
+            />
             <rect
               className="fit-band-hit"
               x={0}
-              y={top}
-              width={WIDTH}
-              height={Math.max(bottom - top, 0)}
+              y={cuts[i]}
+              width={AXIS}
+              height={Math.max(cuts[i + 1] - cuts[i], 0)}
             />
           </g>
         );
