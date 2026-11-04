@@ -10,7 +10,7 @@ import { number as copyNumber } from "../../copy/format";
 // Configuration lives one step in, behind each row's own dialog. The cloud
 // row additionally carries the permission to send posting text off this
 // computer (`ai_egress_enabled`), including to services connected later.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CloudLLMProfile,
   CloudLLMState,
@@ -137,10 +137,21 @@ export function CapabilitiesCard({
     loadServer();
   }, [loadServer]);
 
+  // Turning the switch on opens setup while its own save is still out, so a
+  // connection saved there can land first. Each write takes a number, and a
+  // save's answer applies only if no write came after it.
+  const localWrite = useRef(0);
+  const applyLocal = (next: LocalLLMState) => {
+    localWrite.current += 1;
+    setLocal(next);
+  };
+
   const setLocalEnabled = async (enabled: boolean) => {
     setError(null);
+    const write = ++localWrite.current;
     try {
-      setLocal(await api.setLocalLLMEnabled(enabled));
+      const next = await api.setLocalLLMEnabled(enabled);
+      if (write === localWrite.current) setLocal(next);
       loadServer();
     } catch (e) {
       setError(errorText(e));
@@ -450,7 +461,7 @@ export function CapabilitiesCard({
           state={local}
           onClose={() => setLocalOpen(false)}
           onChanged={(next) => {
-            setLocal(next);
+            applyLocal(next);
             loadServer();
           }}
         />

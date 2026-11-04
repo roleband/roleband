@@ -1040,6 +1040,30 @@ describe("capabilities card", () => {
     await waitFor(() => expect(own).toBeChecked());
   });
 
+  it("a connection saved while the switch's own save is still out stays on when that save answers", async () => {
+    const off = { enabled: false, active_profile_id: null, profiles: [] };
+    const saved = { enabled: true, active_profile_id: "p1", profiles: [{ ...localModelProfileFixture, id: "p1" }] };
+    mocked.localLLMProfiles.mockResolvedValue(off);
+    let answer!: (state: typeof off) => void;
+    mocked.setLocalLLMEnabled.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    mount();
+
+    const card = await screen.findByRole("region", { name: "Extended capabilities" });
+    const own = within(card).getByLabelText("Use your own model");
+    await userEvent.click(own);
+    expect(mocked.setLocalLLMEnabled).toHaveBeenCalledExactlyOnceWith(true);
+
+    const dialog = screen.getByRole("dialog", { name: "Configure your own model" });
+    mocked.addLocalLLMProfile.mockResolvedValue(saved.profiles[0]);
+    mocked.localLLMProfiles.mockResolvedValue(saved);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(own).toBeChecked());
+
+    // The switch's save answers last, with the state from before the connection.
+    await act(async () => answer({ ...off, enabled: true }));
+    expect(own).toBeChecked();
+  });
+
   it("turning your own model off opens nothing", async () => {
     const on = {
       enabled: true,
