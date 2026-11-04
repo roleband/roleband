@@ -115,8 +115,8 @@ ActivityItem = Annotated[ApplicationComment | ApplicationEvent, Field(discrimina
 
 
 class ApplicationActivityResponse(Built):
-    """`GET /api/applications/{job_id}/activity`: newest first. Pass the last
-    item's `created_at` as `before` for the page after it."""
+    """`GET /api/applications/{job_id}/activity`: newest first. Pass the
+    number of items already read as `offset` for the page after it."""
 
     items: list[ActivityItem]
 

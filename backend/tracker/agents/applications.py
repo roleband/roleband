@@ -183,12 +183,14 @@ async def application(session: AsyncSession, job_id: int, *, now: datetime) -> d
 
 
 async def activity(
-    session: AsyncSession, job_id: int, *, before: datetime | None = None, limit: int = 100
+    session: AsyncSession, job_id: int, *, offset: int = 0, limit: int = 100
 ) -> list[dict] | None:
     """Comments and events on one application, newest first.
 
     `None` when the role has no pursuit and no star; an empty list when it has
-    a star and nothing has happened yet."""
+    a star and nothing has happened yet. Pages by position, not by time: rows
+    written in one transaction share its `now()`, so a time cursor would skip
+    the rest of a tie a page ended inside. The order breaks every tie."""
     on_board = await session.scalar(
         select(
             or_(
@@ -214,14 +216,12 @@ async def activity(
         PursuitComment.id,
         PursuitComment.created_at,
     ).where(PursuitComment.pursuit_id == pursuit_id)
-    if before is not None:
-        events = events.where(PursuitEvent.created_at < before)
-        notes = notes.where(PursuitComment.created_at < before)
     feed = union(events, notes).subquery()
     page = (
         await session.execute(
             select(feed.c.kind, feed.c.id)
             .order_by(feed.c.created_at.desc(), feed.c.kind, feed.c.id.desc())
+            .offset(max(0, offset))
             .limit(limit)
         )
     ).all()

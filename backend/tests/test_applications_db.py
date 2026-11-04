@@ -321,6 +321,43 @@ async def test_an_interview_is_reached_only_through_its_own_role(api_client, db_
     assert await db_session.scalar(select(PursuitInterview.outcome).where(PursuitInterview.id == interview_id)) is None
 
 
+@pytest.mark.parametrize(
+    "link",
+    [
+        "javascript:alert(1)",
+        "file:///etc/passwd",
+        "intent://scan/#Intent;scheme=zxing;end",
+        "zoommtg://zoom.us/join?confno=1",
+        "zoom.us/j/123",
+        "https://",
+        "",
+    ],
+)
+async def test_an_interview_link_that_is_not_a_web_address_is_refused(api_client, db_session, link):
+    job = await _job(db_session)
+    url = f"/api/jobs/{job.id}/pursuit/interviews"
+    created = await api_client.post(url, json={"label": "Screen", "scheduled_at": _iso(datetime.now(UTC))})
+    interview_id = created.json()["interview"]["id"]
+
+    added = await api_client.post(url, json={"label": "Screen", "scheduled_at": _iso(datetime.now(UTC)), "link": link})
+    patched = await api_client.patch(f"{url}/{interview_id}", json={"link": link})
+
+    assert added.status_code == 422 and patched.status_code == 422
+    assert (await db_session.scalars(select(PursuitInterview.link))).all() == [None]
+
+
+async def test_an_interview_link_keeps_a_web_address_without_its_surrounding_space(api_client, db_session):
+    job = await _job(db_session)
+
+    response = await api_client.post(
+        f"/api/jobs/{job.id}/pursuit/interviews",
+        json={"label": "Screen", "scheduled_at": _iso(datetime.now(UTC)), "link": "  HTTPS://meet.example.test/abc \n"},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["interview"]["link"] == "HTTPS://meet.example.test/abc"
+
+
 async def test_an_unknown_interview_format_is_refused(api_client, db_session):
     job = await _job(db_session)
 
@@ -408,7 +445,7 @@ async def test_the_feed_runs_newest_first_and_pages_backwards(api_client, db_ses
 
     first = (await api_client.get(f"/api/applications/{job.id}/activity", params={"limit": 2})).json()["items"]
     rest = (
-        await api_client.get(f"/api/applications/{job.id}/activity", params={"limit": 2, "before": first[-1]["created_at"]})
+        await api_client.get(f"/api/applications/{job.id}/activity", params={"limit": 2, "offset": 2})
     ).json()["items"]
 
     said = [(i["kind"], i.get("body") or i["to_stage"]) for i in first + rest]
@@ -420,6 +457,38 @@ async def test_the_feed_runs_newest_first_and_pages_backwards(api_client, db_ses
     ]
     assert first[1]["from_stage"] == "researching" and first[1]["changed"] == ["stage"]
     assert rest[1]["event_type"] == "created" and rest[1]["source"] == "app"
+
+
+async def test_a_page_that_ends_inside_rows_written_together_loses_none_of_them(api_client, db_session):
+    """Rows one transaction writes share its `now()`: a first comment writes the
+    pursuit's created event and the comment at one instant. Paging one item at
+    a time still reads every row once, in the feed's order."""
+    job = await _job(db_session)
+    await _comment(api_client, job.id, "First thought")
+    await _move(api_client, job.id, "researching")
+    await _comment(api_client, job.id, "Second thought")
+    pursuit_id = await db_session.scalar(select(Pursuit.id).where(Pursuit.job_id == job.id))
+    together = datetime.now(UTC) - timedelta(hours=1)
+    for model in (PursuitEvent, PursuitComment):
+        for row in (await db_session.scalars(select(model).where(model.pursuit_id == pursuit_id))).all():
+            row.created_at = together
+    await db_session.commit()
+
+    whole = (await api_client.get(f"/api/applications/{job.id}/activity")).json()["items"]
+    paged = []
+    for offset in range(len(whole) + 1):
+        response = await api_client.get(f"/api/applications/{job.id}/activity", params={"limit": 1, "offset": offset})
+        assert response.status_code == 200, response.text
+        paged += response.json()["items"]
+
+    # At one instant, comments come before changes, and the later row first.
+    assert [(i["kind"], i.get("body") or i["to_stage"]) for i in whole] == [
+        ("comment", "Second thought"),
+        ("comment", "First thought"),
+        ("event", "researching"),
+        ("event", "saved"),
+    ]
+    assert [(i["kind"], i["id"]) for i in paged] == [(i["kind"], i["id"]) for i in whole]
 
 
 # --- contracts --------------------------------------------------------------------

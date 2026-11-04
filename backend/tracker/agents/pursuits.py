@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
@@ -284,6 +285,20 @@ InterviewFormat = Literal["video", "phone", "onsite"]
 InterviewOutcome = Literal["passed", "not_passed", "cancelled"]
 
 
+def _web_link(value: str | None) -> str | None:
+    """An interview's link is opened from the page as a join button, so only a
+    web address is stored: any other scheme would hand the click to whatever
+    the system registers for it, and a bare host would open as a path inside
+    the dashboard. `None` clears it."""
+    if value is None:
+        return None
+    link = value.strip()
+    parts = urlsplit(link)
+    if parts.scheme.lower() not in {"http", "https"} or not parts.netloc:
+        raise ValueError("a link is a web address that starts with http:// or https://")
+    return link
+
+
 class InterviewWrite(BaseModel):
     label: str = Field(json_schema_extra={"x-text": "content"}, min_length=1, max_length=120)
     scheduled_at: datetime
@@ -292,6 +307,8 @@ class InterviewWrite(BaseModel):
     link: str | None = Field(default=None, max_length=2_000)
     outcome: InterviewOutcome | None = None
     notes: str | None = Field(json_schema_extra={"x-text": "content"}, default=None, max_length=20_000)
+
+    _link_is_web = field_validator("link")(_web_link)
 
 
 # A partial write, as `PursuitUpdate`: absent is "leave it". `label`,
@@ -312,6 +329,8 @@ class InterviewUpdate(BaseModel):
         if value is None:
             raise ValueError("cannot be null; omit the field to leave it unchanged")
         return value
+
+    _link_is_web = field_validator("link")(_web_link)
 
 
 async def _interview_on(session: AsyncSession, job_id: int, interview_id: int) -> PursuitInterview:

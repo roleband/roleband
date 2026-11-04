@@ -294,7 +294,7 @@
    },
    "ApplicationActivityResponse": {
     "additionalProperties": false,
-    "description": "`GET /api/applications/{job_id}/activity`: newest first. Pass the last\nitem's `created_at` as `before` for the page after it.",
+    "description": "`GET /api/applications/{job_id}/activity`: newest first. Pass the\nnumber of items already read as `offset` for the page after it.",
     "properties": {
      "items": {
       "items": {
@@ -24704,23 +24704,6 @@
      },
      {
       "in": "query",
-      "name": "before",
-      "required": false,
-      "schema": {
-       "anyOf": [
-        {
-         "format": "date-time",
-         "type": "string"
-        },
-        {
-         "type": "null"
-        }
-       ],
-       "title": "Before"
-      }
-     },
-     {
-      "in": "query",
       "name": "limit",
       "required": false,
       "schema": {
@@ -24728,6 +24711,17 @@
        "maximum": 200,
        "minimum": 1,
        "title": "Limit",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "offset",
+      "required": false,
+      "schema": {
+       "default": 0,
+       "minimum": 0,
+       "title": "Offset",
        "type": "integer"
       }
      }

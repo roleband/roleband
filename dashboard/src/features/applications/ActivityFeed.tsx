@@ -24,7 +24,7 @@ import {
   applicationsFeedTitle,
 } from "../../copy/gen/applications";
 import { useFocusWhen } from "./ApplicationPanels";
-import { eventChanges, feedEntries, runChanges, type ActivityComment, type ActivityEvent, type FeedMode } from "./activity";
+import { eventChanges, feedEntries, runChanges, runOpened, type ActivityComment, type ActivityEvent, type FeedMode } from "./activity";
 
 const ago = (iso: string, now: Date) => relative((new Date(iso).getTime() - now.getTime()) / 1000);
 
@@ -61,7 +61,8 @@ export function ActivityFeed({ items, now, onAdd, onEdit, onDelete }: ActivityFe
   const [mode, setMode] = useState<FeedMode>("comments");
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
-  const [unfolded, setUnfolded] = useState<ReadonlySet<string>>(new Set());
+  // The ids of the changes in every run the reader opened.
+  const [opened, setOpened] = useState<ReadonlySet<number>>(new Set());
   const entries = feedEntries(items, mode);
 
   const post = async () => {
@@ -121,7 +122,7 @@ export function ActivityFeed({ items, now, onAdd, onEdit, onDelete }: ActivityFe
                 <CommentItem key={`comment-${entry.comment.id}`} comment={entry.comment} now={now} onEdit={onEdit} onDelete={onDelete} />
               );
             }
-            const folded = mode === "comments" && entry.events.length > 1 && !unfolded.has(entry.key);
+            const folded = mode === "comments" && entry.events.length > 1 && !runOpened(entry.events, opened);
             if (folded) {
               return (
                 <li key={entry.key} className="app-event app-event-fold">
@@ -130,7 +131,7 @@ export function ActivityFeed({ items, now, onAdd, onEdit, onDelete }: ActivityFe
                     variant="link"
                     className="ui-btn-quiet"
                     aria-expanded={false}
-                    onClick={() => setUnfolded((open) => new Set(open).add(entry.key))}
+                    onClick={() => setOpened((open) => new Set([...open, ...entry.events.map((event) => event.id)]))}
                   >
                     {applicationsFeedFold({ count: entry.events.length, changes: list(runChanges(entry.events)) })}
                   </Button>

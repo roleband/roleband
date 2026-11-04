@@ -175,6 +175,28 @@ describe("moving into Interviewing", () => {
     expect(api.setPursuit).toHaveBeenLastCalledWith(2, { stage: "applied" });
   });
 
+  it("keeps the move when only its interview fails to save, says which, and Undo still moves it back", async () => {
+    render(withProviders(<ApplicationsScreen />));
+    await screen.findByText("Principal Engineering Manager");
+    vi.mocked(api.addInterview).mockRejectedValueOnce(new Error("offline"));
+
+    await userEvent.click(within(await openMenu(applied)).getByRole("button", { name: "Interviewing" }));
+    const dialog = await screen.findByRole("dialog", { name: msg("applications-interview-title") });
+    await userEvent.type(within(dialog).getByLabelText(msg("applications-interview-date")), "2026-11-12");
+    await userEvent.click(within(dialog).getByRole("button", {
+      name: msg("applications-interview-submit", { stage: "Interviewing" }),
+    }));
+
+    expect(await screen.findByText(msg("applications-move-interview-failed", { title: applied.title }))).toBeInTheDocument();
+    expect(screen.getByText(msg("applications-moved", { title: applied.title, stage: "Interviewing" }))).toBeInTheDocument();
+    expect(screen.queryByText(msg("applications-move-failed", { title: applied.title }))).toBeNull();
+    await waitFor(() => expect(within(column("Interviewing")).getByText("Principal Engineering Manager")).toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: msg("applications-move-undo") }));
+    await waitFor(() => expect(api.setPursuit).toHaveBeenLastCalledWith(2, { stage: "applied" }));
+    expect(api.deleteInterview).not.toHaveBeenCalled();
+  });
+
   it("sends a timed interview at the reader's own clock time, and a blank round as Interview", () => {
     const sent = interviewFrom({ label: " ", day: "2026-11-12", clock: "14:30", format: "video", link: "" });
     expect(sent).toEqual({

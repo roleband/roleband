@@ -27,7 +27,7 @@ from tracker.agents.pursuits import (
     public_interview,
     update_interview,
 )
-from tracker.api.deps import SessionDep
+from tracker.api.deps import Offset, SessionDep
 from tracker.api.errors import ErrorCode, api_error
 from tracker.api.schemas.applications import (
     ApplicationActivityResponse,
@@ -58,10 +58,10 @@ async def application_ep(job_id: int, session: SessionDep) -> dict:
 async def activity_ep(
     job_id: int,
     session: SessionDep,
-    before: datetime | None = None,
     limit: Annotated[int, Query(ge=1, le=reads.ACTIVITY_LIMIT_MAX)] = 100,
+    offset: Offset = 0,
 ) -> dict:
-    items = await reads.activity(session, job_id, before=before, limit=limit)
+    items = await reads.activity(session, job_id, offset=offset, limit=limit)
     if items is None:
         raise api_error(404, ErrorCode.APPLICATION_NOT_FOUND, "role is not on the board")
     return {"items": items}

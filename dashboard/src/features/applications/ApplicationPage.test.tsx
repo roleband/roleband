@@ -188,6 +188,33 @@ describe("the feed", () => {
     expect(screen.getByText(msg("applications-feed-priority"))).toBeInTheDocument();
   });
 
+  it("keeps a run the person opened open when their next change joins it at the top", async () => {
+    // The newest entries are changes, so the person's next write lands in the run they opened.
+    items = [
+      items[1],
+      items[2],
+      { kind: "comment", id: 4, created_at: at("2026-10-30T10:00:00Z"), actor: "user", source: "app", body: "Applied through the referral.", edited_at: null },
+    ];
+    const write = vi.mocked(api.setPursuit).getMockImplementation()!;
+    vi.mocked(api.setPursuit).mockImplementation(async (jobId, update) => {
+      items = [
+        { kind: "event", id: 9, created_at: at("2026-11-04T12:00:00Z"), actor: "user", source: "app", event_type: "updated", from_stage: "applied", to_stage: "applied", changed: ["priority"] },
+        ...items,
+      ];
+      return write(jobId, update);
+    });
+    renderPage();
+    const changes = `${msg("applications-feed-moved", { stage: "Applied" })} and ${msg("applications-feed-priority")}`;
+    await userEvent.click(await screen.findByRole("button", { name: msg("applications-feed-fold", { count: 2, changes }) }));
+
+    const priority = screen.getByRole("group", { name: msg("applications-fact-priority") });
+    await userEvent.click(within(priority).getByRole("button", { name: "5" }));
+
+    await waitFor(() => expect(screen.getAllByText(msg("applications-feed-priority"))).toHaveLength(2));
+    expect(screen.getByText(msg("applications-feed-moved", { stage: "Applied" }))).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: msg("applications-feed-fold", { count: 3, changes }) })).toBeNull();
+  });
+
   it("posts a comment from the composer above the newest entry", async () => {
     renderPage();
     const box = await screen.findByRole("textbox", { name: msg("applications-comment-label") });

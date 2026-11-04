@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ActivityItem } from "../../api";
 import { msg } from "../../test/msg";
 import { applicationCardFixture as card } from "../../test/fixtures";
-import { eventChanges, feedEntries, runChanges, type ActivityEvent } from "./activity";
+import { eventChanges, feedEntries, runChanges, runOpened, type ActivityEvent } from "./activity";
 import { placeInColumn } from "./board";
 import { latestCrossing, payChangedSinceApplied } from "./crossings";
 import { upNext } from "./dueByDay";
@@ -10,8 +10,8 @@ import { upNext } from "./dueByDay";
 /* The application page's rules and Up next's, as the spec states them: the
  * feed folds the changes between two comments, a posting change counts only
  * after the person applied, a step past its date leads Up next while an
- * interview never does, and the page steps through its column in the
- * board's order. */
+ * interview never does, an ending owes nothing on Up next but an accepted
+ * offer, and the page steps through its column in the board's order. */
 
 const NOW = new Date("2026-11-04T12:00:00");
 const hours = (n: number) => new Date(NOW.getTime() + n * 3_600_000).toISOString();
@@ -54,6 +54,14 @@ describe("the feed", () => {
     expect(eventChanges(event(1, { event_type: "created", from_stage: null, to_stage: "saved", changed: ["stage"] })))
       .toEqual([msg("applications-feed-added")]);
     expect(eventChanges(event(1, { changed: [] }))).toEqual([msg("applications-feed-updated")]);
+  });
+
+  it("keeps a run the reader opened open as changes join it at either end, or a run beside it", () => {
+    const opened = new Set([2, 3]);
+    expect(runOpened([event(9), event(2), event(3)], opened)).toBe(true);
+    expect(runOpened([event(2), event(3), event(8)], opened)).toBe(true);
+    expect(runOpened([event(2), event(3), event(5)], opened)).toBe(true);
+    expect(runOpened([event(5), event(6)], opened)).toBe(false);
   });
 
   it("lists a run's changes without repeating one", () => {
@@ -113,6 +121,18 @@ describe("Up next", () => {
 
   it("lists a step with no date nowhere", () => {
     expect(upNext([card({ next_action: "Think about it", next_action_due: null })], NOW)).toEqual([]);
+  });
+
+  it("lists nothing for an application that ended, except one the person accepted", () => {
+    const dated = { next_action: "Ask for feedback", next_action_due: hours(2), next_interview: interview(hours(4)) };
+    const ended = (["declined", "withdrawn", "rejected", "role_closed"] as const).map((stage, i) =>
+      card({ job_id: 10 + i, stage, ...dated }));
+    const accepted = card({ job_id: 20, stage: "accepted", next_action: "Sign the offer", next_action_due: hours(1) });
+    const offer = card({ job_id: 21, stage: "offer", ...dated });
+
+    const groups = upNext([...ended, accepted, offer], NOW);
+
+    expect(groups.map((day) => [day.key, day.items.map((item) => item.card.job_id)])).toEqual([[0, [20, 21, 21]]]);
   });
 });
 

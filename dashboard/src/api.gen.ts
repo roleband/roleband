@@ -3269,8 +3269,8 @@ export interface components {
         };
         /**
          * ApplicationActivityResponse
-         * @description `GET /api/applications/{job_id}/activity`: newest first. Pass the last
-         *     item's `created_at` as `before` for the page after it.
+         * @description `GET /api/applications/{job_id}/activity`: newest first. Pass the
+         *     number of items already read as `offset` for the page after it.
          */
         ApplicationActivityResponse: {
             /** Items */
@@ -11502,8 +11502,8 @@ export interface operations {
     activity_ep_api_applications__job_id__activity_get: {
         parameters: {
             query?: {
-                before?: string | null;
                 limit?: number;
+                offset?: number;
             };
             header?: never;
             path: {

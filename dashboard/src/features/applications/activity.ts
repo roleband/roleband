@@ -42,6 +42,14 @@ export function feedEntries(items: readonly ActivityItem[], mode: FeedMode): Fee
   return entries;
 }
 
+/** Whether the reader opened this run. A run is known by every change in it,
+ *  not by one: the person's next write joins the newest run at its top, and
+ *  deleting a comment joins the runs on either side, yet both stay the run
+ *  that was opened. */
+export function runOpened(events: readonly ActivityEvent[], opened: ReadonlySet<number>): boolean {
+  return events.some((event) => opened.has(event.id));
+}
+
 /** What one recorded change did, one phrase per field it touched. A move
  *  names the stage; the next step's text and date are one change. */
 export function eventChanges(event: ActivityEvent): string[] {

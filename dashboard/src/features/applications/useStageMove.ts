@@ -6,6 +6,7 @@ import { useRoleSaves } from "../../hooks/useRoleSaves";
 import { useToast } from "../../ui";
 import {
   applicationsMoveFailed,
+  applicationsMoveInterviewFailed,
   applicationsMoveUndo,
   applicationsMoved,
   applicationsUndoFailed,
@@ -32,8 +33,8 @@ export function usePursuitWrite() {
 /**
  * A stage move, the same from a board card and from the application page.
  * It paints at once and the server catches up. Undo is one move back, and
- * takes back the interview the move added. A failure re-reads rather than
- * restoring a remembered copy: another tab may have changed it.
+ * takes back the interview the move added. A failed move re-reads rather
+ * than restoring a remembered copy: another tab may have changed it.
  */
 export function useStageMove({ paint, refresh }: {
   paint: (jobId: number, stage: StageSlug) => void;
@@ -49,14 +50,23 @@ export function useStageMove({ paint, refresh }: {
       const from = card.stage;
       const title = card.title;
       paint(card.job_id, stage);
-      let added: number | null = null;
       try {
         await write(card, { stage });
-        if (interview) added = (await api.addInterview(card.job_id, interview)).interview.id;
       } catch {
         toast({ key: "applications", tone: "error", text: applicationsMoveFailed({ title }) });
         await refresh();
         return;
+      }
+      // The move has landed whatever happens to its interview: the card is in
+      // its new stage, so a second move there would not ask again. The failure
+      // is said on its own, and the move keeps its Undo.
+      let added: number | null = null;
+      if (interview) {
+        try {
+          added = (await api.addInterview(card.job_id, interview)).interview.id;
+        } catch {
+          toast({ key: "applications-interview", tone: "error", text: applicationsMoveInterviewFailed({ title }) });
+        }
       }
       refreshStats();
       void refresh();
