@@ -448,14 +448,19 @@ test("the List moves a row from its stage with the keyboard alone, and shows eac
   await expect.poll(() => stageWrites).toContainEqual({ jobId: 202, stage: "offer" });
 });
 
+/** A List header, by its column. */
+const listHead = (page: Page, column: string) => page.locator(`table.app-list thead th[data-col="${column}"]`);
+const listColumns = (page: Page) =>
+  page.locator("table.app-list thead th[data-col]").evaluateAll((cells) => cells.map((cell) => (cell as HTMLElement).dataset.col));
+
 test("the List's sort lives in the address and its hidden columns in the browser, both kept over a reload", async ({ page }) => {
   await installPipeline(page);
   await installPostings(page);
   await page.goto("/pipeline/list");
   const table = page.getByRole("table");
-  const role = table.getByRole("columnheader", { name: msg("jobs-head-role") });
+  const role = listHead(page, "role");
 
-  await role.getByRole("button").click();
+  await role.locator("button.col-sort").click();
   await expect(page).toHaveURL(/\/pipeline\/list\?sort=role&order=asc$/);
   await expect(role).toHaveAttribute("aria-sort", "ascending");
   // Apple, OpenAI, Stripe: by the company's name.
@@ -465,13 +470,68 @@ test("the List's sort lives in the address and its hidden columns in the browser
   await page.getByRole("dialog", { name: msg("applications-columns") })
     .getByRole("checkbox", { name: msg("jobs-head-location") }).uncheck();
   await page.keyboard.press("Escape");
-  await expect(table.getByRole("columnheader", { name: msg("jobs-head-location") })).toHaveCount(0);
+  await expect(listHead(page, "location")).toHaveCount(0);
 
   await page.reload();
   await expect(role).toHaveAttribute("aria-sort", "ascending");
   await expect(table.locator("tbody tr").first()).toContainText("Head of Platform");
-  await expect(table.getByRole("columnheader", { name: msg("jobs-head-location") })).toHaveCount(0);
-  await expect(table.getByRole("columnheader", { name: msg("jobs-head-pay") })).toBeVisible();
+  await expect(listHead(page, "location")).toHaveCount(0);
+  await expect(listHead(page, "pay")).toBeVisible();
+});
+
+test("a List header drags to a new place, and its menu moves or hides it, all kept over a reload", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "A touch moves a column from its header's menu; dragging is the pointer's way.");
+  await installPipeline(page);
+  await installPostings(page);
+  await page.goto("/pipeline/list");
+  await expect(listHead(page, "pay")).toBeVisible();
+
+  // Dropped on the left half of Role: Base becomes the first column.
+  const role = await listHead(page, "role").boundingBox();
+  await listHead(page, "pay").dragTo(listHead(page, "role"), { targetPosition: { x: 8, y: role!.height / 2 } });
+  await expect.poll(() => listColumns(page)).toEqual(["pay", "role", "stage", "location", "level", "next", "posting"]);
+  await expect(page.locator("tbody tr").first().locator("[data-col]").first()).toHaveAttribute("data-col", "pay");
+
+  // The menu is the keyboard's way: it shows when its header holds focus.
+  const levelMenu = page.getByRole("button", { name: msg("applications-column-menu", { column: msg("applications-fact-level") }) });
+  await levelMenu.focus();
+  await expect(levelMenu).toHaveCSS("opacity", "1");
+  await page.keyboard.press("Enter");
+  const menu = page.getByRole("dialog", { name: msg("applications-column-menu", { column: msg("applications-fact-level") }) });
+  await menu.getByRole("button", { name: msg("applications-list-column-left") }).click();
+  await expect.poll(() => listColumns(page)).toEqual(["pay", "role", "stage", "level", "location", "next", "posting"]);
+  await page.getByRole("button", { name: msg("applications-column-menu", { column: msg("applications-facts-posting") }) }).click();
+  await page.getByRole("button", { name: msg("applications-column-hide") }).click();
+
+  await page.reload();
+  await expect.poll(() => listColumns(page)).toEqual(["pay", "role", "stage", "level", "location", "next"]);
+  await page.getByRole("button", { name: /^Columns/ }).click();
+  await page.getByRole("button", { name: msg("applications-list-columns-reset") }).click();
+  await expect.poll(() => listColumns(page)).toEqual(["role", "stage", "pay", "location", "level", "next", "posting"]);
+});
+
+test("a List row's star takes a role in Considering off the pipeline, and keeps a role under way", async ({ page }) => {
+  await installPipeline(page);
+  await installPostings(page);
+  const unsaved: number[] = [];
+  await mockApi(page, "DELETE", "/api/jobs/*/favorite", async (route, request) => {
+    const jobId = Number(new URL(request.url()).pathname.split("/")[3]);
+    unsaved.push(jobId);
+    await route.fulfill({ json: { job_id: jobId, is_favorite: false } });
+  });
+  await page.goto("/pipeline/list");
+
+  const applied = listRow(page, "Principal Engineering Manager");
+  await applied.hover();
+  await applied.getByRole("button", { name: msg("jobs-save") }).click();
+  await expect(page.getByText(msg("error-application-under-way"))).toBeVisible();
+  expect(unsaved).toEqual([]);
+
+  const considering = listRow(page, "Staff Product Manager, API");
+  await considering.hover();
+  await considering.getByRole("button", { name: msg("jobs-save") }).click();
+  await expect(considering).toHaveCount(0);
+  await expect.poll(() => unsaved).toEqual([101]);
 });
 
 test("the List never widens the page: a narrow window scrolls the table inside its frame", async ({ page }, testInfo) => {
@@ -489,4 +549,13 @@ test("the List never widens the page: a narrow window scrolls the table inside i
   expect(fit.pageScrolls).toBe(false);
   // At a desktop width the default columns fit without a sideways scroll.
   if (testInfo.project.name !== "mobile") expect(fit.tableScrolls).toBe(false);
+  // The pinned actions draw their edge exactly while columns pass beneath them.
+  const frame = page.locator(".app-list-scroll");
+  if (fit.tableScrolls) await expect(frame).toHaveAttribute("data-overflowing", "true");
+  else await expect(frame).not.toHaveAttribute("data-overflowing");
+  // Wherever the columns scroll, a row's star stays on screen at the right edge.
+  const star = await listRow(page, "Head of Platform").getByRole("button", { name: msg("jobs-save") }).boundingBox();
+  const width = page.viewportSize()!.width;
+  expect(star!.x + star!.width).toBeLessThanOrEqual(width);
+  expect(star!.x).toBeGreaterThan(width / 2);
 });

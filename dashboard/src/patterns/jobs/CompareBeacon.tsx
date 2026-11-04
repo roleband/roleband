@@ -88,9 +88,12 @@ function useRoster(ids: number[], onGone: (ids: number[]) => void): Job[] {
 export function CompareBeacon({
   host,
   anchorVersion,
+  docked,
 }: {
   host: RefObject<HTMLElement | null>;
   anchorVersion?: unknown;
+  /** Docked at the window's edge always: the list keeps no margin. */
+  docked?: boolean;
 }) {
   const { compareIds, compareSyncFailed, compareCap } = useJobWorkspace();
   const { toggleCompare, clearCompare, setCompare, dropCompare, openCompare } = useJobActions();
@@ -118,6 +121,7 @@ export function CompareBeacon({
       anchorSelector={`[data-job-id="${last}"]`}
       anchorVersion={anchorVersion}
       variant="standing"
+      docked={docked}
       label={(full ? jobsCompareBeaconAriaFull : jobsCompareBeaconAria)({ count })}
       pill={
         <>

@@ -2,11 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Job } from "../../api";
 import { applicationCardFixture as card, jobFixture } from "../../test/fixtures";
 import {
+  DEFAULT_LAYOUT,
+  moveColumn,
   placedBand,
-  readListHidden,
+  readListLayout,
   readSort,
   sortRows,
-  writeListHidden,
+  stepColumn,
+  writeListLayout,
   writeSort,
   yearlyBase,
   type ListRow,
@@ -15,8 +18,8 @@ import {
 /* The List's rules: rows by stage read as the board reads down; any other
  * sort keeps rows that lack the fact at the end, whichever way it runs; the
  * sort lives in the address and the default writes nothing; a level the
- * posting does not state is never shown; the hidden columns are this
- * browser's, with a default set. */
+ * posting does not state is never shown; the columns' order and the hidden
+ * set are this browser's, with a default, and the role never hides. */
 
 const NOW = new Date("2026-11-04T12:00:00Z");
 const days = (n: number) => new Date(NOW.getTime() + n * 86_400_000).toISOString();
@@ -100,24 +103,61 @@ describe("a posting's facts", () => {
   });
 });
 
-describe("the columns a browser hides", () => {
+describe("the columns' layout a browser keeps", () => {
   beforeEach(() => localStorage.clear());
   afterEach(() => vi.restoreAllMocks());
+  const KEY = "roleband.pipeline-list-columns";
 
-  it("hides priority, days in stage and last activity on a first visit, and remembers a choice", () => {
-    expect(readListHidden()).toEqual(["priority", "in_stage", "activity"]);
-    writeListHidden(["pay", "activity"]);
-    expect(readListHidden()).toEqual(["pay", "activity"]);
-    writeListHidden([]);
-    expect(readListHidden()).toEqual([]);
+  it("starts with the role first and priority, days in stage and last activity hidden", () => {
+    expect(readListLayout()).toEqual(DEFAULT_LAYOUT);
+    expect(readListLayout().order[0]).toBe("role");
+    expect(readListLayout().hidden).toEqual(["priority", "in_stage", "activity"]);
   });
 
-  it("falls back to the default set when storage throws or holds something else", () => {
-    localStorage.setItem("roleband.pipeline-list-hidden-columns", "{}");
-    expect(readListHidden()).toEqual(["priority", "in_stage", "activity"]);
+  it("remembers an order and a hidden set, and never hides the role", () => {
+    const order = moveColumn(DEFAULT_LAYOUT.order, "pay", "role");
+    writeListLayout({ order, hidden: ["role", "location"] });
+    expect(readListLayout()).toEqual({ order, hidden: ["location"] });
+    expect(readListLayout().order.slice(0, 2)).toEqual(["pay", "role"]);
+  });
+
+  it("makes a stored layout whole: unknown names go, repeats count once, a missing column comes back in its place", () => {
+    localStorage.setItem(KEY, JSON.stringify({
+      order: ["pay", "salary", "role", "pay", "stage", "location", "level", "next", "posting", "priority", "in_stage"],
+      hidden: ["salary", "next"],
+    }));
+    const { order, hidden } = readListLayout();
+    expect(order).toEqual(["pay", "role", "stage", "location", "level", "next", "posting", "priority", "in_stage", "activity"]);
+    expect(hidden).toEqual(["next"]);
+  });
+
+  it("falls back to the first layout when storage throws or holds something else", () => {
+    localStorage.setItem(KEY, JSON.stringify(["priority"]));
+    expect(readListLayout()).toEqual(DEFAULT_LAYOUT);
+    localStorage.setItem(KEY, "{not json");
+    expect(readListLayout()).toEqual(DEFAULT_LAYOUT);
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("blocked");
     });
-    expect(readListHidden()).toEqual(["priority", "in_stage", "activity"]);
+    expect(readListLayout()).toEqual(DEFAULT_LAYOUT);
+  });
+});
+
+describe("moving a column", () => {
+  const order = ["role", "stage", "pay", "location"] as const;
+
+  it("puts it before the column it is dropped on, or last", () => {
+    expect(moveColumn(order, "pay", "role")).toEqual(["pay", "role", "stage", "location"]);
+    expect(moveColumn(order, "role", null)).toEqual(["stage", "pay", "location", "role"]);
+    expect(moveColumn(order, "stage", "stage")).toEqual([...order]);
+  });
+
+  it("steps over hidden columns, so one step is one place the reader sees", () => {
+    const layout = { order: [...order], hidden: ["stage" as const] };
+    expect(stepColumn(layout, "pay", -1)).toEqual(["pay", "role", "stage", "location"]);
+    expect(stepColumn(layout, "role", 1)).toEqual(["stage", "pay", "role", "location"]);
+    // The ends do not move further.
+    expect(stepColumn(layout, "role", -1)).toEqual([...order]);
+    expect(stepColumn(layout, "location", 1)).toEqual([...order]);
   });
 });

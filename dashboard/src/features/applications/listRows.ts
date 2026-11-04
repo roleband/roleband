@@ -1,44 +1,95 @@
-/* The List's rules, apart from how it looks: its columns, which of them a
- * browser hides, and how rows sort. A row is an application and, when the
- * posting has been read, the posting's own facts beside it. Hiding a column
- * is a preference of this browser, as the board's columns are; storage can
- * throw, so a failed read shows the default set and a failed write is
- * dropped. */
+/* The List's rules, apart from how it looks: its columns, their order and
+ * which of them a browser hides, and how rows sort. A row is an application
+ * and, when the posting has been read, the posting's own facts beside it.
+ * The column layout is a preference of this browser, as the board's columns
+ * are; storage can throw, so a failed read shows the default layout and a
+ * failed write is dropped. */
 
 import type { ApplicationCard, Job } from "../../api";
 import { compare } from "../../copy/format";
 import { BAND_ORDER } from "../../format";
 import { COLUMNS, boardStage, dueOf, sortColumn } from "./board";
 
-/** The columns the List can show, in their order. The role is always shown. */
+/** The columns the List can show, in their first order. */
 export const LIST_COLUMNS = [
-  "stage", "pay", "location", "level", "next", "posting", "priority", "in_stage", "activity",
+  "role", "stage", "pay", "location", "level", "next", "posting", "priority", "in_stage", "activity",
 ] as const;
 export type ListColumn = (typeof LIST_COLUMNS)[number];
 
-/** Shown on a first visit: what Saved's rows and a card held between them. */
-const HIDDEN_BY_DEFAULT: readonly ListColumn[] = ["priority", "in_stage", "activity"];
+/** The role names the row, so it is never hidden; it moves like any other. */
+export const ALWAYS_SHOWN: ListColumn = "role";
 
-const KEY = "roleband.pipeline-list-hidden-columns";
+export interface ListLayout {
+  /** Every column, in the order the reader set. */
+  order: ListColumn[];
+  hidden: ListColumn[];
+}
 
-export function readListHidden(): ListColumn[] {
+/** A first visit: what a card on the board shows, with priority, days in
+ *  stage and last activity left to the reader to add. */
+export const DEFAULT_LAYOUT: ListLayout = {
+  order: [...LIST_COLUMNS],
+  hidden: ["priority", "in_stage", "activity"],
+};
+
+const KEY = "roleband.pipeline-list-columns";
+
+const isColumn = (value: unknown): value is ListColumn => (LIST_COLUMNS as readonly unknown[]).includes(value);
+
+/** A stored layout made whole: unknown names dropped, each column once, and
+ *  any column the store does not name placed where it first stands. */
+function settle(order: readonly unknown[], hidden: readonly unknown[]): ListLayout {
+  const kept = [...new Set(order.filter(isColumn))];
+  for (const [index, column] of LIST_COLUMNS.entries()) {
+    if (!kept.includes(column)) kept.splice(Math.min(index, kept.length), 0, column);
+  }
+  return { order: kept, hidden: kept.filter((column) => column !== ALWAYS_SHOWN && hidden.includes(column)) };
+}
+
+export function readListLayout(): ListLayout {
   let stored: unknown;
   try {
     const raw = localStorage.getItem(KEY);
-    stored = raw == null ? HIDDEN_BY_DEFAULT : JSON.parse(raw);
+    if (raw == null) return { order: [...DEFAULT_LAYOUT.order], hidden: [...DEFAULT_LAYOUT.hidden] };
+    stored = JSON.parse(raw);
   } catch {
-    return [...HIDDEN_BY_DEFAULT];
+    return { order: [...DEFAULT_LAYOUT.order], hidden: [...DEFAULT_LAYOUT.hidden] };
   }
-  if (!Array.isArray(stored)) return [...HIDDEN_BY_DEFAULT];
-  return LIST_COLUMNS.filter((column) => stored.includes(column));
+  const value = stored as Partial<Record<keyof ListLayout, unknown>> | null;
+  if (!value || !Array.isArray(value.order) || !Array.isArray(value.hidden)) {
+    return { order: [...DEFAULT_LAYOUT.order], hidden: [...DEFAULT_LAYOUT.hidden] };
+  }
+  return settle(value.order, value.hidden);
 }
 
-export function writeListHidden(hidden: readonly ListColumn[]): void {
+export function writeListLayout(layout: ListLayout): void {
   try {
-    localStorage.setItem(KEY, JSON.stringify(LIST_COLUMNS.filter((column) => hidden.includes(column))));
+    localStorage.setItem(KEY, JSON.stringify(settle(layout.order, layout.hidden)));
   } catch {
     // Not remembered: the next visit shows the columns as they were.
   }
+}
+
+/** The order with `column` moved to stand before `before`, or last when
+ *  `before` is null. Moving a column onto itself changes nothing. */
+export function moveColumn(order: readonly ListColumn[], column: ListColumn, before: ListColumn | null): ListColumn[] {
+  if (column === before) return [...order];
+  const rest = order.filter((one) => one !== column);
+  const at = before == null ? rest.length : rest.indexOf(before);
+  rest.splice(at < 0 ? rest.length : at, 0, column);
+  return rest;
+}
+
+/** The order with `column` one place along among the SHOWN columns: a hidden
+ *  column between two shown ones is not a step the reader can see. */
+export function stepColumn(layout: ListLayout, column: ListColumn, by: -1 | 1): ListColumn[] {
+  const shown = layout.order.filter((one) => !layout.hidden.includes(one));
+  const at = shown.indexOf(column);
+  const target = shown[at + by];
+  if (at < 0 || target == null) return [...layout.order];
+  if (by === -1) return moveColumn(layout.order, column, target);
+  const after = layout.order[layout.order.indexOf(target) + 1] ?? null;
+  return moveColumn(layout.order, column, after);
 }
 
 /** One row: the application, and its posting once that read is in. */

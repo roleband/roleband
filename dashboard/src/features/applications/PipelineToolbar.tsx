@@ -15,6 +15,7 @@ import {
   applicationsFilterRemove,
   applicationsFilterReset,
   applicationsFilterWhile,
+  applicationsListColumnsReset,
   applicationsModeHighlight,
   applicationsModeHighlightHint,
   applicationsModeOnly,
@@ -64,6 +65,10 @@ export interface PipelineToolbarProps<C extends string = string> {
     /** A column outside the menu always shows (the List's role), so every
      *  column in it can hide. Unset, the last shown one stays. */
     anchored?: boolean;
+    /** Puts back the first order and hidden set; given where columns move. */
+    onReset?: () => void;
+    /** Whether the columns stand as they first did, so Reset has nothing to do. */
+    asFirst?: boolean;
   };
 }
 
@@ -206,6 +211,11 @@ export function PipelineToolbar<C extends string>({ filter, onFilter, quickCount
             <MenuItem icon="eye" disabled={columns.hidden.length === 0} onSelect={() => columns.onHidden([])}>
               {applicationsColumnsShowAll()}
             </MenuItem>
+            {columns.onReset && (
+              <MenuItem icon="undo" disabled={columns.asFirst} onSelect={columns.onReset}>
+                {applicationsListColumnsReset()}
+              </MenuItem>
+            )}
           </MenuGroup>
         </Menu>
       )}

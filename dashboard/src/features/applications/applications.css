@@ -315,13 +315,15 @@
 
 /* ---- the List ------------------------------------------------------------ */
 
-/* A table on the data vocabulary (`.data-table`), in one bordered surface that
-   scrolls sideways when its columns outgrow the page. */
+/* A register, as Settings' company list is: no card around it, a header band
+   over a strong rule, rows between hairlines, from the toolbar's left edge to
+   its right. It scrolls sideways only when its columns outgrow the page. */
+.app-list-host {
+  position: relative;
+}
+
 .app-list-scroll {
   overflow-x: auto;
-  border: 1px solid var(--app-border);
-  border-radius: var(--app-radius-lg);
-  background: var(--app-surface);
 }
 
 .app-list th,
@@ -330,16 +332,90 @@
   white-space: nowrap;
 }
 
-.app-list thead th {
-  padding-top: var(--app-space-2);
-  padding-bottom: var(--app-space-2);
+.data-table.app-list thead th {
+  height: 36px;
+  padding: 0 var(--app-space-2);
+  border-bottom: 1px solid var(--app-border-strong);
+  color: var(--app-text-muted);
+}
+
+.data-table.app-list td,
+.data-table.app-list tbody th {
+  padding: var(--app-space-2);
+  border-top: 0;
+  border-bottom: 1px solid var(--app-border);
+}
+
+/* A figure set flush right needs air before the words that follow it, or
+   "$240K+" and "San Francisco" read as one phrase. */
+.data-table.app-list th.num,
+.data-table.app-list td.num {
+  padding-right: var(--app-space-5);
+}
+
+/* A next step reads on one line where the page allows. */
+.data-table.app-list td[data-col="next"] {
+  min-width: 160px;
+}
+
+.app-list-row {
+  transition: background var(--app-duration-fast);
+}
+
+.app-list-row:hover {
+  background: var(--app-surface-hover);
+}
+
+/* A header: its name (the sort when it sorts) and its ⋯ menu, which shows on
+   hover, on focus, while open, and always where there is no hover. */
+.app-list-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 28px;
+}
+
+.app-list th.num .app-list-head {
+  flex-direction: row-reverse;
+}
+
+.app-list-head-menu {
+  opacity: 0;
+  transition: opacity var(--app-duration-fast);
+}
+
+.app-list thead th:hover .app-list-head-menu,
+.app-list thead th:focus-within .app-list-head-menu,
+.app-list-head-menu[aria-expanded="true"] {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .app-list-head-menu {
+    opacity: 1;
+  }
+}
+
+.app-list thead th[draggable="true"] {
+  cursor: grab;
+}
+
+.app-list thead th[data-dragged] {
+  opacity: 0.45;
+}
+
+/* Where a dragged header would land: a bar on that edge of the header. */
+.app-list thead th[data-drop="before"] {
+  box-shadow: inset 2px 0 0 var(--app-action);
+}
+
+.app-list thead th[data-drop="after"] {
+  box-shadow: inset -2px 0 0 var(--app-action);
 }
 
 /* A row's header cell is its role, in the row's voice: `.data-table th` is
    the column-head voice, mono and spaced, and would shout every name. */
 .data-table.app-list tbody th {
-  padding: var(--app-space-2);
-  border-top: 1px solid var(--app-border);
   color: var(--app-text);
   font-family: inherit;
   font-size: var(--app-type-meta);
@@ -350,8 +426,7 @@
 }
 
 .app-list-role {
-  width: 40%;
-  min-width: 240px;
+  min-width: 200px;
   white-space: normal;
 }
 
@@ -393,8 +468,7 @@
 
 .app-list-next-when,
 .app-list-age,
-.app-list-more,
-.app-list-none {
+.app-list-more {
   color: var(--app-text-muted);
 }
 
@@ -402,9 +476,58 @@
   color: var(--app-danger);
 }
 
-.app-list-compare {
+/* The row's actions stay at the right edge while the columns scroll under
+   them, so the way to take a role off is always in reach. The cell paints
+   the page ground so a scrolled cell never shows through, and takes the
+   row's hover wash on top of it. */
+.data-table.app-list .app-list-actions {
+  position: sticky;
+  right: 0;
+  z-index: 1;
   width: 1%;
+  padding-right: 0;
+  background-color: var(--app-canvas);
+  background-image: var(--app-ambient-image);
+  background-attachment: fixed, fixed;
   text-align: right;
+}
+
+.app-list-row:hover .app-list-actions {
+  box-shadow: inset 0 0 0 100vmax var(--app-surface-hover);
+}
+
+/* While columns run under it, the pinned cell has an edge: a hairline, so a
+   cut-off word reads as passing beneath rather than as broken. A shadow, not
+   a border: a collapsed table keeps its borders on the grid, where a sticky
+   cell leaves them behind. */
+.app-list-scroll[data-overflowing] .app-list-actions {
+  box-shadow: inset 1px 0 0 var(--app-border);
+}
+
+.app-list-scroll[data-overflowing] .app-list-row:hover .app-list-actions {
+  box-shadow: inset 1px 0 0 var(--app-border), inset 0 0 0 100vmax var(--app-surface-hover);
+}
+
+.app-list-actions-set {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--app-space-1);
+}
+
+/* As on Radar's rows: on a pointer device the verbs rest unseen and appear
+   for the row under the pointer or holding focus, while state (a starred
+   role, a role in compare) stays drawn. Touch shows every action at rest. */
+@media (hover: hover) {
+  .app-list-actions-set .ui-btn {
+    opacity: 0;
+    transition: opacity var(--app-duration-fast);
+  }
+
+  .app-list-actions-set .ui-btn[aria-pressed="true"],
+  .app-list-row:hover .app-list-actions-set .ui-btn,
+  .app-list-row:focus-within .app-list-actions-set .ui-btn {
+    opacity: 1;
+  }
 }
 
 [data-highlight] .app-list-row[data-match="false"] {

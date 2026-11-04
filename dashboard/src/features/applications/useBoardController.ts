@@ -10,6 +10,7 @@ import {
   applicationsMoveUndo,
   applicationsRemoveFailed,
   applicationsRemoved,
+  applicationsListNotForMe,
   applicationsUndoFailed,
 } from "../../copy/gen/applications";
 import { useStageMove } from "./useStageMove";
@@ -19,7 +20,8 @@ import { useStageMove } from "./useStageMove";
  * asked to do from it, move to another stage or leave the pipeline.
  *
  * A move is `useStageMove`, the same as the application page's. Leaving
- * the pipeline removes the star, in order with every other write to the role.
+ * the pipeline removes the star, in order with every other write to the role;
+ * Not for me also records the verdict on the posting, as Radar's does.
  * `said` words the move's toast, so the board can say a card left for a
  * column it hides.
  */
@@ -91,10 +93,63 @@ export function useBoardController({ said }: { said?: (title: string, stage: Sta
     [mutate, refresh, refreshStats, saveRole, toast],
   );
 
+  /** Not for me on a role in Considering: the posting is marked, as on Radar,
+   *  and the role leaves the pipeline. One Undo takes back both. A failure
+   *  part way puts back what was done and re-reads. */
+  const dismiss = useCallback(
+    (card: ApplicationCard) => {
+      const { job_id: jobId, title } = card;
+      const drop = () => mutate((current) => current && {
+        applications: current.applications.filter((other) => other.job_id !== jobId),
+      });
+      const unstar = () => saveRole({
+        jobId, was: true, next: false,
+        show: (on) => (on ? void refresh({ preserveData: true }) : drop()),
+        send: () => api.setFavorite(jobId, false),
+      });
+      drop();
+      api.dismissJob(jobId)
+        .then(() => unstar().catch((error: unknown) => {
+          void api.undismissJob(jobId).catch(() => undefined);
+          throw error;
+        }))
+        .then(() => {
+          refreshStats();
+          toast({
+            key: "applications",
+            text: applicationsListNotForMe({ title }),
+            action: {
+              label: applicationsMoveUndo(),
+              onClick: () => {
+                void api.undismissJob(jobId)
+                  .then(() => saveRole({
+                    jobId, was: false, next: true, show: () => undefined,
+                    send: () => api.setFavorite(jobId, true),
+                  }))
+                  .catch(() => {
+                    toast({ key: "applications", tone: "error", text: applicationsUndoFailed({ title }) });
+                  })
+                  .finally(() => {
+                    refreshStats();
+                    void refresh({ preserveData: true });
+                  });
+              },
+            },
+          });
+        })
+        .catch(() => {
+          void refresh({ preserveData: true });
+          toast({ key: "applications", tone: "error", text: applicationsRemoveFailed({ title }) });
+        });
+    },
+    [mutate, refresh, refreshStats, saveRole, toast],
+  );
+
   return {
     cards: board.data?.applications ?? [],
     resource: board,
     move,
     remove,
+    dismiss,
   };
 }
