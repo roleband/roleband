@@ -176,7 +176,15 @@ then
   ok "Apple Intelligence available — enable it under Settings > Experimental to run a test extraction"
 else
   case $? in
-    3) warn "apple-fm-sdk not installed (expected off macOS). Nothing is affected — pay extraction is built in." ;;
+    3)
+      # Off macOS the marker in requirements-optional.txt keeps the SDK out. On a
+      # Mac it is missing when the optional pass above could not build it.
+      if [ "$(uname -s)" = Darwin ]; then
+        warn "apple-fm-sdk is not installed: building it needs a full Xcode, not only the Command Line Tools. Nothing is affected. Pay extraction is built in. To add it, install Xcode and run ./setup.sh again."
+      else
+        warn "Apple Intelligence runs only on a Mac, so it does not apply here. Nothing is affected. Pay extraction is built in."
+      fi
+      ;;
     *) warn "Apple Intelligence not usable here (needs macOS 26+, Apple silicon, Xcode 26+, enabled in System Settings). Nothing is affected." ;;
   esac
 fi

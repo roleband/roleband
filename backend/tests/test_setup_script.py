@@ -45,6 +45,7 @@ class Host:
     venv: str | None = PY_WANT  # None: no backend/.venv yet
     node: str = f"{NODE_MIN}.4.0"
     npm_ci_fails: bool = False
+    apple_sdk_importable: bool = True  # False: the Apple Intelligence check exits 3
 
 
 def _stub(path: Path, body: str) -> None:
@@ -53,10 +54,13 @@ def _stub(path: Path, body: str) -> None:
     path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
 
-def _python_stub(version: str) -> str:
+def _python_stub(version: str, stdin_exit: int = 0) -> str:
+    """`stdin_exit` is the status of a script read from stdin (`python -`)."""
     return (
         'case "$*" in *version_info*) echo "' + version + '"; exit 0 ;; esac\n'
         'echo "$(basename "$0") $*" >> "$SETUP_LOG"\n'
+        '[ "$1" = - ] && exit ' + str(stdin_exit) + "\n"
+        "exit 0\n"
     )
 
 
@@ -85,7 +89,7 @@ def run_setup(tmp_path: Path, host: Host, *args: str) -> tuple[subprocess.Comple
     _stub(bin_dir / "uname", f'case "$1" in -m) echo "{host.arch}" ;; *) echo "{host.os}" ;; esac\n')
     if host.venv is not None:
         venv = root / "backend" / ".venv" / "bin"
-        _stub(venv / "python", _python_stub(host.venv))
+        _stub(venv / "python", _python_stub(host.venv, 0 if host.apple_sdk_importable else 3))
         _stub(venv / "pip", 'echo "pip $*" >> "$SETUP_LOG"\n')
         _stub(venv / "alembic", 'echo "alembic $*" >> "$SETUP_LOG"\n')
 
@@ -208,6 +212,48 @@ def test_a_failed_npm_ci_fails_setup_and_never_rewrites_the_lock(tmp_path):
     assert "npm ci failed" in proc.stderr
     assert [c for c in calls if c.startswith("npm ")] == ["npm ci --silent"], calls
     assert (tmp_path / "repo" / "dashboard" / "package-lock.json").read_text() == "{}"
+
+
+def _apple_step(proc: subprocess.CompletedProcess) -> str:
+    out = proc.stdout + proc.stderr
+    return out.split("Apple Intelligence (experimental, optional)", 1)[1].split("==>", 1)[0]
+
+
+def test_a_mac_without_the_apple_sdk_is_told_why_and_how_to_add_it(tmp_path):
+    """On a Mac the SDK is missing because it could not be built, not because
+    the feature does not apply there."""
+    proc, _calls = run_setup(tmp_path, Host(apple_sdk_importable=False))
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    step = _apple_step(proc)
+    assert "needs a full Xcode" in step
+    assert "install Xcode and run ./setup.sh again" in step
+    assert "off macOS" not in step
+    assert "only on a Mac" not in step
+    assert "\u2014" not in step
+
+
+@pytest.mark.parametrize("platform", ["linux-x86_64", "linux-aarch64"])
+def test_off_macos_a_missing_apple_sdk_is_reported_as_not_applying(tmp_path, platform):
+    os_name, arch = UNAME[platform]
+    proc, _calls = run_setup(tmp_path, Host(os=os_name, arch=arch, apple_sdk_importable=False))
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    step = _apple_step(proc)
+    assert "only on a Mac, so it does not apply here" in step
+    assert "Xcode" not in step
+    assert "\u2014" not in step
+
+
+def test_an_importable_apple_sdk_gets_neither_missing_message(tmp_path):
+    """The control for the two tests above: the messages follow the import, not the platform."""
+    proc, _calls = run_setup(tmp_path, Host())
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    step = _apple_step(proc)
+    assert "Apple Intelligence available" in step
+    assert "not installed" not in step
+    assert "does not apply" not in step
 
 
 def _setup_steps(action: str) -> list[tuple[str, dict]]:
