@@ -426,6 +426,24 @@ test("a public company shows its stock price and history", async ({ page }) => {
   await expect(page.getByTestId("stock-ticker")).toHaveText("GOOG");
 });
 
+test("an empty price chart's key link and button take the click, not the ghost under them", async ({ page }) => {
+  await installSettingsRoutes(page);
+  await page.route("/api/company-profiles/google/prices**", (r) =>
+    r.fulfill({ json: { slug: "google", range: "3m", currency: "USD", latest: null, bars: [], attribution: null, feed_configured: false } satisfies CompanyPrices }));
+  await page.goto("/company");
+  const empty = page.getByTestId("price-empty");
+  await expect(empty.getByText("No stock prices yet")).toBeVisible();
+
+  // A trial click runs the hit test without opening Tiingo in a new tab: it
+  // fails when another element would receive the pointer.
+  const getKey = empty.getByRole("link", { name: "Get a free key" });
+  await expect(getKey).toHaveAttribute("target", "_blank");
+  await getKey.click({ trial: true });
+
+  await empty.getByRole("link", { name: "Add your key" }).click();
+  await expect(page).toHaveURL(/\/settings\/plugins$/);
+});
+
 test("a company profile deep-links from the URL and jumps to its open roles", async ({ page }) => {
   // The job→company hover card lands here: /company/reddit selects Reddit.
   await page.goto("/company/reddit");

@@ -41,7 +41,16 @@
   grid-area: 1 / 1;
 }
 
+/* The ghost's blur and opacity make it a stacking context, which paints
+   above an unpositioned sibling whatever the source order. The copy is
+   positioned so it paints last, and the ghost takes no pointer events, so
+   the copy's links and buttons receive their clicks. */
+.ui-empty-ghost {
+  pointer-events: none;
+}
+
 .ui-empty-preview-copy {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
