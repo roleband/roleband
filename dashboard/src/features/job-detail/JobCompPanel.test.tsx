@@ -128,7 +128,7 @@ describe("JobCompPanel", () => {
 
   function expectPostedBaseWhole() {
     expect(screen.getAllByText("$151K–$223K").length).toBeGreaterThan(0);
-    expect(screen.getByText(msg("role-job-comp-panel-the-posting-names-no-matching-level"))).toBeInTheDocument();
+    expect(screen.getByText(msg("role-job-comp-panel-level-not-stated-or-mapped"))).toBeInTheDocument();
     expect(screen.queryByText("Equity")).not.toBeInTheDocument();
   }
 

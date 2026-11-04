@@ -327,26 +327,32 @@ def _basis(value: str | None) -> LevelBasis | None:
         return None
 
 
-async def _estimates(estimates: EstimateSet, job: Any) -> dict[str, dict[str, Any]]:
-    """Each source's estimate fields, providers' answers and fingerprint for one
-    stored job."""
+def job_context(job: Any) -> CompContext | None:
+    """What an estimate reads of one stored job; None for a band no ladder
+    names, which nothing prices."""
     try:
         band = LevelBand(job.level_band)
     except ValueError:
-        band = None
+        return None
+    return CompContext(
+        company=job.company,
+        band=band,
+        family=job.family,
+        location_group=(job.location_groups or [None])[0],
+        country=pay_country(job.location_groups),
+        title=job.title,
+        level_basis=_basis(job.level_basis),
+    )
+
+
+async def _estimates(estimates: EstimateSet, job: Any) -> dict[str, dict[str, Any]]:
+    """Each source's estimate fields, providers' answers and fingerprint for one
+    stored job."""
+    ctx = job_context(job)
     answers: dict[str, tuple[CompEstimate | None, list[dict]]]
-    if band is None:
+    if ctx is None:
         answers = {source: (None, []) for source in estimates.resolvers()}
     else:
-        ctx = CompContext(
-            company=job.company,
-            band=band,
-            family=job.family,
-            location_group=(job.location_groups or [None])[0],
-            country=pay_country(job.location_groups),
-            title=job.title,
-            level_basis=_basis(job.level_basis),
-        )
         answers = await estimates.resolve(ctx)
     return {
         source: {**estimate_values(est), "sources": answered, "ref_fp": estimates.fingerprints.get(source)}
@@ -381,7 +387,8 @@ async def _show(session: AsyncSession, selected: str, target: str, ids: Sequence
 
 async def refresh_jobs(session: AsyncSession, job_ids: Iterable[int]) -> int:
     """Re-estimate jobs whose OWN inputs moved outside a scan: the level
-    backfill, the role reclassify, a held row's fresh read. The fingerprint names
+    backfill, the role reclassify, a held row's fresh read, a read whose
+    estimate was deferred. The fingerprint names
     what every estimate reads, never a job's own fields, so nothing else moved
     them. Commits nothing: the pass that moved them owns the transaction; the
     reference row stays locked until it commits.

@@ -63,7 +63,7 @@ import {
   roleJobCompPanelPostedBandSitsWellAbove,
   roleJobCompPanelPostedBandSitsWellBelow,
   roleJobCompPanelRolebandSplitsUsPayOnly,
-  roleJobCompPanelThePostingNamesNoMatchingLevel,
+  roleJobCompPanelLevelNotStatedOrMapped,
   roleJobCompPanelSplitFromAnotherDiscipline,
   roleJobCompPanelStated,
   roleJobCompPanelStatedByTheEmployer,
@@ -242,7 +242,7 @@ const NO_SPLIT: Record<
   // is built on that level. The tag is the one the job card shows.
   level_unplaced: {
     tag: (job) => (job.level_basis === "none" ? LEVEL_NOT_STATED() : LEVEL_NOT_MAPPED()),
-    get why() { return roleJobCompPanelThePostingNamesNoMatchingLevel(); },
+    get why() { return roleJobCompPanelLevelNotStatedOrMapped(); },
   },
 };
 
