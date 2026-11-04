@@ -54,6 +54,9 @@ NO_SPLIT_NOT_COVERED = "plugin_not_covered"
 # Ours answers pay, and the posting's pay is not US pay (another country, or
 # places in several): our split is measured on US pay only.
 NO_SPLIT_NOT_US = "not_us_pay"
+# The posting names a level we cannot place, or none: its band is a guess kept
+# for sorting, so no level's split, equity or total is built on it.
+NO_SPLIT_LEVEL_UNPLACED = "level_unplaced"
 
 PROV_STATED = "stated"
 PROV_ESTIMATED = "estimated"
@@ -381,6 +384,7 @@ def build_job_package(
     heuristic: bool = True,
     us_pay: bool = True,
     covered: bool = True,
+    level_placed: bool = True,
 ) -> dict:
     """The full comp story for one role, ready to render.
 
@@ -397,6 +401,9 @@ def build_job_package(
     in several countries. Our split heuristic is measured on US pay, so while ours
     answers, a level no row splits gets no split (`NO_SPLIT_NOT_US`); the offer
     policy, which is the company's, stays.
+    `level_placed=False`: the band is a guess (`schema.UNPLACED_BASES`). No row is
+    read for it, a stated base is shown whole (`NO_SPLIT_LEVEL_UNPLACED`), and no
+    estimated total is split by its ratios.
     """
     baselines = baselines or {}
     estimate = (
@@ -454,7 +461,7 @@ def build_job_package(
         package["state"] = "band"
 
     row, split_source = (None, None)
-    if band:
+    if band and level_placed:
         row, split_source = _lookup(baselines, company, family, band)
     unsplit = not (heuristic and us_pay) and row is None
     package["split_source"] = None if unsplit else split_source
@@ -472,11 +479,11 @@ def build_job_package(
                                        PROV_ESTIMATED),) if c
             ]
             return package
-        if comp_median is not None and band and unsplit:
+        if comp_median is not None and band and unsplit and level_placed:
             # The total stands alone: the headline reads the estimate.
             package["no_split_reason"] = NO_SPLIT_PLUGIN if not heuristic else NO_SPLIT_NOT_US
             return package
-        if comp_median is not None and band:
+        if comp_median is not None and band and level_placed:
             bonus_r, equity_r = _ratios(row, company, band)
             lo_tc, hi_tc = comp_low or comp_median, comp_high or comp_median
             # Base absorbs the rounding, exactly as `comp_split.split_tc` does, so the
@@ -545,6 +552,12 @@ def build_job_package(
     if basis != "base" or lo is None or not band:
         if basis != "base":
             package["no_split_reason"] = NO_SPLIT_BASIS_UNCLEAR
+        return package
+
+    # Pay the posting states is a fact whatever the level; the split, equity and
+    # total are a level's, and this level is a guess.
+    if not level_placed:
+        package["no_split_reason"] = NO_SPLIT_LEVEL_UNPLACED
         return package
 
     if unsplit:

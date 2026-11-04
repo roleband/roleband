@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from tracker.comp_providers.base import CompContext, CompEstimate, CompProvider
 from tracker.comp_providers.static import StaticCompProvider
-from tracker.schema import LEVEL_BAND_ORDER, OUR_ESTIMATE_SOURCE, LevelBand
+from tracker.schema import LEVEL_BAND_ORDER, OUR_ESTIMATE_SOURCE, UNPLACED_BASES, LevelBand
 
 
 class CompResolver:
@@ -38,6 +38,10 @@ class CompResolver:
         # Comp reference data starts at Senior; earlier stages get no estimate
         # rather than a fabricated one.
         if LEVEL_BAND_ORDER[ctx.band.value] < LEVEL_BAND_ORDER[LevelBand.SENIOR.value]:
+            return None, []
+        # An unplaced band is a guess kept for sorting: pricing it would show a
+        # level's pay for a level the posting never stated.
+        if ctx.level_basis in UNPLACED_BASES:
             return None, []
         primary: CompEstimate | None = None
         sources: list[dict] = []
