@@ -454,7 +454,11 @@ it("writes an interest with the verb first, reads it back on the Summary, and sa
   expect(avoidList).toHaveAccessibleDescription(/Roles about these drop off/);
   const option = (radio: HTMLElement) => radio.closest("label")!;
   expect(option(interestedList)).toHaveTextContent(/Picking now/);
-  expect(option(avoidList)).toHaveTextContent(/^Not interested inSwitch to thisRoles about these drop off, even if they also match an interest\.$/);
+  // The whole card: its name, its state and what it does, with no count.
+  const avoidCard = (current: "yes" | "no") => msg("profile-walk-model-not-interested-in")
+    + msg("profile-subjects-step-switch-to-this", { choice: current })
+    + msg("profile-subjects-step-roles-about-these-drop-off");
+  expect(option(avoidList).textContent).toBe(avoidCard("no"));
   expect(screen.queryByRole("group", { name: "Not interested in" })).toBeNull();
   await user.click(avoidList);
   expect(avoidList).toBeChecked();
@@ -476,7 +480,7 @@ it("writes an interest with the verb first, reads it back on the Summary, and sa
   expect(within(picker).getByLabelText("Logistics & Fulfillment")).toBeChecked();
   await user.clear(within(picker).getByLabelText("Filter worlds"));
   // The picks show on the cards, so the lists carry no count of them.
-  expect(option(avoidList)).toHaveTextContent(/^Not interested inPicking nowRoles about these drop off, even if they also match an interest\.$/);
+  expect(option(avoidList).textContent).toBe(avoidCard("yes"));
 
   // Seen from the other verb, the pick wears its verb as a tag instead of vanishing.
   await user.click(interestedList);
