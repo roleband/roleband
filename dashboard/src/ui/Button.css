@@ -107,7 +107,9 @@
   font-weight: var(--app-weight-name);
 }
 
-.ui-btn-ghost:not(:disabled):not([aria-disabled="true"]):hover {
+/* The current one keeps its chosen edge and ink under the pointer: the edge
+   says which answer it is. */
+.ui-btn-ghost:not(:disabled):not([aria-disabled="true"]):not([aria-current="true"]):hover {
   border-color: var(--app-text-faint);
   color: var(--app-text);
 }

@@ -35,7 +35,7 @@ const answerNames = () => within(region()).getAllByRole("button").map((button) =
 
 it("records exactly the words the screen shows", async () => {
   render(<ConsentPane state={usageStateFixture("undecided")} groups={[...ALL]} onAnswered={vi.fn()} />);
-  await userEvent.click(screen.getByRole("button", { name: "Happy to help" }));
+  await userEvent.click(screen.getByRole("button", { name: msg("privacy-happy-to-help") }));
   await waitFor(() => expect(api.saveUsageConsent).toHaveBeenCalled());
   const { text, locale } = sent();
   expect(text).toBe(consentText(consentWords([...ALL])));
@@ -50,14 +50,14 @@ it("the welcome's look records the same words, keeps the answers equal, and puts
   // One mark for each kind, and one for the promise; no box until someone chooses.
   expect(container.querySelectorAll(".privacy-consent-icon")).toHaveLength(4);
   expect(screen.queryByRole("checkbox")).toBeNull();
-  const no = screen.getByRole("button", { name: "No thanks" });
-  expect(no.className).toBe(screen.getByRole("button", { name: "Happy to help" }).className);
+  const no = screen.getByRole("button", { name: msg("privacy-no-thanks") });
+  expect(no.className).toBe(screen.getByRole("button", { name: msg("privacy-happy-to-help") }).className);
 
-  await userEvent.click(screen.getByRole("button", { name: "Let me choose" }));
+  await userEvent.click(screen.getByRole("button", { name: msg("privacy-choose") }));
   expect(screen.getAllByRole("checkbox")).toHaveLength(3);
   expect(container.querySelectorAll(".privacy-consent-groups .privacy-consent-icon")).toHaveLength(0);
   await userEvent.click(screen.getByRole("checkbox", { name: /Crash reports/ }));
-  await userEvent.click(screen.getByRole("button", { name: "Happy to help" }));
+  await userEvent.click(screen.getByRole("button", { name: msg("privacy-happy-to-help") }));
   await waitFor(() => expect(api.saveUsageConsent).toHaveBeenCalled());
   const { text, answers } = sent();
   expect(text).toBe(consentText(consentWords([...ALL])));
@@ -91,13 +91,13 @@ it("lays the reason out a sentence a line, and records it as the one paragraph i
 it("asks with nothing ticked: no box until someone chooses", () => {
   render(<ConsentPane state={usageStateFixture("undecided")} groups={[...ALL]} onAnswered={vi.fn()} />);
   expect(screen.queryByRole("checkbox")).toBeNull();
-  expect(answerNames()).toEqual(["Let me choose", "No thanks", "Happy to help"]);
+  expect(answerNames()).toEqual([msg("privacy-choose"), msg("privacy-no-thanks"), msg("privacy-happy-to-help")]);
 });
 
 it("Happy to help shares every kind asked, in one click", async () => {
   render(<ConsentPane state={usageStateFixture("undecided")} groups={[...ALL]} onAnswered={vi.fn()} />);
-  const no = screen.getByRole("button", { name: "No thanks" });
-  const yes = screen.getByRole("button", { name: "Happy to help" });
+  const no = screen.getByRole("button", { name: msg("privacy-no-thanks") });
+  const yes = screen.getByRole("button", { name: msg("privacy-happy-to-help") });
   expect(no.className).toBe(yes.className);
   await userEvent.click(yes);
   await waitFor(() => expect(api.saveUsageConsent).toHaveBeenCalled());
@@ -110,17 +110,17 @@ it("Happy to help shares every kind asked, in one click", async () => {
 
 it("choosing opens clear boxes, focuses the first, and shares exactly what was ticked", async () => {
   render(<ConsentPane state={usageStateFixture("undecided")} groups={[...ALL]} onAnswered={vi.fn()} />);
-  await userEvent.click(screen.getByRole("button", { name: "Let me choose" }));
+  await userEvent.click(screen.getByRole("button", { name: msg("privacy-choose") }));
   const boxes = screen.getAllByRole("checkbox");
   expect(boxes).toHaveLength(3);
   for (const box of boxes) expect(box).not.toBeChecked();
   expect(boxes[0]).toHaveFocus();
-  expect(screen.queryByRole("button", { name: "Let me choose" })).toBeNull();
+  expect(screen.queryByRole("button", { name: msg("privacy-choose") })).toBeNull();
   // Nothing ticked is nothing to share: the warm answer waits.
-  expect(screen.getByRole("button", { name: "Happy to help" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: msg("privacy-happy-to-help") })).toBeDisabled();
   // The whole row is the hit target.
   await userEvent.click(screen.getByText("What broke and where, so we can fix it fast."));
-  await userEvent.click(screen.getByRole("button", { name: "Happy to help" }));
+  await userEvent.click(screen.getByRole("button", { name: msg("privacy-happy-to-help") }));
   await waitFor(() => expect(api.saveUsageConsent).toHaveBeenCalled());
   expect(sent().answers).toEqual({ usage: false, crashes: true, questions: false });
 });
@@ -128,9 +128,9 @@ it("choosing opens clear boxes, focuses the first, and shares exactly what was t
 it("No thanks declines everything, even with boxes ticked", async () => {
   const onAnswered = vi.fn();
   render(<ConsentPane state={usageStateFixture("undecided")} groups={[...ALL]} onAnswered={onAnswered} />);
-  await userEvent.click(screen.getByRole("button", { name: "Let me choose" }));
+  await userEvent.click(screen.getByRole("button", { name: msg("privacy-choose") }));
   await userEvent.click(screen.getByRole("checkbox", { name: /Anonymous usage data/ }));
-  await userEvent.click(screen.getByRole("button", { name: "No thanks" }));
+  await userEvent.click(screen.getByRole("button", { name: msg("privacy-no-thanks") }));
   await waitFor(() => expect(onAnswered).toHaveBeenCalled());
   expect(sent().answers).toEqual({ usage: false, crashes: false, questions: false });
 });
@@ -139,8 +139,8 @@ it("asks about one kind with nothing to choose, and declines only it", async () 
   const onAnswered = vi.fn();
   render(<ConsentPane state={usageStateFixture("undecided")} groups={["questions"]} onAnswered={onAnswered} />);
   expect(screen.queryByText("Anonymous usage data")).toBeNull();
-  expect(answerNames()).toEqual(["No thanks", "Happy to help"]);
-  await userEvent.click(screen.getByRole("button", { name: "No thanks" }));
+  expect(answerNames()).toEqual([msg("privacy-no-thanks"), msg("privacy-happy-to-help")]);
+  await userEvent.click(screen.getByRole("button", { name: msg("privacy-no-thanks") }));
   await waitFor(() => expect(onAnswered).toHaveBeenCalled());
   expect(sent().answers).toEqual({ questions: false });
   expect(sent().text).not.toContain("Anonymous usage data");
@@ -152,7 +152,7 @@ it("says why when the answer is refused, and stays on the question", async () =>
   );
   const onAnswered = vi.fn();
   render(<ConsentPane state={usageStateFixture("undecided")} groups={[...ALL]} onAnswered={onAnswered} />);
-  await userEvent.click(screen.getByRole("button", { name: "Happy to help" }));
+  await userEvent.click(screen.getByRole("button", { name: msg("privacy-happy-to-help") }));
   expect(await screen.findByRole("alert")).toHaveTextContent("What's shared changed while you were choosing. Try again.");
   expect(onAnswered).not.toHaveBeenCalled();
 });
@@ -177,7 +177,7 @@ function answered(shared: readonly (typeof ALL)[number][]) {
 }
 
 const yours = () => {
-  const marked = within(region()).queryAllByRole("button", { description: "Your answer" });
+  const marked = within(region()).queryAllByRole("button", { description: msg("privacy-your-answer") });
   // The caption and the current state go together, on the same button.
   expect(within(region()).queryAllByRole("button").filter((button) => button.getAttribute("aria-current") === "true")).toEqual(marked);
   return marked;
@@ -188,11 +188,11 @@ it("asked again after No thanks, marks No thanks as the answer, and pressing it 
   const onAnswered = vi.fn();
   render(<ConsentPane review state={state} groups={[...ALL]} onAnswered={onAnswered} />);
   expect(screen.queryByRole("checkbox")).toBeNull();
-  expect(yours()).toEqual([screen.getByRole("button", { name: "No thanks" })]);
+  expect(yours()).toEqual([screen.getByRole("button", { name: msg("privacy-no-thanks") })]);
   // A mark, not a third answer: still two answers and the way to choose.
   expect(within(region()).getAllByRole("button").map((button) => button.getAttribute("aria-describedby") ? "marked" : button.textContent))
-    .toEqual(["Let me choose", "marked", "Happy to help"]);
-  await userEvent.click(screen.getByRole("button", { name: "No thanks" }));
+    .toEqual([msg("privacy-choose"), "marked", msg("privacy-happy-to-help")]);
+  await userEvent.click(screen.getByRole("button", { name: msg("privacy-no-thanks") }));
   expect(onAnswered).toHaveBeenCalledWith(state);
   expect(api.saveUsageConsent).not.toHaveBeenCalled();
 });
@@ -200,11 +200,11 @@ it("asked again after No thanks, marks No thanks as the answer, and pressing it 
 it("asked again after Happy to help, marks it, takes the keyboard to it, and No thanks records the words again", async () => {
   const safe = createRef<HTMLButtonElement>();
   render(<ConsentPane review safeRef={safe} state={answered([...ALL])} groups={[...ALL]} onAnswered={vi.fn()} />);
-  const happy = screen.getByRole("button", { name: "Happy to help" });
+  const happy = screen.getByRole("button", { name: msg("privacy-happy-to-help") });
   expect(yours()).toEqual([happy]);
   // Enter on the marked answer changes nothing, so it is the safe one here.
   expect(safe.current).toBe(happy);
-  await userEvent.click(screen.getByRole("button", { name: "No thanks" }));
+  await userEvent.click(screen.getByRole("button", { name: msg("privacy-no-thanks") }));
   await waitFor(() => expect(api.saveUsageConsent).toHaveBeenCalled());
   const { answers, text } = sent();
   expect(answers).toEqual({ usage: false, crashes: false, questions: false });
@@ -213,14 +213,14 @@ it("asked again after Happy to help, marks it, takes the keyboard to it, and No 
 
 it("asked again after choosing some, opens on exactly the person's own ticks and records a change", async () => {
   render(<ConsentPane review state={answered(["crashes"])} groups={[...ALL]} onAnswered={vi.fn()} />);
-  expect(yours()).toEqual([screen.getByRole("button", { name: "Happy to help" })]);
+  expect(yours()).toEqual([screen.getByRole("button", { name: msg("privacy-happy-to-help") })]);
   // Open from the start, the boxes do not take the keyboard from the answer.
   for (const box of screen.getAllByRole("checkbox")) expect(box).not.toHaveFocus();
   expect(screen.getByRole("checkbox", { name: /Anonymous usage data/ })).not.toBeChecked();
   expect(screen.getByRole("checkbox", { name: /Crash reports/ })).toBeChecked();
   expect(screen.getByRole("checkbox", { name: /Feedback surveys/ })).not.toBeChecked();
   await userEvent.click(screen.getByRole("checkbox", { name: /Feedback surveys/ }));
-  await userEvent.click(screen.getByRole("button", { name: "Happy to help" }));
+  await userEvent.click(screen.getByRole("button", { name: msg("privacy-happy-to-help") }));
   await waitFor(() => expect(api.saveUsageConsent).toHaveBeenCalled());
   expect(sent().answers).toEqual({ usage: false, crashes: true, questions: true });
 });
@@ -236,7 +236,7 @@ it("asked again after choosing some, marks the answer only while the boxes show 
   expect(yours()).toEqual([]);
   await userEvent.click(crashes);
   expect(yours()).toHaveLength(1);
-  await userEvent.click(screen.getByRole("button", { name: "Happy to help" }));
+  await userEvent.click(screen.getByRole("button", { name: msg("privacy-happy-to-help") }));
   expect(onAnswered).toHaveBeenCalledWith(state);
   expect(api.saveUsageConsent).not.toHaveBeenCalled();
 });
@@ -245,7 +245,7 @@ it("asked again after choosing some, records the change once a tick moves", asyn
   const onAnswered = vi.fn();
   render(<ConsentPane review state={answered(["usage", "crashes"])} groups={[...ALL]} onAnswered={onAnswered} />);
   await userEvent.click(screen.getByRole("checkbox", { name: /Crash reports/ }));
-  await userEvent.click(screen.getByRole("button", { name: "Happy to help" }));
+  await userEvent.click(screen.getByRole("button", { name: msg("privacy-happy-to-help") }));
   await waitFor(() => expect(api.saveUsageConsent).toHaveBeenCalled());
   expect(sent().answers).toEqual({ usage: true, crashes: false, questions: false });
   expect(onAnswered).toHaveBeenCalledTimes(1);
