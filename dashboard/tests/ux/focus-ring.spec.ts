@@ -94,6 +94,8 @@ async function focusedRing(page: Page) {
       const offset = parseFloat(cs.outlineOffset);
       return offset <= -border && offset + parseFloat(cs.outlineWidth) >= 0;
     };
+    // A carrier draws the ring in place of the focused element, never beside it.
+    if (rings(el) && owners.some(rings)) return { sig, ok: false, what: `two rings, on the focused element and on its carrier: ${describe(el)}` };
     const painter = rings(el) ? el : owners.find(rings);
     if (painter && !onEdge(painter)) return { sig, ok: false, what: `a field ringed outside its own edge: ${describe(painter)} offset ${getComputedStyle(painter).outlineOffset}` };
     if (painter) return { sig, ok: true };

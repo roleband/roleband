@@ -180,6 +180,20 @@ test.describe("cluster cards", () => {
     await expect(page.getByRole("main")).toHaveCount(1);
   });
 
+  /* The card is what responds, so the keyboard's ring goes on the card,
+     once: never also around the two words of its title. */
+  test("a focused card wears one ring, on the card and not on its title", async ({ page }) => {
+    await page.goto("/statistics/clusters");
+    const title = page.getByRole("button", { name: "LLMs · RAG", exact: true });
+    await expect(title).toBeVisible();
+    await page.keyboard.press("Shift");
+    await title.focus();
+    await expect.poll(() => title.evaluate((node) => node.matches(":focus-visible"))).toBe(true);
+    const outline = (node: Element) => getComputedStyle(node).outlineStyle;
+    expect(await title.evaluate(outline)).toBe("none");
+    expect(await page.locator(".cluster-card", { has: title }).evaluate(outline)).toBe("solid");
+  });
+
   test("a company chip inside a card goes to the company, not into the cluster", async ({ page }) => {
     await page.goto("/statistics/clusters");
 

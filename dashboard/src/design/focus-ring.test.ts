@@ -71,6 +71,7 @@ const OFFSETS = new Set(["var(--app-ring-offset)", "calc(-1 * var(--app-ring-off
 const SUPPRESSIONS: { file: string; selector: string; drawnBy: string; why: string }[] = [
   { file: "ui/SearchField.css", selector: ".ui-search-input", drawnBy: ".ui-search:focus-within", why: "the field the user sees is the wrapper; the bare input inside it would draw a square ring within the rounded one" },
   { file: "ui/SearchField.css", selector: ".ui-search-input:focus-visible", drawnBy: ".ui-search:focus-within", why: "the same, stated on the focus state so it outranks shell.css's input ring" },
+  { file: "features/statistics/statistics.css", selector: ".cluster-card-select:focus-visible", drawnBy: ".cluster-card:has(.cluster-card-select:focus-visible)", why: "the card is what responds; the button is only its title, and shell.css's button ring would draw a second ring around those words" },
   { file: "ui/FilterRail.css", selector: ".filter-search-row input", drawnBy: ".filter-search-row:focus-within", why: "the row is the field; the input has no border of its own" },
   { file: "ui/FilterRail.css", selector: ".filter-search-row input:focus-visible", drawnBy: ".filter-search-row:focus-within", why: "the same, on the focus state" },
   { file: "shell.css", selector: ".palette-input input", drawnBy: ".palette-item.is-cursor", why: "focus never leaves the palette's field, so the highlighted option, where Enter acts, wears the one ring; a ring on the field too would be a second" },
