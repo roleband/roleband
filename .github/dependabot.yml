@@ -96,7 +96,9 @@ updates:
       # Grouped, each becomes a readiness indicator: it stays red while the
       # ecosystem lags and goes green on its own the moment the partner widens
       # its range. What it must NOT do is sit inside dev-tooling, where one
-      # un-adoptable major blocks every mergeable update beside it.
+      # un-adoptable major blocks every mergeable update beside it. TypeScript
+      # majors are blocked from outside the group as well, so they are parked
+      # under `ignore` below; the group still carries @typescript-eslint/*.
       typescript:
         patterns:
           - "typescript"
@@ -122,6 +124,25 @@ updates:
           - "eslint-plugin-import-x"
           - "eslint-plugin-jsx-a11y-x"
         update-types: ["minor", "patch"]
+    ignore:
+      # TypeScript majors are parked. No PR for one can pass `npm ci` or the
+      # gate, and the typescript group cannot go green on its own, because
+      # what blocks them sits outside it:
+      #
+      #   @typescript-eslint/parser   peers typescript below 6.1 and refuses
+      #                               TypeScript 7 at runtime
+      #   openapi-typescript          peers typescript ^5 (`npm run gen:api`)
+      #   knip 5                      peers typescript below 7; knip 6 does not
+      #   src/copy/contracts.test.ts  call the classic compiler API
+      #   scripts/copy/review.mjs     (`ts.transpileModule`, `ts.createSourceFile`),
+      #                               which TypeScript 7 does not export
+      #
+      # 6.x is parked too: openapi-typescript refuses it as well, and the
+      # upgrade worth having is 7. The entry holds only while that list stands:
+      # with typescript-eslint supporting TypeScript 7 and the other blockers
+      # cleared, a TypeScript major passes on its own.
+      - dependency-name: typescript
+        versions: [">=6"]
 
   - package-ecosystem: github-actions
     directory: /
