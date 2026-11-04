@@ -18,12 +18,12 @@ RoleBand is a single-user application that runs on your own computer.
   to a network.
 - Data lives in an embedded Postgres under your user's home directory. Keys you
   enter (a cloud or local model key, a price-data key) are stored in that database
-  encrypted, with a key kept in `~/.roleband/secret.key` (readable by you only, and
-  never in `data/` or a backup). A backup therefore holds those keys only as
-  ciphertext: to restore one on another computer, copy that file too, or enter the
-  keys again. Anyone who can read your files can read both, so this protects copies
-  of the database, not a compromised account
-  ([saved keys](docs/architecture.md#data-model-and-persistence)).
+  encrypted, with the key that opens them in a file that database backups leave out
+  ([saved keys](docs/architecture.md#data-model-and-persistence)). A copy of your
+  whole home folder, such as a Time Machine backup, holds both, so keep such copies
+  encrypted (Time Machine's Encrypt Backups option) and the disk encrypted
+  (FileVault on a Mac). Anyone who can read your files can read both, so this
+  protects copies of the database, not a compromised account.
   `deploy/backup_db.sh` also makes backup files readable only by the account that
   made them.
 - The dashboard is served with a Content-Security-Policy
