@@ -371,6 +371,26 @@ it("lands a returning user on the same walk with every step live and the Summary
   expect(review).toHaveTextContent("No change when you save");
 });
 
+/* The Profile walk's Summary sits mid-walk, with the same Adjust: Continue
+   from the step it opened comes back to it, and a step reached any other way
+   goes on in order. */
+it("a step opened with Adjust on the Profile Summary returns to it, and the tabs still walk in order", async () => {
+  load.mockResolvedValue(catalog(RETURNING));
+  const user = userEvent.setup();
+  renderWalk();
+  await screen.findByRole("complementary", { name: "Your progress" });
+  await user.click(stripButton("Summary"));
+
+  await user.click(screen.getByRole("button", { name: "Adjust career track" }));
+  expect(screen.getByRole("heading", { name: "What kind of role are you looking for?" })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Continue" }));
+  expect(screen.getByRole("heading", { name: "Summary" })).toBeVisible();
+
+  await user.click(stripButton("Career track"));
+  await user.click(screen.getByRole("button", { name: "Continue" }));
+  expect(screen.getByRole("heading", { name: "Your level" })).toBeVisible();
+});
+
 it("names a not-interested pick that takes out most of a row picked on Which roles, and only that one", async () => {
   /* Engineering managers, only: 4 in AI (Silicon Valley), 2 in logistics
      (UK). "Not interested in AI" takes 4 of those 6, a contradiction the
@@ -1843,4 +1863,42 @@ it("where: companies that cannot be asked about the same place share one sentenc
   } finally {
     vi.useRealTimers();
   }
+});
+
+/* Adjust on the Summary opens one answer to change it: Continue (or Skip on
+   an optional step) brings the person back to the Summary rather than through
+   every later step. Back is still the step before, and from there the walk
+   goes on in order. */
+it("setup: a step opened with Adjust returns to the Summary, and Back still steps back", async () => {
+  load.mockResolvedValue(catalog(FRESH));
+  const user = userEvent.setup();
+  renderSetup();
+  await setupToSummary(user);
+
+  await user.click(screen.getByRole("button", { name: "Adjust career track" }));
+  expect(screen.getByRole("heading", { name: "What kind of role are you looking for?" })).toBeVisible();
+  await user.click(screen.getByLabelText("Hands-on, as the expert"));
+  await user.click(screen.getByRole("button", { name: "Continue" }));
+  expect(screen.getByRole("heading", { name: "Summary" })).toBeVisible();
+  expect(fact("Career track")).toHaveTextContent(/^Leading a team or hands-on/);
+
+  // An optional step opened from the Summary: Skip returns too.
+  await user.click(screen.getByRole("button", { name: "Adjust discipline" }));
+  await user.click(screen.getByRole("button", { name: "Skip" }));
+  expect(screen.getByRole("heading", { name: "Summary" })).toBeVisible();
+
+  // The browser's Back reopens the adjusted step as it was opened.
+  await user.click(screen.getByRole("button", { name: "Adjust location" }));
+  await user.click(screen.getByRole("button", { name: "Browser back" }));
+  await user.click(screen.getByRole("button", { name: "Browser back" }));
+  expect(screen.getByRole("heading", { name: "Any particular roles?" })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Skip" }));
+  expect(screen.getByRole("heading", { name: "Summary" })).toBeVisible();
+
+  // Back from an adjusted step is the step before it, and the walk goes on in order.
+  await user.click(screen.getByRole("button", { name: "Adjust location" }));
+  await user.click(screen.getByRole("button", { name: "Back" }));
+  expect(screen.getByRole("heading", { name: "Your level" })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Continue" }));
+  expect(screen.getByRole("heading", { name: "Where do you want to work?" })).toBeVisible();
 });

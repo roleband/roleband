@@ -212,6 +212,7 @@ async def build_enriched(
         location_group=ann.location_groups[0] if ann.location_groups else None,
         country=pay_country(ann.location_groups),
         title=job.title,
+        level_basis=ann.basis,
     )
     # Completed buffers can be retained after a source bound without starting
     # any more network work. Their enrichment is local; estimates are deferred.

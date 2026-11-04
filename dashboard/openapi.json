@@ -6564,7 +6564,8 @@
          "total_compensation",
          "plugin_without_split",
          "plugin_not_covered",
-         "not_us_pay"
+         "not_us_pay",
+         "level_unplaced"
         ],
         "type": "string"
        },

@@ -18,6 +18,7 @@ from sqlalchemy import func, select
 
 from scripts.seed_synthetic import SYNTHETIC_PREFIX, clear, seed
 from tracker.db.models import Job, SourceBinding
+from tracker.schema import UNPLACED_BASIS_VALUES
 from tracker.taxonomy.locations import pay_country
 
 # Small on purpose: these assert behaviour, not throughput, and each seeded row
@@ -60,14 +61,15 @@ async def test_it_seeds_an_empty_database_and_marks_every_row(db_session):
     assert all(req.startswith(SYNTHETIC_PREFIX) for req in req_ids)
     # A dataset whose comp and level columns are empty renders a comp-shaped UI
     # with nothing in it, and would validate a candidate build of nothing. Our
-    # pay is US pay: every posting in the US alone is priced, and one that may
-    # be elsewhere is not.
-    jobs = (await db_session.execute(select(Job.location_groups, Job.comp_median))).all()
-    us = [comp for groups, comp in jobs if pay_country(groups) == "US"]
-    elsewhere = [comp for groups, comp in jobs if pay_country(groups) != "US"]
-    assert us and elsewhere  # control: the seed has both
+    # pay is US pay, and a level we cannot place is never priced: every posting
+    # in the US alone at a placed level is priced, and every other one is not.
+    jobs = (await db_session.execute(select(Job.location_groups, Job.level_basis, Job.comp_median))).all()
+    us = [comp for groups, basis, comp in jobs if pay_country(groups) == "US" and basis not in UNPLACED_BASIS_VALUES]
+    unpriced = [comp for groups, basis, comp in jobs
+                if pay_country(groups) != "US" or basis in UNPLACED_BASIS_VALUES]
+    assert us and unpriced  # control: the seed has both
     assert all(comp is not None for comp in us)
-    assert all(comp is None for comp in elsewhere)
+    assert all(comp is None for comp in unpriced)
     assert await db_session.scalar(
         select(func.count()).select_from(Job).where(Job.level_band.isnot(None))
     ) == _COUNT
