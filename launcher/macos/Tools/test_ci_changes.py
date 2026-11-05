@@ -135,5 +135,24 @@ class WorkflowStepTests(unittest.TestCase):
             self.assertEqual(self.run_step(repo, 'pull_request', base, moved, 'backend'), {'backend': 'true'})
 
 
+    def test_a_path_git_would_quote_or_a_space_would_split_still_matches(self):
+        with tempfile.TemporaryDirectory() as repo:
+            git(repo, 'init', '-q')
+            git(repo, 'config', 'user.email', 'ci@example.test')
+            git(repo, 'config', 'user.name', 'CI')
+            Path(repo, 'notes.txt').write_text('a\n')
+            git(repo, 'add', '.')
+            git(repo, 'commit', '-qm', 'notes')
+            base = git(repo, 'rev-parse', 'HEAD')
+            for name in ('backend/caf\u00e9.py', 'backend/two words.py'):
+                Path(repo, 'backend').mkdir(exist_ok=True)
+                Path(repo, name).write_text('x = 1\n')
+                git(repo, 'add', '.')
+                git(repo, 'commit', '-qm', name)
+                head = git(repo, 'rev-parse', 'HEAD')
+                self.assertEqual(self.run_step(repo, 'pull_request', base, head, 'backend'), {'backend': 'true'}, name)
+                base = head
+
+
 if __name__ == '__main__':
     unittest.main()

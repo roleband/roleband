@@ -74,12 +74,13 @@ def changed_files(event, base, head):
         return None
     span = f'{base}...{head}' if event == 'pull_request' else f'{base}..{head}'
     # A rename lists only its destination; without renames a move out of a watched path
-    # still names the path it left.
-    result = subprocess.run(['git', 'diff', '--no-renames', '--name-only', span], capture_output=True, text=True)
+    # still names the path it left. `-z` gives each path as it is, where the default output
+    # quotes a non-ASCII name and a space would split one.
+    result = subprocess.run(['git', 'diff', '-z', '--no-renames', '--name-only', span], capture_output=True, text=True)
     if result.returncode != 0:
         print(result.stderr.strip(), file=sys.stderr)
         return None
-    return result.stdout.split()
+    return [path for path in result.stdout.split('\0') if path]
 
 
 def main():
