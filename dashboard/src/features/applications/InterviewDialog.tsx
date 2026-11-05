@@ -23,7 +23,6 @@ import {
   applicationsInterviewFormatVideo,
   applicationsInterviewLink,
   applicationsInterviewLinkPlaceholder,
-  applicationsInterviewMoves,
   applicationsInterviewNotes,
   applicationsInterviewOptional,
   applicationsInterviewOutcome,
@@ -229,11 +228,7 @@ export function InterviewDialog({ card, interview, moving = false, onCancel, onS
       <form className="ledger-form app-interview-form" onSubmit={submit} noValidate>
         <header className="app-interview-head">
           <h3>{title}</h3>
-          <p className="app-interview-note">
-            {moving
-              ? applicationsInterviewMoves({ company: companyName(card.company), title: card.title, stage: STAGE_LABEL.interviewing })
-              : applicationsInterviewFor({ company: companyName(card.company), title: card.title })}
-          </p>
+          <p className="app-interview-note">{applicationsInterviewFor({ company: companyName(card.company), title: card.title })}</p>
           <p className="app-interview-summary" data-empty={!day || undefined} aria-live="polite">
             <Icon name="calendar" size={18} />
             <span>{summary}</span>

@@ -159,9 +159,7 @@ applications-remove-failed = Couldn't remove { $title }. Try again.
 ## Moving into Interviewing asks when the interview is
 # kind=heading
 applications-interview-title = When is the interview?
-# kind=sentence
-applications-interview-moves = { $company } · { $title } moves to { $stage }.
-# kind=label note="Names the role an interview belongs to, above the form"
+# kind=label note="Names the role an interview belongs to, above the form, when adding, editing or moving into Interviewing"
 applications-interview-for = { $title } at { $company }
 # kind=label note="The summary line before a day is picked"
 applications-interview-pick-day = Pick the day
@@ -530,6 +528,8 @@ applications-fact-location = Location
 applications-fact-location-more = and { $count } more
 # kind=label
 applications-fact-first-seen = First seen
+# kind=label same-as=role-listing-age-listed-for note="How long the posting has been up, as Radar counts it"
+applications-fact-listed-for = Listed for
 # kind=button note="Opens the full posting over the page"
 applications-read-posting = Read the posting
 # kind=button

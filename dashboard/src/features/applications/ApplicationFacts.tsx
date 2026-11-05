@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 import type { ApplicationCard, ApplicationDetail, ApplicationInterview, JobDetail } from "../../api";
 import { date as formatDate, list, relative } from "../../copy/format";
-import { LEVEL_NOT_MAPPED, LEVEL_NOT_STATED } from "../../copy/vocabulary";
-import { BAND_LABEL, fmtCompIn } from "../../format";
+import { fmtCompIn, relDays } from "../../format";
 import { JobLinkRow } from "../../patterns/jobs/JobLinkRow";
 import { postingPlaces } from "../../patterns/jobs/location";
 import { Badge, Button, Content, Icon, Segmented } from "../../ui";
@@ -13,7 +12,7 @@ import {
   applicationsFactDaysValue,
   applicationsFactFirstSeen,
   applicationsFactLastActivity,
-  applicationsFactLevel,
+  applicationsFactListedFor,
   applicationsFactLocation,
   applicationsFactLocationMore,
   applicationsFactPay,
@@ -66,12 +65,6 @@ function postedPay(posting: JobDetail): string | null {
   const ends = [band.base_min, band.base_max].filter((value): value is number => value != null);
   const [low, high] = [ends[0], ends[ends.length - 1]];
   return low === high ? fmtCompIn(low, currency) : `${fmtCompIn(low, currency)}–${fmtCompIn(high, currency)}`;
-}
-
-function levelText(posting: JobDetail): string {
-  if (posting.level_basis === "none") return LEVEL_NOT_STATED();
-  if (posting.level_basis === "unmapped") return LEVEL_NOT_MAPPED();
-  return BAND_LABEL[posting.level_band] ?? posting.level_band;
 }
 
 export interface ApplicationFactsProps {
@@ -143,7 +136,6 @@ export function ApplicationFacts({
                   <Badge tone="warning" variant="tint" size="sm" className="app-fact-tag">{applicationsFactPayChanged()}</Badge>
                 )}
               </Fact>
-              <Fact term={applicationsFactLevel()}>{levelText(posting)}</Fact>
               {places.length > 0 && (
                 <Fact term={applicationsFactLocation()}>
                   <Content text={places[0]} />
@@ -155,6 +147,9 @@ export function ApplicationFacts({
                 </Fact>
               )}
               <Fact term={applicationsFactFirstSeen()}>{formatDate(posting.first_seen, "full")}</Fact>
+              {posting.listed_days != null && (
+                <Fact term={applicationsFactListedFor()}>{relDays(posting.listed_days)}</Fact>
+              )}
             </>
           )}
         </dl>

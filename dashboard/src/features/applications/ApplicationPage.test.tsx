@@ -6,6 +6,7 @@ import { api, type ActivityItem, type ApplicationDetail, type JobDetail } from "
 import { ApiError } from "../../api/transport";
 import { ToastProvider } from "../../ui/Toast";
 import { applicationCardFixture, applicationDetailFixture, jobDetailFixture } from "../../test/fixtures";
+import { relDays } from "../../format";
 import { msg } from "../../test/msg";
 import { ApplicationsScreen } from "./ApplicationsScreen";
 
@@ -284,6 +285,28 @@ describe("the posting beside the application", () => {
     renderPage();
     await screen.findByRole("heading", { level: 1, name: TITLE });
     expect(screen.queryByText(msg("applications-crossing-pay", { days: 2 }))).toBeNull();
+  });
+
+  it("dates the posting, with how long it has been listed after First seen, and leaves the level to the List", async () => {
+    posting = { ...posting, listed_days: 40 };
+    renderPage();
+    const group = (await screen.findByRole("heading", { name: msg("applications-facts-posting") })).closest("section")!;
+    const terms = [...group.querySelectorAll("dt")].map((term) => term.textContent);
+    const seen = terms.indexOf(msg("applications-fact-first-seen"));
+    expect(terms[seen + 1], "Listed for follows First seen").toBe(msg("applications-fact-listed-for"));
+    expect(terms[terms.length - 1], "Listed for closes the posting's facts").toBe(msg("applications-fact-listed-for"));
+    expect(terms, "no level line").not.toContain(msg("applications-fact-level"));
+    const listed = [...group.querySelectorAll("dt")].find((term) => term.textContent === msg("applications-fact-listed-for"))!;
+    // The same count Radar shows for the posting.
+    expect(listed.nextElementSibling).toHaveTextContent(relDays(40));
+  });
+
+  it("leaves Listed for out when the posting's age is not known", async () => {
+    posting = { ...posting, listed_days: null };
+    renderPage();
+    await screen.findByRole("heading", { name: msg("applications-facts-posting") });
+    expect(await screen.findByText(msg("applications-fact-first-seen"))).toBeInTheDocument();
+    expect(screen.queryByText(msg("applications-fact-listed-for"))).toBeNull();
   });
 
   it("shows the notes kept on the pursuit", async () => {

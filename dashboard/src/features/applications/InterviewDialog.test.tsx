@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApplicationInterview } from "../../api";
 import { applicationCardFixture } from "../../test/fixtures";
+import { companyName } from "../../format";
 import { msg } from "../../test/msg";
 import { InterviewDialog } from "./InterviewDialog";
 
@@ -29,6 +30,16 @@ function open(props: Partial<Parameters<typeof InterviewDialog>[0]> = {}) {
 const add = () => screen.getByRole("button", { name: msg("applications-interview-add") });
 const times = (dialog: HTMLElement) => within(dialog).getByRole("group", { name: msg("applications-interview-times") });
 const summary = (dialog: HTMLElement) => dialog.querySelector(".app-interview-summary")!.textContent;
+
+describe("the heading", () => {
+  it("names the role alone when a move asks for the interview, as when one is added", () => {
+    const { dialog } = open({ moving: true });
+    // Names are wrapped in direction marks in the rendered line.
+    const note = dialog.querySelector(".app-interview-note")!.textContent!.replace(/[\u2068\u2069]/g, "");
+    expect(note).toBe(msg("applications-interview-for", { title: card.title, company: companyName(card.company) }));
+    expect(dialog.textContent, "no sentence about the move under the question").not.toMatch(/moves to/i);
+  });
+});
 
 describe("when", () => {
   it("asks for the day first: without one it says so and sends nothing", async () => {
