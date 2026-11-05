@@ -28,7 +28,7 @@ export function coverBackground(location: { pathname: string; state: unknown }):
 
 export const COMPARE_ROUTE = "/compare";
 
-type Place = { pathname: string; state: unknown };
+type Place = { pathname: string; search?: string; state: unknown };
 
 /** The page at the bottom of a stack of covers: a cover opens over a page, and
  *  a role opened from Compare over Compare, which opens over the list. */

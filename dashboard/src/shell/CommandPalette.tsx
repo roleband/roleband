@@ -176,12 +176,16 @@ export function CommandPalette({
         // The search of the screen the reader is on: the Pipeline's lives in
         // its address (`?q=`) on each tab, so it stays on the tab the reader
         // is on, and an application's page sends it to the List; Radar's is
-        // the board's query.
+        // the board's query. Staying on a tab keeps the rest of its filter
+        // and the entry's state, which holds the other tabs' filters.
         run: () => {
           if (listScreenOf(location) === "pipeline") {
-            const at = pageUnder(location).pathname;
-            const tab = at === "/pipeline/board" ? "board" : at === "/pipeline/up-next" ? "up-next" : "list";
-            navigate({ pathname: `/pipeline/${tab}`, search: `?${new URLSearchParams({ q: query.trim() })}` });
+            const under = pageUnder(location);
+            const tab = under.pathname === "/pipeline/board" ? "board" : under.pathname === "/pipeline/up-next" ? "up-next" : "list";
+            const stays = under.pathname === `/pipeline/${tab}`;
+            const params = new URLSearchParams(stays ? under.search ?? "" : "");
+            params.set("q", query.trim());
+            navigate({ pathname: `/pipeline/${tab}`, search: `?${params}` }, stays ? { state: under.state } : undefined);
             return;
           }
           setSearch(query.trim());

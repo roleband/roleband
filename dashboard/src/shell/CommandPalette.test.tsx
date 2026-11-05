@@ -27,16 +27,17 @@ vi.mock("../context/JobWorkspace", () => ({
 }));
 
 function Location() {
-  const { pathname, search } = useLocation();
+  const { pathname, search, state } = useLocation();
   return (
     <>
       <div data-testid="pathname">{pathname}</div>
       <div data-testid="search">{search}</div>
+      <div data-testid="state">{JSON.stringify(state)}</div>
     </>
   );
 }
 
-function renderPalette({ compareIds = [] as number[], at = "/" } = {}) {
+function renderPalette({ compareIds = [] as number[], at = "/" as string | { pathname: string; search?: string; state?: unknown } } = {}) {
   mocks.setSearch.mockClear();
   mocks.clearCompare.mockClear();
   mocks.setCompare.mockClear();
@@ -65,6 +66,7 @@ function renderPalette({ compareIds = [] as number[], at = "/" } = {}) {
     type: (value: string) => fireEvent.change(screen.getByLabelText("Command query"), { target: { value } }),
     pathname: () => screen.getByTestId("pathname").textContent,
     search: () => screen.getByTestId("search").textContent,
+    state: () => JSON.parse(screen.getByTestId("state").textContent || "null"),
     selected: () => screen.getByRole("option", { selected: true }).textContent,
     reopen: () => {
       rerender(tree(false));
@@ -184,6 +186,26 @@ describe("CommandPalette", () => {
     expect(upNext.pathname()).toBe("/pipeline/up-next");
     expect(upNext.search()).toBe("?q=stripe");
     expect(mocks.setSearch).not.toHaveBeenCalled();
+  });
+
+  it("a search that stays on its tab keeps the tab's other filters and the other tabs' notes", () => {
+    const left = { pipelineTabsLeft: { board: "only=overdue" } };
+    const upNext = renderPalette({ at: { pathname: "/pipeline/up-next", search: "?only=due_week&show=highlight&q=old", state: left } });
+    upNext.type("stripe");
+    press("Enter");
+    const params = new URLSearchParams(upNext.search() ?? "");
+    expect(upNext.pathname()).toBe("/pipeline/up-next");
+    expect([params.get("q"), params.get("only"), params.get("show")]).toEqual(["stripe", "due_week", "highlight"]);
+    expect(upNext.state()).toEqual(left);
+  });
+
+  it("a search that leaves an application's page for the List takes none of the page's address", () => {
+    const page = renderPalette({ at: { pathname: "/pipeline/202", search: "?from=board", state: { pipelineTabsLeft: { board: "q=x" } } } });
+    page.type("stripe");
+    press("Enter");
+    expect(page.pathname()).toBe("/pipeline/list");
+    expect(page.search()).toBe("?q=stripe");
+    expect(page.state()).toBeNull();
   });
 
   it("from an application's page the search opens the Pipeline's List", () => {

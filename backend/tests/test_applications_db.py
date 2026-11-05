@@ -206,6 +206,24 @@ async def test_a_round_that_ran_this_morning_without_an_outcome_is_still_next(ap
     assert (await _board(api_client))[job.id]["next_interview"]["label"] == "Screen"
 
 
+async def test_an_all_day_round_is_next_through_its_whole_day(api_client, db_session):
+    # Stored at its day's local midnight: fourteen hours on, it is that day's
+    # afternoon, past a timed round's grace.
+    started = datetime.now(UTC) - timedelta(hours=14)
+    all_day = await _job(db_session)
+    await _interview(api_client, all_day.id, "On site", started, all_day=True)
+    timed = await _job(db_session, "r2")
+    await _interview(api_client, timed.id, "Screen", started)
+    over = await _job(db_session, "r3")
+    await _interview(api_client, over.id, "Yesterday", started - timedelta(hours=11), all_day=True)
+
+    board = await _board(api_client)
+
+    assert board[all_day.id]["next_interview"]["label"] == "On site"
+    assert board[timed.id]["next_interview"] is None
+    assert board[over.id]["next_interview"] is None
+
+
 # --- the calendar -----------------------------------------------------------------
 
 

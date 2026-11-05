@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import exists, func, literal, or_, select, union
+from sqlalchemy import and_, exists, func, literal, or_, select, union
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.agents.pursuits import ENDED_STAGES, public_interview
@@ -27,6 +27,11 @@ from tracker.db.models import (
 #: An interview with no outcome stays the next one until this long after it
 #: began, so a round that ran this morning still asks how it went.
 NEXT_INTERVIEW_GRACE = timedelta(hours=12)
+
+#: An all-day interview is stored at its day's local midnight, so it stays the
+#: next one for the whole of that day. A clock change inside the day moves the
+#: end by its hour.
+ALL_DAY_SPAN = timedelta(days=1)
 
 #: The most activity entries one read returns.
 ACTIVITY_LIMIT_MAX = 200
@@ -87,7 +92,10 @@ async def board(session: AsyncSession, *, now: datetime, job_id: int | None = No
         select(PursuitInterview)
         .where(
             PursuitInterview.outcome.is_(None),
-            PursuitInterview.scheduled_at >= now - NEXT_INTERVIEW_GRACE,
+            or_(
+                and_(PursuitInterview.all_day.is_(False), PursuitInterview.scheduled_at >= now - NEXT_INTERVIEW_GRACE),
+                and_(PursuitInterview.all_day.is_(True), PursuitInterview.scheduled_at >= now - ALL_DAY_SPAN),
+            ),
         )
         .distinct(PursuitInterview.pursuit_id)
         .order_by(PursuitInterview.pursuit_id, PursuitInterview.scheduled_at, PursuitInterview.id)
