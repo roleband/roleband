@@ -24,6 +24,7 @@ shown, and report any check you skipped with its reason.
 | Dashboard route or UX | The dashboard checks plus `npm run test:ux`; `ROLEBAND_UX_MODE=build npm run test:ux` before pushing (on macOS, `deploy/check_local.py ux --docker-browsers`); a run of a new spec on its own |
 | UI that reads a changed API | Start the API (`.venv/bin/uvicorn tracker.api.app:app --port 8010`) and `npm run dev`, load the changed route on `http://localhost:5173`, and check the browser console and network |
 | A dataset file (in a `roleband-data` checkout) | From `backend/`: `.venv/bin/python -m scripts.check_datasets --root ../../roleband-data`; then `scripts.data pin --try ../../roleband-data` and the backend checks; `scripts.data pin` once the data is pushed ([development.md](development.md#7-change-a-dataset)) |
+| A workflow (`.github/workflows/`) | From the root: `docker run --rm -v "$PWD:/repo:ro" -w /repo rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667`, the image CI runs (1.7.12), with its shellcheck; from `backend/`: `.venv/bin/python -m pytest tests/test_ci_workflow_*.py` |
 | User-facing text | `npm run copy:check`, and `npm run test:unit`, which fails while a translation is stale (see [copy.md](copy.md)) |
 
 The native engine-host integration tests accept `ROLEBAND_HOST_TEST_RESOURCES`
@@ -325,11 +326,18 @@ misjudged.
 | `backend.yml` | Every push and PR; a PR that changes no backend input runs only the tests that read past `backend/` | Dependency audit of the locked graph; the MiniLM model for the embedding golden test; Postgres 16 with pgvector; install the prebuilt `pg_trgm`; ruff; mypy; import-linter; pytest with `ROLEBAND_REQUIRE_INTEGRATION=1`, split by test file across two shards; the required `backend` check passes when both shards do |
 | `dashboard.yml` | Every push and PR; a PR that changes no dashboard input skips its checks | Dependency audit of production packages; lint; knip; build; Vitest; Playwright on both projects against the built app, split across four shards by whole spec file and recorded time (`ROLEBAND_UX_SHARD`); each shard runs in the Playwright image of the locked `@playwright/test` version, the one `--docker-browsers` uses, so nothing is installed over it; the image is pinned by digest, so a Playwright upgrade moves its tag and digest in the same change |
 | `contract-drift.yml` | Every push and PR | Regenerates `openapi.json` and `api.gen.ts`, fails on any diff |
-| `hygiene.yml` | Every push and PR | `backend/scripts/check_project_name.py`, `backend/scripts/check_comment_hygiene.py` |
+| `hygiene.yml` | Every push and PR | `backend/scripts/check_project_name.py`, `backend/scripts/check_comment_hygiene.py`; actionlint on every workflow, with shellcheck on its `run:` steps, from its image pinned by digest |
 | `mac-launcher.yml` | Every push and PR, weekly, and each release; its jobs run only when needed | A Linux `changes` job picks the tiers. Native tier (macOS): copy export check, Swift tests, installer and release tests, install guide in Chromium and WebKit, source app build, transport test. Bundle tier (macOS, never on a PR): the dashboard and the standalone app with its engine, launched read-only, packaged as a candidate for local signing |
 | `codeql.yml` | Every push and PR, and weekly; the Swift scan only when it is needed | Code scanning with the default query suite. `actions`, `javascript-typescript` and `python` on Linux, without a build. Swift on macOS with the Xcode `mac-launcher.yml` pins, traced through a release build of the `RoleBandLauncher` product, the one `build-app.sh` ships; its `changes` job runs it when `launcher/**` or the workflow changed, and a weekly or manual run always does. Advisory: no required check waits on it |
 | `links.yml` | Markdown changes, and weekly | External links in every tracked `*.md` resolve (lychee; loopback skipped, a rate limit counts as alive). Only the weekly run fails; on a pull request it reports |
 | `vendored-provenance.yml` | Monthly, and when vendored pins change | Vendored snapshots against upstream; a notice, never a PR blocker |
+
+Every job names its runner's version (`ubuntu-24.04`, `macos-15`), never a
+`-latest` label, which GitHub moves to a new operating system on its own
+schedule; an upgrade is a change of its own. Every action is pinned to a commit
+and every image to a digest, every checkout sets `persist-credentials: false`,
+and every download retries. `backend/tests/test_ci_workflow_pins.py` holds these
+rules.
 
 The dependency audits fail on any known advisory (in the dashboard, high or
 critical in a production package) that no current entry in

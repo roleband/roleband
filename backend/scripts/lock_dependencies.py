@@ -56,7 +56,7 @@ PLATFORMS: dict[str, Platform] = {
     # onnxruntime 1.28 publishes macosx_14_0_arm64 wheels only; uv's default
     # macOS target is 13.0, which finds no wheel and fails the resolve.
     "macos-arm64": Platform("aarch64-apple-darwin", False, {"MACOSX_DEPLOYMENT_TARGET": "14.0"}),
-    # CI runs here (ubuntu-latest).
+    # CI runs here (ubuntu-24.04).
     "linux-x86_64": Platform("x86_64-manylinux_2_28", True),
     # Install rehearsals run here (ubuntu:24.04 on Apple silicon).
     "linux-aarch64": Platform("aarch64-manylinux_2_28", True),

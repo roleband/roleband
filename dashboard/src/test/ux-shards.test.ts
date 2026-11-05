@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { specSeconds } from "../../scripts/ux-shard-weights.mjs";
 import { recordedWeights, shardTestMatch, splitSpecs, testFiles, uxShard } from "../../tests/ux/shards";
 
 const testDir = join(__dirname, "..", "..", "tests", "ux");
@@ -88,6 +89,31 @@ describe("browser shards", () => {
     const times = splitSpecs(recorded, weights, 4).map((files) => time(files, weights));
     const mean = times.reduce((a, b) => a + b, 0) / 4;
     expect(Math.max(...times)).toBeLessThan(1.1 * mean);
+  });
+
+  it("charges a test written in a shared helper to the spec file that runs it", () => {
+    const spec = (name: string) => `${name}.spec.ts`;
+    const run = (seconds: number) => ({ tests: [{ results: [{ duration: seconds * 1000 }] }] });
+    const report = {
+      suites: [
+        { file: spec("zoom"), specs: [{ file: "zoomHelper.ts", ...run(4) }], suites: [
+          { file: "zoomHelper.ts", specs: [{ file: "zoomHelper.ts", ...run(2) }] },
+        ] },
+        { file: spec("zoom-webkit"), specs: [{ file: "zoomHelper.ts", ...run(3) }] },
+        { file: `nested/${spec("plain")}`, specs: [{ file: `nested/${spec("plain")}`, ...run(1.25) }] },
+      ],
+    };
+    // A second report, such as the other browser project, adds to the same files.
+    expect(specSeconds([report, report])).toEqual({
+      [`nested/${spec("plain")}`]: 2.5,
+      [spec("zoom")]: 12,
+      [spec("zoom-webkit")]: 6,
+    });
+  });
+
+  it("records time only under spec files, never under a helper no shard runs", () => {
+    const helpers = Object.keys(recordedWeights(testDir)).filter((file) => !/\.(spec|test)\.[cm]?[jt]sx?$/.test(file));
+    expect(helpers).toEqual([]);
   });
 
   it("reads ROLEBAND_UX_SHARD as INDEX/TOTAL and refuses anything else", () => {

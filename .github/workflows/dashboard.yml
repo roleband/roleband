@@ -28,7 +28,7 @@ jobs:
   # dashboard jobs at all. PATHS is every file they read.
   changes:
     name: dashboard-changes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       dashboard: ${{ steps.decide.outputs.dashboard }}
@@ -60,9 +60,9 @@ jobs:
     needs: changes
     # Runs when `changes` fails too.
     if: ${{ !cancelled() && needs.changes.outputs.dashboard != 'false' }}
-    runs-on: ubuntu-latest
-    # A hung step otherwise burns the 6-hour default, and these are billed
-    # minutes on a private repo. The Playwright suite is its own job below, so
+    runs-on: ubuntu-24.04
+    # A hung step otherwise holds a runner and the pull request's checks for
+    # the 6-hour default. The Playwright suite is its own job below, so
     # this cap only has to cover install, audit, lint, build and Vitest.
     timeout-minutes: 20
     defaults:
@@ -70,6 +70,8 @@ jobs:
         working-directory: dashboard
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           # .nvmrc (24), the file setup.sh reads too. 24 not 22: npm 10 (bundled
@@ -122,7 +124,7 @@ jobs:
   ux:
     needs: changes
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # About three times what a shard needs, so a slow runner still finishes and
     # a stall is still cut short. Below the job cap, the Playwright step has its
     # own, so a stalled run still uploads its traces.
@@ -147,6 +149,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: env.NEEDED == 'true'
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         if: env.NEEDED == 'true'
         with:
