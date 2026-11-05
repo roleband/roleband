@@ -213,7 +213,13 @@ describe("StockTrajectoryPanel", () => {
     const goog = (await screen.findByText("Google")).closest("tr")!;
 
     const label = within(goog).getByText(msg("insights-stock-trajectory-panel-split-source", { split }));
-    expect(label).toHaveAttribute("title", msg("insights-stock-trajectory-panel-split-source-explained", { split }));
+    // The row's word is explained once, by the column's help mark, not by a hover-only title.
+    expect(label).not.toHaveAttribute("title");
+    const key = screen.getByRole("button", { name: msg("insights-stock-trajectory-panel-about-the-split-labels") });
+    expect(key.closest("th")).toHaveTextContent(msg("insights-stock-trajectory-panel-equity"));
+    expect(key).toHaveAccessibleDescription(
+      new RegExp(msg("insights-stock-trajectory-panel-split-source-explained", { split }).replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")),
+    );
     expect(document.body).toHaveTextContent(msg("insights-stock-trajectory-panel-typical-package", { split }));
     expect(screen.getByRole("button", { name: msg("insights-stock-trajectory-panel-how-stock-trajectory-is-projected") }))
       .toHaveAccessibleDescription(msg("insights-stock-trajectory-panel-stock-moves-re-price-equity", { split, bonus_pct: "12%" }));

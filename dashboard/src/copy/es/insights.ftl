@@ -295,6 +295,7 @@ insights-stock-trajectory-panel-sorted-by-equity-exposure-only = Ordenadas por e
 insights-stock-trajectory-panel-no-open-roles-at-public-yet = Aún no hay puestos abiertos en empresas cotizadas.
 insights-stock-trajectory-panel-ticker = Símbolo
 insights-stock-trajectory-panel-equity = Acciones
+insights-stock-trajectory-panel-about-the-split-labels = Sobre las etiquetas de reparto
 insights-stock-trajectory-panel-equity-share = Parte en acciones
 insights-stock-trajectory-panel-today = Hoy
 insights-stock-trajectory-panel-projected = Proyectado
