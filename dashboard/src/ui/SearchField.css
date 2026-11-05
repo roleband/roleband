@@ -66,7 +66,7 @@
 .ui-search:focus-within {
   background: var(--app-surface-raised);
   outline: var(--app-ring-width) solid var(--app-action);
-  outline-offset: var(--app-ring-offset);
+  outline-offset: calc(-1 * var(--app-ring-offset));
 }
 
 .ui-search-trailing {

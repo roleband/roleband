@@ -75,6 +75,18 @@ summary:focus-visible,
   outline-offset: var(--app-ring-offset);
 }
 
+/* A FIELD wears the ring on its own edge. A field has a border already, so
+   the ring drawn outside it is a second frame with a dark gap between, and a
+   field rings on every click, not only on Tab: that doubled frame becomes the
+   look of every form. Drawn inside, the ring covers the border and the field
+   reads as one outline turning gold. Stated by element here, so a new form
+   gets it without a line of its own; `design/focus-ring.test.ts` refuses a
+   field focus rule that draws the ring outside. */
+:is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="button"], [type="submit"], [type="reset"], [type="image"]), textarea, select):focus-visible,
+input:is([type="time"], [type="date"], [type="datetime-local"], [type="month"], [type="week"]):focus-within {
+  outline-offset: calc(-1 * var(--app-ring-offset));
+}
+
 /* The rail is dark in both themes, so the ring takes the rail's own gold:
    the light theme's action colour measures 3.72:1 on it, the rail's 11.98:1. */
 .nav-rail :focus-visible {

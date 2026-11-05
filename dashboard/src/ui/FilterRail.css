@@ -209,7 +209,7 @@
    app's one ring lands on the row, as it does on the board search. */
 .filter-search-row:focus-within {
   outline: var(--app-ring-width) solid var(--app-action);
-  outline-offset: var(--app-ring-offset);
+  outline-offset: calc(-1 * var(--app-ring-offset));
 }
 
 /* Quiet facts inside a group: the empty-search notice, the live comp range. */

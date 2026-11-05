@@ -546,14 +546,15 @@ where the ring is drawn:
 
 | Variant | When |
 |---|---|
-| Outside, `--app-ring-offset` | The default: buttons, chips, fields, switches |
-| Inside, `calc(-1 * var(--app-ring-offset))` | The control is flush with its container, or the container clips: tabs, list rows, index entries |
+| Outside, `--app-ring-offset` | The default: buttons, chips, switches |
+| Inside, `calc(-1 * var(--app-ring-offset))` | A field (text input, textarea, select, and the wrapper that stands for one), set by element in `shell.css`; a control flush with its container, or a container that clips: tabs, list rows, index entries |
 | On a carrier (`:focus-within`, `:has(:focus-visible)`) | The focused element is hidden or is only part of the visible control: `.ui-search`, the filter rail's search row |
 | As an SVG stroke at `--app-ring-width` | A mark inside a chart or map |
 | In `--rail-accent` | Anything inside the dark nav rail |
 
 - Never a tint, halo, glow, bar or another hue for focus.
-- Text fields ring on click as well as on Tab. A native select rings for the
+- Text fields ring on click as well as on Tab, so the ring covers the field's
+  own border rather than framing it a second time. A native select rings for the
   keyboard only (`ui/Select` marks pointer focus with `data-pointer`).
 - `outline: none` only beside a named carrier, or on an element that only
   script focuses.

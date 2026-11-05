@@ -78,8 +78,23 @@ async function focusedRing(page: Page) {
       return `outline ${cs.outlineStyle} ${cs.outlineWidth} ${cs.outlineColor}; shadow ${cs.boxShadow.slice(0, 60)}`;
     };
 
-    if (rings(el)) return { sig, ok: true };
-    if (owners.some(rings)) return { sig, ok: true };
+    // A field (or the carrier that stands for one) rings on its own edge: the
+    // ring stays inside the border box, so it never draws a second frame.
+    const field = el.matches(
+      'textarea, select, input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="button"], [type="submit"], [type="reset"], [type="image"])',
+    );
+    const onEdge = (node: Element) => {
+      const cs = getComputedStyle(node);
+      return parseFloat(cs.outlineOffset) + parseFloat(cs.outlineWidth) <= 0;
+    };
+    const verdict = (node: Element) =>
+      !field || onEdge(node)
+        ? { sig, ok: true }
+        : { sig, ok: false, what: `a field's ring drawn outside its edge (offset ${getComputedStyle(node).outlineOffset})` };
+
+    if (rings(el)) return verdict(el);
+    const owner = owners.find(rings);
+    if (owner) return verdict(owner);
     if (el instanceof SVGElement) {
       const stroked = Array.from(el.querySelectorAll("*")).some((shape) => {
         const cs = getComputedStyle(shape);
@@ -140,6 +155,32 @@ for (const theme of ["light", "dark"] as const) {
     await expect.poll(async () => (await focusedRing(page))?.ok ?? false).toBe(true);
   });
 }
+
+test("the ring verifier refuses a field whose ring is drawn outside its edge", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  const search = page.getByRole("searchbox").first();
+  await search.click();
+  await expect.poll(async () => (await focusedRing(page))?.ok ?? false).toBe(true);
+  await page.addStyleTag({ content: ".ui-search:focus-within { outline-offset: var(--app-ring-offset) !important; }" });
+  expect((await focusedRing(page))?.ok).toBe(false);
+});
+
+test("a click into a field rings it on its own edge, in both themes", async ({ page, isMobile }) => {
+  test.skip(isMobile, "the pane's fields are judged at desktop width; the sweep owns the rest");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  for (const theme of ["light", "dark"]) {
+    for (const path of ["/", "/pipeline/list"]) {
+      await page.addInitScript((t) => localStorage.setItem("theme", t), theme);
+      await page.goto(path);
+      await expect(page.locator("h1").first()).toBeVisible();
+      await page.getByRole("searchbox").first().click();
+      const ring = await focusedRing(page);
+      expect(ring, `${path} ${theme}: the click focused nothing`).not.toBeNull();
+      expect(ring!.ok, `${path} ${theme}: ${ring!.what}`).toBe(true);
+    }
+  }
+});
 
 test("the ring verifier refuses a control whose painted ring is removed", async ({ page }) => {
   await page.goto("/");
