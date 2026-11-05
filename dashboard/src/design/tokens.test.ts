@@ -794,7 +794,7 @@ const CONTROL_EDGES: [string, string, RegExp][] = [
 /* Rules that restate a control's edge colour, on hover or in a smaller size.
    Each must name a token at least as strong as the control edge. */
 const EDGE_RESTATEMENTS: [string, string][] = [
-  ["ui/Button.css", '.ui-btn-ghost:not(:disabled):not([aria-disabled="true"]):hover {'],
+  ["ui/Button.css", '.ui-btn-ghost:not(:disabled):not([aria-disabled="true"]):not([aria-current="true"]):hover {'],
   ["ui/Button.css", ".ui-btn-ghost.ui-btn-strong {"],
   ["ui/Select.css", ".ui-select > select:hover:not(:disabled) {"],
   ["ui/FilterChip.css", ".ui-chip:not(:disabled):hover {"],

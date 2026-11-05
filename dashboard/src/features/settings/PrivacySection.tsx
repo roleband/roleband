@@ -10,7 +10,6 @@ import { AsyncBoundary, Button, Switch } from "../../ui";
 import { Card, CardMessage, CardRow } from "../../ui/Card";
 import {
   privacyConsentTitle,
-  privacyNever,
   privacyInstallId,
   privacyInstallIdDetail,
   privacyInstallIdNone,
@@ -39,7 +38,9 @@ import {
   privacyShowSent,
 } from "../../copy/gen/privacy";
 import { settingsLoading } from "../../copy/gen/settings";
-import { GROUPS, consentPayload, groupWords, type ConsentWords } from "../../patterns/privacy/consentCopy";
+import {
+  GROUPS, consentPayload, groupWords, neverSentence, neverWords, type ConsentWords, type NeverWords,
+} from "../../patterns/privacy/consentCopy";
 import "../../patterns/privacy/privacy.css";
 
 /* Settings > Privacy (docs/architecture.md). One switch per kind of
@@ -54,7 +55,7 @@ import "../../patterns/privacy/privacy.css";
    question's own title heads the switches it records, so what the record says
    was shown is on screen (patterns/privacy/consentCopy.ts). */
 
-function rowWords(group: UsageGroup, never: string): ConsentWords {
+function rowWords(group: UsageGroup, never: NeverWords): ConsentWords {
   return { title: privacyConsentTitle(), groups: [groupWords(group)], never };
 }
 
@@ -83,7 +84,7 @@ export function PrivacySection() {
     [showSent],
   );
   // The line every switch's record ends with, shown under the switches.
-  const never = privacyNever();
+  const never = neverWords();
 
   const turn = async (state: UsageState, group: UsageGroupState, on: boolean) => {
     setBusy(group.group);
@@ -126,7 +127,7 @@ export function PrivacySection() {
   };
 
   return (
-    <Card title={privacySettingsTitle()} intro={<>{privacySettingsIntro()} {never}</>}>
+    <Card title={privacySettingsTitle()} intro={<>{privacySettingsIntro()} {neverSentence(never)}</>}>
       <AsyncBoundary
         resource={usage}
         failed={privacySettingsLoadFailed()}

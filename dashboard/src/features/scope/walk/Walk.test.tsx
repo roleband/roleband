@@ -6,7 +6,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import type { ScopeCatalog, ScopeRoleGroup } from "../../../api";
 import { api } from "../../../api";
 import { ScopeDraftProvider, useScopeDraft } from "../useScopeDraft";
-import { Walk } from "./Walk";
+import { Walk, type WalkSetup } from "./Walk";
 import type { SetupCompaniesProps } from "../../../routing/setupMode";
 import { ScopeGuideButton } from "../ScopeGuide";
 import { Button } from "../../../ui/Button";
@@ -1265,8 +1265,9 @@ function BrowserBack() {
 
 const SETUP_ENTRY = { pathname: "/profile/direction", search: "?setup=1" };
 
-/** `step`: the step a history entry names, as a reload of that entry opens it. */
-const renderSetup = (step?: string) => render(
+/** `step`: the step a history entry names, as a reload of that entry opens it;
+ *  `onBack`: what setup's first step goes back to, as the route hands it. */
+const renderSetup = (step?: string, onBack?: WalkSetup["onBack"]) => render(
   <ToastProvider>
     <MemoryRouter initialEntries={["/welcome", step ? { ...SETUP_ENTRY, state: { setupStep: step } } : SETUP_ENTRY]}>
       <BrowserBack />
@@ -1277,7 +1278,7 @@ const renderSetup = (step?: string) => render(
           path="/profile/direction"
           element={(
             <ScopeDraftProvider initialSelection="empty">
-              <Walk setup={{ companies: (props) => <CompaniesStepDouble {...props} /> }} />
+              <Walk setup={{ companies: (props) => <CompaniesStepDouble {...props} />, onBack }} />
             </ScopeDraftProvider>
           )}
         />
@@ -1285,6 +1286,30 @@ const renderSetup = (step?: string) => render(
     </MemoryRouter>
   </ToastProvider>,
 );
+
+it("setup's first step has a Back to what came before the walk, which keeps the step's answer", async () => {
+  load.mockResolvedValue(catalog(FRESH));
+  const user = userEvent.setup();
+  const onBack = vi.fn();
+  renderSetup(undefined, onBack);
+  await screen.findByRole("complementary", { name: "Your progress" });
+  await user.click(screen.getByLabelText("Leading a team"));
+  const back = screen.getByRole("button", { name: "Back" });
+  expect(back).toBeVisible();
+  expect(back).toBeEnabled();
+  await user.click(back);
+  expect(onBack).toHaveBeenCalledTimes(1);
+  // Back leaves the walk through the route; the walk itself moves nowhere.
+  expect(screen.getByLabelText("Leading a team")).toBeChecked();
+  expect(save).not.toHaveBeenCalled();
+});
+
+it("setup with nothing before its walk keeps the first step's Back out of reach", async () => {
+  load.mockResolvedValue(catalog(FRESH));
+  renderSetup();
+  await screen.findByRole("complementary", { name: "Your progress" });
+  expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
+});
 
 it("first-run setup starts blank, asks the three answers then the two optional ones, and commits once, from the companies step", async () => {
   // A saved scope exists on the server; setup must not inherit it.
