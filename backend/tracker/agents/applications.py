@@ -208,15 +208,16 @@ async def activity(
 ) -> list[dict] | None:
     """Comments and events on one application, newest first.
 
-    `None` when the role has no pursuit and no star; an empty list when it has
-    a star and nothing has happened yet. Pages by position, not by time: rows
+    `None` when the role is not on the board (no star, and no pursuit past
+    Considering); an empty list when it has a star and nothing has happened
+    yet. Pages by position, not by time: rows
     written in one transaction share its `now()`, so a time cursor would skip
     the rest of a tie a page ended inside. The order breaks every tie."""
     on_board = await session.scalar(
         select(
             or_(
                 exists().where(Favorite.job_id == job_id),
-                exists().where(Pursuit.job_id == job_id),
+                exists().where(Pursuit.job_id == job_id, Pursuit.stage != "saved"),
             )
         )
     )

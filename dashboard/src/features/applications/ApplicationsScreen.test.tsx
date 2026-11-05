@@ -116,6 +116,20 @@ describe("the board", () => {
     expect(api.setPursuit).toHaveBeenCalledTimes(2);
   });
 
+  it("writes nothing when a Networking card is moved to Researching, the column it already shows in", async () => {
+    const networking = applicationCardFixture({ job_id: 4, pursuit_id: 40, stage: "networking", title: "Director of Product" });
+    stored = [...stored, networking];
+    render(withProviders(<ApplicationsScreen />));
+    await screen.findByText("Director of Product");
+
+    const menu = await openMenu(networking);
+    await userEvent.click(within(menu).getByRole("button", { name: "Researching" }));
+
+    expect(within(column("Researching")).getByText("Director of Product")).toBeInTheDocument();
+    expect(api.setPursuit).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: msg("applications-move-undo") })).toBeNull();
+  });
+
   it("re-reads the board when a move fails, and says the move did not happen", async () => {
     render(withProviders(<ApplicationsScreen />));
     await screen.findByText("Principal Engineering Manager");

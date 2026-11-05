@@ -41,6 +41,7 @@ test.describe("switching language", () => {
     await page.getByRole("combobox", { name: msg("settings-language-label") }).selectOption("es");
 
     await expect(nav(page).getByRole("link", { name: "Perfil" })).toBeVisible();
+    await expect(nav(page).getByRole("link", { name: "Seguimiento" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Idioma" })).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Idioma" })).toHaveValue("es");
     expect(puts).toEqual([ES]);
@@ -51,6 +52,7 @@ test.describe("switching language", () => {
     // On to Chinese, in place again.
     await page.getByRole("combobox", { name: "Idioma" }).selectOption("zh-Hans");
     await expect(nav(page).getByRole("link", { name: "个人资料" })).toBeVisible();
+    await expect(nav(page).getByRole("link", { name: "求职进展" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "语言" })).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hans");
 

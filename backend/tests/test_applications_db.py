@@ -566,6 +566,25 @@ async def test_a_role_off_the_board_has_no_application_and_no_activity(api_clien
     assert feed.status_code == 404
 
 
+async def test_an_unstarred_role_at_considering_hides_its_feed_as_the_board_hides_its_card(
+    api_client, db_session
+):
+    job = await _job(db_session)
+    await api_client.put(f"/api/jobs/{job.id}/favorite")
+    await _comment(api_client, job.id, "Read their blog post")
+    await api_client.delete(f"/api/jobs/{job.id}/favorite")
+
+    detail = await api_client.get(f"/api/applications/{job.id}")
+    feed = await api_client.get(f"/api/applications/{job.id}/activity")
+
+    assert detail.status_code == 404
+    assert feed.status_code == 404 and feed.json()["detail"]["code"] == "application-not-found"
+
+    await api_client.put(f"/api/jobs/{job.id}/favorite")
+    items = (await api_client.get(f"/api/applications/{job.id}/activity")).json()["items"]
+    assert "comment" in [item["kind"] for item in items]
+
+
 async def test_a_star_with_nothing_written_has_an_empty_feed(api_client, db_session):
     job = await _job(db_session)
     await api_client.put(f"/api/jobs/{job.id}/favorite")

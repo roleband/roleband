@@ -2,7 +2,7 @@ import type { ApplicationCard, InterviewWrite, Job } from "../../src/api";
 import { msg } from "../../src/test/msg";
 import { applicationCardFixture, applicationDetailFixture, jobFixture, jobListFixture } from "../../src/test/fixtures";
 import { installBoardRoutes, installJobDetailRoutes } from "./boardHarness";
-import { expect, mockApi, mockGet, test, type Page } from "./fixtures";
+import { expect, mockApi, mockGet, test, watchReads, type Page } from "./fixtures";
 
 /* The application pipeline in a browser: every move reachable from the
  * keyboard (the path the spec requires; dragging is only ever the fast one),
@@ -458,10 +458,8 @@ test("switching between List, Board and Up next keeps the header still and reads
   await installPipeline(page);
   // A slow read: a tab switch that rebuilt the screen would wait on it with
   // the counts line missing, and the tabs would sit higher until it landed.
-  let reads = 0;
-  await page.route("/api/applications", async (route) => {
-    if (route.request().method() !== "GET") return route.fallback();
-    reads++;
+  const reads = watchReads(page, "GET", "/api/applications");
+  await mockGet(page, "/api/applications", async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 400));
     await route.fallback();
   });
@@ -469,6 +467,7 @@ test("switching between List, Board and Up next keeps the header still and reads
   await expect(page.getByRole("link", { name: "Staff Product Manager, API" })).toBeVisible();
   const tabs = page.getByRole("tablist", { name: msg("applications-tabs-label") });
   const resting = (await tabs.boundingBox())!.y;
+  const started = reads.started;
 
   for (const name of [msg("shell-tab-pipeline-board"), msg("shell-tab-pipeline-up-next"), msg("shell-tab-pipeline-list")]) {
     await page.evaluate(() => {
@@ -489,7 +488,8 @@ test("switching between List, Board and Up next keeps the header still and reads
     });
     expect(tops, `the tabs moved while ${name} opened`).toEqual([Math.round(resting)]);
   }
-  expect(reads, "a tab switch reads the pipeline again").toBe(1);
+  expect(reads.started, "a tab switch reads the pipeline again").toBe(started);
+  expect(reads.answered).toBe(1);
 });
 
 test("each tab keeps its own filter: the board's stays off Up next, and both come back as they were left", async ({ page }) => {

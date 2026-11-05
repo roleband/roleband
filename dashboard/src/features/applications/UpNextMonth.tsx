@@ -23,7 +23,7 @@ import {
   applicationsUpnextStepWhen,
 } from "../../copy/gen/applications";
 import { companyName } from "../../format";
-import { useAsyncResource } from "../../hooks/useAsyncResource";
+import { useAsyncResource, useRefetchOn } from "../../hooks/useAsyncResource";
 import { commonTryAgain } from "../../copy/gen/common";
 import { Badge, Button, CompanyIcon, Content, Icon } from "../../ui";
 import { applicationPath } from "./board";
@@ -90,12 +90,13 @@ export function UpNextMonth({ cards, now, keep, onPickDay }: {
     focusDay.current = null;
   }, [picked, month]);
   const span = monthSpan(month);
-  // The board's cards are the dependency, so a write that reloads the board
-  // reads the calendar again.
   const resource = useAsyncResource(
     (signal) => api.calendar(span.start, span.end, signal),
-    [span.start.getTime(), span.end.getTime(), cards],
+    [span.start.getTime(), span.end.getTime()],
   );
+  // A write that reloads the board reads the month again, in place: its marks
+  // stay up until the new answer lands.
+  useRefetchOn(cards, resource.refresh);
   const byJob = useMemo(() => new Map(cards.map((card) => [card.job_id, card])), [cards]);
   const days = itemsByDay((resource.data?.items ?? []).filter((item) => {
     const card = byJob.get(item.job_id);

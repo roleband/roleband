@@ -3,6 +3,7 @@
 
 ## Navegación
 shell-nav-radar = Radar
+shell-nav-pipeline = Seguimiento
 shell-nav-profile = Perfil
 shell-nav-insights = Análisis
 shell-nav-companies = Empresas

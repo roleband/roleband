@@ -11,6 +11,7 @@ import {
   applicationsMoved,
   applicationsUndoFailed,
 } from "../../copy/gen/applications";
+import { boardStage } from "./board";
 
 /** Writes one pursuit field set for a role. A pursuit write saves the role
  *  (server rule), so it goes through `useRoleSaves` with the star's own
@@ -50,7 +51,8 @@ export function useStageMove({ paint, refresh, said = moved }: {
 
   return useCallback(
     async (card: ApplicationCard, stage: StageSlug, interview?: InterviewWrite) => {
-      if (card.stage === stage) return;
+      // Networking shows as Researching, so picking Researching changes nothing.
+      if (boardStage(card.stage) === stage) return;
       const from = card.stage;
       const title = card.title;
       paint(card.job_id, stage);

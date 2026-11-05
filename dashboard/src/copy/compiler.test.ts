@@ -89,6 +89,7 @@ describe("Spanish and Chinese, pinned as text", () => {
     ]);
     expect(spike.spikeSavedClosed({ company: "Stripe" })).toBe("Stripe cerró un puesto que guardaste");
     expect(shell.shellNavProfile()).toBe("Perfil");
+    expect(shell.shellNavPipeline()).toBe("Seguimiento");
     // Consent wording is never machine translated: English in every language.
     expect(spike.spikeConsentWall()).toBe(SITE_WALL_SENTENCE);
   });

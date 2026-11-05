@@ -3,6 +3,7 @@
 
 ## 导航
 shell-nav-radar = 雷达
+shell-nav-pipeline = 求职进展
 shell-nav-profile = 个人资料
 shell-nav-insights = 洞察
 shell-nav-companies = 公司

@@ -43,12 +43,13 @@ const items = [
 
 function renderMonth(keep: (card: ApplicationCard) => { shown: boolean; match?: boolean } = () => ({ shown: true })) {
   const onPickDay = vi.fn();
-  render(
+  const view = (shown: readonly ApplicationCard[]) => (
     <MemoryRouter>
-      <UpNextMonth cards={cards} now={now} keep={keep} onPickDay={onPickDay} />
-    </MemoryRouter>,
+      <UpNextMonth cards={shown} now={now} keep={keep} onPickDay={onPickDay} />
+    </MemoryRouter>
   );
-  return { onPickDay };
+  const { rerender } = render(view(cards));
+  return { onPickDay, reloadBoard: () => rerender(view([...cards])) };
 }
 
 const day = (name: RegExp) => screen.getByRole("button", { name });
@@ -141,6 +142,20 @@ describe("UpNextMonth", () => {
     expect(day(/^Mon, Nov 2$/)).toBeInTheDocument();
     await user.click(day(/^Fri, Nov 6: /));
     expect(within(picked()).queryByText(msg("applications-upnext-interview", { label: "Hiring manager" }))).toBeNull();
+  });
+
+  it("reads the month again when the board reloads, keeping its marks until the answer lands", async () => {
+    const { reloadBoard } = renderMonth();
+    await waitFor(() => expect(day(/^Fri, Nov 6: /)).toBeInTheDocument());
+    let answer: (value: { items: ApplicationCalendarItem[] }) => void = () => {};
+    calendar.mockImplementation(() => new Promise((resolve) => { answer = resolve; }));
+
+    reloadBoard();
+
+    await waitFor(() => expect(calendar).toHaveBeenCalledTimes(2));
+    expect(day(/^Fri, Nov 6: /)).toBeInTheDocument();
+    answer({ items: [] });
+    await waitFor(() => expect(day(/^Fri, Nov 6$/)).toBeInTheDocument());
   });
 
   it("says so when the month cannot load, and keeps its grid", async () => {

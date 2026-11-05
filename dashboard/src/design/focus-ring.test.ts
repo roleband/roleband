@@ -187,10 +187,39 @@ const INSIDE = "calc(-1 * var(--app-ring-offset))";
 const FIELD_CARRIERS = [".ui-search", ".filter-search-row"];
 const NOT_FIELD_TYPES = /\[type="(?:checkbox|radio|range|color|file|button|submit|reset|image)"\]/;
 
+/** Splits `s` at each `sep` that stands outside brackets, so the spaces and
+ *  commas inside `:is(…)` or `[type="…"]` never cut a selector apart. */
+const splitOutside = (s: string, sep: RegExp) => {
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === "(" || s[i] === "[") depth++;
+    else if (s[i] === ")" || s[i] === "]") depth--;
+    else if (depth === 0 && sep.test(s[i])) {
+      parts.push(s.slice(start, i));
+      start = i + 1;
+    }
+  }
+  return [...parts, s.slice(start)].map((p) => p.trim()).filter(Boolean);
+};
+
 /** The focused thing a selector names is a field: a text input, a textarea,
- *  a select, or a carrier that stands for one. */
-const namesField = (selector: string) => {
-  const subject = withoutNegations(selector).split(/\s*[\s>+~]\s*/).pop() ?? "";
+ *  a select, or a carrier that stands for one. A leading `:is(…)` or
+ *  `:where(…)` names a field when one of its choices does. */
+const namesField = (selector: string): boolean => {
+  const subject = splitOutside(withoutNegations(selector), /[\s>+~]/).pop() ?? "";
+  const group = /^:(?:is|where)\(/.exec(subject);
+  if (group) {
+    let depth = 0;
+    let end = group[0].length;
+    for (let i = end - 1; i < subject.length; i++) {
+      if (subject[i] === "(") depth++;
+      else if (subject[i] === ")" && --depth === 0) { end = i; break; }
+    }
+    const rest = subject.slice(end + 1);
+    return splitOutside(subject.slice(group[0].length, end), /,/).some((choice) => namesField(choice + rest));
+  }
   if (FIELD_CARRIERS.some((c) => subject.startsWith(`${c}:`))) return true;
   if (/^(?:textarea|select)\b/.test(subject)) return true;
   return /^input\b/.test(subject) && !NOT_FIELD_TYPES.test(subject);
@@ -247,6 +276,9 @@ describe("a field wears the ring on its own edge", () => {
       ".ui-select > select:focus-visible:not([data-pointer]) { outline-offset: var(--app-ring-offset); }",
       ".ui-search:focus-within { outline-offset: var(--app-ring-offset); }",
       '.x input[type="date"]:focus-within { outline-offset: var(--app-ring-offset); }',
+      '.x input:is([type="time"], [type="date"]):focus-within { outline-offset: var(--app-ring-offset); }',
+      ".x :is(input, textarea):focus-visible { outline-offset: var(--app-ring-offset); }",
+      ".x :where(button, select):focus-visible { outline-offset: var(--app-ring-offset); }",
     ])("%s fails", (css) => {
       expect(check(css).length).toBeGreaterThan(0);
     });
@@ -254,6 +286,8 @@ describe("a field wears the ring on its own edge", () => {
       ".app-next-form input:focus-visible { outline-offset: calc(-1 * var(--app-ring-offset)); }",
       '.x input[type="checkbox"]:focus-visible { outline-offset: var(--app-ring-offset); }',
       ".x button:focus-visible { outline-offset: var(--app-ring-offset); }",
+      ".x :is(button, a):focus-visible { outline-offset: var(--app-ring-offset); }",
+      '.x input:is([type="checkbox"], [type="radio"]):focus-visible { outline-offset: var(--app-ring-offset); }',
     ])("%s passes", (css) => {
       expect(check(css)).toEqual([]);
     });

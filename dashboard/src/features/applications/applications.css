@@ -168,7 +168,7 @@
   align-items: center;
   gap: var(--app-space-2);
   color: var(--app-text-faint);
-  font-size: var(--app-type-label);
+  font-size: var(--app-type-meta);
 }
 
 .app-tile-spacer {
