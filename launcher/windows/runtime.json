@@ -1,0 +1,7 @@
+{
+  "format": 1,
+  "python": "3.12.13",
+  "release": "20260414",
+  "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260414/cpython-3.12.13%2B20260414-x86_64-pc-windows-msvc-install_only.tar.gz",
+  "sha256": "c5a9e011e284c49c48106ca177342f3e3f64e95b4c6652d4a382cc7c9bb1cc46"
+}

@@ -136,6 +136,14 @@ class TestUriDerivation:
         with pytest.raises(EmbeddedDbError, match="unexpected URI scheme"):
             self._server("mysql://root@h/roleband").uri()
 
+    def test_direct_clients_keep_socket_query_and_omit_missing_credentials(self):
+        from sqlalchemy.engine import make_url
+
+        from tracker.platform.embedded_db import asyncpg_arguments
+
+        url = make_url("postgresql+asyncpg://postgres@/roleband?host=/tmp/socket")
+        assert asyncpg_arguments(url) == {"user": "postgres", "database": "roleband", "host": "/tmp/socket"}
+
 
 class TestUpstreamVersionGate:
     """Private upstream API is verified per version; an unknown wheel fails loudly."""
@@ -415,8 +423,7 @@ class TestRepoSchemaOnEmbedded:
 
 
 class TestServerSettings:
-    """A start passes its settings on the server's command line; nothing is
-    written into the cluster, and attaching to a running server changes none."""
+    """A start applies its settings and attaching to a running server changes none."""
 
     def test_a_start_runs_with_its_settings_and_says_so(self, tmp_path, caplog):
         pgdata = tmp_path / "sized"

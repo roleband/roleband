@@ -1,6 +1,7 @@
 /* The one request boundary: query strings, JSON encoding, and every failure
    turned into a code kept with its status. Every domain module sends through it. */
 import type { Schemas } from "./schemas";
+import { LocalAuthenticationError, localFetch } from "./localAuthentication";
 
 // `object`, not a record type: a params interface such as `Filters` has no
 // index signature, so a record parameter would need a cast at every call site.
@@ -46,8 +47,8 @@ async function answer<T>(url: string, method: HttpMethod, body?: unknown, signal
   let res: Response;
   try {
     res = method === "GET"
-      ? await (signal ? fetch(url, { signal }) : fetch(url))
-      : await fetch(url, {
+      ? await (signal ? localFetch(url, { signal }) : localFetch(url))
+      : await localFetch(url, {
           method,
           ...(body === undefined
             ? {}
@@ -57,6 +58,7 @@ async function answer<T>(url: string, method: HttpMethod, body?: unknown, signal
               }),
         });
   } catch (caught) {
+    if (caught instanceof LocalAuthenticationError) throw new ApiError(String(caught), 401, "engine-locked");
     // The request never got an answer. The browser's own text ("Failed to
     // fetch", "Load failed") is not ours to show; the code is.
     const aborted = caught instanceof DOMException && caught.name === "AbortError";

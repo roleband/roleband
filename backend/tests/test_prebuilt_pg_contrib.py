@@ -109,7 +109,7 @@ def test_unsupported_platform_is_refused_before_installing(bundle, monkeypatch):
 
 def test_every_supported_platform_has_a_complete_verified_bundle():
     manifest = json.loads((installer.BUNDLES / "manifest.json").read_text())
-    assert set(manifest["platforms"]) == {"darwin-arm64", "linux-aarch64", "linux-x86_64"}
+    assert set(manifest["platforms"]) == {"darwin-arm64", "linux-aarch64", "linux-x86_64", "windows-amd64"}
     for entry in manifest["platforms"].values():
         payload = (installer.BUNDLES / entry["bundle"]).read_bytes()
         assert hashlib.sha256(payload).hexdigest() == entry["sha256"]
@@ -122,3 +122,8 @@ def test_every_supported_platform_has_a_complete_verified_bundle():
                 assert extracted is not None
                 assert hashlib.sha256(extracted.read()).hexdigest() == entry["files"][member.name]
         assert "share/postgresql/extension/pg_trgm.COPYRIGHT" in entry["files"]
+    # The wheel's own Windows pgvector is built with -march=native; the bundle
+    # replaces it with a portable build of the same version.
+    windows = manifest["platforms"]["windows-amd64"]
+    assert "lib/postgresql/vector.dll" in windows["files"]
+    assert windows["pgvector"]["version"] == "0.8.5"

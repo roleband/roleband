@@ -121,6 +121,7 @@ launcher-pause-unconfirmed = No se pudo confirmar el cambio de horario. Abre aju
 
 # kind=button
 launcher-engine-start = Iniciar
+launcher-engine-stop = Detener
 # kind=button
 launcher-engine-diagnostics = Diagnóstico
 # kind=status

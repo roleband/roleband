@@ -23,7 +23,7 @@ def raw_http_exceptions() -> list[str]:
             continue
         for node in ast.walk(ast.parse(path.read_text())):
             if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "HTTPException":
-                found.append(f"{path.relative_to(API.parent.parent)}:{node.lineno}")
+                found.append(f"{path.relative_to(API.parent.parent).as_posix()}:{node.lineno}")
     return found
 
 

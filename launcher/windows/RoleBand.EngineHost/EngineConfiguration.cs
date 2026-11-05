@@ -1,0 +1,67 @@
+using System.Net;
+using System.Net.Sockets;
+using System.Text.Json;
+
+namespace RoleBand.EngineHost;
+
+public sealed record EngineConfiguration(string Resources, string State, string Python, string NativePython,
+                                         string Version, bool Development, bool SyntheticFixture)
+{
+    public string EngineDirectory => Path.Combine(Resources, Development ? "backend" : "engine");
+    public string Bootstrap => Path.Combine(EngineDirectory, "desktop.py");
+
+    public static EngineConfiguration Source(string checkout, string state, bool fixture = false)
+    {
+        checkout = Path.GetFullPath(checkout);
+        state = Path.GetFullPath(state);
+        var python = Path.Combine(checkout, "backend", ".venv", "Scripts", "python.exe");
+        var config = Path.Combine(checkout, "backend", ".venv", "pyvenv.cfg");
+        if (!File.Exists(python) || !File.Exists(config) || !File.Exists(Path.Combine(checkout, "backend", "desktop.py")))
+            throw new IOException("The source engine is incomplete.");
+        var values = File.ReadAllLines(config).Where(line => line.Contains('=')).Select(line => line.Split('=', 2))
+            .ToDictionary(parts => parts[0].Trim(), parts => parts[1].Trim(), StringComparer.OrdinalIgnoreCase);
+        if (!values.TryGetValue("executable", out var native) || !File.Exists(native))
+            throw new IOException("The source interpreter has no native executable.");
+        using var metadata = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(checkout, "dashboard", "package.json")));
+        return new(checkout, ValidateState(checkout, state), python, native,
+                   metadata.RootElement.GetProperty("version").GetString()!, true, fixture);
+    }
+
+    public static EngineConfiguration Packaged(string resources, string? state = null, bool fixture = false)
+    {
+        resources = Path.GetFullPath(resources);
+        var metadataPath = Path.Combine(resources, "engine", "release.json");
+        var python = Path.Combine(resources, "runtime", "python.exe");
+        if (!File.Exists(metadataPath) || !File.Exists(python) || !File.Exists(Path.Combine(resources, "engine", "desktop.py")))
+            throw new IOException("The packaged engine is incomplete.");
+        using var metadata = JsonDocument.Parse(File.ReadAllBytes(metadataPath));
+        var trial = Path.Combine(resources, "trial.json");
+        if (!File.Exists(trial)) throw new IOException("The development app requires its synthetic trial identity.");
+        using var trialMetadata = JsonDocument.Parse(File.ReadAllBytes(trial));
+        if (!trialMetadata.RootElement.GetProperty("trial_only").GetBoolean()
+            || !Guid.TryParseExact(trialMetadata.RootElement.GetProperty("trial_id").GetString(), "N", out var trialId))
+            throw new IOException("Invalid trial identity.");
+        state ??= Path.Combine(KnownFolders.LocalAppData, "RoleBandTrials", trialId.ToString("N"));
+        fixture = true;
+        return new(resources, ValidateState(resources, Path.GetFullPath(state)), python, python,
+                   metadata.RootElement.GetProperty("version").GetString()!, false, fixture);
+    }
+
+    private static string ValidateState(string resources, string state)
+    {
+        var sourceData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".roleband");
+        if (state.Equals(resources, StringComparison.OrdinalIgnoreCase)
+            || state.StartsWith(resources.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+            || state.Equals(sourceData, StringComparison.OrdinalIgnoreCase)
+            || state.StartsWith(sourceData + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            throw new IOException("Engine state must be separate from resources and source-installed data.");
+        return state;
+    }
+
+    public static int AvailablePort()
+    {
+        using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        socket.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+        return ((IPEndPoint)socket.LocalEndPoint!).Port;
+    }
+}

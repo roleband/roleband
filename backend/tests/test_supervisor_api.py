@@ -25,6 +25,11 @@ REAL_POPEN = subprocess.Popen
 REAL_KILL = os.kill
 REAL_ASYNC_HTTP = httpx.AsyncHTTPTransport.handle_async_request
 
+if sys.platform == "win32":
+    from tracker.platform import windows_process
+
+    REAL_WINDOWS_KERNEL = windows_process._kernel
+
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("no_escape")]
 
 
@@ -34,6 +39,8 @@ def real_processes(no_escape, monkeypatch):
     host the health probe reaches is it, on the loopback."""
     monkeypatch.setattr(subprocess, "Popen", REAL_POPEN)
     monkeypatch.setattr(os, "kill", REAL_KILL)
+    if sys.platform == "win32":
+        monkeypatch.setattr(windows_process, "_kernel", REAL_WINDOWS_KERNEL)
 
     async def loopback_only(self, request):
         assert request.url.host == "127.0.0.1", request.url

@@ -32,7 +32,12 @@ def dump_database(server: EmbeddedServer, directory: Path, *, now: datetime | No
     """
     monthly = directory / "monthly"
     for folder in (directory, monthly):
-        folder.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if os.name == "nt":
+            from tracker.platform.windows_private import private_directory
+
+            private_directory(folder)
+        else:
+            folder.mkdir(mode=0o700, parents=True, exist_ok=True)
         if folder.is_symlink():
             raise BackupError(f"backup directory is a symbolic link: {folder}")
         folder.chmod(0o700)
@@ -40,6 +45,10 @@ def dump_database(server: EmbeddedServer, directory: Path, *, now: datetime | No
         if path.is_symlink():
             raise BackupError(f"backup is a symbolic link: {path}")
         path.chmod(0o600)
+        if os.name == "nt":
+            from tracker.platform.windows_private import require_private
+
+            require_private(path)
     rows = int(run_psql(server.dsn(), server.bin_dir, "SELECT count(*) FROM jobs"))
     if rows == 0 and (any(directory.glob("*.dump")) or any(monthly.glob("*.dump"))):
         raise BackupError("jobs table is empty but prior backups exist; refusing to supersede them")
@@ -50,7 +59,7 @@ def dump_database(server: EmbeddedServer, directory: Path, *, now: datetime | No
     os.close(fd)
     staged = Path(name)
     try:
-        _run(server, "pg_dump", server.dsn(), "-Fc", "-f", str(staged))
+        _run(server, "pg_dump", "-d", server.dsn(), "-Fc", "-f", str(staged))
         _run(server, "pg_restore", "--file", os.devnull, str(staged))
         staged.replace(final)
         if not any(monthly.glob(f"roleband_{when:%Y%m}*.dump")):

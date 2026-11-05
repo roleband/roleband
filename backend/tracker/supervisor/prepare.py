@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import socket
 import subprocess
 import sys
 import threading
@@ -16,6 +17,14 @@ from tracker.config import get_settings
 from tracker.platform import preparation
 from tracker.platform.embedded_db import claim_cluster
 from tracker.platform.launcher import installation_identity
+from tracker.platform.local_http import (
+    PROOF_HEADER,
+    AuthenticationError,
+    Authority,
+    origin,
+    required,
+    response_proof,
+)
 from tracker.platform.paths import BACKEND_DIR, DATA_DIR, REPO_ROOT
 
 logger = logging.getLogger(__name__)
@@ -25,20 +34,21 @@ logger = logging.getLogger(__name__)
 PREPARE_TIMEOUT_SECONDS = 1800
 
 
-def health() -> dict[str, Any]:
+def health(*, port: int | None = None, endpoint: str | None = None) -> dict[str, Any]:
     settings = get_settings()
-    return preparation.payload(
-        DATA_DIR,
-        installation_identity(
-            REPO_ROOT, api_host=settings.api_host, api_port=settings.api_port, version=__version__,
-        ),
+    identity = installation_identity(
+        REPO_ROOT, api_host=settings.api_host, api_port=port or settings.api_port, version=__version__,
     )
+    if endpoint:
+        identity["api_origin"] = endpoint
+    return preparation.payload(DATA_DIR, identity)
 
 
 class PreparationServer:
     def __init__(self, host: str, port: int) -> None:
         if host != "127.0.0.1":
             raise ValueError("Preparation must bind the loopback address")
+        authority: Authority | None = None
 
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, *args: Any) -> None:
@@ -47,22 +57,53 @@ class PreparationServer:
             def do_GET(self) -> None:
                 assert isinstance(self.server, ThreadingHTTPServer)
                 actual_port = self.server.server_address[1]
-                if self.headers.get("Host") not in {f"127.0.0.1:{actual_port}", f"localhost:{actual_port}"}:
+                allowed_hosts = {authority.endpoint.removeprefix("http://")} if authority else {f"127.0.0.1:{actual_port}", f"localhost:{actual_port}"}
+                if self.headers.get("Host") not in allowed_hosts:
                     self.send_error(400)
                     return
                 if self.path != "/api/launcher-health":
                     self.send_error(404)
                     return
-                body = health()
+                signed = self.headers.get("Authorization", "")
+                if authority is not None:
+                    try:
+                        if (self.headers.get_all("Host") != [authority.endpoint.removeprefix("http://")]
+                                or len(self.headers.get_all("Authorization", [])) != 1
+                                or self.headers.get("Origin", authority.endpoint) != authority.endpoint
+                                or self.headers.get("Transfer-Encoding") is not None
+                                or self.headers.get("Content-Length", "0") != "0"):
+                            raise AuthenticationError("Invalid preparation request")
+                        authority.authenticate(signed, "GET", self.path, b"")
+                    except AuthenticationError:
+                        self.send_error(401)
+                        return
+                body = health(port=actual_port, endpoint=authority.endpoint if authority else None)
                 content = json.dumps(body).encode()
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Cache-Control", "no-store")
                 self.send_header("Content-Length", str(len(content)))
+                if authority is not None:
+                    self.send_header(PROOF_HEADER, response_proof(authority.secret, signed, 200, content))
                 self.end_headers()
                 self.wfile.write(content)
 
-        self.server = ThreadingHTTPServer((host, port), Handler)
+        class Server(ThreadingHTTPServer):
+            allow_reuse_address = not required()
+
+            def server_bind(self) -> None:
+                if sys.platform == "win32" and not self.allow_reuse_address:
+                    self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+                super().server_bind()
+
+        self.server = Server((host, port), Handler)
+        try:
+            if required():
+                authority = Authority(DATA_DIR, origin(host, self.server.server_address[1]))
+        except BaseException:
+            self.server.server_close()
+            raise
+        self.authority = authority
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
 
     def __enter__(self) -> PreparationServer:
@@ -73,6 +114,8 @@ class PreparationServer:
         self.server.shutdown()
         self.server.server_close()
         self.thread.join()
+        if self.authority is not None:
+            self.authority.close()
 
 
 def migrate() -> None:
@@ -118,7 +161,10 @@ def run() -> None:
         raise ValueError("An install from source keeps its own engine")
     claim_cluster(settings.embedded_pgdata(), "app")
     preparation.update(DATA_DIR, database="creating", service="starting", reason=None)
-    with PreparationServer(settings.api_host, settings.api_port):
+    # Authenticated discovery follows each server's actual endpoint. A separate
+    # preparation port avoids rebinding a Windows exclusive socket in TIME_WAIT.
+    port = 0 if sys.platform == "win32" and required() else settings.api_port
+    with PreparationServer(settings.api_host, port):
         try:
             subprocess.run(
                 [sys.executable, "-I", str(BACKEND_DIR / "packaged.py"), "prepare-database"],

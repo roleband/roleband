@@ -75,7 +75,13 @@ async def _run(*, dry_run_network: bool = False) -> int:
     from tracker.workflows.watchdog import recover_db
 
     log_dir = DATA_DIR / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
+    if sys.platform == "win32":
+        from tracker.platform.windows_private import private_directory
+
+        private_directory(DATA_DIR)
+        private_directory(log_dir)
+    else:
+        log_dir.mkdir(parents=True, exist_ok=True)
     own_log = log_dir / "supervisor.log"
     # launchd points the supervisor's own streams here, for what happens before
     # logging starts; it appends forever unless cut at each start.
@@ -93,8 +99,12 @@ async def _run(*, dry_run_network: bool = False) -> int:
 
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
-    for signum in (signal.SIGTERM, signal.SIGINT):
-        loop.add_signal_handler(signum, stop.set)
+    if sys.platform == "win32":
+        for signum in (signal.SIGTERM, signal.SIGINT, signal.SIGBREAK):
+            signal.signal(signum, lambda *_: loop.call_soon_threadsafe(stop.set))
+    else:
+        for signum in (signal.SIGTERM, signal.SIGINT):
+            loop.add_signal_handler(signum, stop.set)
 
     zone = local_zone()
     engine = get_engine()

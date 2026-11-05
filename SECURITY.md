@@ -13,9 +13,13 @@ ships.
 RoleBand is a single-user application that runs on your own computer.
 
 - The API and the dashboard listen on the loopback interface only
-  (`127.0.0.1:8010` when installed with `deploy/install.sh`). There is no
-  authentication: anyone who can reach that port can use the app. Do not expose it
-  to a network.
+  (`127.0.0.1:8010` when installed with `deploy/install.sh`). Mac and ordinary
+  source mode have no authentication: anyone who can reach that port can use the
+  app. The Windows engine under development requires account-private discovery,
+  signed requests and a single-use browser handoff in packaged mode; source mode
+  can exercise it with `ROLEBAND_LOCAL_AUTH=1`
+  ([local HTTP boundary](docs/decisions/0003-windows-local-http.md)). Do not expose
+  any mode to a network.
 - Data lives in an embedded Postgres under your user's home directory. Keys you
   enter (a cloud or local model key, a price-data key) are stored in that database
   encrypted, with the key that opens them in a file that database backups leave out

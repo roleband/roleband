@@ -1,6 +1,9 @@
 """The loopback trust boundary.
 
-The API authenticates nobody: one user, one machine, served on 127.0.0.1.
+Mac and ordinary source mode authenticate nobody: one user, one machine,
+served on loopback. Authenticated local HTTP additionally checks its exact
+origin and signatures in `LocalAuthentication`; these browser protections apply
+in both modes.
 That model holds only while a web page the user happens to visit cannot reach
 it, and a page can, two ways that CORS never sees:
 
@@ -15,7 +18,7 @@ it, and a page can, two ways that CORS never sees:
    when the browser names a page on another host (`Origin`), and when it
    carries a content type only a no-preflight request needs.
 
-Ports are deliberately not part of either match: an attacker controls the name
+Ports are deliberately not part of this host-only match: an attacker controls the name
 in the URL, not which port on this machine it lands on, and a second dev
 server on another port is ours.
 
@@ -29,7 +32,7 @@ table, so a route added later is inside the boundary by default.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from urllib.parse import urlsplit
 
 from starlette.datastructures import Headers
@@ -85,10 +88,12 @@ def _origin_host(origin: str) -> str | None:
 class LoopbackBoundary:
     """ASGI middleware refusing what crossed the loopback. Mount it outermost."""
 
-    def __init__(self, app: ASGIApp, *, trusted_hosts: Iterable[str] = ()) -> None:
+    def __init__(self, app: ASGIApp, *, trusted_hosts: Iterable[str] = (),
+                 local_origin: Callable[[], str | None] | None = None) -> None:
         self.app = app
         extra = {host_name(host) for host in trusted_hosts}
         self.trusted = LOOPBACK_HOSTS | {host for host in extra if host}
+        self.local_origin = local_origin
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] not in ("http", "websocket"):
@@ -104,14 +109,20 @@ class LoopbackBoundary:
             await PlainTextResponse(reason, status_code=status)(scope, receive, send)
 
     def _refusal(self, scope: Scope, headers: Headers) -> tuple[int, str] | None:
-        if host_name(headers.get("host", "")) not in self.trusted:
+        trusted = self.trusted
+        if self.local_origin is not None:
+            origin = self.local_origin()
+            local_host = _origin_host(origin) if origin else None
+            if local_host:
+                trusted = trusted | {local_host}
+        if host_name(headers.get("host", "")) not in trusted:
             return 400, "Invalid host header"
         if scope["type"] == "http" and scope["method"] in SAFE_METHODS:
             return None
         # A browser names the page behind every unsafe request and every
         # WebSocket handshake; a client with no page (curl, a script) sends none.
         origin = headers.get("origin")
-        if origin is not None and _origin_host(origin) not in self.trusted:
+        if origin is not None and _origin_host(origin) not in trusted:
             return 403, "Cross-site request refused"
         if scope["type"] == "http":
             media_type = headers.get("content-type", "").partition(";")[0].strip().lower()

@@ -1,0 +1,50 @@
+"""Isolated Windows desktop entry point for source trials and packaged resources."""
+
+from __future__ import annotations
+
+import os
+import runpy
+import sys
+from pathlib import Path
+
+
+def main() -> None:
+    source = "--source" in sys.argv[1:]
+    args = [value for value in sys.argv[1:] if value != "--source"]
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    sys.dont_write_bytecode = True
+    os.environ["ROLEBAND_PACKAGED"] = "0" if source else "1"
+    os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
+    os.environ["PYTHONNOUSERSITE"] = "1"
+    os.environ["ROLEBAND_LOCAL_AUTH"] = "1"
+    if not args or args[0] not in {"run", "prepare", "seed", "checkpoint"}:
+        sys.exit("usage: desktop.py [--source] {run|prepare|seed|checkpoint} [arguments]")
+    if args[0] == "checkpoint":
+        sys.argv = ["scripts.windows_checkpoint", *args[1:]]
+        runpy.run_module("scripts.windows_checkpoint", run_name="__main__", alter_sys=True)
+        return
+    if args == ["prepare"]:
+        from tracker.supervisor.prepare import migrate
+
+        migrate()
+        return
+    if args == ["seed"]:
+        import asyncio
+
+        from scripts.seed_synthetic import seed
+        from tracker.db.session import session_scope
+
+        async def seed_fixture() -> None:
+            async with session_scope() as session:
+                await seed(session, count=12, seed_value=20261105, derived=False)
+
+        asyncio.run(seed_fixture())
+        return
+    sys.argv = ["tracker.supervisor.desktop", *args[1:]]
+    if source:
+        sys.argv.append("--development")
+    runpy.run_module("tracker.supervisor.desktop", run_name="__main__", alter_sys=True)
+
+
+if __name__ == "__main__":
+    main()

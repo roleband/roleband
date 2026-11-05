@@ -2,9 +2,9 @@
 
 Postgres's stock sizes suit a small shared server. A person's computer gives the
 database more memory and an SSD, and a scan sorts and rewrites far more than the
-stock sizes hold. A preset is passed on the server's command line at each start
-(`embedded_db.ensure_server`), so nothing is written into the cluster's files and
-a start without one returns the stock values.
+stock sizes hold. Each start selects a preset through `embedded_db.ensure_server`.
+POSIX passes it on the server command line. Windows regenerates a runtime include
+file before starting. A start without a preset returns the stock values.
 
 Each preset also names itself and the memory it was picked from as `roleband.*`
 settings, so the running server reports which preset it started with:

@@ -152,6 +152,28 @@ One writer collects at a time: the pipeline holds a file lock (`data/daily.lock`
 and a Postgres advisory lock, so a scheduled run, a manual sync and a retry never
 overlap.
 
+## The Windows app
+
+`launcher/windows/RoleBand.App` is the WinUI 3 window. The
+`RoleBand.EngineHost` library owns lifecycle, private storage and authenticated
+browser handoff. `backend/desktop.py` selects source or packaged resources before
+importing configuration. Its supervisor owns PostgreSQL outside cancellable jobs
+and shuts down through a parent-only pipe. These boundaries are owned by
+[the native host decision](decisions/0004-windows-native-engine-host.md).
+
+`launcher/windows/Tools/assemble_trial.py` builds synthetic development bundles
+from the working checkout, recording the revision and dirty paths. A pinned
+standalone Python and hashed Windows wheels keep development Python out of the
+runtime layout. `Package-Trial.ps1` validates and packs an unsigned MSIX with a
+separate trial identity and retained LocalAppData namespace. Package replacement
+and data recovery acceptance remain prerequisites for production distribution.
+
+`backend/desktop.py checkpoint` creates or rechecks a private logical recovery
+checkpoint through a fresh-cluster restore drill. The command requires explicit
+paths and refuses a running source engine; it neither promotes a restored
+database nor replaces an application. Its contract is owned by
+[the recovery checkpoint decision](decisions/0005-windows-recovery-checkpoints.md).
+
 ## The Mac app
 
 ### Packaged engine
@@ -425,9 +447,19 @@ dispatching twice.
   whether it waits for the preflight. `due.py` decides from the registry, the
   last runs, the queued requests and the world (power, gate, schema,
   dependencies), as a pure function.
-- **Each job is a child in its own session**, started through the trampoline
+- **Each job is contained**, in its own POSIX session or Windows Job Object, through the trampoline
   (`child.py`), which records the exit code beside the run. A supervisor that
   restarts adopts what is still running; nothing is killed to restart it.
+- On Windows the trampoline owns the sole non-inheritable Job Object handle.
+  Its exit ends any descendants left behind. Console cancellation requests
+  cleanup before escalation. Adoption verifies account, kernel start time,
+  parsed run marker and the result directory. The API uses a separate contained
+  trampoline watching the supervisor's kernel handle, so it ends with the
+  supervisor. PostgreSQL starts outside cancellable containment.
+- Windows timeout time uses unbiased interrupt time, excluding suspend and
+  hibernation. Requested keep-awake state belongs to the trampoline's thread
+  and ends when it exits. Windows exit statuses retain their DWORD bits in a
+  signed SQL integer.
 - **Requests are a durable doorbell**: the API writes a `job_requests` row in the
   same transaction as its own change and NOTIFYs; the supervisor listens and
   polls every 30 s regardless. The domain queue stays the truth about what to
@@ -556,23 +588,27 @@ migrations.
 
 ### Embedded database settings
 
-- Every start of the embedded cluster outside Windows passes one of three memory
-  presets on the server's command line
+- Every start of the embedded cluster selects one of three memory
+  presets, passed on the server's command line on POSIX and regenerated in a
+  runtime include file on Windows
   (`backend/tracker/platform/database_presets.py`), picked from installed memory:
   Small below 16 GB or when memory cannot be read, Standard from 16 GB, Large
   from 32 GB. The 16 GB line is the embedding model's
   (`backend/tracker/platform/memory.py`), so a small computer gets the small
   model and the Small preset together.
-- The preset is picked again at every start and never saved, so a change takes
+- The preset is picked again at every start, so a change takes
   effect when the cluster next starts; an app update restarts it. The person
   never chooses it; `ROLEBAND_DB_PRESET` names one for support.
   `SHOW roleband.preset` and `SHOW roleband.memory_bytes` report the running
   server's preset and the memory that picked it.
-- Nothing is written into the cluster's files, so a restored backup never
-  carries one computer's settings to another. A start without a preset runs
+- Logical backups carry no runtime settings. A start without a preset runs
   Postgres's defaults. A process that attaches to a running server leaves its
   settings alone. An outside server (`ROLEBAND_DATABASE_URL`) keeps its own
-  settings. Windows starts through the wheel's own start with stock settings.
+  settings. Windows starts through the native adapter with account-private
+  credentials and SCRAM authentication. The adapter pins UTF8 and an explicit
+  locale during initialization, refuses unrecognized or trust-login clusters,
+  and verifies the postmaster process and loopback listener before connecting.
+  Windows runtime settings are regenerated before a stopped cluster starts.
 - `posting_inventory` keeps 15% of each page free (`fillfactor` 85), so marking a
   role seen again updates the row in place and leaves its indexes alone. The
   free space arrives as scans rewrite pages, at that much more disk, never
@@ -970,11 +1006,21 @@ the generated file or hand-write a response type.
 **Errors and text.** API errors are codes, and every API string field declares
 its text class: both are in [copy.md](copy.md).
 
-**Trust boundary.** The API authenticates nobody; the loopback is its access
-control. `LoopbackBoundary` (`backend/tracker/api/boundary.py`, outermost)
-refuses a Host that does not name this machine and an unsafe request from a
-foreign origin or with a form-style body. No GET commits.
+**Trust boundary.** Mac and ordinary source mode use loopback access control.
+`LoopbackBoundary` (`backend/tracker/api/boundary.py`, outermost) refuses a Host
+that does not name this machine and an unsafe request from a foreign origin or
+with a form-style body. No GET commits.
 `backend/tests/test_api_trust_boundary.py` walks every unsafe route.
+Packaged Windows and source mode with `ROLEBAND_LOCAL_AUTH=1` additionally require
+request-bound authentication for every API read, write and health response.
+Account-private `launcher/http-engine.json` discovery rotates its key and browser
+hostname for each HTTP process. The native client connects directly to loopback,
+verifies signed responses and obtains a single-use browser handoff. The browser
+holds a separate key in tab storage and signs through
+`dashboard/src/api/localAuthentication.ts`.
+Exact Host and Origin checks include the endpoint port. The protocol, replay
+bounds and browser-origin isolation are owned by
+[the local HTTP decision](decisions/0003-windows-local-http.md).
 The dashboard shell is served under a Content-Security-Policy
 (`dashboard/csp-policy.json`, rendered by `backend/tracker/api/csp.py` with the
 configured usage-statistics host): scripts from this origin only, and

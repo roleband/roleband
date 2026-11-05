@@ -124,3 +124,5 @@ error-plugin-confirm-mismatch = What you typed doesn't match the name shown. Try
 error-plugin-estimates-moving = Estimates are still updating to leave its data out. Try again when it ends.
 # kind=error note="A pin refused on company size while a plugin answers it: a pin is RoleBand's own, and RoleBand's own isn't shown there"
 error-field-answered-by-plugin = A plugin answers this while it's on, so a value you set here wouldn't show. Turn it off in Settings › Plugins.
+# kind=error
+error-engine-locked = Couldn't reconnect. Open the radar from the app.

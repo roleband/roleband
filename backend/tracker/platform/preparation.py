@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-import fcntl
 import json
 import os
 import stat
+import sys
 import tempfile
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any
 
+from tracker.platform import filelock
 from tracker.platform.launcher import InstallationIdentity
 
 
@@ -44,7 +45,13 @@ def read(data: Path) -> Preparation | None:
     path = data / "launcher" / "preparation.json"
     try:
         info = path.lstat()
-        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_size > 8192:
+        if not stat.S_ISREG(info.st_mode) or info.st_size > 8192:
+            return None
+        if sys.platform == "win32":
+            from tracker.platform.windows_private import require_private
+
+            require_private(path)
+        elif info.st_uid != os.getuid():
             return None
         value = Preparation(**json.loads(path.read_text()))
         if (
@@ -66,22 +73,35 @@ def read(data: Path) -> Preparation | None:
 def update(data: Path, **changes: Any) -> Preparation:
     directory = data / "launcher"
     for folder in (data, directory):
-        folder.mkdir(mode=0o700, parents=True, exist_ok=True)
-        info = folder.lstat()
-        if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
-            raise ValueError("Preparation directory must belong to this account")
-    descriptor = os.open(directory / "preparation.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        if sys.platform == "win32":
+            from tracker.platform.windows_private import private_directory
+
+            private_directory(folder)
+        else:
+            folder.mkdir(mode=0o700, parents=True, exist_ok=True)
+            info = folder.lstat()
+            if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
+                raise ValueError("Preparation directory must belong to this account")
+    lock = directory / "preparation.lock"
+    if sys.platform == "win32" and lock.exists():
+        from tracker.platform.windows_private import require_private
+
+        require_private(lock)
+    flags = os.O_CREAT | os.O_RDWR
+    if sys.platform != "win32":
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(lock, flags, 0o600)
     try:
-        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        filelock.lock(descriptor)
         value = replace(read(data) or Preparation(), **changes)
+        # Closed before the rename: Windows refuses to rename an open file.
         with tempfile.NamedTemporaryFile(dir=directory, prefix=".preparation-", delete=False) as output:
             temporary = Path(output.name)
-            try:
-                output.write((json.dumps(asdict(value)) + "\n").encode())
-                output.flush()
-                os.replace(temporary, directory / "preparation.json")
-            finally:
-                temporary.unlink(missing_ok=True)
+        try:
+            temporary.write_bytes((json.dumps(asdict(value)) + "\n").encode())
+            os.replace(temporary, directory / "preparation.json")
+        finally:
+            temporary.unlink(missing_ok=True)
         return value
     finally:
         os.close(descriptor)

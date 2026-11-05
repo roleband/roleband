@@ -60,6 +60,8 @@ PLATFORMS: dict[str, Platform] = {
     "linux-x86_64": Platform("x86_64-manylinux_2_28", True),
     # Install rehearsals run here (ubuntu:24.04 on Apple silicon).
     "linux-aarch64": Platform("aarch64-manylinux_2_28", True),
+    # The Windows app's engine and Windows source checkouts install here.
+    "windows-x86_64": Platform("x86_64-pc-windows-msvc", True),
 }
 
 HEADER = (

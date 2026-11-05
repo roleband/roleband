@@ -45,6 +45,10 @@ def _ps(*args: str) -> str:
 
 
 def pid_alive(pid: int) -> bool:
+    if sys.platform == "win32":
+        import psutil
+
+        return psutil.pid_exists(pid)
     return bool(_ps("-o", "pid=", "-p", str(pid)).strip())
 
 
@@ -56,6 +60,22 @@ def clusters_under(root: Path) -> list[Path]:
     component, so `tmp2` is not inside `tmp`."""
     root = root.resolve()
     found = set()
+    if sys.platform == "win32":
+        import psutil
+
+        for process in psutil.process_iter(["name"]):
+            if not (process.info["name"] or "").startswith("postgres"):
+                continue
+            try:
+                words = process.cmdline()
+                if "-D" not in words[:-1]:
+                    continue
+                pgdata = Path(words[words.index("-D") + 1]).resolve()
+                if process.username() == psutil.Process().username() and pgdata.is_relative_to(root):
+                    found.add(pgdata)
+            except (psutil.Error, OSError):
+                continue
+        return sorted(found)
     for line in _ps("-axo", "command=").splitlines():
         words = line.split()
         if not words or not Path(words[0]).name.startswith("postgres") or "-D" not in words[:-1]:

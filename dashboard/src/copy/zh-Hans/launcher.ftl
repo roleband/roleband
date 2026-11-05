@@ -121,6 +121,7 @@ launcher-pause-unconfirmed = 无法确认扫描计划更改。请打开设置进
 
 # kind=button
 launcher-engine-start = 启动
+launcher-engine-stop = 停止
 # kind=button
 launcher-engine-diagnostics = 诊断
 # kind=status

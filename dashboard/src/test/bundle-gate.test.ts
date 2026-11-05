@@ -52,6 +52,21 @@ async function startup(files: Record<string, string>, stub: boolean) {
 
 const empty: Boundary = { infrastructure: [], debt: [] };
 
+describe("native startup module paths", () => {
+  it("gives real and stubbed Windows builds the same module names without admitting a sibling directory", () => {
+    const chunks = [{ type: "chunk", isEntry: true, fileName: "index.js", imports: [], modules: {
+      "C:/Work/dashboard/src/main.tsx": { renderedLength: 10, renderedExports: [] },
+      "C:\\Work\\dashboard\\node_modules\\pkg\\index.js": { renderedLength: 20, renderedExports: [] },
+      "C:/Work/dashboard-other/src/main.tsx": { renderedLength: 30, renderedExports: [] },
+    } }];
+    const real = startupOf(chunks, "C:/Work/dashboard");
+    const stubbed = startupOf(chunks, "C:\\Work\\dashboard\\scripts\\..");
+    expect(Object.keys(real.modules)).toEqual(["src/main.tsx", "node_modules/pkg/index.js", "C:/Work/dashboard-other/src/main.tsx"]);
+    expect(stubbed.modules).toEqual(real.modules);
+    expect(lazyOnly(real.modules, stubbed.modules)).toEqual([]);
+  });
+});
+
 describe("shell boundary, through real Rolldown", () => {
   it("names the exports and the module that only a lazy screen put in the shell, and nothing the shell uses", async () => {
     const found = lazyOnly(await startup(APP, false), await startup(APP, true));
