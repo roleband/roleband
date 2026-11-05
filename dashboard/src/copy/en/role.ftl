@@ -49,6 +49,8 @@ role-job-comp-panel-this-company-s-real-base = This company's real base/bonus/eq
 role-job-comp-panel-no-measured-split-for-this = No measured split for this discipline: scaled from this company's numbers for the same level in another discipline
 # kind=label wording=as-is
 role-job-comp-panel-no-measured-split-for-this-2 = No measured split for this company: using the seniority heuristic
+# kind=aria
+role-job-comp-panel-about-the-split = About this split
 # kind=sentence
 role-job-comp-panel-posted-band-sits-well-above = The posted range sits well above this company's measured { $band } base salary, so the level may be higher.
 # kind=sentence
