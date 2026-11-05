@@ -204,6 +204,37 @@ describe("optional", () => {
     await userEvent.click(add());
     expect(onSubmit.mock.calls[0][0]).toMatchObject({ format: "onsite", link: "https://meet.google.com/abc-defg-hij" });
   });
+
+  it("holds a link without http:// or https:// until it is whole, and never adds one itself", async () => {
+    const { dialog, onSubmit } = open();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Fri, Nov 6" }));
+    await userEvent.click(within(formats(dialog)).getByRole("button", { name: msg("applications-interview-format-video") }));
+    const field = link(dialog)!;
+
+    for (const typed of ["meet.google.com/abc-defg-hij", "zoommtg://zoom.us/join?confno=123"]) {
+      await userEvent.clear(field);
+      await userEvent.type(field, typed);
+      await userEvent.click(add());
+      expect(within(dialog).getByRole("alert")).toHaveTextContent(msg("applications-interview-link-invalid"));
+      expect(field).toHaveAttribute("aria-invalid", "true");
+      expect(onSubmit, typed).not.toHaveBeenCalled();
+    }
+
+    await userEvent.clear(field);
+    await userEvent.type(field, "https://meet.google.com/abc-defg-hij");
+    expect(within(dialog).queryByRole("alert"), "a whole link clears the message").toBeNull();
+    await userEvent.click(add());
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ format: "video", link: "https://meet.google.com/abc-defg-hij" });
+  });
+
+  it("sends an empty link as none", async () => {
+    const { dialog, onSubmit } = open();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Fri, Nov 6" }));
+    await userEvent.click(within(formats(dialog)).getByRole("button", { name: msg("applications-interview-format-video") }));
+    await userEvent.type(link(dialog)!, "   ");
+    await userEvent.click(add());
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ format: "video", link: null });
+  });
 });
 
 describe("changing an interview", () => {

@@ -213,6 +213,8 @@ applications-interview-format-onsite = On site
 applications-interview-link = Meeting link
 # kind=label
 applications-interview-link-placeholder = Paste the meeting link
+# kind=error next=none note="Under the meeting link when it has no http:// or https://; the message is itself the way out"
+applications-interview-link-invalid = Paste the whole link, starting with https://.
 # kind=button
 applications-interview-cancel = Cancel
 # kind=button

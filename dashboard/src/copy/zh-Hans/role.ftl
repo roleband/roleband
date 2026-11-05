@@ -363,7 +363,7 @@ role-place-set-section-states-pay = · 公布 { $range }
 role-place-set-section-states-no-pay = · 未公布区间
 
 ## 选择阶段的作用。
-role-job-detail-tracking-explainer = 选择一个阶段来跟踪这个职位：它会被保存，已保存页面会显示它的阶段，之后设定的跟进日期到期时会提醒你。
+role-job-detail-tracking-explainer = 选择一个阶段来跟踪这个职位：它会被保存，求职进展会显示它的阶段，之后设定的跟进日期到期时会提醒你。
 role-job-comp-panel-estimate-of-total = 估算总薪酬：{ $range }
 role-job-comp-panel-split-not-reported = 无构成数据
 role-job-comp-panel-the-plugin-reports-no-split = 提供薪酬的插件给出了这个级别的数字，但没有说明它如何分为基本工资、奖金和股权，因此不做拆分。

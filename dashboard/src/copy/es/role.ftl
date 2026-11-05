@@ -379,7 +379,7 @@ role-place-set-section-states-pay = · publica { $range }
 role-place-set-section-states-no-pay = · no publica rango
 
 ## Qué hace elegir una etapa.
-role-job-detail-tracking-explainer = Elige una etapa para seguir este puesto: queda guardado, Guardados muestra su etapa y una fecha de seguimiento que fijes después te avisa cuando llegue.
+role-job-detail-tracking-explainer = Elige una etapa para seguir este puesto: queda guardado, Seguimiento muestra su etapa y una fecha de seguimiento que fijes después te avisa cuando llegue.
 role-job-comp-panel-estimate-of-total = Compensación total estimada: { $range }
 role-job-comp-panel-split-not-reported = reparto no disponible
 role-job-comp-panel-the-plugin-reports-no-split = El plugin que aporta la compensación da una cifra para este nivel, pero no cómo se reparte entre base, bonus y equity, así que no se divide.

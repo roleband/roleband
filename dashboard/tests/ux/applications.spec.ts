@@ -463,6 +463,16 @@ test("the month pages to the next one with its own read, and a filter leaves the
   await expect(month.getByRole("button", { name: `Tue, Dec 8: ${msg("applications-month-interviews", { count: 1 })}` })).toBeVisible();
 });
 
+/** Whether a field's edge is the danger colour of the surface it sits on. */
+const dangerEdge = (field: Locator) => field.evaluate((el) => {
+  const probe = document.createElement("span");
+  probe.style.color = "var(--app-danger)";
+  el.parentElement!.appendChild(probe);
+  const danger = getComputedStyle(probe).color;
+  probe.remove();
+  return getComputedStyle(el).borderTopColor === danger;
+});
+
 test("moving into Interviewing asks when the interview is, and records it with the move", async ({ page }) => {
   // A fixed clock: the month the form opens on is the test's.
   await page.clock.setFixedTime(new Date(2026, 10, 4, 10, 0));
@@ -490,15 +500,38 @@ test("moving into Interviewing asks when the interview is, and records it with t
   await expect(today).toHaveText("4");
   await expect(today).toHaveCSS("text-decoration-line", "underline");
 
+  // A time it cannot read and a link with no scheme hold the move, and each
+  // field's own edge says which: the form's field style does not hide it.
+  const save = dialog.getByRole("button", { name: msg("applications-interview-submit", { stage: "Interviewing" }) });
+  const time = dialog.getByLabel(msg("applications-interview-time"), { exact: true });
+  await time.fill("25:00");
+  await dialog.getByRole("button", { name: msg("applications-interview-format-video"), exact: true }).click();
+  const link = dialog.getByLabel(msg("applications-interview-link"), { exact: true });
+  await link.fill("meet.google.com/abc-defg-hij");
+  await save.click();
+  await expect(dialog.getByText(msg("applications-interview-link-invalid"))).toBeVisible();
+  for (const field of [time, link]) {
+    await expect(field).toHaveAttribute("aria-invalid", "true");
+    await expect.poll(() => dangerEdge(field)).toBe(true);
+  }
+  expect(stageWrites).toEqual([]);
+  expect(interviews).toEqual([]);
+  await link.fill("https://meet.google.com/abc-defg-hij");
+
   const times = dialog.getByRole("group", { name: msg("applications-interview-times") });
   await times.getByRole("button", { name: "2:00 PM", exact: true }).click();
   await expect(dialog.locator(".app-interview-summary")).toHaveText("Thu, Nov 12 · 2:00 PM");
-  await dialog.getByRole("button", { name: msg("applications-interview-submit", { stage: "Interviewing" }) }).click();
+  await save.click();
 
   await expect(column(page, "Interviewing").getByText("Principal Engineering Manager")).toBeVisible();
   await expect.poll(() => interviews.length).toBe(1);
   expect(stageWrites).toEqual([{ jobId: 202, stage: "interviewing" }]);
-  expect(interviews[0]).toMatchObject({ label: msg("applications-interview-default-label"), all_day: false });
+  expect(interviews[0]).toMatchObject({
+    label: msg("applications-interview-default-label"),
+    all_day: false,
+    format: "video",
+    link: "https://meet.google.com/abc-defg-hij",
+  });
   const sent = new Date(interviews[0].scheduled_at);
   expect([sent.getFullYear(), sent.getMonth(), sent.getDate(), sent.getHours()]).toEqual([2026, 10, 12, 14]);
 });

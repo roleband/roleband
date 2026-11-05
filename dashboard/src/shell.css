@@ -88,9 +88,10 @@ textarea:focus-visible {
 
 /* A field holding a value it cannot take says so with its edge, in the danger
    colour, on every screen: the screen marks the field `aria-invalid="true"`
-   and paints nothing. `:not(:disabled)` makes this rule outrank a screen's
-   own `.class input` edge, and a disabled field is not judged. */
-:is(input, select, textarea)[aria-invalid="true"]:not(:disabled) {
+   and paints nothing. The `:not()`s make this rule outrank a screen's own
+   field edge, up to `.ledger-form`'s, which excludes checkboxes and radios
+   the same way; a disabled field is not judged. */
+:is(input, select, textarea)[aria-invalid="true"]:not(:disabled):not([type="checkbox"]):not([type="radio"]) {
   border-color: var(--app-danger);
 }
 

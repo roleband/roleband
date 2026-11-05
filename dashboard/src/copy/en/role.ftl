@@ -150,7 +150,7 @@ role-job-detail-your-progress = Your progress
 # kind=label wording=as-is
 role-job-detail-set-a-stage = Set a stage…
 # kind=sentence note="Under the stage select before any stage is picked: what picking one does"
-role-job-detail-tracking-explainer = Pick a stage to track this role: it is saved, Saved shows its stage, and a follow-up date you set later reminds you when it is due.
+role-job-detail-tracking-explainer = Pick a stage to track this role: it is saved, your pipeline shows its stage, and a follow-up date you set later reminds you when it is due.
 # kind=label wording=as-is
 role-job-detail-next = Next: { $next_action }
 # kind=label wording=as-is

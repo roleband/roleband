@@ -9,7 +9,7 @@ import { dayOffset, daysOverdue, dueState, type Due } from "./board";
  * tint, and its words say today or tomorrow when it is close. */
 
 /** What a due date says: how late a missed step is, else the day it falls on. */
-export function dueText(due: Due, now: Date): string {
+function dueText(due: Due, now: Date): string {
   if (dueState(due, now) === "overdue") return applicationsCardOverdue({ days: daysOverdue(due, now) });
   const day = { offset: dayOffset(due.on, now), date: formatDate(due.on, "weekday") };
   return due.kind === "interview" ? applicationsCardDueInterview(day) : applicationsCardDueStep(day);

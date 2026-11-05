@@ -177,6 +177,15 @@ describe("CommandPalette", () => {
     expect(mocks.setSearch).not.toHaveBeenCalled();
   });
 
+  it("on Up next the search stays on Up next, which has its own search box", () => {
+    const upNext = renderPalette({ at: "/pipeline/up-next" });
+    upNext.type("stripe");
+    press("Enter");
+    expect(upNext.pathname()).toBe("/pipeline/up-next");
+    expect(upNext.search()).toBe("?q=stripe");
+    expect(mocks.setSearch).not.toHaveBeenCalled();
+  });
+
   it("from an application's page the search opens the Pipeline's List", () => {
     const page = renderPalette({ at: "/pipeline/202" });
     page.type("stripe");

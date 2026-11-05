@@ -23,6 +23,7 @@ import {
   applicationsInterviewFormatPhone,
   applicationsInterviewFormatVideo,
   applicationsInterviewLink,
+  applicationsInterviewLinkInvalid,
   applicationsInterviewLinkPlaceholder,
   applicationsInterviewNotes,
   applicationsInterviewOptional,
@@ -85,6 +86,20 @@ function fieldsOf(interview: ApplicationInterview) {
     outcome: (interview.outcome ?? "") as OutcomeChoice,
     notes: interview.notes ?? "",
   };
+}
+
+/** The rule the server holds a meeting link to: empty, or a web address with
+ *  its scheme and host. A bare host is refused rather than given a scheme,
+ *  as `meet.google.com/x` could be a path as well as a site. */
+function isWebLink(text: string): boolean {
+  const link = text.trim();
+  if (!link) return true;
+  try {
+    const url = new URL(link);
+    return (url.protocol === "http:" || url.protocol === "https:") && url.host !== "";
+  } catch {
+    return false;
+  }
 }
 
 /** The interview a move into Interviewing records. A date with no time is an
@@ -164,12 +179,15 @@ export function InterviewDialog({ card, interview, moving = false, onCancel, onS
   const roundId = useId();
   const formatId = useId();
   const dayErrorId = useId();
+  const linkErrorId = useId();
   const editing = interview != null;
   const title = moving ? applicationsInterviewTitle() : editing ? applicationsInterviewEditTitle() : applicationsInterviewAddTitle();
 
   const clock = clockText.trim() ? parseClock(clockText) : "";
   const missingDay = tried && !day;
   const badClock = tried && clock == null;
+  const linkOk = isWebLink(link);
+  const badLink = tried && !linkOk;
 
   const summary = !day
     ? applicationsInterviewPickDay()
@@ -184,7 +202,7 @@ export function InterviewDialog({ card, interview, moving = false, onCancel, onS
     event.preventDefault();
     if (saving) return;
     setTried(true);
-    if (!day || clock == null) return;
+    if (!day || clock == null || !linkOk) return;
     const write = interviewFrom({ label, day, clock, format, link });
     setSaving(true);
     setFailed(false);
@@ -319,9 +337,14 @@ export function InterviewDialog({ card, interview, moving = false, onCancel, onS
                   type="url"
                   value={link}
                   aria-label={applicationsInterviewLink()}
+                  aria-invalid={badLink || undefined}
+                  aria-describedby={badLink ? linkErrorId : undefined}
                   placeholder={applicationsInterviewLinkPlaceholder()}
                   onChange={(event) => setLink(event.target.value)}
                 />
+              )}
+              {badLink && (
+                <p id={linkErrorId} className="app-interview-error" role="alert">{applicationsInterviewLinkInvalid()}</p>
               )}
             </div>
             {editing && (

@@ -12,7 +12,7 @@ import { BAND_ORDER } from "../../format";
 import { dueOf, sortColumn } from "./board";
 
 /** The columns the List can show, in their first order. */
-export const LIST_COLUMNS = [
+const LIST_COLUMNS = [
   "role", "pay", "location", "level", "next", "posting", "priority", "in_stage", "activity",
 ] as const;
 export type ListColumn = (typeof LIST_COLUMNS)[number];
@@ -99,7 +99,7 @@ export interface ListRow {
   job: Job | undefined;
 }
 
-export const LIST_SORTS = ["board", "role", "pay", "level", "next", "posting", "priority", "in_stage", "activity"] as const;
+const LIST_SORTS = ["board", "role", "pay", "level", "next", "posting", "priority", "in_stage", "activity"] as const;
 export type ListSort = (typeof LIST_SORTS)[number];
 export type ListOrder = "asc" | "desc";
 
