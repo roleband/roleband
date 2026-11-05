@@ -14,6 +14,7 @@ import { Button } from "../../ui/Button";
 import {
   insightsCommonCompany,
   insightsStockTrajectoryPanelAboutPublicCompanyProjections,
+  insightsStockTrajectoryPanelAboutTheSplitLabels,
   insightsStockTrajectoryPanelAtPriceChange,
   insightsStockTrajectoryPanelCashElection,
   insightsStockTrajectoryPanelChange,
@@ -85,14 +86,32 @@ const VEHICLE_LABEL: Record<string, string> = {
 
 // Says plainly whether a split was measured or guessed. The gap is material:
 // a guessed split can give equity to a company that pays no stock at all.
+// What each word means is said once, by SplitKey on the column header.
 function SplitSource({ source }: { source?: CompPackage["split_source"] }) {
   // Defensive: an absent split_source must render nothing, never throw:
   // one missing field should not take down the whole panel.
   if (!source) return null;
   return (
-    <span className={`split-src split-src-${source}`} title={insightsStockTrajectoryPanelSplitSourceExplained({ split: source })}>
+    <span className={`split-src split-src-${source}`}>
       {insightsStockTrajectoryPanelSplitSource({ split: source })}
     </span>
+  );
+}
+
+const SPLIT_SOURCES = ["measured", "mixed", "heuristic"] as const;
+
+// One help mark for the column rather than one per row: every row would
+// otherwise add a stop to the Tab order for the same three sentences.
+function SplitKey() {
+  return (
+    <InfoTip label={insightsStockTrajectoryPanelAboutTheSplitLabels()}>
+      {SPLIT_SOURCES.map((split) => (
+        <span className="traj-split-key" key={split}>
+          <b>{insightsStockTrajectoryPanelSplitSource({ split })}</b>
+          <span>{insightsStockTrajectoryPanelSplitSourceExplained({ split })}</span>
+        </span>
+      ))}
+    </InfoTip>
   );
 }
 
@@ -235,7 +254,7 @@ export function StockTrajectoryPanel() {
               <tr>
                 <th scope="col">{insightsCommonCompany()}</th>
                 <th scope="col">{insightsStockTrajectoryPanelTicker()}</th>
-                <th scope="col">{insightsStockTrajectoryPanelEquity()}</th>
+                <th scope="col">{insightsStockTrajectoryPanelEquity()}<SplitKey /></th>
                 <th scope="col" className="num">{insightsStockTrajectoryPanelEquityShare()}</th>
                 <th scope="col" className="num">{insightsStockTrajectoryPanelToday()}</th>
                 <th scope="col" className="num">{insightsStockTrajectoryPanelProjected()}</th>
