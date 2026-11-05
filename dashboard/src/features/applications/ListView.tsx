@@ -2,7 +2,6 @@ import { useCallback, useLayoutEffect, useRef, useState, type DragEvent, type Re
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import type { ApplicationCard } from "../../api";
 import { useJobActions, useJobWorkspace } from "../../context/JobWorkspace";
-import { date as formatDate } from "../../copy/format";
 import type { StageSlug } from "../../copy/vocabulary";
 import { BAND_LABEL, companyName, relDays } from "../../format";
 import { usePayCoverage } from "../../payCoverage";
@@ -13,7 +12,6 @@ import { primaryLocation } from "../../patterns/jobs/location";
 import { SortButton } from "../../patterns/jobs/SortButton";
 import { AsyncBoundary, Badge, Button, CompanyIcon, Content, EmptyState, Icon, Menu, MenuGroup, MenuItem } from "../../ui";
 import { Abbr } from "../../ui/Abbr";
-import { Msg } from "../../ui/Msg";
 import {
   jobsCompare,
   jobsCompareFull,
@@ -28,9 +26,6 @@ import {
   applicationsCardActions,
   applicationsCardDaysInStage,
   applicationsCardDaysShort,
-  applicationsCardDueInterview,
-  applicationsCardDueStep,
-  applicationsCardOverdue,
   applicationsCardPostingClosed,
   applicationsCardPriority,
   applicationsColumnHide,
@@ -44,15 +39,16 @@ import {
   applicationsListClear,
   applicationsListClearBoard,
   applicationsListColumnRight,
-  applicationsListEmpty,
-  applicationsListEmptyHint,
   applicationsListHeadActions,
   applicationsListHeadNext,
-  applicationsListNoMatches,
   applicationsMenuLabel,
   applicationsMenuRemove,
 } from "../../copy/gen/applications";
-import { applicationPath, dayOffset, daysInStage, daysOverdue, dueOf, dueState } from "./board";
+import { beside, useFocusAfter } from "./focusAfter";
+import { NoMatches, PipelineEmpty } from "./PipelineEmpty";
+import { useOriginState } from "./pageOrigin";
+import { applicationPath, daysInStage, dueOf } from "./board";
+import { DueBadge } from "./DueBadge";
 import { VIEW_FILTERS, isFiltering, matches, quickCounts } from "./filters";
 import {
   ALWAYS_SHOWN,
@@ -117,18 +113,10 @@ function NextStep({ card, now }: { card: ApplicationCard; now: Date }) {
   const due = dueOf(card);
   const what = due?.kind === "interview" ? card.next_interview?.label : card.next_action;
   if (!due && !card.next_action) return null;
-  const state = due ? dueState(due, now) : null;
-  const when = due
-    ? state === "overdue"
-      ? applicationsCardOverdue({ days: daysOverdue(due, now) })
-      : (due.kind === "interview" ? applicationsCardDueInterview : applicationsCardDueStep)({
-        offset: dayOffset(due.on, now), date: formatDate(due.on, "weekday"),
-      })
-    : null;
   return (
-    <span className="app-list-next" data-state={state ?? undefined}>
+    <span className="app-list-next">
       {what && <span className="app-list-next-what"><Content text={what} /></span>}
-      {when && <span className="app-list-next-when">{when}</span>}
+      {due && <DueBadge due={due} now={now} />}
     </span>
   );
 }
@@ -203,6 +191,7 @@ function Row({ row, now, columns, actions, match }: {
   const cover = usePayCoverage();
   const [menuButton, setMenuButton] = useState<HTMLButtonElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const origin = useOriginState();
   const company = companyName(card.company);
   const unread = job != null && job.viewed_at == null && !viewedIds.has(card.job_id);
   const compareOn = compareIds.has(card.job_id);
@@ -224,7 +213,7 @@ function Row({ row, now, columns, actions, match }: {
           <CompanyIcon slug={card.company} display={company} size={16} />
           <span data-selection="content"><Content text={company} /></span>
         </span>
-        <Link to={applicationPath(card.job_id)} className="app-list-title" data-selection="content">
+        <Link to={applicationPath(card.job_id)} state={origin} className="app-list-title" data-selection="content">
           <Content text={card.title} />
         </Link>
       </th>
@@ -302,6 +291,7 @@ function Row({ row, now, columns, actions, match }: {
             ref={setMenuButton}
             variant="icon"
             size="sm"
+            className="app-list-menu"
             aria-label={applicationsCardActions({ title: card.title })}
             aria-haspopup="dialog"
             aria-expanded={menuOpen}
@@ -388,8 +378,28 @@ export function ListView({ board, now }: {
   const { sort, order, choose } = useListSort();
   const [layout, setLayout] = useListLayout();
   const postings = usePostings(cards);
-  const { ask, dialog } = useStageAsk(move);
   const host = useRef<HTMLDivElement>(null);
+  // A row that leaves the List hands focus to the role beside it, or to the
+  // search when it was the last; a hidden column to the column beside it.
+  const focusAfter = useFocusAfter();
+  const search = () => document.querySelector<HTMLElement>(".app-pipeline-toolbar .app-pipeline-search input");
+  const rowOf = (jobId: number) => host.current?.querySelector(`tr[data-job-id="${jobId}"]`);
+  const besideRow = (jobId: number) => {
+    const row = rowOf(jobId);
+    return beside(row, row?.parentElement?.children ?? [], ".app-list-title");
+  };
+  const leaving = (jobId: number) => {
+    const next = besideRow(jobId);
+    focusAfter(() => next ?? search());
+  };
+  // A move out of Considering takes the row away; one that changes nothing
+  // leaves focus on the row's own menu.
+  const moveKeepingFocus: typeof move = (card, stage, interview) => {
+    const next = besideRow(card.job_id);
+    focusAfter(() => rowOf(card.job_id)?.querySelector<HTMLElement>(".app-list-menu") ?? next ?? search());
+    return move(card, stage, interview);
+  };
+  const { ask, dialog } = useStageAsk(moveKeepingFocus);
   const [frame, setFrame] = useState<HTMLDivElement | null>(null);
   const [dragged, setDragged] = useState<ListColumn | null>(null);
   const [drop, setDrop] = useState<Drop | null>(null);
@@ -400,7 +410,24 @@ export function ListView({ board, now }: {
   const asFirst = layout.order.join() === DEFAULT_LAYOUT.order.join()
     && [...layout.hidden].sort().join() === [...DEFAULT_LAYOUT.hidden].sort().join();
 
-  const actions: RowActions = { onMove: ask, onRemove: remove, onNotForMe: dismiss };
+  const actions: RowActions = {
+    onMove: ask,
+    onRemove: (card) => {
+      leaving(card.job_id);
+      remove(card);
+    },
+    onNotForMe: (card) => {
+      leaving(card.job_id);
+      dismiss(card);
+    },
+  };
+  const hideKeepingFocus = (column: ListColumn) => {
+    const heads = host.current?.querySelectorAll("thead th[data-col]") ?? [];
+    const here = host.current?.querySelector(`thead th[data-col="${column}"]`);
+    const next = beside(here, heads, ".app-list-head-menu");
+    focusAfter(() => next ?? document.querySelector<HTMLElement>(".app-pipeline-toolbar .app-columns-button"));
+    setLayout({ ...layout, hidden: [...layout.hidden, column] });
+  };
 
   const all = sortRows(cards.map((card) => ({ card, job: postings.get(card.job_id) })), sort, order, now, companyName);
   const rows = filtering && !highlight ? all.filter((row) => matches(row.card, filter, now)) : all;
@@ -457,7 +484,7 @@ export function ListView({ board, now }: {
             last={index === shown.length - 1}
             canHide={column !== ALWAYS_SHOWN}
             onStep={(by) => setLayout({ ...layout, order: stepColumn(layout, column, by) })}
-            onHide={() => setLayout({ ...layout, hidden: [...layout.hidden, column] })}
+            onHide={() => hideKeepingFocus(column)}
           />
         </span>
       </th>
@@ -483,18 +510,14 @@ export function ListView({ board, now }: {
         resource={resource}
         failed={applicationsBoardLoadFailed()}
         isEmpty={(data) => data.applications.length === 0}
-        empty={
-          <EmptyState title={applicationsListEmpty()}>
-            <Msg of={applicationsListEmptyHint} elems={{ icon: <Icon name="star" size={12} /> }} />
-          </EmptyState>
-        }
+        empty={<PipelineEmpty />}
       >
         {() => cards.length === 0 ? (
           <EmptyState title={applicationsListClear()}>
             <Link to="/pipeline/board">{applicationsListClearBoard()}</Link>
           </EmptyState>
         ) : rows.length === 0 ? (
-          <p className="app-column-empty app-list-empty">{applicationsListNoMatches()}</p>
+          <NoMatches />
         ) : (
           <div className="app-list-host job-margin-host" ref={host}>
             <div className="app-list-scroll" ref={setFrame} data-overflowing={overflowing || undefined}>

@@ -98,6 +98,21 @@ describe("the board", () => {
     expect(within(column("Researching")).getByText(msg("applications-column-empty"))).toBeInTheDocument();
   });
 
+  it("draws an empty ending as its quiet heading alone, so the ending that holds a card stands out", async () => {
+    render(withProviders(<ApplicationsScreen />));
+    await screen.findByText("Head of Platform");
+    const closed = column(msg("applications-column-closed"));
+    const decided = column(msg("applications-column-decided"));
+    expect(within(closed).getByRole("group", { name: "Rejected" })).not.toHaveAttribute("data-empty");
+    const empty = [...within(decided).getAllByRole("group"), ...within(closed).getAllByRole("group")]
+      .filter((group) => group.getAttribute("aria-label") !== "Rejected");
+    expect(empty.length).toBeGreaterThan(0);
+    for (const group of empty) {
+      expect(group, `${group.getAttribute("aria-label")} is marked empty`).toHaveAttribute("data-empty");
+      expect(group.textContent, "its heading and 0, and no line under it").toBe(`${group.getAttribute("aria-label")} 0`);
+    }
+  });
+
   it("moves a card from its menu at once, and Undo moves it back", async () => {
     render(withProviders(<ApplicationsScreen />));
     await screen.findByText("Staff Product Manager, API");
@@ -403,7 +418,7 @@ describe("filtering", () => {
     expect(search()).toHaveValue("");
     expect(screen.queryByRole("button", { name: msg("applications-filter-reset") })).toBeNull();
     await userEvent.type(search(), "zzz");
-    expect(screen.getByText(msg("applications-upnext-no-matches"))).toBeInTheDocument();
+    expect(screen.getByText(msg("applications-no-matches"))).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("tab", { name: msg("shell-tab-pipeline-board") }));
     expect(search()).toHaveValue("stripe");
@@ -412,7 +427,7 @@ describe("filtering", () => {
 
     await userEvent.click(screen.getByRole("tab", { name: msg("shell-tab-pipeline-up-next") }));
     expect(search()).toHaveValue("zzz");
-    expect(screen.getByText(msg("applications-upnext-no-matches"))).toBeInTheDocument();
+    expect(screen.getByText(msg("applications-no-matches"))).toBeInTheDocument();
   });
 
   it("opens the board with Needs a next step from the summary, from Up next too, keeping the board's own search", async () => {
@@ -723,5 +738,125 @@ describe("dragging a card", () => {
     fireEvent.pointerUp(button, { pointerId: 1, ...over("offer") });
     expect(within(column("Applied")).getByText(applied.title)).toBeInTheDocument();
     expect(api.setPursuit).not.toHaveBeenCalled();
+  });
+});
+
+/* A control that acts and then leaves the page takes the keyboard's place
+ * with it. Each of these would leave focus on the page's body without the
+ * view naming where it goes. */
+describe("keeping the keyboard's place", () => {
+  const cardMenu = (card: ApplicationCard, within_: HTMLElement) =>
+    within(within_).getByRole("button", { name: msg("applications-card-actions", { title: card.title }) });
+  const columnMenu = (name: string) => screen.getByRole("button", { name: msg("applications-column-menu", { column: name }) });
+
+  it("follows a card moved from its menu into its new column", async () => {
+    render(withProviders(<ApplicationsScreen />));
+    await screen.findByText(considering.title);
+    await userEvent.click(within(await openMenu(considering)).getByRole("button", { name: "Researching" }));
+    await waitFor(() => expect(cardMenu(considering, column("Researching"))).toHaveFocus());
+  });
+
+  it("goes beside a card that moves where it is not drawn, and beside a hidden column", async () => {
+    render(withProviders(<ApplicationsScreen />));
+    await screen.findByText(considering.title);
+
+    await userEvent.click(columnMenu("Researching"));
+    await userEvent.click(await screen.findByRole("button", { name: msg("applications-column-hide") }));
+    await waitFor(() => expect(columnMenu("Applied")).toHaveFocus());
+
+    // Researching is hidden now, and Considering held only this card: its
+    // column's menu takes the place.
+    await userEvent.click(within(await openMenu(considering)).getByRole("button", { name: "Researching" }));
+    await waitFor(() => expect(columnMenu("Considering")).toHaveFocus());
+  });
+
+  it("follows a card into Interviewing once its interview is saved", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 10, 4, 10, 0));
+    try {
+      render(withProviders(<ApplicationsScreen />));
+      await screen.findByText(applied.title);
+      await userEvent.click(within(await openMenu(applied)).getByRole("button", { name: "Interviewing" }));
+      const dialog = await screen.findByRole("dialog", { name: msg("applications-interview-title") });
+      await userEvent.click(within(dialog).getByRole("button", { name: "Thu, Nov 12" }));
+      await userEvent.click(within(dialog).getByRole("button", { name: msg("applications-interview-submit", { stage: "Interviewing" }) }));
+      await waitFor(() => expect(cardMenu(applied, column("Interviewing"))).toHaveFocus());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("hands a removed filter chip's place to the chip beside it, then to Filters", async () => {
+    const due = applicationCardFixture({
+      job_id: 4, pursuit_id: 40, stage: "applied", title: "Director of Product", company: "notion",
+      next_action: "Send the case study", next_action_due: new Date(Date.now() - 2 * 86_400_000).toISOString(),
+    });
+    stored = [considering, applied, due];
+    render(atRoute("/pipeline/board"));
+    await screen.findByText(considering.title);
+    const menu = await openFilterMenu();
+    const overdue = msg("applications-quick-overdue");
+    const needsNext = msg("applications-quick-needs-next");
+    for (const label of [overdue, needsNext]) {
+      await userEvent.click(within(menu).getByRole("checkbox", { name: new RegExp(`^${label}`) }));
+    }
+    await userEvent.keyboard("{Escape}");
+    const chip = (label: string) => screen.getByRole("button", { name: msg("applications-filter-remove", { filter: label }) });
+
+    await userEvent.click(chip(overdue));
+    await waitFor(() => expect(chip(needsNext)).toHaveFocus());
+    await userEvent.click(chip(needsNext));
+    await waitFor(() => expect(screen.getByRole("button", { name: new RegExp(`^${msg("shared-filters")}`) })).toHaveFocus());
+  });
+});
+
+/* An empty pipeline, and a filter that leaves nothing, each look one way in
+ * every view: the Board, the List and Up next say the same thing. */
+describe("the pipeline's empty states", () => {
+  const search = () => screen.getByRole("searchbox", { name: msg("applications-search-label") });
+
+  it("draws one empty state in every view while nothing is saved, with the way to Radar", async () => {
+    stored = [];
+    render(atRoute("/pipeline/board"));
+    for (const tab of [null, msg("shell-tab-pipeline-up-next"), msg("shell-tab-pipeline-list")]) {
+      if (tab) await userEvent.click(screen.getByRole("tab", { name: tab }));
+      expect(await screen.findByText(msg("applications-empty"))).toBeInTheDocument();
+      expect(screen.getByText(msg("applications-empty-hint"))).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: msg("applications-empty-radar") })).toHaveAttribute("href", "/");
+      expect(screen.queryByRole("region", { name: "Considering" }), "no empty columns under it").toBeNull();
+      expect(screen.queryByText(msg("applications-column-empty"))).toBeNull();
+      expect(screen.queryByText(msg("applications-upnext-empty"))).toBeNull();
+    }
+  });
+
+  it("says once that nothing matches when the filters empty the whole board, and per column otherwise", async () => {
+    stored = [considering, applied];
+    render(atRoute("/pipeline/board"));
+    await screen.findByText(considering.title);
+
+    await userEvent.type(search(), "zzz");
+    expect(screen.getAllByText(msg("applications-no-matches"))).toHaveLength(1);
+    expect(screen.queryByText(msg("applications-column-no-matches")), "no line in each column as well").toBeNull();
+    expect(screen.getByRole("button", { name: msg("applications-filter-reset") }), "the way back is in the toolbar").toBeInTheDocument();
+
+    await userEvent.clear(search());
+    await userEvent.type(search(), "stripe");
+    expect(screen.queryByText(msg("applications-no-matches"))).toBeNull();
+    expect(within(column("Considering")).getByText(msg("applications-column-no-matches"))).toBeInTheDocument();
+  });
+
+  it("says nothing matches in the same words in the List and Up next", async () => {
+    const due = applicationCardFixture({
+      job_id: 4, pursuit_id: 40, stage: "saved", title: "Director of Product", company: "notion",
+      next_action: "Send the case study", next_action_due: new Date(Date.now() + 86_400_000).toISOString(),
+    });
+    stored = [due];
+    for (const path of ["/pipeline/list", "/pipeline/up-next"]) {
+      const { unmount } = render(atRoute(path));
+      await screen.findByText(/Director of Product/);
+      await userEvent.type(search(), "zzz");
+      expect(screen.getByText(msg("applications-no-matches"))).toBeInTheDocument();
+      unmount();
+    }
   });
 });

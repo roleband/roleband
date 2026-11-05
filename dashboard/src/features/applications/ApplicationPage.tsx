@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { isNotFound, type ApplicationDetail, type ApplicationInterview, type InterviewWrite, type JobDetail } from "../../api";
 import { useJobActions } from "../../context/JobWorkspace";
 import { STAGE_LABEL, type StageSlug } from "../../copy/vocabulary";
@@ -37,6 +37,7 @@ import { NextPanel, NotesBlock } from "./ApplicationPanels";
 import { applicationPath, CLOSED_STAGES, daysInStage, placeInColumn } from "./board";
 import { crossingKey, latestCrossing, readDismissed, writeDismissed, type Crossing } from "./crossings";
 import { InterviewDialog } from "./InterviewDialog";
+import { backOf } from "./pageOrigin";
 import { StageMenu } from "./StageMenu";
 import { useApplicationController } from "./useApplicationController";
 import "./applications.css";
@@ -78,6 +79,8 @@ export function ApplicationPage({ jobId }: { jobId: number }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [asking, setAsking] = useState<Asking | null>(null);
   const [dismissed, setDismissed] = useState(readDismissed);
+  const { state: arrived } = useLocation();
+  const back = backOf(arrived);
   // One clock per render, so every fact on the page measures from the same instant.
   const now = new Date();
 
@@ -160,9 +163,13 @@ export function ApplicationPage({ jobId }: { jobId: number }) {
           return (
             <>
               <nav className="app-page-bar" aria-label={applicationsPageBar()}>
-                <Link className="ui-btn ui-btn-ghost ui-btn-sm app-page-back" to="/pipeline/board">
+                <Link
+                  className="ui-btn ui-btn-ghost ui-btn-sm app-page-back"
+                  to={{ pathname: back.pathname, search: back.search }}
+                  state={back.state}
+                >
                   <Icon name="arrowLeft" size={14} />
-                  {applicationsPageBack({ stage: STAGE_LABEL[shown.stage] })}
+                  {applicationsPageBack({ view: back.view })}
                 </Link>
                 <span className="app-tile-spacer" />
                 {place && place.total > 1 && (
@@ -172,6 +179,7 @@ export function ApplicationPage({ jobId }: { jobId: number }) {
                       <Link
                         className="ui-btn ui-btn-icon ui-btn-sm"
                         to={applicationPath(place.previous.job_id)}
+                        state={arrived}
                         aria-label={applicationsPagePrevious({ title: place.previous.title })}
                       >
                         <Icon name="arrowUp" size={14} />
@@ -181,6 +189,7 @@ export function ApplicationPage({ jobId }: { jobId: number }) {
                       <Link
                         className="ui-btn ui-btn-icon ui-btn-sm"
                         to={applicationPath(place.next.job_id)}
+                        state={arrived}
                         aria-label={applicationsPageNext({ title: place.next.title })}
                       >
                         <Icon name="arrowDown" size={14} />

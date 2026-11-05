@@ -235,4 +235,26 @@ describe("changing an interview", () => {
     await userEvent.click(screen.getByRole("button", { name: msg("applications-interview-edit-submit") }));
     expect(onSubmit.mock.calls[0][0]).toMatchObject({ label: msg("applications-interview-default-label") });
   });
+
+  it("asks before deleting, and deletes only on the second answer", async () => {
+    const onDelete = vi.fn();
+    const { dialog, onCancel } = open({ interview: stored, onDelete });
+    const remove = within(dialog).getByRole("button", { name: msg("applications-interview-delete") });
+    await userEvent.click(remove);
+    expect(onDelete, "the first click only asks").not.toHaveBeenCalled();
+    const question = within(dialog).getByRole("group", { name: msg("applications-interview-delete-confirm") });
+    expect(within(question).getByRole("button", { name: msg("applications-interview-cancel") })).toHaveFocus();
+    expect(within(dialog).queryByRole("button", { name: msg("applications-interview-edit-submit") }), "Save waits behind the question").toBeNull();
+
+    // Escape answers the question, not the dialog.
+    await userEvent.keyboard("{Escape}");
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(within(dialog).queryByRole("group", { name: msg("applications-interview-delete-confirm") })).toBeNull();
+    expect(within(dialog).getByRole("button", { name: msg("applications-interview-delete") })).toHaveFocus();
+    expect(onDelete).not.toHaveBeenCalled();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: msg("applications-interview-delete") }));
+    await userEvent.click(within(dialog).getByRole("button", { name: msg("applications-comment-delete") }));
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
 });

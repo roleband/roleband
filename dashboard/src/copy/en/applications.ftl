@@ -16,16 +16,22 @@ applications-board-load-failed = Couldn't load your pipeline
 applications-column-decided = Decided
 # kind=name note="The column of the endings the company or the world decided: Rejected, Role closed"
 applications-column-closed = Closed
-# kind=empty note="The first column, Considering, while nothing is starred"
-applications-column-empty-saved = Star a role on your radar to start here.
+# kind=empty note="The first column, Considering, while it holds nothing and other columns do"
+applications-column-empty-saved = Save a role on your radar to start here.
 # kind=empty note="Any other column with no application in it"
 applications-column-empty = Nothing here yet.
-# kind=empty note="One ending's section inside Decided or Closed, with no application in it"
-applications-section-empty = None yet.
 # kind=status note="A column's count while filters are on: how many of its applications match"
 applications-column-count-of = { $count } of { $total }
-# kind=empty note="A column whose applications all fail the filters"
+# kind=empty note="A column whose applications all fail the filters, while another column has a match"
 applications-column-no-matches = No matches.
+# kind=empty note="Any pipeline view whose filters leave nothing: the List, Up next, or every column of the Board. Reset all follows it"
+applications-no-matches = Nothing matches these filters.
+# kind=heading note="Any pipeline view while nothing is saved or pursued"
+applications-empty = Nothing in your pipeline yet
+# kind=sentence note="Under the empty pipeline's heading: the way a role comes in"
+applications-empty-hint = Save a role on your radar to add it here.
+# kind=link note="Under the empty pipeline: opens Radar"
+applications-empty-radar = Open Radar
 # kind=aria note="Opens one column's menu"
 applications-column-menu = { $column } column options
 # kind=button
@@ -76,8 +82,6 @@ applications-columns-hidden = Columns, { $count } hidden
 applications-columns-show = Show columns
 # kind=button
 applications-columns-show-all = Show all columns
-# kind=empty note="Up next while the filters match nothing due"
-applications-upnext-no-matches = Nothing due matches these filters.
 
 ## A card
 # kind=aria
@@ -131,7 +135,7 @@ applications-card-ended = { $ending } at { $stage }
 applications-menu-label = Move { $title }
 # kind=label
 applications-menu-move-to = Move to
-# kind=button note="Only on a card in Considering: removes the star, and with it the card"
+# kind=button note="Only on a card in Considering: unsaves the role, and with it the card"
 applications-menu-remove = Remove from pipeline
 
 ## A move, said after it lands
@@ -235,6 +239,10 @@ applications-interview-outcome-cancelled = Cancelled
 applications-interview-notes = Notes
 # kind=toast
 applications-interview-failed = Couldn't save the interview. Try again.
+# kind=toast
+applications-interview-delete-failed = Couldn't delete the interview. Try again.
+# kind=label note="Asked in the interview form's actions before an interview is deleted"
+applications-interview-delete-confirm = Delete this interview?
 
 ## The pipeline's tabs
 # kind=aria
@@ -243,18 +251,12 @@ applications-tabs-label = Pipeline views
 ## The List: the backlog, every role still in Considering, as a row of a table
 # kind=label note="The List's column of the next interview or next step, and when it is due"
 applications-list-head-next = Next step
-# kind=label note="The List's last column, read to screen readers only: Not for me, Compare, the star and the row's moves"
+# kind=label note="The List's last column, read to screen readers only: Not for me, Compare, Save and the row's moves"
 applications-list-head-actions = Actions
-# kind=heading note="The List when nothing is starred or pursued"
-applications-list-empty = Nothing in your pipeline yet
-# kind=sentence note="$icon is the star glyph itself"
-applications-list-empty-hint = Tap the { $icon } on any role on your radar to add it here.
-# kind=heading note="The List when roles are starred but none is still in Considering: work has started on every one"
+# kind=heading note="The List when roles are saved but none is still in Considering: work has started on every one"
 applications-list-clear = Nothing waiting to start
 # kind=link note="Under the cleared List: opens the Board, where the roles under way are"
 applications-list-clear-board = See the roles under way on the Board
-# kind=empty note="The List while the filters match no application"
-applications-list-no-matches = No applications match these filters.
 # kind=toast note="A row's Not for me took the role off the pipeline" same-as=compare-use-compare-controller-not-for-me
 applications-list-not-for-me = Not for me · { $title }
 # kind=button note="A column header's menu: the column trades places with the one shown before it"
@@ -313,8 +315,8 @@ applications-month-failed = Couldn't load the calendar
 ## One application's page
 # kind=aria
 applications-page-bar = Application
-# kind=label note="The back link to the board, with the application's stage: Pipeline is the place's short name"
-applications-page-back = Pipeline / { $stage }
+# kind=label note="The back link to the view the page was opened from, named by its tab (Considering, Board, Up next): Pipeline is the place's short name"
+applications-page-back = Pipeline / { $view }
 # kind=button
 applications-page-back-board = Open the board
 # kind=heading
@@ -362,9 +364,9 @@ applications-crossing-reopened = { $days ->
     }
 # kind=status
 applications-crossing-pay = { $days ->
-        [0] The pay range changed on the day you applied.
-        [one] The pay range changed 1 day after you applied.
-       *[other] The pay range changed { $days } days after you applied.
+        [0] The posted range changed on the day you applied.
+        [one] The posted range changed 1 day after you applied.
+       *[other] The posted range changed { $days } days after you applied.
     }
 # kind=aria
 applications-crossing-dismiss = Dismiss
@@ -437,7 +439,7 @@ applications-feed-fold = { $count ->
         [one] 1 update: { $changes }
        *[other] { $count } updates: { $changes }
     }
-# kind=status note="A recorded change: the role was starred into the pipeline"
+# kind=status note="A recorded change: the role was saved into the pipeline"
 applications-feed-added = Added to the pipeline
 # kind=status
 applications-feed-added-at = Added at { $stage }
@@ -501,7 +503,7 @@ applications-fact-applied = Applied
 # kind=label note="The person has not applied yet" same-as=applications-interview-outcome-none
 applications-fact-applied-not = Not yet
 # kind=label
-applications-fact-starred = Starred
+applications-fact-starred = Saved
 # kind=label
 applications-fact-starred-yes = Yes
 # kind=label
@@ -515,10 +517,10 @@ applications-fact-status-open = Open
 # kind=label
 applications-fact-status-closed = Closed
 # kind=label
-applications-fact-pay = Pay
+applications-fact-pay = Posted range
 # kind=label
 applications-fact-pay-none = Not posted
-# kind=label note="Beside the pay when it changed after the person applied"
+# kind=label note="Beside the posted range when it changed after the person applied"
 applications-fact-pay-changed = Changed
 # kind=label
 applications-fact-level = Level

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { ApplicationCard } from "../../api";
-import { date as formatDate } from "../../copy/format";
 import { STAGE_LABEL, type StageSlug } from "../../copy/vocabulary";
 import { companyName } from "../../format";
 import { Badge, Button, CompanyIcon, Content, Icon, MenuItem, dragSurface } from "../../ui";
@@ -11,49 +10,26 @@ import {
   applicationsCardComments,
   applicationsCardDaysInStage,
   applicationsCardDaysShort,
-  applicationsCardDueInterview,
-  applicationsCardDueStep,
   applicationsCardEnded,
-  applicationsCardOverdue,
   applicationsCardPostingClosed,
   applicationsCardPriority,
   applicationsCardQuiet,
   applicationsMenuLabel,
   applicationsMenuRemove,
 } from "../../copy/gen/applications";
-import { applicationPath, boardStage, dayOffset, daysInStage, daysOverdue, daysQuiet, dueOf, dueState, isStale } from "./board";
+import { useOriginState } from "./pageOrigin";
+import { applicationPath, boardStage, daysInStage, daysQuiet, dueOf, isStale } from "./board";
+import { DueBadge } from "./DueBadge";
 import { StageMenu } from "./StageMenu";
 import type { CardDragHandlers } from "./useCardDrag";
 
 const PRIORITY_STEPS = [1, 2, 3, 4, 5] as const;
 
-/** The day a date falls on, as days from today and as a date: the message
- *  says today and tomorrow in words. */
-function when(on: Date, now: Date): { offset: number; date: string } {
-  return { offset: dayOffset(on, now), date: formatDate(on, "weekday") };
-}
-
 /** The card's one due field: the sooner of the next interview and the next
- *  step, in one of three states. */
+ *  step. */
 function DueField({ card, now }: { card: ApplicationCard; now: Date }) {
   const due = dueOf(card);
-  if (!due) return null;
-  const state = dueState(due, now);
-  const text = state === "overdue"
-    ? applicationsCardOverdue({ days: daysOverdue(due, now) })
-    : due.kind === "interview"
-      ? applicationsCardDueInterview(when(due.on, now))
-      : applicationsCardDueStep(when(due.on, now));
-  return (
-    <Badge
-      className="app-tile-due"
-      tone={state === "set" ? "neutral" : "danger"}
-      variant={state === "overdue" ? "solid" : "tint"}
-      size="sm"
-    >
-      {text}
-    </Badge>
-  );
+  return due ? <DueBadge due={due} now={now} /> : null;
 }
 
 export interface ApplicationTileProps {
@@ -77,6 +53,7 @@ export interface ApplicationTileProps {
 export function ApplicationTile({ card, now, onMove, onRemove, drag, dragged, match }: ApplicationTileProps) {
   const [menuButton, setMenuButton] = useState<HTMLButtonElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const origin = useOriginState();
   const company = companyName(card.company);
   const days = daysInStage(card, now);
   const stale = isStale(card, now);
@@ -113,7 +90,7 @@ export function ApplicationTile({ card, now, onMove, onRemove, drag, dragged, ma
           <Icon name="more" size={16} />
         </Button>
       </div>
-      <Link to={applicationPath(card.job_id)} className="app-tile-open" draggable={false}>
+      <Link to={applicationPath(card.job_id)} state={origin} className="app-tile-open" draggable={false}>
         <span className="app-tile-title" data-selection="content"><Content text={card.title} /></span>
       </Link>
       {ending && (

@@ -1,10 +1,8 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import type { ApplicationCard, ApplicationInterview } from "../../api";
 import { date as formatDate, time as formatTime } from "../../copy/format";
-import { Badge, Button, Content, ExternalLink } from "../../ui";
+import { Button, Content, ExternalLink } from "../../ui";
 import {
-  applicationsCardDueStep,
-  applicationsCardOverdue,
   applicationsInterviewFormatOnsite,
   applicationsInterviewFormatPhone,
   applicationsInterviewFormatVideo,
@@ -34,7 +32,7 @@ import {
   applicationsNotesSave,
   applicationsNotesTitle,
 } from "../../copy/gen/applications";
-import { dayOffset, daysOverdue, dueState } from "./board";
+import { DueBadge } from "./DueBadge";
 
 const FORMAT_LABEL: Record<NonNullable<ApplicationInterview["format"]>, () => string> = {
   video: applicationsInterviewFormatVideo,
@@ -109,7 +107,6 @@ export function NextPanel({ card, interviews, now, onSetNext, onEditInterview }:
   };
 
   const due = card.next_action_due ? { kind: "step" as const, at: new Date(card.next_action_due), on: new Date(card.next_action_due) } : null;
-  const state = due ? dueState(due, now) : null;
 
   return (
     <section className="app-panel app-next" aria-labelledby="app-next-title">
@@ -160,17 +157,7 @@ export function NextPanel({ card, interviews, now, onSetNext, onEditInterview }:
           <>
             <div className="app-next-what">
               <span className="app-next-name"><Content text={card.next_action} /></span>
-              {due && (
-                <Badge
-                  size="sm"
-                  tone={state === "set" ? "neutral" : "danger"}
-                  variant={state === "overdue" ? "solid" : "tint"}
-                >
-                  {state === "overdue"
-                    ? applicationsCardOverdue({ days: daysOverdue(due, now) })
-                    : applicationsCardDueStep({ offset: dayOffset(due.on, now), date: formatDate(due.on, "weekday") })}
-                </Badge>
-              )}
+              {due && <DueBadge due={due} now={now} />}
             </div>
             <Button variant="ghost" size="sm" onClick={() => openForm(true)}>{applicationsNextEdit()}</Button>
             <Button variant="primary" size="sm" onClick={() => void markDone()}>{applicationsNextDone()}</Button>

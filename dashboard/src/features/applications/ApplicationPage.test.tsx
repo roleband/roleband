@@ -106,12 +106,24 @@ const stageNamed = (stage: string) => new RegExp(`^${stage} · \\d+ days?$`);
 const stageButton = () => screen.getByRole("button", { name: stageNamed("Applied") });
 
 describe("the application page", () => {
-  it("opens on the role, with its stage and a way back to the board", async () => {
+  it("opens on the role, with its stage and, reached by its address, a way back to the board", async () => {
     renderPage();
     expect(await screen.findByRole("heading", { level: 1, name: TITLE })).toBeInTheDocument();
     expect(stageButton()).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: msg("applications-page-back", { stage: "Applied" }) }))
+    expect(screen.getByRole("link", { name: msg("applications-page-back", { view: msg("shell-tab-pipeline-board") }) }))
       .toHaveAttribute("href", "/pipeline/board");
+  });
+
+  it("goes back to the view it was opened from, with that view's filter", async () => {
+    renderPage("/pipeline/board?q=product");
+    await userEvent.click(await screen.findByRole("link", { name: TITLE }));
+    await screen.findByRole("heading", { level: 1, name: TITLE });
+    const back = screen.getByRole("link", { name: msg("applications-page-back", { view: msg("shell-tab-pipeline-board") }) });
+    expect(back).toHaveAttribute("href", "/pipeline/board?q=product");
+
+    await userEvent.click(back);
+    expect(await screen.findByRole("tab", { name: msg("shell-tab-pipeline-board"), selected: true })).toBeInTheDocument();
+    expect(screen.getByRole("searchbox")).toHaveValue("product");
   });
 
   it("moves the application from the stage button, and the number keys pick a moving stage", async () => {
@@ -232,6 +244,32 @@ describe("the feed", () => {
     const agentComment = (await screen.findByText("Found the hiring manager.")).closest("li")!;
     expect(within(agentComment as HTMLElement).queryByRole("button", { name: msg("applications-comment-edit") })).toBeNull();
     expect(within(agentComment as HTMLElement).getByText(msg("applications-comment-author-agent"))).toBeInTheDocument();
+  });
+});
+
+describe("an interview on the page", () => {
+  beforeEach(() => {
+    detail = {
+      ...detail,
+      interviews: [{
+        id: 31, label: "Panel", scheduled_at: "2099-01-12T15:00:00Z", all_day: false, format: null, link: null,
+        outcome: null, notes: null, created_at: "2026-11-01T09:00:00Z", updated_at: "2026-11-01T09:00:00Z",
+      }],
+    };
+  });
+
+  it("is deleted only after the form asks, and a failed delete says it was the delete that failed", async () => {
+    vi.mocked(api.deleteInterview).mockRejectedValueOnce(new Error("offline"));
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: msg("applications-interview-edit-label", { label: "Panel" }) }));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: msg("applications-interview-delete") }));
+    expect(api.deleteInterview).not.toHaveBeenCalled();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: msg("applications-comment-delete") }));
+    expect(api.deleteInterview).toHaveBeenCalledWith(101, 31);
+    expect(await screen.findByText(msg("applications-interview-delete-failed"))).toBeInTheDocument();
+    expect(screen.queryByText(msg("applications-interview-failed"))).toBeNull();
   });
 });
 

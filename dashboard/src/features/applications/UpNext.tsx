@@ -4,20 +4,21 @@ import type { ApplicationBoard, ApplicationCalendarItem, ApplicationCard } from 
 import { date as formatDate, time as formatTime } from "../../copy/format";
 import { companyName } from "../../format";
 import type { AsyncResource } from "../../hooks/useAsyncResource";
-import { AsyncBoundary, Badge, CompanyIcon, Content } from "../../ui";
+import { AsyncBoundary, CompanyIcon, Content } from "../../ui";
 import {
   applicationsBoardLoadFailed,
-  applicationsCardOverdue,
   applicationsNextInterviewAllDay,
   applicationsUpnextDay,
   applicationsUpnextEmpty,
   applicationsUpnextInterview,
-  applicationsUpnextNoMatches,
   applicationsUpnextOverdue,
   applicationsUpnextStep,
   applicationsUpnextStepWhen,
 } from "../../copy/gen/applications";
-import { applicationPath, daysOverdue } from "./board";
+import { useOriginState } from "./pageOrigin";
+import { NoMatches, PipelineEmpty } from "./PipelineEmpty";
+import { applicationPath } from "./board";
+import { DueBadge } from "./DueBadge";
 import { upNext, type UpNextDay, type UpNextItem } from "./dueByDay";
 import { VIEW_FILTERS, isFiltering, matches, quickCounts } from "./filters";
 import { dayKey } from "./monthGrid";
@@ -32,6 +33,7 @@ const calendarKey = (item: ApplicationCalendarItem) =>
   item.kind === "interview" ? `interview-${item.interview_id}` : `step-${item.job_id}`;
 
 function ItemRow({ item, now, match, picked }: { item: UpNextItem; now: Date; match?: boolean; picked: boolean }) {
+  const origin = useOriginState();
   const { card } = item;
   const company = companyName(card.company);
   const interview = item.kind === "interview" ? card.next_interview : null;
@@ -55,17 +57,13 @@ function ItemRow({ item, now, match, picked }: { item: UpNextItem; now: Date; ma
             ? applicationsUpnextInterview({ label: interview.label })
             : applicationsUpnextStep({ step: card.next_action ?? "" })}
         </span>
-        <Link to={applicationPath(card.job_id)} className="app-tile-open app-upnext-role">
+        <Link to={applicationPath(card.job_id)} state={origin} className="app-tile-open app-upnext-role">
           <CompanyIcon slug={card.company} display={company} size={16} />
           <span>{company}</span>
           <span className="app-upnext-title"><Content text={card.title} /></span>
         </Link>
       </div>
-      {overdue && (
-        <Badge tone="danger" variant="solid" size="sm">
-          {applicationsCardOverdue({ days: daysOverdue({ kind: "step", at: item.at, on: item.at }, now) })}
-        </Badge>
-      )}
+      {overdue && <DueBadge due={{ kind: "step", at: item.at, on: item.at }} now={now} />}
     </li>
   );
 }
@@ -117,7 +115,12 @@ export function UpNext({ resource, now }: {
   return (
     <>
       <PipelineToolbar filter={filter} onFilter={setFilter} quickCounts={quickCounts([...new Set(due)], now, VIEW_FILTERS.up_next)} />
-      <AsyncBoundary resource={resource} failed={applicationsBoardLoadFailed()}>
+      <AsyncBoundary
+        resource={resource}
+        failed={applicationsBoardLoadFailed()}
+        isEmpty={(data) => data.applications.length === 0}
+        empty={<PipelineEmpty />}
+      >
         {(board) => (
           <div className="app-upnext-split">
             <div className="app-upnext-list" ref={agendaRef}>{agenda(board)}</div>
@@ -144,7 +147,7 @@ export function UpNext({ resource, now }: {
       return <p className="app-column-empty app-upnext-empty">{applicationsUpnextEmpty()}</p>;
     }
     const days = shownDays(board);
-    if (days.length === 0) return <p className="app-column-empty app-upnext-empty">{applicationsUpnextNoMatches()}</p>;
+    if (days.length === 0) return <NoMatches />;
     return (
       <div className="app-upnext" data-highlight={highlight ? "" : undefined}>
         {days.map((day) => {
@@ -155,7 +158,7 @@ export function UpNext({ resource, now }: {
           const id = `app-upnext-${day.key}`;
           return (
             <section key={String(day.key)} className="app-upnext-day" aria-labelledby={id} data-overdue={day.key === "overdue" || undefined}>
-              <h2 id={id} className="app-panel-title">{heading}</h2>
+              <h2 id={id} className="app-upnext-day-name">{heading}</h2>
               <ul>
                 {day.items.map((item) => (
                   <ItemRow

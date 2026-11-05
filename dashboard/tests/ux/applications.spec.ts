@@ -1,7 +1,7 @@
 import type { Locator } from "@playwright/test";
 import type { ApplicationCard, InterviewWrite, Job } from "../../src/api";
 import { msg } from "../../src/test/msg";
-import { applicationCardFixture, applicationDetailFixture, jobFixture, jobListFixture } from "../../src/test/fixtures";
+import { applicationCardFixture, applicationDetailFixture, jobDetailFixture, jobFixture, jobListFixture } from "../../src/test/fixtures";
 import { installBoardRoutes, installJobDetailRoutes } from "./boardHarness";
 import { expect, mockApi, mockGet, test, watchReads, type Page } from "./fixtures";
 
@@ -125,6 +125,9 @@ test("a card moves from its menu with the keyboard alone, and Undo moves it back
   await expect(column(page, "Researching").getByText("Staff Product Manager, API")).toBeVisible();
   await expect(column(page, "Considering").getByText("Staff Product Manager, API")).toHaveCount(0);
   await expect.poll(() => stageWrites).toEqual([{ jobId: 101, stage: "researching" }]);
+  // The keyboard's place goes with the card, so the next Enter acts on it again.
+  await expect(column(page, "Researching").getByRole("button", { name: msg("applications-card-actions", { title: "Staff Product Manager, API" }) }))
+    .toBeFocused();
 
   await page.getByRole("button", { name: msg("applications-move-undo") }).click();
   await expect(column(page, "Considering").getByText("Staff Product Manager, API")).toBeVisible();
@@ -225,6 +228,49 @@ test("the application page moves its stage from the keyboard: S opens the menu, 
   await expect.poll(() => stageWrites).toEqual([{ jobId: 202, stage: "offer" }]);
 });
 
+test("on a phone the application page gives its title the full width, and a wrapped line never starts with a dot", async ({ page }) => {
+  const long = applicationCardFixture({
+    job_id: 404, pursuit_id: 40, stage: "applied", title: "Senior Staff Technical Program Manager, Infrastructure Management",
+    company: "stripe",
+  });
+  await installPipeline(page, [...cards, long]);
+  await mockGet(page, "/api/jobs/404", (route) => route.fulfill({ json: jobDetailFixture({
+    id: 404, title: long.title, company: "stripe", locations: ["South San Francisco, California, United States"],
+  }) }));
+  // Where each dot after the first part is drawn, and whether its part starts a line.
+  const dots = () => page.evaluate(() => {
+    const meta = document.querySelector(".app-page-meta")!;
+    const box = meta.getBoundingClientRect();
+    return [...meta.children].slice(1).map((part) => {
+      const at = part.getBoundingClientRect();
+      const dot = getComputedStyle(part, "::before");
+      const end = at.right - parseFloat(dot.right);
+      return { startsLine: Math.abs(at.left - box.left) < 1, start: end - parseFloat(dot.width), end, edge: box.left,
+        clipped: ["clip", "hidden"].includes(getComputedStyle(meta).overflowX) };
+    });
+  });
+  const title = page.getByRole("heading", { level: 1, name: long.title });
+  const stage = page.getByRole("button", { name: /^Applied · \d+ days?$/ });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/pipeline/404");
+  await expect(page.locator(".app-page-meta")).toContainText("South San Francisco");
+  const wide = await dots();
+  expect(wide.map((dot) => dot.startsLine), "on a laptop the city follows the company on one line").toEqual([false]);
+  expect(wide[0]!.start, "and the dot between them is drawn in full").toBeGreaterThanOrEqual(wide[0]!.edge);
+
+  await page.setViewportSize({ width: 375, height: 812 });
+  await expect.poll(async () => (await dots()).map((dot) => dot.startsLine), "the city wraps to a line of its own").toEqual([true]);
+  const narrow = (await dots())[0]!;
+  expect(narrow.end <= narrow.edge + 0.5 && narrow.clipped, "its dot falls past the line's start and is clipped").toBe(true);
+  const [titleBox, stageBox, nameBox] = await Promise.all([
+    title.boundingBox(), stage.boundingBox(), page.locator(".app-page-name").boundingBox(),
+  ]);
+  expect(stageBox!.y, "the stage button wraps under the title").toBeGreaterThanOrEqual(titleBox!.y + titleBox!.height - 1);
+  expect(nameBox!.width, "the title keeps the row beside the company mark").toBeGreaterThan(375 - 32 - 32 - 14 - 20);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth), "the page never widens").toBeLessThanOrEqual(375);
+});
+
 test("Mark done on the application page asks at once for the next step, and saves it", async ({ page }) => {
   const { pursuitWrites } = await installPipeline(page);
   await page.goto("/pipeline/101");
@@ -261,6 +307,20 @@ test("Up next lists what is due by day, overdue first, and a row opens its appli
   await expect(days.first()).toHaveAccessibleName(msg("applications-upnext-overdue"));
   await expect(days.first().getByText(msg("applications-upnext-step", { step: "Ask for an intro" }))).toBeVisible();
   await expect(days.nth(1).getByText(msg("applications-upnext-interview", { label: "Hiring manager call" }))).toBeVisible();
+
+  // A day's heading is a date the person reads: title size, in its own case,
+  // and the role under a step reads in the step's own ink.
+  const look = await days.first().evaluate((day) => {
+    const heading = getComputedStyle(day.querySelector("h2")!);
+    return {
+      size: heading.fontSize, title: heading.getPropertyValue("--app-type-title").trim(), transform: heading.textTransform,
+      role: getComputedStyle(day.querySelector(".app-upnext-title")!).color,
+      step: getComputedStyle(day.querySelector(".app-next-name")!).color,
+    };
+  });
+  expect(look.size, "the day's heading is at title size").toBe(look.title);
+  expect(look.transform, "in its own case").toBe("none");
+  expect(look.role, "the role's name in the text's ink").toBe(look.step);
 
   await days.nth(1).getByRole("link").click();
   await expect(page).toHaveURL(/\/pipeline\/202$/);
@@ -321,6 +381,25 @@ test("Up next stands beside its month: a day says what is on it, and picking one
   await expect(day, "the day starts below the window").not.toBeInViewport();
   await target.click();
   await expect(target).toHaveAttribute("aria-pressed", "true");
+  // The picked day and today are circles, as in the interview form: the
+  // ring round today is the circle itself, and a day's marks stay inside it.
+  for (const button of [target, month.getByRole("button", { name: /^Wed, Nov 4/ })]) {
+    const shape = await button.evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      const num = el.querySelector(".app-month-num")!.getBoundingClientRect();
+      const marks = [...el.querySelectorAll(".app-month-mark")].map((mark) => mark.getBoundingClientRect());
+      return {
+        width: box.width, height: box.height, radius: parseFloat(getComputedStyle(el).borderTopLeftRadius),
+        ring: Math.abs(num.width - box.width) <= 2 && Math.abs(num.height - box.height) <= 2,
+        marks: marks.length,
+        inside: marks.every((mark) => mark.top >= box.top && mark.bottom <= box.bottom && mark.left >= box.left && mark.right <= box.right),
+      };
+    });
+    expect(Math.abs(shape.width - shape.height), "as tall as it is wide").toBeLessThanOrEqual(0.5);
+    expect(shape.radius, "and round").toBeGreaterThanOrEqual(shape.width / 2);
+    expect(shape.ring, "the number's ring is the circle").toBe(true);
+    expect(shape.inside, "its marks inside it").toBe(true);
+  }
   await expect(day).toBeInViewport();
   await expect(row).toHaveAttribute("data-picked", "true");
   await expect(page.locator(".app-upnext-item[data-picked]")).toHaveCount(1);
@@ -628,7 +707,7 @@ test("each tab keeps its own filter: the board's stays off Up next, and both com
   await expect(page.getByRole("button", { name: msg("applications-filter-reset") })).toHaveCount(0);
   await expect(page.getByText(msg("applications-upnext-step", { step: "Ask for an intro" }))).toBeVisible();
   await search.fill("zzz");
-  await expect(page.getByText(msg("applications-upnext-no-matches"))).toBeVisible();
+  await expect(page.getByText(msg("applications-no-matches"))).toBeVisible();
 
   await page.getByRole("tab", { name: msg("shell-tab-pipeline-board") }).click();
   await expect(page).toHaveURL(/\/pipeline\/board\?only=needs_next$/);
@@ -863,6 +942,9 @@ test("the List's compare beacon stands in Radar's margin, level with the role pi
   }
   const pill = page.getByRole("button", { name: "2 in compare. Compare 2 roles" });
   await expect(pill).toBeVisible();
+  // It scales in: measure once it has settled.
+  await expect.poll(() => pill.evaluate((el) =>
+    (el.closest(".job-beacon") ?? el).getAnimations({ subtree: true }).every((one) => one.playState === "finished"))).toBe(true);
 
   const table = (await page.locator(".app-list-scroll").boundingBox())!;
   const toolbar = (await page.locator(".app-pipeline-toolbar").boundingBox())!;

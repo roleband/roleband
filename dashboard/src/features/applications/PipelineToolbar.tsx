@@ -29,6 +29,7 @@ import {
   applicationsSearchPlaceholder,
 } from "../../copy/gen/applications";
 import { Button, FilterChip, Icon, Kbd, Menu, MenuCheck, MenuGroup, MenuItem, MenuRadio, SearchField } from "../../ui";
+import { useFocusAfter } from "./focusAfter";
 import { isFiltering, type BoardFilter, type FilterMode, type QuickCount, type QuickFilter } from "./filters";
 
 const QUICK_LABEL: Record<QuickFilter, () => string> = {
@@ -85,6 +86,7 @@ export function PipelineToolbar<C extends string>({ filter, onFilter, quickCount
   const [filterButton, setFilterButton] = useState<HTMLButtonElement | null>(null);
   const [columnsButton, setColumnsButton] = useState<HTMLButtonElement | null>(null);
   const [open, setOpen] = useState<"filter" | "columns" | null>(null);
+  const focusAfter = useFocusAfter();
   const filtering = isFiltering(filter);
   const toggleQuick = (quick: QuickFilter) =>
     onFilter({ quick: filter.quick.includes(quick) ? filter.quick.filter((q) => q !== quick) : [...filter.quick, quick] });
@@ -107,7 +109,14 @@ export function PipelineToolbar<C extends string>({ filter, onFilter, quickCount
             {highlight ? applicationsModeOnly() : applicationsFilterHighlightInstead()}
           </Button>
           <span className="app-filter-sep" aria-hidden="true">·</span>
-          <Button variant="link" className="ui-btn-quiet" onClick={() => onFilter({ quick: [], query: "" })}>
+          <Button
+            variant="link"
+            className="ui-btn-quiet"
+            onClick={() => {
+              focusAfter(() => filterButton);
+              onFilter({ quick: [], query: "" });
+            }}
+          >
             {applicationsFilterReset()}
           </Button>
         </div>
@@ -118,7 +127,15 @@ export function PipelineToolbar<C extends string>({ filter, onFilter, quickCount
           selected
           className="app-filter-chip"
           aria-label={applicationsFilterRemove({ filter: QUICK_LABEL[quick]() })}
-          onClick={() => toggleQuick(quick)}
+          onClick={(event) => {
+            // The chip leaves with its filter: the chip beside it takes
+            // focus, or the Filters button when it was the last.
+            const chips = [...(event.currentTarget.parentElement?.querySelectorAll<HTMLElement>(":scope > .app-filter-chip") ?? [])];
+            const at = chips.indexOf(event.currentTarget);
+            const next = chips[at + 1] ?? chips[at - 1];
+            focusAfter(() => next ?? filterButton);
+            toggleQuick(quick);
+          }}
         >
           {QUICK_LABEL[quick]()}
           <Icon name="close" size={12} />
@@ -128,6 +145,7 @@ export function PipelineToolbar<C extends string>({ filter, onFilter, quickCount
       <div className="app-pipeline-tools">
         <Button
           ref={setFilterButton}
+          className="app-filters-button"
           aria-haspopup="dialog"
           aria-expanded={open === "filter"}
           onClick={() => setOpen(open === "filter" ? null : "filter")}
@@ -138,6 +156,7 @@ export function PipelineToolbar<C extends string>({ filter, onFilter, quickCount
         {columns && (
           <Button
             ref={setColumnsButton}
+            className="app-columns-button"
             aria-haspopup="dialog"
             aria-expanded={open === "columns"}
             aria-label={columns.hidden.length ? applicationsColumnsHidden({ count: columns.hidden.length }) : undefined}

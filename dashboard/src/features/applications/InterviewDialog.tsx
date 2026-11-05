@@ -11,7 +11,9 @@ import {
   applicationsInterviewCancel,
   applicationsInterviewDayMissing,
   applicationsInterviewDefaultLabel,
+  applicationsCommentDelete,
   applicationsInterviewDelete,
+  applicationsInterviewDeleteConfirm,
   applicationsInterviewEditSubmit,
   applicationsInterviewEditTitle,
   applicationsInterviewFor,
@@ -145,6 +147,10 @@ export function InterviewDialog({ card, interview, moving = false, onCancel, onS
   const nameField = useRef<HTMLInputElement>(null);
   const backToPlus = useRef(false);
   const [tried, setTried] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const keepButton = useRef<HTMLButtonElement>(null);
+  const deleteButton = useRef<HTMLButtonElement>(null);
+  const deleteAsked = useRef(false);
   const roundId = useId();
   const formatId = useId();
   const dayErrorId = useId();
@@ -197,6 +203,20 @@ export function InterviewDialog({ card, interview, moving = false, onCancel, onS
     setDraft("");
     setNaming(false);
   });
+  // Deleting asks first, in the actions' place: the question takes the
+  // safe answer's focus, Escape answers it, and either answer hands focus
+  // back to where the reader was.
+  useEffect(() => {
+    if (deleting) {
+      deleteAsked.current = true;
+      keepButton.current?.focus();
+    } else if (deleteAsked.current) {
+      deleteAsked.current = false;
+      deleteButton.current?.focus();
+    }
+  }, [deleting]);
+  useEscapeLayer(deleting, () => setDeleting(false));
+
   const onNameKey = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== "Enter") return;
     event.preventDefault();
@@ -322,19 +342,27 @@ export function InterviewDialog({ card, interview, moving = false, onCancel, onS
           </section>
         </div>
 
-        <div className="app-interview-actions">
-          {editing && onDelete && (
-            <Button variant="ghost" className="app-interview-delete" onClick={onDelete}>
-              {applicationsInterviewDelete()}
+        {deleting && onDelete ? (
+          <div className="app-interview-actions" role="group" aria-label={applicationsInterviewDeleteConfirm()}>
+            <p className="app-interview-confirm">{applicationsInterviewDeleteConfirm()}</p>
+            <Button ref={keepButton} variant="ghost" onClick={() => setDeleting(false)}>{applicationsInterviewCancel()}</Button>
+            <Button variant="danger" onClick={onDelete}>{applicationsCommentDelete()}</Button>
+          </div>
+        ) : (
+          <div className="app-interview-actions">
+            {editing && onDelete && (
+              <Button ref={deleteButton} variant="ghost" className="app-interview-delete" onClick={() => setDeleting(true)}>
+                {applicationsInterviewDelete()}
+              </Button>
+            )}
+            <Button variant="ghost" onClick={onCancel}>{applicationsInterviewCancel()}</Button>
+            <Button variant="primary" type="submit">
+              {moving
+                ? applicationsInterviewSubmit({ stage: STAGE_LABEL.interviewing })
+                : editing ? applicationsInterviewEditSubmit() : applicationsInterviewAdd()}
             </Button>
-          )}
-          <Button variant="ghost" onClick={onCancel}>{applicationsInterviewCancel()}</Button>
-          <Button variant="primary" type="submit">
-            {moving
-              ? applicationsInterviewSubmit({ stage: STAGE_LABEL.interviewing })
-              : editing ? applicationsInterviewEditSubmit() : applicationsInterviewAdd()}
-          </Button>
-        </div>
+          </div>
+        )}
       </form>
     </Dialog>
   );

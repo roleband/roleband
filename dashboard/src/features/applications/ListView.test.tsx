@@ -185,7 +185,7 @@ describe("the List's rows", () => {
   it("asks for no postings, and says how to start, when nothing is in the pipeline", async () => {
     stored = [];
     render(at());
-    expect(await screen.findByText(msg("applications-list-empty"))).toBeInTheDocument();
+    expect(await screen.findByText(msg("applications-empty"))).toBeInTheDocument();
     expect(api.jobs).not.toHaveBeenCalled();
     expect(screen.queryByRole("table")).toBeNull();
   });
@@ -196,7 +196,7 @@ describe("the List's rows", () => {
     expect(await screen.findByText(msg("applications-list-clear"))).toBeInTheDocument();
     expect(screen.getByRole("link", { name: msg("applications-list-clear-board") })).toHaveAttribute("href", "/pipeline/board");
     expect(screen.queryByRole("table")).toBeNull();
-    expect(screen.queryByText(msg("applications-list-empty"))).toBeNull();
+    expect(screen.queryByText(msg("applications-empty"))).toBeNull();
   });
 });
 
@@ -441,7 +441,7 @@ describe("the List's filter", () => {
     await userEvent.type(search(), "stripe");
     expect(rowOrder()).toEqual([4]);
     await userEvent.type(search(), "zzz");
-    expect(screen.getByText(msg("applications-list-no-matches"))).toBeInTheDocument();
+    expect(screen.getByText(msg("applications-no-matches"))).toBeInTheDocument();
   });
 
   it("keeps its filter to itself: the board does not take it, and the List finds it again", async () => {
@@ -456,5 +456,33 @@ describe("the List's filter", () => {
     await userEvent.click(screen.getByRole("tab", { name: msg("shell-tab-pipeline-list") }));
     expect(search()).toHaveValue("stripe");
     expect(rowOrder()).toEqual([4]);
+  });
+});
+
+/* A row or a column that leaves the List takes the keyboard's place with it:
+ * the role or the column beside it takes focus, never the page's body. */
+describe("keeping the keyboard's place in the List", () => {
+  const titleLink = (card: ApplicationCard) => within(rowOf(card)).getByRole("link", { name: card.title });
+
+  it("hands a row's place to the role beside it, and the last row's to the search", async () => {
+    render(at());
+    await loaded();
+    const [first, second] = rowOrder();
+    const cardOf = (id: number) => [considering, waiting].find((card) => card.job_id === id)!;
+
+    await userEvent.click(within(rowOf(cardOf(first))).getByRole("button", { name: msg("shared-not-for-me") }));
+    await waitFor(() => expect(titleLink(cardOf(second))).toHaveFocus());
+
+    await userEvent.click(within(await openMoves(cardOf(second))).getByRole("button", { name: "Researching" }));
+    await waitFor(() => expect(screen.getByRole("searchbox")).toHaveFocus());
+  });
+
+  it("hands a hidden column's place to the column beside it", async () => {
+    render(at());
+    await loaded();
+    const [, second, third] = headers();
+    await userEvent.click(within(header(second!)).getByRole("button", { name: /column options$/ }));
+    await userEvent.click(await screen.findByRole("button", { name: msg("applications-column-hide") }));
+    await waitFor(() => expect(within(header(third!)).getByRole("button", { name: /column options$/ })).toHaveFocus());
   });
 });

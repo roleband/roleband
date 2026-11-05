@@ -15,6 +15,7 @@ import {
   applicationsChangeFailed,
   applicationsCommentDeleteFailed,
   applicationsCommentFailed,
+  applicationsInterviewDeleteFailed,
   applicationsInterviewFailed,
 } from "../../copy/gen/applications";
 import { usePursuitWrite, useStageMove } from "./useStageMove";
@@ -158,8 +159,8 @@ export function useApplicationController(jobId: number) {
     [interviewWrite, jobId],
   );
   const deleteInterview = useCallback(
-    (id: number) => interviewWrite(() => api.deleteInterview(jobId, id)),
-    [interviewWrite, jobId],
+    (id: number) => commentWrite(() => api.deleteInterview(jobId, id), applicationsInterviewDeleteFailed()),
+    [commentWrite, jobId],
   );
 
   return {

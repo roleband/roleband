@@ -26,6 +26,7 @@ import { companyName } from "../../format";
 import { useAsyncResource, useRefetchOn } from "../../hooks/useAsyncResource";
 import { commonTryAgain } from "../../copy/gen/common";
 import { Badge, Button, CompanyIcon, Content, Icon } from "../../ui";
+import { useOriginState } from "./pageOrigin";
 import { applicationPath } from "./board";
 import { dayKey, fromDayKey, itemsByDay, monthOf, monthSpan, monthWeeks, shiftDay, shiftMonth } from "./monthGrid";
 
@@ -36,6 +37,7 @@ const OUTCOME = {
 } as const;
 
 function DayItem({ item, card, match }: { item: ApplicationCalendarItem; card: ApplicationCard; match?: boolean }) {
+  const origin = useOriginState();
   const company = companyName(card.company);
   const at = new Date(item.at);
   const when = item.kind === "interview"
@@ -50,7 +52,7 @@ function DayItem({ item, card, match }: { item: ApplicationCalendarItem; card: A
             ? applicationsUpnextInterview({ label: item.label })
             : applicationsUpnextStep({ step: item.step })}
         </span>
-        <Link to={applicationPath(card.job_id)} className="app-tile-open app-upnext-role">
+        <Link to={applicationPath(card.job_id)} state={origin} className="app-tile-open app-upnext-role">
           <CompanyIcon slug={card.company} display={company} size={16} />
           <span>{company}</span>
           <span className="app-upnext-title"><Content text={card.title} /></span>

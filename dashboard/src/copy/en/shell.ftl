@@ -56,8 +56,8 @@ shell-tab-settings-retention = Data retention
 shell-tab-settings-plugins = Plugins
 
 ## Profile tabs (PROFILE_TABS)
-# kind=label note="The pipeline's table: every application as a row, with its posting's facts"
-shell-tab-pipeline-list = List
+# kind=label same-as=taxonomy-stage-saved note="The pipeline's table of the roles still in Considering, with their postings' facts; named for the stage so the tab says what it holds"
+shell-tab-pipeline-list = Considering
 # kind=label note="The application pipeline's view of every application as columns of stages"
 shell-tab-pipeline-board = Board
 # kind=label note="The application pipeline's daily list: interviews and next steps that are due, by day"
