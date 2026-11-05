@@ -47,19 +47,34 @@ class TierTests(unittest.TestCase):
         for event in ('push', 'release', 'workflow_dispatch', 'schedule'):
             self.assertTrue(needed(event, ['docs/testing.md'], backend), event)
 
+    def test_a_tier_that_lets_a_push_skip_still_runs_what_cannot_be_judged(self):
+        launcher = ['launcher/**', '.github/workflows/codeql.yml']
+        both = ('pull_request', 'push')
+        self.assertFalse(needed('push', ['docs/testing.md', 'backend/tracker/api/app.py'], launcher, both))
+        self.assertFalse(needed('pull_request', ['docs/testing.md'], launcher, both))
+        self.assertTrue(needed('push', ['launcher/macos/Package.swift'], launcher, both))
+        self.assertTrue(needed('push', None, launcher, both))
+        for event in ('release', 'workflow_dispatch', 'schedule'):
+            self.assertTrue(needed(event, ['docs/testing.md'], launcher, (*both, event)), event)
+
     def test_globs_follow_github(self):
         self.assertTrue(glob_regex('launcher/**').fullmatch('launcher/macos/Tools/bundle.py'))
         self.assertFalse(glob_regex('backend/*').fullmatch('backend/tracker/api/app.py'))
         self.assertTrue(glob_regex('backend/*').fullmatch('backend/requirements.txt'))
         self.assertFalse(glob_regex('.nvmrc').fullmatch('x.nvmrc'))
+        self.assertTrue(glob_regex('launcher/**').fullmatch('launcher/macos/a\nb.swift'))
+        self.assertTrue(glob_regex('backend/*').fullmatch('backend/a\nb.py'))
 
 
 class WorkflowStepTests(unittest.TestCase):
     """The script as the workflow runs it: a real repository, a real diff, GITHUB_OUTPUT."""
 
-    def run_step(self, repo, event, base, head, tier=None):
+    def run_step(self, repo, event, base, head, tier=None, skip_events=None):
         with tempfile.NamedTemporaryFile('r', suffix='.txt') as output:
             env = {**os.environ, 'EVENT': event, 'BASE': base, 'HEAD': head, 'GITHUB_OUTPUT': output.name}
+            env.pop('SKIP_EVENTS', None)
+            if skip_events:
+                env['SKIP_EVENTS'] = skip_events
             if tier:
                 env.update(TIER=tier, PATHS='backend/**\n')
             else:
@@ -97,6 +112,67 @@ class WorkflowStepTests(unittest.TestCase):
             self.assertEqual(self.run_step(repo, 'pull_request', base, entry, 'backend'), {'backend': 'true'})
             self.assertEqual(self.run_step(repo, 'push', base, notes, 'backend'), {'backend': 'true'})
             self.assertEqual(self.run_step(repo, 'pull_request', 'f' * 40, notes, 'backend'), {'backend': 'true'})
+
+            self.assertEqual(self.run_step(repo, 'push', base, notes, 'backend', 'pull_request push'), {'backend': 'false'})
+            self.assertEqual(self.run_step(repo, 'push', notes, entry, 'backend', 'pull_request push'), {'backend': 'true'})
+            self.assertEqual(self.run_step(repo, 'push', '0' * 40, notes, 'backend', 'pull_request push'),
+                             {'backend': 'true'})
+
+
+    def test_a_file_moved_out_of_a_watched_path_counts_as_a_change_there(self):
+        with tempfile.TemporaryDirectory() as repo:
+            git(repo, 'init', '-q')
+            git(repo, 'config', 'user.email', 'ci@example.test')
+            git(repo, 'config', 'user.name', 'CI')
+            Path(repo, 'backend').mkdir()
+            Path(repo, 'backend/scan.py').write_text('print("a long enough body to be seen as a rename")\n' * 5)
+            git(repo, 'add', '.')
+            git(repo, 'commit', '-qm', 'in backend')
+            base = git(repo, 'rev-parse', 'HEAD')
+            Path(repo, 'tools').mkdir()
+            git(repo, 'mv', 'backend/scan.py', 'tools/scan.py')
+            git(repo, 'commit', '-qm', 'moved out')
+            moved = git(repo, 'rev-parse', 'HEAD')
+
+            self.assertEqual(self.run_step(repo, 'pull_request', base, moved, 'backend'), {'backend': 'true'})
+
+
+    def test_a_path_git_would_quote_or_a_space_would_split_still_matches(self):
+        with tempfile.TemporaryDirectory() as repo:
+            git(repo, 'init', '-q')
+            git(repo, 'config', 'user.email', 'ci@example.test')
+            git(repo, 'config', 'user.name', 'CI')
+            Path(repo, 'notes.txt').write_text('a\n')
+            git(repo, 'add', '.')
+            git(repo, 'commit', '-qm', 'notes')
+            base = git(repo, 'rev-parse', 'HEAD')
+            for name in ('backend/caf\u00e9.py', 'backend/two words.py'):
+                Path(repo, 'backend').mkdir(exist_ok=True)
+                Path(repo, name).write_text('x = 1\n')
+                git(repo, 'add', '.')
+                git(repo, 'commit', '-qm', name)
+                head = git(repo, 'rev-parse', 'HEAD')
+                self.assertEqual(self.run_step(repo, 'pull_request', base, head, 'backend'), {'backend': 'true'}, name)
+                base = head
+
+
+    def test_a_path_that_is_not_utf8_still_matches(self):
+        """macOS cannot hold such a name on disk, so the commit is built from the index alone."""
+        with tempfile.TemporaryDirectory() as repo:
+            git(repo, 'init', '-q')
+            git(repo, 'config', 'user.email', 'ci@example.test')
+            git(repo, 'config', 'user.name', 'CI')
+            Path(repo, 'notes.txt').write_text('a\n')
+            git(repo, 'add', '.')
+            git(repo, 'commit', '-qm', 'notes')
+            base = git(repo, 'rev-parse', 'HEAD')
+            blob = git(repo, 'hash-object', '-w', 'notes.txt')
+            subprocess.run([b'git', b'-C', repo.encode(), b'update-index', b'--add', b'--cacheinfo',
+                            b'100644,' + blob.encode() + b',backend/caf\xe9.py'], check=True)
+            tree = git(repo, 'write-tree')
+            head = git(repo, 'commit-tree', tree, '-p', base, '-m', 'latin-1 name')
+
+            self.assertEqual(self.run_step(repo, 'pull_request', base, head, 'backend'), {'backend': 'true'})
 
 
 if __name__ == '__main__':

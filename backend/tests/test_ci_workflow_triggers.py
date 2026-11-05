@@ -50,7 +50,7 @@ def glob_regex(pattern: str) -> re.Pattern[str]:
         else:
             out.append(re.escape(pattern[i]))
             i += 1
-    return re.compile("".join(out))
+    return re.compile("".join(out), re.DOTALL)
 
 
 def covered(path: str, patterns: list[str]) -> bool:
@@ -360,6 +360,8 @@ def _launched(tokens: list[str], wd: str) -> set[str]:
         found |= {_join(wd, arg) for arg in tokens[3:]}
     if tokens[:2] == ["ruff", "check"]:
         found |= {_join(wd, arg) for arg in tokens[2:] if not arg.startswith("-")}
+    if tokens[:1] == ["swift"] and "--package-path" in tokens[:-1]:
+        found.add(_join(wd, tokens[tokens.index("--package-path") + 1]))
     return found
 
 
@@ -474,9 +476,16 @@ def dashboard_code_reads(tracked: list[str]) -> set[str]:
     return found
 
 
+#: What the code a tier tests reads outside its own directory. CodeQL's Swift scan only
+#: compiles the package its build names, so its steps say all it reads.
+CODE_READS = {"backend.yml": backend_code_reads, "dashboard.yml": dashboard_code_reads}
+#: The workflows that pick a single tier in a `changes` job.
+TIERED = ("backend.yml", "codeql.yml", "dashboard.yml")
+
+
 def tier_inputs(name: str, tracked: list[str]) -> set[str]:
     data, _ = _gate_tier(name)
-    code = backend_code_reads(tracked) if name == "backend.yml" else dashboard_code_reads(tracked)
+    code = CODE_READS[name](tracked) if name in CODE_READS else set()
     return tracked_under(workflow_inputs(name, data) | code, tracked)
 
 
@@ -484,7 +493,7 @@ def unwatched(inputs: set[str], paths: list[str]) -> list[str]:
     return sorted(p for p in inputs if not covered(p, paths))
 
 
-@pytest.mark.parametrize("name", ["backend.yml", "dashboard.yml"])
+@pytest.mark.parametrize("name", TIERED)
 def test_each_gate_tier_watches_every_file_it_reads(name):
     _, paths = _gate_tier(name)
     missing = unwatched(tier_inputs(name, _tracked()), paths)
@@ -506,6 +515,111 @@ def test_the_gate_tier_inputs_are_derived_not_assumed():
         assert expected in dashboard, expected
     _, paths = _gate_tier("backend.yml")
     assert unwatched(backend, [p for p in paths if p != "dashboard/csp-policy.json"]) == ["dashboard/csp-policy.json"]
+
+
+def test_the_swift_scan_inputs_are_derived_not_assumed():
+    """The control: the package the traced build compiles is an input, so dropping the
+    launcher from the Swift tier's paths is caught."""
+    tracked = _tracked()
+    swift = tier_inputs("codeql.yml", tracked)
+    for expected in ("launcher/macos/Package.swift", "launcher/macos/Tools/ci_changes.py",
+                     ".github/workflows/codeql.yml"):
+        assert expected in swift, expected
+    assert any(p.startswith("launcher/macos/Sources/") for p in swift)
+    assert "launcher/macos/Package.swift" in unwatched(swift, [".github/workflows/codeql.yml"])
+
+
+# CodeQL scans the whole tree for actions, JavaScript/TypeScript and Python on every change,
+# so it takes no `paths:` filter either; only its Swift job, which holds a macOS runner for a
+# whole compile, waits on the `changes` decision.
+
+
+def _codeql() -> dict:
+    return yaml.safe_load((WORKFLOWS / "codeql.yml").read_text())
+
+
+def tier_gated_jobs(data: dict) -> list[str]:
+    return sorted(job_id for job_id, job in data["jobs"].items() if "changes" in str(job.get("needs", "")))
+
+
+def test_codeql_scans_every_change_and_waits_on_the_decision_only_for_swift():
+    data = _codeql()
+    assert path_filters(data) == {}
+    assert {"push", "pull_request", "schedule", "workflow_dispatch"} <= set(triggers(data))
+    assert tier_gated_jobs(data) == ["swift"]
+    assert set(data["jobs"]["changes"]["steps"][-1]["env"]["SKIP_EVENTS"].split()) == {"pull_request", "push"}
+
+
+def _with(step_uses: str, job: dict) -> dict:
+    return next(step.get("with") or {} for step in job["steps"] if str(step.get("uses", "")).startswith(step_uses))
+
+
+def swift_scan_gaps(scan: dict, build_script: str, launcher: dict) -> list[str]:
+    """How the traced Swift build differs from the product the launcher build ships."""
+    gaps = []
+    if _with("github/codeql-action/init@", scan).get("build-mode") != "manual":
+        gaps.append("the scan does not trace its own build")
+    shipped = re.search(r"^swift build .*--product (\S+)", build_script, re.M)
+    configuration = re.search(r'^CONFIGURATION="\$\{ROLEBAND_LAUNCHER_CONFIGURATION:-(\w+)\}"', build_script, re.M)
+    builds = [
+        line.strip() for step in scan["steps"] for line in str(step.get("run") or "").splitlines()
+        if line.strip().startswith("swift build")
+    ]
+    if len(builds) != 1:
+        gaps.append(f"the scan runs {len(builds)} swift builds")
+    else:
+        tokens = shlex.split(builds[0])
+        for flag, want in (("--product", shipped and shipped[1]), ("--configuration", configuration and configuration[1])):
+            got = tokens[tokens.index(flag) + 1] if flag in tokens else None
+            if got != want:
+                gaps.append(f"{flag} {got}, build-app.sh ships {want}")
+    if scan.get("runs-on") != launcher["jobs"]["build"]["runs-on"]:
+        gaps.append(f"runs on {scan.get('runs-on')}, the launcher build on {launcher['jobs']['build']['runs-on']}")
+    if (scan.get("env") or {}).get("DEVELOPER_DIR") != launcher["env"]["DEVELOPER_DIR"]:
+        gaps.append(f"DEVELOPER_DIR {(scan.get('env') or {}).get('DEVELOPER_DIR')}, the launcher build uses {launcher['env']['DEVELOPER_DIR']}")
+    return gaps
+
+
+def test_the_swift_scan_compiles_what_the_launcher_build_ships():
+    """A scan of another product or toolchain would pass over the code that ships, or break on
+    an Xcode bump that mac-launcher.yml takes and this workflow does not."""
+    launcher = yaml.safe_load((WORKFLOWS / "mac-launcher.yml").read_text())
+    build_script = (REPO / "launcher" / "macos" / "build-app.sh").read_text()
+    assert swift_scan_gaps(_codeql()["jobs"]["swift"], build_script, launcher) == []
+
+
+def test_a_swift_scan_off_the_shipped_build_is_reported():
+    """The control for the test above."""
+    launcher = {"env": {"DEVELOPER_DIR": "/Applications/Xcode_16.4.app/Contents/Developer"},
+                "jobs": {"build": {"runs-on": "macos-15"}}}
+    script = 'CONFIGURATION="${ROLEBAND_LAUNCHER_CONFIGURATION:-release}"\nswift build --configuration "$CONFIGURATION" --product App\n'
+    scan = {"runs-on": "macos-14", "env": {"DEVELOPER_DIR": "/Applications/Xcode_16.0.app/Contents/Developer"}, "steps": [
+        {"uses": "github/codeql-action/init@" + "a" * 40, "with": {"languages": "swift", "build-mode": "autobuild"}},
+        {"run": "swift build --package-path launcher/macos --configuration debug --product AppTests"},
+    ]}
+    assert swift_scan_gaps(scan, script, launcher) == [
+        "the scan does not trace its own build",
+        "--product AppTests, build-app.sh ships App",
+        "--configuration debug, build-app.sh ships release",
+        "runs on macos-14, the launcher build on macos-15",
+        "DEVELOPER_DIR /Applications/Xcode_16.0.app/Contents/Developer, the launcher build uses "
+        "/Applications/Xcode_16.4.app/Contents/Developer",
+    ]
+
+
+def test_a_second_swift_build_in_one_step_is_counted():
+    """The traced build is one command: a second `swift build` line in the same step, or one
+    after another command, would trace more than the shipped product."""
+    launcher = {"env": {"DEVELOPER_DIR": "x"}, "jobs": {"build": {"runs-on": "macos-15"}}}
+    script = 'CONFIGURATION="${ROLEBAND_LAUNCHER_CONFIGURATION:-release}"\nswift build --product App\n'
+    init = {"uses": "github/codeql-action/init@" + "a" * 40, "with": {"build-mode": "manual"}}
+    scan = {"runs-on": "macos-15", "env": {"DEVELOPER_DIR": "x"}, "steps": [init, {"run": (
+        "swift build --configuration release --product App\n"
+        "swift build --configuration debug --product AppTests\n"
+    )}]}
+    assert swift_scan_gaps(scan, script, launcher) == ["the scan runs 2 swift builds"]
+    scan["steps"][1]["run"] = "swift --version\nswift build --configuration release --product App\n"
+    assert swift_scan_gaps(scan, script, launcher) == []
 
 
 def test_the_code_readers_see_a_path_built_from_the_root_or_reached_with_dots():
@@ -531,7 +645,7 @@ def test_the_code_readers_see_a_path_built_from_the_root_or_reached_with_dots():
     assert reached_from(source, tops) == {"backend/tests/fixtures/a.json", "backend/tracker"}
 
 
-@pytest.mark.parametrize("name", ["backend.yml", "dashboard.yml"])
+@pytest.mark.parametrize("name", TIERED)
 def test_the_gate_decision_reads_globs_as_this_test_does(name):
     spec = importlib.util.spec_from_file_location(
         "ci_changes", REPO / "launcher" / "macos" / "Tools" / "ci_changes.py"
@@ -566,7 +680,7 @@ def test_a_matrix_job_skipped_whole_is_reported():
     assert matrix_jobs_skipped_whole(data) == ["ux"]
 
 
-@pytest.mark.parametrize("name", ["backend.yml", "dashboard.yml"])
+@pytest.mark.parametrize("name", TIERED)
 def test_a_failed_decision_runs_the_gate(name):
     """A job after `changes` runs when the decision fails, and reads an empty answer as yes."""
     data = yaml.safe_load((WORKFLOWS / name).read_text())
