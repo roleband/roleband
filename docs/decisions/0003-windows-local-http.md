@@ -1,0 +1,69 @@
+# 0003. Windows retained state and local HTTP authentication
+
+## Context
+
+Loopback ports are shared by Windows accounts. A checkout hash identifies code,
+not an account or a running engine. A listener replacing a stopped engine must
+not receive a reusable credential. Reusing a browser origin also lets a foreign
+listener poison cached page code for a later engine.
+
+## Decision
+
+Windows retained state comes from the LocalAppData known folder, under RoleBand.
+An absolute ROLEBAND_STATE_DIR overrides it for isolated development. Database,
+cache, plugin and Fernet-key overrides remain explicit. Native ACLs protect
+credentials, preparation state and discovery before sensitive files are created.
+
+Packaged Windows HTTP always authenticates. Source development can enable the
+same boundary with ROLEBAND_LOCAL_AUTH=1. Other source and Mac entry points retain
+their existing access contract.
+
+Each HTTP process holds an account-private discovery lock and generates a new
+256-bit control key and a random 128-bit hostname under .localhost. Its exclusive
+socket binds only 127.0.0.1. Windows startup refuses authenticated mode outside
+the exclusive-socket entry point. Discovery records the actual origin and control key in
+launcher/http-engine.json. Native clients check its ownership and ACLs, connect
+directly to 127.0.0.1 without DNS, proxies or redirects, and send the recorded Host.
+The browser uses the per-process hostname, isolating its cache and tab storage
+from earlier listeners even when the port is reused. Localhost subdomains follow
+[RFC 6761](https://www.rfc-editor.org/rfc/rfc6761.html#section-6.3). Browser support
+still requires real acceptance on the supported Windows browser configuration.
+
+Requests use HMAC-SHA256 with a request domain separator, key identifier, integer
+Unix timestamp, random 128-bit nonce, method, exact origin, raw path and query,
+and the SHA256 digest of the UTF8 body, joined by newlines. Signatures expire
+after 45 seconds and accepted nonces cannot be reused. Replay memory is bounded
+and refuses work at capacity. A backwards wall-clock step invalidates authority
+until a process restart rotates the keys. Responses authenticate the request's
+Authorization value, response status and complete response-body digest under a
+separate domain separator. The transport bounds requests and responses to 16 MiB.
+
+All API reads, writes, health and documentation require authentication. HTTP
+upgrades are refused. Host and Origin must match the exact discovered origin,
+including its port. The existing host, unsafe-origin, simple-content-type and
+dashboard CSP protections remain in force. Public dashboard files expose no
+account data.
+
+Authenticated native control issues a browser-only ticket valid once for 60
+seconds. The ticket travels in the URL fragment and is removed before app startup
+requests or diagnostics. Its exchange returns a separate tab credential. That key
+stays in memory/sessionStorage and signs requests; it is never sent as a bearer
+or cookie. Browser credentials expire after eight hours and cannot issue another
+handoff. A missing or invalid response proof holds the browser connection closed
+until a fresh app handoff. API restart requires reopening through the app.
+
+The schema-free preparation responder uses the same control authentication and
+discovery. On Windows it has its own ephemeral port, avoiding an exclusive-socket
+rebind during TCP TIME_WAIT. Discovery rotates when the full API becomes ready.
+
+## Consequences
+
+The Windows host must follow private discovery and authenticated health, not a
+fixed browser URL or a public installation hash. It must open the browser through
+the ticket request. A loopback listener can deny service but cannot learn a
+reusable key from signed control traffic. Compromise of the same Windows account
+or browser scripts is outside this boundary. This is not a network-facing login
+system, and the API remains unsuitable for network exposure.
+
+Real two-standard-account acceptance, packaged state retention and browser
+lifecycle acceptance remain separate release requirements.

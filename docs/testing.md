@@ -27,6 +27,40 @@ shown, and report any check you skipped with its reason.
 | A workflow (`.github/workflows/`) | From the root: `docker run --rm -v "$PWD:/repo:ro" -w /repo rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667`, the image CI runs (1.7.12), with its shellcheck; from `backend/`: `.venv/bin/python -m pytest tests/test_ci_workflow_*.py` |
 | User-facing text | `npm run copy:check`, and `npm run test:unit`, which fails while a translation is stale (see [copy.md](copy.md)) |
 
+The Windows native host runs from the root with `dotnet test
+launcher/windows/RoleBand.EngineHost.Tests`. Set `ROLEBAND_WINDOWS_TRIAL_RESOURCES`
+to an assembled trial's `Resources` directory to include its packaged runtime;
+without it that test explicitly reports inconclusive. The tests use private
+synthetic databases and verify authenticated requests, refusal of forged and
+stalled responses, an exclusive desktop lease, retained roles, clean shutdown
+and automatic recovery after terminating their owned engine. Build the actual
+window with `dotnet build launcher/windows/RoleBand.App -p:Platform=x64` and
+check Start, Open, Stop and window closing on Windows. Check generated native
+copy with `node dashboard/scripts/export-launcher-copy.mjs --windows --check`.
+MSIX packing alone does not prove installation, retention or package recovery.
+
+`launcher/windows/Tools/PackageContextProbe` exercises the native package-policy
+bootstrap against installed trial resources. Build it with `dotnet build`, then
+launch its executable with `Invoke-CommandInDesktopPackage` using the installed
+trial's family and app ID, without `-PreventBreakaway`. Pass absolute
+`--resources`, fresh synthetic `--state` and writable `--report` paths in `-Args`.
+Its JSON report requires authenticated fixture reads, retained rows after restart,
+and clean shutdown. Keeping the policy switch on the launcher under test prevents
+the test runner from masking a broken bootstrap. This needs an installed trial;
+ordinary unpackaged native tests cannot verify package-context inheritance.
+
+`tests/test_windows_checkpoint.py` exercises real PG16 exports and scratch restores:
+Unicode and dated observations, saved-role state, sequences, a concurrent commit,
+damaged archives, mismatched restored data, private storage and refusal of an
+existing or overlapping target. It also runs the desktop command against stopped
+app-owned synthetic clusters and verifies both lifecycle leases. Run it on Windows
+with explicit throwaway state overrides. Scratch clusters are stopped and retained.
+The operator entry point is `backend/desktop.py --source checkpoint create` with
+explicit `--pgdata`, `--database`, `--destination` and `--verification-state`;
+`checkpoint verify` takes `--checkpoint` and a fresh `--verification-state`.
+Neither command restores over the source database. These checks do not establish
+package rollback or a complete update recovery transaction.
+
 The native engine-host integration tests accept `ROLEBAND_HOST_TEST_RESOURCES`
 pointing at an assembled app's `Contents/Resources`. They exercise its real
 Python, Postgres, supervisor and API with a new scratch home and database;

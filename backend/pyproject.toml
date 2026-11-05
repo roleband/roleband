@@ -212,6 +212,7 @@ files = [
     "packaged.py",
     "scripts/install_pg_contrib.py",
     "scripts/package_pg_contrib.py",
+    "scripts/windows_checkpoint.py",
     # Vocabulary and domain contracts
     "tracker/schema.py",
     "tracker/pay_disclosure.py",
@@ -262,7 +263,7 @@ files = [
     # What a notification says, as catalog keys
     "tracker/notifications/say.py",
     "tracker/notifications/catalog_format.py",
-    # L0 primitives with no tracker imports at all
+    # L0 primitives and platform adapters
     "tracker/platform/paging.py",
     "tracker/platform/tables.py",
     "tracker/platform/launcher.py",
@@ -270,6 +271,14 @@ files = [
     "tracker/platform/releases.py",
     "tracker/platform/paths.py",
     "tracker/platform/backups.py",
+    "tracker/platform/windows_db.py",
+    "tracker/platform/windows_private.py",
+    "tracker/platform/windows_checkpoint.py",
+    "tracker/platform/windows_process.py",
+    "tracker/platform/windows_state.py",
+    "tracker/platform/local_http.py",
+    "tracker/api/local_auth.py",
+    "tracker/api/routers/local_auth.py",
     # The published datasets' one check command, and the app's pinned copy of them
     "scripts/check_datasets.py",
     "scripts/data.py",
@@ -348,6 +357,8 @@ module = [
     "selectolax.*",
     "apple_fm_sdk.*",
     "asyncpg.*",
+    "psycopg2.*",
+    "psutil.*",
     "ijson.*",
     # Optional (requirements-optional.txt): typed when installed, absent otherwise.
     "playwright.*",

@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -430,7 +430,7 @@ function stylesheets(dir: string, acc: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
     const path = join(dir, name);
     if (statSync(path).isDirectory()) stylesheets(path, acc);
-    else if (name.endsWith(".css")) acc.push(relative(join(HERE, ".."), path));
+    else if (name.endsWith(".css")) acc.push(relative(join(HERE, ".."), path).split(sep).join("/"));
   }
   return acc;
 }

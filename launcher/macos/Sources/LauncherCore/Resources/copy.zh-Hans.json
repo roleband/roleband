@@ -85,6 +85,7 @@
   "pause-refused": "你的扫描计划更改被拒绝。请打开设置查看详情。",
   "pause-unconfirmed": "无法确认扫描计划更改。请打开设置进行检查。",
   "engine-start": "启动",
+  "engine-stop": "停止",
   "engine-diagnostics": "诊断",
   "engine-running": "后台服务正在运行，但未响应。\n请重试。",
   "engine-stopped": "已注册的后台服务已停止。",

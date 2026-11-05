@@ -38,6 +38,10 @@ mcp==1.30.0
 pydantic==2.13.4
 pydantic-settings==2.7.1
 
+# Time zones. `zoneinfo` reads the OS database on macOS and Linux; Windows has
+# none, so it reads this package there.
+tzdata==2026.6; sys_platform == "win32"
+
 # On-device AI lives in requirements-optional.txt, which setup.sh installs in a
 # non-fatal pass. A package here is mandatory at INSTALL time, and
 # `apple-fm-sdk` ships an sdist needing full Xcode to build — so an optional

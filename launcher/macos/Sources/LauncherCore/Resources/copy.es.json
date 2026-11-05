@@ -85,6 +85,7 @@
   "pause-refused": "Se rechazó tu cambio de horario. Abre ajustes para ver los detalles.",
   "pause-unconfirmed": "No se pudo confirmar el cambio de horario. Abre ajustes para comprobarlo.",
   "engine-start": "Iniciar",
+  "engine-stop": "Detener",
   "engine-diagnostics": "Diagnóstico",
   "engine-running": "Tu servicio en segundo plano está en ejecución, pero no responde.\nInténtalo de nuevo.",
   "engine-stopped": "El servicio en segundo plano registrado está detenido.",

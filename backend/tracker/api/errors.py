@@ -24,6 +24,7 @@ from tracker.api.schemas.text_class import text
 
 
 class ErrorCode(StrEnum):
+    ENGINE_LOCKED = "engine-locked"
     # Something the request named does not exist.
     JOB_NOT_FOUND = "job-not-found"
     COMPANY_NOT_FOUND = "company-not-found"

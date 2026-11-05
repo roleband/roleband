@@ -28,7 +28,7 @@ def test_space_and_quoted_paths_start_query_reattach_and_stop(tmp_path, monkeypa
     if libs.is_dir():
         shutil.copytree(libs, (runtime / "bin").parents[2] / libs.name)
     monkeypatch.setitem(POSTGRES_VERSIONS, 16, runtime / "bin")
-    with tempfile.TemporaryDirectory(prefix="rb-space-", dir="/tmp") as short:
+    with tempfile.TemporaryDirectory(prefix="rb-space-") as short:
         pgdata = Path(short) / name / "db"
         try:
             server = ensure_server(pgdata, database="probe", locale=cluster_locale(), required_extensions=("vector", "pg_trgm"))

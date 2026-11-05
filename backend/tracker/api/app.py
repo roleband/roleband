@@ -17,6 +17,8 @@ from the module that defines it, and patch it where it is looked up —
 from __future__ import annotations
 
 import asyncio
+import os
+import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 
@@ -29,12 +31,14 @@ from pydantic.json_schema import models_json_schema
 from tracker import __version__
 from tracker.api.boundary import LoopbackBoundary
 from tracker.api.errors import ErrorDetail
+from tracker.api.local_auth import LocalAuthentication
 from tracker.api.routers import (
     applications,
     companies,
     intelligence,
     jobs,
     lineage,
+    local_auth,
     notifications,
     ops,
     plugins,
@@ -51,6 +55,7 @@ from tracker.company_store import ensure_builtins, ensure_catalog_connectors
 from tracker.config import get_settings
 from tracker.db.session import get_session_factory
 from tracker.platform import preparation
+from tracker.platform.local_http import Authority, origin, required
 from tracker.platform.paths import DASHBOARD_DIST, DATA_DIR, PACING_DIR, PACKAGED
 from tracker.platform.ratelimit import enable_shared_pacing
 from tracker.profiles.seed import ensure_company_profiles
@@ -59,7 +64,7 @@ from tracker.usage_stats import tally as usage_tally
 
 
 @asynccontextmanager
-async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+async def _engine_lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Seed built-in company rows + profiles and warm the embedding model at startup."""
     # The API reads posting pages when someone opens a posting and
     # previews recipes: provider-facing requests on the hosts the scheduler
@@ -101,6 +106,24 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
                 await warm
 
 
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    authority = None
+    if required():
+        if sys.platform == "win32" and os.environ.get("ROLEBAND_HTTP_EXCLUSIVE") != "1":
+            raise ValueError("Authenticated Windows startup requires the exclusive HTTP server")
+        settings = get_settings()
+        authority = Authority(DATA_DIR, origin(settings.api_host, settings.api_port))
+    app.state.local_authority = authority
+    try:
+        async with _engine_lifespan(app):
+            yield
+    finally:
+        if authority is not None:
+            authority.close()
+        app.state.local_authority = None
+
+
 app = FastAPI(title="RoleBand Job Tracker API", version=__version__, lifespan=_lifespan)
 
 # Innermost of the three: counts only what the boundary admitted and the router
@@ -112,15 +135,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# Added last, so it is outermost: nothing — CORS included — answers a request
-# that crossed the loopback boundary. The API has no authentication, and this
-# is what that design rests on (tracker/api/boundary.py).
+app.add_middleware(LocalAuthentication, authority=lambda: getattr(app.state, "local_authority", None), enabled=required())
+# Outermost: host and browser-origin checks precede CORS and authentication.
 app.add_middleware(
     LoopbackBoundary,
     trusted_hosts=[get_settings().api_host, *get_settings().api_trusted_hosts],
+    local_origin=lambda: authority.endpoint if (authority := getattr(app.state, "local_authority", None)) else None,
 )
 
 app.include_router(ops.router)
+app.include_router(local_auth.router)
 app.include_router(jobs.router)
 app.include_router(lineage.router)
 app.include_router(skills.router)

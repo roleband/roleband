@@ -6,6 +6,7 @@
       "allow": [
         "src/api/shell.ts",
         "src/api/startup.ts",
+        "src/api/localAuthentication.ts",
         "src/api/transport.ts"
       ],
       "why": "the shell calls the client through api/shell.ts, the startup endpoints only. A domain object or the composed api ships whole, with every method any screen adds."

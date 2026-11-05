@@ -1,8 +1,8 @@
 """Start, find, prove and stop supervised processes.
 
-Every job starts through the trampoline (`tracker.supervisor.child`) as the
-leader of a new session, so a supervisor restart never takes a job down with it,
-and a signal to the job's process group reaches everything the job started.
+Every job starts through the trampoline (`tracker.supervisor.child`) in a POSIX
+session or a Windows Job Object, so a supervisor restart leaves the job running.
+Cancellation reaches its descendants through that containment.
 Identity is the PID, the process start time and the run marker in the argv
 together: the OS recycles PIDs, so a PID alone proves nothing.
 """
@@ -75,13 +75,18 @@ def launch(
     env: Mapping[str, str] | None = None,
     python: str = sys.executable,
 ) -> Launched:
-    """Start `job` as run `run_id`: its own session, output appended to its log."""
+    """Start `job` as an isolated run, with output appended to its log."""
     log = log_path(data_dir, job)
     fd = logs.open_append(log)
     try:
         offset = os.fstat(fd).st_size
         result = result_path(data_dir, run_id)
-        result.parent.mkdir(parents=True, exist_ok=True)
+        if sys.platform == "win32":
+            from tracker.platform.windows_private import private_directory
+
+            private_directory(result.parent)
+        else:
+            result.parent.mkdir(parents=True, exist_ok=True)
         result.unlink(missing_ok=True)
         raw = raw_path(data_dir, run_id)
         raw.unlink(missing_ok=True)
@@ -89,16 +94,22 @@ def launch(
         if job.caffeinate:
             argv.append("--caffeinate")
         argv += ["--", *command(job, extra, python=python)]
+        environment = child_env(env, run_id, repo_root)
+        environment.update({name: value.replace("{python}", python) for name, value in job.env})
+        environment[RAW_ENV] = str(raw)
+        options: dict = {"start_new_session": True}
+        if sys.platform == "win32":
+            from tracker.platform.windows_process import popen_options
+
+            options = popen_options(python, environment)
         process = subprocess.Popen(  # noqa: S603 - registry commands only
             argv,
             cwd=backend_dir(repo_root) if job.cwd == "backend" else repo_root / job.cwd,
-            env=child_env(env, run_id, repo_root)
-            | {name: value.replace("{python}", python) for name, value in job.env}
-            | {RAW_ENV: str(raw)},
+            env=environment,
             stdin=subprocess.DEVNULL,
             stdout=fd,
             stderr=fd,
-            start_new_session=True,
+            **options,
         )
     finally:
         os.close(fd)
@@ -106,7 +117,7 @@ def launch(
         run_id=run_id,
         pid=process.pid,
         pgid=process.pid,
-        proc_started_at=started_at(process.pid),
+        proc_started_at=process_started_at(process),
         log_path=log,
         log_offset=offset,
         process=process,
@@ -148,12 +159,41 @@ def _parse_lstart(text: str) -> datetime | None:
 
 
 def started_at(pid: int) -> datetime | None:
+    if sys.platform == "win32":
+        import psutil
+
+        try:
+            return datetime.fromtimestamp(psutil.Process(pid).create_time(), UTC)
+        except psutil.Error:
+            return None
     out = _ps("-o", "lstart=", "-p", str(pid))
     return None if not out or not out.strip() else _parse_lstart(out)
 
 
+def process_started_at(process: subprocess.Popen) -> datetime | None:
+    """An owned handle pins the kernel creation time across Windows PID reuse."""
+    if sys.platform == "win32":
+        from tracker.platform.windows_process import creation_time
+
+        # CPython's owned Windows handle is absent from the public Popen stubs.
+        return datetime.fromtimestamp(creation_time(int(process._handle)), UTC)  # type: ignore[attr-defined]
+    return started_at(process.pid)
+
+
 def identity(pid: int) -> tuple[datetime | None, str] | None:
     """(start time, command line) of a live process, or None."""
+    if sys.platform == "win32":
+        import psutil
+
+        from tracker.platform.windows_process import owned_process
+
+        process = owned_process(pid)
+        if process is None:
+            return None
+        try:
+            return datetime.fromtimestamp(process.create_time(), UTC), subprocess.list2cmdline(process.cmdline())
+        except psutil.Error:
+            return None
     out = _ps("-o", "lstart=", "-o", "command=", "-p", str(pid))
     if not out or not out.strip():
         return None
@@ -163,8 +203,12 @@ def identity(pid: int) -> tuple[datetime | None, str] | None:
     return _parse_lstart(" ".join(words[:5])), words[5]
 
 
-def is_run(pid: int, run_id: int, proc_started_at: datetime | None) -> bool:
+def is_run(pid: int, run_id: int, proc_started_at: datetime | None, *, data_dir: Path | None = None) -> bool:
     """Whether `pid` is still run `run_id`'s trampoline."""
+    if sys.platform == "win32":
+        from tracker.platform.windows_process import owned_process
+
+        return owned_process(pid, run_id=run_id, started=proc_started_at, data_dir=data_dir) is not None
     found = identity(pid)
     if found is None:
         return False
@@ -176,9 +220,19 @@ def is_run(pid: int, run_id: int, proc_started_at: datetime | None) -> bool:
     return abs((began - proc_started_at).total_seconds()) <= 1
 
 
-def find_run(run_id: int) -> int | None:
+def find_run(run_id: int, *, data_dir: Path | None = None) -> int | None:
     """The PID of run `run_id`'s trampoline, by its marker, for a run whose PID was
     never recorded (the supervisor died between the spawn and the write)."""
+    if sys.platform == "win32":
+        import psutil
+
+        from tracker.platform.windows_process import owned_process
+
+        matches = [process.pid for process in psutil.process_iter()
+                   if owned_process(process.pid, run_id=run_id, data_dir=data_dir) is not None]
+        if len(matches) > 1:
+            raise OSError(f"more than one process claims supervised run {run_id}")
+        return matches[0] if matches else None
     out = _ps("-axo", "pid=,command=")
     for line in (out or "").splitlines():
         pid, _, rest = line.strip().partition(" ")
@@ -188,6 +242,10 @@ def find_run(run_id: int) -> int | None:
 
 
 def group_alive(pgid: int) -> bool:
+    if sys.platform == "win32":
+        from tracker.platform.windows_process import owned_process
+
+        return owned_process(pgid) is not None
     try:
         os.killpg(pgid, 0)
     except ProcessLookupError:
@@ -198,6 +256,13 @@ def group_alive(pgid: int) -> bool:
 
 
 def signal_group(pgid: int, signum: int) -> bool:
+    if sys.platform == "win32":
+        from tracker.platform.windows_process import owned_process, request_interrupt, terminate
+
+        process = owned_process(pgid)
+        if process is None:
+            return False
+        return request_interrupt(process) if signum in (signal.SIGTERM, signal.SIGINT) else terminate(process)
     try:
         os.killpg(pgid, signum)
     except ProcessLookupError:
@@ -211,11 +276,41 @@ async def stop_group(
     *,
     reap: Callable[[], object] | None = None,
     poll_seconds: float = 0.05,
+    run_id: int | None = None,
+    proc_started_at: datetime | None = None,
+    data_dir: Path | None = None,
 ) -> str:
-    """SIGTERM the group, wait up to `grace_seconds` of awake time, then SIGKILL.
+    """Request a stop, allow `grace_seconds` of awake time, then end containment.
 
     `reap` collects our own child, which would otherwise linger as a zombie and
     keep the group alive. Returns "gone", "terminated" or "killed"."""
+
+    if sys.platform == "win32":
+        from tracker.platform.windows_process import owned_process, request_interrupt, terminate
+
+        process = owned_process(pgid, run_id=run_id, started=proc_started_at, data_dir=data_dir)
+        if process is None:
+            return "gone"
+        # Keep this process's kernel start time even when the database row has
+        # not recorded one yet, so escalation cannot follow a recycled PID.
+        expected = datetime.fromtimestamp(process.create_time(), UTC)
+        await asyncio.to_thread(request_interrupt, process)
+        deadline = awake_seconds() + grace_seconds
+        while awake_seconds() < deadline:
+            if reap is not None:
+                reap()
+            if owned_process(pgid, run_id=run_id, started=expected, data_dir=data_dir) is None:
+                return "terminated"
+            await asyncio.sleep(poll_seconds)
+        if owned_process(pgid, run_id=run_id, started=expected, data_dir=data_dir) is None or not terminate(process):
+            return "terminated"
+        for _ in range(100):
+            if reap is not None:
+                reap()
+            if not process.is_running():
+                break
+            await asyncio.sleep(poll_seconds)
+        return "killed"
 
     def alive() -> bool:
         if reap is not None:
@@ -238,13 +333,27 @@ async def stop_group(
 
 
 def start_service(argv: Sequence[str], *, cwd: Path, env: Mapping[str, str], log: Path) -> subprocess.Popen:
-    """Start a service (the API) in the supervisor's own process group, so it
-    ends with the supervisor: launchd stops the group, and the next supervisor
-    starts the service afresh. Its output is appended to `log`."""
+    """Start a service owned by the supervisor, with output appended to `log`.
+
+    POSIX shares the supervisor's process group. Windows uses a contained
+    trampoline watching a pinned supervisor handle, so an abrupt parent exit
+    also ends the service and its descendants.
+    """
     fd = logs.open_append(log)
     try:
+        environment = dict(env)
+        options: dict = {}
+        arguments = list(argv)
+        if sys.platform == "win32":
+            import psutil
+
+            from tracker.platform.windows_process import popen_options
+
+            arguments = [sys.executable, "-m", child.MARKER, "--run", "0", "--parent-pid", str(os.getpid()),
+                         "--parent-start", str(psutil.Process().create_time()), "--", *arguments]
+            options = popen_options(sys.executable, environment)
         return subprocess.Popen(  # noqa: S603 - a fixed command, never user input
-            list(argv), cwd=cwd, env=dict(env), stdin=subprocess.DEVNULL, stdout=fd, stderr=fd,
+            arguments, cwd=cwd, env=environment, stdin=subprocess.DEVNULL, stdout=fd, stderr=fd, **options,
         )
     finally:
         os.close(fd)

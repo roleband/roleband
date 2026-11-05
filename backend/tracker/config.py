@@ -18,7 +18,7 @@ from tracker.blueprint import BLUEPRINT
 from tracker.platform.database_presets import PRESETS, DatabasePreset, PresetName, preset_for
 from tracker.platform.embedded_db import DEFAULT_LOCALE
 from tracker.platform.memory import total_memory_bytes
-from tracker.platform.paths import PACKAGED
+from tracker.platform.paths import PACKAGED, user_data_dir
 
 if TYPE_CHECKING:
     from tracker.platform.embedded_db import EmbeddedServer
@@ -486,7 +486,7 @@ class Settings(BaseSettings):
     def cache_dir(self) -> Path:
         if self.cache_dir_override:
             return Path(self.cache_dir_override).expanduser()
-        return Path.home() / ".roleband" / "cache"
+        return user_data_dir() / "cache"
 
     # Installed plugins: `<id>/{src,venv,data}`. Beside the
     # database for the same reasons (`embedded_pgdata`): outside the checkout,
@@ -500,18 +500,17 @@ class Settings(BaseSettings):
     def plugins_dir(self) -> Path:
         if self.plugins_dir_override:
             return Path(self.plugins_dir_override).expanduser()
-        return Path.home() / ".roleband" / "plugins"
+        return user_data_dir() / "plugins"
 
     def embedded_pgdata(self) -> Path:
         """Where the embedded cluster lives. See `db_pgdata` for why not the checkout.
 
-        A dotted home directory is portable, sync-free, and survives
-        reinstalling the app. The embedded-server adapter quotes paths that
-        contain spaces or shell syntax.
+        Retained account state stays outside the replaced application code.
+        The embedded-server adapter quotes paths containing spaces or shell syntax.
         """
         if self.db_pgdata:
             return Path(self.db_pgdata).expanduser()
-        return Path.home() / ".roleband" / "db"
+        return user_data_dir() / "db"
 
     def ensure_embedded_server(self) -> EmbeddedServer:
         """Start or attach the embedded server. Idempotent; safe from any process.

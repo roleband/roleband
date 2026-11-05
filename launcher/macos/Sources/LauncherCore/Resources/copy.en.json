@@ -85,6 +85,7 @@
   "pause-refused": "Your schedule change was declined. Open settings for details.",
   "pause-unconfirmed": "Couldn't confirm the schedule change. Open settings to check it.",
   "engine-start": "Start",
+  "engine-stop": "Stop",
   "engine-diagnostics": "Diagnostics",
   "engine-running": "Your background service is running, but isn't answering.\nTry again.",
   "engine-stopped": "The registered background service is stopped.",

@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 import shutil
 import stat
+import sys
 from pathlib import Path
 
 #: The largest an active log may grow before it is rotated.
@@ -34,7 +35,12 @@ def rotated(path: Path) -> Path:
 
 def open_append(path: Path) -> int:
     """A file descriptor for appending to `path`, readable by its owner only."""
-    path.parent.mkdir(parents=True, exist_ok=True)
+    if sys.platform == "win32":
+        from tracker.platform.windows_private import private_directory
+
+        private_directory(path.parent)
+    else:
+        path.parent.mkdir(parents=True, exist_ok=True)
     return os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
 
 

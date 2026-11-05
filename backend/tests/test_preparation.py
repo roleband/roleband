@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -40,8 +43,13 @@ def test_preparation_progress_is_atomic_and_refuses_a_symbolic_link(tmp_path):
     foreign = tmp_path / "foreign"
     foreign.mkdir()
     linked = tmp_path / "linked"
-    linked.symlink_to(foreign, target_is_directory=True)
-    with pytest.raises(ValueError):
+    if sys.platform == "win32":
+        script = tmp_path / "junction.ps1"
+        script.write_text("param($link, $target)\n$ErrorActionPreference = 'Stop'\nNew-Item -ItemType Junction -Path $link -Target $target | Out-Null\n")
+        subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script), str(linked), str(foreign)], check=True, capture_output=True)
+    else:
+        linked.symlink_to(foreign, target_is_directory=True)
+    with pytest.raises((ValueError, PermissionError)):
         preparation.update(linked, database="creating")
     assert not list(foreign.iterdir())
 
@@ -51,15 +59,16 @@ def test_missing_or_malformed_progress_cannot_claim_readiness(tmp_path):
 
     from tracker.platform.launcher import installation_identity
 
+    data = tmp_path / "private"
     identity = installation_identity(tmp_path, api_host="127.0.0.1", api_port=58329, version="0.1.0")
-    assert preparation.payload(tmp_path, identity)["preparation"]["database"] == "waiting"
-    preparation.update(tmp_path, database="ready", service="ready")
-    path = tmp_path / "launcher/preparation.json"
+    assert preparation.payload(data, identity)["preparation"]["database"] == "waiting"
+    preparation.update(data, database="ready", service="ready")
+    path = data / "launcher/preparation.json"
     state = json.loads(path.read_text())
     state["downloaded_bytes"] = True
     path.write_text(json.dumps(state))
-    assert preparation.read(tmp_path) is None
-    assert preparation.payload(tmp_path, identity)["preparation"]["database"] == "waiting"
+    assert preparation.read(data) is None
+    assert preparation.payload(data, identity)["preparation"]["database"] == "waiting"
 
 
 def test_bootstrap_answers_before_migration_and_releases_the_port(tmp_path, monkeypatch):

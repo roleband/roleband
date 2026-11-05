@@ -3,16 +3,24 @@
 A laptop with its lid shut is asleep for hours. A timeout counted in wall-clock
 time would end a healthy scan the moment the lid opens, so timeouts count awake
 time: `CLOCK_UPTIME_RAW` on macOS, which stops while the machine sleeps, and
-`CLOCK_MONOTONIC` elsewhere, which on Linux stops during suspend too. Named
+`CLOCK_MONOTONIC` on Linux and unbiased interrupt time on Windows. Named
 explicitly rather than through `time.monotonic()`, whose source an interpreter
 may change.
 """
 
 from __future__ import annotations
 
+import sys
 import time
 
-_AWAKE = getattr(time, "CLOCK_UPTIME_RAW", time.CLOCK_MONOTONIC)
+if sys.platform == "win32":
+    import ctypes
+
+    _query_awake = ctypes.WinDLL("kernel32", use_last_error=True).QueryUnbiasedInterruptTime
+    _query_awake.argtypes = [ctypes.POINTER(ctypes.c_uint64)]
+    _query_awake.restype = ctypes.c_int
+else:
+    _AWAKE = getattr(time, "CLOCK_UPTIME_RAW", time.CLOCK_MONOTONIC)
 
 #: Wall-clock time running ahead of awake time by more than this means a sleep.
 SLEEP_GAP_SECONDS = 60.0
@@ -20,7 +28,13 @@ SLEEP_GAP_SECONDS = 60.0
 
 def awake_seconds() -> float:
     """Seconds the machine has been awake, from an arbitrary origin."""
-    return time.clock_gettime(_AWAKE)
+    if sys.platform == "win32":
+        counter = ctypes.c_uint64()
+        if not _query_awake(ctypes.byref(counter)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        return counter.value / 10_000_000
+    else:
+        return time.clock_gettime(_AWAKE)
 
 
 class SleepDetector:

@@ -25,6 +25,18 @@ ENV_FLAG = "ROLEBAND_REQUIRE_INTEGRATION"
 #: Reasons that stay skips even when integration is required, each with why.
 OPTIONAL_SKIPS: tuple[tuple[re.Pattern[str], str], ...] = (
     (
+        re.compile(r"Windows state discovery requires Windows"),
+        "native known-folder, credential ACL and packaged HTTP tests require Windows",
+    ),
+    (
+        re.compile(r"Windows process control requires Windows"),
+        "native Job Object, console and process-handle tests require Windows",
+    ),
+    (
+        re.compile(r"Windows embedded database requires Windows"),
+        "native account ACL and TCP ownership tests require Windows",
+    ),
+    (
         re.compile(r"embedding model not available offline"),
         "model weights are provisioned separately and never in CI (tests/test_embed.py)",
     ),

@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -65,7 +65,7 @@ describe("read-state ownership", () => {
     const offenders: string[] = [];
     for (const file of sourceFiles(SRC)) {
       const source = readFileSync(file, "utf8");
-      const rel = relative(SRC, file);
+      const rel = relative(SRC, file).split(sep).join("/");
       for (const { name, pattern } of TRIPLE) {
         if (!pattern.test(source)) continue;
         if (EXEMPT.get(rel) === name) continue;

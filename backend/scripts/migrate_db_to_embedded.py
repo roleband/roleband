@@ -144,7 +144,7 @@ def migrate(
 
     dump = pgdata.parent / "roleband-migration.dump"
     print(f"\ndumping to {dump} ...")
-    proc = _run([str(server.tool("pg_dump")), source_dsn, "-Fc", "-f", str(dump)])
+    proc = _run([str(server.tool("pg_dump")), "-d", source_dsn, "-Fc", "-f", str(dump)])
     if proc.returncode != 0:
         raise MigrationError(f"pg_dump failed: {(proc.stderr or '').strip()[-500:]}")
     print(f"dump   : {dump.stat().st_size / 1e6:.1f} MB")

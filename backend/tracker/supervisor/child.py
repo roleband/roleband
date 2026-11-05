@@ -4,8 +4,8 @@
 
 The argv carries the run id, so a supervisor that restarts can prove a process is
 still this run by its PID, its start time and this marker together: the OS
-recycles PIDs, so a PID alone proves nothing. The trampoline runs the command in its own process group
-(the runner starts it as a session leader), keeps the machine from idle-sleeping
+recycles PIDs, so a PID alone proves nothing. The trampoline contains the command
+in a POSIX session or a Windows Job Object and keeps the machine from idle-sleeping
 while it runs when asked, and writes how the command ended to the result file
 before it exits, so a run's end is known even when the supervisor that started it
 has gone. It never touches the database: a backup or a preflight runs while the
@@ -27,6 +27,13 @@ from types import FrameType
 from typing import Any
 
 MARKER = "tracker.supervisor.child"
+
+
+def exit_status(code: int) -> int:
+    """Keep Windows DWORD status bits representable in the signed run column."""
+    if sys.platform == "win32" and code >= 2**31:
+        return code - 2**32
+    return code
 
 
 def marks_run(command: str, run_id: int) -> bool:
@@ -66,18 +73,38 @@ def main(argv: list[str] | None = None) -> int:
     # First, before anything that takes time: a stop that arrives earlier ends
     # the trampoline before it has started the command, which is a clean stop
     # with nothing left behind, but leaves no result file.
-    for signum in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+    signals: tuple[int, ...] = (signal.SIGTERM, signal.SIGINT)
+    if sys.platform == "win32":
+        signals += (signal.SIGBREAK,)
+    else:
+        signals += (signal.SIGHUP,)
+    for signum in signals:
         signal.signal(signum, note)
 
     parser = argparse.ArgumentParser(prog=f"python -m {MARKER}")
     parser.add_argument("--run", type=int, required=True)
-    parser.add_argument("--result", type=Path, required=True)
+    parser.add_argument("--result", type=Path)
+    parser.add_argument("--parent-pid", type=int)
+    parser.add_argument("--parent-start", type=float)
     parser.add_argument("--caffeinate", action="store_true")
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
+    if args.result is None and (sys.platform != "win32" or args.parent_pid is None):
+        parser.error("a result path is required for a job")
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
     if not command:
         parser.error("no command to run")
+
+    if sys.platform == "win32":
+        from tracker.platform.windows_process import enter_job, hold_awake, monitor_parent
+
+        enter_job()
+        if args.caffeinate:
+            hold_awake()
+        if args.parent_pid is not None:
+            if args.parent_start is None:
+                parser.error("a service requires its supervisor's start time")
+            monitor_parent(args.parent_pid, args.parent_start)
 
     helper = None
     caffeinate = shutil.which("caffeinate") if args.caffeinate else None
@@ -90,29 +117,38 @@ def main(argv: list[str] | None = None) -> int:
 
     if signalled:
         # Stopped before the command started: start nothing.
-        write_result(args.result, {"exit_code": 128 + signalled[0], "signalled": signalled[:1], "ended_at": _now()})
+        if args.result is not None:
+            write_result(args.result, {"exit_code": 128 + signalled[0], "signalled": signalled[:1], "ended_at": _now()})
         return 128 + signalled[0]
     try:
         child = subprocess.Popen(command)  # noqa: S603 - a registry command, never user input
     except OSError as error:
-        write_result(args.result, {"exit_code": 127, "error": str(error), "ended_at": _now()})
+        if args.result is not None:
+            write_result(args.result, {"exit_code": 127, "error": str(error), "ended_at": _now()})
         return 127
     if signalled:
         # The group's signal came between the check above and the start, before
         # the command existed to receive it.
-        child.send_signal(signalled[0])
-    code = child.wait()
-    write_result(
-        args.result,
-        {
-            "exit_code": code,
-            "signal": -code if code < 0 else None,
-            "signalled": signalled[:1] or None,
-            "ended_at": _now(),
-        },
-    )
+        if sys.platform == "win32":
+            child.terminate()
+        else:
+            child.send_signal(signalled[0])
+    raw_code = child.wait()
+    code = exit_status(raw_code)
+    if args.result is not None:
+        write_result(
+            args.result,
+            {
+                "exit_code": code,
+                "signal": -code if code < 0 and sys.platform != "win32" else None,
+                "signalled": signalled[:1] or None,
+                "ended_at": _now(),
+            },
+        )
     if helper is not None:
         helper.terminate()
+    if sys.platform == "win32":
+        return raw_code
     return code if code >= 0 else 128 - code
 
 

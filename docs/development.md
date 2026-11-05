@@ -17,6 +17,7 @@ before you change something, read the one that owns it:
 | Tests, and the gate to run before a change is done | [testing.md](testing.md) |
 | Backend behaviour, data, the pipeline, the API, dashboard structure | [architecture.md](architecture.md) |
 | The Mac app: packaged engine, process host, signing, updates | [architecture.md](architecture.md#the-mac-app) |
+| The Windows app: native host and development bundles | [architecture.md](architecture.md#the-windows-app) |
 | A listing source or how a site is fetched | [sources.md](sources.md) |
 | Pay, or who writes a posting's level, text, places or pay | [pay.md](pay.md), [field-authority.md](field-authority.md) |
 | A screen, a control or a style | [ui.md](ui.md) |

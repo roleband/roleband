@@ -2,6 +2,8 @@ import { msg } from "./test/msg";
 import { shellBellUnread, shellRailPending as pending } from "./copy/gen/shell";
 import { describe, expect, it } from "vitest";
 import { COUNTRY_LABEL } from "./locations.gen";
+import { activate } from "./copy/activate";
+import { choice } from "./copy/runtime";
 import { COUNT_BADGE_MAX, LOC_LABEL, companyName, countBadge, fmtComp, fmtRange, formatWhen, freshnessLabel, relDays, setCompanyNames } from "./format";
 
 describe("format helpers", () => {
@@ -141,15 +143,21 @@ describe("LOC_LABEL", () => {
 
 
 describe("one grammar for a moment: the settings registers and the freshness tooltip (R14)", () => {
-  it("formats a moment with the weekday by default, without it on request", () => {
-    const iso = "2026-10-04T09:05:00Z";
-    const at = new Date(iso);
-    expect(formatWhen(iso)).toBe(
-      at.toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }),
-    );
-    expect(formatWhen(iso, { weekday: false })).toBe(
-      at.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }),
-    );
-    expect(formatWhen(iso)).not.toBe(formatWhen(iso, { weekday: false }));
+  it.each(["en-US", "en-GB"])("formats a moment with the chosen %s region and optional weekday", async (region) => {
+    const previous = choice();
+    await activate("en", { region });
+    try {
+      const iso = "2026-10-04T09:05:00Z";
+      const at = new Date(iso);
+      expect(formatWhen(iso)).toBe(
+        at.toLocaleString(region, { weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }),
+      );
+      expect(formatWhen(iso, { weekday: false })).toBe(
+        at.toLocaleString(region, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }),
+      );
+      expect(formatWhen(iso)).not.toBe(formatWhen(iso, { weekday: false }));
+    } finally {
+      await activate(previous.language, { region: previous.region });
+    }
   });
 });
