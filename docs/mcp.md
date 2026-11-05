@@ -78,12 +78,14 @@ The Settings card never saves `allow_writes` on without `enabled`.
 | `save_recipe_draft` | write + confirmation | Stores the recipe as a new draft revision. |
 
 Pursuit stages are `saved`, `researching`, `networking`, `applied`,
-`interviewing`, `offer`, `rejected` and `withdrawn`.
+`interviewing` and `offer`, then the endings: `accepted`, `declined` and
+`withdrawn` (the user's choice), `rejected` and `role_closed` (the company's
+or the world's).
 
 **What search shows.** Visibility comes from `tracker/db/queries/jobs.py`, the
 same module the Board uses: hidden and unfollowed companies and dismissed
 postings are left out, except that `saved_only` keeps a saved posting the user
-later hid or dismissed, as the Saved screen does.
+later hid or dismissed, as the pipeline does.
 
 **Filters say what they ignored.** `companies`, `families` and `locations`
 accept a slug or its plain name in any case ("Product Management",

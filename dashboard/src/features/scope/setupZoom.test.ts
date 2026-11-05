@@ -100,6 +100,9 @@ const ALL = STYLESHEETS.flatMap(declarations);
 const BOARD = "the board, its filters and its job pages; setup shows none of them";
 const PAGES = "a page of the app's own, reached from the rail, which setup does not draw";
 const NOT_SETUP: Record<string, string> = {
+  "features/applications/applications.css .app-list-row:hover .app-list-actions": PAGES,
+  "features/applications/applications.css .app-list-scroll[data-overflowing] .app-list-row:hover .app-list-actions": PAGES,
+  "features/applications/applications.css .app-month": PAGES,
   "features/company-profiles/company-profiles.css .main.prof-main": PAGES,
   "features/company-profiles/company-profiles.css .prof-main > .prof-shell > .prof-list": PAGES,
   "features/notifications/notification-bell.css .notif-popover .ui-popover-inner": "the bell sits in the top bar, which setup does not draw",

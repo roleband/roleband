@@ -114,6 +114,9 @@ const RoutedScreens = memo(function RoutedScreens({ location }: { location: Loca
       <Route path="/settings/roles" element={<Navigate to="/profile/direction" replace />} />
       {/* /settings/integrations lands on Settings > Plugins, where pay sources are set. */}
       <Route path="/settings/integrations" element={<Navigate to="/settings/plugins" replace />} />
+      {/* Saved's old address: every starred role is a card on the pipeline's
+          Board, where the List holds only those still in Considering. */}
+      <Route path="/favorites" element={<Navigate to="/pipeline/board" replace />} />
       {/* One plugin's settings: the Settings shell on the Plugins tab,
           which reads `:pluginId` (any other tab sends it back). */}
       <Route path="/settings/:tab/:pluginId" element={<SettingsItemRoute />} />
@@ -128,7 +131,7 @@ function Shell() {
   // query, so it must not re-render on a keystroke.
   const stats = useMissionStats();
   const { newSignalsOnly, repostsOnly } = useMissionState();
-  const { boardSearchRef, showNewSignals, showReposts, clearLenses } = useMissionActions();
+  const { screenSearchRef, showNewSignals, showReposts, clearLenses } = useMissionActions();
   const [theme, setTheme] = useState<Theme>(readTheme);
   const [navExpanded, setNavExpanded] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -262,11 +265,19 @@ function Shell() {
   // list and its `/:param` are ONE screen picking a row, so they share a key:
   // keyed on the whole path, every company pick would remount /company,
   // refetching the roster and dropping the list's scroll and open groups.
+  // A tabbed section's tabs are one screen showing another view, so they
+  // share a key too: keyed on the whole path, every tab switch would remount
+  // the section, refetch its data and draw its header without the line that
+  // data fills, then drop the page when it lands. A slug that is not a tab
+  // (`/pipeline/202`, one application) stays a screen of its own.
   // Anything deeper (a position under a company: a third segment) is another
   // screen, keyed by the position whichever URL names it (`positionKey`).
+  const [, , second, third] = routedLocation.pathname.split("/");
   const boundaryKey =
     positionKey(routedLocation.pathname) ??
-    (activeTab?.entityParam && !routedLocation.pathname.split("/")[3] ? activeTab.path : routedLocation.pathname);
+    ((activeTab?.entityParam && !third) || (!third && activeTab?.tabs?.some((t) => t.slug === second))
+      ? activeTab!.path
+      : routedLocation.pathname);
   // /welcome is the one route outside the tab table; it is not the dashboard.
   const routeLabel =
     activeTab?.label ??
@@ -310,10 +321,11 @@ function Shell() {
   const toggleTheme = useCallback(() => setTheme((t) => (t === "dark" ? "light" : "dark")), []);
 
   // Global keyboard surface: ⌘K/Ctrl-K opens the palette anywhere; "/" focuses
-  // the board search when not already typing in a field. The input itself
-  // lives in the Board's own toolbar (the settings idiom) and reaches the
-  // shell only through the context ref — null on every other route, where "/"
-  // falls back to the palette.
+  // the search of the screen on show when not already typing in a field. The
+  // input lives in that screen's own toolbar (the settings idiom) and reaches
+  // the shell only through the context ref. Where there is none, or it stands
+  // behind an open cover (inert, so it cannot take focus), "/" opens the
+  // palette instead, so the key never does nothing.
   useEffect(() => {
     if (muted) return;
     const onKey = (e: KeyboardEvent) => {
@@ -326,7 +338,8 @@ function Shell() {
       const typing = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
       if (e.key === "/" && !typing && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
-        if (boardSearchRef.current) boardSearchRef.current.focus();
+        const box = screenSearchRef.current;
+        if (box && !box.closest("[inert]")) box.focus();
         else setPaletteOpen(true);
         return;
       }
@@ -339,7 +352,7 @@ function Shell() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [boardSearchRef, muted]);
+  }, [screenSearchRef, muted]);
 
   return (
     <div className={`app${navExpanded ? " nav-expanded" : ""}${room ? " in-setup" : ""}`}>
@@ -435,9 +448,11 @@ function Shell() {
                 title={shellStatRepostedTitle()}
               />
             )}
+            {/* It counts every starred role, so it opens the Board, which
+                shows them all; the List holds only those in Considering. */}
             <StatChip
               kind="link"
-              to="/favorites"
+              to="/pipeline/board"
               n={stats?.saved_total ?? "—"}
               label={shellStatSaved()}
               ariaLabel={stats ? shellStatSavedAria({ count: stats.saved_total }) : shellStatSavedAriaUnknown()}

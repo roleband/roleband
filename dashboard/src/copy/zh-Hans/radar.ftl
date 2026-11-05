@@ -44,7 +44,7 @@ radar-mode-closed = 已关闭
 
 ## 雷达操作
 radar-save-failed = 无法保存 { $title }。请重试。
-radar-unsave-failed = 无法将 { $title } 从已保存中移除。请重试。
+radar-unsave-failed = 无法将 { $title } 从求职进展中移除。请重试。
 radar-restore-failed = 无法恢复 { $title }。请重试。
 radar-exclude-done = 含“{ $value }”的 { $count } 个职位已移出你的雷达。可在 个人资料 › 求职意向 中更改。
 radar-exclude-failed = 无法为“{ $value }”保存此设置。请重试。

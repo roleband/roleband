@@ -306,6 +306,7 @@ writing a screen-local version.
 | On/off setting | `Switch` |
 | Pick one of a few modes | `Segmented` |
 | Pick from a list | `Select` (native) or `FilterSelect` (searchable facet picker) |
+| A dropdown of actions or choices | `Menu` with `MenuGroup`, `MenuItem`, `MenuCheck`, `MenuRadio`; it pads and sizes itself, so a caller never styles the popover around it |
 | Toggle a filter | `FilterChip` |
 | Filter register | `FacetGroup`, `FilterGroup`, `FilterRegister`, `FilterDrawer` from `ui/FilterRail` |
 | Search box | `SearchField` |
@@ -599,6 +600,9 @@ carries a control sets `data-above-cover` to join the cover's Tab ring.
 - On a job list, `j` / `k` (or the arrow keys) move between rows, Enter opens
   the role, `s` saves and `c` adds to Compare.
 - Duplicate review answers `d`, `t` and `n` with a verdict.
+- On an application's page, `m` opens the stage menu and `i` adds an interview;
+  while a stage menu is open, here or on a Board card, `1` to `5` move to the
+  stage it numbers.
 - A single-letter key ignores presses with a modifier and presses inside a
   text field. Review's verdict keys also step aside while a modal is open,
   because a stray press there would record a decision.
@@ -764,6 +768,14 @@ text's line count, in page pixels, within 2 px. It runs in WebKit and in Chromiu
 without font hinting, the engines that magnify; the suite's own Chromium checks
 that setup stays at 1.
 
+One dialog is magnified the same way: the interview form
+(`features/applications/InterviewDialog.tsx`), drawn at a fixed 1.15 so its
+month and times are easier to read and hit. Its own box sets `--page-zoom` and
+`zoom` inside `@supports (zoom: 1)`, so the Dialog's window units divide by its
+factor and it still fits the window; at 540 px and narrower it is drawn plain.
+It holds no pop-up placed from a position. Text rewrapping under an engine
+that hints letters is accepted there: a form is not compared against a design.
+
 ### Dense register
 
 Settings > Companies is the pattern for a large set that must be read and
@@ -795,6 +807,10 @@ roles (`COMPARE_CAP` in `context/JobWorkspace.tsx`): sticky column heads with
 the role and its verbs (save, not for me, remove), a field ledger from
 `attributes.tsx`, and one description column per role. It is not a rail entry;
 it opens from the margin beacon, Job detail, the top-bar chip and the palette.
+Radar and the Pipeline each keep their own selection
+([0002](decisions/0002-compare-per-screen.md)): a pick on one is not a pick on
+the other, and a cover works on the selection of the screen under it
+(`listScreenOf` in `routing/paths.ts`).
 
 ### Duplicate review
 

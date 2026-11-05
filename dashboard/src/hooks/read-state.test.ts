@@ -95,7 +95,7 @@ describe("read-state ownership", () => {
     // A gate that only forbids is satisfiable by deleting the feature. Name the
     // migrated controllers, so the absence above means adoption.
     for (const controller of [
-      "features/saved/useSavedController.ts",
+      "features/applications/usePostings.ts",
       "features/notifications/useNotificationsController.ts",
       "features/opportunities/useBoardController.ts",
       "features/compare/useCompareController.ts",

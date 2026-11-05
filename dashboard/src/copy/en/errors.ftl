@@ -40,6 +40,12 @@ error-fit-band-not-found = That fit grade can't be found.
 error-schedule-not-found = That company has no schedule yet. Try again when the scan ends.
 # kind=error next=none
 error-page-not-found = There's nothing here.
+# kind=error next=none note="The role is neither starred nor past Considering"
+error-application-not-found = That role isn't in your pipeline anymore.
+# kind=error next=none
+error-comment-not-found = That comment is gone.
+# kind=error next=none
+error-interview-not-found = That interview is gone.
 # kind=error next=none
 error-plugin-not-found = That plugin isn't installed anymore.
 
@@ -108,6 +114,10 @@ error-recipe-invalid = That recipe has problems. Fix them and try again.
 error-recipe-conflict = That company is already scanned another way.
 # kind=error
 error-usage-catalogue-changed = What's shared changed while you were choosing. Try again.
+# kind=error next=none note="Editing or deleting a comment an assistant app wrote"
+error-comment-not-yours = Only your own comments can be changed.
+# kind=error note="Unstarring a role whose stage is past Considering; ending it keeps its history"
+error-application-under-way = This role is under way, so it stays saved. Mark it Withdrawn instead.
 
 ## Plugins: what an install allows, and what the person saw
 # kind=error next=none

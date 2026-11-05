@@ -14,6 +14,7 @@
 // boundary, and this file composes the one `api` object every screen calls.
 // Importers write `../api`.
 
+import { applicationsApi } from "./applications";
 import { jobsApi } from "./jobs";
 import { opsApi } from "./ops";
 import { statisticsApi } from "./statistics";
@@ -32,6 +33,7 @@ import { startupApi } from "./startup";
 export const api = {
   ...startupApi,
   ...jobsApi,
+  ...applicationsApi,
   ...opsApi,
   ...statisticsApi,
   ...skillsApi,
@@ -50,7 +52,7 @@ export { ApiError, isNotFound } from "./transport";
 export { DEFAULT_FILTERS } from "./jobs";
 export { PRICE_FEED_KEY_URL } from "./companies";
 export type {
-  CompComponent, CompProvenance, CompSource, CompareSelection, DisclosedComp, DismissResult,
+  CompComponent, CompProvenance, CompSource, CompareScope, CompareSelection, DisclosedComp, DismissResult,
   Facets, Filters, ImportanceBand, Job, JobCompPackage, JobCompPolicy, JobCompReconciliation,
   JobDescriptionSection, JobDetail, JobDetailRow, JobList, JobQualification, JobRequirements,
   JobSkill, JobSkillEvidence, JobSort, JobViewResult, LifecycleEvent, ListingEvent, ListingHistory, ParsedQuery,
@@ -109,6 +111,16 @@ export type {
   LocalLLMState, LocalLLMTestResult, LocalServerControlResult, LocalServerStatus, MatchingStatus,
   MatchingStopResult, MatchingTier, MatchingTierOption, ProviderOrigin,
 } from "./intelligence";
+export type {
+  ActivityItem,
+  ApplicationBoard,
+  ApplicationCalendarItem,
+  ApplicationCard,
+  ApplicationDetail,
+  ApplicationInterview,
+  InterviewUpdate,
+  InterviewWrite,
+} from "./applications";
 export type {
   PayFloor, ProfileSuggestion, ProfileSuggestionBasis, PursuitInfo, PursuitListItem, PursuitStage,
 } from "./profile";

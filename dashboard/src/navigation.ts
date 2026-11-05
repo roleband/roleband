@@ -1,6 +1,6 @@
 import {
   shellNavRadar,
-  shellNavSaved,
+  shellNavPipeline,
   shellNavProfile,
   shellNavInsights,
   shellNavCompanies,
@@ -11,7 +11,7 @@ import {
 import type { IconName } from "./ui/Icon";
 // Sub-tab constants live in a leaf module (navTabs) so section components can
 // import them without forming a cycle.
-import { PROFILE_TABS, SETTINGS_TABS, STATISTICS_TABS, SubTabDef } from "./navTabs";
+import { PIPELINE_TABS, PROFILE_TABS, SETTINGS_TABS, STATISTICS_TABS, SubTabDef } from "./navTabs";
 
 export type { SubTabDef };
 
@@ -53,7 +53,7 @@ export interface NavTabDef {
 // listed: a Compare entry would advertise an empty room (docs/ui.md "Cover").
 export const NAV_TABS: NavTabDef[] = [
   { path: "/", get label() { return shellNavRadar(); }, icon: "grid", end: true },
-  { path: "/favorites", get label() { return shellNavSaved(); }, icon: "star" },
+  { path: "/pipeline", get label() { return shellNavPipeline(); }, icon: "pipeline", tabs: PIPELINE_TABS, indexRedirect: "list" },
   { path: "/profile", get label() { return shellNavProfile(); }, icon: "person", tabs: PROFILE_TABS, indexRedirect: "direction" },
   {
     path: "/statistics",

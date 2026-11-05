@@ -5,7 +5,7 @@
    stand the `api` object they already mock in for this one
    (src/test/setup.ts). */
 export { startupApi as shellApi } from "./startup";
-export type { CompareSelection, JobViewResult } from "./jobs";
+export type { CompareScope, CompareSelection, JobViewResult } from "./jobs";
 export type { CompanyNames } from "./companies";
 export type { Notification, NotificationList, NotificationParams } from "./notifications";
 export type { SyncCancelResult, SyncResult, SystemStatus } from "./ops";

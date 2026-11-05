@@ -79,7 +79,7 @@ const SUPPRESSIONS: { file: string; selector: string; drawnBy: string; why: stri
   { file: "features/intelligence/IntelligenceSection.css", selector: ".intel-field-svg .fit-band", drawnBy: ".intel-field-svg .fit-band:focus-visible .fit-band-zone", why: "an SVG band takes the ring as a stroke on its shape; an outline on a `g` boxes its bounds" },
   { file: "features/scope/walk/walk.css", selector: ".walk-pyramid-layer", drawnBy: ".walk-pyramid-layer:focus-visible .walk-pyramid-hit", why: "an SVG layer takes the ring as a stroke" },
   { file: "ui/Overlay.css", selector: ".ui-overlay-content", drawnBy: "", why: "focused only by script when a dialog opens with nothing focusable; never a Tab stop" },
-  { file: "ui/Overlay.css", selector: ".ui-overlay-content:focus-visible", drawnBy: "", why: "the same, on the focus state" },
+  { file: "ui/Overlay.css", selector: ".ui-overlay-content[tabindex]:focus-visible", drawnBy: "", why: "the same, on the focus state, heavy enough to beat the global ring whatever order the sheets load in" },
   { file: "shell.css", selector: ".body:focus", drawnBy: "", why: "the page region the skip link sends focus to by script; never a Tab stop" },
 ];
 
@@ -180,6 +180,122 @@ describe("one focus ring", () => {
   });
 });
 
+/* A field wears the ring on its own edge (docs/ui.md "One focus ring"). A
+ * field has a border, so a ring outside it is a second frame, and a field
+ * rings on every click: the doubled frame is the look of every form. */
+const INSIDE = "calc(-1 * var(--app-ring-offset))";
+/** Wrappers that are the visible field around a bare input. */
+const FIELD_CARRIERS = [".ui-search", ".filter-search-row"];
+const NOT_FIELD_TYPES = /\[type="(?:checkbox|radio|range|color|file|button|submit|reset|image)"\]/;
+
+/** Splits `s` at each `sep` that stands outside brackets, so the spaces and
+ *  commas inside `:is(…)` or `[type="…"]` never cut a selector apart. */
+const splitOutside = (s: string, sep: RegExp) => {
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === "(" || s[i] === "[") depth++;
+    else if (s[i] === ")" || s[i] === "]") depth--;
+    else if (depth === 0 && sep.test(s[i])) {
+      parts.push(s.slice(start, i));
+      start = i + 1;
+    }
+  }
+  return [...parts, s.slice(start)].map((p) => p.trim()).filter(Boolean);
+};
+
+/** The focused thing a selector names is a field: a text input, a textarea,
+ *  a select, or a carrier that stands for one. A leading `:is(…)` or
+ *  `:where(…)` names a field when one of its choices does. */
+const namesField = (selector: string): boolean => {
+  const subject = splitOutside(withoutNegations(selector), /[\s>+~]/).pop() ?? "";
+  const group = /^:(?:is|where)\(/.exec(subject);
+  if (group) {
+    let depth = 0;
+    let end = group[0].length;
+    for (let i = end - 1; i < subject.length; i++) {
+      if (subject[i] === "(") depth++;
+      else if (subject[i] === ")" && --depth === 0) { end = i; break; }
+    }
+    const rest = subject.slice(end + 1);
+    return splitOutside(subject.slice(group[0].length, end), /,/).some((choice) => namesField(choice + rest));
+  }
+  if (FIELD_CARRIERS.some((c) => subject.startsWith(`${c}:`))) return true;
+  if (/^(?:textarea|select)\b/.test(subject)) return true;
+  return /^input\b/.test(subject) && !NOT_FIELD_TYPES.test(subject);
+};
+
+function fieldAudit(): Finding[] {
+  const out: Finding[] = [];
+  for (const { file, css } of SHEETS) {
+    for (const rule of rules(css)) {
+      const offset = rule.decls.get("outline-offset");
+      if (!offset) continue;
+      // The app-wide ring for every focusable kind; the field rule after it moves a field's inside.
+      if (file === "shell.css" && rule.selectors.includes("[tabindex]:focus-visible")) continue;
+      for (const selector of rule.selectors) {
+        if (!isFocusRule(selector) || !namesField(selector) || offset === INSIDE) continue;
+        out.push(`${file}:${rule.line} ${selector}  ->  outline-offset: ${offset} (a field's ring is inside its edge)`);
+      }
+    }
+  }
+  return out;
+}
+
+describe("a field wears the ring on its own edge", () => {
+  it("shell.css moves every field's ring inside, by element, after the app-wide ring", () => {
+    const shell = SHEETS.find((s) => s.file === "shell.css")!.css;
+    const all = rules(shell);
+    const global = all.findIndex((r) => r.selectors.includes("[tabindex]:focus-visible"));
+    const field = all.findIndex((r) => r.selectors.some((s) => s.startsWith("input:not(") && s.endsWith(":focus-visible")));
+    expect(field, "the field rule").toBeGreaterThan(global);
+    expect(all[field].decls.get("outline-offset")).toBe(INSIDE);
+    expect(all[field].selectors).toEqual(expect.arrayContaining(["select:focus-visible", "textarea:focus-visible"]));
+    expect(all[field].selectors.some((s) => s.startsWith('input:is([type="time"]') && s.endsWith(":focus-within"))).toBe(true);
+    // The types left out are the ones that are not fields.
+    const sel = all[field].selectors.find((s) => s.startsWith("input:not("))!;
+    for (const kept of ["text", "search", "email", "number", "url", "password", "date"]) {
+      expect(sel.includes(`[type="${kept}"]`), `${kept} is a field`).toBe(false);
+    }
+    for (const left of ["checkbox", "radio", "range", "button", "submit"]) {
+      expect(sel.includes(`[type="${left}"]`), `${left} is not a field`).toBe(true);
+    }
+  });
+
+  it("no sheet draws a field's ring outside its edge", () => {
+    expect(fieldAudit()).toEqual([]);
+  });
+
+  describe("the detector fails the shapes it exists to catch", () => {
+    const check = (css: string) => {
+      const saved = SHEETS.splice(0, SHEETS.length, { file: "features/x.css", css });
+      try { return fieldAudit(); } finally { SHEETS.splice(0, SHEETS.length, ...saved); }
+    };
+    it.each([
+      ".app-next-form input:focus-visible { outline-offset: var(--app-ring-offset); }",
+      ".notes textarea:focus-visible { outline-offset: var(--app-ring-offset); }",
+      ".ui-select > select:focus-visible:not([data-pointer]) { outline-offset: var(--app-ring-offset); }",
+      ".ui-search:focus-within { outline-offset: var(--app-ring-offset); }",
+      '.x input[type="date"]:focus-within { outline-offset: var(--app-ring-offset); }',
+      '.x input:is([type="time"], [type="date"]):focus-within { outline-offset: var(--app-ring-offset); }',
+      ".x :is(input, textarea):focus-visible { outline-offset: var(--app-ring-offset); }",
+      ".x :where(button, select):focus-visible { outline-offset: var(--app-ring-offset); }",
+    ])("%s fails", (css) => {
+      expect(check(css).length).toBeGreaterThan(0);
+    });
+    it.each([
+      ".app-next-form input:focus-visible { outline-offset: calc(-1 * var(--app-ring-offset)); }",
+      '.x input[type="checkbox"]:focus-visible { outline-offset: var(--app-ring-offset); }',
+      ".x button:focus-visible { outline-offset: var(--app-ring-offset); }",
+      ".x :is(button, a):focus-visible { outline-offset: var(--app-ring-offset); }",
+      '.x input:is([type="checkbox"], [type="radio"]):focus-visible { outline-offset: var(--app-ring-offset); }',
+    ])("%s passes", (css) => {
+      expect(check(css)).toEqual([]);
+    });
+  });
+});
+
 describe("a list's cursor is the keyboard's place, and wears the ring", () => {
   // In the palette and FilterSelect focus stays in the field; the option Enter
   // acts on is marked by a class beside `aria-activedescendant`/`aria-selected`.
@@ -258,5 +374,23 @@ describe("the ring clears 3:1 wherever it lands", () => {
   it("--rail-accent on the rail, in both themes (the rail is dark in both)", () => {
     const b = block(shell, ".nav-rail {");
     expect(ratio(hex(b, "--rail-accent")!, hex(b, "--rail-canvas")!)).toBeGreaterThanOrEqual(3);
+  });
+});
+
+/* The popover's shell takes focus on open; the ring it must not wear is the
+ * app's global `[tabindex]:focus-visible` (shell.css), which loads after the
+ * overlay's stylesheet. A tie in weight goes to whichever sheet comes last,
+ * so the suppression must outweigh it outright. */
+const weight = (selector: string) =>
+  (selector.match(/\.[\w-]+|\[[^\]]+\]|:(?!:)[\w-]+/g) ?? []).length;
+
+describe("the overlay shell's ring", () => {
+  it("is switched off by a selector heavier than the global ring, whatever order the sheets load in", () => {
+    const css = readFileSync(join(SRC, "ui", "Overlay.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    const rule = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)]
+      .find(([, selector, body]) => selector.includes(".ui-overlay-content") && selector.includes(":focus-visible")
+        && /outline:\s*none/.test(body));
+    expect(rule).toBeDefined();
+    expect(weight(rule![1].trim())).toBeGreaterThan(weight("[tabindex]:focus-visible"));
   });
 });

@@ -82,7 +82,7 @@ radar-mode-closed = Closed
 # kind=toast note="$title is the role's own title"
 radar-save-failed = Couldn't save { $title }. Try again.
 # kind=toast
-radar-unsave-failed = Couldn't remove { $title } from Saved. Try again.
+radar-unsave-failed = Couldn't remove { $title } from your pipeline. Try again.
 # kind=toast
 radar-restore-failed = Couldn't restore { $title }. Try again.
 # kind=toast note="$value is the employer's own team or department name"

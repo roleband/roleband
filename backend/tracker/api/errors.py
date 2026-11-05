@@ -39,6 +39,9 @@ class ErrorCode(StrEnum):
     FIT_BAND_NOT_FOUND = "fit-band-not-found"
     SCHEDULE_NOT_FOUND = "schedule-not-found"
     PAGE_NOT_FOUND = "page-not-found"
+    APPLICATION_NOT_FOUND = "application-not-found"
+    COMMENT_NOT_FOUND = "comment-not-found"
+    INTERVIEW_NOT_FOUND = "interview-not-found"
     PLUGIN_NOT_FOUND = "plugin-not-found"
     # The request itself is malformed: a client defect, said generically.
     INVALID_INPUT = "invalid-input"
@@ -86,6 +89,10 @@ class ErrorCode(StrEnum):
     RECIPE_CONFLICT = "recipe-conflict"
     # The consent screen showed an older scope of a group being shared.
     USAGE_CATALOGUE_CHANGED = "usage-catalogue-changed"
+    # An agent's comment: readable, never rewritten or removed by the user.
+    COMMENT_NOT_YOURS = "comment-not-yours"
+    # Unstarring a role past Considering: it is withdrawn instead.
+    APPLICATION_UNDER_WAY = "application-under-way"
 
 
 class ErrorDetail(BaseModel):

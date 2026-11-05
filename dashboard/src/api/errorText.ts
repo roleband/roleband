@@ -27,6 +27,9 @@ import {
   errorFitBandNotFound,
   errorScheduleNotFound,
   errorPageNotFound,
+  errorApplicationNotFound,
+  errorCommentNotFound,
+  errorInterviewNotFound,
   errorCareersPageRefused,
   errorCareersPageUnreachable,
   errorCompanyConflict,
@@ -59,6 +62,8 @@ import {
   errorRecipeInvalid,
   errorRecipeConflict,
   errorUsageCatalogueChanged,
+  errorCommentNotYours,
+  errorApplicationUnderWay,
 } from "../copy/gen/errors";
 import { ApiError, type ErrorCode, type ErrorParams } from "./transport";
 
@@ -92,6 +97,9 @@ const BY_CODE: Record<ErrorCode, (params: ErrorParams) => string> = {
   "fit-band-not-found": () => errorFitBandNotFound(),
   "schedule-not-found": () => errorScheduleNotFound(),
   "page-not-found": () => errorPageNotFound(),
+  "application-not-found": () => errorApplicationNotFound(),
+  "comment-not-found": () => errorCommentNotFound(),
+  "interview-not-found": () => errorInterviewNotFound(),
   "plugin-not-found": () => errorPluginNotFound(),
   "plugin-not-runnable": () => errorPluginNotRunnable(),
   "plugin-running": () => errorPluginRunning(),
@@ -132,6 +140,8 @@ const BY_CODE: Record<ErrorCode, (params: ErrorParams) => string> = {
   "recipe-invalid": () => errorRecipeInvalid(),
   "recipe-conflict": () => errorRecipeConflict(),
   "usage-catalogue-changed": () => errorUsageCatalogueChanged(),
+  "comment-not-yours": () => errorCommentNotYours(),
+  "application-under-way": () => errorApplicationUnderWay(),
   aborted: () => errorGeneric(),
   unknown: () => errorGeneric(),
 };

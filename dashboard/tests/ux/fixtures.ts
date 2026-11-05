@@ -56,7 +56,7 @@ export const test = base.extend<{ apiGuard: void }>({
        match most-recently-added first, so this one wins over it — and a page
        route still wins over both, which is how boardHarness installs the
        stateful store the persistence specs need. */
-    await context.route("/api/compare-selection", (route) =>
+    await context.route("/api/compare-selection**", (route) =>
       route.request().method() === "GET"
         ? route.fulfill({ json: { job_ids: [] } })
         : route.fallback());

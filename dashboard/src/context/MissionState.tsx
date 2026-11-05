@@ -32,11 +32,13 @@ export interface BoardQueryValue {
 export interface MissionActions {
   refreshStats: () => void;
   setSearch: (q: string) => void;
-  /** Attached by the board toolbar's input while the Board is mounted; null on
-   *  every other route, which is what lets "/" fall back to the palette there.
+  /** The search box of the screen on show: Radar's toolbar, or the Pipeline's
+   *  on its List and Board. One screen is mounted at a time, so one box holds
+   *  it; null on every other route, which is what lets "/" fall back to the
+   *  palette there.
    *  A stable ref object: writing `.current` re-renders nothing, which is the
    *  point — focus plumbing must not churn every consumer. */
-  boardSearchRef: MutableRefObject<HTMLInputElement | null>;
+  screenSearchRef: MutableRefObject<HTMLInputElement | null>;
   /** The top bar's counts are ONE choice (open roles / new / reposted /
    *  saved): each `show*` lands on the board wearing exactly that lens, and a
    *  second click on the chosen one keeps it rather than flipping back. */
@@ -68,7 +70,7 @@ export function MissionStateProvider({ children }: { children: React.ReactNode }
 
   const [stats, setStats] = useState<Stats | null>(null);
   const [search, setSearch] = useState("");
-  const boardSearchRef = useRef<HTMLInputElement | null>(null);
+  const screenSearchRef = useRef<HTMLInputElement | null>(null);
   const [newSignalsOnly, setNewSignalsOnly] = useState(false);
   const [repostsOnly, setRepostsOnly] = useState(false);
 
@@ -146,7 +148,7 @@ export function MissionStateProvider({ children }: { children: React.ReactNode }
   const query = useMemo<BoardQueryValue>(() => ({ search }), [search]);
   const actions = useMemo<MissionActions>(
     () => ({
-      refreshStats, setSearch, boardSearchRef, showNewSignals, clearNewSignals, showReposts, clearReposts, clearLenses,
+      refreshStats, setSearch, screenSearchRef, showNewSignals, clearNewSignals, showReposts, clearReposts, clearLenses,
     }),
     [refreshStats, showNewSignals, clearNewSignals, showReposts, clearReposts, clearLenses],
   );

@@ -37,7 +37,7 @@ vi.mock("../api", () => ({
     // JobWorkspace reads the stored compare selection on mount and writes it
     // back on every change.
     compareSelection: vi.fn().mockResolvedValue({ job_ids: [] }),
-    setCompareSelection: vi.fn((jobIds: number[]) => Promise.resolve({ job_ids: jobIds })),
+    setCompareSelection: vi.fn((_scope: string, jobIds: number[]) => Promise.resolve({ job_ids: jobIds })),
   },
 }));
 
@@ -392,7 +392,7 @@ describe("context isolation — cadence, not just topic", () => {
     // so a verb closing over it directly re-creates the whole actions object on
     // every route change. `openJob`, `showNewSignals` and `showReposts` all
     // navigate; each reads the current `navigate` through a ref instead.
-    await act(async () => go("/favorites"));
+    await act(async () => go("/pipeline/list"));
     await act(async () => go("/compare"));
 
     // One object each, for the life of the app.

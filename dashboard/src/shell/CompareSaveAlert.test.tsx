@@ -45,7 +45,7 @@ const ALERT = /Couldn't save what you're comparing/;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  store.setCompareSelection().mockImplementation((ids: number[]) => Promise.resolve({ job_ids: ids }));
+  store.setCompareSelection().mockImplementation((_scope, ids: number[]) => Promise.resolve({ job_ids: ids }));
 });
 
 it.each([
@@ -61,7 +61,7 @@ it.each([
   expect(await screen.findByText(ALERT)).toBeVisible();
   await userEvent.click(screen.getByRole("button", { name: "Try again" }));
   await waitFor(() => expect(screen.queryByText(ALERT)).toBeNull());
-  const sent = store.setCompareSelection().mock.calls.map(([ids]) => ids);
+  const sent = store.setCompareSelection().mock.calls.map(([, ids]) => ids);
   expect(sent[sent.length - 1]).toEqual(sent[sent.length - 2]); // the same selection, sent again
 });
 

@@ -4,9 +4,9 @@
 compare-screen-back = Atrás
 compare-screen-clear = Vaciar
 compare-screen-compare = Comparar
-compare-screen-on-your-or-in-use = En tu { $radar } o en { $saved }, usa el botón { $icon } de una fila para añadirlo aquí.
 compare-screen-radar = Radar
-compare-screen-saved = Guardados
+compare-screen-on-your-or-in-use = En tu { $radar } o en tu { $pipeline }, usa el botón { $icon } de una fila para añadirlo aquí.
+compare-screen-pipeline = Seguimiento
 compare-screen-same = Igual
 compare-screen-fields = campos
 compare-screen-descriptions = Descripciones
@@ -63,13 +63,13 @@ compare-attributes-reposts = Republicaciones
 ## features/compare/useCompareController.ts
 compare-use-compare-controller-removed-from-compare = { $title } se quitó de la comparación
 compare-use-compare-controller-undo = Deshacer
-compare-use-compare-controller-could-not-unsave = { $direction ->
-    [save] No se pudo guardar { $title }
-   *[unsave] No se pudo quitar { $title } de guardados
-}
 compare-use-compare-controller-couldn-t-restore = No se pudo restaurar { $title }
 compare-use-compare-controller-not-for-me = No es para mí · { $title }
 compare-use-compare-controller-could-not-hide = No se pudo marcar { $title } como No es para mí
 
 ## Añadir un puesto desde la comparación.
 compare-screen-add-another = Añadir otro
+compare-use-compare-controller-could-not-unsave = { $direction ->
+    [save] No se pudo guardar { $title }
+   *[unsave] No se pudo quitar { $title } de tu seguimiento
+}

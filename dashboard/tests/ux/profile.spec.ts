@@ -20,7 +20,7 @@ test.beforeEach(async ({ page }) => {
   // The page-level guard outranks context fixtures; repeat the two shared
   // bootstrap reads so both stay mocked before Profile mounts.
   await page.route("/api/companies/names", (route) => route.request().method() === "GET" ? route.fulfill({ json: { names: {} } }) : route.fallback());
-  await page.route("/api/compare-selection", (route) => route.request().method() === "GET" ? route.fulfill({ json: { job_ids: [] } }) : route.fallback());
+  await page.route("/api/compare-selection**", (route) => route.request().method() === "GET" ? route.fulfill({ json: { job_ids: [] } }) : route.fallback());
   await page.route("/api/settings/locale", (route) => route.request().method() === "GET" ? route.fulfill({ json: { language: "en", region: null } }) : route.fallback());
   await page.route("/api/usage", (route) => route.request().method() === "GET" ? route.fulfill({ json: usageStateFixture("declined") }) : route.fallback());
   await page.route("/api/scope/rules", (route) => route.fulfill({ json: { rules: [] } }));

@@ -10,17 +10,19 @@ leaving no partial state behind.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import get_args
 
 import pytest
 from sqlalchemy import func, select
 
 from tracker.api.routers.jobs import (
     COMPARE_CAP,
+    CompareScope,
     CompareSelectionPayload,
     get_compare_selection,
     put_compare_selection,
 )
-from tracker.db.models import CompareSelection, Job
+from tracker.db.models import COMPARE_SCOPES, CompareSelection, Job
 
 pytestmark = pytest.mark.asyncio
 
@@ -164,3 +166,66 @@ async def test_clearing_writes_an_empty_selection(db_session):
     assert stored.job_ids == []
     count = await db_session.scalar(select(func.count()).select_from(CompareSelection))
     assert count == 0
+
+
+def _pick(ids: list[int]) -> CompareSelectionPayload:
+    return CompareSelectionPayload(job_ids=ids)
+
+
+async def test_each_screen_keeps_its_own_selection(db_session):
+    """What is picked in the Pipeline is not picked on Radar, and the reverse."""
+    jobs = await _jobs(db_session, 4)
+    await put_compare_selection(_pick([jobs[0].id, jobs[1].id]), db_session, scope="radar")
+    await put_compare_selection(_pick([jobs[2].id, jobs[3].id]), db_session, scope="pipeline")
+
+    assert (await get_compare_selection(db_session, scope="radar")).job_ids == [jobs[0].id, jobs[1].id]
+    assert (await get_compare_selection(db_session, scope="pipeline")).job_ids == [jobs[2].id, jobs[3].id]
+
+
+async def test_replacing_one_screens_selection_leaves_the_others(db_session):
+    jobs = await _jobs(db_session, 3)
+    await put_compare_selection(_pick([jobs[0].id, jobs[1].id]), db_session, scope="radar")
+    await put_compare_selection(_pick([jobs[2].id]), db_session, scope="pipeline")
+
+    await put_compare_selection(_pick([]), db_session, scope="pipeline")
+
+    assert (await get_compare_selection(db_session, scope="radar")).job_ids == [jobs[0].id, jobs[1].id]
+    assert (await get_compare_selection(db_session, scope="pipeline")).job_ids == []
+
+
+async def test_one_role_can_be_in_both_selections_and_leaves_both_with_its_job(db_session):
+    """Unique within a screen, not across the table; the cascade reaches both."""
+    jobs = await _jobs(db_session, 2)
+    for scope in ("radar", "pipeline"):
+        await put_compare_selection(_pick([jobs[0].id, jobs[1].id]), db_session, scope=scope)
+
+    await db_session.delete(jobs[0])
+    await db_session.commit()
+
+    for scope in ("radar", "pipeline"):
+        assert (await get_compare_selection(db_session, scope=scope)).job_ids == [jobs[1].id]
+
+
+async def test_the_cap_holds_per_screen(db_session):
+    jobs = await _jobs(db_session, COMPARE_CAP * 2)
+    await put_compare_selection(_pick([j.id for j in jobs[:COMPARE_CAP]]), db_session, scope="radar")
+    stored = await put_compare_selection(_pick([j.id for j in jobs[COMPARE_CAP:]]), db_session, scope="pipeline")
+
+    assert stored.job_ids == [j.id for j in jobs[COMPARE_CAP:]]
+    count = await db_session.scalar(select(func.count()).select_from(CompareSelection))
+    assert count == COMPARE_CAP * 2
+
+
+async def test_the_api_and_the_store_name_the_same_screens():
+    assert set(get_args(CompareScope)) == set(COMPARE_SCOPES)
+
+
+async def test_over_http_no_scope_means_radar_and_an_unknown_one_is_refused(api_client, db_session):
+    jobs = await _jobs(db_session, 2)
+    await db_session.commit()
+    put = await api_client.put("/api/compare-selection?scope=pipeline", json={"job_ids": [jobs[0].id]})
+    assert put.status_code == 200
+    assert put.json() == {"job_ids": [jobs[0].id]}
+    assert (await api_client.get("/api/compare-selection")).json() == {"job_ids": []}
+    assert (await api_client.get("/api/compare-selection?scope=pipeline")).json() == {"job_ids": [jobs[0].id]}
+    assert (await api_client.get("/api/compare-selection?scope=saved")).status_code == 422

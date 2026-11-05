@@ -1,10 +1,12 @@
 import { Button, Icon, Kbd, Sheet } from "../ui";
 import "./KeyboardShortcuts.css";
 import {
+  shortcutsKeyboardShortcutsAddInterview,
   shortcutsKeyboardShortcutsAddToCompareOrTake,
   shortcutsKeyboardShortcutsAnywhere,
   shortcutsKeyboardShortcutsClose,
   shortcutsKeyboardShortcutsCloseWhatIsOnTop,
+  shortcutsKeyboardShortcutsChangeStage,
   shortcutsKeyboardShortcutsCtrlK,
   shortcutsKeyboardShortcutsDifferentRoles,
   shortcutsKeyboardShortcutsKeyboardShortcuts,
@@ -13,6 +15,8 @@ import {
   shortcutsKeyboardShortcutsOnARoleInA,
   shortcutsKeyboardShortcutsOpenTheCommandPalette,
   shortcutsKeyboardShortcutsOpenTheRole,
+  shortcutsKeyboardShortcutsPickStage,
+  shortcutsKeyboardShortcutsPipeline,
   shortcutsKeyboardShortcutsPossibleDuplicates,
   shortcutsKeyboardShortcutsPreviousRole,
   shortcutsKeyboardShortcutsRelatedRoles,
@@ -29,7 +33,7 @@ import {
  * The shell loads this lazily on first open, so the list costs the startup
  * chunk nothing. The keys themselves are answered where they act — App (the
  * palette, `/`, `?`), JobList (`j`/`k`), JobCard (Enter, `s`, `c`),
- * ReviewScreen (D/T/N) — so a key added there belongs here in the same change.
+ * ReviewScreen (D/T/N), ApplicationPage (`m`, `i`) and StageMenu (1 to 5), so a key added there belongs here in the same change.
  */
 
 interface Shortcut {
@@ -55,6 +59,14 @@ const GROUPS: Array<{ title: string; shortcuts: Shortcut[] }> = [
       { keys: ["↵"], get does() { return shortcutsKeyboardShortcutsOpenTheRole(); } },
       { keys: ["s"], get does() { return shortcutsKeyboardShortcutsSaveItOrUnsaveIt(); } },
       { keys: ["c"], get does() { return shortcutsKeyboardShortcutsAddToCompareOrTake(); } },
+    ],
+  },
+  {
+    get title() { return shortcutsKeyboardShortcutsPipeline(); },
+    shortcuts: [
+      { keys: ["m"], get does() { return shortcutsKeyboardShortcutsChangeStage(); } },
+      { keys: ["1–5"], get does() { return shortcutsKeyboardShortcutsPickStage(); } },
+      { keys: ["i"], get does() { return shortcutsKeyboardShortcutsAddInterview(); } },
     ],
   },
   {

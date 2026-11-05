@@ -512,17 +512,30 @@ TABLE_OWNERS: dict[str, TableOwnership] = {
         writers=(),
         readers=("tracker/workflows/profile_inference_pass.py",),
     ),
+    # Edited and deleted by their author, so never `append_only`.
+    "pursuit_comments": TableOwnership(
+        claim="user",
+        lifecycle="authored",
+        writers=("tracker/agents/pursuits.py",),
+        readers=("tracker/agents/applications.py",),
+    ),
     "pursuit_events": TableOwnership(
         claim="user",
         lifecycle="append_only",
         writers=("tracker/agents/pursuits.py",),
-        readers=(),
+        readers=("tracker/agents/applications.py",),
+    ),
+    "pursuit_interviews": TableOwnership(
+        claim="user",
+        lifecycle="authored",
+        writers=("tracker/agents/pursuits.py",),
+        readers=("tracker/agents/applications.py",),
     ),
     "pursuits": TableOwnership(
         claim="user",
         lifecycle="authored",
         writers=("tracker/agents/pursuits.py",),
-        readers=("tracker/agents/pursuits.py",),
+        readers=("tracker/agents/pursuits.py", "tracker/agents/applications.py"),
     ),
 
     # --- manual: explicit API-triggered refresh --------------------------------

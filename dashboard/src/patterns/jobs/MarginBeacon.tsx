@@ -202,7 +202,7 @@ export function MarginBeacon({
       <Button
         ref={setPillEl}
         variant={variant === "standing" ? "primary" : "ghost"}
-        size="sm"
+        size="md"
         className="ui-beacon"
         aria-label={label}
         aria-haspopup="dialog"

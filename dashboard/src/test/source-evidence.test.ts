@@ -116,7 +116,6 @@ const CHARTER: Record<string, FactClass> = {
   "features/opportunities/board-shell.test.ts": "token-vocabulary",
   "features/opportunities/ownership.test.ts": "ownership",
   "features/review/review-scope.test.ts": "token-vocabulary",
-  "features/saved/ownership.test.ts": "ownership",
   "hooks/read-state.test.ts": "ownership",
   "patterns/jobs/board-focus.test.ts": "cascade",
   // Which module composes the shell and which sheet states its physics --

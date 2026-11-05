@@ -87,10 +87,6 @@ role-job-detail-to-apply = 申请方式
 role-job-detail-more-like-this = 更多类似职位
 role-job-detail-other-companies = 其他公司
 role-job-detail-same-company = 同一公司 · { $company }
-role-job-detail-could-not-unsave-this-role = { $choice ->
-    [yes] 无法保存这个职位
-   *[no] 无法将这个职位从已保存中移除
-}
 role-job-detail-couldn-t-update-the-stage = 无法更新阶段
 role-job-detail-role = { $choice ->
     [yes] 职位：{ $title }
@@ -368,7 +364,7 @@ role-place-set-section-states-pay = · 公布 { $range }
 role-place-set-section-states-no-pay = · 未公布区间
 
 ## 选择阶段的作用。
-role-job-detail-tracking-explainer = 选择一个阶段来跟踪这个职位：它会被保存，已保存页面会显示它的阶段，之后设定的跟进日期到期时会提醒你。
+role-job-detail-tracking-explainer = 选择一个阶段来跟踪这个职位：它会被保存，求职进展会显示它的阶段，之后设定的跟进日期到期时会提醒你。
 role-job-comp-panel-estimate-of-total = 估算总薪酬：{ $range }
 role-job-comp-panel-split-not-reported = 无构成数据
 role-job-comp-panel-the-plugin-reports-no-split = 提供薪酬的插件给出了这个级别的数字，但没有说明它如何分为基本工资、奖金和股权，因此不做拆分。
@@ -377,3 +373,7 @@ role-job-comp-panel-level-not-stated-or-mapped = 招聘信息未注明级别，�
 role-job-comp-panel-not-read-yet = 尚未读取
 role-job-comp-panel-estimated-base = 估算基本工资
 role-job-comp-panel-from-roleband-data = 来自内置数据。
+role-job-detail-could-not-unsave-this-role = { $choice ->
+    [yes] 无法保存这个职位
+   *[no] 无法将这个职位从求职进展中移除
+}

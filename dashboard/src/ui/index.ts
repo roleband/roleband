@@ -8,6 +8,8 @@ export { useEscapeLayer } from "./escapeLayer";
 export type { EscapeRank } from "./escapeLayer";
 export { Popover } from "./Popover";
 export type { PopoverProps } from "./Popover";
+export { Menu, MenuCheck, MenuGroup, MenuItem, MenuRadio } from "./Menu";
+export type { MenuCheckProps, MenuItemProps, MenuProps, MenuRadioProps } from "./Menu";
 export { Dialog } from "./Dialog";
 export type { DialogProps } from "./Dialog";
 export { Sheet } from "./Sheet";

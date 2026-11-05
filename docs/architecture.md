@@ -1041,6 +1041,14 @@ paints its last answer and refreshes it in place; every write through
 read whose rows must not move under the reader, like the Board's list, keeps
 nothing.
 
+**Comparison per screen.** Radar and the Pipeline each keep a comparison of
+their own. The store holds one selection per screen (`compare_selection.scope`,
+`radar` or `pipeline`), the compare-selection routes take `?scope=`, and
+`JobWorkspace` keeps both, acting on the one of the screen under the reader
+(`listScreenOf` in `routing/paths.ts`). The screen rules are in
+[ui.md](ui.md#cover), and why a pick belongs to its screen is
+[decision 0002](decisions/0002-compare-per-screen.md).
+
 **Look and wording.** The visual system is in [ui.md](ui.md). Every user-facing
 string is a catalog message, never a literal: see [copy.md](copy.md).
 

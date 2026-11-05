@@ -28,7 +28,7 @@ vi.mock("../../api", async (importOriginal) => ({
     markJobViewed: vi.fn().mockResolvedValue(undefined),
     job: vi.fn(),
     compareSelection: vi.fn().mockResolvedValue({ job_ids: [] }),
-    setCompareSelection: vi.fn((jobIds: number[]) => Promise.resolve({ job_ids: jobIds })),
+    setCompareSelection: vi.fn((_scope: string, jobIds: number[]) => Promise.resolve({ job_ids: jobIds })),
   },
 }));
 
@@ -119,7 +119,7 @@ describe("the compare count cannot outlive the roles it counts", () => {
       within(row("Principal Engineering Manager")).getByRole("button", { name: msg("jobs-compare") }),
     ).toHaveAttribute("aria-pressed", "false");
     // The eviction is durable too, or the reload would bring the ghost back.
-    expect(vi.mocked(api.setCompareSelection)).toHaveBeenLastCalledWith([11, 13]);
+    expect(vi.mocked(api.setCompareSelection)).toHaveBeenLastCalledWith("radar", [11, 13]);
   });
 
   it("keeps a role when the request merely failed", async () => {
