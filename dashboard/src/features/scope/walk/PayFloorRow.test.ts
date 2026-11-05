@@ -12,8 +12,8 @@ describe("a typed pay floor", () => {
 
   it("refuses what is not an amount, or not one we can read for sure", () => {
     // A European thousands separator, a sign, a negative, zero, words, two
-    // units, and an amount over the API's bound.
-    for (const raw of ["250.000", "$250,000", "-250000", "0", "0k", "abc", "250kk", "2.5.0", "", "100000001"]) {
+    // units, an amount over the API's bound, and a separator still being typed.
+    for (const raw of ["250.000", "$250,000", "-250000", "0", "0k", "abc", "250kk", "2.5.0", "", "100000001", "250,", "250.", "250, "]) {
       expect(parseAmount(raw), raw).toBeNull();
     }
   });
