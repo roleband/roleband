@@ -248,7 +248,7 @@ describe("the tokens say what the rule says", () => {
  * from one rule in shell.css, so a screen that marks a field paints nothing
  * and no screen's field goes unmarked. The behaviour half is the pay floor in
  * `welcome.spec.ts` and the company field review in `companies.spec.ts`. */
-const INVALID = /\[aria-invalid(?:=["']?true["']?)?\]/;
+const INVALID = /\[\s*aria-invalid\b/;
 
 function invalidRules(sheets: { file: string; css: string }[]) {
   return sheets.flatMap(({ file, css }) =>
@@ -263,8 +263,12 @@ describe("an invalid field", () => {
   });
 
   it("the detector finds a screen's own invalid rule", () => {
-    const planted = [{ file: "features/x.css", css: '.x-amount[aria-invalid="true"] { border-color: red; }' }];
-    expect(invalidRules(planted).map(({ file }) => file)).toEqual(["features/x.css"]);
+    const planted = [
+      { file: "features/x.css", css: '.x-amount[aria-invalid="true"] { border-color: red; }' },
+      { file: "features/y.css", css: '.y-amount[ aria-invalid = "true" ] { border-color: red; }' },
+      { file: "features/z.css", css: ".z-amount[aria-invalid] { border-color: red; }" },
+    ];
+    expect(invalidRules(planted).map(({ file }) => file)).toEqual(["features/x.css", "features/y.css", "features/z.css"]);
   });
 });
 
