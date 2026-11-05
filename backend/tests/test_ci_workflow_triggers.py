@@ -561,7 +561,10 @@ def swift_scan_gaps(scan: dict, build_script: str, launcher: dict) -> list[str]:
         gaps.append("the scan does not trace its own build")
     shipped = re.search(r"^swift build .*--product (\S+)", build_script, re.M)
     configuration = re.search(r'^CONFIGURATION="\$\{ROLEBAND_LAUNCHER_CONFIGURATION:-(\w+)\}"', build_script, re.M)
-    builds = [str(step["run"]) for step in scan["steps"] if str(step.get("run", "")).startswith("swift build")]
+    builds = [
+        line.strip() for step in scan["steps"] for line in str(step.get("run") or "").splitlines()
+        if line.strip().startswith("swift build")
+    ]
     if len(builds) != 1:
         gaps.append(f"the scan runs {len(builds)} swift builds")
     else:
@@ -602,6 +605,21 @@ def test_a_swift_scan_off_the_shipped_build_is_reported():
         "DEVELOPER_DIR /Applications/Xcode_16.0.app/Contents/Developer, the launcher build uses "
         "/Applications/Xcode_16.4.app/Contents/Developer",
     ]
+
+
+def test_a_second_swift_build_in_one_step_is_counted():
+    """The traced build is one command: a second `swift build` line in the same step, or one
+    after another command, would trace more than the shipped product."""
+    launcher = {"env": {"DEVELOPER_DIR": "x"}, "jobs": {"build": {"runs-on": "macos-15"}}}
+    script = 'CONFIGURATION="${ROLEBAND_LAUNCHER_CONFIGURATION:-release}"\nswift build --product App\n'
+    init = {"uses": "github/codeql-action/init@" + "a" * 40, "with": {"build-mode": "manual"}}
+    scan = {"runs-on": "macos-15", "env": {"DEVELOPER_DIR": "x"}, "steps": [init, {"run": (
+        "swift build --configuration release --product App\n"
+        "swift build --configuration debug --product AppTests\n"
+    )}]}
+    assert swift_scan_gaps(scan, script, launcher) == ["the scan runs 2 swift builds"]
+    scan["steps"][1]["run"] = "swift --version\nswift build --configuration release --product App\n"
+    assert swift_scan_gaps(scan, script, launcher) == []
 
 
 def test_the_code_readers_see_a_path_built_from_the_root_or_reached_with_dots():
