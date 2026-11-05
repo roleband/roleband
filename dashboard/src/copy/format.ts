@@ -2,6 +2,7 @@
  * Independent modules keep comp, parsing and region controls route-lazy. */
 export {number, percent, money, date, calendarDay, timestamp} from "./format/basic";
 export {weekday, time, relative, list, compare} from "./format/display";
+export {timeZone} from "./format/zone";
 export {duration} from "./format/duration";
 export {parseNumber} from "./format/input";
 export {compactMoney} from "./format/comp";

@@ -246,19 +246,164 @@
   opacity: 1;
 }
 
+/* ---- the interview form ------------------------------------------------ */
+
+/* The dialog is a column whose head and actions hold still and whose middle
+   scrolls: on a short window the way to save stays in reach. 560px fits the
+   month at a comfortable cell beside a column of times. */
+.ui-dialog.app-interview-dialog {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ledger-form.app-interview-form {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 0;
+  padding: 0;
+  container-type: inline-size;
+}
+
+.app-interview-head {
+  display: grid;
+  gap: var(--app-space-1);
+  padding: var(--app-space-4) var(--app-space-4) var(--app-space-3);
+}
+
 .app-interview-note {
   margin: 0;
   color: var(--app-text-muted);
   font-size: var(--app-type-body);
 }
 
-.ledger-form > .app-interview-when {
-  grid-template-columns: 1fr 1fr;
-  gap: var(--app-space-3);
+/* What will be saved, in words, as large as the screen's headings: the
+   answer the dialog asks for, read at a glance. */
+.app-interview-summary {
+  margin: var(--app-space-2) 0 0;
+  font-size: var(--app-type-screen);
+  font-weight: var(--app-weight-strong);
+  font-variant-numeric: tabular-nums;
 }
 
-.app-interview-when > div {
+.app-interview-summary[data-empty] {
+  color: var(--app-text-muted);
+  font-weight: var(--app-weight-body);
+}
+
+.ledger-form > .app-interview-body {
+  display: block;
+  overflow-y: auto;
+  padding: 0 var(--app-space-4) var(--app-space-4);
+}
+
+/* The month and the times side by side, the times as tall as the month. */
+.app-interview-when {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) 168px;
+  gap: var(--app-space-4);
+}
+
+.app-daypicker {
+  display: grid;
+  gap: var(--app-space-1);
+}
+
+.app-daypicker-title {
+  margin: 0;
+  font-size: var(--app-type-body);
+  font-weight: var(--app-weight-strong);
+}
+
+.app-clock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-1);
+  min-height: 0;
+}
+
+/* The list is as tall as the row the month makes: its size is contained, so
+   its ninety-seven times never stretch the row, and it scrolls within. */
+.app-clock-list {
+  position: relative;
+  display: grid;
+  flex: 1 1 0;
+  align-content: start;
+  gap: 1px;
+  margin-top: var(--app-space-1);
+  padding: 2px;
+  overflow-y: auto;
+  contain: size;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-md);
+}
+
+.app-clock-list .ui-btn.app-clock-slot {
+  justify-content: flex-start;
+  width: 100%;
+  padding: 0 var(--app-space-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The list clips, so a time's ring is drawn inside it. */
+.app-clock-list .ui-btn.app-clock-slot:focus-visible {
+  outline-offset: calc(-1 * var(--app-ring-offset));
+}
+
+.app-clock-label {
+  color: var(--app-text);
+}
+
+.app-clock-slot[aria-pressed="true"] .app-clock-label {
+  color: inherit;
+}
+
+.app-interview-zone {
+  margin: var(--app-space-2) 0 0;
+  color: var(--app-text-faint);
+  font-size: var(--app-type-meta);
+}
+
+.app-interview-error {
+  margin: var(--app-space-1) 0 0;
+  color: var(--app-danger);
+  font-size: var(--app-type-meta);
+}
+
+/* What may be left empty, under a line: each part a quiet opener until it
+   is wanted, or until it has a value. */
+.app-interview-optional {
+  display: grid;
+  gap: var(--app-space-3);
+  margin-top: var(--app-space-4);
+  padding-top: var(--app-space-3);
+  border-top: 1px solid var(--app-border);
+}
+
+.app-interview-optional-head {
+  margin: 0;
+  color: var(--app-text-muted);
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-whisper);
+  font-weight: var(--app-type-whisper-weight);
+  letter-spacing: var(--app-type-whisper-track);
+  text-transform: uppercase;
+}
+
+.app-interview-open {
+  justify-self: start;
+}
+
+.app-interview-field {
+  display: grid;
+  gap: var(--app-space-1);
+}
+
+.app-interview-picks {
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--app-space-1);
 }
 
@@ -266,6 +411,20 @@
   display: flex;
   justify-content: flex-end;
   gap: var(--app-space-2);
+  padding: var(--app-space-3) var(--app-space-4) var(--app-space-4);
+  border-top: 1px solid var(--app-border);
+}
+
+/* A narrow dialog stacks the times under the month, at a height of their own. */
+@container (max-width: 479px) {
+  .app-interview-when {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-clock-list {
+    flex: none;
+    height: 176px;
+  }
 }
 
 /* ---- the place's tabs ---------------------------------------------------- */

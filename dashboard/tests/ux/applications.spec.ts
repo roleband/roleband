@@ -1,3 +1,4 @@
+import type { Locator } from "@playwright/test";
 import type { ApplicationCard, InterviewWrite, Job } from "../../src/api";
 import { msg } from "../../src/test/msg";
 import { applicationCardFixture, applicationDetailFixture, jobFixture, jobListFixture } from "../../src/test/fixtures";
@@ -372,6 +373,8 @@ test("the month pages to the next one with its own read, and a filter leaves the
 });
 
 test("moving into Interviewing asks when the interview is, and records it with the move", async ({ page }) => {
+  // A fixed clock: the month the form opens on is the test's.
+  await page.clock.setFixedTime(new Date(2026, 10, 4, 10, 0));
   const { stageWrites, interviews } = await installPipeline(page);
   await page.goto("/pipeline/board");
 
@@ -381,8 +384,10 @@ test("moving into Interviewing asks when the interview is, and records it with t
   await expect(dialog).toBeVisible();
   expect(stageWrites).toEqual([]);
 
-  await dialog.getByLabel(msg("applications-interview-date")).fill("2026-11-12");
-  await dialog.getByLabel(msg("applications-interview-time")).fill("14:00");
+  await dialog.getByRole("button", { name: "Thu, Nov 12", exact: true }).click();
+  const times = dialog.getByRole("group", { name: msg("applications-interview-times") });
+  await times.getByRole("button", { name: "2:00 PM", exact: true }).click();
+  await expect(dialog.locator(".app-interview-summary")).toHaveText("Thu, Nov 12 · 2:00 PM");
   await dialog.getByRole("button", { name: msg("applications-interview-submit", { stage: "Interviewing" }) }).click();
 
   await expect(column(page, "Interviewing").getByText("Principal Engineering Manager")).toBeVisible();
@@ -391,6 +396,58 @@ test("moving into Interviewing asks when the interview is, and records it with t
   expect(interviews[0]).toMatchObject({ label: msg("applications-interview-default-label"), all_day: false });
   const sent = new Date(interviews[0].scheduled_at);
   expect([sent.getFullYear(), sent.getMonth(), sent.getDate(), sent.getHours()]).toEqual([2026, 10, 12, 14]);
+});
+
+test("the interview form fits the window: the times beside the month on a laptop, under it on a phone, and Save always in view", async ({ page }) => {
+  // The real clock: a fixed one would hold the dialog's opening animation still.
+  await installPipeline(page);
+  const openForm = async () => {
+    await page.goto("/pipeline/board");
+    await menuButton(page, "Principal Engineering Manager").click();
+    await menu(page, "Principal Engineering Manager").getByRole("button", { name: "Interviewing" }).click();
+    const dialog = page.getByRole("dialog", { name: msg("applications-interview-title") });
+    await expect(dialog).toBeVisible();
+    // It opens with a small scale-in: measure once it has settled.
+    await expect.poll(() => dialog.evaluate((el) => el.getAnimations().every((one) => one.playState === "finished"))).toBe(true);
+    return dialog;
+  };
+  const parts = (dialog: Locator) => ({
+    month: dialog.locator(".app-month-grid"),
+    times: dialog.getByRole("group", { name: msg("applications-interview-times") }),
+    save: dialog.getByRole("button", { name: msg("applications-interview-submit", { stage: "Interviewing" }) }),
+  });
+
+  // A laptop: the whole form in view, the times as tall as the month beside it.
+  await page.setViewportSize({ width: 1280, height: 720 });
+  let dialog = await openForm();
+  let { month, times, save } = parts(dialog);
+  const box = (await dialog.boundingBox())!;
+  expect(box.width, "the dialog's width").toBe(560);
+  const [monthBox, timesBox] = [(await month.boundingBox())!, (await times.boundingBox())!];
+  expect(timesBox.x, "the times stand right of the month").toBeGreaterThan(monthBox.x + monthBox.width);
+  expect(timesBox.y + timesBox.height, "and end with it").toBeLessThanOrEqual(monthBox.y + monthBox.height + 2);
+  await expect(save).toBeInViewport({ ratio: 1 });
+  expect(box.y + box.height, "nothing to scroll to reach Save").toBeLessThanOrEqual(720);
+
+  // A short window: the middle scrolls, the head and Save hold still.
+  await page.setViewportSize({ width: 1280, height: 520 });
+  ({ save } = parts(dialog));
+  await expect(save).toBeInViewport({ ratio: 1 });
+  const body = dialog.locator(".app-interview-body");
+  expect(await body.evaluate((el) => el.scrollHeight > el.clientHeight), "the middle scrolls").toBe(true);
+  await body.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+  await expect(save).toBeInViewport({ ratio: 1 });
+  await expect(dialog.locator(".app-interview-summary")).toBeInViewport({ ratio: 1 });
+
+  // A phone: the times under the month, nothing wider than the screen, Save in reach.
+  await page.setViewportSize({ width: 375, height: 667 });
+  dialog = await openForm();
+  ({ month, times, save } = parts(dialog));
+  const [phoneMonth, phoneTimes] = [(await month.boundingBox())!, (await times.boundingBox())!];
+  expect(phoneTimes.y, "the times sit under the month").toBeGreaterThan(phoneMonth.y + phoneMonth.height);
+  expect((await dialog.boundingBox())!.width, "the dialog keeps a margin").toBeLessThanOrEqual(375 - 32);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth), "the page never widens").toBeLessThanOrEqual(375);
+  await expect(save).toBeInViewport({ ratio: 1 });
 });
 
 test("a column hidden from its menu takes no room, stays hidden after a reload, and comes back from Columns", async ({ page }) => {

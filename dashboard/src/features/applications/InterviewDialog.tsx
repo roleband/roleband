@@ -1,20 +1,23 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useId, useState } from "react";
 import type { ApplicationCard, ApplicationInterview, InterviewWrite } from "../../api";
+import { timeZone, timestamp } from "../../copy/format";
 import { STAGE_LABEL } from "../../copy/vocabulary";
 import { companyName } from "../../format";
-import { Button, Dialog, Select } from "../../ui";
+import { Button, Dialog, FilterChip, Icon, Select } from "../../ui";
 import "../../design/materials/register-material.css";
 import {
   applicationsInterviewAdd,
+  applicationsInterviewAddRound,
   applicationsInterviewAddTitle,
+  applicationsInterviewAddLink,
   applicationsInterviewCancel,
-  applicationsInterviewDate,
+  applicationsInterviewDayMissing,
+  applicationsInterviewDefaultLabel,
   applicationsInterviewDelete,
   applicationsInterviewEditSubmit,
   applicationsInterviewEditTitle,
-  applicationsInterviewDefaultLabel,
+  applicationsInterviewFor,
   applicationsInterviewFormat,
-  applicationsInterviewFormatNone,
   applicationsInterviewFormatOnsite,
   applicationsInterviewFormatPhone,
   applicationsInterviewFormatVideo,
@@ -22,21 +25,60 @@ import {
   applicationsInterviewLinkPlaceholder,
   applicationsInterviewMoves,
   applicationsInterviewNotes,
+  applicationsInterviewOptional,
   applicationsInterviewOutcome,
   applicationsInterviewOutcomeCancelled,
   applicationsInterviewOutcomeNone,
   applicationsInterviewOutcomeNotPassed,
   applicationsInterviewOutcomePassed,
+  applicationsInterviewPickDay,
   applicationsInterviewRound,
+  applicationsInterviewRoundFinal,
+  applicationsInterviewRoundHiringManager,
+  applicationsInterviewRoundPanel,
+  applicationsInterviewRoundRecruiter,
+  applicationsInterviewRoundTechnical,
+  applicationsInterviewRounds,
   applicationsInterviewSubmit,
-  applicationsInterviewTime,
   applicationsInterviewTitle,
+  applicationsInterviewWhenDay,
+  applicationsInterviewWhenTimed,
+  applicationsInterviewZone,
 } from "../../copy/gen/applications";
+import { ClockPicker } from "./ClockPicker";
+import { clockLabel, parseClock } from "./clock";
+import { DayPicker } from "./DayPicker";
+import { fromDayKey } from "./monthGrid";
 
 type FormatChoice = "" | "video" | "phone" | "onsite";
 type OutcomeChoice = "" | "passed" | "not_passed" | "cancelled";
 
 const pad = (n: number) => String(n).padStart(2, "0");
+
+const FORMATS: readonly [Exclude<FormatChoice, "">, () => string][] = [
+  ["video", applicationsInterviewFormatVideo],
+  ["phone", applicationsInterviewFormatPhone],
+  ["onsite", applicationsInterviewFormatOnsite],
+];
+
+const ROUNDS = [
+  applicationsInterviewRoundRecruiter,
+  applicationsInterviewRoundHiringManager,
+  applicationsInterviewRoundTechnical,
+  applicationsInterviewRoundPanel,
+  applicationsInterviewRoundFinal,
+];
+
+/** A link to a meeting room: pasting one says the interview is on video. */
+const MEETING_LINK = /(^|[./])(zoom\.us|meet\.google\.com|teams\.microsoft\.com|teams\.live\.com|webex\.com|whereby\.com)(\/|$)/i;
+
+export function isMeetingLink(link: string): boolean {
+  try {
+    return MEETING_LINK.test(new URL(link.trim()).host + "/");
+  } catch {
+    return false;
+  }
+}
 
 /** A stored interview as the form's fields: its day and clock in the
  *  reader's own zone, and no clock for an all-day one. */
@@ -87,115 +129,167 @@ export interface InterviewDialogProps {
   onDelete?: () => void;
 }
 
-/** One interview's form, in three uses: the entry condition of a move into
- *  Interviewing (Cancel leaves the card where it was), adding one, and
- *  changing one, where its outcome and notes are recorded. */
+/**
+ * One interview's form, in three uses: the entry condition of a move into
+ * Interviewing (Cancel leaves the card where it was), adding one, and
+ * changing one, where its outcome and notes are recorded.
+ *
+ * When comes first and is all it asks for: a day from the month and, beside
+ * it, a time or none yet. The round and where it happens wait under
+ * Optional, each a line that opens into its fields; one that already has a
+ * value stands open. The head and the actions hold still while the middle
+ * scrolls, so the way to save is always in reach.
+ */
 export function InterviewDialog({ card, interview, moving = false, onCancel, onSubmit, onDelete }: InterviewDialogProps) {
+  const [now] = useState(() => new Date());
   const [initial] = useState(() => (interview ? fieldsOf(interview) : null));
   const [label, setLabel] = useState(initial?.label ?? "");
   const [day, setDay] = useState(initial?.day ?? "");
-  const [clock, setClock] = useState(initial?.clock ?? "");
+  const [clockText, setClockText] = useState(initial?.clock ? clockLabel(initial.clock) : "");
   const [format, setFormat] = useState<FormatChoice>(initial?.format ?? "");
   const [link, setLink] = useState(initial?.link ?? "");
   const [outcome, setOutcome] = useState<OutcomeChoice>(initial?.outcome ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [open, setOpen] = useState({ round: Boolean(initial?.label), where: Boolean(initial?.format || initial?.link) });
+  const [tried, setTried] = useState(false);
+  const roundId = useId();
+  const linkId = useId();
+  const dayErrorId = useId();
   const editing = interview != null;
   const title = moving ? applicationsInterviewTitle() : editing ? applicationsInterviewEditTitle() : applicationsInterviewAddTitle();
 
+  const clock = clockText.trim() ? parseClock(clockText) : "";
+  const missingDay = tried && !day;
+  const badClock = tried && clock == null;
+
+  const summary = !day
+    ? applicationsInterviewPickDay()
+    : clock
+      ? applicationsInterviewWhenTimed({
+        date: timestamp(fromDayKey(day), { weekday: "short", month: "short", day: "numeric" }),
+        time: clockLabel(clock),
+      })
+      : applicationsInterviewWhenDay({ date: timestamp(fromDayKey(day), { weekday: "short", month: "short", day: "numeric" }) });
+
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (!day) return;
+    setTried(true);
+    if (!day || clock == null) return;
     const write = interviewFrom({ label, day, clock, format, link });
     onSubmit(editing ? { ...write, outcome: outcome || null, notes: notes.trim() || null } : write);
   };
+  const onLink = (next: string) => {
+    setLink(next);
+    if (!format && isMeetingLink(next)) setFormat("video");
+  };
 
   return (
-    <Dialog isOpen onClose={onCancel} label={title} width={440} className="app-overlay">
-      <form className="ledger-form app-interview-form" onSubmit={submit}>
-        <h3>{title}</h3>
-        {moving && (
+    <Dialog isOpen onClose={onCancel} label={title} width={560} className="app-overlay app-interview-dialog">
+      <form className="ledger-form app-interview-form" onSubmit={submit} noValidate>
+        <header className="app-interview-head">
+          <h3>{title}</h3>
           <p className="app-interview-note">
-            {applicationsInterviewMoves({
-              company: companyName(card.company),
-              title: card.title,
-              stage: STAGE_LABEL.interviewing,
-            })}
+            {moving
+              ? applicationsInterviewMoves({ company: companyName(card.company), title: card.title, stage: STAGE_LABEL.interviewing })
+              : applicationsInterviewFor({ company: companyName(card.company), title: card.title })}
           </p>
-        )}
-        <div>
-          <label htmlFor="app-interview-round">{applicationsInterviewRound()}</label>
-          <input
-            id="app-interview-round"
-            value={label}
-            maxLength={120}
-            placeholder={applicationsInterviewDefaultLabel()}
-            onChange={(event) => setLabel(event.target.value)}
-          />
-        </div>
-        <div className="app-interview-when">
-          <div>
-            <label htmlFor="app-interview-day">{applicationsInterviewDate()}</label>
-            <input id="app-interview-day" type="date" required value={day} onChange={(event) => setDay(event.target.value)} />
-          </div>
-          <div>
-            <label htmlFor="app-interview-clock">{applicationsInterviewTime()}</label>
-            <input id="app-interview-clock" type="time" value={clock} onChange={(event) => setClock(event.target.value)} />
-          </div>
-        </div>
-        <div>
-          <label htmlFor="app-interview-format">{applicationsInterviewFormat()}</label>
-          <Select
-            id="app-interview-format"
-            label={applicationsInterviewFormat()}
-            value={format}
-            onChange={setFormat}
-            options={[
-              { value: "", label: applicationsInterviewFormatNone() },
-              { value: "video", label: applicationsInterviewFormatVideo() },
-              { value: "phone", label: applicationsInterviewFormatPhone() },
-              { value: "onsite", label: applicationsInterviewFormatOnsite() },
-            ]}
-          />
-        </div>
-        <div>
-          <label htmlFor="app-interview-link">{applicationsInterviewLink()}</label>
-          <input
-            id="app-interview-link"
-            type="url"
-            value={link}
-            placeholder={applicationsInterviewLinkPlaceholder()}
-            onChange={(event) => setLink(event.target.value)}
-          />
-        </div>
-        {editing && (
-          <>
+          <p className="app-interview-summary" data-empty={!day || undefined} aria-live="polite">{summary}</p>
+        </header>
+
+        <div className="app-interview-body">
+          <div className="app-interview-when">
             <div>
-              <label htmlFor="app-interview-outcome">{applicationsInterviewOutcome()}</label>
-              <Select
-                id="app-interview-outcome"
-                label={applicationsInterviewOutcome()}
-                value={outcome}
-                onChange={setOutcome}
-                options={[
-                  { value: "", label: applicationsInterviewOutcomeNone() },
-                  { value: "passed", label: applicationsInterviewOutcomePassed() },
-                  { value: "not_passed", label: applicationsInterviewOutcomeNotPassed() },
-                  { value: "cancelled", label: applicationsInterviewOutcomeCancelled() },
-                ]}
-              />
+              <DayPicker value={day} onChange={setDay} now={now} />
+              {missingDay && (
+                <p id={dayErrorId} className="app-interview-error" role="alert">{applicationsInterviewDayMissing()}</p>
+              )}
             </div>
-            <div>
-              <label htmlFor="app-interview-notes">{applicationsInterviewNotes()}</label>
-              <textarea
-                id="app-interview-notes"
-                rows={4}
-                maxLength={20_000}
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-              />
-            </div>
-          </>
-        )}
+            <ClockPicker text={clockText} onText={setClockText} invalid={badClock} />
+          </div>
+          <p className="app-interview-zone">{applicationsInterviewZone({ zone: timeZone(now) })}</p>
+
+          <section className="app-interview-optional" aria-label={applicationsInterviewOptional()}>
+            <p className="app-interview-optional-head" aria-hidden="true">{applicationsInterviewOptional()}</p>
+            {open.round ? (
+              <div className="app-interview-field">
+                <label htmlFor={roundId}>{applicationsInterviewRound()}</label>
+                <input
+                  id={roundId}
+                  value={label}
+                  maxLength={120}
+                  autoFocus={!initial?.label}
+                  placeholder={applicationsInterviewDefaultLabel()}
+                  onChange={(event) => setLabel(event.target.value)}
+                />
+                <div className="app-interview-picks" role="group" aria-label={applicationsInterviewRounds()}>
+                  {ROUNDS.map((round) => (
+                    <FilterChip key={round()} selected={label.trim() === round()} onClick={() => setLabel(label.trim() === round() ? "" : round())}>
+                      {round()}
+                    </FilterChip>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <Button size="sm" className="app-interview-open" onClick={() => setOpen({ ...open, round: true })}>
+                <Icon name="plus" size={14} /> {applicationsInterviewAddRound()}
+              </Button>
+            )}
+            {open.where ? (
+              <div className="app-interview-field">
+                <div className="app-interview-picks" role="group" aria-label={applicationsInterviewFormat()}>
+                  {FORMATS.map(([value, name]) => (
+                    <FilterChip key={value} selected={format === value} onClick={() => setFormat(format === value ? "" : value)}>
+                      {name()}
+                    </FilterChip>
+                  ))}
+                </div>
+                <label htmlFor={linkId}>{applicationsInterviewLink()}</label>
+                <input
+                  id={linkId}
+                  type="url"
+                  value={link}
+                  autoFocus={!initial?.link && !initial?.format}
+                  placeholder={applicationsInterviewLinkPlaceholder()}
+                  onChange={(event) => onLink(event.target.value)}
+                />
+              </div>
+            ) : (
+              <Button size="sm" className="app-interview-open" onClick={() => setOpen({ ...open, where: true })}>
+                <Icon name="plus" size={14} /> {applicationsInterviewAddLink()}
+              </Button>
+            )}
+            {editing && (
+              <>
+                <div className="app-interview-field">
+                  <label htmlFor="app-interview-outcome">{applicationsInterviewOutcome()}</label>
+                  <Select
+                    id="app-interview-outcome"
+                    label={applicationsInterviewOutcome()}
+                    value={outcome}
+                    onChange={setOutcome}
+                    options={[
+                      { value: "", label: applicationsInterviewOutcomeNone() },
+                      { value: "passed", label: applicationsInterviewOutcomePassed() },
+                      { value: "not_passed", label: applicationsInterviewOutcomeNotPassed() },
+                      { value: "cancelled", label: applicationsInterviewOutcomeCancelled() },
+                    ]}
+                  />
+                </div>
+                <div className="app-interview-field">
+                  <label htmlFor="app-interview-notes">{applicationsInterviewNotes()}</label>
+                  <textarea
+                    id="app-interview-notes"
+                    rows={4}
+                    maxLength={20_000}
+                    value={notes}
+                    onChange={(event) => setNotes(event.target.value)}
+                  />
+                </div>
+              </>
+            )}
+          </section>
+        </div>
+
         <div className="app-interview-actions">
           {editing && onDelete && (
             <Button variant="ghost" className="app-interview-delete" onClick={onDelete}>

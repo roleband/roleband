@@ -157,18 +157,50 @@ applications-remove-failed = Couldn't remove { $title }. Try again.
 applications-interview-title = When is the interview?
 # kind=sentence
 applications-interview-moves = { $company } · { $title } moves to { $stage }.
+# kind=label note="Names the role an interview belongs to, above the form"
+applications-interview-for = { $title } at { $company }
+# kind=label note="The summary line before a day is picked"
+applications-interview-pick-day = Pick the day
+# kind=label same-as=applications-next-interview-meta note="The summary line: a day and a time"
+applications-interview-when-timed = { $date } · { $time }
+# kind=heading note="The summary line: a day with no time yet"
+applications-interview-when-day = { $date } · no time yet
+# kind=label note="Under the month and the times; zone is the reader's own, by name"
+applications-interview-zone = Times in { $zone }
+# kind=label note="The first choice in the list of times"
+applications-interview-no-time = No time yet
+# kind=aria note="Names the list of quarter hours"
+applications-interview-times = Times
+# kind=error next=none note="The message is itself the way out"
+applications-interview-time-invalid = Type a time like { $example }.
+# kind=error next=none note="The message is itself the way out"
+applications-interview-day-missing = Pick the day of the interview.
+# kind=label note="Heads the round, the format and the link, which may be left empty"
+applications-interview-optional = Optional
+# kind=button
+applications-interview-add-round = Add the round
+# kind=button note="Opens the format and the meeting link"
+applications-interview-add-link = Add meeting link
+# kind=aria note="Names the quick picks under the round's field"
+applications-interview-rounds = Common rounds
 # kind=label
-applications-interview-round = What round
+applications-interview-round-recruiter = Recruiter screen
+# kind=label
+applications-interview-round-hiring-manager = Hiring manager
+# kind=label
+applications-interview-round-technical = Technical
+# kind=label
+applications-interview-round-panel = Panel
+# kind=label
+applications-interview-round-final = Final round
+# kind=label
+applications-interview-round = Round
 # kind=label note="The round's name when the person names none"
 applications-interview-default-label = Interview
 # kind=label
-applications-interview-date = Date
-# kind=label
-applications-interview-time = Time, if set
+applications-interview-time = Time
 # kind=label
 applications-interview-format = Format
-# kind=label note="No format chosen"
-applications-interview-format-none = Not set
 # kind=label
 applications-interview-format-video = Video
 # kind=label
@@ -176,7 +208,7 @@ applications-interview-format-phone = Phone
 # kind=label
 applications-interview-format-onsite = On site
 # kind=label
-applications-interview-link = Link, if any
+applications-interview-link = Meeting link
 # kind=label
 applications-interview-link-placeholder = Paste the meeting link
 # kind=button
@@ -348,7 +380,7 @@ applications-next-interview-none = No interview booked.
 applications-next-interview-all-day = { $date }, all day
 # kind=label note="A timed interview's day and time"
 applications-next-interview-at = { $date }, { $time }
-# kind=label note="When an interview is, then its format"
+# kind=label same-as=applications-interview-when-timed note="When an interview is, then its format"
 applications-next-interview-meta = { $when } · { $format }
 # kind=button note="Opens the interview's meeting link"
 applications-next-interview-join = Join

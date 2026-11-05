@@ -158,6 +158,13 @@ describe("the board", () => {
 });
 
 describe("moving into Interviewing", () => {
+  // The month the form opens on is the clock's: fix the date, nothing else.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 10, 4, 10, 0));
+  });
+  afterEach(() => vi.useRealTimers());
+
   it("asks when the interview is first, and Cancel writes nothing", async () => {
     render(withProviders(<ApplicationsScreen />));
     await screen.findByText("Principal Engineering Manager");
@@ -176,8 +183,9 @@ describe("moving into Interviewing", () => {
 
     await userEvent.click(within(await openMenu(applied)).getByRole("button", { name: "Interviewing" }));
     const dialog = await screen.findByRole("dialog", { name: msg("applications-interview-title") });
+    await userEvent.click(within(dialog).getByRole("button", { name: msg("applications-interview-add-round") }));
     await userEvent.type(within(dialog).getByLabelText(msg("applications-interview-round")), "Hiring manager call");
-    await userEvent.type(within(dialog).getByLabelText(msg("applications-interview-date")), "2026-11-12");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Thu, Nov 12" }));
     await userEvent.click(within(dialog).getByRole("button", {
       name: msg("applications-interview-submit", { stage: "Interviewing" }),
     }));
@@ -205,7 +213,7 @@ describe("moving into Interviewing", () => {
 
     await userEvent.click(within(await openMenu(applied)).getByRole("button", { name: "Interviewing" }));
     const dialog = await screen.findByRole("dialog", { name: msg("applications-interview-title") });
-    await userEvent.type(within(dialog).getByLabelText(msg("applications-interview-date")), "2026-11-12");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Thu, Nov 12" }));
     await userEvent.click(within(dialog).getByRole("button", {
       name: msg("applications-interview-submit", { stage: "Interviewing" }),
     }));
