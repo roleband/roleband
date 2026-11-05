@@ -8,14 +8,15 @@
   <p>
     <a href="#install">Install</a> ·
     <a href="#how-it-works">How it works</a> ·
-    <a href="#why-roleband">Why RoleBand</a> ·
+    <a href="#more-features">Features</a> ·
+    <a href="#roadmap">Roadmap</a> ·
     <a href="#data-and-privacy">Privacy</a> ·
     <a href="#contributing">Contributing</a>
   </p>
   <p>
     <a href="#install-on-macos"><img alt="Install on macOS" src="docs/images/button-macos.svg"></a>
     <a href="#install-on-linux"><img alt="Install on Linux" src="docs/images/button-linux.svg"></a>
-    <a href="#windows"><img alt="Windows: coming later" src="docs/images/button-windows.svg"></a>
+    <a href="https://github.com/roleband/roleband/issues/82"><img alt="Windows: in development" src="docs/images/button-windows.svg"></a>
   </p>
   <a href="https://github.com/roleband/roleband"><img alt="GitHub stars" src="https://img.shields.io/github/stars/roleband/roleband?style=social"></a>
 </div>
@@ -72,6 +73,27 @@ The Radar and the ranking pictures come from a real install.</sub>
 
 [What can leave your computer, and when](SECURITY.md)
 
+## More features
+
+- **Pipeline (coming soon).** Track your job applications: where each one
+  stands, your next step and your upcoming interviews.
+- **Levels across companies.** Compare titles side by side, and see what
+  "Senior" really means at each employer.
+- **Read the market.** See which skills are in demand, what each level pays
+  and who is hiring right now.
+- **Any company, one link.** Paste a careers link, and its roles join your
+  radar.
+- **Alerts that matter.** Save a role, and hear when it closes.
+
+**And more:** works with Claude and Codex · equity in real money · a pay floor
+· side-by-side comparison · duplicates grouped · your own AI model or Apple
+Intelligence · open pay data · English, Spanish and Simplified Chinese.
+
+## Roadmap
+
+Follow what comes next on the
+[public roadmap](https://github.com/orgs/roleband/projects/2).
+
 ## Install
 
 ### Install on macOS
@@ -111,10 +133,6 @@ deploy/build_dashboard.sh
 Linux runs RoleBand from this folder; there is no app. From `backend/`, run
 `.venv/bin/python -m tracker.supervisor run` under your own service manager,
 then open **http://127.0.0.1:8010**.
-
-### Windows
-
-Not yet: RoleBand does not run on Windows. A Windows installer is planned.
 
 ### Update or remove
 
@@ -295,7 +313,6 @@ gives the checks for each step.
 | Linux x86_64 | Setup, the app and tests (`backend/constraints/linux-x86_64.txt`; CI runs here). No installer: run `python -m tracker.supervisor run` under your own service manager. |
 | Linux aarch64 | Builds: setup has a dependency lock (`backend/constraints/linux-aarch64.txt`), but no full run has been tried on this platform. No installer. |
 | macOS, Intel | Not supported: the app is built for Apple silicon only, and `setup.sh` refuses (no dependency lock). |
-| Windows | Not supported yet. A Windows installer is planned. |
 
 `setup.sh` installs only against a committed lock in `backend/constraints/`
 and refuses any platform without one.
