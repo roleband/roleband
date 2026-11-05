@@ -47,7 +47,7 @@ CompSplitSource = Literal["measured", "cross_family", "heuristic"]
 CompEquityBasis = Literal["measured_grant", "ratio"]
 CompNoSplitReason = Literal[
     "basis_unclear", "hourly", "monthly", "period_unclear", "employee_election", "total_compensation",
-    "plugin_without_split", "plugin_not_covered", "not_us_pay",
+    "plugin_without_split", "plugin_not_covered", "not_us_pay", "level_unplaced",
 ]
 CompReconciliationVerdict = Literal["consistent", "stated_above_measured", "stated_below_measured"]
 CompMarketVerdict = Literal["consistent", "diverges"]

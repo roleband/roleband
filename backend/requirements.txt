@@ -1,14 +1,14 @@
 # Core
 httpx[http2]==0.28.1
 curl_cffi==0.15.0  # TLS-fingerprint fetch tier, consent-gated per walled company (connectors/runtime/tiers.py)
-ijson==3.3.0
+ijson==3.6.0
 selectolax==1.0.2
 python-dateutil==2.9.0.post0
 cryptography==50.0.2  # seals saved API keys at rest (platform/secrets.py)
 
 # DB
 sqlalchemy[asyncio]==2.0.36
-asyncpg==0.30.0
+asyncpg==0.32.0
 psycopg2-binary==2.9.13
 alembic==1.20.0
 greenlet==3.1.1

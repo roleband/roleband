@@ -710,6 +710,55 @@ async def test_a_job_re_read_with_its_estimates_deferred_keeps_what_it_shows(db_
     assert (await reestimate(db_session)).current, "nothing left for a re-estimate to repair"
 
 
+@pytest.mark.asyncio
+async def test_a_deferred_read_that_moves_what_the_estimate_reads_re_estimates_the_job(db_session, monkeypatch):
+    """A deferred row keeps the figures it shows only while what they were
+    computed from holds. A read that leaves the level unplaced would otherwise
+    keep the Senior figure, in the list and the detail, for a level the
+    posting never stated, until a later scan estimated it. The writer
+    re-estimates it from stored data; read placed again, it is priced again.
+    A read that moves nothing costs no re-estimate."""
+    from dataclasses import replace
+
+    from tracker.db.models import ScrapeRun
+    from tracker.schema import LevelBasis
+    from tracker.workflows.collection_types import ScanMode
+    from tracker.workflows.run_persistence import persist_rows
+
+    refreshed: list[int] = []
+    refresh = reestimate_module.refresh_jobs
+
+    async def recorded(session, job_ids):
+        refreshed.extend(job_ids)
+        return await refresh(session, job_ids)
+
+    monkeypatch.setattr(reestimate_module, "refresh_jobs", recorded)
+    await _seed(db_session)
+    await reestimate(db_session)
+    job = (await db_session.execute(select(Job).where(Job.dedupe_key == "acme:0"))).scalar_one()
+    raw = RawJob(company="acme", req_id="0", title=job.title, url=job.url, locations=["San Francisco, CA"])
+    run = ScrapeRun(status="running")
+    db_session.add(run)
+    await db_session.flush()
+
+    async def read_deferred(basis: LevelBasis) -> tuple:
+        deferred = await build_enriched(raw, replace(_annotation(job), basis=basis), None)
+        assert deferred.estimates == {}, "no resolver ran"
+        await persist_rows(db_session, run, [deferred], {job.dedupe_key: job},
+                           scan_mode=ScanMode.RECONCILE, touched_ids=[])
+        await db_session.commit()
+        await db_session.refresh(job)
+        row = await db_session.get(JobCompEstimate, (job.id, "roleband"), populate_existing=True)
+        return job.level_basis, job.comp_median, row.comp_median
+
+    assert await read_deferred(LevelBasis.UNMAPPED) == ("unmapped", None, None)
+    assert await read_deferred(LevelBasis.COMPANY) == ("company", 300_000, 300_000)
+    assert refreshed == [job.id, job.id]
+    assert await read_deferred(LevelBasis.COMPANY) == ("company", 300_000, 300_000)
+    assert refreshed == [job.id, job.id], "an unchanged read is not re-estimated"
+    assert (await reestimate(db_session)).current, "nothing left for a re-estimate to repair"
+
+
 # --------------------------------------------------------------------------- #
 # A job's own inputs moving outside a scan
 # --------------------------------------------------------------------------- #
@@ -834,7 +883,8 @@ async def test_the_level_and_role_passes_refresh_what_they_moved(db_session, mon
     monkeypatch.setattr(reestimate_module, "refresh_jobs", spy)
     reading = SimpleNamespace(band=LevelBand.SENIOR, confidence=LevelConfidence.CONFIRMED,
                               basis=SimpleNamespace(value="title"))
-    pending = [SimpleNamespace(row=SimpleNamespace(id=mid.id), reading=reading, band_moved=True)]
+    pending = [SimpleNamespace(row=SimpleNamespace(id=mid.id), reading=reading, band_moved=True,
+                               estimate_moved=True)]
 
     async def fake_pending(session, *, company=None):
         return 1, pending

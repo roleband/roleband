@@ -231,7 +231,9 @@ async def load_company_jobs(session: AsyncSession, company: str) -> dict[str, Jo
 
 def _apply_fields(job: Job, e: EnrichedJob, *, keep_comp: bool = False) -> BandChange | None:
     """`keep_comp`: the enrichment estimated nothing (deferred), so the
-    job keeps the figures it shows; they move with the next estimate."""
+    job keeps the figures it shows; they move with the next estimate, which
+    the writer makes at once where the read moved what they were computed
+    from (`run_persistence.persist_rows`)."""
     raw = e.raw
     job.title = raw.title
     job.url = raw.url

@@ -74,7 +74,7 @@ from tracker.db.queries.listing_history import lineage_members, listing_history,
 from tracker.db.queries.reference_pay import package_rows
 from tracker.enrich.enricher import ESTIMATE_FIELDS
 from tracker.plugins.registry import PAY_LEVELS, reader_providers
-from tracker.schema import OUR_ESTIMATE_SOURCE
+from tracker.schema import OUR_ESTIMATE_SOURCE, UNPLACED_BASIS_VALUES
 from tracker.search.best_match import (
     IntentRanking,
     RankedRow,
@@ -456,6 +456,8 @@ async def get_job(job_id: int, session: SessionDep) -> dict:
         # Our split heuristic is measured on US pay only.
         us_pay=country == OUR_PAY_COUNTRY,
         covered=data["pay_source"]["covered"],
+        # A NULL basis is an older row whose band was read as a level.
+        level_placed=job.level_basis not in UNPLACED_BASIS_VALUES,
     )
 
     events = (

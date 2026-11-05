@@ -5839,7 +5839,7 @@ export interface components {
             estimate: components["schemas"]["CompEstimate"] | null;
             market_gap: components["schemas"]["CompMarketGap"] | null;
             /** No Split Reason */
-            no_split_reason: ("basis_unclear" | "hourly" | "monthly" | "period_unclear" | "employee_election" | "total_compensation" | "plugin_without_split" | "plugin_not_covered" | "not_us_pay") | null;
+            no_split_reason: ("basis_unclear" | "hourly" | "monthly" | "period_unclear" | "employee_election" | "total_compensation" | "plugin_without_split" | "plugin_not_covered" | "not_us_pay" | "level_unplaced") | null;
             /** Pay Period */
             pay_period: string | null;
             policy: components["schemas"]["OfferPolicy"] | null;

@@ -29,6 +29,7 @@ from tracker.enrich.level_mapper import LevelReading, read_level
 from tracker.levels.ladder import prints_rungs_in_text
 from tracker.plugins import reestimate
 from tracker.schema import (
+    UNPLACED_BASES,
     LevelBasis,
     LevelConfidence,
     RawJob,
@@ -94,6 +95,14 @@ class Relevel:
     def band_moved(self) -> bool:
         return self.reading.band.value != self.row.level_band
 
+    @property
+    def estimate_moved(self) -> bool:
+        """The band, or whether it is placed at all: an unplaced band gets no
+        estimate (`enrich.comp`), so a row that becomes placed at the same band
+        is priced for the first time."""
+        was_placed = stored_reading(self.row).basis not in UNPLACED_BASES
+        return self.band_moved or was_placed != (self.reading.basis not in UNPLACED_BASES)
+
 
 def _differs(row: Row[Any], reading: LevelReading) -> bool:
     return (
@@ -154,8 +163,8 @@ async def relevel_jobs(session: AsyncSession) -> dict[str, int]:
     refreshed = await refresh_listed_rungs(session)
     _, pending = await pending_relevels(session)
     await set_job_levels(session, level_changes(pending))
-    # A band is an estimate input no fingerprint names.
-    await reestimate.refresh_jobs(session, [item.row.id for item in pending if item.band_moved])
+    # A band and its placement are estimate inputs no fingerprint names.
+    await reestimate.refresh_jobs(session, [item.row.id for item in pending if item.estimate_moved])
     rescoped = await recompute_saved_scope(session) if pending else 0
     return {
         "rungs_refreshed": len(refreshed),
