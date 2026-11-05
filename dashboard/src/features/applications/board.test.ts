@@ -66,11 +66,10 @@ describe("the due field", () => {
     // ends at the next midnight. In a zone with no clock change, none is found
     // and the plain day above is the whole case.
     const changes = Array.from({ length: 365 }, (_, i) => new Date(2026, 0, 1 + i))
-      .find((day) => new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1).getTime() - day.getTime() !== 86_400_000);
-    if (changes) {
-      const next = new Date(changes.getFullYear(), changes.getMonth(), changes.getDate() + 1);
-      expect(allDay(changes).at).toEqual(next);
-      expect(next.getTime() - changes.getTime()).not.toBe(86_400_000);
+      .filter((day) => new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1).getTime() - day.getTime() !== 86_400_000);
+    for (const change of changes) {
+      const next = new Date(change.getFullYear(), change.getMonth(), change.getDate() + 1);
+      expect(allDay(change).at, change.toDateString()).toEqual(next);
     }
   });
 
