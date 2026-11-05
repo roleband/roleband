@@ -3,6 +3,7 @@ using RoleBand.EngineHost;
 using System.Diagnostics;
 using Microsoft.UI.Windowing;
 using Windows.Graphics;
+using System.Runtime.InteropServices;
 
 namespace RoleBand.App;
 
@@ -11,12 +12,15 @@ public sealed partial class MainWindow : Window
     private readonly NativeCopy copy;
     private EngineSession? engine;
     private bool closing;
+    private string diagnosticLocation = "";
 
     public MainWindow(Exception? launchFailure = null)
     {
         InitializeComponent();
         Title = "RoleBand";
-        AppWindow.Resize(new SizeInt32(640, 460));
+        // AppWindow sizes physical pixels; XAML layout uses device-independent pixels.
+        var scale = Math.Max(96, GetDpiForWindow(WinRT.Interop.WindowNative.GetWindowHandle(this))) / 96.0;
+        AppWindow.Resize(new SizeInt32((int)(640 * scale), (int)(540 * scale)));
         var args = Environment.GetCommandLineArgs().Skip(1).ToArray();
         string? Option(string name)
         {
@@ -51,7 +55,7 @@ public sealed partial class MainWindow : Window
                 : EngineConfiguration.Source(source, state!, args.Contains("--synthetic-fixture"));
             engine = new EngineSession(configuration);
             engine.Changed += snapshot => DispatcherQueue.TryEnqueue(() => Render(snapshot));
-            DiagnosticsText.Text = $"{configuration.Resources}{Environment.NewLine}{configuration.State}";
+            diagnosticLocation = $"{configuration.Resources}{Environment.NewLine}{configuration.State}";
             Render(engine.Snapshot);
         }
         catch (Exception error)
@@ -79,7 +83,7 @@ public sealed partial class MainWindow : Window
         StopButton.IsEnabled = engine?.OwnsEngine == true && snapshot.State != EngineState.Stopping;
         BusyIndicator.Visibility = snapshot.State is EngineState.Starting or EngineState.Preparing or EngineState.Stopping or EngineState.Recovering
             ? Visibility.Visible : Visibility.Collapsed;
-        if (snapshot.Diagnostic is not null) DiagnosticsText.Text = snapshot.Diagnostic;
+        DiagnosticsText.Text = snapshot.Diagnostic ?? diagnosticLocation;
     }
 
     private async Task StopAsync()
@@ -99,4 +103,7 @@ public sealed partial class MainWindow : Window
             Close();
         }
     }
+
+    [DllImport("user32.dll")]
+    private static extern uint GetDpiForWindow(nint window);
 }
