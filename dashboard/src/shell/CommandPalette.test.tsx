@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { StrictMode, useState } from "react";
-import { MemoryRouter, useLocation } from "react-router-dom";
+import { MemoryRouter, useLocation, useNavigationType } from "react-router-dom";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { Overlay } from "../ui/Overlay";
 import { ToastProvider } from "../ui/Toast";
@@ -28,8 +28,10 @@ vi.mock("../context/JobWorkspace", () => ({
 
 function Location() {
   const { pathname, search, state } = useLocation();
+  const action = useNavigationType();
   return (
     <>
+      <div data-testid="action">{action}</div>
       <div data-testid="pathname">{pathname}</div>
       <div data-testid="search">{search}</div>
       <div data-testid="state">{JSON.stringify(state)}</div>
@@ -67,6 +69,7 @@ function renderPalette({ compareIds = [] as number[], at = "/" as string | { pat
     pathname: () => screen.getByTestId("pathname").textContent,
     search: () => screen.getByTestId("search").textContent,
     state: () => JSON.parse(screen.getByTestId("state").textContent || "null"),
+    action: () => screen.getByTestId("action").textContent,
     selected: () => screen.getByRole("option", { selected: true }).textContent,
     reopen: () => {
       rerender(tree(false));
@@ -197,6 +200,7 @@ describe("CommandPalette", () => {
     expect(upNext.pathname()).toBe("/pipeline/up-next");
     expect([params.get("q"), params.get("only"), params.get("show")]).toEqual(["stripe", "due_week", "highlight"]);
     expect(upNext.state()).toEqual(left);
+    expect(upNext.action(), "a filter change is not a destination").toBe("REPLACE");
   });
 
   it("a search that leaves an application's page for the List takes none of the page's address", () => {
@@ -206,6 +210,7 @@ describe("CommandPalette", () => {
     expect(page.pathname()).toBe("/pipeline/list");
     expect(page.search()).toBe("?q=stripe");
     expect(page.state()).toBeNull();
+    expect(page.action(), "leaving the page is a step Back undoes").toBe("PUSH");
   });
 
   it("from an application's page the search opens the Pipeline's List", () => {

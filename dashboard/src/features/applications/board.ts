@@ -67,7 +67,8 @@ export function dueOf(card: ApplicationCard): Due | null {
   const options: Due[] = [];
   if (interview) {
     const on = new Date(interview.scheduled_at);
-    const at = interview.all_day ? new Date(on.getTime() + DAY) : on;
+    // The next local midnight, which a clock change puts 23 or 25 hours on.
+    const at = interview.all_day ? new Date(on.getFullYear(), on.getMonth(), on.getDate() + 1) : on;
     options.push({ kind: "interview", at, on });
   }
   if (card.next_action_due) {

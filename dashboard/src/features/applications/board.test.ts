@@ -56,11 +56,22 @@ describe("the due field", () => {
     expect(dueOf(card())).toBeNull();
   });
 
-  it("holds an all-day interview open until its day ends", () => {
-    const due = dueOf(card({
-      next_interview: { id: 1, label: "Onsite", scheduled_at: hours(-2), all_day: true, format: "onsite" },
+  it("holds an all-day interview open until its day ends: the next local midnight", () => {
+    const allDay = (on: Date) => dueOf(card({
+      next_interview: { id: 1, label: "Onsite", scheduled_at: on.toISOString(), all_day: true, format: "onsite" },
     }))!;
-    expect(due.at.getTime()).toBe(new Date(hours(22)).getTime());
+    expect(allDay(new Date(2026, 10, 4)).at).toEqual(new Date(2026, 10, 5));
+
+    // A day the reader's clock changes on is 23 or 25 hours long, and still
+    // ends at the next midnight. In a zone with no clock change, none is found
+    // and the plain day above is the whole case.
+    const changes = Array.from({ length: 365 }, (_, i) => new Date(2026, 0, 1 + i))
+      .find((day) => new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1).getTime() - day.getTime() !== 86_400_000);
+    if (changes) {
+      const next = new Date(changes.getFullYear(), changes.getMonth(), changes.getDate() + 1);
+      expect(allDay(changes).at).toEqual(next);
+      expect(next.getTime() - changes.getTime()).not.toBe(86_400_000);
+    }
   });
 
   it("is overdue once a step's date passes, but an interview that started is never overdue", () => {
