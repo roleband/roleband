@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { RESTING, coast, grab, move, onPlanet, release } from "./globeDrag";
-import { MAX_TILT, MIN_TILT, TILT, facingLon, place } from "./globeView";
+import { MAX_TILT, MIN_TILT, TILT, backingDensity, facingLon, onCanvas, pageScale, place } from "./globeView";
 
 const at = place(1928, 1056);
 const perDegree = (at.r * Math.PI) / 180; // pixels the pointer moves per degree
@@ -48,5 +48,57 @@ describe("dragging the planet", () => {
     let state = grab(RESTING, at.cx, at.cy, 0);
     state = move(state, at.cx + 20 * perDegree, at.cy, 100, at.r);
     expect(release(state, true).coast).toBe(0);
+  });
+});
+
+/* Under first-run setup's magnification the page is drawn larger by CSS
+   `zoom`: the pointer and the canvas's box arrive in window pixels while the
+   planet is laid out in the canvas's own. */
+describe("on a magnified page", () => {
+  const ZOOM = 1.3;
+  const layout = { width: 1440, height: 846 };
+  const planet = place(layout.width, layout.height);
+  const box = { left: 40, top: 12, width: layout.width * ZOOM };
+  const drawn = (x: number, y: number): [number, number] => [box.left + x * ZOOM, box.top + y * ZOOM];
+  const around = (share: number) => [0, 1, 2, 3, 4, 5, 6, 7].map((eighth) => {
+    const angle = (eighth * Math.PI) / 4;
+    return drawn(planet.cx + Math.cos(angle) * planet.r * share, planet.cy + Math.sin(angle) * planet.r * share);
+  });
+
+  it("answers a press anywhere the planet is drawn, and nowhere beside it", () => {
+    for (const [x, y] of [...around(0), ...around(0.5), ...around(0.97)]) {
+      expect(onPlanet(...onCanvas(x, y, box, layout.width), planet)).toBe(true);
+    }
+    for (const [x, y] of around(1.03)) {
+      expect(onPlanet(...onCanvas(x, y, box, layout.width), planet)).toBe(false);
+    }
+  });
+
+  it("would miss the planet's edge if the press were read in window pixels", () => {
+    const raw = around(0.97).map(([x, y]) => [x - box.left, y - box.top] as const);
+    expect(raw.some(([x, y]) => !onPlanet(x, y, planet))).toBe(true);
+  });
+
+  it("turns as far for a drag as on a plain page", () => {
+    const [fromX, fromY] = drawn(planet.cx, planet.cy);
+    const [toX] = drawn(planet.cx + 30 * ((planet.r * Math.PI) / 180), planet.cy);
+    const held = grab(RESTING, ...onCanvas(fromX, fromY, box, layout.width), 0);
+    const dragged = move(held, ...onCanvas(toX, fromY, box, layout.width), 100, planet.r);
+    expect(dragged.turned).toBeCloseTo(30, 5);
+  });
+
+  it("reads a plain page as it is", () => {
+    expect(onCanvas(140, 80, { left: 40, top: 30, width: 1440 }, 1440)).toEqual([100, 50]);
+    expect(pageScale(1872, 1440)).toBeCloseTo(1.3, 9);
+    expect(pageScale(0, 0)).toBe(1);
+    expect(pageScale(100, 0)).toBe(1);
+  });
+});
+
+describe("the planet's backing store", () => {
+  it.each([
+    [1, 1, 1], [2, 1, 2], [3, 1, 2], [2, 1.3, 2.6], [3, 1.3, 2.6], [1, 1.3, 1.3], [0, 1.2, 1.2],
+  ])("at density %f and zoom %f has %f pixels per canvas pixel", (density, zoom, expected) => {
+    expect(backingDensity(density, zoom, 2)).toBeCloseTo(expected, 9);
   });
 });

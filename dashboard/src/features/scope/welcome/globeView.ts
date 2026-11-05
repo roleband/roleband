@@ -48,6 +48,31 @@ export function place(width: number, height: number): Placement {
   return { r, cx: width * 0.64, cy: height * 0.57, stacked: false };
 }
 
+/** How many window pixels one of the canvas's own pixels covers, from its
+    drawn width and its laid-out width: above 1 while the page is drawn larger
+    by CSS `zoom` (first-run setup's magnification), 1 otherwise. */
+export function pageScale(drawnWidth: number, layoutWidth: number): number {
+  return drawnWidth > 0 && layoutWidth > 0 ? drawnWidth / layoutWidth : 1;
+}
+
+/** A pointer's place on the canvas in the canvas's own pixels, the ones the
+    planet is laid out in. The pointer and the canvas's box are in window
+    pixels, which the page's zoom makes larger. */
+export function onCanvas(
+  clientX: number, clientY: number, box: { left: number; top: number; width: number }, layoutWidth: number,
+): [number, number] {
+  const scale = pageScale(box.width, layoutWidth);
+  return [(clientX - box.left) / scale, (clientY - box.top) / scale];
+}
+
+/** Backing-store pixels per canvas pixel: the screen's density, capped at
+    `max`, times the page's zoom, so a magnified planet is drawn at the
+    screen's own sharpness. The cap comes first: capping after the zoom would
+    leave every high-density screen blurred. */
+export function backingDensity(devicePixelRatio: number, zoom: number, max: number): number {
+  return Math.min(devicePixelRatio || 1, max) * zoom;
+}
+
 /** The camera's distance from the planet's centre, in planet radii. */
 export function viewDistance(r: number, height: number): number {
   return 1 / Math.sin(Math.atan((r / (height / 2)) * Math.tan((FOV * RAD) / 2)));
