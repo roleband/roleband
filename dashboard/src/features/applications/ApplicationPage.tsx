@@ -89,7 +89,7 @@ export function ApplicationPage({ jobId }: { jobId: number }) {
     const onKey = (event: KeyboardEvent) => {
       if (!pageKey(event)) return;
       const key = event.key.toLowerCase();
-      if (key === "s") {
+      if (key === "m") {
         event.preventDefault();
         setMoreOpen(false);
         setStageOpen(true);
@@ -120,13 +120,17 @@ export function ApplicationPage({ jobId }: { jobId: number }) {
     else void move(card, stage);
   };
 
-  const submitInterview = (interview: InterviewWrite) => {
+  // The form waits for its save and closes only once it has landed.
+  const submitInterview = async (interview: InterviewWrite) => {
     const was = asking;
-    setAsking(null);
-    if (!card || !was) return;
-    if (was.kind === "move") void move(card, "interviewing", interview);
-    else if (was.kind === "add") void ctl.addInterview(interview);
-    else void ctl.saveInterview(was.interview.id, interview);
+    if (!card || !was) return false;
+    const saved = was.kind === "move"
+      ? await move(card, "interviewing", interview)
+      : was.kind === "add"
+        ? await ctl.addInterview(interview)
+        : await ctl.saveInterview(was.interview.id, interview);
+    if (saved) setAsking(null);
+    return saved;
   };
 
   const copyLink = async () => {
@@ -225,7 +229,7 @@ export function ApplicationPage({ jobId }: { jobId: number }) {
                   className="ui-btn-strong app-stage-button"
                   aria-haspopup="dialog"
                   aria-expanded={stageOpen}
-                  aria-keyshortcuts="s"
+                  aria-keyshortcuts="m"
                   onClick={() => setStageOpen((open) => !open)}
                 >
                   {applicationsStageButton({ stage: STAGE_LABEL[shown.stage], days: days ?? 0 })}
@@ -254,6 +258,7 @@ export function ApplicationPage({ jobId }: { jobId: number }) {
                     now={now}
                     onSetNext={ctl.setNextStep}
                     onEditInterview={(interview) => setAsking({ kind: "edit", interview })}
+                    onAddInterview={() => setAsking({ kind: "add" })}
                   />
                   <NotesBlock notes={job?.pursuit?.notes ?? null} onSave={ctl.saveNotes} />
                   <ActivityFeed

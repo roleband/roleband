@@ -14,9 +14,93 @@
   font-size: var(--app-type-meta);
 }
 
+/* The Board fills the window under its toolbar and scrolls both ways inside
+   its frame, so the page stays still: the sideways scrollbar is always in
+   sight, and each column's head stays above its cards. A window too short
+   for a useful frame lets the page scroll instead. */
+.main.app-main[data-view="board"] {
+  display: flex;
+  flex-direction: column;
+}
+
+.main.app-main[data-view="board"] > .app-tabpanel {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 360px;
+}
+
+.app-board-frame {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
 .app-board-scroll {
-  overflow-x: auto;
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  overscroll-behavior-x: contain;
   padding-bottom: var(--app-space-3);
+}
+
+/* An edge with more board past it fades into the page ground, painted with
+   the page's own wash so the fade lands on the same pixels. The fades stop
+   short of the frame's scrollbars. */
+.app-board-frame::before,
+.app-board-frame::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: var(--app-board-bar-x, 0px);
+  z-index: 2;
+  width: var(--app-space-6);
+  pointer-events: none;
+  opacity: 0;
+  background-color: var(--app-canvas);
+  background-image: var(--app-ambient-image);
+  background-attachment: fixed, fixed;
+  transition: opacity 150ms ease;
+}
+
+.app-board-frame::before {
+  left: 0;
+  mask-image: linear-gradient(to right, var(--app-canvas), transparent);
+}
+
+.app-board-frame::after {
+  right: var(--app-board-bar-y, 0px);
+  mask-image: linear-gradient(to left, var(--app-canvas), transparent);
+}
+
+.app-board-frame[data-more-back]::before,
+.app-board-frame[data-more-on]::after {
+  opacity: 1;
+}
+
+.app-board-step {
+  position: absolute;
+  top: 50%;
+  z-index: 3;
+  translate: 0 -50%;
+  background: var(--app-surface-raised);
+  box-shadow: inset 0 0 0 1px var(--app-border);
+}
+
+.app-board-step[data-side="back"] {
+  left: var(--app-space-1);
+}
+
+.app-board-step[data-side="on"] {
+  right: calc(var(--app-board-bar-y, 0px) + var(--app-space-1));
+}
+
+/* A touch screen swipes the board; the buttons are for a pointer. */
+@media (hover: none) {
+  .app-board-step {
+    display: none;
+  }
 }
 
 /* The columns shown share the board's width equally, so hiding one gives its
@@ -44,7 +128,15 @@
   background: var(--app-surface-hover);
 }
 
+/* The head stays at the top of the frame while its cards scroll under it,
+   painted as the column is: its tint over the page ground and wash. */
 .app-column-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: var(--app-canvas);
+  background-image: linear-gradient(var(--app-surface-hover), var(--app-surface-hover)), var(--app-ambient-image);
+  background-attachment: scroll, fixed, fixed;
   display: flex;
   align-items: center;
   gap: var(--app-space-2);
@@ -228,6 +320,10 @@
 .app-column[data-drop-target] {
   background: var(--app-surface-sunken);
   box-shadow: inset 0 0 0 1px var(--app-border-strong);
+}
+
+.app-column[data-drop-target] > .app-column-head {
+  background: var(--app-surface-sunken);
 }
 
 /* A section has no padding of its own, so its ring stands 4px off it, inside
@@ -574,8 +670,16 @@
   margin-right: var(--job-margin);
 }
 
+/* A sticky head sticks to its nearest scroller. The frame scrolls sideways
+   only while the table is wider than it; a table that fits leaves the page
+   as the scroller, and the column heads stay under its toolbar as the rows
+   pass. */
 .app-list-scroll {
   overflow-x: auto;
+}
+
+.app-list-scroll:not([data-overflowing]) {
+  overflow-x: visible;
 }
 
 .app-list th,
@@ -585,6 +689,12 @@
 }
 
 .data-table.app-list thead th {
+  position: sticky;
+  top: var(--app-list-toolbar-h, 0px);
+  z-index: 3;
+  background-color: var(--app-canvas);
+  background-image: var(--app-ambient-image);
+  background-attachment: fixed, fixed;
   height: 36px;
   padding: 0 var(--app-space-2);
   border-bottom: 1px solid var(--app-border-strong);
@@ -720,6 +830,12 @@
   color: var(--app-text-muted);
 }
 
+/* Words in a figures column: the column's mono face is for figures. */
+.app-list-none {
+  color: var(--app-text-faint);
+  font-family: var(--app-font-sans);
+}
+
 /* The row's actions stay at the right edge while the columns scroll under
    them, so the way to take a role off is always in reach. The cell paints
    the page ground so a scrolled cell never shows through, and takes the
@@ -735,6 +851,19 @@
   background-image: var(--app-ambient-image);
   background-attachment: fixed, fixed;
   text-align: right;
+}
+
+/* Below this width the toolbar scrolls away (surfaces.css), so the head pins
+   at the page's top. */
+@media (max-width: 860px) {
+  .data-table.app-list thead th {
+    top: 0;
+  }
+}
+
+/* The head's pinned cell sticks both ways, over every row's. */
+.data-table.app-list thead .app-list-actions {
+  z-index: 4;
 }
 
 /* The row's menu opens inside this cell, and every row's pinned cell is a
@@ -884,8 +1013,8 @@
 }
 
 /* A day is a round button as wide as it is tall, the icon rank of ui/Button:
-   no box at rest, and its hover, the picked day's wash and today's ring are
-   one circle, in the interview form and beside Up next alike. Its number
+   no box at rest, and its hover and the picked day's wash are one circle, in
+   the interview form and beside Up next alike. Its number
    fills the circle; beside Up next the day's marks sit inside it, under the
    number, so that month's days take the large size. A cell narrower than the
    size shrinks the circle, which stays round. The selectors carry the grid's
@@ -938,12 +1067,14 @@
   padding-bottom: var(--app-space-2);
 }
 
-/* Today is a state the day is in, so it is drawn in the chosen grammar: a
-   ring round its number, beside the picked day's wash. */
+/* Today is not a choice, so it never wears the chosen circle: a second
+   circle beside the picked day reads as two days picked. Its number is
+   strong and underlined, in its own ink, and the gold stays with the pick. */
 .app-month-day[aria-current="date"] .app-month-num {
-  border-color: var(--app-chosen-line);
-  color: var(--app-chosen-text);
   font-weight: var(--app-weight-strong);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
 }
 
 .app-month .app-month-grid .ui-btn.app-month-day {
@@ -1285,6 +1416,10 @@
   font-size: var(--app-type-meta);
 }
 
+.app-next-form .app-interview-error {
+  margin: 0;
+}
+
 .app-next-actions {
   display: flex;
   justify-content: flex-end;
@@ -1456,6 +1591,13 @@
 
 /* The question before a delete stands where Delete was, at the start of
    the row, with its two answers where the form's actions were. */
+/* A save that failed says so beside Save, in the line the form already has. */
+.app-interview-actions > .app-interview-failed {
+  margin: 0 auto 0 0;
+  color: var(--app-danger);
+  font-size: var(--app-type-meta);
+}
+
 .app-interview-actions > .app-interview-confirm {
   margin: 0 auto 0 0;
   font-size: var(--app-type-body);

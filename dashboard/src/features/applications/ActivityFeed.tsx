@@ -1,4 +1,4 @@
-import { FormEvent, KeyboardEvent, useState } from "react";
+import { FormEvent, KeyboardEvent, useRef, useState } from "react";
 import type { ActivityItem } from "../../api";
 import { date as formatDate, list, relative } from "../../copy/format";
 import { Button, Content, Icon, Segmented } from "../../ui";
@@ -23,6 +23,7 @@ import {
   applicationsFeedModeLabel,
   applicationsFeedTitle,
 } from "../../copy/gen/applications";
+import { useFocusAfter } from "./focusAfter";
 import { useFocusWhen } from "./ApplicationPanels";
 import { eventChanges, feedEntries, runChanges, runOpened, type ActivityComment, type ActivityEvent, type FeedMode } from "./activity";
 
@@ -155,13 +156,19 @@ function CommentItem({ comment, now, onEdit, onDelete }: {
   const [editing, setEditing] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const field = useFocusWhen<HTMLTextAreaElement>(editing != null);
+  const editButton = useRef<HTMLButtonElement>(null);
+  const focusAfter = useFocusAfter();
+  const close = () => {
+    focusAfter(() => editButton.current);
+    setEditing(null);
+  };
   // An agent's comment is the agent's record: the person reads it, and does not rewrite it.
   const own = comment.actor === "user";
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
     if (editing == null || !editing.trim()) return;
-    if (await onEdit(comment.id, editing)) setEditing(null);
+    if (await onEdit(comment.id, editing)) close();
   };
 
   return (
@@ -175,7 +182,7 @@ function CommentItem({ comment, now, onEdit, onDelete }: {
         <span className="app-tile-spacer" />
         {own && editing == null && (
           <>
-            <Button variant="icon" size="sm" aria-label={applicationsCommentEdit()} onClick={() => setEditing(comment.body)}>
+            <Button ref={editButton} variant="icon" size="sm" aria-label={applicationsCommentEdit()} onClick={() => setEditing(comment.body)}>
               <Icon name="edit" size={14} />
             </Button>
             <Button variant="icon" size="sm" aria-label={applicationsCommentDeleteLabel()} onClick={() => setConfirming(true)}>
@@ -195,7 +202,7 @@ function CommentItem({ comment, now, onEdit, onDelete }: {
             onChange={(event) => setEditing(event.target.value)}
           />
           <div className="app-next-actions">
-            <Button variant="ghost" size="sm" onClick={() => setEditing(null)}>{applicationsInterviewCancel()}</Button>
+            <Button variant="ghost" size="sm" onClick={close}>{applicationsInterviewCancel()}</Button>
             <Button variant="ghost" size="sm" className="ui-btn-strong" type="submit">{applicationsCommentSave()}</Button>
           </div>
         </form>

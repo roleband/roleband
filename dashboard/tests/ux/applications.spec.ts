@@ -212,14 +212,14 @@ test("a drag held at the board's edge scrolls it, and a drop on Interviewing ask
   expect(stageWrites).toEqual([]);
 });
 
-test("the application page moves its stage from the keyboard: S opens the menu, a number picks the stage", async ({ page }) => {
+test("the application page moves its stage from the keyboard: M opens the menu, a number picks the stage", async ({ page }) => {
   const { stageWrites } = await installPipeline(page);
   await page.goto("/pipeline/202");
   // Named by what it shows: the stage, then the days in it.
   const stage = (name: string) => page.getByRole("button", { name: new RegExp(`^${name} · \\d+ days?$`) });
   await expect(stage("Applied")).toBeVisible();
 
-  await page.keyboard.press("s");
+  await page.keyboard.press("m");
   await expect(page.getByRole("dialog", { name: msg("applications-stage-menu-label", { title: "Principal Engineering Manager" }) }))
     .toBeVisible();
   // Networking shows as Researching, so the five moving stages are 1 to 5.
@@ -281,8 +281,9 @@ test("Mark done on the application page asks at once for the next step, and save
 
   await page.getByRole("button", { name: msg("applications-next-done") }).click();
   await expect(page.getByLabel(msg("applications-next-prompt"))).toBeFocused();
-  await page.getByRole("button", { name: msg("applications-next-not-now") }).click();
+  await page.getByRole("button", { name: msg("applications-interview-cancel") }).click();
   await expect(page.getByText(msg("applications-next-empty"))).toBeVisible();
+  await expect(page.getByRole("button", { name: msg("applications-next-set") })).toBeFocused();
   await expect.poll(() => pursuitWrites).toEqual([
     { next_action: "Email the recruiter", next_action_due: null },
     { next_action: null, next_action_due: null },
@@ -464,6 +465,20 @@ test("moving into Interviewing asks when the interview is, and records it with t
   expect(stageWrites).toEqual([]);
 
   await dialog.getByRole("button", { name: "Thu, Nov 12", exact: true }).click();
+  // Only the picked day wears a circle; today, the 4th, is marked by its
+  // number alone, so the month never looks as if two days were picked.
+  // Polled: the picked day's wash fades in.
+  await expect.poll(() => dialog.locator(".app-month-day").evaluateAll((days) => days
+    .filter((day) => [day, day.querySelector(".app-month-num")!].some((part) => {
+      const style = getComputedStyle(part);
+      const clear = (colour: string) => colour === "transparent" || /rgba\(.*,\s*0\)$/.test(colour);
+      return !clear(style.backgroundColor) || !clear(style.borderTopColor);
+    }))
+    .map((day) => day.getAttribute("aria-label")))).toEqual(["Thu, Nov 12"]);
+  const today = dialog.locator('.app-month-day[aria-current="date"] .app-month-num');
+  await expect(today).toHaveText("4");
+  await expect(today).toHaveCSS("text-decoration-line", "underline");
+
   const times = dialog.getByRole("group", { name: msg("applications-interview-times") });
   await times.getByRole("button", { name: "2:00 PM", exact: true }).click();
   await expect(dialog.locator(".app-interview-summary")).toHaveText("Thu, Nov 12 · 2:00 PM");
@@ -724,6 +739,60 @@ test("each tab keeps its own filter: the board's stays off Up next, and both com
 });
 
 /** The postings behind the List's rows, as the jobs list answers them. */
+test("the board scrolls in a frame that fills the window: an edge with more fades and steps one column, and each head stays over its cards", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "The step buttons are for a pointer; a phone swipes the board.");
+  const many = Array.from({ length: 9 }, (_, index) =>
+    applicationCardFixture({ job_id: 900 + index, pursuit_id: 90 + index, title: `Considered role ${index + 1}`, company: "openai" }));
+  await installPipeline(page, [...cards, ...many]);
+  await page.setViewportSize({ width: 1280, height: 640 });
+  await page.goto("/pipeline/board");
+  await expect(column(page, "Considering").getByText("Considered role 9")).toBeAttached();
+  const frame = page.locator(".app-board-frame");
+  const scroller = page.locator(".app-board-scroll");
+  const back = page.getByRole("button", { name: msg("applications-board-scroll-back") });
+  const on = page.getByRole("button", { name: msg("applications-board-scroll-on") });
+
+  // The page stays still: the board's frame ends inside the window.
+  expect(await page.locator("main").evaluate((main) => main.scrollHeight - main.clientHeight)).toBeLessThanOrEqual(1);
+  expect((await scroller.boundingBox())!.y + (await scroller.boundingBox())!.height).toBeLessThanOrEqual(640);
+  await expect(frame).toHaveAttribute("data-more-on", "true");
+  await expect(frame).not.toHaveAttribute("data-more-back");
+  await expect(back).toHaveCount(0);
+
+  // A step lands on the next column's edge, and the way back appears.
+  const pitch = await scroller.evaluate((element) => {
+    const [first, second] = element.querySelectorAll<HTMLElement>(".app-column");
+    return second.offsetLeft - first.offsetLeft;
+  });
+  await on.click();
+  await expect.poll(() => scroller.evaluate((element) => element.scrollLeft)).toBe(pitch);
+  await expect(frame).toHaveAttribute("data-more-back", "true");
+  await back.click();
+  await expect.poll(() => scroller.evaluate((element) => element.scrollLeft)).toBe(0);
+  await expect(back).toHaveCount(0);
+
+  // Scrolled down, a column's head stays at the frame's top, over its cards.
+  await scroller.evaluate((element) => { element.scrollTop = 300; });
+  const head = column(page, "Considering").locator(".app-column-head");
+  await expect.poll(async () => Math.round((await head.boundingBox())!.y - (await scroller.boundingBox())!.y)).toBe(0);
+  const hidden = await page.evaluate(() => {
+    const box = document.querySelector(".app-column-head")!.getBoundingClientRect();
+    const under = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+    return under?.closest(".app-column-head") != null;
+  });
+  expect(hidden, "the head is drawn over the cards that pass beneath it").toBe(true);
+
+  // A board that fits has nothing to step to.
+  await page.setViewportSize({ width: 2000, height: 900 });
+  await page.getByRole("button", { name: msg("applications-columns"), exact: true }).click();
+  for (const name of [msg("applications-column-decided"), msg("applications-column-closed")]) {
+    await page.getByRole("dialog", { name: msg("applications-columns") }).getByRole("checkbox", { name }).uncheck();
+  }
+  await page.keyboard.press("Escape");
+  await expect(frame).not.toHaveAttribute("data-more-on");
+  await expect(on).toHaveCount(0);
+});
+
 async function installPostings(page: Page) {
   const asked: string[] = [];
   const posting = (over: Partial<Job> & { id: number }): Job => ({ ...jobFixture, ...over });
@@ -901,6 +970,37 @@ test("a List row's star takes the role off the pipeline", async ({ page }) => {
   await considering.getByRole("button", { name: msg("jobs-save") }).click();
   await expect(considering).toHaveCount(0);
   await expect.poll(() => unsaved).toEqual([101]);
+});
+
+test("the List's heads stay under its toolbar as its rows scroll, and a posting with no base says so", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "A phone's table scrolls sideways in its frame, where a head scrolls with it.");
+  const many = Array.from({ length: 14 }, (_, index) =>
+    applicationCardFixture({ job_id: 900 + index, title: `Backlog role ${index + 1}`, company: "openai" }));
+  await installPipeline(page, [...backlog, ...many]);
+  await installPostings(page);
+  await page.setViewportSize({ width: 1440, height: 640 });
+  await page.goto("/pipeline/list");
+  await expect(page.getByRole("table").getByRole("link", { name: "Backlog role 14" })).toBeAttached();
+  await expect(listRow(page, "Principal Engineering Manager").locator('[data-col="pay"]'))
+    .toHaveText(msg("applications-fact-pay-none"));
+  await expect(listRow(page, "Staff Product Manager, API").locator('[data-col="pay"]'))
+    .not.toHaveText(msg("applications-fact-pay-none"));
+
+  const main = page.locator("main");
+  await main.evaluate((element) => { element.scrollTop = 400; });
+  const head = page.getByRole("columnheader").first();
+  const toolbar = page.locator(".app-pipeline-toolbar");
+  // The toolbar pins at the page's top, and the heads right under it.
+  await expect.poll(async () => Math.round((await toolbar.boundingBox())!.y - (await main.boundingBox())!.y)).toBe(0);
+  await expect.poll(async () => {
+    const bar = (await toolbar.boundingBox())!;
+    return Math.round((await head.boundingBox())!.y - (bar.y + bar.height));
+  }).toBe(0);
+  const covered = await page.evaluate(() => {
+    const box = document.querySelector(".app-list thead th")!.getBoundingClientRect();
+    return document.elementFromPoint(box.left + 8, box.top + box.height / 2)?.closest("thead") != null;
+  });
+  expect(covered, "the head is drawn over the rows that pass beneath it").toBe(true);
 });
 
 test("the List never widens the page: a narrow window scrolls the table inside its frame", async ({ page }, testInfo) => {

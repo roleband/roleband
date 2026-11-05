@@ -1,4 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useMeasuredCssSize } from "../../hooks/useMeasuredCssSize";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import type { ApplicationCard } from "../../api";
 import { useJobActions, useJobWorkspace } from "../../context/JobWorkspace";
@@ -22,6 +23,7 @@ import {
 } from "../../copy/gen/jobs";
 import { sharedNotForMe } from "../../copy/gen/shared";
 import {
+  applicationsFactPayNone,
   applicationsBoardLoadFailed,
   applicationsCardActions,
   applicationsCardDaysInStage,
@@ -218,9 +220,11 @@ function Row({ row, now, columns, actions, match }: {
         </Link>
       </th>
     ),
+    // A role with no base says so faintly, so a blank never reads as a load
+    // that has not finished.
     pay: () => base && (
-      <span className="comp" title={base.hint}>
-        {base.text}
+      <span className={base.text ? "comp" : "app-list-none"} title={base.hint}>
+        {base.text || applicationsFactPayNone()}
         {base.hint && <span className="sr-only"> {base.hint}</span>}
       </span>
     ),
@@ -379,6 +383,9 @@ export function ListView({ board, now }: {
   const [layout, setLayout] = useListLayout();
   const postings = usePostings(cards);
   const host = useRef<HTMLDivElement>(null);
+  // The column heads pin under the toolbar, which pins at the page's top.
+  const toolbar = useRef<HTMLDivElement>(null);
+  useMeasuredCssSize({ rootRef: host, elementRef: toolbar, property: "--app-list-toolbar-h" });
   // A row that leaves the List hands focus to the role beside it, or to the
   // search when it was the last; a hidden column to the column beside it.
   const focusAfter = useFocusAfter();
@@ -396,8 +403,17 @@ export function ListView({ board, now }: {
   // leaves focus on the row's own menu.
   const moveKeepingFocus: typeof move = (card, stage, interview) => {
     const next = besideRow(card.job_id);
-    focusAfter(() => rowOf(card.job_id)?.querySelector<HTMLElement>(".app-list-menu") ?? next ?? search());
-    return move(card, stage, interview);
+    const follow = () => focusAfter(() => rowOf(card.job_id)?.querySelector<HTMLElement>(".app-list-menu") ?? next ?? search());
+    // A move that asks for an interview waits in its form, which keeps focus
+    // until the move lands.
+    if (!interview) {
+      follow();
+      return move(card, stage);
+    }
+    return move(card, stage, interview).then((moved) => {
+      if (moved) follow();
+      return moved;
+    });
   };
   const { ask, dialog } = useStageAsk(moveKeepingFocus);
   const [frame, setFrame] = useState<HTMLDivElement | null>(null);
@@ -494,6 +510,7 @@ export function ListView({ board, now }: {
   return (
     <>
       <PipelineToolbar
+        toolbarRef={toolbar}
         filter={filter}
         onFilter={setFilter}
         quickCounts={quickCounts(cards, now, VIEW_FILTERS.list)}

@@ -141,28 +141,60 @@ describe("the application page", () => {
       .toBeInTheDocument();
   });
 
-  it("opens the stage menu on S, but not while the person types", async () => {
+  it("opens the stage menu on M, but not while the person types", async () => {
     renderPage();
     await screen.findByRole("heading", { level: 1, name: TITLE });
     await userEvent.click(screen.getByRole("textbox", { name: msg("applications-comment-label") }));
-    await userEvent.keyboard("s");
+    await userEvent.keyboard("m");
     expect(screen.queryByRole("dialog", { name: msg("applications-stage-menu-label", { title: TITLE }) })).toBeNull();
     (document.activeElement as HTMLElement).blur();
+    // S saves a role on the Radar's lists; here it does nothing.
     await userEvent.keyboard("s");
+    expect(screen.queryByRole("dialog", { name: msg("applications-stage-menu-label", { title: TITLE }) })).toBeNull();
+    await userEvent.keyboard("m");
     expect(await screen.findByRole("dialog", { name: msg("applications-stage-menu-label", { title: TITLE }) }))
       .toBeInTheDocument();
   });
 
-  it("asks for the next step as soon as one is marked done, and Not now leaves it empty", async () => {
+  it("asks for the next step as soon as one is marked done, and Cancel leaves it empty with focus on the way to set one", async () => {
     renderPage();
     await screen.findByText("Follow up with the recruiter");
     await userEvent.click(screen.getByRole("button", { name: msg("applications-next-done") }));
     await waitFor(() => expect(api.setPursuit).toHaveBeenCalledWith(101, { next_action: null, next_action_due: null }));
     const prompt = await screen.findByLabelText(msg("applications-next-prompt"));
     expect(prompt).toHaveFocus();
-    await userEvent.click(screen.getByRole("button", { name: msg("applications-next-not-now") }));
+    await userEvent.click(screen.getByRole("button", { name: msg("applications-interview-cancel") }));
     expect(await screen.findByText(msg("applications-next-empty"))).toBeInTheDocument();
     expect(api.setPursuit).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.getByRole("button", { name: msg("applications-next-set") })).toHaveFocus());
+  });
+
+  it("says what is missing when the next step is saved empty, and writes nothing", async () => {
+    renderPage();
+    await screen.findByText("Follow up with the recruiter");
+    await userEvent.click(screen.getByRole("button", { name: msg("applications-next-edit") }));
+    const prompt = await screen.findByLabelText(msg("applications-next-prompt"));
+    await userEvent.clear(prompt);
+    await userEvent.type(prompt, "   ");
+    await userEvent.click(screen.getByRole("button", { name: msg("applications-next-save") }));
+    expect(prompt).toHaveAttribute("aria-invalid", "true");
+    expect(prompt).toHaveAccessibleDescription(msg("applications-next-required"));
+    expect(prompt).toHaveFocus();
+    expect(api.setPursuit).not.toHaveBeenCalled();
+
+    await userEvent.type(prompt, "Ping the recruiter");
+    expect(prompt).not.toHaveAttribute("aria-invalid");
+    await userEvent.click(screen.getByRole("button", { name: msg("applications-next-save") }));
+    await waitFor(() => expect(api.setPursuit).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByRole("button", { name: msg("applications-next-edit") })).toHaveFocus());
+  });
+
+  it("hands focus back to the button that opened the notes when they close", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: msg("applications-notes-edit") }));
+    expect(screen.getByRole("textbox", { name: msg("applications-notes-label") })).toHaveFocus();
+    await userEvent.click(screen.getByRole("button", { name: msg("applications-interview-cancel") }));
+    await waitFor(() => expect(screen.getByRole("button", { name: msg("applications-notes-edit") })).toHaveFocus());
   });
 
   it("saves the next step it asks for, due by the end of the day picked", async () => {
@@ -240,11 +272,35 @@ describe("the feed", () => {
     expect(box).toHaveValue("");
   });
 
+  it("hands focus back to a comment's edit button when its edit closes", async () => {
+    items = [
+      { kind: "comment", id: 4, created_at: at("2026-10-30T10:00:00Z"), actor: "user", source: "app", body: "Applied through the referral.", edited_at: null },
+    ];
+    renderPage();
+    const comment = (await screen.findByText("Applied through the referral.")).closest("li")!;
+    await userEvent.click(within(comment).getByRole("button", { name: msg("applications-comment-edit") }));
+    await userEvent.click(within(comment).getByRole("button", { name: msg("applications-interview-cancel") }));
+    await waitFor(() => expect(within(comment).getByRole("button", { name: msg("applications-comment-edit") })).toHaveFocus());
+  });
+
   it("lets the person change their own comments and not an agent's", async () => {
     renderPage();
     const agentComment = (await screen.findByText("Found the hiring manager.")).closest("li")!;
     expect(within(agentComment as HTMLElement).queryByRole("button", { name: msg("applications-comment-edit") })).toBeNull();
     expect(within(agentComment as HTMLElement).getByText(msg("applications-comment-author-agent"))).toBeInTheDocument();
+  });
+});
+
+describe("adding an interview", () => {
+  it("offers Add interview beside No interview booked, and the side column stays quiet until there is one", async () => {
+    renderPage();
+    const next = (await screen.findByRole("heading", { name: msg("applications-next-title") })).closest("section")!;
+    expect(within(next).getByText(msg("applications-next-interview-none"))).toBeInTheDocument();
+    const facts = screen.getByRole("heading", { name: msg("applications-facts-interviews") }).closest("section")!;
+    expect(facts.querySelector("ul, p"), "no list and no line of its own").toBeNull();
+
+    await userEvent.click(within(next).getByRole("button", { name: msg("applications-interview-add") }));
+    expect(await screen.findByRole("dialog", { name: msg("applications-interview-add-title") })).toBeInTheDocument();
   });
 });
 
@@ -271,6 +327,24 @@ describe("an interview on the page", () => {
     expect(api.deleteInterview).toHaveBeenCalledWith(101, 31);
     expect(await screen.findByText(msg("applications-interview-delete-failed"))).toBeInTheDocument();
     expect(screen.queryByText(msg("applications-interview-failed"))).toBeNull();
+  });
+
+  it("keeps its form open with the failure said inside it when a save fails, and closes once it saves", async () => {
+    vi.mocked(api.updateInterview).mockRejectedValueOnce(new Error("offline"));
+    vi.mocked(api.updateInterview).mockResolvedValueOnce({ interview: detail.interviews[0]! } as Awaited<ReturnType<typeof api.updateInterview>>);
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: msg("applications-interview-edit-label", { label: "Panel" }) }));
+    const dialog = await screen.findByRole("dialog");
+    const save = within(dialog).getByRole("button", { name: msg("applications-interview-edit-submit") });
+    await userEvent.click(save);
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(msg("applications-interview-failed"));
+    expect(save).not.toHaveAttribute("aria-busy");
+    expect(screen.getByRole("dialog"), "the form stays").toBe(dialog);
+
+    await userEvent.click(save);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(api.updateInterview).toHaveBeenCalledTimes(2);
   });
 });
 

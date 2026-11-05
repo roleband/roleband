@@ -12,6 +12,10 @@ applications-board-need-next = { $count ->
     } a next step
 # kind=heading
 applications-board-load-failed = Couldn't load your pipeline
+# kind=aria note="A pointer-only button at the board's left edge; scrolls one column back"
+applications-board-scroll-back = Show earlier columns
+# kind=aria note="A pointer-only button at the board's right edge; scrolls one column on"
+applications-board-scroll-on = Show later columns
 # kind=name note="The column of the endings the person chose: Accepted, Declined, Withdrawn"
 applications-column-decided = Decided
 # kind=name note="The column of the endings the company or the world decided: Rejected, Role closed"
@@ -149,8 +153,6 @@ applications-move-undo = Undo
 applications-move-failed = Couldn't move { $title }. Try again.
 # kind=toast
 applications-undo-failed = Couldn't move { $title } back. Try again.
-# kind=toast note="The move landed but the interview the move asked for did not save; the move's own message, with Undo, shows beside this one"
-applications-move-interview-failed = Couldn't save the interview for { $title }. Add it on the application's page.
 # kind=toast
 applications-removed = Removed { $title } from the pipeline
 # kind=toast
@@ -235,7 +237,7 @@ applications-interview-outcome-not-passed = Not passed
 applications-interview-outcome-cancelled = Cancelled
 # kind=label
 applications-interview-notes = Notes
-# kind=toast
+# kind=error note="In the interview form beside Save when its save failed; the form keeps what was typed"
 applications-interview-failed = Couldn't save the interview. Try again.
 # kind=toast
 applications-interview-delete-failed = Couldn't delete the interview. Try again.
@@ -398,8 +400,8 @@ applications-next-done = Mark done
 applications-next-prompt = What's the next step?
 # kind=label
 applications-next-due = Due by, if set
-# kind=button note="Leaves the next step empty after one is marked done"
-applications-next-not-now = Not now
+# kind=error next=none note="Under the next step's field when it is saved empty; the message is itself the way out"
+applications-next-required = Write the next step, or press Cancel.
 # kind=button
 applications-next-save = Save step
 
@@ -536,5 +538,3 @@ applications-read-posting = Read the posting
 applications-interview-add = Add interview
 # kind=aria
 applications-interview-edit-label = Edit { $label }
-# kind=empty
-applications-interviews-empty = No interviews yet.

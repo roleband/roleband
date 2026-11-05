@@ -16,6 +16,7 @@ import {
   applicationsInterviewDeleteConfirm,
   applicationsInterviewEditSubmit,
   applicationsInterviewEditTitle,
+  applicationsInterviewFailed,
   applicationsInterviewFor,
   applicationsInterviewFormat,
   applicationsInterviewFormatOnsite,
@@ -44,6 +45,7 @@ import {
   applicationsInterviewWhenDay,
   applicationsInterviewWhenTimed,
   applicationsInterviewZone,
+  applicationsMoveFailed,
 } from "../../copy/gen/applications";
 import { ClockPicker } from "./ClockPicker";
 import { clockLabel, parseClock } from "./clock";
@@ -114,7 +116,10 @@ export interface InterviewDialogProps {
   /** The interview is the condition of a move into Interviewing. */
   moving?: boolean;
   onCancel: () => void;
-  onSubmit: (interview: InterviewWrite) => void;
+  /** Saves the interview. The form waits for the answer: it closes when the
+   *  caller takes it away, and on `false` stays open with what was typed and
+   *  says the save failed. */
+  onSubmit: (interview: InterviewWrite) => Promise<boolean>;
   /** Offered only when changing a stored interview. */
   onDelete?: () => void;
 }
@@ -146,6 +151,12 @@ export function InterviewDialog({ card, interview, moving = false, onCancel, onS
   const nameField = useRef<HTMLInputElement>(null);
   const backToPlus = useRef(false);
   const [tried, setTried] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const open = useRef(true);
+  useEffect(() => () => {
+    open.current = false;
+  }, []);
   const [deleting, setDeleting] = useState(false);
   const keepButton = useRef<HTMLButtonElement>(null);
   const deleteButton = useRef<HTMLButtonElement>(null);
@@ -169,12 +180,20 @@ export function InterviewDialog({ card, interview, moving = false, onCancel, onS
       })
       : applicationsInterviewWhenDay({ date: timestamp(fromDayKey(day), { weekday: "short", month: "short", day: "numeric" }) });
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (saving) return;
     setTried(true);
     if (!day || clock == null) return;
     const write = interviewFrom({ label, day, clock, format, link });
-    onSubmit(editing ? { ...write, outcome: outcome || null, notes: notes.trim() || null } : write);
+    setSaving(true);
+    setFailed(false);
+    const saved = await onSubmit(editing ? { ...write, outcome: outcome || null, notes: notes.trim() || null } : write);
+    // A save that landed closes the form from outside; one that failed keeps
+    // it, and what was typed, with the failure said beside Save.
+    if (!open.current || saved) return;
+    setSaving(false);
+    setFailed(true);
   };
   const rounds = ROUNDS.map((round) => round());
   const named = label.trim();
@@ -225,7 +244,7 @@ export function InterviewDialog({ card, interview, moving = false, onCancel, onS
 
   return (
     <Dialog isOpen onClose={onCancel} label={title} width={560} className="app-overlay app-interview-dialog">
-      <form className="ledger-form app-interview-form" onSubmit={submit} noValidate>
+      <form className="ledger-form app-interview-form" onSubmit={(event) => void submit(event)} noValidate>
         <header className="app-interview-head">
           <h3>{title}</h3>
           <p className="app-interview-note">{applicationsInterviewFor({ company: companyName(card.company), title: card.title })}</p>
@@ -345,13 +364,18 @@ export function InterviewDialog({ card, interview, moving = false, onCancel, onS
           </div>
         ) : (
           <div className="app-interview-actions">
+            {failed && (
+              <p className="app-interview-failed" role="alert">
+                {moving ? applicationsMoveFailed({ title: card.title }) : applicationsInterviewFailed()}
+              </p>
+            )}
             {editing && onDelete && (
               <Button ref={deleteButton} variant="ghost" className="app-interview-delete" onClick={() => setDeleting(true)}>
                 {applicationsInterviewDelete()}
               </Button>
             )}
             <Button variant="ghost" onClick={onCancel}>{applicationsInterviewCancel()}</Button>
-            <Button variant="primary" type="submit">
+            <Button variant="primary" type="submit" aria-disabled={saving || undefined} aria-busy={saving || undefined}>
               {moving
                 ? applicationsInterviewSubmit({ stage: STAGE_LABEL.interviewing })
                 : editing ? applicationsInterviewEditSubmit() : applicationsInterviewAdd()}

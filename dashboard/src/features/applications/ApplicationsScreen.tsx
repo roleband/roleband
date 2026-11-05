@@ -92,7 +92,7 @@ function PipelineTabs() {
     open("board", writeFilter(boardParams, { ...boardFilter, quick: [...boardFilter.quick, "needs_next"] }).toString());
 
   return (
-    <main className="main app-main" data-design-system="app">
+    <main className="main app-main" data-design-system="app" data-view={tab}>
       <PageHeader title={shellNavPipeline()}
         // The line keeps its height while the board loads, so the tabs and
         // everything under them do not drop when the counts land.

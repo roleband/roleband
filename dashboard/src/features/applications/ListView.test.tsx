@@ -151,7 +151,9 @@ describe("the List's rows", () => {
     expect(cellOf(considering, "level")).toHaveTextContent("Staff");
     // A level the posting does not state is not shown as one.
     expect(cellOf(waiting, "level")).toHaveTextContent("");
-    expect(cellOf(waiting, "pay")).toHaveTextContent("");
+    // A posting with no base says so, faintly, rather than leaving a blank.
+    expect(cellOf(waiting, "pay")).toHaveTextContent(msg("applications-fact-pay-none"));
+    expect(cellOf(considering, "pay")).not.toHaveTextContent(msg("applications-fact-pay-none"));
     expect(within(cellOf(waiting, "posting")!).getByText(msg("applications-card-posting-closed"))).toBeInTheDocument();
   });
 
@@ -176,8 +178,9 @@ describe("the List's rows", () => {
     await waitFor(() => expect(api.jobs).toHaveBeenCalled());
 
     expect(rowOrder()).toEqual([1, 4]);
-    expect(cellOf(considering, "pay")).toHaveTextContent("");
-    expect(cellOf(considering, "location")).toHaveTextContent("");
+    // Unread is not the same as unposted: the cell stays blank.
+    expect(cellOf(considering, "pay")?.textContent).toBe("");
+    expect(cellOf(considering, "location")?.textContent).toBe("");
     // The application's own facts do not wait on the posting.
     expect(within(cellOf(waiting, "posting")!).getByText(msg("applications-card-posting-closed"))).toBeInTheDocument();
   });

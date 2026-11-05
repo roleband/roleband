@@ -33,6 +33,14 @@ shortcuts-keyboard-shortcuts-same-role = Same role
 shortcuts-keyboard-shortcuts-related-roles = Related roles
 # kind=label wording=as-is
 shortcuts-keyboard-shortcuts-different-roles = Different roles
+# kind=heading note="The shortcuts sheet's group for the keys of an application's page in the pipeline"
+shortcuts-keyboard-shortcuts-pipeline = On an application
+# kind=label note="M: opens the stage menu"
+shortcuts-keyboard-shortcuts-change-stage = Open the stage menu
+# kind=label note="The number keys 1 to 5, while the stage menu is open"
+shortcuts-keyboard-shortcuts-pick-stage = Pick that stage
+# kind=label note="I"
+shortcuts-keyboard-shortcuts-add-interview = Add an interview
 # kind=label wording=as-is
 shortcuts-keyboard-shortcuts-keyboard-shortcuts-2 = Keyboard shortcuts
 # kind=aria wording=as-is

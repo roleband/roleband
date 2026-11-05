@@ -16,7 +16,6 @@ import {
   applicationsCommentDeleteFailed,
   applicationsCommentFailed,
   applicationsInterviewDeleteFailed,
-  applicationsInterviewFailed,
 } from "../../copy/gen/applications";
 import { usePursuitWrite, useStageMove } from "./useStageMove";
 
@@ -146,9 +145,19 @@ export function useApplicationController(jobId: number) {
     [commentWrite, jobId],
   );
 
+  /** An interview's save. Its form stays open until it lands and says a
+   *  failure itself, so no toast repeats it. */
   const interviewWrite = useCallback(
-    (send: () => Promise<unknown>) => commentWrite(send, applicationsInterviewFailed()),
-    [commentWrite],
+    async (send: () => Promise<unknown>): Promise<boolean> => {
+      try {
+        await send();
+      } catch {
+        return false;
+      }
+      void reread();
+      return true;
+    },
+    [reread],
   );
   const addInterview = useCallback(
     (interview: InterviewWrite) => interviewWrite(() => api.addInterview(jobId, interview)),

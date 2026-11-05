@@ -590,6 +590,9 @@ carries a control sets `data-above-cover` to join the cover's Tab ring.
 - On a job list, `j` / `k` (or the arrow keys) move between rows, Enter opens
   the role, `s` saves and `c` adds to Compare.
 - Duplicate review answers `d`, `t` and `n` with a verdict.
+- On an application's page, `m` opens the stage menu and `i` adds an interview;
+  while a stage menu is open, here or on a Board card, `1` to `5` move to the
+  stage it numbers.
 - A single-letter key ignores presses with a modifier and presses inside a
   text field. Review's verdict keys also step aside while a modal is open,
   because a stray press there would record a decision.

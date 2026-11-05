@@ -16,10 +16,13 @@ export function useStageAsk(move: ReturnType<typeof useBoardController>["move"])
     if (stage === "interviewing" && card.stage !== "interviewing") setAsking(card);
     else void move(card, stage);
   };
-  const confirm = (interview: InterviewWrite) => {
+  // The form waits for the move, and closes only once it has landed.
+  const confirm = async (interview: InterviewWrite) => {
     const card = asking;
-    setAsking(null);
-    if (card) void move(card, "interviewing", interview);
+    if (!card) return false;
+    const moved = await move(card, "interviewing", interview);
+    if (moved) setAsking(null);
+    return moved;
   };
   const dialog = asking
     ? <InterviewDialog card={asking} moving onCancel={() => setAsking(null)} onSubmit={confirm} />

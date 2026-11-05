@@ -6,7 +6,6 @@ import { useRoleSaves } from "../../hooks/useRoleSaves";
 import { useToast } from "../../ui";
 import {
   applicationsMoveFailed,
-  applicationsMoveInterviewFailed,
   applicationsMoveUndo,
   applicationsMoved,
   applicationsUndoFailed,
@@ -38,6 +37,11 @@ const moved = (title: string, stage: StageSlug) => applicationsMoved({ title, st
  * It paints at once and the server catches up. Undo is one move back, and
  * takes back the interview the move added. A failed move re-reads rather
  * than restoring a remembered copy: another tab may have changed it.
+ *
+ * An interview the move asks for is saved first, while its form is still
+ * open: if it fails nothing has changed, and the form keeps what was typed
+ * and says so. The card moves once the interview is in. Resolves true when
+ * the move landed.
  */
 export function useStageMove({ paint, refresh, said = moved }: {
   paint: (jobId: number, stage: StageSlug) => void;
@@ -50,29 +54,28 @@ export function useStageMove({ paint, refresh, said = moved }: {
   const write = usePursuitWrite();
 
   return useCallback(
-    async (card: ApplicationCard, stage: StageSlug, interview?: InterviewWrite) => {
+    async (card: ApplicationCard, stage: StageSlug, interview?: InterviewWrite): Promise<boolean> => {
       // Networking shows as Researching, so picking Researching changes nothing.
-      if (boardStage(card.stage) === stage) return;
+      if (boardStage(card.stage) === stage) return true;
       const from = card.stage;
       const title = card.title;
-      paint(card.job_id, stage);
-      try {
-        await write(card, { stage });
-      } catch {
-        toast({ key: "applications", tone: "error", text: applicationsMoveFailed({ title }) });
-        await refresh();
-        return;
-      }
-      // The move has landed whatever happens to its interview: the card is in
-      // its new stage, so a second move there would not ask again. The failure
-      // is said on its own, and the move keeps its Undo.
       let added: number | null = null;
       if (interview) {
         try {
           added = (await api.addInterview(card.job_id, interview)).interview.id;
         } catch {
-          toast({ key: "applications-interview", tone: "error", text: applicationsMoveInterviewFailed({ title }) });
+          return false;
         }
+      }
+      paint(card.job_id, stage);
+      try {
+        await write(card, { stage });
+      } catch {
+        // The form that asked for the interview says the failure itself.
+        if (added == null) toast({ key: "applications", tone: "error", text: applicationsMoveFailed({ title }) });
+        else await api.deleteInterview(card.job_id, added).catch(() => undefined);
+        await refresh();
+        return false;
       }
       refreshStats();
       void refresh();
@@ -95,6 +98,7 @@ export function useStageMove({ paint, refresh, said = moved }: {
           },
         },
       });
+      return true;
     },
     [paint, write, refresh, refreshStats, toast, said],
   );

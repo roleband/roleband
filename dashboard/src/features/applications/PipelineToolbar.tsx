@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import { useMissionActions } from "../../context/MissionState";
 import { number } from "../../copy/format";
 import { sharedFilters, sharedFiltersCount } from "../../copy/gen/shared";
@@ -72,6 +72,9 @@ export interface PipelineToolbarProps<C extends string = string> {
     /** Whether the columns stand as they first did, so Reset has nothing to do. */
     asFirst?: boolean;
   };
+  /** For a view that pins something under the row, which stays at the page's
+   *  top on a wide window and so must be measured. */
+  toolbarRef?: RefObject<HTMLDivElement | null>;
 }
 
 /**
@@ -81,7 +84,7 @@ export interface PipelineToolbarProps<C extends string = string> {
  * row holds what narrows the view and nothing else. Each view draws its own,
  * over its own filter.
  */
-export function PipelineToolbar<C extends string>({ filter, onFilter, quickCounts, columns }: PipelineToolbarProps<C>) {
+export function PipelineToolbar<C extends string>({ filter, onFilter, quickCounts, columns, toolbarRef }: PipelineToolbarProps<C>) {
   const { screenSearchRef } = useMissionActions();
   const [filterButton, setFilterButton] = useState<HTMLButtonElement | null>(null);
   const [columnsButton, setColumnsButton] = useState<HTMLButtonElement | null>(null);
@@ -93,7 +96,7 @@ export function PipelineToolbar<C extends string>({ filter, onFilter, quickCount
   const highlight = filter.mode === "highlight";
 
   return (
-    <div className="app-toolbar app-pipeline-toolbar" data-selection="chrome">
+    <div className="app-toolbar app-pipeline-toolbar" data-selection="chrome" ref={toolbarRef}>
       <SearchField
         ref={screenSearchRef}
         className="app-pipeline-search"

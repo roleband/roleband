@@ -30,7 +30,6 @@ import {
   applicationsFactsPosting,
   applicationsInterviewAdd,
   applicationsInterviewEditLabel,
-  applicationsInterviewsEmpty,
   applicationsInterviewOutcomeCancelled,
   applicationsInterviewOutcomeNotPassed,
   applicationsInterviewOutcomePassed,
@@ -170,9 +169,9 @@ export function ApplicationFacts({
             <Icon name="plus" size={14} />
           </Button>
         </div>
-        {interviews.length === 0 ? (
-          <p className="app-next-empty">{applicationsInterviewsEmpty()}</p>
-        ) : (
+        {/* With none, the heading and its plus stand alone: Next says no
+            interview is booked, beside the way to add one. */}
+        {interviews.length > 0 && (
           <ul className="app-interviews">
             {interviews.map((interview) => (
               <li key={interview.id} className="app-interview">

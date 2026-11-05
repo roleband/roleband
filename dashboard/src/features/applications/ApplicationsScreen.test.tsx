@@ -221,7 +221,7 @@ describe("moving into Interviewing", () => {
     expect(api.setPursuit).toHaveBeenLastCalledWith(2, { stage: "applied" });
   });
 
-  it("keeps the move when only its interview fails to save, says which, and Undo still moves it back", async () => {
+  it("keeps the form open with what was typed when its interview fails to save, and moves only once it saves", async () => {
     render(withProviders(<ApplicationsScreen />));
     await screen.findByText("Principal Engineering Manager");
     vi.mocked(api.addInterview).mockRejectedValueOnce(new Error("offline"));
@@ -229,18 +229,19 @@ describe("moving into Interviewing", () => {
     await userEvent.click(within(await openMenu(applied)).getByRole("button", { name: "Interviewing" }));
     const dialog = await screen.findByRole("dialog", { name: msg("applications-interview-title") });
     await userEvent.click(within(dialog).getByRole("button", { name: "Thu, Nov 12" }));
-    await userEvent.click(within(dialog).getByRole("button", {
-      name: msg("applications-interview-submit", { stage: "Interviewing" }),
-    }));
+    const save = within(dialog).getByRole("button", { name: msg("applications-interview-submit", { stage: "Interviewing" }) });
+    await userEvent.click(save);
 
-    expect(await screen.findByText(msg("applications-move-interview-failed", { title: applied.title }))).toBeInTheDocument();
-    expect(screen.getByText(msg("applications-moved", { title: applied.title, stage: "Interviewing" }))).toBeInTheDocument();
-    expect(screen.queryByText(msg("applications-move-failed", { title: applied.title }))).toBeNull();
-    await waitFor(() => expect(within(column("Interviewing")).getByText("Principal Engineering Manager")).toBeInTheDocument());
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(msg("applications-move-failed", { title: applied.title }));
+    expect(within(dialog).getByRole("button", { name: "Thu, Nov 12" }), "the day picked stays picked").toHaveAttribute("aria-pressed", "true");
+    expect(within(column("Applied")).getByText("Principal Engineering Manager"), "nothing moved").toBeInTheDocument();
+    expect(api.setPursuit).not.toHaveBeenCalled();
+    expect(screen.queryByText(msg("applications-moved", { title: applied.title, stage: "Interviewing" }))).toBeNull();
 
-    await userEvent.click(screen.getByRole("button", { name: msg("applications-move-undo") }));
-    await waitFor(() => expect(api.setPursuit).toHaveBeenLastCalledWith(2, { stage: "applied" }));
-    expect(api.deleteInterview).not.toHaveBeenCalled();
+    await userEvent.click(save);
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: msg("applications-interview-title") })).toBeNull());
+    expect(api.setPursuit).toHaveBeenLastCalledWith(2, { stage: "interviewing" });
+    expect(within(column("Interviewing")).getByText("Principal Engineering Manager")).toBeInTheDocument();
   });
 
   it("sends a timed interview at the reader's own clock time, and a blank round as Interview", () => {

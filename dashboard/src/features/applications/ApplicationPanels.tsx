@@ -3,6 +3,7 @@ import type { ApplicationCard, ApplicationInterview } from "../../api";
 import { date as formatDate, time as formatTime } from "../../copy/format";
 import { Button, Content, ExternalLink } from "../../ui";
 import {
+  applicationsInterviewAdd,
   applicationsInterviewFormatOnsite,
   applicationsInterviewFormatPhone,
   applicationsInterviewFormatVideo,
@@ -17,8 +18,8 @@ import {
   applicationsNextInterviewJoinLabel,
   applicationsNextInterviewMeta,
   applicationsNextInterviewNone,
-  applicationsNextNotNow,
   applicationsNextPrompt,
+  applicationsNextRequired,
   applicationsNextSave,
   applicationsNextSet,
   applicationsNextTitle,
@@ -33,6 +34,7 @@ import {
   applicationsNotesTitle,
 } from "../../copy/gen/applications";
 import { DueBadge } from "./DueBadge";
+import { useFocusAfter } from "./focusAfter";
 
 const FORMAT_LABEL: Record<NonNullable<ApplicationInterview["format"]>, () => string> = {
   video: applicationsInterviewFormatVideo,
@@ -78,21 +80,32 @@ export interface NextPanelProps {
   now: Date;
   onSetNext: (text: string | null, due: string | null) => Promise<boolean>;
   onEditInterview: (interview: ApplicationInterview) => void;
+  onAddInterview: () => void;
 }
 
 /** What the application waits on: its next interview and its one next step.
  *  Mark done is the page's one filled button, and it asks at once what comes
- *  next, with Not now to leave the slot empty. */
-export function NextPanel({ card, interviews, now, onSetNext, onEditInterview }: NextPanelProps) {
+ *  next; Cancel leaves the slot empty. */
+export function NextPanel({ card, interviews, now, onSetNext, onEditInterview, onAddInterview }: NextPanelProps) {
   const [asking, setAsking] = useState(false);
   const [text, setText] = useState("");
   const [day, setDay] = useState("");
+  const [empty, setEmpty] = useState(false);
   const textField = useFocusWhen<HTMLInputElement>(asking);
+  // The form stands where its opener was; closing it hands focus to the
+  // row's first control, so the reader is not dropped at the page's top.
+  const stepRow = useRef<HTMLDivElement>(null);
+  const focusAfter = useFocusAfter();
+  const close = () => {
+    focusAfter(() => stepRow.current?.querySelector<HTMLElement>("button"));
+    setAsking(false);
+  };
   const next = card.next_interview ? interviews.find((one) => one.id === card.next_interview!.id) ?? null : null;
 
   const openForm = (fromCurrent: boolean) => {
     setText(fromCurrent ? card.next_action ?? "" : "");
     setDay(fromCurrent && card.next_action_due ? dayOf(card.next_action_due) : "");
+    setEmpty(false);
     setAsking(true);
   };
 
@@ -102,8 +115,12 @@ export function NextPanel({ card, interviews, now, onSetNext, onEditInterview }:
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
-    if (!text.trim()) return;
-    if (await onSetNext(text.trim(), day ? dueFromDay(day) : null)) setAsking(false);
+    if (!text.trim()) {
+      setEmpty(true);
+      textField.current?.focus();
+      return;
+    }
+    if (await onSetNext(text.trim(), day ? dueFromDay(day) : null)) close();
   };
 
   const due = card.next_action_due ? { kind: "step" as const, at: new Date(card.next_action_due), on: new Date(card.next_action_due) } : null;
@@ -131,11 +148,16 @@ export function NextPanel({ card, interviews, now, onSetNext, onEditInterview }:
             <Button variant="ghost" size="sm" onClick={() => onEditInterview(next)}>{applicationsNextInterviewEdit()}</Button>
           </>
         ) : (
-          <p className="app-next-empty">{applicationsNextInterviewNone()}</p>
+          <>
+            <p className="app-next-empty">{applicationsNextInterviewNone()}</p>
+            <Button variant="ghost" size="sm" className="ui-btn-strong" onClick={onAddInterview}>
+              {applicationsInterviewAdd()}
+            </Button>
+          </>
         )}
       </div>
 
-      <div className="app-next-row">
+      <div className="app-next-row" ref={stepRow}>
         {asking ? (
           <form className="app-next-form" onSubmit={save}>
             <label htmlFor="app-next-text">{applicationsNextPrompt()}</label>
@@ -144,12 +166,18 @@ export function NextPanel({ card, interviews, now, onSetNext, onEditInterview }:
               ref={textField}
               value={text}
               maxLength={2_000}
-              onChange={(event) => setText(event.target.value)}
+              aria-invalid={empty || undefined}
+              aria-describedby={empty ? "app-next-required" : undefined}
+              onChange={(event) => {
+                setText(event.target.value);
+                if (event.target.value.trim()) setEmpty(false);
+              }}
             />
+            {empty && <p id="app-next-required" className="app-interview-error" role="alert">{applicationsNextRequired()}</p>}
             <label htmlFor="app-next-due">{applicationsNextDue()}</label>
             <input id="app-next-due" type="date" value={day} onChange={(event) => setDay(event.target.value)} />
             <div className="app-next-actions">
-              <Button variant="ghost" size="sm" onClick={() => setAsking(false)}>{applicationsNextNotNow()}</Button>
+              <Button variant="ghost" size="sm" onClick={close}>{applicationsInterviewCancel()}</Button>
               <Button variant="primary" size="sm" type="submit">{applicationsNextSave()}</Button>
             </div>
           </form>
@@ -185,11 +213,17 @@ export function NotesBlock({ notes, onSave }: { notes: string | null; onSave: (n
   const [draft, setDraft] = useState("");
   const [whole, setWhole] = useState(false);
   const field = useFocusWhen<HTMLTextAreaElement>(editing);
+  const opener = useRef<HTMLButtonElement>(null);
+  const focusAfter = useFocusAfter();
+  const close = () => {
+    focusAfter(() => opener.current);
+    setEditing(false);
+  };
   const long = notes != null && (notes.length > LONG_NOTES || notes.split("\n").length > 3);
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
-    if (await onSave(draft)) setEditing(false);
+    if (await onSave(draft)) close();
   };
 
   return (
@@ -198,6 +232,7 @@ export function NotesBlock({ notes, onSave }: { notes: string | null; onSave: (n
         <h2 id="app-notes-title" className="app-panel-title">{applicationsNotesTitle()}</h2>
         {!editing && (
           <Button
+            ref={opener}
             variant="ghost"
             size="sm"
             onClick={() => {
@@ -220,7 +255,7 @@ export function NotesBlock({ notes, onSave }: { notes: string | null; onSave: (n
             onChange={(event) => setDraft(event.target.value)}
           />
           <div className="app-next-actions">
-            <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>{applicationsInterviewCancel()}</Button>
+            <Button variant="ghost" size="sm" onClick={close}>{applicationsInterviewCancel()}</Button>
             <Button variant="ghost" size="sm" className="ui-btn-strong" type="submit">{applicationsNotesSave()}</Button>
           </div>
         </form>

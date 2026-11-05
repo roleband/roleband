@@ -1,9 +1,11 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState, type CSSProperties } from "react";
 import type { ApplicationCard } from "../../api";
 import { STAGE_LABEL } from "../../copy/vocabulary";
 import { AsyncBoundary, Button, Icon, Menu, MenuGroup, MenuItem } from "../../ui";
 import {
   applicationsBoardLoadFailed,
+  applicationsBoardScrollBack,
+  applicationsBoardScrollOn,
   applicationsColumnCountOf,
   applicationsColumnEmpty,
   applicationsColumnEmptySaved,
@@ -21,6 +23,7 @@ import { NoMatches, PipelineEmpty } from "./PipelineEmpty";
 import { PipelineToolbar } from "./PipelineToolbar";
 import type { useBoardController } from "./useBoardController";
 import { useCardDrag } from "./useCardDrag";
+import { stepColumns, useScrollEdges } from "./useScrollEdges";
 import { useStageAsk } from "./useStageAsk";
 import { useViewFilter } from "./useViewFilter";
 
@@ -91,7 +94,13 @@ export function BoardView({ board, now }: {
   // A card that leaves its column takes focus with it: the moved card's menu
   // takes it in its new column, or, where it is not drawn (a hidden column, a
   // filter it no longer matches), the card that stood beside it.
-  const scroller = useRef<HTMLDivElement>(null);
+  const scroller = useRef<HTMLDivElement | null>(null);
+  const [scrollNode, setScrollNode] = useState<HTMLDivElement | null>(null);
+  const setScroller = useCallback((node: HTMLDivElement | null) => {
+    scroller.current = node;
+    setScrollNode(node);
+  }, []);
+  const edges = useScrollEdges(scrollNode);
   const focusAfter = useFocusAfter();
   const besideCard = (jobId: number) => {
     const tile = scroller.current?.querySelector(`.app-tile[data-job-id="${jobId}"]`);
@@ -101,10 +110,19 @@ export function BoardView({ board, now }: {
   };
   const moveKeepingFocus: typeof move = (card, stage, interview) => {
     const fallback = besideCard(card.job_id);
-    focusAfter(() => scroller.current?.querySelector<HTMLElement>(
+    const follow = () => focusAfter(() => scroller.current?.querySelector<HTMLElement>(
       `[data-drop-stage="${stage}"] .app-tile[data-job-id="${card.job_id}"] .app-tile-menu`,
     ) ?? fallback);
-    return move(card, stage, interview);
+    // A move that asks for an interview waits in its form, which keeps focus
+    // until the move lands; only then does focus follow the card.
+    if (!interview) {
+      follow();
+      return move(card, stage);
+    }
+    return move(card, stage, interview).then((moved) => {
+      if (moved) follow();
+      return moved;
+    });
   };
   const removeKeepingFocus = (card: ApplicationCard) => {
     const fallback = besideCard(card.job_id);
@@ -150,79 +168,116 @@ export function BoardView({ board, now }: {
         {() => (
           <>
             {nothingMatches && <NoMatches />}
-            <div className="app-board-scroll" ref={scroller}>
-              <div className="app-board" data-dragging={drag ? "" : undefined} data-highlight={filtering && highlight ? "" : undefined}>
-                {shown.map((column) => {
-                  const name = columnName(column.id);
-                  const all = columnTotal(column);
-                  const matched = column.stages.reduce((sum, stage) => sum + (groups.get(stage) ?? []).filter(hits).length, 0);
-                  const sectioned = column.stages.length > 1;
-                  return (
-                    <section
-                      key={column.id}
-                      className="app-column"
-                      aria-labelledby={`app-column-${column.id}`}
-                      data-drop-column={column.id}
-                      data-drop-target={!sectioned && landing != null && column.stages.includes(landing) ? "" : undefined}
-                    >
-                      <div className="app-column-head">
-                        <h2 id={`app-column-${column.id}`} className="app-column-name">{name}</h2>
-                        <span className="app-column-count">
-                          {filtering ? applicationsColumnCountOf({ count: matched, total: all }) : all}
-                        </span>
-                        <ColumnMenu name={name} last={shown.length === 1} onHide={() => hideKeepingFocus(column.id)} />
-                      </div>
-                      {narrowed && !nothingMatches && matched === 0 && (all > 0 || sectioned) && (
-                        <p className="app-column-empty">{applicationsColumnNoMatches()}</p>
-                      )}
-                      {column.stages.map((stage) => {
-                        const every = groups.get(stage) ?? [];
-                        const list = narrowed ? every.filter(hits) : every;
-                        // A section the filter empties stays as a drop target,
-                        // with nothing drawn: the column's line says what matched.
-                        const quiet = sectioned && narrowed && list.length === 0;
-                        return (
-                          <div
-                            key={stage}
-                            className="app-section"
-                            role={sectioned ? "group" : undefined}
-                            aria-label={sectioned ? STAGE_LABEL[stage] : undefined}
-                            data-drop-stage={stage}
-                            data-drop-target={sectioned && landing === stage ? "" : undefined}
-                            data-empty={sectioned && every.length === 0 ? "" : undefined}
-                          >
-                            {sectioned && !quiet && (
-                              <h3 className="app-section-name" aria-hidden="true">
-                                {STAGE_LABEL[stage]} <span className="app-column-count">{list.length}</span>
-                              </h3>
-                            )}
-                            {/* An empty ending is its heading alone, drawn
-                                quietly: its 0 says it, and an ending that
-                                holds applications stands out beside it. */}
-                            {every.length === 0 && !sectioned && (
-                              <p className="app-column-empty">
-                                {stage === "saved" ? applicationsColumnEmptySaved() : applicationsColumnEmpty()}
-                              </p>
-                            )}
-                            {list.map((card) => (
-                              <ApplicationTile
-                                key={card.job_id}
-                                card={card}
-                                now={now}
-                                onMove={ask}
-                                onRemove={removeKeepingFocus}
-                                drag={handlers(card)}
-                                dragged={drag?.jobId === card.job_id ? drag : null}
-                                match={filtering && highlight ? hits(card) : undefined}
-                              />
-                            ))}
-                          </div>
-                        );
-                      })}
-                    </section>
-                  );
-                })}
+            {/* The board scrolls inside a frame that fills the window. An
+                edge with more board past it fades, and a button there steps
+                one column; the buttons are for a pointer, as Tab already
+                brings every card into view. */}
+            <div
+              className="app-board-frame"
+              data-more-back={edges.back || undefined}
+              data-more-on={edges.on || undefined}
+              style={{ "--app-board-bar-x": `${edges.barX}px`, "--app-board-bar-y": `${edges.barY}px` } as CSSProperties}
+            >
+              <div className="app-board-scroll" ref={setScroller}>
+                <div className="app-board" data-dragging={drag ? "" : undefined} data-highlight={filtering && highlight ? "" : undefined}>
+                  {shown.map((column) => {
+                    const name = columnName(column.id);
+                    const all = columnTotal(column);
+                    const matched = column.stages.reduce((sum, stage) => sum + (groups.get(stage) ?? []).filter(hits).length, 0);
+                    const sectioned = column.stages.length > 1;
+                    return (
+                      <section
+                        key={column.id}
+                        className="app-column"
+                        aria-labelledby={`app-column-${column.id}`}
+                        data-drop-column={column.id}
+                        data-drop-target={!sectioned && landing != null && column.stages.includes(landing) ? "" : undefined}
+                      >
+                        <div className="app-column-head">
+                          <h2 id={`app-column-${column.id}`} className="app-column-name">{name}</h2>
+                          <span className="app-column-count">
+                            {filtering ? applicationsColumnCountOf({ count: matched, total: all }) : all}
+                          </span>
+                          <ColumnMenu name={name} last={shown.length === 1} onHide={() => hideKeepingFocus(column.id)} />
+                        </div>
+                        {narrowed && !nothingMatches && matched === 0 && (all > 0 || sectioned) && (
+                          <p className="app-column-empty">{applicationsColumnNoMatches()}</p>
+                        )}
+                        {column.stages.map((stage) => {
+                          const every = groups.get(stage) ?? [];
+                          const list = narrowed ? every.filter(hits) : every;
+                          // A section the filter empties stays as a drop target,
+                          // with nothing drawn: the column's line says what matched.
+                          const quiet = sectioned && narrowed && list.length === 0;
+                          return (
+                            <div
+                              key={stage}
+                              className="app-section"
+                              role={sectioned ? "group" : undefined}
+                              aria-label={sectioned ? STAGE_LABEL[stage] : undefined}
+                              data-drop-stage={stage}
+                              data-drop-target={sectioned && landing === stage ? "" : undefined}
+                              data-empty={sectioned && every.length === 0 ? "" : undefined}
+                            >
+                              {sectioned && !quiet && (
+                                <h3 className="app-section-name" aria-hidden="true">
+                                  {STAGE_LABEL[stage]} <span className="app-column-count">{list.length}</span>
+                                </h3>
+                              )}
+                              {/* An empty ending is its heading alone, drawn
+                                  quietly: its 0 says it, and an ending that
+                                  holds applications stands out beside it. */}
+                              {every.length === 0 && !sectioned && (
+                                <p className="app-column-empty">
+                                  {stage === "saved" ? applicationsColumnEmptySaved() : applicationsColumnEmpty()}
+                                </p>
+                              )}
+                              {list.map((card) => (
+                                <ApplicationTile
+                                  key={card.job_id}
+                                  card={card}
+                                  now={now}
+                                  onMove={ask}
+                                  onRemove={removeKeepingFocus}
+                                  drag={handlers(card)}
+                                  dragged={drag?.jobId === card.job_id ? drag : null}
+                                  match={filtering && highlight ? hits(card) : undefined}
+                                />
+                              ))}
+                            </div>
+                          );
+                        })}
+                      </section>
+                    );
+                  })}
+                </div>
               </div>
+              {edges.back && (
+                <Button
+                  variant="icon"
+                  size="sm"
+                  className="app-board-step"
+                  data-side="back"
+                  tabIndex={-1}
+                  aria-label={applicationsBoardScrollBack()}
+                  onClick={() => scrollNode && stepColumns(scrollNode, -1, ".app-column")}
+                >
+                  <Icon name="chevronLeft" size={16} />
+                </Button>
+              )}
+              {edges.on && (
+                <Button
+                  variant="icon"
+                  size="sm"
+                  className="app-board-step"
+                  data-side="on"
+                  tabIndex={-1}
+                  aria-label={applicationsBoardScrollOn()}
+                  onClick={() => scrollNode && stepColumns(scrollNode, 1, ".app-column")}
+                >
+                  <Icon name="chevronRight" size={16} />
+                </Button>
+              )}
             </div>
           </>
         )}
