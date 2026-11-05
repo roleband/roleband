@@ -461,10 +461,6 @@
   font-weight: var(--app-weight-name);
 }
 
-.app-list-stage > svg {
-  color: var(--app-text-faint);
-}
-
 .app-list-next {
   display: flex;
   flex-direction: column;
@@ -499,6 +495,12 @@
   text-align: right;
 }
 
+/* The row's menu opens inside this cell, and every row's pinned cell is a
+   layer of its own: the open one rises over the rows below it. */
+.data-table.app-list .app-list-actions:has([aria-expanded="true"]) {
+  z-index: 2;
+}
+
 .app-list-row:hover .app-list-actions {
   box-shadow: inset 0 0 0 100vmax var(--app-surface-hover);
 }
@@ -531,6 +533,7 @@
   }
 
   .app-list-actions-set .ui-btn[aria-pressed="true"],
+  .app-list-actions-set .ui-btn[aria-expanded="true"],
   .app-list-row:hover .app-list-actions-set .ui-btn,
   .app-list-row:focus-within .app-list-actions-set .ui-btn {
     opacity: 1;
@@ -581,9 +584,9 @@
   gap: var(--app-space-5);
 }
 
-/* A day picked in the month scrolls its heading here; the margin keeps the
+/* A day picked in the month scrolls its section here; the margin keeps the
    heading off the window's edge. */
-.app-upnext-day > h2 {
+.app-upnext-day {
   scroll-margin-top: var(--app-space-4);
 }
 
@@ -771,6 +774,13 @@
 
 .app-upnext-item:has(.app-tile-open:hover) {
   background: var(--app-surface-subtle);
+}
+
+/* The rows of the day picked in the month: chosen, as a picked day in the
+   grid is, with the chosen edge on the row's leading side. */
+.app-upnext-item[data-picked] {
+  background: var(--app-chosen-wash);
+  box-shadow: inset 2px 0 0 var(--app-chosen-line);
 }
 
 .app-upnext-when {

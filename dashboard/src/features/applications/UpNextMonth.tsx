@@ -64,18 +64,22 @@ function DayItem({ item, card, match }: { item: ApplicationCalendarItem; card: A
 }
 
 /** The month beside Up next: every interview and dated next step by the day
- *  it falls on, past days included, and the picked day's items under it.
- *  Picking a day that Up next lists also brings that day into view there.
- *  It reads its own span; a role is named from the board's cards, so an item
+ *  it falls on, past days included. Picking a day tells Up next, which brings
+ *  that day's items into view and marks them; what Up next does not list (a
+ *  past round, a later round of the same role) is listed under the grid. It
+ *  reads its own span; a role is named from the board's cards, so an item
  *  whose application the board does not show is not drawn. */
-export function UpNextMonth({ cards, now, keep, onPickDay }: {
+export function UpNextMonth({ cards, now, keep, inAgenda, onPickDay }: {
   cards: readonly ApplicationCard[];
   now: Date;
   /** The view's filter: false drops the item's application, undefined keeps
    *  every item, true or false on a highlight dims the ones that miss. */
   keep: (card: ApplicationCard) => { shown: boolean; match?: boolean };
-  /** A day picked with a click or Enter. */
-  onPickDay: (day: Date) => void;
+  /** Whether Up next lists this item, so the grid need not. */
+  inAgenda: (item: ApplicationCalendarItem) => boolean;
+  /** A day picked: `scroll` for a click, Enter or Today, which brings the day
+   *  into view; an arrow walking the grid only moves the mark. */
+  onPickDay: (day: Date, how: { scroll: boolean }) => void;
 }) {
   const today = dayKey(now);
   const [month, setMonth] = useState(() => monthOf(now));
@@ -104,18 +108,18 @@ export function UpNextMonth({ cards, now, keep, onPickDay }: {
   }));
   const weeks = monthWeeks(month);
 
-  const pick = (day: Date, { announce = true, focus = false } = {}) => {
+  const pick = (day: Date, { scroll = true, focus = false } = {}) => {
     const key = dayKey(day);
     setPicked(key);
     if (day.getMonth() !== month.getMonth() || day.getFullYear() !== month.getFullYear()) setMonth(monthOf(day));
-    if (announce) onPickDay(day);
+    onPickDay(day, { scroll });
     if (focus) focusDay.current = key;
   };
   const move = (event: KeyboardEvent<HTMLButtonElement>, from: Date) => {
     const by = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[event.key];
     if (by == null) return;
     event.preventDefault();
-    pick(shiftDay(from, by), { announce: false, focus: true });
+    pick(shiftDay(from, by), { scroll: false, focus: true });
   };
   const describe = (key: string, day: Date) => {
     const items = days.get(key) ?? [];
@@ -134,6 +138,7 @@ export function UpNextMonth({ cards, now, keep, onPickDay }: {
     ? picked
     : dayKey(month);
   const pickedItems = days.get(picked) ?? [];
+  const elsewhere = pickedItems.filter((item) => !inAgenda(item));
   const pickedDay = fromDayKey(picked);
 
   return (
@@ -209,26 +214,30 @@ export function UpNextMonth({ cards, now, keep, onPickDay }: {
         <span><span className="app-month-mark" data-kind="interview" />{applicationsMonthLegendInterview()}</span>
         <span><span className="app-month-mark" data-kind="step" />{applicationsMonthLegendStep()}</span>
       </p>
-      <div className="app-month-picked">
-        <h3 className="app-panel-title">{formatDate(pickedDay, "weekday")}</h3>
-        {pickedItems.length === 0 ? (
-          <p className="app-month-empty">{applicationsMonthDayEmpty()}</p>
-        ) : (
-          <ul data-highlight={pickedItems.some((item) => keep(byJob.get(item.job_id)!).match !== undefined) ? "" : undefined}>
-            {pickedItems.map((item) => {
-              const card = byJob.get(item.job_id)!;
-              return (
-                <DayItem
-                  key={item.kind === "interview" ? `i-${item.interview_id}` : `s-${item.job_id}`}
-                  item={item}
-                  card={card}
-                  match={keep(card).match}
-                />
-              );
-            })}
-          </ul>
-        )}
-      </div>
+      {/* A day whose every item Up next lists is answered there, marked;
+          the grid lists only what Up next does not. */}
+      {(pickedItems.length === 0 || elsewhere.length > 0) && (
+        <div className="app-month-picked">
+          <h3 className="app-panel-title">{formatDate(pickedDay, "weekday")}</h3>
+          {elsewhere.length === 0 ? (
+            <p className="app-month-empty">{applicationsMonthDayEmpty()}</p>
+          ) : (
+            <ul data-highlight={elsewhere.some((item) => keep(byJob.get(item.job_id)!).match !== undefined) ? "" : undefined}>
+              {elsewhere.map((item) => {
+                const card = byJob.get(item.job_id)!;
+                return (
+                  <DayItem
+                    key={item.kind === "interview" ? `i-${item.interview_id}` : `s-${item.job_id}`}
+                    item={item}
+                    card={card}
+                    match={keep(card).match}
+                  />
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
     </section>
   );
 }

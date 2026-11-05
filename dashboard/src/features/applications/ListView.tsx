@@ -3,7 +3,7 @@ import { Link, useLocation, useSearchParams } from "react-router-dom";
 import type { ApplicationCard } from "../../api";
 import { useJobActions, useJobWorkspace } from "../../context/JobWorkspace";
 import { date as formatDate } from "../../copy/format";
-import { STAGE_LABEL, type StageSlug } from "../../copy/vocabulary";
+import type { StageSlug } from "../../copy/vocabulary";
 import { BAND_LABEL, companyName, relDays } from "../../format";
 import { usePayCoverage } from "../../payCoverage";
 import { baseShown } from "../../payShown";
@@ -11,7 +11,7 @@ import { CompareBeacon } from "../../patterns/jobs/CompareBeacon";
 import { StarButton } from "../../patterns/jobs/JobControls";
 import { primaryLocation } from "../../patterns/jobs/location";
 import { SortButton } from "../../patterns/jobs/SortButton";
-import { AsyncBoundary, Badge, Button, CompanyIcon, Content, EmptyState, Icon, Menu, MenuGroup, MenuItem, useToast } from "../../ui";
+import { AsyncBoundary, Badge, Button, CompanyIcon, Content, EmptyState, Icon, Menu, MenuGroup, MenuItem } from "../../ui";
 import { Abbr } from "../../ui/Abbr";
 import { Msg } from "../../ui/Msg";
 import {
@@ -23,9 +23,9 @@ import {
   jobsHeadRole,
 } from "../../copy/gen/jobs";
 import { sharedNotForMe } from "../../copy/gen/shared";
-import { errorApplicationUnderWay } from "../../copy/gen/errors";
 import {
   applicationsBoardLoadFailed,
+  applicationsCardActions,
   applicationsCardDaysInStage,
   applicationsCardDaysShort,
   applicationsCardDueInterview,
@@ -41,20 +41,18 @@ import {
   applicationsFactPriority,
   applicationsFactsPosting,
   applicationsListColumnLeft,
+  applicationsListClear,
+  applicationsListClearBoard,
   applicationsListColumnRight,
   applicationsListEmpty,
   applicationsListEmptyHint,
-  applicationsListEnded,
   applicationsListHeadActions,
   applicationsListHeadNext,
-  applicationsListHeadStage,
   applicationsListNoMatches,
-  applicationsListStage,
-  applicationsPageWithdraw,
   applicationsMenuLabel,
   applicationsMenuRemove,
 } from "../../copy/gen/applications";
-import { applicationPath, boardStage, dayOffset, daysInStage, daysOverdue, dueOf, dueState, isMoving } from "./board";
+import { applicationPath, dayOffset, daysInStage, daysOverdue, dueOf, dueState } from "./board";
 import { isFiltering, matches, quickCounts } from "./filters";
 import {
   ALWAYS_SHOWN,
@@ -86,7 +84,6 @@ const PRIORITY_STEPS = [1, 2, 3, 4, 5] as const;
  *  Location sorts nothing. */
 const HEAD: Record<ListColumn, { name: () => string; sort?: ListSort; num?: boolean }> = {
   role: { name: jobsHeadRole, sort: "role" },
-  stage: { name: applicationsListHeadStage, sort: "stage" },
   pay: { name: jobsHeadPay, sort: "pay", num: true },
   location: { name: jobsHeadLocation },
   level: { name: applicationsFactLevel, sort: "level" },
@@ -191,8 +188,6 @@ interface RowActions {
   onMove: (card: ApplicationCard, stage: StageSlug) => void;
   onRemove: (card: ApplicationCard) => void;
   onNotForMe: (card: ApplicationCard) => void;
-  /** Star or Not for me on a role past Considering, which stays. */
-  onStays: (card: ApplicationCard) => void;
 }
 
 function Row({ row, now, columns, actions, match }: {
@@ -206,18 +201,14 @@ function Row({ row, now, columns, actions, match }: {
   const { viewedIds, compareIds, compareFull, compareCap } = useJobWorkspace();
   const { toggleCompare } = useJobActions();
   const cover = usePayCoverage();
-  const [stageButton, setStageButton] = useState<HTMLButtonElement | null>(null);
+  const [menuButton, setMenuButton] = useState<HTMLButtonElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const company = companyName(card.company);
-  const stage = STAGE_LABEL[boardStage(card.stage)];
   const unread = job != null && job.viewed_at == null && !viewedIds.has(card.job_id);
   const compareOn = compareIds.has(card.job_id);
   const full = compareFull && !compareOn;
   const fullReason = compareCap === undefined ? jobsCompareFull() : jobsCompareFullCap({ cap: compareCap });
   const fullReasonId = `app-list-full-${card.job_id}`;
-  // In Considering a role can leave; past it the star stays and the way out
-  // is a stage, which the server holds to as well.
-  const leaves = card.stage === "saved";
   const base = job ? baseShown(job, cover) : null;
   const where = job ? primaryLocation(job.locations) : null;
   const band = placedBand(job);
@@ -237,44 +228,6 @@ function Row({ row, now, columns, actions, match }: {
           <Content text={card.title} />
         </Link>
       </th>
-    ),
-    stage: () => (
-      <>
-        <Button
-          ref={setStageButton}
-          size="sm"
-          className="app-list-stage"
-          aria-label={applicationsListStage({ stage, title: card.title })}
-          aria-haspopup="dialog"
-          aria-expanded={menuOpen}
-          onClick={() => setMenuOpen((open) => !open)}
-        >
-          {stage}
-          <Icon name="chevronDown" size={12} />
-        </Button>
-        <StageMenu
-          current={card.stage}
-          label={applicationsMenuLabel({ title: card.title })}
-          anchor={stageButton}
-          isOpen={menuOpen}
-          onClose={() => setMenuOpen(false)}
-          onMove={(next) => {
-            setMenuOpen(false);
-            actions.onMove(card, next);
-          }}
-        >
-          {leaves && card.starred && (
-            <MenuItem
-              onSelect={() => {
-                setMenuOpen(false);
-                actions.onRemove(card);
-              }}
-            >
-              {applicationsMenuRemove()}
-            </MenuItem>
-          )}
-        </StageMenu>
-      </>
     ),
     pay: () => base && (
       <span className="comp" title={base.hint}>
@@ -324,7 +277,7 @@ function Row({ row, now, columns, actions, match }: {
             size="sm"
             aria-label={sharedNotForMe()}
             title={sharedNotForMe()}
-            onClick={() => (leaves ? actions.onNotForMe(card) : actions.onStays(card))}
+            onClick={() => actions.onNotForMe(card)}
           >
             <Icon name="eyeOff" size={14} />
           </Button>
@@ -344,11 +297,40 @@ function Row({ row, now, columns, actions, match }: {
             <Icon name={compareOn ? "check" : "columns"} size={14} />
           </Button>
           {full && <span id={fullReasonId} className="sr-only">{fullReason}</span>}
-          <StarButton
-            on={card.starred || !leaves}
-            size={16}
-            onToggle={() => (leaves ? actions.onRemove(card) : actions.onStays(card))}
-          />
+          <StarButton on={card.starred} size={16} onToggle={() => actions.onRemove(card)} />
+          <Button
+            ref={setMenuButton}
+            variant="icon"
+            size="sm"
+            aria-label={applicationsCardActions({ title: card.title })}
+            aria-haspopup="dialog"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            <Icon name="more" size={14} />
+          </Button>
+          <StageMenu
+            current={card.stage}
+            label={applicationsMenuLabel({ title: card.title })}
+            anchor={menuButton}
+            isOpen={menuOpen}
+            onClose={() => setMenuOpen(false)}
+            onMove={(next) => {
+              setMenuOpen(false);
+              actions.onMove(card, next);
+            }}
+          >
+            {card.starred && (
+              <MenuItem
+                onSelect={() => {
+                  setMenuOpen(false);
+                  actions.onRemove(card);
+                }}
+              >
+                {applicationsMenuRemove()}
+              </MenuItem>
+            )}
+          </StageMenu>
         </span>
       </td>
     </tr>
@@ -388,24 +370,25 @@ interface Drop {
   before: ListColumn | null;
 }
 
-/** The List: every application as a row of a table, with its posting's facts
- *  beside it. It owns its filter, its sort and its columns; the page lends it
- *  only the applications. A row's stage opens the same moves a card's menu
- *  holds, its title opens the application, and its last cell holds Radar's
- *  row actions. A header sorts, drags to a new place, and its menu moves or
- *  hides it. */
+/** The List: the backlog, every role still in Considering, as a row of a
+ * table with its posting's facts beside it. A role leaves it the moment work
+ * on it starts, for the Board. It owns its filter, its sort and its columns;
+ * the page lends it only the applications. A row's title opens the
+ * application, and its last cell holds Radar's row actions and a menu with
+ * the same moves a card's menu holds. A header sorts, drags to a new place,
+ * and its menu moves or hides it. */
 export function ListView({ board, now }: {
   board: ReturnType<typeof useBoardController>;
   /** The page's clock, so a row's due date reads as the board's does. */
   now: Date;
 }) {
-  const { cards, resource, move, remove, dismiss } = board;
+  const { resource, move, remove, dismiss } = board;
+  const cards = board.cards.filter((card) => card.stage === "saved");
   const [filter, setFilter] = useViewFilter();
   const { sort, order, choose } = useListSort();
   const [layout, setLayout] = useListLayout();
   const postings = usePostings(cards);
   const { ask, dialog } = useStageAsk(move);
-  const { toast } = useToast();
   const host = useRef<HTMLDivElement>(null);
   const [frame, setFrame] = useState<HTMLDivElement | null>(null);
   const [dragged, setDragged] = useState<ListColumn | null>(null);
@@ -417,18 +400,7 @@ export function ListView({ board, now }: {
   const asFirst = layout.order.join() === DEFAULT_LAYOUT.order.join()
     && [...layout.hidden].sort().join() === [...DEFAULT_LAYOUT.hidden].sort().join();
 
-  const stays = (card: ApplicationCard) => {
-    if (isMoving(card)) {
-      toast({
-        key: "applications",
-        text: errorApplicationUnderWay(),
-        action: { label: applicationsPageWithdraw(), onClick: () => ask(card, "withdrawn") },
-      });
-    } else {
-      toast({ key: "applications", text: applicationsListEnded() });
-    }
-  };
-  const actions: RowActions = { onMove: ask, onRemove: remove, onNotForMe: dismiss, onStays: stays };
+  const actions: RowActions = { onMove: ask, onRemove: remove, onNotForMe: dismiss };
 
   const all = sortRows(cards.map((card) => ({ card, job: postings.get(card.job_id) })), sort, order, now, companyName);
   const rows = filtering && !highlight ? all.filter((row) => matches(row.card, filter, now)) : all;
@@ -517,7 +489,11 @@ export function ListView({ board, now }: {
           </EmptyState>
         }
       >
-        {() => rows.length === 0 ? (
+        {() => cards.length === 0 ? (
+          <EmptyState title={applicationsListClear()}>
+            <Link to="/pipeline/board">{applicationsListClearBoard()}</Link>
+          </EmptyState>
+        ) : rows.length === 0 ? (
           <p className="app-column-empty app-list-empty">{applicationsListNoMatches()}</p>
         ) : (
           <div className="app-list-host job-margin-host" ref={host}>

@@ -9,8 +9,8 @@ import { expect, mockApi, mockGet, test, watchReads, type Page } from "./fixture
  * a whole card that opens its application's page, a drag that moves a card
  * and scrolls the board under it, Interviewing's question,
  * hidden columns a browser remembers, filters kept in the address, the
- * page's own stage button and Mark done, Up next, and the List's rows,
- * sort and columns. The API is a small store, so a re-read
+ * page's own stage button and Mark done, Up next and its month, and the
+ * List: the backlog of roles still in Considering, its sort and columns. The API is a small store, so a re-read
  * after a write shows the write. */
 
 const cards: ApplicationCard[] = [
@@ -266,37 +266,75 @@ test("Up next lists what is due by day, overdue first, and a row opens its appli
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Principal Engineering Manager");
 });
 
-test("Up next stands beside its month: a day says what is on it, and picking one lists it under the grid", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
+test("Up next stands beside its month: a day says what is on it, and picking one brings it into view in Up next, marked", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 700 });
   // A fixed clock: the month and its days are the test's, whatever day it runs.
   await page.clock.setFixedTime(new Date(2026, 10, 4, 10, 0));
+  // A week of steps fills Up next past the window's foot, so a later day has
+  // to be scrolled to.
+  const filler = Array.from({ length: 7 }, (_, i) => applicationCardFixture({
+    job_id: 600 + i, pursuit_id: 60 + i, stage: "researching", title: `Role ${i + 1}`, company: "notion",
+    next_action: `Step ${i + 1}`, next_action_due: new Date(2026, 10, 8 + i, 23, 59).toISOString(),
+  }));
   await installPipeline(page, [
     { ...cards[0], next_action: "Ask for an intro", next_action_due: new Date(2026, 10, 7, 23, 59).toISOString() },
     { ...cards[1], next_interview: {
-      id: 5, label: "Hiring manager call", scheduled_at: new Date(2026, 10, 6, 14, 0).toISOString(), all_day: false,
+      id: 5, label: "Hiring manager call", scheduled_at: new Date(2026, 10, 20, 14, 0).toISOString(), all_day: false,
       format: "video",
     } },
     cards[2],
+    ...filler,
   ]);
+  // The month's read, with a round already held: that one is the month's
+  // alone, since Up next lists what is ahead.
+  await mockGet(page, "/api/applications/calendar**", (route) => route.fulfill({ json: { items: [
+    {
+      kind: "interview", job_id: 202, at: new Date(2026, 10, 2, 15, 0).toISOString(), interview_id: 3,
+      label: "Recruiter screen", all_day: false, format: "video", outcome: "passed",
+    },
+    { kind: "step", job_id: 101, at: new Date(2026, 10, 7, 23, 59).toISOString(), step: "Ask for an intro" },
+    ...filler.map((card) => ({ kind: "step", job_id: card.job_id, at: card.next_action_due, step: card.next_action })),
+    {
+      kind: "interview", job_id: 202, at: new Date(2026, 10, 20, 14, 0).toISOString(), interview_id: 5,
+      label: "Hiring manager call", all_day: false, format: "video", outcome: null,
+    },
+  ] } }));
   await page.goto("/pipeline/up-next");
 
   const month = page.getByRole("region", { name: msg("applications-month-label") });
   await expect(month.getByRole("heading", { level: 2 })).toHaveText(/November 2026/i);
-  const friday = month.getByRole("button", { name: `Fri, Nov 6: ${msg("applications-month-interviews", { count: 1 })}` });
-  await expect(friday).toBeVisible();
+  const target = month.getByRole("button", { name: `Fri, Nov 20: ${msg("applications-month-interviews", { count: 1 })}` });
+  await expect(target).toBeVisible();
   await expect(month.getByRole("button", { name: `Sat, Nov 7: ${msg("applications-month-steps", { count: 1 })}` })).toBeVisible();
   await expect(month.getByRole("button", { name: /^Wed, Nov 4/ })).toHaveAttribute("aria-current", "date");
 
   // The month takes the right side the list left empty, level with it.
-  const list = page.getByRole("region", { name: "Fri, Nov 6" });
+  const list = page.getByRole("region", { name: "Sat, Nov 7" });
   const [listBox, monthBox] = [await list.boundingBox(), await month.boundingBox()];
   expect(monthBox!.x, "the month stands right of the list").toBeGreaterThan(listBox!.x + listBox!.width);
   expect(monthBox!.x + monthBox!.width, "and inside the window").toBeLessThanOrEqual(1440);
   expect(await page.evaluate(() => document.documentElement.scrollWidth), "the page never widens").toBeLessThanOrEqual(1440);
 
-  await friday.click();
-  await expect(friday).toHaveAttribute("aria-pressed", "true");
-  await expect(month.getByText(msg("applications-upnext-interview", { label: "Hiring manager call" }))).toBeVisible();
+  const day = page.locator("section.app-upnext-day").filter({ hasText: msg("applications-upnext-interview", { label: "Hiring manager call" }) });
+  const row = day.locator(".app-upnext-item");
+  await expect(day, "the day starts below the window").not.toBeInViewport();
+  await target.click();
+  await expect(target).toHaveAttribute("aria-pressed", "true");
+  await expect(day).toBeInViewport();
+  await expect(row).toHaveAttribute("data-picked", "true");
+  await expect(page.locator(".app-upnext-item[data-picked]")).toHaveCount(1);
+  // Marked with the chosen wash, as a picked day in the grid is.
+  expect(await row.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe("rgba(0, 0, 0, 0)");
+  // Up next answers the day, so the grid lists nothing under it.
+  await expect(month.getByRole("heading", { level: 3 })).toHaveCount(0);
+  // The month stays beside the list while it scrolls.
+  await expect(target).toBeInViewport();
+
+  // A past round is the month's alone: it is listed under the grid, with its outcome.
+  await month.getByRole("button", { name: /^Mon, Nov 2: / }).click();
+  await expect(page.locator(".app-upnext-item[data-picked]")).toHaveCount(0);
+  await expect(month.getByText(msg("applications-upnext-interview", { label: "Recruiter screen" }))).toBeVisible();
+  await expect(month.getByText(msg("applications-interview-outcome-passed"))).toBeVisible();
   await month.getByRole("link", { name: /Principal Engineering Manager/ }).click();
   await expect(page).toHaveURL(/\/pipeline\/202$/);
 });
@@ -537,15 +575,30 @@ async function installPostings(page: Page) {
         level_basis: "title", posted_base: { min: 240_000, max: 300_000, period: "year", currency: "USD" } }),
       posting({ id: 202, company: "stripe", locations: ["Dublin, Ireland"], posted_base: null, comp_base_median: null }),
       posting({ id: 303, company: "apple", status: "closed", locations: ["Cupertino, CA"], posted_base: null, comp_base_median: null }),
+      posting({ id: 404, company: "apple", locations: ["Cupertino, CA"], posted_base: null, comp_base_median: null }),
     ] } });
   });
+  // The backlog's own role: the compare tray reads its posting by id.
+  await mockGet(page, "/api/jobs/404", (route) => route.fulfill({ json: posting({
+    id: 404, company: "apple", title: "Group Product Manager", locations: ["Cupertino, CA"], posted_base: null, comp_base_median: null,
+  }) }));
   return asked;
 }
 
 const listRow = (page: Page, title: string) => page.getByRole("row").filter({ has: page.getByRole("link", { name: title }) });
 
-test("the List moves a row from its stage with the keyboard alone, and shows each posting's facts", async ({ page }) => {
-  const { stageWrites } = await installPipeline(page);
+/** The List's backlog: three roles still in Considering, and two the List
+ *  leaves to the Board, one under way and one ended. */
+const backlog: ApplicationCard[] = [
+  cards[0],
+  { ...cards[1], pursuit_id: null, stage: "saved" },
+  applicationCardFixture({ job_id: 404, title: "Group Product Manager", company: "apple" }),
+  applicationCardFixture({ job_id: 505, pursuit_id: 50, stage: "applied", title: "Director of Product", company: "notion" }),
+  cards[2],
+];
+
+test("the List holds only roles in Considering, and starting one from its menu, by keyboard alone, sends it to the Board", async ({ page }) => {
+  const { stageWrites } = await installPipeline(page, backlog);
   const asked = await installPostings(page);
   await page.goto("/pipeline/list");
 
@@ -553,21 +606,32 @@ test("the List moves a row from its stage with the keyboard alone, and shows eac
   await expect(first).toContainText("San Francisco, CA +1");
   await expect(first).toContainText(/240/);
   expect(new URLSearchParams(asked[0]).get("status")).toBe("");
+  await expect(page.locator("table.app-list tbody tr")).toHaveCount(3);
+  // Under way and ended: the Board's, not the backlog's.
+  await expect(listRow(page, "Director of Product")).toHaveCount(0);
+  await expect(listRow(page, "Head of Platform")).toHaveCount(0);
+  await expect(page.locator('table.app-list th[data-col="stage"]')).toHaveCount(0);
 
-  const stage = page.getByRole("button", {
-    name: msg("applications-list-stage", { stage: "Applied", title: "Principal Engineering Manager" }),
-  });
-  await stage.focus();
+  await menuButton(page, "Principal Engineering Manager").focus();
   await page.keyboard.press("Enter");
   const moves = menu(page, "Principal Engineering Manager");
   await expect(moves).toBeVisible();
-  await moves.getByRole("button", { name: "Offer" }).focus();
+  await moves.getByRole("button", { name: "Researching" }).focus();
   await page.keyboard.press("Enter");
 
-  await expect(page.getByRole("button", {
-    name: msg("applications-list-stage", { stage: "Offer", title: "Principal Engineering Manager" }),
-  })).toBeVisible();
-  await expect.poll(() => stageWrites).toContainEqual({ jobId: 202, stage: "offer" });
+  await expect(listRow(page, "Principal Engineering Manager")).toHaveCount(0);
+  await expect.poll(() => stageWrites).toContainEqual({ jobId: 202, stage: "researching" });
+  await page.getByRole("tab", { name: msg("shell-tab-pipeline-board") }).click();
+  await expect(column(page, "Researching").getByText("Principal Engineering Manager")).toBeVisible();
+});
+
+test("the List says nothing is waiting, and points to the Board, once work has started on every role", async ({ page }) => {
+  await installPipeline(page, [cards[1], cards[2]]);
+  await page.goto("/pipeline/list");
+  await expect(page.getByText(msg("applications-list-clear"))).toBeVisible();
+  await page.getByRole("link", { name: msg("applications-list-clear-board") }).click();
+  await expect(page).toHaveURL(/\/pipeline\/board$/);
+  await expect(column(page, "Applied").getByText("Principal Engineering Manager")).toBeVisible();
 });
 
 /** A List header, by its column. */
@@ -576,7 +640,7 @@ const listColumns = (page: Page) =>
   page.locator("table.app-list thead th[data-col]").evaluateAll((cells) => cells.map((cell) => (cell as HTMLElement).dataset.col));
 
 test("the List's sort lives in the address and its hidden columns in the browser, both kept over a reload", async ({ page }) => {
-  await installPipeline(page);
+  await installPipeline(page, backlog);
   await installPostings(page);
   await page.goto("/pipeline/list");
   const table = page.getByRole("table");
@@ -586,7 +650,7 @@ test("the List's sort lives in the address and its hidden columns in the browser
   await expect(page).toHaveURL(/\/pipeline\/list\?sort=role&order=asc$/);
   await expect(role).toHaveAttribute("aria-sort", "ascending");
   // Apple, OpenAI, Stripe: by the company's name.
-  await expect(table.locator("tbody tr").first()).toContainText("Head of Platform");
+  await expect(table.locator("tbody tr").first()).toContainText("Group Product Manager");
 
   await page.getByRole("button", { name: /^Columns/ }).click();
   await page.getByRole("dialog", { name: msg("applications-columns") })
@@ -596,14 +660,14 @@ test("the List's sort lives in the address and its hidden columns in the browser
 
   await page.reload();
   await expect(role).toHaveAttribute("aria-sort", "ascending");
-  await expect(table.locator("tbody tr").first()).toContainText("Head of Platform");
+  await expect(table.locator("tbody tr").first()).toContainText("Group Product Manager");
   await expect(listHead(page, "location")).toHaveCount(0);
   await expect(listHead(page, "pay")).toBeVisible();
 });
 
 test("a List header drags to a new place, and its menu moves or hides it, all kept over a reload", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "A touch moves a column from its header's menu; dragging is the pointer's way.");
-  await installPipeline(page);
+  await installPipeline(page, backlog);
   await installPostings(page);
   await page.goto("/pipeline/list");
   await expect(listHead(page, "pay")).toBeVisible();
@@ -611,7 +675,7 @@ test("a List header drags to a new place, and its menu moves or hides it, all ke
   // Dropped on the left half of Role: Base becomes the first column.
   const role = await listHead(page, "role").boundingBox();
   await listHead(page, "pay").dragTo(listHead(page, "role"), { targetPosition: { x: 8, y: role!.height / 2 } });
-  await expect.poll(() => listColumns(page)).toEqual(["pay", "role", "stage", "location", "level", "next", "posting"]);
+  await expect.poll(() => listColumns(page)).toEqual(["pay", "role", "location", "level", "next", "posting"]);
   await expect(page.locator("tbody tr").first().locator("[data-col]").first()).toHaveAttribute("data-col", "pay");
 
   // The menu is the keyboard's way: it shows when its header holds focus.
@@ -621,19 +685,19 @@ test("a List header drags to a new place, and its menu moves or hides it, all ke
   await page.keyboard.press("Enter");
   const menu = page.getByRole("dialog", { name: msg("applications-column-menu", { column: msg("applications-fact-level") }) });
   await menu.getByRole("button", { name: msg("applications-list-column-left") }).click();
-  await expect.poll(() => listColumns(page)).toEqual(["pay", "role", "stage", "level", "location", "next", "posting"]);
+  await expect.poll(() => listColumns(page)).toEqual(["pay", "role", "level", "location", "next", "posting"]);
   await page.getByRole("button", { name: msg("applications-column-menu", { column: msg("applications-facts-posting") }) }).click();
   await page.getByRole("button", { name: msg("applications-column-hide") }).click();
 
   await page.reload();
-  await expect.poll(() => listColumns(page)).toEqual(["pay", "role", "stage", "level", "location", "next"]);
+  await expect.poll(() => listColumns(page)).toEqual(["pay", "role", "level", "location", "next"]);
   await page.getByRole("button", { name: /^Columns/ }).click();
   await page.getByRole("button", { name: msg("applications-list-columns-reset") }).click();
-  await expect.poll(() => listColumns(page)).toEqual(["role", "stage", "pay", "location", "level", "next", "posting"]);
+  await expect.poll(() => listColumns(page)).toEqual(["role", "pay", "location", "level", "next", "posting"]);
 });
 
-test("a List row's star takes a role in Considering off the pipeline, and keeps a role under way", async ({ page }) => {
-  await installPipeline(page);
+test("a List row's star takes the role off the pipeline", async ({ page }) => {
+  await installPipeline(page, backlog);
   await installPostings(page);
   const unsaved: number[] = [];
   await mockApi(page, "DELETE", "/api/jobs/*/favorite", async (route, request) => {
@@ -643,12 +707,6 @@ test("a List row's star takes a role in Considering off the pipeline, and keeps 
   });
   await page.goto("/pipeline/list");
 
-  const applied = listRow(page, "Principal Engineering Manager");
-  await applied.hover();
-  await applied.getByRole("button", { name: msg("jobs-save") }).click();
-  await expect(page.getByText(msg("error-application-under-way"))).toBeVisible();
-  expect(unsaved).toEqual([]);
-
   const considering = listRow(page, "Staff Product Manager, API");
   await considering.hover();
   await considering.getByRole("button", { name: msg("jobs-save") }).click();
@@ -657,10 +715,10 @@ test("a List row's star takes a role in Considering off the pipeline, and keeps 
 });
 
 test("the List never widens the page: a narrow window scrolls the table inside its frame", async ({ page }, testInfo) => {
-  await installPipeline(page);
+  await installPipeline(page, backlog);
   await installPostings(page);
   await page.goto("/pipeline/list");
-  await expect(page.getByRole("table").getByRole("link", { name: "Head of Platform" })).toBeVisible();
+  await expect(page.getByRole("table").getByRole("link", { name: "Group Product Manager" })).toBeVisible();
   const fit = await page.evaluate(() => {
     const frame = document.querySelector(".app-list-scroll")!;
     return {
@@ -676,7 +734,7 @@ test("the List never widens the page: a narrow window scrolls the table inside i
   if (fit.tableScrolls) await expect(frame).toHaveAttribute("data-overflowing", "true");
   else await expect(frame).not.toHaveAttribute("data-overflowing");
   // Wherever the columns scroll, a row's star stays on screen at the right edge.
-  const star = await listRow(page, "Head of Platform").getByRole("button", { name: msg("jobs-save") }).boundingBox();
+  const star = await listRow(page, "Group Product Manager").getByRole("button", { name: msg("jobs-save") }).boundingBox();
   const width = page.viewportSize()!.width;
   expect(star!.x + star!.width).toBeLessThanOrEqual(width);
   expect(star!.x).toBeGreaterThan(width / 2);
@@ -685,10 +743,10 @@ test("the List never widens the page: a narrow window scrolls the table inside i
 test("the List's compare beacon stands in Radar's margin, level with the role picked last and clear of every star", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "the margin exists from 1100px; a phone docks the beacon");
   await page.setViewportSize({ width: 1440, height: 900 });
-  await installPipeline(page);
+  await installPipeline(page, backlog);
   await installPostings(page);
   await page.goto("/pipeline/list");
-  for (const title of ["Staff Product Manager, API", "Head of Platform"]) {
+  for (const title of ["Staff Product Manager, API", "Group Product Manager"]) {
     const row = listRow(page, title);
     await row.hover();
     await row.getByRole("button", { name: msg("jobs-compare") }).click();
@@ -699,7 +757,7 @@ test("the List's compare beacon stands in Radar's margin, level with the role pi
   const table = (await page.locator(".app-list-scroll").boundingBox())!;
   const toolbar = (await page.locator(".app-pipeline-toolbar").boundingBox())!;
   const filters = (await page.getByRole("button", { name: msg("shared-filters") }).boundingBox())!;
-  const last = (await listRow(page, "Head of Platform").boundingBox())!;
+  const last = (await listRow(page, "Group Product Manager").boundingBox())!;
   const box = (await pill.boundingBox())!;
   // One right edge for the toolbar and the rows, with the margin past both.
   expect(Math.abs(toolbar.x + toolbar.width - (table.x + table.width))).toBeLessThanOrEqual(1);
@@ -716,13 +774,13 @@ test("the List's compare beacon stands in Radar's margin, level with the role pi
 
 test("the Pipeline and Radar each keep their own comparison, through a visit to the other and a reload", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "the rail is a desktop control");
-  await installPipeline(page);
+  await installPipeline(page, backlog);
   await installPostings(page);
   const rail = page.getByRole("navigation").first();
   const pipelinePill = page.getByRole("button", { name: "2 in compare. Compare 2 roles" });
   const compareOf = (row: ReturnType<typeof listRow>) => row.getByRole("button", { name: msg("jobs-compare") });
   await page.goto("/pipeline/list");
-  for (const title of ["Staff Product Manager, API", "Head of Platform"]) {
+  for (const title of ["Staff Product Manager, API", "Group Product Manager"]) {
     await listRow(page, title).hover();
     await compareOf(listRow(page, title)).click();
   }

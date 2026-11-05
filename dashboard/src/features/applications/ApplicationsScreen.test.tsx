@@ -313,17 +313,17 @@ describe("hiding columns", () => {
   });
 
   it("on the List a move says only where the role went: the hidden columns are the Board's", async () => {
-    localStorage.setItem("roleband.pipeline-hidden-columns", JSON.stringify(["offer"]));
+    localStorage.setItem("roleband.pipeline-hidden-columns", JSON.stringify(["researching"]));
     vi.mocked(api.jobs).mockResolvedValue({ items: [], total: 0, limit: 500, offset: 0 } as never);
     render(atRoute("/pipeline/list"));
-    await screen.findByText("Principal Engineering Manager");
+    await screen.findByText(considering.title);
 
-    await userEvent.click(screen.getByRole("button", { name: msg("applications-list-stage", { stage: "Applied", title: applied.title }) }));
-    const menu = await screen.findByRole("dialog", { name: msg("applications-menu-label", { title: applied.title }) });
-    await userEvent.click(within(menu).getByRole("button", { name: "Offer" }));
+    await userEvent.click(screen.getByRole("button", { name: msg("applications-card-actions", { title: considering.title }) }));
+    const menu = await screen.findByRole("dialog", { name: msg("applications-menu-label", { title: considering.title }) });
+    await userEvent.click(within(menu).getByRole("button", { name: "Researching" }));
 
-    expect(await screen.findByText(msg("applications-moved", { title: applied.title, stage: "Offer" }))).toBeInTheDocument();
-    expect(screen.queryByText(msg("applications-moved-hidden", { title: applied.title, stage: "Offer", column: "Offer" }))).toBeNull();
+    expect(await screen.findByText(msg("applications-moved", { title: considering.title, stage: "Researching" }))).toBeInTheDocument();
+    expect(screen.queryByText(msg("applications-moved-hidden", { title: considering.title, stage: "Researching", column: "Researching" }))).toBeNull();
   });
 });
 
@@ -469,6 +469,43 @@ describe("the cards and the tabs", () => {
     expect(within(days[1]).getByText(msg("applications-upnext-interview", { label: "Hiring manager call" }))).toBeInTheDocument();
     expect(within(days[1]).getByRole("link")).toHaveAttribute("href", "/pipeline/2");
     expect(screen.queryByText("Head of Platform")).toBeNull();
+  });
+
+  it("brings a day picked in the month into view in Up next and marks its rows; an arrow moves the mark without scrolling", async () => {
+    const today = new Date();
+    const late = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 58);
+    stored = [
+      { ...considering, next_action: "Ask for an intro", next_action_due: new Date(Date.now() - 3 * 86_400_000).toISOString() },
+      { ...applied, next_interview: { id: 5, label: "Hiring manager call", scheduled_at: late.toISOString(), all_day: false, format: "video" } },
+    ];
+    const scrolled: Element[] = [];
+    Element.prototype.scrollIntoView = vi.fn(function (this: Element) { scrolled.push(this); });
+    render(
+      <ToastProvider>
+        <MemoryRouter initialEntries={["/pipeline/up-next"]}>
+          <Routes><Route path="/pipeline/:tab" element={<ApplicationsScreen />} /></Routes>
+        </MemoryRouter>
+      </ToastProvider>,
+    );
+    const row = (text: string) => screen.getByText(text).closest("li")!;
+    await screen.findByText(msg("applications-upnext-interview", { label: "Hiring manager call" }));
+    const interview = row(msg("applications-upnext-interview", { label: "Hiring manager call" }));
+    const overdue = row(msg("applications-upnext-step", { step: "Ask for an intro" }));
+    // Nothing is marked until a day is picked.
+    expect(interview).not.toHaveAttribute("data-picked");
+
+    const key = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const cell = document.querySelector<HTMLElement>(`[data-day="${key}"]`)!;
+    await userEvent.click(cell);
+
+    expect(interview).toHaveAttribute("data-picked");
+    expect(overdue).not.toHaveAttribute("data-picked");
+    expect(scrolled).toEqual([interview.closest("section")]);
+
+    // The arrow walks to tomorrow: today's row is no longer marked, and nothing scrolls.
+    await userEvent.keyboard("{ArrowRight}");
+    await waitFor(() => expect(interview).not.toHaveAttribute("data-picked"));
+    expect(scrolled).toHaveLength(1);
   });
 });
 

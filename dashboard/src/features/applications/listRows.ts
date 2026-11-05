@@ -1,6 +1,7 @@
 /* The List's rules, apart from how it looks: its columns, their order and
- * which of them a browser hides, and how rows sort. A row is an application
- * and, when the posting has been read, the posting's own facts beside it.
+ * which of them a browser hides, and how rows sort. A row is a role still in
+ * Considering and, when the posting has been read, the posting's own facts
+ * beside it.
  * The column layout is a preference of this browser, as the board's columns
  * are; storage can throw, so a failed read shows the default layout and a
  * failed write is dropped. */
@@ -8,11 +9,11 @@
 import type { ApplicationCard, Job } from "../../api";
 import { compare } from "../../copy/format";
 import { BAND_ORDER } from "../../format";
-import { COLUMNS, boardStage, dueOf, sortColumn } from "./board";
+import { dueOf, sortColumn } from "./board";
 
 /** The columns the List can show, in their first order. */
 export const LIST_COLUMNS = [
-  "role", "stage", "pay", "location", "level", "next", "posting", "priority", "in_stage", "activity",
+  "role", "pay", "location", "level", "next", "posting", "priority", "in_stage", "activity",
 ] as const;
 export type ListColumn = (typeof LIST_COLUMNS)[number];
 
@@ -98,13 +99,13 @@ export interface ListRow {
   job: Job | undefined;
 }
 
-export const LIST_SORTS = ["stage", "role", "pay", "level", "next", "posting", "priority", "in_stage", "activity"] as const;
+export const LIST_SORTS = ["board", "role", "pay", "level", "next", "posting", "priority", "in_stage", "activity"] as const;
 export type ListSort = (typeof LIST_SORTS)[number];
 export type ListOrder = "asc" | "desc";
 
 /** The order a column sorts in when first chosen: the most useful end on top. */
 export const FIRST_ORDER: Record<ListSort, ListOrder> = {
-  stage: "asc",
+  board: "asc",
   role: "asc",
   pay: "desc",
   level: "desc",
@@ -117,18 +118,19 @@ export const FIRST_ORDER: Record<ListSort, ListOrder> = {
 
 const isSort = (value: string | null): value is ListSort => (LIST_SORTS as readonly string[]).includes(value ?? "");
 
-/** The sort an address holds: `?sort=` and `?order=`. The stage order is the
- *  default and is never written, so an unsorted List keeps a clean address. */
+/** The sort an address holds: `?sort=` and `?order=`. The board's own order
+ *  for Considering is the default and is never written, so an unsorted List
+ *  keeps a clean address. It has no header: no column states it. */
 export function readSort(params: URLSearchParams): { sort: ListSort; order: ListOrder } {
   const named = params.get("sort");
-  const sort = isSort(named) ? named : "stage";
+  const sort = isSort(named) ? named : "board";
   const order = params.get("order");
   return { sort, order: order === "asc" || order === "desc" ? order : FIRST_ORDER[sort] };
 }
 
 export function writeSort(params: URLSearchParams, sort: ListSort, order: ListOrder): URLSearchParams {
   const next = new URLSearchParams(params);
-  if (sort === "stage" && order === FIRST_ORDER.stage) {
+  if (sort === "board" && order === FIRST_ORDER.board) {
     next.delete("sort");
     next.delete("order");
   } else {
@@ -138,7 +140,6 @@ export function writeSort(params: URLSearchParams, sort: ListSort, order: ListOr
   return next;
 }
 
-const STAGE_RANK = new Map(COLUMNS.flatMap((column) => column.stages).map((stage, index) => [stage, index]));
 const BAND_RANK = new Map(BAND_ORDER.map((band, index) => [band, index]));
 const DAY = 86_400_000;
 
@@ -160,7 +161,7 @@ export function yearlyBase(job: Job | undefined): number | null {
 }
 
 /** Each sort's key for a row; null sorts last whichever way the column runs. */
-function key(row: ListRow, sort: Exclude<ListSort, "stage" | "role">, now: Date): number | null {
+function key(row: ListRow, sort: Exclude<ListSort, "board" | "role">, now: Date): number | null {
   const { card, job } = row;
   switch (sort) {
     case "pay":
@@ -182,26 +183,24 @@ function key(row: ListRow, sort: Exclude<ListSort, "stage" | "role">, now: Date)
   }
 }
 
-/** The rows in the List's order. By stage, a row keeps its place among its
- *  column's cards, so the List and the board read the same way down. Ties
- *  keep that order too. */
+/** The rows in the List's order. The board's order is the order the
+ *  Considering column shows its cards in, so the List and the board read the
+ *  same way down; every other sort breaks its ties by it. */
 export function sortRows(rows: readonly ListRow[], sort: ListSort, order: ListOrder, now: Date, companyName: (slug: string) => string): ListRow[] {
   const byBoard = sortColumn(rows.map((row) => row.card), now);
   const boardIndex = new Map(byBoard.map((card, index) => [card.job_id, index]));
-  const stageThenBoard = (a: ListRow, b: ListRow) =>
-    (STAGE_RANK.get(boardStage(a.card.stage)) ?? 0) - (STAGE_RANK.get(boardStage(b.card.stage)) ?? 0)
-    || (boardIndex.get(a.card.job_id) ?? 0) - (boardIndex.get(b.card.job_id) ?? 0);
+  const onBoard = (a: ListRow, b: ListRow) => (boardIndex.get(a.card.job_id) ?? 0) - (boardIndex.get(b.card.job_id) ?? 0);
   const sign = order === "asc" ? 1 : -1;
   return [...rows].sort((a, b) => {
-    if (sort === "stage") return sign * stageThenBoard(a, b);
+    if (sort === "board") return sign * onBoard(a, b);
     if (sort === "role") {
       const by = compare(companyName(a.card.company), companyName(b.card.company))
         || compare(a.card.title, b.card.title);
-      return sign * by || stageThenBoard(a, b);
+      return sign * by || onBoard(a, b);
     }
     const ka = key(a, sort, now);
     const kb = key(b, sort, now);
-    if (ka == null || kb == null) return ka == null && kb == null ? stageThenBoard(a, b) : ka == null ? 1 : -1;
-    return sign * (ka - kb) || stageThenBoard(a, b);
+    if (ka == null || kb == null) return ka == null && kb == null ? onBoard(a, b) : ka == null ? 1 : -1;
+    return sign * (ka - kb) || onBoard(a, b);
   });
 }

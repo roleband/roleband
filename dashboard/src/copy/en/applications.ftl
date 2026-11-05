@@ -210,25 +210,23 @@ applications-interview-failed = Couldn't save the interview. Try again.
 # kind=aria
 applications-tabs-label = Pipeline views
 
-## The List: every application as a row of a table
-# kind=label note="The List's column of each application's stage" same-as=role-job-detail-stage
-applications-list-head-stage = Stage
+## The List: the backlog, every role still in Considering, as a row of a table
 # kind=label note="The List's column of the next interview or next step, and when it is due"
 applications-list-head-next = Next step
-# kind=label note="The List's last column, read to screen readers only: Not for me, Compare and the star"
+# kind=label note="The List's last column, read to screen readers only: Not for me, Compare, the star and the row's moves"
 applications-list-head-actions = Actions
-# kind=aria note="A row's stage button, which opens every move; $stage is its stage now"
-applications-list-stage = { $stage }. Move { $title }
 # kind=heading note="The List when nothing is starred or pursued"
 applications-list-empty = Nothing in your pipeline yet
 # kind=sentence note="$icon is the star glyph itself"
 applications-list-empty-hint = Tap the { $icon } on any role on your radar to add it here.
+# kind=heading note="The List when roles are starred but none is still in Considering: work has started on every one"
+applications-list-clear = Nothing waiting to start
+# kind=link note="Under the cleared List: opens the Board, where the roles under way are"
+applications-list-clear-board = See the roles under way on the Board
 # kind=empty note="The List while the filters match no application"
 applications-list-no-matches = No applications match these filters.
 # kind=toast note="A row's Not for me took the role off the pipeline" same-as=compare-use-compare-controller-not-for-me
 applications-list-not-for-me = Not for me · { $title }
-# kind=toast note="Star or Not for me on an application that has ended: it stays, as its record"
-applications-list-ended = This application has ended, so it stays in your pipeline.
 # kind=button note="A column header's menu: the column trades places with the one shown before it"
 applications-list-column-left = Move left
 # kind=button note="A column header's menu: the column trades places with the one shown after it"

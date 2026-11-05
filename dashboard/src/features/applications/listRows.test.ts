@@ -15,7 +15,8 @@ import {
   type ListRow,
 } from "./listRows";
 
-/* The List's rules: rows by stage read as the board reads down; any other
+/* The List's rules: rows in the board's order read as Considering reads
+ * down, and no column states a stage, since every row is in Considering; any other
  * sort keeps rows that lack the fact at the end, whichever way it runs; the
  * sort lives in the address and the default writes nothing; a level the
  * posting does not state is never shown; the columns' order and the hidden
@@ -32,17 +33,19 @@ const row = (overrides: Parameters<typeof card>[0], posting?: Partial<Job>): Lis
 const order = (rows: ListRow[]) => rows.map((r) => r.card.job_id);
 
 describe("sorting the List", () => {
-  it("by stage, in the board's column order, and within a stage as the column orders its cards", () => {
+  it("by the board's order, as the Considering column orders its cards", () => {
     const rows = [
-      row({ job_id: 1, stage: "applied", last_activity_at: days(-1) }),
-      row({ job_id: 2, stage: "saved", last_activity_at: days(-5) }),
-      row({ job_id: 3, stage: "applied", last_activity_at: days(-9), next_action: "Call", next_action_due: days(-1) }),
-      row({ job_id: 4, stage: "rejected" }),
-      row({ job_id: 5, stage: "networking", last_activity_at: days(-2) }),
+      row({ job_id: 1, last_activity_at: days(-1) }),
+      row({ job_id: 2, last_activity_at: days(-5) }),
+      row({ job_id: 3, last_activity_at: days(-9), next_action: "Call", next_action_due: days(-1) }),
     ];
-    // Overdue first in a column, then the latest activity; Networking is Researching.
-    expect(order(sortRows(rows, "stage", "asc", NOW, name))).toEqual([2, 5, 3, 1, 4]);
-    expect(order(sortRows(rows, "stage", "desc", NOW, name))).toEqual([4, 1, 3, 5, 2]);
+    // Overdue first, then the latest activity.
+    expect(order(sortRows(rows, "board", "asc", NOW, name))).toEqual([3, 1, 2]);
+    expect(order(sortRows(rows, "board", "desc", NOW, name))).toEqual([2, 1, 3]);
+  });
+
+  it("has no stage column: a row is always in Considering", () => {
+    expect(DEFAULT_LAYOUT.order).not.toContain("stage");
   });
 
   it("keeps a row without the fact at the end, ascending and descending", () => {
@@ -77,15 +80,17 @@ describe("sorting the List", () => {
 
 describe("the sort in the address", () => {
   it("reads the default when the address names none, or names one it does not know", () => {
-    expect(readSort(new URLSearchParams())).toEqual({ sort: "stage", order: "asc" });
-    expect(readSort(new URLSearchParams("sort=salary&order=up"))).toEqual({ sort: "stage", order: "asc" });
+    expect(readSort(new URLSearchParams())).toEqual({ sort: "board", order: "asc" });
+    expect(readSort(new URLSearchParams("sort=salary&order=up"))).toEqual({ sort: "board", order: "asc" });
+    // A link from when the List had a stage column opens on the default.
+    expect(readSort(new URLSearchParams("sort=stage&order=desc"))).toEqual({ sort: "board", order: "desc" });
     expect(readSort(new URLSearchParams("sort=pay"))).toEqual({ sort: "pay", order: "desc" });
   });
 
   it("writes nothing for the default, and keeps the filter beside it", () => {
     const filtered = new URLSearchParams("q=stripe");
     expect(writeSort(filtered, "pay", "asc").toString()).toBe("q=stripe&sort=pay&order=asc");
-    expect(writeSort(new URLSearchParams("q=stripe&sort=pay&order=asc"), "stage", "asc").toString()).toBe("q=stripe");
+    expect(writeSort(new URLSearchParams("q=stripe&sort=pay&order=asc"), "board", "asc").toString()).toBe("q=stripe");
   });
 });
 
@@ -124,10 +129,11 @@ describe("the columns' layout a browser keeps", () => {
   it("makes a stored layout whole: unknown names go, repeats count once, a missing column comes back in its place", () => {
     localStorage.setItem(KEY, JSON.stringify({
       order: ["pay", "salary", "role", "pay", "stage", "location", "level", "next", "posting", "priority", "in_stage"],
-      hidden: ["salary", "next"],
+      hidden: ["salary", "stage", "next"],
     }));
     const { order, hidden } = readListLayout();
-    expect(order).toEqual(["pay", "role", "stage", "location", "level", "next", "posting", "priority", "in_stage", "activity"]);
+    // A layout saved while the List had a stage column loses it.
+    expect(order).toEqual(["pay", "role", "location", "level", "next", "posting", "priority", "in_stage", "activity"]);
     expect(hidden).toEqual(["next"]);
   });
 
@@ -144,18 +150,18 @@ describe("the columns' layout a browser keeps", () => {
 });
 
 describe("moving a column", () => {
-  const order = ["role", "stage", "pay", "location"] as const;
+  const order = ["role", "level", "pay", "location"] as const;
 
   it("puts it before the column it is dropped on, or last", () => {
-    expect(moveColumn(order, "pay", "role")).toEqual(["pay", "role", "stage", "location"]);
-    expect(moveColumn(order, "role", null)).toEqual(["stage", "pay", "location", "role"]);
-    expect(moveColumn(order, "stage", "stage")).toEqual([...order]);
+    expect(moveColumn(order, "pay", "role")).toEqual(["pay", "role", "level", "location"]);
+    expect(moveColumn(order, "role", null)).toEqual(["level", "pay", "location", "role"]);
+    expect(moveColumn(order, "level", "level")).toEqual([...order]);
   });
 
   it("steps over hidden columns, so one step is one place the reader sees", () => {
-    const layout = { order: [...order], hidden: ["stage" as const] };
-    expect(stepColumn(layout, "pay", -1)).toEqual(["pay", "role", "stage", "location"]);
-    expect(stepColumn(layout, "role", 1)).toEqual(["stage", "pay", "role", "location"]);
+    const layout = { order: [...order], hidden: ["level" as const] };
+    expect(stepColumn(layout, "pay", -1)).toEqual(["pay", "role", "level", "location"]);
+    expect(stepColumn(layout, "role", 1)).toEqual(["level", "pay", "role", "location"]);
     // The ends do not move further.
     expect(stepColumn(layout, "role", -1)).toEqual([...order]);
     expect(stepColumn(layout, "location", 1)).toEqual([...order]);

@@ -7,10 +7,12 @@ import { applicationCardFixture } from "../../test/fixtures";
 import { msg } from "../../test/msg";
 import { UpNextMonth } from "./UpNextMonth";
 
-/* The month beside Up next: a day says what falls on it, picking it lists
- * that day's items under the grid, past days included, the arrows walk the
- * days and cross into the next month, a month reads only its own span, and
- * the view's filter drops a role from the month as it does from the list. */
+/* The month beside Up next: a day says what falls on it; picking it tells Up
+ * next, asking it to scroll on a click but not on an arrow; under the grid it
+ * lists only the picked day's items Up next does not, past days included; the
+ * arrows walk the days and cross into the next month; a month reads only its
+ * own span; and the view's filter drops a role from the month as it does from
+ * the list. */
 
 vi.mock("../../api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../api")>()),
@@ -41,11 +43,14 @@ const items = [
   interview(99, new Date(2026, 10, 9, 9, 0), "Someone else's round"),
 ];
 
-function renderMonth(keep: (card: ApplicationCard) => { shown: boolean; match?: boolean } = () => ({ shown: true })) {
+function renderMonth(
+  keep: (card: ApplicationCard) => { shown: boolean; match?: boolean } = () => ({ shown: true }),
+  inAgenda: (item: ApplicationCalendarItem) => boolean = () => false,
+) {
   const onPickDay = vi.fn();
   const view = (shown: readonly ApplicationCard[]) => (
     <MemoryRouter>
-      <UpNextMonth cards={shown} now={now} keep={keep} onPickDay={onPickDay} />
+      <UpNextMonth cards={shown} now={now} keep={keep} inAgenda={inAgenda} onPickDay={onPickDay} />
     </MemoryRouter>
   );
   const { rerender } = render(view(cards));
@@ -96,7 +101,31 @@ describe("UpNextMonth", () => {
     expect(list.getByText(msg("applications-upnext-interview", { label: "Recruiter screen" }))).toBeInTheDocument();
     expect(list.getByText(msg("applications-interview-outcome-passed"))).toBeInTheDocument();
     expect(list.getByRole("link", { name: /Principal Engineering Manager/ })).toHaveAttribute("href", "/pipeline/2");
-    expect(onPickDay).toHaveBeenCalledWith(new Date(2026, 10, 2));
+    expect(onPickDay).toHaveBeenCalledWith(new Date(2026, 10, 2), { scroll: true });
+  });
+
+  it("lists under the grid only what Up next does not: nothing when it lists the whole day", async () => {
+    const user = userEvent.setup();
+    // Up next lists the hiring manager round, not the step.
+    renderMonth(undefined, (item) => item.kind === "interview");
+    await waitFor(() => expect(day(/^Fri, Nov 6: /)).toBeInTheDocument());
+
+    await user.click(day(/^Fri, Nov 6: /));
+    const list = within(picked());
+    expect(list.getByText(msg("applications-upnext-step", { step: "Send references" }))).toBeInTheDocument();
+    expect(list.queryByText(msg("applications-upnext-interview", { label: "Hiring manager" }))).toBeNull();
+  });
+
+  it("draws no list under the grid for a day Up next lists whole, and says so for an empty day", async () => {
+    const user = userEvent.setup();
+    renderMonth(undefined, () => true);
+    await waitFor(() => expect(day(/^Fri, Nov 6: /)).toBeInTheDocument());
+
+    await user.click(day(/^Fri, Nov 6: /));
+    expect(screen.queryByRole("heading", { level: 3 })).toBeNull();
+
+    await user.click(day(/^Thu, Nov 5$/));
+    expect(within(picked()).getByText(msg("applications-month-day-empty"))).toBeInTheDocument();
   });
 
   it("walks the days with the arrows, one Tab stop at a time, into the next month", async () => {
@@ -115,8 +144,9 @@ describe("UpNextMonth", () => {
     await waitFor(() => expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("December 2026"));
     await waitFor(() => expect(day(/^Fri, Dec 4/)).toHaveFocus());
     expect(calendar).toHaveBeenLastCalledWith(new Date(2026, 10, 30), new Date(2027, 0, 4), expect.anything());
-    // Walking is not picking: the list is not scrolled on every step.
-    expect(onPickDay).not.toHaveBeenCalled();
+    // Walking moves the mark but does not scroll the list on every step.
+    expect(onPickDay).toHaveBeenLastCalledWith(new Date(2026, 11, 4), { scroll: false });
+    expect(onPickDay.mock.calls.every(([, how]) => how.scroll === false)).toBe(true);
   });
 
   it("pages months with its buttons, and Today comes back", async () => {
