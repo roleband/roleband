@@ -108,7 +108,13 @@ jobs:
   # projects run that shard's files. Playwright's `--shard` cuts equal test counts
   # in file order instead, which leaves the heavy specs that sort late to the last
   # shard. Each shard serves its own build: the cost of sharding is that build and
-  # the browser install, paid once per shard.
+  # the image pull, paid once per shard.
+  #
+  # Each shard runs in Microsoft's Playwright image for the locked version, the
+  # one `deploy/check_local.py` runs locally: browsers and the Linux libraries
+  # they launch with are already in it. The libraries cannot be cached, and
+  # installing them from the Ubuntu mirror on every shard can stall and fail a
+  # shard before any test runs.
   #
   # Every shard starts and skips its steps when the change does not need them: a matrix job
   # skipped whole reports one check, `ux`, and the required `ux (1)` to `ux (4)` would wait
@@ -121,6 +127,13 @@ jobs:
     # a stall is still cut short. Below the job cap, the Playwright step has its
     # own, so a stalled run still uploads its traces.
     timeout-minutes: 30
+    container:
+      # The tag names the locked @playwright/test version and the digest pins
+      # what it pointed to; a Playwright upgrade moves both in the same change
+      # (backend/tests/test_ci_workflow_triggers.py holds the tag to the lock).
+      image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
+      # Chromium keeps shared memory in /dev/shm, which Docker sizes at 64MB.
+      options: --shm-size=2g
     strategy:
       # Every shard reports: one red shard must not hide another's failures.
       fail-fast: false
@@ -146,29 +159,6 @@ jobs:
           cache-dependency-path: dashboard/package-lock.json
       - run: npm ci
         if: env.NEEDED == 'true'
-      # Chromium + WebKit binaries are what playwright.config.ts's two projects
-      # need. Split in two so the expensive half can be cached: the BINARIES are
-      # a download keyed on the lockfile, while the apt system libraries cannot
-      # be cached and are reinstalled each run. Splitting also shows which half
-      # is hanging when one of them stalls.
-      - name: cache playwright browsers
-        if: env.NEEDED == 'true'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('dashboard/package-lock.json') }}
-      # Bounded on its own, because this is the half that cannot be cached and
-      # depends on the Ubuntu mirror, which can throttle to a crawl. A cache
-      # cannot reach it: these are dpkg packages landing in /usr/lib with
-      # package state beside them, while `actions/cache` restores files. A
-      # stalled mirror fails in 6 minutes rather than riding the job cap.
-      - name: install playwright system libraries
-        if: env.NEEDED == 'true'
-        timeout-minutes: 6
-        run: npx playwright install-deps chromium webkit
-      - name: install playwright browsers
-        if: env.NEEDED == 'true'
-        run: npx playwright install chromium webkit
       # A fresh runner's first page in a browser can take tens of seconds, and
       # a test that opened it would pay that inside its own timeout.
       - name: warm the browsers
