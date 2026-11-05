@@ -2,7 +2,8 @@
 
 Sharing is optional. Nothing is sent unless you turn it on, on the question RoleBand asks once
 (first launch, or once for an install set up before sharing existed) or in Settings › Privacy.
-You can turn each kind off at any time; what was waiting to be sent for it is then never sent.
+During first-launch setup, Back from its first step returns to that question, where you can
+keep your answer or change it. You can turn each kind off at any time; what was waiting to be sent for it is then never sent.
 A batch whose send is already in progress can finish.
 
 This page lists everything that can leave your computer. `tests/test_usage_docs.py` holds it

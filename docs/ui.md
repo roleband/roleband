@@ -414,8 +414,9 @@ Every on, selected or current look is one of two, each from one token set.
   `:has(> input:checked)`. Decoration inside an `aria-hidden` group uses
   `data-chosen`. Never a class such as `.on`, `.is-on`, `.active`,
   `.selected` or `.is-current`, in CSS or in a conditional `className`.
-- Use `aria-pressed` for a mode and `aria-expanded` for a disclosure. Open is
-  not chosen.
+- Use `aria-pressed` for a mode, `aria-current` for the current one of a set
+  of one-shot actions (an answer already given, asked again), and
+  `aria-expanded` for a disclosure. Open is not chosen.
 - The name changes colour; the description under it stays muted. Never change
   weight to show state (it reflows the row).
 - A list option marks its choice with a tick and the gold name, no wash. A

@@ -15,6 +15,7 @@ privacy-sent-load-failed = No se pudo cargar lo enviado
 privacy-choose = Déjame elegir
 privacy-no-thanks = No, gracias
 privacy-happy-to-help = Encantado de ayudar
+privacy-your-answer = Tu respuesta
 privacy-save-error = No se pudo guardar tu elección. Inténtalo de nuevo.
 privacy-settings-title = Privacidad
 privacy-settings-intro = Cada tipo de envío está desactivado hasta que lo actives. Al desactivar uno, se detiene al momento.

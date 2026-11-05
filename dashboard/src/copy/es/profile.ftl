@@ -290,10 +290,6 @@ profile-subjects-step-switch-to-this = { $choice ->
     [yes] Eligiendo ahora
    *[no] Cambiar a esta
 }
-profile-subjects-step-picked = { $choice ->
-    [yes] Ninguno aún
-   *[no] { $picked } elegidos
-}
 profile-subjects-step-filter-interests = Filtrar ámbitos
 profile-subjects-step-filter-interests-2 = Filtrar ámbitos…
 

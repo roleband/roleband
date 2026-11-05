@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import type { PayFloor } from "../../../api";
 import { api } from "../../../api";
 import { fmtMoney } from "../../../money";
@@ -40,7 +40,14 @@ import {
 
    Save and Remove are two writers of one setting, so both go through one
    write queue: the setting ends as the last thing the person asked for, not
-   whichever request the server answered last. */
+   whichever request the server answered last.
+
+   The editor reads the amount back as it is typed, on one line under the
+   fields: what to write while the box is empty, the amount it will set once
+   it reads as one, and why not once it cannot (a separator just typed after
+   an amount is still being typed, not a mistake). Set is offered only for an
+   amount it can set: dimmed until then, and the band's action once it can,
+   never a second primary beside the Summary's way out. */
 
 const CURRENCIES = ["USD", "CAD", "GBP", "EUR", "CHF", "AUD", "SGD", "INR", "JPY"];
 
@@ -79,8 +86,10 @@ const PAY_FLOOR_MAX = 100_000_000;
 /** A yearly amount as people write one: "250000", "250,000", "250,000.00",
     "250k" or "1.5m" (the app itself prints "$250K"). Whole units. At most two
     decimals, so "250.000", a thousands separator in much of Europe, is never
-    read as 250. */
+    read as 250. A separator at the end is an amount still being typed: "250,"
+    is on its way to 250,000, never 250. */
 export function parseAmount(raw: string): number | null {
+  if (/[.,]\s*$/.test(raw)) return null;
   const match = /^(\d+(?:\.\d{1,2})?)([km])?$/i.exec(raw.replace(/[\s,]/g, ""));
   if (!match) return null;
   const unit = { k: 1_000, m: 1_000_000 }[(match[2] ?? "").toLowerCase()] ?? 1;
@@ -105,6 +114,7 @@ export function PayFloorRow({
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState("USD");
   const [error, setError] = useState<string | null>(null);
+  const readingId = useId();
   const { exclusive, writing } = useWriteQueue("pay-floor");
   const inputRef = useRef<HTMLInputElement>(null);
   const openRef = useRef<HTMLButtonElement>(null);
@@ -138,6 +148,9 @@ export function PayFloorRow({
      editor first, so they keep nothing. */
   const pending = useRef<PayFloor | null>(null);
   const parsedNow = editing ? parseAmount(amount) : null;
+  const typed = amount.trim();
+  const unfinished = /[.,]$/.test(typed) && parseAmount(typed.slice(0, -1)) != null;
+  const reading = parsedNow != null ? "ready" : typed === "" || unfinished ? "hint" : "invalid";
   pending.current = held && parsedNow != null ? { amount: parsedNow, currency } : null;
   const keep = useRef(onChange);
   keep.current = onChange;
@@ -158,10 +171,8 @@ export function PayFloorRow({
   const save = (event: FormEvent) => {
     event.preventDefault();
     const parsed = parseAmount(amount);
-    if (parsed == null) {
-      setError(profilePayFloorRowEnterAYearlyAmountLike());
-      return;
-    }
+    // Set waits for an amount, and the line under the fields says why.
+    if (parsed == null) return;
     const next = { amount: parsed, currency };
     run(held ? async () => ({ pay_floor: next }) : () => api.savePayFloor(next), profilePayFloorRowCouldNotSaveThePay());
   };
@@ -176,38 +187,68 @@ export function PayFloorRow({
       <h3 className="walk-summary-section-title" id="walk-pay-floor-title">{profilePayFloorRowPayFloor()}</h3>
       {editing ? (
         <form className="walk-floor-form" onSubmit={save} aria-label={profilePayFloorRowPayFloor2()}>
-          <input
-            ref={inputRef}
-            className="walk-floor-amount"
-            aria-label={profilePayFloorRowLowestYearlyBasePay()}
-            inputMode="numeric"
-            placeholder="250000"
-            value={amount}
-            disabled={writing}
-            onChange={(event) => {
-              setAmount(event.target.value);
-              setError(null);
-            }}
-          />
-          <Select label={profilePayFloorRowCurrency()} value={currency} onChange={setCurrency} options={options} disabled={writing} />
-          <span className="walk-floor-unit">{profilePayFloorRowAYearBase()}</span>
-          <Button type="submit" variant="ghost" disabled={writing}>
-            {held ? profilePayFloorRowSetFloor() : profilePayFloorRowSaveFloor({ choice: (writing) ? "yes" : "no" })}
-          </Button>
-          <Button variant="link" className="ui-btn-quiet" onClick={close} disabled={writing}>
-            {profilePayFloorRowCancel()}
-          </Button>
-          {floor && (
-            <Button
-              variant="link"
-              className="ui-btn-quiet"
+          <div className="walk-floor-fields">
+            <input
+              ref={inputRef}
+              className="walk-floor-amount"
+              aria-label={profilePayFloorRowLowestYearlyBasePay()}
+              aria-describedby={readingId}
+              aria-invalid={reading === "invalid" || undefined}
+              inputMode="numeric"
+              placeholder="250000"
+              value={amount}
               disabled={writing}
-              onClick={() => run(held ? async () => ({ pay_floor: null }) : api.clearPayFloor, profilePayFloorRowCouldNotRemoveThePay())}
+              onChange={(event) => {
+                setAmount(event.target.value);
+                setError(null);
+              }}
+            />
+            <Select label={profilePayFloorRowCurrency()} value={currency} onChange={setCurrency} options={options} disabled={writing} />
+            <span className="walk-floor-unit">{profilePayFloorRowAYearBase()}</span>
+          </div>
+          <p id={readingId} className="walk-floor-reading" data-reading={reading}>
+            {reading === "ready" && parsedNow != null ? (
+              <>
+                <Icon name="check" size={14} />
+                {profilePayFloorRowSetYourPayFloor({ choice: "yes", amount: fmtMoney(parsedNow, currency) })}
+              </>
+            ) : (
+              <>
+                {reading === "invalid" && <Icon name="alertCircle" size={14} />}
+                {profilePayFloorRowEnterAYearlyAmountLike()}
+              </>
+            )}
+          </p>
+          {/* Read out only when the amount stops reading as one: the amount
+              itself changes with every key, and its line is the field's
+              description, read with the field. */}
+          <span className="sr-only" aria-live="polite">
+            {reading === "invalid" ? profilePayFloorRowEnterAYearlyAmountLike() : ""}
+          </span>
+          <div className="walk-floor-actions">
+            <Button
+              type="submit"
+              variant="ghost"
+              className="ui-btn-strong"
+              disabled={writing || reading !== "ready"}
             >
-              {profileScopeSectionRemove()}
+              {held ? profilePayFloorRowSetFloor() : profilePayFloorRowSaveFloor({ choice: (writing) ? "yes" : "no" })}
             </Button>
-          )}
-          {error && <span className="walk-floor-error" role="alert">{error}</span>}
+            <Button variant="link" className="ui-btn-quiet" onClick={close} disabled={writing}>
+              {profilePayFloorRowCancel()}
+            </Button>
+            {floor && (
+              <Button
+                variant="link"
+                className="ui-btn-quiet"
+                disabled={writing}
+                onClick={() => run(held ? async () => ({ pay_floor: null }) : api.clearPayFloor, profilePayFloorRowCouldNotRemoveThePay())}
+              >
+                {profileScopeSectionRemove()}
+              </Button>
+            )}
+          </div>
+          {error && <p className="walk-floor-error" role="alert">{error}</p>}
         </form>
       ) : status === "loading" ? (
         <span className="walk-fact-text walk-floor-pending">{profilePayFloorRowChecking()}</span>

@@ -980,7 +980,7 @@ test("a pick card is one width and one height on every step that shows one", asy
    screen, the chosen one still says so, and a ticked card wears the chosen
    list's colour. A segmented switch in its place reads as chrome and
    scrolls off with the first card row. */
-test("interests: both lists stay in sight while ticking, and a tick wears the chosen list's colour", async ({ page }) => {
+test("interests: both lists stay in sight while ticking, and a tick wears the chosen list's colour", async ({ page, isMobile }) => {
   await page.setViewportSize({ width: page.viewportSize()!.width, height: 560 });
   await page.goto("/profile/direction");
   await stripButton(page, "World").click();
@@ -1000,7 +1000,19 @@ test("interests: both lists stay in sight while ticking, and a tick wears the ch
   await expect(lists.getByRole("radio", { name: "Interested in", exact: true })).toBeInViewport();
   await expect(avoid).toBeInViewport();
   await expect(avoid).toBeChecked();
-  await expect(chosen).toContainText("1 picked");
+  // Each list ends on what it does: no row below that sentence makes the
+  // chooser taller than it says.
+  if (!isMobile) {
+    const ends = await chosen.evaluate((card) => {
+      const sentence = card.querySelector("small")!.getBoundingClientRect();
+      const box = card.getBoundingClientRect();
+      // Boxes are measured as drawn, enlarged in setup; the padding is not.
+      const scale = box.height / (card as HTMLElement).offsetHeight;
+      const cs = getComputedStyle(card);
+      return { gap: box.bottom - sentence.bottom, padding: (parseFloat(cs.paddingBottom) + parseFloat(cs.borderBottomWidth)) * scale };
+    });
+    expect(ends.gap).toBeLessThanOrEqual(ends.padding + 1);
+  }
   // Nothing paints over the chooser where it sticks.
   const box = (await chosen.boundingBox())!;
   const top = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest("label")?.textContent ?? "", [box.x + box.width / 2, box.y + box.height / 2]);

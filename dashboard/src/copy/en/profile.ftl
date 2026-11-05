@@ -444,11 +444,6 @@ profile-subjects-step-switch-to-this = { $choice ->
     [yes] Picking now
    *[no] Switch to this
 }
-# kind=label wording=as-is
-profile-subjects-step-picked = { $choice ->
-    [yes] None yet
-   *[no] { $picked } picked
-}
 # kind=label
 profile-subjects-step-filter-interests = Filter worlds
 # kind=label
