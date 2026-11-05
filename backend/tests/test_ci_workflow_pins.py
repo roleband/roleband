@@ -62,6 +62,45 @@ def test_every_workflow_declares_its_permissions(workflow):
     assert "permissions" in yaml.safe_load(workflow.read_text()), f"{workflow.name} inherits the default token"
 
 
+def _scan_upload_grants(workflow: dict) -> list[str]:
+    """Where `security-events: write` is granted beyond a job that uploads a CodeQL analysis.
+
+    The grant lets a token rewrite the repository's code scanning alerts, so it belongs on
+    the job that uploads results and nowhere else, never on the whole workflow.
+    """
+    def grants(permissions) -> bool:
+        return permissions == "write-all" or (
+            isinstance(permissions, dict) and permissions.get("security-events") == "write"
+        )
+
+    found = ["workflow"] if grants(workflow.get("permissions")) else []
+    for name, job in (workflow.get("jobs") or {}).items():
+        uploads = any(
+            str(step.get("uses", "")).startswith("github/codeql-action/analyze@") for step in job.get("steps") or []
+        )
+        if grants(job.get("permissions")) and not uploads:
+            found.append(name)
+    return found
+
+
+@pytest.mark.parametrize("workflow", WORKFLOWS, ids=lambda p: p.name)
+def test_only_a_job_that_uploads_a_scan_may_write_security_events(workflow):
+    granted = _scan_upload_grants(yaml.safe_load(workflow.read_text()))
+    assert granted == [], f"{workflow.name}: security-events: write outside a CodeQL upload: {granted}"
+
+
+def test_the_security_events_rule_sees_a_grant_without_an_upload():
+    """The negative controls for the rule above."""
+    analyze = {"uses": "github/codeql-action/analyze@" + "a" * 40}
+    workflow = {"permissions": {"contents": "read", "security-events": "write"}, "jobs": {
+        "scan": {"permissions": {"security-events": "write"}, "steps": [analyze]},
+        "decide": {"permissions": {"security-events": "write"}, "steps": [{"run": "true"}]},
+        "everything": {"permissions": "write-all", "steps": []},
+        "reads": {"permissions": {"security-events": "read"}, "steps": []},
+    }}
+    assert _scan_upload_grants(workflow) == ["workflow", "decide", "everything"]
+
+
 @pytest.mark.parametrize("workflow", WORKFLOWS, ids=lambda p: p.name)
 def test_every_job_declares_a_timeout(workflow):
     doc = yaml.safe_load(workflow.read_text())

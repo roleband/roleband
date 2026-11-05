@@ -47,6 +47,16 @@ class TierTests(unittest.TestCase):
         for event in ('push', 'release', 'workflow_dispatch', 'schedule'):
             self.assertTrue(needed(event, ['docs/testing.md'], backend), event)
 
+    def test_a_tier_that_lets_a_push_skip_still_runs_what_cannot_be_judged(self):
+        launcher = ['launcher/**', '.github/workflows/codeql.yml']
+        both = ('pull_request', 'push')
+        self.assertFalse(needed('push', ['docs/testing.md', 'backend/tracker/api/app.py'], launcher, both))
+        self.assertFalse(needed('pull_request', ['docs/testing.md'], launcher, both))
+        self.assertTrue(needed('push', ['launcher/macos/Package.swift'], launcher, both))
+        self.assertTrue(needed('push', None, launcher, both))
+        for event in ('release', 'workflow_dispatch', 'schedule'):
+            self.assertTrue(needed(event, ['docs/testing.md'], launcher, (*both, event)), event)
+
     def test_globs_follow_github(self):
         self.assertTrue(glob_regex('launcher/**').fullmatch('launcher/macos/Tools/bundle.py'))
         self.assertFalse(glob_regex('backend/*').fullmatch('backend/tracker/api/app.py'))
@@ -57,9 +67,12 @@ class TierTests(unittest.TestCase):
 class WorkflowStepTests(unittest.TestCase):
     """The script as the workflow runs it: a real repository, a real diff, GITHUB_OUTPUT."""
 
-    def run_step(self, repo, event, base, head, tier=None):
+    def run_step(self, repo, event, base, head, tier=None, skip_events=None):
         with tempfile.NamedTemporaryFile('r', suffix='.txt') as output:
             env = {**os.environ, 'EVENT': event, 'BASE': base, 'HEAD': head, 'GITHUB_OUTPUT': output.name}
+            env.pop('SKIP_EVENTS', None)
+            if skip_events:
+                env['SKIP_EVENTS'] = skip_events
             if tier:
                 env.update(TIER=tier, PATHS='backend/**\n')
             else:
@@ -97,6 +110,11 @@ class WorkflowStepTests(unittest.TestCase):
             self.assertEqual(self.run_step(repo, 'pull_request', base, entry, 'backend'), {'backend': 'true'})
             self.assertEqual(self.run_step(repo, 'push', base, notes, 'backend'), {'backend': 'true'})
             self.assertEqual(self.run_step(repo, 'pull_request', 'f' * 40, notes, 'backend'), {'backend': 'true'})
+
+            self.assertEqual(self.run_step(repo, 'push', base, notes, 'backend', 'pull_request push'), {'backend': 'false'})
+            self.assertEqual(self.run_step(repo, 'push', notes, entry, 'backend', 'pull_request push'), {'backend': 'true'})
+            self.assertEqual(self.run_step(repo, 'push', '0' * 40, notes, 'backend', 'pull_request push'),
+                             {'backend': 'true'})
 
 
 if __name__ == '__main__':
