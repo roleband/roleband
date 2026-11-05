@@ -426,7 +426,8 @@
 .traj-table thead .info-tip-popover {
   top: calc(100% + 7px);
   left: 0;
-  max-width: min(320px, 100%);
+  /* A window unit is divided by the setup zoom, as InfoTip's own cap is. */
+  max-width: min(320px, 100%, calc(100vw / var(--page-zoom, 1) - 40px));
 }
 
 .traj-split-key {

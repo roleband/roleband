@@ -93,7 +93,7 @@ test("the Trajectory sub-tab re-prices total comp as the stock scenario moves", 
 /* Each row says where its split came from in one word; what the words mean is
    said once, behind a help mark on the column they sit in. A hover-only title
    on every row reached neither a keyboard nor a finger. */
-for (const width of [1280, 360]) test(`the split labels are explained once, to a keyboard and a tap (${width}px)`, async ({ page }) => {
+for (const width of [1280, 360]) test(`the split labels are explained once, to a keyboard and a tap (${width}px)`, async ({ page }, testInfo) => {
   await page.setViewportSize({ width, height: 900 });
   await page.goto("/statistics");
   await page.getByRole("tab", { name: msg("shell-tab-insights-stock"), exact: true }).click();
@@ -128,6 +128,13 @@ for (const width of [1280, 360]) test(`the split labels are explained once, to a
 
   await help.blur();
   await expect(tip).toBeHidden();
-  await help.click();
+  // A touch device opens it with a real tap; elsewhere a click, from a pointer
+  // that was not already resting on the mark.
+  if (testInfo.project.use.hasTouch) {
+    await help.tap();
+  } else {
+    await page.mouse.move(0, 0);
+    await help.click();
+  }
   await expect(tip).toBeVisible();
 });
