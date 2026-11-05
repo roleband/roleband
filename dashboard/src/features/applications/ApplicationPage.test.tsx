@@ -211,6 +211,38 @@ describe("the application page", () => {
     expect(await screen.findByText("Send the portfolio")).toBeInTheDocument();
   });
 
+  /* A save that fails while a newer write for the role waits behind it is
+   * still a failure: the newer write sets other fields, so what was typed
+   * here is not on the server, and the form keeps it. */
+  const failBehindPriority = async (save: () => Promise<void>) => {
+    let fail: (error: Error) => void = () => undefined;
+    vi.mocked(api.setPursuit).mockImplementationOnce(() => new Promise((_, reject) => { fail = reject; }));
+    await save();
+    await userEvent.click(within(screen.getByRole("group", { name: msg("applications-fact-priority") })).getByRole("button", { name: "5" }));
+    fail(new Error("offline"));
+    await waitFor(() => expect(api.setPursuit).toHaveBeenLastCalledWith(101, { priority: 5 }));
+    expect(await screen.findByText(msg("applications-change-failed", { title: TITLE }))).toBeInTheDocument();
+  };
+
+  it("keeps the next step typed when its save fails behind a newer change", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: msg("applications-next-edit") }));
+    const prompt = await screen.findByLabelText(msg("applications-next-prompt"));
+    await userEvent.clear(prompt);
+    await userEvent.type(prompt, "Send the portfolio");
+    await failBehindPriority(() => userEvent.click(screen.getByRole("button", { name: msg("applications-next-save") })));
+    expect(screen.getByLabelText(msg("applications-next-prompt"))).toHaveValue("Send the portfolio");
+  });
+
+  it("keeps the notes typed when their save fails behind a newer change", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: msg("applications-notes-edit") }));
+    const field = screen.getByRole("textbox", { name: msg("applications-notes-label") });
+    await userEvent.type(field, " Ask about the team.");
+    await failBehindPriority(() => userEvent.click(screen.getByRole("button", { name: msg("applications-notes-save") })));
+    expect(screen.getByRole("textbox", { name: msg("applications-notes-label") })).toHaveValue("Referral from Sam. Ask about the team.");
+  });
+
   it("sets the priority where it is shown", async () => {
     renderPage();
     await screen.findByRole("heading", { level: 1, name: TITLE });

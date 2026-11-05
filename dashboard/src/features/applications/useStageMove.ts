@@ -14,18 +14,23 @@ import { boardStage } from "./board";
 
 /** Writes one pursuit field set for a role. A pursuit write saves the role
  *  (server rule), so it goes through `useRoleSaves` with the star's own
- *  writes, in the order they were asked for. */
+ *  writes, in the order they were asked for. It rejects whenever the write
+ *  failed: a pursuit write sets only the fields it names, so a newer write
+ *  for the role never carries this one's change, and a failure behind it is
+ *  still lost. */
 export function usePursuitWrite() {
   const saveRole = useRoleSaves();
   return useCallback(
-    (card: Pick<ApplicationCard, "job_id" | "starred">, update: Parameters<typeof api.setPursuit>[1]) =>
-      saveRole({
+    async (card: Pick<ApplicationCard, "job_id" | "starred">, update: Parameters<typeof api.setPursuit>[1]) => {
+      const outcome = await saveRole({
         jobId: card.job_id,
         was: card.starred,
         next: true,
         show: () => undefined,
         send: () => api.setPursuit(card.job_id, update),
-      }),
+      });
+      if (outcome !== "saved") throw new Error("The pursuit write failed behind a newer write for the role.");
+    },
     [saveRole],
   );
 }
@@ -86,11 +91,10 @@ export function useStageMove({ paint, refresh, said = moved }: {
           label: applicationsMoveUndo(),
           onClick: () => {
             paint(card.job_id, from);
-            // The interview goes only once the move back has landed: a move
-            // back that failed behind a newer move leaves the stage to that
-            // one, and the interview with it.
+            // The interview goes only once the move back has landed; a move
+            // back that failed rejects, and the interview stays.
             void write(card, { stage: from })
-              .then((outcome) => (outcome === "saved" && added != null ? api.deleteInterview(card.job_id, added) : undefined))
+              .then(() => (added == null ? undefined : api.deleteInterview(card.job_id, added)))
               .catch(() => {
                 toast({ key: "applications", tone: "error", text: applicationsUndoFailed({ title }) });
               })
