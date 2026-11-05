@@ -177,8 +177,6 @@ applications-interview-time-invalid = Type a time like { $example }.
 applications-interview-day-missing = Pick the day of the interview.
 # kind=label note="Heads the round, the format and the link, which may be left empty"
 applications-interview-optional = Optional
-# kind=button
-applications-interview-add-round = Add the round
 # kind=button note="Opens the format and the meeting link"
 applications-interview-add-link = Add meeting link
 # kind=aria note="Names the quick picks under the round's field"
@@ -195,6 +193,8 @@ applications-interview-round-panel = Panel
 applications-interview-round-final = Final round
 # kind=label
 applications-interview-round = Round
+# kind=label note="The round's field under its quick picks, for a name none of them has"
+applications-interview-round-other = Or type another
 # kind=label note="The round's name when the person names none"
 applications-interview-default-label = Interview
 # kind=label

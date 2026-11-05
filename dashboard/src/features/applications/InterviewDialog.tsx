@@ -7,7 +7,6 @@ import { Button, Dialog, FilterChip, Icon, Select } from "../../ui";
 import "../../design/materials/register-material.css";
 import {
   applicationsInterviewAdd,
-  applicationsInterviewAddRound,
   applicationsInterviewAddTitle,
   applicationsInterviewAddLink,
   applicationsInterviewCancel,
@@ -33,6 +32,7 @@ import {
   applicationsInterviewOutcomePassed,
   applicationsInterviewPickDay,
   applicationsInterviewRound,
+  applicationsInterviewRoundOther,
   applicationsInterviewRoundFinal,
   applicationsInterviewRoundHiringManager,
   applicationsInterviewRoundPanel,
@@ -135,9 +135,9 @@ export interface InterviewDialogProps {
  * changing one, where its outcome and notes are recorded.
  *
  * When comes first and is all it asks for: a day from the month and, beside
- * it, a time or none yet. The round and where it happens wait under
- * Optional, each a line that opens into its fields; one that already has a
- * value stands open. The head and the actions hold still while the middle
+ * it, a time or none yet. Under Optional, the round's common names are one
+ * click each; where it happens waits behind a line that opens into its
+ * fields, and stands open when it already has a value. The head and the actions hold still while the middle
  * scrolls, so the way to save is always in reach.
  */
 export function InterviewDialog({ card, interview, moving = false, onCancel, onSubmit, onDelete }: InterviewDialogProps) {
@@ -150,7 +150,7 @@ export function InterviewDialog({ card, interview, moving = false, onCancel, onS
   const [link, setLink] = useState(initial?.link ?? "");
   const [outcome, setOutcome] = useState<OutcomeChoice>(initial?.outcome ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
-  const [open, setOpen] = useState({ round: Boolean(initial?.label), where: Boolean(initial?.format || initial?.link) });
+  const [whereOpen, setWhereOpen] = useState(Boolean(initial?.format || initial?.link));
   const [tried, setTried] = useState(false);
   const roundId = useId();
   const linkId = useId();
@@ -210,31 +210,24 @@ export function InterviewDialog({ card, interview, moving = false, onCancel, onS
 
           <section className="app-interview-optional" aria-label={applicationsInterviewOptional()}>
             <p className="app-interview-optional-head" aria-hidden="true">{applicationsInterviewOptional()}</p>
-            {open.round ? (
-              <div className="app-interview-field">
-                <label htmlFor={roundId}>{applicationsInterviewRound()}</label>
-                <input
-                  id={roundId}
-                  value={label}
-                  maxLength={120}
-                  autoFocus={!initial?.label}
-                  placeholder={applicationsInterviewDefaultLabel()}
-                  onChange={(event) => setLabel(event.target.value)}
-                />
-                <div className="app-interview-picks" role="group" aria-label={applicationsInterviewRounds()}>
-                  {ROUNDS.map((round) => (
-                    <FilterChip key={round()} selected={label.trim() === round()} onClick={() => setLabel(label.trim() === round() ? "" : round())}>
-                      {round()}
-                    </FilterChip>
-                  ))}
-                </div>
+            <div className="app-interview-field">
+              <label htmlFor={roundId}>{applicationsInterviewRound()}</label>
+              <div className="app-interview-picks" role="group" aria-label={applicationsInterviewRounds()}>
+                {ROUNDS.map((round) => (
+                  <FilterChip key={round()} selected={label.trim() === round()} onClick={() => setLabel(label.trim() === round() ? "" : round())}>
+                    {round()}
+                  </FilterChip>
+                ))}
               </div>
-            ) : (
-              <Button size="sm" className="app-interview-open" onClick={() => setOpen({ ...open, round: true })}>
-                <Icon name="plus" size={14} /> {applicationsInterviewAddRound()}
-              </Button>
-            )}
-            {open.where ? (
+              <input
+                id={roundId}
+                value={label}
+                maxLength={120}
+                placeholder={applicationsInterviewRoundOther()}
+                onChange={(event) => setLabel(event.target.value)}
+              />
+            </div>
+            {whereOpen ? (
               <div className="app-interview-field">
                 <div className="app-interview-picks" role="group" aria-label={applicationsInterviewFormat()}>
                   {FORMATS.map(([value, name]) => (
@@ -254,7 +247,7 @@ export function InterviewDialog({ card, interview, moving = false, onCancel, onS
                 />
               </div>
             ) : (
-              <Button size="sm" className="app-interview-open" onClick={() => setOpen({ ...open, where: true })}>
+              <Button size="sm" className="app-interview-open" onClick={() => setWhereOpen(true)}>
                 <Icon name="plus" size={14} /> {applicationsInterviewAddLink()}
               </Button>
             )}

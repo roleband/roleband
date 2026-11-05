@@ -257,6 +257,25 @@
   overflow: hidden;
 }
 
+/* The form is drawn 15% larger than the screen behind it, by the means
+   first-run setup uses (docs/ui.md, "First-run setup magnification"): CSS
+   zoom, with --page-zoom set on the same box so the Dialog's own window units
+   divide by it and it still fits the window. Every size in it grows by the
+   one factor, so the design keeps its proportions. A phone draws it at its
+   plain size, where its controls are already a thumb's size. */
+@supports (zoom: 1) {
+  .ui-dialog.app-interview-dialog {
+    --page-zoom: 1.15;
+    zoom: var(--page-zoom);
+  }
+
+  @media (max-width: 540px) {
+    .ui-dialog.app-interview-dialog {
+      --page-zoom: 1;
+    }
+  }
+}
+
 .ledger-form.app-interview-form {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;

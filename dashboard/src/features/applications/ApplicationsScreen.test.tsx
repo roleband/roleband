@@ -183,7 +183,6 @@ describe("moving into Interviewing", () => {
 
     await userEvent.click(within(await openMenu(applied)).getByRole("button", { name: "Interviewing" }));
     const dialog = await screen.findByRole("dialog", { name: msg("applications-interview-title") });
-    await userEvent.click(within(dialog).getByRole("button", { name: msg("applications-interview-add-round") }));
     await userEvent.type(within(dialog).getByLabelText(msg("applications-interview-round")), "Hiring manager call");
     await userEvent.click(within(dialog).getByRole("button", { name: "Thu, Nov 12" }));
     await userEvent.click(within(dialog).getByRole("button", {

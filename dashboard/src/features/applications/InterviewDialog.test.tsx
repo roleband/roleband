@@ -99,6 +99,20 @@ describe("when", () => {
     expect(summary(dialog)).toBe("Fri, Dec 4 · no time yet");
   });
 
+  it("keeps six rows of days in every month, so paging never changes its height", async () => {
+    const { dialog } = open();
+    const rows = () => dialog.querySelectorAll(".app-month-grid tbody tr").length;
+    const next = within(dialog).getByRole("button", { name: msg("applications-month-next") });
+    for (const month of ["November 2026", "December 2026", "January 2027", "February 2027"]) {
+      expect(within(dialog).getByText(month)).toBeInTheDocument();
+      expect(rows(), month).toBe(6);
+      await userEvent.click(next);
+    }
+    // February 2027 fills four weeks; the two after it are March's, drawn as outside days.
+    await userEvent.click(within(dialog).getByRole("button", { name: msg("applications-month-prev") }));
+    expect(within(dialog).getByRole("button", { name: "Sun, Mar 14" })).toHaveAttribute("data-outside", "true");
+  });
+
   it("names the zone the times are in", () => {
     const { dialog } = open();
     expect(within(dialog).getByText(/^Times in \S/)).toBeInTheDocument();
@@ -106,14 +120,14 @@ describe("when", () => {
 });
 
 describe("optional", () => {
-  it("keeps the round and the place shut until asked, and a quick pick names the round", async () => {
+  it("offers the common rounds at once, one click each, and keeps the link shut until asked", async () => {
     const { dialog, onSubmit } = open();
-    expect(within(dialog).queryByLabelText(msg("applications-interview-round"))).toBeNull();
     expect(within(dialog).queryByLabelText(msg("applications-interview-link"))).toBeNull();
+    const picks = within(dialog).getByRole("group", { name: msg("applications-interview-rounds") });
+    expect(within(picks).getAllByRole("button")).toHaveLength(5);
 
-    await userEvent.click(within(dialog).getByRole("button", { name: msg("applications-interview-add-round") }));
     const round = within(dialog).getByLabelText(msg("applications-interview-round"));
-    expect(round).toHaveFocus();
+    expect(round).toHaveValue("");
     await userEvent.click(within(dialog).getByRole("button", { name: msg("applications-interview-round-hiring-manager") }));
     expect(round).toHaveValue(msg("applications-interview-round-hiring-manager"));
 

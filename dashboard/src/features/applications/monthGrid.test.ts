@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ApplicationCalendarItem } from "../../api";
-import { dayKey, fromDayKey, itemsByDay, monthSpan, monthWeeks, shiftDay, shiftMonth } from "./monthGrid";
+import { dayKey, fromDayKey, itemsByDay, monthSpan, monthWeeks, shiftDay, shiftMonth, sixWeeks } from "./monthGrid";
 
 /* The month grid's contracts: Monday-first whole weeks that cover the month
  * and nothing past its last week, a read span the API accepts for any month,
@@ -46,6 +46,26 @@ describe("monthWeeks", () => {
       });
       expect(days[0].getDay(), "Monday first").toBe(1);
     }
+  });
+});
+
+describe("sixWeeks", () => {
+  it("fills every month to six rows with the weeks after it, a day apart", () => {
+    for (let m = 0; m < 120; m++) {
+      const month = new Date(2026, m, 1);
+      const weeks = sixWeeks(month);
+      expect(weeks, `${month.toDateString()}`).toHaveLength(6);
+      const days = weeks.flat();
+      expect(days.slice(0, monthWeeks(month).flat().length)).toEqual(monthWeeks(month).flat());
+      days.slice(1).forEach((day, i) => expect(Math.round((day.getTime() - days[i].getTime()) / 86_400_000)).toBe(1));
+    }
+  });
+
+  it("pads a four-week February with the two weeks after it", () => {
+    const weeks = sixWeeks(new Date(2027, 1, 1));
+    expect(monthWeeks(new Date(2027, 1, 1))).toHaveLength(4);
+    expect(weeks[4][0]).toEqual(new Date(2027, 2, 1));
+    expect(weeks[5][6]).toEqual(new Date(2027, 2, 14));
   });
 });
 

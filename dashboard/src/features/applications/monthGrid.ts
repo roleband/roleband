@@ -46,6 +46,17 @@ export function monthWeeks(month: Date): Date[][] {
   return weeks;
 }
 
+/** The month's weeks, padded with the weeks after it to six rows: every
+ *  month fills the same grid, so paging from one to the next moves nothing. */
+export function sixWeeks(month: Date): Date[][] {
+  const weeks = monthWeeks(month);
+  while (weeks.length < 6) {
+    const last = weeks[weeks.length - 1][6];
+    weeks.push(Array.from({ length: 7 }, (_, i) => shiftDay(last, i + 1)));
+  }
+  return weeks;
+}
+
 /** The span a month's calendar read covers: its grid's first midnight up to
  *  the midnight after its last day. Six weeks at most, the read's own limit. */
 export function monthSpan(month: Date): { start: Date; end: Date } {

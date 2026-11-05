@@ -755,6 +755,14 @@ text's line count, in page pixels, within 2 px. It runs in WebKit and in Chromiu
 without font hinting, the engines that magnify; the suite's own Chromium checks
 that setup stays at 1.
 
+One dialog is magnified the same way: the interview form
+(`features/applications/InterviewDialog.tsx`), drawn at a fixed 1.15 so its
+month and times are easier to read and hit. Its own box sets `--page-zoom` and
+`zoom` inside `@supports (zoom: 1)`, so the Dialog's window units divide by its
+factor and it still fits the window; at 540 px and narrower it is drawn plain.
+It holds no pop-up placed from a position. Text rewrapping under an engine
+that hints letters is accepted there: a form is not compared against a design.
+
 ### Dense register
 
 Settings > Companies is the pattern for a large set that must be read and

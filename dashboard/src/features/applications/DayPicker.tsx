@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { date as formatDate, timestamp, weekday } from "../../copy/format";
 import { applicationsMonthNext, applicationsMonthPrev } from "../../copy/gen/applications";
 import { Button, Icon } from "../../ui";
-import { dayKey, fromDayKey, monthOf, monthWeeks, shiftDay, shiftMonth } from "./monthGrid";
+import { dayKey, fromDayKey, monthOf, shiftDay, shiftMonth, sixWeeks } from "./monthGrid";
 
 /** A month to pick one day from, drawn as the month beside Up next is. A
  *  click picks; the arrows walk the days, across months, and pick as they
@@ -37,7 +37,8 @@ export function DayPicker({ value, onChange, now }: {
     event.preventDefault();
     pick(shiftDay(from, by), { focus: true });
   };
-  const weeks = monthWeeks(month);
+  // Always six rows, so the form does not jump as the months page.
+  const weeks = sixWeeks(month);
   // One Tab stop in the grid: the picked day when this month shows it, else
   // today when it does, else the month's first day.
   const inMonth = (key: string) => key.slice(0, 7) === dayKey(month).slice(0, 7);

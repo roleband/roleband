@@ -411,33 +411,44 @@ test("the interview form fits the window: the times beside the month on a laptop
     await expect.poll(() => dialog.evaluate((el) => el.getAnimations().every((one) => one.playState === "finished"))).toBe(true);
     return dialog;
   };
+  // The 15% zoom leaves edges on fractions of a pixel, and WebKit reports a
+  // button flush with the window as 0.9999 inside it.
+  const inView = (target: Locator) => expect(target).toBeInViewport({ ratio: 0.99 });
   const parts = (dialog: Locator) => ({
     month: dialog.locator(".app-month-grid"),
     times: dialog.getByRole("group", { name: msg("applications-interview-times") }),
     save: dialog.getByRole("button", { name: msg("applications-interview-submit", { stage: "Interviewing" }) }),
   });
 
-  // A laptop: the whole form in view, the times as tall as the month beside it.
-  await page.setViewportSize({ width: 1280, height: 720 });
+  // A laptop: the form drawn 15% larger, whole in view, the times as tall as the month beside it.
+  await page.setViewportSize({ width: 1440, height: 900 });
   let dialog = await openForm();
   let { month, times, save } = parts(dialog);
   const box = (await dialog.boundingBox())!;
-  expect(box.width, "the dialog's width").toBe(560);
+  expect(box.width, "the dialog's width, 560 drawn 15% larger").toBeCloseTo(644, 0);
   const [monthBox, timesBox] = [(await month.boundingBox())!, (await times.boundingBox())!];
   expect(timesBox.x, "the times stand right of the month").toBeGreaterThan(monthBox.x + monthBox.width);
   expect(timesBox.y + timesBox.height, "and end with it").toBeLessThanOrEqual(monthBox.y + monthBox.height + 2);
-  await expect(save).toBeInViewport({ ratio: 1 });
-  expect(box.y + box.height, "nothing to scroll to reach Save").toBeLessThanOrEqual(720);
+  await inView(save);
+  expect(box.y + box.height, "nothing to scroll to reach Save").toBeLessThanOrEqual(900);
+
+  // Paging the months moves nothing: February's four weeks take as much room as November's six.
+  const heightOf = async () => (await month.boundingBox())!.height;
+  const november = await heightOf();
+  for (let step = 0; step < 3; step++) await dialog.getByRole("button", { name: msg("applications-month-next") }).click();
+  await expect(dialog.getByText("February 2027")).toBeVisible();
+  expect(await heightOf(), "February's grid").toBe(november);
+  expect((await dialog.boundingBox())!.height, "the dialog's height").toBe(box.height);
 
   // A short window: the middle scrolls, the head and Save hold still.
   await page.setViewportSize({ width: 1280, height: 520 });
   ({ save } = parts(dialog));
-  await expect(save).toBeInViewport({ ratio: 1 });
+  await inView(save);
   const body = dialog.locator(".app-interview-body");
   expect(await body.evaluate((el) => el.scrollHeight > el.clientHeight), "the middle scrolls").toBe(true);
   await body.evaluate((el) => el.scrollTo(0, el.scrollHeight));
-  await expect(save).toBeInViewport({ ratio: 1 });
-  await expect(dialog.locator(".app-interview-summary")).toBeInViewport({ ratio: 1 });
+  await inView(save);
+  await inView(dialog.locator(".app-interview-summary"));
 
   // A phone: the times under the month, nothing wider than the screen, Save in reach.
   await page.setViewportSize({ width: 375, height: 667 });
@@ -447,7 +458,7 @@ test("the interview form fits the window: the times beside the month on a laptop
   expect(phoneTimes.y, "the times sit under the month").toBeGreaterThan(phoneMonth.y + phoneMonth.height);
   expect((await dialog.boundingBox())!.width, "the dialog keeps a margin").toBeLessThanOrEqual(375 - 32);
   expect(await page.evaluate(() => document.documentElement.scrollWidth), "the page never widens").toBeLessThanOrEqual(375);
-  await expect(save).toBeInViewport({ ratio: 1 });
+  await inView(save);
 });
 
 test("a column hidden from its menu takes no room, stays hidden after a reload, and comes back from Columns", async ({ page }) => {
