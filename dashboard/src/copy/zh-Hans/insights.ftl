@@ -277,6 +277,7 @@ insights-stock-trajectory-panel-sorted-by-equity-exposure-only = 按股权占比
 insights-stock-trajectory-panel-no-open-roles-at-public-yet = 上市公司暂无在招职位。
 insights-stock-trajectory-panel-ticker = 股票代码
 insights-stock-trajectory-panel-equity = 股权
+insights-stock-trajectory-panel-about-the-split-labels = 关于构成标签
 insights-stock-trajectory-panel-equity-share = 股权占比
 insights-stock-trajectory-panel-today = 今天
 insights-stock-trajectory-panel-projected = 预测

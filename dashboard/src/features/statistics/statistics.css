@@ -411,6 +411,38 @@
   white-space: nowrap;
 }
 
+/* The Equity column's key: each split word over the sentence it stands for.
+   Its help mark sits a third of the way across a wide table, where a key
+   anchored to the mark runs off a phone. The key hangs from the header row
+   instead: below it, from the table's left edge, no wider than the table. */
+.traj-table thead tr {
+  position: relative;
+}
+
+.traj-table thead .info-tip {
+  position: static;
+}
+
+.traj-table thead .info-tip-popover {
+  top: calc(100% + 7px);
+  left: 0;
+  max-width: min(320px, 100%);
+}
+
+.traj-split-key {
+  display: grid;
+  gap: 2px;
+}
+
+.traj-split-key + .traj-split-key {
+  margin-top: var(--app-space-2);
+}
+
+.traj-split-key b {
+  color: var(--app-text);
+  font-weight: var(--app-weight-ui);
+}
+
 /* A listed company with a cash election has no stock exposure at all. */
 .traj-immovable td.num:last-child {
   color: var(--app-text-faint);

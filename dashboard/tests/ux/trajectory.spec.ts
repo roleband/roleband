@@ -1,3 +1,4 @@
+import { msg } from "../../src/test/msg";
 import { expect, test } from "./fixtures";
 import { showAdvancedInsights } from "./insightsView";
 import {
@@ -87,4 +88,46 @@ test("the Trajectory sub-tab re-prices total comp as the stock scenario moves", 
   // Drive it down: total comp falls below today.
   await slider.fill("-50");
   await expect(hero).toHaveText(/\$775K projected TC/);
+});
+
+/* Each row says where its split came from in one word; what the words mean is
+   said once, behind a help mark on the column they sit in. A hover-only title
+   on every row reached neither a keyboard nor a finger. */
+for (const width of [1280, 360]) test(`the split labels are explained once, to a keyboard and a tap (${width}px)`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
+  await page.goto("/statistics");
+  await page.getByRole("tab", { name: msg("shell-tab-insights-stock"), exact: true }).click();
+
+  const googleRow = page.getByRole("row", { name: /Google/ });
+  const label = googleRow.getByText(msg("insights-stock-trajectory-panel-split-source", { split: "measured" }), { exact: true });
+  await expect(label).toBeVisible();
+  await expect(label).not.toHaveAttribute("title");
+
+  const table = page.locator(".traj-table").first();
+  // One help mark for the column, not one per row.
+  const help = table.getByRole("button", { name: msg("insights-stock-trajectory-panel-about-the-split-labels") });
+  await expect(help).toHaveCount(1);
+  // It sits on the column the words appear in: Equity, the third.
+  expect(await help.evaluate((el) => (el.closest("th") as HTMLTableCellElement | null)?.cellIndex)).toBe(2);
+  expect(await label.evaluate((el) => (el.closest("td") as HTMLTableCellElement | null)?.cellIndex)).toBe(2);
+
+  const tip = table.getByRole("tooltip");
+  await expect(tip).toBeHidden();
+  await help.focus();
+  await expect(help).toBeFocused();
+  await expect(tip).toBeVisible();
+  for (const split of ["measured", "mixed", "heuristic"] as const) {
+    await expect(tip).toContainText(msg("insights-stock-trajectory-panel-split-source", { split }));
+    await expect(tip).toContainText(msg("insights-stock-trajectory-panel-split-source-explained", { split }));
+  }
+  const box = (await tip.boundingBox())!;
+  expect(box.x, "the key starts off screen").toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width, "the key runs off screen").toBeLessThanOrEqual(width);
+  const header = (await help.locator("xpath=ancestor::tr").boundingBox())!;
+  expect(box.y, "the key covers the column names").toBeGreaterThanOrEqual(header.y + header.height);
+
+  await help.blur();
+  await expect(tip).toBeHidden();
+  await help.click();
+  await expect(tip).toBeVisible();
 });

@@ -513,6 +513,8 @@ insights-stock-trajectory-panel-no-open-roles-at-public-yet = No open roles at p
 insights-stock-trajectory-panel-ticker = Ticker
 # kind=label wording=as-is
 insights-stock-trajectory-panel-equity = Equity
+# kind=aria
+insights-stock-trajectory-panel-about-the-split-labels = About the split labels
 # kind=label wording=as-is
 insights-stock-trajectory-panel-equity-share = Equity share
 # kind=label wording=as-is
