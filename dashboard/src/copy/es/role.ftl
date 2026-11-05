@@ -24,6 +24,7 @@ role-job-comp-panel-estimated-split = Reparto estimado
 role-job-comp-panel-this-company-s-real-base = El reparto real de base/bono/acciones de esta empresa para este nivel y disciplina
 role-job-comp-panel-no-measured-split-for-this = No hay reparto medido para esta disciplina: escalado a partir de las cifras de esta empresa para el mismo nivel en otra disciplina
 role-job-comp-panel-no-measured-split-for-this-2 = No hay reparto medido para esta empresa: se usa la heurística por nivel de experiencia
+role-job-comp-panel-about-the-split = Sobre este reparto
 role-job-comp-panel-posted-band-sits-well-above = El rango publicado está muy por encima del salario base { $band } medido en esta empresa, así que el nivel puede ser más alto.
 role-job-comp-panel-posted-band-sits-well-below = El rango publicado está muy por debajo del salario base { $band } medido en esta empresa, así que el nivel puede ser más bajo.
 role-job-comp-panel-you-choose-the-cash-stock = Tú eliges la mezcla de efectivo y acciones
