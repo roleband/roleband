@@ -117,5 +117,23 @@ class WorkflowStepTests(unittest.TestCase):
                              {'backend': 'true'})
 
 
+    def test_a_file_moved_out_of_a_watched_path_counts_as_a_change_there(self):
+        with tempfile.TemporaryDirectory() as repo:
+            git(repo, 'init', '-q')
+            git(repo, 'config', 'user.email', 'ci@example.test')
+            git(repo, 'config', 'user.name', 'CI')
+            Path(repo, 'backend').mkdir()
+            Path(repo, 'backend/scan.py').write_text('print("a long enough body to be seen as a rename")\n' * 5)
+            git(repo, 'add', '.')
+            git(repo, 'commit', '-qm', 'in backend')
+            base = git(repo, 'rev-parse', 'HEAD')
+            Path(repo, 'tools').mkdir()
+            git(repo, 'mv', 'backend/scan.py', 'tools/scan.py')
+            git(repo, 'commit', '-qm', 'moved out')
+            moved = git(repo, 'rev-parse', 'HEAD')
+
+            self.assertEqual(self.run_step(repo, 'pull_request', base, moved, 'backend'), {'backend': 'true'})
+
+
 if __name__ == '__main__':
     unittest.main()

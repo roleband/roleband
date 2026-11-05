@@ -73,7 +73,9 @@ def changed_files(event, base, head):
     if not base or NO_COMMIT.fullmatch(base) or not head:
         return None
     span = f'{base}...{head}' if event == 'pull_request' else f'{base}..{head}'
-    result = subprocess.run(['git', 'diff', '--name-only', span], capture_output=True, text=True)
+    # A rename lists only its destination; without renames a move out of a watched path
+    # still names the path it left.
+    result = subprocess.run(['git', 'diff', '--no-renames', '--name-only', span], capture_output=True, text=True)
     if result.returncode != 0:
         print(result.stderr.strip(), file=sys.stderr)
         return None
