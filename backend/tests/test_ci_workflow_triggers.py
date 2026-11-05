@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import json
 import posixpath
 import re
 import shlex
@@ -636,3 +637,61 @@ def test_the_required_backend_check_passes_only_when_every_shard_did():
     step = result["steps"][-1]
     assert step["env"]["SHARDS"] == "${{ needs.checks.result }}"
     assert 'test "$SHARDS" = success' in step["run"]
+
+
+def _local_browser_image() -> str:
+    """The image `deploy/check_local.py` runs the browsers in, with `{version}` unfilled."""
+    tree = ast.parse((REPO / "deploy" / "check_local.py").read_text())
+    for node in tree.body:
+        targets = [node.target] if isinstance(node, ast.AnnAssign) else getattr(node, "targets", [])
+        if any(isinstance(t, ast.Name) and t.id == "PLAYWRIGHT_IMAGE" for t in targets):
+            return ast.literal_eval(node.value)
+    raise AssertionError("deploy/check_local.py names no PLAYWRIGHT_IMAGE")
+
+
+def _locked_playwright() -> str:
+    lock = json.loads((REPO / "dashboard" / "package-lock.json").read_text())
+    return lock["packages"]["node_modules/@playwright/test"]["version"]
+
+
+def browser_image_gaps(data: dict, local_image: str, locked: str) -> list[str]:
+    """How the UX shards' browsers can differ from the ones the local Docker run uses."""
+    ux = (data.get("jobs") or {}).get("ux") or {}
+    gaps = []
+    image = str((ux.get("container") or {}).get("image", ""))
+    name, _, digest = image.partition("@")
+    if name != local_image.format(version=locked):
+        gaps.append(f"ux runs in {name or 'no container'}, not {local_image.format(version=locked)}")
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+        gaps.append(f"ux pins no digest: {image or 'no container'}")
+    for step in ux.get("steps") or []:
+        run = str(step.get("run") or "")
+        if re.search(r"playwright install|apt-get|ms-playwright", run + str(step.get("with") or "")):
+            gaps.append(f"{step.get('name') or run}: installs what the image already holds")
+    return gaps
+
+
+def test_the_ux_shards_run_the_browsers_the_local_run_uses():
+    """Each shard runs in the Playwright image of the locked version, as
+    `check_local.py ux --docker-browsers` does, and installs nothing over it: a
+    per-shard install from the Ubuntu mirror can stall a shard before any test.
+    A Playwright upgrade fails here until the image's tag and digest move with it."""
+    data = yaml.safe_load((WORKFLOWS / "dashboard.yml").read_text())
+    assert browser_image_gaps(data, _local_browser_image(), _locked_playwright()) == []
+
+
+def test_a_ux_shard_off_the_local_image_is_reported():
+    """The control for the test above: an older tag, a tag without a digest and a
+    reinstall on top each fail it."""
+    local = "mcr.microsoft.com/playwright:v{version}-noble"
+    data = {"jobs": {"ux": {
+        "container": {"image": "mcr.microsoft.com/playwright:v1.50.0-noble"},
+        "steps": [{"name": "install playwright system libraries", "run": "npx playwright install-deps chromium"}],
+    }}}
+    assert browser_image_gaps(data, local, "1.64.1") == [
+        "ux runs in mcr.microsoft.com/playwright:v1.50.0-noble, not mcr.microsoft.com/playwright:v1.64.1-noble",
+        "ux pins no digest: mcr.microsoft.com/playwright:v1.50.0-noble",
+        "install playwright system libraries: installs what the image already holds",
+    ]
+    pinned = {"jobs": {"ux": {"container": {"image": "mcr.microsoft.com/playwright:v1.64.1-noble@sha256:" + "a" * 64}}}}
+    assert browser_image_gaps(pinned, local, "1.64.1") == []
