@@ -62,6 +62,8 @@ class TierTests(unittest.TestCase):
         self.assertFalse(glob_regex('backend/*').fullmatch('backend/tracker/api/app.py'))
         self.assertTrue(glob_regex('backend/*').fullmatch('backend/requirements.txt'))
         self.assertFalse(glob_regex('.nvmrc').fullmatch('x.nvmrc'))
+        self.assertTrue(glob_regex('launcher/**').fullmatch('launcher/macos/a\nb.swift'))
+        self.assertTrue(glob_regex('backend/*').fullmatch('backend/a\nb.py'))
 
 
 class WorkflowStepTests(unittest.TestCase):

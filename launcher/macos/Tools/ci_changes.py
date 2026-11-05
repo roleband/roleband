@@ -42,7 +42,8 @@ def glob_regex(pattern):
         else:
             out.append(re.escape(pattern[i]))
             i += 1
-    return re.compile(''.join(out))
+    # A file name may hold a line feed; DOTALL lets `**` match across it as git's globs do.
+    return re.compile(''.join(out), re.DOTALL)
 
 
 def patterns(text):

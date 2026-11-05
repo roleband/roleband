@@ -50,7 +50,7 @@ def glob_regex(pattern: str) -> re.Pattern[str]:
         else:
             out.append(re.escape(pattern[i]))
             i += 1
-    return re.compile("".join(out))
+    return re.compile("".join(out), re.DOTALL)
 
 
 def covered(path: str, patterns: list[str]) -> bool:
