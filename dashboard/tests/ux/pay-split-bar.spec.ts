@@ -66,34 +66,58 @@ async function openPayCard(page: Page, theme: "light" | "dark", pkg: JobCompPack
   return bar;
 }
 
-/** Decodes a screenshot in the page and returns each pixel's relative luminance. */
-async function luminances(page: Page, png: Buffer): Promise<number[]> {
+type Rgb = [number, number, number];
+
+/** Decodes a screenshot in the page and returns each pixel's sRGB channels. */
+async function pixels(page: Page, png: Buffer): Promise<Rgb[]> {
   return page.evaluate(async (bytes) => {
     const bitmap = await createImageBitmap(new Blob([new Uint8Array(bytes)], { type: "image/png" }));
     const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
     const context = canvas.getContext("2d")!;
     context.drawImage(bitmap, 0, 0);
     const { data } = context.getImageData(0, 0, bitmap.width, bitmap.height);
-    const channel = (c: number) => {
-      const v = c / 255;
-      return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-    };
-    const out: number[] = [];
-    for (let i = 0; i < data.length; i += 4) {
-      out.push(0.2126 * channel(data[i]) + 0.7152 * channel(data[i + 1]) + 0.0722 * channel(data[i + 2]));
-    }
+    const out: [number, number, number][] = [];
+    for (let i = 0; i < data.length; i += 4) out.push([data[i], data[i + 1], data[i + 2]]);
     return out;
   }, [...png]);
 }
 
-/** The stripe contrast inside one part, read away from its ends so the bar's
- *  rounded corners and the gaps beside it are not counted. */
-async function stripeContrast(page: Page, segment: Locator): Promise<number> {
+/** WCAG relative luminance. */
+function luminance([r, g, b]: Rgb): number {
+  const channel = (c: number) => {
+    const v = c / 255;
+    return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+}
+
+/** WCAG contrast ratio between two luminances. */
+const ratio = (a: number, b: number) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+
+/** The one pixel at a point of the page. */
+async function pixelAt(page: Page, x: number, y: number): Promise<Rgb> {
+  const [rgb] = await pixels(page, await page.screenshot({ clip: { x, y, width: 1, height: 1 } }));
+  return rgb;
+}
+
+/** The card's own ground: a point in its top padding, clear of its border and corners. */
+async function cardGround(page: Page): Promise<Rgb> {
+  const box = (await page.locator(".pkg-panel").boundingBox())!;
+  return pixelAt(page, Math.round(box.x + box.width / 2), Math.round(box.y + 8));
+}
+
+/** The pixels inside one part, read away from its ends so the bar's rounded
+ *  corners and the gaps beside it are not counted. */
+async function inside(page: Page, segment: Locator): Promise<Rgb[]> {
   const box = (await segment.boundingBox())!;
-  const png = await page.screenshot({
+  return pixels(page, await page.screenshot({
     clip: { x: box.x + 8, y: box.y + 4, width: box.width - 16, height: box.height - 8 },
-  });
-  const sorted = (await luminances(page, png)).sort((a, b) => a - b);
+  }));
+}
+
+/** The stripe contrast inside one part. */
+async function stripeContrast(page: Page, segment: Locator): Promise<number> {
+  const sorted = (await inside(page, segment)).map(luminance).sort((a, b) => a - b);
   const low = sorted[Math.floor(sorted.length * 0.02)];
   const high = sorted[Math.floor(sorted.length * 0.98)];
   return (high - low) / (high + low);
@@ -111,7 +135,12 @@ for (const theme of ["light", "dark"] as const) {
 
   test(`a stated part stays solid beside estimated ones (${theme})`, async ({ page }) => {
     const bar = await openPayCard(page, theme, basePosted);
-    expect(await stripeContrast(page, bar.locator(".pkg-base"))).toBeLessThanOrEqual(SOLID_CEILING);
+    const base = bar.locator(".pkg-base");
+    expect(await stripeContrast(page, base)).toBeLessThanOrEqual(SOLID_CEILING);
+    // A solid part is still a shape on the card: the 3:1 WCAG asks of a graphical object.
+    const fill = luminance((await inside(page, base))[0]);
+    expect(ratio(fill, luminance(await cardGround(page))), "the stated part fades into the card")
+      .toBeGreaterThanOrEqual(3);
     for (const kind of ["bonus", "equity"] as const) {
       expect(await stripeContrast(page, bar.locator(`.pkg-${kind}`))).toBeGreaterThanOrEqual(HATCH_FLOOR);
     }
@@ -121,13 +150,7 @@ for (const theme of ["light", "dark"] as const) {
      and, to a deuteranope, is not there. The parts are parted by the card. */
   test(`neighbouring parts are parted by the card's own ground (${theme})`, async ({ page }) => {
     const bar = await openPayCard(page, theme, nothingPosted);
-    const panel = page.locator(".pkg-panel");
-    const card = await panel.evaluate((el) => getComputedStyle(el).backgroundColor);
-    // A point in the card's top padding, clear of its border and corners.
-    const inside = (await panel.boundingBox())!;
-    const [ground] = await luminances(page, await page.screenshot({
-      clip: { x: Math.round(inside.x + inside.width / 2), y: Math.round(inside.y + 8), width: 1, height: 1 },
-    }));
+    const ground = await cardGround(page);
     const boxes = await bar.locator(".pkg-seg").evaluateAll((els) =>
       els.map((el) => el.getBoundingClientRect()).map((r) => ({ left: r.left, right: r.right, top: r.top, height: r.height })));
     for (let i = 1; i < boxes.length; i++) {
@@ -135,11 +158,10 @@ for (const theme of ["light", "dark"] as const) {
       expect(gap, `no gap after part ${i}`).toBeGreaterThanOrEqual(2 - 0.01);
       // The first whole pixel column after the earlier part lies inside the gap.
       const x = Math.floor(boxes[i - 1].right) + 1;
-      const [painted] = await luminances(page, await page.screenshot({
-        clip: { x, y: Math.round(boxes[i].top + boxes[i].height / 2), width: 1, height: 1 },
-      }));
-      const ratio = (Math.max(painted, ground) + 0.05) / (Math.min(painted, ground) + 0.05);
-      expect(ratio, `the gap after part ${i} is not the card (${card})`).toBeLessThan(1.03);
+      const painted = await pixelAt(page, x, Math.round(boxes[i].top + boxes[i].height / 2));
+      // Every channel, so a gap painted in another hue of the same lightness fails too.
+      const drift = Math.max(...painted.map((c, k) => Math.abs(c - ground[k])));
+      expect(drift, `the gap after part ${i} is rgb(${painted}), the card rgb(${ground})`).toBeLessThanOrEqual(3);
     }
   });
 }
