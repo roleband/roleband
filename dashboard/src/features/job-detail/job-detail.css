@@ -508,33 +508,48 @@
 .pkg-seg {
   display: block;
   height: 100%;
-  background-color: var(--pkg-hue);
 }
 
-/* Each kind names its hue once; the bar, the legend swatch and the hatch all
-   read it. */
+/* A kind's fill paints both its bar segment and its legend swatch. */
 .pkg-base {
-  --pkg-hue: var(--app-decor);
+  background-color: var(--app-decor);
 }
 
 .pkg-bonus {
-  --pkg-hue: var(--app-data-1);
+  background-color: var(--app-data-1);
 }
 
 .pkg-equity {
-  --pkg-hue: var(--app-action);
+  background-color: var(--app-action);
 }
 
-/* Estimated: thin, sparse lines inked from the part's own hue a step toward the
-   card. A fixed overlay colour cannot do this in both themes: white lines glare
-   on the mid-dark light-theme hues and vanish on the pale dark-theme ones, and
-   dense high-contrast stripes across the card are hard to look at.
+/* Estimated: thin, sparse lines inked from the part's own fill a step toward
+   the card, so each line names the same token as its kind's fill above. A fixed
+   overlay colour cannot do this in both themes: white lines glare on the
+   mid-dark light-theme hues and vanish on the pale dark-theme ones, and dense
+   high-contrast stripes across the card are hard to look at.
    tests/ux/pay-split-bar.spec.ts holds the stripe contrast between a floor and
    a ceiling in both themes. */
-.pkg-est {
+.pkg-est.pkg-base {
   background-image: repeating-linear-gradient(
     135deg,
-    color-mix(in oklab, var(--pkg-hue) 86%, var(--app-surface-raised)) 0 1.5px,
+    color-mix(in oklab, var(--app-decor) 86%, var(--app-surface-raised)) 0 1.5px,
+    transparent 1.5px 8px
+  );
+}
+
+.pkg-est.pkg-bonus {
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--app-data-1) 86%, var(--app-surface-raised)) 0 1.5px,
+    transparent 1.5px 8px
+  );
+}
+
+.pkg-est.pkg-equity {
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--app-action) 86%, var(--app-surface-raised)) 0 1.5px,
     transparent 1.5px 8px
   );
 }
@@ -576,7 +591,6 @@
   height: 10px;
   margin-top: 3px;
   border-radius: 2px;
-  background-color: var(--pkg-hue);
 }
 
 .pkg-leg-top {
