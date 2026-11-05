@@ -636,6 +636,10 @@
   cursor: pointer;
 }
 
+.cluster-card-select:focus-visible {
+  outline: none;
+}
+
 .cluster-card-select::after {
   content: "";
   position: absolute;

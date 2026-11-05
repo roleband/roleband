@@ -71,6 +71,7 @@ const OFFSETS = new Set(["var(--app-ring-offset)", "calc(-1 * var(--app-ring-off
 const SUPPRESSIONS: { file: string; selector: string; drawnBy: string; why: string }[] = [
   { file: "ui/SearchField.css", selector: ".ui-search-input", drawnBy: ".ui-search:focus-within", why: "the field the user sees is the wrapper; the bare input inside it would draw a square ring within the rounded one" },
   { file: "ui/SearchField.css", selector: ".ui-search-input:focus-visible", drawnBy: ".ui-search:focus-within", why: "the same, stated on the focus state so it outranks shell.css's input ring" },
+  { file: "features/statistics/statistics.css", selector: ".cluster-card-select:focus-visible", drawnBy: ".cluster-card:has(.cluster-card-select:focus-visible)", why: "the card is what responds; the button is only its title, and shell.css's button ring would draw a second ring around those words" },
   { file: "ui/FilterRail.css", selector: ".filter-search-row input", drawnBy: ".filter-search-row:focus-within", why: "the row is the field; the input has no border of its own" },
   { file: "ui/FilterRail.css", selector: ".filter-search-row input:focus-visible", drawnBy: ".filter-search-row:focus-within", why: "the same, on the focus state" },
   { file: "shell.css", selector: ".palette-input input", drawnBy: ".palette-item.is-cursor", why: "focus never leaves the palette's field, so the highlighted option, where Enter acts, wears the one ring; a ring on the field too would be a second" },
@@ -247,12 +248,13 @@ describe("a field wears the ring on its own edge", () => {
     const shell = SHEETS.find((s) => s.file === "shell.css")!.css;
     const all = rules(shell);
     const global = all.findIndex((r) => r.selectors.includes("[tabindex]:focus-visible"));
-    const field = all.findIndex((r) => r.selectors.some((s) => s.startsWith(":is(input:not(") && s.endsWith(":focus-visible")));
+    const field = all.findIndex((r) => r.selectors.some((s) => s.startsWith("input:not(") && s.endsWith(":focus-visible")));
     expect(field, "the field rule").toBeGreaterThan(global);
     expect(all[field].decls.get("outline-offset")).toBe(INSIDE);
+    expect(all[field].selectors).toEqual(expect.arrayContaining(["select:focus-visible", "textarea:focus-visible"]));
     expect(all[field].selectors.some((s) => s.startsWith('input:is([type="time"]') && s.endsWith(":focus-within"))).toBe(true);
     // The types left out are the ones that are not fields.
-    const sel = all[field].selectors.find((s) => s.startsWith(":is(input:not("))!;
+    const sel = all[field].selectors.find((s) => s.startsWith("input:not("))!;
     for (const kept of ["text", "search", "email", "number", "url", "password", "date"]) {
       expect(sel.includes(`[type="${kept}"]`), `${kept} is a field`).toBe(false);
     }

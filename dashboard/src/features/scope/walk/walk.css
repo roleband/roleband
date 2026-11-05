@@ -38,7 +38,8 @@
   width: 100%;
   max-width: 1320px;
   margin: 0 auto;
-  padding-top: clamp(0px, 12vh - 24px, 140px);
+  /* A window unit is divided by the setup zoom, which magnifies it (setupZoom.css). */
+  padding-top: clamp(0px, 12vh / var(--page-zoom, 1) - 24px, 140px);
 }
 .walk.walk--setup > .page-hero {
   margin: 0 0 var(--app-space-4);
@@ -402,12 +403,6 @@
   font-variant-numeric: normal;
   line-height: 1.4;
 }
-.walk-mode-count {
-  grid-column: 2 / 4;
-  color: var(--app-text-faint);
-  font-family: var(--app-font-mono);
-  font-size: var(--app-type-label);
-}
 /* The chosen list: filled in its colour, its name and state in full ink. */
 .walk-mode .walk-mode-option:has(> input:checked) {
   border-color: var(--walk-mode-line);
@@ -416,7 +411,6 @@
 }
 .walk-mode .walk-mode-option:has(> input:checked) .walk-mode-title,
 .walk-mode .walk-mode-option:has(> input:checked) .walk-mode-state { color: var(--walk-mode-ink); }
-.walk-mode .walk-mode-option:has(> input:checked) .walk-mode-count { color: var(--app-text-muted); }
 /* The other list reads as the way across: it lifts on hover like any card. */
 .walk-mode .walk-mode-option:not(:has(> input:checked)):hover .walk-mode-title,
 .walk-mode .walk-mode-option:not(:has(> input:checked)):hover .walk-mode-state { color: var(--app-text); }
@@ -429,7 +423,7 @@
 @container walk-step (max-width: 560px) {
   /* On a phone the pair must stay small enough to stick (stacked with its
      sentences it takes a third of the screen): side by side, each
-     its name and its count, and the fill alone says which is chosen. What
+     its name alone, and the fill says which is chosen. What
      each list does is still said on the Summary, in the sentence. */
   .walk-mode .walk-mode-option {
     grid-template-columns: auto minmax(0, 1fr);
@@ -439,7 +433,6 @@
   }
   .walk-mode .walk-mode-option small,
   .walk-mode-state { display: none; }
-  .walk-mode-count { grid-column: 2; }
 }
 .select-card.is-other { border-style: dashed; }
 .walk-card-tag {
@@ -564,7 +557,15 @@
   overflow: hidden;
 }
 .walk-fact-line:not(:only-child) { -webkit-line-clamp: 1; }
-.walk-floor-form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--app-space-2); padding: var(--app-space-3); background: var(--app-surface-subtle); border: 1px solid var(--app-border-strong); border-radius: var(--app-radius-md); }
+/* The editor in three rows: the amount, what it reads as, what to do. */
+.walk-floor-form { display: grid; gap: var(--app-space-2); padding: var(--app-space-3); background: var(--app-surface-subtle); border: 1px solid var(--app-border-strong); border-radius: var(--app-radius-md); }
+.walk-floor-fields,
+.walk-floor-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--app-space-2); }
+.walk-floor-actions { margin-top: var(--app-space-1); }
+.walk-floor-reading { display: flex; align-items: center; gap: var(--app-space-1); min-height: 1.45em; margin: 0; font-size: var(--app-type-meta); line-height: 1.45; color: var(--app-text-muted); }
+.walk-floor-reading[data-reading="ready"] { color: var(--app-text); }
+.walk-floor-reading[data-reading="ready"] svg { color: var(--app-positive); }
+.walk-floor-reading[data-reading="invalid"] { color: var(--app-danger); }
 .walk-floor-amount {
   width: 12ch;
   /* The control scale's md rank, the height of the Select and the Save
@@ -580,7 +581,7 @@
 }
 .walk-floor-unit,
 .walk-floor-pending { color: var(--app-text-muted); }
-.walk-floor-error { flex-basis: 100%; color: var(--app-danger-ink); font-size: var(--app-type-label); }
+.walk-floor-error { margin: 0; color: var(--app-danger); font-size: var(--app-type-meta); }
 .walk-summary-facts {
   margin-top: 0;
   display: grid;

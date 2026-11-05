@@ -101,6 +101,9 @@ export function FieldReview({
   const [busy, setBusy] = useState(false);
   const [custom, setCustom] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // The entry itself was refused, as opposed to a save that failed: only a
+  // refused entry marks the field invalid.
+  const [refused, setRefused] = useState(false);
   const { pin } = usePinWrites(slug, item.field, onResolved);
 
   const commit = async (value: unknown) => {
@@ -132,6 +135,7 @@ export function FieldReview({
     const raw = custom.trim();
     if (!raw) return;
     const read = entered(raw);
+    setRefused(read === null);
     if (read === null) setError(profilesFieldReviewNotAWholeNumber({ example: 1200 }));
     else void commit(read.value);
   };
@@ -181,11 +185,12 @@ export function FieldReview({
             inputMode={whole ? "numeric" : undefined}
             placeholder={profilesFieldReviewOrEnterAValue()}
             aria-label={profilesFieldReviewCustomValueFor({ label: String(label) })}
-            aria-invalid={error !== null && whole ? true : undefined}
+            aria-invalid={refused || undefined}
             value={custom}
             onChange={(e) => {
               setCustom(e.target.value);
               setError(null);
+              setRefused(false);
             }}
           />
         )}

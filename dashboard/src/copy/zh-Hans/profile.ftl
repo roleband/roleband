@@ -278,10 +278,6 @@ profile-subjects-step-switch-to-this = { $choice ->
     [yes] 正在选择
    *[no] 切换到此项
 }
-profile-subjects-step-picked = { $choice ->
-    [yes] 暂无
-   *[no] 已选 { $picked } 个
-}
 profile-subjects-step-filter-interests = 筛选领域
 profile-subjects-step-filter-interests-2 = 筛选领域…
 

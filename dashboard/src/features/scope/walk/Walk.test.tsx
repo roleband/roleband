@@ -444,8 +444,8 @@ it("writes an interest with the verb first, reads it back on the Summary, and sa
   await user.click(stripButton("World"));
   expect(screen.getByRole("heading", { name: "Anything you care about, or want to avoid?" })).toBeVisible();
   // The list is chosen first, and both lists stay on screen: each says what
-  // it does and how many it holds, the chosen one says "Picking now" and the
-  // other offers the switch. The picker is named by the list it fills.
+  // it does, the chosen one says "Picking now" and the other offers the
+  // switch, and nothing more. The picker is named by the list it fills.
   const lists = screen.getByRole("group", { name: "Choose a list, then tick what goes in it" });
   const interestedList = within(lists).getByRole("radio", { name: "Interested in" });
   const avoidList = within(lists).getByRole("radio", { name: "Not interested in" });
@@ -454,8 +454,11 @@ it("writes an interest with the verb first, reads it back on the Summary, and sa
   expect(avoidList).toHaveAccessibleDescription(/Roles about these drop off/);
   const option = (radio: HTMLElement) => radio.closest("label")!;
   expect(option(interestedList)).toHaveTextContent(/Picking now/);
-  expect(option(avoidList)).toHaveTextContent(/Switch to this/);
-  expect(option(avoidList)).toHaveTextContent(/None yet/);
+  // The whole card: its name, its state and what it does, with no count.
+  const avoidCard = (current: "yes" | "no") => msg("profile-walk-model-not-interested-in")
+    + msg("profile-subjects-step-switch-to-this", { choice: current })
+    + msg("profile-subjects-step-roles-about-these-drop-off");
+  expect(option(avoidList).textContent).toBe(avoidCard("no"));
   expect(screen.queryByRole("group", { name: "Not interested in" })).toBeNull();
   await user.click(avoidList);
   expect(avoidList).toBeChecked();
@@ -476,9 +479,8 @@ it("writes an interest with the verb first, reads it back on the Summary, and sa
   await user.click(within(picker).getByLabelText("Logistics & Fulfillment"));
   expect(within(picker).getByLabelText("Logistics & Fulfillment")).toBeChecked();
   await user.clear(within(picker).getByLabelText("Filter worlds"));
-  // The list's count moves with the tick, so the chooser says where it landed.
-  expect(option(avoidList)).toHaveTextContent(/1 picked/);
-  expect(option(interestedList)).toHaveTextContent(/None yet/);
+  // The picks show on the cards, so the lists carry no count of them.
+  expect(option(avoidList).textContent).toBe(avoidCard("yes"));
 
   // Seen from the other verb, the pick wears its verb as a tag instead of vanishing.
   await user.click(interestedList);
@@ -1128,17 +1130,52 @@ it("adds an optional pay floor on the Summary without touching the Walk's answer
   expect(screen.queryByText("The pay floor never narrows this.")).toBeNull();
 
   await user.click(screen.getByRole("button", { name: "Add a minimum base" }));
-  // "250.000" is 250,000 in much of Europe: never read as 250.
-  await user.type(screen.getByLabelText("Lowest yearly base salary"), "250.000");
-  await user.click(screen.getByRole("button", { name: "Save minimum base" }));
-  expect(screen.getByRole("alert")).toHaveTextContent("Enter a yearly amount, like 250,000 or 250k.");
+  const amount = screen.getByLabelText(msg("profile-pay-floor-row-lowest-yearly-base-pay"));
+  const set = screen.getByRole("button", { name: msg("profile-pay-floor-row-save-floor", { choice: "no" }) });
+  const howTo = msg("profile-pay-floor-row-enter-a-yearly-amount-like");
+  const yearly = (amount: string) => msg("profile-pay-floor-row-set-your-pay-floor", { choice: "yes", amount });
+  // Empty, it says what to write, and there is nothing to save yet.
+  expect(amount).toHaveAccessibleDescription(howTo);
+  expect(amount).not.toHaveAttribute("aria-invalid");
+  expect(set).toBeDisabled();
+  // "250.000" is 250,000 in much of Europe: never read as 250, and it says so
+  // as it is typed; Enter saves nothing.
+  await user.type(amount, "250.000");
+  expect(amount).toHaveAttribute("aria-invalid", "true");
+  expect(amount).toHaveAccessibleDescription(howTo);
+  expect(set).toBeDisabled();
+  await user.type(amount, "{Enter}");
   expect(save).not.toHaveBeenCalled();
+  // The mistake is read out; nothing else on the line is.
+  const spoken = () => document.querySelector(".walk-floor-form [aria-live]");
+  expect(spoken()).toHaveTextContent(howTo);
+  // A separator after an amount is still being typed, not a mistake; after
+  // words it is.
+  await user.clear(amount);
+  await user.type(amount, "250.");
+  expect(amount).not.toHaveAttribute("aria-invalid");
+  expect(set).toBeDisabled();
+  // "250," is on its way to 250,000: never set as 250.
+  await user.clear(amount);
+  await user.type(amount, "250,");
+  expect(amount).not.toHaveAttribute("aria-invalid");
+  expect(spoken()).toBeEmptyDOMElement();
+  expect(set).toBeDisabled();
+  await user.clear(amount);
+  await user.type(amount, "lots.");
+  expect(amount).toHaveAttribute("aria-invalid", "true");
 
-  await user.clear(screen.getByLabelText("Lowest yearly base salary"));
-  await user.type(screen.getByLabelText("Lowest yearly base salary"), "250k");
-  await user.click(screen.getByRole("button", { name: "Save minimum base" }));
+  await user.clear(amount);
+  await user.type(amount, "250k");
+  expect(spoken()).toBeEmptyDOMElement();
+  // Read back as the amount it will save, before it is saved.
+  expect(amount).toHaveAccessibleDescription(yearly("$250,000"));
+  expect(amount).not.toHaveAttribute("aria-invalid");
+  expect(set).toBeEnabled();
+  await user.click(set);
   expect(save).toHaveBeenCalledWith({ amount: 250000, currency: "USD" });
-  expect(await screen.findByText("$250,000 a year")).toBeVisible();
+  expect(await screen.findByRole("button", { name: msg("profile-pay-floor-row-add-a-pay-floor", { choice: "yes" }) })).toBeVisible();
+  expect(fact(msg("profile-pay-floor-row-pay-floor"))).toHaveTextContent(yearly("$250,000"));
   expect(screen.getByRole("region", { name: "What it keeps" }).textContent).toEqual(funnelBefore);
   // Saving the floor is not a Walk save: the scope was never written.
   expect(api.saveSettings).not.toHaveBeenCalled();
@@ -1189,7 +1226,8 @@ it("keeps the pay floor editor open and says so when a save fails", async () => 
   expect(screen.getByLabelText("Lowest yearly base salary")).toHaveValue("200000");
   // A second try clears the old message before it runs.
   await user.click(screen.getByRole("button", { name: "Save minimum base" }));
-  expect(await screen.findByText("$200,000 a year")).toBeVisible();
+  expect(await screen.findByRole("button", { name: msg("profile-pay-floor-row-add-a-pay-floor", { choice: "yes" }) })).toBeVisible();
+  expect(fact(msg("profile-pay-floor-row-pay-floor"))).toHaveTextContent(msg("profile-pay-floor-row-set-your-pay-floor", { choice: "yes", amount: "$200,000" }));
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
@@ -1456,7 +1494,8 @@ it("setup holds the pay floor until Start and writes it after the scope", async 
   // Its button says it sets, not saves: nothing is written here.
   expect(screen.queryByRole("button", { name: "Save minimum base" })).toBeNull();
   await user.click(screen.getByRole("button", { name: "Set minimum base" }));
-  expect(await screen.findByText("£180,000 a year")).toBeVisible();
+  expect(await screen.findByRole("button", { name: msg("profile-pay-floor-row-add-a-pay-floor", { choice: "yes" }) })).toBeVisible();
+  expect(fact(msg("profile-pay-floor-row-pay-floor"))).toHaveTextContent(msg("profile-pay-floor-row-set-your-pay-floor", { choice: "yes", amount: "£180,000" }));
   expect(floorSave).not.toHaveBeenCalled();
 
   // The held floor outlives the Summary: on to Companies and back.

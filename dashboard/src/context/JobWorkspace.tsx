@@ -33,7 +33,7 @@ const perScope = <T,>(make: () => T): PerScope<T> => ({ radar: make(), pipeline:
 export interface JobWorkspaceValue {
   /** The compare selection of the list screen the reader is on (`compareScope`):
    *  Radar and the Pipeline each keep their own, so what is picked on one is not
-   *  picked on the other (docs/decisions/0001-compare-per-screen.md). A role or
+   *  picked on the other (docs/decisions/0002-compare-per-screen.md). A role or
    *  Compare opened over a screen works on that screen's. Server-backed, so a
    *  reload keeps the roles the way it keeps the star beside the same row. */
   compareIds: Set<number>;

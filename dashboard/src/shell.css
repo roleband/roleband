@@ -55,8 +55,8 @@ button { cursor: pointer; }
 
 /* THE ONE FOCUS RING (docs/ui.md "One focus ring").
    Every focusable thing wears this, and a sheet changes only WHERE it is drawn:
-   inside (`calc(-1 * --app-ring-offset)`) on a flush or clipped control, on a
-   wrapper that IS the visible control, as a stroke on an SVG shape. Never a
+   inside (`calc(-1 * --app-ring-offset)`) on a field, or a flush or clipped
+   control, on a wrapper that IS the visible control, as a stroke on an SVG shape. Never a
    tint, a halo, a glow or another hue: those fall well under the 3:1 a focus
    indicator needs.
    A date or time field is several Tab stops (hours, minutes, the period, the
@@ -75,16 +75,23 @@ summary:focus-visible,
   outline-offset: var(--app-ring-offset);
 }
 
-/* A FIELD wears the ring on its own edge. A field has a border already, so
-   the ring drawn outside it is a second frame with a dark gap between, and a
-   field rings on every click, not only on Tab: that doubled frame becomes the
-   look of every form. Drawn inside, the ring covers the border and the field
-   reads as one outline turning gold. Stated by element here, so a new form
-   gets it without a line of its own; `design/focus-ring.test.ts` refuses a
-   field focus rule that draws the ring outside. */
-:is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="button"], [type="submit"], [type="reset"], [type="image"]), textarea, select):focus-visible,
-input:is([type="time"], [type="date"], [type="datetime-local"], [type="month"], [type="week"]):focus-within {
+/* A field has an edge of its own, so its ring is drawn inside, over that edge,
+   and takes its place: outside it, the field's border and the ring would be two
+   lines with a gap between. A box, a radio, a slider or a button-like input has
+   no such edge and keeps the ring outside. */
+input:is([type="time"], [type="date"], [type="datetime-local"], [type="month"], [type="week"]):focus-within,
+input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="button"], [type="submit"], [type="reset"], [type="image"]):focus-visible,
+select:focus-visible,
+textarea:focus-visible {
   outline-offset: calc(-1 * var(--app-ring-offset));
+}
+
+/* A field holding a value it cannot take says so with its edge, in the danger
+   colour, on every screen: the screen marks the field `aria-invalid="true"`
+   and paints nothing. `:not(:disabled)` makes this rule outrank a screen's
+   own `.class input` edge, and a disabled field is not judged. */
+:is(input, select, textarea)[aria-invalid="true"]:not(:disabled) {
+  border-color: var(--app-danger);
 }
 
 /* The rail is dark in both themes, so the ring takes the rail's own gold:
@@ -261,7 +268,8 @@ textarea {
   min-width: 0;
   flex: 1;
   overflow-y: auto;
-  padding: 22px clamp(22px, 3vw, 48px) 64px;
+  /* A window unit is divided by the setup zoom, which magnifies it (setupZoom.css). */
+  padding: 22px clamp(22px, 3vw / var(--page-zoom, 1), 48px) 64px;
 }
 
 .main > * {
@@ -822,7 +830,7 @@ textarea {
   position: relative;
   display: grid;
   grid-template-columns: var(--app-nav-width) minmax(0, 1fr);
-  height: 100vh;
+  height: calc(100vh / var(--page-zoom, 1));
   overflow: clip;
   transition: grid-template-columns var(--app-duration-medium) var(--app-ease);
 }

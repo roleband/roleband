@@ -12,7 +12,11 @@
    exactly two ways, both named here: by a CARRIER (an ancestor that IS the
    control the user sees, because the focused element is hidden or is only its
    text) and, for SVG marks, as a STROKE on the shape (an outline on an SVG `g`
-   draws its bounding box). The source half is `src/design/focus-ring.test.ts`. */
+   draws its bounding box). The source half is `src/design/focus-ring.test.ts`.
+
+   A field has an edge of its own, and its ring is drawn over that edge: one
+   line where the border was, never the border and a ring outside it with a gap
+   between, which reads as two or three lines. */
 
 import { expect, test, type Page } from "./fixtures";
 import { installEveryRoute } from "./routesHarness";
@@ -20,8 +24,7 @@ import { installSettingsRoutes } from "./settingsHarness";
 
 const SCREENS = [
   "/",
-  "/pipeline/list",
-  "/pipeline/board",
+  "/favorites",
   "/statistics/overview",
   "/profile/direction",
   "/settings/companies",
@@ -78,23 +81,24 @@ async function focusedRing(page: Page) {
       return `outline ${cs.outlineStyle} ${cs.outlineWidth} ${cs.outlineColor}; shadow ${cs.boxShadow.slice(0, 60)}`;
     };
 
-    // A field (or the carrier that stands for one) rings on its own edge: the
-    // ring stays inside the border box, so it never draws a second frame.
-    const field = el.matches(
-      'textarea, select, input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="button"], [type="submit"], [type="reset"], [type="image"])',
-    );
+    // A field's ring, on the field or on the carrier that is the field, covers
+    // the field's border: the outline spans [offset, offset + width] outward
+    // from the border box, the border [-border, 0]. The fields are listed
+    // here, not read from shell.css, so a field dropped from that rule is
+    // still checked.
+    const FIELD = 'input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="button"], [type="submit"], [type="reset"], [type="image"]), select, textarea';
     const onEdge = (node: Element) => {
       const cs = getComputedStyle(node);
-      return parseFloat(cs.outlineOffset) + parseFloat(cs.outlineWidth) <= 0;
+      const border = parseFloat(cs.borderTopWidth);
+      if (!el.matches(FIELD) || border === 0) return true;
+      const offset = parseFloat(cs.outlineOffset);
+      return offset <= -border && offset + parseFloat(cs.outlineWidth) >= 0;
     };
-    const verdict = (node: Element) =>
-      !field || onEdge(node)
-        ? { sig, ok: true }
-        : { sig, ok: false, what: `a field's ring drawn outside its edge (offset ${getComputedStyle(node).outlineOffset})` };
-
-    if (rings(el)) return verdict(el);
-    const owner = owners.find(rings);
-    if (owner) return verdict(owner);
+    // A carrier draws the ring in place of the focused element, never beside it.
+    if (rings(el) && owners.some(rings)) return { sig, ok: false, what: `two rings, on the focused element and on its carrier: ${describe(el)}` };
+    const painter = rings(el) ? el : owners.find(rings);
+    if (painter && !onEdge(painter)) return { sig, ok: false, what: `a field ringed outside its own edge: ${describe(painter)} offset ${getComputedStyle(painter).outlineOffset}` };
+    if (painter) return { sig, ok: true };
     if (el instanceof SVGElement) {
       const stroked = Array.from(el.querySelectorAll("*")).some((shape) => {
         const cs = getComputedStyle(shape);
@@ -156,13 +160,25 @@ for (const theme of ["light", "dark"] as const) {
   });
 }
 
-test("the ring verifier refuses a field whose ring is drawn outside its edge", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
+test("the ring verifier refuses a field ringed outside its own edge", async ({ page }) => {
   await page.goto("/");
-  const search = page.getByRole("searchbox").first();
-  await search.click();
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  const search = page.locator(".ui-search-input").first();
+  await search.focus();
   await expect.poll(async () => (await focusedRing(page))?.ok ?? false).toBe(true);
   await page.addStyleTag({ content: ".ui-search:focus-within { outline-offset: var(--app-ring-offset) !important; }" });
+  const verdict = await focusedRing(page);
+  expect(verdict?.ok).toBe(false);
+  expect(verdict?.what).toContain("outside its own edge");
+});
+
+test("the ring verifier refuses a control whose painted ring is removed", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await page.keyboard.press("Tab");
+  await page.getByRole("button").first().focus();
+  await expect.poll(async () => (await focusedRing(page))?.ok ?? false).toBe(true);
+  await page.addStyleTag({ content: "button:focus-visible { outline: none !important; box-shadow: none !important; }" });
   expect((await focusedRing(page))?.ok).toBe(false);
 });
 
@@ -180,14 +196,4 @@ test("a click into a field rings it on its own edge, in both themes", async ({ p
       expect(ring!.ok, `${path} ${theme}: ${ring!.what}`).toBe(true);
     }
   }
-});
-
-test("the ring verifier refuses a control whose painted ring is removed", async ({ page }) => {
-  await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await page.keyboard.press("Tab");
-  await page.getByRole("button").first().focus();
-  await expect.poll(async () => (await focusedRing(page))?.ok ?? false).toBe(true);
-  await page.addStyleTag({ content: "button:focus-visible { outline: none !important; box-shadow: none !important; }" });
-  expect((await focusedRing(page))?.ok).toBe(false);
 });

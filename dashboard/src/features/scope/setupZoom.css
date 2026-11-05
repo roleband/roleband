@@ -1,0 +1,9 @@
+/* First-run setup, magnified (setupZoom.ts; docs/ui.md, "First-run setup
+   magnification"). Inside `@supports`: an engine without `zoom` gets neither
+   the zoom nor `--page-zoom`, so every correction divides by 1 there. */
+@supports (zoom: 1) {
+  html:has(.app.in-setup) {
+    --page-zoom: var(--setup-zoom, 1);
+    zoom: var(--page-zoom);
+  }
+}

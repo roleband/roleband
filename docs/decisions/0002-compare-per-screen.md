@@ -1,4 +1,4 @@
-# 0001: Each list screen keeps its own comparison
+# 0002: Each list screen keeps its own comparison
 
 ## Context
 

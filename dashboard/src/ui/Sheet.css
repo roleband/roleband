@@ -17,7 +17,8 @@
   top: 0;
   right: 0;
   bottom: 0;
-  width: min(440px, 94vw);
+  /* Window units are divided by the setup zoom, which magnifies them (setupZoom.css). */
+  width: min(440px, 94vw / var(--page-zoom, 1));
   border-top: 0;
   border-right: 0;
   border-bottom: 0;
@@ -27,7 +28,7 @@
   top: 0;
   left: 0;
   bottom: 0;
-  width: min(440px, 94vw);
+  width: min(440px, 94vw / var(--page-zoom, 1));
   border-top: 0;
   border-left: 0;
   border-bottom: 0;
@@ -37,7 +38,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  max-height: 82vh;
+  max-height: calc(82vh / var(--page-zoom, 1));
   border-left: 0;
   border-right: 0;
   border-bottom: 0;

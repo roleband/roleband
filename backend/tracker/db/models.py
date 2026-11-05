@@ -1047,7 +1047,7 @@ class CompareSelection(Base):
     `scope` names the screen the roles were picked on (`COMPARE_SCOPES`): what
     is picked on Radar is not picked in the Pipeline, so one role can be in
     both selections and each screen's count says only its own
-    (docs/decisions/0001-compare-per-screen.md).
+    (docs/decisions/0002-compare-per-screen.md).
 
     Durable for the same reason `favorites` is: selecting a role for comparison
     is the user's work, and it lives with the rest of user state under the

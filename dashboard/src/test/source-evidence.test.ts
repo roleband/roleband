@@ -102,6 +102,12 @@ const CHARTER: Record<string, FactClass> = {
   "design/primitive-states.test.ts": "selector-absence",
   "design/tokens.test.ts": "token-vocabulary",
   "features/companies/register.test.ts": "token-vocabulary",
+  // Whether each window unit is divided by setup's zoom: a fact about what the
+  // source says, since a rule no setup screen draws today paints nothing to
+  // measure. Where the divided ones land is measured in
+  // setup-magnification-webkit.spec.ts. Its other half is ownership: which
+  // setup screen can reach a pop-up placed from a position.
+  "features/scope/setupZoom.test.ts": "token-vocabulary",
   "features/company-profiles/profiles-scope.test.ts": "token-vocabulary",
   "features/compare/ownership.test.ts": "ownership",
   "features/intelligence/intelligence-scope.test.ts": "token-vocabulary",
