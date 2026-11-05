@@ -26,7 +26,6 @@ const LITERAL = /#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(/gi;
 /** Edit DOWNWARD only. */
 const BASELINE: Record<string, number> = {
   "copy/review/review.css": 2,
-  "features/job-detail/job-detail.css": 1,
   "features/statistics/statistics.css": 2, // a mask gradient's alpha stops, not colour
   "patterns/companies/company-chip.css": 6, // the chip's glass highlight
   "patterns/companies/company-logo.css": 1,

@@ -493,13 +493,16 @@
   color: var(--app-text-muted);
 }
 
+/* The parts are parted by a gap of whatever ground the bar sits on, not by hue
+   alone: base and bonus share a lightness, so a hue edge between them flickers
+   and, to a deuteranope, is not there. */
 .pkg-bar {
   display: flex;
-  height: 30px;
+  gap: 2px;
+  height: 28px;
   margin-top: var(--app-space-3);
   border-radius: var(--app-radius-sm);
   overflow: hidden;
-  background: var(--app-surface-sunken);
 }
 
 .pkg-seg {
@@ -507,20 +510,48 @@
   height: 100%;
 }
 
+/* A kind's fill paints both its bar segment and its legend swatch. */
 .pkg-base {
-  background: var(--app-decor);
+  background-color: var(--app-decor);
 }
 
 .pkg-bonus {
-  background: var(--app-data-1);
+  background-color: var(--app-data-1);
 }
 
 .pkg-equity {
-  background: var(--app-action);
+  background-color: var(--app-action);
 }
 
-.pkg-est {
-  background-image: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.45) 0 2px, transparent 2px 5px);
+/* Estimated: thin, sparse lines inked from the part's own fill a step toward
+   the card, so each line names the same token as its kind's fill above. A fixed
+   overlay colour cannot do this in both themes: white lines glare on the
+   mid-dark light-theme hues and vanish on the pale dark-theme ones, and dense
+   high-contrast stripes across the card are hard to look at.
+   tests/ux/pay-split-bar.spec.ts holds the stripe contrast between a floor and
+   a ceiling in both themes. */
+.pkg-est.pkg-base {
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--app-decor) 86%, var(--app-surface-raised)) 0 1.5px,
+    transparent 1.5px 8px
+  );
+}
+
+.pkg-est.pkg-bonus {
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--app-data-1) 86%, var(--app-surface-raised)) 0 1.5px,
+    transparent 1.5px 8px
+  );
+}
+
+.pkg-est.pkg-equity {
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--app-action) 86%, var(--app-surface-raised)) 0 1.5px,
+    transparent 1.5px 8px
+  );
 }
 
 .pkg-bracket {
