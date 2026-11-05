@@ -4,11 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApplicationInterview } from "../../api";
 import { applicationCardFixture } from "../../test/fixtures";
 import { msg } from "../../test/msg";
-import { InterviewDialog, isMeetingLink } from "./InterviewDialog";
+import { InterviewDialog } from "./InterviewDialog";
 
 /* The interview form asks for when first: a day from the month, then a time
- * or none yet. The round, the format and the link wait under Optional. What
- * it sends is the contract: the reader's own day and clock. */
+ * or none yet. The round and the format wait under Optional, one click each.
+ * What it sends is the contract: the reader's own day and clock. */
 
 const card = applicationCardFixture({ job_id: 2, stage: "applied", title: "Principal Engineering Manager", company: "stripe" });
 
@@ -120,50 +120,78 @@ describe("when", () => {
 });
 
 describe("optional", () => {
-  it("offers the common rounds at once, one click each, and keeps the link shut until asked", async () => {
-    const { dialog, onSubmit } = open();
-    expect(within(dialog).queryByLabelText(msg("applications-interview-link"))).toBeNull();
-    const picks = within(dialog).getByRole("group", { name: msg("applications-interview-rounds") });
-    expect(within(picks).getAllByRole("button")).toHaveLength(5);
+  const rounds = (dialog: HTMLElement) => within(dialog).getByRole("group", { name: msg("applications-interview-round") });
+  const formats = (dialog: HTMLElement) => within(dialog).getByRole("group", { name: msg("applications-interview-format") });
+  const plus = (dialog: HTMLElement) => within(rounds(dialog)).getByRole("button", { name: msg("applications-interview-round-add") });
+  const link = (dialog: HTMLElement) => within(dialog).queryByLabelText(msg("applications-interview-link"));
 
-    const round = within(dialog).getByLabelText(msg("applications-interview-round"));
-    expect(round).toHaveValue("");
-    await userEvent.click(within(dialog).getByRole("button", { name: msg("applications-interview-round-hiring-manager") }));
-    expect(round).toHaveValue(msg("applications-interview-round-hiring-manager"));
+  it("offers the common rounds and the formats at once, one click each, with no field to type in", async () => {
+    const { dialog, onSubmit } = open();
+    // Five rounds and the plus; three formats; nothing to type until asked.
+    expect(within(rounds(dialog)).getAllByRole("button")).toHaveLength(6);
+    expect(within(formats(dialog)).getAllByRole("button")).toHaveLength(3);
+    expect(within(dialog).queryByRole("textbox", { name: msg("applications-interview-round-name") })).toBeNull();
+    expect(link(dialog)).toBeNull();
+
+    const manager = within(rounds(dialog)).getByRole("button", { name: msg("applications-interview-round-hiring-manager") });
+    await userEvent.click(manager);
+    expect(manager).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(manager);
+    expect(manager).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(within(rounds(dialog)).getByRole("button", { name: msg("applications-interview-round-panel") }));
+    await userEvent.click(within(formats(dialog)).getByRole("button", { name: msg("applications-interview-format-phone") }));
+    expect(link(dialog), "a phone call has no link").toBeNull();
 
     await userEvent.click(within(dialog).getByRole("button", { name: "Fri, Nov 6" }));
     await userEvent.click(add());
-    expect(onSubmit.mock.calls[0][0]).toMatchObject({ label: msg("applications-interview-round-hiring-manager") });
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ label: msg("applications-interview-round-panel"), format: "phone", link: null });
   });
 
-  it("takes a pasted meeting link as a video interview, and leaves a format already chosen", async () => {
+  it("names another round in place with the plus: Enter keeps it as a chosen chip, Escape drops it, and neither leaves the form", async () => {
+    const { dialog, onSubmit, onCancel } = open();
+    await userEvent.click(plus(dialog));
+    const name = within(dialog).getByLabelText(msg("applications-interview-round-name"));
+    expect(name).toHaveFocus();
+    await userEvent.type(name, "Onsite loop{Enter}");
+
+    const custom = within(rounds(dialog)).getByRole("button", { name: "Onsite loop" });
+    expect(custom).toHaveAttribute("aria-pressed", "true");
+    expect(plus(dialog), "focus returns to the plus").toHaveFocus();
+    expect(onSubmit, "Enter names the round, it does not send the form").not.toHaveBeenCalled();
+
+    await userEvent.click(plus(dialog));
+    await userEvent.type(within(dialog).getByLabelText(msg("applications-interview-round-name")), "Bar raiser{Escape}");
+    expect(within(rounds(dialog)).queryByRole("button", { name: "Bar raiser" })).toBeNull();
+    expect(within(rounds(dialog)).getByRole("button", { name: "Onsite loop" })).toHaveAttribute("aria-pressed", "true");
+    expect(onCancel, "Escape closes the field, not the dialog").not.toHaveBeenCalled();
+    expect(plus(dialog)).toHaveFocus();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Fri, Nov 6" }));
+    await userEvent.click(add());
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ label: "Onsite loop" });
+  });
+
+  it("keeps a typed name when the field is left, and a common round takes its place when picked", async () => {
+    const { dialog } = open();
+    await userEvent.click(plus(dialog));
+    await userEvent.type(within(dialog).getByLabelText(msg("applications-interview-round-name")), "Take-home review");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Fri, Nov 6" }));
+    expect(within(rounds(dialog)).getByRole("button", { name: "Take-home review" })).toHaveAttribute("aria-pressed", "true");
+
+    await userEvent.click(within(rounds(dialog)).getByRole("button", { name: msg("applications-interview-round-technical") }));
+    expect(within(rounds(dialog)).queryByRole("button", { name: "Take-home review" })).toBeNull();
+  });
+
+  it("opens the meeting link under Video, and keeps a link already typed when the format changes", async () => {
     const { dialog, onSubmit } = open();
-    await userEvent.click(within(dialog).getByRole("button", { name: msg("applications-interview-add-link") }));
-    const formats = within(dialog).getByRole("group", { name: msg("applications-interview-format") });
-    const video = within(formats).getByRole("button", { name: msg("applications-interview-format-video") });
-    const onsite = within(formats).getByRole("button", { name: msg("applications-interview-format-onsite") });
-    const link = within(dialog).getByLabelText(msg("applications-interview-link"));
-
-    await userEvent.type(link, "https://us02web.zoom.us/j/123");
-    expect(video).toHaveAttribute("aria-pressed", "true");
-
-    await userEvent.click(onsite);
-    await userEvent.clear(link);
-    await userEvent.type(link, "https://meet.google.com/abc-defg-hij");
-    expect(onsite).toHaveAttribute("aria-pressed", "true");
-    expect(video).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(within(formats(dialog)).getByRole("button", { name: msg("applications-interview-format-video") }));
+    await userEvent.type(link(dialog)!, "https://meet.google.com/abc-defg-hij");
+    await userEvent.click(within(formats(dialog)).getByRole("button", { name: msg("applications-interview-format-onsite") }));
+    expect(link(dialog)).toHaveValue("https://meet.google.com/abc-defg-hij");
 
     await userEvent.click(within(dialog).getByRole("button", { name: "Fri, Nov 6" }));
     await userEvent.click(add());
     expect(onSubmit.mock.calls[0][0]).toMatchObject({ format: "onsite", link: "https://meet.google.com/abc-defg-hij" });
-  });
-
-  it("knows a meeting room's link from any other", () => {
-    expect(isMeetingLink("https://us02web.zoom.us/j/123")).toBe(true);
-    expect(isMeetingLink("https://teams.microsoft.com/l/meetup-join/x")).toBe(true);
-    expect(isMeetingLink("https://zoom.us.example.com/j/1")).toBe(false);
-    expect(isMeetingLink("https://careers.stripe.com/zoom.us")).toBe(false);
-    expect(isMeetingLink("not a link")).toBe(false);
   });
 });
 
@@ -174,12 +202,12 @@ describe("changing an interview", () => {
     created_at: "2026-11-01T09:00:00Z", updated_at: "2026-11-01T09:00:00Z",
   };
 
-  it("opens on its own month and day, with its time, round and format standing open", async () => {
+  it("opens on its own month and day, with its time, round and format chosen", async () => {
     const { dialog, onSubmit } = open({ interview: stored, onDelete: vi.fn() });
     expect(within(dialog).getByText("December 2026")).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Thu, Dec 3" })).toHaveAttribute("aria-pressed", "true");
     expect(within(dialog).getByLabelText(msg("applications-interview-time"))).toHaveValue("4:15 PM");
-    expect(within(dialog).getByLabelText(msg("applications-interview-round"))).toHaveValue("Panel");
+    expect(within(dialog).getByRole("button", { name: msg("applications-interview-round-panel") })).toHaveAttribute("aria-pressed", "true");
     expect(within(dialog).getByRole("button", { name: msg("applications-interview-format-phone") })).toHaveAttribute("aria-pressed", "true");
     expect(within(dialog).getByLabelText(msg("applications-interview-notes"))).toHaveValue("Went well");
 
@@ -193,5 +221,18 @@ describe("changing an interview", () => {
       outcome: "passed",
       notes: "Went well",
     });
+  });
+
+  it("shows a round of its own name as a chosen chip, and an unnamed one as no round", async () => {
+    open({ interview: { ...stored, label: "Bar raiser" } });
+    expect(screen.getByRole("button", { name: "Bar raiser" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("does not offer the name saved for an unnamed round as a round, and saves it unchanged", async () => {
+    const { dialog, onSubmit } = open({ interview: { ...stored, label: msg("applications-interview-default-label") } });
+    const group = within(dialog).getByRole("group", { name: msg("applications-interview-round") });
+    expect(within(group).queryAllByRole("button", { pressed: true })).toHaveLength(0);
+    await userEvent.click(screen.getByRole("button", { name: msg("applications-interview-edit-submit") }));
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ label: msg("applications-interview-default-label") });
   });
 });

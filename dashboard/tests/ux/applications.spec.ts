@@ -432,6 +432,20 @@ test("the interview form fits the window: the times beside the month on a laptop
   await inView(save);
   expect(box.y + box.height, "nothing to scroll to reach Save").toBeLessThanOrEqual(900);
 
+  // One shape per kind: a day is a circle, the plus a chip as tall as the
+  // rounds beside it, and the time's label shares a line with the month's name.
+  const day = (await dialog.locator(".app-month-day").first().boundingBox())!;
+  expect(day.width, "a day is as wide as it is tall").toBeCloseTo(day.height, 0);
+  const rounds = dialog.getByRole("group", { name: msg("applications-interview-round") });
+  const chip = (await rounds.getByRole("button", { name: msg("applications-interview-round-final") }).boundingBox())!;
+  const plus = (await rounds.getByRole("button", { name: msg("applications-interview-round-add") }).boundingBox())!;
+  expect(plus.height, "the plus is as tall as a chip").toBeCloseTo(chip.height, 0);
+  expect(plus.width, "and round").toBeCloseTo(plus.height, 0);
+  const centre = (b: { y: number; height: number }) => b.y + b.height / 2;
+  const monthName = (await dialog.locator(".app-daypicker-title").boundingBox())!;
+  const timeLabel = (await dialog.getByText(msg("applications-interview-time"), { exact: true }).boundingBox())!;
+  expect(Math.abs(centre(timeLabel) - centre(monthName)), "the time's label is level with the month's name").toBeLessThanOrEqual(2);
+
   // Paging the months moves nothing: February's four weeks take as much room as November's six.
   const heightOf = async () => (await month.boundingBox())!.height;
   const november = await heightOf();

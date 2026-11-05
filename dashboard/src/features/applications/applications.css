@@ -299,12 +299,21 @@
 }
 
 /* What will be saved, in words, as large as the screen's headings: the
-   answer the dialog asks for, read at a glance. */
+   answer the dialog asks for, read at a glance, behind the calendar's mark
+   so it reads as the interview's when rather than as a second title. */
 .app-interview-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
   margin: var(--app-space-2) 0 0;
   font-size: var(--app-type-screen);
   font-weight: var(--app-weight-strong);
   font-variant-numeric: tabular-nums;
+}
+
+.app-interview-summary > svg {
+  flex: none;
+  color: var(--app-text-muted);
 }
 
 .app-interview-summary[data-empty] {
@@ -341,6 +350,15 @@
   flex-direction: column;
   gap: var(--app-space-1);
   min-height: 0;
+}
+
+/* The time's label stands in a row as tall as the month's head, so the two
+   columns' headings share a line and the field starts level with the
+   weekdays. */
+.app-clock > label {
+  display: flex;
+  align-items: center;
+  min-height: var(--app-control-sm);
 }
 
 /* The list is as tall as the row the month makes: its size is contained, so
@@ -391,17 +409,18 @@
   font-size: var(--app-type-meta);
 }
 
-/* What may be left empty, under a line: each part a quiet opener until it
-   is wanted, or until it has a value. */
+/* What may be left empty. Its name rides the rule that parts it from the
+   when, so one line both divides the form and says what follows. */
 .app-interview-optional {
   display: grid;
   gap: var(--app-space-3);
   margin-top: var(--app-space-4);
-  padding-top: var(--app-space-3);
-  border-top: 1px solid var(--app-border);
 }
 
-.app-interview-optional-head {
+/* The form's own labels, in the ledger form's label recipe: a group of
+   chips is named by text, not by a label element, which names one field. */
+.app-interview-optional-head,
+.app-interview-label {
   margin: 0;
   color: var(--app-text-muted);
   font-family: var(--app-font-mono);
@@ -411,8 +430,16 @@
   text-transform: uppercase;
 }
 
-.app-interview-open {
-  justify-self: start;
+.app-interview-optional-head {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+}
+
+.app-interview-optional-head::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--app-border);
 }
 
 .app-interview-field {
@@ -423,7 +450,35 @@
 .app-interview-picks {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--app-space-1);
+}
+
+/* The plus wears the chips' pill, so it reads as one more of them. */
+.app-interview-picks .ui-btn.app-interview-add {
+  width: var(--app-control-sm);
+  padding: 0;
+  border-radius: 999px;
+}
+
+/* A round named in place: a field the height and shape of the chips. */
+.ledger-form.app-interview-form .app-interview-picks .app-interview-name {
+  flex: 0 1 auto;
+  width: 14em;
+  min-height: var(--app-control-sm);
+  padding: 0 var(--app-control-sm-pad);
+  border-radius: 999px;
+  font-size: var(--app-type-meta);
+}
+
+.app-interview-custom {
+  max-width: 100%;
+}
+
+.app-interview-custom > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ledger-form > .app-interview-actions {
@@ -859,6 +914,25 @@
   border-color: var(--app-chosen-line);
   color: var(--app-chosen-text);
   font-weight: var(--app-weight-strong);
+}
+
+/* In the interview form a day is a round button as wide as it is tall, so
+   the hover, the picked day's wash and today's ring are one circle. The
+   month beside Up next keeps its taller cells, which hold marks under the
+   number. */
+.app-daypicker .app-month-grid .ui-btn.app-month-day {
+  display: flex;
+  width: var(--app-control-md);
+  height: var(--app-control-md);
+  margin-inline: auto;
+  padding: 0;
+  border-radius: 999px;
+  font-size: var(--app-type-body);
+}
+
+.app-daypicker .app-month-num {
+  width: 100%;
+  height: 100%;
 }
 
 .app-month-marks {

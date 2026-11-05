@@ -1,14 +1,13 @@
-import { FormEvent, useId, useState } from "react";
+import { FormEvent, KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import type { ApplicationCard, ApplicationInterview, InterviewWrite } from "../../api";
 import { timeZone, timestamp } from "../../copy/format";
 import { STAGE_LABEL } from "../../copy/vocabulary";
 import { companyName } from "../../format";
-import { Button, Dialog, FilterChip, Icon, Select } from "../../ui";
+import { Button, Dialog, FilterChip, Icon, Select, useEscapeLayer } from "../../ui";
 import "../../design/materials/register-material.css";
 import {
   applicationsInterviewAdd,
   applicationsInterviewAddTitle,
-  applicationsInterviewAddLink,
   applicationsInterviewCancel,
   applicationsInterviewDayMissing,
   applicationsInterviewDefaultLabel,
@@ -32,13 +31,13 @@ import {
   applicationsInterviewOutcomePassed,
   applicationsInterviewPickDay,
   applicationsInterviewRound,
-  applicationsInterviewRoundOther,
+  applicationsInterviewRoundAdd,
   applicationsInterviewRoundFinal,
   applicationsInterviewRoundHiringManager,
+  applicationsInterviewRoundName,
   applicationsInterviewRoundPanel,
   applicationsInterviewRoundRecruiter,
   applicationsInterviewRoundTechnical,
-  applicationsInterviewRounds,
   applicationsInterviewSubmit,
   applicationsInterviewTitle,
   applicationsInterviewWhenDay,
@@ -69,23 +68,13 @@ const ROUNDS = [
   applicationsInterviewRoundFinal,
 ];
 
-/** A link to a meeting room: pasting one says the interview is on video. */
-const MEETING_LINK = /(^|[./])(zoom\.us|meet\.google\.com|teams\.microsoft\.com|teams\.live\.com|webex\.com|whereby\.com)(\/|$)/i;
-
-export function isMeetingLink(link: string): boolean {
-  try {
-    return MEETING_LINK.test(new URL(link.trim()).host + "/");
-  } catch {
-    return false;
-  }
-}
-
 /** A stored interview as the form's fields: its day and clock in the
- *  reader's own zone, and no clock for an all-day one. */
+ *  reader's own zone, and no clock for an all-day one. The name saved for a
+ *  round left unnamed reads as no round, so it is not offered as one. */
 function fieldsOf(interview: ApplicationInterview) {
   const at = new Date(interview.scheduled_at);
   return {
-    label: interview.label,
+    label: interview.label === applicationsInterviewDefaultLabel() ? "" : interview.label,
     day: `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`,
     clock: interview.all_day ? "" : `${pad(at.getHours())}:${pad(at.getMinutes())}`,
     format: (interview.format ?? "") as FormatChoice,
@@ -135,10 +124,10 @@ export interface InterviewDialogProps {
  * changing one, where its outcome and notes are recorded.
  *
  * When comes first and is all it asks for: a day from the month and, beside
- * it, a time or none yet. Under Optional, the round's common names are one
- * click each; where it happens waits behind a line that opens into its
- * fields, and stands open when it already has a value. The head and the actions hold still while the middle
- * scrolls, so the way to save is always in reach.
+ * it, a time or none yet. Under Optional, the round and the format are one
+ * click each: a plus after the common rounds names another in place, and a
+ * video interview opens the field for its link. The head and the actions hold
+ * still while the middle scrolls, so the way to save is always in reach.
  */
 export function InterviewDialog({ card, interview, moving = false, onCancel, onSubmit, onDelete }: InterviewDialogProps) {
   const [now] = useState(() => new Date());
@@ -150,10 +139,14 @@ export function InterviewDialog({ card, interview, moving = false, onCancel, onS
   const [link, setLink] = useState(initial?.link ?? "");
   const [outcome, setOutcome] = useState<OutcomeChoice>(initial?.outcome ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
-  const [whereOpen, setWhereOpen] = useState(Boolean(initial?.format || initial?.link));
+  const [naming, setNaming] = useState(false);
+  const [draft, setDraft] = useState("");
+  const addRound = useRef<HTMLButtonElement>(null);
+  const nameField = useRef<HTMLInputElement>(null);
+  const backToPlus = useRef(false);
   const [tried, setTried] = useState(false);
   const roundId = useId();
-  const linkId = useId();
+  const formatId = useId();
   const dayErrorId = useId();
   const editing = interview != null;
   const title = moving ? applicationsInterviewTitle() : editing ? applicationsInterviewEditTitle() : applicationsInterviewAddTitle();
@@ -178,9 +171,37 @@ export function InterviewDialog({ card, interview, moving = false, onCancel, onS
     const write = interviewFrom({ label, day, clock, format, link });
     onSubmit(editing ? { ...write, outcome: outcome || null, notes: notes.trim() || null } : write);
   };
-  const onLink = (next: string) => {
-    setLink(next);
-    if (!format && isMeetingLink(next)) setFormat("video");
+  const rounds = ROUNDS.map((round) => round());
+  const named = label.trim();
+  const custom = named && !rounds.includes(named) ? named : "";
+  const toggleRound = (name: string) => setLabel(named === name ? "" : name);
+  // A name typed after the plus is kept on Enter or on leaving the field.
+  // While the field is open it is the topmost Escape layer, so Escape drops
+  // the name and leaves the dialog open. A key that closes the field hands
+  // focus back to the plus, which takes its place.
+  useEffect(() => {
+    if (naming) {
+      nameField.current?.focus();
+    } else if (backToPlus.current) {
+      backToPlus.current = false;
+      addRound.current?.focus();
+    }
+  }, [naming]);
+  const keepName = () => {
+    if (draft.trim()) setLabel(draft.trim());
+    setDraft("");
+    setNaming(false);
+  };
+  useEscapeLayer(naming, () => {
+    backToPlus.current = true;
+    setDraft("");
+    setNaming(false);
+  });
+  const onNameKey = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    backToPlus.current = true;
+    keepName();
   };
 
   return (
@@ -193,7 +214,10 @@ export function InterviewDialog({ card, interview, moving = false, onCancel, onS
               ? applicationsInterviewMoves({ company: companyName(card.company), title: card.title, stage: STAGE_LABEL.interviewing })
               : applicationsInterviewFor({ company: companyName(card.company), title: card.title })}
           </p>
-          <p className="app-interview-summary" data-empty={!day || undefined} aria-live="polite">{summary}</p>
+          <p className="app-interview-summary" data-empty={!day || undefined} aria-live="polite">
+            <Icon name="calendar" size={18} />
+            <span>{summary}</span>
+          </p>
         </header>
 
         <div className="app-interview-body">
@@ -211,46 +235,61 @@ export function InterviewDialog({ card, interview, moving = false, onCancel, onS
           <section className="app-interview-optional" aria-label={applicationsInterviewOptional()}>
             <p className="app-interview-optional-head" aria-hidden="true">{applicationsInterviewOptional()}</p>
             <div className="app-interview-field">
-              <label htmlFor={roundId}>{applicationsInterviewRound()}</label>
-              <div className="app-interview-picks" role="group" aria-label={applicationsInterviewRounds()}>
-                {ROUNDS.map((round) => (
-                  <FilterChip key={round()} selected={label.trim() === round()} onClick={() => setLabel(label.trim() === round() ? "" : round())}>
-                    {round()}
+              <p id={roundId} className="app-interview-label">{applicationsInterviewRound()}</p>
+              <div className="app-interview-picks" role="group" aria-labelledby={roundId}>
+                {rounds.map((name) => (
+                  <FilterChip key={name} selected={named === name} onClick={() => toggleRound(name)}>{name}</FilterChip>
+                ))}
+                {custom && (
+                  <FilterChip selected className="app-interview-custom" title={custom} onClick={() => setLabel("")}>
+                    <span>{custom}</span>
+                  </FilterChip>
+                )}
+                {naming ? (
+                  <input
+                    ref={nameField}
+                    className="app-interview-name"
+                    value={draft}
+                    maxLength={120}
+                    aria-label={applicationsInterviewRoundName()}
+                    placeholder={applicationsInterviewRoundName()}
+                    onChange={(event) => setDraft(event.target.value)}
+                    onKeyDown={onNameKey}
+                    onBlur={keepName}
+                  />
+                ) : (
+                  <Button
+                    ref={addRound}
+                    size="sm"
+                    className="app-interview-add"
+                    aria-label={applicationsInterviewRoundAdd()}
+                    title={applicationsInterviewRoundAdd()}
+                    onClick={() => setNaming(true)}
+                  >
+                    <Icon name="plus" size={14} />
+                  </Button>
+                )}
+              </div>
+            </div>
+            <div className="app-interview-field">
+              <p id={formatId} className="app-interview-label">{applicationsInterviewFormat()}</p>
+              <div className="app-interview-picks" role="group" aria-labelledby={formatId}>
+                {FORMATS.map(([value, name]) => (
+                  <FilterChip key={value} selected={format === value} onClick={() => setFormat(format === value ? "" : value)}>
+                    {name()}
                   </FilterChip>
                 ))}
               </div>
-              <input
-                id={roundId}
-                value={label}
-                maxLength={120}
-                placeholder={applicationsInterviewRoundOther()}
-                onChange={(event) => setLabel(event.target.value)}
-              />
-            </div>
-            {whereOpen ? (
-              <div className="app-interview-field">
-                <div className="app-interview-picks" role="group" aria-label={applicationsInterviewFormat()}>
-                  {FORMATS.map(([value, name]) => (
-                    <FilterChip key={value} selected={format === value} onClick={() => setFormat(format === value ? "" : value)}>
-                      {name()}
-                    </FilterChip>
-                  ))}
-                </div>
-                <label htmlFor={linkId}>{applicationsInterviewLink()}</label>
+              {(format === "video" || link) && (
                 <input
-                  id={linkId}
                   type="url"
                   value={link}
-                  autoFocus={!initial?.link && !initial?.format}
+                  aria-label={applicationsInterviewLink()}
                   placeholder={applicationsInterviewLinkPlaceholder()}
-                  onChange={(event) => onLink(event.target.value)}
+                  onChange={(event) => setLink(event.target.value)}
                 />
-              </div>
-            ) : (
-              <Button size="sm" className="app-interview-open" onClick={() => setWhereOpen(true)}>
-                <Icon name="plus" size={14} /> {applicationsInterviewAddLink()}
-              </Button>
-            )}
+              )}
+            </div>
             {editing && (
               <>
                 <div className="app-interview-field">
