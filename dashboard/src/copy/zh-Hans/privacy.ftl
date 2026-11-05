@@ -14,6 +14,7 @@ privacy-sent-load-failed = 无法加载已发送的内容
 privacy-choose = 让我选择
 privacy-no-thanks = 不用了
 privacy-happy-to-help = 乐意帮忙
+privacy-your-answer = 你的选择
 privacy-save-error = 无法保存你的选择。请重试。
 privacy-settings-title = 隐私
 privacy-settings-intro = 每种共享在你开启之前都是关闭的。关闭某一种会立即停止它。
