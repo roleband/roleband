@@ -1,4 +1,4 @@
-import { expect, test } from "./fixtures";
+import { expect, mockGet, test } from "./fixtures";
 import type { Locator } from "@playwright/test";
 import { expectMeasuredToolbar } from "./measuredToolbar";
 import { installCompanyRegisterRoutes, installSettingsRoutes } from "./settingsHarness";
@@ -182,7 +182,7 @@ test.beforeEach(async ({ page }) => {
   await page.route("/api/company-profiles/reddit/prices**", (r) =>
     r.fulfill({ json: prices("reddit", "RDDT", 168.4, 1.21) }));
   await page.route("/api/company-profiles/google", (r) => r.fulfill({ json: googleDetail }));
-  await page.route("/api/company-profiles/reddit", (r) => r.fulfill({ json: redditDetail }));
+  await mockGet(page, "/api/company-profiles/reddit", (r) => r.fulfill({ json: redditDetail }));
   await page.route("/api/companies/*/card", (r) =>
     r.fulfill({ json: companyCardFixture }));
 });
@@ -429,7 +429,7 @@ const dangerEdge = (field: Locator) => field.evaluate((el) => {
 });
 
 test("a count that is not a whole number is refused, and its field's edge says so", async ({ page }) => {
-  await page.route("/api/company-profiles/reddit", (r) => r.fulfill({
+  await mockGet(page, "/api/company-profiles/reddit", (r) => r.fulfill({
     json: {
       ...redditDetail,
       needs_review: [{ field: "headcount", reason: "missing", current: null, suggestion: null, candidates: [] }],
