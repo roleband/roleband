@@ -110,6 +110,8 @@ export interface WalkSetup {
   companies?: (props: SetupCompaniesProps) => ReactNode;
   /** "Set up later": leaves without saving. */
   onLater?: () => void;
+  /** Back from the first step, to what came before the walk. */
+  onBack?: () => void;
 }
 
 export function Walk({ setup }: { setup?: WalkSetup } = {}) {
@@ -252,7 +254,9 @@ export function Walk({ setup }: { setup?: WalkSetup } = {}) {
   const back = () => {
     const previous = order[at - 1];
     if (previous !== undefined) setView(previous);
+    else setup?.onBack?.();
   };
+  const backHidden = at === 0 && !setup?.onBack;
   const leave = async () => {
     if (dirty && !(await save())) return;
     navigate("/");
@@ -400,14 +404,14 @@ export function Walk({ setup }: { setup?: WalkSetup } = {}) {
                   {view === "subjects" && <SubjectsStep lines={lines} onChange={setModifierLines} />}
                 </div>
                 <footer className="walk-step-foot">
-                  {/* The first step has nowhere to go back to: Back holds its
-                      place unseen, so Continue stands where it stands on
-                      every step. */}
+                  {/* Outside setup the first step has nowhere to go back to:
+                      Back holds its place unseen, so Continue stands where it
+                      stands on every step. Setup's goes to what came before. */}
                   <Button
                     variant="ghost"
                     onClick={back}
-                    disabled={at === 0}
-                    style={at === 0 ? { visibility: "hidden" } : undefined}
+                    disabled={backHidden}
+                    style={backHidden ? { visibility: "hidden" } : undefined}
                   >
                     {profileWelcomeWizardBack()}
                   </Button>
