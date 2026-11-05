@@ -17,10 +17,10 @@ A pipeline for the roles you pursue, and fixes.
   a next step, notes, comments and interview rounds. An application can now end
   as accepted, declined or role closed, and the Pipeline keeps its own
   comparison, apart from the Radar's.
-- **A level we cannot place gets no pay estimate.** A posting whose title names
-  no level on the company's ladder used to show the pay of a guessed level. It
-  now shows the range the posting states, marked "level not mapped" or "level
-  not stated". Existing roles are estimated again once, after the update.
+- **A level we cannot place gets no pay estimate.** When a posting's title names
+  no level on the company's ladder, its pay shows the range the posting states,
+  marked "level not mapped" or "level not stated", and no estimate for a
+  guessed level. Every role is estimated again once, after the update.
 - **First-run setup is easier to go back through.** Back from its first step
   asks the sharing question again, on the answer you gave. Adjust on the
   Summary brings Continue back to the Summary. The minimum base field reads the
