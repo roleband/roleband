@@ -10,7 +10,9 @@ every file its tier's steps read.
 
 The Mac workflow names two tiers (`NATIVE_PATHS`, `BUNDLE_PATHS`) and gates pushes too. The
 bundle never runs for a pull request; it is the slow tier, and every release builds it.
-Any other gate names one tier (`TIER`, `PATHS`), which only a pull request can skip.
+Any other workflow names one tier (`TIER`, `PATHS`), which only a pull request can skip
+unless `SKIP_EVENTS` names the events that may skip it: CodeQL's Swift scan lets a push skip
+too, since no required check waits on it.
 
 Anything this script cannot judge runs everything: a release, a manual or scheduled run, a
 push with no previous commit, or a diff git cannot produce.
@@ -40,7 +42,8 @@ def glob_regex(pattern):
         else:
             out.append(re.escape(pattern[i]))
             i += 1
-    return re.compile(''.join(out))
+    # A file name may hold a line feed; DOTALL lets `**` match across it as git's globs do.
+    return re.compile(''.join(out), re.DOTALL)
 
 
 def patterns(text):
@@ -60,27 +63,34 @@ def decide(event, changed, native_paths, bundle_paths):
     return {'native': native, 'bundle': bundle}
 
 
-def needed(event, changed, globs):
-    """One tier of a gate other than the Mac workflow's."""
-    return event != 'pull_request' or changed is None or any(matches(path, globs) for path in changed)
+def needed(event, changed, globs, skippable=('pull_request',)):
+    """One tier of a workflow other than the Mac one; only a `skippable` event can skip it."""
+    if event in EVERYTHING or event not in skippable or changed is None:
+        return True
+    return any(matches(path, globs) for path in changed)
 
 
 def changed_files(event, base, head):
     if not base or NO_COMMIT.fullmatch(base) or not head:
         return None
     span = f'{base}...{head}' if event == 'pull_request' else f'{base}..{head}'
-    result = subprocess.run(['git', 'diff', '--name-only', span], capture_output=True, text=True)
+    # A rename lists only its destination; without renames a move out of a watched path
+    # still names the path it left. `-z` gives each path as it is, where the default output
+    # quotes a non-ASCII name and a space would split one. A name is bytes to git, and one that
+    # is not UTF-8 still decodes (`os.fsdecode`), so it matches its directory's globs.
+    result = subprocess.run(['git', 'diff', '-z', '--no-renames', '--name-only', span], capture_output=True)
     if result.returncode != 0:
-        print(result.stderr.strip(), file=sys.stderr)
+        print(result.stderr.decode(errors='replace').strip(), file=sys.stderr)
         return None
-    return result.stdout.split()
+    return [os.fsdecode(path) for path in result.stdout.split(b'\0') if path]
 
 
 def main():
     event = os.environ['EVENT']
     changed = changed_files(event, os.environ.get('BASE', ''), os.environ.get('HEAD', ''))
     if 'TIER' in os.environ:
-        tiers = {os.environ['TIER']: needed(event, changed, patterns(os.environ['PATHS']))}
+        skippable = os.environ.get('SKIP_EVENTS', 'pull_request').split()
+        tiers = {os.environ['TIER']: needed(event, changed, patterns(os.environ['PATHS']), skippable)}
     else:
         tiers = decide(event, changed, patterns(os.environ['NATIVE_PATHS']), patterns(os.environ['BUNDLE_PATHS']))
     seen = 'unknown' if changed is None else f'{len(changed)} changed files'

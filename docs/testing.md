@@ -327,6 +327,7 @@ misjudged.
 | `contract-drift.yml` | Every push and PR | Regenerates `openapi.json` and `api.gen.ts`, fails on any diff |
 | `hygiene.yml` | Every push and PR | `backend/scripts/check_project_name.py`, `backend/scripts/check_comment_hygiene.py` |
 | `mac-launcher.yml` | Every push and PR, weekly, and each release; its jobs run only when needed | A Linux `changes` job picks the tiers. Native tier (macOS): copy export check, Swift tests, installer and release tests, install guide in Chromium and WebKit, source app build, transport test. Bundle tier (macOS, never on a PR): the dashboard and the standalone app with its engine, launched read-only, packaged as a candidate for local signing |
+| `codeql.yml` | Every push and PR, and weekly; the Swift scan only when it is needed | Code scanning with the default query suite. `actions`, `javascript-typescript` and `python` on Linux, without a build. Swift on macOS with the Xcode `mac-launcher.yml` pins, traced through a release build of the `RoleBandLauncher` product, the one `build-app.sh` ships; its `changes` job runs it when `launcher/**` or the workflow changed, and a weekly or manual run always does. Advisory: no required check waits on it |
 | `links.yml` | Markdown changes, and weekly | External links in every tracked `*.md` resolve (lychee; loopback skipped, a rate limit counts as alive). Only the weekly run fails; on a pull request it reports |
 | `vendored-provenance.yml` | Monthly, and when vendored pins change | Vendored snapshots against upstream; a notice, never a PR blocker |
 
@@ -371,6 +372,12 @@ linters are skipped. A dashboard pull request outside the dashboard's paths skip
 `dashboard` job, and each `ux` shard starts and skips its steps, since a matrix job
 skipped whole reports a single `ux` check and the required shards would wait forever.
 When the `changes` job fails, both workflows run in full.
+CodeQL's Swift scan is a tier of the same kind that a push may skip too
+(`SKIP_EVENTS`), since no required check waits on it, and it scans when its
+`changes` job fails. It traces its own build (`build-mode: manual`): the test holds
+that the build names the product and configuration `build-app.sh` ships, on the
+runner and `DEVELOPER_DIR` of the `mac-launcher` build, and that
+`security-events: write` is granted only to a job that uploads an analysis.
 `backend/tests/test_ci_workflow_triggers.py` derives each list from the jobs' steps and
 from the files the code under test names outside its directory, and fails on a path
 it misses.
@@ -378,7 +385,7 @@ it misses.
 In CI Playwright forbids `.only` and never
 retries: a flaky test is diagnosed, not retried.
 
-Backend and dashboard workflows cancel superseded runs of the same pull request.
+Backend, dashboard and CodeQL workflows cancel superseded runs of the same pull request.
 Main-branch pushes use independent run groups and do not cancel one another.
 
 ## Triaging a flaky UX failure
