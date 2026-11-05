@@ -528,9 +528,12 @@ def ensure_server(
     `server_settings` apply on a start. Attaching to a running server leaves
     its settings as they are.
     """
-    pgserver = _upstream()
-
     pgdata = Path(pgdata).expanduser()
+    if os.name == "nt":
+        from tracker.platform.windows_recovery import require_launchable
+
+        require_launchable(pgdata.absolute().parent)
+    pgserver = _upstream()
     if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,62}", database):
         raise EmbeddedDbError("embedded database name must be a PostgreSQL identifier of at most 63 characters")
     first_run = not (pgdata / "PG_VERSION").exists()

@@ -17,12 +17,20 @@ def main() -> None:
     os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
     os.environ["PYTHONNOUSERSITE"] = "1"
     os.environ["ROLEBAND_LOCAL_AUTH"] = "1"
-    if not args or args[0] not in {"run", "prepare", "seed", "checkpoint"}:
-        sys.exit("usage: desktop.py [--source] {run|prepare|seed|checkpoint} [arguments]")
-    if args[0] == "checkpoint":
-        sys.argv = ["scripts.windows_checkpoint", *args[1:]]
-        runpy.run_module("scripts.windows_checkpoint", run_name="__main__", alter_sys=True)
+    if not args or args[0] not in {"run", "prepare", "seed", "checkpoint", "recovery"}:
+        sys.exit("usage: desktop.py [--source] {run|prepare|seed|checkpoint|recovery} [arguments]")
+    if args[0] in {"checkpoint", "recovery"}:
+        module = "scripts.windows_" + args[0]
+        sys.argv = [module, *args[1:]]
+        runpy.run_module(module, run_name="__main__", alter_sys=True)
         return
+    if sys.platform == "win32":
+        from tracker.platform.windows_recovery import require_launchable
+
+        state = os.environ.get("ROLEBAND_STATE_DIR")
+        if not state or not Path(state).is_absolute():
+            sys.exit("The desktop engine requires explicit absolute retained state")
+        require_launchable(Path(state))
     if args == ["prepare"]:
         from tracker.supervisor.prepare import migrate
 

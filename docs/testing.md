@@ -60,6 +60,17 @@ explicit `--pgdata`, `--database`, `--destination` and `--verification-state`;
 Neither command restores over the source database. These checks do not establish
 package rollback or a complete update recovery transaction.
 
+`tests/test_windows_recovery.py` terminates real drill coordinators before and
+during scratch database startup, then exercises retry, abandonment, changed
+checkpoint refusal, damaged journals and live lifecycle leases. It verifies that
+unfinished drills block run/prepare/seed and direct embedded-server startup, while
+abandonment preserves the original database, credentials, key and saved roles.
+The native `RecoveryTests` verify that blocked startup never spawns an engine and
+releases its desktop lease. The command is `desktop.py --source recovery begin
+--state <retained-state> --checkpoint <verified-checkpoint>`; `status`, `retry` and
+`abandon` require the same explicit `--state`. Run these only with synthetic trial
+state. They establish scratch recovery behavior, not database promotion.
+
 The native engine-host integration tests accept `ROLEBAND_HOST_TEST_RESOURCES`
 pointing at an assembled app's `Contents/Resources`. They exercise its real
 Python, Postgres, supervisor and API with a new scratch home and database;

@@ -174,6 +174,12 @@ paths and refuses a running source engine; it neither promotes a restored
 database nor replaces an application. Its contract is owned by
 [the recovery checkpoint decision](decisions/0005-windows-recovery-checkpoints.md).
 
+`backend/desktop.py recovery` runs a durable scratch-only restore drill. Unfinished
+or malformed journals block the native host, desktop preparation and embedded
+database startup. Retry uses fresh storage; explicit abandonment preserves the
+unchanged current database and all diagnostic attempts. The journal and resolution
+contract are owned by [the drill decision](decisions/0006-windows-recovery-drills.md).
+
 ## The Mac app
 
 ### Packaged engine

@@ -40,6 +40,7 @@ public sealed class EngineSession : IAsyncDisposable
             if (OwnsEngine) return;
             lease = PrivateStorage.Lease(configuration.State, "desktop.lock");
             PrivateStorage.EnsureDirectory(Path.Combine(configuration.State, "logs"));
+            RecoveryGuard.RequireLaunchable(configuration.State);
             RefuseLivePredecessor();
             stopping = new CancellationTokenSource();
             Publish(EngineState.Starting);
@@ -131,6 +132,7 @@ public sealed class EngineSession : IAsyncDisposable
         {
             while (!cancellation.IsCancellationRequested)
             {
+                RecoveryGuard.RequireLaunchable(configuration.State);
                 var marker = Guid.NewGuid().ToString("N");
                 process = Spawn(marker);
                 ownedProcesses.Add(process);
