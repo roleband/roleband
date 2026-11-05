@@ -154,5 +154,24 @@ class WorkflowStepTests(unittest.TestCase):
                 base = head
 
 
+    def test_a_path_that_is_not_utf8_still_matches(self):
+        """macOS cannot hold such a name on disk, so the commit is built from the index alone."""
+        with tempfile.TemporaryDirectory() as repo:
+            git(repo, 'init', '-q')
+            git(repo, 'config', 'user.email', 'ci@example.test')
+            git(repo, 'config', 'user.name', 'CI')
+            Path(repo, 'notes.txt').write_text('a\n')
+            git(repo, 'add', '.')
+            git(repo, 'commit', '-qm', 'notes')
+            base = git(repo, 'rev-parse', 'HEAD')
+            blob = git(repo, 'hash-object', '-w', 'notes.txt')
+            subprocess.run([b'git', b'-C', repo.encode(), b'update-index', b'--add', b'--cacheinfo',
+                            b'100644,' + blob.encode() + b',backend/caf\xe9.py'], check=True)
+            tree = git(repo, 'write-tree')
+            head = git(repo, 'commit-tree', tree, '-p', base, '-m', 'latin-1 name')
+
+            self.assertEqual(self.run_step(repo, 'pull_request', base, head, 'backend'), {'backend': 'true'})
+
+
 if __name__ == '__main__':
     unittest.main()
