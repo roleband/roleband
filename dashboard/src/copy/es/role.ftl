@@ -388,3 +388,7 @@ role-job-comp-panel-level-not-stated-or-mapped = La oferta no indica nivel, o in
 role-job-comp-panel-not-read-yet = aún sin leer
 role-job-comp-panel-estimated-base = Salario base estimado
 role-job-comp-panel-from-roleband-data = De los datos integrados.
+role-job-detail-could-not-unsave-this-role = { $choice ->
+    [yes] No se pudo guardar este puesto
+   *[no] No se pudo quitar este puesto de tu seguimiento
+}

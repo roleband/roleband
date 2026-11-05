@@ -86,12 +86,21 @@ const menuButton = (page: Page, title: string) =>
 const menu = (page: Page, title: string) =>
   page.getByRole("dialog", { name: msg("applications-menu-label", { title }) });
 
+/** Let `count` frames paint: a watch over time counted in frames, which a
+ *  loaded machine slows along with the page, rather than in milliseconds. */
+async function frames(page: Page, count: number) {
+  await page.evaluate((left) => new Promise<void>((resolve) => {
+    const tick = (n: number) => (n === 0 ? resolve() : requestAnimationFrame(() => tick(n - 1)));
+    tick(left);
+  }), count);
+}
+
 test.beforeEach(async ({ page }) => {
   await installBoardRoutes(page);
   await installJobDetailRoutes(page);
 });
 
-test("the rail place opens on the List, titled by its rail label, and the old Saved address lands there too", async ({ page }) => {
+test("the rail place opens on the List, titled by its rail label, and the old Saved address opens the Board, where every starred role is", async ({ page }) => {
   await installPipeline(page);
   await page.goto("/pipeline");
   await expect(page).toHaveURL(/\/pipeline\/list$/);
@@ -101,11 +110,13 @@ test("the rail place opens on the List, titled by its rail label, and the old Sa
   await expect(rail.getByRole("link", { name: msg("shell-nav-pipeline") })).toBeVisible();
   await expect(rail.getByRole("link", { name: "Saved", exact: true })).toHaveCount(0);
 
+  // Saved counts every starred role. The List leaves out the ones past
+  // Considering, so the old address and the count both open the Board.
   await page.goto("/favorites");
-  await expect(page).toHaveURL(/\/pipeline\/list$/);
-
-  await page.getByRole("tab", { name: msg("shell-tab-pipeline-board") }).click();
+  await expect(page).toHaveURL(/\/pipeline\/board$/);
+  await expect(page.getByRole("tab", { name: msg("shell-tab-pipeline-board") })).toHaveAttribute("aria-selected", "true");
   await expect(column(page, "Considering").getByText("Staff Product Manager, API")).toBeVisible();
+  await expect(column(page, "Applied").getByText("Principal Engineering Manager")).toBeVisible();
   await expect(page.getByText(msg("applications-board-summary", {
     moving: 2, decided: 0, closed: 1, needNext: msg("applications-board-need-next", { count: 1 }),
   }))).toBeVisible();
@@ -197,7 +208,7 @@ test("a drag held at the board's edge scrolls it, and a drop on Interviewing ask
   // board and widens it as it goes, so a scroll measured by the board's width
   // would chase the card for as long as the drag is held.
   await expect.poll(() => scroller.evaluate((element) => element.scrollLeft)).toBeGreaterThanOrEqual(end - 1);
-  await page.waitForTimeout(400);
+  await frames(page, 24);
   expect(await scroller.evaluate((element) => element.scrollLeft)).toBeLessThanOrEqual(end + 1);
 
   const to = await middleOf(page, "Interviewing");
@@ -694,7 +705,7 @@ test("switching between List, Board and Up next keeps the header still and reads
     });
     await page.getByRole("tab", { name }).click();
     await expect(page.getByRole("tab", { name })).toHaveAttribute("aria-selected", "true");
-    await page.waitForTimeout(600);
+    await frames(page, 36);
     const tops = await page.evaluate(() => {
       const w = window as unknown as { tops: number[]; sampler: number };
       window.clearInterval(w.sampler);

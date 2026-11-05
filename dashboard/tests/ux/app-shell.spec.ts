@@ -463,6 +463,9 @@ test("every count in the top bar wears the bar's ink, chosen or not, and its uni
     msg("shell-stat-reposted-aria", { count: 49 }),
     msg("shell-stat-saved-aria", { count: 4 }),
   ]);
+  // The count is every starred role, and the Board is where they all are.
+  await expect(page.getByRole("link", { name: msg("shell-stat-saved-aria", { count: 4 }) }))
+    .toHaveAttribute("href", "/pipeline/board");
   // No chip paints its number in the UA's black; the reposted button reads
   // exactly like the saved link beside it.
   for (const c of at_rest) expect(c.n, c.label!).not.toBe("rgb(0, 0, 0)");

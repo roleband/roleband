@@ -44,6 +44,7 @@ radar-mode-closed = Cerrados
 
 ## Acciones del radar
 radar-save-failed = No se pudo guardar { $title }. Inténtalo de nuevo.
+radar-unsave-failed = No se pudo quitar { $title } de tu seguimiento. Inténtalo de nuevo.
 radar-restore-failed = No se pudo restaurar { $title }. Inténtalo de nuevo.
 radar-exclude-done = { $count ->
     [one] { $count } puesto con “{ $value }” salió de tu radar. Cámbialo en Perfil › Qué buscas.

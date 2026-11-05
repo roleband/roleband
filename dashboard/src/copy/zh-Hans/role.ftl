@@ -372,3 +372,7 @@ role-job-comp-panel-level-not-stated-or-mapped = 招聘信息未注明级别，�
 role-job-comp-panel-not-read-yet = 尚未读取
 role-job-comp-panel-estimated-base = 估算基本工资
 role-job-comp-panel-from-roleband-data = 来自内置数据。
+role-job-detail-could-not-unsave-this-role = { $choice ->
+    [yes] 无法保存这个职位
+   *[no] 无法将这个职位从求职进展中移除
+}

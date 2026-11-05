@@ -114,8 +114,9 @@ const RoutedScreens = memo(function RoutedScreens({ location }: { location: Loca
       <Route path="/settings/roles" element={<Navigate to="/profile/direction" replace />} />
       {/* /settings/integrations lands on Settings > Plugins, where pay sources are set. */}
       <Route path="/settings/integrations" element={<Navigate to="/settings/plugins" replace />} />
-      {/* Saved is the pipeline's List: every starred role is a row there. */}
-      <Route path="/favorites" element={<Navigate to="/pipeline/list" replace />} />
+      {/* Saved's old address: every starred role is a card on the pipeline's
+          Board, where the List holds only those still in Considering. */}
+      <Route path="/favorites" element={<Navigate to="/pipeline/board" replace />} />
       {/* One plugin's settings: the Settings shell on the Plugins tab,
           which reads `:pluginId` (any other tab sends it back). */}
       <Route path="/settings/:tab/:pluginId" element={<SettingsItemRoute />} />
@@ -447,9 +448,11 @@ function Shell() {
                 title={shellStatRepostedTitle()}
               />
             )}
+            {/* It counts every starred role, so it opens the Board, which
+                shows them all; the List holds only those in Considering. */}
             <StatChip
               kind="link"
-              to="/pipeline/list"
+              to="/pipeline/board"
               n={stats?.saved_total ?? "—"}
               label={shellStatSaved()}
               ariaLabel={stats ? shellStatSavedAria({ count: stats.saved_total }) : shellStatSavedAriaUnknown()}

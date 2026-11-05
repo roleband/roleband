@@ -325,9 +325,10 @@ test("the top-bar counts are one choice: whatever you click is what you see", as
   await expect(lensChip).toBeVisible();
   expect(lensesSent()).toBe("true/false");
 
-  // Saved roles are the pipeline's List: only saved is lit there.
+  // Saved roles are the pipeline's Board, where every one is a card: only
+  // saved is lit there.
   await saved.click();
-  await expect(page).toHaveURL(/\/pipeline\/list$/);
+  await expect(page).toHaveURL(/\/pipeline\/board$/);
   await expect(saved).toHaveAttribute("aria-current", "page");
   await expect(newToday).toHaveAttribute("aria-pressed", "false");
   await expect(openRoles).not.toHaveAttribute("aria-current", "page");

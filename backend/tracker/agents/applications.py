@@ -31,8 +31,10 @@ NEXT_INTERVIEW_GRACE = timedelta(hours=12)
 #: The most activity entries one read returns.
 ACTIVITY_LIMIT_MAX = 200
 
-#: The longest span one calendar read covers: a month grid, whole weeks.
-CALENDAR_SPAN_MAX = timedelta(days=42)
+#: The longest span one calendar read covers: a month grid, six whole weeks
+#: from local midnight to local midnight. When a clock goes back inside the
+#: grid, those six weeks are an hour longer than 42 days of 24 hours.
+CALENDAR_SPAN_MAX = timedelta(days=42, hours=1)
 
 #: Endings that owe nothing, so their next step is not on the calendar. An
 #: accepted offer is not one: signing and a start date still carry dates.

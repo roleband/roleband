@@ -5,6 +5,8 @@ compare-screen-back = 返回
 compare-screen-clear = 清空
 compare-screen-compare = 对比
 compare-screen-radar = 雷达
+compare-screen-on-your-or-in-use = 在你的{ $radar }或{ $pipeline }中，点击某一行的{ $icon } 按钮即可将其加入这里。
+compare-screen-pipeline = 求职进展
 compare-screen-same = 相同
 compare-screen-fields = 个字段
 compare-screen-descriptions = 职位描述
@@ -65,3 +67,7 @@ compare-use-compare-controller-could-not-hide = 无法将{ $title }标记为不�
 
 ## 从对比中再添加一个职位。
 compare-screen-add-another = 再添加一个
+compare-use-compare-controller-could-not-unsave = { $direction ->
+    [save] 无法保存{ $title }
+   *[unsave] 无法将{ $title }从求职进展中移除
+}

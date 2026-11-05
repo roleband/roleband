@@ -331,6 +331,27 @@ async def test_six_weeks_is_the_longest_span(api_client):
     assert response.status_code == 200, response.text
 
 
+async def test_six_weeks_across_a_clock_going_back_is_read(api_client):
+    # A November grid in New York: 26 October to 7 December, local midnight to
+    # local midnight, with daylight saving ending on 1 November inside it.
+    response = await api_client.get(
+        "/api/applications/calendar",
+        params={"start": "2026-10-26T00:00:00-04:00", "end": "2026-12-07T00:00:00-05:00"},
+    )
+
+    assert response.status_code == 200, response.text
+
+
+async def test_a_span_past_six_weeks_and_a_clock_change_is_refused(api_client):
+    start = datetime(2026, 10, 26, tzinfo=UTC)
+    response = await api_client.get(
+        "/api/applications/calendar",
+        params={"start": _iso(start), "end": _iso(start + timedelta(days=42, hours=1, seconds=1))},
+    )
+
+    assert response.status_code == 422, response.text
+
+
 # --- comments ---------------------------------------------------------------------
 
 
