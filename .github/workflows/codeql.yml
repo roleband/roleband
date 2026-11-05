@@ -7,7 +7,7 @@ name: codeql
 # run, or a diff that cannot be read, scans it anyway.
 on:
   push:
-    branches: [main, claude/youthful-moser-b668dd]
+    branches: [main]
   pull_request:
   schedule:
     # Tuesday 05:17 UTC: a fresh query pack over code no change touched.
