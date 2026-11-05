@@ -417,6 +417,9 @@ Every on, selected or current look is one of two, each from one token set.
 - Use `aria-pressed` for a mode, `aria-current` for the current one of a set
   of one-shot actions (an answer already given, asked again), and
   `aria-expanded` for a disclosure. Open is not chosen.
+- A field holding a value it cannot take is marked `aria-invalid="true"`
+  and wears the `--app-danger` edge from one rule in `shell.css`. A screen
+  marks the field and paints nothing; the words that say why sit beside it.
 - The name changes colour; the description under it stays muted. Never change
   weight to show state (it reflows the row).
 - A list option marks its choice with a tick and the gold name, no wash. A
@@ -825,7 +828,7 @@ Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs
 | Hand-rolled UI markers, extinct tokens, click targets | `test/ratchet.test.ts` + `ratchet-baseline.json` |
 | Button classes outside `src/ui/` | `test/control-inventory.test.ts` + `control-inventory-baseline.json` |
 | Primitive states not repainted | `design/primitive-states.test.ts` |
-| Chosen and on states | `design/state-grammar.test.ts`, `state-grammar.spec.ts` |
+| Chosen and on states; the invalid field's edge | `design/state-grammar.test.ts`, `state-grammar.spec.ts`, `welcome.spec.ts`, `companies.spec.ts` |
 | Focus ring | `design/focus-ring.test.ts`, `focus-ring.spec.ts`, `combobox-cursor.spec.ts` |
 | Text selection | `design/selection.test.ts`, `selection.spec.ts` |
 | Viewport breakpoint set | `design/breakpoints.test.ts` |

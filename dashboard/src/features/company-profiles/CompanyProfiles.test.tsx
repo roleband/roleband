@@ -1115,6 +1115,22 @@ describe("a value set by hand", () => {
     expect(mocked.setCompanyField).toHaveBeenCalledTimes(1);
   });
 
+  it("a count that fails to save is not marked as a wrong value", async () => {
+    mock(headcountUnderReview());
+    mocked.setCompanyField.mockRejectedValue(new ApiError("database unavailable", 503, "server"));
+    renderWithToasts(<CompanyProfilePanel slug="anthropic" enriching />);
+
+    const input = await screen.findByRole("textbox", {
+      name: msg("profiles-field-review-custom-value-for", { label: msg("profiles-labels-headcount") }),
+    });
+    fireEvent.change(input, { target: { value: "1200" } });
+    fireEvent.click(screen.getByRole("button", { name: msg("profiles-field-review-save") }));
+    // The save failed and says so, but 1200 is a whole number: the field is not wrong.
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(mocked.setCompanyField).toHaveBeenCalledWith("anthropic", "headcount", 1200);
+    expect(input).not.toHaveAttribute("aria-invalid");
+  });
+
   it("confirms a pin with a toast whose Undo drops it and restores what the sources say", async () => {
     mock(reviewable());
     mocked.setCompanyField.mockResolvedValue(companyProfileFieldWriteFixture);
