@@ -31,6 +31,14 @@ NEXT_INTERVIEW_GRACE = timedelta(hours=12)
 #: The most activity entries one read returns.
 ACTIVITY_LIMIT_MAX = 200
 
+#: The longest span one calendar read covers: a month grid, whole weeks.
+CALENDAR_SPAN_MAX = timedelta(days=42)
+
+#: Endings that owe nothing, so their next step is not on the calendar. An
+#: accepted offer is not one: signing and a start date still carry dates.
+#: The same set as the follow-up reminders (`pursuit_due.TERMINAL_STAGES`).
+OWES_NOTHING = ENDED_STAGES - {"accepted"}
+
 
 def _stage_changes():
     """Events that put a pursuit into a stage: its creation, and every write
@@ -277,4 +285,59 @@ async def activity(
                 "body": c.body,
                 "edited_at": c.edited_at,
             })
+    return items
+
+
+def _on_board():
+    """A pursuit the board shows: past Considering, or still starred."""
+    return or_(
+        Pursuit.stage != "saved",
+        exists().where(Favorite.job_id == Pursuit.job_id),
+    )
+
+
+async def calendar(session: AsyncSession, *, start: datetime, end: datetime) -> list[dict]:
+    """Every interview and dated next step from `start` up to `end`, on an
+    application the board shows, soonest first.
+
+    An interview stays on its day whatever its outcome, so a past week reads
+    as it ran; a cancelled one is left out. A step is the application's one
+    current next step, so only its due date can fall in a span."""
+    interviews = await session.execute(
+        select(PursuitInterview, Pursuit.job_id)
+        .join(Pursuit, Pursuit.id == PursuitInterview.pursuit_id)
+        .where(
+            PursuitInterview.scheduled_at >= start,
+            PursuitInterview.scheduled_at < end,
+            PursuitInterview.outcome.is_distinct_from("cancelled"),
+            _on_board(),
+        )
+    )
+    steps = await session.execute(
+        select(Pursuit).where(
+            Pursuit.next_action.is_not(None),
+            Pursuit.next_action_due >= start,
+            Pursuit.next_action_due < end,
+            Pursuit.stage.not_in(sorted(OWES_NOTHING)),
+            _on_board(),
+        )
+    )
+    items: list[dict] = [
+        {
+            "kind": "interview",
+            "job_id": job_id,
+            "at": interview.scheduled_at,
+            "interview_id": interview.id,
+            "label": interview.label,
+            "all_day": interview.all_day,
+            "format": interview.format,
+            "outcome": interview.outcome,
+        }
+        for interview, job_id in interviews.all()
+    ]
+    items += [
+        {"kind": "step", "job_id": p.job_id, "at": p.next_action_due, "step": p.next_action}
+        for p in steps.scalars().all()
+    ]
+    items.sort(key=lambda item: (item["at"], item["job_id"], item["kind"]))
     return items

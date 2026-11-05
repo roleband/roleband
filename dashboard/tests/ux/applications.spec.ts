@@ -38,6 +38,23 @@ async function installPipeline(page: Page, start: ApplicationCard[] = cards) {
       : route.fulfill({ status: 404, json: { detail: { code: "application-not-found" } } });
   });
   await mockGet(page, "/api/applications/*/activity", (route) => route.fulfill({ json: { items: [] } }));
+  // The month's read: each card's next round and dated step in the span.
+  await mockGet(page, "/api/applications/calendar**", (route, request) => {
+    const url = new URL(request.url());
+    const [start, end] = ["start", "end"].map((key) => new Date(url.searchParams.get(key)!).getTime());
+    const inSpan = (at: string) => new Date(at).getTime() >= start && new Date(at).getTime() < end;
+    const items = stored.flatMap((card) => [
+      ...(card.next_interview && inSpan(card.next_interview.scheduled_at) ? [{
+        kind: "interview", job_id: card.job_id, at: card.next_interview.scheduled_at,
+        interview_id: card.next_interview.id, label: card.next_interview.label, all_day: card.next_interview.all_day,
+        format: card.next_interview.format, outcome: null,
+      }] : []),
+      ...(card.next_action && card.next_action_due && inSpan(card.next_action_due) ? [{
+        kind: "step", job_id: card.job_id, at: card.next_action_due, step: card.next_action,
+      }] : []),
+    ]);
+    return route.fulfill({ json: { items } });
+  });
   await mockApi(page, "PUT", "/api/jobs/*/pursuit", async (route, request) => {
     const jobId = Number(new URL(request.url()).pathname.split("/")[3]);
     const update = request.postDataJSON() as Partial<ApplicationCard>;
@@ -249,6 +266,73 @@ test("Up next lists what is due by day, overdue first, and a row opens its appli
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Principal Engineering Manager");
 });
 
+test("Up next stands beside its month: a day says what is on it, and picking one lists it under the grid", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  // A fixed clock: the month and its days are the test's, whatever day it runs.
+  await page.clock.setFixedTime(new Date(2026, 10, 4, 10, 0));
+  await installPipeline(page, [
+    { ...cards[0], next_action: "Ask for an intro", next_action_due: new Date(2026, 10, 7, 23, 59).toISOString() },
+    { ...cards[1], next_interview: {
+      id: 5, label: "Hiring manager call", scheduled_at: new Date(2026, 10, 6, 14, 0).toISOString(), all_day: false,
+      format: "video",
+    } },
+    cards[2],
+  ]);
+  await page.goto("/pipeline/up-next");
+
+  const month = page.getByRole("region", { name: msg("applications-month-label") });
+  await expect(month.getByRole("heading", { level: 2 })).toHaveText(/November 2026/i);
+  const friday = month.getByRole("button", { name: `Fri, Nov 6: ${msg("applications-month-interviews", { count: 1 })}` });
+  await expect(friday).toBeVisible();
+  await expect(month.getByRole("button", { name: `Sat, Nov 7: ${msg("applications-month-steps", { count: 1 })}` })).toBeVisible();
+  await expect(month.getByRole("button", { name: /^Wed, Nov 4/ })).toHaveAttribute("aria-current", "date");
+
+  // The month takes the right side the list left empty, level with it.
+  const list = page.getByRole("region", { name: "Fri, Nov 6" });
+  const [listBox, monthBox] = [await list.boundingBox(), await month.boundingBox()];
+  expect(monthBox!.x, "the month stands right of the list").toBeGreaterThan(listBox!.x + listBox!.width);
+  expect(monthBox!.x + monthBox!.width, "and inside the window").toBeLessThanOrEqual(1440);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth), "the page never widens").toBeLessThanOrEqual(1440);
+
+  await friday.click();
+  await expect(friday).toHaveAttribute("aria-pressed", "true");
+  await expect(month.getByText(msg("applications-upnext-interview", { label: "Hiring manager call" }))).toBeVisible();
+  await month.getByRole("link", { name: /Principal Engineering Manager/ }).click();
+  await expect(page).toHaveURL(/\/pipeline\/202$/);
+});
+
+test("the month pages to the next one with its own read, and a filter leaves the same roles out of it", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.clock.setFixedTime(new Date(2026, 10, 4, 10, 0));
+  await installPipeline(page, [
+    { ...cards[0], next_action: "Ask for an intro", next_action_due: new Date(2026, 11, 3, 23, 59).toISOString() },
+    { ...cards[1], next_interview: {
+      id: 5, label: "Hiring manager call", scheduled_at: new Date(2026, 11, 8, 14, 0).toISOString(), all_day: false,
+      format: "video",
+    } },
+    cards[2],
+  ]);
+  const spans: string[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.pathname === "/api/applications/calendar") spans.push(url.searchParams.get("start")!);
+  });
+  await page.goto("/pipeline/up-next");
+  const month = page.getByRole("region", { name: msg("applications-month-label") });
+  await expect(month.getByRole("button", { name: /^Wed, Nov 4/ })).toBeVisible();
+
+  await month.getByRole("button", { name: msg("applications-month-next") }).click();
+  await expect(month.getByRole("heading", { level: 2 })).toHaveText(/December 2026/i);
+  await expect(month.getByRole("button", { name: `Tue, Dec 8: ${msg("applications-month-interviews", { count: 1 })}` })).toBeVisible();
+  // Each month reads its own grid: November's from 26 October, December's from 30 November.
+  await expect.poll(() => [...new Set(spans.map((at) => new Date(at).getDate()))]).toEqual([26, 30]);
+
+  // The search narrows the month as it narrows the list: only Stripe's round stays.
+  await page.getByRole("searchbox").fill("stripe");
+  await expect(month.getByRole("button", { name: "Thu, Dec 3", exact: true })).toBeVisible();
+  await expect(month.getByRole("button", { name: `Tue, Dec 8: ${msg("applications-month-interviews", { count: 1 })}` })).toBeVisible();
+});
+
 test("moving into Interviewing asks when the interview is, and records it with the move", async ({ page }) => {
   const { stageWrites, interviews } = await installPipeline(page);
   await page.goto("/pipeline/board");
@@ -368,6 +452,44 @@ test("a filter lives in the address: it survives opening a card and coming back,
 
   await page.locator("body").press("/");
   await expect(page.getByRole("searchbox", { name: msg("applications-search-label") })).toBeFocused();
+});
+
+test("switching between List, Board and Up next keeps the header still and reads the pipeline once", async ({ page }) => {
+  await installPipeline(page);
+  // A slow read: a tab switch that rebuilt the screen would wait on it with
+  // the counts line missing, and the tabs would sit higher until it landed.
+  let reads = 0;
+  await page.route("/api/applications", async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    reads++;
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    await route.fallback();
+  });
+  await page.goto("/pipeline/list");
+  await expect(page.getByRole("link", { name: "Staff Product Manager, API" })).toBeVisible();
+  const tabs = page.getByRole("tablist", { name: msg("applications-tabs-label") });
+  const resting = (await tabs.boundingBox())!.y;
+
+  for (const name of [msg("shell-tab-pipeline-board"), msg("shell-tab-pipeline-up-next"), msg("shell-tab-pipeline-list")]) {
+    await page.evaluate(() => {
+      const w = window as unknown as { tops: number[]; sampler: number };
+      w.tops = [];
+      w.sampler = window.setInterval(() => {
+        const list = document.querySelector('[role="tablist"]');
+        w.tops.push(list ? list.getBoundingClientRect().top : -1);
+      }, 4);
+    });
+    await page.getByRole("tab", { name }).click();
+    await expect(page.getByRole("tab", { name })).toHaveAttribute("aria-selected", "true");
+    await page.waitForTimeout(600);
+    const tops = await page.evaluate(() => {
+      const w = window as unknown as { tops: number[]; sampler: number };
+      window.clearInterval(w.sampler);
+      return [...new Set(w.tops.map(Math.round))];
+    });
+    expect(tops, `the tabs moved while ${name} opened`).toEqual([Math.round(resting)]);
+  }
+  expect(reads, "a tab switch reads the pipeline again").toBe(1);
 });
 
 test("each tab keeps its own filter: the board's stays off Up next, and both come back as they were left", async ({ page }) => {

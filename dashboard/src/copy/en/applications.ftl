@@ -253,6 +253,34 @@ applications-upnext-step = Next step: { $step }
 applications-upnext-step-when = By end of day
 # kind=empty
 applications-upnext-empty = Nothing is due. Set a next step or add an interview on an application, and it shows here.
+# kind=aria note="The month calendar beside Up next"
+applications-month-label = Calendar
+# kind=aria
+applications-month-prev = Previous month
+# kind=aria
+applications-month-next = Next month
+# kind=button note="Brings the calendar back to this month and picks today"
+applications-month-today = Today
+# kind=label note="A day's count of interview rounds, in a day's description and the legend"
+applications-month-interviews = { $count ->
+        [one] 1 interview
+       *[other] { $count } interviews
+    }
+# kind=label note="A day's count of dated next steps, in a day's description"
+applications-month-steps = { $count ->
+        [one] 1 next step
+       *[other] { $count } next steps
+    }
+# kind=aria note="A day in the calendar. $date is the formatted day; $summary lists what falls on it, applications-month-interviews and applications-month-steps"
+applications-month-day = { $date }: { $summary }
+# kind=label note="The legend's mark for an interview round" same-as=applications-interview-default-label
+applications-month-legend-interview = Interview
+# kind=label note="The legend's mark for a dated next step" same-as=applications-list-head-next
+applications-month-legend-step = Next step
+# kind=empty note="Under the calendar, for a picked day with nothing on it"
+applications-month-day-empty = Nothing on this day.
+# kind=heading
+applications-month-failed = Couldn't load the calendar
 
 ## One application's page
 # kind=aria

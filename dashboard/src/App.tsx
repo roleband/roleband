@@ -252,11 +252,19 @@ function Shell() {
   // list and its `/:param` are ONE screen picking a row, so they share a key:
   // keyed on the whole path, every company pick would remount /company,
   // refetching the roster and dropping the list's scroll and open groups.
+  // A tabbed section's tabs are one screen showing another view, so they
+  // share a key too: keyed on the whole path, every tab switch would remount
+  // the section, refetch its data and draw its header without the line that
+  // data fills, then drop the page when it lands. A slug that is not a tab
+  // (`/pipeline/202`, one application) stays a screen of its own.
   // Anything deeper (a position under a company: a third segment) is another
   // screen, keyed by the position whichever URL names it (`positionKey`).
+  const [, , second, third] = routedLocation.pathname.split("/");
   const boundaryKey =
     positionKey(routedLocation.pathname) ??
-    (activeTab?.entityParam && !routedLocation.pathname.split("/")[3] ? activeTab.path : routedLocation.pathname);
+    ((activeTab?.entityParam && !third) || (!third && activeTab?.tabs?.some((t) => t.slug === second))
+      ? activeTab!.path
+      : routedLocation.pathname);
   // /welcome is the one route outside the tab table; it is not the dashboard.
   const routeLabel =
     activeTab?.label ??

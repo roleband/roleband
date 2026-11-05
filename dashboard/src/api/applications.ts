@@ -27,10 +27,19 @@ export type InterviewWrite = Schemas["InterviewWrite"];
 /** A partial interview write: an absent field is left as it is. */
 export type InterviewUpdate = Schemas["InterviewUpdate"];
 
+/** One interview or dated next step on the calendar, naming its application by job id. */
+export type ApplicationCalendarItem = Schemas["ApplicationCalendarResponse"]["items"][number];
+
 export const applicationsApi = {
   applications: (signal?: AbortSignal) => getJSON<ApplicationBoard>("/api/applications", signal),
   application: (jobId: number, signal?: AbortSignal) =>
     getJSON<ApplicationDetail>(`/api/applications/${jobId}`, signal),
+  /** Every interview and dated next step from `start` up to `end`, six weeks at most. */
+  calendar: (start: Date, end: Date, signal?: AbortSignal) =>
+    getJSON<Schemas["ApplicationCalendarResponse"]>(
+      `/api/applications/calendar?${new URLSearchParams({ start: start.toISOString(), end: end.toISOString() })}`,
+      signal,
+    ),
   activity: (jobId: number, signal?: AbortSignal) =>
     getJSON<Schemas["ApplicationActivityResponse"]>(`/api/applications/${jobId}/activity`, signal),
   addComment: (jobId: number, body: string) =>

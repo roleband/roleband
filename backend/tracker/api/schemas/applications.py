@@ -132,3 +132,33 @@ class ApplicationInterviewResponse(Built):
 class ApplicationDeleted(Built):
     id: int
     deleted: bool
+
+
+class CalendarInterview(Built):
+    kind: Literal["interview"] = "interview"
+    job_id: int
+    at: datetime
+    interview_id: int
+    label: str = Field(json_schema_extra=text("content"))
+    all_day: bool
+    format: InterviewFormat | None
+    outcome: InterviewOutcome | None
+
+
+class CalendarStep(Built):
+    kind: Literal["step"] = "step"
+    job_id: int
+    #: The day the step is due by.
+    at: datetime
+    step: str = Field(json_schema_extra=text("content"))
+
+
+CalendarItem = Annotated[CalendarInterview | CalendarStep, Field(discriminator="kind")]
+
+
+class ApplicationCalendarResponse(Built):
+    """`GET /api/applications/calendar`: every interview and dated next step in
+    the span, soonest first. A cancelled interview and an ended application's
+    step are left out; an item names its application by job id."""
+
+    items: list[CalendarItem]

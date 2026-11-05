@@ -19,6 +19,7 @@ vi.mock("../../api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../api")>()),
   api: {
     applications: vi.fn(),
+    calendar: vi.fn(async () => ({ items: [] })),
     setPursuit: vi.fn(),
     setFavorite: vi.fn(),
     addInterview: vi.fn(),

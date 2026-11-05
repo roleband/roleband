@@ -342,6 +342,38 @@
     "title": "ApplicationBoardResponse",
     "type": "object"
    },
+   "ApplicationCalendarResponse": {
+    "additionalProperties": false,
+    "description": "`GET /api/applications/calendar`: every interview and dated next step in\nthe span, soonest first. A cancelled interview and an ended application's\nstep are left out; an item names its application by job id.",
+    "properties": {
+     "items": {
+      "items": {
+       "discriminator": {
+        "mapping": {
+         "interview": "#/components/schemas/CalendarInterview",
+         "step": "#/components/schemas/CalendarStep"
+        },
+        "propertyName": "kind"
+       },
+       "oneOf": [
+        {
+         "$ref": "#/components/schemas/CalendarInterview"
+        },
+        {
+         "$ref": "#/components/schemas/CalendarStep"
+        }
+       ]
+      },
+      "title": "Items",
+      "type": "array"
+     }
+    },
+    "required": [
+     "items"
+    ],
+    "title": "ApplicationCalendarResponse",
+    "type": "object"
+   },
    "ApplicationCard": {
     "additionalProperties": false,
     "description": "One application as the board shows it.",
@@ -1362,6 +1394,114 @@
      "candidate"
     ],
     "title": "BoardSearchResponse",
+    "type": "object"
+   },
+   "CalendarInterview": {
+    "additionalProperties": false,
+    "properties": {
+     "all_day": {
+      "title": "All Day",
+      "type": "boolean"
+     },
+     "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+     },
+     "format": {
+      "anyOf": [
+       {
+        "enum": [
+         "video",
+         "phone",
+         "onsite"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Format"
+     },
+     "interview_id": {
+      "title": "Interview Id",
+      "type": "integer"
+     },
+     "job_id": {
+      "title": "Job Id",
+      "type": "integer"
+     },
+     "kind": {
+      "const": "interview",
+      "default": "interview",
+      "title": "Kind",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string",
+      "x-text": "content"
+     },
+     "outcome": {
+      "anyOf": [
+       {
+        "enum": [
+         "passed",
+         "not_passed",
+         "cancelled"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Outcome"
+     }
+    },
+    "required": [
+     "job_id",
+     "at",
+     "interview_id",
+     "label",
+     "all_day",
+     "format",
+     "outcome"
+    ],
+    "title": "CalendarInterview",
+    "type": "object"
+   },
+   "CalendarStep": {
+    "additionalProperties": false,
+    "properties": {
+     "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+     },
+     "job_id": {
+      "title": "Job Id",
+      "type": "integer"
+     },
+     "kind": {
+      "const": "step",
+      "default": "step",
+      "title": "Kind",
+      "type": "string"
+     },
+     "step": {
+      "title": "Step",
+      "type": "string",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "job_id",
+     "at",
+     "step"
+    ],
+    "title": "CalendarStep",
     "type": "object"
    },
    "CapabilityView": {
@@ -24648,6 +24788,60 @@
      }
     },
     "summary": "Board Ep"
+   }
+  },
+  "/api/applications/calendar": {
+   "get": {
+    "operationId": "calendar_ep_api_applications_calendar_get",
+    "parameters": [
+     {
+      "description": "The span's first instant, with its zone.",
+      "in": "query",
+      "name": "start",
+      "required": true,
+      "schema": {
+       "description": "The span's first instant, with its zone.",
+       "format": "date-time",
+       "title": "Start",
+       "type": "string"
+      }
+     },
+     {
+      "description": "The instant the span stops before, with its zone.",
+      "in": "query",
+      "name": "end",
+      "required": true,
+      "schema": {
+       "description": "The instant the span stops before, with its zone.",
+       "format": "date-time",
+       "title": "End",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ApplicationCalendarResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Calendar Ep"
    }
   },
   "/api/applications/{job_id}": {

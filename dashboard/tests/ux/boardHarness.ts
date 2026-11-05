@@ -105,6 +105,8 @@ export async function installBoardRoutes(page: Page) {
   await page.route("/api/pursuits**", (route) => route.fulfill({ json: { pursuits: [] } }));
   // The top bar's saved count opens the pipeline; it holds nothing by default.
   await mockGet(page, "/api/applications", (route) => route.fulfill({ json: { applications: [] } }));
+  // Up next's month reads its own span; by default nothing falls in it.
+  await mockGet(page, "/api/applications/calendar**", (route) => route.fulfill({ json: { items: [] } }));
   // The compare selection is server state, so the harness has to be
   // a STORE and not a canned response: a reload asks for it again, and a route
   // that always answers empty would report the persistence bug as fixed while

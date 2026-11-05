@@ -547,11 +547,209 @@
 
 /* ---- Up next ------------------------------------------------------------- */
 
+/* Up next is the agenda beside the month it falls in. The month holds a
+   column of its own and stays in view while the agenda scrolls; under the
+   two-column width it sits after the agenda. */
+.app-upnext-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--app-space-6);
+  align-items: start;
+}
+
+@media (min-width: 1100px) {
+  .app-upnext-split {
+    grid-template-columns: minmax(0, 1fr) clamp(320px, 32%, 440px);
+  }
+
+  /* Bounded the way the filter rail is (patterns/rail-shell.css): at rest
+     the month fits the window, and a picked day with a long list scrolls
+     its tail into reach. */
+  .app-month {
+    position: sticky;
+    top: var(--app-space-4);
+    max-height: calc(100dvh - 64px - 2 * var(--app-space-4));
+    overflow: hidden auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--app-border-strong) transparent;
+  }
+}
+
 .app-upnext {
   display: flex;
   flex-direction: column;
   gap: var(--app-space-5);
-  max-width: 760px;
+}
+
+/* A day picked in the month scrolls its heading here; the margin keeps the
+   heading off the window's edge. */
+.app-upnext-day > h2 {
+  scroll-margin-top: var(--app-space-4);
+}
+
+/* Under the agenda the month keeps the width it has beside it, so its days
+   stay square rather than stretching across the page. */
+.app-month {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-3);
+  max-width: 440px;
+  padding: var(--app-space-4);
+}
+
+.app-month-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--app-space-2);
+}
+
+.app-month-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-1);
+}
+
+.app-month-grid {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 2px;
+  table-layout: fixed;
+}
+
+.app-month-grid th {
+  padding-bottom: var(--app-space-1);
+  color: var(--app-text-faint);
+  font-size: var(--app-type-label);
+  font-weight: var(--app-weight-body);
+  text-align: center;
+}
+
+.app-month-grid td {
+  padding: 0;
+}
+
+/* A day is the whole cell, the icon rank of ui/Button: no box at rest, the
+   hover wash, and the chosen look when it is the picked day. Its number sits
+   on top and its marks under it; the marks keep their row when a day has
+   none, so every cell is one height. The selectors carry the grid's class so
+   they outrank the icon square's own width, never by load order. */
+.app-month-grid .ui-btn.app-month-day {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  width: 100%;
+  padding: var(--app-space-1) 0;
+  font-size: var(--app-type-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The number carries the day's ink; the button's own states stay the
+   primitive's. A picked day's number takes the chosen text it sits on. */
+.app-month-num {
+  color: var(--app-text);
+}
+
+.app-month-day[data-past] .app-month-num {
+  color: var(--app-text-muted);
+}
+
+.app-month-day[data-outside] .app-month-num {
+  color: var(--app-text-faint);
+}
+
+.app-month-day[aria-pressed="true"] .app-month-num {
+  color: inherit;
+}
+
+.app-month-num {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  line-height: 1;
+}
+
+/* Today is a state the day is in, so it is drawn in the chosen grammar: a
+   ring round its number, beside the picked day's wash. */
+.app-month-day[aria-current="date"] .app-month-num {
+  border-color: var(--app-chosen-line);
+  color: var(--app-chosen-text);
+  font-weight: var(--app-weight-strong);
+}
+
+.app-month-marks {
+  display: flex;
+  gap: 3px;
+  min-height: 6px;
+}
+
+/* An interview is a filled dot, a next step a ring: told apart by shape as
+   well as colour. */
+.app-month-mark {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+}
+
+.app-month-mark[data-kind="interview"] {
+  background: var(--app-action);
+}
+
+.app-month-mark[data-kind="step"] {
+  box-shadow: inset 0 0 0 1.5px var(--app-text-muted);
+}
+
+.app-month-legend {
+  display: flex;
+  gap: var(--app-space-4);
+  margin: 0;
+  color: var(--app-text-faint);
+  font-size: var(--app-type-label);
+}
+
+.app-month-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--app-space-1);
+}
+
+.app-month-picked {
+  padding-top: var(--app-space-3);
+  border-top: 1px solid var(--app-border);
+}
+
+.app-month-picked > ul {
+  margin: var(--app-space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The column is narrow, so a picked day's row puts its time over its
+   item rather than beside it. */
+.app-month-picked .app-upnext-item {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding-inline: 0;
+}
+
+.app-month-picked .app-upnext-when {
+  flex: none;
+}
+
+.app-month-picked .app-upnext-what {
+  width: 100%;
+}
+
+.app-month-empty,
+.app-month-failed {
+  margin: var(--app-space-2) 0 0;
+  color: var(--app-text-faint);
+  font-size: var(--app-type-meta);
 }
 
 .app-upnext-day > ul {

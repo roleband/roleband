@@ -74,8 +74,7 @@ function PipelineTabs() {
 
   // Each tab's query as it was left rides in the history entry, so coming
   // back finds the tab's own filter and never the other tab's. The entry
-  // holds it, not the component: a tab switch remounts the screen (the
-  // route boundary is keyed on the path), and Back must find it too.
+  // holds it, not the component, because Back and a reload must find it too.
   const left = leftOf(useLocation().state);
   const open = (next: PipelineTab, search = left[next] ?? "") => {
     // A filter change within a tab is not a destination.
@@ -95,7 +94,9 @@ function PipelineTabs() {
   return (
     <main className="main app-main" data-design-system="app">
       <PageHeader title={shellNavPipeline()}
-        meta={board.resource.data ? (
+        // The line keeps its height while the board loads, so the tabs and
+        // everything under them do not drop when the counts land.
+        meta={!board.resource.data ? <p className="app-summary" aria-hidden="true">{"\u00a0"}</p> : (
           <p className="app-summary">
             <Msg
               of={applicationsBoardSummary}
@@ -109,7 +110,7 @@ function PipelineTabs() {
               }}
             />
           </p>
-        ) : undefined}
+        )}
       />
       <TabBar
         className="app-tabbar"

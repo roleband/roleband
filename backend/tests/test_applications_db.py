@@ -16,8 +16,10 @@ import pytest
 from sqlalchemy import delete, select
 
 from tracker.agents import pursuits as store
+from tracker.agents.applications import OWES_NOTHING
 from tracker.api.schemas import applications as contract
 from tracker.db.models import Favorite, Job, Pursuit, PursuitComment, PursuitEvent, PursuitInterview
+from tracker.notifications.pursuit_due import TERMINAL_STAGES
 
 pytestmark = pytest.mark.asyncio
 
@@ -202,6 +204,131 @@ async def test_a_round_that_ran_this_morning_without_an_outcome_is_still_next(ap
     )
 
     assert (await _board(api_client))[job.id]["next_interview"]["label"] == "Screen"
+
+
+# --- the calendar -----------------------------------------------------------------
+
+
+async def _interview(api_client, job_id: int, label: str, at: datetime, **fields) -> None:
+    response = await api_client.post(
+        f"/api/jobs/{job_id}/pursuit/interviews",
+        json={"label": label, "scheduled_at": _iso(at), **fields},
+    )
+    assert response.status_code == 200, response.text
+
+
+async def _calendar(api_client, start: datetime, end: datetime) -> list[dict]:
+    response = await api_client.get(
+        "/api/applications/calendar", params={"start": _iso(start), "end": _iso(end)}
+    )
+    assert response.status_code == 200, response.text
+    return response.json()["items"]
+
+
+async def test_the_calendar_holds_every_round_in_its_span_soonest_first_with_the_next_step(
+    api_client, db_session
+):
+    job = await _job(db_session)
+    now = datetime.now(UTC)
+    await _move(api_client, job.id, "interviewing", next_action="Send references",
+                next_action_due=_iso(now + timedelta(days=3)))
+    await _interview(api_client, job.id, "Ran, passed", now - timedelta(days=2), outcome="passed")
+    await _interview(api_client, job.id, "Hiring manager", now + timedelta(days=1))
+    await _interview(api_client, job.id, "Onsite", now + timedelta(days=5), format="onsite")
+    await _interview(api_client, job.id, "Called off", now + timedelta(days=4), outcome="cancelled")
+    await _interview(api_client, job.id, "Past the span", now + timedelta(days=20))
+
+    items = await _calendar(api_client, now - timedelta(days=7), now + timedelta(days=7))
+
+    # Every round the board would not call next is here too: one already run,
+    # and the second of two still to come. A cancelled round is not.
+    assert [(i["kind"], i.get("label") or i.get("step")) for i in items] == [
+        ("interview", "Ran, passed"),
+        ("interview", "Hiring manager"),
+        ("step", "Send references"),
+        ("interview", "Onsite"),
+    ]
+    assert all(i["job_id"] == job.id for i in items)
+    assert items[0]["outcome"] == "passed" and items[3]["format"] == "onsite"
+
+
+async def test_the_span_includes_its_start_and_stops_before_its_end(api_client, db_session):
+    job = await _job(db_session)
+    at = datetime(2026, 11, 9, 9, 0, tzinfo=UTC)
+    await _move(api_client, job.id, "applied")
+    await _interview(api_client, job.id, "Screen", at)
+
+    assert [i["label"] for i in await _calendar(api_client, at, at + timedelta(days=1))] == ["Screen"]
+    assert await _calendar(api_client, at - timedelta(days=1), at) == []
+
+
+@pytest.mark.parametrize("ending", ["declined", "withdrawn", "rejected", "role_closed"])
+async def test_an_ended_application_keeps_its_rounds_but_owes_no_step(api_client, db_session, ending):
+    job = await _job(db_session)
+    now = datetime.now(UTC)
+    await _move(api_client, job.id, "interviewing", next_action="Chase feedback",
+                next_action_due=_iso(now + timedelta(days=1)))
+    await _interview(api_client, job.id, "Final round", now - timedelta(days=1), outcome="not_passed")
+    await _move(api_client, job.id, ending)
+
+    items = await _calendar(api_client, now - timedelta(days=7), now + timedelta(days=7))
+
+    assert [(i["kind"], i.get("label")) for i in items] == [("interview", "Final round")]
+
+
+async def test_an_accepted_offer_still_owes_its_step(api_client, db_session):
+    job = await _job(db_session)
+    now = datetime.now(UTC)
+    await _move(api_client, job.id, "accepted", next_action="Sign the contract",
+                next_action_due=_iso(now + timedelta(days=2)))
+
+    items = await _calendar(api_client, now, now + timedelta(days=7))
+
+    assert [i.get("step") for i in items] == ["Sign the contract"]
+
+
+async def test_a_role_off_the_board_has_nothing_on_the_calendar(api_client, db_session):
+    job = await _job(db_session)
+    now = datetime.now(UTC)
+    await api_client.put(f"/api/jobs/{job.id}/favorite")
+    await _interview(api_client, job.id, "Coffee chat", now + timedelta(days=1))
+    assert len(await _calendar(api_client, now, now + timedelta(days=7))) == 1
+
+    # Unstarred at Considering: off the board, so off the calendar too.
+    assert (await api_client.delete(f"/api/jobs/{job.id}/favorite")).status_code == 200
+
+    assert await _calendar(api_client, now, now + timedelta(days=7)) == []
+
+
+async def test_the_steps_left_off_are_the_ones_the_reminders_stop_for():
+    assert OWES_NOTHING == TERMINAL_STAGES
+
+
+@pytest.mark.parametrize(
+    ("start", "end"),
+    [
+        ("2026-11-09T00:00:00+00:00", "2026-11-09T00:00:00+00:00"),
+        ("2026-11-10T00:00:00+00:00", "2026-11-09T00:00:00+00:00"),
+        ("2026-11-01T00:00:00+00:00", "2026-12-14T00:00:00+00:00"),
+        ("2026-11-01T00:00:00", "2026-11-08T00:00:00"),
+        ("next monday", "2026-11-08T00:00:00+00:00"),
+    ],
+    ids=["empty", "backwards", "longer-than-six-weeks", "no-zone", "not-a-date"],
+)
+async def test_a_span_that_is_not_one_is_refused(api_client, start, end):
+    response = await api_client.get("/api/applications/calendar", params={"start": start, "end": end})
+
+    assert response.status_code == 422, response.text
+
+
+async def test_six_weeks_is_the_longest_span(api_client):
+    start = datetime(2026, 10, 26, tzinfo=UTC)
+    response = await api_client.get(
+        "/api/applications/calendar",
+        params={"start": _iso(start), "end": _iso(start + timedelta(days=42))},
+    )
+
+    assert response.status_code == 200, response.text
 
 
 # --- comments ---------------------------------------------------------------------

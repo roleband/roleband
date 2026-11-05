@@ -32,6 +32,7 @@ from tracker.api.errors import ErrorCode, api_error
 from tracker.api.schemas.applications import (
     ApplicationActivityResponse,
     ApplicationBoardResponse,
+    ApplicationCalendarResponse,
     ApplicationCommentResponse,
     ApplicationDeleted,
     ApplicationDetailResponse,
@@ -44,6 +45,23 @@ router = APIRouter()
 @router.get("/api/applications", response_model=ApplicationBoardResponse)
 async def board_ep(session: SessionDep) -> dict:
     return {"applications": await reads.board(session, now=datetime.now(UTC))}
+
+
+# Declared before `/api/applications/{job_id}`: a word in that place would
+# otherwise be read as a job id and refused.
+@router.get("/api/applications/calendar", response_model=ApplicationCalendarResponse)
+async def calendar_ep(
+    session: SessionDep,
+    start: Annotated[datetime, Query(description="The span's first instant, with its zone.")],
+    end: Annotated[datetime, Query(description="The instant the span stops before, with its zone.")],
+) -> dict:
+    if start.tzinfo is None or end.tzinfo is None:
+        raise api_error(422, ErrorCode.INVALID_INPUT, "start and end need a time zone")
+    if end <= start:
+        raise api_error(422, ErrorCode.INVALID_INPUT, "end must come after start")
+    if end - start > reads.CALENDAR_SPAN_MAX:
+        raise api_error(422, ErrorCode.INVALID_INPUT, f"a span covers at most {reads.CALENDAR_SPAN_MAX.days} days")
+    return {"items": await reads.calendar(session, start=start, end=end)}
 
 
 @router.get("/api/applications/{job_id}", response_model=ApplicationDetailResponse)

@@ -114,6 +114,7 @@ export type {
 export type {
   ActivityItem,
   ApplicationBoard,
+  ApplicationCalendarItem,
   ApplicationCard,
   ApplicationDetail,
   ApplicationInterview,

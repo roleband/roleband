@@ -21,6 +21,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Calendar Ep */
+        get: operations["calendar_ep_api_applications_calendar_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/applications/{job_id}": {
         parameters: {
             query?: never;
@@ -3285,6 +3302,16 @@ export interface components {
             applications: components["schemas"]["ApplicationCard"][];
         };
         /**
+         * ApplicationCalendarResponse
+         * @description `GET /api/applications/calendar`: every interview and dated next step in
+         *     the span, soonest first. A cancelled interview and an ended application's
+         *     step are left out; an item names its application by job id.
+         */
+        ApplicationCalendarResponse: {
+            /** Items */
+            items: (components["schemas"]["CalendarInterview"] | components["schemas"]["CalendarStep"])[];
+        };
+        /**
          * ApplicationCard
          * @description One application as the board shows it.
          */
@@ -3629,6 +3656,48 @@ export interface components {
          */
         BoardSearchResponse: {
             candidate: components["schemas"]["MovedBoard"] | null;
+        };
+        /** CalendarInterview */
+        CalendarInterview: {
+            /** All Day */
+            all_day: boolean;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Format */
+            format: ("video" | "phone" | "onsite") | null;
+            /** Interview Id */
+            interview_id: number;
+            /** Job Id */
+            job_id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "interview";
+            /** Label */
+            label: string;
+            /** Outcome */
+            outcome: ("passed" | "not_passed" | "cancelled") | null;
+        };
+        /** CalendarStep */
+        CalendarStep: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Job Id */
+            job_id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "step";
+            /** Step */
+            step: string;
         };
         /** CapabilityView */
         CapabilityView: {
@@ -11464,6 +11533,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApplicationBoardResponse"];
+                };
+            };
+        };
+    };
+    calendar_ep_api_applications_calendar_get: {
+        parameters: {
+            query: {
+                /** @description The span's first instant, with its zone. */
+                start: string;
+                /** @description The instant the span stops before, with its zone. */
+                end: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationCalendarResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
