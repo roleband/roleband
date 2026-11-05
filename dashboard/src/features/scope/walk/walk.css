@@ -38,7 +38,8 @@
   width: 100%;
   max-width: 1320px;
   margin: 0 auto;
-  padding-top: clamp(0px, 12vh - 24px, 140px);
+  /* A window unit is divided by the setup zoom, which magnifies it (setupZoom.css). */
+  padding-top: clamp(0px, 12vh / var(--page-zoom, 1) - 24px, 140px);
 }
 .walk.walk--setup > .page-hero {
   margin: 0 0 var(--app-space-4);

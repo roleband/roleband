@@ -697,6 +697,60 @@ question takes the place of the intro's words (`ConsentPane`, `look="scene"`).
 Only its look differs from the one-time dialog: the words, and so the record,
 are the same, and its two answers stay one look and one size.
 
+### First-run setup magnification
+
+On a window larger than the design, first-run setup is the 1440 x 900 design
+drawn larger by one factor: every block keeps its size and its place against
+every other, every text keeps its line breaks. It is never a new layout for a
+large window. `features/scope/setupZoom.ts` sets the factor in `--setup-zoom` on
+the root element, and `setupZoom.css` applies it as CSS `zoom` on the root only
+while `.app.in-setup` is drawn, so the board and every other screen keep their
+plain size. Why this and not larger tokens or a scale transform:
+[decision 0001](decisions/0001-setup-magnification.md).
+
+- **The factor** takes six tenths of the room the window has beyond the
+  design: the room is the lesser of its width over 1440 and its height over 760
+  (the fixed steps with Back and Continue in view), and the factor is
+  1 + 0.6 x (room - 1), at most 1.3 and never below 1. A 1728 x 1000 window is
+  drawn at 1.12, a 2000 x 1100 one at 1.23, and the cap is reached at
+  2160 x 1140. Taking all the room would cost the long steps (Discipline, World,
+  Companies) rows above the fold. It follows the window and is not rounded to
+  steps, so turning the browser's own zoom up never makes setup smaller.
+- **Only where text scales.** An engine that rounds each letter to whole pixels
+  (Chrome on Linux, with font hinting) would rewrap a line and move one card's
+  title out of line with its neighbours. Before it magnifies, setup measures the
+  sans face at 12 and 13 px, at the factor and at the cap, on new elements; if a
+  width strays from proportional by more than half a percent, the factor stays
+  1. The check waits for the sans face to load.
+- **Type and lines.** A heading at 1.3 is the ramp's own size, magnified: the
+  ramp in [Type](#type) is unchanged and setup adds no size to it. Borders and
+  focus rings snap to whole device pixels, as under the browser's own zoom, so a
+  1 px line stays one device pixel thick.
+- **Window units.** Under the zoom, `vw` and `vh` are measured from the real
+  window and then magnified. Every window unit a setup screen can draw is
+  divided by `var(--page-zoom, 1)` in its own rule; `--page-zoom` is set only
+  inside `@supports (zoom: 1)`, so a browser without `zoom` divides by 1 and
+  draws setup at its plain size. It is a value set at run time, like
+  `--rail-shell-top`, not a token, and the one such name a primitive's sheet
+  may read. A window unit on a screen setup never draws
+  is listed in `setupZoom.test.ts` with the reason.
+- **Media queries and scripts** read the real window, not the magnified page.
+  No setup rule may depend on a viewport breakpoint above 1440 px
+  ([Breakpoints](#breakpoints)). A box placed from `getBoundingClientRect` and the
+  window's size lands off by the factor: the planet converts its pointer and
+  its backing store (`onCanvas` and `backingDensity` in `globeView.ts`), and
+  `ui/Popover.tsx`, `patterns/companies/CompanyChip.tsx` and
+  `patterns/FilterSurface.tsx`, which do not, are unreachable from any setup
+  screen.
+- **Drawn by the browser.** The open menu of a native select, `title` tooltips
+  and scrollbars follow the browser and may stay at their plain size.
+
+The proportion test walks every setup screen in windows drawn at 1.06, 1.12,
+1.18, 1.23 and 1.3, and plain in the window each factor divides them to, and compares every visible element's box and every
+text's line count, in page pixels, within 2 px. It runs in WebKit and in Chromium
+without font hinting, the engines that magnify; the suite's own Chromium checks
+that setup stays at 1.
+
 ### Dense register
 
 Settings > Companies is the pattern for a large set that must be read and
@@ -786,6 +840,7 @@ Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs
 | Axe in both themes | `a11y.spec.ts` |
 | Visible primaries counted | `job-detail.spec.ts`, `profile.spec.ts` |
 | First-run setup | `routing/setupMode.test.tsx`, `features/scope/walk/Walk.test.tsx`, `features/companies/SetupCompanies.test.tsx`, `welcome.spec.ts` |
+| First-run setup magnification: the factor, window units, placed pop-ups, the planet's pointer | `features/scope/setupZoom.test.ts`, `features/scope/welcome/globeDrag.test.ts`, `setup-magnification.spec.ts`, `setup-magnification-webkit.spec.ts`, `setup-magnification-unhinted.spec.ts` |
 | The board during and after the first scan | `board-first-scan.spec.ts` |
 
 Baselines move only downward. When a gate fails, change the code.

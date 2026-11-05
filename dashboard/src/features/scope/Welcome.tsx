@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../../api";
 import { useAsyncResource } from "../../hooks/useAsyncResource";
 import { SETUP_PATH } from "../../routing/setupMode";
+import { useSetupZoom } from "./setupZoom";
 import { SHARING_REVIEW, isSharingReview } from "./sharingReview";
 import { ConsentPane } from "../../patterns/privacy/ConsentPane";
 import { GROUPS, groupsToAsk } from "../../patterns/privacy/consentCopy";
@@ -117,6 +118,7 @@ function WelcomeBody({ page }: { page: RefObject<HTMLElement | null> }) {
 
 export function Welcome() {
   const page = useRef<HTMLElement>(null);
+  useSetupZoom(true);
   return (
     <main ref={page} className="main settings-view welcome-main">
       <MotionStage>

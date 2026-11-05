@@ -209,9 +209,11 @@ describe("Toast", () => {
       expect(toast).toMatch(/pointer-events:\s*auto/);
     });
 
+    // `--page-zoom` is not paint: it divides a window unit back under first-run
+    // setup's zoom (features/scope/setupZoom.css), and is 1 everywhere else.
     it("paints --app-* only", () => {
       const consumed = [...css.matchAll(/var\((--[a-z0-9-]+)/g)].map((m) => m[1]);
-      expect(consumed.filter((t) => !t.startsWith("--app-"))).toEqual([]);
+      expect(consumed.filter((t) => !t.startsWith("--app-") && t !== "--page-zoom")).toEqual([]);
     });
   });
 });
