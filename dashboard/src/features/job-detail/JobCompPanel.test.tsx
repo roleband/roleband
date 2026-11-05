@@ -430,6 +430,11 @@ describe("JobCompPanel", () => {
     // rewritten), but it does not read as confident.
     const badge = screen.getByText("Measured split");
     expect(badge).toHaveClass("split-src-suspect");
+    // Its help mark says why, in the doubting sentence rather than the plain one.
+    const why = msg("role-job-comp-panel-this-company-s-real-base");
+    expect(screen.getByRole("button", { name: msg("role-job-comp-panel-about-the-split") })).toHaveAccessibleDescription(
+      msg("role-job-comp-panel-the-posted-band-does-not", { sPLIT_TITLE: why }),
+    );
   });
 
   it("cautions in the other direction too", () => {
@@ -453,6 +458,9 @@ describe("JobCompPanel", () => {
 
     expect(screen.queryByTestId("pkg-reconciliation")).not.toBeInTheDocument();
     expect(screen.getByText("Measured split")).not.toHaveClass("split-src-suspect");
+    expect(screen.getByRole("button", { name: msg("role-job-comp-panel-about-the-split") })).toHaveAccessibleDescription(
+      msg("role-job-comp-panel-this-company-s-real-base"),
+    );
   });
 
   it("says nothing when there is no measurement to reconcile against", () => {

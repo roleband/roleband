@@ -436,6 +436,7 @@
 }
 
 .pkg-head {
+  position: relative;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -470,6 +471,28 @@
 
 .pkg-guaranteed .info-tip {
   margin-left: -1px;
+}
+
+/* The split label and its help mark sit on the header's first row, away from
+   its left edge, where a sentence anchored to the small mark would run off a
+   narrow screen. The sentence hangs from the header instead: right-aligned
+   to it, no wider than it, just below the row (18px mark, the 7px every
+   help mark keeps). `.pkg-head` is its containing block. */
+.pkg-split {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+
+.pkg-split .info-tip {
+  position: static;
+}
+
+.pkg-split .info-tip-popover {
+  top: calc(18px + 7px);
+  right: 0;
+  left: auto;
+  max-width: min(320px, 100%);
 }
 
 /* The pay floor line: one sentence, the verdict's tone. */
@@ -552,6 +575,25 @@
     color-mix(in oklab, var(--app-action) 86%, var(--app-surface-raised)) 0 1.5px,
     transparent 1.5px 8px
   );
+}
+
+/* Forced colours repaint every background with the person's Canvas, which
+   would leave the bar a blank band. Here the parts draw in system colours
+   only: stated in solid ink, estimated as an ink outline with ink lines, so
+   the two stay apart without hue. The legend names each part. */
+@media (forced-colors: active) {
+  .pkg-bar .pkg-seg,
+  .pkg-leg i.pkg-sw {
+    forced-color-adjust: none;
+    background-color: CanvasText;
+  }
+
+  .pkg-bar .pkg-seg.pkg-est,
+  .pkg-leg i.pkg-sw.pkg-est {
+    background-color: Canvas;
+    background-image: repeating-linear-gradient(135deg, CanvasText 0 1.5px, transparent 1.5px 6px);
+    box-shadow: inset 0 0 0 1px CanvasText;
+  }
 }
 
 .pkg-bracket {

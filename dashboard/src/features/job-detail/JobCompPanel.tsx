@@ -26,6 +26,7 @@ import { InfoTip } from "../../ui/InfoTip";
 import { PayFloorLine } from "./PayFloorLine";
 import {
   roleJobCompPanelAboutStatedBaseSalary,
+  roleJobCompPanelAboutTheSplit,
   roleJobCompPanelBase,
   roleJobCompPanelBaseCappedAt,
   roleJobCompPanelBaseSalaryStatedInThe,
@@ -368,15 +369,15 @@ export default function JobCompPanel({ job }: { job: Job }) {
           </p>
         )}
         {pkg.split_source && components.length > 0 && (
-          <span
-            className={`split-src split-src-${pkg.split_source}${suspectLevel ? " split-src-suspect" : ""}`}
-            title={
-              suspectLevel
+          <span className="pkg-split">
+            <span className={`split-src split-src-${pkg.split_source}${suspectLevel ? " split-src-suspect" : ""}`}>
+              {SPLIT_LABEL[pkg.split_source]}
+            </span>
+            <InfoTip label={roleJobCompPanelAboutTheSplit()}>
+              {suspectLevel
                 ? roleJobCompPanelThePostedBandDoesNot({ sPLIT_TITLE: String(SPLIT_TITLE[pkg.split_source]) })
-                : SPLIT_TITLE[pkg.split_source]
-            }
-          >
-            {SPLIT_LABEL[pkg.split_source]}
+                : SPLIT_TITLE[pkg.split_source]}
+            </InfoTip>
           </span>
         )}
         {pkg.split_source && components.length > 0 && splitFrom(job, pkg) && (

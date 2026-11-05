@@ -12,6 +12,7 @@
 
 import type { Locator, Page } from "@playwright/test";
 import type { CompComponent, JobCompPackage } from "../../src/api";
+import { msg } from "../../src/test/msg";
 import { expect, mockGet, test } from "./fixtures";
 import { compPackageFixture, jobFixture } from "../../src/test/fixtures";
 import { installBoardRoutes } from "./boardHarness";
@@ -162,6 +163,103 @@ for (const theme of ["light", "dark"] as const) {
       // Every channel, so a gap painted in another hue of the same lightness fails too.
       const drift = Math.max(...painted.map((c, k) => Math.abs(c - ground[k])));
       expect(drift, `the gap after part ${i} is rgb(${painted}), the card rgb(${ground})`).toBeLessThanOrEqual(3);
+    }
+  });
+}
+
+/* Where the split came from is said in a short label, and why in a sentence.
+   A hover-only title reaches neither a keyboard nor a finger, so the sentence
+   sits behind a help mark: a real button the label's tooltip describes. */
+/** The same split, with the line saying who supplied it beside the label. */
+const suppliedSplit: JobCompPackage = { ...basePosted, split_provider: "builtin", split_as_of: "2026-10-01" };
+
+for (const [width, pkg, header] of [
+  [1280, basePosted, "label alone"],
+  [360, basePosted, "label alone"],
+  [1280, suppliedSplit, "label and source line"],
+  [360, suppliedSplit, "label and source line"],
+] as const) {
+  test(`the split label explains itself to a keyboard and a tap (${width}px, ${header})`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await openPayCard(page, "light", pkg);
+    const head = page.locator(".pkg-head");
+    if (pkg.split_provider) await expect(head.getByTestId("comp-split-from")).toBeVisible();
+    const why = msg("role-job-comp-panel-this-company-s-real-base");
+    // The label alone no longer carries the sentence: a title would stack a
+    // second, mouse-only tooltip on the help mark's.
+    await expect(head.locator(".split-src")).not.toHaveAttribute("title");
+
+    const help = head.getByRole("button", { name: msg("role-job-comp-panel-about-the-split") });
+    await expect(help).toHaveAccessibleDescription(why);
+    const tip = head.getByRole("tooltip");
+    await expect(tip).toBeHidden();
+
+    await help.focus();
+    await expect(help).toBeFocused();
+    expect(await help.evaluate((el) => (el as HTMLElement).tabIndex), "the help mark is in the tab order").toBe(0);
+    await expect(tip).toBeVisible();
+    await expect(tip).toHaveText(why);
+    // The label sits at the card's right edge: the sentence opens inward and
+    // stays on screen without widening the page.
+    const box = (await tip.boundingBox())!;
+    const label = (await head.locator(".pkg-split").boundingBox())!;
+    expect(box.y, "the sentence covers the label it explains").toBeGreaterThanOrEqual(label.y + label.height);
+    expect(box.x, "the sentence starts off screen").toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width, "the sentence runs off screen").toBeLessThanOrEqual(width);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth), "the page scrolls sideways").toBeLessThanOrEqual(width);
+
+    await help.blur();
+    await expect(tip).toBeHidden();
+    await help.click();
+    await expect(tip).toBeVisible();
+  });
+}
+
+/* Under forced colours (Windows contrast themes) the browser repaints every
+   background with the person's own Canvas, so fills alone leave a blank
+   band. The bar and its swatches draw in system colours there: a stated part
+   in solid ink, an estimated one as an outline with ink lines. */
+const INK = 3;
+
+/** The share of a region's pixels that stand 3:1 off the card's ground. */
+function inked(region: Rgb[], ground: Rgb): number {
+  const g = luminance(ground);
+  return region.filter((px) => ratio(luminance(px), g) >= INK).length / region.length;
+}
+
+for (const theme of ["light", "dark"] as const) {
+  test(`forced colours keep the bar and its swatches, stated apart from estimated (${theme})`, async ({ page }) => {
+    await page.emulateMedia({ forcedColors: "active" });
+    const bar = await openPayCard(page, theme, basePosted);
+    const ground = await cardGround(page);
+
+    const stated = inked(await inside(page, bar.locator(".pkg-base")), ground);
+    expect(stated, "the stated base is not drawn solid").toBeGreaterThanOrEqual(0.95);
+    for (const kind of ["bonus", "equity"] as const) {
+      const segment = bar.locator(`.pkg-${kind}`);
+      const share = inked(await inside(page, segment), ground);
+      expect(share, `the estimated ${kind} cannot be seen`).toBeGreaterThanOrEqual(0.12);
+      expect(share, `the estimated ${kind} reads as solid as the stated base`).toBeLessThanOrEqual(0.6);
+      // The outline: the part's own edge is ink, so its extent shows where the lines stop.
+      // Read two CSS pixel rows at the top, one image pixel per CSS pixel: a
+      // part may start on a fractional pixel, and the 1px outline then lands
+      // in either row or across both. Every column must carry ink in one of them.
+      const box = (await segment.boundingBox())!;
+      const width = Math.floor(box.width - 8);
+      const strip = await pixels(page, await page.screenshot({
+        clip: { x: Math.ceil(box.x + 4), y: box.y, width, height: 2 },
+        scale: "css",
+      }));
+      expect(strip, "the edge strip is not one pixel per CSS pixel").toHaveLength(width * 2);
+      const columns = Array.from({ length: width }, (_, x) => inked([strip[x]], ground) + inked([strip[width + x]], ground) > 0);
+      const edged = columns.filter(Boolean).length / width;
+      expect(edged, `the estimated ${kind} has no edge`).toBeGreaterThanOrEqual(0.9);
+    }
+
+    for (const kind of ["base", "bonus", "equity"] as const) {
+      const swatch = page.locator(`.pkg-legend .pkg-sw.pkg-${kind}`);
+      const share = inked(await pixels(page, await swatch.screenshot()), ground);
+      expect(share, `the ${kind} swatch is blank`).toBeGreaterThanOrEqual(0.3);
     }
   });
 }

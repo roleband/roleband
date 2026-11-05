@@ -176,6 +176,16 @@ Never paint a literal colour in a declaration: it ignores the theme.
 The nav rail is dark in both themes, painted from its own `--rail-*` set in
 `shell.css`.
 
+### Forced colours
+
+Under `forced-colors: active` (Windows contrast themes) the browser repaints
+text, borders and backgrounds from the person's own palette, so a figure drawn
+only in background fills goes blank. Such a figure keeps its shape in a
+`@media (forced-colors: active)` block that sets `forced-color-adjust: none`
+and paints system colours only (`Canvas`, `CanvasText`), with a pattern or an
+outline where the figure separated things by hue, as the pay card's split bar
+and its swatches do (`job-detail.css`).
+
 ### Materials
 
 A material is a body attribute a few screens share:
@@ -841,6 +851,7 @@ Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs
 | Sticky offsets derived, container queries kept | `features/companies/register.test.ts`, `features/opportunities/board-shell.test.ts` |
 | Register screens match the rest | `material-parity.spec.ts` |
 | Axe in both themes | `a11y.spec.ts` |
+| Pay split bar: hatch strength, gaps, forced colours; the split label's help mark | `pay-split-bar.spec.ts` |
 | Visible primaries counted | `job-detail.spec.ts`, `profile.spec.ts` |
 | First-run setup | `routing/setupMode.test.tsx`, `features/scope/walk/Walk.test.tsx`, `features/companies/SetupCompanies.test.tsx`, `welcome.spec.ts` |
 | First-run setup magnification: the factor, window units, placed pop-ups, the planet's pointer | `features/scope/setupZoom.test.ts`, `features/scope/welcome/globeDrag.test.ts`, `setup-magnification.spec.ts`, `setup-magnification-webkit.spec.ts`, `setup-magnification-unhinted.spec.ts` |

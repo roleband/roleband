@@ -24,6 +24,7 @@ role-job-comp-panel-estimated-split = 估算构成
 role-job-comp-panel-this-company-s-real-base = 这家公司在该级别和职能上实际的基本工资/奖金/股权构成
 role-job-comp-panel-no-measured-split-for-this = 该职能没有实测构成：根据这家公司其他职能同级别的数据推算
 role-job-comp-panel-no-measured-split-for-this-2 = 该公司没有实测构成：使用按资历估算的规则
+role-job-comp-panel-about-the-split = 关于此构成
 role-job-comp-panel-posted-band-sits-well-above = 公布的区间远高于这家公司实测的 { $band } 基本工资，因此级别可能更高。
 role-job-comp-panel-posted-band-sits-well-below = 公布的区间远低于这家公司实测的 { $band } 基本工资，因此级别可能更低。
 role-job-comp-panel-you-choose-the-cash-stock = 现金与股权的比例由你选择
