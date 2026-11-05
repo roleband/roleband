@@ -87,10 +87,6 @@ role-job-detail-to-apply = Para postular
 role-job-detail-more-like-this = Más como este
 role-job-detail-other-companies = Otras empresas
 role-job-detail-same-company = Misma empresa · { $company }
-role-job-detail-could-not-unsave-this-role = { $choice ->
-    [yes] No se pudo guardar este puesto
-   *[no] No se pudo quitar este puesto de guardados
-}
 role-job-detail-couldn-t-update-the-stage = No se pudo actualizar la etapa
 role-job-detail-role = { $choice ->
     [yes] Puesto: { $title }
@@ -384,7 +380,7 @@ role-place-set-section-states-pay = · publica { $range }
 role-place-set-section-states-no-pay = · no publica rango
 
 ## Qué hace elegir una etapa.
-role-job-detail-tracking-explainer = Elige una etapa para seguir este puesto: queda guardado, Guardados muestra su etapa y una fecha de seguimiento que fijes después te avisa cuando llegue.
+role-job-detail-tracking-explainer = Elige una etapa para seguir este puesto: queda guardado, Seguimiento muestra su etapa y una fecha de seguimiento que fijes después te avisa cuando llegue.
 role-job-comp-panel-estimate-of-total = Compensación total estimada: { $range }
 role-job-comp-panel-split-not-reported = reparto no disponible
 role-job-comp-panel-the-plugin-reports-no-split = El plugin que aporta la compensación da una cifra para este nivel, pero no cómo se reparte entre base, bonus y equity, así que no se divide.
@@ -393,3 +389,7 @@ role-job-comp-panel-level-not-stated-or-mapped = La oferta no indica nivel, o in
 role-job-comp-panel-not-read-yet = aún sin leer
 role-job-comp-panel-estimated-base = Salario base estimado
 role-job-comp-panel-from-roleband-data = De los datos integrados.
+role-job-detail-could-not-unsave-this-role = { $choice ->
+    [yes] No se pudo guardar este puesto
+   *[no] No se pudo quitar este puesto de tu seguimiento
+}

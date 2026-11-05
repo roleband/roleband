@@ -659,7 +659,7 @@
 [data-theme="light"] .schedule-inspector-time input[type="time"] { color-scheme: light; }
 .schedule-inspector-time input[type="time"]:focus-visible {
   outline: var(--app-ring-width) solid var(--app-action);
-  outline-offset: var(--app-ring-offset);
+  outline-offset: calc(-1 * var(--app-ring-offset));
   border-radius: var(--app-radius-sm);
 }
 .schedule-inspector-time input[type="time"]:disabled { color: var(--app-text-faint); }

@@ -18,8 +18,9 @@ import {
   shellPaletteThemeLight,
 } from "../copy/gen/shell";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { NAV_TABS } from "../navigation";
+import { listScreenOf, pageUnder } from "../routing/paths";
 import { useJobActions, useJobWorkspace } from "../context/JobWorkspace";
 import { useMissionActions } from "../context/MissionState";
 import { useClearCompare } from "../patterns/compare/useClearCompare";
@@ -70,6 +71,7 @@ export function CommandPalette({
   onShowShortcuts?: () => void;
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { setSearch } = useMissionActions();
   const { compareIds } = useJobWorkspace();
   const { openCompare } = useJobActions();
@@ -171,7 +173,25 @@ export function CommandPalette({
         label: shellPaletteSearch({ query: query.trim() }),
         icon: "search",
         hint: "↵",
+        // The search of the screen the reader is on: the Pipeline's lives in
+        // its address (`?q=`) on each tab, so it stays on the tab the reader
+        // is on, and an application's page sends it to the List; Radar's is
+        // the board's query. Staying on a tab keeps the rest of its filter
+        // and the entry's state, which holds the other tabs' filters; from
+        // the tab itself it is a filter change, which replaces the entry.
         run: () => {
+          if (listScreenOf(location) === "pipeline") {
+            const under = pageUnder(location);
+            const tab = under.pathname === "/pipeline/board" ? "board" : under.pathname === "/pipeline/up-next" ? "up-next" : "list";
+            const stays = under.pathname === `/pipeline/${tab}`;
+            const params = new URLSearchParams(stays ? under.search ?? "" : "");
+            params.set("q", query.trim());
+            navigate(
+              { pathname: `/pipeline/${tab}`, search: `?${params}` },
+              stays ? { state: under.state, replace: location.pathname === under.pathname } : undefined,
+            );
+            return;
+          }
           setSearch(query.trim());
           navigate("/");
         },

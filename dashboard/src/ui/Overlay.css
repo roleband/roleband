@@ -63,12 +63,14 @@
 }
 
 /* The shell takes focus on open (tabindex="-1") so the trap has somewhere to
- * land, but it is a focus TARGET, not a control — the app's global
- * `[tabindex]:focus-visible` ring would otherwise draw a 2px accent outline
- * around the whole dialog, which reads as "this panel is selected". That rule
- * is specificity 0-2-0, so plain `.ui-overlay-content` above cannot cancel it;
- * this selector matches it and wins on source order. Controls INSIDE the
+ * land, but it is a focus TARGET, not a control: the app's global
+ * `[tabindex]:focus-visible` ring (shell.css) would otherwise draw a 2px
+ * accent outline around the whole shell, square, on the unpainted box rather
+ * than the panel, which reads as "this panel is selected". This rule must not
+ * depend on source order: `main.tsx` imports the app, and with it this file,
+ * before shell.css, so a tie at 0-2-0 goes to the global ring. Naming the
+ * attribute too (0-3-0) wins wherever the sheets land. Controls INSIDE the
  * overlay keep their own rings. */
-.ui-overlay-content:focus-visible {
+.ui-overlay-content[tabindex]:focus-visible {
   outline: none;
 }

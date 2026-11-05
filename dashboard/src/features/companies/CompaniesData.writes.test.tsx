@@ -47,7 +47,7 @@ vi.mock("../../api", () => ({
     stats: vi.fn(),
     markJobViewed: vi.fn(),
     compareSelection: vi.fn().mockResolvedValue({ job_ids: [] }),
-    setCompareSelection: vi.fn((jobIds: number[]) => Promise.resolve({ job_ids: jobIds })),
+    setCompareSelection: vi.fn((_scope: string, jobIds: number[]) => Promise.resolve({ job_ids: jobIds })),
   },
 }));
 

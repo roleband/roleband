@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { StrictMode, useState } from "react";
-import { MemoryRouter, useLocation } from "react-router-dom";
+import { MemoryRouter, useLocation, useNavigationType } from "react-router-dom";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { Overlay } from "../ui/Overlay";
 import { ToastProvider } from "../ui/Toast";
@@ -27,11 +27,19 @@ vi.mock("../context/JobWorkspace", () => ({
 }));
 
 function Location() {
-  const { pathname } = useLocation();
-  return <div data-testid="pathname">{pathname}</div>;
+  const { pathname, search, state } = useLocation();
+  const action = useNavigationType();
+  return (
+    <>
+      <div data-testid="action">{action}</div>
+      <div data-testid="pathname">{pathname}</div>
+      <div data-testid="search">{search}</div>
+      <div data-testid="state">{JSON.stringify(state)}</div>
+    </>
+  );
 }
 
-function renderPalette({ compareIds = [] as number[] } = {}) {
+function renderPalette({ compareIds = [] as number[], at = "/" as string | { pathname: string; search?: string; state?: unknown } } = {}) {
   mocks.setSearch.mockClear();
   mocks.clearCompare.mockClear();
   mocks.setCompare.mockClear();
@@ -39,7 +47,7 @@ function renderPalette({ compareIds = [] as number[] } = {}) {
   const onClose = vi.fn();
   const onShowShortcuts = vi.fn();
   const tree = (open: boolean) => (
-    <MemoryRouter initialEntries={["/"]}>
+    <MemoryRouter initialEntries={[at]}>
       <ToastProvider>
         <CommandPalette
           open={open}
@@ -59,6 +67,9 @@ function renderPalette({ compareIds = [] as number[] } = {}) {
     input: () => screen.getByLabelText("Command query"),
     type: (value: string) => fireEvent.change(screen.getByLabelText("Command query"), { target: { value } }),
     pathname: () => screen.getByTestId("pathname").textContent,
+    search: () => screen.getByTestId("search").textContent,
+    state: () => JSON.parse(screen.getByTestId("state").textContent || "null"),
+    action: () => screen.getByTestId("action").textContent,
     selected: () => screen.getByRole("option", { selected: true }).textContent,
     reopen: () => {
       rerender(tree(false));
@@ -162,6 +173,55 @@ describe("CommandPalette", () => {
     expect(p.pathname()).toBe("/");
   });
 
+  it("free text searches the screen the reader is on: in the Pipeline, its own search, never Radar's", () => {
+    const board = renderPalette({ at: "/pipeline/board" });
+    board.type("stripe & co");
+    press("Enter");
+    expect(board.pathname()).toBe("/pipeline/board");
+    expect(new URLSearchParams(board.search() ?? "").get("q")).toBe("stripe & co");
+    expect(mocks.setSearch).not.toHaveBeenCalled();
+  });
+
+  it("on Up next the search stays on Up next, which has its own search box", () => {
+    const upNext = renderPalette({ at: "/pipeline/up-next" });
+    upNext.type("stripe");
+    press("Enter");
+    expect(upNext.pathname()).toBe("/pipeline/up-next");
+    expect(upNext.search()).toBe("?q=stripe");
+    expect(mocks.setSearch).not.toHaveBeenCalled();
+  });
+
+  it("a search that stays on its tab keeps the tab's other filters and the other tabs' notes", () => {
+    const left = { pipelineTabsLeft: { board: "only=overdue" } };
+    const upNext = renderPalette({ at: { pathname: "/pipeline/up-next", search: "?only=due_week&show=highlight&q=old", state: left } });
+    upNext.type("stripe");
+    press("Enter");
+    const params = new URLSearchParams(upNext.search() ?? "");
+    expect(upNext.pathname()).toBe("/pipeline/up-next");
+    expect([params.get("q"), params.get("only"), params.get("show")]).toEqual(["stripe", "due_week", "highlight"]);
+    expect(upNext.state()).toEqual(left);
+    expect(upNext.action(), "a filter change is not a destination").toBe("REPLACE");
+  });
+
+  it("a search that leaves an application's page for the List takes none of the page's address", () => {
+    const page = renderPalette({ at: { pathname: "/pipeline/202", search: "?from=board", state: { pipelineTabsLeft: { board: "q=x" } } } });
+    page.type("stripe");
+    press("Enter");
+    expect(page.pathname()).toBe("/pipeline/list");
+    expect(page.search()).toBe("?q=stripe");
+    expect(page.state()).toBeNull();
+    expect(page.action(), "leaving the page is a step Back undoes").toBe("PUSH");
+  });
+
+  it("from an application's page the search opens the Pipeline's List", () => {
+    const page = renderPalette({ at: "/pipeline/202" });
+    page.type("stripe");
+    press("Enter");
+    expect(page.pathname()).toBe("/pipeline/list");
+    expect(page.search()).toBe("?q=stripe");
+    expect(mocks.setSearch).not.toHaveBeenCalled();
+  });
+
   it("reopening resets the query and the selection", () => {
     const p = renderPalette();
 
@@ -184,8 +244,8 @@ describe("CommandPalette", () => {
     const row = (name: string) => screen.getByRole("option", { name });
 
     // Opened under a resting pointer: the first report only places it.
-    fireEvent.mouseEnter(row("Saved"));
-    fireEvent.mouseMove(row("Saved"), { clientX: 300, clientY: 200 });
+    fireEvent.mouseEnter(row("Pipeline"));
+    fireEvent.mouseMove(row("Pipeline"), { clientX: 300, clientY: 200 });
     expect(p.selected()).toBe("Radar");
 
     // A real move takes the highlight.

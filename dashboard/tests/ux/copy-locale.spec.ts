@@ -40,7 +40,8 @@ test.describe("switching language", () => {
 
     await page.getByRole("combobox", { name: msg("settings-language-label") }).selectOption("es");
 
-    await expect(nav(page).getByRole("link", { name: "Guardados" })).toBeVisible();
+    await expect(nav(page).getByRole("link", { name: "Perfil" })).toBeVisible();
+    await expect(nav(page).getByRole("link", { name: "Seguimiento" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Idioma" })).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Idioma" })).toHaveValue("es");
     expect(puts).toEqual([ES]);
@@ -50,12 +51,13 @@ test.describe("switching language", () => {
 
     // On to Chinese, in place again.
     await page.getByRole("combobox", { name: "Idioma" }).selectOption("zh-Hans");
-    await expect(nav(page).getByRole("link", { name: "已保存" })).toBeVisible();
+    await expect(nav(page).getByRole("link", { name: "个人资料" })).toBeVisible();
+    await expect(nav(page).getByRole("link", { name: "求职进展" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "语言" })).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hans");
 
     await page.getByRole("combobox", { name: "语言" }).selectOption("en");
-    await expect(nav(page).getByRole("link", { name: msg("shell-nav-saved") })).toBeVisible();
+    await expect(nav(page).getByRole("link", { name: msg("shell-nav-profile") })).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
     expect(puts).toEqual([ES, { language: "zh-Hans", region: null }, { language: "en", region: null }]);
   });
@@ -78,14 +80,14 @@ test.describe("switching language", () => {
     await locale(page, ES);
     // This device last chose English; the account says Spanish.
     await page.addInitScript(() => localStorage.setItem("roleband.locale", JSON.stringify({ language: "en", region: null })));
-    await page.goto("/favorites");
-    await expect(nav(page).getByRole("link", { name: "Guardados" })).toBeVisible();
+    await page.goto("/pipeline/list");
+    await expect(nav(page).getByRole("link", { name: "Perfil" })).toBeVisible();
     expect(await page.evaluate(() => localStorage.getItem("roleband.locale"))).toBe(JSON.stringify(ES));
   });
 });
 
 test.describe("the pseudo locale", () => {
-  const ROUTES = ["/", "/favorites", "/profile", "/statistics", "/company", "/review", "/notifications", "/settings"];
+  const ROUTES = ["/", "/pipeline/list", "/profile", "/statistics", "/company", "/review", "/notifications", "/settings"];
   // Screens whose copy is all in the catalog: their scan below is blocking,
   // not a report. Every route; a new route joins as it ships.
   const MIGRATED = ROUTES;
@@ -186,7 +188,7 @@ test.describe("locale ordering and requested choices", () => {
     await region.selectOption("system");
     await expect(region).toBeEnabled();await expect(region).toHaveValue("system");
     await language.selectOption("es");
-    await expect(nav(page).getByRole("link",{name:"Guardados"})).toBeVisible();
+    await expect(nav(page).getByRole("link",{name:"Perfil"})).toBeVisible();
     expect(puts.slice(0,2)).toEqual([{language:"en",region:"en-US"},{language:"en",region:null}]);
   });
   test("a delayed boot read cannot undo a later user save", async ({page}) => {
@@ -199,7 +201,7 @@ test.describe("locale ordering and requested choices", () => {
     });
     await page.goto("/settings/language");
     await page.getByRole("combobox",{name:msg("settings-language-label")}).selectOption("es");
-    await expect(nav(page).getByRole("link",{name:"Guardados"})).toBeVisible();
+    await expect(nav(page).getByRole("link",{name:"Perfil"})).toBeVisible();
     release();
     await expect.poll(()=>page.evaluate(()=>JSON.parse(localStorage.getItem("roleband.locale")!).language)).toBe("es");
     await expect(page.getByRole("combobox",{name:"Idioma"})).toHaveValue("es");

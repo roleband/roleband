@@ -16,7 +16,10 @@ import { installEveryRoute } from "./routesHarness";
    first thing a new user meets, so it is the last one that should be exempt. */
 const ROUTES = [
   "/",
-  "/favorites",
+  "/pipeline/list",
+  "/pipeline/board",
+  "/pipeline/up-next",
+  "/pipeline/101",
   "/profile",
   "/compare",
   "/statistics",

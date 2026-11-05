@@ -66,7 +66,8 @@ async def test_a_follow_up_set_already_owed_rings_without_a_scan(api_client, db_
     assert row.job_id == job.id and "Email the recruiter" in (row.body or "")
 
 
-async def test_ending_a_pursuit_retracts_its_reminder_at_once(api_client, db_session):
+@pytest.mark.parametrize("ending", ["rejected", "role_closed", "withdrawn", "declined"])
+async def test_ending_a_pursuit_retracts_its_reminder_at_once(api_client, db_session, ending):
     job = await _job(db_session)
     db_session.add(Pursuit(job_id=job.id, stage="applied", next_action_due=datetime.now(UTC) - timedelta(days=1)))
     await db_session.commit()
@@ -74,9 +75,21 @@ async def test_ending_a_pursuit_retracts_its_reminder_at_once(api_client, db_ses
     await db_session.commit()
     assert len(await _reminders(db_session)) == 1
 
-    response = await api_client.put(f"/api/jobs/{job.id}/pursuit", json={"stage": "rejected"})
+    response = await api_client.put(f"/api/jobs/{job.id}/pursuit", json={"stage": ending})
     assert response.status_code == 200, response.text
     assert await _reminders(db_session) == []
+
+
+async def test_an_accepted_offer_keeps_the_follow_up_the_user_set(api_client, db_session):
+    job = await _job(db_session)
+    db_session.add(Pursuit(job_id=job.id, stage="offer", next_action_due=datetime.now(UTC) - timedelta(days=1)))
+    await db_session.commit()
+    await generate_pursuit_due_notifications(db_session)
+    await db_session.commit()
+
+    response = await api_client.put(f"/api/jobs/{job.id}/pursuit", json={"stage": "accepted"})
+    assert response.status_code == 200, response.text
+    assert len(await _reminders(db_session)) == 1
 
 
 async def test_a_dismissed_reminder_never_swallows_the_next_follow_up(api_client, db_session):

@@ -181,3 +181,22 @@ test("the ring verifier refuses a control whose painted ring is removed", async 
   await page.addStyleTag({ content: "button:focus-visible { outline: none !important; box-shadow: none !important; }" });
   expect((await focusedRing(page))?.ok).toBe(false);
 });
+
+// One test per theme: init scripts pile up on a page, so a second theme's
+// script set on the same page would run beside the first.
+for (const theme of ["light", "dark"] as const) {
+  test(`a click into a field rings it on its own edge, in the ${theme} theme`, async ({ page, isMobile }) => {
+    test.skip(isMobile, "the pane's fields are judged at desktop width; the sweep owns the rest");
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.addInitScript((t) => localStorage.setItem("theme", t), theme);
+    for (const path of ["/", "/pipeline/list"]) {
+      await page.goto(path);
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await expect(page.locator("h1").first()).toBeVisible();
+      await page.getByRole("searchbox").first().click();
+      const ring = await focusedRing(page);
+      expect(ring, `${path} ${theme}: the click focused nothing`).not.toBeNull();
+      expect(ring!.ok, `${path} ${theme}: ${ring!.what}`).toBe(true);
+    }
+  });
+}

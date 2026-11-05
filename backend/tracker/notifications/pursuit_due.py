@@ -30,7 +30,8 @@ from tracker.platform.locks import advisory_xact_lock
 #: Stages where a follow-up is not owed, from the stage vocabulary in
 #: `agents/pursuits.py::PursuitStage`. `offer` is deliberately NOT terminal:
 #: an outstanding offer is the point at which a missed follow-up costs the most.
-TERMINAL_STAGES = frozenset({"rejected", "withdrawn"})
+#: Nor is `accepted`: signing and a start date still carry dates the user set.
+TERMINAL_STAGES = frozenset({"declined", "withdrawn", "rejected", "role_closed"})
 
 
 def classify_pursuit_due(

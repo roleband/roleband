@@ -27,6 +27,9 @@ import {
   shellTabSettingsLanguage,
   shellTabProfileLookingFor,
   shellTabProfileExperience,
+  shellTabPipelineBoard,
+  shellTabPipelineList,
+  shellTabPipelineUpNext,
 } from "./copy/gen/shell";
 
 // A path sub-tab within a section. The slug is the URL segment
@@ -76,4 +79,12 @@ export const SETTINGS_TABS: SubTabDef[] = [
 export const PROFILE_TABS: SubTabDef[] = [
   { slug: "direction", get label() { return shellTabProfileLookingFor(); } },
   { slug: "experience", get label() { return shellTabProfileExperience(); } },
+];
+
+// Pipeline sub-tabs: the List, every application as a row of a table; the
+// Board, the same applications as columns of stages; and Up next, what is due.
+export const PIPELINE_TABS: SubTabDef[] = [
+  { slug: "list", get label() { return shellTabPipelineList(); } },
+  { slug: "board", get label() { return shellTabPipelineBoard(); } },
+  { slug: "up-next", get label() { return shellTabPipelineUpNext(); } },
 ];

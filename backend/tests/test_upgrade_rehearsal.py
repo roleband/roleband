@@ -252,6 +252,47 @@ def test_a_downgrade_past_plan_continuations_refuses_while_one_is_stored(baselin
     assert run_psql(dsn, bin_dir, "select version_num from alembic_version") == "d3f9b1c7e5a2"
 
 
+@pytest.mark.parametrize(
+    ("held", "write", "said"),
+    [
+        (
+            "select count(*) from pursuit_comments",
+            "insert into pursuit_comments (pursuit_id, actor, body) select id, 'user', 'Kept' from pursuits",
+            "comments would be lost",
+        ),
+        (
+            "select count(*) from pursuit_interviews",
+            "insert into pursuit_interviews (pursuit_id, label, scheduled_at)"
+            " select id, 'Screen', now() from pursuits",
+            "interviews would be lost",
+        ),
+        (
+            "select count(*) from pursuits where stage = 'accepted'",
+            "update pursuits set stage = 'accepted'",
+            "pursuits in a new ending would be lost",
+        ),
+    ],
+    ids=["comment", "interview", "accepted"],
+)
+def test_a_downgrade_past_the_application_pipeline_refuses_what_it_would_lose(
+    baseline_database, held, write, said
+):
+    """The older schema has no comments, no interviews and three fewer endings:
+    the downgrade stops and every row the user wrote stays where it is."""
+    env, dsn, bin_dir = baseline_database
+    result = run_alembic(env, "upgrade", "a7d2f4c9e1b6")
+    assert result.returncode == 0, (result.stderr + result.stdout)[-2000:]
+    _seed(dsn, bin_dir)
+    run_psql(dsn, bin_dir, write)
+
+    result = run_alembic(env, "downgrade", "-1")
+
+    assert result.returncode != 0
+    assert said in result.stderr
+    assert run_psql(dsn, bin_dir, held) == "1"
+    assert run_psql(dsn, bin_dir, "select version_num from alembic_version") == "a7d2f4c9e1b6"
+
+
 def test_the_rehearsal_waits_for_its_opt_in_locally_and_always_runs_in_ci(
     monkeypatch, request
 ):

@@ -265,7 +265,7 @@ which is RoleBand's data.
 
 ## A role list's Base column
 
-The Board and Saved lists show one figure per row, of one kind: base
+The Board and the pipeline's List show one figure per row, of one kind: base
 salary. A total is never shown there, because postings state a base and the
 built-in estimate answers no total; job detail shows the package.
 

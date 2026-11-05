@@ -12,12 +12,15 @@ import {
   taxonomyLevelNotPlaced,
   taxonomyLevelNotStated,
   taxonomyLevelUnstatedChoice,
+  taxonomyStageAccepted,
   taxonomyStageApplied,
+  taxonomyStageDeclined,
   taxonomyStageInterviewing,
   taxonomyStageNetworking,
   taxonomyStageOffer,
   taxonomyStageRejected,
   taxonomyStageResearching,
+  taxonomyStageRoleClosed,
   taxonomyStageSaved,
   taxonomyStageWithdrawn,
 } from "./gen/taxonomy";
@@ -64,8 +67,11 @@ export const STAGE_LABEL = {
   get applied() { return taxonomyStageApplied(); },
   get interviewing() { return taxonomyStageInterviewing(); },
   get offer() { return taxonomyStageOffer(); },
-  get rejected() { return taxonomyStageRejected(); },
+  get accepted() { return taxonomyStageAccepted(); },
+  get declined() { return taxonomyStageDeclined(); },
   get withdrawn() { return taxonomyStageWithdrawn(); },
+  get rejected() { return taxonomyStageRejected(); },
+  get role_closed() { return taxonomyStageRoleClosed(); },
 };
 
 export type StageSlug = keyof typeof STAGE_LABEL;

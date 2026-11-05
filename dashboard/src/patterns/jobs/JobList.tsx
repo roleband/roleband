@@ -2,17 +2,14 @@ import {
   jobsHeadLocation,
   jobsHeadPay,
   jobsHeadRole,
-  jobsSortBy,
-  jobsSortByAscending,
-  jobsSortByDescending,
   jobsSortLabelAbbr,
 } from "../../copy/gen/jobs";
 import { sharedBaseSalaryFull } from "../../copy/gen/shared";
 import { useRef } from "react";
 import type { JobSort, SortOrder } from "../../api";
-import { Icon } from "../../ui";
 import { Abbr } from "../../ui/Abbr";
 import "./job-row.css";
+import { SortButton } from "./SortButton";
 
 // Sortable columns exposed as clickable headers, in render order. A key is a
 // `JobSort`, the set `/api/jobs` publishes from the backend's SORT_COLUMNS
@@ -51,7 +48,6 @@ function HeaderCell({
   // see (WCAG 2.5.3), and adds the full words a screen reader needs.
   const spoken = full ? jobsSortLabelAbbr({ short: label, full }) : label;
   const active = control.sort === sortKey;
-  const arrow = active ? (control.order === "asc" ? "arrowUp" : "arrowDown") : null;
   // `aria-sort` is legal only on a real column-header role, and this head is a
   // div grid — on a button element it is invalid ARIA that tooling flags and
   // readers may drop. The state rides the app's own "currently on" convention
@@ -59,18 +55,7 @@ function HeaderCell({
   // which every reader announces.
   return (
     <span className={className}>
-      <button
-        type="button"
-        className="col-sort"
-        aria-pressed={active}
-        aria-label={active ? (control.order === "asc" ? jobsSortByAscending : jobsSortByDescending)({ label: spoken }) : jobsSortBy({ label: spoken })}
-        onClick={() => control.onSort(sortKey)}
-      >
-        {shown}
-        <span className="col-sort-arrow" aria-hidden="true">
-          {arrow && <Icon name={arrow} size={11} />}
-        </span>
-      </button>
+      <SortButton shown={shown} spoken={spoken} active={active} order={control.order} onSort={() => control.onSort(sortKey)} />
     </span>
   );
 }

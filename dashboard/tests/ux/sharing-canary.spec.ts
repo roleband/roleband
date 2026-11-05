@@ -90,7 +90,7 @@ test.beforeEach(async ({ page }) => {
     throw new Error(`Unmocked sharing-canary API request: ${route.request().method()} ${route.request().url()}`);
   });
   await page.route("/api/companies/names", (route) => route.fulfill({ json: { names: { [COMPANY]: "Zyxwv Robotics" } } }));
-  await page.route("/api/compare-selection", (route) => route.fulfill({ json: { job_ids: [] } }));
+  await page.route("/api/compare-selection**", (route) => route.fulfill({ json: { job_ids: [] } }));
   await page.route("/api/settings/locale", (route) => route.fulfill({ json: { language: "en", region: null } }));
   await page.route("/api/stats", (route) => route.fulfill({ json: statsFixture }));
   await page.route("/api/status", (route) => route.fulfill({ json: statusFixture }));

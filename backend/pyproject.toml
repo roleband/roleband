@@ -253,6 +253,10 @@ files = [
     "scripts/bench_level_identification.py",
     # The API's declared response shapes
     "tracker/api/schemas",
+    # The application pipeline: its store, its reads and its routes
+    "tracker/agents/pursuits.py",
+    "tracker/agents/applications.py",
+    "tracker/api/routers/applications.py",
     # The one API answer each company-store refusal gets
     "tracker/api/company_errors.py",
     # What a notification says, as catalog keys

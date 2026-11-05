@@ -78,6 +78,10 @@ export type ListingEvent = Schemas["ListingEvent"];
  *  the rail count survives a reload the way the star beside the same row
  *  does. */
 export type CompareSelection = Schemas["CompareSelectionOut"];
+/** The list screen a comparison belongs to: each keeps its own. */
+export type CompareScope = NonNullable<
+  NonNullable<operations["get_compare_selection_api_compare_selection_get"]["parameters"]["query"]>["scope"]
+>;
 
 /** A neighbour: a list row with its similarity to the posting asked about. */
 export type SimilarJob = Schemas["SimilarJob"];

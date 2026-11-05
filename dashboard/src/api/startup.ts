@@ -9,7 +9,7 @@
    still call `api.status()`; the shell reaches these through `./shell` only, which `npm run build` holds
    it to (shell-boundary.json "confined"). An endpoint joins here only when the
    shell itself calls it. */
-import type { CompareSelection, JobViewResult } from "./jobs";
+import type { CompareScope, CompareSelection, JobViewResult } from "./jobs";
 import type { CompanyNames } from "./companies";
 import type { Notification, NotificationList, NotificationParams } from "./notifications";
 import type { SyncCancelResult, SyncResult, SystemStatus } from "./ops";
@@ -27,13 +27,14 @@ export const startupApi = {
   cancelSync: () => postJSON<SyncCancelResult>("/api/sync/cancel"),
   stats: () => getJSON<Stats>("/api/stats"),
   markJobViewed: (id: number) => postMarkJSON<JobViewResult>(`/api/jobs/${id}/view`),
-  compareSelection: (signal?: AbortSignal) =>
-    getJSON<CompareSelection>("/api/compare-selection", signal),
+  /** One list screen's comparison; each screen keeps its own. */
+  compareSelection: (scope: CompareScope, signal?: AbortSignal) =>
+    getJSON<CompareSelection>(`/api/compare-selection?${qs({ scope })}`, signal),
   /** Replace-all, and the response is authoritative: ids past the cap and ids
    *  whose job is gone come back absent, so the caller reconciles its
    *  optimistic set against what was really stored. */
-  setCompareSelection: (jobIds: number[]) =>
-    putJSON<CompareSelection>("/api/compare-selection", { job_ids: jobIds }),
+  setCompareSelection: (scope: CompareScope, jobIds: number[]) =>
+    putJSON<CompareSelection>(`/api/compare-selection?${qs({ scope })}`, { job_ids: jobIds }),
   notifications: (params: NotificationParams = {}) =>
     getJSON<NotificationList>(`/api/notifications?${qs(params)}`),
   markNotificationRead: (id: number, read: boolean) =>

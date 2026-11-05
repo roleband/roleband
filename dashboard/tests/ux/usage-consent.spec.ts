@@ -33,7 +33,7 @@ test.beforeEach(async ({ page }) => {
   });
   // The page-level guard outranks the context fixtures: repeat the bootstrap reads.
   await page.route("/api/companies/names", (route) => route.fulfill({ json: { names: {} } }));
-  await page.route("/api/compare-selection", (route) => route.fulfill({ json: { job_ids: [] } }));
+  await page.route("/api/compare-selection**", (route) => route.fulfill({ json: { job_ids: [] } }));
   await page.route("/api/settings/locale", (route) => route.fulfill({ json: { language: "en", region: null } }));
   await page.route("/api/stats", (route) => route.fulfill({ json: statsFixture }));
   await page.route("/api/status", (route) => route.fulfill({ json: statusFixture }));
