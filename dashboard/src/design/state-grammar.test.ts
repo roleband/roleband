@@ -244,6 +244,30 @@ describe("the tokens say what the rule says", () => {
   });
 });
 
+/* An invalid field: a field marked `aria-invalid="true"` wears the danger edge
+ * from one rule in shell.css, so a screen that marks a field paints nothing
+ * and no screen's field goes unmarked. The behaviour half is the pay floor in
+ * `welcome.spec.ts` and the company field review in `companies.spec.ts`. */
+const INVALID = /\[aria-invalid(?:=["']?true["']?)?\]/;
+
+function invalidRules(sheets: { file: string; css: string }[]) {
+  return sheets.flatMap(({ file, css }) =>
+    rules(css).filter((rule) => rule.selectors.some((selector) => INVALID.test(selector))).map((rule) => ({ file, rule })));
+}
+
+describe("an invalid field", () => {
+  it("is painted by one rule, in shell.css, in the danger colour", () => {
+    const found = invalidRules(SHEETS);
+    expect(found.map(({ file }) => file)).toEqual(["shell.css"]);
+    expect(found[0].rule.decls.get("border-color")).toBe("var(--app-danger)");
+  });
+
+  it("the detector finds a screen's own invalid rule", () => {
+    const planted = [{ file: "features/x.css", css: '.x-amount[aria-invalid="true"] { border-color: red; }' }];
+    expect(invalidRules(planted).map(({ file }) => file)).toEqual(["features/x.css"]);
+  });
+});
+
 describe("components set no state class either", () => {
   // A class with no rule behind it is inert today and a hook for the next
   // sheet tomorrow. Scanned where they were written: a conditional.

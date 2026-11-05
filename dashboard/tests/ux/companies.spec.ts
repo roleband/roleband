@@ -1,4 +1,5 @@
 import { expect, test } from "./fixtures";
+import type { Locator } from "@playwright/test";
 import { expectMeasuredToolbar } from "./measuredToolbar";
 import { installCompanyRegisterRoutes, installSettingsRoutes } from "./settingsHarness";
 import { msg } from "../../src/test/msg";
@@ -415,6 +416,43 @@ test("enrichment arrives with the button, not with the page", async ({ page }) =
   // ...and it is a mode, so it can be put away again.
   await enrich.click();
   await expect(page.getByLabel(/Custom value for Ticker/i)).toHaveCount(0);
+});
+
+/** Whether a field's edge is the danger colour of the surface it sits on. */
+const dangerEdge = (field: Locator) => field.evaluate((el) => {
+  const probe = document.createElement("span");
+  probe.style.color = "var(--app-danger)";
+  el.parentElement!.appendChild(probe);
+  const danger = getComputedStyle(probe).color;
+  probe.remove();
+  return getComputedStyle(el).borderTopColor === danger;
+});
+
+test("a count that is not a whole number is refused, and its field's edge says so", async ({ page }) => {
+  await page.route("/api/company-profiles/reddit", (r) => r.fulfill({
+    json: {
+      ...redditDetail,
+      needs_review: [{ field: "headcount", reason: "missing", current: null, suggestion: null, candidates: [] }],
+    } satisfies CompanyProfileDetail,
+  }));
+  await page.goto("/company/reddit");
+  await page.locator(".prof-toolbar").getByRole("button", { name: msg("profiles-company-profiles-view-enrich-fields") }).click();
+  const custom = page.getByRole("textbox", {
+    name: msg("profiles-field-review-custom-value-for", { label: msg("profiles-labels-headcount") }),
+  });
+  await expect(custom).toBeVisible();
+  expect(await dangerEdge(custom)).toBe(false);
+
+  await custom.fill("lots");
+  await custom.press("Enter");
+  await expect(custom).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect.poll(() => dangerEdge(custom)).toBe(true);
+
+  // Typing again clears the verdict, and the edge with it.
+  await custom.fill("1200");
+  await expect(custom).not.toHaveAttribute("aria-invalid", "true");
+  await expect.poll(() => dangerEdge(custom)).toBe(false);
 });
 
 test("a public company shows its stock price and history", async ({ page }) => {

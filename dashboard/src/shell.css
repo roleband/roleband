@@ -86,6 +86,14 @@ textarea:focus-visible {
   outline-offset: calc(-1 * var(--app-ring-offset));
 }
 
+/* A field holding a value it cannot take says so with its edge, in the danger
+   colour, on every screen: the screen marks the field `aria-invalid="true"`
+   and paints nothing. `:not(:disabled)` makes this rule outrank a screen's
+   own `.class input` edge, and a disabled field is not judged. */
+:is(input, select, textarea)[aria-invalid="true"]:not(:disabled) {
+  border-color: var(--app-danger);
+}
+
 /* The rail is dark in both themes, so the ring takes the rail's own gold:
    the light theme's action colour measures 3.72:1 on it, the rail's 11.98:1. */
 .nav-rail :focus-visible {
