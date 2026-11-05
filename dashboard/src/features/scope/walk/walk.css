@@ -566,7 +566,6 @@
 .walk-floor-reading[data-reading="ready"] { color: var(--app-text); }
 .walk-floor-reading[data-reading="ready"] svg { color: var(--app-positive); }
 .walk-floor-reading[data-reading="invalid"] { color: var(--app-danger); }
-.walk-floor-amount[aria-invalid="true"] { border-color: var(--app-danger); }
 .walk-floor-amount {
   width: 12ch;
   /* The control scale's md rank, the height of the Select and the Save

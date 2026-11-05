@@ -187,6 +187,15 @@ test("a fresh install goes from the intro through Profile's walk to a board that
   // editor's ground, and Set waits.
   await amount.fill("lots");
   await expect(amount).toHaveAttribute("aria-invalid", "true");
+  // The field's own edge turns the danger colour too (docs/ui.md, two states).
+  await expect.poll(() => amount.evaluate((el) => {
+    const probe = document.createElement("span");
+    probe.style.color = "var(--app-danger)";
+    el.parentElement!.appendChild(probe);
+    const danger = getComputedStyle(probe).color;
+    probe.remove();
+    return getComputedStyle(el).borderTopColor === danger;
+  })).toBe(true);
   await expect(setFloor).toBeDisabled();
   expect(await textContrast(page.locator(".walk-floor-reading"), page.locator(".walk-floor-form"))).toBeGreaterThanOrEqual(4.5);
   await amount.fill("200k");
