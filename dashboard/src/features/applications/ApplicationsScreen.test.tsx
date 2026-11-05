@@ -221,6 +221,34 @@ describe("moving into Interviewing", () => {
     expect(api.setPursuit).toHaveBeenLastCalledWith(2, { stage: "applied" });
   });
 
+  it("takes back the interview when the move fails, and says so when it cannot", async () => {
+    const kept = msg("applications-move-failed-interview-kept", { title: applied.title });
+    const tryMove = async () => {
+      await userEvent.click(within(await openMenu(applied)).getByRole("button", { name: "Interviewing" }));
+      const dialog = await screen.findByRole("dialog", { name: msg("applications-interview-title") });
+      await userEvent.click(within(dialog).getByRole("button", { name: "Thu, Nov 12" }));
+      await userEvent.click(within(dialog).getByRole("button", { name: msg("applications-interview-submit", { stage: "Interviewing" }) }));
+      await waitFor(() => expect(api.deleteInterview).toHaveBeenCalledWith(2, 77));
+      await userEvent.click(within(dialog).getByRole("button", { name: msg("applications-interview-cancel") }));
+    };
+    render(withProviders(<ApplicationsScreen />));
+    await screen.findByText("Principal Engineering Manager");
+
+    // The move fails and its interview is taken back: the form said so, and
+    // nothing is left behind to tell of.
+    vi.mocked(api.setPursuit).mockRejectedValueOnce(new Error("offline"));
+    await tryMove();
+    expect(screen.queryByText(kept)).toBeNull();
+
+    // The move fails and so does taking the interview back: it is there,
+    // and the person is told before a second try adds another.
+    vi.mocked(api.setPursuit).mockRejectedValueOnce(new Error("offline"));
+    vi.mocked(api.deleteInterview).mockRejectedValueOnce(new Error("offline"));
+    await tryMove();
+    expect(await screen.findByText(kept)).toBeInTheDocument();
+    expect(within(column("Applied")).getByText("Principal Engineering Manager"), "the role did not move").toBeInTheDocument();
+  });
+
   it("keeps the interview when Undo's move back fails behind a newer move of the same role", async () => {
     render(withProviders(<ApplicationsScreen />));
     await screen.findByText("Principal Engineering Manager");

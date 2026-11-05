@@ -153,6 +153,8 @@ applications-move-undo = Undo
 applications-move-failed = Couldn't move { $title }. Try again.
 # kind=toast
 applications-undo-failed = Couldn't move { $title } back. Try again.
+# kind=toast note="A move into Interviewing failed, and so did taking back the interview it had saved"
+applications-move-failed-interview-kept = Couldn't move { $title }, but its interview was saved. Open the application to change or delete it.
 # kind=toast
 applications-removed = Removed { $title } from the pipeline
 # kind=toast

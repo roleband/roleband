@@ -6,6 +6,7 @@ import { useRoleSaves } from "../../hooks/useRoleSaves";
 import { useToast } from "../../ui";
 import {
   applicationsMoveFailed,
+  applicationsMoveFailedInterviewKept,
   applicationsMoveUndo,
   applicationsMoved,
   applicationsUndoFailed,
@@ -76,9 +77,16 @@ export function useStageMove({ paint, refresh, said = moved }: {
       try {
         await write(card, { stage });
       } catch {
-        // The form that asked for the interview says the failure itself.
+        // The form that asked for the interview says the failure itself,
+        // unless the interview it saved could not be taken back: then the
+        // person is told it is there, so a second try does not add another
+        // without them knowing.
         if (added == null) toast({ key: "applications", tone: "error", text: applicationsMoveFailed({ title }) });
-        else await api.deleteInterview(card.job_id, added).catch(() => undefined);
+        else {
+          await api.deleteInterview(card.job_id, added).catch(() => {
+            toast({ key: "applications", tone: "error", text: applicationsMoveFailedInterviewKept({ title }) });
+          });
+        }
         await refresh();
         return false;
       }
