@@ -86,8 +86,11 @@ export function useStageMove({ paint, refresh, said = moved }: {
           label: applicationsMoveUndo(),
           onClick: () => {
             paint(card.job_id, from);
+            // The interview goes only once the move back has landed: a move
+            // back that failed behind a newer move leaves the stage to that
+            // one, and the interview with it.
             void write(card, { stage: from })
-              .then(() => (added == null ? undefined : api.deleteInterview(card.job_id, added)))
+              .then((outcome) => (outcome === "saved" && added != null ? api.deleteInterview(card.job_id, added) : undefined))
               .catch(() => {
                 toast({ key: "applications", tone: "error", text: applicationsUndoFailed({ title }) });
               })

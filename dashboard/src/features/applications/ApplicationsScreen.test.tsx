@@ -221,6 +221,32 @@ describe("moving into Interviewing", () => {
     expect(api.setPursuit).toHaveBeenLastCalledWith(2, { stage: "applied" });
   });
 
+  it("keeps the interview when Undo's move back fails behind a newer move of the same role", async () => {
+    render(withProviders(<ApplicationsScreen />));
+    await screen.findByText("Principal Engineering Manager");
+
+    await userEvent.click(within(await openMenu(applied)).getByRole("button", { name: "Interviewing" }));
+    const dialog = await screen.findByRole("dialog", { name: msg("applications-interview-title") });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Thu, Nov 12" }));
+    await userEvent.click(within(dialog).getByRole("button", {
+      name: msg("applications-interview-submit", { stage: "Interviewing" }),
+    }));
+    await waitFor(() => expect(api.setPursuit).toHaveBeenCalledWith(2, { stage: "interviewing" }));
+
+    // Undo's move back hangs, a newer move of the same role is asked for
+    // behind it, and then the move back fails: the newer move decides.
+    let failBack: (error: Error) => void = () => undefined;
+    vi.mocked(api.setPursuit).mockImplementationOnce(() => new Promise((_, reject) => { failBack = reject; }));
+    await userEvent.click(await screen.findByRole("button", { name: msg("applications-move-undo") }));
+    await waitFor(() => expect(api.setPursuit).toHaveBeenLastCalledWith(2, { stage: "applied" }));
+    await userEvent.click(within(await openMenu(applied)).getByRole("button", { name: "Researching" }));
+    failBack(new Error("offline"));
+
+    await waitFor(() => expect(api.setPursuit).toHaveBeenLastCalledWith(2, { stage: "researching" }));
+    await waitFor(() => expect(within(column("Researching")).getByText("Principal Engineering Manager")).toBeInTheDocument());
+    expect(api.deleteInterview, "the move back did not land, so its interview stays").not.toHaveBeenCalled();
+  });
+
   it("keeps the form open with what was typed when its interview fails to save, and moves only once it saves", async () => {
     render(withProviders(<ApplicationsScreen />));
     await screen.findByText("Principal Engineering Manager");
