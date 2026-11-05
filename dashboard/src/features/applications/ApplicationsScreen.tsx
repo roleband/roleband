@@ -18,7 +18,7 @@ import { BoardView } from "./BoardView";
 import { ListView } from "./ListView";
 import { boardCounts, columnOf } from "./board";
 import { columnName, readHiddenColumns } from "./columnView";
-import { readFilter, writeFilter } from "./filters";
+import { VIEW_FILTERS, readFilter, writeFilter } from "./filters";
 import { UpNext } from "./UpNext";
 import { useBoardController } from "./useBoardController";
 import "./applications.css";
@@ -86,7 +86,7 @@ function PipelineTabs() {
   // The summary's count is the board's: its link opens the board with that
   // filter added to whatever the board already had.
   const boardParams = new URLSearchParams(tab === "board" ? params : left.board);
-  const boardFilter = readFilter(boardParams);
+  const boardFilter = readFilter(boardParams, VIEW_FILTERS.board);
   const needNext = tab === "board" && boardFilter.quick.includes("needs_next");
   const showNeedNext = () =>
     open("board", writeFilter(boardParams, { ...boardFilter, quick: [...boardFilter.quick, "needs_next"] }).toString());

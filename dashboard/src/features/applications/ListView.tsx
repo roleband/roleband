@@ -53,7 +53,7 @@ import {
   applicationsMenuRemove,
 } from "../../copy/gen/applications";
 import { applicationPath, dayOffset, daysInStage, daysOverdue, dueOf, dueState } from "./board";
-import { isFiltering, matches, quickCounts } from "./filters";
+import { VIEW_FILTERS, isFiltering, matches, quickCounts } from "./filters";
 import {
   ALWAYS_SHOWN,
   DEFAULT_LAYOUT,
@@ -384,7 +384,7 @@ export function ListView({ board, now }: {
 }) {
   const { resource, move, remove, dismiss } = board;
   const cards = board.cards.filter((card) => card.stage === "saved");
-  const [filter, setFilter] = useViewFilter();
+  const [filter, setFilter] = useViewFilter("list");
   const { sort, order, choose } = useListSort();
   const [layout, setLayout] = useListLayout();
   const postings = usePostings(cards);
@@ -469,7 +469,7 @@ export function ListView({ board, now }: {
       <PipelineToolbar
         filter={filter}
         onFilter={setFilter}
-        quickCounts={quickCounts(cards, now)}
+        quickCounts={quickCounts(cards, now, VIEW_FILTERS.list)}
         columns={{
           all: layout.order.filter((column) => column !== ALWAYS_SHOWN).map((column) => ({ id: column, name: HEAD[column].name() })),
           hidden: layout.hidden,

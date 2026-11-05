@@ -16,7 +16,7 @@ import {
 import { ApplicationTile } from "./ApplicationTile";
 import { COLUMNS, byStage, type ColumnDef, type ColumnId } from "./board";
 import { columnName, readHiddenColumns, writeHiddenColumns } from "./columnView";
-import { isFiltering, matches, quickCounts } from "./filters";
+import { VIEW_FILTERS, isFiltering, matches, quickCounts } from "./filters";
 import { PipelineToolbar } from "./PipelineToolbar";
 import type { useBoardController } from "./useBoardController";
 import { useCardDrag } from "./useCardDrag";
@@ -71,7 +71,7 @@ export function BoardView({ board, now }: {
   now: Date;
 }) {
   const { cards, resource, move, remove } = board;
-  const [filter, setFilter] = useViewFilter();
+  const [filter, setFilter] = useViewFilter("board");
   const [hidden, setHiddenState] = useState<ColumnId[]>(readHiddenColumns);
   const groups = byStage(cards, now);
   const filtering = isFiltering(filter);
@@ -99,7 +99,7 @@ export function BoardView({ board, now }: {
       <PipelineToolbar
         filter={filter}
         onFilter={setFilter}
-        quickCounts={quickCounts(cards, now)}
+        quickCounts={quickCounts(cards, now, VIEW_FILTERS.board)}
         columns={{
           all: COLUMNS.map((column) => ({ id: column.id, name: columnName(column.id), count: columnTotal(column) })),
           hidden,

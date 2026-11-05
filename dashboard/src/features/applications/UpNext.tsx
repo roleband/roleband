@@ -19,7 +19,7 @@ import {
 } from "../../copy/gen/applications";
 import { applicationPath, daysOverdue } from "./board";
 import { upNext, type UpNextDay, type UpNextItem } from "./dueByDay";
-import { isFiltering, matches, quickCounts } from "./filters";
+import { VIEW_FILTERS, isFiltering, matches, quickCounts } from "./filters";
 import { dayKey } from "./monthGrid";
 import { PipelineToolbar } from "./PipelineToolbar";
 import { UpNextMonth } from "./UpNextMonth";
@@ -81,7 +81,7 @@ export function UpNext({ resource, now }: {
   /** The page's clock, so a row says the same day the board's card does. */
   now: Date;
 }) {
-  const [filter, setFilter] = useViewFilter();
+  const [filter, setFilter] = useViewFilter("up_next");
   const filtering = isFiltering(filter);
   const highlight = filtering && filter.mode === "highlight";
   const hits = (item: UpNextItem) => matches(item.card, filter, now);
@@ -116,7 +116,7 @@ export function UpNext({ resource, now }: {
 
   return (
     <>
-      <PipelineToolbar filter={filter} onFilter={setFilter} quickCounts={quickCounts([...new Set(due)], now)} />
+      <PipelineToolbar filter={filter} onFilter={setFilter} quickCounts={quickCounts([...new Set(due)], now, VIEW_FILTERS.up_next)} />
       <AsyncBoundary resource={resource} failed={applicationsBoardLoadFailed()}>
         {(board) => (
           <div className="app-upnext-split">

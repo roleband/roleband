@@ -29,7 +29,7 @@ import {
   applicationsSearchPlaceholder,
 } from "../../copy/gen/applications";
 import { Button, FilterChip, Icon, Kbd, Menu, MenuCheck, MenuGroup, MenuItem, MenuRadio, SearchField } from "../../ui";
-import { QUICK_FILTERS, isFiltering, type BoardFilter, type FilterMode, type QuickFilter } from "./filters";
+import { isFiltering, type BoardFilter, type FilterMode, type QuickCount, type QuickFilter } from "./filters";
 
 const QUICK_LABEL: Record<QuickFilter, () => string> = {
   overdue: applicationsQuickOverdue,
@@ -55,8 +55,9 @@ export interface ColumnChoice<C extends string> {
 export interface PipelineToolbarProps<C extends string = string> {
   filter: BoardFilter;
   onFilter: (next: Partial<BoardFilter>) => void;
-  /** How many applications each quick filter would match on its own. */
-  quickCounts: Record<QuickFilter, number>;
+  /** The quick filters the view offers, each with how many applications it
+   *  would match on its own. The menu lists these and no others. */
+  quickCounts: readonly QuickCount[];
   /** The view's columns, for the Columns menu. Up next has none. */
   columns?: {
     all: readonly ColumnChoice<C>[];
@@ -158,12 +159,12 @@ export function PipelineToolbar<C extends string>({ filter, onFilter, quickCount
 
       <Menu isOpen={open === "filter"} onClose={() => setOpen(null)} anchor={filterButton} label={applicationsFilterMenu()}>
         <MenuGroup label={applicationsFilterQuick()}>
-          {QUICK_FILTERS.map((quick) => (
+          {quickCounts.map(({ quick, count }) => (
             <MenuCheck
               key={quick}
               checked={filter.quick.includes(quick)}
               onChange={() => toggleQuick(quick)}
-              count={number(quickCounts[quick])}
+              count={number(count)}
             >
               {QUICK_LABEL[quick]()}
             </MenuCheck>

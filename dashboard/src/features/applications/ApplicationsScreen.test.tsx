@@ -430,6 +430,59 @@ describe("filtering", () => {
     expect(screen.queryByRole("button", { name: /^Columns/ })).toBeNull();
   });
 
+  it("offers each view only the filters that can match there, and drops one the address carries that the view does not", async () => {
+    function Address() {
+      return <output data-testid="address">{useLocation().search}</output>;
+    }
+    vi.mocked(api.jobs).mockResolvedValue({ items: [], total: 0, limit: 500, offset: 0 } as never);
+    render(
+      <ToastProvider>
+        <MemoryRouter initialEntries={["/pipeline/list?only=quiet,high_priority"]}>
+          <Routes><Route path="/pipeline/:tab" element={<><ApplicationsScreen /><Address /></>} /></Routes>
+        </MemoryRouter>
+      </ToastProvider>,
+    );
+    const offered = async () => {
+      // The button counts the filters on, so its name starts with Filters.
+      await userEvent.click(screen.getByRole("button", { name: new RegExp(`^${msg("shared-filters")}`) }));
+      const menu = await screen.findByRole("dialog", { name: msg("applications-filter-menu") });
+      const names = within(menu).getAllByRole("checkbox").map((box) => box.getAttribute("aria-label") ?? box.textContent ?? "");
+      await userEvent.keyboard("{Escape}");
+      return names;
+    };
+    const has = (names: string[], label: string) => names.some((name) => name.startsWith(label));
+    const highPriority = msg("applications-quick-high-priority");
+    const quiet = msg("applications-quick-quiet");
+    const needsNext = msg("applications-quick-needs-next");
+    const chip = (label: string) => screen.queryByRole("button", { name: msg("applications-filter-remove", { filter: label }) });
+
+    // The List: roles in Considering never go quiet and are owed no next step yet.
+    await screen.findByRole("tab", { name: msg("shell-tab-pipeline-list"), selected: true });
+    expect(chip(highPriority)).toBeInTheDocument();
+    expect(chip(quiet)).toBeNull();
+    const list = await offered();
+    for (const label of [msg("applications-quick-overdue"), msg("applications-quick-due-week"), highPriority, msg("applications-card-posting-closed")]) {
+      expect(has(list, label), label).toBe(true);
+    }
+    expect(has(list, quiet)).toBe(false);
+    expect(has(list, needsNext)).toBe(false);
+    expect(list).toHaveLength(4);
+
+    // The next change writes only what the List holds.
+    await userEvent.click(chip(highPriority)!);
+    expect(screen.getByTestId("address").textContent).toBe("");
+
+    // Up next: every row has a date, so none needs a next step.
+    await userEvent.click(screen.getByRole("tab", { name: msg("shell-tab-pipeline-up-next") }));
+    const upNext = await offered();
+    expect(has(upNext, needsNext)).toBe(false);
+    expect(has(upNext, quiet)).toBe(true);
+    expect(upNext).toHaveLength(5);
+
+    await userEvent.click(screen.getByRole("tab", { name: msg("shell-tab-pipeline-board") }));
+    expect(await offered()).toHaveLength(6);
+  });
+
   it("draws no count in the toolbar, filtering or not: the views show what they hold", async () => {
     render(atRoute("/pipeline/board?only=overdue"));
     await screen.findByText("Director of Product");

@@ -21,6 +21,19 @@ export const QUICK_FILTERS = [
 ] as const;
 export type QuickFilter = (typeof QUICK_FILTERS)[number];
 
+/** The pipeline's views, each with its own filter. */
+export type PipelineView = "board" | "list" | "up_next";
+
+/** The quick filters a view offers: only those that can match one of its
+ *  cards. The List holds roles still in Considering, which have no stage
+ *  clock to go quiet on and are not yet owed a next step. Every row in Up
+ *  next has a date, so none of them is waiting for a next step. */
+export const VIEW_FILTERS: Record<PipelineView, readonly QuickFilter[]> = {
+  board: QUICK_FILTERS,
+  list: ["overdue", "due_week", "high_priority", "posting_closed"],
+  up_next: ["overdue", "due_week", "quiet", "high_priority", "posting_closed"],
+};
+
 /** What a card that does not match does: leaves the board, or stays faded. */
 export type FilterMode = "only" | "highlight";
 
@@ -71,21 +84,27 @@ export function matches(card: ApplicationCard, filter: BoardFilter, now: Date): 
   return filter.quick.every((quick) => matchesQuick(card, quick, now)) && matchesSearch(card, filter.query);
 }
 
-/** How many of a view's cards each quick filter would match on its own. */
-export function quickCounts(cards: readonly ApplicationCard[], now: Date): Record<QuickFilter, number> {
-  return Object.fromEntries(
-    QUICK_FILTERS.map((quick) => [quick, cards.filter((card) => matchesQuick(card, quick, now)).length]),
-  ) as Record<QuickFilter, number>;
+export interface QuickCount {
+  quick: QuickFilter;
+  /** How many of the view's cards it would match on its own. */
+  count: number;
 }
 
-const isQuick =(value: string): value is QuickFilter => (QUICK_FILTERS as readonly string[]).includes(value);
+/** The quick filters a view offers, in order, with how many of its cards each
+ *  would match on its own. */
+export function quickCounts(cards: readonly ApplicationCard[], now: Date, offered: readonly QuickFilter[]): QuickCount[] {
+  return offered.map((quick) => ({ quick, count: cards.filter((card) => matchesQuick(card, quick, now)).length }));
+}
+
+const isQuick = (value: string): value is QuickFilter => (QUICK_FILTERS as readonly string[]).includes(value);
 
 /** The filter an address holds: `?q=` the search, `?only=` the quick filters,
- *  `?show=highlight` the mode. Anything it does not know is ignored. */
-export function readFilter(params: URLSearchParams): BoardFilter {
+ *  `?show=highlight` the mode. Anything it does not know is ignored, and so is
+ *  a quick filter the view does not offer. */
+export function readFilter(params: URLSearchParams, offered: readonly QuickFilter[] = QUICK_FILTERS): BoardFilter {
   const named = (params.get("only") ?? "").split(",").filter(isQuick);
   return {
-    quick: QUICK_FILTERS.filter((quick) => named.includes(quick)),
+    quick: offered.filter((quick) => named.includes(quick)),
     query: params.get("q") ?? "",
     mode: params.get("show") === "highlight" ? "highlight" : "only",
   };

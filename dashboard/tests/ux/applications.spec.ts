@@ -625,6 +625,34 @@ test("the List holds only roles in Considering, and starting one from its menu, 
   await expect(column(page, "Researching").getByText("Principal Engineering Manager")).toBeVisible();
 });
 
+test("the List's filters are its own: only those a role in Considering can match, and one the address carries otherwise is dropped", async ({ page }) => {
+  await installPipeline(page, backlog.map((card) => (card.job_id === 404 ? { ...card, priority: 5 } : card)));
+  await installPostings(page);
+  await page.goto("/pipeline/list?only=quiet");
+
+  // Gone quiet is the Board's: the List ignores it and shows its whole backlog.
+  await expect(page.locator("table.app-list tbody tr")).toHaveCount(3);
+  await expect(page.getByRole("button", { name: msg("applications-filter-remove", { filter: msg("applications-quick-quiet") }) })).toHaveCount(0);
+
+  await page.getByRole("button", { name: msg("shared-filters") }).click();
+  const menu = page.getByRole("dialog", { name: msg("applications-filter-menu") });
+  const box = (label: string) => menu.getByRole("checkbox", { name: label, exact: true });
+  await expect(menu.getByRole("checkbox")).toHaveCount(4);
+  for (const label of [msg("applications-quick-overdue"), msg("applications-quick-due-week"), msg("applications-quick-high-priority"), msg("applications-card-posting-closed")]) {
+    await expect(box(label)).toBeVisible();
+  }
+  await expect(box(msg("applications-quick-quiet"))).toHaveCount(0);
+  await expect(box(msg("applications-quick-needs-next"))).toHaveCount(0);
+
+  // The box shows the address, which the click changes a moment later.
+  await box(msg("applications-quick-high-priority")).click();
+  await expect(box(msg("applications-quick-high-priority"))).toBeChecked();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("table.app-list tbody tr")).toHaveCount(1);
+  await expect(listRow(page, "Group Product Manager")).toBeVisible();
+  await expect(page).toHaveURL(/\/pipeline\/list\?only=high_priority$/);
+});
+
 test("the List says nothing is waiting, and points to the Board, once work has started on every role", async ({ page }) => {
   await installPipeline(page, [cards[1], cards[2]]);
   await page.goto("/pipeline/list");
