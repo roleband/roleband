@@ -9,7 +9,9 @@
 # kind=heading
 privacy-consent-title = Help us improve
 # kind=consent
-privacy-consent-intro = We're free and open source, and we get better with every release. Anonymous data shows us what to fix and what to build next.
+privacy-consent-intro = We're free and open source, and we get better with every release.
+# kind=consent note="Shown on its own line under privacy-consent-intro; the record joins the two with a space"
+privacy-consent-intro-data = Anonymous data shows us what to fix and what to build next.
 # kind=label
 privacy-group-usage = Anonymous usage data
 # kind=consent
@@ -22,8 +24,10 @@ privacy-group-crashes-detail = What broke and where, so we can fix it fast.
 privacy-group-questions = Feedback surveys
 # kind=consent
 privacy-group-questions-detail = An occasional one-question survey. Skip any you like.
+# kind=label note="The name over privacy-never; the record joins them as one sentence, the label then a colon"
+privacy-never-label = Never sent
 # kind=consent
-privacy-never = Never sent: company names, role titles, compensation, your CV or anything you type.
+privacy-never = Company names, role titles, compensation, your CV or anything you type.
 # kind=consent
 privacy-consent-change = Change it any time in Settings › Privacy.
 # kind=button
@@ -32,6 +36,8 @@ privacy-choose = Let me choose
 privacy-no-thanks = No thanks
 # kind=button
 privacy-happy-to-help = Happy to help
+# kind=label note="On the answer someone gave, when they come back to the question: pressing it keeps that answer"
+privacy-your-answer = Your answer
 # kind=error
 privacy-save-error = Couldn't save your choice. Try again.
 

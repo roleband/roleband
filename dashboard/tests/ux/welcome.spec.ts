@@ -8,6 +8,26 @@ import type { ScopeSettingsPayload } from "../../src/api";
 import { scopeCatalog, scopePreview } from "./scopeFixtures";
 import { companyDiscovery, installCompanyRegisterRoutes } from "./settingsHarness";
 
+/** WCAG contrast of `text`'s colour on `ground`'s background, both opaque. */
+async function textContrast(text: ReturnType<Page["locator"]>, ground: ReturnType<Page["locator"]>): Promise<number> {
+  const rgb = async (locator: ReturnType<Page["locator"]>, property: "color" | "backgroundColor") =>
+    locator.evaluate((el, name) => {
+      const probe = document.createElement("canvas").getContext("2d")!;
+      probe.fillStyle = getComputedStyle(el)[name];
+      probe.fillRect(0, 0, 1, 1);
+      return [...probe.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+    }, property);
+  const luminance = ([r, g, b]: number[]) => {
+    const [lr, lg, lb] = [r, g, b].map((c) => {
+      const v = c / 255;
+      return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+  };
+  const [a, b] = [luminance(await rgb(text, "color")), luminance(await rgb(ground, "backgroundColor"))];
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}
+
 /* First-run setup: the radar intro, then Profile's own walk with the window
    to itself (no rail, no top bar), then which companies to scan, then the board. A
    configured install never enters it, whatever the URL says, and leaving it
@@ -110,8 +130,8 @@ test("a fresh install goes from the intro through Profile's walk to a board that
     expect(said.y + said.height).toBeLessThanOrEqual(bar.y + bar.height + 1);
   }
   await expect(page.getByLabel("Leading a team")).not.toBeChecked();
-  // The first step has nowhere to go back to.
-  await expect(page.getByRole("button", { name: "Back" })).toBeHidden();
+  // The first step's Back goes to the sharing question before the walk.
+  await expect(page.getByRole("button", { name: "Back" })).toBeVisible();
   await page.getByLabel("Hands-on, as the expert").check();
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByText("Setup, step 2 of 7")).toBeVisible();
@@ -160,9 +180,21 @@ test("a fresh install goes from the intro through Profile's walk to a board that
   await expect(page.getByRole("heading", { name: "Summary" })).toBeVisible();
   // The pay floor is set here but held: Start is setup's one save.
   await page.getByRole("button", { name: "Add a minimum base" }).click();
-  await page.getByLabel("Lowest yearly base salary").fill("200k");
-  await page.getByRole("button", { name: "Set minimum base" }).click();
-  await expect(page.getByText("$200,000 a year")).toBeVisible();
+  const amount = page.getByLabel(msg("profile-pay-floor-row-lowest-yearly-base-pay"));
+  const setFloor = page.getByRole("button", { name: msg("profile-pay-floor-row-set-floor") });
+  await expect(setFloor).toBeDisabled();
+  // Something that is not an amount says why, in ink that can be read on the
+  // editor's ground, and Set waits.
+  await amount.fill("lots");
+  await expect(amount).toHaveAttribute("aria-invalid", "true");
+  await expect(setFloor).toBeDisabled();
+  expect(await textContrast(page.locator(".walk-floor-reading"), page.locator(".walk-floor-form"))).toBeGreaterThanOrEqual(4.5);
+  await amount.fill("200k");
+  const yearly = msg("profile-pay-floor-row-set-your-pay-floor", { choice: "yes", amount: "$200,000" });
+  await expect(amount).toHaveAccessibleDescription(yearly);
+  await setFloor.click();
+  await expect(page.getByRole("button", { name: msg("profile-pay-floor-row-add-a-pay-floor", { choice: "yes" }) })).toBeVisible();
+  await expect(page.getByRole("region", { name: msg("profile-pay-floor-row-pay-floor") })).toContainText(yearly);
   expect(saves).toEqual([]);
   expect(floorWrites).toEqual([]);
   const onward = (await page.getByRole("button", { name: "Continue" }).boundingBox())!;
@@ -231,8 +263,9 @@ test("Set up later leaves without saving, and the next launch offers setup again
 
 /* Setup saves nothing before Start, so its steps are the browser's history
    and its answers are the tab's: Back, the browser's or a phone's gesture,
-   steps back through setup and from its first step to the welcome, never out
-   of RoleBand, and a reload opens the step it left with every answer. */
+   steps back through setup and from its first step to the welcome's sharing
+   question, never out of RoleBand, and a reload opens the step it left with
+   every answer. */
 test("Back steps back through setup, and a reload keeps the step and its answers", async ({ page }) => {
   const saves = await install(page, FRESH);
   await page.goto("/");
@@ -262,9 +295,11 @@ test("Back steps back through setup, and a reload keeps the step and its answers
   await expect(page.getByLabel("Leading a team")).toBeChecked();
   await page.goBack();
   await expect(page).toHaveURL(/\/welcome$/);
+  const mine = page.getByRole("region", { name: "Help us improve" }).getByRole("button", { name: "No thanks" });
+  await expect(mine).toHaveAccessibleDescription(msg("privacy-your-answer"));
 
-  // Into the walk again, the answers are still there.
-  await page.getByRole("button", { name: "Tune the radar" }).click();
+  // Into the walk again on the answer given, the answers are still there.
+  await mine.click();
   await expect(page.getByLabel("Leading a team")).toBeChecked();
   expect(saves).toEqual([]);
 });
@@ -526,6 +561,13 @@ test("the sharing question takes the intro's place over the dimmed planet", asyn
       return [style.backgroundColor, style.borderColor, style.color, Math.round(width), Math.round(height)];
     });
     expect(await look(no)).toEqual(await look(yes));
+
+    // The reason reads a sentence a line, both on the title's edge.
+    const lines = question.locator(".privacy-consent-intro-line");
+    await expect(lines).toHaveText([msg("privacy-consent-intro"), msg("privacy-consent-intro-data")]);
+    const [first, second] = [(await lines.nth(0).boundingBox())!, (await lines.nth(1).boundingBox())!];
+    expect(Math.abs(first.x - second.x)).toBeLessThan(1);
+    expect(second.y).toBeGreaterThanOrEqual(first.y + first.height - 1);
 
     await page.keyboard.press("Escape");
     await expect(page).toHaveURL(/\/welcome$/);

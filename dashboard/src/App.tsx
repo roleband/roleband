@@ -57,6 +57,7 @@ import { useMissionActions, useMissionState, useMissionStats } from "./context/M
 import { modeFromParam } from "./features/opportunities/boardMode";
 import { BEHIND_COVER } from "./ui/Overlay";
 import { BrandMark } from "./ui/BrandMark";
+import { onSharingAnswered } from "./diagnostics/sharingAnswered";
 
 // Usage sharing asks a configured install once (docs/architecture.md); lazy,
 // so its words stay out of the startup chunk.
@@ -169,10 +170,14 @@ function Shell() {
   // Usage sharing's state, read once: it starts the browser side when something
   // is shared, and is what the question for a configured install is asked from.
   const [sharingState, setSharingState] = useState<UsageState | null>(null);
+  // An answer recorded while the startup read is still out is newer than what
+  // that read returns, so a late read must not undo it.
+  const answered = useRef(false);
   useEffect(() => {
     const controller = new AbortController();
     shellApi.usage?.(controller.signal)
       ?.then((state) => {
+        if (answered.current) return;
         setSharingState(state);
         startSharing(state);
       })
@@ -196,9 +201,16 @@ function Shell() {
     return () => window.clearTimeout(later);
   }, [holding, muted]);
   const answeredSharing = useCallback((next: UsageState) => {
+    answered.current = true;
     setSharingState(next);
     startSharing(next);
   }, []);
+  // The welcome records its own answer (and starts sharing itself); the state
+  // the question is asked from follows it.
+  useEffect(() => onSharingAnswered((next) => {
+    answered.current = true;
+    setSharingState(next);
+  }), []);
 
   // First run: a fresh install (no persona profile, scope never configured)
   // starts in the onboarding wizard. Configured installs are never redirected.
