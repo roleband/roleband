@@ -26,7 +26,7 @@ jobs:
   # is what the native tests read; the bundle also needs BUNDLE_PATHS, and copies the whole
   # engine and dashboard besides, which the weekly run and every release build cover.
   changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       native: ${{ steps.decide.outputs.native }}

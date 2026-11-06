@@ -20,7 +20,7 @@ jobs:
   # none of them still runs the tests that read past backend/ (tests/repo_wide.py).
   changes:
     name: backend-changes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       backend: ${{ steps.decide.outputs.backend }}
@@ -66,15 +66,16 @@ jobs:
     needs: changes
     # Runs when `changes` fails too, and then runs the whole suite.
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       # Every shard reports: one red shard must not hide another's failures.
       fail-fast: false
       matrix:
         shard: [1, 2]
-    # Same reason as dashboard.yml: an unbounded step is billed minutes. Hosted
-    # runners differ in speed, so this leaves room for a slow one to finish its
-    # shard and still fails a stall within the half hour.
+    # Same reason as dashboard.yml: an unbounded step holds a runner and the
+    # pull request's checks for six hours. Hosted runners differ in speed, so
+    # this leaves room for a slow one to finish its shard and still fails a
+    # stall within the half hour.
     timeout-minutes: 30
     defaults:
       run:
@@ -113,6 +114,8 @@ jobs:
       WHOLE_SUITE: ${{ needs.changes.outputs.backend != 'false' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           # The same file setup.sh reads, so CI and a local install agree.
@@ -148,13 +151,15 @@ jobs:
         run: python -m scripts.install_pg_contrib
       # tests/test_gitleaks_config.py runs the secret scan the release export
       # runs, so CI holds the same version, checked against its release checksum.
+      # GitHub's release downloads answer an occasional 502 or 504, so the
+      # download retries; the checksum still decides what is used.
       - name: install gitleaks
         env:
           GITLEAKS_VERSION: 8.30.1
           GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
         run: |
           archive="$RUNNER_TEMP/gitleaks.tar.gz"
-          curl -sSfL -o "$archive" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL --retry 4 --retry-delay 5 --retry-all-errors -o "$archive" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
           echo "$GITLEAKS_SHA256  $archive" | sha256sum -c -
           mkdir -p "$RUNNER_TEMP/gitleaks"
           tar -xzf "$archive" -C "$RUNNER_TEMP/gitleaks" gitleaks
@@ -190,7 +195,7 @@ jobs:
     name: backend
     needs: checks
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - env:
