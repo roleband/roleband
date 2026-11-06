@@ -91,6 +91,25 @@ def _interrupted(checkpoint, state, boundary="ready"):
         log.close()
 
 
+def test_an_open_journal_reader_keeps_its_snapshot_without_blocking_publication(tmp_path):
+    """The native host reads the journal with deletion sharing while a
+    coordinator may be publishing the next phase."""
+    from tracker.platform.windows_fs import reader
+    from tracker.platform.windows_private import private_directory
+    from tracker.platform.windows_recovery import _write, read_recovery
+
+    state = tmp_path / "retained"
+    private_directory(state)
+    record = {"format": 1, "kind": "checkpoint-drill", "state": str(state), "checkpoint": str(tmp_path / "checkpoint"),
+              "manifest_sha256": "a" * 64, "archive_sha256": "b" * 64, "phase": "verifying", "attempts": ["c" * 32]}
+    _write(state, record)
+    with reader(state / "recovery" / "check.json") as snapshot:
+        _write(state, {**record, "phase": "verified"})
+        assert json.load(snapshot)["phase"] == "verifying"
+        assert read_recovery(state)["phase"] == "verified"
+    assert [entry.name for entry in (state / "recovery").iterdir()] == ["check.json"]
+
+
 def test_completed_drill_retains_history_and_allows_ordinary_database_access(checkpoint, server, tmp_path):
     from tracker.platform.windows_recovery import read_recovery, require_launchable
 

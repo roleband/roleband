@@ -366,13 +366,14 @@ def test_failed_final_shutdown_cannot_leave_ordinary_startup_authorized(bound_ch
 
 
 def test_open_metadata_reader_keeps_its_snapshot_without_blocking_atomic_publication(tmp_path):
+    from tracker.platform.windows_fs import reader
     from tracker.platform.windows_private import private_directory
-    from tracker.platform.windows_storage import _reader, read_json, write_json
+    from tracker.platform.windows_storage import read_json, write_json
 
     private_directory(tmp_path / "state")
     path = tmp_path / "state/metadata.json"
     write_json(path, {"phase": "preparing"})
-    with _reader(path) as snapshot:
+    with reader(path) as snapshot:
         write_json(path, {"phase": "prepared"})
         assert json.load(snapshot) == {"phase": "preparing"}
         assert read_json(path) == {"phase": "prepared"}
@@ -388,3 +389,4 @@ def test_metadata_replacement_preserves_the_target_when_deletion_sharing_is_deni
     with _deny_rename(path), pytest.raises(PermissionError):
         write_json(path, {"phase": "prepared"})
     assert read_json(path) == {"phase": "preparing"}
+    assert [entry.name for entry in path.parent.iterdir()] == ["metadata.json"], "no temporary file is left behind"

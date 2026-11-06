@@ -19,14 +19,8 @@ if sys.platform != "win32":
     raise ImportError("Windows restore requires Windows")
 
 from tracker.platform import filelock
-from tracker.platform.windows_recovery import (
-    RecoveryError,
-    _move,
-    _path,
-    _pin,
-    _quiesce,
-    recovery_leases,
-)
+from tracker.platform.windows_fs import checked_path, move
+from tracker.platform.windows_recovery import RecoveryError, _pin, _quiesce, recovery_leases
 from tracker.platform.windows_storage import (
     READER_CONTRACT,
     metadata,
@@ -41,11 +35,11 @@ _checking: ContextVar[Path | None] = ContextVar("windows_restore_checking", defa
 
 
 def _journal(state: Path) -> Path:
-    return _path(state / "recovery" / "restore.json")
+    return checked_path(state / "recovery" / "restore.json")
 
 
 def read_restore(state: Path) -> dict[str, Any] | None:
-    state = _path(state)
+    state = checked_path(state)
     path = _journal(state)
     if not path.exists():
         return None
@@ -80,7 +74,7 @@ def _identity_record(value: Any) -> None:
 
 
 def require_launchable(state: Path) -> None:
-    state = _path(state)
+    state = checked_path(state)
     record = read_restore(state)
     if record is not None and record["phase"] not in {"complete", "aborted"}:
         if record["phase"] == "checking" and _checking.get() == state:
@@ -94,7 +88,7 @@ def require_launchable(state: Path) -> None:
 def _identity(path: Path) -> list[int]:
     from tracker.platform.windows_private import require_private
 
-    _path(path)
+    checked_path(path)
     require_private(path)
     if not path.is_dir():
         raise RecoveryError("Restore storage is not an ordinary directory")
@@ -114,7 +108,7 @@ def _save(state: Path, record: dict[str, Any], phase: str) -> None:
 
 
 def _paths(state: Path, record: dict[str, Any]) -> tuple[Path, Path, Path]:
-    directory = _path(state / "recovery" / ("restore-" + record["id"]))
+    directory = checked_path(state / "recovery" / ("restore-" + record["id"]))
     failed = directory / "retained-db"
     staged = directory / record["attempts"][-1] if record["attempts"] else directory / "unused"
     return directory, failed, staged
@@ -146,7 +140,7 @@ def _check_profile(state: Path, record: dict[str, Any]) -> None:
 def _manifest(state: Path, record: dict[str, Any]) -> dict[str, Any]:
     from alembic.script import ScriptDirectory
 
-    checkpoint = _path(Path(record["checkpoint"]))
+    checkpoint = checked_path(Path(record["checkpoint"]))
     if checkpoint.is_relative_to(state) or state.is_relative_to(checkpoint):
         raise RecoveryError("Restore checkpoint must be separate from retained state")
     if _pin(checkpoint) != (record["manifest_sha256"], record["archive_sha256"]):
@@ -173,7 +167,7 @@ def _prepare(state: Path, record: dict[str, Any], manifest: dict[str, Any]) -> N
     directory, _failed, _staged = _paths(state, record)
     private_directory(directory)
     for attempt in record["attempts"]:
-        old = _path(directory / attempt)
+        old = checked_path(directory / attempt)
         if old.exists():
             require_private(old)
             _quiesce(old / "db")
@@ -216,7 +210,7 @@ def restore(state: Path, action: str, checkpoint: Path | None = None) -> dict[st
     from tracker.platform.windows_private import require_private
     from tracker.platform.windows_recovery import read_recovery
 
-    state = _path(state)
+    state = checked_path(state)
     if action not in {"begin", "resume", "abort"}:
         raise ValueError("Unsupported restore action")
     with recovery_leases(state, require_stopped=False):
@@ -244,12 +238,12 @@ def restore(state: Path, action: str, checkpoint: Path | None = None) -> dict[st
                 manifest_hash, archive_hash = _pin(checkpoint)
                 previous = record
                 record = {"format": 1, "kind": "checkpoint-restore", "id": uuid.uuid4().hex, "state": str(state),
-                          "phase": "preparing", "checkpoint": str(_path(checkpoint)), "manifest_sha256": manifest_hash,
+                          "phase": "preparing", "checkpoint": str(checked_path(checkpoint)), "manifest_sha256": manifest_hash,
                           "archive_sha256": archive_hash, "profile": profile, "original_metadata": original,
                           "original_directory": _identity(pgdata), "attempts": []}
                 _manifest(state, record)
                 if previous is not None:
-                    _move(_journal(state), _journal(state).with_name("restore-completed-" + uuid.uuid4().hex + ".json"))
+                    move(_journal(state), _journal(state).with_name("restore-completed-" + uuid.uuid4().hex + ".json"))
                 _save(state, record, "preparing")
                 write_json(state / "db.auth/cluster.json", metadata(pgdata, minimum_reader=original.get("minimum_reader", 1)))
         elif record is None or record["phase"] in {"complete", "aborted"}:
@@ -260,7 +254,7 @@ def restore(state: Path, action: str, checkpoint: Path | None = None) -> dict[st
             if record["phase"] not in {"preparing", "prepared", "retaining"} or failed.exists() or not _matches(state / "db", record["original_directory"]):
                 raise RecoveryError("The database switch has begun; resume restore instead of abandoning it")
             for attempt in record["attempts"]:
-                _quiesce(_path(directory / attempt / "db"))
+                _quiesce(checked_path(directory / attempt / "db"))
             _save(state, record, "aborted")
             return record
         manifest = _manifest(state, record)
@@ -281,7 +275,7 @@ def restore(state: Path, action: str, checkpoint: Path | None = None) -> dict[st
                 if (state / "db/postmaster.pid").exists():
                     raise RecoveryError("A database process appeared during restore")
                 if _matches(state / "db", record["original_directory"]) and not failed.exists():
-                    _move(state / "db", failed)
+                    move(state / "db", failed)
                 elif (state / "db").exists() or not _matches(failed, record["original_directory"]):
                     raise RecoveryError("Cannot identify the retained database after interruption")
                 _save(state, record, "installing")
@@ -290,7 +284,7 @@ def restore(state: Path, action: str, checkpoint: Path | None = None) -> dict[st
                 if not _matches(failed, record["original_directory"]):
                     raise RecoveryError("The retained database was moved or replaced")
                 if not (state / "db").exists() and _matches(staged / "db", record["restored_directory"]):
-                    _move(staged / "db", state / "db")
+                    move(staged / "db", state / "db")
                 elif not _matches(state / "db", record["restored_directory"]) or (staged / "db").exists():
                     raise RecoveryError("Cannot identify the restored database after interruption")
                 write_json(state / "db.auth/cluster.json", metadata(state / "db"))

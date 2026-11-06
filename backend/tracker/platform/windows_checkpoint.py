@@ -21,6 +21,8 @@ from tracker.platform.embedded_db import EmbeddedServer, ensure_server, stop_ser
 if sys.platform != "win32":
     raise ImportError("Windows recovery checkpoints require Windows")
 
+from tracker.platform.windows_fs import checked_path
+
 MANIFEST_LIMIT = 2 * 1024 * 1024
 
 
@@ -48,14 +50,6 @@ def _ordinary(path: Path, *, directory: bool = False) -> None:
     if path.is_dir() != directory or not (path.is_dir() or path.is_file()):
         raise CheckpointError("Checkpoint storage is not an ordinary file or directory")
     require_private(path)
-
-
-def _path(path: Path) -> Path:
-    path = Path(os.path.abspath(path))
-    for parent in (path, *path.parents):
-        if parent.exists() and parent.lstat().st_file_attributes & 0x400:
-            raise CheckpointError("Recovery paths cannot traverse a reparse point")
-    return path
 
 
 def _separate(left: Path, right: Path) -> None:
@@ -208,9 +202,9 @@ def _restore(directory: Path, manifest: dict[str, Any], verification_state: Path
     from tracker.platform.windows_private import native_path, private_directory
 
     archive = _archive(directory, manifest)
-    verification_state = _path(verification_state)
-    _separate(verification_state, _path(directory))
-    _separate(verification_state, _path(Path(manifest["source_pgdata"])))
+    verification_state = checked_path(verification_state)
+    _separate(verification_state, checked_path(directory))
+    _separate(verification_state, checked_path(Path(manifest["source_pgdata"])))
     private_directory(verification_state, exist_ok=False)
     pgdata = verification_state / "db"
     try:
@@ -229,10 +223,10 @@ def create_checkpoint(server: EmbeddedServer, destination: Path, verification_st
     from tracker.platform.windows_private import native_path, private_directory
     from tracker.platform.windows_storage import READER_CONTRACT, retained_profile
 
-    destination, verification_state = _path(destination), _path(verification_state)
-    _separate(destination, _path(server.pgdata))
+    destination, verification_state = checked_path(destination), checked_path(verification_state)
+    _separate(destination, checked_path(server.pgdata))
     _separate(destination, verification_state)
-    _separate(verification_state, _path(server.pgdata))
+    _separate(verification_state, checked_path(server.pgdata))
     if destination.exists() or verification_state.exists():
         raise FileExistsError("Choose fresh checkpoint and verification destinations")
     staged = destination.with_name(destination.name + ".partial-" + uuid.uuid4().hex)
@@ -274,7 +268,7 @@ def create_checkpoint(server: EmbeddedServer, destination: Path, verification_st
 
 def verify_checkpoint(directory: Path, verification_state: Path) -> dict[str, Any]:
     """Recheck a published archive and restore it into a new stopped scratch cluster."""
-    directory = _path(directory)
+    directory = checked_path(directory)
     _ordinary(directory, directory=True)
     path = directory / "checkpoint.json"
     _ordinary(path)

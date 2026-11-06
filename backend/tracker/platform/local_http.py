@@ -134,16 +134,23 @@ class Authority:
             self._lock = descriptor
             if self.path.exists() or self.path.is_symlink():
                 _private(self.path)
-            fd, temporary = tempfile.mkstemp(dir=self.path.parent, prefix=".http-engine-")
-            try:
-                with os.fdopen(fd, "wb") as output:
-                    output.write(json.dumps({"format": 1, "origin": self.endpoint, "instance": self.instance,
-                                             "secret": self.secret, "pid": os.getpid()}).encode())
-                    output.flush()
-                    os.fsync(output.fileno())
-                os.replace(temporary, self.path)
-            finally:
-                Path(temporary).unlink(missing_ok=True)
+            payload = json.dumps({"format": 1, "origin": self.endpoint, "instance": self.instance,
+                                  "secret": self.secret, "pid": os.getpid()}).encode()
+            if sys.platform == "win32":
+                from tracker.platform.windows_fs import publish
+
+                # The native host reads discovery before every request.
+                publish(self.path, payload)
+            else:
+                fd, temporary = tempfile.mkstemp(dir=self.path.parent, prefix=".http-engine-")
+                try:
+                    with os.fdopen(fd, "wb") as output:
+                        output.write(payload)
+                        output.flush()
+                        os.fsync(output.fileno())
+                    os.replace(temporary, self.path)
+                finally:
+                    Path(temporary).unlink(missing_ok=True)
         except BaseException:
             self._lock = None
             os.close(descriptor)
@@ -239,10 +246,19 @@ class Client:
                 info = folder.lstat()
                 if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
                     raise PermissionError("HTTP discovery must be private to this account")
-        _private(path)
-        if path.stat().st_size > 8192:
-            raise AuthenticationError("Engine discovery is too large")
-        value = json.loads(path.read_bytes())
+        if sys.platform == "win32":
+            from tracker.platform.windows_fs import RecordTooLarge, read_private
+
+            try:
+                payload = read_private(path, 8192)
+            except RecordTooLarge as error:
+                raise AuthenticationError("Engine discovery is too large") from error
+        else:
+            _private(path)
+            if path.stat().st_size > 8192:
+                raise AuthenticationError("Engine discovery is too large")
+            payload = path.read_bytes()
+        value = json.loads(payload)
         if not isinstance(value, dict):
             raise AuthenticationError("Invalid engine discovery")
         endpoint, secret = value.get("origin", ""), value.get("secret", "")

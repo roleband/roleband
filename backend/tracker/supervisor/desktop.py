@@ -11,7 +11,6 @@ import re
 import signal
 import subprocess
 import sys
-import tempfile
 import threading
 from dataclasses import replace
 from pathlib import Path
@@ -36,18 +35,13 @@ logger = logging.getLogger(__name__)
 
 
 def _write_record(path: Path, marker: str) -> None:
+    from tracker.platform.windows_fs import publish
+
     record = {"format": 1, "pid": os.getpid(), "started": psutil.Process().create_time(),
               "executable": psutil.Process().exe(), "resources": str(REPO_ROOT.resolve()),
               "state": str(DATA_DIR.resolve()), "marker": marker}
-    fd, temporary = tempfile.mkstemp(dir=path.parent, prefix=".owned-engine-")
-    try:
-        with os.fdopen(fd, "wb") as output:
-            output.write(json.dumps(record).encode())
-            output.flush()
-            os.fsync(output.fileno())
-        os.replace(temporary, path)
-    finally:
-        Path(temporary).unlink(missing_ok=True)
+    # The native host polls this record while the engine starts.
+    publish(path, json.dumps(record).encode())
 
 
 async def _prepare_process(stop: asyncio.Event, development: bool, action: str) -> bool:

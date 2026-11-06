@@ -2,21 +2,16 @@
 
 from __future__ import annotations
 
-import ctypes
 import hashlib
 import json
-import msvcrt
-import os
 import sys
-import uuid
-from collections.abc import Iterator
-from contextlib import contextmanager
-from ctypes import wintypes
 from pathlib import Path
-from typing import Any, BinaryIO
+from typing import Any
 
 if sys.platform != "win32":
     raise ImportError("Windows storage contracts require Windows")
+
+from tracker.platform.windows_fs import RecordTooLarge, checked_path, publish, read_private
 
 READER_CONTRACT = 1
 LIMIT = 128 * 1024
@@ -49,9 +44,8 @@ def validate(record: Any, pgdata: Path, version: int = 16, *, require_reader: bo
 
 def retained_profile(pgdata: Path) -> dict[str, str | None]:
     from tracker.platform.windows_private import require_private
-    from tracker.platform.windows_recovery import _path
 
-    _path(pgdata)
+    checked_path(pgdata)
     state = pgdata.parent
     require_private(state)
     owner = state / f"{pgdata.name}.owner.json"
@@ -61,7 +55,7 @@ def retained_profile(pgdata: Path) -> dict[str, str | None]:
              "key": state / "secret.key"}
     result: dict[str, str | None] = {}
     for name, path in paths.items():
-        _path(path)
+        checked_path(path)
         if name == "key" and not path.exists():
             result[name] = None
             continue
@@ -71,69 +65,11 @@ def retained_profile(pgdata: Path) -> dict[str, str | None]:
     return result
 
 
-@contextmanager
-def _reader(path: Path) -> Iterator[BinaryIO]:
-    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
-    kernel.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,
-                                   wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
-    kernel.CreateFileW.restype = wintypes.HANDLE
-    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
-    # Readers retain the opened snapshot while atomic publication replaces its
-    # directory entry, matching the native host's FileShare.Delete contract.
-    handle = kernel.CreateFileW(str(path), 0x80000000, 5, None, 3, 0x80, None)
-    if handle == wintypes.HANDLE(-1).value:
-        raise ctypes.WinError(ctypes.get_last_error())
-    try:
-        descriptor = msvcrt.open_osfhandle(handle, os.O_RDONLY | os.O_BINARY)
-    except BaseException:
-        kernel.CloseHandle(handle)
-        raise
-    with os.fdopen(descriptor, "rb") as stream:
-        yield stream
-
-
-def _replace(source: Path, destination: Path) -> None:
-    class RenameInfo(ctypes.Structure):
-        _fields_ = [("flags", wintypes.DWORD), ("root", wintypes.HANDLE),
-                    ("length", wintypes.DWORD), ("name", wintypes.WCHAR * 1)]
-
-    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
-    kernel.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,
-                                   wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
-    kernel.CreateFileW.restype = wintypes.HANDLE
-    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
-    kernel.SetFileInformationByHandle.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
-    kernel.FlushFileBuffers.argtypes = [wintypes.HANDLE]
-    handle = kernel.CreateFileW(str(source), 0x40010000, 7, None, 3, 0x80000080, None)
-    if handle == wintypes.HANDLE(-1).value:
-        raise ctypes.WinError(ctypes.get_last_error())
-    try:
-        encoded = str(destination).encode("utf-16-le")
-        buffer = ctypes.create_string_buffer(RenameInfo.name.offset + len(encoded) + 2)
-        info = RenameInfo.from_buffer(buffer)
-        info.flags, info.length = 3, len(encoded)
-        ctypes.memmove(ctypes.addressof(buffer) + RenameInfo.name.offset, encoded, len(encoded))
-        # FileRenameInfoEx replaces the name while deletion-sharing readers keep
-        # their old snapshot. MoveFileEx rejects an open replacement target.
-        if not kernel.SetFileInformationByHandle(handle, 22, buffer, len(buffer)):
-            raise ctypes.WinError(ctypes.get_last_error())
-        if not kernel.FlushFileBuffers(handle):
-            raise ctypes.WinError(ctypes.get_last_error())
-    finally:
-        kernel.CloseHandle(handle)
-
-
 def read_json(path: Path, *, maximum: int = LIMIT) -> dict[str, Any]:
-    from tracker.platform.windows_private import require_private
-    from tracker.platform.windows_recovery import _path
-
-    _path(path)
-    require_private(path.parent)
-    require_private(path)
-    with _reader(path) as stream:
-        payload = stream.read(maximum + 1)
-    if len(payload) > maximum:
-        raise StorageCompatibilityError("Retained Windows metadata exceeds its size limit")
+    try:
+        payload = read_private(path, maximum)
+    except RecordTooLarge as error:
+        raise StorageCompatibilityError("Retained Windows metadata exceeds its size limit") from error
     try:
         result = json.loads(payload)
         if not isinstance(result, dict):
@@ -144,20 +80,7 @@ def read_json(path: Path, *, maximum: int = LIMIT) -> dict[str, Any]:
 
 
 def write_json(path: Path, record: dict[str, Any]) -> None:
-    from tracker.platform.windows_private import private_directory, require_private
-    from tracker.platform.windows_recovery import _path
-
-    _path(path)
-    private_directory(path.parent)
-    if path.exists():
-        require_private(path)
     payload = (json.dumps(record, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     if len(payload) > LIMIT:
         raise StorageCompatibilityError("Retained Windows metadata exceeds its size limit")
-    temporary = path.with_name(".metadata-" + uuid.uuid4().hex)
-    with temporary.open("xb") as stream:
-        stream.write(payload)
-        stream.flush()
-        os.fsync(stream.fileno())
-    require_private(temporary)
-    _replace(temporary, path)
+    publish(path, payload)

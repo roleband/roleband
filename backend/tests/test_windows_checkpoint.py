@@ -298,18 +298,15 @@ def test_a_publicly_readable_archive_is_refused_before_creating_scratch_storage(
 
 
 def test_a_junction_cannot_redirect_verification_into_source_storage(server, tmp_path):
-    from tracker.platform.windows_checkpoint import (
-        CheckpointError,
-        create_checkpoint,
-        verify_checkpoint,
-    )
+    from tracker.platform.windows_checkpoint import create_checkpoint, verify_checkpoint
+    from tracker.platform.windows_fs import ReparsePointError
 
     checkpoint = create_checkpoint(server, tmp_path / "checkpoint", tmp_path / "verify")
     junction = tmp_path / "redirected"
     subprocess.run(["cmd", "/c", "mklink", "/J", str(junction), str(server.pgdata.parent)],
                    check=True, capture_output=True)
     try:
-        with pytest.raises(CheckpointError, match="reparse point"):
+        with pytest.raises(ReparsePointError):
             verify_checkpoint(checkpoint, junction / "nested-verification")
         assert not (server.pgdata.parent / "nested-verification").exists()
         assert psql(server, "SELECT count(*) FROM job_observations") == "3"

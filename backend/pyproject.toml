@@ -274,6 +274,7 @@ files = [
     "tracker/platform/paths.py",
     "tracker/platform/backups.py",
     "tracker/platform/windows_db.py",
+    "tracker/platform/windows_fs.py",
     "tracker/platform/windows_private.py",
     "tracker/platform/windows_checkpoint.py",
     "tracker/platform/windows_recovery.py",
