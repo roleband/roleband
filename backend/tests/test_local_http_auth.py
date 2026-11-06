@@ -169,8 +169,8 @@ def test_expired_browser_handoffs_and_sessions_do_not_survive_a_new_engine(tmp_p
     stale = Client(data)
     try:
         ticket = first.issue_ticket()["url"].split("#roleband=")[1]
-        now = time.time()
-        monkeypatch.setattr(local_http.time, "time", lambda: now + 61)
+        elapsed = local_http._elapsed()
+        monkeypatch.setattr(local_http, "_elapsed", lambda: elapsed + 61)
         with pytest.raises(AuthenticationError):
             first.redeem(ticket)
         ticket = first.issue_ticket()["url"].split("#roleband=")[1]
@@ -297,7 +297,7 @@ async def test_browser_exchange_refuses_foreign_origins_and_large_bodies_before_
 def test_replay_memory_refuses_new_work_instead_of_forgetting_live_nonces(tmp_path):
     authority = Authority(tmp_path / "state", "http://127.0.0.1:58329")
     try:
-        authority._used = {("control", str(index)): time.time() + 100 for index in range(8192)}
+        authority._used = {("control", str(index)): local_http._elapsed() + 100 for index in range(8192)}
         header = authorization(authority.secret, "control", "GET", "/api/read", authority.endpoint)
         with pytest.raises(AuthenticationError):
             authority.authenticate(header, "GET", "/api/read", b"")
@@ -306,19 +306,80 @@ def test_replay_memory_refuses_new_work_instead_of_forgetting_live_nonces(tmp_pa
         authority.close()
 
 
-def test_clock_rollback_cannot_reenable_an_expired_and_pruned_signature(tmp_path, monkeypatch):
-    authority = Authority(tmp_path / "state", "http://127.0.0.1:58329")
-    now = time.time()
+def _browser(authority):
+    return authority.redeem(authority.issue_ticket()["url"].split("#roleband=")[1])
+
+
+@pytest.mark.parametrize("step", [0.001, 30, local_http.TOLERATED_STEP_SECONDS])
+def test_a_small_backward_clock_step_keeps_every_key_and_still_refuses_replays(tmp_path, monkeypatch, step):
+    data = tmp_path / "state"
+    authority = Authority(data, "http://127.0.0.1:58329")
     try:
-        old = authorization(authority.secret, "control", "GET", "/api/read", authority.endpoint)
-        authority.authenticate(old, "GET", "/api/read", b"")
-        monkeypatch.setattr(local_http.time, "time", lambda: now + 100)
-        fresh = authorization(authority.secret, "control", "GET", "/api/read", authority.endpoint)
-        authority.authenticate(fresh, "GET", "/api/read", b"")
-        monkeypatch.setattr(local_http.time, "time", lambda: now)
+        browser = _browser(authority)
+        captured = authorization(authority.secret, "control", "GET", "/api/read", authority.endpoint)
+        authority.authenticate(captured, "GET", "/api/read", b"")
+        now, elapsed = time.time(), local_http._elapsed()
+        monkeypatch.setattr(local_http.time, "time", lambda: now - step)
+        # Long after the first window the nonce would have aged out on the wall clock.
+        monkeypatch.setattr(local_http, "_elapsed", lambda: elapsed + 2 * local_http.WINDOW_SECONDS)
         with pytest.raises(AuthenticationError):
-            authority.authenticate(old, "GET", "/api/read", b"")
-        with pytest.raises(AuthenticationError):
-            authority.issue_ticket()
+            authority.authenticate(captured, "GET", "/api/read", b"")
+        authority.authenticate(authorization(authority.secret, "control", "GET", "/api/read", authority.endpoint),
+                               "GET", "/api/read", b"")
+        authority.authenticate(authorization(browser["secret"], browser["key_id"], "GET", "/api/read", authority.endpoint),
+                               "GET", "/api/read", b"")
+        assert Client(data).secret == authority.secret
     finally:
         authority.close()
+
+
+def test_a_large_backward_clock_step_replaces_the_keys_in_place(tmp_path, monkeypatch):
+    data = tmp_path / "state"
+    authority = Authority(data, "http://127.0.0.1:58329")
+    try:
+        browser = _browser(authority)
+        before = Client(data)
+        captured = authorization(before.secret, "control", "GET", "/api/read", authority.endpoint)
+        authority.authenticate(captured, "GET", "/api/read", b"")
+        now = time.time()
+        monkeypatch.setattr(local_http.time, "time", lambda: now - 600)
+        replayed = authorization(before.secret, "control", "GET", "/api/read", authority.endpoint)
+        with pytest.raises(AuthenticationError):
+            authority.authenticate(replayed, "GET", "/api/read", b"")
+        after = Client(data)
+        assert after.secret == authority.secret != before.secret
+        assert after.endpoint == before.endpoint
+        authority.authenticate(authorization(after.secret, "control", "GET", "/api/read", after.endpoint),
+                               "GET", "/api/read", b"")
+        with pytest.raises(AuthenticationError):
+            authority.authenticate(authorization(browser["secret"], browser["key_id"], "GET", "/api/read", authority.endpoint),
+                                   "GET", "/api/read", b"")
+        with pytest.raises(AuthenticationError):
+            authority.authenticate(captured, "GET", "/api/read", b"")
+    finally:
+        authority.close()
+
+
+def test_a_client_recovers_from_a_large_clock_step_by_reading_discovery_again(tmp_path, monkeypatch):
+    """Over real HTTP: the request that meets the step is refused, the next one
+    succeeds with the new key, and the responder keeps running throughout."""
+    from tracker.platform import preparation
+    from tracker.supervisor import prepare
+
+    data = tmp_path / "preparation"
+    preparation.update(data, database="ready", service="ready")
+    settings = SimpleNamespace(api_host="127.0.0.1", api_port=58329)
+    monkeypatch.setattr(prepare, "DATA_DIR", data)
+    monkeypatch.setattr(prepare, "get_settings", lambda: settings)
+    monkeypatch.setenv("ROLEBAND_LOCAL_AUTH", "1")
+    with prepare.PreparationServer("127.0.0.1", 0) as responder:
+        settings.api_port = responder.server.server_port
+        assert Client(data).request("GET", "/api/launcher-health")[0] == 200
+        stale = Client(data)
+        now = time.time()
+        monkeypatch.setattr(local_http.time, "time", lambda: now - 600)
+        with pytest.raises(AuthenticationError):
+            stale.request("GET", "/api/launcher-health")
+        status, content = Client(data).request("GET", "/api/launcher-health")
+        assert status == 200 and json.loads(content)["preparation"]["database"] == "ready"
+        assert responder.thread.is_alive()

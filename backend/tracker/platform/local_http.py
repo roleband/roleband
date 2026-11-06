@@ -27,12 +27,20 @@ TICKET_PATH = "/api/local-auth/browser-ticket"
 SESSION_PATH = "/api/local-auth/browser-session"
 MAX_BODY = 16 * 1024 * 1024
 WINDOW_SECONDS = 45
+#: Clock corrections up to this, backwards, keep the keys (see `Authority._wall`).
+TOLERATED_STEP_SECONDS = WINDOW_SECONDS
+_NONCE_RETENTION = 2 * WINDOW_SECONDS + TOLERATED_STEP_SECONDS
 _HEX = re.compile(r"^[0-9a-f]{64}$")
 _NONCE = re.compile(r"^[0-9a-f]{32}$")
 
 
 class AuthenticationError(ValueError):
     """The endpoint or request cannot prove possession of this account's key."""
+
+
+def _elapsed() -> float:
+    """Seconds on a clock that wall-clock changes cannot move: lifetimes and replay memory."""
+    return time.monotonic()
 
 
 def required() -> bool:
@@ -117,7 +125,6 @@ class Authority:
         self._used: dict[tuple[str, str], float] = {}
         self._tickets: dict[str, float] = {}
         self._highest_wall = time.time()
-        self._clock_invalid = False
         self.path = record_path(data)
         self._lock: int | None = None
         for folder in (data, self.path.parent):
@@ -134,27 +141,30 @@ class Authority:
             self._lock = descriptor
             if self.path.exists() or self.path.is_symlink():
                 _private(self.path)
-            payload = json.dumps({"format": 1, "origin": self.endpoint, "instance": self.instance,
-                                  "secret": self.secret, "pid": os.getpid()}).encode()
-            if sys.platform == "win32":
-                from tracker.platform.windows_fs import publish
-
-                # The native host reads discovery before every request.
-                publish(self.path, payload)
-            else:
-                fd, temporary = tempfile.mkstemp(dir=self.path.parent, prefix=".http-engine-")
-                try:
-                    with os.fdopen(fd, "wb") as output:
-                        output.write(payload)
-                        output.flush()
-                        os.fsync(output.fileno())
-                    os.replace(temporary, self.path)
-                finally:
-                    Path(temporary).unlink(missing_ok=True)
+            self._publish(self.secret)
         except BaseException:
             self._lock = None
             os.close(descriptor)
             raise
+
+    def _publish(self, secret: str) -> None:
+        payload = json.dumps({"format": 1, "origin": self.endpoint, "instance": self.instance,
+                              "secret": secret, "pid": os.getpid()}).encode()
+        if sys.platform == "win32":
+            from tracker.platform.windows_fs import publish
+
+            # The native host reads discovery before every request.
+            publish(self.path, payload)
+            return
+        fd, temporary = tempfile.mkstemp(dir=self.path.parent, prefix=".http-engine-")
+        try:
+            with os.fdopen(fd, "wb") as output:
+                output.write(payload)
+                output.flush()
+                os.fsync(output.fileno())
+            os.replace(temporary, self.path)
+        finally:
+            Path(temporary).unlink(missing_ok=True)
 
     def close(self) -> None:
         with self._guard:
@@ -173,10 +183,10 @@ class Authority:
             try:
                 scheme, value = header.split(" ", 1)
                 key_id, stamp, nonce, signed = value.split(":")
-                now = self._now()
+                wall, elapsed = self._wall(), _elapsed()
                 key = self._keys[key_id]
                 if (scheme != SCHEME or not stamp.isascii() or not stamp.isdecimal()
-                        or abs(now - int(stamp)) > WINDOW_SECONDS or key.expires <= now
+                        or abs(wall - int(stamp)) > WINDOW_SECONDS or key.expires <= elapsed
                         or not _NONCE.fullmatch(nonce) or not _HEX.fullmatch(signed)
                         or len(body) > MAX_BODY):
                     raise AuthenticationError("Invalid authentication")
@@ -185,47 +195,60 @@ class Authority:
                     raise AuthenticationError("Invalid authentication")
                 if key_id != "control" and unquote(target.partition("?")[0]).startswith("/api/local-auth/"):
                     raise AuthenticationError("Browser sessions cannot issue handoffs")
-                self._used = {item: expiry for item, expiry in self._used.items() if expiry > now}
+                self._used = {item: until for item, until in self._used.items() if until > elapsed}
                 token = (key_id, nonce)
                 if token in self._used or len(self._used) >= 8192:
                     raise AuthenticationError("Replayed authentication or replay memory full")
-                self._used[token] = int(stamp) + WINDOW_SECONDS + 1
+                self._used[token] = elapsed + _NONCE_RETENTION
                 return key
             except (KeyError, ValueError, OverflowError) as error:
                 raise AuthenticationError("Invalid authentication") from error
 
     def issue_ticket(self) -> dict[str, str | int]:
         with self._guard:
-            now = self._now()
-            self._tickets = {ticket: until for ticket, until in self._tickets.items() if until > now}
+            self._wall()
+            elapsed = _elapsed()
+            self._tickets = {ticket: until for ticket, until in self._tickets.items() if until > elapsed}
             if len(self._tickets) >= 16:
                 raise AuthenticationError("Too many pending browser handoffs")
             ticket = secrets.token_hex(32)
-            self._tickets[ticket] = now + 60
+            self._tickets[ticket] = elapsed + 60
             return {"url": f"{self.endpoint}/#roleband={ticket}", "expires_in": 60}
 
     def redeem(self, ticket: str) -> dict[str, str]:
         with self._guard:
-            now = self._now()
-            if not _HEX.fullmatch(ticket) or self._tickets.pop(ticket, 0) <= now:
+            self._wall()
+            elapsed = _elapsed()
+            if not _HEX.fullmatch(ticket) or self._tickets.pop(ticket, 0) <= elapsed:
                 raise AuthenticationError("Invalid browser handoff")
-            self._keys = {name: key for name, key in self._keys.items() if key.expires > now}
+            self._keys = {name: key for name, key in self._keys.items() if key.expires > elapsed}
             if len(self._keys) >= 33:
                 raise AuthenticationError("Too many browser sessions")
             key_id, secret = secrets.token_hex(16), secrets.token_hex(32)
-            self._keys[key_id] = Credential(secret, now + 8 * 60 * 60)
+            self._keys[key_id] = Credential(secret, elapsed + 8 * 60 * 60)
             return {"key_id": key_id, "secret": secret, "origin": self.endpoint}
 
-    def _now(self) -> float:
+    def _wall(self) -> float:
+        """The wall clock that signature stamps are checked against.
+
+        Nonces are kept long enough that a backward step of up to
+        `TOLERATED_STEP_SECONDS` in all cannot make a used signature fresh again.
+        A larger step replaces the control key and ends browser sessions instead,
+        so nothing signed before it verifies; clients read the new key from
+        discovery on their next request."""
         now = time.time()
-        # A clock rollback must not make an expired signature valid again after
-        # its nonce is pruned. Health refusal lets the supervisor rotate keys.
-        if self._clock_invalid or now < self._highest_wall:
-            self._clock_invalid = True
-            self._keys.clear()
+        if now < self._highest_wall - TOLERATED_STEP_SECONDS:
+            if self._lock is None:
+                raise AuthenticationError("The engine authority is closed")
+            # Discovery is published first: if it fails, the advertised key is still the one in use.
+            replacement = secrets.token_hex(32)
+            self._publish(replacement)
+            self.secret = replacement
+            self._keys = {"control": Credential(replacement, float("inf"))}
             self._tickets.clear()
-            raise AuthenticationError("The engine authentication clock moved backwards")
-        self._highest_wall = now
+            self._used.clear()
+            self._highest_wall = now
+        self._highest_wall = max(self._highest_wall, now)
         return now
 
 

@@ -33,8 +33,14 @@ Requests use HMAC-SHA256 with a request domain separator, key identifier, intege
 Unix timestamp, random 128-bit nonce, method, exact origin, raw path and query,
 and the SHA256 digest of the UTF8 body, joined by newlines. Signatures expire
 after 45 seconds and accepted nonces cannot be reused. Replay memory is bounded
-and refuses work at capacity. A backwards wall-clock step invalidates authority
-until a process restart rotates the keys. Responses authenticate the request's
+and refuses work at capacity. Replay memory, ticket lifetimes and browser key
+lifetimes run on the monotonic clock, and accepted nonces are kept for two signature
+windows plus 45 seconds, so a backward wall-clock step of up to 45 seconds in all,
+the size of an ordinary time correction, keeps every key and still refuses a used
+signature. A larger step publishes a new control key in discovery, ends browser
+sessions and clears replay memory, so no signature from before the step verifies;
+native and engine clients read discovery before every request and continue without
+a restart. Responses authenticate the request's
 Authorization value, response status and complete response-body digest under a
 separate domain separator. The transport bounds requests and responses to 16 MiB.
 
