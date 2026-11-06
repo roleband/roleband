@@ -1,0 +1,84 @@
+{
+  "about": "Retained Windows records that gate engine startup. backend/tests/test_windows_records.py and RoleBand.EngineHost.Tests/RecordContractTests.cs build each case in a fresh private state directory and must reach the same verdict. A case starts from bases[file], applies set (top-level keys) and remove, or uses raw text. {state}, {pgdata} and {checkpoint} are replaced with paths of the test's own state.",
+  "files": {
+    "storage": "db.auth/cluster.json",
+    "drill": "recovery/check.json",
+    "restore": "recovery/restore.json"
+  },
+  "bases": {
+    "storage": {"format": 2, "pgdata": "{pgdata}", "version": 16, "minimum_reader": 1},
+    "drill": {
+      "format": 1, "kind": "checkpoint-drill", "state": "{state}", "checkpoint": "{checkpoint}",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "archive_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "phase": "verified", "attempts": ["cccccccccccccccccccccccccccccccc"]
+    },
+    "restore": {
+      "format": 1, "kind": "checkpoint-restore", "id": "dddddddddddddddddddddddddddddddd", "state": "{state}",
+      "phase": "complete", "checkpoint": "{checkpoint}",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "archive_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "profile": {
+        "owner": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "password": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "key": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "original_metadata": {"format": 2, "pgdata": "{pgdata}", "version": 16, "minimum_reader": 1},
+      "original_directory": [1234567890123, 42],
+      "restored_directory": [1234567890123, 43],
+      "attempts": ["cccccccccccccccccccccccccccccccc"]
+    }
+  },
+  "cases": [
+    {"name": "storage-current", "file": "storage", "verdict": "accepted"},
+    {"name": "storage-legacy-format-1", "file": "storage", "set": {"format": 1}, "remove": ["minimum_reader"], "verdict": "accepted"},
+    {"name": "storage-needs-reader-2", "file": "storage", "set": {"minimum_reader": 2}, "verdict": "newer-reader"},
+    {"name": "storage-format-3-needs-reader-2", "file": "storage", "set": {"format": 3, "minimum_reader": 2, "page_checksums": true}, "verdict": "newer-reader"},
+    {"name": "storage-new-key-needs-reader-2", "file": "storage", "set": {"minimum_reader": 2, "created_by": "0.2.0"}, "verdict": "newer-reader"},
+    {"name": "storage-format-3-claims-reader-1", "file": "storage", "set": {"format": 3}, "verdict": "damaged"},
+    {"name": "storage-new-key-claims-reader-1", "file": "storage", "set": {"created_by": "0.2.0"}, "verdict": "damaged"},
+    {"name": "storage-names-another-cluster", "file": "storage", "set": {"pgdata": "{checkpoint}"}, "verdict": "damaged"},
+    {"name": "storage-version-not-integer", "file": "storage", "set": {"version": 16.0}, "verdict": "damaged"},
+    {"name": "storage-version-15", "file": "storage", "set": {"version": 15}, "verdict": "damaged"},
+    {"name": "storage-format-boolean", "file": "storage", "set": {"format": true}, "verdict": "damaged"},
+    {"name": "storage-reader-0", "file": "storage", "set": {"minimum_reader": 0}, "verdict": "damaged"},
+    {"name": "storage-reader-65536", "file": "storage", "set": {"minimum_reader": 65536}, "verdict": "damaged"},
+    {"name": "storage-reader-boolean", "file": "storage", "set": {"minimum_reader": true}, "verdict": "damaged"},
+    {"name": "storage-reader-missing", "file": "storage", "remove": ["minimum_reader"], "verdict": "damaged"},
+    {"name": "storage-truncated", "file": "storage", "raw": "{\"format\": 2,", "verdict": "damaged"},
+    {"name": "storage-array", "file": "storage", "raw": "[]", "verdict": "damaged"},
+
+    {"name": "drill-verified", "file": "drill", "verdict": "accepted"},
+    {"name": "drill-abandoned", "file": "drill", "set": {"phase": "abandoned"}, "verdict": "accepted"},
+    {"name": "drill-verifying", "file": "drill", "set": {"phase": "verifying"}, "verdict": "unfinished"},
+    {"name": "drill-failed", "file": "drill", "set": {"phase": "failed"}, "verdict": "unfinished"},
+    {"name": "drill-unknown-phase", "file": "drill", "set": {"phase": "done"}, "verdict": "damaged"},
+    {"name": "drill-no-attempts", "file": "drill", "set": {"attempts": []}, "verdict": "damaged"},
+    {"name": "drill-repeated-attempt", "file": "drill", "set": {"attempts": ["cccccccccccccccccccccccccccccccc", "cccccccccccccccccccccccccccccccc"]}, "verdict": "damaged"},
+    {"name": "drill-uppercase-digest", "file": "drill", "set": {"manifest_sha256": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}, "verdict": "damaged"},
+    {"name": "drill-other-state", "file": "drill", "set": {"state": "{checkpoint}"}, "verdict": "damaged"},
+    {"name": "drill-relative-checkpoint", "file": "drill", "set": {"checkpoint": "checkpoints\\verified"}, "verdict": "damaged"},
+    {"name": "drill-format-2", "file": "drill", "set": {"format": 2}, "verdict": "damaged"},
+    {"name": "drill-null", "file": "drill", "raw": "null", "verdict": "damaged"},
+
+    {"name": "restore-complete", "file": "restore", "verdict": "accepted"},
+    {"name": "restore-aborted-before-staging", "file": "restore", "set": {"phase": "aborted", "attempts": []}, "remove": ["restored_directory"], "verdict": "accepted"},
+    {"name": "restore-without-key", "file": "restore", "set": {"profile": {"owner": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "password": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "key": null}}, "verdict": "accepted"},
+    {"name": "restore-original-needed-reader-2", "file": "restore", "set": {"original_metadata": {"format": 2, "pgdata": "{pgdata}", "version": 16, "minimum_reader": 2}}, "verdict": "accepted"},
+    {"name": "restore-preparing-first-attempt", "file": "restore", "set": {"phase": "preparing", "attempts": []}, "remove": ["restored_directory"], "verdict": "unfinished"},
+    {"name": "restore-checking", "file": "restore", "set": {"phase": "checking"}, "verdict": "unfinished"},
+    {"name": "restore-installing-without-attempts", "file": "restore", "set": {"phase": "installing", "attempts": []}, "verdict": "damaged"},
+    {"name": "restore-complete-without-restored-directory", "file": "restore", "remove": ["restored_directory"], "verdict": "damaged"},
+    {"name": "restore-file-id-zero", "file": "restore", "set": {"restored_directory": [1234567890123, 0]}, "verdict": "damaged"},
+    {"name": "restore-negative-volume", "file": "restore", "set": {"original_directory": [-1, 42]}, "verdict": "damaged"},
+    {"name": "restore-fractional-identity", "file": "restore", "set": {"original_directory": [1234567890123.0, 42]}, "verdict": "damaged"},
+    {"name": "restore-identity-three-parts", "file": "restore", "set": {"original_directory": [1, 2, 3]}, "verdict": "damaged"},
+    {"name": "restore-profile-without-password", "file": "restore", "set": {"profile": {"owner": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "key": null}}, "verdict": "damaged"},
+    {"name": "restore-profile-extra-entry", "file": "restore", "set": {"profile": {"owner": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "password": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "key": null, "token": null}}, "verdict": "damaged"},
+    {"name": "restore-original-names-another-cluster", "file": "restore", "set": {"original_metadata": {"format": 2, "pgdata": "{checkpoint}", "version": 16, "minimum_reader": 1}}, "verdict": "damaged"},
+    {"name": "restore-short-id", "file": "restore", "set": {"id": "ddd"}, "verdict": "damaged"},
+    {"name": "restore-negative-zero-file-id", "file": "restore", "verdict": "damaged",
+     "raw": "{\"format\": 1, \"kind\": \"checkpoint-restore\", \"id\": \"dddddddddddddddddddddddddddddddd\", \"state\": \"{state}\", \"phase\": \"complete\", \"checkpoint\": \"{checkpoint}\", \"manifest_sha256\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"archive_sha256\": \"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\", \"profile\": {\"owner\": \"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\", \"password\": \"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\", \"key\": null}, \"original_metadata\": {\"format\": 2, \"pgdata\": \"{pgdata}\", \"version\": 16, \"minimum_reader\": 1}, \"original_directory\": [1234567890123, 42], \"restored_directory\": [1234567890123, -0], \"attempts\": [\"cccccccccccccccccccccccccccccccc\"]}"},
+    {"name": "restore-empty-object", "file": "restore", "raw": "{}", "verdict": "damaged"}
+  ]
+}

@@ -41,6 +41,13 @@ engine entry points reject unsupported reader floors and pending or malformed
 restore journals. Explicit recovery may preserve an incompatible failed cluster
 without opening it and replace it with a checkpoint the repair engine understands.
 
+`minimum_reader` is the only signal an older engine trusts. A writer that adds a
+field or changes the format raises it; an engine reads a format 2 or later record's
+floor before checking its shape and, if the floor is above its own contract, asks
+for a newer engine rather than reporting damage. A record whose floor the engine
+meets must have exactly the shape that engine knows, so a new field without a
+raised floor reads as damage.
+
 `restore resume` reuses the journal and rebuilds interrupted preparation in fresh
 storage. `restore abort` is allowed only while the original database remains at
 its original path; once switching begins, resolution requires resumption. Final

@@ -84,6 +84,13 @@ The operator command is `desktop.py --source restore begin --state <retained-sta
 take the same explicit `--state`. Use synthetic trial state. These checks prove
 offline checkpoint promotion, not signed application rollback.
 
+The engine and the native host each validate the retained records that gate
+startup: storage metadata and the restore and drill journals. Both read the cases in
+`launcher/windows/contracts/retained-records.json` (`tests/test_windows_records.py`
+and native `RecordContractTests`) and must reach each case's verdict: accepted,
+damaged, needs a newer reader, or unfinished. A rule changed on one side is a new
+case there, so the other side fails until it agrees.
+
 `tests/test_windows_restart.py` terminates a real scratch postmaster and verifies
 automatic restart with Unicode history, saved state and unchanged credentials/key.
 It also exercises PID reuse, an unrecorded live postmaster, foreign or malformed

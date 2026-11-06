@@ -29,16 +29,23 @@ def validate(record: Any, pgdata: Path, version: int = 16, *, require_reader: bo
     legacy = {"format": 1, "pgdata": str(pgdata), "version": version}
     if record == legacy and type(record.get("format")) is int and type(record.get("version")) is int:
         return legacy
-    if (not isinstance(record, dict) or set(record) != {"format", "pgdata", "version", "minimum_reader"}
+    if not isinstance(record, dict):
+        raise StorageCompatibilityError("Windows storage metadata is damaged or names another cluster")
+    # A writer that changes the record declares the reader it needs. Its other
+    # fields may be unknown here, so that floor is read before the shape: an
+    # older engine then asks for a newer one instead of reporting damage.
+    floor = record.get("minimum_reader")
+    if (require_reader and type(record.get("format")) is int and record["format"] >= 2
+            and type(floor) is int and READER_CONTRACT < floor <= 65535):
+        raise StorageCompatibilityError(
+            f"This database requires Windows reader contract {floor}; this engine supports {READER_CONTRACT}. "
+            "Install a compatible signed package or use a compatible recovery checkpoint."
+        )
+    if (set(record) != {"format", "pgdata", "version", "minimum_reader"}
             or type(record["format"]) is not int or record["format"] != 2
             or record["pgdata"] != str(pgdata) or type(record["version"]) is not int or record["version"] != version
             or type(record["minimum_reader"]) is not int or not 1 <= record["minimum_reader"] <= 65535):
         raise StorageCompatibilityError("Windows storage metadata is damaged or names another cluster")
-    if require_reader and record["minimum_reader"] > READER_CONTRACT:
-        raise StorageCompatibilityError(
-            f"This database requires Windows reader contract {record['minimum_reader']}; this engine supports {READER_CONTRACT}. "
-            "Install a compatible signed package or use a compatible recovery checkpoint."
-        )
     return record
 
 

@@ -99,25 +99,36 @@ public static class RecoveryGuard
     {
         try
         {
+            // A writer that changes the record declares the reader it needs. Its other fields may be
+            // unknown here, so that floor is read before the shape: an older engine then asks for a
+            // newer one instead of reporting damage.
+            if (requireReader && root.ValueKind == JsonValueKind.Object
+                && root.TryGetProperty("format", out var declared) && Integer(declared) is >= 2
+                && root.TryGetProperty("minimum_reader", out var floorValue) && Integer(floorValue) is { } floor
+                && floor > ReaderContract && floor <= 65535)
+                throw new IOException($"This database requires Windows reader contract {floor}; this engine supports {ReaderContract}. Install a compatible signed package or use a compatible recovery checkpoint.");
             var format = root.GetProperty("format").GetInt32();
             if (format is not (1 or 2) || root.EnumerateObject().Count() != (format == 1 ? 3 : 4)
                 || root.GetProperty("pgdata").GetString() != Path.Combine(state, "db") || root.GetProperty("version").GetInt32() != 16)
                 throw new IOException("Windows storage metadata is damaged or names another cluster.");
             var minimum = format == 1 ? 1 : root.GetProperty("minimum_reader").GetInt32();
-            if (minimum is < 1 or > 65535) throw new IOException("Windows storage reader contract is invalid.");
-            if (requireReader && minimum > ReaderContract)
-                throw new IOException($"This database requires Windows reader contract {minimum}; this engine supports {ReaderContract}. Install a compatible signed package or use a compatible recovery checkpoint.");
+            if (minimum is < 1 or > 65535) throw new IOException("Windows storage metadata is damaged: its reader contract is invalid.");
         }
         catch (Exception error) when (error is KeyNotFoundException or InvalidOperationException or FormatException or OverflowException)
         { throw new IOException("Windows storage metadata is damaged. Preserve it for repair.", error); }
     }
 
+    private static int? Integer(JsonElement value) =>
+        value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var number) ? number : null;
+
     private static void Identity(JsonElement value)
     {
+        // Volume serial, then a nonzero file ID; "-0" is a JSON integer equal to zero.
         var items = value.EnumerateArray().ToArray();
         if (items.Length != 2 || items.Any(item => item.ValueKind != JsonValueKind.Number
-            || !BigInteger.TryParse(item.GetRawText(), out var number) || number < 0) || items[1].GetRawText() == "0")
-            throw new IOException("The restore directory identity is invalid. Preserve it for repair.");
+                || !BigInteger.TryParse(item.GetRawText(), out _))
+            || BigInteger.Parse(items[0].GetRawText()) < 0 || BigInteger.Parse(items[1].GetRawText()) <= 0)
+            throw new IOException("The restore journal is damaged: a directory identity is invalid. Preserve it for repair.");
     }
 
     private static bool Hex(string? value, int length) => value is not null
