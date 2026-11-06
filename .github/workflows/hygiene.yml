@@ -2,8 +2,9 @@ name: hygiene
 
 # Whole-tree rules that no single area owns. No `paths:` filter on purpose: the
 # old project name or a polluted comment can come back through any file, and a
-# dashboard-only change must not skip the check. Standard library only, so
-# nothing is installed. The same checks run inside pytest.
+# dashboard-only change must not skip the check. The two Python checks use the
+# standard library only, so nothing is installed, and they run inside pytest
+# too. actionlint runs from its image, which carries the shellcheck it uses.
 on:
   push:
     branches: [main]
@@ -15,21 +16,38 @@ permissions:
 
 jobs:
   project-name:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version-file: .python-version
       - run: python backend/scripts/check_project_name.py
 
   comment-hygiene:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version-file: .python-version
       - run: python backend/scripts/check_comment_hygiene.py
+
+  # Workflow syntax, expressions and the shell in `run:` steps, so a workflow
+  # mistake fails the pull request that makes it instead of a run on main.
+  actionlint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker://rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 # v1.7.12
+        with:
+          args: -color
