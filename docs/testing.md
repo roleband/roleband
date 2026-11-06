@@ -72,6 +72,18 @@ releases its desktop lease. The command is `desktop.py --source recovery begin
 `abandon` require the same explicit `--state`. Run these only with synthetic trial
 state. They establish scratch recovery behavior, not database promotion.
 
+`tests/test_windows_restore.py` promotes real bound checkpoints, verifies retained
+encrypted settings and byte-identical displaced databases, and rejects changed
+keys, passwords, schema heads and unbound checkpoints. It terminates a real
+coordinator during preparation and uses Windows sharing handles to interrupt
+directory promotion and metadata publication. Resume must recognize an already
+completed switch; abort is allowed only before that switch. Native `RestoreTests`
+require pending restores and newer reader contracts to stop before engine spawn.
+The operator command is `desktop.py --source restore begin --state <retained-state>
+--checkpoint <bound-checkpoint> --preserve-current`; `status`, `resume` and `abort`
+take the same explicit `--state`. Use synthetic trial state. These checks prove
+offline checkpoint promotion, not signed application rollback.
+
 `tests/test_windows_restart.py` terminates a real scratch postmaster and verifies
 automatic restart with Unicode history, saved state and unchanged credentials/key.
 It also exercises PID reuse, an unrecorded live postmaster, foreign or malformed

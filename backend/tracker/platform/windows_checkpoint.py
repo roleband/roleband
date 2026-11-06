@@ -189,7 +189,22 @@ def _archive(directory: Path, manifest: dict[str, Any]) -> Path:
     return archive
 
 
-def _restore(directory: Path, manifest: dict[str, Any], verification_state: Path) -> dict[str, Any]:
+def verify_restored(server: EmbeddedServer, manifest: dict[str, Any]) -> None:
+    with closing(_connect(server)) as conn:
+        if _facts(conn) != manifest["facts"]:
+            raise CheckpointError("Restored checkpoint does not match its schema and history fingerprints")
+        conn.rollback()
+        conn.set_session(readonly=False)
+        with conn.cursor() as cur:
+            cur.execute("CREATE TEMP TABLE roleband_restore_probe(value text);")
+            cur.execute("INSERT INTO roleband_restore_probe VALUES (%s) RETURNING value", ("Recovery · 中文",))
+            if cur.fetchone() != ("Recovery · 中文",):
+                raise CheckpointError("Restored checkpoint did not pass its scratch write")
+        conn.rollback()
+
+
+def _restore(directory: Path, manifest: dict[str, Any], verification_state: Path,
+             *, database: str = "roleband_restore_check") -> dict[str, Any]:
     from tracker.platform.windows_private import native_path, private_directory
 
     archive = _archive(directory, manifest)
@@ -199,20 +214,10 @@ def _restore(directory: Path, manifest: dict[str, Any], verification_state: Path
     private_directory(verification_state, exist_ok=False)
     pgdata = verification_state / "db"
     try:
-        server = ensure_server(pgdata, database="roleband_restore_check", required_extensions=("vector", "pg_trgm"))
+        server = ensure_server(pgdata, database=database, required_extensions=("vector", "pg_trgm"))
         _run(server, "pg_restore", "--exit-on-error", "--single-transaction", "--no-owner", "--no-privileges",
              "-d", server.dsn(), native_path(archive))
-        with closing(_connect(server)) as conn:
-            if _facts(conn) != manifest["facts"]:
-                raise CheckpointError("Restored checkpoint does not match its schema and history fingerprints")
-            conn.rollback()
-            conn.set_session(readonly=False)
-            with conn.cursor() as cur:
-                cur.execute("CREATE TEMP TABLE roleband_restore_probe(value text);")
-                cur.execute("INSERT INTO roleband_restore_probe VALUES (%s) RETURNING value", ("Recovery · 中文",))
-                if cur.fetchone() != ("Recovery · 中文",):
-                    raise CheckpointError("Restored checkpoint did not pass its scratch write")
-            conn.rollback()
+        verify_restored(server, manifest)
         return {"verified": True, "verification_state": str(verification_state), "scratch_write": "rolled back"}
     finally:
         if (pgdata / "postmaster.pid").exists() and not stop_server(pgdata):
@@ -222,6 +227,7 @@ def _restore(directory: Path, manifest: dict[str, Any], verification_state: Path
 def create_checkpoint(server: EmbeddedServer, destination: Path, verification_state: Path) -> Path:
     """Export one snapshot and publish only after restoring it into fresh storage."""
     from tracker.platform.windows_private import native_path, private_directory
+    from tracker.platform.windows_storage import READER_CONTRACT, retained_profile
 
     destination, verification_state = _path(destination), _path(verification_state)
     _separate(destination, _path(server.pgdata))
@@ -233,6 +239,8 @@ def create_checkpoint(server: EmbeddedServer, destination: Path, verification_st
     private_directory(staged, exist_ok=False)
     archive = staged / "database.dump"
     archive.touch(exist_ok=False)
+    owner = server.pgdata.parent / f"{server.pgdata.name}.owner.json"
+    profile = retained_profile(server.pgdata) if owner.exists() else None
     with closing(_connect(server)) as conn:
         facts = _facts(conn)
         with conn.cursor() as cur:
@@ -247,7 +255,10 @@ def create_checkpoint(server: EmbeddedServer, destination: Path, verification_st
         os.fsync(stream.fileno())
     manifest = {"format": 1, "postgres_major": 16, "source_database": server.database,
                 "source_pgdata": str(server.pgdata.resolve()), "sha256": _digest(archive),
-                "bytes": archive.stat().st_size, "facts": facts}
+                "bytes": archive.stat().st_size, "facts": facts,
+                "reader_contract": READER_CONTRACT, "retained_profile": profile}
+    if profile is not None and retained_profile(server.pgdata) != profile:
+        raise CheckpointError("Retained credentials or key changed while building the checkpoint")
     manifest.update(_restore(staged, manifest, verification_state))
     encoded = (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode()
     if len(encoded) > MANIFEST_LIMIT:
