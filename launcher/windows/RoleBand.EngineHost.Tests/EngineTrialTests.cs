@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace RoleBand.EngineHost.Tests;
@@ -36,6 +37,22 @@ public sealed class EngineTrialTests
     private static async Task Exercise(EngineConfiguration configuration)
     {
         var state = configuration.State;
+        PrivateStorage.EnsureDirectory(state);
+        PrivateStorage.EnsureDirectory(Path.Combine(state, "launcher"));
+        using (var predecessor = Process.Start(new ProcessStartInfo(Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.System), "hostname.exe"))
+            { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true })
+            ?? throw new IOException("Could not create the predecessor fixture."))
+        {
+            var pid = predecessor.Id;
+            var began = new DateTimeOffset(predecessor.StartTime.ToUniversalTime()).ToUnixTimeMilliseconds() / 1000.0;
+            await predecessor.WaitForExitAsync();
+            File.WriteAllText(Path.Combine(state, "launcher", "owned-engine.json"), JsonSerializer.Serialize(new
+            {
+                format = 1, pid, started = began, state,
+                resources = Path.Combine(state, "previous-package", "Resources"),
+            }));
+        }
         await using var session = new EngineSession(configuration);
         await session.StartAsync();
         var deadline = Stopwatch.StartNew();

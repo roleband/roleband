@@ -61,8 +61,10 @@ public sealed class EngineSession : IAsyncDisposable
         if (!File.Exists(path)) return;
         using var record = JsonDocument.Parse(PrivateStorage.Read(path));
         var root = record.RootElement;
+        var resources = root.GetProperty("resources").GetString();
+        var started = root.GetProperty("started").GetDouble();
         if (root.GetProperty("format").GetInt32() != 1
-            || !Path.GetFullPath(root.GetProperty("resources").GetString()!).Equals(configuration.Resources, StringComparison.OrdinalIgnoreCase)
+            || resources is null || !Path.IsPathFullyQualified(resources) || !double.IsFinite(started) || started <= 0
             || !Path.GetFullPath(root.GetProperty("state").GetString()!).Equals(configuration.State, StringComparison.OrdinalIgnoreCase))
             throw new IOException("A different installation owns this engine record.");
         Process candidate;
@@ -71,8 +73,10 @@ public sealed class EngineSession : IAsyncDisposable
         using (candidate)
         {
             var began = new DateTimeOffset(candidate.StartTime.ToUniversalTime()).ToUnixTimeMilliseconds() / 1000.0;
-            if (!candidate.HasExited && Math.Abs(began - root.GetProperty("started").GetDouble()) < 0.002)
-                throw new IOException("The previous engine is still closing or another app owns it.");
+            if (candidate.HasExited || Math.Abs(began - started) >= 0.002) return;
+            if (!Path.GetFullPath(resources).Equals(configuration.Resources, StringComparison.OrdinalIgnoreCase))
+                throw new IOException("A different installation owns this engine record.");
+            throw new IOException("The previous engine is still closing or another app owns it.");
         }
     }
 

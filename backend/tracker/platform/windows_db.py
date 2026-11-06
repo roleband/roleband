@@ -11,6 +11,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import uuid
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -89,6 +90,44 @@ def verified_port(pgdata: Path, bin_dir: Path) -> int:
         raise WindowsDbError(f"cannot verify the database process at {pgdata}") from exc
 
 
+def _retire_dead_pid(pgdata: Path) -> bool:
+    path = pgdata / "postmaster.pid"
+    require_private(path)
+    original = path.read_bytes()
+    try:
+        if len(original) > 8192:
+            raise ValueError("oversized pidfile")
+        lines = original.decode("utf-8").splitlines()
+        pid, recorded_path, started = int(lines[0]), Path(lines[1]), int(lines[2])
+        if pid <= 0 or started <= 0 or recorded_path.resolve() != pgdata.resolve():
+            raise ValueError("invalid database identity")
+        try:
+            process = psutil.Process(pid)
+            if abs(process.create_time() - started) < 3:
+                return False
+        except psutil.NoSuchProcess:
+            pass
+        # A dead process record does not prove that no other postmaster owns
+        # the directory. Inspect parsed -D arguments before allowing a start.
+        for candidate in psutil.process_iter(["name"]):
+            if (candidate.info["name"] or "").lower() != "postgres.exe":
+                continue
+            try:
+                arguments = candidate.cmdline()
+                if "-D" in arguments[:-1] and Path(arguments[arguments.index("-D") + 1]).resolve() == pgdata.resolve():
+                    raise WindowsDbError("a live database process owns the directory despite its stale pidfile")
+            except psutil.NoSuchProcess:
+                continue
+        if path.read_bytes() != original:
+            raise WindowsDbError("database pidfile changed during ownership verification")
+        retained = path.with_name("postmaster.pid.stale-" + uuid.uuid4().hex)
+        path.rename(retained)
+        logger.info("retained dead database process record at %s", retained)
+        return True
+    except (OSError, ValueError, IndexError, psutil.Error) as exc:
+        raise WindowsDbError("cannot establish that the recorded database process is dead") from exc
+
+
 def _initialize(pgdata: Path, auth: Path, bin_dir: Path, version: int, locale: str) -> None:
     marker = auth / "cluster.json"
     passfile = auth / "pgpass.conf"
@@ -143,9 +182,8 @@ def ensure_cluster(
                 raise WindowsDbError("start PostgreSQL in the engine host before launching a cancellable process")
             _initialize(pgdata, auth, bin_dir, version, locale)
             if (pgdata / "postmaster.pid").exists():
-                # A stale or foreign pidfile needs explicit recovery. pg_ctl must
-                # never decide which unrelated process this application owns.
-                return verified_port(pgdata, bin_dir), Path(native_path(auth / "pgpass.conf"))
+                if os.environ.get(CANCELLABLE_ENV) == "1" or not _retire_dead_pid(pgdata):
+                    return verified_port(pgdata, bin_dir), Path(native_path(auth / "pgpass.conf"))
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as reservation:
                 reservation.bind(("127.0.0.1", 0))
                 port = reservation.getsockname()[1]
@@ -165,7 +203,12 @@ def ensure_cluster(
             logger.info("starting embedded Postgres at %s with %s", pgdata,
                         " ".join(f"{name}={value}" for name, value in settings.items()) or "stock settings")
             native_pgdata = native_path(pgdata)
-            _run(bin_dir, "pg_ctl", "-D", native_pgdata, "-w", "-t", "30", "-l", native_pgdata + "/log", "start")
+            # Crash recovery fsyncs PGDATA. An open log there can cause Windows
+            # sharing violations and exhaust the database's startup deadline.
+            log = auth / "postgres.log"
+            if log.exists():
+                require_private(log)
+            _run(bin_dir, "pg_ctl", "-D", native_pgdata, "-w", "-t", "30", "-l", native_path(auth) + "/postgres.log", "start")
             return verified_port(pgdata, bin_dir), Path(native_path(auth / "pgpass.conf"))
         finally:
             filelock.unlock(lock)

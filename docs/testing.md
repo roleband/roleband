@@ -72,6 +72,14 @@ releases its desktop lease. The command is `desktop.py --source recovery begin
 `abandon` require the same explicit `--state`. Run these only with synthetic trial
 state. They establish scratch recovery behavior, not database promotion.
 
+`tests/test_windows_restart.py` terminates a real scratch postmaster and verifies
+automatic restart with Unicode history, saved state and unchanged credentials/key.
+It also exercises PID reuse, an unrecorded live postmaster, foreign or malformed
+PID records and refusal to restart from a cancellable child. Stale PID evidence is
+retained. PostgreSQL's active log stays outside PGDATA. The native lifecycle tests
+start with a dead predecessor record from a different resource root; live
+predecessors and foreign retained-state records remain refusals.
+
 The native engine-host integration tests accept `ROLEBAND_HOST_TEST_RESOURCES`
 pointing at an assembled app's `Contents/Resources`. They exercise its real
 Python, Postgres, supervisor and API with a new scratch home and database;

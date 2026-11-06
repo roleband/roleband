@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Diagnostics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace RoleBand.EngineHost.Tests;
@@ -59,5 +60,30 @@ public sealed class RecoveryTests
         if (!phase) File.WriteAllText(Path.Combine(state, "recovery", "check.json"), value);
         Assert.ThrowsExactly<IOException>(() => RecoveryGuard.RequireLaunchable(state));
         Assert.IsTrue(File.Exists(Path.Combine(state, "recovery", "check.json")));
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task LivePredecessorOrForeignStateBlocksStartup(bool foreignState)
+    {
+        var state = Journal("verified");
+        PrivateStorage.EnsureDirectory(Path.Combine(state, "launcher"));
+        using var current = Process.GetCurrentProcess();
+        File.WriteAllText(Path.Combine(state, "launcher", "owned-engine.json"), JsonSerializer.Serialize(new
+        {
+            format = 1, pid = current.Id,
+            started = new DateTimeOffset(current.StartTime.ToUniversalTime()).ToUnixTimeMilliseconds() / 1000.0,
+            state = foreignState ? Path.Combine(state, "foreign") : state,
+            resources = Path.Combine(state, "different-installation"),
+        }));
+        var config = new EngineConfiguration(state, state, "must-not-run.exe", "must-not-run.exe", "test", true, true);
+        await using var session = new EngineSession(config);
+        await session.StartAsync();
+        Assert.AreEqual(EngineState.Attention, session.Snapshot.State);
+        StringAssert.Contains(session.Snapshot.Diagnostic!, "different installation");
+        Assert.IsNull(session.Snapshot.ProcessId);
+        Assert.IsFalse(session.OwnsEngine);
+        Assert.IsFalse(current.HasExited);
     }
 }

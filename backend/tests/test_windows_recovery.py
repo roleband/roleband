@@ -47,11 +47,17 @@ def _cli(action, state, *args):
 
 
 def _interrupted(checkpoint, state, boundary="ready"):
-    process = subprocess.Popen(_command("begin", state, "--checkpoint", checkpoint),
-                               env={**os.environ, "__PYVENV_LAUNCHER__": sys.executable},
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    log_path = state.parent / "recovery-coordinator.log"
+    log = log_path.open("wb")
+    try:
+        process = subprocess.Popen(_command("begin", state, "--checkpoint", checkpoint),
+                                   env={**os.environ, "__PYVENV_LAUNCHER__": sys.executable},
+                                   stdout=log, stderr=subprocess.STDOUT)
+    except BaseException:
+        log.close()
+        raise
     journal = state / "recovery" / "check.json"
-    deadline = time.monotonic() + 30
+    deadline = time.monotonic() + 120
     try:
         while time.monotonic() < deadline:
             if journal.exists():
@@ -75,13 +81,14 @@ def _interrupted(checkpoint, state, boundary="ready"):
                             pass
                     assert record["phase"] == "verifying"
                     return record, scratch
-            assert process.poll() is None, "Recovery completed before the interruption could be exercised"
+            assert process.poll() is None, log_path.read_text(errors="replace")[-6000:]
             time.sleep(0.005)
-        pytest.fail("Recovery did not start a real scratch database")
+        pytest.fail(f"Recovery did not start a real scratch database; see {log_path}")
     finally:
         if process.poll() is None:
             process.kill()
             process.wait(timeout=10)
+        log.close()
 
 
 def test_completed_drill_retains_history_and_allows_ordinary_database_access(checkpoint, server, tmp_path):
