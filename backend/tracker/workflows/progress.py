@@ -118,6 +118,11 @@ class RunProgress:
     #: on in-flight sources without hard-coding a backend setting.
     concurrency_limit: int = 0
     companies: dict[str, CompanyProgress] = field(default_factory=dict)
+    #: When any source last completed a unit of work (epoch ms); None until one
+    #: has. A full read has no time ceiling, so one company may read for hours:
+    #: this, not a finished company, is what shows the run is not stuck
+    #: (`watchdog.stop_stuck_scan`).
+    last_progress_at_ms: int | None = None
     #: Injectable so tests can pin timestamps. Excluded from equality/repr so two
     #: progress objects compare on their counters, not on their clocks.
     clock: Callable[[], int] = field(default=_now_ms, repr=False, compare=False)
@@ -166,6 +171,12 @@ class RunProgress:
         UI would show a clock ticking on work that never began.
         """
         self._advance(self._entry(company), "scraping")
+
+    def source_progressed(self) -> None:
+        """Some source completed a unit of work: an item read, or a deliberate
+        wait served. Called from collector tasks on every unit, so it only
+        stamps a time."""
+        self.last_progress_at_ms = self.clock()
 
     def source_collected(
         self,
@@ -333,5 +344,6 @@ class RunProgress:
             "opportunities_pending": self.opportunities_pending,
             "concurrency_limit": self.concurrency_limit,
             "snapshot_at_ms": self.clock(),
+            "last_progress_at_ms": self.last_progress_at_ms,
             "companies": self._published_companies(),
         }

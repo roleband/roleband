@@ -213,16 +213,28 @@ async def ring_scan() -> None:
 
 
 #: How long past a company's own budget a scan may go without finishing a
-#: company before it is stuck: every company stops by its budget, its backstop
-#: and its close grace, so a scan still reading finishes one well within this.
+#: company or reading anything before it is stuck. A full read has no ceiling,
+#: so a company may take hours; a source silent past its stall window is
+#: stopped, so a scan that still reads makes progress well within this.
 STUCK_MARGIN = timedelta(minutes=15)
+
+
+def _epoch_ms(value: str | None) -> datetime | None:
+    """A published epoch-milliseconds stamp as a time; None when absent or not
+    a number."""
+    try:
+        return datetime.fromtimestamp(int(value) / 1000, UTC) if value else None
+    except (TypeError, ValueError):
+        return None
 
 
 async def stop_stuck_scan(session, *, now: datetime, settings) -> bool:
     """Ask the supervisor to stop the live scan when it has finished no company
-    for a company's budget plus `STUCK_MARGIN` while it still reads. A scan is
-    judged by its progress, never by how long it has run: a slow network makes
-    a scan long, not stuck. Once stopped, the next tick closes it as
+    and read nothing for a company's budget plus `STUCK_MARGIN` while it still
+    reads. A scan is judged by its progress, never by how long it has run: a
+    slow network or a large careers page makes a scan long, not stuck. Reading
+    is the run's published `last_progress_at_ms`: a full read of one large
+    company finishes no company for as long as it lasts. Once stopped, the next tick closes it as
     interrupted and continues with the companies it had not read. The passes
     after collection are not judged here. True when a stop was asked for."""
     run = await session.scalar(
@@ -230,18 +242,27 @@ async def stop_stuck_scan(session, *, now: datetime, settings) -> bool:
     )
     if run is None:
         return False
-    phase = await session.scalar(
-        select(Notification.meta["progress"]["phase"].astext).where(
-            Notification.source_type == "run",
-            Notification.source_id == run.id,
-            Notification.category == "sync_started",
+    published = (
+        await session.execute(
+            select(
+                Notification.meta["progress"]["phase"].astext,
+                Notification.meta["progress"]["last_progress_at_ms"].astext,
+            ).where(
+                Notification.source_type == "run",
+                Notification.source_id == run.id,
+                Notification.category == "sync_started",
+            )
         )
-    )
+    ).first()
+    phase, progressed_ms = published if published is not None else (None, None)
     if phase not in (None, "collecting"):
         return False
     last = await session.scalar(
         select(func.max(ScrapeSourceRun.finished_at)).where(ScrapeSourceRun.run_id == run.id)
     )
+    progressed = _epoch_ms(progressed_ms)
+    if progressed is not None and (last is None or progressed > last):
+        last = progressed
     if now - (last or run.started_at) < timedelta(seconds=settings.scraper_source_budget_seconds) + STUCK_MARGIN:
         return False
     scan = next((job for job in await job_store.live_runs(session) if job.key == "scan"), None)

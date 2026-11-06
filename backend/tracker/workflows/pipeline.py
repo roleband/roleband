@@ -760,6 +760,7 @@ async def run_pipeline(
                     source_stall_seconds=settings.scraper_source_stall_seconds,
                     on_source_start=progress.source_started,
                     on_source_done=progress.source_collected,
+                    on_source_progress=progress.source_progressed,
                     scan_mode=scan_mode,
                     lookups=lookups,
                     on_row=writer.row,

@@ -136,9 +136,11 @@ need the writer of a table, read that file first.
    policy-denied, then runs one pipeline pass.
 2. **The pipeline collects.** `workflows/collection.py` calls each source's
    adapter through `ADAPTER_REGISTRY`. Every source is bulkheaded in time as
-   well as in exceptions: a `SourceClock` carries both a stall bound (silence is
-   the source's fault) and an absolute budget (a source still producing when it
-   expires was cut by us, and that never counts against its health).
+   well as in exceptions: a `SourceClock` carries a stall bound (silence is
+   the source's fault) and, for a discovery probe, an absolute budget (a source
+   still producing when it expires was cut by us, and that never counts against
+   its health). A full read has no budget: it lasts as long as the source keeps
+   producing.
 3. **The adapter yields `RawJob`s.** Provider-neutral dataclasses from
    `tracker/schema.py`; no ATS shapes escape `connectors/`.
 4. **Persistence upserts and appends.** `db/repo.py` upserts `jobs` and appends
