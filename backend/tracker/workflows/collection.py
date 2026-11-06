@@ -714,7 +714,7 @@ def collector_lanes(
 
 
 async def _await_while_progressing(
-    work: asyncio.Task, clock: SourceClock, grace: float
+    work: asyncio.Task, clock: SourceClock, grace: float, monotonic: Callable[[], float]
 ) -> None:
     """Wait for `work` until it ends, or until its clock has been expired for
     `grace`: the backstop for a source with no ceiling.
@@ -727,7 +727,7 @@ async def _await_while_progressing(
     while not work.done():
         # `at`, not `remaining()`: the latter stops at zero, so a clock already
         # expired would grant a fresh grace on every wake.
-        left = clock.at + grace - time.monotonic()
+        left = clock.at + grace - monotonic()
         if left <= 0:
             return
         await asyncio.wait({work}, timeout=left)
@@ -752,6 +752,7 @@ async def collect_sources(
     on_row: Callable[[str, EnrichedJob], None] | None = None,
     on_collected: Callable[[str, SourceCollection], None] | None = None,
     asked: asyncio.Queue[AskedCompany] | None = None,
+    monotonic: Callable[[], float] = time.monotonic,
 ) -> dict[str, SourceCollection]:
     """Collect distinct backends concurrently; queue companies per backend.
 
@@ -799,6 +800,9 @@ async def collect_sources(
 
     Cancelling this coroutine cancels and awaits every collector before the
     cancellation propagates, so no adapter outlives the run that opened it.
+
+    ``monotonic`` is the time every source's clock and backstop read; injected
+    in tests, so a source's silence can be simulated without waiting for it.
 
     ``on_source_progress()`` fires on every unit of completed work of any
     source, from inside the read: a run that reads one company for hours is
@@ -930,7 +934,7 @@ async def collect_sources(
                     completed[company] = deferred_collection(company)
                     _collected(company, completed[company])
                     continue
-                now = time.monotonic()
+                now = monotonic()
                 company_lookups = asked_lookups.pop(company, None) or lookups.for_company(company)
                 # A binding's learned budget replaces the global one for this
                 # source, but can only ever be *tighter*: it was clamped to
@@ -948,6 +952,7 @@ async def collect_sources(
                     # alone, a single fixed budget.
                     stall_seconds=stall_window if stall_window is not None else budget,
                     hard_deadline=now + budget,
+                    clock=monotonic,
                     on_progress=_progressed,
                 )
                 # The backstop must fire strictly *after* the cooperative
@@ -996,7 +1001,7 @@ async def collect_sources(
                     # only if the transport deadline failed to bite, and it
                     # loses what the company had not yet streamed.
                     if unbounded:
-                        await _await_while_progressing(work, clock, grace)
+                        await _await_while_progressing(work, clock, grace, monotonic)
                     else:
                         await asyncio.wait({work}, timeout=backstop)
                     if not work.done():
