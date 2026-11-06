@@ -77,11 +77,14 @@ encrypted settings and byte-identical displaced databases, and rejects changed
 keys, passwords, schema heads and unbound checkpoints. It terminates a real
 coordinator during preparation and uses Windows sharing handles to interrupt
 directory promotion and metadata publication. Resume must recognize an already
-completed switch; abort is allowed only before that switch. Native `RestoreTests`
+completed switch; abort is allowed only before that switch. A final check that keeps
+failing after the switch is reinstated: the original returns byte for byte with its
+credentials, key and later history, and a reinstatement interrupted at each
+directory move or the reader-floor write resumes. Native `RestoreTests`
 require pending restores and newer reader contracts to stop before engine spawn.
 The operator command is `desktop.py --source restore begin --state <retained-state>
---checkpoint <bound-checkpoint> --preserve-current`; `status`, `resume` and `abort`
-take the same explicit `--state`. Use synthetic trial state. These checks prove
+--checkpoint <bound-checkpoint> --preserve-current`; `status`, `resume`, `abort`
+and `reinstate` take the same explicit `--state`. Use synthetic trial state. These checks prove
 offline checkpoint promotion, not signed application rollback.
 
 The engine and the native host each validate the retained records that gate

@@ -29,7 +29,12 @@ from tracker.platform.windows_storage import (
     write_json,
 )
 
-PHASES = {"preparing", "prepared", "retaining", "installing", "checking", "complete", "aborted"}
+PHASES = {"preparing", "prepared", "retaining", "installing", "checking", "complete", "aborted",
+          "reinstating", "reinstated"}
+#: Phases that leave the retained database launchable.
+RESOLVED = {"complete", "aborted", "reinstated"}
+#: Phases in which the original database may have left its path.
+SWITCHED = {"retaining", "installing", "checking", "reinstating"}
 _checking: ContextVar[Path | None] = ContextVar("windows_restore_checking", default=None)
 
 
@@ -75,10 +80,11 @@ def _identity_record(value: Any) -> None:
 def require_launchable(state: Path) -> None:
     state = checked_path(state)
     record = read_restore(state)
-    if record is not None and record["phase"] not in {"complete", "aborted"}:
+    if record is not None and record["phase"] not in RESOLVED:
         if record["phase"] == "checking" and _checking.get() == state:
             return
-        raise RecoveryError("Database restore is unfinished. Use restore resume with a compatible signed repair package.")
+        raise RecoveryError("Database restore is unfinished. With a compatible signed repair package, use restore "
+                            "resume to finish it or restore reinstate to return the original database.")
     marker = state / "db.auth" / "cluster.json"
     if marker.exists():
         validate(read_json(marker), state / "db")
@@ -123,7 +129,7 @@ def _check_profile(state: Path, record: dict[str, Any]) -> None:
     current = validate(read_json(state / "db.auth/cluster.json"), state / "db", require_reader=False)
     original = record["original_metadata"]
     allowed = [original, metadata(state / "db", minimum_reader=original.get("minimum_reader", 1))]
-    if record["phase"] in {"installing", "checking", "complete"}:
+    if record["phase"] in {"installing", "checking", "complete", "reinstating"}:
         allowed.append(metadata(state / "db"))
     if current not in allowed:
         raise RecoveryError("Storage compatibility metadata changed during restore")
@@ -196,6 +202,38 @@ def _prepare(state: Path, record: dict[str, Any], manifest: dict[str, Any]) -> N
     _save(state, record, "prepared")
 
 
+def _reinstate(state: Path, record: dict[str, Any]) -> dict[str, Any]:
+    """Return the retained original database to its path after the switch began.
+
+    The restored database is kept beside it as `rejected-db`. Every step checks
+    directory identities, so an interrupted reinstatement resumes."""
+    directory, failed, _staged = _paths(state, record)
+    rejected = directory / "rejected-db"
+    current = state / "db"
+    if record["phase"] not in SWITCHED or (record["phase"] == "retaining" and not failed.exists()):
+        raise RecoveryError("The original database has not moved; abort the restore instead")
+    if current.exists():
+        _quiesce(current)
+    _save(state, record, "reinstating")
+    with _startup_lease(state):
+        if _matches(current, record["restored_directory"]):
+            move(current, rejected)
+        elif current.exists() and not _matches(current, record["original_directory"]):
+            raise RecoveryError("Cannot identify the database at the retained path; preserve it for repair")
+        if not current.exists():
+            if not _matches(failed, record["original_directory"]):
+                raise RecoveryError("The retained original database was moved or replaced")
+            move(failed, current)
+        # The original keeps the reader floor it had, so a database that needed a
+        # newer engine stays closed to this one.
+        floor = record["original_metadata"].get("minimum_reader", 1)
+        write_json(state / "db.auth/cluster.json", metadata(current, minimum_reader=floor))
+        _check_profile(state, record)
+        _save(state, record, "reinstated")
+    record["rejected_database"] = str(rejected) if rejected.exists() else None
+    return record
+
+
 def restore(state: Path, action: str, checkpoint: Path | None = None) -> dict[str, Any]:
     from tracker.platform.embedded_db import ensure_server
     from tracker.platform.windows_checkpoint import verify_restored
@@ -203,7 +241,7 @@ def restore(state: Path, action: str, checkpoint: Path | None = None) -> dict[st
     from tracker.platform.windows_recovery import read_recovery
 
     state = checked_path(state)
-    if action not in {"begin", "resume", "abort"}:
+    if action not in {"begin", "resume", "abort", "reinstate"}:
         raise ValueError("Unsupported restore action")
     with recovery_leases(state, require_stopped=False):
         drill = read_recovery(state)
@@ -211,8 +249,8 @@ def restore(state: Path, action: str, checkpoint: Path | None = None) -> dict[st
             raise RecoveryError("Resolve the unfinished scratch recovery check before restoring")
         record = read_restore(state)
         if action == "begin":
-            if record is not None and record["phase"] not in {"complete", "aborted"}:
-                raise RecoveryError("Resume the unfinished restore before beginning another")
+            if record is not None and record["phase"] not in RESOLVED:
+                raise RecoveryError("Resume or reinstate the unfinished restore before beginning another")
             if checkpoint is None:
                 raise ValueError("A checkpoint is required")
             pgdata = state / "db"
@@ -238,13 +276,17 @@ def restore(state: Path, action: str, checkpoint: Path | None = None) -> dict[st
                     move(_journal(state), _journal(state).with_name("restore-completed-" + uuid.uuid4().hex + ".json"))
                 _save(state, record, "preparing")
                 write_json(state / "db.auth/cluster.json", metadata(pgdata, minimum_reader=original.get("minimum_reader", 1)))
-        elif record is None or record["phase"] in {"complete", "aborted"}:
+        elif record is None or record["phase"] in RESOLVED:
             raise RecoveryError("There is no unfinished restore")
         _check_profile(state, record)
         directory, failed, staged = _paths(state, record)
+        if action == "reinstate":
+            return _reinstate(state, record)
+        if record["phase"] == "reinstating":
+            raise RecoveryError("Reinstatement of the original database is unfinished; run restore reinstate again")
         if action == "abort":
             if record["phase"] not in {"preparing", "prepared", "retaining"} or failed.exists() or not _matches(state / "db", record["original_directory"]):
-                raise RecoveryError("The database switch has begun; resume restore instead of abandoning it")
+                raise RecoveryError("The database switch has begun; resume the restore or reinstate the original")
             for attempt in record["attempts"]:
                 _quiesce(checked_path(directory / attempt / "db"))
             _save(state, record, "aborted")

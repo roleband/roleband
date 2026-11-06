@@ -68,7 +68,8 @@ public static class RecoveryGuard
             var profile = root.GetProperty("profile");
             if (root.GetProperty("format").GetInt32() != 1 || root.GetProperty("kind").GetString() != "checkpoint-restore"
                 || root.GetProperty("state").GetString() != state || !Hex(root.GetProperty("id").GetString(), 32)
-                || phase is not ("preparing" or "prepared" or "retaining" or "installing" or "checking" or "complete" or "aborted")
+                || phase is not ("preparing" or "prepared" or "retaining" or "installing" or "checking" or "complete" or "aborted"
+                    or "reinstating" or "reinstated")
                 || !Path.IsPathFullyQualified(root.GetProperty("checkpoint").GetString()!)
                 || !Hex(root.GetProperty("manifest_sha256").GetString(), 64) || !Hex(root.GetProperty("archive_sha256").GetString(), 64)
                 || attempts.Length > 256 || attempts.Any(item => !Hex(item, 32)) || attempts.Distinct().Count() != attempts.Length
@@ -80,8 +81,9 @@ public static class RecoveryGuard
             Storage(root.GetProperty("original_metadata"), state, false);
             Identity(root.GetProperty("original_directory"));
             if (phase is not ("preparing" or "aborted")) Identity(root.GetProperty("restored_directory"));
-            if (phase is not ("complete" or "aborted"))
-                throw new IOException("Database restore is unfinished. Use restore resume with a compatible signed repair package.");
+            if (phase is not ("complete" or "aborted" or "reinstated"))
+                throw new IOException("Database restore is unfinished. With a compatible signed repair package, use restore "
+                    + "resume to finish it or restore reinstate to return the original database.");
         }
         catch (Exception error) when (error is JsonException or KeyNotFoundException or InvalidOperationException or ArgumentException or FormatException or OverflowException)
         {

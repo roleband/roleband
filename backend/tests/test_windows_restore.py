@@ -134,6 +134,119 @@ def test_active_database_or_missing_preservation_flag_cannot_begin_restore(bound
     assert not (state / "recovery/restore.json").exists()
 
 
+def _final_check_fails(monkeypatch, state):
+    """The restored database fails verification at its retained path, every time."""
+    from tracker.platform import windows_checkpoint
+
+    real = windows_checkpoint.verify_restored
+
+    def verify(server, manifest):
+        if server.pgdata.resolve() == (state / "db").resolve():
+            raise windows_checkpoint.CheckpointError("Restored checkpoint does not match its schema and history fingerprints")
+        return real(server, manifest)
+
+    monkeypatch.setattr(windows_checkpoint, "verify_restored", verify)
+
+
+def _switched_and_stuck(bound_checkpoint, server, monkeypatch):
+    from tracker.platform import windows_restore
+    from tracker.platform.windows_checkpoint import CheckpointError
+
+    state = server.pgdata.parent
+    _final_check_fails(monkeypatch, state)
+    with pytest.raises(CheckpointError):
+        windows_restore.restore(state, "begin", bound_checkpoint)
+    with pytest.raises(CheckpointError):
+        windows_restore.restore(state, "resume")
+    assert windows_restore.read_restore(state)["phase"] == "checking"
+    return state
+
+
+def test_a_switch_that_cannot_be_verified_reinstates_the_original(bound_checkpoint, server, monkeypatch):
+    from tracker.platform import windows_restore
+    from tracker.platform.windows_recovery import RecoveryError, require_launchable
+    from tracker.platform.windows_storage import read_json
+
+    state = server.pgdata.parent
+    original = _files(server.pgdata)
+    secrets = {path: path.read_bytes() for path in (state / "secret.key", state / "db.owner.json", state / "db.auth/pgpass.conf")}
+    _switched_and_stuck(bound_checkpoint, server, monkeypatch)
+    with pytest.raises(RecoveryError, match="reinstate"):
+        require_launchable(state)
+    with pytest.raises(RecoveryError, match="switch has begun"):
+        windows_restore.restore(state, "abort")
+    record = windows_restore.restore(state, "reinstate")
+    assert record["phase"] == "reinstated"
+    assert _files(server.pgdata) == original
+    rejected = Path(record["rejected_database"])
+    assert rejected.is_relative_to(state / "recovery") and (rejected / "PG_VERSION").is_file()
+    assert not (rejected.parent / "retained-db").exists()
+    assert all(path.read_bytes() == value for path, value in secrets.items())
+    assert read_json(state / "db.auth/cluster.json")["minimum_reader"] == 1
+    require_launchable(state)
+    reopened = ensure_server(server.pgdata, database="probe")
+    assert psql(reopened, "SELECT count(*) FROM jobs") == "3", "the original keeps history added after the checkpoint"
+    encrypted = psql(reopened, "SELECT value FROM sealed_settings").encode()
+    assert Fernet((state / "secret.key").read_bytes()).decrypt(encrypted) == b"retained synthetic credential"
+
+
+@pytest.mark.parametrize("boundary", ["before-setting-aside", "before-moving-back", "before-the-reader-floor"])
+def test_an_interrupted_reinstatement_resumes(bound_checkpoint, server, monkeypatch, boundary):
+    from tracker.platform import windows_restore
+
+    state = server.pgdata.parent
+    original = _files(server.pgdata)
+    _switched_and_stuck(bound_checkpoint, server, monkeypatch)
+    moves, real_move, real_write = [], windows_restore.move, windows_restore.write_json
+
+    def interrupted_move(source, destination, **options):
+        moves.append(source)
+        if (boundary, len(moves)) in {("before-setting-aside", 1), ("before-moving-back", 2)}:
+            raise OSError("interrupted")
+        return real_move(source, destination, **options)
+
+    def interrupted_write(path, record):
+        if boundary == "before-the-reader-floor" and path.name == "cluster.json":
+            raise OSError("interrupted")
+        return real_write(path, record)
+
+    with monkeypatch.context() as interruption:
+        interruption.setattr(windows_restore, "move", interrupted_move)
+        interruption.setattr(windows_restore, "write_json", interrupted_write)
+        with pytest.raises(OSError, match="interrupted"):
+            windows_restore.restore(state, "reinstate")
+    assert windows_restore.read_restore(state)["phase"] == "reinstating"
+    with pytest.raises(windows_restore.RecoveryError, match="reinstate"):
+        windows_restore.restore(state, "resume")
+    result = _cli("reinstate", state)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)["phase"] == "reinstated"
+    assert _files(server.pgdata) == original
+    assert psql(ensure_server(server.pgdata, database="probe"), "SELECT count(*) FROM jobs") == "3"
+
+
+def test_before_the_original_moves_reinstate_points_to_abort(bound_checkpoint, server, monkeypatch):
+    from tracker.platform import windows_restore
+
+    state = server.pgdata.parent
+    original = _files(server.pgdata)
+
+    def refused(*_args, **_kwargs):
+        raise OSError("interrupted before the switch")
+
+    with monkeypatch.context() as interruption:
+        interruption.setattr(windows_restore, "move", refused)
+        with pytest.raises(OSError, match="before the switch"):
+            windows_restore.restore(state, "begin", bound_checkpoint)
+    assert windows_restore.read_restore(state)["phase"] == "retaining"
+    with pytest.raises(windows_restore.RecoveryError, match="abort"):
+        windows_restore.restore(state, "reinstate")
+    assert windows_restore.restore(state, "abort")["phase"] == "aborted"
+    assert _files(server.pgdata) == original
+    with pytest.raises(windows_restore.RecoveryError, match="no unfinished restore"):
+        windows_restore.restore(state, "reinstate")
+
+
 def test_legacy_storage_adoption_keeps_credentials_and_retains_the_old_metadata(server):
     from tracker.platform.windows_storage import read_json, write_json
 

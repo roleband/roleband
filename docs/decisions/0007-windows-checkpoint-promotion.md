@@ -50,9 +50,14 @@ raised floor reads as damage.
 
 `restore resume` reuses the journal and rebuilds interrupted preparation in fresh
 storage. `restore abort` is allowed only while the original database remains at
-its original path; once switching begins, resolution requires resumption. Final
-verification opens the promoted database using the original credentials, then
-stops it before recording completion. All attempts and the displaced database
+its original path. Once switching begins, `resume` finishes the promotion and
+`restore reinstate` returns the retained original instead: it sets the restored
+database aside as `rejected-db`, moves the original back, restores its reader
+floor and records `reinstated`, checking directory identities at each step so an
+interrupted reinstatement resumes. A switch whose final verification keeps failing
+therefore has an executable way back. Final verification opens the promoted
+database using the original credentials, then stops it before recording
+completion. All attempts, the displaced or rejected database and every journal
 remain private and retained; the command deletes no history.
 
 ## Consequences

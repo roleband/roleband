@@ -1,4 +1,8 @@
-"""Restore a bound Windows checkpoint while retaining the current database."""
+"""Restore a bound Windows checkpoint while retaining the current database.
+
+`abort` ends a restore before the database switch; once it has begun, `resume`
+finishes it and `reinstate` returns the retained original database instead.
+"""
 
 from __future__ import annotations
 
@@ -11,7 +15,7 @@ from pathlib import Path
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("begin", "status", "resume", "abort"))
+    parser.add_argument("action", choices=("begin", "status", "resume", "abort", "reinstate"))
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path)
     parser.add_argument("--preserve-current", action="store_true")

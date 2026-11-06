@@ -182,7 +182,8 @@ contract are owned by [the drill decision](decisions/0006-windows-recovery-drill
 
 `backend/desktop.py restore` promotes a bound checkpoint through an offline,
 resumable directory switch while retaining the displaced database and account
-secrets. Storage reader contracts block incompatible engine startup. The
+secrets; after the switch begins it can still reinstate the retained original.
+Storage reader contracts block incompatible engine startup. The
 [promotion decision](decisions/0007-windows-checkpoint-promotion.md) owns the
 journal, compatibility fence and recovery limits.
 
