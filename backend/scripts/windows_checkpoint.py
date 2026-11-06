@@ -6,7 +6,7 @@ import argparse
 import json
 import os
 import sys
-from contextlib import ExitStack, closing
+from contextlib import closing
 from dataclasses import replace
 from pathlib import Path
 
@@ -33,11 +33,11 @@ def main() -> None:
     import psycopg2
     from sqlalchemy.engine import make_url
 
-    from tracker.platform import filelock
     from tracker.platform.embedded_db import claim_cluster, ensure_server, stop_server
     from tracker.platform.paths import within_installed_data
     from tracker.platform.windows_checkpoint import create_checkpoint, verify_checkpoint
-    from tracker.platform.windows_private import private_directory, require_private
+    from tracker.platform.windows_leases import lifecycle_leases
+    from tracker.platform.windows_private import require_private
 
     if args.action == "verify":
         print(json.dumps(verify_checkpoint(args.checkpoint, args.verification_state)))
@@ -49,16 +49,7 @@ def main() -> None:
         parser.error("The Windows trial cannot reach an installed app's data")
     require_private(pgdata.parent)
     require_private(pgdata)
-    launcher = pgdata.parent / "launcher"
-    private_directory(launcher)
-    with ExitStack() as leases:
-        for name in ("desktop.lock", "engine.lock"):
-            path = launcher / name
-            if path.exists():
-                require_private(path)
-            lease = leases.enter_context(path.open("a+b"))
-            require_private(path)
-            filelock.lock(lease, blocking=False)
+    with lifecycle_leases(pgdata.parent):
         claim_cluster(pgdata, "app")
         if (pgdata / "postmaster.pid").exists():
             parser.error("Stop the desktop engine before creating a recovery checkpoint")

@@ -9,13 +9,11 @@ import sys
 import time
 import uuid
 from collections.abc import Iterator
-from contextlib import ExitStack, contextmanager
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
 import psutil
-
-from tracker.platform import filelock
 
 if sys.platform != "win32":
     raise ImportError("Windows recovery requires Windows")
@@ -85,22 +83,12 @@ def _write(state: Path, record: dict[str, Any]) -> None:
 @contextmanager
 def recovery_leases(state: Path, *, require_stopped: bool = True) -> Iterator[None]:
     from tracker.platform.paths import within_installed_data
-    from tracker.platform.windows_private import private_directory, require_private
+    from tracker.platform.windows_leases import lifecycle_leases
 
     state = checked_path(state)
     if within_installed_data(state):
         raise RecoveryError("Trial recovery cannot reach an installed app's data")
-    private_directory(state)
-    launcher = state / "launcher"
-    private_directory(launcher)
-    with ExitStack() as leases:
-        for name in ("desktop.lock", "engine.lock"):
-            path = launcher / name
-            if path.exists():
-                require_private(path)
-            lease = leases.enter_context(path.open("a+b"))
-            require_private(path)
-            filelock.lock(lease, blocking=False)
+    with lifecycle_leases(state):
         if require_stopped and (state / "db" / "postmaster.pid").exists():
             raise RecoveryError("Stop the current database before starting or resolving a recovery check")
         yield

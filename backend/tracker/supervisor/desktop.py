@@ -12,6 +12,7 @@ import signal
 import subprocess
 import sys
 import threading
+from contextlib import ExitStack
 from dataclasses import replace
 from pathlib import Path
 
@@ -19,7 +20,7 @@ import psutil
 
 from tracker.config import get_settings
 from tracker.db.session import get_engine, get_session_factory
-from tracker.platform import filelock, preparation
+from tracker.platform import preparation
 from tracker.platform.embedded_db import claim_cluster, stop_server
 from tracker.platform.local_zone import local_zone
 from tracker.platform.paths import BACKEND_DIR, DATA_DIR, PACKAGED, REPO_ROOT
@@ -84,16 +85,14 @@ async def run(marker: str, *, development: bool, fixture: bool, dry_run: bool) -
         raise ValueError("Source desktop trials require network dry-run mode")
     if fixture and not dry_run:
         raise ValueError("Synthetic desktop fixtures require network dry-run mode")
+    from tracker.platform.windows_leases import ENGINE, lease
     from tracker.platform.windows_private import private_directory, require_private
 
     for directory in (DATA_DIR, DATA_DIR / "launcher", DATA_DIR / "logs"):
         private_directory(directory)
     logging.basicConfig(filename=DATA_DIR / "logs" / "engine.log", level=logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    lock = DATA_DIR / "launcher" / "engine.lock"
-    if lock.exists():
-        require_private(lock)
-    descriptor = os.open(lock, os.O_CREAT | os.O_RDWR, 0o600)
+    held = ExitStack()
     record = DATA_DIR / "launcher" / "owned-engine.json"
     leased = False
     server = None
@@ -111,7 +110,7 @@ async def run(marker: str, *, development: bool, fixture: bool, dry_run: bool) -
     for signum in (signal.SIGTERM, signal.SIGINT, signal.SIGBREAK):
         signal.signal(signum, lambda *_: loop.call_soon_threadsafe(stop.set))
     try:
-        filelock.lock(descriptor, blocking=False)
+        held.enter_context(lease(DATA_DIR / "launcher" / ENGINE))
         leased = True
         if record.exists():
             require_private(record)
@@ -152,7 +151,7 @@ async def run(marker: str, *, development: bool, fixture: bool, dry_run: bool) -
             await asyncio.to_thread(stop_server, server.pgdata)
         if leased:
             record.unlink(missing_ok=True)
-        os.close(descriptor)
+        held.close()
 
 
 def main() -> int:

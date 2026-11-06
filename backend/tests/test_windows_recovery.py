@@ -8,6 +8,7 @@ import os
 import subprocess
 import sys
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 import psutil
@@ -263,6 +264,70 @@ def test_live_engine_lease_blocks_journal_creation(checkpoint, tmp_path, name):
         result = _cli("begin", state, "--checkpoint", checkpoint)
         assert result.returncode != 0
         assert not (state / "recovery").exists()
+
+
+@contextmanager
+def _app_holds(path):
+    """The native host's lease: the file opened without sharing."""
+    import ctypes
+    from ctypes import wintypes
+
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,
+                                   wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+    kernel.CreateFileW.restype = wintypes.HANDLE
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    read_write, share_none, open_always, normal = 0xC0000000, 0, 4, 0x80
+    handle = kernel.CreateFileW(str(path), read_write, share_none, None, open_always, normal, None)
+    assert handle != wintypes.HANDLE(-1).value, ctypes.get_last_error()
+    try:
+        yield
+    finally:
+        assert kernel.CloseHandle(handle)
+
+
+@contextmanager
+def _engine_holds(path):
+    """An engine's lease, held by another process through the engine's own code."""
+    code = ("import sys\nfrom pathlib import Path\nfrom tracker.platform.windows_leases import lease\n"
+            "with lease(Path(sys.argv[1])):\n    print('held', flush=True)\n    sys.stdin.read()\n")
+    holder = subprocess.Popen([sys.executable, "-c", code, str(path)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                              text=True, env={**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[1])})
+    try:
+        assert holder.stdout.readline().strip() == "held"
+        yield
+    finally:
+        holder.stdin.close()
+        holder.wait(timeout=20)
+
+
+@pytest.mark.parametrize("command", ["recovery", "restore", "checkpoint"])
+@pytest.mark.parametrize(("holder", "name"), [(_app_holds, "desktop.lock"), (_engine_holds, "engine.lock")],
+                         ids=["app", "engine"])
+def test_every_operator_command_refuses_a_held_lease_before_changing_state(
+    checkpoint, server, tmp_path, command, holder, name,
+):
+    from tracker.platform.embedded_db import stop_server
+    from tracker.platform.windows_private import private_directory
+
+    stop_server(server.pgdata)
+    state = server.pgdata.parent
+    private_directory(state / "launcher")
+    arguments = {
+        "recovery": ["recovery", "begin", "--state", state, "--checkpoint", checkpoint],
+        "restore": ["restore", "begin", "--state", state, "--checkpoint", checkpoint, "--preserve-current"],
+        "checkpoint": ["checkpoint", "create", "--pgdata", server.pgdata, "--database", "probe",
+                       "--destination", tmp_path / "blocked", "--verification-state", tmp_path / "blocked-verify"],
+    }[command]
+    with holder(state / "launcher" / name):
+        result = subprocess.run(_command("status", state)[:5] + [str(item) for item in arguments],
+                                env={**os.environ, "__PYVENV_LAUNCHER__": sys.executable},
+                                capture_output=True, text=True, timeout=60)
+    assert result.returncode != 0
+    assert f"{name} is held" in result.stderr
+    assert not (state / "recovery").exists()
+    assert not (server.pgdata / "postmaster.pid").exists()
+    assert not (tmp_path / "blocked").exists() and not (tmp_path / "blocked-verify").exists()
 
 
 def test_running_source_database_refuses_drill_without_a_journal(checkpoint, server):

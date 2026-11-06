@@ -6,8 +6,7 @@ import os
 import re
 import sys
 import uuid
-from collections.abc import Iterator
-from contextlib import closing, contextmanager
+from contextlib import AbstractContextManager, closing
 from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
@@ -18,8 +17,8 @@ from psycopg2 import sql
 if sys.platform != "win32":
     raise ImportError("Windows restore requires Windows")
 
-from tracker.platform import filelock
 from tracker.platform.windows_fs import checked_path, move
+from tracker.platform.windows_leases import lease
 from tracker.platform.windows_recovery import RecoveryError, _pin, _quiesce, recovery_leases
 from tracker.platform.windows_storage import (
     READER_CONTRACT,
@@ -114,15 +113,8 @@ def _paths(state: Path, record: dict[str, Any]) -> tuple[Path, Path, Path]:
     return directory, failed, staged
 
 
-@contextmanager
-def _startup_lease(state: Path) -> Iterator[None]:
-    from tracker.platform.windows_private import require_private
-
-    path = state / "db.auth" / "startup.lock"
-    require_private(path)
-    with path.open("a+b") as lease:
-        filelock.lock(lease, blocking=False)
-        yield
+def _startup_lease(state: Path) -> AbstractContextManager[None]:
+    return lease(state / "db.auth" / "startup.lock")
 
 
 def _check_profile(state: Path, record: dict[str, Any]) -> None:

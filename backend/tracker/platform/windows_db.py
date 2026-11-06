@@ -16,7 +16,7 @@ from pathlib import Path
 
 import psutil
 
-from tracker.platform import filelock
+from tracker.platform.windows_leases import lease
 from tracker.platform.windows_private import native_path, private_directory, require_private
 from tracker.platform.windows_process import CANCELLABLE_ENV
 
@@ -179,43 +179,39 @@ def ensure_cluster(
     """Initialize once under an account-private lock, then start or verify the server."""
     auth = pgdata.parent / f"{pgdata.name}.auth"
     private_directory(auth)
-    with (auth / "startup.lock").open("a+b") as lock:
-        filelock.lock(lock)
-        try:
-            if os.environ.get(CANCELLABLE_ENV) == "1" and not (pgdata / "postmaster.pid").exists():
-                raise WindowsDbError("start PostgreSQL in the engine host before launching a cancellable process")
-            _initialize(pgdata, auth, bin_dir, version, locale)
-            if (pgdata / "postmaster.pid").exists():
-                if os.environ.get(CANCELLABLE_ENV) == "1" or not _retire_dead_pid(pgdata):
-                    return verified_port(pgdata, bin_dir), Path(native_path(auth / "pgpass.conf"))
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as reservation:
-                reservation.bind(("127.0.0.1", 0))
-                port = reservation.getsockname()[1]
-            config = {
-                **settings, "listen_addresses": "127.0.0.1", "port": str(port),
-                "password_encryption": "scram-sha-256", "hba_file": native_path(pgdata / "pg_hba.conf"),
-            }
-            if _RESERVED_SETTINGS.intersection(settings):
-                raise WindowsDbError("server settings cannot override database identity or authentication")
-            lines = []
-            for name, value in config.items():
-                if not re.fullmatch(r"[a-z_][a-z0-9_.]*", name) or any(c in value for c in "\r\n\x00"):
-                    raise WindowsDbError("invalid PostgreSQL server setting")
-                escaped = value.replace("\\", "\\\\").replace("'", "''")
-                lines.append(f"{name} = '{escaped}'\n")
-            _write(pgdata / "roleband-runtime.conf", "".join(lines))
-            logger.info("starting embedded Postgres at %s with %s", pgdata,
-                        " ".join(f"{name}={value}" for name, value in settings.items()) or "stock settings")
-            native_pgdata = native_path(pgdata)
-            # Crash recovery fsyncs PGDATA. An open log there can cause Windows
-            # sharing violations and exhaust the database's startup deadline.
-            log = auth / "postgres.log"
-            if log.exists():
-                require_private(log)
-            _run(bin_dir, "pg_ctl", "-D", native_pgdata, "-w", "-t", "30", "-l", native_path(auth) + "/postgres.log", "start")
-            return verified_port(pgdata, bin_dir), Path(native_path(auth / "pgpass.conf"))
-        finally:
-            filelock.unlock(lock)
+    with lease(auth / "startup.lock", blocking=True):
+        if os.environ.get(CANCELLABLE_ENV) == "1" and not (pgdata / "postmaster.pid").exists():
+            raise WindowsDbError("start PostgreSQL in the engine host before launching a cancellable process")
+        _initialize(pgdata, auth, bin_dir, version, locale)
+        if (pgdata / "postmaster.pid").exists():
+            if os.environ.get(CANCELLABLE_ENV) == "1" or not _retire_dead_pid(pgdata):
+                return verified_port(pgdata, bin_dir), Path(native_path(auth / "pgpass.conf"))
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as reservation:
+            reservation.bind(("127.0.0.1", 0))
+            port = reservation.getsockname()[1]
+        config = {
+            **settings, "listen_addresses": "127.0.0.1", "port": str(port),
+            "password_encryption": "scram-sha-256", "hba_file": native_path(pgdata / "pg_hba.conf"),
+        }
+        if _RESERVED_SETTINGS.intersection(settings):
+            raise WindowsDbError("server settings cannot override database identity or authentication")
+        lines = []
+        for name, value in config.items():
+            if not re.fullmatch(r"[a-z_][a-z0-9_.]*", name) or any(c in value for c in "\r\n\x00"):
+                raise WindowsDbError("invalid PostgreSQL server setting")
+            escaped = value.replace("\\", "\\\\").replace("'", "''")
+            lines.append(f"{name} = '{escaped}'\n")
+        _write(pgdata / "roleband-runtime.conf", "".join(lines))
+        logger.info("starting embedded Postgres at %s with %s", pgdata,
+                    " ".join(f"{name}={value}" for name, value in settings.items()) or "stock settings")
+        native_pgdata = native_path(pgdata)
+        # Crash recovery fsyncs PGDATA. An open log there can cause Windows
+        # sharing violations and exhaust the database's startup deadline.
+        log = auth / "postgres.log"
+        if log.exists():
+            require_private(log)
+        _run(bin_dir, "pg_ctl", "-D", native_pgdata, "-w", "-t", "30", "-l", native_path(auth) + "/postgres.log", "start")
+        return verified_port(pgdata, bin_dir), Path(native_path(auth / "pgpass.conf"))
 
 
 def stop_cluster(pgdata: Path, bin_dir: Path) -> None:
