@@ -33,7 +33,11 @@ to an assembled trial's `Resources` directory to include its packaged runtime;
 without it that test explicitly reports inconclusive. The tests use private
 synthetic databases and verify authenticated requests, refusal of forged and
 stalled responses, an exclusive desktop lease, retained roles, clean shutdown
-and automatic recovery after terminating their owned engine. Build the actual
+and automatic recovery after terminating their owned engine. `LifecycleTests` drive
+the session against a stand-in engine process built from the engine's own record,
+discovery and health code: one stop request per engine, a preserved engine and lease
+when a stop is not confirmed, one-click retry after failed preparation, the restart
+limit, recycled process IDs, and a timestamped host log with one rotated copy. Build the actual
 window with `dotnet build launcher/windows/RoleBand.App -p:Platform=x64` and
 check Start, Open, Stop and window closing on Windows. Check generated native
 copy with `node dashboard/scripts/export-launcher-copy.mjs --windows --check`.
