@@ -615,6 +615,11 @@ migrations.
   locale during initialization, refuses unrecognized or trust-login clusters,
   and verifies the postmaster process and loopback listener before connecting.
   Windows runtime settings are regenerated before a stopped cluster starts.
+  Under the private startup lease, a dead or recycled postmaster PID record is
+  retained as evidence only after checking its data path and ruling out another
+  live postmaster using that directory. Uncertain identities block startup.
+  PostgreSQL logs to its private per-cluster authentication directory outside
+  PGDATA so crash recovery can sync the data directory without sharing violations.
 - `posting_inventory` keeps 15% of each page free (`fillfactor` 85), so marking a
   role seen again updates the row in place and leaves its indexes alone. The
   free space arrives as scans rewrite pages, at that much more disk, never

@@ -18,6 +18,9 @@ Python with explicit state paths and a minimal environment. The engine publishes
 its PID, creation time, resource root and random launch marker. A live predecessor
 is refused; the host never terminates a process it did not start. A parent-only
 standard-input pipe carries stop requests. EOF also stops the engine.
+Runtime process records expire with their kernel identity. A dead predecessor's
+resource path can belong to a previous package version in the same retained state.
+A live predecessor or a record naming foreign retained state blocks startup.
 
 The engine holds a private lease and initializes PostgreSQL outside cancellable
 Job Objects. Migration and synthetic fixture work run as contained child services
