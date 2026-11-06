@@ -113,10 +113,16 @@ def _retire_dead_pid(pgdata: Path) -> bool:
                 continue
             try:
                 arguments = candidate.cmdline()
-                if "-D" in arguments[:-1] and Path(arguments[arguments.index("-D") + 1]).resolve() == pgdata.resolve():
-                    raise WindowsDbError("a live database process owns the directory despite its stale pidfile")
             except psutil.NoSuchProcess:
                 continue
+            except psutil.AccessDenied:
+                # Another account's process, such as a PostgreSQL service. Only
+                # this account and SYSTEM may open the directory, and PostgreSQL
+                # itself refuses to start while an earlier postmaster still holds
+                # the directory's shared memory.
+                continue
+            if "-D" in arguments[:-1] and Path(arguments[arguments.index("-D") + 1]).resolve() == pgdata.resolve():
+                raise WindowsDbError("a live database process owns the directory despite its stale pidfile")
         if path.read_bytes() != original:
             raise WindowsDbError("database pidfile changed during ownership verification")
         retained = path.with_name("postmaster.pid.stale-" + uuid.uuid4().hex)
