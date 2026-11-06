@@ -151,13 +151,17 @@ def _quiesce(pgdata: Path) -> None:
                 raise ValueError("foreign recovery database")
             try:
                 process = psutil.Process(abs(int(pid)))
+                began = process.create_time()
             except psutil.NoSuchProcess:
                 # An interrupted initdb can leave a dead single-user pidfile.
                 # The attempt is retained and never reused, including this file.
                 return
+            if abs(began - int(started)) >= 3:
+                # Windows reuses process IDs: a process that started at another
+                # time is not the recorded postmaster, which has exited.
+                return
             if (Path(process.exe()).resolve() != (bundled_bin_dir(16) / "postgres.exe").resolve()
-                    or process.username() != psutil.Process().username()
-                    or abs(process.create_time() - int(started)) >= 3):
+                    or process.username() != psutil.Process().username()):
                 raise ValueError("foreign recovery process")
             if int(pid) > 0 and len(lines) >= 8 and lines[7].strip() == "ready":
                 if not stop_server(pgdata) or path.exists():

@@ -274,12 +274,13 @@ def test_running_source_database_refuses_drill_without_a_journal(checkpoint, ser
 
 
 def test_foreign_process_in_scratch_pidfile_blocks_resolution(checkpoint, tmp_path):
+    """A live process that is not PostgreSQL, started when the record says."""
     state = tmp_path / "retained"
     _record, scratch = _interrupted(checkpoint, state)
     path = scratch / "db" / "postmaster.pid"
     original = path.read_bytes()
     lines = original.decode().splitlines()
-    lines[0] = str(os.getpid())
+    lines[0], lines[2] = str(os.getpid()), str(int(psutil.Process().create_time()))
     path.write_text("\n".join(lines) + "\n")
     try:
         result = _cli("abandon", state)
@@ -290,6 +291,24 @@ def test_foreign_process_in_scratch_pidfile_blocks_resolution(checkpoint, tmp_pa
         path.write_bytes(original)
         result = _cli("abandon", state)
         assert result.returncode == 0, result.stderr
+
+
+def test_a_recycled_pid_in_a_scratch_pidfile_does_not_block_resolution(checkpoint, tmp_path):
+    """Windows reuses process IDs: a live process that started at another time
+    than the record is not the postmaster, which has exited."""
+    from tracker.platform.windows_recovery import read_recovery
+
+    state = tmp_path / "retained"
+    _record, scratch = _interrupted(checkpoint, state)
+    path = scratch / "db" / "postmaster.pid"
+    lines = path.read_text().splitlines()
+    lines[0], lines[2] = str(os.getpid()), str(int(psutil.Process().create_time()) - 600)
+    path.write_text("\n".join(lines) + "\n")
+    result = _cli("abandon", state)
+    assert result.returncode == 0, result.stderr
+    assert read_recovery(state)["phase"] == "abandoned"
+    assert path.exists(), "the record is retained with its attempt"
+    assert psutil.Process(os.getpid()).is_running()
 
 
 def test_public_journal_cannot_authorize_launch(checkpoint, tmp_path):
