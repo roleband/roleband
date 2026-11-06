@@ -69,14 +69,16 @@ def test_real_api_signs_control_and_browser_responses_and_keeps_committed_state_
         reservation.bind(("127.0.0.1", 0))
         port = reservation.getsockname()[1]
     environment = {**env, "ROLEBAND_API_PORT": str(port)}
+    # Importing the API alone takes seconds; parallel database work stretches every start.
+    startup_budget = 60
     service = ApiService(repo_root=REPO_ROOT, data_dir=root, host="127.0.0.1", port=port,
-                         env=environment, start_grace_seconds=60)
+                         env=environment, start_grace_seconds=startup_budget)
 
     async def exercise():
         started = time.monotonic()
         try:
             await service.tend(0)
-            while service.state != RUNNING and time.monotonic() - started < 60:
+            while service.state != RUNNING and time.monotonic() - started < startup_budget:
                 await asyncio.sleep(0.1)
                 await service.tend(time.monotonic() - started)
             assert service.state == RUNNING, service.log.read_text(encoding="utf-8")
@@ -122,7 +124,7 @@ def test_real_api_signs_control_and_browser_responses_and_keeps_committed_state_
                 await service.stop(grace_seconds=5)
                 began = time.monotonic()
                 await service.tend(0)
-                while service.state != RUNNING and time.monotonic() - began < 12:
+                while service.state != RUNNING and time.monotonic() - began < startup_budget:
                     await asyncio.sleep(.1)
                     await service.tend(time.monotonic() - began)
                 assert service.state == RUNNING, service.log.read_text(encoding="utf-8")

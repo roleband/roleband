@@ -69,9 +69,15 @@ def _interrupted(checkpoint, state, boundary="ready"):
                     continue
                 scratch = state / "recovery" / "attempts" / record["attempts"][-1]
                 pid = scratch / "db" / "postmaster.pid"
-                lines = pid.read_text().splitlines() if pid.exists() else []
-                reached = (boundary == "journal" or (boundary == "initializing" and lines and int(lines[0]) < 0)
-                           or (boundary == "ready" and len(lines) >= 8 and int(lines[0]) > 0 and lines[7].strip() == "ready"))
+                try:
+                    lines = pid.read_text().splitlines() if pid.exists() else []
+                    leader = int(lines[0]) if lines else 0
+                except (FileNotFoundError, PermissionError, ValueError):
+                    # PostgreSQL creates, rewrites and removes this file while it starts.
+                    time.sleep(0.005)
+                    continue
+                reached = (boundary == "journal" or (boundary == "initializing" and leader < 0)
+                           or (boundary == "ready" and len(lines) >= 8 and leader > 0 and lines[7].strip() == "ready"))
                 if reached:
                     process.kill()
                     process.wait(timeout=10)
