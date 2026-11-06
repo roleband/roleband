@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import functools
 import logging
+import math
 import time
 from collections import deque
 from collections.abc import Awaitable, Callable, Mapping
@@ -712,6 +713,26 @@ def collector_lanes(
     return {name: lanes[name] for name in [*long, *rest]}
 
 
+async def _await_while_progressing(
+    work: asyncio.Task, clock: SourceClock, grace: float, monotonic: Callable[[], float]
+) -> None:
+    """Wait for `work` until it ends, or until its clock has been expired for
+    `grace`: the backstop for a source with no ceiling.
+
+    The expiry is read again on every wake, because a source that makes
+    progress moves it: a read that keeps producing is waited for however long
+    it lasts, and only one silent past its stall window and the grace is left
+    to the caller to cancel.
+    """
+    while not work.done():
+        # `at`, not `remaining()`: the latter stops at zero, so a clock already
+        # expired would grant a fresh grace on every wake.
+        left = clock.at + grace - monotonic()
+        if left <= 0:
+            return
+        await asyncio.wait({work}, timeout=left)
+
+
 async def collect_sources(
     targets: dict[str, ScanTarget],
     scope: ScopeFilter,
@@ -725,11 +746,13 @@ async def collect_sources(
     adapter_factory: Callable[..., BaseAdapter] = build_adapter,
     on_source_start: Callable[[str], None] | None = None,
     on_source_done: Callable[[str, int, str, int], None] | None = None,
+    on_source_progress: Callable[[], None] | None = None,
     scan_mode: ScanMode = ScanMode.RECONCILE,
     lookups: RunLookups | None = None,
     on_row: Callable[[str, EnrichedJob], None] | None = None,
     on_collected: Callable[[str, SourceCollection], None] | None = None,
     asked: asyncio.Queue[AskedCompany] | None = None,
+    monotonic: Callable[[], float] = time.monotonic,
 ) -> dict[str, SourceCollection]:
     """Collect distinct backends concurrently; queue companies per backend.
 
@@ -753,13 +776,16 @@ async def collect_sources(
     * ``source_stall_seconds``: sliding; a source that goes silent this long is
       **stalled**, its own pathology, and it reaches binding health;
     * ``source_budget_seconds`` (the setting when not given), tightened by a
-      learned budget: absolute; a source still producing when this
-      expires is **bounded**, our threshold talking, and health is untouched.
-      Catches the pathological slow trickle a stall window never can;
+      learned budget: absolute, and for a discovery probe only; a source still
+      producing when this expires is **bounded**, our threshold talking, and
+      health is untouched. A reconcile has no ceiling: it is the full read
+      every closure and coverage decision waits on, so a source that keeps
+      producing is read to the end of its list, however long that takes;
     * a backstop per company for a source that ignores both; discards that
       company's in-flight partial data, which is the accepted trade for a hard
-      cap. A source that then cannot even close is left behind, so its lane
-      goes on.
+      cap. Without a ceiling it slides with the source's progress, so it
+      fires only on a source silent past its stall window and the grace. A
+      source that then cannot even close is left behind, so its lane goes on.
 
     There is no bound on the run as a whole. Every company is either read or
     has a reason it was not (its lane lost the network first), however long
@@ -774,6 +800,13 @@ async def collect_sources(
 
     Cancelling this coroutine cancels and awaits every collector before the
     cancellation propagates, so no adapter outlives the run that opened it.
+
+    ``monotonic`` is the time every source's clock and backstop read; injected
+    in tests, so a source's silence can be simulated without waiting for it.
+
+    ``on_source_progress()`` fires on every unit of completed work of any
+    source, from inside the read: a run that reads one company for hours is
+    still seen to make progress. Same contract as the progress hooks.
 
     ``on_row(company, row)`` and ``on_collected(company, collection)`` stream
     the run to its writer: each kept row as it is read, then each
@@ -836,11 +869,29 @@ async def collect_sources(
     # Run-scoped, like the pacer it keys alongside: the next run always
     # re-probes a source that pushed back during this one.
     breaker_pool = BreakerPool()
-    ceiling = float(
+    # A reconcile reads until the list ends; only a discovery probe has a
+    # ceiling. Without a ceiling the stall window is the one liveness bound, so
+    # it must be finite: a missing one falls back to the setting, never to the
+    # (infinite) budget.
+    unbounded = scan_mode is ScanMode.RECONCILE
+    ceiling = math.inf if unbounded else float(
         source_budget_seconds
         if source_budget_seconds is not None
         else get_settings().scraper_source_budget_seconds
     )
+    stall_window = (
+        source_stall_seconds
+        if source_stall_seconds is not None
+        else get_settings().scraper_source_stall_seconds if unbounded else None
+    )
+
+    def _progressed() -> None:
+        if on_source_progress is None:
+            return
+        try:
+            on_source_progress()
+        except Exception:  # noqa: BLE001 - progress is display-only, never fatal
+            logger.debug("progress hook failed", exc_info=True)
     slots = _Slots(max_concurrent_sources)
     # Tasks are created, and so admitted to the slots, in lane order.
     backend_queues = {
@@ -883,38 +934,44 @@ async def collect_sources(
                     completed[company] = deferred_collection(company)
                     _collected(company, completed[company])
                     continue
-                now = time.monotonic()
+                now = monotonic()
                 company_lookups = asked_lookups.pop(company, None) or lookups.for_company(company)
                 # A binding's learned budget replaces the global one for this
                 # source, but can only ever be *tighter*: it was clamped to
                 # the global ceiling when written, and `min` here means a row
                 # edited by hand still cannot buy a source more time than the
-                # operator allowed.
+                # operator allowed. A reconcile has no ceiling to tighten.
                 budget = ceiling
                 learned = company_lookups.source_budget
-                if learned is not None:
+                if learned is not None and not unbounded:
                     budget = min(budget, learned)
                 # The clock is built *inside* the semaphore, so time spent
                 # queueing for a slot never counts against the source.
                 clock = SourceClock(
                     # No stall window configured => liveness is the ceiling
                     # alone, a single fixed budget.
-                    stall_seconds=(
-                        source_stall_seconds if source_stall_seconds is not None else budget
-                    ),
+                    stall_seconds=stall_window if stall_window is not None else budget,
                     hard_deadline=now + budget,
+                    clock=monotonic,
+                    on_progress=_progressed,
                 )
                 # The backstop must fire strictly *after* the cooperative
                 # deadline, or it wins the race and the partial data it exists
                 # to protect is discarded on every bound exhaustion instead of
-                # none. It is measured from the *ceiling*, not the stall window:
-                # a source sliding its stall bound forward is working, and a
-                # backstop tied to the shorter bound would cancel it mid-work.
-                # The grace is capped at the budget so the hard bound is never
-                # more than twice what was asked for (and keeps sub-second
-                # budgets in tests from waiting out a fixed 15s grace).
-                grace = min(_SOURCE_BUDGET_GRACE_SECONDS, budget)
+                # none. With a ceiling it is measured from the ceiling, not the
+                # stall window: a source sliding its stall bound forward is
+                # working, and a backstop tied to the shorter bound would
+                # cancel it mid-work. Without one it is measured from the
+                # clock's sliding expiry, re-read as it moves
+                # (`_await_while_progressing`). The grace is capped at the
+                # bound it follows, so the hard bound is never more than twice
+                # what was asked for (and keeps sub-second bounds in tests
+                # from waiting out a fixed 15s grace).
+                grace = min(_SOURCE_BUDGET_GRACE_SECONDS, clock.remaining() if unbounded else budget)
                 backstop = budget + grace
+                backstop_label = (
+                    f"{clock.remaining() + grace:.0f}s silence" if unbounded else f"{backstop:.0f}s"
+                )
                 _start(company)
                 work = asyncio.create_task(
                     collect_source(
@@ -943,7 +1000,10 @@ async def collect_sources(
                     # the source, cooperatively and with its data; this fires
                     # only if the transport deadline failed to bite, and it
                     # loses what the company had not yet streamed.
-                    await asyncio.wait({work}, timeout=backstop)
+                    if unbounded:
+                        await _await_while_progressing(work, clock, grace, monotonic)
+                    else:
+                        await asyncio.wait({work}, timeout=backstop)
                     if not work.done():
                         work.cancel()
                         await asyncio.wait({work}, timeout=grace)
@@ -969,7 +1029,7 @@ async def collect_sources(
                     completed[company] = failed_collection(
                         company,
                         f"SourceUnresponsive: {company} ignored its deadline and hit "
-                        f"the {backstop:.0f}s backstop",
+                        f"the {backstop_label} backstop",
                     )
                 _collected(company, completed[company])
         finally:

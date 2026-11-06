@@ -58,7 +58,7 @@ BOUNDED = "bounded"
 class SourceClock:
     """Sliding stall deadline plus an immutable hard ceiling for one source."""
 
-    __slots__ = ("_stall_seconds", "_hard", "_clock", "_stall_at")
+    __slots__ = ("_stall_seconds", "_hard", "_clock", "_stall_at", "_on_progress")
 
     def __init__(
         self,
@@ -66,17 +66,23 @@ class SourceClock:
         stall_seconds: float,
         hard_deadline: float,
         clock: Callable[[], float] = time.monotonic,
+        on_progress: Callable[[], None] | None = None,
     ) -> None:
         """
         :param stall_seconds: how long a source may go silent before it is stalled.
         :param hard_deadline: monotonic timestamp this source must stop by regardless
             of progress. Bounds a pathologically slow trickle, which no amount of
-            progress-tracking can catch.
+            progress-tracking can catch. `math.inf` means no ceiling: the source
+            reads for as long as it keeps making progress.
         :param clock: monotonic time source; injected in tests.
+        :param on_progress: called on every `progress()`, so a run can tell a
+            long read that is working from one that is stuck. Must be cheap
+            and must not raise.
         """
         self._stall_seconds = max(0.0, stall_seconds)
         self._hard = hard_deadline
         self._clock = clock
+        self._on_progress = on_progress
         self.progress()
 
     @property
@@ -99,6 +105,8 @@ class SourceClock:
         `hard_deadline`.
         """
         self._stall_at = self._clock() + self._stall_seconds
+        if self._on_progress is not None:
+            self._on_progress()
 
     def stalled(self) -> bool:
         """Silent too long: a source pathology (counts against the source)."""

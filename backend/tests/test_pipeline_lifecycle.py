@@ -439,11 +439,13 @@ async def test_a_company_queued_behind_a_hung_one_is_read_in_the_same_run(
     db_session, board, monkeypatch
 ):
     """One lane at a time, and its first company hangs: the hung company is
-    bounded by its own budget and the one behind it is read. Nothing waits for
-    a later run, and nothing is deferred for a bound we chose."""
+    stopped by its stall window (a full read has no ceiling) and the one behind
+    it is read. Nothing waits for a later run, and nothing is deferred for a
+    bound we chose."""
     settings = get_settings()
     monkeypatch.setattr(settings, "scraper_max_concurrent_sources", 1)
     monkeypatch.setattr(settings, "scraper_source_budget_seconds", 1)
+    monkeypatch.setattr(settings, "scraper_source_stall_seconds", 1)
     board.plans["apple"] = (["one"], "hang")
     board.plans["amazon"] = (["a1"], "complete")
 

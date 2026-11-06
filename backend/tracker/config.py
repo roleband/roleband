@@ -125,13 +125,13 @@ class Settings(BaseSettings):
     #            gap between two units of work: `scraper_max_retries` attempts of
     #            backoff (capped at RetryPolicy.max_backoff=30s each) plus pacing,
     #            or a polite source obeying Retry-After is judged dead.
-    #   budget — absolute ceiling. A source still producing when this expires is
-    #            `bounded`: our threshold, not its fault, so it counts nothing
-    #            against the source. Catches the pathological slow trickle a stall
-    #            window never can.
-    #
-    # The budget is a backstop, not the working bound: some healthy boards
-    # legitimately need most of half an hour.
+    #   budget — absolute ceiling on a discovery probe. A source still producing
+    #            when this expires is `bounded`: our threshold, not its fault, so
+    #            it counts nothing against the source. A full read (reconcile)
+    #            has no ceiling and reads to the end of the list; the stall
+    #            window alone bounds it. Also how long a scan may finish no
+    #            company and read nothing, plus a margin, before the watchdog
+    #            calls it stuck (`watchdog.stop_stuck_scan`).
     scraper_source_stall_seconds: int = Field(default=90, ge=1)
     scraper_source_budget_seconds: int = Field(default=1800, ge=1)
     # Wall-clock seconds unaccounted for by the monotonic clock before a source's

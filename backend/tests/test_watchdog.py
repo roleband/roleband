@@ -235,8 +235,12 @@ class TestDatabaseRecovery:
         assert "external database" in (watchdog.recover_db() or "")
 
 
-async def _scan_reading(db_session, *, last_finished_ago: timedelta, phase: str = "collecting"):
-    """A live scan job and its run, which finished its last company `last_finished_ago`."""
+async def _scan_reading(
+    db_session, *, last_finished_ago: timedelta, phase: str = "collecting",
+    last_progress_ago: timedelta | None = None,
+):
+    """A live scan job and its run, which finished its last company `last_finished_ago`
+    and, when given, last read anything `last_progress_ago`."""
     from sqlalchemy import select
 
     from tracker.company_store import ensure_builtins, ensure_source_bindings
@@ -252,7 +256,13 @@ async def _scan_reading(db_session, *, last_finished_ago: timedelta, phase: str 
     await db_session.flush()
     db_session.add(Notification(
         created_at=now, priority="low", category="sync_started", title="Scanning",
-        source_type="run", source_id=run.id, meta={"progress": {"phase": phase}},
+        source_type="run", source_id=run.id, meta={"progress": {
+            "phase": phase,
+            "last_progress_at_ms": (
+                int((now - last_progress_ago).timestamp() * 1000)
+                if last_progress_ago is not None else None
+            ),
+        }},
     ))
     finished = now - last_finished_ago
     db_session.add(ScrapeSourceRun(
@@ -300,3 +310,36 @@ async def test_the_passes_after_collection_are_not_judged(db_session):
     await _scan_reading(db_session, last_finished_ago=timedelta(minutes=50), phase="finishing")
 
     assert not await watchdog.stop_stuck_scan(db_session, now=datetime.now(UTC), settings=settings)
+
+
+@pytest.mark.asyncio
+async def test_a_long_full_read_still_reading_is_left_alone(db_session):
+    """A full read has no time ceiling, so a large careers page can keep one
+    company reading for hours with no company finished. Its progress is what
+    shows it is working."""
+    from tracker.config import get_settings
+
+    settings = get_settings()
+    job = await _scan_reading(
+        db_session, last_finished_ago=timedelta(hours=2), last_progress_ago=timedelta(seconds=30),
+    )
+
+    assert not await watchdog.stop_stuck_scan(db_session, now=datetime.now(UTC), settings=settings)
+    await db_session.refresh(job)
+    assert job.cancel_requested_at is None
+
+
+@pytest.mark.asyncio
+async def test_a_scan_whose_reading_stopped_too_long_ago_is_stopped(db_session):
+    """Progress that stopped counts like a company that stopped finishing."""
+    from tracker.config import get_settings
+
+    settings = get_settings()
+    job = await _scan_reading(
+        db_session, last_finished_ago=timedelta(hours=2), last_progress_ago=timedelta(minutes=50),
+    )
+
+    assert await watchdog.stop_stuck_scan(db_session, now=datetime.now(UTC), settings=settings)
+    await db_session.commit()
+    await db_session.refresh(job)
+    assert job.cancel_reason == "stuck"
