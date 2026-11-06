@@ -510,8 +510,11 @@ class _FastAdapter:
 
 
 async def _collect(
-    targets, *, budget, factory, max_list=None, stall=None
+    targets, *, budget, factory, max_list=None, stall=None, mode=ScanMode.DISCOVERY,
+    lookups=None, on_progress=None, monotonic=None,
 ):
+    """Collect with an explicit bound. Discovery by default: only a probe has a
+    time ceiling, and most bounds below are about that ceiling."""
     return await collect_sources(
         targets,
         EMPTY_SCOPE,
@@ -522,6 +525,10 @@ async def _collect(
         source_budget_seconds=budget,
         source_stall_seconds=stall,
         adapter_factory=factory,
+        scan_mode=mode,
+        lookups=lookups,
+        on_source_progress=on_progress,
+        **({"monotonic": monotonic} if monotonic is not None else {}),
     )
 
 
@@ -656,6 +663,7 @@ async def test_a_source_that_will_not_close_does_not_hold_its_lane():
     collections = await collect_sources(
         targets, EMPTY_SCOPE, object(), max_list=None, hydrate=False,
         max_concurrent_sources=1, source_budget_seconds=0.2, adapter_factory=factory,
+        scan_mode=ScanMode.DISCOVERY,
     )
     elapsed = loop.time() - started
 
@@ -682,6 +690,7 @@ async def test_every_company_of_a_lane_is_read_however_long_the_lane_takes():
         {name: {"adapter": _PACED_BACKEND} for name in ("long", "next")},
         EMPTY_SCOPE, object(), max_list=None, hydrate=False,
         max_concurrent_sources=1, source_budget_seconds=0.5, adapter_factory=factory,
+        scan_mode=ScanMode.DISCOVERY,
     )
 
     long_, next_ = collections["long"], collections["next"]
@@ -1024,6 +1033,210 @@ async def test_an_operator_cap_still_wins_over_our_ceiling():
     assert classify_source_outcome(
         {**stats, "list_complete": collections["slow"].list_complete}
     ) is SourceOutcome.CAPPED
+
+
+# --------------------------------------------------------------------------- #
+# A full read (reconcile) has no time ceiling: a source that keeps producing is
+# read to the end of its list, however long it takes. Silence is still bounded.
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.asyncio
+async def test_a_full_read_outlives_the_ceiling_that_cuts_a_probe():
+    """The same slow, steady board under the same 0.3s budget: the probe is
+    cut and bounded, the full read reads all 50 rows and ends complete."""
+
+    def factory(company: str, adapter: str, board_token: str | None = None, **kwargs):
+        return _TricklingAdapter(company, fast_items=0, delay=0.02)
+
+    probe = (await _collect(
+        {"big": {"adapter": _PACED_BACKEND}}, budget=0.3, stall=30, factory=factory,
+        mode=ScanMode.DISCOVERY,
+    ))["big"]
+    full = (await _collect(
+        {"big": {"adapter": _PACED_BACKEND}}, budget=0.3, stall=30, factory=factory,
+        mode=ScanMode.RECONCILE,
+    ))["big"]
+
+    assert probe.stats["bounded"] is True
+    assert probe.stats["scanned"] < 50
+    assert full.stats["bounded"] is False
+    assert full.stats["errors"] == []
+    assert full.stats["scanned"] == 50
+    assert full.list_complete is True
+    assert classify_source_outcome({**full.stats, "list_complete": full.list_complete}) is (
+        SourceOutcome.OK
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_full_read_ignores_a_learned_budget():
+    """A learned budget only tightens a ceiling, and a full read has none: a
+    budget learned from short reads must not cut the full one."""
+    from tracker.workflows.collection_types import RunLookups
+
+    def factory(company: str, adapter: str, board_token: str | None = None, **kwargs):
+        return _TricklingAdapter(company, fast_items=0, delay=0.02)
+
+    learned = RunLookups(source_budgets={"big": 0.2})
+    probe = (await _collect(
+        {"big": {"adapter": _PACED_BACKEND}}, budget=30, stall=30, factory=factory,
+        mode=ScanMode.DISCOVERY, lookups=learned,
+    ))["big"]
+    full = (await _collect(
+        {"big": {"adapter": _PACED_BACKEND}}, budget=30, stall=30, factory=factory,
+        mode=ScanMode.RECONCILE, lookups=learned,
+    ))["big"]
+
+    assert probe.stats["bounded"] is True, "the learned budget binds a probe"
+    assert full.stats["bounded"] is False
+    assert full.stats["scanned"] == 50
+
+
+class _SteppedClock:
+    """A monotonic clock that moves only when told to."""
+
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+class _SilentGapAdapter:
+    """Yields `before` rows, is silent for `gap` seconds of the injected clock,
+    then yields more: a silence simulated without waiting for it."""
+
+    def __init__(self, company: str, clock: _SteppedClock, *, before: int, gap: float) -> None:
+        self.company = company
+        self.drift = SchemaDriftDetector(company)
+        self._clock = clock
+        self._before = before
+        self._gap = gap
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc) -> None:
+        return None
+
+    def _job(self, index: int) -> RawJob:
+        return RawJob(
+            company=self.company,
+            req_id=f"{self.company}-{index}",
+            title="Staff Software Engineer",
+            url=f"https://example.test/{self.company}/{index}",
+        )
+
+    async def fetch(self):
+        for index in range(self._before):
+            yield self._job(index)
+        self._clock.now += self._gap
+        for index in range(self._before, self._before + 3):
+            yield self._job(index)
+
+
+@pytest.mark.asyncio
+async def test_a_full_read_that_goes_silent_is_still_stalled():
+    """No ceiling is not no bound: silence past the stall window still stops a
+    full read, keeps its pages and stays a health signal."""
+    clock = _SteppedClock()
+
+    def factory(company: str, adapter: str, board_token: str | None = None, **kwargs):
+        return _SilentGapAdapter(company, clock, before=2, gap=91)
+
+    quiet = (await _collect(
+        {"quiet": {"adapter": _PACED_BACKEND}}, budget=None, stall=90, factory=factory,
+        mode=ScanMode.RECONCILE, monotonic=clock,
+    ))["quiet"]
+
+    assert any("SourceStalled" in error for error in quiet.stats["errors"])
+    assert quiet.stats["bounded"] is False
+    assert quiet.stats["scanned"] == 2
+
+
+@pytest.mark.asyncio
+async def test_a_full_read_quiet_within_its_window_is_read_to_the_end():
+    """The control for the test above: the same gap inside the window is no
+    silence, however long the read has run."""
+    clock = _SteppedClock()
+
+    def factory(company: str, adapter: str, board_token: str | None = None, **kwargs):
+        return _SilentGapAdapter(company, clock, before=2, gap=89)
+
+    read = (await _collect(
+        {"read": {"adapter": _PACED_BACKEND}}, budget=1, stall=90, factory=factory,
+        mode=ScanMode.RECONCILE, monotonic=clock,
+    ))["read"]
+
+    assert read.stats["errors"] == []
+    assert read.stats["bounded"] is False, "89 s past a 1 s budget: a full read has no ceiling"
+    assert read.stats["scanned"] == 5
+
+
+@pytest.mark.asyncio
+async def test_a_full_read_stuck_inside_one_await_still_hits_its_backstop():
+    """With no ceiling the backstop slides with progress: a source that never
+    yields again is cut once it has been silent past its window and the grace,
+    not left to hold its lane for good."""
+
+    def factory(company: str, adapter: str, board_token: str | None = None, **kwargs):
+        return _StalledAdapter(company)
+
+    loop = asyncio.get_running_loop()
+    started = loop.time()
+    stuck = (await _collect(
+        {"stuck": {"adapter": _PACED_BACKEND}}, budget=0.05, stall=0.3, factory=factory,
+        mode=ScanMode.RECONCILE,
+    ))["stuck"]
+    elapsed = loop.time() - started
+
+    assert elapsed < 5, elapsed  # the stall window and its grace, not the adapter's 30s
+    assert any("SourceUnresponsive" in error for error in stuck.stats["errors"])
+    assert stuck.stats["bounded"] is False
+
+
+@pytest.mark.asyncio
+async def test_a_full_read_without_a_stall_window_uses_the_setting(monkeypatch):
+    """With no ceiling, a missing stall window must not fall back to the
+    budget (infinite): it falls back to the stall setting, so a silent source
+    is still stopped."""
+    import tracker.workflows.collection as collection_module
+
+    real = collection_module.get_settings()
+    monkeypatch.setattr(
+        collection_module, "get_settings",
+        lambda: real.model_copy(update={"scraper_source_stall_seconds": 5}),
+    )
+    clock = _SteppedClock()
+
+    def factory(company: str, adapter: str, board_token: str | None = None, **kwargs):
+        return _SilentGapAdapter(company, clock, before=1, gap=6)
+
+    quiet = (await _collect(
+        {"quiet": {"adapter": _PACED_BACKEND}}, budget=None, stall=None, factory=factory,
+        mode=ScanMode.RECONCILE, monotonic=clock,
+    ))["quiet"]
+
+    assert any("SourceStalled" in error for error in quiet.stats["errors"])
+    assert quiet.stats["scanned"] == 1
+
+
+@pytest.mark.asyncio
+async def test_a_full_read_reports_its_progress_while_it_reads():
+    """Each row read reaches the run, so a long single-company read is seen to
+    be working before any company finishes."""
+    calls = []
+
+    def factory(company: str, adapter: str, board_token: str | None = None, **kwargs):
+        return _TricklingAdapter(company, fast_items=5, delay=0.01)
+
+    await _collect(
+        {"big": {"adapter": _PACED_BACKEND}}, budget=None, stall=30, factory=factory,
+        mode=ScanMode.RECONCILE, on_progress=lambda: calls.append(1),
+    )
+
+    assert len(calls) >= 55  # one per row at least
 
 
 class _DeadlineRaisingAdapter:

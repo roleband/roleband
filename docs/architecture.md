@@ -751,9 +751,12 @@ is `ok`, `capped` or `empty`; `error` when none produced usable data; else
 
 Each source gets a `SourceClock` (`backend/tracker/platform/clock.py`).
 `scraper_source_stall_seconds` slides on progress, and silence counts against the
-source; `scraper_source_budget_seconds` is a fixed ceiling, and hitting it means
-we stopped a working source (`bounded`). Pass the clock into the transports and
-ask `bound_fired()`; never use `asyncio.wait_for`, which discards the pages read.
+source; `scraper_source_budget_seconds` is a fixed ceiling for a discovery probe
+only, and hitting it means we stopped a working source (`bounded`). A full read
+(reconcile) has no ceiling: a source that keeps making progress is read to the
+end of its list, however long that takes, and only silence stops it. Pass the
+clock into the transports and ask `bound_fired()`; never use `asyncio.wait_for`,
+which discards the pages read.
 A run has no time limit: it lasts until every company is read or has a reason it
 was not, however slow the network (`backend/tracker/workflows/collection.py`).
 The schedule decides when scans start, never how much they read. A source that
@@ -771,8 +774,9 @@ lane never started is still unread. A company asked for by name during a run is
 queued, taken by the run's writer between companies or on a short timer, and read
 at the front of its lane or in a lane of its own at the next free slot
 (`run_pipeline(join_requests=True)`); asking for every company during a run queues
-nothing. A scan is stuck only when it finishes no company for a company's budget
-plus 15 minutes while it still reads: the health job then asks the supervisor to
+nothing. A scan is stuck only when it finishes no company and no source makes
+progress (the run's published `last_progress_at_ms`) for a company's budget plus
+15 minutes while it still reads: the health job then asks the supervisor to
 stop it (`watchdog.stop_stuck_scan`), and the plan never treats a run as abandoned
 for its age. `schedule_plan_runs.kind` admits `continue` and its `outcome` admits
 `interrupted`; a downgrade refuses while continuation rows exist. The "Scan ran out
@@ -783,7 +787,7 @@ a scan is live.
 Progress is completed work (out-of-scope rows included), reported after any
 deliberate wait such as an honoured `Retry-After`.
 
-Page ceilings and time budgets are learned per binding in
+Page ceilings and time budgets (a probe's; a full read has none) are learned per binding in
 `source_binding_tuning`: the rule is pure (`backend/tracker/workflows/tuning.py`),
 the only writer a post-pass (`backend/tracker/workflows/tuning_pass.py`). A bound
 that fired is multiplied; only a natural stop lowers one, slowly, never below p95,
