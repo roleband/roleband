@@ -286,6 +286,27 @@ def no_escape(monkeypatch):
     monkeypatch.setattr(urllib.request, "urlopen", refuse("outbound HTTP"))
 
 
+if os.name == "nt":
+    from tracker.platform import windows_process as _windows_process
+
+    #: Captured at import, before `no_escape` replaces it.
+    _REAL_WINDOWS_KERNEL = _windows_process._kernel
+
+
+#: For a test whose premise is POSIX process groups and signals. On Windows
+#: `os.kill(pid, 0)` terminates the process it probes rather than testing it;
+#: Windows containment and stops are tested in tests/test_windows_supervisor.py.
+posix_processes = pytest.mark.skipif(os.name == "nt", reason="POSIX process groups and signals")
+
+
+def allow_windows_process_control(monkeypatch) -> None:
+    """Hand native Windows process control back after `no_escape`, for suites
+    whose subject is the processes they start: the counterpart of restoring
+    `os.kill` and `os.killpg`. Nothing on other platforms."""
+    if os.name == "nt":
+        monkeypatch.setattr(_windows_process, "_kernel", _REAL_WINDOWS_KERNEL)
+
+
 @pytest.fixture(autouse=True)
 def _no_test_resolves_a_name(monkeypatch):
     """Adding a company by URL fetches its page, through

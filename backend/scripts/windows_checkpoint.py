@@ -35,6 +35,7 @@ def main() -> None:
 
     from tracker.platform import filelock
     from tracker.platform.embedded_db import claim_cluster, ensure_server, stop_server
+    from tracker.platform.paths import within_installed_data
     from tracker.platform.windows_checkpoint import create_checkpoint, verify_checkpoint
     from tracker.platform.windows_private import private_directory, require_private
 
@@ -44,8 +45,8 @@ def main() -> None:
     pgdata = Path(os.path.abspath(args.pgdata))
     if pgdata.name != "db" or not (pgdata / "PG_VERSION").is_file():
         parser.error("Creation requires an existing app-owned state/db cluster")
-    if pgdata.is_relative_to(Path.home() / ".roleband"):
-        parser.error("The Windows trial cannot reach source-installed data")
+    if within_installed_data(pgdata):
+        parser.error("The Windows trial cannot reach an installed app's data")
     require_private(pgdata.parent)
     require_private(pgdata)
     launcher = pgdata.parent / "launcher"

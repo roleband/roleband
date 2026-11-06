@@ -21,6 +21,26 @@ def user_data_dir() -> Path:
         return local_app_data() / "RoleBand"
     return Path.home() / ".roleband"
 
+
+def installed_data_roots() -> tuple[Path, ...]:
+    """Default state roots of installed apps, which trial and repair tools never open.
+
+    `~/.roleband` is the macOS app's and a source install's; Windows installs keep
+    theirs under the LocalAppData known folder."""
+    roots = [Path.home() / ".roleband"]
+    if sys.platform == "win32":
+        from tracker.platform.windows_state import local_app_data
+
+        roots.append(local_app_data() / "RoleBand")
+    return tuple(roots)
+
+
+def within_installed_data(path: Path) -> bool:
+    """Whether `path` is an installed app's state root or inside one."""
+    selected = Path(os.path.abspath(path))
+    return any(selected.is_relative_to(root) for root in installed_data_roots())
+
+
 # Both layouts put tracker two levels below the resource root:
 # backend/tracker/platform in a checkout, engine/tracker/platform in a bundle.
 REPO_ROOT = Path(__file__).resolve().parents[3]

@@ -27,6 +27,35 @@ public sealed class TransportTests
     }
 
     [TestMethod]
+    public void TrialStateCannotBeAnInstalledDataRoot()
+    {
+        var resources = Path.Combine(Path.GetTempPath(), "roleband-root-trial", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(resources, "engine"));
+        Directory.CreateDirectory(Path.Combine(resources, "runtime"));
+        File.WriteAllText(Path.Combine(resources, "engine", "release.json"), "{\"version\":\"0.1.1\"}");
+        File.WriteAllText(Path.Combine(resources, "engine", "desktop.py"), "");
+        File.WriteAllText(Path.Combine(resources, "runtime", "python.exe"), "");
+        File.WriteAllText(Path.Combine(resources, "trial.json"), JsonSerializer.Serialize(new { trial_only = true, trial_id = Guid.NewGuid().ToString("N") }));
+        var checkout = new DirectoryInfo(AppContext.BaseDirectory);
+        while (!File.Exists(Path.Combine(checkout.FullName, "backend", "desktop.py")))
+            checkout = checkout.Parent ?? throw new IOException("Source checkout not found.");
+        var installed = Path.Combine(KnownFolders.LocalAppData, "RoleBand");
+        var legacy = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".roleband");
+        foreach (var state in new[] { installed, Path.Combine(installed, "db"), legacy, Path.Combine(legacy, "trial") })
+        {
+            var existed = Path.Exists(state);
+            Assert.ThrowsExactly<IOException>(() => EngineConfiguration.Packaged(resources, state));
+            Assert.ThrowsExactly<IOException>(() => EngineConfiguration.Source(checkout.FullName, state));
+            Assert.AreEqual(existed, Path.Exists(state));
+        }
+        // A sibling whose name merely starts with an installed root's name is a trial root.
+        var sibling = Path.Combine(KnownFolders.LocalAppData, "RoleBandTrials", Guid.NewGuid().ToString("N"));
+        Assert.AreEqual(sibling, EngineConfiguration.Packaged(resources, sibling).State);
+        Assert.AreEqual(sibling, EngineConfiguration.Source(checkout.FullName, sibling).State);
+        Assert.IsFalse(Path.Exists(sibling));
+    }
+
+    [TestMethod]
     [DataRow(0)]
     [DataRow(1)]
     [DataRow(2)]

@@ -37,6 +37,10 @@ OPTIONAL_SKIPS: tuple[tuple[re.Pattern[str], str], ...] = (
         "native account ACL and TCP ownership tests require Windows",
     ),
     (
+        re.compile(r"Windows (restart|recovery|restore|memory reader) requires Windows"),
+        "native postmaster restart, recovery-drill, checkpoint-promotion and memory tests require Windows",
+    ),
+    (
         re.compile(r"embedding model not available offline"),
         "model weights are provisioned separately and never in CI (tests/test_embed.py)",
     ),

@@ -7,6 +7,7 @@ in-process assertion about its helpers.
 
 from __future__ import annotations
 
+import ast
 import os
 import subprocess
 import sys
@@ -117,6 +118,56 @@ class TestClassification:
         assert not skip_policy.is_optional(
             "embedding model not available offline and the database is down"
         )
+
+
+def _fires_off_windows(condition: ast.expr | None) -> bool:
+    """`sys.platform != "win32"` or `os.name != "nt"`: true on every CI runner."""
+    if not (isinstance(condition, ast.Compare) and len(condition.ops) == 1
+            and isinstance(condition.ops[0], ast.NotEq) and isinstance(condition.left, ast.Attribute)
+            and isinstance(condition.left.value, ast.Name)
+            and isinstance(condition.comparators[0], ast.Constant)):
+        return False
+    subject = (condition.left.value.id, condition.left.attr, condition.comparators[0].value)
+    return subject in {("sys", "platform", "win32"), ("os", "name", "nt")}
+
+
+def _off_windows_skips(root: Path) -> list[tuple[str, object]]:
+    """(file, reason) of every `skipif` that skips everywhere except Windows."""
+    found = []
+    for path in sorted(root.rglob("test_*.py")):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "skipif"
+                    and node.args and _fires_off_windows(node.args[0])):
+                reason = next((keyword.value for keyword in node.keywords if keyword.arg == "reason"), None)
+                found.append((path.name, reason.value if isinstance(reason, ast.Constant) else ast.dump(reason or node)))
+    return found
+
+
+class TestWindowsOnlyFiles:
+    """A Windows-only test skips on the Linux runner, where the policy turns an
+    unnamed reason into a failure of every test that carries it."""
+
+    def test_every_skip_that_fires_off_windows_is_a_named_reason(self):
+        skips = _off_windows_skips(BACKEND / "tests")
+        assert {"test_windows_restore.py", "test_windows_recovery.py", "test_windows_restart.py",
+                "test_windows_state.py"} <= {name for name, _reason in skips}
+        refused = [(name, reason) for name, reason in skips
+                   if not isinstance(reason, str) or not skip_policy.is_optional(reason)]
+        assert not refused, "add these reasons to OPTIONAL_SKIPS with why they stay skips"
+
+    def test_a_new_windows_file_with_an_unnamed_reason_is_found_and_refused(self, tmp_path):
+        (tmp_path / "test_widgets.py").write_text(
+            "import sys\nimport pytest\n"
+            "pytestmark = pytest.mark.skipif(sys.platform != 'win32', reason='Windows widgets require Windows')\n",
+            encoding="utf-8",
+        )
+        (tmp_path / "test_elsewhere.py").write_text(
+            "import sys\nimport pytest\n"
+            "pytestmark = pytest.mark.skipif(sys.platform == 'win32', reason='POSIX only')\n",
+            encoding="utf-8",
+        )
+        assert _off_windows_skips(tmp_path) == [("test_widgets.py", "Windows widgets require Windows")]
+        assert not skip_policy.is_optional("Windows widgets require Windows")
 
 
 def test_this_suite_runs_with_the_policy_registered(request):

@@ -125,10 +125,16 @@ def test_killed_coordinator_blocks_start_and_retries_into_fresh_storage(checkpoi
     for action in ("run", "prepare", "seed"):
         command = _command("status", state)[:5] + [action]
         result = subprocess.run(command, env={**os.environ, "ROLEBAND_STATE_DIR": str(state),
+                                              "ROLEBAND_PGDATA": str(state / "db"),
+                                              "ROLEBAND_CACHE_DIR": str(state / "cache"),
+                                              "ROLEBAND_PLUGINS_DIR": str(state / "plugins"),
+                                              "ROLEBAND_SECRET_KEY_FILE": str(state / "secret.key"),
+                                              "ROLEBAND_DATABASE_URL": "",
                                               "__PYVENV_LAUNCHER__": sys.executable},
                                 capture_output=True, text=True, timeout=20)
         assert result.returncode != 0
         assert "unfinished" in result.stderr
+        assert not (state / "db").exists()
     retry = _cli("retry", state)
     assert retry.returncode == 0, retry.stderr
     resolved = read_recovery(state)

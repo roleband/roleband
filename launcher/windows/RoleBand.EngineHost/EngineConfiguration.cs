@@ -47,16 +47,23 @@ public sealed record EngineConfiguration(string Resources, string State, string 
                    metadata.RootElement.GetProperty("version").GetString()!, false, fixture);
     }
 
+    // Default state roots of installed RoleBand apps, which development and trial engines never open.
+    private static IReadOnlyList<string> InstalledDataRoots() =>
+    [
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".roleband"),
+        Path.Combine(KnownFolders.LocalAppData, "RoleBand"),
+    ];
+
     private static string ValidateState(string resources, string state)
     {
-        var sourceData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".roleband");
-        if (state.Equals(resources, StringComparison.OrdinalIgnoreCase)
-            || state.StartsWith(resources.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-            || state.Equals(sourceData, StringComparison.OrdinalIgnoreCase)
-            || state.StartsWith(sourceData + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-            throw new IOException("Engine state must be separate from resources and source-installed data.");
+        if (Within(state, resources) || InstalledDataRoots().Any(root => Within(state, root)))
+            throw new IOException("Engine state must be separate from resources and installed RoleBand data.");
         return state;
     }
+
+    private static bool Within(string path, string root) =>
+        path.Equals(root, StringComparison.OrdinalIgnoreCase)
+        || path.StartsWith(root.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
 
     public static int AvailablePort()
     {

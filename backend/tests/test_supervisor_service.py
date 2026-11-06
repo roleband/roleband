@@ -15,6 +15,7 @@ import pytest
 from sqlalchemy import event, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from tests.conftest import allow_windows_process_control, posix_processes
 from tracker.db import job_store
 from tracker.db.models import JobRun, JobStatus
 from tracker.platform.paths import REPO_ROOT
@@ -26,7 +27,7 @@ from tracker.supervisor.service import serve
 
 REAL_POPEN = subprocess.Popen
 REAL_KILL = os.kill
-REAL_KILLPG = os.killpg
+REAL_KILLPG = getattr(os, "killpg", None)  # absent on Windows
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("no_escape")]
 
@@ -36,7 +37,9 @@ def real_processes(no_escape, monkeypatch):
     """The fake jobs here are real processes this file starts and ends."""
     monkeypatch.setattr(subprocess, "Popen", REAL_POPEN)
     monkeypatch.setattr(os, "kill", REAL_KILL)
-    monkeypatch.setattr(os, "killpg", REAL_KILLPG)
+    if REAL_KILLPG is not None:
+        monkeypatch.setattr(os, "killpg", REAL_KILLPG)
+    allow_windows_process_control(monkeypatch)
 
 
 NAP = JobSpec("nap", ("{python}", "-c", "import time; time.sleep(30)"), OnRequest(), power=Power.NONE, uses_database=False)
@@ -89,6 +92,7 @@ async def _eventually(check, timeout: float = 5.0):
     raise AssertionError("not in time")
 
 
+@posix_processes
 async def test_a_committed_request_wakes_the_supervisor_long_before_its_poll(db_session, tmp_path):
     stop = asyncio.Event()
     dispatcher = _dispatcher(db_session, tmp_path)
@@ -125,6 +129,7 @@ async def test_a_second_supervisor_never_dispatches_while_the_first_holds_the_da
     await singleton.release(again)
 
 
+@posix_processes
 async def test_a_stop_ends_supervision_and_leaves_the_running_job_running(db_session, tmp_path):
     await job_store.ring(db_session, "nap", requested_by="cli")
     await db_session.commit()
@@ -250,6 +255,7 @@ LOUD = JobSpec(
 )
 
 
+@posix_processes
 async def test_a_run_whose_log_rotates_says_so_and_a_run_in_another_log_does_not(db_session, tmp_path):
     log = runner.log_path(tmp_path, LOUD)
     earlier = await job_store.open_run(db_session, "loud", "loud:earlier", trigger="request")
@@ -331,6 +337,7 @@ async def _busy(db_session, tmp_path, jobs=(NAP, QUICK), **timing):
     return stop, service, dispatcher
 
 
+@posix_processes
 async def test_a_supervisor_waiting_on_a_running_job_only_watches_it_between_full_looks(db_session, tmp_path):
     """No plan, no `pmset`, no status write while nothing changes: each turn
     is the one query that asks whether the run was cancelled."""
@@ -357,6 +364,7 @@ async def test_a_supervisor_waiting_on_a_running_job_only_watches_it_between_ful
         await _shut(stop, service, dispatcher)
 
 
+@posix_processes
 async def test_while_a_job_runs_the_full_look_and_the_heartbeat_still_come_every_idle_interval(db_session, tmp_path):
     stop, service, dispatcher = await _busy(db_session, tmp_path, idle_seconds=0.4, busy_seconds=0.05)
     try:
@@ -410,6 +418,7 @@ async def test_an_end_is_recorded_and_published_within_a_busy_turn_while_the_ful
         await _shut(stop, service, dispatcher)
 
 
+@posix_processes
 async def test_a_request_rung_while_a_job_runs_starts_at_once(db_session, tmp_path):
     stop, service, dispatcher = await _busy(db_session, tmp_path, idle_seconds=60, busy_seconds=0.05)
     try:
@@ -442,6 +451,7 @@ class SteadyApi(FakeApi):
         return job_store.Status(key="api", job="api", state=self.state, since=self.since)
 
 
+@posix_processes
 async def test_a_change_in_the_api_s_row_is_published_by_the_next_turn(db_session, tmp_path):
     api = SteadyApi(tmp_path)
     await job_store.ring(db_session, "nap", requested_by="cli")

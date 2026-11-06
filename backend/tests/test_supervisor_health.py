@@ -17,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from tests.conftest import allow_windows_process_control, posix_processes
 from tracker.db import job_store
 from tracker.db import session as db_session_module
 from tracker.db.models import JobRequest, JobRun
@@ -28,7 +29,7 @@ from tracker.workflows import watchdog
 
 REAL_POPEN = subprocess.Popen
 REAL_KILL = os.kill
-REAL_KILLPG = os.killpg
+REAL_KILLPG = getattr(os, "killpg", None)  # absent on Windows
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("no_escape")]
 
@@ -38,7 +39,9 @@ def real_processes(no_escape, monkeypatch):
     """One `sleep` stands in for a scan's process; it is this file's own."""
     monkeypatch.setattr(subprocess, "Popen", REAL_POPEN)
     monkeypatch.setattr(os, "kill", REAL_KILL)
-    monkeypatch.setattr(os, "killpg", REAL_KILLPG)
+    if REAL_KILLPG is not None:
+        monkeypatch.setattr(os, "killpg", REAL_KILLPG)
+    allow_windows_process_control(monkeypatch)
 
 
 @pytest_asyncio.fixture
@@ -75,6 +78,7 @@ async def test_stale_data_asks_for_one_scan_and_never_restarts_a_live_one(scoped
     assert [(r.id, r.state) for r in runs] == [(live.id, job_store.STARTING)], "the live scan is untouched"
 
 
+@posix_processes
 async def test_a_live_scan_whose_process_exists_counts_as_alive_and_a_dead_one_does_not(scoped, monkeypatch):
     sleeper = REAL_POPEN(["sleep", "30"], start_new_session=True)
     try:

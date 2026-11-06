@@ -36,11 +36,34 @@ def rotated(path: Path) -> Path:
 def open_append(path: Path) -> int:
     """A file descriptor for appending to `path`, readable by its owner only."""
     if sys.platform == "win32":
+        import ctypes
+        import msvcrt
+        from ctypes import wintypes
+
         from tracker.platform.windows_private import private_directory
 
         private_directory(path.parent)
-    else:
-        path.parent.mkdir(parents=True, exist_ok=True)
+        # The C runtime emulates O_APPEND in the opening process only: a child
+        # inheriting that handle writes from offset 0. A handle opened for
+        # append data appends for every process that holds it, including after
+        # `rotate` truncates the file, and writes bytes untranslated.
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,
+                                       wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+        kernel.CreateFileW.restype = wintypes.HANDLE
+        kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+        append_data, read_attributes, synchronize = 0x4, 0x80, 0x100000
+        share_all, open_always, normal = 0x7, 4, 0x80
+        handle = kernel.CreateFileW(str(path), append_data | read_attributes | synchronize, share_all, None,
+                                    open_always, normal, None)
+        if handle == wintypes.HANDLE(-1).value:
+            raise ctypes.WinError(ctypes.get_last_error())
+        try:
+            return msvcrt.open_osfhandle(handle, os.O_WRONLY | os.O_APPEND)
+        except BaseException:
+            kernel.CloseHandle(handle)
+            raise
+    path.parent.mkdir(parents=True, exist_ok=True)
     return os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
 
 

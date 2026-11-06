@@ -114,11 +114,12 @@ def _move(source: Path, destination: Path, *, replace: bool = False) -> None:
 
 @contextmanager
 def recovery_leases(state: Path, *, require_stopped: bool = True) -> Iterator[None]:
+    from tracker.platform.paths import within_installed_data
     from tracker.platform.windows_private import private_directory, require_private
 
     state = _path(state)
-    if state.is_relative_to(Path.home() / ".roleband"):
-        raise RecoveryError("Trial recovery cannot reach source-installed data")
+    if within_installed_data(state):
+        raise RecoveryError("Trial recovery cannot reach an installed app's data")
     private_directory(state)
     launcher = state / "launcher"
     private_directory(launcher)

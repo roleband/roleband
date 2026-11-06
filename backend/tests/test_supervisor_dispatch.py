@@ -22,6 +22,7 @@ import pytest
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from tests.conftest import allow_windows_process_control, posix_processes
 from tracker.db import job_store
 from tracker.db.models import JobRequest, JobRun, JobStatus, MachineAwakeSample
 from tracker.platform.paths import REPO_ROOT
@@ -33,7 +34,7 @@ from tracker.supervisor.registry import Every, JobSpec, OnRequest, Power
 
 REAL_POPEN = subprocess.Popen
 REAL_KILL = os.kill
-REAL_KILLPG = os.killpg
+REAL_KILLPG = getattr(os, "killpg", None)  # absent on Windows
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("no_escape")]
 
@@ -44,7 +45,9 @@ def real_processes(no_escape, monkeypatch):
     process is a fake job this file starts under `tmp_path`."""
     monkeypatch.setattr(subprocess, "Popen", REAL_POPEN)
     monkeypatch.setattr(os, "kill", REAL_KILL)
-    monkeypatch.setattr(os, "killpg", REAL_KILLPG)
+    if REAL_KILLPG is not None:
+        monkeypatch.setattr(os, "killpg", REAL_KILLPG)
+    allow_windows_process_control(monkeypatch)
 
 
 def _job(name: str, code: str, schedule=None, **fields) -> JobSpec:
@@ -168,6 +171,7 @@ async def test_a_job_over_its_timeout_is_stopped_and_recorded_as_timed_out(db_se
     assert run.state == job_store.TIMED_OUT
 
 
+@posix_processes
 async def test_a_cancelled_run_is_stopped_and_its_request_cancelled(db_session, tmp_path):
     long = replace(SLEEPER, timeout_seconds=None)
     request = await job_store.ring(db_session, "sleeper", requested_by="sync")

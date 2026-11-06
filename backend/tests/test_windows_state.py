@@ -44,6 +44,64 @@ def test_known_folder_disables_package_specific_redirection(monkeypatch, tmp_pat
     assert released == [str(tmp_path)]
 
 
+def test_default_state_and_installed_roots_follow_the_known_folder(monkeypatch):
+    from tracker.platform.paths import installed_data_roots, user_data_dir
+    from tracker.platform.windows_state import local_app_data
+
+    monkeypatch.delenv("ROLEBAND_STATE_DIR", raising=False)
+    installed = local_app_data() / "RoleBand"
+    assert user_data_dir() == installed
+    assert set(installed_data_roots()) == {installed, Path.home() / ".roleband"}
+
+
+@pytest.fixture
+def installed_roots(monkeypatch, tmp_path):
+    """Both installed roots moved under `tmp_path`, so a broken guard writes there."""
+    from tracker.platform import windows_state
+
+    home, known = tmp_path / "profile", tmp_path / "LocalAppData"
+    monkeypatch.setenv("USERPROFILE", str(home))
+    monkeypatch.setattr(windows_state, "local_app_data", lambda: known)
+    return known / "RoleBand", home / ".roleband"
+
+
+def test_recovery_refuses_installed_state_before_creating_anything(installed_roots, tmp_path):
+    from tracker.platform.windows_recovery import RecoveryError, recovery_leases
+
+    for root in installed_roots:
+        for state in (root, root / "nested" / "state"):
+            with pytest.raises(RecoveryError), recovery_leases(state):
+                pytest.fail("an installed root was leased")
+            assert not root.exists()
+    # A sibling sharing the root's name prefix is ordinary trial state.
+    sibling = installed_roots[0].parent / "RoleBandTrials" / "trial"
+    with recovery_leases(sibling):
+        assert (sibling / "launcher" / "desktop.lock").is_file()
+
+
+def test_checkpoint_command_refuses_installed_state(installed_roots, monkeypatch, tmp_path, capsys):
+    from scripts import windows_checkpoint
+
+    # The command points these at the state it was given; restore them afterwards.
+    for name in ("ROLEBAND_STATE_DIR", "ROLEBAND_PGDATA", "ROLEBAND_CACHE_DIR", "ROLEBAND_PLUGINS_DIR",
+                 "ROLEBAND_SECRET_KEY_FILE", "ROLEBAND_DATABASE_URL", "ROLEBAND_NO_USAGE_STATS"):
+        monkeypatch.setenv(name, os.environ.get(name, ""))
+    for root in installed_roots:
+        pgdata = root / "db"
+        pgdata.mkdir(parents=True)
+        (pgdata / "PG_VERSION").write_text("16\n")
+        monkeypatch.setattr(sys, "argv", [
+            "windows_checkpoint", "create", "--pgdata", str(pgdata), "--database", "roleband",
+            "--destination", str(tmp_path / "checkpoint"), "--verification-state", str(tmp_path / "verify"),
+        ])
+        with pytest.raises(SystemExit) as stopped:
+            windows_checkpoint.main()
+        assert stopped.value.code == 2
+        assert "installed app" in capsys.readouterr().err
+        assert sorted(path.name for path in root.iterdir()) == ["db"]
+    assert not (tmp_path / "checkpoint").exists()
+
+
 def test_packaged_paths_and_defaults_share_explicit_retained_state(tmp_path):
     backend = Path(__file__).resolve().parents[1]
     state = tmp_path / "私有 retained state"
