@@ -180,6 +180,12 @@ database startup. Retry uses fresh storage; explicit abandonment preserves the
 unchanged current database and all diagnostic attempts. The journal and resolution
 contract are owned by [the drill decision](decisions/0006-windows-recovery-drills.md).
 
+`backend/desktop.py restore` promotes a bound checkpoint through an offline,
+resumable directory switch while retaining the displaced database and account
+secrets. Storage reader contracts block incompatible engine startup. The
+[promotion decision](decisions/0007-windows-checkpoint-promotion.md) owns the
+journal, compatibility fence and recovery limits.
+
 ## The Mac app
 
 ### Packaged engine

@@ -77,6 +77,9 @@ def read_recovery(state: Path) -> dict[str, Any] | None:
 
 
 def require_launchable(state: Path) -> None:
+    from tracker.platform.windows_restore import require_launchable as require_restore_complete
+
+    require_restore_complete(state)
     record = read_recovery(state)
     if record is not None and record["phase"] not in TERMINAL:
         raise RecoveryError("A recovery check is unfinished. Use recovery status, retry or abandon before starting the engine.")
@@ -110,7 +113,7 @@ def _move(source: Path, destination: Path, *, replace: bool = False) -> None:
 
 
 @contextmanager
-def recovery_leases(state: Path) -> Iterator[None]:
+def recovery_leases(state: Path, *, require_stopped: bool = True) -> Iterator[None]:
     from tracker.platform.windows_private import private_directory, require_private
 
     state = _path(state)
@@ -127,7 +130,7 @@ def recovery_leases(state: Path) -> Iterator[None]:
             lease = leases.enter_context(path.open("a+b"))
             require_private(path)
             filelock.lock(lease, blocking=False)
-        if (state / "db" / "postmaster.pid").exists():
+        if require_stopped and (state / "db" / "postmaster.pid").exists():
             raise RecoveryError("Stop the current database before starting or resolving a recovery check")
         yield
 

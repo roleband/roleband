@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import re
@@ -129,6 +128,8 @@ def _retire_dead_pid(pgdata: Path) -> bool:
 
 
 def _initialize(pgdata: Path, auth: Path, bin_dir: Path, version: int, locale: str) -> None:
+    from tracker.platform.windows_storage import metadata, read_json, validate, write_json
+
     marker = auth / "cluster.json"
     passfile = auth / "pgpass.conf"
     if (pgdata / "PG_VERSION").exists():
@@ -136,14 +137,17 @@ def _initialize(pgdata: Path, auth: Path, bin_dir: Path, version: int, locale: s
             require_private(pgdata)
             require_private(marker)
             require_private(passfile)
-            record = json.loads(marker.read_text(encoding="utf-8"))
-            valid = record == {"format": 1, "pgdata": str(pgdata), "version": version}
-            valid = valid and (pgdata / "PG_VERSION").read_text().strip() == str(version)
+            record = validate(read_json(marker), pgdata, version)
+            valid = (pgdata / "PG_VERSION").read_text().strip() == str(version)
             valid = valid and (pgdata / "pg_hba.conf").read_text(encoding="utf-8") == _HBA
         except (OSError, ValueError) as exc:
             raise WindowsDbError("existing Windows cluster has no verified SCRAM credentials") from exc
         if not valid:
             raise WindowsDbError("existing Windows cluster has unsafe authentication or incompatible identity")
+        if record["format"] == 1:
+            previous = marker.with_name("cluster.legacy-" + uuid.uuid4().hex + ".json")
+            write_json(previous, record)
+            write_json(marker, metadata(pgdata, version))
         return
     if pgdata.exists() and any(pgdata.iterdir()):
         raise WindowsDbError("incomplete Windows cluster is preserved; choose fresh storage for a new trial")
@@ -166,7 +170,7 @@ def _initialize(pgdata: Path, auth: Path, bin_dir: Path, version: int, locale: s
     _write(pgdata / "pg_hba.conf", _HBA)
     with (pgdata / "postgresql.conf").open("a", encoding="utf-8") as config:
         config.write("\ninclude = 'roleband-runtime.conf'\n")
-    _write(marker, json.dumps({"format": 1, "pgdata": str(pgdata), "version": version}) + "\n")
+    write_json(marker, metadata(pgdata, version))
 
 
 def ensure_cluster(

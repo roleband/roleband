@@ -214,6 +214,7 @@ files = [
     "scripts/package_pg_contrib.py",
     "scripts/windows_checkpoint.py",
     "scripts/windows_recovery.py",
+    "scripts/windows_restore.py",
     # Vocabulary and domain contracts
     "tracker/schema.py",
     "tracker/pay_disclosure.py",
@@ -272,6 +273,8 @@ files = [
     "tracker/platform/windows_private.py",
     "tracker/platform/windows_checkpoint.py",
     "tracker/platform/windows_recovery.py",
+    "tracker/platform/windows_restore.py",
+    "tracker/platform/windows_storage.py",
     "tracker/platform/windows_process.py",
     "tracker/platform/windows_state.py",
     "tracker/platform/local_http.py",
