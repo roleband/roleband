@@ -28,6 +28,8 @@ def main(argv: list[str] | None = None) -> int:
     check = commands.add_parser("check")
     check.add_argument("--state", type=Path, required=True)
     check.add_argument("--manual", action="store_true")
+    fetch = commands.add_parser("download")
+    fetch.add_argument("--state", type=Path, required=True)
     args = parser.parse_args(argv)
     if sys.platform != "win32":
         parser.error("Windows updates require Windows")
@@ -52,6 +54,23 @@ def main(argv: list[str] | None = None) -> int:
     except (ValueError, ReleaseError):
         print(json.dumps({"status": "unavailable", "reason": "This build's update identity is damaged."}))
         return 1
+    if args.action == "download":
+        from httpx import HTTPError
+
+        from tracker.platform.windows_packages import download
+        from tracker.platform.windows_updates import stored_offer
+
+        stored = stored_offer(args.state, identity, running_version())
+        if stored is None:
+            print(json.dumps({"status": "no-offer"}))
+            return 1
+        try:
+            path = download(args.state, identity, stored[0], stored[1], running_version())
+        except (OSError, HTTPError, ReleaseError) as error:
+            print(json.dumps({"status": "failed", "reason": str(error)}))
+            return 1
+        print(json.dumps({"status": "downloaded", "package": str(path), "offer": dataclasses.asdict(stored[0])}))
+        return 0
     result = check_feed(args.state, identity, running_version(), manual=args.manual)
     print(json.dumps({"status": result.status, "until": result.until,
                       "offer": dataclasses.asdict(result.offer) if result.offer else None}))

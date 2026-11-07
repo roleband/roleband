@@ -40,6 +40,14 @@ verified offer, and a verified offer is never replaced by an older listing.
 `tracker/platform/windows_updates.py` implements it; `desktop.py update consent|check`
 is how the native host uses it.
 
+`desktop.py update download` fetches the kept offer's package under the same redirect
+rules into `packages/`, resuming an interrupted download where it stopped and refusing a
+resume at another offset or a body past the signed size. The file is kept only once it
+matches the signed digest and size, with its signed release files beside it, so it can be
+verified again before it is registered, including as the version to return to after a
+failed update (`tracker/platform/windows_packages.py`). The two newest verified packages and
+the running version's are kept; older ones are releases that can be downloaded again.
+
 ## Consequences
 
 A compromised certificate alone cannot push an update, and a correctly signed release for

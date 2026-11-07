@@ -122,6 +122,17 @@ def _stored_offer(record: dict[str, Any], identity: Identity, installed: str) ->
         return None
 
 
+def stored_offer(state: Path, identity: Identity, installed: str) -> tuple[Offer, tuple[bytes, bytes, bytes]] | None:
+    """The verified offer a check kept, with the signed files it came from."""
+    record = _load(state / CHECK) or {}
+    offer = _stored_offer(record, identity, installed)
+    if offer is None:
+        return None
+    stored = record["offer"]
+    signed = tuple(base64.b64decode(stored[name], validate=True) for name in ("checksum", "metadata", "signature"))
+    return offer, (signed[0], signed[1], signed[2])
+
+
 def latest_url(feed: str) -> str:
     return f"https://api.github.com/repos/{feed}/releases/latest"
 
@@ -130,7 +141,7 @@ def asset_url(feed: str, version: str, name: str) -> str:
     return f"https://github.com/{feed}/releases/download/v{version}/{name}"
 
 
-def _permitted(url: str, feed: str, version: str) -> bool:
+def permitted(url: str, feed: str, version: str) -> bool:
     parts = urlsplit(url)
     if parts.scheme != "https" or parts.port not in (None, 443) or parts.username or parts.password or parts.fragment:
         return False
@@ -191,7 +202,7 @@ def _asset(client: httpx.Client, feed: str, version: str, name: str, limit: int,
             _rate_limit(response, now)
             if response.is_redirect:
                 url = str(response.next_request.url) if response.next_request else ""
-                if not _permitted(url, feed, version):
+                if not permitted(url, feed, version):
                     raise ReleaseError("A release file redirected outside the update feed")
                 continue
             if response.status_code != 200:

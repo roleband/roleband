@@ -1,0 +1,146 @@
+"""Download an offered Windows release and keep verified packages as the way back.
+
+A download resumes where it stopped, from the feed's download path or its CDN only, and the
+file becomes a retained package only after it matches the owner-signed digest and size. Each
+retained package keeps its signed release files beside it, so it can be verified again before
+it is registered, including as the previous version after a failed update.
+"""
+
+from __future__ import annotations
+
+import base64
+import json
+import os
+import re
+from pathlib import Path
+
+import httpx
+
+from tracker.platform.windows_release import (
+    Identity,
+    Offer,
+    ReleaseError,
+    names,
+    stable_version,
+    verify_offer,
+    verify_package,
+)
+from tracker.platform.windows_updates import REDIRECT_LIMIT, USER_AGENT, asset_url, permitted
+
+PACKAGES = Path("packages")
+#: Retained verified packages: the newest and the one before it, the executable way back.
+KEEP = 2
+_RANGE = re.compile(r"bytes (\d+)-(\d+)/(\d+)", re.ASCII)
+
+
+def folder(state: Path) -> Path:
+    return state / PACKAGES
+
+
+def _private(path: Path) -> None:
+    if os.name == "nt":
+        from tracker.platform.windows_private import private_directory
+
+        private_directory(path)
+    else:
+        path.mkdir(mode=0o700, parents=True, exist_ok=True)
+
+
+def _get(client: httpx.Client, url: str, feed: str, version: str, headers: dict[str, str]) -> httpx.Response:
+    for _ in range(REDIRECT_LIMIT + 1):
+        response = client.send(client.build_request("GET", url, headers=headers), stream=True)
+        if not response.is_redirect:
+            return response
+        response.close()
+        url = str(response.next_request.url) if response.next_request else ""
+        if not permitted(url, feed, version):
+            raise ReleaseError("The package redirected outside the update feed")
+    raise ReleaseError("The package redirected too many times")
+
+
+def download(state: Path, identity: Identity, offer: Offer, signed: tuple[bytes, bytes, bytes], installed: str, *,
+             transport: httpx.BaseTransport | None = None) -> Path:
+    """Fetch, verify and retain the offered package; a partial file is resumed by the next call."""
+    if verify_offer(identity, "0.0.0", *signed) != offer:
+        raise ReleaseError("The signed release files do not describe this offer")
+    packages = folder(state)
+    _private(packages)
+    final = packages / offer.package
+    if final.exists():
+        verify_package(final, offer)
+        return final
+    partial = packages / f".{offer.package}.partial"
+    offset = partial.stat().st_size if partial.exists() else 0
+    if offset > offer.bytes:
+        partial.unlink()
+        offset = 0
+    headers = {"Accept-Encoding": "identity", **({"Range": f"bytes={offset}-"} if offset else {})}
+    with httpx.Client(transport=transport, follow_redirects=False, trust_env=False,
+                      timeout=httpx.Timeout(30.0, connect=10.0), headers={"User-Agent": USER_AGENT}) as client:
+        response = _get(client, asset_url(identity.feed, offer.version, offer.package), identity.feed,
+                        offer.version, headers)
+        try:
+            if offset and response.status_code == 206:
+                match = _RANGE.fullmatch(response.headers.get("Content-Range", ""))
+                if not match or (int(match[1]), int(match[2]), int(match[3])) != (offset, offer.bytes - 1, offer.bytes):
+                    raise ReleaseError("The server resumed the package at the wrong place")
+                mode = "ab"
+            elif response.status_code == 200:
+                offset, mode = 0, "wb"
+            else:
+                raise ReleaseError("The package is not available")
+            with partial.open(mode) as output:
+                written = offset
+                for chunk in response.iter_bytes():
+                    written += len(chunk)
+                    if written > offer.bytes:
+                        raise ReleaseError("The package is larger than its signed size")
+                    output.write(chunk)
+                output.flush()
+                os.fsync(output.fileno())
+        finally:
+            response.close()
+    if partial.stat().st_size < offer.bytes:
+        raise ReleaseError("The package download was interrupted; it resumes on the next attempt")
+    try:
+        verify_package(partial, offer)
+    except ReleaseError:
+        # A complete file with the wrong digest cannot be resumed into the right one.
+        partial.unlink()
+        raise
+    (packages / (offer.package + ".release.json")).write_text(json.dumps({
+        "checksum": base64.b64encode(signed[0]).decode(), "metadata": base64.b64encode(signed[1]).decode(),
+        "signature": base64.b64encode(signed[2]).decode()}), encoding="utf-8")
+    partial.replace(final)
+    prune(state, identity, installed)
+    return final
+
+
+def retained(state: Path, identity: Identity) -> list[tuple[Offer, Path]]:
+    """Verified retained packages, newest first. Anything that no longer verifies is not listed."""
+    found = []
+    packages = folder(state)
+    if not packages.is_dir():
+        return []
+    for record in packages.glob("*.msix.release.json"):
+        package = record.with_name(record.name.removesuffix(".release.json"))
+        try:
+            stored = json.loads(record.read_text(encoding="utf-8"))
+            offer = verify_offer(identity, "0.0.0", *(base64.b64decode(stored[name], validate=True)
+                                                       for name in ("checksum", "metadata", "signature")))
+            if package.name != offer.package or names(offer.version)[0] != package.name:
+                continue
+            verify_package(package, offer)
+        except (OSError, KeyError, TypeError, ValueError):
+            continue
+        found.append((offer, package))
+    return sorted(found, key=lambda item: stable_version(item[0].version), reverse=True)
+
+
+def prune(state: Path, identity: Identity, installed: str) -> None:
+    """Keep the newest verified packages and the running version's; older ones are re-downloadable releases."""
+    for offer, package in retained(state, identity)[KEEP:]:
+        if offer.version == installed:
+            continue
+        package.with_name(package.name + ".release.json").unlink(missing_ok=True)
+        package.unlink(missing_ok=True)
