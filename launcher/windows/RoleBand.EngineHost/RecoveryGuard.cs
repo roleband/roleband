@@ -9,6 +9,7 @@ public static class RecoveryGuard
     private const int ReaderContract = 1;
     public static void RequireLaunchable(string state)
     {
+        RequireUpdateSettled(state);
         RequireRestoreResolved(state);
         var marker = Path.Combine(state, "db.auth", "cluster.json");
         if (Path.Exists(marker))
@@ -50,6 +51,53 @@ public static class RecoveryGuard
         {
             throw new IOException("The recovery journal is damaged or unsupported. Preserve it for repair.", error);
         }
+    }
+
+    private static readonly string[] UpdateKeys =
+        ["format", "kind", "id", "state", "from_version", "to_version", "package", "package_sha256", "phase"];
+
+    // The engine settles `applying` (desktop.py update resume) before this runs; `preparing` is
+    // allowed because the engine lease already keeps a second engine out.
+    private static void RequireUpdateSettled(string state)
+    {
+        var directory = Path.Combine(state, "recovery");
+        if (!Path.Exists(directory)) return;
+        PrivateStorage.Verify(directory, true);
+        var path = Path.Combine(directory, "update.json");
+        if (!Path.Exists(path)) return;
+        string phase, from, to;
+        try
+        {
+            using var document = JsonDocument.Parse(PrivateStorage.Read(path, 64 * 1024));
+            var root = document.RootElement;
+            phase = root.GetProperty("phase").GetString()!;
+            from = root.GetProperty("from_version").GetString()!;
+            to = root.GetProperty("to_version").GetString()!;
+            if (root.EnumerateObject().Select(property => property.Name).Order().SequenceEqual(UpdateKeys.Order()) is false
+                || root.GetProperty("format").ValueKind != JsonValueKind.Number || root.GetProperty("format").GetInt32() != 1
+                || root.GetProperty("kind").GetString() != "package-update" || root.GetProperty("state").GetString() != state
+                || !Hex(root.GetProperty("id").GetString(), 32)
+                || phase is not ("applying" or "preparing" or "complete" or "failed" or "aborted" or "recovering" or "recovered")
+                || !Path.IsPathFullyQualified(root.GetProperty("package").GetString()!)
+                || !Hex(root.GetProperty("package_sha256").GetString(), 64)
+                || Version(from) is not { } older || Version(to) is not { } newer || older.CompareTo(newer) >= 0)
+                throw new IOException("The update journal is damaged or unsupported. Preserve it for repair.");
+        }
+        catch (Exception error) when (error is JsonException or KeyNotFoundException or InvalidOperationException or ArgumentException or FormatException)
+        {
+            throw new IOException("The update journal is damaged or unsupported. Preserve it for repair.", error);
+        }
+        if (phase is "applying" or "failed" or "recovering")
+            throw new IOException($"A Windows update from {from} to {to} is unfinished. Open RoleBand to finish or "
+                + "recover it before anything else uses the database.");
+    }
+
+    private static (int, int, int)? Version(string value)
+    {
+        var match = Regex.Match(value, "\\A(0|[1-9][0-9]{0,4})\\.(0|[1-9][0-9]{0,4})\\.(0|[1-9][0-9]{0,4})\\z");
+        if (!match.Success) return null;
+        var parts = match.Groups.Values.Skip(1).Select(group => int.Parse(group.Value)).ToArray();
+        return parts.Any(part => part > 65535) ? null : (parts[0], parts[1], parts[2]);
     }
 
     private static void RequireRestoreResolved(string state)

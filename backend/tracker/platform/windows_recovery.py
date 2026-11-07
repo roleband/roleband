@@ -66,7 +66,9 @@ def read_recovery(state: Path) -> dict[str, Any] | None:
 
 def require_launchable(state: Path) -> None:
     from tracker.platform.windows_restore import require_launchable as require_restore_complete
+    from tracker.platform.windows_update_journal import require_launchable as require_update_settled
 
+    require_update_settled(state)
     require_restore_complete(state)
     record = read_recovery(state)
     if record is not None and record["phase"] not in TERMINAL:

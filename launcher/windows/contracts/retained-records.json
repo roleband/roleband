@@ -3,9 +3,11 @@
   "files": {
     "storage": "db.auth/cluster.json",
     "drill": "recovery/check.json",
-    "restore": "recovery/restore.json"
+    "restore": "recovery/restore.json",
+    "update": "recovery/update.json"
   },
   "bases": {
+    "update": {"format": 1, "kind": "package-update", "id": "dddddddddddddddddddddddddddddddd", "state": "{state}", "from_version": "0.1.2", "to_version": "0.1.3", "package": "{checkpoint}", "package_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "phase": "complete"},
     "storage": {"format": 2, "pgdata": "{pgdata}", "version": 16, "minimum_reader": 1},
     "drill": {
       "format": 1, "kind": "checkpoint-drill", "state": "{state}", "checkpoint": "{checkpoint}",
@@ -82,6 +84,25 @@
     {"name": "restore-short-id", "file": "restore", "set": {"id": "ddd"}, "verdict": "damaged"},
     {"name": "restore-negative-zero-file-id", "file": "restore", "verdict": "damaged",
      "raw": "{\"format\": 1, \"kind\": \"checkpoint-restore\", \"id\": \"dddddddddddddddddddddddddddddddd\", \"state\": \"{state}\", \"phase\": \"complete\", \"checkpoint\": \"{checkpoint}\", \"manifest_sha256\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"archive_sha256\": \"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\", \"profile\": {\"owner\": \"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\", \"password\": \"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\", \"key\": null}, \"original_metadata\": {\"format\": 2, \"pgdata\": \"{pgdata}\", \"version\": 16, \"minimum_reader\": 1}, \"original_directory\": [1234567890123, 42], \"restored_directory\": [1234567890123, -0], \"attempts\": [\"cccccccccccccccccccccccccccccccc\"]}"},
-    {"name": "restore-empty-object", "file": "restore", "raw": "{}", "verdict": "damaged"}
+    {"name": "restore-empty-object", "file": "restore", "raw": "{}", "verdict": "damaged"},
+    {"name": "update-complete", "file": "update", "verdict": "accepted"},
+    {"name": "update-aborted", "file": "update", "set": {"phase": "aborted"}, "verdict": "accepted"},
+    {"name": "update-recovered", "file": "update", "set": {"phase": "recovered"}, "verdict": "accepted"},
+    {"name": "update-preparing", "file": "update", "set": {"phase": "preparing"}, "verdict": "accepted"},
+    {"name": "update-applying", "file": "update", "set": {"phase": "applying"}, "verdict": "unfinished"},
+    {"name": "update-failed", "file": "update", "set": {"phase": "failed"}, "verdict": "unfinished"},
+    {"name": "update-recovering", "file": "update", "set": {"phase": "recovering"}, "verdict": "unfinished"},
+    {"name": "update-unknown-phase", "file": "update", "set": {"phase": "switching"}, "verdict": "damaged"},
+    {"name": "update-other-kind", "file": "update", "set": {"kind": "checkpoint-restore"}, "verdict": "damaged"},
+    {"name": "update-other-state", "file": "update", "set": {"state": "C:\\elsewhere"}, "verdict": "damaged"},
+    {"name": "update-short-id", "file": "update", "set": {"id": "dddd"}, "verdict": "damaged"},
+    {"name": "update-relative-package", "file": "update", "set": {"package": "packages\\RoleBand.msix"}, "verdict": "damaged"},
+    {"name": "update-upper-case-digest", "file": "update", "set": {"package_sha256": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}, "verdict": "damaged"},
+    {"name": "update-not-newer", "file": "update", "set": {"to_version": "0.1.2"}, "verdict": "damaged"},
+    {"name": "update-prerelease", "file": "update", "set": {"to_version": "0.1.3-rc.1"}, "verdict": "damaged"},
+    {"name": "update-extra-field", "file": "update", "set": {"script": "x"}, "verdict": "damaged"},
+    {"name": "update-missing-phase", "file": "update", "remove": ["phase"], "verdict": "damaged"},
+    {"name": "update-boolean-format", "file": "update", "set": {"format": true}, "verdict": "damaged"},
+    {"name": "update-empty-object", "file": "update", "raw": "{}", "verdict": "damaged"}
   ]
 }

@@ -197,7 +197,9 @@ owns where it lives and what it may hold.
 A Windows update is accepted only as a newer release whose metadata the owner's
 Ed25519 key signed for the installed package's feed and identity, and whose package
 matches the signed digest; [decision 0009](decisions/0009-windows-release-authorization.md)
-owns the release files and checks.
+owns the release files and checks. An update is journaled before the package switches
+and settled by the version that runs next; [decision 0010](decisions/0010-windows-update-journal.md)
+owns the phases and what each entry point refuses.
 
 ## The Mac app
 

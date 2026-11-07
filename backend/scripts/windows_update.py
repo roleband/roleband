@@ -8,6 +8,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 
 def identity_path() -> Path:
@@ -15,6 +16,31 @@ def identity_path() -> Path:
 
     # A package carries the identity it trusts in its resources; a checkout keeps it with the launcher.
     return REPO_ROOT / "release-identity.json" if PACKAGED else REPO_ROOT / "launcher" / "windows" / "release-identity.json"
+
+
+def _begin(state: Path, identity: Any, package: Path, running: str) -> int:
+    """Journal a replacement by a retained, verified package while no engine is running."""
+    from tracker.platform import windows_update_journal as journal
+    from tracker.platform.filelock import LockHeld
+    from tracker.platform.windows_leases import ENGINE, lease
+    from tracker.platform.windows_packages import retained
+    from tracker.platform.windows_recovery import RecoveryError
+
+    found = [offer for offer, path in retained(state, identity) if path.resolve() == package.resolve()]
+    if not found or found[0].version == running:
+        print(json.dumps({"status": "refused", "reason": "The package is not a verified retained update."}))
+        return 1
+    try:
+        with lease(state / "launcher" / ENGINE):
+            if (state / "db" / "postmaster.pid").exists():
+                raise RecoveryError("Stop the engine before updating")
+            record = journal.begin(state, from_version=running, to_version=found[0].version,
+                                   package=package.resolve(), package_sha256=found[0].sha256)
+    except (LockHeld, RecoveryError) as error:
+        print(json.dumps({"status": "refused", "reason": str(error)}))
+        return 1
+    print(json.dumps({"phase": record["phase"], "to_version": record["to_version"]}))
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -30,6 +56,14 @@ def main(argv: list[str] | None = None) -> int:
     check.add_argument("--manual", action="store_true")
     fetch = commands.add_parser("download")
     fetch.add_argument("--state", type=Path, required=True)
+    begin = commands.add_parser("begin")
+    begin.add_argument("--state", type=Path, required=True)
+    begin.add_argument("--package", type=Path, required=True)
+    resume = commands.add_parser("resume")
+    resume.add_argument("--state", type=Path, required=True)
+    settle = commands.add_parser("settle")
+    settle.add_argument("--state", type=Path, required=True)
+    settle.add_argument("--prepared", choices=("yes", "no"), required=True)
     args = parser.parse_args(argv)
     if sys.platform != "win32":
         parser.error("Windows updates require Windows")
@@ -45,6 +79,18 @@ def main(argv: list[str] | None = None) -> int:
         record_consent(args.state, automatic=args.automatic == "on", text=args.text, language=args.language)
         print(json.dumps({"recorded": True}))
         return 0
+    if args.action in {"resume", "settle"}:
+        from tracker.platform import windows_update_journal as journal
+        from tracker.platform.windows_recovery import RecoveryError
+
+        try:
+            record = (journal.resume(args.state, running_version()) if args.action == "resume"
+                      else journal.settle(args.state, running_version(), prepared=args.prepared == "yes"))
+        except RecoveryError as error:
+            print(json.dumps({"status": "refused", "reason": str(error)}))
+            return 1
+        print(json.dumps({"phase": record["phase"] if record else None}))
+        return 0
     path = identity_path()
     if not path.is_file():
         print(json.dumps({"status": "unavailable", "reason": "This build carries no update identity."}))
@@ -54,6 +100,8 @@ def main(argv: list[str] | None = None) -> int:
     except (ValueError, ReleaseError):
         print(json.dumps({"status": "unavailable", "reason": "This build's update identity is damaged."}))
         return 1
+    if args.action == "begin":
+        return _begin(args.state, identity, args.package, running_version())
     if args.action == "download":
         from httpx import HTTPError
 

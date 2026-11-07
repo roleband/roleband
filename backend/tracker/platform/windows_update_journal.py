@@ -1,0 +1,107 @@
+"""The journal of one package update, which every entry point reads before opening the database.
+
+Windows replaces the package outside any transaction RoleBand controls, and the old program
+may not run again. So the journal is written before the replacement and settled by whichever
+version starts next: the new version moves it to `preparing` and, once its database is
+prepared and healthy, to `complete`; the old version finding it still `applying` knows the
+switch never happened. While it says `applying`, `failed` or `recovering`, nothing opens the
+database. `preparing` is allowed: the engine lease already keeps a second engine out.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import sys
+import uuid
+from pathlib import Path
+from typing import Any
+
+if sys.platform != "win32":
+    raise ImportError("Windows update journals require Windows")
+
+from tracker.platform.windows_fs import checked_path, publish, read_private
+from tracker.platform.windows_recovery import RecoveryError
+from tracker.platform.windows_release import ReleaseError, stable_version
+
+PHASES = ("applying", "preparing", "complete", "failed", "aborted", "recovering", "recovered")
+RESOLVED = frozenset({"complete", "aborted", "recovered"})
+BLOCKING = frozenset({"applying", "failed", "recovering"})
+LIMIT = 64 * 1024
+_KEYS = {"format", "kind", "id", "state", "from_version", "to_version", "package", "package_sha256", "phase"}
+
+
+def journal(state: Path) -> Path:
+    return state / "recovery" / "update.json"
+
+
+def _valid(record: Any, state: Path) -> dict[str, Any]:
+    try:
+        if (not isinstance(record, dict) or set(record) != _KEYS or type(record["format"]) is not int or record["format"] != 1
+                or record["kind"] != "package-update" or record["state"] != str(state)
+                or not isinstance(record["id"], str) or not re.fullmatch(r"[0-9a-f]{32}", record["id"])
+                or record["phase"] not in PHASES or not isinstance(record["package"], str)
+                or not Path(record["package"]).is_absolute() or not isinstance(record["package_sha256"], str)
+                or not re.fullmatch(r"[0-9a-f]{64}", record["package_sha256"])
+                or stable_version(record["from_version"]) >= stable_version(record["to_version"])):
+            raise ValueError("shape")
+    except (ValueError, ReleaseError) as error:
+        raise RecoveryError("The update journal is damaged or unsupported; preserve it for repair") from error
+    return record
+
+
+def read(state: Path) -> dict[str, Any] | None:
+    path = journal(state)
+    if not path.exists():
+        return None
+    try:
+        record = json.loads(read_private(path, LIMIT))
+    except (ValueError, UnicodeError) as error:
+        raise RecoveryError("The update journal is damaged or unsupported; preserve it for repair") from error
+    return _valid(record, state)
+
+
+def require_launchable(state: Path) -> None:
+    record = read(state)
+    if record is not None and record["phase"] in BLOCKING:
+        raise RecoveryError(f"A Windows update from {record['from_version']} to {record['to_version']} is unfinished. "
+                            "Open RoleBand to finish or recover it before anything else uses the database.")
+
+
+def _write(state: Path, record: dict[str, Any]) -> dict[str, Any]:
+    from tracker.platform.windows_private import private_directory
+
+    private_directory(state / "recovery")
+    publish(journal(state), (json.dumps(_valid(record, state), indent=2) + "\n").encode("utf-8"))
+    return record
+
+
+def begin(state: Path, *, from_version: str, to_version: str, package: Path, package_sha256: str) -> dict[str, Any]:
+    """Record the replacement about to happen; refused while another update is unsettled."""
+    state = checked_path(state)
+    current = read(state)
+    if current is not None and current["phase"] not in RESOLVED:
+        raise RecoveryError("Another Windows update is unsettled; settle it first")
+    return _write(state, {"format": 1, "kind": "package-update", "id": uuid.uuid4().hex, "state": str(state),
+                          "from_version": from_version, "to_version": to_version, "package": str(package),
+                          "package_sha256": package_sha256, "phase": "applying"})
+
+
+def resume(state: Path, running: str) -> dict[str, Any] | None:
+    """Settle what the running version can know: whether the replacement happened."""
+    record = read(state)
+    if record is None or record["phase"] in RESOLVED:
+        return record
+    if record["phase"] == "applying" and running == record["to_version"]:
+        return _write(state, {**record, "phase": "preparing"})
+    if record["phase"] == "applying" and running == record["from_version"]:
+        return _write(state, {**record, "phase": "aborted"})
+    return record
+
+
+def settle(state: Path, running: str, *, prepared: bool) -> dict[str, Any]:
+    """The new version's verdict on its own preparation."""
+    record = read(state)
+    if record is None or record["phase"] != "preparing" or running != record["to_version"]:
+        raise RecoveryError("No update is being prepared by this version")
+    return _write(state, {**record, "phase": "complete" if prepared else "failed"})
