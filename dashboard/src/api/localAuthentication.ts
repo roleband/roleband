@@ -53,7 +53,10 @@ async function session(): Promise<Session | null> {
   if (exchange !== null) return exchange;
   if (current !== null) return current;
   try {
-    const stored: unknown = JSON.parse(window.sessionStorage.getItem(STORAGE) ?? "null");
+    const raw = window.sessionStorage.getItem(STORAGE);
+    // Every request without a session reaches here, so storage is written only to drop a bad entry.
+    if (raw === null) return null;
+    const stored: unknown = JSON.parse(raw);
     if (valid(stored)) current = stored;
     else forgetStored();
   } catch { forgetStored(); }

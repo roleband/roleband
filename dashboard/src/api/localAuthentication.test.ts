@@ -108,4 +108,39 @@ describe("local browser authentication", () => {
     expect(await localFetch("/api/read")).toBe(response);
     expect(network).toHaveBeenCalledExactlyOnceWith("/api/read");
   });
+
+  it("leaves storage alone on requests without a browser session", async () => {
+    const network = vi.fn(async () => new Response("{}"));
+    vi.stubGlobal("fetch", network);
+    const items = new Map<string, string>();
+    const writes: string[] = [];
+    const recording = {
+      getItem: (key: string) => items.get(key) ?? null,
+      setItem: (key: string, value: string) => { writes.push(`set ${key}`); items.set(key, value); },
+      removeItem: (key: string) => { writes.push(`remove ${key}`); items.delete(key); },
+    };
+    const stored = vi.spyOn(window, "sessionStorage", "get").mockReturnValue(recording as unknown as Storage);
+    try {
+      const { localFetch } = await import("./localAuthentication");
+      await localFetch("/api/read");
+      await localFetch("/api/write", { method: "POST", body: "{}" });
+      expect(network).toHaveBeenCalledTimes(2);
+      expect(writes).toEqual([]);
+    } finally {
+      stored.mockRestore();
+    }
+  });
+
+  it.each([
+    ["another origin", JSON.stringify({ key_id: keyId, secret, origin: "http://outside.invalid" })],
+    ["damaged", "{not json"],
+  ])("drops a stored session from %s and sends unsigned", async (_case, stored) => {
+    window.sessionStorage.setItem(storage, stored);
+    const network = vi.fn(async () => new Response("{}"));
+    vi.stubGlobal("fetch", network);
+    const { localFetch } = await import("./localAuthentication");
+    await localFetch("/api/read");
+    expect(window.sessionStorage.getItem(storage)).toBeNull();
+    expect(network).toHaveBeenCalledExactlyOnceWith("/api/read");
+  });
 });
