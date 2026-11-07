@@ -235,19 +235,25 @@ def test_changed_checkpoint_cannot_silently_replace_a_retry(checkpoint, tmp_path
 
 
 @pytest.mark.parametrize("damage", ["json", "phase", "kind", "state", "attempt", "digest"])
-def test_damaged_journal_blocks_abandon_and_database_start(checkpoint, tmp_path, damage):
+def test_damaged_journal_blocks_abandon_and_database_start(tmp_path, damage):
+    from tracker.platform.windows_private import private_directory
     from tracker.platform.windows_recovery import RecoveryError, read_recovery, require_launchable
 
     state = tmp_path / "retained"
-    result = _cli("begin", state, "--checkpoint", checkpoint)
-    assert result.returncode == 0, result.stderr
-    record = read_recovery(state)
+    path = state / "recovery" / "check.json"
+    private_directory(state)
+    private_directory(path.parent)
+    record = {"format": 1, "kind": "checkpoint-drill", "state": str(state),
+              "checkpoint": str(tmp_path / "checkpoint"), "manifest_sha256": "1" * 64,
+              "archive_sha256": "2" * 64, "phase": "verified", "attempts": ["3" * 32]}
+    path.write_text(json.dumps(record), encoding="utf-8")
+    assert read_recovery(state) == record
+    require_launchable(state)
     if damage != "json":
         key, value = {"phase": ("phase", "unknown"), "kind": ("kind", "package-promotion"),
                       "state": ("state", str(tmp_path / "foreign")), "attempt": ("attempts", ["../db"]),
                       "digest": ("archive_sha256", "bad")}[damage]
         record[key] = value
-    path = state / "recovery" / "check.json"
     path.write_text("{" if damage == "json" else json.dumps(record))
     with pytest.raises(RecoveryError, match="damaged"):
         require_launchable(state)
@@ -258,7 +264,7 @@ def test_damaged_journal_blocks_abandon_and_database_start(checkpoint, tmp_path,
 
 
 @pytest.mark.parametrize("name", ["desktop.lock", "engine.lock"])
-def test_live_engine_lease_blocks_journal_creation(checkpoint, tmp_path, name):
+def test_live_engine_lease_blocks_journal_creation(tmp_path, name):
     from tracker.platform import filelock
     from tracker.platform.windows_private import private_directory
 
@@ -267,8 +273,9 @@ def test_live_engine_lease_blocks_journal_creation(checkpoint, tmp_path, name):
     private_directory(state / "launcher")
     with (state / "launcher" / name).open("a+b") as lease:
         filelock.lock(lease, blocking=False)
-        result = _cli("begin", state, "--checkpoint", checkpoint)
+        result = _cli("begin", state, "--checkpoint", tmp_path / "checkpoint")
         assert result.returncode != 0
+        assert f"{name} is held" in result.stderr
         assert not (state / "recovery").exists()
 
 
@@ -311,18 +318,21 @@ def _engine_holds(path):
 @pytest.mark.parametrize(("holder", "name"), [(_app_holds, "desktop.lock"), (_engine_holds, "engine.lock")],
                          ids=["app", "engine"])
 def test_every_operator_command_refuses_a_held_lease_before_changing_state(
-    checkpoint, server, tmp_path, command, holder, name,
+    tmp_path, command, holder, name,
 ):
-    from tracker.platform.embedded_db import stop_server
     from tracker.platform.windows_private import private_directory
 
-    stop_server(server.pgdata)
-    state = server.pgdata.parent
+    state = tmp_path / "retained"
+    pgdata = state / "db"
+    private_directory(state)
+    private_directory(pgdata)
     private_directory(state / "launcher")
+    (pgdata / "PG_VERSION").write_text("16\n", encoding="ascii")
+    checkpoint = tmp_path / "checkpoint"
     arguments = {
         "recovery": ["recovery", "begin", "--state", state, "--checkpoint", checkpoint],
         "restore": ["restore", "begin", "--state", state, "--checkpoint", checkpoint, "--preserve-current"],
-        "checkpoint": ["checkpoint", "create", "--pgdata", server.pgdata, "--database", "probe",
+        "checkpoint": ["checkpoint", "create", "--pgdata", pgdata, "--database", "probe",
                        "--destination", tmp_path / "blocked", "--verification-state", tmp_path / "blocked-verify"],
     }[command]
     with holder(state / "launcher" / name):
@@ -332,7 +342,7 @@ def test_every_operator_command_refuses_a_held_lease_before_changing_state(
     assert result.returncode != 0
     assert f"{name} is held" in result.stderr
     assert not (state / "recovery").exists()
-    assert not (server.pgdata / "postmaster.pid").exists()
+    assert {path.name for path in pgdata.iterdir()} == {"PG_VERSION"}
     assert not (tmp_path / "blocked").exists() and not (tmp_path / "blocked-verify").exists()
 
 
