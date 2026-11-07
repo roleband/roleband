@@ -99,7 +99,16 @@ def _expression(cur: cursor, expression: str, schema: str, table: str) -> str:
     return output[0]
 
 
-def _facts(conn: connection) -> dict[str, Any]:
+#: The one checkpoint purpose that may hold no roles yet: the engine takes it of its own
+#: database before a migration, so it cannot be another database mistaken for this one.
+PRE_MIGRATION = "pre-migration"
+
+
+def _empty_history_allowed(manifest: dict[str, Any]) -> bool:
+    return manifest.get("purpose") == PRE_MIGRATION
+
+
+def _facts(conn: connection, *, empty_history: bool = False) -> dict[str, Any]:
     with conn.cursor() as cur:
         cur.execute("SELECT n.nspname, c.relname, c.relkind FROM pg_class c"
                     " JOIN pg_namespace n ON n.oid=c.relnamespace"
@@ -128,7 +137,8 @@ def _facts(conn: connection) -> dict[str, Any]:
             columns = cur.fetchall()
             tables.append({"schema": schema, "name": name, "kind": kind, "rows": rows,
                            "data_sha256": writer.digest.hexdigest(), "columns": columns})
-        if next(table["rows"] for table in tables if (table["schema"], table["name"]) == ('public', 'jobs')) == 0:
+        if not empty_history and next(table["rows"] for table in tables
+                                      if (table["schema"], table["name"]) == ('public', 'jobs')) == 0:
             raise CheckpointError("An empty jobs table cannot establish a recovery checkpoint")
         cur.execute("SELECT version_num FROM public.alembic_version ORDER BY version_num")
         heads = [row[0] for row in cur.fetchall()]
@@ -185,7 +195,7 @@ def _archive(directory: Path, manifest: dict[str, Any]) -> Path:
 
 def verify_restored(server: EmbeddedServer, manifest: dict[str, Any]) -> None:
     with closing(_connect(server)) as conn:
-        if _facts(conn) != manifest["facts"]:
+        if _facts(conn, empty_history=_empty_history_allowed(manifest)) != manifest["facts"]:
             raise CheckpointError("Restored checkpoint does not match its schema and history fingerprints")
         conn.rollback()
         conn.set_session(readonly=False)
@@ -218,7 +228,8 @@ def _restore(directory: Path, manifest: dict[str, Any], verification_state: Path
             raise CheckpointError("Recovery verification cluster did not confirm shutdown")
 
 
-def create_checkpoint(server: EmbeddedServer, destination: Path, verification_state: Path) -> Path:
+def create_checkpoint(server: EmbeddedServer, destination: Path, verification_state: Path,
+                      *, purpose: str | None = None) -> Path:
     """Export one snapshot and publish only after restoring it into fresh storage."""
     from tracker.platform.windows_private import native_path, private_directory
     from tracker.platform.windows_storage import READER_CONTRACT, retained_profile
@@ -236,7 +247,7 @@ def create_checkpoint(server: EmbeddedServer, destination: Path, verification_st
     owner = server.pgdata.parent / f"{server.pgdata.name}.owner.json"
     profile = retained_profile(server.pgdata) if owner.exists() else None
     with closing(_connect(server)) as conn:
-        facts = _facts(conn)
+        facts = _facts(conn, empty_history=purpose == PRE_MIGRATION)
         with conn.cursor() as cur:
             cur.execute("SELECT pg_export_snapshot()")
             snapshot = cur.fetchone()[0]
@@ -251,6 +262,8 @@ def create_checkpoint(server: EmbeddedServer, destination: Path, verification_st
                 "source_pgdata": str(server.pgdata.resolve()), "sha256": _digest(archive),
                 "bytes": archive.stat().st_size, "facts": facts,
                 "reader_contract": READER_CONTRACT, "retained_profile": profile}
+    if purpose is not None:
+        manifest["purpose"] = purpose
     if profile is not None and retained_profile(server.pgdata) != profile:
         raise CheckpointError("Retained credentials or key changed while building the checkpoint")
     manifest.update(_restore(staged, manifest, verification_state))
@@ -264,6 +277,36 @@ def create_checkpoint(server: EmbeddedServer, destination: Path, verification_st
     _ordinary(staged / "checkpoint.json")
     staged.rename(destination)
     return destination
+
+
+def still_matches(server: EmbeddedServer, directory: Path) -> bool:
+    """Whether a published, verified checkpoint holds exactly what the live database holds now.
+
+    Equal schema and history fingerprints, an intact archive and the same retained credentials
+    make the checkpoint as good as a new one, without another export and scratch restore.
+    """
+    from tracker.platform.windows_storage import retained_profile
+
+    try:
+        directory = checked_path(directory)
+        _ordinary(directory, directory=True)
+        path = directory / "checkpoint.json"
+        _ordinary(path)
+        if path.stat().st_size > MANIFEST_LIMIT:
+            return False
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        if (not isinstance(manifest, dict) or manifest.get("format") != 1 or manifest.get("verified") is not True
+                or manifest.get("source_database") != server.database
+                or manifest.get("source_pgdata") != str(server.pgdata.resolve())):
+            return False
+        _archive(directory, manifest)
+    except (OSError, ValueError, CheckpointError):
+        return False
+    owner = server.pgdata.parent / f"{server.pgdata.name}.owner.json"
+    if manifest.get("retained_profile") != (retained_profile(server.pgdata) if owner.exists() else None):
+        return False
+    with closing(_connect(server)) as conn:
+        return bool(_facts(conn, empty_history=_empty_history_allowed(manifest)) == manifest.get("facts"))
 
 
 def verify_checkpoint(directory: Path, verification_state: Path) -> dict[str, Any]:

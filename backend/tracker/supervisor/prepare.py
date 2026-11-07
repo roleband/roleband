@@ -137,9 +137,17 @@ def migrate() -> None:
         with engine.connect() as connection:
             current = set(MigrationContext.configure(connection).get_current_heads())
         target = set(ScriptDirectory.from_config(config).get_heads())
-        # A schema that already holds data is backed up before any upgrade.
+        # A schema that already holds data is backed up before any upgrade. On Windows the
+        # backup is a restore-verified checkpoint bound to these heads and credentials, the
+        # only form `restore begin` accepts; no checkpoint, no upgrade.
         if current and current != target:
-            dump_database(settings.ensure_embedded_server(), DATA_DIR / "backups")
+            server = settings.ensure_embedded_server()
+            if sys.platform == "win32":
+                from tracker.platform.windows_migration import checkpoint_before_migration
+
+                checkpoint_before_migration(server, DATA_DIR, current, target)
+            else:
+                dump_database(server, DATA_DIR / "backups")
         if current != target:
             command.upgrade(config, "head")
     finally:

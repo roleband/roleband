@@ -189,6 +189,11 @@ Storage reader contracts block incompatible engine startup. The
 [promotion decision](decisions/0007-windows-checkpoint-promotion.md) owns the
 journal, compatibility fence and recovery limits.
 
+Windows preparation makes a verified pre-migration checkpoint before upgrading a
+retained schema and does not upgrade without one; a retry over unchanged data
+reuses it. [Decision 0008](decisions/0008-windows-pre-migration-checkpoints.md)
+owns where it lives and what it may hold.
+
 ## The Mac app
 
 ### Packaged engine

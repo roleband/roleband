@@ -1,0 +1,184 @@
+"""No Windows migration runs over retained data without a verified checkpoint of it."""
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import psutil
+import pytest
+
+from tests.embedded_utils import psql
+from tests.test_windows_checkpoint import server as server
+from tracker.platform.embedded_db import ensure_server, stop_server
+
+pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows migration requires Windows")
+
+BACKEND = Path(__file__).resolve().parents[1]
+#: The head before the newest migration; preparing from it runs exactly that one.
+PREVIOUS = "a7d2f4c9e1b6"
+
+
+def _record(state):
+    return json.loads((state / "recovery" / "pre-migration.json").read_text(encoding="utf-8"))
+
+
+def _checkpoints(state):
+    folder = state / "recovery" / "pre-migration"
+    return sorted(path.name for path in folder.iterdir()) if folder.exists() else []
+
+
+class TestTheGuard:
+    def test_a_verified_bound_checkpoint_is_made_and_recorded(self, server, tmp_path):
+        from tracker.platform.windows_checkpoint import verify_checkpoint
+        from tracker.platform.windows_migration import checkpoint_before_migration
+
+        state = tmp_path / "state"
+        checkpoint = checkpoint_before_migration(server, state, {"fixture_revision"}, {"next_revision"})
+        manifest = json.loads((checkpoint / "checkpoint.json").read_text(encoding="utf-8"))
+        assert manifest["verified"] is True
+        assert manifest["facts"]["schema_heads"] == ["fixture_revision"]
+        assert _record(state)["checkpoint"] == str(checkpoint)
+        assert _record(state)["from_heads"] == ["fixture_revision"]
+        assert _record(state)["to_heads"] == ["next_revision"]
+        assert verify_checkpoint(checkpoint, tmp_path / "recheck")["verified"] is True
+
+    def test_an_unchanged_database_reuses_its_checkpoint(self, server, tmp_path):
+        from tracker.platform.windows_migration import checkpoint_before_migration
+
+        state = tmp_path / "state"
+        first = checkpoint_before_migration(server, state, {"fixture_revision"}, {"next_revision"})
+        assert checkpoint_before_migration(server, state, {"fixture_revision"}, {"next_revision"}) == first
+        assert len(_checkpoints(state)) == 1
+
+    def test_history_written_since_the_checkpoint_gets_a_new_one(self, server, tmp_path):
+        from tracker.platform.windows_migration import checkpoint_before_migration
+
+        state = tmp_path / "state"
+        first = checkpoint_before_migration(server, state, {"fixture_revision"}, {"next_revision"})
+        psql(server, "INSERT INTO job_observations VALUES (2,'2026-11-07',null)")
+        second = checkpoint_before_migration(server, state, {"fixture_revision"}, {"next_revision"})
+        assert second != first
+        assert _record(state)["checkpoint"] == str(second)
+        assert first.exists(), "an earlier checkpoint is never removed"
+
+    def test_a_damaged_archive_is_not_reused(self, server, tmp_path):
+        from tracker.platform.windows_migration import checkpoint_before_migration
+
+        state = tmp_path / "state"
+        first = checkpoint_before_migration(server, state, {"fixture_revision"}, {"next_revision"})
+        with (first / "database.dump").open("r+b") as archive:
+            archive.seek(-1, os.SEEK_END)
+            last = archive.read(1)
+            archive.seek(-1, os.SEEK_END)
+            archive.write(bytes([last[0] ^ 1]))
+        assert checkpoint_before_migration(server, state, {"fixture_revision"}, {"next_revision"}) != first
+
+    def test_a_failed_checkpoint_raises_and_records_nothing(self, server, tmp_path, monkeypatch):
+        from tracker.platform import windows_checkpoint
+        from tracker.platform.windows_migration import checkpoint_before_migration
+
+        def refuse(*args, **kwargs):
+            raise windows_checkpoint.CheckpointError("pg_dump could not complete the recovery checkpoint")
+
+        monkeypatch.setattr(windows_checkpoint, "_run", refuse)
+        state = tmp_path / "state"
+        with pytest.raises(windows_checkpoint.CheckpointError):
+            checkpoint_before_migration(server, state, {"fixture_revision"}, {"next_revision"})
+        assert not (state / "recovery" / "pre-migration.json").exists()
+
+
+def _env(state):
+    return {**os.environ, "__PYVENV_LAUNCHER__": sys.executable, "PYTHONDONTWRITEBYTECODE": "1",
+            "ROLEBAND_STATE_DIR": str(state), "ROLEBAND_PGDATA": str(state / "db"),
+            "ROLEBAND_CACHE_DIR": str(state / "cache"), "ROLEBAND_PLUGINS_DIR": str(state / "plugins"),
+            "ROLEBAND_SECRET_KEY_FILE": str(state / "secret.key"), "ROLEBAND_DATABASE_URL": "",
+            "ROLEBAND_NO_USAGE_STATS": "1"}
+
+
+def _prepare(state):
+    return subprocess.run([psutil.Process().exe(), "-I", "-B", str(BACKEND / "desktop.py"), "--source", "prepare"],
+                          env=_env(state), cwd=BACKEND, capture_output=True, text=True, encoding="utf-8",
+                          timeout=600)
+
+
+@pytest.fixture
+def retained(tmp_path):
+    """An app-owned state at the previous schema head holding a saved role, stopped."""
+    from tracker.platform.embedded_db import claim_cluster
+    from tracker.platform.windows_private import private_directory
+
+    state = tmp_path / "s"
+    private_directory(state)
+    claim_cluster(state / "db", "app")
+    result = subprocess.run([sys.executable, "-m", "alembic", "upgrade", PREVIOUS], env=_env(state), cwd=BACKEND,
+                            capture_output=True, text=True, encoding="utf-8", timeout=600)
+    assert result.returncode == 0, (result.stderr + result.stdout)[-2000:]
+    server = ensure_server(state / "db", database="roleband")
+    psql(server, "CREATE TABLE retained_sentinel(title text); INSERT INTO retained_sentinel VALUES ('Retained role 中文')")
+    stop_server(state / "db")
+    try:
+        yield state
+    finally:
+        if (state / "db" / "postmaster.pid").exists():
+            stop_server(state / "db")
+
+
+def _heads(state):
+    server = ensure_server(state / "db", database="roleband")
+    try:
+        return psql(server, "SELECT version_num FROM alembic_version").split()
+    finally:
+        stop_server(state / "db")
+
+
+class TestPreparation:
+    def test_a_failed_migration_leaves_a_checkpoint_of_the_data_before_it(self, retained):
+        from tracker.platform.windows_checkpoint import verify_checkpoint
+
+        server = ensure_server(retained / "db", database="roleband")
+        # The newest migration adds this column, so the upgrade fails and rolls back.
+        psql(server, "ALTER TABLE compare_selection ADD COLUMN scope varchar(16)")
+        stop_server(retained / "db")
+        result = _prepare(retained)
+        assert result.returncode != 0
+        assert _heads(retained) == [PREVIOUS], "a failed upgrade leaves the previous schema"
+        record = _record(retained)
+        assert record["from_heads"] == [PREVIOUS]
+        checkpoint = Path(record["checkpoint"])
+        manifest = json.loads((checkpoint / "checkpoint.json").read_text(encoding="utf-8"))
+        # The previous package's runtime promotes only a checkpoint at its own heads.
+        assert manifest["facts"]["schema_heads"] == [PREVIOUS]
+        assert manifest["retained_profile"] is not None, "the checkpoint is bound to the retained credentials"
+        assert verify_checkpoint(checkpoint, retained.parent / "recheck")["verified"] is True
+        assert _prepare(retained).returncode != 0
+        assert _checkpoints(retained) == [checkpoint.name], "a retry over unchanged data reuses the checkpoint"
+
+    def test_a_migration_runs_only_after_its_checkpoint(self, retained):
+        result = _prepare(retained)
+        assert result.returncode == 0, (result.stderr + result.stdout)[-2000:]
+        assert _heads(retained) != [PREVIOUS]
+        assert _record(retained)["from_heads"] == [PREVIOUS]
+        assert len(_checkpoints(retained)) == 1
+        server = ensure_server(retained / "db", database="roleband")
+        try:
+            assert "Retained role 中文" in psql(server, "SELECT title FROM retained_sentinel")
+        finally:
+            stop_server(retained / "db")
+
+    def test_no_checkpoint_means_no_migration(self, retained):
+        (retained / "recovery").mkdir()
+        (retained / "recovery" / "pre-migration").write_text("not a directory")
+        result = _prepare(retained)
+        assert result.returncode != 0
+        assert _heads(retained) == [PREVIOUS]
+        assert not (retained / "recovery" / "pre-migration.json").exists()
+
+    def test_a_current_schema_takes_no_checkpoint(self, retained):
+        assert _prepare(retained).returncode == 0
+        first = _checkpoints(retained)
+        assert _prepare(retained).returncode == 0
+        assert _checkpoints(retained) == first

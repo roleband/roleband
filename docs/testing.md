@@ -94,6 +94,12 @@ The operator command is `desktop.py --source restore begin --state <retained-sta
 and `reinstate` take the same explicit `--state`. Use synthetic trial state. These checks prove
 offline checkpoint promotion, not signed application rollback.
 
+`tests/test_windows_migration.py` runs `desktop.py prepare` on real app-owned state
+one migration behind head. A migration made to fail leaves the previous schema and
+a verified checkpoint bound to its heads and credentials, which a retry reuses;
+a blocked checkpoint folder stops the upgrade; a current schema takes no checkpoint.
+The guard's own cases check reuse only while the archive and history are unchanged.
+
 The engine and the native host each validate the retained records that gate
 startup: storage metadata and the restore and drill journals. Both read the cases in
 `launcher/windows/contracts/retained-records.json` (`tests/test_windows_records.py`
