@@ -30,6 +30,11 @@ WINDOW_SECONDS = 45
 #: Clock corrections up to this, backwards, keep the keys (see `Authority._wall`).
 TOLERATED_STEP_SECONDS = WINDOW_SECONDS
 _NONCE_RETENTION = 2 * WINDOW_SECONDS + TOLERATED_STEP_SECONDS
+#: Browser sessions one engine keeps; opening another ends the oldest.
+BROWSER_SESSIONS = 32
+#: Set by the desktop supervisor for its API: adopt the engine's browser address and keys.
+SESSION_ENV = "ROLEBAND_ENGINE_SESSION"
+_SESSION_LIMIT = 64 * 1024
 _HEX = re.compile(r"^[0-9a-f]{64}$")
 _NONCE = re.compile(r"^[0-9a-f]{32}$")
 
@@ -83,6 +88,60 @@ def record_path(data: Path) -> Path:
     return data / "launcher" / "http-engine.json"
 
 
+def session_path(data: Path) -> Path:
+    return data / "launcher" / "engine-session.json"
+
+
+def _write(path: Path, payload: bytes) -> None:
+    if sys.platform == "win32":
+        from tracker.platform.windows_fs import publish
+
+        publish(path, payload)
+        return
+    fd, temporary = tempfile.mkstemp(dir=path.parent, prefix=f".{path.stem}-")
+    try:
+        with os.fdopen(fd, "wb") as output:
+            output.write(payload)
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, path)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+
+
+def begin_engine_session(data: Path) -> None:
+    """Give one engine a fresh browser address and no browser keys.
+
+    Its API processes adopt both, so restarting the API keeps open tabs working;
+    the next engine starts over.
+    """
+    path = session_path(data)
+    for folder in (data, path.parent):
+        _private(folder, directory=True)
+    if path.exists() or path.is_symlink():
+        _private(path)
+    _write(path, json.dumps({"format": 1, "instance": secrets.token_hex(16), "browser": {}}).encode())
+
+
+def end_engine_session(data: Path) -> None:
+    session_path(data).unlink(missing_ok=True)
+
+
+def _session(path: Path) -> tuple[str, dict[str, str]]:
+    _private(path)
+    if path.stat().st_size > _SESSION_LIMIT:
+        raise ValueError("The engine session record exceeds its size limit")
+    record = json.loads(path.read_bytes())
+    browser = record.get("browser") if isinstance(record, dict) else None
+    if (record.get("format") != 1 or not isinstance(record.get("instance"), str)
+            or not _NONCE.fullmatch(record["instance"]) or not isinstance(browser, dict)
+            or len(browser) > BROWSER_SESSIONS
+            or not all(isinstance(key, str) and _NONCE.fullmatch(key) and isinstance(value, str)
+                       and _HEX.fullmatch(value) for key, value in browser.items())):
+        raise ValueError("The engine session record is damaged")
+    return record["instance"], browser
+
+
 def _mac(secret: str, message: str) -> str:
     return hmac.new(bytes.fromhex(secret), message.encode("utf-8"), hashlib.sha256).hexdigest()
 
@@ -108,20 +167,30 @@ def response_proof(secret: str, authorization_header: str, status: int, body: by
 class Credential:
     secret: str
     expires: float
+    #: Signatures stamped earlier were made for another API process, whose replay
+    #: memory this one does not have.
+    not_before: int = 0
 
 
 class Authority:
     """One process owns discovery, ephemeral browser keys and replay memory."""
 
-    def __init__(self, data: Path, endpoint: str) -> None:
+    def __init__(self, data: Path, endpoint: str, *, engine_session: bool = False) -> None:
         parsed = urlsplit(endpoint)
         if endpoint != origin(parsed.hostname or "", parsed.port or 0):
             raise ValueError("Invalid authenticated engine origin")
         self.secret = secrets.token_hex(32)
-        self.instance = secrets.token_hex(16)
+        self._session_path = session_path(data) if engine_session else None
+        adopted: dict[str, str] = {}
+        if self._session_path is not None:
+            self.instance, adopted = _session(self._session_path)
+        else:
+            self.instance = secrets.token_hex(16)
         self.endpoint = f"http://{self.instance}.localhost:{parsed.port}"
         self._guard = threading.RLock()
-        self._keys = {"control": Credential(self.secret, float("inf"))}
+        born = int(time.time())
+        self._keys = {"control": Credential(self.secret, float("inf")),
+                      **{key: Credential(value, float("inf"), born) for key, value in adopted.items()}}
         self._used: dict[tuple[str, str], float] = {}
         self._tickets: dict[str, float] = {}
         self._highest_wall = time.time()
@@ -148,23 +217,16 @@ class Authority:
             raise
 
     def _publish(self, secret: str) -> None:
-        payload = json.dumps({"format": 1, "origin": self.endpoint, "instance": self.instance,
-                              "secret": secret, "pid": os.getpid()}).encode()
-        if sys.platform == "win32":
-            from tracker.platform.windows_fs import publish
+        # The native host reads discovery before every request.
+        _write(self.path, json.dumps({"format": 1, "origin": self.endpoint, "instance": self.instance,
+                                      "secret": secret, "pid": os.getpid()}).encode())
 
-            # The native host reads discovery before every request.
-            publish(self.path, payload)
-            return
-        fd, temporary = tempfile.mkstemp(dir=self.path.parent, prefix=".http-engine-")
-        try:
-            with os.fdopen(fd, "wb") as output:
-                output.write(payload)
-                output.flush()
-                os.fsync(output.fileno())
-            os.replace(temporary, self.path)
-        finally:
-            Path(temporary).unlink(missing_ok=True)
+    def _remember(self, keys: dict[str, Credential]) -> None:
+        """Record the browser keys a later API process of this engine adopts, before using them."""
+        if self._session_path is not None:
+            browser = {name: key.secret for name, key in keys.items() if name != "control"}
+            _write(self._session_path, json.dumps({"format": 1, "instance": self.instance,
+                                                   "browser": browser}).encode())
 
     def close(self) -> None:
         with self._guard:
@@ -187,6 +249,7 @@ class Authority:
                 key = self._keys[key_id]
                 if (scheme != SCHEME or not stamp.isascii() or not stamp.isdecimal()
                         or abs(wall - int(stamp)) > WINDOW_SECONDS or key.expires <= elapsed
+                        or int(stamp) < key.not_before
                         or not _NONCE.fullmatch(nonce) or not _HEX.fullmatch(signed)
                         or len(body) > MAX_BODY):
                     raise AuthenticationError("Invalid authentication")
@@ -221,11 +284,14 @@ class Authority:
             elapsed = _elapsed()
             if not _HEX.fullmatch(ticket) or self._tickets.pop(ticket, 0) <= elapsed:
                 raise AuthenticationError("Invalid browser handoff")
-            self._keys = {name: key for name, key in self._keys.items() if key.expires > elapsed}
-            if len(self._keys) >= 33:
-                raise AuthenticationError("Too many browser sessions")
+            keys = dict(self._keys)
+            browser = [name for name in keys if name != "control"]
+            for name in browser[:max(0, len(browser) - BROWSER_SESSIONS + 1)]:
+                del keys[name]
             key_id, secret = secrets.token_hex(16), secrets.token_hex(32)
-            self._keys[key_id] = Credential(secret, elapsed + 8 * 60 * 60)
+            keys[key_id] = Credential(secret, float("inf"))
+            self._remember(keys)
+            self._keys = keys
             return {"key_id": key_id, "secret": secret, "origin": self.endpoint}
 
     def _wall(self) -> float:
@@ -240,7 +306,10 @@ class Authority:
         if now < self._highest_wall - TOLERATED_STEP_SECONDS:
             if self._lock is None:
                 raise AuthenticationError("The engine authority is closed")
-            # Discovery is published first: if it fails, the advertised key is still the one in use.
+            # Stored browser keys are dropped first, so no later API process adopts one from
+            # before the step. Discovery is published before the swap: if it fails, the
+            # advertised key is still the one in use.
+            self._remember({})
             replacement = secrets.token_hex(32)
             self._publish(replacement)
             self.secret = replacement

@@ -1042,8 +1042,8 @@ with a form-style body. No GET commits.
 `backend/tests/test_api_trust_boundary.py` walks every unsafe route.
 Packaged Windows and source mode with `ROLEBAND_LOCAL_AUTH=1` additionally require
 request-bound authentication for every API read, write and health response.
-Account-private `launcher/http-engine.json` discovery rotates its key and browser
-hostname for each HTTP process. The native client connects directly to loopback,
+Account-private `launcher/http-engine.json` discovery rotates its control key for
+each HTTP process; the browser hostname and browser keys last for the engine. The native client connects directly to loopback,
 verifies signed responses and obtains a single-use browser handoff. The browser
 holds a separate key in tab storage and signs through
 `dashboard/src/api/localAuthentication.ts`.

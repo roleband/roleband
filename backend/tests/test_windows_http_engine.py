@@ -141,3 +141,66 @@ def test_real_api_signs_control_and_browser_responses_and_keeps_committed_state_
         assert run_psql(server.dsn(), server.bin_dir, "SELECT value->>'language' FROM app_settings WHERE key='locale'") == "es"
 
     asyncio.run(exercise())
+
+
+def test_a_restarted_api_keeps_the_engines_browser_address_and_open_tabs(database):
+    from tracker.platform.local_http import (
+        PROOF_HEADER,
+        SESSION_ENV,
+        begin_engine_session,
+        end_engine_session,
+        response_proof,
+    )
+
+    root, _server, env = database
+    with socket.socket() as reservation:
+        reservation.bind(("127.0.0.1", 0))
+        port = reservation.getsockname()[1]
+    begin_engine_session(root)
+    startup_budget = 60
+    service = ApiService(repo_root=REPO_ROOT, data_dir=root, host="127.0.0.1", port=port,
+                         env={**env, "ROLEBAND_API_PORT": str(port), SESSION_ENV: "1"},
+                         start_grace_seconds=startup_budget)
+
+    async def running():
+        began = time.monotonic()
+        await service.tend(0)
+        while service.state != RUNNING and time.monotonic() - began < startup_budget:
+            await asyncio.sleep(.1)
+            await service.tend(time.monotonic() - began)
+        assert service.state == RUNNING, service.log.read_text(encoding="utf-8")
+
+    def browser_read(browser, endpoint):
+        header = authorization(browser["secret"], browser["key_id"], "GET", "/api/settings/locale", endpoint)
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        try:
+            connection.request("GET", "/api/settings/locale", headers={"Authorization": header,
+                                                                       "Host": endpoint.removeprefix("http://")})
+            response = connection.getresponse()
+            body = response.read()
+            assert response.getheader(PROOF_HEADER) == response_proof(browser["secret"], header, response.status, body)
+            return response.status
+        finally:
+            connection.close()
+
+    async def exercise():
+        try:
+            await running()
+            first = Client(root)
+            ticket = (await asyncio.to_thread(first.browser_url)).split("#roleband=")[1]
+            status, content = await asyncio.to_thread(raw, port, "POST", SESSION_PATH, json.dumps({"ticket": ticket}).encode(),
+                                                     {"Content-Type": "application/json", "Host": first.endpoint.removeprefix("http://")})
+            assert status == 200
+            browser = json.loads(content)
+            assert await asyncio.to_thread(browser_read, browser, first.endpoint) == 200
+            await service.stop(grace_seconds=5)
+            await running()
+            second = Client(root)
+            assert second.endpoint == first.endpoint, "the tab's address survives the API restart"
+            assert second.secret != first.secret
+            assert await asyncio.to_thread(browser_read, browser, second.endpoint) == 200
+        finally:
+            await service.stop(grace_seconds=5)
+            end_engine_session(root)
+
+    asyncio.run(exercise())

@@ -22,6 +22,7 @@ from tracker.config import get_settings
 from tracker.db.session import get_engine, get_session_factory
 from tracker.platform import preparation
 from tracker.platform.embedded_db import claim_cluster, stop_server
+from tracker.platform.local_http import SESSION_ENV, begin_engine_session, end_engine_session
 from tracker.platform.local_zone import local_zone
 from tracker.platform.paths import BACKEND_DIR, DATA_DIR, PACKAGED, REPO_ROOT
 from tracker.supervisor import runner
@@ -115,6 +116,7 @@ async def run(marker: str, *, development: bool, fixture: bool, dry_run: bool) -
         if record.exists():
             require_private(record)
         _write_record(record, marker)
+        begin_engine_session(DATA_DIR)
         claim_cluster(settings.embedded_pgdata(), "app")
         preparation.update(DATA_DIR, database="creating", service="starting", model="waiting", reason=None)
         with PreparationServer("127.0.0.1", 0):
@@ -136,7 +138,8 @@ async def run(marker: str, *, development: bool, fixture: bool, dry_run: bool) -
         )
         dispatcher = Dispatcher(get_session_factory(), REPO_ROOT, DATA_DIR, zone=local_zone(), jobs=jobs,
                                 read_gate=None, dry_run_network=dry_run)
-        api = ApiService(repo_root=REPO_ROOT, data_dir=DATA_DIR, host="127.0.0.1", port=settings.api_port)
+        api = ApiService(repo_root=REPO_ROOT, data_dir=DATA_DIR, host="127.0.0.1", port=settings.api_port,
+                         env={**os.environ, SESSION_ENV: "1"})
         await serve(dispatcher, engine, stop, api=api, cancel_on_stop=True)
         return 0
     except Exception:
@@ -150,6 +153,7 @@ async def run(marker: str, *, development: bool, fixture: bool, dry_run: bool) -
         if server is not None:
             await asyncio.to_thread(stop_server, server.pgdata)
         if leased:
+            end_engine_session(DATA_DIR)
             record.unlink(missing_ok=True)
         held.close()
 

@@ -383,3 +383,128 @@ def test_a_client_recovers_from_a_large_clock_step_by_reading_discovery_again(tm
         status, content = Client(data).request("GET", "/api/launcher-health")
         assert status == 200 and json.loads(content)["preparation"]["database"] == "ready"
         assert responder.thread.is_alive()
+
+
+def _browser_request(authority, browser, target="/api/read"):
+    return authority.authenticate(authorization(browser["secret"], browser["key_id"], "GET", target, authority.endpoint),
+                                  "GET", target, b"")
+
+
+def test_an_api_restart_keeps_the_engines_browser_address_and_sessions(tmp_path, monkeypatch):
+    data = tmp_path / "state"
+    local_http.begin_engine_session(data)
+    first = Authority(data, "http://127.0.0.1:58329", engine_session=True)
+    try:
+        browser = _browser(first)
+        captured = authorization(browser["secret"], browser["key_id"], "GET", "/api/read", first.endpoint)
+        first.authenticate(captured, "GET", "/api/read", b"")
+    finally:
+        first.close()
+    now = time.time()
+    monkeypatch.setattr(local_http.time, "time", lambda: now + 2)
+    second = Authority(data, "http://127.0.0.1:58329", engine_session=True)
+    try:
+        assert second.endpoint == first.endpoint
+        assert second.secret != first.secret, "the control key is still each API process's own"
+        _browser_request(second, browser)
+        # The new process has no memory of the nonces the first one accepted.
+        with pytest.raises(AuthenticationError):
+            second.authenticate(captured, "GET", "/api/read", b"")
+    finally:
+        second.close()
+
+
+def test_a_new_engine_starts_a_new_browser_address_without_old_sessions(tmp_path):
+    data = tmp_path / "state"
+    local_http.begin_engine_session(data)
+    first = Authority(data, "http://127.0.0.1:58329", engine_session=True)
+    browser = _browser(first)
+    first.close()
+    local_http.end_engine_session(data)
+    assert not local_http.session_path(data).exists()
+    local_http.begin_engine_session(data)
+    second = Authority(data, "http://127.0.0.1:58329", engine_session=True)
+    try:
+        assert second.endpoint != first.endpoint
+        with pytest.raises(AuthenticationError):
+            _browser_request(second, browser)
+    finally:
+        second.close()
+
+
+def test_without_an_engine_session_each_process_mints_its_own_address(tmp_path):
+    data = tmp_path / "state"
+    local_http.begin_engine_session(data)
+    first = Authority(data, "http://127.0.0.1:58329")
+    browser = _browser(first)
+    first.close()
+    second = Authority(data, "http://127.0.0.1:58329")
+    try:
+        assert second.endpoint != first.endpoint
+        with pytest.raises(AuthenticationError):
+            _browser_request(second, browser)
+    finally:
+        second.close()
+
+
+def test_a_browser_session_lasts_as_long_as_its_engine(tmp_path, monkeypatch):
+    data = tmp_path / "state"
+    local_http.begin_engine_session(data)
+    authority = Authority(data, "http://127.0.0.1:58329", engine_session=True)
+    try:
+        browser = _browser(authority)
+        elapsed = local_http._elapsed()
+        monkeypatch.setattr(local_http, "_elapsed", lambda: elapsed + 9 * 60 * 60)
+        _browser_request(authority, browser)
+    finally:
+        authority.close()
+
+
+def test_opening_one_session_past_the_limit_ends_the_oldest(tmp_path):
+    data = tmp_path / "state"
+    local_http.begin_engine_session(data)
+    authority = Authority(data, "http://127.0.0.1:58329", engine_session=True)
+    try:
+        sessions = [_browser(authority) for _ in range(local_http.BROWSER_SESSIONS + 1)]
+        with pytest.raises(AuthenticationError):
+            _browser_request(authority, sessions[0])
+        for browser in sessions[1:]:
+            _browser_request(authority, browser)
+        stored = json.loads(local_http.session_path(data).read_text())["browser"]
+        assert set(stored) == {browser["key_id"] for browser in sessions[1:]}
+    finally:
+        authority.close()
+
+
+def test_a_large_clock_step_ends_the_stored_sessions_too(tmp_path, monkeypatch):
+    data = tmp_path / "state"
+    local_http.begin_engine_session(data)
+    first = Authority(data, "http://127.0.0.1:58329", engine_session=True)
+    try:
+        browser = _browser(first)
+        now = time.time()
+        monkeypatch.setattr(local_http.time, "time", lambda: now - 600)
+        with pytest.raises(AuthenticationError):
+            _browser_request(first, browser)
+    finally:
+        first.close()
+    assert json.loads(local_http.session_path(data).read_text())["browser"] == {}
+    second = Authority(data, "http://127.0.0.1:58329", engine_session=True)
+    try:
+        with pytest.raises(AuthenticationError):
+            _browser_request(second, browser)
+    finally:
+        second.close()
+
+
+@pytest.mark.parametrize("record", [
+    "not json", json.dumps({"format": 2, "instance": "a" * 32, "browser": {}}),
+    json.dumps({"format": 1, "instance": "../evil", "browser": {}}),
+    json.dumps({"format": 1, "instance": "a" * 32, "browser": {"b" * 32: "short"}}),
+])
+def test_a_damaged_engine_session_is_refused(tmp_path, record):
+    data = tmp_path / "state"
+    local_http.begin_engine_session(data)
+    local_http.session_path(data).write_text(record)
+    with pytest.raises(ValueError):
+        Authority(data, "http://127.0.0.1:58329", engine_session=True)

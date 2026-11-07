@@ -55,7 +55,7 @@ from tracker.company_store import ensure_builtins, ensure_catalog_connectors
 from tracker.config import get_settings
 from tracker.db.session import get_session_factory
 from tracker.platform import preparation
-from tracker.platform.local_http import Authority, origin, required
+from tracker.platform.local_http import SESSION_ENV, Authority, origin, required
 from tracker.platform.paths import DASHBOARD_DIST, DATA_DIR, PACING_DIR, PACKAGED
 from tracker.platform.ratelimit import enable_shared_pacing
 from tracker.profiles.seed import ensure_company_profiles
@@ -113,7 +113,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         if sys.platform == "win32" and os.environ.get("ROLEBAND_HTTP_EXCLUSIVE") != "1":
             raise ValueError("Authenticated Windows startup requires the exclusive HTTP server")
         settings = get_settings()
-        authority = Authority(DATA_DIR, origin(settings.api_host, settings.api_port))
+        authority = Authority(DATA_DIR, origin(settings.api_host, settings.api_port),
+                              engine_session=os.environ.get(SESSION_ENV) == "1")
     app.state.local_authority = authority
     try:
         async with _engine_lifespan(app):
