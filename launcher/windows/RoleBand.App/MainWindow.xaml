@@ -19,6 +19,7 @@
       <Button x:Name="StartButton" AutomationProperties.AutomationId="StartEngine" />
       <Button x:Name="OpenButton" AutomationProperties.AutomationId="OpenDashboard" IsEnabled="False" />
       <Button x:Name="StopButton" AutomationProperties.AutomationId="StopEngine" IsEnabled="False" />
+      <Button x:Name="UndoButton" AutomationProperties.AutomationId="UndoUpdate" Visibility="Collapsed" />
     </StackPanel>
     <Expander x:Name="Diagnostics" Grid.Row="3" HorizontalAlignment="Stretch" VerticalAlignment="Top">
       <ScrollViewer MaxHeight="240" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">

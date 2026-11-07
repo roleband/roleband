@@ -17,6 +17,14 @@ if sys.platform != "win32":
 RECORD = Path("recovery") / "pre-migration.json"
 
 
+def _preparing_update(state: Path) -> str | None:
+    """The update this preparation belongs to, which recovery restores this checkpoint for."""
+    from tracker.platform import windows_update_journal
+
+    update = windows_update_journal.read(state)
+    return update["id"] if update is not None and update["phase"] == "preparing" else None
+
+
 def checkpoint_before_migration(server: EmbeddedServer, state: Path, current: Iterable[str],
                                 target: Iterable[str]) -> Path:
     """Return a verified bound checkpoint of the database as it is before migrating.
@@ -36,6 +44,9 @@ def checkpoint_before_migration(server: EmbeddedServer, state: Path, current: It
         except StorageCompatibilityError:
             previous = None
         if previous is not None and previous.is_absolute() and still_matches(server, previous):
+            update = _preparing_update(state)
+            if read_json(record).get("update_id") != update:
+                write_json(record, {**read_json(record), "update_id": update})
             return previous
     name = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
     checkpoints, checks = state / "recovery" / "pre-migration", state / "recovery" / "pre-migration-checks"
@@ -44,5 +55,6 @@ def checkpoint_before_migration(server: EmbeddedServer, state: Path, current: It
     private_directory(checks)
     checkpoint = create_checkpoint(server, checkpoints / name, checks / name, purpose=PRE_MIGRATION)
     write_json(record, {"format": 1, "checkpoint": str(checkpoint), "from_heads": sorted(current),
-                        "to_heads": sorted(target), "created_at": datetime.now(UTC).isoformat()})
+                        "to_heads": sorted(target), "created_at": datetime.now(UTC).isoformat(),
+                        "update_id": _preparing_update(state)})
     return checkpoint

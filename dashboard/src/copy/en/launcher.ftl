@@ -220,6 +220,8 @@ launcher-update-stopped-retry-body = Try again to finish it. If it stops again, 
 launcher-update-stopped-unreadable-body = It started from another copy of the app, or its progress can't be read, so this copy can't finish it. The update log says what happened.
 # kind=tooltip
 launcher-update-stopped-finder-help = Shows the update log in Finder
+# kind=button
+launcher-update-undo = Undo the update
 
 # kind=button
 launcher-notes-title = What's new

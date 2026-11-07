@@ -257,9 +257,12 @@ public sealed class LifecycleTests
     {
         public List<string> Packages { get; } = [];
 
-        public Task AddAsync(string package, CancellationToken cancellation)
+        public List<bool> Downgrades { get; } = [];
+
+        public Task AddAsync(string package, bool downgrade, CancellationToken cancellation)
         {
             Packages.Add(package);
+            Downgrades.Add(downgrade);
             return failure is null ? Task.CompletedTask : Task.FromException(failure);
         }
     }
@@ -343,5 +346,82 @@ public sealed class LifecycleTests
         Assert.AreEqual("complete", await new UpdateCoordinator(commands, new RecordingDeployer()).StartAsync(session));
         CollectionAssert.AreEqual(new[] { "resume" }, commands.Calls);
         await session.StopAsync();
+    }
+
+    private const string Previous = @"C:\state\packages\RoleBand-0.8.0-Windows-x64.msix";
+
+    [TestMethod]
+    public async Task AFailedUpdateStaysClosedUntilItIsUndone()
+    {
+        var engine = new StandIn("ready");
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        var commands = new RecordingCommands(() => session.OwnsEngine, ("resume", """{"phase": "failed", "running": "to"}"""));
+        Assert.AreEqual("failed", await new UpdateCoordinator(commands, new RecordingDeployer()).StartAsync(session));
+        Assert.IsFalse(session.OwnsEngine);
+        Assert.AreEqual(EngineState.Stopped, session.Snapshot.State);
+    }
+
+    [TestMethod]
+    public async Task UndoRegistersTheRetainedPreviousPackageAsADowngrade()
+    {
+        var engine = new StandIn("ready");
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        var commands = new RecordingCommands(() => session.OwnsEngine,
+            ("recover-begin", $$"""{"phase": "recovering", "package": {{JsonSerializer.Serialize(Previous)}}}"""));
+        var deployer = new RecordingDeployer();
+        await new UpdateCoordinator(commands, deployer).ReturnToPreviousAsync(session);
+        CollectionAssert.AreEqual(new[] { Previous }, deployer.Packages);
+        CollectionAssert.AreEqual(new[] { true }, deployer.Downgrades);
+    }
+
+    [TestMethod]
+    public async Task UndoWithoutARetainedPackageRegistersNothing()
+    {
+        var engine = new StandIn("ready");
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        var commands = new RecordingCommands(() => session.OwnsEngine,
+            ("recover-begin", """{"status": "refused", "reason": "The previous version's package is not retained here."}"""));
+        var deployer = new RecordingDeployer();
+        var error = await Assert.ThrowsExactlyAsync<IOException>(() => new UpdateCoordinator(commands, deployer).ReturnToPreviousAsync(session));
+        StringAssert.Contains(error.Message, "not retained");
+        Assert.AreEqual(0, deployer.Packages.Count);
+    }
+
+    [TestMethod]
+    public async Task ThePreviousVersionRestoresItsDatabaseBeforeStarting()
+    {
+        var engine = new StandIn("ready");
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        var commands = new RecordingCommands(() => session.OwnsEngine,
+            ("resume", """{"phase": "recovering", "running": "from"}"""), ("recover", """{"phase": "recovered"}"""));
+        Assert.AreEqual("recovered", await new UpdateCoordinator(commands, new RecordingDeployer()).StartAsync(session));
+        CollectionAssert.AreEqual(new[] { "resume", "recover" }, commands.Calls);
+        CollectionAssert.AreEqual(new[] { false, false }, commands.EngineRunningAt, "the database is restored before the engine starts");
+        await Until(() => session.Snapshot.State == EngineState.Ready, TimeSpan.FromSeconds(90), "Ready after recovery");
+        await session.StopAsync();
+    }
+
+    [TestMethod]
+    public async Task AFailedRestoreKeepsTheEngineStopped()
+    {
+        var engine = new StandIn("ready");
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        var commands = new RecordingCommands(() => session.OwnsEngine,
+            ("resume", """{"phase": "recovering", "running": "from"}"""),
+            ("recover", """{"status": "refused", "reason": "Database restore is unfinished."}"""));
+        var error = await Assert.ThrowsExactlyAsync<IOException>(() => new UpdateCoordinator(commands, new RecordingDeployer()).StartAsync(session));
+        StringAssert.Contains(error.Message, "unfinished");
+        Assert.IsFalse(session.OwnsEngine);
+    }
+
+    [TestMethod]
+    public async Task TheNewVersionOffersUndoAgainWhenTheSwitchBackDidNotHappen()
+    {
+        var engine = new StandIn("ready");
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        var commands = new RecordingCommands(() => session.OwnsEngine, ("resume", """{"phase": "recovering", "running": "to"}"""));
+        Assert.AreEqual("recovering", await new UpdateCoordinator(commands, new RecordingDeployer()).StartAsync(session));
+        CollectionAssert.AreEqual(new[] { "resume" }, commands.Calls);
+        Assert.IsFalse(session.OwnsEngine);
     }
 }

@@ -19,7 +19,9 @@ exported from one snapshot, restored into fresh scratch storage, compared by
 fingerprint and published only after that matches. It lives in
 `recovery/pre-migration/<id>` with its scratch cluster in
 `recovery/pre-migration-checks/<id>`, and `recovery/pre-migration.json` names the
-latest one with the heads it migrates from and to.
+latest one with the heads it migrates from and to, and the ID of the update being prepared, if any.
+Promotion accepts a checkpoint from `recovery/pre-migration` although it is inside the
+state; that folder is never moved, staged into or restored over.
 
 A retry reuses the named checkpoint when its archive is intact and the live
 database still matches its fingerprints and retained credentials, which is the

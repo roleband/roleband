@@ -33,12 +33,26 @@ public sealed partial class MainWindow : Window
         StopButton.Content = copy["engine-stop"];
         OpenButton.Content = copy["open"];
         Diagnostics.Header = copy["engine-diagnostics"];
+        UndoButton.Content = copy["update-undo"];
         StartButton.Click += async (_, _) =>
         {
             if (engine is null || updates is null) return;
             // Settles an update the previous run began before anything opens the database.
-            try { await updates.StartAsync(engine); }
+            try
+            {
+                var phase = await updates.StartAsync(engine);
+                if (phase is "failed" or "recovering") ShowFailedUpdate();
+            }
             catch (Exception error) { StatusText.Text = copy["host-attention"]; DiagnosticsText.Text = error.Message; }
+        };
+        UndoButton.Click += async (_, _) =>
+        {
+            if (engine is null || updates is null) return;
+            UndoButton.IsEnabled = false;
+            // Windows closes this version and opens the previous one, whose Start restores the database.
+            try { await updates.ReturnToPreviousAsync(engine); }
+            catch (Exception error) { ShowFailedUpdate(); DiagnosticsText.Text = error.Message; }
+            finally { UndoButton.IsEnabled = true; }
         };
         StopButton.Click += async (_, _) => { if (engine is not null) await StopAsync(); };
         OpenButton.Click += async (_, _) =>
@@ -72,6 +86,13 @@ public sealed partial class MainWindow : Window
             DiagnosticsText.Text = error.Message;
             StartButton.IsEnabled = false;
         }
+    }
+
+    private void ShowFailedUpdate()
+    {
+        StatusText.Text = copy["update-stopped-title"];
+        DiagnosticsText.Text = copy["update-stopped-body"];
+        UndoButton.Visibility = Visibility.Visible;
     }
 
     private void Render(EngineSnapshot snapshot)

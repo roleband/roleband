@@ -43,6 +43,28 @@ def _begin(state: Path, identity: Any, package: Path, running: str) -> int:
     return 0
 
 
+def _recover_begin(state: Path, identity: Any, running: str) -> int:
+    """Name the retained previous package and mark the update as returning to it."""
+    from tracker.platform import windows_update_journal as journal
+    from tracker.platform.windows_packages import retained
+    from tracker.platform.windows_recovery import RecoveryError
+
+    record = journal.read(state)
+    previous = [path for offer, path in retained(state, identity)
+                if record is not None and offer.version == record["from_version"]]
+    if not previous:
+        print(json.dumps({"status": "refused", "reason": "The previous version's package is not retained here. "
+                          "Reinstall it from its release, then open RoleBand again."}))
+        return 1
+    try:
+        journal.recover_begin(state, running)
+    except RecoveryError as error:
+        print(json.dumps({"status": "refused", "reason": str(error)}))
+        return 1
+    print(json.dumps({"phase": "recovering", "package": str(previous[0])}))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="action", required=True)
@@ -61,6 +83,8 @@ def main(argv: list[str] | None = None) -> int:
     begin.add_argument("--package", type=Path, required=True)
     resume = commands.add_parser("resume")
     resume.add_argument("--state", type=Path, required=True)
+    for name in ("recover-begin", "recover"):
+        commands.add_parser(name).add_argument("--state", type=Path, required=True)
     settle = commands.add_parser("settle")
     settle.add_argument("--state", type=Path, required=True)
     settle.add_argument("--prepared", choices=("yes", "no"), required=True)
@@ -79,6 +103,20 @@ def main(argv: list[str] | None = None) -> int:
         record_consent(args.state, automatic=args.automatic == "on", text=args.text, language=args.language)
         print(json.dumps({"recorded": True}))
         return 0
+    if args.action == "recover":
+        from tracker.platform import windows_update_journal as journal
+        from tracker.platform.windows_process import CANCELLABLE_ENV, enter_job
+        from tracker.platform.windows_recovery import RecoveryError
+
+        enter_job()
+        os.environ.pop(CANCELLABLE_ENV, None)
+        try:
+            record = journal.recover_database(args.state, running_version())
+        except (RecoveryError, OSError) as error:
+            print(json.dumps({"status": "refused", "reason": str(error)}))
+            return 1
+        print(json.dumps({"phase": record["phase"]}))
+        return 0
     if args.action in {"resume", "settle"}:
         from tracker.platform import windows_update_journal as journal
         from tracker.platform.windows_recovery import RecoveryError
@@ -89,7 +127,10 @@ def main(argv: list[str] | None = None) -> int:
         except RecoveryError as error:
             print(json.dumps({"status": "refused", "reason": str(error)}))
             return 1
-        print(json.dumps({"phase": record["phase"] if record else None}))
+        running = running_version()
+        role = None if record is None else "to" if running == record["to_version"] else (
+            "from" if running == record["from_version"] else None)
+        print(json.dumps({"phase": record["phase"] if record else None, "running": role}))
         return 0
     path = identity_path()
     if not path.is_file():
@@ -102,6 +143,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     if args.action == "begin":
         return _begin(args.state, identity, args.package, running_version())
+    if args.action == "recover-begin":
+        return _recover_begin(args.state, identity, running_version())
     if args.action == "download":
         from httpx import HTTPError
 

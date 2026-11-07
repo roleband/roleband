@@ -139,7 +139,10 @@ def _manifest(state: Path, record: dict[str, Any]) -> dict[str, Any]:
     from alembic.script import ScriptDirectory
 
     checkpoint = checked_path(Path(record["checkpoint"]))
-    if checkpoint.is_relative_to(state) or state.is_relative_to(checkpoint):
+    # A pre-migration checkpoint is the one kind kept inside the state; its folder is never
+    # moved, staged into or restored over.
+    inside = checkpoint.is_relative_to(state) and checkpoint.parent != state / "recovery" / "pre-migration"
+    if inside or state.is_relative_to(checkpoint):
         raise RecoveryError("Restore checkpoint must be separate from retained state")
     if _pin(checkpoint) != (record["manifest_sha256"], record["archive_sha256"]):
         raise RecoveryError("Restore checkpoint changed after the operation began")

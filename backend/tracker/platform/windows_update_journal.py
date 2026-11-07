@@ -14,6 +14,7 @@ import json
 import re
 import sys
 import uuid
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +29,8 @@ PHASES = ("applying", "preparing", "complete", "failed", "aborted", "recovering"
 RESOLVED = frozenset({"complete", "aborted", "recovered"})
 BLOCKING = frozenset({"applying", "failed", "recovering"})
 LIMIT = 64 * 1024
+#: Set while recovery itself restores the database, the one opening `recovering` allows.
+_recovering: ContextVar[Path | None] = ContextVar("recovering_update", default=None)
 _KEYS = {"format", "kind", "id", "state", "from_version", "to_version", "package", "package_sha256", "phase"}
 
 
@@ -64,6 +67,8 @@ def read(state: Path) -> dict[str, Any] | None:
 def require_launchable(state: Path) -> None:
     record = read(state)
     if record is not None and record["phase"] in BLOCKING:
+        if record["phase"] == "recovering" and _recovering.get() == state:
+            return
         raise RecoveryError(f"A Windows update from {record['from_version']} to {record['to_version']} is unfinished. "
                             "Open RoleBand to finish or recover it before anything else uses the database.")
 
@@ -97,6 +102,56 @@ def resume(state: Path, running: str) -> dict[str, Any] | None:
     if record["phase"] == "applying" and running == record["from_version"]:
         return _write(state, {**record, "phase": "aborted"})
     return record
+
+
+def recover_begin(state: Path, running: str) -> dict[str, Any]:
+    """The new version hands back: the previous package is about to be registered again."""
+    record = read(state)
+    if record is None or record["phase"] not in {"failed", "recovering"} or running != record["to_version"]:
+        raise RecoveryError("Only a failed update can be returned to its previous version")
+    return _write(state, {**record, "phase": "recovering"})
+
+
+def recovered(state: Path, running: str) -> dict[str, Any]:
+    record = read(state)
+    if record is None or record["phase"] != "recovering" or running != record["from_version"]:
+        raise RecoveryError("Recovery finishes only in the previous version")
+    return _write(state, {**record, "phase": "recovered"})
+
+
+def recover_database(state: Path, running: str) -> dict[str, Any]:
+    """In the previous version: put back the database this update's migration replaced.
+
+    Only a pre-migration checkpoint made for this update is restored. The new version never
+    reached Ready, so nothing has been written since it; without one, the schema never
+    changed and the database stays as it is. A restore that was interrupted is resumed, and
+    the replaced database is kept, as every restore keeps it.
+    """
+    from tracker.platform.windows_restore import RESOLVED as RESTORE_RESOLVED
+    from tracker.platform.windows_restore import read_restore, restore
+    from tracker.platform.windows_storage import StorageCompatibilityError, read_json
+
+    state = checked_path(state)
+    record = read(state)
+    if record is None or record["phase"] != "recovering" or running != record["from_version"]:
+        raise RecoveryError("Recovery finishes only in the previous version")
+    marker = state / "recovery" / "pre-migration.json"
+    try:
+        checkpoint = read_json(marker) if marker.exists() else {}
+    except StorageCompatibilityError as error:
+        raise RecoveryError("The pre-migration record is damaged; preserve it for repair") from error
+    if checkpoint.get("update_id") == record["id"]:
+        token = _recovering.set(state)
+        try:
+            current = read_restore(state)
+            if current is not None and current["phase"] not in RESTORE_RESOLVED:
+                restore(state, "resume")
+            elif not (current is not None and current["phase"] == "complete"
+                      and current["checkpoint"] == checkpoint["checkpoint"]):
+                restore(state, "begin", Path(checkpoint["checkpoint"]))
+        finally:
+            _recovering.reset(token)
+    return recovered(state, running)
 
 
 def settle(state: Path, running: str, *, prepared: bool) -> dict[str, Any]:

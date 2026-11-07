@@ -7,7 +7,8 @@ namespace RoleBand.EngineHost;
 /// <summary>Replaces this app's package; Windows may end this process while it does.</summary>
 public interface IPackageDeployer
 {
-    Task AddAsync(string package, CancellationToken cancellation);
+    /// <param name="downgrade">Register a lower version, to return to the previous one.</param>
+    Task AddAsync(string package, bool downgrade, CancellationToken cancellation);
 }
 
 /// <summary>The engine's `desktop.py update` commands, each answering one JSON object.</summary>
@@ -18,9 +19,12 @@ public interface IUpdateCommands
 
 public sealed class WindowsPackageDeployer : IPackageDeployer
 {
-    public async Task AddAsync(string package, CancellationToken cancellation)
+    public async Task AddAsync(string package, bool downgrade, CancellationToken cancellation)
     {
-        var options = new AddPackageOptions { ForceAppShutdown = true, ForceTargetAppShutdown = true };
+        var options = new AddPackageOptions
+        {
+            ForceAppShutdown = true, ForceTargetAppShutdown = true, ForceUpdateFromAnyVersion = downgrade,
+        };
         var result = await new PackageManager().AddPackageByUriAsync(new Uri(package), options).AsTask(cancellation);
         if (result.ExtendedErrorCode is { } error)
             throw new IOException("Windows did not install the update: " + result.ErrorText, error);
@@ -60,10 +64,15 @@ public sealed class UpdateCoordinator(IUpdateCommands commands, IPackageDeployer
         new(new EngineUpdateCommands(configuration), new WindowsPackageDeployer());
 
     /// <summary>Settles a journal the previous run left; call before starting the engine.</summary>
-    public async Task<string?> ResumeAsync(CancellationToken cancellation = default)
+    public async Task<string?> ResumeAsync(CancellationToken cancellation = default) =>
+        (await ResumeWithRoleAsync(cancellation)).Phase;
+
+    private async Task<(string? Phase, string? Running)> ResumeWithRoleAsync(CancellationToken cancellation)
     {
         var answer = await commands.RunAsync(["resume"], cancellation);
-        return answer.TryGetProperty("phase", out var phase) && phase.ValueKind == JsonValueKind.String ? phase.GetString() : null;
+        static string? Text(JsonElement answer, string name) =>
+            answer.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+        return (Text(answer, "phase"), Text(answer, "running"));
     }
 
     /// <summary>
@@ -73,7 +82,17 @@ public sealed class UpdateCoordinator(IUpdateCommands commands, IPackageDeployer
     /// </summary>
     public async Task<string?> StartAsync(EngineSession session, CancellationToken cancellation = default)
     {
-        var phase = await ResumeAsync(cancellation);
+        var (phase, running) = await ResumeWithRoleAsync(cancellation);
+        // A failed update stays closed until it is undone; the new version offers Undo again
+        // when the switch back has not happened yet.
+        if (phase == "failed" || (phase == "recovering" && running == "to")) return phase;
+        if (phase == "recovering")
+        {
+            var recovered = await commands.RunAsync(["recover"], cancellation);
+            if (!recovered.TryGetProperty("phase", out var next) || next.GetString() != "recovered")
+                throw new IOException(Reason(recovered) ?? "The previous version's database could not be restored.");
+            phase = "recovered";
+        }
         await session.StartAsync();
         if (phase != "preparing") return phase;
         var verdict = new TaskCompletionSource<bool?>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -114,7 +133,7 @@ public sealed class UpdateCoordinator(IUpdateCommands commands, IPackageDeployer
         _ = RegisterApplicationRestart(null, 0);
         try
         {
-            await deployer.AddAsync(package, cancellation);
+            await deployer.AddAsync(package, downgrade: false, cancellation);
         }
         catch
         {
@@ -122,6 +141,21 @@ public sealed class UpdateCoordinator(IUpdateCommands commands, IPackageDeployer
             await commands.RunAsync(["resume"], CancellationToken.None);
             throw;
         }
+    }
+
+    /// <summary>
+    /// From a failed update: registers the retained previous package again. That version's next
+    /// Start puts back the database the update replaced, keeping the replaced one.
+    /// </summary>
+    public async Task ReturnToPreviousAsync(EngineSession session, CancellationToken cancellation = default)
+    {
+        await session.StopAsync();
+        if (session.OwnsEngine) throw new IOException("The engine did not stop, so the update was not undone.");
+        var begun = await commands.RunAsync(["recover-begin"], cancellation);
+        if (!begun.TryGetProperty("package", out var package) || package.ValueKind != JsonValueKind.String)
+            throw new IOException(Reason(begun) ?? "The previous version could not be prepared.");
+        _ = RegisterApplicationRestart(null, 0);
+        await deployer.AddAsync(package.GetString()!, downgrade: true, cancellation);
     }
 
     /// <summary>Records the new version's verdict on its own preparation.</summary>

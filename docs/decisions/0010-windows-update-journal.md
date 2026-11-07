@@ -34,6 +34,16 @@ records `aborted`. Every Start resumes the journal before the engine starts; whe
 is the new version, Ready settles the update `complete`, and a failed database preparation
 settles it `failed`. Other trouble leaves it `preparing` for the next start.
 
+A failed update stays closed and offers Undo. The new version marks it `recovering` and
+registers the retained previous package again, as a downgrade. The previous version's next
+Start puts the database back before the engine starts: it restores the pre-migration
+checkpoint recorded for this update's ID, through the ordinary promotion that keeps the
+replaced database, and records `recovered`. Without a checkpoint for this update the schema
+never changed, so the database stays; a checkpoint from an earlier update is never
+restored, because history written since would be lost. The new version never reached Ready,
+so nothing was written after the checkpoint. If the previous package was not retained, Undo
+says so and nothing is registered.
+
 ## Consequences
 
 A crash or power loss at any point leaves a journal the next start can read, and the

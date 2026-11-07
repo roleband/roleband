@@ -9,6 +9,8 @@ import httpx
 import pytest
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
+from tests.test_windows_migration import retained as retained
+
 pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows update requires Windows")
 
 SHA = "a" * 64
@@ -134,3 +136,89 @@ def test_begin_journals_only_a_verified_retained_package_with_the_engine_stopped
     record = json.loads((state / "recovery" / "update.json").read_text(encoding="utf-8"))
     assert (record["phase"], record["to_version"], record["package"]) == ("applying", "0.1.3", str(package.resolve()))
     capsys.readouterr()
+
+
+class TestRecovery:
+    """Returning to the previous version puts back the database this update's migration replaced."""
+
+    @staticmethod
+    def _as_previous_runtime(monkeypatch, heads):
+        from alembic.script import ScriptDirectory
+
+        # The checkout carries the new migrations; the previous package's runtime ends at `heads`.
+        monkeypatch.setattr(ScriptDirectory, "get_heads", lambda self: list(heads))
+
+    @staticmethod
+    def _failed_update(state):
+        from tracker.platform import windows_update_journal as journal
+
+        journal.begin(state, from_version="0.1.2", to_version="0.1.3", package=state.parent / "update.msix",
+                      package_sha256=SHA)
+        journal.resume(state, "0.1.3")
+        return journal
+
+    def test_a_migrated_database_is_put_back_and_the_migrated_one_kept(self, retained, monkeypatch):
+        from tests.test_windows_migration import PREVIOUS, _heads, _prepare
+        from tracker.platform.embedded_db import ensure_server, stop_server
+
+        journal = self._failed_update(retained)
+        assert _prepare(retained).returncode == 0, "the new version migrates behind its checkpoint"
+        assert _heads(retained) != [PREVIOUS]
+        record = json.loads((retained / "recovery" / "pre-migration.json").read_text(encoding="utf-8"))
+        assert record["update_id"] == journal.read(retained)["id"]
+        journal.settle(retained, "0.1.3", prepared=False)
+        journal.recover_begin(retained, "0.1.3")
+        self._as_previous_runtime(monkeypatch, [PREVIOUS])
+        assert journal.recover_database(retained, "0.1.2")["phase"] == "recovered"
+        monkeypatch.undo()
+        assert _heads(retained) == [PREVIOUS]
+        server = ensure_server(retained / "db", database="roleband")
+        try:
+            from tests.embedded_utils import psql
+
+            assert "Retained role" in psql(server, "SELECT title FROM retained_sentinel")
+        finally:
+            stop_server(retained / "db")
+        kept = list((retained / "recovery").glob("restore-*/retained-db/PG_VERSION"))
+        assert len(kept) == 1, "the migrated database is kept beside the restored one"
+
+    def test_without_a_checkpoint_for_this_update_the_database_stays(self, retained):
+        from tests.test_windows_migration import PREVIOUS, _heads
+
+        journal = self._failed_update(retained)
+        journal.settle(retained, "0.1.3", prepared=False)
+        journal.recover_begin(retained, "0.1.3")
+        assert journal.recover_database(retained, "0.1.2")["phase"] == "recovered"
+        assert _heads(retained) == [PREVIOUS]
+        assert not list((retained / "recovery").glob("restore-*"))
+
+    def test_a_checkpoint_from_an_earlier_update_is_never_restored(self, retained):
+        from tracker.platform.windows_storage import write_json
+
+        journal = self._failed_update(retained)
+        write_json(retained / "recovery" / "pre-migration.json",
+                   {"format": 1, "checkpoint": str(retained / "recovery" / "pre-migration" / "old"),
+                    "from_heads": [], "to_heads": [], "created_at": "2026-01-01T00:00:00+00:00",
+                    "update_id": "f" * 32})
+        journal.settle(retained, "0.1.3", prepared=False)
+        journal.recover_begin(retained, "0.1.3")
+        assert journal.recover_database(retained, "0.1.2")["phase"] == "recovered"
+        assert not list((retained / "recovery").glob("restore-*"))
+
+    def test_only_the_new_version_hands_back_and_only_the_previous_one_finishes(self, state, tmp_path):
+        from tracker.platform import windows_update_journal as journal
+        from tracker.platform.windows_recovery import RecoveryError
+
+        _begin(state, tmp_path)
+        journal.resume(state, "0.1.3")
+        with pytest.raises(RecoveryError):
+            journal.recover_begin(state, "0.1.3")
+        journal.settle(state, "0.1.3", prepared=False)
+        with pytest.raises(RecoveryError):
+            journal.recover_begin(state, "0.1.2")
+        journal.recover_begin(state, "0.1.3")
+        assert _launchable(state) == "unfinished"
+        with pytest.raises(RecoveryError):
+            journal.recover_database(state, "0.1.3")
+        assert journal.recover_database(state, "0.1.2")["phase"] == "recovered"
+        assert _launchable(state) == "accepted"

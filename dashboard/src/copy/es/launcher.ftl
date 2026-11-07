@@ -184,6 +184,7 @@ launcher-update-stopped-body = Se conservan tus datos y la copia de seguridad he
 launcher-update-stopped-retry-body = Inténtalo de nuevo para terminarla. Si vuelve a detenerse, el registro de la actualización explica por qué.
 launcher-update-stopped-unreadable-body = Se inició desde otra copia de la app o no se puede leer su progreso, así que esta copia no puede terminarla. El registro de la actualización explica qué pasó.
 launcher-update-stopped-finder-help = Muestra el registro de la actualización en Finder
+launcher-update-undo = Deshacer la actualización
 
 # kind=button
 launcher-notes-title = Novedades

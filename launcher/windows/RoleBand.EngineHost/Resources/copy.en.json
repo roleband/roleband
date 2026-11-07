@@ -123,6 +123,7 @@
   "update-stopped-retry-body": "Try again to finish it. If it stops again, the update log says why.",
   "update-stopped-unreadable-body": "It started from another copy of the app, or its progress can't be read, so this copy can't finish it. The update log says what happened.",
   "update-stopped-finder-help": "Shows the update log in Finder",
+  "update-undo": "Undo the update",
   "notes-title": "What's new",
   "notes-installed": "Installed version",
   "notes-launcher-behind": "Review launcher update",
