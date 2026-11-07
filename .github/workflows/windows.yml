@@ -87,8 +87,7 @@ jobs:
           .venv\Scripts\python.exe -m pip install -r requirements.txt -r requirements-dev.txt -c constraints/windows-x86_64.txt
           .venv\Scripts\python.exe -m pip install -e ..\robots\python
           .venv\Scripts\python.exe -m scripts.install_pg_contrib
-      # Every database-capable command reaches only this run's scratch state. The base
-      # temp stays short: recovery paths sit near Windows' 248-character directory limit.
+      # Every database-capable command reaches only this run's scratch state.
       - name: isolated state
         run: |
           $state = Join-Path $env:RUNNER_TEMP 'rb\state'
@@ -100,13 +99,16 @@ jobs:
           "ROLEBAND_DATABASE_URL=" >> $env:GITHUB_ENV
           "ROLEBAND_DB_EMBEDDED=true" >> $env:GITHUB_ENV
           "ROLEBAND_NO_USAGE_STATS=1" >> $env:GITHUB_ENV
+      # The base temp is short, since recovery paths sit near Windows' 248-character
+      # directory limit, and on the system volume: the bundled PostgreSQL reaches a
+      # non-ASCII path only through its 8.3 alias, which other volumes may not create.
       - name: Windows functional suite (a skip outside tests/skip_policy.py fails)
         working-directory: backend
         run: |
           $files = @(Get-ChildItem tests -Filter 'test_windows_*.py') + @(Get-ChildItem tests -Filter 'test_supervisor_*.py') |
             ForEach-Object { "tests/$($_.Name)" }
           .venv\Scripts\python.exe -m pytest -q -rs -n 4 @files tests/test_local_http_auth.py tests/test_skip_policy.py `
-            --basetemp="$env:RUNNER_TEMP\t" --junitxml=test-results/windows.xml
+            --basetemp=C:\rbt --junitxml=test-results/windows.xml
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: packaging tool tests
         working-directory: launcher/windows/Tools
