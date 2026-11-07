@@ -11,6 +11,7 @@ public sealed partial class MainWindow : Window
 {
     private readonly NativeCopy copy;
     private EngineSession? engine;
+    private UpdateCoordinator? updates;
     private bool closing;
     private string diagnosticLocation = "";
 
@@ -32,7 +33,13 @@ public sealed partial class MainWindow : Window
         StopButton.Content = copy["engine-stop"];
         OpenButton.Content = copy["open"];
         Diagnostics.Header = copy["engine-diagnostics"];
-        StartButton.Click += async (_, _) => { if (engine is not null) await engine.StartAsync(); };
+        StartButton.Click += async (_, _) =>
+        {
+            if (engine is null || updates is null) return;
+            // Settles an update the previous run began before anything opens the database.
+            try { await updates.StartAsync(engine); }
+            catch (Exception error) { StatusText.Text = copy["host-attention"]; DiagnosticsText.Text = error.Message; }
+        };
         StopButton.Click += async (_, _) => { if (engine is not null) await StopAsync(); };
         OpenButton.Click += async (_, _) =>
         {
@@ -54,6 +61,7 @@ public sealed partial class MainWindow : Window
                 ? EngineConfiguration.Packaged(Path.Combine(AppContext.BaseDirectory, "Resources"), state, args.Contains("--synthetic-fixture"))
                 : EngineConfiguration.Source(source, state!, args.Contains("--synthetic-fixture"));
             engine = new EngineSession(configuration);
+            updates = UpdateCoordinator.For(configuration);
             engine.Changed += snapshot => DispatcherQueue.TryEnqueue(() => Render(snapshot));
             diagnosticLocation = $"{configuration.Resources}{Environment.NewLine}{configuration.State}";
             Render(engine.Snapshot);

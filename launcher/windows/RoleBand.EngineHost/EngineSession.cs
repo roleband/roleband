@@ -40,6 +40,8 @@ public sealed class EngineSession : IAsyncDisposable
     private EngineSnapshot snapshot = new(EngineState.Stopped);
     public EngineSnapshot Snapshot => Volatile.Read(ref snapshot);
     public bool OwnsEngine => lease is not null;
+    /// <summary>The last start ended because the engine could not prepare its database.</summary>
+    public bool PreparationFailed { get; private set; }
     public event Action<EngineSnapshot>? Changed;
 
     public EngineSession(EngineConfiguration configuration, EngineSessionOptions? options = null)
@@ -62,6 +64,7 @@ public sealed class EngineSession : IAsyncDisposable
         try
         {
             if (OwnsEngine) return;
+            PreparationFailed = false;
             lease = PrivateStorage.Lease(configuration.State, "desktop.lock");
             PrivateStorage.EnsureDirectory(Path.Combine(configuration.State, "logs"));
             RecoveryGuard.RequireLaunchable(configuration.State);
@@ -101,49 +104,11 @@ public sealed class EngineSession : IAsyncDisposable
 
     private Process Spawn(string marker)
     {
-        var start = new ProcessStartInfo(configuration.NativePython)
-        {
-            WorkingDirectory = configuration.EngineDirectory,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardInput = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8,
-        };
-        start.Environment.Clear();
-        foreach (var name in new[] { "SystemRoot", "WINDIR", "TEMP", "TMP", "USERPROFILE", "LOCALAPPDATA", "APPDATA", "SYSTEMDRIVE" })
-            if (Environment.GetEnvironmentVariable(name) is { } value) start.Environment[name] = value;
-        var system = Environment.GetFolderPath(Environment.SpecialFolder.System);
-        start.Environment["PATH"] = Path.GetDirectoryName(configuration.NativePython) + ";" + system;
-        if (configuration.Development) start.Environment["__PYVENV_LAUNCHER__"] = configuration.Python;
-        var state = configuration.State;
-        foreach (var (name, value) in new Dictionary<string, string>
-        {
-            ["ROLEBAND_STATE_DIR"] = state, ["ROLEBAND_PGDATA"] = Path.Combine(state, "db"),
-            ["ROLEBAND_CACHE_DIR"] = Path.Combine(state, "cache"), ["ROLEBAND_PLUGINS_DIR"] = Path.Combine(state, "plugins"),
-            ["ROLEBAND_SECRET_KEY_FILE"] = Path.Combine(state, "secret.key"), ["ROLEBAND_DATABASE_URL"] = "",
-            ["ROLEBAND_DB_EMBEDDED"] = "true", ["ROLEBAND_API_HOST"] = "127.0.0.1",
-            ["ROLEBAND_API_PORT"] = EngineConfiguration.AvailablePort().ToString(System.Globalization.CultureInfo.InvariantCulture),
-            ["ROLEBAND_LOCAL_AUTH"] = "1", ["PYTHONUTF8"] = "1", ["PYTHONNOUSERSITE"] = "1",
-            ["PYTHONDONTWRITEBYTECODE"] = "1",
-        }) start.Environment[name] = value;
-        if (configuration.Development || configuration.SyntheticFixture)
-        {
-            start.Environment["ROLEBAND_NO_USAGE_STATS"] = "1";
-            start.Environment["ROLEBAND_SEARCH_SEMANTIC_ENABLED"] = "false";
-            start.Environment["ROLEBAND_SEARCH_WARM_MODEL_ON_STARTUP"] = "false";
-        }
-        start.ArgumentList.Add("-I");
-        start.ArgumentList.Add("-B");
-        start.ArgumentList.Add(configuration.Bootstrap);
-        if (configuration.Development) start.ArgumentList.Add("--source");
-        start.ArgumentList.Add("run");
-        start.ArgumentList.Add("--marker");
-        start.ArgumentList.Add(marker);
-        if (configuration.Development || configuration.SyntheticFixture) start.ArgumentList.Add("--dry-run-network");
-        if (configuration.SyntheticFixture) start.ArgumentList.Add("--synthetic-fixture");
+        var arguments = new List<string> { "run", "--marker", marker };
+        if (configuration.Development || configuration.SyntheticFixture) arguments.Add("--dry-run-network");
+        if (configuration.SyntheticFixture) arguments.Add("--synthetic-fixture");
+        var start = configuration.EngineStart(arguments);
+        start.RedirectStandardInput = true;
         return Process.Start(start) ?? throw new IOException("The engine process did not start.");
     }
 
@@ -169,6 +134,7 @@ public sealed class EngineSession : IAsyncDisposable
                 if (outcome == Outcome.Cancelled) return;
                 if (outcome == Outcome.PreparationFailed)
                 {
+                    PreparationFailed = true;
                     Publish(EngineState.Attention, "Engine preparation failed. The preparation log contains details.");
                     return;
                 }

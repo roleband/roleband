@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Text.Json;
 
 namespace RoleBand.EngineHost;
@@ -64,6 +66,49 @@ public sealed record EngineConfiguration(string Resources, string State, string 
     private static bool Within(string path, string root) =>
         path.Equals(root, StringComparison.OrdinalIgnoreCase)
         || path.StartsWith(root.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>A desktop.py command in this engine's interpreter, environment and retained state.</summary>
+    public ProcessStartInfo EngineStart(IEnumerable<string> arguments)
+    {
+        var start = new ProcessStartInfo(NativePython)
+        {
+            WorkingDirectory = EngineDirectory,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
+        };
+        start.Environment.Clear();
+        foreach (var name in new[] { "SystemRoot", "WINDIR", "TEMP", "TMP", "USERPROFILE", "LOCALAPPDATA", "APPDATA", "SYSTEMDRIVE" })
+            if (Environment.GetEnvironmentVariable(name) is { } value) start.Environment[name] = value;
+        var system = Environment.GetFolderPath(Environment.SpecialFolder.System);
+        start.Environment["PATH"] = Path.GetDirectoryName(NativePython) + ";" + system;
+        if (Development) start.Environment["__PYVENV_LAUNCHER__"] = Python;
+        foreach (var (name, value) in new Dictionary<string, string>
+        {
+            ["ROLEBAND_STATE_DIR"] = State, ["ROLEBAND_PGDATA"] = Path.Combine(State, "db"),
+            ["ROLEBAND_CACHE_DIR"] = Path.Combine(State, "cache"), ["ROLEBAND_PLUGINS_DIR"] = Path.Combine(State, "plugins"),
+            ["ROLEBAND_SECRET_KEY_FILE"] = Path.Combine(State, "secret.key"), ["ROLEBAND_DATABASE_URL"] = "",
+            ["ROLEBAND_DB_EMBEDDED"] = "true", ["ROLEBAND_API_HOST"] = "127.0.0.1",
+            ["ROLEBAND_API_PORT"] = AvailablePort().ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["ROLEBAND_LOCAL_AUTH"] = "1", ["PYTHONUTF8"] = "1", ["PYTHONNOUSERSITE"] = "1",
+            ["PYTHONDONTWRITEBYTECODE"] = "1",
+        }) start.Environment[name] = value;
+        if (Development || SyntheticFixture)
+        {
+            start.Environment["ROLEBAND_NO_USAGE_STATS"] = "1";
+            start.Environment["ROLEBAND_SEARCH_SEMANTIC_ENABLED"] = "false";
+            start.Environment["ROLEBAND_SEARCH_WARM_MODEL_ON_STARTUP"] = "false";
+        }
+        start.ArgumentList.Add("-I");
+        start.ArgumentList.Add("-B");
+        start.ArgumentList.Add(Bootstrap);
+        if (Development) start.ArgumentList.Add("--source");
+        foreach (var argument in arguments) start.ArgumentList.Add(argument);
+        return start;
+    }
 
     public static int AvailablePort()
     {

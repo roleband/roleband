@@ -237,4 +237,111 @@ public sealed class LifecycleTests
             Directory.EnumerateFiles(Path.Combine(engine.State, "logs")).Select(Path.GetFileName)
                 .Where(name => name!.StartsWith("desktop", StringComparison.Ordinal)).ToArray());
     }
+
+    private sealed class RecordingCommands(Func<bool> engineRunning, params (string Action, string Answer)[] answers) : IUpdateCommands
+    {
+        public List<string> Calls { get; } = [];
+        public List<bool> EngineRunningAt { get; } = [];
+
+        public Task<JsonElement> RunAsync(IReadOnlyList<string> arguments, CancellationToken cancellation)
+        {
+            Calls.Add(string.Join(' ', arguments));
+            EngineRunningAt.Add(engineRunning());
+            var answer = answers.FirstOrDefault(item => item.Action == arguments[0]).Answer ?? "{}";
+            using var document = JsonDocument.Parse(answer);
+            return Task.FromResult(document.RootElement.Clone());
+        }
+    }
+
+    private sealed class RecordingDeployer(Exception? failure = null) : IPackageDeployer
+    {
+        public List<string> Packages { get; } = [];
+
+        public Task AddAsync(string package, CancellationToken cancellation)
+        {
+            Packages.Add(package);
+            return failure is null ? Task.CompletedTask : Task.FromException(failure);
+        }
+    }
+
+    private const string Package = @"C:\state\packages\RoleBand-0.9.0-Windows-x64.msix";
+
+    [TestMethod]
+    public async Task AnUpdateIsJournaledOnlyAfterTheEngineStoppedAndThenSwitched()
+    {
+        var engine = new StandIn("ready");
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        await session.StartAsync();
+        await Until(() => session.Snapshot.State == EngineState.Ready, TimeSpan.FromSeconds(90), "Ready");
+        var commands = new RecordingCommands(() => session.OwnsEngine, ("begin", """{"phase": "applying"}"""));
+        var deployer = new RecordingDeployer();
+        await new UpdateCoordinator(commands, deployer).ApplyAsync(session, Package);
+        CollectionAssert.AreEqual(new[] { "begin --package " + Package }, commands.Calls);
+        CollectionAssert.AreEqual(new[] { false }, commands.EngineRunningAt);
+        CollectionAssert.AreEqual(new[] { Package }, deployer.Packages);
+        Assert.AreEqual("exited", engine.Events().Last());
+    }
+
+    [TestMethod]
+    public async Task ARefusedJournalNeverSwitchesThePackage()
+    {
+        var engine = new StandIn("ready");
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        var commands = new RecordingCommands(() => session.OwnsEngine,
+            ("begin", """{"status": "refused", "reason": "The package is not a verified retained update."}"""));
+        var deployer = new RecordingDeployer();
+        var error = await Assert.ThrowsExactlyAsync<IOException>(() => new UpdateCoordinator(commands, deployer).ApplyAsync(session, Package));
+        StringAssert.Contains(error.Message, "not a verified retained update");
+        Assert.AreEqual(0, deployer.Packages.Count);
+    }
+
+    [TestMethod]
+    public async Task ASwitchWindowsRefusedIsRecordedAsNeverHappened()
+    {
+        var engine = new StandIn("ready");
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        var commands = new RecordingCommands(() => session.OwnsEngine, ("begin", """{"phase": "applying"}"""),
+            ("resume", """{"phase": "aborted"}"""));
+        var deployer = new RecordingDeployer(new IOException("0x80073CF3 package conflict"));
+        await Assert.ThrowsExactlyAsync<IOException>(() => new UpdateCoordinator(commands, deployer).ApplyAsync(session, Package));
+        CollectionAssert.AreEqual(new[] { "begin --package " + Package, "resume" }, commands.Calls);
+    }
+
+    [TestMethod]
+    public async Task TheNewVersionCompletesTheUpdateOnceItIsReady()
+    {
+        var engine = new StandIn("ready");
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        var commands = new RecordingCommands(() => session.OwnsEngine, ("resume", """{"phase": "preparing"}"""),
+            ("settle", """{"phase": "complete"}"""));
+        var phase = await new UpdateCoordinator(commands, new RecordingDeployer()).StartAsync(session);
+        Assert.AreEqual("complete", phase);
+        Assert.AreEqual(EngineState.Ready, session.Snapshot.State);
+        CollectionAssert.AreEqual(new[] { "resume", "settle --prepared yes" }, commands.Calls);
+        CollectionAssert.AreEqual(new[] { false, true }, commands.EngineRunningAt, "resume runs before the engine starts");
+    }
+
+    [TestMethod]
+    public async Task ANewVersionThatCannotPrepareMarksTheUpdateFailed()
+    {
+        var engine = new StandIn("prepare-fail");
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        var commands = new RecordingCommands(() => session.OwnsEngine, ("resume", """{"phase": "preparing"}"""),
+            ("settle", """{"phase": "failed"}"""));
+        var phase = await new UpdateCoordinator(commands, new RecordingDeployer()).StartAsync(session);
+        Assert.AreEqual("failed", phase);
+        Assert.IsTrue(session.PreparationFailed);
+        CollectionAssert.AreEqual(new[] { "resume", "settle --prepared no" }, commands.Calls);
+    }
+
+    [TestMethod]
+    public async Task AnOrdinaryStartSettlesNothing()
+    {
+        var engine = new StandIn("ready");
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        var commands = new RecordingCommands(() => session.OwnsEngine, ("resume", """{"phase": "complete"}"""));
+        Assert.AreEqual("complete", await new UpdateCoordinator(commands, new RecordingDeployer()).StartAsync(session));
+        CollectionAssert.AreEqual(new[] { "resume" }, commands.Calls);
+        await session.StopAsync();
+    }
 }

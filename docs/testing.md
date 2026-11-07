@@ -37,7 +37,11 @@ and automatic recovery after terminating their owned engine. `LifecycleTests` dr
 the session against a stand-in engine process built from the engine's own record,
 discovery and health code: one stop request per engine, a preserved engine and lease
 when a stop is not confirmed, one-click retry after failed preparation, the restart
-limit, recycled process IDs, and a timestamped host log with one rotated copy. Build the actual
+limit, recycled process IDs, and a timestamped host log with one rotated copy. The same
+stand-in drives `UpdateCoordinator` with recording package-manager and command stand-ins:
+an update is journaled only after the engine stopped, a refused journal never switches the
+package, a switch Windows refuses is resumed as never happened, and the new version settles
+the update by its preparation; the real package switch needs an installed trial. Build the actual
 window with `dotnet build launcher/windows/RoleBand.App -p:Platform=x64` and
 check Start, Open, Stop and window closing on Windows. Check generated native
 copy with `node dashboard/scripts/export-launcher-copy.mjs --windows --check`.

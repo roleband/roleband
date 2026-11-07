@@ -27,6 +27,13 @@ to start; `preparing` is allowed, since the engine lease keeps a second engine o
 damaged journal is refused and preserved. `desktop.py update begin|resume|settle` writes it;
 nothing else does.
 
+The native host's `UpdateCoordinator` drives it. To apply, it stops the engine, has the
+journal begun, registers the app for restart and asks Windows' package manager to replace
+the package with app shutdown forced; if Windows refuses, it resumes the journal, which
+records `aborted`. Every Start resumes the journal before the engine starts; when that run
+is the new version, Ready settles the update `complete`, and a failed database preparation
+settles it `failed`. Other trouble leaves it `preparing` for the next start.
+
 ## Consequences
 
 A crash or power loss at any point leaves a journal the next start can read, and the
