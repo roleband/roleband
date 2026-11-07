@@ -22,8 +22,35 @@ def digest(path):
         return hashlib.file_digest(source, "sha256").hexdigest()
 
 
+#: What the bundle copies from the checkout besides the dashboard build.
+ENGINE_SOURCES = ("backend/tracker", "backend/alembic", "backend/constraints", "backend/scripts",
+                  "backend/desktop.py", "backend/alembic.ini")
+
+
 def run(*arguments, cwd=ROOT, env=None):
     subprocess.run([str(value) for value in arguments], cwd=cwd, env=env, check=True)
+
+
+def git(root, *arguments):
+    return subprocess.check_output(["git", *arguments], cwd=root, text=True)
+
+
+def clean_revision(root):
+    """The commit a trial is built from, refusing any file that commit does not hold.
+
+    A bundle is traceable only if every copied byte is in the commit: tracked edits,
+    untracked files and ignored files inside the copied sources would all ship unrecorded.
+    """
+    dirty = git(root, "status", "--porcelain", "--untracked-files=all").splitlines()
+    if dirty:
+        raise ValueError("Commit or remove local changes before assembling a trial: " + ", ".join(dirty[:5]))
+    stray = [line for line in git(root, "status", "--porcelain", "--ignored=matching", "--untracked-files=all",
+                                  "--", *ENGINE_SOURCES).splitlines()
+             if not line.rstrip("/").endswith(("__pycache__", ".pyc"))]
+    if stray:
+        raise ValueError("Remove ignored files from the engine sources before assembling a trial: "
+                         + ", ".join(stray[:5]))
+    return git(root, "rev-parse", "HEAD").strip()
 
 
 def assemble(destination, cache, trial_id=None):
@@ -32,9 +59,10 @@ def assemble(destination, cache, trial_id=None):
     destination, cache = destination.resolve(), cache.resolve()
     if destination.exists() or destination.is_relative_to(ROOT) or ROOT.is_relative_to(destination):
         raise ValueError("Choose a new trial destination outside the checkout")
+    revision = clean_revision(ROOT)
+    # Built here, from the clean commit, so the bundled dashboard is that commit's.
+    run(shutil.which("npm") or "npm", "run", "build", cwd=ROOT / "dashboard")
     dashboard = ROOT / "dashboard/dist"
-    if not (dashboard / "index.html").is_file():
-        raise ValueError("Build the dashboard before assembling a trial")
     pin = json.loads((ROOT / "launcher/windows/runtime.json").read_text())
     cache.mkdir(parents=True, exist_ok=True)
     archive = cache / f"cpython-{pin['python']}-windows-x64-{pin['sha256'][:16]}.tar.gz"
@@ -82,9 +110,9 @@ def assemble(destination, cache, trial_id=None):
         env.pop(name, None)
     # Installing a checked extension only writes immutable runtime resources.
     run(python, "-m", "scripts.install_pg_contrib", cwd=engine, env=env)
-    revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-    dirty = subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True).splitlines()
-    metadata = {**pin, "version": version, "source_revision": revision, "dirty_paths": dirty,
+    if clean_revision(ROOT) != revision:
+        raise ValueError("The checkout changed during assembly; assemble again from one commit")
+    metadata = {**pin, "version": version, "source_revision": revision, "dirty_paths": [],
                 "requirements_sha256": digest(ROOT / "backend/requirements.txt"),
                 "runtime_lock_sha256": digest(runtime_lock), "trial_only": True, "trial_id": (trial_id or uuid.uuid4()).hex}
     (resources / "trial.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")

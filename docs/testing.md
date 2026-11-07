@@ -41,7 +41,10 @@ limit, recycled process IDs, and a timestamped host log with one rotated copy. B
 window with `dotnet build launcher/windows/RoleBand.App -p:Platform=x64` and
 check Start, Open, Stop and window closing on Windows. Check generated native
 copy with `node dashboard/scripts/export-launcher-copy.mjs --windows --check`.
-MSIX packing alone does not prove installation, retention or package recovery.
+Packaging tool changes run `python -m unittest discover -s launcher/windows/Tools -p "test_*.py"`:
+assembly refuses tracked edits, untracked files and ignored files in the engine
+sources, and `Package-Trial.ps1` refuses a bundle edited, extended or trimmed after
+assembly. MSIX packing alone does not prove installation, retention or package recovery.
 
 `launcher/windows/Tools/PackageContextProbe` exercises the native package-policy
 bootstrap against installed trial resources. Build it with `dotnet build`, then
