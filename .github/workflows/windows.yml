@@ -42,6 +42,7 @@ jobs:
             sdk/python/**
             robots/python/**
             launcher/windows/**
+            dashboard/package.json
             launcher/macos/Tools/ci_changes.py
             .python-version
             .github/workflows/windows.yml
