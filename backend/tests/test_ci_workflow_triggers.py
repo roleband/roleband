@@ -205,7 +205,7 @@ def test_github_glob_semantics(path, pattern, expected):
 #: The workflows a pull request is judged by. They take no `paths:` filter: a
 #: required check from a filtered workflow sits pending forever on a change the
 #: filter skips, and a re-cut of the repository must run every one of them.
-GATES = ("backend.yml", "contract-drift.yml", "dashboard.yml", "hygiene.yml", "mac-launcher.yml")
+GATES = ("backend.yml", "contract-drift.yml", "dashboard.yml", "hygiene.yml", "mac-launcher.yml", "windows.yml")
 
 
 def triggers(data: dict) -> dict:
@@ -480,7 +480,7 @@ def dashboard_code_reads(tracked: list[str]) -> set[str]:
 #: compiles the package its build names, so its steps say all it reads.
 CODE_READS = {"backend.yml": backend_code_reads, "dashboard.yml": dashboard_code_reads}
 #: The workflows that pick a single tier in a `changes` job.
-TIERED = ("backend.yml", "codeql.yml", "dashboard.yml")
+TIERED = ("backend.yml", "codeql.yml", "dashboard.yml", "windows.yml")
 
 
 def tier_inputs(name: str, tracked: list[str]) -> set[str]:

@@ -41,6 +41,11 @@ OPTIONAL_SKIPS: tuple[tuple[re.Pattern[str], str], ...] = (
         "native postmaster restart, recovery-drill, checkpoint-promotion and memory tests require Windows",
     ),
     (
+        re.compile(r"POSIX process groups and signals"),
+        "the Windows lane runs the supervisor suites; their process-group and signal "
+        "cases run in the backend lane on Linux",
+    ),
+    (
         re.compile(r"embedding model not available offline"),
         "model weights are provisioned separately and never in CI (tests/test_embed.py)",
     ),
