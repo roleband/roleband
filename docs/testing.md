@@ -207,6 +207,22 @@ migration checks and live smoke commands in the change-scoped gate still apply
 where required. The runner reports its own invocation; it does not certify the
 supervisor's preflight.
 
+On Windows, run `backend/.venv/Scripts/python.exe deploy/check_local.py windows`
+from the root. It runs the Windows functional suite, packaging tools, native host
+tests and WinUI build. The packaging tests use PowerShell 7 (`pwsh`). `--test`
+selects specific pytest files or cases instead.
+`--windows-lane checkpoints|engine|native` runs one CI lane and `--backend-workers`
+sets the pytest worker count (default four). Each run uses a short directory under
+`%SystemDrive%\rb` for PostgreSQL, native test scratch space and reports. The bundled
+PostgreSQL needs short-name aliases for non-ASCII paths. Keep scratch on a volume
+that creates them. The runner stops its throwaway clusters, releases successful
+scratch space and keeps reports and failed scratch state for diagnosis.
+
+For browser tests on Windows, start Docker Desktop in Linux container mode and use
+`backend/.venv/Scripts/python.exe deploy/check_local.py ux --docker-browsers --ux-workers 4`.
+The same source snapshot, Playwright image version and offline build and browser
+steps are used on macOS and Windows. Native Windows tests run on the host.
+
 The runner keeps logs, JUnit/JSON test results and a timing report in a new
 temporary directory outside the checkout. `--output` selects a new directory
 there. It records HEAD, tracked and untracked source content, dirty paths,
@@ -214,7 +230,8 @@ interpreter/package versions, command arguments, per-step lane, start, wall and
 CPU times, and the integration mode. A step's CPU time is its own process tree's,
 so it stays correct while the lanes overlap. Changed source or installed packages invalidate the result with exit 76;
 a failed command stops the profile and retains its evidence. CPU time sums work
-across processes and is not elapsed time. Use a frozen worktree and run one heavy
+across processes and is not elapsed time. Windows reports wall time and leaves
+per-process-tree CPU time empty. Use a frozen worktree and run one heavy
 benchmark at a time when comparing settings.
 
 `--backend-workers`, `--unit-workers` and `--ux-workers` set independent worker
@@ -420,7 +437,7 @@ misjudged.
 | `contract-drift.yml` | Every push and PR | Regenerates `openapi.json` and `api.gen.ts`, fails on any diff |
 | `hygiene.yml` | Every push and PR | `backend/scripts/check_project_name.py`, `backend/scripts/check_comment_hygiene.py`; actionlint on every workflow, with shellcheck on its `run:` steps, from its image pinned by digest |
 | `mac-launcher.yml` | Every push and PR, weekly, and each release; its jobs run only when needed | A Linux `changes` job picks the tiers. Native tier (macOS): copy export check, Swift tests, installer and release tests, install guide in Chromium and WebKit, source app build, transport test. Bundle tier (macOS, never on a PR): the dashboard and the standalone app with its engine, launched read-only, packaged as a candidate for local signing |
-| `windows.yml` | Every push and PR; a PR that changes no Windows input skips its checks | On `windows-2025`: the backend environment in `backend/.venv` from the Windows constraints and the prebuilt contrib modules; every `test_windows_*` and `test_supervisor_*` module plus the local authentication and skip-policy tests with `ROLEBAND_REQUIRE_INTEGRATION=1`, real embedded PostgreSQL and scratch state under the runner's temp folder; the packaging tool tests; the native host tests with inconclusive results counted as failures, except the bundled-engine test, which needs an assembled trial; the WinUI build. Advisory: no required check waits on it |
+| `windows.yml` | Main pushes and PRs; a PR that changes no Windows input skips its checks | On separate `windows-2025` runners: checkpoint, recovery and migration tests; remaining Windows and supervisor tests with local authentication and skip-policy tests; packaging tools, native host tests and WinUI build. Uses the local Windows runner and strict integration skips. The bundled-engine test runs when assembled trial resources are supplied. Advisory |
 | `codeql.yml` | Every push and PR, and weekly; the Swift scan only when it is needed | Code scanning with the default query suite. `actions`, `javascript-typescript` and `python` on Linux, without a build. Swift on macOS with the Xcode `mac-launcher.yml` pins, traced through a release build of the `RoleBandLauncher` product, the one `build-app.sh` ships; its `changes` job runs it when `launcher/**` or the workflow changed, and a weekly or manual run always does. Advisory: no required check waits on it |
 | `links.yml` | Markdown changes, and weekly | External links in every tracked `*.md` resolve (lychee; loopback skipped, a rate limit counts as alive). Only the weekly run fails; on a pull request it reports |
 | `vendored-provenance.yml` | Monthly, and when vendored pins change | Vendored snapshots against upstream; a notice, never a PR blocker |

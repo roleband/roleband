@@ -43,19 +43,22 @@ jobs:
             robots/python/**
             launcher/windows/**
             dashboard/package.json
+            deploy/check_local.py
             launcher/macos/Tools/ci_changes.py
             .python-version
             .github/workflows/windows.yml
         run: python3 launcher/macos/Tools/ci_changes.py
 
   checks:
-    name: windows
+    name: windows (${{ matrix.lane }})
     needs: changes
     # Runs when `changes` fails too.
-    if: ${{ !cancelled() && needs.changes.outputs.windows != 'false' }}
+    if: ${{ !cancelled() }}
     runs-on: windows-2025
-    # The functional suite starts dozens of real PostgreSQL clusters; on four hosted
-    # cores it takes most of half an hour.
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [checkpoints, engine, native]
     timeout-minutes: 60
     defaults:
       run:
@@ -67,9 +70,11 @@ jobs:
       PYTHONDONTWRITEBYTECODE: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.changes.outputs.windows != 'false'
         with:
           persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: needs.changes.outputs.windows != 'false'
         with:
           python-version-file: .python-version
           cache: pip
@@ -78,60 +83,37 @@ jobs:
             backend/requirements-dev.txt
             backend/constraints/windows-x86_64.txt
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        if: needs.changes.outputs.windows != 'false' && matrix.lane == 'native'
         with:
           dotnet-version: 10.0.x
       # The native source-engine test starts backend/.venv, as a developer checkout does.
       - name: backend environment
+        if: needs.changes.outputs.windows != 'false'
         working-directory: backend
         run: |
           python -m venv .venv
           .venv\Scripts\python.exe -m pip install -r requirements.txt -r requirements-dev.txt -c constraints/windows-x86_64.txt
           .venv\Scripts\python.exe -m pip install -e ..\robots\python
           .venv\Scripts\python.exe -m scripts.install_pg_contrib
-      # Every database-capable command reaches only this run's scratch state.
-      - name: isolated state
+      - name: check Windows lane
+        id: check
+        if: needs.changes.outputs.windows != 'false'
+        env:
+          WINDOWS_LANE: ${{ matrix.lane }}
         run: |
-          $state = Join-Path $env:RUNNER_TEMP 'rb\state'
-          "ROLEBAND_STATE_DIR=$state" >> $env:GITHUB_ENV
-          "ROLEBAND_PGDATA=$state\db" >> $env:GITHUB_ENV
-          "ROLEBAND_CACHE_DIR=$state\cache" >> $env:GITHUB_ENV
-          "ROLEBAND_PLUGINS_DIR=$state\plugins" >> $env:GITHUB_ENV
-          "ROLEBAND_SECRET_KEY_FILE=$state\secret.key" >> $env:GITHUB_ENV
-          "ROLEBAND_DATABASE_URL=" >> $env:GITHUB_ENV
-          "ROLEBAND_DB_EMBEDDED=true" >> $env:GITHUB_ENV
-          "ROLEBAND_NO_USAGE_STATS=1" >> $env:GITHUB_ENV
-      # The base temp is short, since recovery paths sit near Windows' 248-character
-      # directory limit, and on the system volume: the bundled PostgreSQL reaches a
-      # non-ASCII path only through its 8.3 alias, which other volumes may not create.
-      - name: Windows functional suite (a skip outside tests/skip_policy.py fails)
-        working-directory: backend
-        run: |
-          $files = @(Get-ChildItem tests -Filter 'test_windows_*.py') + @(Get-ChildItem tests -Filter 'test_supervisor_*.py') |
-            ForEach-Object { "tests/$($_.Name)" }
-          .venv\Scripts\python.exe -m pytest -q -rs -n 4 @files tests/test_local_http_auth.py tests/test_skip_policy.py `
-            --basetemp=C:\rbt --junitxml=test-results/windows.xml
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-      - name: packaging tool tests
-        working-directory: launcher/windows/Tools
-        run: |
-          ..\..\..\backend\.venv\Scripts\python.exe -m unittest discover -p "test_*.py"
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-      # The bundled-engine test needs an assembled trial and runs in trial acceptance;
-      # it is excluded by name so that any other inconclusive test fails the run.
-      - name: native host tests
-        run: |
-          dotnet test launcher/windows/RoleBand.EngineHost.Tests --filter "FullyQualifiedName!~BundledEngineStartsWithoutDeveloperPython" `
-            --logger "trx;LogFileName=native.trx" --results-directory backend/test-results -- MSTest.MapInconclusiveToFailed=true
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-      - name: window build
-        run: |
-          dotnet build launcher/windows/RoleBand.App -p:Platform=x64
+          $output = Join-Path "$env:SystemDrive\rb" $env:WINDOWS_LANE
+          "output=$output" >> $env:GITHUB_OUTPUT
+          .\backend\.venv\Scripts\python.exe deploy/check_local.py windows --windows-lane $env:WINDOWS_LANE --output $output
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: upload test outcomes
-        if: always()
+        if: always() && steps.check.outputs.output != ''
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: windows-test-results
-          path: backend/test-results/
+          name: windows-test-results-${{ matrix.lane }}
+          path: |
+            ${{ steps.check.outputs.output }}/*.log
+            ${{ steps.check.outputs.output }}/*.xml
+            ${{ steps.check.outputs.output }}/*.trx
+            ${{ steps.check.outputs.output }}/report.json
           if-no-files-found: ignore
           retention-days: 7

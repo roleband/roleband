@@ -39,16 +39,37 @@ def checkout(tmp_path):
 
 def test_failed_command_stops_the_profile_but_runs_cleanup(checkout):
     root, output = checkout
+    scratch = output / "t"
+    scratch.mkdir()
+    (scratch / "evidence").write_text("retain for diagnosis")
     steps = [runner.Step("fails", root, [sys.executable, "-c", "print('contract failed'); raise SystemExit(7)"]),
              runner.Step("never", root, [sys.executable, "-c", "raise AssertionError('must not run')"])]
     cleanup = runner.Step("cleanup", root, [sys.executable, "-c", "print('cleaned')"])
-    assert runner.execute(root, output, steps, dict(os.environ), cleanup=[cleanup]) == 7
+    assert runner.execute(root, output, steps, dict(os.environ), cleanup=[cleanup], discard=True) == 7
     report = json.loads((output / "report.json").read_text())
     assert [s["name"] for s in report["steps"]] == ["fails", "cleanup"]
     assert report["steps"][0]["wall_seconds"] > 0
     assert "contract failed" in (output / "fails.log").read_text()
     assert "cleaned" in (output / "cleanup.log").read_text()
     assert not report["source_changed"]
+    assert (scratch / "evidence").is_file()
+
+
+def test_a_pass_discards_readonly_scratch_and_keeps_the_report(checkout):
+    root, output = checkout
+    scratch = output / "t"
+    scratch.mkdir()
+    loose_object = scratch / "object"
+    loose_object.write_bytes(b"disposable test data")
+    loose_object.chmod(0o400)
+    try:
+        steps = [runner.Step("passing", root, [sys.executable, "-c", "print('verified')"])]
+        assert runner.execute(root, output, steps, dict(os.environ), discard=True) == 0
+        assert not scratch.exists()
+        assert json.loads((output / "report.json").read_text())["scratch_cleanup_error"] is None
+    finally:
+        if loose_object.exists():
+            loose_object.chmod(0o600)
 
 
 @pytest.mark.parametrize("path", ["source.py", "new-test.py"])
@@ -67,6 +88,21 @@ def test_unavailable_command_has_a_failed_report(checkout):
     root, output = checkout
     assert runner.execute(root, output, [runner.Step("missing", root, [str(root / "absent")])], dict(os.environ)) == 127
     assert json.loads((output / "report.json").read_text())["exit_code"] == 127
+
+
+def test_windows_ci_lanes_cover_the_full_functional_selection_once(tmp_path):
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    for name in ("test_windows_checkpoint.py", "test_windows_migration.py", "test_windows_recovery.py",
+                 "test_windows_new.py", "test_supervisor_new.py", "test_unrelated.py"):
+        (tests / name).touch()
+    checkpoints = set(runner.windows_tests(tmp_path, "checkpoints"))
+    engine = set(runner.windows_tests(tmp_path, "engine"))
+    assert checkpoints.isdisjoint(engine)
+    assert checkpoints | engine == set(runner.windows_tests(tmp_path, "all"))
+    assert "tests/test_windows_migration.py" in checkpoints
+    assert {"tests/test_windows_new.py", "tests/test_supervisor_new.py"} <= engine
+    assert "tests/test_unrelated.py" not in checkpoints | engine
 
 
 def test_a_passing_command_cannot_verify_changed_installed_packages(checkout):

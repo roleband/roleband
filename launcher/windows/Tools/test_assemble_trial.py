@@ -80,9 +80,9 @@ class PackageProvenanceTests(unittest.TestCase):
 
     def package(self):
         result = subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-File", str(PACKAGE),
+            ["pwsh", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "RemoteSigned", "-File", str(PACKAGE),
              "-Bundle", str(self.bundle), "-Destination", str(Path(self.directory.name) / "out.msix")],
-            capture_output=True, text=True)
+            check=False, capture_output=True, text=True)
         return result.stdout + result.stderr
 
     def test_an_unchanged_bundle_passes_the_provenance_check(self):
