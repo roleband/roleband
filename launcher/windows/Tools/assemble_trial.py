@@ -105,6 +105,10 @@ def assemble(destination, cache, trial_id=None):
     shutil.copyfile(ROOT / "dashboard/csp-policy.json", resources / "dashboard/csp-policy.json")
     shutil.copyfile(ROOT / "CHANGELOG.md", resources / "CHANGELOG.md")
     shutil.copyfile(ROOT / "LICENSE", resources / "LICENSE")
+    # The update identity this build trusts; without one, the build never offers an update.
+    identity = ROOT / "launcher/windows/release-identity.json"
+    if identity.is_file():
+        shutil.copyfile(identity, resources / "release-identity.json")
     env = dict(os.environ, PYTHONPATH=str(engine), PYTHONDONTWRITEBYTECODE="1", ROLEBAND_PACKAGED="1")
     for name in ("ROLEBAND_DATABASE_URL", "ROLEBAND_PGDATA", "ROLEBAND_STATE_DIR", "ROLEBAND_CACHE_DIR", "ROLEBAND_PLUGINS_DIR"):
         env.pop(name, None)

@@ -25,15 +25,29 @@ downloaded package must match the signed digest and size before it is applied. V
 runs in `tracker/platform/windows_release.py`; `launcher/windows/Tools/release.py` writes
 and checks release folders.
 
-Trial packages trust a trial key and feed; production keys stay on the Mac.
+Trial packages trust a trial key and feed; production keys stay on the Mac. A build
+without an identity never asks a feed.
+
+Checking follows the Mac's contract. Nothing is requested before an explicit choice,
+recorded with the words shown and their language. Automatic checks stay off until enabled
+and run at most once a day, failed attempts included; a manual check authorizes one
+request. A 403 or 429 delays every check by at least a minute, or until the quota resets.
+The listing must be the feed's published, stable latest release; it is read without
+redirects, credentials or cookies and bounded to 256 KiB. Its three small release files
+are fetched from the feed's download path, following at most five redirects and only to
+`release-assets.githubusercontent.com` or the same path. A failed check keeps the last
+verified offer, and a verified offer is never replaced by an older listing.
+`tracker/platform/windows_updates.py` implements it; `desktop.py update consent|check`
+is how the native host uses it.
 
 ## Consequences
 
 A compromised certificate alone cannot push an update, and a correctly signed release for
 another platform, package, publisher or feed is refused. Changing the release key needs a
-release signed with the current one whose identity names the next. Release tooling for
-publication and the update check itself are separate steps. `tests/test_windows_release.py`
-and `launcher/windows/Tools/test_release.py` hold the contract.
+release signed with the current one whose identity names the next. Publication tooling,
+downloading and applying a package are separate steps. `tests/test_windows_release.py`,
+`tests/test_windows_updates.py` and `launcher/windows/Tools/test_release.py` hold the
+contract.
 
 ## Alternatives considered
 

@@ -278,6 +278,7 @@ files = [
     "tracker/platform/windows_leases.py",
     "tracker/platform/windows_migration.py",
     "tracker/platform/windows_release.py",
+    "tracker/platform/windows_updates.py",
     "tracker/platform/windows_private.py",
     "tracker/platform/windows_checkpoint.py",
     "tracker/platform/windows_recovery.py",
