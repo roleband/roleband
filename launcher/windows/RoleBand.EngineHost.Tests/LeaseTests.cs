@@ -128,14 +128,7 @@ public sealed class LeaseTests
         var root = Scratch();
         var installed = Path.Combine(root, "installed");
         Directory.CreateDirectory(installed);
-        var trial = Path.Combine(root, "trial");
-        var mklink = new ProcessStartInfo("cmd.exe") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true };
-        foreach (var argument in new[] { "/c", "mklink", "/J", trial, installed }) mklink.ArgumentList.Add(argument);
-        using (var made = Process.Start(mklink) ?? throw new IOException("mklink did not start."))
-        {
-            made.WaitForExit();
-            Assert.AreEqual(0, made.ExitCode, "the junction was made");
-        }
+        var trial = Junction(Path.Combine(root, "trial"), installed);
         try
         {
             Assert.IsTrue(EngineConfiguration.LeadsInto(Path.Combine(trial, "state", "not-yet"), installed), "the junction is followed");
@@ -148,5 +141,52 @@ public sealed class LeaseTests
             // Removing the junction itself leaves the folder it points to alone.
             Directory.Delete(trial);
         }
+    }
+
+    [TestMethod]
+    public void ALongPathThroughAJunctionIsResolvedInFull()
+    {
+        var root = Scratch();
+        var installed = Path.Combine(root, "installed");
+        // Past MAX_PATH and past the first buffer GetFinalPathNameByHandle is offered.
+        var deep = Path.Combine(Enumerable.Repeat(new string('d', 120), 10).ToArray());
+        Directory.CreateDirectory(Path.Combine(installed, deep));
+        var trial = Junction(Path.Combine(root, "trial"), installed);
+        try
+        {
+            Assert.IsTrue(EngineConfiguration.LeadsInto(Path.Combine(trial, deep, "state"), installed));
+            Assert.IsFalse(EngineConfiguration.LeadsInto(Path.Combine(trial, deep, "state"), Path.Combine(root, "elsewhere")));
+        }
+        finally
+        {
+            Directory.Delete(trial);
+        }
+    }
+
+    [TestMethod]
+    public void AJunctionThatLeadsNowhereIsRefusedRatherThanTakenAsWritten()
+    {
+        var root = Scratch();
+        Directory.CreateDirectory(root);
+        var installed = Path.Combine(root, "installed");
+        var trial = Junction(Path.Combine(root, "trial"), installed);
+        try
+        {
+            Assert.ThrowsExactly<IOException>(() => EngineConfiguration.LeadsInto(Path.Combine(trial, "state"), installed));
+        }
+        finally
+        {
+            Directory.Delete(trial);
+        }
+    }
+
+    private static string Junction(string link, string target)
+    {
+        var mklink = new ProcessStartInfo("cmd.exe") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true };
+        foreach (var argument in new[] { "/c", "mklink", "/J", link, target }) mklink.ArgumentList.Add(argument);
+        using var made = Process.Start(mklink) ?? throw new IOException("mklink did not start.");
+        made.WaitForExit();
+        Assert.AreEqual(0, made.ExitCode, "the junction was made");
+        return link;
     }
 }

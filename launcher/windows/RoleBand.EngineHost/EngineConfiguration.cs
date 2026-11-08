@@ -70,7 +70,8 @@ public sealed record EngineConfiguration(string Resources, string State, string 
     public static bool LeadsInto(string path, string root) => Within(FinalPath(path), FinalPath(root));
 
     /// <summary>The path with its longest existing part resolved through junctions and links by Windows itself, and
-    /// the parts that do not exist yet appended as written.</summary>
+    /// the parts that do not exist yet appended as written. An existing part Windows cannot resolve is an
+    /// <see cref="IOException"/>: its text as written could hide where it leads.</summary>
     public static string FinalPath(string path)
     {
         var full = Path.GetFullPath(path);
@@ -81,17 +82,37 @@ public sealed record EngineConfiguration(string Resources, string State, string 
             if (parent is null) return full;
             existing = parent;
         }
-        // Zero access with backup semantics opens a directory just to name it.
-        using var handle = CreateFile(existing, 0, 7, 0, 3, 0x02000000, 0);
-        if (handle.IsInvalid) return full;
-        var buffer = new StringBuilder(1024);
-        var length = GetFinalPathNameByHandle(handle, buffer, (uint)buffer.Capacity, 0);
-        if (length == 0 || length >= buffer.Capacity) return full;
-        var resolved = buffer.ToString();
-        resolved = resolved.StartsWith(@"\\?\UNC\", StringComparison.Ordinal) ? @"\\" + resolved[8..]
-            : resolved.StartsWith(@"\\?\", StringComparison.Ordinal) ? resolved[4..] : resolved;
+        var resolved = Resolved(existing) ?? throw new IOException($"Where {existing} leads could not be resolved.");
         return Path.Join(resolved, full[existing.Length..]);
     }
+
+    private static string? Resolved(string existing)
+    {
+        // Zero access with backup semantics opens a directory just to name it; the extended form opens one past
+        // MAX_PATH whether or not long paths are enabled.
+        using var handle = CreateFile(Extended(existing), 0, 7, 0, 3, 0x02000000, 0);
+        if (handle.IsInvalid) return null;
+        // A buffer too small is answered with the size the name needs, which can change before the next call.
+        uint size = 1024;
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            var buffer = new StringBuilder((int)size);
+            var length = GetFinalPathNameByHandle(handle, buffer, size, 0);
+            if (length == 0) return null;
+            if (length < size) return Plain(buffer.ToString());
+            size = length;
+        }
+        return null;
+    }
+
+    private static string Extended(string path) =>
+        path.StartsWith(@"\\?\", StringComparison.Ordinal) || path.StartsWith(@"\\.\", StringComparison.Ordinal) ? path
+        : path.StartsWith(@"\\", StringComparison.Ordinal) ? @"\\?\UNC\" + path[2..]
+        : @"\\?\" + path;
+
+    private static string Plain(string path) =>
+        path.StartsWith(@"\\?\UNC\", StringComparison.Ordinal) ? @"\\" + path[8..]
+        : path.StartsWith(@"\\?\", StringComparison.Ordinal) ? path[4..] : path;
 
     [DllImport("kernel32.dll", EntryPoint = "CreateFileW", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern SafeFileHandle CreateFile(string name, uint access, uint share, nint security, uint disposition, uint flags, nint template);
