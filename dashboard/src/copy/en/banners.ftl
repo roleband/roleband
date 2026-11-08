@@ -1,14 +1,14 @@
 ## Desktop banners. Existing wording moved verbatim; editorial review pending.
 # kind=status
-banner-db-down = Database unreachable: attempted restart
+banner-db-down = RoleBand couldn't reach its database and is restarting it.
 # kind=status
-banner-api-down = API health check failed: restarted it
+banner-api-down = RoleBand's background service stopped responding and is restarting.
 # kind=status
 banner-stuck-runs = Cleared scans that had stalled
 # kind=status
-banner-stale-data = Job data is stale: started the scan scheduler
+banner-stale-data = Your radar is out of date, so a scan is queued.
 # kind=status
-banner-derivations-stale = Derived data is stale: a statistics pass has not run recently
+banner-derivations-stale = Some role details are out of date. The next scan updates them.
 # kind=status
 banner-backup-stale = No fresh database backup. Check data/logs/backup.log
 # kind=status
