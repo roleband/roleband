@@ -51,7 +51,7 @@ ai-assistants-card-off-nothing-leaves-this-computer = { $choice ->
     [yes] 发送给你连接的应用 · 使用你自己的账户
    *[no] 关闭 · 不会有任何内容离开这台电脑
 }
-ai-assistants-card-clipboard-access-was-blocked-select = 剪贴板访问被阻止。请选中文本并手动复制。
+ai-assistants-card-clipboard-access-was-blocked-select = 无法复制。请选中文本后自行复制。
 ai-assistants-card-copy = { $choice ->
     [yes] 已复制
    *[no] 复制
@@ -337,11 +337,11 @@ ai-origin-this-mac = 在这台 Mac 上：本地模型服务器
 ai-origin-cloud = 已发送到云端提供商
 ai-self-test-prefiltered = 文本中没有发现薪酬信息，因此没有调用模型；大多数{ -posting(num: "other") }都是这样处理的。
 ai-self-test-model-failed = 模型没有返回可用的回答（{ $failure }）。
-ai-local-test-max-tokens = 模型在完成回答前达到了 max_tokens 上限。
+ai-local-test-max-tokens = 回答在达到“最大 token 数”时被截断。请调高后再测试。
 ai-local-test-succeeded = 模型发现和聊天补全均成功。
 ai-local-server-action-failed = { $action ->
-    [start] oMLX 启动失败。
-   *[stop] oMLX 停止失败。
+    [start] 无法启动模型服务器。请重试。
+   *[stop] 无法停止模型服务器。请重试。
 }
 
 ## 本地服务器响应时的状态

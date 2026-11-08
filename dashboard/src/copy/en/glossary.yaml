@@ -62,4 +62,5 @@ next_steps: ["Try again.", "Try again when the scan ends.", "Try again when it e
   "Fix them and try again.", "Turn it on in Settings › AI.", "Add one in Settings › AI.",
   "Turn it off in Settings › Plugins.",
   "Change it under Decided.", "Check it in your Tiingo account and try again.",
-  "Mark it Withdrawn instead."]
+  "Mark it Withdrawn instead.",
+  "Select the text and copy it yourself."]

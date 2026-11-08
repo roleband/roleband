@@ -302,15 +302,18 @@ describe("the register's visibility queue", () => {
     expect(screen.getByTestId("error")).toHaveTextContent("");
   });
 
-  it("reports a failure that nothing follows", async () => {
+  it("ends a failure that nothing explains with the next step", async () => {
     await mount();
 
     await click("Hide Google");
     await server.fail(0, new Error("visibility write exploded"));
 
-    // A failure that explains nothing says the sentence alone, never its English.
+    // Nothing explains it, so the sentence names the row and says to try again,
+    // never the error's English.
     await waitFor(() =>
-      expect(screen.getByTestId("error")).toHaveTextContent("Couldn't hide Google from your radar."),
+      expect(screen.getByTestId("error").textContent).toBe(
+        `${msg("companies-data-visibility-failed", { visibility: "hidden", company: "Google" })} ${msg("companies-add-more-companies-try-again")}`,
+      ),
     );
     expect(screen.getByTestId("error")).not.toHaveTextContent("exploded");
     expect(screen.getByTestId("busy")).toHaveTextContent("");
@@ -568,12 +571,14 @@ describe("a write failure", () => {
     await mount();
 
     await click("Hide Google");
-    await server.fail(0, new ApiError("'google' is already tracked", 409, "company-conflict"));
+    await server.fail(0, new ApiError("'google' is not a tracked company", 404, "company-not-found"));
 
-    await waitFor(() => expect(screen.getByTestId("error")).toHaveTextContent(
-      `Couldn't hide Google from your radar. ${msg("error-company-conflict")}`,
+    // A why replaces the fallback: one that offers no next step (the company
+    // is gone) is not followed by a retry that cannot work.
+    await waitFor(() => expect(screen.getByTestId("error").textContent).toBe(
+      `${msg("companies-data-visibility-failed", { visibility: "hidden", company: "Google" })} ${msg("error-company-not-found")}`,
     ));
-    expect(screen.getByTestId("error")).not.toHaveTextContent("already tracked");
+    expect(screen.getByTestId("error")).not.toHaveTextContent("not a tracked company");
   });
 });
 

@@ -87,8 +87,8 @@ ai-assistants-card-off-nothing-leaves-this-computer = { $choice ->
     [yes] sent to the apps you connect · your own account
    *[no] off · nothing leaves this computer
 }
-# kind=error wording=as-is
-ai-assistants-card-clipboard-access-was-blocked-select = Clipboard access was blocked. Select the text and copy it manually.
+# kind=error
+ai-assistants-card-clipboard-access-was-blocked-select = Couldn't copy. Select the text and copy it yourself.
 # kind=label wording=as-is
 ai-assistants-card-copy = { $choice ->
     [yes] Copied
@@ -574,14 +574,14 @@ ai-origin-cloud = Sent to a cloud provider
 ai-self-test-prefiltered = No compensation found in the text, so no model call was made. This is what the pipeline does for most postings.
 # kind=sentence wording=as-is
 ai-self-test-model-failed = The model did not return a usable response ({ $failure }).
-# kind=sentence wording=as-is
-ai-local-test-max-tokens = The model reached max_tokens before completing its response.
+# kind=sentence note="Max tokens is the field's label in the same dialog"
+ai-local-test-max-tokens = The answer was cut off at Max tokens. Raise it and test again.
 # kind=sentence wording=as-is
 ai-local-test-succeeded = Model discovery and chat completion succeeded.
-# kind=sentence
+# kind=error
 ai-local-server-action-failed = { $action ->
-    [start] oMLX start failed.
-   *[stop] oMLX stop failed.
+    [start] Couldn't start the model server. Try again.
+   *[stop] Couldn't stop the model server. Try again.
 }
 
 ## The local server's state when it answers.
