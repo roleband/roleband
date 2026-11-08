@@ -50,7 +50,7 @@ MESSAGES = {
     "notif-gone-quiet": lambda a: "No news from "+_f(a["company"])+" in "+_f(a["days"])+" days",
     "notif-gone-quiet-body": lambda a: _f(a["title"])+" ("+_f(a["stage"])+"): time to follow up, or set a date",
     "notif-listed": lambda a: _f(a["company"])+" listed a role you saved",
-    "notif-listed-again": lambda a: _f(a["company"])+" listed again a role you saved",
+    "notif-listed-again": lambda a: _f(a["company"])+" posted a role you saved again",
     "notif-no-next-action": lambda a: "No next action set",
     "notif-offline": lambda a: ("This machine had no internet connection while scanning: "+_f(a["sources"])+". What was found is saved, and it is still due, so the next scan picks it up." if _se(a["count"],"one") else "This machine had no internet connection while scanning: "+_f(a["sources"])+". What was found is saved, and they are still due, so the next scan picks them up."),
     "notif-overdue": lambda a: _f(a["days"])+"d overdue",

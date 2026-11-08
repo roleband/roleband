@@ -43,7 +43,6 @@
 .scope-rail-card { padding: var(--app-space-3); border: 1px solid var(--app-border); border-radius: var(--app-radius-lg); background: var(--app-surface); }
 .scope-impact-value.positive { color: var(--app-positive); }
 .scope-impact-value.negative { color: var(--app-danger); }
-.scope-guide-trigger:hover { border-color: var(--app-border-strong); background: var(--app-surface-hover); color: var(--app-text); }
 .scope-notice { margin: 10px 12px; padding: 9px 11px; border: 1px solid var(--app-warning); border-radius: 8px; color: var(--app-warning); background: var(--app-surface-sunken); font-size: var(--app-type-label); }
 .scope-notice.bad { border-color: var(--app-danger); color: var(--app-danger); }
 /* On the page itself, not inside a card: it lines up with the column it heads. */
@@ -64,8 +63,6 @@
 .scope-action-card .scope-impact-value { font-size: 17px; }
 .scope-action-card .ui-btn-primary { width: 100%; }
 .scope-save-confirmation { padding: 10px 12px; border: 1px solid var(--app-positive-line); border-radius: 10px; background: color-mix(in srgb, var(--app-positive) 8%, transparent); color: var(--app-positive); font-size: 11.5px; }
-.scope-guide-trigger { min-height: 40px; width: 100%; display: flex; align-items: center; gap: 9px; color: var(--app-text-muted); text-align: left; cursor: pointer; transition: color var(--app-duration-fast), border-color var(--app-duration-fast), background var(--app-duration-fast); }
-.scope-guide-trigger svg { flex: none; }
 /* The dock, border, surface, shadow and slide-in are `ui/Sheet` right-docked;
    the padding is this panel's own reading measure. */
 .scope-guide-sheet { padding: 26px; }

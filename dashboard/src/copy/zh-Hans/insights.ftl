@@ -382,7 +382,7 @@ insights-velocity-panel-more-already-listed-when-their = 另有 { $first_scan } 
 insights-velocity-panel-net-flow = 净流动
 insights-velocity-panel-opened-closed = 新增 − 关闭
 insights-velocity-panel-how-to-read-hiring-flow = 如何解读招聘流动
-insights-velocity-panel-what-time-posted-measures = 发布时长衡量的是什么
+insights-velocity-panel-what-time-posted-measures = “发布时长”衡量的是什么
 
 ## features/statistics/ageCopy.ts
 insights-age-copy-listed-today = 今天发布

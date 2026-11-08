@@ -51,7 +51,7 @@ export function ProfileView({
      gold. A `data-material` here would need its stylesheet loaded by this
      chunk, or the page would change colour whenever another chunk loads it. */
 
-  const actions = tab === "direction" ? <ScopeGuideButton variant="walk" compact /> : undefined;
+  const actions = tab === "direction" ? <ScopeGuideButton /> : undefined;
 
   return (
     <SettingsDesignSystemRoot>
