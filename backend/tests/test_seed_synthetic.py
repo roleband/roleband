@@ -118,12 +118,19 @@ async def test_a_trial_is_seeded_on_its_first_start_only(db_session):
 
 
 @pytest.mark.asyncio
-async def test_a_trial_that_already_holds_synthetic_postings_is_not_seeded_again(db_session):
+@pytest.mark.parametrize("postings", ["kept", "removed"])
+async def test_a_trial_seeded_without_the_record_is_not_seeded_again(db_session, postings):
+    """A database `seed` filled has no record of a trial's seeding; its user's bands stay, whether
+    or not its postings are still there."""
     await seed(db_session, _COUNT, seed_value=1, derived=False)
     await set_enabled_bands(db_session, ["mid"])
+    if postings == "removed":
+        await clear(db_session)
+    scans = await db_session.scalar(select(func.count()).select_from(ScrapeRun))
 
-    assert await seed_trial(db_session) == _COUNT
+    assert await seed_trial(db_session) == (_COUNT if postings == "kept" else 0)
     assert await get_enabled_bands(db_session) == {"mid"}
+    assert await db_session.scalar(select(func.count()).select_from(ScrapeRun)) == scans
     await clear(db_session)
     assert await seed_trial(db_session) == 0
     assert await get_enabled_bands(db_session) == {"mid"}

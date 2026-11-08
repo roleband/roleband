@@ -59,12 +59,17 @@ from tracker.blueprint import BLUEPRINT
 from tracker.comp_providers.static import StaticCompProvider
 from tracker.company_store import ensure_builtins, ensure_source_bindings
 from tracker.config import get_settings
-from tracker.db.models import Job, ScrapeRun
+from tracker.db.models import AppSetting, Job, ScrapeRun
 from tracker.db.session import session_scope
 from tracker.enrich.comp import CompResolver
 from tracker.enrich.enricher import annotate, build_enriched
 from tracker.schema import RawJob, WorkplaceType
-from tracker.settings_store import get_setting_dict, set_enabled_bands, set_setting_dict
+from tracker.settings_store import (
+    ENABLED_BANDS_KEY,
+    get_setting_dict,
+    set_enabled_bands,
+    set_setting_dict,
+)
 from tracker.workflows.collection_types import (
     ScanMode,
     SourceCollection,
@@ -310,14 +315,24 @@ async def seed_trial(session) -> int:
     seeding again would put the radar's bands back to the seeded ones and record
     another synthetic scan over what the user changed since. The seeding is
     recorded in its own setting, written in the same transaction, so removing
-    the postings does not bring it back; a database that already holds synthetic
-    postings counts as seeded.
+    the postings does not bring it back. A database without the record that is
+    already in use gets the record without a seed.
     """
     if await get_setting_dict(session, TRIAL_SEEDED_KEY) is None:
-        if not await _synthetic_job_count(session):
+        if not await _in_use(session):
             await seed(session, 12, seed_value=20261105, derived=False)
         await set_setting_dict(session, TRIAL_SEEDED_KEY, {"seeded": True})
     return await _synthetic_job_count(session)
+
+
+async def _in_use(session) -> bool:
+    """Whether a database holds anything a seed would have left or a user saved:
+    synthetic postings, a scan (removing postings keeps their runs), or saved bands."""
+    if await _synthetic_job_count(session):
+        return True
+    if await session.scalar(select(func.count()).select_from(ScrapeRun)):
+        return True
+    return await session.get(AppSetting, ENABLED_BANDS_KEY) is not None
 
 
 async def clear(session) -> int:
