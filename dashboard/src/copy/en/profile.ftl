@@ -444,11 +444,11 @@ profile-summary-step-counting-the-roles-in = Counting the roles in { $pendingPla
 profile-summary-step-save-to-count-the-roles = Save to count the roles in { $pendingPlaces }.
 # kind=label wording=as-is
 profile-summary-step-add-your-cv = Add your CV
-# kind=label same-as=profile-scope-guide-career-track
+# kind=label
 profile-summary-step-role = Career track
-# kind=label same-as=profile-scope-guide-location
+# kind=label
 profile-summary-step-where = Location
-# kind=label same-as=profile-scope-guide-discipline
+# kind=label
 profile-summary-step-which-roles = Discipline
 # kind=label
 profile-summary-step-interests = World
