@@ -681,23 +681,23 @@ settings-plan-still-learning-when-your-computer = Still learning when your compu
 settings-plan-learned-every-day = Learned from the last { $days } days: your computer is { $usual ->
         [all] on all day
         [off] usually off
-       *[set] on { $times }
+       *[set] from { $times }
     } every day.
 # kind=sentence note="The learned hours when weekdays and weekends differ; weekdays and weekends = all (on all day), off (usually off) or set (on the times in weekdayTimes or weekendTimes)"
 settings-plan-learned-weekdays-weekends = Learned from the last { $days } days: your computer is { $weekdays ->
         [all] on all day
         [off] usually off
-       *[set] on { $weekdayTimes }
+       *[set] from { $weekdayTimes }
     } on weekdays and { $weekends ->
         [all] on all day
         [off] usually off
-       *[set] on { $weekendTimes }
+       *[set] from { $weekendTimes }
     } at weekends.
 # kind=sentence note="The learned hours when only weekdays or only weekends were seen; usual = all (on all day), off (usually off) or set (on the times in times)"
 settings-plan-learned = Learned from the last { $days } days: your computer is { $usual ->
         [all] on all day
         [off] usually off
-       *[set] on { $times }
+       *[set] from { $times }
     }.
 # kind=sentence note="The learned hours when the computer was not seen on; days = how many days it learned from"
 settings-plan-learned-unseen = Learned from the last { $days } days: your computer is not seen on yet.

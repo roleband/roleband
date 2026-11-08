@@ -584,7 +584,7 @@ role-apply-ask-written-answers = { $count ->
    *[other] { $count } written answers
 }
 # kind=toast
-role-apply-ask-asks-your-expected-pay = asks your expected compensation
+role-apply-ask-asks-your-expected-pay = asks for your expected compensation
 
 ## features/job-detail/JobRequirementsPanel.tsx
 # kind=label wording=as-is

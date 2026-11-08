@@ -673,7 +673,7 @@ describe("ScheduleSection under the schedule plan", () => {
     }
     expect(within(legend).queryByText("Reconciliation orbit")).not.toBeInTheDocument();
 
-    expect(screen.getByText(/your computer is on 09:00 to 18:00 on weekdays and usually off at weekends/))
+    expect(screen.getByText(/your computer is from 09:00 to 18:00 on weekdays and usually off at weekends/))
       .toBeInTheDocument();
     expect(screen.queryByText("Discovery cadence")).not.toBeInTheDocument();
   });

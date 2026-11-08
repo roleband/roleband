@@ -88,7 +88,7 @@ describe("words", () => {
   it("says what it learned in one sentence, weekends apart only when they differ", () => {
     const office = schedulePlanFixture();
     expect(learnedSentence(office)).toBe(
-      "Learned from the last 14 days: your computer is on 09:00 to 18:00 on weekdays and usually off at weekends.",
+      "Learned from the last 14 days: your computer is from 09:00 to 18:00 on weekdays and usually off at weekends.",
     );
     const allDay = [{ start_minute: 0, end_minute: 1440 }];
     const always = schedulePlanFixture({ usual: { ...office.usual, weekdays: allDay, weekends: allDay } });

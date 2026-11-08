@@ -343,7 +343,7 @@ role-apply-ask-written-answers = { $count ->
     [many] { $count } de respuestas escritas
    *[other] { $count } respuestas escritas
 }
-role-apply-ask-asks-your-expected-pay = pregunta tu compensación esperada
+role-apply-ask-asks-your-expected-pay = pregunta por tu compensación esperada
 
 ## features/job-detail/JobRequirementsPanel.tsx
 role-job-requirements-panel-evidence = Evidencia de { $display }

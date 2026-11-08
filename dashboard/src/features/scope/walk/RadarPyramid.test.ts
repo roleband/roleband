@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { layerPoints, pyramidLayers } from "./RadarPyramid";
 import { NO_PROGRESS, type WalkProgress } from "./walkProgress";
+import { msg } from "../../../test/msg";
 
 /* The radar pyramid explains; it does not measure. Its
    model says what each layer decides and keeps, and its geometry is one
@@ -17,7 +18,7 @@ describe("pyramidLayers", () => {
     const layers = pyramidLayers(counted(KEPT), ALL, { roles: true, subjects: true }, true);
     expect(layers.map((layer) => layer.id)).toEqual(["accountable", "level", "where", "roles", "subjects"]);
     expect(layers.map((layer) => layer.state)).toEqual(["built", "built", "built", "built", "built"]);
-    expect(layers[1]).toMatchObject({ label: "Level", gist: "Where you are today, up to where you're aiming", detail: "Keeps 25%, 250 roles" });
+    expect(layers[1]).toMatchObject({ label: "Level", gist: msg("profile-walk-steps-where-you-are-today-up"), detail: "Keeps 25%, 250 roles" });
     expect(layers[4].detail).toBe("Keeps <1%, 1 role");
     // Visible labels carry shares; the accessible detail retains exact counts,
     // including a reduction smaller than one percent.

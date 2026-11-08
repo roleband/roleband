@@ -1086,7 +1086,7 @@ it("keeps Back and Continue in one frame across the three answers that decide", 
 it("explains the five answers of the walk in its guide, by the names its steps use", async () => {
   // The trigger lives in the Profile header (ProfileView), not in the walk.
   const user = userEvent.setup();
-  render(<ScopeGuideButton variant="walk" compact />);
+  render(<ScopeGuideButton />);
   await user.click(screen.getByRole("button", { name: "How your radar works" }));
   const guide = screen.getByRole("dialog", { name: "How your radar works" });
 
@@ -1096,20 +1096,6 @@ it("explains the five answers of the walk in its guide, by the names its steps u
   expect(within(guide).getByText("Sharpen, optional")).toBeVisible();
   expect(guide).toHaveTextContent(/A role shows up only when it fits all of them/);
   expect(guide).not.toHaveTextContent(/Which roles|Interests|kind of role/);
-  expect(within(guide).queryByRole("link", { name: "Open guided setup" })).toBeNull();
-});
-
-it("the setup guide describes no control its screen does not have", async () => {
-  // Welcome shows no estimate and its rail is read-only, so "the rail offers a
-  // refresh" would point at nothing.
-  const user = userEvent.setup();
-  render(<MemoryRouter><ScopeGuideButton variant="setup" compact /></MemoryRouter>);
-  await user.click(screen.getByRole("button", { name: "How your radar works" }));
-  const guide = screen.getByRole("dialog", { name: "How your radar works" });
-  expect(within(guide).getByRole("heading", { name: "When changes apply" })).toBeVisible();
-  expect(within(guide).queryByRole("heading", { name: "About the estimate" })).toBeNull();
-  expect(guide).not.toHaveTextContent(/offers a refresh/);
-  // It renders inside Welcome, so a link to guided setup would be a link to itself.
   expect(within(guide).queryByRole("link", { name: "Open guided setup" })).toBeNull();
 });
 

@@ -15,7 +15,7 @@ describe("applyAsk", () => {
 
   it("says when the form demands expected pay", () => {
     expect(applyAsk(form({ required: 6, written: 2, asks_expected_pay: true }))).toBe(
-      "6 questions, 2 written answers, asks your expected compensation",
+      "6 questions, 2 written answers, asks for your expected compensation",
     );
   });
 

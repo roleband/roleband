@@ -68,18 +68,8 @@ profile-scope-guide-about-the-counts = 关于计数
 profile-scope-guide-progress-shows-how-many-of = 进度显示根据最近一次计数，每个回答会保留你关注公司的多少个职位。在完成第一次计数前，显示为“暂无计数”，点击“立即计数”即可开始。
 profile-scope-guide-nothing-hidden-by-a-guess = 不会因猜测而隐藏
 profile-scope-guide-a-role-we-haven-t = 尚未归入任何领域的职位会一直留在你的雷达上。
-profile-scope-guide-career-track-level-discipline-and = 职业路线、级别、职能和地点都匹配后，职位才会出现在你的雷达上。
-profile-scope-guide-opportunity-radar = 机会雷达
-profile-scope-guide-saving-applies-to-roles-already = 保存后会立即应用到你雷达上已有的职位。新纳入的职能会在下次完整扫描后出现。
 profile-scope-guide-how-your-radar-works-3 = 你的雷达如何运作
 profile-scope-guide-close-guide = 关闭指南
-profile-scope-guide-career-track = 职业路线
-profile-scope-guide-how-you-contribute = 你如何贡献
-profile-scope-guide-where-you-are-and-aim = 你的现状和目标
-profile-scope-guide-discipline = 职能
-profile-scope-guide-the-work-you-want = 你想做的工作
-profile-scope-guide-location = 地点
-profile-scope-guide-where-it-can-be-based = 工作可以在哪里
 
 ## features/scope/ScopeSection.tsx
 profile-scope-section-company-exclusions = 公司排除项
@@ -426,7 +416,7 @@ profile-walk-steps-pick-one-or-more = 选择一个或多个。
 profile-walk-steps-the-kind-of-work-you = 你负责的工作类型
 profile-walk-steps-your-level = 你的级别
 profile-walk-steps-today-and-the-one-you = 当前级别和目标级别。
-profile-walk-steps-where-you-are-today-up = 从你当前所处到你的目标
+profile-walk-steps-where-you-are-today-up = 当前与目标级别
 profile-walk-steps-where-do-you-want-to = 你想在哪里工作？
 profile-walk-steps-where-you-re-based-and = 你的所在地，以及为合适的职位你愿意走多远。
 profile-walk-steps-your-bases-and-how-far = 你的所在地，以及你愿意走多远

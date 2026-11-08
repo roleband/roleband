@@ -437,8 +437,8 @@ insights-skills-view-expected = Expected
 insights-skills-view-of-every-role = of every role
 # kind=label wording=as-is
 insights-skills-view-any-company = Any company
-# kind=label wording=as-is
-insights-skills-view-what-expected-of-the-role = What expected of the role means
+# kind=aria note="The info button's screen-reader name, beside the Expected of the role column"
+insights-skills-view-what-expected-of-the-role = What “Expected of the role” means
 # kind=label wording=as-is
 insights-skills-view-skills-order = { $view ->
     [narrowed] Skills, most characteristic first
@@ -697,8 +697,8 @@ insights-velocity-panel-net-flow = Net flow
 insights-velocity-panel-opened-closed = opened − closed
 # kind=label wording=as-is
 insights-velocity-panel-how-to-read-hiring-flow = How to read hiring flow
-# kind=label wording=as-is
-insights-velocity-panel-what-time-posted-measures = What time posted measures
+# kind=aria note="The info button's screen-reader name, beside the Time posted chart"
+insights-velocity-panel-what-time-posted-measures = What “Time posted” measures
 
 ## features/statistics/ageCopy.ts
 # kind=label wording=as-is
