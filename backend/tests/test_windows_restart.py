@@ -185,3 +185,50 @@ def test_an_unrecorded_live_postmaster_prevents_retiring_a_spoofed_dead_record(s
     finally:
         path.write_bytes(original)
     assert psql(server, "SELECT count(*) FROM jobs") == "2"
+
+
+class _Reused:
+    """A live process as process_iter presents it once its PID has been reused: under the name of the
+    process that had the PID before, which psutil keeps on Windows."""
+
+    def __init__(self, process):
+        self._process, self.info = process, {"name": "cmd.exe"}
+
+    def __getattr__(self, attribute):
+        return getattr(self._process, attribute)
+
+    def name(self):
+        return "cmd.exe"
+
+
+def _postmaster_under_a_stale_name(server, monkeypatch):
+    postmaster = int((server.pgdata / "postmaster.pid").read_text().splitlines()[0])
+    real = psutil.process_iter
+    monkeypatch.setattr(psutil, "process_iter", lambda *args, **kwargs: (
+        _Reused(process) if process.pid == postmaster else process for process in real(*args, **kwargs)))
+
+
+def test_a_live_postmaster_under_a_reused_pid_still_prevents_retiring_a_spoofed_record(server, monkeypatch):
+    path = server.pgdata / "postmaster.pid"
+    original = path.read_bytes()
+    lines = original.decode().splitlines()
+    lines[0], lines[2] = str(os.getpid()), str(int(psutil.boot_time()) - 60)
+    spoofed = ("\n".join(lines) + "\n").encode()
+    _postmaster_under_a_stale_name(server, monkeypatch)
+    path.write_bytes(spoofed)
+    try:
+        with pytest.raises(EmbeddedDbError, match="live database process owns"):
+            ensure_server(server.pgdata, database="probe")
+        assert path.read_bytes() == spoofed
+        assert not list(server.pgdata.glob("postmaster.pid.stale-*"))
+    finally:
+        monkeypatch.undo()
+        path.write_bytes(original)
+    assert psql(server, "SELECT count(*) FROM jobs") == "2"
+
+
+def test_cleanup_finds_a_postmaster_under_a_reused_pid(server, monkeypatch):
+    from tracker.supervisor.residue import clusters_under
+
+    _postmaster_under_a_stale_name(server, monkeypatch)
+    assert clusters_under(server.pgdata.parent) == [server.pgdata.resolve()]

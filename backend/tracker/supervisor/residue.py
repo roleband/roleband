@@ -63,12 +63,13 @@ def clusters_under(root: Path) -> list[Path]:
     if sys.platform == "win32":
         import psutil
 
-        for process in psutil.process_iter(["name"]):
-            if not (process.info["name"] or "").startswith("postgres"):
-                continue
+        # The image comes from the command line read now: process_iter keeps each
+        # Process between calls, and on Windows a reused PID keeps the name of the
+        # process that had it before.
+        for process in psutil.process_iter():
             try:
                 words = process.cmdline()
-                if "-D" not in words[:-1]:
+                if not words or not Path(words[0]).name.lower().startswith("postgres") or "-D" not in words[:-1]:
                     continue
                 pgdata = Path(words[words.index("-D") + 1]).resolve()
                 if process.username() == psutil.Process().username() and pgdata.is_relative_to(root):

@@ -108,9 +108,10 @@ def _retire_dead_pid(pgdata: Path) -> bool:
             pass
         # A dead process record does not prove that no other postmaster owns
         # the directory. Inspect parsed -D arguments before allowing a start.
-        for candidate in psutil.process_iter(["name"]):
-            if (candidate.info["name"] or "").lower() != "postgres.exe":
-                continue
+        # The image is read from the command line too: process_iter keeps each
+        # Process between calls with the name it first reported, and on Windows
+        # a reused PID keeps the name of the process that had it before.
+        for candidate in psutil.process_iter():
             try:
                 arguments = candidate.cmdline()
             except psutil.NoSuchProcess:
@@ -121,7 +122,11 @@ def _retire_dead_pid(pgdata: Path) -> bool:
                 # itself refuses to start while an earlier postmaster still holds
                 # the directory's shared memory.
                 continue
-            if "-D" in arguments[:-1] and Path(arguments[arguments.index("-D") + 1]).resolve() == pgdata.resolve():
+            if (
+                arguments and Path(arguments[0]).name.lower() in ("postgres", "postgres.exe")
+                and "-D" in arguments[:-1]
+                and Path(arguments[arguments.index("-D") + 1]).resolve() == pgdata.resolve()
+            ):
                 raise WindowsDbError("a live database process owns the directory despite its stale pidfile")
         if path.read_bytes() != original:
             raise WindowsDbError("database pidfile changed during ownership verification")
