@@ -13,12 +13,12 @@
 from __future__ import annotations
 
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import pytest
 
 from tests.api_errors import code_of, said
-from tests.usage_fixtures import CONSENT_TEXT, NOW, share
+from tests.usage_fixtures import CONSENT_TEXT, NOW, pin_usage_clock, share
 from tracker.db.models import AppSetting
 from tracker.usage_stats import consent, outbox
 from tracker.usage_stats.registry import BROWSER_SCOPE, CATALOGUE, Group, fingerprint
@@ -27,6 +27,8 @@ from tracker.usage_stats.tally import TALLY
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("no_escape")]
 
 CANARY = "zyxwv-robotics"
+#: How far back Settings lists what was sent.
+SENT_WINDOW = timedelta(days=30)
 
 
 def _answer(**answers: bool) -> dict:
@@ -120,13 +122,23 @@ async def test_preview_is_the_next_body_and_leaves_out_what_does_not_fit(api_cli
     assert event["properties"]["$geoip_disable"] is True
 
 
-async def test_sent_lists_what_left(api_client, db_session, sharing_allowed) -> None:
+async def test_sent_lists_what_left_within_the_window(api_client, db_session, sharing_allowed, monkeypatch) -> None:
+    pin_usage_clock(monkeypatch)
     await share(db_session, Group.USAGE)
     spec = CATALOGUE["daily_action"]
-    await outbox.add_count(db_session, spec, {"action": "save_job"}, day=NOW.date(), at=NOW)
+    days = [(NOW - timedelta(days=back)).date() for back in (32, 31, 0)]
+    for day in days:
+        await outbox.add_count(db_session, spec, {"action": "save_job"}, day=day, at=NOW)
     await db_session.commit()
-    [row] = await outbox.pending(db_session, groups=[Group.USAGE], today=(NOW + timedelta(days=1)).date())
-    await outbox.mark_sent(db_session, [row.id], now=NOW)
+    outside, edge, recent = await outbox.pending(
+        db_session, groups=[Group.USAGE], today=(NOW + timedelta(days=1)).date()
+    )
+    await outbox.mark_sent(db_session, [outside.id], now=NOW - SENT_WINDOW - timedelta(minutes=1))
+    await outbox.mark_sent(db_session, [edge.id], now=NOW - SENT_WINDOW)
+    await outbox.mark_sent(db_session, [recent.id], now=NOW)
     await db_session.commit()
+
     events = (await api_client.get("/api/usage/sent")).json()["events"]
-    assert [(e["name"], e["count"], e["group"]) for e in events] == [("daily_action", 1, "usage")]
+    assert [(e["name"], e["count"], e["group"]) for e in events] == [("daily_action", 1, "usage")] * 2
+    # Newest first; the row sent just past the window is left out.
+    assert [datetime.fromisoformat(e["sent_at"]) for e in events] == [NOW, NOW - SENT_WINDOW]
