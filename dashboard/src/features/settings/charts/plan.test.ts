@@ -87,16 +87,16 @@ describe("words", () => {
 
   it("says what it learned in one sentence, weekends apart only when they differ", () => {
     const office = schedulePlanFixture();
-    expect(learnedSentence(office)).toBe(
-      "Learned from the last 14 days: your computer is from 09:00 to 18:00 on weekdays and usually off at weekends.",
-    );
+    expect(learnedSentence(office)).toBe(msg("settings-plan-learned-weekdays-weekends", {
+      days: 14, weekdays: "set", weekdayTimes: msg("settings-plan-to", { start: "09:00", end: "18:00" }), weekends: "off", weekendTimes: windowsText([]),
+    }));
     const allDay = [{ start_minute: 0, end_minute: 1440 }];
     const always = schedulePlanFixture({ usual: { ...office.usual, weekdays: allDay, weekends: allDay } });
-    expect(learnedSentence(always)).toBe("Learned from the last 14 days: your computer is on all day every day.");
+    expect(learnedSentence(always)).toBe(msg("settings-plan-learned-every-day", { days: 14, usual: "all", times: windowsText(allDay) }));
     const learning = schedulePlanFixture({
       usual: { ...office.usual, learning: true, observed_days: 3, weekdays: null, weekends: null },
     });
-    expect(learnedSentence(learning)).toBe("Still learning when your computer is on: 3 of 5 days seen.");
+    expect(learnedSentence(learning)).toBe(msg("settings-plan-still-learning-when-your-computer", { observed_days: 3, needed_days: 5 }));
   });
 
   it("says the learned hours for each part of the week it saw", () => {

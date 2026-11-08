@@ -14,9 +14,11 @@ describe("applyAsk", () => {
   });
 
   it("says when the form demands expected pay", () => {
-    expect(applyAsk(form({ required: 6, written: 2, asks_expected_pay: true }))).toBe(
-      "6 questions, 2 written answers, asks for your expected compensation",
-    );
+    expect(applyAsk(form({ required: 6, written: 2, asks_expected_pay: true }))).toBe([
+      msg("role-apply-ask-questions", { count: 6 }),
+      msg("role-apply-ask-written-answers", { count: 2 }),
+      msg("role-apply-ask-asks-your-expected-pay"),
+    ].join(", "));
   });
 
   it("does not invent a written answer the form does not ask for", () => {
