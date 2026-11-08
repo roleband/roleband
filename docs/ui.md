@@ -101,6 +101,17 @@ complete and offers another attempt in the same window. Not now or closing a
 valid Ready page completes setup without opening the browser. Completion does
 not reopen the status panel over the browser.
 
+## Windows notification area
+
+The Windows app keeps one notification-area icon, the product mark, while it runs. Its
+tooltip names the product and the engine state in words, on one line. Selecting it with a
+click or Enter shows the panel; its context menu, from a right click or Shift+F10, offers
+Open Radar, Open RoleBand and Quit, with Open Radar unavailable until the engine answers.
+Closing the panel hides it and leaves the engine running; Quit stops the engine, and the
+app stays if the engine did not stop. If the icon cannot be added, closing the panel keeps
+its old meaning. The state names, Open Radar and Busy follow one table
+(`TrayModel`), so the icon, its tooltip and the panel never disagree.
+
 ## Launcher installation guide
 
 The disk image puts Start here before the app-to-Applications drag. The guide

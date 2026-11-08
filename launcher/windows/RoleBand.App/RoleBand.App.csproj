@@ -18,6 +18,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.6.5" />
     <ProjectReference Include="../RoleBand.EngineHost/RoleBand.EngineHost.csproj" />
+    <EmbeddedResource Include="../Assets/Square44x44Logo.png" LogicalName="RoleBand.TrayIcon.png" />
   </ItemGroup>
   <Target Name="PublishNativeResources" AfterTargets="Publish">
     <ItemGroup>

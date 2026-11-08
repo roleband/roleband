@@ -43,7 +43,9 @@ an update is journaled only after the engine stopped, a refused journal never sw
 package, a switch Windows refuses is resumed as never happened, and the new version settles
 the update by its preparation; the real package switch needs an installed trial. Build the actual
 window with `dotnet build launcher/windows/RoleBand.App -p:Platform=x64` and
-check Start, Open, Stop and window closing on Windows. Check generated native
+check Start, Open, Stop and window closing on Windows: with the notification-area icon,
+closing hides the panel and the process stays until Quit. `TrayTests` hold every engine
+state to a name in all three languages, Open Radar to Ready and the tooltip to the shell's limit. Check generated native
 copy with `node dashboard/scripts/export-launcher-copy.mjs --windows --check`.
 Packaging tool changes run `python -m unittest discover -s launcher/windows/Tools -p "test_*.py"`:
 assembly refuses tracked edits, untracked files and ignored files in the engine

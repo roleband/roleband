@@ -13,6 +13,9 @@ public sealed partial class MainWindow : Window
     private EngineSession? engine;
     private UpdateCoordinator? updates;
     private bool closing;
+    private bool quitting;
+    private TrayIcon? tray;
+    private const int OpenRadarCommand = 1, ShowPanelCommand = 2, QuitCommand = 3;
     private string diagnosticLocation = "";
 
     public MainWindow(Exception? launchFailure = null)
@@ -55,16 +58,35 @@ public sealed partial class MainWindow : Window
             finally { UndoButton.IsEnabled = true; }
         };
         StopButton.Click += async (_, _) => { if (engine is not null) await StopAsync(); };
-        OpenButton.Click += async (_, _) =>
-        {
-            try
-            {
-                if (engine is not null)
-                    Process.Start(new ProcessStartInfo((await engine.BrowserUriAsync()).AbsoluteUri) { UseShellExecute = true });
-            }
-            catch (Exception error) { StatusText.Text = copy["setup-browser-error"]; DiagnosticsText.Text = error.Message; }
-        };
+        OpenButton.Click += async (_, _) => await OpenRadarAsync();
         AppWindow.Closing += Closing;
+        try
+        {
+            using var mark = typeof(MainWindow).Assembly.GetManifestResourceStream("RoleBand.TrayIcon.png")
+                ?? throw new IOException("The notification-area mark is missing.");
+            using var bytes = new MemoryStream();
+            mark.CopyTo(bytes);
+            tray = new TrayIcon(WinRT.Interop.WindowNative.GetWindowHandle(this), bytes.ToArray(), () =>
+            [
+                new(OpenRadarCommand, copy["first-open"], engine is not null && TrayModel.For(engine.Snapshot).CanOpenRadar),
+                new(ShowPanelCommand, copy["open"], true),
+                null,
+                new(QuitCommand, copy["quit"], true),
+            ]);
+            tray.Opened += ShowPanel;
+            tray.Chosen += async command =>
+            {
+                if (command == OpenRadarCommand) await OpenRadarAsync();
+                else if (command == ShowPanelCommand) ShowPanel();
+                else if (command == QuitCommand) await QuitAsync();
+            };
+        }
+        catch (Exception error)
+        {
+            // Without the icon there is no way back to a hidden window, so closing keeps its old meaning.
+            tray = null;
+            Debug.WriteLine(error);
+        }
         try
         {
             if (launchFailure is not null) throw launchFailure;
@@ -97,22 +119,48 @@ public sealed partial class MainWindow : Window
 
     private void Render(EngineSnapshot snapshot)
     {
-        StatusText.Text = copy[snapshot.State switch
-        {
-            EngineState.Starting => "host-starting",
-            EngineState.Preparing => "first-busy",
-            EngineState.Ready => "first-part-ready",
-            EngineState.Recovering => "host-recovering",
-            EngineState.Stopping => "scan-title-stopping",
-            EngineState.Attention => "host-attention",
-            _ => "host-stopped",
-        }];
-        OpenButton.IsEnabled = snapshot.State == EngineState.Ready;
+        var state = TrayModel.For(snapshot);
+        StatusText.Text = copy[state.StatusKey];
+        OpenButton.IsEnabled = state.CanOpenRadar;
         StartButton.IsEnabled = engine is not null && !engine.OwnsEngine;
         StopButton.IsEnabled = engine?.OwnsEngine == true && snapshot.State != EngineState.Stopping;
-        BusyIndicator.Visibility = snapshot.State is EngineState.Starting or EngineState.Preparing or EngineState.Stopping or EngineState.Recovering
-            ? Visibility.Visible : Visibility.Collapsed;
+        BusyIndicator.Visibility = state.Busy ? Visibility.Visible : Visibility.Collapsed;
         DiagnosticsText.Text = snapshot.Diagnostic ?? diagnosticLocation;
+        tray?.SetTooltip(TrayModel.Tooltip(copy, snapshot));
+    }
+
+    private async Task OpenRadarAsync()
+    {
+        try
+        {
+            if (engine is not null)
+                Process.Start(new ProcessStartInfo((await engine.BrowserUriAsync()).AbsoluteUri) { UseShellExecute = true });
+        }
+        catch (Exception error) { ShowPanel(); StatusText.Text = copy["setup-browser-error"]; DiagnosticsText.Text = error.Message; }
+    }
+
+    private void ShowPanel()
+    {
+        AppWindow.Show();
+        Activate();
+    }
+
+    /// <summary>Quit stops the engine; closing the panel only hides it while the icon remains.</summary>
+    private async Task QuitAsync()
+    {
+        quitting = true;
+        await StopAsync();
+        if (engine?.OwnsEngine == true)
+        {
+            quitting = false;
+            ShowPanel();
+            return;
+        }
+        tray?.Dispose();
+        tray = null;
+        closing = true;
+        Close();
+        Application.Current.Exit();
     }
 
     private async Task StopAsync()
@@ -123,6 +171,12 @@ public sealed partial class MainWindow : Window
 
     private async void Closing(AppWindow sender, AppWindowClosingEventArgs args)
     {
+        if (tray is not null && !quitting && !closing)
+        {
+            args.Cancel = true;
+            AppWindow.Hide();
+            return;
+        }
         if (closing || engine?.OwnsEngine != true) return;
         args.Cancel = true;
         await StopAsync();
