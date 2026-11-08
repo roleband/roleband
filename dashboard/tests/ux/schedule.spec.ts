@@ -7,6 +7,7 @@
    Anthropic's, so the editing contract below still holds companies. Every
    schedule route carries `?tz=`, so every pattern here allows a query. */
 
+import { msg } from "../../src/test/msg";
 import { expect, test } from "./fixtures";
 import { installSettingsRoutes, syncSchedule } from "./settingsHarness";
 
@@ -45,7 +46,14 @@ test("Schedule draws the plan's runs on one clock and lists them beside it", asy
   await expect(region.getByText(/Meta: its site doesn't allow scheduled scans/))
     .toBeVisible();
 
-  await expect(panel.getByText(/your computer is on 09:00 to 18:00 on weekdays/)).toBeVisible();
+  // The learned sentence is one part of a longer paragraph.
+  await expect(panel.getByText(msg("settings-plan-learned-weekdays-weekends", {
+    days: 14,
+    weekdays: "set",
+    weekdayTimes: msg("settings-plan-to", { start: "09:00", end: "18:00" }),
+    weekends: "off",
+    weekendTimes: msg("settings-plan-usually-off"),
+  }))).toBeVisible();
   await expect(panel.getByRole("button", { name: "6h" })).toHaveAttribute("aria-pressed", "true");
   await expect(region.getByLabel("Scheduler policy")).toHaveCount(0);
 
