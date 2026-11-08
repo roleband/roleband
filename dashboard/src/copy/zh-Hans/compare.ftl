@@ -38,7 +38,7 @@ compare-screen-show-or-hide = { $fields ->
    *[folded] 显示
 }
 compare-screen-passages-legend = { $passages ->
-    [shared] 琥珀色段落并非出现在每条招聘信息中。
+    [shared] 高亮段落只出现在部分招聘信息中。
    *[none] 这些招聘信息没有共同的段落。
 }
 compare-screen-description-view = { $view ->

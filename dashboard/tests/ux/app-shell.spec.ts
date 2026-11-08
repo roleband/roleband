@@ -415,6 +415,19 @@ test("a rail count past the cap becomes a dot that still carries the exact numbe
   expect(Math.round(pillBox!.width)).toBeGreaterThan(Math.round(dotBox!.width));
 });
 
+/* A group's name is announced on entering it, so it says what the numbers
+ * inside are; each count inside keeps its own name. */
+test("a screen reader hears the top bar's counts as the radar summary", async ({ page }) => {
+  await mockGet(page, "/api/stats", (route) =>
+    route.fulfill({ json: { ...statsFixture, new_today: 6 } }));
+
+  await page.goto("/");
+
+  const summary = page.getByRole("group", { name: msg("shell-stats-aria"), exact: true });
+  await expect(summary).toBeVisible();
+  await expect(summary.getByRole("button", { name: msg("shell-stat-new-aria", { count: 6 }), exact: true })).toBeVisible();
+});
+
 /* The bell paints the SAME number as the rail's Notifications badge, in the
  * same viewport, so a cap applied to one and not the other would put two
  * spellings of one count on screen at once. */
