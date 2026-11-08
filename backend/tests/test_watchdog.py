@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -24,8 +25,28 @@ def test_stale_derivations_reads_the_status_payload():
 def test_derivations_stale_alert_has_a_message():
     # dispatch_alerts KeyErrors on a firing key with no ALERT_KEYS entry,
     # so a new firing condition must ship its human text in the same change.
-    assert "derivations_stale" in watchdog.ALERT_KEYS
-    assert "Derived data" in watchdog.banner(watchdog.ALERT_KEYS["derivations_stale"])
+    assert watchdog.ALERT_KEYS["derivations_stale"] == "banner-derivations-stale"
+    assert watchdog.banner("banner-derivations-stale")
+
+
+# Health banners reach the desktop when something breaks, read by someone who
+# never needs to know how RoleBand is built (docs/copy.md, rule 6).
+_INTERNAL_PARTS = re.compile(
+    r"\b(api|scheduler|derived|derivations?|statistics|stale|health check|pass|unreachable)\b",
+    re.IGNORECASE,
+)
+
+
+@pytest.mark.parametrize("key", ["db_down", "api_down", "stale_data", "derivations_stale"])
+def test_health_banners_name_no_internal_parts(key):
+    text = watchdog.banner(watchdog.ALERT_KEYS[key])
+    assert text and _INTERNAL_PARTS.search(text) is None, text
+
+
+@pytest.mark.parametrize("key", ["db_down", "api_down"])
+def test_recovery_banners_name_the_app(key):
+    # Outside the app's window the reader may not know which app is talking.
+    assert "RoleBand" in watchdog.banner(watchdog.ALERT_KEYS[key])
 
 
 def test_derivations_stale_notifies_only_when_newly_firing(monkeypatch):
@@ -35,7 +56,7 @@ def test_derivations_stale_notifies_only_when_newly_firing(monkeypatch):
 
     # Newly stale this tick -> one notification.
     assert watchdog.dispatch_alerts({}, {"derivations_stale": True}) == ["derivations_stale"]
-    assert len(notified) == 1 and "Derived data" in notified[0]
+    assert notified == [watchdog.banner("banner-derivations-stale")]
     # Still stale next tick -> suppressed (edge-triggered).
     notified.clear()
     assert watchdog.dispatch_alerts({"derivations_stale": True}, {"derivations_stale": True}) == []
@@ -64,7 +85,7 @@ def test_only_newly_firing_conditions_notify(monkeypatch):
 
     assert dispatched == ["db_down"]
     assert len(notified) == 1
-    assert "Database" in notified[0]
+    assert notified == [watchdog.banner("banner-db-down")]
     assert logged == notified  # same message reaches the alerts log
 
 
