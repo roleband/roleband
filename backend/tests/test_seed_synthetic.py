@@ -100,7 +100,8 @@ async def test_seeding_twice_upserts_rather_than_duplicating(db_session):
 
 @pytest.mark.asyncio
 async def test_a_trial_is_seeded_on_its_first_start_only(db_session):
-    """A later start leaves the trial user's bands and scan history as they are."""
+    """A later start leaves the trial user's bands and scan history as they are, also once the
+    postings are gone."""
     first = await seed_trial(db_session)
     await set_enabled_bands(db_session, ["mid"])
     scans = await db_session.scalar(select(func.count()).select_from(ScrapeRun))
@@ -109,6 +110,23 @@ async def test_a_trial_is_seeded_on_its_first_start_only(db_session):
     assert await seed_trial(db_session) == first
     assert await get_enabled_bands(db_session) == {"mid"}
     assert await db_session.scalar(select(func.count()).select_from(ScrapeRun)) == scans
+
+    await clear(db_session)
+    assert await seed_trial(db_session) == 0
+    assert await get_enabled_bands(db_session) == {"mid"}
+    assert await db_session.scalar(select(func.count()).select_from(ScrapeRun)) == scans
+
+
+@pytest.mark.asyncio
+async def test_a_trial_that_already_holds_synthetic_postings_is_not_seeded_again(db_session):
+    await seed(db_session, _COUNT, seed_value=1, derived=False)
+    await set_enabled_bands(db_session, ["mid"])
+
+    assert await seed_trial(db_session) == _COUNT
+    assert await get_enabled_bands(db_session) == {"mid"}
+    await clear(db_session)
+    assert await seed_trial(db_session) == 0
+    assert await get_enabled_bands(db_session) == {"mid"}
 
 
 @pytest.mark.asyncio
