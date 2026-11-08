@@ -88,9 +88,11 @@ reviews:
         the catalog under dashboard/src/copy/en/, never inline in a component.
     - path: "dashboard/src/copy/**"
       instructions: >-
-        A translation's fingerprint in translated-from.json changes only for a
-        message re-translated in this pull request (docs/copy.md). Flag a
-        fingerprint refreshed for a message whose translation did not change.
+        A fingerprint in translated-from.json records the English a translation
+        was made from, not the translation (docs/copy.md). It changes only for a
+        message whose English this pull request changes: re-translating may keep
+        the translation's words when they still fit the new English. Flag a
+        fingerprint refreshed for a message whose English did not change.
         An entry in translation-quarantine.json holds a translation that
         breaks its contract; the repair removes it in the same change.
     - path: "{dashboard/src/test/*-baseline.json,backend/tests/fixtures/copy_glossary_baseline.json,backend/audit-exceptions.toml,dashboard/audit-exceptions.json,.gitleaks.toml,backend/pyproject.toml,dashboard/eslint.config.js}"
