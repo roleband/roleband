@@ -327,8 +327,9 @@ async def seed_trial(session) -> int:
 
 async def _in_use(session) -> bool:
     """Whether a database holds anything a seed would have left or a user saved:
-    synthetic postings, a scan (removing postings keeps their runs), or saved bands."""
-    if await _synthetic_job_count(session):
+    any posting, a scan (removing postings keeps their runs), or saved bands. A
+    posting without the synthetic prefix counts too: `seed` refuses that database."""
+    if await session.scalar(select(func.count()).select_from(Job)):
         return True
     if await session.scalar(select(func.count()).select_from(ScrapeRun)):
         return True

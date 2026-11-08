@@ -137,6 +137,19 @@ async def test_a_trial_seeded_without_the_record_is_not_seeded_again(db_session,
 
 
 @pytest.mark.asyncio
+async def test_a_trial_holding_only_a_posting_of_its_own_is_left_as_it_is(db_session):
+    """No synthetic postings, scan or saved bands, but a posting `seed` would refuse to write
+    beside: the trial starts on it instead of failing to seed."""
+    db_session.add(_a_row_the_seeder_must_never_touch())
+    await db_session.flush()
+
+    assert await seed_trial(db_session) == 0
+    assert (await db_session.scalars(select(Job.req_id))).all() == ["REAL-12345"]
+    assert await db_session.scalar(select(func.count()).select_from(ScrapeRun)) == 0
+    assert await seed_trial(db_session) == 0
+
+
+@pytest.mark.asyncio
 async def test_it_leaves_no_trace_in_binding_health(db_session):
     """Discovery mode, so fabricated rows never advance a binding's health.
 
