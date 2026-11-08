@@ -110,6 +110,17 @@ def test_an_interrupted_download_resumes_where_it_stopped(state, identity, serve
     assert path.read_bytes() == server.content[offer.package]
 
 
+def test_a_complete_partial_file_is_verified_without_asking_past_its_end(state, identity, server):
+    """A stop between the last byte and the rename leaves the whole package as the partial file."""
+    offer, signed = server.release("0.1.3")
+    download(state, identity, offer, signed, "0.1.2", transport=server.transport).rename(
+        folder(state) / f".{offer.package}.partial")
+    server.requests.clear()
+    path = download(state, identity, offer, signed, "0.1.2", transport=server.transport)
+    assert server.requests == [], "the bytes are all here; a range past the end is refused for ever"
+    assert path.read_bytes() == server.content[offer.package]
+
+
 def test_a_server_that_ignores_the_range_restarts_the_file(state, identity, server):
     offer, signed = server.release("0.1.3")
     server.cut_after = 50_000

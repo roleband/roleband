@@ -42,6 +42,8 @@ if ($PackageVersion) {
     $packageManifest.Save($manifestPath)
 }
 $assetDestination = Join-Path $bundlePath 'Assets'
+# The provenance check leaves Assets to this step, so it starts empty: nothing placed there after assembly is packaged.
+if (Test-Path -LiteralPath $assetDestination) { Remove-Item -LiteralPath $assetDestination -Recurse -Force }
 New-Item -ItemType Directory -Force $assetDestination | Out-Null
 Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'Assets') -File | ForEach-Object {
     Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $assetDestination $_.Name)

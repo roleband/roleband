@@ -21,7 +21,10 @@ from pathlib import Path
 import pytest
 import yaml
 
-from scripts.lock_dependencies import PLATFORMS
+from scripts.lock_dependencies import PLATFORMS as LOCKED
+
+#: setup.sh installs on macOS and Linux; Windows installs from its package.
+PLATFORMS = {name: platform for name, platform in LOCKED.items() if not name.startswith("windows-")}
 
 REPO = Path(__file__).resolve().parents[2]
 PY_WANT = (REPO / ".python-version").read_text().strip()

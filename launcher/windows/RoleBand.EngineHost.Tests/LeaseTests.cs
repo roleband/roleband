@@ -28,12 +28,34 @@ public sealed class LeaseTests
         return Process.Start(start) ?? throw new IOException("Python did not start.");
     }
 
-    private static string State()
+    private readonly List<string> scratch = [];
+
+    private string State()
     {
-        var state = Path.Combine(Path.GetTempPath(), "roleband-lease-tests", Guid.NewGuid().ToString("N"));
+        var state = Scratch();
         PrivateStorage.EnsureDirectory(state);
         return state;
     }
+
+    private string Scratch()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "roleband-lease-tests", Guid.NewGuid().ToString("N"));
+        scratch.Add(path);
+        return path;
+    }
+
+    [TestCleanup]
+    public void RemoveScratch()
+    {
+        foreach (var path in scratch)
+            try { if (Directory.Exists(path)) Directory.Delete(path, recursive: true); }
+            catch (IOException) { }
+    }
+
+    /// <summary>The holder's first line, or a failure within a minute: a Python that hangs before printing fails the
+    /// test instead of the job.</summary>
+    private static async Task<string?> FirstLine(Process process) =>
+        await process.StandardOutput.ReadLineAsync().WaitAsync(TimeSpan.FromMinutes(1));
 
     [TestMethod]
     public async Task HostRefusesToStartWhileAnOperatorCommandHoldsTheLeases()
@@ -45,7 +67,7 @@ public sealed class LeaseTests
             + "with lifecycle_leases(Path(sys.argv[1])):\n    print('held', flush=True)\n    sys.stdin.read()\n", state);
         try
         {
-            var ready = await holder.StandardOutput.ReadLineAsync();
+            var ready = await FirstLine(holder);
             if (ready != "held")
             {
                 holder.StandardInput.Close();
@@ -61,7 +83,7 @@ public sealed class LeaseTests
         finally
         {
             holder.StandardInput.Close();
-            await holder.WaitForExitAsync();
+            if (!holder.WaitForExit(TimeSpan.FromMinutes(1))) holder.Kill(entireProcessTree: true);
         }
         using var released = PrivateStorage.Lease(state, "desktop.lock");
     }
@@ -71,7 +93,7 @@ public sealed class LeaseTests
     {
         var checkout = Checkout();
         var state = State();
-        var checkpoint = Path.Combine(Path.GetTempPath(), "roleband-lease-tests", Guid.NewGuid().ToString("N"));
+        var checkpoint = Scratch();
         using (PrivateStorage.Lease(state, "desktop.lock"))
         {
             using var command = Python(checkout, "-I", "-B", Path.Combine(checkout, "backend", "desktop.py"), "--source",
@@ -83,5 +105,20 @@ public sealed class LeaseTests
             StringAssert.Contains(errors, "desktop.lock is held by the RoleBand app");
         }
         Assert.IsFalse(Path.Exists(Path.Combine(state, "recovery")));
+    }
+
+    [TestMethod]
+    public void PrivateStateIsOwnedByTheAccountOrTheOwnerThisProcessGivesWhatItCreates()
+    {
+        var account = new System.Security.Principal.SecurityIdentifier("S-1-5-21-1-2-3-1001");
+        var administrators = new System.Security.Principal.SecurityIdentifier(System.Security.Principal.WellKnownSidType.BuiltinAdministratorsSid, null);
+        var stranger = new System.Security.Principal.SecurityIdentifier("S-1-5-21-1-2-3-1002");
+        Assert.IsTrue(PrivateStorage.OwnedHere(account, account, account));
+        Assert.IsTrue(PrivateStorage.OwnedHere(administrators, account, administrators), "elevated: what this process makes is the Administrators group's");
+        Assert.IsFalse(PrivateStorage.OwnedHere(administrators, account, account), "not elevated: the Administrators group is someone else");
+        Assert.IsFalse(PrivateStorage.OwnedHere(stranger, account, administrators));
+        Assert.IsFalse(PrivateStorage.OwnedHere(null, account, account));
+        var own = PrivateStorage.DefaultOwner;
+        Assert.IsTrue(own.Equals(PrivateStorage.AccountSid) || own.Equals(administrators), own.Value);
     }
 }

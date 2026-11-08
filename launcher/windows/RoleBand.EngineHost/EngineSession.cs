@@ -210,8 +210,11 @@ public sealed class EngineSession : IAsyncDisposable
                         Publish(EngineState.Preparing);
                     }
                 }
+                // A slow or malformed answer is one failed read, counted against the restart budget; only the
+                // session's own cancellation ends the watch.
                 catch (Exception error) when (error is IOException or HttpRequestException or JsonException
-                    or KeyNotFoundException or InvalidOperationException or TaskCanceledException)
+                    or KeyNotFoundException or InvalidOperationException or FormatException
+                    || (error is OperationCanceledException && !cancellation.IsCancellationRequested))
                 {
                     if (cancellation.IsCancellationRequested) return Outcome.Cancelled;
                     var failure = error.GetType().Name + ": " + error.Message;

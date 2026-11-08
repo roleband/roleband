@@ -102,6 +102,20 @@ def test_checkpoint_command_refuses_installed_state(installed_roots, monkeypatch
     assert not (tmp_path / "checkpoint").exists()
 
 
+def test_a_junction_into_installed_state_is_still_installed_state(installed_roots, tmp_path):
+    import _winapi
+
+    from tracker.platform.paths import within_installed_data
+
+    installed = installed_roots[0]
+    installed.mkdir(parents=True)
+    elsewhere = tmp_path / "trials" / "trial"
+    elsewhere.parent.mkdir(parents=True)
+    _winapi.CreateJunction(str(installed), str(elsewhere))
+    assert within_installed_data(elsewhere / "db"), "the junction leads into an installed app's data"
+    assert not within_installed_data(tmp_path / "trials" / "other" / "db")
+
+
 def test_packaged_paths_and_defaults_share_explicit_retained_state(tmp_path):
     backend = Path(__file__).resolve().parents[1]
     state = tmp_path / "私有 retained state"

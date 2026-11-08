@@ -95,6 +95,9 @@ public sealed record EngineConfiguration(string Resources, string State, string 
             ["ROLEBAND_API_PORT"] = AvailablePort().ToString(System.Globalization.CultureInfo.InvariantCulture),
             ["ROLEBAND_LOCAL_AUTH"] = "1", ["PYTHONUTF8"] = "1", ["PYTHONNOUSERSITE"] = "1",
             ["PYTHONDONTWRITEBYTECODE"] = "1",
+            // Python cannot map Windows' own zone names to IANA ones, and TZ is read by the C runtime in its own
+            // form, so the engine's daily slots and plans read the zone from here.
+            ["ROLEBAND_LOCAL_ZONE"] = ScanControl.LocalTimezone(),
         }) start.Environment[name] = value;
         if (Development || SyntheticFixture)
         {

@@ -135,4 +135,4 @@ error-plugin-estimates-moving = Estimates are still updating to leave its data o
 # kind=error note="A pin refused on company size while a plugin answers it: a pin is RoleBand's own, and RoleBand's own isn't shown there"
 error-field-answered-by-plugin = A plugin answers this while it's on, so a value you set here wouldn't show. Turn it off in Settings › Plugins.
 # kind=error
-error-engine-locked = Couldn't reconnect. Open the radar from the app.
+error-engine-locked = Couldn't reconnect. Open your Radar from the app.

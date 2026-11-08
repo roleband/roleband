@@ -32,6 +32,8 @@ DASHBOARD_DIRTY = Path('dashboard/dist/.roleband-dirty')
 HEAD_PATHS = ('backend', 'sdk/python', 'robots/python', 'dashboard/package.json', 'dashboard/csp-policy.json',
               'CHANGELOG.md', 'LICENSE')
 REQUIREMENT = re.compile(r'([A-Za-z0-9][A-Za-z0-9_.-]*)(?:\[[^\]]*\])?==([^\s;#]+)')
+# The one environment marker the requirements use: a package only one platform needs.
+PLATFORM_MARKER = re.compile(r"""; *sys_platform *(==|!=) *["']([^"']+)["']""")
 BUILD_VERSION = re.compile(r'cmd LC_BUILD_VERSION\n(?:.*\n)*?\s*minos (\S+)|cmd LC_VERSION_MIN_MACOSX\n(?:.*\n)*?\s*version (\S+)')
 
 
@@ -185,12 +187,17 @@ def normalized(name):
     return re.sub(r'[-_.]+', '-', name).lower()
 
 
-def pinned(path):
+def pinned(path, system=None):
+    """The pinned packages, leaving out those whose platform marker excludes `system` when one is given."""
     pins = {}
     for line in path.read_text().splitlines():
         match = REQUIREMENT.match(line.strip())
-        if match:
-            pins[normalized(match[1])] = match[2]
+        if not match:
+            continue
+        marker = PLATFORM_MARKER.search(line)
+        if system and marker and (marker[2] == system) != (marker[1] == '=='):
+            continue
+        pins[normalized(match[1])] = match[2]
     return pins
 
 
@@ -198,7 +205,7 @@ def check_runtime_lock(root):
     lock = root / RUNTIME_LOCK
     locked = pinned(lock)
     constraints = pinned(root / 'backend/constraints/macos-arm64.txt')
-    required = pinned(root / 'backend/requirements.txt')
+    required = pinned(root / 'backend/requirements.txt', 'darwin')
     stale = sorted(name for name, version in locked.items() if constraints.get(name) != version)
     missing = sorted(set(required) - set(locked))
     unhashed = [line for line in lock.read_text().splitlines()

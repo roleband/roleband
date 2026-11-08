@@ -64,4 +64,4 @@ error-plugin-still-enabled = 只有在插件关闭时才能删除它的数据。
 error-plugin-confirm-mismatch = 你输入的内容与显示的名称不符。请重试。
 error-plugin-estimates-moving = 估算仍在更新，以排除它的数据。结束后请重试。
 error-field-answered-by-plugin = 插件开启期间由它提供此项，因此你在这里设置的值不会显示。请在 设置 › 插件 中关闭。
-error-engine-locked = 无法重新连接。请从应用中打开雷达。
+error-engine-locked = 无法重新连接。请从应用中打开你的雷达。

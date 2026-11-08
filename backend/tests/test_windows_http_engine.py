@@ -13,6 +13,7 @@ import time
 
 import pytest
 
+from tests.conftest import allow_windows_process_control
 from tracker.platform.local_http import (
     SESSION_PATH,
     AuthenticationError,
@@ -23,7 +24,23 @@ from tracker.platform.local_http import (
 from tracker.platform.paths import REPO_ROOT
 from tracker.supervisor.api import RUNNING, ApiService
 
-pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows state discovery requires Windows")
+pytestmark = [
+    pytest.mark.skipif(sys.platform != "win32", reason="Windows state discovery requires Windows"),
+    pytest.mark.usefixtures("no_escape"),
+]
+
+#: Captured at import, before `no_escape` replaces them. The fixture below hands them back to these tests
+#: only: starting, signalling and stopping processes is the behaviour under test, and every process is one
+#: this file started.
+REAL_POPEN = subprocess.Popen
+REAL_KILL = os.kill
+
+
+@pytest.fixture(autouse=True)
+def real_processes(no_escape, monkeypatch):
+    monkeypatch.setattr(subprocess, "Popen", REAL_POPEN)
+    monkeypatch.setattr(os, "kill", REAL_KILL)
+    allow_windows_process_control(monkeypatch)
 
 
 @pytest.fixture(scope="module")

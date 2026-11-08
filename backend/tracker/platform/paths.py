@@ -36,9 +36,10 @@ def installed_data_roots() -> tuple[Path, ...]:
 
 
 def within_installed_data(path: Path) -> bool:
-    """Whether `path` is an installed app's state root or inside one."""
-    selected = Path(os.path.abspath(path))
-    return any(selected.is_relative_to(root) for root in installed_data_roots())
+    """Whether `path` is an installed app's state root or inside one, by where it really is: a junction or link
+    on the way is followed, so it cannot lead a tool into an installed app's data under another name."""
+    selected = Path(os.path.realpath(path))
+    return any(selected.is_relative_to(os.path.realpath(root)) for root in installed_data_roots())
 
 
 # Both layouts put tracker two levels below the resource root:

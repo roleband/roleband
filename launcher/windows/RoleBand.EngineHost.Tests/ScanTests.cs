@@ -451,4 +451,14 @@ public sealed class ScanTests
         Assert.IsTrue(zone == "UTC" || zone.Contains('/'), zone);
         Assert.IsTrue(TimeZoneInfo.TryFindSystemTimeZoneById(zone, out _), zone);
     }
+
+    [TestMethod]
+    public void TheEngineIsToldTheMachinesZoneAndTzStaysUnset()
+    {
+        // Python has no map from Windows zone names, and the C runtime reads TZ in its own form.
+        var state = Path.Combine(Path.GetTempPath(), "roleband-zone-tests", Guid.NewGuid().ToString("N"));
+        var start = new EngineConfiguration(state, state, "must-not-run.exe", "must-not-run.exe", "test", true, true).EngineStart([]);
+        Assert.AreEqual(ScanControl.LocalTimezone(), start.Environment["ROLEBAND_LOCAL_ZONE"]);
+        Assert.IsFalse(start.Environment.ContainsKey("TZ"));
+    }
 }

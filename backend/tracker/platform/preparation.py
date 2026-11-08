@@ -53,7 +53,15 @@ def read(data: Path) -> Preparation | None:
             require_private(path)
         elif info.st_uid != os.getuid():
             return None
-        value = Preparation(**json.loads(path.read_text()))
+        if sys.platform == "win32":
+            from tracker.platform.windows_fs import reader
+
+            # A read shares deletion, so a publication at the same moment can still replace the file.
+            with reader(path) as stream:
+                text = stream.read(8193).decode()
+        else:
+            text = path.read_text()
+        value = Preparation(**json.loads(text))
         if (
             type(value.format) is not int or value.format != 1
             or value.database not in {"waiting", "creating", "ready", "failed"}
@@ -94,11 +102,17 @@ def update(data: Path, **changes: Any) -> Preparation:
     try:
         filelock.lock(descriptor)
         value = replace(read(data) or Preparation(), **changes)
-        # Closed before the rename: Windows refuses to rename an open file.
+        payload = (json.dumps(asdict(value)) + "\n").encode()
+        if sys.platform == "win32":
+            from tracker.platform.windows_fs import publish
+
+            # A plain rename fails while a reader holds the file without sharing deletion.
+            publish(directory / "preparation.json", payload)
+            return value
         with tempfile.NamedTemporaryFile(dir=directory, prefix=".preparation-", delete=False) as output:
             temporary = Path(output.name)
         try:
-            temporary.write_bytes((json.dumps(asdict(value)) + "\n").encode())
+            temporary.write_bytes(payload)
             os.replace(temporary, directory / "preparation.json")
         finally:
             temporary.unlink(missing_ok=True)

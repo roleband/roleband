@@ -42,6 +42,10 @@ from tracker.supervisor.dispatch import Dispatcher
 
 logger = logging.getLogger("tracker.supervisor")
 
+#: How long quit waits for cancelled runs to settle; below the Windows host's stop timeout, so the host never has
+#: to force the engine down while it is still releasing its lock.
+QUIT_DRAIN_SECONDS = 20.0
+
 
 class Listener:
     """A LISTEN connection that sets `wake` on every notification."""
@@ -157,11 +161,15 @@ async def serve(
                 )
         finally:
             if cancel_on_stop and stop.is_set():
-                await dispatcher.drain(cancel=True, reason="app_quit")
-                while dispatcher.watched:
-                    beat()
-                    await dispatcher.settle()
-                    await asyncio.sleep(0.05)
+                try:
+                    await dispatcher.drain(cancel=True, reason="app_quit")
+                    deadline = awake_seconds() + QUIT_DRAIN_SECONDS
+                    while dispatcher.watched and awake_seconds() < deadline:
+                        beat()
+                        await dispatcher.settle()
+                        await asyncio.sleep(0.05)
+                except Exception:  # noqa: BLE001 - quit still stops the API and releases the lock
+                    logger.exception("could not cancel the running jobs before quitting")
             if api is not None:
                 # The API serves only while this supervisor dispatches: not in
                 # maintenance, not beside another supervisor, not across a re-exec.

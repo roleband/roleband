@@ -16,6 +16,23 @@ public static class PrivateStorage
         }
     }
 
+    /// <summary>The owner this process's token gives what it creates without naming an owner: the account itself,
+    /// or the Administrators group for a token running elevated.</summary>
+    public static SecurityIdentifier DefaultOwner
+    {
+        get
+        {
+            using var identity = WindowsIdentity.GetCurrent();
+            return identity.Owner ?? AccountSid;
+        }
+    }
+
+    /// <summary>Private state is owned by this account, or by the owner this process gives what it creates. An
+    /// elevated administrator's files are owned by the Administrators group, which only administrators can act as;
+    /// the access rules still admit no one but the account and SYSTEM.</summary>
+    public static bool OwnedHere(SecurityIdentifier? owner, SecurityIdentifier account, SecurityIdentifier defaultOwner) =>
+        owner is not null && (owner.Equals(account) || owner.Equals(defaultOwner));
+
     public static void EnsureDirectory(string path)
     {
         path = Path.GetFullPath(path);
@@ -42,7 +59,7 @@ public static class PrivateStorage
         FileSystemSecurity security = directory
             ? new DirectoryInfo(path).GetAccessControl(AccessControlSections.Owner | AccessControlSections.Access)
             : new FileInfo(path).GetAccessControl(AccessControlSections.Owner | AccessControlSections.Access);
-        if (!AccountSid.Equals(security.GetOwner(typeof(SecurityIdentifier))))
+        if (!OwnedHere(security.GetOwner(typeof(SecurityIdentifier)) as SecurityIdentifier, AccountSid, DefaultOwner))
             throw new IOException("Private state belongs to another account.");
         var rules = security.GetAccessRules(true, true, typeof(SecurityIdentifier));
         if (rules.Count == 0) throw new IOException("Private state has no restrictive ACL.");

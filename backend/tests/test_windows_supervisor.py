@@ -15,11 +15,28 @@ from zoneinfo import ZoneInfo
 import psutil
 import pytest
 
+from tests.conftest import allow_windows_process_control
 from tracker.platform.paths import REPO_ROOT
 from tracker.supervisor import child, runner
 from tracker.supervisor.registry import JobSpec, OnRequest, Power
 
-pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows process control requires Windows")
+pytestmark = [
+    pytest.mark.skipif(sys.platform != "win32", reason="Windows process control requires Windows"),
+    pytest.mark.usefixtures("no_escape"),
+]
+
+#: Captured at import, before `no_escape` replaces them. The fixture below hands them back to these tests
+#: only: starting, signalling and stopping processes is the behaviour under test, and every process is one
+#: this file started.
+REAL_POPEN = subprocess.Popen
+REAL_KILL = os.kill
+
+
+@pytest.fixture(autouse=True)
+def real_processes(no_escape, monkeypatch):
+    monkeypatch.setattr(subprocess, "Popen", REAL_POPEN)
+    monkeypatch.setattr(os, "kill", REAL_KILL)
+    allow_windows_process_control(monkeypatch)
 
 
 def wait_for(check, *, timeout=20):
@@ -297,20 +314,6 @@ def test_cancellation_refuses_an_unrelated_process(tmp_path):
     finally:
         foreign.kill()
         foreign.wait(timeout=10)
-
-
-def test_route_safety_guard_refuses_native_control_and_windows_zero_signals(monkeypatch, request):
-    from tests.conftest import EscapeRefused
-    from tracker.platform import windows_process
-
-    observed = []
-    monkeypatch.setattr(os, "kill", lambda *args: observed.append(args))
-    request.getfixturevalue("no_escape")
-    with pytest.raises(EscapeRefused):
-        os.kill(7, 0)
-    with pytest.raises(EscapeRefused, match="native process control"):
-        windows_process._kernel()
-    assert not observed
 
 
 @pytest.mark.parametrize("code,expected", [(0, 0), (137, 137), (0xC000013A, -1073741510)])

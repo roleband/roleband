@@ -54,6 +54,18 @@ def test_preparation_progress_is_atomic_and_refuses_a_symbolic_link(tmp_path):
     assert not list(foreign.iterdir())
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows private storage requires Windows")
+def test_progress_is_replaced_while_the_api_reads_it(tmp_path):
+    """The API reads progress while preparation writes it; a plain rename is refused under any open reader."""
+    from tracker.platform.windows_fs import reader
+
+    data = tmp_path / "data"
+    preparation.update(data, database="creating")
+    with reader(data / "launcher" / "preparation.json"):
+        preparation.update(data, database="ready")
+    assert preparation.read(data).database == "ready"
+
+
 def test_missing_or_malformed_progress_cannot_claim_readiness(tmp_path):
     import json
 

@@ -37,6 +37,10 @@ OPTIONAL_SKIPS: tuple[tuple[re.Pattern[str], str], ...] = (
         "native account ACL and TCP ownership tests require Windows",
     ),
     (
+        re.compile(r"Windows private storage requires Windows"),
+        "native owner and access-list checks require Windows",
+    ),
+    (
         re.compile(r"Windows (restart|recovery|restore|migration|update|memory reader) requires Windows"),
         "native postmaster restart, recovery-drill, checkpoint-promotion and memory tests require Windows",
     ),

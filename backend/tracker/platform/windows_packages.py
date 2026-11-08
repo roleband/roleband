@@ -74,32 +74,35 @@ def download(state: Path, identity: Identity, offer: Offer, signed: tuple[bytes,
     if offset > offer.bytes:
         partial.unlink()
         offset = 0
-    headers = {"Accept-Encoding": "identity", **({"Range": f"bytes={offset}-"} if offset else {})}
-    with httpx.Client(transport=transport, follow_redirects=False, trust_env=False,
-                      timeout=httpx.Timeout(30.0, connect=10.0), headers={"User-Agent": USER_AGENT}) as client:
-        response = _get(client, asset_url(identity.feed, offer.version, offer.package), identity.feed,
-                        offer.version, headers)
-        try:
-            if offset and response.status_code == 206:
-                match = _RANGE.fullmatch(response.headers.get("Content-Range", ""))
-                if not match or (int(match[1]), int(match[2]), int(match[3])) != (offset, offer.bytes - 1, offer.bytes):
-                    raise ReleaseError("The server resumed the package at the wrong place")
-                mode = "ab"
-            elif response.status_code == 200:
-                offset, mode = 0, "wb"
-            else:
-                raise ReleaseError("The package is not available")
-            with partial.open(mode) as output:
-                written = offset
-                for chunk in response.iter_bytes():
-                    written += len(chunk)
-                    if written > offer.bytes:
-                        raise ReleaseError("The package is larger than its signed size")
-                    output.write(chunk)
-                output.flush()
-                os.fsync(output.fileno())
-        finally:
-            response.close()
+    # A stop between the last byte and the rename leaves a complete partial file; a range past its end would be
+    # refused for ever, so it goes straight to verification.
+    if offset < offer.bytes:
+        headers = {"Accept-Encoding": "identity", **({"Range": f"bytes={offset}-"} if offset else {})}
+        with httpx.Client(transport=transport, follow_redirects=False, trust_env=False,
+                          timeout=httpx.Timeout(30.0, connect=10.0), headers={"User-Agent": USER_AGENT}) as client:
+            response = _get(client, asset_url(identity.feed, offer.version, offer.package), identity.feed,
+                            offer.version, headers)
+            try:
+                if offset and response.status_code == 206:
+                    match = _RANGE.fullmatch(response.headers.get("Content-Range", ""))
+                    if not match or (int(match[1]), int(match[2]), int(match[3])) != (offset, offer.bytes - 1, offer.bytes):
+                        raise ReleaseError("The server resumed the package at the wrong place")
+                    mode = "ab"
+                elif response.status_code == 200:
+                    offset, mode = 0, "wb"
+                else:
+                    raise ReleaseError("The package is not available")
+                with partial.open(mode) as output:
+                    written = offset
+                    for chunk in response.iter_bytes():
+                        written += len(chunk)
+                        if written > offer.bytes:
+                            raise ReleaseError("The package is larger than its signed size")
+                        output.write(chunk)
+                    output.flush()
+                    os.fsync(output.fileno())
+            finally:
+                response.close()
     if partial.stat().st_size < offer.bytes:
         raise ReleaseError("The package download was interrupted; it resumes on the next attempt")
     try:

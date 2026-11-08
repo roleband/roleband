@@ -56,15 +56,26 @@ def _apis():
 
 def account_sid() -> str:
     """The process token's user SID, independent of localized account names."""
+    return _token_sid(1)
+
+
+def default_owner_sid() -> str:
+    """The owner this process's token gives what it creates without naming an owner: the account itself, or the
+    Administrators group for a token running elevated."""
+    return _token_sid(4)
+
+
+def _token_sid(information: int) -> str:
+    """The SID a token information class leads with (TokenUser and TokenOwner both start with one)."""
     advapi, kernel = _apis()
     token = wintypes.HANDLE()
     if not advapi.OpenProcessToken(kernel.GetCurrentProcess(), 0x0008, ctypes.byref(token)):
         raise ctypes.WinError(ctypes.get_last_error())
     try:
         size = wintypes.DWORD()
-        advapi.GetTokenInformation(token, 1, None, 0, ctypes.byref(size))
+        advapi.GetTokenInformation(token, information, None, 0, ctypes.byref(size))
         info = ctypes.create_string_buffer(size.value)
-        if not advapi.GetTokenInformation(token, 1, info, size, ctypes.byref(size)):
+        if not advapi.GetTokenInformation(token, information, info, size, ctypes.byref(size)):
             raise ctypes.WinError(ctypes.get_last_error())
         sid = ctypes.cast(info, ctypes.POINTER(wintypes.LPVOID))[0]
         text = wintypes.LPWSTR()
@@ -98,16 +109,49 @@ def require_private(path: Path) -> None:
         if text:
             kernel.LocalFree(text)
         kernel.LocalFree(descriptor)
-    sid = account_sid()
+    if problem := descriptor_problem(sddl, sddl_name(account_sid()), sddl_name(default_owner_sid())):
+        raise PrivatePathError(f"private storage {problem}: {path}")
+
+
+def sddl_name(sid: str) -> str:
+    """How descriptor strings write an account: its full SID, or the short alias Windows uses for a well-known
+    account, such as LA for the built-in Administrator. Descriptors read back from disk use the alias, so a
+    comparison with the full SID alone would refuse that account's own storage."""
+    advapi, kernel = _apis()
+    descriptor = wintypes.LPVOID()
+    if not advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW(
+        f"O:{sid}", 1, ctypes.byref(descriptor), None,
+    ):
+        raise ctypes.WinError(ctypes.get_last_error())
+    text = wintypes.LPWSTR()
+    try:
+        if not advapi.ConvertSecurityDescriptorToStringSecurityDescriptorW(
+            descriptor, 1, 1, ctypes.byref(text), None,
+        ):
+            raise ctypes.WinError(ctypes.get_last_error())
+        return (text.value or "").removeprefix("O:")
+    finally:
+        if text:
+            kernel.LocalFree(text)
+        kernel.LocalFree(descriptor)
+
+
+def descriptor_problem(sddl: str, account: str, default_owner: str | None = None) -> str | None:
+    """What makes a descriptor unsafe for private storage, if anything: an owner other than the account or the
+    owner this process gives what it creates, no protected list of allowed entries, or an entry for anyone but the
+    account and SYSTEM. The descriptor and the names are in descriptor-string form (see sddl_name).
+
+    An elevated administrator's files are owned by the Administrators group, which only administrators can act
+    as; the entries still admit no one but the account and SYSTEM."""
     owner, _, dacl = sddl.partition("D:")
     entries = re.findall(r"\(([^()]*)\)", dacl)
-    allowed = {sid, "SY"}
-    if owner != f"O:{sid}" or not entries or "NO_ACCESS_CONTROL" in dacl:
-        raise PrivatePathError(f"private storage has an unsafe owner or ACL: {path}")
+    if owner not in {f"O:{account}", f"O:{default_owner or account}"} or not entries or "NO_ACCESS_CONTROL" in dacl:
+        return f"has an unsafe owner or ACL ({owner or 'no owner'})"
     for entry in entries:
         fields = entry.split(";")
-        if len(fields) != 6 or fields[0] != "A" or fields[5] not in allowed:
-            raise PrivatePathError(f"private storage grants another account access: {path}")
+        if len(fields) != 6 or fields[0] != "A" or fields[5] not in {account, "SY"}:
+            return "grants another account access"
+    return None
 
 
 @contextmanager

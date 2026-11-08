@@ -417,7 +417,7 @@ launcher-windows-prepared-title = Este PC está listo
 launcher-windows-prepared-body = Este PC tiene todo lo necesario para los escaneos.
 launcher-windows-login-approval = Desactivado en Aplicaciones de inicio, en Configuración de Windows.
 launcher-windows-login-managed = Tu organización administra este ajuste.
-launcher-windows-login-settings = Abrir configuración
+launcher-windows-login-settings = Aplicaciones de inicio
 launcher-windows-settings-note = Puedes cambiarlas cuando quieras en Ajustes.
 launcher-windows-tray-hint = El radar del área de notificación muestra cada escaneo en curso y te permite abrir tu Radar cuando quieras.
 launcher-windows-later-help = La preparación continúa.
@@ -447,7 +447,7 @@ launcher-windows-login-body = Los escaneos pueden empezar en segundo plano al in
     No se abre ninguna ventana del navegador.
 launcher-windows-tray-title = Mantén el radar junto al reloj
 launcher-windows-tray-body = Windows oculta los iconos nuevos tras ^. Activa el radar en Otros iconos de la bandeja del sistema para ver cada escaneo en curso.
-launcher-windows-taskbar-settings = Abrir configuración
+launcher-windows-taskbar-settings = Barra de tareas
 
 # kind=label
 launcher-panel-scan = Escaneo

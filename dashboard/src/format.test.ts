@@ -145,8 +145,8 @@ describe("LOC_LABEL", () => {
 describe("one grammar for a moment: the settings registers and the freshness tooltip (R14)", () => {
   it.each(["en-US", "en-GB"])("formats a moment with the chosen %s region and optional weekday", async (region) => {
     const previous = choice();
-    await activate("en", { region });
     try {
+      await activate("en", { region });
       const iso = "2026-10-04T09:05:00Z";
       const at = new Date(iso);
       expect(formatWhen(iso)).toBe(

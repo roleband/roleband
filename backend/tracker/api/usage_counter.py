@@ -135,6 +135,10 @@ NOT_COUNTED: Mapping[tuple[str, str], str] = {
             ("DELETE", "/api/jobs/{job_id}/pursuit/interviews/{interview_id}"),
         )
     },
+    **{
+        ("POST", path): "the browser handoff signing the Radar in to its own engine: authentication, not an action"
+        for path in ("/api/local-auth/browser-ticket", "/api/local-auth/browser-session")
+    },
     ("POST", "/api/settings/price-feed/refresh"): (
         "asks now for what the prices job does on its own; the key saved and removed are the counted "
         "choices, and a new action would widen the catalogue and re-ask every sharer"),
