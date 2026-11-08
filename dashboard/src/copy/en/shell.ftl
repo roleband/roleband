@@ -89,7 +89,7 @@ shell-palette-open-aria = Open command palette, ⌘ K
 # kind=tooltip
 shell-palette-open-title = Command palette (⌘K)
 # kind=aria
-shell-stats-aria = Mission telemetry
+shell-stats-aria = Radar summary
 # kind=label note="A count no status has answered yet"
 shell-stat-unknown = Unknown
 # kind=label note="Beside the count of open roles"

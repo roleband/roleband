@@ -154,7 +154,7 @@ it("lays the three descriptions out under their roles, differences first", async
   expect(screen.getAllByText("1 shared passage hidden")).toHaveLength(3);
   // What is unique is marked; the reader is told what the mark means.
   expect(screen.getByText(/Second only/)).toHaveClass("cmp-passage--unique");
-  expect(screen.getByText("Amber passages are not in every posting.")).toBeInTheDocument();
+  expect(screen.getByText(msg("compare-screen-passages-legend", { passages: "shared" }))).toBeInTheDocument();
 
   await userEvent.setup().click(screen.getByRole("button", { name: "Show full descriptions" }));
   expect(screen.getAllByText(SHARED)).toHaveLength(3);
@@ -181,7 +181,7 @@ it("keeps each posting in its own order under its role, and says when a role has
   // Against an empty column nothing is shared, so nothing is marked or
   // filtered — the passages read plain and the legend says why.
   expect(screen.getByText("Same summary.")).not.toHaveClass("cmp-passage--unique");
-  expect(screen.getByText("These postings share no passages.")).toBeInTheDocument();
+  expect(screen.getByText(msg("compare-screen-passages-legend", { passages: "none" }))).toBeInTheDocument();
 });
 
 it("compresses the facts the roles agree on into one Same cell, and a run into one line", async () => {
@@ -216,14 +216,14 @@ it("carries the row's verbs on each column: Save writes the star, Not for me hid
   expect(verbs.toggleCompare).toHaveBeenCalledWith(3);
 });
 
-it("declines to mark or filter when the postings share nothing: every passage would be amber", async () => {
+it("declines to mark or filter when the postings share nothing: every passage would be highlighted", async () => {
   compareIds = new Set([1, 2]);
   vi.mocked(api.job).mockImplementation((id: number) => Promise.resolve(job(id, `Role ${id}`, `Only in ${id}.`)));
   render(<MemoryRouter><CompareScreen /></MemoryRouter>);
 
   expect(await screen.findByText("Only in 1.")).toBeInTheDocument();
   expect(screen.getByText("Only in 1.")).not.toHaveClass("cmp-passage--unique");
-  expect(screen.getByText("These postings share no passages.")).toBeInTheDocument();
+  expect(screen.getByText(msg("compare-screen-passages-legend", { passages: "none" }))).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Show (full descriptions|differences only)/ })).toBeNull();
 });
 
