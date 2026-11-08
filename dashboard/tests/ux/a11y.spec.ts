@@ -9,6 +9,7 @@
    ceiling. */
 
 import AxeBuilder from "@axe-core/playwright";
+import { msg } from "../../src/test/msg";
 import { expect, test, type Page } from "./fixtures";
 import { installEveryRoute } from "./routesHarness";
 
@@ -82,7 +83,7 @@ for (const path of ["/", "/notifications"]) {
     await page.goto(path);
     await expect(page.getByRole("main").first()).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toBeVisible();
-    await expect(page.getByRole("group", { name: "Mission telemetry" })).toBeVisible();
+    await expect(page.getByRole("group", { name: msg("shell-stats-aria"), exact: true })).toBeVisible();
     const { violations, incomplete } = await scan(page);
     const order = violations.find((v) => v.id === "heading-order");
     expect(order?.nodes.map((n) => n.html), "heading levels skip").toBeUndefined();
