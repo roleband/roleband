@@ -96,7 +96,7 @@ describe("words", () => {
     const learning = schedulePlanFixture({
       usual: { ...office.usual, learning: true, observed_days: 3, weekdays: null, weekends: null },
     });
-    expect(learnedSentence(learning)).toBe(msg("settings-plan-still-learning-when-your-computer", { observed_days: 3, needed_days: 5 }));
+    expect(learnedSentence(learning)).toBe("Still learning when your computer is on: 3 of 5 days seen.");
   });
 
   it("says the learned hours for each part of the week it saw", () => {
