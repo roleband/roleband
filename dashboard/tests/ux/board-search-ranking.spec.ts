@@ -565,7 +565,7 @@ test("Best fit heads the roles whose level we cannot place, exactly where they s
   await page.goto("/");
   await page.getByRole("combobox", { name: "Sort by" }).selectOption("relevance");
 
-  const head = page.getByRole("heading", { name: /Level not placed/ });
+  const head = page.getByRole("heading", { name: /Level unknown/ });
   await expect(head).toBeVisible();
   await expect(head).toContainText("2 roles");
   await expect.poll(() => listOrder(page)).toEqual([
@@ -585,8 +585,8 @@ test("a column sort keeps its own order and draws no group head", async ({ page 
   });
   await page.goto("/");
   await page.getByRole("combobox", { name: "Sort by" }).selectOption("relevance");
-  await expect(page.getByRole("heading", { name: /Level not placed/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Level unknown/ })).toBeVisible();
 
   await page.getByRole("combobox", { name: "Sort by" }).selectOption("location");
-  await expect(page.getByRole("heading", { name: /Level not placed/ })).toBeHidden();
+  await expect(page.getByRole("heading", { name: /Level unknown/ })).toBeHidden();
 });

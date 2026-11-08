@@ -12,7 +12,7 @@ vi.mock("../../api", async () => {
 
 vi.mock("./charts/StatisticsCharts", () => ({ OverviewSignalChart: () => null }));
 
-/* "Open the longest" names postings, so each reads its own listed age
+/* The longest-open list names postings, so each reads its own listed age
    (`listed_days`), the age its Board row shows; never "N days open"
    from our first sighting. Three rows, beside the three largest groups,
    in the advanced view. */

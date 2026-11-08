@@ -121,7 +121,7 @@ describe("disclosureRateRows", () => {
       }),
       "level",
     );
-    expect(rows.map((r) => r.label)).toEqual(["Level not placed", "Principal"]);
+    expect(rows.map((r) => r.label)).toEqual([msg("taxonomy-level-not-placed"), "Principal"]);
   });
 });
 

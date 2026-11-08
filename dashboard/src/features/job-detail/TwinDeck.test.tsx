@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api";
 import type { TwinDetail } from "../../api";
 import { jobDetailRowFixture, twinProposalFixture } from "../../test/fixtures";
+import { msg } from "../../test/msg";
 import { TwinDeck } from "./TwinDeck";
 
 vi.mock("../../api", () => ({ api: { twins: vi.fn() } }));
@@ -33,7 +34,10 @@ describe("TwinDeck", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: /Has a related role/ }));
     expect(screen.getByText("Staff Security Architect")).toBeInTheDocument();
-    expect(screen.getByText(/req C/)).toBeInTheDocument();
+    // The member reached only through the group is named with its own req id.
+    expect(
+      screen.getByText(msg("role-twin-deck-req-2", { title: detail.members[2].job.title, id: "C" })),
+    ).toBeInTheDocument();
     expect(screen.getByText(/not directly related/)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Compare with related roles" }));

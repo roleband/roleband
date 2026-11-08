@@ -59,7 +59,7 @@ insights-comp-trend-chart-median-total-pay = Median estimated total compensation
         [single] { " " }with p25–p75 spread
        *[several] { "" }
     } · { $period ->
-        [all] all history
+        [all] all time
        *[days] last { $days }d
     }
 # kind=sentence note="A reference change moved every estimate at once: a plugin turned on or off, or a new edition of RoleBand's data"
@@ -70,13 +70,13 @@ insights-comp-trend-chart-reference-changed = { $count ->
 # kind=aria
 insights-comp-trend-chart-reference-marker = Compensation estimates changed on { $date }
 # kind=sentence
-insights-comp-trend-chart-history-is-still-accruing-one = History is still accruing: one snapshot is recorded per scan, so the trend line stays flat until the nightly scan has run on several days.
+insights-comp-trend-chart-history-is-still-accruing-one = Not enough history yet. The line fills in after a few days of scans.
 # kind=sentence
 insights-comp-trend-chart-no-comp-history-yet = No compensation history yet.
 # kind=label wording=as-is same-as=insights-clusters-view-roles
 insights-comp-trend-chart-roles = { $dim } · { $count } roles
-# kind=label wording=as-is
-insights-comp-trend-chart-by-family = By family
+# kind=label
+insights-comp-trend-chart-by-family = By discipline
 # kind=label wording=as-is
 insights-comp-trend-chart-breakdown = Breakdown
 # kind=aria
@@ -91,14 +91,14 @@ insights-comp-trend-chart-load-failed = Couldn't load the compensation trend
 insights-compensation-panel-compensation = Compensation
 # kind=sentence wording=as-is
 insights-compensation-panel-no-open-roles-with-a = No open roles with a compensation estimate yet.
-# kind=label wording=as-is
-insights-compensation-panel-open-roles-now-coverage = { $with_comp } / { $total_open } open roles now · { $pct }% coverage
-# kind=sentence wording=as-is
-insights-compensation-panel-estimated-total-compensation-is-imputed = Estimated total compensation is imputed from a company + level + family lookup. Employers did not state these figures; treat them as a reference point, not an offer.
+# kind=status
+insights-compensation-panel-open-roles-now-coverage = { $with_comp } of { $total_open } open roles have an estimate ({ $pct }%)
+# kind=sentence
+insights-compensation-panel-estimated-total-compensation-is-imputed = Estimated from company, level and discipline, not stated by employers. Treat it as a reference, not an offer.
 # kind=label
 insights-compensation-panel-published-bands = Posted ranges
-# kind=heading wording=as-is
-insights-compensation-panel-what-employers-actually-print = What employers actually print
+# kind=heading
+insights-compensation-panel-what-employers-actually-print = Posted ranges
 # kind=status
 insights-compensation-panel-bands-from-employers = { $bands } ranges · { $employers ->
     [one] { $employers } employer
@@ -108,25 +108,25 @@ insights-compensation-panel-bands-from-employers = { $bands } ranges · { $emplo
 insights-compensation-panel-estimated-comp-distribution = Estimated total compensation distribution
 # kind=heading
 insights-compensation-panel-median-comp-by-level = Median estimated total compensation by level
-# kind=label note="A bar's tooltip: the middle half of the group's estimates, then how many roles it rests on"
-insights-compensation-panel-spread = p25–p75 { $low }–{ $high } · { $roles }
+# kind=tooltip note="A bar's tooltip: the middle half of the group's estimates, then how many roles it rests on"
+insights-compensation-panel-spread = Middle 50%: { $low }–{ $high } · { $roles }
 # kind=heading note="Roles RoleBand's data prices by their base alone, shown apart from total comp"
 insights-compensation-panel-estimated-base-by-level = Estimated base salary by level
 # kind=label note="Eyebrow over the base-only panel"
 insights-compensation-panel-base-only = Base only
 # kind=sentence note="Why these roles are apart: no total exists for them"
 insights-compensation-panel-base-only-lead = { $count ->
-    [one] { $count } more role has only an estimated base salary. Its bonus and equity aren't known yet, so it isn't in the figures above.
-   *[other] { $count } more roles have only an estimated base salary. Their bonus and equity aren't known yet, so they aren't in the figures above.
+    [one] { $count } more role has only a base salary estimate, so it isn't in the figures above.
+   *[other] { $count } more roles have only a base salary estimate, so they aren't in the figures above.
 }
-# kind=heading wording=as-is
-insights-compensation-panel-top-paying-companies = Top paying companies
+# kind=heading
+insights-compensation-panel-top-paying-companies = Top-paying companies
 # kind=heading
 insights-compensation-panel-median-pay-by-discipline = Median estimated total compensation by discipline
 # kind=heading wording=as-is
 insights-compensation-panel-what-a-skill-adds-at = What a skill adds at the same level
-# kind=sentence wording=as-is
-insights-compensation-panel-roles-naming-the-skill-against = Roles naming the skill against every role at the same level in the same discipline. The estimate is looked up by company, level and discipline, so the difference says which employers ask for the skill, not what the skill itself is worth.
+# kind=sentence
+insights-compensation-panel-roles-naming-the-skill-against = Roles naming the skill against all roles at the same level and discipline. It shows which employers ask for it, not what it is worth.
 # kind=sentence wording=as-is
 insights-compensation-panel-not-enough-priced-roles-per = Not enough priced roles per skill yet.
 # kind=label wording=as-is
@@ -137,15 +137,15 @@ insights-compensation-panel-roles = { $count ->
 # kind=label wording=as-is
 insights-compensation-panel-groups-of-roles-or-more = Groups of { $min_roles } roles or more
 # kind=sentence
-insights-compensation-panel-base-salary-quoted-from-the = Base salary quoted from the posting, not the estimate above or total compensation. Each line is one posted range, however many open roles share it.
+insights-compensation-panel-base-salary-quoted-from-the = Base salary as posted, not an estimate. Each line is one posted range, however many roles share it.
 # kind=label wording=as-is
 insights-compensation-panel-how-compensation-is-estimated = How compensation is estimated
-# kind=label wording=as-is
-insights-compensation-panel-coverage = Coverage
+# kind=label
+insights-compensation-panel-coverage = Estimated
 # kind=label wording=as-is
 insights-compensation-panel-middle-50 = Middle 50%
-# kind=label wording=as-is
-insights-compensation-panel-top-decile = Top decile
+# kind=label
+insights-compensation-panel-top-decile = Top 10%
 # kind=label
 insights-compensation-panel-range = Spread
 # kind=label
@@ -162,17 +162,17 @@ insights-demand-open-roles-by-company = Open roles by company
 insights-demand-each-role-counts-once-however = Each role counts once, however many places it is listed at. New counts the last 2 days, closed counts today.
 # kind=sentence wording=as-is
 insights-demand-no-open-roles-at-these = No open roles at these companies.
-# kind=sentence wording=as-is note="Under the company chart: the companies folded out of it. $share is none when this side has no open roles to take a share of"
+# kind=sentence note="Under the company chart: the companies folded out of it. $share is none when this side has no open roles to take a share of"
 insights-demand-more-hold = { $share ->
-    [none] { $companies } more hold { $roles }.
-   *[known] { $companies } more hold { $roles } ({ $percent }% of these roles).
+    [none] { $companies } more have { $roles }.
+   *[known] { $companies } more have { $roles } ({ $percent }% of these roles).
 }
 # kind=button wording=as-is
 insights-demand-show-all = Show all { $company }
 # kind=heading wording=as-is
 insights-demand-open-roles-by-region = Open roles by region
-# kind=sentence wording=as-is
-insights-demand-a-role-open-in-several = A role open in several regions counts in each. A role that names only a region, such as Remote EMEA, counts there as region-wide, never in each country.
+# kind=sentence
+insights-demand-a-role-open-in-several = A role open in several regions counts in each. One that names only a region, such as Remote EMEA, counts once for that region.
 # kind=sentence wording=as-is
 insights-demand-no-open-roles-yet = No open roles yet.
 # kind=label wording=as-is
@@ -196,24 +196,24 @@ insights-demand-with-an-open-role = with an open role
 insights-demand-how-companies-are-counted = How companies are counted
 # kind=heading wording=as-is
 insights-demand-longest-open-roles = Longest-open roles
-# kind=tooltip wording=as-is
-insights-demand-potential-hard-to-fill-signal = Potential hard-to-fill signal.
+# kind=tooltip
+insights-demand-potential-hard-to-fill-signal = May be hard to fill.
 # kind=sentence wording=as-is
 insights-demand-no-data-yet = No data yet.
-# kind=sentence wording=as-is
-insights-demand-listed-over-a-year-are = { $role } listed over a year are left out: their dates read as stale.
+# kind=sentence
+insights-demand-listed-over-a-year-are = { $role } listed over a year are left out as stale.
 # kind=heading wording=as-is
 insights-demand-reposted-roles = Reposted roles
-# kind=tooltip wording=as-is
-insights-demand-closed-then-reappeared-a-repeated = Closed, then reappeared: a repeated hiring-pressure signal.
+# kind=tooltip
+insights-demand-closed-then-reappeared-a-repeated = Closed, then posted again. Often a sign it's hard to fill.
 # kind=sentence wording=as-is
 insights-demand-none-detected-yet = None detected yet.
 # kind=label wording=as-is
 insights-demand-reposted = { $company } · reposted ×{ $repost_count }
 # kind=heading wording=as-is
 insights-demand-updated-but-never-closed = Updated but never closed
-# kind=tooltip wording=as-is
-insights-demand-changed-repeatedly-without-a-closure = Changed repeatedly without a closure event.
+# kind=tooltip
+insights-demand-changed-repeatedly-without-a-closure = Changed several times, never closed.
 # kind=label wording=as-is
 insights-demand-updated-times = Updated { $update_count } times
 # kind=label wording=as-is
@@ -227,19 +227,19 @@ insights-demand-find-a-company = Find a company
 
 ## features/statistics/DisclosurePanel.tsx
 # kind=sentence
-insights-disclosure-panel-of-open-roles-have-not = { $pending } of { $open } open roles have not been checked for a posted range yet. They are left out of the rate rather than counted as employers posting nothing.
+insights-disclosure-panel-of-open-roles-have-not = { $pending } of { $open } open roles haven't been checked for a posted range yet, so they're left out.
 # kind=label wording=as-is
 insights-disclosure-panel-pay-transparency = Pay transparency
 # kind=heading
 insights-disclosure-panel-who-states-pay = Who posts a range
 # kind=sentence
-insights-disclosure-panel-the-share-of-open-roles = The share of open roles that post a range, counted against the roles checked so far, not against every open role. Any range counts, whether it is base salary, total compensation or not stated; what the range is worth is a separate question from whether one was posted.
+insights-disclosure-panel-the-share-of-open-roles = The share of checked open roles that post a range. Any range counts: base salary, total compensation or not stated.
 # kind=status
 insights-disclosure-panel-of-checked-roles-state-pay = { $rate } of { $checked } checked roles post a range
 # kind=sentence
 insights-disclosure-panel-no-open-roles-have-been = No open roles have been checked for a posted range yet.
-# kind=sentence
-insights-disclosure-panel-history-is-still-accruing-one = History is still accruing: one snapshot is recorded per scan, so the line stays flat until the nightly scan has run on several days.
+# kind=sentence same-as=insights-comp-trend-chart-history-is-still-accruing-one
+insights-disclosure-panel-history-is-still-accruing-one = Not enough history yet. The line fills in after a few days of scans.
 # kind=label wording=as-is
 insights-disclosure-panel-over-time = Over time
 # kind=heading wording=as-is
@@ -249,23 +249,23 @@ insights-disclosure-panel-share-of-checked-open-roles = Share of checked open ro
 # kind=sentence wording=as-is
 insights-disclosure-panel-no-pay-transparency-history-yet = No pay-transparency history yet.
 # kind=sentence note="$since is the day the Same companies set was read"
-insights-disclosure-panel-the-market-line-moves-when = The market line moves when companies are added, and added companies post a range less often. Same companies follows only the { $companies } read on { $since }.
+insights-disclosure-panel-the-market-line-moves-when = The market line shifts as companies are added. Same companies follows only the { $companies } scanned on { $since }.
 # kind=heading
 insights-disclosure-panel-published-band-trend = Posted range trend
 # kind=sentence
-insights-disclosure-panel-the-median-floor-and-ceiling = The median floor and ceiling employers post, counted once per distinct posted range rather than once per role: one range covers many open roles, so per-role counting would track reposting, not compensation. Base salary only; a range that never says whether it includes bonus or equity cannot share this axis.
+insights-disclosure-panel-the-median-floor-and-ceiling = The median low and high of posted base ranges. Each range counts once, however many roles share it.
 # kind=status note="$basis names the pay the bands state (vocab-pay-basis-*)"
 insights-disclosure-panel-median-published-band = Median posted { $basis } range · { $window }
 # kind=sentence
 insights-disclosure-panel-no-published-base-salary-band = No posted base salary range recorded yet.
-# kind=sentence wording=as-is
-insights-disclosure-panel-pay-transparency-over-time-covers = Pay transparency over time covers every discipline: its history is kept per company and level.
+# kind=sentence
+insights-disclosure-panel-pay-transparency-over-time-covers = This trend covers every discipline.
 # kind=label wording=as-is
 insights-disclosure-panel-by-employer = By employer
-# kind=label wording=as-is
-insights-disclosure-panel-how-the-disclosure-rate-is = How the disclosure rate is measured
-# kind=label wording=as-is
-insights-disclosure-panel-disclosure-breakdown = Disclosure breakdown
+# kind=aria
+insights-disclosure-panel-how-the-disclosure-rate-is = How pay transparency is measured
+# kind=label
+insights-disclosure-panel-disclosure-breakdown = Pay transparency breakdown
 # kind=status
 insights-disclosure-panel-share-of-open-roles-stating = { $group ->
     [company] Share of open roles that post a range, by employer
@@ -339,8 +339,8 @@ insights-overlap-panel-no-shared-skills = { $a } & { $b }: no shared skills
 ## features/statistics/OverviewPanel.tsx
 # kind=label wording=as-is
 insights-overview-panel-most-named-skills = Most named skills
-# kind=heading wording=as-is
-insights-overview-panel-what-is-pulling-the-market = What is pulling the market
+# kind=heading
+insights-overview-panel-what-is-pulling-the-market = Most-wanted skills
 # kind=sentence wording=as-is
 insights-overview-panel-the-skills-open-roles-name = The skills open roles name most, by how many roles name each.
 # kind=label wording=as-is
@@ -349,18 +349,18 @@ insights-overview-panel-leads-roles = { $display } leads · { $job_count } roles
 insights-overview-panel-largest-groups = Largest groups
 # kind=sentence wording=as-is
 insights-overview-panel-no-groups-built-yet = No groups built yet.
-# kind=heading wording=as-is
-insights-overview-panel-open-the-longest = Open the longest
-# kind=sentence wording=as-is
-insights-overview-panel-the-roles-advertised-longest-that = The roles advertised longest that are still up. They may be hard to fill, or simply left posted: a careers page does not say which. A listing date over a year old is left out as a stale date.
+# kind=heading same-as=insights-demand-longest-open-roles
+insights-overview-panel-open-the-longest = Longest-open roles
+# kind=sentence
+insights-overview-panel-the-roles-advertised-longest-that = Roles open the longest. They may be hard to fill, or just left up. Dates over a year old don't count.
 # kind=sentence wording=as-is
 insights-overview-panel-no-open-roles = No open roles.
 # kind=label wording=as-is
 insights-overview-panel-opened-closed = { $new_count } opened · { $closed_count } closed
-# kind=label wording=as-is
-insights-overview-panel-about-the-demand-field = About the demand field
-# kind=label wording=as-is
-insights-overview-panel-what-open-the-longest-means = What open the longest means
+# kind=label
+insights-overview-panel-about-the-demand-field = About this chart
+# kind=label
+insights-overview-panel-what-open-the-longest-means = What longest-open means
 
 ## features/statistics/PayBands.tsx
 # kind=sentence
@@ -384,14 +384,14 @@ insights-pay-bands-employer-bands = { $published ->
 }
 
 ## features/statistics/SkillsView.tsx
-# kind=sentence wording=as-is
-insights-skills-view-a-narrowed-view-ranks-skills = A narrowed view ranks skills by how much more often its roles name them than the rest of the market does, with small samples pulled toward the market. The whole market ranks by how many roles name each skill. What every role is expected to do is listed apart.
-# kind=sentence wording=as-is
-insights-skills-view-no-skills-extracted-for-this = No skills extracted for this selection yet.
+# kind=sentence
+insights-skills-view-a-narrowed-view-ranks-skills = Filtered: ranked by how often these roles name a skill compared with the market. Unfiltered: ranked by number of roles.
+# kind=sentence
+insights-skills-view-no-skills-extracted-for-this = No skills found for this selection yet.
 # kind=heading wording=as-is
 insights-skills-view-expected-of-the-role = Expected of the role
-# kind=sentence wording=as-is
-insights-skills-view-process-leadership-and-collaboration-asks = Process, leadership and collaboration asks. Most roles name them, so they say what the job is, not what sets these roles apart.
+# kind=sentence
+insights-skills-view-process-leadership-and-collaboration-asks = Process, leadership and collaboration skills that most roles ask for.
 # kind=label wording=as-is
 insights-skills-view-against-the-market = Against the market
 # kind=heading wording=as-is
@@ -406,8 +406,8 @@ insights-skills-view-skill = Skill
 insights-skills-view-category = Category
 # kind=label wording=as-is
 insights-skills-view-share-of-roles = Share of roles
-# kind=label wording=as-is
-insights-skills-view-lift = Lift
+# kind=label
+insights-skills-view-lift = vs market
 # kind=label wording=as-is note="$view is narrowed when a company, discipline or side is picked"
 insights-skills-view-lead-skill = { $view ->
     [narrowed] { $skill } sets these roles apart
@@ -450,12 +450,12 @@ insights-skills-view-loading = Loading skills…
 insights-skills-view-load-failed = Couldn't load skills
 
 ## features/statistics/StatisticsView.tsx
-# kind=label wording=as-is
-insights-statistics-view-window = Window
-# kind=label wording=as-is
-insights-statistics-view-all-time = All-time
-# kind=label wording=as-is
-insights-statistics-view-statistics-sections = Statistics sections
+# kind=label
+insights-statistics-view-window = Period
+# kind=label
+insights-statistics-view-all-time = All time
+# kind=label
+insights-statistics-view-statistics-sections = Insights sections
 # kind=label wording=as-is
 insights-statistics-view-discipline = Discipline
 # kind=label wording=as-is
@@ -479,25 +479,25 @@ insights-statistics-view-show-advanced-view = Show advanced view
 # kind=heading wording=as-is
 insights-stock-trajectory-panel-stock-trajectory = Stock trajectory
 # kind=sentence
-insights-stock-trajectory-panel-no-open-roles-at-public = No open roles at public companies with a compensation estimate yet, so there is no equity to project against a stock price.
+insights-stock-trajectory-panel-no-open-roles-at-public = No open roles at public companies with a compensation estimate yet.
 # kind=status note="$split is where the package's base, bonus and equity split comes from"
 insights-stock-trajectory-panel-typical-package = { $split ->
-    [measured] Typical public-company compensation · measured splits
-    [mixed] Typical public-company compensation · mixed split evidence
-   *[heuristic] Typical public-company compensation · estimated splits
+    [measured] Typical public-company compensation · split measured
+    [mixed] Typical public-company compensation · partly measured
+   *[heuristic] Typical public-company compensation · estimated
 }
 # kind=sentence
 insights-stock-trajectory-panel-stock-moves-re-price-equity = { $split ->
-    [measured] Stock moves re-price equity; base and bonus stay fixed. Splits are measured per company and level. Reference figures, not offers.
-    [mixed] Stock moves re-price equity; base and bonus stay fixed. Splits are measured where available and estimated elsewhere. Reference figures, not offers.
-   *[heuristic] Stock moves re-price equity; base and bonus stay fixed. Splits are estimated using a { $bonus_pct } bonus assumption and seniority-based equity. Reference figures, not offers.
+    [measured] Only equity moves with the stock. A reference, not an offer.
+    [mixed] Only equity moves with the stock. A reference, not an offer.
+   *[heuristic] Only equity moves with the stock. Splits assume a { $bonus_pct } bonus. A reference, not an offer.
 }
 # kind=label wording=as-is
 insights-stock-trajectory-panel-stock-price-change = Stock price change
 # kind=button wording=as-is
 insights-stock-trajectory-panel-reset-to-today = Reset to today
-# kind=label wording=as-is
-insights-stock-trajectory-panel-equity-shockwave = Equity shockwave
+# kind=label
+insights-stock-trajectory-panel-equity-shockwave = Equity impact
 # kind=heading wording=as-is
 insights-stock-trajectory-panel-who-moves-when-the-stock = Who moves when the stock moves
 # kind=heading wording=as-is note="$move is the stock scenario's direction: up, down or flat"
@@ -505,8 +505,8 @@ insights-stock-trajectory-panel-public-companies = { $move ->
     [up] Public companies · +{ $pct }%
    *[other] Public companies · { $pct }%
 }
-# kind=sentence wording=as-is
-insights-stock-trajectory-panel-sorted-by-equity-exposure-only = Sorted by equity exposure. Only the equity slice moves.
+# kind=sentence
+insights-stock-trajectory-panel-sorted-by-equity-exposure-only = Sorted by equity share.
 # kind=sentence wording=as-is
 insights-stock-trajectory-panel-no-open-roles-at-public-yet = No open roles at public companies yet.
 # kind=label wording=as-is
@@ -523,12 +523,12 @@ insights-stock-trajectory-panel-today = Today
 insights-stock-trajectory-panel-projected = Projected
 # kind=label wording=as-is
 insights-stock-trajectory-panel-change = Change
-# kind=label wording=as-is
-insights-stock-trajectory-panel-no-exposure = no exposure
+# kind=label
+insights-stock-trajectory-panel-no-exposure = no equity
 # kind=heading wording=as-is
 insights-stock-trajectory-panel-private-companies = Private companies
-# kind=sentence wording=as-is
-insights-stock-trajectory-panel-pre-ipo-equity-is-illiquid = Pre-IPO equity is illiquid with no daily stock price, so this scenario does not change total compensation here.
+# kind=sentence
+insights-stock-trajectory-panel-pre-ipo-equity-is-illiquid = Private-company equity has no daily price, so this scenario doesn't change their total compensation.
 # kind=label wording=as-is
 insights-stock-trajectory-panel-median-tc = Median TC
 # kind=tooltip note="The full words behind the Median TC column, for its hover and screen-reader name"
@@ -539,10 +539,10 @@ insights-stock-trajectory-panel-options = Options
 insights-stock-trajectory-panel-no-equity = No equity
 # kind=label wording=as-is
 insights-stock-trajectory-panel-cash-election = Cash election
-# kind=label wording=as-is
+# kind=label
 insights-stock-trajectory-panel-split-source = { $split ->
     [measured] Measured
-    [mixed] Part measured
+    [mixed] Partly measured
    *[heuristic] Estimated
 }
 # kind=status
@@ -576,8 +576,8 @@ insights-stock-trajectory-panel-of-tc-at-risk = of TC (at risk)
 insights-stock-trajectory-panel-of-tc-at-risk-full = of total compensation (at risk)
 # kind=aria wording=as-is
 insights-stock-trajectory-panel-stock-price-change-percent = Stock price change percent
-# kind=label wording=as-is
-insights-stock-trajectory-panel-how-to-read-equity-sensitivity = How to read equity sensitivity
+# kind=aria
+insights-stock-trajectory-panel-how-to-read-equity-sensitivity = How to read this chart
 # kind=sentence wording=as-is
 insights-stock-trajectory-panel-sensitivity-explained = { $move ->
     [flat] At today's price, each bar is what a 10% rise in the stock adds to typical total compensation. Move the slider for a scenario.
@@ -609,16 +609,16 @@ insights-trends-panel-demand-history = Demand history
 insights-trends-panel-skill-demand-over-time = Skill demand over time
 # kind=label wording=as-is
 insights-trends-panel-each-skill-s-share-of = Each skill's share of the day's skill mentions · { $window }
-# kind=label wording=as-is
-insights-trends-panel-top-plotted-in-ledger = Top { $plotted } plotted · { $total } in ledger
-# kind=sentence wording=as-is
-insights-trends-panel-history-is-still-accruing-one = History is still accruing: one snapshot is recorded per scan, so trend lines stay flat until the nightly scan has run on several days.
+# kind=status
+insights-trends-panel-top-plotted-in-ledger = Top { $plotted } charted · { $total } in the list
+# kind=sentence
+insights-trends-panel-history-is-still-accruing-one = Not enough history yet. The lines fill in after a few days of scans.
 # kind=sentence wording=as-is
 insights-trends-panel-no-skill-history-yet = No skill history yet.
-# kind=sentence wording=as-is
-insights-trends-panel-what-is-measured-changed-on = What is measured changed on { $dates } (a set of companies arriving, or skills read again), so shares are drawn, not counts.
-# kind=label wording=as-is
-insights-trends-panel-current-ledger = Current ledger
+# kind=sentence
+insights-trends-panel-what-is-measured-changed-on = The companies or skills counted changed on { $dates }, so the chart shows shares, not counts.
+# kind=label
+insights-trends-panel-current-ledger = Current list
 # kind=label wording=as-is
 insights-trends-panel-now = Now
 # kind=label wording=as-is
@@ -627,14 +627,14 @@ insights-trends-panel-skill-leads = { $skill } leads
 insights-trends-panel-nothing-to-plot-yet = Nothing to plot yet
 # kind=label wording=as-is
 insights-trends-panel-leader-share-line = { $current_share } of skill mentions on the latest day · { $days } days of history · { $window }
-# kind=label wording=as-is
-insights-trends-panel-history-accrues-one-day-per = History accrues one day per scan · { $window }
+# kind=status
+insights-trends-panel-history-accrues-one-day-per = History builds one day per scan · { $window }
 # kind=label wording=as-is
 insights-trends-panel-leader-s-share = Leader's share
 # kind=label wording=as-is
 insights-trends-panel-of-skill-mentions = of skill mentions
-# kind=label wording=as-is
-insights-trends-panel-in-the-ledger = in the ledger
+# kind=label
+insights-trends-panel-in-the-ledger = in the list
 # kind=label wording=as-is
 insights-trends-panel-history = History
 # kind=label wording=as-is
@@ -658,8 +658,8 @@ insights-trends-panel-loading = Loading skill trends…
 insights-trends-panel-load-failed = Couldn't load skill trends
 
 ## features/statistics/VelocityPanel.tsx
-# kind=label wording=as-is
-insights-velocity-panel-market-current = Market current
+# kind=label
+insights-velocity-panel-market-current = By company
 # kind=heading wording=as-is
 insights-velocity-panel-hiring-flow = Hiring flow
 # kind=sentence wording=as-is
@@ -677,14 +677,14 @@ insights-velocity-panel-open = Open
 insights-velocity-panel-opened = Opened
 # kind=label wording=as-is
 insights-velocity-panel-time-posted = Time posted
-# kind=sentence wording=as-is
-insights-velocity-panel-from-the-first-scan-that = From the first scan that saw a posting to the scan that found it gone. Employers take postings down for many reasons (filled, paused, expired, re-posted), so this is how long the role was advertised, never how long it took to hire.
+# kind=sentence
+insights-velocity-panel-from-the-first-scan-that = Days a posting stayed up, from first seen to gone. Postings close for several reasons: filled, paused or expired.
 # kind=heading wording=as-is
 insights-velocity-panel-age-of-open-roles = Age of open roles
 # kind=heading wording=as-is
 insights-velocity-panel-how-long-postings-stay-up = How long postings stay up
-# kind=sentence wording=as-is
-insights-velocity-panel-this-builds-up-as-roles = This builds up as roles close: only { $closed_sample } have so far. It fills in once more postings have come down.
+# kind=sentence
+insights-velocity-panel-this-builds-up-as-roles = Fills in as roles close. Only { $closed_sample } have so far.
 # kind=label wording=as-is
 insights-velocity-panel-median-age = { $median_days_open } median age
 # kind=label wording=as-is
@@ -743,8 +743,8 @@ insights-statistics-charts-equity-change = { $direction ->
 }
 # kind=label wording=as-is
 insights-statistics-charts-no-change = No change
-# kind=aria wording=as-is
-insights-statistics-charts-equity-shockwave-by-company = Equity shockwave by company
+# kind=aria
+insights-statistics-charts-equity-shockwave-by-company = Equity impact by company
 # kind=label wording=as-is
 insights-statistics-charts-share-against-market = { $share }% of these roles · { $market_share }% of the market
 # kind=tooltip note="How many times the market's rate a skill is named at, under its share of these roles"
@@ -966,20 +966,20 @@ insights-common-skills = Skills
 insights-common-market = Market
 # kind=label wording=as-is
 insights-common-by-level = By level
-# kind=label wording=as-is
+# kind=label wording=as-is same-as=insights-velocity-panel-market-current
 insights-common-by-company = By company
 # kind=label wording=as-is
 insights-common-all-companies = All companies
 # kind=label wording=as-is
 insights-common-distinct-skills = { $count } distinct skills
-# kind=label wording=as-is note="The period a figure covers: all-time, or last 30d"
+# kind=label note="The period a figure covers: all-time, or last 30d"
 insights-common-last-days-or-all-time = { $period ->
-    [all] all-time
+    [all] all time
    *[days] last { $days }d
 }
-# kind=label wording=as-is note="The period a chart covers: all history, or last 30d"
+# kind=label same-as=insights-common-last-days-or-all-time note="The period a chart covers: all history, or last 30d"
 insights-common-last-days-or-all-history = { $period ->
-    [all] all history
+    [all] all time
    *[days] last { $days }d
 }
 
@@ -1033,7 +1033,7 @@ insights-aging-from-90-days = 3 months+
 insights-brief-open = { $open } open roles across { $companies } companies.
 # kind=sentence
 insights-brief-opened = { $allTime ->
-    [yes] { $opened } opened all-time, { $closed } closed.
+    [yes] { $opened } opened, { $closed } closed, all time.
    *[no] { $opened } opened in { $days }d, { $closed } closed.
 }
 # kind=sentence wording=as-is

@@ -83,14 +83,14 @@ vocab-domain-hint-corporate-operations = Strategy, planning, BizOps
 vocab-domain-unclassified = Unclassified
 
 ## Tracks: backend/tracker/taxonomy/tracks.py TRACKS
-# kind=name wording=as-is
-vocab-track-management = Management / Leadership
+# kind=name
+vocab-track-management = Management
 # kind=name wording=as-is
 vocab-track-product-program = Product & Program
-# kind=name wording=as-is
-vocab-track-technical = Technical (IC)
-# kind=name wording=as-is
-vocab-track-business-customer = Business & Customer (IC)
+# kind=name
+vocab-track-technical = Technical IC
+# kind=name
+vocab-track-business-customer = Business & Customer
 
 ## Role groups: backend/tracker/taxonomy/roles.py ROLE_GROUPS; `other` names a role in none
 # kind=name wording=as-is

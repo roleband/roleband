@@ -26,13 +26,13 @@ jobs-match-partial-title = Similar work, with a different title or focus
 # kind=label
 jobs-via-keyword = Keyword
 # kind=label
-jobs-via-fuzzy = Fuzzy
+jobs-via-fuzzy = Similar
 # kind=label note="Inline form, inside jobs-matched-via"
 jobs-via-keyword-inline = keyword
 # kind=label note="Inline form, inside jobs-matched-via"
-jobs-via-fuzzy-inline = fuzzy match
+jobs-via-fuzzy-inline = similar match
 # kind=tooltip note="$sources is a list of the inline forms"
-jobs-matched-via = Matched via { $sources }
+jobs-matched-via = Found by { $sources }
 
 ## Facts on the row
 # kind=tooltip
@@ -88,14 +88,14 @@ jobs-standing-hedge = patterns in how it is listed, not a verdict on the company
 jobs-standing-card-title = May be an always-open posting: { $signs }. Patterns in how it is listed, not a verdict on the company. It may still be hiring.
 # kind=status
 jobs-sign-long-open = Listed for a long time
-# kind=status same-as=jobs-place-set note="The same words as a place set's count, a different fact: listed again over time"
-jobs-sign-relisted = Listed { $count } times
+# kind=status note="Posted again over time, as against a place set's count of copies at several places"
+jobs-sign-relisted = Reposted { $count } times
 # kind=status
 jobs-sign-date-moved = Its date moved later while it stayed listed
 # kind=status note="Inline form, inside jobs-standing-card-title"
 jobs-sign-long-open-inline = listed for a long time
 # kind=status note="Inline form"
-jobs-sign-relisted-inline = listed { $count } times
+jobs-sign-relisted-inline = reposted { $count } times
 # kind=status note="Inline form"
 jobs-sign-date-moved-inline = its date moved later while it stayed listed
 

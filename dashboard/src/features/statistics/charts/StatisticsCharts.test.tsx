@@ -10,6 +10,7 @@ import {
   TrajectoryShockChart,
   VelocityFlowChart,
 } from "./StatisticsCharts";
+import { msg } from "../../../test/msg";
 
 describe("StatisticsCharts", () => {
   it("exposes a named visualization and exact text summary for every statistics tab", () => {
@@ -67,7 +68,7 @@ describe("StatisticsCharts", () => {
       "Market demand field",
       "Open roles by company",
       "Hiring flow by company",
-      "Equity shockwave by company",
+      msg("insights-statistics-charts-equity-shockwave-by-company"),
       "What sets these roles apart",
       "Skill demand trends",
       "Cross-company skill overlap heatmap",

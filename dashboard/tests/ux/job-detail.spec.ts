@@ -563,7 +563,7 @@ test("Details says one age with its basis, and the history opens on demand", asy
   expect(reads.started).toBe(0);
 
   await details.getByRole("button", { name: "History" }).click();
-  const panel = page.getByRole("dialog", { name: "Listing history" });
+  const panel = page.getByRole("dialog", { name: "Posting history" });
   const events = panel.getByRole("list", { name: "Events" });
   await expect(events).toContainText("Published by the employer · the start");
   await expect(events).toContainText(/Employer changed its date to .* · never the start/);
@@ -588,7 +588,7 @@ async function openListingHistory(page: Page) {
   const cover = detail(page);
   const button = cover.locator("dl.kv").getByRole("button", { name: "History" });
   await button.click();
-  const dialog = page.getByRole("dialog", { name: "Listing history" });
+  const dialog = page.getByRole("dialog", { name: "Posting history" });
   await expect(dialog.getByRole("list", { name: "Events" })).toBeVisible();
   const panel = dialog.locator(".ui-popover-inner");
   // The pop-in scales the panel; measure where it settles.
@@ -653,7 +653,7 @@ test("a posting with two standing signs names them, and one without says nothing
   await expect(details.getByText("150 days", { exact: true })).toBeVisible();
   await expect(detail(page).getByText("Days open")).toHaveCount(0);
   await expect(detail(page).getByText("62 days")).toHaveCount(0);
-  await expect(standing).toContainText("Listed 3 times");
+  await expect(standing).toContainText("Reposted 3 times");
   await expect(standing).toContainText("2 of 3 signs");
 
   await page.unroute("/api/jobs/101");

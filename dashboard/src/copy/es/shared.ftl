@@ -63,7 +63,7 @@ shared-pager-next = Siguiente
 shared-echart-chart-unavailable = Gráfico no disponible. { $summary }
 
 ## ui/FilterRail.tsx
-shared-filter-rail-clear = borrar
+shared-filter-rail-clear = Borrar
 shared-filter-rail-more = + { $hidden } más
 shared-filter-rail-select-all = Seleccionar todo
 shared-filter-rail-no-options-match = Ninguna opción coincide.

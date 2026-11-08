@@ -171,9 +171,9 @@ test("description comparison reveals and filters detected passage differences", 
   await expect(ledger.getByRole("row", { name: /Title\s+Same\s+Staff Software Engineer/ })).toBeVisible();
   await expect(ledger.locator("tr.row-title td[colspan='2']")).toHaveCount(1);
   await expect(ledger.locator("tr.row-requisition")).toHaveCount(0);
-  await expect(ledger.getByRole("button", { name: "Show 12 matching fields" })).toBeVisible();
+  await expect(ledger.getByRole("button", { name: "Show 12 identical fields" })).toBeVisible();
   await expect(ledger.getByRole("row", { name: /Level\s*Same\s*Staff/ })).toHaveCount(0);
-  await ledger.getByRole("button", { name: "Show 12 matching fields" }).click();
+  await ledger.getByRole("button", { name: "Show 12 identical fields" }).click();
   await expect(ledger.getByRole("row", { name: /Level\s*Same\s*Staff/ })).toBeVisible();
   await expect(ledger.getByRole("link", { name: "Careers page, earlier posting" })).toHaveAttribute("href", "https://example.test/jobs/101");
   await expect(ledger.getByRole("link", { name: "Careers page, newer posting" })).toHaveAttribute("target", "_blank");

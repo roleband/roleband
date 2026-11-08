@@ -119,14 +119,19 @@ const base = (over: Partial<CompensationStats> = {}): CompensationStats => ({
 describe("CompensationPanel", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("renders the median hero, coverage caveat, and percentile KPIs", async () => {
+  it("renders the median hero, how many open roles have an estimate, and percentile KPIs", async () => {
     mock(base());
     render(<CompensationPanel days={30} />);
 
     const hero = await screen.findByRole("heading", { level: 2 });
     expect(hero).toHaveTextContent("$479K median");
-    expect(screen.getByText(/732 \/ 732 open roles now · 100% coverage/)).toBeInTheDocument();
-    expect(screen.getByText("Coverage")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        msg("insights-compensation-panel-open-roles-now-coverage", { with_comp: "732", total_open: "732", pct: 100 }),
+        { exact: false },
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(msg("insights-compensation-panel-coverage"))).toBeInTheDocument();
   });
 
   it("keeps the basic view to the median, its middle half, and pay by level, company and discipline", async () => {
@@ -134,7 +139,7 @@ describe("CompensationPanel", () => {
     render(<CompensationPanel days={30} />);
 
     expect(await screen.findByRole("heading", { level: 2 })).toHaveTextContent("$479K median");
-    expect(screen.getByText("Coverage")).toBeInTheDocument();
+    expect(screen.getByText(msg("insights-compensation-panel-coverage"))).toBeInTheDocument();
     expect(screen.getByText(msg("insights-compensation-panel-middle-50"))).toBeInTheDocument();
     expect(screen.queryByText(msg("insights-compensation-panel-top-decile"))).toBeNull();
     expect(screen.getByText(msg("insights-compensation-panel-median-comp-by-level"))).toBeInTheDocument();
@@ -156,7 +161,13 @@ describe("CompensationPanel", () => {
     expect(within(seniorRow as HTMLElement).getByText("$306K")).toBeInTheDocument();
     // Every row says what it rests on: a median of one role must not pass for a level's pay.
     expect(within(seniorRow as HTMLElement).getByText("406 roles")).toBeInTheDocument();
-    expect(seniorRow.getAttribute("title")).toMatch(/p25–p75 \$250K–\$340K · 406 roles/);
+    expect(seniorRow.getAttribute("title")).toContain(
+      msg("insights-compensation-panel-spread", {
+        low: "$250K",
+        high: "$340K",
+        roles: msg("insights-compensation-panel-roles", { count: 406 }),
+      }),
+    );
     expect(screen.getAllByText("Groups of 5 roles or more")).toHaveLength(3);
   });
 
@@ -181,7 +192,7 @@ describe("CompensationPanel", () => {
     mock(base({ by_company: Array.from({ length: 15 }, (_, i) => co(i)), by_family: Array.from({ length: 11 }, (_, i) => fam(i)) }));
     render(<CompensationPanel days={30} />);
 
-    const companies = (await screen.findByRole("heading", { name: "Top paying companies" })).closest(".panel")!;
+    const companies = (await screen.findByRole("heading", { name: msg("insights-compensation-panel-top-paying-companies") })).closest(".panel")!;
     const families = screen.getByRole("heading", { name: "Median estimated total compensation by discipline" }).closest(".panel")!;
     expect(companies.querySelectorAll(".comp-row")).toHaveLength(8);
     expect(families.querySelectorAll(".comp-row")).toHaveLength(8);
@@ -207,7 +218,7 @@ describe("CompensationPanel", () => {
     expect(within(down as HTMLElement).getByText("−$150K")).not.toHaveClass("pay-premium");
     expect(down.querySelector(".bar-fill")).toHaveClass("is-below");
     expect(screen.getByRole("button", { name: /How a skill's compensation difference is measured/ }))
-      .toHaveAccessibleDescription(/which employers ask for the skill/i);
+      .toHaveAccessibleDescription(msg("insights-compensation-panel-roles-naming-the-skill-against"));
   });
 
   it("reports roles priced by their base alone apart from the totals, labelled as base", async () => {
@@ -264,7 +275,12 @@ describe("CompensationPanel", () => {
     mock(base());
     const { rerender } = render(<CompensationPanel days={30} advanced />);
     await screen.findByRole("heading", { level: 2 });
-    expect(screen.getByText(/732 \/ 732 open roles now · 100% coverage/)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        msg("insights-compensation-panel-open-roles-now-coverage", { with_comp: "732", total_open: "732", pct: 100 }),
+        { exact: false },
+      ),
+    ).toBeInTheDocument();
     await vi.waitFor(() => expect(api.compTrends).toHaveBeenLastCalledWith("overall", 30, undefined));
 
     rerender(<CompensationPanel days={7} advanced />);
@@ -273,13 +289,13 @@ describe("CompensationPanel", () => {
     expect(api.compensation).toHaveBeenCalledWith(undefined);
   });
 
-  it("says the estimate is imputed rather than posted, and never claims otherwise", async () => {
+  it("says the figure is estimated rather than posted, and never claims otherwise", async () => {
     mock(base());
     render(<CompensationPanel days={30} />);
     await screen.findByRole("heading", { level: 2 });
 
     expect(screen.getByRole("button", { name: "How compensation is estimated" }))
-      .toHaveAccessibleDescription(/imputed from a company \+ level \+ family lookup/i);
+      .toHaveAccessibleDescription(msg("insights-compensation-panel-estimated-total-compensation-is-imputed"));
     // No posted range reaches comp_median, so the copy must never claim the
     // estimate blends posted ranges in.
     expect(screen.queryByText(/blend posted ranges/i)).not.toBeInTheDocument();

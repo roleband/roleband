@@ -44,10 +44,10 @@ vocab-domain-hint-corporate-operations = 战略、规划、BizOps
 vocab-domain-unclassified = 未分类
 
 ## 职业路线
-vocab-track-management = 管理 / 领导力
+vocab-track-management = 管理
 vocab-track-product-program = 产品与项目
-vocab-track-technical = 技术（IC）
-vocab-track-business-customer = 业务与客户（IC）
+vocab-track-technical = 技术 IC
+vocab-track-business-customer = 业务与客户
 
 ## 职位分组；`other` 指不属于任何分组的职位
 vocab-role-engineering-management = 工程管理

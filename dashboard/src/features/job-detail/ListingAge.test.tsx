@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type Job, type JobDetail, type ListingHistory } from "../../api";
 import { jobFixture } from "../../test/fixtures";
+import { msg } from "../../test/msg";
 import { ListingAge, eventLine } from "./ListingAge";
 
 vi.mock("../../api", () => ({ api: { jobHistory: vi.fn() } }));
@@ -76,14 +77,14 @@ describe("ListingAge", () => {
     const user = userEvent.setup();
     renderAge({}, onOpen);
     await user.click(screen.getByRole("button", { name: "History" }));
-    const panel = await screen.findByRole("dialog", { name: "Listing history" });
+    const panel = await screen.findByRole("dialog", { name: msg("role-listing-age-listing-history") });
     const events = await within(panel).findByRole("list", { name: "Events" });
     expect(read).toHaveBeenCalledTimes(1);
     expect(events).toHaveTextContent("Published by the employer · the start");
     expect(events).toHaveTextContent("First seen");
     expect(events).not.toHaveTextContent("First seen · the start");
     expect(events).toHaveTextContent(/Employer changed its date to .* · never the start/);
-    expect(events).toHaveTextContent("Came back, same requisition");
+    expect(events).toHaveTextContent(msg("role-listing-age-came-back-same-requisition"));
     expect(events).toHaveTextContent("Title changed 2 times");
     expect(panel).toHaveTextContent("Possibly the same role: REQ-1305, not counted until confirmed.");
     expect(within(panel).getByRole("button", { name: "Review" })).toBeVisible();
@@ -105,12 +106,12 @@ describe("ListingAge", () => {
       const user = userEvent.setup();
       renderAge({}, vi.fn(), onShowPostings);
       await user.click(screen.getByRole("button", { name: "History" }));
-      const panel = await screen.findByRole("dialog", { name: "Listing history" });
+      const panel = await screen.findByRole("dialog", { name: msg("role-listing-age-listing-history") });
       await user.click(await within(panel).findByRole("button", { name: "Compare the postings" }));
 
       expect(onShowPostings).toHaveBeenCalledTimes(1);
       expect(behind.scrollIntoView).not.toHaveBeenCalled();
-      expect(screen.queryByRole("dialog", { name: "Listing history" })).toBeNull();
+      expect(screen.queryByRole("dialog", { name: msg("role-listing-age-listing-history") })).toBeNull();
     } finally {
       behind.remove();
     }
@@ -121,9 +122,9 @@ describe("ListingAge", () => {
     const user = userEvent.setup();
     renderAge();
     await user.click(screen.getByRole("button", { name: "History" }));
-    const panel = await screen.findByRole("dialog", { name: "Listing history" });
-    expect(await within(panel).findByText(/Couldn't read the history/)).toBeVisible();
-    await user.click(within(panel).getByRole("button", { name: "Retry" }));
+    const panel = await screen.findByRole("dialog", { name: msg("role-listing-age-listing-history") });
+    expect(await within(panel).findByText(msg("role-listing-age-couldn-t-read-the-history"), { exact: false })).toBeVisible();
+    await user.click(within(panel).getByRole("button", { name: msg("role-listing-age-retry") }));
     expect(await within(panel).findByRole("list", { name: "Events" })).toBeVisible();
   });
 });

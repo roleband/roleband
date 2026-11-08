@@ -1252,7 +1252,7 @@ test("Summary actions are full-width controls and the CV page returns to Summary
   }
   await expect(page).toHaveURL(/\/profile\/experience$/);
   await expect(page.getByRole("heading", { name: "Your experience" })).toBeVisible();
-  await expect(page.getByText(/CV upload isn't available yet/)).toBeVisible();
+  await expect(page.getByText(/Coming soon: add your CV here/)).toBeVisible();
   await expect(page.locator('input[type="file"]')).toHaveCount(0);
   await page.getByRole("link", { name: "Back to Summary" }).click();
   await expect(page.getByRole("heading", { name: "Summary" })).toBeVisible();

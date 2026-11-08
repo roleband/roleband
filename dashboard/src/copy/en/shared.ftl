@@ -75,8 +75,8 @@ shared-pager-next = Next
 shared-echart-chart-unavailable = Chart unavailable. { $summary }
 
 ## ui/FilterRail.tsx
-# kind=button wording=as-is
-shared-filter-rail-clear = clear
+# kind=button
+shared-filter-rail-clear = Clear
 # kind=button wording=as-is
 shared-filter-rail-more = + { $hidden } more
 # kind=button wording=as-is
@@ -85,22 +85,22 @@ shared-filter-rail-select-all = Select all
 shared-filter-rail-no-options-match = No options match.
 # kind=label wording=as-is
 shared-filter-rail-search = Search { $title }
-# kind=sentence wording=as-is
-shared-filter-rail-search-2 = Search { $title }...
+# kind=sentence
+shared-filter-rail-search-2 = Search { $title }…
 # kind=label wording=as-is
 shared-filter-rail-show-all = Show all { $title }
 # kind=label wording=as-is
 shared-filter-rail-select-all-2 = Select all { $title }
 
 ## ui/FilterSelect.tsx
-# kind=button wording=as-is
+# kind=button wording=as-is same-as=shared-filter-rail-clear
 shared-filter-select-clear = Clear
 # kind=label wording=as-is
 shared-filter-select-filter-by = Filter by { $label }
 # kind=label wording=as-is same-as=shared-filter-rail-search
 shared-filter-select-search = Search { $label }
-# kind=sentence wording=as-is same-as=shared-filter-rail-search-2
-shared-filter-select-search-2 = Search { $label }...
+# kind=sentence same-as=shared-filter-rail-search-2
+shared-filter-select-search-2 = Search { $label }…
 
 ## ui/TimeField.tsx
 # kind=button note="Beside a time field: opens a list of times to pick from"

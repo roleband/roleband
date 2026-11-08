@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlaceSetDetail } from "../../api";
 import { api } from "../../api";
 import { jobFixture } from "../../test/fixtures";
+import { msg } from "../../test/msg";
 import { ToastProvider } from "../../ui/Toast";
 import { fmtDate } from "../../format";
 import { PlaceSetSection, siblingDifferences, statedRange, placeSetTitle } from "./PlaceSetSection";
@@ -92,11 +93,11 @@ describe("PlaceSetSection", () => {
     const links = within(section).getAllByRole("link");
     expect(links.map((a) => a.textContent)).toEqual(["London, United Kingdom", "Bristol, United Kingdom"]);
     expect(within(section).queryByText(/St Albans/)).not.toBeInTheDocument();
-    expect(within(section).getByText(/same description at each place/)).toBeInTheDocument();
-    // A text may name its own place and that place's pay, and carry
-    // that place's benefits or legal text, or a few reworded words.
-    expect(within(section).getByText(/apart from the place and what comes with it/)).toBeInTheDocument();
-    expect(within(section).getByText(/local compensation, benefits or legal text/)).toBeInTheDocument();
+    // Says what makes the places one role: the same title and text, apart
+    // from what each place carries of its own (pay, benefits, legal text).
+    expect(
+      within(section).getByText(msg("role-place-set-section-same-title-and-the-same"), { exact: false }),
+    ).toBeInTheDocument();
 
     await userEvent.click(links[1]);
     expect(onOpen).toHaveBeenCalledWith(12, "aecom");
@@ -177,7 +178,11 @@ describe("PlaceSetSection", () => {
     reviewPlaceSet.mockRejectedValue(new Error("409 this posting is not listed with other places"));
     render(<PlaceSetSection jobId={11} onOpen={vi.fn()} />, { wrapper: Wrap });
     await userEvent.click(await screen.findByRole("button", { name: "Different roles" }));
-    expect(await screen.findByText(/Couldn't record the verdict/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        msg("role-place-set-section-could-not-record-the-verdict", { message: msg("error-generic") }),
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Also listed in" })).toBeInTheDocument();
   });
 

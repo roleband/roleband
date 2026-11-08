@@ -91,7 +91,7 @@ test("Hiring draws bounded views: fifteen companies, a counted tail, regions tha
   await expect(page.locator(".insight-hero .eyebrow")).toHaveText("Hiring");
   await expect(page.getByRole("heading", { level: 2, name: "236 roles open" })).toBeVisible();
 
-  await expect(page.getByText("3 companies more hold 12 roles (6% of these roles).")).toBeVisible();
+  await expect(page.getByText("3 companies more have 12 roles (6% of these roles).")).toBeVisible();
   await expect(page.locator("table")).toHaveCount(0);
   // The whole tab fits in a few screens at a desktop width.
   const height = await page.locator(".stats-main").evaluate((el) => el.scrollHeight);

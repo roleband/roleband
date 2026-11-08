@@ -4,7 +4,7 @@
 profile-experience-page-back-to-summary = 返回摘要
 profile-experience-page-your-experience = 你的经历
 profile-experience-page-coming-soon = 即将推出
-profile-experience-page-cv-upload-isn-t-available = 暂不支持上传简历。之后你可以在这里添加简历，并确认用于核对每个职位要求的经历。
+profile-experience-page-cv-upload-isn-t-available = 即将推出：在这里添加简历，用它核对每个职位的要求。
 
 ## features/scope/NewMark.tsx
 profile-new-mark-new = 新
@@ -38,7 +38,7 @@ profile-suggestions-turn-on = { $choice ->
 }
 profile-suggestions-inferred-from-your-recent-activity = { $choice ->
     [yes] 因为 { $join }。
-   *[no] 根据你最近的操作推断。
+   *[no] 基于你最近的操作。
 }
 profile-suggestions-accept-turn-on = { $choice ->
     [yes] 接受：关闭 { $display }
@@ -63,7 +63,7 @@ profile-scope-guide-decide = 决定
 profile-scope-guide-sharpen-optional = 细化（可选）
 profile-scope-guide-your-radar = 你的雷达
 profile-scope-guide-when-changes-apply = 更改何时生效
-profile-scope-guide-save-applies-your-answers-to = 保存后，你的回答会立即应用到已收集的职位。只有新回答才涵盖的职位会在下次扫描时出现。
+profile-scope-guide-save-applies-your-answers-to = 保存后更改生效。新增的职位会在下次扫描时出现。
 profile-scope-guide-about-the-counts = 关于计数
 profile-scope-guide-progress-shows-how-many-of = 进度显示根据最近一次计数，每个回答会保留你关注公司的多少个职位。在完成第一次计数前，显示为“暂无计数”，点击“立即计数”即可开始。
 profile-scope-guide-nothing-hidden-by-a-guess = 不会因猜测而隐藏
@@ -129,7 +129,7 @@ profile-pay-floor-row-pay-floor = 最低基本工资
 profile-pay-floor-row-a-year-base = 每年
 profile-pay-floor-row-cancel = 取消
 profile-pay-floor-row-checking = 检查中…
-profile-pay-floor-row-couldn-t-read-your-pay = 无法读取你的最低基本工资。
+profile-pay-floor-row-couldn-t-read-your-pay = 无法加载你的最低基本工资。
 profile-pay-floor-row-retry = 重试
 profile-pay-floor-row-compared-where-pay-is-stated = 仅在招聘信息公布了基本工资时比较。
 profile-pay-floor-row-no-roles-are-hidden = 不会隐藏任何职位。
@@ -144,7 +144,7 @@ profile-pay-floor-row-save-floor = { $choice ->
 }
 profile-pay-floor-row-set-floor = 设定最低基本工资
 profile-pay-floor-row-could-not-remove-the-pay = 无法移除最低基本工资。请重试。
-profile-pay-floor-row-retry-reading-the-pay-floor = 重新读取最低基本工资
+profile-pay-floor-row-retry-reading-the-pay-floor = 重新加载最低基本工资
 profile-pay-floor-row-add-a-pay-floor = { $choice ->
     [yes] 调整最低基本工资
    *[no] 添加最低基本工资
@@ -226,7 +226,7 @@ profile-progress-rail-saved-on-your-board-now = { $choice ->
 }
 
 ## features/scope/walk/RadarPyramid.tsx
-profile-radar-pyramid-illustrative-funnel-each-percentage-is = 示意漏斗。每个百分比表示该回答之后剩余的比例。
+profile-radar-pyramid-illustrative-funnel-each-percentage-is = 每个回答都会让你的雷达更聚焦。百分比表示聚焦范围内的职位占比。
 profile-radar-pyramid-after-the-first-three-answers = 完成前三个回答后
 profile-radar-pyramid-locked = 已锁定
 profile-radar-pyramid-not-answered-yet = { $choice ->
@@ -251,7 +251,7 @@ profile-roles-step-pick-a-kind-of-role = 请先选择一条职业路线。
 profile-roles-step-nothing-called-under = { $label } 下没有名为“{ $query }”的内容。
 profile-roles-step-filter-roles = 筛选职位
 profile-roles-step-filter-roles-2 = 筛选职位…
-profile-roles-step-craft-for = { $label } 的专业方向
+profile-roles-step-craft-for = { $label } 的职能
 profile-roles-step-roles = { $count ->
    *[other] { $count2 } 个职位 · { $examples }
 }

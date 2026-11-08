@@ -15,10 +15,10 @@ duplicates-comparison-ledger-same = Same
 duplicates-comparison-ledger-different = Different
 # kind=aria wording=as-is
 duplicates-comparison-ledger-side-by-side = Side by side
-# kind=label wording=as-is
+# kind=label
 duplicates-comparison-ledger-show-matching-fields = { $choice ->
-    [yes] Hide { $length } matching fields
-   *[no] Show { $length } matching fields
+    [yes] Hide { $length } identical fields
+   *[no] Show { $length } identical fields
 }
 # kind=label wording=as-is
 duplicates-comparison-ledger-show = { $choice ->

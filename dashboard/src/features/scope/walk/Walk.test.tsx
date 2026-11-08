@@ -1225,12 +1225,12 @@ it("never says the pay floor is unset when it could not be read", async () => {
   renderWalk();
   await screen.findByRole("complementary", { name: "Your progress" });
   await user.click(stripButton("Summary"));
-  expect(await screen.findByText("Couldn't read your minimum base.")).toBeVisible();
+  expect(await screen.findByText(msg("profile-pay-floor-row-couldn-t-read-your-pay"))).toBeVisible();
   // No "Not set" and no Add: a save from here would overwrite a floor.
   expect(fact("Minimum base")).not.toHaveTextContent(/Not set/);
   expect(screen.queryByRole("button", { name: "Add a minimum base" })).toBeNull();
   read.mockResolvedValueOnce({ pay_floor: { amount: 250000, currency: "USD" } });
-  await user.click(screen.getByRole("button", { name: "Retry reading the minimum base" }));
+  await user.click(screen.getByRole("button", { name: msg("profile-pay-floor-row-retry-reading-the-pay-floor") }));
   expect(await screen.findByText("$250,000 a year")).toBeVisible();
 });
 
@@ -1458,7 +1458,7 @@ it("setup counts nothing on the rungs, the cards, the rail or the Summary, even 
   // The rail names the answers, as before anything is read.
   expect(rail()).not.toHaveTextContent(counted);
   expect(rail()).toHaveTextContent("Leading a team");
-  expect(rail()).toHaveTextContent(/Illustrative funnel/);
+  expect(rail()).toHaveTextContent(msg("profile-radar-pyramid-illustrative-funnel-each-percentage-is"));
 
   await user.click(screen.getByRole("button", { name: "Skip" }));
   await user.click(screen.getByRole("button", { name: "Skip" }));

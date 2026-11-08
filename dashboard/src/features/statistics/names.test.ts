@@ -2,6 +2,7 @@
 // skills, an age band by its lower bound, and the Overview's one-line brief.
 import { afterEach, describe, expect, it } from "vitest";
 import { activate } from "../../copy/activate";
+import { msg } from "../../test/msg";
 import { agingBandName, clusterLabel, overviewBrief } from "./names";
 
 afterEach(() => activate("en"));
@@ -46,9 +47,10 @@ describe("overviewBrief", () => {
     );
   });
 
-  it("leaves out a fact that is not there, and says all-time for no window", () => {
+  it("leaves out a fact that is not there, and says all time for no window", () => {
     expect(overviewBrief({ days: 0, kpis, top_skills: [], top_clusters: [] })).toBe(
-      "3,192 open roles across 41 companies. 120 opened all-time, 30 closed.",
+      `${msg("insights-brief-open", { open: "3,192", companies: "41" })} `
+      + msg("insights-brief-opened", { allTime: "yes", opened: "120", closed: "30", days: 0 }),
     );
   });
 });

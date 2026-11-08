@@ -151,7 +151,7 @@ describe("StockTrajectoryPanel", () => {
     // Median TC is shown, unchanged by the scenario (no projected column here).
     expect(within(openai).getByText("$1.10M")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Why private companies do not move" }))
-      .toHaveAccessibleDescription(/Pre-IPO equity is illiquid/i);
+      .toHaveAccessibleDescription(msg("insights-stock-trajectory-panel-pre-ipo-equity-is-illiquid"));
   });
 
   it("shows an empty state when no public roles have a comp estimate", async () => {
@@ -168,7 +168,7 @@ describe("StockTrajectoryPanel", () => {
     const goog = (await screen.findByText("Google")).closest("tr")!;
     expect(within(goog).getByText("Measured")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "How stock trajectory is projected" }))
-      .toHaveAccessibleDescription(/measured per company and level/i);
+      .toHaveAccessibleDescription(msg("insights-stock-trajectory-panel-stock-moves-re-price-equity", { split: "measured", bonus_pct: "12%" }));
   });
 
   it("labels an estimated split as estimated", async () => {
@@ -183,10 +183,10 @@ describe("StockTrajectoryPanel", () => {
     const row = (await screen.findByText("stripe")).closest("tr")!;
     expect(within(row).getByText("Estimated")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "How stock trajectory is projected" }))
-      .toHaveAccessibleDescription(/estimated using a 12% bonus assumption/i);
+      .toHaveAccessibleDescription(msg("insights-stock-trajectory-panel-stock-moves-re-price-equity", { split: "heuristic", bonus_pct: "12%" }));
   });
 
-  it("flags a partially-measured company as part measured", async () => {
+  it("flags a partially-measured company as partly measured", async () => {
     mock(
       base({
         overall: pkg(1_000_000, 450_000, 120_000, "mixed"),
@@ -196,7 +196,7 @@ describe("StockTrajectoryPanel", () => {
     );
     render(<StockTrajectoryPanel />);
     const goog = (await screen.findByText("Google")).closest("tr")!;
-    expect(within(goog).getByText("Part measured")).toBeInTheDocument();
+    expect(within(goog).getByText(msg("insights-stock-trajectory-panel-split-source", { split: "mixed" }))).toBeInTheDocument();
   });
 
   const SPLITS = ["measured", "mixed", "heuristic"] as const;
@@ -251,7 +251,7 @@ describe("StockTrajectoryPanel", () => {
     const nflx = await screen.findByRole("row", { name: /Netflix/ });
     expect(within(nflx).getByText("Cash election")).toBeInTheDocument();
     expect(within(nflx).getByText("0%")).toBeInTheDocument();
-    expect(within(nflx).getByText("no exposure")).toBeInTheDocument();
+    expect(within(nflx).getByText(msg("insights-stock-trajectory-panel-no-exposure"))).toBeInTheDocument();
 
     // Drive the stock hard in both directions — projected TC must not budge.
     setSlider(200);

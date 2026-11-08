@@ -730,7 +730,7 @@ test("on Discipline the names of a row start on one line, whatever their hints r
   }));
   const spread = (values: number[]) => Math.max(...values) - Math.min(...values);
   let uneven = 0;
-  const crafts = page.getByRole("group", { name: "Craft for Hands-on, as the expert" }).getByRole("button");
+  const crafts = page.getByRole("group", { name: "Disciplines for Hands-on, as the expert" }).getByRole("button");
   expect(await crafts.count()).toBeGreaterThan(1);
   for (let index = 0; index < await crafts.count(); index++) {
     await crafts.nth(index).click();

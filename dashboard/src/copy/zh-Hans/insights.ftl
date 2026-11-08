@@ -33,13 +33,13 @@ insights-comp-trend-chart-median-total-pay = 估算总薪酬中位数{ $series -
         [single] （含 p25–p75 分布）
        *[several] { "" }
     } · { $period ->
-        [all] 全部历史
+        [all] 全部时间
        *[days] 最近 { $days } 天
     }
-insights-comp-trend-chart-history-is-still-accruing-one = 历史数据仍在积累：每次扫描记录一个快照，因此在每晚扫描运行数天之前，趋势线会保持平直。
+insights-comp-trend-chart-history-is-still-accruing-one = 历史数据还不够。扫描几天后，这条线会逐渐完整。
 insights-comp-trend-chart-no-comp-history-yet = 暂无薪酬历史。
 insights-comp-trend-chart-roles = { $dim } · { $count } 个职位
-insights-comp-trend-chart-by-family = 按类别
+insights-comp-trend-chart-by-family = 按职能
 insights-comp-trend-chart-breakdown = 细分
 insights-comp-trend-chart-compensation-percentile-trend = 薪酬百分位趋势
 insights-comp-trend-chart-loading = 正在加载薪酬趋势…
@@ -48,25 +48,25 @@ insights-comp-trend-chart-load-failed = 无法加载薪酬趋势
 ## features/statistics/CompensationPanel.tsx
 insights-compensation-panel-compensation = 薪酬
 insights-compensation-panel-no-open-roles-with-a = 暂无带薪酬估算的在招职位。
-insights-compensation-panel-open-roles-now-coverage = 当前 { $with_comp } / { $total_open } 个在招职位 · 覆盖率 { $pct }%
-insights-compensation-panel-estimated-total-compensation-is-imputed = 估算的总薪酬是按公司、级别和类别查表推算的。雇主并未公布这些数字；请将其视为参考，而不是录用报价。
+insights-compensation-panel-open-roles-now-coverage = { $total_open } 个在招职位中，有 { $with_comp } 个有估算（{ $pct }%）
+insights-compensation-panel-estimated-total-compensation-is-imputed = 根据公司、级别和职能估算，并非雇主公布。请将其视为参考，而不是录用报价。
 insights-compensation-panel-published-bands = 公布的薪酬区间
-insights-compensation-panel-what-employers-actually-print = 雇主实际公布的数字
+insights-compensation-panel-what-employers-actually-print = 公布的薪酬区间
 insights-compensation-panel-bands-from-employers = { $bands } 个区间 · { $employers } 个雇主
 insights-compensation-panel-estimated-comp-distribution = 估算总薪酬分布
 insights-compensation-panel-median-comp-by-level = 各级别估算总薪酬中位数
 insights-compensation-panel-top-paying-companies = 薪酬最高的公司
 insights-compensation-panel-median-pay-by-discipline = 各职能估算总薪酬中位数
 insights-compensation-panel-what-a-skill-adds-at = 同一级别下某项技能带来的差异
-insights-compensation-panel-roles-naming-the-skill-against = 提到该技能的职位，与同一职能同一级别的全部职位对比。估算按公司、级别和职能查得，因此差异反映的是哪些雇主要求该技能，而不是技能本身的价值。
+insights-compensation-panel-roles-naming-the-skill-against = 提到该技能的职位，与同一级别和职能的全部职位对比。它反映的是哪些雇主要求该技能，而不是它值多少。
 insights-compensation-panel-not-enough-priced-roles-per = 每项技能下有薪酬的职位还不够多。
 insights-compensation-panel-roles = { $count ->
    *[other] { $count } 个职位
 }
 insights-compensation-panel-groups-of-roles-or-more = 至少 { $min_roles } 个职位的分组
-insights-compensation-panel-base-salary-quoted-from-the = 基本工资取自招聘信息，而非上方的估算或总薪酬。每条线代表一个公布的区间，无论有多少在招职位使用它。
+insights-compensation-panel-base-salary-quoted-from-the = 招聘信息中公布的基本工资，不是估算。每条线代表一个公布的区间，无论有多少职位使用它。
 insights-compensation-panel-how-compensation-is-estimated = 薪酬如何估算
-insights-compensation-panel-coverage = 覆盖情况
+insights-compensation-panel-coverage = 已估算
 insights-compensation-panel-middle-50 = 中间 50%
 insights-compensation-panel-top-decile = 前 10%
 insights-compensation-panel-range = 跨度
@@ -84,7 +84,7 @@ insights-demand-more-hold = { $share ->
 }
 insights-demand-show-all = 显示全部 { $company }
 insights-demand-open-roles-by-region = 各地区在招职位
-insights-demand-a-role-open-in-several = 在多个地区招聘的职位在每个地区各计一次。只写了地区的职位（如“远程 EMEA”）按整个地区计算，不会计入其中每个国家。
+insights-demand-a-role-open-in-several = 在多个地区招聘的职位在每个地区各计一次。只写了地区的职位（如“远程 EMEA”）只在该地区计一次。
 insights-demand-no-open-roles-yet = 暂无在招职位。
 insights-demand-all-of = { $region } 全部
 insights-demand-and-more-countries = { $more ->
@@ -97,15 +97,15 @@ insights-demand-each-role-once = 每个职位计一次
 insights-demand-with-an-open-role = 有在招职位
 insights-demand-how-companies-are-counted = 公司如何计数
 insights-demand-longest-open-roles = 招聘时间最长的职位
-insights-demand-potential-hard-to-fill-signal = 可能是难以招到人的信号。
+insights-demand-potential-hard-to-fill-signal = 可能难以招到人。
 insights-demand-no-data-yet = 暂无数据。
-insights-demand-listed-over-a-year-are = 发布超过一年的 { $role } 未计入：其日期视为过时。
+insights-demand-listed-over-a-year-are = 发布超过一年的 { $role } 视为过时，不计入。
 insights-demand-reposted-roles = 重新发布的职位
-insights-demand-closed-then-reappeared-a-repeated = 关闭后又重新出现：反复出现的招聘压力信号。
+insights-demand-closed-then-reappeared-a-repeated = 关闭后又重新发布。通常说明难以招到人。
 insights-demand-none-detected-yet = 暂未发现。
 insights-demand-reposted = { $company } · 重新发布 ×{ $repost_count }
 insights-demand-updated-but-never-closed = 多次更新但从未关闭
-insights-demand-changed-repeatedly-without-a-closure = 多次变更，但从未关闭。
+insights-demand-changed-repeatedly-without-a-closure = 多次变更，从未关闭。
 insights-demand-updated-times = 更新 { $update_count } 次
 insights-demand-about = 关于 { $title }
 insights-demand-how-regions-are-counted = 地区如何计数
@@ -113,26 +113,26 @@ insights-demand-all-companies-hiring = 所有正在招聘的公司
 insights-demand-find-a-company = 查找公司
 
 ## features/statistics/DisclosurePanel.tsx
-insights-disclosure-panel-of-open-roles-have-not = { $open } 个在招职位中，有 { $pending } 个尚未检查是否公布了薪酬区间。它们不计入比例，而不是算作未公布薪酬的雇主。
+insights-disclosure-panel-of-open-roles-have-not = { $open } 个在招职位中，有 { $pending } 个尚未检查是否公布了薪酬区间，因此不计入。
 insights-disclosure-panel-pay-transparency = 薪酬透明度
 insights-disclosure-panel-who-states-pay = 谁公布了薪酬区间
-insights-disclosure-panel-the-share-of-open-roles = 公布薪酬区间的在招职位占比，分母是目前已检查的职位，而不是全部在招职位。任何区间都计入，无论是基本工资、总薪酬还是未说明；区间价值多少，与是否公布是两个不同的问题。
+insights-disclosure-panel-the-share-of-open-roles = 已检查的在招职位中公布薪酬区间的比例。任何区间都计入：基本工资、总薪酬或未说明。
 insights-disclosure-panel-of-checked-roles-state-pay = 已检查的 { $checked } 个职位中 { $rate } 公布了薪酬区间
 insights-disclosure-panel-no-open-roles-have-been = 暂无在招职位检查过是否公布薪酬区间。
-insights-disclosure-panel-history-is-still-accruing-one = 历史数据仍在积累：每次扫描记录一个快照，因此在每晚扫描运行数天之前，这条线会保持平直。
+insights-disclosure-panel-history-is-still-accruing-one = 历史数据还不够。扫描几天后，这条线会逐渐完整。
 insights-disclosure-panel-over-time = 随时间变化
 insights-disclosure-panel-pay-transparency-trend = 薪酬透明度趋势
 insights-disclosure-panel-share-of-checked-open-roles = 已检查的在招职位中公布薪酬区间的占比 · { $window }
 insights-disclosure-panel-no-pay-transparency-history-yet = 暂无薪酬透明度历史。
-insights-disclosure-panel-the-market-line-moves-when = 新增公司时市场曲线会变化，而新增的公司公布薪酬区间的比例较低。“相同公司”只跟踪在 { $since } 读取的 { $companies }。
+insights-disclosure-panel-the-market-line-moves-when = 市场曲线会随新增公司而变化。“相同公司”只跟踪在 { $since } 扫描的 { $companies }。
 insights-disclosure-panel-published-band-trend = 公布区间趋势
-insights-disclosure-panel-the-median-floor-and-ceiling = 雇主公布的区间下限和上限的中位数，按每个不同的公布区间计一次，而不是按职位计：一个区间对应许多在招职位，按职位计数反映的是重新发布，而不是薪酬。只统计基本工资；从未说明是否包含奖金或股权的区间不能放在同一坐标轴上。
+insights-disclosure-panel-the-median-floor-and-ceiling = 公布的基本工资区间下限和上限的中位数。每个区间只计一次，无论有多少职位使用它。
 insights-disclosure-panel-median-published-band = 公布的{ $basis }区间中位数 · { $window }
 insights-disclosure-panel-no-published-base-salary-band = 暂未记录公布的基本工资区间。
-insights-disclosure-panel-pay-transparency-over-time-covers = 薪酬透明度趋势涵盖所有职能：其历史按公司和级别保存。
+insights-disclosure-panel-pay-transparency-over-time-covers = 这一趋势涵盖所有职能。
 insights-disclosure-panel-by-employer = 按雇主
-insights-disclosure-panel-how-the-disclosure-rate-is = 薪酬公布率如何计算
-insights-disclosure-panel-disclosure-breakdown = 公布情况细分
+insights-disclosure-panel-how-the-disclosure-rate-is = 薪酬透明度如何计算
+insights-disclosure-panel-disclosure-breakdown = 薪酬透明度细分
 insights-disclosure-panel-share-of-open-roles-stating = { $group ->
     [company] 公布薪酬区间的在招职位占比（按雇主）
    *[level] 公布薪酬区间的在招职位占比（按级别）
@@ -176,16 +176,16 @@ insights-overlap-panel-no-shared-skills = { $a } 和 { $b }：无共同技能
 
 ## features/statistics/OverviewPanel.tsx
 insights-overview-panel-most-named-skills = 最常提到的技能
-insights-overview-panel-what-is-pulling-the-market = 市场需求最大的技能
+insights-overview-panel-what-is-pulling-the-market = 需求最大的技能
 insights-overview-panel-the-skills-open-roles-name = 在招职位最常提到的技能，按提到该技能的职位数排序。
 insights-overview-panel-leads-roles = { $display } 领先 · { $job_count } 个职位
 insights-overview-panel-largest-groups = 最大的分组
 insights-overview-panel-no-groups-built-yet = 尚未构建分组。
-insights-overview-panel-open-the-longest = 招聘时间最长
-insights-overview-panel-the-roles-advertised-longest-that = 发布时间最长且仍在招聘的职位。它们可能难以招到人，也可能只是一直挂着：招聘页面不会说明是哪种。发布日期超过一年的视为过时，不计入。
+insights-overview-panel-open-the-longest = 招聘时间最长的职位
+insights-overview-panel-the-roles-advertised-longest-that = 招聘时间最长的职位。它们可能难以招到人，也可能只是一直挂着。发布日期超过一年的不计入。
 insights-overview-panel-no-open-roles = 暂无在招职位。
 insights-overview-panel-opened-closed = 新增 { $new_count } · 关闭 { $closed_count }
-insights-overview-panel-about-the-demand-field = 关于需求分布图
+insights-overview-panel-about-the-demand-field = 关于此图表
 insights-overview-panel-what-open-the-longest-means = “招聘时间最长”是什么意思
 
 ## features/statistics/PayBands.tsx
@@ -199,10 +199,10 @@ insights-pay-bands-employer-bands = { $published ->
 }
 
 ## features/statistics/SkillsView.tsx
-insights-skills-view-a-narrowed-view-ranks-skills = 筛选后的视图按这些职位提到某项技能的频率比市场其他职位高出多少来排序，样本较小时会向市场水平靠拢。整个市场则按提到每项技能的职位数排序。所有职位都应具备的要求单独列出。
-insights-skills-view-no-skills-extracted-for-this = 当前选择暂无技能数据。
+insights-skills-view-a-narrowed-view-ranks-skills = 筛选后：按这些职位提到某项技能的频率与市场相比排序。未筛选：按职位数排序。
+insights-skills-view-no-skills-extracted-for-this = 当前选择暂未找到技能。
 insights-skills-view-expected-of-the-role = 职位的基本要求
-insights-skills-view-process-leadership-and-collaboration-asks = 流程、领导力和协作方面的要求。大多数职位都会提到，因此它们说明的是工作内容，而不是这些职位的独特之处。
+insights-skills-view-process-leadership-and-collaboration-asks = 大多数职位都要求的流程、领导力和协作技能。
 insights-skills-view-against-the-market = 与市场对比
 insights-skills-view-what-sets-these-roles-apart = 这些职位的独特之处
 insights-skills-view-above-the-line-named-more = 线以上：比市场更常提到
@@ -210,7 +210,7 @@ insights-skills-view-pick-a-company-a-discipline = 选择一家公司、一个�
 insights-skills-view-skill = 技能
 insights-skills-view-category = 类别
 insights-skills-view-share-of-roles = 职位占比
-insights-skills-view-lift = 提升度
+insights-skills-view-lift = 相对市场
 insights-skills-view-lead-skill = { $view ->
     [narrowed] { $skill } 是这些职位的独特之处
    *[market] { $skill } 领先
@@ -241,7 +241,7 @@ insights-skills-view-load-failed = 无法加载技能
 ## features/statistics/StatisticsView.tsx
 insights-statistics-view-window = 时间段
 insights-statistics-view-all-time = 全部时间
-insights-statistics-view-statistics-sections = 统计分区
+insights-statistics-view-statistics-sections = 洞察分区
 insights-statistics-view-discipline = 职能
 insights-statistics-view-time-range = 时间范围
 insights-statistics-view-advanced-view = 高级视图
@@ -254,26 +254,26 @@ insights-statistics-view-show-advanced-view = 显示高级视图
 
 ## features/statistics/StockTrajectoryPanel.tsx
 insights-stock-trajectory-panel-stock-trajectory = 股价走势
-insights-stock-trajectory-panel-no-open-roles-at-public = 上市公司暂无带薪酬估算的在招职位，因此没有可按股价推算的股权。
+insights-stock-trajectory-panel-no-open-roles-at-public = 上市公司暂无带薪酬估算的在招职位。
 insights-stock-trajectory-panel-typical-package = { $split ->
     [measured] 上市公司典型薪酬 · 实测构成
-    [mixed] 上市公司典型薪酬 · 部分实测构成
-   *[heuristic] 上市公司典型薪酬 · 估算构成
+    [mixed] 上市公司典型薪酬 · 部分实测
+   *[heuristic] 上市公司典型薪酬 · 估算
 }
 insights-stock-trajectory-panel-stock-moves-re-price-equity = { $split ->
-    [measured] 股价变动会改变股权价值；基本工资和奖金保持不变。构成按公司和级别实测。仅为参考数字，不是录用报价。
-    [mixed] 股价变动会改变股权价值；基本工资和奖金保持不变。构成在有数据时实测，其余为估算。仅为参考数字，不是录用报价。
-   *[heuristic] 股价变动会改变股权价值；基本工资和奖金保持不变。构成按 { $bonus_pct } 的奖金假设和基于资历的股权估算。仅为参考数字，不是录用报价。
+    [measured] 只有股权随股价变动。仅供参考，不是录用报价。
+    [mixed] 只有股权随股价变动。仅供参考，不是录用报价。
+   *[heuristic] 只有股权随股价变动。构成假设奖金为 { $bonus_pct }。仅供参考，不是录用报价。
 }
 insights-stock-trajectory-panel-stock-price-change = 股价变动
 insights-stock-trajectory-panel-reset-to-today = 重置为今天
-insights-stock-trajectory-panel-equity-shockwave = 股权冲击波
+insights-stock-trajectory-panel-equity-shockwave = 股权影响
 insights-stock-trajectory-panel-who-moves-when-the-stock = 股价变动时谁受影响
 insights-stock-trajectory-panel-public-companies = { $move ->
     [up] 上市公司 · +{ $pct }%
    *[other] 上市公司 · { $pct }%
 }
-insights-stock-trajectory-panel-sorted-by-equity-exposure-only = 按股权占比排序。只有股权部分会变动。
+insights-stock-trajectory-panel-sorted-by-equity-exposure-only = 按股权占比排序。
 insights-stock-trajectory-panel-no-open-roles-at-public-yet = 上市公司暂无在招职位。
 insights-stock-trajectory-panel-ticker = 股票代码
 insights-stock-trajectory-panel-equity = 股权
@@ -282,9 +282,9 @@ insights-stock-trajectory-panel-equity-share = 股权占比
 insights-stock-trajectory-panel-today = 今天
 insights-stock-trajectory-panel-projected = 预测
 insights-stock-trajectory-panel-change = 变化
-insights-stock-trajectory-panel-no-exposure = 无影响
+insights-stock-trajectory-panel-no-exposure = 无股权
 insights-stock-trajectory-panel-private-companies = 非上市公司
-insights-stock-trajectory-panel-pre-ipo-equity-is-illiquid = 上市前的股权无法流通，也没有每日股价，因此此处的情景不会改变总薪酬。
+insights-stock-trajectory-panel-pre-ipo-equity-is-illiquid = 未上市公司的股权没有每日股价，因此该情景不会改变其总薪酬。
 insights-stock-trajectory-panel-median-tc = 总薪酬中位数
 insights-stock-trajectory-panel-median-tc-full = 总薪酬中位数
 insights-stock-trajectory-panel-options = 期权
@@ -314,7 +314,7 @@ insights-stock-trajectory-panel-vs-today = 相比今天
 insights-stock-trajectory-panel-of-tc-at-risk = 占总薪酬（受影响部分）
 insights-stock-trajectory-panel-of-tc-at-risk-full = 占总薪酬（受影响部分）
 insights-stock-trajectory-panel-stock-price-change-percent = 股价变动百分比
-insights-stock-trajectory-panel-how-to-read-equity-sensitivity = 如何解读股权敏感度
+insights-stock-trajectory-panel-how-to-read-equity-sensitivity = 如何解读此图表
 insights-stock-trajectory-panel-sensitivity-explained = { $move ->
     [flat] 按今天的股价，每根柱表示股价上涨 10% 为典型总薪酬增加的金额。拖动滑块查看不同情景。
    *[other] 显示此情景下典型总薪酬的美元变化。
@@ -335,11 +335,11 @@ insights-stock-trajectory-panel-rsus = RSU
 insights-trends-panel-demand-history = 需求历史
 insights-trends-panel-skill-demand-over-time = 技能需求变化趋势
 insights-trends-panel-each-skill-s-share-of = 每项技能在当天技能提及中的占比 · { $window }
-insights-trends-panel-top-plotted-in-ledger = 图中显示前 { $plotted } 项 · 榜单共 { $total } 项
-insights-trends-panel-history-is-still-accruing-one = 历史数据仍在积累：每次扫描记录一个快照，因此在每晚扫描运行数天之前，趋势线会保持平直。
+insights-trends-panel-top-plotted-in-ledger = 图中显示前 { $plotted } 项 · 列表共 { $total } 项
+insights-trends-panel-history-is-still-accruing-one = 历史数据还不够。扫描几天后，这些线会逐渐完整。
 insights-trends-panel-no-skill-history-yet = 暂无技能历史。
-insights-trends-panel-what-is-measured-changed-on = 统计范围在 { $dates } 发生了变化（有一批公司加入，或技能被重新读取），因此显示的是占比，而不是数量。
-insights-trends-panel-current-ledger = 当前榜单
+insights-trends-panel-what-is-measured-changed-on = 统计的公司或技能在 { $dates } 发生了变化，因此图表显示的是占比，而不是数量。
+insights-trends-panel-current-ledger = 当前列表
 insights-trends-panel-now = 现在
 insights-trends-panel-skill-leads = { $skill } 领先
 insights-trends-panel-nothing-to-plot-yet = 暂无可绘制的数据
@@ -347,7 +347,7 @@ insights-trends-panel-leader-share-line = 最近一天占技能提及的 { $curr
 insights-trends-panel-history-accrues-one-day-per = 每次扫描积累一天历史 · { $window }
 insights-trends-panel-leader-s-share = 领先者占比
 insights-trends-panel-of-skill-mentions = 的技能提及
-insights-trends-panel-in-the-ledger = 在榜单中
+insights-trends-panel-in-the-ledger = 在列表中
 insights-trends-panel-history = 历史
 insights-trends-panel-days = { $count ->
    *[other] 天
@@ -361,7 +361,7 @@ insights-trends-panel-loading = 正在加载技能趋势…
 insights-trends-panel-load-failed = 无法加载技能趋势
 
 ## features/statistics/VelocityPanel.tsx
-insights-velocity-panel-market-current = 市场动向
+insights-velocity-panel-market-current = 按公司
 insights-velocity-panel-hiring-flow = 招聘流动
 insights-velocity-panel-closures-pull-left-openings-push = 关闭向左，新增向右；菱形表示更新压力。
 insights-velocity-panel-net = { $direction ->
@@ -372,10 +372,10 @@ insights-velocity-panel-companies = 公司 · { $window }
 insights-velocity-panel-open = 在招
 insights-velocity-panel-opened = 新增
 insights-velocity-panel-time-posted = 发布时长
-insights-velocity-panel-from-the-first-scan-that = 从首次扫描到某条招聘信息，到扫描发现它已下线为止。雇主下线招聘信息的原因很多（已招到、暂停、过期、重新发布），因此这反映的是职位被公开招聘了多久，而不是招到人花了多久。
+insights-velocity-panel-from-the-first-scan-that = 招聘信息从首次发现到下线持续的天数。下线原因有多种：已招到、暂停或过期。
 insights-velocity-panel-age-of-open-roles = 在招职位的发布时长
 insights-velocity-panel-how-long-postings-stay-up = 招聘信息在线多久
-insights-velocity-panel-this-builds-up-as-roles = 随着职位关闭，这里会逐渐充实：目前只有 { $closed_sample } 个已关闭。更多招聘信息下线后会逐渐完整。
+insights-velocity-panel-this-builds-up-as-roles = 随着职位关闭逐渐完整。目前只有 { $closed_sample } 个已关闭。
 insights-velocity-panel-median-age = 发布时长中位数 { $median_days_open }
 insights-velocity-panel-median-time-posted = 在线时长中位数 { $median_observed_listing_duration_days }
 insights-velocity-panel-more-already-listed-when-their = 另有 { $first_scan } 个在其公司首次扫描时已在发布
@@ -409,7 +409,7 @@ insights-statistics-charts-equity-change = { $direction ->
    *[up] +{ $amount }
 }
 insights-statistics-charts-no-change = 无变化
-insights-statistics-charts-equity-shockwave-by-company = 各公司股权冲击波
+insights-statistics-charts-equity-shockwave-by-company = 各公司股权影响
 insights-statistics-charts-share-against-market = 这些职位的 { $share }% · 市场的 { $market_share }%
 insights-statistics-charts-lift-the-market-s-rate = 市场比例的 ×{ $lift }
 insights-statistics-charts-share-of-these-roles = 这些职位中的占比 →
@@ -551,7 +551,7 @@ insights-common-last-days-or-all-time = { $period ->
    *[days] 最近 { $days } 天
 }
 insights-common-last-days-or-all-history = { $period ->
-    [all] 全部历史
+    [all] 全部时间
    *[days] 最近 { $days } 天
 }
 
@@ -590,10 +590,10 @@ insights-comp-trend-chart-reference-changed = { $count ->
    *[other] 虚线标出薪酬估算一起变化的时间：这是数据的变化，而不是市场的变化。
 }
 insights-comp-trend-chart-reference-marker = 薪酬估算于 { $date } 变化
-insights-compensation-panel-spread = p25–p75 { $low }–{ $high } · { $roles }
+insights-compensation-panel-spread = 中间 50%：{ $low }–{ $high } · { $roles }
 insights-compensation-panel-estimated-base-by-level = 各级别的估算基本工资
 insights-compensation-panel-base-only = 仅基本工资
 insights-compensation-panel-base-only-lead =
     { $count ->
-       *[other] 另有 { $count } 个职位只有估算的基本工资。它们的奖金和股权尚不清楚，因此不在上面的数字中。
+       *[other] 另有 { $count } 个职位只有基本工资估算，因此不在上面的数字中。
     }

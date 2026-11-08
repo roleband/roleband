@@ -14,10 +14,10 @@ jobs-match-close-title = 相似的职位名称，相同类型的工作
 jobs-match-partial = 部分匹配
 jobs-match-partial-title = 相似的工作，但职位名称或侧重点不同
 jobs-via-keyword = 关键词
-jobs-via-fuzzy = 模糊
+jobs-via-fuzzy = 相似
 jobs-via-keyword-inline = 关键词
-jobs-via-fuzzy-inline = 模糊匹配
-jobs-matched-via = 匹配方式：{ $sources }
+jobs-via-fuzzy-inline = 相似匹配
+jobs-matched-via = 通过 { $sources } 找到
 
 ## 行内信息
 jobs-level-not-stated-title = 该招聘信息未注明级别
@@ -45,10 +45,10 @@ jobs-listed-since-seen = 至少自 { $date } 起发布
 jobs-standing-title = 可能是长期开放的招聘信息
 jobs-standing-card-title = 可能是长期开放的招聘信息：{ $signs }。这是发布方式上的规律，并非对公司的定论。它可能仍在招聘。
 jobs-sign-long-open = 发布时间很长
-jobs-sign-relisted = 发布了 { $count } 次
+jobs-sign-relisted = 重新发布了 { $count } 次
 jobs-sign-date-moved = 在持续发布期间日期被推后
 jobs-sign-long-open-inline = 发布时间很长
-jobs-sign-relisted-inline = 发布了 { $count } 次
+jobs-sign-relisted-inline = 重新发布了 { $count } 次
 jobs-sign-date-moved-inline = 在持续发布期间日期被推后
 
 ## 行操作

@@ -116,7 +116,7 @@ radar-empty-not-for-me = Anything you mark Not for me waits here, in case you ch
 # kind=heading
 radar-empty-closed-title = Nothing has closed yet
 # kind=empty
-radar-empty-closed = A role lands here when it is no longer on its careers page.
+radar-empty-closed = A role shows up here once it's gone from its careers page.
 # kind=heading note="The board's own filters leave nothing, after every company has been read once"
 radar-empty-filtered-title = No roles match these filters
 # kind=button

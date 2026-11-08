@@ -14,10 +14,10 @@ jobs-match-close-title = Un título parecido y el mismo tipo de trabajo
 jobs-match-partial = Coincidencia parcial
 jobs-match-partial-title = Trabajo parecido, con otro título u otro enfoque
 jobs-via-keyword = Palabra clave
-jobs-via-fuzzy = Aproximada
+jobs-via-fuzzy = Similar
 jobs-via-keyword-inline = palabra clave
-jobs-via-fuzzy-inline = coincidencia aproximada
-jobs-matched-via = Coincide por { $sources }
+jobs-via-fuzzy-inline = coincidencia similar
+jobs-matched-via = Encontrado por { $sources }
 
 ## Datos de la fila
 jobs-level-not-stated-title = La oferta no indica nivel
@@ -49,10 +49,10 @@ jobs-listed-since-seen = Publicado al menos desde el { $date }
 jobs-standing-title = Puede ser una oferta siempre abierta
 jobs-standing-card-title = Puede ser una oferta siempre abierta: { $signs }. Son patrones en cómo se publica, no un veredicto sobre la empresa. Puede que aún esté contratando.
 jobs-sign-long-open = Publicado durante mucho tiempo
-jobs-sign-relisted = Publicado { $count } veces
+jobs-sign-relisted = Republicado { $count } veces
 jobs-sign-date-moved = Su fecha se retrasó mientras seguía publicado
 jobs-sign-long-open-inline = publicado durante mucho tiempo
-jobs-sign-relisted-inline = publicado { $count } veces
+jobs-sign-relisted-inline = republicado { $count } veces
 jobs-sign-date-moved-inline = su fecha se retrasó mientras seguía publicado
 
 ## Acciones de la fila

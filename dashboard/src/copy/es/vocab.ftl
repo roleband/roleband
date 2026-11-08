@@ -44,10 +44,10 @@ vocab-domain-hint-corporate-operations = Estrategia, planificación, BizOps
 vocab-domain-unclassified = Sin clasificar
 
 ## Trayectorias
-vocab-track-management = Gestión / Liderazgo
+vocab-track-management = Gestión
 vocab-track-product-program = Producto y programas
-vocab-track-technical = Técnica (IC)
-vocab-track-business-customer = Negocio y cliente (IC)
+vocab-track-technical = Técnica IC
+vocab-track-business-customer = Negocio y cliente
 
 ## Grupos de puestos; `other` nombra un puesto que no está en ninguno
 vocab-role-engineering-management = Gestión de ingeniería

@@ -7,8 +7,8 @@ profile-experience-page-back-to-summary = Back to Summary
 profile-experience-page-your-experience = Your experience
 # kind=label wording=as-is
 profile-experience-page-coming-soon = Coming soon
-# kind=sentence wording=as-is
-profile-experience-page-cv-upload-isn-t-available = CV upload isn't available yet. You'll be able to add your CV here and confirm the experience used to check each role's requirements.
+# kind=sentence
+profile-experience-page-cv-upload-isn-t-available = Coming soon: add your CV here to check each role's requirements against it.
 
 ## features/scope/NewMark.tsx
 # kind=label wording=as-is
@@ -59,10 +59,10 @@ profile-suggestions-turn-on = { $choice ->
     [yes] Turn off { $display }?
    *[no] Turn on { $display2 }?
 }
-# kind=sentence wording=as-is
+# kind=sentence
 profile-suggestions-inferred-from-your-recent-activity = { $choice ->
     [yes] Because { $join }.
-   *[no] Inferred from your recent activity.
+   *[no] Based on your recent activity.
 }
 # kind=label wording=as-is
 profile-suggestions-accept-turn-on = { $choice ->
@@ -101,8 +101,8 @@ profile-scope-guide-sharpen-optional = Sharpen, optional
 profile-scope-guide-your-radar = Your radar
 # kind=heading wording=as-is
 profile-scope-guide-when-changes-apply = When changes apply
-# kind=sentence wording=as-is
-profile-scope-guide-save-applies-your-answers-to = Save applies your answers to the roles already collected, straight away. Roles that only your new answers reach arrive with the next scan.
+# kind=sentence
+profile-scope-guide-save-applies-your-answers-to = Changes apply when you save. Added roles arrive with the next scan.
 # kind=heading wording=as-is
 profile-scope-guide-about-the-counts = About the counts
 # kind=sentence wording=as-is
@@ -215,9 +215,9 @@ profile-pay-floor-row-cancel = Cancel
 # kind=label wording=as-is
 profile-pay-floor-row-checking = Checking…
 # kind=sentence
-profile-pay-floor-row-couldn-t-read-your-pay = Couldn't read your minimum base.
-# kind=button wording=as-is
-profile-pay-floor-row-retry = Retry
+profile-pay-floor-row-couldn-t-read-your-pay = Couldn't load your minimum base.
+# kind=button
+profile-pay-floor-row-retry = Try again
 # kind=sentence
 profile-pay-floor-row-compared-where-pay-is-stated = Compared with the posted base salary, where a posting has one.
 # kind=sentence
@@ -242,7 +242,7 @@ profile-pay-floor-row-set-floor = Set minimum base
 # kind=sentence
 profile-pay-floor-row-could-not-remove-the-pay = Couldn't remove the minimum base. Try again.
 # kind=aria
-profile-pay-floor-row-retry-reading-the-pay-floor = Retry reading the minimum base
+profile-pay-floor-row-retry-reading-the-pay-floor = Load the minimum base again
 # kind=label
 profile-pay-floor-row-add-a-pay-floor = { $choice ->
     [yes] Adjust minimum base
@@ -354,8 +354,8 @@ profile-progress-rail-saved-on-your-board-now = { $choice ->
 }
 
 ## features/scope/walk/RadarPyramid.tsx
-# kind=sentence wording=as-is
-profile-radar-pyramid-illustrative-funnel-each-percentage-is = Illustrative funnel. Each percentage is the share remaining after that answer.
+# kind=sentence
+profile-radar-pyramid-illustrative-funnel-each-percentage-is = Each answer focuses your radar. The percentage is the share of roles in focus.
 # kind=label wording=as-is
 profile-radar-pyramid-after-the-first-three-answers = After the first three answers
 # kind=label wording=as-is
@@ -396,8 +396,8 @@ profile-roles-step-nothing-called-under = Nothing called “{ $query }” under 
 profile-roles-step-filter-roles = Filter roles
 # kind=label wording=as-is
 profile-roles-step-filter-roles-2 = Filter roles…
-# kind=label wording=as-is
-profile-roles-step-craft-for = Craft for { $label }
+# kind=label
+profile-roles-step-craft-for = Disciplines for { $label }
 # kind=label wording=as-is
 profile-roles-step-roles = { $count ->
     [one] { $count2 } role · { $examples }

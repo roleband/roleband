@@ -358,7 +358,7 @@ describe("JobCard", () => {
       />
     );
     // Names the sources (bucketed), never the raw fusion score.
-    expect(screen.getByText("Keyword · Fuzzy")).toBeInTheDocument();
+    expect(screen.getByText(`${msg("jobs-via-keyword")} · ${msg("jobs-via-fuzzy")}`)).toBeInTheDocument();
     expect(screen.queryByText(/0\.031/)).not.toBeInTheDocument();
 
     // Legacy path: no matched_via → no badge.
@@ -467,8 +467,9 @@ describe("JobCard", () => {
     const badge = screen.getByText("May be always open");
     expect(badge).toHaveAttribute(
       "title",
-      "May be an always-open posting: listed for a long time and listed 4 times. " +
-        "Patterns in how it is listed, not a verdict on the company. It may still be hiring.",
+      msg("jobs-standing-card-title", {
+        signs: `${msg("jobs-sign-long-open-inline")} and ${msg("jobs-sign-relisted-inline", { count: 4 })}`,
+      }),
     );
 
     for (const quiet of [

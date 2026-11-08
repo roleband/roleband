@@ -21,14 +21,14 @@ role-job-comp-panel-per-year-vests-over-time = por año, se consolida con el tie
 role-job-comp-panel-measured-split = Reparto medido
 role-job-comp-panel-split-from-another-discipline = Reparto de otra disciplina
 role-job-comp-panel-estimated-split = Reparto estimado
-role-job-comp-panel-this-company-s-real-base = El reparto real de base/bono/acciones de esta empresa para este nivel y disciplina
+role-job-comp-panel-this-company-s-real-base = El reparto real de base, bonus y acciones de esta empresa para este nivel y disciplina
 role-job-comp-panel-no-measured-split-for-this = No hay reparto medido para esta disciplina: escalado a partir de las cifras de esta empresa para el mismo nivel en otra disciplina
-role-job-comp-panel-no-measured-split-for-this-2 = No hay reparto medido para esta empresa: se usa la heurística por nivel de experiencia
+role-job-comp-panel-no-measured-split-for-this-2 = Estimado según el nivel
 role-job-comp-panel-about-the-split = Sobre este reparto
 role-job-comp-panel-posted-band-sits-well-above = El rango publicado está muy por encima del salario base { $band } medido en esta empresa, así que el nivel puede ser más alto.
 role-job-comp-panel-posted-band-sits-well-below = El rango publicado está muy por debajo del salario base { $band } medido en esta empresa, así que el nivel puede ser más bajo.
 role-job-comp-panel-you-choose-the-cash-stock = Tú eliges la mezcla de efectivo y acciones
-role-job-comp-panel-equity-fills-a-per-level = Las acciones completan un objetivo de compensación total por nivel
+role-job-comp-panel-equity-fills-a-per-level = Las acciones completan el resto de un objetivo de compensación total para cada nivel
 role-job-comp-panel-equity-is-a-dollar-grant = Las acciones son una concesión en dólares según el nivel
 role-job-comp-panel-vests = { $choice ->
     [yes] se consolidan { $vesting }, un bono de firma en efectivo cubre los años 1–2
@@ -45,8 +45,8 @@ role-job-comp-panel-the-posting-gives-an-hourly = La oferta indica una tarifa po
 role-job-comp-panel-monthly-rate = tarifa mensual
 role-job-comp-panel-the-posting-gives-a-monthly = La oferta indica una tarifa mensual, mostrada tal cual.
 role-job-comp-panel-period-unclear = periodo poco claro
-role-job-comp-panel-the-posting-s-wording-and = La redacción de la oferta y la magnitud de esta cifra no coinciden, así que no está claro si se paga por hora, por mes o por año. Lee abajo las palabras del propio empleador.
-role-job-comp-panel-states-this-as-total-annual = { $company } lo indica como compensación anual total sin bono. Los empleados eligen cuánto es salario y cuánto opciones sobre acciones, así que no hay un reparto fijo de efectivo/acciones que mostrar.
+role-job-comp-panel-the-posting-s-wording-and = No está claro si es por hora, por mes o por año. Consulta abajo las palabras del propio empleador.
+role-job-comp-panel-states-this-as-total-annual = { $company } lo indica como compensación anual total sin bonus. Los empleados eligen su propia mezcla de salario base y acciones, así que no hay un reparto fijo.
 role-job-comp-panel-employee-selected-mix = a elección del empleado
 role-job-comp-panel-total-compensation = compensación total
 role-job-comp-panel-the-posting-states-total-compensation = La oferta indica la compensación total sin desglose, así que no se muestra ninguno.
@@ -63,7 +63,7 @@ role-job-comp-panel-about-stated-base-salary = Sobre el salario base publicado
 role-job-comp-panel-of-base-stated = { $round }% del salario base, indicado
 
 ## features/job-detail/JobDescription.tsx
-role-job-description-no-description-captured = No se capturó ninguna descripción.
+role-job-description-no-description-captured = No hay descripción para este puesto.
 
 ## features/job-detail/JobDetail.tsx
 role-job-detail-back = Volver
@@ -93,7 +93,7 @@ role-job-detail-role = { $choice ->
    *[no] Puesto
 }
 role-job-detail-back-2 = Volver
-role-job-detail-compare-is-full-max = La comparación está llena (máx. { $compareCap })
+role-job-detail-compare-is-full-max = La comparación está llena: { $compareCap } como máximo
 role-job-detail-compare = { $choice ->
     [yes] En comparación
    *[no] Comparar
@@ -107,7 +107,7 @@ role-job-detail-stage = Etapa
 role-job-detail-likely-your-kind-of-role = Probablemente tu tipo de puesto
 role-job-detail-likely-outside-your-worlds = Probablemente fuera de tus ámbitos
 role-job-detail-hard-to-place = Difícil de clasificar
-role-job-detail-questions-the-employer-added-beyond = Preguntas que el empleador añadió además del nombre, el contacto y el currículum, leídas de la página de la oferta
+role-job-detail-questions-the-employer-added-beyond = Preguntas que hace el empleador además del nombre, los datos de contacto y el CV
 role-job-detail-similarity = Similitud
 
 ## features/job-detail/JobRequirementsPanel.tsx
@@ -120,7 +120,7 @@ role-job-requirements-panel-qualifications = Cualificaciones
 role-job-requirements-panel-ways-of-working = Formas de trabajo
 role-job-requirements-panel-role-requirements = Requisitos del puesto
 role-job-requirements-panel-what-this-role-asks-for = Lo que pide este puesto
-role-job-requirements-panel-importance-reflects-how-strongly-this = La importancia refleja con qué fuerza esta oferta destaca cada elemento: requisitos explícitos encontrados en esta oferta, con las palabras exactas del empleador. No dice nada sobre tus habilidades ni tus posibilidades.
+role-job-requirements-panel-importance-reflects-how-strongly-this = Con qué fuerza la oferta destaca cada elemento, con sus propias palabras. No dice nada sobre tus posibilidades.
 role-job-requirements-panel-required = Se requieren { $requiredYears } { $requiredYears2 }
 role-job-requirements-panel-core = { $core } clave
 role-job-requirements-panel-supporting-2 = { $supporting } complementarias
@@ -154,17 +154,17 @@ role-job-requirements-panel-years = { $count ->
 role-job-requirements-panel-role-requirements-2 = Requisitos del puesto
 role-job-requirements-panel-this-posting-has-no-stored = { $choice ->
     [yes] Analizando requisitos…
-   *[no] Esta oferta no tiene texto guardado que analizar.
+   *[no] Esta oferta no tiene texto que analizar.
 }
 role-job-requirements-panel-preferred-2 = { $choice ->
     [yes] Obligatorio
    *[no] Deseable
 }
 role-job-requirements-panel-show-evidence = { $choice ->
-    [yes] Ocultar evidencia
-   *[no] Ver evidencia
+    [yes] Ocultar citas
+   *[no] Ver citas
 }
-role-job-requirements-panel-ways-of-working-evidence = Evidencia de formas de trabajo
+role-job-requirements-panel-ways-of-working-evidence = Citas de formas de trabajo
 role-job-requirements-panel-about-importance = Sobre la importancia
 role-job-requirements-panel-important = { $choice ->
     [yes] Clave
@@ -209,7 +209,7 @@ role-lineage-diff-changes-since-the-previous-posting = Cambios desde la oferta a
 role-lineage-stack-could-not-load-posting-history = No se pudo cargar el historial de ofertas. Inténtalo de nuevo.
 role-lineage-stack-postings-of-this-role = { $size } ofertas de este puesto
 role-lineage-stack-first-seen = vista por primera vez { $relDays }
-role-lineage-stack-req = vacante { $req_id }
+role-lineage-stack-req = ID { $id }
 role-lineage-stack-locations = Ubicaciones
 role-lineage-stack-comp-est = CT est.
 role-lineage-stack-first-seen-2 = Vista por primera vez
@@ -237,8 +237,8 @@ role-lineage-stack-last-seen = { $choice ->
 }
 
 ## features/job-detail/ListingAge.tsx
-role-listing-age-reading-the-history = Leyendo el historial…
-role-listing-age-couldn-t-read-the-history = No se pudo leer el historial.
+role-listing-age-reading-the-history = Cargando el historial…
+role-listing-age-couldn-t-read-the-history = No se pudo cargar el historial.
 role-listing-age-retry = Reintentar
 role-listing-age-role-listed-for-across-postings = Puesto publicado durante { $days } en { $postings } ofertas.
 role-listing-age-compare-the-postings = Comparar las ofertas
@@ -266,7 +266,7 @@ role-listing-age-published-by-the-employer = Publicado por el empleador
 role-listing-age-the-start = el inicio
 role-listing-age-first-seen-by-roleband = Visto por primera vez
 role-listing-age-gone-from-the-careers-page = Desapareció de la página de empleo
-role-listing-age-came-back-same-requisition = Volvió, misma vacante
+role-listing-age-came-back-same-requisition = Volvió con el mismo ID
 role-listing-age-employer-changed-its-date-to = El empleador cambió su fecha a { $to_at }
 role-listing-age-never-the-start = nunca el inicio
 role-listing-age-an-earlier-posting-was-listed = { $choice ->
@@ -292,11 +292,11 @@ role-pay-floor-line-below-your-pay-floor = Por debajo de tu base mínima de { $f
 role-place-set-section-could-not-load-this-role = No se pudieron cargar los otros lugares de este puesto. Inténtalo de nuevo.
 role-place-set-section-you-marked-this-posting-as = Marcaste esta oferta como un puesto distinto del mismo texto en otros lugares.
 role-place-set-section-undo = Deshacer
-role-place-set-section-same-title-and-the-same = Mismo título y misma descripción en cada lugar, salvo el lugar y lo que conlleva (compensación local, beneficios o texto legal) o unas pocas palabras cambiadas, así que cuenta como un solo puesto.
+role-place-set-section-same-title-and-the-same = Mismo título y descripción en cada lugar, salvo detalles locales como compensación, beneficios o texto legal, así que cuenta como un solo puesto.
 role-place-set-section-different-roles = Puestos distintos
 role-place-set-section-marked-as-a-different-role = Marcado como un puesto distinto
 role-place-set-section-undo-2 = Deshacer
-role-place-set-section-could-not-record-the-verdict = No se pudo registrar la decisión: { $message }
+role-place-set-section-could-not-record-the-verdict = No se pudo guardar tu elección: { $message }
 role-place-set-section-also-listed-in = También publicado en
 role-place-set-section-same-place = Mismo lugar
 role-place-set-section-place-not-stated = Lugar no indicado
@@ -317,11 +317,11 @@ role-place-set-section-also-listed-in-2 = También publicado en { $places }
 role-posting-reality-of-signs = { $length } de { $criteria_total } señales · { $sTANDING_HEDGE }
 
 ## features/job-detail/TwinDeck.tsx
-role-twin-deck-could-not-load-twin-postings = No se pudieron cargar las ofertas gemelas de este puesto. Inténtalo de nuevo.
+role-twin-deck-could-not-load-twin-postings = No se pudieron cargar los puestos relacionados. Inténtalo de nuevo.
 role-twin-deck-separate-roles-with-closely-related = Puestos distintos con trabajo muy relacionado
-role-twin-deck-req = vacante { $req_id } · { $value }
+role-twin-deck-req = ID { $id } · { $value }
 role-twin-deck-via-a-related-group-not = Por un grupo relacionado · sin relación directa
-role-twin-deck-req-2 = { $title } · vacante { $req_id }
+role-twin-deck-req-2 = { $title } · ID { $id }
 role-twin-deck-compare-with-related-roles = Comparar con puestos relacionados
 role-twin-deck-related-roles = Puestos relacionados
 role-twin-deck-has-related-roles = { $count ->
@@ -332,7 +332,7 @@ role-twin-deck-has-related-roles = { $count ->
 role-twin-deck-location-not-listed = ubicación no indicada
 
 ## features/job-detail/applyAsk.ts
-role-apply-ask-nothing-beyond-your-resume = Nada más allá de tu currículum
+role-apply-ask-nothing-beyond-your-resume = Nada salvo tu CV
 role-apply-ask-questions = { $count ->
     [one] { $count } pregunta
     [many] { $count } de preguntas
@@ -346,7 +346,7 @@ role-apply-ask-written-answers = { $count ->
 role-apply-ask-asks-your-expected-pay = pregunta por tu compensación esperada
 
 ## features/job-detail/JobRequirementsPanel.tsx
-role-job-requirements-panel-evidence = Evidencia de { $display }
+role-job-requirements-panel-evidence = Citas de { $display }
 
 ## features/job-detail/LineageDiff.tsx
 role-lineage-diff-added = añadido { $join }
@@ -383,7 +383,7 @@ role-place-set-section-states-no-pay = · no publica rango
 role-job-detail-tracking-explainer = Elige una etapa para seguir este puesto: queda guardado, Seguimiento muestra su etapa y una fecha de seguimiento que fijes después te avisa cuando llegue.
 role-job-comp-panel-estimate-of-total = Compensación total estimada: { $range }
 role-job-comp-panel-split-not-reported = reparto no disponible
-role-job-comp-panel-the-plugin-reports-no-split = El plugin que aporta la compensación da una cifra para este nivel, pero no cómo se reparte entre base, bonus y equity, así que no se divide.
+role-job-comp-panel-the-plugin-reports-no-split = El plugin de compensación no da un reparto entre base, bonus y acciones para este nivel.
 role-job-comp-panel-roleband-splits-us-pay-only = La compensación se divide en base, bonus y acciones solo con datos de EE. UU. Este puesto está fuera de EE. UU. o en varios países, así que no se divide.
 role-job-comp-panel-level-not-stated-or-mapped = La oferta no indica nivel, o indica uno aún no asignado a los niveles comunes, así que su compensación no se divide en base, bonus y acciones, y no se estima un total.
 role-job-comp-panel-not-read-yet = aún sin leer

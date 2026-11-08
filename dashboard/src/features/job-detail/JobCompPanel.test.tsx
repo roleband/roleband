@@ -149,17 +149,23 @@ describe("JobCompPanel", () => {
     // The reason comes from the atlas (`equity_rule`), not from this panel: a
     // second employer with the rule is named as itself.
     render(<JobCompPanel job={{ ...withPackage(NETFLIX), company: "spotify" }} />);
-    expect(screen.getByText(/^Spotify states this as total annual compensation/)).toBeInTheDocument();
-    expect(screen.queryByText(/Netflix states/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(msg("role-job-comp-panel-states-this-as-total-annual", { company: "Spotify" })),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(msg("role-job-comp-panel-states-this-as-total-annual", { company: "Netflix" })),
+    ).not.toBeInTheDocument();
   });
 
   it("explains Netflix total compensation and employee-selected cash/options mix", () => {
     render(<JobCompPanel job={{ ...withPackage(NETFLIX), company: "netflix" }} />);
-    expect(screen.getByText(/^Netflix states this as total annual compensation/)).toBeInTheDocument();
+    expect(
+      screen.getByText(msg("role-job-comp-panel-states-this-as-total-annual", { company: "Netflix" })),
+    ).toBeInTheDocument();
 
     expect(screen.getByText("Posted total compensation")).toBeInTheDocument();
     expect(screen.getByText("employee-selected mix")).toBeInTheDocument();
-    expect(screen.getByText(/choose how much is salary versus stock options/)).toBeInTheDocument();
+    expect(screen.getByText(/pick their own mix of base salary and equity/)).toBeInTheDocument();
     expect(screen.queryByText(/never says whether it is base salary/)).not.toBeInTheDocument();
     expect(screen.queryByText("Base")).not.toBeInTheDocument();
   });
@@ -236,7 +242,7 @@ describe("JobCompPanel", () => {
     };
     const { container } = render(<JobCompPanel job={withPackage(unclear)} />);
     expect(screen.getByText("period unclear")).toBeInTheDocument();
-    expect(screen.getByText(/by the hour, the month or the year/)).toBeInTheDocument();
+    expect(screen.getByText(msg("role-job-comp-panel-the-posting-s-wording-and"))).toBeInTheDocument();
     expect(container).not.toHaveTextContent("/ hr");
     expect(container).not.toHaveTextContent("/ yr");
     expect(screen.queryByText("Base")).not.toBeInTheDocument();

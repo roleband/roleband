@@ -4,7 +4,7 @@
 profile-experience-page-back-to-summary = Volver al resumen
 profile-experience-page-your-experience = Tu experiencia
 profile-experience-page-coming-soon = Próximamente
-profile-experience-page-cv-upload-isn-t-available = Todavía no puedes subir tu CV. Podrás añadirlo aquí y confirmar la experiencia que se usa para comprobar los requisitos de cada puesto.
+profile-experience-page-cv-upload-isn-t-available = Próximamente: añade aquí tu CV para comprobar con él los requisitos de cada puesto.
 
 ## features/scope/NewMark.tsx
 profile-new-mark-new = Nuevo
@@ -38,7 +38,7 @@ profile-suggestions-turn-on = { $choice ->
 }
 profile-suggestions-inferred-from-your-recent-activity = { $choice ->
     [yes] Porque { $join }.
-   *[no] Deducido de tu actividad reciente.
+   *[no] Basado en tu actividad reciente.
 }
 profile-suggestions-accept-turn-on = { $choice ->
     [yes] Aceptar: desactivar { $display }
@@ -63,7 +63,7 @@ profile-scope-guide-decide = Decide
 profile-scope-guide-sharpen-optional = Afina, opcional
 profile-scope-guide-your-radar = Tu radar
 profile-scope-guide-when-changes-apply = Cuándo se aplican los cambios
-profile-scope-guide-save-applies-your-answers-to = Al guardar, tus respuestas se aplican al momento a los puestos ya recopilados. Los puestos que solo alcanzan tus nuevas respuestas llegan con el próximo escaneo.
+profile-scope-guide-save-applies-your-answers-to = Los cambios se aplican al guardar. Los puestos añadidos llegan con el próximo escaneo.
 profile-scope-guide-about-the-counts = Sobre los recuentos
 profile-scope-guide-progress-shows-how-many-of = El progreso muestra cuántos de los puestos de tus empresas conserva cada respuesta, según el último recuento. Hasta que se haga uno, indica Sin recuento aún, y Contar ahora inicia uno.
 profile-scope-guide-nothing-hidden-by-a-guess = Nada oculto por una suposición
@@ -133,7 +133,7 @@ profile-pay-floor-row-pay-floor = Base mínima
 profile-pay-floor-row-a-year-base = al año
 profile-pay-floor-row-cancel = Cancelar
 profile-pay-floor-row-checking = Comprobando…
-profile-pay-floor-row-couldn-t-read-your-pay = No se pudo leer tu base mínima.
+profile-pay-floor-row-couldn-t-read-your-pay = No se pudo cargar tu base mínima.
 profile-pay-floor-row-retry = Reintentar
 profile-pay-floor-row-compared-where-pay-is-stated = Se compara con el salario base publicado, cuando la oferta lo tiene.
 profile-pay-floor-row-no-roles-are-hidden = No se oculta ningún puesto.
@@ -148,7 +148,7 @@ profile-pay-floor-row-save-floor = { $choice ->
 }
 profile-pay-floor-row-set-floor = Fijar base mínima
 profile-pay-floor-row-could-not-remove-the-pay = No se pudo quitar la base mínima. Inténtalo de nuevo.
-profile-pay-floor-row-retry-reading-the-pay-floor = Volver a leer la base mínima
+profile-pay-floor-row-retry-reading-the-pay-floor = Volver a cargar la base mínima
 profile-pay-floor-row-add-a-pay-floor = { $choice ->
     [yes] Ajustar la base mínima
    *[no] Añadir una base mínima
@@ -236,7 +236,7 @@ profile-progress-rail-saved-on-your-board-now = { $choice ->
 }
 
 ## features/scope/walk/RadarPyramid.tsx
-profile-radar-pyramid-illustrative-funnel-each-percentage-is = Embudo ilustrativo. Cada porcentaje es la parte que queda tras esa respuesta.
+profile-radar-pyramid-illustrative-funnel-each-percentage-is = Cada respuesta enfoca tu radar. El porcentaje es la parte de los puestos que quedan en el foco.
 profile-radar-pyramid-after-the-first-three-answers = Tras las tres primeras respuestas
 profile-radar-pyramid-locked = Bloqueado
 profile-radar-pyramid-not-answered-yet = { $choice ->
@@ -261,7 +261,7 @@ profile-roles-step-pick-a-kind-of-role = Elige primero una trayectoria.
 profile-roles-step-nothing-called-under = No hay nada llamado “{ $query }” en { $label }.
 profile-roles-step-filter-roles = Filtrar puestos
 profile-roles-step-filter-roles-2 = Filtrar puestos…
-profile-roles-step-craft-for = Oficio para { $label }
+profile-roles-step-craft-for = Disciplinas para { $label }
 profile-roles-step-roles = { $count ->
     [one] { $count2 } puesto · { $examples }
     [many] { $count2 } de puestos · { $examples }

@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { JobDetail } from "../../api";
+import { msg } from "../../test/msg";
 import { PostingReality } from "./PostingReality";
 
 type Reality = NonNullable<JobDetail["posting_reality"]>;
@@ -21,7 +22,7 @@ describe("PostingReality", () => {
     // side by side.
     expect(region).toHaveTextContent("Listed for a long time");
     expect(region).not.toHaveTextContent("150");
-    expect(region).toHaveTextContent("Listed 3 times");
+    expect(region).toHaveTextContent(msg("jobs-sign-relisted", { count: 3 }));
     expect(region).not.toHaveTextContent("date moved");
     expect(region).toHaveTextContent("2 of 3 signs");
     expect(region).toHaveTextContent("not a verdict on the company");

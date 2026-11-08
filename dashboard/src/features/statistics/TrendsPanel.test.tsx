@@ -69,7 +69,7 @@ describe("TrendsPanel", () => {
     expect(rustDelta.className).toContain("down");
   });
 
-  it("shows the accruing-history note when only one snapshot exists", async () => {
+  it("says history is too short for a trend when only one snapshot exists", async () => {
     mockTrends({
       days: 30,
       dates: ["2026-07-13"],
@@ -89,7 +89,7 @@ describe("TrendsPanel", () => {
 
     render(<TrendsPanel days={30} />);
 
-    expect(await screen.findByText(/History is still accruing/i)).toBeInTheDocument();
+    expect(await screen.findByText(msg("insights-trends-panel-history-is-still-accruing-one"))).toBeInTheDocument();
     // A single sample renders a flat baseline: a move-to then one horizontal line
     // segment whose start and end share the same y (backreference \1), no bend.
     const path = screen.getByText("Python").closest(".trend-row")!
@@ -131,7 +131,9 @@ describe("TrendsPanel", () => {
       }],
     });
     render(<TrendsPanel days={30} />);
-    expect(await screen.findByText(/What is measured changed on Oct 3/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(msg("insights-trends-panel-what-is-measured-changed-on", { dates: "Oct 3" })),
+    ).toBeInTheDocument();
     const row = screen.getByText("Machine Learning", { selector: ".trend-name" }).closest(".trend-row") as HTMLElement;
     expect(row).toHaveTextContent("7.0%");
     expect(row).not.toHaveTextContent("580");

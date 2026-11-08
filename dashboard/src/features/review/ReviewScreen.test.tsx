@@ -223,14 +223,14 @@ describe("ReviewScreen", () => {
 
     const ledger = await screen.findByRole("region", { name: "Side by side" });
     expect(within(ledger).queryByRole("row", { name: /Level\s*Same\s*Staff/ })).not.toBeInTheDocument();
-    const reveal = within(ledger).getByRole("button", { name: "Show 8 matching fields" });
+    const reveal = within(ledger).getByRole("button", { name: msg("duplicates-comparison-ledger-show-matching-fields", { choice: "no", length: 8 }) });
     expect(reveal).toHaveAttribute("aria-expanded", "false");
     expect(within(ledger).getByRole("row", { name: /8\s*fields Same/ })).toBeInTheDocument();
 
     await userEvent.click(reveal);
     const levelRow = within(ledger).getByRole("row", { name: /Level\s*Same\s*Staff/ });
     expect(within(levelRow).getAllByText("Staff")).toHaveLength(1);
-    expect(within(ledger).getByRole("button", { name: "Hide 8 matching fields" })).toHaveAttribute("aria-expanded", "true");
+    expect(within(ledger).getByRole("button", { name: msg("duplicates-comparison-ledger-show-matching-fields", { choice: "yes", length: 8 }) })).toHaveAttribute("aria-expanded", "true");
 
     // The careers page leaves the app in a new tab, with the external glyph.
     const earlierSite = within(ledger).getByRole("link", { name: msg("duplicates-comparison-ledger-careers-page-of", { side: "earlier" }) });
