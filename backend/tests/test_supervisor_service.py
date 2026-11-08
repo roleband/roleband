@@ -92,7 +92,6 @@ async def _eventually(check, timeout: float = 5.0):
     raise AssertionError("not in time")
 
 
-@posix_processes
 async def test_a_committed_request_wakes_the_supervisor_long_before_its_poll(db_session, tmp_path):
     stop = asyncio.Event()
     dispatcher = _dispatcher(db_session, tmp_path)
@@ -108,7 +107,7 @@ async def test_a_committed_request_wakes_the_supervisor_long_before_its_poll(db_
         stop.set()
         await service
         for watched in dispatcher.watched.values():
-            REAL_KILLPG(watched.launched.pgid, signal.SIGKILL)
+            await runner.stop_group(watched.launched.pgid, 0)
 
 
 async def test_a_second_supervisor_never_dispatches_while_the_first_holds_the_database(db_session, tmp_path):
