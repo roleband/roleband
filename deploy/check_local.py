@@ -416,7 +416,10 @@ def main(argv: list[str] | None = None) -> int:
                    ROLEBAND_STATE_DIR=str(state), ROLEBAND_PGDATA=str(state / "db"),
                    ROLEBAND_CACHE_DIR=str(state / "cache"), ROLEBAND_PLUGINS_DIR=str(state / "plugins"),
                    ROLEBAND_SECRET_KEY_FILE=str(state / "secret.key"), ROLEBAND_DATABASE_URL="",
-                   ROLEBAND_DB_EMBEDDED="true", ROLEBAND_NO_USAGE_STATS="1")
+                   ROLEBAND_DB_EMBEDDED="true", ROLEBAND_NO_USAGE_STATS="1",
+                   # The C# compiler's shared server outlives a build and keeps analyzer files open in the
+                   # scratch TEMP, which then cannot be removed; each build compiles in its own process.
+                   UseSharedCompilation="false")
     if args.profile == "windows":
         env.update(ROLEBAND_REQUIRE_INTEGRATION="1", ROLEBAND_CHECK_WINDOWS_LANE=args.windows_lane)
         if args.windows_lane != "native":

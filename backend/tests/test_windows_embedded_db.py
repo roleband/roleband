@@ -56,6 +56,18 @@ def test_scram_requires_the_private_password_and_keeps_it_out_of_urls(server, tm
         psycopg2.connect(**args, password="deliberately-wrong")
 
 
+def test_a_password_set_for_another_postgresql_does_not_reach_the_embedded_one(tmp_path, monkeypatch):
+    """libpq prefers PGPASSWORD to the password file; a machine with its own PostgreSQL often sets it."""
+    monkeypatch.setenv("PGPASSWORD", "root")
+    monkeypatch.setenv("PGOPTIONS", "-c statement_timeout=1")
+    server = ensure_server(tmp_path / "account data" / "db", database="probe")
+    try:
+        assert "PGPASSWORD" not in os.environ and "PGOPTIONS" not in os.environ
+        assert psql(server, "SELECT current_setting('statement_timeout')") == "0"
+    finally:
+        destroy(server.pgdata)
+
+
 def test_sqlalchemy_direct_asyncpg_and_psycopg2_share_the_authenticated_database(server):
     import asyncpg
     import psycopg2

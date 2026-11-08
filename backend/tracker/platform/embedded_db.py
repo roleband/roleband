@@ -512,6 +512,27 @@ def _quoted_server(pgserver, pgdata: Path, postgres_version: int, server_setting
     return handle
 
 
+#: What libpq and the drivers read from the environment when a connection leaves it unnamed. The embedded
+#: cluster's connections name host, port, user, database and password file, but a password set for another
+#: PostgreSQL on this machine still wins over that file, and options, a service or a TLS mode would reshape the
+#: connection. PGCLIENTENCODING stays: the psql runner sets it on purpose.
+LIBPQ_ENVIRONMENT = frozenset({
+    "PGHOST", "PGHOSTADDR", "PGPORT", "PGDATABASE", "PGUSER", "PGPASSWORD", "PGPASSFILE", "PGSERVICE",
+    "PGSERVICEFILE", "PGOPTIONS", "PGAPPNAME", "PGSSLMODE", "PGREQUIRESSL", "PGSSLCOMPRESSION", "PGSSLCERT",
+    "PGSSLKEY", "PGSSLCERTMODE", "PGSSLROOTCERT", "PGSSLCRL", "PGSSLCRLDIR", "PGSSLSNI", "PGSSLNEGOTIATION",
+    "PGREQUIREPEER", "PGSSLMINPROTOCOLVERSION", "PGSSLMAXPROTOCOLVERSION", "PGGSSENCMODE", "PGKRBSRVNAME",
+    "PGGSSLIB", "PGGSSDELEGATION", "PGCONNECT_TIMEOUT", "PGTARGETSESSIONATTRS", "PGLOADBALANCEHOSTS",
+    "PGCHANNELBINDING", "PGREQUIREAUTH", "PGDATESTYLE", "PGTZ", "PGGEQO", "PGSYSCONFDIR", "PGDATA",
+})
+
+
+def forget_libpq_environment() -> None:
+    """Drop the libpq variables this process inherited, for itself and every tool it starts. An embedded cluster is
+    this process's only database, so nothing of the machine's own PostgreSQL setup applies to it."""
+    for name in [name for name in os.environ if name.upper() in LIBPQ_ENVIRONMENT]:
+        del os.environ[name]
+
+
 def ensure_server(
     pgdata: Path,
     *,
@@ -528,6 +549,7 @@ def ensure_server(
     `server_settings` apply on a start. Attaching to a running server leaves
     its settings as they are.
     """
+    forget_libpq_environment()
     pgdata = Path(pgdata).expanduser()
     if os.name == "nt":
         from tracker.platform.windows_recovery import require_launchable

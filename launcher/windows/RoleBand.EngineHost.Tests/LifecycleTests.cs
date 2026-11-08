@@ -49,6 +49,21 @@ public sealed class LifecycleTests
                 return real(**arguments)
 
             prepare.health = slow
+        if mode == "malformed-health":
+            real = prepare.health
+            answers = {"count": 0}
+
+            def malformed(**arguments):
+                answer = real(**arguments)
+                answers["count"] += 1
+                if answers["count"] <= 2:
+                    note("health-malformed")
+                    big = 10 ** 30
+                    answer = {**answer, "preparation": {"format": 1, "database": "ready", "model": "unused",
+                              "service": "ready", "downloaded_bytes": big, "total_bytes": big, "reason": None}}
+                return answer
+
+            prepare.health = malformed
         for _ in range(behaviour["noise"]):
             print("x" * 100, flush=True)
         note("started")
@@ -236,6 +251,35 @@ public sealed class LifecycleTests
         CollectionAssert.AreEquivalent(new[] { "desktop.log", "desktop.log.1" },
             Directory.EnumerateFiles(Path.Combine(engine.State, "logs")).Select(Path.GetFileName)
                 .Where(name => name!.StartsWith("desktop", StringComparison.Ordinal)).ToArray());
+    }
+
+    [TestMethod]
+    public async Task AHostLogThatCannotBeWrittenNeitherStallsTheEngineNorEndsItsWatch()
+    {
+        // The engine's output fills its pipe unless the host keeps reading it, log or no log.
+        var engine = new StandIn("ready", noise: 400);
+        PrivateStorage.EnsureDirectory(engine.State);
+        PrivateStorage.EnsureDirectory(Path.Combine(engine.State, "logs"));
+        Directory.CreateDirectory(Path.Combine(engine.State, "logs", "desktop.log"));
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        await session.StartAsync();
+        await Until(() => session.Snapshot.State == EngineState.Ready, TimeSpan.FromSeconds(90), "Ready");
+        await session.StopAsync();
+        Assert.AreEqual(EngineState.Stopped, session.Snapshot.State);
+    }
+
+    [TestMethod]
+    public async Task AMalformedHealthAnswerIsOneFailedReadNotTheEndOfTheWatch()
+    {
+        var engine = new StandIn("malformed-health");
+        var states = new List<EngineState>();
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        session.Changed += snapshot => { lock (states) states.Add(snapshot.State); };
+        await session.StartAsync();
+        await Until(() => session.Snapshot.State == EngineState.Ready, TimeSpan.FromSeconds(90), "Ready");
+        Assert.AreEqual(2, engine.Events().Count(line => line == "health-malformed"), "the engine answered badly twice");
+        lock (states) CollectionAssert.DoesNotContain(states, EngineState.Attention);
+        await session.StopAsync();
     }
 
     private sealed class RecordingCommands(Func<bool> engineRunning, params (string Action, string Answer)[] answers) : IUpdateCommands
