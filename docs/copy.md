@@ -112,6 +112,22 @@ Every message declares a **kind**, and each kind has rules:
 | `error` | ends with a full stop, and its last sentence is one of the glossary's `next_steps` ("Try again.", "Check the link and try again." ...), or the comment says `next=none` |
 | `toast`, `tooltip`, `notification`, `status` | full stop optional |
 
+**When an error may end without a next step.** An error gives the one action
+that works. It says `next=none` only when one of these is true, and its note
+says which when the text does not make it plain:
+
+1. The message is itself the instruction: *Type a time like 9:30.*
+2. The thing is gone, and the screen drops it: *That notification is gone.*
+3. What the person wanted is already true: *These postings are already linked.*
+4. Nothing the person can do changes it: *That careers site limits automated
+   collection, so it can't be added.*
+
+Never end with *Try again.* when the cause won't change on a retry. A failure
+put together from two messages (what failed, then why from the failure's code)
+marks its first sentence `next=none` with a note, because the code adds the why
+or *Try again.* after it; the why carries the next step, or fits one of the
+four cases.
+
 ---
 
 ## 2. Where text lives
