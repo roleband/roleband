@@ -200,12 +200,35 @@ public sealed class CompanionTests
     [TestMethod]
     public void SettingsLeadsWithAProblemOnlyWhileThereIsOne()
     {
-        Assert.AreEqual(new SettingsProblem("host-stopped", "host-attention-body", false),
-            SettingsPanel.Problem(new EngineSnapshot(EngineState.Attention), updateFailed: false));
-        Assert.AreEqual(new SettingsProblem("host-stopped", null, false), SettingsPanel.Problem(new EngineSnapshot(EngineState.Stopped), false));
-        Assert.AreEqual(new SettingsProblem("update-stopped-title", "update-stopped-body", true),
-            SettingsPanel.Problem(new EngineSnapshot(EngineState.Stopped), updateFailed: true));
-        Assert.IsNull(SettingsPanel.Problem(Ready, updateFailed: true), "an engine that answers has nothing left to undo");
-        Assert.IsNull(SettingsPanel.Problem(new EngineSnapshot(EngineState.Starting), false));
+        Assert.AreEqual(new SettingsProblem("host-stopped", "host-attention-body", false, true),
+            SettingsPanel.Problem(new EngineSnapshot(EngineState.Attention), updateFailed: false, held: false));
+        Assert.AreEqual(new SettingsProblem("host-stopped", null, false, true),
+            SettingsPanel.Problem(new EngineSnapshot(EngineState.Stopped), false, false));
+        Assert.AreEqual(new SettingsProblem("update-stopped-title", "update-stopped-body", true, true),
+            SettingsPanel.Problem(new EngineSnapshot(EngineState.Stopped), updateFailed: true, held: false));
+        Assert.IsNull(SettingsPanel.Problem(Ready, updateFailed: true, held: false), "an engine that answers has nothing left to undo");
+        Assert.IsNull(SettingsPanel.Problem(new EngineSnapshot(EngineState.Starting), false, false));
+        Assert.IsNull(SettingsPanel.Problem(new EngineSnapshot(EngineState.Stopped), false, held: true),
+            "setup holding the engine is not a stop, and Restart would start what setup holds");
+        Assert.IsFalse(SettingsPanel.LaunchFailed.Restart, "an app that could not start has no engine to restart");
+    }
+
+    [TestMethod]
+    public void ALaunchFromStartAsksForTheRadarOnceTheEngineAnswers()
+    {
+        var finished = SetupRecord.Finished;
+        Assert.AreEqual(LaunchAction.RadarWhenReady, Companion.AtLaunch(finished, atLogin: false),
+            "at launch the engine has not started yet, so the Radar waits rather than Settings opening");
+        Assert.AreEqual(LaunchAction.Quiet, Companion.AtLaunch(finished, atLogin: true));
+        Assert.AreEqual(LaunchAction.Setup, Companion.AtLaunch(SetupRecord.Fresh, atLogin: false));
+        Assert.AreEqual(LaunchAction.Quiet, Companion.AtLaunch(SetupRecord.Fresh with { Deferred = true }, atLogin: false),
+            "setup put off waits for the icon");
+
+        Assert.IsNull(Companion.WhenSettled(new EngineSnapshot(EngineState.Stopped)), "not started yet: keep waiting");
+        Assert.IsNull(Companion.WhenSettled(new EngineSnapshot(EngineState.Starting)));
+        Assert.IsNull(Companion.WhenSettled(new EngineSnapshot(EngineState.Recovering)));
+        Assert.AreEqual(DefaultCommand.OpenRadar, Companion.WhenSettled(Ready));
+        Assert.AreEqual(DefaultCommand.Settings, Companion.WhenSettled(new EngineSnapshot(EngineState.Attention, "gave up")));
+        Assert.AreEqual(DefaultCommand.Settings, Companion.WhenSettled(new EngineSnapshot(EngineState.Stopped, "refused")));
     }
 }

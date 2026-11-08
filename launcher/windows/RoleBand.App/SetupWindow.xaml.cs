@@ -6,7 +6,6 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
 using RoleBand.EngineHost;
-using System.Runtime.InteropServices;
 using Windows.Graphics;
 using Windows.System;
 
@@ -32,15 +31,14 @@ public sealed partial class SetupWindow : Window
         InitializeComponent();
         this.copy = copy;
         Title = "RoleBand";
-        var scale = Math.Max(96, GetDpiForWindow(WinRT.Interop.WindowNative.GetWindowHandle(this))) / 96.0;
+        var scale = Native.ScaleOf(WinRT.Interop.WindowNative.GetWindowHandle(this));
         AppWindow.Resize(new SizeInt32((int)(560 * scale), (int)(520 * scale)));
         BackButton.Content = copy["back"];
         LaterButton.Content = copy["later"];
         ToolTipService.SetToolTip(LaterButton, copy["windows-later-help"]);
         LoginSettings.Content = copy["windows-login-settings"];
         AutomationProperties.SetName(loginSwitch, copy["windows-login-toggle"]);
-        var icon = System.IO.Path.Combine(AppContext.BaseDirectory, "RoleBand.ico");
-        if (File.Exists(icon)) AppWindow.SetIcon(icon);
+        Native.Dress(this);
         SystemBackdrop = new MicaBackdrop();
         PrimaryButton.Click += (_, _) => Primary?.Invoke();
         SecondaryButton.Click += (_, _) => Secondary?.Invoke();
@@ -169,7 +167,4 @@ public sealed partial class SetupWindow : Window
     private sealed record RowView(Grid Row, TextBlock Title, TextBlock Caption, FontIcon Icon, ProgressRing Ring, TextBlock Figure, ProgressBar Bar);
 
     private static Brush Brush(string key) => (Brush)Application.Current.Resources[key];
-
-    [DllImport("user32.dll")]
-    private static extern uint GetDpiForWindow(nint window);
 }

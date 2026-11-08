@@ -140,13 +140,14 @@ Items that don't apply are left out, never greyed: a stopped engine's menu is Se
 Restart scanning and Quit; before the engine first answers it is Settings and Quit; before setup
 finishes it leads with Finish setup. The default command, run by the bold item, a double-click and
 a second start, is setup while setup is unfinished, Settings while scanning has stopped, and
-otherwise the Radar, which an engine still starting opens once it answers. A launch from Start runs
-it too; a launch by the startup task opens quietly.
+otherwise the Radar, which an engine still starting opens once it answers. A launch from Start, before
+the engine has started, opens the Radar once it answers, or Settings if it stops with a reason; a
+launch by the startup task opens quietly.
 
 **Settings.** A resizable Mica window, from the gear, the menu or Details. A problem leads when
 there is one: Scanning has stopped with Restart, Open logs folder and the engine's last lines, or an
 update the previous run could not finish with Undo the update; such an update opens Settings by
-itself. Updates follow the rules at the top of this page in one card: the status as its title, the
+itself. Setup holding the engine at Welcome is not a stop, so it shows no problem and no Restart. Updates follow the rules at the top of this page in one card: the status as its title, the
 version and the last check the feed answered as its caption, Check for updates, and the automatic
 choice, which records its pinned English words with their language; it reads `update status`, which
 asks nothing of the network, and a build without a release identity says it doesn't update itself

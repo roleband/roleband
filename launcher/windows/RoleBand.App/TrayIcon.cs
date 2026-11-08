@@ -22,6 +22,7 @@ internal sealed class TrayIcon : IDisposable
     private readonly uint taskbarCreated;
     private readonly Func<IReadOnlyList<MenuEntry>> menu;
     private nint icon;
+    private (bool Light, int Size) drawn;
     private TrayBadge badge = TrayBadge.None;
     private string tooltip = "RoleBand";
     private long lastKeySelect;
@@ -117,7 +118,8 @@ internal sealed class TrayIcon : IDisposable
             Replace();
             Register();
         }
-        else if (message is SettingChange or DisplayChange or DpiChanged)
+        // Settings broadcasts are frequent; the icon is drawn again only when its theme or size really changed.
+        else if ((message is SettingChange or DisplayChange or DpiChanged) && Look() != drawn)
         {
             Replace();
             var update = Data(IconFlag);
@@ -160,19 +162,22 @@ internal sealed class TrayIcon : IDisposable
 
     /// <summary>The frame drawn for the notification area's size on the primary display, from the set for the
     /// taskbar's theme. A contrast theme takes the set whose ink stands out on its window colour.</summary>
-    private static nint LoadIcon(TrayBadge state)
+    private nint LoadIcon(TrayBadge state)
     {
-        var name = TrayArt.Resource(state, LightTaskbar());
+        drawn = Look();
+        var name = TrayArt.Resource(state, drawn.Light);
         using var stream = typeof(TrayIcon).Assembly.GetManifestResourceStream(name)
             ?? throw new IOException("The notification-area icon is missing.");
         using var copy = new MemoryStream();
         stream.CopyTo(copy);
-        var size = GetSystemMetricsForDpi(49, PrimaryDpi());
-        var (bytes, frame) = TrayArt.Frame(copy.ToArray(), size);
+        var (bytes, frame) = TrayArt.Frame(copy.ToArray(), drawn.Size);
         var handle = CreateIconFromResourceEx(bytes, bytes.Length, true, 0x00030000, frame, frame, 0);
         if (handle == 0) throw new Win32Exception(Marshal.GetLastWin32Error());
         return handle;
     }
+
+    /// <summary>The taskbar's theme and the notification area's icon size on the primary display.</summary>
+    private static (bool Light, int Size) Look() => (LightTaskbar(), GetSystemMetricsForDpi(49, Native.PrimaryDpi()));
 
     private static bool LightTaskbar()
     {
@@ -184,12 +189,6 @@ internal sealed class TrayIcon : IDisposable
         }
         using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
         return key?.GetValue("SystemUsesLightTheme") is int light && light != 0;
-    }
-
-    private static uint PrimaryDpi()
-    {
-        var monitor = MonitorFromPoint(new ScreenPoint(), 1);
-        return GetDpiForMonitor(monitor, 0, out var dpi, out _) == 0 ? dpi : 96;
     }
 
     public void Dispose()
@@ -247,12 +246,6 @@ internal sealed class TrayIcon : IDisposable
     private static extern uint GetSysColor(int index);
     [DllImport("user32.dll", EntryPoint = "SystemParametersInfoW")]
     private static extern bool SystemParametersInfo(uint action, uint parameter, ref HighContrast value, uint flags);
-    [DllImport("user32.dll")]
-    private static extern nint MonitorFromPoint(ScreenPoint point, uint flags);
-    [StructLayout(LayoutKind.Sequential)]
-    private struct ScreenPoint { public int X, Y; }
-    [DllImport("shcore.dll")]
-    private static extern int GetDpiForMonitor(nint monitor, int type, out uint x, out uint y);
     [DllImport("user32.dll")]
     private static extern nint CreatePopupMenu();
     [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "AppendMenuW")]

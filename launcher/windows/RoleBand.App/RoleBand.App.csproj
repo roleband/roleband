@@ -21,7 +21,7 @@
     <ProjectReference Include="../RoleBand.EngineHost/RoleBand.EngineHost.csproj" />
     <EmbeddedResource Include="Tray/*.ico" LogicalName="RoleBand.Tray.%(Filename)%(Extension)" />
     <Content Include="RoleBand.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="../Assets/Square44x44Logo.targetsize-64_altform-unplated.png" Link="Assets/AppMark.png"
+    <Content Include="../Assets/Square44x44Logo.targetsize-64_altform-unplated.png" Link="Images/AppMark.png"
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
   <Target Name="PublishNativeResources" AfterTargets="Publish">

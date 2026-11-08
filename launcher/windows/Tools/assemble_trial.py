@@ -74,7 +74,7 @@ def assemble(destination, cache, trial_id=None):
     run("dotnet", "publish", ROOT / "launcher/windows/RoleBand.App", "--no-restore", "-c", "Release",
         "-p:Platform=x64", "-o", destination)
     for required in ("RoleBand.App.exe", "RoleBand.App.pri", "App.xbf", "FlyoutWindow.xbf", "SettingsWindow.xbf",
-                     "SetupWindow.xbf", "RoleBand.ico", "Assets/AppMark.png"):
+                     "SetupWindow.xbf", "RoleBand.ico", "Images/AppMark.png"):
         if not (destination / required).is_file():
             raise ValueError(f"Published host is missing {required}")
     resources = destination / "Resources"

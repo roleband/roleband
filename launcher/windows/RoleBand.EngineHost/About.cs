@@ -7,11 +7,14 @@ namespace RoleBand.EngineHost;
 /// which asks nothing of the network, or from a check's own answer.</summary>
 public sealed record UpdateFacts(bool Available, bool Automatic, DateTimeOffset? CheckedAt, string? Offer, DateTimeOffset? RateLimitedUntil)
 {
+    /// <summary>A build that does not update itself, or an app without an engine to ask.</summary>
+    public static UpdateFacts Unavailable { get; } = new(false, false, null, null, null);
+
     public static UpdateFacts Read(JsonElement reply)
     {
         if (reply.ValueKind != JsonValueKind.Object || !reply.TryGetProperty("status", out var status) || status.ValueKind != JsonValueKind.String)
             throw new IOException("The update command's answer could not be read.");
-        if (status.GetString() == "unavailable") return new UpdateFacts(false, false, null, null, null);
+        if (status.GetString() == "unavailable") return Unavailable;
         var offer = reply.TryGetProperty("offer", out var value) ? value.ValueKind switch
         {
             JsonValueKind.String => value.GetString(),

@@ -53,13 +53,7 @@ internal sealed class TrayApp
 
     public TrayApp(Exception? failure, bool atLogin)
     {
-        var args = Environment.GetCommandLineArgs().Skip(1).ToArray();
-        string? Option(string name)
-        {
-            var index = Array.IndexOf(args, name);
-            return index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
-        }
-        copy = new NativeCopy(Option("--language"));
+        copy = new NativeCopy(Native.Option("--language"));
         flyout = new FlyoutWindow(copy);
         dispatcher = flyout.DispatcherQueue;
         flyout.OpenRadar += async () => { flyout.Hide(); await OpenRadarAsync(BrowserRoute.Radar); };
@@ -91,12 +85,13 @@ internal sealed class TrayApp
         try
         {
             if (failure is not null) throw failure;
-            var source = Option("--source-root");
-            var state = Option("--state");
+            var source = Native.Option("--source-root");
+            var state = Native.Option("--state");
+            var fixture = Native.Flag("--synthetic-fixture");
             if (source is not null && state is null) throw new IOException("Source trials require an explicit synthetic state directory.");
             configuration = source is null
-                ? EngineConfiguration.Packaged(Path.Combine(AppContext.BaseDirectory, "Resources"), state, args.Contains("--synthetic-fixture"))
-                : EngineConfiguration.Source(source, state!, args.Contains("--synthetic-fixture"));
+                ? EngineConfiguration.Packaged(Path.Combine(AppContext.BaseDirectory, "Resources"), state, fixture)
+                : EngineConfiguration.Source(source, state!, fixture);
             engine = new EngineSession(configuration);
             updates = UpdateCoordinator.For(configuration);
             engine.Changed += snapshot => dispatcher.TryEnqueue(() => Render(snapshot));
@@ -105,9 +100,11 @@ internal sealed class TrayApp
             Render(engine.Snapshot);
             // Nothing runs before Continue on Welcome; after that the engine starts at every open.
             if (!SetupFlow.EngineHeld(setup)) _ = StartAsync();
-            if (SetupFlow.ShowAtLaunch(setup, atLogin)) _ = OpenSetupAsync();
-            // Opened from Start, the app does what Start does while it runs: its default command.
-            else if (!atLogin && setup.Complete) RunDefault();
+            switch (Companion.AtLaunch(setup, atLogin))
+            {
+                case LaunchAction.Setup: _ = OpenSetupAsync(); break;
+                case LaunchAction.RadarWhenReady: radarWhenReady = true; break;
+            }
         }
         catch (Exception error)
         {
@@ -117,8 +114,6 @@ internal sealed class TrayApp
         }
         if (tray is null) flyout.ShowStandalone();
     }
-
-    public DispatcherQueue Dispatcher => dispatcher;
 
     /// <summary>A second start of the app, redirected here: Start and the icon's default command do the same.</summary>
     public void Reactivated(bool atLogin)
@@ -218,14 +213,11 @@ internal sealed class TrayApp
         RenderFlyout();
         RenderSetup();
         RenderSettings();
-        if (radarWhenReady && setup.Complete)
+        if (radarWhenReady && setup.Complete && Companion.WhenSettled(snapshot) is { } settled)
         {
-            if (snapshot.State == EngineState.Ready) { radarWhenReady = false; _ = OpenRadarAsync(BrowserRoute.Radar); }
-            else if (snapshot.State is EngineState.Stopped or EngineState.Attention && snapshot.Diagnostic is not null)
-            {
-                radarWhenReady = false;
-                OpenSettings();
-            }
+            radarWhenReady = false;
+            if (settled == DefaultCommand.OpenRadar) _ = OpenRadarAsync(BrowserRoute.Radar);
+            else OpenSettings();
         }
         // Automatic checks go through the engine's own rules: none without the choice, at most one a day.
         if (snapshot.State == EngineState.Ready && DateTimeOffset.Now >= nextAutomaticCheck)
@@ -286,16 +278,14 @@ internal sealed class TrayApp
     {
         if (settings is null) return;
         var snapshot = engine?.Snapshot;
-        var facts = updates is null ? new UpdateFacts(false, false, null, null, null) : updateFacts;
+        var facts = updates is null ? UpdateFacts.Unavailable : updateFacts;
         settings.Render(new SettingsState(
-            snapshot is null ? null : SettingsPanel.Problem(snapshot, updateFailed),
-            engine is null ? copy["invalid"] : null,
+            snapshot is null ? SettingsPanel.LaunchFailed : SettingsPanel.Problem(snapshot, updateFailed, SetupFlow.EngineHeld(setup)),
             snapshot?.Diagnostic ?? launchFailure,
             AboutPanel.Updates(copy, facts, updateChecking, lastUpdateResult, DateTimeOffset.Now),
             AboutPanel.Login(login, loginBusy),
             settingsLoginError,
             snapshot is not null && TrayModel.For(snapshot).CanOpenRadar,
-            snapshot?.State is EngineState.Stopped or EngineState.Attention,
             updateChoosing,
             settingsError is null ? null : copy[settingsError]));
     }
@@ -506,7 +496,10 @@ internal sealed class TrayApp
         catch (Exception error)
         {
             controlMessage = "engine-refused";
+            settingsError = "engine-refused";
             Debug.WriteLine(error);
+            // A Radar asked for at launch would wait for an engine that is not coming; Settings says why instead.
+            if (radarWhenReady) { radarWhenReady = false; OpenSettings(); }
             RenderFlyout();
             RenderSettings();
         }

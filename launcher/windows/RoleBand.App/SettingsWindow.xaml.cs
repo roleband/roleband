@@ -3,24 +3,19 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Imaging;
 using RoleBand.EngineHost;
-using System.Runtime.InteropServices;
 using Windows.Graphics;
 
 namespace RoleBand.App;
 
 /// <summary>What the Settings window shows at one moment.</summary>
-/// <param name="ProblemTitle">Overrides the problem's title, for an app that could not start at all.</param>
 internal sealed record SettingsState(
     SettingsProblem? Problem,
-    string? ProblemTitle,
     string? Diagnostic,
     UpdateRow Update,
     LoginRow Login,
     bool LoginError,
     bool CanOpenRadar,
-    bool CanRestart,
     bool Choosing,
     string? Error);
 
@@ -41,13 +36,8 @@ public sealed partial class SettingsWindow : Window
         this.copy = copy;
         Title = copy["windows-settings-title"];
         SystemBackdrop = new MicaBackdrop();
-        var icon = Path.Combine(AppContext.BaseDirectory, "RoleBand.ico");
-        if (File.Exists(icon)) AppWindow.SetIcon(icon);
-        var mark = Path.Combine(AppContext.BaseDirectory, "Assets", "AppMark.png");
-        if (File.Exists(mark)) AppMark.Source = new BitmapImage(new Uri(mark));
-        else AppMark.Visibility = Visibility.Collapsed;
-        var handle = WinRT.Interop.WindowNative.GetWindowHandle(this);
-        var scale = Math.Max(96, GetDpiForWindow(handle)) / 96.0;
+        Native.Dress(this, AppMark);
+        var scale = Native.ScaleOf(WinRT.Interop.WindowNative.GetWindowHandle(this));
         var size = new SizeInt32((int)(720 * scale), (int)(820 * scale));
         var work = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary).WorkArea;
         size = new SizeInt32(Math.Min(size.Width, work.Width), Math.Min(size.Height, work.Height));
@@ -103,11 +93,11 @@ public sealed partial class SettingsWindow : Window
         rendering = true;
         try
         {
-            ProblemBar.IsOpen = state.Problem is not null || state.ProblemTitle is not null;
+            ProblemBar.IsOpen = state.Problem is not null;
             ProblemBar.Severity = state.Problem?.Undo == true ? InfoBarSeverity.Warning : InfoBarSeverity.Error;
-            ProblemBar.Title = state.ProblemTitle ?? (state.Problem is { } problem ? copy[problem.TitleKey] : "");
+            ProblemBar.Title = state.Problem is { } problem ? copy[problem.TitleKey] : "";
             ProblemBar.Message = state.Problem?.BodyKey is { } body ? copy[body] : "";
-            RestartButton.Visibility = state.CanRestart ? Visibility.Visible : Visibility.Collapsed;
+            RestartButton.Visibility = state.Problem?.Restart == true ? Visibility.Visible : Visibility.Collapsed;
             UndoButton.Visibility = state.Problem?.Undo == true ? Visibility.Visible : Visibility.Collapsed;
             LastLines.Visibility = ProblemBar.IsOpen && !string.IsNullOrWhiteSpace(state.Diagnostic) ? Visibility.Visible : Visibility.Collapsed;
             LastLinesText.Text = state.Diagnostic ?? "";
@@ -140,7 +130,4 @@ public sealed partial class SettingsWindow : Window
         }
         finally { rendering = false; }
     }
-
-    [DllImport("user32.dll")]
-    private static extern uint GetDpiForWindow(nint window);
 }

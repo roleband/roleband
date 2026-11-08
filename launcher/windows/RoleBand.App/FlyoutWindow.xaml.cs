@@ -7,7 +7,6 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Imaging;
 using RoleBand.EngineHost;
 using System.Runtime.InteropServices;
 using Windows.Graphics;
@@ -61,11 +60,7 @@ public sealed partial class FlyoutWindow : Window
         var round = 2;
         DwmSetWindowAttribute(Handle, 33, ref round, sizeof(int));
         SystemBackdrop = new DesktopAcrylicBackdrop();
-        var icon = Path.Combine(AppContext.BaseDirectory, "RoleBand.ico");
-        if (File.Exists(icon)) AppWindow.SetIcon(icon);
-        var mark = Path.Combine(AppContext.BaseDirectory, "Assets", "AppMark.png");
-        if (File.Exists(mark)) AppMark.Source = new BitmapImage(new Uri(mark));
-        else AppMark.Visibility = Visibility.Collapsed;
+        Native.Dress(this, AppMark);
 
         AutomationProperties.SetName(SettingsButton, copy["settings"]);
         ToolTipService.SetToolTip(SettingsButton, copy["settings"]);
@@ -91,6 +86,9 @@ public sealed partial class FlyoutWindow : Window
             item.Click += (_, _) => Pause?.Invoke(action);
             PauseMenu.Items.Add(item);
         }
+        // The pause menu is a window of its own. Focus that moves there keeps the flyout open, so when the menu closes
+        // with focus gone elsewhere, the flyout closes too.
+        PauseMenu.Closed += (_, _) => DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, HideIfFocusLeft);
 
         var escape = new KeyboardAccelerator { Key = VirtualKey.Escape };
         escape.Invoked += (_, args) =>
@@ -104,17 +102,9 @@ public sealed partial class FlyoutWindow : Window
         {
             // Windows reports a refused activation as an activation too, so focus counts only once the flyout is
             // really the foreground window.
-            if (args.WindowActivationState != WindowActivationState.Deactivated) { focused = GetForegroundWindow() == Handle; return; }
-            // Only focus the flyout had can leave it; the pause menu is a window of its own, so focus moving there
-            // keeps the flyout open.
-            if (standalone || !focused) return;
-            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
-            {
-                GetWindowThreadProcessId(GetForegroundWindow(), out var owner);
-                if (owner == (uint)Environment.ProcessId) return;
-                focused = false;
-                Hide();
-            });
+            if (args.WindowActivationState != WindowActivationState.Deactivated) { focused = Native.IsForeground(Handle); return; }
+            // Only focus the flyout had can leave it.
+            if (focused) DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, HideIfFocusLeft);
         };
         AppWindow.Closing += (_, args) =>
         {
@@ -123,7 +113,15 @@ public sealed partial class FlyoutWindow : Window
             if (standalone) QuitRequested?.Invoke();
             else Hide();
         };
+        // The content's size drives the window's: a line more or less refits it, and nothing else does.
         Root.SizeChanged += (_, _) => { if (IsOpen) Fit(); };
+    }
+
+    private void HideIfFocusLeft()
+    {
+        if (standalone || !IsOpen || Native.ForegroundIsOurs()) return;
+        focused = false;
+        Hide();
     }
 
     /// <summary>Opens next to the point Windows reports for the icon, on that point's display.</summary>
@@ -134,7 +132,7 @@ public sealed partial class FlyoutWindow : Window
         Fit();
         AppWindow.Show(true);
         Activate();
-        SetForegroundWindow(Handle);
+        Native.BringForward(Handle);
         PrimaryButton.Focus(FocusState.Programmatic);
     }
 
@@ -168,16 +166,22 @@ public sealed partial class FlyoutWindow : Window
         Close();
     }
 
-    /// <summary>Sizes the window to its content and places it against the taskbar, in the display's own pixels.</summary>
+    /// <summary>Sizes the window to its content and places it against the taskbar, in the display's own pixels. A
+    /// framed window, once shown, keeps where the person put it and only changes height.</summary>
     private void Fit()
     {
         if (anchor is not { } point) return;
         var area = DisplayArea.GetFromPoint(new PointInt32(point.X, point.Y), DisplayAreaFallback.Nearest);
-        var scale = DpiAt(point.X, point.Y) / 96.0;
+        var scale = standalone && IsOpen ? Native.ScaleOf(Handle) : Native.ScaleAt(point.X, point.Y);
         Root.Measure(new Windows.Foundation.Size(FlyoutWidth, double.PositiveInfinity));
         var frame = standalone ? 40 : 0;
         var width = (int)Math.Ceiling(FlyoutWidth * scale);
         var height = (int)Math.Ceiling((Root.DesiredSize.Height + frame) * scale);
+        if (standalone && IsOpen)
+        {
+            AppWindow.Resize(new SizeInt32(Math.Max(width, AppWindow.Size.Width), height));
+            return;
+        }
         var display = new Box(area.OuterBounds.X, area.OuterBounds.Y, area.OuterBounds.Width, area.OuterBounds.Height);
         var work = new Box(area.WorkArea.X, area.WorkArea.Y, area.WorkArea.Width, area.WorkArea.Height);
         var (left, top) = FlyoutPlacement.Place(display, work, point.X, point.Y, width, height, (int)(Margin * scale));
@@ -239,7 +243,6 @@ public sealed partial class FlyoutWindow : Window
             else if (view.Pause == PauseControl.Menu && renderedPause == PauseControl.Resume) PauseButton.Focus(FocusState.Programmatic);
         }
         renderedPause = view.Pause;
-        if (IsOpen) Fit();
     }
 
     /// <summary>The lines are rebuilt only when their words change, so a link keeps keyboard focus while the
@@ -275,24 +278,6 @@ public sealed partial class FlyoutWindow : Window
 
     private static Brush Brush(string key) => (Brush)Application.Current.Resources[key];
 
-    private static uint DpiAt(int x, int y)
-    {
-        var monitor = MonitorFromPoint(new ScreenPoint { X = x, Y = y }, 2);
-        return GetDpiForMonitor(monitor, 0, out var dpi, out _) == 0 ? dpi : 96;
-    }
-
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(nint window, int attribute, ref int value, int size);
-    [DllImport("user32.dll")]
-    private static extern bool SetForegroundWindow(nint window);
-    [DllImport("user32.dll")]
-    private static extern nint GetForegroundWindow();
-    [DllImport("user32.dll")]
-    private static extern uint GetWindowThreadProcessId(nint window, out uint process);
-    [DllImport("user32.dll")]
-    private static extern nint MonitorFromPoint(ScreenPoint point, uint flags);
-    [StructLayout(LayoutKind.Sequential)]
-    private struct ScreenPoint { public int X, Y; }
-    [DllImport("shcore.dll")]
-    private static extern int GetDpiForMonitor(nint monitor, int type, out uint x, out uint y);
 }

@@ -6,6 +6,9 @@ public enum TrayBadge { None, Scanning, Paused, Attention, Stopped }
 /// <summary>What the menu's bold command does, and with it a double-click on the icon and a second start.</summary>
 public enum DefaultCommand { OpenRadar, Settings, Setup }
 
+/// <summary>What a launch does by itself: open setup, ask for the Radar once the engine answers, or nothing.</summary>
+public enum LaunchAction { Quiet, Setup, RadarWhenReady }
+
 public enum MenuCommand { OpenRadar = 1, ScanNow, StopScan, PauseHour, PauseThreeHours, PauseTomorrow, Resume, Settings, Restart, FinishSetup, Quit }
 
 /// <summary>One item of the icon's menu. An entry with neither a command nor items is a separator.</summary>
@@ -187,6 +190,23 @@ public static class Companion
         : engine.State is EngineState.Stopped or EngineState.Attention ? DefaultCommand.Settings
         : DefaultCommand.OpenRadar;
 
+    /// <summary>A launch from Start does what Start means while the app runs. The engine has not started yet at that
+    /// moment, so the Radar waits for it to answer; unfinished setup comes first, and a start at sign-in stays quiet.</summary>
+    public static LaunchAction AtLaunch(SetupRecord setup, bool atLogin) =>
+        SetupFlow.ShowAtLaunch(setup, atLogin) ? LaunchAction.Setup
+        : !atLogin && setup.Complete ? LaunchAction.RadarWhenReady
+        : LaunchAction.Quiet;
+
+    /// <summary>Where a Radar asked for before the engine answered goes once the engine settles: the Radar when it
+    /// answers, Settings with the reason when it stopped with one; null while it is still on its way.</summary>
+    public static DefaultCommand? WhenSettled(EngineSnapshot engine) => engine.State switch
+    {
+        EngineState.Ready => DefaultCommand.OpenRadar,
+        EngineState.Attention => DefaultCommand.Settings,
+        EngineState.Stopped when engine.Diagnostic is not null => DefaultCommand.Settings,
+        _ => null,
+    };
+
     /// <summary>The icon's menu, in the order Windows gives tray menus: the default command first and bold, the
     /// scan's tasks, a pause shown as a checked state, then Settings, and Quit last. Items that don't apply are left
     /// out rather than greyed.</summary>
@@ -230,19 +250,26 @@ public static class Companion
     };
 }
 
-/// <summary>The Settings window's problem banner: a stopped engine with Restart and its logs, or an update the
-/// previous run could not finish with Undo.</summary>
-public sealed record SettingsProblem(string TitleKey, string? BodyKey, bool Undo);
+/// <summary>The Settings window's problem banner: a stopped engine with Restart and its logs, an update the
+/// previous run could not finish with Undo, or an app that could not start at all.</summary>
+/// <param name="Restart">The banner offers Restart, which starts the engine again.</param>
+public sealed record SettingsProblem(string TitleKey, string? BodyKey, bool Undo, bool Restart);
 
 public static class SettingsPanel
 {
-    public static SettingsProblem? Problem(EngineSnapshot engine, bool updateFailed)
+    /// <summary>The installation could not be read, so there is no engine to restart.</summary>
+    public static SettingsProblem LaunchFailed { get; } = new("invalid", null, false, false);
+
+    /// <param name="held">Setup holds the engine until Welcome's Continue: that is not a stop, and Restart would
+    /// start what setup holds.</param>
+    public static SettingsProblem? Problem(EngineSnapshot engine, bool updateFailed, bool held)
     {
-        if (updateFailed && engine.State != EngineState.Ready) return new("update-stopped-title", "update-stopped-body", true);
+        if (held) return null;
+        if (updateFailed && engine.State != EngineState.Ready) return new("update-stopped-title", "update-stopped-body", true, true);
         return engine.State switch
         {
-            EngineState.Attention => new("host-stopped", "host-attention-body", false),
-            EngineState.Stopped => new("host-stopped", null, false),
+            EngineState.Attention => new("host-stopped", "host-attention-body", false, true),
+            EngineState.Stopped => new("host-stopped", null, false, true),
             _ => null,
         };
     }

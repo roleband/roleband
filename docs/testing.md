@@ -49,8 +49,9 @@ engine. `TrayTests` hold every engine state to a name in all three languages, Op
 and the tooltip to the shell's limit. `CompanionTests` drive the flyout, the icon's badge and the
 menu with status replies in the engine's schema: the summary for a scan, rest, a pause, a hold, an
 engine on its way and a stopped engine; the menu's order, its one bold default, a pause as a checked
-item that can only be lifted, and items left out rather than greyed; the default command; and words
-in all three languages. `TrayArtTests` hold the notification-area icon to one file per state and
+item that can only be lifted, and items left out rather than greyed; the default command, and a
+launch from Start waiting for the engine rather than opening Settings; the Settings banner; and
+words in all three languages. `TrayArtTests` hold the notification-area icon to one file per state and
 taskbar theme, each frame taken at the size it was drawn for, and the flyout's place against a
 taskbar on any edge, an auto-hidden one and a second display. The icon files come from
 `launcher/windows/Tools/make_icons.py`, which draws `icons.py` with an installed Edge or Chrome;

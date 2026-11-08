@@ -1,3 +1,4 @@
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
 using RoleBand.EngineHost;
@@ -22,7 +23,7 @@ public partial class App : Application
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
         Exception? failure = null;
-        var atLogin = Environment.GetCommandLineArgs().Contains(AtLoginArgument);
+        var atLogin = Native.Flag(AtLoginArgument);
         try
         {
             var activation = AppInstance.GetCurrent().GetActivatedEventArgs();
@@ -45,10 +46,13 @@ public partial class App : Application
                 Exit();
                 return;
             }
+            // Redirected starts arrive on another thread. Queued on this one, they run after the app below is built,
+            // so a second start during the first one's startup is not lost.
+            var ui = DispatcherQueue.GetForCurrentThread();
             owner.Activated += (_, redirected) =>
             {
                 var quietly = redirected.Kind == ExtendedActivationKind.StartupTask;
-                app?.Dispatcher.TryEnqueue(() => app.Reactivated(quietly));
+                ui.TryEnqueue(() => app?.Reactivated(quietly));
             };
         }
         catch (Exception error) { failure = error; }
@@ -58,9 +62,7 @@ public partial class App : Application
     /// <summary>The data folder names the instance, so a trial with its own state runs beside the everyday copy.</summary>
     private static string InstanceKey()
     {
-        var args = Environment.GetCommandLineArgs();
-        var index = Array.IndexOf(args, "--state");
-        var state = index >= 0 && index + 1 < args.Length ? Path.GetFullPath(args[index + 1]).ToLowerInvariant() : "";
+        var state = Native.Option("--state") is { } folder ? Path.GetFullPath(folder).ToLowerInvariant() : "";
         return "RoleBand-" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(state)))[..16];
     }
 }
