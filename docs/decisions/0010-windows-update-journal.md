@@ -15,7 +15,8 @@ Before the package manager is asked to replace the package, the engine writes
 `recovery/update.json` (format 1, `package-update`): an ID, the state, the from and to
 versions, the retained verified package and its digest, and phase `applying`. It is
 written only from a retained package that verifies against the installed identity
-([decision 0009](0009-windows-release-authorization.md)) and only while no engine runs.
+([decision 0009](0009-windows-release-authorization.md)), only while no engine runs, and
+only when the running version's own package is kept too, so the update can be undone.
 
 The version that runs next settles it: the to-version moves it to `preparing`, runs its
 preparation, which checkpoints before migrating
@@ -41,7 +42,7 @@ checkpoint recorded for this update's ID, through the ordinary promotion that ke
 replaced database, and records `recovered`. Without a checkpoint for this update the schema
 never changed, so the database stays; a checkpoint from an earlier update is never
 restored, because history written since would be lost. The new version never reached Ready,
-so nothing was written after the checkpoint. If the previous package was not retained, Undo
+so nothing was written after the checkpoint. If the previous package is somehow missing, Undo
 says so and nothing is registered.
 
 ## Consequences

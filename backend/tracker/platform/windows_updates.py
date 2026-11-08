@@ -211,6 +211,18 @@ def _asset(client: httpx.Client, feed: str, version: str, name: str, limit: int,
     raise ReleaseError("A release file redirected too many times")
 
 
+def fetch_release(identity: Identity, version: str, *,
+                  transport: httpx.BaseTransport | None = None) -> tuple[bytes, bytes, bytes]:
+    """The signed checksum, metadata and signature of one published release, unverified."""
+    _package, checksum_name, metadata_name, signature_name = names(version)
+    now = time.time()
+    with httpx.Client(transport=transport, follow_redirects=False, trust_env=False, timeout=httpx.Timeout(10.0),
+                      headers={"User-Agent": USER_AGENT, "Accept-Encoding": "identity"}) as client:
+        return (_asset(client, identity.feed, version, checksum_name, CHECKSUM_LIMIT, now),
+                _asset(client, identity.feed, version, metadata_name, METADATA_LIMIT, now),
+                _asset(client, identity.feed, version, signature_name, 64, now))
+
+
 def check(state: Path, identity: Identity, installed: str, *, manual: bool, now: float | None = None,
           transport: httpx.BaseTransport | None = None) -> Result:
     now = time.time() if now is None else now

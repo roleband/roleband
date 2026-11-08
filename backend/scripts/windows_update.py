@@ -26,9 +26,14 @@ def _begin(state: Path, identity: Any, package: Path, running: str) -> int:
     from tracker.platform.windows_packages import retained
     from tracker.platform.windows_recovery import RecoveryError
 
-    found = [offer for offer, path in retained(state, identity) if path.resolve() == package.resolve()]
+    kept = retained(state, identity)
+    found = [offer for offer, path in kept if path.resolve() == package.resolve()]
     if not found or found[0].version == running:
         print(json.dumps({"status": "refused", "reason": "The package is not a verified retained update."}))
+        return 1
+    if not any(offer.version == running for offer, _path in kept):
+        print(json.dumps({"status": "refused", "reason": "The installed version's package is not kept, so the "
+                          "update could not be undone. Download the update again."}))
         return 1
     try:
         with lease(state / "launcher" / ENGINE):
@@ -148,12 +153,19 @@ def main(argv: list[str] | None = None) -> int:
     if args.action == "download":
         from httpx import HTTPError
 
-        from tracker.platform.windows_packages import download
+        from tracker.platform.windows_packages import download, retain_running
         from tracker.platform.windows_updates import stored_offer
 
         stored = stored_offer(args.state, identity, running_version())
         if stored is None:
             print(json.dumps({"status": "no-offer"}))
+            return 1
+        try:
+            # The way back is kept first: without it the update could not be undone.
+            retain_running(args.state, identity, running_version())
+        except (OSError, HTTPError, ReleaseError) as error:
+            print(json.dumps({"status": "failed", "reason": "The installed version's package could not be kept, "
+                              f"so this update could not be undone. Try again later. ({error})"}))
             return 1
         try:
             path = download(args.state, identity, stored[0], stored[1], running_version())

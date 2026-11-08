@@ -39,7 +39,8 @@ class Server:
         package.write_bytes(bytes((index * 7 + len(version)) % 251 for index in range(size)))
         files = prepare(package, self.tmp_path / f"r-{version}", self.identity, self.key,
                         version=version, revision=0, commit="d" * 40)
-        self.content[files[0].name] = files[0].read_bytes()
+        for path in files:
+            self.content[path.name] = path.read_bytes()
         signed = tuple(path.read_bytes() for path in files[1:])
         return verify_offer(self.identity, "0.0.0", *signed), signed
 
@@ -50,7 +51,10 @@ class Server:
             return httpx.Response(302, headers={"Location": self.redirect_to.format(name=url.rsplit("/", 1)[1])})
         if not url.startswith("https://release-assets.githubusercontent.com/objects/"):
             return httpx.Response(404)
-        body = self.serve if self.serve is not None else self.content[url.rsplit("/", 1)[1]]
+        name = url.rsplit("/", 1)[1]
+        if name not in self.content:
+            return httpx.Response(404)
+        body = self.serve if self.serve is not None and name.endswith(".msix") else self.content[name]
         start = 0
         if "Range" in request.headers and not self.ignore_range:
             start = int(request.headers["Range"].removeprefix("bytes=").rstrip("-"))
@@ -174,3 +178,33 @@ def test_the_newest_two_and_the_running_version_are_kept(state, identity, server
         download(state, identity, offer, signed, "0.1.3", transport=server.transport)
     assert [offer.version for offer, _ in retained(state, identity)] == ["0.1.6", "0.1.5", "0.1.3"]
     assert windows_packages.KEEP == 2
+
+
+def test_the_running_versions_own_release_is_kept_as_the_way_back(state, identity, server):
+    from tracker.platform.windows_packages import retain_running
+
+    server.release("0.1.2")
+    path = retain_running(state, identity, "0.1.2", transport=server.transport)
+    assert [offer.version for offer, _ in retained(state, identity)] == ["0.1.2"]
+    asked = len(server.requests)
+    assert retain_running(state, identity, "0.1.2", transport=server.transport) == path
+    assert len(server.requests) == asked, "a kept package is not fetched again"
+
+
+def test_release_files_for_another_version_cannot_stand_in_for_the_running_one(state, identity, server):
+    from tracker.platform.windows_packages import retain_running
+    from tracker.platform.windows_release import names
+
+    server.release("0.1.3")
+    for real, posing in zip(names("0.1.3")[1:], names("0.1.2")[1:], strict=True):
+        server.content[posing] = server.content[real]
+    with pytest.raises(ReleaseError, match="another version"):
+        retain_running(state, identity, "0.1.2", transport=server.transport)
+    assert retained(state, identity) == []
+
+
+def test_an_unpublished_running_version_leaves_no_way_back(state, identity, server):
+    from tracker.platform.windows_packages import retain_running
+
+    with pytest.raises(ReleaseError):
+        retain_running(state, identity, "0.1.2", transport=server.transport)

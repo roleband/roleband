@@ -103,20 +103,32 @@ def test_the_database_chokepoint_refuses_mid_update(state, tmp_path):
     assert not (state / "db").exists()
 
 
-def _retained_update(state, tmp_path):
+def _keeper(state, tmp_path):
     from tracker.platform.windows_packages import download
     from tracker.platform.windows_release import Identity, prepare, verify_offer
 
     key = ed25519.Ed25519PrivateKey.generate()
     identity = Identity("roleband/roleband-trials", key.public_key().public_bytes_raw(), "RoleBand.Windows.Trial",
                         "CN=RoleBand Windows Trial")
-    built = tmp_path / "built.msix"
-    built.write_bytes(b"PK update" * 100)
-    files = prepare(built, tmp_path / "release", identity, key, version="0.1.3", revision=0, commit="e" * 40)
-    signed = tuple(path.read_bytes() for path in files[1:])
-    offer = verify_offer(identity, "0.0.0", *signed)
-    transport = httpx.MockTransport(lambda request: httpx.Response(200, content=files[0].read_bytes()))
-    return identity, download(state, identity, offer, signed, "0.1.2", transport=transport)
+
+    def kept(version):
+        built = tmp_path / f"built-{version}.msix"
+        built.write_bytes(f"PK update {version}".encode() * 100)
+        files = prepare(built, tmp_path / f"release-{version}", identity, key, version=version, revision=0,
+                        commit="e" * 40)
+        signed = tuple(path.read_bytes() for path in files[1:])
+        offer = verify_offer(identity, "0.0.0", *signed)
+        transport = httpx.MockTransport(lambda request: httpx.Response(200, content=files[0].read_bytes()))
+        return download(state, identity, offer, signed, "0.1.2", transport=transport)
+
+    return identity, kept
+
+
+def _retained_update(state, tmp_path, *, keep_running=True):
+    identity, kept = _keeper(state, tmp_path)
+    if keep_running:
+        kept("0.1.2")
+    return identity, kept("0.1.3")
 
 
 def test_begin_journals_only_a_verified_retained_package_with_the_engine_stopped(state, tmp_path, capsys):
@@ -222,3 +234,12 @@ class TestRecovery:
             journal.recover_database(state, "0.1.3")
         assert journal.recover_database(state, "0.1.2")["phase"] == "recovered"
         assert _launchable(state) == "accepted"
+
+
+def test_begin_refuses_an_update_that_could_not_be_undone(state, tmp_path, capsys):
+    from scripts.windows_update import _begin as begin_command
+
+    identity, package = _retained_update(state, tmp_path, keep_running=False)
+    assert begin_command(state, identity, package, "0.1.2") == 1
+    assert "could not be undone" in capsys.readouterr().out
+    assert not (state / "recovery" / "update.json").exists()

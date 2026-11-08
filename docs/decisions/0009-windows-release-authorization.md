@@ -47,6 +47,9 @@ matches the signed digest and size, with its signed release files beside it, so 
 verified again before it is registered, including as the version to return to after a
 failed update (`tracker/platform/windows_packages.py`). The two newest verified packages and
 the running version's are kept; older ones are releases that can be downloaded again.
+Windows keeps no copy of an installed package, so before the first update's package the
+download keeps the running version's own published release, verified the same way; if that
+fails, the update is not downloaded.
 
 ## Consequences
 

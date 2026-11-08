@@ -116,6 +116,25 @@ def download(state: Path, identity: Identity, offer: Offer, signed: tuple[bytes,
     return final
 
 
+def retain_running(state: Path, identity: Identity, installed: str, *,
+                   transport: httpx.BaseTransport | None = None) -> Path:
+    """Keep the running version's own release package: the only way back from its first update.
+
+    Windows keeps no copy of an installed package, so the way back is the published release of
+    the running version, verified like any update before it is kept.
+    """
+    from tracker.platform.windows_updates import fetch_release
+
+    for offer, path in retained(state, identity):
+        if offer.version == installed:
+            return path
+    signed = fetch_release(identity, installed, transport=transport)
+    offer = verify_offer(identity, "0.0.0", *signed)
+    if offer.version != installed:
+        raise ReleaseError("The feed's release files describe another version")
+    return download(state, identity, offer, signed, installed, transport=transport)
+
+
 def retained(state: Path, identity: Identity) -> list[tuple[Offer, Path]]:
     """Verified retained packages, newest first. Anything that no longer verifies is not listed."""
     found = []
