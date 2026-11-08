@@ -292,6 +292,487 @@
     "title": "AmountChange",
     "type": "object"
    },
+   "ApplicationActivityResponse": {
+    "additionalProperties": false,
+    "description": "`GET /api/applications/{job_id}/activity`: newest first. Pass the\nnumber of items already read as `offset` for the page after it.",
+    "properties": {
+     "items": {
+      "items": {
+       "discriminator": {
+        "mapping": {
+         "comment": "#/components/schemas/ApplicationComment",
+         "event": "#/components/schemas/ApplicationEvent"
+        },
+        "propertyName": "kind"
+       },
+       "oneOf": [
+        {
+         "$ref": "#/components/schemas/ApplicationComment"
+        },
+        {
+         "$ref": "#/components/schemas/ApplicationEvent"
+        }
+       ]
+      },
+      "title": "Items",
+      "type": "array"
+     }
+    },
+    "required": [
+     "items"
+    ],
+    "title": "ApplicationActivityResponse",
+    "type": "object"
+   },
+   "ApplicationBoardResponse": {
+    "additionalProperties": false,
+    "description": "`GET /api/applications`: every application, in no particular order.",
+    "properties": {
+     "applications": {
+      "items": {
+       "$ref": "#/components/schemas/ApplicationCard"
+      },
+      "title": "Applications",
+      "type": "array"
+     }
+    },
+    "required": [
+     "applications"
+    ],
+    "title": "ApplicationBoardResponse",
+    "type": "object"
+   },
+   "ApplicationCalendarResponse": {
+    "additionalProperties": false,
+    "description": "`GET /api/applications/calendar`: every interview and dated next step in\nthe span, soonest first. A cancelled interview and an ended application's\nstep are left out; an item names its application by job id.",
+    "properties": {
+     "items": {
+      "items": {
+       "discriminator": {
+        "mapping": {
+         "interview": "#/components/schemas/CalendarInterview",
+         "step": "#/components/schemas/CalendarStep"
+        },
+        "propertyName": "kind"
+       },
+       "oneOf": [
+        {
+         "$ref": "#/components/schemas/CalendarInterview"
+        },
+        {
+         "$ref": "#/components/schemas/CalendarStep"
+        }
+       ]
+      },
+      "title": "Items",
+      "type": "array"
+     }
+    },
+    "required": [
+     "items"
+    ],
+    "title": "ApplicationCalendarResponse",
+    "type": "object"
+   },
+   "ApplicationCard": {
+    "additionalProperties": false,
+    "description": "One application as the board shows it.",
+    "properties": {
+     "comment_count": {
+      "title": "Comment Count",
+      "type": "integer"
+     },
+     "company": {
+      "title": "Company",
+      "type": "string",
+      "x-text": "code"
+     },
+     "ended_at_stage": {
+      "anyOf": [
+       {
+        "enum": [
+         "saved",
+         "researching",
+         "networking",
+         "applied",
+         "interviewing",
+         "offer",
+         "accepted",
+         "declined",
+         "withdrawn",
+         "rejected",
+         "role_closed"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ended At Stage"
+     },
+     "job_id": {
+      "title": "Job Id",
+      "type": "integer"
+     },
+     "last_activity_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Activity At"
+     },
+     "level_band": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Level Band",
+      "x-text": "code"
+     },
+     "next_action": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Action",
+      "x-text": "content"
+     },
+     "next_action_due": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Action Due"
+     },
+     "next_interview": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ApplicationNextInterview"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "posting_status": {
+      "title": "Posting Status",
+      "type": "string",
+      "x-text": "code"
+     },
+     "priority": {
+      "title": "Priority",
+      "type": "integer"
+     },
+     "pursuit_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Pursuit Id"
+     },
+     "stage": {
+      "enum": [
+       "saved",
+       "researching",
+       "networking",
+       "applied",
+       "interviewing",
+       "offer",
+       "accepted",
+       "declined",
+       "withdrawn",
+       "rejected",
+       "role_closed"
+      ],
+      "title": "Stage",
+      "type": "string"
+     },
+     "stage_since": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Stage Since"
+     },
+     "starred": {
+      "title": "Starred",
+      "type": "boolean"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "job_id",
+     "pursuit_id",
+     "stage",
+     "priority",
+     "starred",
+     "company",
+     "title",
+     "level_band",
+     "posting_status",
+     "next_action",
+     "next_action_due",
+     "next_interview",
+     "comment_count",
+     "stage_since",
+     "last_activity_at",
+     "ended_at_stage"
+    ],
+    "title": "ApplicationCard",
+    "type": "object"
+   },
+   "ApplicationComment": {
+    "additionalProperties": false,
+    "properties": {
+     "actor": {
+      "enum": [
+       "user",
+       "agent"
+      ],
+      "title": "Actor",
+      "type": "string"
+     },
+     "body": {
+      "title": "Body",
+      "type": "string",
+      "x-text": "content"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "edited_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Edited At"
+     },
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "kind": {
+      "const": "comment",
+      "default": "comment",
+      "title": "Kind",
+      "type": "string"
+     },
+     "source": {
+      "title": "Source",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "id",
+     "created_at",
+     "actor",
+     "source",
+     "body",
+     "edited_at"
+    ],
+    "title": "ApplicationComment",
+    "type": "object"
+   },
+   "ApplicationCommentResponse": {
+    "additionalProperties": false,
+    "properties": {
+     "comment": {
+      "$ref": "#/components/schemas/ApplicationComment"
+     }
+    },
+    "required": [
+     "comment"
+    ],
+    "title": "ApplicationCommentResponse",
+    "type": "object"
+   },
+   "ApplicationDeleted": {
+    "additionalProperties": false,
+    "properties": {
+     "deleted": {
+      "title": "Deleted",
+      "type": "boolean"
+     },
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "deleted"
+    ],
+    "title": "ApplicationDeleted",
+    "type": "object"
+   },
+   "ApplicationDetailResponse": {
+    "additionalProperties": false,
+    "description": "`GET /api/applications/{job_id}`: interviews newest first, stages in the order reached.",
+    "properties": {
+     "application": {
+      "$ref": "#/components/schemas/ApplicationCard"
+     },
+     "interviews": {
+      "items": {
+       "$ref": "#/components/schemas/ApplicationInterview"
+      },
+      "title": "Interviews",
+      "type": "array"
+     },
+     "stages_reached": {
+      "items": {
+       "$ref": "#/components/schemas/StageReached"
+      },
+      "title": "Stages Reached",
+      "type": "array"
+     }
+    },
+    "required": [
+     "application",
+     "interviews",
+     "stages_reached"
+    ],
+    "title": "ApplicationDetailResponse",
+    "type": "object"
+   },
+   "ApplicationEvent": {
+    "additionalProperties": false,
+    "properties": {
+     "actor": {
+      "enum": [
+       "user",
+       "agent"
+      ],
+      "title": "Actor",
+      "type": "string"
+     },
+     "changed": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Changed",
+      "type": "array"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "event_type": {
+      "title": "Event Type",
+      "type": "string",
+      "x-text": "code"
+     },
+     "from_stage": {
+      "anyOf": [
+       {
+        "enum": [
+         "saved",
+         "researching",
+         "networking",
+         "applied",
+         "interviewing",
+         "offer",
+         "accepted",
+         "declined",
+         "withdrawn",
+         "rejected",
+         "role_closed"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "From Stage"
+     },
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "kind": {
+      "const": "event",
+      "default": "event",
+      "title": "Kind",
+      "type": "string"
+     },
+     "source": {
+      "title": "Source",
+      "type": "string",
+      "x-text": "code"
+     },
+     "to_stage": {
+      "enum": [
+       "saved",
+       "researching",
+       "networking",
+       "applied",
+       "interviewing",
+       "offer",
+       "accepted",
+       "declined",
+       "withdrawn",
+       "rejected",
+       "role_closed"
+      ],
+      "title": "To Stage",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "created_at",
+     "actor",
+     "source",
+     "event_type",
+     "from_stage",
+     "to_stage",
+     "changed"
+    ],
+    "title": "ApplicationEvent",
+    "type": "object"
+   },
    "ApplicationForm": {
     "additionalProperties": false,
     "description": "What the posting's application form asks beyond name, contact and resume:\ncounts only, never a question's wording. `required` employer\nquestions, of which `written` need a written answer and `choices` are a\npick; `asks_expected_pay` when one demands your expected pay.",
@@ -333,6 +814,170 @@
      "read_at"
     ],
     "title": "ApplicationForm",
+    "type": "object"
+   },
+   "ApplicationInterview": {
+    "additionalProperties": false,
+    "properties": {
+     "all_day": {
+      "title": "All Day",
+      "type": "boolean"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "format": {
+      "anyOf": [
+       {
+        "enum": [
+         "video",
+         "phone",
+         "onsite"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Format"
+     },
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string",
+      "x-text": "content"
+     },
+     "link": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Link",
+      "x-text": "identifier"
+     },
+     "notes": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Notes",
+      "x-text": "content"
+     },
+     "outcome": {
+      "anyOf": [
+       {
+        "enum": [
+         "passed",
+         "not_passed",
+         "cancelled"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Outcome"
+     },
+     "scheduled_at": {
+      "format": "date-time",
+      "title": "Scheduled At",
+      "type": "string"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "label",
+     "scheduled_at",
+     "all_day",
+     "format",
+     "link",
+     "outcome",
+     "notes",
+     "created_at",
+     "updated_at"
+    ],
+    "title": "ApplicationInterview",
+    "type": "object"
+   },
+   "ApplicationInterviewResponse": {
+    "additionalProperties": false,
+    "properties": {
+     "interview": {
+      "$ref": "#/components/schemas/ApplicationInterview"
+     }
+    },
+    "required": [
+     "interview"
+    ],
+    "title": "ApplicationInterviewResponse",
+    "type": "object"
+   },
+   "ApplicationNextInterview": {
+    "additionalProperties": false,
+    "properties": {
+     "all_day": {
+      "title": "All Day",
+      "type": "boolean"
+     },
+     "format": {
+      "anyOf": [
+       {
+        "enum": [
+         "video",
+         "phone",
+         "onsite"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Format"
+     },
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string",
+      "x-text": "content"
+     },
+     "scheduled_at": {
+      "format": "date-time",
+      "title": "Scheduled At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "label",
+     "scheduled_at",
+     "all_day",
+     "format"
+    ],
+    "title": "ApplicationNextInterview",
     "type": "object"
    },
    "BandChange": {
@@ -816,6 +1461,114 @@
     "title": "BrowserTicket",
     "type": "object"
    },
+   "CalendarInterview": {
+    "additionalProperties": false,
+    "properties": {
+     "all_day": {
+      "title": "All Day",
+      "type": "boolean"
+     },
+     "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+     },
+     "format": {
+      "anyOf": [
+       {
+        "enum": [
+         "video",
+         "phone",
+         "onsite"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Format"
+     },
+     "interview_id": {
+      "title": "Interview Id",
+      "type": "integer"
+     },
+     "job_id": {
+      "title": "Job Id",
+      "type": "integer"
+     },
+     "kind": {
+      "const": "interview",
+      "default": "interview",
+      "title": "Kind",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string",
+      "x-text": "content"
+     },
+     "outcome": {
+      "anyOf": [
+       {
+        "enum": [
+         "passed",
+         "not_passed",
+         "cancelled"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Outcome"
+     }
+    },
+    "required": [
+     "job_id",
+     "at",
+     "interview_id",
+     "label",
+     "all_day",
+     "format",
+     "outcome"
+    ],
+    "title": "CalendarInterview",
+    "type": "object"
+   },
+   "CalendarStep": {
+    "additionalProperties": false,
+    "properties": {
+     "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+     },
+     "job_id": {
+      "title": "Job Id",
+      "type": "integer"
+     },
+     "kind": {
+      "const": "step",
+      "default": "step",
+      "title": "Kind",
+      "type": "string"
+     },
+     "step": {
+      "title": "Step",
+      "type": "string",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "job_id",
+     "at",
+     "step"
+    ],
+    "title": "CalendarStep",
+    "type": "object"
+   },
    "CapabilityView": {
     "additionalProperties": false,
     "properties": {
@@ -1186,6 +1939,22 @@
      "weight"
     ],
     "title": "ClusterTerm",
+    "type": "object"
+   },
+   "CommentWrite": {
+    "properties": {
+     "body": {
+      "maxLength": 20000,
+      "minLength": 1,
+      "title": "Body",
+      "type": "string",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "body"
+    ],
+    "title": "CommentWrite",
     "type": "object"
    },
    "CompBaseEstimate": {
@@ -5580,6 +6349,9 @@
      "fit-band-not-found",
      "schedule-not-found",
      "page-not-found",
+     "application-not-found",
+     "comment-not-found",
+     "interview-not-found",
      "plugin-not-found",
      "invalid-input",
      "careers-page-refused",
@@ -5620,7 +6392,9 @@
      "last-world",
      "recipe-invalid",
      "recipe-conflict",
-     "usage-catalogue-changed"
+     "usage-catalogue-changed",
+     "comment-not-yours",
+     "application-under-way"
     ],
     "title": "ErrorCode",
     "type": "string"
@@ -6516,6 +7290,190 @@
      "intent_statement"
     ],
     "title": "IntentStatementResponse",
+    "type": "object"
+   },
+   "InterviewUpdate": {
+    "properties": {
+     "all_day": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "All Day"
+     },
+     "format": {
+      "anyOf": [
+       {
+        "enum": [
+         "video",
+         "phone",
+         "onsite"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Format"
+     },
+     "label": {
+      "anyOf": [
+       {
+        "maxLength": 120,
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Label",
+      "x-text": "content"
+     },
+     "link": {
+      "anyOf": [
+       {
+        "maxLength": 2000,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Link"
+     },
+     "notes": {
+      "anyOf": [
+       {
+        "maxLength": 20000,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Notes",
+      "x-text": "content"
+     },
+     "outcome": {
+      "anyOf": [
+       {
+        "enum": [
+         "passed",
+         "not_passed",
+         "cancelled"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Outcome"
+     },
+     "scheduled_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Scheduled At"
+     }
+    },
+    "title": "InterviewUpdate",
+    "type": "object"
+   },
+   "InterviewWrite": {
+    "properties": {
+     "all_day": {
+      "default": false,
+      "title": "All Day",
+      "type": "boolean"
+     },
+     "format": {
+      "anyOf": [
+       {
+        "enum": [
+         "video",
+         "phone",
+         "onsite"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Format"
+     },
+     "label": {
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Label",
+      "type": "string",
+      "x-text": "content"
+     },
+     "link": {
+      "anyOf": [
+       {
+        "maxLength": 2000,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Link"
+     },
+     "notes": {
+      "anyOf": [
+       {
+        "maxLength": 20000,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Notes",
+      "x-text": "content"
+     },
+     "outcome": {
+      "anyOf": [
+       {
+        "enum": [
+         "passed",
+         "not_passed",
+         "cancelled"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Outcome"
+     },
+     "scheduled_at": {
+      "format": "date-time",
+      "title": "Scheduled At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "label",
+     "scheduled_at"
+    ],
+    "title": "InterviewWrite",
     "type": "object"
    },
    "JobCompPackage": {
@@ -8778,8 +9736,11 @@
        "applied",
        "interviewing",
        "offer",
+       "accepted",
+       "declined",
+       "withdrawn",
        "rejected",
-       "withdrawn"
+       "role_closed"
       ],
       "title": "Stage",
       "type": "string"
@@ -15985,8 +16946,11 @@
        "applied",
        "interviewing",
        "offer",
+       "accepted",
+       "declined",
+       "withdrawn",
        "rejected",
-       "withdrawn"
+       "role_closed"
       ],
       "title": "Stage",
       "type": "string"
@@ -16122,8 +17086,11 @@
          "applied",
          "interviewing",
          "offer",
+         "accepted",
+         "declined",
+         "withdrawn",
          "rejected",
-         "withdrawn"
+         "role_closed"
         ],
         "type": "string"
        },
@@ -20925,6 +21892,39 @@
     "title": "SourceOutcome",
     "type": "string"
    },
+   "StageReached": {
+    "additionalProperties": false,
+    "properties": {
+     "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+     },
+     "stage": {
+      "enum": [
+       "saved",
+       "researching",
+       "networking",
+       "applied",
+       "interviewing",
+       "offer",
+       "accepted",
+       "declined",
+       "withdrawn",
+       "rejected",
+       "role_closed"
+      ],
+      "title": "Stage",
+      "type": "string"
+     }
+    },
+    "required": [
+     "stage",
+     "at"
+    ],
+    "title": "StageReached",
+    "type": "object"
+   },
    "StaleBinding": {
     "additionalProperties": false,
     "description": "A binding whose last authoritative reconcile is older than the window.",
@@ -23835,10 +24835,183 @@
  },
  "info": {
   "title": "RoleBand Job Tracker API",
-  "version": "0.1.1"
+  "version": "0.1.2"
  },
  "openapi": "3.1.0",
  "paths": {
+  "/api/applications": {
+   "get": {
+    "operationId": "board_ep_api_applications_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ApplicationBoardResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Board Ep"
+   }
+  },
+  "/api/applications/calendar": {
+   "get": {
+    "operationId": "calendar_ep_api_applications_calendar_get",
+    "parameters": [
+     {
+      "description": "The span's first instant, with its zone.",
+      "in": "query",
+      "name": "start",
+      "required": true,
+      "schema": {
+       "description": "The span's first instant, with its zone.",
+       "format": "date-time",
+       "title": "Start",
+       "type": "string"
+      }
+     },
+     {
+      "description": "The instant the span stops before, with its zone.",
+      "in": "query",
+      "name": "end",
+      "required": true,
+      "schema": {
+       "description": "The instant the span stops before, with its zone.",
+       "format": "date-time",
+       "title": "End",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ApplicationCalendarResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Calendar Ep"
+   }
+  },
+  "/api/applications/{job_id}": {
+   "get": {
+    "operationId": "application_ep_api_applications__job_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "job_id",
+      "required": true,
+      "schema": {
+       "title": "Job Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ApplicationDetailResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Application Ep"
+   }
+  },
+  "/api/applications/{job_id}/activity": {
+   "get": {
+    "operationId": "activity_ep_api_applications__job_id__activity_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "job_id",
+      "required": true,
+      "schema": {
+       "title": "Job Id",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 100,
+       "maximum": 200,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "offset",
+      "required": false,
+      "schema": {
+       "default": 0,
+       "minimum": 0,
+       "title": "Offset",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ApplicationActivityResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Activity Ep"
+   }
+  },
   "/api/clusters": {
    "get": {
     "description": "All semantic clusters with size, label, top skills, and company mix.",
@@ -24946,6 +26119,24 @@
   "/api/compare-selection": {
    "get": {
     "operationId": "get_compare_selection_api_compare_selection_get",
+    "parameters": [
+     {
+      "description": "The list screen whose comparison this is.",
+      "in": "query",
+      "name": "scope",
+      "required": false,
+      "schema": {
+       "default": "radar",
+       "description": "The list screen whose comparison this is.",
+       "enum": [
+        "radar",
+        "pipeline"
+       ],
+       "title": "Scope",
+       "type": "string"
+      }
+     }
+    ],
     "responses": {
      "200": {
       "content": {
@@ -24956,6 +26147,16 @@
        }
       },
       "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
      }
     },
     "summary": "Get Compare Selection"
@@ -24963,6 +26164,24 @@
    "put": {
     "description": "Replace the selection, and answer with what survived.\n\nUnknown ids are dropped rather than refused. A stale id is not a client bug\nworth failing the whole write over \u2014 it is a job that closed while the tab\nwas open, and the useful response is the selection minus that role, which\nthe dashboard then renders. Deduplication is order-preserving: `position`\nis what the beacon reads to dock level with the role selected last.",
     "operationId": "put_compare_selection_api_compare_selection_put",
+    "parameters": [
+     {
+      "description": "The list screen whose comparison this is.",
+      "in": "query",
+      "name": "scope",
+      "required": false,
+      "schema": {
+       "default": "radar",
+       "description": "The list screen whose comparison this is.",
+       "enum": [
+        "radar",
+        "pipeline"
+       ],
+       "title": "Scope",
+       "type": "string"
+      }
+     }
+    ],
     "requestBody": {
      "content": {
       "application/json": {
@@ -27065,6 +28284,312 @@
     "summary": "Set Pursuit Ep"
    }
   },
+  "/api/jobs/{job_id}/pursuit/comments": {
+   "post": {
+    "operationId": "add_comment_ep_api_jobs__job_id__pursuit_comments_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "job_id",
+      "required": true,
+      "schema": {
+       "title": "Job Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CommentWrite"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ApplicationCommentResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Add Comment Ep"
+   }
+  },
+  "/api/jobs/{job_id}/pursuit/comments/{comment_id}": {
+   "delete": {
+    "operationId": "delete_comment_ep_api_jobs__job_id__pursuit_comments__comment_id__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "job_id",
+      "required": true,
+      "schema": {
+       "title": "Job Id",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "path",
+      "name": "comment_id",
+      "required": true,
+      "schema": {
+       "title": "Comment Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ApplicationDeleted"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Delete Comment Ep"
+   },
+   "put": {
+    "operationId": "edit_comment_ep_api_jobs__job_id__pursuit_comments__comment_id__put",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "job_id",
+      "required": true,
+      "schema": {
+       "title": "Job Id",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "path",
+      "name": "comment_id",
+      "required": true,
+      "schema": {
+       "title": "Comment Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CommentWrite"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ApplicationCommentResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Edit Comment Ep"
+   }
+  },
+  "/api/jobs/{job_id}/pursuit/interviews": {
+   "post": {
+    "operationId": "add_interview_ep_api_jobs__job_id__pursuit_interviews_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "job_id",
+      "required": true,
+      "schema": {
+       "title": "Job Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/InterviewWrite"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ApplicationInterviewResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Add Interview Ep"
+   }
+  },
+  "/api/jobs/{job_id}/pursuit/interviews/{interview_id}": {
+   "delete": {
+    "operationId": "delete_interview_ep_api_jobs__job_id__pursuit_interviews__interview_id__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "job_id",
+      "required": true,
+      "schema": {
+       "title": "Job Id",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "path",
+      "name": "interview_id",
+      "required": true,
+      "schema": {
+       "title": "Interview Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ApplicationDeleted"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Delete Interview Ep"
+   },
+   "patch": {
+    "operationId": "update_interview_ep_api_jobs__job_id__pursuit_interviews__interview_id__patch",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "job_id",
+      "required": true,
+      "schema": {
+       "title": "Job Id",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "path",
+      "name": "interview_id",
+      "required": true,
+      "schema": {
+       "title": "Interview Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/InterviewUpdate"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ApplicationInterviewResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Update Interview Ep"
+   }
+  },
   "/api/jobs/{job_id}/similar": {
    "get": {
     "description": "Semantically similar open positions. scope: within | cross | all.",
@@ -28635,8 +30160,11 @@
           "applied",
           "interviewing",
           "offer",
+          "accepted",
+          "declined",
+          "withdrawn",
           "rejected",
-          "withdrawn"
+          "role_closed"
          ],
          "type": "string"
         },
