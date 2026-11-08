@@ -39,12 +39,12 @@ def main() -> None:
     if args == ["seed"]:
         import asyncio
 
-        from scripts.seed_synthetic import seed
+        from scripts.seed_synthetic import seed_trial
         from tracker.db.session import session_scope
 
         async def seed_fixture() -> None:
             async with session_scope() as session:
-                await seed(session, count=12, seed_value=20261105, derived=False)
+                await seed_trial(session)
 
         asyncio.run(seed_fixture())
         return

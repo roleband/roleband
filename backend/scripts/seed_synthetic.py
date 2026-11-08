@@ -299,6 +299,19 @@ async def seed(session, count: int, *, seed_value: int, derived: bool = True) ->
         await resolver.aclose()
 
 
+async def seed_trial(session) -> int:
+    """Seed a Windows desktop trial on its first start. Returns the synthetic jobs present.
+
+    The trial runs this at every start. Once its postings exist the database is
+    its user's: seeding again would put the radar's bands back to the seeded ones
+    and record another synthetic scan over what the user changed since.
+    """
+    present = await _synthetic_job_count(session)
+    if present:
+        return present
+    return await seed(session, 12, seed_value=20261105, derived=False)
+
+
 async def clear(session) -> int:
     """Delete only the rows carrying the synthetic prefix. Returns rows removed."""
     jobs = (

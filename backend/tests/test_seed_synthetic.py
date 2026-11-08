@@ -16,9 +16,10 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import func, select
 
-from scripts.seed_synthetic import SYNTHETIC_PREFIX, clear, seed
-from tracker.db.models import Job, SourceBinding
+from scripts.seed_synthetic import SYNTHETIC_PREFIX, clear, seed, seed_trial
+from tracker.db.models import Job, ScrapeRun, SourceBinding
 from tracker.schema import UNPLACED_BASIS_VALUES
+from tracker.settings_store import get_enabled_bands, set_enabled_bands
 from tracker.taxonomy.locations import pay_country
 
 # Small on purpose: these assert behaviour, not throughput, and each seeded row
@@ -95,6 +96,19 @@ async def test_seeding_twice_upserts_rather_than_duplicating(db_session):
 
     assert first == second == _COUNT
     assert await db_session.scalar(select(func.count()).select_from(Job)) == _COUNT
+
+
+@pytest.mark.asyncio
+async def test_a_trial_is_seeded_on_its_first_start_only(db_session):
+    """A later start leaves the trial user's bands and scan history as they are."""
+    first = await seed_trial(db_session)
+    await set_enabled_bands(db_session, ["mid"])
+    scans = await db_session.scalar(select(func.count()).select_from(ScrapeRun))
+
+    assert first > 0
+    assert await seed_trial(db_session) == first
+    assert await get_enabled_bands(db_session) == {"mid"}
+    assert await db_session.scalar(select(func.count()).select_from(ScrapeRun)) == scans
 
 
 @pytest.mark.asyncio

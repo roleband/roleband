@@ -144,6 +144,18 @@ public sealed class LeaseTests
     }
 
     [TestMethod]
+    public void APathUnderADriveRootKeepsOneSeparator()
+    {
+        var drive = Path.GetPathRoot(Path.GetTempPath())!;
+        var missing = Path.Combine(drive, "roleband-lease-tests-" + Guid.NewGuid().ToString("N"), "state");
+        Assert.AreEqual(missing, EngineConfiguration.FinalPath(missing), ignoreCase: true);
+        Assert.AreEqual(drive, EngineConfiguration.FinalPath(drive), ignoreCase: true);
+        Assert.IsTrue(EngineConfiguration.LeadsInto(missing, drive));
+        Assert.IsTrue(EngineConfiguration.LeadsInto(drive, drive));
+        Assert.IsFalse(EngineConfiguration.LeadsInto(drive, missing));
+    }
+
+    [TestMethod]
     public void ALongPathThroughAJunctionIsResolvedInFull()
     {
         var root = Scratch();
@@ -182,11 +194,16 @@ public sealed class LeaseTests
 
     private static string Junction(string link, string target)
     {
-        var mklink = new ProcessStartInfo("cmd.exe") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true };
+        var mklink = new ProcessStartInfo("cmd.exe")
+        {
+            UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true,
+        };
         foreach (var argument in new[] { "/c", "mklink", "/J", link, target }) mklink.ArgumentList.Add(argument);
         using var made = Process.Start(mklink) ?? throw new IOException("mklink did not start.");
+        var said = made.StandardError.ReadToEndAsync();
+        made.StandardOutput.ReadToEnd();
         made.WaitForExit();
-        Assert.AreEqual(0, made.ExitCode, "the junction was made");
+        Assert.AreEqual(0, made.ExitCode, $"mklink could not make the junction: {said.Result}");
         return link;
     }
 }
