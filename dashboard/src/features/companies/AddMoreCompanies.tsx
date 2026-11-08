@@ -246,7 +246,7 @@ export function AddCompanyDialog({ open, onClose }: { open: boolean; onClose: ()
       onClose();
     } catch (caught) {
       // The action, then why from the failure's code, or the next step.
-      setError(companiesAddMoreCompaniesCouldnTAddThatCompany({ caught: String(errorText(caught, companiesAddMoreCompaniesTryAgain())) }));
+      setError(`${companiesAddMoreCompaniesCouldnTAddThatCompany()} ${errorText(caught, companiesAddMoreCompaniesTryAgain())}`);
     } finally {
       setAdding(false);
     }

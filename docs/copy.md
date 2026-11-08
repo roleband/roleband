@@ -156,7 +156,7 @@ The comment carries metadata as `key=value` pairs:
 |---|---|
 | `kind` | Required. One of the kinds in section 1 |
 | `note` | Context for a translator or reviewer, when the intent is not obvious |
-| `next=none` | An error that has no next step to offer |
+| `next=none` | An error that has no next step to offer, or the first sentence of a failure whose next step the code adds after it: why it failed, from the failure's code, or *Try again.* when nothing explains it (its note says so) |
 | `same-as=<id>` | Two messages in one file with the same kind and text that must stay separate (otherwise `copy:check` asks you to merge them) |
 | `wording=as-is` | The wording has not been reviewed against the rules. `copy:check` reports its wording problems instead of blocking, and blocks if the text is not in `dashboard/src/test/copy-as-found.json`. New messages never carry it; rewording one drops the marker |
 

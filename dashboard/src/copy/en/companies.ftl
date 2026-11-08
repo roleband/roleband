@@ -60,9 +60,9 @@ companies-add-more-companies-daily-check-note = { $scan ->
 companies-add-more-companies-hiring-for-you = hiring for you
 # kind=label wording=as-is
 companies-add-more-companies-quiet-today = quiet today
-# kind=error wording=as-is
-companies-add-more-companies-couldn-t-add-that-company = Couldn't add that company. { $caught }
-# kind=error wording=as-is
+# kind=error next=none note="The first sentence of a failure: why it failed follows, from the failure's code, or Try again. when nothing explains it"
+companies-add-more-companies-couldn-t-add-that-company = Couldn't add that company.
+# kind=error
 companies-add-more-companies-try-again = Try again.
 # kind=label wording=as-is
 companies-add-more-companies-add-by-link-dialog = Add a company by link
@@ -79,11 +79,11 @@ companies-add-more-companies-add-company = { $state ->
 ## features/companies/CompaniesData.tsx
 # kind=label wording=as-is
 companies-data-undo = Undo
-# kind=error wording=as-is
+# kind=error next=none note="The first sentence of a failure: why it failed follows, from the failure's code, or Try again. when nothing explains it"
 companies-data-couldn-t-undo-that-change = Couldn't undo that change.
 # kind=sentence wording=as-is
 companies-data-change-undone = Change undone.
-# kind=error wording=as-is note="$name is a company or a sector"
+# kind=error next=none note="$name is a company or a sector. The first sentence of a failure: why it failed follows, from the failure's code, or Try again. when nothing explains it"
 companies-data-follow-failed = { $direction ->
     [follow] Couldn't follow { $name }.
    *[unfollow] Couldn't unfollow { $name }.
@@ -114,12 +114,12 @@ companies-data-wider-market-result = { $state ->
        *[other] { " " }The { $added } companies it added are no longer followed.
     }
 }
-# kind=error wording=as-is
+# kind=error next=none note="The first sentence of a failure: why it failed follows, from the failure's code, or Try again. when nothing explains it"
 companies-data-wider-market-failed = { $direction ->
     [start] Couldn't start scanning the wider market.
    *[stop] Couldn't stop scanning the wider market.
 }
-# kind=error wording=as-is
+# kind=error next=none note="The first sentence of a failure: why it failed follows, from the failure's code, or Try again. when nothing explains it"
 companies-data-curated-follow-failed = { $direction ->
     [follow] Couldn't follow the { $count ->
         [one] company
@@ -141,7 +141,7 @@ companies-data-curated-follow-result = { $direction ->
        *[other] companies
     } outside your { $curatedList }.
 }
-# kind=error wording=as-is note="$visibility is the state the write asked for"
+# kind=error next=none note="$visibility is the state the write asked for. The first sentence of a failure: why it failed follows, from the failure's code, or Try again. when nothing explains it"
 companies-data-visibility-failed = { $visibility ->
     [shown] Couldn't put { $company } back on your radar.
    *[hidden] Couldn't hide { $company } from your radar.
@@ -267,8 +267,8 @@ companies-company-register-rows-scan-now-hint = { $scan ->
 companies-company-register-rows-scan-joined = { $display } is next in the running scan.
 # kind=label wording=as-is
 companies-company-register-rows-scanning = Scanning { $display }…
-# kind=error wording=as-is
-companies-company-register-rows-couldn-t-start-a-scan = Couldn't start a scan for { $display }.
+# kind=error
+companies-company-register-rows-couldn-t-start-a-scan = Couldn't start a scan for { $display }. Try again.
 # kind=label wording=as-is
 companies-company-register-rows-followed = { $followed }/{ $total } followed
 # kind=toast wording=as-is
@@ -373,8 +373,8 @@ companies-register-chrome-rescanning-companies = { $count ->
     [one] Rescanning { $count } company…
    *[other] Rescanning { $count } companies…
 }
-# kind=error wording=as-is
-companies-register-chrome-couldn-t-start-that-rescan = Couldn't start that rescan.
+# kind=error
+companies-register-chrome-couldn-t-start-that-rescan = Couldn't start the rescan. Try again.
 # kind=label wording=as-is
 companies-register-chrome-search-companies = Search companies
 # kind=label wording=as-is
