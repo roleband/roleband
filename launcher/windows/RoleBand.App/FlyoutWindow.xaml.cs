@@ -1,0 +1,298 @@
+using Microsoft.UI;
+using Microsoft.UI.Composition.SystemBackdrops;
+using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Documents;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
+using RoleBand.EngineHost;
+using System.Runtime.InteropServices;
+using Windows.Graphics;
+using Windows.System;
+
+namespace RoleBand.App;
+
+/// <summary>The flyout by the icon. Windows has no control for a tray flyout, so this is a borderless window that
+/// closes when it loses focus or on Esc. It draws <see cref="FlyoutView"/> and reports presses. Without an icon it
+/// keeps a frame and stays open, and closing it quits.</summary>
+public sealed partial class FlyoutWindow : Window
+{
+    private const int FlyoutWidth = 360, Margin = 12;
+    private readonly NativeCopy copy;
+    private bool standalone;
+    private readonly OverlappedPresenter presenter = OverlappedPresenter.Create();
+    private FlyoutView? current;
+    private string renderedLines = "";
+    private PauseControl renderedPause = PauseControl.None;
+    private (int X, int Y)? anchor;
+    private long hiddenAt;
+    private bool closing;
+    private bool focused;
+
+    public event Action? OpenRadar, Restart, OpenSettings, QuitRequested;
+    public event Action<ScanAction>? Scan;
+    public event Action<PauseAction>? Pause;
+    public event Action<BrowserRoute>? Open;
+
+    public nint Handle { get; }
+
+    /// <summary>The flyout hid itself a moment ago, as it does when a click on the icon takes its focus: that click
+    /// closes the flyout rather than opening it again.</summary>
+    public bool JustHid => Environment.TickCount64 - hiddenAt < 300;
+
+    public bool IsOpen => AppWindow.IsVisible;
+
+    public FlyoutWindow(NativeCopy copy)
+    {
+        InitializeComponent();
+        this.copy = copy;
+        Title = "RoleBand";
+        Handle = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        presenter.IsResizable = false;
+        presenter.IsMaximizable = false;
+        presenter.IsMinimizable = false;
+        presenter.SetBorderAndTitleBar(false, false);
+        presenter.IsAlwaysOnTop = true;
+        AppWindow.SetPresenter(presenter);
+        AppWindow.IsShownInSwitchers = false;
+        var round = 2;
+        DwmSetWindowAttribute(Handle, 33, ref round, sizeof(int));
+        SystemBackdrop = new DesktopAcrylicBackdrop();
+        var icon = Path.Combine(AppContext.BaseDirectory, "RoleBand.ico");
+        if (File.Exists(icon)) AppWindow.SetIcon(icon);
+        var mark = Path.Combine(AppContext.BaseDirectory, "Assets", "AppMark.png");
+        if (File.Exists(mark)) AppMark.Source = new BitmapImage(new Uri(mark));
+        else AppMark.Visibility = Visibility.Collapsed;
+
+        AutomationProperties.SetName(SettingsButton, copy["settings"]);
+        ToolTipService.SetToolTip(SettingsButton, copy["settings"]);
+        DetailsButton.Content = copy["windows-details"];
+        PauseText.Text = copy["scan-pause"];
+        AutomationProperties.SetName(PauseButton, copy["pause-menu"]);
+        ToolTipService.SetToolTip(PauseButton, copy["pause-help"]);
+        ResumeText.Text = copy["scan-resume"];
+        AutomationProperties.SetName(ResumeButton, copy["pause-resume"]);
+        ToolTipService.SetToolTip(ResumeButton, copy["scan-resume-help"]);
+        SettingsButton.Click += (_, _) => OpenSettings?.Invoke();
+        PrimaryButton.Click += (_, _) =>
+        {
+            if (current?.Primary == FlyoutPrimary.Restart) Restart?.Invoke();
+            else OpenRadar?.Invoke();
+        };
+        ScanButton.Click += (_, _) => { if (current is { ScanBusyKey: null, Scan: { } action }) Scan?.Invoke(action); };
+        DetailsButton.Click += (_, _) => OpenSettings?.Invoke();
+        ResumeButton.Click += (_, _) => Pause?.Invoke(PauseAction.Resume);
+        foreach (var action in new[] { PauseAction.Hour, PauseAction.ThreeHours, PauseAction.Tomorrow })
+        {
+            var item = new MenuFlyoutItem { Text = copy[ScanControl.Key(action)] };
+            item.Click += (_, _) => Pause?.Invoke(action);
+            PauseMenu.Items.Add(item);
+        }
+
+        var escape = new KeyboardAccelerator { Key = VirtualKey.Escape };
+        escape.Invoked += (_, args) =>
+        {
+            args.Handled = true;
+            if (standalone) QuitRequested?.Invoke();
+            else Hide();
+        };
+        Root.KeyboardAccelerators.Add(escape);
+        Activated += (_, args) =>
+        {
+            // Windows reports a refused activation as an activation too, so focus counts only once the flyout is
+            // really the foreground window.
+            if (args.WindowActivationState != WindowActivationState.Deactivated) { focused = GetForegroundWindow() == Handle; return; }
+            // Only focus the flyout had can leave it; the pause menu is a window of its own, so focus moving there
+            // keeps the flyout open.
+            if (standalone || !focused) return;
+            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+            {
+                GetWindowThreadProcessId(GetForegroundWindow(), out var owner);
+                if (owner == (uint)Environment.ProcessId) return;
+                focused = false;
+                Hide();
+            });
+        };
+        AppWindow.Closing += (_, args) =>
+        {
+            if (closing) return;
+            args.Cancel = true;
+            if (standalone) QuitRequested?.Invoke();
+            else Hide();
+        };
+        Root.SizeChanged += (_, _) => { if (IsOpen) Fit(); };
+    }
+
+    /// <summary>Opens next to the point Windows reports for the icon, on that point's display.</summary>
+    public void ShowNear(int x, int y)
+    {
+        anchor = (x, y);
+        focused = false;
+        Fit();
+        AppWindow.Show(true);
+        Activate();
+        SetForegroundWindow(Handle);
+        PrimaryButton.Focus(FocusState.Programmatic);
+    }
+
+    /// <summary>Without an icon: a framed window near the bottom right of the primary display, which stays open and
+    /// whose close button quits.</summary>
+    public void ShowStandalone()
+    {
+        standalone = true;
+        presenter.SetBorderAndTitleBar(true, true);
+        presenter.IsAlwaysOnTop = false;
+        presenter.IsMinimizable = true;
+        AppWindow.IsShownInSwitchers = true;
+        SystemBackdrop = new MicaBackdrop();
+        var work = DisplayArea.Primary.WorkArea;
+        anchor = (work.X + work.Width, work.Y + work.Height);
+        Fit();
+        AppWindow.Show(true);
+        Activate();
+    }
+
+    public void Hide()
+    {
+        if (!IsOpen) return;
+        AppWindow.Hide();
+        hiddenAt = Environment.TickCount64;
+    }
+
+    public void CloseForQuit()
+    {
+        closing = true;
+        Close();
+    }
+
+    /// <summary>Sizes the window to its content and places it against the taskbar, in the display's own pixels.</summary>
+    private void Fit()
+    {
+        if (anchor is not { } point) return;
+        var area = DisplayArea.GetFromPoint(new PointInt32(point.X, point.Y), DisplayAreaFallback.Nearest);
+        var scale = DpiAt(point.X, point.Y) / 96.0;
+        Root.Measure(new Windows.Foundation.Size(FlyoutWidth, double.PositiveInfinity));
+        var frame = standalone ? 40 : 0;
+        var width = (int)Math.Ceiling(FlyoutWidth * scale);
+        var height = (int)Math.Ceiling((Root.DesiredSize.Height + frame) * scale);
+        var display = new Box(area.OuterBounds.X, area.OuterBounds.Y, area.OuterBounds.Width, area.OuterBounds.Height);
+        var work = new Box(area.WorkArea.X, area.WorkArea.Y, area.WorkArea.Width, area.WorkArea.Height);
+        var (left, top) = FlyoutPlacement.Place(display, work, point.X, point.Y, width, height, (int)(Margin * scale));
+        AppWindow.MoveAndResize(new RectInt32(left, top, width, height));
+    }
+
+    public void Render(FlyoutView view, string? message)
+    {
+        current = view;
+        TitleText.Text = view.Title;
+        CornerText.Text = view.Corner ?? "";
+        var (glyph, brush) = view.Badge switch
+        {
+            TrayBadge.Stopped => ("", "SystemFillColorCriticalBrush"),
+            TrayBadge.Attention => ("", "SystemFillColorCautionBrush"),
+            _ => ((string?)null, (string?)null),
+        };
+        StateIcon.Visibility = glyph is null ? Visibility.Collapsed : Visibility.Visible;
+        if (glyph is not null) { StateIcon.Glyph = glyph; StateIcon.Foreground = Brush(brush!); }
+        ScanProgress.Visibility = view.Progress is not null || view.Busy ? Visibility.Visible : Visibility.Collapsed;
+        ScanProgress.IsIndeterminate = view.Progress is null && view.Busy;
+        ScanProgress.Value = view.Progress ?? 0;
+        AutomationProperties.SetName(ScanProgress, view.ProgressLabel ?? view.Title);
+        RenderLines(view.Lines);
+        MessageText.Text = message ?? "";
+        MessageText.Visibility = message is null ? Visibility.Collapsed : Visibility.Visible;
+
+        var restart = view.Primary == FlyoutPrimary.Restart;
+        PrimaryButton.Content = copy[restart ? "engine-restart" : "first-open"];
+        PrimaryButton.IsEnabled = view.PrimaryEnabled;
+        ToolTipService.SetToolTip(PrimaryButton, view.PrimaryHelpKey is { } help ? copy[help] : null);
+
+        DetailsButton.Visibility = view.Details ? Visibility.Visible : Visibility.Collapsed;
+        if (view.Details) ScanButton.Visibility = Visibility.Collapsed;
+        else if (view.ScanBusyKey is { } busy)
+        {
+            ScanGlyph.Glyph = "";
+            ScanText.Text = copy[busy];
+            ScanButton.IsEnabled = false;
+            ScanButton.Visibility = Visibility.Visible;
+        }
+        else if (view.Scan is { } action)
+        {
+            ScanGlyph.Glyph = action == ScanAction.Start ? "" : "";
+            ScanText.Text = copy[action == ScanAction.Start ? "scan-now" : "scan-stop"];
+            AutomationProperties.SetName(ScanButton, ScanText.Text);
+            ToolTipService.SetToolTip(ScanButton, action == ScanAction.Stop ? copy["scan-kept"] : null);
+            ScanButton.IsEnabled = true;
+            ScanButton.Visibility = Visibility.Visible;
+        }
+        else ScanButton.Visibility = Visibility.Collapsed;
+
+        PauseButton.Visibility = view.Pause == PauseControl.Menu ? Visibility.Visible : Visibility.Collapsed;
+        ResumeButton.Visibility = view.Pause == PauseControl.Resume ? Visibility.Visible : Visibility.Collapsed;
+        // A pause that just took effect moves focus from the button that was pressed to the one that undoes it.
+        if (renderedPause != view.Pause && IsOpen)
+        {
+            if (view.Pause == PauseControl.Resume) ResumeButton.Focus(FocusState.Programmatic);
+            else if (view.Pause == PauseControl.Menu && renderedPause == PauseControl.Resume) PauseButton.Focus(FocusState.Programmatic);
+        }
+        renderedPause = view.Pause;
+        if (IsOpen) Fit();
+    }
+
+    /// <summary>The lines are rebuilt only when their words change, so a link keeps keyboard focus while the
+    /// summary's clock moves.</summary>
+    private void RenderLines(IReadOnlyList<FlyoutLine> lines)
+    {
+        var key = string.Join('\n', lines);
+        if (key == renderedLines) return;
+        renderedLines = key;
+        Lines.Children.Clear();
+        for (var index = 0; index < lines.Count; index++)
+        {
+            var line = lines[index];
+            var text = new TextBlock { TextWrapping = TextWrapping.Wrap };
+            if (index > 0)
+            {
+                text.FontSize = 12;
+                text.Foreground = Brush("TextFillColorSecondaryBrush");
+            }
+            if (line.Link is { } words && line.Opens is { } route)
+            {
+                text.Inlines.Add(new Run { Text = line.Text + " · " });
+                var link = new Hyperlink();
+                link.Inlines.Add(new Run { Text = words });
+                link.Click += (_, _) => Open?.Invoke(route);
+                ToolTipService.SetToolTip(text, copy["scan-new-roles-open"]);
+                text.Inlines.Add(link);
+            }
+            else text.Text = line.Text;
+            Lines.Children.Add(text);
+        }
+    }
+
+    private static Brush Brush(string key) => (Brush)Application.Current.Resources[key];
+
+    private static uint DpiAt(int x, int y)
+    {
+        var monitor = MonitorFromPoint(new ScreenPoint { X = x, Y = y }, 2);
+        return GetDpiForMonitor(monitor, 0, out var dpi, out _) == 0 ? dpi : 96;
+    }
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(nint window, int attribute, ref int value, int size);
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(nint window);
+    [DllImport("user32.dll")]
+    private static extern nint GetForegroundWindow();
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(nint window, out uint process);
+    [DllImport("user32.dll")]
+    private static extern nint MonitorFromPoint(ScreenPoint point, uint flags);
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ScreenPoint { public int X, Y; }
+    [DllImport("shcore.dll")]
+    private static extern int GetDpiForMonitor(nint monitor, int type, out uint x, out uint y);
+}

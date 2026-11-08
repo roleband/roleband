@@ -64,6 +64,19 @@ public static class PrivateStorage
         return bytes;
     }
 
+    /// <summary>Replaces a private file whole: the bytes go to a sibling first, which inherits the folder's
+    /// restrictive ACL, and then take the file's name, so a reader never sees half a record.</summary>
+    public static void Write(string path, byte[] bytes)
+    {
+        var folder = Path.GetDirectoryName(path)!;
+        Verify(folder, true);
+        if (File.Exists(path)) Verify(path);
+        var temporary = path + ".new";
+        File.WriteAllBytes(temporary, bytes);
+        Verify(temporary);
+        File.Move(temporary, path, overwrite: true);
+    }
+
     public static FileStream Lease(string state, string name)
     {
         EnsureDirectory(state);

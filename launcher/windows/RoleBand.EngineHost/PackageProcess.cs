@@ -13,7 +13,9 @@ public static class PackageProcess
     private const int PreservePackageTree = 2;
     private const uint ExtendedStartupInfoPresent = 0x00080000;
 
-    public static bool RelaunchIfNeeded()
+    /// <param name="extra">Arguments the relaunched process needs that its command line does not carry,
+    /// such as how this one was activated.</param>
+    public static bool RelaunchIfNeeded(params string[] extra)
     {
         uint length = 0;
         var identity = GetCurrentPackageFullName(ref length, 0);
@@ -39,7 +41,7 @@ public static class PackageProcess
                 Info = new StartupInfo { Size = (uint)Marshal.SizeOf<StartupInfoEx>() },
                 Attributes = attributes,
             };
-            var command = new StringBuilder(Environment.CommandLine + " " + ContextArgument);
+            var command = new StringBuilder(Environment.CommandLine + " " + string.Join(" ", [.. extra, ContextArgument]));
             if (!CreateProcess(Environment.ProcessPath!, command, 0, 0, false, ExtendedStartupInfoPresent, 0, null, ref startup, out var process))
                 throw Error();
             CloseHandle(process.Thread);

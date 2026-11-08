@@ -78,6 +78,7 @@ def main(argv: list[str] | None = None) -> int:
     consent.add_argument("--automatic", choices=("on", "off"), required=True)
     consent.add_argument("--text", required=True)
     consent.add_argument("--language", required=True)
+    commands.add_parser("status").add_argument("--state", type=Path, required=True)
     check = commands.add_parser("check")
     check.add_argument("--state", type=Path, required=True)
     check.add_argument("--manual", action="store_true")
@@ -141,6 +142,16 @@ def main(argv: list[str] | None = None) -> int:
     if not path.is_file():
         print(json.dumps({"status": "unavailable", "reason": "This build carries no update identity."}))
         return 0
+    if args.action == "status":
+        from tracker.platform.windows_updates import status
+
+        try:
+            identity = read_identity(json.loads(path.read_text(encoding="utf-8")))
+        except (ValueError, ReleaseError):
+            print(json.dumps({"status": "unavailable", "reason": "This build's update identity is damaged."}))
+            return 1
+        print(json.dumps({"status": "ok", **status(args.state, identity, running_version())}))
+        return 0
     try:
         identity = read_identity(json.loads(path.read_text(encoding="utf-8")))
     except (ValueError, ReleaseError):
@@ -175,7 +186,11 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"status": "downloaded", "package": str(path), "offer": dataclasses.asdict(stored[0])}))
         return 0
     result = check_feed(args.state, identity, running_version(), manual=args.manual)
-    print(json.dumps({"status": result.status, "until": result.until,
+    from tracker.platform.windows_updates import status
+
+    kept = status(args.state, identity, running_version())
+    print(json.dumps({"status": result.status, "until": result.until, "checked_at": kept["checked_at"],
+                      "automatic": kept["automatic"],
                       "offer": dataclasses.asdict(result.offer) if result.offer else None}))
     return 0
 

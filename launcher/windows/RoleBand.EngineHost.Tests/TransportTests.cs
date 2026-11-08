@@ -106,6 +106,66 @@ public sealed class TransportTests
         Assert.IsFalse(wire.Any(line => line.StartsWith("Cookie:", StringComparison.OrdinalIgnoreCase)));
     }
 
+    /// <summary>A listener that answers one request with <paramref name="status"/> after <paramref name="delay"/>,
+    /// proving the reply as the engine would when <paramref name="proven"/>.</summary>
+    private static async Task<T> Scripted<T>(int status, bool proven, TimeSpan delay, Func<EngineClient, Task<T>> request)
+    {
+        var state = Path.Combine(Path.GetTempPath(), "roleband-transport-tests", Guid.NewGuid().ToString("N"));
+        PrivateStorage.EnsureDirectory(state);
+        PrivateStorage.EnsureDirectory(Path.Combine(state, "launcher"));
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        var secret = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
+        var instance = Guid.NewGuid().ToString("N");
+        File.WriteAllText(Path.Combine(state, "launcher", "http-engine.json"),
+            JsonSerializer.Serialize(new { format = 1, instance, secret, origin = $"http://{instance}.localhost:{port}" }));
+        var server = Task.Run(async () =>
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            using var peer = await listener.AcceptTcpClientAsync(timeout.Token);
+            using var stream = peer.GetStream();
+            using var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
+            var lines = new List<string>();
+            while (await reader.ReadLineAsync(timeout.Token) is { Length: > 0 } line) lines.Add(line);
+            await Task.Delay(delay, timeout.Token);
+            var authorization = lines.Single(line => line.StartsWith("Authorization: ", StringComparison.Ordinal))[15..];
+            const string content = "{\"status\":\"cancelled\"}";
+            var proof = Convert.ToHexStringLower(HMACSHA256.HashData(Convert.FromHexString(secret), Encoding.UTF8.GetBytes(
+                $"response-v1\n{authorization}\n{status}\n{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(content)))}")));
+            var header = proven ? $"X-RoleBand-Proof: {proof}\r\n" : "";
+            await stream.WriteAsync(Encoding.UTF8.GetBytes(
+                $"HTTP/1.1 {status} Status\r\nContent-Length: {content.Length}\r\n{header}Connection: close\r\n\r\n{content}"), timeout.Token);
+        });
+        using var client = new EngineClient(state);
+        try { return await request(client); }
+        finally { await server.ContinueWith(_ => { }); }
+    }
+
+    [TestMethod]
+    public async Task OnlyTheEngineItselfCanDeclineAChange()
+    {
+        await Assert.ThrowsExactlyAsync<EngineConflictException>(() => Scripted(409, true, TimeSpan.Zero,
+            client => client.RequestAsync(HttpMethod.Post, "/api/sync", "{}"u8.ToArray())));
+        var forged = await Assert.ThrowsAsync<IOException>(() => Scripted(409, false, TimeSpan.Zero,
+            client => client.RequestAsync(HttpMethod.Post, "/api/sync", "{}"u8.ToArray())));
+        Assert.IsNotInstanceOfType<EngineConflictException>(forged, "an unproven refusal is a foreign listener, not the engine");
+        var refused = await Assert.ThrowsAsync<IOException>(() => Scripted(422, true, TimeSpan.Zero,
+            client => client.RequestAsync(HttpMethod.Put, "/api/schedule/plan?tz=UTC", "{}"u8.ToArray())));
+        Assert.IsNotInstanceOfType<EngineConflictException>(refused);
+    }
+
+    [TestMethod]
+    public async Task AChangeWaitsLongerForItsAnswerThanARead()
+    {
+        var delay = TimeSpan.FromSeconds(4);
+        await Assert.ThrowsAsync<OperationCanceledException>(() => Scripted(200, true, delay,
+            client => client.RequestAsync(HttpMethod.Get, "/api/status")));
+        using var answer = await Scripted(200, true, delay,
+            client => client.RequestAsync(HttpMethod.Post, "/api/sync/cancel", "{}"u8.ToArray(), timeout: ScanControl.MutationTimeout));
+        Assert.AreEqual("cancelled", answer.RootElement.GetProperty("status").GetString());
+    }
+
     [TestMethod]
     public void StorageRejectsForeignAclWithoutRepairingItAndLeaseIsExclusive()
     {

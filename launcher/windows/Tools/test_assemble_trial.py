@@ -91,6 +91,17 @@ class PackageProvenanceTests(unittest.TestCase):
     def test_an_unchanged_bundle_passes_the_provenance_check(self):
         self.assertNotIn("Assemble it again", self.package())
 
+    def test_a_bundle_packaged_before_can_be_packaged_again(self):
+        # A previous run left its manifest, assets and resource index, and recorded their hashes;
+        # this run rebuilds all three, so their old contents are not provenance.
+        (self.bundle / "Assets").mkdir()
+        for name in ("AppxManifest.xml", "resources.pri", "Assets/StoreLogo.png"):
+            (self.bundle / name).write_bytes(b"previous run")
+        self.record()
+        (self.bundle / "resources.pri").write_bytes(b"index of other assets")
+        (self.bundle / "AppxManifest.xml").unlink()
+        self.assertNotIn("Assemble it again", self.package())
+
     def test_an_edited_file_is_refused(self):
         (self.bundle / "Resources/engine/module.py").write_text("VALUE = 2\n")
         self.assertIn(r"Resources\engine\module.py was edited", self.package())

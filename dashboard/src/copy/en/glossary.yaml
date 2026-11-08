@@ -31,7 +31,7 @@ allowed:
   phrases: ["Apple Intelligence", "Opportunity radar", "your opportunity radar", "requisition ID",
     "Vector Databases"]   # the brand line; a skill employers name (vocab.ftl)
 
-proper_nouns: [RoleBand, Applications, Finder, AI, LinkedIn, macOS, Apple, Google, Stripe, English, Spanish, Chinese, Mac, Radar]
+proper_nouns: [RoleBand, Windows, Applications, Finder, AI, LinkedIn, macOS, Apple, Google, Stripe, English, Spanish, Chinese, Mac, Radar]
 
 mechanics:
   # No em-dash, anywhere. An ellipsis is one character.

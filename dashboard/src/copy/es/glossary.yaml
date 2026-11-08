@@ -7,7 +7,7 @@ retired: []
 register:
   formal: false
   forbidden: [usted, ustedes]
-proper_nouns: [RoleBand, IA, LinkedIn, macOS, Apple, Google, Stripe]
+proper_nouns: [RoleBand, Windows, IA, LinkedIn, macOS, Apple, Google, Stripe]
 mechanics:
   # Regla del propietario: nunca la raya larga. Los puntos suspensivos son un carácter.
   forbid: ["—", "..."]

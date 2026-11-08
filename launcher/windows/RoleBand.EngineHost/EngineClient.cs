@@ -8,8 +8,20 @@ using System.Text.RegularExpressions;
 
 namespace RoleBand.EngineHost;
 
-public sealed class EngineClient : IDisposable
+/// <summary>Authenticated requests to the running engine; tests stand in for it.</summary>
+public interface IEngineRequests
 {
+    /// <param name="timeout">How long the whole request may take; reads default to three seconds.</param>
+    Task<JsonDocument> RequestAsync(HttpMethod method, string target, byte[]? body = null,
+                                    CancellationToken cancellation = default, TimeSpan? timeout = null);
+}
+
+/// <summary>The engine authenticated itself and declined the request with 409: the state it was asked to change moved.</summary>
+public sealed class EngineConflictException() : IOException("The engine declined the request.");
+
+public sealed class EngineClient : IEngineRequests, IDisposable
+{
+    private static readonly TimeSpan ReadTimeout = TimeSpan.FromSeconds(3);
     private const int MaximumBody = 16 * 1024 * 1024;
     private readonly byte[] secret;
     private readonly HttpClient http;
@@ -44,7 +56,8 @@ public sealed class EngineClient : IDisposable
             }
             catch { socket.Dispose(); throw; }
         };
-        http = new HttpClient(handler) { BaseAddress = Origin, Timeout = TimeSpan.FromSeconds(3) };
+        // Each request carries its own deadline: a stop waits for the run to end before it answers.
+        http = new HttpClient(handler) { BaseAddress = Origin, Timeout = Timeout.InfiniteTimeSpan };
     }
 
     public static string Sign(ReadOnlySpan<byte> key, string keyId, string stamp, string nonce,
@@ -55,7 +68,8 @@ public sealed class EngineClient : IDisposable
         return Convert.ToHexStringLower(HMACSHA256.HashData(key, Encoding.UTF8.GetBytes(message)));
     }
 
-    public async Task<JsonDocument> RequestAsync(HttpMethod method, string target, byte[]? body = null, CancellationToken cancellation = default)
+    public async Task<JsonDocument> RequestAsync(HttpMethod method, string target, byte[]? body = null,
+                                                 CancellationToken cancellation = default, TimeSpan? timeout = null)
     {
         if (!target.StartsWith('/') || target.StartsWith("//", StringComparison.Ordinal) || target.Contains('\r') || target.Contains('\n'))
             throw new IOException("Engine target must be origin-relative.");
@@ -73,7 +87,7 @@ public sealed class EngineClient : IDisposable
         request.Content = new ByteArrayContent(payload);
         request.Content.Headers.ContentType = new("application/json");
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
-        deadline.CancelAfter(http.Timeout);
+        deadline.CancelAfter(timeout ?? ReadTimeout);
         cancellation = deadline.Token;
         using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellation);
         using var stream = await response.Content.ReadAsStreamAsync(cancellation);
@@ -92,6 +106,7 @@ public sealed class EngineClient : IDisposable
         if (proof.Length != 1 || !Regex.IsMatch(proof[0], "\\A[0-9a-f]{64}\\z")
             || !CryptographicOperations.FixedTimeEquals(expected, Convert.FromHexString(proof[0])))
             throw new IOException("The listener did not authenticate as this engine.");
+        if (response.StatusCode == HttpStatusCode.Conflict) throw new EngineConflictException();
         if (!response.IsSuccessStatusCode) throw new IOException($"Authenticated engine request refused ({(int)response.StatusCode}).");
         return JsonDocument.Parse(content);
     }

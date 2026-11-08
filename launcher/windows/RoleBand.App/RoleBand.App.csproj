@@ -12,13 +12,17 @@
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <SelfContained>true</SelfContained>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>RoleBand.ico</ApplicationIcon>
     <PublishTrimmed>false</PublishTrimmed>
     <EnableMsixTooling>false</EnableMsixTooling>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.6.5" />
     <ProjectReference Include="../RoleBand.EngineHost/RoleBand.EngineHost.csproj" />
-    <EmbeddedResource Include="../Assets/Square44x44Logo.png" LogicalName="RoleBand.TrayIcon.png" />
+    <EmbeddedResource Include="Tray/*.ico" LogicalName="RoleBand.Tray.%(Filename)%(Extension)" />
+    <Content Include="RoleBand.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../Assets/Square44x44Logo.targetsize-64_altform-unplated.png" Link="Assets/AppMark.png"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
   <Target Name="PublishNativeResources" AfterTargets="Publish">
     <ItemGroup>

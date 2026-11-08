@@ -1,51 +1,65 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
+using RoleBand.EngineHost;
 
 namespace RoleBand.App;
 
 /// <summary>
-/// The notification-area icon, on the window's own message loop. Version-4 notifications
-/// deliver a click or Enter as select and a right click or Shift+F10 as the context menu,
-/// so the icon works from the keyboard as well as the mouse.
+/// The notification-area icon, on a window's own message loop. Version-4 notifications deliver a click or
+/// Enter as select, with the icon's anchor point, a double-click as itself, and a right click or Shift+F10
+/// as the context menu, so the icon works from the keyboard as well as the mouse.
 /// </summary>
 internal sealed class TrayIcon : IDisposable
 {
-    public sealed record Item(int Command, string Text, bool Enabled);
-
     private const uint Callback = 0x8000 + 1;
     private const uint IconId = 1;
     private const uint Add = 0, Modify = 1, Delete = 2, SetVersion = 4;
     private const uint MessageFlag = 0x1, IconFlag = 0x2, TipFlag = 0x4, ShowTipFlag = 0x80;
-    private const int Select = 0x400, KeySelect = 0x401, ContextMenu = 0x7B;
+    private const int Select = 0x400, KeySelect = 0x401, ContextMenu = 0x7B, DoubleClick = 0x203;
+    private const uint SettingChange = 0x001A, DisplayChange = 0x007E, DpiChanged = 0x02E0;
     private readonly nint window;
     private readonly SubclassProcedure procedure;
     private readonly uint taskbarCreated;
-    private readonly nint icon;
-    private readonly Func<IReadOnlyList<Item?>> items;
+    private readonly Func<IReadOnlyList<MenuEntry>> menu;
+    private nint icon;
+    private TrayBadge badge = TrayBadge.None;
     private string tooltip = "RoleBand";
+    private long lastKeySelect;
     private bool disposed;
 
-    public event Action? Opened;
-    public event Action<int>? Chosen;
+    /// <summary>A click or Enter, with the point Windows anchors the icon at, in physical pixels.</summary>
+    public event Action<int, int>? Selected;
+    public event Action? DoubleClicked;
+    public event Action<MenuCommand>? Chosen;
 
-    /// <param name="items">The menu, read when it opens; null draws a separator.</param>
-    public TrayIcon(nint window, byte[] png, Func<IReadOnlyList<Item?>> items)
+    /// <param name="menu">The menu, read when it opens.</param>
+    public TrayIcon(nint window, Func<IReadOnlyList<MenuEntry>> menu)
     {
         this.window = window;
-        this.items = items;
-        var size = GetSystemMetrics(49);
-        icon = CreateIconFromResourceEx(png, png.Length, true, 0x00030000, size, size, 0);
-        if (icon == 0) throw new Win32Exception(Marshal.GetLastWin32Error());
+        this.menu = menu;
+        icon = LoadIcon(badge);
         procedure = Procedure;
         if (!SetWindowSubclass(window, procedure, 1, 0)) throw new Win32Exception(Marshal.GetLastWin32Error());
         taskbarCreated = RegisterWindowMessage("TaskbarCreated");
         Register();
     }
 
-    public void SetTooltip(string text)
+    public void Show(TrayBadge state, string text)
     {
-        tooltip = text;
-        var data = Data(TipFlag | ShowTipFlag);
+        var flags = 0u;
+        if (state != badge)
+        {
+            badge = state;
+            Replace();
+            flags |= IconFlag;
+        }
+        if (text != tooltip)
+        {
+            tooltip = text;
+            flags |= TipFlag | ShowTipFlag;
+        }
+        if (flags == 0) return;
+        var data = Data(flags);
         Shell_NotifyIcon(Modify, ref data);
     }
 
@@ -55,6 +69,14 @@ internal sealed class TrayIcon : IDisposable
         if (!Shell_NotifyIcon(Add, ref data)) throw new Win32Exception("The notification-area icon could not be added.");
         data.Version = 4;
         Shell_NotifyIcon(SetVersion, ref data);
+    }
+
+    /// <summary>Draws the icon again for the taskbar's theme and scale, which can change while the app runs.</summary>
+    private void Replace()
+    {
+        var previous = icon;
+        icon = LoadIcon(badge);
+        if (previous != 0) DestroyIcon(previous);
     }
 
     private NotifyIconData Data(uint flags) => new()
@@ -67,42 +89,107 @@ internal sealed class TrayIcon : IDisposable
     {
         if (message == Callback)
         {
+            var x = (short)(wParam.ToInt64() & 0xFFFF);
+            var y = (short)((wParam.ToInt64() >> 16) & 0xFFFF);
             switch ((int)(lParam.ToInt64() & 0xFFFF))
             {
-                case Select or KeySelect:
-                    Opened?.Invoke();
+                case Select:
+                    Selected?.Invoke(x, y);
+                    break;
+                case KeySelect:
+                    // The shell reports one press of Enter or Space as two key selects.
+                    var now = Environment.TickCount64;
+                    if (now - lastKeySelect > 300) Selected?.Invoke(x, y);
+                    lastKeySelect = now;
+                    break;
+                case DoubleClick:
+                    DoubleClicked?.Invoke();
                     break;
                 case ContextMenu:
-                    ShowMenu((short)(wParam.ToInt64() & 0xFFFF), (short)((wParam.ToInt64() >> 16) & 0xFFFF));
+                    ShowMenu(x, y);
                     break;
             }
             return 0;
         }
-        // Explorer restarted and forgot every icon.
-        if (message == taskbarCreated) Register();
+        if (message == taskbarCreated)
+        {
+            // Explorer restarted and forgot every icon.
+            Replace();
+            Register();
+        }
+        else if (message is SettingChange or DisplayChange or DpiChanged)
+        {
+            Replace();
+            var update = Data(IconFlag);
+            Shell_NotifyIcon(Modify, ref update);
+        }
         return DefSubclassProc(hwnd, message, wParam, lParam);
     }
 
     private void ShowMenu(int x, int y)
     {
-        var menu = CreatePopupMenu();
+        var root = Build(menu());
         try
         {
-            foreach (var item in items())
-            {
-                if (item is null) AppendMenu(menu, 0x800, 0, null);
-                else AppendMenu(menu, item.Enabled ? 0u : 0x1u, (nuint)item.Command, item.Text);
-            }
             // The menu closes when focus leaves it only if its owner is the foreground window.
             SetForegroundWindow(window);
-            var chosen = TrackPopupMenuEx(menu, 0x100 | 0x80 | 0x2, x, y, window, 0);
+            var chosen = TrackPopupMenuEx(root, 0x100 | 0x80 | 0x2, x, y, window, 0);
             PostMessage(window, 0, 0, 0);
-            if (chosen != 0) Chosen?.Invoke(chosen);
+            if (chosen != 0) Chosen?.Invoke((MenuCommand)chosen);
         }
         finally
         {
-            DestroyMenu(menu);
+            // Destroying the root destroys the submenus attached to it.
+            DestroyMenu(root);
         }
+    }
+
+    private static nint Build(IReadOnlyList<MenuEntry> entries)
+    {
+        var menu = CreatePopupMenu();
+        foreach (var entry in entries)
+        {
+            if (entry.IsSeparator) { AppendMenu(menu, 0x800, 0, null); continue; }
+            var check = entry.Checked ? 0x8u : 0u;
+            if (entry.Items is { } items) AppendMenu(menu, 0x10 | check, (nuint)Build(items), entry.Text);
+            else AppendMenu(menu, check, (nuint)(int)entry.Command!.Value, entry.Text);
+            if (entry.Default && entry.Command is { } command) SetMenuDefaultItem(menu, (uint)command, 0);
+        }
+        return menu;
+    }
+
+    /// <summary>The frame drawn for the notification area's size on the primary display, from the set for the
+    /// taskbar's theme. A contrast theme takes the set whose ink stands out on its window colour.</summary>
+    private static nint LoadIcon(TrayBadge state)
+    {
+        var name = TrayArt.Resource(state, LightTaskbar());
+        using var stream = typeof(TrayIcon).Assembly.GetManifestResourceStream(name)
+            ?? throw new IOException("The notification-area icon is missing.");
+        using var copy = new MemoryStream();
+        stream.CopyTo(copy);
+        var size = GetSystemMetricsForDpi(49, PrimaryDpi());
+        var (bytes, frame) = TrayArt.Frame(copy.ToArray(), size);
+        var handle = CreateIconFromResourceEx(bytes, bytes.Length, true, 0x00030000, frame, frame, 0);
+        if (handle == 0) throw new Win32Exception(Marshal.GetLastWin32Error());
+        return handle;
+    }
+
+    private static bool LightTaskbar()
+    {
+        var contrast = new HighContrast { Size = (uint)Marshal.SizeOf<HighContrast>() };
+        if (SystemParametersInfo(0x0042, contrast.Size, ref contrast, 0) && (contrast.Flags & 0x1) != 0)
+        {
+            var window = GetSysColor(5);
+            return (window & 0xFF) * 299 + ((window >> 8) & 0xFF) * 587 + ((window >> 16) & 0xFF) * 114 > 128_000;
+        }
+        using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+        return key?.GetValue("SystemUsesLightTheme") is int light && light != 0;
+    }
+
+    private static uint PrimaryDpi()
+    {
+        var monitor = MonitorFromPoint(new ScreenPoint(), 1);
+        return GetDpiForMonitor(monitor, 0, out var dpi, out _) == 0 ? dpi : 96;
     }
 
     public void Dispose()
@@ -137,6 +224,9 @@ internal sealed class TrayIcon : IDisposable
         public nint BalloonIcon;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct HighContrast { public uint Size; public uint Flags; public nint Scheme; }
+
     [DllImport("shell32.dll", CharSet = CharSet.Unicode, EntryPoint = "Shell_NotifyIconW")]
     private static extern bool Shell_NotifyIcon(uint message, ref NotifyIconData data);
     [DllImport("comctl32.dll", SetLastError = true)]
@@ -152,11 +242,23 @@ internal sealed class TrayIcon : IDisposable
     [DllImport("user32.dll")]
     private static extern bool DestroyIcon(nint icon);
     [DllImport("user32.dll")]
-    private static extern int GetSystemMetrics(int index);
+    private static extern int GetSystemMetricsForDpi(int index, uint dpi);
+    [DllImport("user32.dll")]
+    private static extern uint GetSysColor(int index);
+    [DllImport("user32.dll", EntryPoint = "SystemParametersInfoW")]
+    private static extern bool SystemParametersInfo(uint action, uint parameter, ref HighContrast value, uint flags);
+    [DllImport("user32.dll")]
+    private static extern nint MonitorFromPoint(ScreenPoint point, uint flags);
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ScreenPoint { public int X, Y; }
+    [DllImport("shcore.dll")]
+    private static extern int GetDpiForMonitor(nint monitor, int type, out uint x, out uint y);
     [DllImport("user32.dll")]
     private static extern nint CreatePopupMenu();
     [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "AppendMenuW")]
     private static extern bool AppendMenu(nint menu, uint flags, nuint id, string? text);
+    [DllImport("user32.dll")]
+    private static extern bool SetMenuDefaultItem(nint menu, uint item, uint byPosition);
     [DllImport("user32.dll")]
     private static extern int TrackPopupMenuEx(nint menu, uint flags, int x, int y, nint window, nint parameters);
     [DllImport("user32.dll")]

@@ -7,7 +7,9 @@ using System.Text.Json;
 namespace RoleBand.EngineHost;
 
 public enum EngineState { Stopped, Starting, Preparing, Ready, Recovering, Stopping, Attention }
-public sealed record EngineSnapshot(EngineState State, string? Diagnostic = null, int? ProcessId = null);
+/// <param name="Preparation">The engine's last account of its first preparation, kept through a failure so it can say which part failed.</param>
+public sealed record EngineSnapshot(EngineState State, string? Diagnostic = null, int? ProcessId = null,
+                                   EnginePreparation? Preparation = null);
 
 /// <summary>How long the session waits and how often it restarts. Tests shorten these.</summary>
 public sealed record EngineSessionOptions(
@@ -38,6 +40,7 @@ public sealed class EngineSession : IAsyncDisposable
     private CancellationTokenSource? stopping;
     private Task? monitor;
     private EngineSnapshot snapshot = new(EngineState.Stopped);
+    private EnginePreparation? preparation;
     public EngineSnapshot Snapshot => Volatile.Read(ref snapshot);
     public bool OwnsEngine => lease is not null;
     /// <summary>The last start ended because the engine could not prepare its database.</summary>
@@ -53,7 +56,7 @@ public sealed class EngineSession : IAsyncDisposable
 
     private void Publish(EngineState state, string? diagnostic = null)
     {
-        var next = new EngineSnapshot(state, diagnostic, process is { HasExited: false } ? process.Id : null);
+        var next = new EngineSnapshot(state, diagnostic, process is { HasExited: false } ? process.Id : null, preparation);
         Volatile.Write(ref snapshot, next);
         Changed?.Invoke(next);
     }
@@ -65,6 +68,7 @@ public sealed class EngineSession : IAsyncDisposable
         {
             if (OwnsEngine) return;
             PreparationFailed = false;
+            preparation = null;
             lease = PrivateStorage.Lease(configuration.State, "desktop.lock");
             PrivateStorage.EnsureDirectory(Path.Combine(configuration.State, "logs"));
             RecoveryGuard.RequireLaunchable(configuration.State);
@@ -188,16 +192,15 @@ public sealed class EngineSession : IAsyncDisposable
                         || identity.GetProperty("version").GetString() != configuration.Version
                         || identity.GetProperty("api_origin").GetString() != client.Origin.GetLeftPart(UriPartial.Authority))
                         throw new IOException("The authenticated engine identity does not match this app.");
-                    var preparation = root.GetProperty("preparation");
-                    if (preparation.ValueKind == JsonValueKind.Null
-                        || (preparation.GetProperty("database").GetString() == "ready" && preparation.GetProperty("service").GetString() == "ready"))
+                    preparation = EnginePreparation.Read(root.GetProperty("preparation"));
+                    if (preparation is null || preparation.Ready)
                     {
                         wasReady = true;
                         failures = 0;
                         lastFailure = null;
                         Publish(EngineState.Ready);
                     }
-                    else if (preparation.GetProperty("database").GetString() == "failed" || preparation.GetProperty("service").GetString() == "failed")
+                    else if (preparation.Failed)
                     {
                         return Outcome.PreparationFailed;
                     }
@@ -306,11 +309,17 @@ public sealed class EngineSession : IAsyncDisposable
         finally { operations.Release(); }
     }
 
-    public async Task<Uri> BrowserUriAsync()
+    public async Task<Uri> BrowserUriAsync(BrowserRoute route = BrowserRoute.Radar)
+    {
+        using var client = Connect();
+        return ScanPanel.Route(await client.BrowserUriAsync(), route);
+    }
+
+    /// <summary>An authenticated connection to the engine this session runs; the caller disposes it.</summary>
+    public EngineClient Connect()
     {
         if (Snapshot.State != EngineState.Ready) throw new IOException("The engine is not ready.");
-        using var client = new EngineClient(configuration.State);
-        return await client.BrowserUriAsync();
+        return new EngineClient(configuration.State);
     }
 
     public async ValueTask DisposeAsync()

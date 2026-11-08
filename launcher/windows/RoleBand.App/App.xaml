@@ -6,7 +6,51 @@
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
         <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+        <ResourceDictionary>
+          <!-- Gold is RoleBand's one primary action, so the accent button is gold everywhere; Windows' own
+               controls keep the system accent. High contrast keeps the system's colours. -->
+          <ResourceDictionary.ThemeDictionaries>
+            <ResourceDictionary x:Key="Light">
+              <SolidColorBrush x:Key="AccentButtonBackground" Color="#6A5C16" />
+              <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="#7C6C22" />
+              <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="#5E5113" />
+              <SolidColorBrush x:Key="AccentButtonForeground" Color="#FFFFFF" />
+              <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="#FFFFFF" />
+              <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="#F2EEDC" />
+              <SolidColorBrush x:Key="RoleBandGold" Color="#6A5C16" />
+            </ResourceDictionary>
+            <ResourceDictionary x:Key="Default">
+              <SolidColorBrush x:Key="AccentButtonBackground" Color="#DBCB90" />
+              <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="#E8DCAC" />
+              <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="#C9B977" />
+              <SolidColorBrush x:Key="AccentButtonForeground" Color="#1A1705" />
+              <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="#1A1705" />
+              <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="#1A1705" />
+              <SolidColorBrush x:Key="RoleBandGold" Color="#DBCB90" />
+            </ResourceDictionary>
+            <ResourceDictionary x:Key="HighContrast">
+              <SolidColorBrush x:Key="AccentButtonBackground" Color="{ThemeResource SystemColorHighlightColor}" />
+              <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="{ThemeResource SystemColorHighlightColor}" />
+              <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="{ThemeResource SystemColorHighlightColor}" />
+              <SolidColorBrush x:Key="AccentButtonForeground" Color="{ThemeResource SystemColorHighlightTextColor}" />
+              <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="{ThemeResource SystemColorHighlightTextColor}" />
+              <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="{ThemeResource SystemColorHighlightTextColor}" />
+              <SolidColorBrush x:Key="RoleBandGold" Color="{ThemeResource SystemColorHighlightColor}" />
+            </ResourceDictionary>
+          </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
       </ResourceDictionary.MergedDictionaries>
+      <!-- A settings row that opens something: the whole card is the target. -->
+      <Style x:Key="SettingsCardButton" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Padding" Value="16,12" />
+        <Setter Property="Margin" Value="0,0,0,4" />
+        <Setter Property="MinHeight" Value="64" />
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+      </Style>
     </ResourceDictionary>
   </Application.Resources>
 </Application>

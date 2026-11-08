@@ -45,11 +45,13 @@ public sealed class TrayTests
             var copy = new NativeCopy(language);
             foreach (var state in Enum.GetValues<EngineState>())
             {
-                var tip = TrayModel.Tooltip(copy, new EngineSnapshot(state));
+                var tip = Companion.Tip(copy[TrayModel.For(new EngineSnapshot(state)).StatusKey]);
                 Assert.IsTrue(tip.StartsWith("RoleBand: ", StringComparison.Ordinal), tip);
                 Assert.IsFalse(tip.Contains('\n'), tip);
-                Assert.IsLessThanOrEqualTo(127, tip.Length, tip);
             }
         }
+        var longest = Companion.Tip(new string('x', 200) + "\n" + new string('y', 10));
+        Assert.AreEqual((127, '…'), (longest.Length, longest[^1]), "the shell keeps 127 characters; the cut is marked");
+        Assert.AreEqual("RoleBand: two lines", Companion.Tip("two\nlines"));
     }
 }

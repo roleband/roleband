@@ -410,6 +410,45 @@ launcher-first-later-help = 准备工作会继续。
 
 launcher-first-busy = 正在准备…
 
+launcher-windows-welcome-body = 此电脑负责扫描，你的雷达在浏览器中打开。
+    首次设置只需几分钟。
+launcher-windows-prepare = 准备此电脑
+launcher-windows-prepared-title = 此电脑已准备就绪
+launcher-windows-prepared-body = 扫描所需的内容已在此电脑上就绪。
+launcher-windows-login-approval = 已在 Windows 设置的启动应用中关闭。
+launcher-windows-login-managed = 此设置由你的组织管理。
+launcher-windows-login-settings = 打开启动应用
+launcher-windows-settings-note = 你可以随时在设置中更改这些选项。
+launcher-windows-tray-hint = 通知区域中的雷达会显示正在进行的扫描，并可随时打开你的雷达。
+launcher-windows-later-help = 准备工作会继续。
+    你可以从通知区域返回此处完成剩余设置。
+launcher-windows-on-pc = 此电脑
+launcher-windows-updates-unavailable = 此副本不会自动更新
+launcher-windows-roles-so-far = 目前已找到 { $count } 个职位
+launcher-windows-reading = 正在读取 { $companies }
+launcher-windows-and-more = { $names } 及另外 { $count } 家
+launcher-windows-last-scan-today = 上次扫描：今天 { $time }
+launcher-windows-last-scan-on = 上次扫描：{ $date } { $time }
+launcher-windows-paused-body = 计划扫描会等待。仍可立即扫描。
+launcher-windows-details = 详细信息
+launcher-windows-restart-scanning = 重新开始扫描
+launcher-windows-quit = 退出 RoleBand
+launcher-windows-settings-title = RoleBand 设置
+launcher-windows-open-logs = 打开日志
+launcher-windows-last-lines = 引擎最后的输出
+launcher-windows-check-updates = 检查更新
+launcher-windows-login-toggle = 随 Windows 启动
+launcher-windows-history = 你的扫描记录
+launcher-windows-history-kept = { $path } · 卸载后仍会保留
+launcher-windows-open-folder = 打开文件夹
+launcher-windows-step = 第 { $step } 步，共 { $total } 步
+launcher-windows-login-choice = 选择是否随 Windows 启动
+launcher-windows-login-body = 登录 Windows 时，扫描可在后台开始。
+    不会打开浏览器窗口。
+launcher-windows-tray-title = 让雷达留在时钟旁
+launcher-windows-tray-body = Windows 会把新图标隐藏在 ^ 后面。在“其他系统托盘图标”中打开雷达，即可看到每次扫描的进度。
+launcher-windows-taskbar-settings = 任务栏设置
+
 # kind=label
 launcher-panel-scan = 扫描
 # kind=label

@@ -76,6 +76,7 @@ public sealed class EngineTrialTests
         var browser = await session.BrowserUriAsync();
         Assert.IsTrue(browser.Host.EndsWith(".localhost", StringComparison.Ordinal));
         Assert.IsTrue(browser.Fragment.StartsWith("#roleband=", StringComparison.Ordinal));
+        await ExerciseScanTab(session);
         await session.StopAsync();
         Assert.IsFalse(File.Exists(Path.Combine(state, "db", "postmaster.pid")));
         Assert.IsTrue(File.Exists(Path.Combine(state, "db", "PG_VERSION")));
@@ -110,6 +111,37 @@ public sealed class EngineTrialTests
         using var recovered = new EngineClient(state);
         using var afterCrash = await recovered.RequestAsync(HttpMethod.Get, "/api/jobs?limit=20");
         Assert.AreEqual(total, afterCrash.RootElement.GetProperty("total").GetInt32());
+    }
+
+    /// <summary>The Scan tab against the engine itself: its status reply, a pause and resume through the
+    /// schedule plan, and a handoff that opens New. Scan now is left out: it would read real job boards.</summary>
+    private static async Task ExerciseScanTab(EngineSession session)
+    {
+        using var client = session.Connect();
+        var status = await ScanStatus.ReadAsync(client);
+        Assert.IsNotNull(status.Queue, "the engine reports its scan queue");
+        Assert.IsNotNull(status.Picture, "the engine sends its scan picture");
+        var plan = status.Picture.Schedule ?? throw new AssertFailedException("The engine does not say how scans start.");
+        foreach (var language in new[] { "en", "es", "zh-Hans" })
+            _ = ScanPanel.View(new NativeCopy(language), session.Snapshot, status, null, DateTimeOffset.UtcNow);
+        Assert.IsTrue(plan.Pausable, "the synthetic engine scans on the schedule plan");
+        Assert.IsFalse(plan.IsPaused(DateTimeOffset.UtcNow));
+        var zone = ScanControl.LocalTimezone();
+        var paused = await ScanControl.PauseAsync(client, PauseAction.Hour, zone, () => DateTimeOffset.UtcNow);
+        var seen = (await ScanStatus.ReadAsync(client)).Picture?.Schedule;
+        Assert.AreEqual(paused.PausedUntil, seen?.PausedUntil, "the status reports the pause the schedule took");
+        Assert.AreEqual(PauseControl.Resume,
+            ScanPanel.View(new NativeCopy("en"), session.Snapshot, await ScanStatus.ReadAsync(client), null, DateTimeOffset.UtcNow).Pause);
+        await Assert.ThrowsExactlyAsync<ControlStateChangedException>(
+            () => ScanControl.PauseAsync(client, PauseAction.Tomorrow, zone, () => DateTimeOffset.UtcNow));
+        Assert.IsNull((await ScanControl.PauseAsync(client, PauseAction.Resume, zone, () => DateTimeOffset.UtcNow)).PausedUntil);
+        Assert.IsNull((await ScanStatus.ReadAsync(client)).Picture?.Schedule?.PausedUntil);
+        // A zone the engine cannot read is refused, never stored.
+        await Assert.ThrowsExactlyAsync<IOException>(
+            () => ScanControl.PauseAsync(client, PauseAction.Hour, "Nowhere/Atlantis", () => DateTimeOffset.UtcNow));
+        var newRoles = await session.BrowserUriAsync(BrowserRoute.NewRoles);
+        Assert.AreEqual("/?lens=new", newRoles.PathAndQuery);
+        Assert.IsTrue(newRoles.Fragment.StartsWith("#roleband=", StringComparison.Ordinal));
     }
 
     private static string ReadLog(string state)

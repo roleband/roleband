@@ -42,15 +42,41 @@ stand-in drives `UpdateCoordinator` with recording package-manager and command s
 an update is journaled only after the engine stopped, a refused journal never switches the
 package, a switch Windows refuses is resumed as never happened, and the new version settles
 the update by its preparation; the real package switch needs an installed trial. Build the actual
-window with `dotnet build launcher/windows/RoleBand.App -p:Platform=x64` and
-check Start, Open, Stop and window closing on Windows: with the notification-area icon,
-closing hides the panel and the process stays until Quit. `TrayTests` hold every engine
-state to a name in all three languages, Open Radar to Ready and the tooltip to the shell's limit. Check generated native
+app with `dotnet build launcher/windows/RoleBand.App -p:Platform=x64` and
+check on Windows: the icon's flyout opens by the icon and closes on a second click, Esc or a click
+elsewhere; the right-click menu's bold default, pause and Quit; Settings and setup; Quit stops the
+engine. `TrayTests` hold every engine state to a name in all three languages, Open Radar to Ready
+and the tooltip to the shell's limit. `CompanionTests` drive the flyout, the icon's badge and the
+menu with status replies in the engine's schema: the summary for a scan, rest, a pause, a hold, an
+engine on its way and a stopped engine; the menu's order, its one bold default, a pause as a checked
+item that can only be lifted, and items left out rather than greyed; the default command; and words
+in all three languages. `TrayArtTests` hold the notification-area icon to one file per state and
+taskbar theme, each frame taken at the size it was drawn for, and the flyout's place against a
+taskbar on any edge, an auto-hidden one and a second display. The icon files come from
+`launcher/windows/Tools/make_icons.py`, which draws `icons.py` with an installed Edge or Chrome;
+`test_icons.py` holds every asset to its size, each tray frame to its own drawing and every badge to
+a real cut-out.
+`ScanTests` drive the scan model with status replies in the engine's schema: which press
+each scan queue allows, the picture against the status card, the gold place, the new-roles link,
+the schedule line, words for every state in all three languages, and Scan now and Pause refusing a
+state that moved without sending a change. `EngineTrialTests` read a real engine's status, pause and
+resume its schedule and open New through a browser handoff; Scan now is left to a manual check,
+because it reads real job boards. `SetupTests` hold first open to its rules: nothing runs before
+Welcome's Continue, an existing database never waits there, Get ready waits for the database and
+service but not the model, the start-with-Windows choice registers only on a change or on leaving
+the last step and stays when Windows refuses, the last step completes only with an engine that
+answers, there are three steps, and every page has Windows words in all three languages. The startup task itself needs an installed package; a source run reports it
+unavailable. `AboutTests` hold the update row to a check the feed answered, a failure or rate limit
+to Couldn't check with Check now still offered, the choice to its pinned English words, and Start
+with Windows to Windows' own state; they also run the engine's own `update consent`, `status` and `check`
+on a throwaway folder, where a source build has no release identity and asks nothing of the feed.
+Check generated native
 copy with `node dashboard/scripts/export-launcher-copy.mjs --windows --check`.
 Packaging tool changes run `python -m unittest discover -s launcher/windows/Tools -p "test_*.py"`:
 assembly refuses tracked edits, untracked files and ignored files in the engine
 sources, and `Package-Trial.ps1` refuses a bundle edited, extended or trimmed after
-assembly. MSIX packing alone does not prove installation, retention or package recovery.
+assembly and can package the same bundle again. Its `resources.pri` step, which lets Windows find
+the sized icons and keeps the app's own resources, is checked by dumping the file with `makepri`. MSIX packing alone does not prove installation, retention or package recovery.
 
 `launcher/windows/Tools/PackageContextProbe` exercises the native package-policy
 bootstrap against installed trial resources. Build it with `dotnet build`, then

@@ -119,6 +119,26 @@ public sealed class UpdateCoordinator(IUpdateCommands commands, IPackageDeployer
     public Task<JsonElement> CheckAsync(bool manual, CancellationToken cancellation = default) =>
         commands.RunAsync(manual ? ["check", "--manual"] : ["check"], cancellation);
 
+    /// <summary>Where updates stand, from what earlier checks kept; no request is made.</summary>
+    public async Task<UpdateFacts> StatusAsync(CancellationToken cancellation = default) =>
+        UpdateFacts.Read(await commands.RunAsync(["status"], cancellation));
+
+    /// <returns>What the check found, and its status: up-to-date, offered, failed, rate-limited, not-allowed, throttled or unavailable.</returns>
+    public async Task<(UpdateFacts Facts, string Status)> CheckNowAsync(bool manual, CancellationToken cancellation = default)
+    {
+        var reply = await CheckAsync(manual, cancellation);
+        return (UpdateFacts.Read(reply), reply.GetProperty("status").GetString() ?? "");
+    }
+
+    /// <summary>Records the automatic-check choice with the words shown and their language.</summary>
+    public async Task ConsentAsync(bool automatic, string text, string language, CancellationToken cancellation = default)
+    {
+        var reply = await commands.RunAsync(
+            ["consent", "--automatic", automatic ? "on" : "off", "--text", text, "--language", language], cancellation);
+        if (!reply.TryGetProperty("recorded", out var recorded) || recorded.ValueKind != JsonValueKind.True)
+            throw new IOException(Reason(reply) ?? "The update choice was not recorded.");
+    }
+
     public Task<JsonElement> DownloadAsync(CancellationToken cancellation = default) =>
         commands.RunAsync(["download"], cancellation);
 

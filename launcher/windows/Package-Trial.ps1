@@ -14,7 +14,7 @@ if ($null -eq $trial.dirty_paths -or @($trial.dirty_paths).Count -ne 0) { throw 
 $recorded = Get-Content -Raw -LiteralPath (Join-Path $bundlePath 'trial-hashes.json') | ConvertFrom-Json
 $expected = @{}
 $recorded.PSObject.Properties | ForEach-Object { $expected[$_.Name] = $_.Value }
-$packaging = @('trial-hashes.json', 'AppxManifest.xml')
+$packaging = @('trial-hashes.json', 'AppxManifest.xml', 'resources.pri')
 Get-ChildItem -LiteralPath $bundlePath -File -Recurse | ForEach-Object {
     $relative = $_.FullName.Substring($bundlePath.Length+1)
     if ($packaging -contains $relative -or $relative.StartsWith('Assets\')) { return }
@@ -24,10 +24,11 @@ Get-ChildItem -LiteralPath $bundlePath -File -Recurse | ForEach-Object {
     }
     $expected.Remove($relative)
 }
-$missing = @($expected.Keys | Where-Object { $_ -ne 'AppxManifest.xml' -and !$_.StartsWith('Assets\') })
+$missing = @($expected.Keys | Where-Object { $packaging -notcontains $_ -and !$_.StartsWith('Assets\') })
 if ($missing.Count) { throw "The bundle changed after assembly: $($missing[0]) was removed. Assemble it again." }
 $makeappx = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10/bin/10.0.26100.0/x64/makeappx.exe'
-if (!(Test-Path -LiteralPath $makeappx)) { throw 'Windows SDK 10.0.26100.0 packaging tools are required.' }
+$makepri = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10/bin/10.0.26100.0/x64/makepri.exe'
+if (!(Test-Path -LiteralPath $makeappx) -or !(Test-Path -LiteralPath $makepri)) { throw 'Windows SDK 10.0.26100.0 packaging tools are required.' }
 & (Join-Path $bundlePath 'Resources/runtime/python.exe') -I -B (Join-Path $PSScriptRoot 'Tools/pe_certificates.py') $bundlePath
 if ($LASTEXITCODE -ne 0) { throw 'A PE certificate table is invalid. Package signing would fail.' }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'AppxManifest.xml') -Destination (Join-Path $bundlePath 'AppxManifest.xml')
@@ -44,6 +45,47 @@ $assetDestination = Join-Path $bundlePath 'Assets'
 New-Item -ItemType Directory -Force $assetDestination | Out-Null
 Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'Assets') -File | ForEach-Object {
     Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $assetDestination $_.Name)
+}
+# Windows finds the qualified logo files (targetsize, scale, altform) only through resources.pri
+# at the package root. MRT Core loads that file before RoleBand.App.pri, so it must also hold
+# everything RoleBand.App.pri does: the app's XAML (.xbf) and the Windows App SDK's resources.
+# The index covers Assets and that file only; Resources holds a whole Python runtime.
+$appPri = Join-Path $bundlePath 'RoleBand.App.pri'
+if (!(Test-Path -LiteralPath $appPri)) { throw 'The bundle has no RoleBand.App.pri to merge into resources.pri.' }
+$priWork = Join-Path ([IO.Path]::GetTempPath()) ('roleband-pri-' + [guid]::NewGuid().ToString('N'))
+$priRoot = Join-Path $priWork 'root'
+New-Item -ItemType Directory -Force $priRoot | Out-Null
+try {
+    Copy-Item -LiteralPath $assetDestination -Destination (Join-Path $priRoot 'Assets') -Recurse
+    Copy-Item -LiteralPath $appPri -Destination $priRoot
+    $priConfig = Join-Path $priWork 'priconfig.xml'
+    Set-Content -LiteralPath $priConfig -Encoding UTF8 -Value @'
+<?xml version="1.0" encoding="utf-8"?>
+<resources targetOsVersion="10.0.0" majorVersion="1">
+  <index root="\" startIndexAt="\">
+    <default>
+      <qualifier name="Language" value="en-US" />
+      <qualifier name="Contrast" value="standard" />
+      <qualifier name="Scale" value="100" />
+      <qualifier name="HomeRegion" value="001" />
+      <qualifier name="TargetSize" value="256" />
+      <qualifier name="LayoutDirection" value="LTR" />
+      <qualifier name="Theme" value="dark" />
+      <qualifier name="AlternateForm" value="" />
+      <qualifier name="DXFeatureLevel" value="DX9" />
+      <qualifier name="Configuration" value="" />
+      <qualifier name="DeviceFamily" value="Universal" />
+      <qualifier name="Custom" value="" />
+    </default>
+    <indexer-config type="folder" foldernameAsQualifier="true" filenameAsQualifier="true" qualifierDelimiter="." />
+    <indexer-config type="PRI" />
+  </index>
+</resources>
+'@
+    $priLog = & $makepri new /pr $priRoot /cf $priConfig /mn (Join-Path $bundlePath 'AppxManifest.xml') /of (Join-Path $bundlePath 'resources.pri') /o
+    if ($LASTEXITCODE -ne 0) { $priLog | Write-Host; throw 'Building resources.pri failed.' }
+} finally {
+    Remove-Item -LiteralPath $priWork -Recurse -Force -ErrorAction SilentlyContinue
 }
 $hashes = [ordered]@{}
 Get-ChildItem -LiteralPath $bundlePath -File -Recurse | Where-Object {$_.FullName -ne (Join-Path $bundlePath 'trial-hashes.json')} | ForEach-Object {

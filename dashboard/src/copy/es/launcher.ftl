@@ -410,6 +410,45 @@ launcher-first-later-help = La preparación continúa.
 
 launcher-first-busy = Preparando…
 
+launcher-windows-welcome-body = Este PC realiza los escaneos y tu Radar se abre en el navegador.
+    La configuración solo lleva unos minutos, una vez.
+launcher-windows-prepare = Preparar este PC
+launcher-windows-prepared-title = Este PC está listo
+launcher-windows-prepared-body = Este PC tiene todo lo necesario para los escaneos.
+launcher-windows-login-approval = Desactivado en Aplicaciones de inicio, en Configuración de Windows.
+launcher-windows-login-managed = Tu organización administra este ajuste.
+launcher-windows-login-settings = Abrir configuración
+launcher-windows-settings-note = Puedes cambiarlas cuando quieras en Ajustes.
+launcher-windows-tray-hint = El radar del área de notificación muestra cada escaneo en curso y te permite abrir tu Radar cuando quieras.
+launcher-windows-later-help = La preparación continúa.
+    Puedes retomar el resto aquí desde el área de notificación.
+launcher-windows-on-pc = En este PC
+launcher-windows-updates-unavailable = Esta copia no se actualiza sola
+launcher-windows-roles-so-far = { $count } puestos encontrados hasta ahora
+launcher-windows-reading = Leyendo { $companies }
+launcher-windows-and-more = { $names } y { $count } más
+launcher-windows-last-scan-today = Último escaneo hoy a las { $time }
+launcher-windows-last-scan-on = Último escaneo el { $date } a las { $time }
+launcher-windows-paused-body = Los escaneos programados esperan. Escanear ahora sigue funcionando.
+launcher-windows-details = Detalles
+launcher-windows-restart-scanning = Reiniciar escaneos
+launcher-windows-quit = Salir de RoleBand
+launcher-windows-settings-title = Ajustes de RoleBand
+launcher-windows-open-logs = Abrir registros
+launcher-windows-last-lines = Últimas líneas del motor
+launcher-windows-check-updates = Buscar actualizaciones
+launcher-windows-login-toggle = Iniciar con Windows
+launcher-windows-history = Tu historial de escaneos
+launcher-windows-history-kept = { $path } · se conserva si desinstalas
+launcher-windows-open-folder = Abrir carpeta
+launcher-windows-step = Paso { $step } de { $total }
+launcher-windows-login-choice = Elegir si se inicia con Windows
+launcher-windows-login-body = Los escaneos pueden empezar en segundo plano al iniciar sesión en Windows.
+    No se abre ninguna ventana del navegador.
+launcher-windows-tray-title = Mantén el radar junto al reloj
+launcher-windows-tray-body = Windows oculta los iconos nuevos tras ^. Activa el radar en Otros iconos de la bandeja del sistema para ver cada escaneo en curso.
+launcher-windows-taskbar-settings = Abrir configuración
+
 # kind=label
 launcher-panel-scan = Escaneo
 # kind=label

@@ -1,0 +1,146 @@
+<Window
+    x:Class="RoleBand.App.SettingsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- Settings: a problem first when there is one, then updates, this PC, the browser's settings and About. -->
+  <ScrollViewer x:Name="Root" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+    <StackPanel Padding="40,16,40,28" Spacing="4" MaxWidth="1000">
+      <TextBlock x:Name="Heading" FontSize="28" FontWeight="SemiBold" Margin="0,0,0,16"
+                 AutomationProperties.HeadingLevel="Level1" AutomationProperties.AutomationId="SettingsHeading" />
+
+      <InfoBar x:Name="ProblemBar" IsClosable="False" IsOpen="False" Severity="Error" AutomationProperties.AutomationId="SettingsProblem">
+        <InfoBar.Content>
+          <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,12">
+            <Button x:Name="RestartButton" Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="SettingsRestart" />
+            <Button x:Name="UndoButton" Visibility="Collapsed" AutomationProperties.AutomationId="UndoUpdate" />
+            <Button x:Name="ProblemLogsButton" AutomationProperties.AutomationId="ProblemLogs" />
+          </StackPanel>
+        </InfoBar.Content>
+      </InfoBar>
+      <Expander x:Name="LastLines" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Visibility="Collapsed"
+                AutomationProperties.AutomationId="EngineLastLines">
+        <ScrollViewer MaxHeight="240" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+          <TextBlock x:Name="LastLinesText" IsTextSelectionEnabled="True" TextWrapping="Wrap" FontFamily="Consolas" FontSize="12" />
+        </ScrollViewer>
+      </Expander>
+
+      <!-- Updates, shaped like Windows Update: where updates stand, the check, and the automatic choice. -->
+      <Border Margin="0,12,0,0" CornerRadius="4" BorderThickness="1"
+              Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+        <StackPanel>
+          <Grid Padding="16" ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Image x:Name="AppMark" Width="40" Height="40" VerticalAlignment="Center" AutomationProperties.AccessibilityView="Raw" />
+            <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+              <TextBlock x:Name="UpdateTitle" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap"
+                         AutomationProperties.AutomationId="UpdateStatus" AutomationProperties.LiveSetting="Polite" />
+              <TextBlock x:Name="UpdateCaption" FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                         AutomationProperties.AutomationId="UpdateCaption" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+              <ProgressRing x:Name="UpdateBusy" Width="16" Height="16" IsActive="False" Visibility="Collapsed" />
+              <Button x:Name="CheckButton" AutomationProperties.AutomationId="CheckNow" />
+            </StackPanel>
+          </Grid>
+          <Rectangle x:Name="AutomaticDivider" Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+          <Grid x:Name="AutomaticRow" Padding="72,12,16,12" ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Spacing="2" VerticalAlignment="Center">
+              <TextBlock x:Name="AutomaticTitle" />
+              <TextBlock x:Name="AutomaticCaption" FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+            <ToggleSwitch x:Name="AutomaticSwitch" Grid.Column="1" MinWidth="0" AutomationProperties.AutomationId="AutomaticChecks" />
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <TextBlock x:Name="OnPcLabel" Margin="0,24,0,6" FontWeight="SemiBold" AutomationProperties.HeadingLevel="Level2" />
+      <Border x:Name="LoginCard" Padding="16,12" CornerRadius="4" BorderThickness="1"
+              Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+        <Grid ColumnSpacing="16">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <FontIcon Glyph="&#xE7E8;" FontSize="20" VerticalAlignment="Center" />
+          <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+            <TextBlock x:Name="LoginTitle" />
+            <TextBlock x:Name="LoginCaption" FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       AutomationProperties.AutomationId="LoginCaption" />
+            <HyperlinkButton x:Name="StartupAppsLink" Padding="0,2" Visibility="Collapsed" AutomationProperties.AutomationId="StartupAppsLink" />
+          </StackPanel>
+          <ToggleSwitch x:Name="LoginSwitch" Grid.Column="2" MinWidth="0" AutomationProperties.AutomationId="LoginSwitch" />
+        </Grid>
+      </Border>
+
+      <TextBlock x:Name="InBrowserLabel" Margin="0,24,0,6" FontWeight="SemiBold" AutomationProperties.HeadingLevel="Level2" />
+      <Button x:Name="ScanTimesCard" Style="{StaticResource SettingsCardButton}" AutomationProperties.AutomationId="ScanTimesLink">
+        <Grid ColumnSpacing="16">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <FontIcon Glyph="&#xE823;" FontSize="20" VerticalAlignment="Center" />
+          <StackPanel Grid.Column="1" Spacing="2">
+            <TextBlock x:Name="ScanTimesTitle" />
+            <TextBlock x:Name="ScanTimesCaption" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+          </StackPanel>
+          <FontIcon Grid.Column="2" Glyph="&#xE8A7;" FontSize="14" VerticalAlignment="Center" />
+        </Grid>
+      </Button>
+      <Button x:Name="AllSettingsCard" Style="{StaticResource SettingsCardButton}" AutomationProperties.AutomationId="AllSettingsLink">
+        <Grid ColumnSpacing="16">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <FontIcon Glyph="&#xE713;" FontSize="20" VerticalAlignment="Center" />
+          <StackPanel Grid.Column="1" Spacing="2">
+            <TextBlock x:Name="AllSettingsTitle" />
+            <TextBlock x:Name="AllSettingsCaption" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+          </StackPanel>
+          <FontIcon Grid.Column="2" Glyph="&#xE8A7;" FontSize="14" VerticalAlignment="Center" />
+        </Grid>
+      </Button>
+
+      <TextBlock x:Name="AboutLabel" Margin="0,24,0,6" FontWeight="SemiBold" AutomationProperties.HeadingLevel="Level2" />
+      <Border Padding="16,12" CornerRadius="4" BorderThickness="1"
+              Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+        <StackPanel Spacing="10">
+          <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <FontIcon Glyph="&#xE81C;" FontSize="20" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" Spacing="2">
+              <TextBlock x:Name="HistoryTitle" />
+              <TextBlock x:Name="HistoryCaption" FontSize="12" TextWrapping="Wrap" IsTextSelectionEnabled="True"
+                         Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="HistoryCaption" />
+            </StackPanel>
+            <Button x:Name="HistoryButton" Grid.Column="2" VerticalAlignment="Center" AutomationProperties.AutomationId="OpenHistory" />
+          </Grid>
+          <StackPanel Orientation="Horizontal" Spacing="16" Margin="36,0,0,0">
+            <TextBlock x:Name="VersionText" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       AutomationProperties.AutomationId="VersionText" />
+            <HyperlinkButton x:Name="LicencesLink" Visibility="Collapsed" AutomationProperties.AutomationId="Licences" />
+            <HyperlinkButton x:Name="LogsLink" AutomationProperties.AutomationId="OpenLogs" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+      <TextBlock x:Name="ErrorText" Margin="0,12,0,0" TextWrapping="Wrap" Visibility="Collapsed" AutomationProperties.LiveSetting="Assertive"
+                 Foreground="{ThemeResource SystemFillColorCriticalBrush}" AutomationProperties.AutomationId="SettingsError" />
+    </StackPanel>
+  </ScrollViewer>
+</Window>

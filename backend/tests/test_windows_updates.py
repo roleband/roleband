@@ -279,3 +279,48 @@ def test_a_build_without_an_update_identity_never_asks_the_feed(tmp_path):
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout)["status"] == "unavailable"
     assert not (state / windows_updates.CHECK).exists(), "no attempt was recorded, so no request was made"
+
+
+def test_only_a_check_the_feed_answered_counts_as_checked(state, identity, feed):
+    feed.listing_override = httpx.Response(500)
+    run(state, identity, feed, manual=True)
+    assert windows_updates.status(state, identity, "0.1.2")["checked_at"] is None, "a failed check is not a check"
+    feed.listing_override = None
+    feed.publish("0.1.2")
+    assert run(state, identity, feed, manual=True, now=NOW + 1).status == "up-to-date"
+    assert windows_updates.status(state, identity, "0.1.2")["checked_at"] == NOW + 1
+    feed.listing_override = httpx.Response(500)
+    run(state, identity, feed, manual=True, now=NOW + 2)
+    assert windows_updates.status(state, identity, "0.1.2")["checked_at"] == NOW + 1, "the last success stays"
+    feed.listing_override = None
+    feed.publish("0.1.3")
+    assert run(state, identity, feed, manual=True, now=NOW + 3).status == "offered"
+    assert run(state, identity, feed, manual=True, now=NOW + 4).status == "offered"
+    assert windows_updates.status(state, identity, "0.1.2")["checked_at"] == NOW + 4
+
+
+def test_status_reads_what_checks_kept_without_asking_the_feed(state, identity, feed):
+    assert windows_updates.status(state, identity, "0.1.2") == {
+        "automatic": False, "checked_at": None, "offer": None, "rate_limited_until": None}
+    allow(state, True)
+    feed.publish("0.1.3")
+    run(state, identity, feed, manual=True)
+    asked = len(feed.requests)
+    kept = windows_updates.status(state, identity, "0.1.2")
+    assert (kept["automatic"], kept["offer"], kept["checked_at"]) == (True, "0.1.3", NOW)
+    assert windows_updates.status(state, identity, "0.1.3")["offer"] is None, "an installed offer is no offer"
+    feed.listing_override = httpx.Response(429, headers={"Retry-After": "120"})
+    run(state, identity, feed, manual=True, now=NOW + 1)
+    assert windows_updates.status(state, identity, "0.1.2")["rate_limited_until"] == NOW + 121
+    assert len(feed.requests) == asked + 1, "only the rate-limited check asked"
+
+
+@windows_only
+def test_a_build_without_an_update_identity_reports_its_status_as_unavailable(tmp_path):
+    from tracker.platform.windows_private import private_directory
+
+    state = tmp_path / "state"
+    private_directory(state)
+    result = _desktop(state, "status")
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)["status"] == "unavailable"

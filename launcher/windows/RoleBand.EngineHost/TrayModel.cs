@@ -19,10 +19,4 @@ public static class TrayModel
         _ => new("host-stopped", false, false),
     };
 
-    /// <summary>The icon's tooltip: product name and state, within the shell's 127-character limit.</summary>
-    public static string Tooltip(NativeCopy copy, EngineSnapshot snapshot)
-    {
-        var text = "RoleBand: " + copy[For(snapshot).StatusKey].Replace('\n', ' ');
-        return text.Length <= 127 ? text : text[..126] + "…";
-    }
 }

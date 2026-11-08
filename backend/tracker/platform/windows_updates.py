@@ -133,6 +133,18 @@ def stored_offer(state: Path, identity: Identity, installed: str) -> tuple[Offer
     return offer, (signed[0], signed[1], signed[2])
 
 
+def status(state: Path, identity: Identity, installed: str) -> dict[str, Any]:
+    """Where updates stand, from what earlier checks kept: no request is made."""
+    record = _load(state / CHECK) or {}
+    offer = _stored_offer(record, identity, installed)
+    checked = record.get("checked_at")
+    limited = record.get("rate_limited_until")
+    return {"automatic": automatic_allowed(state),
+            "checked_at": float(checked) if isinstance(checked, (int, float)) else None,
+            "offer": offer.version if offer else None,
+            "rate_limited_until": float(limited) if isinstance(limited, (int, float)) else None}
+
+
 def latest_url(feed: str) -> str:
     return f"https://api.github.com/repos/{feed}/releases/latest"
 
@@ -247,9 +259,14 @@ def check(state: Path, identity: Identity, installed: str, *, manual: bool, now:
         with httpx.Client(transport=transport, follow_redirects=False, trust_env=False, timeout=timeout,
                           headers={"User-Agent": USER_AGENT, "Accept-Encoding": "identity"}) as client:
             version = _latest(client, identity.feed, now)
+            # A check counts as done only once the feed answered with a release this build can read.
             if stable_version(version) <= stable_version(installed):
+                record["checked_at"] = now
+                _save(state / CHECK, record)
                 return Result("up-to-date", offer)
             if offer is not None and stable_version(offer.version) >= stable_version(version):
+                record["checked_at"] = now
+                _save(state / CHECK, record)
                 return Result("offered", offer)
             _package, checksum_name, metadata_name, signature_name = names(version)
             checksum = _asset(client, identity.feed, version, checksum_name, CHECKSUM_LIMIT, now)
@@ -264,5 +281,6 @@ def check(state: Path, identity: Identity, installed: str, *, manual: bool, now:
         return Result("failed", offer)
     record["offer"] = {"checksum": base64.b64encode(checksum).decode(), "metadata": base64.b64encode(metadata).decode(),
                        "signature": base64.b64encode(signature).decode()}
+    record["checked_at"] = now
     _save(state / CHECK, record)
     return Result("offered", offer)
