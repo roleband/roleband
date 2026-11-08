@@ -51,7 +51,7 @@ ai-assistants-card-off-nothing-leaves-this-computer = { $choice ->
     [yes] se envía a las apps que conectes · tu propia cuenta
    *[no] desactivado · nada sale de este ordenador
 }
-ai-assistants-card-clipboard-access-was-blocked-select = Se bloqueó el acceso al portapapeles. Selecciona el texto y cópialo a mano.
+ai-assistants-card-clipboard-access-was-blocked-select = No se pudo copiar. Selecciona el texto y cópialo tú.
 ai-assistants-card-copy = { $choice ->
     [yes] Copiado
    *[no] Copiar
@@ -349,11 +349,11 @@ ai-origin-this-mac = En este Mac: servidor de modelos local
 ai-origin-cloud = Enviado a un proveedor en la nube
 ai-self-test-prefiltered = No se encontró ninguna compensación en el texto, así que no se llamó al modelo; es lo que se hace con la mayoría de las { -posting(num: "other") }.
 ai-self-test-model-failed = El modelo no devolvió una respuesta útil ({ $failure }).
-ai-local-test-max-tokens = El modelo alcanzó max_tokens antes de completar su respuesta.
+ai-local-test-max-tokens = La respuesta se cortó en Tokens máximos. Auméntalo y vuelve a probar.
 ai-local-test-succeeded = La detección del modelo y la respuesta de chat funcionaron.
 ai-local-server-action-failed = { $action ->
-    [start] No se pudo iniciar oMLX.
-   *[stop] No se pudo detener oMLX.
+    [start] No se pudo iniciar el servidor de modelos. Inténtalo de nuevo.
+   *[stop] No se pudo detener el servidor de modelos. Inténtalo de nuevo.
 }
 
 ## El estado del servidor local cuando responde

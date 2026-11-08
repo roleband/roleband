@@ -993,7 +993,7 @@ describe("CompaniesSection — tracking", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Add company" }));
 
     const alert = await within(dialog).findByRole("alert");
-    expect(alert).toHaveTextContent(`Couldn't add that company. ${msg("error-careers-page-unreachable")}`);
+    expect(alert).toHaveTextContent(`${msg("companies-add-more-companies-couldn-t-add-that-company")} ${msg("error-careers-page-unreachable")}`);
     expect(alert).not.toHaveTextContent("did not answer");
     expect(within(dialog).getByLabelText("Company name")).toHaveValue("ObscureCo");
     expect(within(dialog).getByLabelText("Careers page link")).toHaveValue("https://jobs.lever.co/obscureco");
@@ -1005,6 +1005,25 @@ describe("CompaniesSection — tracking", () => {
       expect(screen.queryByRole("dialog", { name: "Add a company by link" })).not.toBeInTheDocument(),
     );
     expect(api.addCompany).toHaveBeenCalledTimes(2);
+  });
+
+  it("says to try again when nothing explains why an add failed", async () => {
+    vi.mocked(api.addCompany).mockRejectedValueOnce(new Error("socket hang up"));
+    renderSection();
+
+    const addMore = await screen.findByRole("region", { name: "Add more companies" });
+    fireEvent.click(within(addMore).getByRole("button", { name: "Add by link" }));
+    const dialog = screen.getByRole("dialog", { name: "Add a company by link" });
+    fireEvent.change(within(dialog).getByLabelText("Careers page link"), {
+      target: { value: "https://jobs.lever.co/obscureco" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add company" }));
+
+    const alert = await within(dialog).findByRole("alert");
+    expect(alert.textContent).toBe(
+      `${msg("companies-add-more-companies-couldn-t-add-that-company")} ${msg("companies-add-more-companies-try-again")}`,
+    );
+    expect(alert).not.toHaveTextContent("socket");
   });
 });
 

@@ -35,7 +35,7 @@ companies-add-more-companies-daily-check-note = { $scan ->
 }
 companies-add-more-companies-hiring-for-you = contratan para ti
 companies-add-more-companies-quiet-today = sin novedades hoy
-companies-add-more-companies-couldn-t-add-that-company = No se pudo añadir esa empresa. { $caught }
+companies-add-more-companies-couldn-t-add-that-company = No se pudo añadir esa empresa.
 companies-add-more-companies-try-again = Inténtalo de nuevo.
 companies-add-more-companies-add-by-link-dialog = Añadir una empresa por enlace
 companies-add-more-companies-acme = Acme
@@ -183,7 +183,7 @@ companies-company-register-rows-scan-now-hint = { $scan ->
 }
 companies-company-register-rows-scan-joined = { $display } es la siguiente en el escaneo en curso.
 companies-company-register-rows-scanning = Escaneando { $display }…
-companies-company-register-rows-couldn-t-start-a-scan = No se pudo iniciar un escaneo de { $display }.
+companies-company-register-rows-couldn-t-start-a-scan = No se pudo iniciar un escaneo de { $display }. Inténtalo de nuevo.
 companies-company-register-rows-followed = { $followed }/{ $total } seguidas
 companies-company-register-rows-covered-count = { $coverage ->
     [none] ninguna cubierta
@@ -266,7 +266,7 @@ companies-register-chrome-rescanning-companies = { $count ->
     [many] Volviendo a escanear { $count } de empresas…
    *[other] Volviendo a escanear { $count } empresas…
 }
-companies-register-chrome-couldn-t-start-that-rescan = No se pudo iniciar ese nuevo escaneo.
+companies-register-chrome-couldn-t-start-that-rescan = No se pudo iniciar el nuevo escaneo. Inténtalo de nuevo.
 companies-register-chrome-search-companies = Buscar empresas
 companies-register-chrome-find-a-company-alias-or = Busca una empresa, alias o sector
 companies-register-chrome-a-search-shows-planned-companies = La búsqueda también muestra empresas previstas

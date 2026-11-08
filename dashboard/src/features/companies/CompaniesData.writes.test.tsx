@@ -302,15 +302,18 @@ describe("the register's visibility queue", () => {
     expect(screen.getByTestId("error")).toHaveTextContent("");
   });
 
-  it("reports a failure that nothing follows", async () => {
+  it("ends a failure that nothing explains with the next step", async () => {
     await mount();
 
     await click("Hide Google");
     await server.fail(0, new Error("visibility write exploded"));
 
-    // A failure that explains nothing says the sentence alone, never its English.
+    // Nothing explains it, so the sentence names the row and says to try again,
+    // never the error's English.
     await waitFor(() =>
-      expect(screen.getByTestId("error")).toHaveTextContent("Couldn't hide Google from your radar."),
+      expect(screen.getByTestId("error").textContent).toBe(
+        `${msg("companies-data-visibility-failed", { visibility: "hidden", company: "Google" })} ${msg("companies-add-more-companies-try-again")}`,
+      ),
     );
     expect(screen.getByTestId("error")).not.toHaveTextContent("exploded");
     expect(screen.getByTestId("busy")).toHaveTextContent("");
@@ -570,8 +573,9 @@ describe("a write failure", () => {
     await click("Hide Google");
     await server.fail(0, new ApiError("'google' is already tracked", 409, "company-conflict"));
 
-    await waitFor(() => expect(screen.getByTestId("error")).toHaveTextContent(
-      `Couldn't hide Google from your radar. ${msg("error-company-conflict")}`,
+    // The why carries its own next step, so the fallback is not added after it.
+    await waitFor(() => expect(screen.getByTestId("error").textContent).toBe(
+      `${msg("companies-data-visibility-failed", { visibility: "hidden", company: "Google" })} ${msg("error-company-conflict")}`,
     ));
     expect(screen.getByTestId("error")).not.toHaveTextContent("already tracked");
   });

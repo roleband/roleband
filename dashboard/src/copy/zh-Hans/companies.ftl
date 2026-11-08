@@ -35,7 +35,7 @@ companies-add-more-companies-daily-check-note = { $scan ->
 }
 companies-add-more-companies-hiring-for-you = 正在为你招聘
 companies-add-more-companies-quiet-today = 今日无动静
-companies-add-more-companies-couldn-t-add-that-company = 无法添加该公司。{ $caught }
+companies-add-more-companies-couldn-t-add-that-company = 无法添加该公司。
 companies-add-more-companies-try-again = 请重试。
 companies-add-more-companies-add-by-link-dialog = 通过链接添加公司
 companies-add-more-companies-acme = Acme
@@ -163,7 +163,7 @@ companies-company-register-rows-scan-now-hint = { $scan ->
 }
 companies-company-register-rows-scan-joined = 正在进行的扫描接下来读取 { $display }。
 companies-company-register-rows-scanning = 正在扫描 { $display }…
-companies-company-register-rows-couldn-t-start-a-scan = 无法开始扫描 { $display }。
+companies-company-register-rows-couldn-t-start-a-scan = 无法开始扫描 { $display }。请重试。
 companies-company-register-rows-followed = 已关注 { $followed }/{ $total }
 companies-company-register-rows-covered-count = { $coverage ->
     [none] 均未覆盖
@@ -228,7 +228,7 @@ companies-register-chrome-a-scan-is-already-running = 已有扫描在进行
 companies-register-chrome-rescanning-companies = { $count ->
    *[other] 正在重新扫描 { $count } 家公司…
 }
-companies-register-chrome-couldn-t-start-that-rescan = 无法开始重新扫描。
+companies-register-chrome-couldn-t-start-that-rescan = 无法开始重新扫描。请重试。
 companies-register-chrome-search-companies = 搜索公司
 companies-register-chrome-find-a-company-alias-or = 查找公司、别名或行业
 companies-register-chrome-a-search-shows-planned-companies = 搜索结果也会显示计划中的公司

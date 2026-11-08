@@ -62,6 +62,7 @@ import {
 import {
   companiesDataChangeUndone,
   companiesDataCompanyAddedToYourRoster,
+  companiesAddMoreCompaniesTryAgain,
   companiesDataCouldnTUndoThatChange,
   companiesDataUndo,
   companiesDataUnfollowed,
@@ -116,11 +117,11 @@ export interface WriteFailure {
 }
 
 /** The subject sentence always, then why, when the failure's code says why
- *  (api/errorText.ts). The server's English is never shown. */
-const failureText = (sentence: string, caught: unknown) => {
-  const why = errorText(caught, "");
-  return why ? `${sentence} ${why}` : sentence;
-};
+ *  (api/errorText.ts), or the next step when nothing explains it. Each why
+ *  ends in its own next step, so the two never both appear. The server's
+ *  English is never shown. */
+const failureText = (sentence: string, caught: unknown) =>
+  `${sentence} ${errorText(caught, companiesAddMoreCompaniesTryAgain())}`;
 
 /** One roster write: what it intends, what it touches, and what it says in
  *  either outcome. An options object because the failure half doubled the
