@@ -49,9 +49,9 @@ public sealed partial class SettingsWindow : Window
         ProblemLogsButton.Content = copy["windows-open-logs"];
         LastLines.Header = copy["windows-last-lines"];
         CheckButton.Content = copy["windows-check-updates"];
-        AutomaticTitle.Text = copy["panel-check-automatically"];
+        AutomaticTitle.Text = AboutPanel.AutomaticLabel;
         AutomaticCaption.Text = copy["panel-check-automatically-caption"];
-        AutomationProperties.SetName(AutomaticSwitch, copy["panel-check-automatically"]);
+        AutomationProperties.SetName(AutomaticSwitch, AboutPanel.AutomaticLabel);
         OnPcLabel.Text = copy["windows-on-pc"];
         LoginTitle.Text = copy["windows-login-toggle"];
         AutomationProperties.SetName(LoginSwitch, copy["windows-login-toggle"]);

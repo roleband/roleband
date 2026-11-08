@@ -67,6 +67,7 @@ public sealed class AboutTests
         Assert.AreEqual("Check for updates automatically", AboutPanel.ConsentText());
         Assert.AreEqual("en", AboutPanel.ConsentLanguage);
         foreach (var language in Languages) Assert.AreEqual(AboutPanel.ConsentText(), new NativeCopy(language)[AboutPanel.ConsentKey]);
+        Assert.AreEqual(AboutPanel.ConsentText(), AboutPanel.AutomaticLabel, "the switch shows the words its choice records");
     }
 
     [TestMethod]

@@ -138,25 +138,27 @@ Pause scans with its durations in a submenu, Settings, and Quit RoleBand last. A
 Pause scans checked, whose submenu offers Resume scans alone, since a pause can only be lifted.
 Items that don't apply are left out, never greyed: a stopped engine's menu is Settings (bold),
 Restart scanning and Quit; before the engine first answers it is Settings and Quit; before setup
-finishes it leads with Finish setup. The default command, run by the bold item, a double-click and
-a second start, is setup while setup is unfinished, Settings while scanning has stopped, and
-otherwise the Radar, which an engine still starting opens once it answers. A launch from Start, before
-the engine has started, opens the Radar once it answers, or Settings if it stops with a reason; a
-launch by the startup task opens quietly.
+finishes it leads with Finish setup. The default command, run by the bold item, a double-click and a
+second start, is setup while setup is unfinished, Settings while scanning has stopped, and otherwise
+the Radar, which an engine still starting opens once it answers. A launch from Start, before the
+engine has started, opens the Radar once it answers, or Settings if it stops with a reason; a launch
+by the startup task opens quietly.
 
 **Settings.** A resizable Mica window, from the gear, the menu or Details. A problem leads when
 there is one: Scanning has stopped with Restart, Open logs folder and the engine's last lines, or an
 update the previous run could not finish with Undo the update; such an update opens Settings by
-itself. Setup holding the engine at Welcome is not a stop, so it shows no problem and no Restart. Updates follow the rules at the top of this page in one card: the status as its title, the
-version and the last check the feed answered as its caption, Check for updates, and the automatic
-choice, which records its pinned English words with their language; it reads `update status`, which
-asks nothing of the network, and a build without a release identity says it doesn't update itself
-and offers neither. On this PC holds Start with Windows as Windows has it: a task turned off in
-Startup apps says so with a link there, one set by policy shows the policy's value and cannot be
-changed, and a copy without a package has no startup task and no row. In your browser opens Scan
-times and All settings. About names where the scan history is kept, that uninstalling keeps it, and
-opens it in File Explorer, with the version, the licence and the logs folder. The notices switch
-and the update banner come with Windows notifications and the update feed.
+itself. Setup holding the engine at Welcome is not a stop, so it shows no problem and no Restart.
+Updates follow the rules at the top of this page in one card: the status as its title, the version
+and the last check the feed answered as its caption, Check for updates, and the automatic choice,
+labelled with its pinned English words in every language and recording them with their language; it
+reads `update status`, which asks nothing of the network, and a build without a release identity
+says it doesn't update itself and offers neither. On this PC holds Start with Windows as Windows has
+it: a task turned off in Startup apps says so with a link there, one set by policy shows the
+policy's value and cannot be changed, and a copy without a package has no startup task and no row.
+In your browser opens Scan times and All settings. About names where the scan history is kept, that
+uninstalling keeps it, and opens it in File Explorer, with the version, the licence and the logs
+folder. The notices switch and the update banner come with Windows notifications and the update
+feed.
 
 **First open.** A small setup window of three steps, as Windows' own setup counts them, with Back
 on the left and the way forward on the right. Welcome holds the engine: nothing runs before

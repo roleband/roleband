@@ -47,6 +47,10 @@ public static class AboutPanel
 
     public static string ConsentText() => new NativeCopy(ConsentLanguage)[ConsentKey];
 
+    /// <summary>The automatic-check switch is labelled with the words its choice records, in every language: what the
+    /// person agreed to is what they read.</summary>
+    public static string AutomaticLabel => ConsentText();
+
     /// <param name="lastResult">The status of this session's last check, if any.</param>
     public static UpdateRow Updates(NativeCopy copy, UpdateFacts? facts, bool checking, string? lastResult, DateTimeOffset now)
     {
