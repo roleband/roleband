@@ -111,30 +111,10 @@ profile-scope-guide-progress-shows-how-many-of = Progress shows how many of the 
 profile-scope-guide-nothing-hidden-by-a-guess = Nothing hidden by a guess
 # kind=sentence
 profile-scope-guide-a-role-we-haven-t = A role not yet sorted into a world always stays on your radar.
-# kind=sentence wording=as-is
-profile-scope-guide-career-track-level-discipline-and = Career track, level, discipline, and location must all match before a role appears on your radar.
-# kind=label wording=as-is
-profile-scope-guide-opportunity-radar = Opportunity radar
-# kind=sentence wording=as-is
-profile-scope-guide-saving-applies-to-roles-already = Saving applies to roles already on your radar immediately. Newly included disciplines arrive after the next full scan.
 # kind=aria wording=as-is
 profile-scope-guide-how-your-radar-works-3 = How your radar works
 # kind=aria wording=as-is
 profile-scope-guide-close-guide = Close guide
-# kind=label wording=as-is
-profile-scope-guide-career-track = Career track
-# kind=label wording=as-is
-profile-scope-guide-how-you-contribute = How you contribute
-# kind=label wording=as-is
-profile-scope-guide-where-you-are-and-aim = Where you are and aim
-# kind=label wording=as-is
-profile-scope-guide-discipline = Discipline
-# kind=label wording=as-is
-profile-scope-guide-the-work-you-want = The work you want
-# kind=label wording=as-is
-profile-scope-guide-location = Location
-# kind=label wording=as-is
-profile-scope-guide-where-it-can-be-based = Where it can be based
 
 ## features/scope/ScopeSection.tsx
 # kind=label wording=as-is
@@ -464,11 +444,11 @@ profile-summary-step-counting-the-roles-in = Counting the roles in { $pendingPla
 profile-summary-step-save-to-count-the-roles = Save to count the roles in { $pendingPlaces }.
 # kind=label wording=as-is
 profile-summary-step-add-your-cv = Add your CV
-# kind=label same-as=profile-scope-guide-career-track
+# kind=label
 profile-summary-step-role = Career track
-# kind=label same-as=profile-scope-guide-location
+# kind=label
 profile-summary-step-where = Location
-# kind=label same-as=profile-scope-guide-discipline
+# kind=label
 profile-summary-step-which-roles = Discipline
 # kind=label
 profile-summary-step-interests = World
@@ -692,8 +672,8 @@ profile-walk-steps-the-kind-of-work-you = The kind of work you're accountable fo
 profile-walk-steps-your-level = Your level
 # kind=sentence wording=as-is
 profile-walk-steps-today-and-the-one-you = Today, and the one you're aiming for.
-# kind=label wording=as-is
-profile-walk-steps-where-you-are-today-up = Where you are today, up to where you're aiming
+# kind=label note="Under Level in the radar guide and the radar pyramid: the level range from the person's current level up to the one they aim for"
+profile-walk-steps-where-you-are-today-up = Current and target level
 # kind=tooltip wording=as-is
 profile-walk-steps-where-do-you-want-to = Where do you want to work?
 # kind=sentence wording=as-is

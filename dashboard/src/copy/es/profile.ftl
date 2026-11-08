@@ -68,18 +68,8 @@ profile-scope-guide-about-the-counts = Sobre los recuentos
 profile-scope-guide-progress-shows-how-many-of = El progreso muestra cuántos de los puestos de tus empresas conserva cada respuesta, según el último recuento. Hasta que se haga uno, indica Sin recuento aún, y Contar ahora inicia uno.
 profile-scope-guide-nothing-hidden-by-a-guess = Nada oculto por una suposición
 profile-scope-guide-a-role-we-haven-t = Un puesto que aún no está en ningún ámbito siempre se queda en tu radar.
-profile-scope-guide-career-track-level-discipline-and = La trayectoria, el nivel, la disciplina y la ubicación deben coincidir antes de que un puesto aparezca en tu radar.
-profile-scope-guide-opportunity-radar = Radar de oportunidades
-profile-scope-guide-saving-applies-to-roles-already = Al guardar, el cambio se aplica al momento a los puestos que ya están en tu radar. Las disciplinas recién incluidas llegan tras el próximo escaneo completo.
 profile-scope-guide-how-your-radar-works-3 = Cómo funciona tu radar
 profile-scope-guide-close-guide = Cerrar la guía
-profile-scope-guide-career-track = Trayectoria
-profile-scope-guide-how-you-contribute = Cómo contribuyes
-profile-scope-guide-where-you-are-and-aim = Dónde estás y adónde apuntas
-profile-scope-guide-discipline = Disciplina
-profile-scope-guide-the-work-you-want = El trabajo que quieres
-profile-scope-guide-location = Ubicación
-profile-scope-guide-where-it-can-be-based = Dónde puede estar
 
 ## features/scope/ScopeSection.tsx
 profile-scope-section-company-exclusions = Exclusiones por empresa
@@ -444,7 +434,7 @@ profile-walk-steps-pick-one-or-more = Elige uno o más.
 profile-walk-steps-the-kind-of-work-you = El tipo de trabajo del que eres responsable
 profile-walk-steps-your-level = Tu nivel
 profile-walk-steps-today-and-the-one-you = El actual y al que aspiras.
-profile-walk-steps-where-you-are-today-up = Desde donde estás hoy hasta donde aspiras
+profile-walk-steps-where-you-are-today-up = Nivel actual y objetivo
 profile-walk-steps-where-do-you-want-to = ¿Dónde quieres trabajar?
 profile-walk-steps-where-you-re-based-and = Dónde vives y hasta dónde irías por el puesto adecuado.
 profile-walk-steps-your-bases-and-how-far = Tus bases y hasta dónde irías

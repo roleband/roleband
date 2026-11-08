@@ -434,7 +434,7 @@ notif-closed = { $company } closed a role you saved
 # kind=notification
 notif-reposted = { $company } reposted a role you saved
 # kind=notification
-notif-listed-again = { $company } listed again a role you saved
+notif-listed-again = { $company } posted a role you saved again
 # kind=notification wording=as-is
 notif-listed = { $company } listed a role you saved
 # kind=notification

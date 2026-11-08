@@ -489,7 +489,12 @@ test("Details says what applying asks once the posting page has been read", asyn
   await page.reload();
   const details = detail(page).locator("dl.kv");
   await expect(details.getByText("To apply", { exact: true })).toBeVisible();
-  await expect(details.getByText("9 questions, 1 written answer, asks your expected compensation", { exact: true })).toBeVisible();
+  const asks = [
+    msg("role-apply-ask-questions", { count: 9 }),
+    msg("role-apply-ask-written-answers", { count: 1 }),
+    msg("role-apply-ask-asks-your-expected-pay"),
+  ].join(", ");
+  await expect(details.getByText(asks, { exact: true })).toBeVisible();
 });
 
 /* Opening a posting whose form is unread asks for it once,

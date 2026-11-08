@@ -248,7 +248,7 @@ notif-sources-more = { $names }，另外 { $more } 个
 notif-affected-none = 不限于某一家公司，请查看扫描备注
 notif-closed = { $company } 关闭了你保存的一个职位
 notif-reposted = { $company } 重新发布了你保存的一个职位
-notif-listed-again = { $company } 再次列出了你保存的一个职位
+notif-listed-again = { $company } 再次发布了你保存的一个职位
 notif-listed = { $company } 发布了你保存的一个职位
 notif-saved-elsewhere = { $places ->
    *[other] { $company } 仍在其他 { $places } 个地点发布你保存的一个职位

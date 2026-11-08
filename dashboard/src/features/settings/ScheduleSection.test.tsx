@@ -673,8 +673,15 @@ describe("ScheduleSection under the schedule plan", () => {
     }
     expect(within(legend).queryByText("Reconciliation orbit")).not.toBeInTheDocument();
 
-    expect(screen.getByText(/your computer is on 09:00 to 18:00 on weekdays and usually off at weekends/))
-      .toBeInTheDocument();
+    // The learned sentence is one part of a longer paragraph.
+    const learned = msg("settings-plan-learned-weekdays-weekends", {
+      days: 14,
+      weekdays: "set",
+      weekdayTimes: msg("settings-plan-to", { start: "09:00", end: "18:00" }),
+      weekends: "off",
+      weekendTimes: msg("settings-plan-usually-off"),
+    });
+    expect(screen.getByText(new RegExp(learned.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))).toBeInTheDocument();
     expect(screen.queryByText("Discovery cadence")).not.toBeInTheDocument();
   });
 

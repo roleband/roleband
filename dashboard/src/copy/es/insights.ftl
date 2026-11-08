@@ -248,7 +248,7 @@ insights-skills-view-ranked-here = ordenadas aquí
 insights-skills-view-expected = Esperadas
 insights-skills-view-of-every-role = de cualquier puesto
 insights-skills-view-any-company = Cualquier empresa
-insights-skills-view-what-expected-of-the-role = Qué significa lo que se espera del puesto
+insights-skills-view-what-expected-of-the-role = Qué significa «Lo que se espera del puesto»
 insights-skills-view-skills-order = { $view ->
     [narrowed] Habilidades, las más características primero
    *[market] Habilidades, las más mencionadas primero
@@ -402,7 +402,7 @@ insights-velocity-panel-more-already-listed-when-their = { $first_scan } más ya
 insights-velocity-panel-net-flow = Flujo neto
 insights-velocity-panel-opened-closed = nuevos − cerrados
 insights-velocity-panel-how-to-read-hiring-flow = Cómo leer el flujo de contratación
-insights-velocity-panel-what-time-posted-measures = Qué mide el tiempo publicado
+insights-velocity-panel-what-time-posted-measures = Qué mide «Tiempo publicado»
 
 ## features/statistics/ageCopy.ts
 insights-age-copy-listed-today = Publicado hoy
