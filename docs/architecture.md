@@ -201,6 +201,10 @@ owns the release files and checks. An update is journaled before the package swi
 and settled by the version that runs next; [decision 0010](decisions/0010-windows-update-journal.md)
 owns the phases and what each entry point refuses.
 
+The Windows app ships as one signed MSIX per release;
+[decision 0011](decisions/0011-windows-msix-packaging.md) owns what the package and
+Windows own and what RoleBand's own records must carry.
+
 ## The Mac app
 
 ### Packaged engine
