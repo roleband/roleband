@@ -118,7 +118,9 @@ async def test_a_second_supervisor_never_dispatches_while_the_first_holds_the_da
     one = asyncio.create_task(serve(first, db_session.bind, stop, idle_seconds=0.1))
     await _eventually(lambda: asyncio.sleep(0, result=first.ticks >= 1))
     two = asyncio.create_task(serve(second, db_session.bind, stop, idle_seconds=0.1, lock_retry_seconds=0.1))
+    # The second asks for the lock several times; the first keeps dispatching, however slow the machine.
     await asyncio.sleep(0.6)
+    await _eventually(lambda: asyncio.sleep(0, result=first.ticks >= 2))
     stop.set()
     await asyncio.gather(one, two)
 

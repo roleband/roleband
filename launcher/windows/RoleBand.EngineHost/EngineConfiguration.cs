@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
+using Microsoft.Win32.SafeHandles;
 using System.Text.Json;
 
 namespace RoleBand.EngineHost;
@@ -58,10 +60,43 @@ public sealed record EngineConfiguration(string Resources, string State, string 
 
     private static string ValidateState(string resources, string state)
     {
-        if (Within(state, resources) || InstalledDataRoots().Any(root => Within(state, root)))
+        if (LeadsInto(state, resources) || InstalledDataRoots().Any(root => LeadsInto(state, root)))
             throw new IOException("Engine state must be separate from resources and installed RoleBand data.");
         return state;
     }
+
+    /// <summary>Whether a path is <paramref name="root"/> or inside it, by where each really leads: a junction or
+    /// link on the way is followed, so it cannot lead an engine into installed data under another name.</summary>
+    public static bool LeadsInto(string path, string root) => Within(FinalPath(path), FinalPath(root));
+
+    /// <summary>The path with its longest existing part resolved through junctions and links by Windows itself, and
+    /// the parts that do not exist yet appended as written.</summary>
+    public static string FinalPath(string path)
+    {
+        var full = Path.GetFullPath(path);
+        var existing = full;
+        while (!Directory.Exists(existing) && !File.Exists(existing))
+        {
+            var parent = Path.GetDirectoryName(existing);
+            if (parent is null) return full;
+            existing = parent;
+        }
+        // Zero access with backup semantics opens a directory just to name it.
+        using var handle = CreateFile(existing, 0, 7, 0, 3, 0x02000000, 0);
+        if (handle.IsInvalid) return full;
+        var buffer = new StringBuilder(1024);
+        var length = GetFinalPathNameByHandle(handle, buffer, (uint)buffer.Capacity, 0);
+        if (length == 0 || length >= buffer.Capacity) return full;
+        var resolved = buffer.ToString();
+        resolved = resolved.StartsWith(@"\\?\UNC\", StringComparison.Ordinal) ? @"\\" + resolved[8..]
+            : resolved.StartsWith(@"\\?\", StringComparison.Ordinal) ? resolved[4..] : resolved;
+        return Path.Join(resolved, full[existing.Length..]);
+    }
+
+    [DllImport("kernel32.dll", EntryPoint = "CreateFileW", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern SafeFileHandle CreateFile(string name, uint access, uint share, nint security, uint disposition, uint flags, nint template);
+    [DllImport("kernel32.dll", EntryPoint = "GetFinalPathNameByHandleW", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern uint GetFinalPathNameByHandle(SafeFileHandle file, StringBuilder path, uint size, uint flags);
 
     private static bool Within(string path, string root) =>
         path.Equals(root, StringComparison.OrdinalIgnoreCase)

@@ -177,9 +177,13 @@ def test_non_latin_storage_paths_start_query_and_stop(tmp_path, monkeypatch, cop
         from pixeltable_pgserver.utils import POSTGRES_VERSIONS
 
         from tracker.platform.embedded_db import bundled_bin_dir
+        from tracker.platform.windows_private import private_directory
 
+        # pytest's folders admit their owner, which an elevated run makes the Administrators group, and
+        # PostgreSQL drops that group from its own token; the copy goes where this account is named.
         runtime = tmp_path / "运行时"
-        shutil.copytree(bundled_bin_dir().parent, runtime)
+        private_directory(runtime)
+        shutil.copytree(bundled_bin_dir().parent, runtime, dirs_exist_ok=True)
         monkeypatch.setitem(POSTGRES_VERSIONS, 16, runtime / "bin")
     server = ensure_server(tmp_path / "中文資料" / "db", database="probe")
     try:

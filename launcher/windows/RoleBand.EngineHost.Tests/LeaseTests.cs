@@ -49,7 +49,7 @@ public sealed class LeaseTests
     {
         foreach (var path in scratch)
             try { if (Directory.Exists(path)) Directory.Delete(path, recursive: true); }
-            catch (IOException) { }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
     }
 
     /// <summary>The holder's first line, or a failure within a minute: a Python that hangs before printing fails the
@@ -120,5 +120,33 @@ public sealed class LeaseTests
         Assert.IsFalse(PrivateStorage.OwnedHere(null, account, account));
         var own = PrivateStorage.DefaultOwner;
         Assert.IsTrue(own.Equals(PrivateStorage.AccountSid) || own.Equals(administrators), own.Value);
+    }
+
+    [TestMethod]
+    public void AJunctionIntoInstalledDataStillLeadsThere()
+    {
+        var root = Scratch();
+        var installed = Path.Combine(root, "installed");
+        Directory.CreateDirectory(installed);
+        var trial = Path.Combine(root, "trial");
+        var mklink = new ProcessStartInfo("cmd.exe") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true };
+        foreach (var argument in new[] { "/c", "mklink", "/J", trial, installed }) mklink.ArgumentList.Add(argument);
+        using (var made = Process.Start(mklink) ?? throw new IOException("mklink did not start."))
+        {
+            made.WaitForExit();
+            Assert.AreEqual(0, made.ExitCode, "the junction was made");
+        }
+        try
+        {
+            Assert.IsTrue(EngineConfiguration.LeadsInto(Path.Combine(trial, "state", "not-yet"), installed), "the junction is followed");
+            Assert.IsTrue(EngineConfiguration.LeadsInto(installed, installed));
+            Assert.IsFalse(EngineConfiguration.LeadsInto(Path.Combine(root, "elsewhere", "state"), installed));
+            Assert.IsFalse(EngineConfiguration.LeadsInto(Path.Combine(root, "installed-trials"), installed), "a shared name prefix is not inside");
+        }
+        finally
+        {
+            // Removing the junction itself leaves the folder it points to alone.
+            Directory.Delete(trial);
+        }
     }
 }
