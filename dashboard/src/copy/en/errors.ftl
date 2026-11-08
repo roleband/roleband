@@ -64,10 +64,10 @@ error-consent-required = Following that company needs your answer to its warning
 error-scope-refused = Couldn't save your answers. Try again.
 # kind=error
 error-schedule-refused = Couldn't move that scan. Try again.
-# kind=error next=none note="$companies is a list of company names"
-error-scheduling-unavailable = { $companies } can't be scanned on a timer.
-# kind=error next=none
-error-discovery-unsupported = { $company } can't be checked this way.
+# kind=error next=none note="$companies is a list of company names. Their source is paused or refuses automated reads, for Scan now and for the schedule alike: nothing the person can do changes it"
+error-scheduling-unavailable = { $companies } can't be scanned.
+# kind=error next=none note="Moving a company's quick scan when its source has none: nothing the person can do changes it"
+error-discovery-unsupported = Quick scans aren't available for { $company }.
 # kind=error
 error-manual-scan-queued = A scan you started is still waiting. Try again when the scan ends.
 # kind=error
