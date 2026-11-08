@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import subprocess
 import sys
+import time
+import uuid
 from pathlib import Path
 
 import psutil
@@ -182,3 +185,50 @@ class TestPreparation:
         first = _checkpoints(retained)
         assert _prepare(retained).returncode == 0
         assert _checkpoints(retained) == first
+
+
+def _free_port():
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        return probe.getsockname()[1]
+
+
+def _database_state(state):
+    from tracker.platform.windows_fs import read_private
+
+    try:
+        return json.loads(read_private(state / "launcher" / "preparation.json", 65536)).get("database")
+    except (OSError, ValueError):
+        return None
+
+
+class TestTheEngine:
+    def test_an_engine_start_migrates_retained_data_after_its_checkpoint(self, retained):
+        """The engine runs preparation as a cancellable process, which may not start the checkpoint's
+        scratch cluster; the start must still checkpoint and migrate."""
+        engine = subprocess.Popen(
+            [psutil.Process().exe(), "-I", "-B", str(BACKEND / "desktop.py"), "--source", "run",
+             "--marker", uuid.uuid4().hex, "--dry-run-network"],
+            env={**_env(retained), "ROLEBAND_API_PORT": str(_free_port())}, cwd=BACKEND,
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8")
+        try:
+            deadline = time.monotonic() + 600
+            while _database_state(retained) != "ready" and engine.poll() is None and time.monotonic() < deadline:
+                time.sleep(0.5)
+            ready = _database_state(retained) == "ready"
+        finally:
+            if engine.poll() is None:
+                engine.stdin.write("stop\n")
+                engine.stdin.close()
+            output, _ = engine.communicate(timeout=120)
+        log = (retained / "logs" / "preparation.log").read_text(encoding="utf-8", errors="replace")
+        assert ready, (output + log)[-3000:]
+        assert _heads(retained) != [PREVIOUS]
+        record = _record(retained)
+        assert record["from_heads"] == [PREVIOUS]
+        assert _checkpoints(retained) == [Path(record["checkpoint"]).name], "preparation reuses the engine's checkpoint"
+        server = ensure_server(retained / "db", database="roleband")
+        try:
+            assert "Retained role 中文" in psql(server, "SELECT title FROM retained_sentinel")
+        finally:
+            stop_server(retained / "db")

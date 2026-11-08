@@ -84,4 +84,22 @@ public sealed class TrayArtTests
         // Taller than the work area: the top stays on screen.
         Assert.AreEqual(0, FlyoutPlacement.Place(Display, new Box(0, 0, 1920, 1032), 1800, 1060, 540, 1200, 18).Y);
     }
+
+    [TestMethod]
+    public void TheFlyoutClearsAnAutoHiddenTaskbarThatShowsBesideIt()
+    {
+        // The work area is the whole display; the taskbar shows while the flyout is open.
+        var shown = new Box(0, 1032, 1920, 48);
+        Assert.AreEqual((1362, 614), FlyoutPlacement.Place(Display, Display, 1800, 1060, 540, 400, 18, shown));
+        // Slid away, Windows reports it mostly off the display: its full thickness still counts.
+        var hidden = new Box(0, 1078, 1920, 48);
+        Assert.AreEqual((1362, 614), FlyoutPlacement.Place(Display, Display, 1800, 1079, 540, 400, 18, hidden));
+        Assert.AreEqual((66, 662), FlyoutPlacement.Place(Display, Display, 3, 1040, 540, 400, 18, new Box(0, 0, 48, 1080)));
+        Assert.AreEqual((1362, 66), FlyoutPlacement.Place(Display, Display, 1800, 3, 540, 400, 18, new Box(0, 0, 1920, 48)));
+        Assert.AreEqual((1314, 662), FlyoutPlacement.Place(Display, Display, 1917, 1040, 540, 400, 18, new Box(1872, 0, 48, 1080)));
+        // A taskbar that already shapes the work area changes nothing, nor does one on another display.
+        Assert.AreEqual((1362, 614), FlyoutPlacement.Place(Display, new Box(0, 0, 1920, 1032), 1800, 1060, 540, 400, 18, shown));
+        var second = new Box(1920, -200, 2560, 1440);
+        Assert.AreEqual((3922, 822), FlyoutPlacement.Place(second, second, 4400, 1235, 540, 400, 18, shown));
+    }
 }

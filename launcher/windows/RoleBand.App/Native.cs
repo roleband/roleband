@@ -36,6 +36,17 @@ internal static class Native
 
     public static void BringForward(nint window) => SetForegroundWindow(window);
 
+    /// <summary>The primary taskbar's rectangle in physical pixels, or null when Windows does not report one.</summary>
+    public static RoleBand.EngineHost.Box? Taskbar()
+    {
+        var data = new AppBarData { Size = (uint)Marshal.SizeOf<AppBarData>() };
+        const uint GetTaskbarPosition = 5;
+        if (SHAppBarMessage(GetTaskbarPosition, ref data) == 0) return null;
+        return data.Right > data.Left && data.Bottom > data.Top
+            ? new RoleBand.EngineHost.Box(data.Left, data.Top, data.Right - data.Left, data.Bottom - data.Top)
+            : null;
+    }
+
     /// <summary>The product's icon in the title bar and the taskbar, and its mark beside the product's name.</summary>
     public static void Dress(Window window, Image? mark = null)
     {
@@ -52,6 +63,18 @@ internal static class Native
     [StructLayout(LayoutKind.Sequential)]
     private struct ScreenPoint { public int X, Y; }
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct AppBarData
+    {
+        public uint Size;
+        public nint Window;
+        public uint CallbackMessage, Edge;
+        public int Left, Top, Right, Bottom;
+        public nint Param;
+    }
+
+    [DllImport("shell32.dll")]
+    private static extern nuint SHAppBarMessage(uint message, ref AppBarData data);
     [DllImport("user32.dll")]
     private static extern nint MonitorFromPoint(ScreenPoint point, uint flags);
     [DllImport("shcore.dll")]

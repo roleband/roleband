@@ -118,25 +118,57 @@ class PreparationServer:
             self.authority.close()
 
 
+def _alembic_config() -> Any:
+    from alembic.config import Config
+
+    config = Config(str(BACKEND_DIR / "alembic.ini"))
+    config.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
+    return config
+
+
+def _heads(engine: Any, config: Any) -> tuple[set[str], set[str]]:
+    """The database's current schema heads and the heads this engine's migrations reach."""
+    from alembic.migration import MigrationContext
+    from alembic.script import ScriptDirectory
+
+    with engine.connect() as connection:
+        current = set(MigrationContext.configure(connection).get_current_heads())
+    return current, set(ScriptDirectory.from_config(config).get_heads())
+
+
+def checkpoint_pending_migration(server: Any) -> None:
+    """Take the pre-migration checkpoint in the Windows process that owns the database.
+
+    Verifying a checkpoint restores it into a scratch cluster, and the supervisor runs
+    preparation as a cancellable process, which may not start PostgreSQL. Preparation then
+    finds the recorded checkpoint still matching and migrates without making another.
+    """
+    from sqlalchemy import create_engine
+
+    from tracker.platform.windows_migration import checkpoint_before_migration
+
+    engine = create_engine(get_settings().sync_database_url)
+    try:
+        current, target = _heads(engine, _alembic_config())
+    finally:
+        engine.dispose()
+    if current and current != target:
+        checkpoint_before_migration(server, DATA_DIR, current, target)
+
+
 def migrate() -> None:
     import asyncio
 
-    from alembic.config import Config
-    from alembic.migration import MigrationContext
-    from alembic.script import ScriptDirectory
     from sqlalchemy import create_engine
 
     from alembic import command
     from tracker.platform.backups import dump_database
 
     settings = get_settings()
-    config = Config(str(BACKEND_DIR / "alembic.ini"))
-    config.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
+    config = _alembic_config()
     engine = create_engine(settings.sync_database_url)
     try:
-        with engine.connect() as connection:
-            current = set(MigrationContext.configure(connection).get_current_heads())
-        target = set(ScriptDirectory.from_config(config).get_heads())
+        current, target = _heads(engine, config)
         # A schema that already holds data is backed up before any upgrade. On Windows the
         # backup is a restore-verified checkpoint bound to these heads and credentials, the
         # only form `restore begin` accepts; no checkpoint, no upgrade.

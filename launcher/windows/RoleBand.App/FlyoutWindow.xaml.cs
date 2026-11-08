@@ -98,6 +98,8 @@ public sealed partial class FlyoutWindow : Window
             else Hide();
         };
         Root.KeyboardAccelerators.Add(escape);
+        // Esc closes a flyout by convention; WinUI would otherwise float an "Esc" hint over the content on hover.
+        Root.KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
         Activated += (_, args) =>
         {
             // Windows reports a refused activation as an activation too, so focus counts only once the flyout is
@@ -184,7 +186,8 @@ public sealed partial class FlyoutWindow : Window
         }
         var display = new Box(area.OuterBounds.X, area.OuterBounds.Y, area.OuterBounds.Width, area.OuterBounds.Height);
         var work = new Box(area.WorkArea.X, area.WorkArea.Y, area.WorkArea.Width, area.WorkArea.Height);
-        var (left, top) = FlyoutPlacement.Place(display, work, point.X, point.Y, width, height, (int)(Margin * scale));
+        var (left, top) = FlyoutPlacement.Place(display, work, point.X, point.Y, width, height, (int)(Margin * scale),
+                                                Native.Taskbar());
         AppWindow.MoveAndResize(new RectInt32(left, top, width, height));
     }
 

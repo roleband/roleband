@@ -69,18 +69,43 @@ public static class FlyoutPlacement
         return distances.MinBy(entry => entry.Distance).Edge;
     }
 
+    /// <param name="taskbar">The taskbar's rectangle as Windows reports it, if known. An auto-hidden taskbar leaves the
+    /// work area the whole display, yet it shows while the flyout is open, so the flyout keeps clear of its full
+    /// thickness wherever it is at that moment.</param>
     /// <returns>The flyout's top-left corner.</returns>
-    public static (int X, int Y) Place(Box display, Box work, int anchorX, int anchorY, int width, int height, int margin)
+    public static (int X, int Y) Place(Box display, Box work, int anchorX, int anchorY, int width, int height, int margin,
+                                       Box? taskbar = null)
     {
         static int Clamp(int value, int low, int high) => high < low ? low : Math.Clamp(value, low, high);
+        var edge = Edge(display, work, anchorX, anchorY);
+        if (taskbar is { } bar && bar.Left < display.Right && bar.Right > display.Left
+            && bar.Top < display.Bottom && bar.Bottom > display.Top)
+        {
+            work = edge switch
+            {
+                TaskbarEdge.Bottom => Within(work, bottom: display.Bottom - bar.Height),
+                TaskbarEdge.Top => Within(work, top: display.Top + bar.Height),
+                TaskbarEdge.Left => Within(work, left: display.Left + bar.Width),
+                _ => Within(work, right: display.Right - bar.Width),
+            };
+        }
         var x = Clamp(anchorX - width / 2, work.Left + margin, work.Right - margin - width);
         var y = Clamp(anchorY - height / 2, work.Top + margin, work.Bottom - margin - height);
-        return Edge(display, work, anchorX, anchorY) switch
+        return edge switch
         {
             TaskbarEdge.Bottom => (x, Math.Max(work.Top, work.Bottom - margin - height)),
             TaskbarEdge.Top => (x, work.Top + margin),
             TaskbarEdge.Left => (work.Left + margin, y),
             _ => (Math.Max(work.Left, work.Right - margin - width), y),
         };
+    }
+
+    /// <summary>The part of a box inside the given limits.</summary>
+    private static Box Within(Box box, int left = int.MinValue, int top = int.MinValue, int right = int.MaxValue,
+                              int bottom = int.MaxValue)
+    {
+        var l = Math.Max(box.Left, left);
+        var t = Math.Max(box.Top, top);
+        return new Box(l, t, Math.Min(box.Right, right) - l, Math.Min(box.Bottom, bottom) - t);
     }
 }

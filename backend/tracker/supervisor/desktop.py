@@ -29,7 +29,11 @@ from tracker.supervisor import runner
 from tracker.supervisor.api import ApiService
 from tracker.supervisor.clock import awake_seconds
 from tracker.supervisor.dispatch import Dispatcher
-from tracker.supervisor.prepare import PREPARE_TIMEOUT_SECONDS, PreparationServer
+from tracker.supervisor.prepare import (
+    PREPARE_TIMEOUT_SECONDS,
+    PreparationServer,
+    checkpoint_pending_migration,
+)
 from tracker.supervisor.registry import JOBS
 from tracker.supervisor.service import serve
 
@@ -122,6 +126,9 @@ async def run(marker: str, *, development: bool, fixture: bool, dry_run: bool) -
         with PreparationServer("127.0.0.1", 0):
             # The database is owned here, outside every cancellable trampoline.
             server = await asyncio.to_thread(settings.ensure_embedded_server)
+            await asyncio.to_thread(checkpoint_pending_migration, server)
+            if stop.is_set():
+                return 0
             if not await _prepare_process(stop, development, "prepare"):
                 return 0
             preparation.update(DATA_DIR, database="ready", model="unused" if dry_run else "waiting")

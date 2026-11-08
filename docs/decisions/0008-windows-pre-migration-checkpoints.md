@@ -12,8 +12,13 @@ retained credentials, so that the previous package can promote it.
 
 ## Decision
 
-On Windows, preparation creates a pre-migration checkpoint before any upgrade of
-a schema that already has a revision, and does not upgrade if it cannot. The
+On Windows, a pre-migration checkpoint is made before any upgrade of a schema that
+already has a revision, and preparation does not upgrade if there is none. The
+engine supervisor makes it, in the process that owns the database, before it
+launches preparation: verification restores into a scratch cluster, and
+preparation runs as a cancellable process, which may not start PostgreSQL
+([decision 0002](0002-windows-process-ownership.md)). Preparation then reuses the
+recorded checkpoint; run on its own, it makes one itself. The
 checkpoint is a normal [recovery checkpoint](0005-windows-recovery-checkpoints.md):
 exported from one snapshot, restored into fresh scratch storage, compared by
 fingerprint and published only after that matches. It lives in
@@ -42,7 +47,9 @@ requires the runtime whose heads match the checkpoint, so recovering from a
 migration needs the previous signed package, as decision 0007 states.
 `tests/test_windows_migration.py` holds the contract: a failed migration leaves a
 verified checkpoint at the previous heads; a migration runs only after its
-checkpoint; no checkpoint means no migration; a current schema takes none.
+checkpoint; no checkpoint means no migration; a current schema takes none; an
+engine start migrates retained data with preparation reusing the supervisor's
+checkpoint.
 
 ## Alternatives considered
 
