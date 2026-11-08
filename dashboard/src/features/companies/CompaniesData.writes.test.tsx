@@ -571,13 +571,14 @@ describe("a write failure", () => {
     await mount();
 
     await click("Hide Google");
-    await server.fail(0, new ApiError("'google' is already tracked", 409, "company-conflict"));
+    await server.fail(0, new ApiError("'google' is not a tracked company", 404, "company-not-found"));
 
-    // The why carries its own next step, so the fallback is not added after it.
+    // A why replaces the fallback: one that offers no next step (the company
+    // is gone) is not followed by a retry that cannot work.
     await waitFor(() => expect(screen.getByTestId("error").textContent).toBe(
-      `${msg("companies-data-visibility-failed", { visibility: "hidden", company: "Google" })} ${msg("error-company-conflict")}`,
+      `${msg("companies-data-visibility-failed", { visibility: "hidden", company: "Google" })} ${msg("error-company-not-found")}`,
     ));
-    expect(screen.getByTestId("error")).not.toHaveTextContent("already tracked");
+    expect(screen.getByTestId("error")).not.toHaveTextContent("not a tracked company");
   });
 });
 
