@@ -89,10 +89,12 @@ reviews:
     - path: "dashboard/src/copy/**"
       instructions: >-
         A fingerprint in translated-from.json records the English a translation
-        was made from, not the translation (docs/copy.md). It changes only for a
-        message whose English this pull request changes: re-translating may keep
-        the translation's words when they still fit the new English. Flag a
-        fingerprint refreshed for a message whose English did not change.
+        was made from, not the translation (docs/copy.md): the English pattern,
+        every term and attribute it reaches, and its kind. It changes only for a
+        message where this pull request changes one of those, including through
+        a shared term such as -role; re-translating may keep the translation's
+        words when they still fit. Flag a fingerprint refreshed for a message
+        whose pattern, reached terms and attributes, and kind are all unchanged.
         An entry in translation-quarantine.json holds a translation that
         breaks its contract; the repair removes it in the same change.
     - path: "{dashboard/src/test/*-baseline.json,backend/tests/fixtures/copy_glossary_baseline.json,backend/audit-exceptions.toml,dashboard/audit-exceptions.json,.gitleaks.toml,backend/pyproject.toml,dashboard/eslint.config.js}"
