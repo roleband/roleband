@@ -62,9 +62,9 @@ compare-screen-show-or-hide = { $fields ->
     [open] Hide
    *[folded] Show
 }
-# kind=sentence wording=as-is
+# kind=sentence note="Says what the highlight on a passage means; passages = shared (some passages are shared, so the rest are highlighted) or none"
 compare-screen-passages-legend = { $passages ->
-    [shared] Amber passages are not in every posting.
+    [shared] Highlighted passages appear in only some postings.
    *[none] These postings share no passages.
 }
 # kind=label wording=as-is

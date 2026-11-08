@@ -40,7 +40,7 @@ compare-screen-show-or-hide = { $fields ->
    *[folded] Mostrar
 }
 compare-screen-passages-legend = { $passages ->
-    [shared] Los pasajes en ámbar no están en todas las ofertas.
+    [shared] Los pasajes resaltados aparecen solo en algunas ofertas.
    *[none] Estas ofertas no comparten ningún pasaje.
 }
 compare-screen-description-view = { $view ->
