@@ -1,5 +1,6 @@
 import hashlib
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -9,6 +10,8 @@ from pathlib import Path
 from assemble_trial import clean_revision
 
 PACKAGE = Path(__file__).resolve().parents[1] / "Package-Trial.ps1"
+#: PowerShell 7 where installed (CI runners), otherwise the Windows PowerShell every Windows has.
+SHELL = shutil.which("pwsh") or "powershell"
 
 
 def git(root, *arguments):
@@ -80,7 +83,7 @@ class PackageProvenanceTests(unittest.TestCase):
 
     def package(self):
         result = subprocess.run(
-            ["pwsh", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "RemoteSigned", "-File", str(PACKAGE),
+            [SHELL, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "RemoteSigned", "-File", str(PACKAGE),
              "-Bundle", str(self.bundle), "-Destination", str(Path(self.directory.name) / "out.msix")],
             check=False, capture_output=True, text=True)
         return result.stdout + result.stderr
