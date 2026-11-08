@@ -176,11 +176,11 @@ PARAMETERS = {
 }
 
 BANNERS = {
-    "banner-db-down": lambda a: "Database unreachable: attempted restart",
-    "banner-api-down": lambda a: "API health check failed: restarted it",
+    "banner-db-down": lambda a: "RoleBand couldn't reach its database and is restarting it.",
+    "banner-api-down": lambda a: "RoleBand's background service stopped responding and is restarting.",
     "banner-stuck-runs": lambda a: "Cleared scans that had stalled",
-    "banner-stale-data": lambda a: "Job data is stale: started the scan scheduler",
-    "banner-derivations-stale": lambda a: "Derived data is stale: a statistics pass has not run recently",
+    "banner-stale-data": lambda a: "Your radar is out of date, so a scan is queued.",
+    "banner-derivations-stale": lambda a: "Some role details are out of date. The next scan updates them.",
     "banner-backup-stale": lambda a: "No fresh database backup. Check data/logs/backup.log",
     "banner-daily-failed": lambda a: "The scan you started finished with errors. Its output is in the terminal that ran it.",
     "banner-matching-title": lambda a: "Ranking updated",
