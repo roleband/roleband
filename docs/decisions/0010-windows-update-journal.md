@@ -75,6 +75,13 @@ database is never opened by a version that does not match it. Both readers share
 `update` cases of `launcher/windows/contracts/retained-records.json`;
 `tests/test_windows_update_journal.py` covers the transitions.
 
+Each step runs in one version's code. The running version checks, downloads, keeps the way
+back, begins and asks Windows to install; the new version prepares and records a failure; a
+failed version downloads the previous release and asks Windows to put it back; the previous
+version restores the database. So a change to recovery helps only updates from a release that
+already carries it, and the journal keeps the keys, format and phases every earlier version
+reads: any version refuses another shape as damaged.
+
 ## Alternatives considered
 
 Letting the old version wait for the switch and then verify the new one cannot work: the

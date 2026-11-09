@@ -52,6 +52,18 @@ def test_the_new_version_prepares_then_completes(state, tmp_path):
     assert _launchable(state) == "accepted"
 
 
+def test_the_journal_keeps_the_shape_every_earlier_version_reads(state, tmp_path):
+    """The previous version reads this journal to restore its database after Undo, and any version refuses a journal
+    with another key, format or phase as damaged, after which nothing opens. So these stay as they are."""
+    from tracker.platform import windows_update_journal as journal
+
+    record = _begin(state, tmp_path)
+    assert set(record) == {"format", "kind", "id", "state", "from_version", "to_version", "package", "package_sha256",
+                           "phase"}
+    assert (record["format"], record["kind"]) == (1, "package-update")
+    assert journal.PHASES == ("applying", "preparing", "complete", "failed", "aborted", "recovering", "recovered")
+
+
 def test_a_new_version_stopped_while_preparing_prepares_again_at_its_next_start(state, tmp_path):
     from tracker.platform import windows_update_journal as journal
 

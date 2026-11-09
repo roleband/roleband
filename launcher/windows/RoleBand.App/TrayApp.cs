@@ -21,8 +21,9 @@ internal sealed class TrayApp
     private SetupWindow? setupWindow;
     private EngineSession? engine;
     private UpdateCoordinator? updates;
-    // A source run's simulated update, which presses what its scenario follows once the app has started.
+    // A source run's simulated update, which presses what its scenario follows once, when the app has started.
     private SimulatedUpdate? simulation;
+    private bool simulationPressed;
     private EngineConfiguration? configuration;
     private string? launchFailure;
     private bool quitting;
@@ -112,10 +113,10 @@ internal sealed class TrayApp
             statePath = configuration.State;
             setup = SetupStore.Read(configuration.State);
             Render(engine.Snapshot);
-            // Nothing runs before Continue on Welcome; after that the engine starts at every open.
-            if (!SetupFlow.EngineHeld(setup)) _ = StartAsync();
             // A simulated update is looked at in Settings, which opens with it.
             if (simulation is not null) OpenSettings();
+            // Nothing runs before Continue on Welcome; after that the engine starts at every open.
+            if (!SetupFlow.EngineHeld(setup)) _ = StartAsync();
             switch (Companion.AtLaunch(setup, atLogin))
             {
                 case LaunchAction.Setup: _ = OpenSetupAsync(); break;
@@ -625,9 +626,9 @@ internal sealed class TrayApp
                 OpenSettings();
             }
             RenderUpdate();
-            if (simulation?.Press is { } press)
+            if (simulation?.Press is { } press && !simulationPressed)
             {
-                simulation = null;
+                simulationPressed = true;
                 // Update is pressed as a person would, with the radar running.
                 for (var wait = 0; press == "update" && engine.Snapshot.State != EngineState.Ready && wait < 240; wait++)
                     await Task.Delay(500);
