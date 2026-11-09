@@ -4,7 +4,7 @@ import { Badge, Button, Popover, Segmented } from "../../ui";
 import { durationText, kindLabel } from "./charts/plan";
 import type { PlanSegment } from "./charts/plan";
 import { formatMinute } from "./charts/schedule";
-import { InspectorTime } from "./InspectorTime";
+import { clockText, TimeField } from "../../ui/TimeField";
 import { movable, readyByForStart, startForReadyBy } from "./usePlanDrag";
 import type { PlanDrag } from "./usePlanDrag";
 import {
@@ -32,6 +32,7 @@ import {
   settingsPlanRunInspectorWhenYouTurnItOn,
   settingsPlanRunInspectorYes,
   settingsScheduleHours,
+  settingsFullScanStarts,
 } from "../../copy/gen/settings";
 
 /* What a click on one of the plan's runs opens: the run in numbers,
@@ -102,7 +103,7 @@ export function PlanRunInspector({ segment, plan, drag, onClose }: Props) {
             <>
               <label className="schedule-inspector-time">
                 <span>{settingsPlanRunInspectorQuickTime({ state: movable(segment) ? "planned" : "running" })}</span>
-                <InspectorTime
+                <TimeField
                   label={settingsPlanRunInspectorQuickScanTime()}
                   minute={segment.startMinute}
                   step={600}
@@ -142,13 +143,16 @@ export function PlanRunInspector({ segment, plan, drag, onClose }: Props) {
             <>
               <label className="schedule-inspector-time">
                 <span>{settingsPlanRunInspectorFullTime({ state: movable(segment) ? "planned" : "running" })}</span>
-                <InspectorTime
+                <TimeField
                   label={settingsPlanRunInspectorFullScanDoneBy()}
                   minute={movable(segment) ? readyBy : segment.startMinute}
                   step={600}
                   locked={!movable(segment)}
                   saving={drag.saving}
                   onCommit={(minute) => void drag.place(segment, startForReadyBy(minute, segment.seconds))}
+                  hint={(minute) => settingsFullScanStarts({
+                    time: clockText(startForReadyBy(minute, segment.seconds)),
+                  })}
                 />
               </label>
               {plan.ready_by_minute !== null && movable(segment) && (

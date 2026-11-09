@@ -306,6 +306,7 @@ writing a screen-local version.
 | On/off setting | `Switch` |
 | Pick one of a few modes | `Segmented` |
 | Pick from a list | `Select` (native) or `FilterSelect` (searchable facet picker) |
+| Time of day | `TimeField`: typed, or picked from a list of half hours, each with an optional note |
 | A dropdown of actions or choices | `Menu` with `MenuGroup`, `MenuItem`, `MenuCheck`, `MenuRadio`; it pads and sizes itself, so a caller never styles the popover around it |
 | Toggle a filter | `FilterChip` |
 | Filter register | `FacetGroup`, `FilterGroup`, `FilterRegister`, `FilterDrawer` from `ui/FilterRail` |

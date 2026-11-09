@@ -102,6 +102,12 @@ shared-filter-select-search = Search { $label }
 # kind=sentence wording=as-is same-as=shared-filter-rail-search-2
 shared-filter-select-search-2 = Search { $label }...
 
+## ui/TimeField.tsx
+# kind=button note="Beside a time field: opens a list of times to pick from"
+shared-time-field-choose = Choose a time
+# kind=label note="The name of the list of times that button opens"
+shared-time-field-times = Times
+
 ## ui/InfoTip.tsx
 
 ## patterns/companies/CompanyChip.tsx

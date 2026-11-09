@@ -8,6 +8,8 @@ settings-loading = Loading…
 settings-cancel = Cancel
 # kind=label wording=as-is
 settings-company = Company
+# kind=status note="Beside a done-by time in the list of times, on the schedule and in its scan inspector: when a full scan done by then starts; time = a clock time such as 6:35 AM"
+settings-full-scan-starts = starts { $time }
 
 ## Settings > Language and region (docs/copy.md)
 
