@@ -482,7 +482,7 @@ async def test_no_dataset_benefit_appears_beside_a_plugin_s_and_off_brings_the_d
     await db_session.commit()
     on = (await api_client.get(f"/api/company-profiles/{company}")).json()
     items = [i for c in on["benefits"] for i in c["items"]]
-    assert {(i["name"], i["benefit_type"]) for i in items} == {("401K", "retirement_plan"), ("Free yacht", None)}
+    assert {(i["name"], i["benefit_type"]) for i in items} == {("401K", "us_401k"), ("Free yacht", None)}
     assert not any(i["builtin"] for i in items)
 
     (await db_session.get(PluginInstall, "tpl")).enabled = False
