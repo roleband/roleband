@@ -152,7 +152,7 @@ async def test_a_stop_ends_supervision_and_leaves_the_running_job_running(db_ses
 
 
 class FakeApi:
-    """The service's view of the API: tended each look, stopped on the way out."""
+    """The service's view of the API: tended each look, stopped and closed on the way out."""
 
     def __init__(self, tmp_path) -> None:
         self.log = tmp_path / "api.log"
@@ -164,6 +164,9 @@ class FakeApi:
 
     async def stop(self, grace_seconds: float = 30.0) -> None:
         self.events.append("stop")
+
+    def close(self) -> None:
+        self.events.append("close")
 
     def status(self):
         return job_store.Status(key="api", job="api", state=self.state, since=datetime.now(UTC))
@@ -189,7 +192,7 @@ async def test_landed_code_restarts_the_supervisor_only_after_the_api_stops_and_
     order: list[str] = []
 
     def reexec() -> None:
-        order.extend(api.events[-1:])
+        order.extend(api.events[-2:])
 
     stop = asyncio.Event()
     dispatcher = _dispatcher(db_session, tmp_path)
@@ -198,7 +201,7 @@ async def test_landed_code_restarts_the_supervisor_only_after_the_api_stops_and_
         serve(dispatcher, db_session.bind, stop, idle_seconds=0.05, api=api, watcher=watcher, reexec=reexec),
         timeout=10,
     )
-    assert order[0] == "stop", "the API stops before the exec"
+    assert order == ["stop", "close"], "the API stops and releases its port before the exec"
     assert api.events.count("tend") == 2
     again = await singleton.hold(db_session.bind)
     assert again is not None, "the lock is free for the new image"

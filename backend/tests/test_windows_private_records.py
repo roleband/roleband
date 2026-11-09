@@ -6,7 +6,7 @@ import sys
 
 import pytest
 
-pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows ACLs require Windows")
+pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows private storage requires Windows")
 
 
 def test_a_published_record_is_written_only_into_a_file_already_checked(tmp_path, monkeypatch):
