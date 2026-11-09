@@ -33,7 +33,11 @@ journal begun, registers the app for restart and asks Windows' package manager t
 the package with app shutdown forced; if Windows refuses, it resumes the journal, which
 records `aborted`. Every Start resumes the journal before the engine starts; when that run
 is the new version, Ready settles the update `complete`, and a failed database preparation
-settles it `failed`. Other trouble leaves it `preparing` for the next start.
+settles it `failed`. The engine reports that failure and waits to be stopped rather than
+exiting, so the host does not take it for a crash and restart it into the same failure. An
+engine that exits before it is ever Ready until the restart limit also settles it `failed`.
+Other trouble, such as a start refused before an engine runs, leaves it `preparing` for the
+next start.
 
 A failed update stays closed and offers Undo. The new version marks it `recovering` and
 registers the retained previous package again, as a downgrade. The previous version's next

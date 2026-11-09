@@ -45,6 +45,9 @@ public sealed class EngineSession : IAsyncDisposable
     public bool OwnsEngine => lease is not null;
     /// <summary>The last start ended because the engine could not prepare its database.</summary>
     public bool PreparationFailed { get; private set; }
+
+    /// <summary>The last start ended because the engine kept exiting until the restart limit.</summary>
+    public bool GaveUp { get; private set; }
     public event Action<EngineSnapshot>? Changed;
 
     public EngineSession(EngineConfiguration configuration, EngineSessionOptions? options = null)
@@ -68,6 +71,7 @@ public sealed class EngineSession : IAsyncDisposable
         {
             if (OwnsEngine) return;
             PreparationFailed = false;
+            GaveUp = false;
             preparation = null;
             lease = PrivateStorage.Lease(configuration.State, "desktop.lock");
             PrivateStorage.EnsureDirectory(Path.Combine(configuration.State, "logs"));
@@ -146,6 +150,7 @@ public sealed class EngineSession : IAsyncDisposable
                 while (restarts.TryPeek(out var previous) && now - previous > options.RestartWindow.TotalSeconds) restarts.Dequeue();
                 if (restarts.Count >= options.RestartLimit)
                 {
+                    GaveUp = true;
                     Publish(EngineState.Attention, "Automatic recovery reached its limit. The engine log contains details.");
                     return;
                 }

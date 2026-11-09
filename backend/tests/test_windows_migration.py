@@ -202,32 +202,40 @@ def _database_state(state):
         return None
 
 
+def _engine(state):
+    return subprocess.Popen(
+        [psutil.Process().exe(), "-I", "-B", str(BACKEND / "desktop.py"), "--source", "run",
+         "--marker", uuid.uuid4().hex, "--dry-run-network"],
+        env={**_env(state), "ROLEBAND_API_PORT": str(_free_port())}, cwd=BACKEND,
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8")
+
+
+def _stop(engine):
+    if engine.poll() is None:
+        engine.stdin.write("stop\n")
+        engine.stdin.close()
+    try:
+        return engine.communicate(timeout=120)[0]
+    except subprocess.TimeoutExpired:
+        for child in psutil.Process(engine.pid).children(recursive=True):
+            child.kill()
+        engine.kill()
+        engine.communicate()
+        raise
+
+
 class TestTheEngine:
     def test_an_engine_start_migrates_retained_data_after_its_checkpoint(self, retained):
         """The engine runs preparation as a cancellable process, which may not start the checkpoint's
         scratch cluster; the start must still checkpoint and migrate."""
-        engine = subprocess.Popen(
-            [psutil.Process().exe(), "-I", "-B", str(BACKEND / "desktop.py"), "--source", "run",
-             "--marker", uuid.uuid4().hex, "--dry-run-network"],
-            env={**_env(retained), "ROLEBAND_API_PORT": str(_free_port())}, cwd=BACKEND,
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8")
+        engine = _engine(retained)
         try:
             deadline = time.monotonic() + 600
             while _database_state(retained) != "ready" and engine.poll() is None and time.monotonic() < deadline:
                 time.sleep(0.5)
             ready = _database_state(retained) == "ready"
         finally:
-            if engine.poll() is None:
-                engine.stdin.write("stop\n")
-                engine.stdin.close()
-            try:
-                output, _ = engine.communicate(timeout=120)
-            except subprocess.TimeoutExpired:
-                for child in psutil.Process(engine.pid).children(recursive=True):
-                    child.kill()
-                engine.kill()
-                engine.communicate()
-                raise
+            output = _stop(engine)
         log = (retained / "logs" / "preparation.log").read_text(encoding="utf-8", errors="replace")
         assert ready, (output + log)[-3000:]
         assert _heads(retained) != [PREVIOUS]
@@ -239,3 +247,26 @@ class TestTheEngine:
             assert "Retained role 中文" in psql(server, "SELECT title FROM retained_sentinel")
         finally:
             stop_server(retained / "db")
+
+    def test_a_failed_migration_is_reported_by_an_engine_that_waits_to_be_stopped(self, retained):
+        """The native host learns of a failed preparation from the engine's answer, and after an update offers
+        Undo. An engine that exits instead reads as a crash, and every restart fails the same way."""
+        server = ensure_server(retained / "db", database="roleband")
+        # The newest migration adds this column, so the upgrade fails and rolls back.
+        psql(server, "ALTER TABLE compare_selection ADD COLUMN scope varchar(16)")
+        stop_server(retained / "db")
+        engine = _engine(retained)
+        try:
+            deadline = time.monotonic() + 600
+            while _database_state(retained) != "failed" and engine.poll() is None and time.monotonic() < deadline:
+                time.sleep(0.5)
+            reported = _database_state(retained)
+            time.sleep(3)
+            running = engine.poll() is None
+        finally:
+            output = _stop(engine)
+        assert reported == "failed", output[-3000:]
+        assert running, "the engine stays up, answering, until it is told to stop"
+        assert engine.returncode == 0, output[-3000:]
+        assert _heads(retained) == [PREVIOUS], "the failed upgrade rolled back"
+        assert _record(retained)["from_heads"] == [PREVIOUS], "the checkpoint made before it stays recorded"

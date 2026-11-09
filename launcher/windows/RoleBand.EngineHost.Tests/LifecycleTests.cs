@@ -32,6 +32,9 @@ public sealed class LifecycleTests
             with (HERE / "events.log").open("a", encoding="utf-8") as stream:
                 stream.write(text + "\n")
 
+        if mode == "exit-early":
+            note("started")
+            os._exit(3)
         marker = sys.argv[sys.argv.index("--marker") + 1]
         record = {"format": 1, "pid": os.getpid(), "started": psutil.Process().create_time(), "executable": sys.executable,
                   "resources": str(HERE.parent), "state": str(DATA_DIR), "marker": marker}
@@ -379,6 +382,29 @@ public sealed class LifecycleTests
         Assert.AreEqual("failed", phase);
         Assert.IsTrue(session.PreparationFailed);
         CollectionAssert.AreEqual(new[] { "resume", "settle --prepared no" }, commands.Calls);
+    }
+
+    [TestMethod]
+    public async Task ANewVersionThatKeepsExitingBeforeItIsReadyMarksTheUpdateFailed()
+    {
+        var engine = new StandIn("exit-early");
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        var commands = new RecordingCommands(() => session.OwnsEngine, ("resume", """{"phase": "preparing"}"""),
+            ("settle", """{"phase": "failed"}"""));
+        var phase = await new UpdateCoordinator(commands, new RecordingDeployer()).StartAsync(session);
+        Assert.AreEqual("failed", phase);
+        Assert.IsTrue(session.GaveUp);
+        Assert.AreEqual(Quick.RestartLimit + 1, engine.Events().Count(line => line == "started"));
+        CollectionAssert.AreEqual(new[] { "resume", "settle --prepared no" }, commands.Calls);
+
+        // An engine that was ready once and then crashed already settled the update as prepared.
+        var later = new StandIn("crash");
+        await using var crashing = new EngineSession(later.Configuration, Quick);
+        var settled = new RecordingCommands(() => crashing.OwnsEngine, ("resume", """{"phase": "preparing"}"""),
+            ("settle", """{"phase": "complete"}"""));
+        await new UpdateCoordinator(settled, new RecordingDeployer()).StartAsync(crashing);
+        CollectionAssert.AreEqual(new[] { "resume", "settle --prepared yes" }, settled.Calls);
+        await crashing.StopAsync();
     }
 
     [TestMethod]

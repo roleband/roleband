@@ -129,7 +129,16 @@ async def run(marker: str, *, development: bool, fixture: bool, dry_run: bool) -
             await asyncio.to_thread(checkpoint_pending_migration, server)
             if stop.is_set():
                 return 0
-            if not await _prepare_process(stop, development, "prepare"):
+            try:
+                prepared = await _prepare_process(stop, development, "prepare")
+            except (subprocess.CalledProcessError, TimeoutError):
+                # The native host reads the failure from the responder and offers what fits: Undo after an
+                # update, Restart otherwise. An exit would read as a crash that each restart repeats.
+                logger.exception("database preparation failed")
+                preparation.update(DATA_DIR, database="failed", reason="database_failed")
+                await stop.wait()
+                return 0
+            if not prepared:
                 return 0
             preparation.update(DATA_DIR, database="ready", model="unused" if dry_run else "waiting")
             if fixture and not stop.is_set():

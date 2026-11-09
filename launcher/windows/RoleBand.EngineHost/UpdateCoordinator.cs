@@ -78,7 +78,8 @@ public sealed class UpdateCoordinator(IUpdateCommands commands, IPackageDeployer
     /// <summary>
     /// Starts the engine after settling the journal. When this run is the new version of an
     /// update, waits for its preparation and records the verdict: Ready completes the update;
-    /// a failed database preparation marks it failed, which keeps everything closed until recovery.
+    /// a failed database preparation, or an engine that keeps exiting before it is ever ready,
+    /// marks it failed, which keeps everything closed until recovery.
     /// </summary>
     public async Task<string?> StartAsync(EngineSession session, CancellationToken cancellation = default)
     {
@@ -99,7 +100,7 @@ public sealed class UpdateCoordinator(IUpdateCommands commands, IPackageDeployer
         void Observe(EngineSnapshot snapshot)
         {
             if (snapshot.State == EngineState.Ready) verdict.TrySetResult(true);
-            else if (snapshot.State == EngineState.Attention) verdict.TrySetResult(session.PreparationFailed ? false : null);
+            else if (snapshot.State == EngineState.Attention) verdict.TrySetResult(session.PreparationFailed || session.GaveUp ? false : null);
             else if (snapshot.State == EngineState.Stopped) verdict.TrySetResult(null);
         }
         session.Changed += Observe;
