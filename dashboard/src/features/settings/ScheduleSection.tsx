@@ -8,7 +8,7 @@ import { companyName, formatWhen } from "../../format";
 import { useAsyncResource } from "../../hooks/useAsyncResource";
 import { useWriteQueue } from "../../hooks/useWriteQueue";
 import { AsyncBoundary, Badge, FilterChip, Icon, InfoTip, Popover, Segmented, Sheet, Switch } from "../../ui";
-import { InspectorTime } from "./InspectorTime";
+import { clockText, TimeField } from "../../ui/TimeField";
 import { startForReadyBy } from "./usePlanDrag";
 import { ScheduleChronograph } from "./ScheduleChronograph";
 import { durationText, hasUsualStart, learnedSentence } from "./charts/plan";
@@ -149,6 +149,7 @@ import {
   settingsScheduleSectionWhenTheComputerIsOff,
   settingsScheduleHours,
   settingsScheduleDays,
+  settingsFullScanStarts,
 } from "../../copy/gen/settings";
 import { Msg } from "../../ui/Msg";
 
@@ -220,6 +221,9 @@ const timersRosterText = (companies: number, scheduled: number, excepted: number
 const cycleTitle = (count: number, only: { company: string } | null) =>
   count === 1 && only ? companyName(only.company) : settingsChronographDialAuthoritativeCycle();
 
+/** How long a full scan is taken to last before one has been planned. */
+const FULL_SCAN_GUESS_SECONDS = 2700;
+
 /** The line under the full scan's done-by time: when it starts and over how
     many companies, or that no time is set, and how long it takes once a full
     scan is planned. */
@@ -231,7 +235,7 @@ const readyByText = (plan: SchedulePlan, full: ScheduleUpcomingRun | undefined) 
       ? settingsScheduleSectionNoTimeSetDuration({ companies, duration: durationText(full) })
       : settingsScheduleSectionNoTimeSet({ companies });
   }
-  const time = formatMinute(startForReadyBy(ready.minute, full?.seconds ?? 2700));
+  const time = formatMinute(startForReadyBy(ready.minute, full?.seconds ?? FULL_SCAN_GUESS_SECONDS));
   return full
     ? settingsScheduleSectionStartsAboutDuration({ source: ready.source, time, companies, duration: durationText(full) })
     : settingsScheduleSectionStartsAbout({ source: ready.source, time, companies });
@@ -428,13 +432,17 @@ function PlanSettings({
               the visible words beside it read as the same sentence. */}
           <div className="schedule-plan-ready">
             <span aria-hidden="true">{settingsScheduleSectionFullScanDoneBy()}</span>
-            <InspectorTime
+            <TimeField
               label={settingsPlanRunInspectorFullScanDoneBy()}
               minute={ready?.minute ?? null}
               step={600}
               locked={false}
               saving={busy}
               onCommit={(minute) => void save({ ready_by_minute: minute })}
+              framed
+              hint={(minute) => settingsFullScanStarts({
+                time: clockText(startForReadyBy(minute, full?.seconds ?? FULL_SCAN_GUESS_SECONDS)),
+              })}
             />
           </div>
           <small>{readyByText(plan, full)}</small>
