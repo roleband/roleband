@@ -47,6 +47,8 @@ def handoff_path(data: Path, pid: int) -> Path:
 
 def hand_over(listener: socket.socket, data: Path, pid: int) -> None:
     """Share the supervisor's socket with the API process `pid` (Windows)."""
+    if sys.platform != "win32":
+        raise OSError("socket handover requires Windows")
     from tracker.platform.windows_fs import publish
 
     publish(handoff_path(data, pid), listener.share(pid))
@@ -54,6 +56,8 @@ def hand_over(listener: socket.socket, data: Path, pid: int) -> None:
 
 def _received(data: Path, host: str, port: int) -> socket.socket:
     """The supervisor's socket, once it has been handed to this process."""
+    if sys.platform != "win32":
+        raise OSError("socket handover requires Windows")
     from tracker.platform.windows_fs import read_private
 
     path = handoff_path(data, os.getpid())
@@ -82,6 +86,8 @@ def _release_completion_port(listener: socket.socket) -> None:
     proactor event loop of the next API process would otherwise fail to accept on it (WinError 87).
     FileReplaceCompletionInformation with no port removes the tie (Windows 8.1 and later).
     """
+    if sys.platform != "win32":
+        raise OSError("completion ports are a Windows mechanism")
     import ctypes
     from ctypes import wintypes
 
