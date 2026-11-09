@@ -63,8 +63,8 @@ shared-company-no-open-roles = No open roles right now
 shared-company-view-profile = View profile
 
 ## patterns/Pager.tsx
-# kind=button wording=as-is
-shared-pager-prev = Prev
+# kind=button
+shared-pager-prev = Previous
 # kind=label wording=as-is
 shared-pager-page-of = Page { $page } of { $pages }
 # kind=button wording=as-is
@@ -150,13 +150,13 @@ shared-base-posted-hint = Posted range: { $low } to { $high }{ $unit }
 # kind=tooltip note="Where a row's base salary comes from: the one figure the posting states. amount is money, unit is empty for yearly pay or a unit such as / hr"
 shared-base-posted-point-hint = Posted base salary: { $amount }{ $unit }
 # kind=tooltip note="Where a row's base salary comes from when the posting states none"
-shared-base-estimate-hint = Our estimate for this level
+shared-base-estimate-hint = Estimated from the level
 # kind=aria note="Read out for a row's empty Base cell"
 shared-base-unknown = Base salary not known
 # kind=status note="A posting's pay while a plugin answers pay app-wide and has not read its company yet; plugin = the plugin's name"
 shared-pay-not-covered = Not read by { $plugin } yet
 # kind=tooltip note="Why a posting shows no pay while a plugin answers pay"
-shared-pay-not-covered-hint = While { $plugin } supplies compensation, a company it hasn't read yet shows no estimate, not a built-in one.
+shared-pay-not-covered-hint = No estimate until { $plugin } reads this company. Built-in estimates are off while it provides pay.
 # kind=link note="Opens Tiingo's page that shows a free price key after sign-up, in a new tab: on the profile's empty price chart and the Stock prices card"
 shared-price-feed-get-key = Get a free key
 

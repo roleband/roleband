@@ -1,5 +1,5 @@
 import { timestamp as copyTimestamp, date, list, weekday } from "../../copy/format";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { Content } from "../../ui/Content";
 import type { SchedulePlan, SchedulePlanUpdate, ScheduleBinding, ScheduleUpcomingRun, SyncSchedule } from "../../api";
 import { api } from "../../api";
@@ -37,7 +37,6 @@ import {
   settingsScheduleSectionAQuickScanEveryHours,
   settingsScheduleSectionAdaptsTo81224h,
   settingsScheduleSectionAfterTwoHoursOrMore,
-  settingsScheduleSectionAllPersistedDeadlines2,
   settingsScheduleSectionBindingsProjectedThrough,
   settingsScheduleSectionClearReadyBy,
   settingsScheduleSectionCompanies,
@@ -47,16 +46,13 @@ import {
   settingsScheduleSectionCouldnTSaveThatChange,
   settingsScheduleSectionDays,
   settingsScheduleSectionDaysAWeek,
-  settingsScheduleSectionDeadlinesLink,
   settingsScheduleSectionDiscovery,
   settingsScheduleSectionDiscoveryCadence,
-  settingsScheduleSectionDiscoveryCanAddOrUpdate,
   settingsScheduleSectionDragAMarkAroundThe,
   settingsScheduleSectionEditing,
   settingsScheduleSectionEmpty,
   settingsScheduleSectionEvery,
   settingsScheduleSectionEveryCompanySScans,
-  settingsScheduleSectionEveryCompanySScans2,
   settingsScheduleSectionFirstScanOfTheDay,
   settingsScheduleSectionFullScanAt,
   settingsScheduleSectionFullScanDoneBy,
@@ -74,9 +70,8 @@ import {
   settingsScheduleSectionManualPriority,
   settingsScheduleSectionMarksComingDueTogetherDispatch,
   settingsScheduleSectionMax,
-  settingsScheduleSectionMoreSeeAllDeadlines,
+  settingsScheduleSectionUpcomingMore,
   settingsScheduleSectionNeedAttention,
-  settingsScheduleSectionNeedsYourOk,
   settingsScheduleSectionNextScans,
   settingsScheduleSectionNextScans2,
   settingsScheduleSectionNoTimeSet,
@@ -92,7 +87,6 @@ import {
   settingsScheduleSectionOnlyThisCycleCanClose,
   settingsScheduleSectionOnlyWhenPluggedIn,
   settingsScheduleSectionOnlyWhenYouPressScan,
-  settingsScheduleSectionOnlyWhenYouScan,
   settingsScheduleSectionOuterOrbitIsReconciliationInner,
   settingsScheduleSectionOuterOrbitIsTheFull,
   settingsScheduleSectionPassProvider,
@@ -100,7 +94,6 @@ import {
   settingsScheduleSectionPauseScans,
   settingsScheduleSectionPaused,
   settingsScheduleSectionPausedUntil,
-  settingsScheduleSectionPersistedDeadlines,
   settingsScheduleSectionPlanRoster,
   settingsScheduleSectionPlanRosterExcepted,
   settingsScheduleSectionPlanRosterPinned,
@@ -261,9 +254,9 @@ const statusLabel = (binding: ScheduleBinding) => {
   // The scheduler's own reason: a company no timer takes is not
   // "Scheduled", whatever its row says.
   if (binding.status === "scheduled" && binding.waits_for_user === "user_directed") {
-    return settingsScheduleSectionOnlyWhenYouScan();
+    return settingsScheduleSectionOnlyWhenYouPressScan();
   }
-  if (binding.status === "scheduled" && binding.waits_for_user === "walled") return settingsScheduleSectionNeedsYourOk();
+  if (binding.status === "scheduled" && binding.waits_for_user === "walled") return settingsScheduleSectionOnlyAfterYouAllowIt();
   if (binding.status === "policy_denied") return settingsScheduleSectionPolicyDenied();
   if (binding.status === "cooldown") return settingsScheduleSectionCoolingDown();
   if (binding.status === "unscheduled") return settingsScheduleSectionUnscheduled();
@@ -629,6 +622,53 @@ function ScheduleStudio({
   }, [clusters, cycle, schedule.generated_at]);
 
   const [pinnedOpen, setPinnedOpen] = useState(false);
+  // The list shows its first rows; the rest open in place, under them, and
+  // close again. It starts closed on every visit.
+  const [upcomingOpen, setUpcomingOpen] = useState(false);
+  const upcomingId = useId();
+  const upcomingRow = (entry: (typeof agenda)[number], index: number) => entry.kind === "window" ? (
+    <div
+      key="reconciliation-window"
+      className={`schedule-upcoming-row reconciliation${index === 0 ? " next" : ""}`}
+    >
+      <time>{entry.overdue ? settingsScheduleSectionNow() : formatTime(entry.at)}</time>
+      <span className="schedule-upcoming-marker" aria-hidden="true" />
+      <span>
+        {/* A one-binding cycle is that connector, and this row
+            replaces the one that would have named it — so name it
+            here rather than hiding a company behind an abstraction. */}
+        <strong>
+          {entry.overdue
+            ? settingsScheduleSectionTitleDueNow({ title: cycleTitle(entry.count, entry.only) })
+            : cycleTitle(entry.count, entry.only)}
+        </strong>
+        <small>
+          <Msg of={settingsScheduleSectionBindingsProjectedThrough} args={{ count: entry.count }} elems={{ end: formatTime(entry.end) }} />
+        </small>
+      </span>
+    </div>
+  ) : (
+    <div
+      key={entry.cluster.id}
+      className={`schedule-upcoming-row${entry.cluster.mode === "reconcile" ? " reconciliation" : ""}${index === 0 ? " next" : ""}`}
+    >
+      <time>{formatTime(entry.at)}</time>
+      <span className="schedule-upcoming-marker" aria-hidden="true" />
+      <span>
+        <strong>
+          {entry.cluster.events.length > 1
+            ? stackText(entry.cluster.events.length, entry.cluster.mode, false)
+            : companyName(entry.cluster.events[0].company)}
+        </strong>
+        <small>
+          {entry.cluster.events.length > 1
+            ? <Content text={list(entry.cluster.events.map((event) => companyName(event.company)))} />
+            : settingsScheduleSectionPassProvider({ mode: entry.cluster.mode, provider: entry.cluster.events[0].provider })}
+        </small>
+      </span>
+    </div>
+  );
+
   const waitingNote = waiting > 0 ? (
     <p className="schedule-waiting" role="status">{settingsScheduleSectionSettingScanTimes({ count: waiting })}</p>
   ) : null;
@@ -756,52 +796,26 @@ function ScheduleStudio({
                 <h3 className="section-title">{settingsScheduleSectionUpcoming()}</h3>
               </div>
               <div className="schedule-upcoming-list">
-                {agenda.slice(0, AGENDA_LIMIT).map((entry, index) => entry.kind === "window" ? (
-                  <div
-                    key="reconciliation-window"
-                    className={`schedule-upcoming-row reconciliation${index === 0 ? " next" : ""}`}
-                  >
-                    <time>{entry.overdue ? settingsScheduleSectionNow() : formatTime(entry.at)}</time>
-                    <span className="schedule-upcoming-marker" aria-hidden="true" />
-                    <span>
-                      {/* A one-binding cycle is that connector, and this row
-                          replaces the one that would have named it — so name it
-                          here rather than hiding a company behind an abstraction. */}
-                      <strong>
-                        {entry.overdue
-                          ? settingsScheduleSectionTitleDueNow({ title: cycleTitle(entry.count, entry.only) })
-                          : cycleTitle(entry.count, entry.only)}
-                      </strong>
-                      <small>
-                        <Msg of={settingsScheduleSectionBindingsProjectedThrough} args={{ count: entry.count }} elems={{ end: formatTime(entry.end) }} />
-                      </small>
-                    </span>
-                  </div>
-                ) : (
-                  <div
-                    key={entry.cluster.id}
-                    className={`schedule-upcoming-row${entry.cluster.mode === "reconcile" ? " reconciliation" : ""}${index === 0 ? " next" : ""}`}
-                  >
-                    <time>{formatTime(entry.at)}</time>
-                    <span className="schedule-upcoming-marker" aria-hidden="true" />
-                    <span>
-                      <strong>
-                        {entry.cluster.events.length > 1
-                          ? stackText(entry.cluster.events.length, entry.cluster.mode, false)
-                          : companyName(entry.cluster.events[0].company)}
-                      </strong>
-                      <small>
-                        {entry.cluster.events.length > 1
-                          ? <Content text={list(entry.cluster.events.map((event) => companyName(event.company)))} />
-                          : settingsScheduleSectionPassProvider({ mode: entry.cluster.mode, provider: entry.cluster.events[0].provider })}
-                      </small>
-                    </span>
-                  </div>
-                ))}
+                {agenda.slice(0, AGENDA_LIMIT).map((entry, index) => upcomingRow(entry, index))}
                 {agenda.length > AGENDA_LIMIT && (
-                  <div className="schedule-upcoming-more">
-                    {settingsScheduleSectionMoreSeeAllDeadlines({ count: agenda.length - AGENDA_LIMIT })}
-                  </div>
+                  <>
+                    <div
+                      id={`${upcomingId}-rest`}
+                      className="schedule-upcoming-rest"
+                      hidden={!upcomingOpen}
+                    >
+                      {upcomingOpen && agenda.slice(AGENDA_LIMIT).map((entry, index) => upcomingRow(entry, AGENDA_LIMIT + index))}
+                    </div>
+                    <Button
+                      variant="link"
+                      className="schedule-upcoming-more"
+                      aria-expanded={upcomingOpen}
+                      aria-controls={`${upcomingId}-rest`}
+                      onClick={() => setUpcomingOpen((open) => !open)}
+                    >
+                      {settingsScheduleSectionUpcomingMore({ choice: upcomingOpen ? "yes" : "no", count: agenda.length - AGENDA_LIMIT })}
+                    </Button>
+                  </>
                 )}
               </div>
             </aside>
@@ -837,7 +851,7 @@ function ScheduleStudio({
             : timersRosterText(schedule.bindings.length, active.length, exceptions.length, reconcileOnly)}
         </span>
         <Button variant="link" onClick={() => setDeadlinesOpen(true)}>
-          {settingsScheduleSectionDeadlinesLink({ schedule: plan ? "plan" : "timers" })}
+          {settingsScheduleSectionEveryCompanySScans()}
         </Button>
       </div>
 
@@ -845,7 +859,7 @@ function ScheduleStudio({
         <Sheet
           isOpen={deadlinesOpen}
           onClose={() => setDeadlinesOpen(false)}
-          label={settingsScheduleSectionEveryCompanySScans2()}
+          label={settingsScheduleSectionEveryCompanySScans()}
           className="schedule-deadlines-sheet app-overlay"
         >
           <div className="schedule-ledger-head">
@@ -909,13 +923,13 @@ function ScheduleStudio({
         <Sheet
           isOpen={deadlinesOpen}
           onClose={() => setDeadlinesOpen(false)}
-          label={settingsScheduleSectionAllPersistedDeadlines2()}
+          label={settingsScheduleSectionEveryCompanySScans()}
           className="schedule-deadlines-sheet app-overlay"
         >
           <div className="schedule-ledger-head">
-            <h2>{settingsScheduleSectionPersistedDeadlines()}</h2>
+            <h2>{settingsScheduleSectionEveryCompanySScans()}</h2>
             <InfoTip label={settingsScheduleSectionHowSchedulingSafetyWorks()}>
-              {settingsScheduleSectionDiscoveryCanAddOrUpdate()}
+              {settingsScheduleSectionAFullScanReadsA()}
             </InfoTip>
           </div>
           <div className="schedule-ledger">

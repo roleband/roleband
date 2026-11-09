@@ -64,7 +64,7 @@ test("demand shows roles updated but never closed", async ({ page }) => {
   await page.getByRole("tab", { name: "Hiring", exact: true }).click();
   await expect(page.getByRole("group", { name: "Time range" })).toHaveCount(0);
 
-  await expect(page.getByRole("banner", { name: "Application navigation" })).toContainText("Insights/Hiring");
+  await expect(page.getByRole("banner", { name: "Top bar" })).toContainText("Insights/Hiring");
   await expect(page.getByRole("heading", { name: "Updated but never closed" })).toBeVisible();
   await expect(page.getByText("Engineering Manager, Agent Runtime Platform")).toBeVisible();
   const updated = page.locator(".panel").filter({ has: page.getByRole("heading", { name: "Updated but never closed" }) });

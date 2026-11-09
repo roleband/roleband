@@ -1,30 +1,32 @@
 ## insights
 
 ## features/statistics/ClustersView.tsx
-insights-clusters-view-semantic-groups-built-from-role = 按职位描述的内容对职位分组，并以它们共有的技能命名。同一类职位可能分成多个分组。
-insights-clusters-view-market-terrain = 市场地形
-insights-clusters-view-group-landscape = 分组全景
+insights-clusters-view-semantic-groups-built-from-role = 按职位描述的内容将职位归入集群，并以它们共有的技能命名。同一类职位可能分成多个集群。
+insights-clusters-view-market-terrain = 各集群的在招职位
+insights-clusters-view-group-landscape = 集群图
 insights-clusters-view-area-encodes-active-role-volume = 方块越大，在招职位越多。选择一个方块查看其中的职位。
-insights-clusters-view-groups = { $count } 个分组
+insights-clusters-view-groups = { $count } 个集群
 insights-clusters-view-roles = { $family_display } · { $size } 个职位
 insights-clusters-view-clear = 清除
-insights-clusters-view-and-more-companies = 以及另外 { $n } 家公司
-insights-clusters-view-role-groups = { $count ->
-   *[other] { $count } 个职位分组
+insights-clusters-view-and-more-companies = { $count ->
+   *[other] 以及另外 { $n } 家公司
 }
-insights-clusters-view-largest-group = 最大：{ $label } · { $size } 个职位
-insights-clusters-view-groups-are-built-from-role = 扫描后会根据职位描述构建分组
-insights-clusters-view-about-role-groups = 关于职位分组
-insights-clusters-view-groups-tile = 分组
+insights-clusters-view-role-groups = { $count ->
+   *[other] { $count } 个集群
+}
+insights-clusters-view-largest-group = 最大集群：{ $label } · { $size } 个职位
+insights-clusters-view-groups-are-built-from-role = 扫描后会根据职位描述生成集群
+insights-clusters-view-about-role-groups = 关于集群
+insights-clusters-view-groups-tile = 集群
 insights-clusters-view-from-role-descriptions = 基于职位描述
-insights-clusters-view-roles-grouped = 已分组职位
-insights-clusters-view-largest = 最大
-insights-clusters-view-roles-in-one-group = 个职位在同一分组
-insights-clusters-view-with-a-grouped-role = 有已分组的职位
-insights-clusters-view-how-to-read-the-cluster = 如何解读分组全景
-insights-clusters-view-loading = 正在加载职位分组…
-insights-clusters-view-load-failed = 无法加载职位分组
-insights-clusters-view-group-loading = 正在加载此分组…
+insights-clusters-view-roles-grouped = 已归入集群的职位
+insights-clusters-view-largest = 最大集群
+insights-clusters-view-roles-in-one-group = 个职位在同一集群
+insights-clusters-view-with-a-grouped-role = 有职位在集群中
+insights-clusters-view-how-to-read-the-cluster = 如何解读集群图
+insights-clusters-view-loading = 正在加载集群…
+insights-clusters-view-load-failed = 无法加载集群
+insights-clusters-view-group-loading = 正在加载此集群…
 insights-clusters-view-group-load-failed = 无法加载此分组
 
 ## features/statistics/CompTrendChart.tsx
@@ -57,20 +59,20 @@ insights-compensation-panel-estimated-comp-distribution = 估算总薪酬分布
 insights-compensation-panel-median-comp-by-level = 各级别估算总薪酬中位数
 insights-compensation-panel-top-paying-companies = 薪酬最高的公司
 insights-compensation-panel-median-pay-by-discipline = 各职能估算总薪酬中位数
-insights-compensation-panel-what-a-skill-adds-at = 同一级别下某项技能带来的差异
+insights-compensation-panel-what-a-skill-adds-at = 同级别下各技能的薪酬
 insights-compensation-panel-roles-naming-the-skill-against = 提到该技能的职位，与同一级别和职能的全部职位对比。它反映的是哪些雇主要求该技能，而不是它值多少。
-insights-compensation-panel-not-enough-priced-roles-per = 每项技能下有薪酬的职位还不够多。
+insights-compensation-panel-not-enough-priced-roles-per = 每项技能下有估算的职位还不够多。
 insights-compensation-panel-roles = { $count ->
    *[other] { $count } 个职位
 }
-insights-compensation-panel-groups-of-roles-or-more = 至少 { $min_roles } 个职位的分组
+insights-compensation-panel-groups-of-roles-or-more = 每柱至少 { $min_roles } 个职位
 insights-compensation-panel-base-salary-quoted-from-the = 招聘信息中公布的基本工资，不是估算。每条线代表一个公布的区间，无论有多少职位使用它。
 insights-compensation-panel-how-compensation-is-estimated = 薪酬如何估算
 insights-compensation-panel-coverage = 已估算
 insights-compensation-panel-middle-50 = 中间 50%
 insights-compensation-panel-top-decile = 前 10%
 insights-compensation-panel-range = 跨度
-insights-compensation-panel-about-published-salary-bands = 关于公布的薪酬区间
+insights-compensation-panel-about-published-salary-bands = 关于公布区间
 insights-compensation-panel-how-a-skill-s-pay = 技能薪酬差异如何计算
 insights-compensation-panel-median = { $roles } · 中位数 { $p50 }
 
@@ -109,7 +111,7 @@ insights-demand-changed-repeatedly-without-a-closure = 多次变更，从未关�
 insights-demand-updated-times = 更新 { $update_count } 次
 insights-demand-about = 关于 { $title }
 insights-demand-how-regions-are-counted = 地区如何计数
-insights-demand-all-companies-hiring = 所有正在招聘的公司
+insights-demand-all-companies-hiring = 所有在招公司
 insights-demand-find-a-company = 查找公司
 
 ## features/statistics/DisclosurePanel.tsx
@@ -130,11 +132,10 @@ insights-disclosure-panel-the-median-floor-and-ceiling = 公布的基本工资�
 insights-disclosure-panel-median-published-band = 公布的{ $basis }区间中位数 · { $window }
 insights-disclosure-panel-no-published-base-salary-band = 暂未记录公布的基本工资区间。
 insights-disclosure-panel-pay-transparency-over-time-covers = 这一趋势涵盖所有职能。
-insights-disclosure-panel-by-employer = 按雇主
 insights-disclosure-panel-how-the-disclosure-rate-is = 薪酬透明度如何计算
 insights-disclosure-panel-disclosure-breakdown = 薪酬透明度细分
 insights-disclosure-panel-share-of-open-roles-stating = { $group ->
-    [company] 公布薪酬区间的在招职位占比（按雇主）
+    [company] 公布薪酬区间的在招职位占比（按公司）
    *[level] 公布薪酬区间的在招职位占比（按级别）
 }
 insights-disclosure-panel-trend-breakdown = 趋势细分
@@ -150,34 +151,34 @@ insights-disclosure-panel-band-trend-load-failed = 无法加载公布区间趋�
 insights-overlap-panel-how-alike-their-roles-are = 各公司职位的相似程度
 insights-overlap-panel-not-enough-companies-with-skills = 有技能数据的公司不足，无法比较。请选择两家或更多。
 insights-overlap-panel-shared-vocabulary = 共同技能
-insights-overlap-panel-each-company-is-its-open = 每家公司由其在招职位的技能来表示；提到某项技能的公司越少，该技能权重越高，因此所有公司都要求的技能影响很小。每家公司排在与它最相似的公司旁边。只计每家公司至少 { $min_jobs } 个职位提到的技能；所有职位都应具备的要求不计入。
+insights-overlap-panel-each-company-is-its-open = 按在招职位提到的技能比较各公司。越少见的技能权重越高。一家公司有 { $min_jobs } 个职位提到某项技能时，该技能才计入。
 insights-overlap-panel-comparison = { $companies } × { $companies } 对比
 insights-overlap-panel-exact-matrix = 精确矩阵
-insights-overlap-panel-cells-show-how-alike-two = 单元格显示两家公司的相似度（×100）；对角线显示每家公司的不同技能数。将鼠标悬停在单元格上可查看共同技能。
+insights-overlap-panel-cells-show-how-alike-two = 每个单元格给出两家公司的相似度，从 0 到 100。对角线是每家公司的技能数。悬停可查看共同技能。
 insights-overlap-panel-companies-picked = { $picker ->
     [default] 在招职位最多
    *[chosen] { $picked } 家公司
 }
 insights-overlap-panel-pair-names = { $a } 和 { $b }
 insights-overlap-panel-no-shared-skills-yet = 暂无共同技能
-insights-overlap-panel-most-alike-of = 在区分各公司的技能上，是 { $companies } 家公司中最相似的（{ $similarity }）
+insights-overlap-panel-most-alike-of = 是 { $companies } 家公司中特色技能最相近的一对（{ $similarity }）
 insights-overlap-panel-companies-compared = 已比较 { $companies } 家公司
 insights-overlap-panel-closest-pair = 最相近的一对
 insights-overlap-panel-median-pair = 中位的一对
 insights-overlap-panel-furthest-pair = 差异最大的一对
-insights-overlap-panel-how-skill-overlap-is-calculated = 技能重合度如何计算
+insights-overlap-panel-how-skill-overlap-is-calculated = 如何计算技能重合度
 insights-overlap-panel-cross-company-skill-overlap-matrix = 跨公司技能重合矩阵
 insights-overlap-panel-skills-open = { $company } · { $skill_count } 项技能 · { $open } 个在招
 insights-overlap-panel-pair-alike = { $listed ->
-    [none] { $a } 和 { $b }：相似度 { $percent }%，{ $union } 项技能中有 { $shared } 项相同
-   *[some] { $a } 和 { $b }：相似度 { $percent }%，{ $union } 项技能中有 { $shared } 项相同：{ $skills }
+    [none] { $a } 和 { $b }：相似度 { $percent }%，{ $union } 项技能中共有 { $shared } 项
+   *[some] { $a } 和 { $b }：相似度 { $percent }%，{ $union } 项技能中共有 { $shared } 项：{ $skills }
 }
 insights-overlap-panel-no-shared-skills = { $a } 和 { $b }：无共同技能
 
 ## features/statistics/OverviewPanel.tsx
 insights-overview-panel-most-named-skills = 最常提到的技能
 insights-overview-panel-what-is-pulling-the-market = 需求最大的技能
-insights-overview-panel-the-skills-open-roles-name = 在招职位最常提到的技能，按提到该技能的职位数排序。
+insights-overview-panel-the-skills-open-roles-name = 技能按提到它的在招职位数排序。
 insights-overview-panel-leads-roles = { $display } 领先 · { $job_count } 个职位
 insights-overview-panel-largest-groups = 最大的分组
 insights-overview-panel-no-groups-built-yet = 尚未构建分组。
@@ -186,7 +187,7 @@ insights-overview-panel-the-roles-advertised-longest-that = 招聘时间最长�
 insights-overview-panel-no-open-roles = 暂无在招职位。
 insights-overview-panel-opened-closed = 新增 { $new_count } · 关闭 { $closed_count }
 insights-overview-panel-about-the-demand-field = 关于此图表
-insights-overview-panel-what-open-the-longest-means = “招聘时间最长”是什么意思
+insights-overview-panel-what-open-the-longest-means = “招聘时间最长”指什么
 
 ## features/statistics/PayBands.tsx
 insights-pay-bands-each-line-is-one-published = 每条线代表一个公布的区间。带边框的部分是该级别的中位区间。
@@ -205,14 +206,14 @@ insights-skills-view-expected-of-the-role = 职位的基本要求
 insights-skills-view-process-leadership-and-collaboration-asks = 大多数职位都要求的流程、领导力和协作技能。
 insights-skills-view-against-the-market = 与市场对比
 insights-skills-view-what-sets-these-roles-apart = 这些职位的独特之处
-insights-skills-view-above-the-line-named-more = 线以上：比市场更常提到
-insights-skills-view-pick-a-company-a-discipline = 选择一家公司、一个职能或一侧，查看这些职位与市场的不同之处。
+insights-skills-view-above-the-line-named-more = 线以上：提及多于市场
+insights-skills-view-pick-a-company-a-discipline = 选择一家公司或一个职能，将其职位与市场对比。
 insights-skills-view-skill = 技能
 insights-skills-view-category = 类别
 insights-skills-view-share-of-roles = 职位占比
 insights-skills-view-lift = 相对市场
 insights-skills-view-lead-skill = { $view ->
-    [narrowed] { $skill } 是这些职位的独特之处
+    [narrowed] { $skill } 最能区分这些职位
    *[market] { $skill } 领先
 }
 insights-skills-view-of-roles-name-it = { $view ->
@@ -223,7 +224,7 @@ insights-skills-view-how-skills-are-ranked = 技能如何排序
 insights-skills-view-roles = 职位
 insights-skills-view-naming-a-skill = 提到某项技能
 insights-skills-view-share-or-lift = { $view ->
-    [narrowed] 提升度
+    [narrowed] 相对市场
    *[market] 占比
 }
 insights-skills-view-ranked-here = 在此排序
@@ -232,18 +233,17 @@ insights-skills-view-of-every-role = 所有职位都应具备
 insights-skills-view-any-company = 任意公司
 insights-skills-view-what-expected-of-the-role = “职位的基本要求”是什么意思
 insights-skills-view-skills-order = { $view ->
-    [narrowed] 技能，最具特征的在前
+    [narrowed] 技能，最独特的在前
    *[market] 技能，最常提到的在前
 }
 insights-skills-view-loading = 正在加载技能…
 insights-skills-view-load-failed = 无法加载技能
 
 ## features/statistics/StatisticsView.tsx
-insights-statistics-view-window = 时间段
+insights-statistics-view-window = 时间范围
 insights-statistics-view-all-time = 全部时间
 insights-statistics-view-statistics-sections = 洞察分区
 insights-statistics-view-discipline = 职能
-insights-statistics-view-time-range = 时间范围
 insights-statistics-view-advanced-view = 高级视图
 insights-statistics-view-advanced-warning-title = 丑话说在前头
 insights-statistics-view-advanced-warning-body = 高级视图专为把脚注当乐趣来读的人准备：百分位数、热力图、流向图，以及背后的每一个数字。你随时可以切换回来。
@@ -289,16 +289,16 @@ insights-stock-trajectory-panel-median-tc = 总薪酬中位数
 insights-stock-trajectory-panel-median-tc-full = 总薪酬中位数
 insights-stock-trajectory-panel-options = 期权
 insights-stock-trajectory-panel-no-equity = 无股权
-insights-stock-trajectory-panel-cash-election = 选择现金
+insights-stock-trajectory-panel-cash-election = 现金或股权
 insights-stock-trajectory-panel-split-source = { $split ->
     [measured] 实测
     [mixed] 部分实测
    *[heuristic] 估算
 }
 insights-stock-trajectory-panel-split-source-explained = { $split ->
-    [measured] 基于该公司级别数据的真实基本工资、奖金和股权构成
-    [mixed] 部分级别有真实构成，其余为估算
-   *[heuristic] 该公司没有观测到的构成：使用基于资历的估算
+    [measured] 来自该公司自己的级别数据
+    [mixed] 部分级别为实测，其余为估算
+   *[heuristic] 无公司数据，按级别估算
 }
 insights-stock-trajectory-panel-projected-tc = 预测总薪酬 { $projected }
 insights-stock-trajectory-panel-projected-tc-full = 预测总薪酬 { $projected }
@@ -311,7 +311,7 @@ insights-stock-trajectory-panel-at-price-change = { $move ->
    *[other] 在 { $pct }% 时
 }
 insights-stock-trajectory-panel-vs-today = 相比今天
-insights-stock-trajectory-panel-of-tc-at-risk = 占总薪酬（受影响部分）
+insights-stock-trajectory-panel-of-tc-at-risk = 占总薪酬（风险部分）
 insights-stock-trajectory-panel-of-tc-at-risk-full = 占总薪酬（受影响部分）
 insights-stock-trajectory-panel-stock-price-change-percent = 股价变动百分比
 insights-stock-trajectory-panel-how-to-read-equity-sensitivity = 如何解读此图表
@@ -320,13 +320,13 @@ insights-stock-trajectory-panel-sensitivity-explained = { $move ->
    *[other] 显示此情景下典型总薪酬的美元变化。
 }
 insights-stock-trajectory-panel-scenario = { $move ->
-    [flat] 股价每变动 10% · 在上方调整以查看情景
+    [flat] 股价每变动 10% · 在上方调整情景
     [up] +{ $pct }% 情景
    *[down] { $pct }% 情景
 }
 insights-stock-trajectory-panel-about-public-company-projections = 关于上市公司预测
 insights-stock-trajectory-panel-paid-in-cash-unaffected-by = 以现金支付：不受股价影响
-insights-stock-trajectory-panel-why-private-companies-do-not = 为什么非上市公司不变动
+insights-stock-trajectory-panel-why-private-companies-do-not = 非上市公司为何不变
 insights-stock-trajectory-panel-loading = 正在加载股价走势…
 insights-stock-trajectory-panel-load-failed = 无法加载股价走势
 insights-stock-trajectory-panel-rsus = RSU
@@ -334,7 +334,7 @@ insights-stock-trajectory-panel-rsus = RSU
 ## features/statistics/TrendsPanel.tsx
 insights-trends-panel-demand-history = 需求历史
 insights-trends-panel-skill-demand-over-time = 技能需求变化趋势
-insights-trends-panel-each-skill-s-share-of = 每项技能在当天技能提及中的占比 · { $window }
+insights-trends-panel-each-skill-s-share-of = 各技能当天提及占比 · { $window }
 insights-trends-panel-top-plotted-in-ledger = 图中显示前 { $plotted } 项 · 列表共 { $total } 项
 insights-trends-panel-history-is-still-accruing-one = 历史数据还不够。扫描几天后，这些线会逐渐完整。
 insights-trends-panel-no-skill-history-yet = 暂无技能历史。
@@ -343,7 +343,7 @@ insights-trends-panel-current-ledger = 当前列表
 insights-trends-panel-now = 现在
 insights-trends-panel-skill-leads = { $skill } 领先
 insights-trends-panel-nothing-to-plot-yet = 暂无可绘制的数据
-insights-trends-panel-leader-share-line = 最近一天占技能提及的 { $current_share } · { $days } 天历史 · { $window }
+insights-trends-panel-leader-share-line = 最近一天提及占比 { $current_share } · 历史 { $days } 天 · { $window }
 insights-trends-panel-history-accrues-one-day-per = 每次扫描积累一天历史 · { $window }
 insights-trends-panel-leader-s-share = 领先者占比
 insights-trends-panel-of-skill-mentions = 的技能提及
@@ -354,8 +354,8 @@ insights-trends-panel-days = { $count ->
 }
 insights-trends-panel-latest-day = 最近一天
 insights-trends-panel-none-yet = 暂无
-insights-trends-panel-of-the-series = 的序列
-insights-trends-panel-of-skill-mentions-open-roles = 占技能提及的 { $current_share }，{ $current } 个在招职位
+insights-trends-panel-of-the-series = 历史数据中
+insights-trends-panel-of-skill-mentions-open-roles = 提及占比 { $current_share }，{ $current } 个在招职位
 insights-trends-panel-change-points = 变化 { $share_delta } 个百分点
 insights-trends-panel-loading = 正在加载技能趋势…
 insights-trends-panel-load-failed = 无法加载技能趋势
@@ -378,7 +378,7 @@ insights-velocity-panel-how-long-postings-stay-up = 招聘信息在线多久
 insights-velocity-panel-this-builds-up-as-roles = 随着职位关闭逐渐完整。目前只有 { $closed_sample } 个已关闭。
 insights-velocity-panel-median-age = 发布时长中位数 { $median_days_open }
 insights-velocity-panel-median-time-posted = 在线时长中位数 { $median_observed_listing_duration_days }
-insights-velocity-panel-more-already-listed-when-their = 另有 { $first_scan } 个在其公司首次扫描时已在发布
+insights-velocity-panel-more-already-listed-when-their = 另有 { $first_scan } 个在公司首次扫描时已发布
 insights-velocity-panel-net-flow = 净流动
 insights-velocity-panel-opened-closed = 新增 − 关闭
 insights-velocity-panel-how-to-read-hiring-flow = 如何解读招聘流动
@@ -388,11 +388,11 @@ insights-velocity-panel-what-time-posted-measures = “发布时长”衡量的�
 insights-age-copy-listed-today = 今天发布
 insights-age-copy-listed-for = 已发布 { $days }
 insights-age-copy-dated-by-the-employer = { $percent }% 由雇主注明日期
-insights-age-copy-counted-from-when-each-role = 从每个职位首次发布时算起 · { $dated }
+insights-age-copy-counted-from-when-each-role = 自各职位首次发布起算 · { $dated }
 
 ## features/statistics/charts/StatisticsCharts.tsx
 insights-statistics-charts-skill-open-roles = { $job_count } 个在招职位 · { $category }
-insights-statistics-charts-market-demand-field = 市场需求分布图
+insights-statistics-charts-market-demand-field = 需求最大的技能
 insights-statistics-charts-company-open-roles = { $open } 个在招职位
 insights-statistics-charts-new-closed-today = 最近 2 天 { $new_roles } · 今日 { $closed_roles }
 insights-statistics-charts-new-count = 新增 +{ $fresh }
@@ -416,7 +416,7 @@ insights-statistics-charts-share-of-these-roles = 这些职位中的占比 →
 insights-statistics-charts-the-market-s-rate = × 市场比例 →
 insights-statistics-charts-what-sets-these-roles-apart = 这些职位的独特之处
 insights-statistics-charts-of-these-roles-the-market = { $skill }：这些职位的 { $share }%，市场的 ×{ $lift }
-insights-statistics-charts-set-changed = 范围已变化
+insights-statistics-charts-set-changed = 统计口径变化
 insights-statistics-charts-skill-demand-trends = 技能需求趋势
 insights-statistics-charts-skill-mentions-change = { $direction ->
     [up] { $skill }：占提及的 { $share }%，+{ $points } 个百分点
@@ -430,7 +430,7 @@ insights-statistics-charts-less-alike = 不太相似
 insights-statistics-charts-cross-company-skill-overlap-heatmap = 跨公司技能重合热力图
 insights-statistics-charts-pair-similarity = { $a } 和 { $b }：{ $percent }%
 insights-statistics-charts-cluster-roles = { $size } 个职位 · { $family }
-insights-statistics-charts-role-cluster-landscape = 职位分组全景
+insights-statistics-charts-role-cluster-landscape = 分组全景
 insights-statistics-charts-roles = { $label }：{ $size } 个职位
 
 ## features/statistics/charts/compBands.ts
@@ -441,7 +441,7 @@ insights-comp-bands-1-more-role-states-base = 另有 1 个职位以其他货币�
 insights-comp-bands-more-roles-state-base-pay = 另有 { $elsewhere } 个职位以其他货币或按小时、按月公布基本工资，因此不在此年薪美元刻度上。
 
 ## features/statistics/charts/disclosure.ts
-insights-disclosure-unclassified = 未分类
+insights-disclosure-unclassified = 级别未知
 insights-disclosure-no-open-roles-have-been = 暂无在招职位检查过是否公布薪酬区间。
 insights-disclosure-share-of-checked-open-roles = 已检查的在招职位中，公布薪酬区间的占比。{ $rates }。{ $unrated ->
         [0] { "" }
@@ -585,15 +585,82 @@ insights-brief-opened = { $allTime ->
    *[no] { $days } 天内新增 { $opened } 个，关闭 { $closed } 个。
 }
 insights-brief-top-skill = 最热门技能：{ $skill }（{ $count } 个职位）。
-insights-brief-largest-group = 最大分组：{ $group }（{ $size }）。
+insights-brief-largest-group = 最大分组：{ $group }（{ $size } 个职位）。
 insights-comp-trend-chart-reference-changed = { $count ->
    *[other] 虚线标出薪酬估算一起变化的时间：这是数据的变化，而不是市场的变化。
 }
 insights-comp-trend-chart-reference-marker = 薪酬估算于 { $date } 变化
-insights-compensation-panel-spread = 中间 50%：{ $low }–{ $high } · { $roles }
+insights-compensation-panel-spread = p25–p75：{ $low }–{ $high } · { $roles }
 insights-compensation-panel-estimated-base-by-level = 各级别的估算基本工资
 insights-compensation-panel-base-only = 仅基本工资
 insights-compensation-panel-base-only-lead =
     { $count ->
        *[other] 另有 { $count } 个职位只有基本工资估算，因此不在上面的数字中。
     }
+
+insights-levels-loading = 正在加载职级表…
+
+insights-levels-load-failed = 无法加载职级表
+
+insights-levels-figure = 各公司如何命名级别
+
+insights-levels-figure-translating = { $company } 的 { $code } 相当于 { $level }
+
+insights-levels-line = 选择任意级别，查看每家有职级表的公司如何称呼它。
+
+insights-levels-line-translating = 高亮列是其他每家公司的同一级别。
+
+insights-levels-kpi-guided = 有职级表
+
+insights-levels-kpi-flat = 职位名称不含级别
+
+insights-levels-kpi-flat-sub = 从未注明级别
+
+insights-levels-kpi-skipped = 无 { $level } 级别
+
+insights-levels-kpi-skipped-sub = 以最接近的级别代替
+
+insights-levels-search = 公司或级别
+
+insights-levels-search-example = Google 或 ICT4
+
+insights-levels-sector = 行业
+
+insights-levels-your-level = { $level }（你的级别）
+
+insights-levels-your-aim = { $level }（你的目标）
+
+insights-levels-translating-column = { $level }（换算中）
+
+insights-levels-translate-from = 以 { $company } { $code } 为基准换算
+
+insights-levels-translating = 正在将 { $company } { $code }（{ $level }）换算到每家公司
+
+insights-levels-clear = 清除
+
+insights-levels-ambiguous = { $count ->
+    [1] { $code } 是 { $count } 家公司的级别。选择它作为换算基准。
+   *[other] { $code } 在 { $count } 家公司分别代表不同级别。选择一家作为换算基准。
+}
+
+insights-levels-engineering = 工程师级别
+
+insights-levels-engineering-title = 这家公司只列出工程师的级别
+
+insights-levels-flat = 此处职位名称不注明级别
+
+insights-levels-flat-title = 除这些级别外，这家公司的职位名称不注明级别
+
+insights-levels-skipped = { $company } 没有 { $level } 级别
+
+insights-levels-skipped-closest = 无 { $level } 级别。最接近：{ $code }
+
+insights-levels-no-guide = 暂无 { $company } 的职级表。
+
+insights-levels-same-as = 与 { $company } 使用相同的级别。
+
+insights-levels-followed-without-guide = 你关注的公司中有 { $count } 家暂无职级表。
+
+insights-levels-empty = 没有匹配的公司或级别
+
+insights-levels-reset = 全部重置

@@ -356,6 +356,9 @@ class SystemStatusResponse(Built):
     oldest read is."""
 
     db: Literal["ok", "error"]
+    #: How this engine was installed: by the app, which finishes an update by
+    #: itself, or from a source checkout, where `./setup.sh` finishes it.
+    install: Literal["app", "source"] = Field(json_schema_extra=text("code"))
     preparation: PreparationStatus | None = None
     launcher: LauncherStatus | None
     last_success_at: datetime | None

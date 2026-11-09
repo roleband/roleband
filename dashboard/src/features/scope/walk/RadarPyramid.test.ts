@@ -18,8 +18,8 @@ describe("pyramidLayers", () => {
     const layers = pyramidLayers(counted(KEPT), ALL, { roles: true, subjects: true }, true);
     expect(layers.map((layer) => layer.id)).toEqual(["accountable", "level", "where", "roles", "subjects"]);
     expect(layers.map((layer) => layer.state)).toEqual(["built", "built", "built", "built", "built"]);
-    expect(layers[1]).toMatchObject({ label: "Level", gist: msg("profile-walk-steps-where-you-are-today-up"), detail: "Keeps 25%, 250 roles" });
-    expect(layers[4].detail).toBe("Keeps <1%, 1 role");
+    expect(layers[1]).toMatchObject({ label: "Level", gist: msg("profile-walk-steps-where-you-are-today-up"), detail: msg("profile-radar-pyramid-keeps", { kept: "25%", kept2: "250 roles" }) });
+    expect(layers[4].detail).toBe(msg("profile-radar-pyramid-keeps", { kept: "<1%", kept2: "1 role" }));
     // Visible labels carry shares; the accessible detail retains exact counts,
     // including a reduction smaller than one percent.
     expect(layers.map((layer) => layer.metric)).toEqual(["50%", "25%", "10%", "5%", "<1%"]);
@@ -31,7 +31,7 @@ describe("pyramidLayers", () => {
       ["roles", "locked", "After the first three answers"],
       ["subjects", "locked", "After the first three answers"],
     ]);
-    expect(pyramidLayers(counted(KEPT), ALL, { roles: false, subjects: true }, true)[3]).toMatchObject({ state: "open", detail: "Any, nothing narrowed" });
+    expect(pyramidLayers(counted(KEPT), ALL, { roles: false, subjects: true }, true)[3]).toMatchObject({ state: "open", detail: msg("profile-radar-pyramid-not-answered-yet", { choice: "yes" }) });
     expect(pyramidLayers(counted(KEPT, "where"), ALL, { roles: true, subjects: true }, true)[2]).toMatchObject({ state: "pending", detail: "Counted after you save" });
   });
 

@@ -47,8 +47,7 @@ test("a walled company waiting for consent is named, and Review records the word
   // this line too.
   await expect(ask.locator("p")).toHaveText([
     "Its careers site limits automated collection.",
-    "By following, you choose to collect Google DeepMind's public job listings. "
-      + "You can unfollow at any time, and collection stops.",
+    "By following, you choose to collect Google DeepMind's public postings. Unfollow at any time to stop.",
   ]);
   // The safe answer holds focus: Enter on the fresh dialog consents to nothing.
   await expect(ask.getByRole("button", { name: "Cancel" })).toBeFocused();

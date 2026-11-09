@@ -72,6 +72,13 @@ describe("errorText", () => {
     expect(text).not.toMatch(/jane-street/);
   });
 
+  it("a scheduling refusal with no company names names this company, never an empty list", () => {
+    for (const error of [new ApiError("paused", 409, "scheduling-unavailable", {}), new ApiError("paused", 409, "scheduling-unavailable", { companies: [] })]) {
+      expect(errorText(error)).toBe("Scanning is paused or turned off for this company.");
+    }
+    expect(errorText(new ApiError("paused", 409, "scheduling-unavailable", { companies: ["openai"] }))).not.toMatch(/this company/);
+  });
+
   it("an unexplained failure says the screen's own sentence; without one, the generic line", () => {
     const crash = new ApiError("Traceback: KeyError 'x'", 500, "server");
     expect(errorText(crash, "Couldn't save it. Try again.")).toBe("Couldn't save it. Try again.");

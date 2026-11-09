@@ -1,4 +1,5 @@
 import { errorText } from "../../api/errorText";
+import { errorTryAgain } from "../../copy/gen/errors";
 import { useCallback, useEffect, useState } from "react";
 import { PlaceSetDecision, PlaceSetDetail, api } from "../../api";
 import type { components } from "../../api.gen";
@@ -87,7 +88,7 @@ export function PlaceSetSection({
       } catch (e) {
         toast({
           key: "place-set-verdict",
-          text: rolePlaceSetSectionCouldNotRecordTheVerdict({ message: errorText(e) }),
+          text: rolePlaceSetSectionCouldNotRecordTheVerdict({ message: errorText(e, errorTryAgain()) }),
           tone: "error",
         });
       } finally {

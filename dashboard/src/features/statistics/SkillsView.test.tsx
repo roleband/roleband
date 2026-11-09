@@ -107,7 +107,7 @@ describe("SkillsView", () => {
     expect(await screen.findByRole("heading", { level: 2, name: "Machine Learning leads" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Skills, most named first" })).toBeInTheDocument();
     expect(screen.queryByRole("img", { name: "What sets these roles apart" })).toBeNull();
-    expect(screen.getByText(/Pick a company, a discipline or a side/)).toBeInTheDocument();
+    expect(screen.getByText(msg("insights-skills-view-pick-a-company-a-discipline"))).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: msg("insights-skills-view-lift") })).toBeNull();
     // A competency is listed apart, never in the ranking.
     const expected = screen.getByRole("heading", { name: /Expected of the role/ }).closest(".panel") as HTMLElement;

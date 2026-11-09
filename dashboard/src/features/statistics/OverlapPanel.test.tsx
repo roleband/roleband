@@ -59,7 +59,7 @@ describe("OverlapPanel", () => {
 
     render(<OverlapPanel />);
 
-    const cell = await screen.findByTitle(/Google & Apple: no shared skills/);
+    const cell = await screen.findByTitle(/Google and Apple: no shared skills/);
     expect(cell.textContent).toBe("");
   });
 

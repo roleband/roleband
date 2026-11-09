@@ -22,3 +22,11 @@ shortcuts-keyboard-shortcuts-close = Cerrar
 
 ## shell/KeyboardShortcuts.tsx
 shortcuts-keyboard-shortcuts-ctrl-k = Ctrl K
+
+shortcuts-keyboard-shortcuts-pipeline = En una candidatura
+
+shortcuts-keyboard-shortcuts-change-stage = Abrir el menú de etapas
+
+shortcuts-keyboard-shortcuts-pick-stage = Elegir esa etapa
+
+shortcuts-keyboard-shortcuts-add-interview = Añadir una entrevista

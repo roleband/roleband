@@ -88,14 +88,14 @@ test("the labelled funnel shows the pool, live effect and stable desktop frame",
   await expect(progress.locator(".walk-pyramid-caption").filter({ hasText: "Level" })).toHaveText("Level60%");
   const outcome = progress.locator(".walk-progress-outcome");
   await expect(outcome.locator("strong")).toHaveText("3");
-  await expect(outcome.locator("span")).toHaveText("roles match");
+  await expect(outcome.locator("span")).toHaveText("roles fit");
   await expect(progress.locator(".walk-progress-line")).toHaveText("60% of all roles");
   // The count's label sits on one line beside the numeral, never wrapped.
   expect(await oneLine(outcome.locator("span"))).toBe(true);
   expect(await outcome.locator("strong").evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThan(
     await outcome.locator("span").evaluate((el) => parseFloat(getComputedStyle(el).fontSize)),
   );
-  const rows = progress.getByRole("group", { name: "What each answer keeps" });
+  const rows = progress.getByRole("group", { name: "In focus after each answer" });
   for (const name of ["Career track", "Level", "Location", "Discipline", "World"]) {
     await expect(rows.getByRole("button", { name, exact: true })).toBeVisible();
     await expect(progress.locator(".walk-pyramid-caption").filter({ hasText: name }).first()).toBeVisible();
@@ -123,7 +123,7 @@ test("the labelled funnel shows the pool, live effect and stable desktop frame",
   await page.getByRole("group", { name: "Not interested in", exact: true }).getByLabel("Logistics & Fulfillment").check();
   await expect(progress.locator(".walk-pyramid-caption").filter({ hasText: "World" })).toHaveText("World20%");
   await expect(outcome.locator("strong")).toHaveText("1");
-  await expect(outcome.locator("span")).toHaveText("role matches");
+  await expect(outcome.locator("span")).toHaveText("role fits");
   await expect(progress.locator(".walk-progress-line")).toHaveText("20% of all roles");
   await expect(stripButton(page, "World")).toHaveAccessibleName("World");
   await expect(stripButton(page, "Discipline")).toHaveAccessibleName("Discipline");
@@ -131,7 +131,7 @@ test("the labelled funnel shows the pool, live effect and stable desktop frame",
   await stripButton(page, "Summary").click();
   await expect(rows.locator('[aria-current="step"]')).toHaveCount(0);
   // The Summary's first funnel row names the pool in one line, never wrapped.
-  const pool = page.getByRole("region", { name: "What it keeps" }).locator(".walk-funnel-row").first();
+  const pool = page.getByRole("region", { name: "In focus", exact: true }).locator(".walk-funnel-row").first();
   await expect(pool.locator(".walk-funnel-label")).toHaveText("All roles");
   await expect(pool.locator(".walk-funnel-value")).toHaveText("5");
   expect(await oneLine(pool.locator(".walk-funnel-label"))).toBe(true);
@@ -185,7 +185,7 @@ test("dismissing a suggestion changes nothing about the radar", async ({ page })
   await stripButton(page, "Summary").click();
 
   const inbox = page.getByRole("region", { name: "Suggested adjustments" });
-  await inbox.getByRole("button", { name: /Dismiss suggestion about Logistics & Fulfillment/ }).click();
+  await inbox.getByRole("button", { name: /No thanks to Logistics & Fulfillment/ }).click();
   await expect.poll(() => dismissed).toBe(true);
   await expect(inbox).toHaveCount(0);
   // Untouched: every world still on, so there is no pick to read.
@@ -203,7 +203,7 @@ test("the profile index redirects to Direction", async ({ page }) => {
 test("the old Settings scope paths land on Profile › Direction", async ({ page }) => {
   await page.goto("/settings/scope");
   await expect(page).toHaveURL(/\/profile\/direction$/);
-  await expect(page.getByRole("banner", { name: "Application navigation" })).toContainText("Profile/Looking for");
+  await expect(page.getByRole("banner", { name: "Top bar" })).toContainText("Profile/Looking for");
 
   // /settings/roles is a scope deep link too.
   await page.goto("/settings/roles");
@@ -923,7 +923,7 @@ test("a chosen card keeps the app's gold after another screen's styles load", as
   });
   await expect.poll(paint).toBe(gold);
 
-  await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Settings" }).click();
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Settings" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
   await page.goBack();
   await expect(chosen).toBeVisible();
@@ -1200,7 +1200,7 @@ test("the Summary takes an optional pay floor and links to the CV page", async (
   expect(saved).toEqual([{ amount: 250000, currency: "USD" }]);
   // The note speaks of the funnel; with no count yet there is nothing for
   // "this" to name (the unit test sees it beside a counted funnel).
-  await expect(page.getByRole("region", { name: "What it keeps" }).getByText(/No count yet/)).toBeVisible();
+  await expect(page.getByRole("region", { name: "In focus", exact: true }).getByText(/No count yet/)).toBeVisible();
   await expect(page.getByText("The pay floor never narrows this.")).toHaveCount(0);
 
   const hint = page.getByRole("region", { name: "Your experience" });

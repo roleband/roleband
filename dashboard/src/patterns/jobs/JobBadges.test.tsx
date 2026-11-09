@@ -44,7 +44,7 @@ describe("BandBadge", () => {
 
   it("marks a level the title names but we cannot place, never as not stated and never by its guessed band", () => {
     render(<BandBadge band="staff" confidence="confirmed" basis="unmapped" />);
-    expect(screen.getByText("level not mapped")).toBeInTheDocument();
+    expect(screen.getByText(msg("taxonomy-level-not-mapped"))).toBeInTheDocument();
     expect(screen.queryByText("level not stated")).not.toBeInTheDocument();
     expect(screen.queryByText("Staff")).not.toBeInTheDocument();
   });

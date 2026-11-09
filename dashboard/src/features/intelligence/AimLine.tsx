@@ -110,7 +110,7 @@ export function AimLine({
         </div>
         {error && (
           <p className="intel-aim-error" role="alert">
-            <Msg of={aiAimLineCouldnTSaveYourAim} elems={{ error: error }} />
+            {aiAimLineCouldnTSaveYourAim()}
           </p>
         )}
         <div className="ledger-form-actions">

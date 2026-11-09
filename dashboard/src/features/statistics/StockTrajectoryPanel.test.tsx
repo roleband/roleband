@@ -249,7 +249,7 @@ describe("StockTrajectoryPanel", () => {
     render(<StockTrajectoryPanel />);
 
     const nflx = await screen.findByRole("row", { name: /Netflix/ });
-    expect(within(nflx).getByText("Cash election")).toBeInTheDocument();
+    expect(within(nflx).getByText(msg("insights-stock-trajectory-panel-cash-election"))).toBeInTheDocument();
     expect(within(nflx).getByText("0%")).toBeInTheDocument();
     expect(within(nflx).getByText(msg("insights-stock-trajectory-panel-no-exposure"))).toBeInTheDocument();
 

@@ -74,9 +74,9 @@ it("keeps the basic view to the window's motion and the top skills", async () =>
     </MemoryRouter>,
   );
   expect(await screen.findByRole("heading", { level: 2 })).toBeInTheDocument();
-  expect(screen.queryByRole("heading", { name: "Largest groups" })).toBeNull();
+  expect(screen.queryByRole("heading", { name: "Largest clusters" })).toBeNull();
   expect(screen.queryByRole("link", { name: /Staff Product Manager, Claude/ })).toBeNull();
-  expect(screen.queryByText(/Largest group:/)).toBeNull();
+  expect(screen.queryByText(/Largest cluster:/)).toBeNull();
   unmount();
 
   render(
@@ -84,7 +84,7 @@ it("keeps the basic view to the window's motion and the top skills", async () =>
       <OverviewPanel days={30} onOpen={vi.fn()} advanced />
     </MemoryRouter>,
   );
-  expect(await screen.findByRole("heading", { name: "Largest groups" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Largest clusters" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: /Staff Product Manager, Claude/ })).toBeInTheDocument();
-  expect(screen.getByText(/Largest group: LLMs \(88\)/)).toBeInTheDocument();
+  expect(screen.getByText(/Largest cluster: LLMs \(88 roles\)/)).toBeInTheDocument();
 });

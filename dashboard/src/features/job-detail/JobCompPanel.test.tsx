@@ -164,7 +164,7 @@ describe("JobCompPanel", () => {
     ).toBeInTheDocument();
 
     expect(screen.getByText("Posted total compensation")).toBeInTheDocument();
-    expect(screen.getByText("employee-selected mix")).toBeInTheDocument();
+    expect(screen.getByText(msg("role-job-comp-panel-employee-selected-mix"))).toBeInTheDocument();
     expect(screen.getByText(/pick their own mix of base salary and equity/)).toBeInTheDocument();
     expect(screen.queryByText(/never says whether it is base salary/)).not.toBeInTheDocument();
     expect(screen.queryByText("Base")).not.toBeInTheDocument();
@@ -666,7 +666,7 @@ describe("the panel's own words, in the reader's language", () => {
     await activate("es");
     render(<JobCompPanel job={{ ...withPackage(NETFLIX), company: "netflix" }} />);
     expect(screen.getByText(msg("role-job-comp-panel-employee-selected-mix"))).toHaveClass("pkg-tag-warn");
-    expect(screen.queryByText("employee-selected mix")).toBeNull();
+    expect(screen.queryByText("you choose the mix")).toBeNull();
   });
 
   it("names the doubted level as the catalog writes it, never recased", () => {

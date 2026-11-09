@@ -94,8 +94,9 @@ function mount(onMove = vi.fn().mockResolvedValue(undefined)) {
   return { view, onMove };
 }
 
-/** The dial's marks are the buttons that name a move. */
-const marks = () => screen.getAllByRole("button", { name: /^Move / });
+/** The dial's marks are the buttons that name a move: a company's mark ends
+    "drag to move", a planned scan's starts "Move". */
+const marks = () => screen.getAllByRole("button", { name: /^Move |, drag to move$/ });
 
 describe("the chronograph's interaction contracts", () => {
   it("reaches every mark by keyboard", async () => {

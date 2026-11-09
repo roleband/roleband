@@ -220,7 +220,7 @@ export function ClustersView({
             </div>
             {Object.keys(c.companies).length > CARD_COMPANIES && (
               <p className="hiring-note">
-                <Msg of={insightsClustersViewAndMoreCompanies} elems={{ n: n(Object.keys(c.companies).length - CARD_COMPANIES) }} />
+                <Msg of={insightsClustersViewAndMoreCompanies} args={{ count: Object.keys(c.companies).length - CARD_COMPANIES }} elems={{ n: n(Object.keys(c.companies).length - CARD_COMPANIES) }} />
               </p>
             )}
           </div>

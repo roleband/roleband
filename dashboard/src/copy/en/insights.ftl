@@ -2,54 +2,57 @@
 
 ## features/statistics/ClustersView.tsx
 # kind=sentence
-insights-clusters-view-semantic-groups-built-from-role = Roles grouped by what their descriptions say, and named by the skills they share. One kind of role can split into several groups.
-# kind=label wording=as-is
-insights-clusters-view-market-terrain = Market terrain
-# kind=heading wording=as-is
-insights-clusters-view-group-landscape = Group landscape
+insights-clusters-view-semantic-groups-built-from-role = Roles clustered by what their descriptions say, and named by the skills they share. One kind of role can split into several clusters.
+# kind=label
+insights-clusters-view-market-terrain = Open roles by cluster
+# kind=heading
+insights-clusters-view-group-landscape = Cluster map
 # kind=sentence
 insights-clusters-view-area-encodes-active-role-volume = The bigger the box, the more open roles. Select one to see its roles.
-# kind=label wording=as-is
-insights-clusters-view-groups = { $count } groups
+# kind=label
+insights-clusters-view-groups = { $count } clusters
 # kind=label wording=as-is
 insights-clusters-view-roles = { $family_display } · { $size } roles
 # kind=label wording=as-is
 insights-clusters-view-clear = Clear
-# kind=label wording=as-is
-insights-clusters-view-and-more-companies = and { $n } more companies
-# kind=label wording=as-is
-insights-clusters-view-role-groups = { $count ->
-    [one] { $count } role group
-   *[other] { $count } role groups
+# kind=label note="After the companies a cluster names: and 4 more companies. $n is the formatted count, $count the number"
+insights-clusters-view-and-more-companies = { $count ->
+    [one] and { $n } more company
+   *[other] and { $n } more companies
 }
-# kind=label wording=as-is
-insights-clusters-view-largest-group = Largest: { $label } · { $size } roles
-# kind=label wording=as-is
-insights-clusters-view-groups-are-built-from-role = Groups are built from role descriptions after a scan
-# kind=label wording=as-is
-insights-clusters-view-about-role-groups = About role groups
-# kind=label wording=as-is
-insights-clusters-view-groups-tile = Groups
+# kind=label
+insights-clusters-view-role-groups = { $count ->
+    [one] { $count } cluster
+   *[other] { $count } clusters
+}
+# kind=status
+insights-clusters-view-largest-group = Largest cluster: { $label } · { $size } roles
+# kind=status
+insights-clusters-view-groups-are-built-from-role = Clusters are built from role descriptions after a scan
+# kind=label
+insights-clusters-view-about-role-groups = About clusters
+# kind=label
+insights-clusters-view-groups-tile = Clusters
 # kind=label wording=as-is
 insights-clusters-view-from-role-descriptions = from role descriptions
-# kind=label wording=as-is
-insights-clusters-view-roles-grouped = Roles grouped
-# kind=label wording=as-is
-insights-clusters-view-largest = Largest
-# kind=label wording=as-is
-insights-clusters-view-roles-in-one-group = roles in one group
-# kind=label wording=as-is
-insights-clusters-view-with-a-grouped-role = with a grouped role
-# kind=label wording=as-is
-insights-clusters-view-how-to-read-the-cluster = How to read the cluster landscape
+# kind=label
+insights-clusters-view-roles-grouped = Roles clustered
+# kind=label
+insights-clusters-view-largest = Largest cluster
+# kind=label
+insights-clusters-view-roles-in-one-group = roles in one cluster
+# kind=label
+insights-clusters-view-with-a-grouped-role = with a clustered role
+# kind=aria
+insights-clusters-view-how-to-read-the-cluster = How to read the cluster map
 # kind=status
-insights-clusters-view-loading = Loading role groups…
+insights-clusters-view-loading = Loading clusters…
 # kind=heading
-insights-clusters-view-load-failed = Couldn't load role groups
+insights-clusters-view-load-failed = Couldn't load clusters
 # kind=status
-insights-clusters-view-group-loading = Loading this group…
+insights-clusters-view-group-loading = Loading this cluster…
 # kind=heading
-insights-clusters-view-group-load-failed = Couldn't load this group
+insights-clusters-view-group-load-failed = Couldn't load this cluster
 
 ## features/statistics/CompTrendChart.tsx
 # kind=heading
@@ -108,8 +111,8 @@ insights-compensation-panel-bands-from-employers = { $bands } ranges · { $emplo
 insights-compensation-panel-estimated-comp-distribution = Estimated total compensation distribution
 # kind=heading
 insights-compensation-panel-median-comp-by-level = Median estimated total compensation by level
-# kind=tooltip note="A bar's tooltip: the middle half of the group's estimates, then how many roles it rests on"
-insights-compensation-panel-spread = Middle 50%: { $low }–{ $high } · { $roles }
+# kind=tooltip note="A bar's tooltip: p25–p75 is the 25th to 75th percentile of the group's estimates, then how many roles it rests on"
+insights-compensation-panel-spread = p25–p75: { $low }–{ $high } · { $roles }
 # kind=heading note="Roles RoleBand's data prices by their base alone, shown apart from total comp"
 insights-compensation-panel-estimated-base-by-level = Estimated base salary by level
 # kind=label note="Eyebrow over the base-only panel"
@@ -123,19 +126,19 @@ insights-compensation-panel-base-only-lead = { $count ->
 insights-compensation-panel-top-paying-companies = Top-paying companies
 # kind=heading
 insights-compensation-panel-median-pay-by-discipline = Median estimated total compensation by discipline
-# kind=heading wording=as-is
-insights-compensation-panel-what-a-skill-adds-at = What a skill adds at the same level
+# kind=heading
+insights-compensation-panel-what-a-skill-adds-at = Compensation by skill, same level
 # kind=sentence
 insights-compensation-panel-roles-naming-the-skill-against = Roles naming the skill against all roles at the same level and discipline. It shows which employers ask for it, not what it is worth.
-# kind=sentence wording=as-is
-insights-compensation-panel-not-enough-priced-roles-per = Not enough priced roles per skill yet.
+# kind=sentence
+insights-compensation-panel-not-enough-priced-roles-per = Not enough roles with an estimate for each skill yet.
 # kind=label wording=as-is
 insights-compensation-panel-roles = { $count ->
     [one] { $count } role
    *[other] { $count } roles
 }
-# kind=label wording=as-is
-insights-compensation-panel-groups-of-roles-or-more = Groups of { $min_roles } roles or more
+# kind=label
+insights-compensation-panel-groups-of-roles-or-more = { $min_roles }+ roles per bar
 # kind=sentence
 insights-compensation-panel-base-salary-quoted-from-the = Base salary as posted, not an estimate. Each line is one posted range, however many roles share it.
 # kind=label wording=as-is
@@ -260,15 +263,13 @@ insights-disclosure-panel-median-published-band = Median posted { $basis } range
 insights-disclosure-panel-no-published-base-salary-band = No posted base salary range recorded yet.
 # kind=sentence
 insights-disclosure-panel-pay-transparency-over-time-covers = This trend covers every discipline.
-# kind=label wording=as-is
-insights-disclosure-panel-by-employer = By employer
 # kind=aria
 insights-disclosure-panel-how-the-disclosure-rate-is = How pay transparency is measured
 # kind=label
 insights-disclosure-panel-disclosure-breakdown = Pay transparency breakdown
 # kind=status
 insights-disclosure-panel-share-of-open-roles-stating = { $group ->
-    [company] Share of open roles that post a range, by employer
+    [company] Share of open roles that post a range, by company
    *[level] Share of open roles that post a range, by level
 }
 # kind=label wording=as-is
@@ -293,16 +294,16 @@ insights-disclosure-panel-band-trend-load-failed = Couldn't load the posted rang
 insights-overlap-panel-how-alike-their-roles-are = How alike their roles are
 # kind=sentence wording=as-is
 insights-overlap-panel-not-enough-companies-with-skills = Not enough companies with skills to compare. Pick two or more.
-# kind=label wording=as-is
-insights-overlap-panel-shared-vocabulary = Shared vocabulary
-# kind=sentence wording=as-is
-insights-overlap-panel-each-company-is-its-open = Each company is its open roles' skills, a skill weighing more the fewer of these companies name it, so skills every company asks for count for little. Companies sit next to the ones most like them. Skills named by at least { $min_jobs } roles per company; what every role is expected to do is left out.
+# kind=label
+insights-overlap-panel-shared-vocabulary = Shared skills
+# kind=sentence
+insights-overlap-panel-each-company-is-its-open = Companies are compared on the skills their open roles name. Rarer skills weigh more. A skill counts once { $min_jobs } of a company's roles name it.
 # kind=label wording=as-is
 insights-overlap-panel-comparison = { $companies } × { $companies } comparison
 # kind=label wording=as-is
 insights-overlap-panel-exact-matrix = Exact matrix
-# kind=sentence wording=as-is
-insights-overlap-panel-cells-show-how-alike-two = Cells show how alike two companies are, ×100; the diagonal shows each company's distinct-skill count. Hover a cell for shared skills.
+# kind=sentence
+insights-overlap-panel-cells-show-how-alike-two = Each cell scores how alike two companies are, 0 to 100. The diagonal counts each company's skills. Hover for shared skills.
 # kind=label wording=as-is note="The company picker: how many companies are picked, or the default set"
 insights-overlap-panel-companies-picked = { $picker ->
     [default] Most open roles
@@ -333,22 +334,22 @@ insights-overlap-panel-pair-alike = { $listed ->
     [none] { $a } and { $b }: { $percent }% alike, { $shared } of { $union } skills shared
    *[some] { $a } and { $b }: { $percent }% alike, { $shared } of { $union } skills shared: { $skills }
 }
-# kind=label wording=as-is
-insights-overlap-panel-no-shared-skills = { $a } & { $b }: no shared skills
+# kind=tooltip
+insights-overlap-panel-no-shared-skills = { $a } and { $b }: no shared skills
 
 ## features/statistics/OverviewPanel.tsx
 # kind=label wording=as-is
 insights-overview-panel-most-named-skills = Most named skills
 # kind=heading
 insights-overview-panel-what-is-pulling-the-market = Most-wanted skills
-# kind=sentence wording=as-is
-insights-overview-panel-the-skills-open-roles-name = The skills open roles name most, by how many roles name each.
+# kind=sentence
+insights-overview-panel-the-skills-open-roles-name = Skills ranked by how many open roles name them.
 # kind=label wording=as-is
 insights-overview-panel-leads-roles = { $display } leads · { $job_count } roles
-# kind=heading wording=as-is
-insights-overview-panel-largest-groups = Largest groups
-# kind=sentence wording=as-is
-insights-overview-panel-no-groups-built-yet = No groups built yet.
+# kind=heading
+insights-overview-panel-largest-groups = Largest clusters
+# kind=sentence
+insights-overview-panel-no-groups-built-yet = No clusters built yet.
 # kind=heading same-as=insights-demand-longest-open-roles
 insights-overview-panel-open-the-longest = Longest-open roles
 # kind=sentence
@@ -398,8 +399,8 @@ insights-skills-view-against-the-market = Against the market
 insights-skills-view-what-sets-these-roles-apart = What sets these roles apart
 # kind=label wording=as-is
 insights-skills-view-above-the-line-named-more = Above the line: named more than the market does
-# kind=sentence wording=as-is
-insights-skills-view-pick-a-company-a-discipline = Pick a company, a discipline or a side to see what sets those roles apart from the market.
+# kind=sentence
+insights-skills-view-pick-a-company-a-discipline = Pick a company or a discipline to compare its roles with the market.
 # kind=label wording=as-is
 insights-skills-view-skill = Skill
 # kind=label wording=as-is
@@ -424,9 +425,9 @@ insights-skills-view-how-skills-are-ranked = How skills are ranked
 insights-skills-view-roles = Roles
 # kind=label wording=as-is
 insights-skills-view-naming-a-skill = naming a skill
-# kind=label wording=as-is
+# kind=label
 insights-skills-view-share-or-lift = { $view ->
-    [narrowed] Lift
+    [narrowed] vs market
    *[market] Share
 }
 # kind=label wording=as-is
@@ -439,9 +440,9 @@ insights-skills-view-of-every-role = of every role
 insights-skills-view-any-company = Any company
 # kind=aria note="The info button's screen-reader name, beside the Expected of the role column"
 insights-skills-view-what-expected-of-the-role = What “Expected of the role” means
-# kind=label wording=as-is
+# kind=label
 insights-skills-view-skills-order = { $view ->
-    [narrowed] Skills, most characteristic first
+    [narrowed] Skills, most distinctive first
    *[market] Skills, most named first
 }
 # kind=status
@@ -450,16 +451,14 @@ insights-skills-view-loading = Loading skills…
 insights-skills-view-load-failed = Couldn't load skills
 
 ## features/statistics/StatisticsView.tsx
-# kind=label
-insights-statistics-view-window = Period
+# kind=label note="Names the time-range picker on Insights: shown beside it and read out as its name"
+insights-statistics-view-window = Time range
 # kind=label
 insights-statistics-view-all-time = All time
 # kind=label
 insights-statistics-view-statistics-sections = Insights sections
 # kind=label wording=as-is
 insights-statistics-view-discipline = Discipline
-# kind=label wording=as-is
-insights-statistics-view-time-range = Time range
 # kind=label
 insights-statistics-view-advanced-view = Advanced view
 # kind=heading
@@ -537,8 +536,8 @@ insights-stock-trajectory-panel-median-tc-full = Median total compensation
 insights-stock-trajectory-panel-options = Options
 # kind=label wording=as-is
 insights-stock-trajectory-panel-no-equity = No equity
-# kind=label wording=as-is
-insights-stock-trajectory-panel-cash-election = Cash election
+# kind=label
+insights-stock-trajectory-panel-cash-election = Cash or equity
 # kind=label
 insights-stock-trajectory-panel-split-source = { $split ->
     [measured] Measured
@@ -547,9 +546,9 @@ insights-stock-trajectory-panel-split-source = { $split ->
 }
 # kind=status
 insights-stock-trajectory-panel-split-source-explained = { $split ->
-    [measured] Real base/bonus/equity split from this company's levels
-    [mixed] Some levels have a real split; the rest are estimated
-   *[heuristic] No observed split for this company, so the seniority heuristic is used
+    [measured] From this company's own levels
+    [mixed] Some levels measured, the rest estimated
+   *[heuristic] No company data, estimated from the level
 }
 # kind=label wording=as-is
 insights-stock-trajectory-panel-projected-tc = { $projected } projected TC
@@ -646,8 +645,8 @@ insights-trends-panel-days = { $count ->
 insights-trends-panel-latest-day = Latest day
 # kind=label wording=as-is
 insights-trends-panel-none-yet = None yet
-# kind=label wording=as-is
-insights-trends-panel-of-the-series = of the series
+# kind=label
+insights-trends-panel-of-the-series = of history
 # kind=label wording=as-is
 insights-trends-panel-of-skill-mentions-open-roles = { $current_share } of skill mentions, { $current } open roles
 # kind=label wording=as-is
@@ -713,10 +712,13 @@ insights-age-copy-counted-from-when-each-role = Counted from when each role was 
 ## features/statistics/charts/StatisticsCharts.tsx
 # kind=label wording=as-is note="A skill's tooltip: its open roles, then its category"
 insights-statistics-charts-skill-open-roles = { $job_count } open roles · { $category }
-# kind=aria wording=as-is
-insights-statistics-charts-market-demand-field = Market demand field
-# kind=label wording=as-is
-insights-statistics-charts-company-open-roles = { $open } open roles
+# kind=aria
+insights-statistics-charts-market-demand-field = Most-wanted skills
+# kind=label
+insights-statistics-charts-company-open-roles = { $open ->
+    [one] { $open } open role
+   *[other] { $open } open roles
+}
 # kind=tooltip note="A company's new roles (last 2 days) and closings (today), on its chart tooltip. $new_roles is the new ones ('+3 new') and $closed_roles the closings ('−2 closed'), each in its own colour"
 insights-statistics-charts-new-closed-today = { $new_roles } in the last 2 days · { $closed_roles } today
 # kind=tooltip note="Roles new at a company in the last 2 days, a part of the line 'new in the last 2 days · closed today'"
@@ -757,8 +759,8 @@ insights-statistics-charts-the-market-s-rate = × the market's rate →
 insights-statistics-charts-what-sets-these-roles-apart = What sets these roles apart
 # kind=label wording=as-is
 insights-statistics-charts-of-these-roles-the-market = { $skill }: { $share }% of these roles, ×{ $lift } the market
-# kind=label wording=as-is
-insights-statistics-charts-set-changed = set changed
+# kind=label
+insights-statistics-charts-set-changed = counting changed
 # kind=aria wording=as-is
 insights-statistics-charts-skill-demand-trends = Skill demand trends
 # kind=label wording=as-is note="$points is the change in the skill's share, in percentage points"
@@ -782,8 +784,8 @@ insights-statistics-charts-cross-company-skill-overlap-heatmap = Cross-company s
 insights-statistics-charts-pair-similarity = { $a } and { $b }: { $percent }%
 # kind=label wording=as-is
 insights-statistics-charts-cluster-roles = { $size } roles · { $family }
-# kind=aria wording=as-is
-insights-statistics-charts-role-cluster-landscape = Role cluster landscape
+# kind=aria
+insights-statistics-charts-role-cluster-landscape = Cluster map
 # kind=label wording=as-is
 insights-statistics-charts-roles = { $label }: { $size } roles
 
@@ -806,8 +808,8 @@ insights-comp-bands-1-more-role-states-base = 1 more role posts its base salary 
 insights-comp-bands-more-roles-state-base-pay = { $elsewhere } more roles post their base salary in another currency or per hour or month, so they are not on this yearly dollar scale.
 
 ## features/statistics/charts/disclosure.ts
-# kind=label wording=as-is
-insights-disclosure-unclassified = Unclassified
+# kind=label
+insights-disclosure-unclassified = Level unknown
 # kind=sentence same-as=insights-disclosure-panel-no-open-roles-have-been
 insights-disclosure-no-open-roles-have-been = No open roles have been checked for a posted range yet.
 # kind=sentence note="$rates lists each group's rate; $unrated counts the groups with nothing checked yet"
@@ -851,10 +853,10 @@ insights-disclosure-median-published-salary-band-across = Median posted { $basis
         [single] { "" }
        *[several] { " " }Started at { $start_low } to { $start_high }.
     } One reading per distinct range, not per role.
-# kind=label wording=as-is
-insights-disclosure-median-ceiling = Median ceiling
-# kind=label wording=as-is
-insights-disclosure-median-floor = Median floor
+# kind=label
+insights-disclosure-median-ceiling = Median high
+# kind=label
+insights-disclosure-median-floor = Median low
 # kind=label
 insights-disclosure-no-band-posted = no range posted
 
@@ -1038,8 +1040,11 @@ insights-brief-opened = { $allTime ->
 }
 # kind=sentence wording=as-is
 insights-brief-top-skill = Top skill: { $skill } ({ $count } roles).
-# kind=sentence wording=as-is
-insights-brief-largest-group = Largest group: { $group } ({ $size }).
+# kind=sentence
+insights-brief-largest-group = Largest cluster: { $group } ({ $size ->
+    [one] { $size } role
+   *[other] { $size } roles
+}).
 
 ## features/statistics/LevelsPanel.tsx
 # kind=status

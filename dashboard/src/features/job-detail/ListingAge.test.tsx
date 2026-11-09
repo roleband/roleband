@@ -80,10 +80,10 @@ describe("ListingAge", () => {
     const panel = await screen.findByRole("dialog", { name: msg("role-listing-age-listing-history") });
     const events = await within(panel).findByRole("list", { name: "Events" });
     expect(read).toHaveBeenCalledTimes(1);
-    expect(events).toHaveTextContent("Published by the employer · the start");
+    expect(events).toHaveTextContent(`Published by the employer · ${msg("role-listing-age-the-start")}`);
     expect(events).toHaveTextContent("First seen");
-    expect(events).not.toHaveTextContent("First seen · the start");
-    expect(events).toHaveTextContent(/Employer changed its date to .* · never the start/);
+    expect(events).not.toHaveTextContent(`First seen · ${msg("role-listing-age-the-start")}`);
+    expect(events).toHaveTextContent(new RegExp(`Employer changed its date to .* · ${msg("role-listing-age-never-the-start")}`));
     expect(events).toHaveTextContent(msg("role-listing-age-came-back-same-requisition"));
     expect(events).toHaveTextContent("Title changed 2 times");
     expect(panel).toHaveTextContent("Possibly the same role: REQ-1305, not counted until confirmed.");
@@ -133,10 +133,10 @@ describe("eventLine", () => {
   it("marks the start on whichever evidence the headline counts from", () => {
     const published = history.events[1];
     const seen = history.events[2];
-    expect(eventLine(published, "employer").note).toBe("the start");
+    expect(eventLine(published, "employer").note).toBe(msg("role-listing-age-the-start"));
     expect(eventLine(seen, "employer").note).toBeUndefined();
     expect(eventLine(published, "sighting").note).toBeUndefined();
-    expect(eventLine(seen, "sighting").note).toBe("the start");
+    expect(eventLine(seen, "sighting").note).toBe(msg("role-listing-age-the-start"));
   });
 
   it("names another posting by its requisition or title, and reads whole without either", () => {

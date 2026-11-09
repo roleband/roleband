@@ -18,18 +18,18 @@ profile-persona-rail-tuned-for = Ajustado para
 profile-suggestions-you-marked-there-not-for = marcaste { $dismissed_wrong_domain } de ahí como No es para mí: ámbito equivocado
 profile-suggestions-more-not-for-me-with = { $dismissed_other } más marcados como No es para mí sin motivo
 profile-suggestions-in-progress = { $pursued } en curso
-profile-suggestions-role-there-is = puesto de ahí está
-profile-suggestions-roles-there-are = puestos de ahí están
-profile-suggestions-you-saved-there = guardaste { $favorited } de ahí
-profile-suggestions-followed-company-sector-points = sector de empresas seguidas apunta
-profile-suggestions-followed-company-sectors-point = sectores de empresas seguidas apuntan
-profile-suggestions-your-aim-names-it = tu objetivo lo menciona
+profile-suggestions-you-saved-there = { $favorited ->
+    [one] { $favorited } { -role(num: "one") } guardado
+    [many] { $favorited } de { -role(num: "other") } guardados
+   *[other] { $favorited } { -role(num: "other") } guardados
+}
+profile-suggestions-your-aim-names-it = tu objetivo
 profile-suggestions-turned-on-on-your-radar = { $choice ->
     [yes] { $display } desactivado · { $in_scope_changed } actualizados en tu radar
    *[no] { $display } activado · { $in_scope_changed } actualizados en tu radar
 }
 profile-suggestions-could-not-apply-the-suggestion = No se pudo aplicar la sugerencia. Sigue pendiente.
-profile-suggestions-could-not-dismiss-the-suggestion = No se pudo descartar la sugerencia. Inténtalo de nuevo.
+profile-suggestions-could-not-dismiss-the-suggestion = No se pudo rechazar la sugerencia. Inténtalo de nuevo.
 profile-suggestions-could-not-load = No se pudieron cargar tus ajustes sugeridos. Inténtalo de nuevo.
 profile-suggestions-suggested-adjustments = Ajustes sugeridos
 profile-suggestions-turn-on = { $choice ->
@@ -37,7 +37,7 @@ profile-suggestions-turn-on = { $choice ->
    *[no] ¿Activar { $display2 }?
 }
 profile-suggestions-inferred-from-your-recent-activity = { $choice ->
-    [yes] Porque { $join }.
+    [yes] Basado en: { $join }
    *[no] Basado en tu actividad reciente.
 }
 profile-suggestions-accept-turn-on = { $choice ->
@@ -48,7 +48,7 @@ profile-suggestions-turn-it-on = { $choice ->
     [yes] Desactivarlo
    *[no] Activarlo
 }
-profile-suggestions-dismiss-suggestion-about = Descartar la sugerencia sobre { $display }
+profile-suggestions-dismiss-suggestion-about = No, gracias: { $display }
 profile-suggestions-no-thanks = { $choice ->
     [yes] Mantenerlo activado
    *[no] No, gracias
@@ -58,14 +58,14 @@ profile-suggestions-no-thanks = { $choice ->
 profile-scope-guide-how-your-radar-works = Cómo funciona tu radar
 profile-scope-guide-radar-guide = Guía del radar
 profile-scope-guide-how-your-radar-works-2 = Cómo funciona tu radar
-profile-scope-guide-five-answers-decide-what-reaches = Cinco respuestas deciden qué llega a tu radar. Un puesto aparece solo cuando encaja con todas.
+profile-scope-guide-five-answers-decide-what-reaches = Tres respuestas deciden qué llega a tu radar; dos opcionales lo afinan. Un puesto aparece cuando encaja con todas.
 profile-scope-guide-decide = Decide
 profile-scope-guide-sharpen-optional = Afina, opcional
 profile-scope-guide-your-radar = Tu radar
 profile-scope-guide-when-changes-apply = Cuándo se aplican los cambios
 profile-scope-guide-save-applies-your-answers-to = Los cambios se aplican al guardar. Los puestos añadidos llegan con el próximo escaneo.
 profile-scope-guide-about-the-counts = Sobre los recuentos
-profile-scope-guide-progress-shows-how-many-of = El progreso muestra cuántos de los puestos de tus empresas conserva cada respuesta, según el último recuento. Hasta que se haga uno, indica Sin recuento aún, y Contar ahora inicia uno.
+profile-scope-guide-progress-shows-how-many-of = El progreso muestra cuántos puestos de tus empresas quedan en el foco con cada respuesta.
 profile-scope-guide-nothing-hidden-by-a-guess = Nada oculto por una suposición
 profile-scope-guide-a-role-we-haven-t = Un puesto que aún no está en ningún ámbito siempre se queda en tu radar.
 profile-scope-guide-how-your-radar-works-3 = Cómo funciona tu radar
@@ -88,12 +88,16 @@ profile-scope-section-exclusion-removed-back-on-your = Exclusión quitada · { $
 profile-scope-section-undo = Deshacer
 profile-scope-section-could-not-remove-that-exclusion = No se pudo quitar esa exclusión. Inténtalo de nuevo.
 profile-scope-section-company-exclusions-2 = Exclusiones por empresa
-profile-scope-section-remove-exclusion-at = Quitar la exclusión { $value } en { $company }
+profile-scope-section-remove-exclusion-at = Quitar exclusión { $value } en { $company }
 
 ## features/scope/StageDimmer.tsx
-profile-stage-dimmer-you-are-here = estás aquí
-profile-stage-dimmer-aiming-for = tu meta
-profile-stage-dimmer-roles = { $slug } puestos
+profile-stage-dimmer-you-are-here = Estás aquí
+profile-stage-dimmer-aiming-for = Tu meta
+profile-stage-dimmer-roles = { $count ->
+    [one] { $slug } { -role(num: "one") }
+    [many] { $slug } de { -role(num: "other") }
+   *[other] { $slug } { -role(num: "other") }
+}
 profile-stage-dimmer-what-this-means-at-each = Qué significa en cada empresa
 profile-stage-dimmer-this-kind-of-role-tops = { $choice ->
     [yes] Este tipo de puesto empieza más arriba aquí
@@ -132,7 +136,7 @@ profile-use-scope-draft-couldn-t-count-roles-at = No se pudieron contar los pues
 profile-pay-floor-row-pay-floor = Base mínima
 profile-pay-floor-row-a-year-base = al año
 profile-pay-floor-row-cancel = Cancelar
-profile-pay-floor-row-checking = Comprobando…
+profile-pay-floor-row-checking = Cargando…
 profile-pay-floor-row-couldn-t-read-your-pay = No se pudo cargar tu base mínima.
 profile-pay-floor-row-retry = Reintentar
 profile-pay-floor-row-compared-where-pay-is-stated = Se compara con el salario base publicado, cuando la oferta lo tiene.
@@ -155,7 +159,7 @@ profile-pay-floor-row-add-a-pay-floor = { $choice ->
 }
 profile-pay-floor-row-set-your-pay-floor = { $choice ->
     [yes] { $amount } al año
-   *[no] Define tu base mínima
+   *[no] Fija tu base mínima
 }
 profile-pay-floor-row-minimum-yearly-base-pay = { $choice ->
     [yes] Ajustar
@@ -174,7 +178,7 @@ profile-progress-rail-more-are-added-when-the = { $choice ->
    *[no] Se añaden más cuando termine el escaneo actual.
 }
 profile-progress-rail-text = { $choice ->
-    [yes] { " " }Hasta { $arriving } más llegan a medida que se vuelva a escanear cada empresa.
+    [yes] { " " }Hasta { $arriving } más llegan con el próximo escaneo de cada empresa.
    *[no] { "" }
 }
 profile-progress-rail-text-2 = { $choice ->
@@ -198,9 +202,9 @@ profile-progress-rail-save-to-count-the-roles = { $choice ->
    *[no] Guarda para contar los puestos en { $pendingPlaces2 }.
 }
 profile-progress-rail-roles-match = { $count ->
-    [one] puesto coincide
-    [many] puestos coinciden
-   *[other] puestos coinciden
+    [one] puesto encaja
+    [many] puestos encajan
+   *[other] puestos encajan
 }
 profile-progress-rail-roles-when-you-save = { $choice ->
     [yes] Sin cambios al guardar
@@ -240,7 +244,7 @@ profile-radar-pyramid-illustrative-funnel-each-percentage-is = Cada respuesta en
 profile-radar-pyramid-after-the-first-three-answers = Tras las tres primeras respuestas
 profile-radar-pyramid-locked = Bloqueado
 profile-radar-pyramid-not-answered-yet = { $choice ->
-    [yes] Cualquiera, sin acotar
+    [yes] Cualquiera, todo en el foco
    *[no] Sin responder aún
 }
 profile-radar-pyramid-choose = { $choice ->
@@ -252,15 +256,15 @@ profile-radar-pyramid-no-count = Sin recuento
 profile-radar-pyramid-counting = Contando
 profile-radar-pyramid-counted-after-you-save = Se cuenta al guardar
 profile-radar-pyramid-save-first = Guarda primero
-profile-radar-pyramid-keeps = Conserva { $kept }, { $kept2 }
-profile-radar-pyramid-what-each-answer-keeps = Lo que conserva cada respuesta
+profile-radar-pyramid-keeps = En el foco: { $kept }, { $kept2 }
+profile-radar-pyramid-what-each-answer-keeps = En el foco tras cada respuesta
 profile-radar-pyramid-url-fill = url(#{ $id }-fill)
 
 ## features/scope/walk/RolesStep.tsx
 profile-roles-step-pick-a-kind-of-role = Elige primero una trayectoria.
 profile-roles-step-nothing-called-under = No hay nada llamado “{ $query }” en { $label }.
-profile-roles-step-filter-roles = Filtrar puestos
-profile-roles-step-filter-roles-2 = Filtrar puestos…
+profile-roles-step-filter-roles = Filtrar disciplinas
+profile-roles-step-filter-roles-2 = Filtrar disciplinas…
 profile-roles-step-craft-for = Disciplinas para { $label }
 profile-roles-step-roles = { $count ->
     [one] { $count2 } puesto · { $examples }
@@ -269,7 +273,7 @@ profile-roles-step-roles = { $count ->
 }
 
 ## features/scope/walk/SubjectsStep.tsx
-profile-subjects-step-choose-a-list-then-tick = Elige una lista y marca lo que va en ella
+profile-subjects-step-choose-a-list-then-tick = Elige una lista y marca qué incluir
 profile-subjects-step-nothing-called = No hay nada llamado “{ $query }”.
 profile-subjects-step-removes-of-the-roles-you = { $avoid } { $subject } quita { $dropped } de los { $of } puestos que elegiste en { $label }. Desmarca uno si no era tu intención.
 profile-subjects-step-of-your-roles-aren-t = { $untagged } de tus { $of } puestos aún no están clasificados en un ámbito. Se quedan en tu radar, elijas lo que elijas.
@@ -286,8 +290,8 @@ profile-subjects-step-filter-interests-2 = Filtrar ámbitos…
 ## features/scope/walk/SummaryStep.tsx
 profile-summary-step-summary = Resumen
 profile-summary-step-adjust = Ajustar
-profile-summary-step-what-it-keeps = Lo que conserva
-profile-summary-step-no-count-yet-once-a = Sin recuento aún. Cuando se haya hecho un escaneo, aquí verás cuántos puestos conserva cada respuesta.
+profile-summary-step-what-it-keeps = En el foco
+profile-summary-step-no-count-yet-once-a = Sin recuento aún. Tras un escaneo, aquí verás cuántos puestos quedan en el foco con cada respuesta.
 profile-summary-step-counting-the-roles-in = Contando los puestos en { $pendingPlaces }…
 profile-summary-step-save-to-count-the-roles = Guarda para contar los puestos en { $pendingPlaces }.
 profile-summary-step-add-your-cv = Añade tu CV
@@ -340,17 +344,17 @@ profile-where-step-nothing-called-try-a-city = No hay nada llamado “{ $query }
 profile-where-step-include-all = Incluir todo
 profile-where-step-nothing-called-in = No hay nada llamado “{ $inside }” en { $display }.
 profile-where-step-haven-t-been-scanned-for = { $count ->
-    [one] { $companies } aún no se ha escaneado para { $few }.
-    [many] { $companies } aún no se han escaneado para { $few }.
-   *[other] { $companies } aún no se han escaneado para { $few }.
+    [one] { $companies } sigue sin escanear para { $few }.
+    [many] { $companies } siguen sin escanear para { $few }.
+   *[other] { $companies } siguen sin escanear para { $few }.
 }
-profile-where-step-replaces-the-places-you-ve = Sustituye los lugares que añadiste por cualquier lugar
+profile-where-step-replaces-the-places-you-ve = Sustituye tus lugares por todo el mundo
 profile-where-step-in-choose-to-narrow-to = { $choice ->
     [yes] ya añadido
-   *[no] en { $display }, elige para acotar a este lugar
+   *[no] en { $display }, elígelo para acotar
 }
 profile-where-step-add-back = Volver a añadir { $name }
-profile-where-step-excepted-add-it-back = excluido, vuelve a añadirlo
+profile-where-step-excepted-add-it-back = vuelve a añadirlo
 profile-where-step-add = { $choice ->
     [yes] Acotar { $display } a { $name }
    *[no] Añadir { $name2 }
@@ -388,8 +392,9 @@ profile-where-step-filter-in = Filtrar { $noun } en { $display }
 profile-where-step-filter = Filtrar { $noun }
 profile-where-step-and-more = { $join } y { $value } más
 profile-where-step-careers-sites-cant-be-searched = { $count ->
-    [one] Todavía no se puede buscar en { $places } en el sitio de empleo de { $companies }, así que sus { -role(num: "other") } de allí no llegarán a tu radar.
-   *[other] Todavía no se puede buscar en { $places } en los sitios de empleo de { $companies }, así que sus { -role(num: "other") } de allí no llegarán a tu radar.
+    [one] La página de empleo de { $companies } aún no permite buscar en { $places }, así que esos { -role(num: "other") } no llegarán a tu radar.
+    [many] Las páginas de empleo de { $companies } aún no permiten buscar en { $places }, así que esos { -role(num: "other") } no llegarán a tu radar.
+   *[other] Las páginas de empleo de { $companies } aún no permiten buscar en { $places }, así que esos { -role(num: "other") } no llegarán a tu radar.
 }
 
 ## features/scope/walk/walkModel.ts
@@ -431,16 +436,16 @@ profile-walk-model-from-to-2 = { $count ->
 ## features/scope/walk/walkSteps.ts
 profile-walk-steps-what-kind-of-role-are = ¿Qué tipo de puesto buscas?
 profile-walk-steps-pick-one-or-more = Elige uno o más.
-profile-walk-steps-the-kind-of-work-you = El tipo de trabajo del que eres responsable
+profile-walk-steps-the-kind-of-work-you = El trabajo del que eres responsable
 profile-walk-steps-your-level = Tu nivel
 profile-walk-steps-today-and-the-one-you = El actual y al que aspiras.
 profile-walk-steps-where-you-are-today-up = Nivel actual y objetivo
 profile-walk-steps-where-do-you-want-to = ¿Dónde quieres trabajar?
 profile-walk-steps-where-you-re-based-and = Dónde vives y hasta dónde irías por el puesto adecuado.
 profile-walk-steps-your-bases-and-how-far = Tus bases y hasta dónde irías
-profile-walk-steps-any-particular-roles = ¿Algún puesto en concreto?
-profile-walk-steps-every-role-of-each-kind = Todos los puestos de cada tipo, o solo los que elijas. Omítelo para quedarte con todos.
-profile-walk-steps-particular-roles-or-any-that = Puestos concretos, o cualquiera que encaje
+profile-walk-steps-any-particular-roles = ¿Qué disciplinas?
+profile-walk-steps-every-role-of-each-kind = Elige en qué disciplinas enfocarte, u omítelo para incluirlas todas.
+profile-walk-steps-particular-roles-or-any-that = Algunas disciplinas, o todas
 profile-walk-steps-anything-you-care-about-or = ¿Algo que te importe o que quieras evitar?
 profile-walk-steps-the-fields-and-industries-the = Campos e industrias que buscar o evitar. Omítelo para no descartar nada.
 profile-walk-steps-topics-to-look-for-and = Ámbitos que buscar y ámbitos que descartar
@@ -449,7 +454,6 @@ profile-walk-steps-topics-to-look-for-and = Ámbitos que buscar y ámbitos que d
 profile-walk-model-the-place = { $place }
 
 ## features/scope/ProfileSuggestions.tsx
-profile-suggestions-there = { $length } ahí
 
 ## features/scope/walk/ProgressRail.tsx
 profile-progress-rail-at = { $title } en { $company_display }
@@ -468,3 +472,7 @@ profile-walk-model-more = { $said }{ $comma } { $word } { $value } más
 
 ## Una lectura fallida, dicha.
 profile-scope-section-rules-load-failed = No se pudieron cargar tus exclusiones de empresas
+
+profile-stage-dimmer-see-every-company = Ver todas las empresas
+
+profile-suggestions-companies-you-follow = empresas de { $sectors } que sigues

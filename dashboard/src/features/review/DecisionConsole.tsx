@@ -5,7 +5,6 @@ import {
   duplicatesDecisionConsoleAiJudgment,
   duplicatesDecisionConsoleAiJudgmentUnavailable,
   duplicatesDecisionConsoleAskAi,
-  duplicatesDecisionConsoleAskTheModel,
   duplicatesDecisionConsoleCurrent,
   duplicatesDecisionConsoleGetAnOptionalIndependentAssessment,
   duplicatesDecisionConsoleLocalModelAssessment,
@@ -68,7 +67,6 @@ export function QueueDecisionConsole({
           </button>
         ))}
         <button
-          aria-label={duplicatesDecisionConsoleAskTheModel()}
           className="review-console-option review-console-ai"
           type="button"
           onClick={onAnalyze}
@@ -95,7 +93,7 @@ function ConsoleAssessment({ result }: { result: DuplicateLLMAssessment }) {
         <b>{confidence}</b>
       </div>
       <p>{answer.summary}</p>
-      <small><Msg of={duplicatesDecisionConsoleTokensMs} elems={{ model: result.model, value: result.metrics.total_tokens ?? "—", wall_time_ms: result.metrics.wall_time_ms }} /></small>
+      <small><Msg of={duplicatesDecisionConsoleTokensMs} elems={{ model: result.model }} /></small>
     </section>
   );
 }
@@ -118,7 +116,7 @@ export function DecisionBar({
     <section className="review-decision-bar" aria-label={duplicatesDecisionConsoleMakeADecision2({ choice: (current) ? "yes" : "no" })}>
       <div className="review-decision-intro">
         <span>{duplicatesDecisionConsoleYourJudgment({ choice: (current) ? "yes" : "no" })}</span>
-        <strong>{duplicatesDecisionConsoleWhatIsTheRelationship({ choice: (current) ? "yes" : "no" })}</strong>
+        <strong>{duplicatesDecisionConsoleWhatIsTheRelationship()}</strong>
       </div>
       <div className="review-decision-options">
         {options.map(({ decision, key }) => (

@@ -43,6 +43,6 @@ taxonomy-stage-rejected = Rechazado
 taxonomy-stage-withdrawn = Retirado
 taxonomy-stage-role-closed = Puesto cerrado
 taxonomy-level-not-stated = nivel no indicado
-taxonomy-level-not-mapped = nivel sin asignar
+taxonomy-level-not-mapped = nivel propio de la empresa
 taxonomy-level-not-placed = Nivel desconocido
 taxonomy-level-unstated-choice = Incluir puestos con nivel desconocido

@@ -17,7 +17,7 @@ test.beforeEach(async ({ page }) => {
 test("opening an opportunity shows a full-screen detail that fills the viewport", async ({ page }) => {
   await page.goto("/");
 
-  const mission = page.getByRole("banner", { name: "Application navigation" });
+  const mission = page.getByRole("banner", { name: msg("shell-topbar-aria") });
   await expect(mission).toContainText("Radar");
   await expect(mission.locator(".stat-chip").nth(0)).toHaveAttribute("aria-label", msg("shell-stat-open-aria", { count: 1 }));
   await expect(mission.locator(".stat-chip").nth(1)).toHaveAttribute("aria-label", "1 new in the last 2 days");
@@ -386,7 +386,7 @@ test("the stage select starts a pursuit, which also saves the role", async ({ pa
   const panel = detail(page);
 
   // Not pursuing yet: the select doubles as the entry point, and says what it does first.
-  await expect(panel.getByText("Not started")).toBeVisible();
+  await expect(panel.getByText(msg("role-job-detail-not-started", { choice: "no" }))).toBeVisible();
   await expect(panel.getByText(msg("role-job-detail-tracking-explainer"))).toBeVisible();
   await panel.getByLabel("Stage").selectOption("researching");
 
@@ -565,8 +565,8 @@ test("Details says one age with its basis, and the history opens on demand", asy
   await details.getByRole("button", { name: "History" }).click();
   const panel = page.getByRole("dialog", { name: "Posting history" });
   const events = panel.getByRole("list", { name: "Events" });
-  await expect(events).toContainText("Published by the employer · the start");
-  await expect(events).toContainText(/Employer changed its date to .* · never the start/);
+  await expect(events).toContainText(`${msg("role-listing-age-published-by-the-employer")} · ${msg("role-listing-age-the-start")}`);
+  await expect(events).toContainText(/Employer changed its date to .* · not counted from here/);
   await expect.poll(() => reads.answered).toBe(1);
 });
 

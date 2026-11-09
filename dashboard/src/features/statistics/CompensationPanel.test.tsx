@@ -168,7 +168,7 @@ describe("CompensationPanel", () => {
         roles: msg("insights-compensation-panel-roles", { count: 406 }),
       }),
     );
-    expect(screen.getAllByText("Groups of 5 roles or more")).toHaveLength(3);
+    expect(screen.getAllByText(msg("insights-compensation-panel-groups-of-roles-or-more", { min_roles: 5 }))).toHaveLength(3);
   });
 
   it("renders distribution bins and formats company + family rows", async () => {

@@ -41,7 +41,7 @@ vocab-domain-customer-support = 客户支持与服务
 vocab-domain-hint-customer-support = 服务台、用户运营
 vocab-domain-corporate-operations = 企业运营
 vocab-domain-hint-corporate-operations = 战略、规划、BizOps
-vocab-domain-unclassified = 未分类
+vocab-domain-unclassified = 其他
 
 ## 职业路线
 vocab-track-management = 管理
@@ -91,7 +91,7 @@ vocab-sector-robotics = 机器人、自动驾驶与国防
 vocab-sector-consumer = 消费平台
 
 ## 公司信息的来源
-vocab-source-manual = 手动（你）
+vocab-source-manual = 你填写的
 vocab-source-sec-edgar = SEC EDGAR
 vocab-source-dol-lca = DOL LCA
 vocab-source-market = 市场数据

@@ -107,6 +107,11 @@ function queuePair(id: number, title: string, score: number): DuplicateReviewIte
   };
 }
 const queueOf = (...items: DuplicateReviewItem[]): DuplicateReviewList => ({ total: items.length, limit: 50, offset: 0, items });
+// The queue's count line: pairs still to decide, or (auto) matched pairs not yet checked.
+const toDecide = (n: number) => msg("duplicates-review-screen-pairs-left-in-the-queue", { total: n, count: n, choice: "no" });
+const unchecked = (n: number) => msg("duplicates-review-screen-pairs-left-in-the-queue", { total: n, count: n, choice: "yes" });
+// The AI button before any answer: its accessible name is its visible text.
+const askAi = () => msg("duplicates-decision-console-ask-ai", { choice: "v3" });
 
 /* The same pair proposed by the twin detector, as `GET /api/twins/review` sends it. */
 function twinList(): TwinReviewList {
@@ -129,12 +134,12 @@ describe("ReviewScreen", () => {
     const user = userEvent.setup();
     render(<ReviewScreen />);
 
-    expect(await screen.findByText("1 pair left in the queue")).toBeInTheDocument();
+    expect(await screen.findByText(toDecide(1))).toBeInTheDocument();
     expect(screen.getAllByText("Earlier posting")).toHaveLength(2);
     const ledger = screen.getByRole("region", { name: "Side by side" });
     expect(within(ledger).getByRole("row", { name: /TitleDifferent Staff SWE Staff SWE, Core/ })).toBeInTheDocument();
-    expect(screen.getByLabelText("System similarity 90%")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "About system similarity" })).toBeInTheDocument();
+    expect(screen.getByLabelText(msg("duplicates-review-screen-system-similarity-2", { score: "90%" }))).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: msg("duplicates-review-screen-about-system-similarity") })).toBeInTheDocument();
     // The reasons in the reader's words, never the detector's English.
     expect(screen.getByText(msg("duplicates-reason-descriptions-alike", { pct: 90 }))).toBeInTheDocument();
     expect(screen.queryByText("cosine 0.90 in review band")).toBeNull();
@@ -158,7 +163,7 @@ describe("ReviewScreen", () => {
     mockHistory();
     const user = userEvent.setup();
     render(<ReviewScreen />);
-    expect(await screen.findByText("1 pair left in the queue")).toBeInTheDocument();
+    expect(await screen.findByText(toDecide(1))).toBeInTheDocument();
 
     await user.keyboard("{Meta>}d{/Meta}");
     await user.keyboard("{Control>}t{/Control}");
@@ -281,11 +286,11 @@ describe("ReviewScreen", () => {
     const console = await screen.findByRole("region", { name: "Make a decision" });
     const actions = within(console).getAllByRole("button");
     expect(actions[0]).toHaveAccessibleName(/Different roles/);
-    expect(actions[actions.length - 1]).toHaveAccessibleName("Ask the model");
+    expect(actions[actions.length - 1]).toHaveAccessibleName(askAi());
     expect(within(console).queryByText("System normalization")).not.toBeInTheDocument();
-    await userEvent.click(within(console).getByRole("button", { name: "Ask the model" }));
+    await userEvent.click(within(console).getByRole("button", { name: askAi() }));
 
-    const advice = await screen.findByRole("region", { name: "Local model assessment" });
+    const advice = await screen.findByRole("region", { name: msg("duplicates-decision-console-local-model-assessment") });
     expect(advice).toHaveTextContent("Likely the same role");
     expect(advice.closest(".review-decision-console")).toHaveClass("has-ai-response");
     expect(advice.querySelector("p")).toHaveTextContent("Same title, location, and responsibilities; the newer record is a relist.");
@@ -310,9 +315,9 @@ describe("ReviewScreen", () => {
     }));
     render(<ReviewScreen />);
 
-    await userEvent.click(await screen.findByRole("button", { name: "Ask the model" }));
+    await userEvent.click(await screen.findByRole("button", { name: askAi() }));
     expect(api.analyzeTwinLink).toHaveBeenCalledWith(19);
-    expect(await screen.findByRole("region", { name: "Local model assessment" })).toHaveTextContent("Uncertain");
+    expect(await screen.findByRole("region", { name: msg("duplicates-decision-console-local-model-assessment") })).toHaveTextContent("Uncertain");
   });
 
   it("rejects via the button", async () => {
@@ -323,7 +328,7 @@ describe("ReviewScreen", () => {
     );
     const user = userEvent.setup();
     render(<ReviewScreen />);
-    await screen.findByText("1 pair left in the queue");
+    await screen.findByText(toDecide(1));
     await user.click(screen.getByRole("button", { name: /Different roles/ }));
     expect(api.reviewLineageLink).toHaveBeenCalledWith(7, "rejected");
   });
@@ -353,7 +358,7 @@ describe("ReviewScreen", () => {
     const user = userEvent.setup();
     render(<ReviewScreen />);
 
-    expect(await screen.findByText("476 pairs left in the queue")).toBeInTheDocument();
+    expect(await screen.findByText(toDecide(476))).toBeInTheDocument();
 
     // The reload after the verdict returns another full page; the count must
     // follow the server's own count down, not spring back to the page size.
@@ -362,14 +367,14 @@ describe("ReviewScreen", () => {
     });
     await user.click(screen.getByRole("button", { name: /Different roles/ }));
 
-    expect(await screen.findByText("475 pairs left in the queue")).toBeInTheDocument();
+    expect(await screen.findByText(toDecide(475))).toBeInTheDocument();
     // Two reads of the queue (each load also asks how many automatic matches wait).
     const queueReads = () =>
       vi.mocked(api.lineageReview).mock.calls.filter(
         ([params]) => params?.confidence === "suspected",
       ).length;
     await waitFor(() => expect(queueReads()).toBe(2));
-    expect(screen.getByText("475 pairs left in the queue")).toBeInTheDocument();
+    expect(screen.getByText(toDecide(475))).toBeInTheDocument();
   });
 
   it("confirms a queue verdict with a toast whose Undo returns the pair to the queue", async () => {
@@ -378,7 +383,7 @@ describe("ReviewScreen", () => {
     vi.mocked(api.reviewLineageLink).mockResolvedValue(duplicateVerdictFixture());
     const user = userEvent.setup();
     render(<ReviewScreen />);
-    await screen.findByText("1 pair left in the queue");
+    await screen.findByText(toDecide(1));
 
     // The verdict lands, the pair leaves the queue, the toast offers the way back.
     vi.mocked(api.lineageReview).mockResolvedValue({ total: 0, limit: 50, offset: 0, items: [] });
@@ -395,7 +400,7 @@ describe("ReviewScreen", () => {
     mockList(list());
     await user.click(within(toast).getByRole("button", { name: "Undo" }));
     expect(api.reviewLineageLink).toHaveBeenLastCalledWith(7, "pending");
-    expect(await screen.findByText("1 pair left in the queue")).toBeInTheDocument();
+    expect(await screen.findByText(toDecide(1))).toBeInTheDocument();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
@@ -405,7 +410,7 @@ describe("ReviewScreen", () => {
     vi.mocked(api.reviewLineageLink).mockResolvedValue(duplicateVerdictFixture());
     const user = userEvent.setup();
     render(<ReviewScreen />);
-    await screen.findByText("1 pair left in the queue");
+    await screen.findByText(toDecide(1));
     await user.click(screen.getByRole("button", { name: /Same role/ }));
     const toast = await screen.findByRole("status");
 
@@ -431,7 +436,7 @@ describe("ReviewScreen", () => {
     vi.mocked(api.reviewTwinLink).mockResolvedValue(twinVerdictFixture({ lineages: 0 }));
     const user = userEvent.setup();
     render(<ReviewScreen />);
-    await screen.findByText("1 pair left in the queue");
+    await screen.findByText(toDecide(1));
 
     await user.click(screen.getByRole("button", { name: /Related roles/ }));
     expect(api.reviewTwinLink).toHaveBeenCalledWith(19, "confirmed");
@@ -450,16 +455,18 @@ describe("ReviewScreen", () => {
     );
     const user = userEvent.setup();
     render(<ReviewScreen />);
-    await screen.findByText("1 pair left in the queue");
+    await screen.findByText(toDecide(1));
 
     await user.click(screen.getByRole("button", { name: /Same role/ }));
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent(`Couldn't record the verdict: ${msg("error-verdict-decided")}`);
+    expect(alert).toHaveTextContent(
+      msg("duplicates-review-screen-could-not-record-the-verdict", { message: msg("error-verdict-decided") }),
+    );
     expect(alert).not.toHaveTextContent("boom");
     expect(within(alert).queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     // The reload restores the truth: the verdict did not land, so the pair is still to decide.
-    expect(await screen.findByText("1 pair left in the queue")).toBeInTheDocument();
+    expect(await screen.findByText(toDecide(1))).toBeInTheDocument();
   });
 
   it("atomically converts a duplicate proposal when marked as a twin", async () => {
@@ -494,16 +501,16 @@ describe("ReviewScreen", () => {
     render(<ReviewScreen />);
 
     // The default queue is unchanged: possible matches only.
-    expect(await screen.findByText("1 pair left in the queue")).toBeInTheDocument();
-    const tab = screen.getByRole("tab", { name: /Matched automatically/ });
+    expect(await screen.findByText(toDecide(1))).toBeInTheDocument();
+    const tab = screen.getByRole("tab", { name: new RegExp(msg("duplicates-review-screen-matched-automatically")) });
     expect(tab).toHaveTextContent("1");
 
     await user.click(tab);
-    expect(await screen.findByText("1 pair matched automatically, not yet checked")).toBeInTheDocument();
+    expect(await screen.findByText(unchecked(1))).toBeInTheDocument();
     expect(api.lineageReview).toHaveBeenCalledWith(
       expect.objectContaining({ status: "pending", confidence: "auto", order: "weakest" }),
     );
-    expect(screen.getByLabelText("System similarity 83%")).toBeInTheDocument();
+    expect(screen.getByLabelText(msg("duplicates-review-screen-system-similarity-2", { score: "83%" }))).toBeInTheDocument();
 
     autoLeft = { total: 0, limit: 50, offset: 0, items: [] };
     await user.click(screen.getByRole("button", { name: /Different roles/ }));
@@ -540,12 +547,12 @@ describe("ReviewScreen", () => {
     const user = userEvent.setup();
     render(<ReviewScreen />);
 
-    const tab = await screen.findByRole("tab", { name: /Matched automatically/ });
+    const tab = await screen.findByRole("tab", { name: new RegExp(msg("duplicates-review-screen-matched-automatically")) });
     await waitFor(() => expect(tab).toHaveTextContent("2"));
     await user.click(tab);
-    expect(await screen.findByText("2 pairs matched automatically, not yet checked")).toBeInTheDocument();
+    expect(await screen.findByText(unchecked(2))).toBeInTheDocument();
     // The twin's 91% is weaker than the duplicate's 97%: it leads.
-    expect(screen.getByLabelText("System similarity 91%")).toBeInTheDocument();
+    expect(screen.getByLabelText(msg("duplicates-review-screen-system-similarity-2", { score: "91%" }))).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Different roles/ }));
     expect(api.reviewTwinLink).toHaveBeenCalledWith(77, "rejected");
   });
@@ -566,7 +573,7 @@ describe("ReviewScreen", () => {
     expect(screen.queryByRole("button", { name: msg("duplicates-review-screen-open-decided") })).toBeNull();
 
     // The automatic list is just as empty, and says the same.
-    await userEvent.setup().click(screen.getByRole("tab", { name: /Matched automatically/ }));
+    await userEvent.setup().click(screen.getByRole("tab", { name: new RegExp(msg("duplicates-review-screen-matched-automatically")) }));
     expect(await screen.findByText(msg("duplicates-review-screen-none-found"))).toBeInTheDocument();
     expect(screen.queryByText(msg("duplicates-review-screen-nothing-to-check"))).toBeNull();
   });
@@ -812,7 +819,7 @@ describe("ReviewScreen", () => {
     expect(api.job).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: /Staff SWE.*Staff SWE, Core/ }));
 
-    const editor = screen.getByRole("region", { name: "Change decision" });
+    const editor = screen.getByRole("region", { name: msg("duplicates-decision-console-make-a-decision-2", { choice: "yes" }) });
     expect(editor).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Side by side" })).not.toBeInTheDocument();
     expect(api.job).toHaveBeenCalledWith(1, expect.any(AbortSignal));
@@ -883,14 +890,14 @@ describe("ReviewScreen", () => {
       vi.mocked(api.analyzeLineageLink).mockReturnValue(analysis);
       const user = userEvent.setup();
       render(<ReviewScreen />);
-      expect(await screen.findByText("2 pairs left in the queue")).toBeInTheDocument();
+      expect(await screen.findByText(toDecide(2))).toBeInTheDocument();
 
       vi.mocked(api.lineageReview).mockResolvedValue(queueOf(pairB()));
       await user.keyboard("d");
       expect(api.reviewLineageLink).toHaveBeenCalledWith(7, "confirmed");
       const toast = await screen.findByRole("status");
       await screen.findByRole("row", { name: /Staff PM, Search/ });
-      await user.click(screen.getByRole("button", { name: "Ask the model" }));
+      await user.click(screen.getByRole("button", { name: askAi() }));
       expect(api.analyzeLineageLink).toHaveBeenCalledWith(8);
       // Undo brings A back in front of B.
       vi.mocked(api.lineageReview).mockResolvedValue(queueOf(pairA(), pairB()));
@@ -903,14 +910,14 @@ describe("ReviewScreen", () => {
     it("is not shown on the pair Undo brings back", async () => {
       const { user, toast } = await decideAThenAskAboutB(Promise.resolve(sameRole));
       // Positive control: the advice is on screen above B.
-      expect(await screen.findByRole("region", { name: "Local model assessment" })).toHaveTextContent(
+      expect(await screen.findByRole("region", { name: msg("duplicates-decision-console-local-model-assessment") })).toHaveTextContent(
         "The same opening listed twice.",
       );
 
       await user.click(within(toast).getByRole("button", { name: "Undo" }));
       expect(api.reviewLineageLink).toHaveBeenLastCalledWith(7, "pending");
       await screen.findByRole("row", { name: /Staff PM, Ads/ });
-      expect(screen.queryByRole("region", { name: "Local model assessment" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: msg("duplicates-decision-console-local-model-assessment") })).not.toBeInTheDocument();
       expect(screen.queryByText("The same opening listed twice.")).not.toBeInTheDocument();
     });
 
@@ -922,9 +929,9 @@ describe("ReviewScreen", () => {
       await screen.findByRole("row", { name: /Staff PM, Ads/ });
       await act(async () => analysis.resolve(sameRole));
 
-      await waitFor(() => expect(screen.getByRole("button", { name: "Ask the model" })).toBeEnabled());
+      await waitFor(() => expect(screen.getByRole("button", { name: askAi() })).toBeEnabled());
       expect(screen.getByRole("row", { name: /Staff PM, Ads/ })).toBeInTheDocument();
-      expect(screen.queryByRole("region", { name: "Local model assessment" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: msg("duplicates-decision-console-local-model-assessment") })).not.toBeInTheDocument();
     });
   });
 
@@ -941,7 +948,7 @@ describe("ReviewScreen", () => {
     vi.mocked(api.reviewLineageLink).mockResolvedValue(duplicateVerdictFixture());
     const user = userEvent.setup();
     render(<ReviewScreen />);
-    expect(await screen.findByText("3 pairs left in the queue")).toBeInTheDocument();
+    expect(await screen.findByText(toDecide(3))).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("tab", { name: /Decided/ })).toHaveTextContent("0"));
     expect(api.lineageReviewHistory).toHaveBeenCalledTimes(1);
     expect(api.twinReviewHistory).toHaveBeenCalledTimes(1);
@@ -972,7 +979,7 @@ describe("ReviewScreen", () => {
     expect(screen.queryByRole("row", { name: /Staff PM, Search/ })).not.toBeInTheDocument();
     await act(async () => verdictB.resolve(duplicateVerdictFixture({ id: 8 })));
     await act(async () => afterB.resolve(queueOf(pairC)));
-    expect(await screen.findByText("1 pair left in the queue")).toBeInTheDocument();
+    expect(await screen.findByText(toDecide(1))).toBeInTheDocument();
 
     // No history read for either verdict; the badge counts them.
     expect(api.lineageReviewHistory).toHaveBeenCalledTimes(1);

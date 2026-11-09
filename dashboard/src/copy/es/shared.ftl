@@ -97,10 +97,10 @@ shared-est-tc-full = Compensación total estimada
 shared-base-salary-full = Salario base
 shared-base-posted-hint = Rango publicado: de { $low } a { $high }{ $unit }
 shared-base-posted-point-hint = Salario base publicado: { $amount }{ $unit }
-shared-base-estimate-hint = Nuestra estimación para este nivel
+shared-base-estimate-hint = Estimado según el nivel
 shared-base-unknown = Salario base desconocido
 shared-pay-not-covered = Aún sin leer por { $plugin }
-shared-pay-not-covered-hint = Mientras { $plugin } aporta la compensación, una empresa que aún no ha leído no muestra estimación, ni tampoco una integrada.
+shared-pay-not-covered-hint = Sin estimación hasta que { $plugin } lea esta empresa. Las estimaciones integradas están desactivadas mientras aporta la compensación.
 shared-price-feed-get-key = Consigue una clave gratis
 
 ## ui/AsyncBoundary.tsx: lo que dice cuando quien lo usa no da un mensaje propio

@@ -40,10 +40,10 @@ describe("overviewBrief", () => {
       "3,192 open roles across 41 companies. 120 opened in 30d, 30 closed. "
       + "Top skill: Python (1,435 roles).",
     );
-    // The groups are an advanced tab, so only the advanced view names one.
+    // Clusters are an advanced tab, so only the advanced view names one.
     expect(overviewBrief(data, true)).toBe(
       "3,192 open roles across 41 companies. 120 opened in 30d, 30 closed. "
-      + "Top skill: Python (1,435 roles). Largest group: Python · SQL (88).",
+      + "Top skill: Python (1,435 roles). Largest cluster: Python · SQL (88 roles).",
     );
   });
 

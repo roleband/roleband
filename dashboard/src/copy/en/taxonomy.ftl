@@ -84,7 +84,7 @@ taxonomy-stage-role-closed = Role closed
 # kind=label note="A role whose posting names no level"
 taxonomy-level-not-stated = level not stated
 # kind=label note="A role whose title names a level we cannot place yet"
-taxonomy-level-not-mapped = level not mapped
+taxonomy-level-not-mapped = company's own level
 # kind=label note="The Board's Level filter option for both kinds"
 taxonomy-level-not-placed = Level unknown
 # kind=heading note="The Level step's choice to include both kinds"

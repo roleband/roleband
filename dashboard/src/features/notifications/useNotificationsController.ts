@@ -13,6 +13,8 @@ import { useCopy } from "./diagnostics/NotifDiagnostics";
 import type { MovedPageVerbs } from "./moved-page/MovedPagePanel";
 import { isSyncRunning } from "./sync-progress/model";
 import { notificationText } from "../../api/notificationText";
+import { errorText } from "../../api/errorText";
+import { errorTryAgain } from "../../copy/gen/errors";
 import {
   NOTIF_MEMORY_SCOPE,
   PRIORITY_OPTIONS,
@@ -139,8 +141,8 @@ export function useNotificationsController() {
   const attempt = async (what: string, run: () => Promise<void>) => {
     try {
       await run();
-    } catch {
-      toast({ key: "notifications", text: notificationsUseNotificationsControllerCouldNot({ what: String(what) }) });
+    } catch (e) {
+      toast({ key: "notifications", text: notificationsUseNotificationsControllerCouldNot({ what: String(what), reason: errorText(e, errorTryAgain()) }) });
       // Re-read: the optimistic assumption behind the click may be wrong now.
       void refresh({ preserveData: true });
     }

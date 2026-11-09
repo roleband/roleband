@@ -416,6 +416,7 @@ class LocalServerControlResponse(LocalServerStatus):
 
     action: LocalServerAction
     action_ok: bool
+    action_timed_out: bool = Field(description="The command ran past its time limit; a start may still finish on its own.")
     action_detail: str = Field(json_schema_extra=text("diagnostic"))
 
 

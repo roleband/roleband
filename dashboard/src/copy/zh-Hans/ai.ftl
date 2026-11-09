@@ -1,9 +1,9 @@
 ## ai：en/ai.ftl 的简体中文翻译
 
 ## features/intelligence/AimLine.tsx
-ai-aim-line-your-aim-in-one-sentence = 用一句话写下你的目标
+ai-aim-line-your-aim-in-one-sentence = 你的目标（一句话）
 ai-aim-line-roles-closest-to-it-come = 按“最佳匹配”排序雷达时，最接近目标的{ -role(num: "other") }排在前面。它不会隐藏任何{ -role(num: "one") }。留空则按你保存和标记为不适合我的内容排序。
-ai-aim-line-couldn-t-save-your-aim = 无法保存你的目标。{ $error }
+ai-aim-line-couldn-t-save-your-aim = 无法保存你的目标。请重试。
 ai-aim-line-cancel = 取消
 ai-aim-line-save = 保存
 ai-aim-line-open-roles-ranked-by-how = { $total } 个在招{ -role(num: "other") }，按契合程度排序
@@ -18,37 +18,37 @@ ai-aim-line-add-your-aim = { $choice ->
 }
 
 ## features/intelligence/AssistantsCard.tsx
-ai-assistants-card-mcp-server = MCP 服务器
+ai-assistants-card-mcp-server = 助手应用（MCP）
 ai-assistants-card-allowed-read-only = { $choice ->
     [yes] 已允许 · 可读取和更新
    *[no] 已允许 · 只读
 }
-ai-assistants-card-not-allowed-nothing-is-shared = 未允许 · 不共享任何内容
+ai-assistants-card-not-allowed-nothing-is-shared = 未允许 · 不共享内容
 ai-assistants-card-what-will-be-shared = 将共享的内容
 ai-assistants-card-what-will-not-be-shared = 不会共享的内容
 ai-assistants-card-set-up = 设置
 ai-assistants-card-allow-assistant-apps-to-connect = 允许助手应用连接
-ai-assistants-card-allow-assistant-apps-to-update = 允许助手应用更新你的进度
+ai-assistants-card-allow-assistant-apps-to-update = 允许助手应用更新进度
 ai-assistants-card-stage-notes-next-action-audited = 阶段 · 备注 · 下一步 · 规则草稿 · 有记录
 ai-assistants-card-it-can-then-read-what = 之后它可以读取这张卡片列出的内容，仅此而已。
 ai-assistants-card-run-this-once-in-a = 在终端中运行一次，然后重启应用。
-ai-assistants-card-most-apps-that-speak-mcp = 大多数支持 MCP 的应用都接受这段 JSON。把它添加到应用的 MCP 服务器设置中，然后重启应用。
+ai-assistants-card-most-apps-that-speak-mcp = 大多数 MCP 应用都能使用这段配置。把它添加到应用的 MCP 设置中，然后重启应用。
 ai-assistants-card-add-this-to-the-app = 把它添加到应用的设置中，然后重启应用。
 ai-assistants-card-done = 完成
 ai-assistants-card-anthropic = Anthropic
 ai-assistants-card-set-up-the-claude-app = 设置 Claude 应用
 ai-assistants-card-openai = OpenAI
 ai-assistants-card-set-up-the-codex-app = 设置 Codex 应用
-ai-assistants-card-any-client-that-speaks-mcp = 任何支持 MCP 的客户端
+ai-assistants-card-any-client-that-speaks-mcp = 任何支持 MCP 的应用
 ai-assistants-card-set-up-another-mcp-app = 设置其他 MCP 应用
-ai-assistants-card-mcp-server-2 = MCP 服务器
+ai-assistants-card-mcp-server-2 = 助手应用
 ai-assistants-card-not-allowed-to-connect = { $choice ->
     [yes] · 可以设置
    *[no] · 未允许连接
 }
-ai-assistants-card-allow-assistant-apps-to-connect-2 = 请先允许助手应用连接
+ai-assistants-card-allow-assistant-apps-to-connect-2 = 先允许助手应用连接
 ai-assistants-card-off-nothing-leaves-this-computer = { $choice ->
-    [yes] 发送给你连接的应用 · 使用你自己的账户
+    [yes] 开启 · 仅与你连接的应用共享
    *[no] 关闭 · 不会有任何内容离开这台电脑
 }
 ai-assistants-card-clipboard-access-was-blocked-select = 无法复制。请选中文本后自行复制。
@@ -68,10 +68,10 @@ ai-capabilities-card-finds-duplicate-job-posts-only = { $value } · 查找重复
 ai-capabilities-card-apple-intelligence = Apple Intelligence
 ai-capabilities-card-experimental-we-are-still-testing = { $value } · 实验性
 ai-capabilities-card-ready = 就绪
-ai-capabilities-card-online-model-services = 在线模型服务
-ai-capabilities-card-none-connected = 未连接任何服务 ·
+ai-capabilities-card-online-model-services = AI 提供商
+ai-capabilities-card-none-connected = 未添加 ·
 ai-capabilities-card-add = 添加
-ai-capabilities-card-send-postings-to-online-services = 将{ -posting(num: "other") }发送到在线服务
+ai-capabilities-card-send-postings-to-online-services = 发送{ -posting(num: "other") }
 ai-capabilities-card-the-example-says = 示例为
 ai-capabilities-card-it-found = 它找到
 ai-capabilities-card-found-pay = { $band } · { $basis ->
@@ -93,7 +93,7 @@ ai-capabilities-card-server-stopped = 服务器已停止
 ai-capabilities-card-extended-capabilities-2 = 扩展功能
 ai-capabilities-card-use-your-own-model = 使用你自己的模型
 ai-capabilities-card-save-a-connection-first-then = { $choice ->
-    [yes] 开启后启动模型服务器
+    [yes] 开启后启动本地 AI 服务器
    *[no] 请先保存一个连接，然后开启
 }
 ai-capabilities-card-start = { $choice ->
@@ -110,11 +110,11 @@ ai-capabilities-card-test = { $choice ->
    *[no] 测试
 }
 ai-capabilities-card-nothing-is-sent = { $choice ->
-    [yes] 添加服务后允许发送
+    [yes] 添加提供商后允许发送
    *[no] 不发送任何内容
 }
 ai-capabilities-card-off-nothing-is-sent = { $choice ->
-    [yes] 开启 · 已连接的服务会收到{ -posting(num: "other") }
+    [yes] 开启 · 已添加的提供商会收到{ -posting(num: "other") }
    *[no] 关闭 · 不发送任何内容
 }
 ai-capabilities-card-no-pay-range-found = { $choice ->
@@ -124,15 +124,15 @@ ai-capabilities-card-no-pay-range-found = { $choice ->
     [v4] 找到了公布的薪酬区间
    *[v5] 未找到公布的薪酬区间
 }
-ai-capabilities-card-on-device = 设备端
+ai-capabilities-card-on-device = 在这台电脑上
 ai-capabilities-card-allow-sending-postings-to-online = { $choice ->
     [yes] 开启 { $name } 后即可使用
-   *[no] 允许将{ -posting(num: "other") }发送到在线服务后即可使用
+   *[no] 请先开启“发送{ -posting(num: "other") }”
 }
 ai-capabilities-card-blocked-online-services-are-switched = { $choice ->
     [v1] 使用中
     [v2] 关闭
-   *[v3] 已阻止 · 在线服务已关闭
+   *[v3] 已阻止 · 发送已关闭
 }
 ai-capabilities-card-connection-ready-ms = 连接就绪 · { $latency_ms } ms
 ai-capabilities-card-use = 使用 { $name }
@@ -144,18 +144,18 @@ ai-capabilities-card-test-2 = 测试 { $name }
 ai-capabilities-card-configure = 配置 { $name }
 
 ## features/intelligence/CloudDialog.tsx
-ai-cloud-dialog-a-direct-api-connection-billed = 直接 API 连接，与任何 ChatGPT 或 Claude 订阅分开计费。只有在 { $b } 开启后才会发送{ -posting(num: "other") }。
+ai-cloud-dialog-a-direct-api-connection-billed = 使用你自己的 API 密钥，与任何 ChatGPT 或 Claude 订阅分开计费。只有在 { $b } 开启时才会发送{ -posting(num: "other") }。
 ai-cloud-dialog-name = 名称
 ai-cloud-dialog-provider = 提供商
 ai-cloud-dialog-server-address-https = 服务器地址（HTTPS）
 ai-cloud-dialog-model-id = 模型 ID
 ai-cloud-dialog-api-key = API 密钥
-ai-cloud-dialog-enable-this-connection = 启用此连接
+ai-cloud-dialog-enable-this-connection = 开启此提供商
 ai-cloud-dialog-could-not-save = 无法保存
 ai-cloud-dialog-could-not-delete = 无法删除
 ai-cloud-dialog-add-an-online-model-service = { $choice ->
     [yes] 配置 { $name }
-   *[no] 添加在线模型服务
+   *[no] 添加 AI 提供商
 }
 ai-cloud-dialog-openai-api = OpenAI API
 ai-cloud-dialog-anthropic-api = Anthropic API
@@ -182,7 +182,7 @@ ai-fit-field-fit-of-open-roles-rising = { $total } 个在招{ -role(num: "other"
 ai-fit-field-roles = { $label }：{ $count } 个{ -role(num: "other") }
 
 ## features/intelligence/IntelligenceSection.tsx
-ai-intelligence-section-the-board-keeps-working-meanwhile = 在此期间雷达照常可用
+ai-intelligence-section-the-board-keeps-working-meanwhile = 雷达仍可照常使用
 ai-intelligence-section-preparing-matching-mb = 正在准备排序：{ $b }/{ $total_bytes } MB
 ai-intelligence-section-new-roles-added-today = 今日新增 { $n } 个{ -role(num: "other") }
 ai-intelligence-section-no-new-roles-today = 今日没有新{ -role(num: "other") }
@@ -191,32 +191,32 @@ ai-intelligence-section-preview = 预览
 ai-intelligence-section-the-strongest-of-roles = { $label } 中最强的 · { $n } 个{ -role(num: "other") }
 ai-intelligence-section-your-best-matches = 最契合你的职位
 ai-intelligence-section-loading = 加载中…
-ai-intelligence-section-nothing-lands-in-right-now = 目前 { $value } 中没有内容
+ai-intelligence-section-nothing-lands-in-right-now = 目前 { $value } 中没有{ -role(num: "other") }
 ai-intelligence-section-more = 还有 { $max } 个 ·
 ai-intelligence-section-open-the-board = 打开雷达
-ai-intelligence-section-intelligence = 智能
+ai-intelligence-section-intelligence = AI
 ai-intelligence-section-fit-ranking-2 = 匹配度排名
 ai-intelligence-section-all-are-at-right-now = （目前这 { $length } 个都在 { $top }）
 ai-intelligence-section-this-band = 这个等级
 
 ## features/intelligence/LocalModelDialog.tsx
 ai-local-model-dialog-your-own-model = 你自己的模型
-ai-local-model-dialog-a-model-server-you-run = 在这台电脑上运行的模型服务器。仅在你要求比较两条{ -posting(num: "other") }时使用。不会有任何内容离开这台电脑。
+ai-local-model-dialog-a-model-server-you-run = 本地 AI 服务器上的模型。仅在你比较两条{ -posting(num: "other") }时使用。不会有任何内容离开这台电脑。
 ai-local-model-dialog-server-type = 服务器类型
 ai-local-model-dialog-server-address = 服务器地址
-ai-local-model-dialog-generation-and-reasoning-parameters = 生成与推理参数
+ai-local-model-dialog-generation-and-reasoning-parameters = 模型设置
 ai-local-model-dialog-max-tokens = 最大 token 数
 ai-local-model-dialog-temperature = 温度
 ai-local-model-dialog-top-p = Top p
 ai-local-model-dialog-timeout-s = 超时（秒）
 ai-local-model-dialog-thinking-budget = 思考预算
-ai-local-model-dialog-enable-model-thinking = 开启模型思考
+ai-local-model-dialog-enable-model-thinking = 先思考再回答
 ai-local-model-dialog-ms = { $wall_time_ms } ms
 ai-local-model-dialog-could-not-switch-connection = 无法切换连接
-ai-local-model-dialog-could-not-reach-the-model = 无法连接到模型
+ai-local-model-dialog-could-not-reach-the-model = 无法连接本地 AI 服务器
 ai-local-model-dialog-configure-your-own-model = 配置你自己的模型
 ai-local-model-dialog-saved-connections = 已保存的连接
-ai-local-model-dialog-omlx-managed = oMLX（托管）
+ai-local-model-dialog-omlx-managed = oMLX，在这里启动
 ai-local-model-dialog-optional = { $choice ->
     [yes] 留空则保留已保存的密钥
    *[no] 可选
@@ -248,20 +248,20 @@ ai-matching-model-switch-to-the = 切换到{ $nAME_LOWER }
 ai-matching-model-the-switch-to-the-is = 切换到{ $nAME_LOWER }已暂停。
 ai-matching-model-the-rest-finishes-tonight-on = 剩余部分会在今晚自动完成。
 ai-matching-model-finish-now = { $choice ->
-    [yes] 立即完成：{ $estimate }
+    [yes] 立即完成（{ $estimate }）
    *[no] 立即完成
 }
 ai-matching-model-go-back-to-the = 返回{ $nAME_LOWER }
-ai-matching-model-the-small-model-is-built = 小模型适用于 { $b } 内存的电脑；无法检测这台电脑的内存，因此两个模型都可以使用。
+ai-matching-model-the-small-model-is-built = 小模型适用于 { $b } 内存。这台电脑的内存大小未知，因此两个模型都可以使用。
 ai-matching-model-gb = { $ramThresholdGb } GB
-ai-matching-model-it-is-the-right-fit = 它适合你这台 { $b } 内存的电脑。
+ai-matching-model-it-is-the-right-fit = 它适用于这台电脑的 { $b } 内存。
 ai-matching-model-gb-2 = { $ramGb } GB
 ai-matching-model-roles-re-ranked = 已重新排序 { $corpusTotal } 个{ -role(num: "other") }
 ai-matching-model-roles = { $corpusTotal } 个{ -role(num: "other") }
 ai-matching-model-re-ranked = 已重新排序
-ai-matching-model-keep-working-while-it-runs = 运行期间可以继续工作
-ai-matching-model-stop-anytime-restart-anytime-nothing = 随时停止、随时重启，不会丢失任何进度
-ai-matching-model-keep-the-computer-awake-until = 让电脑保持唤醒直到完成
+ai-matching-model-keep-working-while-it-runs = 运行时可继续工作
+ai-matching-model-stop-anytime-restart-anytime-nothing = 随时停止、随时重启，不会丢失任何进度。
+ai-matching-model-keep-the-computer-awake-until = 完成前保持电脑唤醒
 ai-matching-model-start-the-switch = 开始切换
 ai-matching-model-big-model = 大模型
 ai-matching-model-small-model = 小模型
@@ -293,55 +293,55 @@ ai-matching-model-roles-ranked = { $choice ->
 ai-matching-model-the-big-model-produces-better = 大模型的效果更好。
 ai-matching-model-switch-only-if-you-want = 只有在需要释放内存时才切换。
 ai-matching-model-small-model-is-built-for = 小模型适用于
-ai-matching-model-your-computer-has = 你的电脑内存为
+ai-matching-model-your-computer-has = 这台电脑的内存为
 ai-matching-model-local-ai-model-switch = 排序模型切换
 
 ## features/intelligence/OriginBadge.tsx
 ai-origin-badge-cloud-connected = { $choice ->
     [yes] 在这台电脑上
-   *[no] 连接云端
+   *[no] 会离开这台电脑
 }
 
 ## features/intelligence/AssistantsCard.tsx（手工添加）
 ai-assistants-card-shares-role-titles-companies-locations-and-link = { -role(num: "other") }名称、{ -company(num: "other") }、地点和链接
 ai-assistants-card-shares-pay-level-and-how-long-the-role-has-been = 薪酬、级别，以及{ -role(num: "one") }已开放多久
-ai-assistants-card-shares-the-full-posting-when-they-open-one = 完整的{ -posting(num: "one") }，在它们打开时
+ai-assistants-card-shares-the-full-posting-when-they-open-one = 它们打开的{ -posting(num: "one") }全文
 ai-assistants-card-shares-your-progress-on-roles-stage-priority-no = 你在各{ -role(num: "other") }上的进度：阶段、优先级、备注、下一步
 ai-assistants-card-shares-public-pages-it-asks-roleband-to-open = 它请求从这台电脑打开的公开网页
-ai-assistants-card-never-your-profile-and-intent-statement = 你的个人资料和目标陈述
-ai-assistants-card-never-your-own-salary-or-contacts = 你自己的薪资或联系人
-ai-assistants-card-never-anything-from-your-other-apps = 你其他应用中的任何内容
+ai-assistants-card-never-your-profile-and-intent-statement = 你的个人资料和目标
+ai-assistants-card-never-your-own-salary-or-contacts = 你的薪资或联系人
+ai-assistants-card-never-anything-from-your-other-apps = 其他应用的任何内容
 ai-assistants-card-app-claude-app = Claude 应用
 ai-assistants-card-app-codex-app = Codex 应用
 ai-assistants-card-app-other-app = 其他应用
 
 ## 默认连接名称（手工添加）
-ai-local-model-dialog-default-name = 本地 Ornith
+ai-local-model-dialog-default-name = 你自己的模型
 
 ## features/intelligence/CapabilitiesCard.tsx
 ai-capabilities-card-ms = { $latency_ms } ms
 
 ## AI 页面的服务器文本
-ai-availability-available = 设备端模型已就绪。
-ai-availability-disabled-by-flag = 集成已关闭。
-ai-availability-sdk-absent = 这台电脑未安装 Apple Foundation Models SDK（需要 Apple 芯片上的 macOS 26 或更高版本）。
+ai-availability-available = 已就绪。
+ai-availability-disabled-by-flag = 已关闭。
+ai-availability-sdk-absent = Apple Intelligence 需要 Apple 芯片上的 macOS 26 或更高版本。
 ai-availability-apple-intelligence-disabled = Apple Intelligence 已关闭。请在系统设置中开启。
-ai-availability-device-ineligible = 这台 Mac 不支持 Apple Intelligence。
-ai-availability-model-not-ready = 设备端模型尚未就绪，可能仍在下载。
+ai-availability-device-ineligible = 这台电脑不支持 Apple Intelligence。
+ai-availability-model-not-ready = 尚未就绪，可能仍在下载。
 ai-availability-not-configured = 尚未配置任何模型。请在 设置 › AI 中添加一个。
-ai-availability-server-unreachable = 模型服务器没有响应。请确认它正在配置的地址上运行。
-ai-availability-egress-not-permitted = 向在线模型服务发送{ -posting(num: "other") }的功能已关闭。请在 设置 › AI 中开启。
+ai-availability-server-unreachable = 本地 AI 服务器没有响应。请启动它，然后再次测试。
+ai-availability-egress-not-permitted = 向 AI 提供商发送{ -posting(num: "other") }的功能已关闭。请在 设置 › AI 中开启。
 ai-origin-none = 未运行任何模型
-ai-origin-on-device = 在这台 Mac 上：Apple 设备端模型
-ai-origin-this-mac = 在这台 Mac 上：本地模型服务器
-ai-origin-cloud = 已发送到云端提供商
-ai-self-test-prefiltered = 文本中没有发现薪酬信息，因此没有调用模型；大多数{ -posting(num: "other") }都是这样处理的。
-ai-self-test-model-failed = 模型没有返回可用的回答（{ $failure }）。
+ai-origin-on-device = 在这台电脑上：Apple Intelligence
+ai-origin-this-mac = 在这台电脑上：你自己的模型
+ai-origin-cloud = 已发送到 AI 提供商
+ai-self-test-prefiltered = 文本中没有发现薪酬信息，因此没有调用模型。这对大多数{ -posting(num: "other") }来说很正常。
+ai-self-test-model-failed = 模型没有给出可用的回答（{ $failure }）。
 ai-local-test-max-tokens = 回答在达到“最大 token 数”时被截断。请调高后再测试。
-ai-local-test-succeeded = 模型发现和聊天补全均成功。
+ai-local-test-succeeded = 已连接，模型已回答。
 ai-local-server-action-failed = { $action ->
-    [start] 无法启动模型服务器。请重试。
-   *[stop] 无法停止模型服务器。请重试。
+    [start] 无法启动本地 AI 服务器。请自行启动，然后测试连接。
+   *[stop] 无法停止本地 AI 服务器。请自行停止。
 }
 
 ## 本地服务器响应时的状态
@@ -350,8 +350,20 @@ ai-capabilities-card-running = 运行中
 ## 读取失败时的说明。
 ai-intelligence-section-matches-load-failed = 无法加载最契合你的职位
 ai-intelligence-section-band-load-failed = 无法加载此等级的职位
-ai-egress-title = 允许使用在线模型服务？
-ai-egress-detail = RoleBand 可能会将{ -posting(num: "other") }文本发送到你启用的在线模型服务。此权限也适用于你以后添加或启用的服务。
-ai-egress-destinations = 已保存的服务
-ai-egress-empty = 尚未连接任何服务。添加并启用服务后才能发送内容。
+ai-egress-title = 允许发送到 AI 提供商？
+ai-egress-detail = { -posting(num: "other") }中的文本只会发送到你开启的 AI 提供商，包括你以后添加或开启的提供商。
+ai-egress-destinations = 已保存的提供商
+ai-egress-empty = 尚未添加 AI 提供商。添加并开启一个提供商后才会发送内容。
 ai-egress-allow = 允许
+
+ai-capabilities-card-apple-off = 关闭
+
+ai-capabilities-card-apple-off-in-system-settings = 已在系统设置中关闭
+
+ai-capabilities-card-apple-downloading = 正在下载
+
+ai-capabilities-card-apple-needs-macos = 需要 Apple 芯片上的 macOS 26 或更高版本
+
+ai-capabilities-card-apple-not-supported = 这台电脑不支持
+
+ai-local-server-start-pending = 本地 AI 服务器仍在启动。请一分钟后再查看。

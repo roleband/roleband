@@ -96,7 +96,7 @@ describe("DisclosureRatePanel", () => {
     render(<DisclosureRatePanel rates={rates()} />);
 
     expect(
-      screen.getByRole("img", { name: /post a range, by employer/i }),
+      screen.getByRole("img", { name: /post a range, by company/i }),
     ).toBeInTheDocument();
     expect(screen.getByText(/Google: 80%, 160 of 200 roles/)).toBeInTheDocument();
 
@@ -153,7 +153,7 @@ describe("DisclosureTrendPanel", () => {
     mockTrends();
     render(<DisclosureTrendPanel days={90} minRoles={5} />);
     await screen.findByRole("img", { name: /post a range over time/i });
-    await userEvent.click(screen.getByRole("button", { name: "By employer" }));
+    await userEvent.click(screen.getByRole("button", { name: "By company" }));
     await waitFor(() =>
       expect(api.disclosureTrends).toHaveBeenCalledWith("company", 90, undefined),
     );
@@ -173,7 +173,7 @@ describe("DisclosureTrendPanel", () => {
     await screen.findByRole("img", { name: /post a range over time/i });
 
     vi.mocked(api.disclosureTrends).mockClear();
-    await userEvent.click(screen.getByRole("button", { name: "By employer" }));
+    await userEvent.click(screen.getByRole("button", { name: "By company" }));
 
     // A median of per-company medians is not a median, so the band chart stays
     // pinned to the market grain no matter what the rate breakdown is set to.

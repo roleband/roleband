@@ -81,10 +81,10 @@ shared-est-tc-full = 估算总薪酬
 shared-base-salary-full = 基本工资
 shared-base-posted-hint = 公布的区间：{ $low } 至 { $high }{ $unit }
 shared-base-posted-point-hint = 公布的基本工资：{ $amount }{ $unit }
-shared-base-estimate-hint = 我们对该级别的估算
+shared-base-estimate-hint = 根据级别估算
 shared-base-unknown = 基本工资未知
 shared-pay-not-covered = { $plugin } 尚未读取
-shared-pay-not-covered-hint = 当 { $plugin } 提供薪酬时，它尚未读取的公司不显示估算，也不显示内置估算。
+shared-pay-not-covered-hint = { $plugin } 读取这家公司后才会有估算。它提供薪酬期间，内置估算会关闭。
 shared-price-feed-get-key = 获取免费密钥
 
 ## ui/AsyncBoundary.tsx：调用方未提供完整消息时显示的内容

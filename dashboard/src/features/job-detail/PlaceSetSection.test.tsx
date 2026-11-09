@@ -180,7 +180,7 @@ describe("PlaceSetSection", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Different roles" }));
     expect(
       await screen.findByText(
-        msg("role-place-set-section-could-not-record-the-verdict", { message: msg("error-generic") }),
+        msg("role-place-set-section-could-not-record-the-verdict", { message: msg("error-try-again") }),
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Also listed in" })).toBeInTheDocument();

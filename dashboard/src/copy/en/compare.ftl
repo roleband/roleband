@@ -52,10 +52,16 @@ compare-screen-not-for-me-hide-this = Not for me
 compare-screen-remove-from-comparison = Remove { $title }
 # kind=heading
 compare-screen-remove = Remove
-# kind=label wording=as-is
+# kind=label
 compare-screen-show-or-hide-matching-fields = { $fields ->
-    [open] Hide { $count } matching fields
-   *[folded] Show { $count } matching fields
+    [open] { $count ->
+        [one] Hide { $count } identical field
+       *[other] Hide { $count } identical fields
+    }
+   *[folded] { $count ->
+        [one] Show { $count } identical field
+       *[other] Show { $count } identical fields
+    }
 }
 # kind=label wording=as-is
 compare-screen-show-or-hide = { $fields ->

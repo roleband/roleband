@@ -29,18 +29,13 @@ profile-suggestions-you-marked-there-not-for = you marked { $dismissed_wrong_dom
 profile-suggestions-more-not-for-me-with = { $dismissed_other } more marked Not for me without a reason
 # kind=toast wording=as-is
 profile-suggestions-in-progress = { $pursued } in progress
-# kind=label wording=as-is
-profile-suggestions-role-there-is = role there is
-# kind=label wording=as-is
-profile-suggestions-roles-there-are = roles there are
-# kind=toast wording=as-is
-profile-suggestions-you-saved-there = you saved { $favorited } there
-# kind=label wording=as-is
-profile-suggestions-followed-company-sector-points = followed company sector points
-# kind=label wording=as-is
-profile-suggestions-followed-company-sectors-point = followed company sectors point
-# kind=toast wording=as-is
-profile-suggestions-your-aim-names-it = your aim names it
+# kind=toast note="A clause after Based on: 3 saved roles"
+profile-suggestions-you-saved-there = { $favorited ->
+    [one] { $favorited } saved { -role(num: "one") }
+   *[other] { $favorited } saved { -role(num: "other") }
+}
+# kind=toast note="A clause after Based on: the person's aim (Settings › AI) names this world"
+profile-suggestions-your-aim-names-it = your aim
 # kind=toast wording=as-is
 profile-suggestions-turned-on-on-your-radar = { $choice ->
     [yes] { $display } turned off · { $in_scope_changed } on your radar updated
@@ -49,7 +44,7 @@ profile-suggestions-turned-on-on-your-radar = { $choice ->
 # kind=toast
 profile-suggestions-could-not-apply-the-suggestion = Couldn't apply the suggestion. It stays pending.
 # kind=toast
-profile-suggestions-could-not-dismiss-the-suggestion = Couldn't dismiss the suggestion. Try again.
+profile-suggestions-could-not-dismiss-the-suggestion = Couldn't decline the suggestion. Try again.
 # kind=error
 profile-suggestions-could-not-load = Couldn't load your suggested adjustments. Try again.
 # kind=aria wording=as-is
@@ -59,9 +54,9 @@ profile-suggestions-turn-on = { $choice ->
     [yes] Turn off { $display }?
    *[no] Turn on { $display2 }?
 }
-# kind=sentence
+# kind=status note="Why a world is suggested: Based on: 3 saved roles · 2 roles in progress · Fintech companies you follow · your aim"
 profile-suggestions-inferred-from-your-recent-activity = { $choice ->
-    [yes] Because { $join }.
+    [yes] Based on: { $join }
    *[no] Based on your recent activity.
 }
 # kind=label wording=as-is
@@ -74,8 +69,8 @@ profile-suggestions-turn-it-on = { $choice ->
     [yes] Turn it off
    *[no] Turn it on
 }
-# kind=label wording=as-is
-profile-suggestions-dismiss-suggestion-about = Dismiss suggestion about { $display }
+# kind=label
+profile-suggestions-dismiss-suggestion-about = No thanks to { $display }
 # kind=label wording=as-is
 profile-suggestions-no-thanks = { $choice ->
     [yes] Keep it on
@@ -91,8 +86,8 @@ profile-scope-guide-how-your-radar-works = How your radar works
 profile-scope-guide-radar-guide = Radar guide
 # kind=heading wording=as-is
 profile-scope-guide-how-your-radar-works-2 = How your radar works
-# kind=sentence wording=as-is
-profile-scope-guide-five-answers-decide-what-reaches = Five answers decide what reaches your radar. A role shows up only when it fits all of them.
+# kind=sentence
+profile-scope-guide-five-answers-decide-what-reaches = Three answers decide what reaches your radar; two optional ones sharpen it. A role shows up when it fits them all.
 # kind=label wording=as-is
 profile-scope-guide-decide = Decide
 # kind=label wording=as-is
@@ -105,8 +100,8 @@ profile-scope-guide-when-changes-apply = When changes apply
 profile-scope-guide-save-applies-your-answers-to = Changes apply when you save. Added roles arrive with the next scan.
 # kind=heading wording=as-is
 profile-scope-guide-about-the-counts = About the counts
-# kind=sentence wording=as-is
-profile-scope-guide-progress-shows-how-many-of = Progress shows how many of the roles at your companies each answer keeps, from the latest count. Until one has run it reads No count yet, and Count now starts one.
+# kind=sentence
+profile-scope-guide-progress-shows-how-many-of = Progress shows how many roles at your companies each answer brings into focus.
 # kind=heading wording=as-is
 profile-scope-guide-nothing-hidden-by-a-guess = Nothing hidden by a guess
 # kind=sentence
@@ -150,12 +145,15 @@ profile-scope-section-rules-load-failed = Couldn't load your company exclusions
 profile-scope-section-remove-exclusion-at = Remove exclusion { $value } at { $company }
 
 ## features/scope/StageDimmer.tsx
-# kind=label wording=as-is
-profile-stage-dimmer-you-are-here = you are here
-# kind=label wording=as-is
-profile-stage-dimmer-aiming-for = aiming for
-# kind=label wording=as-is
-profile-stage-dimmer-roles = { $slug } roles
+# kind=label
+profile-stage-dimmer-you-are-here = You are here
+# kind=label
+profile-stage-dimmer-aiming-for = Aiming for
+# kind=label note="A rung's count of roles: 12 roles. $slug is the formatted count, $count the number"
+profile-stage-dimmer-roles = { $count ->
+    [one] { $slug } { -role(num: "one") }
+   *[other] { $slug } { -role(num: "other") }
+}
 # kind=label wording=as-is
 profile-stage-dimmer-what-this-means-at-each = What this means at each company
 # kind=link
@@ -212,8 +210,8 @@ profile-pay-floor-row-pay-floor = Minimum base
 profile-pay-floor-row-a-year-base = a year
 # kind=button wording=as-is
 profile-pay-floor-row-cancel = Cancel
-# kind=label wording=as-is
-profile-pay-floor-row-checking = Checking…
+# kind=label
+profile-pay-floor-row-checking = Loading…
 # kind=sentence
 profile-pay-floor-row-couldn-t-read-your-pay = Couldn't load your minimum base.
 # kind=button
@@ -310,10 +308,10 @@ profile-progress-rail-save-to-count-the-roles = { $choice ->
     [yes] Counting the roles in { $pendingPlaces }…
    *[no] Save to count the roles in { $pendingPlaces2 }.
 }
-# kind=label wording=as-is
+# kind=label
 profile-progress-rail-roles-match = { $count ->
-    [one] role matches
-   *[other] roles match
+    [one] role fits
+   *[other] roles fit
 }
 # kind=label wording=as-is
 profile-progress-rail-roles-when-you-save = { $choice ->
@@ -360,9 +358,9 @@ profile-radar-pyramid-illustrative-funnel-each-percentage-is = Each answer focus
 profile-radar-pyramid-after-the-first-three-answers = After the first three answers
 # kind=label wording=as-is
 profile-radar-pyramid-locked = Locked
-# kind=label wording=as-is
+# kind=label
 profile-radar-pyramid-not-answered-yet = { $choice ->
-    [yes] Any, nothing narrowed
+    [yes] Any, all in focus
    *[no] Not answered yet
 }
 # kind=label wording=as-is
@@ -380,10 +378,10 @@ profile-radar-pyramid-counting = Counting
 profile-radar-pyramid-counted-after-you-save = Counted after you save
 # kind=label wording=as-is
 profile-radar-pyramid-save-first = Save first
-# kind=label wording=as-is
-profile-radar-pyramid-keeps = Keeps { $kept }, { $kept2 }
-# kind=aria wording=as-is
-profile-radar-pyramid-what-each-answer-keeps = What each answer keeps
+# kind=label
+profile-radar-pyramid-keeps = In focus: { $kept }, { $kept2 }
+# kind=aria
+profile-radar-pyramid-what-each-answer-keeps = In focus after each answer
 # kind=label wording=as-is
 profile-radar-pyramid-url-fill = url(#{ $id }-fill)
 
@@ -392,10 +390,10 @@ profile-radar-pyramid-url-fill = url(#{ $id }-fill)
 profile-roles-step-pick-a-kind-of-role = Pick a career track first.
 # kind=sentence wording=as-is
 profile-roles-step-nothing-called-under = Nothing called “{ $query }” under { $label }.
-# kind=label wording=as-is
-profile-roles-step-filter-roles = Filter roles
-# kind=label wording=as-is
-profile-roles-step-filter-roles-2 = Filter roles…
+# kind=label
+profile-roles-step-filter-roles = Filter disciplines
+# kind=label
+profile-roles-step-filter-roles-2 = Filter disciplines…
 # kind=label
 profile-roles-step-craft-for = Disciplines for { $label }
 # kind=label wording=as-is
@@ -434,10 +432,10 @@ profile-subjects-step-filter-interests-2 = Filter worlds…
 profile-summary-step-summary = Summary
 # kind=button wording=as-is
 profile-summary-step-adjust = Adjust
-# kind=label wording=as-is
-profile-summary-step-what-it-keeps = What it keeps
-# kind=sentence wording=as-is
-profile-summary-step-no-count-yet-once-a = No count yet. Once a scan has run, this shows how many roles each answer keeps.
+# kind=label
+profile-summary-step-what-it-keeps = In focus
+# kind=sentence
+profile-summary-step-no-count-yet-once-a = No count yet. Once a scan has run, this shows how many roles each answer brings into focus.
 # kind=label wording=as-is
 profile-summary-step-counting-the-roles-in = Counting the roles in { $pendingPlaces }…
 # kind=sentence wording=as-is
@@ -543,8 +541,8 @@ profile-where-step-in-choose-to-narrow-to = { $choice ->
 }
 # kind=label wording=as-is
 profile-where-step-add-back = Add back { $name }
-# kind=label wording=as-is
-profile-where-step-excepted-add-it-back = excepted, add it back
+# kind=label
+profile-where-step-excepted-add-it-back = add it back
 # kind=label wording=as-is
 profile-where-step-add = { $choice ->
     [yes] Narrow { $display } to { $name }
@@ -597,10 +595,10 @@ profile-where-step-filter-in = Filter { $noun } in { $display }
 profile-where-step-filter = Filter { $noun }
 # kind=label wording=as-is
 profile-where-step-and-more = { $join } and { $value } more
-# kind=sentence note="Companies whose careers sites can't be asked about the places picked, and those places: Apple and Accenture, Stockholm or Berlin"
+# kind=sentence note="Companies whose careers pages can't be asked about the places picked, and those places: Apple and Accenture, Stockholm or Berlin"
 profile-where-step-careers-sites-cant-be-searched = { $count ->
-    [one] { $companies }'s careers site can't be searched for { $places } yet, so its { -role(num: "other") } there won't reach your radar.
-   *[other] The careers sites of { $companies } can't be searched for { $places } yet, so their { -role(num: "other") } there won't reach your radar.
+    [one] The careers page of { $companies } can't be searched for { $places } yet, so those { -role(num: "other") } won't reach your radar.
+   *[other] The careers pages of { $companies } can't be searched for { $places } yet, so those { -role(num: "other") } won't reach your radar.
 }
 
 ## features/scope/walk/walkModel.ts
@@ -680,12 +678,12 @@ profile-walk-steps-where-do-you-want-to = Where do you want to work?
 profile-walk-steps-where-you-re-based-and = Where you're based, and how far you'd go for the right role.
 # kind=label wording=as-is
 profile-walk-steps-your-bases-and-how-far = Your bases, and how far you'd go
-# kind=tooltip wording=as-is
-profile-walk-steps-any-particular-roles = Any particular roles?
+# kind=tooltip
+profile-walk-steps-any-particular-roles = Which disciplines?
 # kind=sentence
-profile-walk-steps-every-role-of-each-kind = Every role of each kind, or only the ones you pick. Skip it to keep them all.
-# kind=label wording=as-is
-profile-walk-steps-particular-roles-or-any-that = Particular roles, or any that fits
+profile-walk-steps-every-role-of-each-kind = Pick the disciplines to focus on, or skip to include every one.
+# kind=status note="The gist under the Disciplines step of the walk"
+profile-walk-steps-particular-roles-or-any-that = Some disciplines, or every one
 # kind=tooltip wording=as-is
 profile-walk-steps-anything-you-care-about-or = Anything you care about, or want to avoid?
 # kind=sentence
@@ -698,8 +696,6 @@ profile-walk-steps-topics-to-look-for-and = Worlds to look for, and worlds to dr
 profile-walk-model-the-place = the { $place }
 
 ## features/scope/ProfileSuggestions.tsx
-# kind=toast wording=as-is
-profile-suggestions-there = { $length } there
 
 ## features/scope/walk/ProgressRail.tsx
 # kind=label wording=as-is
@@ -724,3 +720,6 @@ profile-walk-model-in = in { $display }
 profile-walk-model-or-3 = { $parts } or { $parts2 }
 # kind=label wording=as-is
 profile-walk-model-more = { $said }{ $comma } { $word } { $value } more
+
+# kind=toast note="A clause after Based on: the sectors of companies the person follows, as a list in the reader's list format: Fintech companies you follow, Fintech and AI companies you follow, Fintech, AI and Health companies you follow"
+profile-suggestions-companies-you-follow = { $sectors } companies you follow

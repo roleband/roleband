@@ -229,7 +229,7 @@ test("reports the disclosure rate against checked roles and names the backlog", 
   await expect(page.locator(".chart-insight", { hasText: /25% of 600 checked roles post a range/ })).toBeVisible();
   await expect(page.getByText(/149 of 749 open roles haven't been checked/i)).toBeVisible();
 
-  const rateChart = page.getByRole("img", { name: /post a range, by employer/i });
+  const rateChart = page.getByRole("img", { name: /post a range, by company/i });
   await expect(rateChart).toBeVisible();
   await expect(rateChart.getByText("80% · 160/200")).toBeVisible();
   // Netflix has nothing checked; it must not be drawn as a 0% employer.
@@ -259,7 +259,7 @@ test("charts disclosure and published bands over time", async ({ page }) => {
   const request = page.waitForRequest(
     (r) => r.url().includes("/api/statistics/disclosure-trends") && r.url().includes("dim=company"),
   );
-  await page.getByRole("group", { name: "Trend breakdown" }).getByRole("button", { name: "By employer" }).click();
+  await page.getByRole("group", { name: "Trend breakdown" }).getByRole("button", { name: "By company" }).click();
   await request;
   await expect(rateTrend).toBeVisible();
 

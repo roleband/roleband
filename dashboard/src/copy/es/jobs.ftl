@@ -8,7 +8,7 @@ jobs-track-business-customer = Negocio y clientes
 
 ## Cómo coincidió un resultado de búsqueda
 jobs-match-exact = Coincidencia exacta
-jobs-match-exact-title = El título, el enlace o el ID de vacante que buscaste
+jobs-match-exact-title = El título, el enlace o el ID que buscaste
 jobs-match-close = Coincidencia cercana
 jobs-match-close-title = Un título parecido y el mismo tipo de trabajo
 jobs-match-partial = Coincidencia parcial
@@ -21,7 +21,7 @@ jobs-matched-via = Encontrado por { $sources }
 
 ## Datos de la fila
 jobs-level-not-stated-title = La oferta no indica nivel
-jobs-level-not-mapped-title = El título indica un nivel en los términos propios de esta empresa, aún no asignado a los niveles comunes
+jobs-level-not-mapped-title = El nombre que esta empresa da al nivel, aún sin asignar a un nivel estándar
 jobs-level-unconfirmed = nivel sin confirmar
 jobs-level-unconfirmed-title = Nivel deducido del título
 jobs-career-track = Trayectoria
@@ -33,9 +33,9 @@ jobs-related-title = Puestos distintos, muy relacionados
 jobs-related = { $count } relacionados
 jobs-places-title = El mismo puesto, publicado una vez por lugar con la misma descripción
 jobs-places = { $count ->
-    [one] Publicado en { $count } lugar
-    [many] Publicado en { $count } de lugares
-   *[other] Publicado en { $count } lugares
+    [one] En { $count } lugar
+    [many] En { $count } de lugares
+   *[other] En { $count } lugares
 }
 jobs-place-set-title = El mismo puesto, publicado de nuevo en el mismo lugar con la misma descripción
 jobs-place-set = Publicado { $count } veces
@@ -85,7 +85,7 @@ jobs-compare-beacon-aria-full = { $count } en comparación, llena. Comparar { $c
 jobs-compare-full-pill = llena
 jobs-in-compare = En comparación
 jobs-in-compare-count = En comparación · { $count } de { $cap }
-jobs-compare-not-saved = No guardada. Esta selección puede perderse al recargar.
+jobs-compare-not-saved = No se conserva. Esta selección puede perderse al recargar.
 jobs-compare-remove = Quitar { $title } de la comparación
 jobs-clear = Vaciar
 

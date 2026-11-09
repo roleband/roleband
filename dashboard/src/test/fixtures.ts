@@ -414,6 +414,7 @@ export function launcherFixture(status: Partial<NonNullable<SystemStatus["launch
 
 export const statusFixture: SystemStatus = {
   db: "ok",
+  install: "app",
   launcher: null,
   last_success_at: "2026-07-13T05:00:00Z",
   last_success_age_hours: 2,
