@@ -16,6 +16,9 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
+        // A source run may draw in a set theme, so the state lab captures both without changing Windows' own.
+        if (Native.Option("--source-root") is not null && Native.Option("--theme") is { } theme)
+            RequestedTheme = theme == "light" ? ApplicationTheme.Light : ApplicationTheme.Dark;
         // The app lives in the notification area with no window open; only Quit ends it.
         DispatcherShutdownMode = DispatcherShutdownMode.OnExplicitShutdown;
     }

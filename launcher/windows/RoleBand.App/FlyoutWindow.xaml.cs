@@ -261,6 +261,11 @@ public sealed partial class FlyoutWindow : Window
         }
         else ScanButton.Visibility = Visibility.Collapsed;
 
+        // Without a pause control the gold press takes two columns, so its longer words (Undo the update) fit.
+        var wide = view.Pause == PauseControl.None;
+        Grid.SetColumnSpan(PrimaryButton, wide ? 2 : 1);
+        Grid.SetColumn(ScanButton, wide ? 2 : 1);
+        Grid.SetColumn(DetailsButton, wide ? 2 : 1);
         PauseButton.Visibility = view.Pause == PauseControl.Menu ? Visibility.Visible : Visibility.Collapsed;
         ResumeButton.Visibility = view.Pause == PauseControl.Resume ? Visibility.Visible : Visibility.Collapsed;
         // A pause that just took effect moves focus from the button that was pressed to the one that undoes it.

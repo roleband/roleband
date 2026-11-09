@@ -24,8 +24,12 @@ public sealed record UpdateState(
     /// <summary>This version is an update that could not prepare, as the coordinator or the journal says.</summary>
     public bool UpdateFailed => Failed || Facts?.Last is { Unfinished: true };
 
-    /// <summary>An Update or an Undo is in Windows' hands: nothing else may start.</summary>
+    /// <summary>An Update or an Undo is under way, from the download to Windows' install: no other may start.</summary>
     public bool Switching => Run is { InProgress: true } || Returning;
+
+    /// <summary>Windows is replacing the app, with the update or the version before it: the engine stays stopped. A
+    /// download, even one paused for hours, does not hold the engine.</summary>
+    public bool Installing => Run is { Step: UpdateStep.Restarting } || Returning;
 
     /// <summary>The release an Update press installs, when one can be pressed: not over an Undo under way, unless that
     /// Undo was refused before it began, which leaves the update failed and open to a newer release.</summary>
@@ -52,7 +56,7 @@ public sealed record AppState(
 
     /// <summary>Restart can start the engine: it is stopped, nothing holds it, and no update keeps it closed.</summary>
     public bool CanStart => Engine is { State: EngineState.Stopped or EngineState.Attention } && !SetupHeld
-        && !Update.UpdateFailed && Update.ReturningTo is null && !Update.Switching;
+        && !Update.UpdateFailed && Update.ReturningTo is null && !Update.Installing;
 
     /// <summary>Undo can return to the version before a failed update, unless Windows is already installing something or
     /// the previous version is no longer published.</summary>

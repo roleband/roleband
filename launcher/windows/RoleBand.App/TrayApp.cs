@@ -21,6 +21,8 @@ internal sealed class TrayApp
     private SetupWindow? setupWindow;
     private EngineSession? engine;
     private UpdateCoordinator? updates;
+    // A source run's simulated update, which presses what its scenario follows once the app has started.
+    private SimulatedUpdate? simulation;
     private EngineConfiguration? configuration;
     private string? launchFailure;
     private bool quitting;
@@ -52,7 +54,7 @@ internal sealed class TrayApp
     private CancellationTokenSource? downloading;
     // An undo returning to this version: pressed in this session, or found unfinished when the app opened.
     private string? returningTo, undoFailure;
-    private bool returning, undoGone;
+    private bool returning, undoGone, undoPressed;
     private int? returnPercent;
     private bool updateChecking, updateChoosing, settingsLoginError;
     private string? lastUpdateResult, settingsError;
@@ -104,13 +106,16 @@ internal sealed class TrayApp
                 ? EngineConfiguration.Packaged(Path.Combine(AppContext.BaseDirectory, "Resources"), state, fixture)
                 : EngineConfiguration.Source(source, state!, fixture);
             engine = new EngineSession(configuration);
-            updates = UpdateCoordinator.For(configuration);
+            simulation = SimulatedUpdate.For(configuration, Native.Option("--simulate-update"));
+            updates = simulation is null ? UpdateCoordinator.For(configuration) : new UpdateCoordinator(simulation, simulation);
             engine.Changed += snapshot => dispatcher.TryEnqueue(() => Render(snapshot));
             statePath = configuration.State;
             setup = SetupStore.Read(configuration.State);
             Render(engine.Snapshot);
             // Nothing runs before Continue on Welcome; after that the engine starts at every open.
             if (!SetupFlow.EngineHeld(setup)) _ = StartAsync();
+            // A simulated update is looked at in Settings, which opens with it.
+            if (simulation is not null) OpenSettings();
             switch (Companion.AtLaunch(setup, atLogin))
             {
                 case LaunchAction.Setup: _ = OpenSetupAsync(); break;
@@ -433,18 +438,26 @@ internal sealed class TrayApp
 
     private async Task UndoUpdateAsync()
     {
-        if (engine is null || updates is null || returning) return;
-        try { updateFacts = await updates.StatusAsync(); }
-        catch (Exception error) { Debug.WriteLine(error); }
-        // The press is answered at once: Windows takes a while to put the previous package back, then closes this
-        // version and opens that one, whose start restores the database.
+        if (engine is null || updates is null || returning || undoPressed) return;
+        // The press is answered at once, before anything is asked, and a second press meanwhile does nothing. Windows
+        // takes a while to put the previous package back, then closes this version and opens that one, whose start
+        // restores the database.
+        undoPressed = true;
         returningTo = updateFacts?.Last?.From ?? returningTo;
         returning = returningTo is not null;
         returnPercent = null;
         settingsError = undoFailure = null;
         undoGone = false;
         RenderUpdate();
-        try { await updates.ReturnToPreviousAsync(engine, new Progress<int>(percent => { returnPercent = percent; RenderUpdate(); })); }
+        try
+        {
+            try { updateFacts = await updates.StatusAsync(); }
+            catch (Exception error) { Debug.WriteLine(error); }
+            returningTo = updateFacts?.Last?.From ?? returningTo;
+            returning = returningTo is not null;
+            RenderUpdate();
+            await updates.ReturnToPreviousAsync(engine, new Progress<int>(percent => { returnPercent = percent; RenderUpdate(); }));
+        }
         catch (Exception error)
         {
             // Refused or failed: the banner says so with Try again, and the reason shows below it.
@@ -458,6 +471,7 @@ internal sealed class TrayApp
             Debug.WriteLine(error);
             RenderUpdate();
         }
+        finally { undoPressed = false; }
     }
 
     // First open.
@@ -611,6 +625,14 @@ internal sealed class TrayApp
                 OpenSettings();
             }
             RenderUpdate();
+            if (simulation?.Press is { } press)
+            {
+                simulation = null;
+                // Update is pressed as a person would, with the radar running.
+                for (var wait = 0; press == "update" && engine.Snapshot.State != EngineState.Ready && wait < 240; wait++)
+                    await Task.Delay(500);
+                _ = press == "undo" ? UndoUpdateAsync() : UpdateNowAsync();
+            }
         }
         catch (Exception error)
         {

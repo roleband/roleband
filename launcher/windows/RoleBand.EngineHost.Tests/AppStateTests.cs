@@ -46,8 +46,11 @@ public sealed class AppStateTests
 
     private static bool Downloading(AppState state) => state.Update.Run is { Step: UpdateStep.Downloading or UpdateStep.Paused };
 
+    /// <summary>Only Windows replacing the app keeps a stopped engine stopped; a download does not.</summary>
+    private static bool Installing(AppState state) => state.Update.Run is { Step: UpdateStep.Restarting } || state.Update.Returning;
+
     private static bool CanStart(AppState state) => state.Engine is { State: EngineState.Stopped or EngineState.Attention }
-        && !SetupFlow.EngineHeld(state.Setup) && !UpdateFailed(state) && state.Update.ReturningTo is null && !Switching(state);
+        && !SetupFlow.EngineHeld(state.Setup) && !UpdateFailed(state) && state.Update.ReturningTo is null && !Installing(state);
 
     private static bool CanUndo(AppState state) => state.Engine is not null && UpdateFailed(state) && !Switching(state) && !state.Update.UndoGone;
 
@@ -160,6 +163,21 @@ public sealed class AppStateTests
         Assert.AreEqual(("Couldn't return to 0.1.17", FlyoutPrimary.Undo, true, true),
             (refused.Flyout.Title, refused.Flyout.Primary, refused.Flyout.PrimaryEnabled, refused.Problem?.Undo), "offline: Undo again");
         Assert.IsFalse(refused.Flyout.Busy, "never Returning to after a refusal");
+    }
+
+    [TestMethod]
+    public void ADownloadPausedOfflineLeavesRestartForAStoppedEngine()
+    {
+        var copy = new NativeCopy("en");
+        var paused = new AppState(new EngineSnapshot(EngineState.Attention), null, SetupRecord.Finished,
+            new UpdateState(new UpdateFacts(true, false, Now, Offer, null), new UpdateRun(UpdateStep.Paused, Offer)), Now);
+        var surfaces = AppSurfaces.Of(copy, paused);
+        Assert.AreEqual((FlyoutPrimary.Restart, true), (surfaces.Flyout.Primary, surfaces.Flyout.PrimaryEnabled),
+            "a download waiting for the network can wait for hours; the radar need not");
+        Assert.IsTrue(surfaces.Updates.Cancel);
+        var installing = AppSurfaces.Of(copy, paused with { Update = paused.Update with { Run = new UpdateRun(UpdateStep.Restarting, Offer) } });
+        Assert.IsFalse(installing.Flyout.Primary == FlyoutPrimary.Restart && installing.Flyout.PrimaryEnabled,
+            "while Windows replaces the app, Restart would only be undone");
     }
 
     [TestMethod]

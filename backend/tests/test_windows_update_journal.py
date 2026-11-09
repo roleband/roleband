@@ -52,6 +52,19 @@ def test_the_new_version_prepares_then_completes(state, tmp_path):
     assert _launchable(state) == "accepted"
 
 
+def test_a_new_version_stopped_while_preparing_prepares_again_at_its_next_start(state, tmp_path):
+    from tracker.platform import windows_update_journal as journal
+
+    _begin(state, tmp_path)
+    first = journal.resume(state, "0.1.3")
+    again = journal.resume(state, "0.1.3")
+    assert (first["phase"], again["phase"], again["id"]) == ("preparing", "preparing", first["id"]), \
+        "a kill mid-preparation neither completes nor fails the update"
+    assert _launchable(state) == "accepted"
+    assert journal.settle(state, "0.1.3", prepared=False)["phase"] == "failed"
+    assert journal.resume(state, "0.1.3")["phase"] == "failed", "and a failure it then records stays for Undo"
+
+
 def test_the_old_version_starting_again_means_the_switch_never_happened(state, tmp_path):
     from tracker.platform import windows_update_journal as journal
 

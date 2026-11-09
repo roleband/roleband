@@ -45,7 +45,12 @@ the update by its preparation; the real package switch needs an installed trial.
 app with `dotnet build launcher/windows/RoleBand.App -p:Platform=x64` and
 check on Windows: the icon's flyout opens by the icon and closes on a second click, Esc or a click
 elsewhere; the right-click menu's bold default, pause and Quit; Settings and setup; Quit stops the
-engine. `TrayTests` hold every engine state to a name in all three languages, Open Radar to Ready
+engine. A source run started with `--simulate-update <scenario>` plays the update commands and
+Windows' installer instead of the real ones, opens Settings and presses what the scenario follows,
+so each update state (a download, a pause, a full disk, Windows' install, a failed update, an Undo
+and its refusals, the next open's result) can be looked at without a signed build;
+`SimulatedUpdate.Scenarios` names them, and `--theme light` or `dark` draws in that theme. A
+packaged app ignores both. `TrayTests` hold every engine state to a name in all three languages, Open Radar to Ready
 and the tooltip to the shell's limit. `CompanionTests` drive the flyout, the icon's badge and the
 menu with status replies in the engine's schema: the summary for a scan, rest, a pause, a hold, an
 engine on its way and a stopped engine; the menu's order, its one bold default, a pause as a checked

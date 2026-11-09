@@ -202,6 +202,56 @@ public sealed class AboutTests
         CollectionAssert.AreEqual(new[] { (10L, 20L), (20L, 20L) }, seen);
     }
 
+    [TestMethod]
+    public void OnlyASourceRunPlaysASimulatedUpdate()
+    {
+        var source = new EngineConfiguration("C:\\checkout", "C:\\state", "python.exe", "python.exe", "0.1.2", true, true);
+        Assert.IsNotNull(SimulatedUpdate.For(source, "downloading"));
+        Assert.IsNull(SimulatedUpdate.For(source with { Development = false }, "downloading"), "a packaged app never simulates");
+        Assert.IsNull(SimulatedUpdate.For(source, "no-such-scenario"));
+        Assert.IsNull(SimulatedUpdate.For(source, null));
+    }
+
+    [TestMethod]
+    public async Task EachSimulatedDownloadEndsInTheStateItIsNamedFor()
+    {
+        var source = new EngineConfiguration("C:\\checkout", "C:\\state", "python.exe", "python.exe", "0.1.2", true, true);
+        var expected = new Dictionary<string, UpdateStep>
+        {
+            ["paused"] = UpdateStep.Paused, ["space"] = UpdateStep.NoSpace, ["check"] = UpdateStep.CheckFailed,
+            ["missing"] = UpdateStep.DownloadFailed, ["offer"] = UpdateStep.Restarting,
+        };
+        foreach (var (scenario, step) in expected)
+        {
+            var simulation = SimulatedUpdate.For(source, scenario)!;
+            var coordinator = new UpdateCoordinator(simulation, simulation);
+            var facts = await coordinator.StatusAsync();
+            Assert.AreEqual("0.1.3", facts.Offer, scenario);
+            var counted = new List<(long, long)>();
+            var reply = await coordinator.DownloadAsync(new Inline(value => counted.Add(value)));
+            Assert.AreEqual(step, UpdateRun.Downloaded(reply, "0.1.3").Run.Step, scenario);
+            Assert.IsTrue(counted.All(value => value.Item2 == SimulatedUpdate.Size), scenario);
+        }
+    }
+
+    [TestMethod]
+    public async Task SimulatedStartsReachTheStatesTheyAreNamedFor()
+    {
+        var source = new EngineConfiguration("C:\\checkout", "C:\\state", "python.exe", "python.exe", "0.1.2", true, true);
+        async Task<UpdateFacts> Facts(string scenario) => await new UpdateCoordinator(SimulatedUpdate.For(source, scenario)!,
+            SimulatedUpdate.For(source, scenario)!).StatusAsync();
+        Assert.AreEqual((true, "0.1.2"), ((await Facts("finishing")).Last!.Finishing, (await Facts("finishing")).Last!.To));
+        Assert.IsTrue((await Facts("failed")).Last!.Unfinished);
+        Assert.AreEqual("0.1.3", (await Facts("failed")).Offer, "a newer release beside Undo");
+        Assert.IsNull((await Facts("failed-alone")).Offer);
+        Assert.AreEqual(new UpdateRun(UpdateStep.Updated, "0.1.2"), (await Facts("updated")).Last!.Result);
+        Assert.AreEqual(new UpdateRun(UpdateStep.RolledBack, "0.1.2", "0.1.3"), (await Facts("rolled-back")).Last!.Result);
+        var gone = SimulatedUpdate.For(source, "undo-gone")!;
+        Assert.AreEqual("undo", gone.Press);
+        var answer = await gone.RunAsync(["recover-begin"], CancellationToken.None);
+        Assert.AreEqual("missing", answer.GetProperty("kind").GetString());
+    }
+
     private sealed class Inline(Action<(long, long)> report) : IProgress<(long Received, long Total)>
     {
         public void Report((long Received, long Total) value) => report(value);
