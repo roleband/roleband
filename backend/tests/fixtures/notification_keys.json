@@ -95,9 +95,7 @@
   "s"
  ],
  "notif-duration-unknown": [],
- "notif-every-source-delivered": [
-  "failure"
- ],
+ "notif-every-source-delivered": [],
  "notif-failed-at": [
   "at",
   "duration"
@@ -152,9 +150,7 @@
  "notif-pay-raised": [
   "company"
  ],
- "notif-post-pass-unfinished": [
-  "failure"
- ],
+ "notif-post-pass-unfinished": [],
  "notif-problems-at": [
   "affected"
  ],

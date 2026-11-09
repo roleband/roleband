@@ -52,7 +52,7 @@ async function openPipelineWithADeadChunk(page: Page) {
 test("a route chunk that fails to load is reported, not a blank page", async ({ page }) => {
   // Both engines: chrome intact, the failure stated, a way out offered.
   const { alert } = await openPipelineWithADeadChunk(page);
-  await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: msg("shell-rail-aria") })).toBeVisible();
   await expect(alert).toContainText(/couldn't load|could not load/i);
   await expect(alert.getByRole("button", { name: "Try again" })).toBeVisible();
 });

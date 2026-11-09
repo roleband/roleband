@@ -25,8 +25,8 @@ describe("applyAsk", () => {
     expect(applyAsk(form({ required: 1, written: 0, choices: 1 }))).toBe("1 question");
   });
 
-  it("says plainly when there is nothing beyond the resume", () => {
-    expect(applyAsk(form({ required: 0, written: 0, choices: 0 }))).toBe("Nothing beyond your resume");
+  it("says plainly when there is nothing beyond the CV", () => {
+    expect(applyAsk(form({ required: 0, written: 0, choices: 0 }))).toBe(msg("role-apply-ask-nothing-beyond-your-resume"));
   });
 });
 

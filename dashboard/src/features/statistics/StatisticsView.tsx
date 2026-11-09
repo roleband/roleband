@@ -34,7 +34,6 @@ import {
   insightsStatisticsViewShowAdvancedView,
   insightsStatisticsViewShowMeEverything,
   insightsStatisticsViewStatisticsSections,
-  insightsStatisticsViewTimeRange,
   insightsStatisticsViewWindow,
   insightsYourCompanies,
   insightsCommonAllCompanies,
@@ -207,7 +206,7 @@ export function StatisticsView({ onOpen }: { onOpen: (id: number, companySlug?: 
             <span data-selection="chrome" className="stats-period-label">{insightsStatisticsViewWindow()}</span>
             <Segmented
               className="stats-period"
-              label={insightsStatisticsViewTimeRange()}
+              label={insightsStatisticsViewWindow()}
               value={win}
               onChange={setWin}
               options={PERIODS.map((p) => ({ value: p.win, label: p.label }))}

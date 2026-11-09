@@ -1,4 +1,5 @@
 import { installJobDetailRoutes } from "./boardHarness";
+import { msg } from "../../src/test/msg";
 import { expect, test } from "./fixtures";
 import { showAdvancedInsights } from "./insightsView";
 import { detail } from "./boardHarness";
@@ -64,7 +65,7 @@ test("demand shows roles updated but never closed", async ({ page }) => {
   await page.getByRole("tab", { name: "Hiring", exact: true }).click();
   await expect(page.getByRole("group", { name: "Time range" })).toHaveCount(0);
 
-  await expect(page.getByRole("banner", { name: "Application navigation" })).toContainText("Insights/Hiring");
+  await expect(page.getByRole("banner", { name: msg("shell-topbar-aria") })).toContainText("Insights/Hiring");
   await expect(page.getByRole("heading", { name: "Updated but never closed" })).toBeVisible();
   await expect(page.getByText("Engineering Manager, Agent Runtime Platform")).toBeVisible();
   const updated = page.locator(".panel").filter({ has: page.getByRole("heading", { name: "Updated but never closed" }) });
@@ -91,7 +92,7 @@ test("Hiring draws bounded views: fifteen companies, a counted tail, regions tha
   await expect(page.locator(".insight-hero .eyebrow")).toHaveText("Hiring");
   await expect(page.getByRole("heading", { level: 2, name: "236 roles open" })).toBeVisible();
 
-  await expect(page.getByText("3 companies more hold 12 roles (6% of these roles).")).toBeVisible();
+  await expect(page.getByText("3 companies more have 12 roles (6% of these roles).")).toBeVisible();
   await expect(page.locator("table")).toHaveCount(0);
   // The whole tab fits in a few screens at a desktop width.
   const height = await page.locator(".stats-main").evaluate((el) => el.scrollHeight);

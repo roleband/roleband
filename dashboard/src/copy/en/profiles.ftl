@@ -54,16 +54,16 @@ profiles-company-profile-panel-composition = Composition
 profiles-company-profile-panel-stock = Equity
 # kind=heading wording=as-is
 profiles-company-profile-panel-profile-unavailable = Profile unavailable
-# kind=button wording=as-is
-profiles-company-profile-panel-retry = Retry
+# kind=button
+profiles-company-profile-panel-retry = Try again
 # kind=button wording=as-is
 profiles-company-profile-panel-open = { $open_roles } open
 # kind=label
 profiles-company-profile-panel-not-on-your-board = Not on your radar
 # kind=label wording=as-is
 profiles-company-profile-panel-0-open = 0 open
-# kind=sentence wording=as-is
-profiles-company-profile-panel-values-come-from-the-source = Values come from the source named at the foot of this panel unless a chip says otherwise. Where sources disagree, the most trusted one wins and the dissent is flagged for review.
+# kind=sentence
+profiles-company-profile-panel-values-come-from-the-source = From the source named at the bottom, unless marked. When sources disagree, the most trusted wins.
 # kind=heading wording=as-is
 profiles-company-profile-panel-offices-open-roles = Offices & open roles
 # kind=label wording=as-is
@@ -71,8 +71,8 @@ profiles-company-profile-panel-countries = { $count ->
     [one] { $countryCount } country
    *[other] { $countryCount } countries
 }
-# kind=sentence wording=as-is
-profiles-company-profile-panel-where-this-company-is-hiring = Where this company is hiring right now, observed from its open postings.
+# kind=sentence
+profiles-company-profile-panel-where-this-company-is-hiring = From this company's open postings.
 # kind=heading
 profiles-company-profile-panel-comp-baseline = Comp bands
 # kind=label wording=as-is
@@ -116,17 +116,17 @@ profiles-company-profiles-view-could-not-load-companies = Couldn't load your com
 # kind=status
 profiles-company-profiles-view-loading-companies = Loading your companies…
 # kind=sentence
-profiles-company-profiles-view-track-one-in-and-its = Track one in { $link } and its profile appears here: comp bands, equity vehicle, headcount, and the claims behind each.
-# kind=link wording=as-is
-profiles-company-profiles-view-settings-companies = Settings › Companies
+profiles-company-profiles-view-track-one-in-and-its = Follow one in { $link } to see its comp bands, equity and headcount here, with sources.
+# kind=link
+profiles-company-profiles-view-settings-companies = Settings › Followed companies
 # kind=label wording=as-is
 profiles-company-profiles-view-all-profiles-current = all profiles current
 # kind=button wording=as-is
 profiles-company-profiles-view-show-all = Show all
 # kind=label wording=as-is
 profiles-company-profiles-view-needs-review-only = Needs review only
-# kind=button wording=as-is
-profiles-company-profiles-view-enrich-fields = Enrich fields
+# kind=button
+profiles-company-profiles-view-enrich-fields = Edit details
 # kind=heading
 profiles-roster-dataset = Researched companies
 # kind=sentence
@@ -209,7 +209,7 @@ profiles-stock-price-panel-stock-price = Stock price
 # kind=sentence wording=as-is
 profiles-stock-price-panel-price-history-unavailable-right-now = Price history unavailable right now.
 # kind=empty note="A listed company's empty price chart while no price key is set, over a ghost of the chart. $key is a link (shared-price-feed-get-key) to Tiingo's page that shows a free key after sign-up; the way into Settings is the button profiles-stock-price-panel-add-key beside this sentence"
-profiles-stock-price-panel-needs-key = Stock prices come from the Tiingo integration. { $key } to fill this chart.
+profiles-stock-price-panel-needs-key = Stock prices come from Tiingo. { $key } to fill this chart.
 # kind=empty note="A listed company's empty price chart once a price key is set: its daily closes are fetched within Tiingo's limits"
 profiles-stock-price-panel-waiting = Prices arrive shortly, as Tiingo's limits allow.
 # kind=heading note="The stock panel's empty state title, over the line that says what to do"
@@ -263,8 +263,8 @@ profiles-labels-staff = Staff
 profiles-labels-principal = Principal
 # kind=label wording=as-is
 profiles-labels-director = Director+
-# kind=label wording=as-is
-profiles-labels-listed = Listed
+# kind=label
+profiles-labels-listed = Publicly traded
 # kind=label wording=as-is
 profiles-labels-ticker = Ticker
 # kind=label wording=as-is
@@ -279,8 +279,8 @@ profiles-labels-vesting = Vesting
 profiles-labels-options = Options
 # kind=label wording=as-is
 profiles-labels-none = None
-# kind=label wording=as-is
-profiles-labels-cash-election = Cash election
+# kind=label
+profiles-labels-cash-election = Cash or equity
 # kind=label
 profiles-labels-one-year-grants = One-year grants
 # kind=label
@@ -319,75 +319,75 @@ profiles-benefits-category = { $category ->
 }
 # kind=name note="A benefit type of the taxonomy"
 profiles-benefits-type = { $type ->
-    [medical_insurance] Health Insurance
-    [dental_insurance] Dental Insurance
-    [vision_insurance] Vision Insurance
-    [health_savings_account] Health Savings Account (HSA)
-    [flexible_spending_account] Flexible Spending Account (FSA)
-    [employee_assistance] Employee Assistance Program
-    [wellness_allowance] Gym / Wellness Reimbursement
-    [onsite_gym] Gym On-Site
-    [fitness_classes] On-Site Fitness Classes
-    [gym_discount] Gym Discount
-    [onsite_clinic] On-Site Clinic
-    [life_insurance] Life Insurance
-    [disability_insurance] Disability Insurance
-    [accident_insurance] Accidental death and dismemberment (AD&D) Insurance
-    [travel_insurance] Business Travel Insurance
-    [pet_insurance] Pet Insurance
-    [retirement_plan] 401k
-    [roth_retirement_option] Roth 401k
-    [after_tax_retirement_option] Mega Backdoor Roth
-    [employee_share_purchase] Employee Stock Purchase Program (ESPP)
-    [student_loan_support] Student Loan Repayment Plan
-    [employee_credit] Employee Credit
-    [vacation] PTO (Vacation / Personal Days)
-    [sick_leave] Sick Time
-    [bereavement_leave] Bereavement Leave
+    [medical_insurance] Health insurance
+    [dental_insurance] Dental insurance
+    [vision_insurance] Vision insurance
+    [health_savings_account] Health savings account (HSA)
+    [flexible_spending_account] Flexible spending account (FSA)
+    [employee_assistance] Employee assistance program
+    [wellness_allowance] Gym or wellness reimbursement
+    [onsite_gym] On-site gym
+    [fitness_classes] On-site fitness classes
+    [gym_discount] Gym discount
+    [onsite_clinic] On-site clinic
+    [life_insurance] Life insurance
+    [disability_insurance] Disability insurance
+    [accident_insurance] Accidental death and dismemberment (AD&D) insurance
+    [travel_insurance] Business travel insurance
+    [pet_insurance] Pet insurance
+    [retirement_plan] 401(k)
+    [roth_retirement_option] Roth 401(k)
+    [after_tax_retirement_option] Mega backdoor Roth
+    [employee_share_purchase] Employee stock purchase plan (ESPP)
+    [student_loan_support] Student loan repayment
+    [employee_credit] Employee credit
+    [vacation] Paid time off
+    [sick_leave] Sick leave
+    [bereavement_leave] Bereavement leave
     [sabbatical] Sabbatical
-    [military_leave] Military Leave
-    [volunteer_leave] Volunteer Time Off
-    [maternity_leave] Maternity Leave
-    [paternity_leave] Paternity Leave
-    [fertility_support] Fertility Assistance
-    [adoption_support] Adoption Assistance
-    [surrogacy_support] Surrogacy Assistance
-    [nursing_facilities] On-Site Mother's Room
-    [remote_work] Remote Work
-    [workstation_equipment] Custom Work Station
-    [phone_allowance] Phone Bill Reimbursement
-    [company_phone] Company Phones
-    [learning_support] Learning and Development
-    [tuition_support] Tuition Reimbursement
-    [immigration_support] Immigration Assistance
-    [relocation_support] Relocation Bonus
+    [military_leave] Military leave
+    [volunteer_leave] Volunteer time off
+    [maternity_leave] Maternity leave
+    [paternity_leave] Paternity leave
+    [fertility_support] Fertility support
+    [adoption_support] Adoption support
+    [surrogacy_support] Surrogacy support
+    [nursing_facilities] On-site nursing room
+    [remote_work] Remote work
+    [workstation_equipment] Custom workstation
+    [phone_allowance] Phone bill reimbursement
+    [company_phone] Company phone
+    [learning_support] Learning and development
+    [tuition_support] Tuition reimbursement
+    [immigration_support] Immigration support
+    [relocation_support] Relocation bonus
     [transport_allowance] Transport allowance
-    [company_shuttle] Company Shuttle
-    [campus_bikes] Bikes on Campus
-    [public_transport] Regional transit system
-    [housing_support] Housing Stipend
-    [snacks] Free Snacks
-    [lunch] Free Lunch
-    [drinks] Free Drinks
-    [breakfast] Free Breakfast
-    [dinner] Free Dinner
-    [pet_friendly_workplace] Pet Friendly Workplace
-    [inclusive_facilities] Gender Neutral Bathrooms
-    [onsite_laundry] On-Site Laundry
-    [onsite_shops] On-Site Employee Mall
-    [vehicle_maintenance] On-Site Tire Replacement
-    [vehicle_cleaning] On-Site Car Wash / Detailing
-    [employee_discounts] Employee Discount
-    [charitable_matching] Donation Match
-    [referral_bonus] Referral Bonus
-    [company_specific_perk] Unique Perk
-    [pandemic_support] COVID-Related Benefits
+    [company_shuttle] Company shuttle
+    [campus_bikes] Bikes on campus
+    [public_transport] Public transit
+    [housing_support] Housing stipend
+    [snacks] Free snacks
+    [lunch] Free lunch
+    [drinks] Free drinks
+    [breakfast] Free breakfast
+    [dinner] Free dinner
+    [pet_friendly_workplace] Pet-friendly workplace
+    [inclusive_facilities] Gender-neutral bathrooms
+    [onsite_laundry] On-site laundry
+    [onsite_shops] On-site employee store
+    [vehicle_maintenance] On-site tire replacement
+    [vehicle_cleaning] On-site car wash
+    [employee_discounts] Employee discounts
+    [charitable_matching] Donation matching
+    [referral_bonus] Referral bonus
+    [company_specific_perk] Unique perk
+    [pandemic_support] COVID-related benefits
     [parental_leave] Parental leave
     [paid_holidays] Paid holidays
-    [flexible_hours] Flexible working hours
-    [hybrid_work] Hybrid working
-    [home_office_allowance] Home-office allowance
-    [mental_health_support] Mental-health support
+    [flexible_hours] Flexible hours
+    [hybrid_work] Hybrid work
+    [home_office_allowance] Home office allowance
+    [mental_health_support] Mental health support
     [childcare_support] Childcare support
     [caregiver_leave] Caregiver leave
     [food_allowance] Food allowance

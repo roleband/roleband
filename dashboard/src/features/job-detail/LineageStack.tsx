@@ -142,7 +142,7 @@ export const LineageStack = forwardRef<HTMLElement, { jobId: number }>(function 
         <div className="lineage-member-head">
           <Badge shape="tag" variant="outline">{roleLineageStackBadge(memberReading(m, at))}</Badge>
           <Badge shape="tag" variant="outline">{statusName(job.status) ?? <Content text={job.status} />}</Badge>
-          <span className="lineage-req"><Msg of={roleLineageStackReq} elems={{ req_id: job.req_id }} /></span>
+          <span className="lineage-req"><Msg of={roleLineageStackReq} elems={{ id: job.req_id }} /></span>
         </div>
         <h4 className="lineage-member-title">{job.title}</h4>
         <dl className="lineage-member-facts">

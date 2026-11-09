@@ -36,7 +36,7 @@ describe("NavRail", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByRole("navigation", { name: "Primary" })).toHaveClass("collapsed");
+    expect(screen.getByRole("navigation", { name: "Main" })).toHaveClass("collapsed");
     expect(screen.getByRole("button", { name: "Expand navigation" })).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByRole("link", { name: "Radar" })).toHaveAttribute("data-tip", "Radar");
 
@@ -61,7 +61,7 @@ describe("NavRail", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByRole("navigation", { name: "Primary" })).toHaveClass("expanded");
+    expect(screen.getByRole("navigation", { name: "Main" })).toHaveClass("expanded");
     expect(screen.getByRole("button", { name: "Collapse navigation" })).toHaveAttribute("aria-expanded", "true");
   });
 

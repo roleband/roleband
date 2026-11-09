@@ -516,6 +516,7 @@ async def status(session: SessionDep) -> dict:
     model_status, reembed_executing = await matching.activity_facts(session)
     body = {
         "db": db_state,
+        "install": "app" if PACKAGED else "source",
         "preparation": preparation.snapshot(DATA_DIR) if PACKAGED else None,
         "last_success_at": last_success_at,
         "last_success_age_hours": round(age_hours, 2) if age_hours is not None else None,

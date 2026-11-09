@@ -12219,6 +12219,11 @@
       "title": "Action Ok",
       "type": "boolean"
      },
+     "action_timed_out": {
+      "description": "The command ran past its time limit; a start may still finish on its own.",
+      "title": "Action Timed Out",
+      "type": "boolean"
+     },
      "base_url": {
       "anyOf": [
        {
@@ -12329,6 +12334,7 @@
      "detail",
      "action",
      "action_ok",
+     "action_timed_out",
      "action_detail"
     ],
     "title": "LocalServerControlResponse",
@@ -22507,6 +22513,15 @@
       "title": "Freshness Max Hours",
       "type": "integer"
      },
+     "install": {
+      "enum": [
+       "app",
+       "source"
+      ],
+      "title": "Install",
+      "type": "string",
+      "x-text": "code"
+     },
      "jobs": {
       "items": {
        "$ref": "#/components/schemas/JobView"
@@ -22694,6 +22709,7 @@
     },
     "required": [
      "db",
+     "install",
      "launcher",
      "last_success_at",
      "last_success_age_hours",

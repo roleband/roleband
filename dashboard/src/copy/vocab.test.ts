@@ -22,7 +22,7 @@ describe("names by slug", () => {
   });
 
   it("names the empty buckets, and shows a slug it does not know as itself", () => {
-    expect(domainName(null)).toBe("Unclassified");
+    expect(domainName(null)).toBe("Other");
     expect(roleName(null)).toBe("Other");
     expect(skillName("from_a_newer_server")).toBe("from_a_newer_server");
     // A plugin's source is the plugin's to name (`source_names`), never the catalog's.

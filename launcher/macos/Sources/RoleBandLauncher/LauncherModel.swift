@@ -262,7 +262,7 @@ final class LauncherModel: ObservableObject {
         if hostState == .needsAttention { return "host-attention-body" }
         if case .backingOff = hostState { return "host-recovering-body" }
         if attached && engineState == .stopped { return "attached-stopped-body" }
-        if let verified { return verified.presentation.reasonKey }
+        if let verified { return verified.presentation.reasonKey(source: attached) }
         switch problem {
         case .missingInstallation: return "missing"
         case .upgradeRequired: return "upgrade"

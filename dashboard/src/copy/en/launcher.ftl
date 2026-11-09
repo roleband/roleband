@@ -35,7 +35,7 @@ launcher-not-scanned = Not scanned yet
 # kind=label
 launcher-last-scan = Last scan
 # kind=label
-launcher-coverage = Coverage
+launcher-coverage = Oldest scan
 # kind=label
 launcher-checked = Last checked
 # kind=button
@@ -71,7 +71,7 @@ launcher-installer-copy = Move to Applications
 # kind=heading
 launcher-installer-first-open = Allow the first open
 # kind=sentence
-launcher-installer-privacy = Open System Settings → Privacy & Security, then scroll to Security.
+launcher-installer-privacy = Open System Settings › Privacy & Security, then scroll to Security.
 # kind=button
 launcher-installer-security = Open security settings
 # kind=link
@@ -94,9 +94,9 @@ launcher-scan-not-running = No scan to stop
 # kind=status
 launcher-scan-state-changed = The scan state changed. Review the current status.
 # kind=status
-launcher-scan-refused = Your scan request was declined. Open your Radar for details.
+launcher-scan-refused = Your scan request was declined. Open Radar for details.
 # kind=status
-launcher-scan-unconfirmed = Couldn't confirm your request. Open your Radar to check its status.
+launcher-scan-unconfirmed = Couldn't confirm your request. Open Radar to check its status.
 
 # kind=button
 launcher-pause-menu = Pause scans
@@ -135,7 +135,7 @@ launcher-engine-diagnostics = Diagnostics
 launcher-engine-running = Your background service is running, but isn't answering.
     Try again.
 # kind=status
-launcher-engine-stopped = The registered background service is stopped.
+launcher-engine-stopped = The background service is stopped.
 # kind=status
 launcher-engine-unknown = Couldn't confirm the background service. Try again.
 # kind=status
@@ -144,7 +144,7 @@ launcher-engine-unmatched = The background service doesn't match this installati
 launcher-engine-requested = Start requested.
     Waiting for a response.
 # kind=status
-launcher-engine-state-changed = The engine state changed. Review the current status.
+launcher-engine-state-changed = The background service status changed. Check it and try again.
 # kind=status
 launcher-engine-refused = Couldn't start scanning.
     Review diagnostics and try again.
@@ -194,7 +194,7 @@ launcher-move-finder-help = Opens this copy and the Applications folder
 # kind=heading
 launcher-elsewhere-title = Your data belongs to an earlier setup
 # kind=sentence
-launcher-elsewhere-body = An earlier setup on this Mac, made in Terminal, keeps your data in your home folder.
+launcher-elsewhere-body = An earlier setup on this computer, made in Terminal, keeps your data in your home folder.
     To keep it safe, this app won't open or change it.
 # kind=heading
 launcher-elsewhere-keep = Keep using your earlier setup
@@ -281,7 +281,7 @@ launcher-guide-approve = Allow first open
 # kind=label
 launcher-guide-setup = Set up
 # kind=sentence
-launcher-guide-manual = You confirm each step. This guide can't check your Mac.
+launcher-guide-manual = You confirm each step. This guide can't check your computer.
 # kind=sentence
 launcher-guide-requirements = You need a Mac with Apple silicon and macOS 14 or later. The app can't open on a Mac with an Intel processor.
 # kind=sentence
@@ -317,7 +317,7 @@ launcher-guide-different = A different warning?
 # kind=sentence
 launcher-guide-different-body = If macOS says the app is damaged or will harm your Mac, stop here and check Apple's guidance.
 # kind=sentence
-launcher-guide-settings-fallback = If the button doesn't open Settings, go to System Settings → Privacy & Security → Security. Your browser may ask before it opens Settings.
+launcher-guide-settings-fallback = If the button doesn't open Settings, go to System Settings › Privacy & Security › Security. Your browser may ask before it opens Settings.
 # kind=button
 launcher-guide-allowed = I allowed it
 # kind=heading
@@ -361,11 +361,11 @@ launcher-first-step-preparing = Get ready
 launcher-first-welcome-title = Let's get your radar running
 
 # kind=sentence
-launcher-first-welcome-body = This Mac does the scanning, and your Radar opens in the browser.
+launcher-first-welcome-body = This computer does the scanning, and your radar opens in the browser.
     Setup takes a few minutes, once.
 
 # kind=heading
-launcher-first-prepare = Prepare this Mac
+launcher-first-prepare = Prepare this computer
 
 # kind=sentence
 launcher-first-prepare-caption = A local database and the ranking model.
@@ -400,13 +400,13 @@ launcher-first-service-failed = The background service couldn't start.
 
 # kind=sentence
 launcher-first-offline-body = The model is waiting for a connection.
-    Your Radar can open while it waits.
+    Radar can open while it waits.
 
 # kind=heading
-launcher-first-prepared-title = This Mac is ready
+launcher-first-prepared-title = This computer is ready
 
 # kind=sentence
-launcher-first-prepared-body = Everything scanning needs is on this Mac.
+launcher-first-prepared-body = Everything scanning needs is on this computer.
 
 # kind=heading
 launcher-first-login-title = Keep scanning after a restart
@@ -431,10 +431,10 @@ launcher-first-settings-note = You can revisit these choices from the menu bar.
 launcher-first-done-title = Your radar is ready
 
 # kind=sentence
-launcher-first-done-body = Your Radar opens in the browser, where you tell it what to look for.
+launcher-first-done-body = Your radar opens in the browser, where you tell it what to look for.
 
 # kind=sentence
-launcher-first-menu-hint = The radar in the menu bar shows each scan as it runs and opens your Radar any time.
+launcher-first-menu-hint = The radar in the menu bar shows each scan as it runs and opens Radar any time.
 
 # kind=heading
 launcher-first-database = Database
@@ -502,7 +502,7 @@ launcher-panel-open-radar-waiting = Available once the background service answer
 launcher-panel-about-offer = About, update available
 
 # kind=heading
-launcher-panel-on-mac = On this Mac
+launcher-panel-on-mac = On this computer
 # kind=heading
 launcher-panel-in-browser = In your browser
 # kind=label
@@ -627,7 +627,7 @@ launcher-scan-finished = finished
 # kind=label
 launcher-scan-to-add = to add
 # kind=label
-launcher-scan-companies-read = companies read
+launcher-scan-companies-read = companies scanned
 # kind=label
 launcher-scan-new-roles = new roles
 # kind=tooltip
@@ -659,10 +659,10 @@ launcher-scan-paused = Paused
 # kind=tooltip
 launcher-pause-help = Pausing affects scheduled scans. A scan already running continues.
 # kind=sentence
-launcher-scan-summary-live = Scanning now: { $companies }. { $pending } roles found at companies still scanning, { $recorded } from finished companies.
+launcher-scan-summary-live = Scanning now: { $companies }. Roles found so far: { $pending }. From finished companies: { $recorded }.
 # kind=sentence
-launcher-scan-summary-last = Last scan: { $companies } companies read, { $roles } new roles, { $postings } postings recorded.
+launcher-scan-summary-last = Last scan. Companies scanned: { $companies }. New roles: { $roles }. Postings recorded: { $postings }.
 # kind=sentence
-launcher-scan-summary-stopped = Scan stopped after { $companies } companies: { $roles } new roles, { $postings } postings recorded.
+launcher-scan-summary-stopped = Scan stopped. Companies scanned: { $companies }. New roles: { $roles }. Postings recorded: { $postings }.
 # kind=sentence
-launcher-scan-summary-read = { $companies } companies read. { $recorded } roles recorded, { $pending } still to add.
+launcher-scan-summary-read = Companies scanned: { $companies }. Roles recorded: { $recorded }. Still to add: { $pending }.

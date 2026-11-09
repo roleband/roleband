@@ -31,7 +31,7 @@ allowed:
   phrases: ["Apple Intelligence", "Opportunity radar", "your opportunity radar", "requisition ID",
     "Vector Databases"]   # the brand line; a skill employers name (vocab.ftl)
 
-proper_nouns: [RoleBand, Applications, Finder, AI, LinkedIn, macOS, Apple, Google, Stripe, English, Spanish, Chinese, Mac, Radar]
+proper_nouns: [RoleBand, Applications, Finder, AI, LinkedIn, macOS, Apple, Google, Stripe, English, Spanish, Chinese, Mac, Radar, Decided, Board]
 
 mechanics:
   # No em-dash, anywhere. An ellipsis is one character.
@@ -63,4 +63,5 @@ next_steps: ["Try again.", "Try again when the scan ends.", "Try again when it e
   "Turn it off in Settings › Plugins.",
   "Change it under Decided.", "Check it in your Tiingo account and try again.",
   "Mark it Withdrawn instead.",
-  "Select the text and copy it yourself."]
+  "Select the text and copy it yourself.",
+  "Check the link, or try another.", "Move its full scan instead.", "Start it yourself, then test the connection.", "Stop it yourself."]

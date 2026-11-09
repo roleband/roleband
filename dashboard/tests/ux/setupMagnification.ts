@@ -229,7 +229,7 @@ async function walkSetup(page: Page, at: (screen: Screen) => Promise<void>, { pl
   await page.getByRole("button", { name: "Add Silicon Valley" }).click();
   await settle("where");
   await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByRole("heading", { name: "Any particular roles?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Which disciplines?" })).toBeVisible();
   await settle("roles");
   await page.getByRole("button", { name: "Skip" }).click();
   await expect(page.getByRole("heading", { name: "Anything you care about, or want to avoid?" })).toBeVisible();

@@ -168,7 +168,17 @@ it("names a group's eight leading companies and counts the rest in one line", as
   expect(within(card).getByText("and 4 more companies")).toBeInTheDocument();
   // The leaders, largest first: the four smallest are the ones folded.
   expect(within(card).queryByText("co-11")).toBeNull();
-  expect(screen.getByRole("heading", { level: 2, name: "1 role group" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { level: 2, name: "1 cluster" })).toBeInTheDocument();
+});
+
+it("counts a single folded company in the singular", async () => {
+  const companies = Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`co-${i}`, 20 - i]));
+  vi.mocked(api.clusters).mockResolvedValue({ items: [summary(1, "Platform PM", companies)], model_version: "t" });
+  render(<MemoryRouter><ClustersView onOpen={vi.fn()} /></MemoryRouter>);
+  const card = (await screen.findByRole("button", { name: "Platform PM" })).closest(".cluster-card") as HTMLElement;
+  expect(card.querySelectorAll(".cluster-co")).toHaveLength(8);
+  expect(within(card).getByText("and 1 more company")).toBeInTheDocument();
+  expect(within(card).queryByText(/more companies/)).toBeNull();
 });
 
 it("shows a member with only a base estimate as a base estimate", async () => {

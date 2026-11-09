@@ -30,7 +30,7 @@ describe("JobCard", () => {
     // place: the row says so, never "not stated", never the guess.
     rerender(card({ ...jobFixture, title: "Senior Manager, Data Science", level_band: "staff",
       level_confidence: "confirmed", level_basis: "unmapped" }));
-    expect(container.querySelector(".job-band")).toHaveTextContent(/^level not mapped$/);
+    expect(container.querySelector(".job-band")).toHaveTextContent(/^company's own level$/);
 
     // Control: a stated Mid keeps its band word.
     rerender(card({ ...jobFixture, level_band: "mid", level_confidence: "confirmed", level_basis: "generic" }));
@@ -237,8 +237,8 @@ describe("JobCard", () => {
     it("shows the estimated base as one figure and says it is ours", () => {
       const comp = cell({ posted_base: null });
       expect(seen(comp)).toBe("$400K");
-      expect(comp).toHaveAttribute("title", "Our estimate for this level");
-      expect(spoken(comp)).toEqual(["Our estimate for this level"]);
+      expect(comp).toHaveAttribute("title", msg("shared-base-estimate-hint"));
+      expect(spoken(comp)).toEqual([msg("shared-base-estimate-hint")]);
     });
 
     it("leaves the cell empty when no base is known, even with a total, and the age stays on line two", () => {
@@ -358,7 +358,7 @@ describe("JobCard", () => {
       />
     );
     // Names the sources (bucketed), never the raw fusion score.
-    expect(screen.getByText("Keyword · Fuzzy")).toBeInTheDocument();
+    expect(screen.getByText(`${msg("jobs-via-keyword")} · ${msg("jobs-via-fuzzy")}`)).toBeInTheDocument();
     expect(screen.queryByText(/0\.031/)).not.toBeInTheDocument();
 
     // Legacy path: no matched_via → no badge.
@@ -467,8 +467,9 @@ describe("JobCard", () => {
     const badge = screen.getByText("May be always open");
     expect(badge).toHaveAttribute(
       "title",
-      "May be an always-open posting: listed for a long time and listed 4 times. " +
-        "Patterns in how it is listed, not a verdict on the company. It may still be hiring.",
+      msg("jobs-standing-card-title", {
+        signs: `${msg("jobs-sign-long-open-inline")} and ${msg("jobs-sign-relisted-inline", { count: 4 })}`,
+      }),
     );
 
     for (const quiet of [

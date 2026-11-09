@@ -93,7 +93,7 @@
     }
    }
   },
-  "title": "OpenAI posted a role you saved again"
+  "title": "OpenAI added another posting for a role you saved"
  },
  {
   "body": "Research Manager, Interpretability",
@@ -112,7 +112,7 @@
   "title": "OpenAI listed a role you saved"
  },
  {
-  "body": "Research Manager, Interpretability: $200k-$240k -> $300k-$1.25M",
+  "body": "Research Manager, Interpretability: $200k-$240k → $300k-$1.25M",
   "case": "pay-raised",
   "say": {
    "body": [
@@ -135,7 +135,7 @@
   "title": "OpenAI raised the posted range on a role you saved"
  },
  {
-  "body": "Research Manager, Interpretability: $250k -> $200k",
+  "body": "Research Manager, Interpretability: $250k → $200k",
   "case": "pay-lowered-floor-only",
   "say": {
    "body": [
@@ -171,7 +171,7 @@
     }
    }
   },
-  "title": "OpenAI updated a role you saved, listed for a long time"
+  "title": "OpenAI updated a long-open role you saved"
  },
  {
   "body": "Research Manager, Interpretability",
@@ -209,10 +209,10 @@
     }
    }
   },
-  "title": "1 new role for you today"
+  "title": "1 new role on your radar today"
  },
  {
-  "body": "Strong fit: Group Product Manager at Google DeepMind - and 2 more",
+  "body": "Strong fit: Group Product Manager at Google DeepMind, plus 2 more",
   "case": "digest-strong-lead",
   "say": {
    "body": [
@@ -246,10 +246,10 @@
     }
    }
   },
-  "title": "3 new roles for you today"
+  "title": "3 new roles on your radar today"
  },
  {
-  "body": "Good fit: Group Product Manager at Google DeepMind - and 2 more",
+  "body": "Good fit: Group Product Manager at Google DeepMind, plus 2 more",
   "case": "digest-good-lead",
   "say": {
    "body": [
@@ -283,10 +283,10 @@
     }
    }
   },
-  "title": "3 new roles for you today"
+  "title": "3 new roles on your radar today"
  },
  {
-  "body": "Fair fit: Group Product Manager at Google DeepMind - and 2 more",
+  "body": "Fair fit: Group Product Manager at Google DeepMind, plus 2 more",
   "case": "digest-fair-lead",
   "say": {
    "body": [
@@ -320,10 +320,10 @@
     }
    }
   },
-  "title": "3 new roles for you today"
+  "title": "3 new roles on your radar today"
  },
  {
-  "body": "Weak fit: Group Product Manager at Google DeepMind - and 2 more",
+  "body": "Weak fit: Group Product Manager at Google DeepMind, plus 2 more",
   "case": "digest-weak-lead",
   "say": {
    "body": [
@@ -357,10 +357,10 @@
     }
    }
   },
-  "title": "3 new roles for you today"
+  "title": "3 new roles on your radar today"
  },
  {
-  "body": "No next action set - Head of Product (applied)",
+  "body": "No next step set: Head of Product (applied)",
   "case": "follow-up-due-today",
   "say": {
    "body": [
@@ -390,7 +390,7 @@
   "title": "Follow up with Stripe · due today"
  },
  {
-  "body": "Send the take-home - Research Manager (interviewing)",
+  "body": "Send the take-home: Research Manager (interviewing)",
   "case": "follow-up-overdue",
   "say": {
    "body": [
@@ -419,7 +419,7 @@
   "title": "Follow up with OpenAI · 4d overdue"
  },
  {
-  "body": "Head of Product (applied): time to follow up, or set a date",
+  "body": "Head of Product (applied): time to follow up, or set a next step",
   "case": "pursuit-gone-quiet",
   "say": {
    "body": [
@@ -442,7 +442,7 @@
   "title": "No news from Stripe in 23 days"
  },
  {
-  "body": "Its careers page isn't answering. It hasn't had a full scan since 28 Sep, so new roles from Stripe may be missing. This clears on its next full scan.",
+  "body": "Its careers page isn't loading. It hasn't had a full scan since 28 Sep, so new roles from Stripe may be missing. This clears on its next full scan.",
   "case": "coverage-unreachable",
   "say": {
    "body": [
@@ -471,7 +471,7 @@
   "title": "Couldn't scan Stripe · 4 days"
  },
  {
-  "body": "Its careers page answered with nothing readable. It hasn't had a full scan since 28 Sep, so new roles from Stripe may be missing. This clears on its next full scan.",
+  "body": "Its careers page loads, but nothing on it can be read. It hasn't had a full scan since 28 Sep, so new roles from Stripe may be missing. This clears on its next full scan.",
   "case": "coverage-unreadable-one-day",
   "say": {
    "body": [
@@ -500,7 +500,7 @@
   "title": "Couldn't scan Stripe · 1 day"
  },
  {
-  "body": "Scans read only part of its careers page. It hasn't had a full scan since 28 Sep, so new roles from Stripe may be missing. This clears on its next full scan.",
+  "body": "Scans reach only part of its careers page. It hasn't had a full scan since 28 Sep, so new roles from Stripe may be missing. This clears on its next full scan.",
   "case": "coverage-partial-under-a-day",
   "say": {
    "body": [
@@ -573,7 +573,7 @@
   "title": "Waiting to scan 5 companies"
  },
  {
-  "body": "Its careers page answered with an empty list. If Stripe is still hiring, its roles may have moved to a new careers page. 1 role stays as last seen until it lists roles again.",
+  "body": "Its careers page loads with no roles on it. If Stripe is still hiring, its roles may have moved to a new careers page. 1 role stays as last seen until it lists roles again.",
   "case": "coverage-empty-holding-one",
   "say": {
    "body": [
@@ -605,7 +605,7 @@
   "title": "Stripe lists no roles · 2 days"
  },
  {
-  "body": "Its careers page answered with an empty list. If Stripe is still hiring, its roles may have moved to a new careers page. 4 roles stay as last seen until it lists roles again.",
+  "body": "Its careers page loads with no roles on it. If Stripe is still hiring, its roles may have moved to a new careers page. 4 roles stay as last seen until it lists roles again.",
   "case": "coverage-empty-holding-several",
   "say": {
    "body": [
@@ -637,7 +637,7 @@
   "title": "Stripe lists no roles · 1 day"
  },
  {
-  "body": "Its careers page answered with an empty list. If Stripe is still hiring, its roles may have moved to a new careers page.",
+  "body": "Its careers page loads with no roles on it. If Stripe is still hiring, its roles may have moved to a new careers page.",
   "case": "coverage-empty-holding-none",
   "say": {
    "body": [
@@ -692,7 +692,7 @@
     }
    }
   },
-  "title": "Stripe's careers page is gone · 5 days"
+  "title": "Careers page gone: Stripe · 5 days"
  },
  {
   "body": "Its careers page is no longer at its last address. Stripe has likely moved its roles to a new careers page. Find its new careers page, or stop following Stripe. 1 role stays as last seen until then.",
@@ -724,7 +724,7 @@
     }
    }
   },
-  "title": "Stripe's careers page is gone · 1 day"
+  "title": "Careers page gone: Stripe · 1 day"
  },
  {
   "body": "Its careers page is no longer at its last address. Stripe has likely moved its roles to a new careers page. Find its new careers page, or stop following Stripe.",
@@ -750,7 +750,7 @@
     }
    }
   },
-  "title": "Stripe's careers page is gone"
+  "title": "Careers page gone: Stripe"
  },
  {
   "body": "None of them has had a full scan since 26 Sep, so new roles may be missing. This clears as scans get through.",
@@ -902,7 +902,7 @@
   "title": "Scan stopped"
  },
  {
-  "body": "You stopped it after it scanned 2 companies. Problems at: Google DeepMind. What it found is saved. Not reached before the scan ran out of time: Meta. It is still due, so the next scan picks it up. 120 found / 4 created / 36 updated",
+  "body": "You stopped it after it scanned 2 companies. Problems at: Google DeepMind. What it found is saved. Meta wasn't reached before the scan's time limit. Its postings stay as last seen until the next scan. Roles: 120 found · 4 added · 36 seen again or closed",
   "case": "stopped-with-a-problem",
   "say": {
    "body": [
@@ -951,7 +951,7 @@
   "title": "Scan stopped"
  },
  {
-  "body": "You stopped it after it scanned 1 company. What it found is saved. 120 found / 4 created / 36 updated",
+  "body": "You stopped it after it scanned 1 company. What it found is saved. Roles: 120 found · 4 added · 36 seen again or closed",
   "case": "stopped-clean",
   "say": {
    "body": [
@@ -987,7 +987,7 @@
   "title": "Scan stopped"
  },
  {
-  "body": "You stopped it after it scanned 1 company. Problems at: no single company; see the scan's notes. What it found is saved. 120 found / 4 created / 36 updated / 31 skipped or unchanged",
+  "body": "You stopped it after it scanned 1 company. Problems at: no single company. What it found is saved. Roles: 120 found · 4 added · 36 seen again or closed · 31 skipped or unchanged",
   "case": "stopped-at-a-failed-pass",
   "say": {
    "body": [
@@ -1033,7 +1033,7 @@
   "title": "Scan stopped"
  },
  {
-  "body": "Finished at 2026-09-27 08:00 UTC after 45s. Not reached before the scan ran out of time: Meta. It is still due, so the next scan picks it up. 120 found / 4 created / 36 updated",
+  "body": "Finished at 2026-09-27 08:00 UTC after 45s. Meta wasn't reached before the scan's time limit. Its postings stay as last seen until the next scan. Roles: 120 found · 4 added · 36 seen again or closed",
   "case": "unfinished-u",
   "say": {
    "body": [
@@ -1080,7 +1080,7 @@
   "title": "Scan ran out of time before 1 company"
  },
  {
-  "body": "Finished at 2026-09-27 08:00 UTC after 45s. This machine had no internet connection while scanning: OpenAI. What was found is saved, and it is still due, so the next scan picks it up. 120 found / 4 created / 36 updated",
+  "body": "Finished at 2026-09-27 08:00 UTC after 45s. Couldn't scan OpenAI: no internet connection. The next scan tries again. Roles: 120 found · 4 added · 36 seen again or closed",
   "case": "unfinished-o",
   "say": {
    "body": [
@@ -1127,7 +1127,7 @@
   "title": "Scan lost its internet connection at 1 company"
  },
  {
-  "body": "Finished at 2026-09-27 08:00 UTC after 45s. Stopped at the scan's time limit: Google DeepMind. What was found is saved, and postings there stay as last seen. 120 found / 4 created / 76 updated",
+  "body": "Finished at 2026-09-27 08:00 UTC after 45s. Stopped at the scan's time limit: Google DeepMind. What was found is saved, and postings there stay as last seen. Roles: 120 found · 4 added · 76 seen again or closed",
   "case": "unfinished-c",
   "say": {
    "body": [
@@ -1170,10 +1170,10 @@
     }
    }
   },
-  "title": "Scan covered 1 company only in part"
+  "title": "Scan only partly covered 1 company"
  },
  {
-  "body": "Finished at 2026-09-27 08:00 UTC after 45s. Not reached before the scan ran out of time: Meta. It is still due, so the next scan picks it up. This machine had no internet connection while scanning: OpenAI. What was found is saved, and it is still due, so the next scan picks it up. 120 found / 4 created / 36 updated",
+  "body": "Finished at 2026-09-27 08:00 UTC after 45s. Meta wasn't reached before the scan's time limit. Its postings stay as last seen until the next scan. Couldn't scan OpenAI: no internet connection. The next scan tries again. Roles: 120 found · 4 added · 36 seen again or closed",
   "case": "unfinished-uo",
   "say": {
    "body": [
@@ -1233,7 +1233,7 @@
   "title": "Scan ran out of time before 1 company and lost its internet connection at 1 company"
  },
  {
-  "body": "Finished at 2026-09-27 08:00 UTC after 45s. Not reached before the scan ran out of time: Meta. It is still due, so the next scan picks it up. Stopped at the scan's time limit: Google DeepMind. What was found is saved, and postings there stay as last seen. 120 found / 4 created / 76 updated",
+  "body": "Finished at 2026-09-27 08:00 UTC after 45s. Meta wasn't reached before the scan's time limit. Its postings stay as last seen until the next scan. Stopped at the scan's time limit: Google DeepMind. What was found is saved, and postings there stay as last seen. Roles: 120 found · 4 added · 76 seen again or closed",
   "case": "unfinished-uc",
   "say": {
    "body": [
@@ -1284,10 +1284,10 @@
     }
    }
   },
-  "title": "Scan ran out of time before 1 company and covered 1 only in part"
+  "title": "Scan ran out of time before 1 company and only partly covered 1 more"
  },
  {
-  "body": "Finished at 2026-09-27 08:00 UTC after 45s. This machine had no internet connection while scanning: OpenAI. What was found is saved, and it is still due, so the next scan picks it up. Stopped at the scan's time limit: Google DeepMind. What was found is saved, and postings there stay as last seen. 120 found / 4 created / 76 updated",
+  "body": "Finished at 2026-09-27 08:00 UTC after 45s. Couldn't scan OpenAI: no internet connection. The next scan tries again. Stopped at the scan's time limit: Google DeepMind. What was found is saved, and postings there stay as last seen. Roles: 120 found · 4 added · 76 seen again or closed",
   "case": "unfinished-oc",
   "say": {
    "body": [
@@ -1338,10 +1338,10 @@
     }
    }
   },
-  "title": "Scan lost its internet connection at 1 company and covered 1 only in part"
+  "title": "Scan lost its internet connection at 1 company and only partly covered 1 more"
  },
  {
-  "body": "Finished at 2026-09-27 08:00 UTC after 45s. Not reached before the scan ran out of time: Meta. It is still due, so the next scan picks it up. This machine had no internet connection while scanning: OpenAI. What was found is saved, and it is still due, so the next scan picks it up. Stopped at the scan's time limit: Google DeepMind. What was found is saved, and postings there stay as last seen. 120 found / 4 created / 76 updated",
+  "body": "Finished at 2026-09-27 08:00 UTC after 45s. Meta wasn't reached before the scan's time limit. Its postings stay as last seen until the next scan. Couldn't scan OpenAI: no internet connection. The next scan tries again. Stopped at the scan's time limit: Google DeepMind. What was found is saved, and postings there stay as last seen. Roles: 120 found · 4 added · 76 seen again or closed",
   "case": "unfinished-uoc",
   "say": {
    "body": [
@@ -1405,10 +1405,10 @@
     }
    }
   },
-  "title": "Scan ran out of time before 1 company, lost its internet connection at 1 company and covered 1 only in part"
+  "title": "Scan ran out of time before 1 company, lost its internet connection at 1 company and only partly covered 1 more"
  },
  {
-  "body": "Finished at 2026-09-27 09:35 UTC after 1h 35m. Not reached before the scan ran out of time: Meta, OpenAI. They are still due, so the next scan picks them up. This machine had no internet connection while scanning: Anthropic, Apple. What was found is saved, and they are still due, so the next scan picks them up. 120 found / 4 created / 36 updated",
+  "body": "Finished at 2026-09-27 09:35 UTC after 1h 35m. Meta, OpenAI weren't reached before the scan's time limit. Their postings stay as last seen until the next scan. Couldn't scan Anthropic, Apple: no internet connection. The next scan tries again. Roles: 120 found · 4 added · 36 seen again or closed",
   "case": "unfinished-several-each",
   "say": {
    "body": [
@@ -1469,7 +1469,7 @@
   "title": "Scan ran out of time before 2 companies and lost its internet connection at 2 companies"
  },
  {
-  "body": "Finished at 2026-09-27 08:40 UTC after 40m 0s. Not reached before the scan ran out of time: A1, B2, C3, D4 and 2 more. They are still due, so the next scan picks them up. 120 found / 4 created / 36 updated",
+  "body": "Finished at 2026-09-27 08:40 UTC after 40m 0s. A1, B2, C3, D4 and 2 more weren't reached before the scan's time limit. Their postings stay as last seen until the next scan. Roles: 120 found · 4 added · 36 seen again or closed",
   "case": "unfinished-past-four",
   "say": {
    "body": [
@@ -1523,7 +1523,7 @@
   "title": "Scan ran out of time before 6 companies"
  },
  {
-  "body": "Failed at 2026-09-27 08:00 UTC after 12s. Problems at: Google DeepMind: HTTPError: 500. 120 found / 4 created / 0 updated",
+  "body": "Failed at 2026-09-27 08:00 UTC after 12s. Problems at: Google DeepMind: HTTPError: 500. Roles: 120 found · 4 added · 0 seen again or closed",
   "case": "failed-with-errors",
   "say": {
    "body": [
@@ -1562,7 +1562,7 @@
   "title": "Couldn't scan, nothing was updated"
  },
  {
-  "body": "Failed at 2026-09-27 08:40 UTC after 40m 0s. Problems at: Google DeepMind, Stripe. 0 found / 0 created / 0 updated",
+  "body": "Failed at 2026-09-27 08:40 UTC after 40m 0s. Problems at: Google DeepMind, Stripe. Roles: 0 found · 0 added · 0 seen again or closed",
   "case": "failed-named",
   "say": {
    "body": [
@@ -1602,7 +1602,7 @@
   "title": "Couldn't scan, nothing was updated"
  },
  {
-  "body": "Failed at 2026-09-27 08:40 UTC after unknown duration. Problems at: database is locked. 120 found / 4 created / 0 updated",
+  "body": "Failed at 2026-09-27 08:40 UTC after unknown duration. Problems at: database is locked. Roles: 120 found · 4 added · 0 seen again or closed",
   "case": "failed-with-notes",
   "say": {
    "body": [
@@ -1639,7 +1639,7 @@
   "title": "Couldn't scan, nothing was updated"
  },
  {
-  "body": "Failed at 2026-09-27 08:40 UTC after 40m 0s. Problems at: scan failed. 120 found / 4 created / 0 updated",
+  "body": "Failed at 2026-09-27 08:40 UTC after 40m 0s. Problems at: scan failed. Roles: 120 found · 4 added · 0 seen again or closed",
   "case": "failed-unexplained",
   "say": {
    "body": [
@@ -1682,7 +1682,7 @@
   "title": "Couldn't scan, nothing was updated"
  },
  {
-  "body": "Finished at 2026-09-27 08:40 UTC after 40m 0s. Every company in this scan was read, but a step after the scan did not finish: RuntimeError: embed. What the scan found is saved. 120 found / 4 created / 36 updated / 31 skipped or unchanged",
+  "body": "Finished at 2026-09-27 08:40 UTC after 40m 0s. Every company was scanned, but a step after the scan didn't finish. The error is in the details. What the scan found is saved. Roles: 120 found · 4 added · 36 seen again or closed · 31 skipped or unchanged",
   "case": "derivation-failed",
   "say": {
    "body": [
@@ -1701,9 +1701,7 @@
     },
     {
      "k": "notif-every-source-delivered",
-     "p": {
-      "failure": "RuntimeError: embed"
-     }
+     "p": {}
     },
     {
      "k": "notif-data-saved",
@@ -1724,10 +1722,10 @@
     "p": {}
    }
   },
-  "title": "Scan collected, but a derivation failed"
+  "title": "Scan finished, but a step after it didn't"
  },
  {
-  "body": "Finished at 2026-09-27 08:40 UTC after 40m 0s. A step after the scan did not finish: RuntimeError: embed. Not reached before the scan ran out of time: Meta. It is still due, so the next scan picks it up. What the scan found is saved. 120 found / 4 created / 36 updated",
+  "body": "Finished at 2026-09-27 08:40 UTC after 40m 0s. A step after the scan didn't finish. The error is in the details. Meta wasn't reached before the scan's time limit. Its postings stay as last seen until the next scan. What the scan found is saved. Roles: 120 found · 4 added · 36 seen again or closed",
   "case": "derivation-failed-and-unfinished",
   "say": {
    "body": [
@@ -1746,9 +1744,7 @@
     },
     {
      "k": "notif-post-pass-unfinished",
-     "p": {
-      "failure": "RuntimeError: embed"
-     }
+     "p": {}
     },
     {
      "k": "notif-unreached",
@@ -1775,10 +1771,10 @@
     "p": {}
    }
   },
-  "title": "Scan collected, but a derivation failed"
+  "title": "Scan finished, but a step after it didn't"
  },
  {
-  "body": "Finished at 2026-09-27 10:05 UTC after 2h 5m. This machine was asleep for 16m 27s during the scan, which cuts a company's listing short. Problems at: Microsoft. 120 found / 4 created / 78 updated",
+  "body": "Finished at 2026-09-27 10:05 UTC after 2h 5m. Your computer slept for 16m 27s during the scan, which can cut a company's scan short. Problems at: Microsoft. Roles: 120 found · 4 added · 78 seen again or closed",
   "case": "problems-while-asleep",
   "say": {
    "body": [
@@ -1830,7 +1826,7 @@
   "title": "Scan finished with problems"
  },
  {
-  "body": "Finished at 2026-09-27 08:40 UTC after 40m 0s. Problems at: Google DeepMind. Not reached before the scan ran out of time: Meta. It is still due, so the next scan picks it up. 120 found / 4 created / 38 updated",
+  "body": "Finished at 2026-09-27 08:40 UTC after 40m 0s. Problems at: Google DeepMind. Meta wasn't reached before the scan's time limit. Its postings stay as last seen until the next scan. Roles: 120 found · 4 added · 38 seen again or closed",
   "case": "problems-and-unfinished",
   "say": {
    "body": [
@@ -1877,7 +1873,7 @@
   "title": "Scan finished with problems"
  },
  {
-  "body": "Finished at 2026-09-27 08:40 UTC after 40m 0s. Problems at: Stripe. 120 found / 4 created / 38 updated",
+  "body": "Finished at 2026-09-27 08:40 UTC after 40m 0s. Problems at: Stripe. Roles: 120 found · 4 added · 38 seen again or closed",
   "case": "problems-from-drift",
   "say": {
    "body": [

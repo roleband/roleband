@@ -1,3 +1,4 @@
+import { holdReason } from "../holdReason";
 import { time } from "../copy/format";
 import {
   shellScanAddTitle,
@@ -168,7 +169,7 @@ export function SyncButton() {
   const scanHeld = !running && scanJob?.state !== "running" ? scanJob?.reason ?? null : null;
   const queuedNote = queuedCount > 0 && !running
     ? scanHeld
-      ? shellScanWaiting({ count: queuedCount, reason: scanHeld })
+      ? shellScanWaiting({ count: queuedCount, reason: holdReason(scanHeld, status?.install) })
       : blockedUntil
       ? shellScanQueuedUntil({ count: queuedCount, time: time(blockedUntil) })
       : blocked.length > 0

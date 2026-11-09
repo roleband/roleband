@@ -104,7 +104,7 @@ def test_a_derivation_failure_must_not_freeze_freshness():
 def test_no_source_at_fault_does_not_read_as_every_source():
     summary = _affected_summary([], [])
     assert "all enabled sources" not in summary
-    assert summary == "no single company; see the scan's notes"
+    assert summary == "no single company"
 
 
 def test_a_source_at_fault_is_still_named():
@@ -138,11 +138,13 @@ def test_a_derivation_failure_names_the_derivation_not_the_sources():
     )
     assert notif is not None
     assert notif.category == "sync_warning"
-    assert "derivation failed" in notif.title
+    assert notif.title == "Scan finished, but a step after it didn't"
     # The body must not blame sources that were fine.
     assert "all enabled sources" not in (notif.body or "")
     assert "spotify" not in (notif.body or "")
-    assert "ModelNotReady" in (notif.body or "")
+    assert "a step after the scan didn't finish. The error is in the details." in (notif.body or "")
+    # The error itself travels in the details, not in the sentence.
+    assert "ModelNotReady" not in (notif.body or "")
     assert notif.meta["failure"].startswith("ModelNotReady")
 
 
@@ -177,7 +179,7 @@ def test_a_source_failure_beside_a_derivation_failure_names_the_source():
     notif = classify_sync_result(_run("partial", mixed), failure="ModelNotReady: ...")
     assert notif is not None
     assert "Google" in (notif.body or "")
-    assert "derivation failed" not in notif.title
+    assert "a step after" not in notif.title
     # ...and the derivation failure is still carried, just not as the headline.
     assert notif.meta["failure"].startswith("ModelNotReady")
 

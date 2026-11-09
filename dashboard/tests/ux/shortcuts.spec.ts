@@ -25,7 +25,7 @@ test("? opens the shortcuts, which name the role list's keys; Escape closes them
     await expect(sheet.getByText(key, { exact: true }), `the sheet lists ${key}`).toBeVisible();
   }
   await expect(sheet.getByText("Next role")).toBeVisible();
-  await expect(sheet.getByText("Add to compare or take it out")).toBeVisible();
+  await expect(sheet.getByText("Add to Compare, or remove it")).toBeVisible();
 
   await page.keyboard.press("Escape");
   await expect(sheet).toBeHidden();

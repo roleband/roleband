@@ -55,7 +55,7 @@ test("Job detail names the other places and opens each one's posting", async ({ 
     "href",
     `/company/${jobFixture2.company}/job/202`,
   );
-  await expect(section).toContainText("same description at each place");
+  await expect(section).toContainText("title and description at each place");
   // The split is a link, so the page keeps "View & apply" as its one primary.
   await expect(section.getByRole("button", { name: "Different roles" })).not.toHaveClass(/ui-btn-primary/);
 

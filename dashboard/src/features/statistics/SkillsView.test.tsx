@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api";
 import { facetsFixture } from "../../test/fixtures";
+import { msg } from "../../test/msg";
 import { companyPickerOptions } from "./companyPicker";
 import { SkillsView } from "./SkillsView";
 
@@ -106,8 +107,8 @@ describe("SkillsView", () => {
     expect(await screen.findByRole("heading", { level: 2, name: "Machine Learning leads" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Skills, most named first" })).toBeInTheDocument();
     expect(screen.queryByRole("img", { name: "What sets these roles apart" })).toBeNull();
-    expect(screen.getByText(/Pick a company, a discipline or a side/)).toBeInTheDocument();
-    expect(screen.queryByRole("columnheader", { name: "Lift" })).toBeNull();
+    expect(screen.getByText(msg("insights-skills-view-pick-a-company-a-discipline"))).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: msg("insights-skills-view-lift") })).toBeNull();
     // A competency is listed apart, never in the ranking.
     const expected = screen.getByRole("heading", { name: /Expected of the role/ }).closest(".panel") as HTMLElement;
     expect(expected).toHaveTextContent("Roadmapping 46%");
@@ -122,7 +123,7 @@ describe("SkillsView", () => {
     render(<SkillsView scope={{ side: "all", families: ["hardware_engineering"] }} />);
     expect(await screen.findByRole("heading", { level: 2, name: "CUDA / GPU sets these roles apart" })).toBeInTheDocument();
     expect(screen.getByText(/24% of these roles name it, against 1% of the market/)).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Lift" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: msg("insights-skills-view-lift") })).toBeInTheDocument();
     expect(screen.getByRole("row", { name: /CUDA \/ GPU/ })).toHaveTextContent("×26");
     expect(api.skillsTop).toHaveBeenCalledWith(
       { company: undefined, limit: 30 }, expect.anything(), { side: "all", families: ["hardware_engineering"] },

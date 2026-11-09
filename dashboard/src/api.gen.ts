@@ -7241,6 +7241,11 @@ export interface components {
             action_detail: string;
             /** Action Ok */
             action_ok: boolean;
+            /**
+             * Action Timed Out
+             * @description The command ran past its time limit; a start may still finish on its own.
+             */
+            action_timed_out: boolean;
             /** Base Url */
             base_url: string | null;
             /** Binary */
@@ -10789,6 +10794,11 @@ export interface components {
             derivations_stale: string[];
             /** Freshness Max Hours */
             freshness_max_hours: number;
+            /**
+             * Install
+             * @enum {string}
+             */
+            install: "app" | "source";
             /** Jobs */
             jobs?: components["schemas"]["JobView"][];
             /** Last Run Finished At */

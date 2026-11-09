@@ -67,7 +67,7 @@ def test_every_key_the_classifiers_name_is_registered():
 def test_a_say_mirrors_its_english_sentence_for_sentence():
     """Negative control on the walk itself: one sample, read by hand."""
     sample = next(s for s in export.samples() if s["case"] == "problems-while-asleep")
-    assert sample["body"].startswith("Finished at 2026-09-27 10:05 UTC after 2h 5m. This machine was asleep")
+    assert sample["body"].startswith("Finished at 2026-09-27 10:05 UTC after 2h 5m. Your computer slept for 16m 27s")
     title, *body = [sample["say"]["title"], *sample["say"]["body"]]
     assert title == {"k": "notif-scan-problems", "p": {}}
     assert [s["k"] for s in body] == ["notif-finished-at", "notif-asleep", "notif-problems-at", "notif-scan-summary"]

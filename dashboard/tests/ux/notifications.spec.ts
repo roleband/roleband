@@ -393,7 +393,7 @@ test("the folded filter panel closes by Escape, and does not survive a trip thro
 test("a careers page gone from its address is found and moved to from its notice", async ({ page }) => {
   const gone = {
     id: 9, created_at: "2026-10-04T16:06:01Z", priority: "normal", category: "coverage",
-    title: "Hex Technologies's careers page is gone · 2 days",
+    title: "Careers page gone: Hex Technologies · 2 days",
     body: "Its careers page is no longer at its last address.",
     job_id: null, company: null, run_id: null, source_type: "binding", read_at: null, dismissed_at: null,
     meta: { company: "hex-technologies", display: "Hex Technologies", cause: "board_missing", held_open: 3 },
@@ -419,14 +419,14 @@ test("a careers page gone from its address is found and moved to from its notice
   });
   await page.goto("/notifications");
 
-  const answers = page.getByRole("group", { name: "Hex Technologies's careers page" });
+  const answers = page.getByRole("group", { name: "Careers page: Hex Technologies" });
   await answers.getByRole("button", { name: "Find new careers page" }).click();
   await expect(answers.getByText(
-    "Found it: 36 roles, 30 of them roles seen at Hex Technologies before.",
+    "Found it: 36 roles, 30 of them seen at Hex Technologies before.",
   )).toBeVisible();
   await answers.getByRole("button", { name: "Use this careers page" }).click();
 
   await expect.poll(() => putBody).toEqual({ adapter: "ashby", board_token: "hex", board_region: null });
-  await expect(page.getByText("Now reading Hex Technologies's new careers page")).toBeVisible();
-  await expect(page.getByText("Hex Technologies's careers page is gone · 2 days")).toHaveCount(0);
+  await expect(page.getByText("Now scanning the new careers page of Hex Technologies")).toBeVisible();
+  await expect(page.getByText("Careers page gone: Hex Technologies · 2 days")).toHaveCount(0);
 });

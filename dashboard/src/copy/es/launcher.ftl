@@ -27,7 +27,7 @@ launcher-not-scanned = Aún sin escanear
 # kind=label
 launcher-last-scan = Último escaneo
 # kind=label
-launcher-coverage = Cobertura
+launcher-coverage = Escaneo más antiguo
 # kind=label
 launcher-checked = Última comprobación
 # kind=button
@@ -63,7 +63,7 @@ launcher-installer-copy = Mueve a Aplicaciones
 # kind=heading
 launcher-installer-first-open = Permite la primera apertura
 # kind=sentence
-launcher-installer-privacy = Abre Ajustes del Sistema → Privacidad y seguridad y baja hasta Seguridad.
+launcher-installer-privacy = Abre Ajustes del Sistema › Privacidad y seguridad y baja hasta Seguridad.
 # kind=button
 launcher-installer-security = Abrir ajustes de seguridad
 # kind=link
@@ -86,9 +86,9 @@ launcher-scan-not-running = No hay escaneo que detener
 # kind=status
 launcher-scan-state-changed = El estado del escaneo ha cambiado. Revisa el estado actual.
 # kind=status
-launcher-scan-refused = Se rechazó tu solicitud de escaneo. Abre tu Radar para ver los detalles.
+launcher-scan-refused = Se rechazó tu solicitud de escaneo. Abre Radar para ver los detalles.
 # kind=status
-launcher-scan-unconfirmed = No se pudo confirmar tu solicitud. Abre tu Radar para comprobar su estado.
+launcher-scan-unconfirmed = No se pudo confirmar tu solicitud. Abre Radar para comprobar su estado.
 
 # kind=button
 launcher-pause-menu = Pausar escaneos
@@ -127,7 +127,7 @@ launcher-engine-diagnostics = Diagnóstico
 launcher-engine-running = Tu servicio en segundo plano está en ejecución, pero no responde.
     Inténtalo de nuevo.
 # kind=status
-launcher-engine-stopped = El servicio en segundo plano registrado está detenido.
+launcher-engine-stopped = El servicio en segundo plano está detenido.
 # kind=status
 launcher-engine-unknown = No se pudo confirmar el servicio en segundo plano. Inténtalo de nuevo.
 # kind=status
@@ -136,7 +136,7 @@ launcher-engine-unmatched = El servicio en segundo plano no corresponde a esta i
 launcher-engine-requested = Inicio solicitado.
     Esperando una respuesta.
 # kind=status
-launcher-engine-state-changed = El estado del motor ha cambiado. Revisa el estado actual.
+launcher-engine-state-changed = El estado del servicio en segundo plano cambió. Revísalo e inténtalo de nuevo.
 # kind=status
 launcher-engine-refused = No se pudo iniciar el escaneo.
     Revisa el diagnóstico e inténtalo de nuevo.
@@ -169,7 +169,7 @@ launcher-move-body = Esta copia no puede configurarse ni actualizarse desde dond
     Arrástrala a Aplicaciones y ábrela desde allí.
 launcher-move-finder-help = Abre esta copia y la carpeta Aplicaciones
 launcher-elsewhere-title = Tus datos pertenecen a una configuración anterior
-launcher-elsewhere-body = Una configuración anterior de este Mac, hecha en Terminal, guarda tus datos en tu carpeta de inicio.
+launcher-elsewhere-body = Una configuración anterior en este equipo, hecha en Terminal, guarda tus datos en tu carpeta de inicio.
     Para protegerlos, esta app no los abrirá ni modificará.
 launcher-elsewhere-keep = Seguir con tu configuración anterior
 launcher-elsewhere-keep-body = Ejecuta de nuevo su configuración en Terminal y sus escaneos aparecerán aquí.
@@ -243,7 +243,7 @@ launcher-guide-approve = Permitir primer inicio
 # kind=label
 launcher-guide-setup = Configurar
 # kind=sentence
-launcher-guide-manual = Tú confirmas cada paso. Esta guía no puede comprobar tu Mac.
+launcher-guide-manual = Tú confirmas cada paso. Esta guía no puede comprobar tu equipo.
 # kind=sentence
 launcher-guide-requirements = Necesitas un Mac con Apple silicon y macOS 14 o posterior. La app no se puede abrir en un Mac con procesador Intel.
 # kind=sentence
@@ -279,7 +279,7 @@ launcher-guide-different = ¿Otro aviso?
 # kind=sentence
 launcher-guide-different-body = Si macOS indica que la app está dañada o dañará tu Mac, detente y consulta la guía de Apple.
 # kind=sentence
-launcher-guide-settings-fallback = Si el botón no abre los ajustes, ve a Ajustes del Sistema → Privacidad y seguridad → Seguridad. El navegador puede pedir confirmación antes de abrirlos.
+launcher-guide-settings-fallback = Si el botón no abre Ajustes, ve a Ajustes del Sistema › Privacidad y seguridad › Seguridad. Tu navegador puede pedir confirmación antes de abrir Ajustes.
 # kind=button
 launcher-guide-allowed = Ya lo permití
 # kind=heading
@@ -320,10 +320,10 @@ launcher-first-step-preparing = Preparación
 
 launcher-first-welcome-title = Pongamos en marcha tu radar
 
-launcher-first-welcome-body = Este Mac realiza los escaneos y tu Radar se abre en el navegador.
-    La configuración solo lleva unos minutos, una vez.
+launcher-first-welcome-body = Este equipo hace los escaneos y tu radar se abre en el navegador.
+    La configuración lleva unos minutos, una sola vez.
 
-launcher-first-prepare = Preparar este Mac
+launcher-first-prepare = Preparar este equipo
 
 launcher-first-prepare-caption = Una base de datos local y el modelo de clasificación.
 
@@ -347,11 +347,11 @@ launcher-first-service-failed = No se pudo iniciar el servicio en segundo plano.
     Revisa los registros e inténtalo de nuevo.
 
 launcher-first-offline-body = El modelo espera una conexión.
-    Puedes abrir tu Radar mientras tanto.
+    Puedes abrir Radar mientras tanto.
 
-launcher-first-prepared-title = Este Mac está listo
+launcher-first-prepared-title = Este equipo está listo
 
-launcher-first-prepared-body = Este Mac tiene todo lo necesario para los escaneos.
+launcher-first-prepared-body = Este equipo tiene todo lo que necesitan los escaneos.
 
 launcher-first-login-title = Seguir escaneando tras reiniciar
 
@@ -368,9 +368,9 @@ launcher-first-settings-note = Puedes volver a estas opciones desde la barra de 
 
 launcher-first-done-title = Tu radar está listo
 
-launcher-first-done-body = Tu Radar se abre en el navegador, donde indicas qué buscar.
+launcher-first-done-body = Tu radar se abre en el navegador, donde le indicas qué buscar.
 
-launcher-first-menu-hint = El radar de la barra de menús muestra cada escaneo en curso y te permite abrir tu Radar cuando quieras.
+launcher-first-menu-hint = El radar de la barra de menús muestra cada escaneo en curso y abre Radar cuando quieras.
 
 launcher-first-database = Base de datos
 
@@ -421,7 +421,7 @@ launcher-panel-open-radar-waiting = Disponible cuando responda el servicio en se
 # kind=aria
 launcher-panel-about-offer = Acerca de, actualización disponible
 # kind=heading
-launcher-panel-on-mac = En este Mac
+launcher-panel-on-mac = En este equipo
 # kind=heading
 launcher-panel-in-browser = En tu navegador
 # kind=label
@@ -534,7 +534,7 @@ launcher-scan-recorded = registradas
 launcher-scan-finished = terminados
 launcher-scan-to-add = por añadir
 # kind=label
-launcher-scan-companies-read = empresas leídas
+launcher-scan-companies-read = empresas escaneadas
 # kind=label
 launcher-scan-new-roles = puestos nuevos
 # kind=tooltip
@@ -566,9 +566,9 @@ launcher-scan-paused = En pausa
 # kind=tooltip
 launcher-pause-help = La pausa afecta a los escaneos programados. Un escaneo en curso continúa.
 # kind=sentence
-launcher-scan-summary-live = Escaneando ahora: { $companies }. { $pending } puestos encontrados en empresas aún en escaneo, { $recorded } de empresas terminadas.
+launcher-scan-summary-live = Escaneando ahora: { $companies }. Puestos encontrados hasta el momento: { $pending }. De empresas terminadas: { $recorded }.
 # kind=sentence
-launcher-scan-summary-last = Último escaneo: { $companies } empresas leídas, { $roles } puestos nuevos, { $postings } ofertas registradas.
+launcher-scan-summary-last = Último escaneo. Empresas escaneadas: { $companies }. Puestos nuevos: { $roles }. Ofertas registradas: { $postings }.
 # kind=sentence
-launcher-scan-summary-stopped = Escaneo detenido tras { $companies } empresas: { $roles } puestos nuevos, { $postings } ofertas registradas.
-launcher-scan-summary-read = { $companies } empresas leídas. { $recorded } puestos registrados, { $pending } por añadir.
+launcher-scan-summary-stopped = Escaneo detenido. Empresas escaneadas: { $companies }. Puestos nuevos: { $roles }. Ofertas registradas: { $postings }.
+launcher-scan-summary-read = Empresas escaneadas: { $companies }. Puestos registrados: { $recorded }. Aún por añadir: { $pending }.
