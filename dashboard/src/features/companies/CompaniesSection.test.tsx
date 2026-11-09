@@ -775,12 +775,13 @@ describe("CompaniesSection — tracking", () => {
     renderSection();
 
     await screen.findByRole("checkbox", { name: "SilentCo" });
-    expect(row("FAANG", "SilentCo")).toHaveAccessibleDescription(
-      /^Uses \W?Jibe\W?, which didn't load/,
-    );
-    expect(row("FAANG", "RefusedCo")).toHaveAccessibleDescription(
-      /^Uses \W?Radancy TalentBrew\W?, which doesn't allow scanning/,
-    );
+    const startsWith = (text: string) => new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
+    const boardFound = (reason: string, family: string) =>
+      startsWith(msg("companies-company-register-rows-board-found", {
+        reason, family: msg("companies-company-register-rows-board-family", { family }),
+      }));
+    expect(row("FAANG", "SilentCo")).toHaveAccessibleDescription(boardFound("board_silent", "jibe"));
+    expect(row("FAANG", "RefusedCo")).toHaveAccessibleDescription(boardFound("policy_refused", "radancy"));
     // A page that named no known board keeps the plain waiting words.
     expect(row("FAANG", "PlainCo")).toHaveAccessibleDescription(/^Following · not scanned yet/);
     expect(row("FAANG", "PlainCo")).not.toHaveAccessibleDescription(/Found a/);
@@ -1509,7 +1510,7 @@ describe("CompaniesSection — every other company, followed as one", () => {
     vi.mocked(api.followCompanyDirectory).mockResolvedValue(setStatus({ following: true, since: "2026-09-24T12:00:00Z" }));
     renderSection();
 
-    await waitFor(() => expect(setCard()).toHaveTextContent("About 10,000 more companies that can be scanned"));
+    await waitFor(() => expect(setCard()).toHaveTextContent(msg("companies-add-more-companies-about-companies-on-the-same", { about: "10,000" })));
     expect(setCard()).toHaveTextContent("only the ones hiring for roles on your radar join your list");
     expect(within(addMore()).getByRole("button", { name: "Add by link" })).toBeInTheDocument();
     // No row for any of them: the set is not a list, and not a group.
@@ -1574,7 +1575,7 @@ describe("CompaniesSection — every other company, followed as one", () => {
     }));
     renderSection();
     await waitFor(() => expect(setCard()).toHaveTextContent("first scan paused on battery"));
-    expect(setCard()).toHaveTextContent("Resumes when you plug in.");
+    expect(setCard()).toHaveTextContent(msg("companies-add-more-companies-first-scan-note", { scan: "paused" }));
     expect(setCard()).not.toHaveTextContent("first scan running");
     expect(setCard()).not.toHaveTextContent("The scan continues if you leave this page.");
     // What it read so far still counts.
