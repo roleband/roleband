@@ -7,6 +7,7 @@ import { msg } from "../../test/msg";
 import { schedulePlanFixture } from "../../test/fixtures";
 import { api } from "../../api";
 import { ApiError } from "../../api/transport";
+import { clockText, listMinutes } from "../../ui/TimeField";
 import { ScheduleSection } from "./ScheduleSection";
 import { readyByForStart, startForReadyBy } from "./usePlanDrag";
 
@@ -124,6 +125,19 @@ const stackedFixture = (): SyncSchedule => ({
       eligible_discovery_at: null,
     },
   ],
+});
+
+describe("the list of times", () => {
+  it("offers every half hour, and a time between two of them in its place", () => {
+    expect(listMinutes(null)).toHaveLength(48);
+    expect(listMinutes(null).slice(0, 3)).toEqual([0, 30, 60]);
+    expect(listMinutes(510)).toEqual(listMinutes(null));
+    const withOdd = listMinutes(515);
+    expect(withOdd).toHaveLength(49);
+    expect(withOdd.slice(17, 20)).toEqual([510, 515, 540]);
+    const late = listMinutes(23 * 60 + 50);
+    expect(late[late.length - 1]).toBe(23 * 60 + 50);
+  });
 });
 
 describe("ScheduleSection", () => {
@@ -545,6 +559,7 @@ describe("ScheduleSection", () => {
 
     const input = await screen.findByLabelText(/Meta full scan time/i);
     expect(input).toBeDisabled();
+    expect(screen.queryByRole("button", { name: msg("shared-time-field-choose") })).not.toBeInTheDocument();
     expect(screen.getByText(/cancel the queued manual scan/i)).toBeInTheDocument();
   });
 });
@@ -879,6 +894,82 @@ describe("ScheduleSection under the schedule plan", () => {
     await waitFor(() => expect(api.updateSchedulePlan).toHaveBeenLastCalledWith({ ready_by_minute: null }));
   });
 
+  it("picks the done-by time from a list of times, each saying when the scan starts", async () => {
+    // 08:35 is set: a time between two of the list's half hours.
+    vi.mocked(api.schedule).mockResolvedValue(planned({
+      ready_by_minute: 515, ready_by_today: { minute: 515, source: "set" },
+    }));
+    vi.mocked(api.updateSchedulePlan).mockResolvedValue(planned({
+      ready_by_minute: 450, ready_by_today: { minute: 450, source: "set" },
+    }));
+    render(<ScheduleSection />);
+    const settings = await screen.findByLabelText("Plan settings");
+    fireEvent.click(within(settings).getByRole("button", { name: msg("shared-time-field-choose") }));
+    const times = await screen.findByRole("listbox", { name: msg("shared-time-field-times") });
+
+    // Every half hour of the day, and the time set, in its place and chosen.
+    const options = within(times).getAllByRole("option");
+    expect(options).toHaveLength(49);
+    const chosen = within(times).getByRole("option", { selected: true });
+    expect(options.indexOf(chosen)).toBe(18);
+    expect(chosen).toHaveTextContent(clockText(515));
+
+    // The planned full scan takes 41 minutes and starts 10 more before:
+    // done by 07:30 means a start at 06:39.
+    const halfPastSeven = options[15];
+    expect(halfPastSeven).toHaveTextContent(clockText(450));
+    expect(halfPastSeven).toHaveTextContent(msg("settings-full-scan-starts", { time: clockText(6 * 60 + 39) }));
+
+    fireEvent.click(halfPastSeven);
+    await waitFor(() => expect(api.updateSchedulePlan).toHaveBeenCalledWith({ ready_by_minute: 450 }));
+    expect(api.updateSchedulePlan).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("listbox", { name: msg("shared-time-field-times") })).not.toBeInTheDocument();
+    await waitFor(() => expect(within(settings).getByLabelText("Full scan done by")).toHaveValue("07:30"));
+  });
+
+  it("walks the list of times by keyboard, and closing it or keeping the same time writes nothing", async () => {
+    vi.mocked(api.schedule).mockResolvedValue(planned({
+      ready_by_minute: 480, ready_by_today: { minute: 480, source: "set" },
+    }));
+    vi.mocked(api.updateSchedulePlan).mockResolvedValue(planned({
+      ready_by_minute: 510, ready_by_today: { minute: 510, source: "set" },
+    }));
+    render(<ScheduleSection />);
+    const settings = await screen.findByLabelText("Plan settings");
+    const choose = within(settings).getByRole("button", { name: msg("shared-time-field-choose") });
+    const listName = { name: msg("shared-time-field-times") };
+    const onTime = (list: HTMLElement) => document.getElementById(list.getAttribute("aria-activedescendant") ?? "");
+
+    // The list opens on the time set, with the keyboard in it.
+    choose.focus();
+    fireEvent.click(choose);
+    let times = await screen.findByRole("listbox", listName);
+    await waitFor(() => expect(times).toHaveFocus());
+    expect(choose).toHaveAttribute("aria-expanded", "true");
+    expect(onTime(times)).toHaveTextContent(clockText(480));
+
+    // Enter on the time already set closes the list and saves nothing.
+    fireEvent.keyDown(times, { key: "Enter" });
+    expect(screen.queryByRole("listbox", listName)).not.toBeInTheDocument();
+
+    // Escape closes it and hands the keyboard back to the button.
+    fireEvent.click(choose);
+    times = await screen.findByRole("listbox", listName);
+    fireEvent.keyDown(times, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("listbox", listName)).not.toBeInTheDocument());
+    expect(choose).toHaveFocus();
+    expect(api.updateSchedulePlan).not.toHaveBeenCalled();
+
+    // Down to the next half hour and Enter saves it, once.
+    fireEvent.click(choose);
+    times = await screen.findByRole("listbox", listName);
+    fireEvent.keyDown(times, { key: "ArrowDown" });
+    expect(onTime(times)).toHaveTextContent(clockText(510));
+    fireEvent.keyDown(times, { key: "Enter" });
+    await waitFor(() => expect(api.updateSchedulePlan).toHaveBeenCalledWith({ ready_by_minute: 510 }));
+    expect(api.updateSchedulePlan).toHaveBeenCalledTimes(1);
+  });
+
   it("turns a scan day off, and never the last one", async () => {
     vi.mocked(api.updateSchedulePlan).mockResolvedValue(planned({ days: [0, 1, 2, 3, 4, 6] }));
     render(<ScheduleSection />);
@@ -1079,6 +1170,20 @@ describe("dragging and clicking the plan's runs", () => {
     const field = within(inspector).getByLabelText("Full scan done by");
     fireEvent.change(field, { target: { value: "09:00" } });
     fireEvent.blur(field);
+    await waitFor(() => expect(api.updateSchedulePlan).toHaveBeenCalledWith({ ready_by_minute: 9 * 60 }));
+  });
+
+  it("picks when the full scan should be done by from the inspector's list of times", async () => {
+    render(<ScheduleSection />);
+    fireEvent.click(await screen.findByRole("button", { name: /^Move full scan/ }));
+    const inspector = await screen.findByRole("dialog", { name: "Scan inspector" });
+    fireEvent.click(within(inspector).getByRole("button", { name: msg("shared-time-field-choose") }));
+    const times = await screen.findByRole("listbox", { name: msg("shared-time-field-times") });
+    // This run's own measured length: 41 minutes, and 10 more before.
+    const nine = within(times).getAllByRole("option")[18];
+    expect(nine).toHaveTextContent(clockText(9 * 60));
+    expect(nine).toHaveTextContent(msg("settings-full-scan-starts", { time: clockText(8 * 60 + 9) }));
+    fireEvent.click(nine);
     await waitFor(() => expect(api.updateSchedulePlan).toHaveBeenCalledWith({ ready_by_minute: 9 * 60 }));
   });
 

@@ -302,7 +302,9 @@ test.describe("the typed exact-time control", () => {
     await expect(exactTime).toBeVisible();
     await expect(exactTime).toHaveValue("20:00");
 
-    await exactTime.click();
+    // Focus lands on the hour, the field's first part; a click would land on
+    // whichever part sits under the pointer.
+    await exactTime.focus();
     await page.keyboard.type("0230PM");
 
     // Mid-edit the field holds what was typed and the caret has not been taken
@@ -343,7 +345,7 @@ test("closing the inspector discards a time that was typed but never committed",
 
     await page.getByRole("button", { name: /Move OpenAI full scan/i }).click();
     const exactTime = page.getByLabel("OpenAI full scan time");
-    await exactTime.click();
+    await exactTime.focus();
     await page.keyboard.type("0230PM");
     await expect(exactTime).toHaveValue("14:30");
 
@@ -356,6 +358,41 @@ test("closing the inspector discards a time that was typed but never committed",
     await expect(page.getByRole("button", {
       name: /Move OpenAI full scan, currently 20:00/i,
     })).toBeVisible();
+  });
+
+  /* The list of times beside the field: one click to open it, one to pick.
+     A pointer that opens it leaves no focus ring on the field, only the thin
+     edge of an open picker, and the list scrolls itself, never the page. */
+  test("the done-by time is picked from a list of times in one click", async ({ page }) => {
+    const writes: Array<Record<string, unknown>> = [];
+    await page.route("/api/schedule/plan?**", async (route) => {
+      if (route.request().method() === "PUT") writes.push(route.request().postDataJSON());
+      await route.fulfill({ json: syncSchedule });
+    });
+    await page.goto("/settings/schedule");
+
+    const panel = page.getByRole("complementary", { name: "When scans run" });
+    const field = panel.locator(".ui-timefield");
+    await field.scrollIntoViewIfNeeded();
+    const pageScroll = () => page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>("*")]
+        .filter((each) => !each.closest("[role=listbox]"))
+        .reduce((sum, each) => sum + each.scrollTop, window.scrollY));
+    const before = await pageScroll();
+
+    await panel.getByRole("button", { name: msg("shared-time-field-choose") }).click();
+    const times = page.getByRole("listbox", { name: msg("shared-time-field-times") });
+    await expect(times).toBeVisible();
+    await expect(field).toHaveCSS("outline-style", "none");
+    expect(await pageScroll()).toBe(before);
+
+    // Nothing is set yet: the list opens around the morning, 8:00 in view.
+    const eight = times.getByRole("option", { name: /^8:00 AM/ });
+    await expect(eight).toBeInViewport();
+    await times.getByRole("option", { name: /^7:30 AM/ }).click();
+    await expect.poll(() => writes.length).toBe(1);
+    expect(writes[0]).toEqual({ ready_by_minute: 7 * 60 + 30 });
+    await expect(times).toBeHidden();
   });
 });
 

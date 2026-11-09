@@ -1,0 +1,119 @@
+/* TimeField: the typed time, the button that opens the list of times, and the
+   list. Unframed it sits in a row that is the control and draws the edge
+   (the schedule's inspectors); framed it draws its own. */
+.ui-timefield {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--app-space-1);
+}
+.ui-timefield input[type="time"] {
+  padding: 2px var(--app-space-1);
+  border: 0;
+  background: transparent;
+  color: var(--app-text);
+  color-scheme: dark;
+  font-family: var(--app-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+[data-theme="light"] .ui-timefield input[type="time"] { color-scheme: light; }
+/* The button beside the field opens the list, so the browser's own picker
+   would be a second, differently drawn way to the same choice. */
+.ui-timefield input[type="time"]::-webkit-calendar-picker-indicator {
+  display: none;
+}
+
+/* Framed: the field the user sees is this wrapper, which also holds the list
+   button. So the one ring is drawn on its edge while the time is typed,
+   never inside it as a second line. */
+.ui-timefield-framed {
+  min-height: var(--app-control-sm);
+  padding: 0 1px 0 var(--app-space-2);
+  border: 1px solid var(--app-border-control);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface-sunken);
+  font-size: var(--app-type-body);
+}
+.ui-timefield-framed input[type="time"] { outline: none; }
+.ui-timefield-framed:has(> input:focus) {
+  outline: var(--app-ring-width) solid var(--app-action);
+  outline-offset: calc(-1 * var(--app-ring-offset));
+}
+/* While the list is open the field takes the edge of an open picker
+   (ui/FilterSelect.css), not the ring: the focus is in the list. */
+.ui-timefield-framed:has(> [aria-expanded="true"]) {
+  border-color: var(--app-chosen-line);
+  background: var(--app-chosen-wash);
+}
+/* The field, or the row around it, carries that edge, so the icon button
+   inside draws no second one. */
+.ui-timefield .ui-timefield-choose[aria-expanded="true"] {
+  border-color: transparent;
+  background: transparent;
+  color: var(--app-text);
+}
+.ui-timefield-framed input[type="time"]:disabled { color: var(--app-text-faint); }
+
+.ui-timefield-list {
+  /* The offset parent of its times, which is how it scrolls one into view. */
+  position: relative;
+  min-width: 200px;
+  max-height: 288px;
+  padding: var(--app-space-1);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+/* The list holds focus while the arrows move through it; the time they are
+   on wears the ring instead (below), so the list itself draws none. */
+.ui-timefield-list:focus-visible { outline: none; }
+
+/* A time is a row of FilterSelect's list: muted ink, the hover fill, and the
+   chosen time marked by a tick and the gold name (docs/ui.md "Two states"). */
+.ui-timefield-option {
+  display: flex;
+  align-items: baseline;
+  gap: var(--app-space-2);
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font: inherit;
+  font-size: var(--app-type-body);
+  text-align: left;
+  cursor: pointer;
+}
+.ui-timefield-option:hover {
+  background: var(--app-surface-hover);
+  color: var(--app-text);
+}
+/* The time the keyboard is on, which Enter picks. Only for the keyboard: a
+   pointer's place is the hover fill. */
+.ui-timefield-list:focus-visible .ui-timefield-option[data-cursor] {
+  background: var(--app-surface-hover);
+  color: var(--app-text);
+  outline: var(--app-ring-width) solid var(--app-action);
+  outline-offset: calc(-1 * var(--app-ring-offset));
+}
+.ui-timefield-option[aria-selected="true"] { color: var(--app-chosen-text); }
+.ui-timefield-mark {
+  display: inline-flex;
+  align-self: center;
+  flex: none;
+  width: 14px;
+  justify-content: center;
+  color: var(--app-chosen-mark);
+}
+.ui-timefield-clock {
+  font-family: var(--app-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.ui-timefield-hint {
+  margin-left: auto;
+  padding-left: var(--app-space-3);
+  color: var(--app-text-faint);
+  font-size: var(--app-type-meta);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
