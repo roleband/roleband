@@ -12,13 +12,25 @@ ai-aim-line-cancel = Cancel
 # kind=button wording=as-is
 ai-aim-line-save = Save
 # kind=status
-ai-aim-line-open-roles-ranked-by-how = { $total } open roles, ranked by how well they fit
+ai-aim-line-open-roles-ranked-by-how = { $total ->
+    [one] { $total } open role, ranked by how well it fits
+   *[other] { $total } open roles, ranked by how well they fit
+}
 # kind=status
-ai-aim-line-open-roles-ranked-by-what = { $total } open roles, ranked by what you save and mark Not for me
+ai-aim-line-open-roles-ranked-by-what = { $total ->
+    [one] { $total } open role, ranked by what you save and mark Not for me
+   *[other] { $total } open roles, ranked by what you save and mark Not for me
+}
 # kind=sentence
-ai-aim-line-open-roles-sorted-by-date = { $total } open roles, sorted by date. Your aim { $q } ranks them once ranking is ready.
-# kind=label wording=as-is
-ai-aim-line-open-roles-sorted-by-date-2 = { $total } open roles, sorted by date
+ai-aim-line-open-roles-sorted-by-date = { $total ->
+    [one] { $total } open role, sorted by date. Your aim { $q } ranks it once ranking is ready.
+   *[other] { $total } open roles, sorted by date. Your aim { $q } ranks them once ranking is ready.
+}
+# kind=status
+ai-aim-line-open-roles-sorted-by-date-2 = { $total ->
+    [one] { $total } open role, sorted by date
+   *[other] { $total } open roles, sorted by date
+}
 # kind=aria wording=as-is
 ai-aim-line-your-aim = Your aim
 # kind=tooltip note="The aim field's placeholder: an aim anyone could write, at any level"
@@ -193,7 +205,7 @@ ai-capabilities-card-nothing-is-sent = { $choice ->
 }
 # kind=status note="The Send postings row's sub-line, by the switch's state"
 ai-capabilities-card-off-nothing-is-sent = { $choice ->
-    [yes] on · added providers receive postings
+    [yes] on · providers you turn on receive postings
    *[no] off · nothing is sent
 }
 # kind=status
@@ -485,10 +497,16 @@ ai-matching-model-stop-and-go-back-to-2 = { $choice ->
 }
 # kind=label wording=as-is
 ai-matching-model-other-model = other model
-# kind=label wording=as-is
+# kind=status
 ai-matching-model-roles-ranked = { $choice ->
-    [yes] { $value } of { $corpus_total } roles updated
-   *[no] { $corpus_embedded } roles ranked
+    [yes] { $corpus_total ->
+        [one] { $value } of { $corpus_total } role updated
+       *[other] { $value } of { $corpus_total } roles updated
+    }
+   *[no] { $corpus_embedded ->
+        [one] { $corpus_embedded } role ranked
+       *[other] { $corpus_embedded } roles ranked
+    }
 }
 # kind=sentence wording=as-is
 ai-matching-model-the-big-model-produces-better = The big model produces better results.

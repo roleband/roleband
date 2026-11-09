@@ -314,7 +314,6 @@ companies-follow-copy-follow-all-in = ¿Seguir las { $count } { $count ->
 companies-follow-copy-this-will-likely-add-to = Esto probablemente añadirá { $estimate } a tu radar y hará cada escaneo más largo. Puedes dejar de seguir cualquier empresa más tarde.
 companies-follow-copy-cancel = Cancelar
 companies-follow-copy-follow = ¿Seguir a { $display }?
-companies-follow-copy-by-following-you-choose-to = Al seguir a { $display }, eliges recoger sus ofertas públicas. Deja de seguirla cuando quieras para detener la recogida.
 companies-follow-copy-follow-company = Seguir a { $display }
 companies-follow-copy-scan-about-more-companies = ¿Escanear unas { $about } empresas más?
 companies-follow-copy-only-companies-hiring-for-roles = Solo las empresas que contratan para puestos de tu radar entran en tu lista de seguidas. El resto no se muestra.

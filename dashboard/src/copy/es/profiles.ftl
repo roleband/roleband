@@ -323,7 +323,7 @@ profiles-level-base-bonus = { $choice ->
    *[unknown] Desconocido
 }
 profiles-level-base-below-lower = Bajo el nivel inferior
-profiles-level-base-unknown = No se sabe
+profiles-level-base-unknown = Desconocido
 profiles-level-base-no-stock = Sin acciones
 profiles-level-base-none = Aún no hay salarios base para los niveles de ingeniería de software de esta empresa.
 profiles-benefits-estimate = { $value }/año, estimado

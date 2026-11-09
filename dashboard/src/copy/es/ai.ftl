@@ -6,9 +6,21 @@ ai-aim-line-roles-closest-to-it-come = Los { -role(num: "other") } más cercanos
 ai-aim-line-couldn-t-save-your-aim = No se pudo guardar tu objetivo. Inténtalo de nuevo.
 ai-aim-line-cancel = Cancelar
 ai-aim-line-save = Guardar
-ai-aim-line-open-roles-ranked-by-how = { $total } { -role(num: "other") } abiertos, ordenados por lo bien que encajan
-ai-aim-line-open-roles-ranked-by-what = { $total } { -role(num: "other") } abiertos, ordenados según lo que guardas y marcas como No es para mí
-ai-aim-line-open-roles-sorted-by-date = { $total } { -role(num: "other") } abiertos, ordenados por fecha. Tu objetivo { $q } los ordenará cuando la clasificación esté lista.
+ai-aim-line-open-roles-ranked-by-how = { $total ->
+    [one] { $total } { -role(num: "one") } abierto, ordenado por lo bien que encaja
+    [many] { $total } de { -role(num: "other") } abiertos, ordenados por lo bien que encajan
+   *[other] { $total } { -role(num: "other") } abiertos, ordenados por lo bien que encajan
+}
+ai-aim-line-open-roles-ranked-by-what = { $total ->
+    [one] { $total } { -role(num: "one") } abierto, ordenado según lo que guardas y marcas como No es para mí
+    [many] { $total } de { -role(num: "other") } abiertos, ordenados según lo que guardas y marcas como No es para mí
+   *[other] { $total } { -role(num: "other") } abiertos, ordenados según lo que guardas y marcas como No es para mí
+}
+ai-aim-line-open-roles-sorted-by-date = { $total ->
+    [one] { $total } { -role(num: "one") } abierto, ordenado por fecha. Tu objetivo { $q } lo ordenará cuando la clasificación esté lista.
+    [many] { $total } de { -role(num: "other") } abiertos, ordenados por fecha. Tu objetivo { $q } los ordenará cuando la clasificación esté lista.
+   *[other] { $total } { -role(num: "other") } abiertos, ordenados por fecha. Tu objetivo { $q } los ordenará cuando la clasificación esté lista.
+}
 ai-aim-line-open-roles-sorted-by-date-2 = { $total ->
     [one] { $total } { -role(num: "one") } abierto, por fecha
     [many] { $total } de { -role(num: "other") } abiertos, por fecha
@@ -118,7 +130,7 @@ ai-capabilities-card-nothing-is-sent = { $choice ->
    *[no] no se envía nada
 }
 ai-capabilities-card-off-nothing-is-sent = { $choice ->
-    [yes] activado · los proveedores añadidos reciben las { -posting(num: "other") }
+    [yes] activado · los proveedores que actives reciben las { -posting(num: "other") }
    *[no] desactivado · no se envía nada
 }
 ai-capabilities-card-no-pay-range-found = { $choice ->

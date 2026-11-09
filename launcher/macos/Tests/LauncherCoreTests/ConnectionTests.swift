@@ -302,3 +302,17 @@ private func scanCases() throws -> [[String: Any]] {
     #expect(!LauncherCopy.appCarriesCatalogs(installed))
     #expect(LauncherCopy.load("es", from: nil) == nil)
 }
+
+@Test func aSourceInstallIsToldToRunSetupWhileTheAppsOwnUpdateFinishesByItself() throws {
+    let cases = try fixture()["cases"] as! [[String: Any]]
+    for name in ["schema_pending", "dependencies_pending"] {
+        let wireCase = try #require(cases.first { ($0["wire"] as? [String: Any]).flatMap { ($0["hold"] as? [String: Any])?["reason"] as? String } == name })
+        let status = try StatusClient.decode(wire(wireCase["wire"] as! [String: Any]), status: 200, installation: registration())
+        #expect(status.presentation.reasonKey(source: true) == "reason-setup-source", "\(name)")
+        #expect(status.presentation.reasonKey(source: false) == "reason-setup", "\(name)")
+    }
+    var other = try #require(cases.first)["wire"] as! [String: Any]
+    other["hold"] = ["kind": "waiting", "reason": "waiting_for_mains"]
+    let status = try StatusClient.decode(wire(other), status: 200, installation: registration())
+    #expect(status.presentation.reasonKey(source: true) == "reason-power")
+}

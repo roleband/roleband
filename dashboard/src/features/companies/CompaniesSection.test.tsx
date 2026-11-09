@@ -892,7 +892,7 @@ describe("CompaniesSection — tracking", () => {
   it("keeps opportunity visibility independent from tracking, and offers it only when tracked", async () => {
     renderSection();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Hide Google from your radar" }));
+    fireEvent.click(await screen.findByRole("button", { name: msg("companies-company-register-rows-show-or-hide-on-radar", { visibility: "shown", company: "Google" }) }));
     await waitFor(() =>
       expect(api.updateCompany).toHaveBeenCalledWith("google", { visible: false }),
     );
@@ -910,9 +910,9 @@ describe("CompaniesSection — tracking", () => {
        with Undo, like its row-neighbour. */
     renderSection();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Hide Google from your radar" }));
+    fireEvent.click(await screen.findByRole("button", { name: msg("companies-company-register-rows-show-or-hide-on-radar", { visibility: "shown", company: "Google" }) }));
     expect(
-      await screen.findByText("Google hidden from your radar."),
+      await screen.findByText(msg("companies-data-visibility-changed", { visibility: "hidden", company: "Google" })),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Undo" }));
@@ -921,7 +921,7 @@ describe("CompaniesSection — tracking", () => {
     );
     // The row reads the write back, so the eye offers to hide it again.
     expect(
-      await screen.findByRole("button", { name: "Hide Google from your radar" }),
+      await screen.findByRole("button", { name: msg("companies-company-register-rows-show-or-hide-on-radar", { visibility: "shown", company: "Google" }) }),
     ).toBeInTheDocument();
   });
 
@@ -931,16 +931,16 @@ describe("CompaniesSection — tracking", () => {
     );
     renderSection();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Hide Google from your radar" }));
+    fireEvent.click(await screen.findByRole("button", { name: msg("companies-company-register-rows-show-or-hide-on-radar", { visibility: "shown", company: "Google" }) }));
 
     // The row is named, then why, from the failure's code: a bare detail says
     // nothing about WHICH row just failed.
-    expect(await screen.findByText(/Couldn't hide Google from your radar\./)).toBeInTheDocument();
+    expect(await screen.findByText(msg("companies-data-visibility-failed", { visibility: "hidden", company: "Google" }), { exact: false })).toBeInTheDocument();
     expect(screen.getByText(new RegExp(msg("error-offline").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))).toBeInTheDocument();
     expect(screen.queryByText(/Failed to fetch/)).not.toBeInTheDocument();
     // Still shown: a failed write must not leave the row claiming it is hidden.
     expect(
-      screen.getByRole("button", { name: "Hide Google from your radar" }),
+      screen.getByRole("button", { name: msg("companies-company-register-rows-show-or-hide-on-radar", { visibility: "shown", company: "Google" }) }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
   });

@@ -504,7 +504,7 @@ role-place-set-section-you-marked-this-posting-as = You marked this posting as a
 # kind=button wording=as-is
 role-place-set-section-undo = Undo
 # kind=sentence
-role-place-set-section-same-title-and-the-same = Same title and description at each place, apart from local details such as compensation, benefits or legal text, so it counts as one role.
+role-place-set-section-same-title-and-the-same = Same title and description at each place, apart from local details such as compensation, benefits or legal text, or a few reworded words, so it counts as one role.
 # kind=button wording=as-is
 role-place-set-section-different-roles = Different roles
 # kind=label wording=as-is

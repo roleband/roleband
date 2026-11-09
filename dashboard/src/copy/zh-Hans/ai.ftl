@@ -114,7 +114,7 @@ ai-capabilities-card-nothing-is-sent = { $choice ->
    *[no] 不发送任何内容
 }
 ai-capabilities-card-off-nothing-is-sent = { $choice ->
-    [yes] 开启 · 已添加的提供商会收到{ -posting(num: "other") }
+    [yes] 开启 · 你开启的提供商会收到{ -posting(num: "other") }
    *[no] 关闭 · 不发送任何内容
 }
 ai-capabilities-card-no-pay-range-found = { $choice ->

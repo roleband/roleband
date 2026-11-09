@@ -305,6 +305,14 @@ describe("ranking card", () => {
       await userEvent.click(within(card).getByRole("button", { name: "Add your aim" }));
       expect(within(card).getByLabelText("Your aim, in one sentence")).toHaveValue("");
     });
+
+    it("counts one open role in the singular, ranked or by date", async () => {
+      mocked.intelligenceFit.mockResolvedValue({ ...fit, total: 1, ranked: false, intent_statement: null, bins: [], bands: [] });
+      mount();
+      const card = await screen.findByRole("region", { name: "Fit ranking" });
+      expect(await within(card).findByText(msg("ai-aim-line-open-roles-sorted-by-date-2", { total: 1 }))).toBeInTheDocument();
+      expect(within(card).getByText(/^1 open role, sorted by date$/)).toBeInTheDocument();
+    });
   });
 
   it("an empty band says so instead of showing someone else's roles", async () => {
@@ -1213,6 +1221,8 @@ describe("capabilities card", () => {
       expect(
         await within(card).findByRole("button", { name: msg("ai-capabilities-card-start", { choice: "v2" }) }),
       ).toBeEnabled();
+      // The row now says the server runs; the "still starting" line goes with the recheck.
+      expect(within(card).queryByText(msg("ai-local-server-start-pending"))).toBeNull();
     });
 
     it("a slow start's second look is dropped when the card closes first", async () => {

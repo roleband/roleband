@@ -193,10 +193,10 @@ it("compresses the facts the roles agree on into one Same cell, and a run into o
   expect(screen.getAllByText("Same").length).toBeGreaterThan(0);
   // Status is stored lowercase and read as a word (CSS capitalizes it).
   expect(screen.queryAllByText("open")).toHaveLength(0);
-  const show = screen.getByRole("button", { name: /Show \d+ identical fields?/ });
+  const show = screen.getByRole("button", { name: msg("compare-screen-show-or-hide-matching-fields", { fields: "folded", count: 8 }) });
   await userEvent.setup().click(show);
   expect(screen.getByText("open")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /Hide \d+ identical fields?/ })).toHaveAttribute("aria-expanded", "true");
+  expect(screen.getByRole("button", { name: msg("compare-screen-show-or-hide-matching-fields", { fields: "open", count: 8 }) })).toHaveAttribute("aria-expanded", "true");
 });
 
 it("carries the row's verbs on each column: Save writes the star, Not for me hides and leaves", async () => {

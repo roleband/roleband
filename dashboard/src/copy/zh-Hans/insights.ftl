@@ -86,7 +86,7 @@ insights-demand-more-hold = { $share ->
 }
 insights-demand-show-all = 显示全部 { $company }
 insights-demand-open-roles-by-region = 各地区在招职位
-insights-demand-a-role-open-in-several = 在多个地区招聘的职位在每个地区各计一次。只写了地区的职位（如“远程 EMEA”）只在该地区计一次。
+insights-demand-a-role-open-in-several = 在多个地区招聘的职位在每个地区各计一次。只写了地区的职位（如“远程 EMEA”）只在该地区计一次，从不计入其下的国家。
 insights-demand-no-open-roles-yet = 暂无在招职位。
 insights-demand-all-of = { $region } 全部
 insights-demand-and-more-countries = { $more ->

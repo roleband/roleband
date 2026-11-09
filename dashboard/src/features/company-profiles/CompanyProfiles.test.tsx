@@ -361,7 +361,7 @@ describe("CompanyProfilePanel", () => {
     const empty = await screen.findByTestId("price-empty");
     // The ghost holds the chart's place, as decoration only.
     expect(empty.querySelector(".ui-empty-ghost-chart")).toHaveAttribute("aria-hidden", "true");
-    expect(empty).toHaveTextContent(/Stock prices come from Tiingo\./);
+    expect(empty).toHaveTextContent(msg("profiles-stock-price-panel-needs-key", { key: msg("shared-price-feed-get-key") }));
     const key = within(empty).getByRole("link", { name: msg("shared-price-feed-get-key") });
     expect(key).toHaveAttribute("href", "https://www.tiingo.com/account/api/token");
     expect(key).toHaveAttribute("target", "_blank");
@@ -725,7 +725,7 @@ describe("CompanyProfilePanel", () => {
     mock(base());
     render(<CompanyProfilePanel slug="google" />);
     expect(await screen.findByText(PLUGIN_ATTRIBUTION)).toBeInTheDocument();
-    expect(screen.getByText(/named at the bottom/)).toBeInTheDocument();
+    expect(screen.getByText(msg("profiles-company-profile-panel-values-come-from-the-source"))).toBeInTheDocument();
   });
 
   it("credits nothing when only RoleBand's own data answers", async () => {
@@ -735,7 +735,7 @@ describe("CompanyProfilePanel", () => {
     // (The price panel's own credit is a separate line, for its own source.)
     expect(screen.queryByText(/Data source/)).toBeNull();
     // Nor a sentence pointing at a credit that is not there.
-    expect(screen.queryByText(/named at the bottom/)).toBeNull();
+    expect(screen.queryByText(msg("profiles-company-profile-panel-values-come-from-the-source"))).toBeNull();
   });
 });
 

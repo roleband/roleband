@@ -10,6 +10,7 @@
   "incorrect": "无法读取响应",
   "reason-supervisor": "后台服务未运行。服务恢复后会继续扫描。",
   "reason-setup": "正在完成更新。完成后会立即继续扫描。",
+  "reason-setup-source": "在你的源代码文件夹中运行 ./setup.sh 以完成更新。",
   "reason-build": "无法重新构建页面。打开启动器查看更新情况。",
   "reason-checks": "扫描暂停，直到此版本通过检查。打开启动器查看。",
   "reason-model": "本地排序模型尚未就绪。打开设置完成准备。",

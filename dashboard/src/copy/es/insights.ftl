@@ -39,7 +39,7 @@ insights-comp-trend-chart-median-total-pay = Mediana de la compensación total e
         [single] { " " }con dispersión p25–p75
        *[several] { "" }
     } · { $period ->
-        [all] desde siempre
+        [all] todo el periodo
        *[days] últimos { $days } d
     }
 insights-comp-trend-chart-history-is-still-accruing-one = Aún no hay suficiente historial. La línea se completa tras unos días de escaneos.
@@ -96,7 +96,7 @@ insights-demand-more-hold = { $share ->
 }
 insights-demand-show-all = Mostrar todas ({ $company })
 insights-demand-open-roles-by-region = Puestos abiertos por región
-insights-demand-a-role-open-in-several = Un puesto abierto en varias regiones cuenta en cada una. Uno que solo indica una región, como Remoto EMEA, cuenta una vez para esa región.
+insights-demand-a-role-open-in-several = Un puesto abierto en varias regiones cuenta en cada una. Uno que solo indica una región, como Remoto EMEA, cuenta una vez para esa región y nunca en sus países.
 insights-demand-no-open-roles-yet = Aún no hay puestos abiertos.
 insights-demand-all-of = Todo { $region }
 insights-demand-and-more-countries = { $more ->
@@ -261,7 +261,7 @@ insights-skills-view-load-failed = No se pudieron cargar las habilidades
 
 ## features/statistics/StatisticsView.tsx
 insights-statistics-view-window = Intervalo de tiempo
-insights-statistics-view-all-time = Desde siempre
+insights-statistics-view-all-time = Todo el periodo
 insights-statistics-view-statistics-sections = Secciones de análisis
 insights-statistics-view-discipline = Disciplina
 insights-statistics-view-advanced-view = Vista avanzada
@@ -583,11 +583,11 @@ insights-common-by-company = Por empresa
 insights-common-all-companies = Todas las empresas
 insights-common-distinct-skills = { $count } habilidades distintas
 insights-common-last-days-or-all-time = { $period ->
-    [all] desde siempre
+    [all] todo el periodo
    *[days] últimos { $days } d
 }
 insights-common-last-days-or-all-history = { $period ->
-    [all] desde siempre
+    [all] todo el periodo
    *[days] últimos { $days } d
 }
 
@@ -617,7 +617,7 @@ insights-aging-from-90-days = 3 meses o más
 ## El resumen de una línea de la vista general
 insights-brief-open = { $open } puestos abiertos en { $companies } empresas.
 insights-brief-opened = { $allTime ->
-    [yes] { $opened } nuevos, { $closed } cerrados, desde siempre.
+    [yes] { $opened } nuevos, { $closed } cerrados, en todo el periodo.
    *[no] { $opened } nuevos en { $days } d, { $closed } cerrados.
 }
 insights-brief-top-skill = Habilidad principal: { $skill } ({ $count } puestos).

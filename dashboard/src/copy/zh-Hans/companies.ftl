@@ -266,7 +266,6 @@ companies-follow-copy-follow-all-in = 关注 { $sector } 中的全部 { $count }
 companies-follow-copy-this-will-likely-add-to = 这可能会为你的雷达增加{ $estimate }，并让每次扫描变长。你之后可以取消关注任何公司。
 companies-follow-copy-cancel = 取消
 companies-follow-copy-follow = 关注 { $display }？
-companies-follow-copy-by-following-you-choose-to = 关注 { $display } 即表示你选择收集它的公开招聘信息。随时取消关注即可停止。
 companies-follow-copy-follow-company = 关注 { $display }
 companies-follow-copy-scan-about-more-companies = 再扫描约 { $about } 家公司？
 companies-follow-copy-only-companies-hiring-for-roles = 只有正在招聘你雷达上职位的公司才会加入你的关注列表，其余公司不会显示。

@@ -201,7 +201,13 @@ export function CapabilitiesCard({
       if (next.action_timed_out && action === "start") {
         setError(aiLocalServerStartPending());
         if (recheck.current !== null) window.clearTimeout(recheck.current);
-        recheck.current = window.setTimeout(() => void loadServer(), SLOW_START_RECHECK_MS);
+        recheck.current = window.setTimeout(() => {
+          recheck.current = null;
+          // The row shows the state the probe finds; a newer error stays.
+          const pending = aiLocalServerStartPending();
+          setError((current) => (current === pending ? null : current));
+          void loadServer();
+        }, SLOW_START_RECHECK_MS);
       } else if (next.action_ok === false) setError(aiLocalServerActionFailed({ action }));
     } catch (e) {
       setError(errorText(e));

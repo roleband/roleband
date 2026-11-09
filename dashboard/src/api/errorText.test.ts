@@ -74,7 +74,7 @@ describe("errorText", () => {
 
   it("a scheduling refusal with no company names names this company, never an empty list", () => {
     for (const error of [new ApiError("paused", 409, "scheduling-unavailable", {}), new ApiError("paused", 409, "scheduling-unavailable", { companies: [] })]) {
-      expect(errorText(error)).toBe("Scanning is paused or turned off for this company.");
+      expect(errorText(error)).toBe(msg("error-scheduling-unavailable-unnamed"));
     }
     expect(errorText(new ApiError("paused", 409, "scheduling-unavailable", { companies: ["openai"] }))).not.toMatch(/this company/);
   });

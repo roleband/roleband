@@ -10,6 +10,7 @@
   "incorrect": "No se pudo leer la respuesta",
   "reason-supervisor": "El servicio en segundo plano no está en marcha. El escaneo se reanuda cuando vuelva.",
   "reason-setup": "Se está completando una actualización. El escaneo se reanuda justo después.",
+  "reason-setup-source": "Ejecuta ./setup.sh en tu carpeta de código para terminar la actualización.",
   "reason-build": "No se pudo reconstruir la página. Abre el lanzador para revisar la actualización.",
   "reason-checks": "En espera hasta que esta versión supere sus comprobaciones. Abre el lanzador para revisarla.",
   "reason-model": "El modelo local de clasificación no está listo. Abre Ajustes para terminar de prepararlo.",
