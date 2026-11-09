@@ -45,22 +45,30 @@ def handoff_path(data: Path, pid: int) -> Path:
     return data / "launcher" / f"api-listener-{pid}.bin"
 
 
+def request_path(data: Path, pid: int) -> Path:
+    """Where the API process `pid` asks for the socket. A virtualenv's python.exe and the interpreter it
+    starts share one command line; only the process that will serve asks."""
+    return data / "launcher" / f"api-listener-{pid}.request"
+
+
 def hand_over(listener: socket.socket, data: Path, pid: int) -> None:
-    """Share the supervisor's socket with the API process `pid` (Windows)."""
+    """Share the supervisor's socket with the API process `pid`, which asked for it (Windows)."""
     if sys.platform != "win32":
         raise OSError("socket handover requires Windows")
     from tracker.platform.windows_fs import publish
 
     publish(handoff_path(data, pid), listener.share(pid))
+    request_path(data, pid).unlink(missing_ok=True)
 
 
 def _received(data: Path, host: str, port: int) -> socket.socket:
     """The supervisor's socket, once it has been handed to this process."""
     if sys.platform != "win32":
         raise OSError("socket handover requires Windows")
-    from tracker.platform.windows_fs import read_private
+    from tracker.platform.windows_fs import publish, read_private
 
     path = handoff_path(data, os.getpid())
+    publish(request_path(data, os.getpid()), b"")
     deadline = time.monotonic() + HANDOFF_SECONDS
     while not path.exists():
         if time.monotonic() > deadline:

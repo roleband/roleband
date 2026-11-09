@@ -27,7 +27,8 @@ socket binds only 127.0.0.1. Windows startup refuses authenticated mode outside
 the exclusive-socket entry point. Because an engine's hostname outlives its API
 processes, the supervisor binds that socket once and holds it for the engine's
 life, handing each API process a duplicate (`socket.share`) through a one-time
-file in the account-private launcher directory. The port is never free while
+file in the account-private launcher directory, once the process has asked for it
+there under its own process ID and is one of the processes the supervisor started. The port is never free while
 the tabs' origin is the engine's, so no other account's listener can answer at
 that origin between API processes and read a tab's stored browser key. Discovery records the actual origin and control key in
 launcher/http-engine.json. Native clients check its ownership and ACLs, connect

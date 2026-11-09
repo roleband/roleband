@@ -15,7 +15,6 @@ import logging
 import socket
 import subprocess
 import sys
-import time
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
@@ -140,18 +139,19 @@ class ApiService:
         logger.info("api started (pid %s) on %s:%s", self.process.pid, self.host, self.port)
 
     async def _hand_over(self, process: subprocess.Popen) -> None:
-        """Give the held socket to the API process, which runs under the Windows trampoline `process` started."""
-        from tracker.supervisor.http_server import HANDOFF_SECONDS, hand_over
+        """Give the held socket to the API process, which runs under the Windows trampoline `process` started.
 
-        deadline = time.monotonic() + HANDOFF_SECONDS
-        while process.poll() is None and time.monotonic() < deadline:
-            pid = _api_process(process.pid)
+        It waits as long as the trampoline lives: `stop` cancels it, and an API that never asks is never healthy.
+        """
+        from tracker.supervisor.http_server import hand_over
+
+        while process.poll() is None:
+            pid = _requesting(process.pid, self.data_dir)
             if pid is not None and self._listener is not None:
                 hand_over(self._listener, self.data_dir, pid)
                 self._handed_to = pid
                 return
             await asyncio.sleep(0.05)
-        logger.error("the api process did not appear; its socket was not handed over")
 
     def close(self) -> None:
         """Release the held socket once no API will run again; `stop` first."""
@@ -225,6 +225,10 @@ class ApiService:
 
             # Only that process could use it; one that died before reading it leaves nothing behind.
             handoff_path(self.data_dir, handed_to).unlink(missing_ok=True)
+        if self.shares_listener:
+            # One API process runs at a time, so any request left is from one that is ending.
+            for request in (self.data_dir / "launcher").glob("api-listener-*.request"):
+                request.unlink(missing_ok=True)
         if process is None:
             return
         if process.poll() is None:
@@ -250,20 +254,14 @@ class ApiService:
         )
 
 
-def _api_process(trampoline: int) -> int | None:
-    """The process running the API server under `trampoline`. A virtualenv's python.exe starts the real
-    interpreter as its own child with the same command line, so the innermost match is the one."""
+def _requesting(trampoline: int, data: Path) -> int | None:
+    """The process under `trampoline` that has asked for the socket, if one has."""
     import psutil
 
+    from tracker.supervisor.http_server import request_path
+
     try:
-        candidates = [
-            process for process in psutil.Process(trampoline).children(recursive=True)
-            if "tracker.supervisor.http_server" in process.cmdline()
-        ]
-        innermost = [
-            process for process in candidates
-            if not any(other.ppid() == process.pid for other in candidates)
-        ]
+        descendants = psutil.Process(trampoline).children(recursive=True)
     except psutil.Error:
         return None
-    return innermost[0].pid if len(innermost) == 1 else None
+    return next((process.pid for process in descendants if request_path(data, process.pid).exists()), None)
