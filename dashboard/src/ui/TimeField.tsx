@@ -197,8 +197,15 @@ export function TimeField({
           aria-label={sharedTimeFieldChoose()}
           aria-haspopup="listbox"
           aria-expanded={open}
-          disabled={saving}
-          onClick={() => (open ? setOpen(false) : openList())}
+          // Not `disabled`: a keyboard pick starts the save in the same
+          // render that closes the list, and focus goes back to this button,
+          // which a disabled button would refuse.
+          aria-disabled={saving || undefined}
+          onClick={() => {
+            if (saving) return;
+            if (open) setOpen(false);
+            else openList();
+          }}
         >
           <Icon name="chevronDown" size={14} />
         </Button>

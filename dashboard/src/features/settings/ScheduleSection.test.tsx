@@ -968,6 +968,9 @@ describe("ScheduleSection under the schedule plan", () => {
     fireEvent.keyDown(times, { key: "Enter" });
     await waitFor(() => expect(api.updateSchedulePlan).toHaveBeenCalledWith({ ready_by_minute: 510 }));
     expect(api.updateSchedulePlan).toHaveBeenCalledTimes(1);
+    // The save starts as the list closes, and the keyboard still lands back
+    // on the button.
+    expect(choose).toHaveFocus();
   });
 
   it("turns a scan day off, and never the last one", async () => {

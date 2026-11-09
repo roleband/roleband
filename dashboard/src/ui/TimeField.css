@@ -73,8 +73,8 @@
   align-items: baseline;
   gap: var(--app-space-2);
   width: 100%;
-  min-height: 32px;
-  padding: 6px 8px;
+  min-height: var(--app-control-md);
+  padding: var(--app-space-1) var(--app-control-md-pad);
   border: 0;
   border-radius: var(--app-radius-sm);
   background: transparent;
