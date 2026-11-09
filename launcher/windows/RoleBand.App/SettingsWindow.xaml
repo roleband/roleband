@@ -50,6 +50,7 @@
               <ProgressRing x:Name="UpdateBusy" Width="16" Height="16" IsActive="False" Visibility="Collapsed" />
               <Button x:Name="UpdateButton" Style="{StaticResource AccentButtonStyle}" Visibility="Collapsed"
                       AutomationProperties.AutomationId="UpdateNow" />
+              <Button x:Name="CancelUpdateButton" Visibility="Collapsed" AutomationProperties.AutomationId="CancelUpdate" />
               <Button x:Name="CheckButton" AutomationProperties.AutomationId="CheckNow" />
             </StackPanel>
           </Grid>

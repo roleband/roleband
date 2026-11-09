@@ -52,7 +52,17 @@ running version's and the one an unfinished update returns to are kept; older on
 releases that can be downloaded again. While the update journal cannot be read, none is removed.
 Windows keeps no copy of an installed package, so before the first update's package the
 download keeps the running version's own published release, verified the same way; if that
-fails, the update is not downloaded.
+fails, the update is not downloaded. A kept package that no longer matches its signed digest
+is downloaded again rather than refused for ever.
+
+Before fetching anything, the download checks for free space: each package it still needs,
+counted at the update's size until its own is known, Windows' copy of the update while it
+installs, and a margin. Without it the answer is `space` with the bytes needed, and nothing is
+fetched. A failure names its kind: `space` for a full disk, `offline` for a connection that
+ended (the partial file stays and the next attempt resumes it), `check` for a package that is
+not the signed release, and `download` otherwise. While it runs, the command writes the bytes
+received and the total as JSON lines on stderr; its answer stays the one JSON object on
+stdout. Cancel ends the command and every process it started, and keeps the partial file.
 
 ## Consequences
 

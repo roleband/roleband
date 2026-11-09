@@ -25,7 +25,7 @@ public sealed partial class SettingsWindow : Window
     private readonly NativeCopy copy;
     private bool rendering;
 
-    public event Action? Restart, Undo, OpenLogs, OpenHistory, CheckUpdates, UpdateNow, OpenStartupApps, OpenLicences;
+    public event Action? Restart, Undo, OpenLogs, OpenHistory, CheckUpdates, UpdateNow, CancelUpdate, OpenStartupApps, OpenLicences;
     public event Action<bool>? AutomaticChanged, LoginChanged;
     public event Action<BrowserRoute>? Open;
 
@@ -79,6 +79,8 @@ public sealed partial class SettingsWindow : Window
         LogsLink.Click += (_, _) => OpenLogs?.Invoke();
         CheckButton.Click += (_, _) => CheckUpdates?.Invoke();
         UpdateButton.Click += (_, _) => UpdateNow?.Invoke();
+        CancelUpdateButton.Content = copy["update-cancel"];
+        CancelUpdateButton.Click += (_, _) => CancelUpdate?.Invoke();
         AutomaticSwitch.Toggled += (_, _) => { if (!rendering) AutomaticChanged?.Invoke(AutomaticSwitch.IsOn); };
         LoginSwitch.Toggled += (_, _) => { if (!rendering) LoginChanged?.Invoke(LoginSwitch.IsOn); };
         StartupAppsLink.Click += (_, _) => OpenStartupApps?.Invoke();
@@ -121,6 +123,10 @@ public sealed partial class SettingsWindow : Window
             UpdateBusy.Visibility = update.Busy ? Visibility.Visible : Visibility.Collapsed;
             UpdateButton.Content = update.Action ?? "";
             UpdateButton.Visibility = update.Action is null ? Visibility.Collapsed : Visibility.Visible;
+            var help = update.HelpKey is { } helpKey ? copy[helpKey] : null;
+            ToolTipService.SetToolTip(UpdateButton, help);
+            AutomationProperties.SetHelpText(UpdateButton, help ?? "");
+            CancelUpdateButton.Visibility = update.Cancel ? Visibility.Visible : Visibility.Collapsed;
             var available = update.Kind != UpdateRowKind.Unavailable;
             CheckButton.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
             CheckButton.IsEnabled = update.CanCheck;

@@ -182,6 +182,31 @@ def test_a_retained_package_that_changed_is_no_longer_a_way_back(state, identity
     assert retained(state, identity) == []
 
 
+def test_a_kept_package_that_changed_is_fetched_again_instead_of_failing_every_time(state, identity, server):
+    offer, signed = server.release("0.1.3")
+    path = download(state, identity, offer, signed, "0.1.2", transport=server.transport)
+    path.write_bytes(path.read_bytes()[:-1] + b"\0")
+    again = download(state, identity, offer, signed, "0.1.2", transport=server.transport)
+    assert again.read_bytes() == server.content[offer.package]
+    assert [found.version for found, _ in retained(state, identity)] == ["0.1.3"]
+
+
+def test_a_download_reports_its_bytes_as_they_arrive_from_where_it_resumed(state, identity, server):
+    offer, signed = server.release("0.1.3")
+    server.cut_after = 70_000
+    seen: list[tuple[int, int]] = []
+    with pytest.raises(httpx.ReadError):
+        download(state, identity, offer, signed, "0.1.2", transport=server.transport,
+                 progress=lambda received, size: seen.append((received, size)))
+    assert seen[0] == (0, offer.bytes) and seen[-1] == (70_000, offer.bytes)
+    seen.clear()
+    download(state, identity, offer, signed, "0.1.2", transport=server.transport,
+             progress=lambda received, size: seen.append((received, size)))
+    assert seen[0] == (70_000, offer.bytes), "a resumed download starts from the bytes already here"
+    assert seen[-1] == (offer.bytes, offer.bytes)
+    assert [received for received, _ in seen] == sorted(received for received, _ in seen)
+
+
 def test_the_newest_two_and_the_running_version_are_kept(state, identity, server):
     versions = ("0.1.3", "0.1.4", "0.1.5", "0.1.6")
     for version in versions:

@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using Windows.Management.Deployment;
+using Windows.Networking.Connectivity;
 
 namespace RoleBand.EngineHost;
 
@@ -15,7 +16,9 @@ public interface IPackageDeployer
 /// <summary>The engine's `desktop.py update` commands, each answering one JSON object.</summary>
 public interface IUpdateCommands
 {
-    Task<JsonElement> RunAsync(IReadOnlyList<string> arguments, CancellationToken cancellation);
+    /// <param name="lines">Told each line the command writes to stderr while it runs, such as a download's progress.</param>
+    /// <param name="cancellation">Stops the command and every process it started.</param>
+    Task<JsonElement> RunAsync(IReadOnlyList<string> arguments, CancellationToken cancellation, Action<string>? lines = null);
 }
 
 public sealed class WindowsPackageDeployer : IPackageDeployer
@@ -40,13 +43,21 @@ public sealed class WindowsPackageDeployer : IPackageDeployer
 
 public sealed class EngineUpdateCommands(EngineConfiguration configuration) : IUpdateCommands
 {
-    public async Task<JsonElement> RunAsync(IReadOnlyList<string> arguments, CancellationToken cancellation)
+    public async Task<JsonElement> RunAsync(IReadOnlyList<string> arguments, CancellationToken cancellation, Action<string>? lines = null)
     {
         var start = configuration.EngineStart(["update", .. arguments, "--state", configuration.State]);
         using var process = System.Diagnostics.Process.Start(start) ?? throw new IOException("The update command did not start.");
-        var output = process.StandardOutput.ReadToEndAsync(cancellation);
-        var errors = process.StandardError.ReadToEndAsync(cancellation);
-        await process.WaitForExitAsync(cancellation);
+        // A cancelled download stops at once: its partial file stays, and the next one resumes from it.
+        using var stop = cancellation.Register(() =>
+        {
+            try { process.Kill(entireProcessTree: true); }
+            catch (InvalidOperationException) { }
+            catch (System.ComponentModel.Win32Exception) { }
+        });
+        var output = process.StandardOutput.ReadToEndAsync(CancellationToken.None);
+        var errors = ReadLinesAsync(process.StandardError, lines);
+        await process.WaitForExitAsync(CancellationToken.None);
+        cancellation.ThrowIfCancellationRequested();
         var text = await output;
         try
         {
@@ -57,6 +68,45 @@ public sealed class EngineUpdateCommands(EngineConfiguration configuration) : IU
         {
             throw new IOException("The update command failed: " + (await errors).Trim(), error);
         }
+    }
+
+    /// <summary>Every stderr line goes to <paramref name="lines"/> as it arrives; the whole text explains a failure.</summary>
+    private static async Task<string> ReadLinesAsync(StreamReader reader, Action<string>? lines)
+    {
+        var text = new System.Text.StringBuilder();
+        while (await reader.ReadLineAsync() is { } line)
+        {
+            text.AppendLine(line);
+            lines?.Invoke(line);
+        }
+        return text.ToString();
+    }
+}
+
+/// <summary>When a paused download tries again: as soon as Windows reports a network change, and otherwise after a delay
+/// that grows, so hours offline cost a few attempts, not hundreds.</summary>
+public static class Reconnection
+{
+    private static readonly TimeSpan[] Delays =
+        [TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(5)];
+
+    /// <summary>A network that just came up needs a moment before it carries traffic.</summary>
+    private static readonly TimeSpan Settle = TimeSpan.FromSeconds(3);
+
+    public static TimeSpan Delay(int attempt) => Delays[Math.Clamp(attempt, 0, Delays.Length - 1)];
+
+    public static async Task WaitAsync(TimeSpan delay, CancellationToken cancellation)
+    {
+        var changed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void Changed(object sender) => changed.TrySetResult();
+        NetworkInformation.NetworkStatusChanged += Changed;
+        try
+        {
+            if (await Task.WhenAny(changed.Task, Task.Delay(delay, cancellation)) == changed.Task)
+                await Task.Delay(Settle, cancellation);
+            cancellation.ThrowIfCancellationRequested();
+        }
+        finally { NetworkInformation.NetworkStatusChanged -= Changed; }
     }
 }
 
@@ -147,8 +197,12 @@ public sealed class UpdateCoordinator(IUpdateCommands commands, IPackageDeployer
             throw new IOException(Reason(reply) ?? "The update choice was not recorded.");
     }
 
-    public Task<JsonElement> DownloadAsync(CancellationToken cancellation = default) =>
-        commands.RunAsync(["download"], cancellation);
+    /// <param name="progress">Told the bytes downloaded so far and the total, as the command counts them.</param>
+    public Task<JsonElement> DownloadAsync(IProgress<(long Received, long Total)>? progress = null, CancellationToken cancellation = default) =>
+        commands.RunAsync(["download"], cancellation, line =>
+        {
+            if (UpdateRun.Progress(line) is { } counted) progress?.Report(counted);
+        });
 
     /// <param name="progress">Windows' percentage of the install, while this version stays open until Windows closes it.</param>
     public async Task ApplyAsync(EngineSession session, string package, IProgress<int>? progress = null, CancellationToken cancellation = default)

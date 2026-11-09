@@ -343,6 +343,18 @@ class TestNoOneIsStuck:
             record["id"], "0.1.2", "0.1.4", "preparing")
         assert _launchable(state) == "accepted", "the newer version starts"
 
+    @pytest.mark.parametrize("phase", ["preparing", "failed"])
+    def test_the_previous_version_installed_by_hand_finishes_the_undo_itself(self, state, tmp_path, phase):
+        from tracker.platform import windows_update_journal as journal
+
+        _begin(state, tmp_path)
+        journal.resume(state, "0.1.3")
+        if phase == "failed":
+            journal.settle(state, "0.1.3", prepared=False)
+        assert journal.resume(state, "0.1.2")["phase"] == "recovering", "as if Undo had been pressed"
+        assert journal.recover_database(state, "0.1.2")["phase"] == "recovered"
+        assert _launchable(state) == "accepted"
+
     def test_only_a_failed_update_is_taken_over_from_the_app(self, state, tmp_path):
         from tracker.platform import windows_update_journal as journal
         from tracker.platform.windows_recovery import RecoveryError

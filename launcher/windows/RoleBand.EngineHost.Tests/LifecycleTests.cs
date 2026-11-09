@@ -32,6 +32,15 @@ public sealed class LifecycleTests
             with (HERE / "events.log").open("a", encoding="utf-8") as stream:
                 stream.write(text + "\n")
 
+        if mode == "download" and "update" in sys.argv:
+            import subprocess
+            child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])
+            note(f"child {child.pid}")
+            for received in (0, 150, 300):
+                print(json.dumps({"received": received, "total": 300}), file=sys.stderr, flush=True)
+            print("not a progress line", file=sys.stderr, flush=True)
+            time.sleep(120)
+            sys.exit(0)
         if mode == "exit-early":
             note("started")
             os._exit(3)
@@ -135,6 +144,47 @@ public sealed class LifecycleTests
             if (watch.Elapsed > limit) Assert.Fail($"Timed out waiting for {what}.");
             await Task.Delay(50);
         }
+    }
+
+    [TestMethod]
+    public async Task CancelStopsADownloadAndEveryProcessItStartedAtOnce()
+    {
+        var engine = new StandIn("download");
+        var coordinator = new UpdateCoordinator(new EngineUpdateCommands(engine.Configuration), new RecordingDeployer());
+        var counted = new List<(long Received, long Total)>();
+        var whole = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var cancel = new CancellationTokenSource();
+        var download = coordinator.DownloadAsync(new Inline<(long Received, long Total)>(value =>
+        {
+            lock (counted) counted.Add(value);
+            if (value.Received == value.Total) whole.TrySetResult();
+        }), cancel.Token);
+        await whole.Task.WaitAsync(TimeSpan.FromSeconds(60));
+        await Until(() => engine.Events().Any(line => line.StartsWith("child ", StringComparison.Ordinal)), TimeSpan.FromSeconds(10), "the child");
+        var child = int.Parse(engine.Events().Single(line => line.StartsWith("child ", StringComparison.Ordinal))[6..],
+            System.Globalization.CultureInfo.InvariantCulture);
+        var clock = Stopwatch.StartNew();
+        cancel.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => download);
+        Assert.IsTrue(clock.Elapsed < TimeSpan.FromSeconds(10), $"Cancel took {clock.Elapsed}");
+        CollectionAssert.AreEqual(new[] { (0L, 300L), (150L, 300L), (300L, 300L) }, counted, "only progress lines count");
+        await Until(() => !Running(child), TimeSpan.FromSeconds(10), "the download's own child to end");
+    }
+
+    private static bool Running(int pid)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(pid);
+            return !process.HasExited;
+        }
+        catch (ArgumentException) { return false; }
+    }
+
+    /// <summary>Reports on the caller's thread, so the test sees every value before the download ends.</summary>
+    private sealed class Inline<T>(Action<T> report) : IProgress<T>
+    {
+        public void Report(T value) => report(value);
     }
 
     [TestMethod]
@@ -290,7 +340,7 @@ public sealed class LifecycleTests
         public List<string> Calls { get; } = [];
         public List<bool> EngineRunningAt { get; } = [];
 
-        public Task<JsonElement> RunAsync(IReadOnlyList<string> arguments, CancellationToken cancellation)
+        public Task<JsonElement> RunAsync(IReadOnlyList<string> arguments, CancellationToken cancellation, Action<string>? lines = null)
         {
             Calls.Add(string.Join(' ', arguments));
             EngineRunningAt.Add(engineRunning());

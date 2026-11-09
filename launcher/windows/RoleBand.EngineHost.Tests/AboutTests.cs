@@ -90,6 +90,124 @@ public sealed class AboutTests
     }
 
     [TestMethod]
+    public void ALostConnectionPausesTheDownloadAndAFullDiskSaysHowMuchRoomItNeeds()
+    {
+        var before = new UpdateRun(UpdateStep.Downloading, "0.1.12", Received: 120, Total: 332);
+        using (var offline = JsonDocument.Parse("""{"status":"failed","kind":"offline","reason":"connection lost"}"""))
+            Assert.AreEqual((new UpdateRun(UpdateStep.Paused, "0.1.12", Received: 120, Total: 332), (string?)null),
+                UpdateRun.Downloaded(offline.RootElement, "0.1.12", before), "the bytes already here still count");
+        var (space, package) = Downloaded("""{"status":"failed","kind":"space","needed":1073741824,"reason":"full"}""");
+        Assert.AreEqual((UpdateStep.NoSpace, 1073741824L, (string?)null), (space.Step, space.Needed, package));
+        Assert.IsTrue(space.Failed && !space.InProgress && !space.Cancellable);
+        Assert.IsNull(Downloaded("""{"status":"failed","kind":"space","needed":"lots"}""").Run.Needed, "no size made up from a malformed one");
+        var paused = new UpdateRun(UpdateStep.Paused, "0.1.12");
+        Assert.IsTrue(paused.InProgress && paused.Cancellable && !paused.Failed, "a paused download is still this session's update");
+        Assert.IsFalse(new UpdateRun(UpdateStep.Restarting, "0.1.12").Cancellable, "Windows' install cannot be cancelled from here");
+    }
+
+    [TestMethod]
+    public void OnlyTheDownloadsOwnProgressLinesCount()
+    {
+        Assert.AreEqual((120L, 332L), UpdateRun.Progress("""{"received":120,"total":332}"""));
+        Assert.AreEqual((332L, 332L), UpdateRun.Progress("""{"received":400,"total":332}"""), "never past the whole");
+        Assert.IsNull(UpdateRun.Progress("""{"received":0,"total":0}"""), "no total, nothing to measure against");
+        Assert.IsNull(UpdateRun.Progress("""{"received":-1,"total":332}"""));
+        Assert.IsNull(UpdateRun.Progress("""{"received":"120","total":332}"""));
+        Assert.IsNull(UpdateRun.Progress("""{"status":"downloaded"}"""));
+        Assert.IsNull(UpdateRun.Progress("Traceback (most recent call last):"));
+        Assert.IsNull(UpdateRun.Progress(""));
+    }
+
+    [TestMethod]
+    public void ADownloadSaysHowFarItHasGotAndCanBeCancelledUntilWindowsInstalls()
+    {
+        var copy = new NativeCopy("en");
+        var facts = new UpdateFacts(true, false, Now, "0.1.12", null);
+        const long megabyte = 1024 * 1024;
+        var downloading = new UpdateRun(UpdateStep.Downloading, "0.1.12", Received: 120 * megabyte, Total: 332 * megabyte);
+
+        var row = AboutPanel.Updates(copy, facts, false, null, Now, downloading);
+        Assert.AreEqual((UpdateRowKind.Downloading, "Downloading 0.1.12", "120 MB of 332 MB", true, false, (string?)null),
+            (row.Kind, row.Title, row.Caption, row.Cancel, row.CanCheck, row.Action));
+        var banner = AboutPanel.Flyout(copy, facts, downloading)!;
+        Assert.AreEqual(("120 MB of 332 MB", 36, true, true, (string?)null), (banner.Caption, banner.Percent, banner.Cancel, banner.Busy, banner.Action));
+        var starting = AboutPanel.Updates(copy, facts, false, null, Now, downloading with { Received = null, Total = null });
+        Assert.IsNull(starting.Caption, "nothing counted yet: no made-up progress");
+
+        var paused = downloading with { Step = UpdateStep.Paused };
+        row = AboutPanel.Updates(copy, facts, false, null, Now, paused);
+        Assert.AreEqual((UpdateRowKind.Paused, "Download paused", "120 MB of 332 MB · Resumes once you're online.", true, false, false),
+            (row.Kind, row.Title, row.Caption, row.Cancel, row.CanCheck, row.Busy));
+        banner = AboutPanel.Flyout(copy, facts, paused)!;
+        Assert.AreEqual((true, false, (string?)null), (banner.Cancel, banner.Busy, banner.Action), "waiting, not working: no spinner");
+
+        var installing = AboutPanel.Updates(copy, facts, false, null, Now, new UpdateRun(UpdateStep.Restarting, "0.1.12", Percent: 40));
+        Assert.IsFalse(installing.Cancel, "once Windows installs, Cancel would only lie");
+        Assert.IsFalse(AboutPanel.Flyout(copy, facts, new UpdateRun(UpdateStep.Restarting, "0.1.12"))!.Cancel);
+    }
+
+    [TestMethod]
+    public void AFullDiskSaysHowMuchRoomTheUpdateNeedsAndOffersTryAgain()
+    {
+        var copy = new NativeCopy("en");
+        var facts = new UpdateFacts(true, false, Now, "0.1.12", null);
+        var row = AboutPanel.Updates(copy, facts, false, null, Now, new UpdateRun(UpdateStep.NoSpace, "0.1.12", Needed: 1_288_490_189));
+        Assert.AreEqual((UpdateRowKind.UpdateFailed, "Not enough space", "Needs 1.2 GB free.", "Try again", "update-no-space-help", false),
+            (row.Kind, row.Title, row.Caption, row.Action, row.HelpKey, row.Cancel));
+        var banner = AboutPanel.Flyout(copy, facts, new UpdateRun(UpdateStep.NoSpace, "0.1.12", Needed: 1_288_490_189))!;
+        Assert.AreEqual(("Not enough space", "Needs 1.2 GB free.", "Try again", true), (banner.Title, banner.Caption, banner.Action, banner.Failed));
+        var unknown = AboutPanel.Updates(copy, facts, false, null, Now, new UpdateRun(UpdateStep.NoSpace, "0.1.12"));
+        Assert.AreEqual("Nothing was installed.", unknown.Caption, "no size made up when the command gave none");
+    }
+
+    [TestMethod]
+    public void SizesReadAsFileExplorerGivesThemInTheCopysLanguage()
+    {
+        var english = new NativeCopy("en");
+        Assert.AreEqual("0 MB", AboutPanel.Size(english, 0));
+        Assert.AreEqual("1 MB", AboutPanel.Size(english, 1), "a few bytes are not nothing");
+        Assert.AreEqual("332 MB", AboutPanel.Size(english, 332L * 1024 * 1024));
+        Assert.AreEqual("999 MB", AboutPanel.Size(english, 999L * 1024 * 1024));
+        Assert.AreEqual("1.0 GB", AboutPanel.Size(english, 1000L * 1024 * 1024), "four digits of megabytes read as gigabytes");
+        Assert.AreEqual("1.0 GB", AboutPanel.Size(english, 1024L * 1024 * 1024));
+        Assert.AreEqual("1.5 GB", AboutPanel.Size(english, 1536L * 1024 * 1024));
+        Assert.AreEqual("1,5 GB", AboutPanel.Size(new NativeCopy("es"), 1536L * 1024 * 1024));
+    }
+
+    [TestMethod]
+    public async Task APausedDownloadWaitsLongerEachTimeAndStopsWaitingOnCancel()
+    {
+        Assert.AreEqual(TimeSpan.FromSeconds(15), Reconnection.Delay(0));
+        Assert.IsTrue(Reconnection.Delay(1) > Reconnection.Delay(0) && Reconnection.Delay(3) > Reconnection.Delay(2));
+        Assert.AreEqual(TimeSpan.FromMinutes(5), Reconnection.Delay(100), "a long time offline settles at a few attempts an hour");
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        await Reconnection.WaitAsync(TimeSpan.FromMilliseconds(50), CancellationToken.None);
+        Assert.IsTrue(clock.Elapsed < TimeSpan.FromSeconds(5));
+        using var cancel = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
+        clock.Restart();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => Reconnection.WaitAsync(TimeSpan.FromMinutes(5), cancel.Token));
+        Assert.IsTrue(clock.Elapsed < TimeSpan.FromSeconds(5), "Cancel does not wait out the delay");
+    }
+
+    [TestMethod]
+    public async Task TheDownloadPassesOnlyItsProgressLinesToTheApp()
+    {
+        var commands = new Commands(_ => """{"status":"downloaded","package":"C:\\state\\packages\\update.msix"}""")
+        {
+            Lines = ["""{"received":10,"total":20}""", "a warning", """{"received":20,"total":20}"""],
+        };
+        var seen = new List<(long, long)>();
+        var coordinator = new UpdateCoordinator(commands, new NoDeployer());
+        await coordinator.DownloadAsync(new Inline(value => seen.Add(value)));
+        CollectionAssert.AreEqual(new[] { (10L, 20L), (20L, 20L) }, seen);
+    }
+
+    private sealed class Inline(Action<(long, long)> report) : IProgress<(long Received, long Total)>
+    {
+        public void Report((long Received, long Total) value) => report(value);
+    }
+
+    [TestMethod]
     public void UpdateIsThePressThatInstallsTheOfferAndItsStepsReplaceIt()
     {
         var copy = new NativeCopy("en");
@@ -215,8 +333,8 @@ public sealed class AboutTests
         var offer = new UpdateFacts(true, false, Now, "0.1.12", null);
         Assert.AreEqual(new FlyoutUpdate("Version 0.1.12 is ready", null, "Update", "0.1.12", false, false, false),
             AboutPanel.Flyout(copy, offer, null));
-        Assert.AreEqual(new FlyoutUpdate("Downloading 0.1.12", null, null, "0.1.12", true, false, false),
-            AboutPanel.Flyout(copy, offer, new UpdateRun(UpdateStep.Downloading, "0.1.12")), "nothing to press while it downloads");
+        Assert.AreEqual(new FlyoutUpdate("Downloading 0.1.12", null, null, "0.1.12", true, false, false, Cancel: true),
+            AboutPanel.Flyout(copy, offer, new UpdateRun(UpdateStep.Downloading, "0.1.12")), "no Update while it downloads, only Cancel");
         Assert.AreEqual(new FlyoutUpdate("Installing 0.1.12", null, null, "0.1.12", true, false, true, 45),
             AboutPanel.Flyout(copy, offer, new UpdateRun(UpdateStep.Restarting, "0.1.12", Percent: 45)));
         Assert.AreEqual(new FlyoutUpdate("Returning to 0.1.11", null, null, "0.1.11", true, false, true, 30),
@@ -288,9 +406,11 @@ public sealed class AboutTests
     private sealed class Commands(Func<IReadOnlyList<string>, string> answer) : IUpdateCommands
     {
         public List<string[]> Runs { get; } = [];
-        public Task<JsonElement> RunAsync(IReadOnlyList<string> arguments, CancellationToken cancellation)
+        public string[] Lines { get; init; } = [];
+        public Task<JsonElement> RunAsync(IReadOnlyList<string> arguments, CancellationToken cancellation, Action<string>? lines = null)
         {
             Runs.Add([.. arguments]);
+            foreach (var line in Lines) lines?.Invoke(line);
             using var document = JsonDocument.Parse(answer(arguments));
             return Task.FromResult(document.RootElement.Clone());
         }

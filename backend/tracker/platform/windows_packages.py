@@ -13,6 +13,7 @@ import json
 import os
 import re
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import httpx
@@ -27,6 +28,15 @@ from tracker.platform.windows_release import (
     verify_package,
 )
 from tracker.platform.windows_updates import REDIRECT_LIMIT, USER_AGENT, asset_url, permitted
+
+
+class DownloadIncomplete(ReleaseError):
+    """The package did not fully arrive. Nothing is known to be wrong with it, and the next attempt resumes."""
+
+
+class DownloadInterrupted(DownloadIncomplete):
+    """The connection ended before the last byte: the download waits for the network, not for a fix."""
+
 
 PACKAGES = Path("packages")
 #: Retained verified packages: the newest and the one before it, the executable way back.
@@ -59,8 +69,12 @@ def _get(client: httpx.Client, url: str, feed: str, version: str, headers: dict[
     raise ReleaseError("The package redirected too many times")
 
 
+#: Told the bytes of the package on disk so far and its signed size, as they arrive.
+Progress = Callable[[int, int], None]
+
+
 def download(state: Path, identity: Identity, offer: Offer, signed: tuple[bytes, bytes, bytes], installed: str, *,
-             transport: httpx.BaseTransport | None = None) -> Path:
+             transport: httpx.BaseTransport | None = None, progress: Progress | None = None) -> Path:
     """Fetch, verify and retain the offered package; a partial file is resumed by the next call."""
     if verify_offer(identity, "0.0.0", *signed) != offer:
         raise ReleaseError("The signed release files do not describe this offer")
@@ -68,8 +82,13 @@ def download(state: Path, identity: Identity, offer: Offer, signed: tuple[bytes,
     _private(packages)
     final = packages / offer.package
     if final.exists():
-        verify_package(final, offer)
-        return final
+        try:
+            verify_package(final, offer)
+            return final
+        except ReleaseError:
+            # A kept package that no longer matches its signed digest cannot become right: it is fetched again.
+            final.with_name(final.name + ".release.json").unlink(missing_ok=True)
+            final.unlink()
     partial = packages / f".{offer.package}.partial"
     offset = partial.stat().st_size if partial.exists() else 0
     if offset > offer.bytes:
@@ -87,25 +106,29 @@ def download(state: Path, identity: Identity, offer: Offer, signed: tuple[bytes,
                 if offset and response.status_code == 206:
                     match = _RANGE.fullmatch(response.headers.get("Content-Range", ""))
                     if not match or (int(match[1]), int(match[2]), int(match[3])) != (offset, offer.bytes - 1, offer.bytes):
-                        raise ReleaseError("The server resumed the package at the wrong place")
+                        raise DownloadIncomplete("The server resumed the package at the wrong place")
                     mode = "ab"
                 elif response.status_code == 200:
                     offset, mode = 0, "wb"
                 else:
-                    raise ReleaseError("The package is not available")
+                    raise DownloadIncomplete("The package is not available")
                 with partial.open(mode) as output:
                     written = offset
+                    if progress is not None:
+                        progress(written, offer.bytes)
                     for chunk in response.iter_bytes():
                         written += len(chunk)
                         if written > offer.bytes:
                             raise ReleaseError("The package is larger than its signed size")
                         output.write(chunk)
+                        if progress is not None:
+                            progress(written, offer.bytes)
                     output.flush()
                     os.fsync(output.fileno())
             finally:
                 response.close()
     if partial.stat().st_size < offer.bytes:
-        raise ReleaseError("The package download was interrupted; it resumes on the next attempt")
+        raise DownloadInterrupted("The package download was interrupted; it resumes on the next attempt")
     try:
         verify_package(partial, offer)
     except ReleaseError:
@@ -121,7 +144,7 @@ def download(state: Path, identity: Identity, offer: Offer, signed: tuple[bytes,
 
 
 def retain_running(state: Path, identity: Identity, installed: str, *,
-                   transport: httpx.BaseTransport | None = None) -> Path:
+                   transport: httpx.BaseTransport | None = None, progress: Progress | None = None) -> Path:
     """Keep the running version's own release package: the only way back from its first update.
 
     Windows keeps no copy of an installed package, so the way back is the published release of
@@ -136,7 +159,7 @@ def retain_running(state: Path, identity: Identity, installed: str, *,
     offer = verify_offer(identity, "0.0.0", *signed)
     if offer.version != installed:
         raise ReleaseError("The feed's release files describe another version")
-    return download(state, identity, offer, signed, installed, transport=transport)
+    return download(state, identity, offer, signed, installed, transport=transport, progress=progress)
 
 
 def retained(state: Path, identity: Identity) -> list[tuple[Offer, Path]]:

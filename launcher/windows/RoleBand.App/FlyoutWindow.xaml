@@ -61,6 +61,8 @@
             </StackPanel>
             <Button x:Name="UpdateButton" Grid.Column="2" MinHeight="32" VerticalAlignment="Center" Style="{StaticResource AccentButtonStyle}"
                     AutomationProperties.AutomationId="FlyoutUpdateNow" />
+            <Button x:Name="UpdateCancelButton" Grid.Column="2" MinHeight="32" VerticalAlignment="Center" Visibility="Collapsed"
+                    AutomationProperties.AutomationId="FlyoutCancelUpdate" />
           </Grid>
           <ProgressBar x:Name="UpdateProgress" IsIndeterminate="True" Visibility="Collapsed" />
         </StackPanel>

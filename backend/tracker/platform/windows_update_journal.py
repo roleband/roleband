@@ -115,6 +115,10 @@ def resume(state: Path, running: str) -> dict[str, Any] | None:
         return _write(state, {**record, "phase": "preparing"})
     if record["phase"] == "applying" and running == record["from_version"]:
         return _write(state, {**record, "phase": "aborted"})
+    # The previous version installed again by hand over an update that never became ready: the same as Undo, so this
+    # version finishes it, putting back the database from before the update.
+    if record["phase"] in {"preparing", "failed"} and running == record["from_version"]:
+        return _write(state, {**record, "phase": "recovering"})
     # A takeover Windows did not switch to: the failed version it started from runs again, still failed.
     if record["phase"] == "applying" and stable_version(record["from_version"]) < version:
         return _write(state, {**record, "to_version": running, "phase": "failed"})

@@ -345,19 +345,11 @@ def test_status_reads_what_checks_kept_without_asking_the_feed(state, identity, 
     assert len(feed.requests) == asked + 1, "only the rate-limited check asked"
 
 
-@windows_only
-@pytest.mark.parametrize(("failure", "step", "kind"), [
-    (ReleaseError("The download is not the signed release"), "download", "check"),
-    (OSError("The connection was reset"), "download", "download"),
-    (httpx.ConnectError("offline"), "download", "download"),
-    (ReleaseError("The installed version's release is not signed by this key"), "retain", "download"),
-])
-def test_a_failed_download_says_whether_the_package_failed_its_check(state, identity, feed, monkeypatch, capsys,
-                                                                       failure, step, kind):
+def _download_command(state, identity, feed, monkeypatch):
     import base64
 
     from scripts import windows_update
-    from tracker.platform import releases, windows_packages
+    from tracker.platform import releases
     from tracker.platform.windows_private import private_directory
 
     private_directory(state)
@@ -370,6 +362,33 @@ def test_a_failed_download_says_whether_the_package_failed_its_check(state, iden
     monkeypatch.setattr(windows_update, "identity_path", lambda: stamped)
     monkeypatch.setattr(releases, "running_version", lambda *_: "0.1.2")
     monkeypatch.setenv("ROLEBAND_STATE_DIR", str(state))
+    return windows_update
+
+
+def _full_disk() -> OSError:
+    error = OSError(28, "No space left on device")
+    error.winerror = 112  # type: ignore[attr-defined]
+    return error
+
+
+@windows_only
+@pytest.mark.parametrize(("failure", "step", "kind"), [
+    (ReleaseError("The download is not the signed release"), "download", "check"),
+    (OSError("The connection was reset"), "download", "download"),
+    (httpx.ConnectError("offline"), "download", "offline"),
+    (httpx.ReadTimeout("the network went quiet"), "download", "offline"),
+    ("interrupted", "download", "offline"),
+    ("not available", "download", "download"),
+    (_full_disk(), "download", "space"),
+    (ReleaseError("The installed version's release is not signed by this key"), "retain", "download"),
+    (httpx.ConnectError("offline"), "retain", "offline"),
+])
+def test_a_failed_download_says_what_stopped_it(state, identity, feed, monkeypatch, capsys, failure, step, kind):
+    from tracker.platform import windows_packages
+
+    windows_update = _download_command(state, identity, feed, monkeypatch)
+    failure = {"interrupted": windows_packages.DownloadInterrupted("The package download was interrupted"),
+               "not available": windows_packages.DownloadIncomplete("The package is not available")}.get(failure, failure)
     downloads = []
 
     def fail(*_args, **_kwargs):
@@ -381,6 +400,82 @@ def test_a_failed_download_says_whether_the_package_failed_its_check(state, iden
     answer = json.loads(capsys.readouterr().out)
     assert (answer["status"], answer["kind"]) == ("failed", kind)
     assert not downloads, "without the way back, the update is not downloaded"
+
+
+@windows_only
+@pytest.mark.parametrize(("kept", "packages"), [((), 2), (("0.1.2",), 1), (("0.1.2", "0.1.3"), 0)])
+def test_a_download_without_room_for_itself_and_its_install_is_not_started(state, identity, feed, monkeypatch, capsys,
+                                                                            kept, packages):
+    import shutil
+
+    from tracker.platform import windows_packages
+
+    windows_update = _download_command(state, identity, feed, monkeypatch)
+    offer = windows_updates.stored_offer(state, identity, "0.1.2")[0]
+    windows_packages.folder(state).mkdir(exist_ok=True)
+    for version in kept:
+        (windows_packages.folder(state) / names(version)[0]).write_bytes(b"kept")
+    needed = offer.bytes * (packages + 1) + windows_update._SPACE_MARGIN
+    started = []
+    monkeypatch.setattr(windows_packages, "retain_running", lambda *args, **_kwargs: started.append(args))
+    monkeypatch.setattr(windows_packages, "download", lambda *args, **_kwargs: started.append(args) or Path("kept.msix"))
+    usage = shutil.disk_usage(state)
+
+    monkeypatch.setattr(shutil, "disk_usage", lambda _path: usage._replace(free=needed - 1))
+    assert windows_update.main(["download", "--state", str(state)]) == 1
+    answer = json.loads(capsys.readouterr().out)
+    assert (answer["status"], answer["kind"], answer["needed"]) == ("failed", "space", needed)
+    assert not started, "nothing is fetched, so a full disk is not filled further"
+
+    monkeypatch.setattr(shutil, "disk_usage", lambda _path: usage._replace(free=needed))
+    assert windows_update.main(["download", "--state", str(state)]) == 0, capsys.readouterr().out
+    assert len(started) == 2, "with the room it needs, the way back is kept and the update downloaded"
+
+
+@windows_only
+def test_a_download_reports_its_progress_over_both_packages_on_stderr(state, identity, feed, monkeypatch, capsys):
+    from tracker.platform import windows_packages
+
+    windows_update = _download_command(state, identity, feed, monkeypatch)
+    offer = windows_updates.stored_offer(state, identity, "0.1.2")[0]
+    way_back = offer.bytes // 2
+
+    def retain(*_args, progress, **_kwargs):
+        progress(0, way_back)
+        progress(way_back, way_back)
+
+    def fetch(*_args, progress, **_kwargs):
+        progress(offer.bytes // 4, offer.bytes)
+        progress(offer.bytes, offer.bytes)
+        return Path("update.msix")
+
+    monkeypatch.setattr(windows_packages, "retain_running", retain)
+    monkeypatch.setattr(windows_packages, "download", fetch)
+    assert windows_update.main(["download", "--state", str(state)]) == 0
+    captured = capsys.readouterr()
+    lines = [json.loads(line) for line in captured.err.splitlines()]
+    assert json.loads(captured.out)["status"] == "downloaded", "stdout stays one answer"
+    assert lines[0]["total"] == way_back + offer.bytes, "the update counts in the total while the way back arrives"
+    assert lines[-1] == {"received": way_back + offer.bytes, "total": way_back + offer.bytes}
+    assert all(line["received"] <= line["total"] for line in lines)
+
+
+@windows_only
+def test_a_kept_way_back_leaves_only_the_update_in_the_progress(state, identity, feed, monkeypatch, capsys):
+    from tracker.platform import windows_packages
+
+    windows_update = _download_command(state, identity, feed, monkeypatch)
+    offer = windows_updates.stored_offer(state, identity, "0.1.2")[0]
+
+    def fetch(*_args, progress, **_kwargs):
+        progress(offer.bytes, offer.bytes)
+        return Path("update.msix")
+
+    monkeypatch.setattr(windows_packages, "retain_running", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(windows_packages, "download", fetch)
+    assert windows_update.main(["download", "--state", str(state)]) == 0
+    lines = [json.loads(line) for line in capsys.readouterr().err.splitlines()]
+    assert lines[-1] == {"received": offer.bytes, "total": offer.bytes}
 
 
 @windows_only

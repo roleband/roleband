@@ -64,49 +64,92 @@ public sealed record UpdateFacts(bool Available, bool Automatic, DateTimeOffset?
 }
 
 /// <summary>Where this session's own update stands, from the press of Update to the result the next version shows.</summary>
-public enum UpdateStep { Downloading, Restarting, DownloadFailed, CheckFailed, RestartFailed, Updated, RolledBack }
+/// <remarks>Paused is a download that lost its connection: it resumes by itself, and Cancel stops it.</remarks>
+public enum UpdateStep { Downloading, Paused, Restarting, DownloadFailed, CheckFailed, NoSpace, RestartFailed, Updated, RolledBack }
 
 /// <param name="Version">The version being installed; for a result, the version now running.</param>
 /// <param name="Undone">For Back on, the version that was undone.</param>
 /// <param name="Percent">While Windows installs, its own percentage of the install.</param>
 /// <param name="Reason">Why Windows did not install it, in Windows' words.</param>
-public sealed record UpdateRun(UpdateStep Step, string Version, string? Undone = null, int? Percent = null, string? Reason = null)
+/// <param name="Received">The bytes downloaded so far, of <paramref name="Total"/>.</param>
+/// <param name="Needed">For Not enough space, the free space the download and its install need.</param>
+public sealed record UpdateRun(UpdateStep Step, string Version, string? Undone = null, int? Percent = null, string? Reason = null,
+                               long? Received = null, long? Total = null, long? Needed = null)
 {
-    public bool InProgress => Step is UpdateStep.Downloading or UpdateStep.Restarting;
+    public bool InProgress => Step is UpdateStep.Downloading or UpdateStep.Paused or UpdateStep.Restarting;
 
-    public bool Failed => Step is UpdateStep.DownloadFailed or UpdateStep.CheckFailed or UpdateStep.RestartFailed;
+    public bool Failed => Step is UpdateStep.DownloadFailed or UpdateStep.CheckFailed or UpdateStep.NoSpace or UpdateStep.RestartFailed;
+
+    /// <summary>A download Cancel can stop: one running, or one waiting for the connection.</summary>
+    public bool Cancellable => Step is UpdateStep.Downloading or UpdateStep.Paused;
 
     /// <summary>What a download's answer leads to: the verified package to install, or the failure it reports. A
-    /// package that is not the signed release failed its check; anything else is a download that did not finish.</summary>
-    public static (UpdateRun Run, string? Package) Downloaded(JsonElement reply, string version)
+    /// package that is not the signed release failed its check; a lost connection pauses the download; a full disk
+    /// says how much room it needs; anything else is a download that did not finish. Progress so far is kept.</summary>
+    public static (UpdateRun Run, string? Package) Downloaded(JsonElement reply, string version, UpdateRun? before = null)
     {
         static string? Text(JsonElement reply, string name) =>
             reply.ValueKind == JsonValueKind.Object && reply.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
                 ? value.GetString() : null;
         if (Text(reply, "status") == "downloaded" && Text(reply, "package") is { Length: > 0 } package)
             return (new UpdateRun(UpdateStep.Restarting, version), package);
-        return (new UpdateRun(Text(reply, "kind") == "check" ? UpdateStep.CheckFailed : UpdateStep.DownloadFailed, version), null);
+        var run = new UpdateRun(UpdateStep.DownloadFailed, version, Received: before?.Received, Total: before?.Total);
+        return (Text(reply, "kind") switch
+        {
+            "check" => run with { Step = UpdateStep.CheckFailed },
+            "offline" => run with { Step = UpdateStep.Paused },
+            "space" => run with
+            {
+                Step = UpdateStep.NoSpace,
+                Needed = Count(reply, "needed"),
+            },
+            _ => run,
+        }, null);
+    }
+
+    private static long? Count(JsonElement value, string name) =>
+        value.ValueKind == JsonValueKind.Object && value.TryGetProperty(name, out var field) && field.ValueKind == JsonValueKind.Number
+        && field.TryGetInt64(out var count) ? count : null;
+
+    /// <summary>The download's progress from one line the download command writes while it runs; null for any other line.</summary>
+    public static (long Received, long Total)? Progress(string line)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(line);
+            var root = document.RootElement;
+            return root.ValueKind == JsonValueKind.Object && Count(root, "received") is { } got && Count(root, "total") is { } of
+                && of > 0 && got >= 0
+                ? (Math.Min(got, of), of) : null;
+        }
+        catch (JsonException) { return null; }
     }
 }
 
-public enum UpdateRowKind { Unavailable, Checking, Failed, Never, Offered, Current, Downloading, Restarting, UpdateFailed, Updated, Finishing, Unfinished }
+public enum UpdateRowKind
+{
+    Unavailable, Checking, Failed, Never, Offered, Current, Downloading, Paused, Restarting, UpdateFailed, Updated, Finishing, Unfinished,
+}
 
 /// <param name="CanCheck">Check now stays on every state but a check or an update already running, so a failure is one
 /// press from a retry.</param>
 /// <param name="Action">The words of the Update press, which installs the offered version; null when there is none.</param>
+/// <param name="Cancel">A download under way, or waiting for the connection, that Cancel stops.</param>
+/// <param name="HelpKey">Copy for a tooltip that says more than the caption.</param>
 public sealed record UpdateRow(UpdateRowKind Kind, string Title, string? Caption, bool CanCheck, bool Automatic, bool AutomaticEnabled,
-                               string? Action = null)
+                               string? Action = null, bool Cancel = false, string? HelpKey = null)
 {
     public bool Busy => Kind is UpdateRowKind.Checking or UpdateRowKind.Downloading or UpdateRowKind.Restarting or UpdateRowKind.Finishing;
 }
 
-/// <summary>The flyout's update banner: an offer with Update, the download, or a failure with Try again; and whether
-/// Windows is replacing the app, which stops the engine on purpose.</summary>
+/// <summary>The flyout's update banner: an offer with Update, the download with Cancel, or a failure with Try again; and
+/// whether Windows is replacing the app, which stops the engine on purpose.</summary>
 /// <param name="Version">The version the banner is about, which the menu's Update names.</param>
 /// <param name="Action">The words of its press; null while the download runs.</param>
-/// <param name="Percent">Windows' percentage of an install under way.</param>
+/// <param name="Percent">How far the download, or Windows' install, has got.</param>
+/// <param name="Cancel">The download can be stopped from the banner.</param>
 public sealed record FlyoutUpdate(string Title, string? Caption, string? Action, string Version, bool Busy, bool Failed, bool Restarting,
-                                  int? Percent = null);
+                                  int? Percent = null, bool Cancel = false);
 
 /// <param name="On">Windows' own state; Settings shows what is registered, not a proposal.</param>
 public sealed record LoginRow(bool On, bool Enabled, string CaptionKey, bool Settings, bool Visible);
@@ -139,7 +182,13 @@ public static class AboutPanel
         var automatic = facts?.Automatic ?? false;
         var checkedCaption = facts?.CheckedAt is { } at ? copy.Format("panel-checked", ("time", ScanPanel.Clock(copy, at, now))) : null;
         if (run is { Step: UpdateStep.Downloading })
-            return new UpdateRow(UpdateRowKind.Downloading, copy.Format("update-downloading", ("version", run.Version)), checkedCaption, false, automatic, true);
+            return new UpdateRow(UpdateRowKind.Downloading, copy.Format("update-downloading", ("version", run.Version)), Received(copy, run),
+                false, automatic, true, Cancel: true);
+        // A lost connection pauses the download, which tries again by itself; the bytes it has stay.
+        if (run is { Step: UpdateStep.Paused })
+            return new UpdateRow(UpdateRowKind.Paused, copy["update-paused"],
+                Received(copy, run) is { } received ? $"{received} · {copy["update-paused-caption"]}" : copy["update-paused-caption"],
+                false, automatic, true, Cancel: true);
         // Windows installs while this version stays open; it closes it at the very end and opens the new one.
         if (run is { Step: UpdateStep.Restarting })
         {
@@ -161,11 +210,19 @@ public static class AboutPanel
             var (title, caption) = run.Step switch
             {
                 UpdateStep.CheckFailed => (copy.Format("update-check-failed", ("version", run.Version)), copy["update-nothing-installed"]),
+                UpdateStep.NoSpace => (copy["update-no-space"],
+                    run.Needed is { } needed ? copy.Format("update-no-space-caption", ("size", Size(copy, needed))) : copy["update-nothing-installed"]),
                 UpdateStep.RestartFailed => (copy.Format("windows-update-install-failed", ("version", run.Version)),
                     run.Reason is { Length: > 0 } reason ? $"{copy["update-nothing-installed"]} {reason}" : copy["update-nothing-installed"]),
                 _ => (copy.Format("update-download-failed", ("version", run.Version)), copy["update-download-failed-caption"]),
             };
-            return new UpdateRow(UpdateRowKind.UpdateFailed, title, caption, true, automatic, true, copy["retry"]);
+            return new UpdateRow(UpdateRowKind.UpdateFailed, title, caption, true, automatic, true, copy["retry"],
+                HelpKey: run.Step switch
+                {
+                    UpdateStep.NoSpace => "update-no-space-help",
+                    UpdateStep.CheckFailed => "update-check-failed-help",
+                    _ => null,
+                });
         }
         var limited = facts?.RateLimitedUntil is { } until && until > now;
         if (limited || lastResult is "failed" or "rate-limited")
@@ -205,12 +262,28 @@ public static class AboutPanel
         var row = Updates(copy, facts, false, null, DateTimeOffset.MinValue, run);
         return row.Kind switch
         {
-            UpdateRowKind.Downloading or UpdateRowKind.Restarting =>
-                new FlyoutUpdate(row.Title, null, null, run!.Version, true, false, row.Kind == UpdateRowKind.Restarting, run.Percent),
+            UpdateRowKind.Downloading => new FlyoutUpdate(row.Title, row.Caption, null, run!.Version, true, false, false,
+                run.Received is { } received && run.Total is { } total && total > 0 ? (int)(received * 100 / total) : null, Cancel: true),
+            UpdateRowKind.Paused => new FlyoutUpdate(row.Title, row.Caption, null, run!.Version, false, false, false, Cancel: true),
+            UpdateRowKind.Restarting => new FlyoutUpdate(row.Title, null, null, run!.Version, true, false, true, run.Percent),
             UpdateRowKind.Offered => new FlyoutUpdate(row.Title, null, row.Action, facts!.Offer!, false, false, false),
             UpdateRowKind.UpdateFailed => new FlyoutUpdate(row.Title, row.Caption, row.Action, run!.Version, false, true, false),
             _ => null,
         };
+    }
+
+    /// <summary>A download's bytes so far, "120 MB of 332 MB"; null until the first are counted.</summary>
+    private static string? Received(NativeCopy copy, UpdateRun run) =>
+        run.Received is { } received && run.Total is { } total
+            ? copy.Format("update-progress", ("received", Size(copy, received)), ("total", Size(copy, total))) : null;
+
+    /// <summary>A size as Windows' File Explorer gives it, in 1024-byte units: whole megabytes below a thousand, else
+    /// gigabytes to one decimal, in the copy's culture. Anything above nothing is at least 1 MB.</summary>
+    public static string Size(NativeCopy copy, long bytes)
+    {
+        const double megabyte = 1024 * 1024, gigabyte = megabyte * 1024;
+        var megabytes = bytes <= 0 ? 0 : Math.Max(1, Math.Round(bytes / megabyte));
+        return megabytes < 1000 ? megabytes.ToString("0", copy.Culture) + " MB" : (bytes / gigabyte).ToString("0.0", copy.Culture) + " GB";
     }
 
     /// <summary>A percentage in the copy's culture.</summary>

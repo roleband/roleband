@@ -30,7 +30,7 @@ public sealed partial class FlyoutWindow : Window
     private bool closing;
     private bool focused;
 
-    public event Action? OpenRadar, Restart, OpenSettings, QuitRequested, UpdateRequested, Undo;
+    public event Action? OpenRadar, Restart, OpenSettings, QuitRequested, UpdateRequested, CancelUpdateRequested, Undo;
     public event Action<ScanAction>? Scan;
     public event Action<PauseAction>? Pause;
     public event Action<BrowserRoute>? Open;
@@ -73,6 +73,8 @@ public sealed partial class FlyoutWindow : Window
         ToolTipService.SetToolTip(ResumeButton, copy["scan-resume-help"]);
         SettingsButton.Click += (_, _) => OpenSettings?.Invoke();
         UpdateButton.Click += (_, _) => UpdateRequested?.Invoke();
+        UpdateCancelButton.Content = copy["update-cancel"];
+        UpdateCancelButton.Click += (_, _) => CancelUpdateRequested?.Invoke();
         PrimaryButton.Click += (_, _) =>
         {
             switch (current?.Primary)
@@ -306,7 +308,10 @@ public sealed partial class FlyoutWindow : Window
         UpdateCaption.Visibility = update.Caption is null ? Visibility.Collapsed : Visibility.Visible;
         UpdateButton.Content = update.Action ?? "";
         UpdateButton.Visibility = update.Action is null ? Visibility.Collapsed : Visibility.Visible;
+        UpdateCancelButton.Visibility = update.Cancel && update.Action is null ? Visibility.Visible : Visibility.Collapsed;
         UpdateProgress.Visibility = update.Busy ? Visibility.Visible : Visibility.Collapsed;
+        UpdateProgress.IsIndeterminate = update.Percent is null;
+        UpdateProgress.Value = update.Percent ?? 0;
         AutomationProperties.SetName(UpdateBanner, update.Caption is null ? update.Title : $"{update.Title}. {update.Caption}");
     }
 

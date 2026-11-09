@@ -48,6 +48,8 @@ internal sealed class TrayApp
     // Settings.
     private UpdateFacts? updateFacts;
     private UpdateRun? updateRun;
+    // The download under way, which Cancel and Quit stop.
+    private CancellationTokenSource? downloading;
     // An undo returning to this version: pressed in this session, or found unfinished when the app opened.
     private string? returningTo, undoFailure;
     private bool returning;
@@ -69,6 +71,7 @@ internal sealed class TrayApp
         flyout.Pause += async action => await PauseAsync(action);
         flyout.QuitRequested += async () => await QuitAsync();
         flyout.UpdateRequested += async () => await UpdateNowAsync();
+        flyout.CancelUpdateRequested += CancelUpdate;
         flyout.Undo += async () => { flyout.Hide(); await UndoUpdateAsync(); };
         try
         {
@@ -257,6 +260,7 @@ internal sealed class TrayApp
             window.OpenStartupApps += () => Launch("ms-settings:startupapps");
             window.CheckUpdates += async () => await CheckUpdatesAsync(manual: true);
             window.UpdateNow += async () => await UpdateNowAsync();
+            window.CancelUpdate += CancelUpdate;
             window.AutomaticChanged += async automatic => await ChooseAutomaticAsync(automatic);
             window.LoginChanged += async enabled => await SetLoginAsync(enabled);
             window.Open += async route => await OpenRadarAsync(route);
@@ -361,15 +365,42 @@ internal sealed class TrayApp
     private async Task UpdateNowAsync()
     {
         if (engine is null || updates is null || updateRun is { InProgress: true } || updateFacts?.Offer is not { } version) return;
+        using var cancel = new CancellationTokenSource();
+        downloading = cancel;
         updateRun = new UpdateRun(UpdateStep.Downloading, version);
         RenderUpdate();
-        string? package;
-        try { (updateRun, package) = UpdateRun.Downloaded(await updates.DownloadAsync(), version); }
+        var progress = new Progress<(long Received, long Total)>(counted =>
+        {
+            if (updateRun is not { Step: UpdateStep.Downloading } run || run.Version != version) return;
+            updateRun = run with { Received = counted.Received, Total = counted.Total };
+            RenderUpdate();
+        });
+        string? package = null;
+        try
+        {
+            for (var attempt = 0; ; attempt++)
+            {
+                (updateRun, package) = UpdateRun.Downloaded(await updates.DownloadAsync(progress, cancel.Token), version, updateRun);
+                if (updateRun.Step != UpdateStep.Paused) break;
+                // A lost connection waits for the network, then resumes from the bytes already here.
+                RenderUpdate();
+                await Reconnection.WaitAsync(Reconnection.Delay(attempt), cancel.Token);
+                updateRun = updateRun with { Step = UpdateStep.Downloading };
+                RenderUpdate();
+            }
+        }
+        catch (OperationCanceledException) when (cancel.IsCancellationRequested)
+        {
+            // Cancel leaves the offer as it was; the bytes downloaded stay for the next Update.
+            (updateRun, package) = (null, null);
+        }
         catch (Exception error)
         {
             Debug.WriteLine(error);
             (updateRun, package) = (new UpdateRun(UpdateStep.DownloadFailed, version), null);
         }
+        finally { downloading = null; }
+        if (quitting) return;
         RenderUpdate();
         if (package is null) return;
         try
@@ -390,6 +421,8 @@ internal sealed class TrayApp
             await StartAsync();
         }
     }
+
+    private void CancelUpdate() => downloading?.Cancel();
 
     private void RenderUpdate()
     {
@@ -740,6 +773,7 @@ internal sealed class TrayApp
     {
         if (quitting) return;
         quitting = true;
+        downloading?.Cancel();
         try { if (engine is not null) await engine.StopAsync(); }
         catch (Exception error) { Debug.WriteLine(error); }
         if (engine?.OwnsEngine == true)

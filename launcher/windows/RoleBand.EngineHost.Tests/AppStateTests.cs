@@ -37,7 +37,10 @@ public sealed class AppStateTests
 
     private static bool UpdateFailed(AppState state) => state.Update.Failed || state.Update.Facts?.Last is { Running: "to", Phase: "failed" or "recovering" };
 
-    private static bool Switching(AppState state) => state.Update.Run is { Step: UpdateStep.Downloading or UpdateStep.Restarting } || state.Update.Returning;
+    private static bool Switching(AppState state) =>
+        state.Update.Run is { Step: UpdateStep.Downloading or UpdateStep.Paused or UpdateStep.Restarting } || state.Update.Returning;
+
+    private static bool Downloading(AppState state) => state.Update.Run is { Step: UpdateStep.Downloading or UpdateStep.Paused };
 
     private static bool CanStart(AppState state) => state.Engine is { State: EngineState.Stopped or EngineState.Attention }
         && !SetupFlow.EngineHeld(state.Setup) && !UpdateFailed(state) && state.Update.ReturningTo is null && !Switching(state);
@@ -82,13 +85,17 @@ public sealed class AppStateTests
                 || commands.Overlaps([MenuCommand.ScanNow, MenuCommand.StopScan, MenuCommand.PauseHour, MenuCommand.Resume]);
             if (scan) Assert.AreEqual(EngineState.Ready, state.Engine?.State, "A scan control shown with no engine to ask: " + where);
 
+            var cancel = row.Cancel || flyout.Update?.Cancel == true;
+            if (cancel) Assert.IsTrue(Downloading(state), "Cancel shown with no download to stop: " + where);
+            if (Downloading(state)) Assert.IsTrue(row.Cancel, "A download Settings cannot cancel: " + where);
+
             if (row.CanCheck) Assert.IsTrue(!state.Update.Checking && !Switching(state) && state.Update.Facts?.Last is not { Finishing: true },
                 "Check for updates shown while a check or an update runs: " + where);
             if (UpdateFailed(state)) Assert.AreNotEqual(UpdateRowKind.Current, row.Kind, "A failed update called up to date: " + where);
 
             // A way on: every state that is not on its way somewhere offers something to press beyond Settings and Quit.
             var onItsWay = flyout.Busy || problem?.Busy == true || row.Busy;
-            var action = (flyout.PrimaryEnabled) || flyout.Scan is not null || flyout.Update?.Action is not null
+            var action = (flyout.PrimaryEnabled) || flyout.Scan is not null || flyout.Update?.Action is not null || cancel
                 || commands.Except([MenuCommand.Settings, MenuCommand.Quit]).Any() || problem?.Restart == true || problem?.Undo == true;
             if (!onItsWay && state.Engine is not null)
                 Assert.IsTrue(action, "A state with no way on: " + where);
