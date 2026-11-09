@@ -74,6 +74,7 @@ public sealed partial class SettingsWindow : Window
 
         RestartButton.Click += (_, _) => Restart?.Invoke();
         UndoButton.Click += (_, _) => Undo?.Invoke();
+        NewerButton.Click += (_, _) => UpdateNow?.Invoke();
         ProblemLogsButton.Click += (_, _) => OpenLogs?.Invoke();
         LogsLink.Click += (_, _) => OpenLogs?.Invoke();
         CheckButton.Click += (_, _) => CheckUpdates?.Invoke();
@@ -105,6 +106,8 @@ public sealed partial class SettingsWindow : Window
             UndoButton.Visibility = problem?.Undo == true ? Visibility.Visible : Visibility.Collapsed;
             // While an undo is already returning to a version, the same press asks Windows again.
             UndoButton.Content = copy[problem?.Version is not null ? "retry" : "update-undo"];
+            NewerButton.Visibility = problem?.Newer is null ? Visibility.Collapsed : Visibility.Visible;
+            NewerButton.Content = problem?.Newer is { } newer ? copy.Format("windows-update-to", ("version", newer)) : "";
             ProblemLogsButton.Visibility = problem?.Busy == true ? Visibility.Collapsed : Visibility.Visible;
             LastLines.Visibility = ProblemBar.IsOpen && !string.IsNullOrWhiteSpace(state.Diagnostic) ? Visibility.Visible : Visibility.Collapsed;
             LastLinesText.Text = state.Diagnostic ?? "";

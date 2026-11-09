@@ -156,6 +156,39 @@ public sealed class AboutTests
         Assert.IsNull(Facts("""{"status":"ok","update":{"phase":"complete"}}""").Last, "a half answer is no update");
     }
 
+    private static LastUpdate Last(string phase, string? running = "to") => new(phase, "0.1.17", "0.1.18", running);
+
+    [TestMethod]
+    public void TheVersionWindowsJustInstalledSaysItIsFinishingTheUpdate()
+    {
+        var copy = new NativeCopy("en");
+        foreach (var phase in new[] { "applying", "preparing" })
+        {
+            var facts = new UpdateFacts(true, false, Now, null, null, Last(phase));
+            var row = AboutPanel.Updates(copy, facts, false, null, Now);
+            Assert.AreEqual((UpdateRowKind.Finishing, "Finishing the update to 0.1.18", false, true), (row.Kind, row.Title, row.CanCheck, row.Busy), phase);
+            Assert.AreEqual(new FlyoutUpdate("Finishing the update to 0.1.18", null, null, "0.1.18", true, false, true),
+                AboutPanel.Flyout(copy, facts, null), "the flyout's whole state, not an engine that is merely starting");
+        }
+        Assert.AreNotEqual(UpdateRowKind.Finishing,
+            AboutPanel.Updates(copy, new UpdateFacts(true, false, Now, null, null, Last("preparing", "from")), false, null, Now).Kind,
+            "the previous version starting again is not finishing anything");
+    }
+
+    [TestMethod]
+    public void AFailedUpdateIsNeverUpToDate()
+    {
+        var copy = new NativeCopy("en");
+        foreach (var phase in new[] { "failed", "recovering" })
+        {
+            var row = AboutPanel.Updates(copy, new UpdateFacts(true, true, Now, null, null, Last(phase)), false, "up-to-date", Now);
+            Assert.AreEqual((UpdateRowKind.Unfinished, "0.1.18 couldn't finish", "Undo it above, or check for a newer version.", true),
+                (row.Kind, row.Title, row.Caption, row.CanCheck), phase);
+        }
+        var newer = AboutPanel.Updates(copy, new UpdateFacts(true, true, Now, "0.1.19", null, Last("failed")), false, null, Now);
+        Assert.AreEqual((UpdateRowKind.Offered, "Update"), (newer.Kind, newer.Action), "a newer release can replace it");
+    }
+
     [TestMethod]
     public void AnUndoUnderWayIsTheFlyoutsWholeState()
     {

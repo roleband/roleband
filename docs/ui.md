@@ -152,8 +152,9 @@ by the startup task opens quietly.
 
 **Settings.** A resizable window, from the gear, the menu or Details. A problem leads when
 there is one: Scanning has stopped with Restart, Open logs folder and the engine's last lines, or an
-update the previous run could not finish with Undo the update; such an update opens Settings by
-itself. Setup holding the engine at Welcome is not a stop, so it shows no problem and no Restart.
+update the previous run could not finish with Undo the update in the gold place, Update to a newer
+release beside it when one is offered, and no Restart, since a failed update keeps the engine closed
+until it is undone or replaced; such an update opens Settings by itself. Setup holding the engine at Welcome is not a stop, so it shows no problem and no Restart.
 Updates follow the rules at the top of this page in one card: the status as its title, the version
 and the last check the feed answered as its caption, Check for updates, and the automatic choice,
 labelled with its pinned English words in every language and recording them with their language; it
@@ -170,7 +171,9 @@ is also a gold-tinted banner under the flyout's summary, with a download glyph, 
 own Update, so it cannot pass unnoticed; the idle icon's tooltip names it; and the menu adds Update
 to the version, in its own group before Settings. Update is the only press: the card and the banner
 follow the download and the switch, and Windows closes the app, installs the verified version and
-opens it again, even during a scan. While Windows replaces the app its stopped engine is that
+opens it again, even during a scan. The version that opens says Finishing the update to it, in
+the card and as the flyout's whole state, until it is ready or has failed. While Windows replaces
+the app its stopped engine is that
 replacement: the flyout says Restarting to update, Settings shows no problem, and the menu has no
 Restart. A failure names its step (the download, the check of the signed release, or Windows'
 switch), says nothing was installed where that is so, and offers Try again; a newer offer replaces
@@ -179,7 +182,8 @@ that RoleBand closes and opens again on it with the data as it was before the up
 says the same, and nothing is left to press twice. Opened while Windows is still putting that
 version back, the app says the same and keeps Undo as a retry. An Undo that cannot finish says
 so in the same banner, that the data has not changed, with Try again and the reason below it.
-A failed update also keeps Check for updates and Update: a newer release replaces it. The next open says Updated to, or
+A failed update's card says that version couldn't finish, never Up to date, and keeps Check for
+updates and Update: a newer release replaces it. The next open says Updated to, or
 Back on with the undone version and that nothing was lost, read from the update's journal, until
 a newer offer arrives; an undone version is not offered again. The flyout keeps only offers,
 steps, failures and an undo under way.

@@ -161,7 +161,11 @@ public sealed class CompanionTests
             undoFailure: "earlier")!.TitleKey, "pressing again shows progress, not the old refusal");
         var reopened = SettingsPanel.Problem(stopped, true, false, returningTo: "0.1.13");
         Assert.AreEqual((true, false, false), (reopened!.Undo, reopened.Busy, reopened.Restart), "opened mid-way, Undo stays one press away");
-        Assert.AreEqual("update-stopped-title", SettingsPanel.Problem(stopped, true, false)!.TitleKey, "a failed update still asks for Undo");
+        var failed = SettingsPanel.Problem(stopped, true, false)!;
+        Assert.AreEqual(("update-stopped-title", true, false, (string?)null), (failed.TitleKey, failed.Undo, failed.Restart, failed.Newer),
+            "a failed update asks for Undo, and offers no Restart that the closed update would ignore");
+        Assert.AreEqual("0.1.19", SettingsPanel.Problem(stopped, true, false, newer: "0.1.19")!.Newer, "a newer release sits beside Undo");
+        Assert.IsTrue(SettingsPanel.Problem(stopped, false, false)!.Restart, "an engine that simply stopped still offers Restart");
         foreach (var language in Languages)
         {
             var copy = new NativeCopy(language);
@@ -277,7 +281,7 @@ public sealed class CompanionTests
             SettingsPanel.Problem(new EngineSnapshot(EngineState.Attention), updateFailed: false, held: false));
         Assert.AreEqual(new SettingsProblem("host-stopped", null, false, true),
             SettingsPanel.Problem(new EngineSnapshot(EngineState.Stopped), false, false));
-        Assert.AreEqual(new SettingsProblem("update-stopped-title", "update-stopped-body", true, true),
+        Assert.AreEqual(new SettingsProblem("update-stopped-title", "update-stopped-body", true, false),
             SettingsPanel.Problem(new EngineSnapshot(EngineState.Stopped), updateFailed: true, held: false));
         Assert.IsNull(SettingsPanel.Problem(Ready, updateFailed: true, held: false), "an engine that answers has nothing left to undo");
         Assert.IsNull(SettingsPanel.Problem(new EngineSnapshot(EngineState.Starting), false, false));

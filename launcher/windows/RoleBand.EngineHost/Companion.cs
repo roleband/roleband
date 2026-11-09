@@ -271,8 +271,9 @@ public static class Companion
 /// <param name="Version">The version its title and body name; an undo under way names the version it returns to.</param>
 /// <param name="Busy">Something is under way that ends with Windows closing the app, so the banner shows progress.</param>
 /// <param name="Notice">News, not a fault: an undo under way.</param>
+/// <param name="Newer">A newer release that can replace a failed update, offered beside Undo.</param>
 public sealed record SettingsProblem(string TitleKey, string? BodyKey, bool Undo, bool Restart, string? Version = null, bool Busy = false,
-                                     bool Notice = false);
+                                     bool Notice = false, string? Newer = null);
 
 public static class SettingsPanel
 {
@@ -286,15 +287,19 @@ public static class SettingsPanel
     /// <param name="returning">This session pressed Undo and is waiting for Windows; otherwise the app opened with the undo
     /// unfinished, and Undo stays one press away in case Windows did not finish it.</param>
     /// <param name="undoFailure">Why the last Undo was refused; the banner says so, with Try again and the reason below.</param>
+    /// <param name="newer">A newer release offered while an update has failed: it can replace the failed version.</param>
     public static SettingsProblem? Problem(EngineSnapshot engine, bool updateFailed, bool held, bool restarting = false,
-                                           string? returningTo = null, bool returning = false, string? undoFailure = null)
+                                           string? returningTo = null, bool returning = false, string? undoFailure = null,
+                                           string? newer = null)
     {
         if (held || restarting) return null;
         if (returningTo is not null && undoFailure is not null && !returning)
-            return new("windows-update-undo-failed", "windows-update-undo-failed-body", true, false, returningTo);
+            return new("windows-update-undo-failed", "windows-update-undo-failed-body", true, false, returningTo, Newer: newer);
         if (returningTo is not null)
             return new("windows-update-undoing", "windows-update-undoing-body", !returning, false, returningTo, returning, Notice: true);
-        if (updateFailed && engine.State != EngineState.Ready) return new("update-stopped-title", "update-stopped-body", true, true);
+        // A failed update keeps the engine closed until it is undone or replaced, so Restart would do nothing.
+        if (updateFailed && engine.State != EngineState.Ready)
+            return new("update-stopped-title", "update-stopped-body", true, false, Newer: newer);
         return engine.State switch
         {
             EngineState.Attention => new("host-stopped", "host-attention-body", false, true),

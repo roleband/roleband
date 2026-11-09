@@ -6,6 +6,12 @@ namespace RoleBand.EngineHost;
 /// <param name="Running">"from" or "to" when this version is one end of it; null otherwise.</param>
 public sealed record LastUpdate(string Phase, string From, string To, string? Running)
 {
+    /// <summary>This version is the update's new one and is still preparing: the person waits on the update, not on a fault.</summary>
+    public bool Finishing => Running == "to" && Phase is "applying" or "preparing";
+
+    /// <summary>This version is the update's new one and could not prepare: Undo, or a newer release, is the way on.</summary>
+    public bool Unfinished => Running == "to" && Phase is "failed" or "recovering";
+
     /// <summary>How it ended, for this version to say: Updated to the new version, or Back on the previous one.</summary>
     public UpdateRun? Result => (Phase, Running) switch
     {
@@ -79,7 +85,7 @@ public sealed record UpdateRun(UpdateStep Step, string Version, string? Undone =
     }
 }
 
-public enum UpdateRowKind { Unavailable, Checking, Failed, Never, Offered, Current, Downloading, Restarting, UpdateFailed, Updated }
+public enum UpdateRowKind { Unavailable, Checking, Failed, Never, Offered, Current, Downloading, Restarting, UpdateFailed, Updated, Finishing, Unfinished }
 
 /// <param name="CanCheck">Check now stays on every state but a check or an update already running, so a failure is one
 /// press from a retry.</param>
@@ -87,7 +93,7 @@ public enum UpdateRowKind { Unavailable, Checking, Failed, Never, Offered, Curre
 public sealed record UpdateRow(UpdateRowKind Kind, string Title, string? Caption, bool CanCheck, bool Automatic, bool AutomaticEnabled,
                                string? Action = null)
 {
-    public bool Busy => Kind is UpdateRowKind.Checking or UpdateRowKind.Downloading or UpdateRowKind.Restarting;
+    public bool Busy => Kind is UpdateRowKind.Checking or UpdateRowKind.Downloading or UpdateRowKind.Restarting or UpdateRowKind.Finishing;
 }
 
 /// <summary>The flyout's update banner: an offer with Update, the download, or a failure with Try again; and whether
@@ -130,6 +136,10 @@ public static class AboutPanel
             return new UpdateRow(UpdateRowKind.Downloading, copy.Format("update-downloading", ("version", run.Version)), checkedCaption, false, automatic, true);
         if (run is { Step: UpdateStep.Restarting })
             return new UpdateRow(UpdateRowKind.Restarting, copy["update-restarting"], null, false, automatic, true);
+        // The version Windows just installed is still preparing: say what the wait is for.
+        if (facts?.Last is { Finishing: true } finishing)
+            return new UpdateRow(UpdateRowKind.Finishing, copy.Format("windows-update-finishing", ("version", finishing.To)), null, false,
+                automatic, true);
         if (checking) return new UpdateRow(UpdateRowKind.Checking, copy["panel-status-checking"], checkedCaption, false, automatic, true);
         // A newer offer replaces the last update's result; the same offer keeps its failure and Try again.
         if (run is { Failed: true } && (facts?.Offer is null || facts.Offer == run.Version))
@@ -149,6 +159,10 @@ public static class AboutPanel
         if (facts?.Offer is { } version)
             return new UpdateRow(UpdateRowKind.Offered, copy.Format("update-ready", ("version", version)), checkedCaption, true, automatic, true,
                 copy["update-install"]);
+        // This version is an update that could not prepare: never "up to date", whatever the feed says.
+        if (facts?.Last is { Unfinished: true } unfinished)
+            return new UpdateRow(UpdateRowKind.Unfinished, copy.Format("windows-update-unfinished", ("version", unfinished.To)),
+                copy["windows-update-unfinished-caption"], true, automatic, true);
         // How the last update ended, as its journal says, so it holds across restarts until a newer offer.
         if ((run is { Step: UpdateStep.Updated or UpdateStep.RolledBack } ? run : facts?.Last?.Result) is { } result)
             return new UpdateRow(UpdateRowKind.Updated,
@@ -168,6 +182,9 @@ public static class AboutPanel
         if (returningTo is not null)
             return new FlyoutUpdate(copy.Format("windows-update-undoing", ("version", returningTo)), null, null, returningTo, true, false, true);
         if (facts is { Available: false }) return null;
+        // While the new version prepares, the update is the flyout's whole state, as it was while Windows switched.
+        if (run is null && facts?.Last is { Finishing: true } finishing)
+            return new FlyoutUpdate(copy.Format("windows-update-finishing", ("version", finishing.To)), null, null, finishing.To, true, false, true);
         var row = Updates(copy, facts, false, null, DateTimeOffset.MinValue, run);
         return row.Kind switch
         {

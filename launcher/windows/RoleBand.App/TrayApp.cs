@@ -291,7 +291,7 @@ internal sealed class TrayApp
         settings.Render(new SettingsState(
             snapshot is null ? SettingsPanel.LaunchFailed
                 : SettingsPanel.Problem(snapshot, updateFailed, SetupFlow.EngineHeld(setup), updateRun is { Step: UpdateStep.Restarting },
-                    returningTo, returning, undoFailure),
+                    returningTo, returning, undoFailure, updateRun is { InProgress: true } ? null : updateFacts?.Offer),
             undoFailure ?? snapshot?.Diagnostic ?? launchFailure,
             AboutPanel.Updates(copy, facts, updateChecking, lastUpdateResult, DateTimeOffset.Now, updateRun),
             AboutPanel.Login(login, loginBusy),
@@ -551,8 +551,12 @@ internal sealed class TrayApp
         // Settles an update the previous run began before anything opens the database.
         try
         {
+            // Read first, so a version that is the update's new one says it is finishing the update while it prepares.
+            try { updateFacts = await updates.StatusAsync(); }
+            catch (Exception error) { Debug.WriteLine(error); }
+            RenderUpdate();
             var phase = await updates.StartAsync(engine);
-            if (phase is "failed" or "recovering" or "complete" or "recovered")
+            if (phase is "failed" or "recovering" or "complete" or "recovered" or "preparing")
             {
                 // How the update ended, or the undo under way, comes from its journal, as every later open reads it.
                 try { updateFacts = await updates.StatusAsync(); }

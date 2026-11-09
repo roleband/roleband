@@ -230,6 +230,12 @@ launcher-windows-update-undoing-body = RoleBand closes and opens again on { $ver
 launcher-windows-update-undo-failed = Couldn't return to { $version }
 # kind=sentence
 launcher-windows-update-undo-failed-body = Your data hasn't changed. Try again; the details below say what went wrong.
+# kind=status
+launcher-windows-update-finishing = Finishing the update to { $version }
+# kind=heading
+launcher-windows-update-unfinished = { $version } couldn't finish
+# kind=sentence
+launcher-windows-update-unfinished-caption = Undo it above, or check for a newer version.
 
 # kind=button
 launcher-notes-title = What's new

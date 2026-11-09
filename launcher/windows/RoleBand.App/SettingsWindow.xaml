@@ -14,7 +14,9 @@
           <ProgressBar x:Name="ProblemProgress" IsIndeterminate="True" Visibility="Collapsed" AutomationProperties.AutomationId="ProblemProgress" />
           <StackPanel Orientation="Horizontal" Spacing="8">
             <Button x:Name="RestartButton" Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="SettingsRestart" />
-            <Button x:Name="UndoButton" Visibility="Collapsed" AutomationProperties.AutomationId="UndoUpdate" />
+            <!-- A failed update offers no Restart, so Undo, the way back, is the gold press; a newer release sits beside it. -->
+            <Button x:Name="UndoButton" Style="{StaticResource AccentButtonStyle}" Visibility="Collapsed" AutomationProperties.AutomationId="UndoUpdate" />
+            <Button x:Name="NewerButton" Visibility="Collapsed" AutomationProperties.AutomationId="UpdateToNewer" />
             <Button x:Name="ProblemLogsButton" AutomationProperties.AutomationId="ProblemLogs" />
           </StackPanel>
           </StackPanel>
