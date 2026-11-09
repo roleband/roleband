@@ -57,7 +57,7 @@ The Scan tab draws the scan picture while the engine is healthy and has a scan
 to show: the companies in flight with their clocks, or the last scan's facts, the
 tank of roles found, and one schedule line. A scan goes on after its last company
 is read, and the picture names that step with the Radar's words: Adding the last
-roles, then Finishing up, with the companies read, the roles recorded and the
+roles, then Finishing up, with the companies scanned, the roles recorded and the
 scan's clock in place of a percent that has reached 100. A hold, an engine update or an engine
 without scan data keeps the status card, which says why. Companies needing
 attention are the Radar's to show: the panel neither lists nor marks them. Stopping
@@ -191,7 +191,7 @@ and its swatches do (`job-detail.css`).
 A material is a body attribute a few screens share:
 `design/materials/<name>-material.css`, selected by
 `body[data-material="<name>"]`, set through `hooks/useBodyAttribute`. The one
-material, register, is worn by Settings > Companies, Settings > Intelligence
+material, register, is worn by Settings > Companies, Settings > AI
 and Company profiles. A material carries layout only and restates no
 `--app-*` token (`design/tokens.test.ts`); a screen that should look different
 needs a primitive or token change. `tests/ux/material-parity.spec.ts` measures
@@ -695,7 +695,7 @@ offer Finish setting up, and the next launch offers setup again.
 
 The first pass ends when every followed company has been read once (`ever_read`
 of `required` in `/api/status`). Until then an empty board shows the radar mark
-and the scan's state (about to start; running, with the companies read and when
+and the scan's state (about to start; running, with the companies scanned and when
 to look again; on hold and why; or stopped, with Scan now), and the list is read
 again as companies are read. A list during the pass says how far it has got.
 After it, an empty board tells its own filters apart from what the person is
@@ -816,7 +816,7 @@ the other, and a cover works on the selection of the screen under it
 ### Duplicate review
 
 Duplicates (`features/review/`) is a rail tab because it is a queue with a
-backlog. A sticky toolbar switches between Queue, Matched automatically and
+backlog. A sticky toolbar switches between Queue, Paired automatically and
 Decided, which lists every verdict newest first. Each case shows
 a field ledger where identical fields collapse (`ComparisonLedger.tsx`), two
 description columns with unique passages marked (`DescriptionComparison.tsx`),
