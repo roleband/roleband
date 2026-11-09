@@ -19,7 +19,6 @@ TARGET_SIZES = (16, 20, 24, 30, 32, 36, 40, 48, 60, 64, 72, 80, 96, 256)
 SCALED = {
     "Square44x44Logo": {100: 44, 125: 55, 150: 66, 200: 88, 400: 176},
     "Square150x150Logo": {100: 150, 125: 188, 150: 225, 200: 300, 400: 600},
-    "StoreLogo": {100: 50, 125: 63, 150: 75, 200: 100, 400: 200},
 }
 TRAY_SIZES = [16, 20, 24, 32]
 APP_ICO_SIZES = [16, 20, 24, 32, 40, 48, 64, 256]
@@ -89,17 +88,19 @@ class PackageAssetTests(unittest.TestCase):
                 self.assertEqual((height, bits), (width, 32))
                 self.assertEqual(png_size(png), (width, width))
 
-    def test_the_store_logo_is_opaque_to_every_edge(self):
+    def test_the_store_logo_is_one_opaque_file(self):
         """App Installer shows the package logo on the accent colour, which shows through any transparency."""
         manifest = ElementTree.parse(WINDOWS / "AppxManifest.xml").getroot()
         logo = manifest.find("{http://schemas.microsoft.com/appx/manifest/foundation/windows10}Properties/"
                              "{http://schemas.microsoft.com/appx/manifest/foundation/windows10}Logo").text
         self.assertEqual(logo, r"Assets\StoreLogo.png")
-        for path in sorted(ASSETS.glob("StoreLogo*.png")):
-            with self.subTest(asset=path.name):
-                width, height, pixels = read_png(path.read_bytes())
-                for x, y in ((0, 0), (width - 1, 0), (0, height - 1), (width - 1, height - 1), (width // 2, 0)):
-                    self.assertEqual(pixels[(y * width + x) * 4 + 3], 255, f"({x}, {y})")
+        # A scale-qualified logo reaches App Installer through resources.pri as a small file it draws inside an
+        # accent tile; one large unqualified file fills the tile.
+        self.assertEqual([path.name for path in ASSETS.glob("StoreLogo*.png")], ["StoreLogo.png"])
+        width, height, pixels = read_png((ASSETS / "StoreLogo.png").read_bytes())
+        self.assertEqual((width, height), (200, 200))
+        for x, y in ((0, 0), (width - 1, 0), (0, height - 1), (width - 1, height - 1), (width // 2, 0)):
+            self.assertEqual(pixels[(y * width + x) * 4 + 3], 255, f"({x}, {y})")
 
     def test_icons_are_transparent_outside_the_plate(self):
         for px in (16, 32, 256):
