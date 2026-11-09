@@ -141,8 +141,9 @@ public static class AboutPanel
             return new UpdateRow(UpdateRowKind.Finishing, copy.Format("windows-update-finishing", ("version", finishing.To)), null, false,
                 automatic, true);
         if (checking) return new UpdateRow(UpdateRowKind.Checking, copy["panel-status-checking"], checkedCaption, false, automatic, true);
-        // A newer offer replaces the last update's result; the same offer keeps its failure and Try again.
-        if (run is { Failed: true } && (facts?.Offer is null || facts.Offer == run.Version))
+        // The same offer keeps its failure and Try again; a newer offer, or none any more, replaces it, since Try again
+        // installs the offer.
+        if (run is { Failed: true } && facts?.Offer == run.Version)
         {
             var (title, caption) = run.Step switch
             {

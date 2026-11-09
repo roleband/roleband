@@ -68,6 +68,7 @@ internal sealed class TrayApp
         flyout.Pause += async action => await PauseAsync(action);
         flyout.QuitRequested += async () => await QuitAsync();
         flyout.UpdateRequested += async () => await UpdateNowAsync();
+        flyout.Undo += async () => { flyout.Hide(); await UndoUpdateAsync(); };
         try
         {
             tray = new TrayIcon(flyout.Handle, Menu);
@@ -126,12 +127,15 @@ internal sealed class TrayApp
         if (!atLogin) RunDefault();
     }
 
-    private IReadOnlyList<MenuEntry> Menu()
-    {
-        if (engine is null) return [new MenuEntry(MenuCommand.Settings, copy["settings"], Default: true), MenuEntry.Separator,
-            new MenuEntry(MenuCommand.Quit, copy["windows-quit"])];
-        return Companion.Menu(copy, engine.Snapshot, view ?? CurrentView(), setup.Complete);
-    }
+    /// <summary>The app's whole state at this moment, which every surface is drawn from.</summary>
+    private AppState State() => new(engine?.Snapshot, launchFailure, setup,
+        new UpdateState(updates is null ? UpdateFacts.Unavailable : updateFacts, updateRun, updateChecking, lastUpdateResult, updateFailed,
+            returningTo, returning, undoFailure),
+        DateTimeOffset.Now, scanStatus, requested, lastScanAt);
+
+    private Surfaces Surfaces() => AppSurfaces.Of(copy, State());
+
+    private IReadOnlyList<MenuEntry> Menu() => Surfaces().Menu;
 
     private void Selected(int x, int y)
     {
@@ -155,7 +159,7 @@ internal sealed class TrayApp
     private void RunDefault()
     {
         if (engine is null) { OpenSettings(); return; }
-        switch (Companion.Default(engine.Snapshot, setup.Complete))
+        switch (Surfaces().Default)
         {
             case DefaultCommand.Setup:
                 _ = OpenSetupAsync();
@@ -182,23 +186,14 @@ internal sealed class TrayApp
             case MenuCommand.FinishSetup: await OpenSetupAsync(); break;
             case MenuCommand.Quit: await QuitAsync(); break;
             case MenuCommand.Update: await UpdateNowAsync(); break;
+            case MenuCommand.Undo: await UndoUpdateAsync(); break;
             default:
                 if (Companion.Pause(command) is { } pause) await PauseAsync(pause);
                 break;
         }
     }
 
-    private FlyoutView CurrentView()
-    {
-        if (engine is null)
-        {
-            var title = copy["invalid"];
-            return new FlyoutView(title, null, null, null, false, launchFailure is null ? [] : [new FlyoutLine(launchFailure)],
-                FlyoutPrimary.Restart, false, null, null, null, PauseControl.None, true, TrayBadge.Stopped, Companion.Tip(title));
-        }
-        return Companion.View(copy, engine.Snapshot, scanStatus, requested, lastScanAt, setup.Complete, DateTimeOffset.Now,
-            AboutPanel.Flyout(copy, updates is null ? UpdateFacts.Unavailable : updateFacts, updateRun, returningTo));
-    }
+    private FlyoutView CurrentView() => Surfaces().Flyout;
 
     private void Render(EngineSnapshot snapshot)
     {
@@ -287,13 +282,11 @@ internal sealed class TrayApp
     {
         if (settings is null) return;
         var snapshot = engine?.Snapshot;
-        var facts = updates is null ? UpdateFacts.Unavailable : updateFacts;
+        var surfaces = Surfaces();
         settings.Render(new SettingsState(
-            snapshot is null ? SettingsPanel.LaunchFailed
-                : SettingsPanel.Problem(snapshot, updateFailed, SetupFlow.EngineHeld(setup), updateRun is { Step: UpdateStep.Restarting },
-                    returningTo, returning, undoFailure, updateRun is { InProgress: true } ? null : updateFacts?.Offer),
+            surfaces.Problem,
             undoFailure ?? snapshot?.Diagnostic ?? launchFailure,
-            AboutPanel.Updates(copy, facts, updateChecking, lastUpdateResult, DateTimeOffset.Now, updateRun),
+            surfaces.Updates,
             AboutPanel.Login(login, loginBusy),
             settingsLoginError,
             snapshot is not null && TrayModel.For(snapshot).CanOpenRadar,

@@ -30,7 +30,7 @@ public sealed partial class FlyoutWindow : Window
     private bool closing;
     private bool focused;
 
-    public event Action? OpenRadar, Restart, OpenSettings, QuitRequested, UpdateRequested;
+    public event Action? OpenRadar, Restart, OpenSettings, QuitRequested, UpdateRequested, Undo;
     public event Action<ScanAction>? Scan;
     public event Action<PauseAction>? Pause;
     public event Action<BrowserRoute>? Open;
@@ -75,8 +75,12 @@ public sealed partial class FlyoutWindow : Window
         UpdateButton.Click += (_, _) => UpdateRequested?.Invoke();
         PrimaryButton.Click += (_, _) =>
         {
-            if (current?.Primary == FlyoutPrimary.Restart) Restart?.Invoke();
-            else OpenRadar?.Invoke();
+            switch (current?.Primary)
+            {
+                case FlyoutPrimary.Restart: Restart?.Invoke(); break;
+                case FlyoutPrimary.Undo: Undo?.Invoke(); break;
+                default: OpenRadar?.Invoke(); break;
+            }
         };
         ScanButton.Click += (_, _) => { if (current is { ScanBusyKey: null, Scan: { } action }) Scan?.Invoke(action); };
         DetailsButton.Click += (_, _) => OpenSettings?.Invoke();
@@ -219,8 +223,12 @@ public sealed partial class FlyoutWindow : Window
         MessageText.Text = message ?? "";
         MessageText.Visibility = message is null ? Visibility.Collapsed : Visibility.Visible;
 
-        var restart = view.Primary == FlyoutPrimary.Restart;
-        PrimaryButton.Content = copy[restart ? "engine-restart" : "first-open"];
+        PrimaryButton.Content = copy[view.Primary switch
+        {
+            FlyoutPrimary.Restart => "engine-restart",
+            FlyoutPrimary.Undo => "update-undo",
+            _ => "first-open",
+        }];
         PrimaryButton.IsEnabled = view.PrimaryEnabled;
         ToolTipService.SetToolTip(PrimaryButton, view.PrimaryHelpKey is { } help ? copy[help] : null);
 

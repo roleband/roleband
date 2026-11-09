@@ -9,7 +9,7 @@ public enum DefaultCommand { OpenRadar, Settings, Setup }
 /// <summary>What a launch does by itself: open setup, ask for the Radar once the engine answers, or nothing.</summary>
 public enum LaunchAction { Quiet, Setup, RadarWhenReady }
 
-public enum MenuCommand { OpenRadar = 1, ScanNow, StopScan, PauseHour, PauseThreeHours, PauseTomorrow, Resume, Settings, Restart, FinishSetup, Quit, Update }
+public enum MenuCommand { OpenRadar = 1, ScanNow, StopScan, PauseHour, PauseThreeHours, PauseTomorrow, Resume, Settings, Restart, FinishSetup, Quit, Update, Undo }
 
 /// <summary>One item of the icon's menu. An entry with neither a command nor items is a separator.</summary>
 public sealed record MenuEntry(MenuCommand? Command, string Text, bool Default = false, bool Checked = false, IReadOnlyList<MenuEntry>? Items = null)
@@ -21,7 +21,7 @@ public sealed record MenuEntry(MenuCommand? Command, string Text, bool Default =
 /// <summary>One summary line. A line with a link ends with it, after a middle dot.</summary>
 public sealed record FlyoutLine(string Text, string? Link = null, BrowserRoute? Opens = null);
 
-public enum FlyoutPrimary { OpenRadar, Restart }
+public enum FlyoutPrimary { OpenRadar, Restart, Undo }
 
 /// <summary>Everything the flyout and the icon say for one moment, so the windows have no rules of their own.</summary>
 /// <param name="Corner">The percent of a live scan, or its stopwatch while it finishes.</param>

@@ -183,7 +183,10 @@ says the same, and nothing is left to press twice. Opened while Windows is still
 version back, the app says the same and keeps Undo as a retry. An Undo that cannot finish says
 so in the same banner, that the data has not changed, with Try again and the reason below it.
 A failed update's card says that version couldn't finish, never Up to date, and keeps Check for
-updates and Update: a newer release replaces it. The next open says Updated to, or
+updates and Update: a newer release replaces it. The flyout says the update couldn't finish, with
+Undo in the gold place and the newer release's banner when there is one, and the menu offers Undo
+and Update to the newer release after Settings, never Restart. Every surface is drawn from one app
+state, and a control appears only in a state where pressing it does something. The next open says Updated to, or
 Back on with the undone version and that nothing was lost, read from the update's journal, until
 a newer offer arrives; an undone version is not offered again. The flyout keeps only offers,
 steps, failures and an undo under way.
