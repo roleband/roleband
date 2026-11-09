@@ -167,7 +167,7 @@ describe("StatisticsView", () => {
 
 describe("the basic and advanced views", () => {
   const BASIC = ["Overview", "Hiring", "Compensation", "Skills"];
-  const ADVANCED = ["Pace", "Levels", "Stock", "Trends", "Overlap", "Groups"];
+  const ADVANCED = ["Pace", "Levels", "Stock", "Trends", "Overlap", "Clusters"];
   const listed = () => within(screen.getByRole("tablist")).getAllByRole("tab").map((tab) => tab.textContent);
   const advancedSwitch = () => screen.getByRole("checkbox", { name: msg("insights-statistics-view-advanced-view") });
 
@@ -192,7 +192,7 @@ describe("the basic and advanced views", () => {
     await user.click(within(dialog).getByRole("button", { name: msg("insights-statistics-view-show-me-everything") }));
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(advancedSwitch()).toBeChecked();
-    expect(listed()).toEqual(["Overview", "Hiring", "Pace", "Compensation", "Levels", "Stock", "Skills", "Trends", "Overlap", "Groups"]);
+    expect(listed()).toEqual(["Overview", "Hiring", "Pace", "Compensation", "Levels", "Stock", "Skills", "Trends", "Overlap", "Clusters"]);
     expect(screen.getByText(/Overview content/)).toHaveAttribute("data-advanced", "true");
     expect(readInsightsView()).toBe("advanced");
   });

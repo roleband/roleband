@@ -41,13 +41,13 @@ vocab-domain-customer-support = Soporte y atención al cliente
 vocab-domain-hint-customer-support = Mesa de ayuda, operaciones de usuarios
 vocab-domain-corporate-operations = Operaciones corporativas
 vocab-domain-hint-corporate-operations = Estrategia, planificación, BizOps
-vocab-domain-unclassified = Sin clasificar
+vocab-domain-unclassified = Otros
 
 ## Trayectorias
-vocab-track-management = Gestión / Liderazgo
+vocab-track-management = Gestión
 vocab-track-product-program = Producto y programas
-vocab-track-technical = Técnica (IC)
-vocab-track-business-customer = Negocio y cliente (IC)
+vocab-track-technical = Técnica IC
+vocab-track-business-customer = Negocio y cliente
 
 ## Grupos de puestos; `other` nombra un puesto que no está en ninguno
 vocab-role-engineering-management = Gestión de ingeniería
@@ -91,7 +91,7 @@ vocab-sector-robotics = Robótica, autonomía y defensa
 vocab-sector-consumer = Plataformas de consumo
 
 ## De dónde viene un dato de una empresa
-vocab-source-manual = Manual (tú)
+vocab-source-manual = Introducido por ti
 vocab-source-sec-edgar = SEC EDGAR
 vocab-source-dol-lca = DOL LCA
 vocab-source-market = Datos de mercado

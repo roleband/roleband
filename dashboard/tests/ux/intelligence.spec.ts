@@ -24,7 +24,7 @@ test("intelligence states where each capability runs, up front", async ({ page }
 
   // Three cards, each an instrument — no Advanced drawer, no Experimental pen.
   const ranking = page.getByRole("region", { name: "Fit ranking" });
-  const assistants = page.getByRole("region", { name: "MCP server" });
+  const assistants = page.getByRole("region", { name: msg("ai-assistants-card-mcp-server-2") });
   const capabilities = page.getByRole("region", { name: "Extended capabilities" });
   await expect(ranking).toBeVisible();
   await expect(assistants).toBeVisible();
@@ -33,7 +33,7 @@ test("intelligence states where each capability runs, up front", async ({ page }
 
   // Origin is a label on the card, not a discovery at the bottom of the page.
   await expect(ranking.getByText("On this computer")).toBeVisible();
-  await expect(assistants.getByText("Cloud-connected")).toBeVisible();
+  await expect(assistants.getByText(msg("ai-origin-badge-cloud-connected", { choice: "no" }), { exact: true })).toBeVisible();
   // The header states the direction of travel; the recipients are named on the
   // tiles, so the header does not date itself when a third client appears.
   await expect(assistants.getByText(/Anthropic, OpenAI/)).toHaveCount(0);
@@ -166,7 +166,7 @@ test("a switch is never one click: the confirm states the trade, the cost and th
   // The evidence is a labelled comparison of two real readings, not prose.
   await expect(dialog.getByText("Small model is built for")).toBeVisible();
   await expect(dialog.getByText("16 GB")).toBeVisible();
-  await expect(dialog.getByText("Your computer has")).toBeVisible();
+  await expect(dialog.getByText(msg("ai-matching-model-your-computer-has"))).toBeVisible();
   await expect(dialog.getByText("32 GB")).toBeVisible();
   await expect(dialog.getByText(/disk|storage/i)).toHaveCount(0);
 
@@ -304,7 +304,7 @@ test("assistants: the data sheet gates setup behind one conscious switch", async
   isMobile,
 }) => {
   await page.goto("/settings/intelligence");
-  const assistants = page.getByRole("region", { name: "MCP server" });
+  const assistants = page.getByRole("region", { name: msg("ai-assistants-card-mcp-server-2") });
 
   // What will be seen is stated before anything can connect.
   await expect(assistants.getByText("What will be shared")).toBeVisible();
@@ -312,7 +312,7 @@ test("assistants: the data sheet gates setup behind one conscious switch", async
   await expect(assistants.getByText(/full posting/)).toBeVisible();
   // A connected app can make this computer open pages, so the sheet says so.
   await expect(assistants.getByText("Public web pages it asks to open from this computer")).toBeVisible();
-  await expect(assistants.getByText(/profile and intent statement/)).toBeVisible();
+  await expect(assistants.getByText(msg("ai-assistants-card-never-your-profile-and-intent-statement"))).toBeVisible();
 
   // Nothing is reachable until the gate is on — and that holds for every
   // tile, the open door included.
@@ -341,7 +341,7 @@ test("assistants: the data sheet gates setup behind one conscious switch", async
   // for. Naming vendors here would contradict the third tile, which exists
   // precisely because MCP is a protocol and any client can speak it.
   const note = assistants.locator(".intel-gate-note");
-  await expect(note).toHaveText("sent to the apps you connect · your own account");
+  await expect(note).toHaveText(msg("ai-assistants-card-off-nothing-leaves-this-computer", { choice: "yes" }));
   expect(await note.textContent()).not.toMatch(/Anthropic|OpenAI|Claude|Codex/);
   // ...and at desktop width it stays a clause on the gate's own line. The note
   // is `margin-left: auto` in a wrapping flex row, so a longer string silently
@@ -373,7 +373,7 @@ test("assistants: the data sheet gates setup behind one conscious switch", async
   await setup.nth(2).click();
   const other = page.getByRole("dialog", { name: "Set up another MCP app" });
   await expect(other).toBeVisible();
-  await expect(other.getByText(/Most apps that speak MCP take this JSON/)).toBeVisible();
+  await expect(other.getByText(msg("ai-assistants-card-most-apps-that-speak-mcp"))).toBeVisible();
   await expect(other.getByText(/mcpServers/)).toBeVisible();
   await other.getByRole("button", { name: "Done" }).click();
   await expect(other).toBeHidden();
@@ -381,7 +381,7 @@ test("assistants: the data sheet gates setup behind one conscious switch", async
   // Updates stay a second, separate choice.
   await assistants.getByLabel("Allow assistant apps to update your progress").click();
   await expect(assistants.getByLabel("Allow assistant apps to update your progress")).toBeChecked();
-  await expect(assistants.getByText("stage · notes · next action · recipe drafts · audited")).toBeVisible();
+  await expect(assistants.getByText(msg("ai-assistants-card-stage-notes-next-action-audited"))).toBeVisible();
 });
 
 test("your own model: the probe decides the action, configuration is a dialog", async ({ page }) => {
@@ -393,7 +393,7 @@ test("your own model: the probe decides the action, configuration is a dialog", 
       await route.fulfill({
         json: {
           ...localServerStatusFixture, state: "server_unreachable", reachable: false,
-          action: "stop", action_ok: true, action_detail: "oMLX stopped.",
+          action: "stop", action_ok: true, action_detail: "oMLX stopped.", action_timed_out: false,
         } satisfies LocalServerControlResult,
       });
       return;
@@ -436,7 +436,7 @@ test("your own model: the probe decides the action, configuration is a dialog", 
   await expect(dialog.getByLabel("Use Local Ornith")).toBeChecked();
   await expect(dialog.getByLabel("Use Local Qwen")).not.toBeChecked();
   await expect(dialog.getByLabel("Server address")).toHaveValue("http://127.0.0.1:8000/v1");
-  await expect(dialog.getByText("Generation and reasoning parameters")).toBeVisible();
+  await expect(dialog.getByText(msg("ai-local-model-dialog-generation-and-reasoning-parameters"))).toBeVisible();
 
   // A saved connection's row holds its NAME, which the form's uppercase mono
   // field-label style would also claim, rendering "LOCAL ORNITH".
@@ -470,7 +470,7 @@ test("your own model: every field owns its column, and the popup is a field like
   await expect(dialog.getByLabel("Server address")).toHaveValue(/^http/);
   // The parameters live in the same grid, so they are measured too — closed,
   // every rect is zero and each assertion below would pass vacuously.
-  await dialog.getByText("Generation and reasoning parameters").click();
+  await dialog.getByText(msg("ai-local-model-dialog-generation-and-reasoning-parameters")).click();
   await expect(dialog.getByLabel("Max tokens")).toBeVisible();
 
   // Geometry, read through the label-for-control relationship the form already
@@ -519,7 +519,7 @@ test("your own model: every field owns its column, and the popup is a field like
   // control that carries its text to the RIGHT would announce "ENABLE MODEL
   // THINKING": a column heading for a control that has no column.
   const switchRow = dialog.locator(".intel-dialog-check");
-  await expect(switchRow).toHaveText("Enable model thinking");
+  await expect(switchRow).toHaveText(msg("ai-local-model-dialog-enable-model-thinking"));
   expect(
     await switchRow.evaluate((el) => getComputedStyle(el).textTransform),
   ).toBe("none");
@@ -537,7 +537,7 @@ test("your own model: every field owns its column, and the popup is a field like
     .toBeGreaterThan(rowBox.width / 3);
 
   await del.click();
-  await expect(actions.getByRole("button", { name: /^Confirm delete / })).toBeVisible();
+  await expect(actions.getByRole("button").filter({ hasText: msg("ai-cloud-dialog-delete-2", { choice: "yes" }) })).toBeVisible();
 });
 
 test("a computer without oMLX gets no Start button it could not honour", async ({ page }) => {
@@ -576,8 +576,8 @@ test("every switched-off capability looks alike, and turning your own model on o
   const capabilities = page.getByRole("region", { name: "Extended capabilities" });
 
   const own = capabilities.getByLabel("Use your own model");
-  const apple = capabilities.getByLabel("Enable Apple Intelligence");
-  const online = capabilities.getByLabel("Send postings to online services");
+  const apple = capabilities.getByLabel(msg("ai-capabilities-card-enable-apple-intelligence"));
+  const online = capabilities.getByLabel(msg("ai-capabilities-card-send-postings-to-online-services"));
   for (const control of [own, apple, online]) {
     await expect(control).not.toBeChecked();
     await expect(control).toBeEnabled();
@@ -606,9 +606,9 @@ test("the standing permission is confirmed before connecting an online service",
   // No service yet, but the gate is a standing permission — answerable now,
   // like the MCP connect gate — so every row keeps the same shape AND the
   // switch actually works.
-  await expect(capabilities.getByText("Online model services")).toBeVisible();
-  await expect(capabilities.getByText(/None connected/)).toBeVisible();
-  const futureGate = capabilities.getByLabel("Send postings to online services");
+  await expect(capabilities.getByText(msg("ai-capabilities-card-online-model-services"))).toBeVisible();
+  await expect(capabilities.getByText(msg("ai-capabilities-card-none-connected"), { exact: false })).toBeVisible();
+  const futureGate = capabilities.getByLabel(msg("ai-capabilities-card-send-postings-to-online-services"));
   await expect(futureGate).toBeEnabled();
   await expect(futureGate).not.toBeChecked();
 
@@ -628,7 +628,7 @@ test("the standing permission is confirmed before connecting an online service",
 
   // Adding is a dialog that names the boundary.
   await capabilities.getByRole("button", { name: "Add" }).click();
-  const dialog = page.getByRole("dialog", { name: "Add an online model service" });
+  const dialog = page.getByRole("dialog", { name: msg("ai-cloud-dialog-add-an-online-model-service", { choice: "no", name: "" }) });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Server address (HTTPS)")).toHaveValue("https://api.openai.com/v1");
   await expect(dialog.getByText(/billed separately/)).toBeVisible();
@@ -644,7 +644,7 @@ test("a saved online service brings the egress switch and its own row", async ({
   await page.goto("/settings/intelligence");
   const capabilities = page.getByRole("region", { name: "Extended capabilities" });
 
-  await expect(capabilities.getByLabel("Send postings to online services")).not.toBeChecked();
+  await expect(capabilities.getByLabel(msg("ai-capabilities-card-send-postings-to-online-services"))).not.toBeChecked();
   // The gate exists but is off, and the row says what that means: nothing leaves.
   await expect(capabilities.getByText(/off · nothing is sent/)).toBeVisible();
   await expect(capabilities.getByLabel("Use OpenAI production")).toBeChecked();
@@ -654,8 +654,8 @@ test("a saved online service brings the egress switch and its own row", async ({
   // holds it named, because that switch is on a different row.
   const test = capabilities.getByRole("button", { name: "Test OpenAI production" });
   await expect(test).toBeDisabled();
-  await expect(test).toHaveAttribute("title", /Allow sending postings/);
-  await expect(capabilities.getByText(/blocked · online services are switched off/)).toBeVisible();
+  await expect(test).toHaveAttribute("title", msg("ai-capabilities-card-allow-sending-postings-to-online", { choice: "no", name: "" }));
+  await expect(capabilities.getByText(msg("ai-capabilities-card-blocked-online-services-are-switched", { choice: "v3" }))).toBeVisible();
 
   // Setup is not use: the gear is the only way to correct the connection, so
   // it stays live whatever the switches say.
@@ -683,13 +683,13 @@ test("Intelligence types by rank: same-rank text never differs in colour or weig
 
   await page.goto("/settings/intelligence");
   const capabilities = page.getByRole("region", { name: "Extended capabilities" });
-  await expect(capabilities.getByText("Online model services")).toBeVisible();
+  await expect(capabilities.getByText(msg("ai-capabilities-card-online-model-services"))).toBeVisible();
 
   // Three capability rows, three names. The cloud row has no service yet, but
   // its switch, its Add button and its badge are all live, so demoting its
   // name would say "inactive" about the most interactive row on the card.
   const names = await typeOf(".intel-cap-name");
-  expect(names.map((n) => n.text)).toContain("Online model services");
+  expect(names.map((n) => n.text)).toContain(msg("ai-capabilities-card-online-model-services"));
   expect(distinct(names)).toHaveLength(1);
 
   // Both halves of the data sheet are one rank: what an app will see, and what
@@ -722,7 +722,7 @@ test("Apple Intelligence is an experiment: labelled, local, testable only when o
   await expect(capabilities.getByText(/· experimental$/)).toBeVisible();
 
   // Off in the fixture: the switch is off and Test cannot run.
-  const toggle = capabilities.getByLabel("Enable Apple Intelligence");
+  const toggle = capabilities.getByLabel(msg("ai-capabilities-card-enable-apple-intelligence"));
   await expect(toggle).not.toBeChecked();
   const test = capabilities.getByRole("button", { name: "Test Apple Intelligence" });
   await expect(test).toBeDisabled();

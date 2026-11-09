@@ -20,20 +20,20 @@ describe("the AI screen's server codes", () => {
       ...base, ok: false, failure_class: "timeout", latency_ms: 900, origin: "this_mac", left_device: false,
       answered_by: "omlx", route_reason: null, route_attempts: [],
     } as IntelligenceTestResult;
-    expect(testReason(failed)).toBe("The model did not return a usable response (timeout).");
+    expect(testReason(failed)).toBe("The model didn't give a usable answer (timeout).");
     const unavailable = { ...base, ok: false, availability: { state: "sdk_absent", ok: false, detail: "ImportError" } } as IntelligenceTestResult;
-    expect(testReason(unavailable)).toMatch(/^The Apple Foundation Models SDK isn't installed/);
+    expect(testReason(unavailable)).toMatch(/^Apple Intelligence needs macOS 26 or later/);
   });
 
   it("names origins and fit bands by code, the middle band as Fair", () => {
-    expect(originText("cloud")).toBe("Sent to a cloud provider");
+    expect(originText("cloud")).toBe("Sent to an AI provider");
     expect(["strong", "good", "some", "weak"].map((k) => fitBandName(k as "some"))).toEqual(["Strong", "Good", "Fair", "Weak"]);
-    expect(availabilityText("egress_not_permitted")).toMatch(/^Sending postings to online model services is off/);
+    expect(availabilityText("egress_not_permitted")).toMatch(/^Sending postings to AI providers is off/);
   });
 
   it("follows the active language, never the server's English", async () => {
     await activate("en-XA");
-    expect(availabilityText("available")).toMatch(/^⟦Öñ-ðéṽîçé/);
+    expect(availabilityText("available")).toMatch(/^⟦Ŕéàðý/);
     expect(fitBandName("some")).toMatch(/^⟦Ƒàîŕ/);
   });
 });

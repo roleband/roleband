@@ -23,11 +23,18 @@
   flex-direction: column;
 }
 
+/* Only the panel gives way when the column runs short. The tab row scrolls
+   sideways, so its automatic minimum height is zero: left to shrink, it would
+   collapse under a summary that wraps, and the toolbar would cover its tabs. */
+.main.app-main[data-view="board"] > :not(.app-tabpanel) {
+  flex-shrink: 0;
+}
+
 .main.app-main[data-view="board"] > .app-tabpanel {
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
-  min-height: 360px;
+  min-height: 340px;
 }
 
 .app-board-frame {

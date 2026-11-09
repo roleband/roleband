@@ -82,13 +82,13 @@ def _item(**over) -> dict:
         (
             {},
             "Couldn't scan Stripe · 4 days",
-            "Its careers page isn't answering. It hasn't had a full scan since 28 Sep, so new "
+            "Its careers page isn't loading. It hasn't had a full scan since 28 Sep, so new "
             "roles from Stripe may be missing. This clears on its next full scan.",
         ),
         (
             {"cause": "partial", "days_since_full_scan": 3.0},
             "Couldn't scan Stripe · 3 days",
-            "Scans read only part of its careers page. It hasn't had a full scan since 28 Sep, "
+            "Scans reach only part of its careers page. It hasn't had a full scan since 28 Sep, "
             "so new roles from Stripe may be missing. This clears on its next full scan.",
         ),
         (
@@ -104,21 +104,21 @@ def _item(**over) -> dict:
             # roles it held.
             {"cause": "empty_listing", "held_open": 1, "days_empty": 2.2},
             "Stripe lists no roles · 2 days",
-            "Its careers page answered with an empty list. If Stripe is still hiring, its roles "
+            "Its careers page loads with no roles on it. If Stripe is still hiring, its roles "
             "may have moved to a new careers page. 1 role stays as last seen until it lists "
             "roles again.",
         ),
         (
             {"cause": "empty_listing", "held_open": 0, "days_empty": 0.3},
             "Stripe lists no roles",
-            "Its careers page answered with an empty list. If Stripe is still hiring, its roles "
+            "Its careers page loads with no roles on it. If Stripe is still hiring, its roles "
             "may have moved to a new careers page.",
         ),
         (
             # 1.4 days is one day, not "1 days".
             {"days_since_full_scan": 1.4},
             "Couldn't scan Stripe · 1 day",
-            "Its careers page isn't answering. It hasn't had a full scan since 28 Sep, so new "
+            "Its careers page isn't loading. It hasn't had a full scan since 28 Sep, so new "
             "roles from Stripe may be missing. This clears on its next full scan.",
         ),
     ],

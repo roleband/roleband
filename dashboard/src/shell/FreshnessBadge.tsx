@@ -36,7 +36,7 @@ export function FreshnessBadge() {
   // recently read. The tooltip lists only boards waiting for a full read.
   const behind = (status?.scheduler.unread ?? []).map((row) => companyName(row.company));
   const title = [
-    hold ? launcherHoldText(hold) : null,
+    hold ? launcherHoldText(hold, status?.install) : null,
     status?.last_success_at
       ? shellFreshnessOldest({ when: formatWhen(status.last_success_at) })
       : shellFreshnessNever(),

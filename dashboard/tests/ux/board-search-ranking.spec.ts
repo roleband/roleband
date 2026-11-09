@@ -489,7 +489,7 @@ test("the pager pages the related section only, and a collapsed direct response 
     const params = new URL(url).searchParams;
     return params.get("offset") === "20" && params.get("include_related") === "true";
   })).toBe(true);
-  await page.getByRole("button", { name: "Prev", exact: true }).click();
+  await page.getByRole("button", { name: "Previous", exact: true }).click();
   await expect(page.getByText("Page 1 of 3")).toBeVisible();
 });
 
@@ -565,7 +565,7 @@ test("Best fit heads the roles whose level we cannot place, exactly where they s
   await page.goto("/");
   await page.getByRole("combobox", { name: "Sort by" }).selectOption("relevance");
 
-  const head = page.getByRole("heading", { name: /Level not placed/ });
+  const head = page.getByRole("heading", { name: /Level unknown/ });
   await expect(head).toBeVisible();
   await expect(head).toContainText("2 roles");
   await expect.poll(() => listOrder(page)).toEqual([
@@ -573,7 +573,7 @@ test("Best fit heads the roles whose level we cannot place, exactly where they s
   ]);
   // Each says why: a level we have not mapped is never "not stated".
   const rows = page.locator(".job-row");
-  await expect(rows.nth(1).locator(".job-band")).toHaveText("level not mapped");
+  await expect(rows.nth(1).locator(".job-band")).toHaveText(msg("taxonomy-level-not-mapped"));
   await expect(rows.nth(2).locator(".job-band")).toHaveText("level not stated");
 });
 
@@ -585,8 +585,8 @@ test("a column sort keeps its own order and draws no group head", async ({ page 
   });
   await page.goto("/");
   await page.getByRole("combobox", { name: "Sort by" }).selectOption("relevance");
-  await expect(page.getByRole("heading", { name: /Level not placed/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Level unknown/ })).toBeVisible();
 
   await page.getByRole("combobox", { name: "Sort by" }).selectOption("location");
-  await expect(page.getByRole("heading", { name: /Level not placed/ })).toBeHidden();
+  await expect(page.getByRole("heading", { name: /Level unknown/ })).toBeHidden();
 });

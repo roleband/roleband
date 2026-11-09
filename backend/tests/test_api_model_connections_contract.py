@@ -371,7 +371,7 @@ async def test_a_failed_stop_reports_the_cli_and_the_server_still_answering(
     await seed_local_connection(db_session)
     machine.omlx.exit_code, machine.omlx.output = 1, output
     body = await _call(api_client, "POST", f"{LOCAL}/server", {"action": "stop"})
-    assert (body["action"], body["action_ok"], body["action_detail"]) == ("stop", False, detail)
+    assert (body["action"], body["action_ok"], body["action_timed_out"], body["action_detail"]) == ("stop", False, False, detail)
     assert (body["state"], body["reachable"]) == ("available", True)
 
 

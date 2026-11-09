@@ -18,7 +18,7 @@ compare-screen-shared-passages-hidden = { $count ->
 }
 compare-screen-picking = { $needed ->
     [pair] { $picked } en comparación · elige dos
-   *[another] { $picked } en comparación · elige uno más
+   *[another] { $picked } en comparación · elige otro
 }
 compare-screen-comparing = { $capacity ->
     [full] Comparando { $count } puestos · completo
@@ -32,8 +32,16 @@ compare-screen-not-for-me-hide-this = No es para mí
 compare-screen-remove-from-comparison = Quitar { $title }
 compare-screen-remove = Quitar
 compare-screen-show-or-hide-matching-fields = { $fields ->
-    [open] Ocultar { $count } campos iguales
-   *[folded] Mostrar { $count } campos iguales
+    [open] { $count ->
+        [one] Ocultar { $count } campo idéntico
+        [many] Ocultar { $count } de campos idénticos
+       *[other] Ocultar { $count } campos idénticos
+    }
+   *[folded] { $count ->
+        [one] Mostrar { $count } campo idéntico
+        [many] Mostrar { $count } de campos idénticos
+       *[other] Mostrar { $count } campos idénticos
+    }
 }
 compare-screen-show-or-hide = { $fields ->
     [open] Ocultar
@@ -61,7 +69,7 @@ compare-attributes-status = Estado
 compare-attributes-reposts = Republicaciones
 
 ## features/compare/useCompareController.ts
-compare-use-compare-controller-removed-from-compare = { $title } se quitó de la comparación
+compare-use-compare-controller-removed-from-compare = Quitado de la comparación: { $title }
 compare-use-compare-controller-undo = Deshacer
 compare-use-compare-controller-couldn-t-restore = No se pudo restaurar { $title }
 compare-use-compare-controller-not-for-me = No es para mí · { $title }

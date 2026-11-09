@@ -61,7 +61,7 @@ test("the Trajectory sub-tab re-prices total comp as the stock scenario moves", 
   await expect(slider).toHaveValue("0");
   // At today's price the chart is a sensitivity view, never a chart of zeros.
   await expect(page.getByText("Per 10% stock move · adjust above for a scenario")).toBeVisible();
-  const shock = page.getByRole("img", { name: "Equity shockwave by company" });
+  const shock = page.getByRole("img", { name: "Equity impact by company" });
   await expect(shock).toContainText(/\+\$50K/);
   await expect(page.getByRole("group", { name: "Time range" })).toHaveCount(0);
 
@@ -73,7 +73,7 @@ test("the Trajectory sub-tab re-prices total comp as the stock scenario moves", 
   // Private companies are held out as illiquid; the rationale stays one focus away.
   const privateTip = page.getByRole("button", { name: "Why private companies do not move" });
   await privateTip.focus();
-  await expect(page.getByRole("tooltip").filter({ hasText: /Pre-IPO equity is illiquid/i })).toBeVisible();
+  await expect(page.getByRole("tooltip").filter({ hasText: /Private-company equity has no daily price/i })).toBeVisible();
   await expect(page.getByRole("row", { name: /OpenAI/ })).toContainText("$1.10M");
 
   // Drive the stock up +100%: only the equity slice moves.

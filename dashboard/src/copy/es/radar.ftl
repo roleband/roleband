@@ -67,7 +67,7 @@ radar-board-fresh-show = Ver la actualización
 radar-empty-not-for-me-title = Nada marcado como «No es para mí»
 radar-empty-not-for-me = Lo que marques como No es para mí espera aquí, por si cambias de opinión.
 radar-empty-closed-title = Aún no se ha cerrado nada
-radar-empty-closed = Un puesto llega aquí cuando ya no está en su página de empleo.
+radar-empty-closed = Un puesto aparece aquí cuando ya no está en su página de empleo.
 radar-empty-first-scan-finish = Terminar la configuración
 radar-exact-head = Coincidencia exacta ({ $count })
 radar-show-other = { $count ->
@@ -108,3 +108,104 @@ radar-filter-pay-min-aria = Salario base más bajo
 radar-filter-pay-max-aria = Salario base más alto
 radar-filter-showing = Mostrar
 radar-filter-unread-only = Solo no leídos
+
+radar-empty-filtered-title = Ningún puesto coincide con estos filtros
+
+radar-empty-filtered-clear = Quitar todos los filtros
+
+radar-empty-few-title = { $count ->
+    [one] Sigues { $count } empresa y aún no encaja ningún puesto
+    [many] Sigues { $count } de empresas y aún no encaja ningún puesto
+   *[other] Sigues { $count } empresas y aún no encaja ningún puesto
+}
+
+radar-empty-few = { $choice ->
+    [counted] Se pueden escanear unas { $more } empresas más. Si sigues más, encontrarás más puestos que encajen.
+   *[other] Si sigues más empresas, encontrarás más puestos que encajen.
+}
+
+radar-empty-follow-more = Sigue más empresas
+
+radar-empty-change-looking-for = Cambia lo que buscas
+
+radar-empty-fit-title = Aún no hay nada que encaje con lo que buscas
+
+radar-empty-fit = { $choice ->
+    [checking] Escaneando las demás empresas: { $checked } de { $total } por ahora. Los puestos que encajen aparecen aquí a medida que se encuentran.
+   *[done] Aún no hay ningún puesto que encaje en las empresas que sigues. Cada una se vuelve a escanear cada pocas horas.
+}
+
+radar-first-scan-starting-title = Tu primer escaneo está a punto de empezar
+
+radar-first-scan-starting = Empieza en unos minutos. Los puestos nuevos aparecen aquí a medida que se encuentran.
+
+radar-first-scan-running-title = Tu primer escaneo está en marcha
+
+radar-first-scan-progress = { $read } de { $total } empresas escaneadas. Los puestos nuevos aparecen aquí a medida que se encuentran.
+
+radar-first-scan-progress-unknown = Los puestos nuevos aparecen aquí a medida que se encuentran.
+
+radar-first-scan-nothing-yet = { $read } de { $total } empresas escaneadas, ninguna con un puesto que encaje con { $link } por ahora.
+
+radar-first-scan-looking-for = lo que buscas
+
+radar-first-scan-back = { $when ->
+    [hour] Vuelve dentro de una hora, más o menos.
+    [almost] Casi listo.
+   *[soon] Vuelve dentro de unos minutos.
+}
+
+radar-first-scan-back-minutes = { $minutes ->
+    [one] Vuelve dentro de { $minutes } minuto, más o menos.
+    [many] Vuelve dentro de unos { $minutes } de minutos.
+   *[other] Vuelve dentro de unos { $minutes } minutos.
+}
+
+radar-first-scan-held-title = Tu primer escaneo está en espera
+
+radar-first-scan-held-count = { $read } de { $total } empresas escaneadas.
+
+radar-first-scan-held = { $reason ->
+    [waiting_for_mains] Tu ordenador funciona con batería. El escaneo continúa cuando lo enchufes.
+    [waiting_for_wake] El escaneo continúa cuando tu ordenador se active.
+    [schema_pending] Se está terminando una actualización. El escaneo continúa justo después.
+    [dependencies_pending] Se está terminando una actualización. El escaneo continúa justo después.
+    [setup_source] Ejecuta ./setup.sh en tu carpeta de código fuente para terminar la actualización. El escaneo continúa justo después.
+    [busy_external] Hay otro escaneo en marcha. El tuyo empieza justo después.
+    [supervisor_stale] El servicio en segundo plano no está en marcha. Reinicia la app para continuar.
+    [backoff] Algunos sitios de empleo pidieron reducir el ritmo. El escaneo continúa por sí solo.
+    [preflight_failed] El escaneo está en espera hasta que esta versión supere sus comprobaciones.
+   *[other] El escaneo continúa por sí solo cuando esto se resuelva.
+}
+
+radar-first-scan-held-until = Algunos sitios de empleo pidieron reducir el ritmo. El escaneo continúa a las { $time }.
+
+radar-first-scan-stopped-title = Tu primer escaneo está detenido
+
+radar-first-scan-stopped = { $read } de { $total } empresas escaneadas. Si vuelves a escanear, continúa donde se detuvo.
+
+radar-first-scan-scan-now = Escanear ahora
+
+radar-first-scan-none-title = Aún no hay empresas que escanear
+
+radar-first-scan-none = Sigue algunas empresas y empezará tu primer escaneo.
+
+radar-first-scan-follow = Seguir empresas
+
+radar-first-scan-filtered = Hay filtros activos, así que aquí se ven menos puestos.
+
+radar-first-scan-line = Aún escaneando{ $dots } { $read } de { $total } empresas escaneadas. Aparecen más puestos a medida que se encuentran.
+
+radar-end-scanning = { $count ->
+    [one] Eso es todo por ahora. Queda { $count } empresa por escanear.
+    [many] Eso es todo por ahora. Quedan { $count } de empresas por escanear.
+   *[other] Eso es todo por ahora. Quedan { $count } empresas por escanear.
+}
+
+radar-end-few = Estos son todos los puestos que encajan en las empresas que sigues. ¿Falta algo? { $follow } o { $change }.
+
+radar-end-change-looking-for = cambia lo que buscas
+
+radar-end-fit = Estos son todos los puestos que encajan en las empresas que sigues. ¿Falta algo? { $change }.
+
+radar-end-filtered = Eso es todo lo que coincide con estos filtros. { $clear } para ver más.

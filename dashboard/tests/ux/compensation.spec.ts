@@ -132,12 +132,12 @@ test("shows employer-published bands, keeps them apart from the imputed estimate
 
   // The hero stays compact. Its methodology remains available on demand.
   await expect(page.getByRole("heading", { level: 2, name: /median/ })).toHaveText(/\$479K median/);
-  await expect(page.getByText(/732 \/ 749 open roles now · 98% coverage/)).toBeVisible();
+  await expect(page.getByText("732 of 749 open roles have an estimate (98%)")).toBeVisible();
   // The answer leads the tab, as on every Insights tab.
   await expect(page.locator(".insight-hero .eyebrow")).toHaveText("Compensation");
   const estimateTip = page.getByRole("button", { name: "How compensation is estimated" });
   await estimateTip.hover();
-  await expect(page.getByRole("tooltip").filter({ hasText: /imputed from a company \+ level \+ family lookup/i })).toBeVisible();
+  await expect(page.getByRole("tooltip").filter({ hasText: /Estimated from company, level and discipline/i })).toBeVisible();
 
   // Published bands: a row per level, never a bar per band.
   const rows = page.getByRole("list", { name: "Posted base salary ranges by level" });
@@ -204,14 +204,14 @@ test("roles whose level we cannot place get their own row on Pay, never a rung's
 
   const rows = page.getByRole("list", { name: "Posted base salary ranges by level" });
   await expect(rows.getByRole("listitem")).toHaveCount(3);
-  await expect(rows.getByRole("listitem").last()).toContainText("Level not placed");
-  await expect(rows.getByRole("img", { name: /^Level not placed: 1 range from 1 employer/ })).toBeVisible();
+  await expect(rows.getByRole("listitem").last()).toContainText("Level unknown");
+  await expect(rows.getByRole("img", { name: /^Level unknown: 1 range from 1 employer/ })).toBeVisible();
   await expect(rows.getByText(/^unstated$/)).toHaveCount(0);
   await expect(rows.getByText("Mid-level")).toHaveCount(0);
 
-  await page.getByRole("group", { name: "Disclosure breakdown" }).getByRole("button", { name: "By level" }).click();
+  await page.getByRole("group", { name: "Pay transparency breakdown" }).getByRole("button", { name: "By level" }).click();
   const byLevel = page.getByRole("img", { name: /post a range, by level/i });
-  await expect(byLevel.getByText("Level not placed")).toBeVisible();
+  await expect(byLevel.getByText("Level unknown")).toBeVisible();
   await expect(byLevel.getByText(/^unstated$/)).toHaveCount(0);
   expect(errors).toEqual([]);
 });
@@ -227,15 +227,15 @@ test("reports the disclosure rate against checked roles and names the backlog", 
   // denominator would produce is our own extraction queue showing up as employer
   // behaviour, so the headline and the note must both be present.
   await expect(page.locator(".chart-insight", { hasText: /25% of 600 checked roles post a range/ })).toBeVisible();
-  await expect(page.getByText(/149 of 749 open roles have not been checked/i)).toBeVisible();
+  await expect(page.getByText(/149 of 749 open roles haven't been checked/i)).toBeVisible();
 
-  const rateChart = page.getByRole("img", { name: /post a range, by employer/i });
+  const rateChart = page.getByRole("img", { name: /post a range, by company/i });
   await expect(rateChart).toBeVisible();
   await expect(rateChart.getByText("80% · 160/200")).toBeVisible();
   // Netflix has nothing checked; it must not be drawn as a 0% employer.
   await expect(rateChart.getByText("Netflix")).toHaveCount(0);
 
-  await page.getByRole("group", { name: "Disclosure breakdown" }).getByRole("button", { name: "By level" }).click();
+  await page.getByRole("group", { name: "Pay transparency breakdown" }).getByRole("button", { name: "By level" }).click();
   await expect(page.getByRole("img", { name: /post a range, by level/i })).toBeVisible();
 
   expect(errors).toEqual([]);
@@ -259,7 +259,7 @@ test("charts disclosure and published bands over time", async ({ page }) => {
   const request = page.waitForRequest(
     (r) => r.url().includes("/api/statistics/disclosure-trends") && r.url().includes("dim=company"),
   );
-  await page.getByRole("group", { name: "Trend breakdown" }).getByRole("button", { name: "By employer" }).click();
+  await page.getByRole("group", { name: "Trend breakdown" }).getByRole("button", { name: "By company" }).click();
   await request;
   await expect(rateTrend).toBeVisible();
 
@@ -308,7 +308,7 @@ test("a fresh install's base-only roles have their own panel, apart from the tot
 
   const panel = page.getByRole("region", { name: "Estimated base salary by level" });
   await expect(panel).toBeVisible();
-  await expect(panel).toContainText("40 more roles have only an estimated base salary.");
+  await expect(panel).toContainText("40 more roles have only a base salary estimate");
   await expect(panel).toContainText("$196K");
   // The totals' hero is the totals' alone.
   await expect(page.getByRole("heading", { level: 2, name: /median/ })).toHaveText(/\$479K median/);

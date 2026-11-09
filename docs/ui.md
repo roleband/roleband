@@ -57,7 +57,7 @@ The Scan tab draws the scan picture while the engine is healthy and has a scan
 to show: the companies in flight with their clocks, or the last scan's facts, the
 tank of roles found, and one schedule line. A scan goes on after its last company
 is read, and the picture names that step with the Radar's words: Adding the last
-roles, then Finishing up, with the companies read, the roles recorded and the
+roles, then Finishing up, with the companies scanned, the roles recorded and the
 scan's clock in place of a percent that has reached 100. A hold, an engine update or an engine
 without scan data keeps the status card, which says why. Companies needing
 attention are the Radar's to show: the panel neither lists nor marks them. Stopping
@@ -131,7 +131,7 @@ focus leaves it, but not for its own pause menu. It keeps three parts in every s
 changes their words, never their places. The summary is a title (the scan and its percent with a
 progress bar, the last scan, a pause and its end, a hold, or Scanning has stopped) and at most three
 lines: roles found so far and the first three companies being read with a count of the rest, or
-companies read with the new-roles count as a link to New, and the schedule line. The tasks are Open
+companies scanned with the new-roles count as a link to New, and the schedule line. The tasks are Open
 Radar, the one gold action, then Scan now or Stop scan and Pause or Resume; a stopped engine puts
 Restart in the gold place and Details, which opens Settings, beside it. An engine on its way keeps
 Open Radar off with the reason as its tooltip. The one link is the Settings gear. A request's
@@ -294,7 +294,7 @@ and its swatches do (`job-detail.css`).
 A material is a body attribute a few screens share:
 `design/materials/<name>-material.css`, selected by
 `body[data-material="<name>"]`, set through `hooks/useBodyAttribute`. The one
-material, register, is worn by Settings > Companies, Settings > Intelligence
+material, register, is worn by Settings > Companies, Settings > AI
 and Company profiles. A material carries layout only and restates no
 `--app-*` token (`design/tokens.test.ts`); a screen that should look different
 needs a primitive or token change. `tests/ux/material-parity.spec.ts` measures
@@ -409,6 +409,7 @@ writing a screen-local version.
 | On/off setting | `Switch` |
 | Pick one of a few modes | `Segmented` |
 | Pick from a list | `Select` (native) or `FilterSelect` (searchable facet picker) |
+| Time of day | `TimeField`: typed, or picked from a list of half hours, each with an optional note |
 | A dropdown of actions or choices | `Menu` with `MenuGroup`, `MenuItem`, `MenuCheck`, `MenuRadio`; it pads and sizes itself, so a caller never styles the popover around it |
 | Toggle a filter | `FilterChip` |
 | Filter register | `FacetGroup`, `FilterGroup`, `FilterRegister`, `FilterDrawer` from `ui/FilterRail` |
@@ -797,7 +798,7 @@ offer Finish setting up, and the next launch offers setup again.
 
 The first pass ends when every followed company has been read once (`ever_read`
 of `required` in `/api/status`). Until then an empty board shows the radar mark
-and the scan's state (about to start; running, with the companies read and when
+and the scan's state (about to start; running, with the companies scanned and when
 to look again; on hold and why; or stopped, with Scan now), and the list is read
 again as companies are read. A list during the pass says how far it has got.
 After it, an empty board tells its own filters apart from what the person is
@@ -918,7 +919,7 @@ the other, and a cover works on the selection of the screen under it
 ### Duplicate review
 
 Duplicates (`features/review/`) is a rail tab because it is a queue with a
-backlog. A sticky toolbar switches between Queue, Matched automatically and
+backlog. A sticky toolbar switches between Queue, Paired automatically and
 Decided, which lists every verdict newest first. Each case shows
 a field ledger where identical fields collapse (`ComparisonLedger.tsx`), two
 description columns with unique passages marked (`DescriptionComparison.tsx`),

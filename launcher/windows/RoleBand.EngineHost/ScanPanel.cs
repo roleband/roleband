@@ -19,7 +19,7 @@ public enum BrowserRoute { Radar, NewRoles, Schedule, Settings }
 /// stop waits for the engine it says what the stop keeps instead.</summary>
 public sealed record ScheduleLine(ScheduleLineKind Kind, string Text, string? LinkKey, string? HelpKey);
 
-/// <summary>One figure with its words: companies read, new roles, roles in the tank.</summary>
+/// <summary>One figure with its words: companies scanned, new roles, roles in the tank.</summary>
 public sealed record ScanFact(string Figure, string Label, BrowserRoute? Opens = null);
 
 /// <summary>Everything the Scan tab draws, so the window has no rules of its own.</summary>

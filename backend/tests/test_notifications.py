@@ -125,7 +125,7 @@ def test_posted_band_increase_is_comp_up():
     assert notif is not None
     assert notif.category == "comp_up"
     assert notif.priority == "high"
-    assert "$200k-$240k -> $230k-$270k" in notif.body
+    assert "$200k-$240k → $230k-$270k" in notif.body
 
 
 def test_posted_band_decrease_is_comp_down_and_not_high_priority():
@@ -197,13 +197,13 @@ def _stated(low, high, currency, period):
     "before,after,shown",
     [
         (_stated(80_000, 95_000, "GBP", "year"), _stated(85_000, 100_000, "GBP", "year"),
-         "80k-95k GBP -> 85k-100k GBP"),
-        (_stated(45, 60, "USD", "hour"), _stated(50, 65, "USD", "hour"), "$45-$60 an hour -> $50-$65 an hour"),
+         "80k-95k GBP → 85k-100k GBP"),
+        (_stated(45, 60, "USD", "hour"), _stated(50, 65, "USD", "hour"), "$45-$60 an hour → $50-$65 an hour"),
         (_stated(9_000, 9_000, "EUR", "month"), _stated(9_500, 9_500, "EUR", "month"),
-         "9,000 EUR a month -> 9,500 EUR a month"),
+         "9,000 EUR a month → 9,500 EUR a month"),
         # A detail written without its currency and period reads as dollars, and
         # names no period its size alone cannot confirm.
-        (band(45, 60), band(50, 65), "$45-$60 -> $50-$65"),
+        (band(45, 60), band(50, 65), "$45-$60 → $50-$65"),
     ],
     ids=["pounds", "hourly", "monthly", "older_detail"],
 )
@@ -246,7 +246,7 @@ def test_a_long_open_update_names_no_second_clock():
     notif = classify_event("changed", detail, JobStub(total_days_open=60), True, long_open_days=45)
     assert notif is not None and notif.category == "long_open_update"
 
-    assert notif.title.endswith(" updated a role you saved, listed for a long time")
+    assert notif.title.endswith(" updated a long-open role you saved")
     assert notif.body == "Research Manager"
     assert "60" not in notif.title and "open" not in notif.title.lower().split()
     assert "\u2014" not in notif.title, "no em dash in copy"
@@ -270,9 +270,9 @@ def test_digest_counts_all_and_leads_with_best_fit():
     notif = classify_daily_digest("2026-09-04", matches)
     assert notif is not None
     assert notif.category == "daily_digest"
-    assert notif.title == "3 new roles for you today"
+    assert notif.title == "3 new roles on your radar today"
     assert "Strong fit: Staff PM, Ads at Google" in notif.body
-    assert "and 2 more" in notif.body
+    assert ", plus 2 more" in notif.body
     assert notif.meta["count"] == 3
     assert notif.meta["companies"] == ["apple", "google", "netflix"]
     assert [t["job_id"] for t in notif.meta["top"]] == [1, 2, 3]
@@ -286,7 +286,7 @@ def test_digest_top_is_capped_but_count_stays_exact():
     assert notif is not None
     assert notif.meta["count"] == 40
     assert len(notif.meta["top"]) == 5
-    assert "and 39 more" in notif.body
+    assert ", plus 39 more" in notif.body
 
 
 def test_digest_without_intent_signal_still_ships():
@@ -294,14 +294,14 @@ def test_digest_without_intent_signal_still_ships():
     must still arrive rather than being withheld until the user trains it."""
     notif = classify_daily_digest("2026-09-04", [DigestMatch(1, "google", "Staff PM")])
     assert notif is not None
-    assert notif.title == "1 new role for you today"
+    assert notif.title == "1 new role on your radar today"
     assert notif.meta["ranked"] is False
     assert notif.body == "Staff PM at Google"
 
 
 def test_singular_plural_reads_correctly():
     one = classify_daily_digest("2026-09-04", [DigestMatch(1, "google", "A")])
-    assert one is not None and one.title == "1 new role for you today"
+    assert one is not None and one.title == "1 new role on your radar today"
 
 
 @pytest.mark.parametrize(
@@ -346,7 +346,7 @@ def test_pursuit_due_today_does_not_claim_to_be_overdue():
 
 def test_pursuit_without_a_named_action_still_notifies():
     notif = classify_pursuit_due("apple", "TPM", "applied", None, 1)
-    assert "No next action set" in notif.body
+    assert "No next step set" in notif.body
 
 
 # --------------------------------------------------------------------------
@@ -526,7 +526,7 @@ def test_a_slept_through_sync_says_the_machine_slept():
     assert notif is not None
     assert notif.category == "sync_warning"
     assert notif.priority == "normal"
-    assert "asleep for 16m 27s" in notif.body
+    assert "Your computer slept for 16m 27s during the scan" in notif.body
     assert "Microsoft" in notif.body
     assert notif.meta["suspended_sources"] == {"microsoft": 987.0}
     # An empty exception message must not leave a trailing bare colon.
@@ -551,7 +551,7 @@ def test_an_ordinary_warning_does_not_claim_the_machine_slept():
     notif = classify_sync_result(run)
 
     assert notif is not None
-    assert "asleep" not in notif.body
+    assert "slept" not in notif.body
     assert notif.meta["suspended_sources"] == {}
 
 
@@ -677,8 +677,8 @@ def test_a_run_that_only_ran_out_of_time_names_who_it_missed_at_low_priority():
     assert (notif.priority, notif.category, notif.title) == (
         "low", "sync_unfinished", "Scan ran out of time before 2 companies",
     )
-    assert "Not reached before the scan ran out of time: Meta, Stripe." in notif.body
-    assert "They are still due, so the next scan picks them up." in notif.body
+    assert "Meta, Stripe weren't reached before the scan's time limit." in notif.body
+    assert "Their postings stay as last seen until the next scan." in notif.body
     assert "problems" not in notif.body.lower(), "nothing went wrong at any company"
     assert notif.meta["sync_state"] == "partial"
     assert notif.meta["unreached_sources"] == ["meta", "stripe"]
@@ -692,8 +692,9 @@ def test_one_company_not_reached_is_it_not_they():
 
     assert notif is not None
     assert notif.title == "Scan ran out of time before 1 company"
-    assert "It is still due, so the next scan picks it up." in notif.body
-    assert "They are" not in notif.body
+    assert "Stripe wasn't reached before the scan's time limit." in notif.body
+    assert "Its postings stay as last seen until the next scan." in notif.body
+    assert "weren't" not in notif.body and "Their" not in notif.body
 
 
 def test_a_deadline_that_came_before_every_company_is_not_a_failure():
@@ -713,7 +714,7 @@ def test_names_are_the_ones_the_user_knows():
     )
 
     assert notif is not None
-    assert "Not reached before the scan ran out of time: Pied Piper." in notif.body
+    assert "Pied Piper wasn't reached before the scan's time limit." in notif.body
     assert "piedpiper" not in notif.body
 
 
@@ -721,7 +722,7 @@ def test_a_listing_our_own_time_limit_cut_short_is_ours_not_the_companys():
     notif = classify_sync_result(_partial_run({"apple": _OK, "micron": _BOUNDED}))
 
     assert notif is not None
-    assert (notif.category, notif.title) == ("sync_unfinished", "Scan covered 1 company only in part")
+    assert (notif.category, notif.title) == ("sync_unfinished", "Scan only partly covered 1 company")
     assert "Stopped at the scan's time limit: Micron." in notif.body
     assert "complete read" not in notif.body, "no promise of a read that may never come"
     assert notif.meta["cut_short_sources"] == ["micron"]
@@ -740,9 +741,8 @@ def test_a_run_our_connection_cut_names_its_companies_at_low_priority():
     assert (notif.priority, notif.category, notif.title) == (
         "low", "sync_unfinished", "Scan lost its internet connection at 2 companies",
     )
-    assert "This machine had no internet connection while scanning: Acme, Beta." in notif.body
-    assert "they are still due, so the next scan picks them up." in notif.body
-    assert "problems" not in notif.body.lower() and "ran out of time" not in notif.body
+    assert "Couldn't scan Acme, Beta: no internet connection. The next scan tries again." in notif.body
+    assert "problems" not in notif.body.lower() and "reached before" not in notif.body
     assert notif.meta["offline_sources"] == ["acme", "beta"]
     assert notif.meta["error_sources"] == [] and notif.meta["source_errors"] == {}
 
@@ -764,9 +764,10 @@ def test_an_outage_is_counted_beside_the_runs_own_limits():
     assert notif is not None
     assert notif.title == (
         "Scan ran out of time before 2 companies, lost its internet connection at 1 company"
-        " and covered 1 only in part"
+        " and only partly covered 1 more"
     )
-    assert "it is still due, so the next scan picks it up." in notif.body
+    assert "Meta, Stripe weren't reached before the scan's time limit." in notif.body
+    assert "Couldn't scan Acme: no internet connection." in notif.body
 
 
 def test_a_page_ceiling_alone_says_nothing_every_run():
@@ -783,12 +784,12 @@ def test_each_group_is_counted_as_what_it_is():
     notif = classify_sync_result(_partial_run({**three, "google": _TRUNCATED}))
     assert notif is not None
     assert notif.title == "Scan ran out of time before 3 companies"
-    assert "Google" not in notif.body and "only in part" not in notif.body
+    assert "Google" not in notif.body and "only partly" not in notif.body
 
     notif = classify_sync_result(_partial_run({**three, "micron": _BOUNDED}))
     assert notif is not None
-    assert notif.title == "Scan ran out of time before 3 companies and covered 1 only in part"
-    assert "Not reached before the scan ran out of time: Meta, Stripe, Uber." in notif.body
+    assert notif.title == "Scan ran out of time before 3 companies and only partly covered 1 more"
+    assert "Meta, Stripe, Uber weren't reached before the scan's time limit." in notif.body
     assert "Stopped at the scan's time limit: Micron." in notif.body
 
 
@@ -806,7 +807,7 @@ async def test_a_policy_refusal_is_not_a_timeout_and_says_nothing(monkeypatch):
     notif = classify_sync_result(_partial_run({"apple": broken, "nvidia": refused, "google": _OK}))
     assert notif is not None
     assert "Problems at: Apple." in notif.body
-    assert "nvidia" not in notif.body.lower() and "ran out of time" not in notif.body
+    assert "nvidia" not in notif.body.lower() and "reached before" not in notif.body
 
 
 @pytest.mark.asyncio
@@ -820,7 +821,7 @@ async def test_a_connector_this_build_lacks_stays_a_problem():
     assert notif is not None
     assert (notif.category, notif.title) == ("sync_warning", "Scan finished with problems")
     assert "Problems at: Ghostco." in notif.body
-    assert "ran out of time" not in notif.body
+    assert "reached before" not in notif.body
 
 
 def test_a_real_problem_keeps_its_warning_and_also_names_who_was_not_reached():
@@ -830,7 +831,7 @@ def test_a_real_problem_keeps_its_warning_and_also_names_who_was_not_reached():
     assert notif is not None
     assert (notif.priority, notif.category, notif.title) == ("normal", "sync_warning", "Scan finished with problems")
     assert "Problems at: Apple." in notif.body, "meta is not a problem, only not reached"
-    assert "Not reached before the scan ran out of time: Meta." in notif.body
+    assert "Meta wasn't reached before the scan's time limit." in notif.body
     assert notif.meta["error_sources"] == ["apple"]
 
 

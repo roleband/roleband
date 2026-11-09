@@ -81,7 +81,7 @@ privacy-show-next = Show what's sent
 # kind=label
 privacy-sent-recently = Sent recently
 # kind=sentence note="Under Sent recently: what the list holds"
-privacy-sent-recently-detail = What left this machine in the last 30 days, and what this window sent since it opened.
+privacy-sent-recently-detail = What left this computer in the last 30 days, and what this window sent since it opened.
 # kind=button
 privacy-show-sent = Show the list
 # kind=button

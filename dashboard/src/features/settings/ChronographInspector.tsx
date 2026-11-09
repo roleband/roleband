@@ -4,7 +4,7 @@ import { Badge, Popover } from "../../ui";
 import { minuteOf } from "./charts/dial";
 import type { DialMark } from "./charts/dial";
 import { editableReason, formatMinute, leadEvent, modeLabel } from "./charts/schedule";
-import { InspectorTime } from "./InspectorTime";
+import { TimeField } from "../../ui/TimeField";
 import type { DialDrag } from "./useDialDrag";
 import {
   settingsChronographInspectorClosesRoles,
@@ -119,7 +119,7 @@ export function ChronographInspector({ mark, schedule, bindings, markMinute, dra
               </dl>
               <label className="schedule-inspector-time">
                 <span>{reason ?? settingsChronographInspectorRunsAt()}</span>
-                <InspectorTime
+                <TimeField
                   label={settingsChronographInspectorTime({ company: companyName(event.company), scan: modeLabel(event.mode, schedule.plan.enabled) })}
                   step={schedule.tick_seconds}
                   minute={drag.draft?.key === open.key && open.events.length === 1

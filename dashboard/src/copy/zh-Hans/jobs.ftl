@@ -8,20 +8,20 @@ jobs-track-business-customer = 业务与客户
 
 ## 搜索结果如何匹配
 jobs-match-exact = 完全匹配
-jobs-match-exact-title = 你搜索的职位名称、链接或职位编号
+jobs-match-exact-title = 你搜索的职位名称、链接或编号
 jobs-match-close = 相近匹配
 jobs-match-close-title = 相似的职位名称，相同类型的工作
 jobs-match-partial = 部分匹配
 jobs-match-partial-title = 相似的工作，但职位名称或侧重点不同
 jobs-via-keyword = 关键词
-jobs-via-fuzzy = 模糊
+jobs-via-fuzzy = 相似
 jobs-via-keyword-inline = 关键词
-jobs-via-fuzzy-inline = 模糊匹配
-jobs-matched-via = 匹配方式：{ $sources }
+jobs-via-fuzzy-inline = 相似匹配
+jobs-matched-via = 通过 { $sources } 找到
 
 ## 行内信息
 jobs-level-not-stated-title = 该招聘信息未注明级别
-jobs-level-not-mapped-title = 职位名称使用了这家公司自有的级别名称，尚未对应到通用级别
+jobs-level-not-mapped-title = 这家公司自有的级别名称，尚未对应到标准级别
 jobs-level-unconfirmed = 级别未确认
 jobs-level-unconfirmed-title = 根据职位名称推断的级别
 jobs-career-track = 职业路线
@@ -45,10 +45,10 @@ jobs-listed-since-seen = 至少自 { $date } 起发布
 jobs-standing-title = 可能是长期开放的招聘信息
 jobs-standing-card-title = 可能是长期开放的招聘信息：{ $signs }。这是发布方式上的规律，并非对公司的定论。它可能仍在招聘。
 jobs-sign-long-open = 发布时间很长
-jobs-sign-relisted = 发布了 { $count } 次
+jobs-sign-relisted = 重新发布了 { $count } 次
 jobs-sign-date-moved = 在持续发布期间日期被推后
 jobs-sign-long-open-inline = 发布时间很长
-jobs-sign-relisted-inline = 发布了 { $count } 次
+jobs-sign-relisted-inline = 重新发布了 { $count } 次
 jobs-sign-date-moved-inline = 在持续发布期间日期被推后
 
 ## 行操作
@@ -81,7 +81,7 @@ jobs-compare-beacon-aria-full = 对比中有 { $count } 个，已满。对比 { 
 jobs-compare-full-pill = 已满
 jobs-in-compare = 在对比中
 jobs-in-compare-count = 在对比中 · { $count }/{ $cap }
-jobs-compare-not-saved = 未保存。重新加载后此选择可能会丢失。
+jobs-compare-not-saved = 未保留。重新加载后，此选择可能会消失。
 jobs-compare-remove = 将 { $title } 移出对比
 jobs-clear = 清除
 

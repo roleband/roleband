@@ -8,8 +8,8 @@ import type { DialMark } from "./charts/dial";
 import { formatMinute, leadEvent, modeLabel } from "./charts/schedule";
 import type { ScheduleEvent, ScheduleMode } from "./charts/schedule";
 import {
+  settingsScheduleChronographDragAScanToMove,
   settingsUseDialDragCouldnTMoveThatScan,
-  settingsUseDialDragDragAMarkToReschedule,
   settingsUseDialDragMovedTo,
 } from "../../copy/gen/settings";
 
@@ -177,7 +177,7 @@ export function useDialDrag(
   const suppressClickRef = useRef(false);
   const anchorsRef = useRef(new Map<string, HTMLButtonElement>());
   const [draft, setDraft] = useState<DragState | null>(null);
-  const [notice, setNotice] = useState(settingsUseDialDragDragAMarkToReschedule());
+  const [notice, setNotice] = useState(settingsScheduleChronographDragAScanToMove());
   const [error, setError] = useState<string | null>(null);
 
   const pointerMinute = (event: ReactPointerEvent<HTMLButtonElement>) =>

@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CloudLLMProfile,
   CloudLLMState,
+  IntelligenceAvailability,
   IntelligenceStatus,
   IntelligenceTestResult,
   LocalLLMState,
@@ -39,6 +40,11 @@ import {
   aiCapabilitiesCardConfigureYourOwnModel,
   aiCapabilitiesCardConnectionReadyMs,
   aiCapabilitiesCardEnableAppleIntelligence,
+  aiCapabilitiesCardAppleDownloading,
+  aiCapabilitiesCardAppleNeedsMacos,
+  aiCapabilitiesCardAppleNotSupported,
+  aiCapabilitiesCardAppleOff,
+  aiCapabilitiesCardAppleOffInSystemSettings,
   aiCapabilitiesCardExperimentalWeAreStillTesting,
   aiCapabilitiesCardExtendedCapabilities,
   aiCapabilitiesCardExtendedCapabilities2,
@@ -73,6 +79,7 @@ import {
   aiCapabilitiesCardUseYourOwnModel,
   aiCapabilitiesCardYourOwnModel,
   aiLocalServerActionFailed,
+  aiLocalServerStartPending,
   aiCapabilitiesCardRunning,
 } from "../../copy/gen/ai";
 import { fmtMoney } from "../../money";
@@ -84,7 +91,19 @@ import { availabilityText, originText, testReason } from "./serverText";
 /** A server-supplied sentence used as one clause of a `·`-joined sub-line.
  *  Its trailing full stop is the API's, not ours, and it reads as a stumble
  *  mid-line ("Integration is turned off. · experimental — …"). */
-const clause = (text: string) => text.replace(/\.\s*$/, "");
+const SLOW_START_RECHECK_MS = 30_000;
+
+const clause = (text: string) => text.replace(/[.。]\s*$/, "");
+
+/* The Apple Intelligence row's own short word for a state, the first fact of a
+   line joined by dots. A state without one falls back to its sentence. */
+const APPLE_ROW: Partial<Record<IntelligenceAvailability["state"], () => string>> = {
+  disabled_by_flag: aiCapabilitiesCardAppleOff,
+  apple_intelligence_disabled: aiCapabilitiesCardAppleOffInSystemSettings,
+  model_not_ready: aiCapabilitiesCardAppleDownloading,
+  sdk_absent: aiCapabilitiesCardAppleNeedsMacos,
+  device_ineligible: aiCapabilitiesCardAppleNotSupported,
+};
 
 /** What the server strip says about the current probe. */
 function serverLabel(server: LocalServerStatus): string {
@@ -166,13 +185,30 @@ export function CapabilitiesCard({
     if (local && next !== local.enabled) void setLocalEnabled(next);
   };
 
+  const recheck = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (recheck.current !== null) window.clearTimeout(recheck.current);
+  }, []);
+
   const controlServer = async (action: "start" | "stop") => {
     setServerBusy(true);
     setError(null);
     try {
       const next = await api.controlLocalServer(action);
       setServer(next);
-      if (next.action_ok === false) setError(aiLocalServerActionFailed({ action }));
+      // A start past its time limit may still bring the server up: say so, and
+      // probe again once it has had time, instead of calling it a failure.
+      if (next.action_timed_out && action === "start") {
+        setError(aiLocalServerStartPending());
+        if (recheck.current !== null) window.clearTimeout(recheck.current);
+        recheck.current = window.setTimeout(() => {
+          recheck.current = null;
+          // The row shows the state the probe finds; a newer error stays.
+          const pending = aiLocalServerStartPending();
+          setError((current) => (current === pending ? null : current));
+          void loadServer();
+        }, SLOW_START_RECHECK_MS);
+      } else if (next.action_ok === false) setError(aiLocalServerActionFailed({ action }));
     } catch (e) {
       setError(errorText(e));
     } finally {
@@ -325,7 +361,7 @@ export function CapabilitiesCard({
             <span>
               <span className="intel-cap-name">{aiCapabilitiesCardAppleIntelligence()}</span>
               <span className="intel-cap-sub">
-                <Msg of={aiCapabilitiesCardExperimentalWeAreStillTesting} elems={{ value: status.availability.ok ? aiCapabilitiesCardReady() : clause(availabilityText(status.availability.state)) }} />
+                <Msg of={aiCapabilitiesCardExperimentalWeAreStillTesting} elems={{ value: status.availability.ok ? aiCapabilitiesCardReady() : (APPLE_ROW[status.availability.state]?.() ?? clause(availabilityText(status.availability.state))) }} />
               </span>
             </span>
             <span className="intel-cap-acts">

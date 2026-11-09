@@ -1,5 +1,3 @@
-import { errorText } from "../../api/errorText";
-import { number as copyNumber } from "../../copy/format";
 // The aim sentence, owned by Settings > Intelligence > Fit ranking.
 //
 // It never decides which roles reach the radar, it only orders them when the
@@ -39,7 +37,7 @@ export function AimLine({
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(statement);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const openRef = useRef<HTMLButtonElement>(null);
   const returnFocus = useRef(false);
@@ -54,7 +52,7 @@ export function AimLine({
 
   const open = () => {
     setValue(statement);
-    setError(null);
+    setFailed(false);
     setEditing(true);
   };
   const close = () => {
@@ -73,13 +71,13 @@ export function AimLine({
     event.preventDefault();
     if (unchanged) return close();
     setBusy(true);
-    setError(null);
+    setFailed(false);
     try {
       const saved = await api.saveIntentStatement(trimmed);
       onSaved(saved.intent_statement);
       close();
-    } catch (e) {
-      setError(errorText(e));
+    } catch {
+      setFailed(true);
     } finally {
       setBusy(false);
     }
@@ -108,9 +106,9 @@ export function AimLine({
             {aiAimLineRolesClosestToItCome()}
           </small>
         </div>
-        {error && (
+        {failed && (
           <p className="intel-aim-error" role="alert">
-            <Msg of={aiAimLineCouldnTSaveYourAim} elems={{ error: error }} />
+            {aiAimLineCouldnTSaveYourAim()}
           </p>
         )}
         <div className="ledger-form-actions">
@@ -125,21 +123,20 @@ export function AimLine({
     );
   }
 
-  const total = copyNumber(fit.total);
   return (
     <div className="intel-intent">
       {fit.ranked && statement ? (
         <span>
-          <Msg of={aiAimLineOpenRolesRankedByHow} elems={{ total: total }} /> <q><Content text={statement} /></q>
+          {aiAimLineOpenRolesRankedByHow({ total: fit.total })} <q><Content text={statement} /></q>
         </span>
       ) : fit.ranked ? (
-        <span><Msg of={aiAimLineOpenRolesRankedByWhat} elems={{ total: total }} /></span>
+        <span>{aiAimLineOpenRolesRankedByWhat({ total: fit.total })}</span>
       ) : statement ? (
         <span>
-          <Msg of={aiAimLineOpenRolesSortedByDate} elems={{ total: total, q: <q><Content text={statement} /></q> }} />
+          <Msg of={aiAimLineOpenRolesSortedByDate} args={{ total: fit.total }} elems={{ q: <q><Content text={statement} /></q> }} />
         </span>
       ) : (
-        <span><Msg of={aiAimLineOpenRolesSortedByDate2} elems={{ total: total }} /></span>
+        <span>{aiAimLineOpenRolesSortedByDate2({ total: fit.total })}</span>
       )}
       <Button ref={openRef} variant="link" className="ui-btn-quiet" onClick={open}>
         {aiAimLineAddYourAim({ choice: (statement) ? "yes" : "no" })}

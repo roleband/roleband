@@ -299,7 +299,7 @@ describe("CompanyProfilePanel", () => {
     render(<CompanyProfilePanel slug="anthropic" enriching />);
     const hc = (await screen.findByText("Headcount")).closest(".prof-field")!;
     expect(within(hc as HTMLElement).getByText("2,000")).toBeInTheDocument();
-    expect(within(hc as HTMLElement).getByText("Manual (you)")).toBeInTheDocument();
+    expect(within(hc as HTMLElement).getByText(msg("vocab-source-manual"))).toBeInTheDocument();
   });
 
   it("flags a stale claim", async () => {
@@ -361,7 +361,7 @@ describe("CompanyProfilePanel", () => {
     const empty = await screen.findByTestId("price-empty");
     // The ghost holds the chart's place, as decoration only.
     expect(empty.querySelector(".ui-empty-ghost-chart")).toHaveAttribute("aria-hidden", "true");
-    expect(empty).toHaveTextContent(/Tiingo integration/);
+    expect(empty).toHaveTextContent(msg("profiles-stock-price-panel-needs-key", { key: msg("shared-price-feed-get-key") }));
     const key = within(empty).getByRole("link", { name: msg("shared-price-feed-get-key") });
     expect(key).toHaveAttribute("href", "https://www.tiingo.com/account/api/token");
     expect(key).toHaveAttribute("target", "_blank");
@@ -725,7 +725,7 @@ describe("CompanyProfilePanel", () => {
     mock(base());
     render(<CompanyProfilePanel slug="google" />);
     expect(await screen.findByText(PLUGIN_ATTRIBUTION)).toBeInTheDocument();
-    expect(screen.getByText(/named at the foot of this panel/)).toBeInTheDocument();
+    expect(screen.getByText(msg("profiles-company-profile-panel-values-come-from-the-source"))).toBeInTheDocument();
   });
 
   it("credits nothing when only RoleBand's own data answers", async () => {
@@ -735,7 +735,7 @@ describe("CompanyProfilePanel", () => {
     // (The price panel's own credit is a separate line, for its own source.)
     expect(screen.queryByText(/Data source/)).toBeNull();
     // Nor a sentence pointing at a credit that is not there.
-    expect(screen.queryByText(/named at the foot of this panel/)).toBeNull();
+    expect(screen.queryByText(msg("profiles-company-profile-panel-values-come-from-the-source"))).toBeNull();
   });
 });
 
@@ -955,7 +955,7 @@ describe("manual-enrichment workflow", () => {
     expect(screen.getByText(msg("error-company-profile-not-found"))).toBeInTheDocument();
     expect(screen.queryByText(/company profile not found/)).not.toBeInTheDocument();
     expect(screen.queryByText(msg("profiles-company-profile-panel-loading"))).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: msg("profiles-company-profile-panel-retry") })).toBeInTheDocument();
   });
 
   it("retries a failed load on demand", async () => {
@@ -964,7 +964,7 @@ describe("manual-enrichment workflow", () => {
     fetchProfile.mockResolvedValueOnce(base());
     render(<CompanyProfilePanel slug="google" />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
+    fireEvent.click(await screen.findByRole("button", { name: msg("profiles-company-profile-panel-retry") }));
     expect(await screen.findByRole("heading", { name: "Google" })).toBeInTheDocument();
   });
 
@@ -1475,7 +1475,7 @@ describe("CompanyProfilesView — search + branding", () => {
       expect(screen.queryByText(/No company profiles yet/)).not.toBeInTheDocument();
       expect(screen.queryByLabelText("Search companies")).not.toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole("link", { name: "Settings › Companies" }));
+      fireEvent.click(screen.getByRole("link", { name: msg("profiles-company-profiles-view-settings-companies") }));
       expect(screen.getByTestId("location")).toHaveTextContent("/settings/companies");
     });
   });

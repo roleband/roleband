@@ -272,7 +272,7 @@ built-in estimate answers no total; job detail shows the package.
 | The row knows | The cell shows | Its hover, also read to screen readers |
 |---|---|---|
 | A posted base range (`jobs.disclosed_*`, basis `base`, a period the row can write) | The low end with `+` (`$150K+`), or one figure when both ends read the same; per hour or month with its unit, in the posting's currency, never converted | The posted range |
-| Otherwise an estimated base (`jobs.comp_base_median`) | That figure (`$180K`), in its currency | Our estimate for this level |
+| Otherwise an estimated base (`jobs.comp_base_median`) | That figure (`$180K`), in its currency | Estimated from the level |
 | Neither | Nothing; screen readers hear that it is not known | Why, when a plugin answers pay and has not read the company |
 
 `api/serializers/jobs.posted_base` decides which posted range a row carries

@@ -68,18 +68,18 @@ describe("DigestPanel", () => {
     // The digest counts the whole day but names only the top few; silently
     // dropping the remainder would misreport the day.
     render(withRouter(<DigestPanel digest={parseDigest(META)!} onOpenJob={vi.fn()} />));
-    expect(screen.getByText(/10 more roles opened today/)).toBeInTheDocument();
+    expect(screen.getByText(/10 more new roles\./)).toBeInTheDocument();
   });
 
   it("says so when there is no intent signal to rank by", () => {
     const digest = parseDigest({ ...META, ranked: false, count: 2 })!;
     render(withRouter(<DigestPanel digest={digest} onOpenJob={vi.fn()} />));
-    expect(screen.getByText(/Unranked/)).toBeInTheDocument();
+    expect(screen.getByText(/Not ranked yet\./)).toBeInTheDocument();
   });
 
   it("does not claim a remainder when it named every role", () => {
     const digest = parseDigest({ ...META, count: 2 })!;
     render(withRouter(<DigestPanel digest={digest} onOpenJob={vi.fn()} />));
-    expect(screen.queryByText(/more role/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/more new role/)).not.toBeInTheDocument();
   });
 });

@@ -4,7 +4,7 @@
 
 ## The board
 # kind=status note="Under the page title: how many applications are moving, ended by the person, ended by the company; $needNext is the link that follows, applications-board-need-next"
-applications-board-summary = { $moving } in motion · { $decided } decided · { $closed } closed · { $needNext }
+applications-board-summary = { $moving } in motion · { $decided } decided · { $closed } rejected or closed · { $needNext }
 # kind=link note="The summary's last part, a link that turns on the Needs a next step filter: how many past Considering have no next step or interview"
 applications-board-need-next = { $count ->
         [one] { $count } needs
@@ -19,7 +19,7 @@ applications-board-scroll-on = Show later columns
 # kind=name note="The column of the endings the person chose: Accepted, Declined, Withdrawn"
 applications-column-decided = Decided
 # kind=name note="The column of the endings the company or the world decided: Rejected, Role closed"
-applications-column-closed = Closed
+applications-column-closed = Rejected or closed
 # kind=empty note="The first column, Considering, while it holds nothing and other columns do"
 applications-column-empty-saved = Save a role on your radar to start here.
 # kind=empty note="Any other column with no application in it"
@@ -156,7 +156,7 @@ applications-undo-failed = Couldn't move { $title } back. Try again.
 # kind=toast note="A move into Interviewing failed, and so did taking back the interview it had saved"
 applications-move-failed-interview-kept = Couldn't move { $title }, but its interview was saved. Open the application to change or delete it.
 # kind=toast
-applications-removed = Removed { $title } from the pipeline
+applications-removed = Removed { $title } from your pipeline
 # kind=toast
 applications-remove-failed = Couldn't remove { $title }. Try again.
 
@@ -210,7 +210,7 @@ applications-interview-format-video = Video
 # kind=label
 applications-interview-format-phone = Phone
 # kind=label
-applications-interview-format-onsite = On site
+applications-interview-format-onsite = On-site
 # kind=label
 applications-interview-link = Meeting link
 # kind=label
@@ -236,7 +236,7 @@ applications-interview-outcome-none = Not yet
 # kind=label
 applications-interview-outcome-passed = Passed
 # kind=label
-applications-interview-outcome-not-passed = Not passed
+applications-interview-outcome-not-passed = Didn't pass
 # kind=label
 applications-interview-outcome-cancelled = Cancelled
 # kind=label
@@ -322,7 +322,7 @@ applications-page-bar = Application
 # kind=label note="The back link to the view the page was opened from, named by its tab (Considering, Board, Up next): Pipeline is the place's short name"
 applications-page-back = Pipeline / { $view }
 # kind=button
-applications-page-back-board = Open the board
+applications-page-back-board = Open the Board
 # kind=heading
 applications-page-load-failed = Couldn't load this application
 # kind=status note="Where the application stands among the cards of its column" same-as=applications-column-count-of
@@ -342,7 +342,7 @@ applications-page-withdraw = Withdraw
 # kind=toast
 applications-link-copied = Link copied
 # kind=toast
-applications-link-copy-failed = The browser blocked copying. Copy the address from the address bar instead.
+applications-link-copy-failed = Couldn't copy the link. Copy it from the address bar instead.
 # kind=label note="The stage button in the page's header: the stage and how long the application has been in it"
 applications-stage-button = { $stage } · { $days ->
         [one] 1 day
@@ -362,9 +362,9 @@ applications-crossing-closed = { $days ->
     }
 # kind=status
 applications-crossing-reopened = { $days ->
-        [0] The posting reopened on the day you applied.
-        [one] The posting reopened 1 day after you applied.
-       *[other] The posting reopened { $days } days after you applied.
+        [0] The posting was reposted on the day you applied.
+        [one] The posting was reposted 1 day after you applied.
+       *[other] The posting was reposted { $days } days after you applied.
     }
 # kind=status
 applications-crossing-pay = { $days ->
@@ -403,7 +403,7 @@ applications-next-done = Mark done
 # kind=label
 applications-next-prompt = What's the next step?
 # kind=label
-applications-next-due = Due by, if set
+applications-next-due = Due date (optional)
 # kind=error next=none note="Under the next step's field when it is saved empty; the message is itself the way out"
 applications-next-required = Write the next step, or press Cancel.
 # kind=button
@@ -458,7 +458,7 @@ applications-feed-next-step = Next step changed
 # kind=status note="A recorded change with no field this page names"
 applications-feed-updated = Updated
 # kind=label note="After a recorded change an agent made"
-applications-feed-by-agent = by an agent
+applications-feed-by-agent = by an assistant app
 # kind=aria
 applications-comment-label = Comment
 # kind=label
@@ -468,7 +468,7 @@ applications-comment-submit = Comment
 # kind=label
 applications-comment-author-you = You
 # kind=label
-applications-comment-author-agent = Agent
+applications-comment-author-agent = Assistant app
 # kind=label note="After a comment that was changed after it was posted"
 applications-comment-edited = Edited
 # kind=aria

@@ -536,9 +536,9 @@ def classify_sync_result(
         meta["sync_state"] = "warning"
         meta["failure"] = failure
         delivered_say = (
-            [S.say("notif-post-pass-unfinished", failure=failure), *unfinished_say]
+            [S.say("notif-post-pass-unfinished"), *unfinished_say]
             if unfinished.named
-            else [S.say("notif-every-source-delivered", failure=failure)]
+            else [S.say("notif-every-source-delivered")]
         )
         meta["say"] = _said(
             S.say("notif-scan-derivation-failed"), finished_say, *delivered_say, S.say("notif-data-saved"), summary_say

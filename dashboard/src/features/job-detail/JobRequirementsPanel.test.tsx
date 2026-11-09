@@ -148,7 +148,7 @@ describe("JobRequirementsPanel", () => {
     expect(screen.getByText("Ways of working")).toBeInTheDocument();
     // Not a ledger row: no meter for behavioural items.
     expect(screen.queryByRole("button", { name: /mentorship, core/i })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Show evidence" }));
+    await user.click(screen.getByRole("button", { name: msg("role-job-requirements-panel-show-evidence", { choice: "no" }) }));
     expect(screen.getByText(/“Experience with Mentorship.”/)).toBeInTheDocument();
   });
 
@@ -339,7 +339,7 @@ describe("JobRequirementsPanel", () => {
 
   it("states the truth contract in the info tip: posting evidence, not candidate match", () => {
     render(<JobRequirementsPanel requirements={reqs([skill({ concept_id: 1, display: "Python" })])} />);
-    expect(screen.getByText(/says nothing about your own skills/i)).toBeInTheDocument();
+    expect(screen.getByText(msg("role-job-requirements-panel-importance-reflects-how-strongly-this"))).toBeInTheDocument();
   });
 });
 

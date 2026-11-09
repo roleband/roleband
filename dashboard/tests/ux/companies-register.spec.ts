@@ -41,7 +41,7 @@ test("first scan status does not turn a company's age into a failed scan duratio
   target.last_outcome = "failed";
   target.coverage = {
     ...target.coverage!, cause: "unreachable", title: "Couldn't scan Google",
-    body: "Its careers page isn't answering.",
+    body: "Its careers page isn't loading.",
     say: {
       title: { k: "notif-coverage-scan-title", p: { company: "Google", days: 0 } },
       body: [{ k: "notif-coverage-unreachable", p: {} }],
@@ -52,7 +52,7 @@ test("first scan status does not turn a company's age into a failed scan duratio
     `^${msg("companies-company-register-rows-coverage-problem", { cause: "unreachable" })}`,
   ));
   await expect(faang).not.toContainText("81d");
-  await expect(faang.getByTitle("Couldn't scan Google. Its careers page isn't answering."))
+  await expect(faang.getByTitle(`Couldn't scan Google. ${msg("notif-coverage-unreachable")}`))
     .toHaveClass(/is-warn/);
 });
 
@@ -836,7 +836,7 @@ test("every other company is followed in one decision, and the scan shows its pr
   await expect(page.getByRole("region", { name: "Other companies", exact: true })).toHaveCount(0);
   const addMore = page.getByRole("region", { name: "Add more companies" });
   const other = addMore.getByRole("group", { name: "The wider market" });
-  await expect(other.getByText("About 10,000 companies on the same job sites")).toBeVisible();
+  await expect(other.getByText(msg("companies-add-more-companies-about-companies-on-the-same", { about: "10,000" }))).toBeVisible();
   await expect(addMore.getByRole("button", { name: "Add by link" })).toBeVisible();
 
   // The index leads there.

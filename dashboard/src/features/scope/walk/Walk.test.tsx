@@ -227,7 +227,7 @@ it("walks a fresh user through the three answers, closes the funnel on the rail,
 
   // Step 1: the answer narrows the funnel on the rail, and Continue opens.
   await user.click(screen.getByLabelText("Leading a team"));
-  expect(bar("Career track")).toHaveAccessibleDescription("Keeps 30%, 6 roles"); // 6 of 20 are management
+  expect(bar("Career track")).toHaveAccessibleDescription(msg("profile-radar-pyramid-keeps", { kept: "30%", kept2: "6 roles" })); // 6 of 20 are management
   await user.click(screen.getByRole("button", { name: "Continue" }));
   expect(screen.getByRole("heading", { name: "Your level" })).toBeVisible();
   expect(screen.getByRole("button", { name: "Back" })).toBeEnabled();
@@ -241,10 +241,10 @@ it("walks a fresh user through the three answers, closes the funnel on the rail,
   await user.click(screen.getByRole("button", { name: "Add Silicon Valley" }));
   const reach = screen.getByRole("group", { name: "How far from Silicon Valley" });
   expect(within(reach).getByRole("button", { name: "Silicon Valley" })).toHaveAttribute("aria-pressed", "true");
-  expect(bar("Location")).toHaveAccessibleDescription("Keeps 20%, 4 roles"); // 4 of 20: EM · staff · SV
+  expect(bar("Location")).toHaveAccessibleDescription(msg("profile-radar-pyramid-keeps", { kept: "20%", kept2: "4 roles" })); // 4 of 20: EM · staff · SV
   await user.click(within(reach).getByRole("button", { name: "United States" }));
   // The headline carries the share alone; the number is the bar's tooltip.
-  expect(bar("Location")).toHaveAccessibleDescription("Keeps 20%, 4 roles");
+  expect(bar("Location")).toHaveAccessibleDescription(msg("profile-radar-pyramid-keeps", { kept: "20%", kept2: "4 roles" }));
 
   // The Summary: the sentence, the choices with their way back, the funnel,
   // and leaving as the one primary — the rail's Save steps back.
@@ -257,27 +257,27 @@ it("walks a fresh user through the three answers, closes the funnel on the rail,
   expect(stripButton("Discipline")).toBeEnabled();
   expect(screen.getAllByRole("button").filter((b) => b.classList.contains("ui-btn-primary")).map((b) => b.textContent))
     .toEqual(["Save and see your radar"]);
-  expect(screen.getByRole("region", { name: "What it keeps" }).querySelector(".walk-funnel-row:last-child")).toHaveTextContent(/4\s*20%/);
+  expect(screen.getByRole("region", { name: msg("profile-summary-step-what-it-keeps") }).querySelector(".walk-funnel-row:last-child")).toHaveTextContent(/4\s*20%/);
 
   // Step 4 from the Summary's own way back: narrow to engineers.
   await user.click(screen.getByRole("button", { name: "Adjust discipline" }));
-  expect(screen.getByRole("heading", { name: "Any particular roles?" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: msg("profile-walk-steps-any-particular-roles") })).toBeVisible();
   // Each answer starts with nothing ticked: every role of the kind is kept,
   // and the layer stays open until a card is ticked.
   expect(screen.getByLabelText("Engineers (Leading a team)")).not.toBeChecked();
   expect(screen.getByLabelText("Engineers (Leading a team)")).toBeEnabled();
-  expect(bar("Discipline")).toHaveAccessibleDescription("Any, nothing narrowed");
+  expect(bar("Discipline")).toHaveAccessibleDescription(msg("profile-radar-pyramid-not-answered-yet", { choice: "yes" }));
   // The filter narrows the cards by name or example; a card is the same object as step 1.
-  await user.type(screen.getByLabelText("Filter roles"), "design");
+  await user.type(screen.getByLabelText(msg("profile-roles-step-filter-roles")), "design");
   expect(screen.queryByLabelText("Engineers (Leading a team)")).toBeNull();
   expect(screen.getByLabelText("Designers (Leading a team)")).toBeVisible();
-  await user.clear(screen.getByLabelText("Filter roles"));
+  await user.clear(screen.getByLabelText(msg("profile-roles-step-filter-roles")));
   // Ticking engineers narrows to them, and the layer is drawn.
   await user.click(screen.getByLabelText("Engineers (Leading a team)"));
-  expect(bar("Discipline")).toHaveAccessibleDescription(/^Keeps 20%/);
+  expect(bar("Discipline")).toHaveAccessibleDescription(/^In focus: 20%/);
   // Unticking the last card gives every role back, and the layer opens again.
   await user.click(screen.getByLabelText("Engineers (Leading a team)"));
-  expect(bar("Discipline")).toHaveAccessibleDescription("Any, nothing narrowed");
+  expect(bar("Discipline")).toHaveAccessibleDescription(msg("profile-radar-pyramid-not-answered-yet", { choice: "yes" }));
   await user.click(screen.getByLabelText("Engineers (Leading a team)"));
 
   // Save lives on the rail, under the impact of what is unsaved.
@@ -330,13 +330,13 @@ it("the rail and the Summary count what the save keeps, even when step 4 still r
   renderWalk();
   await screen.findByRole("complementary", { name: "Your progress" });
 
-  expect(bar("Location")).toHaveAccessibleDescription("Keeps 100%, 7 roles");
+  expect(bar("Location")).toHaveAccessibleDescription(msg("profile-radar-pyramid-keeps", { kept: "100%", kept2: "7 roles" }));
   // The layer says it narrows, because the save does.
-  expect(bar("Discipline")).toHaveAccessibleDescription("Keeps 57%, 4 roles");
+  expect(bar("Discipline")).toHaveAccessibleDescription(msg("profile-radar-pyramid-keeps", { kept: "57%", kept2: "4 roles" }));
   expect(rail().querySelectorAll(".walk-pyramid-caption")[3]).toHaveTextContent("Discipline57%");
 
   await user.click(stripButton("Summary"));
-  expect(screen.getByRole("region", { name: "What it keeps" }).querySelector(".walk-funnel-row:last-child")).toHaveTextContent(/4\s*57%/);
+  expect(screen.getByRole("region", { name: msg("profile-summary-step-what-it-keeps") }).querySelector(".walk-funnel-row:last-child")).toHaveTextContent(/4\s*57%/);
 });
 
 it("lands a returning user on the same walk with every step live and the Summary already written", async () => {
@@ -349,7 +349,7 @@ it("lands a returning user on the same walk with every step live and the Summary
     expect(stripButton(name)).toBeEnabled();
   }
   expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
-  expect(bar("Career track")).toHaveAccessibleDescription("Keeps 70%, 14 roles"); // 14 of 20: management + technical
+  expect(bar("Career track")).toHaveAccessibleDescription(msg("profile-radar-pyramid-keeps", { kept: "70%", kept2: "14 roles" })); // 14 of 20: management + technical
 
   await user.click(stripButton("Summary"));
   // The kinds on one row, the narrowing on its own.
@@ -491,7 +491,7 @@ it("writes an interest with the verb first, reads it back on the Summary, and sa
   expect(screen.queryByRole("region", { name: "Your picks" })).toBeNull();
   // Picks stay on their cards; the tab's name is stable while the funnel updates.
   expect(stripButton("World")).toHaveAccessibleName("World");
-  expect(bar("World")).toHaveAccessibleDescription("Keeps 25%, 5 roles"); // 5 of 20: SWE · staff · SV · AI
+  expect(bar("World")).toHaveAccessibleDescription(msg("profile-radar-pyramid-keeps", { kept: "25%", kept2: "5 roles" })); // 5 of 20: SWE · staff · SV · AI
 
   const review = screen.getByRole("region", { name: "Review changes" });
   await user.click(within(review).getByRole("button", { name: "Save" }));
@@ -503,7 +503,7 @@ it("writes an interest with the verb first, reads it back on the Summary, and sa
   await user.click(avoidList);
   await user.click(within(screen.getByRole("group", { name: "Not interested in" })).getByLabelText("Logistics & Fulfillment"));
   expect(within(screen.getByRole("group", { name: "Not interested in" })).getByLabelText("Logistics & Fulfillment")).not.toBeChecked();
-  expect(bar("World")).toHaveAccessibleDescription("Any, nothing narrowed");
+  expect(bar("World")).toHaveAccessibleDescription(msg("profile-radar-pyramid-not-answered-yet", { choice: "yes" }));
 });
 
 it("\"Not interested in\" drops a role about that subject even when it is also about something else", async () => {
@@ -529,7 +529,7 @@ it("\"Not interested in\" drops a role about that subject even when it is also a
   await user.click(avoidList);
   await user.click(within(screen.getByRole("group", { name: "Not interested in" })).getByLabelText("Logistics & Fulfillment"));
   // 12 roles; the one tagged Logistics leaves, AI or not. Untagged stays.
-  expect(bar("World")).toHaveAccessibleDescription("Keeps 67%, 8 roles");
+  expect(bar("World")).toHaveAccessibleDescription(msg("profile-radar-pyramid-keeps", { kept: "67%", kept2: "8 roles" }));
 
   const review = screen.getByRole("region", { name: "Review changes" });
   await user.click(within(review).getByRole("button", { name: "Save" }));
@@ -641,7 +641,7 @@ it("a followed company not counted yet leaves the counts standing, and the rail 
   });
   renderWalk();
   await screen.findByRole("complementary", { name: "Your progress" });
-  expect(bar("Career track")).toHaveAccessibleDescription("Keeps 70%, 14 roles");
+  expect(bar("Career track")).toHaveAccessibleDescription(msg("profile-radar-pyramid-keeps", { kept: "70%", kept2: "14 roles" }));
   // Which companies are not counted belongs to the company register, not the funnel card.
   expect(rail()).not.toHaveTextContent("Stripe");
 });
@@ -807,7 +807,7 @@ it("counting again re-reads the counts while it runs, without touching the answe
     await vi.advanceTimersByTimeAsync(20_000);
     await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
     // The new counts arrive; the answers are the ones on screen, not reloaded.
-    expect(bar("Career track")).toHaveAccessibleDescription("Keeps 70%, 14 roles");
+    expect(bar("Career track")).toHaveAccessibleDescription(msg("profile-radar-pyramid-keeps", { kept: "70%", kept2: "14 roles" }));
     expect(screen.queryByRole("region", { name: "Review changes" })).toBeNull();
   } finally {
     vi.useRealTimers();
@@ -822,11 +822,11 @@ it("unticking the last card gives every role of the kind back", async () => {
   await user.click(stripButton("Discipline"));
   const pm = screen.getByLabelText("Product management (Owning a product)");
   expect(pm).toBeChecked();
-  expect(bar("Discipline")).toHaveAccessibleDescription(/^Keeps/);
+  expect(bar("Discipline")).toHaveAccessibleDescription(/^In focus:/);
   await user.click(pm);
   // Nothing ticked is every role of the kind, as an empty World is every world.
   expect(pm).not.toBeChecked();
-  expect(bar("Discipline")).toHaveAccessibleDescription("Any, nothing narrowed");
+  expect(bar("Discipline")).toHaveAccessibleDescription(msg("profile-radar-pyramid-not-answered-yet", { choice: "yes" }));
   await user.click(stripButton("Summary"));
   expect(fact("Discipline")).toHaveTextContent(/^Any role that fits/);
 });
@@ -1030,7 +1030,7 @@ it("counts the funnel once per draft change, however many parts of the screen sh
   await screen.findByRole("complementary", { name: "Your progress" });
   await waitFor(() => expect(profile).toHaveBeenCalled());
   const funnel = vi.mocked(progressOf);
-  const lastRow = () => screen.getByRole("region", { name: "What it keeps" }).querySelector(".walk-funnel-row:last-child");
+  const lastRow = () => screen.getByRole("region", { name: msg("profile-summary-step-what-it-keeps") }).querySelector(".walk-funnel-row:last-child");
   expect(lastRow()).toHaveTextContent(/5\s*25%/);
   funnel.mockClear();
 
@@ -1039,7 +1039,7 @@ it("counts the funnel once per draft change, however many parts of the screen sh
   expect(funnel).toHaveBeenCalledTimes(1);
   // Every reader shows that one count.
   expect(lastRow()).toHaveTextContent(/0\s*0%/);
-  expect(bar("World")).toHaveAccessibleDescription("Keeps 0%, 0 roles");
+  expect(bar("World")).toHaveAccessibleDescription(msg("profile-radar-pyramid-keeps", { kept: "0%", kept2: "0 roles" }));
 });
 
 it("typing in the roles filter counts nothing again, and every card keeps its count", async () => {
@@ -1053,7 +1053,7 @@ it("typing in the roles filter counts nothing again, and every card keeps its co
   vi.mocked(countUnderScope).mockClear();
   vi.mocked(countByOption).mockClear();
 
-  await user.type(screen.getByLabelText("Filter roles"), "engineer");
+  await user.type(screen.getByLabelText(msg("profile-roles-step-filter-roles")), "engineer");
   expect(countUnderScope).not.toHaveBeenCalled();
   expect(countByOption).not.toHaveBeenCalled();
   // The cards still say what they hold: engineers at Staff in the two places.
@@ -1076,7 +1076,7 @@ it("keeps Back and Continue in one frame across the three answers that decide", 
     expect(body.lastElementChild?.className).toContain("walk-step-foot");
   }
   await user.click(stripButton("Discipline"));
-  expect(screen.getByRole("region", { name: "Any particular roles?" }).className).not.toContain("walk-card--stage1");
+  expect(screen.getByRole("region", { name: msg("profile-walk-steps-any-particular-roles") }).className).not.toContain("walk-card--stage1");
 });
 
 /* The guide on Profile explains the walk, not the first-run wizard's model:
@@ -1094,7 +1094,7 @@ it("explains the five answers of the walk in its guide, by the names its steps u
   expect(names).toEqual(["Career track", "Level", "Location", "Discipline", "World"]);
   expect(within(guide).getByText("Decide")).toBeVisible();
   expect(within(guide).getByText("Sharpen, optional")).toBeVisible();
-  expect(guide).toHaveTextContent(/A role shows up only when it fits all of them/);
+  expect(guide).toHaveTextContent(msg("profile-scope-guide-five-answers-decide-what-reaches"));
   expect(guide).not.toHaveTextContent(/Which roles|Interests|kind of role/);
   expect(within(guide).queryByRole("link", { name: "Open guided setup" })).toBeNull();
 });
@@ -1112,7 +1112,7 @@ it("adds an optional pay floor on the Summary without touching the Walk's answer
   expect(fact("Minimum base")).toHaveTextContent("Set your minimum base");
   expect(screen.getByText("Compared with the posted base salary, where a posting has one.", { selector: "p" })).toBeVisible();
   expect(screen.getByText("No roles are hidden.", { selector: "p" })).toBeVisible();
-  const funnelBefore = screen.getByRole("region", { name: "What it keeps" }).textContent;
+  const funnelBefore = screen.getByRole("region", { name: msg("profile-summary-step-what-it-keeps") }).textContent;
   expect(screen.queryByText("The pay floor never narrows this.")).toBeNull();
 
   await user.click(screen.getByRole("button", { name: "Add a minimum base" }));
@@ -1162,7 +1162,7 @@ it("adds an optional pay floor on the Summary without touching the Walk's answer
   expect(save).toHaveBeenCalledWith({ amount: 250000, currency: "USD" });
   expect(await screen.findByRole("button", { name: msg("profile-pay-floor-row-add-a-pay-floor", { choice: "yes" }) })).toBeVisible();
   expect(fact(msg("profile-pay-floor-row-pay-floor"))).toHaveTextContent(yearly("$250,000"));
-  expect(screen.getByRole("region", { name: "What it keeps" }).textContent).toEqual(funnelBefore);
+  expect(screen.getByRole("region", { name: msg("profile-summary-step-what-it-keeps") }).textContent).toEqual(funnelBefore);
   // Saving the floor is not a Walk save: the scope was never written.
   expect(api.saveSettings).not.toHaveBeenCalled();
   // One primary on the Summary, still the way out.
@@ -1225,12 +1225,12 @@ it("never says the pay floor is unset when it could not be read", async () => {
   renderWalk();
   await screen.findByRole("complementary", { name: "Your progress" });
   await user.click(stripButton("Summary"));
-  expect(await screen.findByText("Couldn't read your minimum base.")).toBeVisible();
+  expect(await screen.findByText(msg("profile-pay-floor-row-couldn-t-read-your-pay"))).toBeVisible();
   // No "Not set" and no Add: a save from here would overwrite a floor.
   expect(fact("Minimum base")).not.toHaveTextContent(/Not set/);
   expect(screen.queryByRole("button", { name: "Add a minimum base" })).toBeNull();
   read.mockResolvedValueOnce({ pay_floor: { amount: 250000, currency: "USD" } });
-  await user.click(screen.getByRole("button", { name: "Retry reading the minimum base" }));
+  await user.click(screen.getByRole("button", { name: msg("profile-pay-floor-row-retry-reading-the-pay-floor") }));
   expect(await screen.findByText("$250,000 a year")).toBeVisible();
 });
 
@@ -1365,12 +1365,12 @@ it("first-run setup starts blank, asks the three answers then the two optional o
   await user.click(screen.getByRole("button", { name: "Add Silicon Valley" }));
   // Still on Location: Discipline has not been reached, so its layer is as
   // open as World's.
-  expect(bar("Discipline")).toHaveAccessibleDescription("Any, nothing narrowed");
-  expect(bar("World")).toHaveAccessibleDescription("Any, nothing narrowed");
+  expect(bar("Discipline")).toHaveAccessibleDescription(msg("profile-radar-pyramid-not-answered-yet", { choice: "yes" }));
+  expect(bar("World")).toHaveAccessibleDescription(msg("profile-radar-pyramid-not-answered-yet", { choice: "yes" }));
   await user.click(screen.getByRole("button", { name: "Continue" }));
 
   // The two that sharpen come next, each skipped untouched.
-  expect(screen.getByRole("heading", { name: "Any particular roles?" })).toHaveFocus();
+  expect(screen.getByRole("heading", { name: msg("profile-walk-steps-any-particular-roles") })).toHaveFocus();
   await user.click(screen.getByRole("button", { name: "Skip" }));
   expect(screen.getByRole("heading", { name: "Anything you care about, or want to avoid?" })).toHaveFocus();
   await user.click(screen.getByRole("button", { name: "Skip" }));
@@ -1451,14 +1451,14 @@ it("setup counts nothing on the rungs, the cards, the rail or the Summary, even 
   await user.click(screen.getByRole("button", { name: "Add Silicon Valley" }));
   await user.click(screen.getByRole("button", { name: "Continue" }));
 
-  expect(screen.getByRole("heading", { name: "Any particular roles?" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: msg("profile-walk-steps-any-particular-roles") })).toBeVisible();
   const card = screen.getByLabelText("Engineers (Leading a team)").closest("label")!;
   expect(card).not.toHaveTextContent(counted);
   expect(card.querySelector("small")?.textContent).toBeTruthy();
   // The rail names the answers, as before anything is read.
   expect(rail()).not.toHaveTextContent(counted);
   expect(rail()).toHaveTextContent("Leading a team");
-  expect(rail()).toHaveTextContent(/Illustrative funnel/);
+  expect(rail()).toHaveTextContent(msg("profile-radar-pyramid-illustrative-funnel-each-percentage-is"));
 
   await user.click(screen.getByRole("button", { name: "Skip" }));
   await user.click(screen.getByRole("button", { name: "Skip" }));
@@ -1764,9 +1764,9 @@ it("an optional step says so, and offers Skip beside Continue until the step nar
   await user.click(screen.getByRole("button", { name: "Continue" }));
 
   // Discipline: marked in its head, beside the question.
-  const roles = screen.getByRole("region", { name: "Any particular roles?" });
-  expect(within(roles).getByText("Optional").closest("header")).toContainElement(screen.getByRole("heading", { name: "Any particular roles?" }));
-  expect(within(roles).getByText(/Skip it to keep them all\./)).toBeVisible();
+  const roles = screen.getByRole("region", { name: msg("profile-walk-steps-any-particular-roles") });
+  expect(within(roles).getByText("Optional").closest("header")).toContainElement(screen.getByRole("heading", { name: msg("profile-walk-steps-any-particular-roles") }));
+  expect(within(roles).getByText(msg("profile-walk-steps-every-role-of-each-kind"))).toBeVisible();
   const skip = screen.getByRole("button", { name: "Skip" });
   const advance = screen.getByRole("button", { name: "Continue" });
   expect(skip).toBeEnabled();
@@ -1916,7 +1916,7 @@ it("setup: a step opened with Adjust returns to the Summary, and Back still step
   await user.click(screen.getByRole("button", { name: "Adjust location" }));
   await user.click(screen.getByRole("button", { name: "Browser back" }));
   await user.click(screen.getByRole("button", { name: "Browser back" }));
-  expect(screen.getByRole("heading", { name: "Any particular roles?" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: msg("profile-walk-steps-any-particular-roles") })).toBeVisible();
   await user.click(screen.getByRole("button", { name: "Skip" }));
   expect(screen.getByRole("heading", { name: "Summary" })).toBeVisible();
 

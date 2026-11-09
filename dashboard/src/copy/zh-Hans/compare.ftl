@@ -19,8 +19,8 @@ compare-screen-picking = { $needed ->
    *[another] 对比中 { $picked } 个 · 再选一个
 }
 compare-screen-comparing = { $capacity ->
-    [full] 正在对比 { $count } 个职位 · 完整
-   *[open] 正在对比 { $count } 个职位
+    [full] 对比 { $count } 个职位 · 已满
+   *[open] 对比 { $count } 个职位
 }
 compare-screen-back-aria = 返回
 compare-screen-comparison = 对比

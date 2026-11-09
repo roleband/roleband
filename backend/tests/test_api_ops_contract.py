@@ -164,6 +164,14 @@ async def test_health_answers_ok(api_client, spawned):
 
 
 @pytest.mark.asyncio
+async def test_status_says_an_app_engine_was_installed_by_the_app(api_client, spawned, monkeypatch):
+    monkeypatch.setattr(ops_router, "PACKAGED", True)
+    monkeypatch.setattr(ops_router.preparation, "snapshot", lambda _data_dir: None)
+    body = await _get(api_client, "/api/status")
+    assert body["install"] == "app"
+
+
+@pytest.mark.asyncio
 async def test_status_before_anything_exists(api_client, spawned):
     body = await _get(api_client, "/api/status")
     _assert_status_shapes(body)
@@ -173,7 +181,7 @@ async def test_status_before_anything_exists(api_client, spawned):
     assert launcher["product"] == "roleband"
     assert launcher["status"]["hold"] == {"kind": "attention", "reason": "supervisor_absent"}
     assert body == {
-        "db": "ok", "last_success_at": None, "last_success_age_hours": None,
+        "db": "ok", "install": "source", "last_success_at": None, "last_success_age_hours": None,
         "last_scan_at": None, "last_scan_age_hours": None,
         "preparation": None,
         "last_run_status": None, "last_run_started_at": None, "last_run_finished_at": None,
@@ -559,7 +567,7 @@ async def test_the_sync_picker_judges_each_company_from_the_last_full_run(api_cl
              # 3 days without a full scan, failing since. The bell rings, in these words.
              "coverage": {"cause": "unreachable", "held_open": 0, "days_since_full_scan": 3.0,
                           "rings": True, "title": "Couldn't scan Globex · 3 days",
-                          "body": "Its careers page isn't answering. It hasn't had a full scan since 17 Jul, "
+                          "body": "Its careers page isn't loading. It hasn't had a full scan since 17 Jul, "
                                   "so new roles from Globex may be missing. This clears on its next full scan.",
                           # The same words as keys the client says.
                           "say": {"title": {"k": "notif-coverage-scan-title", "p": {"company": "Globex", "days": 3}},
@@ -575,7 +583,7 @@ async def test_the_sync_picker_judges_each_company_from_the_last_full_run(api_cl
              "last_outcome": None, "retryable": False,
              "coverage": {"cause": "partial", "held_open": 0, "days_since_full_scan": 4.0,
                           "rings": True, "title": "Couldn't scan Initech · 4 days",
-                          "body": "Scans read only part of its careers page. It hasn't had a full scan since "
+                          "body": "Scans reach only part of its careers page. It hasn't had a full scan since "
                                   "16 Jul, so new roles from Initech may be missing. This clears on its next full scan.",
                           "say": {"title": {"k": "notif-coverage-scan-title", "p": {"company": "Initech", "days": 4}},
                                   "body": [{"k": "notif-coverage-partial", "p": {}},

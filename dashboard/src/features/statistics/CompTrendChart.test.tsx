@@ -84,7 +84,7 @@ describe("CompTrendChart", () => {
     expect(screen.getByText("OpenAI")).toBeInTheDocument();
   });
 
-  it("shows an accruing-history note when only one date exists", async () => {
+  it("says history is too short for a trend when only one date exists", async () => {
     mock({
       dim: "overall",
       days: 90, reference_changes: [],
@@ -92,7 +92,7 @@ describe("CompTrendChart", () => {
       series: [{ key: "", count: 700, points: [pt("2026-07-13", 480_000)] }],
     });
     render(<CompTrendChart days={90} />);
-    expect(await screen.findByText(/History is still accruing/i)).toBeInTheDocument();
+    expect(await screen.findByText(msg("insights-comp-trend-chart-history-is-still-accruing-one"))).toBeInTheDocument();
   });
 
   it("shows an empty state when there is no comp history", async () => {

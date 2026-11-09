@@ -2,13 +2,13 @@
 
 ## features/notifications/DigestPanel.tsx
 notifications-digest-panel-more-roles-opened-today = { $count ->
-    [one] { $hidden } puesto más se abrió hoy.
-    [many] { $hidden } de puestos más se abrieron hoy.
-   *[other] { $hidden } puestos más se abrieron hoy.
+    [one] { $hidden } puesto nuevo más.
+    [many] { $hidden } de puestos nuevos más.
+   *[other] { $hidden } puestos nuevos más.
 }
 notifications-digest-panel-unranked-set-an-intent-statement = { $choice ->
-    [yes] Mejor encaje primero, según tu intención actual.
-   *[no] Sin ordenar: escribe una declaración de intención o guarda algunos puestos para ordenarlos.
+    [yes] Mejor encaje primero, según tu objetivo y tus puestos guardados.
+   *[no] Aún sin ordenar. Añade tu objetivo o guarda algunos puestos.
 }
 
 ## features/notifications/NotificationFilters.tsx
@@ -55,11 +55,11 @@ notifications-notification-screen-nothing-here-yet = { $choice ->
 }
 notifications-notification-screen-scans-new-roles-for-you = { $choice ->
     [yes] Ninguna notificación coincide con estos filtros.
-   *[no] Aquí llegan los escaneos, los puestos nuevos para ti, los cambios de rango publicado y las novedades de los puestos que guardaste.
+   *[no] Aquí aparecen los escaneos, los puestos nuevos para ti y las novedades de los puestos que guardaste.
 }
 notifications-notification-screen-search-notifications = Buscar notificaciones
-notifications-notification-screen-find-a-role-company-or = Busca un puesto, una empresa o un escaneo…
-notifications-notification-screen-clear-every-filter-and-lens = Quitar todos los filtros y vistas
+notifications-notification-screen-find-a-role-company-or = Busca puesto, empresa o escaneo…
+notifications-notification-screen-clear-every-filter-and-lens = Quitar todos los filtros
 notifications-notification-screen-loading = Cargando las notificaciones…
 notifications-notification-screen-load-failed = No se pudieron cargar las notificaciones
 notifications-notification-screen-refresh-failed = No se pudieron actualizar las notificaciones. Se muestra el último resultado.
@@ -93,7 +93,7 @@ notifications-notif-diagnostics-copy-blocked = { $choice ->
     [yes] Copiado
    *[no] Copia bloqueada
 }
-notifications-notif-diagnostics-your-browser-blocked-clipboard-access = Tu navegador bloqueó el acceso al portapapeles
+notifications-notif-diagnostics-your-browser-blocked-clipboard-access = Tu navegador bloqueó el portapapeles
 notifications-notif-diagnostics-text = { $choice ->
     [v1] Copiado al portapapeles
     [v2] El navegador bloqueó el portapapeles
@@ -102,17 +102,17 @@ notifications-notif-diagnostics-text = { $choice ->
 
 ## features/notifications/moved-page/MovedPagePanel.tsx
 notifications-moved-page-panel-stop-following = Dejar de seguir
-notifications-moved-page-panel-find-new-careers-page = Buscar la nueva página de empleo
+notifications-moved-page-panel-find-new-careers-page = Buscar nueva página
 notifications-moved-page-panel-looking-for-s-new-careers = Buscando la nueva página de empleo de { $display }…
 notifications-moved-page-panel-not-this-one = Esta no
-notifications-moved-page-panel-careers-page-link = Enlace de la página de empleo
+notifications-moved-page-panel-careers-page-link = Enlace de página de empleo
 notifications-moved-page-panel-check = Comprobar
 notifications-moved-page-panel-roleband-couldn-t-find-it = { $choice ->
     [yes] Ese enlace no es una página de empleo que se pueda leer.
    *[no] No se encontró. Pega el enlace a la nueva página de empleo de { $display }.
 }
-notifications-moved-page-panel-couldn-t-look-just-now = No se pudo buscar ahora. Inténtalo de nuevo o pega su enlace.
-notifications-moved-page-panel-s-careers-page = Página de empleo de { $display }
+notifications-moved-page-panel-couldn-t-look-just-now = La búsqueda falló. Inténtalo de nuevo o pega el enlace a su nueva página de empleo.
+notifications-moved-page-panel-s-careers-page = Página de empleo: { $display }
 notifications-moved-page-panel-use-this-careers-page = { $choice ->
     [yes] Cambiando…
    *[no] Usar esta página de empleo
@@ -126,12 +126,12 @@ notifications-model-roles = { $count ->
    *[other] { $count2 } puestos
 }
 notifications-model-that-page-lists = { $choice ->
-    [yes] Esa página responde.
+    [yes] Esa página carga.
    *[no] Esa página publica { $roles }.
 }
 notifications-model-s-own-careers-page-links = { $choice ->
-    [yes] La propia página de empleo de { $display } enlaza a ella.
-   *[no] La propia página de empleo de { $display2 } enlaza a ella: { $roles }.
+    [yes] { $display } la enlaza desde su propia página de empleo.
+   *[no] { $display2 } la enlaza desde su propia página de empleo: { $roles }.
 }
 notifications-model-found-it-roleband-saw-at = Encontrada: { $shared } ya vistos en { $display }.
 notifications-model-of-them-roles = { $count ->
@@ -155,7 +155,7 @@ notifications-sync-contribution-failed = fallidas
 notifications-sync-contribution-blocked = bloqueadas
 notifications-sync-contribution-failed-2 = Fallidas: { $failed }
 notifications-sync-contribution-blocked-the-source-is-refusing = Bloqueadas por su página de empleo: { $blocked }
-notifications-sync-contribution-paused-while-this-computer = En pausa mientras este equipo dormía o estaba sin conexión: { $suspended }
+notifications-sync-contribution-paused-while-this-computer = En pausa mientras tu equipo estaba en reposo o sin conexión: { $suspended }
 notifications-sync-contribution-partial = Escaneadas en parte: { $degraded }
 notifications-sync-contribution-scanned-nothing-in-scope = Escaneadas, sin puestos para ti: { $emptyButFine }
 notifications-sync-contribution-more = +{ $length } más
@@ -224,25 +224,25 @@ notifications-model-scanned-found = { $companies } escaneadas · { $opportunitie
 }
 
 ## features/notifications/useNotificationsController.ts
-notifications-use-notifications-controller-could-not = No se pudo { $what }
-notifications-use-notifications-controller-mark-it-read = marcarla como leída
+notifications-use-notifications-controller-could-not = No se pudo { $what }. { $reason }
+notifications-use-notifications-controller-mark-it-read = marcar esa notificación como leída
 notifications-use-notifications-controller-mark-it-unread = { $choice ->
-    [yes] marcarla como leída
-   *[no] marcarla como no leída
+    [yes] marcar esa notificación como leída
+   *[no] marcar esa notificación como no leída
 }
 notifications-use-notifications-controller-dismiss-that-notification = descartar esa notificación
-notifications-use-notifications-controller-removed-from-your-notifications = “{ $title }” se quitó de tus notificaciones
+notifications-use-notifications-controller-removed-from-your-notifications = Quitaste “{ $title }” de tus notificaciones
 notifications-use-notifications-controller-undo = Deshacer
 notifications-use-notifications-controller-undo-that = deshacerlo
 notifications-use-notifications-controller-use-that-careers-page = usar esa página de empleo
-notifications-use-notifications-controller-roleband-now-reads-s-new = Leyendo ahora la nueva página de empleo de { $display }
+notifications-use-notifications-controller-roleband-now-reads-s-new = Escaneando ahora la nueva página de empleo de { $display }
 notifications-use-notifications-controller-stop-following = dejar de seguir a { $display }
 notifications-use-notifications-controller-stopped-following = Dejaste de seguir a { $display }
 notifications-use-notifications-controller-mark-them-read = marcarlas como leídas
 notifications-use-notifications-controller-marked-notifications-read = { $count ->
-    [one] { $updated } notificación marcada como leída
-    [many] { $updated } de notificaciones marcadas como leídas
-   *[other] { $updated } notificaciones marcadas como leídas
+    [one] Marcada como leída: { $updated }
+    [many] Marcadas como leídas: { $updated }
+   *[other] Marcadas como leídas: { $updated }
 }
 
 ## features/notifications/filters.ts
@@ -278,10 +278,10 @@ notif-duration-minutes = { $m } min { $s } s
 notif-duration-hours = { $h } h { $m } min
 notif-sources-all = todas las empresas que sigues
 notif-sources-more = { $names } y { $more } más
-notif-affected-none = ninguna empresa en concreto; consulta las notas del escaneo
+notif-affected-none = ninguna empresa en concreto
 notif-closed = { $company } cerró un puesto que guardaste
 notif-reposted = { $company } republicó un puesto que guardaste
-notif-listed-again = { $company } volvió a publicar un puesto que guardaste
+notif-listed-again = { $company } añadió otra oferta de un puesto que guardaste
 notif-listed = { $company } publicó un puesto que guardaste
 notif-saved-elsewhere = { $places ->
     [one] { $company } todavía publica en otro lugar un puesto que guardaste
@@ -294,13 +294,13 @@ notif-saved-elsewhere-body = { $more ->
 }
 notif-pay-raised = { $company } subió el rango publicado de un puesto que guardaste
 notif-pay-lowered = { $company } bajó el rango publicado de un puesto que guardaste
-notif-pay-change = { $title }: { $before } -> { $after }
-notif-updated-long-open = { $company } actualizó un puesto que guardaste, publicado desde hace mucho tiempo
+notif-pay-change = { $title }: { $before } → { $after }
+notif-updated-long-open = { $company } actualizó un puesto que guardaste y que lleva tiempo abierto
 notif-changed = { $company } cambió un puesto que guardaste
 notif-digest = { $count ->
-    [one] { $count } puesto nuevo para ti hoy
-    [many] { $count } de puestos nuevos para ti hoy
-   *[other] { $count } puestos nuevos para ti hoy
+    [one] { $count } puesto nuevo hoy en tu radar
+    [many] { $count } de puestos nuevos hoy en tu radar
+   *[other] { $count } puestos nuevos hoy en tu radar
 }
 notif-digest-lead = { $title } en { $company }
 notif-digest-fit = Encaje { $band }: { $lead }
@@ -309,12 +309,12 @@ notif-follow-up = Haz seguimiento con { $company } · { $when }
 notif-due-today = vence hoy
 notif-overdue = { $days } d de retraso
 notif-follow-up-body = { $action }: { $title } ({ $stage })
-notif-no-next-action = Sin siguiente acción
-notif-coverage-unreachable = Su página de empleo no responde.
-notif-coverage-unreadable = Su página de empleo respondió sin nada legible.
-notif-coverage-partial = Los escaneos solo leyeron parte de su página de empleo.
+notif-no-next-action = Sin siguiente paso
+notif-coverage-unreachable = Su página de empleo no carga.
+notif-coverage-unreadable = Su página de empleo carga, pero no se puede leer nada en ella.
+notif-coverage-partial = Los escaneos solo llegan a parte de su página de empleo.
 notif-coverage-unknown = Ningún escaneo ha llegado a su página de empleo.
-notif-coverage-empty-listing = Su página de empleo respondió con una lista vacía.
+notif-coverage-empty-listing = Su página de empleo carga sin ningún puesto.
 notif-coverage-board-missing = Su página de empleo ya no está en su última dirección.
 notif-coverage-scan-title = { $days ->
     [0] No se pudo escanear { $company }
@@ -337,10 +337,10 @@ notif-coverage-held-until-listed = { $held ->
    *[other] { $held } puestos se quedan como se vieron por última vez hasta que vuelva a publicar puestos.
 }
 notif-coverage-gone-title = { $days ->
-    [0] La página de empleo de { $company } ya no existe
-    [one] La página de empleo de { $company } ya no existe · { $days } día
-    [many] La página de empleo de { $company } ya no existe · { $days } de días
-   *[other] La página de empleo de { $company } ya no existe · { $days } días
+    [0] Página de empleo desaparecida: { $company }
+    [one] Página de empleo desaparecida: { $company } · { $days } día
+    [many] Página de empleo desaparecida: { $company } · { $days } de días
+   *[other] Página de empleo desaparecida: { $company } · { $days } días
 }
 notif-coverage-gone-moved = Probablemente { $company } trasladó sus puestos a una nueva página de empleo. Busca su nueva página de empleo o deja de seguir a { $company }.
 notif-coverage-held-until-then = { $held ->
@@ -363,8 +363,8 @@ notif-scan-started-body = Escaneando { $count ->
    *[other] { $count } empresas
 }: { $sources }.
 notif-scan-started-all-body = Escaneando { $sources }.
-notif-scan-summary = { $found } encontrados / { $created } creados / { $updated } actualizados
-notif-scan-summary-skipped = { $found } encontrados / { $created } creados / { $updated } actualizados / { $skipped } omitidos o sin cambios
+notif-scan-summary = Puestos: { $found } encontrados · { $created } añadidos · { $updated } vistos de nuevo o cerrados
+notif-scan-summary-skipped = Puestos: { $found } encontrados · { $created } añadidos · { $updated } vistos de nuevo o cerrados · { $skipped } omitidos o sin cambios
 notif-finished-at = Terminó a las { $at } tras { $duration }.
 notif-failed-at = Falló a las { $at } tras { $duration }.
 notif-scan-stopped = Escaneo detenido
@@ -374,30 +374,26 @@ notif-problems-at = Problemas en: { $affected }.
 notif-read-saved = Lo que encontró está guardado.
 notif-scan-failed = No se pudo escanear, no se actualizó nada
 notif-run-failed = el escaneo falló
-notif-scan-derivation-failed = Escaneo recopilado, pero falló un cálculo derivado
-notif-post-pass-unfinished = Un paso posterior al escaneo no terminó: { $failure }.
-notif-every-source-delivered = Se leyeron todas las empresas de este escaneo, pero un paso posterior al escaneo no terminó: { $failure }.
+notif-scan-derivation-failed = El escaneo terminó, pero un paso posterior no
+notif-post-pass-unfinished = Un paso posterior al escaneo no terminó. El error está en los detalles.
+notif-every-source-delivered = Se escanearon todas las empresas, pero un paso posterior al escaneo no terminó. El error está en los detalles.
 notif-data-saved = Lo que encontró el escaneo está guardado.
 notif-scan-problems = El escaneo terminó con problemas
-notif-asleep = Este equipo estuvo en reposo durante { $duration } del escaneo, lo que deja incompleta la lista de una empresa.
-notif-unreached = { $count ->
-    [one] No se alcanzó antes de que el escaneo se quedara sin tiempo: { $sources }. Sigue pendiente, así que el próximo escaneo la recoge.
-    [many] No se alcanzaron antes de que el escaneo se quedara sin tiempo: { $sources }. Siguen pendientes, así que el próximo escaneo las recoge.
-   *[other] No se alcanzaron antes de que el escaneo se quedara sin tiempo: { $sources }. Siguen pendientes, así que el próximo escaneo las recoge.
-}
+notif-asleep = Tu equipo estuvo en reposo { $duration } durante el escaneo, lo que puede dejar incompleto el escaneo de una empresa.
+notif-unreached = No se llegó a { $sources } antes del límite de tiempo del escaneo. Sus ofertas se quedan como se vieron por última vez hasta el próximo escaneo.
 notif-offline = { $count ->
-    [one] Este equipo no tuvo conexión a internet durante el escaneo: { $sources }. Lo que se encontró está guardado, y sigue pendiente, así que el próximo escaneo la recoge.
-    [many] Este equipo no tuvo conexión a internet durante el escaneo: { $sources }. Lo que se encontró está guardado, y siguen pendientes, así que el próximo escaneo las recoge.
-   *[other] Este equipo no tuvo conexión a internet durante el escaneo: { $sources }. Lo que se encontró está guardado, y siguen pendientes, así que el próximo escaneo las recoge.
+    [one] No se pudo escanear { $sources }: sin conexión a internet. El próximo escaneo volverá a intentarlo.
+    [many] No se pudieron escanear { $sources }: sin conexión a internet. El próximo escaneo volverá a intentarlo.
+   *[other] No se pudieron escanear { $sources }: sin conexión a internet. El próximo escaneo volverá a intentarlo.
 }
 notif-cut-short = Detenido al llegar al límite de tiempo del escaneo: { $sources }. Lo que se encontró está guardado, y las ofertas de allí se quedan como se vieron por última vez.
 notif-unfinished-u = El escaneo se quedó sin tiempo antes de { $unreached }
 notif-unfinished-o = El escaneo perdió la conexión a internet en { $offline }
-notif-unfinished-c = El escaneo solo cubrió parte de { $cut }
+notif-unfinished-c = El escaneo solo cubrió en parte { $cut }
 notif-unfinished-uo = El escaneo se quedó sin tiempo antes de { $unreached } y perdió la conexión a internet en { $offline }
-notif-unfinished-uc = El escaneo se quedó sin tiempo antes de { $unreached } y solo cubrió parte de { $cut }
-notif-unfinished-oc = El escaneo perdió la conexión a internet en { $offline } y solo cubrió parte de { $cut }
-notif-unfinished-uoc = El escaneo se quedó sin tiempo antes de { $unreached }, perdió la conexión a internet en { $offline } y solo cubrió parte de { $cut }
+notif-unfinished-uc = El escaneo se quedó sin tiempo antes de { $unreached } y solo cubrió en parte { $cut } más
+notif-unfinished-oc = El escaneo perdió la conexión a internet en { $offline } y solo cubrió en parte { $cut } más
+notif-unfinished-uoc = El escaneo se quedó sin tiempo antes de { $unreached }, perdió la conexión a internet en { $offline } y solo cubrió en parte { $cut } más
 
 ## La prioridad de una notificación en su insignia.
 notifications-priority-high = alta
@@ -406,6 +402,6 @@ notifications-priority-low = baja
 
 ## Una candidatura sin noticias.
 notif-gone-quiet = Sin noticias de { $company } desde hace { $days } días
-notif-gone-quiet-body = { $title } ({ $stage }): es momento de hacer seguimiento o fijar una fecha
+notif-gone-quiet-body = { $title } ({ $stage }): es hora de hacer seguimiento o fijar un siguiente paso
 notif-coverage-waiting-title = Esperando para escanear { $company }
 notif-coverage-waiting-outage = Esperando para escanear { $count } empresas

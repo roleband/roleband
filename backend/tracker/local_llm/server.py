@@ -41,6 +41,8 @@ class ControlResult:
     ok: bool
     action: str
     detail: str
+    # The CLI ran past its time limit: a start may still bring the server up.
+    timed_out: bool = False
 
 
 def binary_path() -> str | None:
@@ -80,7 +82,7 @@ async def control(action: Action) -> ControlResult:
     except TimeoutError:
         await _reap(proc)
         return ControlResult(
-            False, action, f"oMLX {action} did not finish within {_TIMEOUTS[action]:.0f}s."
+            False, action, f"oMLX {action} did not finish within {_TIMEOUTS[action]:.0f}s.", timed_out=True
         )
     except BaseException:
         # Cancelled (the task awaiting this call went away) or failed: the CLI

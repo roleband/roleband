@@ -279,7 +279,7 @@ describe("SyncFooterCounts", () => {
         ])}
       />,
     );
-    expect(screen.getByText("Paused while this computer slept or was offline: Google")).toBeInTheDocument();
+    expect(screen.getByText("Paused while your computer slept or was offline: Google")).toBeInTheDocument();
     expect(screen.queryByText(/Failed:/)).not.toBeInTheDocument();
   });
 

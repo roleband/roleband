@@ -39,6 +39,7 @@ import {
   errorScopeRefused,
   errorScheduleRefused,
   errorSchedulingUnavailable,
+  errorSchedulingUnavailableUnnamed,
   errorDiscoveryUnsupported,
   errorManualScanQueued,
   errorSwitchRunning,
@@ -117,7 +118,10 @@ const BY_CODE: Record<ErrorCode, (params: ErrorParams) => string> = {
   "consent-required": () => errorConsentRequired(),
   "scope-refused": () => errorScopeRefused(),
   "schedule-refused": () => errorScheduleRefused(),
-  "scheduling-unavailable": (p) => errorSchedulingUnavailable({ companies: list(names(p.companies)) }),
+  "scheduling-unavailable": (p) => {
+    const named = names(p.companies);
+    return named.length > 0 ? errorSchedulingUnavailable({ companies: list(named) }) : errorSchedulingUnavailableUnnamed();
+  },
   "discovery-unsupported": (p) => errorDiscoveryUnsupported({ company: names(p.company)[0] ?? "" }),
   "manual-scan-queued": () => errorManualScanQueued(),
   "switch-running": () => errorSwitchRunning(),
