@@ -68,6 +68,23 @@ class TestTheGuard:
         assert _record(state)["checkpoint"] == str(second)
         assert first.exists(), "an earlier checkpoint is never removed"
 
+    def test_an_update_keeps_the_checkpoint_from_before_its_first_migration(self, server, tmp_path):
+        """A newer release taking over a failed update migrates what the failed version left; Undo still restores the
+        data from before the update began."""
+        from tracker.platform import windows_update_journal as journal
+        from tracker.platform.windows_migration import checkpoint_before_migration
+        from tracker.platform.windows_private import private_directory
+
+        state = tmp_path / "state"
+        private_directory(state)
+        journal.begin(state, from_version="0.1.2", to_version="0.1.3", package=tmp_path / "u.msix", package_sha256="a" * 64)
+        journal.resume(state, "0.1.3")
+        first = checkpoint_before_migration(server, state, {"fixture_revision"}, {"next_revision"})
+        psql(server, "INSERT INTO job_observations VALUES (2,'2026-11-09',null)")
+        assert checkpoint_before_migration(server, state, {"failed_revision"}, {"newer_revision"}) == first
+        assert _record(state)["from_heads"] == ["fixture_revision"]
+        assert len(_checkpoints(state)) == 1
+
     def test_a_damaged_archive_is_not_reused(self, server, tmp_path):
         from tracker.platform.windows_migration import checkpoint_before_migration
 

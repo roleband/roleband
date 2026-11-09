@@ -1465,6 +1465,8 @@
  "launcher-windows-tray-hint": "v2:87b5f82b9207bbf852c5f6a3d439388e2dde3e077641d0df179d13b123b40931",
  "launcher-windows-tray-title": "v2:c4e91e437c999befed5f500d4d167ae93756af49843d6380e2957a5dfdac1c6f",
  "launcher-windows-update-to": "v2:3d36f90552da41179d0e822c7b55cf62c94135f5282a4db310585cdee5171a74",
+ "launcher-windows-update-undo-failed": "v2:d4caa34c79c17ba933d72d2477ffb2bd4195795b59c665779da2f37d716bd23c",
+ "launcher-windows-update-undo-failed-body": "v2:b0a14c7280ed5c850ee6b93829c7e526d4d88c915ac3118ed98aff6cd3767c08",
  "launcher-windows-update-undoing": "v2:3a0b929f6a0830474b317ce052305b8e5ea637be938407e3074ceb97293e4632",
  "launcher-windows-update-undoing-body": "v2:c96e6e4393b49f548c21ec5d5def3b1e290ca9932cb6b67e84fcd4e0d9733d91",
  "launcher-windows-updates-unavailable": "v2:364c9a96794bca2fd7b47b1e9ee9fb79d108d62379821cb49e4337355940b1ef",

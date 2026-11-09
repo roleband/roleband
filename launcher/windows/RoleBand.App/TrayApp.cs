@@ -49,7 +49,7 @@ internal sealed class TrayApp
     private UpdateFacts? updateFacts;
     private UpdateRun? updateRun;
     // An undo returning to this version: pressed in this session, or found unfinished when the app opened.
-    private string? returningTo;
+    private string? returningTo, undoFailure;
     private bool returning;
     private bool updateChecking, updateChoosing, settingsLoginError;
     private string? lastUpdateResult, settingsError;
@@ -291,8 +291,8 @@ internal sealed class TrayApp
         settings.Render(new SettingsState(
             snapshot is null ? SettingsPanel.LaunchFailed
                 : SettingsPanel.Problem(snapshot, updateFailed, SetupFlow.EngineHeld(setup), updateRun is { Step: UpdateStep.Restarting },
-                    returningTo, returning),
-            snapshot?.Diagnostic ?? launchFailure,
+                    returningTo, returning, undoFailure),
+            undoFailure ?? snapshot?.Diagnostic ?? launchFailure,
             AboutPanel.Updates(copy, facts, updateChecking, lastUpdateResult, DateTimeOffset.Now, updateRun),
             AboutPanel.Login(login, loginBusy),
             settingsLoginError,
@@ -408,13 +408,15 @@ internal sealed class TrayApp
         // version and opens that one, whose start restores the database.
         returningTo = updateFacts?.Last?.From ?? returningTo;
         returning = returningTo is not null;
-        settingsError = null;
+        settingsError = undoFailure = null;
         RenderUpdate();
         try { await updates.ReturnToPreviousAsync(engine); }
         catch (Exception error)
         {
+            // Refused or failed: the banner says so with Try again, and the reason shows below it.
             returning = false;
-            settingsError = "engine-refused";
+            undoFailure = error.Message;
+            if (returningTo is null) settingsError = "engine-refused";
             Debug.WriteLine(error);
             RenderUpdate();
         }

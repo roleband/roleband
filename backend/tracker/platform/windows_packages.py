@@ -12,6 +12,7 @@ import base64
 import json
 import os
 import re
+import sys
 from pathlib import Path
 
 import httpx
@@ -159,10 +160,28 @@ def retained(state: Path, identity: Identity) -> list[tuple[Offer, Path]]:
     return sorted(found, key=lambda item: stable_version(item[0].version), reverse=True)
 
 
+def _way_back(state: Path) -> set[str] | None:
+    """The version an unfinished update returns to, which Undo installs again; None when that cannot be known."""
+    if sys.platform != "win32":
+        return set()
+    from tracker.platform import windows_update_journal as journal
+    from tracker.platform.windows_recovery import RecoveryError
+
+    try:
+        record = journal.read(state)
+    except RecoveryError:
+        return None
+    return {record["from_version"]} if record is not None and record["phase"] not in journal.RESOLVED else set()
+
+
 def prune(state: Path, identity: Identity, installed: str) -> None:
-    """Keep the newest verified packages and the running version's; older ones are re-downloadable releases."""
+    """Keep the newest verified packages, the running version's and the one an unfinished update returns to; older
+    ones are re-downloadable releases. Nothing is removed while the update journal cannot be read."""
+    way_back = _way_back(state)
+    if way_back is None:
+        return
     for offer, package in retained(state, identity)[KEEP:]:
-        if offer.version == installed:
+        if offer.version == installed or offer.version in way_back:
             continue
         package.with_name(package.name + ".release.json").unlink(missing_ok=True)
         package.unlink(missing_ok=True)

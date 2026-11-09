@@ -251,13 +251,14 @@ def check(state: Path, identity: Identity, installed: str, *, manual: bool, now:
     if not manual:
         if not automatic_allowed(state):
             return Result("not-allowed", offer)
-        attempted = record.get("attempted_at")
+        # Only this version's own attempts count: a version just installed asks once, whatever the one before did.
+        attempted = record.get("attempted_at") if record.get("attempted_by") == installed else None
         if isinstance(attempted, (int, float)) and 0 <= now - attempted < AUTOMATIC_INTERVAL:
             return Result("throttled", offer)
     limited = record.get("rate_limited_until")
     if isinstance(limited, (int, float)) and limited > now:
         return Result("rate-limited", offer, float(limited))
-    record["attempted_at"] = now
+    record.update(attempted_at=now, attempted_by=installed)
     _save(state / CHECK, record)
     timeout = httpx.Timeout(10.0, connect=10.0)
     try:

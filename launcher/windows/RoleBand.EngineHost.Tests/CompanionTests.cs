@@ -152,15 +152,20 @@ public sealed class CompanionTests
     {
         var stopped = new EngineSnapshot(EngineState.Stopped);
         var pressed = SettingsPanel.Problem(stopped, true, false, returningTo: "0.1.13", returning: true);
-        Assert.AreEqual(new SettingsProblem("windows-update-undoing", "windows-update-undoing-body", false, false, "0.1.13", true), pressed,
-            "the press shows progress and leaves nothing to press twice");
+        Assert.AreEqual(new SettingsProblem("windows-update-undoing", "windows-update-undoing-body", false, false, "0.1.13", true, Notice: true),
+            pressed, "the press shows progress and leaves nothing to press twice");
+        var refused = SettingsPanel.Problem(stopped, true, false, returningTo: "0.1.13", undoFailure: "Version 0.1.13 could not be downloaded");
+        Assert.AreEqual(new SettingsProblem("windows-update-undo-failed", "windows-update-undo-failed-body", true, false, "0.1.13"), refused,
+            "a refused Undo is said in the banner, with Try again");
+        Assert.AreEqual("windows-update-undoing", SettingsPanel.Problem(stopped, true, false, returningTo: "0.1.13", returning: true,
+            undoFailure: "earlier")!.TitleKey, "pressing again shows progress, not the old refusal");
         var reopened = SettingsPanel.Problem(stopped, true, false, returningTo: "0.1.13");
         Assert.AreEqual((true, false, false), (reopened!.Undo, reopened.Busy, reopened.Restart), "opened mid-way, Undo stays one press away");
         Assert.AreEqual("update-stopped-title", SettingsPanel.Problem(stopped, true, false)!.TitleKey, "a failed update still asks for Undo");
         foreach (var language in Languages)
         {
             var copy = new NativeCopy(language);
-            foreach (var key in new[] { pressed!.TitleKey, pressed.BodyKey! })
+            foreach (var key in new[] { pressed!.TitleKey, pressed.BodyKey!, refused!.TitleKey })
                 StringAssert.Contains(copy.Format(key, ("version", "0.1.13")), "0.1.13", $"{language} {key}");
         }
     }

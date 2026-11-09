@@ -95,8 +95,8 @@ public sealed partial class SettingsWindow : Window
             var problem = state.Problem;
             string Words(string key) => problem?.Version is { } version ? copy.Format(key, ("version", version)) : copy[key];
             ProblemBar.IsOpen = problem is not null;
-            // An undo under way is news, not a fault; a failed update waits on Undo; anything else is an error.
-            ProblemBar.Severity = problem?.Version is not null ? InfoBarSeverity.Informational
+            // An undo under way is news, not a fault; a failed update or a refused Undo waits on Undo; anything else is an error.
+            ProblemBar.Severity = problem?.Notice == true ? InfoBarSeverity.Informational
                 : problem?.Undo == true ? InfoBarSeverity.Warning : InfoBarSeverity.Error;
             ProblemBar.Title = problem is not null ? Words(problem.TitleKey) : "";
             ProblemBar.Message = problem?.BodyKey is { } body ? Words(body) : "";

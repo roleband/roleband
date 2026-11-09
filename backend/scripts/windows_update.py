@@ -38,6 +38,20 @@ def _held_back(update: dict[str, Any] | None) -> str | None:
     return update["to"] if update is not None and update["phase"] == "recovered" else None
 
 
+def _way_back(state: Path, running: str) -> str:
+    """The version an update from here could be undone to: the running one, or, when the running version is a
+    failed update that a newer release takes over, the version from before that update."""
+    from tracker.platform import windows_update_journal as journal
+    from tracker.platform.windows_recovery import RecoveryError
+
+    try:
+        record = journal.read(state)
+    except RecoveryError:
+        return running
+    failed = record is not None and record["phase"] == "failed" and record["to_version"] == running
+    return record["from_version"] if record is not None and failed else running
+
+
 def _begin(state: Path, identity: Any, package: Path, running: str) -> int:
     """Journal a replacement by a retained, verified package while no engine is running."""
     from tracker.platform import windows_update_journal as journal
@@ -51,7 +65,7 @@ def _begin(state: Path, identity: Any, package: Path, running: str) -> int:
     if not found or found[0].version == running:
         print(json.dumps({"status": "refused", "reason": "The package is not a verified retained update."}))
         return 1
-    if not any(offer.version == running for offer, _path in kept):
+    if not any(offer.version == _way_back(state, running) for offer, _path in kept):
         print(json.dumps({"status": "refused", "reason": "The installed version's package is not kept, so the "
                           "update could not be undone. Download the update again."}))
         return 1
@@ -69,18 +83,28 @@ def _begin(state: Path, identity: Any, package: Path, running: str) -> int:
 
 
 def _recover_begin(state: Path, identity: Any, running: str) -> int:
-    """Name the retained previous package and mark the update as returning to it."""
+    """Name the retained previous package, downloading its release when it is not kept, and mark the update as
+    returning to it."""
+    from httpx import HTTPError
+
     from tracker.platform import windows_update_journal as journal
-    from tracker.platform.windows_packages import retained
+    from tracker.platform.windows_packages import retain_running, retained
     from tracker.platform.windows_recovery import RecoveryError
+    from tracker.platform.windows_release import ReleaseError
 
     record = journal.read(state)
-    previous = [path for offer, path in retained(state, identity)
-                if record is not None and offer.version == record["from_version"]]
-    if not previous:
-        print(json.dumps({"status": "refused", "reason": "The previous version's package is not retained here. "
-                          "Reinstall it from its release, then open RoleBand again."}))
+    if record is None:
+        print(json.dumps({"status": "refused", "reason": "There is no update to undo."}))
         return 1
+    previous = [path for offer, path in retained(state, identity) if offer.version == record["from_version"]]
+    if not previous:
+        try:
+            # Kept as if it were running, so keeping it never prunes it again.
+            previous = [retain_running(state, identity, record["from_version"])]
+        except (OSError, HTTPError, ReleaseError) as error:
+            print(json.dumps({"status": "refused", "reason": f"Version {record['from_version']} could not be "
+                              f"downloaded from its release, so the update was not undone. ({error})"}))
+            return 1
     try:
         journal.recover_begin(state, running)
     except RecoveryError as error:
@@ -195,7 +219,7 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         try:
             # The way back is kept first: without it the update could not be undone.
-            retain_running(args.state, identity, running_version())
+            retain_running(args.state, identity, _way_back(args.state, running_version()))
         except (OSError, HTTPError, ReleaseError) as error:
             print(json.dumps({"status": "failed", "kind": "download", "reason": "The installed version's package could not be kept, "
                               f"so this update could not be undone. Try again later. ({error})"}))

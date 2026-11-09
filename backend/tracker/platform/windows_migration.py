@@ -43,8 +43,14 @@ def checkpoint_before_migration(server: EmbeddedServer, state: Path, current: It
             previous = Path(str(read_json(record).get("checkpoint", "")))
         except StorageCompatibilityError:
             previous = None
+        update = _preparing_update(state)
+        # An update has one way back: the checkpoint from before its first migration. A newer release taking over a
+        # failed update migrates whatever the failed version left, never ready and never written to by the person,
+        # and Undo still restores the data from before either.
+        if (previous is not None and previous.is_absolute() and previous.exists() and update is not None
+                and read_json(record).get("update_id") == update):
+            return previous
         if previous is not None and previous.is_absolute() and still_matches(server, previous):
-            update = _preparing_update(state)
             if read_json(record).get("update_id") != update:
                 write_json(record, {**read_json(record), "update_id": update})
             return previous

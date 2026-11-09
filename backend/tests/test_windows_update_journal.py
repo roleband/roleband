@@ -290,3 +290,136 @@ def test_begin_refuses_an_update_that_could_not_be_undone(state, tmp_path, capsy
     assert begin_command(state, identity, package, "0.1.2") == 1
     assert "could not be undone" in capsys.readouterr().out
     assert not (state / "recovery" / "update.json").exists()
+
+
+def _failed(state, tmp_path):
+    from tracker.platform import windows_update_journal as journal
+
+    _begin(state, tmp_path)
+    journal.resume(state, "0.1.3")
+    return journal.settle(state, "0.1.3", prepared=False)
+
+
+class TestNoOneIsStuck:
+    """A broken update always has a way out: Undo, a newer release from the app, or a newer release by hand."""
+
+    def test_a_newer_release_takes_over_a_failed_update_and_undo_still_returns_to_the_version_before(self, state, tmp_path):
+        from tracker.platform import windows_update_journal as journal
+
+        failed = _failed(state, tmp_path)
+        taken = journal.begin(state, from_version="0.1.3", to_version="0.1.4", package=tmp_path / "next.msix",
+                              package_sha256=SHA)
+        assert (taken["id"], taken["from_version"], taken["to_version"], taken["phase"]) == (
+            failed["id"], "0.1.2", "0.1.4", "applying"), "the same update, with the same way back"
+        assert journal.resume(state, "0.1.4")["phase"] == "preparing"
+        journal.settle(state, "0.1.4", prepared=False)
+        journal.recover_begin(state, "0.1.4")
+        assert journal.recovered(state, "0.1.2")["phase"] == "recovered"
+
+    def test_a_takeover_windows_did_not_switch_to_leaves_the_failed_version_failed(self, state, tmp_path):
+        from tracker.platform import windows_update_journal as journal
+
+        _failed(state, tmp_path)
+        journal.begin(state, from_version="0.1.3", to_version="0.1.4", package=tmp_path / "next.msix", package_sha256=SHA)
+        record = journal.resume(state, "0.1.3")
+        assert (record["phase"], record["to_version"]) == ("failed", "0.1.3"), "Undo stays one press away"
+        assert journal.recover_begin(state, "0.1.3")["phase"] == "recovering"
+
+    @pytest.mark.parametrize("phase", ["applying", "preparing", "failed", "recovering"])
+    def test_a_newer_release_installed_by_hand_takes_over_whatever_was_unfinished(self, state, tmp_path, phase):
+        from tracker.platform import windows_update_journal as journal
+
+        record = _begin(state, tmp_path)
+        if phase != "applying":
+            journal.resume(state, "0.1.3")
+        if phase in {"failed", "recovering"}:
+            journal.settle(state, "0.1.3", prepared=False)
+        if phase == "recovering":
+            journal.recover_begin(state, "0.1.3")
+        taken = journal.resume(state, "0.1.4")
+        assert (taken["id"], taken["from_version"], taken["to_version"], taken["phase"]) == (
+            record["id"], "0.1.2", "0.1.4", "preparing")
+        assert _launchable(state) == "accepted", "the newer version starts"
+
+    def test_only_a_failed_update_is_taken_over_from_the_app(self, state, tmp_path):
+        from tracker.platform import windows_update_journal as journal
+        from tracker.platform.windows_recovery import RecoveryError
+
+        _begin(state, tmp_path)
+        journal.resume(state, "0.1.3")
+        with pytest.raises(RecoveryError, match="unsettled"):
+            journal.begin(state, from_version="0.1.3", to_version="0.1.4", package=tmp_path / "n.msix", package_sha256=SHA)
+        journal.settle(state, "0.1.3", prepared=False)
+        with pytest.raises(RecoveryError, match="unsettled"):
+            journal.begin(state, from_version="0.1.3", to_version="0.1.3", package=tmp_path / "n.msix", package_sha256=SHA)
+
+    def test_cleaning_up_packages_never_removes_the_version_an_unfinished_update_returns_to(self, state, tmp_path):
+        from tracker.platform.windows_packages import retained
+
+        identity, kept = _keeper(state, tmp_path)
+        kept("0.1.2")
+        _failed(state, tmp_path)
+        kept("0.1.3")
+        kept("0.1.4")
+        assert [offer.version for offer, _ in retained(state, identity)] == ["0.1.4", "0.1.3", "0.1.2"]
+
+    def test_a_damaged_journal_removes_no_package(self, state, tmp_path):
+        from tracker.platform.windows_fs import publish
+        from tracker.platform.windows_packages import retained
+
+        identity, kept = _keeper(state, tmp_path)
+        kept("0.1.2")
+        publish(state / "recovery" / "update.json", b'{"format": 9}')
+        kept("0.1.3")
+        kept("0.1.4")
+        assert len(retained(state, identity)) == 3
+
+    def test_undo_downloads_the_previous_version_when_it_is_not_kept(self, state, tmp_path, monkeypatch, capsys):
+        from scripts.windows_update import _recover_begin
+        from tracker.platform import windows_packages, windows_update_journal
+
+        identity, kept = _keeper(state, tmp_path)
+        _failed(state, tmp_path)
+        fetched = []
+
+        def fetch(state_, identity_, version, **_kwargs):
+            fetched.append(version)
+            return kept(version)
+
+        monkeypatch.setattr(windows_packages, "retain_running", fetch)
+        assert _recover_begin(state, identity, "0.1.3") == 0
+        answer = json.loads(capsys.readouterr().out)
+        assert (fetched, answer["phase"]) == (["0.1.2"], "recovering")
+        assert answer["package"].endswith("RoleBand-0.1.2-Windows-x64.msix")
+        assert windows_update_journal.read(state)["phase"] == "recovering"
+
+    def test_an_undo_that_cannot_fetch_the_previous_version_says_so_and_changes_nothing(self, state, tmp_path,
+                                                                                       monkeypatch, capsys):
+        from scripts.windows_update import _recover_begin
+        from tracker.platform import windows_packages, windows_update_journal
+
+        identity, _kept = _keeper(state, tmp_path)
+        _failed(state, tmp_path)
+
+        def offline(*_args, **_kwargs):
+            raise httpx.ConnectError("offline")
+
+        monkeypatch.setattr(windows_packages, "retain_running", offline)
+        assert _recover_begin(state, identity, "0.1.3") == 1
+        answer = json.loads(capsys.readouterr().out)
+        assert answer["status"] == "refused" and "0.1.2" in answer["reason"]
+        assert windows_update_journal.read(state)["phase"] == "failed", "Undo stays one press away"
+
+    def test_a_failed_version_may_begin_a_newer_update_when_the_version_before_it_is_kept(self, state, tmp_path, capsys):
+        from scripts.windows_update import _begin as begin_command
+        from tracker.platform import windows_update_journal
+        from tracker.platform.windows_private import private_directory
+
+        identity, kept = _keeper(state, tmp_path)
+        kept("0.1.2")
+        _failed(state, tmp_path)
+        package = kept("0.1.4")
+        private_directory(state / "launcher")
+        assert begin_command(state, identity, package, "0.1.3") == 0, capsys.readouterr().out
+        record = windows_update_journal.read(state)
+        assert (record["from_version"], record["to_version"], record["phase"]) == ("0.1.2", "0.1.4", "applying")

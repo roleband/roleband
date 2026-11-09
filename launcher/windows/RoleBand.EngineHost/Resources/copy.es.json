@@ -126,6 +126,8 @@
   "update-undo": "Deshacer la actualización",
   "windows-update-undoing": "Volviendo a {version}",
   "windows-update-undoing-body": "RoleBand se cierra y se vuelve a abrir en {version}, con tus datos como estaban antes de la actualización.",
+  "windows-update-undo-failed": "No se pudo volver a {version}",
+  "windows-update-undo-failed-body": "Tus datos no han cambiado. Inténtalo de nuevo; los detalles de abajo dicen qué falló.",
   "notes-title": "Novedades",
   "notes-installed": "Versión instalada",
   "notes-launcher-behind": "Revisar actualización",

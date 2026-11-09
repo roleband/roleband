@@ -47,8 +47,9 @@ rules into `packages/`, resuming an interrupted download where it stopped and re
 resume at another offset or a body past the signed size. The file is kept only once it
 matches the signed digest and size, with its signed release files beside it, so it can be
 verified again before it is registered, including as the version to return to after a
-failed update (`tracker/platform/windows_packages.py`). The two newest verified packages and
-the running version's are kept; older ones are releases that can be downloaded again.
+failed update (`tracker/platform/windows_packages.py`). The two newest verified packages, the
+running version's and the one an unfinished update returns to are kept; older ones are
+releases that can be downloaded again. While the update journal cannot be read, none is removed.
 Windows keeps no copy of an installed package, so before the first update's package the
 download keeps the running version's own published release, verified the same way; if that
 fails, the update is not downloaded.

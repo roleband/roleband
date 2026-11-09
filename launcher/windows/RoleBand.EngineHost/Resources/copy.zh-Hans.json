@@ -126,6 +126,8 @@
   "update-undo": "撤销更新",
   "windows-update-undoing": "正在返回 {version}",
   "windows-update-undoing-body": "RoleBand 将关闭并以 {version} 重新打开，你的数据会回到更新前的状态。",
+  "windows-update-undo-failed": "无法返回 {version}",
+  "windows-update-undo-failed-body": "你的数据没有变化。请重试；下面的详细信息说明了出错原因。",
   "notes-title": "新增功能",
   "notes-installed": "已安装版本",
   "notes-launcher-behind": "查看启动器更新",

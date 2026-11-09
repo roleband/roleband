@@ -177,7 +177,9 @@ switch), says nothing was installed where that is so, and offers Try again; a ne
 it. Undo is answered at once: Settings says Returning to the previous version, with progress, and
 that RoleBand closes and opens again on it with the data as it was before the update; the flyout
 says the same, and nothing is left to press twice. Opened while Windows is still putting that
-version back, the app says the same and keeps Undo as a retry. The next open says Updated to, or
+version back, the app says the same and keeps Undo as a retry. An Undo that cannot finish says
+so in the same banner, that the data has not changed, with Try again and the reason below it.
+A failed update also keeps Check for updates and Update: a newer release replaces it. The next open says Updated to, or
 Back on with the undone version and that nothing was lost, read from the update's journal, until
 a newer offer arrives; an undone version is not offered again. The flyout keeps only offers,
 steps, failures and an undo under way.

@@ -126,6 +126,8 @@
   "update-undo": "Undo the update",
   "windows-update-undoing": "Returning to {version}",
   "windows-update-undoing-body": "RoleBand closes and opens again on {version}, with your data as it was before the update.",
+  "windows-update-undo-failed": "Couldn't return to {version}",
+  "windows-update-undo-failed-body": "Your data hasn't changed. Try again; the details below say what went wrong.",
   "notes-title": "What's new",
   "notes-installed": "Installed version",
   "notes-launcher-behind": "Review launcher update",

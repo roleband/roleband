@@ -46,8 +46,17 @@ checkpoint recorded for this update's ID, through the ordinary promotion that ke
 replaced database, and records `recovered`. Without a checkpoint for this update the schema
 never changed, so the database stays; a checkpoint from an earlier update is never
 restored, because history written since would be lost. The new version never reached Ready,
-so nothing was written after the checkpoint. If the previous package is somehow missing, Undo
-says so and nothing is registered.
+so nothing was written after the checkpoint. If the previous package is missing, Undo
+downloads that version's release and verifies it like any update; if it cannot, it says so and
+nothing is registered.
+
+No broken update leaves a person stuck. Besides Undo, a newer release takes over a failed or
+unfinished update: from the app, a failed version may begin an update to a newer one, and a newer
+version installed by hand, the way out when a version cannot even open, settles whatever it finds
+unfinished. The update keeps its ID and its previous version, so Undo still returns to the
+version from before it and to the checkpoint taken before its first migration, which later
+preparations of the same update reuse whatever the failed version left. A takeover Windows did
+not switch to leaves the failed version failed, with Undo.
 
 ## Consequences
 

@@ -86,6 +86,12 @@ def begin(state: Path, *, from_version: str, to_version: str, package: Path, pac
     state = checked_path(state)
     current = read(state)
     if current is not None and current["phase"] not in RESOLVED:
+        # A newer release takes over a failed update from the failed version. The update keeps its id and its
+        # previous version, so Undo still returns to the version and the checkpoint from before it began.
+        if (current["phase"] == "failed" and from_version == current["to_version"]
+                and stable_version(to_version) > stable_version(from_version)):
+            return _write(state, {**current, "to_version": to_version, "package": str(package),
+                                  "package_sha256": package_sha256, "phase": "applying"})
         raise RecoveryError("Another Windows update is unsettled; settle it first")
     return _write(state, {"format": 1, "kind": "package-update", "id": uuid.uuid4().hex, "state": str(state),
                           "from_version": from_version, "to_version": to_version, "package": str(package),
@@ -97,10 +103,21 @@ def resume(state: Path, running: str) -> dict[str, Any] | None:
     record = read(state)
     if record is None or record["phase"] in RESOLVED:
         return record
+    try:
+        version = stable_version(running)
+    except ReleaseError:
+        return record
+    # A newer release installed over an unfinished update, from the app or by hand, takes it over: the way out
+    # of a version that cannot even open. It prepares as the update's new version.
+    if version > stable_version(record["to_version"]):
+        return _write(state, {**record, "to_version": running, "phase": "preparing"})
     if record["phase"] == "applying" and running == record["to_version"]:
         return _write(state, {**record, "phase": "preparing"})
     if record["phase"] == "applying" and running == record["from_version"]:
         return _write(state, {**record, "phase": "aborted"})
+    # A takeover Windows did not switch to: the failed version it started from runs again, still failed.
+    if record["phase"] == "applying" and stable_version(record["from_version"]) < version:
+        return _write(state, {**record, "to_version": running, "phase": "failed"})
     return record
 
 

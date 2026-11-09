@@ -299,6 +299,16 @@ def test_only_a_check_the_feed_answered_counts_as_checked(state, identity, feed)
     assert windows_updates.status(state, identity, "0.1.2")["checked_at"] == NOW + 4
 
 
+def test_a_version_just_installed_checks_once_whatever_the_one_before_did(state, identity, feed):
+    allow(state, True)
+    feed.publish("0.1.3")
+    assert run(state, identity, feed, manual=False, installed="0.1.2").status == "offered"
+    assert run(state, identity, feed, manual=False, now=NOW + 60, installed="0.1.2").status == "throttled"
+    assert run(state, identity, feed, manual=False, now=NOW + 60, installed="0.1.3").status == "up-to-date", \
+        "the updated version asks for itself"
+    assert run(state, identity, feed, manual=False, now=NOW + 120, installed="0.1.3").status == "throttled"
+
+
 def test_a_check_counts_only_for_the_version_that_made_it(state, identity, feed):
     feed.publish("0.1.3")
     run(state, identity, feed, manual=True, installed="0.1.3")

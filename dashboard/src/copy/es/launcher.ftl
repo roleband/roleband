@@ -187,6 +187,8 @@ launcher-update-stopped-finder-help = Muestra el registro de la actualización e
 launcher-update-undo = Deshacer la actualización
 launcher-windows-update-undoing = Volviendo a { $version }
 launcher-windows-update-undoing-body = RoleBand se cierra y se vuelve a abrir en { $version }, con tus datos como estaban antes de la actualización.
+launcher-windows-update-undo-failed = No se pudo volver a { $version }
+launcher-windows-update-undo-failed-body = Tus datos no han cambiado. Inténtalo de nuevo; los detalles de abajo dicen qué falló.
 
 # kind=button
 launcher-notes-title = Novedades
