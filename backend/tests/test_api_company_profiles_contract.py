@@ -589,7 +589,7 @@ async def test_the_plugin_answers_company_size_ladder_and_benefits_and_never_ide
     items = [i for group in body["benefits"] for i in group["items"]]
     assert sorted((i["name"], i["benefit_type"], i["value_usd"], i["value_text"], i["description"], i["kind"])
                   for i in items) == sorted([
-        ("401k", "retirement_plan", 9750, None, "50% match up to the IRS limit", "provider"),
+        ("401k", "us_401k", 9750, None, "50% match up to the IRS limit", "provider"),
         ("ESPP", None, None, "15% discount", None, "provider"),
         ("Remote work stipend", None, 1000, None, None, "provider"),
     ], key=str)

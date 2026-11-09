@@ -220,7 +220,9 @@ profiles-benefits-type = { $type ->
     [accident_insurance] Seguro de muerte y desmembramiento accidental (AD&D)
     [travel_insurance] Seguro de viajes de trabajo
     [pet_insurance] Seguro para mascotas
-    [retirement_plan] 401(k)
+    [retirement_plan] Plan de jubilación
+    [us_401k] 401(k)
+    [ca_rrsp] RRSP
     [roth_retirement_option] Roth 401(k)
     [after_tax_retirement_option] Mega backdoor Roth
     [employee_share_purchase] Plan de compra de acciones para empleados (ESPP)
