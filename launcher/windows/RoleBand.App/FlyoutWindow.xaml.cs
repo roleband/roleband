@@ -178,6 +178,12 @@ public sealed partial class FlyoutWindow : Window
         var frame = standalone ? 40 : 0;
         var width = (int)Math.Ceiling(FlyoutWidth * scale);
         var height = (int)Math.Ceiling((Root.DesiredSize.Height + frame) * scale);
+        if (!standalone)
+        {
+            // The border Windows draws belongs to the window, so the window is that much larger than its content.
+            width += AppWindow.Size.Width - AppWindow.ClientSize.Width;
+            height += AppWindow.Size.Height - AppWindow.ClientSize.Height;
+        }
         if (standalone && IsOpen)
         {
             AppWindow.Resize(new SizeInt32(Math.Max(width, AppWindow.Size.Width), height));
