@@ -82,7 +82,7 @@ describe("words", () => {
   it("says the usual hours plainly", () => {
     expect(windowsText([{ start_minute: 510, end_minute: 1080 }])).toBe("08:30 to 18:00");
     expect(windowsText([{ start_minute: 0, end_minute: 1440 }])).toBe("All day");
-    expect(windowsText([])).toBe("Usually off");
+    expect(windowsText([])).toBe("Usually asleep or off");
   });
 
   it("says what it learned in one sentence, weekends apart only when they differ", () => {

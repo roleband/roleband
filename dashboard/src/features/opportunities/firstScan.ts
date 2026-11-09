@@ -1,4 +1,5 @@
 import type { SystemStatus } from "../../api";
+import { holdReason } from "../../holdReason";
 
 /* Where the first pass over the followed companies stands: every company read
    once. Until then an empty or short board says the scan is still reading,
@@ -58,7 +59,7 @@ export function firstScan(status: SystemStatus, syncing: boolean, nowMs: number)
   if (running) return { phase: "running", count, back: backIn(count, status.last_run_started_at, nowMs) };
 
   const job = status.jobs?.find((row) => row.key === "scan");
-  if (job?.reason) return { phase: "held", count, hold: { reason: job.reason, until: null } };
+  if (job?.reason) return { phase: "held", count, hold: { reason: holdReason(job.reason, status.install), until: null } };
   const blocked = status.manual_blocked[0];
   if (blocked) return { phase: "held", count, hold: { reason: blocked.reason, until: blocked.until ?? null } };
   if ((job && LINED_UP.has(job.state)) || status.manual_queued.length > 0) return { phase: "starting" };

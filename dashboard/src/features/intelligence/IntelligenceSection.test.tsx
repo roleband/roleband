@@ -1,8 +1,13 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { IntelligenceStatus, IntelligenceTestResult, MatchingStopResult } from "../../api";
+import type {
+  IntelligenceStatus,
+  IntelligenceTestResult,
+  LocalServerControlResult,
+  MatchingStopResult,
+} from "../../api";
 import { api } from "../../api";
 import { ApiError } from "../../api/transport";
 import { activate } from "../../copy/activate";
@@ -215,7 +220,9 @@ describe("ranking card", () => {
     const weak = await screen.findByRole("button", { name: "Weak: 492 roles" });
     await userEvent.click(weak);
     expect(await screen.findByText("Couldn't load the roles in this grade")).toBeInTheDocument();
-    expect(screen.queryByText(/Nothing lands in/)).toBeNull();
+    expect(
+      screen.queryByText(msg("ai-intelligence-section-nothing-lands-in-right-now", { value: "Weak" }), { exact: false }),
+    ).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: /Try again/ }));
     await waitFor(() => expect(mocked.intelligenceFitBand).toHaveBeenCalledTimes(2));
     expect(screen.queryByText("Couldn't load the roles in this grade")).toBeNull();
@@ -253,7 +260,7 @@ describe("ranking card", () => {
       expect(within(card).getByRole("button", { name: "Edit your aim" })).toHaveFocus();
     });
 
-    it("a failed save keeps the editor open with the text, and says why", async () => {
+    it("a failed save keeps the editor open with the text, and asks to try again", async () => {
       mocked.saveIntentStatement.mockRejectedValue(
         new ApiError("embedding model is not ready", 502, "model-unreachable"),
       );
@@ -264,9 +271,11 @@ describe("ranking card", () => {
       await userEvent.type(input, " and platforms");
       await userEvent.click(within(card).getByRole("button", { name: "Save" }));
 
-      // The reason in the reader's words for its code, never the API's English.
+      // One line that says what failed and what to do; never the API's English,
+      // and no server reason appended to it.
       const alert = await within(card).findByRole("alert");
-      expect(alert).toHaveTextContent(`Couldn't save your aim. ${msg("error-model-unreachable")}`);
+      expect(alert).toHaveTextContent(msg("ai-aim-line-couldn-t-save-your-aim"));
+      expect(alert).not.toHaveTextContent(msg("error-model-unreachable"));
       expect(alert).not.toHaveTextContent("embedding model is not ready");
       expect(input).toHaveValue(`${fit.intent_statement} and platforms`);
       expect(mocked.intelligenceFit).toHaveBeenCalledTimes(1);
@@ -296,6 +305,14 @@ describe("ranking card", () => {
       await userEvent.click(within(card).getByRole("button", { name: "Add your aim" }));
       expect(within(card).getByLabelText("Your aim, in one sentence")).toHaveValue("");
     });
+
+    it("counts one open role in the singular, ranked or by date", async () => {
+      mocked.intelligenceFit.mockResolvedValue({ ...fit, total: 1, ranked: false, intent_statement: null, bins: [], bands: [] });
+      mount();
+      const card = await screen.findByRole("region", { name: "Fit ranking" });
+      expect(await within(card).findByText(msg("ai-aim-line-open-roles-sorted-by-date-2", { total: 1 }))).toBeInTheDocument();
+      expect(within(card).getByText(/^1 open role, sorted by date$/)).toBeInTheDocument();
+    });
   });
 
   it("an empty band says so instead of showing someone else's roles", async () => {
@@ -303,7 +320,9 @@ describe("ranking card", () => {
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Strong: 62 roles" }));
-    expect(await screen.findByText(/nothing lands in Strong right now/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(msg("ai-intelligence-section-nothing-lands-in-right-now", { value: "Strong" }), { exact: false }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Manager of Applied AI Architecture" })).toBeNull();
   });
 
@@ -342,7 +361,7 @@ describe("ranking card", () => {
     // here rather than reading as a pair of correct-looking figures.
     const builtFor = within(dialog).getByText("Small model is built for").closest("div");
     expect(builtFor).toHaveTextContent("16 GB");
-    const yourComputer = within(dialog).getByText("Your computer has").closest("div");
+    const yourComputer = within(dialog).getByText(msg("ai-matching-model-your-computer-has")).closest("div");
     expect(yourComputer).toHaveTextContent("48 GB");
     expect(within(dialog).queryByText(/disk|storage/i)).toBeNull();
     // We never talk down our own product.
@@ -588,13 +607,13 @@ describe("assistants card", () => {
     } as never);
     mount();
 
-    const card = await screen.findByRole("region", { name: "MCP server" });
+    const card = await screen.findByRole("region", { name: msg("ai-assistants-card-mcp-server-2") });
     // Three tiles: the two named clients plus the open door — MCP is a
     // protocol, so the card may not imply only two products can speak it.
     const setup = within(card).getAllByRole("button", { name: "Set up" });
     expect(setup).toHaveLength(3);
     expect(within(card).getByText("Other app")).toBeInTheDocument();
-    expect(within(card).getByText(/Any client that speaks MCP/)).toBeInTheDocument();
+    expect(within(card).getByText(msg("ai-assistants-card-any-client-that-speaks-mcp"), { exact: false })).toBeInTheDocument();
     for (const button of setup) expect(button).toBeDisabled();
     // The write grant gates nothing while nothing may connect: it is absent,
     // not present-but-greyed.
@@ -612,11 +631,11 @@ describe("assistants card", () => {
 
   it("states what will be seen before anything can connect", async () => {
     mount();
-    const card = await screen.findByRole("region", { name: "MCP server" });
+    const card = await screen.findByRole("region", { name: msg("ai-assistants-card-mcp-server-2") });
     expect(within(card).getByText("What will be shared")).toBeInTheDocument();
     expect(within(card).getByText("What will not be shared")).toBeInTheDocument();
     expect(within(card).getByText(/full posting/)).toBeInTheDocument();
-    expect(within(card).getByText(/profile and intent statement/)).toBeInTheDocument();
+    expect(within(card).getByText(msg("ai-assistants-card-never-your-profile-and-intent-statement"))).toBeInTheDocument();
     // A "never sees" list may not carry an exception inside it.
     expect(within(card).queryByText(/Anything at all, unless/)).toBeNull();
     // The lists say WHAT is visible, not how much of it: no live tally sits
@@ -644,12 +663,12 @@ describe("capabilities card", () => {
     expect(within(card).queryByRole("button", { name: /Start|Stop/ })).toBeNull();
     // The cloud row is future-tense until a service exists — and it is the
     // only row wearing the cloud label.
-    expect(within(card).getByText("Online model services")).toBeInTheDocument();
-    expect(within(card).getAllByText("Cloud-connected")).toHaveLength(1);
+    expect(within(card).getByText(msg("ai-capabilities-card-online-model-services"))).toBeInTheDocument();
+    expect(within(card).getAllByText(msg("ai-origin-badge-cloud-connected", { choice: "no" }))).toHaveLength(1);
     // The gate is a standing permission: answerable BEFORE a service exists,
     // like the MCP connect gate, and it writes the same egress flag the
     // connected-service row toggles.
-    const gate = within(card).getByLabelText("Send postings to online services");
+    const gate = within(card).getByLabelText(msg("ai-capabilities-card-send-postings-to-online-services"));
     expect(gate).toBeEnabled();
     expect(gate).not.toBeChecked();
     mocked.setAiEgressEnabled.mockResolvedValue({
@@ -698,7 +717,7 @@ describe("capabilities card", () => {
     expect(mocked.deleteCloudLLMProfile).not.toHaveBeenCalled();
 
     await userEvent.click(
-      within(dialog).getByRole("button", { name: "Confirm delete OpenAI API" }),
+      within(dialog).getByRole("button", { name: msg("ai-cloud-dialog-delete", { choice: "yes", name: "OpenAI API" }) }),
     );
     expect(mocked.deleteCloudLLMProfile).toHaveBeenCalledWith("c1");
   });
@@ -818,11 +837,14 @@ describe("capabilities card", () => {
     // The service's own switch is on; the permission is not. The row says so
     // rather than reporting a service that cannot run as usable.
     expect(within(card).getByLabelText("Use OpenAI API")).toBeChecked();
-    expect(within(card).getByText(/blocked · online services are switched off/)).toBeInTheDocument();
+    expect(within(card).getByText(msg("ai-capabilities-card-blocked-online-services-are-switched", { choice: "v3" }), { exact: false })).toBeInTheDocument();
 
     const test = within(card).getByRole("button", { name: "Test OpenAI API" });
     expect(test).toBeDisabled();
-    expect(test).toHaveAttribute("title", expect.stringContaining("Allow sending postings"));
+    expect(test).toHaveAttribute(
+      "title",
+      msg("ai-capabilities-card-allow-sending-postings-to-online", { choice: "no", name: "OpenAI API" }),
+    );
     await userEvent.click(test);
     expect(mocked.testCloudLLMProfile).not.toHaveBeenCalled();
   });
@@ -833,7 +855,7 @@ describe("capabilities card", () => {
     mount();
 
     const card = await screen.findByRole("region", { name: "Extended capabilities" });
-    expect(within(card).getByLabelText("Send postings to online services")).toBeChecked();
+    expect(within(card).getByLabelText(msg("ai-capabilities-card-send-postings-to-online-services"))).toBeChecked();
     expect(within(card).getByLabelText("Use OpenAI API")).not.toBeChecked();
 
     const test = within(card).getByRole("button", { name: "Test OpenAI API" });
@@ -891,7 +913,7 @@ describe("capabilities card", () => {
     const card = await screen.findByRole("region", { name: "Extended capabilities" });
     // Nothing is on...
     expect(within(card).getByLabelText("Use your own model")).not.toBeChecked();
-    expect(within(card).getByLabelText("Send postings to online services")).not.toBeChecked();
+    expect(within(card).getByLabelText(msg("ai-capabilities-card-send-postings-to-online-services"))).not.toBeChecked();
     expect(within(card).getByLabelText("Use OpenAI API")).not.toBeChecked();
     // ...and every path to changing that is still open. Gating configuration
     // behind the switch it configures is a row that can never be turned on.
@@ -907,7 +929,7 @@ describe("capabilities card", () => {
 
     const card = await screen.findByRole("region", { name: "Extended capabilities" });
     expect(
-      await within(card).findByLabelText("Send postings to online services"),
+      await within(card).findByLabelText(msg("ai-capabilities-card-send-postings-to-online-services")),
     ).not.toBeChecked();
     expect(within(card).getByLabelText("Use OpenAI API")).toBeInTheDocument();
   });
@@ -953,7 +975,7 @@ describe("capabilities card", () => {
 
     // The armed button names the connection it is about to remove.
     const armed = within(dialog).getByRole("button", {
-      name: "Confirm delete Qwen3.5 (9B-4bit)",
+      name: msg("ai-cloud-dialog-delete", { choice: "yes", name: "Qwen3.5 (9B-4bit)" }),
     });
     await userEvent.click(armed);
     expect(mocked.deleteLocalLLMProfile).toHaveBeenCalledWith("p1");
@@ -974,7 +996,7 @@ describe("capabilities card", () => {
     // Save, delete and test all write one `error` slot. A failed probe must
     // not report "Could not save", a claim about an action nobody took.
     const alert = await within(dialog).findByRole("alert");
-    expect(alert).toHaveTextContent("Couldn't reach the model");
+    expect(alert).toHaveTextContent(msg("ai-local-model-dialog-could-not-reach-the-model"));
     expect(alert).not.toHaveTextContent("Couldn't save");
     expect(alert).toHaveTextContent(msg("error-model-unreachable"));
     expect(alert).not.toHaveTextContent("All connection attempts failed");
@@ -1096,6 +1118,136 @@ describe("capabilities card", () => {
     expect(mocked.setLocalLLMEnabled).toHaveBeenCalledExactlyOnceWith(false);
     expect(screen.queryByRole("dialog")).toBeNull();
     await waitFor(() => expect(own).not.toBeChecked());
+  });
+
+  describe("the Apple Intelligence row", () => {
+    /** The row's line under its name, for a built-in model in `state`. */
+    const appleLine = async (state: IntelligenceStatus["availability"]["state"]) => {
+      mocked.intelligence.mockResolvedValue({ ...status, availability: { state, ok: false, detail: null } });
+      mount();
+      const card = await screen.findByRole("region", { name: msg("ai-capabilities-card-extended-capabilities-2") });
+      const toggle = await within(card).findByLabelText(msg("ai-capabilities-card-enable-apple-intelligence"));
+      return toggle.closest(".intel-cap")?.querySelector(".intel-cap-sub")?.textContent;
+    };
+
+    it.each([
+      ["disabled_by_flag", () => msg("ai-capabilities-card-apple-off"), () => msg("ai-availability-disabled-by-flag")],
+      ["apple_intelligence_disabled", () => msg("ai-capabilities-card-apple-off-in-system-settings"), () => msg("ai-availability-apple-intelligence-disabled")],
+      ["model_not_ready", () => msg("ai-capabilities-card-apple-downloading"), () => msg("ai-availability-model-not-ready")],
+      ["sdk_absent", () => msg("ai-capabilities-card-apple-needs-macos"), () => msg("ai-availability-sdk-absent")],
+      ["device_ineligible", () => msg("ai-capabilities-card-apple-not-supported"), () => msg("ai-availability-device-ineligible")],
+    ] as const)("says %s as its short state word, not the availability sentence", async (state, word, sentence) => {
+      const line = await appleLine(state);
+      expect(line).toBe(msg("ai-capabilities-card-experimental-we-are-still-testing", { value: word() }));
+      expect(line).not.toContain(sentence().replace(/\.$/, ""));
+    });
+
+    it("falls back to the availability sentence, without its last full stop, for a state with no short word", async () => {
+      const sentence = msg("ai-availability-not-configured");
+      expect(sentence).toMatch(/\.$/);
+      const line = await appleLine("not_configured");
+      expect(line).toBe(msg("ai-capabilities-card-experimental-we-are-still-testing", { value: sentence.slice(0, -1) }));
+      expect(line).not.toMatch(/\.\s*·/);
+    });
+
+    it("drops a full-width full stop the same way", async () => {
+      await activate("zh-Hans");
+      try {
+        const sentence = msg("ai-availability-not-configured");
+        expect(sentence).toMatch(/。$/);
+        const line = await appleLine("not_configured");
+        expect(line).toBe(msg("ai-capabilities-card-experimental-we-are-still-testing", { value: sentence.slice(0, -1) }));
+        expect(line).not.toMatch(/。\s*·/);
+      } finally {
+        await activate("en");
+      }
+    });
+  });
+
+  describe("starting your own model's server", () => {
+    const stopped = {
+      ...localServerStatusFixture,
+      enabled: true,
+      profile_id: "p1",
+      state: "server_unreachable" as const,
+      reachable: false,
+    };
+    const startAnswer = (over: Partial<LocalServerControlResult>): LocalServerControlResult => ({
+      ...stopped, action: "start", action_ok: false, action_detail: "", action_timed_out: false, ...over,
+    });
+
+    beforeEach(() => {
+      // Your own model is on with a saved connection, and its managed server is stopped: Start is live.
+      mocked.localLLMProfiles.mockResolvedValue({
+        enabled: true,
+        active_profile_id: "p1",
+        profiles: [{ ...localModelProfileFixture, id: "p1", name: "Qwen3.5 (9B-4bit)" }],
+      });
+      mocked.localServerStatus.mockResolvedValue(stopped);
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    const clickStart = async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      mount();
+      const card = await screen.findByRole("region", { name: msg("ai-capabilities-card-extended-capabilities-2") });
+      const start = await within(card).findByRole("button", { name: msg("ai-capabilities-card-start", { choice: "v3" }) });
+      await waitFor(() => expect(start).toBeEnabled());
+      await user.click(start);
+      expect(mocked.controlLocalServer).toHaveBeenCalledExactlyOnceWith("start");
+      return card;
+    };
+
+    it("a start past its time limit says the server is still starting, and checks again after 30 seconds", async () => {
+      mocked.controlLocalServer.mockResolvedValue(startAnswer({ action_timed_out: true }));
+      const card = await clickStart();
+
+      const alert = await within(card).findByRole("alert");
+      expect(alert).toHaveTextContent(msg("ai-local-server-start-pending"));
+      expect(alert).not.toHaveTextContent(msg("ai-local-server-action-failed", { action: "start" }));
+
+      // The server came up meanwhile: the next probe says so.
+      const probes = mocked.localServerStatus.mock.calls.length;
+      mocked.localServerStatus.mockResolvedValue({ ...stopped, state: "available", reachable: true });
+      // The clock also runs in real time (`shouldAdvanceTime`), so the early
+      // check leaves a few seconds of headroom before the 30-second mark.
+      await act(async () => { vi.advanceTimersByTime(25_000); });
+      expect(mocked.localServerStatus).toHaveBeenCalledTimes(probes);
+      await act(async () => { vi.advanceTimersByTime(5_000); });
+      expect(mocked.localServerStatus).toHaveBeenCalledTimes(probes + 1);
+      expect(
+        await within(card).findByRole("button", { name: msg("ai-capabilities-card-start", { choice: "v2" }) }),
+      ).toBeEnabled();
+      // The row now says the server runs; the "still starting" line goes with the recheck.
+      expect(within(card).queryByText(msg("ai-local-server-start-pending"))).toBeNull();
+    });
+
+    it("a slow start's second look is dropped when the card closes first", async () => {
+      mocked.controlLocalServer.mockResolvedValue(startAnswer({ action_timed_out: true }));
+      const card = await clickStart();
+      await within(card).findByRole("alert");
+
+      const probes = mocked.localServerStatus.mock.calls.length;
+      cleanup();
+      await act(async () => { vi.advanceTimersByTime(30_000); });
+      expect(mocked.localServerStatus).toHaveBeenCalledTimes(probes);
+    });
+
+    it("a start that fails inside its time limit says it failed, and does not wait for it", async () => {
+      mocked.controlLocalServer.mockResolvedValue(startAnswer({ action_ok: false, action_timed_out: false }));
+      const card = await clickStart();
+
+      const alert = await within(card).findByRole("alert");
+      expect(alert).toHaveTextContent(msg("ai-local-server-action-failed", { action: "start" }));
+      expect(alert).not.toHaveTextContent(msg("ai-local-server-start-pending"));
+
+      const probes = mocked.localServerStatus.mock.calls.length;
+      await act(async () => { vi.advanceTimersByTime(30_000); });
+      expect(mocked.localServerStatus).toHaveBeenCalledTimes(probes);
+    });
   });
 });
 

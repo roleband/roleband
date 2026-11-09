@@ -430,6 +430,7 @@ async def post_local_llm_server(
         **(await _local_server_status(session)),
         "action": result.action,
         "action_ok": result.ok,
+        "action_timed_out": result.timed_out,
         "action_detail": result.detail,
     }
 

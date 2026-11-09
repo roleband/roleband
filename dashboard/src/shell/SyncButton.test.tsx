@@ -432,6 +432,25 @@ describe("SyncButton", () => {
     await waitFor(() => expect(queued).toHaveTextContent(msg("shell-scan-waiting", { count: 1, reason: "supervisor_stale" })));
   });
 
+  it("asks a source install to run ./setup.sh when a half-installed update holds the scan", async () => {
+    vi.spyOn(api, "status").mockResolvedValue(
+      status({
+        install: "source",
+        running: false,
+        manual_queued: ["meta"],
+        jobs: [{
+          key: "scan", job: "scan", state: "waiting", reason: "dependencies_pending", since: "2026-07-13T05:00:00Z",
+          next_at: null, run_id: null, progress: null, waiting: null, queued: 1,
+        }],
+      }),
+    );
+    renderButton();
+
+    const queued = await screen.findByRole("button", { name: "Stop queued scan" });
+    await waitFor(() => expect(queued).toHaveTextContent(msg("shell-scan-waiting", { count: 1, reason: "setup_source" })));
+    expect(queued).not.toHaveTextContent(msg("shell-scan-waiting", { count: 1, reason: "dependencies_pending" }));
+  });
+
   it("does not start a second sync while work is queued", async () => {
     // Queued work owns the control: clicking cancels the queue rather than
     // stacking another request behind it, and the scope picker is not offered.

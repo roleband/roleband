@@ -286,7 +286,7 @@ export function StageDimmer({ unstatedChoice = true, everyCompany = false }: {
                 <NewMark on={level.new} />
                 {/* A rung the answer rules out shows no count: it cannot be
                     picked. Nor does any rung before anything is read. */}
-                {!gated && !unread && <span className="stage-count"><Msg of={profileStageDimmerRoles} elems={{ slug: copyNumber(stageCount(level.slug)) }} /></span>}
+                {!gated && !unread && <span className="stage-count"><Msg of={profileStageDimmerRoles} args={{ count: stageCount(level.slug) }} elems={{ slug: copyNumber(stageCount(level.slug)) }} /></span>}
               </button>
             );
           })}

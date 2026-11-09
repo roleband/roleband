@@ -34,8 +34,8 @@ test("the Base column shows one base figure per row, its source on hover, and no
   await page.goto("/");
   const comp = (title: string) => page.locator(".job-row").filter({ hasText: title }).locator(".comp");
 
-  await expect(comp(estimated.title)).toHaveText("$250K Our estimate for this level");
-  await expect(comp(estimated.title)).toHaveAttribute("title", "Our estimate for this level");
+  await expect(comp(estimated.title)).toHaveText("$250K Estimated from the level");
+  await expect(comp(estimated.title)).toHaveAttribute("title", "Estimated from the level");
   // A total is never what the column shows.
   await expect(comp(totalAndBase.title)).toHaveText(/^\$400K /);
   await expect(comp(unpriced.title)).toHaveText("Base salary not known");

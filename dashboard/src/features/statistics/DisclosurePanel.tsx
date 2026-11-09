@@ -23,7 +23,7 @@ import {
   insightsDisclosurePanelAboutThePublishedBandTrend,
   insightsDisclosurePanelBandTrendLoadFailed,
   insightsDisclosurePanelBandTrendLoading,
-  insightsDisclosurePanelByEmployer,
+  insightsCommonByCompany,
   insightsDisclosurePanelDisclosureBreakdown,
   insightsDisclosurePanelHistoryIsStillAccruingOne,
   insightsDisclosurePanelHowTheDisclosureRateIs,
@@ -65,13 +65,13 @@ import { payBasisName } from "../../copy/vocab";
  */
 
 const GROUPS: { key: "company" | "level"; label: string }[] = [
-  { key: "company", get label() { return insightsDisclosurePanelByEmployer(); } },
+  { key: "company", get label() { return insightsCommonByCompany(); } },
   { key: "level", get label() { return insightsCommonByLevel(); } },
 ];
 
 const TREND_DIMS: { key: DisclosureTrendDim; label: string }[] = [
   { key: "overall", get label() { return insightsCommonMarket(); } },
-  { key: "company", get label() { return insightsDisclosurePanelByEmployer(); } },
+  { key: "company", get label() { return insightsCommonByCompany(); } },
   { key: "level", get label() { return insightsCommonByLevel(); } },
 ];
 

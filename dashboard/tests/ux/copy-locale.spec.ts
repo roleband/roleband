@@ -122,7 +122,8 @@ test.describe("the pseudo locale", () => {
       await page.waitForLoadState("networkidle");
       const route = new URL(page.url()).pathname;
       const scan = await page.evaluate(() => {
-        const navNames = [...document.querySelectorAll('nav[aria-label="Primary"] a')].map(
+        // Found by its place, not its name: the name is translated too.
+        const navNames = [...document.querySelectorAll("nav.nav-rail a")].map(
           (a) => a.getAttribute("aria-label") ?? a.textContent ?? "",
         );
         let plain = 0;
@@ -138,6 +139,8 @@ test.describe("the pseudo locale", () => {
         return { navNames, plain, bracketed };
       });
       // Blocking: what is in the catalog shows the switch, on every route.
+      // An empty list would pass the loop below without looking at anything.
+      expect(scan.navNames.length, `${route}: links in the rail`).toBe(links);
       for (const name of scan.navNames) expect(name, `${route}: ${name}`).toMatch(/^⟦/);
       // Blocking: the shell (rail and top bar) is all catalog, so
       // nothing in it, text or accessible name, may be left unbracketed.

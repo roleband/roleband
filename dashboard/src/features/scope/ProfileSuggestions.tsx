@@ -8,20 +8,16 @@ import { useAsyncResource } from "../../hooks/useAsyncResource";
 import { useScopeDraft } from "./useScopeDraft";
 import {
   profileSuggestionsAcceptTurnOn,
+  profileSuggestionsCompaniesYouFollow,
   profileSuggestionsCouldNotApplyTheSuggestion,
   profileSuggestionsCouldNotDismissTheSuggestion,
   profileSuggestionsCouldNotLoad,
   profileSuggestionsDismissSuggestionAbout,
-  profileSuggestionsFollowedCompanySectorPoints,
-  profileSuggestionsFollowedCompanySectorsPoint,
   profileSuggestionsInProgress,
   profileSuggestionsInferredFromYourRecentActivity,
   profileSuggestionsMoreNotForMeWith,
   profileSuggestionsNoThanks,
-  profileSuggestionsRoleThereIs,
-  profileSuggestionsRolesThereAre,
   profileSuggestionsSuggestedAdjustments,
-  profileSuggestionsThere,
   profileSuggestionsTurnItOn,
   profileSuggestionsTurnOn,
   profileSuggestionsTurnedOnOnYourRadar,
@@ -29,7 +25,8 @@ import {
   profileSuggestionsYouSavedThere,
   profileSuggestionsYourAimNamesIt,
 } from "../../copy/gen/profile";
-import { domainName } from "../../copy/vocab";
+import { list } from "../../copy/format/display";
+import { domainName, sectorName } from "../../copy/vocab";
 
 /* Inferred profile adjustments: the system proposes,
    the user disposes. Every card says WHY in the user's own history — counts of
@@ -39,12 +36,6 @@ import { domainName } from "../../copy/vocab";
    is adopted into the scope draft so the walk never shows a stale axis.
    Dismissing is permanent for that suggestion (the pass never re-raises a
    resolved key). Rendered on the walk's Summary. */
-
-/** A count and its words, both forms spelled out: appending "s" would print
-    "2 more passs". */
-function counted(n: number, one: string, many: string): string {
-  return `${n} ${n === 1 ? one : many}`;
-}
 
 /* In the glossary's words (docs/copy.md): a role sent away is
    marked not for me, never passed on; one being chased is in progress, never
@@ -58,10 +49,10 @@ export function basisClauses(suggestion: ProfileSuggestion): string[] {
     }
     if (basis.dismissed_other > 0) clauses.push(profileSuggestionsMoreNotForMeWith({ dismissed_other: basis.dismissed_other }));
   } else {
-    if (basis.pursued > 0) clauses.push(profileSuggestionsInProgress({ pursued: String(counted(basis.pursued, profileSuggestionsRoleThereIs(), profileSuggestionsRolesThereAre())) }));
-    if (basis.favorited > 0) clauses.push(profileSuggestionsYouSavedThere({ favorited: sharedCountRole({ count: basis.favorited }) }));
+    if (basis.pursued > 0) clauses.push(profileSuggestionsInProgress({ pursued: sharedCountRole({ count: basis.pursued }) }));
+    if (basis.favorited > 0) clauses.push(profileSuggestionsYouSavedThere({ favorited: basis.favorited }));
     if (basis.sectors.length > 0) {
-      clauses.push(profileSuggestionsThere({ length: String(counted(basis.sectors.length, profileSuggestionsFollowedCompanySectorPoints(), profileSuggestionsFollowedCompanySectorsPoint())) }));
+      clauses.push(profileSuggestionsCompaniesYouFollow({ sectors: list(basis.sectors.map(sectorName)) }));
     }
     if (basis.intent_matched) clauses.push(profileSuggestionsYourAimNamesIt());
   }
@@ -127,7 +118,7 @@ export function SuggestionInbox({ compact = false }: { compact?: boolean }) {
           <div className="profile-suggestion-basis">
             {(() => {
               const clauses = basisClauses(suggestion);
-              return profileSuggestionsInferredFromYourRecentActivity({ choice: (clauses.length > 0) ? "yes" : "no", join: (clauses.length > 0) ? String(clauses.join(", and ")) : "" });
+              return profileSuggestionsInferredFromYourRecentActivity({ choice: (clauses.length > 0) ? "yes" : "no", join: (clauses.length > 0) ? String(clauses.join(" · ")) : "" });
             })()}
           </div>
           <div className="profile-suggestion-actions">

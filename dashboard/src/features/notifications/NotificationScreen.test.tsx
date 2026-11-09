@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type Notification, type NotificationList } from "../../api";
+import { ApiError } from "../../api/transport";
 import { ToastProvider } from "../../ui/Toast";
 import { NotificationScreen, PAGE_SIZE } from "./NotificationScreen";
 
@@ -65,6 +66,8 @@ vi.mock("../../api", () => ({
     markNotificationRead: vi.fn(),
     dismissNotification: vi.fn(),
     restoreNotification: vi.fn(),
+    findCompanyBoard: vi.fn(),
+    moveCompanyBoard: vi.fn(),
   },
 }));
 
@@ -271,7 +274,7 @@ describe("NotificationScreen — paging", () => {
     expect(api.dismissNotification).toHaveBeenCalledWith(21);
     expect(screen.getByText(notification.title)).toBeInTheDocument();
     await act(async () => { reject(new Error("offline")); });
-    expect(await screen.findByText("Couldn't dismiss that notification")).toBeInTheDocument();
+    expect(await screen.findByText("Couldn't dismiss that notification. Try again.")).toBeInTheDocument();
     expect(screen.getByText(notification.title)).toBeInTheDocument();
     await waitFor(() => expect(api.notifications).toHaveBeenCalledTimes(2));
 
@@ -324,7 +327,53 @@ describe("NotificationScreen — the row's destructive verb", () => {
     await userEvent.click(within(screen.getByRole("article")).getByRole("button", { name: "Dismiss" }));
     await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
 
-    expect(await screen.findByText("Couldn't undo that")).toBeInTheDocument();
+    expect(await screen.findByText("Couldn't undo that. Try again.")).toBeInTheDocument();
+  });
+});
+
+describe("NotificationScreen — a failed action says why", () => {
+  /* The toast's second sentence is the failure's own explanation when its
+     code has one, and "Try again." only when nothing explains it. */
+  const gone = item({
+    id: 77,
+    category: "coverage",
+    title: "Hex Technologies's careers page is gone",
+    source_type: "binding",
+    meta: { company: "hex-technologies", display: "Hex Technologies", cause: "board_missing" },
+  });
+  const board = {
+    adapter: "ashby", board_token: "hex", board_region: null, roles: 36, shared: 30, found_by: "name",
+  } as const;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.notifications).mockResolvedValue(list({ total: 1, items: [gone] }));
+    vi.mocked(api.findCompanyBoard).mockResolvedValue({ candidate: board });
+  });
+
+  const tryToMove = async () => {
+    render(withProviders(<NotificationScreen />));
+    await userEvent.click(await screen.findByRole("button", { name: "Find new careers page" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Use this careers page" }));
+    expect(api.moveCompanyBoard).toHaveBeenCalledWith("hex-technologies", board);
+  };
+
+  it("names the reason a known error code gives", async () => {
+    vi.mocked(api.moveCompanyBoard).mockRejectedValue(
+      new ApiError("careers page unreachable", 422, "careers-page-unreachable"),
+    );
+    await tryToMove();
+    expect(await screen.findByText(
+      "Couldn't use that careers page. That page isn't loading. Check the link, or try another.",
+    )).toBeInTheDocument();
+    expect(screen.queryByText(/Try again\.$/)).not.toBeInTheDocument();
+  });
+
+  it("ends with Try again. when the failure explains nothing", async () => {
+    vi.mocked(api.moveCompanyBoard).mockRejectedValue(new Error("socket hang up"));
+    await tryToMove();
+    expect(await screen.findByText("Couldn't use that careers page. Try again.")).toBeInTheDocument();
+    expect(screen.queryByText(/socket hang up/)).not.toBeInTheDocument();
   });
 });
 

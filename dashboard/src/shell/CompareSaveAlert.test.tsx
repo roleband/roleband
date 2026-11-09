@@ -41,7 +41,7 @@ async function mount(stored: number[]) {
   await act(async () => {});
 }
 
-const ALERT = /Couldn't save what you're comparing/;
+const ALERT = /Couldn't keep your compare selection/;
 
 beforeEach(() => {
   vi.clearAllMocks();

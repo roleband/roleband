@@ -19,9 +19,9 @@ error-company-not-found = That company can't be found.
 # kind=error next=none
 error-company-profile-not-found = There's no profile for that company.
 # kind=error next=none
-error-local-model-not-found = That local model connection isn't saved anymore.
-# kind=error next=none
-error-cloud-model-not-found = That AI connection isn't saved anymore.
+error-local-model-not-found = That model isn't saved anymore.
+# kind=error
+error-cloud-model-not-found = That AI provider isn't saved anymore. Add one in Settings › AI.
 # kind=error next=none
 error-notification-not-found = That notification is gone.
 # kind=error next=none
@@ -33,7 +33,7 @@ error-recipe-not-found = That recipe is gone.
 # kind=error next=none
 error-rule-not-found = That exclusion is gone.
 # kind=error next=none
-error-cluster-not-found = That group is gone.
+error-cluster-not-found = That cluster is gone.
 # kind=error next=none
 error-fit-band-not-found = That fit grade can't be found.
 # kind=error
@@ -52,8 +52,8 @@ error-plugin-not-found = That plugin isn't installed anymore.
 ## What was asked cannot be done, and why
 # kind=error next=none note="The site's robots rules or bot wall; same words as the consent dialog"
 error-careers-page-refused = That careers site limits automated collection, so it can't be added.
-# kind=error
-error-careers-page-unreachable = That careers page isn't answering. Try again.
+# kind=error note="Raised only when moving a company to a new careers page, so the link was just pasted or picked"
+error-careers-page-unreachable = That page isn't loading. Check the link, or try another.
 # kind=error next=none
 error-company-conflict = That company is already on the list.
 # kind=error
@@ -64,12 +64,12 @@ error-consent-required = Following that company needs your answer to its warning
 error-scope-refused = Couldn't save your answers. Try again.
 # kind=error
 error-schedule-refused = Couldn't move that scan. Try again.
-# kind=error next=none note="$companies is a list of company names. Their source is paused or refuses automated reads, for Scan now and for the schedule alike: nothing the person can do changes it"
-error-scheduling-unavailable = { $companies } can't be scanned.
-# kind=error next=none note="Moving a company's quick scan when its source has none: nothing the person can do changes it"
-error-discovery-unsupported = Quick scans aren't available for { $company }.
+# kind=error next=none note="$companies is a list of company names. Scanning them is paused or turned off, which stops Scan now and the schedule alike: nothing the person can do here changes it"
+error-scheduling-unavailable = Scanning is paused or turned off for { $companies }.
+# kind=error note="Moving a company's quick scan on the Schedule dial when its source has none: its full scan can be moved there instead"
+error-discovery-unsupported = { $company } has no quick scan. Move its full scan instead.
 # kind=error
-error-manual-scan-queued = A scan you started is still waiting. Try again when the scan ends.
+error-manual-scan-queued = A scan from Scan now is still queued. Try again when the scan ends.
 # kind=error
 error-switch-running = The ranking is already updating. Try again when it ends.
 # kind=error next=none
@@ -83,17 +83,17 @@ error-price-key-refused = Tiingo refused this key, so it wasn't saved. Check it 
 # kind=error next=none
 error-switch-not-managed = This update wasn't started here, so it can't be stopped here.
 # kind=error next=none
-error-server-not-managed = This server can't be started or stopped from here.
+error-server-not-managed = This local AI server can't be started or stopped from here.
 # kind=error
 error-model-unreachable = Couldn't reach the model. Check that it is running, then try again.
 # kind=error
-error-local-models-off = Local AI is turned off. Turn it on in Settings › AI.
+error-local-models-off = Your own model is off. Turn it on in Settings › AI.
 # kind=error
-error-ai-egress-off = Cloud AI is turned off, so nothing was sent. Turn it on in Settings › AI.
+error-ai-egress-off = Sending postings to AI providers is off. Turn it on in Settings › AI.
 # kind=error
-error-no-local-model = No local model is chosen. Add one in Settings › AI.
+error-no-local-model = Your own model isn't set up. Add one in Settings › AI.
 # kind=error next=none note="Saving an AI connection after an update: the saved connections no longer validate, so the save was refused and nothing was lost"
-error-model-profiles-unreadable = Your saved AI connections couldn't be read, so nothing was changed.
+error-model-profiles-unreadable = Your model settings couldn't be read. Nothing was changed.
 # kind=error next=none
 error-link-to-itself = A posting can't be linked to itself.
 # kind=error next=none
@@ -133,4 +133,10 @@ error-plugin-confirm-mismatch = What you typed doesn't match the name shown. Try
 # kind=error note="Remove data, refused while estimates still read the plugin's data (its turn-off has not finished updating them)"
 error-plugin-estimates-moving = Estimates are still updating to leave its data out. Try again when it ends.
 # kind=error note="A pin refused on company size while a plugin answers it: a pin is RoleBand's own, and RoleBand's own isn't shown there"
-error-field-answered-by-plugin = A plugin answers this while it's on, so a value you set here wouldn't show. Turn it off in Settings › Plugins.
+error-field-answered-by-plugin = A plugin provides this while it's on, so a value you set here wouldn't show. Turn it off in Settings › Plugins.
+
+# kind=error next=none note="The scheduling refusal when it arrives with no company names, such as from the Schedule dial. Scanning is paused or turned off, which stops Scan now and the schedule alike: nothing the person can do here changes it"
+error-scheduling-unavailable-unnamed = Scanning is paused or turned off for this company.
+
+# kind=sentence same-as=companies-add-more-companies-try-again note="The next step after a failure its error does not explain, after the screen's own first sentence: Couldn't save your decision. Try again."
+error-try-again = Try again.

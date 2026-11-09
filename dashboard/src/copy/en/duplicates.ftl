@@ -15,10 +15,10 @@ duplicates-comparison-ledger-same = Same
 duplicates-comparison-ledger-different = Different
 # kind=aria wording=as-is
 duplicates-comparison-ledger-side-by-side = Side by side
-# kind=label wording=as-is
+# kind=label
 duplicates-comparison-ledger-show-matching-fields = { $choice ->
-    [yes] Hide { $length } matching fields
-   *[no] Show { $length } matching fields
+    [yes] Hide { $length } identical fields
+   *[no] Show { $length } identical fields
 }
 # kind=label wording=as-is
 duplicates-comparison-ledger-show = { $choice ->
@@ -31,8 +31,8 @@ duplicates-comparison-ledger-title = Title
 duplicates-comparison-ledger-status = Status
 # kind=label wording=as-is
 duplicates-comparison-ledger-level = Level
-# kind=label wording=as-is
-duplicates-comparison-ledger-family = Family
+# kind=label
+duplicates-comparison-ledger-family = Discipline
 # kind=label wording=as-is
 duplicates-comparison-ledger-locations = Locations
 # kind=label wording=as-is
@@ -47,8 +47,8 @@ duplicates-comparison-ledger-comp-est = Est. TC
 duplicates-comparison-ledger-disclosed-band = Posted range
 # kind=label wording=as-is
 duplicates-comparison-ledger-first-seen = First seen
-# kind=label wording=as-is
-duplicates-comparison-ledger-last-observed = Last observed
+# kind=label
+duplicates-comparison-ledger-last-observed = Last seen
 # kind=label wording=as-is
 duplicates-comparison-ledger-age = Age
 # kind=label note="The ledger row holding each posting's two links"
@@ -71,22 +71,20 @@ duplicates-comparison-ledger-careers-page-of = { $side ->
 duplicates-comparison-ledger-not-disclosed = not posted
 
 ## features/review/DecisionConsole.tsx
-# kind=label wording=as-is
-duplicates-decision-console-ai-judgment-unavailable = AI judgment unavailable
+# kind=label
+duplicates-decision-console-ai-judgment-unavailable = AI opinion unavailable
 # kind=label wording=as-is
 duplicates-decision-console-ai = AI
-# kind=label wording=as-is
-duplicates-decision-console-ai-judgment = AI judgment
-# kind=label wording=as-is
-duplicates-decision-console-tokens-ms = { $model } · { $value } tokens · { $wall_time_ms } ms
+# kind=label
+duplicates-decision-console-ai-judgment = AI opinion
+# kind=label
+duplicates-decision-console-tokens-ms = Answered by { $model }
 # kind=label wording=as-is
 duplicates-decision-console-current = Current
 # kind=aria wording=as-is
 duplicates-decision-console-make-a-decision = Make a decision
-# kind=aria wording=as-is
-duplicates-decision-console-ask-the-model = Ask the model
-# kind=tooltip wording=as-is
-duplicates-decision-console-get-an-optional-independent-assessment = Get an optional independent assessment
+# kind=tooltip
+duplicates-decision-console-get-an-optional-independent-assessment = Get an AI opinion on this pair
 # kind=label wording=as-is
 duplicates-decision-console-ask-ai = { $choice ->
     [v1] Analyzing…
@@ -99,23 +97,20 @@ duplicates-decision-console-uncertain = { $choice ->
     [v2] Likely different roles
    *[v3] Uncertain
 }
-# kind=aria wording=as-is
-duplicates-decision-console-local-model-assessment = Local model assessment
-# kind=label wording=as-is
+# kind=aria
+duplicates-decision-console-local-model-assessment = AI opinion
+# kind=label
 duplicates-decision-console-make-a-decision-2 = { $choice ->
-    [yes] Change decision
+    [yes] Change your decision
    *[no] Make a decision
 }
-# kind=label wording=as-is
+# kind=label
 duplicates-decision-console-your-judgment = { $choice ->
     [yes] Change your decision
-   *[no] Your judgment
+   *[no] Your decision
 }
-# kind=sentence wording=as-is
-duplicates-decision-console-what-is-the-relationship = { $choice ->
-    [yes] Reclassify this pair
-   *[no] What is the relationship?
-}
+# kind=sentence
+duplicates-decision-console-what-is-the-relationship = What is the relationship?
 
 ## features/review/DescriptionComparison.tsx
 # kind=heading wording=as-is
@@ -128,10 +123,10 @@ duplicates-description-comparison-changed-passage = Changed passage
 duplicates-description-comparison-description-comparison = Description comparison
 # kind=sentence note="Above two postings' descriptions side by side. $choice: differ or same; $count is how many passages differ. Amber marks a passage only one of the two postings has"
 duplicates-description-comparison-differences = { $choice ->
-    [same] No passage-level differences detected.
+    [same] No differences.
    *[differ] { $count ->
-        [one] { $count } passage differs. Amber passages occur only in that posting.
-       *[other] { $count } passages differ. Amber passages occur only in that posting.
+        [one] { $count } passage differs, highlighted.
+       *[other] { $count } passages differ, highlighted.
     }
 }
 # kind=label wording=as-is
@@ -145,14 +140,14 @@ duplicates-description-comparison-description = Description
 ## features/review/ReviewHistory.tsx
 # kind=label wording=as-is
 duplicates-review-history-decided = Decided
-# kind=heading wording=as-is
-duplicates-review-history-every-judgment-ready-to-revisit = Every judgment, ready to revisit
+# kind=heading
+duplicates-review-history-every-judgment-ready-to-revisit = Your decisions
 # kind=label wording=as-is
 duplicates-review-history-of = { $length } of { $value }
-# kind=sentence wording=as-is
-duplicates-review-history-try-another-title-requisition-id = Try another title, requisition ID, or filter.
-# kind=label wording=as-is
-duplicates-review-history-system-score = system score
+# kind=sentence
+duplicates-review-history-try-another-title-requisition-id = Try another title, ID or filter.
+# kind=label
+duplicates-review-history-system-score = similarity
 # kind=status note="Which check first paired the two postings. $kind: duplicate (as one role posted twice) or twin (as related roles)"
 duplicates-proposed-as = { $kind ->
     [twin] Proposed as related roles
@@ -169,8 +164,8 @@ duplicates-review-history-revised = { $count ->
 duplicates-review-history-decided-2 = Decided
 # kind=label wording=as-is
 duplicates-review-history-search-decisions = Search decisions
-# kind=label wording=as-is
-duplicates-review-history-search-title-or-requisition-id = Search title or requisition ID
+# kind=label
+duplicates-review-history-search-title-or-requisition-id = Search title or ID
 # kind=label wording=as-is
 duplicates-review-history-filter-decisions = Filter decisions
 # kind=label wording=as-is
@@ -183,26 +178,26 @@ duplicates-review-history-loading = Loading decisions…
 duplicates-review-history-load-failed = Couldn't load decisions
 
 ## features/review/ReviewScreen.tsx
-# kind=sentence wording=as-is
-duplicates-review-screen-every-pair-matched-automatically-has = Every pair matched automatically has been checked. You can revisit any of them under Decided.
-# kind=button wording=as-is
-duplicates-review-screen-open-decided = Open decided
-# kind=sentence wording=as-is
-duplicates-review-screen-every-close-pair-on-your = Every close pair on your radar has a decision. You can revisit any of them under Decided.
-# kind=label wording=as-is
+# kind=sentence
+duplicates-review-screen-every-pair-matched-automatically-has = Every pair here is checked. Change any of them under Decided.
+# kind=button
+duplicates-review-screen-open-decided = Go to Decided
+# kind=sentence
+duplicates-review-screen-every-close-pair-on-your = Every close pair on your radar has a decision. Change any of them under Decided.
+# kind=status
 duplicates-review-screen-pairs-left-in-the-queue = { $total } pair{ $count ->
         [one] { "" }
        *[other] s
     } { $choice ->
-        [yes] matched automatically, not yet checked
-       *[no] left in the queue
+        [yes] not yet checked
+       *[no] to decide
     }
-# kind=label wording=as-is
-duplicates-review-screen-system-similarity = System similarity
+# kind=label
+duplicates-review-screen-system-similarity = Similarity
 # kind=sentence wording=as-is
 duplicates-review-screen-undone-your-later-decision-on = Undone. Your later decision on these postings stays.
-# kind=label
-duplicates-review-screen-could-not-undo = Couldn't undo: { $message }
+# kind=toast
+duplicates-review-screen-could-not-undo = Couldn't undo. { $message }
 # kind=toast note="After a decision on a pair of postings. $decision: duplicate (the same role), twin (related roles) or different (different roles)"
 duplicates-review-screen-marked-as = { $decision ->
     [duplicate] Marked as same role
@@ -212,13 +207,13 @@ duplicates-review-screen-marked-as = { $decision ->
 # kind=label wording=as-is
 duplicates-review-screen-undo = Undo
 # kind=toast
-duplicates-review-screen-could-not-record-the-verdict = Couldn't record the verdict: { $message }
+duplicates-review-screen-could-not-record-the-verdict = Couldn't save your decision. { $message }
 # kind=label wording=as-is
 duplicates-review-screen-duplicate-review-views = Duplicate review views
 # kind=label wording=as-is
 duplicates-review-screen-queue = Queue
-# kind=label wording=as-is
-duplicates-review-screen-matched-automatically = Matched automatically
+# kind=label
+duplicates-review-screen-matched-automatically = Paired automatically
 # kind=heading wording=as-is
 duplicates-review-screen-nothing-to-check = Nothing to check
 # kind=heading wording=as-is
@@ -231,10 +226,10 @@ duplicates-review-screen-none-found-why = A company often posts one { -role(num:
 duplicates-review-screen-none-found-yet = Nothing to decide yet. New pairs show up here as scans find them.
 # kind=aria wording=as-is
 duplicates-review-screen-candidate-pair = Candidate pair
-# kind=label wording=as-is
-duplicates-review-screen-system-similarity-2 = System similarity { $score }
-# kind=label wording=as-is
-duplicates-review-screen-about-system-similarity = About system similarity
+# kind=label
+duplicates-review-screen-system-similarity-2 = Similarity { $score }
+# kind=label
+duplicates-review-screen-about-system-similarity = About similarity
 # kind=status
 duplicates-review-screen-loading = Loading the queue…
 # kind=heading
@@ -256,7 +251,7 @@ duplicates-decision-same-role = Same role
 # kind=label wording=as-is
 duplicates-decision-duplicate = Duplicate
 # kind=sentence
-duplicates-decision-one-role-two-postings-listed = One role, two postings: listed again under a different requisition ID.
+duplicates-decision-one-role-two-postings-listed = One role, two postings: listed again under a different ID.
 
 ## routes/ReviewRoute.tsx
 

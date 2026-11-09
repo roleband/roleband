@@ -19,8 +19,8 @@ companies-add-more-companies-careers-page-link = Careers page link
 companies-add-more-companies-cancel = Cancel
 # kind=heading wording=as-is
 companies-add-more-companies-a-specific-company = A specific company
-# kind=label wording=as-is
-companies-add-more-companies-added-by-its-careers-page = Added by its careers page
+# kind=label
+companies-add-more-companies-added-by-its-careers-page = By careers page link
 # kind=sentence wording=as-is
 companies-add-more-companies-not-on-this-list-paste = Not on this list? Paste the link and you'll see whether it can be scanned.
 # kind=label wording=as-is
@@ -29,8 +29,8 @@ companies-add-more-companies-the-wider-market = The wider market
 companies-add-more-companies-stop-scanning-the-wider-market = Stop scanning the wider market
 # kind=heading wording=as-is
 companies-add-more-companies-the-wider-market-heading = The wider market
-# kind=label wording=as-is
-companies-add-more-companies-about-companies-on-the-same = About { $about } companies on the same job sites
+# kind=status
+companies-add-more-companies-about-companies-on-the-same = About { $about } more companies that can be scanned
 # kind=sentence
 companies-add-more-companies-each-one-is-checked-daily = Each one is scanned daily, and only the ones hiring for roles on your radar join your list.
 # kind=label wording=as-is note="$scan is paused while the computer runs on battery"
@@ -38,10 +38,10 @@ companies-add-more-companies-first-scan-state = { $scan ->
     [paused] About { $about } companies, first scan paused on battery
    *[running] About { $about } companies, first scan running
 }
-# kind=sentence wording=as-is
+# kind=sentence
 companies-add-more-companies-first-scan-note = { $scan ->
-    [paused] It picks up where it stopped when you plug in. Matches so far are under Other companies.
-   *[running] Matches appear under Other companies as they turn up. The scan continues if you leave this page.
+    [paused] Resumes when you plug in. Companies found so far are under Other companies.
+   *[running] Companies hiring for you appear under Other companies. The scan continues if you leave this page.
 }
 # kind=label wording=as-is
 companies-add-more-companies-scanned-of-about = scanned of about { $to_check }
@@ -151,8 +151,8 @@ companies-data-visibility-changed = { $visibility ->
     [hidden] { $company } hidden from your radar.
    *[shown] { $company } back on your radar.
 }
-# kind=sentence wording=as-is
-companies-data-company-added-to-your-roster = Company added to your roster.
+# kind=sentence
+companies-data-company-added-to-your-roster = Company added to Followed companies.
 
 ## features/companies/CompaniesIndex.tsx
 # kind=label wording=as-is
@@ -217,17 +217,17 @@ companies-company-register-rows-scanned-ago-roleband-scans-when = Scanned { $sca
 # kind=status
 companies-company-register-rows-not-counted-last-read-ago = { $label } · not counted, last scanned { $lastRead } ago
 # kind=sentence
-companies-company-register-rows-roleband-last-read-s-roles = { $display } was last scanned { $lastRead } ago, too long ago for your radar's count. Its next scan adds its roles back.
+companies-company-register-rows-roleband-last-read-s-roles = Roles at { $display } come from a scan { $lastRead } ago, too old to count. They count again after its next full scan.
 # kind=label wording=as-is
 companies-company-register-rows-partly-counted = { $label } · partly counted
 # kind=sentence
-companies-company-register-rows-s-scans-have-not-read = { $display }'s scans have not read its whole careers page yet, so some roles aren't counted. Its next full scan adds them.
+companies-company-register-rows-s-scans-have-not-read = Some roles at { $display } aren't counted yet. They count after its next full scan.
 # kind=label wording=as-is
 companies-company-register-rows-not-counted-yet = { $label } · not counted yet
 # kind=sentence note="$reason is why the company's roles are not in the radar's count"
 companies-company-register-rows-not-counted-why = { $reason ->
-    [stale] { $company }'s roles were found by an older scan your radar's count can't use. Its next full scan adds them.
-   *[other] { $company }'s roles aren't in your radar's count yet. Its next scan adds them.
+    [stale] Roles at { $company } come from an older scan. They count after its next full scan.
+   *[other] Roles at { $company } count after its next scan.
 }
 # kind=label wording=as-is
 companies-company-register-rows-following-not-scanned-yet = Following · not scanned yet
@@ -238,16 +238,16 @@ companies-company-register-rows-open-role-counts-are-unavailable = Open role cou
 # kind=label wording=as-is
 companies-company-register-rows-open-roles-loading = Open roles loading
 # kind=sentence
-companies-company-register-rows-of-s-roles-name-a = { $unplaced } of { $display }'s roles name a place that isn't recognized, so they don't show for any place you choose.
+companies-company-register-rows-of-s-roles-name-a = { $unplaced } of the roles at { $display } name a place that isn't recognized, so they don't show for any place you choose.
 # kind=sentence
-companies-company-register-rows-of-s-roles-fit-no = { $unsorted } of { $display }'s roles fit no known discipline, so they don't show for any discipline you choose.
-# kind=label wording=as-is
-companies-company-register-rows-open-careers-page = Open { $display } careers page
+companies-company-register-rows-of-s-roles-fit-no = { $unsorted } of the roles at { $display } fit no known discipline, so they don't show for any discipline you choose.
+# kind=label
+companies-company-register-rows-open-careers-page = Open careers page: { $display }
 # kind=tooltip wording=as-is
 companies-company-register-rows-careers-page = Careers page
-# kind=label wording=as-is note="The eye button: $visibility is the company's state now"
+# kind=aria note="The eye button: $visibility is the company's state now"
 companies-company-register-rows-show-or-hide-on-radar = { $visibility ->
-    [shown] Hide { $company } on your radar
+    [shown] Hide { $company } from your radar
    *[hidden] Show { $company } on your radar
 }
 # kind=label wording=as-is
@@ -445,8 +445,8 @@ companies-follow-copy-this-will-likely-add-to = This will likely add { $estimate
 companies-follow-copy-cancel = Cancel
 # kind=tooltip wording=as-is
 companies-follow-copy-follow = Follow { $display }?
-# kind=sentence wording=as-is
-companies-follow-copy-by-following-you-choose-to = By following, you choose to collect { $display }'s public job listings. You can unfollow at any time, and collection stops.
+# kind=consent note="The walled follow dialog's second sentence; with the site-wall sentence before it, the text the server stores as this person's consent"
+companies-follow-copy-by-following-you-choose-to = By following, you choose to collect { $display }'s public postings. Unfollow at any time to stop.
 # kind=label wording=as-is
 companies-follow-copy-follow-company = Follow { $display }
 # kind=tooltip wording=as-is
@@ -468,13 +468,13 @@ companies-follow-copy-some-of-these-companies-careers = Some of these companies'
 # kind=sentence
 companies-follow-copy-with-more-companies-scans-take = With more companies, scans take longer.
 # kind=sentence
-companies-follow-copy-change-it-any-time-in = Change it any time in Settings.
+companies-follow-copy-change-it-any-time-in = Change it any time in Settings › Followed companies.
 # kind=label
 companies-follow-copy-follow-every-company = Follow them
 # kind=tooltip wording=as-is
 companies-follow-copy-unfollow-company-question = Unfollow { $display }?
-# kind=sentence wording=as-is
-companies-follow-copy-s-job-listings-stop-being = { $display }'s job listings stop being collected. You can follow it again at any time.
+# kind=sentence
+companies-follow-copy-s-job-listings-stop-being = Postings from { $display } are no longer collected. You can follow it again at any time.
 # kind=label wording=as-is same-as=companies-follow-copy-unfollow
 companies-follow-copy-unfollow-company = Unfollow { $display }
 
@@ -509,8 +509,8 @@ companies-parked-robots-disallow = { $company } asks not to have its careers pag
 companies-parked-prohibits-collection = Its careers page forbids automated collection
 # kind=status note="A pending company whose careers page named a known board family: the family, and why it waits"
 companies-company-register-rows-board-found = { $reason ->
-    [policy_refused] Uses { $family }; collecting from it is off
-   *[board_silent] Uses { $family }, which didn't answer
+    [policy_refused] Uses { $family }, which doesn't allow scanning
+   *[board_silent] Uses { $family }, which didn't load
 }
 # kind=status note="A board family's own name, a brand: not translated, not sentence-cased"
 companies-company-register-rows-board-family = { $family ->
@@ -547,7 +547,7 @@ companies-setup-everything-detail = About { $about } more; the first scan takes 
 # kind=aria
 companies-setup-choice-aria = Which companies are scanned
 # kind=sentence
-companies-setup-later = Follow or unfollow single companies at any time in Settings > Followed companies.
+companies-setup-later = Follow or unfollow any company later in Settings › Followed companies.
 # kind=status
 companies-setup-load-failed = Couldn't load the company list. The well-known companies stay followed.
 # kind=button

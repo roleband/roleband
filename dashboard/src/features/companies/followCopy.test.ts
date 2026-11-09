@@ -84,8 +84,7 @@ describe("follow confirmations and the consent they record", () => {
     expect(copy.title).toBe("Follow DeepMind?");
     expect(copy.paragraphs).toEqual([
       SITE_WALL_SENTENCE,
-      "By following, you choose to collect DeepMind's public job listings. " +
-        "You can unfollow at any time, and collection stops.",
+      "By following, you choose to collect DeepMind's public postings. Unfollow at any time to stop.",
     ]);
   });
 
@@ -110,7 +109,7 @@ describe("follow confirmations and the consent they record", () => {
         "Some of these companies' careers sites limit automated collection. " +
           "By picking this, you choose to collect their public postings.",
         "With more companies, scans take longer.",
-        "Change it any time in Settings.",
+        "Change it any time in Settings › Followed companies.",
       ],
       safe: "Cancel",
       act: "Follow them",

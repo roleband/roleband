@@ -104,7 +104,7 @@ export function TwinDeck({
                 <button type="button" onClick={() => open(member.job.id, member.job.company)}>
                   <span className="twin-deck-title">{member.job.title}</span>
                   <span className="twin-deck-meta">
-                    <Msg of={roleTwinDeckReq} elems={{ req_id: member.job.req_id, value: postingPlaces(member.job.locations).slice(0, 2).join(" · ") || roleTwinDeckLocationNotListed() }} />
+                    <Msg of={roleTwinDeckReq} elems={{ id: member.job.req_id, value: postingPlaces(member.job.locations).slice(0, 2).join(" · ") || roleTwinDeckLocationNotListed() }} />
                   </span>
                   <span className="twin-deck-meta">
                     {payShown(member.job, cover).text}
@@ -123,7 +123,7 @@ export function TwinDeck({
                   key={member.job.id}
                   onClick={() => open(member.job.id, member.job.company)}
                 >
-                  <Msg of={roleTwinDeckReq2} elems={{ title: member.job.title, req_id: member.job.req_id }} />
+                  <Msg of={roleTwinDeckReq2} elems={{ title: member.job.title, id: member.job.req_id }} />
                 </Button>
               ))}
             </div>

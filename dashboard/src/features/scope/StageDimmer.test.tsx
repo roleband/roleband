@@ -130,8 +130,8 @@ it("renders the dimmer band with marker, glow edge, and the corporate decoder", 
   expect(marker).toHaveAttribute("aria-valuetext", "Entry / Junior");
   expect(edge).toHaveAttribute("aria-valuetext", "Senior");
   // The legend teaches the two handles with their real glyphs.
-  expect(screen.getByText("you are here")).toBeInTheDocument();
-  expect(screen.getByText("aiming for")).toBeInTheDocument();
+  expect(screen.getByText("You are here")).toBeInTheDocument();
+  expect(screen.getByText("Aiming for")).toBeInTheDocument();
   // Every stage shows its market inventory.
   expect(screen.getByText(/340 roles/)).toBeInTheDocument();
 

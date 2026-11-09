@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DisclosureRates, DisclosureTrends } from "../../api";
 import { api } from "../../api";
+import { msg } from "../../test/msg";
 import { DisclosureRatePanel, DisclosureTrendPanel } from "./DisclosurePanel";
 
 vi.mock("../../api", () => ({ api: { disclosureTrends: vi.fn() } }));
@@ -68,16 +69,16 @@ describe("DisclosureRatePanel", () => {
     expect(screen.getByText("25% of 600 checked roles post a range")).toBeInTheDocument();
   });
 
-  it("says the unread roles are backlog rather than employer silence", async () => {
+  it("names the roles not yet checked and leaves them out of the rate, never counting them as employer silence", async () => {
     // 732 open, 600 checked. Reporting 150/732 = 20% would blame employers for our
     // own extraction queue, so the panel must name the gap explicitly.
     render(<DisclosureRatePanel rates={rates()} />);
 
     expect(
-      screen.getByText(/132 of 732 open roles have not been checked/i),
+      screen.getByText(msg("insights-disclosure-panel-of-open-roles-have-not", { pending: "132", open: "732" })),
     ).toBeInTheDocument();
-    expect(screen.getByText(/rather than counted as employers posting nothing/i))
-      .toBeInTheDocument();
+    // The unchecked roles stay out of the rate: it is over the 600 checked, not the 732 open.
+    expect(screen.getByText("25% of 600 checked roles post a range")).toBeInTheDocument();
   });
 
   it("omits the backlog note when every open role has been checked", () => {
@@ -86,14 +87,16 @@ describe("DisclosureRatePanel", () => {
         rates={rates({ overall: { open: 600, checked: 600, disclosed: 150, rate: 0.25 } })}
       />,
     );
-    expect(screen.queryByText(/have not been checked/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(msg("insights-disclosure-panel-of-open-roles-have-not", { pending: "0", open: "600" })),
+    ).not.toBeInTheDocument();
   });
 
   it("re-renders the chart when the grouping toggles", async () => {
     render(<DisclosureRatePanel rates={rates()} />);
 
     expect(
-      screen.getByRole("img", { name: /post a range, by employer/i }),
+      screen.getByRole("img", { name: /post a range, by company/i }),
     ).toBeInTheDocument();
     expect(screen.getByText(/Google: 80%, 160 of 200 roles/)).toBeInTheDocument();
 
@@ -150,7 +153,7 @@ describe("DisclosureTrendPanel", () => {
     mockTrends();
     render(<DisclosureTrendPanel days={90} minRoles={5} />);
     await screen.findByRole("img", { name: /post a range over time/i });
-    await userEvent.click(screen.getByRole("button", { name: "By employer" }));
+    await userEvent.click(screen.getByRole("button", { name: "By company" }));
     await waitFor(() =>
       expect(api.disclosureTrends).toHaveBeenCalledWith("company", 90, undefined),
     );
@@ -170,7 +173,7 @@ describe("DisclosureTrendPanel", () => {
     await screen.findByRole("img", { name: /post a range over time/i });
 
     vi.mocked(api.disclosureTrends).mockClear();
-    await userEvent.click(screen.getByRole("button", { name: "By employer" }));
+    await userEvent.click(screen.getByRole("button", { name: "By company" }));
 
     // A median of per-company medians is not a median, so the band chart stays
     // pinned to the market grain no matter what the rate breakdown is set to.
@@ -189,7 +192,11 @@ describe("DisclosureTrendPanel", () => {
     mockTrends(trends({ series: [market, fixed], cohort: { since: "2026-07-20", companies: 11 } }));
     render(<DisclosureTrendPanel days={90} minRoles={5} />);
 
-    expect(await screen.findByText(/follows only the 11 read on 2026-07-20/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        msg("insights-disclosure-panel-the-market-line-moves-when", { companies: "11", since: "2026-07-20" }),
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText(/Same companies: 40% of 600 checked roles post a range/)).toBeInTheDocument();
   });
 
@@ -204,7 +211,11 @@ describe("DisclosureTrendPanel", () => {
 
     expect(await screen.findByText(/Market: 25% of 600 checked roles post a range/)).toBeInTheDocument();
     expect(screen.queryByText(/Same companies/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/follows only the 1 read/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        msg("insights-disclosure-panel-the-market-line-moves-when", { companies: "1", since: "2026-10-12" }),
+      ),
+    ).not.toBeInTheDocument();
   });
 
   it("says nothing of a cohort when the company set never changed", async () => {
@@ -218,7 +229,7 @@ describe("DisclosureTrendPanel", () => {
     mockTrends(trends({ dates: ["2026-07-21"] }));
     render(<DisclosureTrendPanel days={90} minRoles={5} />);
 
-    expect(await screen.findAllByText(/history is still accruing/i)).not.toHaveLength(0);
+    expect(await screen.findAllByText(msg("insights-disclosure-panel-history-is-still-accruing-one"))).not.toHaveLength(0);
   });
 
   it("shows an empty state for the band chart when no base band was ever posted", async () => {

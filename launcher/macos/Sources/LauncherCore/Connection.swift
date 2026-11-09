@@ -126,6 +126,11 @@ public struct Presentation: Codable, Equatable, Sendable {
         default: return "reason-other"
         }
     }
+    /// A source install's engine waits until the person runs ./setup.sh; the app's engine
+    /// finishes its own update. The engine reports the same hold for both.
+    public func reasonKey(source: Bool) -> String? {
+        source && reasonKey == "reason-setup" ? "reason-setup-source" : reasonKey
+    }
 }
 
 /// The menu-bar scan picture. Live fields are present only while a scan executes; `last*`

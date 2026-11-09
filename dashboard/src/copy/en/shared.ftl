@@ -63,8 +63,8 @@ shared-company-no-open-roles = No open roles right now
 shared-company-view-profile = View profile
 
 ## patterns/Pager.tsx
-# kind=button wording=as-is
-shared-pager-prev = Prev
+# kind=button
+shared-pager-prev = Previous
 # kind=label wording=as-is
 shared-pager-page-of = Page { $page } of { $pages }
 # kind=button wording=as-is
@@ -75,8 +75,8 @@ shared-pager-next = Next
 shared-echart-chart-unavailable = Chart unavailable. { $summary }
 
 ## ui/FilterRail.tsx
-# kind=button wording=as-is
-shared-filter-rail-clear = clear
+# kind=button
+shared-filter-rail-clear = Clear
 # kind=button wording=as-is
 shared-filter-rail-more = + { $hidden } more
 # kind=button wording=as-is
@@ -85,22 +85,22 @@ shared-filter-rail-select-all = Select all
 shared-filter-rail-no-options-match = No options match.
 # kind=label wording=as-is
 shared-filter-rail-search = Search { $title }
-# kind=sentence wording=as-is
-shared-filter-rail-search-2 = Search { $title }...
+# kind=sentence
+shared-filter-rail-search-2 = Search { $title }…
 # kind=label wording=as-is
 shared-filter-rail-show-all = Show all { $title }
 # kind=label wording=as-is
 shared-filter-rail-select-all-2 = Select all { $title }
 
 ## ui/FilterSelect.tsx
-# kind=button wording=as-is
+# kind=button wording=as-is same-as=shared-filter-rail-clear
 shared-filter-select-clear = Clear
 # kind=label wording=as-is
 shared-filter-select-filter-by = Filter by { $label }
 # kind=label wording=as-is same-as=shared-filter-rail-search
 shared-filter-select-search = Search { $label }
-# kind=sentence wording=as-is same-as=shared-filter-rail-search-2
-shared-filter-select-search-2 = Search { $label }...
+# kind=sentence same-as=shared-filter-rail-search-2
+shared-filter-select-search-2 = Search { $label }…
 
 ## ui/TimeField.tsx
 # kind=button note="Beside a time field: opens a list of times to pick from"
@@ -150,13 +150,13 @@ shared-base-posted-hint = Posted range: { $low } to { $high }{ $unit }
 # kind=tooltip note="Where a row's base salary comes from: the one figure the posting states. amount is money, unit is empty for yearly pay or a unit such as / hr"
 shared-base-posted-point-hint = Posted base salary: { $amount }{ $unit }
 # kind=tooltip note="Where a row's base salary comes from when the posting states none"
-shared-base-estimate-hint = Our estimate for this level
+shared-base-estimate-hint = Estimated from the level
 # kind=aria note="Read out for a row's empty Base cell"
 shared-base-unknown = Base salary not known
 # kind=status note="A posting's pay while a plugin answers pay app-wide and has not read its company yet; plugin = the plugin's name"
 shared-pay-not-covered = Not read by { $plugin } yet
 # kind=tooltip note="Why a posting shows no pay while a plugin answers pay"
-shared-pay-not-covered-hint = While { $plugin } supplies compensation, a company it hasn't read yet shows no estimate, not a built-in one.
+shared-pay-not-covered-hint = No estimate until { $plugin } reads this company. Built-in estimates are off while it provides pay.
 # kind=link note="Opens Tiingo's page that shows a free price key after sign-up, in a new tab: on the profile's empty price chart and the Stock prices card"
 shared-price-feed-get-key = Get a free key
 

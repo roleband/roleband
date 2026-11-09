@@ -332,10 +332,9 @@ def test_the_copy_names_only_log_files_the_supervisor_writes(tmp_path):
     written = {f"data/logs/{job.name}.log" for job in registry.JOBS}
     written |= {f"data/{p.relative_to(tmp_path)}" for p in logs.shared(tmp_path, tmp_path / "pg")[:2]}
     written |= {"data/logs/api.log", "data/logs/launchd.log"}
-    named = {
-        path
-        for ftl in (REPO_ROOT / "dashboard" / "src" / "copy" / "en").glob("*.ftl")
-        for path in re.findall(r"data/[A-Za-z0-9_./-]+\.log", ftl.read_text())
-    }
-    assert named, "the copy names at least the backup's log"
+    log_path = re.compile(r"data/[A-Za-z0-9_./-]+\.log")
+    assert log_path.findall("Check data/logs/backup.log") == ["data/logs/backup.log"], "the scan still matches a path"
+    catalog = [ftl.read_text() for ftl in (REPO_ROOT / "dashboard" / "src" / "copy" / "en").glob("*.ftl")]
+    assert catalog, "the English catalog was found"
+    named = {path for text in catalog for path in log_path.findall(text)}
     assert named <= written, sorted(named - written)

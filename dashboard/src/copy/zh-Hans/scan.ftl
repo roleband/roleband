@@ -16,7 +16,7 @@ scan-sync-scope-popover-lists-no-roles = 没有发布职位
 scan-sync-scope-popover-failed = 失败
 scan-sync-scope-popover-blocked = 被阻止
 scan-sync-scope-popover-partial = 部分完成
-scan-sync-scope-popover-a-few-rows-unread = 部分条目未读
+scan-sync-scope-popover-a-few-rows-unread = 少数招聘信息未能读取
 scan-sync-scope-popover-capped = 已达上限
 scan-sync-scope-popover-paused = 已暂停
 scan-sync-scope-popover-companies = { $count ->
@@ -34,7 +34,7 @@ scan-sync-scope-popover-select-companies = 选择公司
 scan-sync-scope-popover-choose-companies-to-scan = 选择要扫描的公司
 scan-sync-scope-popover-loading = 正在加载要扫描的公司…
 scan-sync-scope-popover-load-failed = 无法加载要扫描的公司
-scan-sync-scope-popover-joins-running = 正在进行的扫描接下来读取它们。
+scan-sync-scope-popover-joins-running = 正在进行的扫描接下来会纳入它们。
 scan-sync-scope-popover-joined = { $count ->
    *[other] 正在进行的扫描接下来读取这 { $count } 家{ -company(num: "other") }。
 }

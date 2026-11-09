@@ -360,7 +360,9 @@ describe("CompaniesSection — the ledger", () => {
     expect(within(faang).getByTitle("Scanned 3h ago.")).toHaveTextContent(/^Live$/);
     expect(faang).not.toHaveTextContent(/Quarantined|scan cleanly|Scan problems/);
     // Why, on hover: the Coverage notice's own words.
-    expect(within(faang).getByTitle("Couldn't scan Google · 5 days. Its careers page isn't answering.")).toBeInTheDocument();
+    expect(within(faang).getByTitle(
+      `${msg("notif-coverage-scan-title", { company: "Google", days: 5 })}. ${msg("notif-coverage-unreachable")}`,
+    )).toBeInTheDocument();
   });
 
   it("says the Coverage notice's words in the reader's language", async () => {
@@ -427,7 +429,9 @@ describe("CompaniesSection — the ledger", () => {
       new RegExp(`^${msg("companies-company-register-rows-coverage-problem", { cause: "unreachable" })}`),
     ));
     expect(sectorPanel("FAANG")).not.toHaveTextContent("81d");
-    expect(within(sectorPanel("FAANG")).getByTitle("Couldn't scan Google. Its careers page isn't answering."))
+    expect(within(sectorPanel("FAANG")).getByTitle(
+      `${msg("notif-coverage-scan-title", { company: "Google", days: 0 })}. ${msg("notif-coverage-unreachable")}`,
+    ))
       .toHaveClass("is-warn");
   });
 
@@ -458,7 +462,7 @@ describe("CompaniesSection — the ledger", () => {
     await waitFor(() => expect(row("FAANG", "Meta")).toHaveAccessibleDescription(/^Live · partly counted/));
     const faang = screen.getByRole("region", { name: "FAANG" });
     expect(within(faang).getByTitle(
-      "Meta's scans have not read its whole careers page yet, so some roles aren't counted. Its next full scan adds them.",
+      msg("companies-company-register-rows-s-scans-have-not-read", { display: "Meta" }),
     )).toHaveTextContent("Live · partly counted");
     expect(row("FAANG", "Google")).toHaveAccessibleDescription(/^Live · not counted yet/);
   });
@@ -476,7 +480,7 @@ describe("CompaniesSection — the ledger", () => {
     await waitFor(() => expect(row("FAANG", "Meta")).toHaveAccessibleDescription(/^Live · not counted, last scanned 3d ago/));
     const faang = screen.getByRole("region", { name: "FAANG" });
     expect(within(faang).getByTitle(
-      "Meta was last scanned 3d ago, too long ago for your radar's count. Its next scan adds its roles back.",
+      msg("companies-company-register-rows-roleband-last-read-s-roles", { display: "Meta", lastRead: "3d" }),
     )).toHaveTextContent("Live · not counted, last scanned 3d ago");
     expect(row("FAANG", "Google")).toHaveAccessibleDescription(/^Live · not counted yet/);
   });
@@ -489,11 +493,13 @@ describe("CompaniesSection — the ledger", () => {
 
     await waitFor(() => expect(row("FAANG", "Meta")).toHaveAccessibleDescription(/^Live · not counted yet/));
     const faang = screen.getByRole("region", { name: "FAANG" });
-    expect(within(faang).getByTitle("Meta's roles aren't in your radar's count yet. Its next scan adds them."))
+    expect(within(faang).getByTitle(
+      msg("companies-company-register-rows-not-counted-why", { reason: "missing", company: "Meta" }),
+    ))
       .toHaveTextContent("Live · not counted yet");
     // Counted, so its state is plain; its number carries the unplaced mark.
     expect(row("FAANG", "Google")).toHaveAccessibleDescription(/^Live(?! · not counted)/);
-    expect(within(faang).getByTitle("3 of Google's roles name a place that isn't recognized, so they don't show for any place you choose."))
+    expect(within(faang).getByTitle(msg("companies-company-register-rows-of-s-roles-name-a", { unplaced: 3, display: "Google" })))
       .toHaveTextContent("12 open ·");
     expect(within(faang).getByText("40 open")).not.toHaveAttribute("title");
   });
@@ -505,7 +511,9 @@ describe("CompaniesSection — the ledger", () => {
     renderSection();
 
     const faang = await screen.findByRole("region", { name: "FAANG" });
-    const count = await within(faang).findByTitle("432 of Google's roles fit no known discipline, so they don't show for any discipline you choose.");
+    const count = await within(faang).findByTitle(
+      msg("companies-company-register-rows-of-s-roles-fit-no", { unsorted: 432, display: "Google" }),
+    );
     expect(count).toHaveTextContent("12 open ·");
     expect(count.title).not.toMatch(/place/);
   });
@@ -547,12 +555,16 @@ describe("CompaniesSection — the ledger", () => {
 
     const faang = await screen.findByRole("region", { name: "FAANG" });
     expect(await within(faang).findByTitle(
-      "Apple's careers page is gone · 2 days. Its careers page is no longer at its last address.",
+      `${msg("notif-coverage-gone-title", { company: "Apple", days: 2 })}. ${msg("notif-coverage-board-missing")}`,
     )).toHaveTextContent("Careers page gone · 2d");
-    const why = await within(faang).findByTitle("Google lists no roles · 2 days. Its careers page answered with an empty list.");
+    const why = await within(faang).findByTitle(
+      `${msg("notif-coverage-empty-title", { company: "Google", days: 2 })}. ${msg("notif-coverage-empty-listing")}`,
+    );
     expect(why).toHaveTextContent("Lists no roles · 10h");
     expect(why).toHaveClass("is-warn");
-    expect(within(faang).getByTitle("Couldn't scan Meta · 4 days. Scans read only part of its careers page."))
+    expect(within(faang).getByTitle(
+      `${msg("notif-coverage-scan-title", { company: "Meta", days: 4 })}. ${msg("notif-coverage-partial")}`,
+    ))
       .toHaveTextContent("Couldn't scan · 4d");
   });
 
@@ -763,12 +775,13 @@ describe("CompaniesSection — tracking", () => {
     renderSection();
 
     await screen.findByRole("checkbox", { name: "SilentCo" });
-    expect(row("FAANG", "SilentCo")).toHaveAccessibleDescription(
-      /^Uses \W?Jibe\W?, which didn't answer/,
-    );
-    expect(row("FAANG", "RefusedCo")).toHaveAccessibleDescription(
-      /^Uses \W?Radancy TalentBrew\W?; collecting from it is off/,
-    );
+    const startsWith = (text: string) => new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
+    const boardFound = (reason: string, family: string) =>
+      startsWith(msg("companies-company-register-rows-board-found", {
+        reason, family: msg("companies-company-register-rows-board-family", { family }),
+      }));
+    expect(row("FAANG", "SilentCo")).toHaveAccessibleDescription(boardFound("board_silent", "jibe"));
+    expect(row("FAANG", "RefusedCo")).toHaveAccessibleDescription(boardFound("policy_refused", "radancy"));
     // A page that named no known board keeps the plain waiting words.
     expect(row("FAANG", "PlainCo")).toHaveAccessibleDescription(/^Following · not scanned yet/);
     expect(row("FAANG", "PlainCo")).not.toHaveAccessibleDescription(/Found a/);
@@ -880,7 +893,7 @@ describe("CompaniesSection — tracking", () => {
   it("keeps opportunity visibility independent from tracking, and offers it only when tracked", async () => {
     renderSection();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Hide Google on your radar" }));
+    fireEvent.click(await screen.findByRole("button", { name: msg("companies-company-register-rows-show-or-hide-on-radar", { visibility: "shown", company: "Google" }) }));
     await waitFor(() =>
       expect(api.updateCompany).toHaveBeenCalledWith("google", { visible: false }),
     );
@@ -898,9 +911,9 @@ describe("CompaniesSection — tracking", () => {
        with Undo, like its row-neighbour. */
     renderSection();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Hide Google on your radar" }));
+    fireEvent.click(await screen.findByRole("button", { name: msg("companies-company-register-rows-show-or-hide-on-radar", { visibility: "shown", company: "Google" }) }));
     expect(
-      await screen.findByText("Google hidden from your radar."),
+      await screen.findByText(msg("companies-data-visibility-changed", { visibility: "hidden", company: "Google" })),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Undo" }));
@@ -909,7 +922,7 @@ describe("CompaniesSection — tracking", () => {
     );
     // The row reads the write back, so the eye offers to hide it again.
     expect(
-      await screen.findByRole("button", { name: "Hide Google on your radar" }),
+      await screen.findByRole("button", { name: msg("companies-company-register-rows-show-or-hide-on-radar", { visibility: "shown", company: "Google" }) }),
     ).toBeInTheDocument();
   });
 
@@ -919,16 +932,16 @@ describe("CompaniesSection — tracking", () => {
     );
     renderSection();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Hide Google on your radar" }));
+    fireEvent.click(await screen.findByRole("button", { name: msg("companies-company-register-rows-show-or-hide-on-radar", { visibility: "shown", company: "Google" }) }));
 
     // The row is named, then why, from the failure's code: a bare detail says
     // nothing about WHICH row just failed.
-    expect(await screen.findByText(/Couldn't hide Google from your radar\./)).toBeInTheDocument();
+    expect(await screen.findByText(msg("companies-data-visibility-failed", { visibility: "hidden", company: "Google" }), { exact: false })).toBeInTheDocument();
     expect(screen.getByText(new RegExp(msg("error-offline").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))).toBeInTheDocument();
     expect(screen.queryByText(/Failed to fetch/)).not.toBeInTheDocument();
     // Still shown: a failed write must not leave the row claiming it is hidden.
     expect(
-      screen.getByRole("button", { name: "Hide Google on your radar" }),
+      screen.getByRole("button", { name: msg("companies-company-register-rows-show-or-hide-on-radar", { visibility: "shown", company: "Google" }) }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
   });
@@ -1497,7 +1510,7 @@ describe("CompaniesSection — every other company, followed as one", () => {
     vi.mocked(api.followCompanyDirectory).mockResolvedValue(setStatus({ following: true, since: "2026-09-24T12:00:00Z" }));
     renderSection();
 
-    await waitFor(() => expect(setCard()).toHaveTextContent("About 10,000 companies on the same job sites"));
+    await waitFor(() => expect(setCard()).toHaveTextContent(msg("companies-add-more-companies-about-companies-on-the-same", { about: "10,000" })));
     expect(setCard()).toHaveTextContent("only the ones hiring for roles on your radar join your list");
     expect(within(addMore()).getByRole("button", { name: "Add by link" })).toBeInTheDocument();
     // No row for any of them: the set is not a list, and not a group.
@@ -1562,7 +1575,7 @@ describe("CompaniesSection — every other company, followed as one", () => {
     }));
     renderSection();
     await waitFor(() => expect(setCard()).toHaveTextContent("first scan paused on battery"));
-    expect(setCard()).toHaveTextContent("It picks up where it stopped when you plug in.");
+    expect(setCard()).toHaveTextContent(msg("companies-add-more-companies-first-scan-note", { scan: "paused" }));
     expect(setCard()).not.toHaveTextContent("first scan running");
     expect(setCard()).not.toHaveTextContent("The scan continues if you leave this page.");
     // What it read so far still counts.
