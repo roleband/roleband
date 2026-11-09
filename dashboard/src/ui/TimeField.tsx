@@ -116,6 +116,9 @@ export function TimeField({
   };
 
   const pick = (next: number) => {
+    // A typed time is still being saved: `current` is the time before it, so
+    // a pick now could be judged "unchanged" and lose to the typed one.
+    if (saving) return;
     setOpen(false);
     setTyped(null);
     if (next === current) return;

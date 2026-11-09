@@ -927,6 +927,38 @@ describe("ScheduleSection under the schedule plan", () => {
     await waitFor(() => expect(within(settings).getByLabelText("Full scan done by")).toHaveValue("07:30"));
   });
 
+  it("takes no pick from the list while a typed time is still saving", async () => {
+    vi.mocked(api.schedule).mockResolvedValue(planned({
+      ready_by_minute: 480, ready_by_today: { minute: 480, source: "set" },
+    }));
+    let finish: (value: SyncSchedule) => void = () => {};
+    vi.mocked(api.updateSchedulePlan).mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+    render(<ScheduleSection />);
+    const settings = await screen.findByLabelText("Plan settings");
+    fireEvent.click(within(settings).getByRole("button", { name: msg("shared-time-field-choose") }));
+    const times = await screen.findByRole("listbox", { name: msg("shared-time-field-times") });
+
+    // The list is open and a typed 9:00 is saving.
+    const field = within(settings).getByLabelText("Full scan done by");
+    fireEvent.change(field, { target: { value: "09:00" } });
+    fireEvent.blur(field);
+    await waitFor(() => expect(api.updateSchedulePlan).toHaveBeenCalledWith({ ready_by_minute: 540 }));
+
+    // 8:00 is the time stored before that save: picking it now is refused,
+    // not judged unchanged, and the list stays for a pick once it lands.
+    fireEvent.click(within(times).getAllByRole("option")[16]);
+    expect(api.updateSchedulePlan).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("listbox", { name: msg("shared-time-field-times") })).toBeInTheDocument();
+
+    await act(async () => finish(planned({ ready_by_minute: 540, ready_by_today: { minute: 540, source: "set" } })));
+    vi.mocked(api.updateSchedulePlan).mockResolvedValue(planned({
+      ready_by_minute: 480, ready_by_today: { minute: 480, source: "set" },
+    }));
+    fireEvent.click(within(screen.getByRole("listbox", { name: msg("shared-time-field-times") })).getAllByRole("option")[16]);
+    await waitFor(() => expect(api.updateSchedulePlan).toHaveBeenLastCalledWith({ ready_by_minute: 480 }));
+    expect(api.updateSchedulePlan).toHaveBeenCalledTimes(2);
+  });
+
   it("walks the list of times by keyboard, and closing it or keeping the same time writes nothing", async () => {
     vi.mocked(api.schedule).mockResolvedValue(planned({
       ready_by_minute: 480, ready_by_today: { minute: 480, source: "set" },
