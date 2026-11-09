@@ -90,3 +90,7 @@ shared-price-feed-get-key = 获取免费密钥
 ## ui/AsyncBoundary.tsx：调用方未提供完整消息时显示的内容
 shared-empty = 这里还没有内容
 shared-refresh-failed = 无法更新。显示的是上一次的结果。
+
+## ui/TimeField.tsx
+shared-time-field-choose = 选择时间
+shared-time-field-times = 时间

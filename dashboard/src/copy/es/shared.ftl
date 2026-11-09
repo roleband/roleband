@@ -106,3 +106,7 @@ shared-price-feed-get-key = Consigue una clave gratis
 ## ui/AsyncBoundary.tsx: lo que dice cuando quien lo usa no da un mensaje propio
 shared-empty = Aún no hay nada aquí
 shared-refresh-failed = No se pudo actualizar. Se muestra el último resultado.
+
+## ui/TimeField.tsx
+shared-time-field-choose = Elige una hora
+shared-time-field-times = Horas

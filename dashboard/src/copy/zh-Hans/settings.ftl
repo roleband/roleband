@@ -166,6 +166,7 @@ settings-recipes-section-no-company-is-scanned-with = { $choice ->
    *[no] 还没有公司使用它扫描。
 }
 settings-company = 公司
+settings-full-scan-starts = { $time } 开始
 settings-recipes-section-choose-a-company = 选择一家公司
 
 ## features/settings/RetentionSection.tsx

@@ -1271,7 +1271,7 @@ describe("dragging and clicking the plan's runs", () => {
   it("picks when the full scan should be done by from the inspector's list of times", async () => {
     render(<ScheduleSection />);
     fireEvent.click(await screen.findByRole("button", { name: /^Move full scan/ }));
-    const inspector = await screen.findByRole("dialog", { name: "Scan inspector" });
+    const inspector = await screen.findByRole("dialog", { name: msg("settings-plan-run-inspector-scan-inspector") });
     fireEvent.click(within(inspector).getByRole("button", { name: msg("shared-time-field-choose") }));
     const times = await screen.findByRole("listbox", { name: msg("shared-time-field-times") });
     // This run's own measured length: 41 minutes, and 10 more before.
