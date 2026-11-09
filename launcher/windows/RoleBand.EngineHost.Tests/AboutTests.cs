@@ -6,6 +6,13 @@ namespace RoleBand.EngineHost.Tests;
 [TestClass]
 public sealed class AboutTests
 {
+    [TestMethod]
+    public void AnInstalledPackageShowsItsOwnVersionAndASourceRunTheEngines()
+    {
+        Assert.AreEqual("0.1.4.0", AboutPanel.Version("0.1.2", (0, 1, 4, 0)));
+        Assert.AreEqual("0.1.2", AboutPanel.Version("0.1.2", null));
+    }
+
     private static readonly DateTimeOffset Now = new(2026, 11, 8, 15, 0, 0, TimeSpan.Zero);
     private static readonly double NowSeconds = Now.ToUnixTimeSeconds();
     private static readonly string[] Languages = ["en", "es", "zh-Hans"];

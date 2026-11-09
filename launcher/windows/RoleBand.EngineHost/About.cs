@@ -52,6 +52,11 @@ public static class AboutPanel
     public static string AutomaticLabel => ConsentText();
 
     /// <param name="lastResult">The status of this session's last check, if any.</param>
+    /// <summary>The version Settings shows: an installed package's own, as Windows' installer and Apps settings
+    /// show it, else the engine's. A trial's package version counts its builds and differs from the engine's.</summary>
+    public static string Version(string engineVersion, (ushort Major, ushort Minor, ushort Build, ushort Revision)? package) =>
+        package is { } v ? $"{v.Major}.{v.Minor}.{v.Build}.{v.Revision}" : engineVersion;
+
     public static UpdateRow Updates(NativeCopy copy, UpdateFacts? facts, bool checking, string? lastResult, DateTimeOffset now)
     {
         if (facts is { Available: false }) return new UpdateRow(UpdateRowKind.Unavailable, copy["windows-updates-unavailable"], null, false, false, false);

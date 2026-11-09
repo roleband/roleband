@@ -5,8 +5,9 @@ import unittest
 import zlib
 from collections import Counter
 from pathlib import Path
+from xml.etree import ElementTree
 
-from icons import badge_geometry
+from icons import PLATE_DARK, app_icon, badge_geometry
 from make_icons import read_png, write_png
 
 WINDOWS = Path(__file__).resolve().parents[1]
@@ -87,6 +88,12 @@ class PackageAssetTests(unittest.TestCase):
             with self.subTest(px=width):
                 self.assertEqual((height, bits), (width, 32))
                 self.assertEqual(png_size(png), (width, width))
+
+    def test_the_package_tile_is_the_plate_colour_not_the_accent(self):
+        manifest = ElementTree.parse(WINDOWS / "AppxManifest.xml").getroot()
+        visual = manifest.find(".//{http://schemas.microsoft.com/appx/manifest/uap/windows10}VisualElements")
+        self.assertEqual(visual.get("BackgroundColor").upper(), PLATE_DARK.upper())
+        self.assertIn(PLATE_DARK, app_icon(48, "t"), "the tile colour is the plate's own")
 
     def test_icons_are_transparent_outside_the_plate(self):
         for px in (16, 32, 256):

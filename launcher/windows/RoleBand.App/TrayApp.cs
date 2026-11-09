@@ -244,7 +244,8 @@ internal sealed class TrayApp
         {
             var history = statePath ?? "";
             var licence = configuration is null ? null : Path.Combine(configuration.Resources, "LICENSE");
-            var window = new SettingsWindow(copy, configuration?.Version ?? "", history, licence is not null && File.Exists(licence));
+            var window = new SettingsWindow(copy, AboutPanel.Version(configuration?.Version ?? "", Native.PackageVersion()), history,
+                                            licence is not null && File.Exists(licence));
             window.Restart += async () => await StartAsync();
             window.Undo += async () => await UndoUpdateAsync();
             window.OpenLogs += () => OpenFolder(statePath is null ? null : Path.Combine(statePath, "logs"));

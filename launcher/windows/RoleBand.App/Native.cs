@@ -36,6 +36,20 @@ internal static class Native
 
     public static void BringForward(nint window) => SetForegroundWindow(window);
 
+    /// <summary>The installed package's version, or null for an app run without a package.</summary>
+    public static (ushort, ushort, ushort, ushort)? PackageVersion()
+    {
+        try
+        {
+            var version = Windows.ApplicationModel.Package.Current.Id.Version;
+            return (version.Major, version.Minor, version.Build, version.Revision);
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>The primary taskbar's rectangle in physical pixels, or null when Windows does not report one.</summary>
     public static RoleBand.EngineHost.Box? Taskbar()
     {
@@ -47,11 +61,25 @@ internal static class Native
             : null;
     }
 
-    /// <summary>The product's icon in the title bar and the taskbar, and its mark beside the product's name.</summary>
+    /// <summary>The product's icon in the title bar and the taskbar, its mark beside the product's name, and the
+    /// window frame in the content's theme.</summary>
     public static void Dress(Window window, Image? mark = null)
     {
         var icon = Path.Combine(AppContext.BaseDirectory, "RoleBand.ico");
         if (File.Exists(icon)) window.AppWindow.SetIcon(icon);
+        if (window.Content is FrameworkElement root)
+        {
+            // Windows draws the title bar and the border of a window as light unless the window says it is dark.
+            var handle = WinRT.Interop.WindowNative.GetWindowHandle(window);
+            void Frame()
+            {
+                var dark = root.ActualTheme == ElementTheme.Dark ? 1 : 0;
+                const int ImmersiveDarkMode = 20;
+                DwmSetWindowAttribute(handle, ImmersiveDarkMode, ref dark, sizeof(int));
+            }
+            Frame();
+            root.ActualThemeChanged += (_, _) => Frame();
+        }
         if (mark is null) return;
         var image = Path.Combine(AppContext.BaseDirectory, "Images", "AppMark.png");
         if (File.Exists(image)) mark.Source = new BitmapImage(new Uri(image));
@@ -75,6 +103,8 @@ internal static class Native
 
     [DllImport("shell32.dll")]
     private static extern nuint SHAppBarMessage(uint message, ref AppBarData data);
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(nint window, int attribute, ref int value, int size);
     [DllImport("user32.dll")]
     private static extern nint MonitorFromPoint(ScreenPoint point, uint flags);
     [DllImport("shcore.dll")]

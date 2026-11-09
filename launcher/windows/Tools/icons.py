@@ -11,6 +11,10 @@ import math
 GOLD = "#DBCB90"
 GOLD_HI = "#EADFB6"
 GOLD_LO = "#C9B776"
+#: The app icon's plate runs from the light corner to the dark one. The package manifest's tile
+#: colour is the dark one, so a tile Windows pads around the plated logo shows no accent colour.
+PLATE_LIGHT = "#323A31"
+PLATE_DARK = "#171A17"
 
 #: Brand optical profiles: rings as (radius, width, alpha), sweep width, dot radius, share of plate.
 PROFILES = {
@@ -53,7 +57,7 @@ def app_icon(px, uid):
     prof = profile_for(px)
     m = 40 * PROFILES[prof][3]
     defs = (f'<defs><linearGradient id="{uid}p" x1="0" y1="0" x2="1" y2="1">'
-            f'<stop offset="0" stop-color="#323A31"></stop><stop offset="1" stop-color="#171A17"></stop></linearGradient>')
+            f'<stop offset="0" stop-color="{PLATE_LIGHT}"></stop><stop offset="1" stop-color="{PLATE_DARK}"></stop></linearGradient>')
     gold = GOLD
     if px >= 40:
         defs += (f'<linearGradient id="{uid}g" x1="0" y1="0" x2="1" y2="1">'
