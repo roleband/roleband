@@ -77,6 +77,10 @@ internal static class Native
                 var dark = root.ActualTheme == ElementTheme.Dark ? 1 : 0;
                 const int ImmersiveDarkMode = 20;
                 DwmSetWindowAttribute(handle, ImmersiveDarkMode, ref dark, sizeof(int));
+                // Windows' own edge for a window is a light line; this one is the dividers' tone (App.xaml).
+                var edge = dark == 1 ? 0x004A4A4A : 0x00E0DCDA;
+                const int BorderColor = 34;
+                DwmSetWindowAttribute(handle, BorderColor, ref edge, sizeof(int));
                 if (!AppWindowTitleBar.IsCustomizationSupported()) return;
                 // The title bar is one step darker than the window's body (App.xaml's RoleBandSurface), so it reads as
                 // a bar of its own; its buttons share its colour and light up on hover like the body's controls.

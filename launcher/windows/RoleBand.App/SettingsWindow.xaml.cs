@@ -19,7 +19,7 @@ internal sealed record SettingsState(
     bool Choosing,
     string? Error);
 
-/// <summary>The Settings window: resizable, Mica, opened from the flyout's gear, the menu, or Details. Closing it
+/// <summary>The Settings window: resizable, opened from the flyout's gear, the menu, or Details. Closing it
 /// never quits. It draws <see cref="SettingsState"/> and reports presses.</summary>
 public sealed partial class SettingsWindow : Window
 {

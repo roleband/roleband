@@ -119,6 +119,11 @@ tooltip names the product and the state on one line within the shell's 127 chara
 scan's percent. A click or Enter opens the flyout, a second click closes it; a double-click runs the
 default command; a right click or Shift+F10 opens the menu.
 
+**Surfaces.** The flyout, Settings and setup are solid and neutral, never tinted by the wallpaper. A
+framed window's title bar is one step darker than its body, cards sit inset from the body without
+outlines, and every window's edge is the dividers' tone, not Windows' light line. Gold is the accent:
+the primary button, switches that are on, links and accent text.
+
 **The flyout.** A borderless window next to the point Windows reports for the icon, a margin off
 the taskbar on whichever edge it is, inside that display's work area; it closes on Esc or when
 focus leaves it, but not for its own pause menu. It keeps three parts in every state, and a state
@@ -144,7 +149,7 @@ the Radar, which an engine still starting opens once it answers. A launch from S
 engine has started, opens the Radar once it answers, or Settings if it stops with a reason; a launch
 by the startup task opens quietly.
 
-**Settings.** A resizable Mica window, from the gear, the menu or Details. A problem leads when
+**Settings.** A resizable window, from the gear, the menu or Details. A problem leads when
 there is one: Scanning has stopped with Restart, Open logs folder and the engine's last lines, or an
 update the previous run could not finish with Undo the update; such an update opens Settings by
 itself. Setup holding the engine at Welcome is not a stop, so it shows no problem and no Restart.

@@ -42,6 +42,11 @@ internal sealed class TrayIcon : IDisposable
         procedure = Procedure;
         if (!SetWindowSubclass(window, procedure, 1, 0)) throw new Win32Exception(Marshal.GetLastWin32Error());
         taskbarCreated = RegisterWindowMessage("TaskbarCreated");
+        // Win32 menus are drawn light unless the app allows dark ones; then they follow Windows' app theme. The
+        // switch has no documented name: uxtheme exports it by ordinal, as Windows' own apps use it.
+        const int AllowDark = 1;
+        SetPreferredAppMode(AllowDark);
+        AllowDarkModeForWindow(window, true);
         Register();
     }
 
@@ -135,6 +140,8 @@ internal sealed class TrayIcon : IDisposable
         {
             // The menu closes when focus leaves it only if its owner is the foreground window.
             SetForegroundWindow(window);
+            // Picks up a theme changed since the last menu.
+            FlushMenuThemes();
             var chosen = TrackPopupMenuEx(root, 0x100 | 0x80 | 0x2, x, y, window, 0);
             PostMessage(window, 0, 0, 0);
             if (chosen != 0) Chosen?.Invoke((MenuCommand)chosen);
@@ -258,6 +265,12 @@ internal sealed class TrayIcon : IDisposable
     private static extern bool DestroyMenu(nint menu);
     [DllImport("user32.dll")]
     private static extern bool SetForegroundWindow(nint window);
+    [DllImport("uxtheme.dll", EntryPoint = "#135")]
+    private static extern int SetPreferredAppMode(int mode);
+    [DllImport("uxtheme.dll", EntryPoint = "#133")]
+    private static extern bool AllowDarkModeForWindow(nint window, bool allow);
+    [DllImport("uxtheme.dll", EntryPoint = "#136")]
+    private static extern void FlushMenuThemes();
     [DllImport("user32.dll")]
     private static extern bool PostMessage(nint window, uint message, nint wParam, nint lParam);
 }

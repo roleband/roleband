@@ -1,5 +1,4 @@
 using Microsoft.UI;
-using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
@@ -53,13 +52,14 @@ public sealed partial class FlyoutWindow : Window
         presenter.IsResizable = false;
         presenter.IsMaximizable = false;
         presenter.IsMinimizable = false;
-        presenter.SetBorderAndTitleBar(false, false);
+        // A window without a border still gets a square light frame inside Windows' rounded corners; with one, Windows
+        // draws only its rounded edge, in the colour Native.Dress gives it.
+        presenter.SetBorderAndTitleBar(true, false);
         presenter.IsAlwaysOnTop = true;
         AppWindow.SetPresenter(presenter);
         AppWindow.IsShownInSwitchers = false;
         var round = 2;
         DwmSetWindowAttribute(Handle, 33, ref round, sizeof(int));
-        SystemBackdrop = new DesktopAcrylicBackdrop();
         Native.Dress(this, AppMark);
 
         AutomationProperties.SetName(SettingsButton, copy["settings"]);
@@ -147,7 +147,6 @@ public sealed partial class FlyoutWindow : Window
         presenter.IsAlwaysOnTop = false;
         presenter.IsMinimizable = true;
         AppWindow.IsShownInSwitchers = true;
-        SystemBackdrop = new MicaBackdrop();
         var work = DisplayArea.Primary.WorkArea;
         anchor = (work.X + work.Width, work.Y + work.Height);
         Fit();

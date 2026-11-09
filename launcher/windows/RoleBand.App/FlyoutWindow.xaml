@@ -4,7 +4,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <!-- A tray flyout: a summary, the common tasks and one link, the Settings gear. Every target is at least
        40 by 40 so it works by touch. -->
-  <Grid x:Name="Root" Width="360" VerticalAlignment="Top" AutomationProperties.AutomationId="Flyout">
+  <Grid x:Name="Root" Width="360" VerticalAlignment="Top" Background="{ThemeResource RoleBandSurface}"
+        AutomationProperties.AutomationId="Flyout">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
       <RowDefinition Height="Auto" />
@@ -46,7 +47,7 @@
     </StackPanel>
 
     <Border Grid.Row="2" Padding="16,12,16,16" BorderThickness="0,1,0,0"
-            Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
       <Grid ColumnSpacing="8">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*" />
