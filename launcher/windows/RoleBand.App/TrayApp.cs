@@ -51,6 +51,7 @@ internal sealed class TrayApp
     // An undo returning to this version: pressed in this session, or found unfinished when the app opened.
     private string? returningTo, undoFailure;
     private bool returning;
+    private int? returnPercent;
     private bool updateChecking, updateChoosing, settingsLoginError;
     private string? lastUpdateResult, settingsError;
     private DateTimeOffset nextAutomaticCheck = DateTimeOffset.MinValue;
@@ -130,7 +131,7 @@ internal sealed class TrayApp
     /// <summary>The app's whole state at this moment, which every surface is drawn from.</summary>
     private AppState State() => new(engine?.Snapshot, launchFailure, setup,
         new UpdateState(updates is null ? UpdateFacts.Unavailable : updateFacts, updateRun, updateChecking, lastUpdateResult, updateFailed,
-            returningTo, returning, undoFailure),
+            returningTo, returning, undoFailure, returnPercent),
         DateTimeOffset.Now, scanStatus, requested, lastScanAt);
 
     private Surfaces Surfaces() => AppSurfaces.Of(copy, State());
@@ -373,13 +374,17 @@ internal sealed class TrayApp
         if (package is null) return;
         try
         {
-            // Windows closes this version once the new one is in place, and opens it again.
-            await updates.ApplyAsync(engine, package);
+            // Windows installs while this version stays open, then closes it and opens the new one.
+            await updates.ApplyAsync(engine, package, new Progress<int>(percent =>
+            {
+                if (updateRun is { Step: UpdateStep.Restarting } run) updateRun = run with { Percent = percent };
+                RenderUpdate();
+            }));
         }
         catch (Exception error)
         {
             Debug.WriteLine(error);
-            updateRun = new UpdateRun(UpdateStep.RestartFailed, version);
+            updateRun = new UpdateRun(UpdateStep.RestartFailed, version, Reason: error.Message);
             RenderUpdate();
             // The switch stopped the engine first; nothing was installed, so this version carries on.
             await StartAsync();
@@ -401,9 +406,10 @@ internal sealed class TrayApp
         // version and opens that one, whose start restores the database.
         returningTo = updateFacts?.Last?.From ?? returningTo;
         returning = returningTo is not null;
+        returnPercent = null;
         settingsError = undoFailure = null;
         RenderUpdate();
-        try { await updates.ReturnToPreviousAsync(engine); }
+        try { await updates.ReturnToPreviousAsync(engine, new Progress<int>(percent => { returnPercent = percent; RenderUpdate(); })); }
         catch (Exception error)
         {
             // Refused or failed: the banner says so with Try again, and the reason shows below it.
@@ -548,6 +554,9 @@ internal sealed class TrayApp
             try { updateFacts = await updates.StatusAsync(); }
             catch (Exception error) { Debug.WriteLine(error); }
             RenderUpdate();
+            // Opened while its own update is still applying: only Windows knows whether it is still installing it.
+            if (updateFacts?.Last is { Phase: "applying", Running: "from", Package: not null } pending && Native.PackageName() is { } name)
+                await WaitForWindowsAsync(pending, name);
             var phase = await updates.StartAsync(engine);
             if (phase is "failed" or "recovering" or "complete" or "recovered" or "preparing")
             {
@@ -573,6 +582,45 @@ internal sealed class TrayApp
             if (radarWhenReady) { radarWhenReady = false; OpenSettings(); }
             RenderFlyout();
             RenderSettings();
+        }
+    }
+
+    /// <summary>
+    /// This version opened while the update it began is still applying. Settling the journal now would record that the
+    /// switch never happened, while Windows may still be installing it; so Windows' deployment log is asked first. While
+    /// it installs, the app says so and waits; Windows closes this version when it is done and opens the new one. A
+    /// failed install is said with Windows' reason, and the update is then settled as not having happened.
+    /// </summary>
+    private async Task WaitForWindowsAsync(LastUpdate pending, string packageName)
+    {
+        var since = pending.Since ?? DateTimeOffset.Now - WindowsDeployments.Patience;
+        var file = pending.Package!;
+        while (true)
+        {
+            var events = await WindowsDeployments.ReadAsync(DateTimeOffset.Now - since + TimeSpan.FromMinutes(5));
+            var finding = WindowsDeployments.Find(events, packageName, pending.To, file, since, DateTimeOffset.Now);
+            switch (finding.State)
+            {
+                case InstallProgress.Running:
+                    updateRun = new UpdateRun(UpdateStep.Restarting, pending.To);
+                    RenderUpdate();
+                    await Task.Delay(TimeSpan.FromSeconds(3));
+                    continue;
+                case InstallProgress.Finished:
+                    // The new version is in place; Windows closes this one. Should it not, this version carries on.
+                    updateRun = new UpdateRun(UpdateStep.Restarting, pending.To, Percent: 100);
+                    RenderUpdate();
+                    await Task.Delay(TimeSpan.FromSeconds(30));
+                    updateRun = null;
+                    return;
+                case InstallProgress.Failed:
+                    updateRun = new UpdateRun(UpdateStep.RestartFailed, pending.To, Reason: finding.Reason);
+                    RenderUpdate();
+                    return;
+                default:
+                    updateRun = null;
+                    return;
+            }
         }
     }
 

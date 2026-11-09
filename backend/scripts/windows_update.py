@@ -30,7 +30,11 @@ def _last_update(state: Path, running: str) -> dict[str, Any] | None:
     if record is None:
         return None
     role = "to" if running == record["to_version"] else "from" if running == record["from_version"] else None
-    return {"phase": record["phase"], "from": record["from_version"], "to": record["to_version"], "running": role}
+    # When the journal last changed: for an update still applying, when it began, which is how the native host finds
+    # Windows' install of it.
+    since = journal.journal(state).stat().st_mtime
+    return {"phase": record["phase"], "from": record["from_version"], "to": record["to_version"], "running": role, "since": since,
+            "package": Path(record["package"]).name}
 
 
 def _held_back(update: dict[str, Any] | None) -> str | None:

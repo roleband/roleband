@@ -101,9 +101,15 @@ public sealed class AboutTests
         var downloading = AboutPanel.Updates(copy, offer, false, null, Now, new UpdateRun(UpdateStep.Downloading, "0.1.12"));
         Assert.AreEqual((UpdateRowKind.Downloading, "Downloading 0.1.12", (string?)null, false, true),
             (downloading.Kind, downloading.Title, downloading.Action, downloading.CanCheck, downloading.Busy));
-        var restarting = AboutPanel.Updates(copy, offer, true, null, Now, new UpdateRun(UpdateStep.Restarting, "0.1.12"));
-        Assert.AreEqual((UpdateRowKind.Restarting, "Restarting to update", (string?)null, false),
-            (restarting.Kind, restarting.Title, restarting.Action, restarting.CanCheck), "a switch under way outranks a check");
+        var installing = AboutPanel.Updates(copy, offer, true, null, Now, new UpdateRun(UpdateStep.Restarting, "0.1.12"));
+        Assert.AreEqual((UpdateRowKind.Restarting, "Installing 0.1.12", "RoleBand opens again on 0.1.12 when Windows is done.", (string?)null, false),
+            (installing.Kind, installing.Title, installing.Caption, installing.Action, installing.CanCheck), "a switch under way outranks a check");
+        var counting = AboutPanel.Updates(copy, offer, false, null, Now, new UpdateRun(UpdateStep.Restarting, "0.1.12", Percent: 45));
+        Assert.AreEqual(("Installing 0.1.12", "45% · RoleBand opens again on 0.1.12 when Windows is done."), (counting.Title, counting.Caption),
+            "Windows' own percentage while this version stays open");
+        Assert.AreEqual("Restarting to update",
+            AboutPanel.Updates(copy, offer, false, null, Now, new UpdateRun(UpdateStep.Restarting, "0.1.12", Percent: 100)).Title,
+            "at the end Windows closes this version and opens the new one");
     }
 
     [TestMethod]
@@ -116,8 +122,13 @@ public sealed class AboutTests
             (download.Kind, download.Title, download.Caption, download.Action, download.CanCheck));
         var check = AboutPanel.Updates(copy, offer, false, null, Now, new UpdateRun(UpdateStep.CheckFailed, "0.1.12"));
         Assert.AreEqual(("0.1.12 failed its check", "Nothing was installed."), (check.Title, check.Caption));
-        var restart = AboutPanel.Updates(copy, offer, false, null, Now, new UpdateRun(UpdateStep.RestartFailed, "0.1.12"));
-        Assert.AreEqual(("Couldn't restart", "Nothing was installed.", "Try again"), (restart.Title, restart.Caption, restart.Action));
+        var install = AboutPanel.Updates(copy, offer, false, null, Now, new UpdateRun(UpdateStep.RestartFailed, "0.1.12"));
+        Assert.AreEqual(("Couldn't install 0.1.12", "Nothing was installed.", "Try again"), (install.Title, install.Caption, install.Action),
+            "Windows refused the package: it was never a restart that failed");
+        var why = AboutPanel.Updates(copy, offer, false, null, Now,
+            new UpdateRun(UpdateStep.RestartFailed, "0.1.12", Reason: "The package could not be installed because there is not enough space."));
+        Assert.AreEqual("Nothing was installed. The package could not be installed because there is not enough space.", why.Caption,
+            "Windows' own reason follows");
         var newer = AboutPanel.Updates(copy, offer with { Offer = "0.1.13" }, false, null, Now, new UpdateRun(UpdateStep.DownloadFailed, "0.1.12"));
         Assert.AreEqual((UpdateRowKind.Offered, "Version 0.1.13 is ready"), (newer.Kind, newer.Title), "a newer offer replaces the failure");
     }
@@ -206,8 +217,10 @@ public sealed class AboutTests
             AboutPanel.Flyout(copy, offer, null));
         Assert.AreEqual(new FlyoutUpdate("Downloading 0.1.12", null, null, "0.1.12", true, false, false),
             AboutPanel.Flyout(copy, offer, new UpdateRun(UpdateStep.Downloading, "0.1.12")), "nothing to press while it downloads");
-        Assert.AreEqual(new FlyoutUpdate("Restarting to update", null, null, "0.1.12", true, false, true),
-            AboutPanel.Flyout(copy, offer, new UpdateRun(UpdateStep.Restarting, "0.1.12")));
+        Assert.AreEqual(new FlyoutUpdate("Installing 0.1.12", null, null, "0.1.12", true, false, true, 45),
+            AboutPanel.Flyout(copy, offer, new UpdateRun(UpdateStep.Restarting, "0.1.12", Percent: 45)));
+        Assert.AreEqual(new FlyoutUpdate("Returning to 0.1.11", null, null, "0.1.11", true, false, true, 30),
+            AboutPanel.Flyout(copy, offer, null, "0.1.11", 30), "putting the previous version back shows Windows' percentage too");
         Assert.AreEqual(new FlyoutUpdate("Couldn't download 0.1.12", "The server didn't answer.", "Try again", "0.1.12", false, true, false),
             AboutPanel.Flyout(copy, offer, new UpdateRun(UpdateStep.DownloadFailed, "0.1.12")));
         Assert.IsNull(AboutPanel.Flyout(copy, offer with { Offer = null }, new UpdateRun(UpdateStep.Updated, "0.1.12")));
@@ -285,7 +298,7 @@ public sealed class AboutTests
 
     private sealed class NoDeployer : IPackageDeployer
     {
-        public Task AddAsync(string package, bool downgrade, CancellationToken cancellation) =>
+        public Task AddAsync(string package, bool downgrade, IProgress<int>? progress, CancellationToken cancellation) =>
             throw new AssertFailedException("Settings and About never install a package.");
     }
 

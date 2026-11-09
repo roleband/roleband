@@ -192,6 +192,9 @@ launcher-windows-update-undo-failed-body = 你的数据没有变化。请重试�
 launcher-windows-update-finishing = 正在完成到 { $version } 的更新
 launcher-windows-update-unfinished = { $version } 未能完成
 launcher-windows-update-unfinished-caption = 可以在上方撤销，或检查是否有更新的版本。
+launcher-windows-update-installing = 正在安装 { $version }
+launcher-windows-update-installing-body = Windows 完成后，RoleBand 会以 { $version } 重新打开。
+launcher-windows-update-install-failed = 无法安装 { $version }
 
 # kind=button
 launcher-notes-title = 新增功能

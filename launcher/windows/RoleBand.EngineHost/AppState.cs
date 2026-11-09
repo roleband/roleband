@@ -6,6 +6,7 @@ namespace RoleBand.EngineHost;
 /// <param name="ReturningTo">An Undo is returning to this version.</param>
 /// <param name="Returning">This session pressed Undo and waits for Windows.</param>
 /// <param name="UndoFailure">Why the last Undo was refused.</param>
+/// <param name="ReturnPercent">Windows' percentage of putting the previous version back.</param>
 public sealed record UpdateState(
     UpdateFacts? Facts = null,
     UpdateRun? Run = null,
@@ -14,7 +15,8 @@ public sealed record UpdateState(
     bool Failed = false,
     string? ReturningTo = null,
     bool Returning = false,
-    string? UndoFailure = null)
+    string? UndoFailure = null,
+    int? ReturnPercent = null)
 {
     /// <summary>This version is an update that could not prepare, as the coordinator or the journal says.</summary>
     public bool UpdateFailed => Failed || Facts?.Last is { Unfinished: true };
@@ -82,11 +84,12 @@ public static class AppSurfaces
             return new Surfaces(view, [Settings(copy) with { Default = true }, MenuEntry.Separator, Quit(copy)], DefaultCommand.Settings,
                 SettingsPanel.LaunchFailed, row);
         }
-        var banner = AboutPanel.Flyout(copy, facts, update.Run, update.ReturningTo);
+        var banner = AboutPanel.Flyout(copy, facts, update.Run, update.ReturningTo, update.Returning ? update.ReturnPercent : null);
         // With no running engine to summarise, an update under way is the flyout's whole state.
         if (banner is { Busy: true } && engine.State != EngineState.Ready) banner = banner with { Restarting = true };
         var problem = SettingsPanel.Problem(engine, update.UpdateFailed, state.SetupHeld, update.Run is { Step: UpdateStep.Restarting },
             update.ReturningTo, update.Returning, update.UndoFailure, update.Installable);
+        if (problem is { Busy: true } && update.Returning) problem = problem with { Percent = update.ReturnPercent };
         if (update.UpdateFailed && update.ReturningTo is null && !update.Switching)
             return FailedUpdate(copy, state, banner, problem, row);
         var flyout = Companion.View(copy, engine, state.Scan, state.Requested, state.LastScanAt, state.Setup.Complete, state.Now, banner);

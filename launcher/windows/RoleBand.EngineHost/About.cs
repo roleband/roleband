@@ -4,7 +4,9 @@ namespace RoleBand.EngineHost;
 
 /// <summary>The last package update as the running version sees it, from the update journal.</summary>
 /// <param name="Running">"from" or "to" when this version is one end of it; null otherwise.</param>
-public sealed record LastUpdate(string Phase, string From, string To, string? Running)
+/// <param name="Since">When the journal last changed: for an update still applying, when it began.</param>
+/// <param name="Package">The release file Windows was given to install.</param>
+public sealed record LastUpdate(string Phase, string From, string To, string? Running, DateTimeOffset? Since = null, string? Package = null)
 {
     /// <summary>This version is the update's new one and is still preparing: the person waits on the update, not on a fault.</summary>
     public bool Finishing => Running == "to" && Phase is "applying" or "preparing";
@@ -53,7 +55,7 @@ public sealed record UpdateFacts(bool Available, bool Automatic, DateTimeOffset?
         static string? Text(JsonElement value, string name) =>
             value.TryGetProperty(name, out var field) && field.ValueKind == JsonValueKind.String ? field.GetString() : null;
         return Text(update, "phase") is { } phase && Text(update, "from") is { } from && Text(update, "to") is { } to
-            ? new LastUpdate(phase, from, to, Text(update, "running")) : null;
+            ? new LastUpdate(phase, from, to, Text(update, "running"), Moment(update, "since"), Text(update, "package")) : null;
     }
 
     private static DateTimeOffset? Moment(JsonElement reply, string name) =>
@@ -66,7 +68,9 @@ public enum UpdateStep { Downloading, Restarting, DownloadFailed, CheckFailed, R
 
 /// <param name="Version">The version being installed; for a result, the version now running.</param>
 /// <param name="Undone">For Back on, the version that was undone.</param>
-public sealed record UpdateRun(UpdateStep Step, string Version, string? Undone = null)
+/// <param name="Percent">While Windows installs, its own percentage of the install.</param>
+/// <param name="Reason">Why Windows did not install it, in Windows' words.</param>
+public sealed record UpdateRun(UpdateStep Step, string Version, string? Undone = null, int? Percent = null, string? Reason = null)
 {
     public bool InProgress => Step is UpdateStep.Downloading or UpdateStep.Restarting;
 
@@ -100,7 +104,9 @@ public sealed record UpdateRow(UpdateRowKind Kind, string Title, string? Caption
 /// Windows is replacing the app, which stops the engine on purpose.</summary>
 /// <param name="Version">The version the banner is about, which the menu's Update names.</param>
 /// <param name="Action">The words of its press; null while the download runs.</param>
-public sealed record FlyoutUpdate(string Title, string? Caption, string? Action, string Version, bool Busy, bool Failed, bool Restarting);
+/// <param name="Percent">Windows' percentage of an install under way.</param>
+public sealed record FlyoutUpdate(string Title, string? Caption, string? Action, string Version, bool Busy, bool Failed, bool Restarting,
+                                  int? Percent = null);
 
 /// <param name="On">Windows' own state; Settings shows what is registered, not a proposal.</param>
 public sealed record LoginRow(bool On, bool Enabled, string CaptionKey, bool Settings, bool Visible);
@@ -134,8 +140,15 @@ public static class AboutPanel
         var checkedCaption = facts?.CheckedAt is { } at ? copy.Format("panel-checked", ("time", ScanPanel.Clock(copy, at, now))) : null;
         if (run is { Step: UpdateStep.Downloading })
             return new UpdateRow(UpdateRowKind.Downloading, copy.Format("update-downloading", ("version", run.Version)), checkedCaption, false, automatic, true);
+        // Windows installs while this version stays open; it closes it at the very end and opens the new one.
         if (run is { Step: UpdateStep.Restarting })
-            return new UpdateRow(UpdateRowKind.Restarting, copy["update-restarting"], null, false, automatic, true);
+        {
+            var reopens = copy.Format("windows-update-installing-body", ("version", run.Version));
+            return run.Percent is 100
+                ? new UpdateRow(UpdateRowKind.Restarting, copy["update-restarting"], reopens, false, automatic, true)
+                : new UpdateRow(UpdateRowKind.Restarting, copy.Format("windows-update-installing", ("version", run.Version)),
+                    run.Percent is { } percent ? $"{Percentage(copy, percent)} · {reopens}" : reopens, false, automatic, true);
+        }
         // The version Windows just installed is still preparing: say what the wait is for.
         if (facts?.Last is { Finishing: true } finishing)
             return new UpdateRow(UpdateRowKind.Finishing, copy.Format("windows-update-finishing", ("version", finishing.To)), null, false,
@@ -148,7 +161,8 @@ public static class AboutPanel
             var (title, caption) = run.Step switch
             {
                 UpdateStep.CheckFailed => (copy.Format("update-check-failed", ("version", run.Version)), copy["update-nothing-installed"]),
-                UpdateStep.RestartFailed => (copy["update-restart-failed"], copy["update-nothing-installed"]),
+                UpdateStep.RestartFailed => (copy.Format("windows-update-install-failed", ("version", run.Version)),
+                    run.Reason is { Length: > 0 } reason ? $"{copy["update-nothing-installed"]} {reason}" : copy["update-nothing-installed"]),
                 _ => (copy.Format("update-download-failed", ("version", run.Version)), copy["update-download-failed-caption"]),
             };
             return new UpdateRow(UpdateRowKind.UpdateFailed, title, caption, true, automatic, true, copy["retry"]);
@@ -178,10 +192,12 @@ public static class AboutPanel
     /// <summary>The flyout's banner for an update: the offer with Update, the download, the switch, or a failure with Try
     /// again. Results stay in Settings.</summary>
     /// <param name="returningTo">The version an Undo under way returns to: Windows is replacing the app.</param>
-    public static FlyoutUpdate? Flyout(NativeCopy copy, UpdateFacts? facts, UpdateRun? run, string? returningTo = null)
+    /// <param name="returnPercent">Windows' percentage of putting that version back.</param>
+    public static FlyoutUpdate? Flyout(NativeCopy copy, UpdateFacts? facts, UpdateRun? run, string? returningTo = null, int? returnPercent = null)
     {
         if (returningTo is not null)
-            return new FlyoutUpdate(copy.Format("windows-update-undoing", ("version", returningTo)), null, null, returningTo, true, false, true);
+            return new FlyoutUpdate(copy.Format("windows-update-undoing", ("version", returningTo)), null, null, returningTo, true, false, true,
+                returnPercent);
         if (facts is { Available: false }) return null;
         // While the new version prepares, the update is the flyout's whole state, as it was while Windows switched.
         if (run is null && facts?.Last is { Finishing: true } finishing)
@@ -190,12 +206,15 @@ public static class AboutPanel
         return row.Kind switch
         {
             UpdateRowKind.Downloading or UpdateRowKind.Restarting =>
-                new FlyoutUpdate(row.Title, null, null, run!.Version, true, false, row.Kind == UpdateRowKind.Restarting),
+                new FlyoutUpdate(row.Title, null, null, run!.Version, true, false, row.Kind == UpdateRowKind.Restarting, run.Percent),
             UpdateRowKind.Offered => new FlyoutUpdate(row.Title, null, row.Action, facts!.Offer!, false, false, false),
             UpdateRowKind.UpdateFailed => new FlyoutUpdate(row.Title, row.Caption, row.Action, run!.Version, false, true, false),
             _ => null,
         };
     }
+
+    /// <summary>A percentage in the copy's culture.</summary>
+    public static string Percentage(NativeCopy copy, int percent) => (percent / 100.0).ToString("P0", copy.Culture);
 
     /// <summary>Open at login in its real states. A copy without a package has no startup task, so the row is hidden.</summary>
     public static LoginRow Login(LoginState state, bool busy) => state switch

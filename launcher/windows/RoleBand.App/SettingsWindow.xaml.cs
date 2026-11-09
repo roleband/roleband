@@ -102,6 +102,8 @@ public sealed partial class SettingsWindow : Window
             ProblemBar.Title = problem is not null ? Words(problem.TitleKey) : "";
             ProblemBar.Message = problem?.BodyKey is { } body ? Words(body) : "";
             ProblemProgress.Visibility = problem?.Busy == true ? Visibility.Visible : Visibility.Collapsed;
+            ProblemProgress.IsIndeterminate = problem?.Percent is null;
+            ProblemProgress.Value = problem?.Percent ?? 0;
             RestartButton.Visibility = problem?.Restart == true ? Visibility.Visible : Visibility.Collapsed;
             UndoButton.Visibility = problem?.Undo == true ? Visibility.Visible : Visibility.Collapsed;
             // While an undo is already returning to a version, the same press asks Windows again.

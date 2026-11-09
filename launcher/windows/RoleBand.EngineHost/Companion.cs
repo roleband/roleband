@@ -62,8 +62,9 @@ public static class Companion
                                   DateTimeOffset? lastScanAt, bool setupComplete, DateTimeOffset now, FlyoutUpdate? update = null)
     {
         if (update is { Restarting: true })
-            return new FlyoutView(update.Title, null, null, null, true, [], FlyoutPrimary.OpenRadar, false, null,
-                null, null, PauseControl.None, false, TrayBadge.Scanning, Tip(update.Title));
+            return new FlyoutView(update.Title, update.Percent is { } percent ? AboutPanel.Percentage(copy, percent) : null, update.Percent, null,
+                update.Percent is null, [], FlyoutPrimary.OpenRadar, false, null, null, null, PauseControl.None, false, TrayBadge.Scanning,
+                Tip(update.Title));
         var view = Summary(copy, engine, status, requested, lastScanAt, now);
         if (update is not null && engine.State == EngineState.Ready)
             view = view with { Update = update, Tooltip = view.Badge == TrayBadge.None ? Tip(update.Title) : view.Tooltip };
@@ -272,8 +273,9 @@ public static class Companion
 /// <param name="Busy">Something is under way that ends with Windows closing the app, so the banner shows progress.</param>
 /// <param name="Notice">News, not a fault: an undo under way.</param>
 /// <param name="Newer">A newer release that can replace a failed update, offered beside Undo.</param>
+/// <param name="Percent">Windows' percentage of what is under way, when it reports one.</param>
 public sealed record SettingsProblem(string TitleKey, string? BodyKey, bool Undo, bool Restart, string? Version = null, bool Busy = false,
-                                     bool Notice = false, string? Newer = null);
+                                     bool Notice = false, string? Newer = null, int? Percent = null);
 
 public static class SettingsPanel
 {

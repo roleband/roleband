@@ -39,6 +39,13 @@ internal static class Native
     public static void BringForward(nint window) => SetForegroundWindow(window);
 
     /// <summary>The installed package's version, or null for an app run without a package.</summary>
+    /// <summary>The installed package's name, or null for a copy without a package.</summary>
+    public static string? PackageName()
+    {
+        try { return Windows.ApplicationModel.Package.Current.Id.Name; }
+        catch (InvalidOperationException) { return null; }
+    }
+
     public static (ushort, ushort, ushort, ushort)? PackageVersion()
     {
         try

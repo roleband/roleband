@@ -192,6 +192,9 @@ launcher-windows-update-undo-failed-body = Tus datos no han cambiado. Inténtalo
 launcher-windows-update-finishing = Terminando la actualización a { $version }
 launcher-windows-update-unfinished = { $version } no pudo terminar
 launcher-windows-update-unfinished-caption = Deshazla arriba o busca una versión más nueva.
+launcher-windows-update-installing = Instalando { $version }
+launcher-windows-update-installing-body = RoleBand se vuelve a abrir en { $version } cuando Windows termine.
+launcher-windows-update-install-failed = No se pudo instalar { $version }
 
 # kind=button
 launcher-notes-title = Novedades

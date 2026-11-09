@@ -31,7 +31,13 @@ nothing else does.
 The native host's `UpdateCoordinator` drives it. To apply, it stops the engine, has the
 journal begun, registers the app for restart and asks Windows' package manager to replace
 the package with app shutdown forced; if Windows refuses, it resumes the journal, which
-records `aborted`. Every Start resumes the journal before the engine starts; when that run
+records `aborted`. Windows installs while the old version stays open, closing it only at the end, and
+the app shows Windows' own percentage meanwhile. The old version can also be opened again while
+Windows still installs; before its start settles `applying` as never having happened, it reads
+Windows' deployment log (AppXDeploymentServer/Operational) for an install of the new package
+since the journal began: one still running is waited for, a failed one is said with Windows'
+reason and then settled as not having happened, and none found is settled as before. Every
+Start resumes the journal before the engine starts; when that run
 is the new version, Ready settles the update `complete`, and a failed database preparation
 settles it `failed`. The engine reports that failure and waits to be stopped rather than
 exiting, so the host does not take it for a crash and restart it into the same failure. An

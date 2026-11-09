@@ -236,6 +236,12 @@ launcher-windows-update-finishing = Finishing the update to { $version }
 launcher-windows-update-unfinished = { $version } couldn't finish
 # kind=sentence
 launcher-windows-update-unfinished-caption = Undo it above, or check for a newer version.
+# kind=status
+launcher-windows-update-installing = Installing { $version }
+# kind=sentence
+launcher-windows-update-installing-body = RoleBand opens again on { $version } when Windows is done.
+# kind=heading
+launcher-windows-update-install-failed = Couldn't install { $version }
 
 # kind=button
 launcher-notes-title = What's new

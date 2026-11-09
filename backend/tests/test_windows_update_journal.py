@@ -146,7 +146,9 @@ def test_status_says_how_the_last_update_ended_and_holds_back_the_undone_version
     assert status()["offer"] == "0.1.3", "before any update, the kept offer stands"
     _undone(state, tmp_path)
     answer = status()
-    assert answer["update"] == {"phase": "recovered", "from": "0.1.2", "to": "0.1.3", "running": "from"}
+    since = answer["update"].pop("since")
+    assert answer["update"] == {"phase": "recovered", "from": "0.1.2", "to": "0.1.3", "running": "from", "package": "update.msix"}
+    assert since == pytest.approx((state / "recovery" / "update.json").stat().st_mtime), "when the journal last changed"
     assert answer["offer"] is None, "the version that was undone is not offered again"
 
 

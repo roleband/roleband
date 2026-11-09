@@ -8,7 +8,8 @@ namespace RoleBand.EngineHost;
 public interface IPackageDeployer
 {
     /// <param name="downgrade">Register a lower version, to return to the previous one.</param>
-    Task AddAsync(string package, bool downgrade, CancellationToken cancellation);
+    /// <param name="progress">Windows' own percentage of the install.</param>
+    Task AddAsync(string package, bool downgrade, IProgress<int>? progress, CancellationToken cancellation);
 }
 
 /// <summary>The engine's `desktop.py update` commands, each answering one JSON object.</summary>
@@ -19,15 +20,21 @@ public interface IUpdateCommands
 
 public sealed class WindowsPackageDeployer : IPackageDeployer
 {
-    public async Task AddAsync(string package, bool downgrade, CancellationToken cancellation)
+    public async Task AddAsync(string package, bool downgrade, IProgress<int>? progress, CancellationToken cancellation)
     {
         var options = new AddPackageOptions
         {
             ForceAppShutdown = true, ForceTargetAppShutdown = true, ForceUpdateFromAnyVersion = downgrade,
         };
-        var result = await new PackageManager().AddPackageByUriAsync(new Uri(package), options).AsTask(cancellation);
+        var result = await new PackageManager().AddPackageByUriAsync(new Uri(package), options)
+            .AsTask(cancellation, new Percentage(progress));
         if (result.ExtendedErrorCode is { } error)
-            throw new IOException("Windows did not install the update: " + result.ErrorText, error);
+            throw new IOException(result.ErrorText, error);
+    }
+
+    private sealed class Percentage(IProgress<int>? progress) : IProgress<DeploymentProgress>
+    {
+        public void Report(DeploymentProgress value) => progress?.Report((int)Math.Min(value.percentage, 100u));
     }
 }
 
@@ -143,7 +150,8 @@ public sealed class UpdateCoordinator(IUpdateCommands commands, IPackageDeployer
     public Task<JsonElement> DownloadAsync(CancellationToken cancellation = default) =>
         commands.RunAsync(["download"], cancellation);
 
-    public async Task ApplyAsync(EngineSession session, string package, CancellationToken cancellation = default)
+    /// <param name="progress">Windows' percentage of the install, while this version stays open until Windows closes it.</param>
+    public async Task ApplyAsync(EngineSession session, string package, IProgress<int>? progress = null, CancellationToken cancellation = default)
     {
         await session.StopAsync();
         if (session.OwnsEngine) throw new IOException("The engine did not stop, so the update was not started.");
@@ -154,7 +162,7 @@ public sealed class UpdateCoordinator(IUpdateCommands commands, IPackageDeployer
         _ = RegisterApplicationRestart(null, 0);
         try
         {
-            await deployer.AddAsync(package, downgrade: false, cancellation);
+            await deployer.AddAsync(package, downgrade: false, progress, cancellation);
         }
         catch
         {
@@ -168,7 +176,7 @@ public sealed class UpdateCoordinator(IUpdateCommands commands, IPackageDeployer
     /// From a failed update: registers the retained previous package again. That version's next
     /// Start puts back the database the update replaced, keeping the replaced one.
     /// </summary>
-    public async Task ReturnToPreviousAsync(EngineSession session, CancellationToken cancellation = default)
+    public async Task ReturnToPreviousAsync(EngineSession session, IProgress<int>? progress = null, CancellationToken cancellation = default)
     {
         await session.StopAsync();
         if (session.OwnsEngine) throw new IOException("The engine did not stop, so the update was not undone.");
@@ -176,7 +184,7 @@ public sealed class UpdateCoordinator(IUpdateCommands commands, IPackageDeployer
         if (!begun.TryGetProperty("package", out var package) || package.ValueKind != JsonValueKind.String)
             throw new IOException(Reason(begun) ?? "The previous version could not be prepared.");
         _ = RegisterApplicationRestart(null, 0);
-        await deployer.AddAsync(package.GetString()!, downgrade: true, cancellation);
+        await deployer.AddAsync(package.GetString()!, downgrade: true, progress, cancellation);
     }
 
     /// <summary>Records the new version's verdict on its own preparation.</summary>

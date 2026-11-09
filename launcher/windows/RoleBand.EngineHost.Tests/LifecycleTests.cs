@@ -306,12 +306,34 @@ public sealed class LifecycleTests
 
         public List<bool> Downgrades { get; } = [];
 
-        public Task AddAsync(string package, bool downgrade, CancellationToken cancellation)
+        public Task AddAsync(string package, bool downgrade, IProgress<int>? progress, CancellationToken cancellation)
         {
             Packages.Add(package);
             Downgrades.Add(downgrade);
+            foreach (var percent in new[] { 12, 57, 100 }) progress?.Report(percent);
             return failure is null ? Task.CompletedTask : Task.FromException(failure);
         }
+    }
+
+    private sealed class Collected : IProgress<int>
+    {
+        public List<int> Values { get; } = [];
+        public void Report(int value) => Values.Add(value);
+    }
+
+    [TestMethod]
+    public async Task WindowsOwnProgressReachesTheAppWhileItInstallsOrPutsBackAVersion()
+    {
+        var engine = new StandIn("ready");
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        var commands = new RecordingCommands(() => session.OwnsEngine, ("begin", """{"phase": "applying"}"""),
+            ("recover-begin", """{"phase": "recovering", "package": "C:\\state\\packages\\previous.msix"}"""));
+        var installing = new Collected();
+        await new UpdateCoordinator(commands, new RecordingDeployer()).ApplyAsync(session, Package, installing);
+        CollectionAssert.AreEqual(new[] { 12, 57, 100 }, installing.Values);
+        var returning = new Collected();
+        await new UpdateCoordinator(commands, new RecordingDeployer()).ReturnToPreviousAsync(session, returning);
+        CollectionAssert.AreEqual(new[] { 12, 57, 100 }, returning.Values);
     }
 
     private const string Package = @"C:\state\packages\RoleBand-0.9.0-Windows-x64.msix";
