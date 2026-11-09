@@ -30,9 +30,7 @@
                  uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL">
       <uap:VisualElements DisplayName="RoleBand Windows trial" Description="RoleBand synthetic development trial"
                           Square150x150Logo="Assets\Square150x150Logo.png"
-                          Square44x44Logo="Assets\Square44x44Logo.png" BackgroundColor="#171A17" />
-      <!-- The logos carry their own dark plate. App Installer and Settings pad a logo inside a tile of
-           this colour; transparent would fill it with the accent colour around the plate. -->
+                          Square44x44Logo="Assets\Square44x44Logo.png" BackgroundColor="transparent" />
       <Extensions>
         <!-- Open at login: off until the person turns it on during setup or in the panel. -->
         <uap5:Extension Category="windows.startupTask" Executable="RoleBand.App.exe" EntryPoint="Windows.FullTrustApplication">

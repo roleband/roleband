@@ -1,3 +1,4 @@
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -76,6 +77,19 @@ internal static class Native
                 var dark = root.ActualTheme == ElementTheme.Dark ? 1 : 0;
                 const int ImmersiveDarkMode = 20;
                 DwmSetWindowAttribute(handle, ImmersiveDarkMode, ref dark, sizeof(int));
+                if (!AppWindowTitleBar.IsCustomizationSupported()) return;
+                // The title bar is one step darker than the window's body (App.xaml's RoleBandSurface), so it reads as
+                // a bar of its own; its buttons share its colour and light up on hover like the body's controls.
+                var (bar, ink, muted, hover, pressed) = dark == 1
+                    ? (Rgb(0x20, 0x20, 0x20), Rgb(0xFF, 0xFF, 0xFF), Rgb(0x9A, 0x9A, 0x9A), Rgb(0x3C, 0x3C, 0x3C), Rgb(0x4A, 0x4A, 0x4A))
+                    : (Rgb(0xE8, 0xEA, 0xED), Rgb(0x1F, 0x1F, 0x1F), Rgb(0x70, 0x70, 0x70), Rgb(0xD6, 0xD9, 0xDD), Rgb(0xC8, 0xCC, 0xD1));
+                var title = window.AppWindow.TitleBar;
+                title.BackgroundColor = title.InactiveBackgroundColor = bar;
+                title.ButtonBackgroundColor = title.ButtonInactiveBackgroundColor = bar;
+                title.ForegroundColor = title.ButtonForegroundColor = title.ButtonHoverForegroundColor = title.ButtonPressedForegroundColor = ink;
+                title.InactiveForegroundColor = title.ButtonInactiveForegroundColor = muted;
+                title.ButtonHoverBackgroundColor = hover;
+                title.ButtonPressedBackgroundColor = pressed;
             }
             Frame();
             root.ActualThemeChanged += (_, _) => Frame();
@@ -85,6 +99,8 @@ internal static class Native
         if (File.Exists(image)) mark.Source = new BitmapImage(new Uri(image));
         else mark.Visibility = Visibility.Collapsed;
     }
+
+    private static Windows.UI.Color Rgb(byte r, byte g, byte b) => Windows.UI.Color.FromArgb(0xFF, r, g, b);
 
     private static uint DpiOf(nint monitor) => GetDpiForMonitor(monitor, 0, out var dpi, out _) == 0 ? dpi : 96;
 

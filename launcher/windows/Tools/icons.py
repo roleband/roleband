@@ -11,8 +11,7 @@ import math
 GOLD = "#DBCB90"
 GOLD_HI = "#EADFB6"
 GOLD_LO = "#C9B776"
-#: The app icon's plate runs from the light corner to the dark one. The package manifest's tile
-#: colour is the dark one, so a tile Windows pads around the plated logo shows no accent colour.
+#: The app icon's plate runs from the light corner to the dark one.
 PLATE_LIGHT = "#323A31"
 PLATE_DARK = "#171A17"
 
@@ -48,10 +47,13 @@ def mark(cx, cy, size, profile, color):
     return "".join(out)
 
 
-def app_icon(px, uid):
+def app_icon(px, uid, bleed=False):
     """The app icon at `px` square on the 48 grid: a 40 x 40 plate with Windows' 2 px exterior
     corner, a one-step 120 degree gradient lit from the top left, a 1 px inner edge so the dark
     plate still separates from a dark Start menu, and the mark with a soft shadow from 32 px up.
+
+    `bleed` draws only the plate's square, opaque to every edge: App Installer shows the package
+    logo on the accent colour, which shows through any transparent margin or corner.
 
     `uid` prefixes the gradient and filter ids, so it must be unique within one document."""
     prof = profile_for(px)
@@ -69,6 +71,10 @@ def app_icon(px, uid):
                  f'<feDropShadow dx="0" dy="0.5" stdDeviation="0.5" flood-color="#000" flood-opacity="0.45"></feDropShadow></filter>')
         shadow = f' filter="url(#{uid}s)"'
     defs += "</defs>"
+    if bleed:
+        return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="4 4 40 40" width="{px}" height="{px}">{defs}'
+                f'<rect x="0" y="0" width="48" height="48" fill="url(#{uid}p)"></rect>'
+                f'<g{shadow}>{mark(24, 24, m, prof, gold)}</g></svg>')
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="{px}" height="{px}">{defs}'
             f'<rect x="4" y="4" width="40" height="40" rx="2" fill="url(#{uid}p)"></rect>'
             f'<rect x="4.5" y="4.5" width="39" height="39" rx="1.6" fill="none" stroke="#FFFFFF" stroke-opacity="0.1"></rect>'

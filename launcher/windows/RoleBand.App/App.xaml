@@ -7,8 +7,10 @@
       <ResourceDictionary.MergedDictionaries>
         <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
         <ResourceDictionary>
-          <!-- Gold is RoleBand's one primary action, so the accent button is gold everywhere; Windows' own
-               controls keep the system accent. High contrast keeps the system's colours. -->
+          <!-- Gold is RoleBand's accent: the primary button, switches that are on, links and accent text.
+               Framed windows layer neutral surfaces: a darker title bar (Native.Dress), a solid body with no
+               wallpaper tint, and cards inset from the body without outlines. High contrast keeps the
+               system's colours. -->
           <ResourceDictionary.ThemeDictionaries>
             <ResourceDictionary x:Key="Light">
               <SolidColorBrush x:Key="AccentButtonBackground" Color="#6A5C16" />
@@ -18,6 +20,21 @@
               <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="#FFFFFF" />
               <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="#F2EEDC" />
               <SolidColorBrush x:Key="RoleBandGold" Color="#6A5C16" />
+              <SolidColorBrush x:Key="RoleBandSurface" Color="#FFFFFF" />
+              <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="#F1F3F4" />
+              <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="Transparent" />
+              <SolidColorBrush x:Key="DividerStrokeColorDefaultBrush" Color="#DADCE0" />
+              <SolidColorBrush x:Key="TextFillColorSecondaryBrush" Color="#444746" />
+              <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#6A5C16" />
+              <SolidColorBrush x:Key="HyperlinkButtonForeground" Color="#6A5C16" />
+              <SolidColorBrush x:Key="HyperlinkButtonForegroundPointerOver" Color="#7C6C22" />
+              <SolidColorBrush x:Key="HyperlinkButtonForegroundPressed" Color="#5E5113" />
+              <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="#6A5C16" />
+              <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="#7C6C22" />
+              <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="#5E5113" />
+              <SolidColorBrush x:Key="ToggleSwitchKnobFillOn" Color="#FFFFFF" />
+              <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPointerOver" Color="#FFFFFF" />
+              <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPressed" Color="#FFFFFF" />
             </ResourceDictionary>
             <ResourceDictionary x:Key="Default">
               <SolidColorBrush x:Key="AccentButtonBackground" Color="#DBCB90" />
@@ -27,6 +44,21 @@
               <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="#1A1705" />
               <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="#1A1705" />
               <SolidColorBrush x:Key="RoleBandGold" Color="#DBCB90" />
+              <SolidColorBrush x:Key="RoleBandSurface" Color="#3C3C3C" />
+              <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="#282828" />
+              <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="Transparent" />
+              <SolidColorBrush x:Key="DividerStrokeColorDefaultBrush" Color="#4A4A4A" />
+              <SolidColorBrush x:Key="TextFillColorSecondaryBrush" Color="#C7C7C7" />
+              <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#DBCB90" />
+              <SolidColorBrush x:Key="HyperlinkButtonForeground" Color="#DBCB90" />
+              <SolidColorBrush x:Key="HyperlinkButtonForegroundPointerOver" Color="#E8DCAC" />
+              <SolidColorBrush x:Key="HyperlinkButtonForegroundPressed" Color="#C9B977" />
+              <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="#DBCB90" />
+              <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="#E8DCAC" />
+              <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="#C9B977" />
+              <SolidColorBrush x:Key="ToggleSwitchKnobFillOn" Color="#1A1705" />
+              <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPointerOver" Color="#1A1705" />
+              <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPressed" Color="#1A1705" />
             </ResourceDictionary>
             <ResourceDictionary x:Key="HighContrast">
               <SolidColorBrush x:Key="AccentButtonBackground" Color="{ThemeResource SystemColorHighlightColor}" />

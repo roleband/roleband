@@ -32,6 +32,8 @@ TARGET_FORMS = ("", "_altform-unplated", "_altform-lightunplated")
 SCALES = (100, 125, 150, 200, 400)
 #: Asset name and its size at scale 100.
 LOGOS = {"Square44x44Logo": 44, "Square150x150Logo": 150, "StoreLogo": 50}
+#: The package logo App Installer shows, drawn full bleed (icons.app_icon).
+STORE_LOGO = "StoreLogo"
 TRAY_SIZES = (16, 20, 24, 32)
 APP_ICO_SIZES = (16, 20, 24, 32, 40, 48, 64, 256)
 
@@ -57,13 +59,19 @@ def scaled(size, scale):
 
 def app_sizes():
     sizes = set(TARGET_SIZES) | set(APP_ICO_SIZES)
-    sizes |= {scaled(size, scale) for size in LOGOS.values() for scale in SCALES}
+    sizes |= {scaled(size, scale) for name, size in LOGOS.items() if name != STORE_LOGO for scale in SCALES}
     return sorted(sizes)
+
+
+def store_sizes():
+    size = LOGOS[STORE_LOGO]
+    return sorted({size} | {scaled(size, scale) for scale in SCALES})
 
 
 def frames():
     """Every frame to render, as (key, px, svg); a key names what the frame becomes."""
     out = [(("app", px), px, icons.app_icon(px, f"a{px}")) for px in app_sizes()]
+    out += [(("store", px), px, icons.app_icon(px, f"s{px}", bleed=True)) for px in store_sizes()]
     for theme, (ink, glyph, fills) in THEMES.items():
         for state, badge in STATES.items():
             for px in TRAY_SIZES:
@@ -270,9 +278,10 @@ def outputs(rendered):
         for form in TARGET_FORMS:
             files[ASSETS / f"Square44x44Logo.targetsize-{px}{form}.png"] = rendered[("app", px)]
     for name, size in LOGOS.items():
-        files[ASSETS / f"{name}.png"] = rendered[("app", size)]
+        kind = "store" if name == STORE_LOGO else "app"
+        files[ASSETS / f"{name}.png"] = rendered[(kind, size)]
         for scale in SCALES:
-            files[ASSETS / f"{name}.scale-{scale}.png"] = rendered[("app", scaled(size, scale))]
+            files[ASSETS / f"{name}.scale-{scale}.png"] = rendered[(kind, scaled(size, scale))]
     for theme in THEMES:
         for state in STATES:
             files[TRAY / f"tray-{theme}-{state}.ico"] = write_ico(

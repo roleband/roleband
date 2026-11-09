@@ -3,7 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <!-- Settings: a problem first when there is one, then updates, this PC, the browser's settings and About. -->
-  <ScrollViewer x:Name="Root" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+  <ScrollViewer x:Name="Root" Background="{ThemeResource RoleBandSurface}" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
     <StackPanel Padding="40,16,40,28" Spacing="4" MaxWidth="1000">
       <TextBlock x:Name="Heading" FontSize="28" FontWeight="SemiBold" Margin="0,0,0,16"
                  AutomationProperties.HeadingLevel="Level1" AutomationProperties.AutomationId="SettingsHeading" />

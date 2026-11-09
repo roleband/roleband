@@ -35,7 +35,6 @@ public sealed partial class SettingsWindow : Window
         InitializeComponent();
         this.copy = copy;
         Title = copy["windows-settings-title"];
-        SystemBackdrop = new MicaBackdrop();
         Native.Dress(this, AppMark);
         var scale = Native.ScaleOf(WinRT.Interop.WindowNative.GetWindowHandle(this));
         var size = new SizeInt32((int)(720 * scale), (int)(820 * scale));

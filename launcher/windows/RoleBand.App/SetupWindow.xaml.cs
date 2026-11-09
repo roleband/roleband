@@ -39,7 +39,6 @@ public sealed partial class SetupWindow : Window
         LoginSettings.Content = copy["windows-login-settings"];
         AutomationProperties.SetName(loginSwitch, copy["windows-login-toggle"]);
         Native.Dress(this);
-        SystemBackdrop = new MicaBackdrop();
         PrimaryButton.Click += (_, _) => Primary?.Invoke();
         SecondaryButton.Click += (_, _) => Secondary?.Invoke();
         BackButton.Click += (_, _) => Back?.Invoke();
