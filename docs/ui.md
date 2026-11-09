@@ -121,8 +121,9 @@ default command; a right click or Shift+F10 opens the menu.
 
 **Surfaces.** The flyout, Settings and setup are solid and neutral, never tinted by the wallpaper. A
 framed window's title bar is one step darker than its body, cards sit inset from the body without
-outlines, and every window's edge is the dividers' tone, not Windows' light line. Gold is the accent:
-the primary button, switches that are on, links and accent text.
+outlines. A framed window keeps the edge Windows gives every app; the flyout, which has no title
+bar, draws its edge in the dividers' tone. Gold is the accent: the primary button, switches that are
+on, links and accent text, and the tint of a notice that must not be missed.
 
 **The flyout.** A borderless window next to the point Windows reports for the icon, a margin off
 the taskbar on whichever edge it is, inside that display's work area; it closes on Esc or when
@@ -164,9 +165,11 @@ In your browser opens Scan times and All settings. About names where the scan hi
 uninstalling keeps it, and opens it in File Explorer, with the version, the licence and the logs
 folder. The notices switch comes with Windows notifications.
 
-**Updating.** An offer puts Update, the gold press, beside Check for updates, and adds its line with
-Update to the flyout's summary while scanning runs. Update is the only press: the card's title
-follows the download and the switch, and Windows closes the app, installs the verified version and
+**Updating.** An offer puts Update, the gold press, beside Check for updates. While scanning runs it
+is also a gold-tinted banner under the flyout's summary, with a download glyph, the version and its
+own Update, so it cannot pass unnoticed; the idle icon's tooltip names it; and the menu adds Update
+to the version, in its own group before Settings. Update is the only press: the card and the banner
+follow the download and the switch, and Windows closes the app, installs the verified version and
 opens it again, even during a scan. While Windows replaces the app its stopped engine is that
 replacement: the flyout says Restarting to update, Settings shows no problem, and the menu has no
 Restart. A failure names its step (the download, the check of the signed release, or Windows'

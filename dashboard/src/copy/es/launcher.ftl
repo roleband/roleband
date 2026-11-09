@@ -437,6 +437,7 @@ launcher-windows-settings-title = Ajustes de RoleBand
 launcher-windows-open-logs = Abrir registros
 launcher-windows-last-lines = Últimas líneas del motor
 launcher-windows-check-updates = Buscar actualizaciones
+launcher-windows-update-to = Actualizar a la versión { $version }
 launcher-windows-login-toggle = Iniciar con Windows
 launcher-windows-history = Tu historial de escaneos
 launcher-windows-history-kept = { $path } · se conserva si desinstalas

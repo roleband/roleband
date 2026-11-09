@@ -65,7 +65,9 @@ internal static class Native
 
     /// <summary>The product's icon in the title bar and the taskbar, its mark beside the product's name, and the
     /// window frame in the content's theme.</summary>
-    public static void Dress(Window window, Image? mark = null)
+    /// <param name="ownEdge">Draw the edge in the palette's divider colour. A framed window keeps the edge Windows
+    /// gives every app; the flyout, which has no title bar, needs its own.</param>
+    public static void Dress(Window window, Image? mark = null, bool ownEdge = false)
     {
         var icon = Path.Combine(AppContext.BaseDirectory, "RoleBand.ico");
         if (File.Exists(icon)) window.AppWindow.SetIcon(icon);
@@ -80,7 +82,7 @@ internal static class Native
                 DwmSetWindowAttribute(handle, ImmersiveDarkMode, ref immersiveDark, sizeof(int));
                 // A contrast theme's colours are the person's choice, so Windows keeps drawing that frame.
                 var contrast = HighContrast();
-                var edge = contrast ? DefaultColour : ColourRef(Palette("DividerStrokeColorDefaultBrush", dark));
+                var edge = contrast || !ownEdge ? DefaultColour : ColourRef(Palette("DividerStrokeColorDefaultBrush", dark));
                 DwmSetWindowAttribute(handle, BorderColour, ref edge, sizeof(int));
                 if (!AppWindowTitleBar.IsCustomizationSupported()) return;
                 var title = window.AppWindow.TitleBar;
@@ -112,10 +114,12 @@ internal static class Native
     /// <summary>DWMWA_COLOR_DEFAULT: Windows chooses the edge.</summary>
     private const int DefaultColour = unchecked((int)0xFFFFFFFF);
 
-    /// <summary>A colour of App.xaml's light or dark theme dictionary, the one palette the windows and their frames share.</summary>
+    /// <summary>A colour of App.xaml's light or dark theme dictionary, the one palette the windows and their frames share.
+    /// The last merged dictionary wins, as it does in XAML: RoleBand's palette overrides WinUI's own brushes, some of
+    /// which are translucent, and a frame colour has no alpha.</summary>
     private static Windows.UI.Color Palette(string key, bool dark)
     {
-        foreach (var dictionary in Application.Current.Resources.MergedDictionaries)
+        foreach (var dictionary in Application.Current.Resources.MergedDictionaries.Reverse())
         {
             if (dictionary.ThemeDictionaries.TryGetValue(dark ? "Default" : "Light", out var theme)
                 && ((ResourceDictionary)theme).TryGetValue(key, out var brush))

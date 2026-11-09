@@ -65,8 +65,11 @@ public sealed record UpdateRow(UpdateRowKind Kind, string Title, string? Caption
     public bool Busy => Kind is UpdateRowKind.Checking or UpdateRowKind.Downloading or UpdateRowKind.Restarting;
 }
 
-/// <summary>The flyout's update line, and whether Windows is replacing the app, which stops the engine on purpose.</summary>
-public sealed record FlyoutUpdate(FlyoutLine Line, bool Restarting);
+/// <summary>The flyout's update banner: an offer with Update, the download, or a failure with Try again; and whether
+/// Windows is replacing the app, which stops the engine on purpose.</summary>
+/// <param name="Version">The version the banner is about, which the menu's Update names.</param>
+/// <param name="Action">The words of its press; null while the download runs.</param>
+public sealed record FlyoutUpdate(string Title, string? Caption, string? Action, string Version, bool Busy, bool Failed, bool Restarting);
 
 /// <param name="On">Windows' own state; Settings shows what is registered, not a proposal.</param>
 public sealed record LoginRow(bool On, bool Enabled, string CaptionKey, bool Settings, bool Visible);
@@ -130,7 +133,7 @@ public static class AboutPanel
         return new UpdateRow(UpdateRowKind.Never, copy["update-idle"], null, true, automatic, true);
     }
 
-    /// <summary>The flyout's line for an update: the offer with Update, the download, the switch, or a failure with Try
+    /// <summary>The flyout's banner for an update: the offer with Update, the download, the switch, or a failure with Try
     /// again. Results stay in Settings.</summary>
     public static FlyoutUpdate? Flyout(NativeCopy copy, UpdateFacts? facts, UpdateRun? run)
     {
@@ -138,9 +141,10 @@ public static class AboutPanel
         var row = Updates(copy, facts, false, null, DateTimeOffset.MinValue, run);
         return row.Kind switch
         {
-            UpdateRowKind.Downloading => new FlyoutUpdate(new FlyoutLine(row.Title), false),
-            UpdateRowKind.Restarting => new FlyoutUpdate(new FlyoutLine(row.Title), true),
-            UpdateRowKind.Offered or UpdateRowKind.UpdateFailed => new FlyoutUpdate(new FlyoutLine(row.Title, row.Action, Updates: true), false),
+            UpdateRowKind.Downloading or UpdateRowKind.Restarting =>
+                new FlyoutUpdate(row.Title, null, null, run!.Version, true, false, row.Kind == UpdateRowKind.Restarting),
+            UpdateRowKind.Offered => new FlyoutUpdate(row.Title, null, row.Action, facts!.Offer!, false, false, false),
+            UpdateRowKind.UpdateFailed => new FlyoutUpdate(row.Title, row.Caption, row.Action, run!.Version, false, true, false),
             _ => null,
         };
     }

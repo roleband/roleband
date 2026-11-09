@@ -9,7 +9,7 @@ public enum DefaultCommand { OpenRadar, Settings, Setup }
 /// <summary>What a launch does by itself: open setup, ask for the Radar once the engine answers, or nothing.</summary>
 public enum LaunchAction { Quiet, Setup, RadarWhenReady }
 
-public enum MenuCommand { OpenRadar = 1, ScanNow, StopScan, PauseHour, PauseThreeHours, PauseTomorrow, Resume, Settings, Restart, FinishSetup, Quit }
+public enum MenuCommand { OpenRadar = 1, ScanNow, StopScan, PauseHour, PauseThreeHours, PauseTomorrow, Resume, Settings, Restart, FinishSetup, Quit, Update }
 
 /// <summary>One item of the icon's menu. An entry with neither a command nor items is a separator.</summary>
 public sealed record MenuEntry(MenuCommand? Command, string Text, bool Default = false, bool Checked = false, IReadOnlyList<MenuEntry>? Items = null)
@@ -18,9 +18,8 @@ public sealed record MenuEntry(MenuCommand? Command, string Text, bool Default =
     public bool IsSeparator => Command is null && Items is null;
 }
 
-/// <summary>One summary line. A line with a link ends with it, after a middle dot; the link opens a page in the
-/// browser, or, with <paramref name="Updates"/>, installs the offered update.</summary>
-public sealed record FlyoutLine(string Text, string? Link = null, BrowserRoute? Opens = null, bool Updates = false);
+/// <summary>One summary line. A line with a link ends with it, after a middle dot.</summary>
+public sealed record FlyoutLine(string Text, string? Link = null, BrowserRoute? Opens = null);
 
 public enum FlyoutPrimary { OpenRadar, Restart }
 
@@ -29,6 +28,7 @@ public enum FlyoutPrimary { OpenRadar, Restart }
 /// <param name="Progress">The scan's progress, present only while a scan runs.</param>
 /// <param name="Busy">The state is on its way somewhere else and has no figure to show.</param>
 /// <param name="Details">A stopped engine offers Details, which opens Settings with the logs.</param>
+/// <param name="Update">The update banner, under the summary while scanning runs.</param>
 public sealed record FlyoutView(
     string Title,
     string? Corner,
@@ -44,7 +44,8 @@ public sealed record FlyoutView(
     PauseControl Pause,
     bool Details,
     TrayBadge Badge,
-    string Tooltip);
+    string Tooltip,
+    FlyoutUpdate? Update = null);
 
 /// <summary>The companion's rules: the flyout's summary and tasks, the icon's badge and tooltip, the menu and
 /// its default command. The flyout keeps three parts in every state (summary, tasks, the Settings link); a
@@ -54,16 +55,18 @@ public static class Companion
     /// <summary>The flyout lists this many companies in flight by name; the rest are counted.</summary>
     public const int NamedCompanies = 3;
 
-    /// <param name="update">The update line: an offer, a download or a failure follows the summary while scanning runs;
-    /// while Windows replaces the app, the stopped engine is that replacement, not a problem.</param>
+    /// <param name="update">The update banner: an offer, a download or a failure follows the summary while scanning runs,
+    /// and an idle icon's tooltip names the offer; while Windows replaces the app, the stopped engine is that replacement,
+    /// not a problem.</param>
     public static FlyoutView View(NativeCopy copy, EngineSnapshot engine, ScanStatus? status, ScanAction? requested,
                                   DateTimeOffset? lastScanAt, bool setupComplete, DateTimeOffset now, FlyoutUpdate? update = null)
     {
         if (update is { Restarting: true })
-            return new FlyoutView(update.Line.Text, null, null, null, true, [], FlyoutPrimary.OpenRadar, false, null,
-                null, null, PauseControl.None, false, TrayBadge.Scanning, Tip(update.Line.Text));
+            return new FlyoutView(update.Title, null, null, null, true, [], FlyoutPrimary.OpenRadar, false, null,
+                null, null, PauseControl.None, false, TrayBadge.Scanning, Tip(update.Title));
         var view = Summary(copy, engine, status, requested, lastScanAt, now);
-        if (update is not null && engine.State == EngineState.Ready) view = view with { Lines = [.. view.Lines, update.Line] };
+        if (update is not null && engine.State == EngineState.Ready)
+            view = view with { Update = update, Tooltip = view.Badge == TrayBadge.None ? Tip(update.Title) : view.Tooltip };
         if (!setupComplete && view.Badge != TrayBadge.Stopped)
             view = view with { Badge = TrayBadge.Attention, Tooltip = Tip(copy["setup-pending"]) };
         return view;
@@ -245,6 +248,9 @@ public static class Companion
                 new MenuEntry(MenuCommand.PauseThreeHours, copy["pause-three-hours"]),
                 new MenuEntry(MenuCommand.PauseTomorrow, copy["pause-tomorrow"]),
             ]));
+        // An update ready to install is one press here too, named by its version; a download under way has no item.
+        if (view.Update is { Action: not null } update)
+            items.AddRange([MenuEntry.Separator, new MenuEntry(MenuCommand.Update, copy.Format("windows-update-to", ("version", update.Version)))]);
         items.AddRange([MenuEntry.Separator, settings, MenuEntry.Separator, quit]);
         return items;
     }

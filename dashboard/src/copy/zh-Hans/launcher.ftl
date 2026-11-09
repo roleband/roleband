@@ -437,6 +437,7 @@ launcher-windows-settings-title = RoleBand 设置
 launcher-windows-open-logs = 打开日志
 launcher-windows-last-lines = 引擎最后的输出
 launcher-windows-check-updates = 检查更新
+launcher-windows-update-to = 更新到版本 { $version }
 launcher-windows-login-toggle = 随 Windows 启动
 launcher-windows-history = 你的扫描记录
 launcher-windows-history-kept = { $path } · 卸载后仍会保留

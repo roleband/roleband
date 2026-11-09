@@ -9,8 +9,10 @@
         <ResourceDictionary>
           <!-- Gold is RoleBand's accent: the primary button, switches that are on, links and accent text.
                Framed windows layer neutral surfaces: a darker title bar (RoleBandFrame*, drawn by Native.Dress),
-               a solid body with no wallpaper tint, and cards inset from the body without outlines; every
-               window's edge is the divider colour. High contrast keeps the system's colours. -->
+               a solid body with no wallpaper tint, and cards inset from the body without outlines. Framed
+               windows keep the edge Windows gives every app; the flyout's edge is the divider colour. A notice
+               that must not be missed, an update ready, sits on a gold tint. High contrast keeps the system's
+               colours. -->
           <ResourceDictionary.ThemeDictionaries>
             <ResourceDictionary x:Key="Light">
               <SolidColorBrush x:Key="AccentButtonBackground" Color="#6A5C16" />
@@ -21,6 +23,8 @@
               <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="#F2EEDC" />
               <SolidColorBrush x:Key="RoleBandGold" Color="#6A5C16" />
               <SolidColorBrush x:Key="RoleBandSurface" Color="#FFFFFF" />
+              <SolidColorBrush x:Key="RoleBandNotice" Color="#FBF5DF" />
+              <SolidColorBrush x:Key="RoleBandNoticeStroke" Color="#E2D193" />
               <SolidColorBrush x:Key="RoleBandFrame" Color="#E8EAED" />
               <SolidColorBrush x:Key="RoleBandFrameInk" Color="#1F1F1F" />
               <SolidColorBrush x:Key="RoleBandFrameInactiveInk" Color="#707070" />
@@ -50,6 +54,8 @@
               <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="#1A1705" />
               <SolidColorBrush x:Key="RoleBandGold" Color="#DBCB90" />
               <SolidColorBrush x:Key="RoleBandSurface" Color="#3C3C3C" />
+              <SolidColorBrush x:Key="RoleBandNotice" Color="#46402A" />
+              <SolidColorBrush x:Key="RoleBandNoticeStroke" Color="#7A6C3A" />
               <SolidColorBrush x:Key="RoleBandFrame" Color="#202020" />
               <SolidColorBrush x:Key="RoleBandFrameInk" Color="#FFFFFF" />
               <SolidColorBrush x:Key="RoleBandFrameInactiveInk" Color="#9A9A9A" />
@@ -79,6 +85,8 @@
               <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="{ThemeResource SystemColorHighlightTextColor}" />
               <SolidColorBrush x:Key="RoleBandGold" Color="{ThemeResource SystemColorHighlightColor}" />
               <SolidColorBrush x:Key="RoleBandSurface" Color="{ThemeResource SystemColorWindowColor}" />
+              <SolidColorBrush x:Key="RoleBandNotice" Color="{ThemeResource SystemColorWindowColor}" />
+              <SolidColorBrush x:Key="RoleBandNoticeStroke" Color="{ThemeResource SystemColorWindowTextColor}" />
             </ResourceDictionary>
           </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>

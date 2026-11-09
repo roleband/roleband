@@ -254,6 +254,7 @@
   "windows-open-logs": "Abrir registros",
   "windows-last-lines": "Últimas líneas del motor",
   "windows-check-updates": "Buscar actualizaciones",
+  "windows-update-to": "Actualizar a la versión {version}",
   "windows-login-toggle": "Iniciar con Windows",
   "windows-history": "Tu historial de escaneos",
   "windows-history-kept": "{path} · se conserva si desinstalas",

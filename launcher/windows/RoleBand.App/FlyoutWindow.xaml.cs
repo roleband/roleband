@@ -60,7 +60,7 @@ public sealed partial class FlyoutWindow : Window
         AppWindow.IsShownInSwitchers = false;
         var round = 2;
         DwmSetWindowAttribute(Handle, 33, ref round, sizeof(int));
-        Native.Dress(this, AppMark);
+        Native.Dress(this, AppMark, ownEdge: true);
 
         AutomationProperties.SetName(SettingsButton, copy["settings"]);
         ToolTipService.SetToolTip(SettingsButton, copy["settings"]);
@@ -72,6 +72,7 @@ public sealed partial class FlyoutWindow : Window
         AutomationProperties.SetName(ResumeButton, copy["pause-resume"]);
         ToolTipService.SetToolTip(ResumeButton, copy["scan-resume-help"]);
         SettingsButton.Click += (_, _) => OpenSettings?.Invoke();
+        UpdateButton.Click += (_, _) => UpdateRequested?.Invoke();
         PrimaryButton.Click += (_, _) =>
         {
             if (current?.Primary == FlyoutPrimary.Restart) Restart?.Invoke();
@@ -214,6 +215,7 @@ public sealed partial class FlyoutWindow : Window
         ScanProgress.Value = view.Progress ?? 0;
         AutomationProperties.SetName(ScanProgress, view.ProgressLabel ?? view.Title);
         RenderLines(view.Lines);
+        RenderUpdate(view.Update);
         MessageText.Text = message ?? "";
         MessageText.Visibility = message is null ? Visibility.Collapsed : Visibility.Visible;
 
@@ -270,22 +272,34 @@ public sealed partial class FlyoutWindow : Window
                 text.FontSize = 12;
                 text.Foreground = Brush("TextFillColorSecondaryBrush");
             }
-            if (line.Link is { } words && (line.Opens is not null || line.Updates))
+            if (line.Link is { } words && line.Opens is { } route)
             {
                 text.Inlines.Add(new Run { Text = line.Text + " · " });
                 var link = new Hyperlink();
                 link.Inlines.Add(new Run { Text = words });
-                if (line.Opens is { } route)
-                {
-                    link.Click += (_, _) => Open?.Invoke(route);
-                    ToolTipService.SetToolTip(text, copy["scan-new-roles-open"]);
-                }
-                else link.Click += (_, _) => UpdateRequested?.Invoke();
+                link.Click += (_, _) => Open?.Invoke(route);
+                ToolTipService.SetToolTip(text, copy["scan-new-roles-open"]);
                 text.Inlines.Add(link);
             }
             else text.Text = line.Text;
             Lines.Children.Add(text);
         }
+    }
+
+    /// <summary>The update banner: a download glyph in gold for an offer or a download, a caution glyph for a failure.</summary>
+    private void RenderUpdate(FlyoutUpdate? update)
+    {
+        UpdateBanner.Visibility = update is null ? Visibility.Collapsed : Visibility.Visible;
+        if (update is null) return;
+        UpdateGlyph.Glyph = update.Failed ? "" : "";
+        UpdateGlyph.Foreground = Brush(update.Failed ? "SystemFillColorCautionBrush" : "RoleBandGold");
+        UpdateTitle.Text = update.Title;
+        UpdateCaption.Text = update.Caption ?? "";
+        UpdateCaption.Visibility = update.Caption is null ? Visibility.Collapsed : Visibility.Visible;
+        UpdateButton.Content = update.Action ?? "";
+        UpdateButton.Visibility = update.Action is null ? Visibility.Collapsed : Visibility.Visible;
+        UpdateProgress.Visibility = update.Busy ? Visibility.Visible : Visibility.Collapsed;
+        AutomationProperties.SetName(UpdateBanner, update.Caption is null ? update.Title : $"{update.Title}. {update.Caption}");
     }
 
     private static Brush Brush(string key) => (Brush)Application.Current.Resources[key];

@@ -139,17 +139,17 @@ public sealed class AboutTests
     }
 
     [TestMethod]
-    public void TheFlyoutCarriesTheOfferAndItsStepsButNotTheResult()
+    public void TheFlyoutBannerCarriesTheOfferAndItsStepsButNotTheResult()
     {
         var copy = new NativeCopy("en");
         var offer = new UpdateFacts(true, false, Now, "0.1.12", null);
-        Assert.AreEqual(new FlyoutUpdate(new FlyoutLine("Version 0.1.12 is ready", "Update", Updates: true), false),
+        Assert.AreEqual(new FlyoutUpdate("Version 0.1.12 is ready", null, "Update", "0.1.12", false, false, false),
             AboutPanel.Flyout(copy, offer, null));
-        Assert.AreEqual(new FlyoutUpdate(new FlyoutLine("Downloading 0.1.12"), false),
-            AboutPanel.Flyout(copy, offer, new UpdateRun(UpdateStep.Downloading, "0.1.12")));
-        Assert.AreEqual(new FlyoutUpdate(new FlyoutLine("Restarting to update"), true),
+        Assert.AreEqual(new FlyoutUpdate("Downloading 0.1.12", null, null, "0.1.12", true, false, false),
+            AboutPanel.Flyout(copy, offer, new UpdateRun(UpdateStep.Downloading, "0.1.12")), "nothing to press while it downloads");
+        Assert.AreEqual(new FlyoutUpdate("Restarting to update", null, null, "0.1.12", true, false, true),
             AboutPanel.Flyout(copy, offer, new UpdateRun(UpdateStep.Restarting, "0.1.12")));
-        Assert.AreEqual(new FlyoutUpdate(new FlyoutLine("Couldn't download 0.1.12", "Try again", Updates: true), false),
+        Assert.AreEqual(new FlyoutUpdate("Couldn't download 0.1.12", "The server didn't answer.", "Try again", "0.1.12", false, true, false),
             AboutPanel.Flyout(copy, offer, new UpdateRun(UpdateStep.DownloadFailed, "0.1.12")));
         Assert.IsNull(AboutPanel.Flyout(copy, offer with { Offer = null }, new UpdateRun(UpdateStep.Updated, "0.1.12")));
         Assert.IsNull(AboutPanel.Flyout(copy, offer with { Offer = null }, null));

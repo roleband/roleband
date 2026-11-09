@@ -112,21 +112,45 @@ public sealed class CompanionTests
         Assert.AreEqual((TrayBadge.Attention, "RoleBand: Setup isn't finished"), (unfinished.Badge, unfinished.Tooltip));
     }
 
+    private static readonly FlyoutUpdate Offer = new("Version 0.1.12 is ready", null, "Update", "0.1.12", false, false, false);
+
     [TestMethod]
-    public void AnOfferFollowsTheSummaryWhileScanningRuns()
+    public void AnOfferIsABannerUnderTheSummaryAndTheIdleIconNamesIt()
     {
-        var offer = new FlyoutUpdate(new FlyoutLine("Version 0.1.12 is ready", "Update", Updates: true), false);
-        var view = Companion.View(English, Ready, Status(Reply()), null, null, true, Now, offer);
-        Assert.AreEqual(offer.Line, view.Lines[^1]);
-        Assert.AreEqual(View(Ready, Status(Reply())).Lines.Count + 1, view.Lines.Count, "the summary keeps its own lines");
-        var stopped = Companion.View(English, new EngineSnapshot(EngineState.Stopped), null, null, null, true, Now, offer);
-        Assert.IsFalse(stopped.Lines.Contains(offer.Line), "a stopped engine leads with Restart, not an update");
+        var view = Companion.View(English, Ready, Status(Reply()), null, null, true, Now, Offer);
+        Assert.AreEqual(Offer, view.Update);
+        CollectionAssert.AreEqual(View(Ready, Status(Reply())).Lines.ToArray(), view.Lines.ToArray(), "the summary keeps its own lines");
+        Assert.AreEqual("RoleBand: Version 0.1.12 is ready", view.Tooltip);
+        var scanning = Companion.View(English, Ready, Scanning(5), null, null, true, Now, Offer);
+        Assert.AreEqual((Offer, "RoleBand: Scanning companies · 38%"), (scanning.Update, scanning.Tooltip), "a scan's progress keeps the tooltip");
+        Assert.IsNull(Companion.View(English, new EngineSnapshot(EngineState.Stopped), null, null, null, true, Now, Offer).Update,
+            "a stopped engine leads with Restart, not an update");
+        Assert.IsNull(View(Ready, Status(Reply())).Update);
+    }
+
+    [TestMethod]
+    public void TheMenuOffersTheUpdateByItsVersionButNotWhileItDownloads()
+    {
+        MenuEntry[] Menu(FlyoutUpdate? update) =>
+            [.. Companion.Menu(English, Ready, Companion.View(English, Ready, Status(Reply()), null, null, true, Now, update), true)];
+        var offered = Menu(Offer);
+        var item = offered.Single(entry => entry.Command == MenuCommand.Update);
+        Assert.AreEqual(("Update to 0.1.12", false), (item.Text, item.Default));
+        var at = Array.IndexOf(offered, item);
+        Assert.AreEqual((true, MenuCommand.Settings), (offered[at - 1].IsSeparator, offered[at + 2].Command), "its own group, before Settings");
+        Assert.AreEqual(MenuCommand.OpenRadar, offered[0].Command, "the bold default stays first");
+        var failed = Offer with { Title = "Couldn't download 0.1.12", Action = "Try again", Failed = true };
+        Assert.IsTrue(Menu(failed).Any(entry => entry.Command == MenuCommand.Update), "a failure is one press from a retry");
+        Assert.IsFalse(Menu(Offer with { Action = null, Busy = true }).Any(entry => entry.Command == MenuCommand.Update));
+        Assert.IsFalse(Menu(null).Any(entry => entry.Command == MenuCommand.Update));
+        foreach (var language in Languages)
+            Assert.IsFalse(new NativeCopy(language).Format("windows-update-to", ("version", "0.1.12")).Contains('{'), language);
     }
 
     [TestMethod]
     public void WhileWindowsReplacesTheAppTheStoppedEngineIsNotAProblem()
     {
-        var restarting = new FlyoutUpdate(new FlyoutLine("Restarting to update"), true);
+        var restarting = new FlyoutUpdate("Restarting to update", null, null, "0.1.12", true, false, true);
         var stopped = new EngineSnapshot(EngineState.Stopped);
         var view = Companion.View(English, stopped, null, null, LastScan, true, Now, restarting);
         Assert.AreEqual(("Restarting to update", true, false, false), (view.Title, view.Busy, view.PrimaryEnabled, view.Details));

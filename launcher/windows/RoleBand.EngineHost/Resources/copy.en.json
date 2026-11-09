@@ -254,6 +254,7 @@
   "windows-open-logs": "Open logs folder",
   "windows-last-lines": "The engine's last lines",
   "windows-check-updates": "Check for updates",
+  "windows-update-to": "Update to {version}",
   "windows-login-toggle": "Start with Windows",
   "windows-history": "Your scan history",
   "windows-history-kept": "{path} · kept if you uninstall",

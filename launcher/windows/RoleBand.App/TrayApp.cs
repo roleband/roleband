@@ -178,6 +178,7 @@ internal sealed class TrayApp
             case MenuCommand.Restart: await StartAsync(); break;
             case MenuCommand.FinishSetup: await OpenSetupAsync(); break;
             case MenuCommand.Quit: await QuitAsync(); break;
+            case MenuCommand.Update: await UpdateNowAsync(); break;
             default:
                 if (Companion.Pause(command) is { } pause) await PauseAsync(pause);
                 break;
