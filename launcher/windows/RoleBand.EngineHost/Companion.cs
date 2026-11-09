@@ -275,7 +275,15 @@ public static class Companion
 /// <param name="Newer">A newer release that can replace a failed update, offered beside Undo.</param>
 /// <param name="Percent">Windows' percentage of what is under way, when it reports one.</param>
 public sealed record SettingsProblem(string TitleKey, string? BodyKey, bool Undo, bool Restart, string? Version = null, bool Busy = false,
-                                     bool Notice = false, string? Newer = null, int? Percent = null);
+                                     bool Notice = false, string? Newer = null, int? Percent = null)
+{
+    /// <summary>The banner's title and message in the copy's words, the version filled in where the words name it: a
+    /// message that names none would refuse it.</summary>
+    public (string Title, string? Message) Words(NativeCopy copy) => (Say(copy, TitleKey), BodyKey is { } body ? Say(copy, body) : null);
+
+    private string Say(NativeCopy copy, string key) =>
+        Version is { } version && copy.Takes(key, "version") ? copy.Format(key, ("version", version)) : copy[key];
+}
 
 public static class SettingsPanel
 {

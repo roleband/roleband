@@ -106,6 +106,17 @@ public sealed class AboutTests
     }
 
     [TestMethod]
+    public void AnOfferTheFeedNoLongerHasIsNotBlamedOnTheServerOrRetried()
+    {
+        var copy = new NativeCopy("en");
+        var (run, package) = Downloaded("""{"status":"failed","kind":"missing","reason":"The package is not published"}""");
+        Assert.AreEqual((UpdateStep.Unpublished, (string?)null), (run.Step, package));
+        var row = AboutPanel.Updates(copy, new UpdateFacts(true, false, Now, "0.1.12", null), false, null, Now, run);
+        Assert.AreEqual(("Couldn't download 0.1.12", "Nothing was installed.", (string?)null, true),
+            (row.Title, row.Caption, row.Action, row.CanCheck), "the server did answer; Try again cannot bring it back");
+    }
+
+    [TestMethod]
     public void OnlyTheDownloadsOwnProgressLinesCount()
     {
         Assert.AreEqual((120L, 332L), UpdateRun.Progress("""{"received":120,"total":332}"""));
@@ -219,7 +230,7 @@ public sealed class AboutTests
         var expected = new Dictionary<string, UpdateStep>
         {
             ["paused"] = UpdateStep.Paused, ["space"] = UpdateStep.NoSpace, ["check"] = UpdateStep.CheckFailed,
-            ["missing"] = UpdateStep.DownloadFailed, ["offer"] = UpdateStep.Restarting,
+            ["missing"] = UpdateStep.Unpublished, ["offer"] = UpdateStep.Restarting,
         };
         foreach (var (scenario, step) in expected)
         {

@@ -27,6 +27,9 @@ public sealed class NativeCopy
     public string this[string key] => messages.TryGetValue(key, out var value) ? value : throw new KeyNotFoundException(key);
 
     /// <summary>The message with each <c>{name}</c> replaced; a placeholder left unfilled is an error, not text.</summary>
+    /// <summary>Whether the message has a {name} placeholder to fill.</summary>
+    public bool Takes(string key, string name) => this[key].Contains("{" + name + "}", StringComparison.Ordinal);
+
     public string Format(string key, params (string Name, string Value)[] values)
     {
         var text = this[key];

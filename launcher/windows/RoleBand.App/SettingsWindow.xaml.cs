@@ -107,14 +107,14 @@ public sealed partial class SettingsWindow : Window
         try
         {
             var problem = state.Problem;
-            string Words(string key) => problem?.Version is { } version ? copy.Format(key, ("version", version)) : copy[key];
             var wasOpen = ProblemBar.IsOpen;
             // An undo under way is news, not a fault; a failed update or a refused Undo waits on Undo; anything else is an error.
             // The bar announces itself as it opens, with the words it has then: they are set first.
             ProblemBar.Severity = problem?.Notice == true ? InfoBarSeverity.Informational
                 : problem?.Undo == true ? InfoBarSeverity.Warning : InfoBarSeverity.Error;
-            ProblemBar.Title = problem is not null ? Words(problem.TitleKey) : "";
-            ProblemBar.Message = problem?.BodyKey is { } body ? Words(body) : "";
+            var (title, message) = problem?.Words(copy) ?? ("", null);
+            ProblemBar.Title = title;
+            ProblemBar.Message = message ?? "";
             ProblemBar.IsOpen = problem is not null;
             ProblemProgress.Visibility = problem?.Busy == true ? Visibility.Visible : Visibility.Collapsed;
             ProblemProgress.IsIndeterminate = problem?.Percent is null;

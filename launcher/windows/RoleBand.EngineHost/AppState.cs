@@ -86,9 +86,21 @@ public static class AppSurfaces
                     : copy["update-stopped-title"],
                 Caption = copy["windows-update-unfinished-caption"],
             };
-        // An Undo under way is in Windows' hands: nothing to check, and nothing to install over it.
-        if (update.ReturningTo is not null) row = row with { CanCheck = row.CanCheck && !update.Returning, Action = null };
+        // An Undo under way is in Windows' hands: the card says so, with nothing to install over it, never an offer as ready.
+        // A download still running keeps its own row, with its Cancel.
+        if (update.ReturningTo is { } previous && !update.UndoRefused && update.Run is not { Cancellable: true })
+            row = row with
+            {
+                Kind = UpdateRowKind.Restarting,
+                Title = copy.Format("windows-update-undoing", ("version", previous)),
+                Caption = update.Returning && update.ReturnPercent is { } percent ? AboutPanel.Percentage(copy, percent) : null,
+                CanCheck = row.CanCheck && !update.Returning,
+                Action = null,
+                Cancel = false,
+            };
         else if (update.Installable is null) row = row with { Action = null };
+        // When the previous version is gone, Undo cannot help, so the card does not point to it.
+        if (update.UndoGone && row.Kind == UpdateRowKind.Unfinished) row = row with { Caption = null };
         if (state.Engine is not { } engine)
         {
             var title = copy["invalid"];

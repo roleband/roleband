@@ -41,7 +41,8 @@ public sealed partial class FlyoutWindow : Window
     /// closes the flyout rather than opening it again.</summary>
     public bool JustHid => Environment.TickCount64 - hiddenAt < 300;
 
-    public bool IsOpen => AppWindow.IsVisible;
+    /// <summary>A flyout closed for Quit has no window left to ask.</summary>
+    public bool IsOpen => !closing && AppWindow.IsVisible;
 
     public FlyoutWindow(NativeCopy copy)
     {

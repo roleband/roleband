@@ -70,11 +70,15 @@ public sealed class AppStateTests
     public void EveryShownControlCanActInItsState()
     {
         var copy = new NativeCopy("en");
+        NativeCopy[] languages = [copy, new NativeCopy("es"), new NativeCopy("zh-Hans")];
         var count = 0;
         foreach (var state in States())
         {
             count++;
             var surfaces = AppSurfaces.Of(copy, state);
+            // Settings draws its banner from these words: a message formatted with a value it does not take throws, and
+            // the throw ends the app.
+            foreach (var language in languages) AppSurfaces.Of(language, state).Problem?.Words(language);
             var (flyout, menu, problem, row) = (surfaces.Flyout, surfaces.Menu, surfaces.Problem, surfaces.Updates);
             var where = Describe(state);
             var commands = menu.Where(entry => entry.Command is not null).Select(entry => entry.Command!.Value).ToHashSet();
@@ -163,6 +167,24 @@ public sealed class AppStateTests
         Assert.AreEqual(("Couldn't return to 0.1.17", FlyoutPrimary.Undo, true, true),
             (refused.Flyout.Title, refused.Flyout.Primary, refused.Flyout.PrimaryEnabled, refused.Problem?.Undo), "offline: Undo again");
         Assert.IsFalse(refused.Flyout.Busy, "never Returning to after a refusal");
+    }
+
+    [TestMethod]
+    public void TheCardSaysWhereAnUndoStandsNeverAnOfferAsReadyOrAnUndoItCannotDo()
+    {
+        var copy = new NativeCopy("en");
+        var failed = new UpdateFacts(true, false, Now, Offer, null, new LastUpdate("failed", Previous, Running, "to"));
+        var undoing = new AppState(new EngineSnapshot(EngineState.Stopped), null, SetupRecord.Finished,
+            new UpdateState(failed, Failed: true, ReturningTo: Previous, Returning: true, ReturnPercent: 30), Now);
+        var row = AppSurfaces.Of(copy, undoing).Updates;
+        Assert.AreEqual(("Returning to 0.1.17", "30%", (string?)null, false, true), (row.Title, row.Caption, row.Action, row.CanCheck, row.Busy));
+
+        var gone = undoing with { Update = undoing.Update with { Returning = false, UndoFailure = "gone", UndoGone = true, Facts = failed with { Offer = null } } };
+        row = AppSurfaces.Of(copy, gone).Updates;
+        Assert.AreEqual(("0.1.18 couldn't finish", (string?)null, true), (row.Title, row.Caption, row.CanCheck),
+            "no Undo it above when there is no Undo");
+        var refused = gone with { Update = gone.Update with { UndoGone = false, UndoFailure = "offline" } };
+        Assert.AreEqual("Undo it above, or check for a newer version.", AppSurfaces.Of(copy, refused).Updates.Caption);
     }
 
     [TestMethod]

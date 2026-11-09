@@ -27,6 +27,10 @@ internal sealed class TrayApp
     private EngineConfiguration? configuration;
     private string? launchFailure;
     private bool quitting;
+    // Set as Quit closes the windows: a timer tick or an engine change already queued must not draw on them, or the
+    // exception ends the process before the engine's stop is complete.
+    private bool closed;
+    private readonly DispatcherQueueTimer clock;
 
     // The scan: read on the app's own schedule, quickly while a scan runs and the flyout is open.
     private ScanStatus? scanStatus;
@@ -91,7 +95,7 @@ internal sealed class TrayApp
             Debug.WriteLine(error);
         }
         // The summary's clocks move while the flyout is open; nothing is read from the engine here.
-        var clock = dispatcher.CreateTimer();
+        clock = dispatcher.CreateTimer();
         clock.Interval = TimeSpan.FromSeconds(1);
         clock.Tick += (_, _) => { if (flyout.IsOpen) RenderFlyout(); };
         clock.Start();
@@ -208,6 +212,7 @@ internal sealed class TrayApp
 
     private void Render(EngineSnapshot snapshot)
     {
+        if (closed) return;
         if (snapshot.State == EngineState.Ready)
         {
             if (polling is null)
@@ -242,6 +247,7 @@ internal sealed class TrayApp
 
     private void RenderFlyout()
     {
+        if (closed) return;
         if (scanStatus?.Presentation.LastScanAt is { } last) lastScanAt = last;
         view = CurrentView();
         tray?.Show(view.Badge, view.Tooltip);
@@ -292,7 +298,7 @@ internal sealed class TrayApp
 
     private void RenderSettings()
     {
-        if (settings is null) return;
+        if (closed || settings is null) return;
         var snapshot = engine?.Snapshot;
         var surfaces = Surfaces();
         settings.Render(new SettingsState(
@@ -517,7 +523,7 @@ internal sealed class TrayApp
 
     private void RenderSetup()
     {
-        if (setupWindow is null || engine is null) return;
+        if (closed || setupWindow is null || engine is null) return;
         setupWindow.Render(SetupFlow.Page(setup, engine.Snapshot, login, loginBusy),
             SetupFlow.SwitchOn(setup, login), loginError, openFailed);
     }
@@ -813,6 +819,8 @@ internal sealed class TrayApp
             return;
         }
         polling?.Cancel();
+        closed = true;
+        clock.Stop();
         setupWindow?.Close();
         settings?.Close();
         tray?.Dispose();

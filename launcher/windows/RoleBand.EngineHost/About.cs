@@ -64,8 +64,9 @@ public sealed record UpdateFacts(bool Available, bool Automatic, DateTimeOffset?
 }
 
 /// <summary>Where this session's own update stands, from the press of Update to the result the next version shows.</summary>
-/// <remarks>Paused is a download that lost its connection: it resumes by itself, and Cancel stops it.</remarks>
-public enum UpdateStep { Downloading, Paused, Restarting, DownloadFailed, CheckFailed, NoSpace, RestartFailed, Updated, RolledBack }
+/// <remarks>Paused is a download that lost its connection: it resumes by itself, and Cancel stops it. Unpublished is an
+/// offer the feed no longer has: trying again cannot bring it back.</remarks>
+public enum UpdateStep { Downloading, Paused, Restarting, DownloadFailed, CheckFailed, NoSpace, Unpublished, RestartFailed, Updated, RolledBack }
 
 /// <param name="Version">The version being installed; for a result, the version now running.</param>
 /// <param name="Undone">For Back on, the version that was undone.</param>
@@ -78,7 +79,8 @@ public sealed record UpdateRun(UpdateStep Step, string Version, string? Undone =
 {
     public bool InProgress => Step is UpdateStep.Downloading or UpdateStep.Paused or UpdateStep.Restarting;
 
-    public bool Failed => Step is UpdateStep.DownloadFailed or UpdateStep.CheckFailed or UpdateStep.NoSpace or UpdateStep.RestartFailed;
+    public bool Failed => Step is UpdateStep.DownloadFailed or UpdateStep.CheckFailed or UpdateStep.NoSpace or UpdateStep.Unpublished
+        or UpdateStep.RestartFailed;
 
     /// <summary>A download Cancel can stop: one running, or one waiting for the connection.</summary>
     public bool Cancellable => Step is UpdateStep.Downloading or UpdateStep.Paused;
@@ -98,6 +100,7 @@ public sealed record UpdateRun(UpdateStep Step, string Version, string? Undone =
         {
             "check" => run with { Step = UpdateStep.CheckFailed },
             "offline" => run with { Step = UpdateStep.Paused },
+            "missing" => run with { Step = UpdateStep.Unpublished },
             "space" => run with
             {
                 Step = UpdateStep.NoSpace,
@@ -210,13 +213,15 @@ public static class AboutPanel
             var (title, caption) = run.Step switch
             {
                 UpdateStep.CheckFailed => (copy.Format("update-check-failed", ("version", run.Version)), copy["update-nothing-installed"]),
+                UpdateStep.Unpublished => (copy.Format("update-download-failed", ("version", run.Version)), copy["update-nothing-installed"]),
                 UpdateStep.NoSpace => (copy["update-no-space"],
                     run.Needed is { } needed ? copy.Format("update-no-space-caption", ("size", Size(copy, needed))) : copy["update-nothing-installed"]),
                 UpdateStep.RestartFailed => (copy.Format("windows-update-install-failed", ("version", run.Version)),
                     run.Reason is { Length: > 0 } reason ? $"{copy["update-nothing-installed"]} {reason}" : copy["update-nothing-installed"]),
                 _ => (copy.Format("update-download-failed", ("version", run.Version)), copy["update-download-failed-caption"]),
             };
-            return new UpdateRow(UpdateRowKind.UpdateFailed, title, caption, true, automatic, true, copy["retry"],
+            return new UpdateRow(UpdateRowKind.UpdateFailed, title, caption, true, automatic, true,
+                run.Step == UpdateStep.Unpublished ? null : copy["retry"],
                 HelpKey: run.Step switch
                 {
                     UpdateStep.NoSpace => "update-no-space-help",
