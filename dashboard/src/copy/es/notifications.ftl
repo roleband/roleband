@@ -364,7 +364,7 @@ notif-scan-started-body = Escaneando { $count ->
 }: { $sources }.
 notif-scan-started-all-body = Escaneando { $sources }.
 notif-scan-summary = Puestos: { $found } encontrados · { $created } añadidos · { $updated } vistos de nuevo o cerrados
-notif-scan-summary-skipped = Puestos: { $found } encontrados · { $created } añadidos · { $updated } vistos de nuevo o cerrados · { $skipped } sin cambios
+notif-scan-summary-skipped = Puestos: { $found } encontrados · { $created } añadidos · { $updated } vistos de nuevo o cerrados · { $skipped } omitidos o sin cambios
 notif-finished-at = Terminó a las { $at } tras { $duration }.
 notif-failed-at = Falló a las { $at } tras { $duration }.
 notif-scan-stopped = Escaneo detenido
@@ -379,7 +379,7 @@ notif-post-pass-unfinished = Un paso posterior al escaneo no terminó. El error 
 notif-every-source-delivered = Se escanearon todas las empresas, pero un paso posterior al escaneo no terminó. El error está en los detalles.
 notif-data-saved = Lo que encontró el escaneo está guardado.
 notif-scan-problems = El escaneo terminó con problemas
-notif-asleep = Tu equipo estuvo en reposo { $duration } durante el escaneo, así que algunas empresas solo se escanearon en parte.
+notif-asleep = Tu equipo estuvo en reposo { $duration } durante el escaneo, lo que puede dejar incompleto el escaneo de una empresa.
 notif-unreached = No se llegó a { $sources } antes del límite de tiempo del escaneo. Sus ofertas se quedan como se vieron por última vez hasta el próximo escaneo.
 notif-offline = { $count ->
     [one] No se pudo escanear { $sources }: sin conexión a internet. El próximo escaneo volverá a intentarlo.

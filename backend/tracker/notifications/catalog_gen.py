@@ -3,7 +3,7 @@ from tracker.notifications.catalog_format import _f, _se
 
 MESSAGES = {
     "notif-affected-none": lambda a: "no single company",
-    "notif-asleep": lambda a: "Your computer slept for "+_f(a["duration"])+" during the scan, so some companies were only partly scanned.",
+    "notif-asleep": lambda a: "Your computer slept for "+_f(a["duration"])+" during the scan, which can cut a company's scan short.",
     "notif-changed": lambda a: _f(a["company"])+" changed a role you saved",
     "notif-closed": lambda a: _f(a["company"])+" closed a role you saved",
     "notif-companies": lambda a: (_f(a["count"])+" company" if _se(a["count"],"one") else _f(a["count"])+" companies"),
@@ -72,7 +72,7 @@ MESSAGES = {
     "notif-scan-started-body": lambda a: "Scanning "+(_f(a["count"])+" company" if _se(a["count"],"one") else _f(a["count"])+" companies")+": "+_f(a["sources"])+".",
     "notif-scan-stopped": lambda a: "Scan stopped",
     "notif-scan-summary": lambda a: "Roles: "+_f(a["found"])+" found · "+_f(a["created"])+" added · "+_f(a["updated"])+" seen again or closed",
-    "notif-scan-summary-skipped": lambda a: "Roles: "+_f(a["found"])+" found · "+_f(a["created"])+" added · "+_f(a["updated"])+" seen again or closed · "+_f(a["skipped"])+" unchanged",
+    "notif-scan-summary-skipped": lambda a: "Roles: "+_f(a["found"])+" found · "+_f(a["created"])+" added · "+_f(a["updated"])+" seen again or closed · "+_f(a["skipped"])+" skipped or unchanged",
     "notif-sources-all": lambda a: "every company you follow",
     "notif-sources-more": lambda a: _f(a["names"])+" and "+_f(a["more"])+" more",
     "notif-stopped-after": lambda a: "You stopped it after it scanned "+_f(a["companies"])+".",

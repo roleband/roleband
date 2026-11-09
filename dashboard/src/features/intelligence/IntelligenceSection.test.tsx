@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -1213,6 +1213,17 @@ describe("capabilities card", () => {
       expect(
         await within(card).findByRole("button", { name: msg("ai-capabilities-card-start", { choice: "v2" }) }),
       ).toBeEnabled();
+    });
+
+    it("a slow start's second look is dropped when the card closes first", async () => {
+      mocked.controlLocalServer.mockResolvedValue(startAnswer({ action_timed_out: true }));
+      const card = await clickStart();
+      await within(card).findByRole("alert");
+
+      const probes = mocked.localServerStatus.mock.calls.length;
+      cleanup();
+      await act(async () => { vi.advanceTimersByTime(30_000); });
+      expect(mocked.localServerStatus).toHaveBeenCalledTimes(probes);
     });
 
     it("a start that fails inside its time limit says it failed, and does not wait for it", async () => {

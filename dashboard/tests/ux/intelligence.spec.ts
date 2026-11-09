@@ -537,7 +537,7 @@ test("your own model: every field owns its column, and the popup is a field like
     .toBeGreaterThan(rowBox.width / 3);
 
   await del.click();
-  await expect(actions.getByRole("button", { name: /^Yes, delete / })).toBeVisible();
+  await expect(actions.getByRole("button").filter({ hasText: msg("ai-cloud-dialog-delete-2", { choice: "yes" }) })).toBeVisible();
 });
 
 test("a computer without oMLX gets no Start button it could not honour", async ({ page }) => {
@@ -607,7 +607,7 @@ test("the standing permission is confirmed before connecting an online service",
   // like the MCP connect gate — so every row keeps the same shape AND the
   // switch actually works.
   await expect(capabilities.getByText(msg("ai-capabilities-card-online-model-services"))).toBeVisible();
-  await expect(capabilities.getByText(/None added/)).toBeVisible();
+  await expect(capabilities.getByText(msg("ai-capabilities-card-none-connected"), { exact: false })).toBeVisible();
   const futureGate = capabilities.getByLabel(msg("ai-capabilities-card-send-postings-to-online-services"));
   await expect(futureGate).toBeEnabled();
   await expect(futureGate).not.toBeChecked();

@@ -46,7 +46,7 @@ notifications-notification-row-copy-full-details = 复制完整详情
 ## features/notifications/NotificationScreen.tsx
 notifications-notification-screen-reset-all = 全部重置
 notifications-notification-screen-nothing-unread = 没有未读
-notifications-notification-screen-mark-all-read = 全部已读
+notifications-notification-screen-mark-all-read = 全部标为已读
 notifications-notification-screen-nothing-here-yet = { $choice ->
     [yes] 没有匹配项
    *[no] 这里还没有内容
@@ -305,7 +305,7 @@ notif-scan-started = 扫描已开始
 notif-scan-started-body = 正在扫描 { $count } 家公司：{ $sources }。
 notif-scan-started-all-body = 正在扫描{ $sources }。
 notif-scan-summary = 职位：找到 { $found } · 新增 { $created } · 再次出现或已关闭 { $updated }
-notif-scan-summary-skipped = 职位：找到 { $found } · 新增 { $created } · 再次出现或已关闭 { $updated } · 未变化 { $skipped }
+notif-scan-summary-skipped = 职位：找到 { $found } · 新增 { $created } · 再次出现或已关闭 { $updated } · 跳过或未变化 { $skipped }
 notif-finished-at = 于 { $at } 完成，用时 { $duration }。
 notif-failed-at = 于 { $at } 失败，用时 { $duration }。
 notif-scan-stopped = 扫描已停止
@@ -320,7 +320,7 @@ notif-post-pass-unfinished = 扫描后的一个步骤未完成。错误信息见
 notif-every-source-delivered = 每家公司都已扫描，但扫描后的一个步骤未完成。错误信息见详情。
 notif-data-saved = 扫描找到的内容已保存。
 notif-scan-problems = 扫描完成，但有问题
-notif-asleep = 扫描期间你的电脑休眠了 { $duration }，因此有些公司只扫描了一部分。
+notif-asleep = 扫描期间你的电脑休眠了 { $duration }，这可能导致某家公司的扫描不完整。
 notif-unreached = { $count ->
    *[other] 扫描达到时间上限前未能扫描 { $sources }。下次扫描前，其招聘信息保持最后一次看到的状态。
 }

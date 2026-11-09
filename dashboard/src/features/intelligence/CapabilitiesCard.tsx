@@ -185,6 +185,11 @@ export function CapabilitiesCard({
     if (local && next !== local.enabled) void setLocalEnabled(next);
   };
 
+  const recheck = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (recheck.current !== null) window.clearTimeout(recheck.current);
+  }, []);
+
   const controlServer = async (action: "start" | "stop") => {
     setServerBusy(true);
     setError(null);
@@ -195,7 +200,8 @@ export function CapabilitiesCard({
       // probe again once it has had time, instead of calling it a failure.
       if (next.action_timed_out && action === "start") {
         setError(aiLocalServerStartPending());
-        window.setTimeout(() => void loadServer(), SLOW_START_RECHECK_MS);
+        if (recheck.current !== null) window.clearTimeout(recheck.current);
+        recheck.current = window.setTimeout(() => void loadServer(), SLOW_START_RECHECK_MS);
       } else if (next.action_ok === false) setError(aiLocalServerActionFailed({ action }));
     } catch (e) {
       setError(errorText(e));

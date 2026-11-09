@@ -556,7 +556,7 @@ notif-scan-started-all-body = Scanning { $sources }.
 # kind=notification
 notif-scan-summary = Roles: { $found } found · { $created } added · { $updated } seen again or closed
 # kind=notification
-notif-scan-summary-skipped = Roles: { $found } found · { $created } added · { $updated } seen again or closed · { $skipped } unchanged
+notif-scan-summary-skipped = Roles: { $found } found · { $created } added · { $updated } seen again or closed · { $skipped } skipped or unchanged
 # kind=notification wording=as-is
 notif-finished-at = Finished at { $at } after { $duration }.
 # kind=notification wording=as-is
@@ -586,7 +586,7 @@ notif-data-saved = What the scan found is saved.
 # kind=notification wording=as-is
 notif-scan-problems = Scan finished with problems
 # kind=notification
-notif-asleep = Your computer slept for { $duration } during the scan, so some companies were only partly scanned.
+notif-asleep = Your computer slept for { $duration } during the scan, which can cut a company's scan short.
 # kind=notification
 notif-unreached = { $count ->
     [one] { $sources } wasn't reached before the scan's time limit. Its postings stay as last seen until the next scan.

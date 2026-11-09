@@ -987,7 +987,7 @@
   "title": "Scan stopped"
  },
  {
-  "body": "You stopped it after it scanned 1 company. Problems at: no single company. What it found is saved. Roles: 120 found · 4 added · 36 seen again or closed · 31 unchanged",
+  "body": "You stopped it after it scanned 1 company. Problems at: no single company. What it found is saved. Roles: 120 found · 4 added · 36 seen again or closed · 31 skipped or unchanged",
   "case": "stopped-at-a-failed-pass",
   "say": {
    "body": [
@@ -1682,7 +1682,7 @@
   "title": "Couldn't scan, nothing was updated"
  },
  {
-  "body": "Finished at 2026-09-27 08:40 UTC after 40m 0s. Every company was scanned, but a step after the scan didn't finish. The error is in the details. What the scan found is saved. Roles: 120 found · 4 added · 36 seen again or closed · 31 unchanged",
+  "body": "Finished at 2026-09-27 08:40 UTC after 40m 0s. Every company was scanned, but a step after the scan didn't finish. The error is in the details. What the scan found is saved. Roles: 120 found · 4 added · 36 seen again or closed · 31 skipped or unchanged",
   "case": "derivation-failed",
   "say": {
    "body": [
@@ -1774,7 +1774,7 @@
   "title": "Scan finished, but a step after it didn't"
  },
  {
-  "body": "Finished at 2026-09-27 10:05 UTC after 2h 5m. Your computer slept for 16m 27s during the scan, so some companies were only partly scanned. Problems at: Microsoft. Roles: 120 found · 4 added · 78 seen again or closed",
+  "body": "Finished at 2026-09-27 10:05 UTC after 2h 5m. Your computer slept for 16m 27s during the scan, which can cut a company's scan short. Problems at: Microsoft. Roles: 120 found · 4 added · 78 seen again or closed",
   "case": "problems-while-asleep",
   "say": {
    "body": [
