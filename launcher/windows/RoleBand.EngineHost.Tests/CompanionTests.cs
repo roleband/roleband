@@ -113,6 +113,32 @@ public sealed class CompanionTests
     }
 
     [TestMethod]
+    public void AnOfferFollowsTheSummaryWhileScanningRuns()
+    {
+        var offer = new FlyoutUpdate(new FlyoutLine("Version 0.1.12 is ready", "Update", Updates: true), false);
+        var view = Companion.View(English, Ready, Status(Reply()), null, null, true, Now, offer);
+        Assert.AreEqual(offer.Line, view.Lines[^1]);
+        Assert.AreEqual(View(Ready, Status(Reply())).Lines.Count + 1, view.Lines.Count, "the summary keeps its own lines");
+        var stopped = Companion.View(English, new EngineSnapshot(EngineState.Stopped), null, null, null, true, Now, offer);
+        Assert.IsFalse(stopped.Lines.Contains(offer.Line), "a stopped engine leads with Restart, not an update");
+    }
+
+    [TestMethod]
+    public void WhileWindowsReplacesTheAppTheStoppedEngineIsNotAProblem()
+    {
+        var restarting = new FlyoutUpdate(new FlyoutLine("Restarting to update"), true);
+        var stopped = new EngineSnapshot(EngineState.Stopped);
+        var view = Companion.View(English, stopped, null, null, LastScan, true, Now, restarting);
+        Assert.AreEqual(("Restarting to update", true, false, false), (view.Title, view.Busy, view.PrimaryEnabled, view.Details));
+        Assert.AreEqual((FlyoutPrimary.OpenRadar, TrayBadge.Scanning, "RoleBand: Restarting to update"), (view.Primary, view.Badge, view.Tooltip));
+        CollectionAssert.AreEqual(new MenuCommand?[] { MenuCommand.Settings, null, MenuCommand.Quit },
+            Companion.Menu(English, stopped, view, true).Select(entry => entry.Command).ToArray(), "Restart would race the switch");
+        Assert.IsNull(SettingsPanel.Problem(stopped, false, false, restarting: true));
+        Assert.IsNotNull(SettingsPanel.Problem(stopped, false, false), "without a switch, a stopped engine is a problem");
+        Assert.AreEqual(MenuCommand.Restart, Companion.Menu(English, stopped, View(stopped), true)[1].Command);
+    }
+
+    [TestMethod]
     public void TheMenuPutsTheBoldDefaultFirstAndQuitLastAndLeavesOutWhatDoesNotApply()
     {
         MenuCommand?[] Commands(IReadOnlyList<MenuEntry> menu) => menu.Select(entry => entry.Command).ToArray();

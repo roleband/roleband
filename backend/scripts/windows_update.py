@@ -175,13 +175,17 @@ def main(argv: list[str] | None = None) -> int:
             # The way back is kept first: without it the update could not be undone.
             retain_running(args.state, identity, running_version())
         except (OSError, HTTPError, ReleaseError) as error:
-            print(json.dumps({"status": "failed", "reason": "The installed version's package could not be kept, "
+            print(json.dumps({"status": "failed", "kind": "download", "reason": "The installed version's package could not be kept, "
                               f"so this update could not be undone. Try again later. ({error})"}))
             return 1
         try:
             path = download(args.state, identity, stored[0], stored[1], running_version())
-        except (OSError, HTTPError, ReleaseError) as error:
-            print(json.dumps({"status": "failed", "reason": str(error)}))
+        except ReleaseError as error:
+            # The bytes arrived but are not the signed release: nothing to resume, and nothing may be installed.
+            print(json.dumps({"status": "failed", "kind": "check", "reason": str(error)}))
+            return 1
+        except (OSError, HTTPError) as error:
+            print(json.dumps({"status": "failed", "kind": "download", "reason": str(error)}))
             return 1
         print(json.dumps({"status": "downloaded", "package": str(path), "offer": dataclasses.asdict(stored[0])}))
         return 0

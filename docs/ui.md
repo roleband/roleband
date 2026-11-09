@@ -162,8 +162,17 @@ it: a task turned off in Startup apps says so with a link there, one set by poli
 policy's value and cannot be changed, and a copy without a package has no startup task and no row.
 In your browser opens Scan times and All settings. About names where the scan history is kept, that
 uninstalling keeps it, and opens it in File Explorer, with the version, the licence and the logs
-folder. The notices switch and the update banner come with Windows notifications and the update
-feed.
+folder. The notices switch comes with Windows notifications.
+
+**Updating.** An offer puts Update, the gold press, beside Check for updates, and adds its line with
+Update to the flyout's summary while scanning runs. Update is the only press: the card's title
+follows the download and the switch, and Windows closes the app, installs the verified version and
+opens it again, even during a scan. While Windows replaces the app its stopped engine is that
+replacement: the flyout says Restarting to update, Settings shows no problem, and the menu has no
+Restart. A failure names its step (the download, the check of the signed release, or Windows'
+switch), says nothing was installed where that is so, and offers Try again; a newer offer replaces
+it. The next open says Updated to, or Back on after Undo, in the card until a newer offer arrives;
+the flyout keeps only offers, steps and failures.
 
 **First open.** A small setup window of three steps, as Windows' own setup counts them, with Back
 on the left and the way forward on the right. Welcome holds the engine: nothing runs before

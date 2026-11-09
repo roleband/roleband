@@ -18,8 +18,9 @@ public sealed record MenuEntry(MenuCommand? Command, string Text, bool Default =
     public bool IsSeparator => Command is null && Items is null;
 }
 
-/// <summary>One summary line. A line with a link ends with it, after a middle dot.</summary>
-public sealed record FlyoutLine(string Text, string? Link = null, BrowserRoute? Opens = null);
+/// <summary>One summary line. A line with a link ends with it, after a middle dot; the link opens a page in the
+/// browser, or, with <paramref name="Updates"/>, installs the offered update.</summary>
+public sealed record FlyoutLine(string Text, string? Link = null, BrowserRoute? Opens = null, bool Updates = false);
 
 public enum FlyoutPrimary { OpenRadar, Restart }
 
@@ -53,10 +54,16 @@ public static class Companion
     /// <summary>The flyout lists this many companies in flight by name; the rest are counted.</summary>
     public const int NamedCompanies = 3;
 
+    /// <param name="update">The update line: an offer, a download or a failure follows the summary while scanning runs;
+    /// while Windows replaces the app, the stopped engine is that replacement, not a problem.</param>
     public static FlyoutView View(NativeCopy copy, EngineSnapshot engine, ScanStatus? status, ScanAction? requested,
-                                  DateTimeOffset? lastScanAt, bool setupComplete, DateTimeOffset now)
+                                  DateTimeOffset? lastScanAt, bool setupComplete, DateTimeOffset now, FlyoutUpdate? update = null)
     {
+        if (update is { Restarting: true })
+            return new FlyoutView(update.Line.Text, null, null, null, true, [], FlyoutPrimary.OpenRadar, false, null,
+                null, null, PauseControl.None, false, TrayBadge.Scanning, Tip(update.Line.Text));
         var view = Summary(copy, engine, status, requested, lastScanAt, now);
+        if (update is not null && engine.State == EngineState.Ready) view = view with { Lines = [.. view.Lines, update.Line] };
         if (!setupComplete && view.Badge != TrayBadge.Stopped)
             view = view with { Badge = TrayBadge.Attention, Tooltip = Tip(copy["setup-pending"]) };
         return view;
@@ -214,6 +221,8 @@ public static class Companion
     {
         var quit = new MenuEntry(MenuCommand.Quit, copy["windows-quit"]);
         var settings = new MenuEntry(MenuCommand.Settings, copy["settings"]);
+        // A stopped engine's summary is never busy; one that is, is Windows replacing the app, which Restart would race.
+        if (view.Busy && engine.State is EngineState.Stopped or EngineState.Attention) return [settings, MenuEntry.Separator, quit];
         switch (Default(engine, setupComplete))
         {
             case DefaultCommand.Setup:
@@ -262,9 +271,10 @@ public static class SettingsPanel
 
     /// <param name="held">Setup holds the engine until Welcome's Continue: that is not a stop, and Restart would
     /// start what setup holds.</param>
-    public static SettingsProblem? Problem(EngineSnapshot engine, bool updateFailed, bool held)
+    /// <param name="restarting">Windows is replacing the app for an update, which stops the engine on purpose.</param>
+    public static SettingsProblem? Problem(EngineSnapshot engine, bool updateFailed, bool held, bool restarting = false)
     {
-        if (held) return null;
+        if (held || restarting) return null;
         if (updateFailed && engine.State != EngineState.Ready) return new("update-stopped-title", "update-stopped-body", true, true);
         return engine.State switch
         {

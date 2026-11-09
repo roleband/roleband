@@ -14,7 +14,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from tracker.platform import windows_updates
-from tracker.platform.windows_release import Identity, names, prepare
+from tracker.platform.windows_release import Identity, ReleaseError, names, prepare
 from tracker.platform.windows_updates import AUTOMATIC_INTERVAL, check, record_consent
 
 FEED = "roleband/roleband-trials"
@@ -313,6 +313,44 @@ def test_status_reads_what_checks_kept_without_asking_the_feed(state, identity, 
     run(state, identity, feed, manual=True, now=NOW + 1)
     assert windows_updates.status(state, identity, "0.1.2")["rate_limited_until"] == NOW + 121
     assert len(feed.requests) == asked + 1, "only the rate-limited check asked"
+
+
+@windows_only
+@pytest.mark.parametrize(("failure", "step", "kind"), [
+    (ReleaseError("The download is not the signed release"), "download", "check"),
+    (OSError("The connection was reset"), "download", "download"),
+    (httpx.ConnectError("offline"), "download", "download"),
+    (ReleaseError("The installed version's release is not signed by this key"), "retain", "download"),
+])
+def test_a_failed_download_says_whether_the_package_failed_its_check(state, identity, feed, monkeypatch, capsys,
+                                                                       failure, step, kind):
+    import base64
+
+    from scripts import windows_update
+    from tracker.platform import releases, windows_packages
+    from tracker.platform.windows_private import private_directory
+
+    private_directory(state)
+    feed.publish("0.1.3")
+    run(state, identity, feed, manual=True)
+    stamped = state.parent / "release-identity.json"
+    stamped.write_text(json.dumps({"format": 1, "feed": identity.feed,
+                                   "release_public_key": base64.b64encode(identity.release_key).decode(),
+                                   "package_name": identity.package_name, "publisher": identity.publisher}), encoding="utf-8")
+    monkeypatch.setattr(windows_update, "identity_path", lambda: stamped)
+    monkeypatch.setattr(releases, "running_version", lambda *_: "0.1.2")
+    monkeypatch.setenv("ROLEBAND_STATE_DIR", str(state))
+    downloads = []
+
+    def fail(*_args, **_kwargs):
+        raise failure
+
+    monkeypatch.setattr(windows_packages, "retain_running", fail if step == "retain" else lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(windows_packages, "download", fail if step == "download" else lambda *args, **_kwargs: downloads.append(args))
+    assert windows_update.main(["download", "--state", str(state)]) == 1
+    answer = json.loads(capsys.readouterr().out)
+    assert (answer["status"], answer["kind"]) == ("failed", kind)
+    assert not downloads, "without the way back, the update is not downloaded"
 
 
 @windows_only

@@ -47,6 +47,7 @@ internal sealed class TrayApp
 
     // Settings.
     private UpdateFacts? updateFacts;
+    private UpdateRun? updateRun;
     private bool updateChecking, updateChoosing, settingsLoginError;
     private string? lastUpdateResult, settingsError;
     private DateTimeOffset nextAutomaticCheck = DateTimeOffset.MinValue;
@@ -63,6 +64,7 @@ internal sealed class TrayApp
         flyout.Scan += async action => await ScanAsync(action);
         flyout.Pause += async action => await PauseAsync(action);
         flyout.QuitRequested += async () => await QuitAsync();
+        flyout.UpdateRequested += async () => await UpdateNowAsync();
         try
         {
             tray = new TrayIcon(flyout.Handle, Menu);
@@ -190,7 +192,8 @@ internal sealed class TrayApp
             return new FlyoutView(title, null, null, null, false, launchFailure is null ? [] : [new FlyoutLine(launchFailure)],
                 FlyoutPrimary.Restart, false, null, null, null, PauseControl.None, true, TrayBadge.Stopped, Companion.Tip(title));
         }
-        return Companion.View(copy, engine.Snapshot, scanStatus, requested, lastScanAt, setup.Complete, DateTimeOffset.Now);
+        return Companion.View(copy, engine.Snapshot, scanStatus, requested, lastScanAt, setup.Complete, DateTimeOffset.Now,
+            AboutPanel.Flyout(copy, updates is null ? UpdateFacts.Unavailable : updateFacts, updateRun));
     }
 
     private void Render(EngineSnapshot snapshot)
@@ -253,6 +256,7 @@ internal sealed class TrayApp
             window.OpenLicences += () => { if (licence is not null) Launch(licence); };
             window.OpenStartupApps += () => Launch("ms-settings:startupapps");
             window.CheckUpdates += async () => await CheckUpdatesAsync(manual: true);
+            window.UpdateNow += async () => await UpdateNowAsync();
             window.AutomaticChanged += async automatic => await ChooseAutomaticAsync(automatic);
             window.LoginChanged += async enabled => await SetLoginAsync(enabled);
             window.Open += async route => await OpenRadarAsync(route);
@@ -281,9 +285,10 @@ internal sealed class TrayApp
         var snapshot = engine?.Snapshot;
         var facts = updates is null ? UpdateFacts.Unavailable : updateFacts;
         settings.Render(new SettingsState(
-            snapshot is null ? SettingsPanel.LaunchFailed : SettingsPanel.Problem(snapshot, updateFailed, SetupFlow.EngineHeld(setup)),
+            snapshot is null ? SettingsPanel.LaunchFailed
+                : SettingsPanel.Problem(snapshot, updateFailed, SetupFlow.EngineHeld(setup), updateRun is { Step: UpdateStep.Restarting }),
             snapshot?.Diagnostic ?? launchFailure,
-            AboutPanel.Updates(copy, facts, updateChecking, lastUpdateResult, DateTimeOffset.Now),
+            AboutPanel.Updates(copy, facts, updateChecking, lastUpdateResult, DateTimeOffset.Now, updateRun),
             AboutPanel.Login(login, loginBusy),
             settingsLoginError,
             snapshot is not null && TrayModel.For(snapshot).CanOpenRadar,
@@ -309,7 +314,9 @@ internal sealed class TrayApp
 
     private async Task CheckUpdatesAsync(bool manual)
     {
-        if (updates is null || updateChecking) return;
+        if (updates is null || updateChecking || updateRun is { InProgress: true }) return;
+        // A check asked for by hand starts a new look: the last update's result or failure gives way to what it finds.
+        if (manual) updateRun = null;
         if (!manual)
         {
             // Without the choice, an automatic check would only be refused; read the kept state instead.
@@ -348,6 +355,43 @@ internal sealed class TrayApp
         updateChoosing = false;
         RenderSettings();
         if (automatic && updateFacts is { Automatic: true }) await CheckUpdatesAsync(manual: false);
+    }
+
+    /// <summary>Update, the only press an update needs: download and verify the offered version, then let Windows replace
+    /// this version with it and open it again. A download or a switch that fails leaves this version running.</summary>
+    private async Task UpdateNowAsync()
+    {
+        if (engine is null || updates is null || updateRun is { InProgress: true } || updateFacts?.Offer is not { } version) return;
+        updateRun = new UpdateRun(UpdateStep.Downloading, version);
+        RenderUpdate();
+        string? package;
+        try { (updateRun, package) = UpdateRun.Downloaded(await updates.DownloadAsync(), version); }
+        catch (Exception error)
+        {
+            Debug.WriteLine(error);
+            (updateRun, package) = (new UpdateRun(UpdateStep.DownloadFailed, version), null);
+        }
+        RenderUpdate();
+        if (package is null) return;
+        try
+        {
+            // Windows closes this version once the new one is in place, and opens it again.
+            await updates.ApplyAsync(engine, package);
+        }
+        catch (Exception error)
+        {
+            Debug.WriteLine(error);
+            updateRun = new UpdateRun(UpdateStep.RestartFailed, version);
+            RenderUpdate();
+            // The switch stopped the engine first; nothing was installed, so this version carries on.
+            await StartAsync();
+        }
+    }
+
+    private void RenderUpdate()
+    {
+        RenderFlyout();
+        RenderSettings();
     }
 
     private async Task UndoUpdateAsync()
@@ -492,6 +536,12 @@ internal sealed class TrayApp
             {
                 updateFailed = true;
                 OpenSettings();
+            }
+            else if (phase is "complete" or "recovered")
+            {
+                var running = AboutPanel.Version(configuration?.Version ?? "", Native.PackageVersion());
+                updateRun = new UpdateRun(phase == "complete" ? UpdateStep.Updated : UpdateStep.RolledBack, running);
+                RenderSettings();
             }
         }
         catch (Exception error)

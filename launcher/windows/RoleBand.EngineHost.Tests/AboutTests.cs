@@ -69,6 +69,94 @@ public sealed class AboutTests
         Assert.AreEqual((UpdateRowKind.Unavailable, false, false), (unavailable.Kind, unavailable.CanCheck, unavailable.AutomaticEnabled));
     }
 
+    private static (UpdateRun Run, string? Package) Downloaded(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        return UpdateRun.Downloaded(document.RootElement, "0.1.12");
+    }
+
+    [TestMethod]
+    public void ADownloadLeadsToTheSwitchOnlyWithAVerifiedPackage()
+    {
+        Assert.AreEqual((new UpdateRun(UpdateStep.Restarting, "0.1.12"), @"C:\state\packages\RoleBand-0.1.12-Windows-x64.msix"),
+            Downloaded("""{"status":"downloaded","package":"C:\\state\\packages\\RoleBand-0.1.12-Windows-x64.msix","offer":{"version":"0.1.12"}}"""));
+        Assert.AreEqual((new UpdateRun(UpdateStep.CheckFailed, "0.1.12"), (string?)null),
+            Downloaded("""{"status":"failed","kind":"check","reason":"The download is not the signed release"}"""));
+        Assert.AreEqual((new UpdateRun(UpdateStep.DownloadFailed, "0.1.12"), (string?)null),
+            Downloaded("""{"status":"failed","kind":"download","reason":"offline"}"""));
+        Assert.AreEqual(UpdateStep.DownloadFailed, Downloaded("""{"status":"no-offer"}""").Run.Step);
+        Assert.AreEqual(UpdateStep.DownloadFailed, Downloaded("""{"status":"downloaded"}""").Run.Step, "no package, nothing to install");
+        Assert.AreEqual(UpdateStep.DownloadFailed, Downloaded("[]").Run.Step);
+    }
+
+    [TestMethod]
+    public void UpdateIsThePressThatInstallsTheOfferAndItsStepsReplaceIt()
+    {
+        var copy = new NativeCopy("en");
+        var offer = new UpdateFacts(true, false, Now.AddMinutes(-1), "0.1.12", null);
+        var offered = AboutPanel.Updates(copy, offer, false, null, Now);
+        Assert.AreEqual((UpdateRowKind.Offered, "Update", true), (offered.Kind, offered.Action, offered.CanCheck));
+        Assert.IsNull(AboutPanel.Updates(copy, offer with { Offer = null }, false, null, Now).Action, "no offer, nothing to install");
+
+        var downloading = AboutPanel.Updates(copy, offer, false, null, Now, new UpdateRun(UpdateStep.Downloading, "0.1.12"));
+        Assert.AreEqual((UpdateRowKind.Downloading, "Downloading 0.1.12", (string?)null, false, true),
+            (downloading.Kind, downloading.Title, downloading.Action, downloading.CanCheck, downloading.Busy));
+        var restarting = AboutPanel.Updates(copy, offer, true, null, Now, new UpdateRun(UpdateStep.Restarting, "0.1.12"));
+        Assert.AreEqual((UpdateRowKind.Restarting, "Restarting to update", (string?)null, false),
+            (restarting.Kind, restarting.Title, restarting.Action, restarting.CanCheck), "a switch under way outranks a check");
+    }
+
+    [TestMethod]
+    public void AFailedUpdateSaysWhichStepFailedAndOffersToTryAgain()
+    {
+        var copy = new NativeCopy("en");
+        var offer = new UpdateFacts(true, false, Now.AddMinutes(-1), "0.1.12", null);
+        var download = AboutPanel.Updates(copy, offer, false, null, Now, new UpdateRun(UpdateStep.DownloadFailed, "0.1.12"));
+        Assert.AreEqual((UpdateRowKind.UpdateFailed, "Couldn't download 0.1.12", "The server didn't answer.", "Try again", true),
+            (download.Kind, download.Title, download.Caption, download.Action, download.CanCheck));
+        var check = AboutPanel.Updates(copy, offer, false, null, Now, new UpdateRun(UpdateStep.CheckFailed, "0.1.12"));
+        Assert.AreEqual(("0.1.12 failed its check", "Nothing was installed."), (check.Title, check.Caption));
+        var restart = AboutPanel.Updates(copy, offer, false, null, Now, new UpdateRun(UpdateStep.RestartFailed, "0.1.12"));
+        Assert.AreEqual(("Couldn't restart", "Nothing was installed.", "Try again"), (restart.Title, restart.Caption, restart.Action));
+        var newer = AboutPanel.Updates(copy, offer with { Offer = "0.1.13" }, false, null, Now, new UpdateRun(UpdateStep.DownloadFailed, "0.1.12"));
+        Assert.AreEqual((UpdateRowKind.Offered, "Version 0.1.13 is ready"), (newer.Kind, newer.Title), "a newer offer replaces the failure");
+    }
+
+    [TestMethod]
+    public void TheNextOpenSaysHowTheUpdateEndedUntilANewerOfferArrives()
+    {
+        var copy = new NativeCopy("en");
+        var current = new UpdateFacts(true, false, Now.AddMinutes(-1), null, null);
+        var updated = AboutPanel.Updates(copy, current, false, null, Now, new UpdateRun(UpdateStep.Updated, "0.1.12"));
+        Assert.AreEqual((UpdateRowKind.Updated, "Updated to 0.1.12", (string?)null), (updated.Kind, updated.Title, updated.Action));
+        StringAssert.StartsWith(updated.Caption, "Checked ");
+        var back = AboutPanel.Updates(copy, current, false, null, Now, new UpdateRun(UpdateStep.RolledBack, "0.1.11"));
+        Assert.AreEqual("Back on 0.1.11", back.Title);
+        Assert.AreEqual(UpdateRowKind.Offered,
+            AboutPanel.Updates(copy, current with { Offer = "0.1.13" }, false, null, Now, new UpdateRun(UpdateStep.Updated, "0.1.12")).Kind);
+        Assert.AreEqual(UpdateRowKind.Failed, AboutPanel.Updates(copy, current, false, "failed", Now, new UpdateRun(UpdateStep.Updated, "0.1.12")).Kind,
+            "a failed check after the update is said");
+    }
+
+    [TestMethod]
+    public void TheFlyoutCarriesTheOfferAndItsStepsButNotTheResult()
+    {
+        var copy = new NativeCopy("en");
+        var offer = new UpdateFacts(true, false, Now, "0.1.12", null);
+        Assert.AreEqual(new FlyoutUpdate(new FlyoutLine("Version 0.1.12 is ready", "Update", Updates: true), false),
+            AboutPanel.Flyout(copy, offer, null));
+        Assert.AreEqual(new FlyoutUpdate(new FlyoutLine("Downloading 0.1.12"), false),
+            AboutPanel.Flyout(copy, offer, new UpdateRun(UpdateStep.Downloading, "0.1.12")));
+        Assert.AreEqual(new FlyoutUpdate(new FlyoutLine("Restarting to update"), true),
+            AboutPanel.Flyout(copy, offer, new UpdateRun(UpdateStep.Restarting, "0.1.12")));
+        Assert.AreEqual(new FlyoutUpdate(new FlyoutLine("Couldn't download 0.1.12", "Try again", Updates: true), false),
+            AboutPanel.Flyout(copy, offer, new UpdateRun(UpdateStep.DownloadFailed, "0.1.12")));
+        Assert.IsNull(AboutPanel.Flyout(copy, offer with { Offer = null }, new UpdateRun(UpdateStep.Updated, "0.1.12")));
+        Assert.IsNull(AboutPanel.Flyout(copy, offer with { Offer = null }, null));
+        Assert.IsNull(AboutPanel.Flyout(copy, UpdateFacts.Unavailable, null), "a build that does not update itself says nothing");
+        Assert.IsNull(AboutPanel.Flyout(copy, null, null));
+    }
+
     [TestMethod]
     public void TheChoiceIsRecordedInItsPinnedEnglishWordsWhateverTheLanguage()
     {
@@ -99,13 +187,16 @@ public sealed class AboutTests
         {
             var copy = new NativeCopy(language);
             var texts = new List<string>();
+            UpdateRun?[] runs = [null, .. Enum.GetValues<UpdateStep>().Select(step => new UpdateRun(step, "0.1.3"))];
             foreach (var fact in facts)
             foreach (var result in new[] { null, "failed", "rate-limited" })
             foreach (var checking in new[] { false, true })
+            foreach (var run in runs)
             {
-                var row = AboutPanel.Updates(copy, fact, checking, result, Now);
+                var row = AboutPanel.Updates(copy, fact, checking, result, Now, run);
                 texts.Add(row.Title);
                 if (row.Caption is { } caption) texts.Add(caption);
+                if (row.Action is { } action) texts.Add(action);
             }
             foreach (var state in Enum.GetValues<LoginState>()) texts.Add(copy[AboutPanel.Login(state, false).CaptionKey]);
             foreach (var key in new[] { "panel-scan", "panel-settings", "panel-about", "windows-on-pc", "panel-in-browser", "first-login-toggle",

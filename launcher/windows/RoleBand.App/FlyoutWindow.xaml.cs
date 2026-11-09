@@ -30,7 +30,7 @@ public sealed partial class FlyoutWindow : Window
     private bool closing;
     private bool focused;
 
-    public event Action? OpenRadar, Restart, OpenSettings, QuitRequested;
+    public event Action? OpenRadar, Restart, OpenSettings, QuitRequested, UpdateRequested;
     public event Action<ScanAction>? Scan;
     public event Action<PauseAction>? Pause;
     public event Action<BrowserRoute>? Open;
@@ -270,13 +270,17 @@ public sealed partial class FlyoutWindow : Window
                 text.FontSize = 12;
                 text.Foreground = Brush("TextFillColorSecondaryBrush");
             }
-            if (line.Link is { } words && line.Opens is { } route)
+            if (line.Link is { } words && (line.Opens is not null || line.Updates))
             {
                 text.Inlines.Add(new Run { Text = line.Text + " · " });
                 var link = new Hyperlink();
                 link.Inlines.Add(new Run { Text = words });
-                link.Click += (_, _) => Open?.Invoke(route);
-                ToolTipService.SetToolTip(text, copy["scan-new-roles-open"]);
+                if (line.Opens is { } route)
+                {
+                    link.Click += (_, _) => Open?.Invoke(route);
+                    ToolTipService.SetToolTip(text, copy["scan-new-roles-open"]);
+                }
+                else link.Click += (_, _) => UpdateRequested?.Invoke();
                 text.Inlines.Add(link);
             }
             else text.Text = line.Text;
