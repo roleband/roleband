@@ -94,6 +94,8 @@ public sealed class TrayArtTests
         // Slid away, Windows reports it mostly off the display: its full thickness still counts.
         var hidden = new Box(0, 1078, 1920, 48);
         Assert.AreEqual((1362, 614), FlyoutPlacement.Place(Display, Display, 1800, 1079, 540, 400, 18, hidden));
+        var away = new Box(0, 1080, 1920, 48);
+        Assert.AreEqual((1362, 614), FlyoutPlacement.Place(Display, Display, 1800, 1079, 540, 400, 18, away));
         Assert.AreEqual((66, 662), FlyoutPlacement.Place(Display, Display, 3, 1040, 540, 400, 18, new Box(0, 0, 48, 1080)));
         Assert.AreEqual((1362, 66), FlyoutPlacement.Place(Display, Display, 1800, 3, 540, 400, 18, new Box(0, 0, 1920, 48)));
         Assert.AreEqual((1314, 662), FlyoutPlacement.Place(Display, Display, 1917, 1040, 540, 400, 18, new Box(1872, 0, 48, 1080)));

@@ -9,7 +9,8 @@ public sealed class AboutTests
     [TestMethod]
     public void AnInstalledPackageShowsItsOwnVersionAndASourceRunTheEngines()
     {
-        Assert.AreEqual("0.1.4.0", AboutPanel.Version("0.1.2", (0, 1, 4, 0)));
+        Assert.AreEqual("0.1.4", AboutPanel.Version("0.1.2", (0, 1, 4, 0)));
+        Assert.AreEqual("0.1.1.5", AboutPanel.Version("0.1.2", (0, 1, 1, 5)));
         Assert.AreEqual("0.1.2", AboutPanel.Version("0.1.2", null));
     }
 

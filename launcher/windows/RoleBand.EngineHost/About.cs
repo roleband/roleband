@@ -52,10 +52,12 @@ public static class AboutPanel
     public static string AutomaticLabel => ConsentText();
 
     /// <param name="lastResult">The status of this session's last check, if any.</param>
-    /// <summary>The version Settings shows: an installed package's own, as Windows' installer and Apps settings
-    /// show it, else the engine's. A trial's package version counts its builds and differs from the engine's.</summary>
+    /// <summary>The version Settings shows: an installed package's own, else the engine's. A release package is its
+    /// release version with a zero revision and shows as that release, like the update offers; a trial's package
+    /// version counts its builds and differs from the engine's.</summary>
     public static string Version(string engineVersion, (ushort Major, ushort Minor, ushort Build, ushort Revision)? package) =>
-        package is { } v ? $"{v.Major}.{v.Minor}.{v.Build}.{v.Revision}" : engineVersion;
+        package is not { } v ? engineVersion
+        : v.Revision == 0 ? $"{v.Major}.{v.Minor}.{v.Build}" : $"{v.Major}.{v.Minor}.{v.Build}.{v.Revision}";
 
     public static UpdateRow Updates(NativeCopy copy, UpdateFacts? facts, bool checking, string? lastResult, DateTimeOffset now)
     {

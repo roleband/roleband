@@ -8,9 +8,9 @@
         <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
         <ResourceDictionary>
           <!-- Gold is RoleBand's accent: the primary button, switches that are on, links and accent text.
-               Framed windows layer neutral surfaces: a darker title bar (Native.Dress), a solid body with no
-               wallpaper tint, and cards inset from the body without outlines. High contrast keeps the
-               system's colours. -->
+               Framed windows layer neutral surfaces: a darker title bar (RoleBandFrame*, drawn by Native.Dress),
+               a solid body with no wallpaper tint, and cards inset from the body without outlines; every
+               window's edge is the divider colour. High contrast keeps the system's colours. -->
           <ResourceDictionary.ThemeDictionaries>
             <ResourceDictionary x:Key="Light">
               <SolidColorBrush x:Key="AccentButtonBackground" Color="#6A5C16" />
@@ -21,6 +21,11 @@
               <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="#F2EEDC" />
               <SolidColorBrush x:Key="RoleBandGold" Color="#6A5C16" />
               <SolidColorBrush x:Key="RoleBandSurface" Color="#FFFFFF" />
+              <SolidColorBrush x:Key="RoleBandFrame" Color="#E8EAED" />
+              <SolidColorBrush x:Key="RoleBandFrameInk" Color="#1F1F1F" />
+              <SolidColorBrush x:Key="RoleBandFrameInactiveInk" Color="#707070" />
+              <SolidColorBrush x:Key="RoleBandFrameHover" Color="#D6D9DD" />
+              <SolidColorBrush x:Key="RoleBandFramePressed" Color="#C8CCD1" />
               <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="#F1F3F4" />
               <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="Transparent" />
               <SolidColorBrush x:Key="DividerStrokeColorDefaultBrush" Color="#DADCE0" />
@@ -45,6 +50,11 @@
               <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="#1A1705" />
               <SolidColorBrush x:Key="RoleBandGold" Color="#DBCB90" />
               <SolidColorBrush x:Key="RoleBandSurface" Color="#3C3C3C" />
+              <SolidColorBrush x:Key="RoleBandFrame" Color="#202020" />
+              <SolidColorBrush x:Key="RoleBandFrameInk" Color="#FFFFFF" />
+              <SolidColorBrush x:Key="RoleBandFrameInactiveInk" Color="#9A9A9A" />
+              <SolidColorBrush x:Key="RoleBandFrameHover" Color="#3C3C3C" />
+              <SolidColorBrush x:Key="RoleBandFramePressed" Color="#4A4A4A" />
               <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="#282828" />
               <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="Transparent" />
               <SolidColorBrush x:Key="DividerStrokeColorDefaultBrush" Color="#4A4A4A" />
@@ -68,6 +78,7 @@
               <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="{ThemeResource SystemColorHighlightTextColor}" />
               <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="{ThemeResource SystemColorHighlightTextColor}" />
               <SolidColorBrush x:Key="RoleBandGold" Color="{ThemeResource SystemColorHighlightColor}" />
+              <SolidColorBrush x:Key="RoleBandSurface" Color="{ThemeResource SystemColorWindowColor}" />
             </ResourceDictionary>
           </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>

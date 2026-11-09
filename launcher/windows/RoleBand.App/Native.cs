@@ -1,6 +1,7 @@
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using System.Runtime.InteropServices;
 
@@ -74,26 +75,29 @@ internal static class Native
             var handle = WinRT.Interop.WindowNative.GetWindowHandle(window);
             void Frame()
             {
-                var dark = root.ActualTheme == ElementTheme.Dark ? 1 : 0;
-                const int ImmersiveDarkMode = 20;
-                DwmSetWindowAttribute(handle, ImmersiveDarkMode, ref dark, sizeof(int));
-                // Windows' own edge for a window is a light line; this one is the dividers' tone (App.xaml).
-                var edge = dark == 1 ? 0x004A4A4A : 0x00E0DCDA;
-                const int BorderColor = 34;
-                DwmSetWindowAttribute(handle, BorderColor, ref edge, sizeof(int));
+                var dark = root.ActualTheme == ElementTheme.Dark;
+                var immersiveDark = dark ? 1 : 0;
+                DwmSetWindowAttribute(handle, ImmersiveDarkMode, ref immersiveDark, sizeof(int));
+                // A contrast theme's colours are the person's choice, so Windows keeps drawing that frame.
+                var contrast = HighContrast();
+                var edge = contrast ? DefaultColour : ColourRef(Palette("DividerStrokeColorDefaultBrush", dark));
+                DwmSetWindowAttribute(handle, BorderColour, ref edge, sizeof(int));
                 if (!AppWindowTitleBar.IsCustomizationSupported()) return;
-                // The title bar is one step darker than the window's body (App.xaml's RoleBandSurface), so it reads as
-                // a bar of its own; its buttons share its colour and light up on hover like the body's controls.
-                var (bar, ink, muted, hover, pressed) = dark == 1
-                    ? (Rgb(0x20, 0x20, 0x20), Rgb(0xFF, 0xFF, 0xFF), Rgb(0x9A, 0x9A, 0x9A), Rgb(0x3C, 0x3C, 0x3C), Rgb(0x4A, 0x4A, 0x4A))
-                    : (Rgb(0xE8, 0xEA, 0xED), Rgb(0x1F, 0x1F, 0x1F), Rgb(0x70, 0x70, 0x70), Rgb(0xD6, 0xD9, 0xDD), Rgb(0xC8, 0xCC, 0xD1));
                 var title = window.AppWindow.TitleBar;
+                if (contrast)
+                {
+                    title.ResetToDefault();
+                    return;
+                }
+                var bar = Palette("RoleBandFrame", dark);
+                var ink = Palette("RoleBandFrameInk", dark);
+                var inactive = Palette("RoleBandFrameInactiveInk", dark);
                 title.BackgroundColor = title.InactiveBackgroundColor = bar;
                 title.ButtonBackgroundColor = title.ButtonInactiveBackgroundColor = bar;
                 title.ForegroundColor = title.ButtonForegroundColor = title.ButtonHoverForegroundColor = title.ButtonPressedForegroundColor = ink;
-                title.InactiveForegroundColor = title.ButtonInactiveForegroundColor = muted;
-                title.ButtonHoverBackgroundColor = hover;
-                title.ButtonPressedBackgroundColor = pressed;
+                title.InactiveForegroundColor = title.ButtonInactiveForegroundColor = inactive;
+                title.ButtonHoverBackgroundColor = Palette("RoleBandFrameHover", dark);
+                title.ButtonPressedBackgroundColor = Palette("RoleBandFramePressed", dark);
             }
             Frame();
             root.ActualThemeChanged += (_, _) => Frame();
@@ -104,7 +108,32 @@ internal static class Native
         else mark.Visibility = Visibility.Collapsed;
     }
 
-    private static Windows.UI.Color Rgb(byte r, byte g, byte b) => Windows.UI.Color.FromArgb(0xFF, r, g, b);
+    private const int ImmersiveDarkMode = 20, BorderColour = 34;
+    /// <summary>DWMWA_COLOR_DEFAULT: Windows chooses the edge.</summary>
+    private const int DefaultColour = unchecked((int)0xFFFFFFFF);
+
+    /// <summary>A colour of App.xaml's light or dark theme dictionary, the one palette the windows and their frames share.</summary>
+    private static Windows.UI.Color Palette(string key, bool dark)
+    {
+        foreach (var dictionary in Application.Current.Resources.MergedDictionaries)
+        {
+            if (dictionary.ThemeDictionaries.TryGetValue(dark ? "Default" : "Light", out var theme)
+                && ((ResourceDictionary)theme).TryGetValue(key, out var brush))
+                return ((SolidColorBrush)brush).Color;
+        }
+        throw new KeyNotFoundException($"App.xaml has no {key} brush.");
+    }
+
+    /// <summary>Whether a contrast theme is on. WinRT's AccessibilitySettings cannot be created in a desktop app.</summary>
+    private static bool HighContrast()
+    {
+        var info = new HighContrastInfo { Size = (uint)Marshal.SizeOf<HighContrastInfo>() };
+        const uint GetHighContrast = 0x42, HighContrastOn = 0x1;
+        return SystemParametersInfo(GetHighContrast, info.Size, ref info, 0) && (info.Flags & HighContrastOn) != 0;
+    }
+
+    /// <summary>A colour as DWM's COLORREF, 0x00BBGGRR.</summary>
+    private static int ColourRef(Windows.UI.Color colour) => colour.R | colour.G << 8 | colour.B << 16;
 
     private static uint DpiOf(nint monitor) => GetDpiForMonitor(monitor, 0, out var dpi, out _) == 0 ? dpi : 96;
 
@@ -123,6 +152,15 @@ internal static class Native
 
     [DllImport("shell32.dll")]
     private static extern nuint SHAppBarMessage(uint message, ref AppBarData data);
+    [StructLayout(LayoutKind.Sequential)]
+    private struct HighContrastInfo
+    {
+        public uint Size, Flags;
+        public nint Scheme;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern bool SystemParametersInfo(uint action, uint parameter, ref HighContrastInfo info, uint update);
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(nint window, int attribute, ref int value, int size);
     [DllImport("user32.dll")]

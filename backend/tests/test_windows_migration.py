@@ -220,7 +220,14 @@ class TestTheEngine:
             if engine.poll() is None:
                 engine.stdin.write("stop\n")
                 engine.stdin.close()
-            output, _ = engine.communicate(timeout=120)
+            try:
+                output, _ = engine.communicate(timeout=120)
+            except subprocess.TimeoutExpired:
+                for child in psutil.Process(engine.pid).children(recursive=True):
+                    child.kill()
+                engine.kill()
+                engine.communicate()
+                raise
         log = (retained / "logs" / "preparation.log").read_text(encoding="utf-8", errors="replace")
         assert ready, (output + log)[-3000:]
         assert _heads(retained) != [PREVIOUS]

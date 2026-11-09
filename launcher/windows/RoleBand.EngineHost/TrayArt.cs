@@ -78,8 +78,7 @@ public static class FlyoutPlacement
     {
         static int Clamp(int value, int low, int high) => high < low ? low : Math.Clamp(value, low, high);
         var edge = Edge(display, work, anchorX, anchorY);
-        if (taskbar is { } bar && bar.Left < display.Right && bar.Right > display.Left
-            && bar.Top < display.Bottom && bar.Bottom > display.Top)
+        if (taskbar is { } bar && Along(bar, display, edge))
         {
             work = edge switch
             {
@@ -99,6 +98,13 @@ public static class FlyoutPlacement
             _ => (Math.Max(work.Left, work.Right - margin - width), y),
         };
     }
+
+    /// <summary>Whether a taskbar lies along this display's edge: it overlaps the display along that edge and may sit
+    /// just outside it across the edge, as Windows reports an auto-hidden taskbar that has slid away. A taskbar on a
+    /// neighbouring display touches this one only at a corner or a side, and does not count.</summary>
+    private static bool Along(Box bar, Box display, TaskbarEdge edge) => edge is TaskbarEdge.Bottom or TaskbarEdge.Top
+        ? bar.Left < display.Right && bar.Right > display.Left && bar.Top <= display.Bottom && bar.Bottom >= display.Top
+        : bar.Top < display.Bottom && bar.Bottom > display.Top && bar.Left <= display.Right && bar.Right >= display.Left;
 
     /// <summary>The part of a box inside the given limits.</summary>
     private static Box Within(Box box, int left = int.MinValue, int top = int.MinValue, int right = int.MaxValue,
