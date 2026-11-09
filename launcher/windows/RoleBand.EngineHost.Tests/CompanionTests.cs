@@ -148,6 +148,24 @@ public sealed class CompanionTests
     }
 
     [TestMethod]
+    public void UndoIsAnsweredAtOnceAndAnOpenDuringItSaysSoInsteadOfAskingAgain()
+    {
+        var stopped = new EngineSnapshot(EngineState.Stopped);
+        var pressed = SettingsPanel.Problem(stopped, true, false, returningTo: "0.1.13", returning: true);
+        Assert.AreEqual(new SettingsProblem("windows-update-undoing", "windows-update-undoing-body", false, false, "0.1.13", true), pressed,
+            "the press shows progress and leaves nothing to press twice");
+        var reopened = SettingsPanel.Problem(stopped, true, false, returningTo: "0.1.13");
+        Assert.AreEqual((true, false, false), (reopened!.Undo, reopened.Busy, reopened.Restart), "opened mid-way, Undo stays one press away");
+        Assert.AreEqual("update-stopped-title", SettingsPanel.Problem(stopped, true, false)!.TitleKey, "a failed update still asks for Undo");
+        foreach (var language in Languages)
+        {
+            var copy = new NativeCopy(language);
+            foreach (var key in new[] { pressed!.TitleKey, pressed.BodyKey! })
+                StringAssert.Contains(copy.Format(key, ("version", "0.1.13")), "0.1.13", $"{language} {key}");
+        }
+    }
+
+    [TestMethod]
     public void WhileWindowsReplacesTheAppTheStoppedEngineIsNotAProblem()
     {
         var restarting = new FlyoutUpdate("Restarting to update", null, null, "0.1.12", true, false, true);

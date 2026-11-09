@@ -185,6 +185,8 @@ launcher-update-stopped-retry-body = 请重试以完成更新。如果再次中�
 launcher-update-stopped-unreadable-body = 这项更新是由此应用的另一个副本启动的，或者无法读取其进度，因此此副本无法完成它。更新日志说明了发生的情况。
 launcher-update-stopped-finder-help = 在访达中显示更新日志
 launcher-update-undo = 撤销更新
+launcher-windows-update-undoing = 正在返回 { $version }
+launcher-windows-update-undoing-body = RoleBand 将关闭并以 { $version } 重新打开，你的数据会回到更新前的状态。
 
 # kind=button
 launcher-notes-title = 新增功能

@@ -103,6 +103,53 @@ def test_the_database_chokepoint_refuses_mid_update(state, tmp_path):
     assert not (state / "db").exists()
 
 
+def _undone(state, tmp_path):
+    from tracker.platform import windows_update_journal as journal
+
+    _begin(state, tmp_path)
+    journal.resume(state, "0.1.3")
+    journal.settle(state, "0.1.3", prepared=False)
+    journal.recover_begin(state, "0.1.3")
+    return journal.recovered(state, "0.1.2")
+
+
+def test_status_says_how_the_last_update_ended_and_holds_back_the_undone_version(state, tmp_path, monkeypatch, capsys):
+    import base64
+
+    from scripts import windows_update
+    from tracker.platform import releases
+    from tracker.platform.windows_release import Identity, prepare
+    from tracker.platform.windows_updates import CHECK
+
+    key = ed25519.Ed25519PrivateKey.generate()
+    identity = Identity("roleband/roleband-trials", key.public_key().public_bytes_raw(), "RoleBand.Windows.Trial",
+                        "CN=RoleBand Windows Trial")
+    built = tmp_path / "built.msix"
+    built.write_bytes(b"PK update 0.1.3" * 100)
+    signed = [path.read_bytes() for path in prepare(built, tmp_path / "release", identity, key, version="0.1.3",
+                                                     revision=0, commit="e" * 40)[1:]]
+    (state / "launcher").mkdir()
+    (state / CHECK).write_text(json.dumps({"offer": dict(zip(("checksum", "metadata", "signature"),
+                                                             (base64.b64encode(part).decode() for part in signed), strict=True))}))
+    stamped = tmp_path / "release-identity.json"
+    stamped.write_text(json.dumps({"format": 1, "feed": identity.feed,
+                                   "release_public_key": base64.b64encode(identity.release_key).decode(),
+                                   "package_name": identity.package_name, "publisher": identity.publisher}))
+    monkeypatch.setattr(windows_update, "identity_path", lambda: stamped)
+    monkeypatch.setattr(releases, "running_version", lambda *_: "0.1.2")
+    monkeypatch.setenv("ROLEBAND_STATE_DIR", str(state))
+
+    def status():
+        assert windows_update.main(["status", "--state", str(state)]) == 0
+        return json.loads(capsys.readouterr().out)
+
+    assert status()["offer"] == "0.1.3", "before any update, the kept offer stands"
+    _undone(state, tmp_path)
+    answer = status()
+    assert answer["update"] == {"phase": "recovered", "from": "0.1.2", "to": "0.1.3", "running": "from"}
+    assert answer["offer"] is None, "the version that was undone is not offered again"
+
+
 def _keeper(state, tmp_path):
     from tracker.platform.windows_packages import download
     from tracker.platform.windows_release import Identity, prepare, verify_offer

@@ -174,8 +174,13 @@ opens it again, even during a scan. While Windows replaces the app its stopped e
 replacement: the flyout says Restarting to update, Settings shows no problem, and the menu has no
 Restart. A failure names its step (the download, the check of the signed release, or Windows'
 switch), says nothing was installed where that is so, and offers Try again; a newer offer replaces
-it. The next open says Updated to, or Back on after Undo, in the card until a newer offer arrives;
-the flyout keeps only offers, steps and failures.
+it. Undo is answered at once: Settings says Returning to the previous version, with progress, and
+that RoleBand closes and opens again on it with the data as it was before the update; the flyout
+says the same, and nothing is left to press twice. Opened while Windows is still putting that
+version back, the app says the same and keeps Undo as a retry. The next open says Updated to, or
+Back on with the undone version and that nothing was lost, read from the update's journal, until
+a newer offer arrives; an undone version is not offered again. The flyout keeps only offers,
+steps, failures and an undo under way.
 
 **First open.** A small setup window of three steps, as Windows' own setup counts them, with Back
 on the left and the way forward on the right. Welcome holds the engine: nothing runs before

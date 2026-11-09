@@ -299,6 +299,26 @@ def test_only_a_check_the_feed_answered_counts_as_checked(state, identity, feed)
     assert windows_updates.status(state, identity, "0.1.2")["checked_at"] == NOW + 4
 
 
+def test_a_check_counts_only_for_the_version_that_made_it(state, identity, feed):
+    feed.publish("0.1.3")
+    run(state, identity, feed, manual=True, installed="0.1.3")
+    assert windows_updates.status(state, identity, "0.1.3")["checked_at"] == NOW
+    assert windows_updates.status(state, identity, "0.1.2")["checked_at"] is None, \
+        "after an Undo, the newer version's 'up to date' says nothing about this one"
+
+
+def test_a_version_this_installation_undid_is_not_offered_again(state, identity, feed):
+    feed.publish("0.1.3")
+    assert run(state, identity, feed, manual=True).offer.version == "0.1.3"
+    assert windows_updates.status(state, identity, "0.1.2", held_back="0.1.3")["offer"] is None, "the kept offer is dropped"
+    assert windows_updates.stored_offer(state, identity, "0.1.2", held_back="0.1.3") is None, "nothing to download"
+    held = check(state, identity, "0.1.2", manual=True, now=NOW + 1, transport=feed.transport, held_back="0.1.3")
+    assert (held.status, held.offer) == ("up-to-date", None)
+    feed.publish("0.1.4")
+    newer = check(state, identity, "0.1.2", manual=True, now=NOW + 2, transport=feed.transport, held_back="0.1.3")
+    assert (newer.status, newer.offer.version) == ("offered", "0.1.4"), "a newer release is offered"
+
+
 def test_status_reads_what_checks_kept_without_asking_the_feed(state, identity, feed):
     assert windows_updates.status(state, identity, "0.1.2") == {
         "automatic": False, "checked_at": None, "offer": None, "rate_limited_until": None}

@@ -48,6 +48,9 @@ internal sealed class TrayApp
     // Settings.
     private UpdateFacts? updateFacts;
     private UpdateRun? updateRun;
+    // An undo returning to this version: pressed in this session, or found unfinished when the app opened.
+    private string? returningTo;
+    private bool returning;
     private bool updateChecking, updateChoosing, settingsLoginError;
     private string? lastUpdateResult, settingsError;
     private DateTimeOffset nextAutomaticCheck = DateTimeOffset.MinValue;
@@ -194,7 +197,7 @@ internal sealed class TrayApp
                 FlyoutPrimary.Restart, false, null, null, null, PauseControl.None, true, TrayBadge.Stopped, Companion.Tip(title));
         }
         return Companion.View(copy, engine.Snapshot, scanStatus, requested, lastScanAt, setup.Complete, DateTimeOffset.Now,
-            AboutPanel.Flyout(copy, updates is null ? UpdateFacts.Unavailable : updateFacts, updateRun));
+            AboutPanel.Flyout(copy, updates is null ? UpdateFacts.Unavailable : updateFacts, updateRun, returningTo));
     }
 
     private void Render(EngineSnapshot snapshot)
@@ -287,7 +290,8 @@ internal sealed class TrayApp
         var facts = updates is null ? UpdateFacts.Unavailable : updateFacts;
         settings.Render(new SettingsState(
             snapshot is null ? SettingsPanel.LaunchFailed
-                : SettingsPanel.Problem(snapshot, updateFailed, SetupFlow.EngineHeld(setup), updateRun is { Step: UpdateStep.Restarting }),
+                : SettingsPanel.Problem(snapshot, updateFailed, SetupFlow.EngineHeld(setup), updateRun is { Step: UpdateStep.Restarting },
+                    returningTo, returning),
             snapshot?.Diagnostic ?? launchFailure,
             AboutPanel.Updates(copy, facts, updateChecking, lastUpdateResult, DateTimeOffset.Now, updateRun),
             AboutPanel.Login(login, loginBusy),
@@ -397,10 +401,23 @@ internal sealed class TrayApp
 
     private async Task UndoUpdateAsync()
     {
-        if (engine is null || updates is null) return;
-        // Windows closes this version and opens the previous one, whose Start restores the database.
+        if (engine is null || updates is null || returning) return;
+        try { updateFacts = await updates.StatusAsync(); }
+        catch (Exception error) { Debug.WriteLine(error); }
+        // The press is answered at once: Windows takes a while to put the previous package back, then closes this
+        // version and opens that one, whose start restores the database.
+        returningTo = updateFacts?.Last?.From ?? returningTo;
+        returning = returningTo is not null;
+        settingsError = null;
+        RenderUpdate();
         try { await updates.ReturnToPreviousAsync(engine); }
-        catch (Exception error) { settingsError = "engine-refused"; Debug.WriteLine(error); RenderSettings(); }
+        catch (Exception error)
+        {
+            returning = false;
+            settingsError = "engine-refused";
+            Debug.WriteLine(error);
+            RenderUpdate();
+        }
     }
 
     // First open.
@@ -533,17 +550,20 @@ internal sealed class TrayApp
         try
         {
             var phase = await updates.StartAsync(engine);
+            if (phase is "failed" or "recovering" or "complete" or "recovered")
+            {
+                // How the update ended, or the undo under way, comes from its journal, as every later open reads it.
+                try { updateFacts = await updates.StatusAsync(); }
+                catch (Exception error) { Debug.WriteLine(error); }
+            }
             if (phase is "failed" or "recovering")
             {
                 updateFailed = true;
+                // Opened while Windows puts the previous version back: say so, rather than ask for Undo again.
+                if (phase == "recovering") returningTo = updateFacts?.Last?.From;
                 OpenSettings();
             }
-            else if (phase is "complete" or "recovered")
-            {
-                var running = AboutPanel.Version(configuration?.Version ?? "", Native.PackageVersion());
-                updateRun = new UpdateRun(phase == "complete" ? UpdateStep.Updated : UpdateStep.RolledBack, running);
-                RenderSettings();
-            }
+            RenderUpdate();
         }
         catch (Exception error)
         {

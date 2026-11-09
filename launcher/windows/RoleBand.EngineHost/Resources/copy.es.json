@@ -124,6 +124,8 @@
   "update-stopped-unreadable-body": "Se inició desde otra copia de la app o no se puede leer su progreso, así que esta copia no puede terminarla. El registro de la actualización explica qué pasó.",
   "update-stopped-finder-help": "Muestra el registro de la actualización en Finder",
   "update-undo": "Deshacer la actualización",
+  "windows-update-undoing": "Volviendo a {version}",
+  "windows-update-undoing-body": "RoleBand se cierra y se vuelve a abrir en {version}, con tus datos como estaban antes de la actualización.",
   "notes-title": "Novedades",
   "notes-installed": "Versión instalada",
   "notes-launcher-behind": "Revisar actualización",

@@ -124,6 +124,8 @@
   "update-stopped-unreadable-body": "这项更新是由此应用的另一个副本启动的，或者无法读取其进度，因此此副本无法完成它。更新日志说明了发生的情况。",
   "update-stopped-finder-help": "在访达中显示更新日志",
   "update-undo": "撤销更新",
+  "windows-update-undoing": "正在返回 {version}",
+  "windows-update-undoing-body": "RoleBand 将关闭并以 {version} 重新打开，你的数据会回到更新前的状态。",
   "notes-title": "新增功能",
   "notes-installed": "已安装版本",
   "notes-launcher-behind": "查看启动器更新",

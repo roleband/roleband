@@ -268,7 +268,9 @@ public static class Companion
 /// <summary>The Settings window's problem banner: a stopped engine with Restart and its logs, an update the
 /// previous run could not finish with Undo, or an app that could not start at all.</summary>
 /// <param name="Restart">The banner offers Restart, which starts the engine again.</param>
-public sealed record SettingsProblem(string TitleKey, string? BodyKey, bool Undo, bool Restart);
+/// <param name="Version">The version its title and body name; an undo under way names the version it returns to.</param>
+/// <param name="Busy">Something is under way that ends with Windows closing the app, so the banner shows progress.</param>
+public sealed record SettingsProblem(string TitleKey, string? BodyKey, bool Undo, bool Restart, string? Version = null, bool Busy = false);
 
 public static class SettingsPanel
 {
@@ -278,9 +280,15 @@ public static class SettingsPanel
     /// <param name="held">Setup holds the engine until Welcome's Continue: that is not a stop, and Restart would
     /// start what setup holds.</param>
     /// <param name="restarting">Windows is replacing the app for an update, which stops the engine on purpose.</param>
-    public static SettingsProblem? Problem(EngineSnapshot engine, bool updateFailed, bool held, bool restarting = false)
+    /// <param name="returningTo">An Undo is returning to this version: Windows replaces the app and opens it again.</param>
+    /// <param name="returning">This session pressed Undo and is waiting for Windows; otherwise the app opened with the undo
+    /// unfinished, and Undo stays one press away in case Windows did not finish it.</param>
+    public static SettingsProblem? Problem(EngineSnapshot engine, bool updateFailed, bool held, bool restarting = false,
+                                           string? returningTo = null, bool returning = false)
     {
         if (held || restarting) return null;
+        if (returningTo is not null)
+            return new("windows-update-undoing", "windows-update-undoing-body", !returning, false, returningTo, returning);
         if (updateFailed && engine.State != EngineState.Ready) return new("update-stopped-title", "update-stopped-body", true, true);
         return engine.State switch
         {

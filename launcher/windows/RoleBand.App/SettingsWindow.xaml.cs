@@ -92,12 +92,20 @@ public sealed partial class SettingsWindow : Window
         rendering = true;
         try
         {
-            ProblemBar.IsOpen = state.Problem is not null;
-            ProblemBar.Severity = state.Problem?.Undo == true ? InfoBarSeverity.Warning : InfoBarSeverity.Error;
-            ProblemBar.Title = state.Problem is { } problem ? copy[problem.TitleKey] : "";
-            ProblemBar.Message = state.Problem?.BodyKey is { } body ? copy[body] : "";
-            RestartButton.Visibility = state.Problem?.Restart == true ? Visibility.Visible : Visibility.Collapsed;
-            UndoButton.Visibility = state.Problem?.Undo == true ? Visibility.Visible : Visibility.Collapsed;
+            var problem = state.Problem;
+            string Words(string key) => problem?.Version is { } version ? copy.Format(key, ("version", version)) : copy[key];
+            ProblemBar.IsOpen = problem is not null;
+            // An undo under way is news, not a fault; a failed update waits on Undo; anything else is an error.
+            ProblemBar.Severity = problem?.Version is not null ? InfoBarSeverity.Informational
+                : problem?.Undo == true ? InfoBarSeverity.Warning : InfoBarSeverity.Error;
+            ProblemBar.Title = problem is not null ? Words(problem.TitleKey) : "";
+            ProblemBar.Message = problem?.BodyKey is { } body ? Words(body) : "";
+            ProblemProgress.Visibility = problem?.Busy == true ? Visibility.Visible : Visibility.Collapsed;
+            RestartButton.Visibility = problem?.Restart == true ? Visibility.Visible : Visibility.Collapsed;
+            UndoButton.Visibility = problem?.Undo == true ? Visibility.Visible : Visibility.Collapsed;
+            // While an undo is already returning to a version, the same press asks Windows again.
+            UndoButton.Content = copy[problem?.Version is not null ? "retry" : "update-undo"];
+            ProblemLogsButton.Visibility = problem?.Busy == true ? Visibility.Collapsed : Visibility.Visible;
             LastLines.Visibility = ProblemBar.IsOpen && !string.IsNullOrWhiteSpace(state.Diagnostic) ? Visibility.Visible : Visibility.Collapsed;
             LastLinesText.Text = state.Diagnostic ?? "";
 

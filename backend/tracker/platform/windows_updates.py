@@ -111,21 +111,23 @@ def automatic_allowed(state: Path) -> bool:
     return bool(record and record.get("format") == 1 and record.get("automatic") is True)
 
 
-def _stored_offer(record: dict[str, Any], identity: Identity, installed: str) -> Offer | None:
+def _stored_offer(record: dict[str, Any], identity: Identity, installed: str, held_back: str | None = None) -> Offer | None:
     stored = record.get("offer")
     if not isinstance(stored, dict):
         return None
     try:
         parts = [base64.b64decode(stored[name], validate=True) for name in ("checksum", "metadata", "signature")]
-        return verify_offer(identity, installed, *parts)
+        offer = verify_offer(identity, installed, *parts)
     except (KeyError, TypeError, ValueError):
         return None
+    return None if offer.version == held_back else offer
 
 
-def stored_offer(state: Path, identity: Identity, installed: str) -> tuple[Offer, tuple[bytes, bytes, bytes]] | None:
+def stored_offer(state: Path, identity: Identity, installed: str,
+                 held_back: str | None = None) -> tuple[Offer, tuple[bytes, bytes, bytes]] | None:
     """The verified offer a check kept, with the signed files it came from."""
     record = _load(state / CHECK) or {}
-    offer = _stored_offer(record, identity, installed)
+    offer = _stored_offer(record, identity, installed, held_back)
     if offer is None:
         return None
     stored = record["offer"]
@@ -133,11 +135,12 @@ def stored_offer(state: Path, identity: Identity, installed: str) -> tuple[Offer
     return offer, (signed[0], signed[1], signed[2])
 
 
-def status(state: Path, identity: Identity, installed: str) -> dict[str, Any]:
-    """Where updates stand, from what earlier checks kept: no request is made."""
+def status(state: Path, identity: Identity, installed: str, held_back: str | None = None) -> dict[str, Any]:
+    """Where updates stand, from what earlier checks kept: no request is made. A check counts only for the
+    version that made it: one made before an update, or before an Undo, says nothing about this one."""
     record = _load(state / CHECK) or {}
-    offer = _stored_offer(record, identity, installed)
-    checked = record.get("checked_at")
+    offer = _stored_offer(record, identity, installed, held_back)
+    checked = record.get("checked_at") if record.get("installed") == installed else None
     limited = record.get("rate_limited_until")
     return {"automatic": automatic_allowed(state),
             "checked_at": float(checked) if isinstance(checked, (int, float)) else None,
@@ -236,10 +239,12 @@ def fetch_release(identity: Identity, version: str, *,
 
 
 def check(state: Path, identity: Identity, installed: str, *, manual: bool, now: float | None = None,
-          transport: httpx.BaseTransport | None = None) -> Result:
+          transport: httpx.BaseTransport | None = None, held_back: str | None = None) -> Result:
+    """Ask the feed once, as allowed. `held_back` is a version this installation updated to and undid: it is
+    not offered again, and only a newer release is."""
     now = time.time() if now is None else now
     record = _load(state / CHECK) or {}
-    offer = _stored_offer(record, identity, installed)
+    offer = _stored_offer(record, identity, installed, held_back)
     if offer is None and "offer" in record:
         record.pop("offer")
         _save(state / CHECK, record)
@@ -260,12 +265,12 @@ def check(state: Path, identity: Identity, installed: str, *, manual: bool, now:
                           headers={"User-Agent": USER_AGENT, "Accept-Encoding": "identity"}) as client:
             version = _latest(client, identity.feed, now)
             # A check counts as done only once the feed answered with a release this build can read.
-            if stable_version(version) <= stable_version(installed):
-                record["checked_at"] = now
+            if stable_version(version) <= stable_version(installed) or version == held_back:
+                record.update(checked_at=now, installed=installed)
                 _save(state / CHECK, record)
                 return Result("up-to-date", offer)
             if offer is not None and stable_version(offer.version) >= stable_version(version):
-                record["checked_at"] = now
+                record.update(checked_at=now, installed=installed)
                 _save(state / CHECK, record)
                 return Result("offered", offer)
             _package, checksum_name, metadata_name, signature_name = names(version)
@@ -281,6 +286,6 @@ def check(state: Path, identity: Identity, installed: str, *, manual: bool, now:
         return Result("failed", offer)
     record["offer"] = {"checksum": base64.b64encode(checksum).decode(), "metadata": base64.b64encode(metadata).decode(),
                        "signature": base64.b64encode(signature).decode()}
-    record["checked_at"] = now
+    record.update(checked_at=now, installed=installed)
     _save(state / CHECK, record)
     return Result("offered", offer)

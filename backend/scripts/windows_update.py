@@ -18,6 +18,26 @@ def identity_path() -> Path:
     return REPO_ROOT / "release-identity.json" if PACKAGED else REPO_ROOT / "launcher" / "windows" / "release-identity.json"
 
 
+def _last_update(state: Path, running: str) -> dict[str, Any] | None:
+    """The last update as the running version sees it: Settings says how it ended, or that it is being undone."""
+    from tracker.platform import windows_update_journal as journal
+    from tracker.platform.windows_recovery import RecoveryError
+
+    try:
+        record = journal.read(state)
+    except RecoveryError:
+        return None
+    if record is None:
+        return None
+    role = "to" if running == record["to_version"] else "from" if running == record["from_version"] else None
+    return {"phase": record["phase"], "from": record["from_version"], "to": record["to_version"], "running": role}
+
+
+def _held_back(update: dict[str, Any] | None) -> str | None:
+    """A version this installation updated to and undid is not offered again; a newer release is."""
+    return update["to"] if update is not None and update["phase"] == "recovered" else None
+
+
 def _begin(state: Path, identity: Any, package: Path, running: str) -> int:
     """Journal a replacement by a retained, verified package while no engine is running."""
     from tracker.platform import windows_update_journal as journal
@@ -150,7 +170,9 @@ def main(argv: list[str] | None = None) -> int:
         except (ValueError, ReleaseError):
             print(json.dumps({"status": "unavailable", "reason": "This build's update identity is damaged."}))
             return 1
-        print(json.dumps({"status": "ok", **status(args.state, identity, running_version())}))
+        update = _last_update(args.state, running_version())
+        print(json.dumps({"status": "ok", **status(args.state, identity, running_version(), _held_back(update)),
+                          "update": update}))
         return 0
     try:
         identity = read_identity(json.loads(path.read_text(encoding="utf-8")))
@@ -167,7 +189,7 @@ def main(argv: list[str] | None = None) -> int:
         from tracker.platform.windows_packages import download, retain_running
         from tracker.platform.windows_updates import stored_offer
 
-        stored = stored_offer(args.state, identity, running_version())
+        stored = stored_offer(args.state, identity, running_version(), _held_back(_last_update(args.state, running_version())))
         if stored is None:
             print(json.dumps({"status": "no-offer"}))
             return 1
@@ -189,13 +211,14 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         print(json.dumps({"status": "downloaded", "package": str(path), "offer": dataclasses.asdict(stored[0])}))
         return 0
-    result = check_feed(args.state, identity, running_version(), manual=args.manual)
+    update = _last_update(args.state, running_version())
+    result = check_feed(args.state, identity, running_version(), manual=args.manual, held_back=_held_back(update))
     from tracker.platform.windows_updates import status
 
-    kept = status(args.state, identity, running_version())
+    kept = status(args.state, identity, running_version(), _held_back(update))
     print(json.dumps({"status": result.status, "until": result.until, "checked_at": kept["checked_at"],
                       "automatic": kept["automatic"],
-                      "offer": dataclasses.asdict(result.offer) if result.offer else None}))
+                      "offer": dataclasses.asdict(result.offer) if result.offer else None, "update": update}))
     return 0
 
 

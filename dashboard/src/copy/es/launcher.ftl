@@ -185,6 +185,8 @@ launcher-update-stopped-retry-body = Inténtalo de nuevo para terminarla. Si vue
 launcher-update-stopped-unreadable-body = Se inició desde otra copia de la app o no se puede leer su progreso, así que esta copia no puede terminarla. El registro de la actualización explica qué pasó.
 launcher-update-stopped-finder-help = Muestra el registro de la actualización en Finder
 launcher-update-undo = Deshacer la actualización
+launcher-windows-update-undoing = Volviendo a { $version }
+launcher-windows-update-undoing-body = RoleBand se cierra y se vuelve a abrir en { $version }, con tus datos como estaban antes de la actualización.
 
 # kind=button
 launcher-notes-title = Novedades

@@ -36,7 +36,9 @@ The listing must be the feed's published, stable latest release; it is read with
 redirects, credentials or cookies and bounded to 256 KiB. Its three small release files
 are fetched from the feed's download path, following at most five redirects and only to
 `release-assets.githubusercontent.com` or the same path. A failed check keeps the last
-verified offer, and a verified offer is never replaced by an older listing.
+verified offer, and a verified offer is never replaced by an older listing. A check counts for
+the version that made it, so after an update or an Undo no earlier "up to date" stands. A version
+this installation updated to and undid is not offered again; the next newer release is.
 `tracker/platform/windows_updates.py` implements it; `desktop.py update consent|check`
 is how the native host uses it.
 

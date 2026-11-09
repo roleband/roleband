@@ -2,10 +2,25 @@ using System.Text.Json;
 
 namespace RoleBand.EngineHost;
 
+/// <summary>The last package update as the running version sees it, from the update journal.</summary>
+/// <param name="Running">"from" or "to" when this version is one end of it; null otherwise.</param>
+public sealed record LastUpdate(string Phase, string From, string To, string? Running)
+{
+    /// <summary>How it ended, for this version to say: Updated to the new version, or Back on the previous one.</summary>
+    public UpdateRun? Result => (Phase, Running) switch
+    {
+        ("complete", "to") => new UpdateRun(UpdateStep.Updated, To),
+        ("recovered", "from") => new UpdateRun(UpdateStep.RolledBack, From, To),
+        _ => null,
+    };
+}
+
 /// <summary>What the update commands report: whether this build updates itself, the person's choice,
 /// the last check the feed answered, a verified offer and a rate limit. Read from <c>update status</c>,
 /// which asks nothing of the network, or from a check's own answer.</summary>
-public sealed record UpdateFacts(bool Available, bool Automatic, DateTimeOffset? CheckedAt, string? Offer, DateTimeOffset? RateLimitedUntil)
+/// <param name="Last">The last package update, which says how it ended or that it is being undone.</param>
+public sealed record UpdateFacts(bool Available, bool Automatic, DateTimeOffset? CheckedAt, string? Offer, DateTimeOffset? RateLimitedUntil,
+                                 LastUpdate? Last = null)
 {
     /// <summary>A build that does not update itself, or an app without an engine to ask.</summary>
     public static UpdateFacts Unavailable { get; } = new(false, false, null, null, null);
@@ -23,7 +38,16 @@ public sealed record UpdateFacts(bool Available, bool Automatic, DateTimeOffset?
         } : null;
         return new UpdateFacts(true,
             reply.TryGetProperty("automatic", out var automatic) && automatic.ValueKind == JsonValueKind.True,
-            Moment(reply, "checked_at"), offer, Moment(reply, "rate_limited_until") ?? Moment(reply, "until"));
+            Moment(reply, "checked_at"), offer, Moment(reply, "rate_limited_until") ?? Moment(reply, "until"), ReadLast(reply));
+    }
+
+    private static LastUpdate? ReadLast(JsonElement reply)
+    {
+        if (!reply.TryGetProperty("update", out var update) || update.ValueKind != JsonValueKind.Object) return null;
+        static string? Text(JsonElement value, string name) =>
+            value.TryGetProperty(name, out var field) && field.ValueKind == JsonValueKind.String ? field.GetString() : null;
+        return Text(update, "phase") is { } phase && Text(update, "from") is { } from && Text(update, "to") is { } to
+            ? new LastUpdate(phase, from, to, Text(update, "running")) : null;
     }
 
     private static DateTimeOffset? Moment(JsonElement reply, string name) =>
@@ -35,7 +59,8 @@ public sealed record UpdateFacts(bool Available, bool Automatic, DateTimeOffset?
 public enum UpdateStep { Downloading, Restarting, DownloadFailed, CheckFailed, RestartFailed, Updated, RolledBack }
 
 /// <param name="Version">The version being installed; for a result, the version now running.</param>
-public sealed record UpdateRun(UpdateStep Step, string Version)
+/// <param name="Undone">For Back on, the version that was undone.</param>
+public sealed record UpdateRun(UpdateStep Step, string Version, string? Undone = null)
 {
     public bool InProgress => Step is UpdateStep.Downloading or UpdateStep.Restarting;
 
@@ -124,10 +149,12 @@ public static class AboutPanel
         if (facts?.Offer is { } version)
             return new UpdateRow(UpdateRowKind.Offered, copy.Format("update-ready", ("version", version)), checkedCaption, true, automatic, true,
                 copy["update-install"]);
-        if (run is { Step: UpdateStep.Updated or UpdateStep.RolledBack })
+        // How the last update ended, as its journal says, so it holds across restarts until a newer offer.
+        if ((run is { Step: UpdateStep.Updated or UpdateStep.RolledBack } ? run : facts?.Last?.Result) is { } result)
             return new UpdateRow(UpdateRowKind.Updated,
-                copy.Format(run.Step == UpdateStep.Updated ? "update-updated" : "update-rolled-back", ("version", run.Version)),
-                checkedCaption, true, automatic, true);
+                copy.Format(result.Step == UpdateStep.Updated ? "update-updated" : "update-rolled-back", ("version", result.Version)),
+                result.Undone is { } undone ? copy.Format("update-rolled-back-caption", ("version", undone)) : checkedCaption,
+                true, automatic, true);
         if (facts?.CheckedAt is not null)
             return new UpdateRow(UpdateRowKind.Current, copy["panel-status-up-to-date"], checkedCaption, true, automatic, true);
         return new UpdateRow(UpdateRowKind.Never, copy["update-idle"], null, true, automatic, true);
@@ -135,8 +162,11 @@ public static class AboutPanel
 
     /// <summary>The flyout's banner for an update: the offer with Update, the download, the switch, or a failure with Try
     /// again. Results stay in Settings.</summary>
-    public static FlyoutUpdate? Flyout(NativeCopy copy, UpdateFacts? facts, UpdateRun? run)
+    /// <param name="returningTo">The version an Undo under way returns to: Windows is replacing the app.</param>
+    public static FlyoutUpdate? Flyout(NativeCopy copy, UpdateFacts? facts, UpdateRun? run, string? returningTo = null)
     {
+        if (returningTo is not null)
+            return new FlyoutUpdate(copy.Format("windows-update-undoing", ("version", returningTo)), null, null, returningTo, true, false, true);
         if (facts is { Available: false }) return null;
         var row = Updates(copy, facts, false, null, DateTimeOffset.MinValue, run);
         return row.Kind switch

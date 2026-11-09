@@ -222,6 +222,10 @@ launcher-update-stopped-unreadable-body = It started from another copy of the ap
 launcher-update-stopped-finder-help = Shows the update log in Finder
 # kind=button
 launcher-update-undo = Undo the update
+# kind=status
+launcher-windows-update-undoing = Returning to { $version }
+# kind=sentence
+launcher-windows-update-undoing-body = RoleBand closes and opens again on { $version }, with your data as it was before the update.
 
 # kind=button
 launcher-notes-title = What's new

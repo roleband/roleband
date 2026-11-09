@@ -139,6 +139,32 @@ public sealed class AboutTests
     }
 
     [TestMethod]
+    public void HowTheLastUpdateEndedComesFromItsJournalAndHoldsAcrossRestarts()
+    {
+        var copy = new NativeCopy("en");
+        var undone = Facts("""{"status":"ok","automatic":true,"checked_at":null,"offer":null,"rate_limited_until":null,"update":{"phase":"recovered","from":"0.1.13","to":"0.1.14","running":"from"}}""");
+        Assert.AreEqual(new LastUpdate("recovered", "0.1.13", "0.1.14", "from"), undone.Last);
+        var back = AboutPanel.Updates(copy, undone, false, null, Now);
+        Assert.AreEqual((UpdateRowKind.Updated, "Back on 0.1.13", "0.1.14 didn't start. Nothing was lost."), (back.Kind, back.Title, back.Caption),
+            "no check since the undo, and still it says how it ended");
+        var updated = Facts("""{"status":"ok","automatic":false,"checked_at":null,"offer":null,"update":{"phase":"complete","from":"0.1.12","to":"0.1.13","running":"to"}}""");
+        Assert.AreEqual("Updated to 0.1.13", AboutPanel.Updates(copy, updated, false, null, Now).Title);
+        Assert.AreEqual("Version 0.1.15 is ready", AboutPanel.Updates(copy, undone with { Offer = "0.1.15" }, false, null, Now).Title,
+            "a newer offer replaces the result");
+        foreach (var (phase, running) in new[] { ("recovered", "to"), ("complete", "from"), ("failed", "to"), ("recovering", "to"), ("complete", (string?)null) })
+            Assert.IsNull(new LastUpdate(phase, "0.1.13", "0.1.14", running).Result, $"{phase} as {running} is no result");
+        Assert.IsNull(Facts("""{"status":"ok","update":{"phase":"complete"}}""").Last, "a half answer is no update");
+    }
+
+    [TestMethod]
+    public void AnUndoUnderWayIsTheFlyoutsWholeState()
+    {
+        var copy = new NativeCopy("en");
+        Assert.AreEqual(new FlyoutUpdate("Returning to 0.1.13", null, null, "0.1.13", true, false, true),
+            AboutPanel.Flyout(copy, new UpdateFacts(true, false, Now, "0.1.15", null), null, "0.1.13"), "an offer waits until the undo ends");
+    }
+
+    [TestMethod]
     public void TheFlyoutBannerCarriesTheOfferAndItsStepsButNotTheResult()
     {
         var copy = new NativeCopy("en");
