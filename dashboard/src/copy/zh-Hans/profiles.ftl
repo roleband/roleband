@@ -208,7 +208,9 @@ profiles-benefits-type = { $type ->
     [accident_insurance] 意外死亡与伤残（AD&D）保险
     [travel_insurance] 商务差旅保险
     [pet_insurance] 宠物保险
-    [retirement_plan] 401(k)
+    [retirement_plan] 退休计划
+    [us_401k] 401(k)
+    [ca_rrsp] RRSP
     [roth_retirement_option] Roth 401(k)
     [after_tax_retirement_option] Mega backdoor Roth
     [employee_share_purchase] 员工购股计划（ESPP）
