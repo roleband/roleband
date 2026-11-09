@@ -384,7 +384,8 @@ internal sealed class TrayApp
         RenderUpdate();
         var progress = new Progress<(long Received, long Total)>(counted =>
         {
-            if (updateRun is not { Step: UpdateStep.Downloading } run || run.Version != version) return;
+            // A report can land after the attempt it came from has paused; the bytes it counts are still here.
+            if (updateRun is not { Step: UpdateStep.Downloading or UpdateStep.Paused } run || run.Version != version) return;
             updateRun = run with { Received = counted.Received, Total = counted.Total };
             RenderUpdate();
         });
@@ -635,9 +636,10 @@ internal sealed class TrayApp
             if (simulation?.Press is { } press && !simulationPressed)
             {
                 simulationPressed = true;
-                // Update is pressed as a person would, with the radar running.
+                // Pressed as a person would: Update with the radar running, Undo once the failure has been on screen.
                 for (var wait = 0; press == "update" && engine.Snapshot.State != EngineState.Ready && wait < 240; wait++)
                     await Task.Delay(500);
+                if (press == "undo") await Task.Delay(TimeSpan.FromSeconds(4));
                 _ = press == "undo" ? UndoUpdateAsync() : UpdateNowAsync();
             }
         }

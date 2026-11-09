@@ -41,12 +41,6 @@ internal static class Native
     /// one is not heard without it.</summary>
     public static void Announce(UIElement element) => Peer(element)?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
 
-    /// <summary>Has Narrator read <paramref name="text"/> at once, for a change shown in a control that is not a live
-    /// region; a newer one with the same <paramref name="activity"/> replaces it.</summary>
-    public static void Announce(UIElement element, string text, string activity) =>
-        Peer(element)?.RaiseNotificationEvent(AutomationNotificationKind.Other, AutomationNotificationProcessing.ImportantMostRecent,
-            text, activity);
-
     private static AutomationPeer? Peer(UIElement element) =>
         FrameworkElementAutomationPeer.FromElement(element) ?? FrameworkElementAutomationPeer.CreatePeerForElement(element);
 

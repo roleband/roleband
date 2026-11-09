@@ -8,7 +8,8 @@
       <TextBlock x:Name="Heading" FontSize="28" FontWeight="SemiBold" Margin="0,0,0,16"
                  AutomationProperties.HeadingLevel="Level1" AutomationProperties.AutomationId="SettingsHeading" />
 
-      <InfoBar x:Name="ProblemBar" IsClosable="False" IsOpen="False" Severity="Error" AutomationProperties.AutomationId="SettingsProblem">
+      <InfoBar x:Name="ProblemBar" IsClosable="False" IsOpen="False" Severity="Error" AutomationProperties.AutomationId="SettingsProblem"
+               AutomationProperties.LiveSetting="Assertive" IsTabStop="True">
         <InfoBar.Content>
           <StackPanel Spacing="8" Margin="0,0,0,12">
           <ProgressBar x:Name="ProblemProgress" IsIndeterminate="True" Visibility="Collapsed" AutomationProperties.AutomationId="ProblemProgress" />

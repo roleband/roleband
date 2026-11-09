@@ -2,6 +2,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using RoleBand.EngineHost;
 using Windows.Graphics;
 
@@ -108,6 +109,9 @@ public sealed partial class SettingsWindow : Window
         {
             var problem = state.Problem;
             var wasOpen = ProblemBar.IsOpen;
+            // A press that hides its own button would leave focus to walk the buttons as each one hides, read aloud one
+            // by one: it rests on the banner instead, which says what the press started.
+            var pressed = Content.XamlRoot is { } root ? FocusManager.GetFocusedElement(root) as Button : null;
             // An undo under way is news, not a fault; a failed update or a refused Undo waits on Undo; anything else is an error.
             // The bar announces itself as it opens, with the words it has then: they are set first.
             ProblemBar.Severity = problem?.Notice == true ? InfoBarSeverity.Informational
@@ -116,6 +120,10 @@ public sealed partial class SettingsWindow : Window
             ProblemBar.Title = title;
             ProblemBar.Message = message ?? "";
             ProblemBar.IsOpen = problem is not null;
+            // Hiding the focused button moves focus at once, so the banner takes it before any button hides.
+            var hides = pressed == RestartButton && problem?.Restart != true || pressed == UndoButton && problem?.Undo != true
+                || pressed == NewerButton && problem?.Newer is null || pressed == ProblemLogsButton && problem?.Busy == true;
+            if (hides && problem is not null) ProblemBar.Focus(FocusState.Programmatic);
             ProblemProgress.Visibility = problem?.Busy == true ? Visibility.Visible : Visibility.Collapsed;
             ProblemProgress.IsIndeterminate = problem?.Percent is null;
             ProblemProgress.Value = problem?.Percent ?? 0;
@@ -130,8 +138,10 @@ public sealed partial class SettingsWindow : Window
             if (shown != renderedProblem)
             {
                 renderedProblem = shown;
-                // A bar already open that now says something else does not announce itself.
-                if (wasOpen && problem is not null) Native.Announce(ProblemBar, $"{ProblemBar.Title}. {ProblemBar.Message}", "SettingsProblem");
+                // A bar already open that now says something else does not announce itself: as a live region named by its
+                // words, it is read when it changes.
+                AutomationProperties.SetName(ProblemBar, problem is null ? "" : $"{ProblemBar.Title}. {ProblemBar.Message}");
+                if (wasOpen && problem is not null) Native.Announce(ProblemBar);
                 // A failure moves focus to the press that fixes it; a notice of work under way does not take it.
                 Control? fix = problem is { Notice: false }
                     ? problem.Undo ? UndoButton : problem.Newer is not null ? NewerButton : problem.Restart ? RestartButton : null
