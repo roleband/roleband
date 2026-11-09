@@ -12,8 +12,10 @@ from __future__ import annotations
 import asyncio
 import http.client
 import logging
+import socket
 import subprocess
 import sys
+import time
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
@@ -79,6 +81,12 @@ class ApiService:
         self.max_backoff = max_backoff_seconds
         self.process: subprocess.Popen | None = None
         self._process_identity: datetime | None = None
+        # An authenticated Windows API serves on a socket this supervisor holds for its whole life: the port is
+        # never free between API processes, so no other account's process can take the engine's address.
+        self.shares_listener = sys.platform == "win32" and self.authenticated and command is None
+        self._listener: socket.socket | None = None
+        self._handoff: asyncio.Task[None] | None = None
+        self._handed_to: int | None = None
         self.state = STOPPED
         self.reason: str | None = None
         self.since = datetime.now(UTC)
@@ -103,6 +111,10 @@ class ApiService:
         if self.authenticated:
             merged["ROLEBAND_LOCAL_AUTH"] = "1"
             merged["ROLEBAND_STATE_DIR"] = str(self.data_dir)
+        if self.shares_listener:
+            from tracker.supervisor.http_server import SHARED_ENV
+
+            merged[SHARED_ENV] = "1"
         return merged
 
     def _start(self, now: float) -> None:
@@ -110,14 +122,42 @@ class ApiService:
             from tracker.platform.windows_private import private_directory
 
             private_directory(self.data_dir)
+            if self.shares_listener:
+                from tracker.supervisor.http_server import exclusive_socket
+
+                private_directory(self.data_dir / "launcher")
+                if self._listener is None:
+                    self._listener = exclusive_socket(self.host, self.port)
         self.process = runner.start_service(
             self.command, cwd=backend_dir(self.repo_root), env=self._env(), log=self.log
         )
+        if self.shares_listener:
+            self._handoff = asyncio.get_running_loop().create_task(self._hand_over(self.process))
         self._process_identity = runner.process_started_at(self.process) if sys.platform == "win32" else None
         self._started_at = self._probed_at = now
         self._failures = 0
         self._set(STARTING)
         logger.info("api started (pid %s) on %s:%s", self.process.pid, self.host, self.port)
+
+    async def _hand_over(self, process: subprocess.Popen) -> None:
+        """Give the held socket to the API process, which runs under the Windows trampoline `process` started."""
+        from tracker.supervisor.http_server import HANDOFF_SECONDS, hand_over
+
+        deadline = time.monotonic() + HANDOFF_SECONDS
+        while process.poll() is None and time.monotonic() < deadline:
+            pid = _api_process(process.pid)
+            if pid is not None and self._listener is not None:
+                hand_over(self._listener, self.data_dir, pid)
+                self._handed_to = pid
+                return
+            await asyncio.sleep(0.05)
+        logger.error("the api process did not appear; its socket was not handed over")
+
+    def close(self) -> None:
+        """Release the held socket once no API will run again; `stop` first."""
+        if self._listener is not None:
+            self._listener.close()
+            self._listener = None
 
     async def _healthy(self) -> bool:
         if self.authenticated:
@@ -176,6 +216,15 @@ class ApiService:
         """Request a stop, allow requests in flight, then force termination."""
         process, self.process = self.process, None
         identity, self._process_identity = self._process_identity, None
+        handoff, self._handoff = self._handoff, None
+        if handoff is not None and not handoff.done():
+            handoff.cancel()
+        handed_to, self._handed_to = self._handed_to, None
+        if handed_to is not None:
+            from tracker.supervisor.http_server import handoff_path
+
+            # Only that process could use it; one that died before reading it leaves nothing behind.
+            handoff_path(self.data_dir, handed_to).unlink(missing_ok=True)
         if process is None:
             return
         if process.poll() is None:
@@ -199,3 +248,22 @@ class ApiService:
         return job_store.Status(
             key=KEY, job=KEY, state=self.state, reason=self.reason, since=self.since, detail=detail
         )
+
+
+def _api_process(trampoline: int) -> int | None:
+    """The process running the API server under `trampoline`. A virtualenv's python.exe starts the real
+    interpreter as its own child with the same command line, so the innermost match is the one."""
+    import psutil
+
+    try:
+        candidates = [
+            process for process in psutil.Process(trampoline).children(recursive=True)
+            if "tracker.supervisor.http_server" in process.cmdline()
+        ]
+        innermost = [
+            process for process in candidates
+            if not any(other.ppid() == process.pid for other in candidates)
+        ]
+    except psutil.Error:
+        return None
+    return innermost[0].pid if len(innermost) == 1 else None

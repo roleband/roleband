@@ -129,10 +129,12 @@ def publish(path: Path, payload: bytes) -> None:
     temporary = path.with_name("." + path.stem + "-" + uuid.uuid4().hex)
     try:
         with temporary.open("xb") as stream:
+            # The new file takes its ACL from the directory's inheritable entries; it is checked before the
+            # payload, often a secret, is in it.
+            require_private(temporary)
             stream.write(payload)
             stream.flush()
             os.fsync(stream.fileno())
-        require_private(temporary)
         _replace(temporary, path)
     except BaseException:
         temporary.unlink(missing_ok=True)

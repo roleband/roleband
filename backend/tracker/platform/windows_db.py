@@ -36,6 +36,8 @@ def _write(path: Path, content: str) -> None:
     fd, name = tempfile.mkstemp(dir=path.parent, prefix=".write-")
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
+            # The password file is written here: its ACL, inherited from the directory, is checked before it is.
+            require_private(Path(name))
             stream.write(content)
             stream.flush()
             os.fsync(stream.fileno())

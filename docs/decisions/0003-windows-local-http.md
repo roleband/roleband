@@ -24,7 +24,12 @@ hostname under .localhost and an empty set of browser keys in the account-privat
 launcher/engine-session.json, which its API processes adopt and which ends with the
 engine; any other HTTP process generates its own hostname. Its exclusive
 socket binds only 127.0.0.1. Windows startup refuses authenticated mode outside
-the exclusive-socket entry point. Discovery records the actual origin and control key in
+the exclusive-socket entry point. Because an engine's hostname outlives its API
+processes, the supervisor binds that socket once and holds it for the engine's
+life, handing each API process a duplicate (`socket.share`) through a one-time
+file in the account-private launcher directory. The port is never free while
+the tabs' origin is the engine's, so no other account's listener can answer at
+that origin between API processes and read a tab's stored browser key. Discovery records the actual origin and control key in
 launcher/http-engine.json. Native clients check its ownership and ACLs, connect
 directly to 127.0.0.1 without DNS, proxies or redirects, and send the recorded Host.
 The browser uses the engine's hostname, isolating its cache and tab storage

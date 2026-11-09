@@ -68,6 +68,16 @@ def database(tmp_path_factory):
         destroy(server.pgdata)
 
 
+def can_bind(port):
+    """Whether another process could take the port now, as an ordinary socket would."""
+    with socket.socket() as probe:
+        try:
+            probe.bind(("127.0.0.1", port))
+        except OSError:
+            return False
+        return True
+
+
 def raw(port, method, path, body=None, headers=None):
     connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
     try:
@@ -154,6 +164,7 @@ def test_real_api_signs_control_and_browser_responses_and_keeps_committed_state_
                 keepalive.close()
         finally:
             await service.stop(grace_seconds=5)
+            service.close()
         assert not record_path(root).exists()
         assert run_psql(server.dsn(), server.bin_dir, "SELECT value->>'language' FROM app_settings WHERE key='locale'") == "es"
 
@@ -211,6 +222,9 @@ def test_a_restarted_api_keeps_the_engines_browser_address_and_open_tabs(databas
             browser = json.loads(content)
             assert await asyncio.to_thread(browser_read, browser, first.endpoint) == 200
             await service.stop(grace_seconds=5)
+            # Between API processes the tab's address must stay the engine's: another account's process that
+            # bound the port now would be served the tab's next request, and its stored browser key.
+            assert not can_bind(port), "the engine's port is free while its API restarts"
             await running()
             second = Client(root)
             assert second.endpoint == first.endpoint, "the tab's address survives the API restart"
@@ -218,6 +232,9 @@ def test_a_restarted_api_keeps_the_engines_browser_address_and_open_tabs(databas
             assert await asyncio.to_thread(browser_read, browser, second.endpoint) == 200
         finally:
             await service.stop(grace_seconds=5)
+            service.close()
             end_engine_session(root)
 
     asyncio.run(exercise())
+    assert can_bind(port), "the engine releases its port when it ends"
+    assert not list((root / "launcher").glob("api-listener-*")), "every handed-over socket was taken"

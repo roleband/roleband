@@ -138,8 +138,10 @@ def sddl_name(sid: str) -> str:
 
 def descriptor_problem(sddl: str, account: str, default_owner: str | None = None) -> str | None:
     """What makes a descriptor unsafe for private storage, if anything: an owner other than the account or the
-    owner this process gives what it creates, no protected list of allowed entries, or an entry for anyone but the
-    account and SYSTEM. The descriptor and the names are in descriptor-string form (see sddl_name).
+    owner this process gives what it creates, no list of allowed entries (or a null one), or an entry for anyone
+    but the account and SYSTEM. Inherited entries count like any other, so a file that inherits from a private
+    directory passes; private_directory itself protects a directory's list from what its parents grant. The
+    descriptor and the names are in descriptor-string form (see sddl_name).
 
     An elevated administrator's files are owned by the Administrators group, which only administrators can act
     as; the entries still admit no one but the account and SYSTEM."""

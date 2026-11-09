@@ -174,6 +174,7 @@ async def serve(
                 # The API serves only while this supervisor dispatches: not in
                 # maintenance, not beside another supervisor, not across a re-exec.
                 await api.stop(grace_seconds=10.0 if ended in (None, STOPPED) else 30.0)
+                api.close()
             await listener.close()
             await singleton.release(held)
         if ended is None:
