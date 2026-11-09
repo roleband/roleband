@@ -40,7 +40,7 @@ it("shows the saved window, what is kept, what is due and the last removal", asy
     /^1,240 kept · 210 no longer listed · 330 from companies you stopped following$/,
   );
   expect(screen.getByTestId("retention-last")).toHaveTextContent("57 removed");
-  expect(screen.getByText(/never removed/)).toBeVisible();
+  expect(screen.getByText(/saved roles always stay/)).toBeVisible();
 });
 
 it("labels each choice with what it would remove now, before anything is saved", async () => {

@@ -28,8 +28,8 @@ scan-sync-scope-popover-failed = failed
 scan-sync-scope-popover-blocked = blocked
 # kind=label note="The last scan read part of the board, with errors"
 scan-sync-scope-popover-partial = partial
-# kind=label note="The last scan read the board except a few postings it could not read"
-scan-sync-scope-popover-a-few-rows-unread = a few rows unread
+# kind=status note="The last scan read the board except a few postings it could not read"
+scan-sync-scope-popover-a-few-rows-unread = a few postings not read
 # kind=label note="The last scan stopped at a posting limit set for the run"
 scan-sync-scope-popover-capped = capped
 # kind=label note="The last scan stopped because this computer slept or went offline"
@@ -63,7 +63,7 @@ scan-sync-scope-popover-loading = Loading companies to scan…
 # kind=heading
 scan-sync-scope-popover-load-failed = Couldn't load companies to scan
 # kind=sentence
-scan-sync-scope-popover-joins-running = The running scan reads them next.
+scan-sync-scope-popover-joins-running = The running scan picks them up next.
 # kind=toast
 scan-sync-scope-popover-joined = { $count ->
     [one] { $count } { -company(num: "one") } is next in the running scan.

@@ -524,7 +524,7 @@ test("desktop navigation starts compact and expands from the rail control", asyn
   await page.goto("/");
 
   const app = page.locator(".app");
-  const rail = page.getByRole("navigation", { name: "Primary" });
+  const rail = page.getByRole("navigation", { name: "Main" });
   const opportunities = page.getByRole("link", { name: "Radar" });
 
   await expect(app).not.toHaveClass(/nav-expanded/);
@@ -566,10 +566,10 @@ test("while a plugin answers pay, a row at a company it has not read leaves the 
   await page.goto("/");
   const unread = page.locator('[data-job-id="4001"]');
   // Visible text is none: the only words are the screen reader's.
-  await expect(unread.locator(".comp")).toHaveText(/^Base salary not known .*a company it hasn't read yet shows no estimate/);
+  await expect(unread.locator(".comp")).toHaveText(/^Base salary not known .*No estimate until .+ reads this company/);
   expect(await unread.locator(".comp").evaluate((el) => [...el.childNodes]
     .filter((n) => !(n instanceof HTMLElement && n.classList.contains("sr-only"))).map((n) => n.textContent).join(""))).toBe("");
-  await expect(unread.locator(".comp")).toHaveAttribute("title", /a company it hasn't read yet shows no estimate/);
+  await expect(unread.locator(".comp")).toHaveAttribute("title", /No estimate until .+ reads this company/);
   await expect(page.locator('[data-job-id="4002"] .comp')).toHaveText(/^\$400K /);
 });
 

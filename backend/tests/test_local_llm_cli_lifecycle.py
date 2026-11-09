@@ -85,6 +85,7 @@ async def test_a_control_that_times_out_kills_and_reaps_its_cli(harmless, monkey
     monkeypatch.setitem(server._TIMEOUTS, "stop", 0.3)
     result = await server.control("stop")
     assert result.ok is False and "did not finish" in result.detail
+    assert result.timed_out is True
     assert children[0].returncode is not None
 
 
@@ -108,7 +109,7 @@ async def test_an_ordinary_exit_still_reports_its_output(harmless):
     spawn_with, _children, _ = harmless
     spawn_with("print('oMLX server running'); raise SystemExit(3)")
     result = await server.control("start")
-    assert (result.ok, result.detail) == (False, "oMLX server running")
+    assert (result.ok, result.detail, result.timed_out) == (False, "oMLX server running", False)
 
 
 async def test_the_lifted_guard_still_refuses_anything_else(harmless):

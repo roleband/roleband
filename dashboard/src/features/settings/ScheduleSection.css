@@ -764,6 +764,12 @@
   font-size: var(--app-type-body);
   font-weight: var(--app-weight-name);
 }
+/* While a time field's list is open, the inspector row that is its control
+   takes the edge of an open picker (ui/TimeField.css), not the ring. */
+.schedule-inspector-time:has([aria-expanded="true"]) {
+  border-color: var(--app-chosen-line);
+  background: var(--app-chosen-wash);
+}
 /* What the plan learned and how it treats a computer that was off: facts, not
    settings, so one quiet note under the controls instead of rows of their own. */
 .schedule-plan-learned {

@@ -164,7 +164,7 @@ test("a selection that did not save says so with one role picked, and Try again 
 
   await first.getByRole("button", { name: msg("jobs-compare") }).click();
 
-  const alert = page.getByText("Couldn't save what you're comparing. It may be gone after a reload.");
+  const alert = page.getByText(msg("shell-compare-save-failed"));
   await expect(alert).toBeVisible();
   await page.getByRole("button", { name: "Try again" }).click();
   await expect(alert).toHaveCount(0);

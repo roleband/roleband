@@ -17,7 +17,7 @@ test.beforeEach(async ({ page }) => {
 test("opening an opportunity shows a full-screen detail that fills the viewport", async ({ page }) => {
   await page.goto("/");
 
-  const mission = page.getByRole("banner", { name: "Application navigation" });
+  const mission = page.getByRole("banner", { name: msg("shell-topbar-aria") });
   await expect(mission).toContainText("Radar");
   await expect(mission.locator(".stat-chip").nth(0)).toHaveAttribute("aria-label", msg("shell-stat-open-aria", { count: 1 }));
   await expect(mission.locator(".stat-chip").nth(1)).toHaveAttribute("aria-label", "1 new in the last 2 days");
@@ -386,7 +386,7 @@ test("the stage select starts a pursuit, which also saves the role", async ({ pa
   const panel = detail(page);
 
   // Not pursuing yet: the select doubles as the entry point, and says what it does first.
-  await expect(panel.getByText("Not started")).toBeVisible();
+  await expect(panel.getByText(msg("role-job-detail-not-started", { choice: "no" }))).toBeVisible();
   await expect(panel.getByText(msg("role-job-detail-tracking-explainer"))).toBeVisible();
   await panel.getByLabel("Stage").selectOption("researching");
 
@@ -563,10 +563,10 @@ test("Details says one age with its basis, and the history opens on demand", asy
   expect(reads.started).toBe(0);
 
   await details.getByRole("button", { name: "History" }).click();
-  const panel = page.getByRole("dialog", { name: "Listing history" });
+  const panel = page.getByRole("dialog", { name: "Posting history" });
   const events = panel.getByRole("list", { name: "Events" });
-  await expect(events).toContainText("Published by the employer · the start");
-  await expect(events).toContainText(/Employer changed its date to .* · never the start/);
+  await expect(events).toContainText(`${msg("role-listing-age-published-by-the-employer")} · ${msg("role-listing-age-the-start")}`);
+  await expect(events).toContainText(/Employer changed its date to .* · not counted from here/);
   await expect.poll(() => reads.answered).toBe(1);
 });
 
@@ -588,7 +588,7 @@ async function openListingHistory(page: Page) {
   const cover = detail(page);
   const button = cover.locator("dl.kv").getByRole("button", { name: "History" });
   await button.click();
-  const dialog = page.getByRole("dialog", { name: "Listing history" });
+  const dialog = page.getByRole("dialog", { name: "Posting history" });
   await expect(dialog.getByRole("list", { name: "Events" })).toBeVisible();
   const panel = dialog.locator(".ui-popover-inner");
   // The pop-in scales the panel; measure where it settles.
@@ -653,7 +653,7 @@ test("a posting with two standing signs names them, and one without says nothing
   await expect(details.getByText("150 days", { exact: true })).toBeVisible();
   await expect(detail(page).getByText("Days open")).toHaveCount(0);
   await expect(detail(page).getByText("62 days")).toHaveCount(0);
-  await expect(standing).toContainText("Listed 3 times");
+  await expect(standing).toContainText("Reposted 3 times");
   await expect(standing).toContainText("2 of 3 signs");
 
   await page.unroute("/api/jobs/101");

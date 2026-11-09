@@ -65,6 +65,14 @@ describe("firstScan", () => {
     });
   });
 
+  it("says a half-installed update waits on ./setup.sh on a source install, and on itself in the app", () => {
+    const halfInstalled = { running: false, jobs: [{ ...jobRow, state: "waiting" as const, reason: "dependencies_pending" }] };
+    expect(firstScan(install({ ...halfInstalled, install: "source" }), false, NOW))
+      .toMatchObject({ phase: "held", hold: { reason: "setup_source" } });
+    expect(firstScan(install({ ...halfInstalled, install: "app" }), false, NOW))
+      .toMatchObject({ phase: "held", hold: { reason: "dependencies_pending" } });
+  });
+
   it("names a provider's backoff with when it ends", () => {
     const until = "2026-11-02T14:20:00Z";
     const held = install({

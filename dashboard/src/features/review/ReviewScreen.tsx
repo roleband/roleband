@@ -1,5 +1,6 @@
 import { reasonsText } from "./reasons";
 import { errorText } from "../../api/errorText";
+import { errorTryAgain } from "../../copy/gen/errors";
 import { EmptyState } from "../../ui/EmptyState";
 import { ResourceLoadState } from "../../ui/ResourceLoadState";
 import { TabBar } from "../../ui/TabBar";
@@ -234,7 +235,7 @@ export function ReviewScreen() {
           leftDecided = -1;
         }
       } catch (e) {
-        toast({ key: "review-verdict", text: duplicatesReviewScreenCouldNotUndo({ message: errorText(e) }), tone: "error" });
+        toast({ key: "review-verdict", text: duplicatesReviewScreenCouldNotUndo({ message: errorText(e, errorTryAgain()) }), tone: "error" });
       } finally {
         setBusy(false);
       }
@@ -289,7 +290,7 @@ export function ReviewScreen() {
            keyed so the next verdict on the subject replaces it. */
         toast({
           key: "review-verdict",
-          text: duplicatesReviewScreenCouldNotRecordTheVerdict({ message: errorText(e) }),
+          text: duplicatesReviewScreenCouldNotRecordTheVerdict({ message: errorText(e, errorTryAgain()) }),
           tone: "error",
         });
       } finally {

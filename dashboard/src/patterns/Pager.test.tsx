@@ -15,13 +15,13 @@ describe("Pager", () => {
     const change = vi.fn();
     const { rerender } = render(<Pager total={41} pageSize={20} offset={0} onOffsetChange={change} />);
     expect(screen.getByText("Page 1 of 3")).toBeVisible();
-    await userEvent.click(screen.getByRole("button", { name: "Prev" }));
+    await userEvent.click(screen.getByRole("button", { name: "Previous" }));
     expect(change).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(change).toHaveBeenLastCalledWith(20);
     rerender(<Pager total={41} pageSize={20} offset={20} onOffsetChange={change} />);
     expect(screen.getByText("Page 2 of 3")).toBeVisible();
-    await userEvent.click(screen.getByRole("button", { name: "Prev" }));
+    await userEvent.click(screen.getByRole("button", { name: "Previous" }));
     expect(change).toHaveBeenLastCalledWith(0);
     await userEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(change).toHaveBeenLastCalledWith(40);
@@ -37,7 +37,7 @@ describe("Pager", () => {
     const change = vi.fn();
     render(<Pager total={14} pageSize={7} offset={7} onOffsetChange={change} />);
     expect(screen.getByText("Page 2 of 2")).toBeVisible();
-    await userEvent.click(screen.getByRole("button", { name: "Prev" }));
+    await userEvent.click(screen.getByRole("button", { name: "Previous" }));
     expect(change).toHaveBeenCalledWith(0);
     expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
   });

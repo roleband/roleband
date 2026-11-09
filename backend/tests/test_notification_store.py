@@ -182,7 +182,7 @@ async def test_digest_converges_to_one_row_across_repeated_runs(db_session):
     ).all()
     assert len(digests) == 1
     assert digests[0].meta["count"] == 3
-    assert digests[0].title == "3 new roles for you today"
+    assert digests[0].title == "3 new roles on your radar today"
 
 
 async def test_a_run_reads_whole_rows_only_for_the_roles_it_tracks(db_session):
@@ -237,7 +237,7 @@ async def test_a_day_past_the_ranking_ceiling_still_counts_every_role_and_compan
         await db_session.scalars(select(Notification).where(Notification.category == "daily_digest"))
     ).one()
     assert (digest.meta["count"], digest.meta["companies"]) == (3, ["google", "openai"])
-    assert digest.title == "3 new roles for you today"
+    assert digest.title == "3 new roles on your radar today"
     assert len(digest.meta["top"]) == 2, "the ranked sample itself stays capped"
 
 
@@ -380,7 +380,7 @@ async def test_a_run_that_ran_out_of_time_names_companies_as_the_user_knows_them
     assert (row.category, row.priority, row.title) == (
         "sync_unfinished", "low", "Scan ran out of time before 1 company",
     )
-    assert "Not reached before the scan ran out of time: Pied Piper." in row.body
+    assert "Pied Piper wasn't reached before the scan's time limit." in row.body
     assert "piedpiper" not in row.body
 
 

@@ -39,7 +39,7 @@ shell-tab-insights-trends = Trends
 # kind=label
 shell-tab-insights-overlap = Overlap
 # kind=label
-shell-tab-insights-groups = Groups
+shell-tab-insights-groups = Clusters
 
 ## Settings tabs (SETTINGS_TABS)
 # kind=label
@@ -81,7 +81,7 @@ shell-route-dashboard = RoleBand
 # kind=label
 shell-skip-to-content = Skip to content
 # kind=aria
-shell-topbar-aria = Application navigation
+shell-topbar-aria = Top bar
 # kind=aria
 shell-breadcrumb-aria = Breadcrumb
 # kind=aria
@@ -137,7 +137,7 @@ shell-load-role-failed = Couldn't load this role
 
 ## The nav rail (shell/NavRail.tsx)
 # kind=aria
-shell-rail-aria = Primary
+shell-rail-aria = Main
 # kind=label same-as=shell-route-dashboard note="The product name; never translated"
 shell-brand = RoleBand
 # kind=label note="The brand line: opportunity lives here and nowhere else"
@@ -167,7 +167,7 @@ shell-freshness-label = Last scan
 # kind=label
 shell-freshness-offline = Last scan unknown
 # kind=aria
-shell-freshness-offline-aria = Last scan: status offline
+shell-freshness-offline-aria = Last scan: unknown
 # kind=tooltip
 shell-freshness-offline-title = Status unavailable
 # kind=tooltip note="$when is a formatted date and time"
@@ -183,6 +183,8 @@ shell-freshness-behind = Last scan · { $age } · { $count ->
 }
 # kind=tooltip note="$companies is a list of company names"
 shell-freshness-waiting = Waiting for a full scan: { $companies }
+# kind=sentence note="The status tooltip's reason on a source install when an update is half installed: only ./setup.sh finishes it"
+shell-reason-setup-source = Run ./setup.sh in your source folder to finish the update. Scanning continues right after.
 # kind=aria note="$state is the badge's own words"
 shell-freshness-aria = Last scan: { $state }
 # kind=aria
@@ -198,20 +200,21 @@ shell-scan-queued-until = { $count } queued · waiting until { $time }
 # kind=status note="$reason is the provider's state code"
 shell-scan-queued-blocked = { $count } queued · { $reason ->
     [paused] paused
-    [policy_denied] not scanned on a timer
-    [backoff] waiting to retry
+    [policy_denied] scanning turned off
+    [backoff] a site asked to slow down
    *[other] waiting
 }
 # kind=status
 shell-scan-queued = { $count } queued
-# kind=status note="A queued scan the background service holds. $reason is its code: preflight_running (the code is being tested first), preflight_failed (the code failed its tests), waiting_for_wake (the computer is asleep), waiting_for_mains (on battery), schema_pending and dependencies_pending (an update is half installed), supervisor_stale (the background service is not running), busy_external (another scan holds the lock)"
+# kind=status note="A queued scan the background service holds. $reason is its code: preflight_running (the code is being tested first), preflight_failed (the code failed its tests), waiting_for_wake (the computer is asleep), waiting_for_mains (on battery), schema_pending and dependencies_pending (an update is half installed), setup_source (the same on a source install, where ./setup.sh finishes it), supervisor_stale (the background service is not running), busy_external (another scan holds the lock)"
 shell-scan-waiting = { $count } queued · { $reason ->
-    [preflight_running] checking the code first
-    [preflight_failed] held: the code failed its checks
-    [waiting_for_wake] waiting for the computer to wake
-    [waiting_for_mains] waiting for power
+    [preflight_running] checking this version first
+    [preflight_failed] on hold: this version failed its checks
+    [waiting_for_wake] waiting for your computer to wake
+    [waiting_for_mains] waiting to be plugged in
     [schema_pending] waiting for an update to finish
     [dependencies_pending] waiting for an update to finish
+    [setup_source] run ./setup.sh to finish the update
     [supervisor_stale] the background service isn't running
     [busy_external] another scan is running
    *[other] waiting
@@ -247,7 +250,7 @@ shell-scan-stop-title = Stop the scan
 # kind=tooltip
 shell-scan-running-title = Looking for new roles at every company you follow…
 # kind=tooltip
-shell-scan-requested-title = Requested; waiting for the scheduler to pick it up
+shell-scan-requested-title = Waiting to start
 # kind=tooltip
 shell-scan-idle-title = Look for new roles at every company you follow
 # kind=status note="How many companies the running scan covers"
@@ -362,13 +365,13 @@ shell-model-switch = { $phase ->
 }
 # kind=aria
 shell-model-switch-aria = { $phase ->
-    [downloading] Downloading the ranking model. Open Settings, AI to follow it
-   *[converting] Switching the ranking model. Open Settings, AI to follow it
+    [downloading] Downloading the ranking model. Open Settings › AI to see its progress
+   *[converting] Switching the ranking model. Open Settings › AI to see its progress
 }
 # kind=tooltip
-shell-model-switch-title = Follow it in Settings › AI. Ranking keeps working meanwhile.
+shell-model-switch-title = See its progress in Settings › AI. Ranking keeps working meanwhile.
 # kind=toast
-shell-compare-save-failed = Couldn't save what you're comparing. It may be gone after a reload.
+shell-compare-save-failed = Couldn't keep your compare selection. It may be gone after a reload.
 # kind=toast
 shell-compare-cleared = { $count ->
     [one] Cleared { $count } role from compare

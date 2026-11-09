@@ -44,7 +44,7 @@ describe("BandBadge", () => {
 
   it("marks a level the title names but we cannot place, never as not stated and never by its guessed band", () => {
     render(<BandBadge band="staff" confidence="confirmed" basis="unmapped" />);
-    expect(screen.getByText("level not mapped")).toBeInTheDocument();
+    expect(screen.getByText(msg("taxonomy-level-not-mapped"))).toBeInTheDocument();
     expect(screen.queryByText("level not stated")).not.toBeInTheDocument();
     expect(screen.queryByText("Staff")).not.toBeInTheDocument();
   });
@@ -90,7 +90,11 @@ describe("MatchBadge", () => {
 
   it("names every remaining source, and says so in the title", () => {
     render(<MatchBadge matchedVia={["keyword", "exact", "fuzzy"]} />);
-    expect(screen.getByText("Keyword · Fuzzy")).toBeInTheDocument();
-    expect(screen.getByTitle(msg("jobs-matched-via", { sources: "keyword and fuzzy match" }))).toBeInTheDocument();
+    expect(screen.getByText(`${msg("jobs-via-keyword")} · ${msg("jobs-via-fuzzy")}`)).toBeInTheDocument();
+    expect(
+      screen.getByTitle(
+        msg("jobs-matched-via", { sources: `${msg("jobs-via-keyword-inline")} and ${msg("jobs-via-fuzzy-inline")}` }),
+      ),
+    ).toBeInTheDocument();
   });
 });

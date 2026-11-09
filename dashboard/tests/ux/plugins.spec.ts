@@ -53,7 +53,7 @@ test("the Plugins tab opens by its link, right after Schedule, one row per plugi
   await expect(region.getByText("2 of 2 on")).toBeVisible();
   const row = region.getByTestId("plugin-row-acme-reports");
   await expect(row.getByText("Acme pay reports")).toBeVisible();
-  await expect(row).toContainText("Answers compensation estimates");
+  await expect(row).toContainText(msg("settings-plugins-section-answers", { slots: "compensation estimates" }));
   await expect(row.getByRole("checkbox", { name: "Use Acme pay reports" })).toBeChecked();
   // Every row has a Start: each is named by its plugin, and still reads Start.
   const start = row.getByRole("button", { name: "Start Acme pay reports", exact: true });
@@ -147,9 +147,9 @@ test("turning on an approved plugin that has not read every followed company ask
   await page.getByRole("checkbox", { name: "Use Example pay data" }).click();
 
   const dialog = page.getByRole("dialog", { name: "Turn this plugin on?" });
-  await expect(dialog).toContainText("replaces the built-in data for every company");
+  await expect(dialog).toContainText("replaces the built-in data for all companies");
   await expect(dialog.getByTestId("plugin-approval-gap")).toContainText(
-    "Until it reads a company, that company shows none of what it brings");
+    "Until it reads a company, that company shows none of its data");
   await expect(dialog.getByTestId("plugin-approval-gap")).toContainText("96 of 120 companies");
   expect(sent).toEqual([]);
   await dialog.getByRole("button", { name: "Turn on", exact: true }).click();
@@ -211,7 +211,7 @@ test("the gear opens the plugin's settings: how often it updates, and Pause", as
 
   const often = page.getByRole("group", { name: "How often" });
   await expect(often.getByRole("button", { name: "Weekly" })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByText("The plugin suggests weekly.", { exact: false })).toBeVisible();
+  await expect(page.getByText("Suggested: weekly.", { exact: false })).toBeVisible();
   await often.getByRole("button", { name: "Daily" }).click();
   await page.getByRole("button", { name: "Pause" }).click();
   await expect.poll(() => sent).toEqual([{ schedule: "daily" }, "pause"]);
@@ -258,7 +258,7 @@ test("Uninstall says its data stays, and sends one DELETE when confirmed", async
   await page.goto("/settings/plugins/example-pay");
   await page.getByRole("button", { name: "Uninstall" }).click();
   const dialog = page.getByRole("dialog", { name: "Uninstall this plugin?" });
-  await expect(dialog).toContainText("The data it added stays, unread, until you remove it.");
+  await expect(dialog).toContainText("Its data stays, unused, until removed.");
   await dialog.getByRole("button", { name: "Uninstall" }).click();
   await expect.poll(() => deleted).toBe(1);
 });
@@ -486,7 +486,7 @@ test("one plugin's settings: What it brings says how many of the followed compan
   await expect(page.getByRole("heading", { name: "Example ladder data" })).toBeVisible();
   const pay = page.getByTestId("plugin-slot-pay.levels");
   await expect(pay).toContainText("4 of 1,180 companies read");
-  await expect(pay).toContainText("The other 1,176 show no estimate until they're read.");
+  await expect(pay).toContainText("The other 1,176 show no comp bands until they're read.");
   await expect(pay).not.toContainText("before it was a plugin");
   await expect(page.getByTestId("plugin-slot-company.benefits")).toContainText("0 of 1,180 companies read");
   await expect(factLine(page, "Left to read")).toContainText("About 21 hr of updates, at about 1 min a company");

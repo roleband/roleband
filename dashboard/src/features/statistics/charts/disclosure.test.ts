@@ -108,7 +108,7 @@ describe("disclosureRateRows", () => {
       }),
       "level",
     );
-    expect(rows[0].label).toBe("Unclassified");
+    expect(rows[0].label).toBe(msg("insights-disclosure-unclassified"));
   });
 
   it("names the roles whose level we cannot place as such, never as a rung", () => {
@@ -121,7 +121,7 @@ describe("disclosureRateRows", () => {
       }),
       "level",
     );
-    expect(rows.map((r) => r.label)).toEqual(["Level not placed", "Principal"]);
+    expect(rows.map((r) => r.label)).toEqual([msg("taxonomy-level-not-placed"), "Principal"]);
   });
 });
 
@@ -289,9 +289,11 @@ describe("buildBandTrendOption", () => {
     );
     const byName = Object.fromEntries(option.series.map((s: any) => [s.name, s]));
 
-    expect(byName["Median floor"].data).toEqual([200_000, 210_000]);
-    expect(byName["Median ceiling"].data).toEqual([300_000, 320_000]);
-    expect(option.legend.data).toEqual(["Median ceiling", "Median floor"]);
+    const floor = msg("insights-disclosure-median-floor");
+    const ceiling = msg("insights-disclosure-median-ceiling");
+    expect(byName[floor].data).toEqual([200_000, 210_000]);
+    expect(byName[ceiling].data).toEqual([300_000, 320_000]);
+    expect(option.legend.data).toEqual([ceiling, floor]);
   });
 
   it("keeps a day with no posted band as a hole in the span", () => {

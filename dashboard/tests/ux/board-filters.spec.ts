@@ -273,7 +273,7 @@ test("the top-bar counts are one choice: whatever you click is what you see", as
   await page.setViewportSize({ width: 1600, height: 900 });
   await page.goto("/");
 
-  const bar = page.getByRole("banner", { name: "Application navigation" });
+  const bar = page.getByRole("banner", { name: msg("shell-topbar-aria") });
   const openRoles = bar.getByRole("link", { name: /open roles?$/ });
   const newToday = bar.getByRole("button", { name: "1 new in the last 2 days" });
   const reposted = bar.getByRole("button", { name: "2 reposted today" });
@@ -336,7 +336,7 @@ test("the top-bar counts are one choice: whatever you click is what you see", as
   // And the lens does not wait for the board's next visit: back through the
   // rail, it is the plain board again.
   const before = lists.length;
-  await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Radar" }).click();
+  await page.getByRole("navigation", { name: msg("shell-rail-aria") }).getByRole("link", { name: "Radar" }).click();
   await expect.poll(() => lists.length).toBeGreaterThan(before);
   expect(lensesSent()).toBe("false/false");
   await expect(lensChip).toHaveCount(0);
@@ -677,7 +677,7 @@ test("open roles reaches the unfiltered board from a company's roles, and settle
   await expect(rail.getByRole("checkbox", { name: "Amazon" })).toBeChecked();
 
   const before = lists.length;
-  await page.getByRole("banner", { name: "Application navigation" })
+  await page.getByRole("banner", { name: msg("shell-topbar-aria") })
     .getByRole("link", { name: /open roles?$/ }).click();
   await expect.poll(() => lists.at(-1)?.getAll("company")).toEqual([]);
   // Nothing is chosen any more, so the closed group has no row to show.
@@ -881,7 +881,7 @@ test("a remembered company reaches the ADDRESS, so `/` still means the whole boa
   await expect(rail.getByRole("checkbox", { name: "Amazon" })).toBeChecked();
 
   const before = lists.length;
-  await page.getByRole("banner", { name: "Application navigation" })
+  await page.getByRole("banner", { name: msg("shell-topbar-aria") })
     .getByRole("link", { name: /open roles?$/ }).click();
   await expect.poll(() => lists.at(-1)?.getAll("company")).toEqual([]);
   await expect(page).not.toHaveURL(/company=/);

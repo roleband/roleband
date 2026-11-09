@@ -79,18 +79,18 @@ vocab-domain-hint-customer-support = Help desk, user ops
 vocab-domain-corporate-operations = Corporate Operations
 # kind=tooltip wording=as-is
 vocab-domain-hint-corporate-operations = Strategy, planning, BizOps
-# kind=name wording=as-is
-vocab-domain-unclassified = Unclassified
+# kind=name
+vocab-domain-unclassified = Other
 
 ## Tracks: backend/tracker/taxonomy/tracks.py TRACKS
-# kind=name wording=as-is
-vocab-track-management = Management / Leadership
+# kind=name
+vocab-track-management = Management
 # kind=name wording=as-is
 vocab-track-product-program = Product & Program
-# kind=name wording=as-is
-vocab-track-technical = Technical (IC)
-# kind=name wording=as-is
-vocab-track-business-customer = Business & Customer (IC)
+# kind=name
+vocab-track-technical = Technical IC
+# kind=name
+vocab-track-business-customer = Business & Customer
 
 ## Role groups: backend/tracker/taxonomy/roles.py ROLE_GROUPS; `other` names a role in none
 # kind=name wording=as-is
@@ -141,7 +141,7 @@ vocab-role-finance-accounting = Finance & Accounting
 vocab-role-people-recruiting = People / HR / Recruiting
 # kind=name wording=as-is
 vocab-role-legal-policy = Legal / Policy / Compliance
-# kind=name wording=as-is
+# kind=name wording=as-is same-as=vocab-domain-unclassified
 vocab-role-other = Other
 
 ## Company sectors: backend/tracker/company_discovery.py SECTORS
@@ -171,8 +171,8 @@ vocab-sector-robotics = Robotics, autonomy & defense
 vocab-sector-consumer = Consumer platforms
 
 ## Where a company fact came from: backend/tracker/profiles/sources.py SOURCES
-# kind=name wording=as-is
-vocab-source-manual = Manual (you)
+# kind=name
+vocab-source-manual = Your entry
 # kind=name wording=as-is
 vocab-source-sec-edgar = SEC EDGAR
 # kind=name wording=as-is

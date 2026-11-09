@@ -54,7 +54,7 @@ it("renders the proposal with its evidence in plain language", async () => {
   expect(await screen.findByText("Turn off Advertising?")).toBeInTheDocument();
   // The basis is the user's own history, spelled out — not a bare score.
   expect(
-    screen.getByText("Because you marked 2 roles there Not for me: wrong world, and 1 more marked Not for me without a reason."),
+    screen.getByText("Based on: you marked 2 roles there Not for me: wrong world · 1 more marked Not for me without a reason"),
   ).toBeInTheDocument();
 });
 
@@ -64,7 +64,7 @@ it("counts roles in the reader's language, never in English inside a translated 
     const off = basisClauses({ ...offSuggestion, basis: { ...offSuggestion.basis, dismissed_wrong_domain: 2 } });
     expect(off[0]).toBe(msg("profile-suggestions-you-marked-there-not-for", { dismissed_wrong_domain: msg("shared-count-role", { count: 2 }) }));
     const on = basisClauses({ ...offSuggestion, kind: "world_on", basis: { ...offSuggestion.basis, pursued: 0, favorited: 3, sectors: [], intent_matched: false } });
-    expect(on).toEqual([msg("profile-suggestions-you-saved-there", { favorited: msg("shared-count-role", { count: 3 }) })]);
+    expect(on).toEqual([msg("profile-suggestions-you-saved-there", { favorited: 3 })]);
     expect([...off, ...on].join(" ")).not.toMatch(/\broles?\b/);
   } finally {
     await activate("en");
@@ -83,15 +83,15 @@ it("says each count in the glossary's words, singular and plural", () => {
     basis: { ...offSuggestion.basis, pursued: 1, favorited: 3, sectors: ["fintech", "ai"], intent_matched: true },
   };
   expect(basisClauses(on)).toEqual([
-    "1 role there is in progress",
-    "you saved 3 roles there",
-    "2 followed company sectors point there",
-    "your aim names it",
+    "1 role in progress",
+    "3 saved roles",
+    "Fintech & payments and AI companies you follow",
+    "your aim",
   ]);
   expect(basisClauses({ ...on, basis: { ...on.basis, pursued: 2, sectors: ["ai"] } }).slice(0, 3)).toEqual([
-    "2 roles there are in progress",
-    "you saved 3 roles there",
-    "1 followed company sector points there",
+    "2 roles in progress",
+    "3 saved roles",
+    "AI companies you follow",
   ]);
 });
 
@@ -119,7 +119,7 @@ it("dismiss resolves without touching scope and clears the card", async () => {
   dismiss.mockResolvedValue({ suggestion: { ...offSuggestion, status: "dismissed" } });
   renderInbox();
   await userEvent.click(
-    await screen.findByRole("button", { name: /Dismiss suggestion about Advertising/ }),
+    await screen.findByRole("button", { name: /No thanks to Advertising/ }),
   );
   await waitFor(() => expect(dismiss).toHaveBeenCalledWith(7));
   expect(screen.queryByText("Turn off Advertising?")).not.toBeInTheDocument();

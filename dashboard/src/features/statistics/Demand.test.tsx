@@ -128,7 +128,11 @@ it("draws the fifteen leaders and folds the long tail into one line that still c
   expect(bars[0]).toBe("Anthropic: 40");
   // 20 companies: 15 drawn, the 5 smallest folded into a sentence that keeps
   // their 4+4+4+6+4 roles; never a bar that would flatten the leaders.
-  expect(screen.getByText("5 companies more hold 22 roles (14% of these roles).")).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      msg("insights-demand-more-hold", { share: "known", companies: "5 companies", roles: "22 roles", percent: 14 }),
+    ),
+  ).toBeInTheDocument();
 });
 
 it("asks the route for the scope it is given and names the side it shows", async () => {
@@ -188,7 +192,7 @@ it("captions a longest-open role with its listed age, and lists five", async () 
 it("says how many roles with a stale listing date the longest-open list left out", async () => {
   vi.mocked(api.demand).mockResolvedValue(demand({ listed_over_a_year: 95 }));
   renderHiring({ advanced: true });
-  expect(await screen.findByText("95 roles listed over a year are left out: their dates read as stale.")).toBeInTheDocument();
+  expect(await screen.findByText(msg("insights-demand-listed-over-a-year-are", { role: "95 roles" }))).toBeInTheDocument();
 });
 
 it("says so when nothing is open", async () => {

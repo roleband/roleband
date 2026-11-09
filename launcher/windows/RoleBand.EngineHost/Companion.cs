@@ -149,7 +149,7 @@ public static class Companion
         return Ready(lastLine?.Text ?? copy["not-scanned"], rest, TrayBadge.None, tip: copy["ready"]);
     }
 
-    /// <summary>Companies read and new roles from the newest finished scan. New roles open the Radar on New, as the
+    /// <summary>Companies scanned and new roles from the newest finished scan. New roles open the Radar on New, as the
     /// Radar's own New count does; with none the count stays plain.</summary>
     private static FlyoutLine? Facts(NativeCopy copy, ScanPicture? picture)
     {

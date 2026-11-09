@@ -153,10 +153,10 @@ it("saves a draft version and opens it", async () => {
 it("checks one version's whole page and reports what it read", async () => {
   render(<RecipesSection />);
   await userEvent.click(await screen.findByRole("button", { name: "Open" }));
-  await userEvent.click(await screen.findByRole("button", { name: "Check the whole page" }));
+  await userEvent.click(await screen.findByRole("button", { name: msg("settings-recipes-section-check-the-whole-page") }));
 
   await waitFor(() => expect(api.checkRecipeVersion).toHaveBeenCalledWith("valve-jobs", 7));
-  expect(await screen.findByText("Checked: read the whole page, 12 roles over 1 pages.")).toBeVisible();
+  expect(await screen.findByText(msg("settings-recipes-section-not-checked-the-whole-page", { choice: "yes", found: 12, pages: 1 }))).toBeVisible();
 });
 
 it("offers to switch only to a version that is not already in use", async () => {
@@ -184,7 +184,7 @@ it("scans only a company no built-in reader covers, and says what closes and whe
   await userEvent.selectOptions(company, "valve");
   await userEvent.click(scan);
   await waitFor(() => expect(api.scanCompanyWithRecipe).toHaveBeenCalledWith("valve", "valve-jobs"));
-  expect(await screen.findByText(/Its missing roles close only once a checked version/)).toBeVisible();
+  expect(await screen.findByText(/Missing roles close only after a checked version/)).toBeVisible();
 });
 
 it("keeps a failed scan's message to that recipe, said from its code", async () => {

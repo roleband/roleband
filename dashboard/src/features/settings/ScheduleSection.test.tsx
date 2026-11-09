@@ -7,8 +7,23 @@ import { msg } from "../../test/msg";
 import { schedulePlanFixture } from "../../test/fixtures";
 import { api } from "../../api";
 import { ApiError } from "../../api/transport";
+import { clockText, listMinutes } from "../../ui/TimeField";
 import { ScheduleSection } from "./ScheduleSection";
 import { readyByForStart, startForReadyBy } from "./usePlanDrag";
+
+const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** A company's own mark on the dial, by its name: movable, or locked for `reason`. */
+const companyMark = (company: string, mode: "reconcile" | "discovery" = "reconcile", reason?: string) => {
+  const scan = msg("settings-schedule-mode-name", { schedule: "timers", mode });
+  const [head, tail] = (reason === undefined
+    ? msg("settings-chronograph-dial-move-company", { company, scan, time: "\u0000" })
+    : msg("settings-chronograph-dial-company-locked", { company, scan, time: "\u0000", reason })
+  ).split("\u0000");
+  return new RegExp(`^${escape(head)}\\d{2}:\\d{2}${escape(tail)}$`);
+};
+/** The exact-time field a company's mark opens. */
+const companyTime = (company: string) =>
+  msg("settings-chronograph-inspector-time", { company, scan: msg("settings-schedule-mode-name", { schedule: "timers", mode: "reconcile" }) });
 
 vi.mock("../../api", () => ({
   api: { schedule: vi.fn(), updateSchedule: vi.fn(), updateSchedulePlan: vi.fn() },
@@ -126,6 +141,19 @@ const stackedFixture = (): SyncSchedule => ({
   ],
 });
 
+describe("the list of times", () => {
+  it("offers every half hour, and a time between two of them in its place", () => {
+    expect(listMinutes(null)).toHaveLength(48);
+    expect(listMinutes(null).slice(0, 3)).toEqual([0, 30, 60]);
+    expect(listMinutes(510)).toEqual(listMinutes(null));
+    const withOdd = listMinutes(515);
+    expect(withOdd).toHaveLength(49);
+    expect(withOdd.slice(17, 20)).toEqual([510, 515, 540]);
+    const late = listMinutes(23 * 60 + 50);
+    expect(late[late.length - 1]).toBe(23 * 60 + 50);
+  });
+});
+
 describe("ScheduleSection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -152,7 +180,7 @@ describe("ScheduleSection", () => {
     const agenda = screen.getByRole("complementary", { name: /upcoming scans/i });
     expect(within(agenda).queryByText("Full scan window")).not.toBeInTheDocument();
     const cycleRow = within(agenda)
-      .getByText(/Full scan · projected through/i)
+      .getByText(/Full scan · done by about/i)
       .closest(".schedule-upcoming-row");
     expect(cycleRow).toHaveTextContent("OpenAI");
   });
@@ -188,7 +216,7 @@ describe("ScheduleSection", () => {
 
     const agenda = screen.getByRole("complementary", { name: /upcoming scans/i });
     expect(within(agenda).getByText(/Full scan window/)).toBeInTheDocument();
-    expect(within(agenda).getByText(/3 scans · projected through/i)).toBeInTheDocument();
+    expect(within(agenda).getByText(/3 scans · done by about/i)).toBeInTheDocument();
     expect(within(screen.getByLabelText("Schedule clock legend"))
       .getByText("Full scan window")).toBeInTheDocument();
   });
@@ -199,11 +227,23 @@ describe("ScheduleSection", () => {
       bindings: [{ ...fixture.bindings[0], waits_for_user: "user_directed" }, fixture.bindings[1]],
     });
     render(<ScheduleSection />);
-    fireEvent.click(await screen.findByRole("button", { name: "All persisted deadlines" }));
-    const sheet = await screen.findByRole("dialog", { name: "All persisted deadlines" });
+    fireEvent.click(await screen.findByRole("button", { name: msg("settings-schedule-section-every-company-s-scans") }));
+    const sheet = await screen.findByRole("dialog", { name: msg("settings-schedule-section-every-company-s-scans") });
     const openai = within(sheet).getByText("OpenAI").closest("tr") as HTMLElement;
-    expect(openai).toHaveTextContent("Only when you scan");
+    expect(openai).toHaveTextContent(msg("settings-schedule-section-only-when-you-press-scan"));
     expect(openai).not.toHaveTextContent("Scheduled");
+  });
+
+  it("names the sheet of every company's scans the same on its link, as a dialog and in its heading, with the plan on or off", async () => {
+    const name = msg("settings-schedule-section-every-company-s-scans");
+    for (const schedule of [fixture, planned()]) {
+      vi.mocked(api.schedule).mockResolvedValue(schedule);
+      const { unmount } = render(<ScheduleSection />);
+      fireEvent.click(await screen.findByRole("button", { name }));
+      const sheet = await screen.findByRole("dialog", { name });
+      expect(within(sheet).getByRole("heading", { level: 2 })).toHaveTextContent(name);
+      unmount();
+    }
   });
 
   it("surfaces policy denial as an exception and keeps the ledger one click away", async () => {
@@ -214,9 +254,9 @@ describe("ScheduleSection", () => {
       /Meta: its site doesn't allow scheduled scans/,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /all persisted deadlines/i }));
-    const sheet = await screen.findByRole("dialog", { name: /all persisted deadlines/i });
-    expect(sheet).toHaveTextContent("Policy denied");
+    fireEvent.click(screen.getByRole("button", { name: msg("settings-schedule-section-every-company-s-scans") }));
+    const sheet = await screen.findByRole("dialog", { name: msg("settings-schedule-section-every-company-s-scans") });
+    expect(sheet).toHaveTextContent(msg("settings-schedule-section-policy-denied"));
     const metaRow = within(sheet).getByText("Meta").closest("tr");
     expect(metaRow).toHaveTextContent("Not scheduled");
   });
@@ -255,14 +295,49 @@ describe("ScheduleSection", () => {
     }
   });
 
+  it("opens the rest of the upcoming scans in place under the first seven, and folds them again", async () => {
+    const names = ["adyen", "airbnb", "canva", "figma", "klarna", "notion", "revolut", "quill", "stripe", "wise"];
+    const hour = (offset: number) => new Date(Date.parse("2026-07-28T15:00:00Z") + offset * 3_600_000).toISOString();
+    vi.mocked(api.schedule).mockResolvedValue({
+      ...fixture,
+      providers: [fixture.providers[0]],
+      bindings: names.map((name, index) => ({
+        ...fixture.bindings[0],
+        binding_id: index + 1,
+        company: name,
+        next_discovery_at: hour(index),
+        eligible_discovery_at: hour(index),
+        next_reconcile_at: null,
+        eligible_reconcile_at: null,
+      })),
+    });
+    render(<ScheduleSection />);
+
+    const queue = await screen.findByRole("complementary", { name: msg("settings-schedule-section-upcoming-scans") });
+    const shown = () => Array.from(queue.querySelectorAll(".schedule-upcoming-row strong"), (row) => row.textContent);
+    const more = within(queue).getByRole("button", { name: msg("settings-schedule-section-upcoming-more", { choice: "no", count: 3 }) });
+    expect(shown()).toEqual(names.slice(0, 7));
+    expect(more).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(more);
+    expect(shown()).toEqual(names);
+    expect(more).toHaveAttribute("aria-expanded", "true");
+    expect(more).toHaveAccessibleName(msg("settings-schedule-section-upcoming-more", { choice: "yes", count: 3 }));
+    expect(document.getElementById(more.getAttribute("aria-controls") ?? "")).toBeVisible();
+
+    fireEvent.click(more);
+    expect(shown()).toEqual(names.slice(0, 7));
+    expect(more).toHaveAttribute("aria-expanded", "false");
+  });
+
   it("persists an exact reconciliation time from the marker inspector", async () => {
     render(<ScheduleSection />);
     const marker = await screen.findByRole("button", {
-      name: /move openai full scan/i,
+      name: companyMark("OpenAI"),
     });
 
     fireEvent.click(marker);
-    const input = await screen.findByLabelText(/OpenAI full scan time/i);
+    const input = await screen.findByLabelText(companyTime("OpenAI"));
     // Editing is not committing. A time input reaches a complete value on every
     // segment edit, so a write on `change` was a write per keystroke; the field
     // commits when the edit is finished (blur, or Enter).
@@ -287,16 +362,16 @@ describe("ScheduleSection", () => {
     // selection that does not exist.
     render(<ScheduleSection />);
     const marker = await screen.findByRole("button", {
-      name: /move openai full scan/i,
+      name: companyMark("OpenAI"),
     });
 
     fireEvent.click(marker);
-    await screen.findByLabelText(/OpenAI full scan time/i);
+    await screen.findByLabelText(companyTime("OpenAI"));
     expect(marker).toHaveAttribute("aria-expanded", "true");
 
     fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() =>
-      expect(screen.queryByLabelText(/OpenAI full scan time/i)).toBeNull());
+      expect(screen.queryByLabelText(companyTime("OpenAI"))).toBeNull());
     expect(marker).toHaveAttribute("aria-expanded", "false");
   });
 
@@ -312,8 +387,8 @@ describe("ScheduleSection", () => {
     vi.mocked(api.schedule).mockResolvedValue(withException);
     render(<ScheduleSection />);
 
-    fireEvent.click(await screen.findByRole("button", { name: /all persisted deadlines/i }));
-    const sheet = await screen.findByRole("dialog", { name: /all persisted deadlines/i });
+    fireEvent.click(await screen.findByRole("button", { name: msg("settings-schedule-section-every-company-s-scans") }));
+    const sheet = await screen.findByRole("dialog", { name: msg("settings-schedule-section-every-company-s-scans") });
 
     // No phrase the column header already implies.
     expect(sheet).not.toHaveTextContent(/cadence/i);
@@ -322,8 +397,8 @@ describe("ScheduleSection", () => {
 
     // Cadence is a single token beside the time it governs.
     const openaiRow = within(sheet).getByText("OpenAI").closest("tr") as HTMLElement;
-    expect(within(openaiRow).getByLabelText("every 6h")).toHaveTextContent("6h");
-    expect(within(openaiRow).getByLabelText("every 24h")).toHaveTextContent("24h");
+    expect(within(openaiRow).getByLabelText("every 6 h")).toHaveTextContent("6 h");
+    expect(within(openaiRow).getByLabelText("every 24 h")).toHaveTextContent("24 h");
     // The exception is named; it is the only row that carries a subline.
     expect(openaiRow).toHaveTextContent("can't close roles");
 
@@ -338,8 +413,8 @@ describe("ScheduleSection", () => {
     async () => {
       render(<ScheduleSection />);
 
-      fireEvent.click(await screen.findByRole("button", { name: /all persisted deadlines/i }));
-      const sheet = await screen.findByRole("dialog", { name: /all persisted deadlines/i });
+      fireEvent.click(await screen.findByRole("button", { name: msg("settings-schedule-section-every-company-s-scans") }));
+      const sheet = await screen.findByRole("dialog", { name: msg("settings-schedule-section-every-company-s-scans") });
 
       const openaiRow = within(sheet).getByText("OpenAI").closest("tr") as HTMLElement;
       const [openaiConnector, discovery, reconcile] = Array.from(openaiRow.querySelectorAll("td"));
@@ -388,25 +463,25 @@ describe("ScheduleSection", () => {
     render(<ScheduleSection />);
     await screen.findByRole("img", { name: /scan clock/i });
 
-    expect(screen.queryByText(/never closes one/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/close a role that has disappeared/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(msg("settings-schedule-section-probes-a-company-s-board"))).not.toBeInTheDocument();
+    expect(screen.queryByText(msg("settings-schedule-section-the-authoritative-cycle-only-this"))).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /how scanning works/i }));
 
     const help = await screen.findByRole("dialog", { name: /how scanning works/i });
-    expect(help).toHaveTextContent(/add or update a role, but never closes one/i);
-    expect(help).toHaveTextContent(/Only a full scan can close a role that has disappeared/);
+    expect(help).toHaveTextContent(msg("settings-schedule-section-probes-a-company-s-board"));
+    expect(help).toHaveTextContent(msg("settings-schedule-section-the-authoritative-cycle-only-this"));
     expect(help).toHaveTextContent(/snap to 10 minutes/i);
   });
 
   it("drops provider plumbing from the marker inspector", async () => {
     render(<ScheduleSection />);
     const marker = await screen.findByRole("button", {
-      name: /move openai full scan/i,
+      name: companyMark("OpenAI"),
     });
 
     fireEvent.click(marker);
-    const inspector = await screen.findByRole("dialog", { name: /scan schedule inspector/i });
+    const inspector = await screen.findByRole("dialog", { name: msg("settings-chronograph-inspector-scan-schedule-inspector") });
 
     expect(inspector).toHaveTextContent("OpenAI");
     expect(inspector).not.toHaveTextContent(/greenhouse/i);
@@ -416,9 +491,8 @@ describe("ScheduleSection", () => {
   it("heads a mark's inspector with its own pass and lists the company's other pass after it", async () => {
     const pass = (mode: "reconcile" | "discovery") => msg("settings-chronograph-inspector-pass", { mode });
     const terms = async (mode: "reconcile" | "discovery") => {
-      const scan = msg("settings-schedule-mode-name", { schedule: "timers", mode });
       const view = render(<ScheduleSection />);
-      fireEvent.click(await screen.findByRole("button", { name: new RegExp(`^Move OpenAI ${scan},`) }));
+      fireEvent.click(await screen.findByRole("button", { name: companyMark("OpenAI", mode) }));
       const inspector = await screen.findByRole("dialog", { name: msg("settings-chronograph-inspector-scan-schedule-inspector") });
       const rows = within(inspector).getAllByRole("term").map((term) => [term.textContent, term.nextElementSibling?.textContent]);
       view.unmount();
@@ -455,18 +529,18 @@ describe("ScheduleSection", () => {
     fireEvent.click(stack);
 
     // The whole stack is named and listed — not scattered back onto the dial.
-    const inspector = await screen.findByRole("dialog", { name: /scan schedule inspector/i });
-    expect(inspector).toHaveTextContent(/3 share \d{2}:\d{2}/);
+    const inspector = await screen.findByRole("dialog", { name: msg("settings-chronograph-inspector-scan-schedule-inspector") });
+    expect(inspector).toHaveTextContent(/3 scans at \d{2}:\d{2}/);
     for (const company of ["OpenAI", "Meta", "Anthropic"]) {
       expect(within(inspector).getByText(company)).toBeInTheDocument();
     }
     // ...and every one of them is individually settable from right here.
     for (const company of ["OpenAI", "Meta", "Anthropic"]) {
-      expect(within(inspector).getByLabelText(new RegExp(`${company} full scan time`, "i")))
+      expect(within(inspector).getByLabelText(companyTime(company)))
         .toBeEnabled();
     }
     // The dial keeps the stack whole rather than fanning it into loose marks.
-    expect(screen.queryByRole("button", { name: /^move openai full scan/i }))
+    expect(screen.queryByRole("button", { name: companyMark("OpenAI") }))
       .not.toBeInTheDocument();
   });
 
@@ -478,9 +552,9 @@ describe("ScheduleSection", () => {
     expect(stack).toHaveAccessibleName(/drag to move Anthropic out/i);
 
     fireEvent.click(stack);
-    const inspector = await screen.findByRole("dialog", { name: /scan schedule inspector/i });
-    expect(inspector).toHaveTextContent(/drag the mark to move Anthropic out first/i);
-    expect(screen.getByRole("status")).toHaveTextContent(/drag the mark to move Anthropic out/i);
+    const inspector = await screen.findByRole("dialog", { name: msg("settings-chronograph-inspector-scan-schedule-inspector") });
+    expect(inspector).toHaveTextContent(/drag the scan to move Anthropic out first/i);
+    expect(screen.getByRole("status")).toHaveTextContent(/drag to move Anthropic out/i);
 
     // The company the handle names is the one heading the list, not an
     // internal ordering the user cannot see.
@@ -502,7 +576,7 @@ describe("ScheduleSection", () => {
     // The grabbed handle is now Anthropic alone (on the next animation frame:
     // a drag renders once per frame)...
     await waitFor(() =>
-      expect(stack).toHaveAccessibleName(/move anthropic full scan/i));
+      expect(stack).toHaveAccessibleName(companyMark("Anthropic")));
     // ...and the two it left behind are drawn separately, and cannot be grabbed
     // while the first is still in flight.
     expect(screen.getByRole("button", { name: /2 full scans still at \d{2}:\d{2}/i }))
@@ -539,13 +613,14 @@ describe("ScheduleSection", () => {
     render(<ScheduleSection />);
 
     const marker = await screen.findByRole("button", {
-      name: /move meta full scan/i,
+      name: companyMark("Meta", "reconcile", msg("settings-schedule-cancel-the-queued-manual-scan")),
     });
     fireEvent.click(marker);
 
-    const input = await screen.findByLabelText(/Meta full scan time/i);
+    const input = await screen.findByLabelText(companyTime("Meta"));
     expect(input).toBeDisabled();
-    expect(screen.getByText(/cancel the queued manual scan/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: msg("shared-time-field-choose") })).not.toBeInTheDocument();
+    expect(screen.getByText(msg("settings-schedule-cancel-the-queued-manual-scan"))).toBeInTheDocument();
   });
 });
 
@@ -592,7 +667,7 @@ describe("ScheduleSection under the schedule plan", () => {
     expect(runs[1]).toHaveClass("wake");
 
     // A company's own time is named in the plan's words, the same words the timers use.
-    expect(screen.getByRole("button", { name: /^Move OpenAI full scan, currently/i }))
+    expect(screen.getByRole("button", { name: companyMark("OpenAI") }))
       .toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /authoritative reconciliation/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Anthropic/i })).not.toBeInTheDocument();
@@ -612,7 +687,7 @@ describe("ScheduleSection under the schedule plan", () => {
     expect(screen.getByText("Quick scan · 944 companies")).toBeInTheDocument();
 
     const next = screen.getByRole("list", { name: "Next scans" });
-    const wake = within(next).getByText("Full scan · when you turn it on").closest(".schedule-upcoming-row");
+    const wake = within(next).getByText("Full scan · when your computer wakes").closest(".schedule-upcoming-row");
     expect(wake).toHaveTextContent("1,112 companies · 41 min");
     const quick = within(next).getByText("Quick scan").closest(".schedule-upcoming-row");
     expect(quick).toHaveTextContent("944 companies · 10 min");
@@ -633,11 +708,11 @@ describe("ScheduleSection under the schedule plan", () => {
     // note under them, not rows of their own.
     expect(within(settings).getByText("First scan of the day")).toBeInTheDocument();
     expect(within(settings).getByLabelText("Full scan done by")).toBeInTheDocument();
-    expect(within(settings).getByText(/1,112 companies · 41 min/)).toBeInTheDocument();
+    expect(within(settings).getByText(/Companies: 1,112 · 41 min/)).toBeInTheDocument();
     expect(within(settings).getByRole("group", { name: "Quick scan every" })).toBeInTheDocument();
     expect(within(settings).queryByText("Your computer is usually on")).not.toBeInTheDocument();
     expect(within(settings).queryByText("If it was off")).not.toBeInTheDocument();
-    expect(within(panel).getByText(/one full scan runs when you are back; missed scans are not repeated/))
+    expect(within(panel).getByText(/After a long break, a full scan catches up\./))
       .toBeInTheDocument();
     // The timers' column and their cadence strip are not shown under the plan.
     expect(screen.queryByRole("complementary", { name: /upcoming scans/i })).not.toBeInTheDocument();
@@ -666,9 +741,9 @@ describe("ScheduleSection under the schedule plan", () => {
     await screen.findByRole("img", { name: /scan clock/i });
 
     expect(document.querySelectorAll('[data-testid="usually-off"]')).toHaveLength(1);
-    expect(screen.queryByText("NIGHT")).not.toBeInTheDocument();
+    expect(screen.queryByText("Night")).not.toBeInTheDocument();
     const legend = screen.getByLabelText("Schedule clock legend");
-    for (const key of ["Full scan", "Quick scan", "Usually off", "A time you set"]) {
+    for (const key of ["Full scan", "Quick scan", "Usually asleep or off", "A time you set"]) {
       expect(within(legend).getByText(key)).toBeInTheDocument();
     }
     expect(within(legend).queryByText("Reconciliation orbit")).not.toBeInTheDocument();
@@ -694,13 +769,13 @@ describe("ScheduleSection under the schedule plan", () => {
     await screen.findByRole("img", { name: /scan clock/i });
 
     expect(document.querySelector('[data-testid="usually-off"]')).toBeNull();
-    expect(screen.queryByText("NIGHT")).not.toBeInTheDocument();
-    expect(within(screen.getByLabelText("Schedule clock legend")).queryByText("Usually off"))
+    expect(screen.queryByText("Night")).not.toBeInTheDocument();
+    expect(within(screen.getByLabelText("Schedule clock legend")).queryByText("Usually asleep or off"))
       .not.toBeInTheDocument();
     expect(screen.getByText(/your computer is on all day every day/)).toBeInTheDocument();
     // On all day: there is no usual start to be done by, and the field says so.
     expect(screen.getByLabelText("Full scan done by")).toHaveValue("");
-    expect(screen.getByText(/No time set: it runs when you turn the computer on/)).toBeInTheDocument();
+    expect(screen.getByText(/No time set: it runs once a day and when your computer wakes/)).toBeInTheDocument();
   });
 
   it("offers no drag hint when no company has a time of its own to drag", async () => {
@@ -727,7 +802,7 @@ describe("ScheduleSection under the schedule plan", () => {
 
     expect(screen.getByText(/Still learning when your computer is on: 3 of 5 days seen/)).toBeInTheDocument();
     expect(document.querySelector('[data-testid="usually-off"]')).toBeNull();
-    expect(screen.getByText("NIGHT")).toBeInTheDocument();
+    expect(screen.getByText("Night")).toBeInTheDocument();
   });
 
   it("changes how often it repeats, and shows the stored answer", async () => {
@@ -736,12 +811,12 @@ describe("ScheduleSection under the schedule plan", () => {
     await screen.findByRole("img", { name: /scan clock/i });
 
     const repeat = screen.getByRole("group", { name: "Quick scan every" });
-    expect(within(repeat).getByRole("button", { name: "6h" })).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(within(repeat).getByRole("button", { name: "3h" }));
+    expect(within(repeat).getByRole("button", { name: "6 h" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(within(repeat).getByRole("button", { name: "3 h" }));
 
     await waitFor(() => expect(api.updateSchedulePlan).toHaveBeenCalledWith({ repeat_hours: 3 }));
     await waitFor(() =>
-      expect(within(repeat).getByRole("button", { name: "3h" })).toHaveAttribute("aria-pressed", "true"));
+      expect(within(repeat).getByRole("button", { name: "3 h" })).toHaveAttribute("aria-pressed", "true"));
     expect(screen.getByText("a quick scan every 3 hours")).toBeInTheDocument();
   });
 
@@ -751,10 +826,10 @@ describe("ScheduleSection under the schedule plan", () => {
     await screen.findByRole("img", { name: /scan clock/i });
 
     const repeat = screen.getByRole("group", { name: "Quick scan every" });
-    fireEvent.click(within(repeat).getByRole("button", { name: "12h" }));
+    fireEvent.click(within(repeat).getByRole("button", { name: "12 h" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't save that change");
-    expect(within(repeat).getByRole("button", { name: "6h" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(repeat).getByRole("button", { name: "6 h" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("names the server's reason when a plan setting could not be saved", async () => {
@@ -762,7 +837,7 @@ describe("ScheduleSection under the schedule plan", () => {
     render(<ScheduleSection />);
     await screen.findByRole("img", { name: /scan clock/i });
     const repeat = screen.getByRole("group", { name: "Quick scan every" });
-    fireEvent.click(within(repeat).getByRole("button", { name: "12h" }));
+    fireEvent.click(within(repeat).getByRole("button", { name: "12 h" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(msg("error-offline"));
   });
 
@@ -770,9 +845,9 @@ describe("ScheduleSection under the schedule plan", () => {
     vi.mocked(api.updateSchedulePlan).mockRejectedValue(new Error("boom"));
     render(<ScheduleSection />);
     fireEvent.click(await screen.findByRole("button", { name: /^Move quick scan/ }));
-    const inspector = await screen.findByRole("dialog", { name: "Scan inspector" });
+    const inspector = await screen.findByRole("dialog", { name: msg("settings-plan-run-inspector-scan-inspector") });
     const every = within(inspector).getByRole("group", { name: "Quick scan every" });
-    fireEvent.click(within(every).getByRole("button", { name: "12h" }));
+    fireEvent.click(within(every).getByRole("button", { name: "12 h" }));
     expect(await within(inspector).findByText(msg("settings-schedule-section-couldn-t-save-that-change"))).toBeInTheDocument();
     expect(within(inspector).queryByText(msg("settings-use-dial-drag-couldn-t-move-that-scan"))).not.toBeInTheDocument();
   });
@@ -836,7 +911,7 @@ describe("ScheduleSection under the schedule plan", () => {
     render(<ScheduleSection />);
 
     fireEvent.click(await screen.findByRole("button", { name: /^Move full scan/ }));
-    const inspector = await screen.findByRole("dialog", { name: "Scan inspector" });
+    const inspector = await screen.findByRole("dialog", { name: msg("settings-plan-run-inspector-scan-inspector") });
     const field = within(inspector).getByLabelText("Full scan done by");
     fireEvent.change(field, { target: { value: "14:00" } });
     fireEvent.blur(field);
@@ -846,15 +921,15 @@ describe("ScheduleSection under the schedule plan", () => {
     await waitFor(() => expect(
       screen.getByRole("list", { name: "Next scans" }).querySelector(".schedule-upcoming-row"),
     ).toHaveTextContent(/Full scan/));
-    const still = screen.getByRole("dialog", { name: "Scan inspector" });
+    const still = screen.getByRole("dialog", { name: msg("settings-plan-run-inspector-scan-inspector") });
     expect(within(still).getByLabelText("Full scan done by")).toBeInTheDocument();
     expect(within(still).queryByLabelText("Quick scan time")).not.toBeInTheDocument();
   });
 
   it("names a pinned mark's exact-time field in the plan's words", async () => {
     render(<ScheduleSection />);
-    fireEvent.click(await screen.findByRole("button", { name: /^Move OpenAI full scan/i }));
-    expect(await screen.findByLabelText("OpenAI full scan time")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: companyMark("OpenAI") }));
+    expect(await screen.findByLabelText(companyTime("OpenAI"))).toBeInTheDocument();
   });
 
   it("shows the usual start as the done-by time and saves a time of your own", async () => {
@@ -877,6 +952,117 @@ describe("ScheduleSection under the schedule plan", () => {
     expect(within(settings).queryByText(/Your usual start, learned/)).not.toBeInTheDocument();
     fireEvent.click(within(settings).getByRole("button", { name: "Use my usual start" }));
     await waitFor(() => expect(api.updateSchedulePlan).toHaveBeenLastCalledWith({ ready_by_minute: null }));
+  });
+
+  it("picks the done-by time from a list of times, each saying when the scan starts", async () => {
+    // 08:35 is set: a time between two of the list's half hours.
+    vi.mocked(api.schedule).mockResolvedValue(planned({
+      ready_by_minute: 515, ready_by_today: { minute: 515, source: "set" },
+    }));
+    vi.mocked(api.updateSchedulePlan).mockResolvedValue(planned({
+      ready_by_minute: 450, ready_by_today: { minute: 450, source: "set" },
+    }));
+    render(<ScheduleSection />);
+    const settings = await screen.findByLabelText("Plan settings");
+    fireEvent.click(within(settings).getByRole("button", { name: msg("shared-time-field-choose") }));
+    const times = await screen.findByRole("listbox", { name: msg("shared-time-field-times") });
+
+    // Every half hour of the day, and the time set, in its place and chosen.
+    const options = within(times).getAllByRole("option");
+    expect(options).toHaveLength(49);
+    const chosen = within(times).getByRole("option", { selected: true });
+    expect(options.indexOf(chosen)).toBe(18);
+    expect(chosen).toHaveTextContent(clockText(515));
+
+    // The planned full scan takes 41 minutes and starts 10 more before:
+    // done by 07:30 means a start at 06:39.
+    const halfPastSeven = options[15];
+    expect(halfPastSeven).toHaveTextContent(clockText(450));
+    expect(halfPastSeven).toHaveTextContent(msg("settings-full-scan-starts", { time: clockText(6 * 60 + 39) }));
+
+    fireEvent.click(halfPastSeven);
+    await waitFor(() => expect(api.updateSchedulePlan).toHaveBeenCalledWith({ ready_by_minute: 450 }));
+    expect(api.updateSchedulePlan).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("listbox", { name: msg("shared-time-field-times") })).not.toBeInTheDocument();
+    await waitFor(() => expect(within(settings).getByLabelText("Full scan done by")).toHaveValue("07:30"));
+  });
+
+  it("takes no pick from the list while a typed time is still saving", async () => {
+    vi.mocked(api.schedule).mockResolvedValue(planned({
+      ready_by_minute: 480, ready_by_today: { minute: 480, source: "set" },
+    }));
+    let finish: (value: SyncSchedule) => void = () => {};
+    vi.mocked(api.updateSchedulePlan).mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+    render(<ScheduleSection />);
+    const settings = await screen.findByLabelText("Plan settings");
+    fireEvent.click(within(settings).getByRole("button", { name: msg("shared-time-field-choose") }));
+    const times = await screen.findByRole("listbox", { name: msg("shared-time-field-times") });
+
+    // The list is open and a typed 9:00 is saving.
+    const field = within(settings).getByLabelText("Full scan done by");
+    fireEvent.change(field, { target: { value: "09:00" } });
+    fireEvent.blur(field);
+    await waitFor(() => expect(api.updateSchedulePlan).toHaveBeenCalledWith({ ready_by_minute: 540 }));
+
+    // 8:00 is the time stored before that save: picking it now is refused,
+    // not judged unchanged, and the list stays for a pick once it lands.
+    fireEvent.click(within(times).getAllByRole("option")[16]);
+    expect(api.updateSchedulePlan).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("listbox", { name: msg("shared-time-field-times") })).toBeInTheDocument();
+
+    await act(async () => finish(planned({ ready_by_minute: 540, ready_by_today: { minute: 540, source: "set" } })));
+    vi.mocked(api.updateSchedulePlan).mockResolvedValue(planned({
+      ready_by_minute: 480, ready_by_today: { minute: 480, source: "set" },
+    }));
+    fireEvent.click(within(screen.getByRole("listbox", { name: msg("shared-time-field-times") })).getAllByRole("option")[16]);
+    await waitFor(() => expect(api.updateSchedulePlan).toHaveBeenLastCalledWith({ ready_by_minute: 480 }));
+    expect(api.updateSchedulePlan).toHaveBeenCalledTimes(2);
+  });
+
+  it("walks the list of times by keyboard, and closing it or keeping the same time writes nothing", async () => {
+    vi.mocked(api.schedule).mockResolvedValue(planned({
+      ready_by_minute: 480, ready_by_today: { minute: 480, source: "set" },
+    }));
+    vi.mocked(api.updateSchedulePlan).mockResolvedValue(planned({
+      ready_by_minute: 510, ready_by_today: { minute: 510, source: "set" },
+    }));
+    render(<ScheduleSection />);
+    const settings = await screen.findByLabelText("Plan settings");
+    const choose = within(settings).getByRole("button", { name: msg("shared-time-field-choose") });
+    const listName = { name: msg("shared-time-field-times") };
+    const onTime = (list: HTMLElement) => document.getElementById(list.getAttribute("aria-activedescendant") ?? "");
+
+    // The list opens on the time set, with the keyboard in it.
+    choose.focus();
+    fireEvent.click(choose);
+    let times = await screen.findByRole("listbox", listName);
+    await waitFor(() => expect(times).toHaveFocus());
+    expect(choose).toHaveAttribute("aria-expanded", "true");
+    expect(onTime(times)).toHaveTextContent(clockText(480));
+
+    // Enter on the time already set closes the list and saves nothing.
+    fireEvent.keyDown(times, { key: "Enter" });
+    expect(screen.queryByRole("listbox", listName)).not.toBeInTheDocument();
+
+    // Escape closes it and hands the keyboard back to the button.
+    fireEvent.click(choose);
+    times = await screen.findByRole("listbox", listName);
+    fireEvent.keyDown(times, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("listbox", listName)).not.toBeInTheDocument());
+    expect(choose).toHaveFocus();
+    expect(api.updateSchedulePlan).not.toHaveBeenCalled();
+
+    // Down to the next half hour and Enter saves it, once.
+    fireEvent.click(choose);
+    times = await screen.findByRole("listbox", listName);
+    fireEvent.keyDown(times, { key: "ArrowDown" });
+    expect(onTime(times)).toHaveTextContent(clockText(510));
+    fireEvent.keyDown(times, { key: "Enter" });
+    await waitFor(() => expect(api.updateSchedulePlan).toHaveBeenCalledWith({ ready_by_minute: 510 }));
+    expect(api.updateSchedulePlan).toHaveBeenCalledTimes(1);
+    // The save starts as the list closes, and the keyboard still lands back
+    // on the button.
+    expect(choose).toHaveFocus();
   });
 
   it("turns a scan day off, and never the last one", async () => {
@@ -908,8 +1094,8 @@ describe("ScheduleSection under the schedule plan", () => {
     expect(toggle).not.toBeChecked();
     fireEvent.click(toggle);
     await waitFor(() => expect(api.updateSchedulePlan).toHaveBeenCalledWith({ mains_only: true }));
-    expect(await screen.findByText("On battery now: the next scan waits for power.")).toBeInTheDocument();
-    expect(screen.getByText("Waiting for power")).toBeInTheDocument();
+    expect(await screen.findByText(msg("settings-schedule-section-power-note", { power: "waiting" }))).toBeInTheDocument();
+    expect(screen.getByText(msg("settings-schedule-chronograph-waiting", { waiting: "mains" }))).toBeInTheDocument();
   });
 
   it("pauses for a while, shows until when, and resumes", async () => {
@@ -943,7 +1129,7 @@ describe("ScheduleSection under the schedule plan", () => {
     }));
     render(<ScheduleSection />);
     const next = await screen.findByRole("list", { name: "Next scans" });
-    expect(within(next).getByText(/^Full scan · ready by \d{2}:40$/)).toBeInTheDocument();
+    expect(within(next).getByText(/^Full scan · done by \d{2}:40$/)).toBeInTheDocument();
   });
 
   it("lists every company with its last scans and how the plan scans it", async () => {
@@ -965,10 +1151,10 @@ describe("ScheduleSection under the schedule plan", () => {
       expect(within(sheet).getByRole("columnheader", { name: column })).toBeInTheDocument();
     }
     const row = (company: string | RegExp) => within(sheet).getByText(company).closest("tr") as HTMLElement;
-    expect(row(/^adobe$/i)).toHaveTextContent("Only when you press Scan now");
+    expect(row(/^adobe$/i)).toHaveTextContent(msg("settings-schedule-section-only-when-you-press-scan"));
     expect(row("OpenAI")).toHaveTextContent("Its own time: full scan at 20:00");
     expect(row("Anthropic")).toHaveTextContent("Every planned scan");
-    expect(row("Meta")).toHaveTextContent("Policy denied");
+    expect(row("Meta")).toHaveTextContent(msg("settings-schedule-section-policy-denied"));
     expect(within(sheet).queryByText("Scheduled")).not.toBeInTheDocument();
   });
 
@@ -979,8 +1165,8 @@ describe("ScheduleSection under the schedule plan", () => {
       bindings: [{ ...base.bindings[0], discovery_anchor_minute: 6 * 60 }, ...base.bindings.slice(1)],
     });
     render(<ScheduleSection />);
-    fireEvent.click(await screen.findByRole("button", { name: msg("settings-schedule-section-deadlines-link", { schedule: "plan" }) }));
-    const sheet = await screen.findByRole("dialog", { name: msg("settings-schedule-section-every-company-s-scans-2") });
+    fireEvent.click(await screen.findByRole("button", { name: msg("settings-schedule-section-every-company-s-scans") }));
+    const sheet = await screen.findByRole("dialog", { name: msg("settings-schedule-section-every-company-s-scans") });
     expect(within(sheet).getByText("OpenAI").closest("tr")).toHaveTextContent(msg("settings-schedule-section-its-own-time", {
       times: list([
         msg("settings-schedule-section-full-scan-at", { reconcile_anchor_minute: "20:00" }),
@@ -1015,7 +1201,7 @@ describe("dragging and clicking the plan's runs", () => {
     render(<ScheduleSection />);
     await screen.findByRole("img", { name: /scan clock/i });
     expect(screen.getByRole("button", { name: /^Move quick scan, at \d{2}:\d{2}$/ })).toBeEnabled();
-    expect(screen.getByRole("button", { name: /^Move full scan, when you turn it on, about \d{2}:\d{2}$/ }))
+    expect(screen.getByRole("button", { name: /^Move full scan, when your computer wakes, about \d{2}:\d{2}$/ }))
       .toBeEnabled();
   });
 
@@ -1023,7 +1209,7 @@ describe("dragging and clicking the plan's runs", () => {
     render(<ScheduleSection />);
     drag(await screen.findByRole("button", { name: /^Move quick scan/ }), 100, 0);
     await waitFor(() => expect(api.updateSchedulePlan).toHaveBeenCalledWith({ repeat_anchor_minute: 6 * 60 }));
-    expect(await screen.findByText("Quick scans moved: one at 06:00.")).toBeInTheDocument();
+    expect(await screen.findByText(msg("settings-use-plan-drag-quick-scans-moved-one-at", { time: "06:00" }))).toBeInTheDocument();
   });
 
   it("drags the full scan and its done-by time follows its measured length", async () => {
@@ -1042,23 +1228,23 @@ describe("dragging and clicking the plan's runs", () => {
     fireEvent.click(handle);
     await act(async () => {});
     expect(api.updateSchedulePlan).not.toHaveBeenCalled();
-    const inspector = await screen.findByRole("dialog", { name: "Scan inspector" });
+    const inspector = await screen.findByRole("dialog", { name: msg("settings-plan-run-inspector-scan-inspector") });
     expect(within(inspector).getByText("944")).toBeInTheDocument();
     expect(within(inspector).getByText("10 min")).toBeInTheDocument();
-    expect(within(inspector).getByText("every 6h after the last scan")).toBeInTheDocument();
+    expect(within(inspector).getByText(msg("settings-plan-run-inspector-repeats-every", { anchor: "last", hours: 6 }))).toBeInTheDocument();
   });
 
   it("types an exact time for the quick scans and changes their repeat from the inspector", async () => {
     render(<ScheduleSection />);
     fireEvent.click(await screen.findByRole("button", { name: /^Move quick scan/ }));
-    const inspector = await screen.findByRole("dialog", { name: "Scan inspector" });
+    const inspector = await screen.findByRole("dialog", { name: msg("settings-plan-run-inspector-scan-inspector") });
     const field = within(inspector).getByLabelText("Quick scan time");
     fireEvent.change(field, { target: { value: "10:00" } });
     fireEvent.blur(field);
     await waitFor(() => expect(api.updateSchedulePlan).toHaveBeenCalledWith({ repeat_anchor_minute: 600 }));
 
-    await waitFor(() => expect(within(inspector).getByRole("button", { name: "3h" })).toBeEnabled());
-    fireEvent.click(within(inspector).getByRole("button", { name: "3h" }));
+    await waitFor(() => expect(within(inspector).getByRole("button", { name: "3 h" })).toBeEnabled());
+    fireEvent.click(within(inspector).getByRole("button", { name: "3 h" }));
     await waitFor(() => expect(api.updateSchedulePlan).toHaveBeenLastCalledWith({ repeat_hours: 3 }));
   });
 
@@ -1066,8 +1252,8 @@ describe("dragging and clicking the plan's runs", () => {
     vi.mocked(api.schedule).mockResolvedValue(planned({ repeat_anchor_minute: 600 }));
     render(<ScheduleSection />);
     fireEvent.click(await screen.findByRole("button", { name: /^Move quick scan/ }));
-    const inspector = await screen.findByRole("dialog", { name: "Scan inspector" });
-    expect(within(inspector).getByText("every 6h at fixed times")).toBeInTheDocument();
+    const inspector = await screen.findByRole("dialog", { name: msg("settings-plan-run-inspector-scan-inspector") });
+    expect(within(inspector).getByText(msg("settings-plan-run-inspector-repeats-every", { anchor: "fixed", hours: 6 }))).toBeInTheDocument();
     fireEvent.click(within(inspector).getByRole("button", { name: "Count from the last scan instead" }));
     await waitFor(() => expect(api.updateSchedulePlan).toHaveBeenCalledWith({ repeat_anchor_minute: null }));
   });
@@ -1075,10 +1261,24 @@ describe("dragging and clicking the plan's runs", () => {
   it("types when the full scan should be done by", async () => {
     render(<ScheduleSection />);
     fireEvent.click(await screen.findByRole("button", { name: /^Move full scan/ }));
-    const inspector = await screen.findByRole("dialog", { name: "Scan inspector" });
+    const inspector = await screen.findByRole("dialog", { name: msg("settings-plan-run-inspector-scan-inspector") });
     const field = within(inspector).getByLabelText("Full scan done by");
     fireEvent.change(field, { target: { value: "09:00" } });
     fireEvent.blur(field);
+    await waitFor(() => expect(api.updateSchedulePlan).toHaveBeenCalledWith({ ready_by_minute: 9 * 60 }));
+  });
+
+  it("picks when the full scan should be done by from the inspector's list of times", async () => {
+    render(<ScheduleSection />);
+    fireEvent.click(await screen.findByRole("button", { name: /^Move full scan/ }));
+    const inspector = await screen.findByRole("dialog", { name: msg("settings-plan-run-inspector-scan-inspector") });
+    fireEvent.click(within(inspector).getByRole("button", { name: msg("shared-time-field-choose") }));
+    const times = await screen.findByRole("listbox", { name: msg("shared-time-field-times") });
+    // This run's own measured length: 41 minutes, and 10 more before.
+    const nine = within(times).getAllByRole("option")[18];
+    expect(nine).toHaveTextContent(clockText(9 * 60));
+    expect(nine).toHaveTextContent(msg("settings-full-scan-starts", { time: clockText(8 * 60 + 9) }));
+    fireEvent.click(nine);
     await waitFor(() => expect(api.updateSchedulePlan).toHaveBeenCalledWith({ ready_by_minute: 9 * 60 }));
   });
 
@@ -1155,7 +1355,7 @@ describe("dragging and clicking the plan's runs", () => {
     await act(async () => {});
     expect(api.updateSchedulePlan).not.toHaveBeenCalled();
     fireEvent.click(handle);
-    const inspector = await screen.findByRole("dialog", { name: "Scan inspector" });
+    const inspector = await screen.findByRole("dialog", { name: msg("settings-plan-run-inspector-scan-inspector") });
     expect(within(inspector).getByText("Scanning now")).toBeInTheDocument();
     expect(within(inspector).getByLabelText("Full scan done by")).toBeDisabled();
   });
@@ -1222,13 +1422,13 @@ describe("every schedule write in one order", () => {
       within(settings).getByRole("checkbox", { name: /Only when plugged in/ }),
       screen.getByRole("button", { name: /^Move quick scan/ }),
       screen.getByRole("button", { name: /^Move full scan/ }),
-      screen.getByRole("button", { name: /^Move OpenAI full scan/ }),
+      screen.getByRole("button", { name: companyMark("OpenAI") }),
     ];
   };
   /** The exact-time fields stay focusable while a write is out, and read only. */
   const timeFields = () => [
     within(screen.getByLabelText("Plan settings")).getByLabelText("Full scan done by"),
-    ...screen.queryAllByLabelText(/(Quick scan|OpenAI full scan) time$/),
+    ...screen.queryAllByLabelText(/^(Quick scan|OpenAI: full scan) time$/),
   ];
 
   it("sends two quick edits one after the other, and both land", async () => {
@@ -1241,7 +1441,7 @@ describe("every schedule write in one order", () => {
     // Two edits faster than a render: no control has been disabled yet.
     act(() => {
       fireEvent.click(within(days).getByRole("button", { name: "Sat" }));
-      fireEvent.click(within(repeat).getByRole("button", { name: "3h" }));
+      fireEvent.click(within(repeat).getByRole("button", { name: "3 h" }));
     });
     await act(async () => {});
     // The second waits until the first is answered.
@@ -1252,14 +1452,14 @@ describe("every schedule write in one order", () => {
     expect(vi.mocked(api.updateSchedulePlan).mock.calls.map(([update]) => update))
       .toEqual([{ days: [0, 1, 2, 3, 4, 6] }, { repeat_hours: 3 }]);
     expect(within(days).getByRole("button", { name: "Sat" })).toHaveAttribute("aria-pressed", "false");
-    expect(within(repeat).getByRole("button", { name: "3h" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(repeat).getByRole("button", { name: "3 h" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("orders a company's own time and a plan edit in the same queue", async () => {
     const server = heldServer();
     render(<ScheduleSection />);
-    fireEvent.click(await screen.findByRole("button", { name: /^Move OpenAI full scan/ }));
-    const field = await screen.findByLabelText("OpenAI full scan time");
+    fireEvent.click(await screen.findByRole("button", { name: companyMark("OpenAI") }));
+    const field = await screen.findByLabelText(companyTime("OpenAI"));
     fireEvent.change(field, { target: { value: "21:00" } });
     const days = within(screen.getByLabelText("Plan settings")).getByRole("group", { name: "Scan days" });
 
@@ -1283,12 +1483,12 @@ describe("every schedule write in one order", () => {
     for (const control of writers()) expect(control).toBeEnabled();
 
     fireEvent.click(screen.getByRole("button", { name: /^Move quick scan/ }));
-    const inspector = await screen.findByRole("dialog", { name: "Scan inspector" });
-    fireEvent.click(within(inspector).getByRole("button", { name: "3h" }));
+    const inspector = await screen.findByRole("dialog", { name: msg("settings-plan-run-inspector-scan-inspector") });
+    fireEvent.click(within(inspector).getByRole("button", { name: "3 h" }));
     await act(async () => {});
     expect(api.updateSchedulePlan).toHaveBeenCalledTimes(1);
 
-    const held = [...writers(), ...within(inspector).getAllByRole("button", { name: /^\d+h$/ })];
+    const held = [...writers(), ...within(inspector).getAllByRole("button", { name: /^\d+ h$/ })];
     for (const control of held) expect(control).toBeDisabled();
     for (const field of timeFields()) expect(field).toHaveAttribute("readonly");
 
@@ -1300,8 +1500,8 @@ describe("every schedule write in one order", () => {
   it("while a company's move is out, the plan's controls wait for it too", async () => {
     const server = heldServer();
     render(<ScheduleSection />);
-    fireEvent.click(await screen.findByRole("button", { name: /^Move OpenAI full scan/ }));
-    const field = await screen.findByLabelText("OpenAI full scan time");
+    fireEvent.click(await screen.findByRole("button", { name: companyMark("OpenAI") }));
+    const field = await screen.findByLabelText(companyTime("OpenAI"));
     fireEvent.change(field, { target: { value: "21:00" } });
     fireEvent.blur(field);
     await act(async () => {});
@@ -1355,11 +1555,10 @@ describe("ScheduleSection in another language", () => {
 
   it("answers whether a company's site closes roles in the reader's words", async () => {
     await activate("zh-Hans");
-    const reconcile = msg("settings-schedule-mode-name", { schedule: "timers", mode: "reconcile" });
     const closesRoles = async (closure: string) => {
       vi.mocked(api.schedule).mockResolvedValue({ ...fixture, bindings: [{ ...fixture.bindings[0], closure_capability: closure }] });
       const view = render(<ScheduleSection />);
-      fireEvent.click(await screen.findByRole("button", { name: new RegExp(`OpenAI ${reconcile}`) }));
+      fireEvent.click(await screen.findByRole("button", { name: companyMark("OpenAI") }));
       const inspector = await screen.findByRole("dialog", { name: msg("settings-chronograph-inspector-scan-schedule-inspector") });
       const answer = within(inspector).getByText(msg("settings-chronograph-inspector-closes-roles")).nextElementSibling;
       const text = answer?.textContent;

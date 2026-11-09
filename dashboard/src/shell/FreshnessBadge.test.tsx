@@ -58,6 +58,20 @@ describe("FreshnessBadge", () => {
     expect(badge).toHaveClass("stale");
     expect(badge).toHaveAttribute("title", expect.stringContaining(msg("launcher-reason-supervisor")));
   });
+
+  it.each([
+    ["source", () => msg("shell-reason-setup-source"), () => msg("launcher-reason-setup")],
+    ["app", () => msg("launcher-reason-setup"), () => msg("shell-reason-setup-source")],
+  ] as const)("on a %s install, a half-installed update says how it finishes", async (install, says, never) => {
+    vi.spyOn(api, "status").mockResolvedValue(status({
+      install,
+      launcher: launcherFixture({ hold: { kind: "attention", reason: "schema_pending" } }),
+    }));
+    renderBadge();
+    const badge = await screen.findByRole("status", { name: msg("shell-freshness-aria", { state: msg("launcher-needs-attention") }) });
+    expect(badge).toHaveAttribute("title", expect.stringContaining(says()));
+    expect(badge.getAttribute("title")).not.toContain(never());
+  });
   it("shows the last check time when idle with recent scan history", async () => {
     vi.spyOn(api, "status").mockResolvedValue(status({ last_success_age_hours: 2, stale: false }));
     renderBadge();

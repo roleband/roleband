@@ -29,6 +29,8 @@ export type { SelectOption, SelectProps } from "./Select";
 export { Switch } from "./Switch";
 export type { SwitchProps } from "./Switch";
 export { TabBar } from "./TabBar";
+export { TimeField } from "./TimeField";
+export type { TimeFieldProps } from "./TimeField";
 export { SearchField } from "./SearchField";
 export { FacetGroup, FilterDrawer, FilterGroup, FilterRegister, RAIL_QUERY, bySelection } from "./FilterRail";
 export type { FacetEntry } from "./FilterRail";

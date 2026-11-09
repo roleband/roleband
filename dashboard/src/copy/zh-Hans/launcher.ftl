@@ -27,7 +27,7 @@ launcher-not-scanned = 尚未扫描
 # kind=label
 launcher-last-scan = 上次扫描
 # kind=label
-launcher-coverage = 覆盖情况
+launcher-coverage = 最旧的扫描
 # kind=label
 launcher-checked = 上次检查
 # kind=button
@@ -63,7 +63,7 @@ launcher-installer-copy = 移入“应用程序”
 # kind=heading
 launcher-installer-first-open = 允许首次打开
 # kind=sentence
-launcher-installer-privacy = 打开“系统设置”→“隐私与安全性”，然后向下滚动至“安全性”。
+launcher-installer-privacy = 打开 系统设置 › 隐私与安全性，然后向下滚动至“安全性”。
 # kind=button
 launcher-installer-security = 打开安全设置
 # kind=link
@@ -86,9 +86,9 @@ launcher-scan-not-running = 没有可停止的扫描
 # kind=status
 launcher-scan-state-changed = 扫描状态已更改。请查看当前状态。
 # kind=status
-launcher-scan-refused = 你的扫描请求被拒绝。打开你的雷达查看详情。
+launcher-scan-refused = 你的扫描请求被拒绝。打开雷达查看详情。
 # kind=status
-launcher-scan-unconfirmed = 无法确认你的请求。打开你的雷达查看状态。
+launcher-scan-unconfirmed = 无法确认你的请求。打开雷达查看状态。
 
 # kind=button
 launcher-pause-menu = 暂停扫描
@@ -128,7 +128,7 @@ launcher-engine-diagnostics = 诊断
 launcher-engine-running = 后台服务正在运行，但未响应。
     请重试。
 # kind=status
-launcher-engine-stopped = 已注册的后台服务已停止。
+launcher-engine-stopped = 后台服务已停止。
 # kind=status
 launcher-engine-unknown = 无法确认后台服务状态。请重试。
 # kind=status
@@ -137,7 +137,7 @@ launcher-engine-unmatched = 后台服务与此安装不匹配。请检查安装�
 launcher-engine-requested = 已请求启动。
     正在等待响应。
 # kind=status
-launcher-engine-state-changed = 引擎状态已更改。请查看当前状态。
+launcher-engine-state-changed = 后台服务状态已更改。请检查后重试。
 # kind=status
 launcher-engine-refused = 无法开始扫描。
     请查看诊断后重试。
@@ -170,7 +170,7 @@ launcher-move-body = 此副本无法在当前位置完成设置或更新。
     请将其拖入应用程序文件夹，然后从那里打开。
 launcher-move-finder-help = 打开此副本和应用程序文件夹
 launcher-elsewhere-title = 你的数据属于之前的设置
-launcher-elsewhere-body = 之前通过终端在这台 Mac 上完成的设置将你的数据保存在个人文件夹中。
+launcher-elsewhere-body = 之前在这台电脑上通过终端完成的设置，将你的数据保存在个人文件夹中。
     为了保护数据，此应用不会打开或更改它们。
 launcher-elsewhere-keep = 继续使用之前的设置
 launcher-elsewhere-keep-body = 请在终端中再次运行之前的设置，扫描便会显示在这里。
@@ -245,7 +245,7 @@ launcher-guide-approve = 允许首次打开
 # kind=label
 launcher-guide-setup = 设置
 # kind=sentence
-launcher-guide-manual = 每一步由你确认。本指南无法检查你的 Mac。
+launcher-guide-manual = 每一步由你确认。本指南无法检查你的电脑。
 # kind=sentence
 launcher-guide-requirements = 你需要一台搭载 Apple 芯片且运行 macOS 14 或更高版本的 Mac。此应用无法在搭载 Intel 处理器的 Mac 上打开。
 # kind=sentence
@@ -259,7 +259,7 @@ launcher-guide-open-body = 在 Finder 中打开 Applications，然后打开刚�
 # kind=sentence
 launcher-guide-warning-body = 如果 Apple 提示无法验证此应用，请点按“完成”。下一步将说明如何允许首次打开。
 # kind=button
-launcher-guide-blocked = 出现了此提示
+launcher-guide-blocked = 看到此提示
 # kind=button
 launcher-guide-opened = 应用已打开
 # kind=sentence
@@ -281,7 +281,7 @@ launcher-guide-different = 出现其他警告？
 # kind=sentence
 launcher-guide-different-body = 如果 macOS 提示应用已损坏或会损害你的 Mac，请停止操作并查看 Apple 指南。
 # kind=sentence
-launcher-guide-settings-fallback = 如果按钮未打开设置，请前往“系统设置”→“隐私与安全性”→“安全性”。浏览器可能先询问是否打开设置。
+launcher-guide-settings-fallback = 如果按钮未打开设置，请前往 系统设置 › 隐私与安全性 › 安全性。浏览器可能先询问是否打开设置。
 # kind=button
 launcher-guide-allowed = 已允许
 # kind=heading
@@ -289,7 +289,7 @@ launcher-guide-setup-title = 在 RoleBand 中继续
 # kind=sentence
 launcher-guide-setup-body = 返回 Applications 并打开应用。出现欢迎页面后，在应用中继续设置。
 # kind=button
-launcher-guide-welcome = 已看到欢迎页
+launcher-guide-welcome = 看到欢迎页
 # kind=sentence
 launcher-guide-finished = 请在应用中继续。你可以关闭此指南。
 # kind=sentence
@@ -309,7 +309,7 @@ launcher-guide-progress = 安装步骤
 launcher-guide-settings-label = 设置未打开？
 
 # kind=error
-launcher-setup-browser-error = 无法打开浏览器，请重试。
+launcher-setup-browser-error = 无法打开浏览器。请重试。
 
 # kind=status
 launcher-setup-pending = 设置尚未完成
@@ -322,10 +322,10 @@ launcher-first-step-preparing = 准备
 
 launcher-first-welcome-title = 开始使用你的雷达
 
-launcher-first-welcome-body = 此 Mac 负责扫描，你的雷达在浏览器中打开。
-    首次设置只需几分钟。
+launcher-first-welcome-body = 这台电脑负责扫描，你的雷达在浏览器中打开。
+    设置只需一次，几分钟即可完成。
 
-launcher-first-prepare = 准备此 Mac
+launcher-first-prepare = 准备这台电脑
 
 launcher-first-prepare-caption = 本地数据库和排名模型。
 
@@ -351,9 +351,9 @@ launcher-first-service-failed = 无法启动后台服务。
 launcher-first-offline-body = 模型正在等待连接。
     等待期间仍可打开雷达。
 
-launcher-first-prepared-title = 此 Mac 已准备就绪
+launcher-first-prepared-title = 这台电脑已准备就绪
 
-launcher-first-prepared-body = 扫描所需的内容已在此 Mac 上就绪。
+launcher-first-prepared-body = 扫描所需的一切都已在这台电脑上就绪。
 
 launcher-first-login-title = 重新启动后继续扫描
 
@@ -370,9 +370,9 @@ launcher-first-settings-note = 你可以从菜单栏重新调整这些选项。
 
 launcher-first-done-title = 你的雷达已准备就绪
 
-launcher-first-done-body = 雷达将在浏览器中打开，你可以在那里设置要寻找的机会。
+launcher-first-done-body = 你的雷达在浏览器中打开，你可以在那里告诉它要找什么。
 
-launcher-first-menu-hint = 菜单栏中的雷达会显示正在进行的扫描，并可随时打开你的雷达。
+launcher-first-menu-hint = 菜单栏中的雷达会显示正在进行的每次扫描，并可随时打开雷达。
 
 launcher-first-database = 数据库
 
@@ -462,7 +462,7 @@ launcher-panel-open-radar-waiting = 后台服务响应后可用
 # kind=aria
 launcher-panel-about-offer = 关于，有可用更新
 # kind=heading
-launcher-panel-on-mac = 在这台 Mac 上
+launcher-panel-on-mac = 在这台电脑上
 # kind=heading
 launcher-panel-in-browser = 在浏览器中
 # kind=label
@@ -575,7 +575,7 @@ launcher-scan-recorded = 已记录
 launcher-scan-finished = 已完成
 launcher-scan-to-add = 待添加
 # kind=label
-launcher-scan-companies-read = 已读取公司
+launcher-scan-companies-read = 已扫描公司
 # kind=label
 launcher-scan-new-roles = 新职位
 # kind=tooltip
@@ -607,9 +607,9 @@ launcher-scan-paused = 已暂停
 # kind=tooltip
 launcher-pause-help = 暂停只影响计划扫描。正在进行的扫描会继续。
 # kind=sentence
-launcher-scan-summary-live = 正在扫描：{ $companies }。仍在扫描的公司已找到 { $pending } 个职位，已完成的公司找到 { $recorded } 个。
+launcher-scan-summary-live = 正在扫描：{ $companies }。目前找到的职位：{ $pending }。已完成公司的职位：{ $recorded }。
 # kind=sentence
-launcher-scan-summary-last = 上次扫描：读取 { $companies } 家公司，{ $roles } 个新职位，记录 { $postings } 条职位发布。
+launcher-scan-summary-last = 上次扫描：已扫描 { $companies } 家公司，发现 { $roles } 个新职位，记录 { $postings } 条招聘信息。
 # kind=sentence
-launcher-scan-summary-stopped = 扫描在读取 { $companies } 家公司后停止：{ $roles } 个新职位，记录 { $postings } 条职位发布。
-launcher-scan-summary-read = 已读取 { $companies } 家公司。已记录 { $recorded } 个职位，还有 { $pending } 个待添加。
+launcher-scan-summary-stopped = 扫描已停止：已扫描 { $companies } 家公司，发现 { $roles } 个新职位，记录 { $postings } 条招聘信息。
+launcher-scan-summary-read = 已扫描 { $companies } 家公司。已记录 { $recorded } 个职位，还有 { $pending } 个待添加。

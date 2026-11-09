@@ -59,7 +59,7 @@ test("a direct link to a sub-tab renders it selected, with the breadcrumb", asyn
   await expect(page.getByRole("tab", { name: "Pace" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("heading", { level: 2, name: "5 opened" })).toBeVisible();
   // The breadcrumb's second segment is derived from the route, not pushed imperatively.
-  await expect(page.getByRole("banner", { name: "Application navigation" })).toContainText("Insights/Pace");
+  await expect(page.getByRole("banner", { name: msg("shell-topbar-aria") })).toContainText("Insights/Pace");
 });
 
 test("Pace's age bands name their clock and the share the employer dated", async ({ page, isMobile }) => {
@@ -174,7 +174,7 @@ test.describe("cluster cards", () => {
     await page.goto("/statistics/clusters");
     const title = (await page.getByRole("heading", { level: 1, name: "Insights" }).boundingBox())!;
     // The tab's hero card starts at the title's edge, as on every tab.
-    await expect(page.getByRole("heading", { level: 2, name: /role group/ })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: /cluster/ })).toBeVisible();
     const own = (await page.locator(".insight-hero").boundingBox())!;
     expect(Math.abs(own.x - title.x)).toBeLessThan(1);
     await expect(page.getByRole("main")).toHaveCount(1);
@@ -307,7 +307,7 @@ test("every Insights tab opens with the same hero, named by its tab", async ({ p
     await page.route(pattern, (route) => route.fulfill({ json }));
   }
 
-  for (const tab of ["Overview", "Hiring", "Pace", "Compensation", "Levels", "Stock", "Skills", "Trends", "Overlap", "Groups"]) {
+  for (const tab of ["Overview", "Hiring", "Pace", "Compensation", "Levels", "Stock", "Skills", "Trends", "Overlap", "Clusters"]) {
     await page.goto("/statistics/overview");
     await page.getByRole("tab", { name: tab, exact: true }).click();
     const hero = page.locator(".insight-hero");

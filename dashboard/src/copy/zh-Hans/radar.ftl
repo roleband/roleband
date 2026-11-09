@@ -96,3 +96,98 @@ radar-filter-pay-min-aria = 最低基本工资
 radar-filter-pay-max-aria = 最高基本工资
 radar-filter-showing = 显示
 radar-filter-unread-only = 仅未读
+
+radar-empty-filtered-title = 没有符合这些筛选条件的职位
+
+radar-empty-filtered-clear = 清除所有筛选
+
+radar-empty-few-title = { $count ->
+   *[other] 你关注的 { $count } 家公司还没有合适的职位
+}
+
+radar-empty-few = { $choice ->
+    [counted] 还有约 { $more } 家公司可以扫描。关注更多公司，就能找到更多合适的职位。
+   *[other] 关注更多公司，就能找到更多合适的职位。
+}
+
+radar-empty-follow-more = 关注更多公司
+
+radar-empty-change-looking-for = 更改求职意向
+
+radar-empty-fit-title = 还没有符合你求职意向的职位
+
+radar-empty-fit = { $choice ->
+    [checking] 正在扫描其他公司，目前已完成 { $checked }/{ $total } 家。发现合适的职位后会陆续显示在这里。
+   *[done] 你关注的公司还没有合适的职位。每家公司每隔几小时会重新扫描一次。
+}
+
+radar-first-scan-starting-title = 首次扫描即将开始
+
+radar-first-scan-starting = 几分钟内就会开始。发现新职位后会陆续显示在这里。
+
+radar-first-scan-running-title = 正在进行首次扫描
+
+radar-first-scan-progress = 已扫描 { $read }/{ $total } 家公司。发现新职位后会陆续显示在这里。
+
+radar-first-scan-progress-unknown = 发现新职位后会陆续显示在这里。
+
+radar-first-scan-nothing-yet = 已扫描 { $read }/{ $total } 家公司，目前还没有符合{ $link }的职位。
+
+radar-first-scan-looking-for = 你的求职意向
+
+radar-first-scan-back = { $when ->
+    [hour] 大约一小时后再来看看。
+    [almost] 快完成了。
+   *[soon] 几分钟后再来看看。
+}
+
+radar-first-scan-back-minutes = { $minutes ->
+   *[other] 大约 { $minutes } 分钟后再来看看。
+}
+
+radar-first-scan-held-title = 首次扫描已暂停
+
+radar-first-scan-held-count = 已扫描 { $read }/{ $total } 家公司。
+
+radar-first-scan-held = { $reason ->
+    [waiting_for_mains] 你的电脑正在使用电池。接通电源后，扫描会继续。
+    [waiting_for_wake] 你的电脑唤醒后，扫描会继续。
+    [schema_pending] 一项更新即将完成。完成后扫描会立即继续。
+    [dependencies_pending] 一项更新即将完成。完成后扫描会立即继续。
+    [setup_source] 在源代码文件夹中运行 ./setup.sh 以完成更新。完成后扫描会立即继续。
+    [busy_external] 另一项扫描正在进行。你的扫描会紧接着开始。
+    [supervisor_stale] 后台服务未运行。重启应用即可继续。
+    [backoff] 部分招聘网站要求放慢访问速度。扫描会自动继续。
+    [preflight_failed] 此版本通过检查前，扫描会保持暂停。
+   *[other] 情况解除后，扫描会自动继续。
+}
+
+radar-first-scan-held-until = 部分招聘网站要求放慢访问速度。扫描将于 { $time } 继续。
+
+radar-first-scan-stopped-title = 首次扫描已停止
+
+radar-first-scan-stopped = 已扫描 { $read }/{ $total } 家公司。再次扫描会从中断处继续。
+
+radar-first-scan-scan-now = 立即扫描
+
+radar-first-scan-none-title = 还没有可扫描的公司
+
+radar-first-scan-none = 关注几家公司，首次扫描就会开始。
+
+radar-first-scan-follow = 关注公司
+
+radar-first-scan-filtered = 已开启一些筛选条件，因此这里显示的职位较少。
+
+radar-first-scan-line = 仍在扫描{ $dots } 已完成 { $read }/{ $total } 家公司。发现更多职位后会陆续显示。
+
+radar-end-scanning = { $count ->
+   *[other] 目前就这些。还有 { $count } 家公司待扫描。
+}
+
+radar-end-few = 以上是你关注的公司中所有合适的职位。没找到想要的？{ $follow }，或{ $change }。
+
+radar-end-change-looking-for = 更改求职意向
+
+radar-end-fit = 以上是你关注的公司中所有合适的职位。没找到想要的？{ $change }。
+
+radar-end-filtered = 以上是符合这些筛选条件的全部职位。{ $clear }即可查看更多。

@@ -46,13 +46,13 @@ public sealed class CompanionTests
     {
         var view = View(Ready, Status(Reply()));
         StringAssert.StartsWith(view.Title, "Last scan today at ");
-        Assert.AreEqual(new FlyoutLine("41 companies read", "7 new roles", BrowserRoute.NewRoles), view.Lines[0]);
+        Assert.AreEqual(new FlyoutLine("41 companies scanned", "7 new roles", BrowserRoute.NewRoles), view.Lines[0]);
         StringAssert.StartsWith(view.Lines[1].Text, "Next scan at ");
         Assert.AreEqual((TrayBadge.None, "RoleBand: Ready"), (view.Badge, view.Tooltip));
         Assert.AreEqual((ScanAction.Start, PauseControl.Menu, false), (view.Scan, view.Pause, view.Details));
 
         var none = View(Ready, Status(Reply(scan: Picture(newRoles: 0)))).Lines[0];
-        Assert.AreEqual(new FlyoutLine("41 companies read · 0 new roles"), none, "no new roles, nothing to open");
+        Assert.AreEqual(new FlyoutLine("41 companies scanned · 0 new roles"), none, "no new roles, nothing to open");
         var never = Reply(scan: Picture(lastCompanies: null));
         never["launcher"]!["status"]!["last_scan_at"] = null;
         Assert.AreEqual("Not scanned yet", View(Ready, Status(never)).Title, "a radar that never scanned says so instead of inventing a time");
