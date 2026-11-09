@@ -21,7 +21,7 @@ public sealed record MenuEntry(MenuCommand? Command, string Text, bool Default =
 /// <summary>One summary line. A line with a link ends with it, after a middle dot.</summary>
 public sealed record FlyoutLine(string Text, string? Link = null, BrowserRoute? Opens = null);
 
-public enum FlyoutPrimary { OpenRadar, Restart, Undo }
+public enum FlyoutPrimary { OpenRadar, Restart, Undo, CheckUpdates }
 
 /// <summary>Everything the flyout and the icon say for one moment, so the windows have no rules of their own.</summary>
 /// <param name="Corner">The percent of a live scan, or its stopwatch while it finishes.</param>
@@ -292,11 +292,13 @@ public static class SettingsPanel
     /// <param name="newer">A newer release offered while an update has failed: it can replace the failed version.</param>
     public static SettingsProblem? Problem(EngineSnapshot engine, bool updateFailed, bool held, bool restarting = false,
                                            string? returningTo = null, bool returning = false, string? undoFailure = null,
-                                           string? newer = null)
+                                           string? newer = null, bool undoGone = false)
     {
         if (held || restarting) return null;
         if (returningTo is not null && undoFailure is not null && !returning)
-            return new("windows-update-undo-failed", "windows-update-undo-failed-body", true, false, returningTo, Newer: newer);
+            return undoGone
+                ? new("windows-update-undo-failed", "windows-update-undo-gone-body", false, false, returningTo, Newer: newer)
+                : new("windows-update-undo-failed", "windows-update-undo-failed-body", true, false, returningTo, Newer: newer);
         if (returningTo is not null)
             return new("windows-update-undoing", "windows-update-undoing-body", !returning, false, returningTo, returning, Notice: true);
         // A failed update keeps the engine closed until it is undone or replaced, so Restart would do nothing.

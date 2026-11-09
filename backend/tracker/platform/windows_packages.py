@@ -27,7 +27,13 @@ from tracker.platform.windows_release import (
     verify_offer,
     verify_package,
 )
-from tracker.platform.windows_updates import REDIRECT_LIMIT, USER_AGENT, asset_url, permitted
+from tracker.platform.windows_updates import (
+    REDIRECT_LIMIT,
+    USER_AGENT,
+    ReleaseMissing,
+    asset_url,
+    permitted,
+)
 
 
 class DownloadIncomplete(ReleaseError):
@@ -110,6 +116,8 @@ def download(state: Path, identity: Identity, offer: Offer, signed: tuple[bytes,
                     mode = "ab"
                 elif response.status_code == 200:
                     offset, mode = 0, "wb"
+                elif response.status_code in (404, 410):
+                    raise ReleaseMissing("The package is not published")
                 else:
                     raise DownloadIncomplete("The package is not available")
                 with partial.open(mode) as output:

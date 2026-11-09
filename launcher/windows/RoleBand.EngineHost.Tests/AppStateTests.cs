@@ -27,12 +27,16 @@ public sealed class AppStateTests
         foreach (var run in fact is { Available: true } ? runs : [null])
         foreach (var failed in new[] { false, true })
         foreach (var checking in new[] { false, true })
-        foreach (var (returningTo, returning, undoFailure) in failed
-            ? new (string?, bool, string?)[] { (null, false, null), (Previous, false, null), (Previous, true, null), (Previous, false, "refused") }
-            : [(null, false, null)])
+        // Only the feed can say a release is gone, so a refusal for that needs one that answered.
+        foreach (var (returningTo, returning, undoFailure, gone) in failed
+            ? new (string?, bool, string?, bool)[]
+            {
+                (null, false, null, false), (Previous, false, null, false), (Previous, true, null, false), (Previous, false, "refused", false),
+            }.Concat(fact is { Available: true } ? [(Previous, false, "gone", true)] : [])
+            : [(null, false, null, false)])
             yield return new AppState(engine, engine is null ? "The installation could not be read." : null, setup,
                 new UpdateState(fact is { Available: true } ? fact with { Last = last } : fact, run, checking, null, failed,
-                    returningTo, returning, undoFailure), Now);
+                    returningTo, returning, undoFailure, UndoGone: gone), Now);
     }
 
     private static bool UpdateFailed(AppState state) => state.Update.Failed || state.Update.Facts?.Last is { Running: "to", Phase: "failed" or "recovering" };
@@ -45,15 +49,19 @@ public sealed class AppStateTests
     private static bool CanStart(AppState state) => state.Engine is { State: EngineState.Stopped or EngineState.Attention }
         && !SetupFlow.EngineHeld(state.Setup) && !UpdateFailed(state) && state.Update.ReturningTo is null && !Switching(state);
 
-    private static bool CanUndo(AppState state) => state.Engine is not null && UpdateFailed(state) && !Switching(state);
+    private static bool CanUndo(AppState state) => state.Engine is not null && UpdateFailed(state) && !Switching(state) && !state.Update.UndoGone;
 
-    private static bool CanInstall(AppState state) => state.Update.Facts?.Offer is not null && !Switching(state) && state.Update.ReturningTo is null;
+    /// <summary>An Undo refused before it began leaves the journal failed, which a newer release may take over.</summary>
+    private static bool Refused(AppState state) => state.Update.UndoFailure is not null && !state.Update.Returning;
+
+    private static bool CanInstall(AppState state) => state.Update.Facts?.Offer is not null && !Switching(state)
+        && (state.Update.ReturningTo is null || (Refused(state) && state.Update.Facts?.Last?.Phase == "failed"));
 
     private static string Describe(AppState state) =>
         $"engine {state.Engine?.State.ToString() ?? "none"}, setup {(state.Setup.Complete ? "done" : "fresh")}, offer {state.Update.Facts?.Offer ?? "-"}, " +
         $"available {state.Update.Facts?.Available.ToString() ?? "-"}, last {state.Update.Facts?.Last?.Phase ?? "-"}/{state.Update.Facts?.Last?.Running ?? "-"}, " +
         $"run {state.Update.Run?.Step.ToString() ?? "-"}, failed {state.Update.Failed}, returning {state.Update.ReturningTo ?? "-"}/{state.Update.Returning}, " +
-        $"refused {state.Update.UndoFailure ?? "-"}, checking {state.Update.Checking}";
+        $"refused {state.Update.UndoFailure ?? "-"}/{state.Update.UndoGone}, checking {state.Update.Checking}";
 
     [TestMethod]
     public void EveryShownControlCanActInItsState()
@@ -92,6 +100,10 @@ public sealed class AppStateTests
             if (row.CanCheck) Assert.IsTrue(!state.Update.Checking && !Switching(state) && state.Update.Facts?.Last is not { Finishing: true },
                 "Check for updates shown while a check or an update runs: " + where);
             if (UpdateFailed(state)) Assert.AreNotEqual(UpdateRowKind.Current, row.Kind, "A failed update called up to date: " + where);
+            if (Refused(state))
+                Assert.IsFalse(flyout.Title.StartsWith("Returning to", StringComparison.Ordinal)
+                    || flyout.Update?.Title.StartsWith("Returning to", StringComparison.Ordinal) == true,
+                    "A refused Undo still said to be returning: " + where);
 
             // A way on: every state that is not on its way somewhere offers something to press beyond Settings and Quit.
             var onItsWay = flyout.Busy || problem?.Busy == true || row.Busy;
@@ -122,6 +134,32 @@ public sealed class AppStateTests
         var alone = AppSurfaces.Of(copy, failed with { Update = failed.Update with { Facts = failed.Update.Facts! with { Offer = null } } });
         Assert.IsNull(alone.Flyout.Update);
         CollectionAssert.DoesNotContain(alone.Menu.Select(entry => entry.Command).ToArray(), MenuCommand.Update);
+    }
+
+    [TestMethod]
+    public void AnUndoRefusedForAReleaseThatIsGoneLeadsWithCheckForUpdatesAndTheNewerRelease()
+    {
+        var copy = new NativeCopy("en");
+        var failed = new UpdateFacts(true, false, Now, null, null, new LastUpdate("failed", Previous, Running, "to"));
+        var gone = new AppState(new EngineSnapshot(EngineState.Stopped), null, SetupRecord.Finished,
+            new UpdateState(failed, Failed: true, ReturningTo: Previous, UndoFailure: "no longer published", UndoGone: true), Now);
+        var surfaces = AppSurfaces.Of(copy, gone);
+        Assert.AreEqual(("Couldn't return to 0.1.17", FlyoutPrimary.CheckUpdates, true), (surfaces.Flyout.Title, surfaces.Flyout.Primary,
+            surfaces.Flyout.PrimaryEnabled));
+        StringAssert.StartsWith(surfaces.Flyout.Lines.Single().Text, "0.1.17 is no longer available to download");
+        Assert.AreEqual(("windows-update-undo-gone-body", false), (surfaces.Problem?.BodyKey, surfaces.Problem?.Undo),
+            "pressing Undo again cannot bring the release back");
+        CollectionAssert.DoesNotContain(surfaces.Menu.Select(entry => entry.Command).ToArray(), MenuCommand.Undo);
+
+        var newer = AppSurfaces.Of(copy, gone with { Update = gone.Update with { Facts = failed with { Offer = Offer } } });
+        Assert.AreEqual(("Version 0.1.19 is ready", "Update", "0.1.19"),
+            (newer.Flyout.Update?.Title, newer.Flyout.Update?.Action, newer.Problem?.Newer), "a newer release is the way on");
+        CollectionAssert.Contains(newer.Menu.Select(entry => entry.Command).ToArray(), MenuCommand.Update);
+
+        var refused = AppSurfaces.Of(copy, gone with { Update = gone.Update with { UndoGone = false, UndoFailure = "offline" } });
+        Assert.AreEqual(("Couldn't return to 0.1.17", FlyoutPrimary.Undo, true, true),
+            (refused.Flyout.Title, refused.Flyout.Primary, refused.Flyout.PrimaryEnabled, refused.Problem?.Undo), "offline: Undo again");
+        Assert.IsFalse(refused.Flyout.Busy, "never Returning to after a refusal");
     }
 
     [TestMethod]

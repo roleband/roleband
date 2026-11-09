@@ -52,7 +52,7 @@ internal sealed class TrayApp
     private CancellationTokenSource? downloading;
     // An undo returning to this version: pressed in this session, or found unfinished when the app opened.
     private string? returningTo, undoFailure;
-    private bool returning;
+    private bool returning, undoGone;
     private int? returnPercent;
     private bool updateChecking, updateChoosing, settingsLoginError;
     private string? lastUpdateResult, settingsError;
@@ -73,6 +73,7 @@ internal sealed class TrayApp
         flyout.UpdateRequested += async () => await UpdateNowAsync();
         flyout.CancelUpdateRequested += CancelUpdate;
         flyout.Undo += async () => { flyout.Hide(); await UndoUpdateAsync(); };
+        flyout.CheckUpdates += async () => { flyout.Hide(); OpenSettings(); await CheckUpdatesAsync(manual: true); };
         try
         {
             tray = new TrayIcon(flyout.Handle, Menu);
@@ -134,7 +135,7 @@ internal sealed class TrayApp
     /// <summary>The app's whole state at this moment, which every surface is drawn from.</summary>
     private AppState State() => new(engine?.Snapshot, launchFailure, setup,
         new UpdateState(updates is null ? UpdateFacts.Unavailable : updateFacts, updateRun, updateChecking, lastUpdateResult, updateFailed,
-            returningTo, returning, undoFailure, returnPercent),
+            returningTo, returning, undoFailure, returnPercent, undoGone),
         DateTimeOffset.Now, scanStatus, requested, lastScanAt);
 
     private Surfaces Surfaces() => AppSurfaces.Of(copy, State());
@@ -441,6 +442,7 @@ internal sealed class TrayApp
         returning = returningTo is not null;
         returnPercent = null;
         settingsError = undoFailure = null;
+        undoGone = false;
         RenderUpdate();
         try { await updates.ReturnToPreviousAsync(engine, new Progress<int>(percent => { returnPercent = percent; RenderUpdate(); })); }
         catch (Exception error)
@@ -448,6 +450,10 @@ internal sealed class TrayApp
             // Refused or failed: the banner says so with Try again, and the reason shows below it.
             returning = false;
             undoFailure = error.Message;
+            undoGone = error is UpdateRefused { Kind: "missing" };
+            // Whether the update is still failed, and open to a newer release, is the journal's to say.
+            try { updateFacts = await updates.StatusAsync(); }
+            catch (Exception status) { Debug.WriteLine(status); }
             if (returningTo is null) settingsError = "engine-refused";
             Debug.WriteLine(error);
             RenderUpdate();

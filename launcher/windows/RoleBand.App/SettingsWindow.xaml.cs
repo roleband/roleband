@@ -24,6 +24,10 @@ public sealed partial class SettingsWindow : Window
 {
     private readonly NativeCopy copy;
     private bool rendering;
+    // The problem last shown, so only a new one moves focus or is announced; and a press to focus once the window is
+    // active, for a problem shown before it was.
+    private string? renderedProblem;
+    private Control? focusOnActivate;
 
     public event Action? Restart, Undo, OpenLogs, OpenHistory, CheckUpdates, UpdateNow, CancelUpdate, OpenStartupApps, OpenLicences;
     public event Action<bool>? AutomaticChanged, LoginChanged;
@@ -40,6 +44,13 @@ public sealed partial class SettingsWindow : Window
         var work = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary).WorkArea;
         size = new SizeInt32(Math.Min(size.Width, work.Width), Math.Min(size.Height, work.Height));
         AppWindow.MoveAndResize(new RectInt32(work.X + (work.Width - size.Width) / 2, work.Y + (work.Height - size.Height) / 2, size.Width, size.Height));
+
+        Activated += (_, args) =>
+        {
+            if (args.WindowActivationState == WindowActivationState.Deactivated || focusOnActivate is not { } target) return;
+            focusOnActivate = null;
+            target.Focus(FocusState.Programmatic);
+        };
 
         Heading.Text = copy["settings"];
         RestartButton.Content = copy["engine-restart"];
@@ -97,12 +108,14 @@ public sealed partial class SettingsWindow : Window
         {
             var problem = state.Problem;
             string Words(string key) => problem?.Version is { } version ? copy.Format(key, ("version", version)) : copy[key];
-            ProblemBar.IsOpen = problem is not null;
+            var wasOpen = ProblemBar.IsOpen;
             // An undo under way is news, not a fault; a failed update or a refused Undo waits on Undo; anything else is an error.
+            // The bar announces itself as it opens, with the words it has then: they are set first.
             ProblemBar.Severity = problem?.Notice == true ? InfoBarSeverity.Informational
                 : problem?.Undo == true ? InfoBarSeverity.Warning : InfoBarSeverity.Error;
             ProblemBar.Title = problem is not null ? Words(problem.TitleKey) : "";
             ProblemBar.Message = problem?.BodyKey is { } body ? Words(body) : "";
+            ProblemBar.IsOpen = problem is not null;
             ProblemProgress.Visibility = problem?.Busy == true ? Visibility.Visible : Visibility.Collapsed;
             ProblemProgress.IsIndeterminate = problem?.Percent is null;
             ProblemProgress.Value = problem?.Percent ?? 0;
@@ -113,11 +126,29 @@ public sealed partial class SettingsWindow : Window
             NewerButton.Visibility = problem?.Newer is null ? Visibility.Collapsed : Visibility.Visible;
             NewerButton.Content = problem?.Newer is { } newer ? copy.Format("windows-update-to", ("version", newer)) : "";
             ProblemLogsButton.Visibility = problem?.Busy == true ? Visibility.Collapsed : Visibility.Visible;
+            var shown = problem is null ? null : $"{problem.TitleKey}|{problem.BodyKey}|{problem.Version}";
+            if (shown != renderedProblem)
+            {
+                renderedProblem = shown;
+                // A bar already open that now says something else does not announce itself.
+                if (wasOpen && problem is not null) Native.Announce(ProblemBar, $"{ProblemBar.Title}. {ProblemBar.Message}", "SettingsProblem");
+                // A failure moves focus to the press that fixes it; a notice of work under way does not take it.
+                Control? fix = problem is { Notice: false }
+                    ? problem.Undo ? UndoButton : problem.Newer is not null ? NewerButton : problem.Restart ? RestartButton : null
+                    : null;
+                if (fix is not null)
+                    DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+                    {
+                        if (!fix.Focus(FocusState.Programmatic)) focusOnActivate = fix;
+                    });
+            }
             LastLines.Visibility = ProblemBar.IsOpen && !string.IsNullOrWhiteSpace(state.Diagnostic) ? Visibility.Visible : Visibility.Collapsed;
             LastLinesText.Text = state.Diagnostic ?? "";
 
             var update = state.Update;
+            var announce = UpdateTitle.Text != update.Title;
             UpdateTitle.Text = update.Title;
+            if (announce) Native.Announce(UpdateTitle);
             UpdateCaption.Text = update.Caption is null ? VersionText.Text : $"{VersionText.Text} · {update.Caption}";
             UpdateBusy.IsActive = update.Busy;
             UpdateBusy.Visibility = update.Busy ? Visibility.Visible : Visibility.Collapsed;
@@ -145,8 +176,10 @@ public sealed partial class SettingsWindow : Window
 
             ScanTimesCard.IsEnabled = state.CanOpenRadar;
             AllSettingsCard.IsEnabled = state.CanOpenRadar;
+            var error = state.Error is not null && ErrorText.Text != state.Error;
             ErrorText.Text = state.Error ?? "";
             ErrorText.Visibility = state.Error is null ? Visibility.Collapsed : Visibility.Visible;
+            if (error) Native.Announce(ErrorText);
         }
         finally { rendering = false; }
     }

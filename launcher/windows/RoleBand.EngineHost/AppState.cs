@@ -7,6 +7,8 @@ namespace RoleBand.EngineHost;
 /// <param name="Returning">This session pressed Undo and waits for Windows.</param>
 /// <param name="UndoFailure">Why the last Undo was refused.</param>
 /// <param name="ReturnPercent">Windows' percentage of putting the previous version back.</param>
+/// <param name="UndoGone">The last Undo was refused because the previous version is no longer published: pressing it
+/// again cannot help, and a newer release is the way on.</param>
 public sealed record UpdateState(
     UpdateFacts? Facts = null,
     UpdateRun? Run = null,
@@ -16,7 +18,8 @@ public sealed record UpdateState(
     string? ReturningTo = null,
     bool Returning = false,
     string? UndoFailure = null,
-    int? ReturnPercent = null)
+    int? ReturnPercent = null,
+    bool UndoGone = false)
 {
     /// <summary>This version is an update that could not prepare, as the coordinator or the journal says.</summary>
     public bool UpdateFailed => Failed || Facts?.Last is { Unfinished: true };
@@ -24,8 +27,13 @@ public sealed record UpdateState(
     /// <summary>An Update or an Undo is in Windows' hands: nothing else may start.</summary>
     public bool Switching => Run is { InProgress: true } || Returning;
 
-    /// <summary>The release an Update press installs, when one can be pressed.</summary>
-    public string? Installable => Switching || ReturningTo is not null ? null : Facts?.Offer;
+    /// <summary>The release an Update press installs, when one can be pressed: not over an Undo under way, unless that
+    /// Undo was refused before it began, which leaves the update failed and open to a newer release.</summary>
+    public string? Installable =>
+        Switching || (ReturningTo is not null && !(UndoRefused && Facts?.Last?.Phase == "failed")) ? null : Facts?.Offer;
+
+    /// <summary>An Undo that was refused: it is no longer on its way back, whatever version it was returning to.</summary>
+    public bool UndoRefused => UndoFailure is not null && !Returning;
 }
 
 /// <summary>Everything the app's surfaces are drawn from, so the panel, the menu and Settings cannot disagree.</summary>
@@ -46,8 +54,9 @@ public sealed record AppState(
     public bool CanStart => Engine is { State: EngineState.Stopped or EngineState.Attention } && !SetupHeld
         && !Update.UpdateFailed && Update.ReturningTo is null && !Update.Switching;
 
-    /// <summary>Undo can return to the version before a failed update, unless Windows is already installing something.</summary>
-    public bool CanUndo => Engine is not null && Update.UpdateFailed && !Update.Switching;
+    /// <summary>Undo can return to the version before a failed update, unless Windows is already installing something or
+    /// the previous version is no longer published.</summary>
+    public bool CanUndo => Engine is not null && Update.UpdateFailed && !Update.Switching && !Update.UndoGone;
 }
 
 /// <summary>The app's surfaces for one state: the flyout, the icon's menu and its default command, Settings' problem
@@ -84,13 +93,15 @@ public static class AppSurfaces
             return new Surfaces(view, [Settings(copy) with { Default = true }, MenuEntry.Separator, Quit(copy)], DefaultCommand.Settings,
                 SettingsPanel.LaunchFailed, row);
         }
-        var banner = AboutPanel.Flyout(copy, facts, update.Run, update.ReturningTo, update.Returning ? update.ReturnPercent : null);
+        // A refused Undo is not on its way back: the flyout says it failed, never Returning to.
+        var banner = AboutPanel.Flyout(copy, facts, update.Run, update.UndoRefused ? null : update.ReturningTo,
+            update.Returning ? update.ReturnPercent : null);
         // With no running engine to summarise, an update under way is the flyout's whole state.
         if (banner is { Busy: true } && engine.State != EngineState.Ready) banner = banner with { Restarting = true };
         var problem = SettingsPanel.Problem(engine, update.UpdateFailed, state.SetupHeld, update.Run is { Step: UpdateStep.Restarting },
-            update.ReturningTo, update.Returning, update.UndoFailure, update.Installable);
+            update.ReturningTo, update.Returning, update.UndoFailure, update.Installable, update.UndoGone);
         if (problem is { Busy: true } && update.Returning) problem = problem with { Percent = update.ReturnPercent };
-        if (update.UpdateFailed && update.ReturningTo is null && !update.Switching)
+        if (update.UpdateFailed && (update.ReturningTo is null || update.UndoRefused) && !update.Switching)
             return FailedUpdate(copy, state, banner, problem, row);
         var flyout = Companion.View(copy, engine, state.Scan, state.Requested, state.LastScanAt, state.Setup.Complete, state.Now, banner);
         var menu = Companion.Menu(copy, engine, flyout, state.Setup.Complete);
@@ -107,15 +118,22 @@ public static class AppSurfaces
     }
 
     /// <summary>A failed update keeps the engine closed until it is undone or replaced: the flyout and the menu lead with
-    /// Undo, offer a newer release beside it, and never Restart, which would do nothing.</summary>
+    /// Undo, offer a newer release beside it, and never Restart, which would do nothing. When the previous version is no
+    /// longer published, Undo cannot help, and Check for updates leads instead.</summary>
     private static Surfaces FailedUpdate(NativeCopy copy, AppState state, FlyoutUpdate? banner, SettingsProblem? problem, UpdateRow row)
     {
-        var title = copy["update-stopped-title"];
-        var newer = state.Update.Installable;
-        var flyout = new FlyoutView(title, null, null, null, false, [new FlyoutLine(copy["update-stopped-body"])], FlyoutPrimary.Undo, true,
+        var update = state.Update;
+        var title = update.UndoRefused && update.ReturningTo is { } previous
+            ? copy.Format("windows-update-undo-failed", ("version", previous)) : copy["update-stopped-title"];
+        var line = update.UndoGone && update.ReturningTo is { } gone
+            ? copy.Format("windows-update-undo-gone-body", ("version", gone)) : copy["update-stopped-body"];
+        var newer = update.Installable;
+        var flyout = new FlyoutView(title, null, null, null, false, [new FlyoutLine(line)],
+            state.CanUndo ? FlyoutPrimary.Undo : FlyoutPrimary.CheckUpdates, state.CanUndo || (row.CanCheck && !update.Checking),
             null, null, null, PauseControl.None, true, TrayBadge.Attention, Companion.Tip(title),
             banner is { Action: not null } && newer is not null ? banner : null);
-        var menu = new List<MenuEntry> { Settings(copy) with { Default = true }, new(MenuCommand.Undo, copy["update-undo"]) };
+        var menu = new List<MenuEntry> { Settings(copy) with { Default = true } };
+        if (state.CanUndo) menu.Add(new MenuEntry(MenuCommand.Undo, copy["update-undo"]));
         if (newer is not null) menu.Add(new MenuEntry(MenuCommand.Update, copy.Format("windows-update-to", ("version", newer))));
         menu.AddRange([MenuEntry.Separator, Quit(copy)]);
         return new Surfaces(flyout, menu, DefaultCommand.Settings, problem, row);

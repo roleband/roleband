@@ -421,8 +421,26 @@ class TestNoOneIsStuck:
         monkeypatch.setattr(windows_packages, "retain_running", offline)
         assert _recover_begin(state, identity, "0.1.3") == 1
         answer = json.loads(capsys.readouterr().out)
-        assert answer["status"] == "refused" and "0.1.2" in answer["reason"]
+        assert (answer["status"], answer["kind"]) == ("refused", "offline") and "0.1.2" in answer["reason"]
         assert windows_update_journal.read(state)["phase"] == "failed", "Undo stays one press away"
+
+    def test_an_undo_whose_previous_release_is_gone_says_trying_again_cannot_help(self, state, tmp_path, monkeypatch, capsys):
+        from scripts.windows_update import _recover_begin
+        from tracker.platform import windows_packages, windows_update_journal
+        from tracker.platform.windows_updates import ReleaseMissing
+
+        identity, _kept = _keeper(state, tmp_path)
+        _failed(state, tmp_path)
+
+        def gone(*_args, **_kwargs):
+            raise ReleaseMissing("A release file is not published")
+
+        monkeypatch.setattr(windows_packages, "retain_running", gone)
+        assert _recover_begin(state, identity, "0.1.3") == 1
+        answer = json.loads(capsys.readouterr().out)
+        assert (answer["status"], answer["kind"]) == ("refused", "missing")
+        assert "no longer published" in answer["reason"]
+        assert windows_update_journal.read(state)["phase"] == "failed", "a newer release can still take over"
 
     def test_a_failed_version_may_begin_a_newer_update_when_the_version_before_it_is_kept(self, state, tmp_path, capsys):
         from scripts.windows_update import _begin as begin_command

@@ -182,6 +182,20 @@ def test_a_retained_package_that_changed_is_no_longer_a_way_back(state, identity
     assert retained(state, identity) == []
 
 
+@pytest.mark.parametrize(("status", "missing"), [(404, True), (410, True), (503, False)])
+def test_a_package_the_feed_no_longer_has_is_told_apart_from_a_server_error(state, identity, server, status, missing):
+    from tracker.platform.windows_packages import DownloadIncomplete
+    from tracker.platform.windows_updates import ReleaseMissing
+
+    offer, signed = server.release("0.1.3")
+    real = server.handler
+    server_transport = httpx.MockTransport(
+        lambda request: httpx.Response(status) if request.url.path.endswith(".msix") and "objects" in str(request.url)
+        else real(request))
+    with pytest.raises(ReleaseMissing if missing else DownloadIncomplete):
+        download(state, identity, offer, signed, "0.1.2", transport=server_transport)
+
+
 def test_a_kept_package_that_changed_is_fetched_again_instead_of_failing_every_time(state, identity, server):
     offer, signed = server.release("0.1.3")
     path = download(state, identity, offer, signed, "0.1.2", transport=server.transport)
@@ -241,6 +255,7 @@ def test_release_files_for_another_version_cannot_stand_in_for_the_running_one(s
 
 def test_an_unpublished_running_version_leaves_no_way_back(state, identity, server):
     from tracker.platform.windows_packages import retain_running
+    from tracker.platform.windows_updates import ReleaseMissing
 
-    with pytest.raises(ReleaseError):
+    with pytest.raises(ReleaseMissing):
         retain_running(state, identity, "0.1.2", transport=server.transport)

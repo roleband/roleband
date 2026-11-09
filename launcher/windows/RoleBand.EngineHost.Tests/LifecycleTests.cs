@@ -524,8 +524,22 @@ public sealed class LifecycleTests
         var commands = new RecordingCommands(() => session.OwnsEngine,
             ("recover-begin", """{"status": "refused", "reason": "The previous version's package is not retained here."}"""));
         var deployer = new RecordingDeployer();
-        var error = await Assert.ThrowsExactlyAsync<IOException>(() => new UpdateCoordinator(commands, deployer).ReturnToPreviousAsync(session));
+        var error = await Assert.ThrowsExactlyAsync<UpdateRefused>(() => new UpdateCoordinator(commands, deployer).ReturnToPreviousAsync(session));
         StringAssert.Contains(error.Message, "not retained");
+        Assert.IsNull(error.Kind);
+        Assert.AreEqual(0, deployer.Packages.Count);
+    }
+
+    [TestMethod]
+    public async Task AnUndoRefusedForAReleaseThatIsGoneSaysSoToTheApp()
+    {
+        var engine = new StandIn("ready");
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        var commands = new RecordingCommands(() => session.OwnsEngine,
+            ("recover-begin", """{"status": "refused", "kind": "missing", "reason": "Version 0.1.17 is no longer published."}"""));
+        var deployer = new RecordingDeployer();
+        var error = await Assert.ThrowsExactlyAsync<UpdateRefused>(() => new UpdateCoordinator(commands, deployer).ReturnToPreviousAsync(session));
+        Assert.AreEqual(("missing", "Version 0.1.17 is no longer published."), (error.Kind, error.Message));
         Assert.AreEqual(0, deployer.Packages.Count);
     }
 

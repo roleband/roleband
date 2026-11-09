@@ -54,7 +54,9 @@ never changed, so the database stays; a checkpoint from an earlier update is nev
 restored, because history written since would be lost. The new version never reached Ready,
 so nothing was written after the checkpoint. If the previous package is missing, Undo
 downloads that version's release and verifies it like any update; if it cannot, it says so and
-nothing is registered.
+nothing is registered. It tells a lost connection, a full disk and a release the feed no longer
+has apart: for the last, Undo is not offered again, and the update stays `failed` for a newer
+release to take over.
 
 No broken update leaves a person stuck. Besides Undo, a newer release takes over a failed or
 unfinished update: from the app, a failed version may begin an update to a newer one, and a newer

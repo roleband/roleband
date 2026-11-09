@@ -189,6 +189,7 @@ launcher-windows-update-undoing = 正在返回 { $version }
 launcher-windows-update-undoing-body = RoleBand 将关闭并以 { $version } 重新打开，你的数据会回到更新前的状态。
 launcher-windows-update-undo-failed = 无法返回 { $version }
 launcher-windows-update-undo-failed-body = 你的数据没有变化。请重试；下面的详细信息说明了出错原因。
+launcher-windows-update-undo-gone-body = { $version } 已无法下载，因此无法撤销此更新。你的数据没有变化；请检查是否有更新的版本。
 launcher-windows-update-finishing = 正在完成到 { $version } 的更新
 launcher-windows-update-unfinished = { $version } 未能完成
 launcher-windows-update-unfinished-caption = 可以在上方撤销，或检查是否有更新的版本。

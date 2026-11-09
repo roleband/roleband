@@ -189,6 +189,7 @@ launcher-windows-update-undoing = Volviendo a { $version }
 launcher-windows-update-undoing-body = RoleBand se cierra y se vuelve a abrir en { $version }, con tus datos como estaban antes de la actualización.
 launcher-windows-update-undo-failed = No se pudo volver a { $version }
 launcher-windows-update-undo-failed-body = Tus datos no han cambiado. Inténtalo de nuevo; los detalles de abajo dicen qué falló.
+launcher-windows-update-undo-gone-body = { $version } ya no se puede descargar, así que esta actualización no se puede deshacer. Tus datos no han cambiado; busca una versión más reciente.
 launcher-windows-update-finishing = Terminando la actualización a { $version }
 launcher-windows-update-unfinished = { $version } no pudo terminar
 launcher-windows-update-unfinished-caption = Deshazla arriba o busca una versión más nueva.

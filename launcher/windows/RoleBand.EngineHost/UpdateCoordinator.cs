@@ -13,6 +13,13 @@ public interface IPackageDeployer
     Task AddAsync(string package, bool downgrade, IProgress<int>? progress, CancellationToken cancellation);
 }
 
+/// <summary>An update command refused the step, with its reason and the kind of failure it reported.</summary>
+/// <param name="Kind">"missing" when the release is no longer published, "offline", "space", or null.</param>
+public sealed class UpdateRefused(string reason, string? kind) : IOException(reason)
+{
+    public string? Kind { get; } = kind;
+}
+
 /// <summary>The engine's `desktop.py update` commands, each answering one JSON object.</summary>
 public interface IUpdateCommands
 {
@@ -236,7 +243,8 @@ public sealed class UpdateCoordinator(IUpdateCommands commands, IPackageDeployer
         if (session.OwnsEngine) throw new IOException("The engine did not stop, so the update was not undone.");
         var begun = await commands.RunAsync(["recover-begin"], cancellation);
         if (!begun.TryGetProperty("package", out var package) || package.ValueKind != JsonValueKind.String)
-            throw new IOException(Reason(begun) ?? "The previous version could not be prepared.");
+            throw new UpdateRefused(Reason(begun) ?? "The previous version could not be prepared.",
+                begun.TryGetProperty("kind", out var kind) && kind.ValueKind == JsonValueKind.String ? kind.GetString() : null);
         _ = RegisterApplicationRestart(null, 0);
         await deployer.AddAsync(package.GetString()!, downgrade: true, progress, cancellation);
     }

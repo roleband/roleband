@@ -1,5 +1,6 @@
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -35,6 +36,19 @@ internal static class Native
     }
 
     public static bool IsForeground(nint window) => GetForegroundWindow() == window;
+
+    /// <summary>Tells Narrator a live region changed. It reads a live region when this event is raised, so text set in
+    /// one is not heard without it.</summary>
+    public static void Announce(UIElement element) => Peer(element)?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
+
+    /// <summary>Has Narrator read <paramref name="text"/> at once, for a change shown in a control that is not a live
+    /// region; a newer one with the same <paramref name="activity"/> replaces it.</summary>
+    public static void Announce(UIElement element, string text, string activity) =>
+        Peer(element)?.RaiseNotificationEvent(AutomationNotificationKind.Other, AutomationNotificationProcessing.ImportantMostRecent,
+            text, activity);
+
+    private static AutomationPeer? Peer(UIElement element) =>
+        FrameworkElementAutomationPeer.FromElement(element) ?? FrameworkElementAutomationPeer.CreatePeerForElement(element);
 
     public static void BringForward(nint window) => SetForegroundWindow(window);
 

@@ -109,18 +109,21 @@ class _Progress:
 
 
 def _failure(error: BaseException) -> str:
-    """What a failed download says: a full disk, a connection that dropped (it resumes), a package that is not the
-    signed release (nothing to resume), or a download that did not finish."""
+    """What a failed download says: a full disk, a connection that dropped (it resumes), a release the feed does not
+    have, a package that is not the signed release (nothing to resume), or a download that did not finish."""
     from httpx import TransportError
 
     from tracker.platform.windows_packages import DownloadIncomplete, DownloadInterrupted
     from tracker.platform.windows_release import ReleaseError
+    from tracker.platform.windows_updates import ReleaseMissing
 
     # Windows reports a full disk as ERROR_HANDLE_DISK_FULL (39) or ERROR_DISK_FULL (112), not always as ENOSPC.
     if isinstance(error, OSError) and (error.errno == errno.ENOSPC or getattr(error, "winerror", None) in (39, 112)):
         return "space"
     if isinstance(error, (TransportError, DownloadInterrupted)):
         return "offline"
+    if isinstance(error, ReleaseMissing):
+        return "missing"
     if isinstance(error, ReleaseError) and not isinstance(error, DownloadIncomplete):
         return "check"
     return "download"
@@ -176,8 +179,14 @@ def _recover_begin(state: Path, identity: Any, running: str) -> int:
             # Kept as if it were running, so keeping it never prunes it again.
             previous = [retain_running(state, identity, record["from_version"])]
         except (OSError, HTTPError, ReleaseError) as error:
-            print(json.dumps({"status": "refused", "reason": f"Version {record['from_version']} could not be "
-                              f"downloaded from its release, so the update was not undone. ({error})"}))
+            kind = _failure(error)
+            version = record["from_version"]
+            reason = {
+                "missing": f"Version {version} is no longer published, so this update can't be undone.",
+                "offline": f"Undo downloads version {version} first, and the connection was lost.",
+                "space": f"There is not enough free space to download version {version}.",
+            }.get(kind, f"Version {version} could not be downloaded from its release, so the update was not undone.")
+            print(json.dumps({"status": "refused", "kind": kind, "reason": f"{reason} ({error})"}))
             return 1
     try:
         journal.recover_begin(state, running)

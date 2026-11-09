@@ -30,7 +30,7 @@ public sealed partial class FlyoutWindow : Window
     private bool closing;
     private bool focused;
 
-    public event Action? OpenRadar, Restart, OpenSettings, QuitRequested, UpdateRequested, CancelUpdateRequested, Undo;
+    public event Action? OpenRadar, Restart, OpenSettings, QuitRequested, UpdateRequested, CancelUpdateRequested, Undo, CheckUpdates;
     public event Action<ScanAction>? Scan;
     public event Action<PauseAction>? Pause;
     public event Action<BrowserRoute>? Open;
@@ -81,6 +81,7 @@ public sealed partial class FlyoutWindow : Window
             {
                 case FlyoutPrimary.Restart: Restart?.Invoke(); break;
                 case FlyoutPrimary.Undo: Undo?.Invoke(); break;
+                case FlyoutPrimary.CheckUpdates: CheckUpdates?.Invoke(); break;
                 default: OpenRadar?.Invoke(); break;
             }
         };
@@ -206,6 +207,8 @@ public sealed partial class FlyoutWindow : Window
     public void Render(FlyoutView view, string? message)
     {
         current = view;
+        // Narrator hears what the state is now, not every figure: the title, the banner's title and a message.
+        var announce = IsOpen && TitleText.Text != view.Title;
         TitleText.Text = view.Title;
         CornerText.Text = view.Corner ?? "";
         var (glyph, brush) = view.Badge switch
@@ -222,13 +225,17 @@ public sealed partial class FlyoutWindow : Window
         AutomationProperties.SetName(ScanProgress, view.ProgressLabel ?? view.Title);
         RenderLines(view.Lines);
         RenderUpdate(view.Update);
+        var said = IsOpen && message is not null && MessageText.Text != message;
         MessageText.Text = message ?? "";
         MessageText.Visibility = message is null ? Visibility.Collapsed : Visibility.Visible;
+        if (announce) Native.Announce(TitleText);
+        if (said) Native.Announce(MessageText);
 
         PrimaryButton.Content = copy[view.Primary switch
         {
             FlyoutPrimary.Restart => "engine-restart",
             FlyoutPrimary.Undo => "update-undo",
+            FlyoutPrimary.CheckUpdates => "windows-check-updates",
             _ => "first-open",
         }];
         PrimaryButton.IsEnabled = view.PrimaryEnabled;
@@ -303,6 +310,7 @@ public sealed partial class FlyoutWindow : Window
         if (update is null) return;
         UpdateGlyph.Glyph = update.Failed ? "" : "";
         UpdateGlyph.Foreground = Brush(update.Failed ? "SystemFillColorCautionBrush" : "RoleBandGold");
+        var announce = IsOpen && UpdateTitle.Text != update.Title;
         UpdateTitle.Text = update.Title;
         UpdateCaption.Text = update.Caption ?? "";
         UpdateCaption.Visibility = update.Caption is null ? Visibility.Collapsed : Visibility.Visible;
@@ -313,6 +321,7 @@ public sealed partial class FlyoutWindow : Window
         UpdateProgress.IsIndeterminate = update.Percent is null;
         UpdateProgress.Value = update.Percent ?? 0;
         AutomationProperties.SetName(UpdateBanner, update.Caption is null ? update.Title : $"{update.Title}. {update.Caption}");
+        if (announce) Native.Announce(UpdateBanner);
     }
 
     private static Brush Brush(string key) => (Brush)Application.Current.Resources[key];

@@ -46,6 +46,10 @@ CHECK = Path("launcher") / "update-check.json"
 _TEXT_LIMIT = 4000
 
 
+class ReleaseMissing(ReleaseError):
+    """The feed has no such release file: never published, or removed. Trying again does not bring it back."""
+
+
 class RateLimited(Exception):
     def __init__(self, until: float) -> None:
         super().__init__(until)
@@ -220,8 +224,10 @@ def _asset(client: httpx.Client, feed: str, version: str, name: str, limit: int,
                 if not permitted(url, feed, version):
                     raise ReleaseError("A release file redirected outside the update feed")
                 continue
+            if response.status_code in (404, 410):
+                raise ReleaseMissing("A release file is not published")
             if response.status_code != 200:
-                raise ReleaseError("A release file is not published yet")
+                raise ReleaseError("The update feed did not send a release file")
             return _read(response, limit)
     raise ReleaseError("A release file redirected too many times")
 

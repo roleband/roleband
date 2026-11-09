@@ -379,6 +379,7 @@ def _full_disk() -> OSError:
     (httpx.ReadTimeout("the network went quiet"), "download", "offline"),
     ("interrupted", "download", "offline"),
     ("not available", "download", "download"),
+    ("missing", "download", "missing"),
     (_full_disk(), "download", "space"),
     (ReleaseError("The installed version's release is not signed by this key"), "retain", "download"),
     (httpx.ConnectError("offline"), "retain", "offline"),
@@ -388,7 +389,8 @@ def test_a_failed_download_says_what_stopped_it(state, identity, feed, monkeypat
 
     windows_update = _download_command(state, identity, feed, monkeypatch)
     failure = {"interrupted": windows_packages.DownloadInterrupted("The package download was interrupted"),
-               "not available": windows_packages.DownloadIncomplete("The package is not available")}.get(failure, failure)
+               "not available": windows_packages.DownloadIncomplete("The package is not available"),
+               "missing": windows_updates.ReleaseMissing("The package is not published")}.get(failure, failure)
     downloads = []
 
     def fail(*_args, **_kwargs):
