@@ -175,7 +175,7 @@ insights-demand-show-all = Show all { $company }
 # kind=heading wording=as-is
 insights-demand-open-roles-by-region = Open roles by region
 # kind=sentence
-insights-demand-a-role-open-in-several = A role open in several regions counts in each. One that names only a region, such as Remote EMEA, counts once for that region and never in its countries.
+insights-demand-a-role-open-in-several = A role open in several regions counts in each. One that names only a region, such as Remote Europe, counts once for that region and never in its countries. Remote ANZ counts in Australia and New Zealand.
 # kind=sentence wording=as-is
 insights-demand-no-open-roles-yet = No open roles yet.
 # kind=label wording=as-is

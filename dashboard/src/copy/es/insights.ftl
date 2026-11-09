@@ -96,7 +96,7 @@ insights-demand-more-hold = { $share ->
 }
 insights-demand-show-all = Mostrar todas ({ $company })
 insights-demand-open-roles-by-region = Puestos abiertos por región
-insights-demand-a-role-open-in-several = Un puesto abierto en varias regiones cuenta en cada una. Uno que solo indica una región, como Remoto EMEA, cuenta una vez para esa región y nunca en sus países.
+insights-demand-a-role-open-in-several = Un puesto abierto en varias regiones cuenta en cada una. Uno que solo indica una región, como Remoto Europa, cuenta una vez para esa región y nunca en sus países. Remoto ANZ cuenta en Australia y Nueva Zelanda.
 insights-demand-no-open-roles-yet = Aún no hay puestos abiertos.
 insights-demand-all-of = Todo { $region }
 insights-demand-and-more-countries = { $more ->
