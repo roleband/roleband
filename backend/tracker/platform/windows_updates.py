@@ -37,7 +37,10 @@ from tracker.platform.windows_release import (
 
 AUTOMATIC_INTERVAL = 24 * 60 * 60
 RATE_LIMIT_FLOOR = 60
-LISTING_LIMIT = 256 * 1024
+#: Recent releases a check reads: the releases both apps share, of which the newest may carry only the macOS app's.
+LISTED = 20
+#: A listing of `LISTED` releases with all their files' entries fits well within it.
+LISTING_LIMIT = 1024 * 1024
 REDIRECT_LIMIT = 5
 USER_AGENT = "RoleBand-Launcher"
 API_VERSION = "2026-03-10"
@@ -51,8 +54,10 @@ class ReleaseMissing(ReleaseError):
 
 
 class RateLimited(Exception):
+    """The feed asked RoleBand to wait until `until` before asking again."""
+
     def __init__(self, until: float) -> None:
-        super().__init__(until)
+        super().__init__("The update feed asked RoleBand to wait before asking again")
         self.until = until
 
 
@@ -152,8 +157,8 @@ def status(state: Path, identity: Identity, installed: str, held_back: str | Non
             "rate_limited_until": float(limited) if isinstance(limited, (int, float)) else None}
 
 
-def latest_url(feed: str) -> str:
-    return f"https://api.github.com/repos/{feed}/releases/latest"
+def releases_url(feed: str) -> str:
+    return f"https://api.github.com/repos/{feed}/releases?per_page={LISTED}"
 
 
 def asset_url(feed: str, version: str, name: str) -> str:
@@ -198,20 +203,41 @@ def _read(response: httpx.Response, limit: int) -> bytes:
     return bytes(body)
 
 
-def _latest(client: httpx.Client, feed: str, now: float) -> str:
-    with client.stream("GET", latest_url(feed), headers={"Accept": "application/vnd.github+json",
-                                                         "X-GitHub-Api-Version": API_VERSION}) as response:
+def _windows_release(release: Any, feed: str) -> str | None:
+    """The version of a listed release that is a published stable release of this feed carrying this app's checksum
+    file; None for any other entry."""
+    if not isinstance(release, dict):
+        return None
+    tag = release.get("tag_name")
+    if (not isinstance(tag, str) or not tag.startswith("v") or release.get("draft") is not False
+            or release.get("prerelease") is not False
+            or release.get("html_url") != f"https://github.com/{feed}/releases/tag/{tag}"):
+        return None
+    try:
+        checksum = names(tag[1:])[1]
+    except ReleaseError:
+        return None
+    assets = release.get("assets")
+    if not isinstance(assets, list) or not any(isinstance(asset, dict) and asset.get("name") == checksum
+                                               for asset in assets):
+        return None
+    return tag[1:]
+
+
+def _newest(client: httpx.Client, feed: str, now: float, above: tuple[int, int, int]) -> str | None:
+    """The newest recent release with this app's files that is newer than `above`, or None. The listing is unsigned:
+    it only names which release's signed files to read."""
+    with client.stream("GET", releases_url(feed), headers={"Accept": "application/vnd.github+json",
+                                                           "X-GitHub-Api-Version": API_VERSION}) as response:
         _rate_limit(response, now)
         if response.status_code != 200:
-            raise ReleaseError("The update feed did not answer with a release")
+            raise ReleaseError("The update feed did not answer with its releases")
         listing = json.loads(_read(response, LISTING_LIMIT))
-    tag = listing.get("tag_name") if isinstance(listing, dict) else None
-    if (not isinstance(tag, str) or not tag.startswith("v") or listing.get("draft") is not False
-            or listing.get("prerelease") is not False
-            or listing.get("html_url") != f"https://github.com/{feed}/releases/tag/{tag}"):
-        raise ReleaseError("The update feed's latest release is not a published stable release")
-    stable_version(tag[1:])
-    return tag[1:]
+    if not isinstance(listing, list):
+        raise ReleaseError("The update feed did not answer with a list of releases")
+    versions = [version for version in (_windows_release(release, feed) for release in listing)
+                if version is not None and stable_version(version) > above]
+    return max(versions, key=stable_version, default=None)
 
 
 def _asset(client: httpx.Client, feed: str, version: str, name: str, limit: int, now: float) -> bytes:
@@ -248,7 +274,7 @@ def check(state: Path, identity: Identity, installed: str, *, manual: bool, now:
           transport: httpx.BaseTransport | None = None, held_back: str | None = None) -> Result:
     """Ask the feed once, as allowed. `held_back` is a version this installation updated to and undid: it is
     not offered again, and only a newer release is. The feed's releases are shared with the macOS app, so a newer
-    release without this app's files is no update yet."""
+    release without this app's files is no update yet, and does not hide an older one that has them."""
     now = time.time() if now is None else now
     record = _load(state / CHECK) or {}
     offer = _stored_offer(record, identity, installed, held_back)
@@ -271,24 +297,24 @@ def check(state: Path, identity: Identity, installed: str, *, manual: bool, now:
     try:
         with httpx.Client(transport=transport, follow_redirects=False, trust_env=False, timeout=timeout,
                           headers={"User-Agent": USER_AGENT, "Accept-Encoding": "identity"}) as client:
-            version = _latest(client, identity.feed, now)
-            # A check counts as done only once the feed answered with a release this build can read.
-            if stable_version(version) <= stable_version(installed) or version == held_back:
+            # Only a release newer than the installed version, the held-back one and the kept offer is news: a
+            # verified offer is never replaced by an older listing.
+            known = (installed, held_back, offer.version if offer else None)
+            above = max(stable_version(version) for version in known if version is not None)
+            version = _newest(client, identity.feed, now, above)
+            checksum = None
+            if version is not None:
+                try:
+                    checksum = _asset(client, identity.feed, version, names(version)[1], CHECKSUM_LIMIT, now)
+                except ReleaseMissing:
+                    # Listed with this app's checksum file, which is not there: no update for this app yet.
+                    pass
+            # A check counts as done only once the feed answered with releases this build can read.
+            if version is None or checksum is None:
                 record.update(checked_at=now, installed=installed)
                 _save(state / CHECK, record)
-                return Result("up-to-date", offer)
-            if offer is not None and stable_version(offer.version) >= stable_version(version):
-                record.update(checked_at=now, installed=installed)
-                _save(state / CHECK, record)
-                return Result("offered", offer)
-            _package, checksum_name, metadata_name, signature_name = names(version)
-            try:
-                checksum = _asset(client, identity.feed, version, checksum_name, CHECKSUM_LIMIT, now)
-            except ReleaseMissing:
-                # The release both apps share has no Windows files yet, or never will: no update for this app.
-                record.update(checked_at=now, installed=installed)
-                _save(state / CHECK, record)
-                return Result("up-to-date", offer)
+                return Result("up-to-date" if offer is None else "offered", offer)
+            _package, _checksum, metadata_name, signature_name = names(version)
             metadata = _asset(client, identity.feed, version, metadata_name, METADATA_LIMIT, now)
             signature = _asset(client, identity.feed, version, signature_name, 64, now)
             offer = verify_offer(identity, installed, checksum, metadata, signature)

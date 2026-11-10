@@ -485,22 +485,47 @@ class TestNoOneIsStuck:
         assert answer["package"].endswith("RoleBand-0.1.2-Windows-x64.msix")
         assert windows_update_journal.read(state)["phase"] == "recovering"
 
+    @pytest.mark.parametrize(("failure", "kind"), [("offline", "offline"), ("rate-limited", "download")])
     def test_an_undo_that_cannot_fetch_the_previous_version_says_so_and_changes_nothing(self, state, tmp_path,
-                                                                                       monkeypatch, capsys):
+                                                                                       monkeypatch, capsys, failure, kind):
+        """The answer is always one JSON object the app reads; a rate limit is a download that did not happen."""
+        import time
+
         from scripts.windows_update import _recover_begin
         from tracker.platform import windows_packages, windows_update_journal
+        from tracker.platform.windows_updates import RateLimited
 
         identity, _kept = _keeper(state, tmp_path)
         _failed(state, tmp_path)
 
-        def offline(*_args, **_kwargs):
-            raise httpx.ConnectError("offline")
+        def fail(*_args, **_kwargs):
+            raise httpx.ConnectError("offline") if failure == "offline" else RateLimited(time.time() + 60)
 
-        monkeypatch.setattr(windows_packages, "retain_running", offline)
+        monkeypatch.setattr(windows_packages, "retain_running", fail)
         assert _recover_begin(state, identity, "0.1.3") == 1
         answer = json.loads(capsys.readouterr().out)
-        assert (answer["status"], answer["kind"]) == ("refused", "offline") and "0.1.2" in answer["reason"]
+        assert (answer["status"], answer["kind"]) == ("refused", kind) and "0.1.2" in answer["reason"]
         assert windows_update_journal.read(state)["phase"] == "failed", "Undo stays one press away"
+
+    @pytest.mark.parametrize("journal_state", ["preparing", "damaged"])
+    def test_an_undo_that_cannot_begin_is_refused_before_anything_is_downloaded(self, state, tmp_path, monkeypatch,
+                                                                                capsys, journal_state):
+        """The previous version's package is hundreds of megabytes: an Undo the journal would refuse fetches none."""
+        from scripts.windows_update import _recover_begin
+        from tracker.platform import windows_packages, windows_update_journal
+        from tracker.platform.windows_fs import publish
+
+        identity, _kept = _keeper(state, tmp_path)
+        _begin(state, tmp_path)
+        if journal_state == "preparing":
+            windows_update_journal.resume(state, "0.1.3")
+        else:
+            publish(state / "recovery" / "update.json", b'{"format": 9}')
+        fetched = []
+        monkeypatch.setattr(windows_packages, "retain_running", lambda *args, **_kwargs: fetched.append(args))
+        assert _recover_begin(state, identity, "0.1.3") == 1
+        assert json.loads(capsys.readouterr().out)["status"] == "refused"
+        assert fetched == [], "nothing was downloaded"
 
     def test_an_undo_whose_previous_release_is_gone_says_trying_again_cannot_help(self, state, tmp_path, monkeypatch, capsys):
         from scripts.windows_update import _recover_begin

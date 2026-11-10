@@ -57,18 +57,18 @@ def _held_back(update: dict[str, Any] | None) -> str | None:
 _SPACE_MARGIN = 256 * 2**20
 
 
-def _space_needed(state: Path, offer: Any, way_back: str) -> int:
+def _space_needed(offer: Any, missing: set[str]) -> int:
     """Room for the packages still to download, and for Windows' copy of the update when it installs it. A version not
     kept yet is counted at the update's size, the nearest known."""
-    return offer.bytes * (len(_missing(state, offer, way_back)) + 1) + _SPACE_MARGIN
+    return offer.bytes * (len(missing) + 1) + _SPACE_MARGIN
 
 
-def _missing(state: Path, offer: Any, way_back: str) -> set[str]:
-    """The versions whose packages this download fetches: the way back and the update, unless already kept."""
-    from tracker.platform.windows_packages import folder
-    from tracker.platform.windows_release import names
+def _missing(state: Path, identity: Any, offer: Any, way_back: str) -> set[str]:
+    """The versions whose packages this download fetches: the way back and the update, unless kept and verified. A
+    file under a release's name that does not verify is fetched again."""
+    from tracker.platform.windows_packages import retained
 
-    return {version for version in {way_back, offer.version} if not (folder(state) / names(version)[0]).is_file()}
+    return {way_back, offer.version} - {release.version for release, _path in retained(state, identity)}
 
 
 class _Progress:
@@ -103,7 +103,8 @@ class _Progress:
 
 def _failure(error: BaseException) -> str:
     """What a failed download says: a full disk, a connection that dropped (it resumes), a release the feed does not
-    have, a package that is not the signed release (nothing to resume), or a download that did not finish."""
+    have, a package that is not the signed release (nothing to resume), or a download that did not finish, a feed
+    asking to wait included."""
     from httpx import TransportError
 
     from tracker.platform.windows_packages import DownloadIncomplete, DownloadInterrupted
@@ -162,8 +163,16 @@ def _recover_begin(state: Path, identity: Any, running: str) -> int:
     from tracker.platform.windows_packages import retain_running, retained
     from tracker.platform.windows_recovery import RecoveryError
     from tracker.platform.windows_release import ReleaseError
+    from tracker.platform.windows_updates import RateLimited
 
-    record = journal.read(state)
+    # Refused before the previous release, hundreds of megabytes, is downloaded for nothing.
+    try:
+        record = journal.read(state)
+        if record is not None:
+            journal.undoable(record, running)
+    except RecoveryError as error:
+        print(json.dumps({"status": "refused", "reason": str(error)}))
+        return 1
     if record is None:
         print(json.dumps({"status": "refused", "reason": "There is no update to undo."}))
         return 1
@@ -172,7 +181,7 @@ def _recover_begin(state: Path, identity: Any, running: str) -> int:
         try:
             # Kept as if it were running, so keeping it never prunes it again.
             previous = [retain_running(state, identity, record["from_version"])]
-        except (OSError, HTTPError, ReleaseError) as error:
+        except (OSError, HTTPError, ReleaseError, RateLimited) as error:
             kind = _failure(error)
             version = record["from_version"]
             reason = {
@@ -289,7 +298,7 @@ def main(argv: list[str] | None = None) -> int:
 
         from tracker.platform import windows_update_journal as journal
         from tracker.platform.windows_packages import download, retain_running
-        from tracker.platform.windows_updates import stored_offer
+        from tracker.platform.windows_updates import RateLimited, stored_offer
 
         running = running_version()
         record = _journal(args.state)
@@ -298,27 +307,29 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({"status": "no-offer"}))
             return 1
         way_back = journal.way_back(record, running)
-        needed = _space_needed(args.state, stored[0], way_back)
+        missing = _missing(args.state, identity, stored[0], way_back)
+        needed = _space_needed(stored[0], missing)
         if shutil.disk_usage(args.state).free < needed:
             print(json.dumps({"status": "failed", "kind": "space", "needed": needed,
                               "reason": "There is not enough free space for the download and its install."}))
             return 1
         # The way back's size is known once its release is read; until then it counts at the update's.
-        progress = _Progress({version: stored[0].bytes for version in _missing(args.state, stored[0], way_back)})
+        progress = _Progress({version: stored[0].bytes for version in missing})
         try:
             # The way back is kept first: without it the update could not be undone.
             retain_running(args.state, identity, way_back, progress=progress.part(way_back))
             progress.skip(way_back)
-        except (OSError, HTTPError, ReleaseError) as error:
-            # A failed check here is the installed version's release, not the offer: the offer is not called unsigned.
+        except (OSError, HTTPError, ReleaseError, RateLimited) as error:
+            # This is the installed version's release, not the offer: the offer is neither unsigned nor unpublished,
+            # and the app shows a download that did not finish, with Try again.
             kind = _failure(error)
-            print(json.dumps({"status": "failed", "kind": "download" if kind == "check" else kind,
+            print(json.dumps({"status": "failed", "kind": "download" if kind in {"check", "missing"} else kind,
                               "reason": "The installed version's package could not be kept, "
                               f"so this update could not be undone. Try again later. ({error})"}))
             return 1
         try:
             path = download(args.state, identity, stored[0], stored[1], running, progress=progress.part(stored[0].version))
-        except (OSError, HTTPError, ReleaseError) as error:
+        except (OSError, HTTPError, ReleaseError, RateLimited) as error:
             print(json.dumps({"status": "failed", "kind": _failure(error), "reason": str(error)}))
             return 1
         print(json.dumps({"status": "downloaded", "package": str(path), "offer": dataclasses.asdict(stored[0])}))

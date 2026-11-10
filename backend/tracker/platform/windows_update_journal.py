@@ -157,12 +157,16 @@ def resume(state: Path, running: str) -> dict[str, Any] | None:
     return record
 
 
+def undoable(record: dict[str, Any] | None, running: str) -> dict[str, Any]:
+    """`record`, when `running` may return it to its previous version; RecoveryError otherwise."""
+    if record is None or not failed_in(record, running):
+        raise RecoveryError("Only a failed update can be returned to its previous version")
+    return record
+
+
 def recover_begin(state: Path, running: str) -> dict[str, Any]:
     """The new version hands back: the previous package is about to be registered again."""
-    record = read(state)
-    if record is None or record["phase"] not in {"failed", "recovering"} or running != record["to_version"]:
-        raise RecoveryError("Only a failed update can be returned to its previous version")
-    return _write(state, {**record, "phase": "recovering"})
+    return _write(state, {**undoable(read(state), running), "phase": "recovering"})
 
 
 def recovered(state: Path, running: str) -> dict[str, Any]:

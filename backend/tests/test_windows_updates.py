@@ -21,8 +21,16 @@ FEED = "roleband/roleband-trials"
 NOW = 1_800_000_000.0
 
 
+def release(version: str, *, assets: list[str] | None = None, tag: str | None = None, **fields) -> dict:
+    """One entry of GitHub's release list: a published stable release of the feed, unless `fields` say otherwise."""
+    tag = tag or f"v{version}"
+    return {"tag_name": tag, "draft": False, "prerelease": False,
+            "html_url": f"https://github.com/{FEED}/releases/tag/{tag}",
+            "assets": [{"name": name} for name in (names(version) if assets is None else assets)], **fields}
+
+
 class Feed:
-    """A fake GitHub: the API listing, asset downloads through a CDN redirect, and a request log."""
+    """A fake GitHub: the API's list of recent releases, asset downloads through a CDN redirect, and a request log."""
 
     def __init__(self, tmp_path, key, identity):
         self.tmp_path, self.key, self.identity = tmp_path, key, identity
@@ -45,16 +53,18 @@ class Feed:
         self.releases[version] = content
         self.latest = version
 
+    def listing(self) -> list[dict]:
+        """The releases as GitHub lists them: newest first, each with the names of its files."""
+        return [release(version, assets=list(content)) for version, content in reversed(self.releases.items())]
+
     def handler(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(str(request.url))
         assert "Authorization" not in request.headers and "Cookie" not in request.headers
         url = str(request.url)
-        if url == f"https://api.github.com/repos/{FEED}/releases/latest":
+        if url == f"https://api.github.com/repos/{FEED}/releases?per_page=20":
             if self.listing_override is not None:
                 return self.listing_override
-            tag = f"v{self.latest}"
-            return httpx.Response(200, json={"tag_name": tag, "draft": False, "prerelease": False,
-                                             "html_url": f"https://github.com/{FEED}/releases/tag/{tag}"})
+            return httpx.Response(200, json=self.listing())
         prefix = f"https://github.com/{FEED}/releases/download/v"
         if url.startswith(prefix) and "/hop" in url:
             hops = int(url.rsplit("/hop", 1)[1].split("/")[0])
@@ -152,6 +162,31 @@ def test_a_release_with_only_the_mac_files_is_no_update_yet_and_offered_once_win
     assert (arrived.status, arrived.offer.version) == ("offered", "0.1.3")
 
 
+def test_a_newest_release_with_only_the_mac_files_does_not_hide_an_older_one_with_windows_files(state, identity, feed):
+    """The feed's releases are shared with the macOS app: the newest may carry only its files while one before it,
+    still newer than the installed version, carries this app's."""
+    feed.publish("0.1.3")
+    feed.releases["0.1.4"] = {"RoleBand-0.1.4.dmg": b"the macOS image"}
+    result = run(state, identity, feed, manual=True)
+    assert (result.status, result.offer.version) == ("offered", "0.1.3")
+    assert not any("v0.1.4" in url for url in feed.requests), "a release without this app's files is not asked for them"
+
+
+def test_the_newest_release_with_windows_files_is_the_one_offered(state, identity, feed):
+    for version in ("0.1.3", "0.1.5", "0.1.4"):
+        feed.publish(version)
+    result = run(state, identity, feed, manual=True)
+    assert (result.status, result.offer.version) == ("offered", "0.1.5"), "by version, not by place in the list"
+
+
+def test_a_kept_offer_stands_while_the_feed_has_nothing_newer(state, identity, feed):
+    feed.publish("0.1.3")
+    assert run(state, identity, feed, manual=True).offer.version == "0.1.3"
+    feed.releases["0.1.4"] = {"RoleBand-0.1.4.dmg": b"the macOS image"}
+    later = run(state, identity, feed, manual=True, now=NOW + 1)
+    assert (later.status, later.offer.version) == ("offered", "0.1.3"), "never 'up to date' beside an offer"
+
+
 def test_a_verified_offer_survives_a_restart_and_a_later_failure(state, identity, feed):
     feed.publish("0.1.3")
     first = run(state, identity, feed, manual=True)
@@ -231,23 +266,33 @@ def test_an_exhausted_api_quota_waits_for_its_reset(state, identity, feed):
 
 
 @pytest.mark.parametrize("listing", [
-    httpx.Response(301, headers={"Location": "https://evil.example/latest"}),
-    httpx.Response(200, json={"tag_name": "v0.1.3", "draft": True, "prerelease": False,
-                              "html_url": f"https://github.com/{FEED}/releases/tag/v0.1.3"}),
-    httpx.Response(200, json={"tag_name": "v0.1.3", "draft": False, "prerelease": True,
-                              "html_url": f"https://github.com/{FEED}/releases/tag/v0.1.3"}),
-    httpx.Response(200, json={"tag_name": "v0.1.3", "draft": False, "prerelease": False,
-                              "html_url": "https://github.com/someone/else/releases/tag/v0.1.3"}),
-    httpx.Response(200, json={"tag_name": "v0.1.3-rc.1", "draft": False, "prerelease": False,
-                              "html_url": f"https://github.com/{FEED}/releases/tag/v0.1.3-rc.1"}),
-    httpx.Response(200, content=b"[" * (300 * 1024)),
+    httpx.Response(301, headers={"Location": "https://evil.example/releases"}),
+    httpx.Response(200, content=b"[" * (windows_updates.LISTING_LIMIT + 1)),
     httpx.Response(200, content=b"not json"),
+    httpx.Response(200, json=release("0.1.3")),
 ])
-def test_a_listing_that_is_not_a_published_stable_release_offers_nothing(state, identity, feed, listing):
+def test_a_listing_that_is_not_the_feed_s_list_of_releases_fails_the_check(state, identity, feed, listing):
     feed.publish("0.1.3")
     feed.listing_override = listing
     assert run(state, identity, feed, manual=True).status == "failed"
     assert len(feed.requests) == 1, "no release file is read for a refused listing"
+
+
+@pytest.mark.parametrize("entry", [
+    release("0.1.4", draft=True),
+    release("0.1.4", prerelease=True),
+    release("0.1.4", html_url="https://github.com/someone/else/releases/tag/v0.1.4"),
+    release("0.1.4", tag="v0.1.4-rc.1"),
+    release("0.1.4", assets=None) | {"assets": "RoleBand-0.1.4-Windows-x64.sha256"},
+    "v0.1.4",
+])
+def test_an_entry_that_is_not_a_published_stable_release_of_the_feed_is_passed_over(state, identity, feed, entry):
+    feed.publish("0.1.3")
+    feed.publish("0.1.4")
+    feed.listing_override = httpx.Response(200, json=[entry, release("0.1.3")])
+    result = run(state, identity, feed, manual=True)
+    assert (result.status, result.offer.version) == ("offered", "0.1.3")
+    assert not any("v0.1.4" in url for url in feed.requests), "no file of a passed-over release is read"
 
 
 def test_a_consent_choice_needs_its_words(state):
@@ -395,6 +440,9 @@ def _full_disk() -> OSError:
     (_full_disk(), "download", "space"),
     (ReleaseError("The installed version's release is not signed by this key"), "retain", "download"),
     (httpx.ConnectError("offline"), "retain", "offline"),
+    # The way back's release is gone: the update could not be undone, but the offer itself is still published.
+    ("missing", "retain", "download"),
+    (windows_updates.RateLimited(NOW + 60), "retain", "download"),
 ])
 def test_a_failed_download_says_what_stopped_it(state, identity, feed, monkeypatch, capsys, failure, step, kind):
     from tracker.platform import windows_packages
@@ -416,18 +464,36 @@ def test_a_failed_download_says_what_stopped_it(state, identity, feed, monkeypat
     assert not downloads, "without the way back, the update is not downloaded"
 
 
+def _keep(state, identity, feed, version):
+    """Keep `version`'s verified package, downloaded from the feed as an update is."""
+    from tracker.platform import windows_packages
+    from tracker.platform.windows_release import verify_offer
+
+    if version not in feed.releases:
+        feed.publish(version)
+    signed = tuple(feed.releases[version][name] for name in names(version)[1:])
+    offer = verify_offer(identity, "0.0.0", *signed)
+    return windows_packages.download(state, identity, offer, signed, "0.1.2", transport=feed.transport)
+
+
 @windows_only
-@pytest.mark.parametrize(("kept", "packages"), [((), 2), (("0.1.2",), 1), (("0.1.2", "0.1.3"), 0)])
+@pytest.mark.parametrize(("kept", "unverified", "packages"), [
+    ((), (), 2), (("0.1.2",), (), 1), (("0.1.2", "0.1.3"), (), 0),
+    # A file under a release's name that is not its verified package is fetched again, so it needs the room.
+    ((), ("0.1.2",), 2),
+])
 def test_a_download_without_room_for_itself_and_its_install_is_not_started(state, identity, feed, monkeypatch, capsys,
-                                                                            kept, packages):
+                                                                            kept, unverified, packages):
     import shutil
 
     from tracker.platform import windows_packages
 
     windows_update = _download_command(state, identity, feed, monkeypatch)
     offer = windows_updates.stored_offer(state, identity, "0.1.2")[0]
-    windows_packages.folder(state).mkdir(exist_ok=True)
     for version in kept:
+        _keep(state, identity, feed, version)
+    windows_packages.folder(state).mkdir(exist_ok=True)
+    for version in unverified:
         (windows_packages.folder(state) / names(version)[0]).write_bytes(b"kept")
     needed = offer.bytes * (packages + 1) + windows_update._SPACE_MARGIN
     started = []

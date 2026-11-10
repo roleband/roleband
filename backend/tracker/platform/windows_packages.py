@@ -55,7 +55,7 @@ def folder(state: Path) -> Path:
 
 
 def _private(path: Path) -> None:
-    if os.name == "nt":
+    if sys.platform == "win32":
         from tracker.platform.windows_private import private_directory
 
         private_directory(path)
