@@ -39,7 +39,7 @@ const base = (over: Partial<CompTrajectory> = {}): CompTrajectory => ({
 });
 
 const setSlider = (value: number) =>
-  fireEvent.change(screen.getByLabelText("Stock price change percent"), {
+  fireEvent.change(screen.getByLabelText(msg("insights-stock-trajectory-panel-stock-price-change-percent")), {
     target: { value: String(value) },
   });
 
@@ -271,7 +271,7 @@ describe("StockTrajectoryPanel", () => {
     expect(screen.getByTestId("traj-left-out")).toHaveTextContent(msg("insights-stock-trajectory-panel-left-out", { count: 3 }));
     expect(screen.queryByText(msg("insights-stock-trajectory-panel-no-open-roles-at-public"))).not.toBeInTheDocument();
     // No listed package, so no figure and no slider to move.
-    expect(screen.queryByLabelText("Stock price change percent")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(msg("insights-stock-trajectory-panel-stock-price-change-percent"))).not.toBeInTheDocument();
   });
 
   describe("finding a company", () => {
@@ -313,7 +313,7 @@ describe("StockTrajectoryPanel", () => {
       expect(screen.getByTestId("traj-no-match")).toHaveTextContent(msg("insights-stock-trajectory-panel-no-company-matches", { query: "zzz" }));
       for (const id of ["traj-public", "traj-private", "traj-choice"]) expect(screen.queryByTestId(id)).not.toBeInTheDocument();
       // The figure above is the whole market's, whatever the search.
-      expect(screen.getByLabelText("Stock price change percent")).toBeInTheDocument();
+      expect(screen.getByLabelText(msg("insights-stock-trajectory-panel-stock-price-change-percent"))).toBeInTheDocument();
       fireEvent.change(find(), { target: { value: "" } });
       for (const id of ["traj-public", "traj-private", "traj-choice"]) expect(screen.getByTestId(id)).toBeInTheDocument();
       expect(screen.queryByTestId("traj-no-match")).not.toBeInTheDocument();
