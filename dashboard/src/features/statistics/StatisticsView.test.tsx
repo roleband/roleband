@@ -144,9 +144,10 @@ describe("StatisticsView", () => {
   });
 
   it.each(["trends", "clusters"])("sends a saved link to the removed %s tab to Overview", async (slug) => {
+    // The removed tab's window was its own, so Overview opens with none.
     renderStats(`/statistics/${slug}?window=90`);
     expect(await screen.findByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByTestId("location")).toHaveTextContent(/^\/statistics\/overview/);
+    expect(screen.getByTestId("location")).toHaveTextContent(/^\/statistics\/overview$/);
     expect(screen.queryByRole("tab", { name: /Trends|Clusters/ })).toBeNull();
   });
 

@@ -1413,8 +1413,9 @@ class DemandMetric(Base):
 
 
 class SkillDemandDaily(Base):
-    """Daily rollup of skill demand per (company × family × concept). Powers the
-    Statistics "Trends" sub-tab (skill demand over time).
+    """Daily rollup of skill demand per (company × family × concept). No screen
+    reads it; it is kept written so a view that needs weeks of history can start
+    from it.
 
     `job_count` = distinct open jobs at that company+family with a displayable
     requirement for the concept on `metric_date` (high-confidence, non-context;

@@ -39,7 +39,7 @@ export function OverviewPanel({
   days: number;
   scope?: InsightsScope;
   onOpen: (id: number, companySlug?: string | null) => void;
-  /** The advanced view adds the largest groups and the roles open longest. */
+  /** The advanced view adds the roles open longest. */
   advanced?: boolean;
 }) {
   const { data, error, retry } = useAsyncResource<StatisticsOverview>(
