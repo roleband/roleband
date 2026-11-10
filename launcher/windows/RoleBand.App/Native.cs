@@ -39,32 +39,23 @@ internal static class Native
 
     /// <summary>Tells Narrator a live region changed. It reads a live region when this event is raised, so text set in
     /// one is not heard without it.</summary>
-    public static void Announce(UIElement element) => Peer(element)?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
-
-    private static AutomationPeer? Peer(UIElement element) =>
-        FrameworkElementAutomationPeer.FromElement(element) ?? FrameworkElementAutomationPeer.CreatePeerForElement(element);
+    public static void Announce(UIElement element) =>
+        FrameworkElementAutomationPeer.CreatePeerForElement(element)?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
 
     public static void BringForward(nint window) => SetForegroundWindow(window);
 
-    /// <summary>The installed package's version, or null for an app run without a package.</summary>
     /// <summary>The installed package's name, or null for a copy without a package.</summary>
-    public static string? PackageName()
-    {
-        try { return Windows.ApplicationModel.Package.Current.Id.Name; }
-        catch (InvalidOperationException) { return null; }
-    }
+    public static string? PackageName() => PackageId()?.Name;
 
-    public static (ushort, ushort, ushort, ushort)? PackageVersion()
+    /// <summary>The installed package's version, or null for an app run without a package.</summary>
+    public static (ushort, ushort, ushort, ushort)? PackageVersion() =>
+        PackageId()?.Version is { } version ? (version.Major, version.Minor, version.Build, version.Revision) : null;
+
+    /// <summary>Windows refuses to name the package of an app run without one.</summary>
+    private static Windows.ApplicationModel.PackageId? PackageId()
     {
-        try
-        {
-            var version = Windows.ApplicationModel.Package.Current.Id.Version;
-            return (version.Major, version.Minor, version.Build, version.Revision);
-        }
-        catch (InvalidOperationException)
-        {
-            return null;
-        }
+        try { return Windows.ApplicationModel.Package.Current.Id; }
+        catch (InvalidOperationException) { return null; }
     }
 
     /// <summary>The primary taskbar's rectangle in physical pixels, or null when Windows does not report one.</summary>
