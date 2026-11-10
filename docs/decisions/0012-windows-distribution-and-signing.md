@@ -7,7 +7,8 @@ machine trusts, and treats a package from a different publisher as a different a
 Microsoft Store signs and updates its own copies with its own update system, which would
 replace RoleBand's updater ([decision 0010](0010-windows-update-journal.md)). A commercial
 or Microsoft-run certificate adds a third party to every release. The macOS app already
-publishes to `roleband/roleband`, and both apps read that repository's latest release.
+publishes to `roleband/roleband`: the macOS app reads its latest release, the Windows app the
+newest recent release that carries Windows files.
 
 ## Decision
 

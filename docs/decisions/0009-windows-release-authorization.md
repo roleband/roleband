@@ -35,8 +35,10 @@ Checking follows the Mac's contract. Nothing is requested before an explicit cho
 recorded with the words shown and their language. Automatic checks stay off until enabled
 and run at most once a day, failed attempts included; a manual check authorizes one
 request. A 403 or 429 delays every check by at least a minute, or until the quota resets.
-The listing must be the feed's published, stable latest release; it is read without
-redirects, credentials or cookies and bounded to 256 KiB. Its three small release files
+The listing is the feed's twenty most recent releases, read without redirects,
+credentials or cookies and bounded to 1 MiB; only a published, stable release of the feed
+whose files include the Windows checksum counts, so a newer release with only the Mac's
+files never hides an older one with Windows files. Its three small release files
 are fetched from the feed's download path, following at most five redirects and only to
 `release-assets.githubusercontent.com` or the same path. A failed check keeps the last
 verified offer, and a verified offer is never replaced by an older listing. A check counts for
