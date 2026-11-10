@@ -258,29 +258,44 @@ export function StockTrajectoryPanel() {
     shownNow.current = answers;
   }, [answers]);
 
-  const write = useCallback((change: (now: OfferAnswers) => OfferAnswers, send: () => Promise<OfferAnswers>) => {
+  // Writes the server did not keep, by what they wrote ("offer", or one
+  // company's valuation). Each stays on screen over any later answer from the
+  // server, and the failure stays said, until a write of the same thing is kept.
+  const unsaved = useRef(new Map<string, (now: OfferAnswers) => OfferAnswers>());
+
+  const write = useCallback((
+    subject: string,
+    change: (now: OfferAnswers) => OfferAnswers,
+    send: () => Promise<OfferAnswers>,
+  ) => {
     const n = ++latest.current;
     const shown = change(shownNow.current ?? NO_ANSWERS);
     shownNow.current = shown;
     setWritten(shown);
     exclusive([], send).then(
       (stored) => {
+        unsaved.current.delete(subject);
+        setSaveFailed(unsaved.current.size > 0);
         if (n !== latest.current) return;
-        setWritten(stored);
-        setSaveFailed(false);
+        setWritten([...unsaved.current.values()].reduce((now, redo) => redo(now), stored));
       },
-      () => setSaveFailed(true),
+      () => {
+        unsaved.current.set(subject, change);
+        setSaveFailed(true);
+      },
     );
   }, [exclusive]);
   const saveOffer = useCallback((draft: OfferDraft) => {
     write(
+      "offer",
       (now) => ({ ...now, offer: { ...draft, saved_at: new Date().toISOString() } }),
       () => api.saveOffer(draft),
     );
   }, [write]);
-  const clearOffer = () => write((now) => ({ ...now, offer: null }), () => api.clearOffer());
+  const clearOffer = () => write("offer", (now) => ({ ...now, offer: null }), () => api.clearOffer());
   const setValuation = (company: string, valuation: Valuation | null) => {
     write(
+      `valuation:${company}`,
       (now) => {
         const next = { ...now.valuations };
         if (valuation) next[company] = { ...valuation, saved_at: new Date().toISOString() };
@@ -296,7 +311,9 @@ export function StockTrajectoryPanel() {
     listed: boolean,
     title?: string,
   ) => {
-    setPrevious(answers?.offer ?? null);
+    // Until the kept offer is read, there is nothing to put back with Undo.
+    if (!answers) return;
+    setPrevious(answers.offer);
     setStarts((n) => n + 1);
     saveOffer({
       inputs: offerFromPackage(company, parts, terms ?? null, listed),
@@ -386,7 +403,7 @@ export function StockTrajectoryPanel() {
   );
   const startButton = (company: string, parts: { base: number; bonus: number; equity: number }, listed: boolean) => (
     <td className="traj-offer-start">
-      <Button variant="link" onClick={() => startFrom(company, parts, listed)} aria-label={insightsOfferStartAria({ company: companyName(company) })}>
+      <Button variant="link" disabled={!answers} onClick={() => startFrom(company, parts, listed)} aria-label={insightsOfferStartAria({ company: companyName(company) })}>
         {insightsOfferStart()}
       </Button>
     </td>

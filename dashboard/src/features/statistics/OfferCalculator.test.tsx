@@ -472,6 +472,45 @@ describe("OfferCalculator", () => {
     await waitFor(() => expect(kept.offer).toBeNull());
   });
 
+  it("keeps a valuation that was not saved on screen, and says so, after the answer that follows it is saved", async () => {
+    vi.mocked(api.saveValuation).mockRejectedValueOnce(new Error("offline"));
+    renderPanel();
+    await ready();
+    press("OpenAI");
+    next();
+    type(msg("insights-offer-q-base"), "100000");
+    next();
+    type(msg("insights-offer-q-stock", { vehicle: "rsu" }), "2200000");
+    next();
+    type(msg("insights-offer-valuation-grant", { unit: "per_share" }), "50");
+    type(msg("insights-offer-valuation-test", { unit: "per_share" }), "75");
+    next();
+
+    // The offer's own answer is kept; the valuation before it was not.
+    await waitFor(() => expect(kept.offer?.answered).toContain("valuation"));
+    expect(kept.valuations.openai).toBeUndefined();
+    expect(await within(calculator()).findByText(msg("insights-offer-save-failed"))).toBeInTheDocument();
+    const row = within(screen.getByTestId("traj-private")).getByRole("row", { name: /OpenAI/ });
+    expect(within(row).getByText(comp(1_375_000))).toBeInTheDocument();
+  });
+
+  it("starts from a row only once the kept offer is read, so Undo has it to put back", async () => {
+    kept = { offer: { ...AMAZON_DONE, saved_at: SAVED_AT }, valuations: {} };
+    let read!: () => void;
+    vi.mocked(api.offer).mockImplementationOnce(() => new Promise((resolve) => {
+      read = () => resolve(copy());
+    }));
+    renderPanel();
+    const start = () => within(screen.getByTestId("traj-public")).getByRole("button", { name: msg("insights-offer-start-aria", { company: "Amazon" }) });
+    await screen.findByTestId("traj-public");
+    expect(start()).toBeDisabled();
+    fireEvent.click(start());
+    expect(api.saveOffer).not.toHaveBeenCalled();
+
+    read();
+    await waitFor(() => expect(start()).toBeEnabled());
+  });
+
   it("says when an answer was not kept, and leaves it on screen", async () => {
     vi.mocked(api.saveOffer).mockRejectedValue(new Error("offline"));
     renderPanel();
