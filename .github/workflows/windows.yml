@@ -42,6 +42,7 @@ jobs:
             sdk/python/**
             robots/python/**
             launcher/windows/**
+            global.json
             dashboard/package.json
             deploy/check_local.py
             launcher/macos/Tools/ci_changes.py
@@ -86,7 +87,8 @@ jobs:
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         if: needs.changes.outputs.windows != 'false' && matrix.lane == 'native'
         with:
-          dotnet-version: 10.0.x
+          # The SDK the lock files were made with: another patch brings its own native-compiler packages.
+          global-json-file: global.json
       # The native source-engine test starts backend/.venv, as a developer checkout does.
       - name: backend environment
         if: needs.changes.outputs.windows != 'false'

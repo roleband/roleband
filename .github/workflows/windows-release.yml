@@ -68,7 +68,8 @@ jobs:
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         if: steps.source.outputs.identity == 'true'
         with:
-          dotnet-version: 10.0.x
+          # The SDK the lock files were made with: another patch brings its own native-compiler packages.
+          global-json-file: global.json
       - name: dashboard packages
         if: steps.source.outputs.identity == 'true'
         working-directory: dashboard

@@ -28,7 +28,9 @@ shown, and report any check you skipped with its reason.
 | User-facing text | `npm run copy:check`, and `npm run test:unit`, which fails while a translation is stale (see [copy.md](copy.md)) |
 
 The Windows native host runs from the root with `dotnet test
-launcher/windows/RoleBand.EngineHost.Tests`. Set `ROLEBAND_WINDOWS_TRIAL_RESOURCES`
+launcher/windows/RoleBand.EngineHost.Tests`, on the .NET SDK that `global.json` names
+exactly: each SDK patch brings its own native-compiler packages, which Setup's lock file
+records, so a new SDK is a change to `global.json` and that lock together. Set `ROLEBAND_WINDOWS_TRIAL_RESOURCES`
 to an assembled trial's `Resources` directory to include its packaged runtime;
 without it that test explicitly reports inconclusive. The tests use private
 synthetic databases and verify authenticated requests, refusal of forged and
