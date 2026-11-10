@@ -169,6 +169,41 @@ def test_the_stamped_identity_is_read_strictly(identity):
             read_identity(damaged)
 
 
+def test_the_offline_spare_signs_the_release_that_replaces_a_leaked_key(tmp_path, identity, key):
+    """A release signed with the spare is accepted and names the spare as its signer; one signed by any other key
+    is not, so a stolen release key alone cannot lock the owner out."""
+    import dataclasses
+    import hashlib
+
+    spare = ed25519.Ed25519PrivateKey.generate()
+    guarded = dataclasses.replace(identity, spare_key=spare.public_key().public_bytes_raw())
+    package = tmp_path / "built.msix"
+    package.write_bytes(b"PK replacement package " * 64)
+    _, checksum, metadata, signature = (path.read_bytes() for path in
+                                        prepare(package, tmp_path / "spare", guarded, spare, version="0.1.4",
+                                                revision=0, commit=COMMIT))
+    offer = verify_offer(guarded, "0.1.3", checksum, metadata, signature)
+    assert offer.version == "0.1.4"
+    assert json.loads(metadata)["release_key_sha256"] == hashlib.sha256(guarded.spare_key).hexdigest()
+    with pytest.raises(ReleaseError, match="trusted key"):
+        verify_offer(identity, "0.1.3", checksum, metadata, signature)
+    stranger = ed25519.Ed25519PrivateKey.generate()
+    with pytest.raises(ReleaseError, match="release key"):
+        prepare(package, tmp_path / "stranger", guarded, stranger, version="0.1.4", revision=0, commit=COMMIT)
+
+
+def test_an_identity_may_name_a_spare_that_is_not_the_release_key(identity):
+    record = {"format": 1, "feed": identity.feed, "package_name": identity.package_name, "publisher": PUBLISHER,
+              "release_public_key": base64.b64encode(identity.release_key).decode()}
+    spare = ed25519.Ed25519PrivateKey.generate().public_key().public_bytes_raw()
+    assert read_identity(record | {"spare_release_public_key": base64.b64encode(spare).decode()}).spare_key == spare
+    for damaged in (record | {"spare_release_public_key": record["release_public_key"]},
+                    record | {"spare_release_public_key": base64.b64encode(b"short").decode()},
+                    record | {"spare_release_public_key": "not base64!"}):
+        with pytest.raises(ReleaseError):
+            read_identity(damaged)
+
+
 def test_the_metadata_names_every_identity_fact(identity):
     record = manifest(identity, version="0.1.3", revision=2, commit=COMMIT, sha256="b" * 64, size=10)
     assert (record["package_name"], record["publisher"], record["feed"], record["platform"]) == (

@@ -41,12 +41,14 @@ class ReleaseError(ValueError):
 
 @dataclass(frozen=True)
 class Identity:
-    """What an installed package trusts: one feed, one release key, one package identity."""
+    """What an installed package trusts: one feed, one release key, one package identity. The spare key, kept
+    offline, signs the release that replaces a lost or leaked release key; that release's package names new keys."""
 
     feed: str
     release_key: bytes
     package_name: str
     publisher: str
+    spare_key: bytes | None = None
 
 
 @dataclass(frozen=True)
@@ -76,23 +78,27 @@ def names(version: str) -> tuple[str, str, str, str]:
 
 def read_identity(record: Any) -> Identity:
     """The trust anchor stamped in a package, as JSON with the key in base64."""
-    if not isinstance(record, dict) or record.get("format") != 1 or set(record) != {
-            "format", "feed", "release_public_key", "package_name", "publisher"}:
+    required = {"format", "feed", "release_public_key", "package_name", "publisher"}
+    if (not isinstance(record, dict) or record.get("format") != 1
+            or set(record) not in (required, required | {"spare_release_public_key"})):
         raise ReleaseError("The release identity is damaged")
     feed, name, publisher = record["feed"], record["package_name"], record["publisher"]
     try:
         key = base64.b64decode(record["release_public_key"], validate=True)
+        spare = (base64.b64decode(record["spare_release_public_key"], validate=True)
+                 if "spare_release_public_key" in record else None)
     except (TypeError, ValueError) as error:
         raise ReleaseError("The release identity is damaged") from error
     if (not isinstance(feed, str) or not _FEED.fullmatch(feed) or not isinstance(name, str)
             or not _PACKAGE_NAME.fullmatch(name) or not isinstance(publisher, str)
-            or not publisher.startswith("CN=") or len(publisher) > 8192 or len(key) != 32):
+            or not publisher.startswith("CN=") or len(publisher) > 8192 or len(key) != 32
+            or (spare is not None and (len(spare) != 32 or spare == key))):
         raise ReleaseError("The release identity is damaged")
-    return Identity(feed, key, name, publisher)
+    return Identity(feed, key, name, publisher, spare)
 
 
 def manifest(identity: Identity, *, version: str, revision: int, commit: str, sha256: str,
-             size: int) -> dict[str, Any]:
+             size: int, signer: bytes | None = None) -> dict[str, Any]:
     major, minor, patch = stable_version(version)
     if type(revision) is not int or not 0 <= revision <= 65535:
         raise ReleaseError("The package revision must fit a Windows package version")
@@ -101,7 +107,7 @@ def manifest(identity: Identity, *, version: str, revision: int, commit: str, sh
             "publisher": identity.publisher, "architecture": ARCHITECTURE,
             "minimum_windows_build": MINIMUM_BUILD, "commit": commit, "tag": "v" + version,
             "feed": identity.feed, "package": names(version)[0], "sha256": sha256, "bytes": size,
-            "release_key_sha256": hashlib.sha256(identity.release_key).hexdigest()}
+            "release_key_sha256": hashlib.sha256(signer or identity.release_key).hexdigest()}
 
 
 def digest(path: Path) -> tuple[str, int]:
@@ -119,7 +125,7 @@ def prepare(package: Path, destination: Path, identity: Identity, private_key: e
     if not _COMMIT.fullmatch(commit):
         raise ReleaseError("Expected the exact 40-character source commit")
     public = private_key.public_key().public_bytes_raw()
-    if public != identity.release_key:
+    if public not in (identity.release_key, identity.spare_key):
         raise ReleaseError("The signing key is not the release key the identity names")
     if destination.exists():
         raise ReleaseError("Choose a new release folder")
@@ -129,7 +135,7 @@ def prepare(package: Path, destination: Path, identity: Identity, private_key: e
     package_name, checksum_name, metadata_name, signature_name = names(version)
     checksum = f"{sha}  {package_name}\n".encode()
     metadata = (json.dumps(manifest(identity, version=version, revision=revision, commit=commit,
-                                    sha256=sha, size=size), indent=2) + "\n").encode()
+                                    sha256=sha, size=size, signer=public), indent=2) + "\n").encode()
     destination.mkdir(parents=True)
     (destination / package_name).write_bytes(package.read_bytes())
     (destination / checksum_name).write_bytes(checksum)
@@ -138,15 +144,23 @@ def prepare(package: Path, destination: Path, identity: Identity, private_key: e
     return [destination / name for name in (package_name, checksum_name, metadata_name, signature_name)]
 
 
+def _signed(key: bytes, signature: bytes, message: bytes) -> bool:
+    try:
+        ed25519.Ed25519PublicKey.from_public_bytes(key).verify(signature, message)
+    except InvalidSignature:
+        return False
+    return True
+
+
 def verify_offer(identity: Identity, installed: str, checksum: bytes, metadata: bytes,
                  signature: bytes) -> Offer:
     """Accept release metadata only when the owner signed it for this installation and it is newer."""
     if len(metadata) > METADATA_LIMIT or len(checksum) > CHECKSUM_LIMIT or len(signature) != 64:
         raise ReleaseError("Release metadata or its signature has the wrong size")
-    try:
-        ed25519.Ed25519PublicKey.from_public_bytes(identity.release_key).verify(signature, checksum + metadata)
-    except InvalidSignature:
-        raise ReleaseError("The release signature does not match the trusted key") from None
+    signer = next((key for key in (identity.release_key, identity.spare_key) if key is not None
+                   and _signed(key, signature, checksum + metadata)), None)
+    if signer is None:
+        raise ReleaseError("The release signature does not match the trusted key")
     try:
         record = json.loads(metadata)
     except (ValueError, UnicodeError) as error:
@@ -160,7 +174,8 @@ def verify_offer(identity: Identity, installed: str, checksum: bytes, metadata: 
     revision = str(record["package_version"]).rpartition(".")[2]
     if not revision.isascii() or not revision.isdecimal():
         raise ReleaseError("Release metadata names an invalid package version")
-    expected = manifest(identity, version=version, revision=int(revision), commit=commit, sha256=sha, size=size)
+    expected = manifest(identity, version=version, revision=int(revision), commit=commit, sha256=sha, size=size,
+                        signer=signer)
     if record != expected:
         raise ReleaseError("The release is for another platform, package, publisher, feed or key")
     if checksum != f"{sha}  {expected['package']}\n".encode():

@@ -68,7 +68,9 @@ stdout. Cancel ends the command and every process it started, and keeps the part
 
 A compromised certificate alone cannot push an update, and a correctly signed release for
 another platform, package, publisher or feed is refused. Changing the release key needs a
-release signed with the current one whose identity names the next. Publication tooling,
+release signed with the current one whose identity names the next. An identity may also name a
+spare key, kept offline: a release it signs is accepted too, so a lost or leaked release key is
+replaced by a release whose package names new keys. Publication tooling,
 downloading and applying a package are separate steps. `tests/test_windows_release.py`,
 `tests/test_windows_updates.py` and `launcher/windows/Tools/test_release.py` hold the
 contract.
