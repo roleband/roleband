@@ -1,7 +1,7 @@
 import "../../patterns/figure-table.css";
 import { ResourceLoadState } from "../../ui/ResourceLoadState";
 import { useMemo, useState } from "react";
-import type { CompPackage, CompTrajectory } from "../../api";
+import type { CompPackage, CompPartSource, CompTrajectory, CompTrajectoryCompany } from "../../api";
 import { api } from "../../api";
 import { useAsyncResource } from "../../hooks/useAsyncResource";
 import { useSourceSwitch } from "../../context/SyncState";
@@ -11,11 +11,18 @@ import { TrajectoryShockChart } from "./charts/StatisticsCharts";
 import { InfoTip } from "../../ui/InfoTip";
 import { Abbr } from "../../ui/Abbr";
 import { Button } from "../../ui/Button";
+import { SearchField } from "../../ui/SearchField";
+import { matchCompanies } from "./hiring";
 import {
   insightsCommonCompany,
+  insightsSkillsViewRoles,
   insightsStockTrajectoryPanelAboutPublicCompanyProjections,
-  insightsStockTrajectoryPanelAboutTheSplitLabels,
+  insightsStockTrajectoryPanelAboutTheSourceLabels,
   insightsStockTrajectoryPanelAtPriceChange,
+  insightsStockTrajectoryPanelBase,
+  insightsStockTrajectoryPanelBonus,
+  insightsStockTrajectoryPanelChoiceCompanies,
+  insightsStockTrajectoryPanelChoiceExplained,
   insightsStockTrajectoryPanelCashElection,
   insightsStockTrajectoryPanelChange,
   insightsStockTrajectoryPanelEquity,
@@ -24,12 +31,17 @@ import {
   insightsStockTrajectoryPanelEquityShockwave,
   insightsStockTrajectoryPanelHowStockTrajectoryIsProjected,
   insightsStockTrajectoryPanelHowToReadEquitySensitivity,
+  insightsStockTrajectoryPanelLeftOut,
+  insightsStockTrajectoryPanelLeftOutReason,
   insightsStockTrajectoryPanelLoadFailed,
+  insightsDemandFindACompany,
   insightsStockTrajectoryPanelLoading,
+  insightsStockTrajectoryPanelNoCompanyMatches,
   insightsStockTrajectoryPanelMedianTc,
   insightsStockTrajectoryPanelMedianTcFull,
   insightsStockTrajectoryPanelMedianTcTile,
   insightsStockTrajectoryPanelMedianTcTileFull,
+  insightsStockTrajectoryPanelNoBonus,
   insightsStockTrajectoryPanelNoEquity,
   insightsStockTrajectoryPanelNoExposure,
   insightsStockTrajectoryPanelNoOpenRolesAtPublic,
@@ -37,6 +49,8 @@ import {
   insightsStockTrajectoryPanelOfTcAtRisk,
   insightsStockTrajectoryPanelOfTcAtRiskFull,
   insightsStockTrajectoryPanelOptions,
+  insightsStockTrajectoryPanelPartSource,
+  insightsStockTrajectoryPanelPartSourceExplained,
   insightsStockTrajectoryPanelPaidInCashUnaffectedBy,
   insightsStockTrajectoryPanelPreIpoEquityIsIlliquid,
   insightsStockTrajectoryPanelPrivateCompanies,
@@ -49,8 +63,6 @@ import {
   insightsStockTrajectoryPanelScenario,
   insightsStockTrajectoryPanelSensitivityExplained,
   insightsStockTrajectoryPanelSortedByEquityExposureOnly,
-  insightsStockTrajectoryPanelSplitSource,
-  insightsStockTrajectoryPanelSplitSourceExplained,
   insightsStockTrajectoryPanelStockMovesRePriceEquity,
   insightsStockTrajectoryPanelStockPriceChange,
   insightsStockTrajectoryPanelStockPriceChangePercent,
@@ -58,8 +70,10 @@ import {
   insightsStockTrajectoryPanelTicker,
   insightsStockTrajectoryPanelToday,
   insightsStockTrajectoryPanelTypicalPackage,
+  insightsStockTrajectoryPanelVests,
   insightsStockTrajectoryPanelVsToday,
   insightsStockTrajectoryPanelWhoMovesWhenTheStock,
+  insightsStockTrajectoryPanelWhyLeftOut,
   insightsStockTrajectoryPanelWhyPrivateCompaniesDoNot,
 } from "../../copy/gen/insights";
 import { Msg } from "../../ui/Msg";
@@ -84,34 +98,68 @@ const VEHICLE_LABEL: Record<string, string> = {
   get cash_election() { return insightsStockTrajectoryPanelCashElection(); },
 };
 
-// Says plainly whether a split was measured or guessed. The gap is material:
-// a guessed split can give equity to a company that pays no stock at all.
-// What each word means is said once, by SplitKey on the column header.
-function SplitSource({ source }: { source?: CompPackage["split_source"] }) {
-  // Defensive: an absent split_source must render nothing, never throw:
-  // one missing field should not take down the whole panel.
+// Says where one part of a package comes from: posted, the company's own rule,
+// measured, estimated, or a mix across the company's roles. An estimate must
+// never read as a posted or measured figure.
+function PartSource({ source }: { source?: CompPartSource }) {
+  // Defensive: an absent source must render nothing, never throw: one missing
+  // field should not take down the whole panel.
   if (!source) return null;
   return (
     <span className={`split-src split-src-${source}`}>
-      {insightsStockTrajectoryPanelSplitSource({ split: source })}
+      {insightsStockTrajectoryPanelPartSource({ source })}
     </span>
   );
 }
 
-const SPLIT_SOURCES = ["measured", "mixed", "heuristic"] as const;
+const PART_SOURCES = ["posted", "company_rule", "measured", "estimated", "mixed"] as const;
 
-// One help mark for the column rather than one per row: every row would
-// otherwise add a stop to the Tab order for the same three sentences.
-function SplitKey() {
+// One help mark for the table rather than one per cell: every cell would
+// otherwise add a stop to the Tab order for the same sentences. It sits on the
+// first column, which stays in view when a narrow table scrolls sideways, so
+// the key that hangs from the header row opens on screen.
+function SourceKey() {
   return (
-    <InfoTip label={insightsStockTrajectoryPanelAboutTheSplitLabels()}>
-      {SPLIT_SOURCES.map((split) => (
-        <span className="traj-split-key" key={split}>
-          <b>{insightsStockTrajectoryPanelSplitSource({ split })}</b>
-          <span>{insightsStockTrajectoryPanelSplitSourceExplained({ split })}</span>
+    <InfoTip label={insightsStockTrajectoryPanelAboutTheSourceLabels()}>
+      {PART_SOURCES.map((source) => (
+        <span className="traj-split-key" key={source}>
+          <b>{insightsStockTrajectoryPanelPartSource({ source })}</b>
+          <span>{insightsStockTrajectoryPanelPartSourceExplained({ source })}</span>
         </span>
       ))}
     </InfoTip>
+  );
+}
+
+// The equity a company grants and how it vests, as the company states them.
+function EquityTerms({ c }: { c: CompTrajectoryCompany }) {
+  return (
+    <td className="traj-vehicle">
+      {c.equity_vehicle && (VEHICLE_LABEL[c.equity_vehicle] ?? c.equity_vehicle)}
+      {c.vesting && <span className="traj-vesting">{insightsStockTrajectoryPanelVests({ schedule: c.vesting })}</span>}
+      {!c.equity_vehicle && !c.vesting && "—"}
+    </td>
+  );
+}
+
+// Base and bonus with where each comes from. A bonus of zero the company's own
+// rule states reads as "No bonus", a fact, never as a figure of $0.
+function CashParts({ c }: { c: CompPackage }) {
+  return (
+    <>
+      <td className="num traj-part">
+        {fmtComp(c.base)}
+        <PartSource source={c.sources.base} />
+      </td>
+      <td className="num traj-part">
+        {c.bonus === 0 && c.sources.bonus === "company_rule" ? insightsStockTrajectoryPanelNoBonus() : fmtComp(c.bonus)}
+        <PartSource source={c.sources.bonus} />
+      </td>
+      <td className="num traj-part">
+        {fmtPct(c.equity_pct)}
+        <PartSource source={c.sources.equity} />
+      </td>
+    </>
   );
 }
 
@@ -124,6 +172,7 @@ const SENSITIVITY = 0.1;
 
 export function StockTrajectoryPanel() {
   const [pct, setPct] = useState(0); // stock price change, whole percent
+  const [query, setQuery] = useState("");
   const { data, error, retry, refresh } = useAsyncResource<CompTrajectory>(api.compTrajectory, [], { keep: "stats/stock-trajectory" });
   // The split follows the source answering pay.
   useSourceSwitch(refresh);
@@ -140,7 +189,9 @@ export function StockTrajectoryPanel() {
     return <ResourceLoadState error={error} loading={insightsStockTrajectoryPanelLoading()} failed={insightsStockTrajectoryPanelLoadFailed()} onRetry={retry} />;
   }
 
-  if (!overall) {
+  // Nothing at all to show. A tab with only private companies, a
+  // cash-or-equity company or roles left out still shows those.
+  if (!overall && !data.private.length && !data.choice.length && !data.set_apart.length) {
     return (
       <div className="panel">
         <h3>{insightsStockTrajectoryPanelStockTrajectory()}</h3>
@@ -151,13 +202,21 @@ export function StockTrajectoryPanel() {
     );
   }
 
-  const baseline = overall.median_tc;
-  const delta = projected! - baseline;
+  // One search narrows every table; the chart above stays the whole picture.
+  const publicRows = matchCompanies(data.public, query, companyName);
+  const privateRows = matchCompanies(data.private, query, companyName);
+  const choiceRows = matchCompanies(data.choice, query, companyName);
+  const searching = query.trim() !== "";
+  const companyCount = data.public.length + data.private.length + data.choice.length;
+  const noMatch = searching && publicRows.length + privateRows.length + choiceRows.length === 0;
+
+  const baseline = overall?.median_tc ?? 0;
+  const delta = (projected ?? 0) - baseline;
   const sign = pct > 0 ? "up" : pct < 0 ? "down" : "flat";
 
   return (
     <>
-      <InsightHero
+      {overall && <InsightHero
         tab="trajectory"
         className="traj-cockpit"
         // At today's price the projection is today's figure again, so the
@@ -168,9 +227,9 @@ export function StockTrajectoryPanel() {
               short={insightsStockTrajectoryPanelProjectedTc({ projected: String(fmtComp(projected)) })}
               full={insightsStockTrajectoryPanelProjectedTcFull({ projected: String(fmtComp(projected)) })}
             />}
-        line={<>{insightsStockTrajectoryPanelTypicalPackage({ split: overall.split_source })}
+        line={<>{insightsStockTrajectoryPanelTypicalPackage({ equity: overall.sources.equity })}
             <InfoTip label={insightsStockTrajectoryPanelHowStockTrajectoryIsProjected()}>
-              {insightsStockTrajectoryPanelStockMovesRePriceEquity({ split: overall.split_source, bonus_pct: fmtPct(data.assumptions.bonus_pct) })}
+              {insightsStockTrajectoryPanelStockMovesRePriceEquity()}
             </InfoTip></>}
         kpis={[
           { label: insightsStockTrajectoryPanelToday(), value: fmtComp(baseline), sub: <Abbr short={insightsStockTrajectoryPanelMedianTcTile()} full={insightsStockTrajectoryPanelMedianTcTileFull()} /> },
@@ -217,7 +276,7 @@ export function StockTrajectoryPanel() {
               </Button>
             )}
           </div>
-      </InsightHero>
+      </InsightHero>}
 
       {data.public.length > 0 && (
         <div className="panel chart-panel chart-panel-wide">
@@ -239,7 +298,16 @@ export function StockTrajectoryPanel() {
         </div>
       )}
 
-      <div className="panel">
+      {companyCount > 1 && (
+        <div className="traj-search">
+          <SearchField label={insightsDemandFindACompany()} placeholder={insightsDemandFindACompany()} value={query} onChange={setQuery} />
+        </div>
+      )}
+      {noMatch && (
+        <p className="empty-hint" role="status" data-testid="traj-no-match">{insightsStockTrajectoryPanelNoCompanyMatches({ query: query.trim() })}</p>
+      )}
+
+      {!(searching && publicRows.length === 0) && <div className="panel traj-companies" data-testid="traj-public">
         <h3>
           <Msg of={insightsStockTrajectoryPanelPublicCompanies} args={{ move: sign }} elems={{ pct: pct }} />
           <InfoTip label={insightsStockTrajectoryPanelAboutPublicCompanyProjections()}>
@@ -252,9 +320,11 @@ export function StockTrajectoryPanel() {
           <table className="traj-table">
             <thead>
               <tr>
-                <th scope="col">{insightsCommonCompany()}</th>
+                <th scope="col">{insightsCommonCompany()}<SourceKey /></th>
                 <th scope="col">{insightsStockTrajectoryPanelTicker()}</th>
-                <th scope="col">{insightsStockTrajectoryPanelEquity()}<SplitKey /></th>
+                <th scope="col">{insightsStockTrajectoryPanelEquity()}</th>
+                <th scope="col" className="num">{insightsStockTrajectoryPanelBase()}</th>
+                <th scope="col" className="num">{insightsStockTrajectoryPanelBonus()}</th>
                 <th scope="col" className="num">{insightsStockTrajectoryPanelEquityShare()}</th>
                 <th scope="col" className="num">{insightsStockTrajectoryPanelToday()}</th>
                 <th scope="col" className="num">{insightsStockTrajectoryPanelProjected()}</th>
@@ -262,7 +332,7 @@ export function StockTrajectoryPanel() {
               </tr>
             </thead>
             <tbody>
-              {data.public.map((c) => {
+              {publicRows.map((c) => {
                 const proj = projectTc(c, d);
                 const ch = projectedDelta(c, d);
                 // A listed company can still be immune to its own stock price:
@@ -272,11 +342,8 @@ export function StockTrajectoryPanel() {
                   <tr key={c.company} className={immovable ? "traj-immovable" : undefined}>
                     <th scope="row">{companyName(c.company)}</th>
                     <td className="traj-ticker">{c.ticker}</td>
-                    <td className="traj-vehicle">
-                      {c.equity_vehicle ? VEHICLE_LABEL[c.equity_vehicle] ?? c.equity_vehicle : "—"}
-                      <SplitSource source={c.split_source} />
-                    </td>
-                    <td className="num">{fmtPct(c.equity_pct)}</td>
+                    <EquityTerms c={c} />
+                    <CashParts c={c} />
                     <td className="num">{fmtComp(c.median_tc)}</td>
                     <td className="num">{fmtComp(proj)}</td>
                     <td className={`num ${ch > 0 ? "good" : ch < 0 ? "bad" : ""}`}>
@@ -296,10 +363,10 @@ export function StockTrajectoryPanel() {
             </tbody>
           </table>
         )}
-      </div>
+      </div>}
 
-      {data.private.length > 0 && (
-        <div className="panel">
+      {privateRows.length > 0 && (
+        <div className="panel traj-companies" data-testid="traj-private">
           <h3>
             {insightsStockTrajectoryPanelPrivateCompanies()}
             <InfoTip label={insightsStockTrajectoryPanelWhyPrivateCompaniesDoNot()}>
@@ -309,22 +376,74 @@ export function StockTrajectoryPanel() {
           <table className="traj-table">
             <thead>
               <tr>
-                <th scope="col">{insightsCommonCompany()}</th>
+                <th scope="col">{insightsCommonCompany()}<SourceKey /></th>
+                <th scope="col">{insightsStockTrajectoryPanelEquity()}</th>
+                <th scope="col" className="num">{insightsStockTrajectoryPanelBase()}</th>
+                <th scope="col" className="num">{insightsStockTrajectoryPanelBonus()}</th>
                 <th scope="col" className="num">{insightsStockTrajectoryPanelEquityShare()}</th>
                 <th scope="col" className="num"><Abbr short={insightsStockTrajectoryPanelMedianTc()} full={insightsStockTrajectoryPanelMedianTcFull()} /></th>
               </tr>
             </thead>
             <tbody>
-              {data.private.map((c) => (
+              {privateRows.map((c) => (
                 <tr key={c.company}>
                   <th scope="row">{companyName(c.company)}</th>
-                  <td className="num">{fmtPct(c.equity_pct)}</td>
+                  <EquityTerms c={c} />
+                  <CashParts c={c} />
                   <td className="num">{fmtComp(c.median_tc)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+
+      {choiceRows.length > 0 && (
+        <div className="panel traj-companies" data-testid="traj-choice">
+          <h3>{insightsStockTrajectoryPanelChoiceCompanies()}</h3>
+          <p className="sub">{insightsStockTrajectoryPanelChoiceExplained()}</p>
+          <table className="traj-table">
+            <thead>
+              <tr>
+                <th scope="col">{insightsCommonCompany()}<SourceKey /></th>
+                <th scope="col">{insightsStockTrajectoryPanelTicker()}</th>
+                <th scope="col" className="num">{insightsSkillsViewRoles()}</th>
+                <th scope="col" className="num"><Abbr short={insightsStockTrajectoryPanelMedianTc()} full={insightsStockTrajectoryPanelMedianTcFull()} /></th>
+              </tr>
+            </thead>
+            <tbody>
+              {choiceRows.map((c) => (
+                <tr key={c.company}>
+                  <th scope="row">{companyName(c.company)}</th>
+                  <td className="traj-ticker">{c.ticker ?? "—"}</td>
+                  <td className="num">{c.count}</td>
+                  <td className="num traj-part">
+                    {fmtComp(c.median_tc)}
+                    <PartSource source={c.total_source} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {data.set_apart.length > 0 && (
+        <p className="traj-left-out" data-testid="traj-left-out">
+          {insightsStockTrajectoryPanelLeftOut({ count: data.set_apart.reduce((n, r) => n + r.count, 0) })}
+          {/* The tooltip is phrasing content inside this paragraph, so the
+              list is spans carrying list roles rather than ul and li. */}
+          <InfoTip label={insightsStockTrajectoryPanelWhyLeftOut()}>
+            <span className="traj-left-out-list" role="list">
+              {data.set_apart.map((r) => (
+                <span className="traj-left-out-item" role="listitem" key={r.reason}>
+                  <span>{insightsStockTrajectoryPanelLeftOutReason({ reason: r.reason })}</span>
+                  <span className="num">{r.count}</span>
+                </span>
+              ))}
+            </span>
+          </InfoTip>
+        </p>
       )}
     </>
   );

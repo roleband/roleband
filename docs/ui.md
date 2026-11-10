@@ -924,6 +924,20 @@ panel that holds a tab's only figures in some case (the base estimates when no
 role has a total) shows in both views. A figure that tells no reader anything
 is removed, not moved to the advanced view.
 
+The Stock tab (advanced) shows each company's typical total compensation as
+base, bonus and equity share. Under each figure a chip says where it comes
+from (posted, company rule, measured, estimated, mixed), and one help mark on
+the Company column, which stays in view when a phone scrolls the table
+sideways, explains the chips. The equity column names the stock type and
+the vesting schedule the company states; "No bonus" stands for a company's own
+no-bonus rule, never for an unknown zero. Companies whose people choose the
+cash and equity mix have their own table with a total and no split, and a line
+under the tables counts the roles left out, with each reason behind a help
+mark. One search under the chart narrows every table to the companies it
+names; a table with none is hidden, and the hero and chart stay the whole
+market's. The slider moves only the equity part of listed companies
+(docs/pay.md, "The Stock tab").
+
 ## Which tests enforce what
 
 Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs

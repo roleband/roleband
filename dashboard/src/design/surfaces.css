@@ -310,10 +310,14 @@
   color: var(--app-text-faint);
 }
 
-/* One class per wire value of `split_source`: a ratio this company was
-   measured to pay is `measured` (positive); one borrowed from another
-   discipline at the company, or a blend, is partly measured (warning). */
-[data-design-system="app"] .split-src-measured {
+/* One class per wire value of `split_source` and of a Stock-tab part source:
+   a figure the employer posted, its company's stated rule, or a ratio this
+   company was measured to pay is positive; one borrowed from another
+   discipline at the company, or a blend, is partly measured (warning); an
+   estimate is faint. */
+[data-design-system="app"] .split-src-measured,
+[data-design-system="app"] .split-src-posted,
+[data-design-system="app"] .split-src-company_rule {
   color: var(--app-positive);
   border-color: var(--app-positive-line);
 }
@@ -324,7 +328,8 @@
   border-color: var(--app-warning-line);
 }
 
-[data-design-system="app"] .split-src-heuristic {
+[data-design-system="app"] .split-src-heuristic,
+[data-design-system="app"] .split-src-estimated {
   color: var(--app-text-faint);
 }
 
