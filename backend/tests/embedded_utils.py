@@ -18,6 +18,22 @@ from tracker.platform.embedded_db import (
 )
 
 
+def account_folder(path: Path) -> Path:
+    """A new folder of this account's own, for what PostgreSQL's tools must read or run in.
+
+    An elevated Windows run (GitHub's runners) gives new folders to the Administrators group, which PostgreSQL's tools
+    give up when they drop administrator rights, as they do on Windows; a folder the account itself owns stays
+    readable to them. Elsewhere it is an ordinary folder."""
+    if sys.platform == "win32":
+        from tracker.platform.windows_private import private_directory
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        private_directory(path)
+    else:
+        path.mkdir(parents=True)
+    return path
+
+
 def destroy(pgdata: Path) -> None:
     """Stop and delete a throwaway cluster.
 

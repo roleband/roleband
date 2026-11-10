@@ -373,7 +373,7 @@ async def test_a_wait_on_our_own_comp_lookup_is_not_the_sources_silence():
 
     class QueuedComp:
         async def resolve(self, _context):
-            await asyncio.sleep(0.3)  # longer than the stall window below
+            await asyncio.sleep(1.4)  # longer than the stall window below, well inside its grace
             return None, []
 
     scope = ScopeFilter(
@@ -391,7 +391,7 @@ async def test_a_wait_on_our_own_comp_lookup_is_not_the_sources_silence():
         hydrate=False,
         max_concurrent_sources=1,
         source_budget_seconds=30,
-        source_stall_seconds=0.2,
+        source_stall_seconds=1.0,
         adapter_factory=lambda *args, **kwargs: Board(),
     )
 

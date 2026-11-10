@@ -38,7 +38,7 @@ pytest.importorskip("pixeltable_pgserver", reason="embedded Postgres wheel not i
 import psutil  # noqa: E402 - a pgserver dependency, present whenever the wheel is
 
 from tests.conftest import posix_processes  # noqa: E402
-from tests.embedded_utils import cluster_locale, destroy, running_clusters  # noqa: E402
+from tests.embedded_utils import account_folder, cluster_locale, destroy, running_clusters  # noqa: E402
 from tracker.platform.embedded_db import ensure_server, stop_server  # noqa: E402
 
 BACKEND = Path(__file__).resolve().parents[1]
@@ -93,16 +93,17 @@ class _ProbeSession:
     """A separate pytest over `_PROBE` that loads the real harness from `tests.conftest`."""
 
     def __init__(self, tmp_path: Path, workers: int) -> None:
-        self.root = tmp_path
+        # The probe runs here, and PostgreSQL's tools start in its folder.
+        self.root = account_folder(tmp_path / "probe")
         self.workers = workers
-        self.basetemp = tmp_path / "basetemp"
-        self.pids = tmp_path / "pids"
+        self.basetemp = self.root / "basetemp"
+        self.pids = self.root / "pids"
         self.pids.mkdir()
-        self.log = tmp_path / "session.log"
+        self.log = self.root / "session.log"
         self.proc: subprocess.Popen | None = None
-        (tmp_path / "test_probe.py").write_text(_PROBE)
+        (self.root / "test_probe.py").write_text(_PROBE)
         # An ini of its own keeps the repo's workers out; the harness comes in by `-p`.
-        (tmp_path / "pytest.ini").write_text("[pytest]\nasyncio_default_fixture_loop_scope = function\n")
+        (self.root / "pytest.ini").write_text("[pytest]\nasyncio_default_fixture_loop_scope = function\n")
 
     def _expected(self, name: str) -> set[str]:
         workers = ["main"] if self.workers == 0 else [f"gw{i}" for i in range(self.workers)]

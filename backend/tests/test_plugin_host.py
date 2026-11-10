@@ -21,6 +21,7 @@ Contracts:
 from __future__ import annotations
 
 import asyncio
+import ctypes
 import importlib.util
 import json
 import os
@@ -374,14 +375,18 @@ async def test_the_runner_is_isolated_and_starts_where_the_plugin_cannot_write(d
     cwd = said.split("cwd=", 1)[1].split(" ", 1)[0]
     home = str(Path(row.source_dir).parent)
     assert not cwd.startswith(home)
-    # A real attempt: `os.access` on Windows reads only the read-only attribute, never the folder's access list.
-    probe_dir = Path(cwd) / f"plugin-probe-{os.getpid()}"
-    try:
-        with pytest.raises(PermissionError):
-            probe_dir.mkdir()
-    finally:
-        if probe_dir.is_dir():
-            probe_dir.rmdir()
+    if sys.platform == "win32" and ctypes.windll.shell32.IsUserAnAdmin():
+        # An elevated run may write anywhere, so no attempt can tell; the folder is the one ordinary accounts cannot write.
+        assert Path(cwd) == Path(os.environ["SystemRoot"])
+    else:
+        # A real attempt: `os.access` on Windows reads only the read-only attribute, never the folder's access list.
+        probe_dir = Path(cwd) / f"plugin-probe-{os.getpid()}"
+        try:
+            with pytest.raises(PermissionError):
+                probe_dir.mkdir()
+        finally:
+            if probe_dir.is_dir():
+                probe_dir.rmdir()
     assert said.split("path0=", 1)[1] == str(SDK), "the SDK this core ships leads the path, never ''"
 
 

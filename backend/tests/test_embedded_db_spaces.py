@@ -11,7 +11,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from tests.embedded_utils import cluster_locale
+from tests.embedded_utils import account_folder, cluster_locale
 from tracker.platform.embedded_db import bundled_bin_dir, ensure_server, run_psql, stop_server
 
 
@@ -20,7 +20,7 @@ def test_space_and_quoted_paths_start_query_reattach_and_stop(tmp_path, monkeypa
     from pixeltable_pgserver.utils import POSTGRES_VERSIONS
 
     original = bundled_bin_dir()
-    runtime = tmp_path / "RoleBand Test.app" / "Postgres"
+    runtime = account_folder(tmp_path / "RoleBand Test.app") / "Postgres"
     shutil.copytree(original.parent, runtime)
     # A Linux wheel keeps the shared libraries beside the package, where bin/ finds
     # them at $ORIGIN/../../../pixeltable_pgserver.libs; a macOS wheel keeps them inside.

@@ -17,16 +17,18 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 
-pytestmark = pytest.mark.skipif(
-    shutil.which("git") is None or shutil.which("shasum") is None,
-    reason="preflight.sh needs git and shasum",
-)
+pytestmark = [
+    pytest.mark.skipif(sys.platform == "win32", reason="macOS and POSIX tooling runs on the Mac"),
+    pytest.mark.skipif(shutil.which("git") is None or shutil.which("shasum") is None,
+                       reason="preflight.sh needs git and shasum"),
+]
 
 
 @pytest.fixture
