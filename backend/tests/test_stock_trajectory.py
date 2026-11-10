@@ -191,6 +191,19 @@ class TestSetApart:
         assert out["choice"] == []
         assert out["set_apart"] == [{"reason": "not_us_pay", "count": 1}]
 
+    def test_under_a_plugin_only_the_roles_it_splits_are_counted(self):
+        row_l6 = {"base_amount": 272_333, "stock_amount": 331_667, "bonus_amount": 58_614}
+        measured = {("google", "software_engineering", "staff"): row_l6}
+        out = build_comp_trajectory([
+            _role("google", median=660_000, baselines=measured, heuristic=False),
+            _role("google", "senior", median=450_000, baselines=measured, heuristic=False),
+        ])
+        row = _by_company(out)["google"]
+        assert row["count"] == 1
+        assert row["sources"]["equity"] == FROM_MEASURED
+        # The level the plugin does not split is counted apart, never split by ours.
+        assert out["set_apart"] == [{"reason": "plugin_without_split", "count": 1}]
+
     def test_a_role_with_no_pay_figure_is_not_counted_anywhere(self):
         out = build_comp_trajectory([_role("stripe")])
         assert (out["public"], out["private"], out["choice"], out["set_apart"]) == ([], [], [], [])
@@ -212,13 +225,17 @@ class TestIdentity:
         )
         assert [e["company"] for e in out["private"]] == ["google"]
 
-    def test_a_subsidiary_reprices_with_its_listed_parent(self):
+    @pytest.mark.parametrize(("company", "family", "ticker"), [
+        ("google-deepmind", "ml_ai_research", "GOOGL"),
+        ("linkedin", "product_management", "MSFT"),
+    ])
+    def test_a_subsidiary_reprices_with_its_listed_parent(self, company, family, ticker):
         out = build_comp_trajectory(
-            [_role("google-deepmind", median=772_000, family="ml_ai_research")],
-            profiles={"google-deepmind": {"is_public": False, "ticker": None, "equity_vehicle": "options"}},
+            [_role(company, median=772_000, family=family)],
+            profiles={company: {"is_public": False, "ticker": None, "equity_vehicle": "options"}},
         )
         [row] = out["public"]
-        assert (row["ticker"], row["equity_vehicle"]) == ("GOOGL", "rsu")
+        assert (row["company"], row["ticker"], row["equity_vehicle"]) == (company, ticker, "rsu")
         assert row["equity"] > 0
 
     def test_a_subsidiary_with_its_own_equity_stays_private(self):
