@@ -70,7 +70,12 @@ function Posting({ initial }: { initial: Job }) {
     void api.setFavorite(initial.id, true);
     showSaved(true);
   };
-  const { control, section, applied } = usePostingPipeline(job, { showSaved, paintPosting, onSave, now: new Date(), column });
+  // The server's copy of the posting is the one the screen opened on: these
+  // specs' failed writes change nothing there.
+  const rereadPosting = useCallback(() => setJob(initial), [initial]);
+  const { control, section, applied } = usePostingPipeline(job, {
+    showSaved, paintPosting, rereadPosting, onSave, now: new Date(), column,
+  });
   return (
     <>
       <nav aria-label="Posting bar">{control}</nav>
@@ -279,6 +284,22 @@ describe("a posting on the board", () => {
     await userEvent.click(within(await menuOf()).getByRole("button", { name: /Rejected/ }));
     expect(await within(bar()).findByRole("button", { name: stageNamed("Rejected at Applied") }), "the stage it ended from")
       .toBeInTheDocument();
+  });
+
+  it("keeps an unstarred role on the posting when its move back to Considering fails", async () => {
+    // Off the star, a role is on the board only past Considering, so a stage
+    // painted and never saved would drop it off the posting.
+    vi.mocked(api.setPursuit).mockRejectedValue(new ApiError("down", 500));
+    detail = applicationDetailFixture({
+      application: applicationCardFixture({ pursuit_id: 10, stage: "applied", starred: false, stage_since: daysAgo(4) }),
+    });
+    renderPosting(posting({ is_favorite: false, pursuit: pursuit("applied") }));
+    await userEvent.click(await within(bar()).findByRole("button", { name: stageNamed("Applied") }));
+    await userEvent.click(within(await menuOf()).getByRole("button", { name: /Considering/ }));
+    await waitFor(() => expect(api.setPursuit).toHaveBeenCalledWith(101, { stage: "saved" }));
+    expect(await within(bar()).findByRole("button", { name: stageNamed("Applied") }), "the stage the server kept").toBeInTheDocument();
+    expect(within(bar()).queryByRole("button", { name: msg("jobs-save") })).toBeNull();
+    expect(await within(column()).findByRole("link", { name: "Applied" })).toBeInTheDocument();
   });
 
   it("moves to another stage from the menu, the pipeline's own way, and announces the save", async () => {

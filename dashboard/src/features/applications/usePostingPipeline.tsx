@@ -28,11 +28,13 @@ export interface PostingPipeline {
  */
 export function usePostingPipeline(
   job: Job | null,
-  { showSaved, paintPosting, onSave, now, column }: {
+  { showSaved, paintPosting, rereadPosting, onSave, now, column }: {
     /** Paints the posting's star. */
     showSaved: (on: boolean) => void;
     /** Paints the posting's own copy of its stage. */
     paintPosting: (stage: StageSlug) => void;
+    /** Reads the posting again, after a write that failed. */
+    rereadPosting: () => void;
     /** Saves a role that is not on the board. */
     onSave: () => void;
     now: Date;
@@ -40,7 +42,7 @@ export function usePostingPipeline(
     column: HTMLElement | null;
   },
 ): PostingPipeline {
-  const application = usePostingApplication(job, { showSaved, paintPosting });
+  const application = usePostingApplication(job, { showSaved, paintPosting, rereadPosting });
   const { state } = useLocation();
   // Opened over the application's own page, the section would repeat the page under it.
   const under = (state as { backgroundLocation?: { pathname?: string } } | null)?.backgroundLocation?.pathname;

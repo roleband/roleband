@@ -74,6 +74,7 @@ export type UsePostingPipeline = (
   options: {
     showSaved: (on: boolean) => void;
     paintPosting: (stage: PursuitStage) => void;
+    rereadPosting: () => void;
     onSave: () => void;
     now: Date;
     /** The side column, which the section's history opens across. */
@@ -189,7 +190,8 @@ export function JobDetail({
   /** The side column, which the histories open across. */
   const [aside, setAside] = useState<HTMLElement | null>(null);
   // Where the person stands with the role, read as the pipeline reads it.
-  const pipeline = usePipeline(job, { showSaved, paintPosting, onSave: saveFav, now, column: aside });
+  const rereadPosting = useCallback(() => void refreshJob({ preserveData: true }), [refreshJob]);
+  const pipeline = usePipeline(job, { showSaved, paintPosting, rereadPosting, onSave: saveFav, now, column: aside });
   const { applied } = pipeline;
 
   // Once the job is loaded, report its company so a bare /job/:id URL can

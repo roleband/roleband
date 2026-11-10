@@ -74,9 +74,11 @@ export interface PostingApplication {
  */
 export function usePostingApplication(
   job: Job | null,
-  { showSaved, paintPosting }: {
+  { showSaved, paintPosting, rereadPosting }: {
     showSaved: (on: boolean) => void;
     paintPosting: (stage: StageSlug) => void;
+    /** Reads the posting again, its stage and star as the server holds them. */
+    rereadPosting: () => void;
   },
 ): PostingApplication {
   const { favVersion } = useJobWorkspace();
@@ -129,10 +131,16 @@ export function usePostingApplication(
         next: true,
         show: showSaved,
         send: () => api.setPursuit(target.job_id, update),
+      }).catch((error: unknown) => {
+        // The posting painted the stage it asked for, and whether the role is
+        // on the board follows that stage: a failed write reads back the one
+        // the server kept, or a role left unstarred would drop off the posting.
+        rereadPosting();
+        throw error;
       });
       if (outcome !== "saved") throw new Error("The pursuit write failed behind a newer write for the role.");
     },
-    [saveRole, showSaved],
+    [saveRole, showSaved, rereadPosting],
   );
   const move = useStageMove({ paint, refresh: reread, write });
 
