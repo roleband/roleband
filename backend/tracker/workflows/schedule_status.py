@@ -48,8 +48,7 @@ from tracker.db.models import (
 )
 from tracker.db.queries.runs import stale_run_where
 from tracker.health import freshness
-from tracker.source_policy import collection_access
-from tracker.source_review import user_directed_source
+from tracker.source_policy import ON_REQUEST, USER_DIRECTED, collection_access, direction_wait
 from tracker.workflows.post_passes import POST_PASSES
 
 #: A provider in one of these states holds every binding behind it: no deadline
@@ -90,12 +89,12 @@ def effective_provider_state(
 
 
 #: `waits_for_user`'s answers, each also an `ExcludedBinding.reason` on the wire.
+#: `user_directed` and `on_request` are `source_policy.direction_wait`'s.
 WALLED = "walled"
-USER_DIRECTED = "user_directed"
 #: A followed company whose careers page is gone from its address:
 #: Coverage tells it, so the roster does not also call it stale.
 BOARD_MISSING = "board_missing"
-WAITS_FOR_USER = frozenset({WALLED, USER_DIRECTED})
+WAITS_FOR_USER = frozenset({WALLED, USER_DIRECTED, ON_REQUEST})
 
 #: `scheduler_status`'s `unread` reasons, each an `UnreadBinding.reason` on the
 #: wire: no full read ever, or none inside the window.
@@ -117,17 +116,21 @@ def waits_for_user(
 
     * `walled`: a walled company the user has not consented to; the collection
       gate refuses it whoever asks.
-    * `user_directed`: a source collected only when the user asks,
-      until this binding carries a manual request.
+    * `user_directed` / `on_request`: a company on a user-directed source
+      whose user never agreed, or agreed to be read only when they ask
+      (`source_policy.direction_wait`), until this binding carries a manual
+      request.
     """
     access = collection_access(
         target["adapter"], company=company, settings=settings, consent=target.get("consent")
     )
     if access.walled:
         return WALLED
-    if user_directed_source(target["adapter"]) and not manual_requested:
-        return USER_DIRECTED
-    return None
+    if manual_requested:
+        return None
+    return direction_wait(
+        target["adapter"], company, target.get("consent"), target.get("scan_on_schedule", False)
+    )
 
 
 def stable_binding_where(targets: Iterable[str]) -> tuple[ColumnElement[bool], ...]:

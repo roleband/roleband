@@ -26,8 +26,10 @@ from tracker.company_catalog import CATALOG
 from tracker.company_directory import FOLLOWED_BY_NAME, FOLLOWED_WITH_SET, directory_company
 from tracker.company_discovery import (
     COMPANY_DISCOVERY,
+    company_direction,
     company_wall,
     discovery_company_fields,
+    has_consented,
     is_curated,
 )
 from tracker.config import COMPANIES
@@ -214,10 +216,13 @@ class ScanTarget(TypedDict):
     board_token: str | None
     board_region: str | None
     enabled: bool
-    #: The user's consent to collect a walled company, as the register
-    #: fingerprint it covers. Every collection path hands it to
-    #: `collection_access`; None for the unwalled majority.
+    #: The user's agreement to collect a walled or user-directed company, as
+    #: the register fingerprint it covers. Every collection path hands it to
+    #: `collection_access`; None for the majority, which needs none.
     consent: str | None
+    #: A user-directed company's agreement chose regular scans
+    #: (`source_policy.direction_wait`). Absent reads as False.
+    scan_on_schedule: NotRequired[bool]
     #: A recipe binding's pinned, compiled revision, or None when it is missing
     #: or does not compile. Only a run that collects attaches it
     #: (`recipe_store.attach_recipe_plans`), and only to a recipe-bound target.
@@ -239,6 +244,7 @@ async def get_active_targets(session: AsyncSession) -> dict[str, ScanTarget]:
             "board_region": r.board_region,
             "enabled": True,
             "consent": r.consent_fingerprint,
+            "scan_on_schedule": r.scan_on_schedule,
         }
         for r in rows
         if r.adapter
@@ -259,7 +265,14 @@ async def add_company(session: AsyncSession, fields: dict) -> TrackedCompany:
 
 
 class ConsentRequired(CompanyError):
-    """Following a walled company needs the user's consent."""
+    """Following a walled or user-directed company needs the user's agreement.
+
+    `kind` says which dialog answers it, `walled` or `directed`, so a client
+    that was refused can show it and send the agreement with its retry."""
+
+    def __init__(self, message: str, *, company: str | None = None, kind: str = "walled"):
+        super().__init__(message)
+        self.params = {"kind": kind, **({"company": company} if company else {})}
 
 
 #: Longest consent text stored. The dialogs are a few sentences; anything past
@@ -268,19 +281,33 @@ CONSENT_TEXT_MAX = 4000
 
 
 def record_consent(
-    row: TrackedCompany, text: str, *, locale: str = "en", now: datetime | None = None
+    row: TrackedCompany,
+    text: str,
+    *,
+    locale: str = "en",
+    scan_on_schedule: bool = True,
+    now: datetime | None = None,
 ) -> None:
-    """Record that the user consented to collecting this walled company.
+    """Record that the user agreed to collecting this walled or user-directed company.
 
     The only writer of the consent columns. It stores the dialog text the user
     confirmed, the language it was shown in, and the register fingerprint of
-    the wall they were shown, as the record of what was agreed. The record is
-    never re-checked against the register: the user is asked once per company,
-    and a stored consent stands whatever the register later records.
+    what they were shown, as the record of what was agreed: the wall's for a
+    walled company (a company both walled and directed included, whose dialog
+    states the wall), the user-directed source's otherwise. The record is never
+    re-checked against the register: the user is asked once per company, and a
+    stored agreement stands whatever the register later records.
+
+    `scan_on_schedule` is the dialog's "keep scanning" choice, kept only for a
+    company on a user-directed source; a walled company is scanned on schedule
+    once consented, so it cannot choose otherwise.
     """
     wall = company_wall(row.slug, row)
-    if wall is None:
-        raise CompanyError(f"'{row.slug}' is not walled; there is nothing to consent to")
+    direction = company_direction(row.slug, row)
+    if wall is None and direction is None:
+        raise CompanyError(f"'{row.slug}' needs no agreement; there is nothing to consent to")
+    if direction is None and not scan_on_schedule:
+        raise CompanyError(f"'{row.slug}' is walled, not user-directed: it is scanned on schedule once consented")
     text = text.strip()
     if not text or len(text) > CONSENT_TEXT_MAX:
         raise CompanyError("consent needs the text of the dialog the user confirmed")
@@ -289,22 +316,57 @@ def record_consent(
     row.consented_at = now or datetime.now(UTC)
     row.consent_text = text
     row.consent_locale = locale
-    row.consent_fingerprint = wall.wall_fingerprint
+    if wall is not None:
+        row.consent_fingerprint = wall.wall_fingerprint
+    else:
+        assert direction is not None
+        row.consent_fingerprint = direction.directed_fingerprint
+    if direction is not None:
+        row.scan_on_schedule = scan_on_schedule
 
 
 def require_consent_to_follow(row: TrackedCompany) -> None:
-    """Refuse to START following a walled company the user never consented to.
+    """Refuse to START following a walled or user-directed company the user
+    never agreed to.
 
-    Only the transition needs it. A walled company already followed without
-    consent (an older install) stays followed and simply is not
-    scanned — so re-sending the roster for some other change never fails on it.
-    A consent is kept on unfollow, so following again never asks again.
+    Only the transition needs it, and every path that starts a follow calls it:
+    a row created already followed included. A company already followed
+    without an agreement (an older install) stays followed and simply is not
+    scanned on a timer, so re-sending the roster for some other change never
+    fails on it. An agreement is kept on unfollow, so following again never
+    asks again.
     """
-    wall = company_wall(row.slug, row)
-    if wall is not None and not row.consent_fingerprint:
+    if has_consented(row.slug, row):
+        return
+    if company_wall(row.slug, row) is not None:
         raise ConsentRequired(
-            f"'{row.slug}' limits automated collection; follow it through its consent dialog"
+            f"'{row.slug}' limits automated collection; follow it through its consent dialog",
+            company=row.slug, kind="walled",
         )
+    if company_direction(row.slug, row) is not None:
+        raise ConsentRequired(
+            f"'{row.slug}' is read at the user's direction; follow it through its dialog",
+            company=row.slug, kind="directed",
+        )
+
+
+async def set_scan_on_schedule(session: AsyncSession, slug: str, scan_on_schedule: bool) -> TrackedCompany:
+    """Change a user-directed company's "keep scanning" choice.
+
+    Only a company on a user-directed source has the choice, and only once its
+    user agreed to follow it: the choice is part of that agreement."""
+    row = await session.get(TrackedCompany, slug)
+    if row is None:
+        raise CompanyNotFound(f"'{slug}' is not a tracked company")
+    if company_direction(row.slug, row) is None:
+        raise CompanyError(f"'{slug}' is not on a user-directed source; it is scanned on schedule")
+    if not has_consented(row.slug, row):
+        raise ConsentRequired(
+            f"'{slug}' needs the user's agreement first", company=slug, kind="directed",
+        )
+    row.scan_on_schedule = scan_on_schedule
+    await session.flush()
+    return row
 
 
 async def record_route(

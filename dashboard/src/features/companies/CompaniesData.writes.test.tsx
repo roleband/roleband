@@ -66,12 +66,13 @@ const company = (slug: string, display: string) => ({
   visible: true,
   builtin: true,
   curated: true, directory: false,
-  wall: null,
+  directed: false, scan_on_schedule: false, wall: null,
   consented: false,
   status: "active" as const,
 });
 
 const STATE: CompanyDiscoveryState = {
+  reads_waiting: [],
   sectors: [
     {
       slug: "faang",

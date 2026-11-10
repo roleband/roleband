@@ -293,6 +293,32 @@ def test_a_downgrade_past_the_application_pipeline_refuses_what_it_would_lose(
     assert run_psql(dsn, bin_dir, "select version_num from alembic_version") == "a7d2f4c9e1b6"
 
 
+def test_keep_scanning_starts_off_and_a_downgrade_keeps_the_choice_once_made(baseline_database):
+    """Every stored company takes "read when asked", how a company on a
+    user-directed source was treated; once a person chose regular scans, the
+    downgrade stops rather than drop that choice."""
+    env, dsn, bin_dir = baseline_database
+    result = run_alembic(env, "upgrade", "c085e66ad879")
+    assert result.returncode == 0, (result.stderr + result.stdout)[-2000:]
+    run_psql(dsn, bin_dir, "insert into tracked_company (slug, display, adapter, status, enabled, visible, source)"
+                           " values ('acme-wd', 'Acme', 'workday', 'active', true, true, 'url')")
+    result = run_alembic(env, "upgrade", "25104b83df6d")
+    assert result.returncode == 0, (result.stderr + result.stdout)[-2000:]
+    stored = "select scan_on_schedule, consent_fingerprint is null from tracked_company where slug = 'acme-wd'"
+    assert run_psql(dsn, bin_dir, stored) == "f|t"
+
+    run_psql(dsn, bin_dir, "update tracked_company set scan_on_schedule = true where slug = 'acme-wd'")
+    result = run_alembic(env, "downgrade", "-1")
+    assert result.returncode != 0
+    assert "keep scanning" in result.stderr
+    assert run_psql(dsn, bin_dir, "select version_num from alembic_version") == "25104b83df6d"
+
+    run_psql(dsn, bin_dir, "update tracked_company set scan_on_schedule = false where slug = 'acme-wd'")
+    result = run_alembic(env, "downgrade", "-1")
+    assert result.returncode == 0, (result.stderr + result.stdout)[-2000:]
+    assert run_psql(dsn, bin_dir, "select version_num from alembic_version") == "c085e66ad879"
+
+
 def test_the_rehearsal_waits_for_its_opt_in_locally_and_always_runs_in_ci(
     monkeypatch, request
 ):

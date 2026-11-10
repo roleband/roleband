@@ -337,7 +337,7 @@ async def test_a_first_read_that_validates_its_binding_has_read_the_board(
 
 
 async def _flagged(db_session) -> list[dict]:
-    rows = await followed_bindings(db_session, automatic=lambda *_: True)
+    rows = await followed_bindings(db_session, automatic=lambda *_, **__: True)
     return binding_attention(rows, datetime.now(UTC), stale_after=STALE_AFTER)["items"]
 
 

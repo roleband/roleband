@@ -216,10 +216,11 @@ CATALOG: dict[str, dict] = {
     # site names no tenant on the sitemap (identity `unstated`); URLs are
     # careers.arm.com.
     "arm": {"curated": True, "display": "Arm", "adapter": "radancy", "board_token": "careers.arm.com"},
-    # Workday tenants, token `host|site`. This source is USER-DIRECTED: every
-    # row here is disabled by default, is followed one company at a time, and
-    # is scanned only by a sync the user starts. The catalog offering it is not
-    # the app collecting it. Each tenant's CXS route (POST) answers with its
+    # Workday tenants, token `host|site`. This source is USER-DIRECTED: no row
+    # here is curated, following one needs the user's agreement, and it is
+    # scanned on a timer only when that agreement chose regular scans
+    # (`source_policy.direction_wait`). The catalog offering it is not the app
+    # collecting it. Each tenant's CXS route (POST) answers with its
     # declared `total` and real postings. `location` values are PLACES, in each
     # tenant's own phrasing ("San Jose", "Wilton, CT, USA", "India - Remote").
     # The route states no tenant name, so identity is `unstated`, and the

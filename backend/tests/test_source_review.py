@@ -100,16 +100,19 @@ def test_the_only_approval_names_its_reviewer_date_and_condition():
     Two things it deliberately does not do. It grants no COMPANY — the rule
     that approving an ATS approves no employer on it, which `effective_review`
     enforces by still answering UNREVIEWED for every tenant. And it follows
-    nobody: every company on the source starts off the curated list and is
-    scanned only when its user asks."""
+    nobody: every company on the source starts off the curated list, is
+    followed only with its user's agreement, and is scanned on a timer only
+    when that agreement chose regular scans."""
     approved = {k: v for k, v in SOURCE_REVIEWS.items() if v.review is ReviewResult.APPROVED}
 
     assert list(approved) == ["workday"]
     workday = approved["workday"]
-    assert (workday.reviewer, workday.review_date) == ("owner", date(2026, 9, 23))
+    assert (workday.reviewer, workday.review_date) == ("owner", date(2026, 11, 9))
     # The condition is `user_directed`, not a wall: the source asks nothing of
-    # us, so there is no consent to take.
+    # us. The user's agreement records the rule, never a wall.
     assert workday.user_directed and workday.wall is None
+    assert workday.directed_fingerprint == f"directed:{workday.robots.sha256}"
+    assert workday.wall_fingerprint is None
     assert effective_review("workday") is ReviewResult.APPROVED
     assert effective_review("workday", company="nvidia") is ReviewResult.UNREVIEWED
     assert COMPANY_REVIEWS == {}, "no employer was approved by approving its ATS"
@@ -255,22 +258,14 @@ def test_the_enumeration_names_every_provider_a_review_gate_would_pause():
 
 def test_the_register_is_read_only_by_the_wall_gate_and_its_report():
     """The register is a gate because robots and bot walls gate on the user's
-    consent; its affected bindings are `google` and `google-deepmind`, the only
-    companies on a walled source. It is read for its WALL facts only, by
-    tracker modules: `source_policy` (the single gate), `company_discovery`
-    (which tells the screen a company is walled) and `workflows/scheduler`,
-    which keeps a `user_directed` source out of AUTOMATIC work. Review
-    decisions still gate nothing.
-
-    The user-directed rule's affected bindings: every company on `workday`,
-    never curated and never scanned on a timer, none of which anyone follows
-    until a user says so.
-
-    `workflows/schedule_status` reads the same two facts through
-    `waits_for_user`, the one rule `collectable_now` calls, so the status
-    roster never counts a company automatic work never collects as overdue.
-    It reports and collects nothing. Affected bindings: every company on
-    `workday`, plus any walled company without consent.
+    consent, and a user-directed source on the user's direction. Its affected
+    bindings are `google` and `google-deepmind`, the only companies on a walled
+    source, and every company on `workday`. It is read by two tracker modules:
+    `source_policy`, the single gate, which also answers the user-directed rule
+    every scheduler, status, Coverage, scope-promotion, role-discovery and
+    directory-sweep reader calls (`direction_wait`); and `company_discovery`,
+    which tells the screen a company is walled or directed and keeps both off
+    the curated list. Review decisions still gate nothing.
 
     A new consumer is still a new gate: it needs its own decision and
     enumeration before it joins this list.
@@ -303,8 +298,6 @@ def test_the_register_is_read_only_by_the_wall_gate_and_its_report():
         "scripts/gen_sources_doc.py",
         "tracker/company_discovery.py",
         "tracker/source_policy.py",
-        "tracker/workflows/schedule_status.py",
-        "tracker/workflows/scheduler.py",
     ], (
         "a new consumer of the review register is a gate: it needs an owner "
         "decision and the affected-binding enumeration first"

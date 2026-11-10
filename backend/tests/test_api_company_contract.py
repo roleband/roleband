@@ -183,8 +183,14 @@ async def test_a_selection_applies_the_draft_and_answers_with_the_reread_roster(
     api_client, db_session, spawned
 ):
     followed_before = {slug for slug, row in (await _roster(api_client)).items() if row["enabled"]}
+    # google-deepmind is walled and added by this selection: it follows only
+    # with the dialog's consent, like any walled company.
     applied = await api_client.put(
-        "/api/companies/selection", json={"follow": ["google", "stripe", "mckinsey-company", "google-deepmind"]}
+        "/api/companies/selection",
+        json={
+            "follow": ["google", "stripe", "mckinsey-company", "google-deepmind"],
+            "consents": [{"slug": "google-deepmind", "text": "Its careers site limits automated collection."}],
+        },
     )
     assert applied.status_code == 200, applied.text
     body = applied.json()
@@ -305,7 +311,7 @@ async def test_toggles_apply_independently(api_client, spawned):
         ("POST", "/api/companies", {"catalog_slug": "tesla"}, 400,
          "'tesla' is not currently available: Careers source is currently bot-protected"),
         ("POST", "/api/companies", {}, 400, "provide a catalog company, or a name and careers URL"),
-        ("PATCH", "/api/companies/stripe", {}, 400, "provide 'enabled' and/or 'visible'"),
+        ("PATCH", "/api/companies/stripe", {}, 400, "provide 'enabled', 'visible' and/or 'scan_on_schedule'"),
         ("PATCH", "/api/companies/nobody", {"enabled": True}, 404, "'nobody' is not a tracked company"),
     ],
 )

@@ -39,4 +39,4 @@ def company_error(exc: CompanyError) -> HTTPException:
         for cls in type(exc).__mro__
         if issubclass(cls, CompanyError) and cls in COMPANY_REFUSALS
     )
-    return api_error(status, code, str(exc))
+    return api_error(status, code, str(exc), **getattr(exc, "params", {}))
