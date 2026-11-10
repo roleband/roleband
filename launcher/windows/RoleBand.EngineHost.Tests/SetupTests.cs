@@ -126,6 +126,8 @@ public sealed class SetupTests
             (database.HeadingKey, database.BodyKey, database.PrimaryKey, database.SecondaryKey));
         Assert.IsTrue(database.Retry && database.PrimaryEnabled);
         Assert.AreEqual("failed", database.Rows[0].Mark);
+        var waiting = database.Rows.Single(row => row.TitleKey == "first-service");
+        Assert.AreEqual(("first-waiting", "waiting"), (waiting.CaptionKey, waiting.Mark), "a service that cannot start does not look busy");
         var service = SetupFlow.Page(record, new EngineSnapshot(EngineState.Attention, Preparation: Prepared(service: "failed")), LoginState.Off, false);
         Assert.AreEqual("first-service-failed", service.BodyKey);
     }

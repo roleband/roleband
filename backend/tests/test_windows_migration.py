@@ -364,3 +364,6 @@ class TestTheEngine:
         assert engine.returncode == 0, output[-3000:]
         assert _heads(retained) == [PREVIOUS], "nothing migrated"
         assert not (retained / "recovery" / "pre-migration.json").exists()
+        # The engine's own checkpoint failed, not preparation on the same obstructed path.
+        log = (retained / "logs" / "engine.log").read_text(encoding="utf-8", errors="replace")
+        assert "pre-migration checkpoint failed" in log and "database preparation failed" not in log, log[-3000:]

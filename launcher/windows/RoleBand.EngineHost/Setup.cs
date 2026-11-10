@@ -232,6 +232,8 @@ public static class SetupFlow
                 var database = preparation?.Database ?? (ready ? "ready" : failed ? "failed" : "creating");
                 var model = preparation?.Model ?? (ready ? "unused" : "waiting");
                 var service = preparation?.Service ?? (ready ? "ready" : failed ? "failed" : "starting");
+                // The service never starts after its database failed: it waits, rather than looking busy beside the failure.
+                if (database == "failed" && service == "starting") service = "waiting";
                 var heading = failed ? "first-failed-title"
                     : ready && (preparation?.ModelComplete ?? true) ? "windows-prepared-title" : "first-preparing-title";
                 var body = failed ? (database == "failed" ? "first-database-failed" : "first-service-failed")
