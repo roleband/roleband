@@ -127,10 +127,12 @@ async def test_a_second_supervisor_never_dispatches_while_the_first_holds_the_da
     one = asyncio.create_task(serve(first, db_session.bind, stop, idle_seconds=0.1))
     await _eventually(lambda: asyncio.sleep(0, result=first.ticks >= 1))
     two = asyncio.create_task(serve(second, db_session.bind, stop, idle_seconds=0.1, lock_retry_seconds=0.1))
-    # Counted, not timed: the second is refused the lock again and again while the first keeps dispatching.
-    await _eventually(lambda: asyncio.sleep(0, result=refused >= 3 and first.ticks >= 2))
-    stop.set()
-    await asyncio.gather(one, two)
+    try:
+        # Counted, not timed: the second is refused the lock again and again while the first keeps dispatching.
+        await _eventually(lambda: asyncio.sleep(0, result=refused >= 3 and first.ticks >= 2))
+    finally:
+        stop.set()
+        await asyncio.gather(one, two)
 
     assert refused >= 3, "the second asked for the lock and was refused each time"
     assert first.ticks > 1
