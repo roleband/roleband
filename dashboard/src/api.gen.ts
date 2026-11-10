@@ -2109,6 +2109,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/profile/offer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Offer Ep
+         * @description The person's offer and the private-company valuations they entered.
+         */
+        get: operations["read_offer_ep_api_profile_offer_get"];
+        /** Save Offer Ep */
+        put: operations["save_offer_ep_api_profile_offer_put"];
+        post?: never;
+        /**
+         * Clear Offer Ep
+         * @description Forget the offer. The valuations stay: they are per company, and the
+         *     Stock tab's private table reads them too.
+         */
+        delete: operations["clear_offer_ep_api_profile_offer_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/offer/valuations/{company}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save Valuation Ep */
+        put: operations["save_valuation_ep_api_profile_offer_valuations__company__put"];
+        post?: never;
+        /** Clear Valuation Ep */
+        delete: operations["clear_valuation_ep_api_profile_offer_valuations__company__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/profile/pay-floor": {
         parameters: {
             query?: never;
@@ -2839,6 +2883,32 @@ export interface paths {
          *     `/api/companies/discovery`, which the screen already reads.
          */
         get: operations["statistics_levels_api_statistics_levels_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/statistics/offer-terms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Statistics Offer Terms
+         * @description The terms the Stock tab's offer calculator fills in when a company is
+         *     picked: every company whose offer rules the atlas records, and every listed
+         *     company. The calculator itself runs in the browser; nothing the person types
+         *     is sent here.
+         *
+         *     A stored quote rides along only while a price key is saved. This reads the
+         *     quotes the prices job already stored and never asks the feed for one.
+         */
+        get: operations["statistics_offer_terms_api_statistics_offer_terms_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7765,6 +7835,61 @@ export interface components {
             updated: number;
         };
         /**
+         * OfferDraft
+         * @description `PUT /api/profile/offer`: the offer as the person has it now.
+         */
+        OfferDraft: {
+            /** Answered */
+            answered: ("company" | "base" | "stock" | "strike" | "price" | "valuation" | "vesting" | "bonus" | "sign_on")[];
+            inputs: components["schemas"]["OfferInputs"];
+            started_from: components["schemas"]["OfferOrigin"] | null;
+        };
+        /**
+         * OfferInputs
+         * @description What the person entered. A null figure is blank, never zero.
+         */
+        OfferInputs: {
+            /** Base */
+            base: number | null;
+            /** Bonus Pct */
+            bonus_pct: number | null;
+            /** Company */
+            company: string;
+            /** Grant */
+            grant: number | null;
+            /**
+             * Grant Unit
+             * @enum {string}
+             */
+            grant_unit: "dollars" | "shares";
+            /** Listed */
+            listed: boolean;
+            /** Price */
+            price: number | null;
+            /** Sign On */
+            sign_on: (number | null)[];
+            /** Strike */
+            strike: number | null;
+            /**
+             * Vehicle
+             * @enum {string}
+             */
+            vehicle: "rsu" | "options";
+            /** Vesting */
+            vesting: (number | null)[] | null;
+        };
+        /**
+         * OfferOrigin
+         * @description The typical figures the offer was started from: a company's median
+         *     role, or one role (with its title).
+         */
+        OfferOrigin: {
+            /** Company */
+            company: string;
+            /** Title */
+            title: string | null;
+        };
+        /**
          * OfferPolicy
          * @description How the company builds an offer. Unverified facts are null, never guessed.
          */
@@ -7787,6 +7912,62 @@ export interface components {
             verified: boolean;
             /** Vesting */
             vesting: string | null;
+        };
+        /**
+         * OfferQuote
+         * @description The last quote the prices job stored, in US dollars, and its market date.
+         */
+        OfferQuote: {
+            /** As Of */
+            as_of: string;
+            /** Price */
+            price: number;
+        };
+        /**
+         * OfferResponse
+         * @description Every offer route: the offer (null when none) and the valuations by
+         *     company slug.
+         */
+        OfferResponse: {
+            offer: components["schemas"]["StoredOffer"] | null;
+            /** Valuations */
+            valuations: {
+                [key: string]: components["schemas"]["StoredValuation"];
+            };
+        };
+        /**
+         * OfferTermsCompany
+         * @description What the offer calculator fills in for one company (`analytics.stock_trajectory.build_offer_terms`).
+         *     A fact the company does not state is null, never a default.
+         */
+        OfferTermsCompany: {
+            /** Bonus Rule */
+            bonus_rule: ("none" | "pct_of_base") | null;
+            /** Company */
+            company: string;
+            /** Equity Vehicle */
+            equity_vehicle: string | null;
+            /** Listed */
+            listed: boolean;
+            quote: components["schemas"]["OfferQuote"] | null;
+            /** Sign On Bridges Vesting */
+            sign_on_bridges_vesting: boolean;
+            /** Ticker */
+            ticker: string | null;
+            /** Vesting */
+            vesting: number[] | null;
+            /** Vesting Stated By */
+            vesting_stated_by: ("employer" | "estimated") | null;
+        };
+        /**
+         * OfferTermsResponse
+         * @description `GET /api/statistics/offer-terms`.
+         */
+        OfferTermsResponse: {
+            /** Companies */
+            companies: components["schemas"]["OfferTermsCompany"][];
+            /** Feed Configured */
+            feed_configured: boolean;
         };
         /** OptionalTextChange */
         OptionalTextChange: {
@@ -10684,6 +10865,18 @@ export interface components {
             /** Saved Total */
             saved_total: number;
         };
+        /** StoredOffer */
+        StoredOffer: {
+            /** Answered */
+            answered: ("company" | "base" | "stock" | "strike" | "price" | "valuation" | "vesting" | "bonus" | "sign_on")[];
+            inputs: components["schemas"]["OfferInputs"];
+            /**
+             * Saved At
+             * Format: date-time
+             */
+            saved_at: string;
+            started_from: components["schemas"]["OfferOrigin"] | null;
+        };
         /**
          * StoredPersonaProfile
          * @description The persona: where the user is today, where they are aiming, and the
@@ -10698,6 +10891,25 @@ export interface components {
             target_stage: string;
         } & {
             [key: string]: unknown;
+        };
+        /** StoredValuation */
+        StoredValuation: {
+            /** Grant At */
+            grant_at: number | null;
+            /**
+             * Saved At
+             * Format: date-time
+             */
+            saved_at: string;
+            /** Share Count */
+            share_count: number | null;
+            /** Test At */
+            test_at: number | null;
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "per_share" | "company";
         };
         /**
          * SupervisorView
@@ -11585,6 +11797,24 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /**
+         * ValuationDraft
+         * @description `PUT /api/profile/offer/valuations/{company}`: a private company's value
+         *     at grant and the one to test, per share or for the whole company.
+         */
+        ValuationDraft: {
+            /** Grant At */
+            grant_at: number | null;
+            /** Share Count */
+            share_count: number | null;
+            /** Test At */
+            test_at: number | null;
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "per_share" | "company";
         };
         /**
          * VelocityAgingBand
@@ -15258,6 +15488,145 @@ export interface operations {
             };
         };
     };
+    read_offer_ep_api_profile_offer_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferResponse"];
+                };
+            };
+        };
+    };
+    save_offer_ep_api_profile_offer_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfferDraft"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_offer_ep_api_profile_offer_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferResponse"];
+                };
+            };
+        };
+    };
+    save_valuation_ep_api_profile_offer_valuations__company__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                company: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ValuationDraft"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_valuation_ep_api_profile_offer_valuations__company__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                company: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     read_pay_floor_api_profile_pay_floor_get: {
         parameters: {
             query?: never;
@@ -16359,6 +16728,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LevelGuideResponse"];
+                };
+            };
+        };
+    };
+    statistics_offer_terms_api_statistics_offer_terms_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferTermsResponse"];
                 };
             };
         };

@@ -13480,6 +13480,240 @@
     "title": "NotificationUnreadResponse",
     "type": "object"
    },
+   "OfferDraft": {
+    "additionalProperties": false,
+    "description": "`PUT /api/profile/offer`: the offer as the person has it now.",
+    "properties": {
+     "answered": {
+      "items": {
+       "enum": [
+        "company",
+        "base",
+        "stock",
+        "strike",
+        "price",
+        "valuation",
+        "vesting",
+        "bonus",
+        "sign_on"
+       ],
+       "type": "string"
+      },
+      "maxItems": 9,
+      "title": "Answered",
+      "type": "array"
+     },
+     "inputs": {
+      "$ref": "#/components/schemas/OfferInputs"
+     },
+     "started_from": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/OfferOrigin"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "inputs",
+     "answered",
+     "started_from"
+    ],
+    "title": "OfferDraft",
+    "type": "object"
+   },
+   "OfferInputs": {
+    "additionalProperties": false,
+    "description": "What the person entered. A null figure is blank, never zero.",
+    "properties": {
+     "base": {
+      "anyOf": [
+       {
+        "exclusiveMaximum": 10000000000000.0,
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Base"
+     },
+     "bonus_pct": {
+      "anyOf": [
+       {
+        "maximum": 1000.0,
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Bonus Pct"
+     },
+     "company": {
+      "maxLength": 120,
+      "pattern": "^(|[a-z0-9][a-z0-9-]*)$",
+      "title": "Company",
+      "type": "string",
+      "x-text": "code"
+     },
+     "grant": {
+      "anyOf": [
+       {
+        "exclusiveMaximum": 10000000000000.0,
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Grant"
+     },
+     "grant_unit": {
+      "enum": [
+       "dollars",
+       "shares"
+      ],
+      "title": "Grant Unit",
+      "type": "string"
+     },
+     "listed": {
+      "title": "Listed",
+      "type": "boolean"
+     },
+     "price": {
+      "anyOf": [
+       {
+        "exclusiveMaximum": 10000000000000.0,
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Price"
+     },
+     "sign_on": {
+      "items": {
+       "anyOf": [
+        {
+         "exclusiveMaximum": 10000000000000.0,
+         "minimum": 0.0,
+         "type": "number"
+        },
+        {
+         "type": "null"
+        }
+       ]
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "title": "Sign On",
+      "type": "array"
+     },
+     "strike": {
+      "anyOf": [
+       {
+        "exclusiveMaximum": 10000000000000.0,
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Strike"
+     },
+     "vehicle": {
+      "enum": [
+       "rsu",
+       "options"
+      ],
+      "title": "Vehicle",
+      "type": "string"
+     },
+     "vesting": {
+      "anyOf": [
+       {
+        "items": {
+         "anyOf": [
+          {
+           "maximum": 100.0,
+           "minimum": 0.0,
+           "type": "number"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        "maxItems": 4,
+        "minItems": 1,
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Vesting"
+     }
+    },
+    "required": [
+     "company",
+     "listed",
+     "base",
+     "bonus_pct",
+     "vehicle",
+     "grant_unit",
+     "grant",
+     "strike",
+     "price",
+     "vesting",
+     "sign_on"
+    ],
+    "title": "OfferInputs",
+    "type": "object"
+   },
+   "OfferOrigin": {
+    "additionalProperties": false,
+    "description": "The typical figures the offer was started from: a company's median\nrole, or one role (with its title).",
+    "properties": {
+     "company": {
+      "maxLength": 120,
+      "minLength": 1,
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "title": "Company",
+      "type": "string",
+      "x-text": "code"
+     },
+     "title": {
+      "anyOf": [
+       {
+        "maxLength": 300,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Title",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "company",
+     "title"
+    ],
+    "title": "OfferOrigin",
+    "type": "object"
+   },
    "OfferPolicy": {
     "additionalProperties": false,
     "description": "How the company builds an offer. Unverified facts are null, never guessed.",
@@ -13602,6 +13836,186 @@
      "unknown"
     ],
     "title": "OfferPolicy",
+    "type": "object"
+   },
+   "OfferQuote": {
+    "additionalProperties": false,
+    "description": "The last quote the prices job stored, in US dollars, and its market date.",
+    "properties": {
+     "as_of": {
+      "title": "As Of",
+      "type": "string"
+     },
+     "price": {
+      "title": "Price",
+      "type": "number"
+     }
+    },
+    "required": [
+     "price",
+     "as_of"
+    ],
+    "title": "OfferQuote",
+    "type": "object"
+   },
+   "OfferResponse": {
+    "additionalProperties": false,
+    "description": "Every offer route: the offer (null when none) and the valuations by\ncompany slug.",
+    "properties": {
+     "offer": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/StoredOffer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "valuations": {
+      "additionalProperties": {
+       "$ref": "#/components/schemas/StoredValuation"
+      },
+      "title": "Valuations",
+      "type": "object"
+     }
+    },
+    "required": [
+     "offer",
+     "valuations"
+    ],
+    "title": "OfferResponse",
+    "type": "object"
+   },
+   "OfferTermsCompany": {
+    "additionalProperties": false,
+    "description": "What the offer calculator fills in for one company (`analytics.stock_trajectory.build_offer_terms`).\nA fact the company does not state is null, never a default.",
+    "properties": {
+     "bonus_rule": {
+      "anyOf": [
+       {
+        "enum": [
+         "none",
+         "pct_of_base"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Bonus Rule"
+     },
+     "company": {
+      "title": "Company",
+      "type": "string"
+     },
+     "equity_vehicle": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Equity Vehicle",
+      "x-text": "code"
+     },
+     "listed": {
+      "title": "Listed",
+      "type": "boolean"
+     },
+     "quote": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/OfferQuote"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "sign_on_bridges_vesting": {
+      "title": "Sign On Bridges Vesting",
+      "type": "boolean"
+     },
+     "ticker": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ticker"
+     },
+     "vesting": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "number"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Vesting"
+     },
+     "vesting_stated_by": {
+      "anyOf": [
+       {
+        "enum": [
+         "employer",
+         "estimated"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Vesting Stated By"
+     }
+    },
+    "required": [
+     "company",
+     "listed",
+     "ticker",
+     "equity_vehicle",
+     "vesting",
+     "vesting_stated_by",
+     "bonus_rule",
+     "sign_on_bridges_vesting",
+     "quote"
+    ],
+    "title": "OfferTermsCompany",
+    "type": "object"
+   },
+   "OfferTermsResponse": {
+    "additionalProperties": false,
+    "description": "`GET /api/statistics/offer-terms`.",
+    "properties": {
+     "companies": {
+      "items": {
+       "$ref": "#/components/schemas/OfferTermsCompany"
+      },
+      "title": "Companies",
+      "type": "array"
+     },
+     "feed_configured": {
+      "title": "Feed Configured",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "feed_configured",
+     "companies"
+    ],
+    "title": "OfferTermsResponse",
     "type": "object"
    },
    "OptionalTextChange": {
@@ -22188,6 +22602,56 @@
     "title": "StatsResponse",
     "type": "object"
    },
+   "StoredOffer": {
+    "additionalProperties": false,
+    "properties": {
+     "answered": {
+      "items": {
+       "enum": [
+        "company",
+        "base",
+        "stock",
+        "strike",
+        "price",
+        "valuation",
+        "vesting",
+        "bonus",
+        "sign_on"
+       ],
+       "type": "string"
+      },
+      "maxItems": 9,
+      "title": "Answered",
+      "type": "array"
+     },
+     "inputs": {
+      "$ref": "#/components/schemas/OfferInputs"
+     },
+     "saved_at": {
+      "format": "date-time",
+      "title": "Saved At",
+      "type": "string"
+     },
+     "started_from": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/OfferOrigin"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "inputs",
+     "answered",
+     "started_from",
+     "saved_at"
+    ],
+    "title": "StoredOffer",
+    "type": "object"
+   },
    "StoredPersonaProfile": {
     "additionalProperties": true,
     "description": "The persona: where the user is today, where they are aiming, and the\naim sentence. The scope is not copied here.",
@@ -22210,6 +22674,72 @@
      "target_stage"
     ],
     "title": "StoredPersonaProfile",
+    "type": "object"
+   },
+   "StoredValuation": {
+    "additionalProperties": false,
+    "properties": {
+     "grant_at": {
+      "anyOf": [
+       {
+        "exclusiveMaximum": 10000000000000.0,
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Grant At"
+     },
+     "saved_at": {
+      "format": "date-time",
+      "title": "Saved At",
+      "type": "string"
+     },
+     "share_count": {
+      "anyOf": [
+       {
+        "exclusiveMaximum": 10000000000000.0,
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Share Count"
+     },
+     "test_at": {
+      "anyOf": [
+       {
+        "exclusiveMaximum": 10000000000000.0,
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Test At"
+     },
+     "unit": {
+      "enum": [
+       "per_share",
+       "company"
+      ],
+      "title": "Unit",
+      "type": "string"
+     }
+    },
+    "required": [
+     "unit",
+     "grant_at",
+     "test_at",
+     "share_count",
+     "saved_at"
+    ],
+    "title": "StoredValuation",
     "type": "object"
    },
    "SupervisorView": {
@@ -24827,6 +25357,67 @@
      "type"
     ],
     "title": "ValidationError",
+    "type": "object"
+   },
+   "ValuationDraft": {
+    "additionalProperties": false,
+    "description": "`PUT /api/profile/offer/valuations/{company}`: a private company's value\nat grant and the one to test, per share or for the whole company.",
+    "properties": {
+     "grant_at": {
+      "anyOf": [
+       {
+        "exclusiveMaximum": 10000000000000.0,
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Grant At"
+     },
+     "share_count": {
+      "anyOf": [
+       {
+        "exclusiveMaximum": 10000000000000.0,
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Share Count"
+     },
+     "test_at": {
+      "anyOf": [
+       {
+        "exclusiveMaximum": 10000000000000.0,
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Test At"
+     },
+     "unit": {
+      "enum": [
+       "per_share",
+       "company"
+      ],
+      "title": "Unit",
+      "type": "string"
+     }
+    },
+    "required": [
+     "unit",
+     "grant_at",
+     "test_at",
+     "share_count"
+    ],
+    "title": "ValuationDraft",
     "type": "object"
    },
    "VelocityAgingBand": {
@@ -30207,6 +30798,168 @@
     "summary": "Get Profile Ep"
    }
   },
+  "/api/profile/offer": {
+   "delete": {
+    "description": "Forget the offer. The valuations stay: they are per company, and the\nStock tab's private table reads them too.",
+    "operationId": "clear_offer_ep_api_profile_offer_delete",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/OfferResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Clear Offer Ep"
+   },
+   "get": {
+    "description": "The person's offer and the private-company valuations they entered.",
+    "operationId": "read_offer_ep_api_profile_offer_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/OfferResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Read Offer Ep"
+   },
+   "put": {
+    "operationId": "save_offer_ep_api_profile_offer_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/OfferDraft"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/OfferResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Save Offer Ep"
+   }
+  },
+  "/api/profile/offer/valuations/{company}": {
+   "delete": {
+    "operationId": "clear_valuation_ep_api_profile_offer_valuations__company__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "company",
+      "required": true,
+      "schema": {
+       "maxLength": 120,
+       "pattern": "^[a-z0-9][a-z0-9-]*$",
+       "title": "Company",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/OfferResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Clear Valuation Ep"
+   },
+   "put": {
+    "operationId": "save_valuation_ep_api_profile_offer_valuations__company__put",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "company",
+      "required": true,
+      "schema": {
+       "maxLength": 120,
+       "pattern": "^[a-z0-9][a-z0-9-]*$",
+       "title": "Company",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ValuationDraft"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/OfferResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Save Valuation Ep"
+   }
+  },
   "/api/profile/pay-floor": {
    "delete": {
     "operationId": "remove_pay_floor_api_profile_pay_floor_delete",
@@ -31904,6 +32657,25 @@
      }
     },
     "summary": "Statistics Levels"
+   }
+  },
+  "/api/statistics/offer-terms": {
+   "get": {
+    "description": "The terms the Stock tab's offer calculator fills in when a company is\npicked: every company whose offer rules the atlas records, and every listed\ncompany. The calculator itself runs in the browser; nothing the person types\nis sent here.\n\nA stored quote rides along only while a price key is saved. This reads the\nquotes the prices job already stored and never asks the feed for one.",
+    "operationId": "statistics_offer_terms_api_statistics_offer_terms_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/OfferTermsResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Statistics Offer Terms"
    }
   },
   "/api/statistics/overview": {

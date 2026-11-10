@@ -75,6 +75,8 @@ ROUTES = {
     "disclosure_trends": "/api/statistics/disclosure-trends",
     "demand": "/api/demand",
 }
+# Reference data, not roles: no scope, window or hidden company narrows it.
+REFERENCE_ROUTES = {"offer_terms": "/api/statistics/offer-terms"}
 
 
 @pytest_asyncio.fixture
@@ -433,6 +435,41 @@ async def test_the_trajectory_reads_each_role_s_package_and_sets_apart_what_it_c
         {"reason": "total_compensation", "count": 1},
     ]
     assert body["overall"]["count"] == 19
+
+
+@pytest.mark.asyncio
+async def test_offer_terms_carry_a_stored_quote_only_while_a_price_key_is_saved(api_client, db_session, seeded, monkeypatch):
+    """The calculator reads quotes the prices job stored; without a key the
+    price field stays the person's to type, whatever an old row holds."""
+    from datetime import date
+    from decimal import Decimal
+
+    from tracker.db.models import CompanyPrice
+
+    db_session.add(CompanyPrice(company_slug="google", ticker="GOOGL", price=Decimal("301.25"),
+                                as_of=date(2026, 11, 6), source="tiingo"))
+    await db_session.commit()
+    key: list[str | None] = [None]
+
+    async def api_key(session, settings):
+        return key[0], "settings" if key[0] else None
+
+    monkeypatch.setattr(router.price_store, "api_key", api_key)
+
+    without = await _get(api_client, REFERENCE_ROUTES["offer_terms"])
+    by_company = {row["company"]: row for row in without["companies"]}
+    assert without["feed_configured"] is False
+    assert by_company["google"]["quote"] is None
+    # Every company the atlas records, followed or not, and every listed profile.
+    assert {"amazon", "microsoft", "netflix", "google"} <= set(by_company)
+    assert by_company["netflix"]["equity_vehicle"] == "cash_election"
+
+    key[0] = "tk_test"
+    with_key = await _get(api_client, REFERENCE_ROUTES["offer_terms"])
+    google = {row["company"]: row for row in with_key["companies"]}["google"]
+    assert with_key["feed_configured"] is True
+    assert google["quote"] == {"price": 301.25, "as_of": "2026-11-06"}
+    assert (google["listed"], google["ticker"]) == (True, "GOOGL")
 
 
 @pytest.mark.asyncio
@@ -904,6 +941,13 @@ def _each_group_without_modeled_share(real):
     return drifted
 
 
+def _each_row_adding(real):
+    def drifted(*args, **kwargs):
+        return [{**row, "drift": 1} for row in real(*args, **kwargs)]
+
+    return drifted
+
+
 def _series_without_count(real):
     def drifted(*args, **kwargs):
         body = real(*args, **kwargs)
@@ -927,6 +971,7 @@ def _points_with_an_extra_key(real):
         ("build_comp_stats", _adding, "compensation"),
         ("rank_skill_comp", _each_skill_without_premium, "compensation"),
         ("build_comp_trajectory", _adding, "trajectory"),
+        ("build_offer_terms", _each_row_adding, "offer_terms"),
         ("build_equity_residuals", _each_group_without_modeled_share, "equity"),
         ("build_comp_trend_series", _series_without_count, "comp_trends"),
         ("build_disclosure_trend_series", _points_with_an_extra_key, "disclosure_trends"),
@@ -934,10 +979,10 @@ def _points_with_an_extra_key(real):
     ],
     # No builder here writes English: the dashboard names families, so there is
     # no name left to drift.
-    ids=["comp_stats_key_added", "skill_premium_dropped", "trajectory_key_added", "residual_share_dropped",
+    ids=["comp_stats_key_added", "skill_premium_dropped", "trajectory_key_added", "offer_terms_key_added", "residual_share_dropped",
          "trend_count_dropped", "disclosure_point_key_added", "demand_row_key_added"],
 )
 async def test_a_builder_that_drifts_fails_the_response(api_client, seeded, monkeypatch, name, drift, route):
     monkeypatch.setattr(router, name, drift(getattr(router, name)))
     with pytest.raises(ResponseValidationError):
-        await api_client.get(ROUTES[route])
+        await api_client.get({**ROUTES, **REFERENCE_ROUTES}[route])

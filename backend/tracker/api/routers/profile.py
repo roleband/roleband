@@ -1,4 +1,5 @@
-"""The user-profile surface: inferred suggestions, the pay floor and pursuits.
+"""The user-profile surface: inferred suggestions, the pay floor, the person's
+own offer, and pursuits.
 
 The pursuit routes declare their responses in `api/schemas/profile.py`.
 """
@@ -8,8 +9,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Query
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Path, Query
+from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import select
 
 from tracker.agents.pursuits import (
@@ -22,9 +23,14 @@ from tracker.agents.pursuits import (
 from tracker.api.deps import SessionDep
 from tracker.api.errors import ErrorCode, api_error
 from tracker.api.schemas.profile import (
+    OfferDraft,
+    OfferResponse,
     PayFloorResponse,
     PursuitListResponse,
     PursuitWriteResponse,
+    StoredOffer,
+    StoredValuation,
+    ValuationDraft,
 )
 from tracker.api.schemas.profile_suggestions import (
     ProfileSuggestionAcceptResponse,
@@ -47,6 +53,15 @@ from tracker.settings_store import (
     set_pay_floor,
 )
 from tracker.taxonomy.domains import all_slugs as all_domain_slugs
+from tracker.user_profile.offer import (
+    TooManyValuations,
+    clear_offer,
+    clear_valuation,
+    read_offer,
+    read_valuations,
+    save_offer,
+    save_valuation,
+)
 
 router = APIRouter()
 
@@ -175,6 +190,70 @@ async def remove_pay_floor(session: SessionDep) -> dict:
     await clear_pay_floor(session)
     await session.commit()
     return {"pay_floor": None}
+
+
+# --- the person's own offer (docs/pay.md, "Your offer") ---------------------
+# Kept on this computer only (`tracker/user_profile/offer.py`).
+
+PrivateCompany = Annotated[str, Path(max_length=120, pattern=r"^[a-z0-9][a-z0-9-]*$")]
+
+
+async def _offer_response(session) -> dict:
+    """The kept offer and valuations. A stored value the current shape cannot
+    read is left out: it reads as never entered, never as other figures."""
+    offer = None
+    raw = await read_offer(session)
+    if raw is not None:
+        try:
+            offer = StoredOffer.model_validate(raw).model_dump(mode="json")
+        except ValidationError:
+            offer = None
+    valuations = {}
+    for company, value in (await read_valuations(session)).items():
+        try:
+            valuations[company] = StoredValuation.model_validate(value).model_dump(mode="json")
+        except ValidationError:
+            continue
+    return {"offer": offer, "valuations": valuations}
+
+
+@router.get("/api/profile/offer", response_model=OfferResponse)
+async def read_offer_ep(session: SessionDep) -> dict:
+    """The person's offer and the private-company valuations they entered."""
+    return await _offer_response(session)
+
+
+@router.put("/api/profile/offer", response_model=OfferResponse)
+async def save_offer_ep(payload: OfferDraft, session: SessionDep) -> dict:
+    await save_offer(session, payload.model_dump(mode="json"), datetime.now(UTC))
+    await session.commit()
+    return await _offer_response(session)
+
+
+@router.delete("/api/profile/offer", response_model=OfferResponse)
+async def clear_offer_ep(session: SessionDep) -> dict:
+    """Forget the offer. The valuations stay: they are per company, and the
+    Stock tab's private table reads them too."""
+    await clear_offer(session)
+    await session.commit()
+    return await _offer_response(session)
+
+
+@router.put("/api/profile/offer/valuations/{company}", response_model=OfferResponse)
+async def save_valuation_ep(company: PrivateCompany, payload: ValuationDraft, session: SessionDep) -> dict:
+    try:
+        await save_valuation(session, company, payload.model_dump(mode="json"), datetime.now(UTC))
+    except TooManyValuations as exc:
+        raise api_error(422, ErrorCode.INVALID_INPUT, str(exc)) from exc
+    await session.commit()
+    return await _offer_response(session)
+
+
+@router.delete("/api/profile/offer/valuations/{company}", response_model=OfferResponse)
+async def clear_valuation_ep(company: PrivateCompany, session: SessionDep) -> dict:
+    await clear_valuation(session, company)
+    await session.commit()
+    return await _offer_response(session)
 
 
 # --- pursuits (the HTTP twin of the MCP write tool) --------------------------

@@ -19,6 +19,7 @@ from tracker.analytics.stock_trajectory import (
     FROM_POSTED,
     TrajectoryRole,
     build_comp_trajectory,
+    build_offer_terms,
 )
 
 
@@ -245,3 +246,62 @@ class TestIdentity:
             profiles={"waymo": {"is_public": False, "ticker": None, "equity_vehicle": "options"}},
         )
         assert [e["company"] for e in out["private"]] == ["waymo"]
+
+
+class TestOfferTerms:
+    """What the offer calculator fills in when a company is picked: only what
+    the atlas states, each fact with who states it, never a default."""
+
+    @staticmethod
+    def _terms(*companies: str, profiles: dict | None = None, quotes: dict | None = None) -> dict[str, dict]:
+        return {row["company"]: row for row in build_offer_terms(companies, profiles=profiles, quotes=quotes)}
+
+    def test_a_back_loaded_schedule_is_read_year_by_year_with_who_states_it(self):
+        terms = self._terms("amazon", "microsoft")
+        amazon, microsoft = terms["amazon"], terms["microsoft"]
+        assert amazon["vesting"] == [5, 15, 40, 40]
+        assert amazon["vesting_stated_by"] == "estimated"
+        assert (amazon["bonus_rule"], amazon["sign_on_bridges_vesting"]) == ("none", True)
+        assert microsoft["vesting"] == [25, 25, 25, 25]
+        assert microsoft["vesting_stated_by"] == "employer"
+        assert (microsoft["bonus_rule"], microsoft["sign_on_bridges_vesting"]) == ("pct_of_base", False)
+
+    def test_a_company_that_states_no_schedule_gets_none_not_an_even_one(self):
+        """The screen assumes the even schedule and says so; the server never
+        presents one as stated. Anthropic's vesting is searched and not found."""
+        anthropic = self._terms("anthropic")["anthropic"]
+        assert (anthropic["vesting"], anthropic["vesting_stated_by"]) == (None, None)
+        unknown = self._terms("no-such-company")["no-such-company"]
+        assert (unknown["vesting"], unknown["bonus_rule"], unknown["equity_vehicle"]) == (None, None, None)
+
+    def test_the_cash_election_and_a_parent_s_stock_reach_the_calculator(self):
+        terms = self._terms("netflix", "google-deepmind")
+        assert terms["netflix"]["equity_vehicle"] == "cash_election"
+        deepmind = terms["google-deepmind"]
+        assert (deepmind["listed"], deepmind["ticker"], deepmind["equity_vehicle"]) == (True, "GOOGL", "rsu")
+
+    def test_a_stored_quote_rides_only_on_a_listed_company_in_dollars(self):
+        quotes = {
+            "microsoft": {"price": 512.3456789, "currency": "USD", "as_of": "2026-11-07"},
+            "openai": {"price": 99.0, "currency": "USD", "as_of": "2026-11-07"},
+            "tsmc": {"price": 1100.0, "currency": "TWD", "as_of": "2026-11-07"},
+        }
+        terms = self._terms("microsoft", "openai", "tsmc", quotes=quotes)
+        assert terms["microsoft"]["quote"] == {"price": 512.3457, "as_of": "2026-11-07"}
+        assert terms["openai"]["listed"] is False
+        assert terms["openai"]["quote"] is None
+        assert terms["tsmc"]["quote"] is None
+
+    def test_resolved_identity_beats_the_table(self):
+        """A company that listed later is listed with its new ticker."""
+        profiles = {"openai": {"is_public": True, "ticker": "OAI", "equity_vehicle": "rsu"}}
+        openai = self._terms("openai", profiles=profiles)["openai"]
+        assert (openai["listed"], openai["ticker"], openai["equity_vehicle"]) == (True, "OAI", "rsu")
+
+    @pytest.mark.parametrize("schedule", ["unknown", "20/20/20/20/20", "a/b", "0/0", ""])
+    def test_a_schedule_the_calculator_cannot_show_is_not_offered(self, monkeypatch, schedule):
+        from tracker.analytics import stock_trajectory
+        from tracker.levels.model import PayPolicy
+
+        monkeypatch.setattr(stock_trajectory, "policy_for", lambda company: PayPolicy(company, vesting=schedule))
+        assert self._terms("acme")["acme"]["vesting"] is None

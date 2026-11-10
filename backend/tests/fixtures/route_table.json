@@ -1,7 +1,7 @@
 {
  "_why": "The route table is frozen so the router split cannot add or drop an endpoint silently. `modelled_count` is the SECOND claim: how many of these routes declare a response_model. It is deliberately reported as 'N of M' rather than as a pass, because this gate does not verify response shapes it was never given. The number may only rise.",
- "modelled_count": 173,
- "route_count": 179,
+ "modelled_count": 179,
+ "route_count": 185,
  "routes": [
   {
    "method": "DELETE",
@@ -47,6 +47,16 @@
    "method": "DELETE",
    "path": "/api/plugins/{plugin_id}",
    "response_schema": "PluginActionResponse"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/profile/offer",
+   "response_schema": "OfferResponse"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/profile/offer/valuations/{company}",
+   "response_schema": "OfferResponse"
   },
   {
    "method": "DELETE",
@@ -305,6 +315,11 @@
   },
   {
    "method": "GET",
+   "path": "/api/profile/offer",
+   "response_schema": "OfferResponse"
+  },
+  {
+   "method": "GET",
    "path": "/api/profile/pay-floor",
    "response_schema": "PayFloorResponse"
   },
@@ -412,6 +427,11 @@
    "method": "GET",
    "path": "/api/statistics/levels",
    "response_schema": "LevelGuideResponse"
+  },
+  {
+   "method": "GET",
+   "path": "/api/statistics/offer-terms",
+   "response_schema": "OfferTermsResponse"
   },
   {
    "method": "GET",
@@ -857,6 +877,16 @@
    "method": "PUT",
    "path": "/api/plugins/{plugin_id}/schedule",
    "response_schema": "PluginActionResponse"
+  },
+  {
+   "method": "PUT",
+   "path": "/api/profile/offer",
+   "response_schema": "OfferResponse"
+  },
+  {
+   "method": "PUT",
+   "path": "/api/profile/offer/valuations/{company}",
+   "response_schema": "OfferResponse"
   },
   {
    "method": "PUT",
