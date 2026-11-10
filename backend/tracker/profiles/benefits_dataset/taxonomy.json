@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "categories": [
     {
       "id": "health_wellbeing",
@@ -178,9 +178,28 @@
     {
       "id": "retirement_plan",
       "category": "retirement_financial",
+      "label": "Retirement plan",
+      "aliases": [
+        "Pension",
+        "Pension plan",
+        "Retirement savings plan"
+      ]
+    },
+    {
+      "id": "us_401k",
+      "category": "retirement_financial",
       "label": "401k",
       "aliases": [
-        "401k"
+        "401(k)"
+      ]
+    },
+    {
+      "id": "ca_rrsp",
+      "category": "retirement_financial",
+      "label": "RRSP",
+      "aliases": [
+        "Registered Retirement Savings Plan",
+        "Group RRSP"
       ]
     },
     {

@@ -90,8 +90,8 @@ def test_only_the_sources_own_walls_are_walls_and_walled_is_never_curated():
     walled = sorted(key for key, row in SOURCE_REVIEWS.items() if row.wall is not None)
     # `smartrecruiters_api`: its robots allows only LinkedInBot.
     # Its board route (`smartrecruiters`) serves no robots file and is not walled.
-    # `workday` is NOT here: a source left to the user asks nothing of us, so there is no consent to take — it keeps
-    # its companies off the curated list and out of automatic work instead.
+    # `workday` is NOT here: a source left to the user asks nothing of us. Its companies stay off the curated list,
+    # follow with the user's agreement, and join automatic work only when that agreement chose regular scans.
     # `avature_tls`: TSMC's portal refuses identified clients.
     assert walled == ["avature_tls", "google", "smartrecruiters_api"]
     assert not is_curated("tsmc"), "TSMC is on the walled TLS route"
@@ -505,7 +505,7 @@ def test_a_consented_company_stays_scheduled_after_its_robots_file_changes(monke
 
 
 # --------------------------------------------------------------------------- #
-# User-directed sources: consent says "you may", not "now"
+# User-directed sources: the agreement says "you may"; its choice says when
 # --------------------------------------------------------------------------- #
 
 
@@ -514,7 +514,7 @@ def _workday_due():
     from tracker.workflows.scheduler import DueWork
 
     now = datetime(2026, 9, 23, 12, 0, tzinfo=UTC)
-    consent = SOURCE_REVIEWS["workday"].wall_fingerprint
+    consent = SOURCE_REVIEWS["workday"].directed_fingerprint
     due = [
         DueWork(1, "nvidia", "workday", ScanMode.RECONCILE, now),
         DueWork(2, "apple", "apple", ScanMode.RECONCILE, now),
@@ -526,15 +526,19 @@ def _workday_due():
     return due, targets
 
 
-def test_a_consented_user_directed_company_still_waits_for_the_user():
-    """A Workday company is scanned by a sync the user
-    starts, never because a deadline passed. Consent alone must not schedule
-    it — that is the difference between 'you may' and 'now'."""
+def test_an_agreement_to_be_read_on_request_waits_for_the_user():
+    """A Workday company whose agreement chose to be read only on request is
+    scanned by a sync the user starts, never because a deadline passed. The
+    agreement alone does not schedule it: its "keep scanning" choice does."""
     from tracker.config import Settings
     from tracker.workflows.scheduler import collectable_now
 
     due, targets = _workday_due()
+    assert targets["nvidia"]["consent"], "the helper's nvidia has an agreement"
     assert [item.company_slug for item in collectable_now(due, targets, Settings())] == ["apple"]
+
+    targets["nvidia"]["scan_on_schedule"] = True
+    assert [item.company_slug for item in collectable_now(due, targets, Settings())] == ["nvidia", "apple"]
 
 
 def test_the_sync_button_is_what_collects_a_user_directed_company():
@@ -548,20 +552,22 @@ def test_the_sync_button_is_what_collects_a_user_directed_company():
     assert [item.company_slug for item in admitted] == ["nvidia", "apple"]
 
 
-def test_a_user_directed_company_needs_no_consent_only_the_users_request():
-    """The source asks nothing of us, so there is nothing to consent TO.
-    What it still needs is the user's request: without one the
-    scheduler leaves it alone, with one it runs."""
+def test_a_user_directed_company_without_an_agreement_is_read_only_on_request():
+    """A Workday company followed before its follow dialog asked has no
+    agreement. The scheduler leaves it alone, even with a "keep scanning" left
+    over; a sync the user starts still reads it, and the gate does not refuse
+    it, since the source asks nothing of us."""
     from tracker.config import Settings
     from tracker.workflows.scheduler import collectable_now
 
     due, targets = _workday_due()
     targets["nvidia"]["consent"] = None
+    targets["nvidia"]["scan_on_schedule"] = True
     assert [item.company_slug for item in collectable_now(due, targets, Settings())] == ["apple"]
     assert [item.company_slug for item in collectable_now(due, targets, Settings(), [1])] == [
         "nvidia", "apple",
     ]
-    # And the gate does not refuse it: following the company was the decision.
+    # And the gate does not refuse it: the source asks nothing of us.
     access = collection_access("workday", company="nvidia", settings=Settings(), consent=None)
     assert not access.walled and not access.denied
 

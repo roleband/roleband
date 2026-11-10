@@ -134,6 +134,10 @@ export interface paths {
          *
          *     URLs that aren't a board `detect_ats` collects are stored `pending`
          *     — visible in Settings but skipped by the pipeline until an adapter exists.
+         *
+         *     A company is added followed, so a walled or user-directed one needs the
+         *     answer to its follow dialog (`consent`): without it nothing is added and
+         *     the refusal (`consent-required`) names the dialog, for a retry with it.
          */
         post: operations["create_company_api_companies_post"];
         delete?: never;
@@ -440,10 +444,14 @@ export interface paths {
         head?: never;
         /**
          * Update Company
-         * @description Toggle a company's tracking (`enabled`) and/or visibility (`visible`).
+         * @description Toggle a company's tracking (`enabled`), visibility (`visible`) and, for a
+         *     user-directed company, whether it is scanned on the regular schedule
+         *     (`scan_on_schedule`).
          *
-         *     Both fields are optional and applied independently. Built-in and user-added
+         *     Each field is optional and applied independently. Built-in and user-added
          *     companies are identical rows here — one code path, no special case.
+         *     Turning `scan_on_schedule` on also queues a read, so the company joins the
+         *     schedule read, not already stale.
          */
         patch: operations["update_company_api_companies__slug__patch"];
         trace?: never;
@@ -3017,7 +3025,7 @@ export interface paths {
          *         its outcome below is what says so.
          *       * `last_full_scan_at` — the newest reconcile that read the whole board:
          *         the coverage clock ("Scanned 3 hours ago").
-         *       * `automatic` — scanned without the user asking (not a user-directed source).
+         *       * `automatic` — scanned without the user asking (`source_policy.scanned_automatically`).
          *       * `last_outcome` / `retryable` — read off the newest **full** run. A
          *         targeted run's `per_source` covers only its own subset, so it cannot
          *         answer "which sources still need work" for anyone else.
@@ -3257,6 +3265,7 @@ export interface components {
             careers_url?: string | null;
             /** Catalog Slug */
             catalog_slug?: string | null;
+            consent?: components["schemas"]["AgreementPayload"] | null;
             /** Name */
             name?: string | null;
         };
@@ -3308,6 +3317,25 @@ export interface components {
             access: "status" | "read" | "write";
             /** Name */
             name: string;
+        };
+        /**
+         * AgreementPayload
+         * @description The user's answer to a follow dialog: a walled company's consent, or a
+         *     user-directed company's agreement and its "keep scanning" choice.
+         */
+        AgreementPayload: {
+            /**
+             * Locale
+             * @default en
+             */
+            locale: string;
+            /**
+             * Scan On Schedule
+             * @default true
+             */
+            scan_on_schedule: boolean;
+            /** Text */
+            text: string;
         };
         /** AmountChange */
         AmountChange: {
@@ -3616,8 +3644,8 @@ export interface components {
          *     column and stays a string. `last_full_scan_at` is `None` for a company no
          *     scan ever read in full, and `days_since_full_scan` then counts from when
          *     its binding was made. `automatic` is false for a company scanned only when
-         *     the user asks (a user-directed source) or not at all (walled, no consent): the bell never
-         *     rings for those. `empty_since` is set only while the newest reconcile
+         *     the user asks (a user-directed source without an agreement to regular scans)
+         *     or not at all (walled, no consent): the bell never rings for those. `empty_since` is set only while the newest reconcile
          *     proved the board empty.
          */
         BindingAttentionItem: {
@@ -4387,7 +4415,7 @@ export interface components {
         };
         /**
          * CompanyConsent
-         * @description The user's answer to a walled company's consent dialog.
+         * @description The user's answer to one company's follow dialog, in a selection.
          */
         CompanyConsent: {
             /**
@@ -4395,6 +4423,11 @@ export interface components {
              * @default en
              */
             locale: string;
+            /**
+             * Scan On Schedule
+             * @default true
+             */
+            scan_on_schedule: boolean;
             /** Slug */
             slug: string;
             /** Text */
@@ -4440,6 +4473,11 @@ export interface components {
         CompanyDiscoveryResponse: {
             /** Companies */
             companies: components["schemas"]["DiscoveryCompany"][];
+            /**
+             * Reads Waiting
+             * @default []
+             */
+            reads_waiting: string[];
             /** Sectors */
             sectors: components["schemas"]["DiscoverySector"][];
         };
@@ -5163,6 +5201,8 @@ export interface components {
             curated: boolean;
             /** Detected Family */
             detected_family?: string | null;
+            /** Directed */
+            directed: boolean;
             /** Directory */
             directory: boolean;
             /** Display */
@@ -5173,6 +5213,8 @@ export interface components {
             parked_reason: ("bot_protected" | "robots_disallow" | "prohibits_collection") | null;
             /** Pending Reason */
             pending_reason?: ("policy_refused" | "board_silent") | null;
+            /** Scan On Schedule */
+            scan_on_schedule: boolean;
             /** Sectors */
             sectors: string[];
             /** Selectable */
@@ -5371,6 +5413,8 @@ export interface components {
         EnabledPayload: {
             /** Enabled */
             enabled?: boolean | null;
+            /** Scan On Schedule */
+            scan_on_schedule?: boolean | null;
             /** Visible */
             visible?: boolean | null;
         };
@@ -5482,8 +5526,9 @@ export interface components {
          * ExcludedBinding
          * @description A binding the roster does not require fresh: behind a paused or
          *     policy-denied provider, one automatic work never collects (a walled
-         *     company without consent, a user-directed source the user has not asked
-         *     for; `schedule_status.waits_for_user`), or a company whose
+         *     company without consent; a company on a user-directed source its user
+         *     never agreed to, `user_directed`, or agreed to have read only when they ask,
+         *     `on_request`; `schedule_status.waits_for_user`), or a company whose
          *     careers page is gone from its address, which Coverage tells.
          */
         ExcludedBinding: {
@@ -5495,7 +5540,7 @@ export interface components {
              * Reason
              * @enum {string}
              */
-            reason: "policy_denied" | "paused" | "walled" | "user_directed" | "board_missing";
+            reason: "policy_denied" | "paused" | "walled" | "user_directed" | "on_request" | "board_missing";
         };
         /**
          * ExpectedBand
@@ -9466,7 +9511,7 @@ export interface components {
              */
             status: "scheduled" | "manual" | "cooldown" | "paused" | "policy_denied" | "unscheduled";
             /** Waits For User */
-            waits_for_user: ("walled" | "user_directed") | null;
+            waits_for_user: ("walled" | "user_directed" | "on_request") | null;
         };
         /**
          * SchedulePayload

@@ -5,7 +5,8 @@ A save that can widen the scope promotes the postings a sync already read
 admitted from, so their descriptions, pay and derivations follow within one
 scheduler tick. Queued, not started: the always-on dispatcher collects due
 work, and a save that spawned processes would reach every test that drives
-it. A user-directed source is left to the user's own Sync.
+it. A company read only at its user's direction is left to them
+(`scheduler.queue_promoted_reconciliation`).
 Promotion runs before the save's commit, the queue after it; neither can
 fail the save.
 """

@@ -175,7 +175,9 @@ const bindingIcon = (binding: ScheduleBinding) =>
     status badge already says it (a provider paused, denied or cooling down). */
 const planScanText = (binding: ScheduleBinding): string | null => {
   if (!["scheduled", "manual"].includes(binding.status)) return null;
-  if (binding.waits_for_user === "user_directed") return settingsScheduleSectionOnlyWhenYouPressScan();
+  if (binding.waits_for_user === "user_directed" || binding.waits_for_user === "on_request") {
+    return settingsScheduleSectionOnlyWhenYouPressScan();
+  }
   if (binding.waits_for_user === "walled") return settingsScheduleSectionOnlyAfterYouAllowIt();
   const own = [
     binding.reconcile_anchor_minute !== null ? settingsScheduleSectionFullScanAt({ reconcile_anchor_minute: String(formatMinute(binding.reconcile_anchor_minute)) }) : null,
@@ -253,7 +255,10 @@ const statusIcon = (status: ScheduleBinding["status"]) => {
 const statusLabel = (binding: ScheduleBinding) => {
   // The scheduler's own reason: a company no timer takes is not
   // "Scheduled", whatever its row says.
-  if (binding.status === "scheduled" && binding.waits_for_user === "user_directed") {
+  if (
+    binding.status === "scheduled"
+    && (binding.waits_for_user === "user_directed" || binding.waits_for_user === "on_request")
+  ) {
     return settingsScheduleSectionOnlyWhenYouPressScan();
   }
   if (binding.status === "scheduled" && binding.waits_for_user === "walled") return settingsScheduleSectionOnlyAfterYouAllowIt();

@@ -26,11 +26,12 @@ function discoveryRow(slug: string, display: string, extra: Partial<CompanyDisco
   return {
     slug, display, careers_url: null, sectors: ["faang"], aliases: [], connector_state: "live" as const,
     parked_reason: null, selectable: true, tracked: false, enabled: false, visible: true, builtin: true,
-    curated: false, directory: false, wall: null, consented: false, status: null, ...extra,
+    curated: false, directory: false, directed: false, scan_on_schedule: false, wall: null, consented: false, status: null, ...extra,
   };
 }
 
 const discovery: CompanyDiscoveryState = {
+  reads_waiting: [],
   sectors: [],
   companies: [
     discoveryRow("google", "Google", { tracked: true, enabled: true, status: "active" }),

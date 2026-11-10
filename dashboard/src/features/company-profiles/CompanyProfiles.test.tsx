@@ -123,7 +123,7 @@ const base = ({ fields, ...over }: DetailOverrides = {}): CompanyProfileDetail =
     {
       category: "retirement_financial",
       items: [
-        { name: "401k", benefit_type: "retirement_plan", value_usd: 9750, value_text: null, description: "50% match",
+        { name: "401k", benefit_type: "us_401k", value_usd: 9750, value_text: null, description: "50% match",
           source: PLUGIN_SOURCE, provider: PLUGIN_SOURCE, builtin: false, kind: "provider", country: null, reviewed: false, mentions: 0, wordings: [] },
         { name: "Free yacht", benefit_type: null, value_usd: null, value_text: "20 days", description: null,
           source: PLUGIN_SOURCE, provider: PLUGIN_SOURCE, builtin: false, kind: "provider", country: null, reviewed: false, mentions: 0, wordings: [] },
@@ -409,7 +409,7 @@ describe("CompanyProfilePanel", () => {
     expect(await screen.findByText(msg("profiles-benefits-category", { category: "retirement_financial" })))
       .toBeInTheDocument();
     // An estimate is labelled as one; with no terms behind it, the row adds no filler line.
-    const k = screen.getByText(msg("profiles-benefits-type", { type: "retirement_plan" })).closest("li")!;
+    const k = screen.getByText(msg("profiles-benefits-type", { type: "us_401k" })).closest("li")!;
     expect(within(k).getByText(msg("profiles-benefits-estimate", { value: "$10K" }))).toBeInTheDocument();
     expect(k.querySelector(".benefit-terms")).toBeNull();
     expect(screen.queryByText(/Details not captured/)).toBeNull();
@@ -428,14 +428,14 @@ describe("CompanyProfilePanel", () => {
     mock(base({
       sources: OURS,
       benefits: [{ category: "retirement_financial", items: [ours({
-        benefit_type: "retirement_plan", value_text: "Match vests only after 3 years.", mentions: 75,
+        benefit_type: "us_401k", value_text: "Match vests only after 3 years.", mentions: 75,
         wordings: [{ text: "401(k) Plan", kind: "employer", country: null },
                    { text: "Roth option", kind: "dataset", country: "US" }],
       })] }],
     }));
     render(<CompanyProfilePanel slug="amazon" />);
     const row = (await screen.findByText("Match vests only after 3 years.")).closest("li")!;
-    expect(screen.getAllByText(msg("profiles-benefits-type", { type: "retirement_plan" }))).toHaveLength(1);
+    expect(screen.getAllByText(msg("profiles-benefits-type", { type: "us_401k" }))).toHaveLength(1);
     expect(row).toHaveTextContent(msg("profiles-benefits-mentions", { count: 75 }));
     expect(screen.queryByText("401(k) Plan")).toBeNull();  // folded until asked for
     const toggle = within(row).getByRole("button", { name: msg("profiles-benefits-other-wordings", { open: "no", count: 2 }) });

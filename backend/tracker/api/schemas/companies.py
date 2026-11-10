@@ -115,9 +115,18 @@ class DiscoveryCompany(Built):
     #: source's robots.txt disallows our route (`robots`) or its host refuses an
     #: identified client (`bot_wall`). Null for the unwalled majority.
     wall: Literal["robots", "bot_wall"] | None
-    #: The user consented to collecting this walled company; asked once, never
-    #: again. A walled company that is followed but not consented is not scanned.
+    #: On a user-directed source (`source_review.SourceReview.user_directed`):
+    #: following it needs the user's agreement, which also says whether it is
+    #: scanned on the regular schedule.
+    directed: bool
+    #: The user agreed to collecting this walled or directed company; asked
+    #: once, never again. A walled company followed without consent is not
+    #: scanned; a directed one followed without an agreement is read only when
+    #: the user asks.
     consented: bool
+    #: A directed company's agreement chose regular scans. False for every
+    #: other company, which needs no such choice.
+    scan_on_schedule: bool
     #: A company from the directory of every other company RoleBand can scan,
     #: followed by name or brought in by the whole-set follow. The
     #: register draws these under "Not in a sector", apart from URL additions.
@@ -175,6 +184,10 @@ class CompanyDiscoveryResponse(Built):
 
     sectors: list[DiscoverySector]
     companies: list[DiscoveryCompany]
+    #: After a selection: the user-directed companies it followed or agreed to
+    #: whose read could not be queued (their provider is paused or denied), so
+    #: the screen can say the read waits. Always empty on a GET.
+    reads_waiting: list[str] = []
 
 
 class CompanyOpenCountsResponse(Built):

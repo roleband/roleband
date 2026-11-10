@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/roleband/roleband-data",
-  "commit": "474869609f467db865e2c85d53087f1815e7e951",
+  "commit": "3a4caa242dbfcdc2c8b45725e7159e047781ef65",
   "trial": false,
   "datasets": {
     "atlas": {
@@ -76,12 +76,12 @@
           "size": 6846
         },
         "observations.jsonl": {
-          "sha256": "6ac87c9c90cef3fe8c24a49a0c4525e0f6c3b0713673e0328c6262bfd8862a38",
-          "size": 860744
+          "sha256": "0503ad0d56c99e3c39ccc06a55adaa8c68ac1f49497d62446a38188dd6683f77",
+          "size": 859669
         },
         "taxonomy.json": {
-          "sha256": "242072a8ed45ceeb1da1cd5c5a0ef5f447d05669f9d3eeb2473418f5a25b85e8",
-          "size": 13784
+          "sha256": "ccc832caa76b12c0158999f971aa1d71ac8e921d67cb9cf3a32fd2be9f39244f",
+          "size": 14197
         }
       }
     }

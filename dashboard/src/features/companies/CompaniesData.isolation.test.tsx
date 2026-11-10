@@ -44,6 +44,7 @@ vi.mock("../../api", () => ({
 
 
 const state: CompanyDiscoveryState = {
+  reads_waiting: [],
   sectors: [
     {
       slug: "faang",
@@ -69,7 +70,7 @@ const state: CompanyDiscoveryState = {
       visible: true,
       builtin: true,
       curated: true, directory: false,
-      wall: null,
+      directed: false, scan_on_schedule: false, wall: null,
       consented: false,
       status: "active",
     },

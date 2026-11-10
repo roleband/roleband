@@ -329,3 +329,29 @@ companies-setup-start = { $choice ->
     [yes] 启动中…
    *[no] 启动雷达
 }
+companies-data-keep-scanning-failed = { $state ->
+    [schedule] 无法将 { $company } 加入你的扫描计划。
+   *[request] 无法将 { $company } 移出你的扫描计划。
+}
+companies-data-keep-scanning-changed = { $state ->
+    [schedule] { $company } 将按你的计划扫描。
+   *[request] { $company } 将在你要求时扫描。
+}
+companies-data-reads-waiting = { $count ->
+   *[other] 首次扫描会等到其招聘网站可以再次扫描时进行。
+}
+companies-company-register-rows-keep-scanning = { $state ->
+    [schedule] 停止按计划扫描 { $company }
+   *[request] 按计划扫描 { $company }
+}
+companies-company-register-rows-keep-scanning-state = { $state ->
+    [schedule] 按你的计划扫描
+   *[request] 在你要求时扫描
+}
+companies-follow-copy-keep-scanning = { $count ->
+   *[other] 持续扫描
+}
+companies-follow-copy-keep-scanning-hint = { $count ->
+   *[other] 不勾选时，现在扫描一次，之后仅在你要求时扫描。
+}
+companies-follow-copy-follow-and-scan = 关注并扫描

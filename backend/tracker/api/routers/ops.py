@@ -338,7 +338,7 @@ async def update_schedule_time(
 # status every few seconds while work runs. It is reused for a short while within
 # one process. Everything a person changes in the schedule or the followed companies
 # is in the key, so a Sync request, a provider pause, a schedule pause or choice, a
-# follow, a board or consent change, or a settings change shows on the next read, as
+# follow, a board, consent or keep-scanning change, or a settings change shows on the next read, as
 # does a scan that finishes. What a scan writes while it runs, and a role marked Not
 # for me or a scope save, may lag by at most the reuse window.
 SCAN_BOUND_REUSE_SECONDS = 30.0
@@ -353,7 +353,8 @@ _SCAN_BOUND_KEY = text(
     " (SELECT md5(coalesce(string_agg(row(id, company_slug, status, connector_kind, connector_id, retired_at)::text,"
     " '|' ORDER BY id), '')) FROM source_bindings),"
     " (SELECT md5(coalesce(string_agg(row(slug, status, enabled, visible, adapter, board_token, board_region,"
-    " careers_url, consented_at, consent_fingerprint)::text, '|' ORDER BY slug), '')) FROM tracked_company),"
+    " careers_url, consented_at, consent_fingerprint, scan_on_schedule)::text, '|' ORDER BY slug), ''))"
+    " FROM tracked_company),"
     " (SELECT md5(value::text) FROM app_settings WHERE key = :plan_key),"
     " (SELECT row(id, finished_at, outcome)::text FROM schedule_plan_runs ORDER BY id DESC LIMIT 1)"
 ).bindparams(plan_key=SCHEDULE_PLAN_KEY)
@@ -742,7 +743,7 @@ async def sync_targets(session: SessionDep) -> dict:
         its outcome below is what says so.
       * `last_full_scan_at` — the newest reconcile that read the whole board:
         the coverage clock ("Scanned 3 hours ago").
-      * `automatic` — scanned without the user asking (not a user-directed source).
+      * `automatic` — scanned without the user asking (`source_policy.scanned_automatically`).
       * `last_outcome` / `retryable` — read off the newest **full** run. A
         targeted run's `per_source` covers only its own subset, so it cannot
         answer "which sources still need work" for anyone else.
