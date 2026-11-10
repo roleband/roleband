@@ -430,8 +430,15 @@ async def test_an_adopted_run_that_is_still_our_child_is_reaped_when_it_exits(db
     try:
         [(_, verdict)] = await after.adopt()
         assert verdict.action == "adopt"
-    finally:
-        go.write_text("")  # the job ends whether or not adoption held
+    except BaseException:
+        # Only when adoption failed is the old handle used: the job is released and reaped here, within a bound.
+        go.write_text("")
+        try:
+            await asyncio.to_thread(kept.wait, 10)
+        except subprocess.TimeoutExpired:
+            kept.kill()
+        raise
+    go.write_text("")
     await _until_settled(after, timeout=10)
     [run] = await _runs(db_session, "quick")
     assert (run.state, run.exit_code) == (job_store.EXITED, 3)
