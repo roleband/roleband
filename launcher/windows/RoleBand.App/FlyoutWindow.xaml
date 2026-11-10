@@ -19,7 +19,7 @@
         <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
       <Image x:Name="AppMark" Width="28" Height="28" VerticalAlignment="Center" AutomationProperties.AccessibilityView="Raw" />
-      <TextBlock Grid.Column="1" Text="RoleBand" FontWeight="SemiBold" VerticalAlignment="Center" />
+      <TextBlock x:Name="AppName" Grid.Column="1" FontWeight="SemiBold" VerticalAlignment="Center" />
       <Button x:Name="SettingsButton" Grid.Column="2" Width="40" Height="40" Padding="0" Background="Transparent" BorderThickness="0"
               AutomationProperties.AutomationId="FlyoutSettings">
         <FontIcon Glyph="&#xE713;" FontSize="16" />

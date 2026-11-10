@@ -63,6 +63,7 @@ public sealed partial class FlyoutWindow : Window
         DwmSetWindowAttribute(Handle, 33, ref round, sizeof(int));
         Native.Dress(this, AppMark, ownEdge: true);
 
+        AppName.Text = copy["guide-app"];
         AutomationProperties.SetName(SettingsButton, copy["settings"]);
         ToolTipService.SetToolTip(SettingsButton, copy["settings"]);
         DetailsButton.Content = copy["windows-details"];
