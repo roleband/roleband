@@ -275,16 +275,12 @@ insights-statistics-view-show-advanced-view = Mostrar vista avanzada
 ## features/statistics/StockTrajectoryPanel.tsx
 insights-stock-trajectory-panel-stock-trajectory = Trayectoria de las acciones
 insights-stock-trajectory-panel-no-open-roles-at-public = Aún no hay puestos abiertos en empresas cotizadas con una estimación de compensación.
-insights-stock-trajectory-panel-typical-package = { $split ->
-    [measured] Compensación típica de empresa cotizada · reparto medido
-    [mixed] Compensación típica de empresa cotizada · reparto medido en parte
-   *[heuristic] Compensación típica de empresa cotizada · reparto estimado
+insights-stock-trajectory-panel-typical-package = { $equity ->
+    [measured] Compensación total típica de empresa cotizada · acciones medidas
+    [mixed] Compensación total típica de empresa cotizada · acciones medidas en parte
+   *[estimated] Compensación total típica de empresa cotizada · acciones estimadas
 }
-insights-stock-trajectory-panel-stock-moves-re-price-equity = { $split ->
-    [measured] Solo las acciones se mueven con la cotización. Es una referencia, no una oferta.
-    [mixed] Solo las acciones se mueven con la cotización. Es una referencia, no una oferta.
-   *[heuristic] Solo las acciones se mueven con la cotización. Los repartos suponen un bonus de { $bonus_pct }. Es una referencia, no una oferta.
-}
+insights-stock-trajectory-panel-stock-moves-re-price-equity = Solo las acciones se mueven con la cotización. La base es el rango publicado cuando el puesto tiene uno, y el bono sigue la regla de cada empresa. Es una referencia, no una oferta.
 insights-stock-trajectory-panel-stock-price-change = Cambio en la cotización
 insights-stock-trajectory-panel-reset-to-today = Volver a hoy
 insights-stock-trajectory-panel-equity-shockwave = Impacto en las acciones
@@ -297,7 +293,6 @@ insights-stock-trajectory-panel-sorted-by-equity-exposure-only = Ordenadas por p
 insights-stock-trajectory-panel-no-open-roles-at-public-yet = Aún no hay puestos abiertos en empresas cotizadas.
 insights-stock-trajectory-panel-ticker = Símbolo
 insights-stock-trajectory-panel-equity = Acciones
-insights-stock-trajectory-panel-about-the-split-labels = Sobre las etiquetas de reparto
 insights-stock-trajectory-panel-equity-share = Parte en acciones
 insights-stock-trajectory-panel-today = Hoy
 insights-stock-trajectory-panel-projected = Proyectado
@@ -310,15 +305,44 @@ insights-stock-trajectory-panel-median-tc-full = Compensación total mediana
 insights-stock-trajectory-panel-options = Opciones
 insights-stock-trajectory-panel-no-equity = Sin acciones
 insights-stock-trajectory-panel-cash-election = Efectivo o acciones
-insights-stock-trajectory-panel-split-source = { $split ->
+insights-stock-trajectory-panel-about-the-source-labels = De dónde sale cada cifra
+insights-stock-trajectory-panel-part-source = { $source ->
+    [posted] Publicado
+    [company_rule] Regla de la empresa
     [measured] Medido
-    [mixed] Medido en parte
-   *[heuristic] Estimado
+    [mixed] Mixto
+   *[estimated] Estimado
 }
-insights-stock-trajectory-panel-split-source-explained = { $split ->
-    [measured] A partir de los niveles de esta empresa
-    [mixed] Algunos niveles medidos, el resto estimados
-   *[heuristic] Sin datos de la empresa, estimado según el nivel
+insights-stock-trajectory-panel-part-source-explained = { $source ->
+    [posted] De los rangos publicados de los puestos de esta empresa
+    [company_rule] Cómo dice esta empresa que paga esta parte
+    [measured] De datos salariales de esta empresa y nivel
+    [mixed] Varía entre los puestos de esta empresa
+   *[estimated] Sin datos de la empresa, estimado según el nivel
+}
+insights-stock-trajectory-panel-base = Base
+insights-stock-trajectory-panel-bonus = Bono
+insights-stock-trajectory-panel-no-bonus = Sin bono
+insights-stock-trajectory-panel-vests = Consolida { $schedule }
+insights-stock-trajectory-panel-choice-companies = Efectivo o acciones, tú eliges
+insights-stock-trajectory-panel-choice-explained = En estas empresas cada persona elige cuánto de su compensación total es en efectivo y cuánto en acciones, así que no se muestra un reparto y un cambio en la cotización no cambia nada aquí.
+insights-stock-trajectory-panel-left-out = { $count ->
+    [one] Fuera: { $count } { -role(num: "one") } sin reparto
+    [many] Fuera: { $count } de { -role(num: "other") } sin reparto
+   *[other] Fuera: { $count } { -role(num: "other") } sin reparto
+}
+insights-stock-trajectory-panel-why-left-out = Por qué quedan fuera estos puestos
+insights-stock-trajectory-panel-left-out-reason = { $reason ->
+    [not_us_pay] Fuera de Estados Unidos
+    [level_unplaced] Nivel sin ubicar
+    [base_only] Solo base, sin total
+    [basis_unclear] Rango sin base indicada
+    [hourly] Tarifa por hora
+    [monthly] Tarifa mensual
+    [period_unclear] Periodo poco claro
+    [total_compensation] Publicado como compensación total
+    [plugin_without_split] Plugin sin reparto
+   *[plugin_not_covered] Plugin aún sin leer
 }
 insights-stock-trajectory-panel-projected-tc = { $projected } de compensación total proyectada
 insights-stock-trajectory-panel-projected-tc-full = { $projected } de compensación total proyectada

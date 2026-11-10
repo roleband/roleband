@@ -479,18 +479,14 @@ insights-statistics-view-show-advanced-view = Show advanced view
 insights-stock-trajectory-panel-stock-trajectory = Stock trajectory
 # kind=sentence
 insights-stock-trajectory-panel-no-open-roles-at-public = No open roles at public companies with a compensation estimate yet.
-# kind=status note="$split is where the package's base, bonus and equity split comes from"
-insights-stock-trajectory-panel-typical-package = { $split ->
-    [measured] Typical public-company compensation · split measured
-    [mixed] Typical public-company compensation · partly measured
-   *[heuristic] Typical public-company compensation · estimated
+# kind=status note="$equity is where the equity part of the package comes from: measured, mixed (partly measured) or estimated"
+insights-stock-trajectory-panel-typical-package = { $equity ->
+    [measured] Typical public-company total compensation · equity measured
+    [mixed] Typical public-company total compensation · equity partly measured
+   *[estimated] Typical public-company total compensation · equity estimated
 }
 # kind=sentence
-insights-stock-trajectory-panel-stock-moves-re-price-equity = { $split ->
-    [measured] Only equity moves with the stock. A reference, not an offer.
-    [mixed] Only equity moves with the stock. A reference, not an offer.
-   *[heuristic] Only equity moves with the stock. Splits assume a { $bonus_pct } bonus. A reference, not an offer.
-}
+insights-stock-trajectory-panel-stock-moves-re-price-equity = Only equity moves with the stock. Base is the posted range where a role has one, and bonus follows each company's own rule. A reference, not an offer.
 # kind=label wording=as-is
 insights-stock-trajectory-panel-stock-price-change = Stock price change
 # kind=button wording=as-is
@@ -513,7 +509,7 @@ insights-stock-trajectory-panel-ticker = Ticker
 # kind=label wording=as-is
 insights-stock-trajectory-panel-equity = Equity
 # kind=aria
-insights-stock-trajectory-panel-about-the-split-labels = About the split labels
+insights-stock-trajectory-panel-about-the-source-labels = Where each figure comes from
 # kind=label wording=as-is
 insights-stock-trajectory-panel-equity-share = Equity share
 # kind=label wording=as-is
@@ -538,17 +534,53 @@ insights-stock-trajectory-panel-options = Options
 insights-stock-trajectory-panel-no-equity = No equity
 # kind=label
 insights-stock-trajectory-panel-cash-election = Cash or equity
-# kind=label
-insights-stock-trajectory-panel-split-source = { $split ->
+# kind=label note="Where a part of a company's typical total compensation comes from"
+insights-stock-trajectory-panel-part-source = { $source ->
+    [posted] Posted
+    [company_rule] Company rule
     [measured] Measured
-    [mixed] Partly measured
-   *[heuristic] Estimated
+    [mixed] Mixed
+   *[estimated] Estimated
 }
 # kind=status
-insights-stock-trajectory-panel-split-source-explained = { $split ->
-    [measured] From this company's own levels
-    [mixed] Some levels measured, the rest estimated
-   *[heuristic] No company data, estimated from the level
+insights-stock-trajectory-panel-part-source-explained = { $source ->
+    [posted] From the posted ranges of this company's roles
+    [company_rule] How this company says it pays this part
+    [measured] From pay data for this company and level
+    [mixed] Differs between this company's roles
+   *[estimated] No company data, estimated from the level
+}
+# kind=label
+insights-stock-trajectory-panel-base = Base
+# kind=label
+insights-stock-trajectory-panel-bonus = Bonus
+# kind=label
+insights-stock-trajectory-panel-no-bonus = No bonus
+# kind=label note="The company's vesting schedule: the share of a grant that vests each year, such as 25/25/25/25"
+insights-stock-trajectory-panel-vests = Vests { $schedule }
+# kind=heading
+insights-stock-trajectory-panel-choice-companies = Cash or equity, your choice
+# kind=sentence
+insights-stock-trajectory-panel-choice-explained = At these companies each person chooses how much of their total compensation is cash and how much is equity, so no split is shown and a stock move changes nothing here.
+# kind=status note="Roles with total compensation that has no split, so they are not in the tables: 3 roles"
+insights-stock-trajectory-panel-left-out = Left out: { $count } { $count ->
+    [one] { -role(num: "one") }
+   *[other] { -role(num: "other") }
+} with no split
+# kind=aria
+insights-stock-trajectory-panel-why-left-out = Why these roles are left out
+# kind=label note="Why a role's total compensation has no split on this tab"
+insights-stock-trajectory-panel-left-out-reason = { $reason ->
+    [not_us_pay] Outside the US
+    [level_unplaced] Level not placed
+    [base_only] Base only, no total
+    [basis_unclear] Range basis not stated
+    [hourly] Hourly rate
+    [monthly] Monthly rate
+    [period_unclear] Period unclear
+    [total_compensation] Posted as total compensation
+    [plugin_without_split] Plugin reports no split
+   *[plugin_not_covered] Not read by plugin
 }
 # kind=label wording=as-is
 insights-stock-trajectory-panel-projected-tc = { $projected } projected TC

@@ -12,6 +12,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from sqlalchemy import case, column, func, not_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import load_only
 
 from tracker.analytics.age_basis import employer_dated_share, employer_dated_sql
 from tracker.analytics.comp_market import us_rows
@@ -19,7 +20,6 @@ from tracker.analytics.comp_package import choose_rung_row
 from tracker.analytics.comp_residual import build_equity_residuals, build_source_comparison
 from tracker.analytics.comp_stats import (
     build_comp_stats,
-    build_comp_trajectory,
     build_disclosed_bands,
     build_disclosure_rates,
     rank_skill_comp,
@@ -30,7 +30,9 @@ from tracker.analytics.comp_trends import (
     build_disclosure_trend_series,
 )
 from tracker.analytics.hiring import build_hiring_places
+from tracker.analytics.stock_trajectory import TrajectoryRole, build_comp_trajectory
 from tracker.analytics.velocity import build_velocity
+from tracker.api.comp_packages import role_packages
 from tracker.api.deps import InsightsScopeDep, OffBoardDep, SessionDep, WindowDays
 from tracker.api.errors import ErrorCode, api_error
 from tracker.api.schemas.statistics import (
@@ -80,6 +82,7 @@ from tracker.db.queries.reference_pay import reported_rows, split_rows
 from tracker.db.queries.scope import level_key_expr
 from tracker.db.queries.skills import ELIGIBLE_REQUIREMENT
 from tracker.db.queries.skills import top_skills as read_top_skills
+from tracker.enrich.enricher import ESTIMATE_FIELDS
 from tracker.intelligence_runtime.disclosed_comp import residual_band_versions
 from tracker.levels.companies import COMPANIES
 from tracker.levels.ladder import flat_guide, level_guide, lineage
@@ -89,6 +92,7 @@ from tracker.plugins.registry import PAY_LEVELS, reader_providers
 from tracker.plugins.status import reference_changes
 from tracker.schema import OUR_ESTIMATE_SOURCE, Arrival
 from tracker.skills.analytics import COMPETENCY_CATEGORIES
+from tracker.taxonomy.locations import pay_country
 from tracker.taxonomy.tracks import TRACKS, allowed_bands_for
 
 router = APIRouter()
@@ -464,26 +468,36 @@ async def _observed_splits(session: AsyncSession) -> dict:
     return splits
 
 
+#: The job columns a role's package reads (`api.comp_packages.role_package`).
+_PACKAGE_COLUMNS = (
+    Job.id, Job.company, Job.level_band, Job.level_basis, Job.family, Job.location_groups,
+    *(getattr(Job, name) for name in ESTIMATE_FIELDS),
+    Job.structured_at, Job.disclosed_base_min, Job.disclosed_base_max, Job.disclosed_currency,
+    Job.disclosed_pay_basis, Job.disclosed_pay_period, Job.disclosed_snippet,
+    Job.disclosed_source, Job.disclosed_confidence, Job.disclosed_bonus_pct,
+)
+
+
 @router.get("/api/statistics/comp-trajectory", response_model=CompTrajectoryResponse)
 async def statistics_comp_trajectory(session: SessionDep, hidden: OffBoardDep) -> dict:
-    """Equity decomposition of open-role comp for the "Stock trajectory" view.
+    """Each company's typical package for the Stock tab, from the packages Job
+    detail shows, so a role reads the same on both screens.
 
-    Splits each open role's estimated total comp into base/bonus/equity (see
-    `comp_split`) and partitions companies into public (equity tracks a listed
-    ticker, so it flexes with the stock price) vs private/illiquid. The UI applies
-    a stock-price scenario to the equity slice client-side. The roles
-    `/api/statistics/compensation` describes: a place set once.
+    Companies split into public (equity tracks a listed ticker, so it flexes
+    with the stock price), private, and those where each person picks the cash
+    and stock mix. The UI applies a stock-price scenario to the equity part
+    client-side. The roles `/api/statistics/compensation` describes: a place set once.
     """
-    rows = (
-        await session.execute(
+    jobs = (
+        await session.scalars(
             exclude_hidden(
-                select(Job.company, Job.level_band, Job.family, Job.comp_median).where(*insights_role_conds()),
+                select(Job).options(load_only(*_PACKAGE_COLUMNS)).where(*insights_role_conds()),
                 hidden,
-            )
+            ).order_by(Job.id)
         )
     ).all()
-
-    observed = await _observed_splits(session)
+    providers = await reader_providers(session)
+    packages = await role_packages(session, jobs, providers)
 
     # Resolved identity beats the hardcoded PUBLIC_TICKERS table, which cannot
     # know about a company that listed later.
@@ -505,12 +519,17 @@ async def statistics_comp_trajectory(session: SessionDep, hidden: OffBoardDep) -
         }
         for r in profile_rows
     }
-
-    # Our split heuristic is our data: it splits nothing while a plugin answers
-    # pay, so a company its rows do not split is left out.
-    ours = (await reader_providers(session)).source_for(PAY_LEVELS) is None
     return build_comp_trajectory(
-        [tuple(r) for r in rows], observed=observed, profiles=profiles, heuristic=ours
+        (
+            TrajectoryRole(
+                company=job.company,
+                band=job.level_band,
+                package=package,
+                us_pay=pay_country(job.location_groups) == OUR_PAY_COUNTRY,
+            )
+            for job, package in packages
+        ),
+        profiles=profiles,
     )
 
 

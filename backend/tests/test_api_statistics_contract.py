@@ -45,7 +45,7 @@ from tests.statistics_contract_seed import (
     pin_statistics_clock,
     seed_statistics,
 )
-from tracker.analytics import comp_residual, comp_split, comp_trends
+from tracker.analytics import comp_package, comp_residual, comp_split, comp_trends, stock_trajectory
 from tracker.analytics.comp_trends import DISCLOSURE_BASIS
 from tracker.api.routers import statistics as router
 from tracker.api.schemas import statistics as contract
@@ -111,7 +111,15 @@ def _zulu(at) -> str:
 
 
 def test_each_literal_is_the_vocabulary_it_mirrors():
-    assert set(get_args(contract.SplitSource)) == {comp_split.SOURCE_OBSERVED, comp_split.SOURCE_HEURISTIC, "mixed"}
+    assert set(get_args(contract.PartSource)) == {
+        stock_trajectory.FROM_POSTED, stock_trajectory.FROM_COMPANY_RULE, stock_trajectory.FROM_MEASURED,
+        stock_trajectory.FROM_ESTIMATED, stock_trajectory.FROM_MIXED,
+    }
+    # Every reason a package is not split, except the cash election, which has a row of its own.
+    refusals = {v for k, v in vars(comp_package).items() if k.startswith("NO_SPLIT_")}
+    assert set(get_args(contract.SetApartReason)) == (
+        refusals - {comp_package.NO_SPLIT_EMPLOYEE_ELECTION} | {stock_trajectory.SET_APART_BASE_ONLY}
+    )
     assert set(get_args(contract.ModelSource)) == {comp_split.SOURCE_OBSERVED, comp_split.SOURCE_HEURISTIC}
     assert set(get_args(contract.BonusSource)) == {comp_residual.BONUS_STATED, comp_residual.BONUS_MODELED}
     assert get_args(contract.DisclosureTrendsResponse.model_fields["basis"].annotation) == (DISCLOSURE_BASIS,)
@@ -391,25 +399,64 @@ async def test_the_by_level_trends_show_printed_pay_for_unplaced_roles_but_never
 
 
 @pytest.mark.asyncio
-async def test_the_trajectory_packages_sum_and_split_listed_from_private(api_client, seeded):
+async def test_the_trajectory_reads_each_role_s_package_and_sets_apart_what_it_cannot_split(api_client, seeded):
     body = await _get(api_client, ROUTES["trajectory"])
     assert list(body) == _fields(contract.CompTrajectoryResponse)
-    assert body["assumptions"] == comp_split.equity_assumptions()
     packages = [body["overall"], *body["public"], *body["private"]]
     assert all(p["base"] + p["bonus"] + p["equity"] == p["median_tc"] for p in packages)
 
-    public = {row["company"]: row for row in body["public"]}
-    assert list(public) == ["google", "netflix"]  # most equity first
-    assert all(list(row) == _fields(contract.TrajectoryPublicCompany) for row in body["public"])
-    assert (public["google"]["ticker"], public["google"]["equity_vehicle"], public["google"]["count"]) == ("GOOGL", "rsu", 21)
-    # A listed cash election carries no equity, and that is a measurement.
-    assert {k: public["netflix"][k] for k in ("ticker", "equity_vehicle", "equity_pct", "split_source")} == {
-        "ticker": "NFLX", "equity_vehicle": "cash_election", "equity_pct": 0.0, "split_source": "measured",
+    # Google: four posted base bands and fifteen estimates. The hourly band and
+    # the $1-$2 placeholder are not split, and the closed role is not open.
+    [google] = body["public"]
+    assert list(google) == _fields(contract.TrajectoryPublicCompany)
+    assert {k: google[k] for k in ("company", "ticker", "equity_vehicle", "vesting", "count")} == {
+        "company": "google", "ticker": "GOOGL", "equity_vehicle": "rsu", "vesting": "38/32/20/10", "count": 19,
     }
+    # The bonus is the posting's where it states one, the company's rule elsewhere.
+    assert google["sources"] == {"base": "mixed", "bonus": "mixed", "equity": "estimated"}
+
+    # OpenAI pays no bonus; its stated total is never split.
     [openai] = body["private"]
     assert list(openai) == _fields(contract.TrajectoryPrivateCompany)
-    assert (openai["company"], openai["equity_vehicle"], openai["split_source"]) == ("openai", None, "heuristic")
-    assert body["overall"]["count"] == 22
+    assert {k: openai[k] for k in ("company", "count", "bonus", "vesting")} == {
+        "company": "openai", "count": 2, "bonus": 0, "vesting": "25/25/25/25",
+    }
+    assert openai["sources"] == {"base": "estimated", "bonus": "company_rule", "equity": "estimated"}
+
+    # Netflix: each person picks the cash and stock mix, so a total and no split.
+    assert body["choice"] == [
+        {"company": "netflix", "ticker": "NFLX", "count": 1, "median_tc": 756250, "total_source": "estimated"},
+    ]
+    assert body["set_apart"] == [
+        {"reason": "hourly", "count": 1},
+        {"reason": "period_unclear", "count": 1},
+        {"reason": "total_compensation", "count": 1},
+    ]
+    assert body["overall"]["count"] == 19
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("seed_key", ["g-staff", "g-senior", "g-fleet-03", "o-repost"])
+async def test_a_role_reads_the_same_package_on_job_detail_and_the_stock_tab(api_client, seeded, db_session, seed_key):
+    """One role alone at its company: the tab's row is that role's package, part
+    for part, as Job detail shows it."""
+    job_id = seeded.ids[seed_key]
+    target = await db_session.get(Job, job_id)
+    company = target.company
+    others = (await db_session.scalars(select(Job).where(Job.company == company, Job.id != job_id))).all()
+    for other in others:
+        other.status = "closed"
+    await db_session.commit()
+
+    detail = (await _get(api_client, f"/api/jobs/{job_id}"))["comp_package"]
+    parts = {c["kind"]: (c["low"] + c["high"]) / 2 for c in detail["components"]}
+    body = await _get(api_client, ROUTES["trajectory"])
+    [row] = [r for r in body["public"] + body["private"] if r["company"] == company]
+    assert row["count"] == 1
+    assert row["base"] == pytest.approx(parts["base"], abs=1)
+    assert row["bonus"] == pytest.approx(parts.get("bonus", 0), abs=1)
+    assert row["equity"] == pytest.approx(parts.get("equity", 0), abs=1)
+    assert row["median_tc"] == pytest.approx((detail["total"]["low"] + detail["total"]["high"]) / 2, abs=1)
 
 
 @pytest.mark.asyncio

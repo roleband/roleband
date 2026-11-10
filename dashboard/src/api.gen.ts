@@ -2643,13 +2643,13 @@ export interface paths {
         };
         /**
          * Statistics Comp Trajectory
-         * @description Equity decomposition of open-role comp for the "Stock trajectory" view.
+         * @description Each company's typical package for the Stock tab, from the packages Job
+         *     detail shows, so a role reads the same on both screens.
          *
-         *     Splits each open role's estimated total comp into base/bonus/equity (see
-         *     `comp_split`) and partitions companies into public (equity tracks a listed
-         *     ticker, so it flexes with the stock price) vs private/illiquid. The UI applies
-         *     a stock-price scenario to the equity slice client-side. The roles
-         *     `/api/statistics/compensation` describes: a place set once.
+         *     Companies split into public (equity tracks a listed ticker, so it flexes
+         *     with the stock price), private, and those where each person picks the cash
+         *     and stock mix. The UI applies a stock-price scenario to the equity part
+         *     client-side. The roles `/api/statistics/compensation` describes: a place set once.
          */
         get: operations["statistics_comp_trajectory_api_statistics_comp_trajectory_get"];
         put?: never;
@@ -4042,11 +4042,7 @@ export interface components {
             equity_pct: number;
             /** Median Tc */
             median_tc: number;
-            /**
-             * Split Source
-             * @enum {string}
-             */
-            split_source: "measured" | "heuristic" | "mixed";
+            sources: components["schemas"]["PartSources"];
         };
         /** CompRange */
         CompRange: {
@@ -4136,7 +4132,8 @@ export interface components {
          * @description `GET /api/statistics/comp-trajectory`.
          */
         CompTrajectoryResponse: {
-            assumptions: components["schemas"]["EquityAssumptions"];
+            /** Choice */
+            choice: components["schemas"]["TrajectoryChoiceCompany"][];
             /**
              * Currency
              * @constant
@@ -4147,6 +4144,8 @@ export interface components {
             private: components["schemas"]["TrajectoryPrivateCompany"][];
             /** Public */
             public: components["schemas"]["TrajectoryPublicCompany"][];
+            /** Set Apart */
+            set_apart: components["schemas"]["TrajectorySetApart"][];
         };
         /**
          * CompTrendPoint
@@ -7854,6 +7853,27 @@ export interface components {
             workplace_type: string[];
         };
         /**
+         * PartSources
+         * @description Where each part of a package comes from (`analytics.stock_trajectory`).
+         */
+        PartSources: {
+            /**
+             * Base
+             * @enum {string}
+             */
+            base: "posted" | "company_rule" | "measured" | "estimated" | "mixed";
+            /**
+             * Bonus
+             * @enum {string}
+             */
+            bonus: "posted" | "company_rule" | "measured" | "estimated" | "mixed";
+            /**
+             * Equity
+             * @enum {string}
+             */
+            equity: "posted" | "company_rule" | "measured" | "estimated" | "mixed";
+        };
+        /**
          * PayBasis
          * @enum {string}
          */
@@ -10975,8 +10995,27 @@ export interface components {
             visible: boolean;
         };
         /**
+         * TrajectoryChoiceCompany
+         * @description A company where each person picks the cash and stock mix: a total, no split.
+         */
+        TrajectoryChoiceCompany: {
+            /** Company */
+            company: string;
+            /** Count */
+            count: number;
+            /** Median Tc */
+            median_tc: number;
+            /** Ticker */
+            ticker: string | null;
+            /**
+             * Total Source
+             * @enum {string}
+             */
+            total_source: "posted" | "estimated" | "mixed";
+        };
+        /**
          * TrajectoryPrivateCompany
-         * @description `company` first, then its package and equity vehicle.
+         * @description `company` first, then its package, its equity vehicle and the vesting it states.
          */
         TrajectoryPrivateCompany: {
             /** Base */
@@ -10995,11 +11034,9 @@ export interface components {
             equity_vehicle: string | null;
             /** Median Tc */
             median_tc: number;
-            /**
-             * Split Source
-             * @enum {string}
-             */
-            split_source: "measured" | "heuristic" | "mixed";
+            sources: components["schemas"]["PartSources"];
+            /** Vesting */
+            vesting: string | null;
         };
         /**
          * TrajectoryPublicCompany
@@ -11022,13 +11059,24 @@ export interface components {
             equity_vehicle: string | null;
             /** Median Tc */
             median_tc: number;
-            /**
-             * Split Source
-             * @enum {string}
-             */
-            split_source: "measured" | "heuristic" | "mixed";
+            sources: components["schemas"]["PartSources"];
             /** Ticker */
             ticker: string | null;
+            /** Vesting */
+            vesting: string | null;
+        };
+        /**
+         * TrajectorySetApart
+         * @description Roles with a pay figure the tab does not split, by reason.
+         */
+        TrajectorySetApart: {
+            /** Count */
+            count: number;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "not_us_pay" | "level_unplaced" | "base_only" | "basis_unclear" | "hourly" | "monthly" | "period_unclear" | "total_compensation" | "plugin_without_split" | "plugin_not_covered";
         };
         /**
          * TwinLinkCreated

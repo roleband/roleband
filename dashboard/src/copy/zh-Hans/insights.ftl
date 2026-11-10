@@ -255,16 +255,12 @@ insights-statistics-view-show-advanced-view = 显示高级视图
 ## features/statistics/StockTrajectoryPanel.tsx
 insights-stock-trajectory-panel-stock-trajectory = 股价走势
 insights-stock-trajectory-panel-no-open-roles-at-public = 上市公司暂无带薪酬估算的在招职位。
-insights-stock-trajectory-panel-typical-package = { $split ->
-    [measured] 上市公司典型薪酬 · 实测构成
-    [mixed] 上市公司典型薪酬 · 部分实测
-   *[heuristic] 上市公司典型薪酬 · 估算
+insights-stock-trajectory-panel-typical-package = { $equity ->
+    [measured] 上市公司典型总薪酬 · 股权为实测
+    [mixed] 上市公司典型总薪酬 · 股权部分实测
+   *[estimated] 上市公司典型总薪酬 · 股权为估算
 }
-insights-stock-trajectory-panel-stock-moves-re-price-equity = { $split ->
-    [measured] 只有股权随股价变动。仅供参考，不是录用报价。
-    [mixed] 只有股权随股价变动。仅供参考，不是录用报价。
-   *[heuristic] 只有股权随股价变动。构成假设奖金为 { $bonus_pct }。仅供参考，不是录用报价。
-}
+insights-stock-trajectory-panel-stock-moves-re-price-equity = 只有股权随股价变动。职位有公布的区间时，基本工资取该区间；奖金按各公司自己的规则。仅供参考，不是录用报价。
 insights-stock-trajectory-panel-stock-price-change = 股价变动
 insights-stock-trajectory-panel-reset-to-today = 重置为今天
 insights-stock-trajectory-panel-equity-shockwave = 股权影响
@@ -277,7 +273,6 @@ insights-stock-trajectory-panel-sorted-by-equity-exposure-only = 按股权占比
 insights-stock-trajectory-panel-no-open-roles-at-public-yet = 上市公司暂无在招职位。
 insights-stock-trajectory-panel-ticker = 股票代码
 insights-stock-trajectory-panel-equity = 股权
-insights-stock-trajectory-panel-about-the-split-labels = 关于构成标签
 insights-stock-trajectory-panel-equity-share = 股权占比
 insights-stock-trajectory-panel-today = 今天
 insights-stock-trajectory-panel-projected = 预测
@@ -290,15 +285,40 @@ insights-stock-trajectory-panel-median-tc-full = 总薪酬中位数
 insights-stock-trajectory-panel-options = 期权
 insights-stock-trajectory-panel-no-equity = 无股权
 insights-stock-trajectory-panel-cash-election = 现金或股权
-insights-stock-trajectory-panel-split-source = { $split ->
+insights-stock-trajectory-panel-about-the-source-labels = 每个数字的来源
+insights-stock-trajectory-panel-part-source = { $source ->
+    [posted] 公布
+    [company_rule] 公司规则
     [measured] 实测
-    [mixed] 部分实测
-   *[heuristic] 估算
+    [mixed] 混合
+   *[estimated] 估算
 }
-insights-stock-trajectory-panel-split-source-explained = { $split ->
-    [measured] 来自该公司自己的级别数据
-    [mixed] 部分级别为实测，其余为估算
-   *[heuristic] 无公司数据，按级别估算
+insights-stock-trajectory-panel-part-source-explained = { $source ->
+    [posted] 来自该公司职位公布的区间
+    [company_rule] 该公司说明的这部分发放方式
+    [measured] 来自该公司该级别的薪酬数据
+    [mixed] 该公司各职位之间不同
+   *[estimated] 无公司数据，按级别估算
+}
+insights-stock-trajectory-panel-base = 基本工资
+insights-stock-trajectory-panel-bonus = 奖金
+insights-stock-trajectory-panel-no-bonus = 无奖金
+insights-stock-trajectory-panel-vests = { $schedule } 归属
+insights-stock-trajectory-panel-choice-companies = 现金或股权，由你选择
+insights-stock-trajectory-panel-choice-explained = 在这些公司，每个人自己选择总薪酬中现金和股权各占多少，因此这里不显示构成，股价变动也不会改变这里的数字。
+insights-stock-trajectory-panel-left-out = 未计入：{ $count } 个{ -role }没有构成
+insights-stock-trajectory-panel-why-left-out = 这些职位为何未计入
+insights-stock-trajectory-panel-left-out-reason = { $reason ->
+    [not_us_pay] 美国以外
+    [level_unplaced] 级别未定位
+    [base_only] 基本工资无总额
+    [basis_unclear] 区间未说明基础
+    [hourly] 时薪
+    [monthly] 月薪
+    [period_unclear] 周期不明
+    [total_compensation] 以总薪酬公布
+    [plugin_without_split] 插件无构成
+   *[plugin_not_covered] 插件未读
 }
 insights-stock-trajectory-panel-projected-tc = 预测总薪酬 { $projected }
 insights-stock-trajectory-panel-projected-tc-full = 预测总薪酬 { $projected }

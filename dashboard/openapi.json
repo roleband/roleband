@@ -2335,14 +2335,8 @@
       "title": "Median Tc",
       "type": "integer"
      },
-     "split_source": {
-      "enum": [
-       "measured",
-       "heuristic",
-       "mixed"
-      ],
-      "title": "Split Source",
-      "type": "string"
+     "sources": {
+      "$ref": "#/components/schemas/PartSources"
      }
     },
     "required": [
@@ -2352,7 +2346,7 @@
      "bonus",
      "equity",
      "equity_pct",
-     "split_source"
+     "sources"
     ],
     "title": "CompPackage",
     "type": "object"
@@ -2603,8 +2597,12 @@
     "additionalProperties": false,
     "description": "`GET /api/statistics/comp-trajectory`.",
     "properties": {
-     "assumptions": {
-      "$ref": "#/components/schemas/EquityAssumptions"
+     "choice": {
+      "items": {
+       "$ref": "#/components/schemas/TrajectoryChoiceCompany"
+      },
+      "title": "Choice",
+      "type": "array"
      },
      "currency": {
       "const": "USD",
@@ -2634,14 +2632,22 @@
       },
       "title": "Public",
       "type": "array"
+     },
+     "set_apart": {
+      "items": {
+       "$ref": "#/components/schemas/TrajectorySetApart"
+      },
+      "title": "Set Apart",
+      "type": "array"
      }
     },
     "required": [
      "currency",
-     "assumptions",
      "overall",
      "public",
-     "private"
+     "private",
+     "choice",
+     "set_apart"
     ],
     "title": "CompTrajectoryResponse",
     "type": "object"
@@ -13877,6 +13883,52 @@
     "title": "ParsedQueryEcho",
     "type": "object"
    },
+   "PartSources": {
+    "additionalProperties": false,
+    "description": "Where each part of a package comes from (`analytics.stock_trajectory`).",
+    "properties": {
+     "base": {
+      "enum": [
+       "posted",
+       "company_rule",
+       "measured",
+       "estimated",
+       "mixed"
+      ],
+      "title": "Base",
+      "type": "string"
+     },
+     "bonus": {
+      "enum": [
+       "posted",
+       "company_rule",
+       "measured",
+       "estimated",
+       "mixed"
+      ],
+      "title": "Bonus",
+      "type": "string"
+     },
+     "equity": {
+      "enum": [
+       "posted",
+       "company_rule",
+       "measured",
+       "estimated",
+       "mixed"
+      ],
+      "title": "Equity",
+      "type": "string"
+     }
+    },
+    "required": [
+     "base",
+     "bonus",
+     "equity"
+    ],
+    "title": "PartSources",
+    "type": "object"
+   },
    "PayBasis": {
     "enum": [
      "base",
@@ -23073,9 +23125,56 @@
     "title": "TrackedCompanyRow",
     "type": "object"
    },
+   "TrajectoryChoiceCompany": {
+    "additionalProperties": false,
+    "description": "A company where each person picks the cash and stock mix: a total, no split.",
+    "properties": {
+     "company": {
+      "title": "Company",
+      "type": "string"
+     },
+     "count": {
+      "title": "Count",
+      "type": "integer"
+     },
+     "median_tc": {
+      "title": "Median Tc",
+      "type": "integer"
+     },
+     "ticker": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ticker"
+     },
+     "total_source": {
+      "enum": [
+       "posted",
+       "estimated",
+       "mixed"
+      ],
+      "title": "Total Source",
+      "type": "string"
+     }
+    },
+    "required": [
+     "company",
+     "ticker",
+     "count",
+     "median_tc",
+     "total_source"
+    ],
+    "title": "TrajectoryChoiceCompany",
+    "type": "object"
+   },
    "TrajectoryPrivateCompany": {
     "additionalProperties": false,
-    "description": "`company` first, then its package and equity vehicle.",
+    "description": "`company` first, then its package, its equity vehicle and the vesting it states.",
     "properties": {
      "base": {
       "title": "Base",
@@ -23116,14 +23215,19 @@
       "title": "Median Tc",
       "type": "integer"
      },
-     "split_source": {
-      "enum": [
-       "measured",
-       "heuristic",
-       "mixed"
+     "sources": {
+      "$ref": "#/components/schemas/PartSources"
+     },
+     "vesting": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
       ],
-      "title": "Split Source",
-      "type": "string"
+      "title": "Vesting"
      }
     },
     "required": [
@@ -23134,8 +23238,9 @@
      "bonus",
      "equity",
      "equity_pct",
-     "split_source",
-     "equity_vehicle"
+     "sources",
+     "equity_vehicle",
+     "vesting"
     ],
     "title": "TrajectoryPrivateCompany",
     "type": "object"
@@ -23183,14 +23288,8 @@
       "title": "Median Tc",
       "type": "integer"
      },
-     "split_source": {
-      "enum": [
-       "measured",
-       "heuristic",
-       "mixed"
-      ],
-      "title": "Split Source",
-      "type": "string"
+     "sources": {
+      "$ref": "#/components/schemas/PartSources"
      },
      "ticker": {
       "anyOf": [
@@ -23202,6 +23301,17 @@
        }
       ],
       "title": "Ticker"
+     },
+     "vesting": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Vesting"
      }
     },
     "required": [
@@ -23212,11 +23322,45 @@
      "bonus",
      "equity",
      "equity_pct",
-     "split_source",
+     "sources",
      "equity_vehicle",
+     "vesting",
      "ticker"
     ],
     "title": "TrajectoryPublicCompany",
+    "type": "object"
+   },
+   "TrajectorySetApart": {
+    "additionalProperties": false,
+    "description": "Roles with a pay figure the tab does not split, by reason.",
+    "properties": {
+     "count": {
+      "title": "Count",
+      "type": "integer"
+     },
+     "reason": {
+      "enum": [
+       "not_us_pay",
+       "level_unplaced",
+       "base_only",
+       "basis_unclear",
+       "hourly",
+       "monthly",
+       "period_unclear",
+       "total_compensation",
+       "plugin_without_split",
+       "plugin_not_covered"
+      ],
+      "title": "Reason",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "reason",
+     "count"
+    ],
+    "title": "TrajectorySetApart",
     "type": "object"
    },
    "TwinLinkCreated": {
@@ -31340,7 +31484,7 @@
   },
   "/api/statistics/comp-trajectory": {
    "get": {
-    "description": "Equity decomposition of open-role comp for the \"Stock trajectory\" view.\n\nSplits each open role's estimated total comp into base/bonus/equity (see\n`comp_split`) and partitions companies into public (equity tracks a listed\nticker, so it flexes with the stock price) vs private/illiquid. The UI applies\na stock-price scenario to the equity slice client-side. The roles\n`/api/statistics/compensation` describes: a place set once.",
+    "description": "Each company's typical package for the Stock tab, from the packages Job\ndetail shows, so a role reads the same on both screens.\n\nCompanies split into public (equity tracks a listed ticker, so it flexes\nwith the stock price), private, and those where each person picks the cash\nand stock mix. The UI applies a stock-price scenario to the equity part\nclient-side. The roles `/api/statistics/compensation` describes: a place set once.",
     "operationId": "statistics_comp_trajectory_api_statistics_comp_trajectory_get",
     "responses": {
      "200": {
