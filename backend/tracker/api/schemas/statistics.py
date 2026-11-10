@@ -346,6 +346,36 @@ class CompTrajectoryResponse(Built):
     set_apart: list[TrajectorySetApart]
 
 
+class OfferQuote(Built):
+    """The last quote the prices job stored, in US dollars, and its market date."""
+
+    price: float
+    as_of: str
+
+
+class OfferTermsCompany(_CompanyKey):
+    """What the offer calculator fills in for one company (`analytics.stock_trajectory.build_offer_terms`).
+    A fact the company does not state is null, never a default."""
+
+    listed: bool
+    ticker: str | None
+    equity_vehicle: str | None = Field(json_schema_extra=text("code"))
+    #: Percent vesting each year, as the company states it; at most four years.
+    vesting: list[float] | None
+    vesting_stated_by: Literal["employer", "estimated"] | None
+    bonus_rule: Literal["none", "pct_of_base"] | None
+    sign_on_bridges_vesting: bool
+    #: Only while a price key is saved, and only a quote already stored.
+    quote: OfferQuote | None
+
+
+class OfferTermsResponse(Built):
+    """`GET /api/statistics/offer-terms`."""
+
+    feed_configured: bool
+    companies: list[OfferTermsCompany]
+
+
 class ImpliedDollars(Built):
     low: int
     mid: int

@@ -192,6 +192,11 @@ export type ProfileSuggestionRouteContract = [
   Expect<Equals<Returns<typeof api.payFloor>, Ok<"read_pay_floor_api_profile_pay_floor_get">>>,
   Expect<Equals<Returns<typeof api.savePayFloor>, Ok<"save_pay_floor_api_profile_pay_floor_put">>>,
   Expect<Equals<Returns<typeof api.clearPayFloor>, Ok<"remove_pay_floor_api_profile_pay_floor_delete">>>,
+  Expect<Equals<Returns<typeof api.offer>, Ok<"read_offer_ep_api_profile_offer_get">>>,
+  Expect<Equals<Returns<typeof api.saveOffer>, Ok<"save_offer_ep_api_profile_offer_put">>>,
+  Expect<Equals<Returns<typeof api.clearOffer>, Ok<"clear_offer_ep_api_profile_offer_delete">>>,
+  Expect<Equals<Returns<typeof api.saveValuation>, Ok<"save_valuation_ep_api_profile_offer_valuations__company__put">>>,
+  Expect<Equals<Returns<typeof api.clearValuation>, Ok<"clear_valuation_ep_api_profile_offer_valuations__company__delete">>>,
   Expect<Equals<
     Returns<typeof api.acceptProfileSuggestion>,
     Ok<"accept_profile_suggestion_api_profile_suggestions__suggestion_id__accept_post">

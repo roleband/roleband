@@ -3,7 +3,7 @@
 // with itself.
 import { afterEach, describe, expect, it } from "vitest";
 import { activate } from "./activate";
-import { compare, country, date, duration, list, money, number, parseNumber, percent } from "./format";
+import { compare, country, date, duration, list, money, number, numberInput, parseNumber, percent } from "./format";
 
 const APRIL_12 = "2026-04-12T15:00:00Z";
 afterEach(() => activate("en"));
@@ -35,6 +35,16 @@ describe("numbers follow the region", () => {
     await activate("zh-Hans", { region: "zh-CN" });
     expect(number(1234567.5)).toBe("1,234,567.5");
     expect(parseNumber("about 3")).toBeNaN();
+  });
+
+  it("writes a field's value so the region's reader takes it back", async () => {
+    await activate("en", { region: "es-ES" });
+    expect(numberInput(1234567.5)).toBe("1234567,5");
+    expect(parseNumber(numberInput(1234567.5))).toBe(1234567.5);
+    await activate("en", { region: "ar-EG" });
+    expect(parseNumber(numberInput(412.25))).toBe(412.25);
+    await activate("en", { region: "en-US" });
+    expect(numberInput(250000)).toBe("250000");
   });
 
   it("money keeps its currency and shortens on request", async () => {

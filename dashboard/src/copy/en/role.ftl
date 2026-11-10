@@ -1,6 +1,8 @@
 ## role: moved as it was found (wording=as-is)
 
 ## features/job-detail/JobCompPanel.tsx
+# kind=link note="Opens the offer calculator on the Insights Stock tab, filled in from this role's base salary, bonus and equity"
+role-job-comp-panel-start-offer = Start an offer from this role
 # kind=label wording=as-is
 role-job-comp-panel-the-employer-s-exact-words = The employer's exact words
 # kind=sentence wording=as-is

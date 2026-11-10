@@ -635,6 +635,326 @@ insights-stock-trajectory-panel-load-failed = Couldn't load the stock trajectory
 # kind=label note="An equity vehicle: restricted stock units"
 insights-stock-trajectory-panel-rsus = RSUs
 
+## features/statistics/OfferCalculator.tsx
+# kind=heading note="The offer block before the first answer"
+insights-offer-start-title = What an offer pays, year by year
+# kind=sentence
+insights-offer-start-intro = A few short questions, one at a time. What you enter stays on this computer.
+# kind=status note="While the kept offer loads"
+insights-offer-loading = Loading your offer
+# kind=sentence
+insights-offer-load-failed = Your offer didn't load.
+# kind=sentence note="A save of the last answer failed; the answer is still on screen"
+insights-offer-save-failed = Your last answer wasn't saved. Answer it again to keep it.
+# kind=aria note="Where the person is in the questions this offer asks"
+insights-offer-progress = Question { $n } of { $total }
+# kind=heading
+insights-offer-q-company = Which company made the offer?
+# kind=sentence
+insights-offer-q-company-hint = Its usual stock and bonus rules fill in for you.
+# kind=label note="The company list's first entry, before a company is chosen"
+insights-offer-pick-company = Choose a company
+# kind=aria
+insights-offer-all-companies = All companies
+# kind=heading
+insights-offer-q-base = What's the base salary?
+# kind=sentence
+insights-offer-q-base-hint = The yearly salary on your offer letter.
+# kind=status note="Beside a yearly figure the person types"
+insights-offer-per-year = a year
+# kind=status note="Beside a price per share the person types"
+insights-offer-per-share = a share
+# kind=heading note="$vehicle is the company's stock type: cash is a company where each person picks the split between cash and stock"
+insights-offer-q-stock = { $vehicle ->
+    [options] How many options are in the offer?
+    [cash] How much did you choose to take as stock?
+   *[rsu] How much stock is in the offer?
+}
+# kind=sentence note="$company is the company's name; another is a company not on the list"
+insights-offer-q-stock-hint = { $vehicle ->
+    [options] { $company } grants stock options. Enter the number on your offer letter.
+    [cash] { $company } lets you split your pay between cash and stock. Enter the stock part over four years: a move changes only that part.
+    [another] Enter the total grant on your offer letter, in dollars or shares.
+   *[rsu] { $company } grants RSUs. Enter the total grant on your offer letter.
+}
+# kind=button
+insights-offer-no-stock = { $vehicle ->
+    [options] No options
+    [cash] All cash
+   *[rsu] No stock
+}
+# kind=heading
+insights-offer-q-strike = What's the strike price?
+# kind=sentence
+insights-offer-q-strike-hint = The price per share you pay to buy each option.
+# kind=heading note="$quote is yes when a last close is stored for the company"
+insights-offer-q-price = { $quote ->
+    [yes] Use the last close for { $company }?
+   *[no] What's the share price today?
+}
+# kind=sentence note="$price is a price per share, $date the market day it closed"
+insights-offer-q-price-quote = { $price } a share at the close on { $date }.
+# kind=button
+insights-offer-use-price = Use { $price }
+# kind=button
+insights-offer-own-price = Enter a price
+# kind=heading
+insights-offer-q-valuation = What is { $company } worth?
+# kind=button note="Answers the valuation question without a valuation: the equity reads at the value it was granted at"
+insights-offer-dont-know = I don't know
+# kind=heading note="$schedule lists the percent vesting each year, as 5, 15, 40, and 40"
+insights-offer-q-vesting-stated = Does your grant vest { $schedule }?
+# kind=sentence
+insights-offer-q-vesting-stated-hint = That is the schedule { $company } usually states, as a percent of the grant each year.
+# kind=heading
+insights-offer-q-vesting = How does the grant vest?
+# kind=sentence
+insights-offer-q-vesting-hint = { $named ->
+    [yes] { $company } doesn't say. Most grants vest evenly over four years.
+   *[no] Most grants vest evenly over four years.
+}
+# kind=sentence
+insights-offer-percent-of-grant = Percent of the grant in each year.
+# kind=button
+insights-offer-vesting-yes = Yes, same
+# kind=button
+insights-offer-vesting-differs = Mine differs
+# kind=button note="Opens one field per year for a schedule not among the choices"
+insights-offer-vesting-other = Other
+# kind=status note="Marks the even schedule among the choices"
+insights-offer-vesting-even = even
+# kind=sentence
+insights-offer-vesting-too-much = The years add up to { $pct }%. Keep it at 100% or under.
+# kind=heading
+insights-offer-q-bonus = Is there a yearly bonus target?
+# kind=sentence
+insights-offer-q-bonus-hint = A share of base, as your offer letter states it.
+# kind=button note="$pct is a bonus target as a percent of base; 0 is no bonus"
+insights-offer-bonus-choice = { $pct ->
+    [0] No bonus
+   *[other] { $pct }%
+}
+# kind=aria
+insights-offer-bonus-other = Another bonus target, percent of base
+# kind=heading
+insights-offer-q-sign-on = Any sign-on bonus?
+# kind=sentence
+insights-offer-q-sign-on-hint = A one-time payment for joining, sometimes split over two years.
+# kind=button
+insights-offer-sign-on-yes = Yes
+# kind=button
+insights-offer-sign-on-no = No sign-on
+# kind=sentence note="Under a question, when Next is pressed before it is answered; $what is the question"
+insights-offer-need = { $what ->
+    [company] Choose a company.
+    [base] Enter the yearly base salary.
+    [stock] Enter the amount, or choose the button beside it.
+    [strike] Enter the strike price.
+    [price] Enter today's share price.
+    [valuation] Enter the value at grant, or choose I don't know.
+    [vesting] Enter the percent vesting in at least one year.
+    [bonus] Choose a bonus target.
+   *[sign_on] Enter at least one sign-on amount.
+}
+# kind=button
+insights-offer-next = Next
+# kind=button note="Keeps a changed answer and goes back to the offer"
+insights-offer-done = Done
+# kind=button
+insights-offer-back = Back
+# kind=button
+insights-offer-cancel = Cancel
+# kind=button note="Folds the questions away; the answers so far are kept"
+insights-offer-later = Finish later
+# kind=heading note="$named is no for a company not on the list"
+insights-offer-finished-title = { $named ->
+    [yes] Your { $company } offer, year by year
+   *[no] Your offer, year by year
+}
+# kind=status
+insights-offer-unfinished = { $answered } of { $total } answered
+# kind=button
+insights-offer-continue = Continue
+# kind=sentence note="The offer was started from a company's or a role's typical figures"
+insights-offer-typical = These are typical figures. Swap in yours to see your own offer.
+# kind=button
+insights-offer-swap = Use my figures
+# kind=status note="Where an answer comes from, on its chip"
+insights-offer-tag = { $tag ->
+    [typical] Typical
+    [rule] Company rule
+    [employer] Stated by the company
+    [estimated] Estimated
+    [assumed] Assumed
+   *[quote] Last close
+}
+# kind=aria note="Names a chip that reopens its question; $answer is the chip's text"
+insights-offer-chip-edit = Change { $answer }
+# kind=status
+insights-offer-chip-base = Base { $amount }
+# kind=status
+insights-offer-chip-stock = { $kind ->
+    [none] No stock
+    [cash] { $amount } as stock
+    [options] { $count } options
+    [shares] { $count } shares
+   *[dollars] { $amount } in stock
+}
+# kind=status
+insights-offer-chip-strike = Strike { $amount }
+# kind=status
+insights-offer-chip-price = { $amount } a share
+# kind=status
+insights-offer-chip-valuation = { $kind ->
+    [none] At the value granted
+    [per_share] { $from } to { $to } a share
+   *[company] Valued { $from } to { $to }
+}
+# kind=status note="$schedule is the percent vesting each year, as 5 / 15 / 40 / 40"
+insights-offer-chip-vesting = Vests { $schedule }
+# kind=status
+insights-offer-chip-bonus = { $pct ->
+    [0] No bonus
+   *[other] { $pct }% bonus
+}
+# kind=status
+insights-offer-chip-sign-on = { $kind ->
+    [none] No sign-on
+   *[some] Sign-on { $first } + { $second }
+}
+# kind=aria
+insights-offer-chart = Total compensation by year
+# kind=status note="Under the four-year total; $amount is the difference a move makes"
+insights-offer-vs-today = { $sign ->
+    [up] { $amount } more than at today's price
+    [down] { $amount } less than at today's price
+   *[same] At today's price
+}
+# kind=button note="Opens the years as a table of exact figures"
+insights-offer-show-table = Show the table
+# kind=button note="Forgets the offer on this computer; private-company valuations stay"
+insights-offer-clear = Clear offer
+# kind=status note="When the person last saved an answer to the offer, or a valuation; $date is a calendar day"
+insights-offer-entered = Entered by you, { $date }
+# kind=status note="The form was filled from a company's median role on this tab ($title absent), or from one role's figures on its detail page"
+insights-offer-started-from = { $kind ->
+    [role] Filled in from { $title } at { $company }.
+   *[company] Filled in from the median role at { $company }.
+}
+# kind=button note="Puts back the offer the person had before the form was filled in from a role"
+insights-offer-undo = Undo
+# kind=label note="The company picker's choice for a company not on the list"
+insights-offer-another-company = Another company
+# kind=aria note="Names the choice between a listed and a private company, for a company not on the list"
+insights-offer-listed-label = Listed or private
+# kind=label
+insights-offer-listed = { $listed ->
+    [yes] Listed
+   *[no] Private
+}
+# kind=sentence note="The company's own bonus rule, under the bonus field"
+insights-offer-bonus-rule = { $rule ->
+    [none] This company pays no annual bonus.
+   *[pct_of_base] This company sets bonus as a share of base by level. Enter the one on your offer.
+}
+# kind=aria
+insights-offer-equity-type = Equity type
+# kind=aria note="Names the choice between a grant stated in dollars and one stated in shares"
+insights-offer-grant-unit = Grant stated in
+# kind=label
+insights-offer-grant-unit-option = { $unit ->
+    [dollars] Dollars
+   *[shares] Shares
+}
+# kind=sentence note="No price key is saved. $link is a link to Settings › Plugins, where the Stock prices card takes a key"
+insights-offer-price-needs-key = Type today's price, or add a key in { $link } to fill it from the last close.
+# kind=link
+insights-offer-price-settings = Settings › Plugins › Stock prices
+# kind=sentence note="A price key is saved, but no close is stored for this ticker yet"
+insights-offer-price-no-close = No close stored for { $ticker } yet. Type today's price.
+# kind=aria
+insights-offer-vesting-year = Year { $year }, percent vesting
+# kind=sentence note="The four years vest a share of the grant other than all of it"
+insights-offer-vesting-sum = These four years vest { $pct }% of the grant.
+# kind=label
+insights-offer-sign-on = Sign-on, year { $year }
+# kind=sentence
+insights-offer-sign-on-bridges = This company pays sign-on cash in the first two years to bridge its vesting.
+# kind=sentence
+insights-offer-private = Private-company equity can't be sold until the company lists or runs a tender.
+# kind=aria note="Names the choice between a valuation per share and one for the whole company"
+insights-offer-valuation-unit = Valuation stated as
+# kind=label
+insights-offer-valuation-unit-option = { $unit ->
+    [per_share] Price per share
+   *[company] Company valuation
+}
+# kind=label
+insights-offer-valuation-grant = { $unit ->
+    [per_share] Share price at grant
+   *[company] Valuation at grant
+}
+# kind=label
+insights-offer-valuation-test = { $unit ->
+    [per_share] Share price to test
+   *[company] Valuation to test
+}
+# kind=label
+insights-offer-share-count = Shares outstanding
+# kind=sentence
+insights-offer-valuation-hint = Enter the valuation on your offer and the one to test, such as the latest round or your own expectation.
+# kind=sentence
+insights-offer-valuation-none = Without a valuation, the equity is shown at the valuation it was priced at.
+# kind=label
+insights-offer-move = { $listed ->
+    [yes] Stock price change
+   *[no] Change in valuation
+}
+# kind=aria
+insights-offer-move-aria = { $listed ->
+    [yes] Stock price change for your offer, percent
+   *[no] Change in valuation for your offer, percent
+}
+# kind=sentence note="What the equity cannot be valued without; until then it counts as zero"
+insights-offer-missing = { $missing ->
+    [price] Enter today's share price to value the shares.
+    [strike] Enter the strike price to value the options.
+    [valuation] Enter a valuation to value the shares.
+   *[share_count] Enter the shares outstanding to turn the valuation into a price per share.
+}
+# kind=label
+insights-offer-year = Year
+# kind=label
+insights-offer-year-n = Year { $year }
+# kind=label
+insights-offer-four-years = Four years
+# kind=label
+insights-offer-sign-on-column = Sign-on
+# kind=label note="Column of total compensation at today's price"
+insights-offer-tc-today = TC today
+# kind=tooltip
+insights-offer-tc-today-full = Total compensation at today's price
+# kind=label note="Column of total compensation after the move; $pct is signed"
+insights-offer-tc-moved = { $move ->
+    [up] TC at +{ $pct }%
+   *[down] TC at { $pct }%
+}
+# kind=tooltip note="$pct is the size of the move, without a sign"
+insights-offer-tc-moved-full = { $move ->
+    [up] Total compensation after a { $pct }% rise
+   *[down] Total compensation after a { $pct }% fall
+}
+# kind=status note="A year whose total compensation is less than the year before"
+insights-offer-drop = Less than year { $year }
+# kind=button note="Starts the offer from this company's median role, as typical figures"
+insights-offer-start = Start from this
+# kind=label note="Column of the button that starts the offer from a row"
+insights-offer-column = Your offer
+# kind=label note="Private companies table: total compensation with equity at the valuation the person entered and the move"
+insights-offer-at-your-valuation = At your valuation
+# kind=tooltip note="Hover name of a figure in the At your valuation column; $date is when the valuation was entered"
+insights-offer-at-your-valuation-full = Equity at the valuation you entered on { $date }
+
 ## features/statistics/TrendsPanel.tsx
 # kind=label wording=as-is
 insights-trends-panel-demand-history = Demand history

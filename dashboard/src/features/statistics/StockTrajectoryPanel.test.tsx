@@ -1,4 +1,5 @@
 import { render, screen, within, fireEvent } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CompPackage, CompTrajectory } from "../../api";
 import { api } from "../../api";
@@ -6,8 +7,10 @@ import { msg } from "../../test/msg";
 import { StockTrajectoryPanel } from "./StockTrajectoryPanel";
 
 vi.mock("../../api", () => ({
-  api: { compTrajectory: vi.fn() },
+  api: { compTrajectory: vi.fn(), offerTerms: vi.fn(), offer: vi.fn() },
 }));
+
+const renderPanel = () => render(<StockTrajectoryPanel />, { wrapper: MemoryRouter });
 
 const mock = (data: CompTrajectory) => vi.mocked(api.compTrajectory).mockResolvedValue(data);
 
@@ -49,11 +52,15 @@ const kpi = (label: string) =>
   screen.getByText(label, { selector: ".kpi-l" }).closest(".kpi")! as HTMLElement;
 
 describe("StockTrajectoryPanel", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.offerTerms).mockResolvedValue({ feed_configured: false, companies: [] });
+    vi.mocked(api.offer).mockResolvedValue({ offer: null, valuations: {} });
+  });
 
   it("leads with the equity share at today's price, and the projection once the price moves", async () => {
     mock(base());
-    render(<StockTrajectoryPanel />);
+    renderPanel();
 
     // At 0% the projection is today's median again: the figure would say
     // nothing a tile does not, so it says what a move acts on.
@@ -71,7 +78,7 @@ describe("StockTrajectoryPanel", () => {
 
   it("keeps TC short on the figure and tiles and spells it out on hover", async () => {
     mock(base());
-    render(<StockTrajectoryPanel />);
+    renderPanel();
     await screen.findByRole("heading", { level: 2 });
     setSlider(100);
     const hero = await screen.findByRole("heading", { level: 2, name: /projected/ });
@@ -84,7 +91,7 @@ describe("StockTrajectoryPanel", () => {
 
   it("charts what a 10% move is worth at today's price, never a chart of zeros", async () => {
     mock(base());
-    render(<StockTrajectoryPanel />);
+    renderPanel();
     await screen.findByRole("heading", { level: 2 });
 
     // 10% of Microsoft's $140K equity and of Google's $500K.
@@ -99,7 +106,7 @@ describe("StockTrajectoryPanel", () => {
 
   it("re-prices only the equity slice when the stock moves up", async () => {
     mock(base());
-    render(<StockTrajectoryPanel />);
+    renderPanel();
     await screen.findByRole("heading", { level: 2 });
 
     setSlider(100); // stock doubles
@@ -112,7 +119,7 @@ describe("StockTrajectoryPanel", () => {
 
   it("drops total comp when the stock falls", async () => {
     mock(base());
-    render(<StockTrajectoryPanel />);
+    renderPanel();
     await screen.findByRole("heading", { level: 2 });
 
     setSlider(-50);
@@ -124,7 +131,7 @@ describe("StockTrajectoryPanel", () => {
 
   it("projects each public company independently by its own equity slice", async () => {
     mock(base());
-    render(<StockTrajectoryPanel />);
+    renderPanel();
     await screen.findByRole("heading", { level: 2 });
 
     setSlider(50); // +50%
@@ -142,7 +149,7 @@ describe("StockTrajectoryPanel", () => {
 
   it("lists private companies as illiquid and does not move them with the slider", async () => {
     mock(base());
-    render(<StockTrajectoryPanel />);
+    renderPanel();
     await screen.findByRole("heading", { level: 2 });
     setSlider(200);
 
@@ -155,7 +162,7 @@ describe("StockTrajectoryPanel", () => {
 
   it("shows an empty state when no public roles have a comp estimate", async () => {
     mock(base({ overall: null, public: [], private: [] }));
-    render(<StockTrajectoryPanel />);
+    renderPanel();
     expect(
       await screen.findByText(/No open roles at public companies/i),
     ).toBeInTheDocument();
@@ -169,7 +176,7 @@ describe("StockTrajectoryPanel", () => {
       public: [{ company: "google", ticker: "GOOGL", equity_vehicle: "rsu", vesting: null, ...pkg(1_000_000, 500_000, 120_000, sources) }],
       private: [],
     }));
-    render(<StockTrajectoryPanel />);
+    renderPanel();
     const goog = (await screen.findByText("Google")).closest("tr")!;
     const word = msg("insights-stock-trajectory-panel-part-source", { source });
     // Base, bonus and equity share each say where they come from.
@@ -187,7 +194,7 @@ describe("StockTrajectoryPanel", () => {
 
   it.each(["measured", "mixed", "estimated"] as const)("says in the hero whether equity is %s", async (equity) => {
     mock(base({ overall: pkg(1_000_000, 450_000, 120_000, { ...ESTIMATED, equity }) }));
-    render(<StockTrajectoryPanel />);
+    renderPanel();
     await screen.findByRole("heading", { level: 2 });
     expect(document.body).toHaveTextContent(msg("insights-stock-trajectory-panel-typical-package", { equity }));
     for (const other of (["measured", "mixed", "estimated"] as const).filter((e) => e !== equity)) {
@@ -207,7 +214,7 @@ describe("StockTrajectoryPanel", () => {
           ...pkg(600_000, 200_000, 0, { base: "estimated", bonus: "measured", equity: "estimated" }) },
       ],
     }));
-    render(<StockTrajectoryPanel />);
+    renderPanel();
     const openai = (await screen.findByText("OpenAI")).closest("tr")!;
     expect(within(openai).getByText(msg("insights-stock-trajectory-panel-no-bonus"))).toBeInTheDocument();
     expect(within(openai).getByText(msg("insights-stock-trajectory-panel-vests", { schedule: "25/25/25/25" }))).toBeInTheDocument();
@@ -220,7 +227,7 @@ describe("StockTrajectoryPanel", () => {
     mock(base({
       choice: [{ company: "netflix", ticker: "NFLX", count: 4, median_tc: 756_250, total_source: "posted" }],
     }));
-    render(<StockTrajectoryPanel />);
+    renderPanel();
     const choice = await screen.findByTestId("traj-choice");
     expect(within(choice).getByRole("heading", { name: msg("insights-stock-trajectory-panel-choice-companies") })).toBeInTheDocument();
     const nflx = within(choice).getByRole("row", { name: /Netflix/ });
@@ -243,7 +250,7 @@ describe("StockTrajectoryPanel", () => {
 
   it("counts the roles left out and says why, by reason", async () => {
     mock(base({ set_apart: [{ reason: "not_us_pay", count: 5 }, { reason: "hourly", count: 2 }] }));
-    render(<StockTrajectoryPanel />);
+    renderPanel();
     const line = await screen.findByTestId("traj-left-out");
     expect(line).toHaveTextContent(msg("insights-stock-trajectory-panel-left-out", { count: 7 }));
     const why = within(line).getByRole("button", { name: msg("insights-stock-trajectory-panel-why-left-out") });
@@ -266,7 +273,7 @@ describe("StockTrajectoryPanel", () => {
       choice: [{ company: "netflix", ticker: "NFLX", count: 2, median_tc: 600_000, total_source: "estimated" }],
       set_apart: [{ reason: "not_us_pay", count: 3 }],
     }));
-    render(<StockTrajectoryPanel />);
+    renderPanel();
     expect(await screen.findByTestId("traj-choice")).toBeInTheDocument();
     expect(screen.getByTestId("traj-left-out")).toHaveTextContent(msg("insights-stock-trajectory-panel-left-out", { count: 3 }));
     expect(screen.queryByText(msg("insights-stock-trajectory-panel-no-open-roles-at-public"))).not.toBeInTheDocument();
@@ -282,7 +289,7 @@ describe("StockTrajectoryPanel", () => {
 
     it("narrows every table to the companies it names, and hides a table with none", async () => {
       mock(withChoice());
-      render(<StockTrajectoryPanel />);
+      renderPanel();
       await screen.findByText("Google");
       fireEvent.change(find(), { target: { value: "micro" } });
       const pub = screen.getByTestId("traj-public");
@@ -295,7 +302,7 @@ describe("StockTrajectoryPanel", () => {
 
     it("reaches the private and cash-or-equity tables too, by name or slug, ignoring case", async () => {
       mock(withChoice());
-      render(<StockTrajectoryPanel />);
+      renderPanel();
       await screen.findByText("Google");
       fireEvent.change(find(), { target: { value: "OPENAI" } });
       expect(within(screen.getByTestId("traj-private")).getByRole("row", { name: /OpenAI/ })).toBeInTheDocument();
@@ -307,7 +314,7 @@ describe("StockTrajectoryPanel", () => {
 
     it("says so when no company matches, and clearing it brings every table back", async () => {
       mock(withChoice());
-      render(<StockTrajectoryPanel />);
+      renderPanel();
       await screen.findByText("Google");
       fireEvent.change(find(), { target: { value: "  zzz " } });
       expect(screen.getByTestId("traj-no-match")).toHaveTextContent(msg("insights-stock-trajectory-panel-no-company-matches", { query: "zzz" }));
@@ -321,7 +328,7 @@ describe("StockTrajectoryPanel", () => {
 
     it("offers no search when there is a single company to look at", async () => {
       mock(base({ public: base().public.slice(0, 1), private: [] }));
-      render(<StockTrajectoryPanel />);
+      renderPanel();
       await screen.findByText("Google");
       expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
     });
@@ -329,7 +336,7 @@ describe("StockTrajectoryPanel", () => {
 
   it("says nothing about left-out roles when none are", async () => {
     mock(base());
-    render(<StockTrajectoryPanel />);
+    renderPanel();
     await screen.findByRole("heading", { level: 2 });
     expect(screen.queryByTestId("traj-left-out")).not.toBeInTheDocument();
     expect(screen.queryByTestId("traj-choice")).not.toBeInTheDocument();
@@ -340,7 +347,7 @@ describe("StockTrajectoryPanel", () => {
       public: [{ company: "acme", ticker: "ACME", equity_vehicle: null, vesting: null, ...pkg(500_000, 0, 50_000) }],
       private: [],
     }));
-    render(<StockTrajectoryPanel />);
+    renderPanel();
     const row = (await screen.findByText("acme")).closest("tr")!;
     expect(within(row).getByText(msg("insights-stock-trajectory-panel-no-exposure"))).toBeInTheDocument();
     setSlider(200);

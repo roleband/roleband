@@ -333,6 +333,13 @@
   color: var(--app-text-faint);
 }
 
+/* An offer the person entered wears the action colour, never a posted or
+   measured figure's. */
+[data-design-system="app"] .split-src-entered {
+  color: var(--app-action-text);
+  border-color: var(--app-action-line);
+}
+
 /* A measured split for a level we have reason to doubt: the chip keeps its own word
    (where the ratios came from is a fact) and loses its confident colour. */
 [data-design-system="app"] .split-src-suspect {

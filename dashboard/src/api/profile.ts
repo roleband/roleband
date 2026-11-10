@@ -27,12 +27,28 @@ export type PayFloor = Schemas["PayFloor"];
  *  is a plain string, served with its slug as `display` once retired. */
 export type ProfileSuggestion = Schemas["ProfileSuggestionRow"];
 
+/** The person's own offer as the Stock tab's questions build it, kept on this
+ *  computer; and the private-company valuations they entered, by slug. */
+export type OfferAnswers = Schemas["OfferResponse"];
+export type OfferDraft = Schemas["OfferDraft"];
+export type OfferStep = Schemas["OfferDraft"]["answered"][number];
+export type ValuationDraft = Schemas["ValuationDraft"];
+
 export const profileApi = {
   /** The optional pay floor: a yearly base in one currency, kept
    *  apart from the scope; every write answers with the stored floor. */
   payFloor: () => getJSON<Schemas["PayFloorResponse"]>("/api/profile/pay-floor"),
   savePayFloor: (floor: Schemas["PayFloorInput"]) => putJSON<Schemas["PayFloorResponse"]>("/api/profile/pay-floor", floor),
   clearPayFloor: () => deleteJSON<Schemas["PayFloorResponse"]>("/api/profile/pay-floor"),
+  /** The offer and the valuations; every write answers with both as kept.
+   *  Nothing here is counted for usage sharing or sent off this computer. */
+  offer: (signal?: AbortSignal) => getJSON<Schemas["OfferResponse"]>("/api/profile/offer", signal),
+  saveOffer: (offer: Schemas["OfferDraft"]) => putJSON<Schemas["OfferResponse"]>("/api/profile/offer", offer),
+  clearOffer: () => deleteJSON<Schemas["OfferResponse"]>("/api/profile/offer"),
+  saveValuation: (company: string, valuation: Schemas["ValuationDraft"]) =>
+    putJSON<Schemas["OfferResponse"]>(`/api/profile/offer/valuations/${encodeURIComponent(company)}`, valuation),
+  clearValuation: (company: string) =>
+    deleteJSON<Schemas["OfferResponse"]>(`/api/profile/offer/valuations/${encodeURIComponent(company)}`),
   /** Inferred profile adjustments (pending only). The inference pass proposes;
    *  accept/dismiss below are the only resolution paths, and accept is the
    *  only way a suggestion touches scope. */

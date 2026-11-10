@@ -276,6 +276,8 @@ test("every Insights tab opens with the same hero, named by its tab", async ({ p
     },
     "/api/statistics/comp-trends**": { dim: "overall", days: 30, dates: [], series: [] },
     "/api/statistics/disclosure-trends**": { dim: "overall", days: 30, basis: "base", dates: [], series: [], cohort: null },
+    "/api/statistics/offer-terms": { feed_configured: false, companies: [] },
+    "/api/profile/offer": { offer: null, valuations: {} },
     "/api/statistics/comp-trajectory": {
       currency: "USD",
       overall: { count: 3, median_tc: 600_000, base: 300_000, bonus: 60_000, equity: 240_000, equity_pct: 0.4,

@@ -456,8 +456,380 @@
 
 /* Stacked cards keep the gap the hero and the chart above them keep. */
 .traj-companies,
+.traj-offer,
 .traj-search {
   margin-bottom: var(--app-space-3);
+}
+
+/* ---- the offer calculator ------------------------------------------------ */
+
+.traj-offer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--app-space-3);
+}
+
+.traj-offer-origin,
+.traj-offer-typical {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--app-space-2);
+  margin: var(--app-space-2) 0 0;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+
+/* An offer with questions left folds to one line: where it stands and the way
+   back in. */
+.traj-offer-paused {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--app-space-3);
+}
+
+.traj-offer-paused h3,
+.traj-offer-paused .sub {
+  margin-bottom: 0;
+}
+
+/* One question beside the bars it fills in: the answer and its effect are
+   read together. */
+.traj-offer-ask {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(200px, 280px);
+  gap: var(--app-space-5);
+  align-items: start;
+}
+
+.traj-offer-question {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--app-space-3);
+  min-width: 0;
+}
+
+.traj-offer-q {
+  margin: 0;
+  color: var(--app-text);
+  font-size: var(--app-type-screen);
+  font-weight: var(--app-weight-name);
+}
+
+.traj-offer-q + .traj-offer-hint {
+  margin-top: calc(-1 * var(--app-space-2));
+}
+
+.traj-offer-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--app-space-1);
+  margin: 0;
+  color: var(--app-text-faint);
+  font-size: var(--app-type-meta);
+}
+
+.traj-offer-row,
+.traj-offer-pair,
+.traj-offer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--app-space-2);
+}
+
+.traj-offer-actions {
+  align-items: center;
+}
+
+.traj-offer-pair {
+  gap: var(--app-space-3);
+}
+
+.traj-offer-labelled {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-1);
+  color: var(--app-text-muted);
+  font-size: var(--app-type-label);
+}
+
+.traj-offer-field {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 220px;
+  max-width: 100%;
+}
+
+.traj-offer-field-short {
+  width: 110px;
+}
+
+.traj-offer-field input[type="text"] {
+  width: 100%;
+  min-height: var(--app-control-md);
+  padding: 0 var(--app-control-md-pad);
+  border: 1px solid var(--app-border-control);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface);
+  color: var(--app-text);
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-body);
+  font-variant-numeric: tabular-nums;
+}
+
+.traj-offer-field:has(.traj-offer-suffix) input[type="text"] {
+  padding-right: 76px;
+}
+
+.traj-offer-suffix {
+  position: absolute;
+  right: var(--app-control-md-pad);
+  color: var(--app-text-faint);
+  font-size: var(--app-type-meta);
+  pointer-events: none;
+}
+
+/* Four short fields side by side: one per year. */
+.traj-offer-years {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--app-space-1);
+  width: min(100%, 400px);
+}
+
+.traj-offer-years .traj-offer-field {
+  width: auto;
+}
+
+.traj-offer-years .traj-offer-field input[type="text"] {
+  padding-right: 28px;
+}
+
+.traj-offer-dots {
+  display: flex;
+  gap: var(--app-space-1);
+}
+
+.traj-offer-dots i {
+  width: 18px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--app-border);
+}
+
+.traj-offer-dots i[data-done] {
+  background: var(--app-action);
+}
+
+.traj-offer-need {
+  margin: 0;
+  color: var(--app-warning);
+  font-size: var(--app-type-meta);
+}
+
+/* ---- the answers: each opens its own question ---- */
+
+.traj-offer-answers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--app-space-2);
+  margin: var(--app-space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.traj-offer-answer,
+.traj-offer-rule {
+  gap: var(--app-space-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A rule the company states is read, not changed: the answer's line, no box. */
+.traj-offer-rule {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--app-control-sm);
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+
+/* ---- the years as stacked bars ---- */
+
+.traj-offer-preview,
+.traj-offer-bars {
+  min-width: 0;
+  margin: 0;
+}
+
+.traj-offer-bars-plot {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--app-space-2);
+  height: 160px;
+}
+
+.traj-offer-bar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-1);
+  min-width: 0;
+}
+
+.traj-offer-bar-stack {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  border-radius: var(--app-radius-sm) var(--app-radius-sm) 0 0;
+}
+
+.traj-offer-bar-stack i {
+  display: block;
+  flex: none;
+}
+
+.traj-offer-bar-total {
+  color: var(--app-text-muted);
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-label);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.traj-offer-seg-base { background: var(--app-data-2); }
+.traj-offer-seg-bonus { background: var(--app-data-3); }
+.traj-offer-seg-signon { background: var(--app-data-4); }
+.traj-offer-seg-equity { background: var(--app-data-1); }
+
+.traj-offer-seg-ghost {
+  border: 1px dashed var(--app-border-strong);
+  border-bottom: 0;
+  border-radius: var(--app-radius-sm) var(--app-radius-sm) 0 0;
+}
+
+.traj-offer-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--app-space-1) var(--app-space-3);
+  margin-top: var(--app-space-2);
+  color: var(--app-text-muted);
+  font-size: var(--app-type-label);
+}
+
+.traj-offer-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--app-space-1);
+}
+
+.traj-offer-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+/* ---- the finished offer ---- */
+
+.traj-offer-outcome {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  gap: var(--app-space-5);
+  align-items: start;
+  margin-top: var(--app-space-4);
+}
+
+.traj-offer-sum {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-1);
+}
+
+.traj-offer-sum-label {
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+
+.traj-offer-sum-value {
+  color: var(--app-text);
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-stat);
+  font-variant-numeric: tabular-nums;
+}
+
+.traj-offer-sum-change {
+  color: var(--app-text-faint);
+  font-size: var(--app-type-meta);
+}
+
+.traj-offer-move {
+  margin-top: var(--app-space-3);
+}
+
+.traj-offer-missing {
+  margin: var(--app-space-2) 0 0;
+  color: var(--app-warning);
+  font-size: var(--app-type-meta);
+}
+
+.traj-offer-outcome ~ .traj-offer-hint {
+  margin-top: var(--app-space-2);
+}
+
+.traj-offer-table-wrap {
+  margin-top: var(--app-space-3);
+  overflow-x: auto;
+}
+
+.traj-offer-table-wrap summary {
+  color: var(--app-action-text);
+  font-size: var(--app-type-meta);
+  cursor: pointer;
+}
+
+.traj-offer-table .traj-offer-total {
+  font-weight: var(--app-weight-ui);
+}
+
+.traj-offer-table tfoot th,
+.traj-offer-table tfoot td {
+  border-top: 1px solid var(--app-border);
+}
+
+.traj-offer-drop-note {
+  display: block;
+  color: var(--app-warning);
+  font-size: var(--app-type-label);
+  font-weight: normal;
+  text-align: center;
+}
+
+.traj-offer > .traj-offer-actions {
+  margin-top: var(--app-space-3);
+}
+
+.traj-offer-start {
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .traj-offer-ask,
+  .traj-offer-outcome {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--app-space-4);
+  }
+
+  .traj-offer-bars-plot {
+    height: 120px;
+  }
 }
 
 .traj-search {

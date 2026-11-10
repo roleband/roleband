@@ -16,6 +16,7 @@
  * arrives with no components at all, and we must not invent a split to fill the bar.
  */
 import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import { calendarDay } from "../../copy/format";
 
 import type { CompComponent, Job, JobCompPackage } from "../../api";
@@ -85,6 +86,7 @@ import {
   roleJobCompPanelVests,
   roleJobCompPanelWeHaveNotCheckedThis,
   roleJobCompPanelYouChooseTheCashStock,
+  roleJobCompPanelStartOffer,
   roleJobCompPanelYr,
   roleJobCompPanelEstimatedBase,
   roleJobCompPanelFromRolebandData,
@@ -350,6 +352,19 @@ export default function JobCompPanel({ job }: { job: Job }) {
   // A total or our estimate is always yearly; only the employer's own figure
   // carries the posting's unit, so a yearly estimate never reads "/ hr".
   const headlineUnit = headline === stated ? statedUnit : (" " + roleJobCompPanelYr());
+
+  // A split yearly package in dollars can start the person's own offer on the
+  // Stock tab. The figures travel in the page's history entry, not the address.
+  const part = (kind: string) => components.find((c) => c.kind === kind);
+  const offerFrom = total && cur === "USD" && part("base")
+    ? {
+        company: job.company,
+        title: job.title,
+        base: mid(part("base")!),
+        bonus: part("bonus") ? mid(part("bonus")!) : 0,
+        equity: part("equity") ? mid(part("equity")!) : 0,
+      }
+    : null;
   const headlineCurrency = headline === stated || headline === total ? cur : "USD";
 
   return (
@@ -480,6 +495,14 @@ export default function JobCompPanel({ job }: { job: Job }) {
             ))}
           </div>
         </>
+      )}
+
+      {offerFrom && (
+        <div className="pkg-foot">
+          <Link to="/statistics/trajectory" state={{ offerFrom }} data-testid="pkg-start-offer">
+            {roleJobCompPanelStartOffer()}
+          </Link>
+        </div>
       )}
 
       {/* A plugin's figure with no split of its own, and no band stated: the

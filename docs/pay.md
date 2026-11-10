@@ -296,6 +296,36 @@ estimated) with no total, and
 `level_unplaced` for an estimate the package built nothing on. A role with no
 pay figure is not counted.
 
+The tab's offer calculator works on the person's own figures.
+`GET /api/statistics/offer-terms` (`stock_trajectory.build_offer_terms`) gives
+it what a company states and nothing else: listed or not and its ticker
+(resolved as the table resolves them), its stock type, its vesting schedule
+with who states it (a schedule longer than four years is not offered), its bonus
+rule and whether its sign-on bridges vesting. A listed company carries the last
+quote the prices job stored, in dollars, only while a price key is saved; the
+route never asks the feed. In the calculator only equity moves with the slider:
+a grant in dollars scales by the move, shares by today's price, options by the
+price above their strike and never below zero. A private company's grant
+follows the ratio of the valuation the person tests to the one it was priced
+at. A schedule summing to 99% (thirds) vests the whole grant; any other sum is
+read as typed and shown.
+
+### The offer
+
+The person's offer and their private-company valuations are kept in the local
+database, in `app_settings` (`user_profile/offer.py`): one row for the offer, one
+for the valuations keyed by company slug, each with the time it was saved.
+`GET /api/profile/offer` reads both; `PUT` and `DELETE /api/profile/offer` keep
+or forget the offer, and `PUT` and `DELETE /api/profile/offer/valuations/{company}`
+one company's valuation. Forgetting the offer keeps the valuations. The API
+refuses a figure the shape cannot hold (negative, not finite, a schedule over
+100% or longer than four years) and stores nothing; a stored row the current
+shape cannot read comes back as nothing, never as other figures. At most
+`MAX_VALUATIONS` companies are kept. None of these routes is a usage action
+(`api/usage_counter.py` lists them as not counted), so nothing about an offer,
+not even that one was saved, leaves the computer. Why the database and not the
+browser: `docs/decisions/0003-offer-in-local-database.md`.
+
 ## A role list's Base column
 
 The Board and the pipeline's List show one figure per row, of one kind: base
@@ -370,6 +400,8 @@ Staff and Principal: blueprint checks `offer_policy` and `pay_reference` in
 | Which family a role borrows from | `taxonomy/comp_families.py` (`REFERENCE_FAMILY`, `BORROW_ORDER`, `borrow_rank`) |
 | The heuristic split, where nothing is measured | `analytics/comp_split.py` (`_EQUITY_PCT_BY_BAND`, `_EQUITY_MULT`) |
 | The equity model checked against stated bases | `analytics/comp_residual.py`, `GET /api/statistics/equity-validation` |
+| What the offer calculator fills in for a company | `analytics/stock_trajectory.build_offer_terms`, `GET /api/statistics/offer-terms`; the arithmetic in `dashboard/src/features/statistics/offerModel.ts` |
+| Where the person's offer and valuations are kept | `user_profile/offer.py`, `/api/profile/offer` |
 | Stated pay against the user's pay floor | `analytics/pay_floor.floor_check` |
 | Comparing our base with a plugin's per-level rows | `python -m scripts.bench_level_pay compare` |
 

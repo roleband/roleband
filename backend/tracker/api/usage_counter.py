@@ -135,6 +135,17 @@ NOT_COUNTED: Mapping[tuple[str, str], str] = {
             ("DELETE", "/api/jobs/{job_id}/pursuit/interviews/{interview_id}"),
         )
     },
+    **{
+        (method, path): (
+            "the person's own offer and private-company valuations stay on this computer: not even "
+            "that one was saved is counted")
+        for method, path in (
+            ("PUT", "/api/profile/offer"),
+            ("DELETE", "/api/profile/offer"),
+            ("PUT", "/api/profile/offer/valuations/{company}"),
+            ("DELETE", "/api/profile/offer/valuations/{company}"),
+        )
+    },
     ("POST", "/api/settings/price-feed/refresh"): (
         "asks now for what the prices job does on its own; the key saved and removed are the counted "
         "choices, and a new action would widen the catalogue and re-ask every sharer"),
