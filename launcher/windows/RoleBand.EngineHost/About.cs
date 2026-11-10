@@ -15,13 +15,17 @@ public sealed record LastUpdate(string Phase, string From, string To, string? Ru
     public bool Unfinished => Running == "to" && Phase is "failed" or "recovering";
 
     /// <summary>How it ended, for this version to say: Updated to the new version, or Back on the previous one.</summary>
-    public UpdateRun? Result => (Phase, Running) switch
+    public UpdateResult? Result => (Phase, Running) switch
     {
-        ("complete", "to") => new UpdateRun(UpdateStep.Updated, To),
-        ("recovered", "from") => new UpdateRun(UpdateStep.RolledBack, From, To),
+        ("complete", "to") => new UpdateResult(To),
+        ("recovered", "from") => new UpdateResult(From, To),
         _ => null,
     };
 }
+
+/// <summary>How the last update ended: Updated to <paramref name="Version"/>, or, with <paramref name="Undone"/>, Back on
+/// <paramref name="Version"/> after that version was undone.</summary>
+public sealed record UpdateResult(string Version, string? Undone = null);
 
 /// <summary>What the update commands report: whether this build updates itself, the person's choice,
 /// the last check the feed answered, a verified offer and a rate limit. Read from <c>update status</c>,
@@ -63,24 +67,24 @@ public sealed record UpdateFacts(bool Available, bool Automatic, DateTimeOffset?
             ? DateTimeOffset.FromUnixTimeMilliseconds((long)(value.GetDouble() * 1000)) : null;
 }
 
-/// <summary>Where this session's own update stands, from the press of Update to the result the next version shows.</summary>
+/// <summary>Where this session's own update stands, from the press of Update until Windows closes this version.</summary>
 /// <remarks>Paused is a download that lost its connection: it resumes by itself, and Cancel stops it. Unpublished is an
-/// offer the feed no longer has: trying again cannot bring it back.</remarks>
-public enum UpdateStep { Downloading, Paused, Restarting, DownloadFailed, CheckFailed, NoSpace, Unpublished, RestartFailed, Updated, RolledBack }
+/// offer the feed no longer has: trying again cannot bring it back. Installing is Windows replacing the app while this
+/// version stays open; InstallFailed is Windows refusing the package.</remarks>
+public enum UpdateStep { Downloading, Paused, Installing, DownloadFailed, CheckFailed, NoSpace, Unpublished, InstallFailed }
 
-/// <param name="Version">The version being installed; for a result, the version now running.</param>
-/// <param name="Undone">For Back on, the version that was undone.</param>
+/// <param name="Version">The version being installed.</param>
 /// <param name="Percent">While Windows installs, its own percentage of the install.</param>
 /// <param name="Reason">Why Windows did not install it, in Windows' words.</param>
 /// <param name="Received">The bytes downloaded so far, of <paramref name="Total"/>.</param>
 /// <param name="Needed">For Not enough space, the free space the download and its install need.</param>
-public sealed record UpdateRun(UpdateStep Step, string Version, string? Undone = null, int? Percent = null, string? Reason = null,
+public sealed record UpdateRun(UpdateStep Step, string Version, int? Percent = null, string? Reason = null,
                                long? Received = null, long? Total = null, long? Needed = null)
 {
-    public bool InProgress => Step is UpdateStep.Downloading or UpdateStep.Paused or UpdateStep.Restarting;
+    public bool InProgress => Step is UpdateStep.Downloading or UpdateStep.Paused or UpdateStep.Installing;
 
     public bool Failed => Step is UpdateStep.DownloadFailed or UpdateStep.CheckFailed or UpdateStep.NoSpace or UpdateStep.Unpublished
-        or UpdateStep.RestartFailed;
+        or UpdateStep.InstallFailed;
 
     /// <summary>A download Cancel can stop: one running, or one waiting for the connection.</summary>
     public bool Cancellable => Step is UpdateStep.Downloading or UpdateStep.Paused;
@@ -94,7 +98,7 @@ public sealed record UpdateRun(UpdateStep Step, string Version, string? Undone =
             reply.ValueKind == JsonValueKind.Object && reply.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
                 ? value.GetString() : null;
         if (Text(reply, "status") == "downloaded" && Text(reply, "package") is { Length: > 0 } package)
-            return (new UpdateRun(UpdateStep.Restarting, version), package);
+            return (new UpdateRun(UpdateStep.Installing, version), package);
         var run = new UpdateRun(UpdateStep.DownloadFailed, version, Received: before?.Received, Total: before?.Total);
         return (Text(reply, "kind") switch
         {
@@ -131,7 +135,7 @@ public sealed record UpdateRun(UpdateStep Step, string Version, string? Undone =
 
 public enum UpdateRowKind
 {
-    Unavailable, Checking, Failed, Never, Offered, Current, Downloading, Paused, Restarting, UpdateFailed, Updated, Finishing, Unfinished,
+    Unavailable, Checking, Failed, Never, Offered, Current, Downloading, Paused, Installing, UpdateFailed, Updated, Finishing, Unfinished,
 }
 
 /// <param name="CanCheck">Check now stays on every state but a check or an update already running, so a failure is one
@@ -142,16 +146,18 @@ public enum UpdateRowKind
 public sealed record UpdateRow(UpdateRowKind Kind, string Title, string? Caption, bool CanCheck, bool Automatic, bool AutomaticEnabled,
                                string? Action = null, bool Cancel = false, string? HelpKey = null)
 {
-    public bool Busy => Kind is UpdateRowKind.Checking or UpdateRowKind.Downloading or UpdateRowKind.Restarting or UpdateRowKind.Finishing;
+    public bool Busy => Kind is UpdateRowKind.Checking or UpdateRowKind.Downloading or UpdateRowKind.Installing or UpdateRowKind.Finishing;
 }
 
-/// <summary>The flyout's update banner: an offer with Update, the download with Cancel, or a failure with Try again; and
-/// whether Windows is replacing the app, which stops the engine on purpose.</summary>
+/// <summary>The flyout's update banner: an offer with Update, the download with Cancel, or a failure with Try again; or
+/// the update as the flyout's whole state, while Windows replaces the app or the new version prepares.</summary>
 /// <param name="Version">The version the banner is about, which the menu's Update names.</param>
 /// <param name="Action">The words of its press; null while the download runs.</param>
+/// <param name="WholeState">The update is the flyout's whole state in place of the engine's summary: the engine is stopped
+/// on purpose.</param>
 /// <param name="Percent">How far the download, or Windows' install, has got.</param>
 /// <param name="Cancel">The download can be stopped from the banner.</param>
-public sealed record FlyoutUpdate(string Title, string? Caption, string? Action, string Version, bool Busy, bool Failed, bool Restarting,
+public sealed record FlyoutUpdate(string Title, string? Caption, string? Action, string Version, bool Busy, bool Failed, bool WholeState,
                                   int? Percent = null, bool Cancel = false);
 
 /// <param name="On">Windows' own state; Settings shows what is registered, not a proposal.</param>
@@ -169,7 +175,6 @@ public static class AboutPanel
     /// person agreed to is what they read.</summary>
     public static string AutomaticLabel => ConsentText();
 
-    /// <param name="lastResult">The status of this session's last check, if any.</param>
     /// <summary>The version Settings shows: an installed package's own, else the engine's. A release package is its
     /// release version with a zero revision and shows as that release, like the update offers; a trial's package
     /// version counts its builds and differs from the engine's.</summary>
@@ -177,7 +182,8 @@ public static class AboutPanel
         package is not { } v ? engineVersion
         : v.Revision == 0 ? $"{v.Major}.{v.Minor}.{v.Build}" : $"{v.Major}.{v.Minor}.{v.Build}.{v.Revision}";
 
-    /// <param name="run">This session's own update, if Update was pressed or the app opened as the result of one.</param>
+    /// <param name="lastResult">The status of this session's last check, if any.</param>
+    /// <param name="run">This session's own update, from the press of Update until Windows closes this version.</param>
     public static UpdateRow Updates(NativeCopy copy, UpdateFacts? facts, bool checking, string? lastResult, DateTimeOffset now,
                                     UpdateRun? run = null)
     {
@@ -193,12 +199,12 @@ public static class AboutPanel
                 Received(copy, run) is { } received ? $"{received} · {copy["update-paused-caption"]}" : copy["update-paused-caption"],
                 false, automatic, true, Cancel: true);
         // Windows installs while this version stays open; it closes it at the very end and opens the new one.
-        if (run is { Step: UpdateStep.Restarting })
+        if (run is { Step: UpdateStep.Installing })
         {
             var reopens = copy.Format("windows-update-installing-body", ("version", run.Version));
             return run.Percent is 100
-                ? new UpdateRow(UpdateRowKind.Restarting, copy["update-restarting"], reopens, false, automatic, true)
-                : new UpdateRow(UpdateRowKind.Restarting, copy.Format("windows-update-installing", ("version", run.Version)),
+                ? new UpdateRow(UpdateRowKind.Installing, copy["update-restarting"], reopens, false, automatic, true)
+                : new UpdateRow(UpdateRowKind.Installing, copy.Format("windows-update-installing", ("version", run.Version)),
                     run.Percent is { } percent ? $"{Percentage(copy, percent)} · {reopens}" : reopens, false, automatic, true);
         }
         // The version Windows just installed is still preparing: say what the wait is for.
@@ -216,7 +222,7 @@ public static class AboutPanel
                 UpdateStep.Unpublished => (copy.Format("update-download-failed", ("version", run.Version)), copy["update-nothing-installed"]),
                 UpdateStep.NoSpace => (copy["update-no-space"],
                     run.Needed is { } needed ? copy.Format("update-no-space-caption", ("size", Size(copy, needed))) : copy["update-nothing-installed"]),
-                UpdateStep.RestartFailed => (copy.Format("windows-update-install-failed", ("version", run.Version)),
+                UpdateStep.InstallFailed => (copy.Format("windows-update-install-failed", ("version", run.Version)),
                     run.Reason is { Length: > 0 } reason ? $"{copy["update-nothing-installed"]} {reason}" : copy["update-nothing-installed"]),
                 _ => (copy.Format("update-download-failed", ("version", run.Version)), copy["update-download-failed-caption"]),
             };
@@ -241,9 +247,9 @@ public static class AboutPanel
             return new UpdateRow(UpdateRowKind.Unfinished, copy.Format("windows-update-unfinished", ("version", unfinished.To)),
                 copy["windows-update-unfinished-caption"], true, automatic, true);
         // How the last update ended, as its journal says, so it holds across restarts until a newer offer.
-        if ((run is { Step: UpdateStep.Updated or UpdateStep.RolledBack } ? run : facts?.Last?.Result) is { } result)
+        if (facts?.Last?.Result is { } result)
             return new UpdateRow(UpdateRowKind.Updated,
-                copy.Format(result.Step == UpdateStep.Updated ? "update-updated" : "update-rolled-back", ("version", result.Version)),
+                copy.Format(result.Undone is null ? "update-updated" : "update-rolled-back", ("version", result.Version)),
                 result.Undone is { } undone ? copy.Format("update-rolled-back-caption", ("version", undone)) : checkedCaption,
                 true, automatic, true);
         if (facts?.CheckedAt is not null)
@@ -270,7 +276,7 @@ public static class AboutPanel
             UpdateRowKind.Downloading => new FlyoutUpdate(row.Title, row.Caption, null, run!.Version, true, false, false,
                 run.Received is { } received && run.Total is { } total && total > 0 ? (int)(received * 100 / total) : null, Cancel: true),
             UpdateRowKind.Paused => new FlyoutUpdate(row.Title, row.Caption, null, run!.Version, false, false, false, Cancel: true),
-            UpdateRowKind.Restarting => new FlyoutUpdate(row.Title, null, null, run!.Version, true, false, true, run.Percent),
+            UpdateRowKind.Installing => new FlyoutUpdate(row.Title, null, null, run!.Version, true, false, true, run.Percent),
             UpdateRowKind.Offered => new FlyoutUpdate(row.Title, null, row.Action, facts!.Offer!, false, false, false),
             UpdateRowKind.UpdateFailed => new FlyoutUpdate(row.Title, row.Caption, row.Action, run!.Version, false, true, false),
             _ => null,

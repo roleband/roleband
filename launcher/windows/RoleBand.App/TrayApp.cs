@@ -422,14 +422,14 @@ internal sealed class TrayApp
             // Windows installs while this version stays open, then closes it and opens the new one.
             await updates.ApplyAsync(engine, package, new Progress<int>(percent =>
             {
-                if (updateRun is { Step: UpdateStep.Restarting } run) updateRun = run with { Percent = percent };
+                if (updateRun is { Step: UpdateStep.Installing } run) updateRun = run with { Percent = percent };
                 RenderUpdate();
             }));
         }
         catch (Exception error)
         {
             Debug.WriteLine(error);
-            updateRun = new UpdateRun(UpdateStep.RestartFailed, version, Reason: error.Message);
+            updateRun = new UpdateRun(UpdateStep.InstallFailed, version, Reason: error.Message);
             RenderUpdate();
             // The switch stopped the engine first; nothing was installed, so this version carries on.
             await StartAsync();
@@ -672,19 +672,19 @@ internal sealed class TrayApp
             switch (finding.State)
             {
                 case InstallProgress.Running:
-                    updateRun = new UpdateRun(UpdateStep.Restarting, pending.To);
+                    updateRun = new UpdateRun(UpdateStep.Installing, pending.To);
                     RenderUpdate();
                     await Task.Delay(TimeSpan.FromSeconds(3));
                     continue;
                 case InstallProgress.Finished:
                     // The new version is in place; Windows closes this one. Should it not, this version carries on.
-                    updateRun = new UpdateRun(UpdateStep.Restarting, pending.To, Percent: 100);
+                    updateRun = new UpdateRun(UpdateStep.Installing, pending.To, Percent: 100);
                     RenderUpdate();
                     await Task.Delay(TimeSpan.FromSeconds(30));
                     updateRun = null;
                     return;
                 case InstallProgress.Failed:
-                    updateRun = new UpdateRun(UpdateStep.RestartFailed, pending.To, Reason: finding.Reason);
+                    updateRun = new UpdateRun(UpdateStep.InstallFailed, pending.To, Reason: finding.Reason);
                     RenderUpdate();
                     return;
                 default:

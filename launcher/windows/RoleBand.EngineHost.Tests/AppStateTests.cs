@@ -39,15 +39,15 @@ public sealed class AppStateTests
                     returningTo, returning, undoFailure, UndoGone: gone), Now);
     }
 
-    private static bool UpdateFailed(AppState state) => state.Update.Failed || state.Update.Facts?.Last is { Running: "to", Phase: "failed" or "recovering" };
+    private static bool UpdateFailed(AppState state) => state.Update.FoundFailed || state.Update.Facts?.Last is { Running: "to", Phase: "failed" or "recovering" };
 
     private static bool Switching(AppState state) =>
-        state.Update.Run is { Step: UpdateStep.Downloading or UpdateStep.Paused or UpdateStep.Restarting } || state.Update.Returning;
+        state.Update.Run is { Step: UpdateStep.Downloading or UpdateStep.Paused or UpdateStep.Installing } || state.Update.Returning;
 
     private static bool Downloading(AppState state) => state.Update.Run is { Step: UpdateStep.Downloading or UpdateStep.Paused };
 
     /// <summary>Only Windows replacing the app keeps a stopped engine stopped; a download does not.</summary>
-    private static bool Installing(AppState state) => state.Update.Run is { Step: UpdateStep.Restarting } || state.Update.Returning;
+    private static bool Installing(AppState state) => state.Update.Run is { Step: UpdateStep.Installing } || state.Update.Returning;
 
     private static bool CanStart(AppState state) => state.Engine is { State: EngineState.Stopped or EngineState.Attention }
         && !SetupFlow.EngineHeld(state.Setup) && !UpdateFailed(state) && state.Update.ReturningTo is null && !Installing(state);
@@ -63,7 +63,7 @@ public sealed class AppStateTests
     private static string Describe(AppState state) =>
         $"engine {state.Engine?.State.ToString() ?? "none"}, setup {(state.Setup.Complete ? "done" : "fresh")}, offer {state.Update.Facts?.Offer ?? "-"}, " +
         $"available {state.Update.Facts?.Available.ToString() ?? "-"}, last {state.Update.Facts?.Last?.Phase ?? "-"}/{state.Update.Facts?.Last?.Running ?? "-"}, " +
-        $"run {state.Update.Run?.Step.ToString() ?? "-"}, failed {state.Update.Failed}, returning {state.Update.ReturningTo ?? "-"}/{state.Update.Returning}, " +
+        $"run {state.Update.Run?.Step.ToString() ?? "-"}, found failed {state.Update.FoundFailed}, returning {state.Update.ReturningTo ?? "-"}/{state.Update.Returning}, " +
         $"refused {state.Update.UndoFailure ?? "-"}/{state.Update.UndoGone}, checking {state.Update.Checking}";
 
     [TestMethod]
@@ -129,7 +129,7 @@ public sealed class AppStateTests
     {
         var copy = new NativeCopy("en");
         var failed = new AppState(new EngineSnapshot(EngineState.Stopped), null, SetupRecord.Finished,
-            new UpdateState(new UpdateFacts(true, true, Now, Offer, null, new LastUpdate("failed", Previous, Running, "to")), Failed: true), Now);
+            new UpdateState(new UpdateFacts(true, true, Now, Offer, null, new LastUpdate("failed", Previous, Running, "to")), FoundFailed: true), Now);
         var surfaces = AppSurfaces.Of(copy, failed);
         Assert.AreEqual(("An update couldn't finish", FlyoutPrimary.Undo, true, TrayBadge.Attention),
             (surfaces.Flyout.Title, surfaces.Flyout.Primary, surfaces.Flyout.PrimaryEnabled, surfaces.Flyout.Badge));
@@ -149,7 +149,7 @@ public sealed class AppStateTests
         var copy = new NativeCopy("en");
         var failed = new UpdateFacts(true, false, Now, null, null, new LastUpdate("failed", Previous, Running, "to"));
         var gone = new AppState(new EngineSnapshot(EngineState.Stopped), null, SetupRecord.Finished,
-            new UpdateState(failed, Failed: true, ReturningTo: Previous, UndoFailure: "no longer published", UndoGone: true), Now);
+            new UpdateState(failed, FoundFailed: true, ReturningTo: Previous, UndoFailure: "no longer published", UndoGone: true), Now);
         var surfaces = AppSurfaces.Of(copy, gone);
         Assert.AreEqual(("Couldn't return to 0.1.17", FlyoutPrimary.CheckUpdates, true), (surfaces.Flyout.Title, surfaces.Flyout.Primary,
             surfaces.Flyout.PrimaryEnabled));
@@ -175,7 +175,7 @@ public sealed class AppStateTests
         var copy = new NativeCopy("en");
         var failed = new UpdateFacts(true, false, Now, Offer, null, new LastUpdate("failed", Previous, Running, "to"));
         var undoing = new AppState(new EngineSnapshot(EngineState.Stopped), null, SetupRecord.Finished,
-            new UpdateState(failed, Failed: true, ReturningTo: Previous, Returning: true, ReturnPercent: 30), Now);
+            new UpdateState(failed, FoundFailed: true, ReturningTo: Previous, Returning: true, ReturnPercent: 30), Now);
         var row = AppSurfaces.Of(copy, undoing).Updates;
         Assert.AreEqual(("Returning to 0.1.17", "30%", (string?)null, false, true), (row.Title, row.Caption, row.Action, row.CanCheck, row.Busy));
 
@@ -197,7 +197,7 @@ public sealed class AppStateTests
         Assert.AreEqual((FlyoutPrimary.Restart, true), (surfaces.Flyout.Primary, surfaces.Flyout.PrimaryEnabled),
             "a download waiting for the network can wait for hours; the radar need not");
         Assert.IsTrue(surfaces.Updates.Cancel);
-        var installing = AppSurfaces.Of(copy, paused with { Update = paused.Update with { Run = new UpdateRun(UpdateStep.Restarting, Offer) } });
+        var installing = AppSurfaces.Of(copy, paused with { Update = paused.Update with { Run = new UpdateRun(UpdateStep.Installing, Offer) } });
         Assert.IsFalse(installing.Flyout.Primary == FlyoutPrimary.Restart && installing.Flyout.PrimaryEnabled,
             "while Windows replaces the app, Restart would only be undone");
     }

@@ -61,7 +61,7 @@ public static class Companion
     public static FlyoutView View(NativeCopy copy, EngineSnapshot engine, ScanStatus? status, ScanAction? requested,
                                   DateTimeOffset? lastScanAt, bool setupComplete, DateTimeOffset now, FlyoutUpdate? update = null)
     {
-        if (update is { Restarting: true })
+        if (update is { WholeState: true })
             return new FlyoutView(update.Title, update.Percent is { } percent ? AboutPanel.Percentage(copy, percent) : null, update.Percent, null,
                 update.Percent is null, [], FlyoutPrimary.OpenRadar, false, null, null, null, PauseControl.None, false, TrayBadge.Scanning,
                 Tip(update.Title));
@@ -292,17 +292,17 @@ public static class SettingsPanel
 
     /// <param name="held">Setup holds the engine until Welcome's Continue: that is not a stop, and Restart would
     /// start what setup holds.</param>
-    /// <param name="restarting">Windows is replacing the app for an update, which stops the engine on purpose.</param>
+    /// <param name="installing">Windows is replacing the app for an update, which stops the engine on purpose.</param>
     /// <param name="returningTo">An Undo is returning to this version: Windows replaces the app and opens it again.</param>
     /// <param name="returning">This session pressed Undo and is waiting for Windows; otherwise the app opened with the undo
     /// unfinished, and Undo stays one press away in case Windows did not finish it.</param>
     /// <param name="undoFailure">Why the last Undo was refused; the banner says so, with Try again and the reason below.</param>
     /// <param name="newer">A newer release offered while an update has failed: it can replace the failed version.</param>
-    public static SettingsProblem? Problem(EngineSnapshot engine, bool updateFailed, bool held, bool restarting = false,
+    public static SettingsProblem? Problem(EngineSnapshot engine, bool updateFailed, bool held, bool installing = false,
                                            string? returningTo = null, bool returning = false, string? undoFailure = null,
                                            string? newer = null, bool undoGone = false)
     {
-        if (held || restarting) return null;
+        if (held || installing) return null;
         if (returningTo is not null && undoFailure is not null && !returning)
             return undoGone
                 ? new("windows-update-undo-failed", "windows-update-undo-gone-body", false, false, returningTo, Newer: newer)

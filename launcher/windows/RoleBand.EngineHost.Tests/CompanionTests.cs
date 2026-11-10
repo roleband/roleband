@@ -184,7 +184,7 @@ public sealed class CompanionTests
         Assert.AreEqual((FlyoutPrimary.OpenRadar, TrayBadge.Scanning, "RoleBand: Restarting to update"), (view.Primary, view.Badge, view.Tooltip));
         CollectionAssert.AreEqual(new MenuCommand?[] { MenuCommand.Settings, null, MenuCommand.Quit },
             Companion.Menu(English, stopped, view, true).Select(entry => entry.Command).ToArray(), "Restart would race the switch");
-        Assert.IsNull(SettingsPanel.Problem(stopped, false, false, restarting: true));
+        Assert.IsNull(SettingsPanel.Problem(stopped, false, false, installing: true));
         Assert.IsNotNull(SettingsPanel.Problem(stopped, false, false), "without a switch, a stopped engine is a problem");
         Assert.AreEqual(MenuCommand.Restart, Companion.Menu(English, stopped, View(stopped), true)[1].Command);
     }

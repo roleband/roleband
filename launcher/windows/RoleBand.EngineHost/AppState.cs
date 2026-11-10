@@ -2,7 +2,7 @@ namespace RoleBand.EngineHost;
 
 /// <summary>The update side of the app at one moment: what the update commands report, this session's own update,
 /// and an Undo under way.</summary>
-/// <param name="Failed">The coordinator found this version's update unfinished or failed when the app opened.</param>
+/// <param name="FoundFailed">The coordinator found this version's update unfinished or failed when it started the engine.</param>
 /// <param name="ReturningTo">An Undo is returning to this version.</param>
 /// <param name="Returning">This session pressed Undo and waits for Windows.</param>
 /// <param name="UndoFailure">Why the last Undo was refused.</param>
@@ -14,7 +14,7 @@ public sealed record UpdateState(
     UpdateRun? Run = null,
     bool Checking = false,
     string? LastResult = null,
-    bool Failed = false,
+    bool FoundFailed = false,
     string? ReturningTo = null,
     bool Returning = false,
     string? UndoFailure = null,
@@ -22,14 +22,14 @@ public sealed record UpdateState(
     bool UndoGone = false)
 {
     /// <summary>This version is an update that could not prepare, as the coordinator or the journal says.</summary>
-    public bool UpdateFailed => Failed || Facts?.Last is { Unfinished: true };
+    public bool UpdateFailed => FoundFailed || Facts?.Last is { Unfinished: true };
 
     /// <summary>An Update or an Undo is under way, from the download to Windows' install: no other may start.</summary>
     public bool Switching => Run is { InProgress: true } || Returning;
 
     /// <summary>Windows is replacing the app, with the update or the version before it: the engine stays stopped. A
     /// download, even one paused for hours, does not hold the engine.</summary>
-    public bool Installing => Run is { Step: UpdateStep.Restarting } || Returning;
+    public bool Installing => Run is { Step: UpdateStep.Installing } || Returning;
 
     /// <summary>The release an Update press installs, when one can be pressed: not over an Undo under way, unless that
     /// Undo was refused before it began, which leaves the update failed and open to a newer release.</summary>
@@ -91,7 +91,7 @@ public static class AppSurfaces
         if (update.ReturningTo is { } previous && !update.UndoRefused && update.Run is not { Cancellable: true })
             row = row with
             {
-                Kind = UpdateRowKind.Restarting,
+                Kind = UpdateRowKind.Installing,
                 Title = copy.Format("windows-update-undoing", ("version", previous)),
                 Caption = update.Returning && update.ReturnPercent is { } percent ? AboutPanel.Percentage(copy, percent) : null,
                 CanCheck = row.CanCheck && !update.Returning,
@@ -113,8 +113,8 @@ public static class AppSurfaces
         var banner = AboutPanel.Flyout(copy, facts, update.Run, update.UndoRefused ? null : update.ReturningTo,
             update.Returning ? update.ReturnPercent : null);
         // With no running engine to summarise, an update under way is the flyout's whole state.
-        if (banner is { Busy: true } && engine.State != EngineState.Ready) banner = banner with { Restarting = true };
-        var problem = SettingsPanel.Problem(engine, update.UpdateFailed, state.SetupHeld, update.Run is { Step: UpdateStep.Restarting },
+        if (banner is { Busy: true } && engine.State != EngineState.Ready) banner = banner with { WholeState = true };
+        var problem = SettingsPanel.Problem(engine, update.UpdateFailed, state.SetupHeld, update.Run is { Step: UpdateStep.Installing },
             update.ReturningTo, update.Returning, update.UndoFailure, update.Installable, update.UndoGone);
         if (problem is { Busy: true } && update.Returning) problem = problem with { Percent = update.ReturnPercent };
         if (update.UpdateFailed && (update.ReturningTo is null || update.UndoRefused) && !update.Switching)

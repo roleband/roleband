@@ -78,7 +78,7 @@ public sealed class AboutTests
     [TestMethod]
     public void ADownloadLeadsToTheSwitchOnlyWithAVerifiedPackage()
     {
-        Assert.AreEqual((new UpdateRun(UpdateStep.Restarting, "0.1.12"), @"C:\state\packages\RoleBand-0.1.12-Windows-x64.msix"),
+        Assert.AreEqual((new UpdateRun(UpdateStep.Installing, "0.1.12"), @"C:\state\packages\RoleBand-0.1.12-Windows-x64.msix"),
             Downloaded("""{"status":"downloaded","package":"C:\\state\\packages\\RoleBand-0.1.12-Windows-x64.msix","offer":{"version":"0.1.12"}}"""));
         Assert.AreEqual((new UpdateRun(UpdateStep.CheckFailed, "0.1.12"), (string?)null),
             Downloaded("""{"status":"failed","kind":"check","reason":"The download is not the signed release"}"""));
@@ -102,7 +102,7 @@ public sealed class AboutTests
         Assert.IsNull(Downloaded("""{"status":"failed","kind":"space","needed":"lots"}""").Run.Needed, "no size made up from a malformed one");
         var paused = new UpdateRun(UpdateStep.Paused, "0.1.12");
         Assert.IsTrue(paused.InProgress && paused.Cancellable && !paused.Failed, "a paused download is still this session's update");
-        Assert.IsFalse(new UpdateRun(UpdateStep.Restarting, "0.1.12").Cancellable, "Windows' install cannot be cancelled from here");
+        Assert.IsFalse(new UpdateRun(UpdateStep.Installing, "0.1.12").Cancellable, "Windows' install cannot be cancelled from here");
     }
 
     [TestMethod]
@@ -152,9 +152,9 @@ public sealed class AboutTests
         banner = AboutPanel.Flyout(copy, facts, paused)!;
         Assert.AreEqual((true, false, (string?)null), (banner.Cancel, banner.Busy, banner.Action), "waiting, not working: no spinner");
 
-        var installing = AboutPanel.Updates(copy, facts, false, null, Now, new UpdateRun(UpdateStep.Restarting, "0.1.12", Percent: 40));
+        var installing = AboutPanel.Updates(copy, facts, false, null, Now, new UpdateRun(UpdateStep.Installing, "0.1.12", Percent: 40));
         Assert.IsFalse(installing.Cancel, "once Windows installs, Cancel would only lie");
-        Assert.IsFalse(AboutPanel.Flyout(copy, facts, new UpdateRun(UpdateStep.Restarting, "0.1.12"))!.Cancel);
+        Assert.IsFalse(AboutPanel.Flyout(copy, facts, new UpdateRun(UpdateStep.Installing, "0.1.12"))!.Cancel);
     }
 
     [TestMethod]
@@ -230,7 +230,7 @@ public sealed class AboutTests
         var expected = new Dictionary<string, UpdateStep>
         {
             ["paused"] = UpdateStep.Paused, ["space"] = UpdateStep.NoSpace, ["check"] = UpdateStep.CheckFailed,
-            ["missing"] = UpdateStep.Unpublished, ["offer"] = UpdateStep.Restarting,
+            ["missing"] = UpdateStep.Unpublished, ["offer"] = UpdateStep.Installing,
         };
         foreach (var (scenario, step) in expected)
         {
@@ -255,8 +255,8 @@ public sealed class AboutTests
         Assert.IsTrue((await Facts("failed")).Last!.Unfinished);
         Assert.AreEqual("0.1.3", (await Facts("failed")).Offer, "a newer release beside Undo");
         Assert.IsNull((await Facts("failed-alone")).Offer);
-        Assert.AreEqual(new UpdateRun(UpdateStep.Updated, "0.1.2"), (await Facts("updated")).Last!.Result);
-        Assert.AreEqual(new UpdateRun(UpdateStep.RolledBack, "0.1.2", "0.1.3"), (await Facts("rolled-back")).Last!.Result);
+        Assert.AreEqual(new UpdateResult("0.1.2"), (await Facts("updated")).Last!.Result);
+        Assert.AreEqual(new UpdateResult("0.1.2", "0.1.3"), (await Facts("rolled-back")).Last!.Result);
         var gone = SimulatedUpdate.For(source, "undo-gone")!;
         Assert.AreEqual("undo", gone.Press);
         var answer = await gone.RunAsync(["recover-begin"], CancellationToken.None);
@@ -280,14 +280,14 @@ public sealed class AboutTests
         var downloading = AboutPanel.Updates(copy, offer, false, null, Now, new UpdateRun(UpdateStep.Downloading, "0.1.12"));
         Assert.AreEqual((UpdateRowKind.Downloading, "Downloading 0.1.12", (string?)null, false, true),
             (downloading.Kind, downloading.Title, downloading.Action, downloading.CanCheck, downloading.Busy));
-        var installing = AboutPanel.Updates(copy, offer, true, null, Now, new UpdateRun(UpdateStep.Restarting, "0.1.12"));
-        Assert.AreEqual((UpdateRowKind.Restarting, "Installing 0.1.12", "RoleBand opens again on 0.1.12 when Windows is done.", (string?)null, false),
+        var installing = AboutPanel.Updates(copy, offer, true, null, Now, new UpdateRun(UpdateStep.Installing, "0.1.12"));
+        Assert.AreEqual((UpdateRowKind.Installing, "Installing 0.1.12", "RoleBand opens again on 0.1.12 when Windows is done.", (string?)null, false),
             (installing.Kind, installing.Title, installing.Caption, installing.Action, installing.CanCheck), "a switch under way outranks a check");
-        var counting = AboutPanel.Updates(copy, offer, false, null, Now, new UpdateRun(UpdateStep.Restarting, "0.1.12", Percent: 45));
+        var counting = AboutPanel.Updates(copy, offer, false, null, Now, new UpdateRun(UpdateStep.Installing, "0.1.12", Percent: 45));
         Assert.AreEqual(("Installing 0.1.12", "45% · RoleBand opens again on 0.1.12 when Windows is done."), (counting.Title, counting.Caption),
             "Windows' own percentage while this version stays open");
         Assert.AreEqual("Restarting to update",
-            AboutPanel.Updates(copy, offer, false, null, Now, new UpdateRun(UpdateStep.Restarting, "0.1.12", Percent: 100)).Title,
+            AboutPanel.Updates(copy, offer, false, null, Now, new UpdateRun(UpdateStep.Installing, "0.1.12", Percent: 100)).Title,
             "at the end Windows closes this version and opens the new one");
     }
 
@@ -301,11 +301,11 @@ public sealed class AboutTests
             (download.Kind, download.Title, download.Caption, download.Action, download.CanCheck));
         var check = AboutPanel.Updates(copy, offer, false, null, Now, new UpdateRun(UpdateStep.CheckFailed, "0.1.12"));
         Assert.AreEqual(("0.1.12 failed its check", "Nothing was installed."), (check.Title, check.Caption));
-        var install = AboutPanel.Updates(copy, offer, false, null, Now, new UpdateRun(UpdateStep.RestartFailed, "0.1.12"));
+        var install = AboutPanel.Updates(copy, offer, false, null, Now, new UpdateRun(UpdateStep.InstallFailed, "0.1.12"));
         Assert.AreEqual(("Couldn't install 0.1.12", "Nothing was installed.", "Try again"), (install.Title, install.Caption, install.Action),
-            "Windows refused the package: it was never a restart that failed");
+            "Windows refused the package");
         var why = AboutPanel.Updates(copy, offer, false, null, Now,
-            new UpdateRun(UpdateStep.RestartFailed, "0.1.12", Reason: "The package could not be installed because there is not enough space."));
+            new UpdateRun(UpdateStep.InstallFailed, "0.1.12", Reason: "The package could not be installed because there is not enough space."));
         Assert.AreEqual("Nothing was installed. The package could not be installed because there is not enough space.", why.Caption,
             "Windows' own reason follows");
         var newer = AboutPanel.Updates(copy, offer with { Offer = "0.1.13" }, false, null, Now, new UpdateRun(UpdateStep.DownloadFailed, "0.1.12"));
@@ -316,16 +316,14 @@ public sealed class AboutTests
     public void TheNextOpenSaysHowTheUpdateEndedUntilANewerOfferArrives()
     {
         var copy = new NativeCopy("en");
-        var current = new UpdateFacts(true, false, Now.AddMinutes(-1), null, null);
-        var updated = AboutPanel.Updates(copy, current, false, null, Now, new UpdateRun(UpdateStep.Updated, "0.1.12"));
+        var current = new UpdateFacts(true, false, Now.AddMinutes(-1), null, null, new LastUpdate("complete", "0.1.11", "0.1.12", "to"));
+        var updated = AboutPanel.Updates(copy, current, false, null, Now);
         Assert.AreEqual((UpdateRowKind.Updated, "Updated to 0.1.12", (string?)null), (updated.Kind, updated.Title, updated.Action));
         StringAssert.StartsWith(updated.Caption, "Checked ");
-        var back = AboutPanel.Updates(copy, current, false, null, Now, new UpdateRun(UpdateStep.RolledBack, "0.1.11"));
+        var back = AboutPanel.Updates(copy, current with { Last = new LastUpdate("recovered", "0.1.11", "0.1.12", "from") }, false, null, Now);
         Assert.AreEqual("Back on 0.1.11", back.Title);
-        Assert.AreEqual(UpdateRowKind.Offered,
-            AboutPanel.Updates(copy, current with { Offer = "0.1.13" }, false, null, Now, new UpdateRun(UpdateStep.Updated, "0.1.12")).Kind);
-        Assert.AreEqual(UpdateRowKind.Failed, AboutPanel.Updates(copy, current, false, "failed", Now, new UpdateRun(UpdateStep.Updated, "0.1.12")).Kind,
-            "a failed check after the update is said");
+        Assert.AreEqual(UpdateRowKind.Offered, AboutPanel.Updates(copy, current with { Offer = "0.1.13" }, false, null, Now).Kind);
+        Assert.AreEqual(UpdateRowKind.Failed, AboutPanel.Updates(copy, current, false, "failed", Now).Kind, "a failed check after the update is said");
     }
 
     [TestMethod]
@@ -397,12 +395,12 @@ public sealed class AboutTests
         Assert.AreEqual(new FlyoutUpdate("Downloading 0.1.12", null, null, "0.1.12", true, false, false, Cancel: true),
             AboutPanel.Flyout(copy, offer, new UpdateRun(UpdateStep.Downloading, "0.1.12")), "no Update while it downloads, only Cancel");
         Assert.AreEqual(new FlyoutUpdate("Installing 0.1.12", null, null, "0.1.12", true, false, true, 45),
-            AboutPanel.Flyout(copy, offer, new UpdateRun(UpdateStep.Restarting, "0.1.12", Percent: 45)));
+            AboutPanel.Flyout(copy, offer, new UpdateRun(UpdateStep.Installing, "0.1.12", Percent: 45)));
         Assert.AreEqual(new FlyoutUpdate("Returning to 0.1.11", null, null, "0.1.11", true, false, true, 30),
             AboutPanel.Flyout(copy, offer, null, "0.1.11", 30), "putting the previous version back shows Windows' percentage too");
         Assert.AreEqual(new FlyoutUpdate("Couldn't download 0.1.12", "The server didn't answer.", "Try again", "0.1.12", false, true, false),
             AboutPanel.Flyout(copy, offer, new UpdateRun(UpdateStep.DownloadFailed, "0.1.12")));
-        Assert.IsNull(AboutPanel.Flyout(copy, offer with { Offer = null }, new UpdateRun(UpdateStep.Updated, "0.1.12")));
+        Assert.IsNull(AboutPanel.Flyout(copy, offer with { Offer = null, Last = new LastUpdate("complete", "0.1.11", "0.1.12", "to") }, null));
         Assert.IsNull(AboutPanel.Flyout(copy, offer with { Offer = null }, null));
         Assert.IsNull(AboutPanel.Flyout(copy, UpdateFacts.Unavailable, null), "a build that does not update itself says nothing");
         Assert.IsNull(AboutPanel.Flyout(copy, null, null));
@@ -432,7 +430,8 @@ public sealed class AboutTests
     public void EveryRowHasWindowsWordsInEveryLanguage()
     {
         UpdateFacts?[] facts = [null, new(false, false, null, null, null), new(true, true, Now, null, null), new(true, false, Now, "0.1.3", null),
-            new(true, false, null, null, Now.AddMinutes(1))];
+            new(true, false, null, null, Now.AddMinutes(1)), new(true, false, Now, null, null, new LastUpdate("complete", "0.1.2", "0.1.3", "to")),
+            new(true, false, Now, null, null, new LastUpdate("recovered", "0.1.2", "0.1.3", "from"))];
         string[] macWords = ["Mac", "macOS", "menu bar", "System Settings", "Finder"];
         foreach (var language in Languages)
         {
