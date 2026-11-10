@@ -834,6 +834,8 @@ insights-offer-vs-today = { $sign ->
 insights-offer-show-table = Show the table
 # kind=button note="Forgets the offer on this computer; private-company valuations stay"
 insights-offer-clear = Clear offer
+# kind=status note="Toast after Clear offer; the toast's Undo puts the offer back"
+insights-offer-cleared = Offer cleared.
 # kind=status note="When the person last saved an answer to the offer, or a valuation; $date is a calendar day"
 insights-offer-entered = Entered by you, { $date }
 # kind=status note="The form was filled from a company's median role on this tab ($title absent), or from one role's figures on its detail page"
@@ -845,6 +847,11 @@ insights-offer-started-from = { $kind ->
 insights-offer-undo = Undo
 # kind=label note="The company picker's choice for a company not on the list"
 insights-offer-another-company = Another company
+# kind=status note="The answer chip for a company not on the list"
+insights-offer-chip-another = { $listed ->
+    [yes] Another company, listed
+   *[no] Another company, private
+}
 # kind=aria note="Names the choice between a listed and a private company, for a company not on the list"
 insights-offer-listed-label = Listed or private
 # kind=label
@@ -948,10 +955,17 @@ insights-offer-tc-moved-full = { $move ->
 insights-offer-drop = Less than year { $year }
 # kind=button note="Starts the offer from this company's median role, as typical figures"
 insights-offer-start = Start from this
+# kind=aria note="Names a row's Start from this button with its company"
+insights-offer-start-aria = Start an offer from { $company }
 # kind=label note="Column of the button that starts the offer from a row"
 insights-offer-column = Your offer
 # kind=label note="Private companies table: total compensation with equity at the valuation the person entered and the move"
 insights-offer-at-your-valuation = At your valuation
+# kind=label note="The At your valuation column once the valuation moves; $pct is signed"
+insights-offer-at-your-valuation-moved = { $move ->
+    [up] At your valuation, +{ $pct }%
+   *[down] At your valuation, { $pct }%
+}
 # kind=tooltip note="Hover name of a figure in the At your valuation column; $date is when the valuation was entered"
 insights-offer-at-your-valuation-full = Equity at the valuation you entered on { $date }
 

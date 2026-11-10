@@ -11,6 +11,7 @@ import { api } from "../../api";
 import { calendarDay, list, money } from "../../copy/format";
 import { fmtComp } from "../../format";
 import { msg } from "../../test/msg";
+import { ToastProvider } from "../../ui/Toast";
 import { StockTrajectoryPanel } from "./StockTrajectoryPanel";
 
 vi.mock("../../api", () => ({
@@ -72,7 +73,11 @@ const AMAZON_DONE: OfferDraft = {
 
 const renderPanel = (entry: string | { pathname: string; state: unknown } = "/statistics/trajectory") =>
   render(<StockTrajectoryPanel />, {
-    wrapper: ({ children }) => <MemoryRouter initialEntries={[entry]}>{children}</MemoryRouter>,
+    wrapper: ({ children }) => (
+      <MemoryRouter initialEntries={[entry]}>
+        <ToastProvider>{children}</ToastProvider>
+      </MemoryRouter>
+    ),
   });
 
 const calculator = () => screen.getByTestId("traj-offer");
@@ -252,21 +257,38 @@ describe("OfferCalculator", () => {
     expect(screen.getByText(msg("insights-offer-unfinished", { answered: 2, total: 4 }))).toBeInTheDocument();
   });
 
-  it("forgets the offer on Clear and starts again at the first question", async () => {
+  it("forgets the offer on Clear, starts again at the first question, and Undo in the toast puts it back", async () => {
     kept = { offer: { ...AMAZON_DONE, saved_at: SAVED_AT }, valuations: {} };
     renderPanel();
-    await screen.findByRole("heading", { name: msg("insights-offer-finished-title", { named: "yes", company: "Amazon" }) });
+    const title = { name: msg("insights-offer-finished-title", { named: "yes", company: "Amazon" }) };
+    await screen.findByRole("heading", title);
     press(msg("insights-offer-clear"));
     expect(step()).toBe("company");
     await waitFor(() => expect(kept.offer).toBeNull());
     expect(api.clearOffer).toHaveBeenCalledTimes(1);
+
+    expect(screen.getByText(msg("insights-offer-cleared"))).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: msg("insights-offer-undo") }));
+    expect(within(calculator()).getByRole("heading", title)).toBeInTheDocument();
+    await waitFor(() => expect(kept.offer?.answered).toEqual(AMAZON_DONE.answered));
+    expect(kept.offer?.inputs).toEqual(AMAZON_DONE.inputs);
+  });
+
+  it("reads a company not on the list as one answer, listed or private", async () => {
+    kept = {
+      offer: { ...AMAZON_DONE, inputs: { ...AMAZON_DONE.inputs, company: "", listed: false }, answered: ["company", "base", "stock", "vesting", "bonus", "sign_on"], saved_at: SAVED_AT },
+      valuations: {},
+    };
+    renderPanel();
+    expect(await screen.findByRole("button", { name: msg("insights-offer-chip-edit", { answer: msg("insights-offer-chip-another", { listed: "no" }) }) }))
+      .toBeInTheDocument();
   });
 
   it("starts from a company's row with typical figures, and Undo puts the earlier offer back", async () => {
     kept = { offer: { ...AMAZON_DONE, inputs: { ...AMAZON_DONE.inputs, base: 123_000 }, saved_at: SAVED_AT }, valuations: {} };
     renderPanel();
     const row = within(await screen.findByTestId("traj-public")).getByRole("row", { name: /Amazon/ });
-    fireEvent.click(within(row).getByRole("button", { name: `${msg("insights-offer-start")}: Amazon` }));
+    fireEvent.click(within(row).getByRole("button", { name: msg("insights-offer-start-aria", { company: "Amazon" }) }));
 
     // The started offer takes focus, so the move to it is announced.
     expect(within(calculator()).getByRole("heading", { name: msg("insights-offer-finished-title", { named: "yes", company: "Amazon" }) }))

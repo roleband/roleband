@@ -19,6 +19,7 @@ import {
   insightsOfferBonusRule,
   insightsOfferCancel,
   insightsOfferChart,
+  insightsOfferChipAnother,
   insightsOfferChipBase,
   insightsOfferChipBonus,
   insightsOfferChipEdit,
@@ -690,14 +691,14 @@ const Question = forwardRef<HTMLHeadingElement, QuestionProps>(function Question
           {props.open && (
             <div className="traj-offer-pair">
               {[0, 1].map((i) => (
-                <label key={i} className="traj-offer-labelled">
-                  <span>{insightsOfferSignOn({ year: i + 1 })}</span>
+                <div key={i} className="traj-offer-labelled">
+                  <span aria-hidden="true">{insightsOfferSignOn({ year: i + 1 })}</span>
                   <NumberField
                     label={insightsOfferSignOn({ year: i + 1 })}
                     value={draft.sign_on[i]}
                     onChange={(v) => props.edit({ sign_on: i === 0 ? [v, draft.sign_on[1]] : [draft.sign_on[0], v] })}
                   />
-                </label>
+                </div>
               ))}
             </div>
           )}
@@ -802,19 +803,19 @@ function ValuationAnswer({ name, valuation, setValuation, onSkipValuation, headi
         ]}
       />
       <div className="traj-offer-pair">
-        <label className="traj-offer-labelled">
-          <span>{insightsOfferValuationGrant({ unit })}</span>
+        <div className="traj-offer-labelled">
+          <span aria-hidden="true">{insightsOfferValuationGrant({ unit })}</span>
           <NumberField label={insightsOfferValuationGrant({ unit })} value={v.grant_at} onChange={(grant_at) => setValuation({ ...v, grant_at })} />
-        </label>
-        <label className="traj-offer-labelled">
-          <span>{insightsOfferValuationTest({ unit })}</span>
+        </div>
+        <div className="traj-offer-labelled">
+          <span aria-hidden="true">{insightsOfferValuationTest({ unit })}</span>
           <NumberField label={insightsOfferValuationTest({ unit })} value={v.test_at} onChange={(test_at) => setValuation({ ...v, test_at })} />
-        </label>
+        </div>
         {unit === "company" && (
-          <label className="traj-offer-labelled">
-            <span>{insightsOfferShareCount()}</span>
+          <div className="traj-offer-labelled">
+            <span aria-hidden="true">{insightsOfferShareCount()}</span>
             <NumberField label={insightsOfferShareCount()} value={v.share_count} onChange={(share_count) => setValuation({ ...v, share_count })} />
-          </label>
+          </div>
         )}
       </div>
       {!valuation?.grant_at && (
@@ -1058,7 +1059,7 @@ function chipFor(
   switch (step) {
     case "company":
       return d.company === ANOTHER_COMPANY
-        ? `${insightsOfferAnotherCompany()}, ${insightsOfferListed({ listed: d.listed ? "yes" : "no" })}`
+        ? insightsOfferChipAnother({ listed: d.listed ? "yes" : "no" })
         : companyName(d.company);
     case "base":
       return insightsOfferChipBase({ amount: fmtMoney(d.base ?? 0) });

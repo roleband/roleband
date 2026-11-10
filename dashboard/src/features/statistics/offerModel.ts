@@ -230,7 +230,8 @@ export function pickCompany(inputs: OfferInputs, company: string, terms: OfferTe
     price: null,
     vesting: null,
     vehicle: options ? "options" : t ? "rsu" : inputs.vehicle,
-    grant_unit: options ? "shares" : inputs.grant_unit,
+    // A cash election is a split of pay in dollars: no share count or price is asked.
+    grant_unit: options ? "shares" : t?.equity_vehicle === "cash_election" ? "dollars" : inputs.grant_unit,
     bonus_pct: t?.bonus_rule === "none" ? 0 : inputs.bonus_pct,
   };
 }

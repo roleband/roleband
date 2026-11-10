@@ -12,6 +12,7 @@ import { TrajectoryShockChart } from "./charts/StatisticsCharts";
 import { InfoTip } from "../../ui/InfoTip";
 import { Abbr } from "../../ui/Abbr";
 import { Button } from "../../ui/Button";
+import { useToast } from "../../ui/Toast";
 import { SearchField } from "../../ui/SearchField";
 import { matchCompanies } from "./hiring";
 import { OfferCalculator } from "./OfferCalculator";
@@ -79,13 +80,16 @@ import {
   insightsStockTrajectoryPanelWhyLeftOut,
   insightsStockTrajectoryPanelWhyPrivateCompaniesDoNot,
   insightsOfferAtYourValuation,
+  insightsOfferAtYourValuationMoved,
+  insightsOfferCleared,
   insightsOfferAtYourValuationFull,
   insightsOfferColumn,
   insightsOfferEntered,
   insightsOfferLoadFailed,
   insightsOfferLoading,
-  insightsOfferMove,
   insightsOfferStart,
+  insightsOfferStartAria,
+  insightsOfferUndo,
 } from "../../copy/gen/insights";
 import { calendarDay } from "../../copy/format";
 import { Msg } from "../../ui/Msg";
@@ -237,6 +241,7 @@ export function StockTrajectoryPanel() {
   const [saveFailed, setSaveFailed] = useState(false);
   const [previous, setPrevious] = useState<StoredOffer | null>(null);
   const offerHeading = useRef<HTMLHeadingElement>(null);
+  const { toast } = useToast();
   const focusOffer = useRef(false);
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   const latest = useRef(0);
@@ -347,8 +352,16 @@ export function StockTrajectoryPanel() {
         saveOffer(draft);
       }}
       onClear={() => {
+        const cleared = offer;
         setPrevious(null);
         clearOffer();
+        if (cleared) {
+          toast({
+            key: "stock-offer",
+            text: insightsOfferCleared(),
+            action: { label: insightsOfferUndo(), onClick: () => saveOffer(draftOf(cleared)) },
+          });
+        }
       }}
       onValuation={setValuation}
       saveFailed={saveFailed}
@@ -364,7 +377,7 @@ export function StockTrajectoryPanel() {
   );
   const startButton = (company: string, parts: { base: number; bonus: number; equity: number }, listed: boolean) => (
     <td className="traj-offer-start">
-      <Button variant="link" onClick={() => startFrom(company, parts, listed)} aria-label={`${insightsOfferStart()}: ${companyName(company)}`}>
+      <Button variant="link" onClick={() => startFrom(company, parts, listed)} aria-label={insightsOfferStartAria({ company: companyName(company) })}>
         {insightsOfferStart()}
       </Button>
     </td>
@@ -575,12 +588,9 @@ export function StockTrajectoryPanel() {
                 <th scope="col" className="num"><Abbr short={insightsStockTrajectoryPanelMedianTc()} full={insightsStockTrajectoryPanelMedianTcFull()} /></th>
                 {valued && (
                   <th scope="col" className="num">
-                    {insightsOfferAtYourValuation()}
-                    {pct !== 0 && (
-                      <span className="traj-vesting">
-                        {" "}{insightsOfferMove({ listed: "no" })} {pct > 0 ? "+" : ""}{pct}%
-                      </span>
-                    )}
+                    {pct === 0
+                      ? insightsOfferAtYourValuation()
+                      : insightsOfferAtYourValuationMoved({ move: pct > 0 ? "up" : "down", pct })}
                   </th>
                 )}
                 <th scope="col"><span className="sr-only">{insightsOfferColumn()}</span></th>

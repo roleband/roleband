@@ -360,7 +360,12 @@ insights-offer-started-from = { $kind ->
 }
 insights-offer-undo = 撤销
 insights-offer-clear = 清除录用条件
+insights-offer-cleared = 已清除录用条件。
 insights-offer-another-company = 其他公司
+insights-offer-chip-another = { $listed ->
+    [yes] 其他公司，上市
+   *[no] 其他公司，非上市
+}
 insights-offer-listed-label = 上市或非上市
 insights-offer-listed = { $listed ->
     [yes] 上市
@@ -430,8 +435,13 @@ insights-offer-tc-moved-full = { $move ->
 }
 insights-offer-drop = 低于第 { $year } 年
 insights-offer-start = 以此开始
+insights-offer-start-aria = 从 { $company } 开始录用条件
 insights-offer-column = 你的录用条件
 insights-offer-at-your-valuation = 按你的估值
+insights-offer-at-your-valuation-moved = { $move ->
+    [up] 按你的估值，+{ $pct }%
+   *[down] 按你的估值，{ $pct }%
+}
 insights-offer-at-your-valuation-full = 按你在 { $date } 输入的估值计算的股权
 insights-offer-start-title = 录用条件每年能拿多少
 insights-offer-start-intro = 几个简短的问题，一次一个。你输入的内容只保存在这台电脑上。

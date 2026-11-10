@@ -311,7 +311,7 @@ for (const width of [1280, 360]) test(`a company row starts the offer, and each 
   await page.setViewportSize({ width, height: 900 });
   await page.goto("/statistics/trajectory");
   const row = page.getByTestId("traj-private").getByRole("row", { name: /OpenAI/ });
-  await row.getByRole("button", { name: `${msg("insights-offer-start")}: OpenAI` }).click();
+  await row.getByRole("button", { name: msg("insights-offer-start-aria", { company: "OpenAI" }) }).click();
 
   const offer = page.getByTestId("traj-offer");
   await expect(offer.getByRole("heading", { name: msg("insights-offer-finished-title", { named: "yes", company: "OpenAI" }) })).toBeFocused();

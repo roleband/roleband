@@ -384,7 +384,12 @@ insights-offer-started-from = { $kind ->
 }
 insights-offer-undo = Deshacer
 insights-offer-clear = Borrar oferta
+insights-offer-cleared = Oferta borrada.
 insights-offer-another-company = Otra empresa
+insights-offer-chip-another = { $listed ->
+    [yes] Otra empresa, cotizada
+   *[no] Otra empresa, privada
+}
 insights-offer-listed-label = Cotizada o privada
 insights-offer-listed = { $listed ->
     [yes] Cotizada
@@ -454,8 +459,13 @@ insights-offer-tc-moved-full = { $move ->
 }
 insights-offer-drop = Menos que el año { $year }
 insights-offer-start = Empezar desde aquí
+insights-offer-start-aria = Empezar una oferta desde { $company }
 insights-offer-column = Tu oferta
 insights-offer-at-your-valuation = Con tu valoración
+insights-offer-at-your-valuation-moved = { $move ->
+    [up] Con tu valoración, +{ $pct }%
+   *[down] Con tu valoración, { $pct }%
+}
 insights-offer-at-your-valuation-full = Acciones a la valoración que introdujiste el { $date }
 insights-offer-start-title = Lo que paga una oferta, año por año
 insights-offer-start-intro = Unas pocas preguntas cortas, de una en una. Lo que introduces se queda en este ordenador.

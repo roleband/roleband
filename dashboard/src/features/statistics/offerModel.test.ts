@@ -169,6 +169,12 @@ describe("filling the form", () => {
     expect([options.vehicle, options.grant_unit]).toEqual(["options", "shares"]);
   });
 
+  it("keeps a cash election in dollars, so no share price is needed that no question asks", () => {
+    const netflix = pickCompany(offer({ company: "google", grant_unit: "shares", grant: 1_000 }), "netflix", TERMS);
+    expect(netflix.grant_unit).toBe("dollars");
+    expect(computeOffer(netflix, NETFLIX, null, 0).missing).toBeNull();
+  });
+
   it("starts from a yearly package with the grant over the years it vests", () => {
     const amazon = offerFromPackage("amazon", { base: 210_000, bonus: 0, equity: 100_000 }, TERMS);
     expect(amazon).toMatchObject({ company: "amazon", base: 210_000, bonus_pct: 0, grant: 400_000, grant_unit: "dollars" });
