@@ -1,6 +1,6 @@
 """Realistic rows and a pinned clock for the statistics and demand contract.
 
-The statistics routes aggregate over jobs, lifecycle events, skills, clusters,
+The statistics routes aggregate over jobs, lifecycle events, skills,
 comp and disclosure snapshots, demand rollups and self-reported pay observations, and read
 the clock for "today" and each window. `pin_statistics_clock` fixes both at
 `NOW`: `datetime` and the user's local day start (UTC midnight here), in the
@@ -32,12 +32,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.factories import make_company, make_job
 from tracker.db.models import (
-    Cluster,
     CompanyCompLevel,
     CompanyProfile,
     CompSnapshot,
@@ -232,30 +230,12 @@ async def seed_statistics(session: AsyncSession) -> SeededStatistics:
                 (1, None, None, "high"), (2, None, None, "normal"), (3, NOW, None, "high"), (4, None, NOW, "high"),
             )
         ],
-        # 13 precomputed over every company: one member is hidden-co's, which
-        # the overview must not count.
-        Cluster(model_version="c1", label="AI platform product", top_terms=[], family_hint="product_management", size=13),
-        Cluster(model_version="c1", label="Engineering leadership", top_terms=[], family_hint="engineering_management",
-                size=7),
-        Cluster(model_version="c1", label="Payments", top_terms=[], family_hint=None, size=3),
-        Cluster(model_version="c1", label="Tiny", top_terms=[], family_hint=None, size=1),
         _rung("google", "L6", "staff", 0.4579, 0.4579, 0.0842),
         _rung("google", "L7", "principal", None, None, None),
         _rung("netflix", "L6", "staff", 1.0, 0.0, 0.0),
     ])
 
     await session.flush()
-    clusters = {c.label: c for c in (await session.scalars(select(Cluster))).all()}
-    members = {
-        "AI platform product": [*(f"g-fleet-{i:02d}" for i in range(1, 13)), "h-staff"],
-        "Engineering leadership": ["g-staff", "g-staff-2", "g-principal", "g-senior", "g-hourly", "g-placeholder",
-                                   "o-original"],
-        "Payments": ["o-old", "n-staff", "s-senior"],
-        "Tiny": ["s-unread"],
-    }
-    for label, keys in members.items():
-        for key in keys:
-            jobs[key].cluster_id = clusters[label].id
 
     def demand(day: datetime, company: str, family: str | None, group: str | None, counts: tuple, median: float | None):
         opened, new, closed, reposted, long_open = counts

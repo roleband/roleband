@@ -1,9 +1,7 @@
 import type { EChartsCoreOption } from "echarts/core";
 import type {
-  ClusterSummary,
   CompTrajectoryCompany,
   OverviewSkill,
-  SkillSeries,
   SkillsOverlap,
   TopSkill,
   VelocityCompany,
@@ -18,7 +16,6 @@ import {
   MUTED,
   SIGNAL,
   SUNKEN,
-  WARN,
   categoryAxis,
   compactGrid,
   valueAxis,
@@ -33,7 +30,6 @@ import {
   insightsStatisticsChartsLiftTheMarketSRate,
   insightsStatisticsChartsMarketDemandField,
   insightsStatisticsChartsMoreAlike,
-  insightsStatisticsChartsMoreSignals,
   insightsStatisticsChartsNewClosedToday,
   insightsStatisticsChartsNewCount,
   insightsStatisticsChartsNoChange,
@@ -43,31 +39,22 @@ import {
   insightsStatisticsChartsOpened,
   insightsStatisticsChartsOpenedClosedUpdated,
   insightsStatisticsChartsPair,
-  insightsStatisticsChartsRoleClusterLandscape,
-  insightsStatisticsChartsRoles,
-  insightsStatisticsChartsSetChanged,
   insightsStatisticsChartsShareOfTheseRoles,
-  insightsStatisticsChartsSkillDemandTrends,
   insightsStatisticsChartsTheMarketSRate,
   insightsStatisticsChartsWhatSetsTheseRolesApart,
   insightsCommonDistinctSkills,
   insightsCommonOpenRoles,
   insightsCommonOpenRolesUnit,
   insightsCommonUpdated,
-  insightsStatisticsChartsClusterRoles,
-  insightsStatisticsChartsClusterSize,
   insightsStatisticsChartsCompanyOpenRoles,
   insightsStatisticsChartsEquityChange,
   insightsStatisticsChartsOverlapCell,
   insightsStatisticsChartsPairAlike,
   insightsStatisticsChartsPairSimilarity,
   insightsStatisticsChartsShareAgainstMarket,
-  insightsStatisticsChartsSkillMentionsChange,
-  insightsStatisticsChartsSkillMentionsShare,
   insightsStatisticsChartsSkillOpenRoles,
 } from "../../../copy/gen/insights";
-import { roleName, skillName } from "../../../copy/vocab";
-import { clusterLabel } from "../names";
+import { skillName } from "../../../copy/vocab";
 import { tooltipHtml, withParts } from "./tooltip";
 
 const mono = "var(--app-font-mono)";
@@ -420,87 +407,6 @@ export function SkillsConstellationChart({ skills }: { skills: TopSkill[] }) {
   );
 }
 
-/** Each skill's share of the day's skill mentions, with the days the
- *  measured set changed marked: a raw count steps up whenever companies join
- *  the set, and would read as demand. */
-export function SkillTrendChart({
-  dates,
-  series,
-  setChanges = [],
-}: {
-  dates: string[];
-  series: SkillSeries[];
-  setChanges?: readonly string[];
-}) {
-  const visibleSeries = series.slice(0, 6);
-  const colors = [SIGNAL, DATA_2, WARN, DANGER, MUTED, "color-mix(in srgb, var(--app-data-2) 58%, var(--app-text-muted))"];
-  const option: EChartsCoreOption = {
-    color: colors,
-    grid: { left: 40, right: 18, top: 48, bottom: dates.length > 18 ? 52 : 30 },
-    legend: {
-      type: "scroll",
-      top: 0,
-      left: 0,
-      right: 0,
-      itemWidth: 10,
-      itemHeight: 5,
-      textStyle: { color: MUTED, fontSize: 9 },
-    },
-    tooltip: { trigger: "axis", axisPointer: { type: "line" } },
-    dataZoom: dates.length > 18 ? [{ type: "inside" }, { type: "slider", height: 14, bottom: 2, borderColor: BORDER, fillerColor: "rgba(111,201,230,.12)" }] : [],
-    xAxis: {
-      ...categoryAxis,
-      boundaryGap: false,
-      data: dates,
-      axisLabel: { color: FAINT, fontSize: 9, hideOverlap: true },
-    },
-    yAxis: { ...valueAxis, minInterval: 0, axisLabel: { color: FAINT, fontSize: 10, formatter: (v: number) => `${v}%` } },
-    series: visibleSeries.map((s, index) => ({
-      name: skillName(s.term),
-      type: "line",
-      data: s.points.map((p, pointIndex) => {
-        const value = Math.round(p.share * 1000) / 10;
-        return pointIndex === s.points.length - 1 ? { value, symbol: "circle", symbolSize: 6 } : value;
-      }),
-      markLine: index === 0 && setChanges.length
-        ? {
-            silent: true,
-            symbol: "none",
-            lineStyle: { color: WARN, type: "dashed", opacity: 0.7 },
-            label: { show: true, formatter: insightsStatisticsChartsSetChanged(), color: FAINT, fontSize: 9, position: "insideEndTop" },
-            data: setChanges.filter((d) => dates.includes(d)).map((d) => ({ xAxis: d })),
-          }
-        : undefined,
-      smooth: 0.28,
-      showSymbol: dates.length <= 6,
-      symbolSize: 5,
-      lineStyle: { width: index < 3 ? 2.2 : 1.5, opacity: index < 5 ? 1 : 0.72 },
-      areaStyle: index === 0 ? { color: SIGNAL, opacity: 0.07 } : undefined,
-      emphasis: { focus: "series" },
-    })),
-  };
-  return (
-    <EChart
-      ariaLabel={insightsStatisticsChartsSkillDemandTrends()}
-      className="chart-trends"
-      height={390}
-      option={option}
-      // A change is said only across a window that measured one set
-      // throughout (`TrendsPanel`).
-      summary={series
-        .map((s) => setChanges.length
-          ? insightsStatisticsChartsSkillMentionsShare({ skill: skillName(s.term), share: Math.round(s.current_share * 100) })
-          : insightsStatisticsChartsSkillMentionsChange({
-              direction: s.share_delta >= 0 ? "up" : "down",
-              skill: skillName(s.term),
-              share: Math.round(s.current_share * 100),
-              points: (s.share_delta * 100).toFixed(1),
-            }))
-        .join("; ")}
-    />
-  );
-}
-
 export function OverlapHeatmapChart({ data }: { data: SkillsOverlap }) {
   const names = data.companies.map((c) => companyName(c.company));
   const bySlug = new Map(data.companies.map((c, index) => [c.company, index]));
@@ -586,85 +492,6 @@ export function OverlapHeatmapChart({ data }: { data: SkillsOverlap }) {
       height={Math.max(340, 160 + names.length * 30)}
       option={option}
       summary={data.pairs.map((p) => insightsStatisticsChartsPairSimilarity({ a: companyName(p.a), b: companyName(p.b), percent: Math.round(p.similarity * 100) })).join("; ")}
-    />
-  );
-}
-
-export function ClusterLandscapeChart({
-  clusters,
-  onSelect,
-  selectedId,
-}: {
-  clusters: ClusterSummary[];
-  onSelect: (id: number) => void;
-  selectedId?: number | null;
-}) {
-  const palette = [
-    "color-mix(in srgb, var(--app-data-1) 52%, var(--app-surface-sunken))",
-    "color-mix(in srgb, var(--app-data-2) 46%, var(--app-surface-sunken))",
-    "color-mix(in srgb, var(--app-data-1) 32%, var(--app-surface-sunken))",
-    "color-mix(in srgb, var(--app-data-2) 28%, var(--app-surface-sunken))",
-  ];
-  const option: EChartsCoreOption = {
-    tooltip: {
-      formatter: (p: { data: { name: string; value: number; family: string; terms: string } }) =>
-        tooltipHtml(p.data.name, [insightsStatisticsChartsClusterRoles({ size: p.data.value, family: p.data.family }), p.data.terms]),
-    },
-    series: [
-      {
-        type: "treemap",
-        roam: false,
-        nodeClick: false,
-        breadcrumb: { show: false },
-        squareRatio: 1.25,
-        visibleMin: 2,
-        upperLabel: { show: false },
-        label: {
-          show: true,
-          color: "var(--app-text)",
-          fontSize: 11,
-          fontWeight: 650,
-          lineHeight: 16,
-          formatter: (params: { name: string; value: number }) => {
-            const terms = params.name.split(" · ");
-            const more = terms.length > 2 ? `\n${insightsStatisticsChartsMoreSignals({ count: terms.length - 2 })}` : "";
-            return `${terms.slice(0, 2).join("\n")}${more}\n${insightsStatisticsChartsClusterSize({ size: params.value })}`;
-          },
-          overflow: "truncate",
-        },
-        itemStyle: { borderColor: "var(--app-surface-raised)", borderWidth: 3, gapWidth: 2 },
-        data: clusters.map((c, index) => {
-          const itemColor = c.id === selectedId
-            ? "color-mix(in srgb, var(--app-action) 54%, var(--app-surface-sunken))"
-            : palette[index % palette.length];
-          return {
-            id: c.id,
-            name: clusterLabel(c),
-            value: c.size,
-            family: roleName(c.family_hint),
-            terms: c.top_terms.slice(0, 4).map((t) => skillName(t.term)).join(", "),
-            itemStyle: { color: itemColor },
-            emphasis: {
-              itemStyle: { color: itemColor, borderColor: "var(--app-action)", borderWidth: 2 },
-            },
-          };
-        }),
-      },
-    ],
-  };
-  return (
-    <EChart
-      ariaLabel={insightsStatisticsChartsRoleClusterLandscape()}
-      className="chart-clusters"
-      height={390}
-      onEvents={{
-        click: (params) => {
-          const id = (params as { data?: { id?: number } }).data?.id;
-          if (id != null) onSelect(id);
-        },
-      }}
-      option={option}
-      summary={clusters.map((c) => insightsStatisticsChartsRoles({ label: String(clusterLabel(c)), size: c.size })).join(", ")}
     />
   );
 }

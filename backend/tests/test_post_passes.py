@@ -102,8 +102,8 @@ def _ctx(*, max_list=None, settings=None, session=None, touched_ids=None):
 def test_table_order_is_load_bearing():
     names = [p.name for p in POST_PASSES]
     # fingerprint before embeddings/disclosed_comp (they gate on it); lineage
-    # after embeddings and before demand_metrics; twins after lineage; clusters
-    # and similarity after embeddings+twins (they read whole-corpus vectors);
+    # after embeddings and before demand_metrics; twins after lineage;
+    # similarity after embeddings+twins (it reads whole-corpus vectors);
     # prices last (external fetch, no downstream pass depends on it); tuning
     # after it because it reads only `per_source` — nothing downstream consumes
     # its bounds until the NEXT run reads them back before collection.
@@ -162,7 +162,6 @@ def test_table_order_is_load_bearing():
         "place_sets",
         "lineage",
         "twins",
-        "clusters",
         "similarity",
         "demand_metrics",
         "skill_demand",
@@ -174,7 +173,7 @@ def test_table_order_is_load_bearing():
 
 
 def test_capped_scan_excludes_lineage_twins_and_tuning():
-    # clusters/similarity read the whole open corpus, so they are correct on a
+    # similarity reads the whole open corpus, so it is correct on a
     # capped run and must NOT be excluded — only closure-coupled passes are.
     #
     # `tuning` joins them for a different reason: a `--max-list` scan
@@ -238,7 +237,7 @@ def test_settings_gates():
     assert by_name["twins"].enabled(_settings(twin_enabled=False)) is False
     # Everything else runs unconditionally.
     for name in ("search_vectors", "content_fingerprint", "skills_requirements",
-                 "embeddings", "clusters", "similarity", "demand_metrics",
+                 "embeddings", "similarity", "demand_metrics",
                  "skill_demand", "comp_metrics", "disclosure_metrics"):
         assert by_name[name].enabled(s) is True
 
@@ -518,7 +517,7 @@ async def test_record_derivation_is_best_effort(monkeypatch):
 
     session = _ExecFails()
     # Must not raise, and must clean up after itself.
-    await _record_derivation(session, "clusters", ok=True, detail={})
+    await _record_derivation(session, "similarity", ok=True, detail={})
     assert session.rollbacks == 1
     assert session.commits == 0
 

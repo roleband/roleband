@@ -125,8 +125,6 @@ async def test_a_second_run_the_same_day_keeps_no_group_that_left(db_session, ap
     trend = (await api_client.get("/api/statistics/comp-trends", params={"days": 0})).json()
     (market,) = trend["series"]
     assert market["points"][-1]["p50"] == 200_000  # not pooled with the 300,000 that left
-    skills = (await api_client.get("/api/skills/trends", params={"days": 0})).json()
-    assert [(s["term"], s["current"]) for s in skills["series"]] == [("rollup_python", 1)]
 
 
 async def test_an_empty_day_is_today_and_empty_not_yesterday(db_session, api_client):

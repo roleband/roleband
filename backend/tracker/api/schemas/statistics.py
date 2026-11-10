@@ -94,15 +94,6 @@ class OverviewSkill(Built):
     job_count: int
 
 
-class OverviewCluster(Built):
-    id: int
-    #: The role group most members share; null when none does.
-    family_hint: str | None = Field(json_schema_extra=text("code"))
-    #: Up to three skill slugs that name it, strongest first.
-    terms: list[str]
-    size: int
-
-
 class OverviewHardest(Built):
     """The open role listed the longest, by the age one posting shows."""
 
@@ -120,7 +111,6 @@ class StatisticsOverviewResponse(Built):
     days: int
     kpis: OverviewKpis
     top_skills: list[OverviewSkill]
-    top_clusters: list[OverviewCluster]
     #: The three open roles listed longest, plausible ages only.
     longest_open: list[OverviewHardest]
 

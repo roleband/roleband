@@ -35,7 +35,6 @@ class ErrorCode(StrEnum):
     SUGGESTION_NOT_FOUND = "suggestion-not-found"
     RECIPE_NOT_FOUND = "recipe-not-found"
     RULE_NOT_FOUND = "rule-not-found"
-    CLUSTER_NOT_FOUND = "cluster-not-found"
     FIT_BAND_NOT_FOUND = "fit-band-not-found"
     SCHEDULE_NOT_FOUND = "schedule-not-found"
     PAGE_NOT_FOUND = "page-not-found"

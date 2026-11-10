@@ -239,14 +239,7 @@
   color: var(--app-positive);
 }
 
-/* ---- trends -------------------------------------------------------------- */
-
-.trends-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--app-space-3);
-}
+/* ---- a note beside a chart ------------------------------------------- */
 
 .trends-note {
   margin: var(--app-space-3) 0 var(--app-space-1);
@@ -258,106 +251,6 @@
   color: var(--app-text-muted);
   font-size: var(--app-type-meta);
   line-height: 1.45;
-}
-
-.trend-rows {
-  margin-top: var(--app-space-3);
-  display: flex;
-  flex-direction: column;
-}
-
-.trend-ledger-head {
-  display: grid;
-  grid-template-columns: 180px 1fr 48px 48px;
-  align-items: center;
-  gap: var(--app-space-3);
-  margin-top: var(--app-space-2);
-  padding: var(--app-space-2) 0 3px;
-  color: var(--app-text-faint);
-  font-family: var(--app-font-mono);
-  font-size: var(--app-type-whisper);
-  font-weight: var(--app-type-whisper-weight);
-  letter-spacing: var(--app-type-whisper-track);
-  text-transform: uppercase;
-}
-
-.trend-ledger-head span:first-child {
-  grid-column: 1 / 3;
-}
-
-.trend-ledger-head span:not(:first-child) {
-  text-align: right;
-}
-
-.trend-row {
-  display: grid;
-  grid-template-columns: 180px 1fr 48px 48px;
-  align-items: center;
-  gap: var(--app-space-3);
-  padding: var(--app-space-1) 0;
-  border-top: 1px solid var(--app-border);
-  font-size: var(--app-type-body);
-}
-
-/* No change column: what was measured changed within the window. */
-.trend-ledger-head.is-share-only,
-.trend-row.is-share-only {
-  grid-template-columns: 180px 1fr 48px;
-}
-
-.trend-row:first-child {
-  border-top: 0;
-}
-
-.trend-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: var(--app-weight-name);
-}
-
-.trend-spark {
-  width: 100%;
-  height: 30px;
-  display: block;
-}
-
-.trend-line {
-  stroke: var(--app-action);
-  stroke-width: 1.5;
-  vector-effect: non-scaling-stroke;
-  stroke-linejoin: round;
-  stroke-linecap: round;
-}
-
-.trend-dot {
-  fill: var(--app-action);
-}
-
-.trend-now {
-  text-align: right;
-  font-family: var(--app-font-mono);
-  font-size: var(--app-type-meta);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--app-action-text);
-}
-
-.trend-delta {
-  text-align: right;
-  font-family: var(--app-font-mono);
-  font-size: var(--app-type-meta);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--app-text-faint);
-}
-
-.trend-delta.up {
-  color: var(--app-positive);
-}
-
-.trend-delta.down {
-  color: var(--app-danger);
 }
 
 /* ---- trajectory ---------------------------------------------------------- */
@@ -1040,10 +933,10 @@
   font-size: var(--app-type-meta);
 }
 
-/* ---- clusters ------------------------------------------------------------ */
+/* ---- cards in a grid ---------------------------------------------------- */
 
 /* A card in a multi-column grid takes the tighter inset: the
-   cluster and demand cards are ~370px against the 1131px of a full-measure
+   demand cards are ~370px against the 1131px of a full-measure
    panel, so the page-level 28 would spend 15% of the card on its own margins.
    The GRID is what declares this, not the card — the same `.panel` is a
    page-level card one screen over. It stays declared when the grid COLLAPSES
@@ -1051,142 +944,6 @@
    is, so the tighter inset is more right there, not less. */
 .demand-grid > .panel {
   padding: var(--app-space-4);
-}
-
-/* A container that LOOKS clickable everywhere; the control inside it is what
-   actually is. `position: relative` is the anchor for that control's stretched
-   hit area. */
-.cluster-card {
-  position: relative;
-  display: block;
-  width: 100%;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    border-color var(--app-duration-fast),
-    box-shadow var(--app-duration-fast);
-}
-
-.cluster-card:hover {
-  border-color: var(--app-border-strong);
-}
-
-/* The card's one control. It reads as the title and behaves as the whole card:
-   the ::after covers the card's box, so the whole card is the click target,
-   without swallowing the company chips, which are controls in their own right.
-
-   The focus ring goes on the CARD, not on the two words of the title: the
-   thing being focused is the card, and a ring around the label alone would
-   describe a target four times smaller than the one that responds. */
-.cluster-card-select {
-  all: unset;
-  cursor: pointer;
-}
-
-.cluster-card-select:focus-visible {
-  outline: none;
-}
-
-.cluster-card-select::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-}
-
-.cluster-card:has(.cluster-card-select:focus-visible) {
-  outline: var(--app-ring-width) solid var(--app-action);
-  outline-offset: var(--app-ring-offset);
-}
-
-/* The open territory is CHOSEN, keyed on its own select button's
-   `aria-pressed`: gold edge and wash, its name in the chosen ink. */
-.cluster-card:has(.cluster-card-select[aria-pressed="true"]) {
-  border-color: var(--app-chosen-line);
-  background: var(--app-chosen-wash);
-  box-shadow: 0 0 0 1px var(--app-chosen-line);
-}
-
-.cluster-card-select[aria-pressed="true"] {
-  color: var(--app-chosen-text);
-}
-
-.cluster-card-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--app-space-2);
-}
-
-.cluster-card-head h3 {
-  margin: 0 0 2px;
-}
-
-.cluster-size {
-  font-family: var(--app-font-mono);
-  font-size: var(--app-type-meta);
-  font-weight: 700;
-  color: var(--app-action-text);
-  font-variant-numeric: tabular-nums;
-}
-
-.cluster-terms {
-  margin: var(--app-space-3) 0 var(--app-space-2);
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--app-space-1);
-}
-
-/* No stacking rule of its own, deliberately: `.co-chip-wrap`
-   (company-chip.css) is already `position: relative`, so each chip is a
-   positioned box later in the DOM than the card control's
-   absolutely-positioned ::after and paints above it. A `position: relative`
-   here would change nothing, and a rule that cannot be made to fail is a
-   comment pretending to be code. What guards the behaviour is the browser
-   test (tests/ux/statistics.spec.ts), which fails the moment a chip stops
-   being reachable, whichever sheet stops providing it. */
-.cluster-companies {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--app-space-2);
-}
-
-.cluster-co {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.cluster-co-n {
-  font-family: var(--app-font-mono);
-  font-size: var(--app-type-meta);
-  font-weight: 700;
-  color: var(--app-text-faint);
-}
-
-.cluster-detail {
-  margin-bottom: var(--app-space-3);
-}
-
-.cluster-detail-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--app-space-3);
-  margin-bottom: var(--app-space-1);
-}
-
-.cluster-detail-head h3 {
-  margin: 0 0 2px;
-}
-
-.cluster-members {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 0 var(--app-space-4);
-}
-
-.cluster-landscape {
-  padding-bottom: var(--app-space-2);
 }
 
 /* ---- responsive ---------------------------------------------------------- */
@@ -1226,32 +983,7 @@
   }
 
   .chart-skills { height: 320px; }
-  .chart-trends { height: 330px; }
   .chart-overlap { height: 380px; }
-  .chart-clusters { height: 330px; }
-
-  .trend-ledger-head {
-    grid-template-columns: 1fr 48px 38px;
-    gap: var(--app-space-2);
-  }
-
-  .trend-ledger-head span:first-child {
-    grid-column: 1;
-  }
-
-  .trend-row {
-    grid-template-columns: 1fr 48px 38px;
-    gap: var(--app-space-2);
-  }
-
-  .trend-ledger-head.is-share-only,
-  .trend-row.is-share-only {
-    grid-template-columns: 1fr 48px;
-  }
-
-  .trend-spark {
-    display: none;
-  }
 
 }
 

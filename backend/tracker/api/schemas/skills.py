@@ -1,26 +1,18 @@
-"""Response contracts for the skills and cluster routes.
+"""Response contracts for the skills routes.
 
-`GET /api/skills/top`, `/api/skills/trends`, `/api/skills/overlap`, `/api/clusters`
-and `/api/clusters/{cluster_id}`.
+`GET /api/skills/top` and `/api/skills/overlap`.
 
 - Shapes the handlers and `skills.analytics` build forbid unknown keys, declared
-  in the order they are written. A cluster's top terms are read back from
-  `clusters.top_terms` (JSONB) as the clustering pass stored them, so
-  `ClusterTerm` admits a key it does not name and declares its keys in the order
-  Postgres serves a JSONB object: shorter keys first (`term`, `weight`, `display`).
-- A trend point and a leaderboard count are integers; a skill's specificity, a
-  pair's similarity and a term's weight are rounded floats.
+  in the order they are written.
+- A leaderboard count is an integer; a skill's specificity and a pair's
+  similarity are rounded floats.
 - Companies, concept slugs, families and categories stay `str`: database strings.
   One key set per route, so no unions.
 """
 
 from __future__ import annotations
 
-from pydantic import Field
-
-from tracker.api.schemas.base import Built, Stored
-from tracker.api.schemas.jobs import JobRow
-from tracker.api.schemas.text_class import text
+from tracker.api.schemas.base import Built
 
 
 class TopSkill(Built):
@@ -52,35 +44,6 @@ class TopSkillsResponse(Built):
     narrowed: bool
 
 
-class SkillTrendPoint(Built):
-    date: str
-    job_count: int
-    #: Of the day's skill mentions.
-    share: float
-
-
-class SkillTrendSeries(Built):
-    """One skill over the shared axis, zero on a day without a slice."""
-
-    term: str
-    current: int
-    delta: int
-    current_share: float
-    share_delta: float
-    points: list[SkillTrendPoint]
-
-
-class SkillTrendsResponse(Built):
-    """`GET /api/skills/trends`. `days <= 0` is all history."""
-
-    days: int
-    dates: list[str]
-    series: list[SkillTrendSeries]
-    #: Days the measured set changed (mentions moved 30% or more in a day): a
-    #: company set arriving or a re-extraction, never demand.
-    set_changes: list[str]
-
-
 class OverlapCompany(Built):
     company: str
     skill_count: int
@@ -107,37 +70,3 @@ class SkillOverlapResponse(Built):
     companies: list[OverlapCompany]
     pairs: list[OverlapPair]
     min_jobs: int
-
-
-class ClusterTerm(Stored):
-    """A characteristic skill of a cluster's members, as the clustering pass stored it."""
-
-    term: str
-    weight: float
-
-
-class ClusterSummary(Built):
-    """A cluster with its company mix. With companies hidden, `size` counts the visible mix."""
-
-    id: int
-    family_hint: str | None = Field(json_schema_extra=text("code"))
-    size: int
-    top_terms: list[ClusterTerm]
-    companies: dict[str, int]
-
-
-class ClusterListResponse(Built):
-    """`GET /api/clusters`: largest first; `model_version` is null with no clusters."""
-
-    items: list[ClusterSummary]
-    model_version: str | None
-
-
-class ClusterDetailResponse(Built):
-    """`GET /api/clusters/{cluster_id}`: the open members, most central first, as list rows."""
-
-    id: int
-    family_hint: str | None = Field(json_schema_extra=text("code"))
-    size: int
-    top_terms: list[ClusterTerm]
-    items: list[JobRow]

@@ -1,11 +1,9 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  ClusterLandscapeChart,
   HiringCompaniesChart,
   OverlapHeatmapChart,
   OverviewSignalChart,
-  SkillTrendChart,
   SkillsConstellationChart,
   TrajectoryShockChart,
   VelocityFlowChart,
@@ -35,16 +33,6 @@ describe("StatisticsCharts", () => {
           term: "python", category: "language", job_count: 12,
           share: 0.4, market_share: 0.1, lift: 4, distinctiveness: 5.2,
         }]} />
-        <SkillTrendChart
-          dates={["2026-07-12", "2026-07-13"]}
-          series={[{
-            term: "python", current: 12, delta: 2, current_share: 0.12, share_delta: 0.02,
-            points: [
-              { date: "2026-07-12", job_count: 10, share: 0.1 },
-              { date: "2026-07-13", job_count: 12, share: 0.12 },
-            ],
-          }]}
-        />
         <OverlapHeatmapChart data={{
           min_jobs: 2,
           companies: [
@@ -53,15 +41,6 @@ describe("StatisticsCharts", () => {
           ],
           pairs: [{ a: "google", b: "openai", shared: 8, union: 30, similarity: 0.27, top_shared: ["python"] }],
         }} />
-        <ClusterLandscapeChart
-          clusters={[{
-            id: 1, family_hint: "engineering",
-            size: 14,
-            top_terms: [{ term: "python", weight: 0.9 }],
-            companies: { google: 14 },
-          }]}
-          onSelect={vi.fn()}
-        />
       </>,
     );
 
@@ -71,9 +50,7 @@ describe("StatisticsCharts", () => {
       "Hiring flow by company",
       msg("insights-statistics-charts-equity-shockwave-by-company"),
       "What sets these roles apart",
-      "Skill demand trends",
       "Cross-company skill overlap heatmap",
-      msg("insights-statistics-charts-role-cluster-landscape"),
     ];
     for (const name of names) {
       expect(screen.getByRole("img", { name })).toBeInTheDocument();
@@ -83,8 +60,6 @@ describe("StatisticsCharts", () => {
     expect(screen.getByText(/Python: 40% of these roles, ×4 the market/)).toBeInTheDocument();
     // The company chart draws the rows it is given, the folded rest among them.
     expect(screen.getByText(/Google: 20 open, 3 new, 2 closed; 1,074 companies more: 2,412 open/)).toBeInTheDocument();
-    // A cluster is named by its strongest skills.
-    expect(screen.getByText("Python: 14 roles")).toBeInTheDocument();
     expect(screen.getByText(/Google and OpenAI: 27%/)).toBeInTheDocument();
   });
 });

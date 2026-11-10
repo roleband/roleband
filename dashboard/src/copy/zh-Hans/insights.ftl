@@ -1,34 +1,5 @@
 ## insights
 
-## features/statistics/ClustersView.tsx
-insights-clusters-view-semantic-groups-built-from-role = 按职位描述的内容将职位归入集群，并以它们共有的技能命名。同一类职位可能分成多个集群。
-insights-clusters-view-market-terrain = 各集群的在招职位
-insights-clusters-view-group-landscape = 集群图
-insights-clusters-view-area-encodes-active-role-volume = 方块越大，在招职位越多。选择一个方块查看其中的职位。
-insights-clusters-view-groups = { $count } 个集群
-insights-clusters-view-roles = { $family_display } · { $size } 个职位
-insights-clusters-view-clear = 清除
-insights-clusters-view-and-more-companies = { $count ->
-   *[other] 以及另外 { $n } 家公司
-}
-insights-clusters-view-role-groups = { $count ->
-   *[other] { $count } 个集群
-}
-insights-clusters-view-largest-group = 最大集群：{ $label } · { $size } 个职位
-insights-clusters-view-groups-are-built-from-role = 扫描后会根据职位描述生成集群
-insights-clusters-view-about-role-groups = 关于集群
-insights-clusters-view-groups-tile = 集群
-insights-clusters-view-from-role-descriptions = 基于职位描述
-insights-clusters-view-roles-grouped = 已归入集群的职位
-insights-clusters-view-largest = 最大集群
-insights-clusters-view-roles-in-one-group = 个职位在同一集群
-insights-clusters-view-with-a-grouped-role = 有职位在集群中
-insights-clusters-view-how-to-read-the-cluster = 如何解读集群图
-insights-clusters-view-loading = 正在加载集群…
-insights-clusters-view-load-failed = 无法加载集群
-insights-clusters-view-group-loading = 正在加载此集群…
-insights-clusters-view-group-load-failed = 无法加载此分组
-
 ## features/statistics/CompTrendChart.tsx
 insights-comp-trend-chart-compensation-over-time = 总薪酬变化趋势
 insights-comp-trend-chart-median-total-pay = 估算总薪酬中位数{ $series ->
@@ -180,8 +151,6 @@ insights-overview-panel-most-named-skills = 最常提到的技能
 insights-overview-panel-what-is-pulling-the-market = 需求最大的技能
 insights-overview-panel-the-skills-open-roles-name = 技能按提到它的在招职位数排序。
 insights-overview-panel-leads-roles = { $display } 领先 · { $job_count } 个职位
-insights-overview-panel-largest-groups = 最大的分组
-insights-overview-panel-no-groups-built-yet = 尚未构建分组。
 insights-overview-panel-open-the-longest = 招聘时间最长的职位
 insights-overview-panel-the-roles-advertised-longest-that = 招聘时间最长的职位。它们可能难以招到人，也可能只是一直挂着。发布日期超过一年的不计入。
 insights-overview-panel-no-open-roles = 暂无在招职位。
@@ -576,35 +545,6 @@ insights-offer-vs-today = { $sign ->
 }
 insights-offer-show-table = 查看表格
 
-## features/statistics/TrendsPanel.tsx
-insights-trends-panel-demand-history = 需求历史
-insights-trends-panel-skill-demand-over-time = 技能需求变化趋势
-insights-trends-panel-each-skill-s-share-of = 各技能当天提及占比 · { $window }
-insights-trends-panel-top-plotted-in-ledger = 图中显示前 { $plotted } 项 · 列表共 { $total } 项
-insights-trends-panel-history-is-still-accruing-one = 历史数据还不够。扫描几天后，这些线会逐渐完整。
-insights-trends-panel-no-skill-history-yet = 暂无技能历史。
-insights-trends-panel-what-is-measured-changed-on = 统计的公司或技能在 { $dates } 发生了变化，因此图表显示的是占比，而不是数量。
-insights-trends-panel-current-ledger = 当前列表
-insights-trends-panel-now = 现在
-insights-trends-panel-skill-leads = { $skill } 领先
-insights-trends-panel-nothing-to-plot-yet = 暂无可绘制的数据
-insights-trends-panel-leader-share-line = 最近一天提及占比 { $current_share } · 历史 { $days } 天 · { $window }
-insights-trends-panel-history-accrues-one-day-per = 每次扫描积累一天历史 · { $window }
-insights-trends-panel-leader-s-share = 领先者占比
-insights-trends-panel-of-skill-mentions = 的技能提及
-insights-trends-panel-in-the-ledger = 在列表中
-insights-trends-panel-history = 历史
-insights-trends-panel-days = { $count ->
-   *[other] 天
-}
-insights-trends-panel-latest-day = 最近一天
-insights-trends-panel-none-yet = 暂无
-insights-trends-panel-of-the-series = 历史数据中
-insights-trends-panel-of-skill-mentions-open-roles = 提及占比 { $current_share }，{ $current } 个在招职位
-insights-trends-panel-change-points = 变化 { $share_delta } 个百分点
-insights-trends-panel-loading = 正在加载技能趋势…
-insights-trends-panel-load-failed = 无法加载技能趋势
-
 ## features/statistics/VelocityPanel.tsx
 insights-velocity-panel-market-current = 按公司
 insights-velocity-panel-hiring-flow = 招聘流动
@@ -661,22 +601,12 @@ insights-statistics-charts-share-of-these-roles = 这些职位中的占比 →
 insights-statistics-charts-the-market-s-rate = × 市场比例 →
 insights-statistics-charts-what-sets-these-roles-apart = 这些职位的独特之处
 insights-statistics-charts-of-these-roles-the-market = { $skill }：这些职位的 { $share }%，市场的 ×{ $lift }
-insights-statistics-charts-set-changed = 统计口径变化
-insights-statistics-charts-skill-demand-trends = 技能需求趋势
-insights-statistics-charts-skill-mentions-change = { $direction ->
-    [up] { $skill }：占提及的 { $share }%，+{ $points } 个百分点
-   *[down] { $skill }：占提及的 { $share }%，{ $points } 个百分点
-}
-insights-statistics-charts-skill-mentions-share = { $skill }：占提及的 { $share }%
 insights-statistics-charts-pair-alike = 相似度 { $similarity }% · { $shared } 项共同技能
 insights-statistics-charts-pair = { $a } × { $b }
 insights-statistics-charts-more-alike = 更相似
 insights-statistics-charts-less-alike = 不太相似
 insights-statistics-charts-cross-company-skill-overlap-heatmap = 跨公司技能重合热力图
 insights-statistics-charts-pair-similarity = { $a } 和 { $b }：{ $percent }%
-insights-statistics-charts-cluster-roles = { $size } 个职位 · { $family }
-insights-statistics-charts-role-cluster-landscape = 分组全景
-insights-statistics-charts-roles = { $label }：{ $size } 个职位
 
 ## features/statistics/charts/compBands.ts
 insights-comp-bands-level-summary = { $label }：{ $bands } 个区间，来自 { $employers } 个雇主，中位数 { $low } 至 { $high }。
@@ -721,8 +651,6 @@ insights-disclosure-median-floor = 下限中位数
 insights-disclosure-no-band-posted = 未公布区间
 
 ## features/statistics/charts/StatisticsCharts.tsx (by hand)
-insights-statistics-charts-more-signals = +{ $count } 个信号
-insights-statistics-charts-cluster-size = { $size } 个职位
 
 ## features/statistics/CompensationPanel.tsx
 insights-compensation-panel-median-pay = 中位数 { $p50 }
@@ -813,8 +741,7 @@ insights-skill-leadership = 领导力
 insights-skill-collaboration = 协作
 insights-skill-industry = 行业
 
-## 统计名称：无名称的分组、同一批公司序列和固定发布时长区间
-insights-cluster-unlabeled = 未命名分组
+## 统计名称：同一批公司序列和固定发布时长区间
 insights-series-same-companies = 相同公司
 insights-aging-from-0-days = < 1 周
 insights-aging-from-7-days = 1–2 周
@@ -830,7 +757,6 @@ insights-brief-opened = { $allTime ->
    *[no] { $days } 天内新增 { $opened } 个，关闭 { $closed } 个。
 }
 insights-brief-top-skill = 最热门技能：{ $skill }（{ $count } 个职位）。
-insights-brief-largest-group = 最大分组：{ $group }（{ $size } 个职位）。
 insights-comp-trend-chart-reference-changed = { $count ->
    *[other] 虚线标出薪酬估算一起变化的时间：这是数据的变化，而不是市场的变化。
 }

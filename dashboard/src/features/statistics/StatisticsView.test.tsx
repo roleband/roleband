@@ -22,9 +22,7 @@ vi.mock("./VelocityPanel", () => ({ VelocityPanel: () => <div>Velocity content</
 vi.mock("./CompensationPanel", () => ({ CompensationPanel: () => <div>Compensation content</div> }));
 vi.mock("./StockTrajectoryPanel", () => ({ StockTrajectoryPanel: () => <div>Trajectory content</div> }));
 vi.mock("./SkillsView", () => ({ SkillsView: () => <div>Skills content</div> }));
-vi.mock("./TrendsPanel", () => ({ TrendsPanel: () => <div>Trends content</div> }));
 vi.mock("./OverlapPanel", () => ({ OverlapPanel: () => <div>Overlap content</div> }));
-vi.mock("./ClustersView", () => ({ ClustersView: () => <div>Clusters content</div> }));
 vi.mock("./LevelsPanel", async () => {
   const actual = await vi.importActual<typeof import("./LevelsPanel")>("./LevelsPanel");
   return { ...actual, LevelsPanel: ({ scope }: { scope: { side: string } }) => <div>Levels content scope={scope.side}</div> };
@@ -100,7 +98,7 @@ describe("StatisticsView", () => {
     expect(screen.getByText("Demand content")).toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Time range" })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("tab", { name: "Trends" }));
+    await user.click(screen.getByRole("tab", { name: "Pace" }));
     expect(screen.getByRole("group", { name: "Time range" })).toBeInTheDocument();
   });
 
@@ -145,6 +143,13 @@ describe("StatisticsView", () => {
     expect(screen.getByTestId("location")).toHaveTextContent("/statistics/overview");
   });
 
+  it.each(["trends", "clusters"])("sends a saved link to the removed %s tab to Overview", async (slug) => {
+    renderStats(`/statistics/${slug}?window=90`);
+    expect(await screen.findByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("location")).toHaveTextContent(/^\/statistics\/overview/);
+    expect(screen.queryByRole("tab", { name: /Trends|Clusters/ })).toBeNull();
+  });
+
   it("keeps the companies side on Levels, without disciplines or a window", async () => {
     // A ladder is reference data: the side picks whose ladders show, and
     // nothing counts postings, so no discipline or period narrows it.
@@ -167,7 +172,7 @@ describe("StatisticsView", () => {
 
 describe("the basic and advanced views", () => {
   const BASIC = ["Overview", "Hiring", "Compensation", "Skills"];
-  const ADVANCED = ["Pace", "Levels", "Stock", "Trends", "Overlap", "Clusters"];
+  const ADVANCED = ["Pace", "Levels", "Stock", "Overlap"];
   const listed = () => within(screen.getByRole("tablist")).getAllByRole("tab").map((tab) => tab.textContent);
   const advancedSwitch = () => screen.getByRole("checkbox", { name: msg("insights-statistics-view-advanced-view") });
 
@@ -192,7 +197,7 @@ describe("the basic and advanced views", () => {
     await user.click(within(dialog).getByRole("button", { name: msg("insights-statistics-view-show-me-everything") }));
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(advancedSwitch()).toBeChecked();
-    expect(listed()).toEqual(["Overview", "Hiring", "Pace", "Compensation", "Levels", "Stock", "Skills", "Trends", "Overlap", "Clusters"]);
+    expect(listed()).toEqual(["Overview", "Hiring", "Pace", "Compensation", "Levels", "Stock", "Skills", "Overlap"]);
     expect(screen.getByText(/Overview content/)).toHaveAttribute("data-advanced", "true");
     expect(readInsightsView()).toBe("advanced");
   });
@@ -232,10 +237,10 @@ describe("the basic and advanced views", () => {
 
   it("opens a link to an advanced tab in the basic view, says so, and offers the switch", async () => {
     const user = userEvent.setup();
-    renderStats("/statistics/trends");
-    expect(screen.getByText("Trends content")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Trends" })).toHaveAttribute("aria-selected", "true");
-    expect(listed()).toEqual([...BASIC.slice(0, 3), "Skills", "Trends"]);
+    renderStats("/statistics/overlap");
+    expect(screen.getByText("Overlap content")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Overlap" })).toHaveAttribute("aria-selected", "true");
+    expect(listed()).toEqual([...BASIC, "Overlap"]);
     expect(screen.getByText(msg("insights-statistics-view-part-of-advanced-view"))).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: msg("insights-statistics-view-show-advanced-view") }));

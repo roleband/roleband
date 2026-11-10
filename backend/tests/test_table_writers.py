@@ -90,9 +90,9 @@ def test_declared_writers_are_not_stale():
 def test_a_table_declaring_no_reader_really_has_none():
     """The `readers=()` claim is the one reader claim worth enforcing.
 
-    Three are recorded: `scrape_source_runs` and `comp_metrics` are written
-    every run and read by nothing, and `binding_reconciliation_decisions` has
-    neither. If a consumer appears, this fails and the claim gets corrected —
+    Four are recorded: `scrape_source_runs`, `comp_metrics` and
+    `skill_demand_daily` are written every run and read by nothing, and
+    `binding_reconciliation_decisions` has neither. If a consumer appears, this fails and the claim gets corrected —
     which is the point of writing dead data down rather than deleting it.
     """
 
@@ -196,6 +196,30 @@ async def writes(session):
     row = await session.get(Job, 1)
     row.status = "closed"
 """
+
+
+def test_a_delete_filter_is_not_a_read_and_a_select_is(tmp_path):
+    for directory in ("tracker", "scripts"):
+        (tmp_path / directory).mkdir()
+    (tmp_path / "tracker" / "rollup.py").write_text(
+        "from sqlalchemy import delete, select\n"
+        "from tracker.db.models import CompMetric, SkillDemandDaily\n"
+        "q = delete(SkillDemandDaily).where(SkillDemandDaily.metric_date == 1).where(SkillDemandDaily.job_count > 0)\n"
+        "r = select(CompMetric.count).where(CompMetric.p50 > 0)\n"
+    )
+    (tmp_path / "tracker" / "prune.py").write_text(
+        "from sqlalchemy import delete, select\n"
+        "from tracker.db.models import Job, ScrapeRun\n"
+        "q = delete(Job).where(Job.scrape_run_id.in_(select(ScrapeRun.id).where(ScrapeRun.ok)))\n"
+        "r = delete(ScrapeRun).where(ScrapeRun.id.in_(select(ScrapeRun.id).where(ScrapeRun.ok)))\n"
+    )
+    readers = scan_readers(tmp_path)
+    assert "skill_demand_daily" not in readers
+    assert readers["comp_metrics"] == {"tracker/rollup.py"}
+    # A subquery inside a delete's filter reads its table, even the deleted one.
+    assert "jobs" not in readers
+    assert readers["scrape_runs"] == {"tracker/prune.py"}
+
 
 
 @pytest.mark.parametrize(
