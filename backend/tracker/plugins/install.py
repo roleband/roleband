@@ -20,7 +20,6 @@ unapproved code.
 from __future__ import annotations
 
 import hashlib
-import os
 import platform
 import shutil
 import subprocess
@@ -42,10 +41,6 @@ LOCK_FILES = ("pylock.toml", "uv.lock", "requirements.lock")
 #: The one lock format pip installs, every pin with its hash. A plugin with
 #: another lock exports this one (`uv export --format requirements-txt`).
 PIP_LOCK = "requirements.lock"
-#: What pip, and the plugin's build backend it runs, see of our environment:
-#: what the plugin's own runs see (`roleband_plugin_sdk.launch.PASSED_ENV`), no
-#: address or key of ours.
-BUILD_ENV = ("PATH", "HOME", "LANG", "LC_ALL", "TMPDIR")
 SDK_DIR = REPO_ROOT / "sdk" / "python"
 #: The SDK depends on it and neither is on an index, so a plugin's venv
 #: installs both from this checkout.
@@ -178,9 +173,11 @@ def pip_steps(python: Path, src: Path) -> list[list[str]]:
 
 
 def build_env() -> dict[str, str]:
-    env = {k: os.environ[k] for k in BUILD_ENV if k in os.environ}
-    env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
-    return env
+    """What pip, and the plugin's build backend it runs, see of our environment: what the plugin's own runs see
+    (`roleband_plugin_sdk.launch.PASSED_ENV`), no address or key of ours."""
+    from roleband_plugin_sdk.launch import runner_env
+
+    return {**runner_env(), "PIP_DISABLE_PIP_VERSION_CHECK": "1"}
 
 
 def build_venv(home: Path, *, src: Path | None = None, into: Path | None = None) -> Path:

@@ -12,14 +12,18 @@ nor on its path.
 from __future__ import annotations
 
 import os
+import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-#: Environment a plugin process inherits; nothing else of the host's reaches it.
-PASSED_ENV = ("PATH", "HOME", "LANG", "LC_ALL", "TMPDIR")
+#: Environment a plugin process inherits; nothing else of the host's reaches it. On Windows also what any process
+#: there needs: the system folder, without which no socket opens (asyncio's import included); the temporary folder,
+#: since the runner's working directory is not writable; and the profile folder, which is `~` there, not HOME.
+PASSED_ENV = ("PATH", "HOME", "LANG", "LC_ALL", "TMPDIR") + (
+    ("SYSTEMROOT", "TEMP", "TMP", "USERPROFILE") if sys.platform == "win32" else ())
 #: Where the runner starts: the root on POSIX; on Windows any account may create folders at a drive's root, so
 #: the Windows folder.
-RUN_CWD = os.environ.get("SystemRoot", r"C:\Windows") if os.name == "nt" else os.path.abspath(os.sep)
+RUN_CWD = os.environ.get("SystemRoot", r"C:\Windows") if sys.platform == "win32" else os.path.abspath(os.sep)
 #: The runner's first code: the path argument goes first on `sys.path`, then
 #: the runner runs as `__main__`.
 BOOTSTRAP = (

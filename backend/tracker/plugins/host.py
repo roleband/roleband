@@ -116,8 +116,9 @@ class HostConfig:
     #: Seconds a runner gets to exit after its end before it is killed.
     exit_grace_seconds: float = 10.0
     #: Signals the runner (a stop ends it, a runner past its grace is killed);
-    #: None is `os.kill`. Tests under `no_escape` pass the real one for the
-    #: runner they started, explicitly, as with `spawn`.
+    #: None is the runner process's own `terminate` and `kill`. Tests under
+    #: `no_escape` pass the real `os.kill` for the runner they started,
+    #: explicitly, as with `spawn`.
     send_signal: Callable[[int, int], None] | None = None
     #: The pacer; None is the shared per-plugin limiter at `pacing_delay`.
     limiter: RateLimiter | None = None
@@ -412,9 +413,21 @@ def _prune_logs(data_dir: Path, *, keep: int) -> None:
 
 
 #: The least the host waits for the plugin's next line, a spent budget included: what the plugin read before the
-#: budget ran out is still on its way, across a pipe and a process switch, which takes tens of milliseconds on
-#: Windows. A shorter wait drops it, with the companies it retires.
+#: budget ran out is still on its way, across a pipe and a process switch. A wait shorter than that crossing
+#: drops it, with the companies it retires.
 _LINE_FLOOR_SECONDS = 0.25
+
+
+def _enders(proc: asyncio.subprocess.Process,
+            send_signal: Callable[[int, int], None] | None) -> tuple[Callable[[], None], Callable[[], None]]:
+    """How the host ends its runner: asks it to stop, then kills it. By default the process's own `terminate` and
+    `kill`, which know a runner that has already exited; a bare signal to its PID is refused then on Windows, as
+    access denied. Windows has no SIGKILL; its SIGTERM already ends a process outright."""
+    if send_signal is None:
+        return proc.terminate, proc.kill
+    pid = proc.pid
+    return (lambda: send_signal(pid, signal.SIGTERM),
+            lambda: send_signal(pid, getattr(signal, "SIGKILL", signal.SIGTERM)))
 
 
 class _Stopped(Exception):
@@ -596,18 +609,17 @@ async def _run_held(
             message = f"the host failed: {type(exc).__name__}: {exc}"
         finally:
             proc.stdin.close()
-            send = config.send_signal or os.kill
+            terminate, kill = _enders(proc, config.send_signal)
             if session.ended == protocol.STOPPED:
                 # The run is over for the user: end the runner now, whatever it
                 # is doing; it holds no write of its own.
                 with contextlib.suppress(ProcessLookupError):
-                    send(proc.pid, signal.SIGTERM)
+                    terminate()
             try:
                 await asyncio.wait_for(proc.wait(), timeout=config.exit_grace_seconds)
             except TimeoutError:
                 with contextlib.suppress(ProcessLookupError):
-                    # Windows has no SIGKILL; there SIGTERM already ends the process outright.
-                    send(proc.pid, getattr(signal, "SIGKILL", signal.SIGTERM))
+                    kill()
                 await proc.wait()
             if own_client:
                 await client.aclose()

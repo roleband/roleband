@@ -96,9 +96,11 @@ def _config(row: PluginInstall, web: Web, **kw) -> HostConfig:
     tested on its own, so these runs do not wait the core's 2 s per request."""
     home = Path(row.source_dir)
     kw.setdefault("stall_seconds", 30)
+    kw.setdefault("spawn", spawn_runner)
+    kw.setdefault("send_signal", REAL_KILL)
     return HostConfig(python=sys.executable, pythonpath=[str(SDK), str(home / "src")],
                       data_dir=home.parent / "data", client=web.client(),
-                      limiter=RateLimiter(2.0, sleep=_no_sleep), spawn=spawn_runner, send_signal=REAL_KILL, **kw)
+                      limiter=RateLimiter(2.0, sleep=_no_sleep), **kw)
 
 
 async def _run(db, row, web, **kw):
@@ -925,6 +927,50 @@ async def test_a_stop_ends_the_run_stopped_and_serves_nothing_after(db_session, 
     result = await run_job(db_session, row.plugin_id, "refresh", trigger="cli", config=_config(row, web), stop=stop)
     assert result.outcome == "stopped" and result.retired == 0
     assert web.requests == [] and await plugin_levels(db_session) == []
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows refuses a signal to an exited process it still holds")
+async def test_a_stop_whose_runner_has_already_exited_still_closes_the_run(db_session, tmp_path, monkeypatch):
+    """A runner can finish between the host's stop and its signal. On Windows a signal to a process that has exited
+    but was not yet waited for is refused as access denied; the run closes `stopped` all the same, and is never
+    left `running`."""
+    import psutil
+
+    await seed_plugin_companies(db_session)
+    quick = tmp_path / "quick"
+    shutil.copytree(TEMPLATE, quick)
+    (quick / "src" / "roleband_plugin_template" / "__init__.py").write_text(
+        "from roleband_plugin_sdk import Plugin\nplugin = Plugin()\n\n"
+        "@plugin.job('refresh')\ndef refresh(ctx):\n    pass\n")
+    row = await _installed(db_session, tmp_path, source=quick)
+    runners: list[psutil.Process] = []
+
+    def once_exited(send):
+        def late(*args):
+            # The runner ends on its own before the signal lands.
+            runners[0].wait(timeout=20)
+            return send(*args)
+        return late
+
+    async def spawn(*args, **kwargs):
+        proc = await spawn_runner(*args, **kwargs)
+        runners.append(psutil.Process(proc.pid))
+        for name in ("send_signal", "terminate", "kill"):
+            setattr(proc, name, once_exited(getattr(proc, name)))
+        return proc
+
+    def kill(pid, sig):
+        assert pid == runners[0].pid, "only the runner this test started is signalled"
+        REAL_KILL(pid, sig)
+
+    monkeypatch.setattr(os, "kill", once_exited(kill))
+    stop = asyncio.Event()
+    stop.set()
+    config = _config(row, Web(), spawn=spawn, send_signal=None)
+    result = await run_job(db_session, row.plugin_id, "refresh", trigger="cli", config=config, stop=stop)
+    assert result.outcome == "stopped"
+    run = await db_session.get(PluginRun, result.run_id, populate_existing=True)
+    assert run.outcome == "stopped" and run.ended_at is not None
 
 
 async def test_an_active_plugin_s_taxonomy_keyed_ladder_reaches_the_estimate_and_the_profile(
