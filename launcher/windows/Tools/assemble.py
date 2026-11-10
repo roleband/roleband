@@ -17,8 +17,8 @@ from pe_certificates import validate_tree
 ROOT = Path(__file__).resolve().parents[3]
 #: The feed every release build updates from; a trial carries its own.
 RELEASE_FEED = "roleband/roleband"
-#: The private feed a rehearsal of the release updates from: the release's build, identity shape and data, published
-#: nowhere public.
+#: The trial feed a rehearsal of the release updates from: the release's build, identity shape and data, apart from
+#: the feed installed apps read.
 REHEARSAL_FEED = "roleband/roleband-windows-trials"
 
 
