@@ -463,16 +463,17 @@
 }
 
 .traj-left-out-list {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 2px var(--app-space-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.traj-left-out-list li {
-  display: contents;
+/* A row of its own, never `display: contents`: that drops the listitem role
+   from the accessibility tree in some browsers. */
+.traj-left-out-item {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--app-space-3);
 }
 
 /* A listed company with no equity has no stock exposure at all. */

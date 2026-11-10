@@ -280,7 +280,7 @@ insights-stock-trajectory-panel-typical-package = { $equity ->
     [mixed] Compensación total típica de empresa cotizada · acciones medidas en parte
    *[estimated] Compensación total típica de empresa cotizada · acciones estimadas
 }
-insights-stock-trajectory-panel-stock-moves-re-price-equity = Solo las acciones se mueven con la cotización. La base es el rango publicado cuando el puesto tiene uno, y el bono sigue la regla de cada empresa. Es una referencia, no una oferta.
+insights-stock-trajectory-panel-stock-moves-re-price-equity = Solo las acciones se mueven con la cotización. La base es el rango publicado cuando el puesto tiene uno. El bono sale del anuncio, de datos salariales o de la regla de la empresa; si no, es una estimación. Es una referencia, no una oferta.
 insights-stock-trajectory-panel-stock-price-change = Cambio en la cotización
 insights-stock-trajectory-panel-reset-to-today = Volver a hoy
 insights-stock-trajectory-panel-equity-shockwave = Impacto en las acciones
@@ -318,7 +318,7 @@ insights-stock-trajectory-panel-part-source-explained = { $source ->
     [company_rule] Cómo dice esta empresa que paga esta parte
     [measured] De datos salariales de esta empresa y nivel
     [mixed] Varía entre los puestos de esta empresa
-   *[estimated] Sin datos de la empresa, estimado según el nivel
+   *[estimated] Estimado para este nivel
 }
 insights-stock-trajectory-panel-base = Base
 insights-stock-trajectory-panel-bonus = Bono

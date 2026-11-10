@@ -260,7 +260,7 @@ insights-stock-trajectory-panel-typical-package = { $equity ->
     [mixed] 上市公司典型总薪酬 · 股权部分实测
    *[estimated] 上市公司典型总薪酬 · 股权为估算
 }
-insights-stock-trajectory-panel-stock-moves-re-price-equity = 只有股权随股价变动。职位有公布的区间时，基本工资取该区间；奖金按各公司自己的规则。仅供参考，不是录用报价。
+insights-stock-trajectory-panel-stock-moves-re-price-equity = 只有股权随股价变动。职位有公布的区间时，基本工资取该区间。奖金取自职位公告、薪酬数据或公司自己的规则，否则为估算。仅供参考，不是录用报价。
 insights-stock-trajectory-panel-stock-price-change = 股价变动
 insights-stock-trajectory-panel-reset-to-today = 重置为今天
 insights-stock-trajectory-panel-equity-shockwave = 股权影响
@@ -298,7 +298,7 @@ insights-stock-trajectory-panel-part-source-explained = { $source ->
     [company_rule] 该公司说明的这部分发放方式
     [measured] 来自该公司该级别的薪酬数据
     [mixed] 该公司各职位之间不同
-   *[estimated] 无公司数据，按级别估算
+   *[estimated] 按此级别估算
 }
 insights-stock-trajectory-panel-base = 基本工资
 insights-stock-trajectory-panel-bonus = 奖金

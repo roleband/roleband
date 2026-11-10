@@ -227,6 +227,10 @@ describe("StockTrajectoryPanel", () => {
     expect(within(nflx).getByText("NFLX")).toBeInTheDocument();
     expect(within(nflx).getByText("4")).toBeInTheDocument();
     expect(within(nflx).getByText(msg("insights-stock-trajectory-panel-part-source", { source: "posted" }))).toBeInTheDocument();
+    // The label is explained in this table too, not only in the listed ones.
+    const key = within(choice).getByRole("button", { name: msg("insights-stock-trajectory-panel-about-the-source-labels") });
+    expect(key.closest("th")).toHaveTextContent(msg("insights-common-company"));
+    expect(key).toHaveAccessibleDescription(new RegExp(msg("insights-stock-trajectory-panel-part-source-explained", { source: "posted" })));
     // Neither a split nor an equity share: the person picks the mix.
     expect(within(nflx).queryByText(/%/)).not.toBeInTheDocument();
     // It is not among the listed companies the slider re-prices.
@@ -245,6 +249,15 @@ describe("StockTrajectoryPanel", () => {
     const why = within(line).getByRole("button", { name: msg("insights-stock-trajectory-panel-why-left-out") });
     expect(why).toHaveAccessibleDescription(new RegExp(msg("insights-stock-trajectory-panel-left-out-reason", { reason: "not_us_pay" })));
     expect(why).toHaveAccessibleDescription(new RegExp(msg("insights-stock-trajectory-panel-left-out-reason", { reason: "hourly" })));
+    // A list a screen reader announces, built of phrasing content: a ul or
+    // div inside the paragraph would end it early in the HTML parser.
+    const items = within(within(line).getByRole("list", { hidden: true })).getAllByRole("listitem", { hidden: true });
+    expect(items.map((i) => i.textContent)).toEqual([
+      `${msg("insights-stock-trajectory-panel-left-out-reason", { reason: "not_us_pay" })}5`,
+      `${msg("insights-stock-trajectory-panel-left-out-reason", { reason: "hourly" })}2`,
+    ]);
+    expect(line.tagName).toBe("P");
+    expect(line.querySelector("div, ul, ol, li, table")).toBeNull();
   });
 
   it("still shows a cash-or-equity company and the roles left out when no listed company has a split", async () => {

@@ -383,7 +383,7 @@ export function StockTrajectoryPanel() {
           <table className="traj-table">
             <thead>
               <tr>
-                <th scope="col">{insightsCommonCompany()}</th>
+                <th scope="col">{insightsCommonCompany()}<SourceKey /></th>
                 <th scope="col">{insightsStockTrajectoryPanelTicker()}</th>
                 <th scope="col" className="num">{insightsSkillsViewRoles()}</th>
                 <th scope="col" className="num"><Abbr short={insightsStockTrajectoryPanelMedianTc()} full={insightsStockTrajectoryPanelMedianTcFull()} /></th>
@@ -409,15 +409,17 @@ export function StockTrajectoryPanel() {
       {data.set_apart.length > 0 && (
         <p className="traj-left-out" data-testid="traj-left-out">
           {insightsStockTrajectoryPanelLeftOut({ count: data.set_apart.reduce((n, r) => n + r.count, 0) })}
+          {/* The tooltip is phrasing content inside this paragraph, so the
+              list is spans carrying list roles rather than ul and li. */}
           <InfoTip label={insightsStockTrajectoryPanelWhyLeftOut()}>
-            <ul className="traj-left-out-list">
+            <span className="traj-left-out-list" role="list">
               {data.set_apart.map((r) => (
-                <li key={r.reason}>
+                <span className="traj-left-out-item" role="listitem" key={r.reason}>
                   <span>{insightsStockTrajectoryPanelLeftOutReason({ reason: r.reason })}</span>
                   <span className="num">{r.count}</span>
-                </li>
+                </span>
               ))}
-            </ul>
+            </span>
           </InfoTip>
         </p>
       )}
