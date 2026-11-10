@@ -28,7 +28,8 @@ describe("StatisticsCharts", () => {
         <TrajectoryShockChart companies={[{
           company: "google", ticker: "GOOGL", equity_vehicle: "rsu", count: 8, median_tc: 620_000,
           base: 230_000, bonus: 40_000, equity: 350_000, equity_pct: 0.56,
-          split_source: "measured" as const,
+          sources: { base: "posted" as const, bonus: "company_rule" as const, equity: "estimated" as const },
+          vesting: "25/25/25/25",
         }]} priceChange={0.25} />
         <SkillsConstellationChart skills={[{
           term: "python", category: "language", job_count: 12,

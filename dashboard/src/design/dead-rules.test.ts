@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import type { CompPackage, JobCompPackage } from "../api";
+import type { CompPartSource, JobCompPackage } from "../api";
 
 /* The dead-rules gate.
  *
@@ -114,7 +114,7 @@ describe("dead rules", () => {
     const surfaces = readFileSync(join(SRC, "design/surfaces.css"), "utf8");
     const values = [
       ...(["measured", "cross_family", "heuristic"] as const satisfies readonly NonNullable<JobCompPackage["split_source"]>[]),
-      ...(["measured", "heuristic", "mixed"] as const satisfies readonly CompPackage["split_source"][]),
+      ...(["posted", "company_rule", "measured", "estimated", "mixed"] as const satisfies readonly CompPartSource[]),
     ];
     const unpainted = [...new Set(values)].filter(
       (value) => !new RegExp(`\\.split-src-${value}(?![\\w-])`).test(surfaces),
