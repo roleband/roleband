@@ -18,9 +18,7 @@ shell-tab-insights-pace = 节奏
 shell-tab-insights-pay = 薪酬
 shell-tab-insights-stock = 股权
 shell-tab-insights-skills = 技能
-shell-tab-insights-trends = 趋势
 shell-tab-insights-overlap = 重叠
-shell-tab-insights-groups = 分组
 
 ## 设置标签页
 shell-tab-settings-companies = 关注的公司

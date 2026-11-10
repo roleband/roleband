@@ -5,7 +5,6 @@ import { setCompanyNames } from "../../../format";
 import { msg } from "../../../test/msg";
 import { buildDisclosureRateOption, disclosureRateRows } from "./disclosure";
 import {
-  ClusterLandscapeChart,
   HiringCompaniesChart,
   OverlapHeatmapChart,
   OverviewSignalChart,
@@ -14,10 +13,10 @@ import {
 import { encodeHTML, tooltipHtml, withParts } from "./tooltip";
 
 /* ECharts writes a tooltip formatter's string into the tooltip's innerHTML.
- * Company names, skill names and cluster labels are text RoleBand did not
- * write, so each one must reach the page as text. The chart wrapper is the
- * boundary to the charting runtime: it is replaced by a probe that keeps the
- * option each chart hands it, and every formatter is read from there. */
+ * Company names and skill names are text RoleBand did not write, so each
+ * one must reach the page as text. The chart wrapper is the boundary to the
+ * charting runtime: it is replaced by a probe that keeps the option each chart
+ * hands it, and every formatter is read from there. */
 
 const options = vi.hoisted(() => new Map<string, Record<string, any>>());
 vi.mock("../../../ui/EChart", () => ({
@@ -102,16 +101,6 @@ describe("chart tooltips", () => {
 
     const diagonalBox = expectInert(formatter("chart-overlap")({ value: diagonal.value, data: diagonal }));
     expect(diagonalBox.querySelector("strong")?.textContent).toBe(EVIL);
-  });
-
-  it("show a hostile cluster label, discipline and skills as text on the cluster landscape", () => {
-    render(<ClusterLandscapeChart
-      clusters={[{ id: 1, family_hint: EVIL, size: 14, top_terms: [{ term: EVIL, weight: 0.9 }], companies: { evil: 14 } }]}
-      onSelect={vi.fn()}
-    />);
-    const node = options.get("chart-clusters")!.series[0].data[0];
-    const box = expectInert(formatter("chart-clusters")({ data: node }));
-    expect(box.querySelector("strong")?.textContent).toBe(EVIL);
   });
 
   it("show a hostile company name as text on the pay transparency chart", () => {

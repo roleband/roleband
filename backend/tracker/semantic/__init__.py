@@ -1,7 +1,6 @@
-"""Semantic (vector-space) intelligence: embeddings, similarity, and clustering.
+"""Semantic (vector-space) intelligence: embeddings and similarity.
 
 Local sentence-transformer embeddings (`embed.py`), nearest-neighbor similarity
-(`similarity.py`), and KMeans role clustering (`cluster.py`, labeled from skill
-requirements), plus a content-fingerprint + embedding backfill CLI (`backfill.py`).
+(`similarity.py`), plus a content-fingerprint + embedding backfill CLI (`backfill.py`).
 Skill extraction lives in `tracker/skills/`.
 """

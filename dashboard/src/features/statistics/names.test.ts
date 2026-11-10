@@ -1,20 +1,11 @@
-// What the Statistics screens name from slugs: a cluster by its
-// skills, an age band by its lower bound, and the Overview's one-line brief.
+// What the Statistics screens name from slugs: an age band by its lower
+// bound, and the Overview's one-line brief.
 import { afterEach, describe, expect, it } from "vitest";
 import { activate } from "../../copy/activate";
 import { msg } from "../../test/msg";
-import { agingBandName, clusterLabel, overviewBrief } from "./names";
+import { agingBandName, overviewBrief } from "./names";
 
 afterEach(() => activate("en"));
-
-describe("clusterLabel", () => {
-  it("names a cluster by its three strongest skills, then its family, then says it has none", () => {
-    expect(clusterLabel({ terms: ["python", "sql", "kubernetes", "aws"], family_hint: "data_science" })).toBe("Python · SQL · Kubernetes");
-    expect(clusterLabel({ top_terms: [{ term: "rust" }], family_hint: null })).toBe("Rust");
-    expect(clusterLabel({ terms: [], family_hint: "product_management" })).toBe("Product Management");
-    expect(clusterLabel({ terms: [], family_hint: null })).toBe("Unlabeled cluster");
-  });
-});
 
 describe("agingBandName", () => {
   it("names each fixed band by its lower bound", () => {
@@ -32,7 +23,6 @@ describe("overviewBrief", () => {
     const data = {
       days: 30, kpis: { ...kpis, first_scan_count: 12 },
       top_skills: [{ term: "python", category: "language", job_count: 1435 }],
-      top_clusters: [{ id: 1, family_hint: null, terms: ["python", "sql"], size: 88 }],
     };
     // The roles already listed at a company's first scan are when the
     // radar first looked, not the market: neither view says them.
@@ -40,15 +30,10 @@ describe("overviewBrief", () => {
       "3,192 open roles across 41 companies. 120 opened in 30d, 30 closed. "
       + "Top skill: Python (1,435 roles).",
     );
-    // Clusters are an advanced tab, so only the advanced view names one.
-    expect(overviewBrief(data, true)).toBe(
-      "3,192 open roles across 41 companies. 120 opened in 30d, 30 closed. "
-      + "Top skill: Python (1,435 roles). Largest cluster: Python · SQL (88 roles).",
-    );
   });
 
   it("leaves out a fact that is not there, and says all time for no window", () => {
-    expect(overviewBrief({ days: 0, kpis, top_skills: [], top_clusters: [] })).toBe(
+    expect(overviewBrief({ days: 0, kpis, top_skills: [] })).toBe(
       `${msg("insights-brief-open", { open: "3,192", companies: "41" })} `
       + msg("insights-brief-opened", { allTime: "yes", opened: "120", closed: "30", days: 0 }),
     );

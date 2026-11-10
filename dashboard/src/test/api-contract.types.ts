@@ -30,8 +30,6 @@ import {
   type AgentAccessState,
   type ApplicationCard,
   type CloudLLMTestResult,
-  type ClusterDetail,
-  type ClusterSummary,
   type CompanyCard,
   type CompanyDiscoveryCompany,
   type CompanyPrices,
@@ -64,7 +62,6 @@ import {
   type ScopeLocation,
   type SimilarJob,
   type SimilarJobs,
-  type SkillTrends,
   type SyncResult,
   type SystemStatus,
   type TopSkill,
@@ -123,7 +120,6 @@ export type QueryContract = [
   Expect<ReadBy<DecidedQuery, "lineage_review_api_lineage_review_get">>,
   Expect<ReadBy<DecidedQuery, "twin_review_api_twins_review_get">>,
   Expect<ReadBy<ParamsOf<typeof api.skillsTop>, "skills_top_api_skills_top_get">>,
-  Expect<ReadBy<ParamsOf<typeof api.skillTrends>, "skills_trends_api_skills_trends_get">>,
   Expect<ReadBy<ParamsOf<typeof api.notifications>, "notifications_api_notifications_get">>,
 ];
 
@@ -489,30 +485,16 @@ export const unknownSplit: CompTrajectory["overall"] = { ...packaged, split_sour
 
 export type SkillsRouteContract = [
   Expect<Equals<Returns<typeof api.skillsTop>, Ok<"skills_top_api_skills_top_get">>>,
-  Expect<Equals<Returns<typeof api.skillTrends>, Ok<"skills_trends_api_skills_trends_get">>>,
   Expect<Equals<Returns<typeof api.skillsOverlap>, Ok<"skills_overlap_api_skills_overlap_get">>>,
-  Expect<Equals<Returns<typeof api.clusters>, Ok<"clusters_api_clusters_get">>>,
-  Expect<Equals<Returns<typeof api.cluster>, Ok<"cluster_detail_api_clusters__cluster_id__get">>>,
 ];
-
-declare const clusterMember: ClusterDetail["items"][number];
-// A cluster lists its members as the rows every list shows.
-export const memberAsRow: Job = clusterMember;
 
 declare const leader: TopSkill;
 // @ts-expect-error — every concept is filed under a category, so a leaderboard skill always names one.
 export const uncategorizedSkill: TopSkill = { ...leader, category: null };
 
-// @ts-expect-error — a trend point counts roles; a day without a slice is zero, never null.
-export const gapAsNull: SkillTrends["series"][number]["points"][number] = { date: "2026-07-20", job_count: null };
-
 declare const pairWithoutSimilarity: Omit<OverlapPair, "similarity">;
 // @ts-expect-error: a shared pair always carries its similarity.
 export const missingSimilarity: OverlapPair = pairWithoutSimilarity;
-
-declare const clusterWithoutMix: Omit<ClusterSummary, "companies">;
-// @ts-expect-error — a cluster in the list always carries its visible company mix.
-export const missingMix: ClusterSummary = clusterWithoutMix;
 
 export type ProfileRouteContract = [
   Expect<Equals<Returns<typeof api.pursuits>, Ok<"list_pursuits_ep_api_pursuits_get">>>,

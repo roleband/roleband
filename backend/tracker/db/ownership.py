@@ -73,8 +73,8 @@ LIFECYCLES = frozenset(
         "reference",
         # Runtime bookkeeping: schedules, pressure, derivation cursors.
         "operational",
-        # Declared but never written. Pairs with a `planned:` claim, or records
-        # a table whose writer was never built.
+        # Declared but not written. Pairs with a `planned:` claim, or records
+        # a table nothing writes whose rows are kept.
         "unpopulated",
     }
 )
@@ -185,7 +185,6 @@ TABLE_OWNERS: dict[str, TableOwnership] = {
             "tracker/lineage/detect.py",
             "tracker/lineage/twins.py",
             "tracker/semantic/backfill.py",
-            "tracker/semantic/cluster.py",
             "tracker/workflows/backfill_disclosed_comp.py",
             # A posting page read: `source_facts` form and tiers, and a page band.
             "tracker/workflows/posting_pages.py",
@@ -294,12 +293,6 @@ TABLE_OWNERS: dict[str, TableOwnership] = {
     ),
 
     # --- post_pass: produced by a POST_PASSES entry ----------------------------
-    "clusters": TableOwnership(
-        claim="post_pass:clusters",
-        lifecycle="derived",
-        writers=("tracker/semantic/cluster.py",),
-        readers=("tracker/api/routers/skills.py",),
-    ),
     # Written by the comp_metrics pass, read by nothing
     # (`readers=()`); `comp_snapshot`, written beside it, is what statistics reads.
     "comp_metrics": TableOwnership(
@@ -453,7 +446,8 @@ TABLE_OWNERS: dict[str, TableOwnership] = {
         claim="post_pass:skill_demand",
         lifecycle="derived",
         writers=("tracker/skills/analytics.py",),
-        readers=("tracker/api/routers/skills.py",),
+        # Daily history kept for a view that needs weeks of it.
+        readers=(),
     ),
     "source_binding_tuning": TableOwnership(
         claim="post_pass:tuning",
@@ -659,6 +653,16 @@ TABLE_OWNERS: dict[str, TableOwnership] = {
     ),
     "skill_relations": TableOwnership(
         claim="planned:skill graph edges (no writer yet)",
+        lifecycle="unpopulated",
+        writers=(),
+        readers=(),
+    ),
+    # Skill-profile groups of roles, with `jobs.cluster_id` and
+    # `jobs.cluster_distance`. Nothing writes or reads them; the rows are kept
+    # because they are user data, and removing them is a separate, explicit step
+    # (docs/decisions/0004-insights-answers-a-question.md).
+    "clusters": TableOwnership(
+        claim="planned:stored skill-profile groups (no writer)",
         lifecycle="unpopulated",
         writers=(),
         readers=(),

@@ -1,30 +1,22 @@
-"""The skills and cluster routes' response contract.
+"""The skills routes' response contract.
 
-`tracker/api/schemas/skills.py` declares what `/api/skills/top`,
-`/api/skills/trends`, `/api/skills/overlap`, `/api/clusters` and
-`/api/clusters/{cluster_id}` send. These tests hold it over real HTTP against
+`tracker/api/schemas/skills.py` declares what `/api/skills/top` and
+`/api/skills/overlap` send. These tests hold it over real HTTP against
 `tests/skills_contract_seed.py`:
 
-1. **Shapes**: built shapes forbid unknown keys; a stored cluster term keeps them.
+1. **Shapes**: built shapes forbid unknown keys.
 2. **An empty radar**: each list route answers its empty shape.
 3. **The leaderboard** counts evidence-grounded requirements on open, in-scope,
    visible roles, never industries, deprecated concepts, context mentions or
    low-confidence extractions, and narrows by company, family and location.
-4. **The trends** read the rollup inside the window, zero-filled over a shared
-   axis, by named terms in order or by latest count.
-5. **The overlap** ranks companies by open roles above a per-company floor.
-6. **Clusters** size themselves from stored sizes, or from the visible mix once a
-   company is hidden, and list members most central first.
-7. **Drift**: a builder that adds, drops or mistypes a key fails the response.
+4. **The overlap** ranks companies by open roles above a per-company floor.
+5. **Drift**: a builder that adds, drops or mistypes a key fails the response.
 
-`pin_skills_clock` fixes the trend window's "now"; `no_escape` guards every test.
-Counts are asserted as sets wherever the route leaves a tie unordered.
+`no_escape` guards every test. Counts are asserted as sets wherever the route
+leaves a tie unordered.
 """
 
 from __future__ import annotations
-
-import json
-from datetime import timedelta
 
 import pytest
 import pytest_asyncio
@@ -32,27 +24,13 @@ from fastapi.exceptions import ResponseValidationError
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from tests.api_errors import said
-from tests.skills_contract_seed import (
-    DAY_START,
-    SeededSkills,
-    hide_company,
-    pin_skills_clock,
-    seed_skills,
-)
+from tests.skills_contract_seed import SeededSkills, hide_company, seed_skills
 from tracker.api.routers import skills as router
 from tracker.api.schemas import skills as contract
-from tracker.api.schemas.jobs import JobRow
-from tracker.db.models import Cluster
 
 
 @pytest_asyncio.fixture
-async def clock(monkeypatch, no_escape):
-    pin_skills_clock(monkeypatch)
-
-
-@pytest_asyncio.fixture
-async def seeded(api_client, db_session, clock) -> SeededSkills:
+async def seeded(api_client, db_session, no_escape) -> SeededSkills:
     return await seed_skills(db_session)
 
 
@@ -72,10 +50,6 @@ async def _get(api_client, path: str, status: int = 200) -> dict:
     return response.json()
 
 
-def _day(days_before_today: int) -> str:
-    return (DAY_START - timedelta(days=days_before_today)).date().isoformat()
-
-
 def _counts(body: dict) -> dict[str, int]:
     """Roles per concept, skills and competencies alike (the API lists them apart)."""
     return {item["term"]: item["job_count"] for item in body["items"] + body["competencies"]}
@@ -86,25 +60,21 @@ def _counts(body: dict) -> dict[str, int]:
 # --------------------------------------------------------------------------- #
 
 
-def test_built_shapes_forbid_unknown_keys_and_a_stored_term_keeps_them():
+def test_built_shapes_forbid_unknown_keys():
     built = [
         model for model in vars(contract).values()
         if isinstance(model, type) and issubclass(model, BaseModel) and model.__module__ == contract.__name__
-        and model is not contract.ClusterTerm
     ]
-    assert len(built) >= 11
+    assert len(built) >= 4
     assert [m.__name__ for m in built if m.model_config.get("extra") != "forbid"] == []
-    assert contract.ClusterTerm.model_config.get("extra") == "allow"
 
 
 @pytest.mark.asyncio
-async def test_an_empty_radar_answers_each_list_with_nothing_in_it(api_client, clock):
+async def test_an_empty_radar_answers_each_list_with_nothing_in_it(api_client, no_escape):
     assert await _get(api_client, "/api/skills/top") == {
         "items": [], "competencies": [], "roles": 0, "market_roles": 0, "narrowed": False,
     }
-    assert await _get(api_client, "/api/skills/trends") == {"days": 90, "dates": [], "series": [], "set_changes": []}
     assert await _get(api_client, "/api/skills/overlap") == {"companies": [], "pairs": [], "min_jobs": 2}
-    assert await _get(api_client, "/api/clusters") == {"items": [], "model_version": None}
 
 
 # --------------------------------------------------------------------------- #
@@ -179,57 +149,19 @@ async def test_a_visible_company_counts_until_it_is_hidden(api_client, db_sessio
 
 
 # --------------------------------------------------------------------------- #
-# 4. The trends
-# --------------------------------------------------------------------------- #
-
-
-@pytest.mark.asyncio
-async def test_trends_are_zero_filled_over_a_shared_axis_inside_the_window(api_client, hidden):
-    body = await _get(api_client, "/api/skills/trends")
-    assert list(body) == _fields(contract.SkillTrendsResponse)
-    assert (body["days"], body["dates"]) == (90, [_day(2), _day(1)])
-    assert all(list(s) == _fields(contract.SkillTrendSeries) for s in body["series"])
-    # Top by the latest count; the hidden company's slice is not in python's 5.
-    # Slugs only: the dashboard names each skill.
-    assert [(s["term"], s["current"], s["delta"]) for s in body["series"]] == [
-        ("python", 5, 3), ("kubernetes", 3, 2), ("sql", 2, 2),
-    ]
-    sql = body["series"][2]["points"]
-    assert [(p["date"], p["job_count"]) for p in sql] == [(_day(2), 0), (_day(1), 2)]
-    # Each point is also its share of the day's skill mentions.
-    assert sql[0]["share"] == 0.0 and 0 < sql[1]["share"] < 1
-    assert body["series"][2]["current_share"] == sql[1]["share"]
-
-    all_time = await _get(api_client, "/api/skills/trends?days=0")
-    assert all_time["dates"] == [_day(120), _day(2), _day(1)]
-    assert (all_time["series"][0]["term"], all_time["series"][0]["delta"]) == ("python", 4)
-
-
-@pytest.mark.asyncio
-async def test_named_terms_come_back_in_order_and_filters_narrow_the_rollup(api_client, hidden):
-    named = await _get(api_client, "/api/skills/trends?term=sql&term=python")
-    assert [s["term"] for s in named["series"]] == ["sql", "python"]
-    assert (await _get(api_client, "/api/skills/trends?term=nope"))["series"] == []
-    openai = await _get(api_client, "/api/skills/trends?company=openai")
-    assert [(s["term"], s["current"]) for s in openai["series"]] == [("kubernetes", 3), ("python", 2)]
-    assert [s["term"] for s in (await _get(api_client, "/api/skills/trends?limit=1"))["series"]] == ["python"]
-
-
-# --------------------------------------------------------------------------- #
-# 5. The overlap
+# 4. The overlap
 # --------------------------------------------------------------------------- #
 
 
 @pytest.mark.asyncio
 async def test_every_read_that_counts_skills_counts_the_same_requirements(api_client, db_session, seeded):
-    """The leaderboard, the daily demand rollup and a group's labels read one rule
+    """The leaderboard and the daily demand rollup read one rule
     (`ELIGIBLE_REQUIREMENT`). g4's context mention and low-confidence sql, the
-    industry and the deprecated concept count in none of them, and each reader
-    finds python on the same roles."""
+    industry and the deprecated concept count in neither, and each reader
+    finds python and sql on the same roles."""
     from datetime import UTC, datetime
 
-    from tracker.db.models import Job, SkillConcept, SkillDemandDaily
-    from tracker.semantic.cluster import _member_skills
+    from tracker.db.models import SkillConcept, SkillDemandDaily
     from tracker.skills.analytics import compute_skill_demand
 
     leaderboard = _counts(await _get(api_client, "/api/skills/top?limit=50"))
@@ -246,20 +178,11 @@ async def test_every_read_that_counts_skills_counts_the_same_requirements(api_cl
     ).all():
         demand[slug] = demand.get(slug, 0) + count
 
-    open_ids = list(
-        (await db_session.scalars(select(Job.id).where(Job.status == "open", Job.in_scope.is_(True)))).all()
-    )
-    by_job, _meta = await _member_skills(db_session, open_ids)
-    labelled: dict[str, int] = {}
-    for slugs in by_job.values():
-        for slug in slugs:
-            labelled[slug] = labelled.get(slug, 0) + 1
-
-    for reader in (leaderboard, demand, labelled):
+    for reader in (leaderboard, demand):
         assert not {"fintech", "perl"} & set(reader), reader
-    assert leaderboard["python"] == demand["python"] == labelled["python"]
-    assert leaderboard["sql"] == demand["sql"] == labelled["sql"]
-    assert seeded.jobs["g4"] not in by_job, "a context mention and a low-confidence read are not skills"
+    # g4's context python and low-confidence sql would make these 10 and 5.
+    assert leaderboard["python"] == demand["python"] == 9
+    assert leaderboard["sql"] == demand["sql"] == 4
 
 
 @pytest.mark.asyncio
@@ -306,67 +229,7 @@ async def test_the_companies_compared_can_be_named(api_client, hidden):
 
 
 # --------------------------------------------------------------------------- #
-# 6. Clusters
-# --------------------------------------------------------------------------- #
-
-
-@pytest.mark.asyncio
-async def test_with_nothing_hidden_a_cluster_states_its_current_members(api_client, seeded):
-    """The size is the members shown (open, in scope), never the stored count
-    the last pass made: here "Python · SQL" is stored at 5 and "Other" at 1 with
-    its only member closed."""
-    body = await _get(api_client, "/api/clusters")
-    assert list(body) == _fields(contract.ClusterListResponse)
-    assert all(list(item) == _fields(contract.ClusterSummary) for item in body["items"])
-    # Named by the dashboard from its terms, then its family.
-    assert [([t["term"] for t in i["top_terms"]], i["family_hint"], i["size"], i["companies"]) for i in body["items"]] == [
-        (["python", "sql"], "product_management", 4, {"google": 3, "hidden-co": 1}),
-        (["kubernetes"], "engineering_management", 3, {"openai": 3}),
-        ([], None, 1, {"hidden-co": 1}),
-    ]
-    assert body["model_version"] == "c-2026-07"
-    # Top terms as the clustering pass stored them, in the order Postgres serves JSONB keys.
-    first = body["items"][0]
-    assert first["top_terms"] == [
-        {"term": "python", "weight": 255.0},
-        {"term": "sql", "weight": 130.5},
-    ]
-    # The stored English name stays in the database and never reaches the wire.
-    assert list(first["top_terms"][0]) == ["term", "weight"]
-
-
-@pytest.mark.asyncio
-async def test_once_a_company_is_hidden_clusters_size_from_the_visible_mix(api_client, hidden):
-    body = await _get(api_client, "/api/clusters")
-    # Only the hidden company filled one cluster and only a closed role the other: both drop out.
-    assert [(i["id"], i["size"], i["companies"]) for i in body["items"]] == [
-        (hidden.clusters["c1"], 3, {"google": 3}),
-        (hidden.clusters["c2"], 3, {"openai": 3}),
-    ]
-
-
-@pytest.mark.asyncio
-async def test_a_cluster_lists_its_open_members_most_central_first(api_client, hidden):
-    body = await _get(api_client, f"/api/clusters/{hidden.clusters['c1']}")
-    assert list(body) == _fields(contract.ClusterDetailResponse)
-    assert all(list(row) == _fields(JobRow) for row in body["items"])
-    assert [(row["id"], row["is_favorite"]) for row in body["items"]] == [
-        (hidden.jobs["g1"], True), (hidden.jobs["g3"], False), (hidden.jobs["g2"], False),
-    ]
-    assert body["size"] == 3
-    empty = await _get(api_client, f"/api/clusters/{hidden.clusters['c3']}")
-    assert (empty["size"], empty["items"]) == (0, [])
-    assert said(await _get(api_client, "/api/clusters/999999", status=404)) == {"detail": "cluster not found"}
-
-
-@pytest.mark.asyncio
-async def test_with_nothing_hidden_a_cluster_answers_its_current_size(api_client, seeded):
-    body = await _get(api_client, f"/api/clusters/{seeded.clusters['c1']}")
-    assert (body["size"], len(body["items"]), body["items"][0]["id"]) == (4, 4, seeded.jobs["h1"])
-
-
-# --------------------------------------------------------------------------- #
-# 7. Drift
+# 5. Drift
 # --------------------------------------------------------------------------- #
 
 
@@ -378,24 +241,9 @@ def _each_skill_adding(real):
     return drifted
 
 
-def _points_without_count(real):
-    def drifted(*args, **kwargs):
-        axis, series = real(*args, **kwargs)
-        return axis, [{**s, "points": [{"date": p["date"]} for p in s["points"]]} for s in series]
-
-    return drifted
-
-
 def _pair_without_shared(real):
     def drifted(*args, **kwargs):
         return [{k: v for k, v in p.items() if k != "shared"} for p in real(*args, **kwargs)]
-
-    return drifted
-
-
-def _serialize_adding(real):
-    def drifted(*args, **kwargs):
-        return {**real(*args, **kwargs), "unmodelled": True}
 
     return drifted
 
@@ -405,31 +253,11 @@ def _serialize_adding(real):
     ("name", "drift", "path"),
     [
         ("rank_skills", _each_skill_adding, "/api/skills/top"),
-        ("build_trend_series", _points_without_count, "/api/skills/trends"),
         ("compute_overlap", _pair_without_shared, "/api/skills/overlap"),
-        ("_terms", lambda real: lambda stored: [{"weight": 1.0}], "/api/clusters"),
-        ("serialize_job", _serialize_adding, "/api/clusters/{c1}"),
     ],
-    ids=["top_skill_key_added", "trend_count_dropped", "pair_shared_dropped", "cluster_term_dropped", "member_key_added"],
+    ids=["top_skill_key_added", "pair_shared_dropped"],
 )
 async def test_a_builder_that_drifts_fails_the_response(api_client, hidden, monkeypatch, name, drift, path):
     monkeypatch.setattr(router, name, drift(getattr(router, name)))
     with pytest.raises(ResponseValidationError):
-        await api_client.get(path.format(c1=hidden.clusters["c1"]))
-
-
-@pytest.mark.asyncio
-async def test_a_stored_term_keeps_an_unnamed_key_and_fails_without_its_term(api_client, db_session, hidden):
-    cluster = (await db_session.execute(select(Cluster).where(Cluster.id == hidden.clusters["c2"]))).scalar_one()
-    await db_session.refresh(cluster)
-    terms = json.loads(json.dumps(cluster.top_terms))
-    terms[0]["rank"] = 1
-    cluster.top_terms = terms
-    await db_session.commit()
-    items = (await _get(api_client, "/api/clusters"))["items"]
-    assert items[1]["top_terms"][0]["rank"] == 1
-
-    cluster.top_terms = [{k: v for k, v in terms[0].items() if k != "term"}]
-    await db_session.commit()
-    with pytest.raises(ResponseValidationError):
-        await api_client.get("/api/clusters")
+        await api_client.get(path)

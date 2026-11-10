@@ -574,7 +574,6 @@ export const overviewFixture: StatisticsOverview = {
   days: 30,
   kpis: { open_total: 12, new_count: 4, first_scan_count: 0, closed_count: 1, companies: 3, saved_total: 2 },
   top_skills: [],
-  top_clusters: [],
   longest_open: [],
   
 };

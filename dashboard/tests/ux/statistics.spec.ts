@@ -1,8 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
-import type { ClusterDetail, ClusterList } from "../../src/api";
 import { expect, test } from "./fixtures";
 import {
-  companyCardFixture,
   facetsFixture,
   hiringFixture,
   jobFixture,
@@ -129,138 +127,6 @@ test("a deep link with a window lens survives reload", async ({ page }) => {
   await expect(page.getByRole("button", { name: "90d" })).toHaveAttribute("aria-pressed", "true");
 });
 
-/* The cluster card is a whole-card control that also carries company chips, and
-   a chip is a control of its own — its keyboard path to the company profile is
-   the accessible half of a hover card that is otherwise pointer-only.
-   One <button> wrapping the chips is invalid HTML, so the card's own control
-   stretches over the card and the chips are lifted above it. Both halves need
-   a real browser: jsdom has no layout, so a component test can prove there is
-   no nesting but not that a click on a chip still reaches the chip. */
-const clusterFixture = {
-  id: 7,
-  // Named by the dashboard from its strongest skills: "LLMs · RAG".
-  family_hint: null,
-  size: 9,
-  top_terms: [{ term: "llm", weight: 42.5 }, { term: "rag", weight: 30.1 }],
-};
-const clustersFixture = {
-  model_version: "v1",
-  items: [{ ...clusterFixture, companies: { google: 4 } }],
-} satisfies ClusterList;
-const clusterDetailFixture = { ...clusterFixture, items: [] } satisfies ClusterDetail;
-
-test.describe("cluster cards", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.route("/api/clusters", (route) => route.fulfill({ json: clustersFixture }));
-    await page.route("/api/clusters/7", (route) =>
-      route.fulfill({ json: clusterDetailFixture }));
-    await page.route("/api/companies/google/card", (route) =>
-      route.fulfill({ json: companyCardFixture }));
-    /* The chip NAVIGATES, and the screen it lands on reads its own roster the
-       moment its lazy chunk arrives. The test's last assertion is the URL, so
-       whether that read lands inside the test is a race, and the fixtures guard
-       turns a lost race into "Unmocked API request: GET /api/company-profiles". A spec that sends the user to a
-       screen owns that screen's reads. */
-    await page.route("/api/company-profiles**", (route) =>
-      route.fulfill({ json: { items: [], attribution: null } }));
-  });
-
-  /* EVERY TAB FILLS THE PAGE. A tab wrapped in a nested `.main` gets the
-     shell's 1200px cap and sits centred inside the page at 1440 while the
-     other tabs fill it. */
-  test("Groups fills the page between the title's edges, like every Insights tab", async ({ page, isMobile }) => {
-    test.skip(isMobile, "a phone has one edge to edge");
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto("/statistics/clusters");
-    const title = (await page.getByRole("heading", { level: 1, name: "Insights" }).boundingBox())!;
-    // The tab's hero card starts at the title's edge, as on every tab.
-    await expect(page.getByRole("heading", { level: 2, name: /cluster/ })).toBeVisible();
-    const own = (await page.locator(".insight-hero").boundingBox())!;
-    expect(Math.abs(own.x - title.x)).toBeLessThan(1);
-    await expect(page.getByRole("main")).toHaveCount(1);
-  });
-
-  /* The card is what responds, so the keyboard's ring goes on the card,
-     once: never also around the two words of its title. */
-  test("a focused card wears one ring, on the card and not on its title", async ({ page }) => {
-    await page.goto("/statistics/clusters");
-    const title = page.getByRole("button", { name: "LLMs · RAG", exact: true });
-    await expect(title).toBeVisible();
-    await page.keyboard.press("Shift");
-    await title.focus();
-    await expect.poll(() => title.evaluate((node) => node.matches(":focus-visible"))).toBe(true);
-    const outline = (node: Element) => getComputedStyle(node).outlineStyle;
-    expect(await title.evaluate(outline)).toBe("none");
-    expect(await page.locator(".cluster-card", { has: title }).evaluate(outline)).toBe("solid");
-  });
-
-  test("a company chip inside a card goes to the company, not into the cluster", async ({ page }) => {
-    await page.goto("/statistics/clusters");
-
-    const card = page.getByRole("button", { name: "LLMs · RAG", exact: true });
-    await expect(card).toHaveAttribute("aria-pressed", "false");
-
-    // The chip sits inside the card's box, so this click lands on top of the
-    // card control's stretched hit area. It must reach the chip: without the
-    // chips' own stacking position the card would swallow it, however the
-    // controls are nested.
-    await page.getByRole("button", { name: msg("shared-company-chip-aria", { company: "Google" }) }).click();
-
-    await expect(page).toHaveURL(/\/company\/google/);
-  });
-
-  test("the card itself still selects the cluster, from anywhere in its box", async ({ page }) => {
-    await page.goto("/statistics/clusters");
-
-    // A real hit test at a point far from the title: the term row, which is
-    // inert content the card control's stretched ::after covers. `page.mouse`
-    // rather than a locator click on purpose — a locator click on the term
-    // would either be refused as intercepted (which is the correct behaviour
-    // being asserted here) or forced, and a forced click dispatches on the
-    // element directly, so it would pass with no overlay at all.
-    // page.mouse takes VIEWPORT coordinates and does not scroll for you; the
-    // card grid sits below the landscape chart, so the box has to be read after
-    // the card is on screen.
-    await page.locator(".cluster-card").scrollIntoViewIfNeeded();
-    const terms = await page.locator(".cluster-terms").boundingBox();
-    if (!terms) throw new Error("cluster terms not rendered");
-    await page.mouse.click(terms.x + terms.width / 2, terms.y + terms.height / 2);
-
-    await expect(page.getByRole("button", { name: "LLMs · RAG", exact: true }))
-      .toHaveAttribute("aria-pressed", "true");
-  });
-
-  test("the card control is one keyboard stop, and the chip is another", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name === "mobile", "Tab order is a keyboard flow; a phone has no Tab key.");
-
-    await page.goto("/statistics/clusters");
-    const card = page.getByRole("button", { name: "LLMs · RAG", exact: true });
-    const chip = page.getByRole("button", { name: msg("shared-company-chip-aria", { company: "Google" }) });
-
-    await card.focus();
-    await page.keyboard.press("Tab");
-    await expect(chip).toBeFocused();
-
-    // Back the other way, with a real key press: the card control's ring is
-    // painted on the CARD (`:has`), and `all: unset` has already thrown away
-    // the platform's own outline — so if that rule ever stops matching, the
-    // card has no focus indicator at all (2.4.7) and nothing else would say so.
-    // Programmatic .focus() cannot prove it: :focus-visible follows the input
-    // modality, and only a key press sets it.
-    await page.keyboard.press("Shift+Tab");
-    await expect(card).toBeFocused();
-    // The COMPUTED outline, not `matches(":has(...)")`: the DOM matches that
-    // selector whether or not any stylesheet uses it, so such an assertion
-    // passes with the rule deleted.
-    const ring = await page.evaluate(() => {
-      const style = getComputedStyle(document.querySelector(".cluster-card")!);
-      return { style: style.outlineStyle, width: style.outlineWidth };
-    });
-    expect(ring.style, "the focused card paints no ring").not.toBe("none");
-    expect(parseFloat(ring.width)).toBeGreaterThan(0);
-  });
-});
-
 /* Every tab opens with one hero whose eyebrow IS its tab label,
  * one level-2 figure, and two to four KPI tiles; nothing sits above it. */
 test("every Insights tab opens with the same hero, named by its tab", async ({ page }) => {
@@ -293,25 +159,18 @@ test("every Insights tab opens with the same hero, named by its tab", async ({ p
       ],
       competencies: [], roles: 30, market_roles: 30, narrowed: false,
     },
-    "/api/skills/trends**": { days: 30, dates: ["2026-07-12", "2026-07-13"], set_changes: [], series: [
-      { term: "python", current: 9, delta: 1, current_share: 0.09, share_delta: 0.01,
-        points: [{ date: "2026-07-12", job_count: 8, share: 0.08 }, { date: "2026-07-13", job_count: 9, share: 0.09 }] },
-    ] },
     "/api/skills/overlap**": { min_jobs: 2, companies: [
       { company: "google", skill_count: 9, open: 12 }, { company: "openai", skill_count: 7, open: 5 },
     ], pairs: [{ a: "google", b: "openai", shared: 4, union: 12, similarity: 0.333, top_shared: ["Python"] }] },
     "/api/statistics/levels": levelGuideFixture,
     "/api/companies/discovery": { sectors: [], companies: [] },
     "/api/settings": { enabled_role_tracks: [] },
-    "/api/clusters": { model_version: "t", items: [
-      { id: 1, family_hint: "product_management", size: 7, top_terms: [], companies: { google: 7 } },
-    ] },
   };
   for (const [pattern, json] of Object.entries(routes)) {
     await page.route(pattern, (route) => route.fulfill({ json }));
   }
 
-  for (const tab of ["Overview", "Hiring", "Pace", "Compensation", "Levels", "Stock", "Skills", "Trends", "Overlap", "Clusters"]) {
+  for (const tab of ["Overview", "Hiring", "Pace", "Compensation", "Levels", "Stock", "Skills", "Overlap"]) {
     await page.goto("/statistics/overview");
     await page.getByRole("tab", { name: tab, exact: true }).click();
     const hero = page.locator(".insight-hero");

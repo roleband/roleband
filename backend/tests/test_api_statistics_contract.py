@@ -164,7 +164,7 @@ async def test_an_empty_radar_answers_every_shape_with_nothing_in_it(api_client,
         "review_pending": 0, "notif_unread": 0, "notif_high_unread": 0, "by_company": {},
     }
     overview = await _get(api_client, ROUTES["overview"])
-    assert (overview["top_skills"], overview["top_clusters"], overview["longest_open"]) == ([], [], [])
+    assert (overview["top_skills"], overview["longest_open"]) == ([], [])
     compensation = await _get(api_client, ROUTES["compensation"])
     assert (compensation["overall"], compensation["histogram"], compensation["coverage"]) == (
         None, [], {"with_comp": 0, "total_open": 0, "pct": 0.0},
@@ -218,12 +218,6 @@ async def test_the_overview_scopes_openings_to_its_window_and_names_the_leaders(
     assert body["top_skills"] == [
         {"term": "python", "category": "language", "job_count": 17},
         {"term": "sql", "category": "language", "job_count": 3},
-    ]
-    # Slugs only; the dashboard names a cluster by its terms, then its family.
-    assert [(c["family_hint"], c["terms"], c["size"]) for c in body["top_clusters"]] == [
-        ("product_management", [], 12),
-        ("engineering_management", [], 7),
-        (None, [], 3),
     ]
     # The role listed longest by its own age (`listed_days`): `o-old`, which the
     # employer dated 120 days ago, not `g-senior`, which we saw first (60 days).
