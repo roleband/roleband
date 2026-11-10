@@ -274,6 +274,59 @@ describe("StockTrajectoryPanel", () => {
     expect(screen.queryByLabelText("Stock price change percent")).not.toBeInTheDocument();
   });
 
+  describe("finding a company", () => {
+    const find = () => screen.getByRole("searchbox", { name: msg("insights-demand-find-a-company") });
+    const withChoice = () => base({
+      choice: [{ company: "netflix", ticker: "NFLX", count: 4, median_tc: 756_250, total_source: "posted" }],
+    });
+
+    it("narrows every table to the companies it names, and hides a table with none", async () => {
+      mock(withChoice());
+      render(<StockTrajectoryPanel />);
+      await screen.findByText("Google");
+      fireEvent.change(find(), { target: { value: "micro" } });
+      const pub = screen.getByTestId("traj-public");
+      expect(within(pub).getByRole("row", { name: /Microsoft/ })).toBeInTheDocument();
+      expect(within(pub).queryByRole("row", { name: /Google/ })).not.toBeInTheDocument();
+      expect(screen.queryByTestId("traj-private")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("traj-choice")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("traj-no-match")).not.toBeInTheDocument();
+    });
+
+    it("reaches the private and cash-or-equity tables too, by name or slug, ignoring case", async () => {
+      mock(withChoice());
+      render(<StockTrajectoryPanel />);
+      await screen.findByText("Google");
+      fireEvent.change(find(), { target: { value: "OPENAI" } });
+      expect(within(screen.getByTestId("traj-private")).getByRole("row", { name: /OpenAI/ })).toBeInTheDocument();
+      expect(screen.queryByTestId("traj-public")).not.toBeInTheDocument();
+      fireEvent.change(find(), { target: { value: "netf" } });
+      expect(within(screen.getByTestId("traj-choice")).getByRole("row", { name: /Netflix/ })).toBeInTheDocument();
+      expect(screen.queryByTestId("traj-private")).not.toBeInTheDocument();
+    });
+
+    it("says so when no company matches, and clearing it brings every table back", async () => {
+      mock(withChoice());
+      render(<StockTrajectoryPanel />);
+      await screen.findByText("Google");
+      fireEvent.change(find(), { target: { value: "  zzz " } });
+      expect(screen.getByTestId("traj-no-match")).toHaveTextContent(msg("insights-stock-trajectory-panel-no-company-matches", { query: "zzz" }));
+      for (const id of ["traj-public", "traj-private", "traj-choice"]) expect(screen.queryByTestId(id)).not.toBeInTheDocument();
+      // The figure above is the whole market's, whatever the search.
+      expect(screen.getByLabelText("Stock price change percent")).toBeInTheDocument();
+      fireEvent.change(find(), { target: { value: "" } });
+      for (const id of ["traj-public", "traj-private", "traj-choice"]) expect(screen.getByTestId(id)).toBeInTheDocument();
+      expect(screen.queryByTestId("traj-no-match")).not.toBeInTheDocument();
+    });
+
+    it("offers no search when there is a single company to look at", async () => {
+      mock(base({ public: base().public.slice(0, 1), private: [] }));
+      render(<StockTrajectoryPanel />);
+      await screen.findByText("Google");
+      expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+    });
+  });
+
   it("says nothing about left-out roles when none are", async () => {
     mock(base());
     render(<StockTrajectoryPanel />);

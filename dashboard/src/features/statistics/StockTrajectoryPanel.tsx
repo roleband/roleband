@@ -11,6 +11,8 @@ import { TrajectoryShockChart } from "./charts/StatisticsCharts";
 import { InfoTip } from "../../ui/InfoTip";
 import { Abbr } from "../../ui/Abbr";
 import { Button } from "../../ui/Button";
+import { SearchField } from "../../ui/SearchField";
+import { matchCompanies } from "./hiring";
 import {
   insightsCommonCompany,
   insightsSkillsViewRoles,
@@ -32,7 +34,9 @@ import {
   insightsStockTrajectoryPanelLeftOut,
   insightsStockTrajectoryPanelLeftOutReason,
   insightsStockTrajectoryPanelLoadFailed,
+  insightsDemandFindACompany,
   insightsStockTrajectoryPanelLoading,
+  insightsStockTrajectoryPanelNoCompanyMatches,
   insightsStockTrajectoryPanelMedianTc,
   insightsStockTrajectoryPanelMedianTcFull,
   insightsStockTrajectoryPanelMedianTcTile,
@@ -168,6 +172,7 @@ const SENSITIVITY = 0.1;
 
 export function StockTrajectoryPanel() {
   const [pct, setPct] = useState(0); // stock price change, whole percent
+  const [query, setQuery] = useState("");
   const { data, error, retry, refresh } = useAsyncResource<CompTrajectory>(api.compTrajectory, [], { keep: "stats/stock-trajectory" });
   // The split follows the source answering pay.
   useSourceSwitch(refresh);
@@ -196,6 +201,14 @@ export function StockTrajectoryPanel() {
       </div>
     );
   }
+
+  // One search narrows every table; the chart above stays the whole picture.
+  const publicRows = matchCompanies(data.public, query, companyName);
+  const privateRows = matchCompanies(data.private, query, companyName);
+  const choiceRows = matchCompanies(data.choice, query, companyName);
+  const searching = query.trim() !== "";
+  const companyCount = data.public.length + data.private.length + data.choice.length;
+  const noMatch = searching && publicRows.length + privateRows.length + choiceRows.length === 0;
 
   const baseline = overall?.median_tc ?? 0;
   const delta = (projected ?? 0) - baseline;
@@ -285,7 +298,16 @@ export function StockTrajectoryPanel() {
         </div>
       )}
 
-      <div className="panel">
+      {companyCount > 1 && (
+        <div className="traj-search">
+          <SearchField label={insightsDemandFindACompany()} placeholder={insightsDemandFindACompany()} value={query} onChange={setQuery} />
+        </div>
+      )}
+      {noMatch && (
+        <p className="empty-hint" role="status" data-testid="traj-no-match">{insightsStockTrajectoryPanelNoCompanyMatches({ query: query.trim() })}</p>
+      )}
+
+      {!(searching && publicRows.length === 0) && <div className="panel traj-companies" data-testid="traj-public">
         <h3>
           <Msg of={insightsStockTrajectoryPanelPublicCompanies} args={{ move: sign }} elems={{ pct: pct }} />
           <InfoTip label={insightsStockTrajectoryPanelAboutPublicCompanyProjections()}>
@@ -310,7 +332,7 @@ export function StockTrajectoryPanel() {
               </tr>
             </thead>
             <tbody>
-              {data.public.map((c) => {
+              {publicRows.map((c) => {
                 const proj = projectTc(c, d);
                 const ch = projectedDelta(c, d);
                 // A listed company can still be immune to its own stock price:
@@ -341,10 +363,10 @@ export function StockTrajectoryPanel() {
             </tbody>
           </table>
         )}
-      </div>
+      </div>}
 
-      {data.private.length > 0 && (
-        <div className="panel">
+      {privateRows.length > 0 && (
+        <div className="panel traj-companies" data-testid="traj-private">
           <h3>
             {insightsStockTrajectoryPanelPrivateCompanies()}
             <InfoTip label={insightsStockTrajectoryPanelWhyPrivateCompaniesDoNot()}>
@@ -363,7 +385,7 @@ export function StockTrajectoryPanel() {
               </tr>
             </thead>
             <tbody>
-              {data.private.map((c) => (
+              {privateRows.map((c) => (
                 <tr key={c.company}>
                   <th scope="row">{companyName(c.company)}</th>
                   <EquityTerms c={c} />
@@ -376,8 +398,8 @@ export function StockTrajectoryPanel() {
         </div>
       )}
 
-      {data.choice.length > 0 && (
-        <div className="panel" data-testid="traj-choice">
+      {choiceRows.length > 0 && (
+        <div className="panel traj-companies" data-testid="traj-choice">
           <h3>{insightsStockTrajectoryPanelChoiceCompanies()}</h3>
           <p className="sub">{insightsStockTrajectoryPanelChoiceExplained()}</p>
           <table className="traj-table">
@@ -390,7 +412,7 @@ export function StockTrajectoryPanel() {
               </tr>
             </thead>
             <tbody>
-              {data.choice.map((c) => (
+              {choiceRows.map((c) => (
                 <tr key={c.company}>
                   <th scope="row">{companyName(c.company)}</th>
                   <td className="traj-ticker">{c.ticker ?? "—"}</td>

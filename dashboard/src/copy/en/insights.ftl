@@ -550,6 +550,8 @@ insights-stock-trajectory-panel-part-source-explained = { $source ->
     [mixed] Differs between this company's roles
    *[estimated] Estimated for this level
 }
+# kind=sentence note="When the company search matches no table: $query is what the person typed"
+insights-stock-trajectory-panel-no-company-matches = No company matches “{ $query }”.
 # kind=label
 insights-stock-trajectory-panel-base = Base
 # kind=label

@@ -454,6 +454,16 @@
   color: var(--app-text-faint);
 }
 
+/* Stacked cards keep the gap the hero and the chart above them keep. */
+.traj-companies,
+.traj-search {
+  margin-bottom: var(--app-space-3);
+}
+
+.traj-search {
+  max-width: 360px;
+}
+
 .traj-left-out {
   display: flex;
   align-items: center;

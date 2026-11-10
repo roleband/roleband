@@ -300,6 +300,7 @@ insights-stock-trajectory-panel-part-source-explained = { $source ->
     [mixed] 该公司各职位之间不同
    *[estimated] 按此级别估算
 }
+insights-stock-trajectory-panel-no-company-matches = 没有与“{ $query }”匹配的公司。
 insights-stock-trajectory-panel-base = 基本工资
 insights-stock-trajectory-panel-bonus = 奖金
 insights-stock-trajectory-panel-no-bonus = 无奖金

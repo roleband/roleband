@@ -849,7 +849,9 @@ the vesting schedule the company states; "No bonus" stands for a company's own
 no-bonus rule, never for an unknown zero. Companies whose people choose the
 cash and equity mix have their own table with a total and no split, and a line
 under the tables counts the roles left out, with each reason behind a help
-mark. The slider moves only the equity part of listed companies
+mark. One search under the chart narrows every table to the companies it
+names; a table with none is hidden, and the hero and chart stay the whole
+market's. The slider moves only the equity part of listed companies
 (docs/pay.md, "The Stock tab").
 
 ## Which tests enforce what

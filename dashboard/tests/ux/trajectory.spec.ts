@@ -171,3 +171,32 @@ for (const width of [1280, 360]) test(`the source labels are explained once, to 
   }
   await expect(tip).toBeVisible();
 });
+
+/* Every card on the tab stands apart from the next: the company tables keep
+   the same gap the hero and the chart keep, and one search narrows them all. */
+test("the company tables stand apart, and one search narrows them", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/statistics");
+  await page.getByRole("tab", { name: msg("shell-tab-insights-stock"), exact: true }).click();
+  await expect(page.getByTestId("traj-choice")).toBeVisible();
+
+  const gaps = await page.locator(".stats-panel > .panel").evaluateAll((cards) =>
+    cards.slice(1).map((card, i) => Math.round(card.getBoundingClientRect().top - cards[i].getBoundingClientRect().bottom)));
+  expect(gaps.length, "the tab shows its cards").toBeGreaterThanOrEqual(4);
+  for (const gap of gaps) expect(gap, `cards ${JSON.stringify(gaps)} touch`).toBeGreaterThanOrEqual(12);
+
+  const search = page.getByRole("searchbox", { name: msg("insights-demand-find-a-company") });
+  const chart = page.locator(".chart-panel-wide");
+  expect((await search.boundingBox())!.y, "the search sits under the chart")
+    .toBeGreaterThan((await chart.boundingBox())!.y + (await chart.boundingBox())!.height);
+
+  await search.fill("open");
+  await expect(page.getByTestId("traj-private").getByRole("row", { name: /OpenAI/ })).toBeVisible();
+  await expect(page.getByTestId("traj-public")).toHaveCount(0);
+  await expect(page.getByTestId("traj-choice")).toHaveCount(0);
+
+  await search.fill("nobody");
+  await expect(page.getByTestId("traj-no-match")).toHaveText(msg("insights-stock-trajectory-panel-no-company-matches", { query: "nobody" }));
+  await search.fill("");
+  await expect(page.getByTestId("traj-public").getByRole("row", { name: /Google/ })).toBeVisible();
+});

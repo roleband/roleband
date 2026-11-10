@@ -320,6 +320,7 @@ insights-stock-trajectory-panel-part-source-explained = { $source ->
     [mixed] Varía entre los puestos de esta empresa
    *[estimated] Estimado para este nivel
 }
+insights-stock-trajectory-panel-no-company-matches = Ninguna empresa coincide con «{ $query }».
 insights-stock-trajectory-panel-base = Base
 insights-stock-trajectory-panel-bonus = Bono
 insights-stock-trajectory-panel-no-bonus = Sin bono
