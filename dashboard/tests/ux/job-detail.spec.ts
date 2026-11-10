@@ -4,8 +4,8 @@
 
 import type { Locator, Page } from "@playwright/test";
 import { msg } from "../../src/test/msg";
-import { expect, mockGet, test, watchReads } from "./fixtures";
-import { hiringFixture, jobFixture } from "../../src/test/fixtures";
+import { expect, mockApi, mockGet, test, watchReads } from "./fixtures";
+import { applicationCardFixture, applicationDetailFixture, hiringFixture, jobFixture } from "../../src/test/fixtures";
 import { appleJobFixture, comparison, detail, installBoardRoutes, jobFixture2 } from "./boardHarness";
 import { showAdvancedInsights } from "./insightsView";
 import { expectOnTop, pointAndClick, strangersOver } from "./paint";
@@ -372,50 +372,187 @@ test("opening a job over a nested Statistics tab returns to that exact tab", asy
   await expect(page.getByRole("tab", { name: "Hiring", exact: true })).toHaveAttribute("aria-selected", "true");
 });
 
-test("the stage select starts a pursuit, which also saves the role", async ({ page }) => {
-  let putBody: Record<string, unknown> | null = null;
-  await page.route("/api/jobs/101/pursuit", async (route) => {
-    putBody = route.request().postDataJSON();
-    await route.fulfill({ json: { pursuit: {
-      id: 7, job_id: 101, stage: "researching", priority: 3, notes: null,
-      next_action: null, next_action_due: null,
-      created_at: "2026-08-08T19:00:00Z", updated_at: "2026-08-08T19:00:00Z",
-    } } });
+/* The bar holds one control for where the person stands with the role. Off
+   the pipeline it is the star; once saved, the star's place holds the
+   pipeline's own stage button, and the side column gains a Pipeline section:
+   the stage, which links to the application, its days, and what waits.
+   Nothing about the pipeline shows before the role is in it. */
+const DAY = 86_400_000;
+const tomorrowNoon = () => {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 12).toISOString();
+};
+const appliedPursuit = {
+  id: 10, job_id: 101, stage: "applied", priority: 3, notes: null, next_action: "Email the recruiter",
+  next_action_due: null, created_at: "2026-10-20T09:00:00Z", updated_at: "2026-10-29T09:00:00Z",
+};
+
+test("a role off the pipeline shows the star alone, and saving turns it into the stage in its place", async ({ page }) => {
+  let saved = false;
+  await mockApi(page, "PUT", "/api/jobs/101/favorite", (route) => {
+    saved = true;
+    return route.fulfill({ json: { job_id: 101, is_favorite: true } });
   });
+  await mockGet(page, "/api/applications/101", (route) => saved
+    ? route.fulfill({ json: applicationDetailFixture({
+      application: applicationCardFixture({ stage: "saved", stage_since: new Date().toISOString() }),
+      stages_reached: [{ stage: "saved", at: new Date().toISOString() }],
+    }) })
+    : route.fulfill({ status: 404, json: { detail: { code: "application-not-found" } } }));
+  await page.goto("/company/openai/job/101");
+  const panel = detail(page);
+  await expect(panel.getByRole("heading", { name: "Staff Product Manager, API" })).toBeVisible();
+
+  await expect(panel.getByText("Your progress")).toHaveCount(0);
+  await expect(panel.locator(".jd-aside .section-title", { hasText: msg("applications-posting-row") })).toHaveCount(0);
+  await expect(panel.getByRole("link", { name: /view & apply/i })).toHaveClass(/ui-btn-primary/);
+
+  await panel.getByRole("button", { name: msg("jobs-save"), pressed: false }).click();
+  // Saved just now: the stage alone, with no count of days.
+  await expect(panel.getByRole("button", { name: "Considering", exact: true })).toBeVisible();
+  await expect(panel.getByRole("button", { name: msg("jobs-save") }), "the stage takes the star's place").toHaveCount(0);
+  const facts = panel.locator("dl.jd-pipeline-facts");
+  await expect(facts.getByRole("link", { name: "Considering" })).toHaveAttribute("href", "/pipeline/101");
+  await expect(facts).toContainText(msg("applications-posting-since-today"));
+  await expect(facts).toContainText(msg("applications-posting-no-step"));
+  // Still deciding: applying stays the action.
+  await expect(panel.getByRole("link", { name: /view & apply/i })).toHaveClass(/ui-btn-primary/);
+});
+
+test("an applied role names its stage in the bar, and its days and what is due in the Pipeline section", async ({ page }) => {
+  await page.route("/api/jobs/101", (route) => route.fulfill({ json: { ...jobFixture, is_favorite: true, pursuit: appliedPursuit } }));
+  await mockGet(page, "/api/applications/101", (route) => route.fulfill({ json: applicationDetailFixture({
+    application: applicationCardFixture({
+      pursuit_id: 10, stage: "applied", stage_since: new Date(Date.now() - 12 * DAY).toISOString(),
+      next_action: "Email the recruiter", next_action_due: tomorrowNoon(),
+    }),
+  }) }));
+  await page.goto("/company/openai/job/101");
+  const panel = detail(page);
+  const bar = panel.locator(".cover-bar");
+
+  await expect(bar.getByRole("button", { name: "Applied", exact: true })).toBeVisible();
+  await expect(bar.getByText(/\d+d\b|days/), "the bar holds the stage, never its age").toHaveCount(0);
+  const due = msg("applications-card-due-step", { offset: 1, date: "" });
+  await expect(bar.getByRole("link", { name: /view & apply/i })).toHaveCount(0);
+  const view = bar.getByRole("link", { name: msg("role-job-detail-view-posting") });
+  await expect(view).toHaveAttribute("href", jobFixture.url);
+  await expect(view).not.toHaveClass(/ui-btn-primary/);
+  const facts = panel.locator("dl.jd-pipeline-facts");
+  await expect(facts.getByRole("link")).toHaveText("Applied");
+  await expect(facts.getByRole("link")).toHaveAttribute("href", "/pipeline/101");
+  await expect(facts).toContainText(`${msg("applications-fact-days")}12 days`);
+  // The step, then the board's pill on its own line under it.
+  const step = facts.locator("dd.jd-pipeline");
+  await expect(step).toContainText("Email the recruiter");
+  const pill = step.locator(".app-due");
+  await expect(pill).toHaveText(due);
+  const words = await step.getByText("Email the recruiter").boundingBox();
+  const badge = await pill.boundingBox();
+  expect(badge!.y, "the pill sits under the step").toBeGreaterThanOrEqual(words!.y + words!.height - 1);
+  // The bar holds controls only: the date is read once, in the section.
+  await expect(bar.getByText(due)).toHaveCount(0);
+
+  await facts.getByRole("button", { name: msg("applications-posting-history") }).click();
+  const history = page.getByRole("dialog", { name: msg("applications-posting-history-title") });
+  await expect(history.getByRole("listitem").last()).toHaveText(
+    `${msg("applications-posting-history-today")}${msg("applications-posting-history-now", { stage: "Applied", days: 12 })}`,
+  );
+  await expectOnTop(history.getByText(msg("applications-posting-history-title")), "the application history");
+});
+
+test("the side column leads with the radar's read while deciding, and with the pipeline once applied", async ({ page }) => {
+  let applied = false;
+  const review = { ...ANCHOR_REVIEW, domain: null, relevance: "uncertain", confidence: 0.25, rationale: "" };
+  await page.route("/api/jobs/101", (route) => route.fulfill({ json: {
+    ...jobFixture, relevance_review: review, is_favorite: true,
+    pursuit: { ...appliedPursuit, stage: applied ? "applied" : "saved" },
+  } }));
+  await mockGet(page, "/api/applications/101", (route) => route.fulfill({ json: applicationDetailFixture({
+    application: applicationCardFixture({ pursuit_id: 10, stage: applied ? "applied" : "saved", stage_since: new Date(Date.now() - 3 * DAY).toISOString() }),
+  }) }));
+  const heads = (panel: Locator) => panel.locator(".jd-aside > .section-title").allTextContents();
+  const [read, pipeline, details] = [msg("role-job-detail-radar-s-read"), msg("applications-posting-row"), msg("role-job-detail-details")];
+
+  await page.goto("/company/openai/job/101");
+  const panel = detail(page);
+  await expect(panel.locator(".jd-aside .section-title", { hasText: pipeline })).toBeVisible();
+  expect((await heads(panel)).slice(0, 3), "still deciding: the read leads, in full").toEqual([read, pipeline, details]);
+  await expect(panel.locator(".jd-advisory")).toContainText(msg("role-job-detail-advisory-basis"));
+
+  applied = true;
+  await page.reload();
+  await expect(panel.locator("dl.jd-pipeline-facts").getByRole("link", { name: "Applied" })).toBeVisible();
+  expect((await heads(panel)).slice(0, 3), "applied: where it stands leads, the read follows Details").toEqual([pipeline, details, read]);
+  const fold = panel.getByRole("button", { name: msg("role-job-detail-hard-to-place") });
+  await expect(fold).toHaveAttribute("aria-expanded", "false");
+  await expect(panel.locator(".jd-advisory"), "folded to its verdict").toHaveCount(0);
+  await fold.click();
+  await expect(fold).toHaveAttribute("aria-expanded", "true");
+  const opened = panel.locator(".jd-advisory");
+  await expect(opened).toContainText(msg("role-job-detail-advisory-basis"));
+  await expect(opened, "the fold already says the verdict").not.toContainText(msg("role-job-detail-hard-to-place"));
+});
+
+test("the stage button's star is the radar's saved gold, at a live stage and after an ending", async ({ page }) => {
+  let ended = false;
+  await page.route("/api/jobs/101", (route) => route.fulfill({ json: { ...jobFixture, is_favorite: true, pursuit: appliedPursuit } }));
+  await mockGet(page, "/api/applications/101", (route) => route.fulfill({ json: applicationDetailFixture({
+    application: applicationCardFixture(ended
+      ? { pursuit_id: 10, stage: "rejected", ended_at_stage: "applied", stage_since: new Date().toISOString() }
+      : { pursuit_id: 10, stage: "applied", stage_since: new Date(Date.now() - 12 * DAY).toISOString() }),
+  }) }));
+  await page.goto("/company/openai/job/101");
+  const stage = detail(page).locator(".cover-bar .jd-stage");
+  await expect(stage).toContainText("Applied");
+  // The colour the radar paints a saved star, resolved in this theme.
+  const gold = await page.evaluate(() => {
+    const probe = document.createElement("span");
+    probe.style.color = "var(--app-chosen-text)";
+    document.body.append(probe);
+    const colour = getComputedStyle(probe).color;
+    probe.remove();
+    return colour;
+  });
+  const colours = () => stage.evaluate((button) => ({
+    star: getComputedStyle(button.querySelector("svg")!).color,
+    words: getComputedStyle(button).color,
+  }));
+
+  const live = await colours();
+  expect(live.star).toBe(gold);
+  expect(live.words, "only the star is gold; the stage's words keep the bar's ink").not.toBe(gold);
+
+  ended = true;
+  await page.reload();
+  await expect(stage).toHaveAttribute("data-ended", "");
+  const after = await colours();
+  expect(after.star, "an ending quiets the words, never the star").toBe(gold);
+  expect(after.words).not.toBe(live.words);
+});
+
+test("moving to Interviewing from the posting asks for the interview first, over the cover", async ({ page }) => {
+  const writes: unknown[] = [];
+  await mockApi(page, "PUT", "/api/jobs/101/pursuit", (route) => {
+    writes.push(route.request().postDataJSON());
+    return route.fulfill({ json: { pursuit: { ...appliedPursuit, stage: "interviewing" } } });
+  });
+  await page.route("/api/jobs/101", (route) => route.fulfill({ json: { ...jobFixture, is_favorite: true, pursuit: appliedPursuit } }));
+  await mockGet(page, "/api/applications/101", (route) => route.fulfill({ json: applicationDetailFixture() }));
   await page.goto("/company/openai/job/101");
   const panel = detail(page);
 
-  // Not pursuing yet: the select doubles as the entry point, and says what it does first.
-  await expect(panel.getByText(msg("role-job-detail-not-started", { choice: "no" }))).toBeVisible();
-  await expect(panel.getByText(msg("role-job-detail-tracking-explainer"))).toBeVisible();
-  await panel.getByLabel("Stage").selectOption("researching");
-
-  await expect.poll(() => putBody).not.toBeNull();
-  expect(putBody).toEqual({ stage: "researching" });
-  await expect(panel.getByText("Stage", { exact: true })).toBeVisible();
-  // Pursuing implies saved — the star reflects the server rule immediately.
-  await expect(panel.getByRole("button", { name: msg("jobs-save"), pressed: true })).toBeVisible();
-  // Once tracking, the explanation has done its job.
-  await expect(panel.getByText(msg("role-job-detail-tracking-explainer"))).toHaveCount(0);
+  await panel.getByRole("button", { name: /^Applied( · \d+ days? in this stage)?$/ }).click();
+  await page.getByRole("dialog", { name: /^Change the stage of / }).getByRole("button", { name: /Interviewing/ }).click();
+  const form = page.getByRole("dialog", { name: msg("applications-interview-title") });
+  await expect(form).toBeVisible();
+  await expectOnTop(form.getByRole("heading", { name: msg("applications-interview-title") }), "the interview form");
+  expect(writes, "no move before the interview's date").toEqual([]);
+  await form.getByRole("button", { name: msg("applications-interview-cancel") }).click();
+  await expect(form).toHaveCount(0);
+  await expect(panel.getByRole("button", { name: /^Applied( · \d+ days? in this stage)?$/ })).toBeVisible();
+  expect(writes).toEqual([]);
 });
-
-/* The stage popup is native: the OS draws it, in whatever appearance the page
-   declares. A dark page on a light Mac must still open a dark menu, and the
-   reverse; the OS setting is the opposite of the theme in both cases here. */
-for (const [theme, os] of [["dark", "light"], ["light", "dark"]] as const) {
-  test(`the stage select's native popup takes the ${theme} theme on a ${os} system`, async ({ page }) => {
-    await page.emulateMedia({ colorScheme: os });
-    await page.addInitScript((t) => localStorage.setItem("theme", t), theme);
-    await page.goto("/company/openai/job/101");
-
-    const stage = detail(page).getByLabel("Stage");
-    await expect(stage).toBeVisible();
-    await expect(stage).toHaveCSS("color-scheme", theme);
-    // The app's own select, so it wears the app's chevron rather than the platform's.
-    await expect(stage).toHaveCSS("appearance", "none");
-    await expect(stage.locator("option").first()).toHaveText(msg("role-job-detail-set-a-stage"));
-  });
-}
 
 /* Radar's read is a hint for the reader. The stored rationale, model id and
    confidence are bench material: none of them may reach the screen, and the
@@ -558,7 +695,7 @@ test("Details says one age with its basis, and the history opens on demand", asy
   await page.goto("/company/openai/job/101");
   const details = detail(page).locator("dl.kv");
   await expect(details.getByText("170 days", { exact: true })).toBeVisible();
-  await expect(details.getByText(/, the employer's date$/)).toBeVisible();
+  await expect(details.getByText(/the employer's date|^since /)).toHaveCount(0);
   for (const gone of ["Posted", "First seen"]) await expect(details.getByText(gone, { exact: true })).toHaveCount(0);
   expect(reads.started).toBe(0);
 
@@ -570,9 +707,9 @@ test("Details says one age with its basis, and the history opens on demand", asy
   await expect.poll(() => reads.answered).toBe(1);
 });
 
-/* The history opens in the side column it belongs to, edge to edge with the
-   stage select above it: under its button where it fits, above it where it
-   does not, and on screen either way; it may cover what follows. */
+/* The history opens in the side column it belongs to, edge to edge with it:
+   under its button where it fits, above it where it does not, and on screen
+   either way; it may cover what follows. */
 async function openListingHistory(page: Page) {
   const event = { from_at: null, to_at: null, field: null, count: null, job_id: null, req_id: null, title: null, until: null, link: null };
   await page.route("/api/jobs/101/history", (route) => route.fulfill({ json: {
@@ -596,7 +733,6 @@ async function openListingHistory(page: Page) {
   return {
     panel,
     column: (await cover.locator(".jd-aside").boundingBox())!,
-    stage: (await cover.getByLabel("Stage").boundingBox())!,
     opener: (await button.boundingBox())!,
   };
 }
@@ -608,12 +744,11 @@ const bottomOf = async (panel: Locator) => {
 
 test("the listing history opens across the side column, under its button", async ({ page, isMobile }) => {
   test.skip(isMobile, "a phone's History button sits at the screen's bottom edge; the next test covers it");
-  const { panel, column, stage, opener } = await openListingHistory(page);
+  const { panel, column, opener } = await openListingHistory(page);
   await expect.poll(async () => (await panel.boundingBox())!.y).toBeGreaterThan(opener.y + opener.height);
   const box = (await panel.boundingBox())!;
   expect(Math.abs(box.x - column.x), "left edge on the column's").toBeLessThanOrEqual(1);
   expect(Math.abs(box.x + box.width - (column.x + column.width)), "right edge on the column's").toBeLessThanOrEqual(1);
-  expect(Math.abs(box.x - stage.x), "left edge on the stage select's").toBeLessThanOrEqual(1);
   expect(box.y + box.height, "on screen").toBeLessThanOrEqual(page.viewportSize()!.height);
 });
 

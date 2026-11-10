@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { STAGES } from "../../copy/vocabulary";
 import { applicationCardFixture as card } from "../../test/fixtures";
-import { COLUMNS, boardCounts, byStage, dueOf, dueState, isStale, sortColumn } from "./board";
+import { COLUMNS, boardCounts, byStage, dueOf, dueState, isStale, movedCard, sortColumn } from "./board";
 
 /* The board's rules as the spec states them: ten stages in seven columns,
  * one due field that is the sooner of two dates, three due states, a stale
@@ -142,5 +142,21 @@ describe("the summary", () => {
       card({ job_id: 7, stage: "accepted", ended_at_stage: "offer" }),
     ]);
     expect(counts).toEqual({ moving: 4, decided: 2, closed: 1, needNextStep: 1 });
+  });
+});
+
+describe("a move's paint", () => {
+  const at = "2026-11-10T12:00:00Z";
+
+  it("names the stage an ending was reached from, as the server does", () => {
+    const moved = movedCard(card({ stage: "applied", stage_since: "2026-11-01T09:00:00Z" }), "rejected", at);
+    expect(moved).toMatchObject({ stage: "rejected", ended_at_stage: "applied", stage_since: at, last_activity_at: at });
+  });
+
+  it("keeps that stage from one ending to another, and drops it once the card moves again", () => {
+    const declined = card({ stage: "declined", ended_at_stage: "offer" });
+    expect(movedCard(declined, "accepted", at).ended_at_stage).toBe("offer");
+    expect(movedCard(declined, "offer", at).ended_at_stage).toBeNull();
+    expect(movedCard(card({ stage: "saved" }), "applied", at).ended_at_stage).toBeNull();
   });
 });

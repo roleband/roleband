@@ -143,20 +143,14 @@ role-job-detail-1-in-compare-pick-one = 1 in compare · pick one more
 role-job-detail-compare-roles = Compare { $compareCount } roles
 # kind=link wording=as-is
 role-job-detail-view-apply = View & apply
+# kind=link note="Opens the employer's posting once the person has applied, in place of View & apply"
+role-job-detail-view-posting = View posting
 # kind=label wording=as-is
 role-job-detail-postings = { $lineage_size } postings
 # kind=label wording=as-is
 role-job-detail-reposted = reposted ×{ $repost_count }
 # kind=label wording=as-is
 role-job-detail-description = Description
-# kind=label wording=as-is
-role-job-detail-your-progress = Your progress
-# kind=label wording=as-is
-role-job-detail-set-a-stage = Set a stage…
-# kind=sentence note="Under the stage select before any stage is picked: what picking one does"
-role-job-detail-tracking-explainer = Pick a stage and the role is saved with it. Give a next step a due date to get a reminder.
-# kind=label wording=as-is
-role-job-detail-next = Next: { $next_action }
 # kind=label wording=as-is
 role-job-detail-radar-s-read = Radar's read
 # kind=sentence note="Radar's read, when the posting's wording sits between worlds"
@@ -185,8 +179,6 @@ role-job-detail-could-not-unsave-this-role = { $choice ->
    *[no] Couldn't remove this role from your pipeline
 }
 # kind=label wording=as-is
-role-job-detail-couldn-t-update-the-stage = Couldn't update the stage
-# kind=label wording=as-is
 role-job-detail-role = { $choice ->
     [yes] Role: { $title }
    *[no] Role
@@ -202,13 +194,6 @@ role-job-detail-compare = { $choice ->
 }
 # kind=sentence
 role-job-detail-it-s-no-longer-in = This role no longer exists.
-# kind=label
-role-job-detail-not-started = { $choice ->
-    [yes] Stage
-   *[no] Not in your pipeline
-}
-# kind=aria wording=as-is
-role-job-detail-stage = Stage
 # kind=label wording=as-is
 role-job-detail-likely-your-kind-of-role = Likely your kind of role
 # kind=label wording=as-is
@@ -427,8 +412,6 @@ role-listing-age-possibly-the-same-role-not = Possibly the same role: { $value }
 role-listing-age-review = Review
 # kind=label wording=as-is
 role-listing-age-listed-for = Listed for
-# kind=label wording=as-is
-role-listing-age-since = since { $listed_since }, { $bASIS }
 # kind=button wording=as-is
 role-listing-age-history = History
 # kind=label
@@ -437,10 +420,6 @@ role-listing-age-listing-history = Posting history
 role-listing-age-role = Role
 # kind=label wording=as-is
 role-listing-age-first-listed-postings = First listed { $roleSince } · { $rolePostings } postings
-# kind=label wording=as-is
-role-listing-age-the-employer-s-date = the employer's date
-# kind=label
-role-listing-age-when-roleband-first-saw-it = when first seen
 # kind=tooltip wording=as-is
 role-listing-age-title = Title
 # kind=label

@@ -19,7 +19,12 @@ import { boardStage } from "./board";
  *  failed: a pursuit write sets only the fields it names, so a newer write
  *  for the role never carries this one's change, and a failure behind it is
  *  still lost. */
-export function usePursuitWrite() {
+export type PursuitWrite = (
+  card: Pick<ApplicationCard, "job_id" | "starred">,
+  update: Parameters<typeof api.setPursuit>[1],
+) => Promise<void>;
+
+export function usePursuitWrite(): PursuitWrite {
   const saveRole = useRoleSaves();
   return useCallback(
     async (card: Pick<ApplicationCard, "job_id" | "starred">, update: Parameters<typeof api.setPursuit>[1]) => {
@@ -48,16 +53,22 @@ const moved = (title: string, stage: StageSlug) => applicationsMoved({ title, st
  * open: if it fails nothing has changed, and the form keeps what was typed
  * and says so. The card moves once the interview is in. Resolves true when
  * the move landed.
+ *
+ * `write` stands in for the pipeline's own pursuit write on a surface that
+ * must also tell every other reader of the role (the posting, which can be
+ * open over the pipeline page that shows the same application).
  */
-export function useStageMove({ paint, refresh, said = moved }: {
+export function useStageMove({ paint, refresh, said = moved, write: given }: {
   paint: (jobId: number, stage: StageSlug) => void;
   refresh: () => unknown;
   /** What the toast says once the move lands. */
   said?: (title: string, stage: StageSlug) => string;
+  write?: PursuitWrite;
 }) {
   const { refreshStats } = useMissionActions();
   const { toast } = useToast();
-  const write = usePursuitWrite();
+  const own = usePursuitWrite();
+  const write = given ?? own;
 
   return useCallback(
     async (card: ApplicationCard, stage: StageSlug, interview?: InterviewWrite): Promise<boolean> => {

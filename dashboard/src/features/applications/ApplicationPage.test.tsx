@@ -103,7 +103,7 @@ function renderPage(path = "/pipeline/101") {
 }
 
 /* The stage button is named by what it shows: the stage, then the days in it. */
-const stageNamed = (stage: string) => new RegExp(`^${stage} · \\d+ days?$`);
+const stageNamed = (stage: string) => new RegExp(`^${stage}( · \\d+ days? in this stage)?$`);
 const stageButton = () => screen.getByRole("button", { name: stageNamed("Applied") });
 
 describe("the application page", () => {

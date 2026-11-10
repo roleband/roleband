@@ -13,6 +13,7 @@ import {
   applicationsListNotForMe,
   applicationsUndoFailed,
 } from "../../copy/gen/applications";
+import { movedCard } from "./board";
 import { useStageMove } from "./useStageMove";
 
 /**
@@ -41,7 +42,7 @@ export function useBoardController({ said }: { said?: (title: string, stage: Sta
       const now = new Date().toISOString();
       mutate((current) => current && {
         applications: current.applications.map((card) =>
-          card.job_id === jobId ? { ...card, stage, stage_since: now, last_activity_at: now } : card,
+          card.job_id === jobId ? movedCard(card, stage, now) : card,
         ),
       });
     },
