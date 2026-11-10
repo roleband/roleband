@@ -74,9 +74,7 @@ role-job-detail-view-apply = 查看并申请
 role-job-detail-postings = { $lineage_size } 条招聘信息
 role-job-detail-reposted = 重新发布 ×{ $repost_count }
 role-job-detail-description = 职位描述
-role-job-detail-your-progress = 你的进展
-role-job-detail-set-a-stage = 设置阶段…
-role-job-detail-next = 下一步：{ $next_action }
+role-job-detail-view-posting = 查看招聘信息
 role-job-detail-radar-s-read = 雷达的判断
 role-job-detail-advisory-unclear = 招聘信息的措辞没有明确对应某一个领域。
 role-job-detail-advisory-basis = 根据招聘信息的措辞推测，不会把任何职位移出你的雷达。
@@ -88,7 +86,6 @@ role-job-detail-to-apply = 申请方式
 role-job-detail-more-like-this = 更多类似职位
 role-job-detail-other-companies = 其他公司
 role-job-detail-same-company = 同一公司 · { $company }
-role-job-detail-couldn-t-update-the-stage = 无法更新阶段
 role-job-detail-role = { $choice ->
     [yes] 职位：{ $title }
    *[no] 职位
@@ -100,11 +97,6 @@ role-job-detail-compare = { $choice ->
    *[no] 对比
 }
 role-job-detail-it-s-no-longer-in = 这个职位已不存在。
-role-job-detail-not-started = { $choice ->
-    [yes] 阶段
-   *[no] 未加入求职进展
-}
-role-job-detail-stage = 阶段
 role-job-detail-likely-your-kind-of-role = 很可能对口
 role-job-detail-likely-outside-your-worlds = 很可能超出你的领域
 role-job-detail-hard-to-place = 难以归类
@@ -238,13 +230,10 @@ role-listing-age-compare-the-postings = 对比招聘信息
 role-listing-age-possibly-the-same-role-not = 可能是同一职位：{ $value }，确认前不计入
 role-listing-age-review = 审核
 role-listing-age-listed-for = 已发布
-role-listing-age-since = 自 { $listed_since } 起，{ $bASIS }
 role-listing-age-history = 历史记录
 role-listing-age-listing-history = 发布历史
 role-listing-age-role = 职位
 role-listing-age-first-listed-postings = 首次发布 { $roleSince } · { $rolePostings } 条招聘信息
-role-listing-age-the-employer-s-date = 雇主给出的日期
-role-listing-age-when-roleband-first-saw-it = 首次发现的时间
 role-listing-age-title = 职位名称
 role-listing-age-stated-pay = 公布的薪酬区间
 role-listing-age-level = 级别
@@ -365,7 +354,6 @@ role-place-set-section-states-pay = · 公布 { $range }
 role-place-set-section-states-no-pay = · 未公布区间
 
 ## 选择阶段的作用。
-role-job-detail-tracking-explainer = 选择一个阶段，这个职位就会连同该阶段一起保存。为下一步设置截止日期，即可收到提醒。
 role-job-comp-panel-estimate-of-total = 估算总薪酬：{ $range }
 role-job-comp-panel-split-not-reported = 无构成数据
 role-job-comp-panel-the-plugin-reports-no-split = 薪酬插件没有给出这个级别的基本工资、奖金和股权构成。

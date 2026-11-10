@@ -85,6 +85,10 @@ export async function installJobDetailRoutes(page: Page) {
     job_id: Number(new URL(route.request().url()).pathname.split("/")[3]),
     place_set: null, rejected: false, rejected_at: null,
   } }));
+  // A posting whose role is not on the board; a spec about a saved role routes its own.
+  await mockGet(page, /\/api\/applications\/\d+$/, (route) => route.fulfill({
+    status: 404, json: { detail: { code: "application-not-found", message: "role is not on the board" } },
+  }));
   await mockApi(page, "POST", "/api/jobs/*/view", (route) => route.fulfill({ json: {
     job_id: Number(new URL(route.request().url()).pathname.split("/")[3]),
     viewed_at: "2026-09-08T12:00:00Z",

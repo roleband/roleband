@@ -49,7 +49,7 @@ import {
 import { beside, useFocusAfter } from "./focusAfter";
 import { NoMatches, PipelineEmpty } from "./PipelineEmpty";
 import { useOriginState } from "./pageOrigin";
-import { applicationPath, daysInStage, dueOf } from "./board";
+import { applicationPath, daysToSay, dueOf } from "./board";
 import { DueBadge } from "./DueBadge";
 import { VIEW_FILTERS, isFiltering, matches, quickCounts } from "./filters";
 import {
@@ -203,7 +203,7 @@ function Row({ row, now, columns, actions, match }: {
   const base = job ? baseShown(job, cover) : null;
   const where = job ? primaryLocation(job.locations) : null;
   const band = placedBand(job);
-  const days = daysInStage(card, now);
+  const days = daysToSay(card, now);
   const quietFor = card.last_activity_at
     ? Math.floor((now.getTime() - new Date(card.last_activity_at).getTime()) / 86_400_000)
     : null;

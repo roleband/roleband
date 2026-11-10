@@ -226,8 +226,8 @@ test("a drag held at the board's edge scrolls it, and a drop on Interviewing ask
 test("the application page moves its stage from the keyboard: M opens the menu, a number picks the stage", async ({ page }) => {
   const { stageWrites } = await installPipeline(page);
   await page.goto("/pipeline/202");
-  // Named by what it shows: the stage, then the days in it.
-  const stage = (name: string) => page.getByRole("button", { name: new RegExp(`^${name} · \\d+ days?$`) });
+  // Named by what it shows: the stage, then from the day after the move the days in it.
+  const stage = (name: string) => page.getByRole("button", { name: new RegExp(`^${name}( · \\d+ days? in this stage)?$`) });
   await expect(stage("Applied")).toBeVisible();
 
   await page.keyboard.press("m");
@@ -261,7 +261,7 @@ test("on a phone the application page gives its title the full width, and a wrap
     });
   });
   const title = page.getByRole("heading", { level: 1, name: long.title });
-  const stage = page.getByRole("button", { name: /^Applied · \d+ days?$/ });
+  const stage = page.getByRole("button", { name: /^Applied( · \d+ days? in this stage)?$/ });
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/pipeline/404");

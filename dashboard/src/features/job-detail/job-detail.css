@@ -178,31 +178,69 @@
   border-top: 0;
 }
 
-/* ---- pursuit + advisory (aside) ------------------------------------------ */
+/* ---- stage (bar) + pipeline row + advisory (aside) ----------------------- */
 
-.jd-pursuit {
-  margin-bottom: var(--app-space-4);
+.jd-stage {
+  flex: 0 0 auto;
 }
 
-.jd-pursuit-label {
-  display: grid;
+/* The saved star keeps the radar row's gold through every stage: an ended
+   application quiets its words, never the star, so the star means saved
+   wherever the role is seen. */
+.jd-stage-star {
+  display: inline-flex;
+  color: var(--app-chosen-text);
+}
+
+/* An ended application has nothing left to do: its stage reads quietly. */
+.jd-stage[data-ended] {
+  color: var(--app-text-muted);
+}
+
+/* The thing that waits, then its date under it: a long step never runs into
+   the date, and the badge starts at the row's edge. */
+.jd-pipeline {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   gap: var(--app-space-1);
-  font-size: var(--app-type-meta);
+  min-width: 0;
+}
+
+.jd-pipeline-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--app-space-1);
+  max-width: 100%;
+  color: var(--app-action-text);
+  text-decoration: none;
+}
+
+.jd-pipeline-link:hover .jd-pipeline-text {
+  text-decoration: underline;
+}
+
+/* An empty next step is a fact, said quietly. */
+.jd-pipeline-none {
   color: var(--app-text-muted);
 }
 
-.jd-pursuit-next {
-  margin-top: var(--app-space-1);
-  font-size: var(--app-type-meta);
+/* The radar's read once the person has applied: its verdict alone, the rest
+   a press away. */
+.jd-advisory-fold {
+  gap: var(--app-space-1);
   color: var(--app-text-muted);
 }
 
-/* What picking a stage does, said before the first pick. */
-.jd-pursuit-explainer {
-  margin: var(--app-space-1) 0 0;
-  font-size: var(--app-type-meta);
-  line-height: 1.45;
-  color: var(--app-text-muted);
+.jd-advisory-fold + .jd-advisory {
+  margin-top: var(--app-space-2);
+}
+
+.jd-pipeline-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .jd-advisory {
@@ -268,9 +306,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--app-space-1) var(--app-space-2);
-}
-.jd-listed-basis {
-  color: var(--app-text-muted);
 }
 .jd-history-popover .ui-popover-inner {
   padding: var(--app-space-3);

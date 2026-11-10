@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { STAGES } from "../../copy/vocabulary";
 import { applicationCardFixture as card } from "../../test/fixtures";
-import { COLUMNS, boardCounts, byStage, dueOf, dueState, isStale, sortColumn } from "./board";
+import { COLUMNS, boardCounts, byStage, daysInStage, daysToSay, dueOf, dueState, isStale, movedCard, sortColumn } from "./board";
 
 /* The board's rules as the spec states them: ten stages in seven columns,
  * one due field that is the sooner of two dates, three due states, a stale
@@ -142,5 +142,39 @@ describe("the summary", () => {
       card({ job_id: 7, stage: "accepted", ended_at_stage: "offer" }),
     ]);
     expect(counts).toEqual({ moving: 4, decided: 2, closed: 1, needNextStep: 1 });
+  });
+});
+
+describe("a move's paint", () => {
+  const at = "2026-11-10T12:00:00Z";
+
+  it("names the stage an ending was reached from, as the server does", () => {
+    const moved = movedCard(card({ stage: "applied", stage_since: "2026-11-01T09:00:00Z" }), "rejected", at);
+    expect(moved).toMatchObject({ stage: "rejected", ended_at_stage: "applied", stage_since: at, last_activity_at: at });
+  });
+
+  it("keeps that stage from one ending to another, and drops it once the card moves again", () => {
+    const declined = card({ stage: "declined", ended_at_stage: "offer" });
+    expect(movedCard(declined, "accepted", at).ended_at_stage).toBe("offer");
+    expect(movedCard(declined, "offer", at).ended_at_stage).toBeNull();
+    expect(movedCard(card({ stage: "saved" }), "applied", at).ended_at_stage).toBeNull();
+  });
+});
+
+describe("days in stage, as the stage button and the card say them", () => {
+  it("says nothing on the day of the move, which still counts as day 0 for ordering", () => {
+    const moved = card({ stage: "applied", stage_since: hours(-2) });
+    expect(daysToSay(moved, NOW)).toBeNull();
+    expect(daysInStage(moved, NOW)).toBe(0);
+  });
+
+  it("counts whole days from the day after the move", () => {
+    expect(daysToSay(card({ stage: "applied", stage_since: days(-1) }), NOW)).toBe(1);
+    expect(daysToSay(card({ stage: "applied", stage_since: hours(-47) }), NOW)).toBe(1);
+    expect(daysToSay(card({ stage: "applied", stage_since: days(-12) }), NOW)).toBe(12);
+  });
+
+  it("says nothing when no date says when the stage began", () => {
+    expect(daysToSay(card({ stage: "applied", stage_since: null }), NOW)).toBeNull();
   });
 });

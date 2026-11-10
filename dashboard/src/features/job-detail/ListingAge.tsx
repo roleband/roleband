@@ -36,27 +36,20 @@ import {
   roleListingAgeRole,
   roleListingAgeRoleListedForAcrossPostings,
   roleListingAgeSameRoleMatchedAutomatically,
-  roleListingAgeSince,
   roleListingAgeStatedPay,
   roleListingAgeStillListedAtTheLast,
-  roleListingAgeTheEmployerSDate,
   roleListingAgeTheStart,
   roleListingAgeTitle,
-  roleListingAgeWhenRolebandFirstSawIt,
 } from "../../copy/gen/role";
 import { Msg } from "../../ui/Msg";
 
-/* How long a posting has been listed, said once, and its history on demand.
-   The headline is the posting's own evidence: the earlier of the
-   employer's first date and our first sighting; a later employer date is never
-   the start. Role age, when confirmed or automatically matched earlier
+/* How long a posting has been listed, said once as a count, and its history
+   on demand: the dates, and which one the count starts from, are the
+   history's to say. The headline is the posting's own evidence: the earlier of
+   the employer's first date and our first sighting; a later employer date is
+   never the start. Role age, when confirmed or automatically matched earlier
    postings exist, is its own row: an inference never moves the headline. The
    history is read only when someone opens it, so an open costs nothing. */
-
-const BASIS: Record<ListingHistory["headline"]["basis"], string> = {
-  get employer() { return roleListingAgeTheEmployerSDate(); },
-  get sighting() { return roleListingAgeWhenRolebandFirstSawIt(); },
-};
 
 /** The employer's fields the history names (the server sends only these). */
 const FIELD: Record<string, string> = {
@@ -186,7 +179,7 @@ function HistoryPanel({
   );
 }
 
-/** The Details rows: "Listed for" with its basis and the history, and "Role"
+/** The Details rows: "Listed for" with the history, and "Role"
     when earlier postings of the same role count. `onShowPostings` brings this
     cover's own posting stack into view, because a document-wide lookup would
     find the page behind an overlay first. The history opens across `column`,
@@ -201,7 +194,6 @@ export function ListingAge({
 }) {
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
-  const basis = "listed_basis" in job ? job.listed_basis : null;
   const roleSince = "role_since" in job ? job.role_since : null;
   const rolePostings = "role_postings" in job ? job.role_postings : null;
   return (
@@ -209,9 +201,6 @@ export function ListingAge({
       <dt>{roleListingAgeListedFor()}</dt>
       <dd className="jd-listed">
         <span>{relDays(job.listed_days)}</span>
-        {job.listed_since && basis && (
-          <span className="jd-listed-basis"><Msg of={roleListingAgeSince} elems={{ listed_since: fmtDate(job.listed_since), bASIS: BASIS[basis] }} /></span>
-        )}
         <Button
           ref={setAnchor}
           variant="ghost"

@@ -332,11 +332,7 @@ applications-link-copied = Enlace copiado
 
 applications-link-copy-failed = No se pudo copiar el enlace. Cópialo desde la barra de direcciones.
 
-applications-stage-button = { $stage } · { $days ->
-    [one] { $days } día
-    [many] { $days } de días
-   *[other] { $days } días
-}
+applications-stage-button = { $stage } · { $days }
 
 applications-stage-menu-label = Cambiar la etapa de { $title }
 
@@ -526,3 +522,31 @@ applications-read-posting = Ver la oferta
 applications-interview-add = Añadir entrevista
 
 applications-interview-edit-label = Editar { $label }
+
+applications-posting-row = Seguimiento
+
+applications-posting-stage = Etapa
+
+applications-posting-since-today = Desde hoy
+
+applications-posting-ended = Terminó
+
+applications-posting-interview = Entrevista
+
+applications-posting-next-step = Siguiente paso
+
+applications-posting-no-step = Ninguno aún
+
+applications-posting-history = Historial
+
+applications-posting-history-title = Historial de seguimiento
+
+applications-posting-history-interview = Entrevista: { $label }
+
+applications-posting-history-today = Hoy
+
+applications-posting-history-now = { $days ->
+    [one] { $stage }, 1 día
+    [many] { $stage }, { $days } de días
+   *[other] { $stage }, { $days } días
+}
