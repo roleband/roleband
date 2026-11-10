@@ -446,11 +446,15 @@ another script).
 
 Consent wording (the warning before following a company whose site limits
 automated collection, the agreement before following a company read only when
-its user asks, with its "keep scanning" choice, and usage sharing) is
-`kind=consent` and
+its user asks, and usage sharing) is `kind=consent` and
 pinned verbatim in `dashboard/src/copy/pinned.en.json`. `copy:check` blocks if a
 pinned message changes or a consent message is not pinned. They change only by a
 deliberate, reviewed decision, never as a side effect of copy work.
+
+The follow dialog's "Keep scanning" switch is a setting, not consent wording: the
+API stores its answer as `tracked_company.scan_on_schedule`, the person changes it
+later from the company's row, and its label and hint are translated like any other
+control. The agreement's stored text is the dialog's title and paragraphs.
 
 The native launcher's automatic-check toggle label is also pinned and kept in
 English. Its preferences record the exact label and time when a person changes
