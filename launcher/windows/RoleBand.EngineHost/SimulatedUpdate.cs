@@ -10,7 +10,7 @@ namespace RoleBand.EngineHost;
 /// </summary>
 public sealed class SimulatedUpdate : IUpdateCommands, IPackageDeployer
 {
-    /// <summary>The update's size, close to a real release's.</summary>
+    /// <summary>The simulated update's size, large enough that its download shows progress for a while.</summary>
     public const long Size = 332L * 1024 * 1024;
 
     public static readonly IReadOnlyList<string> Scenarios =
@@ -19,17 +19,17 @@ public sealed class SimulatedUpdate : IUpdateCommands, IPackageDeployer
         "finishing", "updated", "failed", "failed-alone", "undoing", "undo-gone", "undo-offline", "returning", "rolled-back",
     ];
 
-    private static readonly TimeSpan Step = TimeSpan.FromMilliseconds(400);
+    private readonly TimeSpan step;
     private readonly string scenario, running, previous, newer;
     private string? phase, from, to;
 
-    private SimulatedUpdate(string scenario, string running)
+    private SimulatedUpdate(string scenario, string running, string previous, string newer, TimeSpan step)
     {
         this.scenario = scenario;
         this.running = running;
-        var parts = running.Split('.').Select(part => int.Parse(part, CultureInfo.InvariantCulture)).ToArray();
-        previous = parts[2] > 0 ? $"{parts[0]}.{parts[1]}.{parts[2] - 1}" : $"{parts[0]}.{Math.Max(parts[1] - 1, 0)}.9";
-        newer = $"{parts[0]}.{parts[1]}.{parts[2] + 1}";
+        this.previous = previous;
+        this.newer = newer;
+        this.step = step;
         (phase, from, to) = scenario switch
         {
             "finishing" => ("preparing", previous, running),
@@ -41,10 +41,28 @@ public sealed class SimulatedUpdate : IUpdateCommands, IPackageDeployer
         };
     }
 
-    /// <summary>The simulation a source run asked for; none for a packaged app, whatever its command line says, and none
-    /// for a scenario this build does not know.</summary>
-    public static SimulatedUpdate? For(EngineConfiguration configuration, string? scenario) =>
-        configuration.Development && scenario is not null && Scenarios.Contains(scenario) ? new(scenario, configuration.Version) : null;
+    /// <summary>The simulation a source run asked for; none for a packaged app, whatever its command line says, for a
+    /// scenario this build does not know, or for a running version it cannot play around.</summary>
+    /// <param name="step">The pause between one figure of a download or an install and the next, a person's pace by default.</param>
+    public static SimulatedUpdate? For(EngineConfiguration configuration, string? scenario, TimeSpan? step = null) =>
+        configuration.Development && scenario is not null && Scenarios.Contains(scenario) && Around(configuration.Version) is { } around
+            ? new(scenario, configuration.Version, around.Previous, around.Newer, step ?? TimeSpan.FromMilliseconds(400)) : null;
+
+    /// <summary>The releases played on either side of the running version, from its three numbers; a pre-release suffix is
+    /// set aside. None for a version without three numbers, or with nothing before it.</summary>
+    private static (string Previous, string Newer)? Around(string version)
+    {
+        var core = version.Split('-', '+')[0].Split('.');
+        var numbers = new int[3];
+        if (core.Length != 3) return null;
+        for (var index = 0; index < 3; index++)
+            if (!int.TryParse(core[index], NumberStyles.None, CultureInfo.InvariantCulture, out numbers[index])) return null;
+        var (major, minor, patch) = (numbers[0], numbers[1], numbers[2]);
+        var previous = patch > 0 ? $"{major}.{minor}.{patch - 1}"
+            : minor > 0 ? $"{major}.{minor - 1}.9"
+            : major > 0 ? $"{major - 1}.9.9" : null;
+        return previous is null ? null : (previous, $"{major}.{minor}.{patch + 1}");
+    }
 
     /// <summary>What the app presses by itself once it has started, so a state that follows a press is reached without one.</summary>
     public string? Press => scenario switch
@@ -79,7 +97,7 @@ public sealed class SimulatedUpdate : IUpdateCommands, IPackageDeployer
         status,
         automatic = false,
         checked_at = DateTimeOffset.Now.ToUnixTimeSeconds(),
-        offer = phase is "applying" or "recovering" ? null : Offer,
+        offer = Offer,
         rate_limited_until = (double?)null,
         update = phase is null ? null : new
         {
@@ -145,7 +163,7 @@ public sealed class SimulatedUpdate : IUpdateCommands, IPackageDeployer
         for (var part = 0; part <= 10; part++)
         {
             Report(Size * part / 10);
-            await Task.Delay(Step, cancellation);
+            await Task.Delay(step, cancellation);
         }
         return scenario switch
         {
@@ -163,7 +181,7 @@ public sealed class SimulatedUpdate : IUpdateCommands, IPackageDeployer
         for (var percent = 0; percent <= stop; percent += 5)
         {
             progress?.Report(percent);
-            await Task.Delay(Step, cancellation);
+            await Task.Delay(step, cancellation);
         }
         if (scenario == "refused")
             throw new IOException("The package could not be installed because a higher version of this package is already installed. (simulated)");

@@ -258,7 +258,7 @@ public sealed class AboutTests
         };
         foreach (var (scenario, step) in expected)
         {
-            var simulation = SimulatedUpdate.For(source, scenario)!;
+            var simulation = SimulatedUpdate.For(source, scenario, TimeSpan.Zero)!;
             var coordinator = new UpdateCoordinator(simulation, simulation);
             var facts = await coordinator.StatusAsync();
             Assert.AreEqual("0.1.3", facts.Offer, scenario);
@@ -267,6 +267,30 @@ public sealed class AboutTests
             Assert.AreEqual(step, UpdateRun.Downloaded(reply, "0.1.3").Run.Step, scenario);
             Assert.IsTrue(counted.All(value => value.Item2 == SimulatedUpdate.Size), scenario);
         }
+    }
+
+    [TestMethod]
+    public async Task ASimulationPlaysAroundTheRunningVersionWhateverItsShape()
+    {
+        async Task<UpdateFacts> Status(SimulatedUpdate simulation) => await new UpdateCoordinator(simulation, simulation).StatusAsync();
+        foreach (var (running, previous, newer) in new[] { ("1.0.0", "0.9.9", "1.0.1"), ("0.2.0", "0.1.9", "0.2.1"), ("0.2.0-dev", "0.1.9", "0.2.1"),
+                                                            ("0.1.2", "0.1.1", "0.1.3") })
+        {
+            var source = new EngineConfiguration("C:\\checkout", "C:\\state", "python.exe", "python.exe", running, true, true);
+            var facts = await Status(SimulatedUpdate.For(source, "failed")!);
+            Assert.AreEqual((previous, running, newer), (facts.Last!.From, facts.Last.To, facts.Offer), running);
+        }
+        var source0 = new EngineConfiguration("C:\\checkout", "C:\\state", "python.exe", "python.exe", "0.0.0", true, true);
+        Assert.IsNull(SimulatedUpdate.For(source0, "failed"), "nothing comes before 0.0.0 to go back to");
+        Assert.IsNull(SimulatedUpdate.For(source0 with { Version = "dev" }, "failed"), "a version with no numbers is not simulated");
+
+        // The engine's status keeps the offer while an update applies or an Undo returns.
+        var simulation = SimulatedUpdate.For(source0 with { Version = "0.1.2" }, "failed")!;
+        await simulation.RunAsync(["recover-begin"], CancellationToken.None);
+        Assert.AreEqual(("recovering", "0.1.3"), ((await Status(simulation)).Last!.Phase, (await Status(simulation)).Offer));
+        var offer = SimulatedUpdate.For(source0 with { Version = "0.1.2" }, "offer")!;
+        await offer.RunAsync(["begin"], CancellationToken.None);
+        Assert.AreEqual(("applying", "0.1.3"), ((await Status(offer)).Last!.Phase, (await Status(offer)).Offer));
     }
 
     [TestMethod]

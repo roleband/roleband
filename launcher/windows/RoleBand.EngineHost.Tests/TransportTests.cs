@@ -26,9 +26,32 @@ public sealed class TransportTests
         Assert.ThrowsExactly<IOException>(() => EngineConfiguration.Packaged(resources));
     }
 
-    private static string Bundle(string name)
+    /// <summary>Folders a test made under %TEMP%, removed when it ends, whether it passed or not.</summary>
+    private readonly List<string> made = [];
+
+    [TestCleanup]
+    public void RemoveMade()
     {
-        var resources = Path.Combine(Path.GetTempPath(), name, Guid.NewGuid().ToString("N"));
+        foreach (var folder in made)
+        {
+            if (Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
+            // The folder named for the test is shared by every run of it, and goes once nothing is left in it.
+            var parent = Path.GetDirectoryName(folder)!;
+            try { if (Directory.Exists(parent) && !Directory.EnumerateFileSystemEntries(parent).Any()) Directory.Delete(parent); }
+            catch (IOException) { }
+        }
+    }
+
+    private string Scratch(string name)
+    {
+        var folder = Path.Combine(Path.GetTempPath(), name, Guid.NewGuid().ToString("N"));
+        made.Add(folder);
+        return folder;
+    }
+
+    private string Bundle(string name)
+    {
+        var resources = Scratch(name);
         Directory.CreateDirectory(Path.Combine(resources, "engine"));
         Directory.CreateDirectory(Path.Combine(resources, "runtime"));
         File.WriteAllText(Path.Combine(resources, "engine", "release.json"), "{\"version\":\"0.1.3\"}");
@@ -56,7 +79,7 @@ public sealed class TransportTests
     {
         // Windows creates the package's kept folder at install, protected, with explicit access for SYSTEM,
         // Administrators and the account: a folder that is not private by RoleBand's rule.
-        var kept = Path.Combine(Path.GetTempPath(), "roleband-kept", Guid.NewGuid().ToString("N"));
+        var kept = Scratch("roleband-kept");
         Directory.CreateDirectory(kept);
         var windows = new DirectorySecurity();
         windows.SetAccessRuleProtection(true, false);
