@@ -6,10 +6,10 @@ notifications-digest-panel-more-roles-opened-today = { $count ->
     [one] { $hidden } more role opened today.
    *[other] { $hidden } more roles opened today.
 }
-# kind=sentence wording=as-is
+# kind=sentence
 notifications-digest-panel-unranked-set-an-intent-statement = { $choice ->
     [yes] Best fit first, against your current intent.
-   *[no] Unranked - set an intent statement or save a few roles to rank these.
+   *[no] Not ranked yet. Add your aim or save a few roles.
 }
 
 ## features/notifications/NotificationFilters.tsx
@@ -451,8 +451,8 @@ notif-saved-elsewhere-body = { $more ->
 notif-pay-raised = { $company } raised the posted range on a role you saved
 # kind=notification
 notif-pay-lowered = { $company } lowered the posted range on a role you saved
-# kind=notification wording=as-is
-notif-pay-change = { $title }: { $before } -> { $after }
+# kind=notification
+notif-pay-change = { $title }: { $before } → { $after }
 # kind=notification wording=as-is
 notif-updated-long-open = { $company } updated a role you saved, listed for a long time
 # kind=notification wording=as-is
@@ -466,16 +466,16 @@ notif-digest = { $count ->
 notif-digest-lead = { $title } at { $company }
 # kind=notification wording=as-is
 notif-digest-fit = { $band } fit: { $lead }
-# kind=notification wording=as-is
-notif-digest-more = { $lead } - and { $more } more
+# kind=notification same-as=notif-sources-more
+notif-digest-more = { $lead } and { $more } more
 # kind=notification wording=as-is
 notif-follow-up = Follow up with { $company } · { $when }
 # kind=notification wording=as-is
 notif-due-today = due today
 # kind=notification wording=as-is
 notif-overdue = { $days }d overdue
-# kind=notification wording=as-is
-notif-follow-up-body = { $action } - { $title } ({ $stage })
+# kind=notification
+notif-follow-up-body = { $action }: { $title } ({ $stage })
 # kind=notification wording=as-is
 notif-no-next-action = No next action set
 # kind=notification
@@ -585,8 +585,8 @@ notif-every-source-delivered = Every company in this scan was read, but a step a
 notif-data-saved = What the scan found is saved.
 # kind=notification wording=as-is
 notif-scan-problems = Scan finished with problems
-# kind=notification wording=as-is
-notif-asleep = This machine was asleep for { $duration } during the scan, which cuts a company's listing short.
+# kind=notification
+notif-asleep = This computer slept for { $duration } during the scan, so some companies were only partly scanned.
 # kind=notification wording=as-is
 notif-unreached = { $count ->
     [one] Not reached before the scan ran out of time: { $sources }. It is still due, so the next scan picks it up.
