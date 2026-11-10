@@ -36,6 +36,8 @@ describe("stepsFor", () => {
   it("asks base and stock first, and never the bonus of a company that pays none", () => {
     expect(stepsFor(offer({ company: "amazon", grant: 400_000 }), AMAZON))
       .toEqual(["company", "base", "stock", "vesting", "sign_on"]);
+    // A bonus the offer holds there (a posting stated it) is asked, so it can be changed.
+    expect(stepsFor(offer({ company: "amazon", grant: 400_000, bonus_pct: 10 }), AMAZON)).toContain("bonus");
   });
 
   it("asks today's price only for a listed grant counted in shares", () => {

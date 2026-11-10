@@ -27,7 +27,9 @@ export function stepsFor(inputs: OfferInputs, company: OfferTermsCompany | null,
   if (grant && !cashElection && inShares && (listed || !named)) steps.push("price");
   if (grant && !listed && named) steps.push("valuation");
   if (grant && !cashElection) steps.push("vesting");
-  if (company?.bonus_rule !== "none") steps.push("bonus");
+  // A bonus the offer holds is asked, so it can be changed, even where the
+  // company states none (a posting that states one).
+  if (company?.bonus_rule !== "none" || (inputs.bonus_pct ?? 0) > 0) steps.push("bonus");
   steps.push("sign_on");
   return steps;
 }

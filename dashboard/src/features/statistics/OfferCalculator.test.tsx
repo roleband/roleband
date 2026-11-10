@@ -363,6 +363,26 @@ describe("OfferCalculator", () => {
     await waitFor(() => expect(kept.offer?.started_from).toEqual({ company: "microsoft", title: "Principal Engineer" }));
   });
 
+  it("keeps a bonus the role's posting states at a company that states none, and only that one", async () => {
+    const handOff = (stated: boolean) => ({
+      pathname: "/statistics/trajectory",
+      state: { offerFrom: { company: "amazon", title: "Principal Engineer", base: 200_000, bonus: 30_000, bonus_stated: stated, equity: 100_000 } },
+    });
+    const { unmount } = renderPanel(handOff(true));
+    expect(await screen.findByText(msg("insights-offer-started-from", { kind: "role", title: "Principal Engineer", company: "Amazon" })))
+      .toBeInTheDocument();
+    expect(chip(msg("insights-offer-chip-bonus", { pct: 15 }))).toBeInTheDocument();
+    await waitFor(() => expect(kept.offer?.inputs.bonus_pct).toBe(15));
+    unmount();
+
+    kept = { offer: null, valuations: {} };
+    renderPanel(handOff(false));
+    await screen.findByText(msg("insights-offer-started-from", { kind: "role", title: "Principal Engineer", company: "Amazon" }));
+    expect(within(calculator()).queryByRole("button", { name: msg("insights-offer-chip-edit", { answer: msg("insights-offer-chip-bonus", { pct: 15 }) }) }))
+      .toBeNull();
+    await waitFor(() => expect(kept.offer?.inputs.bonus_pct).toBe(0));
+  });
+
   it("ignores figures handed over in a shape it does not know", async () => {
     renderPanel({ pathname: "/statistics/trajectory", state: { offerFrom: { company: "microsoft", title: "x", base: "250000" } } });
     await ready();

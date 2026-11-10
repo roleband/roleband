@@ -17,7 +17,7 @@ import { useToast } from "../../ui/Toast";
 import { SearchField } from "../../ui/SearchField";
 import { matchCompanies } from "./hiring";
 import { OfferCalculator } from "./OfferCalculator";
-import { offerFromPackage, type StoredOffer, type StoredValuation, type Valuation } from "./offerModel";
+import { offerFromPackage, type PackageParts, type StoredOffer, type StoredValuation, type Valuation } from "./offerModel";
 import {
   insightsCommonCompany,
   insightsSkillsViewRoles,
@@ -196,6 +196,8 @@ interface RoleOffer {
   title: string;
   base: number;
   bonus: number;
+  /** The posting states the bonus, so it stands over a no-bonus rule. */
+  bonusStated: boolean;
   equity: number;
 }
 
@@ -207,7 +209,8 @@ function roleOfferFrom(state: unknown): RoleOffer | null {
   const { company, title, base, bonus, equity } = from;
   const ok = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n) && n >= 0;
   if (typeof company !== "string" || typeof title !== "string" || !ok(base) || !ok(bonus) || !ok(equity)) return null;
-  return { company, title, base, bonus, equity };
+  // Absent from an entry written before it was handed over: not stated.
+  return { company, title, base, bonus, equity, bonusStated: from.bonus_stated === true };
 }
 
 // What a private company's typical package reads with its equity at the
@@ -307,7 +310,7 @@ export function StockTrajectoryPanel() {
   };
   const startFrom = useCallback((
     company: string,
-    parts: { base: number; bonus: number; equity: number },
+    parts: PackageParts,
     listed: boolean,
     title?: string,
   ) => {

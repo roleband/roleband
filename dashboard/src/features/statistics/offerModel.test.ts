@@ -181,6 +181,8 @@ describe("filling the form", () => {
     // Amazon states no yearly bonus and its offer never asks one: a measured
     // bonus is not counted every year.
     expect(offerFromPackage("amazon", { base: 200_000, bonus: 30_000, equity: 100_000 }, TERMS).bonus_pct).toBe(0);
+    // A bonus the posting states outranks the company's rule.
+    expect(offerFromPackage("amazon", { base: 200_000, bonus: 30_000, equity: 100_000, bonusStated: true }, TERMS).bonus_pct).toBe(15);
     const thirds = offerFromPackage("acme", { base: 200_000, bonus: 30_000, equity: 90_000 },
       { feed_configured: false, companies: [company({ company: "acme", vesting: [33, 33, 33] })] });
     expect(thirds).toMatchObject({ bonus_pct: 15, grant: 270_000 });

@@ -362,6 +362,8 @@ export default function JobCompPanel({ job }: { job: Job }) {
         title: job.title,
         base: mid(part("base")!),
         bonus: part("bonus") ? mid(part("bonus")!) : 0,
+        // A bonus the posting states outranks a company's no-bonus rule.
+        bonus_stated: part("bonus")?.provenance === "stated",
         equity: part("equity") ? mid(part("equity")!) : 0,
       }
     : null;

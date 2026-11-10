@@ -97,6 +97,7 @@ describe("JobCompPanel", () => {
       title: jobFixture.title,
       base: 287000,
       bonus: 71750,
+      bonus_stated: true,
       equity: 349529,
     });
   });
