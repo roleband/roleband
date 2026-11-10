@@ -14,6 +14,7 @@ import {
 } from "react";
 import { useSearchParams } from "react-router-dom";
 import type {
+  AgreementPayload,
   CompanyConsent,
   CompanyDirectoryStatus,
   CompanyDiscoveryCompany,
@@ -23,7 +24,7 @@ import type {
 } from "../../api";
 import { api } from "../../api";
 import { CURATED_LIST } from "../../copy/vocabulary";
-import { awaitingConsent, consentsFor, type FollowConfirmation, type FollowCopy } from "./followCopy";
+import { awaitingConsent, consentsFor, type FollowAnswer, type FollowConfirmation } from "./followCopy";
 import { useSyncActions, useSyncStatus } from "../../context/SyncState";
 import type { AsyncResource } from "../../hooks/useAsyncResource";
 import { useAsyncResource } from "../../hooks/useAsyncResource";
@@ -62,6 +63,7 @@ import {
 import {
   companiesDataChangeUndone,
   companiesDataCompanyAddedToYourRoster,
+  companiesAddMoreCompaniesTryAgain,
   companiesDataCouldnTUndoThatChange,
   companiesDataUndo,
   companiesDataUnfollowed,
@@ -69,6 +71,9 @@ import {
   companiesDataCuratedFollowResult,
   companiesDataFollowFailed,
   companiesDataFollowed,
+  companiesDataKeepScanningChanged,
+  companiesDataKeepScanningFailed,
+  companiesDataReadsWaiting,
   companiesDataSectorFollowResult,
   companiesDataVisibilityChanged,
   companiesDataVisibilityFailed,
@@ -116,11 +121,11 @@ export interface WriteFailure {
 }
 
 /** The subject sentence always, then why, when the failure's code says why
- *  (api/errorText.ts). The server's English is never shown. */
-const failureText = (sentence: string, caught: unknown) => {
-  const why = errorText(caught, "");
-  return why ? `${sentence} ${why}` : sentence;
-};
+ *  (api/errorText.ts), or the next step when nothing explains it. Each why
+ *  ends in its own next step, so the two never both appear. The server's
+ *  English is never shown. */
+const failureText = (sentence: string, caught: unknown) =>
+  `${sentence} ${errorText(caught, companiesAddMoreCompaniesTryAgain())}`;
 
 /** One roster write: what it intends, what it touches, and what it says in
  *  either outcome. An options object because the failure half doubled the
@@ -138,9 +143,9 @@ interface RosterWrite {
   failure: string;
   /** The confirmation, given the selection as it stood before the write. */
   describe: (previous: Set<string>) => string;
-  /** Consents the answered dialog gave, one per walled company it starts to
-   *  collect. The Undo carries none: the stored consent covers a
-   *  follow it puts back, and an Undo of a follow only removes one. */
+  /** Agreements the answered dialog gave, one per company it starts to
+   *  collect that needs one. The Undo carries none: the stored agreement
+   *  covers a follow it puts back, and an Undo of a follow only removes one. */
   consents?: CompanyConsent[];
 }
 
@@ -220,17 +225,23 @@ export interface CompaniesContextValue {
   /** Ask to follow every listed company and the set of other companies, as
    *  one answer (setup's "Plus other companies"). */
   requestEverything: () => void;
-  /** Followed walled companies the user never consented to: not scanned until the
-   *  user answers their dialog. */
+  /** Followed companies the user never agreed to (walled, or scanned only at
+   *  their direction): not scanned on their own until the user answers their
+   *  dialog. */
   awaitingConsent: CompanyDiscoveryCompany[];
-  /** Open a followed walled company's consent dialog. */
+  /** Open a followed company's agreement dialog. */
   reviewConsent: (company: CompanyDiscoveryCompany) => void;
   /** The bulk write waiting on an answer, if any. */
   confirmation: FollowConfirmation | null;
-  confirmFollow: (shown: { copy: FollowCopy; locale: string }) => void;
+  confirmFollow: (shown: FollowAnswer) => void;
   dismissFollow: () => void;
   toggleVisible: (company: CompanyDiscoveryCompany) => Promise<void>;
-  addByUrl: (payload: { name: string; careers_url: string }) => Promise<void>;
+  /** Put an agreed company scanned at the user's direction on the scan
+   *  schedule, or take it off. */
+  toggleKeepScanning: (company: CompanyDiscoveryCompany) => Promise<void>;
+  /** Add a company by its careers link. `consent` is the agreement its dialog
+   *  gave, when the server asked for one. */
+  addByUrl: (payload: { name: string; careers_url: string; consent?: AgreementPayload }) => Promise<void>;
 
   /* --- Sync ------------------------------------------------------------- */
   /** Slugs a targeted sync may actually cover, straight from the pipeline's own
@@ -685,9 +696,14 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
           const saved = await api.setCompanySelection(request, consents ?? []);
           resource.mutate(() => saved);
           settle();
+          // A followed company whose read could not be asked for (its job
+          // site paused or turned off) is saved; the toast says the read waits.
+          const waiting = saved.reads_waiting.length;
           toast({
             key: "companies-selection",
-            text: describe(previous),
+            text: waiting > 0
+              ? `${describe(previous)} ${companiesDataReadsWaiting({ count: waiting })}`
+              : describe(previous),
             action: {
               label: companiesDataUndo(),
               // Through the ref: a verb whose own undo calls it cannot list
@@ -738,14 +754,15 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
 
   const [confirmation, setConfirmation] = useState<FollowConfirmation | null>(null);
 
-  /** A walled company the user never consented to is followed through its own
-   *  dialog: it states the company's policy, and following through it is the
-   *  consent. Consent is asked once, so a company already consented to follows
-   *  from the switch alone. Unfollowing a walled company always confirms. */
+  /** A company the user never agreed to (walled, or scanned only at their
+   *  direction) is followed through its own dialog: it states how the company
+   *  is read, and following through it is the agreement. The agreement is
+   *  asked once, so a company already agreed to follows from the switch
+   *  alone. Unfollowing a walled company always confirms. */
   const toggleCompany = useCallback((company: CompanyDiscoveryCompany) => {
     const tracking = !chosen.has(company.slug);
     if (tracking && awaitingConsent([company]).length > 0) {
-      setConfirmation({ kind: "walled-follow", company });
+      setConfirmation({ kind: "agree-follow", company });
       return;
     }
     if (!tracking && company.wall !== null) {
@@ -755,10 +772,10 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
     writeCompany(company, tracking);
   }, [chosen, writeCompany]);
 
-  /** A followed walled company with no stored consent is not scanned until
-   *  its user answers the same dialog a new follow gets. */
+  /** A followed company with no stored agreement is not scanned on its own
+   *  until its user answers the same dialog a new follow gets. */
   const reviewConsent = useCallback((company: CompanyDiscoveryCompany) => {
-    setConfirmation({ kind: "walled-follow", company });
+    setConfirmation({ kind: "agree-follow", company });
   }, []);
 
   /** Select-all covers exactly `group.bulk` — this sector's on-screen rows that
@@ -795,9 +812,9 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
     }
     const adding = group.bulk.filter((company) => !chosen.has(company.slug));
     // One company is what its own row's switch does, and that does not ask —
-    // unless it is walled, when its own switch asks too.
+    // unless it needs an agreement, when its own switch asks too.
     if (adding.length < 2) {
-      if (awaitingConsent(adding).length > 0) setConfirmation({ kind: "walled-follow", company: adding[0] });
+      if (awaitingConsent(adding).length > 0) setConfirmation({ kind: "agree-follow", company: adding[0] });
       else writeSector(group, true);
       return;
     }
@@ -892,7 +909,7 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
   );
 
   /** The answer. One roster write either way, with the usual Undo. */
-  const confirmFollow = useCallback((shown: { copy: FollowCopy; locale: string }) => {
+  const confirmFollow = useCallback((shown: FollowAnswer) => {
     const pending = confirmation;
     setConfirmation(null);
     if (!pending) return;
@@ -901,8 +918,8 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
       writeSector(pending.group, true, consents);
       return;
     }
-    if (pending.kind === "walled-follow" || pending.kind === "walled-unfollow") {
-      writeCompany(pending.company, pending.kind === "walled-follow", consents);
+    if (pending.kind === "agree-follow" || pending.kind === "walled-unfollow") {
+      writeCompany(pending.company, pending.kind === "agree-follow", consents);
       return;
     }
     if (pending.kind === "directory") {
@@ -999,6 +1016,58 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
     [setVisible],
   );
 
+  /** The Keep scanning choice of an agreed company scanned at the user's
+   *  direction. Queued per company with its visibility: both patch one row.
+   *  Turned on, the server also asks for its read at once. */
+  const setKeepScanning = useCallback(
+    (company: CompanyDiscoveryCompany, on: boolean, describe: string) => {
+      const { slug } = company;
+      const key = `keep-scanning:${slug}`;
+      return writeKeyed(slug, async () => {
+        clearFailure(key);
+        try {
+          await api.updateCompany(slug, { scan_on_schedule: on });
+          resource.mutate((current) =>
+            current
+              ? {
+                  ...current,
+                  companies: current.companies.map((candidate) =>
+                    candidate.slug === slug ? { ...candidate, scan_on_schedule: on } : candidate,
+                  ),
+                }
+              : current,
+          );
+          toast({
+            key: "companies-keep-scanning",
+            text: describe,
+            action: {
+              label: companiesDataUndo(),
+              onClick: () => void setKeepScanningRef.current(company, !on, companiesDataChangeUndone()),
+            },
+          });
+        } catch (caught) {
+          reportFailure(key, failureText(
+            companiesDataKeepScanningFailed({ state: on ? "schedule" : "request", company: company.display }),
+            caught,
+          ));
+        }
+      });
+    },
+    [writeKeyed, resource, toast, clearFailure, reportFailure],
+  );
+  const setKeepScanningRef = useRef(setKeepScanning);
+  useEffect(() => { setKeepScanningRef.current = setKeepScanning; }, [setKeepScanning]);
+
+  const toggleKeepScanning = useCallback(
+    (company: CompanyDiscoveryCompany) =>
+      setKeepScanning(
+        company,
+        !company.scan_on_schedule,
+        companiesDataKeepScanningChanged({ state: company.scan_on_schedule ? "request" : "schedule", company: company.display }),
+      ),
+    [setKeepScanning],
+  );
+
   /* Sync is one run with one live state, and the header owns it. The board only
    * ever asks for a subset — the notice below is the board's own confirmation
    * that the ask landed; the run itself reports through the header control and
@@ -1024,7 +1093,7 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
      failure), which the queue passes through to this caller while storing a
      settled tail, so one bad URL cannot strand every write behind it. */
   const addByUrl = useCallback(
-    (payload: { name: string; careers_url: string }) =>
+    (payload: { name: string; careers_url: string; consent?: AgreementPayload }) =>
       writeExclusive([], async () => {
         clearFailure("add");
         try {
@@ -1050,7 +1119,7 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
 
   const alerts = useMemo<CompanyAlert[]>(() => buildAlerts(tracked), [tracked]);
 
-  /** Followed, walled, and not consented: kept on the roster, never scanned. */
+  /** Followed and never agreed to: kept on the roster, not scanned on its own. */
   const awaitingConsentList = useMemo(() => awaitingConsent(tracked), [tracked]);
 
   const summary = useMemo(
@@ -1104,6 +1173,7 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
       confirmFollow,
       dismissFollow,
       toggleVisible,
+      toggleKeepScanning,
       addByUrl,
       syncable,
       failedSources: retryable,
@@ -1113,7 +1183,7 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
       sectorNames, busy, failures, alerts, shownQuery, needle, directorySearch,
       trackedOnly, registerEmpty,
       showPlanned, focusedSector, focusSector, scrollTarget, clearScrollTarget,
-      toggleCompany, toggleSector, toggleVisible, addByUrl, syncable, retryable,
+      toggleCompany, toggleSector, toggleVisible, toggleKeepScanning, addByUrl, syncable, retryable,
       setTrackedOnly, setShowPlanned, listAction, requestListAction, requestEverything, confirmation,
       awaitingConsentList, reviewConsent,
       confirmFollow, dismissFollow,

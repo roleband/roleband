@@ -56,7 +56,7 @@ const company = (over: Partial<CompanyDiscoveryCompany>): CompanyDiscoveryCompan
   visible: true,
   builtin: false,
   curated: false, directory: false,
-  wall: null,
+  directed: false, scan_on_schedule: false, wall: null,
   consented: false,
   status: null,
   ...over,
@@ -74,6 +74,7 @@ const sector = (slug: string) => ({
    row is drawn in each. That is the arithmetic most likely to break — totals
    must come from the flat company array, never from summing sections. */
 const state: CompanyDiscoveryState = {
+  reads_waiting: [],
   sectors: [
     sector("faang"),
     sector("ai"),
@@ -360,7 +361,9 @@ describe("CompaniesSection — the ledger", () => {
     expect(within(faang).getByTitle("Scanned 3h ago.")).toHaveTextContent(/^Live$/);
     expect(faang).not.toHaveTextContent(/Quarantined|scan cleanly|Scan problems/);
     // Why, on hover: the Coverage notice's own words.
-    expect(within(faang).getByTitle("Couldn't scan Google · 5 days. Its careers page isn't answering.")).toBeInTheDocument();
+    expect(within(faang).getByTitle(
+      `${msg("notif-coverage-scan-title", { company: "Google", days: 5 })}. ${msg("notif-coverage-unreachable")}`,
+    )).toBeInTheDocument();
   });
 
   it("says the Coverage notice's words in the reader's language", async () => {
@@ -427,7 +430,9 @@ describe("CompaniesSection — the ledger", () => {
       new RegExp(`^${msg("companies-company-register-rows-coverage-problem", { cause: "unreachable" })}`),
     ));
     expect(sectorPanel("FAANG")).not.toHaveTextContent("81d");
-    expect(within(sectorPanel("FAANG")).getByTitle("Couldn't scan Google. Its careers page isn't answering."))
+    expect(within(sectorPanel("FAANG")).getByTitle(
+      `${msg("notif-coverage-scan-title", { company: "Google", days: 0 })}. ${msg("notif-coverage-unreachable")}`,
+    ))
       .toHaveClass("is-warn");
   });
 
@@ -458,7 +463,7 @@ describe("CompaniesSection — the ledger", () => {
     await waitFor(() => expect(row("FAANG", "Meta")).toHaveAccessibleDescription(/^Live · partly counted/));
     const faang = screen.getByRole("region", { name: "FAANG" });
     expect(within(faang).getByTitle(
-      "Meta's scans have not read its whole careers page yet, so some roles aren't counted. Its next full scan adds them.",
+      msg("companies-company-register-rows-s-scans-have-not-read", { display: "Meta" }),
     )).toHaveTextContent("Live · partly counted");
     expect(row("FAANG", "Google")).toHaveAccessibleDescription(/^Live · not counted yet/);
   });
@@ -476,7 +481,7 @@ describe("CompaniesSection — the ledger", () => {
     await waitFor(() => expect(row("FAANG", "Meta")).toHaveAccessibleDescription(/^Live · not counted, last scanned 3d ago/));
     const faang = screen.getByRole("region", { name: "FAANG" });
     expect(within(faang).getByTitle(
-      "Meta was last scanned 3d ago, too long ago for your radar's count. Its next scan adds its roles back.",
+      msg("companies-company-register-rows-roleband-last-read-s-roles", { display: "Meta", lastRead: "3d" }),
     )).toHaveTextContent("Live · not counted, last scanned 3d ago");
     expect(row("FAANG", "Google")).toHaveAccessibleDescription(/^Live · not counted yet/);
   });
@@ -489,11 +494,13 @@ describe("CompaniesSection — the ledger", () => {
 
     await waitFor(() => expect(row("FAANG", "Meta")).toHaveAccessibleDescription(/^Live · not counted yet/));
     const faang = screen.getByRole("region", { name: "FAANG" });
-    expect(within(faang).getByTitle("Meta's roles aren't in your radar's count yet. Its next scan adds them."))
+    expect(within(faang).getByTitle(
+      msg("companies-company-register-rows-not-counted-why", { reason: "missing", company: "Meta" }),
+    ))
       .toHaveTextContent("Live · not counted yet");
     // Counted, so its state is plain; its number carries the unplaced mark.
     expect(row("FAANG", "Google")).toHaveAccessibleDescription(/^Live(?! · not counted)/);
-    expect(within(faang).getByTitle("3 of Google's roles name a place that isn't recognized, so they don't show for any place you choose."))
+    expect(within(faang).getByTitle(msg("companies-company-register-rows-of-s-roles-name-a", { unplaced: 3, display: "Google" })))
       .toHaveTextContent("12 open ·");
     expect(within(faang).getByText("40 open")).not.toHaveAttribute("title");
   });
@@ -505,7 +512,9 @@ describe("CompaniesSection — the ledger", () => {
     renderSection();
 
     const faang = await screen.findByRole("region", { name: "FAANG" });
-    const count = await within(faang).findByTitle("432 of Google's roles fit no known discipline, so they don't show for any discipline you choose.");
+    const count = await within(faang).findByTitle(
+      msg("companies-company-register-rows-of-s-roles-fit-no", { unsorted: 432, display: "Google" }),
+    );
     expect(count).toHaveTextContent("12 open ·");
     expect(count.title).not.toMatch(/place/);
   });
@@ -547,12 +556,16 @@ describe("CompaniesSection — the ledger", () => {
 
     const faang = await screen.findByRole("region", { name: "FAANG" });
     expect(await within(faang).findByTitle(
-      "Apple's careers page is gone · 2 days. Its careers page is no longer at its last address.",
+      `${msg("notif-coverage-gone-title", { company: "Apple", days: 2 })}. ${msg("notif-coverage-board-missing")}`,
     )).toHaveTextContent("Careers page gone · 2d");
-    const why = await within(faang).findByTitle("Google lists no roles · 2 days. Its careers page answered with an empty list.");
+    const why = await within(faang).findByTitle(
+      `${msg("notif-coverage-empty-title", { company: "Google", days: 2 })}. ${msg("notif-coverage-empty-listing")}`,
+    );
     expect(why).toHaveTextContent("Lists no roles · 10h");
     expect(why).toHaveClass("is-warn");
-    expect(within(faang).getByTitle("Couldn't scan Meta · 4 days. Scans read only part of its careers page."))
+    expect(within(faang).getByTitle(
+      `${msg("notif-coverage-scan-title", { company: "Meta", days: 4 })}. ${msg("notif-coverage-partial")}`,
+    ))
       .toHaveTextContent("Couldn't scan · 4d");
   });
 
@@ -763,12 +776,13 @@ describe("CompaniesSection — tracking", () => {
     renderSection();
 
     await screen.findByRole("checkbox", { name: "SilentCo" });
-    expect(row("FAANG", "SilentCo")).toHaveAccessibleDescription(
-      /^Uses \W?Jibe\W?, which didn't answer/,
-    );
-    expect(row("FAANG", "RefusedCo")).toHaveAccessibleDescription(
-      /^Uses \W?Radancy TalentBrew\W?; collecting from it is off/,
-    );
+    const startsWith = (text: string) => new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
+    const boardFound = (reason: string, family: string) =>
+      startsWith(msg("companies-company-register-rows-board-found", {
+        reason, family: msg("companies-company-register-rows-board-family", { family }),
+      }));
+    expect(row("FAANG", "SilentCo")).toHaveAccessibleDescription(boardFound("board_silent", "jibe"));
+    expect(row("FAANG", "RefusedCo")).toHaveAccessibleDescription(boardFound("policy_refused", "radancy"));
     // A page that named no known board keeps the plain waiting words.
     expect(row("FAANG", "PlainCo")).toHaveAccessibleDescription(/^Following · not scanned yet/);
     expect(row("FAANG", "PlainCo")).not.toHaveAccessibleDescription(/Found a/);
@@ -880,7 +894,7 @@ describe("CompaniesSection — tracking", () => {
   it("keeps opportunity visibility independent from tracking, and offers it only when tracked", async () => {
     renderSection();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Hide Google on your radar" }));
+    fireEvent.click(await screen.findByRole("button", { name: msg("companies-company-register-rows-show-or-hide-on-radar", { visibility: "shown", company: "Google" }) }));
     await waitFor(() =>
       expect(api.updateCompany).toHaveBeenCalledWith("google", { visible: false }),
     );
@@ -898,9 +912,9 @@ describe("CompaniesSection — tracking", () => {
        with Undo, like its row-neighbour. */
     renderSection();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Hide Google on your radar" }));
+    fireEvent.click(await screen.findByRole("button", { name: msg("companies-company-register-rows-show-or-hide-on-radar", { visibility: "shown", company: "Google" }) }));
     expect(
-      await screen.findByText("Google hidden from your radar."),
+      await screen.findByText(msg("companies-data-visibility-changed", { visibility: "hidden", company: "Google" })),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Undo" }));
@@ -909,7 +923,7 @@ describe("CompaniesSection — tracking", () => {
     );
     // The row reads the write back, so the eye offers to hide it again.
     expect(
-      await screen.findByRole("button", { name: "Hide Google on your radar" }),
+      await screen.findByRole("button", { name: msg("companies-company-register-rows-show-or-hide-on-radar", { visibility: "shown", company: "Google" }) }),
     ).toBeInTheDocument();
   });
 
@@ -919,16 +933,16 @@ describe("CompaniesSection — tracking", () => {
     );
     renderSection();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Hide Google on your radar" }));
+    fireEvent.click(await screen.findByRole("button", { name: msg("companies-company-register-rows-show-or-hide-on-radar", { visibility: "shown", company: "Google" }) }));
 
     // The row is named, then why, from the failure's code: a bare detail says
     // nothing about WHICH row just failed.
-    expect(await screen.findByText(/Couldn't hide Google from your radar\./)).toBeInTheDocument();
+    expect(await screen.findByText(msg("companies-data-visibility-failed", { visibility: "hidden", company: "Google" }), { exact: false })).toBeInTheDocument();
     expect(screen.getByText(new RegExp(msg("error-offline").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))).toBeInTheDocument();
     expect(screen.queryByText(/Failed to fetch/)).not.toBeInTheDocument();
     // Still shown: a failed write must not leave the row claiming it is hidden.
     expect(
-      screen.getByRole("button", { name: "Hide Google on your radar" }),
+      screen.getByRole("button", { name: msg("companies-company-register-rows-show-or-hide-on-radar", { visibility: "shown", company: "Google" }) }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
   });
@@ -993,7 +1007,7 @@ describe("CompaniesSection — tracking", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Add company" }));
 
     const alert = await within(dialog).findByRole("alert");
-    expect(alert).toHaveTextContent(`Couldn't add that company. ${msg("error-careers-page-unreachable")}`);
+    expect(alert).toHaveTextContent(`${msg("companies-add-more-companies-couldn-t-add-that-company")} ${msg("error-careers-page-unreachable")}`);
     expect(alert).not.toHaveTextContent("did not answer");
     expect(within(dialog).getByLabelText("Company name")).toHaveValue("ObscureCo");
     expect(within(dialog).getByLabelText("Careers page link")).toHaveValue("https://jobs.lever.co/obscureco");
@@ -1005,6 +1019,25 @@ describe("CompaniesSection — tracking", () => {
       expect(screen.queryByRole("dialog", { name: "Add a company by link" })).not.toBeInTheDocument(),
     );
     expect(api.addCompany).toHaveBeenCalledTimes(2);
+  });
+
+  it("says to try again when nothing explains why an add failed", async () => {
+    vi.mocked(api.addCompany).mockRejectedValueOnce(new Error("socket hang up"));
+    renderSection();
+
+    const addMore = await screen.findByRole("region", { name: "Add more companies" });
+    fireEvent.click(within(addMore).getByRole("button", { name: "Add by link" }));
+    const dialog = screen.getByRole("dialog", { name: "Add a company by link" });
+    fireEvent.change(within(dialog).getByLabelText("Careers page link"), {
+      target: { value: "https://jobs.lever.co/obscureco" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add company" }));
+
+    const alert = await within(dialog).findByRole("alert");
+    expect(alert.textContent).toBe(
+      `${msg("companies-add-more-companies-couldn-t-add-that-company")} ${msg("companies-add-more-companies-try-again")}`,
+    );
+    expect(alert).not.toHaveTextContent("socket");
   });
 });
 
@@ -1296,7 +1329,7 @@ describe("CompaniesSection — walled companies follow only through their dialog
     await waitFor(() => expect(api.setCompanySelection).toHaveBeenCalledTimes(1));
     const [sent, consents] = vi.mocked(api.setCompanySelection).mock.calls[0];
     expect(sent).toEqual(change(["deepmind"]));
-    expect(consents).toEqual([{ slug: "deepmind", text: shown, locale: "en" }]);
+    expect(consents).toEqual([{ slug: "deepmind", text: shown, locale: "en", scan_on_schedule: true }]);
   });
 
   it("a company the user already consented to follows again from its switch without asking", async () => {
@@ -1355,6 +1388,178 @@ describe("CompaniesSection — walled companies follow only through their dialog
     const [sent, consents] = vi.mocked(api.setCompanySelection).mock.calls[0];
     expect(sent).toEqual(change([], ["deepmind"]));
     expect(consents).toEqual([]);
+  });
+});
+
+/* --- Companies scanned only at the user's direction ------------------- */
+describe("CompaniesSection — a company scanned at your direction follows and scans in one press", () => {
+  // NVIDIA's careers site is a Workday board: read only for a company its
+  // user follows and agrees to.
+  const nvidia = company({
+    slug: "nvidia", display: "NVIDIA", sectors: ["ai"], connector_state: "live", directed: true,
+  });
+  const withNvidia = (over: Partial<CompanyDiscoveryCompany> = {}): CompanyDiscoveryState => ({
+    ...state,
+    companies: [...state.companies, { ...nvidia, ...over }],
+  });
+  const openSwitch = async () =>
+    fireEvent.click(await within(await screen.findByRole("region", { name: "AI" })).findByRole("checkbox", { name: "NVIDIA" }));
+  const dialogText = (dialog: HTMLElement) =>
+    [within(dialog).getByRole("heading").textContent, ...within(dialog).getAllByText(/./, { selector: "p" })
+      .map((p) => p.textContent)].join("\n\n");
+
+  it("asks with Keep scanning ticked and Cancel focused; Cancel writes nothing", async () => {
+    vi.mocked(api.companyDiscovery).mockResolvedValue(withNvidia());
+    renderSection();
+    await openSwitch();
+
+    const ask = await screen.findByRole("dialog", { name: "Follow NVIDIA?" });
+    expect(ask).toHaveTextContent("Its careers site is scanned only at your direction.");
+    expect(within(ask).getByRole("checkbox", { name: /Keep scanning this company/ })).toBeChecked();
+    const cancel = within(ask).getByRole("button", { name: "Cancel" });
+    await waitFor(() => expect(cancel).toHaveFocus());
+    fireEvent.click(cancel);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(api.setCompanySelection).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["ticked", true],
+    ["unticked", false],
+  ])("Follow and scan sends the follow, the words shown and the choice in one request (%s)", async (_label, keep) => {
+    vi.mocked(api.companyDiscovery).mockResolvedValue(withNvidia());
+    renderSection();
+    await openSwitch();
+    const ask = await screen.findByRole("dialog", { name: "Follow NVIDIA?" });
+    if (!keep) fireEvent.click(within(ask).getByRole("checkbox", { name: /Keep scanning this company/ }));
+    const shown = dialogText(ask);
+    fireEvent.click(within(ask).getByRole("button", { name: "Follow and scan" }));
+
+    await waitFor(() => expect(api.setCompanySelection).toHaveBeenCalledTimes(1));
+    const [sent, consents] = vi.mocked(api.setCompanySelection).mock.calls[0];
+    expect(sent).toEqual(change(["nvidia"]));
+    expect(consents).toEqual([{ slug: "nvidia", text: shown, locale: "en", scan_on_schedule: keep }]);
+    expect(api.sync).not.toHaveBeenCalled();
+  });
+
+  it("says the first scan waits when its job site cannot be scanned now", async () => {
+    vi.mocked(api.companyDiscovery).mockResolvedValue(withNvidia());
+    vi.mocked(api.setCompanySelection).mockImplementation(async () => ({
+      ...withNvidia({ enabled: true, tracked: true, consented: true, scan_on_schedule: true }),
+      reads_waiting: ["nvidia"],
+    }));
+    renderSection();
+    await openSwitch();
+    fireEvent.click(within(await screen.findByRole("dialog", { name: "Follow NVIDIA?" })).getByRole("button", { name: "Follow and scan" }));
+    expect(await screen.findByText(/Its first scan waits until its job site can be scanned again\./)).toBeInTheDocument();
+  });
+
+  it("a Follow all with a directed company names it in one line and records one choice for it", async () => {
+    vi.mocked(api.companyDiscovery).mockResolvedValue(withNvidia());
+    renderSection();
+    fireEvent.click(await screen.findByRole("button", { name: "Follow all" }));
+    const ask = await screen.findByRole("dialog", { name: "Follow the whole list?" });
+    expect(ask).toHaveTextContent("Some of these companies' careers sites are scanned only at your direction.");
+    fireEvent.click(within(ask).getByRole("checkbox", { name: /Keep scanning this company/ }));
+    fireEvent.click(within(ask).getByRole("button", { name: "Follow all 3" }));
+    await waitFor(() => expect(api.setCompanySelection).toHaveBeenCalledTimes(1));
+    const [, consents] = vi.mocked(api.setCompanySelection).mock.calls[0];
+    expect(consents?.map(({ slug, scan_on_schedule }) => [slug, scan_on_schedule])).toEqual([["nvidia", false]]);
+  });
+
+  it("followed without an agreement it waits for you, and its row's Scan asks first", async () => {
+    vi.mocked(api.companyDiscovery).mockResolvedValue(withNvidia({ tracked: true, enabled: true }));
+    vi.mocked(api.syncTargets).mockResolvedValue({
+      companies: [target({ slug: "nvidia", adapter: "workday", automatic: false })], freshness_max_hours: 26,
+    });
+    renderSection();
+    const strip = await screen.findByRole("region", { name: "Companies needing attention" });
+    expect(within(strip).getByRole("button", { name: "Review NVIDIA" })).toBeInTheDocument();
+
+    fireEvent.click(await within(sectorPanel("AI")).findByRole("button", { name: "Scan NVIDIA now" }));
+    const ask = await screen.findByRole("dialog", { name: "Follow NVIDIA?" });
+    expect(api.sync).not.toHaveBeenCalled();
+    fireEvent.click(within(ask).getByRole("button", { name: "Follow and scan" }));
+    await waitFor(() => expect(api.setCompanySelection).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(api.setCompanySelection).mock.calls[0][1]?.map((entry) => entry.slug)).toEqual(["nvidia"]);
+  });
+
+  it("an agreed company's row scans directly and switches Keep scanning", async () => {
+    vi.mocked(api.companyDiscovery).mockResolvedValue(
+      withNvidia({ tracked: true, enabled: true, consented: true, scan_on_schedule: true }),
+    );
+    vi.mocked(api.syncTargets).mockResolvedValue({
+      companies: [target({ slug: "nvidia", adapter: "workday" })], freshness_max_hours: 26,
+    });
+    vi.mocked(api.sync).mockResolvedValue({ status: "started", companies: ["nvidia"], queued: ["nvidia"] });
+    renderSection();
+
+    const schedule = await within(await screen.findByRole("region", { name: "AI" }))
+      .findByRole("button", { name: "Stop scanning NVIDIA on schedule" });
+    expect(schedule).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(schedule);
+    await waitFor(() => expect(api.updateCompany).toHaveBeenCalledWith("nvidia", { scan_on_schedule: false }));
+    expect(await within(sectorPanel("AI")).findByRole("button", { name: "Scan NVIDIA on schedule" }))
+      .toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(within(sectorPanel("AI")).getByRole("button", { name: "Scan NVIDIA now" }));
+    await waitFor(() => expect(api.sync).toHaveBeenCalledWith(["nvidia"]));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("a second press on the answer while it is being sent sends nothing more", async () => {
+    vi.mocked(api.addCompany)
+      .mockRejectedValueOnce(new ApiError("agreement required", 409, "consent-required", { kind: "directed", company: "obscureco" }))
+      .mockImplementationOnce(() => pending());
+    renderSection();
+    const addMore = await screen.findByRole("region", { name: "Add more companies" });
+    fireEvent.click(within(addMore).getByRole("button", { name: "Add by link" }));
+    const form = screen.getByRole("dialog", { name: "Add a company by link" });
+    fireEvent.change(within(form).getByLabelText("Careers page link"), {
+      target: { value: "https://obscureco.wd1.myworkdayjobs.com/External" },
+    });
+    fireEvent.click(within(form).getByRole("button", { name: "Add company" }));
+    const ask = await screen.findByRole("dialog", { name: /^Follow / });
+    const answer = within(ask).getByRole("button", { name: "Follow and scan" });
+    fireEvent.click(answer);
+    await waitFor(() => expect(answer).toBeDisabled());
+    fireEvent.click(answer);
+    expect(api.addCompany).toHaveBeenCalledTimes(2);
+  });
+
+  it("a company added by its link that needs the agreement asks in the dialog, and the answer adds it", async () => {
+    // The server asks each time the link comes without the agreement.
+    const asks = () => new ApiError("agreement required", 409, "consent-required", { kind: "directed", company: "obscureco" });
+    vi.mocked(api.addCompany).mockRejectedValueOnce(asks()).mockRejectedValueOnce(asks());
+    renderSection();
+    const addMore = await screen.findByRole("region", { name: "Add more companies" });
+    fireEvent.click(within(addMore).getByRole("button", { name: "Add by link" }));
+    const form = screen.getByRole("dialog", { name: "Add a company by link" });
+    fireEvent.change(within(form).getByLabelText("Company name"), { target: { value: "ObscureCo" } });
+    fireEvent.change(within(form).getByLabelText("Careers page link"), {
+      target: { value: "https://obscureco.wd1.myworkdayjobs.com/External" },
+    });
+    fireEvent.click(within(form).getByRole("button", { name: "Add company" }));
+
+    const ask = await screen.findByRole("dialog", { name: "Follow ObscureCo?" });
+    expect(ask).toHaveTextContent("Its careers site is scanned only at your direction.");
+    // Cancel goes back to the link: nothing added, the values kept.
+    fireEvent.click(within(ask).getByRole("button", { name: "Cancel" }));
+    const again = await screen.findByRole("dialog", { name: "Add a company by link" });
+    expect(within(again).getByLabelText("Company name")).toHaveValue("ObscureCo");
+    expect(api.addCompany).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(within(again).getByRole("button", { name: "Add company" }));
+    const answer = await screen.findByRole("dialog", { name: "Follow ObscureCo?" });
+    const shown = dialogText(answer);
+    fireEvent.click(within(answer).getByRole("button", { name: "Follow and scan" }));
+    await waitFor(() => expect(api.addCompany).toHaveBeenCalledTimes(3));
+    expect(vi.mocked(api.addCompany).mock.calls[2][0]).toEqual({
+      name: "ObscureCo",
+      careers_url: "https://obscureco.wd1.myworkdayjobs.com/External",
+      consent: { text: shown, locale: "en", scan_on_schedule: true },
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 });
 
@@ -1478,7 +1683,7 @@ describe("CompaniesSection — every other company, followed as one", () => {
     vi.mocked(api.followCompanyDirectory).mockResolvedValue(setStatus({ following: true, since: "2026-09-24T12:00:00Z" }));
     renderSection();
 
-    await waitFor(() => expect(setCard()).toHaveTextContent("About 10,000 companies on the same job sites"));
+    await waitFor(() => expect(setCard()).toHaveTextContent(msg("companies-add-more-companies-about-companies-on-the-same", { about: "10,000" })));
     expect(setCard()).toHaveTextContent("only the ones hiring for roles on your radar join your list");
     expect(within(addMore()).getByRole("button", { name: "Add by link" })).toBeInTheDocument();
     // No row for any of them: the set is not a list, and not a group.
@@ -1543,7 +1748,7 @@ describe("CompaniesSection — every other company, followed as one", () => {
     }));
     renderSection();
     await waitFor(() => expect(setCard()).toHaveTextContent("first scan paused on battery"));
-    expect(setCard()).toHaveTextContent("It picks up where it stopped when you plug in.");
+    expect(setCard()).toHaveTextContent(msg("companies-add-more-companies-first-scan-note", { scan: "paused" }));
     expect(setCard()).not.toHaveTextContent("first scan running");
     expect(setCard()).not.toHaveTextContent("The scan continues if you leave this page.");
     // What it read so far still counts.

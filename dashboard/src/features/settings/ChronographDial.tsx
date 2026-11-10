@@ -32,6 +32,7 @@ import {
   settingsChronographDialDiscoveryOrbit,
   settingsChronographDialDraggableScheduleMarks,
   settingsChronographDialFullScan,
+  settingsChronographDialCompanyLocked,
   settingsChronographDialMoveCompany,
   settingsChronographDialMovePlannedScan,
   settingsChronographDialNight,
@@ -402,7 +403,9 @@ export function ChronographDial({
             const stack = stackText(mark.events.length, mark.mode, plan !== null);
             const state = mark.overdue ? "overdue" : "scheduled";
             const name = !stacked
-              ? settingsChronographDialMoveCompany({ company: companyName(event.company), scan: modeLabel(event.mode, plan !== null), time })
+              ? reason
+                ? settingsChronographDialCompanyLocked({ company: companyName(event.company), scan: modeLabel(event.mode, plan !== null), time, reason })
+                : settingsChronographDialMoveCompany({ company: companyName(event.company), scan: modeLabel(event.mode, plan !== null), time })
               : lead
                 ? settingsChronographDialStackMovable({ stack, state, time, company: companyName(lead.company) })
                 : settingsChronographDialStackLocked({ stack, state, time });

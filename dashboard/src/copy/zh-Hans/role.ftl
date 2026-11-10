@@ -3,7 +3,7 @@
 ## features/job-detail/JobCompPanel.tsx
 role-job-comp-panel-the-employer-s-exact-words = 雇主的原话
 role-job-comp-panel-no-compensation-data-for-this = 这个职位没有薪酬数据。
-role-job-comp-panel-market-median-at-this-level = 该级别的市场中位数
+role-job-comp-panel-market-median-at-this-level = 该级别市场中位数
 role-job-comp-panel-this-package-is-the-market = 该估算是该级别市场中位数的 { $toFixed } 倍，通常说明级别或职能有误。
 role-job-comp-panel-base = 基本工资
 role-job-comp-panel-base-salary-stated-in-the = 招聘信息中注明的基本工资。
@@ -19,16 +19,16 @@ role-job-comp-panel-cash-every-month = 现金，每月发放
 role-job-comp-panel-target-not-guaranteed = 目标值，不保证
 role-job-comp-panel-per-year-vests-over-time = 每年，分期归属
 role-job-comp-panel-measured-split = 实测构成
-role-job-comp-panel-split-from-another-discipline = 来自其他职能的构成
+role-job-comp-panel-split-from-another-discipline = 参照其他职能构成
 role-job-comp-panel-estimated-split = 估算构成
-role-job-comp-panel-this-company-s-real-base = 这家公司在该级别和职能上实际的基本工资/奖金/股权构成
-role-job-comp-panel-no-measured-split-for-this = 该职能没有实测构成：根据这家公司其他职能同级别的数据推算
-role-job-comp-panel-no-measured-split-for-this-2 = 该公司没有实测构成：使用按资历估算的规则
+role-job-comp-panel-this-company-s-real-base = 来自这家公司自身的级别数据
+role-job-comp-panel-no-measured-split-for-this = 该职能无实测构成：按这家公司其他职能的同级数据推算
+role-job-comp-panel-no-measured-split-for-this-2 = 按级别估算
 role-job-comp-panel-about-the-split = 关于此构成
 role-job-comp-panel-posted-band-sits-well-above = 公布的区间远高于这家公司实测的 { $band } 基本工资，因此级别可能更高。
 role-job-comp-panel-posted-band-sits-well-below = 公布的区间远低于这家公司实测的 { $band } 基本工资，因此级别可能更低。
 role-job-comp-panel-you-choose-the-cash-stock = 现金与股权的比例由你选择
-role-job-comp-panel-equity-fills-a-per-level = 股权用于补足各级别的总薪酬目标
+role-job-comp-panel-equity-fills-a-per-level = 股权补足各级别总薪酬目标的其余部分
 role-job-comp-panel-equity-is-a-dollar-grant = 股权是按级别确定金额的美元授予
 role-job-comp-panel-vests = { $choice ->
     [yes] { $vesting } 归属，签约现金奖金补足第 1–2 年
@@ -45,9 +45,9 @@ role-job-comp-panel-the-posting-gives-an-hourly = 招聘信息给出的是时薪
 role-job-comp-panel-monthly-rate = 月薪
 role-job-comp-panel-the-posting-gives-a-monthly = 招聘信息给出的是月薪，按原样显示。
 role-job-comp-panel-period-unclear = 计薪周期不明
-role-job-comp-panel-the-posting-s-wording-and = 招聘信息的措辞与这个数字的大小不一致，因此无法判断是按小时、按月还是按年支付。请阅读下方雇主的原话。
-role-job-comp-panel-states-this-as-total-annual = { $company } 将其注明为不含奖金的年度总薪酬。员工自行选择工资与股票期权的比例，因此没有固定的现金/股权构成可以显示。
-role-job-comp-panel-employee-selected-mix = 员工自选比例
+role-job-comp-panel-the-posting-s-wording-and = 无法判断这是按小时、按月还是按年。请查看下方雇主的原话。
+role-job-comp-panel-states-this-as-total-annual = { $company } 将其注明为不含奖金的年度总薪酬。员工自行选择基本工资与股权的比例，因此没有固定构成。
+role-job-comp-panel-employee-selected-mix = 比例由你选择
 role-job-comp-panel-total-compensation = 总薪酬
 role-job-comp-panel-the-posting-states-total-compensation = 招聘信息注明了总薪酬，但没有构成明细，因此不显示明细。
 role-job-comp-panel-basis-not-stated = 口径未注明
@@ -63,11 +63,11 @@ role-job-comp-panel-about-stated-base-salary = 关于公布的基本工资
 role-job-comp-panel-of-base-stated = 基本工资的 { $round }%，已注明
 
 ## features/job-detail/JobDescription.tsx
-role-job-description-no-description-captured = 未获取到职位描述。
+role-job-description-no-description-captured = 这个职位没有描述。
 
 ## features/job-detail/JobDetail.tsx
 role-job-detail-back = 返回
-role-job-detail-1-in-compare-pick-one = 对比中有 1 个 · 再选一个
+role-job-detail-1-in-compare-pick-one = 对比中 1 个 · 再选一个
 role-job-detail-compare-roles = 对比 { $compareCount } 个职位
 role-job-detail-view-apply = 查看并申请
 role-job-detail-postings = { $lineage_size } 条招聘信息
@@ -93,7 +93,7 @@ role-job-detail-role = { $choice ->
    *[no] 职位
 }
 role-job-detail-back-2 = 返回
-role-job-detail-compare-is-full-max = 对比已满（最多 { $compareCap } 个）
+role-job-detail-compare-is-full-max = 对比已满：最多 { $compareCap } 个
 role-job-detail-compare = { $choice ->
     [yes] 对比中
    *[no] 对比
@@ -101,13 +101,13 @@ role-job-detail-compare = { $choice ->
 role-job-detail-it-s-no-longer-in = 这个职位已不存在。
 role-job-detail-not-started = { $choice ->
     [yes] 阶段
-   *[no] 未开始
+   *[no] 未加入求职进展
 }
 role-job-detail-stage = 阶段
-role-job-detail-likely-your-kind-of-role = 很可能是你想要的职位类型
-role-job-detail-likely-outside-your-worlds = 很可能不在你的领域内
+role-job-detail-likely-your-kind-of-role = 很可能对口
+role-job-detail-likely-outside-your-worlds = 很可能超出你的领域
 role-job-detail-hard-to-place = 难以归类
-role-job-detail-questions-the-employer-added-beyond = 雇主在姓名、联系方式和简历之外添加的问题，读取自招聘信息页面
+role-job-detail-questions-the-employer-added-beyond = 雇主在姓名、联系方式和简历之外提出的问题
 role-job-detail-similarity = 相似度
 
 ## features/job-detail/JobRequirementsPanel.tsx
@@ -120,14 +120,14 @@ role-job-requirements-panel-qualifications = 资质
 role-job-requirements-panel-ways-of-working = 工作方式
 role-job-requirements-panel-role-requirements = 职位要求
 role-job-requirements-panel-what-this-role-asks-for = 这个职位要求什么
-role-job-requirements-panel-importance-reflects-how-strongly-this = 重要程度反映这条招聘信息对每一项的强调程度：即在这条招聘信息中找到的明确要求，并保留雇主的原话。它与你自己的技能或机会无关。
+role-job-requirements-panel-importance-reflects-how-strongly-this = 招聘信息对每一项的强调程度，使用其原话。它与你的机会无关。
 role-job-requirements-panel-required = 要求 { $requiredYears } { $requiredYears2 }
 role-job-requirements-panel-core = { $core } 项核心
 role-job-requirements-panel-supporting-2 = { $supporting } 项辅助
 role-job-requirements-panel-sources = { $count ->
    *[other] { $sources } 个来源
 }
-role-job-requirements-panel-show-in-description = 在职位描述中显示
+role-job-requirements-panel-show-in-description = 在描述中显示
 role-job-requirements-panel-required-2 = 必需
 role-job-requirements-panel-preferred = 优先
 role-job-requirements-panel-used-in-role = 工作中使用
@@ -150,24 +150,24 @@ role-job-requirements-panel-years = { $count ->
 role-job-requirements-panel-role-requirements-2 = 职位要求
 role-job-requirements-panel-this-posting-has-no-stored = { $choice ->
     [yes] 正在分析要求…
-   *[no] 这条招聘信息没有已保存的文本可供分析。
+   *[no] 这条招聘信息没有可供分析的文本。
 }
 role-job-requirements-panel-preferred-2 = { $choice ->
     [yes] 必需
    *[no] 优先
 }
 role-job-requirements-panel-show-evidence = { $choice ->
-    [yes] 隐藏依据
-   *[no] 显示依据
+    [yes] 隐藏引文
+   *[no] 显示引文
 }
-role-job-requirements-panel-ways-of-working-evidence = 工作方式依据
+role-job-requirements-panel-ways-of-working-evidence = 工作方式引文
 role-job-requirements-panel-about-importance = 关于重要程度
 role-job-requirements-panel-important = { $choice ->
     [yes] 核心
    *[no] 重要
 }
 role-job-requirements-panel-skill-sources-show-evidence = { $count ->
-   *[other] { $display }，{ $bandLabel } { $modality } 技能，{ $sources } 个来源。显示依据。
+   *[other] { $display }，{ $bandLabel } { $modality } 技能，{ $sources } 个来源。显示引文。
 }
 role-job-requirements-panel-requirement-sources = { $count ->
    *[other] { $display }：{ $bandLabel } 要求，{ $modality }，{ $sources } 个来源
@@ -199,13 +199,13 @@ role-lineage-diff-changes-since-the-previous-posting = 与上一条招聘信息�
 
 ## features/job-detail/LineageStack.tsx
 role-lineage-stack-could-not-load-posting-history = 无法加载招聘信息历史。请重试。
-role-lineage-stack-postings-of-this-role = 这个职位的 { $size } 条招聘信息
+role-lineage-stack-postings-of-this-role = 该职位 { $size } 条招聘信息
 role-lineage-stack-first-seen = 首次发现 { $relDays }
-role-lineage-stack-req = 编号 { $req_id }
+role-lineage-stack-req = 编号 { $id }
 role-lineage-stack-locations = 地点
 role-lineage-stack-comp-est = 估算总薪酬
 role-lineage-stack-first-seen-2 = 首次发现
-role-lineage-stack-changes-from-the-previous-posting = 与上一条招聘信息相比的变化
+role-lineage-stack-changes-from-the-previous-posting = 较上一条的变化
 role-lineage-stack-posting-history = 招聘信息历史
 role-lineage-stack-previous-posting = 上一条招聘信息
 role-lineage-stack-postings = 招聘信息
@@ -215,7 +215,7 @@ role-lineage-stack-posting = { $choice ->
 }
 role-lineage-stack-role = { $role ->
     [original] 原始
-    [duplicate] 重复
+    [duplicate] 另一条招聘信息
    *[repost] 重新发布
 }
 role-lineage-stack-badge = { $choice ->
@@ -229,12 +229,12 @@ role-lineage-stack-last-seen = { $choice ->
 }
 
 ## features/job-detail/ListingAge.tsx
-role-listing-age-reading-the-history = 正在读取历史记录…
-role-listing-age-couldn-t-read-the-history = 无法读取历史记录。
+role-listing-age-reading-the-history = 正在加载历史记录…
+role-listing-age-couldn-t-read-the-history = 无法加载历史记录。
 role-listing-age-retry = 重试
-role-listing-age-role-listed-for-across-postings = 职位已发布 { $days }，共 { $postings } 条招聘信息。
-role-listing-age-compare-the-postings = 对比这些招聘信息
-role-listing-age-possibly-the-same-role-not = 可能是同一职位：{ $value }，确认前不计入。
+role-listing-age-role-listed-for-across-postings = 职位已发布 { $days }，共 { $postings } 条招聘信息
+role-listing-age-compare-the-postings = 对比招聘信息
+role-listing-age-possibly-the-same-role-not = 可能是同一职位：{ $value }，确认前不计入
 role-listing-age-review = 审核
 role-listing-age-listed-for = 已发布
 role-listing-age-since = 自 { $listed_since } 起，{ $bASIS }
@@ -252,18 +252,18 @@ role-listing-age-location = 地点
 role-listing-age-posting = 招聘信息
 role-listing-age-same-role-matched-automatically = { $choice ->
     [yes] 同一职位，已确认
-   *[no] 同一职位，自动匹配
+   *[no] 同一职位，自动配对
 }
 role-listing-age-published-by-the-employer = 由雇主发布
-role-listing-age-the-start = 起点
+role-listing-age-the-start = 从这里起算
 role-listing-age-first-seen-by-roleband = 首次发现
 role-listing-age-gone-from-the-careers-page = 已从招聘页面消失
-role-listing-age-came-back-same-requisition = 重新出现，职位编号相同
+role-listing-age-came-back-same-requisition = 重新出现，编号相同
 role-listing-age-employer-changed-its-date-to = 雇主将日期改为 { $to_at }
-role-listing-age-never-the-start = 不作为起点
+role-listing-age-never-the-start = 不从这里起算
 role-listing-age-an-earlier-posting-was-listed = { $choice ->
-        [yes] 较早的招聘信息 { $posting } 已发布
-       *[no] 曾发布过一条较早的招聘信息
+        [yes] 曾发布较早的招聘信息 { $posting }
+       *[no] 曾发布较早的招聘信息
     }{ $choice2 ->
         [yes] ，{ $until } 关闭
        *[no] { "" }
@@ -282,13 +282,13 @@ role-pay-floor-line-below-your-pay-floor = 低于你的最低基本工资 { $flo
 
 ## features/job-detail/PlaceSetSection.tsx
 role-place-set-section-could-not-load-this-role = 无法加载这个职位的其他地点。请重试。
-role-place-set-section-you-marked-this-posting-as = 你已将这条招聘信息标记为与其他地点相同文本不同的职位。
+role-place-set-section-you-marked-this-posting-as = 你已将这条招聘信息标为不同职位，有别于其他地点的相同文本
 role-place-set-section-undo = 撤销
-role-place-set-section-same-title-and-the-same = 每个地点的职位名称和职位描述都相同，只是地点及其相关内容（当地薪酬、福利或法律文本）或少量措辞不同，因此算作一个职位。
+role-place-set-section-same-title-and-the-same = 每个地点的职位名称和描述都相同，只有薪酬、福利或法律文本等当地细节或少数措辞不同，因此算作一个职位。
 role-place-set-section-different-roles = 不同职位
 role-place-set-section-marked-as-a-different-role = 已标记为不同职位
 role-place-set-section-undo-2 = 撤销
-role-place-set-section-could-not-record-the-verdict = 无法记录判断：{ $message }
+role-place-set-section-could-not-record-the-verdict = 无法保存你的选择。{ $message }
 role-place-set-section-also-listed-in = 也发布于
 role-place-set-section-same-place = 同一地点
 role-place-set-section-place-not-stated = 未注明地点
@@ -307,12 +307,12 @@ role-place-set-section-also-listed-in-2 = 也发布于 { $places }
 role-posting-reality-of-signs = { $criteria_total } 项信号中的 { $length } 项 · { $sTANDING_HEDGE }
 
 ## features/job-detail/TwinDeck.tsx
-role-twin-deck-could-not-load-twin-postings = 无法加载这个职位的孪生招聘信息。请重试。
-role-twin-deck-separate-roles-with-closely-related = 工作内容密切相关的不同职位
-role-twin-deck-req = 编号 { $req_id } · { $value }
-role-twin-deck-via-a-related-group-not = 通过相关分组 · 并非直接相关
-role-twin-deck-req-2 = { $title } · 编号 { $req_id }
-role-twin-deck-compare-with-related-roles = 与相关职位对比
+role-twin-deck-could-not-load-twin-postings = 无法加载相关职位。请重试。
+role-twin-deck-separate-roles-with-closely-related = 工作密切相关的不同职位
+role-twin-deck-req = 编号 { $id } · { $value }
+role-twin-deck-via-a-related-group-not = 经相关分组 · 非直接相关
+role-twin-deck-req-2 = { $title } · 编号 { $id }
+role-twin-deck-compare-with-related-roles = 对比相关职位
 role-twin-deck-related-roles = 相关职位
 role-twin-deck-has-related-roles = { $count ->
    *[other] 有 { $length } 个相关职位
@@ -320,7 +320,7 @@ role-twin-deck-has-related-roles = { $count ->
 role-twin-deck-location-not-listed = 未列出地点
 
 ## features/job-detail/applyAsk.ts
-role-apply-ask-nothing-beyond-your-resume = 简历之外无其他要求
+role-apply-ask-nothing-beyond-your-resume = 只需简历
 role-apply-ask-questions = { $count ->
    *[other] { $count } 个问题
 }
@@ -330,7 +330,7 @@ role-apply-ask-written-answers = { $count ->
 role-apply-ask-asks-your-expected-pay = 询问你的期望薪酬
 
 ## features/job-detail/JobRequirementsPanel.tsx
-role-job-requirements-panel-evidence = { $display } 的依据
+role-job-requirements-panel-evidence = { $display } 的引文
 
 ## features/job-detail/LineageDiff.tsx
 role-lineage-diff-added = 新增 { $join }
@@ -343,7 +343,7 @@ role-listing-age-changed = { $choice ->
 }
 
 ## features/job-detail/JobCompPanel.tsx
-role-job-comp-panel-the-posted-band-does-not = { $sPLIT_TITLE }。公布的区间与该级别不符，因此请将该构成视为暂定
+role-job-comp-panel-the-posted-band-does-not = { $sPLIT_TITLE }。公布的区间与该级别不符，因此请将该构成视为估算
 
 ## 招聘信息的状态代码，以文字表述。
 role-job-status-open = 开放
@@ -364,12 +364,12 @@ role-place-set-section-states-pay = · 公布 { $range }
 role-place-set-section-states-no-pay = · 未公布区间
 
 ## 选择阶段的作用。
-role-job-detail-tracking-explainer = 选择一个阶段来跟踪这个职位：它会被保存，求职进展会显示它的阶段，之后设定的跟进日期到期时会提醒你。
+role-job-detail-tracking-explainer = 选择一个阶段，这个职位就会连同该阶段一起保存。为下一步设置截止日期，即可收到提醒。
 role-job-comp-panel-estimate-of-total = 估算总薪酬：{ $range }
 role-job-comp-panel-split-not-reported = 无构成数据
-role-job-comp-panel-the-plugin-reports-no-split = 提供薪酬的插件给出了这个级别的数字，但没有说明它如何分为基本工资、奖金和股权，因此不做拆分。
+role-job-comp-panel-the-plugin-reports-no-split = 薪酬插件没有给出这个级别的基本工资、奖金和股权构成。
 role-job-comp-panel-roleband-splits-us-pay-only = 薪酬仅依据美国数据拆分为基本工资、奖金和股权。此职位在美国以外或跨多个国家，因此不做拆分。
-role-job-comp-panel-level-not-stated-or-mapped = 招聘信息未注明级别，或所注级别尚未对应到通用级别，因此薪酬不拆分为基本工资、奖金和股权，也不估算总额。
+role-job-comp-panel-level-not-stated-or-mapped = 没有标准级别时，不估算构成或总额。
 role-job-comp-panel-not-read-yet = 尚未读取
 role-job-comp-panel-estimated-base = 估算基本工资
 role-job-comp-panel-from-roleband-data = 来自内置数据。

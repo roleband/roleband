@@ -6,7 +6,7 @@ import { NotificationRow } from "../NotificationRow";
 import type { MovedPageVerbs } from "./MovedPagePanel";
 import { foundSentence, movedPageOf } from "./model";
 
-/* "{Company}'s careers page is gone": a careers page can move to another
+/* "Careers page gone: {Company}": a careers page can move to another
  * board, or be renamed to a name no guess reaches. The notice is where the
  * person answers: find it, use it, give its link, or stop following. */
 
@@ -52,12 +52,12 @@ describe("a careers page gone from its address", () => {
   it("finds the new page and moves the company to exactly what was found", async () => {
     const v = verbs();
     renderRow(gone, v);
-    const group = screen.getByRole("group", { name: "Hex Technologies's careers page" });
+    const group = screen.getByRole("group", { name: "Careers page: Hex Technologies" });
 
     await userEvent.click(within(group).getByRole("button", { name: "Find new careers page" }));
     expect(v.find).toHaveBeenCalledWith("hex-technologies", undefined);
     expect(await within(group).findByText(
-      "Found it: 36 roles, 30 of them roles seen at Hex Technologies before.",
+      "Found it: 36 roles, 30 of them seen at Hex Technologies before.",
     )).toBeInTheDocument();
 
     await userEvent.click(within(group).getByRole("button", { name: "Use this careers page" }));
@@ -69,7 +69,7 @@ describe("a careers page gone from its address", () => {
     renderRow(gone, v);
     await userEvent.click(screen.getByRole("button", { name: "Find new careers page" }));
     expect(await screen.findByText(
-      "Couldn't find it. Paste the link to Hex Technologies's new careers page.",
+      "Couldn't find it. Paste the link to the new careers page of Hex Technologies.",
     )).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Use this careers page" })).not.toBeInTheDocument();
 
@@ -106,10 +106,10 @@ describe("a careers page gone from its address", () => {
 
 describe("what was found is said as the evidence it was found by", () => {
   it.each([
-    [{ ...hex, found_by: "page" as const, roles: 11 }, "Amigo's own careers page links to it: 11 roles."],
+    [{ ...hex, found_by: "page" as const, roles: 11 }, "Amigo links to it from its own careers page: 11 roles."],
     [{ ...hex, found_by: "address" as const, roles: 1 }, "That page lists 1 role."],
-    [{ ...hex, found_by: "address" as const, roles: null }, "That page answers."],
-    [{ ...hex, roles: 2, shared: 1 }, "Found it: 2 roles, 1 of them a role seen at Amigo before."],
+    [{ ...hex, found_by: "address" as const, roles: null }, "That page loads."],
+    [{ ...hex, roles: 2, shared: 1 }, "Found it: 2 roles, 1 of them seen at Amigo before."],
     // With no total, "of them" has nothing to refer to, so the count stands alone.
     [{ ...hex, roles: null, shared: 30 }, "Found it: 30 roles seen at Amigo before."],
     [{ ...hex, roles: null, shared: 1 }, "Found it: 1 role seen at Amigo before."],

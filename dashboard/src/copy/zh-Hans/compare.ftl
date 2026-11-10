@@ -19,8 +19,8 @@ compare-screen-picking = { $needed ->
    *[another] 对比中 { $picked } 个 · 再选一个
 }
 compare-screen-comparing = { $capacity ->
-    [full] 正在对比 { $count } 个职位 · 完整
-   *[open] 正在对比 { $count } 个职位
+    [full] 对比 { $count } 个职位 · 已满
+   *[open] 对比 { $count } 个职位
 }
 compare-screen-back-aria = 返回
 compare-screen-comparison = 对比
@@ -38,7 +38,7 @@ compare-screen-show-or-hide = { $fields ->
    *[folded] 显示
 }
 compare-screen-passages-legend = { $passages ->
-    [shared] 琥珀色段落并非出现在每条招聘信息中。
+    [shared] 高亮段落只出现在部分招聘信息中。
    *[none] 这些招聘信息没有共同的段落。
 }
 compare-screen-description-view = { $view ->

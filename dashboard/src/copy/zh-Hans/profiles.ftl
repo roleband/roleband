@@ -36,12 +36,12 @@ profiles-company-profile-panel-retry = 重试
 profiles-company-profile-panel-open = { $open_roles } 个在招
 profiles-company-profile-panel-not-on-your-board = 不在你的雷达上
 profiles-company-profile-panel-0-open = 0 个在招
-profiles-company-profile-panel-values-come-from-the-source = 除非标签另有说明，数值均来自本面板底部注明的来源。来源不一致时，以最可信的来源为准，分歧会标记待审核。
+profiles-company-profile-panel-values-come-from-the-source = 除非另有标注，信息均来自底部注明的来源。来源不一致时，以最可信的来源为准。
 profiles-company-profile-panel-offices-open-roles = 办公地点与在招职位
 profiles-company-profile-panel-countries = { $count ->
    *[other] { $countryCount } 个国家/地区
 }
-profiles-company-profile-panel-where-this-company-is-hiring = 根据在招的招聘信息，这家公司目前在哪些地方招聘。
+profiles-company-profile-panel-where-this-company-is-hiring = 根据这家公司在招的招聘信息。
 profiles-company-profile-panel-comp-baseline = 职级薪酬
 profiles-company-profile-panel-base = 基本工资
 profiles-company-profile-panel-bonus = 奖金
@@ -62,12 +62,12 @@ profiles-company-profiles-view-clear-the-search = 清除搜索
 profiles-company-profiles-view-companies-unavailable = 公司不可用
 profiles-company-profiles-view-could-not-load-companies = 无法加载你的公司。请重试。
 profiles-company-profiles-view-loading-companies = 正在加载你的公司…
-profiles-company-profiles-view-track-one-in-and-its = 在 { $link } 中关注一家公司，其资料就会显示在这里：职级薪酬、股权类型、员工人数，以及每项信息的依据。
-profiles-company-profiles-view-settings-companies = 设置 › 公司
+profiles-company-profiles-view-track-one-in-and-its = 在 { $link } 中关注一家公司，即可在这里查看它的职级薪酬、股权和员工人数，并附来源。
+profiles-company-profiles-view-settings-companies = 设置 › 关注的公司
 profiles-company-profiles-view-all-profiles-current = 所有资料均为最新
 profiles-company-profiles-view-show-all = 显示全部
 profiles-company-profiles-view-needs-review-only = 仅显示待审核
-profiles-company-profiles-view-enrich-fields = 补充字段
+profiles-company-profiles-view-enrich-fields = 编辑详情
 profiles-company-profiles-view-no-companies-to-show = { $choice ->
     [v1] 没有与“{ $query }”匹配的已标记公司。
     [v2] 没有与“{ $query2 }”匹配的公司。
@@ -137,7 +137,7 @@ profiles-labels-equity-vehicle = 股权类型
 profiles-labels-vesting = 归属
 profiles-labels-options = 期权
 profiles-labels-none = 无
-profiles-labels-cash-election = 可选现金
+profiles-labels-cash-election = 现金或股权
 profiles-labels-sources-disagree = 来源不一致
 profiles-labels-not-checked-recently = 近期未核查
 profiles-labels-nothing-on-record = 暂无记录
@@ -154,7 +154,7 @@ profiles-roster-dataset = 已调研的公司
 profiles-roster-dataset-hint = 级别与录用条件，逐家公司调研。
 profiles-roster-no-sector = 不属于任何行业
 profiles-roster-other-hint = 从更广泛的市场中关注。
-profiles-stock-price-panel-needs-key = 股价来自 Tiingo 集成。{ $key }，即可填满这张图表。
+profiles-stock-price-panel-needs-key = 股价来自 Tiingo。{ $key }，即可为这张图表填入数据。
 profiles-stock-price-panel-waiting = 股价将很快到达，取决于 Tiingo 的上限。
 profiles-stock-price-panel-empty-title = 暂无股价
 profiles-stock-price-panel-range =
@@ -191,83 +191,84 @@ profiles-benefits-category =
         [company_specific] 其他公司福利
        *[other] 其他
     }
-profiles-benefits-type =
-    { $type ->
-        [medical_insurance] 医疗保险
-        [dental_insurance] 牙科保险
-        [vision_insurance] 视力保险
-        [health_savings_account] 健康储蓄账户（HSA）
-        [flexible_spending_account] 灵活支出账户（FSA）
-        [employee_assistance] 员工援助计划
-        [wellness_allowance] 健身与健康报销
-        [onsite_gym] 公司内健身房
-        [fitness_classes] 公司内健身课程
-        [gym_discount] 健身房折扣
-        [onsite_clinic] 公司内诊所
-        [life_insurance] 人寿保险
-        [disability_insurance] 伤残保险
-        [accident_insurance] 意外死亡与伤残（AD&D）保险
-        [travel_insurance] 商务差旅保险
-        [pet_insurance] 宠物保险
-        [retirement_plan] 401k
-        [roth_retirement_option] Roth 401k
-        [after_tax_retirement_option] Mega Backdoor Roth
-        [employee_share_purchase] 员工购股计划（ESPP）
-        [student_loan_support] 学生贷款还款计划
-        [employee_credit] 员工信贷
-        [vacation] 带薪假（休假 / 个人假）
-        [sick_leave] 病假
-        [bereavement_leave] 丧假
-        [sabbatical] 学术休假
-        [military_leave] 兵役假
-        [volunteer_leave] 志愿服务假
-        [maternity_leave] 产假
-        [paternity_leave] 陪产假
-        [fertility_support] 生育辅助
-        [adoption_support] 收养协助
-        [surrogacy_support] 代孕协助
-        [nursing_facilities] 公司内母婴室
-        [remote_work] 远程办公
-        [workstation_equipment] 定制工位
-        [phone_allowance] 话费报销
-        [company_phone] 公司手机
-        [learning_support] 学习与发展
-        [tuition_support] 学费报销
-        [immigration_support] 移民协助
-        [relocation_support] 搬迁奖金
-        [transport_allowance] 交通补贴
-        [company_shuttle] 公司班车
-        [campus_bikes] 园区自行车
-        [public_transport] 区域公共交通
-        [housing_support] 住房补贴
-        [snacks] 免费零食
-        [lunch] 免费午餐
-        [drinks] 免费饮品
-        [breakfast] 免费早餐
-        [dinner] 免费晚餐
-        [pet_friendly_workplace] 可带宠物上班
-        [inclusive_facilities] 无性别卫生间
-        [onsite_laundry] 公司内洗衣房
-        [onsite_shops] 公司内员工商店
-        [vehicle_maintenance] 公司内更换轮胎
-        [vehicle_cleaning] 公司内洗车
-        [employee_discounts] 员工折扣
-        [charitable_matching] 捐款配捐
-        [referral_bonus] 内推奖金
-        [company_specific_perk] 独特福利
-        [pandemic_support] 新冠相关福利
-        [parental_leave] 育儿假
-        [paid_holidays] 带薪节假日
-        [flexible_hours] 弹性工作时间
-        [hybrid_work] 混合办公
-        [home_office_allowance] 居家办公补贴
-        [mental_health_support] 心理健康支持
-        [childcare_support] 托育支持
-        [caregiver_leave] 照护假
-        [food_allowance] 餐饮补贴
-        [financial_advice] 理财咨询
-       *[other] 其他
-    }
+profiles-benefits-type = { $type ->
+    [medical_insurance] 医疗保险
+    [dental_insurance] 牙科保险
+    [vision_insurance] 视力保险
+    [health_savings_account] 健康储蓄账户（HSA）
+    [flexible_spending_account] 灵活支出账户（FSA）
+    [employee_assistance] 员工援助计划
+    [wellness_allowance] 健身或健康报销
+    [onsite_gym] 公司内健身房
+    [fitness_classes] 公司内健身课程
+    [gym_discount] 健身房折扣
+    [onsite_clinic] 公司内诊所
+    [life_insurance] 人寿保险
+    [disability_insurance] 伤残保险
+    [accident_insurance] 意外死亡与伤残（AD&D）保险
+    [travel_insurance] 商务差旅保险
+    [pet_insurance] 宠物保险
+    [retirement_plan] 退休计划
+    [us_401k] 401(k)
+    [ca_rrsp] RRSP
+    [roth_retirement_option] Roth 401(k)
+    [after_tax_retirement_option] Mega backdoor Roth
+    [employee_share_purchase] 员工购股计划（ESPP）
+    [student_loan_support] 学生贷款还款
+    [employee_credit] 员工信贷
+    [vacation] 带薪休假
+    [sick_leave] 病假
+    [bereavement_leave] 丧假
+    [sabbatical] 学术休假
+    [military_leave] 兵役假
+    [volunteer_leave] 志愿服务假
+    [maternity_leave] 产假
+    [paternity_leave] 陪产假
+    [fertility_support] 生育支持
+    [adoption_support] 收养支持
+    [surrogacy_support] 代孕支持
+    [nursing_facilities] 公司内哺乳室
+    [remote_work] 远程办公
+    [workstation_equipment] 定制工位
+    [phone_allowance] 话费报销
+    [company_phone] 公司手机
+    [learning_support] 学习与发展
+    [tuition_support] 学费报销
+    [immigration_support] 移民支持
+    [relocation_support] 搬迁奖金
+    [transport_allowance] 交通补贴
+    [company_shuttle] 公司班车
+    [campus_bikes] 园区自行车
+    [public_transport] 公共交通
+    [housing_support] 住房补贴
+    [snacks] 免费零食
+    [lunch] 免费午餐
+    [drinks] 免费饮品
+    [breakfast] 免费早餐
+    [dinner] 免费晚餐
+    [pet_friendly_workplace] 可带宠物上班
+    [inclusive_facilities] 无性别卫生间
+    [onsite_laundry] 公司内洗衣房
+    [onsite_shops] 公司内员工商店
+    [vehicle_maintenance] 公司内更换轮胎
+    [vehicle_cleaning] 公司内洗车
+    [employee_discounts] 员工折扣
+    [charitable_matching] 捐款配捐
+    [referral_bonus] 内推奖金
+    [company_specific_perk] 独特福利
+    [pandemic_support] 新冠相关福利
+    [parental_leave] 育儿假
+    [paid_holidays] 带薪节假日
+    [flexible_hours] 弹性工作时间
+    [hybrid_work] 混合办公
+    [home_office_allowance] 居家办公补贴
+    [mental_health_support] 心理健康支持
+    [childcare_support] 托育支持
+    [caregiver_leave] 照护假
+    [food_allowance] 餐饮补贴
+    [financial_advice] 理财咨询
+   *[other] 其他
+}
 profiles-benefits-in-country = 适用于 { $country }
 profiles-offer-heading = 录用方案如何构成
 profiles-offer-sub = 这家公司如何构成薪酬，依据公司的说明或员工的反馈。
@@ -306,28 +307,27 @@ profiles-level-base-sub = { $stock ->
         [yes] 其软件工程职级中每个级别的估算基本工资、奖金和股权。只有各部分都已知时才显示总额。
        *[no] 其软件工程职级中每个级别的估算基本工资和奖金。股权尚不清楚，因此没有总额。
     }
-profiles-level-base-bonus =
-    { $choice ->
-        [pct] { $amount }（目标 { $pct }）
-        [none] 无年度奖金
-       *[unknown] 未知
-    }
+profiles-level-base-bonus = { $choice ->
+    [pct] { $amount }（目标 { $pct }）
+    [none] 无年度奖金
+   *[unknown] 未知
+}
 profiles-level-base-below-lower = 低于下一级
 profiles-level-base-unknown = 未知
 profiles-level-base-no-stock = 无股权
 profiles-level-base-none = 还没有这家公司软件工程各级别的基本工资。
 profiles-benefits-estimate = { $value }/年，估算
-profiles-benefits-mentions =
-    { $count ->
-       *[other] 在招聘信息中出现 { $count } 次
-    }
-profiles-benefits-other-wordings =
-    { $open ->
-        [yes] 隐藏其他表述
-       *[no] { $count } 种其他表述
-    }
+profiles-benefits-mentions = { $count ->
+   *[other] 招聘信息提及 { $count } 次
+}
+profiles-benefits-other-wordings = { $open ->
+    [yes] 隐藏其他表述
+   *[no] 另有 { $count } 种表述
+}
 profiles-benefits-also-listed = 另列有：{ $names }
 profiles-benefits-shared = 招聘信息中同时提到多项福利的说法
 profiles-benefits-not-collected = 尚未收集这家公司的福利。这并不代表它没有福利。
 profiles-not-covered = { $plugin } 尚未读取这家公司。请在 设置 › 插件 中关闭它，以查看内置数据。
 profiles-field-not-covered = { $plugin } 尚未读取
+
+profiles-level-base-no-code = 无 { $level } 级别

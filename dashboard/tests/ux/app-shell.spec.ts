@@ -52,7 +52,7 @@ async function openPipelineWithADeadChunk(page: Page) {
 test("a route chunk that fails to load is reported, not a blank page", async ({ page }) => {
   // Both engines: chrome intact, the failure stated, a way out offered.
   const { alert } = await openPipelineWithADeadChunk(page);
-  await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: msg("shell-rail-aria") })).toBeVisible();
   await expect(alert).toContainText(/couldn't load|could not load/i);
   await expect(alert.getByRole("button", { name: "Try again" })).toBeVisible();
 });
@@ -413,6 +413,19 @@ test("a rail count past the cap becomes a dot that still carries the exact numbe
   await expect(pill).toHaveText("7");
   const pillBox = await pill.boundingBox();
   expect(Math.round(pillBox!.width)).toBeGreaterThan(Math.round(dotBox!.width));
+});
+
+/* A group's name is announced on entering it, so it says what the numbers
+ * inside are; each count inside keeps its own name. */
+test("a screen reader hears the top bar's counts as the radar summary", async ({ page }) => {
+  await mockGet(page, "/api/stats", (route) =>
+    route.fulfill({ json: { ...statsFixture, new_today: 6 } }));
+
+  await page.goto("/");
+
+  const summary = page.getByRole("group", { name: msg("shell-stats-aria"), exact: true });
+  await expect(summary).toBeVisible();
+  await expect(summary.getByRole("button", { name: msg("shell-stat-new-aria", { count: 6 }), exact: true })).toBeVisible();
 });
 
 /* The bell paints the SAME number as the rail's Notifications badge, in the

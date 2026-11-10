@@ -35,6 +35,7 @@ import { companyList, scopeCatalog, scopePreview } from "./scopeFixtures";
 import type { CompanyDiscoveryState } from "../../src/api";
 
 export const companyDiscovery = {
+  reads_waiting: [],
   // Sectors are slugs; the register names them from the catalog.
   sectors: [
     {
@@ -72,13 +73,13 @@ export const companyDiscovery = {
       slug: "google", display: "Google", careers_url: "https://google.com/careers",
       sectors: ["faang"], aliases: [], connector_state: "live",
       parked_reason: null, selectable: true, tracked: true,
-      enabled: true, visible: true, builtin: true, curated: true, directory: false, wall: null, consented: false, status: "active",
+      enabled: true, visible: true, builtin: true, curated: true, directory: false, directed: false, scan_on_schedule: false, wall: null, consented: false, status: "active",
     },
     {
       slug: "apple", display: "Apple", careers_url: "https://apple.com/careers",
       sectors: ["faang"], aliases: [], connector_state: "ready",
       parked_reason: null, selectable: true, tracked: false,
-      enabled: false, visible: true, builtin: true, curated: true, directory: false, wall: null, consented: false, status: null,
+      enabled: false, visible: true, builtin: true, curated: true, directory: false, directed: false, scan_on_schedule: false, wall: null, consented: false, status: null,
     },
     {
       // Two sectors, and the OTHER one has a long display name: this row
@@ -87,79 +88,79 @@ export const companyDiscovery = {
       slug: "nvidia", display: "NVIDIA", careers_url: "https://nvidia.example/careers",
       sectors: ["gaming", "semiconductors"], aliases: [], connector_state: "ready",
       parked_reason: null, selectable: true, tracked: false,
-      enabled: false, visible: true, builtin: false, curated: false, directory: false, wall: null, consented: false, status: null,
+      enabled: false, visible: true, builtin: false, curated: false, directory: false, directed: false, scan_on_schedule: false, wall: null, consented: false, status: null,
     },
     {
       slug: "snowflake", display: "Snowflake", careers_url: "https://careers.snowflake.com",
       sectors: ["ai"], aliases: [], connector_state: "planned",
       parked_reason: null, selectable: true, tracked: false,
-      enabled: false, visible: true, builtin: false, curated: false, directory: false, wall: null, consented: false, status: null,
+      enabled: false, visible: true, builtin: false, curated: false, directory: false, directed: false, scan_on_schedule: false, wall: null, consented: false, status: null,
     },
     {
       slug: "tesla", display: "Tesla", careers_url: "https://tesla.com/careers",
       sectors: ["robotics"], aliases: [], connector_state: "parked",
       parked_reason: "bot_protected", selectable: false,
-      tracked: false, enabled: false, visible: true, builtin: false, curated: false, directory: false, wall: null, consented: false, status: null,
+      tracked: false, enabled: false, visible: true, builtin: false, curated: false, directory: false, directed: false, scan_on_schedule: false, wall: null, consented: false, status: null,
     },
     {
       slug: "datadog", display: "Datadog", careers_url: "https://datadog.example/careers",
       sectors: ["cloud-data-devtools"], aliases: [], connector_state: "ready",
       parked_reason: null, selectable: true, tracked: false,
-      enabled: false, visible: true, builtin: false, curated: false, directory: false, wall: null, consented: false, status: null,
+      enabled: false, visible: true, builtin: false, curated: false, directory: false, directed: false, scan_on_schedule: false, wall: null, consented: false, status: null,
     },
     {
       slug: "github", display: "GitHub", careers_url: "https://github.example/careers",
       sectors: ["cloud-data-devtools"], aliases: [], connector_state: "ready",
       parked_reason: null, selectable: true, tracked: false,
-      enabled: false, visible: true, builtin: false, curated: false, directory: false, wall: null, consented: false, status: null,
+      enabled: false, visible: true, builtin: false, curated: false, directory: false, directed: false, scan_on_schedule: false, wall: null, consented: false, status: null,
     },
     {
       slug: "gitlab", display: "GitLab", careers_url: "https://gitlab.example/careers",
       sectors: ["cloud-data-devtools"], aliases: [], connector_state: "ready",
       parked_reason: null, selectable: true, tracked: false,
-      enabled: false, visible: true, builtin: false, curated: false, directory: false, wall: null, consented: false, status: null,
+      enabled: false, visible: true, builtin: false, curated: false, directory: false, directed: false, scan_on_schedule: false, wall: null, consented: false, status: null,
     },
     {
       slug: "hashicorp", display: "HashiCorp", careers_url: "https://hashicorp.example/careers",
       sectors: ["cloud-data-devtools"], aliases: [], connector_state: "ready",
       parked_reason: null, selectable: true, tracked: false,
-      enabled: false, visible: true, builtin: false, curated: false, directory: false, wall: null, consented: false, status: null,
+      enabled: false, visible: true, builtin: false, curated: false, directory: false, directed: false, scan_on_schedule: false, wall: null, consented: false, status: null,
     },
     {
       slug: "mongodb", display: "MongoDB", careers_url: "https://mongodb.example/careers",
       sectors: ["cloud-data-devtools"], aliases: [], connector_state: "ready",
       parked_reason: null, selectable: true, tracked: false,
-      enabled: false, visible: true, builtin: false, curated: false, directory: false, wall: null, consented: false, status: null,
+      enabled: false, visible: true, builtin: false, curated: false, directory: false, directed: false, scan_on_schedule: false, wall: null, consented: false, status: null,
     },
     {
       slug: "confluent", display: "Confluent", careers_url: "https://confluent.example/careers",
       sectors: ["cloud-data-devtools"], aliases: [], connector_state: "ready",
       parked_reason: null, selectable: true, tracked: false,
-      enabled: false, visible: true, builtin: false, curated: false, directory: false, wall: null, consented: false, status: null,
+      enabled: false, visible: true, builtin: false, curated: false, directory: false, directed: false, scan_on_schedule: false, wall: null, consented: false, status: null,
     },
     {
       slug: "vercel", display: "Vercel", careers_url: "https://vercel.example/careers",
       sectors: ["cloud-data-devtools"], aliases: [], connector_state: "ready",
       parked_reason: null, selectable: true, tracked: false,
-      enabled: false, visible: true, builtin: false, curated: false, directory: false, wall: null, consented: false, status: null,
+      enabled: false, visible: true, builtin: false, curated: false, directory: false, directed: false, scan_on_schedule: false, wall: null, consented: false, status: null,
     },
     {
       slug: "docker", display: "Docker", careers_url: "https://docker.example/careers",
       sectors: ["cloud-data-devtools"], aliases: [], connector_state: "ready",
       parked_reason: null, selectable: true, tracked: false,
-      enabled: false, visible: true, builtin: false, curated: false, directory: false, wall: null, consented: false, status: null,
+      enabled: false, visible: true, builtin: false, curated: false, directory: false, directed: false, scan_on_schedule: false, wall: null, consented: false, status: null,
     },
     {
       slug: "elastic", display: "Elastic", careers_url: "https://elastic.example/careers",
       sectors: ["cloud-data-devtools"], aliases: [], connector_state: "ready",
       parked_reason: null, selectable: true, tracked: false,
-      enabled: false, visible: true, builtin: false, curated: false, directory: false, wall: null, consented: false, status: null,
+      enabled: false, visible: true, builtin: false, curated: false, directory: false, directed: false, scan_on_schedule: false, wall: null, consented: false, status: null,
     },
     {
       slug: "grafana", display: "Grafana Labs", careers_url: "https://grafana.example/careers",
       sectors: ["cloud-data-devtools"], aliases: [], connector_state: "ready",
       parked_reason: null, selectable: true, tracked: false,
-      enabled: false, visible: true, builtin: false, curated: false, directory: false, wall: null, consented: false, status: null,
+      enabled: false, visible: true, builtin: false, curated: false, directory: false, directed: false, scan_on_schedule: false, wall: null, consented: false, status: null,
     },
   ],
 } satisfies CompanyDiscoveryState;

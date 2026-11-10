@@ -261,7 +261,7 @@ export function MatchingModel({
         </span>
         <span className="intel-model-end">
           <span data-selection="chrome" className="intel-model-note intel-mono">
-            {aiMatchingModelRolesRanked({ choice: (interrupted) ? "yes" : "no", value: (interrupted) ? String(copyNumber((m.corpus_total - stale))) : "", corpus_total: (interrupted) ? String(copyNumber(m.corpus_total)) : "", corpus_embedded: (interrupted) ? "" : String(copyNumber(m.corpus_embedded)) })}
+            {aiMatchingModelRolesRanked({ choice: (interrupted) ? "yes" : "no", value: m.corpus_total - stale, corpus_total: m.corpus_total, corpus_embedded: m.corpus_embedded })}
           </span>
           {/* The only signal that the user pinned this rather than letting
               the computer decide: the status word is "Current" either way,

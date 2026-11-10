@@ -87,7 +87,7 @@ async function recordFloorWrites(page: Page) {
 }
 
 const SETUP_URL = /\/profile\/direction\?setup=1$/;
-const railLink = (page: Page, name: string) => page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name });
+const railLink = (page: Page, name: string) => page.getByRole("navigation", { name: msg("shell-rail-aria") }).getByRole("link", { name });
 
 test("a fresh install goes from the intro through Profile's walk to a board that says how far its first scan has got", async ({ page, isMobile }) => {
   const saves = await install(page, FRESH);
@@ -106,7 +106,7 @@ test("a fresh install goes from the intro through Profile's walk to a board that
   // along.
   await expect(page).toHaveURL(SETUP_URL);
   await expect(page.getByRole("heading", { name: "What kind of role are you looking for?" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Primary" })).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: msg("shell-rail-aria") })).toHaveCount(0);
   await expect(page.locator(".topbar")).toHaveCount(0);
   await expect(page.getByRole("heading", { level: 1, name: "Set up your radar" })).toBeVisible();
   await expect(page.getByText("Setup, step 1 of 7")).toBeVisible();
@@ -165,7 +165,7 @@ test("a fresh install goes from the intro through Profile's walk to a board that
   // The two that sharpen say they are optional and are skipped untouched.
   // Skip sits beside Continue, which stays at the row's end; all three
   // buttons keep one row, a phone's included.
-  for (const question of ["Any particular roles?", "Anything you care about, or want to avoid?"]) {
+  for (const question of [msg("profile-walk-steps-any-particular-roles"), "Anything you care about, or want to avoid?"]) {
     await expect(page.getByRole("heading", { name: question })).toBeVisible();
     await expect(page.locator(".walk-card-head").getByText("Optional", { exact: true })).toBeVisible();
     const back = (await page.getByRole("button", { name: "Back" }).boundingBox())!;
@@ -399,7 +399,7 @@ test("the radar intro has the window to itself, and Escape enters the walk", asy
   await install(page, FRESH);
   await page.goto("/welcome");
   await expect(page.getByRole("heading", { name: "Scanning careers pages for your next role" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Primary" })).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: msg("shell-rail-aria") })).toHaveCount(0);
   await expect(page.locator(".topbar")).toHaveCount(0);
 
   await page.keyboard.press("ControlOrMeta+k");
@@ -638,7 +638,7 @@ for (const [when, levels] of [
     await page.getByLabel("Where are you based?").fill("silicon");
     await page.getByRole("button", { name: "Add Silicon Valley" }).click();
     await page.getByRole("button", { name: "Continue" }).click();
-    await expect(page.getByRole("heading", { name: "Any particular roles?" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: msg("profile-walk-steps-any-particular-roles") })).toBeVisible();
     await expect(page.locator(".walk-roles .select-card small").filter({ hasText: /\d[\d,]* roles?\b/ })).toHaveCount(0);
   });
 }
@@ -713,7 +713,7 @@ test("on Discipline the names of a row start on one line, whatever their hints r
   await page.getByLabel("Where are you based?").fill("silicon");
   await page.getByRole("button", { name: "Add Silicon Valley" }).click();
   await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByRole("heading", { name: "Any particular roles?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: msg("profile-walk-steps-any-particular-roles") })).toBeVisible();
 
   const rows = () => page.locator(".walk-roles .walk-cards").evaluateAll((grids) => grids.flatMap((grid) => {
     const byRow = new Map<number, { name: number; box: number; nameLines: number; hintLines: number }[]>();
@@ -730,7 +730,7 @@ test("on Discipline the names of a row start on one line, whatever their hints r
   }));
   const spread = (values: number[]) => Math.max(...values) - Math.min(...values);
   let uneven = 0;
-  const crafts = page.getByRole("group", { name: "Craft for Hands-on, as the expert" }).getByRole("button");
+  const crafts = page.getByRole("group", { name: "Disciplines for Hands-on, as the expert" }).getByRole("button");
   expect(await crafts.count()).toBeGreaterThan(1);
   for (let index = 0; index < await crafts.count(); index++) {
     await crafts.nth(index).click();
@@ -978,7 +978,7 @@ test("companies that cannot search a place share one note", async ({ page, isMob
 
   const note = page.getByRole("note").filter({ hasText: "can't be searched for" });
   await expect(note).toHaveCount(1);
-  await expect(note).toHaveText(/^The careers sites of \S+ and \S+ can't be searched for Sweden yet, so their roles there won't reach your radar\.$/);
+  await expect(note).toHaveText(/^The careers pages of \S+ and \S+ can't be searched for Sweden yet, so those roles won't reach your radar\.$/);
   expect(await note.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
   await page.screenshot({ path: test.info().outputPath("where-note.png"), fullPage: true });
 });

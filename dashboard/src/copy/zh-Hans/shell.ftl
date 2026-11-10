@@ -39,11 +39,11 @@ shell-route-welcome = 欢迎
 shell-route-compare = 对比
 shell-route-dashboard = RoleBand
 shell-skip-to-content = 跳到主要内容
-shell-topbar-aria = 应用导航
+shell-topbar-aria = 顶部栏
 shell-breadcrumb-aria = 面包屑导航
 shell-palette-open-aria = 打开命令面板，⌘ K
 shell-palette-open-title = 命令面板（⌘K）
-shell-stats-aria = 任务概况
+shell-stats-aria = 雷达概况
 shell-stat-unknown = 未知
 shell-stat-open = 开放
 shell-stat-open-aria = { $count } 个开放职位
@@ -65,7 +65,7 @@ shell-loading-role = 正在加载此职位…
 shell-load-role-failed = 无法加载此职位
 
 ## 侧边导航栏
-shell-rail-aria = 主导航
+shell-rail-aria = 主要
 shell-brand = RoleBand
 shell-brand-line = 机会雷达
 shell-rail-collapse-aria = 收起导航
@@ -81,11 +81,12 @@ shell-theme-dark = 深色模式
 ## 数据新鲜度
 shell-freshness-label = 上次扫描
 shell-freshness-offline = 上次扫描时间未知
-shell-freshness-offline-aria = 上次扫描：状态离线
+shell-freshness-offline-aria = 上次扫描：未知
 shell-freshness-offline-title = 状态不可用
 shell-freshness-oldest = 最早的扫描：{ $when }
 shell-freshness-never = 尚未扫描
 shell-freshness-waiting = 等待完整扫描：{ $companies }
+shell-reason-setup-source = 在源代码文件夹中运行 ./setup.sh 以完成更新。完成后会立即继续扫描。
 shell-freshness-aria = 上次扫描：{ $state }
 shell-freshness-loading-aria = 上次扫描：加载中
 
@@ -95,23 +96,23 @@ shell-scan-result-none = 已是最新
 shell-scan-queued-until = { $count } 个排队中 · 等到 { $time }
 shell-scan-queued-blocked = { $count } 个排队中 · { $reason ->
     [paused] 已暂停
-    [policy_denied] 不定时扫描
-    [backoff] 等待重试
+    [policy_denied] 扫描已关闭
+    [backoff] 网站要求放慢速度
    *[other] 等待中
 }
 shell-scan-queued = { $count } 个排队中
-shell-scan-waiting =
-    { $count } 个排队中 · { $reason ->
-        [preflight_running] 正在先检查代码
-        [preflight_failed] 已暂停：代码未通过检查
-        [waiting_for_wake] 等待电脑唤醒
-        [waiting_for_mains] 等待接通电源
-        [schema_pending] 等待更新完成
-        [dependencies_pending] 等待更新完成
-        [supervisor_stale] 后台服务没有运行
-        [busy_external] 另一个扫描正在运行
-       *[other] 等待中
-    }
+shell-scan-waiting = { $count } 个排队中 · { $reason ->
+    [preflight_running] 正在先检查此版本
+    [preflight_failed] 已暂停：此版本未通过检查
+    [waiting_for_wake] 等待你的电脑唤醒
+    [waiting_for_mains] 等待接通电源
+    [schema_pending] 等待更新完成
+    [dependencies_pending] 等待更新完成
+    [setup_source] 运行 ./setup.sh 以完成更新
+    [supervisor_stale] 后台服务没有运行
+    [busy_external] 另一个扫描正在运行
+   *[other] 等待中
+}
 shell-scan-stopping = 正在停止…
 shell-scan-stop = 停止扫描
 shell-scan-scanning = 扫描中…
@@ -125,7 +126,7 @@ shell-scan-could-not-start = 无法开始
 shell-scan-could-not-stop = 无法停止
 shell-scan-stop-title = 停止扫描
 shell-scan-running-title = 正在你关注的每家公司查找新职位…
-shell-scan-requested-title = 已请求；等待计划程序开始执行
+shell-scan-requested-title = 等待开始
 shell-scan-idle-title = 在你关注的每家公司查找新职位
 shell-scan-company-count = { $count } 家公司
 shell-scan-found = 已找到 { $count } 个
@@ -152,13 +153,13 @@ shell-palette-empty = 没有匹配的命令
 ## 通知铃铛与类别
 shell-notif-digest = 为你推荐的新职位
 shell-notif-reminder = 提醒
-shell-notif-saved-listed = 已保存的职位已发布
+shell-notif-saved-listed = 已保存职位已发布
 shell-notif-pay-up = 公布薪酬区间上调
 shell-notif-pay-down = 公布薪酬区间下调
-shell-notif-reposted = 已保存的职位已重新发布
+shell-notif-reposted = 已保存职位重新发布
 shell-notif-long-open = 长期开放的已保存职位有更新
-shell-notif-changed = 已保存的职位有变化
-shell-notif-closed = 已保存的职位已关闭
+shell-notif-changed = 已保存职位有变化
+shell-notif-closed = 已保存职位已关闭
 shell-notif-scanning = 扫描中
 shell-notif-scan-problems = 扫描完成，但有问题
 shell-notif-scan-unfinished = 扫描超时
@@ -178,7 +179,7 @@ shell-bell-view-all = 查看全部
 shell-compare-chip = 在对比中
 shell-compare-chip-aria = 对比中有 { $count } 个职位
 shell-compare-chip-title = 打开对比
-shell-compare-save-failed = 无法保存你正在对比的内容。重新加载后可能会丢失。
+shell-compare-save-failed = 无法保留你的对比选择。重新加载后可能会丢失。
 shell-compare-cleared = 已从对比中移除 { $count } 个职位
 shell-rail-pending = { $count } 个待处理
 shell-rail-item-count = { $label }，{ $badge }
@@ -192,13 +193,21 @@ shell-model-switch = { $phase ->
    *[converting] 正在切换模型
 }
 shell-model-switch-aria = { $phase ->
-    [downloading] 正在下载排序模型。打开设置中的 AI 查看进度
-   *[converting] 正在切换排序模型。打开设置中的 AI 查看进度
+    [downloading] 正在下载排序模型。打开 设置 › AI 查看进度
+   *[converting] 正在切换排序模型。打开 设置 › AI 查看进度
 }
 shell-model-switch-title = 在 设置 › AI 中查看进度。排序在此期间照常进行。
 shell-tab-settings-plugins = 插件
 shell-tab-settings-privacy = 隐私
 shell-freshness-checked = 上次扫描 · { $age }
 shell-freshness-behind = 上次扫描 · { $age } · { $count } 家公司未及时扫描
-shell-scan-updating-estimates = 正在更新估算…
+shell-scan-updating-estimates = 更新估算中…
 shell-scan-updating-estimates-aria = 正在更新估算
+
+shell-tab-insights-levels = 级别
+
+shell-tab-pipeline-list = 考虑中
+
+shell-tab-pipeline-board = 看板
+
+shell-tab-pipeline-up-next = 近期安排

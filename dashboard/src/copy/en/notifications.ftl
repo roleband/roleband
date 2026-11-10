@@ -1,14 +1,14 @@
 ## notifications: moved as it was found (wording=as-is)
 
 ## features/notifications/DigestPanel.tsx
-# kind=sentence wording=as-is
+# kind=sentence
 notifications-digest-panel-more-roles-opened-today = { $count ->
-    [one] { $hidden } more role opened today.
-   *[other] { $hidden } more roles opened today.
+    [one] { $hidden } more new role.
+   *[other] { $hidden } more new roles.
 }
 # kind=sentence
 notifications-digest-panel-unranked-set-an-intent-statement = { $choice ->
-    [yes] Best fit first, against your current intent.
+    [yes] Best fit first, from your aim and saved roles.
    *[no] Not ranked yet. Add your aim or save a few roles.
 }
 
@@ -82,14 +82,14 @@ notifications-notification-screen-nothing-here-yet = { $choice ->
 # kind=sentence
 notifications-notification-screen-scans-new-roles-for-you = { $choice ->
     [yes] No notification matches these filters.
-   *[no] Scans, new roles for you, posted range changes, and news about roles you saved land here.
+   *[no] Scans, new roles for you and news about roles you saved appear here.
 }
 # kind=label wording=as-is
 notifications-notification-screen-search-notifications = Search notifications
 # kind=label wording=as-is
 notifications-notification-screen-find-a-role-company-or = Find a role, company or scan…
-# kind=heading wording=as-is
-notifications-notification-screen-clear-every-filter-and-lens = Clear every filter and lens
+# kind=tooltip
+notifications-notification-screen-clear-every-filter-and-lens = Clear every filter
 # kind=status
 notifications-notification-screen-loading = Loading notifications…
 # kind=heading
@@ -165,8 +165,8 @@ notifications-notif-diagnostics-text = { $choice ->
 notifications-moved-page-panel-stop-following = Stop following
 # kind=button wording=as-is
 notifications-moved-page-panel-find-new-careers-page = Find new careers page
-# kind=label wording=as-is
-notifications-moved-page-panel-looking-for-s-new-careers = Looking for { $display }'s new careers page…
+# kind=status
+notifications-moved-page-panel-looking-for-s-new-careers = Looking for the new careers page of { $display }…
 # kind=button wording=as-is
 notifications-moved-page-panel-not-this-one = Not this one
 # kind=label wording=as-is
@@ -176,19 +176,19 @@ notifications-moved-page-panel-check = Check
 # kind=sentence
 notifications-moved-page-panel-roleband-couldn-t-find-it = { $choice ->
     [yes] That link isn't a careers page that can be read.
-   *[no] Couldn't find it. Paste the link to { $display }'s new careers page.
+   *[no] Couldn't find it. Paste the link to the new careers page of { $display }.
 }
-# kind=sentence wording=as-is
-notifications-moved-page-panel-couldn-t-look-just-now = Couldn't look just now. Try again, or paste its link.
-# kind=label wording=as-is
-notifications-moved-page-panel-s-careers-page = { $display }'s careers page
+# kind=sentence
+notifications-moved-page-panel-couldn-t-look-just-now = Search failed. Try again, or paste the link to its new careers page.
+# kind=label
+notifications-moved-page-panel-s-careers-page = Careers page: { $display }
 # kind=label wording=as-is
 notifications-moved-page-panel-use-this-careers-page = { $choice ->
     [yes] Switching…
    *[no] Use this careers page
 }
-# kind=sentence wording=as-is
-notifications-moved-page-panel-paste-the-link-to-s = Paste the link to { $display }'s new careers page.
+# kind=sentence
+notifications-moved-page-panel-paste-the-link-to-s = Paste the link to the new careers page of { $display }.
 
 ## features/notifications/moved-page/model.ts
 # kind=label wording=as-is
@@ -196,22 +196,22 @@ notifications-model-roles = { $count ->
     [one] { $count2 } role
    *[other] { $count2 } roles
 }
-# kind=sentence wording=as-is
+# kind=sentence
 notifications-model-that-page-lists = { $choice ->
-    [yes] That page answers.
+    [yes] That page loads.
    *[no] That page lists { $roles }.
 }
-# kind=sentence wording=as-is
+# kind=sentence
 notifications-model-s-own-careers-page-links = { $choice ->
-    [yes] { $display }'s own careers page links to it.
-   *[no] { $display2 }'s own careers page links to it: { $roles }.
+    [yes] { $display } links to it from its own careers page.
+   *[no] { $display2 } links to it from its own careers page: { $roles }.
 }
 # kind=sentence
 notifications-model-found-it-roleband-saw-at = Found it: { $shared } seen at { $display } before.
-# kind=label wording=as-is
+# kind=label
 notifications-model-of-them-roles = { $count ->
-    [one] 1 of them a role
-   *[other] { $shared } of them roles
+    [one] 1 of them
+   *[other] { $shared } of them
 }
 # kind=sentence
 notifications-model-found-it-roleband-saw-at-2 = Found it: { $roles }, { $seen } seen at { $display } before.
@@ -239,7 +239,7 @@ notifications-sync-contribution-failed-2 = Failed: { $failed }
 # kind=status
 notifications-sync-contribution-blocked-the-source-is-refusing = Blocked by their careers page: { $blocked }
 # kind=status
-notifications-sync-contribution-paused-while-this-computer = Paused while this computer slept or was offline: { $suspended }
+notifications-sync-contribution-paused-while-this-computer = Paused while your computer slept or was offline: { $suspended }
 # kind=label
 notifications-sync-contribution-partial = Partly scanned: { $degraded }
 # kind=status
@@ -332,14 +332,14 @@ notifications-model-scanned-found = { $companies } scanned · { $opportunitiesDe
 }
 
 ## features/notifications/useNotificationsController.ts
+# kind=toast note="$what is a lower-case action phrase from the code: mark that notification read, dismiss that notification, use that careers page, stop following a company. $reason is the failure's own error, or Try again. when the error explains nothing."
+notifications-use-notifications-controller-could-not = Couldn't { $what }. { $reason }
 # kind=label
-notifications-use-notifications-controller-could-not = Couldn't { $what }
-# kind=label wording=as-is
-notifications-use-notifications-controller-mark-it-read = mark it read
-# kind=label wording=as-is
+notifications-use-notifications-controller-mark-it-read = mark that notification read
+# kind=label
 notifications-use-notifications-controller-mark-it-unread = { $choice ->
-    [yes] mark it read
-   *[no] mark it unread
+    [yes] mark that notification read
+   *[no] mark that notification unread
 }
 # kind=label wording=as-is
 notifications-use-notifications-controller-dismiss-that-notification = dismiss that notification
@@ -352,7 +352,7 @@ notifications-use-notifications-controller-undo-that = undo that
 # kind=label wording=as-is
 notifications-use-notifications-controller-use-that-careers-page = use that careers page
 # kind=status
-notifications-use-notifications-controller-roleband-now-reads-s-new = Now reading { $display }'s new careers page
+notifications-use-notifications-controller-roleband-now-reads-s-new = Now scanning the new careers page of { $display }
 # kind=label wording=as-is
 notifications-use-notifications-controller-stop-following = stop following { $display }
 # kind=label wording=as-is
@@ -427,14 +427,14 @@ notif-duration-hours = { $h }h { $m }m
 notif-sources-all = every company you follow
 # kind=notification
 notif-sources-more = { $names } and { $more } more
-# kind=notification wording=as-is
-notif-affected-none = no single company; see the scan's notes
+# kind=notification
+notif-affected-none = no single company
 # kind=notification wording=as-is
 notif-closed = { $company } closed a role you saved
 # kind=notification
 notif-reposted = { $company } reposted a role you saved
 # kind=notification
-notif-listed-again = { $company } listed again a role you saved
+notif-listed-again = { $company } added another posting for a role you saved
 # kind=notification wording=as-is
 notif-listed = { $company } listed a role you saved
 # kind=notification
@@ -453,21 +453,21 @@ notif-pay-raised = { $company } raised the posted range on a role you saved
 notif-pay-lowered = { $company } lowered the posted range on a role you saved
 # kind=notification
 notif-pay-change = { $title }: { $before } → { $after }
-# kind=notification wording=as-is
-notif-updated-long-open = { $company } updated a role you saved, listed for a long time
+# kind=notification
+notif-updated-long-open = { $company } updated a long-open role you saved
 # kind=notification wording=as-is
 notif-changed = { $company } changed a role you saved
 # kind=notification
 notif-digest = { $count ->
-    [one] { $count } new role for you today
-   *[other] { $count } new roles for you today
+    [one] { $count } new role on your radar today
+   *[other] { $count } new roles on your radar today
 }
 # kind=notification wording=as-is
 notif-digest-lead = { $title } at { $company }
 # kind=notification wording=as-is
 notif-digest-fit = { $band } fit: { $lead }
-# kind=notification same-as=notif-sources-more
-notif-digest-more = { $lead } and { $more } more
+# kind=notification
+notif-digest-more = { $lead }, plus { $more } more
 # kind=notification wording=as-is
 notif-follow-up = Follow up with { $company } · { $when }
 # kind=notification wording=as-is
@@ -476,26 +476,26 @@ notif-due-today = due today
 notif-overdue = { $days }d overdue
 # kind=notification
 notif-follow-up-body = { $action }: { $title } ({ $stage })
-# kind=notification wording=as-is
-notif-no-next-action = No next action set
+# kind=notification
+notif-no-next-action = No next step set
 # kind=notification
 notif-gone-quiet = No news from { $company } in { $days } days
 # kind=notification
-notif-gone-quiet-body = { $title } ({ $stage }): time to follow up, or set a date
-# kind=notification wording=as-is
-notif-coverage-unreachable = Its careers page isn't answering.
+notif-gone-quiet-body = { $title } ({ $stage }): time to follow up, or set a next step
 # kind=notification
-notif-coverage-unreadable = Its careers page answered with nothing readable.
-# kind=notification wording=as-is
-notif-coverage-partial = Scans read only part of its careers page.
+notif-coverage-unreachable = Its careers page isn't loading.
+# kind=notification
+notif-coverage-unreadable = Its careers page loads, but nothing on it can be read.
+# kind=notification
+notif-coverage-partial = Scans reach only part of its careers page.
 # kind=notification wording=as-is
 notif-coverage-unknown = No scan has reached its careers page.
 # kind=notification
 notif-coverage-waiting-title = Waiting to scan { $company }
 # kind=notification
 notif-coverage-waiting-outage = Waiting to scan { $count } companies
-# kind=notification wording=as-is
-notif-coverage-empty-listing = Its careers page answered with an empty list.
+# kind=notification
+notif-coverage-empty-listing = Its careers page loads with no roles on it.
 # kind=notification
 notif-coverage-board-missing = Its careers page is no longer at its last address.
 # kind=notification wording=as-is
@@ -521,11 +521,11 @@ notif-coverage-held-until-listed = { $held ->
     [one] { $held } role stays as last seen until it lists roles again.
    *[other] { $held } roles stay as last seen until it lists roles again.
 }
-# kind=notification wording=as-is
+# kind=notification
 notif-coverage-gone-title = { $days ->
-    [0] { $company }'s careers page is gone
-    [one] { $company }'s careers page is gone · { $days } day
-   *[other] { $company }'s careers page is gone · { $days } days
+    [0] Careers page gone: { $company }
+    [one] Careers page gone: { $company } · { $days } day
+   *[other] Careers page gone: { $company } · { $days } days
 }
 # kind=notification wording=as-is
 notif-coverage-gone-moved = { $company } has likely moved its roles to a new careers page. Find its new careers page, or stop following { $company }.
@@ -553,10 +553,10 @@ notif-scan-started-body = Scanning { $count ->
 }: { $sources }.
 # kind=notification
 notif-scan-started-all-body = Scanning { $sources }.
-# kind=notification wording=as-is
-notif-scan-summary = { $found } found / { $created } created / { $updated } updated
-# kind=notification wording=as-is
-notif-scan-summary-skipped = { $found } found / { $created } created / { $updated } updated / { $skipped } skipped or unchanged
+# kind=notification
+notif-scan-summary = Roles: { $found } found · { $created } added · { $updated } seen again or closed
+# kind=notification
+notif-scan-summary-skipped = Roles: { $found } found · { $created } added · { $updated } seen again or closed · { $skipped } skipped or unchanged
 # kind=notification wording=as-is
 notif-finished-at = Finished at { $at } after { $duration }.
 # kind=notification wording=as-is
@@ -575,27 +575,27 @@ notif-read-saved = What it found is saved.
 notif-scan-failed = Couldn't scan, nothing was updated
 # kind=notification
 notif-run-failed = scan failed
-# kind=notification wording=as-is
-notif-scan-derivation-failed = Scan collected, but a derivation failed
 # kind=notification
-notif-post-pass-unfinished = A step after the scan did not finish: { $failure }.
+notif-scan-derivation-failed = Scan finished, but a step after it didn't
 # kind=notification
-notif-every-source-delivered = Every company in this scan was read, but a step after the scan did not finish: { $failure }.
+notif-post-pass-unfinished = A step after the scan didn't finish. The error is in the details.
+# kind=notification
+notif-every-source-delivered = Every company was scanned, but a step after the scan didn't finish. The error is in the details.
 # kind=notification
 notif-data-saved = What the scan found is saved.
 # kind=notification wording=as-is
 notif-scan-problems = Scan finished with problems
 # kind=notification
 notif-asleep = This computer slept for { $duration } during the scan, so some companies were only partly scanned.
-# kind=notification wording=as-is
-notif-unreached = { $count ->
-    [one] Not reached before the scan ran out of time: { $sources }. It is still due, so the next scan picks it up.
-   *[other] Not reached before the scan ran out of time: { $sources }. They are still due, so the next scan picks them up.
-}
 # kind=notification
+notif-unreached = { $count ->
+    [one] { $sources } wasn't reached before the scan's time limit. Its postings stay as last seen until the next scan.
+   *[other] { $sources } weren't reached before the scan's time limit. Their postings stay as last seen until the next scan.
+}
+# kind=notification note="Both forms read the same in English; the select on $count stays for languages that need it."
 notif-offline = { $count ->
-    [one] This machine had no internet connection while scanning: { $sources }. What was found is saved, and it is still due, so the next scan picks it up.
-   *[other] This machine had no internet connection while scanning: { $sources }. What was found is saved, and they are still due, so the next scan picks them up.
+    [one] Couldn't scan { $sources }: no internet connection. The next scan tries again.
+   *[other] Couldn't scan { $sources }: no internet connection. The next scan tries again.
 }
 # kind=notification
 notif-cut-short = Stopped at the scan's time limit: { $sources }. What was found is saved, and postings there stay as last seen.
@@ -604,15 +604,15 @@ notif-unfinished-u = Scan ran out of time before { $unreached }
 # kind=notification
 notif-unfinished-o = Scan lost its internet connection at { $offline }
 # kind=notification
-notif-unfinished-c = Scan covered { $cut } only in part
+notif-unfinished-c = Scan only partly covered { $cut }
 # kind=notification
 notif-unfinished-uo = Scan ran out of time before { $unreached } and lost its internet connection at { $offline }
 # kind=notification
-notif-unfinished-uc = Scan ran out of time before { $unreached } and covered { $cut } only in part
+notif-unfinished-uc = Scan ran out of time before { $unreached } and only partly covered { $cut } more
 # kind=notification
-notif-unfinished-oc = Scan lost its internet connection at { $offline } and covered { $cut } only in part
+notif-unfinished-oc = Scan lost its internet connection at { $offline } and only partly covered { $cut } more
 # kind=notification
-notif-unfinished-uoc = Scan ran out of time before { $unreached }, lost its internet connection at { $offline } and covered { $cut } only in part
+notif-unfinished-uoc = Scan ran out of time before { $unreached }, lost its internet connection at { $offline } and only partly covered { $cut } more
 
 ## A notification's priority code on its badge.
 # kind=label wording=as-is

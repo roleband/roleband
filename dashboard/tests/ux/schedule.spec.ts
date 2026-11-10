@@ -7,6 +7,7 @@
    Anthropic's, so the editing contract below still holds companies. Every
    schedule route carries `?tz=`, so every pattern here allows a query. */
 
+import { msg } from "../../src/test/msg";
 import { expect, test } from "./fixtures";
 import { installSettingsRoutes, syncSchedule } from "./settingsHarness";
 
@@ -34,7 +35,7 @@ test("Schedule draws the plan's runs on one clock and lists them beside it", asy
   await expect(panel.getByLabel("Full scan done by")).toBeVisible();
   await expect(panel.getByText("Your computer is usually on")).toHaveCount(0);
   const next = panel.getByRole("list", { name: "Next scans" });
-  await expect(next.getByText("Full scan · when you turn it on")).toBeVisible();
+  await expect(next.getByText(msg("settings-schedule-section-run-title", { state: "wake", kind: "full", time: "" }))).toBeVisible();
   await expect(next.getByText("1,112 companies · 41 min")).toBeVisible();
   await panel.getByRole("button", { name: "2 companies keep a time you set" }).click();
   const pinned = panel.getByRole("list", { name: "Times you set" });
@@ -45,13 +46,20 @@ test("Schedule draws the plan's runs on one clock and lists them beside it", asy
   await expect(region.getByText(/Meta: its site doesn't allow scheduled scans/))
     .toBeVisible();
 
-  await expect(panel.getByText(/your computer is on 09:00 to 18:00 on weekdays/)).toBeVisible();
-  await expect(panel.getByRole("button", { name: "6h" })).toHaveAttribute("aria-pressed", "true");
+  // The learned sentence is one part of a longer paragraph.
+  await expect(panel.getByText(msg("settings-plan-learned-weekdays-weekends", {
+    days: 14,
+    weekdays: "set",
+    weekdayTimes: msg("settings-plan-to", { start: "09:00", end: "18:00" }),
+    weekends: "off",
+    weekendTimes: msg("settings-plan-usually-off"),
+  }))).toBeVisible();
+  await expect(panel.getByRole("button", { name: msg("settings-schedule-hours", { hours: 6 }) })).toHaveAttribute("aria-pressed", "true");
   await expect(region.getByLabel("Scheduler policy")).toHaveCount(0);
 
   await region.getByRole("button", { name: "Every company's scans" }).click();
   const sheet = page.getByRole("dialog", { name: "Every company's scans" });
-  await expect(sheet.getByText("Policy denied")).toBeVisible();
+  await expect(sheet.getByText(msg("settings-schedule-section-policy-denied"))).toBeVisible();
   await expect(sheet.getByText("Its own time: full scan at 20:00")).toBeVisible();
 });
 
@@ -108,7 +116,7 @@ test("dragging a quick scan moves the quick scans, and a click shows a scan's nu
   expect(await page.evaluate(() => String(getSelection()))).toBe("");
 
   await page.getByRole("button", { name: /^Move full scan/ }).click();
-  const inspector = page.getByRole("dialog", { name: "Scan inspector" });
+  const inspector = page.getByRole("dialog", { name: msg("settings-plan-run-inspector-scan-inspector") });
   await expect(inspector.getByText("1,112")).toBeVisible();
   await expect(inspector.getByLabel("Full scan done by")).toBeVisible();
 });
@@ -197,7 +205,7 @@ test("choosing how often it repeats is saved and the clock redraws from the answ
   const region = page.getByRole("region", { name: "Schedule" });
   await expect(region.locator('[data-testid="plan-run"]')).toHaveCount(2);
 
-  await region.getByRole("group", { name: "Quick scan every" }).getByRole("button", { name: "3h" }).click();
+  await region.getByRole("group", { name: "Quick scan every" }).getByRole("button", { name: msg("settings-schedule-hours", { hours: 3 }) }).click();
 
   await expect.poll(() => writes.length).toBe(1);
   expect(writes[0].body).toEqual({ repeat_hours: 3 });
@@ -218,15 +226,15 @@ test("Orbit Clock direct controls persist a company schedule time", async ({ pag
   await page.goto("/settings/schedule");
 
   if (testInfo.project.name === "mobile") {
-    await page.getByRole("button", { name: /Move OpenAI full scan/i }).click();
-    const exactTime = page.getByLabel("OpenAI full scan time");
+    await page.getByRole("button", { name: /OpenAI: full scan at .*, drag to move/i }).click();
+    const exactTime = page.getByLabel("OpenAI: full scan time");
     await expect(exactTime).toBeVisible();
     await exactTime.fill("20:30");
     // The field commits when the edit is finished, not while it is being made.
     await exactTime.blur();
   } else {
     const handle = page.getByRole("button", {
-      name: /Move OpenAI full scan/i,
+      name: /OpenAI: full scan at .*, drag to move/i,
     });
     await expect(handle).toBeVisible();
     const box = await handle.boundingBox();
@@ -289,12 +297,14 @@ test.describe("the typed exact-time control", () => {
     });
     await page.goto("/settings/schedule");
 
-    await page.getByRole("button", { name: /Move OpenAI full scan/i }).click();
-    const exactTime = page.getByLabel("OpenAI full scan time");
+    await page.getByRole("button", { name: /OpenAI: full scan at .*, drag to move/i }).click();
+    const exactTime = page.getByLabel("OpenAI: full scan time");
     await expect(exactTime).toBeVisible();
     await expect(exactTime).toHaveValue("20:00");
 
-    await exactTime.click();
+    // Focus lands on the hour, the field's first part; a click would land on
+    // whichever part sits under the pointer.
+    await exactTime.focus();
     await page.keyboard.type("0230PM");
 
     // Mid-edit the field holds what was typed and the caret has not been taken
@@ -333,9 +343,9 @@ test("closing the inspector discards a time that was typed but never committed",
     });
     await page.goto("/settings/schedule");
 
-    await page.getByRole("button", { name: /Move OpenAI full scan/i }).click();
-    const exactTime = page.getByLabel("OpenAI full scan time");
-    await exactTime.click();
+    await page.getByRole("button", { name: /OpenAI: full scan at .*, drag to move/i }).click();
+    const exactTime = page.getByLabel("OpenAI: full scan time");
+    await exactTime.focus();
     await page.keyboard.type("0230PM");
     await expect(exactTime).toHaveValue("14:30");
 
@@ -346,8 +356,43 @@ test("closing the inspector discards a time that was typed but never committed",
 
     // And the mark still reads the persisted time, not the abandoned one.
     await expect(page.getByRole("button", {
-      name: /Move OpenAI full scan, currently 20:00/i,
+      name: /OpenAI: full scan at 20:00, drag to move/i,
     })).toBeVisible();
+  });
+
+  /* The list of times beside the field: one click to open it, one to pick.
+     A pointer that opens it leaves no focus ring on the field, only the thin
+     edge of an open picker, and the list scrolls itself, never the page. */
+  test("the done-by time is picked from a list of times in one click", async ({ page }) => {
+    const writes: Array<Record<string, unknown>> = [];
+    await page.route("/api/schedule/plan?**", async (route) => {
+      if (route.request().method() === "PUT") writes.push(route.request().postDataJSON());
+      await route.fulfill({ json: syncSchedule });
+    });
+    await page.goto("/settings/schedule");
+
+    const panel = page.getByRole("complementary", { name: "When scans run" });
+    const field = panel.locator(".ui-timefield");
+    await field.scrollIntoViewIfNeeded();
+    const pageScroll = () => page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>("*")]
+        .filter((each) => !each.closest("[role=listbox]"))
+        .reduce((sum, each) => sum + each.scrollTop, window.scrollY));
+    const before = await pageScroll();
+
+    await panel.getByRole("button", { name: msg("shared-time-field-choose") }).click();
+    const times = page.getByRole("listbox", { name: msg("shared-time-field-times") });
+    await expect(times).toBeVisible();
+    await expect(field).toHaveCSS("outline-style", "none");
+    expect(await pageScroll()).toBe(before);
+
+    // Nothing is set yet: the list opens around the morning, 8:00 in view.
+    const eight = times.getByRole("option", { name: /^8:00 AM/ });
+    await expect(eight).toBeInViewport();
+    await times.getByRole("option", { name: /^7:30 AM/ }).click();
+    await expect.poll(() => writes.length).toBe(1);
+    expect(writes[0]).toEqual({ ready_by_minute: 7 * 60 + 30 });
+    await expect(times).toBeHidden();
   });
 });
 
@@ -390,7 +435,7 @@ test("under the timers the cycle band is drawn once the burst outgrows its own m
   await expect(region.locator('[data-testid="reconciliation-window"] .dial-window-lead'))
     .toHaveCount(0);
   await expect(region.getByRole("complementary", { name: /Upcoming scans/i })
-    .getByText(/2 scans · projected through/i)).toBeVisible();
+    .getByText(/2 scans · done by about/i)).toBeVisible();
   await expect(region.getByLabel("Schedule clock legend")
     .getByText("Full scan window")).toBeVisible();
 });
@@ -402,13 +447,13 @@ test("a stack opens as one combined view of the companies sharing the tick", asy
   // Under the plan a stack of pinned full scans says so in the plan's words.
   await page.getByRole("button", { name: /2 full scans at .*open to see all/i }).click();
 
-  const inspector = page.getByRole("dialog", { name: /scan schedule inspector/i });
-  await expect(inspector).toContainText(/2 share \d{2}:\d{2}/);
+  const inspector = page.getByRole("dialog", { name: msg("settings-chronograph-inspector-scan-schedule-inspector") });
+  await expect(inspector).toContainText(/2 scans at \d{2}:\d{2}/);
   await expect(inspector.getByText("Anthropic", { exact: true })).toBeVisible();
   await expect(inspector.getByText("OpenAI", { exact: true })).toBeVisible();
   // Both are settable from here — the stack is not a dead end.
-  await expect(inspector.getByLabel("Anthropic full scan time")).toBeEnabled();
-  await expect(inspector.getByLabel("OpenAI full scan time")).toBeEnabled();
+  await expect(inspector.getByLabel("Anthropic: full scan time")).toBeEnabled();
+  await expect(inspector.getByLabel("OpenAI: full scan time")).toBeEnabled();
 });
 
 test("dragging a stack peels off exactly one connector", async ({ page }, testInfo) => {
@@ -444,8 +489,8 @@ test("clicking a mark opens the exact-time control the dial promises", async ({ 
 
   // The readout tells the user to click a mark for an exact time. Cancelling
   // pointerdown to stop text selection would eat that click on desktop.
-  await page.getByRole("button", { name: /Move OpenAI full scan/i }).click();
-  await expect(page.getByLabel("OpenAI full scan time")).toBeVisible();
+  await page.getByRole("button", { name: /OpenAI: full scan at .*, drag to move/i }).click();
+  await expect(page.getByLabel("OpenAI: full scan time")).toBeVisible();
 });
 
 test("the clock resists text selection while the agenda beside it stays copyable", async ({ page }) => {

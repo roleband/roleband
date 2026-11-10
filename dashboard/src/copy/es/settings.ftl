@@ -8,36 +8,36 @@ settings-language-partial = { $name }, traducido en parte
 settings-language-check = { $name }, para revisar textos
 settings-region-label = Números y fechas
 settings-region-description = Cómo se escriben los números y las fechas: { $number }, { $date }.
-settings-region-automatic = Como tu sistema
+settings-region-automatic = Igual que tu sistema
 settings-region-option = { $country }: { $number }, { $date }
 settings-save-failed = No se pudo guardar. Inténtalo de nuevo.
 
 ## features/settings/ChronographDial.tsx
-settings-chronograph-dial-night = NOCHE
+settings-chronograph-dial-night = Noche
 settings-chronograph-dial-full-scan = Escaneo completo
 settings-chronograph-dial-quick-scan = Escaneo rápido
-settings-chronograph-dial-usually-off = Normalmente apagado
+settings-chronograph-dial-usually-off = Normalmente en reposo o apagado
 settings-chronograph-dial-a-time-you-set = Una hora fijada por ti
 settings-chronograph-dial-reconciliation-orbit = Escaneos completos
 settings-chronograph-dial-discovery-orbit = Escaneos rápidos
 settings-chronograph-dial-authoritative-cycle = Franja del escaneo completo
 settings-chronograph-dial-scan-clock = Reloj de escaneo
-settings-chronograph-dial-draggable-schedule-marks = Marcas de horario arrastrables
+settings-chronograph-dial-draggable-schedule-marks = Escaneos arrastrables
 settings-chronograph-dial-scan-running = { $kind ->
     [full] Escaneo completo en curso desde { $time }
    *[quick] Escaneo rápido en curso desde { $time }
 }
 settings-chronograph-dial-move-planned-scan = { $kind ->
     [full] { $start ->
-        [wake] Mover escaneo completo, al encenderlo, hacia las { $time }
+        [wake] Mover escaneo completo, al despertarse tu equipo, hacia las { $time }
        *[clock] Mover escaneo completo, a las { $time }
     }
    *[quick] { $start ->
-        [wake] Mover escaneo rápido, al encenderlo, hacia las { $time }
+        [wake] Mover escaneo rápido, al despertarse tu equipo, hacia las { $time }
        *[clock] Mover escaneo rápido, a las { $time }
     }
 }
-settings-chronograph-dial-move-company = Mover { $company } { $scan }, ahora a las { $time }
+settings-chronograph-dial-move-company = { $company }: { $scan } a las { $time }, arrastra para mover
 settings-chronograph-dial-stack-movable = { $stack } { $state ->
         [overdue] pendiente ahora
        *[scheduled] a las { $time }
@@ -50,15 +50,15 @@ settings-chronograph-dial-still-at = { $stack } aún a las { $time }
 settings-chronograph-dial-schedule-clock-legend = Leyenda del reloj de horario
 
 ## features/settings/ChronographInspector.tsx
-settings-chronograph-inspector-share = { $count } comparten { $time }
+settings-chronograph-inspector-share = { $count } escaneos a las { $time }
 settings-chronograph-inspector-due-now = Pendiente ahora
 settings-chronograph-inspector-scheduled = Programado
 settings-chronograph-inspector-closes-roles = Cierra puestos
 settings-chronograph-inspector-held-until = Retenido hasta
 settings-chronograph-inspector-locked = Bloqueado
-settings-chronograph-inspector-scan-schedule-inspector = Inspector del horario de escaneo
-settings-chronograph-inspector-stack-movable = Dale a cualquiera su propia hora aquí, o arrastra la marca para separar primero { $company }.
-settings-chronograph-inspector-stack-locked = Todas las marcas de este grupo están bloqueadas.
+settings-chronograph-inspector-scan-schedule-inspector = Detalles del escaneo
+settings-chronograph-inspector-stack-movable = Dale a cualquiera su propia hora aquí, o arrastra el escaneo para separar primero { $company }.
+settings-chronograph-inspector-stack-locked = Todos estos escaneos están bloqueados.
 settings-chronograph-inspector-pass = { $mode ->
     [discovery] Escaneo rápido
    *[reconcile] Escaneo completo
@@ -67,7 +67,7 @@ settings-chronograph-inspector-runs-at = Se ejecuta a las
 
 ## features/settings/PlanRunInspector.tsx
 settings-plan-run-inspector-scanning-now = Escaneando ahora
-settings-plan-run-inspector-when-you-turn-it-on = Al encenderlo
+settings-plan-run-inspector-when-you-turn-it-on = Al despertarse tu equipo
 settings-plan-run-inspector-planned = Planificado
 settings-plan-run-inspector-companies = Empresas
 settings-plan-run-inspector-takes = Duración
@@ -76,9 +76,9 @@ settings-plan-run-inspector-yes = sí
 settings-plan-run-inspector-repeats = Se repite
 settings-plan-run-inspector-every = Cada
 settings-plan-run-inspector-count-from-the-last-scan = Contar desde el último escaneo
-settings-plan-run-inspector-use-my-usual-start = Usar mi hora de inicio habitual
-settings-plan-run-inspector-it-also-runs-when-you = También se ejecuta cuando enciendes el equipo tras dos horas o más apagado.
-settings-plan-run-inspector-scan-inspector = Inspector de escaneo
+settings-plan-run-inspector-use-my-usual-start = Usar mi hora habitual
+settings-plan-run-inspector-it-also-runs-when-you = También se ejecuta cuando tu equipo vuelve a estar activo tras dos horas o más.
+settings-plan-run-inspector-scan-inspector = Detalles del escaneo
 settings-plan-run-inspector-repeats-every = { $anchor ->
     [fixed] cada { $hours } h a horas fijas
    *[last] cada { $hours } h después del último escaneo
@@ -111,7 +111,7 @@ settings-recipes-section-open = Abrir
 settings-recipes-section-recipe-json = Receta (JSON)
 settings-recipes-section-save-draft = Guardar borrador
 settings-recipes-section-edit = Editar
-settings-recipes-section-check-the-whole-page = Comprobar la página completa
+settings-recipes-section-check-the-whole-page = Comprobar todos los puestos
 settings-recipes-section-use-this-version = Usar esta versión
 settings-recipes-section-scan-with-it = Escanear con ella
 settings-recipes-section-a-recipe-is-one-json = Una receta es un objeto JSON.
@@ -119,11 +119,11 @@ settings-recipes-section-not-valid-json = JSON no válido: { $caught }
 settings-recipes-section-could-not-read-it = no se pudo leer
 settings-recipes-section-whole-page-check-result = { $choice ->
     [yes] Resultado de la vista previa
-   *[no] Resultado de la comprobación completa
+   *[no] Resultado de la comprobación
 }
 settings-recipes-section-not-checked-the-whole-page = { $choice ->
-    [yes] Comprobada: leyó la página completa, { $found } puestos en { $pages } páginas.
-   *[no] Sin comprobar: la página completa no se leyó hasta el final.
+    [yes] Comprobada: { $found } puestos en { $pages } páginas.
+   *[no] Sin comprobar: no se pudieron escanear todos los puestos.
 }
 settings-recipes-section-no-place-stated = sin lugar indicado
 settings-recipes-section-in-use = en uso
@@ -134,10 +134,10 @@ settings-recipes-section-not-checked = { $choice ->
 settings-recipes-section-couldn-t-preview-the-recipe = No se pudo previsualizar la receta.
 settings-recipes-section-saved-version-of = Versión { $version } de { $slug } guardada.
 settings-recipes-section-couldn-t-save-the-recipe = No se pudo guardar la receta.
-settings-recipes-section-couldn-t-check-the-whole = No se pudo comprobar la página completa.
+settings-recipes-section-couldn-t-check-the-whole = No se pudieron comprobar todos los puestos.
 settings-recipes-section-version-is-now-the-one = La versión { $version } es ahora la que se usa para escanear empresas nuevas.
 settings-recipes-section-couldn-t-switch-versions = No se pudo cambiar de versión.
-settings-recipes-section-is-now-scanned-with-its = { $company } ahora se escanea con { $slug }. Sus puestos que faltan solo se cierran cuando una versión comprobada lee su página completa.
+settings-recipes-section-is-now-scanned-with-its = { $company } ahora se escanea con { $slug }. Los puestos que faltan solo se cierran después de que una versión comprobada escanee todos los puestos.
 settings-recipes-section-couldn-t-scan-that-company = No se pudo escanear esa empresa con esta receta.
 settings-recipes-section-recipes = Recetas
 settings-recipes-section-a-recipe-tells-roleband-how = Una receta indica cómo leer una página de empleo que aún no es compatible.
@@ -168,6 +168,7 @@ settings-recipes-section-no-company-is-scanned-with = { $choice ->
    *[no] Aún no se escanea ninguna empresa con ella.
 }
 settings-company = Empresa
+settings-full-scan-starts = empieza a las { $time }
 settings-recipes-section-choose-a-company = Elige una empresa
 
 ## features/settings/RetentionSection.tsx
@@ -179,14 +180,14 @@ settings-retention-section-never = Nunca
 settings-retention-section-makes-postings-due-they-are = Con { $days }, { $due } ofertas quedan pendientes de eliminar. Se eliminan durante los próximos escaneos.
 settings-retention-section-none-yet = Ninguna todavía
 settings-retention-section-text = { $choice ->
-    [yes] { " " }· se eliminan más en el próximo escaneo
+    [yes] { " " }· el próximo escaneo elimina más
    *[no] { "" }
 }
 settings-retention-section-removed = { $at } · { $removed } eliminadas{ $more }
 settings-retention-section-data-retention = Conservación de datos
 settings-retention-section-roleband-keeps-every-posting-its = Se conserva cada oferta que encuentra un escaneo, así que un cambio en lo que buscas puede poner puestos en tu radar al instante.
 settings-retention-section-remove-postings-after = Eliminar ofertas tras
-settings-retention-section-a-posting-stops-being-read = Una oferta deja de escanearse cuando ya no está publicada o cuando dejas de seguir a su empresa. Cuando ningún escaneo la ha visto durante este tiempo, se elimina. Los puestos de tu radar, lo que guardaste y su historial nunca se eliminan.
+settings-retention-section-a-posting-stops-being-read = Las ofertas cerradas, y las de empresas que dejaste de seguir, se eliminan tras este tiempo sin verse. Los puestos de tu radar y los guardados se conservan siempre, con su historial.
 settings-retention-section-no-longer-listed = · { $no_longer_listed } ya no publicadas
 settings-retention-section-from-companies-you-stopped-following = · { $stopped_following } de empresas que dejaste de seguir
 settings-retention-section-remove-postings-after-2 = Eliminar ofertas tras
@@ -207,27 +208,27 @@ settings-retention-section-saved = Guardado.
 settings-schedule-chronograph-on-wake = { $kind ->
         [full] Escaneo completo
        *[quick] Escaneo rápido
-    } al encender
+    } · al despertarse tu equipo
 settings-schedule-chronograph-due = pendiente · { $name }
 settings-schedule-chronograph-waiting = { $waiting ->
     [paused] En pausa
     [day_off] Día libre
-   *[mains] Esperando corriente
+   *[mains] Esperando a que se enchufe
 }
 settings-schedule-chronograph-waiting-status = { $waiting ->
     [paused] en pausa
     [day_off] sin escaneos hoy
    *[mains] con batería
 }
-settings-schedule-chronograph-the-next-scan-runs-once = el próximo escaneo se ejecuta cuando se conecte a la corriente
+settings-schedule-chronograph-the-next-scan-runs-once = el próximo escaneo se ejecuta al enchufar tu equipo
 settings-schedule-chronograph-next-scan = próximo escaneo { $time }
 settings-schedule-chronograph-hub-title = { $state ->
     [running] Escaneando ahora
    *[next] Próximo escaneo
 }
 settings-schedule-chronograph-due-now = pendiente ahora
-settings-schedule-chronograph-on-wake-2 = al encender
-settings-schedule-chronograph-when-you-turn-it-on = al encenderlo, hacia las { $time }
+settings-schedule-chronograph-on-wake-2 = al despertarse tu equipo
+settings-schedule-chronograph-when-you-turn-it-on = al despertarse tu equipo, hacia las { $time }
 settings-schedule-chronograph-next-dispatch = Próximo escaneo
 settings-schedule-chronograph-hub-stack = { $mode ->
     [reconcile] { $count } escaneos completos
@@ -237,30 +238,30 @@ settings-schedule-chronograph-hub-company = { $mode ->
     [reconcile] { $company } · escaneo completo
    *[discovery] { $company } · escaneo rápido
 }
-settings-schedule-chronograph-projected-through = proyectado hasta { $time }
-settings-schedule-chronograph-stack-movable = { $count } marcas comparten { $time }: elige cualquier hora abajo, o arrastra la marca para separar { $company }.
-settings-schedule-chronograph-stack-locked = { $count } marcas comparten { $time }. Todas están bloqueadas.
+settings-schedule-chronograph-projected-through = terminado hacia las { $time }
+settings-schedule-chronograph-stack-movable = { $count } escaneos a las { $time }. Elige una hora abajo o arrastra para separar { $company }.
+settings-schedule-chronograph-stack-locked = { $count } escaneos a las { $time }. Todos están bloqueados.
 settings-schedule-chronograph-saving-schedule = Guardando horario…
-settings-schedule-chronograph-drag-a-scan-to-move = Arrastra un escaneo para moverlo · haz clic para fijar la hora exacta
+settings-schedule-chronograph-drag-a-scan-to-move = Arrastra un escaneo para moverlo · haz clic para fijar una hora exacta
 
 ## features/settings/ScheduleSection.tsx
 settings-schedule-section-how-scanning-works = Cómo funciona el escaneo
-settings-schedule-section-reads-every-company-s-whole = Lee la página de empleo completa de cada empresa que sigues, así que también puede cerrar un puesto que ya no existe. Se ejecuta cuando enciendes el equipo y al menos una vez al día.
-settings-schedule-section-looks-for-new-and-changed = Busca puestos nuevos y modificados en cada empresa que sigues, cada { $repeat_hours } horas mientras el equipo está encendido. Nunca cierra un puesto.
-settings-schedule-section-when-the-computer-is-off = Cuando el equipo está apagado
-settings-schedule-section-nothing-runs-and-missed-scans = No se ejecuta nada y los escaneos perdidos no se repiten: el siguiente se ejecuta cuando lo enciendes. La programación sigue las horas en que sueles usar el equipo, así que no hay nada que configurar.
+settings-schedule-section-reads-every-company-s-whole = Lee la página de empleo completa de cada empresa y puede cerrar los puestos que ya no existen. Se ejecuta una vez al día, y cuando tu equipo se despierta tras dos horas o más.
+settings-schedule-section-looks-for-new-and-changed = Busca puestos nuevos y modificados en cada empresa que sigues, cada { $repeat_hours } horas mientras tu equipo está activo. Nunca cierra un puesto.
+settings-schedule-section-when-the-computer-is-off = Cuando tu equipo está en reposo o apagado
+settings-schedule-section-nothing-runs-and-missed-scans = No se ejecuta nada y los escaneos perdidos no se repiten. El siguiente se ejecuta cuando tu equipo se despierta. La programación sigue las horas en que sueles usar tu equipo, así que no hay nada que configurar.
 settings-schedule-section-times-you-set = Horas fijadas por ti
-settings-schedule-section-a-company-with-a-time = Una empresa con hora propia la conserva. Arrastra su marca o haz clic en ella para escribir una hora.
-settings-schedule-section-outer-orbit-is-the-full = La órbita exterior es el escaneo completo y la interior, el escaneo rápido; cada arco dura lo que tarda el escaneo. Las horas sombreadas son cuando el equipo suele estar apagado, y la aguja marca la hora actual.
+settings-schedule-section-a-company-with-a-time = Una empresa con hora propia la conserva. Arrastra su escaneo o haz clic en él para escribir una hora.
+settings-schedule-section-outer-orbit-is-the-full = Anillo exterior: escaneo completo. Anillo interior: escaneo rápido. Horas sombreadas: tu equipo suele estar en reposo o apagado.
 settings-schedule-section-discovery = Escaneo rápido
-settings-schedule-section-probes-a-company-s-board = Revisa la página de empleo de una empresa en busca de puestos nuevos y modificados. Puede añadir o actualizar un puesto, pero nunca cierra ninguno.
+settings-schedule-section-probes-a-company-s-board = Busca puestos nuevos y modificados y nunca cierra ninguno.
 settings-schedule-section-reconciliation = Escaneo completo
-settings-schedule-section-the-authoritative-cycle-only-this = Solo un escaneo completo puede cerrar un puesto que ha desaparecido, y solo tras leer completa la página de empleo de la empresa.
+settings-schedule-section-the-authoritative-cycle-only-this = Lee toda la página de empleo de cada empresa y puede cerrar los puestos que ya no existen.
 settings-schedule-section-the-cycle = Escaneos simultáneos
 settings-schedule-section-marks-coming-due-together-dispatch = Los escaneos que vencen a la vez se ejecutan juntos, hasta { $maxParallel } sitios a la vez, así que el arco muestra cuánto duran, no solo cuándo empiezan.
 settings-schedule-section-editing = Edición
-settings-schedule-section-drag-a-mark-around-the = Arrastra una marca por el dial o haz clic en ella para escribir una hora. Las horas se ajustan a intervalos de 10 minutos. Las marcas que bloquea una política del proveedor siguen bloqueadas.
-settings-schedule-section-outer-orbit-is-reconciliation-inner = La órbita exterior son los escaneos completos y la interior, los rápidos; las horas sombreadas son la noche, y la aguja marca la hora local actual.
+settings-schedule-section-drag-a-mark-around-the = Arrastra un escaneo por el dial o haz clic en él para escribir una hora. Las horas se ajustan a intervalos de 10 minutos. Un escaneo bloqueado dice por qué al hacer clic en él.
+settings-schedule-section-outer-orbit-is-reconciliation-inner = Anillo exterior: escaneos completos. Anillo interior: escaneos rápidos. Horas sombreadas: la noche.
 settings-schedule-section-first-scan-of-the-day = Primer escaneo del día
 settings-schedule-section-full-scan-done-by = Escaneo completo, terminado a las
 settings-schedule-section-then-while-it-is-on = Después, mientras está encendido
@@ -271,7 +272,7 @@ settings-schedule-section-only-when-plugged-in = Solo conectado a la corriente
 settings-schedule-section-pause = Pausa
 settings-schedule-section-paused-until = En pausa hasta
 settings-schedule-section-resume = Reanudar
-settings-schedule-section-after-two-hours-or-more = { $learned } Tras dos horas o más apagado, se ejecuta un escaneo completo cuando vuelves; los escaneos perdidos no se repiten.
+settings-schedule-section-after-two-hours-or-more = { $learned } Tras una pausa larga, un escaneo completo se pone al día.
 settings-schedule-section-need-attention = { $count ->
     [one] { $count } requiere atención
     [many] { $count } requieren atención
@@ -281,47 +282,48 @@ settings-schedule-section-scan-clock = Reloj de escaneo
 settings-schedule-section-next-scans = Próximos escaneos
 settings-schedule-section-companies = { $companies } empresas · { $duration }
 settings-schedule-section-companies-keep-a-time-you = { $count ->
-    [one] { $count } empresa conserva una hora fijada por ti
-    [many] { $count } de empresas conservan una hora fijada por ti
-   *[other] { $count } empresas conservan una hora fijada por ti
+    [one] { $count } empresa con hora propia
+    [many] { $count } de empresas con hora propia
+   *[other] { $count } empresas con hora propia
 }
 settings-schedule-section-upcoming = Próximos
 settings-schedule-section-bindings-projected-through = { $count ->
-    [one] Escaneo completo · proyectado hasta ~{ $end }
-    [many] { $count } de escaneos · proyectados hasta ~{ $end }
-   *[other] { $count } escaneos · proyectados hasta ~{ $end }
+    [one] Escaneo completo · terminado hacia las { $end }
+    [many] { $count } de escaneos · terminados hacia las { $end }
+   *[other] { $count } escaneos · terminados hacia las { $end }
 }
-settings-schedule-section-more-see-all-deadlines = +{ $count } más · ver todos los plazos
+settings-schedule-section-upcoming-more = { $choice ->
+    [yes] Mostrar menos
+   *[no] Mostrar { $count } más
+}
 settings-schedule-section-discovery-cadence = Intervalo de escaneo rápido
-settings-schedule-section-adapts-to-8-12-24h = se adapta a 8 / 12 / 24 h tras escaneos rápidos vacíos
+settings-schedule-section-adapts-to-8-12-24h = se alarga a 8, 12 o 24 horas cuando los escaneos rápidos no encuentran nada
 settings-schedule-section-only-this-cycle-can-close = solo los escaneos completos pueden cerrar puestos que faltan
-settings-schedule-section-provider-pressure = Carga por proveedor
+settings-schedule-section-provider-pressure = Sitios a la vez
 settings-schedule-section-max = { $max_parallel_providers } máx.
-settings-schedule-section-one-binding-per-provider-in = una vinculación por proveedor en cada fragmento
-settings-schedule-section-plan-roster = { $companies } empresas · { $roster } en cada escaneo completo
-settings-schedule-section-plan-roster-pinned = { $companies } empresas · { $roster } en cada escaneo completo · { $pinned } a una hora fijada por ti
-settings-schedule-section-plan-roster-excepted = { $companies } empresas · { $roster } en cada escaneo completo · { $excepted } exceptuadas
-settings-schedule-section-plan-roster-pinned-excepted = { $companies } empresas · { $roster } en cada escaneo completo · { $pinned } a una hora fijada por ti · { $excepted } exceptuadas
-settings-schedule-section-timers-roster = { $companies } empresas · { $scheduled } programadas
-settings-schedule-section-timers-roster-excepted = { $companies } empresas · { $scheduled } programadas · { $excepted } exceptuadas
-settings-schedule-section-timers-roster-reconcile-only = { $companies } empresas · { $scheduled } programadas · { $reconcileOnly } solo escaneo completo
-settings-schedule-section-timers-roster-excepted-reconcile-only = { $companies } empresas · { $scheduled } programadas · { $excepted } exceptuadas · { $reconcileOnly } solo escaneo completo
+settings-schedule-section-one-binding-per-provider-in = un escaneo por sitio a la vez
+settings-schedule-section-plan-roster = Empresas: { $companies } · En cada escaneo completo: { $roster }
+settings-schedule-section-plan-roster-pinned = Empresas: { $companies } · En cada escaneo completo: { $roster } · A una hora fijada por ti: { $pinned }
+settings-schedule-section-plan-roster-excepted = Empresas: { $companies } · En cada escaneo completo: { $roster } · Requieren atención: { $excepted }
+settings-schedule-section-plan-roster-pinned-excepted = Empresas: { $companies } · En cada escaneo completo: { $roster } · A una hora fijada por ti: { $pinned } · Requieren atención: { $excepted }
+settings-schedule-section-timers-roster = Empresas: { $companies } · Programadas: { $scheduled }
+settings-schedule-section-timers-roster-excepted = Empresas: { $companies } · Programadas: { $scheduled } · Requieren atención: { $excepted }
+settings-schedule-section-timers-roster-reconcile-only = Empresas: { $companies } · Programadas: { $scheduled } · Solo escaneo completo: { $reconcileOnly }
+settings-schedule-section-timers-roster-excepted-reconcile-only = Empresas: { $companies } · Programadas: { $scheduled } · Requieren atención: { $excepted } · Solo escaneo completo: { $reconcileOnly }
 settings-schedule-section-every-company-s-scans = Escaneos de cada empresa
-settings-schedule-section-a-full-scan-reads-a = Un escaneo completo lee toda la página de empleo de una empresa y puede cerrar un puesto que ya no existe. Un escaneo rápido busca puestos nuevos y modificados y nunca cierra ninguno.
+settings-schedule-section-a-full-scan-reads-a = Escaneo completo: lee toda la página de empleo de cada empresa y puede cerrar los puestos que ya no existen. Escaneo rápido: busca puestos nuevos y modificados y nunca cierra ninguno.
 settings-schedule-section-last-full-scan = Último escaneo completo
 settings-schedule-section-last-quick-scan = Último escaneo rápido
 settings-schedule-section-how-it-is-scanned = Cómo se escanea
 settings-schedule-section-not-yet = Todavía no
 settings-schedule-section-not-available = No disponible
 settings-schedule-section-until = hasta { $cooldown_until }
-settings-schedule-section-persisted-deadlines = Plazos guardados
-settings-schedule-section-discovery-can-add-or-update = Los escaneos rápidos pueden añadir o actualizar puestos, pero nunca cierran un puesto que falta. Un escaneo completo cierra puestos solo tras leer completa la página de empleo. La espera del proveedor mueve la hora permitida sin sobrescribir el plazo natural de la empresa.
-settings-schedule-section-provider-state = Estado del proveedor
+settings-schedule-section-provider-state = Estado
 settings-schedule-section-reconciliation-only = Solo escaneos completos
 settings-schedule-section-non-authoritative = no puede cerrar puestos
 settings-schedule-section-not-scheduled = Sin programar
-settings-schedule-section-only-when-you-press-scan = Solo cuando pulsas Escanear ahora
-settings-schedule-section-only-after-you-allow-it = Solo después de que lo permitas
+settings-schedule-section-only-when-you-press-scan = Solo con Escanear ahora
+settings-schedule-section-only-after-you-allow-it = Necesita tu permiso
 settings-schedule-section-full-scan-at = escaneo completo a las { $reconcile_anchor_minute }
 settings-schedule-section-quick-scan-at = escaneo rápido a las { $discovery_anchor_minute }
 settings-schedule-section-its-own-time = Hora propia: { $times }
@@ -329,21 +331,19 @@ settings-schedule-section-planned-scans = { $scans ->
     [all] Todos los escaneos planificados
    *[full] Solo escaneos completos
 }
-settings-schedule-section-only-when-you-scan = Solo cuando escaneas
-settings-schedule-section-needs-your-ok = Necesita tu permiso
-settings-schedule-section-policy-denied = Denegado por política
-settings-schedule-section-cooling-down = En espera
+settings-schedule-section-policy-denied = Escaneo desactivado
+settings-schedule-section-cooling-down = Pidió bajar el ritmo
 settings-schedule-section-unscheduled = Sin programar
-settings-schedule-section-manual-priority = Prioridad manual
+settings-schedule-section-manual-priority = En cola por Escanear ahora
 settings-schedule-section-paused = En pausa
 settings-schedule-section-provider-policy-denies-scheduled-collection = su sitio no permite escaneos programados
-settings-schedule-section-provider-scheduling-is-paused = la programación del proveedor está en pausa
+settings-schedule-section-provider-scheduling-is-paused = los escaneos de su sitio están en pausa
 settings-schedule-section-setting-scan-times = { $count ->
     [one] Asignando horarios de escaneo a { $count } empresa nueva.
     [many] Asignando horarios de escaneo a { $count } empresas nuevas.
    *[other] Asignando horarios de escaneo a { $count } empresas nuevas.
 }
-settings-schedule-section-cooling-down-until = en espera hasta { $cooldown_until }
+settings-schedule-section-cooling-down-until = esperando hasta { $cooldown_until }
 settings-schedule-section-how-scanning-works-2 = Cómo funciona el escaneo
 settings-schedule-section-how-scanning-works-3 = Cómo funciona el escaneo
 settings-schedule-section-1-hour = 1 hora
@@ -352,15 +352,31 @@ settings-schedule-section-until-tomorrow = Hasta mañana
 settings-schedule-section-couldn-t-save-that-change = No se pudo guardar ese cambio. Inténtalo de nuevo.
 settings-schedule-section-plan-settings = Ajustes del plan
 settings-schedule-section-starts-about = { $source ->
-    [usual] Tu hora de inicio habitual, aprendida. Empieza hacia las { $time } · { $companies } empresas
-   *[set] Empieza hacia las { $time } · { $companies } empresas
+    [usual] Tu inicio habitual, aprendido: hacia las { $time } · { $companies ->
+            [one] { $companies } empresa
+            [many] { $companies } de empresas
+           *[other] { $companies } empresas
+        }
+   *[set] Empieza hacia las { $time } · { $companies ->
+            [one] { $companies } empresa
+            [many] { $companies } de empresas
+           *[other] { $companies } empresas
+        }
 }
 settings-schedule-section-starts-about-duration = { $source ->
-    [usual] Tu hora de inicio habitual, aprendida. Empieza hacia las { $time } · { $companies } empresas · { $duration }
-   *[set] Empieza hacia las { $time } · { $companies } empresas · { $duration }
+    [usual] Tu inicio habitual, aprendido: hacia las { $time } · { $companies ->
+            [one] { $companies } empresa
+            [many] { $companies } de empresas
+           *[other] { $companies } empresas
+        } · { $duration }
+   *[set] Empieza hacia las { $time } · { $companies ->
+            [one] { $companies } empresa
+            [many] { $companies } de empresas
+           *[other] { $companies } empresas
+        } · { $duration }
 }
-settings-schedule-section-no-time-set = Sin hora fijada: se ejecuta cuando enciendes el equipo y al menos una vez al día · { $companies } empresas
-settings-schedule-section-no-time-set-duration = Sin hora fijada: se ejecuta cuando enciendes el equipo y al menos una vez al día · { $companies } empresas · { $duration }
+settings-schedule-section-no-time-set = Sin hora fijada: se ejecuta una vez al día y cuando tu equipo se reactiva · Empresas: { $companies }
+settings-schedule-section-no-time-set-duration = Sin hora fijada: se ejecuta una vez al día y cuando tu equipo se reactiva · Empresas: { $companies } · { $duration }
 settings-schedule-section-clear-ready-by = { $fallback ->
     [usual] Usar mi hora de inicio habitual
    *[none] Borrar
@@ -368,13 +384,13 @@ settings-schedule-section-clear-ready-by = { $fallback ->
 settings-schedule-section-scan-days = Días de escaneo
 settings-schedule-section-days-a-week = { $count ->
     [7] Todos los días
-    [one] { $count } día a la semana
-    [many] { $count } días a la semana
-   *[other] { $count } días a la semana
+    [one] { $count } día por semana
+    [many] { $count } días por semana
+   *[other] { $count } días por semana
 }
 settings-schedule-section-power-note = { $power ->
-    [waiting] Con batería ahora: el próximo escaneo espera a la corriente.
-    [mains] Los escaneos esperan mientras el equipo funciona con batería.
+    [waiting] Ahora con batería: el próximo escaneo espera a que tu equipo esté conectado a la corriente.
+    [mains] Los escaneos esperan mientras tu equipo funciona con batería.
    *[any] Los escaneos también se ejecutan con batería.
 }
 settings-schedule-section-pause-scans = Pausar escaneos
@@ -388,11 +404,11 @@ settings-schedule-section-run-title = { $state ->
     [ready] { $kind ->
             [full] Escaneo completo
            *[quick] Escaneo rápido
-        } · listo a las { $time }
+        } · terminado a las { $time }
     [wake] { $kind ->
             [full] Escaneo completo
            *[quick] Escaneo rápido
-        } · al encenderlo
+        } · cuando tu equipo se reactive
    *[planned] { $kind ->
             [full] Escaneo completo
            *[quick] Escaneo rápido
@@ -410,14 +426,8 @@ settings-schedule-section-pass-provider = { $mode ->
    *[discovery] Escaneo rápido · { $provider }
 }
 settings-schedule-section-scheduler-policy = Política del programador
-settings-schedule-section-deadlines-link = { $schedule ->
-    [plan] Escaneos de cada empresa
-   *[timers] Todos los plazos guardados
-}
-settings-schedule-section-every-company-s-scans-2 = Escaneos de cada empresa
-settings-schedule-section-what-the-columns-mean = Qué significan las columnas
-settings-schedule-section-all-persisted-deadlines-2 = Todos los plazos guardados
-settings-schedule-section-how-scheduling-safety-works = Cómo funciona la seguridad de la programación
+settings-schedule-section-what-the-columns-mean = Escaneos completos y rápidos
+settings-schedule-section-how-scheduling-safety-works = Escaneos completos y rápidos
 settings-schedule-section-schedule = Horario
 
 ## features/settings/charts/plan.ts
@@ -426,24 +436,24 @@ settings-plan-hours = { $hours } h
 settings-plan-still-learning-when-your-computer = Aún aprendiendo cuándo está encendido tu equipo: { $observed_days } de { $needed_days } días observados.
 settings-plan-learned-every-day = Aprendido de los últimos { $days } días: tu equipo está { $usual ->
         [all] encendido todo el día
-        [off] normalmente apagado
+        [off] normalmente en reposo o apagado
        *[set] encendido { $times }
     } todos los días.
 settings-plan-learned-weekdays-weekends = Aprendido de los últimos { $days } días: tu equipo está { $weekdays ->
         [all] encendido todo el día
-        [off] normalmente apagado
+        [off] normalmente en reposo o apagado
        *[set] encendido { $weekdayTimes }
     } entre semana y { $weekends ->
         [all] encendido todo el día
-        [off] normalmente apagado
+        [off] normalmente en reposo o apagado
        *[set] encendido { $weekendTimes }
     } los fines de semana.
 settings-plan-learned = Aprendido de los últimos { $days } días: tu equipo está { $usual ->
         [all] encendido todo el día
-        [off] normalmente apagado
+        [off] normalmente en reposo o apagado
        *[set] encendido { $times }
     }.
-settings-plan-learned-unseen = Aprendido de los últimos { $days } días: tu equipo está aún no visto encendido.
+settings-plan-learned-unseen = Aún no hay nada aprendido de los últimos { $days } días.
 settings-plan-companies = { $kind ->
         [full] Escaneo completo
        *[quick] Escaneo rápido
@@ -496,25 +506,24 @@ settings-schedule-mode-name = { $schedule ->
        *[reconcile] escaneo completo
     }
 }
-settings-schedule-provider-policy-denies-scheduled-collection = La política del proveedor deniega la recopilación programada.
-settings-schedule-provider-scheduling-is-paused = La programación del proveedor está en pausa.
+settings-schedule-provider-policy-denies-scheduled-collection = El escaneo de su sitio está desactivado.
+settings-schedule-provider-scheduling-is-paused = Los escaneos de su sitio están en pausa.
 settings-schedule-scan-schedule-is-not-set = El horario de escaneo aún no está configurado.
-settings-schedule-cancel-the-queued-manual-scan = Cancela el escaneo manual en cola antes de cambiar esta hora.
+settings-schedule-cancel-the-queued-manual-scan = Hay en cola un escaneo pedido con Escanear ahora. Cancélalo para cambiar esta hora.
 
 ## features/settings/useDialDrag.ts
-settings-use-dial-drag-drag-a-mark-to-reschedule = Arrastra una marca para reprogramarla · haz clic para fijar una hora exacta
-settings-use-dial-drag-moved-to = { $company } { $scan } movido a las { $time }.
+settings-use-dial-drag-moved-to = { $company }: { $scan } movido a las { $time }.
 settings-use-dial-drag-couldn-t-move-that-scan = No se pudo mover ese escaneo. Inténtalo de nuevo.
 
 ## features/settings/usePlanDrag.ts
-settings-use-plan-drag-quick-scans-moved-one-at = Escaneos rápidos movidos: uno a las { $time }.
+settings-use-plan-drag-quick-scans-moved-one-at = Ahora los escaneos rápidos se repiten desde las { $time }.
 settings-use-plan-drag-full-scan-moved-to-done = Escaneo completo movido a las { $start }, terminado a las { $doneBy }.
 
 ## routes/SettingsRoute.tsx
 settings-route-settings-sections = Secciones de ajustes
 
 ## features/settings/charts/plan.ts (by hand)
-settings-plan-usually-off = Normalmente apagado
+settings-plan-usually-off = Normalmente en reposo o apagado
 settings-plan-all-day = Todo el día
 
 ## features/settings/ChronographInspector.tsx
@@ -523,7 +532,7 @@ settings-chronograph-inspector-every = { $unit ->
    *[hour] cada { $count } h
 }
 settings-chronograph-inspector-no-cadence = -
-settings-chronograph-inspector-time = { $company } { $scan }: hora
+settings-chronograph-inspector-time = { $company }: hora del { $scan }
 settings-chronograph-inspector-no = no
 
 ## features/settings/RecipesSection.tsx
@@ -590,11 +599,10 @@ settings-price-feed-remove = Quitar clave
 settings-price-feed-dialog-title = Clave de Tiingo
 settings-price-feed-dialog-note = Pega la clave de tu cuenta de Tiingo. Se queda en este ordenador y solo se envía a Tiingo.
 settings-price-feed-dialog-field = Clave
-settings-price-feed-dialog-save =
-    { $choice ->
-        [yes] Guardando
-       *[no] Guardar clave
-    }
+settings-price-feed-dialog-save = { $choice ->
+    [yes] Guardando…
+   *[no] Guardar clave
+}
 settings-price-feed-unauthorized = Tiingo rechazó la clave en la última actualización. Revísala en tu cuenta de Tiingo y vuelve a guardarla.
 settings-price-feed-rate-limited = Se alcanzó el límite por hora de Tiingo. Los precios que faltan llegan cuando se reinicie.
 settings-price-feed-saved =
@@ -630,7 +638,7 @@ settings-plugins-section-slot = { $slot ->
         [company_benefits] beneficios
        *[other] otros datos
     }
-settings-plugins-section-answers = Responde a { $slots }
+settings-plugins-section-answers = En uso: { $slots }
 settings-plugins-section-brings = Aporta { $slots }
 settings-plugins-section-waiting = Esperando su primera actualización
 settings-plugins-section-read =
@@ -651,7 +659,7 @@ settings-plugins-section-turn-on-first = Actívalo primero
 settings-plugins-section-approve-first = Apruébalo primero
 settings-plugins-section-more = Más plugins
 settings-plugins-section-more-note = Pronto podrás buscar y añadir plugins aquí. Por ahora, instala uno desde la línea de comandos, en la carpeta RoleBand:
-settings-plugins-section-waiting-wake = La actualización empieza cuando este Mac se despierte del todo.
+settings-plugins-section-waiting-wake = Actualización en cola. Empieza la próxima vez que uses tu equipo.
 settings-plugins-section-moved =
     { $moved ->
         [one] Cambiaron las estimaciones de { $moved } puesto
@@ -688,10 +696,10 @@ settings-plugins-section-robots-nothing = Ahora mismo ninguno de sus sitios fija
 settings-plugins-section-robots-allow-button = Permitir
 settings-plugins-section-robots-close = Cerrar
 settings-plugins-section-turn-on-title = ¿Activar este plugin?
-settings-plugins-section-turn-on-lead = Mientras está activado, lo que aporta sustituye a los datos integrados en todas las empresas.
+settings-plugins-section-turn-on-lead = Cuando está activado, sus datos sustituyen a los datos integrados en todas las empresas.
 settings-plugins-section-turn-on = Activar
-settings-plugins-section-approve-lead = Aprobarlo le permite ejecutarse en este Mac. Mientras está activado, lo que aporta sustituye a los datos integrados en todas las empresas. Se ejecuta por su cuenta, solo lee los sitios de abajo y nunca cambia tus niveles.
-settings-plugins-section-approve-gap = Hasta que lea una empresa, esa empresa no muestra nada de lo que aporta, ni tampoco datos integrados en su lugar.
+settings-plugins-section-approve-lead = Cuando está activado, sus datos sustituyen a los datos integrados en todas las empresas. Solo lee los sitios de abajo. Nunca cambia tus niveles.
+settings-plugins-section-approve-gap = Hasta que lea una empresa, esa empresa no muestra ninguno de sus datos, ni datos integrados en su lugar.
 settings-plugins-section-approve-read = Leído hasta ahora: { $slots }.
 settings-plugins-section-approve-slot = { $slot }: { $count }
 settings-plugins-section-approve-left = Leer el resto lleva unas { $duration } de actualizaciones, a unos { $pace } por empresa.
@@ -715,21 +723,20 @@ settings-plugins-section-approve-needs =
        *[other] Recibe otros datos guardados aquí.
     }
 settings-plugins-section-approve-facts = Puede indicar de cada empresa: { $fields }.
-settings-plugins-section-fact-field =
-    { $field ->
-        [display_name] nombre
-        [ticker] símbolo bursátil
-        [is_public] si cotiza en bolsa
-        [headcount] plantilla
-        [hq_city] ciudad de la sede
-        [website] sitio web
-        [year_founded] año de fundación
-        [logo_url] logotipo
-        [brand_color] color de marca
-       *[other] otro dato
-    }
+settings-plugins-section-fact-field = { $field ->
+    [display_name] nombre
+    [ticker] símbolo bursátil
+    [is_public] si cotiza en bolsa
+    [headcount] plantilla
+    [hq_city] ciudad de la sede
+    [website] sitio web
+    [year_founded] año de fundación
+    [logo_url] logotipo
+    [brand_color] color de marca
+   *[other] otro dato
+}
 settings-plugins-section-approve-fact-rank = Mientras está activado, se muestran en lugar de los integrados, nunca a su lado.
-settings-plugins-section-approve-still-on = Sigue activado. Cambió desde que lo aprobaste, así que te espera antes de ejecutarse o responder de nuevo.
+settings-plugins-section-approve-still-on = Sigue activado. Cambió desde que lo aprobaste, así que espera tu visto bueno antes de volver a ejecutarse.
 settings-plugins-section-schedule =
     { $schedule ->
         [daily] A diario, enchufado
@@ -787,14 +794,13 @@ settings-plugin-settings-option =
         [manual] Cuando lo pidas
        *[other] Otra
     }
-settings-plugin-settings-suggests =
-    { $schedule ->
-        [daily] El plugin sugiere a diario. Las actualizaciones programadas esperan a que este Mac esté enchufado.
-        [weekly] El plugin sugiere cada semana. Las actualizaciones programadas esperan a que este Mac esté enchufado.
-        [monthly] El plugin sugiere cada mes. Las actualizaciones programadas esperan a que este Mac esté enchufado.
-        [manual] El plugin sugiere actualizar solo cuando lo pidas. Las actualizaciones programadas esperan a que este Mac esté enchufado.
-       *[other] Las actualizaciones programadas esperan a que este Mac esté enchufado.
-    }
+settings-plugin-settings-suggests = { $schedule ->
+    [daily] Sugerido: a diario. Las actualizaciones programadas esperan a que tu equipo esté enchufado.
+    [weekly] Sugerido: cada semana. Las actualizaciones programadas esperan a que tu equipo esté enchufado.
+    [monthly] Sugerido: cada mes. Las actualizaciones programadas esperan a que tu equipo esté enchufado.
+    [manual] Sugerido: solo cuando lo pidas. Las actualizaciones programadas esperan a que tu equipo esté enchufado.
+   *[other] Las actualizaciones programadas esperan a que tu equipo esté enchufado.
+}
 settings-plugin-settings-next = Próxima actualización
 settings-plugin-settings-next-value =
     { $state ->
@@ -841,19 +847,19 @@ settings-plugin-settings-outcome =
         [error] No se pudo actualizar
        *[other] Ejecutado
     }
-settings-plugin-settings-brings = Lo que aporta
+settings-plugin-settings-brings = Datos que aporta
 settings-plugin-settings-slot-state =
     { $state ->
         [approval] Sin usar hasta que lo apruebes
        *[off] Sin usar mientras está desactivado
     }
 settings-plugin-settings-slot-none = { $slot ->
-        [pay_levels] ninguna estimación
-        [pay_observations] ninguna estimación de compensación
-        [company_facts] ningún tamaño de empresa
-        [company_benefits] ningún beneficio
-       *[other] nada de ello
-    }
+    [pay_levels] ninguna banda de compensación
+    [pay_observations] ninguna estimación de compensación
+    [company_facts] ningún dato de la empresa
+    [company_benefits] ningún beneficio
+   *[other] ninguno de estos datos
+}
 settings-plugin-settings-slot-gap =
     { $read ->
         [0] Hasta que lea una empresa, esa empresa muestra { $none }.
@@ -881,12 +887,11 @@ settings-plugin-settings-left-value = Unas { $duration } de actualizaciones, a u
 settings-plugin-settings-reports = El plugin dice
 settings-plugin-settings-report = { $value } { $label }
 settings-plugin-settings-report-at = A fecha de { $when }
-settings-plugin-settings-robots-state =
-    { $state ->
-        [lapsed] { $hosts } cambió sus reglas desde que lo permitiste; esas páginas se omiten hasta que las revises
-        [allowed] Lee pese a las reglas de sus sitios, como permitiste el { $when }
-       *[follows] Sigue las reglas de cada sitio
-    }
+settings-plugin-settings-robots-state = { $state ->
+    [lapsed] Las reglas cambiaron en { $hosts }. Esas páginas se omiten hasta que las revises.
+    [allowed] Lee pese a las reglas de sus sitios, como permitiste el { $when }
+   *[follows] Sigue las reglas de cada sitio
+}
 settings-plugin-settings-robots-review = Revisar
 settings-plugin-settings-robots-stop = Seguir las reglas
 settings-plugin-settings-version = Versión
@@ -899,15 +904,16 @@ settings-plugin-settings-published =
        *[other] { $rows } filas
     }
 settings-plugin-settings-remove-heading = Eliminar
-settings-plugin-settings-remove-note =
-    { $what ->
-        [rows] Eliminar sus datos borra los { $kinds } que añadió; desactívalo primero.
-       *[history] Eliminar sus datos borra lo que se calculó a partir de él; los { $kinds } que registró se quedan como historial.
-    } Desinstalarlo quita su código de este Mac y mantiene sus datos, sin leer, hasta que los elimines.
+settings-plugin-settings-remove-note = { $what ->
+    [rows] Eliminar sus datos borra los { $kinds } que añadió. Desactívalo primero.
+   *[history] Eliminar sus datos borra lo que se calculó a partir de ellos. Los { $kinds } que registró se quedan como historial.
+} Desinstalarlo quita su código de este equipo. Sus datos se quedan, sin usar, hasta que se eliminen.
 settings-plugin-settings-remove-waiting = Las estimaciones aún leen sus datos. Eliminar datos espera hasta que se actualicen.
 settings-plugin-settings-uninstall = Desinstalar
 settings-plugin-settings-uninstall-title = ¿Desinstalar este plugin?
-settings-plugin-settings-uninstall-lead = Esto lo desactiva y quita su código de este Mac. Los datos que añadió se quedan, sin leer, hasta que los elimines. Instalarlo de nuevo necesita tu aprobación.
+settings-plugin-settings-uninstall-lead = Lo desactiva y quita su código de este equipo. Sus datos se quedan, sin usar, hasta que se eliminen. Volver a instalarlo requiere aprobación.
 settings-plugin-settings-loading = Cargando este plugin…
 settings-plugin-settings-load-failed = No se pudo cargar este plugin
 settings-plugin-settings-refresh-failed = No se pudo actualizar este plugin. Se muestra el último resultado.
+
+settings-chronograph-dial-company-locked = { $company }: { $scan } a las { $time }. { $reason }

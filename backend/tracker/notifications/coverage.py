@@ -3,9 +3,10 @@
 `/api/status.bindings_attention` reports every followed company without a
 recent full scan; this rings for the ones a person loses something to:
 
-- **Scanned automatically.** A user-directed company is scanned when its
-  user asks, so days without a scan are not a loss; its row says when it was
-  last scanned instead. A walled company without consent is not scanned at all,
+- **Scanned automatically.** A user-directed company whose user chose to have
+  it read only when they ask is scanned when they ask, so days without a scan
+  are not a loss; its row says when it was last scanned instead. One whose user
+  chose regular scans rings like any other. A walled company without consent is not scanned at all,
   and neither is one on a source operator policy denies
   (`source_policy.scanned_automatically`).
 - **Stale or empty.** No full scan for `coverage_stale_after_days`, or a

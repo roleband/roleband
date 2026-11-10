@@ -5,20 +5,32 @@
 ai-aim-line-your-aim-in-one-sentence = Your aim, in one sentence
 # kind=sentence
 ai-aim-line-roles-closest-to-it-come = Roles closest to it come first when Radar is sorted by Best fit. It never hides a role. Leave it empty to rank by what you save and mark Not for me.
-# kind=label wording=as-is
-ai-aim-line-couldn-t-save-your-aim = Couldn't save your aim. { $error }
+# kind=error
+ai-aim-line-couldn-t-save-your-aim = Couldn't save your aim. Try again.
 # kind=button wording=as-is
 ai-aim-line-cancel = Cancel
 # kind=button wording=as-is
 ai-aim-line-save = Save
 # kind=status
-ai-aim-line-open-roles-ranked-by-how = { $total } open roles, ranked by how well they fit
+ai-aim-line-open-roles-ranked-by-how = { $total ->
+    [one] { $total } open role, ranked by how well it fits
+   *[other] { $total } open roles, ranked by how well they fit
+}
 # kind=status
-ai-aim-line-open-roles-ranked-by-what = { $total } open roles, ranked by what you save and mark Not for me
+ai-aim-line-open-roles-ranked-by-what = { $total ->
+    [one] { $total } open role, ranked by what you save and mark Not for me
+   *[other] { $total } open roles, ranked by what you save and mark Not for me
+}
 # kind=sentence
-ai-aim-line-open-roles-sorted-by-date = { $total } open roles, sorted by date. Your aim { $q } ranks them once ranking is ready.
-# kind=label wording=as-is
-ai-aim-line-open-roles-sorted-by-date-2 = { $total } open roles, sorted by date
+ai-aim-line-open-roles-sorted-by-date = { $total ->
+    [one] { $total } open role, sorted by date. Your aim { $q } ranks it once ranking is ready.
+   *[other] { $total } open roles, sorted by date. Your aim { $q } ranks them once ranking is ready.
+}
+# kind=status
+ai-aim-line-open-roles-sorted-by-date-2 = { $total ->
+    [one] { $total } open role, sorted by date
+   *[other] { $total } open roles, sorted by date
+}
 # kind=aria wording=as-is
 ai-aim-line-your-aim = Your aim
 # kind=tooltip note="The aim field's placeholder: an aim anyone could write, at any level"
@@ -30,8 +42,8 @@ ai-aim-line-add-your-aim = { $choice ->
 }
 
 ## features/intelligence/AssistantsCard.tsx
-# kind=heading wording=as-is
-ai-assistants-card-mcp-server = MCP server
+# kind=heading
+ai-assistants-card-mcp-server = Assistant apps (MCP)
 # kind=label wording=as-is
 ai-assistants-card-allowed-read-only = { $choice ->
     [yes] Allowed · reads and updates
@@ -50,13 +62,13 @@ ai-assistants-card-allow-assistant-apps-to-connect = Allow assistant apps to con
 # kind=label wording=as-is
 ai-assistants-card-allow-assistant-apps-to-update = Allow assistant apps to update your progress
 # kind=status note="What a connected assistant app may change when updates are allowed; every change is recorded"
-ai-assistants-card-stage-notes-next-action-audited = stage · notes · next action · recipe drafts · audited
+ai-assistants-card-stage-notes-next-action-audited = stage · notes · next step · recipe drafts · audited
 # kind=sentence
 ai-assistants-card-it-can-then-read-what = It can then read what this card lists, and nothing more.
 # kind=sentence wording=as-is
 ai-assistants-card-run-this-once-in-a = Run this once in a terminal, then restart the app.
-# kind=sentence wording=as-is
-ai-assistants-card-most-apps-that-speak-mcp = Most apps that speak MCP take this JSON. Add it to the app's MCP server settings, then restart the app.
+# kind=sentence
+ai-assistants-card-most-apps-that-speak-mcp = Most MCP apps accept this. Add it to their MCP settings, then restart the app.
 # kind=sentence wording=as-is
 ai-assistants-card-add-this-to-the-app = Add this to the app's settings, then restart the app.
 # kind=button wording=as-is
@@ -69,12 +81,12 @@ ai-assistants-card-set-up-the-claude-app = Set up the Claude app
 ai-assistants-card-openai = OpenAI
 # kind=label wording=as-is
 ai-assistants-card-set-up-the-codex-app = Set up the Codex app
-# kind=label wording=as-is
-ai-assistants-card-any-client-that-speaks-mcp = Any client that speaks MCP
+# kind=status note="The Other app tile's second line, under its name; the other tiles show a company name here"
+ai-assistants-card-any-client-that-speaks-mcp = Any app that speaks MCP
 # kind=label wording=as-is
 ai-assistants-card-set-up-another-mcp-app = Set up another MCP app
-# kind=aria wording=as-is
-ai-assistants-card-mcp-server-2 = MCP server
+# kind=aria
+ai-assistants-card-mcp-server-2 = Assistant apps
 # kind=label wording=as-is
 ai-assistants-card-not-allowed-to-connect = { $choice ->
     [yes] · ready to set up
@@ -82,13 +94,13 @@ ai-assistants-card-not-allowed-to-connect = { $choice ->
 }
 # kind=label wording=as-is
 ai-assistants-card-allow-assistant-apps-to-connect-2 = Allow assistant apps to connect first
-# kind=label wording=as-is
+# kind=status note="The note beside the Allow assistant apps to connect switch, by its state"
 ai-assistants-card-off-nothing-leaves-this-computer = { $choice ->
-    [yes] sent to the apps you connect · your own account
+    [yes] on · shared only with the apps you connect
    *[no] off · nothing leaves this computer
 }
-# kind=error wording=as-is
-ai-assistants-card-clipboard-access-was-blocked-select = Clipboard access was blocked. Select the text and copy it manually.
+# kind=error
+ai-assistants-card-clipboard-access-was-blocked-select = Couldn't copy. Select the text and copy it yourself.
 # kind=label wording=as-is
 ai-assistants-card-copy = { $choice ->
     [yes] Copied
@@ -97,13 +109,13 @@ ai-assistants-card-copy = { $choice ->
 
 ## features/intelligence/CapabilitiesCard.tsx
 # kind=heading
-ai-egress-title = Allow online model services?
+ai-egress-title = Allow sending to AI providers?
 # kind=consent
-ai-egress-detail = RoleBand may send text from { -posting(num: "other") } to the online model services you enable. This permission also applies to services you add or enable later.
+ai-egress-detail = Text from { -posting(num: "other") } is sent only to the AI providers you turn on, including providers you add or turn on later.
 # kind=heading
-ai-egress-destinations = Saved services
+ai-egress-destinations = Saved providers
 # kind=sentence
-ai-egress-empty = No services are connected. Nothing can be sent until you add and enable one.
+ai-egress-empty = No AI providers added. Nothing is sent until one is added and turned on.
 # kind=button
 ai-egress-allow = Allow
 # kind=heading wording=as-is
@@ -123,14 +135,14 @@ ai-capabilities-card-apple-intelligence = Apple Intelligence
 ai-capabilities-card-experimental-we-are-still-testing = { $value } · experimental
 # kind=status note="The built-in model's state when it can run, the first part of a line of facts joined by dots"
 ai-capabilities-card-ready = ready
-# kind=label wording=as-is
-ai-capabilities-card-online-model-services = Online model services
-# kind=label wording=as-is
-ai-capabilities-card-none-connected = None connected ·
+# kind=label
+ai-capabilities-card-online-model-services = AI providers
+# kind=label
+ai-capabilities-card-none-connected = None added ·
 # kind=button wording=as-is
 ai-capabilities-card-add = Add
-# kind=label wording=as-is
-ai-capabilities-card-send-postings-to-online-services = Send postings to online services
+# kind=label
+ai-capabilities-card-send-postings-to-online-services = Send postings
 # kind=label wording=as-is
 ai-capabilities-card-the-example-says = the example says
 # kind=label wording=as-is
@@ -162,9 +174,9 @@ ai-capabilities-card-server-stopped = server stopped
 ai-capabilities-card-extended-capabilities-2 = Extended capabilities
 # kind=label wording=as-is
 ai-capabilities-card-use-your-own-model = Use your own model
-# kind=label wording=as-is
+# kind=tooltip note="Hover text on the Start button while your own model is switched off: a connection is saved (yes) or not (no)"
 ai-capabilities-card-save-a-connection-first-then = { $choice ->
-    [yes] Turn this on to start the model server
+    [yes] Turn this on to start your local AI server
    *[no] Save a connection first, then turn this on
 }
 # kind=label wording=as-is
@@ -175,8 +187,8 @@ ai-capabilities-card-start = { $choice ->
 }
 # kind=aria wording=as-is
 ai-capabilities-card-configure-your-own-model = Configure your own model
-# kind=label wording=as-is
-ai-capabilities-card-enable-apple-intelligence = Enable Apple Intelligence
+# kind=aria
+ai-capabilities-card-enable-apple-intelligence = Turn on Apple Intelligence
 # kind=aria wording=as-is
 ai-capabilities-card-test-apple-intelligence = Test Apple Intelligence
 # kind=label wording=as-is
@@ -186,14 +198,14 @@ ai-capabilities-card-test = { $choice ->
     [yes] Testing…
    *[no] Test
 }
-# kind=label wording=as-is
+# kind=status note="After None added, before any AI provider exists: whether postings could be sent (yes: Send postings is on)"
 ai-capabilities-card-nothing-is-sent = { $choice ->
-    [yes] allowed once you add a service
+    [yes] allowed once you add a provider
    *[no] nothing is sent
 }
-# kind=label wording=as-is
+# kind=status note="The Send postings row's sub-line, by the switch's state"
 ai-capabilities-card-off-nothing-is-sent = { $choice ->
-    [yes] on · connected services receive postings
+    [yes] on · providers you turn on receive postings
    *[no] off · nothing is sent
 }
 # kind=status
@@ -204,18 +216,18 @@ ai-capabilities-card-no-pay-range-found = { $choice ->
     [v4] Found a posted range
    *[v5] No posted range found
 }
-# kind=label wording=as-is
-ai-capabilities-card-on-device = on device
-# kind=label wording=as-is
+# kind=label
+ai-capabilities-card-on-device = on this computer
+# kind=tooltip note="Hover text on an AI provider row that can't run: its own switch is off (yes), or Send postings is off (no)"
 ai-capabilities-card-allow-sending-postings-to-online = { $choice ->
     [yes] Turn { $name } on to use it
-   *[no] Allow sending postings to online services to use this
+   *[no] Turn on Send postings first
 }
-# kind=label wording=as-is
+# kind=status note="An AI provider row's state, the last part of a line of facts joined by dots"
 ai-capabilities-card-blocked-online-services-are-switched = { $choice ->
     [v1] in use
     [v2] off
-   *[v3] blocked · online services are switched off
+   *[v3] blocked · sending is off
 }
 # kind=toast wording=as-is
 ai-capabilities-card-connection-ready-ms = connection ready · { $latency_ms } ms
@@ -232,8 +244,8 @@ ai-capabilities-card-test-2 = Test { $name }
 ai-capabilities-card-configure = Configure { $name }
 
 ## features/intelligence/CloudDialog.tsx
-# kind=sentence wording=as-is
-ai-cloud-dialog-a-direct-api-connection-billed = A direct API connection, billed separately from any ChatGPT or Claude plan. Job posts are only sent once { $b } is on.
+# kind=sentence note="$b is the Send postings switch's name, in bold"
+ai-cloud-dialog-a-direct-api-connection-billed = Uses your own API key, billed separately from any ChatGPT or Claude plan. Postings are sent only when { $b } is on.
 # kind=label wording=as-is
 ai-cloud-dialog-name = Name
 # kind=label wording=as-is
@@ -244,16 +256,16 @@ ai-cloud-dialog-server-address-https = Server address (HTTPS)
 ai-cloud-dialog-model-id = Model ID
 # kind=label wording=as-is
 ai-cloud-dialog-api-key = API key
-# kind=label wording=as-is
-ai-cloud-dialog-enable-this-connection = Enable this connection
+# kind=label
+ai-cloud-dialog-enable-this-connection = Turn on this provider
 # kind=label
 ai-cloud-dialog-could-not-save = Couldn't save
 # kind=label
 ai-cloud-dialog-could-not-delete = Couldn't delete
-# kind=label wording=as-is
+# kind=label
 ai-cloud-dialog-add-an-online-model-service = { $choice ->
     [yes] Configure { $name }
-   *[no] Add an online model service
+   *[no] Add an AI provider
 }
 # kind=label wording=as-is
 ai-cloud-dialog-openai-api = OpenAI API
@@ -261,19 +273,19 @@ ai-cloud-dialog-openai-api = OpenAI API
 ai-cloud-dialog-anthropic-api = Anthropic API
 # kind=label wording=as-is
 ai-cloud-dialog-other-openai-compatible = Other OpenAI-compatible
-# kind=label wording=as-is
+# kind=tooltip note="The API key field's placeholder: a key is saved (yes) or not (no)"
 ai-cloud-dialog-required-to-test = { $choice ->
-    [yes] Leave blank to keep saved key
+    [yes] Leave blank to keep the saved key
    *[no] Required to test
 }
-# kind=label wording=as-is
+# kind=label
 ai-cloud-dialog-delete = { $choice ->
-    [yes] Confirm delete { $name }
+    [yes] Yes, delete { $name }
    *[no] Delete
 }
-# kind=label wording=as-is
+# kind=label
 ai-cloud-dialog-delete-2 = { $choice ->
-    [yes] Confirm delete
+    [yes] Yes, delete
    *[no] Delete
 }
 # kind=label wording=as-is
@@ -317,14 +329,14 @@ ai-intelligence-section-loading = loading…
 ai-intelligence-section-matches-load-failed = Couldn't load your best fits
 # kind=heading
 ai-intelligence-section-band-load-failed = Couldn't load the roles in this grade
-# kind=label wording=as-is
-ai-intelligence-section-nothing-lands-in-right-now = nothing lands in { $value } right now
+# kind=status note="Shown when the selected fit grade holds no roles. $value is the grade's name"
+ai-intelligence-section-nothing-lands-in-right-now = no roles in { $value } right now
 # kind=label wording=as-is
 ai-intelligence-section-more = +{ $max } more ·
 # kind=link
 ai-intelligence-section-open-the-board = open Radar
-# kind=aria wording=as-is
-ai-intelligence-section-intelligence = Intelligence
+# kind=aria
+ai-intelligence-section-intelligence = AI
 # kind=aria wording=as-is
 ai-intelligence-section-fit-ranking-2 = Fit ranking
 # kind=status note="After the best fits, when every one of them is at one company. $length is how many there are, $top the company"
@@ -338,14 +350,14 @@ ai-intelligence-section-this-band = this grade
 ## features/intelligence/LocalModelDialog.tsx
 # kind=heading wording=as-is
 ai-local-model-dialog-your-own-model = Your own model
-# kind=sentence wording=as-is
-ai-local-model-dialog-a-model-server-you-run = A model server you run on this computer. Used only when you ask it to compare two postings. Nothing leaves this computer.
+# kind=sentence
+ai-local-model-dialog-a-model-server-you-run = A model on your local AI server. Used only when you compare two postings. Nothing leaves this computer.
 # kind=label wording=as-is
 ai-local-model-dialog-server-type = Server type
 # kind=label wording=as-is
 ai-local-model-dialog-server-address = Server address
-# kind=label wording=as-is
-ai-local-model-dialog-generation-and-reasoning-parameters = Generation and reasoning parameters
+# kind=label
+ai-local-model-dialog-generation-and-reasoning-parameters = Model settings
 # kind=label wording=as-is
 ai-local-model-dialog-max-tokens = Max tokens
 # kind=label wording=as-is
@@ -356,23 +368,23 @@ ai-local-model-dialog-top-p = Top p
 ai-local-model-dialog-timeout-s = Timeout (s)
 # kind=label wording=as-is
 ai-local-model-dialog-thinking-budget = Thinking budget
-# kind=label wording=as-is
-ai-local-model-dialog-enable-model-thinking = Enable model thinking
+# kind=label
+ai-local-model-dialog-enable-model-thinking = Think before answering
 # kind=label wording=as-is
 ai-local-model-dialog-ms = { $wall_time_ms } ms
 # kind=label
 ai-local-model-dialog-could-not-switch-connection = Couldn't switch connection
-# kind=label
-ai-local-model-dialog-could-not-reach-the-model = Couldn't reach the model
+# kind=heading
+ai-local-model-dialog-could-not-reach-the-model = Couldn't reach your local AI server
 # kind=label wording=as-is
 ai-local-model-dialog-configure-your-own-model = Configure your own model
 # kind=aria wording=as-is
 ai-local-model-dialog-saved-connections = Saved connections
-# kind=label wording=as-is
-ai-local-model-dialog-omlx-managed = oMLX (managed)
-# kind=label wording=as-is
+# kind=label
+ai-local-model-dialog-omlx-managed = oMLX, started from here
+# kind=tooltip note="The key field's placeholder: yes while editing a saved connection"
 ai-local-model-dialog-optional = { $choice ->
-    [yes] Leave blank to keep saved key
+    [yes] Leave blank to keep the saved key
    *[no] Optional
 }
 # kind=label wording=as-is
@@ -427,11 +439,11 @@ ai-matching-model-finish-now = { $choice ->
 # kind=button wording=as-is
 ai-matching-model-go-back-to-the = Go back to the { $nAME_LOWER }
 # kind=sentence
-ai-matching-model-the-small-model-is-built = The small model is built for machines with { $b } of RAM; this computer's RAM couldn't be detected, so either model will work.
+ai-matching-model-the-small-model-is-built = The small model is built for { $b } of RAM. This computer's RAM is unknown, so either model works.
 # kind=label wording=as-is
 ai-matching-model-gb = { $ramThresholdGb } GB
-# kind=sentence wording=as-is
-ai-matching-model-it-is-the-right-fit = It is the right fit for your computer's { $b } of RAM.
+# kind=sentence
+ai-matching-model-it-is-the-right-fit = It's built for this computer's { $b } of RAM.
 # kind=label wording=as-is same-as=ai-matching-model-gb
 ai-matching-model-gb-2 = { $ramGb } GB
 # kind=label wording=as-is
@@ -485,10 +497,16 @@ ai-matching-model-stop-and-go-back-to-2 = { $choice ->
 }
 # kind=label wording=as-is
 ai-matching-model-other-model = other model
-# kind=label wording=as-is
+# kind=status
 ai-matching-model-roles-ranked = { $choice ->
-    [yes] { $value } of { $corpus_total } roles updated
-   *[no] { $corpus_embedded } roles ranked
+    [yes] { $corpus_total ->
+        [one] { $value } of { $corpus_total } role updated
+       *[other] { $value } of { $corpus_total } roles updated
+    }
+   *[no] { $corpus_embedded ->
+        [one] { $corpus_embedded } role ranked
+       *[other] { $corpus_embedded } roles ranked
+    }
 }
 # kind=sentence wording=as-is
 ai-matching-model-the-big-model-produces-better = The big model produces better results.
@@ -496,16 +514,16 @@ ai-matching-model-the-big-model-produces-better = The big model produces better 
 ai-matching-model-switch-only-if-you-want = Switch only if you want to free RAM.
 # kind=label wording=as-is
 ai-matching-model-small-model-is-built-for = Small model is built for
-# kind=label wording=as-is
-ai-matching-model-your-computer-has = Your computer has
+# kind=label
+ai-matching-model-your-computer-has = This computer has
 # kind=label
 ai-matching-model-local-ai-model-switch = Ranking model switch
 
 ## features/intelligence/OriginBadge.tsx
-# kind=label wording=as-is
+# kind=label
 ai-origin-badge-cloud-connected = { $choice ->
     [yes] On this computer
-   *[no] Cloud-connected
+   *[no] Leaves this computer
 }
 
 ## features/intelligence/AssistantsCard.tsx (by hand)
@@ -515,12 +533,12 @@ ai-assistants-card-shares-role-titles-companies-locations-and-link = Role titles
 ai-assistants-card-shares-pay-level-and-how-long-the-role-has-been = Compensation, level, and how long the role has been open
 # kind=label wording=as-is
 ai-assistants-card-shares-the-full-posting-when-they-open-one = The full posting, when they open one
-# kind=label wording=as-is
-ai-assistants-card-shares-your-progress-on-roles-stage-priority-no = Your progress on roles: stage, priority, notes, next action
+# kind=status
+ai-assistants-card-shares-your-progress-on-roles-stage-priority-no = Your progress on roles: stage, priority, notes, next step
 # kind=status note="Something a connected assistant app can make RoleBand do: open a public web page from the user's computer and show it to the app"
 ai-assistants-card-shares-public-pages-it-asks-roleband-to-open = Public web pages it asks to open from this computer
-# kind=label wording=as-is
-ai-assistants-card-never-your-profile-and-intent-statement = Your profile and intent statement
+# kind=label
+ai-assistants-card-never-your-profile-and-intent-statement = Your profile and aim
 # kind=label wording=as-is
 ai-assistants-card-never-your-own-salary-or-contacts = Your own salary or contacts
 # kind=label wording=as-is
@@ -533,8 +551,8 @@ ai-assistants-card-app-codex-app = Codex app
 ai-assistants-card-app-other-app = Other app
 
 ## default connection names (by hand)
-# kind=label wording=as-is
-ai-local-model-dialog-default-name = Local Ornith
+# kind=label same-as=ai-capabilities-card-your-own-model
+ai-local-model-dialog-default-name = Your own model
 
 ## features/intelligence/CapabilitiesCard.tsx
 # kind=label wording=as-is same-as=ai-local-model-dialog-ms
@@ -544,46 +562,64 @@ ai-capabilities-card-ms = { $latency_ms } ms
 ## a provider's availability by state (backend/tracker/intelligence/provider.py),
 ## where a test ran by origin, and the test outcomes (intelligence_runtime/selftest.py,
 ## local_llm/client.py).
-# kind=sentence wording=as-is
-ai-availability-available = On-device model is ready.
-# kind=sentence wording=as-is
-ai-availability-disabled-by-flag = Integration is turned off.
-# kind=sentence wording=as-is
-ai-availability-sdk-absent = The Apple Foundation Models SDK isn't installed on this machine (requires macOS 26+ on Apple silicon).
-# kind=sentence wording=as-is
-ai-availability-apple-intelligence-disabled = Apple Intelligence is turned off. Enable it in System Settings.
-# kind=sentence wording=as-is
-ai-availability-device-ineligible = This Mac doesn't support Apple Intelligence.
 # kind=sentence
-ai-availability-model-not-ready = The on-device model isn't ready yet. It may still be downloading.
+ai-availability-available = Ready.
+# kind=sentence
+ai-availability-disabled-by-flag = Turned off.
+# kind=sentence
+ai-availability-sdk-absent = Apple Intelligence needs macOS 26 or later on Apple silicon.
+# kind=sentence
+ai-availability-apple-intelligence-disabled = Apple Intelligence is off. Turn it on in System Settings.
+# kind=sentence
+ai-availability-device-ineligible = This computer doesn't support Apple Intelligence.
+# kind=sentence
+ai-availability-model-not-ready = Not ready yet. May still be downloading.
 # kind=sentence
 ai-availability-not-configured = No model is set up. Add one in Settings › AI.
-# kind=sentence wording=as-is
-ai-availability-server-unreachable = The model server did not respond. Check that it is running at the configured address.
 # kind=sentence
-ai-availability-egress-not-permitted = Sending postings to online model services is off. Turn it on in Settings › AI.
+ai-availability-server-unreachable = Your local AI server didn't respond. Start it, then test again.
+# kind=sentence
+ai-availability-egress-not-permitted = Sending postings to AI providers is off. Turn it on in Settings › AI.
 # kind=label wording=as-is
 ai-origin-none = No model ran
 # kind=status
-ai-origin-on-device = On this Mac: Apple on-device model
+ai-origin-on-device = On this computer: Apple Intelligence
 # kind=status
-ai-origin-this-mac = On this Mac: local model server
-# kind=label wording=as-is
-ai-origin-cloud = Sent to a cloud provider
+ai-origin-this-mac = On this computer: your own model
+# kind=status
+ai-origin-cloud = Sent to an AI provider
 # kind=sentence
-ai-self-test-prefiltered = No compensation found in the text, so no model call was made. This is what the pipeline does for most postings.
-# kind=sentence wording=as-is
-ai-self-test-model-failed = The model did not return a usable response ({ $failure }).
-# kind=sentence wording=as-is
-ai-local-test-max-tokens = The model reached max_tokens before completing its response.
-# kind=sentence wording=as-is
-ai-local-test-succeeded = Model discovery and chat completion succeeded.
+ai-self-test-prefiltered = No compensation found in the text, so no model call was made. That's normal for most postings.
 # kind=sentence
+ai-self-test-model-failed = The model didn't give a usable answer ({ $failure }).
+# kind=sentence note="Max tokens is the field's label in the same dialog"
+ai-local-test-max-tokens = The answer was cut off at Max tokens. Raise it and test again.
+# kind=sentence
+ai-local-test-succeeded = Connected. The model answered.
+# kind=error
 ai-local-server-action-failed = { $action ->
-    [start] oMLX start failed.
-   *[stop] oMLX stop failed.
+    [start] Couldn't start your local AI server. Start it yourself, then test the connection.
+   *[stop] Couldn't stop your local AI server. Stop it yourself.
 }
 
 ## The local server's state when it answers.
 # kind=label wording=as-is
 ai-capabilities-card-running = running
+
+# kind=status note="The Apple Intelligence row's state when its setting turns it off, the first part of a line of facts joined by dots"
+ai-capabilities-card-apple-off = off
+
+# kind=status note="The Apple Intelligence row's state when Apple Intelligence is off in macOS, the first part of a line of facts joined by dots"
+ai-capabilities-card-apple-off-in-system-settings = off in System Settings
+
+# kind=status note="The Apple Intelligence row's state while the model is not ready yet, the first part of a line of facts joined by dots"
+ai-capabilities-card-apple-downloading = downloading
+
+# kind=status note="The Apple Intelligence row's state when this computer can't run it yet, the first part of a line of facts joined by dots"
+ai-capabilities-card-apple-needs-macos = needs macOS 26 or later on Apple silicon
+
+# kind=status note="The Apple Intelligence row's state when this computer can't run Apple Intelligence at all, the first part of a line of facts joined by dots"
+ai-capabilities-card-apple-not-supported = not supported on this computer
+
+# kind=status note="Beside the local AI server's switch when a start ran past its time limit and the server may still come up"
+ai-local-server-start-pending = Your local AI server is still starting. Check again in a minute.

@@ -132,7 +132,7 @@ export function directoryHitCompany(match: CompanyDirectoryMatch): CompanyDiscov
     visible: true,
     builtin: false,
     curated: false,
-    wall: null,
+    directed: false, scan_on_schedule: false, wall: null,
     consented: false,
     directory: true,
     status: null,

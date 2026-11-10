@@ -43,12 +43,12 @@ role-job-comp-panel-measured-split = Measured split
 role-job-comp-panel-split-from-another-discipline = Split from another discipline
 # kind=label wording=as-is
 role-job-comp-panel-estimated-split = Estimated split
-# kind=label wording=as-is
-role-job-comp-panel-this-company-s-real-base = This company's real base/bonus/equity split for this level and discipline
+# kind=tooltip
+role-job-comp-panel-this-company-s-real-base = From this company's own levels
 # kind=label wording=as-is
 role-job-comp-panel-no-measured-split-for-this = No measured split for this discipline: scaled from this company's numbers for the same level in another discipline
-# kind=label wording=as-is
-role-job-comp-panel-no-measured-split-for-this-2 = No measured split for this company: using the seniority heuristic
+# kind=label
+role-job-comp-panel-no-measured-split-for-this-2 = Estimated from the level
 # kind=aria
 role-job-comp-panel-about-the-split = About this split
 # kind=sentence
@@ -56,9 +56,9 @@ role-job-comp-panel-posted-band-sits-well-above = The posted range sits well abo
 # kind=sentence
 role-job-comp-panel-posted-band-sits-well-below = The posted range sits well below this company's measured { $band } base salary, so the level may be lower.
 # kind=toast
-role-job-comp-panel-you-choose-the-cash-stock = You choose the cash / equity mix
+role-job-comp-panel-you-choose-the-cash-stock = You choose the mix of cash and equity
 # kind=toast
-role-job-comp-panel-equity-fills-a-per-level = Equity fills a per-level total compensation target
+role-job-comp-panel-equity-fills-a-per-level = Equity makes up the rest of a total compensation target for each level
 # kind=toast wording=as-is
 role-job-comp-panel-equity-is-a-dollar-grant = Equity is a dollar grant sized by level
 # kind=toast wording=as-is
@@ -89,11 +89,11 @@ role-job-comp-panel-the-posting-gives-a-monthly = The posting gives a monthly ra
 # kind=label wording=as-is
 role-job-comp-panel-period-unclear = period unclear
 # kind=sentence
-role-job-comp-panel-the-posting-s-wording-and = The posting's wording and the size of this figure disagree, so it's unclear whether it's paid by the hour, the month or the year. Read the employer's own words below.
-# kind=sentence wording=as-is
-role-job-comp-panel-states-this-as-total-annual = { $company } states this as total annual compensation with no bonus. Employees choose how much is salary versus stock options, so there is no fixed cash/equity split to show.
+role-job-comp-panel-the-posting-s-wording-and = It's unclear whether this is per hour, month or year. See the employer's own words below.
+# kind=sentence
+role-job-comp-panel-states-this-as-total-annual = { $company } states this as total yearly compensation with no bonus. Employees pick their own mix of base salary and equity, so there's no fixed split.
 # kind=label note="Tag on an employer's pay figure that is not split: each employee chooses how much is salary and how much is stock"
-role-job-comp-panel-employee-selected-mix = employee-selected mix
+role-job-comp-panel-employee-selected-mix = you choose the mix
 # kind=label wording=as-is
 role-job-comp-panel-total-compensation = total compensation
 # kind=sentence
@@ -105,11 +105,11 @@ role-job-comp-panel-the-posting-states-this-figure = The posting doesn't say whe
 # kind=label note="No base, bonus and stock split for this level: the plugin answering pay states none, or the role's pay is outside the US pay RoleBand splits"
 role-job-comp-panel-split-not-reported = split unavailable
 # kind=sentence note="A plugin answers pay; RoleBand's own split is never put under its figure"
-role-job-comp-panel-the-plugin-reports-no-split = The plugin that supplies compensation gives a figure for this level but not how it divides into base, bonus and equity, so it is not split.
+role-job-comp-panel-the-plugin-reports-no-split = The compensation plugin gives no base, bonus and equity split for this level.
 # kind=sentence note="RoleBand's own split is measured on US pay; this posting is in another country, or names places in several"
 role-job-comp-panel-roleband-splits-us-pay-only = Compensation is split into base, bonus and equity from US data only. This role is outside the US or in several countries, so it isn't split.
 # kind=sentence note="The posting names no level, or one in the company's own terms not yet mapped to the shared levels: its pay is shown as posted, with no estimated bonus, equity or total"
-role-job-comp-panel-level-not-stated-or-mapped = The posting names no level, or one not yet mapped to the shared levels, so its pay isn't split into base, bonus and equity, and no total is estimated.
+role-job-comp-panel-level-not-stated-or-mapped = Without a standard level, no split or total is estimated.
 # kind=label note="A plugin answers pay app-wide and has not read this posting's company yet"
 role-job-comp-panel-not-read-yet = not read yet
 # kind=label wording=as-is
@@ -129,8 +129,8 @@ role-job-comp-panel-about-stated-base-salary = About the posted base salary
 role-job-comp-panel-of-base-stated = { $round }% of base, stated
 
 ## features/job-detail/JobDescription.tsx
-# kind=sentence wording=as-is
-role-job-description-no-description-captured = No description captured.
+# kind=sentence
+role-job-description-no-description-captured = No description for this role.
 
 ## features/job-detail/JobDetail.tsx
 # kind=button wording=as-is
@@ -152,7 +152,7 @@ role-job-detail-your-progress = Your progress
 # kind=label wording=as-is
 role-job-detail-set-a-stage = Set a stage…
 # kind=sentence note="Under the stage select before any stage is picked: what picking one does"
-role-job-detail-tracking-explainer = Pick a stage to track this role: it is saved, your pipeline shows its stage, and a follow-up date you set later reminds you when it is due.
+role-job-detail-tracking-explainer = Pick a stage and the role is saved with it. Give a next step a due date to get a reminder.
 # kind=label wording=as-is
 role-job-detail-next = Next: { $next_action }
 # kind=label wording=as-is
@@ -191,8 +191,8 @@ role-job-detail-role = { $choice ->
 }
 # kind=aria wording=as-is
 role-job-detail-back-2 = Back
-# kind=label wording=as-is
-role-job-detail-compare-is-full-max = Compare is full (max { $compareCap })
+# kind=tooltip
+role-job-detail-compare-is-full-max = Compare is full: { $compareCap } at most
 # kind=label wording=as-is
 role-job-detail-compare = { $choice ->
     [yes] In compare
@@ -200,10 +200,10 @@ role-job-detail-compare = { $choice ->
 }
 # kind=sentence
 role-job-detail-it-s-no-longer-in = This role no longer exists.
-# kind=label wording=as-is
+# kind=label
 role-job-detail-not-started = { $choice ->
     [yes] Stage
-   *[no] Not started
+   *[no] Not in your pipeline
 }
 # kind=aria wording=as-is
 role-job-detail-stage = Stage
@@ -213,8 +213,8 @@ role-job-detail-likely-your-kind-of-role = Likely your kind of role
 role-job-detail-likely-outside-your-worlds = Likely outside your worlds
 # kind=label wording=as-is
 role-job-detail-hard-to-place = Hard to place
-# kind=tooltip wording=as-is
-role-job-detail-questions-the-employer-added-beyond = Questions the employer added beyond name, contact and resume, read from the posting page
+# kind=tooltip
+role-job-detail-questions-the-employer-added-beyond = Questions the employer asks beyond name, contact details and CV
 # kind=tooltip wording=as-is
 role-job-detail-similarity = Similarity
 
@@ -238,7 +238,7 @@ role-job-requirements-panel-role-requirements = Role requirements
 # kind=heading wording=as-is
 role-job-requirements-panel-what-this-role-asks-for = What this role asks for
 # kind=sentence
-role-job-requirements-panel-importance-reflects-how-strongly-this = Importance reflects how strongly this posting emphasizes each item: explicit requirements found in this posting, with the employer's exact wording. It says nothing about your own skills or chances.
+role-job-requirements-panel-importance-reflects-how-strongly-this = How strongly the posting stresses each item, in its own words. It says nothing about your chances.
 # kind=label wording=as-is
 role-job-requirements-panel-required = { $requiredYears } { $requiredYears2 } required
 # kind=label wording=as-is
@@ -291,23 +291,23 @@ role-job-requirements-panel-years = { $count ->
 }
 # kind=aria wording=as-is
 role-job-requirements-panel-role-requirements-2 = Role requirements
-# kind=sentence wording=as-is
+# kind=sentence
 role-job-requirements-panel-this-posting-has-no-stored = { $choice ->
     [yes] Analyzing requirements…
-   *[no] This posting has no stored text to analyze.
+   *[no] This posting has no text to analyze.
 }
 # kind=label wording=as-is
 role-job-requirements-panel-preferred-2 = { $choice ->
     [yes] Required
    *[no] Preferred
 }
-# kind=label wording=as-is
+# kind=label
 role-job-requirements-panel-show-evidence = { $choice ->
-    [yes] Hide evidence
-   *[no] Show evidence
+    [yes] Hide quotes
+   *[no] Show quotes
 }
-# kind=aria wording=as-is
-role-job-requirements-panel-ways-of-working-evidence = Ways of working evidence
+# kind=aria
+role-job-requirements-panel-ways-of-working-evidence = Ways of working quotes
 # kind=label wording=as-is
 role-job-requirements-panel-about-importance = About importance
 # kind=label wording=as-is
@@ -315,10 +315,10 @@ role-job-requirements-panel-important = { $choice ->
     [yes] Core
    *[no] Important
 }
-# kind=sentence wording=as-is
+# kind=sentence
 role-job-requirements-panel-skill-sources-show-evidence = { $count ->
-    [one] { $display }, { $bandLabel } { $modality } skill, { $sources } source. Show evidence.
-   *[other] { $display }, { $bandLabel } { $modality } skill, { $sources } sources. Show evidence.
+    [one] { $display }, { $bandLabel } { $modality } skill, { $sources } source. Show quotes.
+   *[other] { $display }, { $bandLabel } { $modality } skill, { $sources } sources. Show quotes.
 }
 # kind=label wording=as-is
 role-job-requirements-panel-requirement-sources = { $count ->
@@ -368,8 +368,8 @@ role-lineage-stack-could-not-load-posting-history = Couldn't load posting histor
 role-lineage-stack-postings-of-this-role = { $size } postings of this role
 # kind=label wording=as-is
 role-lineage-stack-first-seen = first seen { $relDays }
-# kind=label wording=as-is
-role-lineage-stack-req = req { $req_id }
+# kind=label
+role-lineage-stack-req = ID { $id }
 # kind=label wording=as-is
 role-lineage-stack-locations = Locations
 # kind=label
@@ -392,7 +392,7 @@ role-lineage-stack-posting = { $choice ->
 # kind=label note="What one posting of a role posted more than once is: the first, one posted again after an earlier one, or one listed while an earlier one was still open"
 role-lineage-stack-role = { $role ->
     [original] original
-    [duplicate] duplicate
+    [duplicate] another posting
    *[repost] reposted
 }
 # kind=label note="Badge on the posting shown in a role's posting history: what it is and its place in the order, original · #1"
@@ -409,12 +409,12 @@ role-lineage-stack-last-seen = { $choice ->
 }
 
 ## features/job-detail/ListingAge.tsx
-# kind=label wording=as-is
-role-listing-age-reading-the-history = Reading the history…
-# kind=label wording=as-is
-role-listing-age-couldn-t-read-the-history = Couldn't read the history.
-# kind=button wording=as-is
-role-listing-age-retry = Retry
+# kind=label
+role-listing-age-reading-the-history = Loading the history…
+# kind=status
+role-listing-age-couldn-t-read-the-history = Couldn't load the history.
+# kind=button
+role-listing-age-retry = Try again
 # kind=label wording=as-is
 role-listing-age-role-listed-for-across-postings = Role listed for { $days } across { $postings } postings.
 # kind=button wording=as-is
@@ -429,8 +429,8 @@ role-listing-age-listed-for = Listed for
 role-listing-age-since = since { $listed_since }, { $bASIS }
 # kind=button wording=as-is
 role-listing-age-history = History
-# kind=label wording=as-is
-role-listing-age-listing-history = Listing history
+# kind=label
+role-listing-age-listing-history = Posting history
 # kind=label wording=as-is
 role-listing-age-role = Role
 # kind=label wording=as-is
@@ -451,25 +451,25 @@ role-listing-age-discipline = Discipline
 role-listing-age-location = Location
 # kind=label wording=as-is
 role-listing-age-posting = Posting
-# kind=label wording=as-is
+# kind=label
 role-listing-age-same-role-matched-automatically = { $choice ->
     [yes] same role, confirmed
-   *[no] same role, matched automatically
+   *[no] same role, paired automatically
 }
 # kind=label wording=as-is
 role-listing-age-published-by-the-employer = Published by the employer
-# kind=label wording=as-is
-role-listing-age-the-start = the start
+# kind=label
+role-listing-age-the-start = counted from here
 # kind=label same-as=role-lineage-stack-first-seen-2
 role-listing-age-first-seen-by-roleband = First seen
 # kind=label wording=as-is
 role-listing-age-gone-from-the-careers-page = Gone from the careers page
-# kind=label wording=as-is
-role-listing-age-came-back-same-requisition = Came back, same requisition
+# kind=status
+role-listing-age-came-back-same-requisition = Came back with the same ID
 # kind=label wording=as-is
 role-listing-age-employer-changed-its-date-to = Employer changed its date to { $to_at }
-# kind=label wording=as-is
-role-listing-age-never-the-start = never the start
+# kind=label
+role-listing-age-never-the-start = not counted from here
 # kind=label wording=as-is
 role-listing-age-an-earlier-posting-was-listed = { $choice ->
         [yes] Earlier posting { $posting } listed
@@ -504,7 +504,7 @@ role-place-set-section-you-marked-this-posting-as = You marked this posting as a
 # kind=button wording=as-is
 role-place-set-section-undo = Undo
 # kind=sentence
-role-place-set-section-same-title-and-the-same = Same title and the same description at each place, apart from the place and what comes with it (local compensation, benefits or legal text) or a few reworded words, so it counts as one role.
+role-place-set-section-same-title-and-the-same = Same title and description at each place, apart from local details such as compensation, benefits or legal text, or a few reworded words, so it counts as one role.
 # kind=button wording=as-is
 role-place-set-section-different-roles = Different roles
 # kind=label wording=as-is
@@ -512,7 +512,7 @@ role-place-set-section-marked-as-a-different-role = Marked as a different role
 # kind=label wording=as-is
 role-place-set-section-undo-2 = Undo
 # kind=toast
-role-place-set-section-could-not-record-the-verdict = Couldn't record the verdict: { $message }
+role-place-set-section-could-not-record-the-verdict = Couldn't save your choice. { $message }
 # kind=aria wording=as-is
 role-place-set-section-also-listed-in = Also listed in
 # kind=label wording=as-is
@@ -549,15 +549,15 @@ role-posting-reality-of-signs = { $length } of { $criteria_total } signs · { $s
 
 ## features/job-detail/TwinDeck.tsx
 # kind=sentence
-role-twin-deck-could-not-load-twin-postings = Couldn't load twin postings for this role. Try again.
+role-twin-deck-could-not-load-twin-postings = Couldn't load related roles. Try again.
 # kind=label wording=as-is
 role-twin-deck-separate-roles-with-closely-related = Separate roles with closely related work
-# kind=label wording=as-is
-role-twin-deck-req = req { $req_id } · { $value }
+# kind=label
+role-twin-deck-req = ID { $id } · { $value }
 # kind=label wording=as-is
 role-twin-deck-via-a-related-group-not = Via a related group · not directly related
-# kind=button wording=as-is
-role-twin-deck-req-2 = { $title } · req { $req_id }
+# kind=label
+role-twin-deck-req-2 = { $title } · ID { $id }
 # kind=button wording=as-is
 role-twin-deck-compare-with-related-roles = Compare with related roles
 # kind=aria wording=as-is
@@ -571,8 +571,8 @@ role-twin-deck-has-related-roles = { $count ->
 role-twin-deck-location-not-listed = location not listed
 
 ## features/job-detail/applyAsk.ts
-# kind=label wording=as-is
-role-apply-ask-nothing-beyond-your-resume = Nothing beyond your resume
+# kind=label
+role-apply-ask-nothing-beyond-your-resume = Nothing beyond your CV
 # kind=label note="How many questions applying asks beyond name, contact and resume"
 role-apply-ask-questions = { $count ->
     [one] { $count } question
@@ -584,11 +584,11 @@ role-apply-ask-written-answers = { $count ->
    *[other] { $count } written answers
 }
 # kind=toast
-role-apply-ask-asks-your-expected-pay = asks your expected compensation
+role-apply-ask-asks-your-expected-pay = asks for your expected compensation
 
 ## features/job-detail/JobRequirementsPanel.tsx
-# kind=label wording=as-is
-role-job-requirements-panel-evidence = { $display } evidence
+# kind=label
+role-job-requirements-panel-evidence = { $display } quotes
 
 ## features/job-detail/LineageDiff.tsx
 # kind=toast wording=as-is
@@ -605,7 +605,7 @@ role-listing-age-changed = { $choice ->
 
 ## features/job-detail/JobCompPanel.tsx
 # kind=tooltip
-role-job-comp-panel-the-posted-band-does-not = { $sPLIT_TITLE }. The posted range does not match that level, so treat the split as provisional
+role-job-comp-panel-the-posted-band-does-not = { $sPLIT_TITLE }. The posted range doesn't match that level, so treat the split as an estimate
 
 ## A posting's status code, said.
 # kind=label wording=as-is

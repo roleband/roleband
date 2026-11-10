@@ -15,7 +15,7 @@ it("counts differing passages with a verb that agrees", () => {
     <DescriptionComparison prior={posting("- Shared requirement\n- 5+ years in security")} job={posting("- Shared requirement")} />,
   );
   const region = screen.getByRole("region", { name: "Description comparison" });
-  expect(region).toHaveTextContent("1 passage differs.");
+  expect(region).toHaveTextContent("1 passage differs, highlighted.");
 
   rerender(
     <DescriptionComparison
@@ -23,7 +23,7 @@ it("counts differing passages with a verb that agrees", () => {
       job={posting("- Shared requirement\n- Experience with compliance")}
     />,
   );
-  expect(region).toHaveTextContent("2 passages differ.");
+  expect(region).toHaveTextContent("2 passages differ, highlighted.");
 });
 
 it("shows the employer's passages as theirs, marked as text RoleBand did not write", () => {

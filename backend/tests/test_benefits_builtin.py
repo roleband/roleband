@@ -28,6 +28,7 @@ from tracker.profiles.benefits_builtin import (
     DATASET,
     OTHER,
     builtin_cells,
+    classify,
     dataset_benefit_notes,
     dataset_benefits,
     plugin_benefits,
@@ -38,8 +39,8 @@ from tracker.profiles.benefits_builtin import (
 #: One test drives Settings > Plugins, a route that can start a process.
 pytestmark = pytest.mark.usefixtures("no_escape")
 
-#: Lyft's retirement cell holds two employer mentions, worded differently.
-COMPANY, CELL = "lyft", "retirement_plan"
+#: Lyft's 401(k) cell holds two employer mentions, worded differently.
+COMPANY, CELL = "lyft", "us_401k"
 
 
 def _row(name, provider="tpl", value_usd=None, value_text=None, country=None):
@@ -165,7 +166,7 @@ def test_records_group_into_one_cell_per_benefit_in_file_order():
 
 
 def test_the_dataset_alone_answers_every_listed_cell_once():
-    """One row per benefit: Lyft's retirement cell holds two employer
+    """One row per benefit: Lyft's 401(k) cell holds two employer
     mentions, and both land on one row."""
     groups = dataset_benefits(COMPANY)
     listed = [c["benefit_type"] for c in builtin_cells(COMPANY)]
@@ -206,9 +207,34 @@ def test_every_company_shows_each_benefit_once_and_each_wording_once():
                 assert text[:1] not in "*-•·", (company, text)
     amazon = _items(dataset_benefits("amazon"))
     assert len(amazon) == 13
-    [plan] = [i for i in amazon if i["benefit_type"] == "retirement_plan"]
+    [plan] = [i for i in amazon if i["benefit_type"] == "us_401k"]
     assert _said(plan["value_text"]) == "401(k) plan"
-    assert {_said(w["text"]) for w in plan["wordings"]} == {"401(k)"}
+    # A record that says only "401(k)" names the benefit itself: it adds its mentions, not a wording.
+    assert plan["wordings"] == []
+    assert plan["mentions"] == 75
+
+
+def test_a_retirement_plan_is_named_by_the_plan_the_employer_names():
+    """"401(k)" is one US plan and "RRSP" one Canadian plan: a record lands on the
+    plan its employer's words name, and a pension or an unnamed plan stays a
+    retirement plan. Ramp names both national plans under their countries' headings;
+    Cohere names three plans in one sentence; Wise's pensions stay apart from its 401(k)."""
+    def cells(company):
+        return {i["benefit_type"]: i for i in _items(dataset_benefits(company))
+                if i["benefit_type"] in {"retirement_plan", "us_401k", "ca_rrsp"}}
+
+    ramp = cells("ramp")
+    assert set(ramp) == {"us_401k", "ca_rrsp"}
+    assert ramp["us_401k"]["country"] == "US" and ramp["ca_rrsp"]["country"] == "CA"
+    assert set(cells("cohere")) == {"us_401k", "ca_rrsp", "retirement_plan"}
+    wise = cells("wise")
+    assert set(wise) == {"us_401k", "retirement_plan"}
+    assert "401" not in wise["retirement_plan"]["value_text"] and "ension" in wise["retirement_plan"]["value_text"]
+    assert "401" in wise["us_401k"]["value_text"]
+    assert set(cells("lyft")) == {"us_401k"}
+    assert "retirement_plan" not in {c["benefit_type"] for c in builtin_cells("deloitte")}
+    assert [classify(n) for n in ("401(k)", "401K", "Group RRSP", "Pension", "Retirement plan")] == [
+        "us_401k", "us_401k", "ca_rrsp", "retirement_plan", "retirement_plan"]
 
 
 def test_a_sentence_several_benefits_share_is_said_once_as_a_note():

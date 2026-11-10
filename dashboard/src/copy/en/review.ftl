@@ -41,8 +41,8 @@ review-diagnostics = Diagnostics
 review-count = { $count } messages
 # kind=label
 review-width = Width budget exceeded
-# kind=error next=none
-review-error = Couldn't load the copy review.
+# kind=error
+review-error = Couldn't load the copy review. Try again.
 # kind=button
 review-more = Show more
 # kind=label

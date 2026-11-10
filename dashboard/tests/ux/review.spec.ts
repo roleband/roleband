@@ -99,9 +99,9 @@ test("the queue states the backlog behind its page, and the rail says the same n
 
   await page.goto("/review");
 
-  await expect(page.getByText("476 pairs left in the queue")).toBeVisible();
+  await expect(page.getByText("476 pairs to decide")).toBeVisible();
   // The two rows it actually holds must not be mistaken for the whole set.
-  await expect(page.getByText(/^2 pairs left/)).toHaveCount(0);
+  await expect(page.getByText(/^2 pairs to decide/)).toHaveCount(0);
   // The tab badge is the same count, not a second opinion.
   await expect(page.getByRole("tab", { name: /^Queue/ })).toContainText("476");
   await expect(
@@ -132,18 +132,18 @@ test("local duplicate advice stays separate from the human verdict", async ({ pa
   const defaultConsoleBox = await console.boundingBox();
   const actions = console.getByRole("button");
   await expect(actions.first()).toHaveAccessibleName(/Different roles/);
-  await expect(actions.last()).toHaveAccessibleName("Ask the model");
+  await expect(actions.last()).toHaveAccessibleName("Ask AI");
   await expect(console).not.toContainText("System normalization");
-  await expect(page.getByLabel("System similarity 94%")).toBeVisible();
-  await page.getByRole("button", { name: "About system similarity" }).click();
+  await expect(page.getByLabel("Similarity 94%")).toBeVisible();
+  await page.getByRole("button", { name: "About similarity" }).click();
   await expect(page.getByRole("tooltip")).toContainText("Proposed as the same role");
   await expect(page.getByRole("tooltip")).not.toContainText("candidate");
   // Why the pair was proposed, in the reader's words: never the method's name.
   await expect(page.getByRole("tooltip")).toContainText("Descriptions 90% alike");
   await expect(page.getByRole("tooltip")).not.toContainText(/method|embedding/i);
-  await page.getByRole("button", { name: "Ask the model" }).click();
+  await page.getByRole("button", { name: "Ask AI" }).click();
 
-  const assessment = page.getByRole("region", { name: "Local model assessment" });
+  const assessment = page.getByRole("region", { name: "AI opinion" });
   await expect(assessment).toContainText("Likely the same role");
   await expect(assessment).toContainText("different requisition identifiers");
   await expect(assessment).toContainText("95%");
@@ -171,9 +171,9 @@ test("description comparison reveals and filters detected passage differences", 
   await expect(ledger.getByRole("row", { name: /Title\s+Same\s+Staff Software Engineer/ })).toBeVisible();
   await expect(ledger.locator("tr.row-title td[colspan='2']")).toHaveCount(1);
   await expect(ledger.locator("tr.row-requisition")).toHaveCount(0);
-  await expect(ledger.getByRole("button", { name: "Show 12 matching fields" })).toBeVisible();
+  await expect(ledger.getByRole("button", { name: "Show 12 identical fields" })).toBeVisible();
   await expect(ledger.getByRole("row", { name: /Level\s*Same\s*Staff/ })).toHaveCount(0);
-  await ledger.getByRole("button", { name: "Show 12 matching fields" }).click();
+  await ledger.getByRole("button", { name: "Show 12 identical fields" }).click();
   await expect(ledger.getByRole("row", { name: /Level\s*Same\s*Staff/ })).toBeVisible();
   await expect(ledger.getByRole("link", { name: "Careers page, earlier posting" })).toHaveAttribute("href", "https://example.test/jobs/101");
   await expect(ledger.getByRole("link", { name: "Careers page, newer posting" })).toHaveAttribute("target", "_blank");
@@ -224,7 +224,7 @@ test("decision history is a full workspace and past choices can be expanded and 
   expect(historyBox?.width).toBeGreaterThan((mainBox?.width ?? 0) * 0.85);
 
   await history.getByRole("button", { name: /REQ-OLD/ }).click();
-  const editor = history.getByRole("region", { name: "Change decision" });
+  const editor = history.getByRole("region", { name: "Change your decision" });
   const comparison = history.getByRole("region", { name: "Side by side" });
   await expect(comparison.getByRole("link", { name: "Role details, earlier posting" })).toHaveAttribute("href", "/company/openai/job/99");
   await expect(history.locator(".review-panel")).toHaveCount(0);

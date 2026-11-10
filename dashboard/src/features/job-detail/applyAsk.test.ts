@@ -14,17 +14,19 @@ describe("applyAsk", () => {
   });
 
   it("says when the form demands expected pay", () => {
-    expect(applyAsk(form({ required: 6, written: 2, asks_expected_pay: true }))).toBe(
-      "6 questions, 2 written answers, asks your expected compensation",
-    );
+    expect(applyAsk(form({ required: 6, written: 2, asks_expected_pay: true }))).toBe([
+      msg("role-apply-ask-questions", { count: 6 }),
+      msg("role-apply-ask-written-answers", { count: 2 }),
+      msg("role-apply-ask-asks-your-expected-pay"),
+    ].join(", "));
   });
 
   it("does not invent a written answer the form does not ask for", () => {
     expect(applyAsk(form({ required: 1, written: 0, choices: 1 }))).toBe("1 question");
   });
 
-  it("says plainly when there is nothing beyond the resume", () => {
-    expect(applyAsk(form({ required: 0, written: 0, choices: 0 }))).toBe("Nothing beyond your resume");
+  it("says plainly when there is nothing beyond the CV", () => {
+    expect(applyAsk(form({ required: 0, written: 0, choices: 0 }))).toBe(msg("role-apply-ask-nothing-beyond-your-resume"));
   });
 });
 

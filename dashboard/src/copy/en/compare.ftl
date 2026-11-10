@@ -52,19 +52,25 @@ compare-screen-not-for-me-hide-this = Not for me
 compare-screen-remove-from-comparison = Remove { $title }
 # kind=heading
 compare-screen-remove = Remove
-# kind=label wording=as-is
+# kind=label
 compare-screen-show-or-hide-matching-fields = { $fields ->
-    [open] Hide { $count } matching fields
-   *[folded] Show { $count } matching fields
+    [open] { $count ->
+        [one] Hide { $count } identical field
+       *[other] Hide { $count } identical fields
+    }
+   *[folded] { $count ->
+        [one] Show { $count } identical field
+       *[other] Show { $count } identical fields
+    }
 }
 # kind=label wording=as-is
 compare-screen-show-or-hide = { $fields ->
     [open] Hide
    *[folded] Show
 }
-# kind=sentence wording=as-is
+# kind=sentence note="Says what the highlight on a passage means; passages = shared (some passages are shared, so the rest are highlighted) or none"
 compare-screen-passages-legend = { $passages ->
-    [shared] Amber passages are not in every posting.
+    [shared] Highlighted passages appear in only some postings.
    *[none] These postings share no passages.
 }
 # kind=label wording=as-is

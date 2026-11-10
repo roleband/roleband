@@ -216,7 +216,7 @@ describe("the board filter register", () => {
       expect(screen.getByRole("button", { name })).toHaveAttribute("aria-expanded", "false");
     }
     // Nothing chosen, so a closed group offers nothing — not one row.
-    for (const label of ["Silicon Valley", "Staff", "OpenAI", "Management / Leadership"]) {
+    for (const label of ["Silicon Valley", "Staff", "OpenAI", msg("vocab-track-management")]) {
       expect(screen.queryByLabelText(label)).toBeNull();
     }
 
@@ -277,11 +277,11 @@ describe("the board filter register", () => {
     expect(labels).toEqual([
       expect.stringContaining("Principal"),
       expect.stringContaining("Mid-level"),
-      expect.stringContaining("Level not placed"),
+      expect.stringContaining(msg("taxonomy-level-not-placed")),
     ]);
     expect(labels[2]).toContain("7");
     expect(labels[1]).toContain("2");
-    await user.click(screen.getByLabelText("Level not placed"));
+    await user.click(screen.getByLabelText(msg("taxonomy-level-not-placed")));
     expect(update).toHaveBeenCalledWith({ level_band: ["unstated"], offset: 0 });
   });
 
@@ -370,7 +370,7 @@ describe("the board filter register", () => {
       "aria-expanded",
       "false"
     );
-    await user.click(within(group).getByRole("button", { name: "clear" }));
+    await user.click(within(group).getByRole("button", { name: msg("shared-filter-rail-clear") }));
     expect(update).toHaveBeenCalledWith({ family: [], offset: 0 });
   });
 
@@ -426,7 +426,7 @@ describe("the board filter register", () => {
     const { update } = renderFilters();
     await user.click(screen.getByRole("button", { name: "More filters" }));
     await openGroup(user, "Career track");
-    await user.click(screen.getByLabelText("Management / Leadership"));
+    await user.click(screen.getByLabelText(msg("vocab-track-management")));
     expect(update).toHaveBeenCalledWith({ track: ["management"], offset: 0 });
   });
 

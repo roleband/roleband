@@ -337,7 +337,7 @@ async def test_a_first_read_that_validates_its_binding_has_read_the_board(
 
 
 async def _flagged(db_session) -> list[dict]:
-    rows = await followed_bindings(db_session, automatic=lambda *_: True)
+    rows = await followed_bindings(db_session, automatic=lambda *_, **__: True)
     return binding_attention(rows, datetime.now(UTC), stale_after=STALE_AFTER)["items"]
 
 
@@ -397,7 +397,7 @@ async def test_a_board_gone_from_its_address_is_told_once_by_coverage(db_session
         select(Notification).where(Notification.category == "coverage")
     )).all()
     assert [(n.title, n.meta["cause"]) for n in rows] == [
-        ("Apple's careers page is gone", CAUSE_BOARD_MISSING),
+        ("Careers page gone: Apple", CAUSE_BOARD_MISSING),
     ], "one row per company, however many passes"
     assert "Find its new careers page, or stop following Apple." in rows[0].body
     assert "2 roles stay as last seen until then." in rows[0].body

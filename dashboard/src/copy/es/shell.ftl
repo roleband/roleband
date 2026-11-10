@@ -20,7 +20,7 @@ shell-tab-insights-stock = Acciones
 shell-tab-insights-skills = Habilidades
 shell-tab-insights-trends = Tendencias
 shell-tab-insights-overlap = Solapamiento
-shell-tab-insights-groups = Grupos
+shell-tab-insights-groups = Clústeres
 
 ## Pestañas de Ajustes
 shell-tab-settings-companies = Empresas que sigues
@@ -39,11 +39,11 @@ shell-route-welcome = Bienvenida
 shell-route-compare = Comparar
 shell-route-dashboard = RoleBand
 shell-skip-to-content = Saltar al contenido
-shell-topbar-aria = Navegación de la aplicación
+shell-topbar-aria = Barra superior
 shell-breadcrumb-aria = Ruta de navegación
 shell-palette-open-aria = Abrir la paleta de comandos, ⌘ K
 shell-palette-open-title = Paleta de comandos (⌘K)
-shell-stats-aria = Telemetría de la misión
+shell-stats-aria = Resumen del radar
 shell-stat-unknown = Desconocido
 shell-stat-open = abiertos
 shell-stat-open-aria = { $count ->
@@ -89,11 +89,12 @@ shell-theme-dark = Modo oscuro
 ## Actualidad de los datos
 shell-freshness-label = Último escaneo
 shell-freshness-offline = Último escaneo desconocido
-shell-freshness-offline-aria = Último escaneo: estado sin conexión
+shell-freshness-offline-aria = Último escaneo: desconocido
 shell-freshness-offline-title = Estado no disponible
 shell-freshness-oldest = Escaneo más antiguo: { $when }
 shell-freshness-never = Aún sin escanear
 shell-freshness-waiting = Esperando un escaneo completo: { $companies }
+shell-reason-setup-source = Ejecuta ./setup.sh en tu carpeta de código fuente para terminar la actualización. El escaneo se reanuda justo después.
 shell-freshness-aria = Último escaneo: { $state }
 shell-freshness-loading-aria = Último escaneo: cargando
 
@@ -103,23 +104,23 @@ shell-scan-result-none = Al día
 shell-scan-queued-until = { $count } en cola · esperando hasta las { $time }
 shell-scan-queued-blocked = { $count } en cola · { $reason ->
     [paused] en pausa
-    [policy_denied] sin escaneo programado
-    [backoff] esperando para reintentar
+    [policy_denied] escaneo desactivado
+    [backoff] un sitio pidió bajar el ritmo
    *[other] en espera
 }
 shell-scan-queued = { $count } en cola
-shell-scan-waiting =
-    { $count } en cola · { $reason ->
-        [preflight_running] comprobando el código primero
-        [preflight_failed] retenido: el código no pasó sus comprobaciones
-        [waiting_for_wake] esperando a que el ordenador despierte
-        [waiting_for_mains] esperando corriente
-        [schema_pending] esperando a que termine una actualización
-        [dependencies_pending] esperando a que termine una actualización
-        [supervisor_stale] el servicio en segundo plano no está en marcha
-        [busy_external] hay otro escaneo en marcha
-       *[other] esperando
-    }
+shell-scan-waiting = { $count } en cola · { $reason ->
+    [preflight_running] comprobando primero esta versión
+    [preflight_failed] en espera: esta versión no pasó sus comprobaciones
+    [waiting_for_wake] esperando a que tu equipo se reactive
+    [waiting_for_mains] esperando a que tu equipo se conecte a la corriente
+    [schema_pending] esperando a que termine una actualización
+    [dependencies_pending] esperando a que termine una actualización
+    [setup_source] ejecuta ./setup.sh para terminar la actualización
+    [supervisor_stale] el servicio en segundo plano no está en marcha
+    [busy_external] hay otro escaneo en marcha
+   *[other] esperando
+}
 shell-scan-stopping = Deteniendo…
 shell-scan-stop = Detener el escaneo
 shell-scan-scanning = Escaneando…
@@ -133,7 +134,7 @@ shell-scan-could-not-start = No se pudo iniciar
 shell-scan-could-not-stop = No se pudo detener
 shell-scan-stop-title = Detener el escaneo
 shell-scan-running-title = Buscando puestos nuevos en todas las empresas que sigues…
-shell-scan-requested-title = Solicitado; esperando a que el programador lo recoja
+shell-scan-requested-title = Esperando para empezar
 shell-scan-idle-title = Buscar puestos nuevos en todas las empresas que sigues
 shell-scan-company-count = { $count ->
     [one] { $count } empresa
@@ -157,7 +158,7 @@ shell-palette-compare = { $count ->
     [many] Comparar { $count } de puestos
    *[other] Comparar { $count } puestos
 }
-shell-palette-clear-compare = Vaciar la selección de comparación ({ $count })
+shell-palette-clear-compare = Vaciar la comparación ({ $count })
 shell-palette-search = Buscar puestos con “{ $query }”
 shell-palette-aria = Paleta de comandos
 shell-palette-placeholder = Busca puestos o ve a cualquier sitio…
@@ -198,7 +199,7 @@ shell-compare-chip-aria = { $count ->
    *[other] { $count } puestos en comparación
 }
 shell-compare-chip-title = Abrir la comparación
-shell-compare-save-failed = No se pudo guardar lo que estás comparando. Puede perderse al recargar.
+shell-compare-save-failed = No se pudo conservar tu selección para comparar. Puede perderse al recargar.
 shell-compare-cleared = { $count ->
     [one] Se quitó { $count } puesto de la comparación
     [many] Se quitaron { $count } de puestos de la comparación
@@ -216,10 +217,10 @@ shell-model-switch = { $phase ->
    *[converting] cambiando modelo
 }
 shell-model-switch-aria = { $phase ->
-    [downloading] Descargando el modelo de clasificación. Abre Ajustes, IA para seguirlo
-   *[converting] Cambiando el modelo de clasificación. Abre Ajustes, IA para seguirlo
+    [downloading] Descargando el modelo de clasificación. Abre Ajustes › IA para ver su progreso
+   *[converting] Cambiando el modelo de clasificación. Abre Ajustes › IA para ver su progreso
 }
-shell-model-switch-title = Síguelo en Ajustes › IA. La clasificación sigue funcionando mientras tanto.
+shell-model-switch-title = Consulta su progreso en Ajustes › IA. La clasificación sigue funcionando mientras tanto.
 shell-tab-settings-plugins = Plugins
 shell-tab-settings-privacy = Privacidad
 shell-freshness-checked = Último escaneo · { $age }
@@ -230,3 +231,11 @@ shell-freshness-behind = Último escaneo · { $age } · { $count ->
 }
 shell-scan-updating-estimates = Actualizando estimaciones…
 shell-scan-updating-estimates-aria = Actualizando estimaciones
+
+shell-tab-insights-levels = Niveles
+
+shell-tab-pipeline-list = En consideración
+
+shell-tab-pipeline-board = Tablero
+
+shell-tab-pipeline-up-next = Lo próximo

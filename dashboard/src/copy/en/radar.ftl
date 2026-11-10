@@ -116,7 +116,7 @@ radar-empty-not-for-me = Anything you mark Not for me waits here, in case you ch
 # kind=heading
 radar-empty-closed-title = Nothing has closed yet
 # kind=empty
-radar-empty-closed = A role lands here when it is no longer on its careers page.
+radar-empty-closed = A role shows up here once it's gone from its careers page.
 # kind=heading note="The board's own filters leave nothing, after every company has been read once"
 radar-empty-filtered-title = No roles match these filters
 # kind=button
@@ -139,8 +139,8 @@ radar-empty-change-looking-for = Change what you're looking for
 radar-empty-fit-title = Nothing fits what you're looking for yet
 # kind=empty note="checking: the companies beyond the list are still being checked, $checked of $total so far; done: every company the person follows has been read"
 radar-empty-fit = { $choice ->
-    [checking] Checking the other companies, { $checked } of { $total } so far. Roles that fit appear here as they're found.
-   *[done] Every company you follow was read, and none has an open role that fits. Each is checked again every few hours.
+    [checking] Scanning the other companies, { $checked } of { $total } so far. Roles that fit appear here as they're found.
+   *[done] No role that fits at the companies you follow yet. Each is scanned again every few hours.
 }
 
 ## The first scan: until every followed company has been read once
@@ -151,11 +151,11 @@ radar-first-scan-starting = It starts within a few minutes. New roles appear her
 # kind=heading note="Animated dots follow it on screen"
 radar-first-scan-running-title = Your first scan is running
 # kind=empty note="$read of the $total followed companies have been read at least once"
-radar-first-scan-progress = { $read } of { $total } companies read. New roles appear here as they're found.
+radar-first-scan-progress = { $read } of { $total } companies scanned. New roles appear here as they're found.
 # kind=empty note="The scan is running and the count is not known yet"
 radar-first-scan-progress-unknown = New roles appear here as they're found.
 # kind=empty note="A third of the companies read and still no role fits; $link is the link text 'what you're looking for', opening Profile"
-radar-first-scan-nothing-yet = { $read } of { $total } companies read, none with a role that fits { $link } so far.
+radar-first-scan-nothing-yet = { $read } of { $total } companies scanned, none with a role that fits { $link } so far.
 # kind=link note="Inside radar-first-scan-nothing-yet; opens Profile, Looking for"
 radar-first-scan-looking-for = what you're looking for
 # kind=empty note="When to look again. soon: before the pace is known; hour: over sixty minutes; almost: under a minute"
@@ -172,25 +172,26 @@ radar-first-scan-back-minutes = { $minutes ->
 # kind=heading
 radar-first-scan-held-title = Your first scan is on hold
 # kind=empty note="$read of the $total followed companies read at least once; the hold's reason follows"
-radar-first-scan-held-count = { $read } of { $total } companies read.
-# kind=empty note="Why the scan waits. $reason is a code: waiting_for_mains (on battery), waiting_for_wake (the computer is asleep), schema_pending and dependencies_pending (an update is half installed), busy_external (another scan holds the lock), supervisor_stale (the background service is not running), backoff (a job site asked to slow down), paused (a job site is paused), preflight_running and preflight_failed (the code is checked first)"
+radar-first-scan-held-count = { $read } of { $total } companies scanned.
+# kind=empty note="Why the scan waits. $reason is a code: waiting_for_mains (on battery), waiting_for_wake (the computer is asleep), schema_pending and dependencies_pending (an update is half installed), setup_source (the same on a source install, where ./setup.sh finishes it), busy_external (another scan holds the lock), supervisor_stale (the background service is not running), backoff (a job site asked to slow down), paused (a job site is paused), preflight_running and preflight_failed (the code is checked first)"
 radar-first-scan-held = { $reason ->
-    [waiting_for_mains] Your Mac is on battery. The scan continues when you plug in.
-    [waiting_for_wake] The scan continues when your Mac wakes.
+    [waiting_for_mains] Your computer is on battery. The scan continues when you plug in.
+    [waiting_for_wake] The scan continues when your computer wakes.
     [schema_pending] An update is finishing. The scan continues right after.
     [dependencies_pending] An update is finishing. The scan continues right after.
+    [setup_source] Run ./setup.sh in your source folder to finish the update. The scan continues right after.
     [busy_external] Another scan is running. Yours starts right after.
     [supervisor_stale] The background service isn't running. Restart the app to continue.
-    [backoff] Some job sites asked to slow down. The scan continues on its own.
-    [preflight_failed] The scan is held until its checks pass.
+    [backoff] Some careers sites asked to slow down. The scan continues on its own.
+    [preflight_failed] The scan is on hold until this version passes its checks.
    *[other] The scan continues on its own once this clears.
 }
 # kind=empty note="A job site asked to slow down; $time is a formatted time of day"
-radar-first-scan-held-until = Some job sites asked to slow down. The scan continues at { $time }.
+radar-first-scan-held-until = Some careers sites asked to slow down. The scan continues at { $time }.
 # kind=heading note="Stopped by the person, or by an error"
 radar-first-scan-stopped-title = Your first scan is stopped
 # kind=empty note="$read of the $total followed companies read at least once"
-radar-first-scan-stopped = { $read } of { $total } companies read. Scanning again picks up where it stopped.
+radar-first-scan-stopped = { $read } of { $total } companies scanned. Scanning again picks up where it stopped.
 # kind=button
 radar-first-scan-scan-now = Scan now
 # kind=heading note="No followed company is scanned on its own"
@@ -202,11 +203,11 @@ radar-first-scan-follow = Follow companies
 # kind=status note="During the first scan, while the board has no role because of its own filters"
 radar-first-scan-filtered = Some filters are on, so fewer roles show here.
 # kind=status note="Above the list while the first scan runs; $dots is three animated dots, hidden from screen readers"
-radar-first-scan-line = Still reading companies{ $dots } { $read } of { $total } read. More roles appear as they're found.
+radar-first-scan-line = Still scanning{ $dots } { $read } of { $total } companies scanned. More roles appear as they're found.
 # kind=sentence note="Under the last page while the first scan is still reading; $count companies are left"
 radar-end-scanning = { $count ->
-    [one] That's everything so far. { $count } more company to read.
-   *[other] That's everything so far. { $count } more companies to read.
+    [one] That's everything so far. { $count } more company to scan.
+   *[other] That's everything so far. { $count } more companies to scan.
 }
 # kind=sentence note="Under the last page, every followed company read once, no board filter on, while the person follows only some companies; $follow is the link 'Follow more companies', $change the link 'change what you're looking for'"
 radar-end-few = That's every role that fits at the companies you follow. Something missing? { $follow }, or { $change }.

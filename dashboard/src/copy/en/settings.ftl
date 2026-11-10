@@ -8,6 +8,8 @@ settings-loading = Loading…
 settings-cancel = Cancel
 # kind=label wording=as-is
 settings-company = Company
+# kind=status note="Beside a done-by time in the list of times, on the schedule and in its scan inspector: when a full scan done by then starts; time = a clock time such as 6:35 AM"
+settings-full-scan-starts = starts { $time }
 
 ## Settings > Language and region (docs/copy.md)
 
@@ -28,19 +30,19 @@ settings-region-label = Numbers and dates
 # kind=sentence
 settings-region-description = How numbers and dates are written: { $number }, { $date }.
 # kind=label note="The region option that follows the operating system"
-settings-region-automatic = As your system
+settings-region-automatic = Same as your system
 # kind=label note="A region option: the country, then a sample of its formats"
 settings-region-option = { $country }: { $number }, { $date }
 
 ## features/settings/ChronographDial.tsx
-# kind=label wording=as-is
-settings-chronograph-dial-night = NIGHT
+# kind=label
+settings-chronograph-dial-night = Night
 # kind=label wording=as-is
 settings-chronograph-dial-full-scan = Full scan
 # kind=label wording=as-is
 settings-chronograph-dial-quick-scan = Quick scan
-# kind=label wording=as-is
-settings-chronograph-dial-usually-off = Usually off
+# kind=label
+settings-chronograph-dial-usually-off = Usually asleep or off
 # kind=label wording=as-is
 settings-chronograph-dial-a-time-you-set = A time you set
 # kind=label
@@ -51,26 +53,26 @@ settings-chronograph-dial-discovery-orbit = Quick scans
 settings-chronograph-dial-authoritative-cycle = Full scan window
 # kind=aria wording=as-is
 settings-chronograph-dial-scan-clock = Scan clock
-# kind=aria wording=as-is
-settings-chronograph-dial-draggable-schedule-marks = Draggable schedule marks
+# kind=aria
+settings-chronograph-dial-draggable-schedule-marks = Draggable scans
 # kind=label wording=as-is note="A running planned scan's handle on the dial; kind = full or quick, time = when it started"
 settings-chronograph-dial-scan-running = { $kind ->
     [full] Full scan running since { $time }
    *[quick] Quick scan running since { $time }
 }
-# kind=label wording=as-is note="A planned scan's handle on the dial; kind = full or quick; start = wake (it runs when the computer is turned on) or clock (at a time of day)"
+# kind=tooltip note="A planned scan's handle on the dial, its button name and hover text; kind = full or quick; start = wake (it runs when the computer wakes or starts up) or clock (at a time of day)"
 settings-chronograph-dial-move-planned-scan = { $kind ->
     [full] { $start ->
-        [wake] Move full scan, when you turn it on, about { $time }
+        [wake] Move full scan, when your computer wakes, about { $time }
        *[clock] Move full scan, at { $time }
     }
    *[quick] { $start ->
-        [wake] Move quick scan, when you turn it on, about { $time }
+        [wake] Move quick scan, when your computer wakes, about { $time }
        *[clock] Move quick scan, at { $time }
     }
 }
-# kind=label wording=as-is note="A company's mark on the dial; scan = the name of its scan, such as full scan"
-settings-chronograph-dial-move-company = Move { $company } { $scan }, currently { $time }
+# kind=tooltip note="A company's scan on the dial, its button name and hover text; scan = the name of its scan, such as full scan"
+settings-chronograph-dial-move-company = { $company }: { $scan } at { $time }, drag to move
 # kind=label wording=as-is note="A stack of company marks that a drag can split; stack = how many and what, such as 3 full scans; state = overdue or scheduled; company = the one a drag moves out"
 settings-chronograph-dial-stack-movable = { $stack } { $state ->
         [overdue] due now
@@ -87,8 +89,8 @@ settings-chronograph-dial-still-at = { $stack } still at { $time }
 settings-chronograph-dial-schedule-clock-legend = Schedule clock legend
 
 ## features/settings/ChronographInspector.tsx
-# kind=label wording=as-is note="A stack's header in the inspector; count = how many marks, time = the time they share"
-settings-chronograph-inspector-share = { $count } share { $time }
+# kind=label note="A stack's header in the inspector; count = how many scans, always 2 or more; time = the time they share"
+settings-chronograph-inspector-share = { $count } scans at { $time }
 # kind=label wording=as-is
 settings-chronograph-inspector-due-now = Due now
 # kind=label wording=as-is
@@ -99,12 +101,12 @@ settings-chronograph-inspector-closes-roles = Closes roles
 settings-chronograph-inspector-held-until = Held until
 # kind=label wording=as-is
 settings-chronograph-inspector-locked = Locked
-# kind=label wording=as-is
-settings-chronograph-inspector-scan-schedule-inspector = Scan schedule inspector
-# kind=sentence wording=as-is note="Under a stack's header when a drag can split it; company = the one a drag moves out"
-settings-chronograph-inspector-stack-movable = Give any of them its own time here, or drag the mark to move { $company } out first.
-# kind=sentence wording=as-is note="Under a stack's header when no mark in it can move"
-settings-chronograph-inspector-stack-locked = Every mark in this stack is locked.
+# kind=label
+settings-chronograph-inspector-scan-schedule-inspector = Scan details
+# kind=sentence note="Under a stack's header when a drag can split it; company = the one a drag moves out"
+settings-chronograph-inspector-stack-movable = Give any of them its own time here, or drag the scan to move { $company } out first.
+# kind=sentence note="Under a stack's header when no scan in it can move"
+settings-chronograph-inspector-stack-locked = Every scan here is locked.
 # kind=label note="A pass's name; mode = discovery or reconcile"
 settings-chronograph-inspector-pass = { $mode ->
     [discovery] Quick scan
@@ -116,8 +118,8 @@ settings-chronograph-inspector-runs-at = Runs at
 ## features/settings/PlanRunInspector.tsx
 # kind=label wording=as-is
 settings-plan-run-inspector-scanning-now = Scanning now
-# kind=label wording=as-is
-settings-plan-run-inspector-when-you-turn-it-on = When you turn it on
+# kind=label
+settings-plan-run-inspector-when-you-turn-it-on = When your computer wakes
 # kind=label wording=as-is
 settings-plan-run-inspector-planned = Planned
 # kind=label wording=as-is
@@ -136,14 +138,14 @@ settings-plan-run-inspector-every = Every
 settings-plan-run-inspector-count-from-the-last-scan = Count from the last scan instead
 # kind=button wording=as-is
 settings-plan-run-inspector-use-my-usual-start = Use my usual start
-# kind=sentence wording=as-is
-settings-plan-run-inspector-it-also-runs-when-you = It also runs when you turn the computer on after two hours or more.
-# kind=label wording=as-is
-settings-plan-run-inspector-scan-inspector = Scan inspector
-# kind=label wording=as-is note="How the quick scans repeat; anchor = fixed (at fixed times) or last (counted from the last scan); hours = how far apart"
+# kind=sentence
+settings-plan-run-inspector-it-also-runs-when-you = It also runs when your computer is back on after two hours or more.
+# kind=label same-as=settings-chronograph-inspector-scan-schedule-inspector
+settings-plan-run-inspector-scan-inspector = Scan details
+# kind=status note="How the quick scans repeat; anchor = fixed (at fixed times) or last (counted from the last scan); hours = how far apart"
 settings-plan-run-inspector-repeats-every = { $anchor ->
-    [fixed] every { $hours }h at fixed times
-   *[last] every { $hours }h after the last scan
+    [fixed] every { $hours } h at fixed times
+   *[last] every { $hours } h after the last scan
 }
 # kind=label wording=as-is note="Beside a quick scan's time field; state = planned (it can move) or running"
 settings-plan-run-inspector-quick-time = { $state ->
@@ -188,8 +190,8 @@ settings-recipes-section-recipe-json = Recipe (JSON)
 settings-recipes-section-save-draft = Save draft
 # kind=button wording=as-is
 settings-recipes-section-edit = Edit
-# kind=button wording=as-is
-settings-recipes-section-check-the-whole-page = Check the whole page
+# kind=button
+settings-recipes-section-check-the-whole-page = Check all roles
 # kind=button wording=as-is
 settings-recipes-section-use-this-version = Use this version
 # kind=button wording=as-is
@@ -200,15 +202,15 @@ settings-recipes-section-a-recipe-is-one-json = A recipe is one JSON object.
 settings-recipes-section-not-valid-json = Not valid JSON: { $caught }
 # kind=toast
 settings-recipes-section-could-not-read-it = couldn't read it
-# kind=label wording=as-is
+# kind=label
 settings-recipes-section-whole-page-check-result = { $choice ->
     [yes] Preview result
-   *[no] Whole-page check result
+   *[no] Check result
 }
-# kind=sentence wording=as-is
+# kind=sentence
 settings-recipes-section-not-checked-the-whole-page = { $choice ->
-    [yes] Checked: read the whole page, { $found } roles over { $pages } pages.
-   *[no] Not checked: the whole page did not read to its end.
+    [yes] Checked: { $found } roles across { $pages } pages.
+   *[no] Not checked: couldn't scan all roles.
 }
 # kind=label wording=as-is
 settings-recipes-section-no-place-stated = no place stated
@@ -225,14 +227,14 @@ settings-recipes-section-couldn-t-preview-the-recipe = Couldn't preview the reci
 settings-recipes-section-saved-version-of = Saved version { $version } of { $slug }.
 # kind=toast wording=as-is
 settings-recipes-section-couldn-t-save-the-recipe = Couldn't save the recipe.
-# kind=toast wording=as-is
-settings-recipes-section-couldn-t-check-the-whole = Couldn't check the whole page.
+# kind=toast
+settings-recipes-section-couldn-t-check-the-whole = Couldn't check all roles.
 # kind=toast wording=as-is
 settings-recipes-section-version-is-now-the-one = Version { $version } is now the one new companies are scanned with.
 # kind=toast wording=as-is
 settings-recipes-section-couldn-t-switch-versions = Couldn't switch versions.
-# kind=toast wording=as-is
-settings-recipes-section-is-now-scanned-with-its = { $company } is now scanned with { $slug }. Its missing roles close only once a checked version reads its whole page.
+# kind=toast
+settings-recipes-section-is-now-scanned-with-its = { $company } is now scanned with { $slug }. Missing roles close only after a checked version scans all roles.
 # kind=toast wording=as-is
 settings-recipes-section-couldn-t-scan-that-company = Couldn't scan that company with this recipe.
 # kind=heading wording=as-is
@@ -304,7 +306,7 @@ settings-retention-section-roleband-keeps-every-posting-its = Every posting a sc
 # kind=heading wording=as-is
 settings-retention-section-remove-postings-after = Remove postings after
 # kind=sentence
-settings-retention-section-a-posting-stops-being-read = A posting stops being scanned when it is no longer listed, or when you stop following its company. Once no scan has seen it for this long, it is removed. Roles on your radar, what you saved and their history are never removed.
+settings-retention-section-a-posting-stops-being-read = Closed postings, and those from companies you unfollowed, are removed once unseen this long. Roles on your radar and saved roles always stay, with their history.
 # kind=label wording=as-is
 settings-retention-section-no-longer-listed = · { $no_longer_listed } no longer listed
 # kind=label wording=as-is
@@ -329,18 +331,18 @@ settings-retention-section-due-detail = { $state ->
 settings-retention-section-saved = Saved.
 
 ## features/settings/ScheduleChronograph.tsx
-# kind=label wording=as-is note="A planned scan's label on the dial when it runs as the computer is turned on; kind = full or quick"
+# kind=status note="A planned scan's label on the dial when it runs as the computer is turned on; kind = full or quick"
 settings-schedule-chronograph-on-wake = { $kind ->
         [full] Full scan
        *[quick] Quick scan
-    } on wake
+    } · when your computer wakes
 # kind=label wording=as-is
 settings-schedule-chronograph-due = due · { $name }
-# kind=tooltip wording=as-is note="The dial's centre while the plan waits; waiting = paused, day_off or mains (it waits for power)"
+# kind=tooltip note="The dial's centre while the plan waits; waiting = paused, day_off or mains (it waits for power)"
 settings-schedule-chronograph-waiting = { $waiting ->
     [paused] Paused
     [day_off] Day off
-   *[mains] Waiting for power
+   *[mains] Waiting to be plugged in
 }
 # kind=label wording=as-is note="Under the dial's centre while the plan waits; waiting = paused, day_off or mains (it waits for power)"
 settings-schedule-chronograph-waiting-status = { $waiting ->
@@ -359,10 +361,10 @@ settings-schedule-chronograph-hub-title = { $state ->
 }
 # kind=label wording=as-is
 settings-schedule-chronograph-due-now = due now
-# kind=label wording=as-is
-settings-schedule-chronograph-on-wake-2 = on wake
-# kind=label wording=as-is
-settings-schedule-chronograph-when-you-turn-it-on = when you turn it on, about { $time }
+# kind=status
+settings-schedule-chronograph-on-wake-2 = when your computer wakes
+# kind=status
+settings-schedule-chronograph-when-you-turn-it-on = when your computer wakes, about { $time }
 # kind=tooltip
 settings-schedule-chronograph-next-dispatch = Next scan
 # kind=label note="The dial's centre for a stack of deadlines; mode = reconcile or discovery"
@@ -375,52 +377,52 @@ settings-schedule-chronograph-hub-company = { $mode ->
     [reconcile] { $company } · full scan
    *[discovery] { $company } · quick scan
 }
-# kind=label wording=as-is
-settings-schedule-chronograph-projected-through = projected through { $time }
+# kind=label
+settings-schedule-chronograph-projected-through = done by about { $time }
 # kind=toast note="Said when a stack of marks opens and a drag can split it; count = how many marks, time = the time they share, company = the one a drag moves out"
-settings-schedule-chronograph-stack-movable = { $count } marks share { $time }. Set any time below, or drag the mark to move { $company } out.
+settings-schedule-chronograph-stack-movable = { $count } scans at { $time }. Set a time below, or drag to move { $company } out.
 # kind=toast note="Said when a stack of marks opens and none of them can move; count = how many marks, time = the time they share"
-settings-schedule-chronograph-stack-locked = { $count } marks share { $time }. Every one of them is locked.
+settings-schedule-chronograph-stack-locked = { $count } scans at { $time }. All are locked.
 # kind=label wording=as-is
 settings-schedule-chronograph-saving-schedule = Saving schedule…
-# kind=label wording=as-is
-settings-schedule-chronograph-drag-a-scan-to-move = Drag a scan to move it · click it for the exact time
+# kind=status note="The line under the schedule dial before anything is dragged, with company timers or under the plan"
+settings-schedule-chronograph-drag-a-scan-to-move = Drag a scan to move it · click it for an exact time
 
 ## features/settings/ScheduleSection.tsx
 # kind=heading wording=as-is
 settings-schedule-section-how-scanning-works = How scanning works
 # kind=sentence
-settings-schedule-section-reads-every-company-s-whole = Reads the whole careers page of every company you follow, so it can also close a role that is gone. It runs when you turn the computer on, and at least once a day.
+settings-schedule-section-reads-every-company-s-whole = Reads every company's whole careers page and can close roles that are gone. Runs once a day, and when your computer wakes after two hours or more.
 # kind=sentence
-settings-schedule-section-looks-for-new-and-changed = Looks for new and changed roles at every company you follow, every { $repeat_hours } hours while the computer is on. It never closes a role.
-# kind=label wording=as-is
-settings-schedule-section-when-the-computer-is-off = When the computer is off
+settings-schedule-section-looks-for-new-and-changed = Looks for new and changed roles at every company you follow, every { $repeat_hours } hours while your computer is awake. Never closes a role.
+# kind=heading
+settings-schedule-section-when-the-computer-is-off = When your computer is asleep or off
 # kind=sentence
-settings-schedule-section-nothing-runs-and-missed-scans = Nothing runs, and missed scans are not repeated: the next one runs when you turn it on. The schedule follows when you usually use the computer, so there's nothing to set.
+settings-schedule-section-nothing-runs-and-missed-scans = Nothing runs, and missed scans aren't repeated. The next one runs when your computer wakes. The schedule follows when you usually use your computer, so there's nothing to set.
 # kind=label wording=as-is
 settings-schedule-section-times-you-set = Times you set
-# kind=sentence wording=as-is
-settings-schedule-section-a-company-with-a-time = A company with a time of its own keeps it. Drag its mark, or click it to type a time.
-# kind=sentence wording=as-is
-settings-schedule-section-outer-orbit-is-the-full = Outer orbit is the full scan, inner is the quick scan; each arc is as long as the scan takes. Tinted hours are when the computer is usually off, and the hand is now.
+# kind=sentence
+settings-schedule-section-a-company-with-a-time = A company with a time of its own keeps it. Drag its scan, or click it to type a time.
+# kind=sentence
+settings-schedule-section-outer-orbit-is-the-full = Outer ring: full scan. Inner ring: quick scan. Shaded hours: your computer is usually asleep or off.
 # kind=label same-as=settings-chronograph-dial-quick-scan
 settings-schedule-section-discovery = Quick scan
 # kind=sentence
-settings-schedule-section-probes-a-company-s-board = Looks at a company's careers page for new and changed roles. It can add or update a role, but never closes one.
+settings-schedule-section-probes-a-company-s-board = Looks for new and changed roles and never closes one.
 # kind=label same-as=settings-chronograph-dial-full-scan
 settings-schedule-section-reconciliation = Full scan
 # kind=sentence
-settings-schedule-section-the-authoritative-cycle-only-this = Only a full scan can close a role that has disappeared, and only after a complete read of the company's careers page.
+settings-schedule-section-the-authoritative-cycle-only-this = Reads each company's whole careers page and can close roles that are gone.
 # kind=label
 settings-schedule-section-the-cycle = Scans together
 # kind=sentence
 settings-schedule-section-marks-coming-due-together-dispatch = Scans due at the same time run together, up to { $maxParallel } sites at once, so the arc shows how long they run, not just when they start.
 # kind=label wording=as-is
 settings-schedule-section-editing = Editing
-# kind=sentence wording=as-is
-settings-schedule-section-drag-a-mark-around-the = Drag a mark around the dial or click it to type a time. Times snap to 10 minutes. Marks a provider policy blocks stay locked.
 # kind=sentence
-settings-schedule-section-outer-orbit-is-reconciliation-inner = Outer orbit is full scans, inner is quick scans; tinted hours are overnight, and the hand is the current local time.
+settings-schedule-section-drag-a-mark-around-the = Drag a scan around the dial or click it to type a time. Times snap to 10 minutes. A locked scan says why when you click it.
+# kind=sentence
+settings-schedule-section-outer-orbit-is-reconciliation-inner = Outer ring: full scans. Inner ring: quick scans. Shaded hours: overnight.
 # kind=label wording=as-is
 settings-schedule-section-first-scan-of-the-day = First scan of the day
 # kind=label wording=as-is
@@ -441,8 +443,8 @@ settings-schedule-section-pause = Pause
 settings-schedule-section-paused-until = Paused until
 # kind=button wording=as-is
 settings-schedule-section-resume = Resume
-# kind=sentence wording=as-is note="The note under the plan's settings; learned = the sentence about when the computer is usually on"
-settings-schedule-section-after-two-hours-or-more = { $learned } After two hours or more off, one full scan runs when you are back; missed scans are not repeated.
+# kind=sentence note="The note under the plan's settings; learned = the sentence about when the computer is usually on"
+settings-schedule-section-after-two-hours-or-more = { $learned } After a long break, a full scan catches up.
 # kind=label wording=as-is
 settings-schedule-section-need-attention = { $count ->
     [one] { $count } needs attention
@@ -463,43 +465,46 @@ settings-schedule-section-companies-keep-a-time-you = { $count ->
 settings-schedule-section-upcoming = Upcoming
 # kind=status note="Under the authoritative cycle's row; count = how many deadlines it dispatches, end = when it is projected to finish"
 settings-schedule-section-bindings-projected-through = { $count ->
-    [one] Full scan · projected through ~{ $end }
-   *[other] { $count } scans · projected through ~{ $end }
+    [one] Full scan · done by about { $end }
+   *[other] { $count } scans · done by about { $end }
 }
-# kind=label wording=as-is note="Under the upcoming list when it is cut short; count = how many rows are not shown"
-settings-schedule-section-more-see-all-deadlines = +{ $count } more · see all deadlines
+# kind=button note="Under the first upcoming scans when there are more: opens the rest of the list in place, or folds it again; choice = yes while open; count = how many more"
+settings-schedule-section-upcoming-more = { $choice ->
+    [yes] Show fewer
+   *[no] Show { $count } more
+}
 # kind=label
 settings-schedule-section-discovery-cadence = Quick scan interval
 # kind=status
-settings-schedule-section-adapts-to-8-12-24h = adapts to 8 / 12 / 24h after empty quick scans
+settings-schedule-section-adapts-to-8-12-24h = slows to every 8, 12 or 24 hours when quick scans find nothing
 # kind=status
 settings-schedule-section-only-this-cycle-can-close = only full scans can close missing roles
-# kind=label wording=as-is
-settings-schedule-section-provider-pressure = Provider pressure
+# kind=label
+settings-schedule-section-provider-pressure = Sites at once
 # kind=label wording=as-is
 settings-schedule-section-max = { $max_parallel_providers } max
-# kind=label wording=as-is
-settings-schedule-section-one-binding-per-provider-in = one binding per provider in each shard
-# kind=label wording=as-is note="The line under the dial with the plan on; companies = every company, roster = how many each full scan reads"
-settings-schedule-section-plan-roster = { $companies } companies · { $roster } in every full scan
-# kind=label wording=as-is note="The line under the dial with the plan on; pinned = how many companies keep a time you set"
-settings-schedule-section-plan-roster-pinned = { $companies } companies · { $roster } in every full scan · { $pinned } at a time you set
-# kind=label wording=as-is note="The line under the dial with the plan on; excepted = how many companies need attention"
-settings-schedule-section-plan-roster-excepted = { $companies } companies · { $roster } in every full scan · { $excepted } excepted
-# kind=label wording=as-is note="The line under the dial with the plan on, with companies at a time you set and companies that need attention"
-settings-schedule-section-plan-roster-pinned-excepted = { $companies } companies · { $roster } in every full scan · { $pinned } at a time you set · { $excepted } excepted
-# kind=label wording=as-is note="The line under the dial with the per-company timers; companies = every company, scheduled = how many have a deadline"
-settings-schedule-section-timers-roster = { $companies } companies · { $scheduled } scheduled
-# kind=label wording=as-is note="The line under the dial with the per-company timers; excepted = how many companies need attention"
-settings-schedule-section-timers-roster-excepted = { $companies } companies · { $scheduled } scheduled · { $excepted } excepted
+# kind=status
+settings-schedule-section-one-binding-per-provider-in = one scan per site at a time
+# kind=status note="The line under the dial with the plan on; companies = every company, roster = how many each full scan reads"
+settings-schedule-section-plan-roster = Companies: { $companies } · In every full scan: { $roster }
+# kind=status note="The line under the dial with the plan on; pinned = how many companies keep a time you set"
+settings-schedule-section-plan-roster-pinned = Companies: { $companies } · In every full scan: { $roster } · At a time you set: { $pinned }
+# kind=status note="The line under the dial with the plan on; excepted = how many companies need attention"
+settings-schedule-section-plan-roster-excepted = Companies: { $companies } · In every full scan: { $roster } · Need attention: { $excepted }
+# kind=status note="The line under the dial with the plan on, with companies at a time you set and companies that need attention"
+settings-schedule-section-plan-roster-pinned-excepted = Companies: { $companies } · In every full scan: { $roster } · At a time you set: { $pinned } · Need attention: { $excepted }
+# kind=status note="The line under the dial with the per-company timers; companies = every company, scheduled = how many have a deadline"
+settings-schedule-section-timers-roster = Companies: { $companies } · Scheduled: { $scheduled }
+# kind=status note="The line under the dial with the per-company timers; excepted = how many companies need attention"
+settings-schedule-section-timers-roster-excepted = Companies: { $companies } · Scheduled: { $scheduled } · Need attention: { $excepted }
 # kind=status note="The line under the dial with the per-company timers; reconcileOnly = how many companies have no discovery pass"
-settings-schedule-section-timers-roster-reconcile-only = { $companies } companies · { $scheduled } scheduled · { $reconcileOnly } full scan only
+settings-schedule-section-timers-roster-reconcile-only = Companies: { $companies } · Scheduled: { $scheduled } · Full scan only: { $reconcileOnly }
 # kind=status note="The line under the dial with the per-company timers, with companies that need attention and companies with no discovery pass"
-settings-schedule-section-timers-roster-excepted-reconcile-only = { $companies } companies · { $scheduled } scheduled · { $excepted } excepted · { $reconcileOnly } full scan only
-# kind=heading wording=as-is
+settings-schedule-section-timers-roster-excepted-reconcile-only = Companies: { $companies } · Scheduled: { $scheduled } · Need attention: { $excepted } · Full scan only: { $reconcileOnly }
+# kind=label note="The sheet that lists every company's scans: the link under the dial that opens it, the sheet's name and its heading"
 settings-schedule-section-every-company-s-scans = Every company's scans
-# kind=sentence wording=as-is
-settings-schedule-section-a-full-scan-reads-a = A full scan reads a company's whole careers page and can close a role that is gone. A quick scan looks for new and changed roles and never closes one.
+# kind=sentence note="The tip at the top of the Every company's scans sheet"
+settings-schedule-section-a-full-scan-reads-a = Full scan: reads each company's whole careers page and can close roles that are gone. Quick scan: looks for new and changed roles and never closes one.
 # kind=label wording=as-is
 settings-schedule-section-last-full-scan = Last full scan
 # kind=label wording=as-is
@@ -512,22 +517,18 @@ settings-schedule-section-not-yet = Not yet
 settings-schedule-section-not-available = Not available
 # kind=label wording=as-is
 settings-schedule-section-until = until { $cooldown_until }
-# kind=heading wording=as-is
-settings-schedule-section-persisted-deadlines = Persisted deadlines
-# kind=sentence
-settings-schedule-section-discovery-can-add-or-update = Quick scans can add or update roles but never close a missing role. A full scan closes roles only after a complete read of the careers page. Provider cooldown moves the eligible time without overwriting the company's natural deadline.
-# kind=label wording=as-is
-settings-schedule-section-provider-state = Provider state
+# kind=label
+settings-schedule-section-provider-state = Status
 # kind=label
 settings-schedule-section-reconciliation-only = Full scans only
 # kind=label
 settings-schedule-section-non-authoritative = can't close roles
 # kind=label wording=as-is
 settings-schedule-section-not-scheduled = Not scheduled
-# kind=label wording=as-is
-settings-schedule-section-only-when-you-press-scan = Only when you press Scan now
-# kind=label wording=as-is
-settings-schedule-section-only-after-you-allow-it = Only after you allow it
+# kind=status note="A company scanned only when the person presses Scan now; in the sheet's How it is scanned column or as its status badge"
+settings-schedule-section-only-when-you-press-scan = Only with Scan now
+# kind=status note="A company that waits for the person's consent before any scan; in the sheet's How it is scanned column or as its status badge"
+settings-schedule-section-only-after-you-allow-it = Needs your OK
 # kind=label wording=as-is
 settings-schedule-section-full-scan-at = full scan at { $reconcile_anchor_minute }
 # kind=label wording=as-is
@@ -539,31 +540,27 @@ settings-schedule-section-planned-scans = { $scans ->
     [all] Every planned scan
    *[full] Full scans only
 }
-# kind=label wording=as-is
-settings-schedule-section-only-when-you-scan = Only when you scan
-# kind=label wording=as-is
-settings-schedule-section-needs-your-ok = Needs your OK
-# kind=label wording=as-is
-settings-schedule-section-policy-denied = Policy denied
-# kind=label wording=as-is
-settings-schedule-section-cooling-down = Cooling down
+# kind=label
+settings-schedule-section-policy-denied = Scanning off
+# kind=label
+settings-schedule-section-cooling-down = Asked to slow down
 # kind=label wording=as-is
 settings-schedule-section-unscheduled = Unscheduled
-# kind=label wording=as-is
-settings-schedule-section-manual-priority = Manual priority
+# kind=label
+settings-schedule-section-manual-priority = Scan now queued
 # kind=label wording=as-is
 settings-schedule-section-paused = Paused
 # kind=status
 settings-schedule-section-provider-policy-denies-scheduled-collection = its site doesn't allow scheduled scans
-# kind=label wording=as-is
-settings-schedule-section-provider-scheduling-is-paused = provider scheduling is paused
+# kind=status
+settings-schedule-section-provider-scheduling-is-paused = scans of its site are paused
 # kind=status note="Followed companies the scheduler has not given scan times yet; its next run does"
 settings-schedule-section-setting-scan-times = { $count ->
     [one] Setting scan times for { $count } new company.
    *[other] Setting scan times for { $count } new companies.
 }
-# kind=label wording=as-is
-settings-schedule-section-cooling-down-until = cooling down until { $cooldown_until }
+# kind=label
+settings-schedule-section-cooling-down-until = waiting until { $cooldown_until }
 # kind=aria wording=as-is
 settings-schedule-section-how-scanning-works-2 = How scanning works
 # kind=label wording=as-is
@@ -588,10 +585,10 @@ settings-schedule-section-starts-about-duration = { $source ->
     [usual] Your usual start, learned. Starts about { $time } · { $companies } companies · { $duration }
    *[set] Starts about { $time } · { $companies } companies · { $duration }
 }
-# kind=label wording=as-is note="Under the full scan's done-by time when none is set; companies = how many it reads"
-settings-schedule-section-no-time-set = No time set: it runs when you turn the computer on, and at least once a day · { $companies } companies
-# kind=label wording=as-is note="Under the full scan's done-by time when none is set, once a full scan is planned; duration = how long it takes"
-settings-schedule-section-no-time-set-duration = No time set: it runs when you turn the computer on, and at least once a day · { $companies } companies · { $duration }
+# kind=status note="Under the full scan's done-by time when none is set; companies = how many it reads"
+settings-schedule-section-no-time-set = No time set: it runs once a day and when your computer wakes · Companies: { $companies }
+# kind=status note="Under the full scan's done-by time when none is set, once a full scan is planned; duration = how long it takes"
+settings-schedule-section-no-time-set-duration = No time set: it runs once a day and when your computer wakes · Companies: { $companies } · { $duration }
 # kind=label wording=as-is note="Clears the done-by time; fallback = usual (a learned start takes over) or none"
 settings-schedule-section-clear-ready-by = { $fallback ->
     [usual] Use my usual start
@@ -605,10 +602,10 @@ settings-schedule-section-days-a-week = { $count ->
     [one] { $count } day a week
    *[other] { $count } days a week
 }
-# kind=sentence wording=as-is note="Under Only when plugged in; power = waiting (on battery now and only scanning plugged in), mains (only scanning plugged in) or any"
+# kind=sentence note="Under Only when plugged in; power = waiting (on battery now and only scanning plugged in), mains (only scanning plugged in) or any"
 settings-schedule-section-power-note = { $power ->
-    [waiting] On battery now: the next scan waits for power.
-    [mains] Scans wait while the computer is on battery.
+    [waiting] On battery now: the next scan waits until your computer is plugged in.
+    [mains] Scans wait while your computer is on battery.
    *[any] Scans also run on battery.
 }
 # kind=aria wording=as-is
@@ -617,7 +614,7 @@ settings-schedule-section-pause-scans = Pause scans
 settings-schedule-section-when-roleband-scans = When scans run
 # kind=aria wording=as-is
 settings-schedule-section-next-scans-2 = Next scans
-# kind=label wording=as-is note="A planned scan in the list; kind = full or quick; state = running, ready (it has a done-by time), wake (it runs when the computer is turned on) or planned; time = when it is done by"
+# kind=status note="A planned scan in the list; kind = full or quick; state = running, ready (it has a done-by time), wake (it runs when the computer wakes or starts up) or planned; time = when it is done by"
 settings-schedule-section-run-title = { $state ->
     [running] { $kind ->
             [full] Full scan
@@ -626,11 +623,11 @@ settings-schedule-section-run-title = { $state ->
     [ready] { $kind ->
             [full] Full scan
            *[quick] Quick scan
-        } · ready by { $time }
+        } · done by { $time }
     [wake] { $kind ->
             [full] Full scan
            *[quick] Quick scan
-        } · when you turn it on
+        } · when your computer wakes
    *[planned] { $kind ->
             [full] Full scan
            *[quick] Quick scan
@@ -654,19 +651,10 @@ settings-schedule-section-pass-provider = { $mode ->
 }
 # kind=aria wording=as-is
 settings-schedule-section-scheduler-policy = Scheduler policy
-# kind=label wording=as-is note="Opens the sheet of every company's deadlines; schedule = plan or timers"
-settings-schedule-section-deadlines-link = { $schedule ->
-    [plan] Every company's scans
-   *[timers] All persisted deadlines
-}
-# kind=label wording=as-is
-settings-schedule-section-every-company-s-scans-2 = Every company's scans
-# kind=label wording=as-is
-settings-schedule-section-what-the-columns-mean = What the columns mean
-# kind=label wording=as-is
-settings-schedule-section-all-persisted-deadlines-2 = All persisted deadlines
-# kind=label wording=as-is
-settings-schedule-section-how-scheduling-safety-works = How scheduling safety works
+# kind=label
+settings-schedule-section-what-the-columns-mean = Full and quick scans
+# kind=label same-as=settings-schedule-section-what-the-columns-mean
+settings-schedule-section-how-scheduling-safety-works = Full and quick scans
 # kind=aria wording=as-is
 settings-schedule-section-schedule = Schedule
 
@@ -677,30 +665,30 @@ settings-plan-hours-minutes = { $hours } h { $minutes } min
 settings-plan-hours = { $hours } h
 # kind=sentence wording=as-is
 settings-plan-still-learning-when-your-computer = Still learning when your computer is on: { $observed_days } of { $needed_days } days seen.
-# kind=sentence note="The learned hours, the same every day; days = how many days it learned from; usual = all (on all day), off (usually off) or set (on the times in times)"
+# kind=sentence note="The learned hours, the same every day; days = how many days it learned from; usual = all (on all day), off (usually asleep or off) or set (on the times in times)"
 settings-plan-learned-every-day = Learned from the last { $days } days: your computer is { $usual ->
         [all] on all day
-        [off] usually off
-       *[set] on { $times }
+        [off] usually asleep or off
+       *[set] on from { $times }
     } every day.
-# kind=sentence note="The learned hours when weekdays and weekends differ; weekdays and weekends = all (on all day), off (usually off) or set (on the times in weekdayTimes or weekendTimes)"
+# kind=sentence note="The learned hours when weekdays and weekends differ; weekdays and weekends = all (on all day), off (usually asleep or off) or set (on the times in weekdayTimes or weekendTimes)"
 settings-plan-learned-weekdays-weekends = Learned from the last { $days } days: your computer is { $weekdays ->
         [all] on all day
-        [off] usually off
-       *[set] on { $weekdayTimes }
+        [off] usually asleep or off
+       *[set] on from { $weekdayTimes }
     } on weekdays and { $weekends ->
         [all] on all day
-        [off] usually off
-       *[set] on { $weekendTimes }
+        [off] usually asleep or off
+       *[set] on from { $weekendTimes }
     } at weekends.
-# kind=sentence note="The learned hours when only weekdays or only weekends were seen; usual = all (on all day), off (usually off) or set (on the times in times)"
+# kind=sentence note="The learned hours when only weekdays or only weekends were seen; usual = all (on all day), off (usually asleep or off) or set (on the times in times)"
 settings-plan-learned = Learned from the last { $days } days: your computer is { $usual ->
         [all] on all day
-        [off] usually off
-       *[set] on { $times }
+        [off] usually asleep or off
+       *[set] on from { $times }
     }.
 # kind=sentence note="The learned hours when the computer was not seen on; days = how many days it learned from"
-settings-plan-learned-unseen = Learned from the last { $days } days: your computer is not seen on yet.
+settings-plan-learned-unseen = Nothing learned from the last { $days } days yet.
 # kind=label wording=as-is note="Under the time in the dial's centre; kind = full or quick, companies = how many the scan reads"
 settings-plan-companies = { $kind ->
         [full] Full scan
@@ -756,26 +744,24 @@ settings-schedule-mode-name = { $schedule ->
        *[reconcile] full scan
     }
 }
-# kind=sentence wording=as-is
-settings-schedule-provider-policy-denies-scheduled-collection = Provider policy denies scheduled collection.
-# kind=sentence wording=as-is
-settings-schedule-provider-scheduling-is-paused = Provider scheduling is paused.
+# kind=sentence
+settings-schedule-provider-policy-denies-scheduled-collection = Scanning its site is turned off.
+# kind=sentence
+settings-schedule-provider-scheduling-is-paused = Scans of its site are paused.
 # kind=sentence wording=as-is
 settings-schedule-scan-schedule-is-not-set = Scan schedule is not set up yet.
-# kind=sentence wording=as-is
-settings-schedule-cancel-the-queued-manual-scan = Cancel the queued manual scan before changing this time.
+# kind=sentence
+settings-schedule-cancel-the-queued-manual-scan = A scan from Scan now is queued. Cancel it to change this time.
 
 ## features/settings/useDialDrag.ts
-# kind=label wording=as-is
-settings-use-dial-drag-drag-a-mark-to-reschedule = Drag a mark to reschedule · click it for an exact time
-# kind=toast wording=as-is note="Said after a company's mark is moved; scan = the name of its scan, such as full scan"
-settings-use-dial-drag-moved-to = { $company } { $scan } moved to { $time }.
+# kind=toast note="Said after a company's mark is moved; scan = the name of its scan, such as full scan"
+settings-use-dial-drag-moved-to = { $company }: { $scan } moved to { $time }.
 # kind=error wording=as-is
 settings-use-dial-drag-couldn-t-move-that-scan = Couldn't move that scan. Try again.
 
 ## features/settings/usePlanDrag.ts
-# kind=sentence wording=as-is
-settings-use-plan-drag-quick-scans-moved-one-at = Quick scans moved: one at { $time }.
+# kind=sentence
+settings-use-plan-drag-quick-scans-moved-one-at = Quick scans now repeat from { $time }.
 # kind=sentence wording=as-is note="Said after the full scan is moved; start = its new start, doneBy = when it is done"
 settings-use-plan-drag-full-scan-moved-to-done = Full scan moved to { $start }, done by { $doneBy }.
 
@@ -784,21 +770,21 @@ settings-use-plan-drag-full-scan-moved-to-done = Full scan moved to { $start }, 
 settings-route-settings-sections = Settings sections
 
 ## features/settings/charts/plan.ts (by hand)
-# kind=label wording=as-is same-as=settings-chronograph-dial-usually-off
-settings-plan-usually-off = Usually off
+# kind=label same-as=settings-chronograph-dial-usually-off
+settings-plan-usually-off = Usually asleep or off
 # kind=label wording=as-is
 settings-plan-all-day = All day
 
 ## features/settings/ChronographInspector.tsx
-# kind=label wording=as-is note="How often a pass repeats; unit = day or hour, count = how many"
+# kind=label note="How often a pass repeats; unit = day or hour, count = how many"
 settings-chronograph-inspector-every = { $unit ->
-    [day] every { $count }d
-   *[hour] every { $count }h
+    [day] every { $count } d
+   *[hour] every { $count } h
 }
 # kind=label wording=as-is note="In place of how often, for a pass that does not repeat"
 settings-chronograph-inspector-no-cadence = —
-# kind=label wording=as-is note="The name of a company's time field; scan = the name of its scan, such as full scan"
-settings-chronograph-inspector-time = { $company } { $scan } time
+# kind=label note="The name of a company's time field; scan = the name of its scan, such as full scan"
+settings-chronograph-inspector-time = { $company }: { $scan } time
 # kind=label note="The answer beside Closes roles when the company's site cannot show that a role closed; its yes is the one the scan inspector says"
 settings-chronograph-inspector-no = no
 
@@ -825,10 +811,10 @@ settings-retention-section-load-failed = Couldn't load data retention
 ## features/settings/ScheduleChronograph.tsx
 # kind=label wording=as-is
 settings-schedule-chronograph-companies = { $count } companies
-# kind=label wording=as-is note="How long until the next scan, an hour or more away"
-settings-schedule-chronograph-in-hours-minutes = in { $hours }h { $minutes }m
-# kind=label wording=as-is note="How long until the next scan, under an hour away"
-settings-schedule-chronograph-in-minutes = in { $minutes }m
+# kind=status note="How long until the next scan, an hour or more away"
+settings-schedule-chronograph-in-hours-minutes = in { $hours } h { $minutes } min
+# kind=label note="How long until the next scan, under an hour away"
+settings-schedule-chronograph-in-minutes = in { $minutes } min
 # kind=label wording=as-is
 settings-schedule-chronograph-since = since { $time }
 
@@ -853,10 +839,10 @@ settings-plan-to = { $start } to { $end }
 settings-plan-about = about { $duration }
 
 ## A schedule's cadence and quick-scan interval, in hours or days.
-# kind=label wording=as-is
-settings-schedule-hours = { $hours }h
-# kind=label wording=as-is
-settings-schedule-days = { $days }d
+# kind=label same-as=settings-plan-hours  hygiene: allow (a message id)
+settings-schedule-hours = { $hours } h
+# kind=label
+settings-schedule-days = { $days } d
 
 ## Settings > Plugins. A plugin's own name,
 ## attribution and licence are third-party text and never appear in these
@@ -906,7 +892,7 @@ settings-price-feed-dialog-note = Paste the key from your Tiingo account. It sta
 settings-price-feed-dialog-field = Key
 # kind=button note="The key dialog's submit. $choice: yes while saving"
 settings-price-feed-dialog-save = { $choice ->
-    [yes] Saving
+    [yes] Saving…
    *[no] Save key
 }
 # kind=status note="The price service refused the saved key at the last update; shown while a key is set"
@@ -952,9 +938,9 @@ settings-plugins-section-slot = { $slot ->
    *[other] other data
 }
 # kind=label
-settings-plugins-section-answers = Answers { $slots }
+settings-plugins-section-answers = In use: { $slots }
 # kind=label
-settings-plugins-section-brings = Brings { $slots }
+settings-plugins-section-brings = Provides { $slots }
 # kind=status
 settings-plugins-section-waiting = Waiting for its first update
 # kind=status note="Followed companies the plugin's own updates answer for (each read whole), out of every followed company: per kind of data on its settings page, the largest kind on the list row. read = those, companies = followed companies"
@@ -991,7 +977,7 @@ settings-plugins-section-more = More plugins
 # kind=sentence note="Followed by the install command, shown as code the person copies"
 settings-plugins-section-more-note = Finding and adding plugins here is coming. For now, install one from the command line, in the RoleBand folder:
 # kind=sentence
-settings-plugins-section-waiting-wake = The update starts when this Mac fully wakes.
+settings-plugins-section-waiting-wake = Update queued. It starts the next time you use your computer.
 # kind=sentence
 settings-plugins-section-moved = { $moved ->
     [one] Estimates changed for { $moved } role
@@ -1039,13 +1025,13 @@ settings-plugins-section-robots-close = Close
 # kind=heading note="Asked before an approved plugin is turned on while it has not read every followed company"
 settings-plugins-section-turn-on-title = Turn this plugin on?
 # kind=sentence note="Turn-on dialog lead: the one-source rule"
-settings-plugins-section-turn-on-lead = While it's on, what it brings replaces the built-in data for every company.
+settings-plugins-section-turn-on-lead = When on, its data replaces the built-in data for all companies.
 # kind=button note="Confirms turning an approved plugin on"
 settings-plugins-section-turn-on = Turn on
 # kind=sentence
-settings-plugins-section-approve-lead = Approving lets it run on this Mac. While it's on, what it brings replaces the built-in data for every company. It runs on its own, reads only the sites below, and never changes your levels.
+settings-plugins-section-approve-lead = When on, its data replaces the built-in data for all companies. Reads only the sites below. Never changes your levels.
 # kind=sentence note="Approve dialog, under the lead: what a followed company the plugin has not read yet shows while it is on"
-settings-plugins-section-approve-gap = Until it reads a company, that company shows none of what it brings, and no built-in data in its place.
+settings-plugins-section-approve-gap = Until it reads a company, that company shows none of its data, and no built-in data in its place.
 # kind=sentence note="Approve dialog: how far the plugin has read, per kind of data. slots = a list of kind-and-count items (settings-plugins-section-approve-slot)"
 settings-plugins-section-approve-read = Read so far: { $slots }.
 # kind=status note="One item of Read so far: a kind of data, then how many followed companies it has read, e.g. 'pay by level: 7 of 1,180 companies'"
@@ -1057,7 +1043,7 @@ settings-plugins-section-approve-reads = Reads
 # kind=label
 settings-plugins-section-approve-updates = Updates
 # kind=label
-settings-plugins-section-approve-licence = Licence
+settings-plugins-section-approve-licence = License
 # kind=label note="The credit the plugin's data requires, shown as the plugin states it (it often begins with its own label)"
 settings-plugins-section-credit = Credit
 # kind=label note="The plugin's code repository, shown as the plugin states it"
@@ -1088,13 +1074,13 @@ settings-plugins-section-fact-field = { $field ->
     [website] website
     [year_founded] year founded
     [logo_url] logo
-    [brand_color] brand colour
+    [brand_color] brand color
    *[other] another detail
 }
 # kind=sentence note="A plugin's company facts never mix with RoleBand's: while it is on they replace RoleBand's, never sit beside them"
 settings-plugins-section-approve-fact-rank = While it's on, they show in place of the built-in ones, never beside them.
 # kind=sentence note="Shown when an update lapsed the approval of a plugin the person left on"
-settings-plugins-section-approve-still-on = It's still on. It changed since you approved it, so it waits for you before it runs or answers again.
+settings-plugins-section-approve-still-on = It's still on. It changed since you approved it, so it waits for you before it runs again.
 # kind=label note="How often a plugin updates"
 settings-plugins-section-schedule = { $schedule ->
     [daily] Daily, when plugged in
@@ -1170,11 +1156,11 @@ settings-plugin-settings-option = { $schedule ->
 }
 # kind=sentence note="What the plugin's author set; the person's choice replaces it"
 settings-plugin-settings-suggests = { $schedule ->
-    [daily] The plugin suggests daily. Scheduled updates wait until this Mac is plugged in.
-    [weekly] The plugin suggests weekly. Scheduled updates wait until this Mac is plugged in.
-    [monthly] The plugin suggests monthly. Scheduled updates wait until this Mac is plugged in.
-    [manual] The plugin suggests updating only when you ask. Scheduled updates wait until this Mac is plugged in.
-   *[other] Scheduled updates wait until this Mac is plugged in.
+    [daily] Suggested: daily. Scheduled updates wait until your computer is plugged in.
+    [weekly] Suggested: weekly. Scheduled updates wait until your computer is plugged in.
+    [monthly] Suggested: monthly. Scheduled updates wait until your computer is plugged in.
+    [manual] Suggested: only when you ask. Scheduled updates wait until your computer is plugged in.
+   *[other] Scheduled updates wait until your computer is plugged in.
 }
 # kind=label
 settings-plugin-settings-next = Next update
@@ -1227,7 +1213,7 @@ settings-plugin-settings-outcome = { $outcome ->
    *[other] Ran
 }
 # kind=heading
-settings-plugin-settings-brings = What it brings
+settings-plugin-settings-brings = Data provided
 # kind=status note="One kind of data while the plugin is not used, and why"
 settings-plugin-settings-slot-state = { $state ->
     [approval] Not used until you approve it
@@ -1235,11 +1221,11 @@ settings-plugin-settings-slot-state = { $state ->
 }
 # kind=status note="What a followed company the plugin has not read shows for one kind of data, completing settings-plugin-settings-slot-gap"
 settings-plugin-settings-slot-none = { $slot ->
-    [pay_levels] no estimate
-    [pay_observations] no compensation estimate
-    [company_facts] no company size
+    [pay_levels] no comp bands
+    [pay_observations] no compensation estimates
+    [company_facts] no company facts
     [company_benefits] no benefits
-   *[other] none of it
+   *[other] none of this data
 }
 # kind=sentence note="Under the read count: a followed company the plugin has not read yet shows nothing of this kind, not RoleBand's own. read = companies read, left = companies not read, none = settings-plugin-settings-slot-none"
 settings-plugin-settings-slot-gap = { $read ->
@@ -1261,7 +1247,7 @@ settings-plugin-settings-report = { $value } { $label }
 settings-plugin-settings-report-at = As of { $when }
 # kind=status note="A plugin's settings, Site rules: whether it follows its sites' robots rules. hosts = sites that changed their rules, as a list; when = date allowed"
 settings-plugin-settings-robots-state = { $state ->
-    [lapsed] { $hosts } changed its rules since you allowed this; those pages are skipped until you review them
+    [lapsed] Rules changed on { $hosts }. Those pages are skipped until you review them.
     [allowed] Reads past its sites' rules, as you allowed on { $when }
    *[follows] Follows each site's rules
 }
@@ -1284,9 +1270,9 @@ settings-plugin-settings-published = { $rows ->
 settings-plugin-settings-remove-heading = Remove
 # kind=sentence
 settings-plugin-settings-remove-note = { $what ->
-    [rows] Removing its data deletes the { $kinds } it added; turn it off first.
-   *[history] Removing its data deletes what was worked out from it; the { $kinds } it recorded stays as history.
-} Uninstalling removes its code from this Mac and keeps its data, unread, until you remove it.
+    [rows] Removing its data deletes the { $kinds } it added. Turn it off first.
+   *[history] Removing its data deletes what was worked out from it. The { $kinds } it recorded stay as history.
+} Uninstalling removes its code from this computer. Its data stays, unused, until removed.
 # kind=sentence note="Beside a held Remove data: the estimates still read the plugin's data"
 settings-plugin-settings-remove-waiting = Estimates still read its data. Remove data waits until they're updated.
 # kind=button
@@ -1294,10 +1280,13 @@ settings-plugin-settings-uninstall = Uninstall
 # kind=heading
 settings-plugin-settings-uninstall-title = Uninstall this plugin?
 # kind=sentence
-settings-plugin-settings-uninstall-lead = This turns it off and removes its code from this Mac. The data it added stays, unread, until you remove it. Installing it again needs your approval.
+settings-plugin-settings-uninstall-lead = Turns it off and removes its code from this computer. Its data stays, unused, until removed. Installing again needs approval.
 # kind=status
 settings-plugin-settings-loading = Loading this plugin…
 # kind=heading
 settings-plugin-settings-load-failed = Couldn't load this plugin
 # kind=sentence
 settings-plugin-settings-refresh-failed = Couldn't update this plugin. Showing the last result.
+
+# kind=tooltip note="A company's scan on the dial that can't be moved, its button name; scan = the name of its scan, such as full scan; reason = why it can't move, a whole sentence"
+settings-chronograph-dial-company-locked = { $company }: { $scan } at { $time }. { $reason }

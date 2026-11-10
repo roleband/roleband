@@ -1,12 +1,13 @@
 
 ## Lo enviado hace poco.
 privacy-sent-recently = Enviado hace poco
-privacy-sent-recently-detail = Lo que salió de este equipo en los últimos 30 días, y lo que esta ventana envió desde que se abrió.
+privacy-sent-recently-detail = Lo que salió de este equipo en los últimos 30 días y lo que esta ventana envió desde que se abrió.
 privacy-show-sent = Mostrar la lista
 privacy-hide-sent = Ocultar la lista
 privacy-sent-none = No se envió nada en los últimos 30 días.
 privacy-sent-count = { $count ->
     [one] una vez
+    [many] { $count } de veces
    *[other] { $count } veces
 }
 privacy-sent-from-browser = desde esta ventana

@@ -94,8 +94,9 @@ function mount(onMove = vi.fn().mockResolvedValue(undefined)) {
   return { view, onMove };
 }
 
-/** The dial's marks are the buttons that name a move. */
-const marks = () => screen.getAllByRole("button", { name: /^Move / });
+/** The dial's marks are the buttons that name a move: a company's mark ends
+    "drag to move", a planned scan's starts "Move". */
+const marks = () => screen.getAllByRole("button", { name: /^Move |, drag to move$/ });
 
 describe("the chronograph's interaction contracts", () => {
   it("reaches every mark by keyboard", async () => {
@@ -124,11 +125,11 @@ describe("the chronograph's interaction contracts", () => {
     const user = userEvent.setup();
     mount();
     await user.click(marks()[0]);
-    const field = await screen.findByLabelText(/time$/);
+    const field = await screen.findByLabelText(/scan time$/);
     expect(field).toBeInTheDocument();
 
     await user.keyboard("{Escape}");
-    await waitFor(() => expect(screen.queryByLabelText(/time$/)).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByLabelText(/scan time$/)).not.toBeInTheDocument());
     // The ring is the dial's statement that this mark is in hand; it ends with
     // the inspector or every mark ever opened stays lit.
     for (const mark of marks()) expect(mark.className).not.toContain("selected");
@@ -195,14 +196,14 @@ describe("the chronograph's interaction contracts", () => {
 
     await waitFor(() => expect(onMove).toHaveBeenCalledTimes(1));
     expect(
-      screen.queryByLabelText(/time$/),
+      screen.queryByLabelText(/scan time$/),
       "the click that ended the drag also opened the inspector",
     ).not.toBeInTheDocument();
 
     // A real click — pointerdown first, which is what releases the latch.
     await waitFor(() => expect(marks()[0]).toBeEnabled());
     await user.click(marks()[0]);
-    expect(await screen.findByLabelText(/time$/)).toBeInTheDocument();
+    expect(await screen.findByLabelText(/scan time$/)).toBeInTheDocument();
   });
 
   it("persists the move even when releasing the pointer capture throws", async () => {
@@ -248,7 +249,7 @@ describe("the chronograph's interaction contracts", () => {
     mount(onMove);
 
     await user.click(marks()[0]);
-    const field = await screen.findByLabelText(/time$/) as HTMLInputElement;
+    const field = await screen.findByLabelText(/scan time$/) as HTMLInputElement;
     const stored = field.value;
 
     await user.clear(field);

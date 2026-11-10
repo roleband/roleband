@@ -73,7 +73,7 @@ const googleDetail = {
     source: PLUGIN_SOURCE, source_url: "https://pay.example/x",
   }],
   benefits: [{ category: "retirement_financial", items: [
-    { name: "401k", benefit_type: "retirement_plan", value_usd: 9750, value_text: null, description: null,
+    { name: "401k", benefit_type: "us_401k", value_usd: 9750, value_text: null, description: null,
       source: PLUGIN_SOURCE, provider: PLUGIN_SOURCE, builtin: false, kind: "provider", country: null,
       reviewed: false, mentions: 0, wordings: [] },
   ]}],
@@ -230,7 +230,7 @@ test("an untracked roster says the one true thing, and routes to the fix", async
   // from them: a URL alone would end the test mid-load, and "routes to the
   // fix" means arriving at a screen that works.
   await installCompanyRegisterRoutes(page);
-  await page.getByRole("link", { name: "Settings › Companies" }).click();
+  await page.getByRole("link", { name: msg("profiles-company-profiles-view-settings-companies") }).click();
   await expect(page).toHaveURL(/\/settings\/companies$/);
   await expect(page.getByRole("region", { name: "FAANG", exact: true })
     .getByRole("checkbox", { name: "Google" })).toBeChecked();
@@ -365,7 +365,7 @@ test("company profiles show provenance, and surface conflicting signals", async 
   await expect(rTicker).toContainText("SEC EDGAR");
   // ...and the dissenting claim is stated explicitly, not swallowed.
   await expect(rTicker).toContainText(/Conflicting signal:\s*Estimated says\s*none/);
-  const listed = page.locator(".prof-field", { hasText: "Listed" });
+  const listed = page.locator(".prof-field", { hasText: msg("profiles-labels-listed") });
   await expect(listed).toContainText(/Conflicting signal:\s*Estimated says\s*No/);
 
   // A company with no benefits data says it was not collected, never that there are none or $0.
@@ -403,7 +403,7 @@ test("enrichment arrives with the button, not with the page", async ({ page }) =
   ).toHaveCount(0);
 
   // The decision is the button, in the toolbar's action slot.
-  const enrich = page.locator(".prof-toolbar").getByRole("button", { name: "Enrich fields" });
+  const enrich = page.locator(".prof-toolbar").getByRole("button", { name: msg("profiles-company-profiles-view-enrich-fields") });
   await expect(enrich).toHaveAttribute("aria-pressed", "false");
   await enrich.click();
 
@@ -803,7 +803,7 @@ test("our benefits read one row per benefit, with shared sentences said once", a
         row({ benefit_type: "pet_insurance" }),
       ] },
       { category: "retirement_financial", items: [row({
-        benefit_type: "retirement_plan", mentions: 75,
+        benefit_type: "us_401k", mentions: 75,
         value_text: "Match vests only after 3 years. You can contribute up to 90% of your salary on a pre-tax basis.",
         wordings: [{ text: "401(k) Plan", kind: "employer", country: null }],
       })] },

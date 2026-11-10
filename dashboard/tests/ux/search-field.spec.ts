@@ -14,7 +14,7 @@ const SCREENS: { path: string; name: string; step?: string }[] = [
   { path: "/notifications", name: "Search notifications" },
   { path: "/settings/companies", name: "Search companies" },
   // A search reached through a step, not on arrival: Profile › Which roles.
-  { path: "/profile/direction", name: "Filter roles", step: "Discipline" },
+  { path: "/profile/direction", name: "Filter disciplines", step: "Discipline" },
 ];
 
 test.beforeEach(async ({ page }) => {

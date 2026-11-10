@@ -36,7 +36,7 @@ from tracker.platform.util import describe_exception
 from tracker.profiles.seed import ensure_company_profiles
 from tracker.scope.catalog_store import persist_company_catalog, scanned_places
 from tracker.settings_store import get_enabled_locations
-from tracker.source_policy import CollectionPolicyDenied, collection_access
+from tracker.source_policy import CollectionPolicyDenied, collection_access, needs_agreement
 from tracker.taxonomy.locations import canonical_location_slugs
 from tracker.taxonomy.role_catalog import (
     CatalogTallies,
@@ -129,6 +129,16 @@ async def discover(
                 error: str | None = None
                 capped = False
                 bounded = False
+                if needs_agreement(cfg["adapter"], company, cfg.get("consent")):
+                    # Followed before its follow dialog asked: read only when
+                    # its user scans it, or once they agree to follow it.
+                    per_company[company] = {
+                        "scanned": 0, "groups": 0, "status": "unattempted",
+                        "policy_reason": f"{company!r} waits for its user's agreement",
+                        "policy_provider": cfg["adapter"],
+                    }
+                    logger.info("role discovery skipped for %s: waits for the user's agreement", company)
+                    continue
                 try:
                     collection_access(
                         cfg["adapter"], company=company, settings=settings, consent=cfg.get("consent"),

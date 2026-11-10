@@ -60,10 +60,15 @@ agreed. RoleBand asks once per company: the consent stands when the robots file,
 the kind of wall or the fetch tier changes later, and when the user unfollows the
 company and follows it again.
 
-A **user-directed** source is not a wall and asks for no consent: following
-the company is the decision. Its companies are never curated, and the
-scheduler never reads it on its own. A followed company on it is read only
-when the user starts a sync.
+A **user-directed** source is not a wall, but the user directs each company on
+it. Its companies are never curated. Following one opens a dialog whose single
+answer follows the company and reads it at once, and whose checkbox, on by
+default, says whether it is then scanned on the regular schedule. The answer is
+stored like a consent, with the source's own fingerprint (`directed:`), which
+unlocks no wall and no fetch tier. A company left to be read on request, or
+followed before the dialog asked, is read when the user starts a scan; the
+scheduler, the directory sweep and role discovery never read one that has no
+agreement. One rule decides all of it (`source_policy.direction_wait`).
 
 Only a walled source may record a fetch tier other than the default client,
 and RoleBand uses that tier only for a company whose user consented. The tiers

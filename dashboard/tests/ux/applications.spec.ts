@@ -1147,3 +1147,27 @@ test("the Pipeline and Radar each keep their own comparison, through a visit to 
   await expect(compareOf(radarRow("Principal Engineer, Platform"))).toHaveAttribute("aria-pressed", "true");
   await expect(compareOf(radarRow("Staff Product Manager, API"))).toHaveAttribute("aria-pressed", "false");
 });
+
+test("on a phone the tabs keep their row when the summary wraps, and Up next takes the tap", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 664 });
+  await installPipeline(page);
+  await page.goto("/pipeline/board");
+  const upNext = page.getByRole("tab", { name: msg("shell-tab-pipeline-up-next") });
+  await expect(page.locator(".page-hero .app-summary")).toContainText(msg("applications-column-closed").toLowerCase());
+  const look = await upNext.evaluate((tab) => {
+    const row = tab.parentElement!.getBoundingClientRect();
+    const box = tab.getBoundingClientRect();
+    const lines = document.createRange();
+    lines.selectNodeContents(document.querySelector(".page-hero .app-summary")!);
+    return {
+      wraps: new Set([...lines.getClientRects()].map((r) => Math.round(r.top))).size > 1,
+      row: row.height, tab: box.height,
+      hit: document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2) === tab,
+    };
+  });
+  expect(look.wraps, "the summary runs to a second line at this width").toBe(true);
+  expect(look.row, "the tab row is as tall as its tabs").toBeGreaterThanOrEqual(look.tab);
+  expect(look.hit, "nothing lies over Up next").toBe(true);
+  await upNext.click();
+  await expect(page).toHaveURL(/\/pipeline\/up-next$/);
+});

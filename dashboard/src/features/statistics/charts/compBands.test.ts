@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DisclosedBand } from "../../../api";
+import { msg } from "../../../test/msg";
 import { bandEmployers, bandScale, bandsByLevel, exclusionNote, levelSummary } from "./compBands";
 
 const band = (over: Partial<DisclosedBand> = {}): DisclosedBand => ({
@@ -35,7 +36,7 @@ describe("bandsByLevel", () => {
     ]);
     expect(rows.map((r) => r.level)).toEqual(["principal", "unstated"]);
     const said = levelSummary(rows[1], [], null);
-    expect(said).toMatch(/^Level not placed: 1 range from 1 employer/);
+    expect(said).toMatch(new RegExp(`^${msg("taxonomy-level-not-placed")}: 1 range from 1 employer`));
     expect(said).not.toMatch(/Mid-level/);
   });
 

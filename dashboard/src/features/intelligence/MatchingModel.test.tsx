@@ -43,4 +43,12 @@ describe("MatchingModel", () => {
     expect(dialog).toHaveTextContent(msg("ai-matching-model-gb", { ramThresholdGb: 24 }));
     expect(dialog).not.toHaveTextContent(msg("ai-matching-model-gb", { ramThresholdGb: 16 }));
   });
+
+  it("counts ranked roles in the reader's plural, with the number grouped", () => {
+    const { rerender } = render(<MatchingModel status={statusWith({ corpus_embedded: 1, corpus_total: 1 })} setStatus={vi.fn()} />);
+    expect(screen.getByText(msg("ai-matching-model-roles-ranked", { choice: "no", value: 0, corpus_total: 0, corpus_embedded: 1 }))).toBeInTheDocument();
+    expect(screen.getByText("1 role ranked")).toBeInTheDocument();
+    rerender(<MatchingModel status={statusWith({ corpus_embedded: 1234, corpus_total: 1234 })} setStatus={vi.fn()} />);
+    expect(screen.getByText("1,234 roles ranked")).toBeInTheDocument();
+  });
 });

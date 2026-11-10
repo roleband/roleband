@@ -47,8 +47,7 @@ test("a walled company waiting for consent is named, and Review records the word
   // this line too.
   await expect(ask.locator("p")).toHaveText([
     "Its careers site limits automated collection.",
-    "By following, you choose to collect Google DeepMind's public job listings. "
-      + "You can unfollow at any time, and collection stops.",
+    "By following, you choose to collect Google DeepMind's public postings. Unfollow at any time to stop.",
   ]);
   // The safe answer holds focus: Enter on the fresh dialog consents to nothing.
   await expect(ask.getByRole("button", { name: "Cancel" })).toBeFocused();
@@ -70,7 +69,7 @@ test("a walled company waiting for consent is named, and Review records the word
 
   await expect.poll(() => writes.length).toBe(1);
   expect(writes[0].follow).toEqual(["google-deepmind"]);
-  expect(writes[0].consents).toEqual([{ slug: "google-deepmind", text: shown,locale:"en" }]);
+  expect(writes[0].consents).toEqual([{ slug: "google-deepmind", text: shown, locale: "en", scan_on_schedule: true }]);
   await expect(strip).toBeHidden();
 });
 
@@ -128,5 +127,5 @@ test("a Spanish confirmation submits its displayed wording and language together
   expect(shown).toContain("Its careers site limits automated collection.");
   await ask.getByRole("button",{name:/Google DeepMind/}).click();
   await expect.poll(()=>writes.length).toBe(1);
-  expect(writes[0].consents).toEqual([{slug:"google-deepmind",text:shown,locale:"es"}]);
+  expect(writes[0].consents).toEqual([{ slug: "google-deepmind", text: shown, locale: "es", scan_on_schedule: true }]);
 });

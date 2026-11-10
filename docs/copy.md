@@ -112,6 +112,22 @@ Every message declares a **kind**, and each kind has rules:
 | `error` | ends with a full stop, and its last sentence is one of the glossary's `next_steps` ("Try again.", "Check the link and try again." ...), or the comment says `next=none` |
 | `toast`, `tooltip`, `notification`, `status` | full stop optional |
 
+**When an error may end without a next step.** An error gives the one action
+that works. It says `next=none` only when one of these is true, and its note
+says which when the text does not make it plain:
+
+1. The message is itself the instruction: *Type a time like 9:30.*
+2. The thing is gone, and the screen drops it: *That notification is gone.*
+3. What the person wanted is already true: *These postings are already linked.*
+4. Nothing the person can do changes it: *That careers site limits automated
+   collection, so it can't be added.*
+
+Never end with *Try again.* when the cause won't change on a retry. A failure
+put together from two messages (what failed, then why from the failure's code)
+marks its first sentence `next=none` with a note, because the code adds the why
+or *Try again.* after it; the why carries the next step, or fits one of the
+four cases.
+
 ---
 
 ## 2. Where text lives
@@ -156,7 +172,7 @@ The comment carries metadata as `key=value` pairs:
 |---|---|
 | `kind` | Required. One of the kinds in section 1 |
 | `note` | Context for a translator or reviewer, when the intent is not obvious |
-| `next=none` | An error that has no next step to offer |
+| `next=none` | An error that has no next step to offer, or the first sentence of a failure whose next step the code adds after it: why it failed, from the failure's code, or *Try again.* when nothing explains it (its note says so) |
 | `same-as=<id>` | Two messages in one file with the same kind and text that must stay separate (otherwise `copy:check` asks you to merge them) |
 | `wording=as-is` | The wording has not been reviewed against the rules. `copy:check` reports its wording problems instead of blocking, and blocks if the text is not in `dashboard/src/test/copy-as-found.json`. New messages never carry it; rewording one drops the marker |
 
@@ -429,10 +445,16 @@ another script).
 ### Consent wording is pinned
 
 Consent wording (the warning before following a company whose site limits
-automated collection and usage sharing) is `kind=consent` and
+automated collection, the agreement before following a company read only when
+its user asks, and usage sharing) is `kind=consent` and
 pinned verbatim in `dashboard/src/copy/pinned.en.json`. `copy:check` blocks if a
 pinned message changes or a consent message is not pinned. They change only by a
 deliberate, reviewed decision, never as a side effect of copy work.
+
+The follow dialog's "Keep scanning" switch is a setting, not consent wording: the
+API stores its answer as `tracked_company.scan_on_schedule`, the person changes it
+later from the company's row, and its label and hint are translated like any other
+control. The agreement's stored text is the dialog's title and paragraphs.
 
 The native launcher's automatic-check toggle label is also pinned and kept in
 English. Its preferences record the exact label and time when a person changes

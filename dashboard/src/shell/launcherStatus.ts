@@ -1,9 +1,12 @@
 import type { SystemStatus } from "../api";
+import { holdReason } from "../holdReason";
 import * as copy from "../copy/gen/launcher-status";
+import { shellReasonSetupSource } from "../copy/gen/shell";
 
 type Hold = NonNullable<NonNullable<SystemStatus["launcher"]>["status"]["hold"]>;
-export function launcherHoldText(hold: Hold): string {
-  switch (hold.reason) {
+export function launcherHoldText(hold: Hold, install: SystemStatus["install"] | undefined): string {
+  switch (holdReason(hold.reason, install)) {
+    case "setup_source": return shellReasonSetupSource();
     case "supervisor_absent": case "supervisor_stale": return copy.launcherReasonSupervisor();
     case "schema_pending": case "dependencies_pending": return copy.launcherReasonSetup();
     case "build_failed": return copy.launcherReasonBuild();

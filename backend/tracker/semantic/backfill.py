@@ -170,7 +170,7 @@ async def _run_locked(
     if embedded >= _MIN_NOTIFY_ROWS:
         notify(
             banner("banner-matching-title"),
-            banner("banner-matching-body", count=embedded),
+            banner("banner-matching-body"),
         )
 
     return {

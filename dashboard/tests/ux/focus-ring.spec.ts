@@ -43,6 +43,7 @@ const CARRIERS: [string, string][] = [
   [".ui-search-input", ".ui-search"],
   [".filter-search-row input", ".filter-search-row"],
   [".cluster-card-select", ".cluster-card"],
+  [".ui-timefield-framed input", ".ui-timefield-framed"],
 ];
 
 async function focusedRing(page: Page) {

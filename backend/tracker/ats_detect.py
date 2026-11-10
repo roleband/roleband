@@ -321,10 +321,10 @@ def detect_surface(url: str) -> DetectedSurface | None:
 def _workday_board(host: str, tenant: str, parts: list[str]) -> DetectedSurface | None:
     """`host|site` for a Workday tenant URL, or None if it names no site.
 
-    Collectable: a user choosing a Workday company is the decision, and
-    pasting its board is that choice. The
-    source stays `user_directed`, so the scheduler still never collects it on
-    its own (`scheduler.collectable_now`).
+    Collectable: pasting a Workday board is the user choosing that company.
+    The source stays `user_directed`, so following it still needs the user's
+    agreement, and the scheduler collects it on its own only when that
+    agreement chose regular scans (`source_policy.direction_wait`).
 
     The site is read from its known position in each documented form; the path
     is never searched for a plausible later segment. The CXS form

@@ -143,7 +143,7 @@ company only `complete=False` reads and retires nothing for it.
   a kept key never is.
 
 - `ctx.report(key, value, label)` shows the
-  user a number beside the plugin: Settings > Plugins > the plugin > What it brings,
+  user a number beside the plugin: Settings > Plugins > the plugin > Data provided,
   under **The plugin says**, as "{value} {label}" with **As of {date}**. `label` is
   the plugin's own words (third-party text, shown as written); the host keeps the
   latest value per key (`[a-z][a-z0-9_.-]`, at most 64) in `plugin_report`, across

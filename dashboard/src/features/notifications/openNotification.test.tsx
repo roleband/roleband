@@ -86,7 +86,7 @@ describe("opening a role notification", () => {
     mount();
     await user.click(await screen.findByText("Follow up with OpenAI"));
     expect(nav.openJob).toHaveBeenCalledWith(101, "openai");
-    expect(await screen.findByText("Couldn't mark it read")).toBeInTheDocument();
+    expect(await screen.findByText("Couldn't mark that notification read. Try again.")).toBeInTheDocument();
   });
 
   it("navigates once, never again when a slow read mark answers later", async () => {

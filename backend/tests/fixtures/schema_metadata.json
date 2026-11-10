@@ -2318,6 +2318,7 @@
     "    consent_text TEXT,",
     "    consent_fingerprint VARCHAR(128),",
     "    consent_locale VARCHAR(35),",
+    "    scan_on_schedule BOOLEAN DEFAULT false NOT NULL,",
     "    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,",
     "    PRIMARY KEY (slug)",
     ")"
@@ -2326,6 +2327,7 @@
    "python_defaults": {
     "enabled": "True",
     "role_catalog_status": "'pending'",
+    "scan_on_schedule": "False",
     "source": "'catalog'",
     "status": "'active'",
     "visible": "True"
