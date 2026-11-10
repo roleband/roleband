@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from assemble import RELEASE_FEED, clean_revision, release_identity
+from assemble import REHEARSAL_FEED, RELEASE_FEED, clean_revision, release_identity
 
 PACKAGE = Path(__file__).resolve().parents[1] / "Package.ps1"
 #: PowerShell 7 where installed (CI runners), otherwise the Windows PowerShell every Windows has.
@@ -92,6 +92,15 @@ class ReleaseIdentityTests(unittest.TestCase):
             release_identity(self.root)
         self.write(RELEASE_FEED)
         self.assertEqual(self.root / "launcher/windows/release-identity.json", release_identity(self.root))
+
+    def test_a_rehearsal_updates_only_from_the_private_feed_and_never_from_the_public_one(self):
+        self.write(REHEARSAL_FEED)
+        with self.assertRaisesRegex(ValueError, "A release updates from roleband/roleband"):
+            release_identity(self.root)
+        self.assertEqual(self.root / "launcher/windows/release-identity.json", release_identity(self.root, rehearsal=True))
+        self.write(RELEASE_FEED)
+        with self.assertRaisesRegex(ValueError, "A rehearsal updates from roleband/roleband-windows-trials"):
+            release_identity(self.root, rehearsal=True)
 
 
 @unittest.skipUnless(sys.platform == "win32", "Package.ps1 runs on Windows")

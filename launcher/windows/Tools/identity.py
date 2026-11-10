@@ -70,7 +70,7 @@ def _sealed(key: ed25519.Ed25519PrivateKey, passphrase: bytes) -> bytes:
 
 
 def generate(signing: Path, spare: Path, passphrase: bytes, spare_passphrase: bytes,
-             now: datetime.datetime | None = None) -> dict:
+             now: datetime.datetime | None = None, feed: str = FEED) -> dict:
     """Write a new identity; refuses to touch existing files or to put the spare beside the signing material."""
     signing, spare = signing.resolve(), spare.resolve()
     if signing == spare or signing.is_relative_to(spare) or spare.is_relative_to(signing):
@@ -84,7 +84,7 @@ def generate(signing: Path, spare: Path, passphrase: bytes, spare_passphrase: by
     certificate_key = rsa.generate_private_key(public_exponent=65537, key_size=3072)
     cert = certificate(certificate_key, now)
     release, spare_key = ed25519.Ed25519PrivateKey.generate(), ed25519.Ed25519PrivateKey.generate()
-    identity = {"format": 1, "feed": FEED, "release_public_key": _raw(release), "package_name": PACKAGE_NAME,
+    identity = {"format": 1, "feed": feed, "release_public_key": _raw(release), "package_name": PACKAGE_NAME,
                 "publisher": PUBLISHER, "spare_release_public_key": _raw(spare_key)}
     signing.mkdir(parents=True, exist_ok=True)
     spare.mkdir(parents=True, exist_ok=True)
@@ -129,6 +129,7 @@ def main(argv=None):
     make = commands.add_parser("generate")
     make.add_argument("--signing", type=Path, required=True)
     make.add_argument("--spare", type=Path, required=True)
+    make.add_argument("--feed", default=FEED, help="another feed, only for a rehearsal of the release")
     verify = commands.add_parser("check")
     verify.add_argument("--signing", type=Path, required=True,
                         help="a folder holding RoleBand-signing.pfx and release-key.pem")
@@ -138,7 +139,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         if args.action == "generate":
-            record = generate(args.signing, args.spare, _ask("Signing passphrase: "), _ask("Spare passphrase: "))
+            record = generate(args.signing, args.spare, _ask("Signing passphrase: "), _ask("Spare passphrase: "),
+                              feed=args.feed)
             print(json.dumps(record, indent=2))
         else:
             import os

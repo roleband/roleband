@@ -17,6 +17,9 @@ from pe_certificates import validate_tree
 ROOT = Path(__file__).resolve().parents[3]
 #: The feed every release build updates from; a trial carries its own.
 RELEASE_FEED = "roleband/roleband"
+#: The private feed a rehearsal of the release updates from: the release's build, identity shape and data, published
+#: nowhere public.
+REHEARSAL_FEED = "roleband/roleband-windows-trials"
 
 
 def digest(path):
@@ -55,7 +58,7 @@ def clean_revision(root):
     return git(root, "rev-parse", "HEAD").strip()
 
 
-def release_identity(root):
+def release_identity(root, rehearsal=False):
     """The committed update identity a release build trusts, which also names its package and publisher."""
     if str(root / "backend") not in sys.path:
         sys.path.insert(0, str(root / "backend"))
@@ -65,19 +68,23 @@ def release_identity(root):
     if not path.is_file():
         raise ValueError("A release needs launcher/windows/release-identity.json")
     identity = read_identity(json.loads(path.read_text(encoding="utf-8")))
-    if identity.feed != RELEASE_FEED:
-        raise ValueError(f"A release updates from {RELEASE_FEED}, not {identity.feed}")
+    feed = REHEARSAL_FEED if rehearsal else RELEASE_FEED
+    if identity.feed != feed:
+        raise ValueError(f"A {'rehearsal' if rehearsal else 'release'} updates from {feed}, not {identity.feed}")
     return path
 
 
-def assemble(destination, cache, trial_id=None, channel="trial"):
+def assemble(destination, cache, trial_id=None, channel="trial", rehearsal=False):
     if sys.platform != "win32":
         raise ValueError("Build Windows bundles on Windows")
     if channel not in ("trial", "release"):
         raise ValueError("The channel is trial or release")
     if channel == "release" and trial_id is not None:
         raise ValueError("A release has no trial identity")
-    identity = release_identity(ROOT) if channel == "release" else ROOT / "launcher/windows/release-identity.json"
+    if rehearsal and channel != "release":
+        raise ValueError("Only a release is rehearsed")
+    identity = (release_identity(ROOT, rehearsal) if channel == "release"
+                else ROOT / "launcher/windows/release-identity.json")
     destination, cache = destination.resolve(), cache.resolve()
     if destination.exists() or destination.is_relative_to(ROOT) or ROOT.is_relative_to(destination):
         raise ValueError("Choose a new bundle destination outside the checkout")
@@ -143,8 +150,8 @@ def assemble(destination, cache, trial_id=None, channel="trial"):
                 "runtime_lock_sha256": digest(runtime_lock)}
     # The marker decides whose data the app opens: a trial's synthetic folder, or the person's own for a release.
     if channel == "release":
-        (resources / "build.json").write_text(json.dumps({"format": 1, "channel": "release", **metadata}, indent=2) + "\n",
-                                              encoding="utf-8")
+        (resources / "build.json").write_text(json.dumps({"format": 1, "channel": "release", "rehearsal": rehearsal,
+                                                          **metadata}, indent=2) + "\n", encoding="utf-8")
     else:
         metadata.update(trial_only=True, trial_id=(trial_id or uuid.uuid4()).hex)
         (resources / "trial.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
@@ -160,8 +167,10 @@ def main():
     parser.add_argument("--cache", type=Path, required=True)
     parser.add_argument("--trial-id", type=uuid.UUID)
     parser.add_argument("--channel", choices=("trial", "release"), default="trial")
+    parser.add_argument("--rehearsal", action="store_true",
+                        help=f"a release that updates from {REHEARSAL_FEED}, for trying the release on one machine")
     args = parser.parse_args()
-    assemble(args.destination, args.cache, args.trial_id, args.channel)
+    assemble(args.destination, args.cache, args.trial_id, args.channel, args.rehearsal)
 
 
 if __name__ == "__main__":
