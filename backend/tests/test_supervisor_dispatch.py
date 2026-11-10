@@ -427,9 +427,11 @@ async def test_an_adopted_run_that_is_still_our_child_is_reaped_when_it_exits(db
     kept = before.watched[run.id].launched.process  # never polled: the old image's handle is gone
 
     after = _dispatcher(db_session, tmp_path, jobs=(quick,))
-    [(_, verdict)] = await after.adopt()
-    assert verdict.action == "adopt"
-    go.write_text("")
+    try:
+        [(_, verdict)] = await after.adopt()
+        assert verdict.action == "adopt"
+    finally:
+        go.write_text("")  # the job ends whether or not adoption held
     await _until_settled(after, timeout=10)
     [run] = await _runs(db_session, "quick")
     assert (run.state, run.exit_code) == (job_store.EXITED, 3)
