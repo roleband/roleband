@@ -2,8 +2,8 @@ name: windows-release
 
 # Builds the Windows app from a published release's tag, signs it with RoleBand's own certificate and attaches the
 # Windows files to that release, which both apps share (docs/decisions/0012-windows-distribution-and-signing.md).
-# The build holds no secret. Signing runs only in the windows-release environment, which needs the owner's
-# approval for each run and holds the certificate and the Windows release key; the spare key is never here.
+# The build holds no secret. Signing runs only in the protected windows-release environment, which holds the
+# certificate and the Windows release key; the spare key is never here.
 on:
   release:
     types: [published]
@@ -34,35 +34,51 @@ jobs:
       PYTHONDONTWRITEBYTECODE: "1"
     outputs:
       commit: ${{ steps.source.outputs.commit }}
+      identity: ${{ steps.source.outputs.identity }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.release.tag_name || inputs.tag }}
           persist-credentials: false
+      # A release from a commit without the Windows identity gets no Windows files, and the run succeeds.
       - id: source
-        name: the tag names this version
+        name: the tag names this version and carries the Windows identity
         run: |
+          $identity = @(@('launcher/windows/release-identity.json', 'launcher/windows/RoleBand.cer') | Where-Object { Test-Path -LiteralPath $_ })
+          if ($identity.Count -eq 0) {
+            "::notice::$env:TAG carries no Windows release identity, so it gets no Windows files"
+            "identity=false" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+          if ($identity.Count -ne 2) { throw "$env:TAG carries only $identity of the Windows release identity" }
           $version = (Get-Content -Raw dashboard/package.json | ConvertFrom-Json).version
-          if ($env:TAG -ne "v$version") { throw "The tag $env:TAG does not name version $version" }
-          if (!(Test-Path launcher/windows/release-identity.json)) { throw 'This commit carries no Windows release identity' }
+          if ($env:TAG -cne "v$version") { throw "The tag $env:TAG does not name version $version" }
           "commit=$(git rev-parse HEAD)" >> $env:GITHUB_OUTPUT
+          "identity=true" >> $env:GITHUB_OUTPUT
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.source.outputs.identity == 'true'
         with:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: dashboard/package-lock.json
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: steps.source.outputs.identity == 'true'
         with:
           python-version-file: .python-version
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        if: steps.source.outputs.identity == 'true'
         with:
           dotnet-version: 10.0.x
       - name: dashboard packages
+        if: steps.source.outputs.identity == 'true'
         working-directory: dashboard
         run: npm ci
       - name: tools
-        run: python -m pip install cryptography -c backend/constraints/windows-x86_64.txt
+        if: steps.source.outputs.identity == 'true'
+        run: |
+          python -m pip install --require-hashes --only-binary=:all: --no-deps -r launcher/windows/signing-requirements.txt
       - name: assemble and package
+        if: steps.source.outputs.identity == 'true'
         run: |
           $bundle = Join-Path $env:RUNNER_TEMP 'bundle'
           python launcher/windows/Tools/assemble.py --channel release --destination $bundle --cache (Join-Path $env:RUNNER_TEMP 'cache')
@@ -70,15 +86,19 @@ jobs:
           New-Item -ItemType Directory (Join-Path $env:RUNNER_TEMP 'unsigned') | Out-Null
           ./launcher/windows/Package.ps1 -Bundle $bundle -Destination (Join-Path $env:RUNNER_TEMP 'unsigned/RoleBand.msix')
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.source.outputs.identity == 'true'
         with:
           name: windows-unsigned
           path: ${{ runner.temp }}/unsigned/RoleBand.msix
           if-no-files-found: error
-          retention-days: 3
+          # Long enough for the signing job, which can wait days to start.
+          retention-days: 14
 
   sign:
     name: sign and attach
     needs: build
+    # A run by hand uses the workflow file of the branch it is started from, so only main's may sign.
+    if: needs.build.outputs.identity == 'true' && (github.event_name == 'release' || github.ref == 'refs/heads/main')
     runs-on: windows-2025
     timeout-minutes: 30
     environment: windows-release
@@ -101,7 +121,8 @@ jobs:
         with:
           python-version-file: .python-version
       - name: tools
-        run: python -m pip install cryptography -c backend/constraints/windows-x86_64.txt
+        run: |
+          python -m pip install --require-hashes --only-binary=:all: --no-deps -r launcher/windows/signing-requirements.txt
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: windows-unsigned
@@ -111,9 +132,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $release = gh release view $env:TAG --repo $env:GITHUB_REPOSITORY --json isDraft,tagName | ConvertFrom-Json
-          if ($release.tagName -ne $env:TAG -or $release.isDraft) { throw 'Windows files attach only to a published release' }
+          if ($release.tagName -cne $env:TAG -or $release.isDraft) { throw 'Windows files attach only to a published release' }
           $tagged = gh api "repos/$env:GITHUB_REPOSITORY/commits/$env:TAG" --jq .sha
-          if ($tagged -ne $env:COMMIT) { throw 'The tag moved after the build' }
+          if ($tagged -cne $env:COMMIT) { throw 'The tag moved after the build' }
       - name: sign
         env:
           SIGNING_PFX: ${{ secrets.WINDOWS_SIGNING_PFX }}
@@ -133,9 +154,13 @@ jobs:
             # Not timestamped: that would need an outside time server; the certificate lasts 25 years instead.
             & (Join-Path $kits 'signtool.exe') sign /fd SHA256 /f (Join-Path $secret 'RoleBand-signing.pfx') /p $env:SIGNING_PASSPHRASE $package
             if ($LASTEXITCODE) { throw 'Signing failed' }
-            $signer = (Get-AuthenticodeSignature $package).SignerCertificate.Subject
+            $signer = (Get-AuthenticodeSignature $package).SignerCertificate
+            $trusted = [IO.File]::ReadAllBytes((Resolve-Path launcher/windows/RoleBand.cer).Path)
+            if ($null -eq $signer -or [Convert]::ToBase64String($signer.RawData) -cne [Convert]::ToBase64String($trusted)) {
+              throw 'The package is not signed with the committed RoleBand.cer'
+            }
             $publisher = (Get-Content -Raw launcher/windows/release-identity.json | ConvertFrom-Json).publisher
-            if ($signer -ne $publisher) { throw "The package is signed by '$signer', not '$publisher'" }
+            if ($signer.Subject -cne $publisher) { throw "The package is signed by '$($signer.Subject)', not '$publisher'" }
             python launcher/windows/Tools/release.py prepare --package $package --destination (Join-Path $env:RUNNER_TEMP 'release') `
               --identity launcher/windows/release-identity.json --key (Join-Path $secret 'release-key.pem') `
               --commit $env:COMMIT --passphrase-env SIGNING_PASSPHRASE

@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from identity import FEED, PACKAGE_NAME, PUBLISHER
+from lock_runtime import SIGNING_PACKAGES, signing_lines
 
 TOOL = Path(__file__).with_name("release.py")
 WINDOWS = Path(__file__).resolve().parents[1]
@@ -151,6 +152,26 @@ class ReleaseToolTests(unittest.TestCase):
                 self.assertNotIn("Traceback", result.stderr)
         result = self.prepare("--passphrase-env", PASSPHRASE_ENV, passphrase="the release passphrase")
         self.assertEqual(0, result.returncode, result.stderr)
+
+
+class SigningToolsTests(unittest.TestCase):
+    """The job that holds the signing secrets installs only wheels whose hashes the repository pins."""
+
+    def test_the_signing_requirements_are_the_runtime_lock_s_own_lines(self):
+        lock = (WINDOWS / "runtime-lock.txt").read_text(encoding="utf-8").splitlines()
+        committed = [line for line in (WINDOWS / "signing-requirements.txt").read_text(encoding="utf-8").splitlines()
+                     if line and not line.startswith("#")]
+        self.assertEqual(signing_lines(lock), committed, "run Tools/lock_runtime.py to write both files")
+        self.assertEqual(sorted(SIGNING_PACKAGES), sorted(line.split("==")[0].lower() for line in committed))
+        self.assertTrue(all(re.search(r" --hash=sha256:[0-9a-f]{64}$", line) for line in committed))
+
+    def test_the_release_workflow_installs_its_tools_only_from_hashed_wheels(self):
+        workflow = (ROOT / ".github/workflows/windows-release.yml").read_text(encoding="utf-8")
+        installs = [line.strip() for line in workflow.splitlines() if "pip install" in line]
+        self.assertEqual(2, len(installs), "one install in each job")
+        for line in installs:
+            self.assertEqual("python -m pip install --require-hashes --only-binary=:all: --no-deps "
+                             "-r launcher/windows/signing-requirements.txt", line.removeprefix("run: "))
 
 
 if __name__ == "__main__":
