@@ -38,7 +38,7 @@ _PATH = Path(__file__).with_name("slug_history.json")
 
 @cache
 def _axes() -> dict[str, dict]:
-    return json.loads(_PATH.read_text())["axes"]
+    return json.loads(_PATH.read_text(encoding="utf-8"))["axes"]
 
 
 def baseline(axis: str) -> frozenset[str]:

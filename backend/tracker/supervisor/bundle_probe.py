@@ -89,6 +89,8 @@ def main() -> None:
     def timed_out(signum: int, frame: object) -> None:
         raise TimeoutError('The headless engine probe was interrupted or exceeded 120 seconds')
 
+    if sys.platform == "win32":
+        raise SystemExit("the headless engine probe checks the macOS app bundle")
     signal.signal(signal.SIGALRM, timed_out)
     signal.signal(signal.SIGTERM, timed_out)
     signal.alarm(120)

@@ -32,7 +32,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.db.models import PluginInstall
-from tracker.platform.paths import PACKAGED, REPO_ROOT, backend_dir
+from tracker.platform.paths import PACKAGED, REPO_ROOT, backend_dir, venv_python
 from tracker.plugin_manifest import COMPANY_FACTS, fact_rank_of
 from tracker.plugins import store, writer
 
@@ -191,7 +191,7 @@ def build_venv(home: Path, *, src: Path | None = None, into: Path | None = None)
     if venv.exists():
         shutil.rmtree(venv)
     subprocess.run([sys.executable, "-m", "venv", str(venv)], check=True, env=build_env())
-    python = venv / "bin" / "python"
+    python = venv_python(venv)
     for step in pip_steps(python, src or home / "src"):
         subprocess.run(step, check=True, env=build_env())
     return python

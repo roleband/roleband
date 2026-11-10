@@ -80,6 +80,11 @@ DASHBOARD_DIST = REPO_ROOT / "dashboard" if PACKAGED else REPO_ROOT / "dashboard
 VERSION_FILE = BACKEND_DIR / "release.json" if PACKAGED else REPO_ROOT / "dashboard" / "package.json"
 
 
+def venv_python(venv: Path) -> Path:
+    """A virtual environment's interpreter: `Scripts\\python.exe` on Windows, `bin/python` elsewhere."""
+    return venv / "Scripts" / "python.exe" if sys.platform == "win32" else venv / "bin" / "python"
+
+
 def backend_dir(root: Path) -> Path:
     """Backend working directory within a caller's resource root."""
     return root / ("engine" if PACKAGED else "backend")

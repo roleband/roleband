@@ -50,6 +50,7 @@ from tracker.db.models import (
 )
 from tracker.db.queries.reference_pay import package_rows, pay_level_rows
 from tracker.levels.words import rung_band
+from tracker.platform.paths import venv_python
 from tracker.platform.ratelimit import RateLimiter
 from tracker.plugins import store
 from tracker.plugins.host import HostConfig, NotRunnable, pacing_delay, run_job
@@ -308,7 +309,7 @@ async def test_the_host_runs_the_approved_copy_ahead_of_the_venv_s(db_session, t
     row = await _installed(db_session, tmp_path)
     config = installed_config(row)
     home = Path(row.source_dir).parent
-    assert config.python == str(home / "venv" / "bin" / "python")
+    assert config.python == str(venv_python(home / "venv"))
     assert config.pythonpath == [str(SDK), str(Path(row.source_dir) / "src")]
     assert config.data_dir == home / "data"
 
@@ -370,7 +371,15 @@ async def test_the_runner_is_isolated_and_starts_where_the_plugin_cannot_write(d
     assert "isolated=1" in said
     cwd = said.split("cwd=", 1)[1].split(" ", 1)[0]
     home = str(Path(row.source_dir).parent)
-    assert not cwd.startswith(home) and not os.access(cwd, os.W_OK)
+    assert not cwd.startswith(home)
+    # A real attempt: `os.access` on Windows reads only the read-only attribute, never the folder's access list.
+    probe_dir = Path(cwd) / f"plugin-probe-{os.getpid()}"
+    try:
+        with pytest.raises(PermissionError):
+            probe_dir.mkdir()
+    finally:
+        if probe_dir.is_dir():
+            probe_dir.rmdir()
     assert said.split("path0=", 1)[1] == str(SDK), "the SDK this core ships leads the path, never ''"
 
 

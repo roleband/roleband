@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import shlex
+import subprocess
 import sys
 from collections.abc import Awaitable, Callable, Iterator
 from contextlib import contextmanager
@@ -95,7 +96,7 @@ from tracker.local_llm.client import LocalLLMClient, LocalLLMError
 from tracker.local_llm.models import LocalLLMProfile, LocalLLMProfileInput
 from tracker.local_llm.server import binary_path as omlx_binary_path
 from tracker.local_llm.server import control as control_omlx_server
-from tracker.platform.paths import PACKAGED, REPO_ROOT, backend_dir
+from tracker.platform.paths import PACKAGED, REPO_ROOT, backend_dir, venv_python
 from tracker.search.fit import (
     BAND_KEYS,
     FIT_BIN_WIDTH,
@@ -530,7 +531,7 @@ async def test_local_llm_profile(
 
 
 def _agent_connection_state(config: AgentAccessConfig) -> dict:
-    python = sys.executable if PACKAGED else str(REPO_ROOT / "backend" / ".venv" / "bin" / "python")
+    python = sys.executable if PACKAGED else str(venv_python(REPO_ROOT / "backend" / ".venv"))
     directory = str(backend_dir(REPO_ROOT))
     args = ["-I", str(backend_dir(REPO_ROOT) / "packaged.py"), "mcp.server"] if PACKAGED else ["-m", "tracker.mcp.server"]
     return {
@@ -555,7 +556,8 @@ def _agent_connection_state(config: AgentAccessConfig) -> dict:
             {"name": "validate_recipe", "access": "read"},
             {"name": "save_recipe_draft", "access": "write"},
         ],
-        "codex_command": shlex.join(
+        # Quoted for the shell it is pasted into: Windows' rules there, POSIX ones elsewhere.
+        "codex_command": (subprocess.list2cmdline if sys.platform == "win32" else shlex.join)(
             ["codex", "mcp", "add", "roleband", "--", str(python), *args]
         ),
         "claude_json": {

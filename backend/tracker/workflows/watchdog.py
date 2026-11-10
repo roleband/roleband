@@ -124,7 +124,7 @@ def recover_db() -> str | None:
 
 def _load_state() -> dict:
     try:
-        return json.loads(STATE_FILE.read_text())
+        return json.loads(STATE_FILE.read_text(encoding="utf-8"))
     except Exception:  # noqa: BLE001 - missing/corrupt state resets cleanly
         return {}
 
@@ -141,7 +141,7 @@ def _append_alert(message: str) -> None:
     try:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now(UTC).isoformat(timespec="seconds")
-        with ALERTS_LOG.open("a") as fh:
+        with ALERTS_LOG.open("a", encoding="utf-8") as fh:
             fh.write(f"{stamp} {message}\n")
     except Exception as exc:  # noqa: BLE001
         logger.warning("could not append alert: %s", exc)

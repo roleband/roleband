@@ -54,6 +54,7 @@ from tracker.db.models import PluginInstall, TrackedCompany
 from tracker.platform.clock import SourceClock
 from tracker.platform.http import RetryDeadlineExceeded, RetryPolicy, request_with_retry
 from tracker.platform.locks import AlreadyRunning, run_lock
+from tracker.platform.paths import venv_python
 from tracker.platform.ratelimit import RateLimiter, RateLimiterPool
 from tracker.platform.safe_fetch import BlockedDestination, public_client
 from tracker.plugin_manifest import accept
@@ -136,7 +137,7 @@ def installed_config(install: PluginInstall, *, python: str | None = None,
     and the SDK is the one `plugin_manifest.accept` checked the range against."""
     home = Path(install.source_dir).parent
     return HostConfig(
-        python=python or str(home / "venv" / "bin" / "python"),
+        python=python or str(venv_python(home / "venv")),
         pythonpath=[str(SDK_DIR), str(code_root(Path(install.source_dir)))],
         data_dir=home / "data",
         on_open=on_open,
@@ -410,6 +411,12 @@ def _prune_logs(data_dir: Path, *, keep: int) -> None:
             old.unlink()
 
 
+#: The least the host waits for the plugin's next line, a spent budget included: what the plugin read before the
+#: budget ran out is still on its way, across a pipe and a process switch, which takes tens of milliseconds on
+#: Windows. A shorter wait drops it, with the companies it retires.
+_LINE_FLOOR_SECONDS = 0.25
+
+
 class _Stopped(Exception):
     """The user's stop arrived while the host waited for the plugin."""
 
@@ -423,7 +430,7 @@ async def _readline(stream: asyncio.StreamReader, timeout: float, stop: asyncio.
     if stop is not None:
         waits.append(asyncio.ensure_future(stop.wait()))
     try:
-        done, _ = await asyncio.wait(waits, timeout=max(timeout, 0.01), return_when=asyncio.FIRST_COMPLETED)
+        done, _ = await asyncio.wait(waits, timeout=max(timeout, _LINE_FLOOR_SECONDS), return_when=asyncio.FIRST_COMPLETED)
     finally:
         for waiting in waits:
             if not waiting.done():

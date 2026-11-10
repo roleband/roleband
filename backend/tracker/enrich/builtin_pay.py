@@ -127,14 +127,14 @@ def cached_rows() -> list[BuiltinPayRow]:
     fingerprint = build_fingerprint()
     path = _cache_path(fingerprint)
     try:
-        return [BuiltinPayRow(**row) for row in json.loads(path.read_text())["rows"]]
+        return [BuiltinPayRow(**row) for row in json.loads(path.read_text(encoding="utf-8"))["rows"]]
     except (OSError, ValueError, KeyError, TypeError):
         pass
     rows = build_rows()
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".builtin-pay-")
-        with os.fdopen(fd, "w") as out:
+        with os.fdopen(fd, "w", encoding="utf-8") as out:
             json.dump({"fingerprint": fingerprint, "rows": [asdict(r) for r in rows]}, out)
         os.replace(tmp, path)
     except OSError:

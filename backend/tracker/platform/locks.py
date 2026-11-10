@@ -32,7 +32,7 @@ class AlreadyRunning(RuntimeError):
 def run_lock(path: str | Path) -> Iterator[None]:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    handle = open(path, "w")  # noqa: SIM115 - held open for the lock's lifetime
+    handle = open(path, "w", encoding="utf-8")  # noqa: SIM115 - held open for the lock's lifetime
     try:
         try:
             filelock.lock(handle, blocking=False)

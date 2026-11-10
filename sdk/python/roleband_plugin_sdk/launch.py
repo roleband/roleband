@@ -17,8 +17,9 @@ from pathlib import Path
 
 #: Environment a plugin process inherits; nothing else of the host's reaches it.
 PASSED_ENV = ("PATH", "HOME", "LANG", "LC_ALL", "TMPDIR")
-#: Where the runner starts.
-RUN_CWD = os.path.abspath(os.sep)
+#: Where the runner starts: the root on POSIX; on Windows any account may create folders at a drive's root, so
+#: the Windows folder.
+RUN_CWD = os.environ.get("SystemRoot", r"C:\Windows") if os.name == "nt" else os.path.abspath(os.sep)
 #: The runner's first code: the path argument goes first on `sys.path`, then
 #: the runner runs as `__main__`.
 BOOTSTRAP = (
