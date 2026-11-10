@@ -92,7 +92,7 @@ internal sealed class Installer(NativeCopy copy, InstallRelease? release)
             case InstallStop.StoreOnly: return Stopped("windows-setup-store-only", "windows-setup-store-only-body", PageIcon.Warning);
         }
         if (InstalledRoleBand.Version(release) is { } installed && InstalledRoleBand.AtLeast(installed, release.Version))
-            return new Page(copy.Format("windows-setup-installed", ("version", installed)), copy["windows-setup-installed-body"], PageIcon.App,
+            return new Page(copy["windows-setup-installed"], copy.Format("windows-setup-installed-body", ("version", installed)), PageIcon.App,
                 [new PageButton(Open, copy["open"]), new PageButton(Close, copy["menu-close"])]);
         return Welcome();
     }
@@ -105,6 +105,9 @@ internal sealed class Installer(NativeCopy copy, InstallRelease? release)
         new(copy[heading], copy[body], icon,
             retry ? [new PageButton(Retry, copy["retry"]), new PageButton(Close, copy["menu-close"])] : [new PageButton(Close, copy["menu-close"])],
             Detail: detail);
+
+    private Page DownloadFailed(string? detail) =>
+        Stopped("windows-setup-download-failed", "windows-setup-download-failed-body", PageIcon.Error, detail, retry: true);
 
     /// <summary>A press: true closes the window.</summary>
     private bool Pressed(int button)
@@ -132,34 +135,38 @@ internal sealed class Installer(NativeCopy copy, InstallRelease? release)
 
     private async Task InstallAsync()
     {
+        using var handler = new SocketsHttpHandler { AllowAutoRedirect = false };
+        var feed = new ReleaseDownload(handler);
+        var folder = Path.Combine(Path.GetTempPath(), Scratch, release!.Version);
         try
         {
+            ReleaseFile file;
+            // The release's small metadata file first, so a PC without a connection hears so before anyone is asked for
+            // permission, and the download's size is known from its first byte.
+            using (download = new CancellationTokenSource())
+                file = await feed.MetadataAsync(release, download.Token);
             Window.Navigate(new Page(copy["windows-setup-approving"], null, PageIcon.App, [], Waiting: true));
             if (!await ApproveAsync())
             {
-                Window.Navigate(Stopped("windows-setup-not-approved", "windows-setup-not-approved-body", PageIcon.Warning));
+                Window.Navigate(Stopped("windows-setup-not-approved", "windows-setup-not-approved-body", PageIcon.Warning, retry: true));
                 return;
             }
-            var folder = Path.Combine(Path.GetTempPath(), "RoleBand-Setup", release!.Version);
             string package;
             using (download = new CancellationTokenSource())
             {
-                Window.Navigate(new Page(copy.Format("update-downloading", ("version", release.Version)), null, PageIcon.App,
+                Window.Navigate(new Page(copy["windows-setup-downloading"], Received(0, file.Size), PageIcon.App,
                     [new PageButton(SetupWindow.Cancel, copy["update-cancel"])], Progress: true));
                 var progress = new Immediate<(long Received, long Total)>(value =>
                 {
                     Window.SetProgress((int)(value.Received * 100 / value.Total));
-                    Window.SetBody(copy.Format("update-progress", ("received", AboutPanel.Size(copy, value.Received)),
-                        ("total", AboutPanel.Size(copy, value.Total))));
+                    Window.SetBody(Received(value.Received, value.Total));
                 });
-                using var handler = new SocketsHttpHandler { AllowAutoRedirect = false };
-                package = await new ReleaseDownload(handler).PackageAsync(release, folder, progress, download.Token);
+                package = await feed.PackageAsync(release, file, folder, progress, download.Token);
             }
             // Windows' own check of the signature, whose signer must be the certificate this Setup trusted.
             if (WindowsSignature.Signer(package) is not { } signer || !signer.AsSpan().SequenceEqual(release.Certificate))
                 throw new NotTheRelease("The package is not signed with RoleBand's certificate.");
-            Window.Navigate(new Page(copy.Format("windows-update-installing", ("version", release.Version)), null, PageIcon.App, [],
-                Progress: true));
+            Window.Navigate(new Page(copy["windows-setup-installing"], null, PageIcon.App, [], Progress: true));
             try
             {
                 await new WindowsPackageDeployer().AddAsync(package, downgrade: false, new Immediate<int>(Window.SetProgress), CancellationToken.None);
@@ -167,8 +174,7 @@ internal sealed class Installer(NativeCopy copy, InstallRelease? release)
             catch (Exception error) when (error is IOException or COMException)
             {
                 // Windows' own reason, in Windows' language.
-                Window.Navigate(new Page(copy.Format("windows-update-install-failed", ("version", release.Version)), error.Message,
-                    PageIcon.Error, [new PageButton(Close, copy["menu-close"])]));
+                Window.Navigate(new Page(copy["windows-setup-failed"], error.Message, PageIcon.Error, [new PageButton(Close, copy["menu-close"])]));
                 return;
             }
             TryDelete(folder);
@@ -181,21 +187,21 @@ internal sealed class Installer(NativeCopy copy, InstallRelease? release)
         }
         catch (NotTheRelease error)
         {
-            Window.Navigate(Stopped("windows-setup-not-genuine", "windows-setup-not-genuine-body", PageIcon.Error, error.Message));
+            Window.Navigate(Stopped("windows-setup-failed", "windows-setup-not-genuine-body", PageIcon.Error, error.Message));
         }
-        catch (HttpRequestException error)
+        catch (Exception error) when (error is HttpRequestException or IOException)
         {
-            Window.Navigate(Stopped("windows-setup-download-failed", "windows-setup-download-failed-body", PageIcon.Error, error.Message, retry: true));
-        }
-        catch (IOException error)
-        {
-            Window.Navigate(Stopped("windows-setup-download-failed", "windows-setup-download-failed-body", PageIcon.Error, error.Message, retry: true));
+            Window.Navigate(DownloadFailed(error.Message));
         }
         finally
         {
             Volatile.Write(ref busy, 0);
         }
     }
+
+    /// <summary>"120 MB of 350 MB".</summary>
+    private string Received(long received, long total) =>
+        copy.Format("update-progress", ("received", AboutPanel.Size(copy, received)), ("total", AboutPanel.Size(copy, total)));
 
     /// <summary>Starts this Setup again through Windows' administrator prompt, for the trust step only; false when the
     /// prompt was refused or the step failed.</summary>
@@ -216,9 +222,18 @@ internal sealed class Installer(NativeCopy copy, InstallRelease? release)
         }
     }
 
+    /// <summary>The folder under the temporary folder that holds Setup's downloads.</summary>
+    private const string Scratch = "RoleBand-Setup";
+
+    /// <summary>Removes a finished download, and Setup's folder with it when nothing else is in it.</summary>
     private static void TryDelete(string folder)
     {
-        try { Directory.Delete(folder, recursive: true); }
+        try
+        {
+            Directory.Delete(folder, recursive: true);
+            var parent = Path.GetDirectoryName(folder);
+            if (parent is not null && !Directory.EnumerateFileSystemEntries(parent).Any()) Directory.Delete(parent);
+        }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
     }

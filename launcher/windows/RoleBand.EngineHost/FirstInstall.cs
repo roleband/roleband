@@ -133,6 +133,9 @@ public static class PublisherTrust
     }
 }
 
+/// <summary>A release's package, as its metadata names it.</summary>
+public sealed record ReleaseFile(long Size, string Sha256);
+
 /// <summary>A release file that is not what Setup was built to install.</summary>
 public sealed class NotTheRelease(string reason) : IOException(reason);
 
@@ -146,14 +149,26 @@ public sealed class ReleaseDownload(HttpMessageHandler handler)
     private const int RedirectLimit = 5, MetadataLimit = 64 * 1024;
     private const long PackageLimit = 2L * 1024 * 1024 * 1024;
 
+    /// <summary>The release's package size and SHA-256, from its metadata file: a small read that shows the feed answers.</summary>
+    public async Task<ReleaseFile> MetadataAsync(InstallRelease release, CancellationToken cancellation)
+    {
+        using var client = Client();
+        var (size, sha256) = Metadata(release, await ReadAsync(client, release.Download(release.MetadataFile), MetadataLimit, cancellation));
+        return new ReleaseFile(size, sha256);
+    }
+
     /// <summary>The verified package, downloaded into <paramref name="folder"/>.</summary>
     /// <param name="progress">Told the bytes received and the package's size.</param>
     public async Task<string> PackageAsync(InstallRelease release, string folder, IProgress<(long Received, long Total)>? progress,
-                                           CancellationToken cancellation)
+                                           CancellationToken cancellation) =>
+        await PackageAsync(release, await MetadataAsync(release, cancellation), folder, progress, cancellation);
+
+    /// <summary>The verified package named by <paramref name="file"/>, the release's own metadata.</summary>
+    public async Task<string> PackageAsync(InstallRelease release, ReleaseFile file, string folder,
+                                           IProgress<(long Received, long Total)>? progress, CancellationToken cancellation)
     {
-        using var client = new HttpClient(handler, disposeHandler: false) { Timeout = Timeout.InfiniteTimeSpan };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("RoleBand-Setup");
-        var (size, sha256) = Metadata(release, await ReadAsync(client, release.Download(release.MetadataFile), MetadataLimit, cancellation));
+        using var client = Client();
+        var (size, sha256) = (file.Size, file.Sha256);
         Directory.CreateDirectory(folder);
         var package = Path.Combine(folder, release.PackageFile);
         var partial = package + ".partial";
@@ -220,6 +235,13 @@ public sealed class ReleaseDownload(HttpMessageHandler handler)
         }
         catch (InvalidDataException) { throw new NotTheRelease("The package is not readable."); }
         catch (System.Xml.XmlException) { throw new NotTheRelease("The package's manifest is not readable."); }
+    }
+
+    private HttpClient Client()
+    {
+        var client = new HttpClient(handler, disposeHandler: false) { Timeout = Timeout.InfiniteTimeSpan };
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("RoleBand-Setup");
+        return client;
     }
 
     private static async Task<byte[]> ReadAsync(HttpClient client, Uri uri, int limit, CancellationToken cancellation)
