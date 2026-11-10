@@ -17,7 +17,7 @@ import { useStageMove, type PursuitWrite } from "./useStageMove";
 /** Whether the board shows the role, from what the posting knows: starred, or
  *  pursued past Considering. A role pursued in Considering without its star is
  *  not on the board, and so not in the pipeline here either. */
-export function onBoardByPosting(job: Pick<Job, "is_favorite" | "pursuit">): boolean {
+function onBoardByPosting(job: Pick<Job, "is_favorite" | "pursuit">): boolean {
   return job.is_favorite || (job.pursuit != null && job.pursuit.stage !== "saved");
 }
 

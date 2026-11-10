@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { STAGES } from "../../copy/vocabulary";
 import { applicationCardFixture as card } from "../../test/fixtures";
-import { COLUMNS, boardCounts, byStage, dueOf, dueState, isStale, movedCard, sortColumn } from "./board";
+import { COLUMNS, boardCounts, byStage, daysInStage, daysToSay, dueOf, dueState, isStale, movedCard, sortColumn } from "./board";
 
 /* The board's rules as the spec states them: ten stages in seven columns,
  * one due field that is the sooner of two dates, three due states, a stale
@@ -158,5 +158,23 @@ describe("a move's paint", () => {
     expect(movedCard(declined, "accepted", at).ended_at_stage).toBe("offer");
     expect(movedCard(declined, "offer", at).ended_at_stage).toBeNull();
     expect(movedCard(card({ stage: "saved" }), "applied", at).ended_at_stage).toBeNull();
+  });
+});
+
+describe("days in stage, as the stage button and the card say them", () => {
+  it("says nothing on the day of the move, which still counts as day 0 for ordering", () => {
+    const moved = card({ stage: "applied", stage_since: hours(-2) });
+    expect(daysToSay(moved, NOW)).toBeNull();
+    expect(daysInStage(moved, NOW)).toBe(0);
+  });
+
+  it("counts whole days from the day after the move", () => {
+    expect(daysToSay(card({ stage: "applied", stage_since: days(-1) }), NOW)).toBe(1);
+    expect(daysToSay(card({ stage: "applied", stage_since: hours(-47) }), NOW)).toBe(1);
+    expect(daysToSay(card({ stage: "applied", stage_since: days(-12) }), NOW)).toBe(12);
+  });
+
+  it("says nothing when no date says when the stage began", () => {
+    expect(daysToSay(card({ stage: "applied", stage_since: null }), NOW)).toBeNull();
   });
 });
