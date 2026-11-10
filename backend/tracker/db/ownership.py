@@ -660,7 +660,7 @@ TABLE_OWNERS: dict[str, TableOwnership] = {
     # Skill-profile groups of roles, with `jobs.cluster_id` and
     # `jobs.cluster_distance`. Nothing writes or reads them; the rows are kept
     # because they are user data, and removing them is a separate, explicit step
-    # (decisions/0004-insights-answers-a-question.md).
+    # (docs/decisions/0004-insights-answers-a-question.md).
     "clusters": TableOwnership(
         claim="planned:stored skill-profile groups (no writer)",
         lifecycle="unpopulated",
