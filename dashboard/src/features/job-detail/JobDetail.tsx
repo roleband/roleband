@@ -174,15 +174,20 @@ export function JobDetail({
     (stage: PursuitStage) => setJobData((prev) => prev?.pursuit ? { ...prev, pursuit: { ...prev.pursuit, stage } } : prev),
     [setJobData],
   );
+  /** Reads the posting again: its star and stage as the server holds them. */
+  const rereadPosting = useCallback(() => void refreshJob({ preserveData: true }), [refreshJob]);
   /** Saves a role that is not in the pipeline. Once it is, the star becomes
    *  the stage control, which is the way out. */
   const saveFav = () => {
     if (!job) return;
     // One writer per role across every surface. A failed write that
     // is still the newest rolls the star back to what the server holds at
-    // once, rather than leaving it lit until the next load.
+    // once, rather than leaving it lit until the next load; only that one
+    // rejects, so reading the posting back here never undoes a newer write.
+    // The read catches a stage set elsewhere while the posting was open.
     saveRole({ jobId: job.id, was: job.is_favorite, next: true, show: showSaved, send: () => api.setFavorite(job.id, true) })
       .catch(() => {
+        rereadPosting();
         toast({ key: "job", text: roleJobDetailCouldNotUnsaveThisRole({ choice: "yes" }) });
       });
   };
@@ -190,7 +195,6 @@ export function JobDetail({
   /** The side column, which the histories open across. */
   const [aside, setAside] = useState<HTMLElement | null>(null);
   // Where the person stands with the role, read as the pipeline reads it.
-  const rereadPosting = useCallback(() => void refreshJob({ preserveData: true }), [refreshJob]);
   const pipeline = usePipeline(job, { showSaved, paintPosting, rereadPosting, onSave: saveFav, now, column: aside });
   const { applied } = pipeline;
 

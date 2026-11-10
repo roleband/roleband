@@ -387,6 +387,30 @@ const appliedPursuit = {
   next_action_due: null, created_at: "2026-10-20T09:00:00Z", updated_at: "2026-10-29T09:00:00Z",
 };
 
+test("a save that fails reads the posting back, and shows the stage the role reached elsewhere", async ({ page }) => {
+  // Another window moves the role to Applied while this posting shows it off
+  // the pipeline; this window's save then fails.
+  let movedElsewhere = false;
+  await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: movedElsewhere
+    ? { ...jobFixture, is_favorite: false, pursuit: appliedPursuit }
+    : { ...jobFixture, is_favorite: false, pursuit: null } }));
+  await mockGet(page, "/api/applications/101", (route) => (movedElsewhere
+    ? route.fulfill({ json: applicationDetailFixture({
+      application: applicationCardFixture({ pursuit_id: 10, stage: "applied", starred: false, stage_since: new Date(Date.now() - 2 * DAY).toISOString() }),
+    }) })
+    : route.fulfill({ status: 404, json: { detail: "not on the board" } })));
+  await mockApi(page, "PUT", "/api/jobs/101/favorite", (route) => {
+    movedElsewhere = true;
+    return route.fulfill({ status: 500, json: { detail: "unavailable" } });
+  });
+  await page.goto("/company/openai/job/101");
+  const bar = detail(page).locator(".cover-bar");
+  await bar.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Couldn't save this role" })).toBeVisible();
+  await expect(bar.getByRole("button", { name: "Applied", exact: true }), "where the role stands now").toBeVisible();
+  await expect(bar.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
+});
+
 test("a role off the pipeline shows the star alone, and saving turns it into the stage in its place", async ({ page }) => {
   let saved = false;
   await mockApi(page, "PUT", "/api/jobs/101/favorite", (route) => {
