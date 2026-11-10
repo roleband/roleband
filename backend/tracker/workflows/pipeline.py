@@ -57,6 +57,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import sys
 import time
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -570,6 +571,15 @@ async def _collect_into(writer: _RunWriter, collect) -> dict[str, SourceCollecti
         raise
 
 
+def _process_group() -> int | None:
+    """What a stop of this run signals: its process group, or on Windows its supervisor's run wrapper."""
+    if sys.platform == "win32":
+        from tracker.platform.windows_process import run_wrapper
+
+        return run_wrapper()
+    return os.getpgrp()
+
+
 async def run_pipeline(
     companies: list[str] | None = None,
     *,
@@ -651,7 +661,7 @@ async def run_pipeline(
                 scope=run_scope,
                 code_version=code_version(),
                 # What a cancel signals; it ends only a run in that group.
-                process_group=os.getpgrp(),
+                process_group=_process_group(),
             )
             session.add(run)
             # Commit the marker immediately: if this process later crashes or

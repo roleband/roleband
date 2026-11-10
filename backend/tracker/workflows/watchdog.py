@@ -30,6 +30,7 @@ from tracker.health import freshness, should_catch_up, stale_derivations
 from tracker.osnotify import TITLE, banner, notify
 from tracker.platform.embedded_db import EmbeddedDbError, stop_server
 from tracker.platform.http import make_client
+from tracker.platform.local_http import Client, required
 from tracker.platform.paths import DATA_DIR
 from tracker.platform.util import describe_exception
 from tracker.supervisor.results import FAILED
@@ -168,6 +169,10 @@ def _api_base(settings) -> str:
 
 async def _http_get(client: httpx.AsyncClient, base: str, path: str, timeout: float):
     try:
+        if required():
+            # An authenticated engine refuses an unsigned request: ask as this account's control client.
+            status, content = await asyncio.to_thread(lambda: Client(DATA_DIR).request("GET", path))
+            return httpx.Response(status, content=content)
         resp = await client.get(base + path, timeout=timeout)
         return resp
     except Exception:  # noqa: BLE001 - unreachable/hung endpoint

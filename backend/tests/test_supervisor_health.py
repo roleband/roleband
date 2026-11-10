@@ -11,6 +11,7 @@ import time
 from contextlib import asynccontextmanager
 from zoneinfo import ZoneInfo
 
+import httpx
 import pytest
 import pytest_asyncio
 from sqlalchemy import select
@@ -187,6 +188,39 @@ async def test_an_unhealthy_api_is_reported_and_restarted_by_nobody_here(stale_w
     firing = await entries.health()
     assert firing.get("api_down")
     assert stale_world["processes"] == []
+
+
+async def test_an_authenticated_engine_is_asked_with_a_signed_request(monkeypatch):
+    """A packaged Windows engine refuses an unsigned request: the health pass would report a healthy API down and
+    never read the status that rings a catch-up scan."""
+    asked = []
+
+    class Signed:
+        def __init__(self, data_dir):
+            self.data_dir = data_dir
+
+        def request(self, method, target, body=b""):
+            asked.append((self.data_dir, method, target))
+            if answer is None:
+                raise OSError("the engine is not listening")
+            return answer
+
+    unsigned = httpx.MockTransport(lambda request: httpx.Response(403, json={"detail": "refused"}))
+    monkeypatch.setattr(watchdog, "Client", Signed)
+    async with httpx.AsyncClient(transport=unsigned) as client:
+        monkeypatch.setattr(watchdog, "required", lambda: True)
+        answer = (200, b'{"status": "stale"}')
+        response = await watchdog._http_get(client, "http://127.0.0.1:9", "/api/status", 5.0)
+        assert response is not None and response.status_code == 200
+        assert response.json() == {"status": "stale"}
+        assert asked == [(watchdog.DATA_DIR, "GET", "/api/status")]
+        answer = None
+        assert await watchdog._http_get(client, "http://127.0.0.1:9", "/api/health", 3.0) is None
+
+        monkeypatch.setattr(watchdog, "required", lambda: False)
+        response = await watchdog._http_get(client, "http://127.0.0.1:9", "/api/health", 3.0)
+        assert response is not None and response.status_code == 403
+        assert len(asked) == 2, "an engine without authentication was asked as the control client"
 
 
 @pytest_asyncio.fixture

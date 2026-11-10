@@ -94,6 +94,18 @@ def test_native_pid_exit_status_log_and_private_result(launch, tmp_path):
     assert not runner.is_run(result.pid, 41, result.proc_started_at)
 
 
+def test_a_run_names_the_wrapper_a_stop_signals(launch, tmp_path):
+    """A scan records what a stop of it signals; Windows has no process group, so that is the run's wrapper."""
+    from tracker.platform.windows_process import run_wrapper
+
+    named = tmp_path / "named.txt"
+    result = launch("from pathlib import Path\nfrom tracker.platform.windows_process import run_wrapper\n"
+                    f"Path({str(named)!r}).write_text(str(run_wrapper()))")
+    assert result.process.wait(timeout=20) == 0, result.log_path.read_text()
+    assert named.read_text() == str(result.pid), "the run did not name the wrapper the supervisor stops"
+    assert run_wrapper() is None, "a process outside any run named a wrapper"
+
+
 def test_requested_keep_awake_uses_native_trampoline_lifetime(launch):
     result = launch("print('completed under power request')", caffeinate=True)
     assert result.process.wait(timeout=20) == 0, result.log_path.read_text()

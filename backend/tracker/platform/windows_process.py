@@ -103,6 +103,18 @@ def creation_time(handle: int) -> float:
     return ticks / 10_000_000 - 11_644_473_600
 
 
+def run_wrapper() -> int | None:
+    """The supervisor's run wrapper this process runs under, or None outside one.
+
+    Windows has no process groups: a stop signals the run's wrapper (`owned_process`), so its PID is what names the
+    run a stop ended. A virtualenv redirector may stand between the two, so the nearest wrapper above counts."""
+    try:
+        ancestors = psutil.Process().parents()
+    except psutil.Error:
+        return None
+    return next((ancestor.pid for ancestor in ancestors if owned_process(ancestor.pid) is not None), None)
+
+
 def owned_process(
     pid: int, *, run_id: int | None = None, started: datetime | None = None, data_dir: Path | None = None,
 ) -> psutil.Process | None:

@@ -599,7 +599,8 @@ async def _run_held(
                 await asyncio.wait_for(proc.wait(), timeout=config.exit_grace_seconds)
             except TimeoutError:
                 with contextlib.suppress(ProcessLookupError):
-                    send(proc.pid, signal.SIGKILL)
+                    # Windows has no SIGKILL; there SIGTERM already ends the process outright.
+                    send(proc.pid, getattr(signal, "SIGKILL", signal.SIGTERM))
                 await proc.wait()
             if own_client:
                 await client.aclose()
