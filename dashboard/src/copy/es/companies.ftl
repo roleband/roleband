@@ -381,3 +381,35 @@ companies-setup-start = { $choice ->
     [yes] Iniciando…
    *[no] Iniciar el radar
 }
+companies-data-keep-scanning-failed = { $state ->
+    [schedule] No se pudo añadir { $company } a tu calendario de escaneos.
+   *[request] No se pudo quitar { $company } de tu calendario de escaneos.
+}
+companies-data-keep-scanning-changed = { $state ->
+    [schedule] { $company } se escanea según tu calendario.
+   *[request] { $company } se escanea cuando lo pides.
+}
+companies-data-reads-waiting = { $count ->
+    [one] Su primer escaneo espera hasta que su sitio de empleo pueda escanearse de nuevo.
+    [many] Sus primeros escaneos esperan hasta que su sitio de empleo pueda escanearse de nuevo.
+   *[other] Sus primeros escaneos esperan hasta que su sitio de empleo pueda escanearse de nuevo.
+}
+companies-company-register-rows-keep-scanning = { $state ->
+    [schedule] Dejar de escanear { $company } según el calendario
+   *[request] Escanear { $company } según el calendario
+}
+companies-company-register-rows-keep-scanning-state = { $state ->
+    [schedule] Se escanea según tu calendario
+   *[request] Se escanea cuando lo pides
+}
+companies-follow-copy-keep-scanning = { $count ->
+    [one] Seguir escaneando esta empresa
+    [many] Seguir escaneando estas empresas
+   *[other] Seguir escaneando estas empresas
+}
+companies-follow-copy-keep-scanning-hint = { $count ->
+    [one] Sin marcar, se escanea ahora y después solo cuando lo pidas.
+    [many] Sin marcar, se escanean ahora y después solo cuando lo pidas.
+   *[other] Sin marcar, se escanean ahora y después solo cuando lo pidas.
+}
+companies-follow-copy-follow-and-scan = Seguir y escanear

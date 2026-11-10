@@ -1,10 +1,14 @@
 import { number as copyNumber } from "../../copy/format";
 import { errorText } from "../../api/errorText";
+import { ApiError } from "../../api/transport";
+import { wordsLanguage } from "../../copy/runtime";
 import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 import { Dialog, Icon, ProgressBar } from "../../ui";
 import { Button } from "../../ui/Button";
 import { ADD_MORE_SLUG, useCompanies, useCompanyDirectory } from "./CompaniesData";
 import { aboutCount } from "./companiesModel";
+import { ConfirmBody } from "./CuratedList";
+import { agreementCopy, agreementText, type AgreementSubject } from "./followCopy";
 import {
   companiesAddMoreCompaniesASpecificCompany,
   companiesAddMoreCompaniesAboutCompaniesCheckedDaily,
@@ -233,18 +237,41 @@ export function AddCompanyDialog({ open, onClose }: { open: boolean; onClose: ()
   // toast paints under the scrim. The typed values stay, so trying again is
   // one click.
   const [error, setError] = useState<string | null>(null);
+  // A company that needs the user's agreement (its site walled, or scanned
+  // only at their direction) is asked about here, in the follow dialog's own
+  // words; the answer adds it in the same request.
+  const [agreement, setAgreement] = useState<AgreementSubject | null>(null);
+  const [keepScanning, setKeepScanning] = useState(true);
+  const safeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (agreement) safeRef.current?.focus();
+  }, [agreement]);
 
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!url.trim()) return;
+  const close = () => {
+    setAgreement(null);
+    onClose();
+  };
+
+  const add = async (consent?: { text: string; locale: string; scan_on_schedule: boolean }) => {
     setAdding(true);
     setError(null);
     try {
-      await addByUrl({ name: name.trim(), careers_url: url.trim() });
+      await addByUrl({ name: name.trim(), careers_url: url.trim(), ...(consent ? { consent } : {}) });
       setName("");
       setUrl("");
-      onClose();
+      close();
     } catch (caught) {
+      const kind = caught instanceof ApiError && caught.code === "consent-required" ? caught.params.kind : null;
+      if (!consent && (kind === "walled" || kind === "directed")) {
+        setKeepScanning(true);
+        setAgreement({
+          display: name.trim() || String(caught instanceof ApiError ? caught.params.company ?? url.trim() : url.trim()),
+          walled: kind === "walled",
+          directed: kind === "directed",
+        });
+        return;
+      }
+      setAgreement(null);
       // The action, then why from the failure's code, or the next step.
       setError(`${companiesAddMoreCompaniesCouldnTAddThatCompany()} ${errorText(caught, companiesAddMoreCompaniesTryAgain())}`);
     } finally {
@@ -252,10 +279,41 @@ export function AddCompanyDialog({ open, onClose }: { open: boolean; onClose: ()
     }
   };
 
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!url.trim()) return;
+    void add();
+  };
+
+  if (agreement) {
+    const copy = agreementCopy(agreement);
+    return (
+      <Dialog
+        isOpen={open}
+        onClose={close}
+        label={copy.title}
+        width={440}
+        closeOnScrim={false}
+        className="app-overlay"
+      >
+        <ConfirmBody
+          copy={copy}
+          keepScanning={keepScanning}
+          onKeepScanning={setKeepScanning}
+          safeRef={safeRef}
+          // Cancel goes back to the link, unchanged: nothing was added.
+          onSafe={() => setAgreement(null)}
+          busy={adding}
+          onAct={() => void add({ text: agreementText(copy), locale: wordsLanguage(), scan_on_schedule: keepScanning })}
+        />
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog
       isOpen={open}
-      onClose={onClose}
+      onClose={close}
       label={companiesAddMoreCompaniesAddByLinkDialog()}
       width={420}
       className="app-overlay"
@@ -285,7 +343,7 @@ export function AddCompanyDialog({ open, onClose }: { open: boolean; onClose: ()
         </div>
         {error && <p className="ledger-form-error" role="alert">{error}</p>}
         <div className="ledger-form-actions">
-          <Button onClick={onClose}>{companiesAddMoreCompaniesCancel()}</Button>
+          <Button onClick={close}>{companiesAddMoreCompaniesCancel()}</Button>
           <Button variant="primary" type="submit" disabled={adding}>
             {companiesAddMoreCompaniesAddCompany({ state: adding ? "adding" : "idle" })}
           </Button>

@@ -40,10 +40,10 @@ Like `schedule_status.py`, nothing here reads the clock or the settings.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Final, Literal, get_args
+from typing import Final, Literal, Protocol, get_args
 
 from sqlalchemy import DateTime, and_, case, func, literal, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -103,9 +103,14 @@ EMPTY_OUTCOME: Final = SourceOutcome.EMPTY.value
 #: is not scanned automatically, however long it goes.
 EXCLUDED_PROVIDER_STATES: Final = ("policy_denied", "paused")
 
-#: Whether a followed company is scanned without the user asking:
-#: `(provider, company, consent fingerprint) -> bool`.
-Automatic = Callable[[str, str, str | None], bool]
+class Automatic(Protocol):
+    """Whether a followed company is scanned without the user asking
+    (`source_policy.scanned_automatically`), from its row's provider, slug,
+    consent fingerprint and `scan_on_schedule`."""
+
+    def __call__(
+        self, provider_key: str, company: str, consent: str | None, *, scan_on_schedule: bool
+    ) -> bool: ...
 
 
 @dataclass(frozen=True)
@@ -444,6 +449,7 @@ async def followed_bindings(session: AsyncSession, *, automatic: Automatic) -> l
             case((is_empty, empty_since), else_=None),
             listed_before,
             ProviderPressureState.state,
+            TrackedCompany.scan_on_schedule,
         )
         .select_from(SourceBinding)
         .join(TrackedCompany, and_(TrackedCompany.slug == SourceBinding.company_slug, is_followed()))
@@ -463,7 +469,7 @@ async def followed_bindings(session: AsyncSession, *, automatic: Automatic) -> l
             automatic=(
                 bool(r[3])
                 and r[17] not in EXCLUDED_PROVIDER_STATES
-                and automatic(r[3], r[1], r[5])
+                and automatic(r[3], r[1], r[5], scan_on_schedule=bool(r[18]))
             ),
             created_at=r[6],
             last_full_scan_at=r[7],

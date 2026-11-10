@@ -100,6 +100,61 @@ test("the Companies tab tracks a company on the spot, and can undo it", async ({
   await expect(faang.getByRole("checkbox", { name: "Apple" })).not.toBeChecked();
 });
 
+// A company whose careers site is scanned only at its person's direction
+// (a Workday board) is followed through its dialog, and the one answer is the
+// follow, the agreement and the choice to keep scanning, in one request.
+test("a company scanned at your direction follows and scans in one press", async ({ page }) => {
+  const nvidia = {
+    slug: "nvidia", display: "NVIDIA", careers_url: "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite",
+    sectors: ["ai"], aliases: [], connector_state: "live" as const, parked_reason: null, selectable: true,
+    tracked: false, enabled: false, visible: true, builtin: true, curated: false, directory: false,
+    directed: true, scan_on_schedule: false, wall: null, consented: false, status: null,
+  };
+  await mockGet(page, "/api/companies/discovery", (route) =>
+    route.fulfill({ json: { ...companyDiscovery, companies: [...companyDiscovery.companies, nvidia] } }));
+  const writes: unknown[] = [];
+  await page.route("/api/companies/selection", async (route) => {
+    writes.push(route.request().postDataJSON());
+    await route.fulfill({
+      json: {
+        ...companyDiscovery,
+        companies: [
+          ...companyDiscovery.companies,
+          { ...nvidia, tracked: true, enabled: true, consented: true, scan_on_schedule: true },
+        ],
+      },
+    });
+  });
+  await page.goto("/settings/companies");
+
+  const ai = page.getByRole("region", { name: "AI", exact: true });
+  await ai.getByRole("checkbox", { name: "NVIDIA" }).click();
+  const ask = page.getByRole("dialog", { name: "Follow NVIDIA?" });
+  await expect(ask).toBeVisible();
+  await expect(ask.getByRole("checkbox", { name: /Keep scanning this company/ })).toBeChecked();
+  await expect(ask.getByRole("button", { name: "Cancel" })).toBeFocused();
+  await ask.getByRole("button", { name: "Follow and scan" }).click();
+
+  await expect.poll(() => writes.length).toBe(1);
+  expect(writes[0]).toEqual({
+    follow: ["nvidia"],
+    unfollow: [],
+    consents: [{
+      slug: "nvidia",
+      locale: "en",
+      scan_on_schedule: true,
+      text: [
+        "Follow NVIDIA?",
+        msg("companies-follow-copy-scanned-at-your-direction"),
+        "By following, you choose to collect NVIDIA's public postings. Unfollow at any time to stop.",
+      ].join("\n\n"),
+    }],
+  });
+  await expect(ask).toBeHidden();
+  await expect(ai.getByRole("checkbox", { name: "NVIDIA" })).toBeChecked();
+  await expect(ai.getByRole("button", { name: "Stop scanning NVIDIA on schedule" })).toHaveAttribute("aria-pressed", "true");
+});
+
 // Many catalog entries have no connector. They stay trackable (the intent is
 // recorded) but must read as a different kind of row, not sit
 // behind a disclosure the catalog has to be excavated from.
@@ -798,7 +853,7 @@ test("a search reaches a company in no sector, and following it is one write", a
             slug: "spacex", display: "SpaceX", careers_url: null, sectors: [], aliases: [],
             connector_state: "active", parked_reason: null, selectable: true,
             tracked: true, enabled: true, visible: true, builtin: false, curated: false,
-            directory: true, wall: null, consented: false, status: "active",
+            directory: true, directed: false, scan_on_schedule: false, wall: null, consented: false, status: "active",
           },
         ],
       },

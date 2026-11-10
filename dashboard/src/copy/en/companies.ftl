@@ -151,6 +151,21 @@ companies-data-visibility-changed = { $visibility ->
     [hidden] { $company } hidden from your radar.
    *[shown] { $company } back on your radar.
 }
+# kind=error next=none note="$state is the choice the write asked for: schedule or request. The first sentence of a failure: why it failed follows, from the failure's code, or Try again. when nothing explains it"
+companies-data-keep-scanning-failed = { $state ->
+    [schedule] Couldn't add { $company } to your scan schedule.
+   *[request] Couldn't take { $company } off your scan schedule.
+}
+# kind=toast note="$state is the choice the company now has: schedule or request"
+companies-data-keep-scanning-changed = { $state ->
+    [schedule] { $company } is scanned on your schedule.
+   *[request] { $company } is scanned when you ask.
+}
+# kind=sentence note="Added after a follow when the job site the followed companies use is paused or turned off, so their first scan cannot start yet"
+companies-data-reads-waiting = { $count ->
+    [one] Its first scan waits until its job site can be scanned again.
+   *[other] Their first scans wait until their job site can be scanned again.
+}
 # kind=sentence
 companies-data-company-added-to-your-roster = Company added to Followed companies.
 
@@ -254,6 +269,16 @@ companies-company-register-rows-show-or-hide-on-radar = { $visibility ->
 companies-company-register-rows-radar-visibility = { $visibility ->
     [shown] On your radar
    *[hidden] Hidden from your radar
+}
+# kind=aria note="The schedule button of a company scanned only at its person's direction: $state is the company's choice now, schedule or request"
+companies-company-register-rows-keep-scanning = { $state ->
+    [schedule] Stop scanning { $company } on schedule
+   *[request] Scan { $company } on schedule
+}
+# kind=tooltip note="$state is the company's choice now: schedule or request"
+companies-company-register-rows-keep-scanning-state = { $state ->
+    [schedule] Scanned on your schedule
+   *[request] Scanned when you ask
 }
 # kind=label wording=as-is
 companies-company-register-rows-scan-now = Scan { $display } now
@@ -449,6 +474,22 @@ companies-follow-copy-follow = Follow { $display }?
 companies-follow-copy-by-following-you-choose-to = By following, you choose to collect { $display }'s public postings. Unfollow at any time to stop.
 # kind=label wording=as-is
 companies-follow-copy-follow-company = Follow { $display }
+# kind=consent note="The follow dialog for a company whose careers site is scanned only at the person's direction. With the dialog's other sentences, the text the server stores as this person's agreement"
+companies-follow-copy-scanned-at-your-direction = Its careers site is scanned only at your direction.
+# kind=consent note="Shown in a bulk follow dialog when some of the companies are scanned only at the person's direction. The whole dialog's text is the agreement the server stores for them."
+companies-follow-copy-some-are-scanned-at-your-direction = Some of these companies' careers sites are scanned only at your direction. By following them, you choose to collect their public postings.
+# kind=label note="The follow dialog's checkbox, ticked at first: on, the companies join the scan schedule; off, they are scanned now and then when the person asks"
+companies-follow-copy-keep-scanning = { $count ->
+    [one] Keep scanning this company
+   *[other] Keep scanning these companies
+}
+# kind=sentence note="Under the Keep scanning checkbox"
+companies-follow-copy-keep-scanning-hint = { $count ->
+    [one] Unticked, it's scanned now, then only when you ask.
+   *[other] Unticked, they're scanned now, then only when you ask.
+}
+# kind=button note="The follow dialog's answer for companies scanned only at the person's direction: follows them and starts their scan"
+companies-follow-copy-follow-and-scan = Follow and scan
 # kind=tooltip wording=as-is
 companies-follow-copy-scan-about-more-companies = Scan about { $about } more companies?
 # kind=sentence wording=as-is

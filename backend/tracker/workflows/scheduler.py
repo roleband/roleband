@@ -66,8 +66,7 @@ from tracker.platform.util import describe_exception
 from tracker.plugins.reestimate import reestimate_when_idle
 from tracker.provider_pacing import pacing_for
 from tracker.settings_store import SCHEDULE_REPEAT_CHOICES, get_schedule_plan_settings
-from tracker.source_policy import collection_access
-from tracker.source_review import user_directed_source
+from tracker.source_policy import collection_access, company_directed_source, direction_wait
 from tracker.usage_stats.flush import flush_if_due
 from tracker.usage_stats.recorder import record_exception
 from tracker.workflows import schedule_plan
@@ -566,12 +565,14 @@ def collectable_now(
       not due work: the gate refuses it anyway, and leaving it in makes it
       PERMANENTLY overdue, selected every tick and taking a dispatch slot from a
       source that can actually be scanned.
-    * **Direction**: a `user_directed` source is collected only
-      when the user asks. Consent says "you may"; it does not say "now". So its
-      work is admitted ONLY when this binding carries a manual request
+    * **Direction**: a company on a `user_directed` source is collected on a
+      timer only when its user's agreement chose regular scans
+      (`source_policy.direction_wait`). Otherwise its work is admitted ONLY
+      when this binding carries a manual request
       (`SyncScheduleState.manual_requested_at`), which is what the Sync button
-      writes. Without that the deadline passing means nothing: the source waits,
-      however overdue, rather than being scanned on a timer.
+      and the follow dialog write. Without that the deadline passing means
+      nothing: the company waits, however overdue, rather than being scanned
+      on a timer.
 
     Both drops are `schedule_status.waits_for_user`, the rule `/api/status`
     also reads, so a company never scanned on a timer is never counted overdue.
@@ -829,8 +830,8 @@ def planned_roster(
 ) -> list[DueWork]:
     """Every company a planned full read takes: the automatic roster.
 
-    The same gates as any automatic work: a company only the user starts
-    or a walled one without consent is left out (`collectable_now`
+    The same gates as any automatic work: a company read only when its user
+    asks or a walled one without consent is left out (`collectable_now`
     with no manual request), and so is a provider that is paused, denied or
     cooling down. Oldest full read first, and a company never read is the
     oldest of all: it is the one its person is waiting for."""
@@ -902,17 +903,43 @@ async def queue_manual_reconciliation(
 async def queue_promoted_reconciliation(session, companies: list[str]) -> list[str]:
     """Make companies a scope save promoted postings from due now.
 
-    Not the user's Sync: a user-directed source is collected only
-    when the user asks, and a manual request is exactly what lets
-    `collectable_now` collect one, so those are left out here. The rest are
-    queued like a manual request, so the next tick fetches the promoted rows'
-    descriptions, pay and derivations. Commits, as `queue_manual_reconciliation`
-    does: call it after the save's own commit.
+    Not the user's Sync: a company read only at its user's direction
+    (`source_policy.direction_wait`) is left out, since a manual request is
+    exactly what lets `collectable_now` collect one. One whose user chose regular
+    scans is queued like any other. The rest are queued like a manual request,
+    so the next tick fetches the promoted rows' descriptions, pay and
+    derivations. Commits, as `queue_manual_reconciliation` does: call it after
+    the save's own commit.
     """
     targets = await get_active_targets(session)
     chosen = [
         slug for slug in companies
-        if slug in targets and not user_directed_source(targets[slug]["adapter"])
+        if slug in targets
+        and direction_wait(
+            targets[slug]["adapter"], slug, targets[slug].get("consent"),
+            targets[slug].get("scan_on_schedule", False),
+        ) is None
+    ]
+    return await queue_manual_reconciliation(session, chosen) if chosen else []
+
+
+async def queue_followed_reads(session, companies: list[str]) -> list[str]:
+    """Queue the first read of companies on a user-directed source that the
+    user just agreed to follow, or whose agreement just chose regular scans.
+
+    The follow dialog's "Follow and scan" is the user asking for this read, so
+    it is a manual request, the one thing that lets `collectable_now` collect a
+    company read on request. Only companies on such a source are queued; every
+    other company follows the first-scan drain. An empty list queues nothing
+    (`queue_manual_reconciliation` reads an empty list as the whole roster).
+    Returns the companies queued; one whose provider is paused or denied is not.
+    Commits.
+    """
+    targets = await get_active_targets(session)
+    chosen = [
+        slug for slug in dict.fromkeys(companies)
+        if slug in targets
+        and company_directed_source(targets[slug]["adapter"], slug) is not None
     ]
     return await queue_manual_reconciliation(session, chosen) if chosen else []
 

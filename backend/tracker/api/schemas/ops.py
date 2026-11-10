@@ -121,13 +121,16 @@ class UnreadBinding(Built):
 class ExcludedBinding(Built):
     """A binding the roster does not require fresh: behind a paused or
     policy-denied provider, one automatic work never collects (a walled
-    company without consent, a user-directed source the user has not asked
-    for; `schedule_status.waits_for_user`), or a company whose
+    company without consent; a company on a user-directed source its user
+    never agreed to, `user_directed`, or agreed to have read only when they ask,
+    `on_request`; `schedule_status.waits_for_user`), or a company whose
     careers page is gone from its address, which Coverage tells."""
 
     company: str
     provider: str
-    reason: Literal["policy_denied", "paused", "walled", "user_directed", "board_missing"] = Field(
+    reason: Literal[
+        "policy_denied", "paused", "walled", "user_directed", "on_request", "board_missing"
+    ] = Field(
         json_schema_extra=text("code")
     )
 
@@ -180,8 +183,8 @@ class BindingAttentionItem(Built):
     column and stays a string. `last_full_scan_at` is `None` for a company no
     scan ever read in full, and `days_since_full_scan` then counts from when
     its binding was made. `automatic` is false for a company scanned only when
-    the user asks (a user-directed source) or not at all (walled, no consent): the bell never
-    rings for those. `empty_since` is set only while the newest reconcile
+    the user asks (a user-directed source without an agreement to regular scans)
+    or not at all (walled, no consent): the bell never rings for those. `empty_since` is set only while the newest reconcile
     proved the board empty."""
 
     company: str
@@ -584,8 +587,9 @@ class ScheduleBindingPayload(Built):
     status: Literal["scheduled", "manual", "cooldown", "paused", "policy_denied", "unscheduled"]
     #: Why no automatic scan collects this company, or null if one may
     #: (`schedule_status.waits_for_user`, the scheduler's own rule): `walled`
-    #: (no consent) or `user_directed` (only a scan the user starts).
-    waits_for_user: Literal["walled", "user_directed"] | None
+    #: (no consent), `user_directed` (no agreement yet: only a scan the user
+    #: starts) or `on_request` (agreed to be read only when the user asks).
+    waits_for_user: Literal["walled", "user_directed", "on_request"] | None
 
 
 class ScheduleWindow(Built):

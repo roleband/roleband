@@ -1616,18 +1616,27 @@ class TrackedCompany(Base):
     role_catalog_places: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
     role_catalog_unplaced: Mapped[int | None] = mapped_column(Integer, nullable=True)
     role_catalog_unsorted: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    # The user's consent to collect a WALLED company: when it was
-    # given, the dialog text they confirmed, and the register fingerprint of the
-    # wall they were shown (`SourceReview.wall_fingerprint`). Any stored consent
-    # unlocks collection, whatever the register later records: the user is asked
-    # once. Kept on unfollow: it records a consent that was given, and it is what
-    # lets Undo or a later follow put the company back without asking again.
+    # The user's agreement to collect a company on a WALLED or a USER-DIRECTED
+    # source: when it was given, the dialog text they confirmed, and the
+    # register fingerprint of what they were shown (`SourceReview.wall_fingerprint`
+    # for a wall, `SourceReview.directed_fingerprint` otherwise). Only a wall
+    # fingerprint unlocks a wall (`source_policy.collection_access`), whatever the
+    # register later records: the user is asked once. Kept on unfollow: it records
+    # an agreement that was given, and it is what lets Undo or a later follow put
+    # the company back without asking again.
     consented_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     consent_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     consent_fingerprint: Mapped[str | None] = mapped_column(String(128), nullable=True)
     # The language `consent_text` is in (a BCP 47 tag): a record of an agreement
     # says which language it was made in. Never rewritten by a language switch.
     consent_locale: Mapped[str | None] = mapped_column(String(35), nullable=True)
+    # A company on a user-directed source that its person agreed to have scanned
+    # on the regular schedule, not only when they ask. Read only for such a
+    # company (`source_policy.direction_wait`); every other source is scheduled
+    # anyway.
+    scan_on_schedule: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false"), nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
