@@ -18,7 +18,6 @@ shell-tab-insights-pace = Ritmo
 shell-tab-insights-pay = Compensación
 shell-tab-insights-stock = Acciones
 shell-tab-insights-skills = Habilidades
-shell-tab-insights-overlap = Solapamiento
 
 ## Pestañas de Ajustes
 shell-tab-settings-companies = Empresas que sigues

@@ -94,27 +94,6 @@
   flex: 0 0 auto;
 }
 
-[data-design-system="app"] .chart-ledger {
-  margin-top: var(--app-space-2);
-  border-top: 1px solid var(--app-border);
-}
-
-[data-design-system="app"] .chart-ledger summary {
-  width: max-content;
-  padding: var(--app-space-2) 2px var(--app-space-1);
-  cursor: pointer;
-  color: var(--app-text-muted);
-  font-family: var(--app-font-mono);
-  font-size: var(--app-type-label);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-[data-design-system="app"] .chart-ledger summary:hover {
-  color: var(--app-action-text);
-}
-
 /* ---- the chart figure ---------------------------------------------------- */
 
 [data-design-system="app"] .echart {

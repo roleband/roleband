@@ -29,10 +29,8 @@ describe("VelocityPanel", () => {
       kpis: {
         open_total: 732, first_scan: 0,
         opened: 733,
-        updated: 176,
         reposted: 12,
         closed: 1,
-        net: 732,
         median_days_open: 0,
         median_observed_listing_duration_days: null,
         closed_sample: 1,
@@ -42,28 +40,30 @@ describe("VelocityPanel", () => {
       aging: AGING,
       posted: AGING,
       by_company: [
-        { company: "apple", open: 392, opened: 392, updated: 31, reposted: 2, closed: 0, median_days_open: 0, median_observed_listing_duration_days: null },
-        { company: "google", open: 183, opened: 183, updated: 75, reposted: 2, closed: 1, median_days_open: 0, median_observed_listing_duration_days: null },
+        { company: "apple", open: 392, opened: 392, reposted: 2, closed: 0, median_days_open: 0, median_observed_listing_duration_days: null },
+        { company: "google", open: 183, opened: 183, reposted: 2, closed: 1, median_days_open: 0, median_observed_listing_duration_days: null },
       ],
     });
 
     render(<VelocityPanel days={30} />);
 
-    expect(await screen.findByRole("img", { name: "Hiring flow by company" })).toBeInTheDocument();
-
     const hero = await screen.findByRole("heading", { level: 2, name: /opened/ });
     expect(hero).toHaveTextContent("733 opened");
 
-    // Net flow KPI reads as a signed value.
-    const net = screen.getByText("Net flow").closest(".kpi")!;
-    expect(within(net as HTMLElement).getByText("+732")).toBeInTheDocument();
+    // Openings and closings are the window's motion. An edit to a posting and
+    // the difference of the two answer nothing a reader acts on: no Updated
+    // tile or column, no net flow, no flow chart.
+    expect(screen.getAllByText("Opened").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Updated")).toBeNull();
+    expect(screen.queryByText("Net flow")).toBeNull();
+    expect(screen.queryByRole("img")).toBeNull();
 
     // Activity table: one row per company with its lifecycle counts.
     const appleRow = screen.getByRole("table") &&
       within(screen.getByRole("table")).getByText("Apple").closest("tr")!;
-    // Company · Open · Opened · Closed · Updated · Time posted, one row per company.
+    // Company · Open · Opened · Closed · Time posted, one row per company.
     expect(within(appleRow as HTMLElement).getAllByRole("cell").map((c) => c.textContent)).toEqual([
-      "Apple", "392", "392", "0", "31", "",
+      "Apple", "392", "392", "0", "",
     ]);
 
     // Aging: the current single band holds all open roles.
@@ -77,10 +77,8 @@ describe("VelocityPanel", () => {
       kpis: {
         open_total: 732, first_scan: 0,
         opened: 733,
-        updated: 176,
         reposted: 12,
         closed: 1,
-        net: 732,
         median_days_open: 0,
         median_observed_listing_duration_days: null,
         closed_sample: 1,
@@ -90,7 +88,7 @@ describe("VelocityPanel", () => {
       aging: AGING,
       posted: AGING,
       by_company: [
-        { company: "apple", open: 392, opened: 392, updated: 31, reposted: 2, closed: 0, median_days_open: 0, median_observed_listing_duration_days: null },
+        { company: "apple", open: 392, opened: 392, reposted: 2, closed: 0, median_days_open: 0, median_observed_listing_duration_days: null },
       ],
     });
 
@@ -105,10 +103,8 @@ describe("VelocityPanel", () => {
       kpis: {
         open_total: 500, first_scan: 0,
         opened: 900,
-        updated: 300,
         reposted: 12,
         closed: 40,
-        net: 860,
         median_days_open: 12,
         median_observed_listing_duration_days: 14,
         closed_sample: 40,
@@ -118,7 +114,7 @@ describe("VelocityPanel", () => {
       aging: AGING,
       posted: AGING,
       by_company: [
-        { company: "google", open: 180, opened: 200, updated: 60, reposted: 2, closed: 22, median_days_open: 11, median_observed_listing_duration_days: 12 },
+        { company: "google", open: 180, opened: 200, reposted: 2, closed: 22, median_days_open: 11, median_observed_listing_duration_days: 12 },
       ],
     });
 
@@ -138,10 +134,8 @@ describe("VelocityPanel", () => {
       kpis: {
         open_total: 500, first_scan: 0,
         opened: 900,
-        updated: 300,
         reposted: 12,
         closed: 40,
-        net: 860,
         median_days_open: 12,
         median_observed_listing_duration_days: 14,
         closed_sample: 40,
@@ -151,8 +145,8 @@ describe("VelocityPanel", () => {
       aging: AGING,
       posted: AGING,
       by_company: [
-        { company: "google", open: 180, opened: 200, updated: 60, reposted: 2, closed: 22, median_days_open: 11, median_observed_listing_duration_days: 12 },
-        { company: "openai", open: 60, opened: 90, updated: 20, reposted: 2, closed: 8, median_days_open: 9, median_observed_listing_duration_days: 20 },
+        { company: "google", open: 180, opened: 200, reposted: 2, closed: 22, median_days_open: 11, median_observed_listing_duration_days: 12 },
+        { company: "openai", open: 60, opened: 90, reposted: 2, closed: 8, median_days_open: 9, median_observed_listing_duration_days: 20 },
       ],
     });
 
@@ -177,14 +171,14 @@ describe("VelocityPanel", () => {
     mock({
       days: 0,
       kpis: {
-        open_total: 640, first_scan: 0, opened: 900, updated: 300, reposted: 12, closed: 40, net: 860,
+        open_total: 640, first_scan: 0, opened: 900, reposted: 12, closed: 40,
         median_days_open: 12, employer_dated_share: 466 / 640,
         median_observed_listing_duration_days: 14, closed_sample: 40, closed_employer_dated_share: 0.75,
       },
       aging: AGING,
       posted: AGING,
       by_company: [
-        { company: "google", open: 180, opened: 200, updated: 60, reposted: 2, closed: 22, median_days_open: 11, median_observed_listing_duration_days: 12 },
+        { company: "google", open: 180, opened: 200, reposted: 2, closed: 22, median_days_open: 11, median_observed_listing_duration_days: 12 },
       ],
     });
     render(<VelocityPanel days={0} />);
@@ -200,7 +194,7 @@ describe("VelocityPanel", () => {
     mock({
       days: 7,
       kpis: {
-        open_total: 0, first_scan: 0, opened: 0, updated: 0, reposted: 0, closed: 0, net: 0,
+        open_total: 0, first_scan: 0, opened: 0, reposted: 0, closed: 0,
         median_days_open: null, employer_dated_share: null,
         median_observed_listing_duration_days: null, closed_sample: 0, closed_employer_dated_share: null,
       },
@@ -218,13 +212,13 @@ describe("VelocityPanel", () => {
     // read off `opened` (797 vs 295) beside a label printing `open` would draw
     // the smaller number as the longer bar. A bar and its number are one fact.
     const company = (name: string, open: number, opened: number) => ({
-      company: name, open, opened, updated: 0, reposted: 0, closed: 0,
+      company: name, open, opened, reposted: 0, closed: 0,
       median_days_open: 0, median_observed_listing_duration_days: null,
     });
     mock({
       days: 30,
       kpis: {
-        open_total: 155, first_scan: 0, opened: 1092, updated: 0, reposted: 0, closed: 0, net: 1092, median_days_open: 0,
+        open_total: 155, first_scan: 0, opened: 1092, reposted: 0, closed: 0, median_days_open: 0,
         median_observed_listing_duration_days: null, closed_sample: 0, employer_dated_share: null,
         closed_employer_dated_share: null,
       },
@@ -248,7 +242,7 @@ describe("VelocityPanel", () => {
     mock({
       days: 30,
       kpis: {
-        open_total: 3192, first_scan: 1867, opened: 494, updated: 0, reposted: 0, closed: 217, net: 277,
+        open_total: 3192, first_scan: 1867, opened: 494, reposted: 0, closed: 217,
         median_days_open: 40, median_observed_listing_duration_days: null, closed_sample: 0,
         employer_dated_share: 0.94, closed_employer_dated_share: null,
       },

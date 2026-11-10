@@ -2,7 +2,6 @@ import * as echarts from "echarts/core";
 import {
   BarChart,
   GaugeChart,
-  HeatmapChart,
   LineChart,
   ScatterChart,
   SunburstChart,
@@ -18,7 +17,6 @@ import {
   TitleComponent,
   TooltipComponent,
   TransformComponent,
-  VisualMapComponent,
 } from "echarts/components";
 import { SVGRenderer } from "echarts/renderers";
 
@@ -29,7 +27,6 @@ echarts.use([
   DatasetComponent,
   GaugeChart,
   GridComponent,
-  HeatmapChart,
   LegendComponent,
   LineChart,
   MarkLineComponent,
@@ -40,7 +37,6 @@ echarts.use([
   TooltipComponent,
   TransformComponent,
   SunburstChart,
-  VisualMapComponent,
 ]);
 
 export { echarts };

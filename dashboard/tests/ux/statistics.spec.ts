@@ -23,14 +23,14 @@ import { showAdvancedInsights } from "./insightsView";
 const velocityFixture = {
   days: 30,
   kpis: {
-    open_total: 12, opened: 5, updated: 3, closed: 1, net: 4, reposted: 0, first_scan: 0,
+    open_total: 12, opened: 5, closed: 1, reposted: 0, first_scan: 0,
     median_days_open: 20, employer_dated_share: 0.5,
     median_observed_listing_duration_days: null, closed_sample: 1, closed_employer_dated_share: 1,
   },
   aging: [{ lo: 0, hi: 30, label: "0–30d", count: 8 }],
   posted: [{ lo: 0, hi: 30, label: "0–30d", count: 1 }],
   by_company: [
-    { company: "google", open: 6, opened: 3, updated: 2, closed: 1, median_days_open: 18, median_observed_listing_duration_days: null },
+    { company: "google", open: 6, opened: 3, reposted: 0, closed: 1, median_days_open: 18, median_observed_listing_duration_days: null },
   ],
 };
 
@@ -159,9 +159,6 @@ test("every Insights tab opens with the same hero, named by its tab", async ({ p
       ],
       competencies: [], roles: 30, market_roles: 30, narrowed: false,
     },
-    "/api/skills/overlap**": { min_jobs: 2, companies: [
-      { company: "google", skill_count: 9, open: 12 }, { company: "openai", skill_count: 7, open: 5 },
-    ], pairs: [{ a: "google", b: "openai", shared: 4, union: 12, similarity: 0.333, top_shared: ["Python"] }] },
     "/api/statistics/levels": levelGuideFixture,
     "/api/companies/discovery": { sectors: [], companies: [] },
     "/api/settings": { enabled_role_tracks: [] },
@@ -170,7 +167,7 @@ test("every Insights tab opens with the same hero, named by its tab", async ({ p
     await page.route(pattern, (route) => route.fulfill({ json }));
   }
 
-  for (const tab of ["Overview", "Hiring", "Pace", "Compensation", "Levels", "Stock", "Skills", "Overlap"]) {
+  for (const tab of ["Overview", "Hiring", "Pace", "Compensation", "Levels", "Stock", "Skills"]) {
     await page.goto("/statistics/overview");
     await page.getByRole("tab", { name: tab, exact: true }).click();
     const hero = page.locator(".insight-hero");
@@ -178,8 +175,12 @@ test("every Insights tab opens with the same hero, named by its tab", async ({ p
     await expect(hero.locator(".eyebrow"), tab).toHaveText(tab);
     await expect(hero.getByRole("heading", { level: 2 }), tab).toHaveCount(1);
     const tiles = await hero.locator(".kpi").count();
-    expect(tiles, tab).toBeGreaterThanOrEqual(2);
-    expect(tiles, tab).toBeLessThanOrEqual(4);
+    // Skills keeps one tile, the roles its ranking reads; its lead skill is the figure.
+    if (tab === "Skills") expect(tiles, tab).toBe(1);
+    else {
+      expect(tiles, tab).toBeGreaterThanOrEqual(2);
+      expect(tiles, tab).toBeLessThanOrEqual(4);
+    }
     // Nothing above it: the hero is the panel's first card.
     const first = await page.locator("#statistics-tabpanel .panel").first().evaluate((el) => el.classList.contains("insight-hero"));
     expect(first, tab).toBe(true);

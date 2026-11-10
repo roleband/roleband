@@ -1,12 +1,10 @@
 import { installJobDetailRoutes } from "./boardHarness";
 import { msg } from "../../src/test/msg";
 import { expect, test } from "./fixtures";
-import { showAdvancedInsights } from "./insightsView";
-import { detail } from "./boardHarness";
+import { expectOnTop, pointAndClick } from "./paint";
 import {
   facetsFixture,
   hiringFixture,
-  jobFixture,
   jobListFixture,
   notificationsFixture,
   overviewFixture,
@@ -15,34 +13,7 @@ import {
   syncStartedFixture,
 } from "../../src/test/fixtures";
 
-// Hiring as the route sends it, with the three role lists this spec reads.
-const demandFixture = {
-  ...hiringFixture,
-  // Dated by its employer 170 days ago, first seen by us 3 days ago.
-  longest_open: [
-    {
-      ...jobFixture,
-      id: 203,
-      company: "openai",
-      title: "Staff Product Manager, API Platform",
-      days_open: 3,
-      listed_days: 170,
-    },
-  ],
-  most_updated_open: [
-    {
-      ...jobFixture,
-      id: 202,
-      company: "anthropic",
-      title: "Engineering Manager, Agent Runtime Platform",
-      update_count: 3,
-      last_updated_at: "2026-07-12T16:00:00Z",
-    },
-  ],
-};
-
 test.beforeEach(async ({ page }) => {
-  await showAdvancedInsights(page);
   await installJobDetailRoutes(page);
   await page.route("/api/profile", (route) => route.fulfill({ json: {
     profile: null, scope_configured: true,
@@ -52,37 +23,20 @@ test.beforeEach(async ({ page }) => {
   await page.route("/api/sync", (route) => route.fulfill({ json: syncStartedFixture }));
   await page.route("/api/facets", (route) => route.fulfill({ json: facetsFixture }));
   await page.route("/api/notifications**", (route) => route.fulfill({ json: notificationsFixture }));
-  await page.route("/api/demand**", (route) => route.fulfill({ json: demandFixture }));
+  await page.route("/api/demand**", (route) => route.fulfill({ json: hiringFixture }));
   await page.route("/api/statistics/overview**", (route) => route.fulfill({ json: overviewFixture }));
-  await page.route("/api/jobs/202", (route) => route.fulfill({ json: demandFixture.most_updated_open[0] }));
   await page.route("/api/jobs/*/similar**", (route) => route.fulfill({ json: { scope: "cross", items: [] } }));
   await page.route("/api/jobs?**", (route) => route.fulfill({ json: jobListFixture }));
 });
 
-test("demand shows roles updated but never closed", async ({ page }) => {
-  // Demand is a sub-tab of the Statistics page.
+test("Hiring is a basic tab with no window of its own", async ({ page }) => {
+  // Hiring is a sub-tab of the Insights page.
   await page.goto("/statistics");
   await page.getByRole("tab", { name: "Hiring", exact: true }).click();
   await expect(page.getByRole("group", { name: "Time range" })).toHaveCount(0);
-
   await expect(page.getByRole("banner", { name: msg("shell-topbar-aria") })).toContainText("Insights/Hiring");
-  await expect(page.getByRole("heading", { name: "Updated but never closed" })).toBeVisible();
-  await expect(page.getByText("Engineering Manager, Agent Runtime Platform")).toBeVisible();
-  const updated = page.locator(".panel").filter({ has: page.getByRole("heading", { name: "Updated but never closed" }) });
-  await expect(updated.getByText("Anthropic")).toBeVisible();
-  await expect(page.getByLabel("Updated 3 times")).toBeVisible();
-  await expect(page.getByText("updated ×3")).toHaveCount(0);
-});
-
-/* One posting's age on Insights is its own listed age, the age its
- * Board row shows; our first-sighting clock stays inside the aggregates. */
-test("a longest-open role reads its listed age", async ({ page }) => {
-  await page.goto("/statistics");
-  await page.getByRole("tab", { name: "Hiring", exact: true }).click();
-
-  const row = page.getByRole("link", { name: /Staff Product Manager, API Platform/ });
-  await expect(row).toContainText("OpenAI · Listed for 170 days");
-  await expect(row).not.toContainText(/days? open/i);
+  // No role lists: Hiring answers who hires and where, and the Board lists roles.
+  await expect(page.locator("#statistics-tabpanel a[href*='/job/']")).toHaveCount(0);
 });
 
 /* Unbounded, the tab would draw one bar per company, every place group and a
@@ -121,23 +75,40 @@ test("Hiring draws bounded views: fifteen companies, a counted tail, regions tha
   await expect(page.getByText("Germany")).toBeVisible();
 });
 
-/* A compact job row is a real destination: a link with the canonical URL,
- * reachable by Tab and openable by Enter. A <div onClick> would be out of the
- * keyboard's reach entirely. */
-test("a compact job row is a link the keyboard can reach and open", async ({ page }) => {
-  await page.goto("/statistics");
-  await page.getByRole("tab", { name: "Hiring", exact: true }).click();
+/* Each company on Hiring opens its roles on the Board. A chart bar takes no
+ * keyboard focus, so the full list is the keyboard's way to every company: a
+ * link with the Board's own address, reachable by Tab and opened by Enter. */
+test("a company in the full list is a link to its roles on the Board, and Back returns to Hiring", async ({ page }) => {
+  await page.goto("/statistics/demand?side=yours");
+  await page.getByRole("button", { name: "Show all 18 companies" }).click();
+  const sheet = page.getByRole("dialog", { name: "All companies hiring" });
+  const link = sheet.getByRole("link", { name: "Anthropic", exact: true });
+  await expect(link).toHaveAttribute("href", "/?company=anthropic");
+  await expect(sheet.getByRole("link")).toHaveCount(18);
 
-  const row = page.getByRole("link", { name: /Engineering Manager, Agent Runtime Platform/ });
-  // The canonical position URL, so the platform can offer "open in new tab".
-  await expect(row).toHaveAttribute("href", "/company/anthropic/job/202");
-
-  await row.focus();
-  await expect(row).toBeFocused();
+  const narrowed = page.waitForRequest((r) => r.url().includes("/api/jobs?") && r.url().includes("company=anthropic"));
+  await link.focus();
+  await expect(link).toBeFocused();
   await page.keyboard.press("Enter");
+  await narrowed;
+  await expect(page).toHaveURL(/\/\?company=anthropic$/);
 
-  // Enter opens the detail as an overlay over Demand — the app's navigation,
-  // not the browser's: the Demand panel is still behind it.
-  await expect(detail(page)).toBeVisible();
-  await expect(page).toHaveURL(/\/company\/anthropic\/job\/202$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/statistics\/demand\?side=yours$/);
+  await expect(page.getByRole("tab", { name: "Hiring", exact: true })).toHaveAttribute("aria-selected", "true");
+});
+
+test("a company's name on the chart opens its roles on the Board", async ({ page }) => {
+  await page.goto("/statistics/demand");
+  const name = page.locator(".chart-demand svg text", { hasText: /^Google$/ });
+  // Mid-screen, clear of the phone's bottom bar.
+  await name.evaluate((el) => el.scrollIntoView({ block: "center" }));
+  await expectOnTop(name, "Google's name on the chart");
+  const narrowed = page.waitForRequest((r) => r.url().includes("/api/jobs?") && r.url().includes("company=google"));
+  await pointAndClick(page, name);
+  await narrowed;
+  await expect(page).toHaveURL(/\/\?company=google$/);
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\/statistics\/demand$/);
 });

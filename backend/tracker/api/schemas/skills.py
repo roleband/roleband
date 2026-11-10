@@ -42,31 +42,3 @@ class TopSkillsResponse(Built):
     roles: int
     market_roles: int
     narrowed: bool
-
-
-class OverlapCompany(Built):
-    company: str
-    skill_count: int
-    open: int
-
-
-class OverlapPair(Built):
-    """Two companies sharing at least one skill; `a` precedes `b` in the order shown."""
-
-    a: str
-    b: str
-    shared: int
-    union: int
-    #: Cosine of the two companies' skill vectors, each skill a role share weighted
-    #: by rarity across the companies compared, 0 to 1.
-    similarity: float
-    #: Slugs of the skills both name most, which the client names.
-    top_shared: list[str]
-
-
-class SkillOverlapResponse(Built):
-    """`GET /api/skills/overlap`: the floor a skill must clear per company, echoed."""
-
-    companies: list[OverlapCompany]
-    pairs: list[OverlapPair]
-    min_jobs: int

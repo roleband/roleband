@@ -4,7 +4,7 @@ import { msg } from "../../src/test/msg";
 import { installEveryRoute } from "./routesHarness";
 
 /* Insights opens in its basic view: four tabs, and a switch that asks once
-   before it lists the other four. These specs run on a first visit, with no
+   before it lists the other three. These specs run on a first visit, with no
    view stored, unlike the Insights specs that seed the advanced view. */
 
 const OVERVIEW = msg("shell-tab-insights-overview");
@@ -14,8 +14,7 @@ const LEVELS = msg("shell-tab-insights-levels");
 const SKILLS = msg("shell-tab-insights-skills");
 const BASIC_TABS = [OVERVIEW, HIRING, PAY, SKILLS];
 const ALL_TABS = [
-  OVERVIEW, HIRING, msg("shell-tab-insights-pace"), PAY, LEVELS, msg("shell-tab-insights-stock"),
-  SKILLS, msg("shell-tab-insights-overlap"),
+  OVERVIEW, HIRING, msg("shell-tab-insights-pace"), PAY, LEVELS, msg("shell-tab-insights-stock"), SKILLS,
 ];
 
 const tabs = (page: Page) => page.getByRole("tablist").getByRole("tab");

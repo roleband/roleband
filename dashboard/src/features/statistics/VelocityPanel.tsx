@@ -2,7 +2,6 @@ import { InsightsScope, VelocityStats, api } from "../../api";
 import { useAsyncResource } from "../../hooks/useAsyncResource";
 import { companyName } from "../../format";
 import { ageAggregateNote, employerDated } from "./ageCopy";
-import { VelocityFlowChart } from "./charts/StatisticsCharts";
 import { InfoTip } from "../../ui/InfoTip";
 import { ResourceLoadState } from "../../ui/ResourceLoadState";
 import { InsightHero, n } from "./InsightHero";
@@ -10,27 +9,19 @@ import {
   insightsCommonClosed,
   insightsCommonCompany,
   insightsCommonLastDaysOrAllTime,
-  insightsCommonUpdated,
   insightsVelocityPanelAgeOfOpenRoles,
-  insightsVelocityPanelClosuresPullLeftOpeningsPush,
   insightsVelocityPanelCompanies,
   insightsVelocityPanelFromTheFirstScanThat,
-  insightsVelocityPanelHiringFlow,
   insightsVelocityPanelHowLongPostingsStayUp,
-  insightsVelocityPanelHowToReadHiringFlow,
   insightsVelocityPanelLoadFailed,
   insightsVelocityPanelLoading,
-  insightsVelocityPanelMarketCurrent,
   insightsVelocityPanelMedianAge,
   insightsVelocityPanelMedianTimePosted,
   insightsVelocityPanelMoreAlreadyListedWhenTheir,
-  insightsVelocityPanelNet,
-  insightsVelocityPanelNetFlow,
   insightsVelocityPanelOpen,
   insightsVelocityPanelOpenCount,
   insightsVelocityPanelOpened,
   insightsVelocityPanelOpenedCount,
-  insightsVelocityPanelOpenedClosed,
   insightsVelocityPanelThisBuildsUpAsRoles,
   insightsVelocityPanelTimePosted,
   insightsVelocityPanelWhatTimePostedMeasures,
@@ -72,36 +63,9 @@ export function VelocityPanel({ days: period, scope }: { days: number; scope?: I
         }
         kpis={[
           { label: insightsVelocityPanelOpened(), value: n(k.opened), sub: window, tone: "good" },
-          { label: insightsCommonUpdated(), value: n(k.updated), sub: window },
           { label: insightsCommonClosed(), value: n(k.closed), sub: window },
-          {
-            label: insightsVelocityPanelNetFlow(),
-            value: `${k.net >= 0 ? "+" : ""}${n(k.net)}`,
-            sub: insightsVelocityPanelOpenedClosed(),
-            tone: k.net > 0 ? "good" : undefined,
-          },
         ]}
       />
-
-      {data.by_company.length > 0 && (
-        <div className="panel chart-panel chart-panel-wide">
-          <div className="chart-panel-head">
-            <div>
-              <span className="eyebrow">{insightsVelocityPanelMarketCurrent()}</span>
-              <h3>
-                {insightsVelocityPanelHiringFlow()}
-                <InfoTip label={insightsVelocityPanelHowToReadHiringFlow()}>
-                  {insightsVelocityPanelClosuresPullLeftOpeningsPush()}
-                </InfoTip>
-              </h3>
-            </div>
-            <span className={`chart-insight ${k.net >= 0 ? "good" : "bad"}`}>
-              <Msg of={insightsVelocityPanelNet} args={{ direction: k.net >= 0 ? "up" : "down" }} elems={{ net: n(k.net), window: window }} />
-            </span>
-          </div>
-          <VelocityFlowChart companies={data.by_company} />
-        </div>
-      )}
 
       {/* One table for everything keyed by company: separate panels for
           activity, time posted and open roles would list the same companies
@@ -115,7 +79,6 @@ export function VelocityPanel({ days: period, scope }: { days: number; scope?: I
               <th className="num vel-open-col">{insightsVelocityPanelOpen()}</th>
               <th className="num">{insightsVelocityPanelOpened()}</th>
               <th className="num">{insightsCommonClosed()}</th>
-              <th className="num">{insightsCommonUpdated()}</th>
               <th className="num">
                 {insightsVelocityPanelTimePosted()}
                 <InfoTip label={insightsVelocityPanelWhatTimePostedMeasures()}>
@@ -138,7 +101,6 @@ export function VelocityPanel({ days: period, scope }: { days: number; scope?: I
                 </td>
                 <td className="num pos">{n(c.opened)}</td>
                 <td className="num">{n(c.closed)}</td>
-                <td className="num">{n(c.updated)}</td>
                 <td className="num">{c.median_observed_listing_duration_days != null ? days(c.median_observed_listing_duration_days) : ""}</td>
               </tr>
             ))}

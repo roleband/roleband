@@ -1,7 +1,7 @@
 """The skills routes' response contract.
 
-`tracker/api/schemas/skills.py` declares what `/api/skills/top` and
-`/api/skills/overlap` send. These tests hold it over real HTTP against
+`tracker/api/schemas/skills.py` declares what `/api/skills/top` sends. These
+tests hold it over real HTTP against
 `tests/skills_contract_seed.py`:
 
 1. **Shapes**: built shapes forbid unknown keys.
@@ -9,7 +9,8 @@
 3. **The leaderboard** counts evidence-grounded requirements on open, in-scope,
    visible roles, never industries, deprecated concepts, context mentions or
    low-confidence extractions, and narrows by company, family and location.
-4. **The overlap** ranks companies by open roles above a per-company floor.
+4. **One counting rule**: the leaderboard and the daily rollup count the same
+   requirements.
 5. **Drift**: a builder that adds, drops or mistypes a key fails the response.
 
 `no_escape` guards every test. Counts are asserted as sets wherever the route
@@ -65,7 +66,7 @@ def test_built_shapes_forbid_unknown_keys():
         model for model in vars(contract).values()
         if isinstance(model, type) and issubclass(model, BaseModel) and model.__module__ == contract.__name__
     ]
-    assert len(built) >= 4
+    assert len(built) >= 2
     assert [m.__name__ for m in built if m.model_config.get("extra") != "forbid"] == []
 
 
@@ -74,7 +75,8 @@ async def test_an_empty_radar_answers_each_list_with_nothing_in_it(api_client, n
     assert await _get(api_client, "/api/skills/top") == {
         "items": [], "competencies": [], "roles": 0, "market_roles": 0, "narrowed": False,
     }
-    assert await _get(api_client, "/api/skills/overlap") == {"companies": [], "pairs": [], "min_jobs": 2}
+    # The leaderboard is the one Skills read (docs/decisions/0004-insights-answers-a-question.md).
+    assert (await api_client.get("/api/skills/overlap")).status_code == 404
 
 
 # --------------------------------------------------------------------------- #
@@ -149,7 +151,7 @@ async def test_a_visible_company_counts_until_it_is_hidden(api_client, db_sessio
 
 
 # --------------------------------------------------------------------------- #
-# 4. The overlap
+# 4. One counting rule
 # --------------------------------------------------------------------------- #
 
 
@@ -185,49 +187,6 @@ async def test_every_read_that_counts_skills_counts_the_same_requirements(api_cl
     assert leaderboard["sql"] == demand["sql"] == 4
 
 
-@pytest.mark.asyncio
-async def test_overlap_scores_what_companies_share_beyond_what_every_company_names(api_client, hidden):
-    """Generic skills shared by every company must not inflate similarity.
-    Each company is a rarity-weighted skill vector with competencies excluded;
-    when Python is the only shared skill and all companies name it, pairs score 0."""
-    body = await _get(api_client, "/api/skills/overlap")
-    assert list(body) == _fields(contract.SkillOverlapResponse)
-    # Stakeholder management is a competency: OpenAI's set is Python and Kubernetes.
-    assert body["companies"] == [
-        {"company": "google", "skill_count": 2, "open": 5},
-        {"company": "openai", "skill_count": 2, "open": 3},
-        {"company": "anthropic", "skill_count": 1, "open": 2},
-    ]
-    assert body["pairs"] == [
-        {"a": "google", "b": "openai", "shared": 1, "union": 3, "similarity": 0.0, "top_shared": ["python"]},
-        {"a": "google", "b": "anthropic", "shared": 1, "union": 2, "similarity": 0.0, "top_shared": ["python"]},
-        {"a": "openai", "b": "anthropic", "shared": 1, "union": 2, "similarity": 0.0, "top_shared": ["python"]},
-    ]
-    assert body["min_jobs"] == 2
-
-
-@pytest.mark.asyncio
-async def test_a_lower_floor_widens_each_set_and_a_company_limit_drops_every_pair(api_client, hidden):
-    floor_one = await _get(api_client, "/api/skills/overlap?min_jobs=1")
-    pairs = {(p["a"], p["b"]): p for p in floor_one["pairs"]}
-    # Google and OpenAI now also share Kubernetes, which two of the three name:
-    # that is what scores, and it weighs more than Python, which all three name.
-    assert pairs[("google", "openai")]["top_shared"] == ["kubernetes", "python"]
-    assert pairs[("google", "openai")]["similarity"] > 0
-    assert pairs[("openai", "anthropic")]["similarity"] == 0.0
-    assert floor_one["min_jobs"] == 1
-    assert await _get(api_client, "/api/skills/overlap?limit_companies=1") == {
-        "companies": [{"company": "google", "skill_count": 2, "open": 5}], "pairs": [], "min_jobs": 2,
-    }
-
-
-@pytest.mark.asyncio
-async def test_the_companies_compared_can_be_named(api_client, hidden):
-    body = await _get(api_client, "/api/skills/overlap?company=openai&company=google&company=nope")
-    assert [c["company"] for c in body["companies"]] == ["openai", "google"]
-    assert [(p["a"], p["b"]) for p in body["pairs"]] == [("openai", "google")]
-
-
 # --------------------------------------------------------------------------- #
 # 5. Drift
 # --------------------------------------------------------------------------- #
@@ -241,21 +200,13 @@ def _each_skill_adding(real):
     return drifted
 
 
-def _pair_without_shared(real):
-    def drifted(*args, **kwargs):
-        return [{k: v for k, v in p.items() if k != "shared"} for p in real(*args, **kwargs)]
-
-    return drifted
-
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("name", "drift", "path"),
     [
         ("rank_skills", _each_skill_adding, "/api/skills/top"),
-        ("compute_overlap", _pair_without_shared, "/api/skills/overlap"),
     ],
-    ids=["top_skill_key_added", "pair_shared_dropped"],
+    ids=["top_skill_key_added"],
 )
 async def test_a_builder_that_drifts_fails_the_response(api_client, hidden, monkeypatch, name, drift, path):
     monkeypatch.setattr(router, name, drift(getattr(router, name)))

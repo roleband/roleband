@@ -574,8 +574,6 @@ export const overviewFixture: StatisticsOverview = {
   days: 30,
   kpis: { open_total: 12, new_count: 4, first_scan_count: 0, closed_count: 1, companies: 3, saved_total: 2 },
   top_skills: [],
-  longest_open: [],
-  
 };
 
 /** `GET /api/demand`, the Hiring tab: roles each once, by company
@@ -599,10 +597,6 @@ export const hiringFixture: Demand = {
   ],
   unplaced: 2,
   employer_dated_share: 0.73,
-  longest_open: [],
-  listed_over_a_year: 0,
-  most_reposted: [],
-  most_updated_open: [],
 };
 
 /** A pending suggestion to turn a world off, as `GET /api/profile/suggestions`
