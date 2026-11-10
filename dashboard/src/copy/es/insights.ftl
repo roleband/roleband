@@ -376,6 +376,234 @@ insights-stock-trajectory-panel-loading = Cargando la trayectoria de las accione
 insights-stock-trajectory-panel-load-failed = No se pudo cargar la trayectoria de las acciones
 insights-stock-trajectory-panel-rsus = RSU
 
+## features/statistics/OfferCalculator.tsx
+insights-offer-entered = Introducido por ti, { $date }
+insights-offer-started-from = { $kind ->
+    [role] Rellenado a partir de { $title } en { $company }.
+   *[company] Rellenado a partir del puesto mediano en { $company }.
+}
+insights-offer-undo = Deshacer
+insights-offer-clear = Borrar oferta
+insights-offer-cleared = Oferta borrada.
+insights-offer-another-company = Otra empresa
+insights-offer-chip-another = { $listed ->
+    [yes] Otra empresa, cotizada
+   *[no] Otra empresa, privada
+}
+insights-offer-listed-label = Cotizada o privada
+insights-offer-listed = { $listed ->
+    [yes] Cotizada
+   *[no] Privada
+}
+insights-offer-bonus-rule = { $rule ->
+    [none] Esta empresa no paga bono anual.
+   *[pct_of_base] Esta empresa fija el bono como parte del base según el nivel. Introduce el de tu oferta.
+}
+insights-offer-equity-type = Tipo de acciones
+insights-offer-grant-unit = Concesión expresada en
+insights-offer-grant-unit-option = { $unit ->
+    [dollars] Dólares
+   *[shares] Acciones
+}
+insights-offer-price-needs-key = Escribe el precio de hoy, o añade una clave en { $link } para rellenarlo con el último cierre.
+insights-offer-price-settings = Ajustes › Plugins › Precios de la acción
+insights-offer-price-no-close = Aún no hay cierre guardado para { $ticker }. Escribe el precio de hoy.
+insights-offer-vesting-year = Año { $year }, porcentaje que consolida
+insights-offer-vesting-sum = Estos cuatro años consolidan el { $pct }% de la concesión.
+insights-offer-sign-on = Prima inicial, año { $year }
+insights-offer-sign-on-bridges = Esta empresa paga una prima inicial en los dos primeros años para compensar su consolidación.
+insights-offer-private = Las acciones de una empresa privada no se pueden vender hasta que la empresa salga a bolsa o haga una venta autorizada.
+insights-offer-valuation-unit = Valoración expresada como
+insights-offer-valuation-unit-option = { $unit ->
+    [per_share] Precio por acción
+   *[company] Valoración de la empresa
+}
+insights-offer-valuation-grant = { $unit ->
+    [per_share] Precio en la concesión
+   *[company] Valoración en la concesión
+}
+insights-offer-valuation-test = { $unit ->
+    [per_share] Precio a probar
+   *[company] Valoración a probar
+}
+insights-offer-share-count = Acciones en circulación
+insights-offer-valuation-hint = Introduce la valoración de tu oferta y la que quieres probar, como la última ronda o tu propia expectativa.
+insights-offer-valuation-none = Sin una valoración, las acciones se muestran a la valoración con la que se concedieron.
+insights-offer-move = { $listed ->
+    [yes] Cambio en la cotización
+   *[no] Cambio en la valoración
+}
+insights-offer-move-aria = { $listed ->
+    [yes] Cambio en la cotización para tu oferta, porcentaje
+   *[no] Cambio en la valoración para tu oferta, porcentaje
+}
+insights-offer-missing = { $missing ->
+    [price] Introduce el precio de la acción de hoy para valorar las acciones.
+    [strike] Introduce el precio de ejercicio para valorar las opciones.
+    [valuation] Introduce una valoración para valorar las acciones.
+   *[share_count] Introduce las acciones en circulación para convertir la valoración en un precio por acción.
+}
+insights-offer-year = Año
+insights-offer-year-n = Año { $year }
+insights-offer-four-years = Cuatro años
+insights-offer-sign-on-column = Prima inicial
+insights-offer-tc-today = CT hoy
+insights-offer-tc-today-full = Compensación total al precio de hoy
+insights-offer-tc-moved = { $move ->
+    [up] CT con +{ $pct }%
+   *[down] CT con { $pct }%
+}
+insights-offer-tc-moved-full = { $move ->
+    [up] Compensación total tras una subida del { $pct }%
+   *[down] Compensación total tras una bajada del { $pct }%
+}
+insights-offer-drop = Menos que el año { $year }
+insights-offer-start = Empezar desde aquí
+insights-offer-start-aria = Empezar una oferta desde { $company }
+insights-offer-column = Tu oferta
+insights-offer-at-your-valuation = Con tu valoración
+insights-offer-at-your-valuation-moved = { $move ->
+    [up] Con tu valoración, +{ $pct }%
+   *[down] Con tu valoración, { $pct }%
+}
+insights-offer-at-your-valuation-full = Acciones a la valoración que introdujiste el { $date }
+insights-offer-start-title = Lo que paga una oferta, año por año
+insights-offer-start-intro = Unas pocas preguntas cortas, de una en una. Lo que introduces se queda en este ordenador.
+insights-offer-loading = Cargando tu oferta
+insights-offer-load-failed = Tu oferta no se ha cargado.
+insights-offer-save-failed = Tu última respuesta no se ha guardado. Respóndela otra vez para conservarla.
+insights-offer-progress = Pregunta { $n } de { $total }
+insights-offer-q-company = ¿Qué empresa te ha hecho la oferta?
+insights-offer-q-company-hint = Sus reglas habituales de acciones y bono se rellenan solas.
+insights-offer-pick-company = Elige una empresa
+insights-offer-all-companies = Todas las empresas
+insights-offer-q-base = ¿Cuál es el salario base?
+insights-offer-q-base-hint = El salario anual de tu carta de oferta.
+insights-offer-per-year = al año
+insights-offer-per-share = por acción
+insights-offer-q-stock = { $vehicle ->
+    [options] ¿Cuántas opciones incluye la oferta?
+    [cash] ¿Cuánto elegiste cobrar en acciones?
+   *[rsu] ¿Cuántas acciones incluye la oferta?
+}
+insights-offer-q-stock-hint = { $vehicle ->
+    [options] { $company } concede opciones sobre acciones. Introduce el número de tu carta de oferta.
+    [cash] { $company } te deja repartir tu pago entre efectivo y acciones. Introduce la parte en acciones de los cuatro años: un cambio solo afecta a esa parte.
+    [another] Introduce la concesión total de tu carta de oferta, en dólares o en acciones.
+   *[rsu] { $company } concede RSU. Introduce la concesión total de tu carta de oferta.
+}
+insights-offer-no-stock = { $vehicle ->
+    [options] Sin opciones
+    [cash] Todo en efectivo
+   *[rsu] Sin acciones
+}
+insights-offer-q-strike = ¿Cuál es el precio de ejercicio?
+insights-offer-q-strike-hint = El precio por acción que pagas para comprar cada opción.
+insights-offer-q-price = { $quote ->
+    [yes] ¿Usar el último cierre de { $company }?
+   *[no] ¿Cuál es la cotización de hoy?
+}
+insights-offer-q-price-quote = { $price } por acción al cierre del { $date }.
+insights-offer-use-price = Usar { $price }
+insights-offer-own-price = Introducir un precio
+insights-offer-q-valuation = ¿Cuánto vale { $company }?
+insights-offer-dont-know = No lo sé
+insights-offer-q-vesting-stated = ¿Tu concesión consolida { $schedule }?
+insights-offer-q-vesting-stated-hint = Es el calendario que { $company } suele indicar, como porcentaje de la concesión en cada año.
+insights-offer-q-vesting = ¿Cómo consolida la concesión?
+insights-offer-q-vesting-hint = { $named ->
+    [yes] { $company } no lo indica. La mayoría de las concesiones consolidan por igual en cuatro años.
+   *[no] La mayoría de las concesiones consolidan por igual en cuatro años.
+}
+insights-offer-percent-of-grant = Porcentaje de la concesión en cada año.
+insights-offer-vesting-yes = Sí, igual
+insights-offer-vesting-differs = La mía cambia
+insights-offer-vesting-other = Otro
+insights-offer-vesting-even = uniforme
+insights-offer-vesting-too-much = Los años suman el { $pct }%. Mantenlo en el 100% o menos.
+insights-offer-q-bonus = ¿Hay un bono anual objetivo?
+insights-offer-q-bonus-hint = Una parte del base, tal como la indica tu carta de oferta.
+insights-offer-bonus-choice = { $pct ->
+    [0] Sin bono
+    [one] { $pct }%
+    [many] { $pct }%
+   *[other] { $pct }%
+}
+insights-offer-bonus-other = Otro bono objetivo, porcentaje del base
+insights-offer-q-sign-on = ¿Hay prima inicial?
+insights-offer-q-sign-on-hint = Un pago único por incorporarte, a veces repartido en dos años.
+insights-offer-sign-on-yes = Sí
+insights-offer-sign-on-no = Sin prima
+insights-offer-need = { $what ->
+    [company] Elige una empresa.
+    [base] Introduce el salario base anual.
+    [stock] Introduce la cantidad o elige el botón de al lado.
+    [strike] Introduce el precio de ejercicio.
+    [price] Introduce la cotización de hoy.
+    [valuation] Introduce el valor en la concesión o elige No lo sé.
+    [vesting] Introduce el porcentaje que consolida en al menos un año.
+    [bonus] Elige un bono objetivo.
+   *[sign_on] Introduce al menos un importe de prima inicial.
+}
+insights-offer-next = Siguiente
+insights-offer-done = Hecho
+insights-offer-back = Atrás
+insights-offer-cancel = Cancelar
+insights-offer-later = Terminar después
+insights-offer-finished-title = { $named ->
+    [yes] Tu oferta de { $company }, año por año
+   *[no] Tu oferta, año por año
+}
+insights-offer-unfinished = { $answered } de { $total } respondidas
+insights-offer-continue = Continuar
+insights-offer-typical = Son cifras típicas. Cámbialas por las tuyas para ver tu propia oferta.
+insights-offer-swap = Usar mis cifras
+insights-offer-tag = { $tag ->
+    [typical] Típico
+    [rule] Regla de la empresa
+    [employer] Indicado por la empresa
+    [estimated] Estimado
+    [assumed] Supuesto
+   *[quote] Último cierre
+}
+insights-offer-chip-edit = Cambiar { $answer }
+insights-offer-chip-base = Base { $amount }
+insights-offer-chip-stock = { $kind ->
+    [none] Sin acciones
+    [cash] { $amount } en acciones
+    [options] { $count } opciones
+    [shares] { $count } acciones
+   *[dollars] { $amount } en acciones
+}
+insights-offer-chip-strike = Ejercicio { $amount }
+insights-offer-chip-price = { $kind ->
+    [none] Sin precio por acción
+   *[some] { $amount } por acción
+}
+insights-offer-chip-valuation = { $kind ->
+    [none] Al valor concedido
+    [per_share] De { $from } a { $to } por acción
+   *[company] Valorada de { $from } a { $to }
+}
+insights-offer-chip-vesting = Consolida { $schedule }
+insights-offer-chip-bonus = { $pct ->
+    [0] Sin bono
+    [one] Bono del { $pct }%
+    [many] Bono del { $pct }%
+   *[other] Bono del { $pct }%
+}
+insights-offer-chip-sign-on = { $kind ->
+    [none] Sin prima inicial
+   *[some] Prima { $first } + { $second }
+}
+insights-offer-chart = Compensación total por año
+insights-offer-vs-today = { $sign ->
+    [up] { $amount } más que al precio de hoy
+    [down] { $amount } menos que al precio de hoy
+   *[same] Al precio de hoy
+}
+insights-offer-show-table = Ver la tabla
+
 ## features/statistics/TrendsPanel.tsx
 insights-trends-panel-demand-history = Historial de demanda
 insights-trends-panel-skill-demand-over-time = Demanda de habilidades a lo largo del tiempo

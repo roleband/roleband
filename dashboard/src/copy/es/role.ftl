@@ -1,6 +1,7 @@
 ## role: movido tal como se encontró (wording=as-is)
 
 ## features/job-detail/JobCompPanel.tsx
+role-job-comp-panel-start-offer = Empezar una oferta desde este puesto
 role-job-comp-panel-the-employer-s-exact-words = Las palabras exactas del empleador
 role-job-comp-panel-no-compensation-data-for-this = No hay datos de compensación para este puesto.
 role-job-comp-panel-market-median-at-this-level = Mediana de mercado del nivel

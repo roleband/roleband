@@ -1,6 +1,7 @@
 ## role：按原样迁移（wording=as-is）
 
 ## features/job-detail/JobCompPanel.tsx
+role-job-comp-panel-start-offer = 以这个职位开始一份录用条件
 role-job-comp-panel-the-employer-s-exact-words = 雇主的原话
 role-job-comp-panel-no-compensation-data-for-this = 这个职位没有薪酬数据。
 role-job-comp-panel-market-median-at-this-level = 该级别市场中位数

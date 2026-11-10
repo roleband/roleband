@@ -25,7 +25,8 @@ from tracker.analytics.comp_package import (
     cash_election,
 )
 from tracker.analytics.comp_split import is_public, parent_ticker, ticker_for
-from tracker.levels.pay import bonus_ratio_for
+from tracker.levels.model import BONUS_NONE, BONUS_PCT_OF_BASE
+from tracker.levels.pay import bonus_ratio_for, policy_for
 
 # Where a part of a company's package comes from. A company whose roles differ
 # reads `mixed`.
@@ -165,6 +166,24 @@ def _choice_total(package: dict) -> tuple[float, str] | None:
     return None
 
 
+# A subsidiary granted its listed parent's stock is read from `parent_ticker`
+# first: its own profile truly says "not listed", which is not what the equity
+# does. Resolved identity (`profiles`) beats the hardcoded table, which cannot
+# know about a company that listed later.
+def _listed(company: str, profiles: Mapping[str, dict]) -> bool:
+    if parent_ticker(company):
+        return True
+    p = profiles.get(company)
+    return bool(p["is_public"]) if p and p.get("is_public") is not None else is_public(company)
+
+
+def _company_ticker(company: str, profiles: Mapping[str, dict]) -> str | None:
+    if parent := parent_ticker(company):
+        return parent
+    p = profiles.get(company)
+    return p.get("ticker") if p and p.get("ticker") else ticker_for(company)
+
+
 def build_comp_trajectory(
     roles: Iterable[TrajectoryRole],
     *,
@@ -185,20 +204,11 @@ def build_comp_trajectory(
     """
     profiles = profiles or {}
 
-    # A subsidiary granted its listed parent's stock is read from
-    # `parent_ticker` first: its own profile truly says "not listed", which is
-    # not what the equity does.
     def _public(company: str) -> bool:
-        if parent_ticker(company):
-            return True
-        p = profiles.get(company)
-        return bool(p["is_public"]) if p and p.get("is_public") is not None else is_public(company)
+        return _listed(company, profiles)
 
     def _ticker(company: str) -> str | None:
-        if parent := parent_ticker(company):
-            return parent
-        p = profiles.get(company)
-        return p.get("ticker") if p and p.get("ticker") else ticker_for(company)
+        return _company_ticker(company, profiles)
 
     split: dict[str, list[_Parts]] = {}
     policies: dict[str, dict | None] = {}
@@ -228,11 +238,10 @@ def build_comp_trajectory(
     private: list[dict] = []
     for company, parts in split.items():
         policy = policies.get(company) or {}
-        prof = profiles.get(company) or {}
         entry = {
             "company": company,
             **_summary(parts),
-            "equity_vehicle": "rsu" if parent_ticker(company) else prof.get("equity_vehicle"),
+            "equity_vehicle": "rsu" if parent_ticker(company) else profiles.get(company, {}).get("equity_vehicle"),
             "vesting": policy.get("vesting"),
         }
         if _public(company):
@@ -266,3 +275,66 @@ def build_comp_trajectory(
             for reason, count in sorted(set_apart.items(), key=lambda kv: (-kv[1], kv[0]))
         ],
     }
+
+
+#: The offer calculator shows four years; a schedule longer than that is not
+#: offered as a prefill, so the person never sees a grant cut short.
+OFFER_YEARS = 4
+
+
+def _vesting_fractions(schedule: str | None) -> list[float] | None:
+    """A stated schedule such as "5/15/40/40" as [5, 15, 40, 40], the percent
+    vesting each year; None when absent, unreadable or longer than the
+    calculator's four years."""
+    if not schedule:
+        return None
+    try:
+        parts = [float(part) for part in schedule.split("/")]
+    except ValueError:
+        return None
+    if not parts or len(parts) > OFFER_YEARS or any(p < 0 for p in parts) or sum(parts) <= 0:
+        return None
+    return parts
+
+
+def build_offer_terms(
+    companies: Iterable[str],
+    *,
+    profiles: Mapping[str, dict] | None = None,
+    quotes: Mapping[str, dict] | None = None,
+) -> list[dict]:
+    """What the offer calculator fills in when the person picks a company: the
+    stock type, ticker, vesting schedule and bonus rule the company states, and
+    the last stored quote for a listed one. A fact the company does not state is
+    None, never a default: the screen labels the even schedule it assumes.
+
+    `quotes` holds only quotes already stored by the prices job; nothing here
+    asks a price feed.
+    """
+    profiles = profiles or {}
+    quotes = quotes or {}
+    rows = []
+    for company in sorted(set(companies)):
+        policy = policy_for(company)
+        listed = _listed(company, profiles)
+        vesting = _vesting_fractions(policy.vesting)
+        quote = quotes.get(company) if listed else None
+        rows.append({
+            "company": company,
+            "listed": listed,
+            "ticker": _company_ticker(company, profiles) if listed else None,
+            "equity_vehicle": (
+                "rsu" if parent_ticker(company)
+                else profiles.get(company, {}).get("equity_vehicle") or policy.equity_vehicle
+            ),
+            "vesting": vesting,
+            "vesting_stated_by": policy.stated_by("vesting") if vesting else None,
+            "bonus_rule": policy.bonus_rule if policy.bonus_rule in (BONUS_NONE, BONUS_PCT_OF_BASE) else None,
+            "sign_on_bridges_vesting": policy.sign_on_bridges_vesting,
+            "quote": (
+                {"price": round(float(quote["price"]), 4), "as_of": quote["as_of"]}
+                if quote and quote.get("currency", "USD") == "USD"
+                else None
+            ),
+        })
+    return rows

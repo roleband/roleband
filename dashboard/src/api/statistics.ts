@@ -110,6 +110,11 @@ export type CompTrajectorySetApart = Schemas["TrajectorySetApart"];
 /** `GET /api/statistics/comp-trajectory`. */
 export type CompTrajectory = Schemas["CompTrajectoryResponse"];
 
+/** `GET /api/statistics/offer-terms`: what the offer calculator fills in when a
+ *  company is picked. Nothing the person types is ever sent back. */
+export type OfferTerms = Schemas["OfferTermsResponse"];
+export type OfferTermsCompany = Schemas["OfferTermsCompany"];
+
 export type CompTrendDim = CompTrends["dim"];
 export type CompTrendPoint = Schemas["CompTrendPoint"];
 export type CompTrendSeries = Schemas["CompTrendSeries"];
@@ -148,6 +153,7 @@ export const statisticsApi = {
     getJSON<CompensationStats>(scoped(`/api/statistics/compensation`, scope)),
   compTrajectory: (signal?: AbortSignal) =>
     getJSON<CompTrajectory>("/api/statistics/comp-trajectory", signal),
+  offerTerms: (signal?: AbortSignal) => getJSON<OfferTerms>("/api/statistics/offer-terms", signal),
   levelGuide: (signal?: AbortSignal) => getJSON<LevelGuide>("/api/statistics/levels", signal),
   compTrends: (dim: CompTrendDim = "overall", days = 90, scope?: InsightsScope) =>
     getJSON<CompTrends>(scoped(`/api/statistics/comp-trends?dim=${dim}&days=${days}`, scope)),

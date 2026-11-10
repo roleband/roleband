@@ -964,7 +964,11 @@ answers (`backend/tests/test_api_outbound_transactions.py`).
 (`backend/tracker/api/schemas/`), except the `NON_JSON_ROUTES` named in
 `backend/tests/test_api_route_table.py`. Shapes the code builds (`Built`,
 `backend/tracker/api/schemas/base.py`) forbid unknown keys; a shape read back
-from JSONB (`Stored`) keeps the keys it does not name.
+from JSONB (`Stored`) keeps the keys it does not name. The person's offer and
+private valuations (`StoredOffer`, `StoredValuation`) are read back from
+`app_settings` yet stay `Built`: a stored value with a key the shape does not
+name reads as nothing, never as figures half understood
+([decision 0003](decisions/0003-offer-in-local-database.md)).
 
 **Generated types.** `python -m scripts.export_openapi` writes
 `dashboard/openapi.json`; `npm run gen:api` writes `dashboard/src/api.gen.ts`.
