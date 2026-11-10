@@ -211,6 +211,10 @@ def test_a_delete_filter_is_not_a_read_and_a_select_is(tmp_path):
         "from sqlalchemy import delete, select\n"
         "from tracker.db.models import Job, ScrapeRun\n"
         "q = delete(Job).where(Job.scrape_run_id.in_(select(ScrapeRun.id).where(ScrapeRun.ok)))\n"
+    )
+    (tmp_path / "tracker" / "trim.py").write_text(
+        "from sqlalchemy import delete, select\n"
+        "from tracker.db.models import ScrapeRun\n"
         "r = delete(ScrapeRun).where(ScrapeRun.id.in_(select(ScrapeRun.id).where(ScrapeRun.ok)))\n"
     )
     readers = scan_readers(tmp_path)
@@ -218,7 +222,7 @@ def test_a_delete_filter_is_not_a_read_and_a_select_is(tmp_path):
     assert readers["comp_metrics"] == {"tracker/rollup.py"}
     # A subquery inside a delete's filter reads its table, even the deleted one.
     assert "jobs" not in readers
-    assert readers["scrape_runs"] == {"tracker/prune.py"}
+    assert readers["scrape_runs"] == {"tracker/prune.py", "tracker/trim.py"}
 
 
 
