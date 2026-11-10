@@ -437,6 +437,7 @@ async def test_an_adopted_run_that_is_still_our_child_is_reaped_when_it_exits(db
             await asyncio.to_thread(kept.wait, 10)
         except subprocess.TimeoutExpired:
             kept.kill()
+            await asyncio.to_thread(kept.wait, 10)
         raise
     go.write_text("")
     await _until_settled(after, timeout=10)
