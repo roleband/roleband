@@ -190,13 +190,24 @@ secret; a tag whose commit has neither file gets no Windows files. In the
 `windows-release` environment, and from `main` only when run by hand,
 `identity.py check` confirms that the certificate is the committed `RoleBand.cer`
 with its own private key and that the release key is the one the identity names.
-The job then signs with `signtool` (not timestamped), prepares the four release
-files and attaches them and `RoleBand.cer` to that release. Both jobs install
+The job then signs the package and Setup with `signtool` (not timestamped), prepares
+the four release files and attaches them, `RoleBand-Setup-<version>.exe` and
+`RoleBand.cer` to that release. Both jobs install
 their tools only from the hashed wheels in `launcher/windows/signing-requirements.txt`,
 which `Tools/lock_runtime.py` writes from the runtime lock. `release.py prepare`
 refuses a package whose own manifest names another package, publisher or version
 than the release it prepares, or, for RoleBand's own package, another name or
 kept folder.
+
+`launcher/windows/RoleBand.Setup` is the first install
+([decision 0013](decisions/0013-windows-setup.md)): a native program, compiled with the
+version, `release-identity.json` and `RoleBand.cer` of its build, that stops on Windows
+before 11, a start as another administrator account or a Store-only policy; starts itself
+again through the administrator prompt only to add that certificate to Local Machine >
+Trusted People; downloads its release's package from the feed, checks its size, SHA-256,
+manifest and Windows' verdict on its signer (`FirstInstall.cs` in the host library); and
+installs it for the person who started it. The checks are tested in
+`RoleBand.EngineHost.Tests/FirstInstallTests.cs`; the window is Windows' task dialog.
 
 A rehearsal tries a release's install and update on one machine before the first
 real release: `identity.py generate --rehearsal` makes an identity for

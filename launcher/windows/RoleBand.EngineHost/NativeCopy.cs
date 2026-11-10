@@ -1,8 +1,13 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
 namespace RoleBand.EngineHost;
+
+/// <summary>Reads the copy without reflection, so a native-compiled program such as Setup can read it too.</summary>
+[JsonSerializable(typeof(Dictionary<string, string>))]
+internal sealed partial class CopyJson : JsonSerializerContext;
 
 public sealed class NativeCopy
 {
@@ -15,7 +20,8 @@ public sealed class NativeCopy
             : language.StartsWith("zh", StringComparison.OrdinalIgnoreCase) ? "zh-Hans" : "en";
         using var stream = typeof(NativeCopy).Assembly.GetManifestResourceStream($"RoleBand.Copy.copy.{selected}.json")
             ?? throw new IOException("Native language resources are missing.");
-        messages = JsonSerializer.Deserialize<Dictionary<string, string>>(stream) ?? throw new IOException("Native language resources are invalid.");
+        messages = JsonSerializer.Deserialize(stream, CopyJson.Default.DictionaryStringString)
+            ?? throw new IOException("Native language resources are invalid.");
         // Times and numbers follow the person's own regional format when it is in the copy's language.
         var current = CultureInfo.CurrentCulture;
         Culture = current.Name.StartsWith(selected[..2], StringComparison.OrdinalIgnoreCase) ? current : CultureInfo.GetCultureInfo(selected);

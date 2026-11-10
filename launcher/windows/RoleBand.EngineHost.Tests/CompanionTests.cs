@@ -179,7 +179,7 @@ public sealed class CompanionTests
     [TestMethod]
     public void ABannerWhoseWordsNameAVersionItWasNotGivenIsAnErrorNotAPlaceholder()
     {
-        Assert.AreEqual(("Returning to 0.1.13", "RoleBand closes and opens again on 0.1.13, with your data as it was before the update."),
+        Assert.AreEqual(("Returning to 0.1.13", "It closes and opens again on 0.1.13, with your data as it was before the update."),
             new SettingsProblem("windows-update-undoing", "windows-update-undoing-body", false, false, "0.1.13").Words(English));
         Assert.AreEqual(("An update couldn't finish", (string?)null),
             new SettingsProblem("update-stopped-title", null, true, false, "0.1.13").Words(English), "words that name no version take none");

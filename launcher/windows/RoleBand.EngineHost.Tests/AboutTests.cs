@@ -329,10 +329,10 @@ public sealed class AboutTests
         Assert.AreEqual((UpdateRowKind.Downloading, "Downloading 0.1.12", (string?)null, false, true),
             (downloading.Kind, downloading.Title, downloading.Action, downloading.CanCheck, downloading.Busy));
         var installing = AboutPanel.Updates(copy, offer, true, null, Now, new UpdateRun(UpdateStep.Installing, "0.1.12"));
-        Assert.AreEqual((UpdateRowKind.Installing, "Installing 0.1.12", "RoleBand opens again on 0.1.12 when Windows is done.", (string?)null, false),
+        Assert.AreEqual((UpdateRowKind.Installing, "Installing 0.1.12", "It opens again on 0.1.12 when Windows is done.", (string?)null, false),
             (installing.Kind, installing.Title, installing.Caption, installing.Action, installing.CanCheck), "a switch under way outranks a check");
         var counting = AboutPanel.Updates(copy, offer, false, null, Now, new UpdateRun(UpdateStep.Installing, "0.1.12", Percent: 45));
-        Assert.AreEqual(("Installing 0.1.12", "45% · RoleBand opens again on 0.1.12 when Windows is done."), (counting.Title, counting.Caption),
+        Assert.AreEqual(("Installing 0.1.12", "45% · It opens again on 0.1.12 when Windows is done."), (counting.Title, counting.Caption),
             "Windows' own percentage while this version stays open");
         Assert.AreEqual("Restarting to update",
             AboutPanel.Updates(copy, offer, false, null, Now, new UpdateRun(UpdateStep.Installing, "0.1.12", Percent: 100)).Title,

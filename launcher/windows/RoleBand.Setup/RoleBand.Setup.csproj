@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.22000.0</SupportedOSPlatformVersion>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+    <AssemblyName>RoleBand-Setup</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>../RoleBand.App/RoleBand.ico</ApplicationIcon>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- One native program that runs on a PC without .NET. -->
+    <PublishAot>true</PublishAot>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <!-- The update identity and certificate of the release, committed beside the package's tools; a checkout without them
+         builds a Setup that installs nothing. -->
+    <RoleBandIdentity Condition="'$(RoleBandIdentity)' == ''">$(MSBuildThisFileDirectory)../release-identity.json</RoleBandIdentity>
+    <RoleBandCertificate Condition="'$(RoleBandCertificate)' == ''">$(MSBuildThisFileDirectory)../RoleBand.cer</RoleBandCertificate>
+    <!-- The release Setup installs is the checkout's version unless the build names one. -->
+    <RoleBandVersion Condition="'$(RoleBandVersion)' == ''">$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)../../../dashboard/package.json')), '"version":\s*"(\d+\.\d+\.\d+)"').Groups[1].Value)</RoleBandVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../RoleBand.EngineHost/RoleBand.EngineHost.csproj" />
+    <AssemblyMetadata Include="RoleBandVersion" Value="$(RoleBandVersion)" />
+    <EmbeddedResource Include="$(RoleBandIdentity)" LogicalName="RoleBand.Setup.release-identity.json" Condition="Exists('$(RoleBandIdentity)')" />
+    <EmbeddedResource Include="$(RoleBandCertificate)" LogicalName="RoleBand.Setup.RoleBand.cer" Condition="Exists('$(RoleBandCertificate)')" />
+  </ItemGroup>
+</Project>

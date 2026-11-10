@@ -427,6 +427,10 @@ def main(argv: list[str] | None = None) -> int:
                    UseSharedCompilation="false")
     if args.profile == "windows":
         env.update(ROLEBAND_REQUIRE_INTEGRATION="1", ROLEBAND_CHECK_WINDOWS_LANE=args.windows_lane)
+        # Native compilation finds the C++ linker through Visual Studio's locator, which its installer keeps off PATH.
+        locator = Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Microsoft Visual Studio" / "Installer"
+        if (locator / "vswhere.exe").is_file():
+            env["PATH"] = env.get("PATH", "") + os.pathsep + str(locator)
         if args.windows_lane != "native":
             steps.append(Step("pytest", backend, [python, "-m", "pytest", "-n", str(args.backend_workers or 4),
                          "-q", "-rs", "-p", "no:cacheprovider", "--durations=20",
@@ -441,6 +445,9 @@ def main(argv: list[str] | None = None) -> int:
                      "--logger", "trx;LogFileName=native.trx", "--results-directory", str(output),
                      "--", "MSTest.MapInconclusiveToFailed=true"]),
                 Step("winui-build", root, ["dotnet", "build", "launcher/windows/RoleBand.App", "-p:Platform=x64"]),
+                # Setup is compiled to native code, which reports what it cannot compile only when published.
+                Step("setup-publish", root, ["dotnet", "publish", "launcher/windows/RoleBand.Setup", "-c", "Release",
+                                             "-o", str(output / "setup")]),
             ])
     if args.profile in ("all", "backend", "dashboard"):
         steps.extend(Step(name, root, [python, f"backend/scripts/{script}.py"]) for name, script in (

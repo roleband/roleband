@@ -33,7 +33,7 @@ No single machine has to be present for a Windows release, and the macOS keys st
 they are. Someone who can run the protected environment can sign a Windows update, so the
 spare key is the way back from a compromise ([decision 0009](0009-windows-release-authorization.md)).
 A first install needs the certificate trusted on the machine, which takes an administrator
-once; updates after that need nothing. Smart App Control may refuse a publisher Microsoft
+once, through Setup ([decision 0013](0013-windows-setup.md)); updates after that need nothing. Smart App Control may refuse a publisher Microsoft
 does not know, so a clean machine with it on is tested before each first release.
 
 ## Alternatives considered

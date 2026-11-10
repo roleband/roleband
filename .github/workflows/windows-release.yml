@@ -85,11 +85,23 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           New-Item -ItemType Directory (Join-Path $env:RUNNER_TEMP 'unsigned') | Out-Null
           ./launcher/windows/Package.ps1 -Bundle $bundle -Destination (Join-Path $env:RUNNER_TEMP 'unsigned/RoleBand.msix')
+      # Setup carries this version, the committed identity and certificate, so it installs only this release's package.
+      - name: Setup
+        if: steps.source.outputs.identity == 'true'
+        run: |
+          $version = (Get-Content -Raw dashboard/package.json | ConvertFrom-Json).version
+          dotnet restore launcher/windows/RoleBand.Setup --locked-mode
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          dotnet publish launcher/windows/RoleBand.Setup --no-restore -c Release -o (Join-Path $env:RUNNER_TEMP 'setup') "-p:RoleBandVersion=$version"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          Copy-Item (Join-Path $env:RUNNER_TEMP 'setup/RoleBand-Setup.exe') (Join-Path $env:RUNNER_TEMP 'unsigned/RoleBand-Setup.exe')
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: steps.source.outputs.identity == 'true'
         with:
           name: windows-unsigned
-          path: ${{ runner.temp }}/unsigned/RoleBand.msix
+          path: |
+            ${{ runner.temp }}/unsigned/RoleBand.msix
+            ${{ runner.temp }}/unsigned/RoleBand-Setup.exe
           if-no-files-found: error
           # Long enough for the signing job, which can wait days to start.
           retention-days: 14
@@ -151,16 +163,19 @@ jobs:
             if ($LASTEXITCODE) { exit $LASTEXITCODE }
             $kits = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10/bin/10.0.26100.0/x64'
             $package = Join-Path $env:RUNNER_TEMP 'unsigned/RoleBand.msix'
-            # Not timestamped: that would need an outside time server; the certificate lasts 25 years instead.
-            & (Join-Path $kits 'signtool.exe') sign /fd SHA256 /f (Join-Path $secret 'RoleBand-signing.pfx') /p $env:SIGNING_PASSPHRASE $package
-            if ($LASTEXITCODE) { throw 'Signing failed' }
-            $signer = (Get-AuthenticodeSignature $package).SignerCertificate
+            $setup = Join-Path $env:RUNNER_TEMP 'unsigned/RoleBand-Setup.exe'
             $trusted = [IO.File]::ReadAllBytes((Resolve-Path launcher/windows/RoleBand.cer).Path)
-            if ($null -eq $signer -or [Convert]::ToBase64String($signer.RawData) -cne [Convert]::ToBase64String($trusted)) {
-              throw 'The package is not signed with the committed RoleBand.cer'
-            }
             $publisher = (Get-Content -Raw launcher/windows/release-identity.json | ConvertFrom-Json).publisher
-            if ($signer.Subject -cne $publisher) { throw "The package is signed by '$($signer.Subject)', not '$publisher'" }
+            foreach ($file in @($package, $setup)) {
+              # Not timestamped: that would need an outside time server; the certificate lasts 25 years instead.
+              & (Join-Path $kits 'signtool.exe') sign /fd SHA256 /f (Join-Path $secret 'RoleBand-signing.pfx') /p $env:SIGNING_PASSPHRASE $file
+              if ($LASTEXITCODE) { throw "Signing $file failed" }
+              $signer = (Get-AuthenticodeSignature $file).SignerCertificate
+              if ($null -eq $signer -or [Convert]::ToBase64String($signer.RawData) -cne [Convert]::ToBase64String($trusted)) {
+                throw "$file is not signed with the committed RoleBand.cer"
+              }
+              if ($signer.Subject -cne $publisher) { throw "$file is signed by '$($signer.Subject)', not '$publisher'" }
+            }
             python launcher/windows/Tools/release.py prepare --package $package --destination (Join-Path $env:RUNNER_TEMP 'release') `
               --identity launcher/windows/release-identity.json --key (Join-Path $secret 'release-key.pem') `
               --commit $env:COMMIT --passphrase-env SIGNING_PASSPHRASE
@@ -175,7 +190,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $files = @(Get-ChildItem (Join-Path $env:RUNNER_TEMP 'release') -File | ForEach-Object FullName) + (Resolve-Path launcher/windows/RoleBand.cer).Path
+          $setup = Join-Path $env:RUNNER_TEMP "RoleBand-Setup-$($env:TAG.Substring(1)).exe"
+          Copy-Item (Join-Path $env:RUNNER_TEMP 'unsigned/RoleBand-Setup.exe') $setup
+          $files = @(Get-ChildItem (Join-Path $env:RUNNER_TEMP 'release') -File | ForEach-Object FullName) + $setup + (Resolve-Path launcher/windows/RoleBand.cer).Path
           # Without --clobber, a rerun cannot replace a file already attached.
           gh release upload $env:TAG --repo $env:GITHUB_REPOSITORY @files
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
