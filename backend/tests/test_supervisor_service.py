@@ -110,19 +110,29 @@ async def test_a_committed_request_wakes_the_supervisor_long_before_its_poll(db_
             await runner.stop_group(watched.launched.pgid, 0)
 
 
-async def test_a_second_supervisor_never_dispatches_while_the_first_holds_the_database(db_session, tmp_path):
+async def test_a_second_supervisor_never_dispatches_while_the_first_holds_the_database(db_session, tmp_path, monkeypatch):
+    refused = 0
+    hold = singleton.hold
+
+    async def counted(engine):
+        nonlocal refused
+        held = await hold(engine)
+        refused += held is None
+        return held
+
+    monkeypatch.setattr(singleton, "hold", counted)
     stop = asyncio.Event()
     first = _dispatcher(db_session, tmp_path)
     second = _dispatcher(db_session, tmp_path / "other")
     one = asyncio.create_task(serve(first, db_session.bind, stop, idle_seconds=0.1))
     await _eventually(lambda: asyncio.sleep(0, result=first.ticks >= 1))
     two = asyncio.create_task(serve(second, db_session.bind, stop, idle_seconds=0.1, lock_retry_seconds=0.1))
-    # The second asks for the lock several times; the first keeps dispatching, however slow the machine.
-    await asyncio.sleep(0.6)
-    await _eventually(lambda: asyncio.sleep(0, result=first.ticks >= 2))
+    # Counted, not timed: the second is refused the lock again and again while the first keeps dispatching.
+    await _eventually(lambda: asyncio.sleep(0, result=refused >= 3 and first.ticks >= 2))
     stop.set()
     await asyncio.gather(one, two)
 
+    assert refused >= 3, "the second asked for the lock and was refused each time"
     assert first.ticks > 1
     assert second.ticks == 0
     again = await singleton.hold(db_session.bind)
