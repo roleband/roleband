@@ -62,6 +62,13 @@ export interface Due {
 
 export type DueState = "set" | "soon" | "overdue";
 
+/** The next step's date, as the board's pill reads it. */
+export function stepDue(card: ApplicationCard): Due | null {
+  if (!card.next_action_due) return null;
+  const on = new Date(card.next_action_due);
+  return { kind: "step", at: on, on };
+}
+
 export function dueOf(card: ApplicationCard): Due | null {
   const interview = card.next_interview;
   const options: Due[] = [];
@@ -71,10 +78,8 @@ export function dueOf(card: ApplicationCard): Due | null {
     const at = interview.all_day ? new Date(on.getFullYear(), on.getMonth(), on.getDate() + 1) : on;
     options.push({ kind: "interview", at, on });
   }
-  if (card.next_action_due) {
-    const on = new Date(card.next_action_due);
-    options.push({ kind: "step", at: on, on });
-  }
+  const step = stepDue(card);
+  if (step) options.push(step);
   return options.sort((a, b) => a.at.getTime() - b.at.getTime())[0] ?? null;
 }
 
@@ -102,6 +107,14 @@ export function dayOffset(date: Date, now: Date): number {
 export function daysInStage(card: ApplicationCard, now: Date): number | null {
   if (!card.stage_since) return null;
   return Math.max(0, Math.floor((now.getTime() - new Date(card.stage_since).getTime()) / DAY));
+}
+
+/** Days in stage worth saying: none on the day of the move, which the person
+ *  has just made, so a count starts at 1. Ordering and staleness read
+ *  `daysInStage`, which counts the day of the move as 0. */
+export function daysToSay(card: ApplicationCard, now: Date): number | null {
+  const days = daysInStage(card, now);
+  return days != null && days >= 1 ? days : null;
 }
 
 /** Days since anything happened to the card: a move, a comment, an interview
@@ -159,9 +172,21 @@ export interface BoardCounts {
   needNextStep: number;
 }
 
+const movingStage = (stage: StageSlug): boolean =>
+  (MOVING_STAGES as readonly StageSlug[]).includes(boardStage(stage));
+
 /** Still moving: in one of the moving stages, not ended. */
 export function isMoving(card: ApplicationCard): boolean {
-  return (MOVING_STAGES as readonly StageSlug[]).includes(boardStage(card.stage));
+  return movingStage(card.stage);
+}
+
+/** The card a stage move paints before the server answers, by the server's
+ *  rule for the stage an ending was reached from: the stage the card was
+ *  moving in, kept across a change from one ending to another, and none once
+ *  the card moves again. */
+export function movedCard(card: ApplicationCard, stage: StageSlug, at: string): ApplicationCard {
+  const endedAt = movingStage(stage) ? null : isMoving(card) ? card.stage : card.ended_at_stage;
+  return { ...card, stage, stage_since: at, last_activity_at: at, ended_at_stage: endedAt };
 }
 
 /** Past Considering and still moving, with neither a next step nor an

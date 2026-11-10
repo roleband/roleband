@@ -2,14 +2,13 @@ import "../../patterns/jobs/job-row.css";
 import { ResourceLoadState } from "../../ui/ResourceLoadState";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
-import { useEffect, useId, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useId, useRef, useState } from "react";
 import { useSyncEpoch } from "../../context/SyncState";
 import { useAsyncResource, useRefetchOn } from "../../hooks/useAsyncResource";
 import { useSaveCommand } from "../../context/useSaveCommand";
 import { useToast } from "../../ui/Toast";
 import { Job, PursuitStage, SimilarJob, api, isNotFound } from "../../api";
-import { STAGES, STAGE_LABEL } from "../../copy/vocabulary";
-import { domainName, statusName } from "../../copy/vocab";
+import { statusName } from "../../copy/vocab";
 import { WORKPLACE_LABEL, companyName } from "../../format";
 import { payPoint } from "../../payShown";
 import { usePayCoverage } from "../../payCoverage";
@@ -18,16 +17,15 @@ import { JobDescription } from "./JobDescription";
 import { JobRequirementsPanel } from "./JobRequirementsPanel";
 import { LineageStack } from "./LineageStack";
 import { ListingAge } from "./ListingAge";
+import { RadarRead } from "./RadarRead";
 import { PostingReality } from "./PostingReality";
 import { unfollowedSentence } from "../../patterns/jobs/unfollowed";
 import { applyAsk } from "./applyAsk";
 import { PlaceSetSection } from "./PlaceSetSection";
 import { TwinDeck } from "./TwinDeck";
 import { Icon } from "../../ui/Icon";
-import { Select } from "../../ui/Select";
 import { CompanyChip } from "../../patterns/companies/CompanyChip";
 import { BandBadge, LocBadge } from "../../patterns/jobs/JobBadges";
-import { StarButton } from "../../patterns/jobs/JobControls";
 import "./job-detail.css";
 import { JobLinkRow } from "../../patterns/jobs/JobLinkRow";
 import { Cover } from "../../patterns/Cover";
@@ -35,41 +33,29 @@ import { postingPlaces } from "../../patterns/jobs/location";
 import { placeGroupsBeyond } from "../../patterns/jobs/placeGroups";
 import {
   roleJobDetail1InComparePickOne,
-  roleJobDetailAdvisoryBasis,
-  roleJobDetailAdvisoryUnclear,
   roleJobDetailBack,
   roleJobDetailBack2,
   roleJobDetailCompare,
   roleJobDetailCompareIsFullMax,
   roleJobDetailCompareRoles,
   roleJobDetailCouldNotUnsaveThisRole,
-  roleJobDetailCouldnTUpdateTheStage,
   roleJobDetailDescription,
   roleJobDetailDetails,
-  roleJobDetailHardToPlace,
   roleJobDetailItSNoLongerIn,
-  roleJobDetailLikelyOutsideYourWorlds,
-  roleJobDetailLikelyYourKindOfRole,
   roleJobDetailMoreLikeThis,
-  roleJobDetailNext,
-  roleJobDetailNotStarted,
   roleJobDetailOtherCompanies,
   roleJobDetailPostings,
   roleJobDetailQuestionsTheEmployerAddedBeyond,
-  roleJobDetailRadarSRead,
   roleJobDetailReposted,
   roleJobDetailRole,
   roleJobDetailSameCompany,
-  roleJobDetailSetAStage,
   roleJobDetailSimilarity,
-  roleJobDetailTrackingExplainer,
-  roleJobDetailStage,
   roleJobDetailStatus,
   roleJobDetailTeam,
   roleJobDetailToApply,
   roleJobDetailViewApply,
+  roleJobDetailViewPosting,
   roleJobDetailWorkplace,
-  roleJobDetailYourProgress,
 } from "../../copy/gen/role";
 import { Msg } from "../../ui/Msg";
 import { Content } from "../../ui/Content";
@@ -77,6 +63,24 @@ import { shellLoadRoleFailed, shellLoadingRole } from "../../copy/gen/shell";
 
 /** Similar positions shown per category (same company / other companies). */
 const SIMILAR_PER_CATEGORY = 3;
+
+/** The pipeline's part of the posting, which the route composes in (a feature
+ *  never imports another): the bar's control for the role's place in the
+ *  pipeline, the side column's Pipeline section, and whether the person has
+ *  applied. Called as a hook, so the route passes one function for the life of
+ *  the screen. */
+export type UsePostingPipeline = (
+  job: Job | null,
+  options: {
+    showSaved: (on: boolean) => void;
+    paintPosting: (stage: PursuitStage) => void;
+    rereadPosting: () => void;
+    onSave: () => void;
+    now: Date;
+    /** The side column, which the section's history opens across. */
+    column: HTMLElement | null;
+  },
+) => { control: ReactNode; section: ReactNode; applied: boolean };
 
 /* Full-screen opportunity detail. Rendered by JobRoute at /job/:id — as a routed
    overlay over the current page (in-app navigation) or standalone (direct link /
@@ -93,6 +97,7 @@ export function JobDetail({
   onToggleCompare,
   onViewCompare,
   onCompanyResolved,
+  usePipeline,
   asOverlay = false,
 }: {
   jobId: number;
@@ -124,6 +129,7 @@ export function JobDetail({
   // Reports the loaded job's company slug so a bare /job/:id URL can
   // canonicalize to /company/:slug/job/:id.
   onCompanyResolved?: (companySlug: string) => void;
+  usePipeline: UsePostingPipeline;
 }) {
   // On the shared resource, which aborts the request it supersedes: a slow
   // /jobs/:id for the PREVIOUS position never lands after the next one.
@@ -134,8 +140,6 @@ export function JobDetail({
   // Its estimate moved with a reference change: re-read it.
   const { referenceVersion } = useSyncEpoch();
   useRefetchOn(referenceVersion, refreshJob);
-  const setJob = (next: Job | ((prev: Job | null) => Job | null)) =>
-    setJobData((prev) => (typeof next === "function" ? next(prev) : next));
   const notFound = notFoundError != null;
   // Three per category, fetched as three: more near-identical rows under the
   // two category labels read as one wall of text. The cap is a reading limit, not a ranking one: applied at the request so nothing is
@@ -160,32 +164,39 @@ export function JobDetail({
   const within = similarWithin.data ?? [];
   const cross = similarCross.data ?? [];
 
-  const showSaved = (on: boolean) => setJob((prev) => prev && { ...prev, is_favorite: on });
-
-  const toggleFav = () => {
+  // One clock per render, so the stage's days and every due date agree.
+  const now = new Date();
+  const showSaved = useCallback(
+    (on: boolean) => setJobData((prev) => prev && { ...prev, is_favorite: on }),
+    [setJobData],
+  );
+  const paintPosting = useCallback(
+    (stage: PursuitStage) => setJobData((prev) => prev?.pursuit ? { ...prev, pursuit: { ...prev.pursuit, stage } } : prev),
+    [setJobData],
+  );
+  /** Reads the posting again: its star and stage as the server holds them. */
+  const rereadPosting = useCallback(() => void refreshJob({ preserveData: true }), [refreshJob]);
+  /** Saves a role that is not in the pipeline. Once it is, the star becomes
+   *  the stage control, which is the way out. */
+  const saveFav = () => {
     if (!job) return;
-    const next = !job.is_favorite;
     // One writer per role across every surface. A failed write that
     // is still the newest rolls the star back to what the server holds at
-    // once, rather than leaving it lit until the next load.
-    saveRole({ jobId: job.id, was: job.is_favorite, next, show: showSaved, send: () => api.setFavorite(job.id, next) })
+    // once, rather than leaving it lit until the next load; only that one
+    // rejects, so reading the posting back here never undoes a newer write.
+    // The read catches a stage set elsewhere while the posting was open.
+    saveRole({ jobId: job.id, was: job.is_favorite, next: true, show: showSaved, send: () => api.setFavorite(job.id, true) })
       .catch(() => {
-        toast({ key: "job", text: roleJobDetailCouldNotUnsaveThisRole({ choice: (next) ? "yes" : "no" }) });
+        rereadPosting();
+        toast({ key: "job", text: roleJobDetailCouldNotUnsaveThisRole({ choice: "yes" }) });
       });
   };
 
-  const setStage = (stage: PursuitStage) => {
-    if (!job) return;
-    // Pursuing saves the role (server rule), so it is a save, ordered with the
-    // star's writes: a stage set after an Unsave must not land before it.
-    saveRole({
-      jobId: job.id, was: job.is_favorite, next: true, show: showSaved,
-      send: () => api.setPursuit(job.id, { stage }).then((result) => {
-        setJob((prev) => prev && { ...prev, pursuit: result.pursuit });
-        return result;
-      }),
-    }).catch(() => toast({ key: "job", text: roleJobDetailCouldnTUpdateTheStage() }));
-  };
+  /** The side column, which the histories open across. */
+  const [aside, setAside] = useState<HTMLElement | null>(null);
+  // Where the person stands with the role, read as the pipeline reads it.
+  const pipeline = usePipeline(job, { showSaved, paintPosting, rereadPosting, onSave: saveFav, now, column: aside });
+  const { applied } = pipeline;
 
   // Once the job is loaded, report its company so a bare /job/:id URL can
   // canonicalize to the company-scoped position path.
@@ -208,8 +219,6 @@ export function JobDetail({
   const askedFor = useRef<number | null>(null);
   /** This cover's posting stack, for its History's "Compare the postings". */
   const lineageRef = useRef<HTMLElement>(null);
-  /** The side column, which its History opens across. */
-  const [aside, setAside] = useState<HTMLElement | null>(null);
   useEffect(() => {
     if (!formReadable || jobIdLoaded == null || askedFor.current === jobIdLoaded) return;
     askedFor.current = jobIdLoaded;
@@ -289,10 +298,16 @@ export function JobDetail({
             )}
           </>
         )}
-        {job && <StarButton on={job.is_favorite} onToggle={toggleFav} size={20} />}
+        {pipeline.control}
+        {/* Once applied, the employer's page is something to read again, not an action. */}
         {job && (
-          <a className="ui-btn ui-btn-primary ui-btn-md" href={job.url} target="_blank" rel="noreferrer">
-            {roleJobDetailViewApply()} <Icon name="external" size={15} />
+          <a
+            className={`ui-btn ${applied ? "ui-btn-ghost ui-btn-strong" : "ui-btn-primary"} ui-btn-md`}
+            href={job.url}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {applied ? roleJobDetailViewPosting() : roleJobDetailViewApply()} <Icon name="external" size={15} />
           </a>
         )}
     </>
@@ -378,54 +393,11 @@ export function JobDetail({
               </div>
 
               <aside className="jd-aside" ref={setAside}>
-                <div className="section-title">{roleJobDetailYourProgress()}</div>
-                <div className="jd-pursuit">
-                  {/* Stage select doubles as the "start pursuing" entry point:
-                      picking any stage creates the pursuit (and saves the
-                      role — pursuing implies saved, the server's rule). */}
-                  <label className="jd-pursuit-label">
-                    <span>{roleJobDetailNotStarted({ choice: (job.pursuit) ? "yes" : "no" })}</span>
-                    <Select<PursuitStage | "">
-                      label={roleJobDetailStage()}
-                      value={job.pursuit?.stage ?? ""}
-                      onChange={(stage) => stage && setStage(stage)}
-                      options={[
-                        ...(job.pursuit ? [] : [{ value: "" as const, label: roleJobDetailSetAStage() }]),
-                        ...STAGES.map((stage) => ({ value: stage, label: STAGE_LABEL[stage] })),
-                      ]}
-                    />
-                  </label>
-                  {!job.pursuit && (
-                    <p className="jd-pursuit-explainer">{roleJobDetailTrackingExplainer()}</p>
-                  )}
-                  {job.pursuit?.next_action && (
-                    <div className="jd-pursuit-next"><Msg of={roleJobDetailNext} elems={{ next_action: job.pursuit.next_action }} /></div>
-                  )}
-                </div>
-
-                {job.relevance_review && (
-                  <>
-                    <div className="section-title">{roleJobDetailRadarSRead()}</div>
-                    {/* Advisory only: it never gates anything. The stored
-                        rationale, model and confidence stay in the API for the
-                        bench; the confidence is margin-derived, not a
-                        probability, so no figure reaches the reader. */}
-                    <div className="jd-advisory" data-relevance={job.relevance_review.relevance}>
-                      <div className="jd-advisory-verdict">
-                        {job.relevance_review.relevance === "relevant" && roleJobDetailLikelyYourKindOfRole()}
-                        {job.relevance_review.relevance === "irrelevant" && roleJobDetailLikelyOutsideYourWorlds()}
-                        {job.relevance_review.relevance === "uncertain" && roleJobDetailHardToPlace()}
-                        {job.relevance_review.domain && (
-                          <span className="jd-advisory-domain"> · {domainName(job.relevance_review.domain)}</span>
-                        )}
-                      </div>
-                      {job.relevance_review.relevance === "uncertain" && (
-                        <p className="jd-advisory-rationale">{roleJobDetailAdvisoryUnclear()}</p>
-                      )}
-                      <div className="jd-advisory-meta">{roleJobDetailAdvisoryBasis()}</div>
-                    </div>
-                  </>
-                )}
+                {/* While the person decides, the radar's read leads; once they
+                    have applied, where the application stands does, and the
+                    read folds to its verdict under Details. */}
+                {job.relevance_review && !applied && <RadarRead key={job.id} review={job.relevance_review} folded={false} />}
+                {pipeline.section}
 
                 <div className="section-title">{roleJobDetailDetails()}</div>
                 <dl className="kv">
@@ -453,6 +425,8 @@ export function JobDetail({
                     </>
                   )}
                 </dl>
+
+                {job.relevance_review && applied && <RadarRead key={job.id} review={job.relevance_review} folded />}
 
                 <PostingReality reality={job.posting_reality} />
 

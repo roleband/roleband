@@ -58,17 +58,18 @@ beforeEach(() => {
 });
 
 describe("ListingAge", () => {
-  it("says the one age and where it counts from, and reads no history until asked", () => {
+  it("says the one age as a count, leaves its dates to the history, and reads no history until asked", () => {
     renderAge();
     expect(screen.getByText("170 days")).toBeVisible();
-    expect(screen.getByText(/^since .*, the employer's date$/)).toBeVisible();
+    expect(screen.queryByText(/since|employer's date/)).toBeNull();
     expect(screen.getByText(/^First listed .* · 2 postings$/)).toBeVisible();
     expect(read).not.toHaveBeenCalled();
   });
 
-  it("says when the age counts from our own sighting, and has no Role row for a posting alone", () => {
+  it("counts from our own sighting without saying so, and has no Role row for a posting alone", () => {
     renderAge({ listed_basis: "sighting", role_since: null, role_days: null, role_postings: null });
-    expect(screen.getByText(/^since .*, when first seen$/)).toBeVisible();
+    expect(screen.getByText("170 days")).toBeVisible();
+    expect(screen.queryByText(/when first seen/)).toBeNull();
     expect(screen.queryByText("Role")).toBeNull();
   });
 

@@ -377,7 +377,9 @@ Modifier classes on top of a variant:
 `Button` defaults to `type="button"`; a form's submit passes `type="submit"`.
 
 **Primary means scarce, not "commits state".** One primary per surface, and it
-is what the surface is for (View & apply on Job detail). Many screens have
+is what the surface is for (View & apply on Job detail). A surface whose purpose
+is done loses its primary: once the person has applied, Job detail's link reads
+View posting, a strong ghost, and the posting has none. Many screens have
 none: a list you scan has no single action. A verb repeated on every row is
 never primary; it is a `link` or `ghost`. A dialog's primary is its purpose.
 `tests/ux/job-detail.spec.ts` and `tests/ux/profile.spec.ts` count the visible

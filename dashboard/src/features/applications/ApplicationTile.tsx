@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { ApplicationCard } from "../../api";
-import { STAGE_LABEL, type StageSlug } from "../../copy/vocabulary";
+import type { StageSlug } from "../../copy/vocabulary";
 import { companyName } from "../../format";
 import { Badge, Button, CompanyIcon, Content, Icon, MenuItem, dragSurface } from "../../ui";
 import { Abbr } from "../../ui/Abbr";
@@ -10,7 +10,6 @@ import {
   applicationsCardComments,
   applicationsCardDaysInStage,
   applicationsCardDaysShort,
-  applicationsCardEnded,
   applicationsCardPostingClosed,
   applicationsCardPriority,
   applicationsCardQuiet,
@@ -18,9 +17,10 @@ import {
   applicationsMenuRemove,
 } from "../../copy/gen/applications";
 import { useOriginState } from "./pageOrigin";
-import { applicationPath, boardStage, daysInStage, daysQuiet, dueOf, isStale } from "./board";
+import { applicationPath, daysToSay, daysQuiet, dueOf, isStale } from "./board";
 import { DueBadge } from "./DueBadge";
 import { StageMenu } from "./StageMenu";
+import { endingName } from "./StageLabel";
 import type { CardDragHandlers } from "./useCardDrag";
 
 const PRIORITY_STEPS = [1, 2, 3, 4, 5] as const;
@@ -55,9 +55,9 @@ export function ApplicationTile({ card, now, onMove, onRemove, drag, dragged, ma
   const [menuOpen, setMenuOpen] = useState(false);
   const origin = useOriginState();
   const company = companyName(card.company);
-  const days = daysInStage(card, now);
+  const days = daysToSay(card, now);
   const stale = isStale(card, now);
-  const ending = card.ended_at_stage;
+  const ending = endingName(card);
 
   /* A drag surface (src/ui/dragSurface.ts): a drag that starts on the card
      moves it and selects nothing. The company and the title stay copyable
@@ -95,7 +95,7 @@ export function ApplicationTile({ card, now, onMove, onRemove, drag, dragged, ma
       </Link>
       {ending && (
         <span className="app-tile-ended">
-          {applicationsCardEnded({ ending: STAGE_LABEL[card.stage], stage: STAGE_LABEL[boardStage(ending)] })}
+          {ending}
         </span>
       )}
       <div className="app-tile-foot">
