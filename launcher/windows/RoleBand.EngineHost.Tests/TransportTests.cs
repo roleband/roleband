@@ -26,6 +26,54 @@ public sealed class TransportTests
         Assert.ThrowsExactly<IOException>(() => EngineConfiguration.Packaged(resources));
     }
 
+    private static string Bundle(string name)
+    {
+        var resources = Path.Combine(Path.GetTempPath(), name, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(resources, "engine"));
+        Directory.CreateDirectory(Path.Combine(resources, "runtime"));
+        File.WriteAllText(Path.Combine(resources, "engine", "release.json"), "{\"version\":\"0.1.3\"}");
+        File.WriteAllText(Path.Combine(resources, "engine", "desktop.py"), "");
+        File.WriteAllText(Path.Combine(resources, "runtime", "python.exe"), "");
+        return resources;
+    }
+
+    [TestMethod]
+    public void AReleaseKeepsThePersonsOwnDataAndNeverATestFixture()
+    {
+        var resources = Bundle("roleband-release");
+        File.WriteAllText(Path.Combine(resources, "build.json"), "{\"format\":1,\"channel\":\"release\"}");
+        var installed = Path.Combine(KnownFolders.LocalAppData, "RoleBand");
+        var existed = Path.Exists(installed);
+        var release = EngineConfiguration.Packaged(resources, fixture: true);
+        Assert.AreEqual((installed, false, false), (release.State, release.SyntheticFixture, release.Development),
+            "a fixture would write test data into the person's history");
+        Assert.AreEqual(existed, Path.Exists(installed), "reading the configuration creates nothing");
+        Assert.ThrowsExactly<IOException>(() => EngineConfiguration.Packaged(resources, Path.Combine(resources, "state")));
+    }
+
+    [TestMethod]
+    [DataRow("{\"format\":1,\"channel\":\"trial\"}")]
+    [DataRow("{\"format\":2,\"channel\":\"release\"}")]
+    [DataRow("{\"channel\":\"release\"}")]
+    [DataRow("[]")]
+    [DataRow("release")]
+    public void AnUnreadableReleaseMarkerIsNeverReadAsARelease(string marker)
+    {
+        var resources = Bundle("roleband-release-marker");
+        File.WriteAllText(Path.Combine(resources, "build.json"), marker);
+        Assert.ThrowsExactly<IOException>(() => EngineConfiguration.Packaged(resources));
+    }
+
+    [TestMethod]
+    public void ABundleNamingBothATrialAndAReleaseIsRefused()
+    {
+        var resources = Bundle("roleband-both-markers");
+        File.WriteAllText(Path.Combine(resources, "build.json"), "{\"format\":1,\"channel\":\"release\"}");
+        File.WriteAllText(Path.Combine(resources, "trial.json"),
+            JsonSerializer.Serialize(new { trial_only = true, trial_id = Guid.NewGuid().ToString("N") }));
+        Assert.ThrowsExactly<IOException>(() => EngineConfiguration.Packaged(resources));
+    }
+
     [TestMethod]
     public void TrialStateCannotBeAnInstalledDataRoot()
     {

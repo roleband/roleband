@@ -80,8 +80,9 @@ Check generated native
 copy with `node dashboard/scripts/export-launcher-copy.mjs --windows --check`.
 Packaging tool changes run `python -m unittest discover -s launcher/windows/Tools -p "test_*.py"`:
 assembly refuses tracked edits, untracked files and ignored files in the engine
-sources, and `Package-Trial.ps1` refuses a bundle edited, extended or trimmed after
-assembly and can package the same bundle again. Its `resources.pri` step, which lets Windows find
+sources and a release without the shared feed's identity, and `Package.ps1` refuses
+a bundle edited, extended or trimmed after assembly, one naming no channel or two,
+and a release without its publisher, and can package the same bundle again. Its `resources.pri` step, which lets Windows find
 the sized icons and keeps the app's own resources, is checked by dumping the file with `makepri`. MSIX packing alone does not prove installation, retention or package recovery.
 
 `launcher/windows/Tools/PackageContextProbe` exercises the native package-policy

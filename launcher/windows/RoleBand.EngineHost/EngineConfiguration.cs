@@ -40,7 +40,17 @@ public sealed record EngineConfiguration(string Resources, string State, string 
             throw new IOException("The packaged engine is incomplete.");
         using var metadata = JsonDocument.Parse(File.ReadAllBytes(metadataPath));
         var trial = Path.Combine(resources, "trial.json");
-        if (!File.Exists(trial)) throw new IOException("The development app requires its synthetic trial identity.");
+        var build = Path.Combine(resources, "build.json");
+        // A release keeps the person's own data and scans for real; it never takes a fixture, which would write test
+        // data into that history. A bundle that names both or neither is refused, never read as either.
+        if (File.Exists(build) && !File.Exists(trial))
+        {
+            if (!IsRelease(build)) throw new IOException("Invalid release build marker.");
+            var own = Path.GetFullPath(state ?? Path.Combine(KnownFolders.LocalAppData, "RoleBand"));
+            if (LeadsInto(own, resources)) throw new IOException("Engine state must be separate from resources.");
+            return new(resources, own, python, python, metadata.RootElement.GetProperty("version").GetString()!, false, false);
+        }
+        if (!File.Exists(trial) || File.Exists(build)) throw new IOException("The development app requires its synthetic trial identity.");
         using var trialMetadata = JsonDocument.Parse(File.ReadAllBytes(trial));
         if (!trialMetadata.RootElement.GetProperty("trial_only").GetBoolean()
             || !Guid.TryParseExact(trialMetadata.RootElement.GetProperty("trial_id").GetString(), "N", out var trialId))
@@ -49,6 +59,20 @@ public sealed record EngineConfiguration(string Resources, string State, string 
         fixture = true;
         return new(resources, ValidateState(resources, Path.GetFullPath(state)), python, python,
                    metadata.RootElement.GetProperty("version").GetString()!, false, fixture);
+    }
+
+    private static bool IsRelease(string marker)
+    {
+        try
+        {
+            using var record = JsonDocument.Parse(File.ReadAllBytes(marker));
+            var root = record.RootElement;
+            return root.ValueKind == JsonValueKind.Object
+                && root.TryGetProperty("format", out var format) && format.ValueKind == JsonValueKind.Number && format.GetInt32() == 1
+                && root.TryGetProperty("channel", out var channel) && channel.ValueKind == JsonValueKind.String
+                && channel.GetString() == "release";
+        }
+        catch (JsonException) { return false; }
     }
 
     // Default state roots of installed RoleBand apps, which development and trial engines never open.

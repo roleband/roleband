@@ -84,11 +84,12 @@ def _write(state: Path, record: dict[str, Any]) -> None:
 
 @contextmanager
 def recovery_leases(state: Path, *, require_stopped: bool = True) -> Iterator[None]:
-    from tracker.platform.paths import within_installed_data
+    from tracker.platform.paths import reaches_installed_data
     from tracker.platform.windows_leases import lifecycle_leases
 
     state = checked_path(state)
-    if within_installed_data(state):
+    # An installed release restores its own database after Undo; nothing else reaches installed data.
+    if reaches_installed_data(state):
         raise RecoveryError("Trial recovery cannot reach an installed app's data")
     with lifecycle_leases(state):
         if require_stopped and (state / "db" / "postmaster.pid").exists():

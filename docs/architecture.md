@@ -161,14 +161,20 @@ importing configuration. Its supervisor owns PostgreSQL outside cancellable jobs
 and shuts down through a parent-only pipe. These boundaries are owned by
 [the native host decision](decisions/0004-windows-native-engine-host.md).
 
-`launcher/windows/Tools/assemble_trial.py` builds synthetic development bundles
-from one clean commit: it refuses local changes, builds the dashboard itself and
-records the revision, so every bundled byte traces to that commit. A pinned
-standalone Python and hashed Windows wheels keep development Python out of the
-runtime layout. `Package-Trial.ps1` refuses a bundle that differs from its
-assembly hashes, then validates and packs an unsigned MSIX with a
-separate trial identity and retained LocalAppData namespace. Package replacement
-and data recovery acceptance remain prerequisites for production distribution.
+`launcher/windows/Tools/assemble.py` builds a bundle from one clean commit: it
+refuses local changes, builds the dashboard itself and records the revision, so
+every bundled byte traces to that commit. A pinned standalone Python and hashed
+Windows wheels keep development Python out of the runtime layout. A bundle names
+one channel. A trial (`trial.json`) runs synthetic data with network jobs off in
+its own `LocalAppData\RoleBandTrials` folder and never opens installed data. A
+release (`build.json`, `--channel release`) needs the committed
+`release-identity.json` for `roleband/roleband`, opens the person's own
+`LocalAppData\RoleBand` and never takes a fixture; only that engine works in
+installed data, so Undo can restore its database. A bundle naming both channels or
+neither is refused. `Package.ps1` refuses a bundle that differs from its assembly
+hashes, then validates and packs an unsigned MSIX: a trial keeps the trial
+identity, a release takes the package name and publisher from its update
+identity ([decision 0012](decisions/0012-windows-distribution-and-signing.md)).
 
 `backend/desktop.py checkpoint` creates or rechecks a private logical recovery
 checkpoint through a fresh-cluster restore drill. The command requires explicit

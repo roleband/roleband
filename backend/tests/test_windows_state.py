@@ -79,6 +79,38 @@ def test_recovery_refuses_installed_state_before_creating_anything(installed_roo
         assert (sibling / "launcher" / "desktop.lock").is_file()
 
 
+def test_an_installed_release_restores_its_own_data_and_nothing_else(installed_roots, monkeypatch, tmp_path):
+    """Undo's restore runs in the installed app on its own state; a trial, a source run or a release started on
+    other state still never reaches installed data."""
+    from tracker.platform import paths
+    from tracker.platform.windows_recovery import RecoveryError, recovery_leases
+
+    own, mac = installed_roots
+    monkeypatch.setattr(paths, "DATA_DIR", own)
+    monkeypatch.setattr(paths, "RELEASE", False)
+    with pytest.raises(RecoveryError), recovery_leases(own):
+        pytest.fail("a trial leased an installed root")
+    monkeypatch.setattr(paths, "RELEASE", True)
+    with recovery_leases(own):
+        assert (own / "launcher" / "desktop.lock").is_file()
+    with pytest.raises(RecoveryError), recovery_leases(mac):
+        pytest.fail("a release leased another app's data")
+    monkeypatch.setattr(paths, "DATA_DIR", tmp_path / "other-state")
+    with pytest.raises(RecoveryError), recovery_leases(own):
+        pytest.fail("a release started on other state leased the installed root")
+
+
+def test_only_a_release_marker_makes_a_release_build(tmp_path):
+    from tracker.platform.paths import release_channel
+
+    assert not release_channel(tmp_path), "no marker: a checkout or a trial"
+    (tmp_path / "build.json").write_text('{"format": 1, "channel": "release"}', encoding="utf-8")
+    assert release_channel(tmp_path)
+    for text in ('{"format": 1, "channel": "trial"}', '{"format": 2, "channel": "release"}', "not json", "[]"):
+        (tmp_path / "build.json").write_text(text, encoding="utf-8")
+        assert not release_channel(tmp_path), text
+
+
 def test_checkpoint_command_refuses_installed_state(installed_roots, monkeypatch, tmp_path, capsys):
     from scripts import windows_checkpoint
 

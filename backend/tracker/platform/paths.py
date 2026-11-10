@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -48,6 +49,29 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 PACKAGED = os.environ.get("ROLEBAND_PACKAGED") == "1"
 BACKEND_DIR = REPO_ROOT / ("engine" if PACKAGED else "backend")
 DATA_DIR = user_data_dir() if PACKAGED or os.environ.get("ROLEBAND_STATE_DIR") else REPO_ROOT / "data"
+
+
+def release_channel(resources: Path) -> bool:
+    """Whether a packaged build is made for people's own data: its resources carry `build.json` naming the release
+    channel. Development trials carry `trial.json` instead, and a checkout carries neither."""
+    marker = resources / "build.json"
+    try:
+        record = json.loads(marker.read_text(encoding="utf-8")) if marker.is_file() else None
+    except (OSError, ValueError):
+        return False
+    return isinstance(record, dict) and record.get("format") == 1 and record.get("channel") == "release"
+
+
+#: An installed release engine, the one process that works in an installed app's data.
+RELEASE = PACKAGED and release_channel(REPO_ROOT)
+
+
+def reaches_installed_data(path: Path) -> bool:
+    """Whether `path` is installed app data this process must leave alone: any of it, except the state a release
+    engine was started on, which is its own."""
+    if not within_installed_data(path):
+        return False
+    return not (RELEASE and Path(os.path.realpath(path)).is_relative_to(os.path.realpath(DATA_DIR)))
 #: One slot file per rate-limit scope, shared by every provider-facing process
 #: of this checkout (`ratelimit.enable_shared_pacing`).
 PACING_DIR = DATA_DIR / "pacing"

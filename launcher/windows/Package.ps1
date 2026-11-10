@@ -7,9 +7,22 @@ $ErrorActionPreference = 'Stop'
 $bundlePath = (Resolve-Path -LiteralPath $Bundle).Path
 $packagePath = [IO.Path]::GetFullPath($Destination)
 if (Test-Path -LiteralPath $packagePath) { throw 'Choose a new package destination.' }
-$trial = Get-Content -Raw -LiteralPath (Join-Path $bundlePath 'Resources/trial.json') | ConvertFrom-Json
-if ($trial.trial_only -ne $true -or $trial.trial_id -notmatch '^[0-9a-f]{32}$') { throw 'Only synthetic development trials can be packaged here.' }
-if ($null -eq $trial.dirty_paths -or @($trial.dirty_paths).Count -ne 0) { throw 'The bundle was not assembled from a clean commit. Assemble it again.' }
+$trialPath = Join-Path $bundlePath 'Resources/trial.json'
+$buildPath = Join-Path $bundlePath 'Resources/build.json'
+# The bundle's marker decides the package: a trial keeps the trial identity, a release takes RoleBand's own.
+if ((Test-Path -LiteralPath $buildPath) -and !(Test-Path -LiteralPath $trialPath)) {
+    $marker = Get-Content -Raw -LiteralPath $buildPath | ConvertFrom-Json
+    if ($marker.format -ne 1 -or $marker.channel -ne 'release') { throw 'The release marker is not one this script packages.' }
+    $release = Get-Content -Raw -LiteralPath (Join-Path $bundlePath 'Resources/release-identity.json') | ConvertFrom-Json
+    if ([string]::IsNullOrWhiteSpace($release.package_name) -or [string]::IsNullOrWhiteSpace($release.publisher)) {
+        throw 'A release bundle needs the update identity that names its package and publisher.'
+    }
+} elseif ((Test-Path -LiteralPath $trialPath) -and !(Test-Path -LiteralPath $buildPath)) {
+    $marker = Get-Content -Raw -LiteralPath $trialPath | ConvertFrom-Json
+    if ($marker.trial_only -ne $true -or $marker.trial_id -notmatch '^[0-9a-f]{32}$') { throw 'Only synthetic development trials can be packaged as trials.' }
+    $release = $null
+} else { throw 'The bundle must name one channel: a trial or a release.' }
+if ($null -eq $marker.dirty_paths -or @($marker.dirty_paths).Count -ne 0) { throw 'The bundle was not assembled from a clean commit. Assemble it again.' }
 # A package is traceable to its commit only if the bundle is byte for byte what assembly recorded.
 $recorded = Get-Content -Raw -LiteralPath (Join-Path $bundlePath 'trial-hashes.json') | ConvertFrom-Json
 $expected = @{}
@@ -32,6 +45,24 @@ if (!(Test-Path -LiteralPath $makeappx) -or !(Test-Path -LiteralPath $makepri)) 
 & (Join-Path $bundlePath 'Resources/runtime/python.exe') -I -B (Join-Path $PSScriptRoot 'Tools/pe_certificates.py') $bundlePath
 if ($LASTEXITCODE -ne 0) { throw 'A PE certificate table is invalid. Package signing would fail.' }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'AppxManifest.xml') -Destination (Join-Path $bundlePath 'AppxManifest.xml')
+if ($release) {
+    # The publisher is fixed for good: Windows updates a package in place only from the same publisher.
+    $manifestPath = Join-Path $bundlePath 'AppxManifest.xml'
+    [xml]$packageManifest = Get-Content -LiteralPath $manifestPath -Raw
+    $namespaces = New-Object Xml.XmlNamespaceManager $packageManifest.NameTable
+    $namespaces.AddNamespace('m', 'http://schemas.microsoft.com/appx/manifest/foundation/windows10')
+    $namespaces.AddNamespace('uap', 'http://schemas.microsoft.com/appx/manifest/uap/windows10')
+    $namespaces.AddNamespace('virtualization', 'http://schemas.microsoft.com/appx/manifest/virtualization/windows10')
+    $packageManifest.Package.Identity.Name = [string]$release.package_name
+    $packageManifest.Package.Identity.Publisher = [string]$release.publisher
+    $packageManifest.Package.Identity.Version = "$($marker.version).0"
+    $packageManifest.SelectSingleNode('/m:Package/m:Properties/m:DisplayName', $namespaces).InnerText = 'RoleBand'
+    $packageManifest.SelectSingleNode('//virtualization:ExcludedDirectory', $namespaces).InnerText = '$(KnownFolder:LocalAppData)\RoleBand'
+    $visual = $packageManifest.SelectSingleNode('//uap:VisualElements', $namespaces)
+    $visual.DisplayName = 'RoleBand'
+    $visual.Description = 'RoleBand'
+    $packageManifest.Save($manifestPath)
+}
 if ($PackageVersion) {
     if ($PackageVersion.Revision -lt 0 -or @($PackageVersion.Major,$PackageVersion.Minor,$PackageVersion.Build,$PackageVersion.Revision | Where-Object {$_ -gt 65535}).Count) {
         throw 'MSIX versions require four components between 0 and 65535.'

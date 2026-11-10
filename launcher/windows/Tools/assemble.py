@@ -1,4 +1,4 @@
-"""Assemble a Windows development trial with isolated, hash-locked runtime files."""
+"""Assemble a Windows bundle, a development trial or a release, with isolated, hash-locked runtime files."""
 
 import argparse
 import hashlib
@@ -15,6 +15,8 @@ from pathlib import Path
 from pe_certificates import validate_tree
 
 ROOT = Path(__file__).resolve().parents[3]
+#: The feed every release build updates from; a trial carries its own.
+RELEASE_FEED = "roleband/roleband"
 
 
 def digest(path):
@@ -53,12 +55,32 @@ def clean_revision(root):
     return git(root, "rev-parse", "HEAD").strip()
 
 
-def assemble(destination, cache, trial_id=None):
+def release_identity(root):
+    """The committed update identity a release build trusts, which also names its package and publisher."""
+    if str(root / "backend") not in sys.path:
+        sys.path.insert(0, str(root / "backend"))
+    from tracker.platform.windows_release import read_identity
+
+    path = root / "launcher/windows/release-identity.json"
+    if not path.is_file():
+        raise ValueError("A release needs launcher/windows/release-identity.json")
+    identity = read_identity(json.loads(path.read_text(encoding="utf-8")))
+    if identity.feed != RELEASE_FEED:
+        raise ValueError(f"A release updates from {RELEASE_FEED}, not {identity.feed}")
+    return path
+
+
+def assemble(destination, cache, trial_id=None, channel="trial"):
     if sys.platform != "win32":
-        raise ValueError("Build Windows trials on Windows")
+        raise ValueError("Build Windows bundles on Windows")
+    if channel not in ("trial", "release"):
+        raise ValueError("The channel is trial or release")
+    if channel == "release" and trial_id is not None:
+        raise ValueError("A release has no trial identity")
+    identity = release_identity(ROOT) if channel == "release" else ROOT / "launcher/windows/release-identity.json"
     destination, cache = destination.resolve(), cache.resolve()
     if destination.exists() or destination.is_relative_to(ROOT) or ROOT.is_relative_to(destination):
-        raise ValueError("Choose a new trial destination outside the checkout")
+        raise ValueError("Choose a new bundle destination outside the checkout")
     revision = clean_revision(ROOT)
     # Built here, from the clean commit, so the bundled dashboard is that commit's.
     run(shutil.which("npm") or "npm", "run", "build", cwd=ROOT / "dashboard")
@@ -107,7 +129,6 @@ def assemble(destination, cache, trial_id=None):
     shutil.copyfile(ROOT / "CHANGELOG.md", resources / "CHANGELOG.md")
     shutil.copyfile(ROOT / "LICENSE", resources / "LICENSE")
     # The update identity this build trusts; without one, the build never offers an update.
-    identity = ROOT / "launcher/windows/release-identity.json"
     if identity.is_file():
         shutil.copyfile(identity, resources / "release-identity.json")
     env = dict(os.environ, PYTHONPATH=str(engine), PYTHONDONTWRITEBYTECODE="1", ROLEBAND_PACKAGED="1")
@@ -119,8 +140,14 @@ def assemble(destination, cache, trial_id=None):
         raise ValueError("The checkout changed during assembly; assemble again from one commit")
     metadata = {**pin, "version": version, "source_revision": revision, "dirty_paths": [],
                 "requirements_sha256": digest(ROOT / "backend/requirements.txt"),
-                "runtime_lock_sha256": digest(runtime_lock), "trial_only": True, "trial_id": (trial_id or uuid.uuid4()).hex}
-    (resources / "trial.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+                "runtime_lock_sha256": digest(runtime_lock)}
+    # The marker decides whose data the app opens: a trial's synthetic folder, or the person's own for a release.
+    if channel == "release":
+        (resources / "build.json").write_text(json.dumps({"format": 1, "channel": "release", **metadata}, indent=2) + "\n",
+                                              encoding="utf-8")
+    else:
+        metadata.update(trial_only=True, trial_id=(trial_id or uuid.uuid4()).hex)
+        (resources / "trial.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
     validate_tree(destination)
     files = {str(path.relative_to(destination)): digest(path) for path in destination.rglob("*") if path.is_file()}
     (destination / "trial-hashes.json").write_text(json.dumps(files, indent=2) + "\n", encoding="utf-8")
@@ -132,8 +159,9 @@ def main():
     parser.add_argument("--destination", type=Path, required=True)
     parser.add_argument("--cache", type=Path, required=True)
     parser.add_argument("--trial-id", type=uuid.UUID)
+    parser.add_argument("--channel", choices=("trial", "release"), default="trial")
     args = parser.parse_args()
-    assemble(args.destination, args.cache, args.trial_id)
+    assemble(args.destination, args.cache, args.trial_id, args.channel)
 
 
 if __name__ == "__main__":

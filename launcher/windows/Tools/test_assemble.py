@@ -7,9 +7,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from assemble_trial import clean_revision
+from assemble import RELEASE_FEED, clean_revision, release_identity
 
-PACKAGE = Path(__file__).resolve().parents[1] / "Package-Trial.ps1"
+PACKAGE = Path(__file__).resolve().parents[1] / "Package.ps1"
 #: PowerShell 7 where installed (CI runners), otherwise the Windows PowerShell every Windows has.
 SHELL = shutil.which("pwsh") or "powershell"
 
@@ -62,7 +62,39 @@ class CleanRevisionTests(unittest.TestCase):
         clean_revision(self.root)
 
 
-@unittest.skipUnless(sys.platform == "win32", "Package-Trial.ps1 runs on Windows")
+class ReleaseIdentityTests(unittest.TestCase):
+    """A release trusts the committed update identity, and only one for the shared feed."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.root = Path(self.directory.name)
+        (self.root / "launcher/windows").mkdir(parents=True)
+        shutil.copytree(Path(__file__).resolve().parents[3] / "backend/tracker", self.root / "backend/tracker",
+                        ignore=shutil.ignore_patterns("__pycache__"))
+
+    def tearDown(self):
+        self.directory.cleanup()
+
+    def write(self, feed):
+        import base64
+
+        (self.root / "launcher/windows/release-identity.json").write_text(json.dumps({
+            "format": 1, "feed": feed, "release_public_key": base64.b64encode(b"k" * 32).decode(),
+            "package_name": "RoleBand.RoleBand", "publisher": "CN=RoleBand, O=RoleBand, DC=roleband, DC=com"}))
+
+    def test_a_release_without_an_update_identity_is_refused(self):
+        with self.assertRaisesRegex(ValueError, "needs launcher/windows/release-identity.json"):
+            release_identity(self.root)
+
+    def test_a_release_updates_only_from_the_shared_feed(self):
+        self.write("roleband/roleband-windows-trials")
+        with self.assertRaisesRegex(ValueError, "updates from roleband/roleband"):
+            release_identity(self.root)
+        self.write(RELEASE_FEED)
+        self.assertEqual(self.root / "launcher/windows/release-identity.json", release_identity(self.root))
+
+
+@unittest.skipUnless(sys.platform == "win32", "Package.ps1 runs on Windows")
 class PackageProvenanceTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
@@ -76,7 +108,8 @@ class PackageProvenanceTests(unittest.TestCase):
         self.directory.cleanup()
 
     def record(self):
-        (self.bundle / "Resources/trial.json").write_text(json.dumps(self.trial))
+        if self.trial is not None:
+            (self.bundle / "Resources/trial.json").write_text(json.dumps(self.trial))
         files = {str(path.relative_to(self.bundle)): hashlib.sha256(path.read_bytes()).hexdigest()
                  for path in self.bundle.rglob("*") if path.is_file() and path.name != "trial-hashes.json"}
         (self.bundle / "trial-hashes.json").write_text(json.dumps(files))
@@ -113,6 +146,25 @@ class PackageProvenanceTests(unittest.TestCase):
     def test_a_removed_file_is_refused(self):
         (self.bundle / "Resources/engine/module.py").unlink()
         self.assertIn(r"Resources\engine\module.py was removed", self.package())
+
+    def test_a_bundle_must_name_exactly_one_channel(self):
+        (self.bundle / "Resources/build.json").write_text(json.dumps({"format": 1, "channel": "release", "dirty_paths": []}))
+        self.record()
+        self.assertIn("must name one channel", self.package())
+        (self.bundle / "Resources/trial.json").unlink()
+        (self.bundle / "Resources/build.json").unlink()
+        self.assertIn("must name one channel", self.package())
+
+    def test_a_release_bundle_needs_the_identity_that_names_its_publisher(self):
+        (self.bundle / "Resources/trial.json").unlink()
+        (self.bundle / "Resources/build.json").write_text(json.dumps({"format": 1, "channel": "release", "dirty_paths": []}))
+        (self.bundle / "Resources/release-identity.json").write_text(json.dumps({"format": 1, "feed": RELEASE_FEED}))
+        self.assertIn("names its package and publisher", self.package())
+
+    def test_a_marker_naming_another_channel_is_refused(self):
+        (self.bundle / "Resources/trial.json").unlink()
+        (self.bundle / "Resources/build.json").write_text(json.dumps({"format": 1, "channel": "store", "dirty_paths": []}))
+        self.assertIn("not one this script packages", self.package())
 
     def test_a_bundle_from_a_dirty_tree_is_refused(self):
         self.trial["dirty_paths"] = [" M backend/tracker/config.py"]
