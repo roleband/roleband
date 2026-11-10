@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import type { CompPackage, CompPartSource, CompTrajectory, CompTrajectoryCompany, OfferAnswers, OfferDraft, OfferTerms } from "../../api";
 import { api } from "../../api";
 import { useAsyncResource } from "../../hooks/useAsyncResource";
+import { useWriteQueue } from "../../hooks/useWriteQueue";
 import { useSourceSwitch } from "../../context/SyncState";
 import { InsightHero } from "./InsightHero";
 import { fmtComp, companyName } from "../../format";
@@ -232,7 +233,9 @@ export function StockTrajectoryPanel() {
   const { data: terms, error: termsError } = useAsyncResource<OfferTerms>(api.offerTerms, [], { keep: "stats/offer-terms" });
 
   // The person's offer, kept on this computer. Each write shows at once and
-  // is sent in order; the answer to the latest write is the one kept on screen.
+  // is sent in order: every route answers with the whole offer and valuations,
+  // so each write orders against all the others. The answer to the latest
+  // write is the one kept on screen.
   const { data: kept, error: keptError, retry: keptRetry } = useAsyncResource<OfferAnswers>(api.offer, []);
   const [written, setWritten] = useState<OfferAnswers | null>(null);
   const answers = written ?? kept ?? null;
@@ -240,10 +243,12 @@ export function StockTrajectoryPanel() {
   const valuations: Record<string, StoredValuation> = answers?.valuations ?? NO_VALUATIONS;
   const [saveFailed, setSaveFailed] = useState(false);
   const [previous, setPrevious] = useState<StoredOffer | null>(null);
+  // Counts the offers started from a package; each one remounts the calculator.
+  const [starts, setStarts] = useState(0);
   const offerHeading = useRef<HTMLHeadingElement>(null);
   const { toast } = useToast();
   const focusOffer = useRef(false);
-  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const { exclusive } = useWriteQueue("stock-offer");
   const latest = useRef(0);
   // What the screen shows, read by each write: two writes in one step (a
   // valuation, then the answer it belongs to) build on each other, not on the
@@ -258,7 +263,7 @@ export function StockTrajectoryPanel() {
     const shown = change(shownNow.current ?? NO_ANSWERS);
     shownNow.current = shown;
     setWritten(shown);
-    queue.current = queue.current.then(send).then(
+    exclusive([], send).then(
       (stored) => {
         if (n !== latest.current) return;
         setWritten(stored);
@@ -266,7 +271,7 @@ export function StockTrajectoryPanel() {
       },
       () => setSaveFailed(true),
     );
-  }, []);
+  }, [exclusive]);
   const saveOffer = useCallback((draft: OfferDraft) => {
     write(
       (now) => ({ ...now, offer: { ...draft, saved_at: new Date().toISOString() } }),
@@ -292,6 +297,7 @@ export function StockTrajectoryPanel() {
     title?: string,
   ) => {
     setPrevious(answers?.offer ?? null);
+    setStarts((n) => n + 1);
     saveOffer({
       inputs: offerFromPackage(company, parts, terms ?? null, listed),
       answered: ["company"],
@@ -342,6 +348,9 @@ export function StockTrajectoryPanel() {
     </div>
   ) : (
     <OfferCalculator
+      // A started offer replaces the one on screen: a question open on the old
+      // offer must not save its answers over the new one.
+      key={starts}
       ref={offerHeading}
       terms={terms ?? null}
       offer={offer}

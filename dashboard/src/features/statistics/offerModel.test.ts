@@ -178,6 +178,9 @@ describe("filling the form", () => {
   it("starts from a yearly package with the grant over the years it vests", () => {
     const amazon = offerFromPackage("amazon", { base: 210_000, bonus: 0, equity: 100_000 }, TERMS);
     expect(amazon).toMatchObject({ company: "amazon", base: 210_000, bonus_pct: 0, grant: 400_000, grant_unit: "dollars" });
+    // Amazon states no yearly bonus and its offer never asks one: a measured
+    // bonus is not counted every year.
+    expect(offerFromPackage("amazon", { base: 200_000, bonus: 30_000, equity: 100_000 }, TERMS).bonus_pct).toBe(0);
     const thirds = offerFromPackage("acme", { base: 200_000, bonus: 30_000, equity: 90_000 },
       { feed_configured: false, companies: [company({ company: "acme", vesting: [33, 33, 33] })] });
     expect(thirds).toMatchObject({ bonus_pct: 15, grant: 270_000 });

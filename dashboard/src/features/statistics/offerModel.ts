@@ -239,7 +239,9 @@ export function pickCompany(inputs: OfferInputs, company: string, terms: OfferTe
 /** A yearly package (a company's median role, or one role's) as an offer to
  *  start from: its base and bonus, and its yearly equity times the years the
  *  grant vests over. An option grant is counted in options, which a yearly
- *  dollar figure cannot say, so it is left for the person to enter. */
+ *  dollar figure cannot say, so it is left for the person to enter. Where the
+ *  company states no yearly bonus, a measured one is not a yearly bonus, and
+ *  the offer never asks about it, so the offer keeps none. */
 export function offerFromPackage(
   company: string,
   parts: { base: number; bonus: number; equity: number },
@@ -252,7 +254,7 @@ export function offerFromPackage(
   return {
     ...start,
     base: Math.round(parts.base),
-    bonus_pct: parts.base > 0 ? Math.round((parts.bonus / parts.base) * 1000) / 10 : null,
+    bonus_pct: t?.bonus_rule === "none" ? 0 : parts.base > 0 ? Math.round((parts.bonus / parts.base) * 1000) / 10 : null,
     grant: start.vehicle === "options" ? null : Math.round(parts.equity * years),
     grant_unit: start.vehicle === "options" ? "shares" : "dollars",
   };

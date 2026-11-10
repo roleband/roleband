@@ -550,7 +550,10 @@ insights-offer-chip-stock = { $kind ->
    *[dollars] { $amount } 股票
 }
 insights-offer-chip-strike = 行权价 { $amount }
-insights-offer-chip-price = 每股 { $amount }
+insights-offer-chip-price = { $kind ->
+    [none] 尚无每股价格
+   *[some] 每股 { $amount }
+}
 insights-offer-chip-valuation = { $kind ->
     [none] 按授予时价值
     [per_share] 每股 { $from } 到 { $to }

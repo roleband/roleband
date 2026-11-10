@@ -99,6 +99,7 @@ const yearTotals = () => {
     .map((row) => Array.from(row.querySelectorAll("td.traj-offer-total")).map((td) => td.textContent));
 };
 const comp = (n: number) => String(fmtComp(n));
+const litDots = () => calculator().querySelectorAll(".traj-offer-dots [data-done]").length;
 const offerKeysInBrowser = () =>
   [...Object.keys(window.localStorage), ...Object.keys(window.sessionStorage)].filter((k) => /offer|valuation/i.test(k));
 
@@ -251,8 +252,12 @@ describe("OfferCalculator", () => {
     renderPanel();
     expect(await screen.findByText(msg("insights-offer-unfinished", { answered: 2, total: 4 }))).toBeInTheDocument();
     expect(screen.queryByTestId("traj-offer-question")).toBeNull();
+    // One lit dot for each answer, as many as the line says.
+    expect(litDots()).toBe(2);
     press(msg("insights-offer-continue"));
     expect(step()).toBe("stock");
+    // Walking, the question on screen is lit too.
+    expect(litDots()).toBe(3);
     press(msg("insights-offer-later"));
     expect(screen.getByText(msg("insights-offer-unfinished", { answered: 2, total: 4 }))).toBeInTheDocument();
   });
@@ -282,6 +287,41 @@ describe("OfferCalculator", () => {
     renderPanel();
     expect(await screen.findByRole("button", { name: msg("insights-offer-chip-edit", { answer: msg("insights-offer-chip-another", { listed: "no" }) }) }))
       .toBeInTheDocument();
+  });
+
+  it("shows the price per share typed for a private company not on the list, and says when there is none", async () => {
+    const typedIn = {
+      ...AMAZON_DONE,
+      inputs: { ...AMAZON_DONE.inputs, company: "", listed: false, grant_unit: "shares" as const, grant: 1_000, price: 50 },
+      answered: ["company", "base", "stock", "price", "vesting", "bonus", "sign_on"] as OfferDraft["answered"],
+    };
+    kept = { offer: { ...typedIn, saved_at: SAVED_AT }, valuations: {} };
+    const { unmount } = renderPanel();
+    expect(await screen.findByRole("button", { name: msg("insights-offer-chip-edit", { answer: msg("insights-offer-chip-price", { kind: "some", amount: money(50) }) }) }))
+      .toBeInTheDocument();
+    unmount();
+
+    kept = { offer: { ...typedIn, inputs: { ...typedIn.inputs, price: null }, saved_at: SAVED_AT }, valuations: {} };
+    renderPanel();
+    expect(await screen.findByRole("button", { name: msg("insights-offer-chip-edit", { answer: msg("insights-offer-chip-price", { kind: "none", amount: "" }) }) }))
+      .toBeInTheDocument();
+  });
+
+  it("closes a question left open when an offer starts from a row, and keeps the started figures", async () => {
+    kept = { offer: { ...AMAZON_DONE, inputs: { ...AMAZON_DONE.inputs, base: 123_000 }, saved_at: SAVED_AT }, valuations: {} };
+    renderPanel();
+    fireEvent.click(await screen.findByRole("button", { name: msg("insights-offer-chip-edit", { answer: msg("insights-offer-chip-base", { amount: comp(123_000) }) }) }));
+    type(msg("insights-offer-q-base"), "999000");
+
+    const row = within(screen.getByTestId("traj-public")).getByRole("row", { name: /Amazon/ });
+    fireEvent.click(within(row).getByRole("button", { name: msg("insights-offer-start-aria", { company: "Amazon" }) }));
+
+    // The open question was about the earlier offer: it closes, unsaved.
+    expect(screen.queryByTestId("traj-offer-question")).toBeNull();
+    expect(chip(msg("insights-offer-chip-base", { amount: comp(240_000) }))).toHaveTextContent(msg("insights-offer-tag", { tag: "typical" }));
+    await waitFor(() => expect(kept.offer?.started_from).toEqual({ company: "amazon", title: null }));
+    expect(kept.offer?.inputs.base).toBe(240_000);
+    expect(within(calculator()).getByRole("button", { name: msg("insights-offer-undo") })).toBeInTheDocument();
   });
 
   it("starts from a company's row with typical figures, and Undo puts the earlier offer back", async () => {
@@ -404,6 +444,32 @@ describe("OfferCalculator", () => {
     type(msg("insights-offer-q-price", { quote: "no", company: "Meta" }), "600");
     next();
     expect(step()).toBe("vesting");
+  });
+
+  it("sends a write made after leaving and coming back only once the earlier one is kept", async () => {
+    kept = { offer: { ...AMAZON_DONE, saved_at: SAVED_AT }, valuations: {} };
+    let keep!: () => void;
+    vi.mocked(api.saveOffer).mockImplementationOnce((draft: OfferDraft) => new Promise((resolve) => {
+      keep = () => {
+        kept = { ...kept, offer: { ...structuredClone(draft), saved_at: SAVED_AT } };
+        resolve(copy());
+      };
+    }));
+    const first = renderPanel();
+    fireEvent.click(await screen.findByRole("button", { name: msg("insights-offer-chip-edit", { answer: msg("insights-offer-chip-base", { amount: comp(200_000) }) }) }));
+    type(msg("insights-offer-q-base"), "250000");
+    press(msg("insights-offer-done"));
+    first.unmount();
+
+    renderPanel();
+    await screen.findByRole("heading", { name: msg("insights-offer-finished-title", { named: "yes", company: "Amazon" }) });
+    press(msg("insights-offer-clear"));
+    // The clear waits for the save still in the air, so the save cannot land after it.
+    await new Promise((r) => setTimeout(r, 20));
+    expect(api.clearOffer).not.toHaveBeenCalled();
+    keep();
+    await waitFor(() => expect(api.clearOffer).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(kept.offer).toBeNull());
   });
 
   it("says when an answer was not kept, and leaves it on screen", async () => {

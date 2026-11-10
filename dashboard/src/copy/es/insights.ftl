@@ -576,7 +576,10 @@ insights-offer-chip-stock = { $kind ->
    *[dollars] { $amount } en acciones
 }
 insights-offer-chip-strike = Ejercicio { $amount }
-insights-offer-chip-price = { $amount } por acción
+insights-offer-chip-price = { $kind ->
+    [none] Sin precio por acción
+   *[some] { $amount } por acción
+}
 insights-offer-chip-valuation = { $kind ->
     [none] Al valor concedido
     [per_share] De { $from } a { $to } por acción

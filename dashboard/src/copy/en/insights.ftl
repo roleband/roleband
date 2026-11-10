@@ -803,7 +803,10 @@ insights-offer-chip-stock = { $kind ->
 # kind=status
 insights-offer-chip-strike = Strike { $amount }
 # kind=status
-insights-offer-chip-price = { $amount } a share
+insights-offer-chip-price = { $kind ->
+    [none] No share price yet
+   *[some] { $amount } a share
+}
 # kind=status
 insights-offer-chip-valuation = { $kind ->
     [none] At the value granted

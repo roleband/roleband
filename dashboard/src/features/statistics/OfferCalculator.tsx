@@ -328,7 +328,7 @@ export const OfferCalculator = forwardRef<HTMLHeadingElement, OfferCalculatorPro
           <p className="sub">{insightsOfferUnfinished({ answered: steps.length - open.length, total: steps.length })}</p>
         </div>
         <div className="traj-offer-actions">
-          <Dots steps={steps} done={steps.length - open.length} />
+          <Dots steps={steps} lit={steps.length - open.length} />
           <Button variant="primary" onClick={() => ask(open[0], "walk")}>{insightsOfferContinue()}</Button>
           <Button variant="ghost" size="sm" onClick={onClear}>{insightsOfferClear()}</Button>
         </div>
@@ -443,7 +443,7 @@ export const OfferCalculator = forwardRef<HTMLHeadingElement, OfferCalculatorPro
         <form className="traj-offer-question" onSubmit={submit} noValidate data-testid="traj-offer-question" data-step={step}>
           {mode === "walk" && index >= 0 && !startView && (
             <>
-              <Dots steps={steps} done={index} />
+              <Dots steps={steps} lit={index + 1} />
               <span className="sr-only">{insightsOfferProgress({ n: index + 1, total: steps.length })}</span>
             </>
           )}
@@ -893,10 +893,11 @@ function VestingAnswer({ draft, company, name, open, setOpen, edit, onAnswer, he
   );
 }
 
-function Dots({ steps, done }: { steps: readonly OfferStep[]; done: number }) {
+/** One dot a question; the first `lit` are lit. */
+function Dots({ steps, lit }: { steps: readonly OfferStep[]; lit: number }) {
   return (
     <span className="traj-offer-dots" aria-hidden="true">
-      {steps.map((s, i) => <i key={s} data-done={i <= done || undefined} />)}
+      {steps.map((s, i) => <i key={s} data-done={i < lit || undefined} />)}
     </span>
   );
 }
@@ -1072,8 +1073,14 @@ function chipFor(
     }
     case "strike":
       return insightsOfferChipStrike({ amount: money(d.strike ?? 0) });
-    case "price":
-      return insightsOfferChipPrice({ amount: result.price ? money(result.price.value) : "?" });
+    case "price": {
+      // A typed-in company that is not listed values the grant at the typed
+      // price, which the result does not report as a listed price.
+      const each = result.price?.value ?? d.price;
+      return each == null
+        ? insightsOfferChipPrice({ kind: "none", amount: "" })
+        : insightsOfferChipPrice({ kind: "some", amount: money(each) });
+    }
     case "valuation":
       if (!valuation?.grant_at) return insightsOfferChipValuation({ kind: "none", from: "", to: "" });
       return insightsOfferChipValuation({
