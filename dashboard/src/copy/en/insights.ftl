@@ -486,7 +486,7 @@ insights-stock-trajectory-panel-typical-package = { $equity ->
    *[estimated] Typical public-company total compensation · equity estimated
 }
 # kind=sentence
-insights-stock-trajectory-panel-stock-moves-re-price-equity = Only equity moves with the stock. Base is the posted range where a role has one. Bonus comes from the posting, pay data or the company's own rule, else an estimate. A reference, not an offer.
+insights-stock-trajectory-panel-stock-moves-re-price-equity = Only equity moves with the stock. Base is the posted base salary range where a role has one, else an estimate. Bonus comes from the posting, pay data or the company's own rule, else an estimate. A reference, not an offer.
 # kind=label wording=as-is
 insights-stock-trajectory-panel-stock-price-change = Stock price change
 # kind=button wording=as-is

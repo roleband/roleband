@@ -287,7 +287,8 @@ total. Each part says where it comes from:
 | `mixed` | the company's roles differ | | |
 
 A company whose people pick the cash and equity mix gets a row of its own with
-its total and no split, and no price move changes it. Every other role with a
+its total and no split, and no price move changes it. One of its roles with no
+total, stated or estimated, is counted apart with the rest. Every other role with a
 pay figure but no split is counted apart by reason: the package's
 `no_split_reason`, `not_us_pay` for any posting whose pay is not US pay (the tab
 is in US dollars), `base_only` for a role priced by a base alone (posted or

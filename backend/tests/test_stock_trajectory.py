@@ -173,6 +173,19 @@ class TestSetApart:
         assert out["choice"] == []
         assert out["set_apart"] == [{"reason": "base_only", "count": 2}]
 
+    def test_a_cash_election_posting_keeps_its_own_reason_when_it_has_no_total(self):
+        out = build_comp_trajectory([
+            _role("netflix", posted=_posted(90, 120, period="hour")),
+            _role("netflix", posted=_posted(20_000, 25_000, period="month")),
+            _role("netflix", posted=_posted(300_000, 400_000, period="unclear")),
+            _role("netflix", posted=_posted(300_000, 400_000, basis="unclear")),
+            _role("netflix", posted=_posted(300_000, 400_000), level_placed=False),
+        ])
+        assert out["choice"] == []
+        assert {r["reason"]: r["count"] for r in out["set_apart"]} == {
+            "hourly": 1, "monthly": 1, "period_unclear": 1, "basis_unclear": 1, "level_unplaced": 1,
+        }
+
     def test_a_non_us_netflix_role_is_set_apart_not_a_choice_row(self):
         out = build_comp_trajectory([_role("netflix", median=700_000, us_pay=False)])
         assert out["choice"] == []

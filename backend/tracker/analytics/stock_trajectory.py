@@ -16,6 +16,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
 from tracker.analytics.comp_package import (
+    NO_SPLIT_EMPLOYEE_ELECTION,
     NO_SPLIT_LEVEL_UNPLACED,
     NO_SPLIT_NOT_US,
     PROV_STATED,
@@ -209,8 +210,10 @@ def build_comp_trajectory(
             # The person picks the mix, whatever the posting states or omits.
             if (total := _choice_total(role.package)) is not None:
                 choice.setdefault(role.company, []).append(total)
-            elif role.package["stated"] or role.package["base_estimate"]:
-                set_apart[SET_APART_BASE_ONLY] += 1
+            elif reason is not None:
+                # The election itself only explains a yearly base standing alone;
+                # an hourly rate or an unplaced level keeps the posting's reason.
+                set_apart[SET_APART_BASE_ONLY if reason == NO_SPLIT_EMPLOYEE_ELECTION else reason] += 1
             continue
         if reason is not None:
             set_apart[reason] += 1
