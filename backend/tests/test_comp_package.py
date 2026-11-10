@@ -381,6 +381,42 @@ def test_netflix_total_band_is_stated_but_employee_split_is_not_invented():
     assert pkg["no_split_reason"] == NO_SPLIT_EMPLOYEE_ELECTION
 
 
+
+def test_a_cash_election_company_s_estimate_is_never_split():
+    """Netflix states that each person picks the cash and stock mix: a ratio of
+    ours over its estimated total would invent the mix, measured row or not."""
+    pkg = build_job_package(
+        company="netflix", band="staff", family="product_management",
+        comp_low=400000, comp_median=500000, comp_high=600000, comp_provenance="Netflix estimated median",
+        disclosed={"disclosed": False}, baselines=BASELINES,
+    )
+    assert (pkg["components"], pkg["total"]) == ([], None)
+    assert pkg["no_split_reason"] == NO_SPLIT_EMPLOYEE_ELECTION
+    assert pkg["estimate"]["median"] == 500000
+
+
+def test_a_cash_election_company_s_stated_base_stands_alone():
+    pkg = build_job_package(
+        company="netflix", band="staff", family="product_management",
+        comp_low=None, comp_median=None, comp_high=None, comp_provenance=None,
+        disclosed={**GOOGLE_BAND, "bonus_pct": None}, baselines=BASELINES,
+    )
+    assert pkg["stated"] == {"low": 240000, "high": 334000}
+    assert (pkg["components"], pkg["total"]) == ([], None)
+    assert pkg["no_split_reason"] == NO_SPLIT_EMPLOYEE_ELECTION
+
+
+def test_a_company_whose_people_pick_stock_types_is_still_split():
+    """Spotify's people pick between stock vehicles, not between cash and
+    stock: the election rule alone does not refuse a split."""
+    pkg = build_job_package(
+        company="spotify", band="staff", family="software_engineering",
+        comp_low=400000, comp_median=500000, comp_high=600000, comp_provenance="estimated",
+        disclosed={"disclosed": False}, baselines={},
+    )
+    assert pkg["no_split_reason"] is None
+    assert {c["kind"] for c in pkg["components"]} >= {"base", "equity"}
+
 def test_checked_but_nothing_stated_is_estimate_only():
     pkg = build_job_package(
         **{**GOOGLE_879, "family": "software_engineering"},

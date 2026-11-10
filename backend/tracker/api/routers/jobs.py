@@ -18,8 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from tracker.agents.pursuits import ensure_favorite, lock_role_writes, public_pursuit
-from tracker.analytics.comp_package import build_job_package, country_rows, select_baselines
 from tracker.analytics.pay_floor import floor_check
+from tracker.api.comp_packages import baselines_for, role_package, shown_source
 from tracker.api.deps import MAX_WINDOW_DAYS, OffBoardDep, Offset, PageReadsDep, SessionDep
 from tracker.api.errors import ErrorCode, api_error
 from tracker.api.schemas.jobs import (
@@ -36,7 +36,6 @@ from tracker.api.schemas.jobs import (
 )
 from tracker.api.schemas.text_class import text
 from tracker.api.serializers.jobs import application_form_view, serialize_job
-from tracker.comp_providers.base import OUR_PAY_COUNTRY
 from tracker.company_store import visible_company_names
 from tracker.db.models import (
     FEEDBACK_REASONS,
@@ -74,7 +73,6 @@ from tracker.db.queries.listing_history import lineage_members, listing_history,
 from tracker.db.queries.reference_pay import package_rows
 from tracker.enrich.enricher import ESTIMATE_FIELDS
 from tracker.plugins.registry import PAY_LEVELS, reader_providers
-from tracker.schema import OUR_ESTIMATE_SOURCE, UNPLACED_BASIS_VALUES
 from tracker.search.best_match import (
     IntentRanking,
     RankedRow,
@@ -416,7 +414,7 @@ async def get_job(job_id: int, session: SessionDep) -> dict:
     # stored copy and no breakdown, never an old observation's, whose list
     # can name both sources.
     providers = await reader_providers(session)
-    shown = providers.source_for(PAY_LEVELS) or OUR_ESTIMATE_SOURCE
+    shown = shown_source(providers)
     # Who answers pay here and whether it has read this company: a
     # company the plugin has not read says "not covered", never a bare dash.
     data["pay_source"] = providers.answering(PAY_LEVELS, job.company)
@@ -426,38 +424,16 @@ async def get_job(job_id: int, session: SessionDep) -> dict:
     data["comp_sources"] = list(estimate.sources or []) if estimate is not None else []
 
     # The comp package: what is cash / bonus / equity, and which of those the employer
-    # actually stated. Anchored on the disclosed base when there is one, scaled
-    # by this company's measured per-level split. Keyed by family too, so the derivation
-    # can tell a same-family split from a borrowed one.
+    # actually stated, built as the Stock tab builds it (`api.comp_packages`).
     # Only rungs for the posting's own country measure it: none when it names
     # places in several countries.
     country = pay_country(job.location_groups)
-    baseline_rows = await package_rows(session, providers, job.company, country)
-    # Several ladder rungs collapse into one band, so which row represents the
-    # band is a decision, not a detail — see `select_baselines`. A worldwide-mix
-    # row is not US pay and never measures a posting.
-    baselines = select_baselines(country_rows(baseline_rows, country))
-    data["comp_package"] = build_job_package(
-        company=job.company,
-        band=job.level_band,
-        family=job.family,
-        comp_low=data["comp_low"],
-        comp_median=data["comp_median"],
-        comp_high=data["comp_high"],
-        comp_provenance=data["comp_provenance"],
+    data["comp_package"] = role_package(
+        job,
+        data,
+        baselines=baselines_for(await package_rows(session, providers, job.company, country), country),
+        providers=providers,
         disclosed=data.get("disclosed_comp"),
-        baselines=baselines,
-        base_estimate=(
-            {"low": data["comp_base_low"], "median": data["comp_base_median"], "high": data["comp_base_high"],
-             "provider": data["comp_provider"], "as_of": data["comp_as_of"]}
-            if data["comp_base_median"] is not None else None
-        ),
-        heuristic=shown == OUR_ESTIMATE_SOURCE,
-        # Our split heuristic is measured on US pay only.
-        us_pay=country == OUR_PAY_COUNTRY,
-        covered=data["pay_source"]["covered"],
-        # A NULL basis is an older row whose band was read as a level.
-        level_placed=job.level_basis not in UNPLACED_BASIS_VALUES,
     )
 
     events = (

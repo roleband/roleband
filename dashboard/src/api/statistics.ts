@@ -89,15 +89,23 @@ export type LevelGuideCell = Schemas["LevelGuideCell"];
 /** The label shown and every spelling of the rungs behind it. */
 export type LevelGuideEntry = Schemas["LevelGuideEntry"];
 
-/** A median package whose base, bonus and equity sum to `median_tc`. `split_source`
- *  says whether the split was MEASURED or ESTIMATED; never present a guess as an
- *  observation. */
+/** A median package whose base, bonus and equity sum to `median_tc`. `sources`
+ *  says where each part comes from (posted, company rule, measured, estimated
+ *  or mixed); never present an estimate as a posted or measured figure. */
 export type CompPackage = Schemas["CompPackage"];
 
+/** Where one part of a package comes from. */
+export type CompPartSource = Schemas["PartSources"]["base"];
+
 /** A trajectory company. Only a listed one names its `ticker`, so read it through
- *  `in`. A listed cash election (Netflix) carries ~0% equity and does not move with
- *  its stock at all. */
+ *  `in`. */
 export type CompTrajectoryCompany = Schemas["TrajectoryPublicCompany"] | Schemas["TrajectoryPrivateCompany"];
+
+/** A company where each person picks the cash and equity mix: a total, no split. */
+export type CompTrajectoryChoice = Schemas["TrajectoryChoiceCompany"];
+
+/** Roles with total compensation the tab does not split, by reason. */
+export type CompTrajectorySetApart = Schemas["TrajectorySetApart"];
 
 /** `GET /api/statistics/comp-trajectory`. */
 export type CompTrajectory = Schemas["CompTrajectoryResponse"];

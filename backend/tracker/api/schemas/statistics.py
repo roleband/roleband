@@ -37,7 +37,6 @@ from tracker.api.schemas.text_class import text
 # Held to their sources by `tests/test_api_statistics_contract.py`.
 CompTrendDim = Literal["overall", "company", "level", "family"]
 DisclosureTrendDim = Literal["overall", "company", "level"]
-SplitSource = Literal["measured", "heuristic", "mixed"]
 ModelSource = Literal["measured", "heuristic"]
 BonusSource = Literal["stated", "modeled"]
 
@@ -280,6 +279,21 @@ class EquityAssumptions(Built):
     equity_by_band: dict[str, float]
 
 
+PartSource = Literal["posted", "company_rule", "measured", "estimated", "mixed"]
+SetApartReason = Literal[
+    "not_us_pay", "level_unplaced", "base_only", "basis_unclear", "hourly", "monthly",
+    "period_unclear", "total_compensation", "plugin_without_split", "plugin_not_covered",
+]
+
+
+class PartSources(Built):
+    """Where each part of a package comes from (`analytics.stock_trajectory`)."""
+
+    base: PartSource
+    bonus: PartSource
+    equity: PartSource
+
+
 class CompPackage(Built):
     """A median package: base, bonus and equity always sum to `median_tc`."""
 
@@ -289,13 +303,14 @@ class CompPackage(Built):
     bonus: int
     equity: int
     equity_pct: float
-    split_source: SplitSource
+    sources: PartSources
 
 
 class TrajectoryPrivateCompany(CompPackage, _CompanyKey):
-    """`company` first, then its package and equity vehicle."""
+    """`company` first, then its package, its equity vehicle and the vesting it states."""
 
     equity_vehicle: str | None
+    vesting: str | None
 
 
 class TrajectoryPublicCompany(TrajectoryPrivateCompany):
@@ -304,14 +319,31 @@ class TrajectoryPublicCompany(TrajectoryPrivateCompany):
     ticker: str | None
 
 
+class TrajectoryChoiceCompany(_CompanyKey):
+    """A company where each person picks the cash and stock mix: a total, no split."""
+
+    ticker: str | None
+    count: int
+    median_tc: int
+    total_source: Literal["posted", "estimated", "mixed"]
+
+
+class TrajectorySetApart(Built):
+    """Roles with a pay figure the tab does not split, by reason."""
+
+    reason: SetApartReason = Field(json_schema_extra=text("code"))
+    count: int
+
+
 class CompTrajectoryResponse(Built):
     """`GET /api/statistics/comp-trajectory`."""
 
     currency: Literal["USD"]
-    assumptions: EquityAssumptions
     overall: CompPackage | None
     public: list[TrajectoryPublicCompany]
     private: list[TrajectoryPrivateCompany]
+    choice: list[TrajectoryChoiceCompany]
+    set_apart: list[TrajectorySetApart]
 
 
 class ImpliedDollars(Built):

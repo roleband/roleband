@@ -277,10 +277,12 @@ test("every Insights tab opens with the same hero, named by its tab", async ({ p
     "/api/statistics/comp-trends**": { dim: "overall", days: 30, dates: [], series: [] },
     "/api/statistics/disclosure-trends**": { dim: "overall", days: 30, basis: "base", dates: [], series: [], cohort: null },
     "/api/statistics/comp-trajectory": {
-      currency: "USD", assumptions: { bonus_pct: 0.12, equity_by_band: { senior: 0.35 } },
-      overall: { count: 3, median_tc: 600_000, base: 300_000, bonus: 60_000, equity: 240_000, equity_pct: 0.4, split_source: "measured" },
-      public: [{ company: "google", ticker: "GOOGL", equity_vehicle: "rsu", split_source: "measured", count: 3, median_tc: 600_000, base: 300_000, bonus: 60_000, equity: 240_000, equity_pct: 0.4 }],
-      private: [],
+      currency: "USD",
+      overall: { count: 3, median_tc: 600_000, base: 300_000, bonus: 60_000, equity: 240_000, equity_pct: 0.4,
+                 sources: { base: "posted", bonus: "company_rule", equity: "estimated" } },
+      public: [{ company: "google", ticker: "GOOGL", equity_vehicle: "rsu", vesting: null, count: 3, median_tc: 600_000, base: 300_000, bonus: 60_000, equity: 240_000, equity_pct: 0.4,
+                 sources: { base: "posted", bonus: "company_rule", equity: "estimated" } }],
+      private: [], choice: [], set_apart: [],
     },
     "/api/skills/top**": {
       items: [
