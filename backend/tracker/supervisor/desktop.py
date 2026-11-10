@@ -75,6 +75,17 @@ async def _prepare_process(stop: asyncio.Event, development: bool, action: str) 
         await asyncio.to_thread(process.wait)
 
 
+async def _database_failed(stop: asyncio.Event, what: str) -> int:
+    """Report a database that could not be prepared, then wait to be stopped. Called while the failure is handled.
+
+    The native host reads the failure from the responder and offers what fits: Undo after an update, Restart
+    otherwise. An exit would read as a crash that each restart repeats."""
+    logger.exception(what)
+    preparation.update(DATA_DIR, database="failed", reason="database_failed")
+    await stop.wait()
+    return 0
+
+
 async def run(marker: str, *, development: bool, fixture: bool, dry_run: bool) -> int:
     if sys.platform != "win32":
         raise ValueError("The desktop engine requires Windows")
@@ -126,18 +137,17 @@ async def run(marker: str, *, development: bool, fixture: bool, dry_run: bool) -
         with PreparationServer("127.0.0.1", 0):
             # The database is owned here, outside every cancellable trampoline.
             server = await asyncio.to_thread(settings.ensure_embedded_server)
-            await asyncio.to_thread(checkpoint_pending_migration, server)
+            try:
+                # Nothing migrates without its checkpoint.
+                await asyncio.to_thread(checkpoint_pending_migration, server)
+            except Exception:
+                return await _database_failed(stop, "pre-migration checkpoint failed")
             if stop.is_set():
                 return 0
             try:
                 prepared = await _prepare_process(stop, development, "prepare")
             except (subprocess.CalledProcessError, TimeoutError):
-                # The native host reads the failure from the responder and offers what fits: Undo after an
-                # update, Restart otherwise. An exit would read as a crash that each restart repeats.
-                logger.exception("database preparation failed")
-                preparation.update(DATA_DIR, database="failed", reason="database_failed")
-                await stop.wait()
-                return 0
+                return await _database_failed(stop, "database preparation failed")
             if not prepared:
                 return 0
             preparation.update(DATA_DIR, database="ready", model="unused" if dry_run else "waiting")

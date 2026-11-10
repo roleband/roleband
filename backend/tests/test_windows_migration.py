@@ -343,3 +343,24 @@ class TestTheEngine:
         assert engine.returncode == 0, output[-3000:]
         assert _heads(retained) == [PREVIOUS], "the failed upgrade rolled back"
         assert _record(retained)["from_heads"] == [PREVIOUS], "the checkpoint made before it stays recorded"
+
+    def test_a_failed_checkpoint_is_reported_by_an_engine_that_waits_to_be_stopped(self, retained):
+        """The engine takes the checkpoint itself before preparation; when it cannot, nothing migrates and the
+        failure is reported the same way, never as an exit each restart repeats."""
+        (retained / "recovery").mkdir()
+        (retained / "recovery" / "pre-migration").write_text("not a directory")
+        engine = _engine(retained)
+        try:
+            deadline = time.monotonic() + 600
+            while _database_state(retained) != "failed" and engine.poll() is None and time.monotonic() < deadline:
+                time.sleep(0.5)
+            reported = _database_state(retained)
+            time.sleep(3)
+            running = engine.poll() is None
+        finally:
+            output = _stop(engine)
+        assert reported == "failed", output[-3000:]
+        assert running, "the engine stays up, answering, until it is told to stop"
+        assert engine.returncode == 0, output[-3000:]
+        assert _heads(retained) == [PREVIOUS], "nothing migrated"
+        assert not (retained / "recovery" / "pre-migration.json").exists()
