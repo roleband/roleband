@@ -17,8 +17,10 @@ restores into a new UUID-named directory. Earlier attempts and completed journal
 remain available for diagnosis.
 
 Write journal changes to a fresh file, flush its contents, then replace the journal
-with Windows [MoveFileExW](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-movefileexw)
-using replacement and write-through flags. Record `verifying` before starting the
+through the temporary file's handle with
+[POSIX replacement semantics](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_rename_information)
+and flush the result, as decision 0007 describes: a reader that shares deletion keeps
+the snapshot it opened. Record `verifying` before starting the
 scratch cluster and `verified` only after the checkpoint verifier confirms matching
 history, a rollback-only write and cluster shutdown. An exception records `failed`;
 process termination leaves the previous durable record.

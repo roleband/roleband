@@ -7,6 +7,7 @@ the location-group surface for callers that import it from here.
 
 from __future__ import annotations
 
+import sys
 from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, TypedDict
@@ -519,10 +520,18 @@ class Settings(BaseSettings):
         five entrypoints (API, scheduler, watchdog, CLI, backup) inherit it with
         no per-entrypoint wiring.
         """
-        from tracker.platform.embedded_db import claim_cluster, ensure_server
+        from tracker.platform.embedded_db import EmbeddedDbError, claim_cluster, ensure_server
+        from tracker.platform.paths import within_installed_data
 
         if PACKAGED:
             claim_cluster(self.embedded_pgdata(), "app")
+        elif sys.platform == "win32" and within_installed_data(self.embedded_pgdata()):
+            # On Windows the default state folder is the installed app's. A source run opening its cluster would
+            # migrate it without the checkpoint the app takes before every migration.
+            raise EmbeddedDbError(
+                f"A source run does not open the installed app's database ({self.embedded_pgdata()}). "
+                "Set ROLEBAND_PGDATA to a folder of its own."
+            )
         memory = total_memory_bytes()
         return ensure_server(
             self.embedded_pgdata(),

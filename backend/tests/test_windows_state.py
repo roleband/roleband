@@ -134,6 +134,31 @@ def test_checkpoint_command_refuses_installed_state(installed_roots, monkeypatch
     assert not (tmp_path / "checkpoint").exists()
 
 
+def test_a_source_run_never_opens_an_installed_app_s_database(installed_roots, monkeypatch, tmp_path):
+    """By default a source run's state folder is the installed app's; it refuses that database before starting
+    anything, opens one of its own, and an installed engine still opens its own."""
+    import tracker.config as config
+    import tracker.platform.embedded_db as embedded
+    from tracker.config import Settings
+    from tracker.platform.embedded_db import EmbeddedDbError
+
+    for name in ("ROLEBAND_STATE_DIR", "ROLEBAND_PGDATA"):
+        monkeypatch.delenv(name, raising=False)
+    started: list = []
+    monkeypatch.setattr(embedded, "ensure_server", lambda pgdata, **_kwargs: started.append(pgdata) or "server")
+    monkeypatch.setattr(embedded, "claim_cluster", lambda pgdata, owner: None)
+    monkeypatch.setattr(config, "PACKAGED", False)
+    for pgdata in (None, str(installed_roots[1] / "db")):
+        with pytest.raises(EmbeddedDbError, match="ROLEBAND_PGDATA"):
+            Settings(_env_file=None, db_pgdata=pgdata).ensure_embedded_server()
+    assert started == []
+    own = tmp_path / "source" / "db"
+    assert Settings(_env_file=None, db_pgdata=str(own)).ensure_embedded_server() == "server"
+    monkeypatch.setattr(config, "PACKAGED", True)
+    assert Settings(_env_file=None).ensure_embedded_server() == "server"
+    assert started == [own, installed_roots[0] / "data" / "db"]
+
+
 def test_a_junction_into_installed_state_is_still_installed_state(installed_roots, tmp_path):
     import _winapi
 

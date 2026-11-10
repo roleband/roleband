@@ -45,12 +45,16 @@ def checkpoint_before_migration(server: EmbeddedServer, state: Path, current: It
 
     record = state / RECORD
     if record.exists():
+        update = _preparing_update(state)
         try:
             recorded = read_json(record)
-        except StorageCompatibilityError:
+        except StorageCompatibilityError as error:
+            # Unreadable, the record may be the one from before this update (the update journal counts it as
+            # migrated), and a new checkpoint would take its place.
+            if update is not None:
+                raise CheckpointError("The checkpoint record from before this update is damaged; preserve it for repair") from error
             recorded = {}
         previous = Path(str(recorded.get("checkpoint", "")))
-        update = _preparing_update(state)
         # An update has one way back: the checkpoint from before its first migration. A newer release taking over a
         # failed update migrates whatever the failed version left, never ready and never written to by the person,
         # and Undo still restores the data from before either. A new checkpoint would hold what that migration left,

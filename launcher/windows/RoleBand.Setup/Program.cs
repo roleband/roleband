@@ -125,8 +125,10 @@ internal sealed class Installer(NativeCopy copy, InstallRelease? release)
                 });
                 return false;
             case SetupWindow.Cancel when Volatile.Read(ref busy) == 1:
-                // Only a download stops when asked; trusting and Windows' install run to their end.
-                download?.Cancel();
+                // Only a download stops when asked; trusting and Windows' install run to their end. A download that
+                // has just ended may have disposed its source, and nothing may escape the dialog's callback.
+                try { Volatile.Read(ref download)?.Cancel(); }
+                catch (ObjectDisposedException) { }
                 return false;
             default:
                 return true;
@@ -145,6 +147,7 @@ internal sealed class Installer(NativeCopy copy, InstallRelease? release)
             // permission, and the download's size is known from its first byte.
             using (download = new CancellationTokenSource())
                 file = await feed.MetadataAsync(release, download.Token);
+            Volatile.Write(ref download, null);
             Window.Navigate(new Page(copy["windows-setup-approving"], null, PageIcon.App, [], Waiting: true));
             if (!await ApproveAsync())
             {
@@ -163,6 +166,7 @@ internal sealed class Installer(NativeCopy copy, InstallRelease? release)
                 });
                 package = await feed.PackageAsync(release, file, folder, progress, download.Token);
             }
+            Volatile.Write(ref download, null);
             // Windows' own check of the signature, whose signer must be the certificate this Setup trusted.
             if (WindowsSignature.Signer(package) is not { } signer || !signer.AsSpan().SequenceEqual(release.Certificate))
                 throw new NotTheRelease("The package is not signed with RoleBand's certificate.");

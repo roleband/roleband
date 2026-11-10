@@ -115,6 +115,32 @@ class TestTheGuard:
         assert _record(state)["checkpoint"] == str(first), "the record still names the update's way back"
         assert _checkpoints(state) == ([first.name] if damage == "archive" else []), "no other checkpoint replaces it"
 
+    @pytest.mark.parametrize("updating", [True, False], ids=["during-an-update", "no-update"])
+    def test_an_unreadable_record_stops_a_migration_only_during_an_update(self, server, tmp_path, updating):
+        """During an update the record may name the way back from before it, so nothing replaces it; outside one, a
+        new checkpoint protects the data as it is."""
+        from tracker.platform import windows_update_journal as journal
+        from tracker.platform.windows_checkpoint import CheckpointError
+        from tracker.platform.windows_migration import checkpoint_before_migration
+        from tracker.platform.windows_private import private_directory
+
+        state = tmp_path / "state"
+        private_directory(state)
+        if updating:
+            journal.begin(state, from_version="0.1.2", to_version="0.1.3", package=tmp_path / "u.msix", package_sha256="a" * 64)
+            journal.resume(state, "0.1.3")
+        first = checkpoint_before_migration(server, state, {"fixture_revision"}, {"next_revision"})
+        record = state / "recovery" / "pre-migration.json"
+        record.write_bytes(b"{not json")
+        if updating:
+            with pytest.raises(CheckpointError):
+                checkpoint_before_migration(server, state, {"failed_revision"}, {"newer_revision"})
+            assert record.read_bytes() == b"{not json", "the damaged record is kept for repair"
+            assert _checkpoints(state) == [first.name], "no other checkpoint replaces it"
+        else:
+            second = checkpoint_before_migration(server, state, {"fixture_revision"}, {"next_revision"})
+            assert second != first and _record(state)["checkpoint"] == str(second)
+
     def test_a_damaged_archive_is_not_reused(self, server, tmp_path):
         from tracker.platform.windows_migration import checkpoint_before_migration
 

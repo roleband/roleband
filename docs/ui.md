@@ -164,7 +164,7 @@ it: a task turned off in Startup apps says so with a link there, one set by poli
 policy's value and cannot be changed, and a copy without a package has no startup task and no row.
 In your browser opens Scan times and All settings. About names where the scan history is kept, that
 uninstalling keeps it, and opens it in File Explorer, with the version, the licence and the logs
-folder. The notices switch comes with Windows notifications.
+folder.
 
 **Updating.** An offer puts Update, the gold press, beside Check for updates. While scanning runs it
 is also a gold-tinted banner under the flyout's summary, with a download glyph, the version and its

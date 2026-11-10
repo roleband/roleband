@@ -805,10 +805,28 @@ async def test_the_plugin_environment_carries_nothing_of_ours(db_session, tmp_pa
     assert result.outcome == "partial" or result.outcome == "clean"
     keys = next(m for m in logged if m.startswith("plugin:plugin-template ")).split(" ", 1)[1].split(",")
     assert "ROLEBAND_DATABASE_URL" not in keys and "ANTHROPIC_API_KEY" not in keys
-    assert set(keys) <= {"PATH", "HOME", "LANG", "LC_ALL", "TMPDIR",
-                         "__CF_USER_TEXT_ENCODING", "LC_CTYPE",
-                         # Windows: the system, temporary and profile folders any process there needs.
-                         "SYSTEMROOT", "TEMP", "TMP", "USERPROFILE"}
+    allowed = {"PATH", "HOME", "LANG", "LC_ALL", "TMPDIR", "__CF_USER_TEXT_ENCODING", "LC_CTYPE"}
+    if sys.platform == "win32":
+        # The system, temporary and profile folders any process there needs.
+        allowed |= {"SYSTEMROOT", "TEMP", "TMP", "USERPROFILE"}
+    assert set(keys) <= allowed
+
+
+@pytest.mark.parametrize(("system", "machine", "expected"), [
+    ("win32", "AMD64", "windows-x86_64.txt"),
+    ("darwin", "arm64", "macos-arm64.txt"),
+    ("linux", "x86_64", "linux-x86_64.txt"),
+    ("linux", "aarch64", "linux-aarch64.txt"),
+])
+async def test_an_unlocked_plugin_installs_under_its_own_platform_s_pins(monkeypatch, system, machine, expected):
+    """Each platform's pins differ: on Windows the Linux file names versions the core does not run."""
+    from tracker.plugins import install as installer
+
+    monkeypatch.setattr(installer.sys, "platform", system)
+    monkeypatch.setattr(installer.platform, "machine", lambda: machine)
+    constraints = installer.constraints_file()
+    assert constraints.name == expected
+    assert constraints.is_file()
 
 
 async def test_a_plugin_is_paced_at_its_own_delay_never_faster_than_the_core():

@@ -138,8 +138,12 @@ def inspect(source: Path) -> Inspected:
 
 def constraints_file() -> Path:
     machine = platform.machine().lower()
-    name = "macos-arm64.txt" if sys.platform == "darwin" else (
-        "linux-aarch64.txt" if machine in ("aarch64", "arm64") else "linux-x86_64.txt")
+    if sys.platform == "win32":
+        name = "windows-x86_64.txt"
+    elif sys.platform == "darwin":
+        name = "macos-arm64.txt"
+    else:
+        name = "linux-aarch64.txt" if machine in ("aarch64", "arm64") else "linux-x86_64.txt"
     return backend_dir(REPO_ROOT) / "constraints" / name
 
 

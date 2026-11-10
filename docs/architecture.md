@@ -656,7 +656,7 @@ migrations.
 - **Saved keys.** A key saved in Settings is stored as `sealed:v1:<Fernet token>`
   (`tracker/platform/secrets.py`). The Fernet key is `secret.key` in the app's
   state folder (`ROLEBAND_STATE_DIR`, else `~/.roleband` on macOS and Linux and
-  `%LOCALAPPDATA%\RoleBand` on Windows) unless `ROLEBAND_SECRET_KEY_FILE` names
+  `%LOCALAPPDATA%\RoleBand\data` on Windows) unless `ROLEBAND_SECRET_KEY_FILE` names
   another file. It is created on the first save, readable by this account only
   (mode 0600, or on Windows an access list naming only this account and SYSTEM),
   and never inside `data/`, so no dump or database backup holds it; a copy of the
