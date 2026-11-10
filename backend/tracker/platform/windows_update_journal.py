@@ -4,8 +4,9 @@ Windows replaces the package outside any transaction RoleBand controls, and the 
 may not run again. So the journal is written before the replacement and settled by whichever
 version starts next: the new version moves it to `preparing` and, once its database is
 prepared and healthy, to `complete`; the old version finding it still `applying` knows the
-switch never happened. While it says `applying`, `failed` or `recovering`, nothing opens the
-database. `preparing` is allowed: the engine lease already keeps a second engine out.
+switch never happened, and puts back the database when a failed version of the update had
+migrated it. While it says `applying`, `failed` or `recovering`, nothing opens the database.
+`preparing` is allowed: the engine lease already keeps a second engine out.
 """
 
 from __future__ import annotations
@@ -81,6 +82,36 @@ def _write(state: Path, record: dict[str, Any]) -> dict[str, Any]:
     return record
 
 
+def failed_in(record: dict[str, Any] | None, running: str) -> bool:
+    """Whether `running` is the new version of the unsettled update `record`, and that update failed, an Undo Windows
+    did not carry out included. From there Undo returns to the previous version, and a newer release takes over."""
+    return record is not None and record["phase"] in {"failed", "recovering"} and running == record["to_version"]
+
+
+def way_back(record: dict[str, Any] | None, running: str) -> str:
+    """The version an update begun by `running` returns to on Undo: the running one, or, when it takes over a failed
+    update, the version from before that update, whose checkpoint Undo restores."""
+    return record["from_version"] if record is not None and failed_in(record, running) else running
+
+
+def _checkpoint_record(state: Path) -> Path:
+    return state / "recovery" / "pre-migration.json"
+
+
+def _migrated(state: Path, record: dict[str, Any]) -> bool:
+    """Whether a version of this update may have migrated the database: the pre-migration checkpoint was made for
+    it, or its record cannot be read to say otherwise."""
+    from tracker.platform.windows_storage import StorageCompatibilityError, read_json
+
+    marker = _checkpoint_record(state)
+    if not marker.exists():
+        return False
+    try:
+        return read_json(marker).get("update_id") == record["id"]
+    except StorageCompatibilityError:
+        return True
+
+
 def begin(state: Path, *, from_version: str, to_version: str, package: Path, package_sha256: str) -> dict[str, Any]:
     """Record the replacement about to happen; refused while another update is unsettled."""
     state = checked_path(state)
@@ -88,8 +119,7 @@ def begin(state: Path, *, from_version: str, to_version: str, package: Path, pac
     if current is not None and current["phase"] not in RESOLVED:
         # A newer release takes over a failed update from the failed version. The update keeps its id and its
         # previous version, so Undo still returns to the version and the checkpoint from before it began.
-        if (current["phase"] == "failed" and from_version == current["to_version"]
-                and stable_version(to_version) > stable_version(from_version)):
+        if failed_in(current, from_version) and stable_version(to_version) > stable_version(from_version):
             return _write(state, {**current, "to_version": to_version, "package": str(package),
                                   "package_sha256": package_sha256, "phase": "applying"})
         raise RecoveryError("Another Windows update is unsettled; settle it first")
@@ -113,8 +143,10 @@ def resume(state: Path, running: str) -> dict[str, Any] | None:
         return _write(state, {**record, "to_version": running, "phase": "preparing"})
     if record["phase"] == "applying" and running == record["to_version"]:
         return _write(state, {**record, "phase": "preparing"})
+    # The switch never happened. A takeover may still have left the failed version's migration in the database: then
+    # this version finishes the update as Undo would, putting back the database from before it.
     if record["phase"] == "applying" and running == record["from_version"]:
-        return _write(state, {**record, "phase": "aborted"})
+        return _write(state, {**record, "phase": "recovering" if _migrated(state, record) else "aborted"})
     # The previous version installed again by hand over an update that never became ready: the same as Undo, so this
     # version finishes it, putting back the database from before the update.
     if record["phase"] in {"preparing", "failed"} and running == record["from_version"]:
@@ -156,7 +188,7 @@ def recover_database(state: Path, running: str) -> dict[str, Any]:
     record = read(state)
     if record is None or record["phase"] != "recovering" or running != record["from_version"]:
         raise RecoveryError("Recovery finishes only in the previous version")
-    marker = state / "recovery" / "pre-migration.json"
+    marker = _checkpoint_record(state)
     try:
         checkpoint = read_json(marker) if marker.exists() else {}
     except StorageCompatibilityError as error:

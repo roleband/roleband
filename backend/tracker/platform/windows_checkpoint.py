@@ -279,6 +279,27 @@ def create_checkpoint(server: EmbeddedServer, destination: Path, verification_st
     return destination
 
 
+def intact(server: EmbeddedServer, directory: Path) -> dict[str, Any] | None:
+    """The manifest of a published, verified checkpoint of this server's database whose archive is whole, or None:
+    private ordinary storage, a manifest within its limit and an archive matching its digest and size."""
+    try:
+        directory = checked_path(directory)
+        _ordinary(directory, directory=True)
+        path = directory / "checkpoint.json"
+        _ordinary(path)
+        if path.stat().st_size > MANIFEST_LIMIT:
+            return None
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        if (not isinstance(manifest, dict) or manifest.get("format") != 1 or manifest.get("verified") is not True
+                or manifest.get("source_database") != server.database
+                or manifest.get("source_pgdata") != str(server.pgdata.resolve())):
+            return None
+        _archive(directory, manifest)
+    except (OSError, ValueError, CheckpointError):
+        return None
+    return manifest
+
+
 def still_matches(server: EmbeddedServer, directory: Path) -> bool:
     """Whether a published, verified checkpoint holds exactly what the live database holds now.
 
@@ -287,20 +308,8 @@ def still_matches(server: EmbeddedServer, directory: Path) -> bool:
     """
     from tracker.platform.windows_storage import retained_profile
 
-    try:
-        directory = checked_path(directory)
-        _ordinary(directory, directory=True)
-        path = directory / "checkpoint.json"
-        _ordinary(path)
-        if path.stat().st_size > MANIFEST_LIMIT:
-            return False
-        manifest = json.loads(path.read_text(encoding="utf-8"))
-        if (not isinstance(manifest, dict) or manifest.get("format") != 1 or manifest.get("verified") is not True
-                or manifest.get("source_database") != server.database
-                or manifest.get("source_pgdata") != str(server.pgdata.resolve())):
-            return False
-        _archive(directory, manifest)
-    except (OSError, ValueError, CheckpointError):
+    manifest = intact(server, directory)
+    if manifest is None:
         return False
     owner = server.pgdata.parent / f"{server.pgdata.name}.owner.json"
     if manifest.get("retained_profile") != (retained_profile(server.pgdata) if owner.exists() else None):

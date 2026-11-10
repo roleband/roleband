@@ -85,6 +85,36 @@ class TestTheGuard:
         assert _record(state)["from_heads"] == ["fixture_revision"]
         assert len(_checkpoints(state)) == 1
 
+    @pytest.mark.parametrize("damage", ["archive", "missing"])
+    def test_a_damaged_checkpoint_from_before_an_update_stops_its_next_migration(self, server, tmp_path, damage):
+        """A newer release taking over a failed update would checkpoint what the failed version's migration left, and
+        Undo would then restore that. Without the whole checkpoint from before the update, nothing migrates."""
+        import shutil
+
+        from tracker.platform import windows_update_journal as journal
+        from tracker.platform.windows_checkpoint import CheckpointError
+        from tracker.platform.windows_migration import checkpoint_before_migration
+        from tracker.platform.windows_private import private_directory
+
+        state = tmp_path / "state"
+        private_directory(state)
+        journal.begin(state, from_version="0.1.2", to_version="0.1.3", package=tmp_path / "u.msix", package_sha256="a" * 64)
+        journal.resume(state, "0.1.3")
+        first = checkpoint_before_migration(server, state, {"fixture_revision"}, {"next_revision"})
+        psql(server, "INSERT INTO job_observations VALUES (2,'2026-11-09',null)")
+        if damage == "archive":
+            with (first / "database.dump").open("r+b") as archive:
+                archive.seek(-1, os.SEEK_END)
+                last = archive.read(1)
+                archive.seek(-1, os.SEEK_END)
+                archive.write(bytes([last[0] ^ 1]))
+        else:
+            shutil.rmtree(first)
+        with pytest.raises(CheckpointError):
+            checkpoint_before_migration(server, state, {"failed_revision"}, {"newer_revision"})
+        assert _record(state)["checkpoint"] == str(first), "the record still names the update's way back"
+        assert _checkpoints(state) == ([first.name] if damage == "archive" else []), "no other checkpoint replaces it"
+
     def test_a_damaged_archive_is_not_reused(self, server, tmp_path):
         from tracker.platform.windows_migration import checkpoint_before_migration
 

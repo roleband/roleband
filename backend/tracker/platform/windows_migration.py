@@ -33,26 +33,35 @@ def checkpoint_before_migration(server: EmbeddedServer, state: Path, current: It
     unprotected data. A retry after a failed migration reuses the recorded checkpoint
     when the database still matches it, since a failed upgrade rolls back.
     """
-    from tracker.platform.windows_checkpoint import PRE_MIGRATION, create_checkpoint, still_matches
+    from tracker.platform.windows_checkpoint import (
+        PRE_MIGRATION,
+        CheckpointError,
+        create_checkpoint,
+        intact,
+        still_matches,
+    )
     from tracker.platform.windows_private import private_directory
     from tracker.platform.windows_storage import StorageCompatibilityError, read_json, write_json
 
     record = state / RECORD
     if record.exists():
         try:
-            previous = Path(str(read_json(record).get("checkpoint", "")))
+            recorded = read_json(record)
         except StorageCompatibilityError:
-            previous = None
+            recorded = {}
+        previous = Path(str(recorded.get("checkpoint", "")))
         update = _preparing_update(state)
         # An update has one way back: the checkpoint from before its first migration. A newer release taking over a
         # failed update migrates whatever the failed version left, never ready and never written to by the person,
-        # and Undo still restores the data from before either.
-        if (previous is not None and previous.is_absolute() and previous.exists() and update is not None
-                and read_json(record).get("update_id") == update):
+        # and Undo still restores the data from before either. A new checkpoint would hold what that migration left,
+        # so without the whole one from before, nothing migrates.
+        if update is not None and recorded.get("update_id") == update:
+            if not previous.is_absolute() or intact(server, previous) is None:
+                raise CheckpointError("The checkpoint from before this update is damaged; preserve it for repair")
             return previous
-        if previous is not None and previous.is_absolute() and still_matches(server, previous):
-            if read_json(record).get("update_id") != update:
-                write_json(record, {**read_json(record), "update_id": update})
+        if previous.is_absolute() and still_matches(server, previous):
+            if recorded.get("update_id") != update:
+                write_json(record, {**recorded, "update_id": update})
             return previous
     name = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
     checkpoints, checks = state / "recovery" / "pre-migration", state / "recovery" / "pre-migration-checks"

@@ -185,7 +185,8 @@ def _keeper(state, tmp_path):
     identity = Identity("roleband/roleband-trials", key.public_key().public_bytes_raw(), "RoleBand.Windows.Trial",
                         "CN=RoleBand Windows Trial")
 
-    def kept(version):
+    def kept(version, *, running="0.1.2"):
+        """Keep `version`'s package as a download made while `running` runs, which keeping never removes."""
         built = tmp_path / f"built-{version}.msix"
         built.write_bytes(f"PK update {version}".encode() * 100)
         files = prepare(built, tmp_path / f"release-{version}", identity, key, version=version, revision=0,
@@ -193,7 +194,7 @@ def _keeper(state, tmp_path):
         signed = tuple(path.read_bytes() for path in files[1:])
         offer = verify_offer(identity, "0.0.0", *signed)
         transport = httpx.MockTransport(lambda request: httpx.Response(200, content=files[0].read_bytes()))
-        return download(state, identity, offer, signed, "0.1.2", transport=transport)
+        return download(state, identity, offer, signed, running, transport=transport)
 
     return identity, kept
 
@@ -267,6 +268,24 @@ class TestRecovery:
             stop_server(retained / "db")
         kept = list((retained / "recovery").glob("restore-*/retained-db/PG_VERSION"))
         assert len(kept) == 1, "the migrated database is kept beside the restored one"
+
+    def test_a_takeover_windows_never_installed_is_undone_by_the_previous_version_installed_by_hand(
+            self, retained, monkeypatch):
+        """0.1.2 to 0.1.3 migrates, then fails; 0.1.4 takes it over and Windows does not install it; the person
+        installs 0.1.2 again by hand. 0.1.2 puts back the database from before 0.1.3's migration."""
+        from tests.test_windows_migration import PREVIOUS, _heads, _prepare
+
+        journal = self._failed_update(retained)
+        assert _prepare(retained).returncode == 0, "the new version migrates behind its checkpoint"
+        assert _heads(retained) != [PREVIOUS]
+        journal.settle(retained, "0.1.3", prepared=False)
+        journal.begin(retained, from_version="0.1.3", to_version="0.1.4", package=retained.parent / "next.msix",
+                      package_sha256=SHA)
+        assert journal.resume(retained, "0.1.2")["phase"] == "recovering"
+        self._as_previous_runtime(monkeypatch, [PREVIOUS])
+        assert journal.recover_database(retained, "0.1.2")["phase"] == "recovered"
+        monkeypatch.undo()
+        assert _heads(retained) == [PREVIOUS], "0.1.2 opens the database it left, not 0.1.3's"
 
     def test_without_a_checkpoint_for_this_update_the_database_stays(self, retained):
         from tests.test_windows_migration import PREVIOUS, _heads
@@ -352,6 +371,38 @@ class TestNoOneIsStuck:
         assert (record["phase"], record["to_version"]) == ("failed", "0.1.3"), "Undo stays one press away"
         assert journal.recover_begin(state, "0.1.3")["phase"] == "recovering"
 
+    @pytest.mark.parametrize(("migrated", "phase", "launchable"), [
+        (True, "recovering", "unfinished"), (False, "aborted", "accepted")])
+    def test_the_previous_version_installed_by_hand_over_a_takeover_puts_back_what_the_failed_version_migrated(
+            self, state, tmp_path, migrated, phase, launchable):
+        """0.1.3 migrated behind its checkpoint, then failed; 0.1.4 takes over, and Windows does not install it; the
+        person installs 0.1.2 by hand. The switch to 0.1.4 never happened, but 0.1.3's schema is in the database:
+        0.1.2 finishes the update as Undo would, and never opens that database as it is."""
+        from tracker.platform import windows_update_journal as journal
+        from tracker.platform.windows_storage import write_json
+
+        failed = _failed(state, tmp_path)
+        if migrated:
+            write_json(state / "recovery" / "pre-migration.json",
+                       {"format": 1, "checkpoint": str(state / "recovery" / "pre-migration" / "c"),
+                        "from_heads": [], "to_heads": [], "created_at": "2026-01-01T00:00:00+00:00",
+                        "update_id": failed["id"]})
+        journal.begin(state, from_version="0.1.3", to_version="0.1.4", package=tmp_path / "next.msix", package_sha256=SHA)
+        assert journal.resume(state, "0.1.2")["phase"] == phase
+        assert _launchable(state) == launchable
+
+    def test_a_newer_release_takes_over_an_update_whose_undo_windows_refused(self, state, tmp_path):
+        """Undo marked the update returning, then Windows did not put the previous version back: the failed version
+        still runs, says the update is unfinished, and offers a newer release."""
+        from tracker.platform import windows_update_journal as journal
+
+        failed = _failed(state, tmp_path)
+        journal.recover_begin(state, "0.1.3")
+        taken = journal.begin(state, from_version="0.1.3", to_version="0.1.4", package=tmp_path / "next.msix",
+                              package_sha256=SHA)
+        assert (taken["id"], taken["from_version"], taken["to_version"], taken["phase"]) == (
+            failed["id"], "0.1.2", "0.1.4", "applying"), "the same update, with the same way back"
+
     @pytest.mark.parametrize("phase", ["applying", "preparing", "failed", "recovering"])
     def test_a_newer_release_installed_by_hand_takes_over_whatever_was_unfinished(self, state, tmp_path, phase):
         from tracker.platform import windows_update_journal as journal
@@ -393,13 +444,15 @@ class TestNoOneIsStuck:
             journal.begin(state, from_version="0.1.3", to_version="0.1.3", package=tmp_path / "n.msix", package_sha256=SHA)
 
     def test_cleaning_up_packages_never_removes_the_version_an_unfinished_update_returns_to(self, state, tmp_path):
+        """The failed version keeps a newer release: of the three, 0.1.2 is neither of the two newest nor the one
+        running, and stays only as the way back."""
         from tracker.platform.windows_packages import retained
 
         identity, kept = _keeper(state, tmp_path)
         kept("0.1.2")
         _failed(state, tmp_path)
-        kept("0.1.3")
-        kept("0.1.4")
+        kept("0.1.3", running="0.1.3")
+        kept("0.1.4", running="0.1.3")
         assert [offer.version for offer, _ in retained(state, identity)] == ["0.1.4", "0.1.3", "0.1.2"]
 
     def test_a_damaged_journal_removes_no_package(self, state, tmp_path):
@@ -409,8 +462,8 @@ class TestNoOneIsStuck:
         identity, kept = _keeper(state, tmp_path)
         kept("0.1.2")
         publish(state / "recovery" / "update.json", b'{"format": 9}')
-        kept("0.1.3")
-        kept("0.1.4")
+        kept("0.1.3", running="0.1.3")
+        kept("0.1.4", running="0.1.3")
         assert len(retained(state, identity)) == 3
 
     def test_undo_downloads_the_previous_version_when_it_is_not_kept(self, state, tmp_path, monkeypatch, capsys):
@@ -467,7 +520,9 @@ class TestNoOneIsStuck:
         assert "no longer published" in answer["reason"]
         assert windows_update_journal.read(state)["phase"] == "failed", "a newer release can still take over"
 
-    def test_a_failed_version_may_begin_a_newer_update_when_the_version_before_it_is_kept(self, state, tmp_path, capsys):
+    @pytest.mark.parametrize("undo_refused", [False, True])
+    def test_a_failed_version_may_begin_a_newer_update_when_the_version_before_it_is_kept(self, state, tmp_path, capsys,
+                                                                                          undo_refused):
         from scripts.windows_update import _begin as begin_command
         from tracker.platform import windows_update_journal
         from tracker.platform.windows_private import private_directory
@@ -475,7 +530,9 @@ class TestNoOneIsStuck:
         identity, kept = _keeper(state, tmp_path)
         kept("0.1.2")
         _failed(state, tmp_path)
-        package = kept("0.1.4")
+        if undo_refused:
+            windows_update_journal.recover_begin(state, "0.1.3")
+        package = kept("0.1.4", running="0.1.3")
         private_directory(state / "launcher")
         assert begin_command(state, identity, package, "0.1.3") == 0, capsys.readouterr().out
         record = windows_update_journal.read(state)

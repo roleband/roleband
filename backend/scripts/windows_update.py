@@ -22,15 +22,22 @@ def identity_path() -> Path:
     return REPO_ROOT / "release-identity.json" if PACKAGED else REPO_ROOT / "launcher" / "windows" / "release-identity.json"
 
 
-def _last_update(state: Path, running: str) -> dict[str, Any] | None:
-    """The last update as the running version sees it: Settings says how it ended, or that it is being undone."""
+def _journal(state: Path) -> dict[str, Any] | None:
+    """The update journal, read once per command; None when there is none, or when it is damaged, which `resume`
+    reports and which keeps the database closed."""
     from tracker.platform import windows_update_journal as journal
     from tracker.platform.windows_recovery import RecoveryError
 
     try:
-        record = journal.read(state)
+        return journal.read(state)
     except RecoveryError:
         return None
+
+
+def _last_update(state: Path, running: str, record: dict[str, Any] | None) -> dict[str, Any] | None:
+    """The last update as the running version sees it: Settings says how it ended, or that it is being undone."""
+    from tracker.platform import windows_update_journal as journal
+
     if record is None:
         return None
     role = "to" if running == record["to_version"] else "from" if running == record["from_version"] else None
@@ -44,20 +51,6 @@ def _last_update(state: Path, running: str) -> dict[str, Any] | None:
 def _held_back(update: dict[str, Any] | None) -> str | None:
     """A version this installation updated to and undid is not offered again; a newer release is."""
     return update["to"] if update is not None and update["phase"] == "recovered" else None
-
-
-def _way_back(state: Path, running: str) -> str:
-    """The version an update from here could be undone to: the running one, or, when the running version is a
-    failed update that a newer release takes over, the version from before that update."""
-    from tracker.platform import windows_update_journal as journal
-    from tracker.platform.windows_recovery import RecoveryError
-
-    try:
-        record = journal.read(state)
-    except RecoveryError:
-        return running
-    failed = record is not None and record["phase"] == "failed" and record["to_version"] == running
-    return record["from_version"] if record is not None and failed else running
 
 
 #: Beyond the packages themselves: Windows' own working files and the room a full disk would leave nothing for.
@@ -142,7 +135,8 @@ def _begin(state: Path, identity: Any, package: Path, running: str) -> int:
     if not found or found[0].version == running:
         print(json.dumps({"status": "refused", "reason": "The package is not a verified retained update."}))
         return 1
-    if not any(offer.version == _way_back(state, running) for offer, _path in kept):
+    way_back = journal.way_back(_journal(state), running)
+    if not any(offer.version == way_back for offer, _path in kept):
         print(json.dumps({"status": "refused", "reason": "The installed version's package is not kept, so the "
                           "update could not be undone. Download the update again."}))
         return 1
@@ -277,7 +271,7 @@ def main(argv: list[str] | None = None) -> int:
         except (ValueError, ReleaseError):
             print(json.dumps({"status": "unavailable", "reason": "This build's update identity is damaged."}))
             return 1
-        update = _last_update(args.state, running_version())
+        update = _last_update(args.state, running_version(), _journal(args.state))
         print(json.dumps({"status": "ok", **status(args.state, identity, running_version(), _held_back(update)),
                           "update": update}))
         return 0
@@ -293,14 +287,17 @@ def main(argv: list[str] | None = None) -> int:
     if args.action == "download":
         from httpx import HTTPError
 
+        from tracker.platform import windows_update_journal as journal
         from tracker.platform.windows_packages import download, retain_running
         from tracker.platform.windows_updates import stored_offer
 
-        stored = stored_offer(args.state, identity, running_version(), _held_back(_last_update(args.state, running_version())))
+        running = running_version()
+        record = _journal(args.state)
+        stored = stored_offer(args.state, identity, running, _held_back(_last_update(args.state, running, record)))
         if stored is None:
             print(json.dumps({"status": "no-offer"}))
             return 1
-        way_back = _way_back(args.state, running_version())
+        way_back = journal.way_back(record, running)
         needed = _space_needed(args.state, stored[0], way_back)
         if shutil.disk_usage(args.state).free < needed:
             print(json.dumps({"status": "failed", "kind": "space", "needed": needed,
@@ -320,13 +317,13 @@ def main(argv: list[str] | None = None) -> int:
                               f"so this update could not be undone. Try again later. ({error})"}))
             return 1
         try:
-            path = download(args.state, identity, stored[0], stored[1], running_version(), progress=progress.part(stored[0].version))
+            path = download(args.state, identity, stored[0], stored[1], running, progress=progress.part(stored[0].version))
         except (OSError, HTTPError, ReleaseError) as error:
             print(json.dumps({"status": "failed", "kind": _failure(error), "reason": str(error)}))
             return 1
         print(json.dumps({"status": "downloaded", "package": str(path), "offer": dataclasses.asdict(stored[0])}))
         return 0
-    update = _last_update(args.state, running_version())
+    update = _last_update(args.state, running_version(), _journal(args.state))
     result = check_feed(args.state, identity, running_version(), manual=args.manual, held_back=_held_back(update))
     from tracker.platform.windows_updates import status
 

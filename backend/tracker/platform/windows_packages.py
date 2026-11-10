@@ -191,8 +191,8 @@ def retained(state: Path, identity: Identity) -> list[tuple[Offer, Path]]:
     return sorted(found, key=lambda item: stable_version(item[0].version), reverse=True)
 
 
-def _way_back(state: Path) -> set[str] | None:
-    """The version an unfinished update returns to, which Undo installs again; None when that cannot be known."""
+def _undo_versions(state: Path) -> set[str] | None:
+    """The version an unsettled update returns to, which Undo installs again; None when that cannot be known."""
     if sys.platform != "win32":
         return set()
     from tracker.platform import windows_update_journal as journal
@@ -208,11 +208,11 @@ def _way_back(state: Path) -> set[str] | None:
 def prune(state: Path, identity: Identity, installed: str) -> None:
     """Keep the newest verified packages, the running version's and the one an unfinished update returns to; older
     ones are re-downloadable releases. Nothing is removed while the update journal cannot be read."""
-    way_back = _way_back(state)
-    if way_back is None:
+    undo = _undo_versions(state)
+    if undo is None:
         return
     for offer, package in retained(state, identity)[KEEP:]:
-        if offer.version == installed or offer.version in way_back:
+        if offer.version == installed or offer.version in undo:
             continue
         package.with_name(package.name + ".release.json").unlink(missing_ok=True)
         package.unlink(missing_ok=True)
