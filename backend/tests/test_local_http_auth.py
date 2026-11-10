@@ -255,6 +255,37 @@ def test_native_client_refuses_a_foreign_listener_without_sending_a_reusable_sec
         thread.join()
 
 
+@pytest.mark.parametrize(("timeout", "waited"), [(0.3, (0.0, 2.0)), (None, (2.5, 6.0))])
+def test_the_native_client_waits_as_long_as_its_caller_says(tmp_path, timeout, waited):
+    """A health pass gives /api/status more time than the client's default; a listener that never answers is given up
+    on at the caller's time, not the default's."""
+    release = threading.Event()
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *_args):
+            pass
+
+        def do_GET(self):
+            release.wait(10)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    authority = Authority(tmp_path / "state", f"http://127.0.0.1:{server.server_port}")
+    client = Client(tmp_path / "state")
+    started = time.monotonic()
+    try:
+        with pytest.raises(OSError):
+            client.request("GET", "/api/status", **({} if timeout is None else {"timeout": timeout}))
+        assert waited[0] <= time.monotonic() - started < waited[1]
+    finally:
+        release.set()
+        authority.close()
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
 def test_preparation_health_is_authenticated_before_any_database_is_opened(tmp_path, monkeypatch):
     from tracker.platform import preparation
     from tracker.supervisor import prepare

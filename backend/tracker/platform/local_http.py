@@ -363,11 +363,11 @@ class Client:
             raise AuthenticationError("Invalid engine discovery")
         self.endpoint, self.secret, self.port = endpoint, secret, port
 
-    def request(self, method: str, target: str, body: bytes = b"") -> tuple[int, bytes]:
+    def request(self, method: str, target: str, body: bytes = b"", *, timeout: float = 3) -> tuple[int, bytes]:
         if not target.startswith("/") or target.startswith("//") or "\r" in target or "\n" in target:
             raise ValueError("Engine requests require an origin-relative target")
         signed = authorization(self.secret, "control", method, target, self.endpoint, body)
-        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=3)
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=timeout)
         try:
             connection.request(method, target, body=body,
                                headers={"Authorization": signed, "Content-Type": "application/json",

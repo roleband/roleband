@@ -199,8 +199,8 @@ async def test_an_authenticated_engine_is_asked_with_a_signed_request(monkeypatc
         def __init__(self, data_dir):
             self.data_dir = data_dir
 
-        def request(self, method, target, body=b""):
-            asked.append((self.data_dir, method, target))
+        def request(self, method, target, body=b"", *, timeout=3.0):
+            asked.append((self.data_dir, method, target, timeout))
             if answer is None:
                 raise OSError("the engine is not listening")
             return answer
@@ -213,7 +213,7 @@ async def test_an_authenticated_engine_is_asked_with_a_signed_request(monkeypatc
         response = await watchdog._http_get(client, "http://127.0.0.1:9", "/api/status", 5.0)
         assert response is not None and response.status_code == 200
         assert response.json() == {"status": "stale"}
-        assert asked == [(watchdog.DATA_DIR, "GET", "/api/status")]
+        assert asked == [(watchdog.DATA_DIR, "GET", "/api/status", 5.0)], "asked with the pass's own wait"
         answer = None
         assert await watchdog._http_get(client, "http://127.0.0.1:9", "/api/health", 3.0) is None
 

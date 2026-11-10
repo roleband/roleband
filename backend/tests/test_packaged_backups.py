@@ -60,10 +60,39 @@ def test_backup_verifies_publishes_monthly_and_prunes_only_daily(server, tmp_pat
     assert not (out / "roleband_20260101_063000.dump").exists()
     assert (out / "monthly" / archive.name).read_bytes() == archive.read_bytes()
     _assert_private(archive, 0o600)
+    _assert_private(out / "monthly", 0o700)
+    _assert_private(out / "monthly" / archive.name, 0o600)
+    if sys.platform != "win32":
+        # The folder and the dumps this test made: the backup narrows them. On Windows they are private because the
+        # test made them so; a folder that is not is refused (below).
+        _assert_private(out, 0o700)
+        for dump in out.rglob("*.dump"):
+            _assert_private(dump, 0o600)
+
+
+def test_a_backup_folder_the_backup_creates_is_private_to_the_account(server, tmp_path):
+    from tracker.platform.backups import dump_database
+
+    out = tmp_path / "user home" / ".roleband" / "backups"
+    archive = dump_database(server, out, now=datetime(2026, 2, 1, 6, 30))
     _assert_private(out, 0o700)
     _assert_private(out / "monthly", 0o700)
-    for dump in out.rglob("*.dump"):
-        _assert_private(dump, 0o600)
+    _assert_private(archive, 0o600)
+    _assert_private(out / "monthly" / archive.name, 0o600)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="POSIX narrows such a folder's mode instead, as tested above")
+def test_a_backup_folder_other_accounts_can_open_is_refused_before_anything_is_written(server, tmp_path):
+    from tracker.platform.backups import dump_database
+    from tracker.platform.windows_private import require_private
+
+    out = tmp_path / "shared" / "backups"
+    out.mkdir(parents=True)
+    with pytest.raises(PermissionError):
+        require_private(out)  # as made: it inherits what the folders above it grant other accounts
+    with pytest.raises(PermissionError):
+        dump_database(server, out)
+    assert list(out.iterdir()) == [], "no archive, partial file or monthly folder"
 
 
 @pytest.mark.parametrize("failed_tool", ["pg_dump", "pg_restore"])

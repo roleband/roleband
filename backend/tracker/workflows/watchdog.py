@@ -171,7 +171,7 @@ async def _http_get(client: httpx.AsyncClient, base: str, path: str, timeout: fl
     try:
         if required():
             # An authenticated engine refuses an unsigned request: ask as this account's control client.
-            status, content = await asyncio.to_thread(lambda: Client(DATA_DIR).request("GET", path))
+            status, content = await asyncio.to_thread(lambda: Client(DATA_DIR).request("GET", path, timeout=timeout))
             return httpx.Response(status, content=content)
         resp = await client.get(base + path, timeout=timeout)
         return resp

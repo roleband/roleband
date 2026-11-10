@@ -272,6 +272,7 @@ files = [
     "tracker/platform/preparation.py",
     "tracker/platform/releases.py",
     "tracker/platform/paths.py",
+    "tracker/platform/os_process.py",
     "tracker/platform/backups.py",
     "tracker/platform/windows_db.py",
     "tracker/platform/windows_fs.py",

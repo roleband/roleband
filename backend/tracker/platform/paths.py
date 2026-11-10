@@ -50,6 +50,11 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 PACKAGED = os.environ.get("ROLEBAND_PACKAGED") == "1"
 BACKEND_DIR = REPO_ROOT / ("engine" if PACKAGED else "backend")
 DATA_DIR = user_data_dir() if PACKAGED or os.environ.get("ROLEBAND_STATE_DIR") else REPO_ROOT / "data"
+#: One slot file per rate-limit scope, shared by every provider-facing process
+#: of this checkout (`ratelimit.enable_shared_pacing`).
+PACING_DIR = DATA_DIR / "pacing"
+DASHBOARD_DIST = REPO_ROOT / "dashboard" if PACKAGED else REPO_ROOT / "dashboard" / "dist"
+VERSION_FILE = BACKEND_DIR / "release.json" if PACKAGED else REPO_ROOT / "dashboard" / "package.json"
 
 
 def release_channel(resources: Path) -> bool:
@@ -73,11 +78,6 @@ def reaches_installed_data(path: Path) -> bool:
     if not within_installed_data(path):
         return False
     return not (RELEASE and Path(os.path.realpath(path)).is_relative_to(os.path.realpath(DATA_DIR)))
-#: One slot file per rate-limit scope, shared by every provider-facing process
-#: of this checkout (`ratelimit.enable_shared_pacing`).
-PACING_DIR = DATA_DIR / "pacing"
-DASHBOARD_DIST = REPO_ROOT / "dashboard" if PACKAGED else REPO_ROOT / "dashboard" / "dist"
-VERSION_FILE = BACKEND_DIR / "release.json" if PACKAGED else REPO_ROOT / "dashboard" / "package.json"
 
 
 def venv_python(venv: Path) -> Path:

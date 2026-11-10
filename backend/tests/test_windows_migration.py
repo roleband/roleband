@@ -21,7 +21,7 @@ from tracker.platform.embedded_db import ensure_server, stop_server
 pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows migration requires Windows")
 
 BACKEND = Path(__file__).resolve().parents[1]
-#: The head before the newest migration; preparing from it runs exactly that one.
+#: An earlier head; preparing from it runs every migration after it, the one adding `compare_selection.scope` first.
 PREVIOUS = "a7d2f4c9e1b6"
 
 
@@ -190,7 +190,7 @@ class TestPreparation:
         from tracker.platform.windows_checkpoint import verify_checkpoint
 
         server = ensure_server(retained / "db", database="roleband")
-        # The newest migration adds this column, so the upgrade fails and rolls back.
+        # A migration after PREVIOUS adds this column, so the upgrade fails and rolls back.
         psql(server, "ALTER TABLE compare_selection ADD COLUMN scope varchar(16)")
         stop_server(retained / "db")
         result = _prepare(retained)
@@ -299,7 +299,7 @@ class TestTheEngine:
         """The native host learns of a failed preparation from the engine's answer, and after an update offers
         Undo. An engine that exits instead reads as a crash, and every restart fails the same way."""
         server = ensure_server(retained / "db", database="roleband")
-        # The newest migration adds this column, so the upgrade fails and rolls back.
+        # A migration after PREVIOUS adds this column, so the upgrade fails and rolls back.
         psql(server, "ALTER TABLE compare_selection ADD COLUMN scope varchar(16)")
         stop_server(retained / "db")
         engine = _engine(retained)
