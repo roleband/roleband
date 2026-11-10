@@ -352,6 +352,230 @@ insights-stock-trajectory-panel-loading = 正在加载股价走势…
 insights-stock-trajectory-panel-load-failed = 无法加载股价走势
 insights-stock-trajectory-panel-rsus = RSU
 
+## features/statistics/OfferCalculator.tsx
+insights-offer-entered = 由你输入，{ $date }
+insights-offer-started-from = { $kind ->
+    [role] 已按 { $company } 的 { $title } 填入。
+   *[company] 已按 { $company } 的中位职位填入。
+}
+insights-offer-undo = 撤销
+insights-offer-clear = 清除录用条件
+insights-offer-cleared = 已清除录用条件。
+insights-offer-another-company = 其他公司
+insights-offer-chip-another = { $listed ->
+    [yes] 其他公司，上市
+   *[no] 其他公司，非上市
+}
+insights-offer-listed-label = 上市或非上市
+insights-offer-listed = { $listed ->
+    [yes] 上市
+   *[no] 非上市
+}
+insights-offer-bonus-rule = { $rule ->
+    [none] 这家公司不发年度奖金。
+   *[pct_of_base] 这家公司按级别把奖金定为基本工资的一定比例。请输入你录用条件中的比例。
+}
+insights-offer-equity-type = 股权类型
+insights-offer-grant-unit = 授予单位
+insights-offer-grant-unit-option = { $unit ->
+    [dollars] 美元
+   *[shares] 股数
+}
+insights-offer-price-needs-key = 请输入今天的股价，或在 { $link } 中添加密钥，以用最近收盘价填入。
+insights-offer-price-settings = 设置 › 插件 › 股价
+insights-offer-price-no-close = { $ticker } 还没有保存的收盘价。请输入今天的股价。
+insights-offer-vesting-year = 第 { $year } 年归属百分比
+insights-offer-vesting-sum = 这四年归属授予的 { $pct }%。
+insights-offer-sign-on = 第 { $year } 年签约奖金
+insights-offer-sign-on-bridges = 这家公司在前两年发放签约奖金，以弥补后置的归属安排。
+insights-offer-private = 非上市公司的股权在公司上市或进行要约收购之前无法出售。
+insights-offer-valuation-unit = 估值形式
+insights-offer-valuation-unit-option = { $unit ->
+    [per_share] 每股价格
+   *[company] 公司估值
+}
+insights-offer-valuation-grant = { $unit ->
+    [per_share] 授予时股价
+   *[company] 授予时估值
+}
+insights-offer-valuation-test = { $unit ->
+    [per_share] 测试股价
+   *[company] 测试估值
+}
+insights-offer-share-count = 流通股数
+insights-offer-valuation-hint = 请输入你录用条件中的估值，以及想测试的估值，例如最近一轮融资或你自己的预期。
+insights-offer-valuation-none = 没有估值时，股权按授予时的估值显示。
+insights-offer-move = { $listed ->
+    [yes] 股价变动
+   *[no] 估值变动
+}
+insights-offer-move-aria = { $listed ->
+    [yes] 你的录用条件的股价变动百分比
+   *[no] 你的录用条件的估值变动百分比
+}
+insights-offer-missing = { $missing ->
+    [price] 请输入今天的股价，以便为股票估值。
+    [strike] 请输入行权价，以便为期权估值。
+    [valuation] 请输入估值，以便为股票估值。
+   *[share_count] 请输入流通股数，以便把估值换算成每股价格。
+}
+insights-offer-year = 年份
+insights-offer-year-n = 第 { $year } 年
+insights-offer-four-years = 四年合计
+insights-offer-sign-on-column = 签约奖金
+insights-offer-tc-today = 今天的总薪酬
+insights-offer-tc-today-full = 按今天股价的总薪酬
+insights-offer-tc-moved = { $move ->
+    [up] +{ $pct }% 总薪酬
+   *[down] { $pct }% 总薪酬
+}
+insights-offer-tc-moved-full = { $move ->
+    [up] 上涨 { $pct }% 后的总薪酬
+   *[down] 下跌 { $pct }% 后的总薪酬
+}
+insights-offer-drop = 低于第 { $year } 年
+insights-offer-start = 以此开始
+insights-offer-start-aria = 从 { $company } 开始录用条件
+insights-offer-column = 你的录用条件
+insights-offer-at-your-valuation = 按你的估值
+insights-offer-at-your-valuation-moved = { $move ->
+    [up] 按你的估值，+{ $pct }%
+   *[down] 按你的估值，{ $pct }%
+}
+insights-offer-at-your-valuation-full = 按你在 { $date } 输入的估值计算的股权
+insights-offer-start-title = 录用条件每年能拿多少
+insights-offer-start-intro = 几个简短的问题，一次一个。你输入的内容只保存在这台电脑上。
+insights-offer-loading = 正在加载你的录用条件
+insights-offer-load-failed = 你的录用条件没有加载出来。
+insights-offer-save-failed = 你上一个回答没有保存。再回答一次即可保存。
+insights-offer-progress = 第 { $n } 题，共 { $total } 题
+insights-offer-q-company = 哪家公司给了你录用条件？
+insights-offer-q-company-hint = 它通常的股权和奖金规则会自动填入。
+insights-offer-pick-company = 选择公司
+insights-offer-all-companies = 所有公司
+insights-offer-q-base = 基本工资是多少？
+insights-offer-q-base-hint = 录用信上的年薪。
+insights-offer-per-year = 每年
+insights-offer-per-share = 每股
+insights-offer-q-stock = { $vehicle ->
+    [options] 录用条件里有多少期权？
+    [cash] 你选择拿多少股票？
+   *[rsu] 录用条件里有多少股票？
+}
+insights-offer-q-stock-hint = { $vehicle ->
+    [options] { $company } 授予股票期权。请输入录用信上的数量。
+    [cash] { $company } 允许你在现金和股票之间分配薪酬。请输入四年里的股票部分：变动只影响这一部分。
+    [another] 请输入录用信上的授予总额，以美元或股数计。
+   *[rsu] { $company } 授予 RSU。请输入录用信上的授予总额。
+}
+insights-offer-no-stock = { $vehicle ->
+    [options] 没有期权
+    [cash] 全部现金
+   *[rsu] 没有股票
+}
+insights-offer-q-strike = 行权价是多少？
+insights-offer-q-strike-hint = 你买入每份期权时每股要付的价格。
+insights-offer-q-price = { $quote ->
+    [yes] 使用 { $company } 的最近收盘价？
+   *[no] 今天的股价是多少？
+}
+insights-offer-q-price-quote = { $date } 收盘时每股 { $price }。
+insights-offer-use-price = 使用 { $price }
+insights-offer-own-price = 输入价格
+insights-offer-q-valuation = { $company } 值多少？
+insights-offer-dont-know = 不知道
+insights-offer-q-vesting-stated = 你的授予是按 { $schedule } 归属吗？
+insights-offer-q-vesting-stated-hint = 这是 { $company } 通常公布的归属安排，按每年占授予的百分比计。
+insights-offer-q-vesting = 授予如何归属？
+insights-offer-q-vesting-hint = { $named ->
+    [yes] { $company } 没有说明。大多数授予在四年内均匀归属。
+   *[no] 大多数授予在四年内均匀归属。
+}
+insights-offer-percent-of-grant = 每年归属授予的百分比。
+insights-offer-vesting-yes = 一样
+insights-offer-vesting-differs = 我的不同
+insights-offer-vesting-other = 其他
+insights-offer-vesting-even = 均匀
+insights-offer-vesting-too-much = 各年合计为 { $pct }%。请保持在 100% 或以下。
+insights-offer-q-bonus = 有年度目标奖金吗？
+insights-offer-q-bonus-hint = 按录用信写明的基本工资比例。
+insights-offer-bonus-choice = { $pct ->
+    [0] 没有奖金
+   *[other] { $pct }%
+}
+insights-offer-bonus-other = 其他目标奖金，占基本工资的百分比
+insights-offer-q-sign-on = 有签约奖金吗？
+insights-offer-q-sign-on-hint = 入职时的一次性付款，有时分两年发放。
+insights-offer-sign-on-yes = 有
+insights-offer-sign-on-no = 没有
+insights-offer-need = { $what ->
+    [company] 请选择一家公司。
+    [base] 请输入年基本工资。
+    [stock] 请输入金额，或选择旁边的按钮。
+    [strike] 请输入行权价。
+    [price] 请输入今天的股价。
+    [valuation] 请输入授予时的价值，或选择不知道。
+    [vesting] 请至少输入一年的归属百分比。
+    [bonus] 请选择目标奖金。
+   *[sign_on] 请至少输入一笔签约奖金。
+}
+insights-offer-next = 下一步
+insights-offer-done = 完成
+insights-offer-back = 返回
+insights-offer-cancel = 取消
+insights-offer-later = 稍后完成
+insights-offer-finished-title = { $named ->
+    [yes] 你的 { $company } 录用条件，逐年来看
+   *[no] 你的录用条件，逐年来看
+}
+insights-offer-unfinished = 已回答 { $answered } 题，共 { $total } 题
+insights-offer-continue = 继续
+insights-offer-typical = 这些是典型数字。换成你自己的，就能看到你的录用条件。
+insights-offer-swap = 用我的数字
+insights-offer-tag = { $tag ->
+    [typical] 典型
+    [rule] 公司规则
+    [employer] 公司公布
+    [estimated] 估算
+    [assumed] 假定
+   *[quote] 最近收盘价
+}
+insights-offer-chip-edit = 修改 { $answer }
+insights-offer-chip-base = 基本工资 { $amount }
+insights-offer-chip-stock = { $kind ->
+    [none] 没有股票
+    [cash] { $amount } 选为股票
+    [options] { $count } 份期权
+    [shares] { $count } 股
+   *[dollars] { $amount } 股票
+}
+insights-offer-chip-strike = 行权价 { $amount }
+insights-offer-chip-price = { $kind ->
+    [none] 尚无每股价格
+   *[some] 每股 { $amount }
+}
+insights-offer-chip-valuation = { $kind ->
+    [none] 按授予时价值
+    [per_share] 每股 { $from } 到 { $to }
+   *[company] 估值 { $from } 到 { $to }
+}
+insights-offer-chip-vesting = 归属 { $schedule }
+insights-offer-chip-bonus = { $pct ->
+    [0] 没有奖金
+   *[other] { $pct }% 奖金
+}
+insights-offer-chip-sign-on = { $kind ->
+    [none] 没有签约奖金
+   *[some] 签约奖金 { $first } + { $second }
+}
+insights-offer-chart = 每年的总薪酬
+insights-offer-vs-today = { $sign ->
+    [up] 比按今天股价多 { $amount }
+    [down] 比按今天股价少 { $amount }
+   *[same] 按今天股价
+}
+insights-offer-show-table = 查看表格
+
 ## features/statistics/TrendsPanel.tsx
 insights-trends-panel-demand-history = 需求历史
 insights-trends-panel-skill-demand-over-time = 技能需求变化趋势

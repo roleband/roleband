@@ -8,7 +8,8 @@ import {intl, mark} from "./core";
 /** Compact comp keeps its existing K/M units and precision; digits and
  * currency placement follow the region. No conversion or annualization. */
 export function compactMoney(amount: number, currency = "USD"): string {
-  const divisor = amount >= 1_000_000 ? 1_000_000 : amount >= 1000 ? 1000 : 1;
+  // A figure that rounds to a thousand thousands reads in millions, never "$1,000K".
+  const divisor = amount >= 999_500 ? 1_000_000 : amount >= 1000 ? 1000 : 1;
   const value = divisor === 1000 ? Math.round(amount / divisor) : divisor === 1_000_000 ? Number((amount / divisor).toFixed(2)) : amount;
   const digits = divisor === 1_000_000 ? (Number.isInteger(value) ? 0 : 2) : 0;
   const suffix = divisor === 1_000_000 ? "M" : divisor === 1000 ? "K" : "";

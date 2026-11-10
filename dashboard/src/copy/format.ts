@@ -4,6 +4,6 @@ export {number, percent, money, date, calendarDay, timestamp} from "./format/bas
 export {weekday, time, relative, list, compare} from "./format/display";
 export {timeZone} from "./format/zone";
 export {duration} from "./format/duration";
-export {parseNumber} from "./format/input";
+export {parseNumber, numberInput} from "./format/input";
 export {compactMoney} from "./format/comp";
 export {country, regionSample, regionCountry, matchLanguage} from "./format/regions";

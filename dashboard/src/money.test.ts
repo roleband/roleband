@@ -15,6 +15,12 @@ describe("money in its own currency", () => {
     for (const n of [950, 650000, 1250000, 1000000]) expect(fmtCompIn(n, "USD")).toBe(fmtComp(n));
   });
 
+  it("reads a figure just under a million in millions, never as a thousand thousands", () => {
+    expect(fmtComp(999_499)).toBe("$999K");
+    expect(fmtComp(999_999)).toBe("$1M");
+    expect(fmtComp(999_500)).toBe("$1M");
+  });
+
   it("says back a typed amount in full, in its currency", () => {
     expect(fmtMoney(250000, "USD")).toBe("$250,000");
     expect(fmtMoney(180000, "GBP")).toBe("£180,000");

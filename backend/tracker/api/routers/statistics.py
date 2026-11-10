@@ -30,7 +30,11 @@ from tracker.analytics.comp_trends import (
     build_disclosure_trend_series,
 )
 from tracker.analytics.hiring import build_hiring_places
-from tracker.analytics.stock_trajectory import TrajectoryRole, build_comp_trajectory
+from tracker.analytics.stock_trajectory import (
+    TrajectoryRole,
+    build_comp_trajectory,
+    build_offer_terms,
+)
 from tracker.analytics.velocity import build_velocity
 from tracker.api.comp_packages import role_packages
 from tracker.api.deps import InsightsScopeDep, OffBoardDep, SessionDep, WindowDays
@@ -43,12 +47,14 @@ from tracker.api.schemas.statistics import (
     DisclosureTrendsResponse,
     EquityValidationResponse,
     LevelGuideResponse,
+    OfferTermsResponse,
     StatisticsOverviewResponse,
     StatsResponse,
 )
 from tracker.api.serializers.jobs import serialize_job
 from tracker.comp_providers.base import OUR_PAY_COUNTRY
 from tracker.company_discovery import COMPANY_DISCOVERY
+from tracker.config import get_settings
 from tracker.db.models import (
     Cluster,
     CompanyProfile,
@@ -86,10 +92,12 @@ from tracker.enrich.enricher import ESTIMATE_FIELDS
 from tracker.intelligence_runtime.disclosed_comp import residual_band_versions
 from tracker.levels.companies import COMPANIES
 from tracker.levels.ladder import flat_guide, level_guide, lineage
+from tracker.levels.pay import PAY_POLICIES
 from tracker.lineage.counts import is_new_job_clause
 from tracker.platform.util import local_day_start_utc
 from tracker.plugins.registry import PAY_LEVELS, reader_providers
 from tracker.plugins.status import reference_changes
+from tracker.profiles import prices as price_store
 from tracker.schema import OUR_ESTIMATE_SOURCE, Arrival
 from tracker.skills.analytics import COMPETENCY_CATEGORIES
 from tracker.taxonomy.locations import pay_country
@@ -478,6 +486,24 @@ _PACKAGE_COLUMNS = (
 )
 
 
+async def _identity_profiles(session: AsyncSession) -> dict[str, dict]:
+    """Each company's resolved identity: listed, ticker and equity vehicle."""
+    rows = (
+        await session.execute(
+            select(
+                CompanyProfile.slug,
+                CompanyProfile.is_public,
+                CompanyProfile.ticker,
+                CompanyProfile.equity_vehicle,
+            )
+        )
+    ).all()
+    return {
+        r.slug: {"is_public": r.is_public, "ticker": r.ticker, "equity_vehicle": r.equity_vehicle}
+        for r in rows
+    }
+
+
 @router.get("/api/statistics/comp-trajectory", response_model=CompTrajectoryResponse)
 async def statistics_comp_trajectory(session: SessionDep, hidden: OffBoardDep) -> dict:
     """Each company's typical package for the Stock tab, from the packages Job
@@ -501,24 +527,7 @@ async def statistics_comp_trajectory(session: SessionDep, hidden: OffBoardDep) -
 
     # Resolved identity beats the hardcoded PUBLIC_TICKERS table, which cannot
     # know about a company that listed later.
-    profile_rows = (
-        await session.execute(
-            select(
-                CompanyProfile.slug,
-                CompanyProfile.is_public,
-                CompanyProfile.ticker,
-                CompanyProfile.equity_vehicle,
-            )
-        )
-    ).all()
-    profiles = {
-        r.slug: {
-            "is_public": r.is_public,
-            "ticker": r.ticker,
-            "equity_vehicle": r.equity_vehicle,
-        }
-        for r in profile_rows
-    }
+    profiles = await _identity_profiles(session)
     return build_comp_trajectory(
         (
             TrajectoryRole(
@@ -531,6 +540,28 @@ async def statistics_comp_trajectory(session: SessionDep, hidden: OffBoardDep) -
         ),
         profiles=profiles,
     )
+
+
+@router.get("/api/statistics/offer-terms", response_model=OfferTermsResponse)
+async def statistics_offer_terms(session: SessionDep) -> dict:
+    """The terms the Stock tab's offer calculator fills in when a company is
+    picked: every company whose offer rules the atlas records, and every listed
+    company. The calculator itself runs in the browser; nothing the person types
+    is sent here.
+
+    A stored quote rides along only while a price key is saved. This reads the
+    quotes the prices job already stored and never asks the feed for one.
+    """
+    profiles = await _identity_profiles(session)
+    feed_configured = (await price_store.api_key(session, get_settings()))[0] is not None
+    companies = set(PAY_POLICIES) | {
+        slug for slug, p in profiles.items() if p["is_public"] and p["ticker"]
+    }
+    quotes = await price_store.latest_price_map(session) if feed_configured else {}
+    return {
+        "feed_configured": feed_configured,
+        "companies": build_offer_terms(companies, profiles=profiles, quotes=quotes),
+    }
 
 
 @cache

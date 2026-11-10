@@ -26,3 +26,11 @@ export function parseNumber(text: string): number {
   const value = Number(`${negative ? "-" : ""}${groups.join("") || "0"}${fractions.length === 2 ? `.${fractions[1]}` : ""}`);
   return Number.isFinite(value) ? value : Number.NaN;
 }
+
+
+/** A number as a text field's value: the region's digits and decimal mark and
+ *  no grouping, so `parseNumber` reads it back and a person edits it as they
+ *  would type it. Not display text, so the pseudo-locale leaves it unmarked. */
+export function numberInput(n: number): string {
+  return intl(Intl.NumberFormat, regionTag(), { useGrouping: false, maximumFractionDigits: 4 }).format(n);
+}

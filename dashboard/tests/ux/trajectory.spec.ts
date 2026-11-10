@@ -33,6 +33,20 @@ const trajectoryFixture = {
   set_apart: [{ reason: "not_us_pay", count: 5 }, { reason: "level_unplaced", count: 2 }],
 };
 
+// What `/api/statistics/offer-terms` sends for these companies: only what each
+// states, and no stored close while no price key is saved.
+const rules = { listed: true, equity_vehicle: "rsu", vesting_stated_by: "estimated", sign_on_bridges_vesting: false, quote: null };
+const offerTermsFixture = {
+  feed_configured: false,
+  companies: [
+    { ...rules, company: "amazon", ticker: "AMZN", vesting: [5, 15, 40, 40], bonus_rule: "none", sign_on_bridges_vesting: true },
+    { ...rules, company: "google", ticker: "GOOGL", vesting: [38, 32, 20, 10], bonus_rule: "pct_of_base" },
+    { ...rules, company: "microsoft", ticker: "MSFT", vesting: [25, 25, 25, 25], vesting_stated_by: "employer", bonus_rule: "pct_of_base" },
+    { ...rules, company: "openai", listed: false, ticker: null, vesting: [25, 25, 25, 25], bonus_rule: "none" },
+    { ...rules, company: "netflix", ticker: "NFLX", equity_vehicle: "cash_election", vesting: null, vesting_stated_by: null, bonus_rule: "none" },
+  ],
+};
+
 test.beforeEach(async ({ page }) => {
   await showAdvancedInsights(page);
   await page.route("/api/statistics/overview**", (route) => route.fulfill({ json: overviewFixture }));
@@ -49,6 +63,9 @@ test.beforeEach(async ({ page }) => {
   await page.route("/api/statistics/comp-trajectory", (route) =>
     route.fulfill({ json: trajectoryFixture }),
   );
+  await page.route("/api/statistics/offer-terms", (route) => route.fulfill({ json: offerTermsFixture }));
+  // No offer kept yet; the offer tests route a store of their own over this.
+  await page.route("/api/profile/offer", (route) => route.fulfill({ json: { offer: null, valuations: {} } }));
 });
 
 test("the Trajectory sub-tab re-prices total comp as the stock scenario moves", async ({ page }) => {
@@ -136,7 +153,7 @@ for (const width of [1280, 360]) test(`the source labels are explained once, to 
   await expect(label).toBeVisible();
   await expect(label).not.toHaveAttribute("title");
 
-  const table = page.locator(".traj-table").first();
+  const table = page.getByTestId("traj-public").locator(".traj-table");
   // One help mark for the table, not one per cell, on the first column: it
   // stays in view when a narrow table scrolls sideways to the figures.
   const help = table.getByRole("button", { name: msg("insights-stock-trajectory-panel-about-the-source-labels") });
@@ -199,4 +216,122 @@ test("the company tables stand apart, and one search narrows them", async ({ pag
   await expect(page.getByTestId("traj-no-match")).toHaveText(msg("insights-stock-trajectory-panel-no-company-matches", { query: "nobody" }));
   await search.fill("");
   await expect(page.getByTestId("traj-public").getByRole("row", { name: /Google/ })).toBeVisible();
+});
+
+/* The offer routes, played in memory as the server answers them: what the
+   person enters is kept there and nowhere else. */
+type Kept = { offer: ({ inputs: Record<string, unknown>; answered: string[] } & Record<string, unknown>) | null; valuations: Record<string, Record<string, unknown>> };
+async function keepOffer(page: import("@playwright/test").Page) {
+  const kept: Kept = { offer: null, valuations: {} };
+  await page.route("/api/profile/offer**", async (route) => {
+    const request = route.request();
+    const method = request.method();
+    const path = new URL(request.url()).pathname;
+    const savedAt = new Date().toISOString();
+    const company = path.match(/^\/api\/profile\/offer\/valuations\/([^/]+)$/)?.[1];
+    if (company && method === "PUT") kept.valuations[company] = { ...request.postDataJSON(), saved_at: savedAt };
+    else if (company && method === "DELETE") delete kept.valuations[company];
+    else if (method === "PUT") {
+      const draft = request.postDataJSON();
+      kept.offer = { ...draft, answered: [...new Set<string>(draft.answered)], saved_at: savedAt };
+    } else if (method === "DELETE") kept.offer = null;
+    await route.fulfill({ json: kept });
+  });
+  return kept;
+}
+
+/* Your offer, year by year: one question at a time, then the years at
+   today's price and after the move. Each answer is kept by the local server
+   through the offer routes; no other request carries a figure, and nothing
+   is kept in the browser. */
+test("an offer is asked one question at a time, kept on this computer, and read back after a reload", async ({ page }) => {
+  const kept = await keepOffer(page);
+  const sent: { method: string; path: string; body: string }[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    sent.push({ method: request.method(), path: url.pathname + url.search, body: request.postData() ?? "" });
+  });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/statistics/trajectory");
+  const offer = page.getByTestId("traj-offer");
+  const question = offer.getByTestId("traj-offer-question");
+  const next = () => question.getByRole("button", { name: msg("insights-offer-next") }).click();
+  await expect(offer.getByRole("heading", { name: msg("insights-offer-start-title") })).toBeVisible();
+
+  await offer.getByRole("combobox", { name: msg("insights-offer-all-companies") }).selectOption("amazon");
+  await next();
+  await question.getByLabel(msg("insights-offer-q-base"), { exact: true }).fill("213579");
+  await next();
+  await question.getByLabel(msg("insights-offer-q-stock", { vehicle: "rsu" }), { exact: true }).fill("400000");
+  await next();
+  // Amazon states 5/15/40/40 and pays no bonus: one press, and no bonus question.
+  await question.getByRole("button", { name: msg("insights-offer-vesting-yes") }).click();
+  await expect(question).toHaveAttribute("data-step", "sign_on");
+  await question.getByRole("button", { name: msg("insights-offer-sign-on-yes") }).click();
+  await question.getByLabel(msg("insights-offer-sign-on", { year: 1 }), { exact: true }).fill("100000");
+  await question.getByLabel(msg("insights-offer-sign-on", { year: 2 }), { exact: true }).fill("80000");
+  await next();
+
+  await expect(offer.getByRole("heading", { name: msg("insights-offer-finished-title", { named: "yes", company: "Amazon" }) })).toBeVisible();
+  await expect(offer.getByTestId("traj-offer-total")).toHaveText("$1.43M");
+  await offer.getByText(msg("insights-offer-show-table")).click();
+  // Amazon's 5/15/40/40: the sign-on carries the first two years.
+  const years = offer.getByTestId("traj-offer-years");
+  const yearRow = (year: number) => years.getByRole("row", { name: new RegExp(msg("insights-offer-year-n", { year })) });
+  await expect(yearRow(1)).toContainText("$334K");
+  await expect(yearRow(3)).toContainText("$374K");
+  await offer.getByLabel(msg("insights-offer-move-aria", { listed: "yes" })).fill("20");
+  // Only the equity takes the 20%: year 3 vests $160K, so it gains $32K.
+  await expect(yearRow(3)).toContainText("$406K");
+  await expect(yearRow(1)).toContainText("$338K");
+
+  // Kept by the local server, as answered.
+  await expect.poll(() => kept.offer?.answered).toEqual(["company", "base", "stock", "vesting", "sign_on"]);
+  expect(kept.offer?.inputs).toMatchObject({ company: "amazon", base: 213579, grant: 400000, sign_on: [100000, 80000] });
+  // Every write is to the offer routes, and no other request carries a figure.
+  const api = sent.filter((r) => r.path.startsWith("/api/"));
+  expect(api.filter((r) => r.method !== "GET" && !r.path.startsWith("/api/profile/offer")), "a write left the offer routes").toEqual([]);
+  for (const figure of ["213579", "400000", "100000", "80000"]) {
+    expect(api.filter((r) => !r.path.startsWith("/api/profile/offer") && (r.path.includes(figure) || r.body.includes(figure))),
+      `a request carried ${figure}`).toEqual([]);
+  }
+
+  await page.reload();
+  const again = page.getByTestId("traj-offer");
+  await expect(again.getByRole("button", { name: msg("insights-offer-chip-edit", { answer: msg("insights-offer-chip-base", { amount: "$214K" }) }) }))
+    .toBeVisible();
+  expect(await page.evaluate(() => Object.keys(localStorage).filter((k) => /offer|valuation/i.test(k)))).toEqual([]);
+  await again.getByRole("button", { name: msg("insights-offer-clear") }).click();
+  await expect(again.getByRole("heading", { name: msg("insights-offer-start-title") })).toBeVisible();
+  await expect.poll(() => kept.offer).toBeNull();
+});
+
+for (const width of [1280, 360]) test(`a company row starts the offer, and each view fits the screen (${width}px)`, async ({ page }) => {
+  const kept = await keepOffer(page);
+  await page.setViewportSize({ width, height: 900 });
+  await page.goto("/statistics/trajectory");
+  const row = page.getByTestId("traj-private").getByRole("row", { name: /OpenAI/ });
+  await row.getByRole("button", { name: msg("insights-offer-start-aria", { company: "OpenAI" }) }).click();
+
+  const offer = page.getByTestId("traj-offer");
+  await expect(offer.getByRole("heading", { name: msg("insights-offer-finished-title", { named: "yes", company: "OpenAI" }) })).toBeFocused();
+  const base = offer.getByRole("button", { name: msg("insights-offer-chip-edit", { answer: msg("insights-offer-chip-base", { amount: "$550K" }) }) });
+  await expect(base).toContainText(msg("insights-offer-tag", { tag: "typical" }));
+  await expect(offer.getByText(`${msg("insights-offer-private")} ${msg("insights-offer-valuation-none")}`)).toBeVisible();
+  const noSideways = async (view: string) => {
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, `the page scrolls sideways (${view})`).toBeLessThanOrEqual(0);
+  };
+  await noSideways("finished");
+
+  // One valuation, entered once from its chip, also reads in the private companies table.
+  await offer.getByRole("button", { name: msg("insights-offer-chip-edit", { answer: msg("insights-offer-chip-valuation", { kind: "none", from: "", to: "" }) }) }).click();
+  const question = offer.getByTestId("traj-offer-question");
+  await expect(question).toHaveAttribute("data-step", "valuation");
+  await noSideways("question");
+  await question.getByLabel(msg("insights-offer-valuation-grant", { unit: "per_share" }), { exact: true }).fill("50");
+  await question.getByLabel(msg("insights-offer-valuation-test", { unit: "per_share" }), { exact: true }).fill("75");
+  await question.getByRole("button", { name: msg("insights-offer-done") }).click();
+  await expect(row).toContainText("$1.38M");
+  await expect.poll(() => kept.valuations.openai).toMatchObject({ unit: "per_share", grant_at: 50, test_at: 75 });
 });

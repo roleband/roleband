@@ -854,6 +854,47 @@ names; a table with none is hidden, and the hero and chart stay the whole
 market's. The slider moves only the equity part of listed companies
 (docs/pay.md, "The Stock tab").
 
+Under the chart, the offer block (`OfferCalculator.tsx`) takes the person's own
+offer as a short run of questions, one at a time, each beside a small chart of
+the four years that fills in as answers arrive. The questions and their order
+are `offerSteps.ts`: the company, base, then stock, so the chart means something
+after two answers; then only what this offer needs: the strike for options,
+today's price for a listed grant in shares, the valuation at a private company,
+the vesting schedule, the bonus and the sign-on. A rule the company states is
+never asked: no bonus question where it pays none, no schedule or price where
+each person picks their own cash and stock split. A schedule the company states
+is asked as yes or no; where it states none, the first preset is even, and an
+unanswered schedule is even, labelled assumed. A company typed in by hand
+asks a price per share in place of a valuation. Next on an empty answer says
+what it needs and stays. Back, and Finish later, keep every answer given.
+
+The block has three states. Before the first answer it is the first question.
+With questions left it folds to one line, how many are answered and Continue.
+Once finished it shows the title, each answer as a chip (pressing one opens that
+question alone, with Done and Cancel; a company rule is a chip that does not
+press), the four-year total, the bars with a legend, the slider, and the years
+as a table under "Show the table" for exact figures and screen readers. A chip
+says where a figure comes from when it is not simply the person's: typical,
+stated by the company, estimated, assumed, or the last close. "Start from this"
+on any table row, or "Start an offer from this role" in a role's compensation
+panel, starts a finished offer from that package (the role's figures travel in
+the history entry, never the address), with Undo; its figures read as typical
+until the person answers them, and "Use my figures" walks those questions. A
+listed grant in shares offers the last close the prices job stored, with its
+date, while a price key is saved; otherwise the person types the price, with a
+link to Settings › Plugins › Stock prices. At a private company the valuation
+question takes the valuation the grant was priced at and one to test, per share
+or for the company with its share count, or "I don't know", which keeps the
+equity at its grant valuation with a line that it cannot be sold until the
+company lists or runs a tender. A valuation also fills an "At your valuation"
+column in the private companies table.
+
+Every answer is kept in the local database through `/api/profile/offer`
+(`pay.md` "The offer"), never in the browser, and shows as "Entered by you" with
+its date. Each answer shows at once and is sent in order; a save that fails says
+so and leaves the answer on screen. Clear forgets the offer and keeps the
+valuations the private table reads.
+
 ## Which tests enforce what
 
 Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs

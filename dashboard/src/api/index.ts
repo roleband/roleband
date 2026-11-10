@@ -65,7 +65,7 @@ export type {
 } from "./ops";
 export type {
   CompCompany, CompFamily, CompHistBin, CompLevel, CompPackage, CompSkill, CompSummary,
-  CompPartSource, CompTrajectory, CompTrajectoryChoice, CompTrajectoryCompany, CompTrajectorySetApart, CompTrendDim, CompTrendPoint, CompTrendSeries, CompTrends,
+  CompPartSource, CompTrajectory, CompTrajectoryChoice, OfferTerms, OfferTermsCompany, CompTrajectoryCompany, CompTrajectorySetApart, CompTrendDim, CompTrendPoint, CompTrendSeries, CompTrends,
   CompensationStats, Demand, InsightsScope, DisclosedBand, LevelGuide, LevelGuideCell, LevelGuideCompany, LevelGuideEntry, DisclosedBands, DisclosureCompany, HiringCompany, HiringRegion,
   DisclosureGroup, DisclosureLevel, DisclosureRates, DisclosureTrendDim, DisclosureTrendPoint,
   DisclosureTrendSeries, DisclosureTrends, OverviewCluster, OverviewHardest, OverviewKpis,
@@ -122,6 +122,7 @@ export type {
   InterviewWrite,
 } from "./applications";
 export type {
+  OfferAnswers, OfferDraft, OfferStep, ValuationDraft,
   PayFloor, ProfileSuggestion, ProfileSuggestionBasis, PursuitInfo, PursuitListItem, PursuitStage,
 } from "./profile";
 export type {
