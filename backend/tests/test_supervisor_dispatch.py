@@ -413,7 +413,12 @@ async def test_an_adopted_run_that_is_still_our_child_is_reaped_when_it_exits(db
     """After a re-exec the supervisor's jobs are still its children, with no
     handle to reap them by: an exited one would stay a zombie and keep its
     group alive for ever."""
-    quick = _job("quick", "import time; time.sleep(0.5); raise SystemExit(3)")
+    # The job exits when the test says so, after it is adopted: a job that exits on a timer can end before a slow
+    # runner adopts it, which tests the other path.
+    go = tmp_path / "go"
+    quick = _job("quick", f"import pathlib, time; p = pathlib.Path({str(go)!r}); end = time.monotonic() + 60; "
+                          "[time.sleep(0.05) for _ in iter(lambda: p.exists() or time.monotonic() > end, True)]; "
+                          "raise SystemExit(3)")
     await job_store.ring(db_session, "quick", requested_by="cli")
     await db_session.commit()
     before = _dispatcher(db_session, tmp_path, jobs=(quick,))
@@ -424,6 +429,7 @@ async def test_an_adopted_run_that_is_still_our_child_is_reaped_when_it_exits(db
     after = _dispatcher(db_session, tmp_path, jobs=(quick,))
     [(_, verdict)] = await after.adopt()
     assert verdict.action == "adopt"
+    go.write_text("")
     await _until_settled(after, timeout=10)
     [run] = await _runs(db_session, "quick")
     assert (run.state, run.exit_code) == (job_store.EXITED, 3)
