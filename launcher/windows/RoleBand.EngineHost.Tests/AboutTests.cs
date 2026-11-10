@@ -84,9 +84,33 @@ public sealed class AboutTests
             Downloaded("""{"status":"failed","kind":"check","reason":"The download is not the signed release"}"""));
         Assert.AreEqual((new UpdateRun(UpdateStep.DownloadFailed, "0.1.12"), (string?)null),
             Downloaded("""{"status":"failed","kind":"download","reason":"offline"}"""));
-        Assert.AreEqual(UpdateStep.DownloadFailed, Downloaded("""{"status":"no-offer"}""").Run.Step);
-        Assert.AreEqual(UpdateStep.DownloadFailed, Downloaded("""{"status":"downloaded"}""").Run.Step, "no package, nothing to install");
-        Assert.AreEqual(UpdateStep.DownloadFailed, Downloaded("[]").Run.Step);
+        Assert.AreEqual(UpdateStep.DownloadError, Downloaded("""{"status":"no-offer"}""").Run.Step);
+        Assert.AreEqual(UpdateStep.DownloadError, Downloaded("""{"status":"downloaded"}""").Run.Step, "no package, nothing to install");
+        Assert.AreEqual(UpdateStep.DownloadError, Downloaded("[]").Run.Step);
+    }
+
+    [TestMethod]
+    public void OnlyADownloadTheServerLeftUnfinishedBlamesTheServerAndEveryFailureKeepsTheBytesCounted()
+    {
+        var copy = new NativeCopy("en");
+        var facts = new UpdateFacts(true, false, Now, "0.1.12", null);
+        var before = new UpdateRun(UpdateStep.Downloading, "0.1.12", Received: 120, Total: 332);
+        foreach (var reply in new[] { """{"status":"no-offer"}""", """{"status":"downloaded"}""", "[]" })
+        {
+            using var document = JsonDocument.Parse(reply);
+            var (run, _) = UpdateRun.Downloaded(document.RootElement, "0.1.12", before);
+            Assert.AreEqual((120L, 332L), (run.Received, run.Total), reply);
+            var row = AboutPanel.Updates(copy, facts, false, null, Now, run);
+            Assert.AreEqual(("Couldn't download 0.1.12", "Nothing was installed.", "Try again"), (row.Title, row.Caption, row.Action), reply);
+        }
+        var broken = UpdateRun.Broken("0.1.12", before with { Step = UpdateStep.Paused });
+        Assert.AreEqual(new UpdateRun(UpdateStep.DownloadError, "0.1.12", Received: 120, Total: 332), broken,
+            "a command that crashed or answered nothing readable");
+        using (var server = JsonDocument.Parse("""{"status":"failed","kind":"download","reason":"502"}"""))
+        {
+            var (run, _) = UpdateRun.Downloaded(server.RootElement, "0.1.12", before);
+            Assert.AreEqual(("The server didn't answer.", 120L), (AboutPanel.Updates(copy, facts, false, null, Now, run).Caption, run.Received));
+        }
     }
 
     [TestMethod]
@@ -140,7 +164,7 @@ public sealed class AboutTests
         var row = AboutPanel.Updates(copy, facts, false, null, Now, downloading);
         Assert.AreEqual((UpdateRowKind.Downloading, "Downloading 0.1.12", "120 MB of 332 MB", true, false, (string?)null),
             (row.Kind, row.Title, row.Caption, row.Cancel, row.CanCheck, row.Action));
-        var banner = AboutPanel.Flyout(copy, facts, downloading)!;
+        var banner = AboutPanel.Flyout(copy, facts, downloading, Now)!;
         Assert.AreEqual(("120 MB of 332 MB", 36, true, true, (string?)null), (banner.Caption, banner.Percent, banner.Cancel, banner.Busy, banner.Action));
         var starting = AboutPanel.Updates(copy, facts, false, null, Now, downloading with { Received = null, Total = null });
         Assert.IsNull(starting.Caption, "nothing counted yet: no made-up progress");
@@ -149,12 +173,12 @@ public sealed class AboutTests
         row = AboutPanel.Updates(copy, facts, false, null, Now, paused);
         Assert.AreEqual((UpdateRowKind.Paused, "Download paused", "120 MB of 332 MB · Resumes once you're online.", true, false, false),
             (row.Kind, row.Title, row.Caption, row.Cancel, row.CanCheck, row.Busy));
-        banner = AboutPanel.Flyout(copy, facts, paused)!;
+        banner = AboutPanel.Flyout(copy, facts, paused, Now)!;
         Assert.AreEqual((true, false, (string?)null), (banner.Cancel, banner.Busy, banner.Action), "waiting, not working: no spinner");
 
         var installing = AboutPanel.Updates(copy, facts, false, null, Now, new UpdateRun(UpdateStep.Installing, "0.1.12", Percent: 40));
         Assert.IsFalse(installing.Cancel, "once Windows installs, Cancel would only lie");
-        Assert.IsFalse(AboutPanel.Flyout(copy, facts, new UpdateRun(UpdateStep.Installing, "0.1.12"))!.Cancel);
+        Assert.IsFalse(AboutPanel.Flyout(copy, facts, new UpdateRun(UpdateStep.Installing, "0.1.12"), Now)!.Cancel);
     }
 
     [TestMethod]
@@ -165,7 +189,7 @@ public sealed class AboutTests
         var row = AboutPanel.Updates(copy, facts, false, null, Now, new UpdateRun(UpdateStep.NoSpace, "0.1.12", Needed: 1_288_490_189));
         Assert.AreEqual((UpdateRowKind.UpdateFailed, "Not enough space", "Needs 1.2 GB free.", "Try again", "update-no-space-help", false),
             (row.Kind, row.Title, row.Caption, row.Action, row.HelpKey, row.Cancel));
-        var banner = AboutPanel.Flyout(copy, facts, new UpdateRun(UpdateStep.NoSpace, "0.1.12", Needed: 1_288_490_189))!;
+        var banner = AboutPanel.Flyout(copy, facts, new UpdateRun(UpdateStep.NoSpace, "0.1.12", Needed: 1_288_490_189), Now)!;
         Assert.AreEqual(("Not enough space", "Needs 1.2 GB free.", "Try again", true), (banner.Title, banner.Caption, banner.Action, banner.Failed));
         var unknown = AboutPanel.Updates(copy, facts, false, null, Now, new UpdateRun(UpdateStep.NoSpace, "0.1.12"));
         Assert.AreEqual("Nothing was installed.", unknown.Caption, "no size made up when the command gave none");
@@ -356,7 +380,7 @@ public sealed class AboutTests
             var row = AboutPanel.Updates(copy, facts, false, null, Now);
             Assert.AreEqual((UpdateRowKind.Finishing, "Finishing the update to 0.1.18", false, true), (row.Kind, row.Title, row.CanCheck, row.Busy), phase);
             Assert.AreEqual(new FlyoutUpdate("Finishing the update to 0.1.18", null, null, "0.1.18", true, false, true),
-                AboutPanel.Flyout(copy, facts, null), "the flyout's whole state, not an engine that is merely starting");
+                AboutPanel.Flyout(copy, facts, null, Now), "the flyout's whole state, not an engine that is merely starting");
         }
         Assert.AreNotEqual(UpdateRowKind.Finishing,
             AboutPanel.Updates(copy, new UpdateFacts(true, false, Now, null, null, Last("preparing", "from")), false, null, Now).Kind,
@@ -382,7 +406,7 @@ public sealed class AboutTests
     {
         var copy = new NativeCopy("en");
         Assert.AreEqual(new FlyoutUpdate("Returning to 0.1.13", null, null, "0.1.13", true, false, true),
-            AboutPanel.Flyout(copy, new UpdateFacts(true, false, Now, "0.1.15", null), null, "0.1.13"), "an offer waits until the undo ends");
+            AboutPanel.Flyout(copy, new UpdateFacts(true, false, Now, "0.1.15", null), null, Now, "0.1.13"), "an offer waits until the undo ends");
     }
 
     [TestMethod]
@@ -391,19 +415,19 @@ public sealed class AboutTests
         var copy = new NativeCopy("en");
         var offer = new UpdateFacts(true, false, Now, "0.1.12", null);
         Assert.AreEqual(new FlyoutUpdate("Version 0.1.12 is ready", null, "Update", "0.1.12", false, false, false),
-            AboutPanel.Flyout(copy, offer, null));
+            AboutPanel.Flyout(copy, offer, null, Now));
         Assert.AreEqual(new FlyoutUpdate("Downloading 0.1.12", null, null, "0.1.12", true, false, false, Cancel: true),
-            AboutPanel.Flyout(copy, offer, new UpdateRun(UpdateStep.Downloading, "0.1.12")), "no Update while it downloads, only Cancel");
+            AboutPanel.Flyout(copy, offer, new UpdateRun(UpdateStep.Downloading, "0.1.12"), Now), "no Update while it downloads, only Cancel");
         Assert.AreEqual(new FlyoutUpdate("Installing 0.1.12", null, null, "0.1.12", true, false, true, 45),
-            AboutPanel.Flyout(copy, offer, new UpdateRun(UpdateStep.Installing, "0.1.12", Percent: 45)));
+            AboutPanel.Flyout(copy, offer, new UpdateRun(UpdateStep.Installing, "0.1.12", Percent: 45), Now));
         Assert.AreEqual(new FlyoutUpdate("Returning to 0.1.11", null, null, "0.1.11", true, false, true, 30),
-            AboutPanel.Flyout(copy, offer, null, "0.1.11", 30), "putting the previous version back shows Windows' percentage too");
+            AboutPanel.Flyout(copy, offer, null, Now, "0.1.11", 30), "putting the previous version back shows Windows' percentage too");
         Assert.AreEqual(new FlyoutUpdate("Couldn't download 0.1.12", "The server didn't answer.", "Try again", "0.1.12", false, true, false),
-            AboutPanel.Flyout(copy, offer, new UpdateRun(UpdateStep.DownloadFailed, "0.1.12")));
-        Assert.IsNull(AboutPanel.Flyout(copy, offer with { Offer = null, Last = new LastUpdate("complete", "0.1.11", "0.1.12", "to") }, null));
-        Assert.IsNull(AboutPanel.Flyout(copy, offer with { Offer = null }, null));
-        Assert.IsNull(AboutPanel.Flyout(copy, UpdateFacts.Unavailable, null), "a build that does not update itself says nothing");
-        Assert.IsNull(AboutPanel.Flyout(copy, null, null));
+            AboutPanel.Flyout(copy, offer, new UpdateRun(UpdateStep.DownloadFailed, "0.1.12"), Now));
+        Assert.IsNull(AboutPanel.Flyout(copy, offer with { Offer = null, Last = new LastUpdate("complete", "0.1.11", "0.1.12", "to") }, null, Now));
+        Assert.IsNull(AboutPanel.Flyout(copy, offer with { Offer = null }, null, Now));
+        Assert.IsNull(AboutPanel.Flyout(copy, UpdateFacts.Unavailable, null, Now), "a build that does not update itself says nothing");
+        Assert.IsNull(AboutPanel.Flyout(copy, null, null, Now));
     }
 
     [TestMethod]

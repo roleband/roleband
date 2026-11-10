@@ -3,8 +3,9 @@ namespace RoleBand.EngineHost;
 /// <summary>The update side of the app at one moment: what the update commands report, this session's own update,
 /// and an Undo under way.</summary>
 /// <param name="FoundFailed">The coordinator found this version's update unfinished or failed when it started the engine.</param>
-/// <param name="ReturningTo">An Undo is returning to this version.</param>
-/// <param name="Returning">This session pressed Undo and waits for Windows.</param>
+/// <param name="ReturningTo">The version an Undo returns to: one this session pressed, or one found unfinished when the app
+/// opened.</param>
+/// <param name="Returning">This session pressed Undo and waits for Windows: only then is the Undo on its way.</param>
 /// <param name="UndoFailure">Why the last Undo was refused.</param>
 /// <param name="ReturnPercent">Windows' percentage of putting the previous version back.</param>
 /// <param name="UndoGone">The last Undo was refused because the previous version is no longer published: pressing it
@@ -31,13 +32,14 @@ public sealed record UpdateState(
     /// download, even one paused for hours, does not hold the engine.</summary>
     public bool Installing => Run is { Step: UpdateStep.Installing } || Returning;
 
-    /// <summary>The release an Update press installs, when one can be pressed: not over an Undo under way, unless that
-    /// Undo was refused before it began, which leaves the update failed and open to a newer release.</summary>
+    /// <summary>The release an Update press installs, when one can be pressed: not over an Undo, unless that Undo stopped
+    /// before it began, which leaves the update failed and open to a newer release.</summary>
     public string? Installable =>
-        Switching || (ReturningTo is not null && !(UndoRefused && Facts?.Last?.Phase == "failed")) ? null : Facts?.Offer;
+        Switching || (ReturningTo is not null && !(UndoUnfinished && Facts?.Last?.Phase == "failed")) ? null : Facts?.Offer;
 
-    /// <summary>An Undo that was refused: it is no longer on its way back, whatever version it was returning to.</summary>
-    public bool UndoRefused => UndoFailure is not null && !Returning;
+    /// <summary>An Undo that is not on its way back: refused, or found unfinished when the app opened, when Windows may
+    /// have refused the previous version. It is said as an Undo that couldn't return, with Try again.</summary>
+    public bool UndoUnfinished => ReturningTo is not null && !Returning;
 }
 
 /// <summary>Everything the app's surfaces are drawn from, so the panel, the menu and Settings cannot disagree.</summary>
@@ -88,13 +90,13 @@ public static class AppSurfaces
             };
         // An Undo under way is in Windows' hands: the card says so, with nothing to install over it, never an offer as ready.
         // A download still running keeps its own row, with its Cancel.
-        if (update.ReturningTo is { } previous && !update.UndoRefused && update.Run is not { Cancellable: true })
+        if (update.Returning && update.ReturningTo is { } previous && update.Run is not { Cancellable: true })
             row = row with
             {
                 Kind = UpdateRowKind.Installing,
                 Title = copy.Format("windows-update-undoing", ("version", previous)),
-                Caption = update.Returning && update.ReturnPercent is { } percent ? AboutPanel.Percentage(copy, percent) : null,
-                CanCheck = row.CanCheck && !update.Returning,
+                Caption = update.ReturnPercent is { } percent ? AboutPanel.Percentage(copy, percent) : null,
+                CanCheck = false,
                 Action = null,
                 Cancel = false,
             };
@@ -109,15 +111,13 @@ public static class AppSurfaces
             return new Surfaces(view, [Settings(copy) with { Default = true }, MenuEntry.Separator, Quit(copy)], DefaultCommand.Settings,
                 SettingsPanel.LaunchFailed, row);
         }
-        // A refused Undo is not on its way back: the flyout says it failed, never Returning to.
-        var banner = AboutPanel.Flyout(copy, facts, update.Run, update.UndoRefused ? null : update.ReturningTo,
+        // Only an Undo this session pressed is on its way back; any other says it couldn't return, never Returning to.
+        var banner = AboutPanel.Flyout(copy, facts, update.Run, state.Now, update.Returning ? update.ReturningTo : null,
             update.Returning ? update.ReturnPercent : null);
-        // With no running engine to summarise, an update under way is the flyout's whole state.
-        if (banner is { Busy: true } && engine.State != EngineState.Ready) banner = banner with { WholeState = true };
         var problem = SettingsPanel.Problem(engine, update.UpdateFailed, state.SetupHeld, update.Run is { Step: UpdateStep.Installing },
             update.ReturningTo, update.Returning, update.UndoFailure, update.Installable, update.UndoGone);
         if (problem is { Busy: true } && update.Returning) problem = problem with { Percent = update.ReturnPercent };
-        if (update.UpdateFailed && (update.ReturningTo is null || update.UndoRefused) && !update.Switching)
+        if (update.UpdateFailed && !update.Switching)
             return FailedUpdate(copy, state, banner, problem, row);
         var flyout = Companion.View(copy, engine, state.Scan, state.Requested, state.LastScanAt, state.Setup.Complete, state.Now, banner);
         var menu = Companion.Menu(copy, engine, flyout, state.Setup.Complete);
@@ -139,7 +139,7 @@ public static class AppSurfaces
     private static Surfaces FailedUpdate(NativeCopy copy, AppState state, FlyoutUpdate? banner, SettingsProblem? problem, UpdateRow row)
     {
         var update = state.Update;
-        var title = update.UndoRefused && update.ReturningTo is { } previous
+        var title = update.ReturningTo is { } previous
             ? copy.Format("windows-update-undo-failed", ("version", previous)) : copy["update-stopped-title"];
         var line = update.UndoGone && update.ReturningTo is { } gone
             ? copy.Format("windows-update-undo-gone-body", ("version", gone)) : copy["update-stopped-body"];

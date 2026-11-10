@@ -411,7 +411,7 @@ internal sealed class TrayApp
         catch (Exception error)
         {
             Debug.WriteLine(error);
-            (updateRun, package) = (new UpdateRun(UpdateStep.DownloadFailed, version), null);
+            (updateRun, package) = (UpdateRun.Broken(version, updateRun), null);
         }
         finally { downloading = null; }
         if (quitting) return;

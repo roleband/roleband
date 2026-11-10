@@ -68,10 +68,11 @@ public sealed record UpdateFacts(bool Available, bool Automatic, DateTimeOffset?
 }
 
 /// <summary>Where this session's own update stands, from the press of Update until Windows closes this version.</summary>
-/// <remarks>Paused is a download that lost its connection: it resumes by itself, and Cancel stops it. Unpublished is an
-/// offer the feed no longer has: trying again cannot bring it back. Installing is Windows replacing the app while this
-/// version stays open; InstallFailed is Windows refusing the package.</remarks>
-public enum UpdateStep { Downloading, Paused, Installing, DownloadFailed, CheckFailed, NoSpace, Unpublished, InstallFailed }
+/// <remarks>Paused is a download that lost its connection: it resumes by itself, and Cancel stops it. DownloadFailed is a
+/// download the server did not finish; DownloadError one whose command failed or answered nothing usable, which says
+/// nothing of the server. Unpublished is an offer the feed no longer has: trying again cannot bring it back. Installing
+/// is Windows replacing the app while this version stays open; InstallFailed is Windows refusing the package.</remarks>
+public enum UpdateStep { Downloading, Paused, Installing, DownloadFailed, DownloadError, CheckFailed, NoSpace, Unpublished, InstallFailed }
 
 /// <param name="Version">The version being installed.</param>
 /// <param name="Percent">While Windows installs, its own percentage of the install.</param>
@@ -83,15 +84,16 @@ public sealed record UpdateRun(UpdateStep Step, string Version, int? Percent = n
 {
     public bool InProgress => Step is UpdateStep.Downloading or UpdateStep.Paused or UpdateStep.Installing;
 
-    public bool Failed => Step is UpdateStep.DownloadFailed or UpdateStep.CheckFailed or UpdateStep.NoSpace or UpdateStep.Unpublished
-        or UpdateStep.InstallFailed;
+    public bool Failed => Step is UpdateStep.DownloadFailed or UpdateStep.DownloadError or UpdateStep.CheckFailed or UpdateStep.NoSpace
+        or UpdateStep.Unpublished or UpdateStep.InstallFailed;
 
     /// <summary>A download Cancel can stop: one running, or one waiting for the connection.</summary>
     public bool Cancellable => Step is UpdateStep.Downloading or UpdateStep.Paused;
 
     /// <summary>What a download's answer leads to: the verified package to install, or the failure it reports. A
     /// package that is not the signed release failed its check; a lost connection pauses the download; a full disk
-    /// says how much room it needs; anything else is a download that did not finish. Progress so far is kept.</summary>
+    /// says how much room it needs; a download the server did not finish says so; any other answer names no cause.
+    /// Progress so far is kept.</summary>
     public static (UpdateRun Run, string? Package) Downloaded(JsonElement reply, string version, UpdateRun? before = null)
     {
         static string? Text(JsonElement reply, string name) =>
@@ -99,9 +101,10 @@ public sealed record UpdateRun(UpdateStep Step, string Version, int? Percent = n
                 ? value.GetString() : null;
         if (Text(reply, "status") == "downloaded" && Text(reply, "package") is { Length: > 0 } package)
             return (new UpdateRun(UpdateStep.Installing, version), package);
-        var run = new UpdateRun(UpdateStep.DownloadFailed, version, Received: before?.Received, Total: before?.Total);
+        var run = Broken(version, before);
         return (Text(reply, "kind") switch
         {
+            "download" => run with { Step = UpdateStep.DownloadFailed },
             "check" => run with { Step = UpdateStep.CheckFailed },
             "offline" => run with { Step = UpdateStep.Paused },
             "missing" => run with { Step = UpdateStep.Unpublished },
@@ -113,6 +116,10 @@ public sealed record UpdateRun(UpdateStep Step, string Version, int? Percent = n
             _ => run,
         }, null);
     }
+
+    /// <summary>A download whose command failed or gave no answer to read, with the bytes counted before it.</summary>
+    public static UpdateRun Broken(string version, UpdateRun? before) =>
+        new(UpdateStep.DownloadError, version, Received: before?.Received, Total: before?.Total);
 
     private static long? Count(JsonElement value, string name) =>
         value.ValueKind == JsonValueKind.Object && value.TryGetProperty(name, out var field) && field.ValueKind == JsonValueKind.Number
@@ -219,7 +226,8 @@ public static class AboutPanel
             var (title, caption) = run.Step switch
             {
                 UpdateStep.CheckFailed => (copy.Format("update-check-failed", ("version", run.Version)), copy["update-nothing-installed"]),
-                UpdateStep.Unpublished => (copy.Format("update-download-failed", ("version", run.Version)), copy["update-nothing-installed"]),
+                UpdateStep.Unpublished or UpdateStep.DownloadError =>
+                    (copy.Format("update-download-failed", ("version", run.Version)), copy["update-nothing-installed"]),
                 UpdateStep.NoSpace => (copy["update-no-space"],
                     run.Needed is { } needed ? copy.Format("update-no-space-caption", ("size", Size(copy, needed))) : copy["update-nothing-installed"]),
                 UpdateStep.InstallFailed => (copy.Format("windows-update-install-failed", ("version", run.Version)),
@@ -259,9 +267,11 @@ public static class AboutPanel
 
     /// <summary>The flyout's banner for an update: the offer with Update, the download, the switch, or a failure with Try
     /// again. Results stay in Settings.</summary>
+    /// <param name="now">The moment a rate limit is measured against: one that has ended keeps no offer from the banner.</param>
     /// <param name="returningTo">The version an Undo under way returns to: Windows is replacing the app.</param>
     /// <param name="returnPercent">Windows' percentage of putting that version back.</param>
-    public static FlyoutUpdate? Flyout(NativeCopy copy, UpdateFacts? facts, UpdateRun? run, string? returningTo = null, int? returnPercent = null)
+    public static FlyoutUpdate? Flyout(NativeCopy copy, UpdateFacts? facts, UpdateRun? run, DateTimeOffset now, string? returningTo = null,
+                                       int? returnPercent = null)
     {
         if (returningTo is not null)
             return new FlyoutUpdate(copy.Format("windows-update-undoing", ("version", returningTo)), null, null, returningTo, true, false, true,
@@ -270,7 +280,7 @@ public static class AboutPanel
         // While the new version prepares, the update is the flyout's whole state, as it was while Windows switched.
         if (run is null && facts?.Last is { Finishing: true } finishing)
             return new FlyoutUpdate(copy.Format("windows-update-finishing", ("version", finishing.To)), null, null, finishing.To, true, false, true);
-        var row = Updates(copy, facts, false, null, DateTimeOffset.MinValue, run);
+        var row = Updates(copy, facts, false, null, now, run);
         return row.Kind switch
         {
             UpdateRowKind.Downloading => new FlyoutUpdate(row.Title, row.Caption, null, run!.Version, true, false, false,

@@ -161,6 +161,8 @@ public sealed class CompanionTests
             undoFailure: "earlier")!.TitleKey, "pressing again shows progress, not the old refusal");
         var reopened = SettingsPanel.Problem(stopped, true, false, returningTo: "0.1.13");
         Assert.AreEqual((true, false, false), (reopened!.Undo, reopened.Busy, reopened.Restart), "opened mid-way, Undo stays one press away");
+        Assert.AreEqual(("windows-update-undo-failed", "update-stopped-body", false), (reopened.TitleKey, reopened.BodyKey, reopened.Notice),
+            "only the session that pressed Undo knows it is on its way");
         var failed = SettingsPanel.Problem(stopped, true, false)!;
         Assert.AreEqual(("update-stopped-title", true, false, (string?)null), (failed.TitleKey, failed.Undo, failed.Restart, failed.Newer),
             "a failed update asks for Undo, and offers no Restart that the closed update would ignore");
@@ -175,6 +177,16 @@ public sealed class CompanionTests
     }
 
     [TestMethod]
+    public void ABannerWhoseWordsNameAVersionItWasNotGivenIsAnErrorNotAPlaceholder()
+    {
+        Assert.AreEqual(("Returning to 0.1.13", "RoleBand closes and opens again on 0.1.13, with your data as it was before the update."),
+            new SettingsProblem("windows-update-undoing", "windows-update-undoing-body", false, false, "0.1.13").Words(English));
+        Assert.AreEqual(("An update couldn't finish", (string?)null),
+            new SettingsProblem("update-stopped-title", null, true, false, "0.1.13").Words(English), "words that name no version take none");
+        Assert.ThrowsExactly<FormatException>(() => new SettingsProblem("windows-update-undoing", null, false, false).Words(English));
+    }
+
+    [TestMethod]
     public void WhileWindowsReplacesTheAppTheStoppedEngineIsNotAProblem()
     {
         var restarting = new FlyoutUpdate("Restarting to update", null, null, "0.1.12", true, false, true);
@@ -182,8 +194,11 @@ public sealed class CompanionTests
         var view = Companion.View(English, stopped, null, null, LastScan, true, Now, restarting);
         Assert.AreEqual(("Restarting to update", true, false, false), (view.Title, view.Busy, view.PrimaryEnabled, view.Details));
         Assert.AreEqual((FlyoutPrimary.OpenRadar, TrayBadge.Scanning, "RoleBand: Restarting to update"), (view.Primary, view.Badge, view.Tooltip));
+        var installing = AppSurfaces.Of(English, new AppState(stopped, null, SetupRecord.Finished,
+            new UpdateState(new UpdateFacts(true, false, Now, "0.1.12", null), new UpdateRun(UpdateStep.Installing, "0.1.12", Percent: 100)), Now));
+        Assert.AreEqual("Restarting to update", installing.Flyout.Title);
         CollectionAssert.AreEqual(new MenuCommand?[] { MenuCommand.Settings, null, MenuCommand.Quit },
-            Companion.Menu(English, stopped, view, true).Select(entry => entry.Command).ToArray(), "Restart would race the switch");
+            installing.Menu.Select(entry => entry.Command).ToArray(), "Restart would race the switch");
         Assert.IsNull(SettingsPanel.Problem(stopped, false, false, installing: true));
         Assert.IsNotNull(SettingsPanel.Problem(stopped, false, false), "without a switch, a stopped engine is a problem");
         Assert.AreEqual(MenuCommand.Restart, Companion.Menu(English, stopped, View(stopped), true)[1].Command);

@@ -54,11 +54,12 @@ public sealed class AppStateTests
 
     private static bool CanUndo(AppState state) => state.Engine is not null && UpdateFailed(state) && !Switching(state) && !state.Update.UndoGone;
 
-    /// <summary>An Undo refused before it began leaves the journal failed, which a newer release may take over.</summary>
-    private static bool Refused(AppState state) => state.Update.UndoFailure is not null && !state.Update.Returning;
+    /// <summary>Only an Undo this session pressed is on its way back. Any other, refused or found unfinished at open, stopped:
+    /// one refused before it began leaves the journal failed, which a newer release may take over.</summary>
+    private static bool UndoStopped(AppState state) => state.Update.ReturningTo is not null && !state.Update.Returning;
 
     private static bool CanInstall(AppState state) => state.Update.Facts?.Offer is not null && !Switching(state)
-        && (state.Update.ReturningTo is null || (Refused(state) && state.Update.Facts?.Last?.Phase == "failed"));
+        && (state.Update.ReturningTo is null || (UndoStopped(state) && state.Update.Facts?.Last?.Phase == "failed"));
 
     private static string Describe(AppState state) =>
         $"engine {state.Engine?.State.ToString() ?? "none"}, setup {(state.Setup.Complete ? "done" : "fresh")}, offer {state.Update.Facts?.Offer ?? "-"}, " +
@@ -103,14 +104,17 @@ public sealed class AppStateTests
             var cancel = row.Cancel || flyout.Update?.Cancel == true;
             if (cancel) Assert.IsTrue(Downloading(state), "Cancel shown with no download to stop: " + where);
             if (Downloading(state)) Assert.IsTrue(row.Cancel, "A download Settings cannot cancel: " + where);
+            if (Downloading(state) && state.Engine is not null && !state.Update.Returning)
+                Assert.IsTrue(flyout.Update?.Cancel, "A download the flyout cannot cancel: " + where);
 
             if (row.CanCheck) Assert.IsTrue(!state.Update.Checking && !Switching(state) && state.Update.Facts?.Last is not { Finishing: true },
                 "Check for updates shown while a check or an update runs: " + where);
             if (UpdateFailed(state)) Assert.AreNotEqual(UpdateRowKind.Current, row.Kind, "A failed update called up to date: " + where);
-            if (Refused(state))
+            if (UndoStopped(state))
                 Assert.IsFalse(flyout.Title.StartsWith("Returning to", StringComparison.Ordinal)
-                    || flyout.Update?.Title.StartsWith("Returning to", StringComparison.Ordinal) == true,
-                    "A refused Undo still said to be returning: " + where);
+                    || flyout.Update?.Title.StartsWith("Returning to", StringComparison.Ordinal) == true
+                    || problem?.TitleKey == "windows-update-undoing" || row.Title.StartsWith("Returning to", StringComparison.Ordinal),
+                    "An Undo that is not on its way still said to be returning: " + where);
 
             // A way on: every state that is not on its way somewhere offers something to press beyond Settings and Quit.
             var onItsWay = flyout.Busy || problem?.Busy == true || row.Busy;
@@ -119,7 +123,7 @@ public sealed class AppStateTests
             if (!onItsWay && state.Engine is not null)
                 Assert.IsTrue(action, "A state with no way on: " + where);
             if (CanStart(state)) Assert.IsTrue(restart, "The engine can start but nothing offers Restart: " + where);
-            if (CanUndo(state) && state.Update.ReturningTo is null) Assert.IsTrue(undo, "A failed update with no Undo: " + where);
+            if (CanUndo(state)) Assert.IsTrue(undo, "A failed update with no Undo: " + where);
         }
         Assert.IsTrue(count > 10_000, $"{count} states");
     }
@@ -200,6 +204,76 @@ public sealed class AppStateTests
         var installing = AppSurfaces.Of(copy, paused with { Update = paused.Update with { Run = new UpdateRun(UpdateStep.Installing, Offer) } });
         Assert.IsFalse(installing.Flyout.Primary == FlyoutPrimary.Restart && installing.Flyout.PrimaryEnabled,
             "while Windows replaces the app, Restart would only be undone");
+    }
+
+    [TestMethod]
+    public void ARateLimitThatHasEndedKeepsTheOfferInTheFlyoutAndTheMenu()
+    {
+        var copy = new NativeCopy("en");
+        // The engine's status keeps the last limit's end after it has passed.
+        var facts = new UpdateFacts(true, false, Now.AddHours(-2), Offer, Now.AddHours(-1));
+        var ready = AppSurfaces.Of(copy, new AppState(new EngineSnapshot(EngineState.Ready), null, SetupRecord.Finished, new UpdateState(facts), Now));
+        Assert.AreEqual(("Version 0.1.19 is ready", "Update"), (ready.Flyout.Update?.Title, ready.Flyout.Update?.Action));
+        CollectionAssert.Contains(ready.Menu.Select(entry => entry.Command).ToArray(), MenuCommand.Update);
+        Assert.AreEqual(UpdateRowKind.Offered, ready.Updates.Kind, "Settings and the flyout agree");
+
+        var failed = AppSurfaces.Of(copy, new AppState(new EngineSnapshot(EngineState.Stopped), null, SetupRecord.Finished,
+            new UpdateState(facts with { Last = new LastUpdate("failed", Previous, Running, "to") }, FoundFailed: true), Now));
+        Assert.AreEqual("Update", failed.Flyout.Update?.Action, "the newer release beside Undo");
+
+        var limited = AppSurfaces.Of(copy, new AppState(new EngineSnapshot(EngineState.Ready), null, SetupRecord.Finished,
+            new UpdateState(facts with { RateLimitedUntil = Now.AddMinutes(5) }), Now));
+        Assert.AreEqual(UpdateRowKind.Failed, limited.Updates.Kind, "a limit still in force is said in Settings");
+        Assert.IsNull(limited.Flyout.Update);
+    }
+
+    [TestMethod]
+    public void ADownloadSitsUnderAStoppedEnginesSummaryWithRestartAndCancel()
+    {
+        var copy = new NativeCopy("en");
+        foreach (var engine in new[] { EngineState.Stopped, EngineState.Attention })
+        {
+            var downloading = new AppState(new EngineSnapshot(engine), null, SetupRecord.Finished,
+                new UpdateState(new UpdateFacts(true, false, Now, Offer, null), new UpdateRun(UpdateStep.Downloading, Offer)), Now);
+            var surfaces = AppSurfaces.Of(copy, downloading);
+            Assert.AreEqual(("Scanning has stopped", FlyoutPrimary.Restart, true, TrayBadge.Stopped),
+                (surfaces.Flyout.Title, surfaces.Flyout.Primary, surfaces.Flyout.PrimaryEnabled, surfaces.Flyout.Badge), $"{engine}");
+            Assert.AreEqual(("Downloading 0.1.19", true), (surfaces.Flyout.Update?.Title, surfaces.Flyout.Update?.Cancel),
+                "the download keeps its Cancel under the summary");
+            CollectionAssert.Contains(surfaces.Menu.Select(entry => entry.Command).ToArray(), MenuCommand.Restart,
+                "a download does not hold the engine");
+            Assert.IsTrue(surfaces.Problem?.Restart, $"{engine}");
+        }
+        var installing = AppSurfaces.Of(copy, new AppState(new EngineSnapshot(EngineState.Stopped), null, SetupRecord.Finished,
+            new UpdateState(new UpdateFacts(true, false, Now, Offer, null), new UpdateRun(UpdateStep.Installing, Offer)), Now));
+        Assert.AreEqual(("Installing 0.1.19", false), (installing.Flyout.Title, installing.Flyout.PrimaryEnabled),
+            "Windows replacing the app is the flyout's whole state");
+        CollectionAssert.AreEqual(new MenuCommand?[] { MenuCommand.Settings, null, MenuCommand.Quit },
+            installing.Menu.Select(entry => entry.Command).ToArray(), "no Restart while Windows replaces the app");
+    }
+
+    [TestMethod]
+    public void AnUndoFoundUnfinishedAtOpenIsOfferedAgainNotShownAsReturning()
+    {
+        var copy = new NativeCopy("en");
+        // Windows refused the previous version, or was still putting it back when the app was opened again: only the
+        // session that pressed Undo knows it is on its way.
+        var reopened = new AppState(new EngineSnapshot(EngineState.Stopped), null, SetupRecord.Finished,
+            new UpdateState(new UpdateFacts(true, false, Now, null, null, new LastUpdate("recovering", Previous, Running, "to")),
+                FoundFailed: true, ReturningTo: Previous), Now);
+        var surfaces = AppSurfaces.Of(copy, reopened);
+        Assert.AreEqual(("Couldn't return to 0.1.17", false, FlyoutPrimary.Undo, true, TrayBadge.Attention),
+            (surfaces.Flyout.Title, surfaces.Flyout.Busy, surfaces.Flyout.Primary, surfaces.Flyout.PrimaryEnabled, surfaces.Flyout.Badge));
+        Assert.IsNull(surfaces.Flyout.Update);
+        CollectionAssert.Contains(surfaces.Menu.Select(entry => entry.Command).ToArray(), MenuCommand.Undo);
+        Assert.AreEqual(("windows-update-undo-failed", "update-stopped-body", true, false),
+            (surfaces.Problem?.TitleKey, surfaces.Problem?.BodyKey, surfaces.Problem?.Undo, surfaces.Problem?.Busy));
+        Assert.AreEqual(("Couldn't return to 0.1.17", "Your data and the backup made before the update are kept."),
+            (surfaces.Problem!.Words(copy).Title, surfaces.Problem.Words(copy).Message?.Split('\n')[0]), "no reason is claimed below it");
+        Assert.AreEqual((UpdateRowKind.Unfinished, false), (surfaces.Updates.Kind, surfaces.Updates.Busy));
+
+        var pressed = AppSurfaces.Of(copy, reopened with { Update = reopened.Update with { Returning = true } });
+        Assert.AreEqual(("Returning to 0.1.17", true), (pressed.Flyout.Title, pressed.Flyout.Busy), "pressed in this session, it is on its way");
     }
 
     [TestMethod]

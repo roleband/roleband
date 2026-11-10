@@ -171,7 +171,8 @@ is also a gold-tinted banner under the flyout's summary, with a download glyph, 
 own Update, so it cannot pass unnoticed; the idle icon's tooltip names it; and the menu adds Update
 to the version, in its own group before Settings. Update is the only press: the card and the banner
 follow the download, with how much has arrived of how much and Cancel, which keeps what arrived
-for the next Update. A lost connection pauses it: Download paused, resumes once you're online,
+for the next Update. A download does not hold the engine: under a stopped engine's summary the banner
+keeps its Cancel and Restart stays. A lost connection pauses it: Download paused, resumes once you're online,
 and it tries again by itself when Windows reports a network change, else at growing intervals.
 Without room for the download and its install, nothing is fetched: Not enough space, with what
 it needs and Try again. Then the switch: Installing the version with Windows' own percentage while the
@@ -185,8 +186,9 @@ Restart. A failure names its step (the free space, the download, the check of th
 or Windows' switch), says nothing was installed where that is so, and offers Try again; a newer offer replaces
 it. Undo is answered at once: Settings says Returning to the previous version, with progress, and
 that RoleBand closes and opens again on it with the data as it was before the update; the flyout
-says the same, and nothing is left to press twice. Opened while Windows is still putting that
-version back, the app says the same and keeps Undo as a retry. An Undo that cannot finish says
+says the same, and nothing is left to press twice. Only the session that pressed Undo knows it is on
+its way: opened again with the previous version not back, the app says it couldn't return to it, that
+the data is kept, and offers Try again. An Undo that cannot finish says
 so in the same banner, that the data has not changed, with Try again and the reason below it; the
 flyout says it too, never Returning to. When the previous version is no longer published, Undo is
 not offered again: both say so, the flyout leads with Check for updates, and a newer release can

@@ -56,8 +56,8 @@ public static class Companion
     public const int NamedCompanies = 3;
 
     /// <param name="update">The update banner: an offer, a download or a failure follows the summary while scanning runs,
-    /// and an idle icon's tooltip names the offer; while Windows replaces the app, the stopped engine is that replacement,
-    /// not a problem.</param>
+    /// and an idle icon's tooltip names the offer; a download keeps its banner, with Cancel, under any summary. While
+    /// Windows replaces the app, the stopped engine is that replacement, not a problem.</param>
     public static FlyoutView View(NativeCopy copy, EngineSnapshot engine, ScanStatus? status, ScanAction? requested,
                                   DateTimeOffset? lastScanAt, bool setupComplete, DateTimeOffset now, FlyoutUpdate? update = null)
     {
@@ -66,7 +66,7 @@ public static class Companion
                 update.Percent is null, [], FlyoutPrimary.OpenRadar, false, null, null, null, PauseControl.None, false, TrayBadge.Scanning,
                 Tip(update.Title));
         var view = Summary(copy, engine, status, requested, lastScanAt, now);
-        if (update is not null && engine.State == EngineState.Ready)
+        if (update is not null && (engine.State == EngineState.Ready || update.Cancel))
             view = view with { Update = update, Tooltip = view.Badge == TrayBadge.None ? Tip(update.Title) : view.Tooltip };
         if (!setupComplete && view.Badge != TrayBadge.Stopped)
             view = view with { Badge = TrayBadge.Attention, Tooltip = Tip(copy["setup-pending"]) };
@@ -220,13 +220,11 @@ public static class Companion
 
     /// <summary>The icon's menu, in the order Windows gives tray menus: the default command first and bold, the
     /// scan's tasks, a pause shown as a checked state, then Settings, and Quit last. Items that don't apply are left
-    /// out rather than greyed.</summary>
+    /// out rather than greyed; whether an update keeps Restart out is <see cref="AppSurfaces"/>' rule.</summary>
     public static IReadOnlyList<MenuEntry> Menu(NativeCopy copy, EngineSnapshot engine, FlyoutView view, bool setupComplete)
     {
         var quit = new MenuEntry(MenuCommand.Quit, copy["windows-quit"]);
         var settings = new MenuEntry(MenuCommand.Settings, copy["settings"]);
-        // A stopped engine's summary is never busy; one that is, is Windows replacing the app, which Restart would race.
-        if (view.Busy && engine.State is EngineState.Stopped or EngineState.Attention) return [settings, MenuEntry.Separator, quit];
         switch (Default(engine, setupComplete))
         {
             case DefaultCommand.Setup:
@@ -278,11 +276,11 @@ public sealed record SettingsProblem(string TitleKey, string? BodyKey, bool Undo
                                      bool Notice = false, string? Newer = null, int? Percent = null)
 {
     /// <summary>The banner's title and message in the copy's words, the version filled in where the words name it: a
-    /// message that names none would refuse it.</summary>
+    /// message that names none would refuse it, and one that names it without a version to fill is an error.</summary>
     public (string Title, string? Message) Words(NativeCopy copy) => (Say(copy, TitleKey), BodyKey is { } body ? Say(copy, body) : null);
 
     private string Say(NativeCopy copy, string key) =>
-        Version is { } version && copy.Takes(key, "version") ? copy.Format(key, ("version", version)) : copy[key];
+        !copy.Takes(key, "version") ? copy[key] : copy.Format(key, Version is { } version ? [("version", version)] : []);
 }
 
 public static class SettingsPanel
@@ -293,9 +291,9 @@ public static class SettingsPanel
     /// <param name="held">Setup holds the engine until Welcome's Continue: that is not a stop, and Restart would
     /// start what setup holds.</param>
     /// <param name="installing">Windows is replacing the app for an update, which stops the engine on purpose.</param>
-    /// <param name="returningTo">An Undo is returning to this version: Windows replaces the app and opens it again.</param>
-    /// <param name="returning">This session pressed Undo and is waiting for Windows; otherwise the app opened with the undo
-    /// unfinished, and Undo stays one press away in case Windows did not finish it.</param>
+    /// <param name="returningTo">An Undo returns to this version: Windows replaces the app and opens it again.</param>
+    /// <param name="returning">This session pressed Undo and is waiting for Windows. Otherwise the Undo is not on its way:
+    /// it was refused, or the app opened with it unfinished, and it couldn't return, with Undo one press away.</param>
     /// <param name="undoFailure">Why the last Undo was refused; the banner says so, with Try again and the reason below.</param>
     /// <param name="newer">A newer release offered while an update has failed: it can replace the failed version.</param>
     public static SettingsProblem? Problem(EngineSnapshot engine, bool updateFailed, bool held, bool installing = false,
@@ -303,12 +301,13 @@ public static class SettingsPanel
                                            string? newer = null, bool undoGone = false)
     {
         if (held || installing) return null;
-        if (returningTo is not null && undoFailure is not null && !returning)
-            return undoGone
-                ? new("windows-update-undo-failed", "windows-update-undo-gone-body", false, false, returningTo, Newer: newer)
-                : new("windows-update-undo-failed", "windows-update-undo-failed-body", true, false, returningTo, Newer: newer);
+        if (returningTo is not null && !returning)
+            return undoGone ? new("windows-update-undo-failed", "windows-update-undo-gone-body", false, false, returningTo, Newer: newer)
+                // Without a reason, the body names none below it.
+                : new("windows-update-undo-failed", undoFailure is null ? "update-stopped-body" : "windows-update-undo-failed-body", true, false,
+                    returningTo, Newer: newer);
         if (returningTo is not null)
-            return new("windows-update-undoing", "windows-update-undoing-body", !returning, false, returningTo, returning, Notice: true);
+            return new("windows-update-undoing", "windows-update-undoing-body", false, false, returningTo, true, Notice: true);
         // A failed update keeps the engine closed until it is undone or replaced, so Restart would do nothing.
         if (updateFailed && engine.State != EngineState.Ready)
             return new("update-stopped-title", "update-stopped-body", true, false, Newer: newer);
