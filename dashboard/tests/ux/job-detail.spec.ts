@@ -420,7 +420,7 @@ test("a role off the pipeline shows the star alone, and saving turns it into the
 });
 
 test("an applied role names its stage in the bar, and its days and what is due in the Pipeline section", async ({ page }) => {
-  await page.route("/api/jobs/101", (route) => route.fulfill({ json: { ...jobFixture, is_favorite: true, pursuit: appliedPursuit } }));
+  await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: { ...jobFixture, is_favorite: true, pursuit: appliedPursuit } }));
   await mockGet(page, "/api/applications/101", (route) => route.fulfill({ json: applicationDetailFixture({
     application: applicationCardFixture({
       pursuit_id: 10, stage: "applied", stage_since: new Date(Date.now() - 12 * DAY).toISOString(),
@@ -464,7 +464,7 @@ test("an applied role names its stage in the bar, and its days and what is due i
 test("the side column leads with the radar's read while deciding, and with the pipeline once applied", async ({ page }) => {
   let applied = false;
   const review = { ...ANCHOR_REVIEW, domain: null, relevance: "uncertain", confidence: 0.25, rationale: "" };
-  await page.route("/api/jobs/101", (route) => route.fulfill({ json: {
+  await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: {
     ...jobFixture, relevance_review: review, is_favorite: true,
     pursuit: { ...appliedPursuit, stage: applied ? "applied" : "saved" },
   } }));
@@ -496,7 +496,7 @@ test("the side column leads with the radar's read while deciding, and with the p
 
 test("the stage button's star is the radar's saved gold, at a live stage and after an ending", async ({ page }) => {
   let ended = false;
-  await page.route("/api/jobs/101", (route) => route.fulfill({ json: { ...jobFixture, is_favorite: true, pursuit: appliedPursuit } }));
+  await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: { ...jobFixture, is_favorite: true, pursuit: appliedPursuit } }));
   await mockGet(page, "/api/applications/101", (route) => route.fulfill({ json: applicationDetailFixture({
     application: applicationCardFixture(ended
       ? { pursuit_id: 10, stage: "rejected", ended_at_stage: "applied", stage_since: new Date().toISOString() }
@@ -526,9 +526,9 @@ test("the stage button's star is the radar's saved gold, at a live stage and aft
   ended = true;
   await page.reload();
   await expect(stage).toHaveAttribute("data-ended", "");
-  const after = await colours();
-  expect(after.star, "an ending quiets the words, never the star").toBe(gold);
-  expect(after.words).not.toBe(live.words);
+  // The button's colour eases to the ending's, so its words are read once settled.
+  await expect.poll(async () => (await colours()).words, "an ending quiets the words").not.toBe(live.words);
+  expect((await colours()).star, "never the star").toBe(gold);
 });
 
 test("moving to Interviewing from the posting asks for the interview first, over the cover", async ({ page }) => {
@@ -537,7 +537,7 @@ test("moving to Interviewing from the posting asks for the interview first, over
     writes.push(route.request().postDataJSON());
     return route.fulfill({ json: { pursuit: { ...appliedPursuit, stage: "interviewing" } } });
   });
-  await page.route("/api/jobs/101", (route) => route.fulfill({ json: { ...jobFixture, is_favorite: true, pursuit: appliedPursuit } }));
+  await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: { ...jobFixture, is_favorite: true, pursuit: appliedPursuit } }));
   await mockGet(page, "/api/applications/101", (route) => route.fulfill({ json: applicationDetailFixture() }));
   await page.goto("/company/openai/job/101");
   const panel = detail(page);
