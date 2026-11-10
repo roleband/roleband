@@ -14,7 +14,7 @@ work and cannot veto a replacement, and a custom Inno or WiX updater.
 
 The Windows app is one MSIX per release: the WinUI host, the hash-locked Python runtime and
 engine, the dashboard build and the PostgreSQL contrib modules, signed with the release
-certificate and timestamped.
+certificate ([decision 0012](0012-windows-distribution-and-signing.md)).
 
 - Program files are the package's; every piece of history, credential and key lives in the
   account's LocalAppData, excluded from file-system virtualization
