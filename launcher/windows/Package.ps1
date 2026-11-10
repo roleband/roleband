@@ -24,10 +24,10 @@ if ((Test-Path -LiteralPath $buildPath) -and !(Test-Path -LiteralPath $trialPath
 } else { throw 'The bundle must name one channel: a trial or a release.' }
 if ($null -eq $marker.dirty_paths -or @($marker.dirty_paths).Count -ne 0) { throw 'The bundle was not assembled from a clean commit. Assemble it again.' }
 # A package is traceable to its commit only if the bundle is byte for byte what assembly recorded.
-$recorded = Get-Content -Raw -LiteralPath (Join-Path $bundlePath 'trial-hashes.json') | ConvertFrom-Json
+$recorded = Get-Content -Raw -LiteralPath (Join-Path $bundlePath 'bundle-hashes.json') | ConvertFrom-Json
 $expected = @{}
 $recorded.PSObject.Properties | ForEach-Object { $expected[$_.Name] = $_.Value }
-$packaging = @('trial-hashes.json', 'AppxManifest.xml', 'resources.pri')
+$packaging = @('bundle-hashes.json', 'AppxManifest.xml', 'resources.pri')
 Get-ChildItem -LiteralPath $bundlePath -File -Recurse | ForEach-Object {
     $relative = $_.FullName.Substring($bundlePath.Length+1)
     if ($packaging -contains $relative -or $relative.StartsWith('Assets\')) { return }
@@ -121,11 +121,11 @@ try {
     Remove-Item -LiteralPath $priWork -Recurse -Force -ErrorAction SilentlyContinue
 }
 $hashes = [ordered]@{}
-Get-ChildItem -LiteralPath $bundlePath -File -Recurse | Where-Object {$_.FullName -ne (Join-Path $bundlePath 'trial-hashes.json')} | ForEach-Object {
+Get-ChildItem -LiteralPath $bundlePath -File -Recurse | Where-Object {$_.FullName -ne (Join-Path $bundlePath 'bundle-hashes.json')} | ForEach-Object {
     $relative = $_.FullName.Substring($bundlePath.Length+1)
     $hashes[$relative] = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
 }
-$hashes | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath (Join-Path $bundlePath 'trial-hashes.json') -Encoding UTF8
+$hashes | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath (Join-Path $bundlePath 'bundle-hashes.json') -Encoding UTF8
 & $makeappx pack /d $bundlePath /p $packagePath
 if ($LASTEXITCODE -ne 0) { throw 'MSIX validation or packing failed.' }
 Get-FileHash -LiteralPath $packagePath -Algorithm SHA256

@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import json
 import shutil
@@ -7,9 +8,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from assemble import REHEARSAL_FEED, RELEASE_FEED, clean_revision, release_identity
+from assemble import bundle_identity, clean_revision
+from identity import FEED, PACKAGE_NAME, PUBLISHER, REHEARSAL_FEED
 
 PACKAGE = Path(__file__).resolve().parents[1] / "Package.ps1"
+TRIAL_FEED = "roleband/roleband-windows-trials"
 #: PowerShell 7 where installed (CI runners), otherwise the Windows PowerShell every Windows has.
 SHELL = shutil.which("pwsh") or "powershell"
 
@@ -62,45 +65,83 @@ class CleanRevisionTests(unittest.TestCase):
         clean_revision(self.root)
 
 
-class ReleaseIdentityTests(unittest.TestCase):
-    """A release trusts the committed update identity, and only one for the shared feed."""
+def key(seed):
+    return base64.b64encode(bytes([seed]) * 32).decode()
+
+
+class BundleIdentityTests(unittest.TestCase):
+    """A release trusts the committed release identity, and only one for RoleBand's own package on the shared feed;
+    a trial trusts only its own trial identity, never the release's."""
 
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.root = Path(self.directory.name)
         (self.root / "launcher/windows").mkdir(parents=True)
-        shutil.copytree(Path(__file__).resolve().parents[3] / "backend/tracker", self.root / "backend/tracker",
-                        ignore=shutil.ignore_patterns("__pycache__"))
+        shutil.copyfile(Path(__file__).resolve().parents[1] / "AppxManifest.xml",
+                        self.root / "launcher/windows/AppxManifest.xml")
 
     def tearDown(self):
         self.directory.cleanup()
 
-    def write(self, feed):
-        import base64
+    def write(self, name="release-identity.json", **fields):
+        record = {"format": 1, "feed": FEED, "release_public_key": key(1), "package_name": PACKAGE_NAME,
+                  "publisher": PUBLISHER, "spare_release_public_key": key(2), **fields}
+        path = self.root / "launcher/windows" / name
+        path.write_text(json.dumps({field: value for field, value in record.items() if value is not None}))
+        return path
 
-        (self.root / "launcher/windows/release-identity.json").write_text(json.dumps({
-            "format": 1, "feed": feed, "release_public_key": base64.b64encode(b"k" * 32).decode(),
-            "package_name": "RoleBand.RoleBand", "publisher": "CN=RoleBand, O=RoleBand, DC=roleband, DC=com"}))
+    def trial(self, **fields):
+        return self.write("trial-identity.json", **{"feed": TRIAL_FEED, "package_name": "RoleBand.Windows.Trial",
+                                                    "publisher": "CN=RoleBand Windows Trial",
+                                                    "spare_release_public_key": None, **fields})
 
     def test_a_release_without_an_update_identity_is_refused(self):
         with self.assertRaisesRegex(ValueError, "needs launcher/windows/release-identity.json"):
-            release_identity(self.root)
+            bundle_identity(self.root, "release")
 
     def test_a_release_updates_only_from_the_shared_feed(self):
-        self.write("roleband/roleband-windows-trials")
+        self.write(feed=REHEARSAL_FEED)
         with self.assertRaisesRegex(ValueError, "updates from roleband/roleband"):
-            release_identity(self.root)
-        self.write(RELEASE_FEED)
-        self.assertEqual(self.root / "launcher/windows/release-identity.json", release_identity(self.root))
+            bundle_identity(self.root, "release")
+        path = self.write()
+        self.assertEqual(path, bundle_identity(self.root, "release"))
 
-    def test_a_rehearsal_updates_only_from_the_private_feed_and_never_from_the_public_one(self):
-        self.write(REHEARSAL_FEED)
+    def test_a_release_is_roleband_s_own_package_and_publisher_and_names_a_spare(self):
+        for fields, reason in (({"package_name": "RoleBand.Windows.Trial"}, "the package RoleBand.RoleBand"),
+                               ({"publisher": "CN=RoleBand Windows Trial"}, "the package RoleBand.RoleBand"),
+                               ({"spare_release_public_key": None}, "names a spare release key")):
+            with self.subTest(fields=fields):
+                self.write(**fields)
+                with self.assertRaisesRegex(ValueError, reason):
+                    bundle_identity(self.root, "release")
+
+    def test_a_rehearsal_updates_only_from_the_trial_feed_and_never_from_the_public_one(self):
+        path = self.write(feed=REHEARSAL_FEED)
         with self.assertRaisesRegex(ValueError, "A release updates from roleband/roleband"):
-            release_identity(self.root)
-        self.assertEqual(self.root / "launcher/windows/release-identity.json", release_identity(self.root, rehearsal=True))
-        self.write(RELEASE_FEED)
+            bundle_identity(self.root, "release")
+        self.assertEqual(path, bundle_identity(self.root, "release", rehearsal=True))
+        self.write(feed=FEED)
         with self.assertRaisesRegex(ValueError, "A rehearsal updates from roleband/roleband-windows-trials"):
-            release_identity(self.root, rehearsal=True)
+            bundle_identity(self.root, "release", rehearsal=True)
+
+    def test_a_trial_never_carries_the_release_identity(self):
+        self.write()
+        self.assertIsNone(bundle_identity(self.root, "trial"), "a trial without its own identity offers no update")
+        path = self.trial()
+        self.assertEqual(path, bundle_identity(self.root, "trial"))
+
+    def test_a_trial_identity_for_the_shared_feed_or_another_package_is_refused(self):
+        for fields, reason in (({"feed": FEED}, "never updates from roleband/roleband"),
+                               ({"feed": "RoleBand/RoleBand"}, "never updates from roleband/roleband"),
+                               ({"package_name": PACKAGE_NAME}, "the trial package RoleBand.Windows.Trial"),
+                               ({"publisher": PUBLISHER}, "the trial package RoleBand.Windows.Trial")):
+            with self.subTest(fields=fields):
+                self.trial(**fields)
+                with self.assertRaisesRegex(ValueError, reason):
+                    bundle_identity(self.root, "trial")
+        (self.root / "launcher/windows/trial-identity.json").write_text("{}")
+        with self.assertRaisesRegex(ValueError, "damaged"):
+            bundle_identity(self.root, "trial")
 
 
 @unittest.skipUnless(sys.platform == "win32", "Package.ps1 runs on Windows")
@@ -117,11 +158,10 @@ class PackageProvenanceTests(unittest.TestCase):
         self.directory.cleanup()
 
     def record(self):
-        if self.trial is not None:
-            (self.bundle / "Resources/trial.json").write_text(json.dumps(self.trial))
+        (self.bundle / "Resources/trial.json").write_text(json.dumps(self.trial))
         files = {str(path.relative_to(self.bundle)): hashlib.sha256(path.read_bytes()).hexdigest()
-                 for path in self.bundle.rglob("*") if path.is_file() and path.name != "trial-hashes.json"}
-        (self.bundle / "trial-hashes.json").write_text(json.dumps(files))
+                 for path in self.bundle.rglob("*") if path.is_file() and path.name != "bundle-hashes.json"}
+        (self.bundle / "bundle-hashes.json").write_text(json.dumps(files))
 
     def package(self):
         result = subprocess.run(
@@ -167,7 +207,7 @@ class PackageProvenanceTests(unittest.TestCase):
     def test_a_release_bundle_needs_the_identity_that_names_its_publisher(self):
         (self.bundle / "Resources/trial.json").unlink()
         (self.bundle / "Resources/build.json").write_text(json.dumps({"format": 1, "channel": "release", "dirty_paths": []}))
-        (self.bundle / "Resources/release-identity.json").write_text(json.dumps({"format": 1, "feed": RELEASE_FEED}))
+        (self.bundle / "Resources/release-identity.json").write_text(json.dumps({"format": 1, "feed": FEED}))
         self.assertIn("names its package and publisher", self.package())
 
     def test_a_marker_naming_another_channel_is_refused(self):
