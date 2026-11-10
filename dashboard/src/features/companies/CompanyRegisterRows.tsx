@@ -22,6 +22,8 @@ import {
   companiesCompanyRegisterRowsFollowed,
   companiesCompanyRegisterRowsFollowingNotScannedYet,
   companiesCompanyRegisterRowsRadarVisibility,
+  companiesCompanyRegisterRowsKeepScanning,
+  companiesCompanyRegisterRowsKeepScanningState,
   companiesCompanyRegisterRowsLimitsCollection,
   companiesCompanyRegisterRowsNeedsConsent,
   companiesCompanyRegisterRowsRolebandLastReadSRoles,
@@ -123,8 +125,8 @@ function ConnectorCell({
     dot = "is-warn";
     label = companiesCompanyRegisterRowsBlocked();
     warn = true;
-  } else if (company.wall !== null && company.enabled && !company.consented) {
-    // Followed, walled, never consented to: kept, and not scanned.
+  } else if ((company.wall !== null || company.directed) && company.enabled && !company.consented) {
+    // Followed, never agreed to: kept, and not scanned on its own.
     dot = "is-warn";
     label = companiesCompanyRegisterRowsNeedsConsent();
     warn = true;
@@ -257,11 +259,15 @@ function CompanyRow({
     counts,
     toggleCompany,
     toggleVisible,
+    toggleKeepScanning,
+    reviewConsent,
     syncable,
   } = useCompanies();
   const { syncRunning, scanLive, syncCompanies } = useCompaniesSync();
   const toggle = useLatestVerb(toggleCompany);
   const toggleShown = useLatestVerb(toggleVisible);
+  const toggleSchedule = useLatestVerb(toggleKeepScanning);
+  const agree = useLatestVerb(reviewConsent);
   const scan = useLatestVerb(syncCompanies);
   return (
     <CompanyRowView
@@ -279,6 +285,8 @@ function CompanyRow({
       scanState={scanLive ? "running" : syncRunning ? "waiting" : "idle"}
       toggleCompany={toggle}
       toggleVisible={toggleShown}
+      toggleKeepScanning={toggleSchedule}
+      reviewConsent={agree}
       syncCompanies={scan}
     />
   );
@@ -299,6 +307,8 @@ const CompanyRowView = memo(function CompanyRowView({
   scanState,
   toggleCompany,
   toggleVisible,
+  toggleKeepScanning,
+  reviewConsent,
   syncCompanies,
 }: {
   company: CompanyDiscoveryCompany;
@@ -317,6 +327,8 @@ const CompanyRowView = memo(function CompanyRowView({
   scanState: "idle" | "running" | "waiting";
   toggleCompany: (company: CompanyDiscoveryCompany) => void;
   toggleVisible: (company: CompanyDiscoveryCompany) => void;
+  toggleKeepScanning: (company: CompanyDiscoveryCompany) => void;
+  reviewConsent: (company: CompanyDiscoveryCompany) => void;
   syncCompanies: CompaniesSyncValue["syncCompanies"];
 }) {
   const stateId = /* not copy: an element id */ `ledger-state-${sectorSlug}-${company.slug}`;
@@ -422,6 +434,21 @@ const CompanyRowView = memo(function CompanyRowView({
             <Icon name={company.visible ? "eye" : "eyeOff"} size={16} />
           </Button>
         )}
+        {/* A company scanned only at its user's direction joins the scan
+            schedule only by their choice, made in its follow dialog and
+            changed here. */}
+        {on && company.directed && company.consented && (
+          <Button
+            variant="icon"
+            size="sm"
+            aria-label={companiesCompanyRegisterRowsKeepScanning({ state: company.scan_on_schedule ? "schedule" : "request", company: company.display })}
+            aria-pressed={company.scan_on_schedule}
+            title={companiesCompanyRegisterRowsKeepScanningState({ state: company.scan_on_schedule ? "schedule" : "request" })}
+            onClick={() => toggleKeepScanning(company)}
+          >
+            <Icon name="calendar" size={16} />
+          </Button>
+        )}
         {/* Offered only for a company the pipeline would really accept. While
             a run is live the company joins it and is read next. */}
         {syncable && (
@@ -431,7 +458,7 @@ const CompanyRowView = memo(function CompanyRowView({
             aria-label={companiesCompanyRegisterRowsScanNow({ display: String(company.display) })}
             disabled={scanState === "waiting"}
             title={companiesCompanyRegisterRowsScanNowHint({ scan: scanState })}
-            onClick={() => syncCompanies([company.slug], {
+            onClick={() => company.directed && !company.consented ? reviewConsent(company) : syncCompanies([company.slug], {
               confirm: companiesCompanyRegisterRowsScanning({ display: String(company.display) }),
               joined: companiesCompanyRegisterRowsScanJoined({ display: String(company.display) }),
               failure: companiesCompanyRegisterRowsCouldnTStartAScan({ display: String(company.display) }),

@@ -50,7 +50,7 @@ const company = (slug: string, over: Partial<CompanyDiscoveryCompany>): CompanyD
   builtin: false,
   curated: false,
   directory: true,
-  wall: null,
+  directed: false, scan_on_schedule: false, wall: null,
   consented: false,
   status: null,
   ...over,
@@ -62,6 +62,7 @@ const followedLive = many(1234, "live", { connector_state: "live", tracked: true
 const followedReady = many(1050, "ready", { connector_state: "ready", tracked: true, enabled: true });
 const notFollowed = many(770, "planned", {});
 const state: CompanyDiscoveryState = {
+  reads_waiting: [],
   sectors: [{ slug: "technology", company_count: 3054, ready_count: 1050, selected_count: 2284 }],
   companies: [...followedLive, ...followedReady, ...notFollowed],
 };

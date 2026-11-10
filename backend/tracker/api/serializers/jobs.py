@@ -181,40 +181,42 @@ def serialize_job(
         data["description_text"] = job.description_text
         data["description_html"] = job.description_html
         data["description_sections"] = job.description_sections or []
-        # Disclosed pay band (coexists with the comp_* estimate). None = no
-        # band stored and the text not read yet; an object with
-        # disclosed=false = the text was read and stated no band. A stored
-        # band shows whoever wrote it (`disclosure_known`).
-        if not disclosure_known(job.structured_at, job.disclosed_base_min, job.disclosed_base_max):
-            data["disclosed_comp"] = None
-        else:
-            has_band = band_stated(job.disclosed_base_min, job.disclosed_base_max)
-            data["disclosed_comp"] = {
-                "disclosed": has_band,
-                "base_min": job.disclosed_base_min,
-                "base_max": job.disclosed_base_max,
-                "currency": job.disclosed_currency,
-                "pay_basis": job.disclosed_pay_basis,
-                # Checked against the amount's size: a stored
-                # "$600,000 / hr" or "€104 / yr" is served as `unclear`, and
-                # the package then refuses to split or label it.
-                "pay_period": (
-                    effective_period(
-                        job.disclosed_pay_period,
-                        job.disclosed_base_min,
-                        job.disclosed_base_max,
-                        job.disclosed_currency,
-                    )
-                    if has_band
-                    else job.disclosed_pay_period
-                ),
-                "snippet": job.disclosed_snippet,
-                # The band was read from the posting page's pay field:
-                # numbers, not a sentence, so there is no snippet to quote.
-                "from_pay_field": band_from_page(job),
-                "confidence": job.disclosed_confidence,
-                "bonus_pct": job.disclosed_bonus_pct,
-                "checked_at": job.structured_at,
-            }
+        data["disclosed_comp"] = disclosed_comp(job)
     return data
 
+
+def disclosed_comp(job: Job) -> dict | None:
+    """The pay band the posting states, as Job detail and the package read it
+    (it coexists with the comp_* estimate). None = no band stored and the text
+    not read yet; an object with disclosed=false = the text was read and stated
+    no band. A stored band shows whoever wrote it (`disclosure_known`)."""
+    if not disclosure_known(job.structured_at, job.disclosed_base_min, job.disclosed_base_max):
+        return None
+    has_band = band_stated(job.disclosed_base_min, job.disclosed_base_max)
+    return {
+        "disclosed": has_band,
+        "base_min": job.disclosed_base_min,
+        "base_max": job.disclosed_base_max,
+        "currency": job.disclosed_currency,
+        "pay_basis": job.disclosed_pay_basis,
+        # Checked against the amount's size: a stored
+        # "$600,000 / hr" or "€104 / yr" is served as `unclear`, and
+        # the package then refuses to split or label it.
+        "pay_period": (
+            effective_period(
+                job.disclosed_pay_period,
+                job.disclosed_base_min,
+                job.disclosed_base_max,
+                job.disclosed_currency,
+            )
+            if has_band
+            else job.disclosed_pay_period
+        ),
+        "snippet": job.disclosed_snippet,
+        # The band was read from the posting page's pay field:
+        # numbers, not a sentence, so there is no snippet to quote.
+        "from_pay_field": band_from_page(job),
+        "confidence": job.disclosed_confidence,
+        "bonus_pct": job.disclosed_bonus_pct,
+        "checked_at": job.structured_at,
+    }

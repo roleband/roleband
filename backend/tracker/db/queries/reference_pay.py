@@ -29,7 +29,7 @@ that filter by value live here (`pay_level_rows`, `package_rows`, `split_rows`).
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Collection, Iterable, Sequence
 from types import SimpleNamespace
 from typing import Any
 
@@ -211,6 +211,17 @@ async def package_rows(
     as taxonomy families. None when the posting has no one country."""
     if country is None:
         return []
+    rows = await package_rows_for(session, providers, [company])
+    return [row for row in rows if row.country == country]
+
+
+async def package_rows_for(
+    session: AsyncSession, providers: Providers, companies: Collection[str]
+) -> list[Any]:
+    """`package_rows` for several companies at once, every country: the caller
+    picks a posting's country from them, as `package_rows` does."""
+    if not companies:
+        return []
     rows = (
         await session.execute(
             select(
@@ -226,11 +237,11 @@ async def package_rows(
                 CompanyCompLevel.provider,
                 CompanyCompLevel.as_of,
                 CompanyCompLevel.country,
-            ).where(CompanyCompLevel.company_slug == company, *level_scope(providers))
+            ).where(CompanyCompLevel.company_slug.in_(sorted(companies)), *level_scope(providers))
         )
     ).all()
     return admit_levels(providers, rows, keep=lambda r: (
-        r.band is not None and r.base_amount is not None and r.country == country))
+        r.band is not None and r.base_amount is not None and r.country is not None))
 
 
 async def split_rows(session: AsyncSession, providers: Providers, country: str) -> list[Any]:

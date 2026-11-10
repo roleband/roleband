@@ -129,6 +129,16 @@
       ],
       "title": "Catalog Slug"
      },
+     "consent": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/AgreementPayload"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "name": {
       "anyOf": [
        {
@@ -245,6 +255,36 @@
      "access"
     ],
     "title": "AgentTool",
+    "type": "object"
+   },
+   "AgreementPayload": {
+    "description": "The user's answer to a follow dialog: a walled company's consent, or a\nuser-directed company's agreement and its \"keep scanning\" choice.",
+    "properties": {
+     "locale": {
+      "default": "en",
+      "maxLength": 35,
+      "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z]{4})?(?:-(?:[A-Za-z]{2}|[0-9]{3}))?(?:-(?:[A-Za-z0-9]{5,8}|[0-9][A-Za-z0-9]{3}))*(?:-[0-9A-WY-Za-wy-z](?:-[A-Za-z0-9]{2,8})+)*(?:-[xX](?:-[A-Za-z0-9]{1,8})+)?$",
+      "title": "Locale",
+      "type": "string",
+      "x-text": "code"
+     },
+     "scan_on_schedule": {
+      "default": true,
+      "title": "Scan On Schedule",
+      "type": "boolean"
+     },
+     "text": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Text",
+      "type": "string",
+      "x-text": "record"
+     }
+    },
+    "required": [
+     "text"
+    ],
+    "title": "AgreementPayload",
     "type": "object"
    },
    "AmountChange": {
@@ -1191,7 +1231,7 @@
    },
    "BindingAttentionItem": {
     "additionalProperties": false,
-    "description": "One followed company without a full scan for `coverage_stale_after_days` (3 days), or\nwhose board proved it lists nothing, read from its scan runs.\n\n`cause` is a vocabulary `db/queries/binding_attention.py` owns, served as\nits own `Cause` alias; `cause_outcome` is read back from an unconstrained\ncolumn and stays a string. `last_full_scan_at` is `None` for a company no\nscan ever read in full, and `days_since_full_scan` then counts from when\nits binding was made. `automatic` is false for a company scanned only when\nthe user asks (a user-directed source) or not at all (walled, no consent): the bell never\nrings for those. `empty_since` is set only while the newest reconcile\nproved the board empty.",
+    "description": "One followed company without a full scan for `coverage_stale_after_days` (3 days), or\nwhose board proved it lists nothing, read from its scan runs.\n\n`cause` is a vocabulary `db/queries/binding_attention.py` owns, served as\nits own `Cause` alias; `cause_outcome` is read back from an unconstrained\ncolumn and stays a string. `last_full_scan_at` is `None` for a company no\nscan ever read in full, and `days_since_full_scan` then counts from when\nits binding was made. `automatic` is false for a company scanned only when\nthe user asks (a user-directed source without an agreement to regular scans)\nor not at all (walled, no consent): the bell never rings for those. `empty_since` is set only while the newest reconcile\nproved the board empty.",
     "properties": {
      "automatic": {
       "title": "Automatic",
@@ -2360,14 +2400,8 @@
       "title": "Median Tc",
       "type": "integer"
      },
-     "split_source": {
-      "enum": [
-       "measured",
-       "heuristic",
-       "mixed"
-      ],
-      "title": "Split Source",
-      "type": "string"
+     "sources": {
+      "$ref": "#/components/schemas/PartSources"
      }
     },
     "required": [
@@ -2377,7 +2411,7 @@
      "bonus",
      "equity",
      "equity_pct",
-     "split_source"
+     "sources"
     ],
     "title": "CompPackage",
     "type": "object"
@@ -2628,8 +2662,12 @@
     "additionalProperties": false,
     "description": "`GET /api/statistics/comp-trajectory`.",
     "properties": {
-     "assumptions": {
-      "$ref": "#/components/schemas/EquityAssumptions"
+     "choice": {
+      "items": {
+       "$ref": "#/components/schemas/TrajectoryChoiceCompany"
+      },
+      "title": "Choice",
+      "type": "array"
      },
      "currency": {
       "const": "USD",
@@ -2659,14 +2697,22 @@
       },
       "title": "Public",
       "type": "array"
+     },
+     "set_apart": {
+      "items": {
+       "$ref": "#/components/schemas/TrajectorySetApart"
+      },
+      "title": "Set Apart",
+      "type": "array"
      }
     },
     "required": [
      "currency",
-     "assumptions",
      "overall",
      "public",
-     "private"
+     "private",
+     "choice",
+     "set_apart"
     ],
     "title": "CompTrajectoryResponse",
     "type": "object"
@@ -3362,7 +3408,7 @@
     "type": "object"
    },
    "CompanyConsent": {
-    "description": "The user's answer to a walled company's consent dialog.",
+    "description": "The user's answer to one company's follow dialog, in a selection.",
     "properties": {
      "locale": {
       "default": "en",
@@ -3371,6 +3417,11 @@
       "title": "Locale",
       "type": "string",
       "x-text": "code"
+     },
+     "scan_on_schedule": {
+      "default": true,
+      "title": "Scan On Schedule",
+      "type": "boolean"
      },
      "slug": {
       "title": "Slug",
@@ -3385,8 +3436,8 @@
      }
     },
     "required": [
-     "slug",
-     "text"
+     "text",
+     "slug"
     ],
     "title": "CompanyConsent",
     "type": "object"
@@ -3481,6 +3532,14 @@
        "$ref": "#/components/schemas/DiscoveryCompany"
       },
       "title": "Companies",
+      "type": "array"
+     },
+     "reads_waiting": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Reads Waiting",
       "type": "array"
      },
      "sectors": {
@@ -5482,6 +5541,10 @@
       "title": "Detected Family",
       "x-text": "identifier"
      },
+     "directed": {
+      "title": "Directed",
+      "type": "boolean"
+     },
      "directory": {
       "title": "Directory",
       "type": "boolean"
@@ -5527,6 +5590,10 @@
       ],
       "title": "Pending Reason",
       "x-text": "code"
+     },
+     "scan_on_schedule": {
+      "title": "Scan On Schedule",
+      "type": "boolean"
      },
      "sectors": {
       "items": {
@@ -5593,7 +5660,9 @@
      "builtin",
      "curated",
      "wall",
+     "directed",
      "consented",
+     "scan_on_schedule",
      "directory",
      "status"
     ],
@@ -6110,6 +6179,17 @@
       ],
       "title": "Enabled"
      },
+     "scan_on_schedule": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Scan On Schedule"
+     },
      "visible": {
       "anyOf": [
        {
@@ -6442,7 +6522,7 @@
    },
    "ExcludedBinding": {
     "additionalProperties": false,
-    "description": "A binding the roster does not require fresh: behind a paused or\npolicy-denied provider, one automatic work never collects (a walled\ncompany without consent, a user-directed source the user has not asked\nfor; `schedule_status.waits_for_user`), or a company whose\ncareers page is gone from its address, which Coverage tells.",
+    "description": "A binding the roster does not require fresh: behind a paused or\npolicy-denied provider, one automatic work never collects (a walled\ncompany without consent; a company on a user-directed source its user\nnever agreed to, `user_directed`, or agreed to have read only when they ask,\n`on_request`; `schedule_status.waits_for_user`), or a company whose\ncareers page is gone from its address, which Coverage tells.",
     "properties": {
      "company": {
       "title": "Company",
@@ -6458,6 +6538,7 @@
        "paused",
        "walled",
        "user_directed",
+       "on_request",
        "board_missing"
       ],
       "title": "Reason",
@@ -13868,6 +13949,52 @@
     "title": "ParsedQueryEcho",
     "type": "object"
    },
+   "PartSources": {
+    "additionalProperties": false,
+    "description": "Where each part of a package comes from (`analytics.stock_trajectory`).",
+    "properties": {
+     "base": {
+      "enum": [
+       "posted",
+       "company_rule",
+       "measured",
+       "estimated",
+       "mixed"
+      ],
+      "title": "Base",
+      "type": "string"
+     },
+     "bonus": {
+      "enum": [
+       "posted",
+       "company_rule",
+       "measured",
+       "estimated",
+       "mixed"
+      ],
+      "title": "Bonus",
+      "type": "string"
+     },
+     "equity": {
+      "enum": [
+       "posted",
+       "company_rule",
+       "measured",
+       "estimated",
+       "mixed"
+      ],
+      "title": "Equity",
+      "type": "string"
+     }
+    },
+    "required": [
+     "base",
+     "bonus",
+     "equity"
+    ],
+    "title": "PartSources",
+    "type": "object"
+   },
    "PayBasis": {
     "enum": [
      "base",
@@ -18715,7 +18842,8 @@
        {
         "enum": [
          "walled",
-         "user_directed"
+         "user_directed",
+         "on_request"
         ],
         "type": "string"
        },
@@ -23063,9 +23191,56 @@
     "title": "TrackedCompanyRow",
     "type": "object"
    },
+   "TrajectoryChoiceCompany": {
+    "additionalProperties": false,
+    "description": "A company where each person picks the cash and stock mix: a total, no split.",
+    "properties": {
+     "company": {
+      "title": "Company",
+      "type": "string"
+     },
+     "count": {
+      "title": "Count",
+      "type": "integer"
+     },
+     "median_tc": {
+      "title": "Median Tc",
+      "type": "integer"
+     },
+     "ticker": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ticker"
+     },
+     "total_source": {
+      "enum": [
+       "posted",
+       "estimated",
+       "mixed"
+      ],
+      "title": "Total Source",
+      "type": "string"
+     }
+    },
+    "required": [
+     "company",
+     "ticker",
+     "count",
+     "median_tc",
+     "total_source"
+    ],
+    "title": "TrajectoryChoiceCompany",
+    "type": "object"
+   },
    "TrajectoryPrivateCompany": {
     "additionalProperties": false,
-    "description": "`company` first, then its package and equity vehicle.",
+    "description": "`company` first, then its package, its equity vehicle and the vesting it states.",
     "properties": {
      "base": {
       "title": "Base",
@@ -23106,14 +23281,19 @@
       "title": "Median Tc",
       "type": "integer"
      },
-     "split_source": {
-      "enum": [
-       "measured",
-       "heuristic",
-       "mixed"
+     "sources": {
+      "$ref": "#/components/schemas/PartSources"
+     },
+     "vesting": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
       ],
-      "title": "Split Source",
-      "type": "string"
+      "title": "Vesting"
      }
     },
     "required": [
@@ -23124,8 +23304,9 @@
      "bonus",
      "equity",
      "equity_pct",
-     "split_source",
-     "equity_vehicle"
+     "sources",
+     "equity_vehicle",
+     "vesting"
     ],
     "title": "TrajectoryPrivateCompany",
     "type": "object"
@@ -23173,14 +23354,8 @@
       "title": "Median Tc",
       "type": "integer"
      },
-     "split_source": {
-      "enum": [
-       "measured",
-       "heuristic",
-       "mixed"
-      ],
-      "title": "Split Source",
-      "type": "string"
+     "sources": {
+      "$ref": "#/components/schemas/PartSources"
      },
      "ticker": {
       "anyOf": [
@@ -23192,6 +23367,17 @@
        }
       ],
       "title": "Ticker"
+     },
+     "vesting": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Vesting"
      }
     },
     "required": [
@@ -23202,11 +23388,45 @@
      "bonus",
      "equity",
      "equity_pct",
-     "split_source",
+     "sources",
      "equity_vehicle",
+     "vesting",
      "ticker"
     ],
     "title": "TrajectoryPublicCompany",
+    "type": "object"
+   },
+   "TrajectorySetApart": {
+    "additionalProperties": false,
+    "description": "Roles with a pay figure the tab does not split, by reason.",
+    "properties": {
+     "count": {
+      "title": "Count",
+      "type": "integer"
+     },
+     "reason": {
+      "enum": [
+       "not_us_pay",
+       "level_unplaced",
+       "base_only",
+       "basis_unclear",
+       "hourly",
+       "monthly",
+       "period_unclear",
+       "total_compensation",
+       "plugin_without_split",
+       "plugin_not_covered"
+      ],
+      "title": "Reason",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "reason",
+     "count"
+    ],
+    "title": "TrajectorySetApart",
     "type": "object"
    },
    "TwinLinkCreated": {
@@ -25151,7 +25371,7 @@
     "summary": "List Companies"
    },
    "post": {
-    "description": "Add a company from the catalog, or by careers URL (auto-detect ATS).\n\nURLs that aren't a board `detect_ats` collects are stored `pending`\n\u2014 visible in Settings but skipped by the pipeline until an adapter exists.",
+    "description": "Add a company from the catalog, or by careers URL (auto-detect ATS).\n\nURLs that aren't a board `detect_ats` collects are stored `pending`\n\u2014 visible in Settings but skipped by the pipeline until an adapter exists.\n\nA company is added followed, so a walled or user-directed one needs the\nanswer to its follow dialog (`consent`): without it nothing is added and\nthe refusal (`consent-required`) names the dialog, for a retry with it.",
     "operationId": "create_company_api_companies_post",
     "requestBody": {
      "content": {
@@ -25698,7 +25918,7 @@
   },
   "/api/companies/{slug}": {
    "patch": {
-    "description": "Toggle a company's tracking (`enabled`) and/or visibility (`visible`).\n\nBoth fields are optional and applied independently. Built-in and user-added\ncompanies are identical rows here \u2014 one code path, no special case.",
+    "description": "Toggle a company's tracking (`enabled`), visibility (`visible`) and, for a\nuser-directed company, whether it is scanned on the regular schedule\n(`scan_on_schedule`).\n\nEach field is optional and applied independently. Built-in and user-added\ncompanies are identical rows here \u2014 one code path, no special case.\nTurning `scan_on_schedule` on also queues a read, so the company joins the\nschedule read, not already stale.",
     "operationId": "update_company_api_companies__slug__patch",
     "parameters": [
      {
@@ -31392,7 +31612,7 @@
   },
   "/api/statistics/comp-trajectory": {
    "get": {
-    "description": "Equity decomposition of open-role comp for the \"Stock trajectory\" view.\n\nSplits each open role's estimated total comp into base/bonus/equity (see\n`comp_split`) and partitions companies into public (equity tracks a listed\nticker, so it flexes with the stock price) vs private/illiquid. The UI applies\na stock-price scenario to the equity slice client-side. The roles\n`/api/statistics/compensation` describes: a place set once.",
+    "description": "Each company's typical package for the Stock tab, from the packages Job\ndetail shows, so a role reads the same on both screens.\n\nCompanies split into public (equity tracks a listed ticker, so it flexes\nwith the stock price), private, and those where each person picks the cash\nand stock mix. The UI applies a stock-price scenario to the equity part\nclient-side. The roles `/api/statistics/compensation` describes: a place set once.",
     "operationId": "statistics_comp_trajectory_api_statistics_comp_trajectory_get",
     "responses": {
      "200": {
@@ -31944,7 +32164,7 @@
   },
   "/api/sync/targets": {
    "get": {
-    "description": "The companies a targeted sync may cover, with what ranking them needs.\n\nThe roster is `get_active_targets` and nothing else \u2014 exactly the set\n`run_pipeline` would accept \u2014 so the picker can never offer a company the\nrun would silently drop. A tracked company with no connector is absent here\non purpose: it is a recorded interest, not a scrapeable source, and the\nCompanies board is where that distinction is already explained.\n\nA pure read, like `/api/companies/discovery`: no `ensure_builtins()` upsert\n(startup and every mutating company route already reconcile built-ins), so\nopening the picker can never queue behind a running scrape's row locks.\n\nPer company:\n  * `last_sync_at` / `age_hours` / `stale` \u2014 the newest reconcile attempted,\n    from the runs: \"when did we last go and look\", not \"when did\n    we last succeed\"; a source we attempted and failed is not fresh, and\n    its outcome below is what says so.\n  * `last_full_scan_at` \u2014 the newest reconcile that read the whole board:\n    the coverage clock (\"Scanned 3 hours ago\").\n  * `automatic` \u2014 scanned without the user asking (not a user-directed source).\n  * `last_outcome` / `retryable` \u2014 read off the newest **full** run. A\n    targeted run's `per_source` covers only its own subset, so it cannot\n    answer \"which sources still need work\" for anyone else.",
+    "description": "The companies a targeted sync may cover, with what ranking them needs.\n\nThe roster is `get_active_targets` and nothing else \u2014 exactly the set\n`run_pipeline` would accept \u2014 so the picker can never offer a company the\nrun would silently drop. A tracked company with no connector is absent here\non purpose: it is a recorded interest, not a scrapeable source, and the\nCompanies board is where that distinction is already explained.\n\nA pure read, like `/api/companies/discovery`: no `ensure_builtins()` upsert\n(startup and every mutating company route already reconcile built-ins), so\nopening the picker can never queue behind a running scrape's row locks.\n\nPer company:\n  * `last_sync_at` / `age_hours` / `stale` \u2014 the newest reconcile attempted,\n    from the runs: \"when did we last go and look\", not \"when did\n    we last succeed\"; a source we attempted and failed is not fresh, and\n    its outcome below is what says so.\n  * `last_full_scan_at` \u2014 the newest reconcile that read the whole board:\n    the coverage clock (\"Scanned 3 hours ago\").\n  * `automatic` \u2014 scanned without the user asking (`source_policy.scanned_automatically`).\n  * `last_outcome` / `retryable` \u2014 read off the newest **full** run. A\n    targeted run's `per_source` covers only its own subset, so it cannot\n    answer \"which sources still need work\" for anyone else.",
     "operationId": "sync_targets_api_sync_targets_get",
     "responses": {
      "200": {

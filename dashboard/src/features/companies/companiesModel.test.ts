@@ -47,7 +47,7 @@ const company = (over: Partial<CompanyDiscoveryCompany>): CompanyDiscoveryCompan
   visible: true,
   builtin: false,
   curated: false, directory: false,
-  wall: null,
+  directed: false, scan_on_schedule: false, wall: null,
   consented: false,
   status: null,
   ...over,
@@ -64,6 +64,7 @@ const sector = (slug: string, display: string) => ({
 
 /** Meta sits in two sectors; Stripe belongs to none and lands in "Your additions". */
 const STATE: CompanyDiscoveryState = {
+  reads_waiting: [],
   sectors: [sector("ai", "AI"), sector("technology", "Technology")],
   companies: [
     company({ slug: "meta", display: "Meta", sectors: ["ai", "technology"], connector_state: "live", enabled: true }),
@@ -203,7 +204,7 @@ describe("the register's three filters", () => {
     const sectors = bySlug();
     expect(sectors.technology.dormant).toBe(false);
     const [only] = buildSectorGroups({
-      state: { sectors: [sector("ai", "AI")], companies: [company({ slug: "x", sectors: ["ai"] })] },
+      state: { reads_waiting: [], sectors: [sector("ai", "AI")], companies: [company({ slug: "x", sectors: ["ai"] })] },
       chosen: new Set(),
       filters: FILTERS,
       sectorNames: { ai: "AI" },
@@ -257,7 +258,7 @@ describe("the empty state", () => {
   it("blames no filter when the catalog itself came back empty", () => {
     expect(
       registerEmptyReasons({
-        state: { sectors: [], companies: [] },
+        state: { reads_waiting: [], sectors: [], companies: [] },
         chosen: new Set(),
         filters: FILTERS,
         sectorNames: {},
@@ -354,6 +355,7 @@ describe("the rest of the register's arithmetic", () => {
 
 describe("the curated list: which companies are the others, and what following them costs", () => {
   const others = otherCompanies({
+    reads_waiting: [],
     sectors: [],
     companies: [
       company({ slug: "google", curated: true, directory: false, connector_state: "live" }),

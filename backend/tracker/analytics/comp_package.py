@@ -26,7 +26,7 @@ from tracker.analytics.comp_market import us_rows
 from tracker.analytics.comp_split import split_tc
 from tracker.comp_providers.base import OUR_PAY_COUNTRY
 from tracker.levels.ladder import rung_for_band
-from tracker.levels.pay import bonus_ratio_for, pay_label
+from tracker.levels.pay import bonus_ratio_for, equity_vehicle_for, pay_label
 from tracker.levels.pay import describe as describe_policy
 from tracker.schema import LevelBand, parse_band
 from tracker.taxonomy.comp_families import borrow_rank
@@ -360,6 +360,12 @@ def _equity(
     return lo * equity_r, hi * equity_r, EQUITY_RATIO
 
 
+def cash_election(company: str) -> bool:
+    """Each employee picks how much of the pay is cash and how much stock, as the
+    company states it: no split of its pay into cash and stock is a fact."""
+    return equity_vehicle_for(company) == "cash_election"
+
+
 def _component(kind: str, low: float, high: float, provenance: str) -> dict | None:
     """A package segment. Zero-valued segments are omitted entirely — Netflix grants no
     stock and Anthropic pays no bonus, and rendering an empty sliver would imply they do."""
@@ -479,6 +485,10 @@ def build_job_package(
                                        PROV_ESTIMATED),) if c
             ]
             return package
+        if comp_median is not None and cash_election(company):
+            # The person picks the cash and stock mix: a ratio would invent one.
+            package["no_split_reason"] = NO_SPLIT_EMPLOYEE_ELECTION
+            return package
         if comp_median is not None and band and unsplit and level_placed:
             # The total stands alone: the headline reads the estimate.
             package["no_split_reason"] = NO_SPLIT_PLUGIN if not heuristic else NO_SPLIT_NOT_US
@@ -542,7 +552,7 @@ def build_job_package(
     if basis == "total" and lo is not None:
         package["total"] = {"low": lo, "high": hi, "provenance": PROV_STATED}
         package["no_split_reason"] = (
-            NO_SPLIT_EMPLOYEE_ELECTION if company == "netflix" else NO_SPLIT_TOTAL
+            NO_SPLIT_EMPLOYEE_ELECTION if cash_election(company) else NO_SPLIT_TOTAL
         )
         return package
 
@@ -558,6 +568,11 @@ def build_job_package(
     # total are a level's, and this level is a guess.
     if not level_placed:
         package["no_split_reason"] = NO_SPLIT_LEVEL_UNPLACED
+        return package
+
+    # The stated base stands; what is added on top is the person's own mix.
+    if cash_election(company):
+        package["no_split_reason"] = NO_SPLIT_EMPLOYEE_ELECTION
         return package
 
     if unsplit:

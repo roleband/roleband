@@ -50,7 +50,7 @@ const company = (over: Partial<CompanyDiscoveryCompany>): CompanyDiscoveryCompan
   builtin: true,
   curated: false,
   directory: false,
-  wall: null,
+  directed: false, scan_on_schedule: false, wall: null,
   consented: false,
   status: null,
   ...over,
@@ -61,6 +61,7 @@ const company = (over: Partial<CompanyDiscoveryCompany>): CompanyDiscoveryCompan
    and two named ones not followed, one of which limits collection, so
    following it needs consent. */
 const STATE: CompanyDiscoveryState = {
+  reads_waiting: [],
   sectors: [{ slug: "technology", company_count: 6, ready_count: 0, selected_count: 3 }],
   companies: [
     company({ slug: "apple", display: "Apple", curated: true, tracked: true, enabled: true }),
@@ -151,7 +152,7 @@ describe("SetupCompanies", () => {
     await waitFor(() => expect(api.setCompanySelection).toHaveBeenCalledTimes(1));
     const [sent, consents] = vi.mocked(api.setCompanySelection).mock.calls[0];
     expect([...sent.follow].sort()).toEqual(["databricks", "datadog", "google"]);
-    expect(consents).toEqual([{ slug: "google", text: shown, locale: "en" }]);
+    expect(consents).toEqual([{ slug: "google", text: shown, locale: "en", scan_on_schedule: true }]);
     await waitFor(() => expect(onStart).toHaveBeenCalledTimes(1));
     expect(api.followCompanyDirectory).not.toHaveBeenCalled();
   });
@@ -188,7 +189,7 @@ describe("SetupCompanies", () => {
     expect(api.setCompanySelection).toHaveBeenCalledTimes(1);
     const [sent, consents] = vi.mocked(api.setCompanySelection).mock.calls[0];
     expect([...sent.follow].sort()).toEqual(["databricks", "datadog", "google"]);
-    expect(consents).toEqual([{ slug: "google", text: shown, locale: "en" }]);
+    expect(consents).toEqual([{ slug: "google", text: shown, locale: "en", scan_on_schedule: true }]);
     await waitFor(() => expect(onStart).toHaveBeenCalledTimes(1));
     // One question for one choice: no second dialog follows the yes.
     expect(screen.queryByRole("dialog")).toBeNull();

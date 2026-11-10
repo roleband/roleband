@@ -56,7 +56,7 @@ const company = (over: Partial<CompanyDiscoveryCompany>): CompanyDiscoveryCompan
   visible: true,
   builtin: false,
   curated: false, directory: false,
-  wall: null,
+  directed: false, scan_on_schedule: false, wall: null,
   consented: false,
   status: null,
   ...over,
@@ -74,6 +74,7 @@ const sector = (slug: string) => ({
    row is drawn in each. That is the arithmetic most likely to break — totals
    must come from the flat company array, never from summing sections. */
 const state: CompanyDiscoveryState = {
+  reads_waiting: [],
   sectors: [
     sector("faang"),
     sector("ai"),
@@ -1328,7 +1329,7 @@ describe("CompaniesSection — walled companies follow only through their dialog
     await waitFor(() => expect(api.setCompanySelection).toHaveBeenCalledTimes(1));
     const [sent, consents] = vi.mocked(api.setCompanySelection).mock.calls[0];
     expect(sent).toEqual(change(["deepmind"]));
-    expect(consents).toEqual([{ slug: "deepmind", text: shown, locale: "en" }]);
+    expect(consents).toEqual([{ slug: "deepmind", text: shown, locale: "en", scan_on_schedule: true }]);
   });
 
   it("a company the user already consented to follows again from its switch without asking", async () => {
@@ -1387,6 +1388,178 @@ describe("CompaniesSection — walled companies follow only through their dialog
     const [sent, consents] = vi.mocked(api.setCompanySelection).mock.calls[0];
     expect(sent).toEqual(change([], ["deepmind"]));
     expect(consents).toEqual([]);
+  });
+});
+
+/* --- Companies scanned only at the user's direction ------------------- */
+describe("CompaniesSection — a company scanned at your direction follows and scans in one press", () => {
+  // NVIDIA's careers site is a Workday board: read only for a company its
+  // user follows and agrees to.
+  const nvidia = company({
+    slug: "nvidia", display: "NVIDIA", sectors: ["ai"], connector_state: "live", directed: true,
+  });
+  const withNvidia = (over: Partial<CompanyDiscoveryCompany> = {}): CompanyDiscoveryState => ({
+    ...state,
+    companies: [...state.companies, { ...nvidia, ...over }],
+  });
+  const openSwitch = async () =>
+    fireEvent.click(await within(await screen.findByRole("region", { name: "AI" })).findByRole("checkbox", { name: "NVIDIA" }));
+  const dialogText = (dialog: HTMLElement) =>
+    [within(dialog).getByRole("heading").textContent, ...within(dialog).getAllByText(/./, { selector: "p" })
+      .map((p) => p.textContent)].join("\n\n");
+
+  it("asks with Keep scanning ticked and Cancel focused; Cancel writes nothing", async () => {
+    vi.mocked(api.companyDiscovery).mockResolvedValue(withNvidia());
+    renderSection();
+    await openSwitch();
+
+    const ask = await screen.findByRole("dialog", { name: "Follow NVIDIA?" });
+    expect(ask).toHaveTextContent("Its careers site is scanned only at your direction.");
+    expect(within(ask).getByRole("checkbox", { name: /Keep scanning this company/ })).toBeChecked();
+    const cancel = within(ask).getByRole("button", { name: "Cancel" });
+    await waitFor(() => expect(cancel).toHaveFocus());
+    fireEvent.click(cancel);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(api.setCompanySelection).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["ticked", true],
+    ["unticked", false],
+  ])("Follow and scan sends the follow, the words shown and the choice in one request (%s)", async (_label, keep) => {
+    vi.mocked(api.companyDiscovery).mockResolvedValue(withNvidia());
+    renderSection();
+    await openSwitch();
+    const ask = await screen.findByRole("dialog", { name: "Follow NVIDIA?" });
+    if (!keep) fireEvent.click(within(ask).getByRole("checkbox", { name: /Keep scanning this company/ }));
+    const shown = dialogText(ask);
+    fireEvent.click(within(ask).getByRole("button", { name: "Follow and scan" }));
+
+    await waitFor(() => expect(api.setCompanySelection).toHaveBeenCalledTimes(1));
+    const [sent, consents] = vi.mocked(api.setCompanySelection).mock.calls[0];
+    expect(sent).toEqual(change(["nvidia"]));
+    expect(consents).toEqual([{ slug: "nvidia", text: shown, locale: "en", scan_on_schedule: keep }]);
+    expect(api.sync).not.toHaveBeenCalled();
+  });
+
+  it("says the first scan waits when its job site cannot be scanned now", async () => {
+    vi.mocked(api.companyDiscovery).mockResolvedValue(withNvidia());
+    vi.mocked(api.setCompanySelection).mockImplementation(async () => ({
+      ...withNvidia({ enabled: true, tracked: true, consented: true, scan_on_schedule: true }),
+      reads_waiting: ["nvidia"],
+    }));
+    renderSection();
+    await openSwitch();
+    fireEvent.click(within(await screen.findByRole("dialog", { name: "Follow NVIDIA?" })).getByRole("button", { name: "Follow and scan" }));
+    expect(await screen.findByText(/Its first scan waits until its job site can be scanned again\./)).toBeInTheDocument();
+  });
+
+  it("a Follow all with a directed company names it in one line and records one choice for it", async () => {
+    vi.mocked(api.companyDiscovery).mockResolvedValue(withNvidia());
+    renderSection();
+    fireEvent.click(await screen.findByRole("button", { name: "Follow all" }));
+    const ask = await screen.findByRole("dialog", { name: "Follow the whole list?" });
+    expect(ask).toHaveTextContent("Some of these companies' careers sites are scanned only at your direction.");
+    fireEvent.click(within(ask).getByRole("checkbox", { name: /Keep scanning this company/ }));
+    fireEvent.click(within(ask).getByRole("button", { name: "Follow all 3" }));
+    await waitFor(() => expect(api.setCompanySelection).toHaveBeenCalledTimes(1));
+    const [, consents] = vi.mocked(api.setCompanySelection).mock.calls[0];
+    expect(consents?.map(({ slug, scan_on_schedule }) => [slug, scan_on_schedule])).toEqual([["nvidia", false]]);
+  });
+
+  it("followed without an agreement it waits for you, and its row's Scan asks first", async () => {
+    vi.mocked(api.companyDiscovery).mockResolvedValue(withNvidia({ tracked: true, enabled: true }));
+    vi.mocked(api.syncTargets).mockResolvedValue({
+      companies: [target({ slug: "nvidia", adapter: "workday", automatic: false })], freshness_max_hours: 26,
+    });
+    renderSection();
+    const strip = await screen.findByRole("region", { name: "Companies needing attention" });
+    expect(within(strip).getByRole("button", { name: "Review NVIDIA" })).toBeInTheDocument();
+
+    fireEvent.click(await within(sectorPanel("AI")).findByRole("button", { name: "Scan NVIDIA now" }));
+    const ask = await screen.findByRole("dialog", { name: "Follow NVIDIA?" });
+    expect(api.sync).not.toHaveBeenCalled();
+    fireEvent.click(within(ask).getByRole("button", { name: "Follow and scan" }));
+    await waitFor(() => expect(api.setCompanySelection).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(api.setCompanySelection).mock.calls[0][1]?.map((entry) => entry.slug)).toEqual(["nvidia"]);
+  });
+
+  it("an agreed company's row scans directly and switches Keep scanning", async () => {
+    vi.mocked(api.companyDiscovery).mockResolvedValue(
+      withNvidia({ tracked: true, enabled: true, consented: true, scan_on_schedule: true }),
+    );
+    vi.mocked(api.syncTargets).mockResolvedValue({
+      companies: [target({ slug: "nvidia", adapter: "workday" })], freshness_max_hours: 26,
+    });
+    vi.mocked(api.sync).mockResolvedValue({ status: "started", companies: ["nvidia"], queued: ["nvidia"] });
+    renderSection();
+
+    const schedule = await within(await screen.findByRole("region", { name: "AI" }))
+      .findByRole("button", { name: "Stop scanning NVIDIA on schedule" });
+    expect(schedule).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(schedule);
+    await waitFor(() => expect(api.updateCompany).toHaveBeenCalledWith("nvidia", { scan_on_schedule: false }));
+    expect(await within(sectorPanel("AI")).findByRole("button", { name: "Scan NVIDIA on schedule" }))
+      .toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(within(sectorPanel("AI")).getByRole("button", { name: "Scan NVIDIA now" }));
+    await waitFor(() => expect(api.sync).toHaveBeenCalledWith(["nvidia"]));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("a second press on the answer while it is being sent sends nothing more", async () => {
+    vi.mocked(api.addCompany)
+      .mockRejectedValueOnce(new ApiError("agreement required", 409, "consent-required", { kind: "directed", company: "obscureco" }))
+      .mockImplementationOnce(() => pending());
+    renderSection();
+    const addMore = await screen.findByRole("region", { name: "Add more companies" });
+    fireEvent.click(within(addMore).getByRole("button", { name: "Add by link" }));
+    const form = screen.getByRole("dialog", { name: "Add a company by link" });
+    fireEvent.change(within(form).getByLabelText("Careers page link"), {
+      target: { value: "https://obscureco.wd1.myworkdayjobs.com/External" },
+    });
+    fireEvent.click(within(form).getByRole("button", { name: "Add company" }));
+    const ask = await screen.findByRole("dialog", { name: /^Follow / });
+    const answer = within(ask).getByRole("button", { name: "Follow and scan" });
+    fireEvent.click(answer);
+    await waitFor(() => expect(answer).toBeDisabled());
+    fireEvent.click(answer);
+    expect(api.addCompany).toHaveBeenCalledTimes(2);
+  });
+
+  it("a company added by its link that needs the agreement asks in the dialog, and the answer adds it", async () => {
+    // The server asks each time the link comes without the agreement.
+    const asks = () => new ApiError("agreement required", 409, "consent-required", { kind: "directed", company: "obscureco" });
+    vi.mocked(api.addCompany).mockRejectedValueOnce(asks()).mockRejectedValueOnce(asks());
+    renderSection();
+    const addMore = await screen.findByRole("region", { name: "Add more companies" });
+    fireEvent.click(within(addMore).getByRole("button", { name: "Add by link" }));
+    const form = screen.getByRole("dialog", { name: "Add a company by link" });
+    fireEvent.change(within(form).getByLabelText("Company name"), { target: { value: "ObscureCo" } });
+    fireEvent.change(within(form).getByLabelText("Careers page link"), {
+      target: { value: "https://obscureco.wd1.myworkdayjobs.com/External" },
+    });
+    fireEvent.click(within(form).getByRole("button", { name: "Add company" }));
+
+    const ask = await screen.findByRole("dialog", { name: "Follow ObscureCo?" });
+    expect(ask).toHaveTextContent("Its careers site is scanned only at your direction.");
+    // Cancel goes back to the link: nothing added, the values kept.
+    fireEvent.click(within(ask).getByRole("button", { name: "Cancel" }));
+    const again = await screen.findByRole("dialog", { name: "Add a company by link" });
+    expect(within(again).getByLabelText("Company name")).toHaveValue("ObscureCo");
+    expect(api.addCompany).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(within(again).getByRole("button", { name: "Add company" }));
+    const answer = await screen.findByRole("dialog", { name: "Follow ObscureCo?" });
+    const shown = dialogText(answer);
+    fireEvent.click(within(answer).getByRole("button", { name: "Follow and scan" }));
+    await waitFor(() => expect(api.addCompany).toHaveBeenCalledTimes(3));
+    expect(vi.mocked(api.addCompany).mock.calls[2][0]).toEqual({
+      name: "ObscureCo",
+      careers_url: "https://obscureco.wd1.myworkdayjobs.com/External",
+      consent: { text: shown, locale: "en", scan_on_schedule: true },
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 });
 

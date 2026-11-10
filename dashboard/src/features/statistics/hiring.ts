@@ -38,11 +38,11 @@ export function topCompanies(
 }
 
 /** Companies whose name contains the query, case- and accent-insensitive. */
-export function matchCompanies(
-  companies: readonly HiringCompany[],
+export function matchCompanies<T extends { company: string }>(
+  companies: readonly T[],
   query: string,
   name: (slug: string) => string,
-): HiringCompany[] {
+): T[] {
   const fold = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
   const q = fold(query.trim());
   if (!q) return companies.slice();

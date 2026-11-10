@@ -42,6 +42,7 @@ from tracker.company_catalog import CATALOG, FAMILY_CONNECTORS
 from tracker.config import COMPANIES
 
 __all__ = [
+    "DIRECTED_FINGERPRINT_PREFIX",
     "AccessClass",
     "FetchTier",
     "Wall",
@@ -51,12 +52,20 @@ __all__ = [
     "SourceReview",
     "SOURCE_REVIEWS",
     "declared_adapter",
+    "directed_source",
     "effective_review",
+    "is_wall_consent",
     "source_review",
     "source_wall",
     "unreviewed_providers",
     "user_directed_source",
 ]
+
+
+#: Starts every `SourceReview.directed_fingerprint`. No `Wall` value starts
+#: with it, which is what keeps an agreement to a user-directed source from
+#: ever reading as a wall consent.
+DIRECTED_FINGERPRINT_PREFIX = "directed:"
 
 
 class AccessClass(StrEnum):
@@ -100,10 +109,10 @@ class Wall(StrEnum):
     whether RoleBand collects it for them.
 
     A wall is only ever the SOURCE's: a consent dialog asks the user to agree
-    to something a source asked of us. A source RoleBand collects only on
-    request asks nothing of the user, since following the company already IS
-    the decision; that case is `SourceReview.user_directed`, which needs no
-    consent and shows no dialog.
+    to something a source asked of us. A source collected at the user's
+    direction asks nothing of us; that case is `SourceReview.user_directed`,
+    whose dialog asks the user how often to read the company, and whose
+    agreement never unlocks a wall (`SourceReview.directed_fingerprint`).
     """
 
     #: robots.txt disallows the route the adapter actually requests.
@@ -191,18 +200,17 @@ class SourceReview:
     #: Measured: the host refuses a client that identifies itself (a WAF-style
     #: uniform 403 on a robots-allowed route). One of the walls.
     refuses_identified_client: bool = False
-    #: Collect this source only when a user asks for it, company by company,
-    #: as its review decided. Two effects, both
-    #: enforced elsewhere — it keeps every company on the source off the
-    #: curated list (`company_discovery.is_curated`, so nobody follows one
-    #: without choosing it), and it keeps the source out of AUTOMATIC
-    #: scheduling (`scheduler.collectable_now`), so a followed company is
-    #: collected only by a sync the user starts.
+    #: Collect this source only at a user's direction, company by company, as
+    #: its review decided. Three effects, all enforced elsewhere: every company
+    #: on the source stays off the curated list (`company_discovery.is_curated`,
+    #: so nobody follows one without choosing it); following one needs the
+    #: user's agreement, given in the follow dialog
+    #: (`company_store.require_consent_to_follow`); and automatic work collects
+    #: it only when that agreement chose regular scans
+    #: (`source_policy.direction_wait`). Otherwise a scan the user starts reads it.
     #:
-    #: It is NOT a wall and asks for no consent: a wall is what a
-    #: SOURCE asks of us, and there is nothing here for a user to agree to.
-    #: Following the company is the decision, and a dialog saying so would tell
-    #: the reader what they had just done.
+    #: It is NOT a wall: a wall is what a SOURCE asks of us. The agreement
+    #: records `directed_fingerprint`, which unlocks no wall and no fetch tier.
     user_directed: bool = False
     #: The family this route belongs to, as its adapter declares it
     #: (`route_family`; `tests/test_source_review.py` holds the two equal).
@@ -243,6 +251,18 @@ class SourceReview:
         if wall is None:
             return None
         return f"{wall.value}:{self.robots.sha256 or '-'}"
+
+    @property
+    def directed_fingerprint(self) -> str | None:
+        """What a user agreed to on a user-directed source: the rule and the
+        evidence that decided it, recorded like `wall_fingerprint`.
+
+        Its prefix is no `Wall` value, so `source_policy.collection_access`
+        never reads it as a wall consent.
+        """
+        if not self.user_directed:
+            return None
+        return f"{DIRECTED_FINGERPRINT_PREFIX}{self.robots.sha256 or '-'}"
 
 
 _CHECKED = date(2026, 9, 10)
@@ -452,7 +472,7 @@ SOURCE_REVIEWS: dict[str, SourceReview] = {
         # approves no employer on it.
         review=ReviewResult.APPROVED,
         reviewer="owner",
-        review_date=date(2026, 9, 23),
+        review_date=date(2026, 11, 9),
         listing_surface=(
             "POST https://nvidia.wd5.myworkdayjobs.com/wday/cxs/nvidia/"
             "NVIDIAExternalCareerSite/jobs"
@@ -473,21 +493,22 @@ SOURCE_REVIEWS: dict[str, SourceReview] = {
         request_identity=_CHROME_UA,
         user_directed=True,
         evidence=("APPROVED: collection from this source, conditioned on the"
-                  " user directing it: every"
-                  " Workday company is disabled by default, is followed one at"
-                  " a time, and is scanned only by a sync the user starts."
-                  " The condition is not prose: `user_directed` enforces both"
-                  " halves, and an approval nobody could act on differently"
-                  " would be the kind of record this register exists to"
-                  " prevent. No tenant's terms are weighed: the judgement"
-                  " would be the same for all of them, so the choice"
-                  " of WHICH companies is the user's",
+                  " user directing it: no Workday company is on the curated"
+                  " list, following one needs the user's agreement in the"
+                  " follow dialog, and the scheduler reads it on its own only"
+                  " when that agreement chose regular scans; otherwise a sync"
+                  " the user starts reads it. The condition is not prose:"
+                  " `user_directed` enforces it, and an approval nobody could"
+                  " act on differently would be the kind of record this"
+                  " register exists to prevent. No tenant's terms are weighed:"
+                  " the judgement would be the same for all of them, so the"
+                  " choice of WHICH companies, and how often, is the user's",
                   "the tenant is per-company, so a Workday review is not"
-                  " transferable to another employer's Workday site — the"
+                  " transferable to another employer's Workday site: the"
                   " reason the decision is the user's per company rather than"
                   " ours once for the family",
                   "the source is not paused: collection continues at the"
-                  " user's direction rather than the scheduler's"),
+                  " user's direction"),
     ),
     "eightfold": SourceReview(
         provider="eightfold",
@@ -1049,20 +1070,39 @@ def unreviewed_providers() -> tuple[str, ...]:
     )
 
 
+def is_wall_consent(consent: str | None) -> bool:
+    """Is this stored fingerprint a consent to a WALL?
+
+    The consent columns also hold the agreement to a user-directed source
+    (`SourceReview.directed_fingerprint`), which showed no wall. Only a
+    fingerprint that names a wall (`SourceReview.wall_fingerprint`) answers
+    one, and with it releases the source's fetch tier
+    (`source_policy.collection_access`).
+    """
+    if not consent:
+        return False
+    return any(consent.startswith(f"{wall.value}:") for wall in Wall)
+
+
 def user_directed_source(provider_key: str, *, company: str | None = None) -> bool:
-    """Is this source collected only when the user asks for it?
+    """Is this source collected only at the user's direction?
 
     Resolved exactly as `source_wall` resolves a provider, so a recipe cannot
-    present a user-directed company as a schedulable source. Consent is not the
-    same answer: a user may have consented months ago, which says "you may",
-    never "now".
+    present a user-directed company as a schedulable source.
     """
-    declared = declared_adapter(company, provider_key)
-    return any(
-        entry.user_directed
-        for entry in (SOURCE_REVIEWS.get(key) for key in (provider_key, declared) if key)
-        if entry is not None
-    )
+    return directed_source(provider_key, company=company) is not None
+
+
+def directed_source(provider_key: str, *, company: str | None = None) -> SourceReview | None:
+    """The register row of a USER-DIRECTED source, or None.
+
+    Resolves a company's declared provider as `source_wall` does.
+    """
+    for candidate in (provider_key, declared_adapter(company, provider_key)):
+        entry = SOURCE_REVIEWS.get(candidate) if candidate else None
+        if entry is not None and entry.user_directed:
+            return entry
+    return None
 
 
 def source_wall(provider_key: str, *, company: str | None = None) -> SourceReview | None:

@@ -371,8 +371,8 @@ def test_manual_priority_cancel_restores_only_the_displaced_deadline():
 async def test_a_new_install_scans_every_company_it_follows_in_its_first_run(scratch_scope, monkeypatch):
     """A company never scanned is due now and joins one drain, rather than a
     new install's first scans spreading over hours of 8-per-tick shards. A
-    user-directed source (Workday) still waits for a
-    sync the user starts."""
+    company on a user-directed source (Workday) followed without its follow
+    dialog's agreement still waits for a sync the user starts."""
     from tracker.config import get_settings
     from tracker.workflows import scheduler
 

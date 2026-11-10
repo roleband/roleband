@@ -241,7 +241,9 @@ of the segments the user sees.
 
 With an estimated total, the total is split by the same ratios (row, then
 policy bonus, then heuristic) and every segment, including base, is
-`estimated`, with `equity_basis = ratio`. With only an estimated base (the
+`estimated`, with `equity_basis = ratio`. A company whose people pick their own
+cash and equity mix is not split (`employee_election`): the estimate stands
+whole. With only an estimated base (the
 built-in provider), the package shows one estimated base segment and no total:
 bonus and equity are unknown, not zero.
 
@@ -254,7 +256,7 @@ bonus and equity are unknown, not zero.
 | `hourly`, `monthly`, `period_unclear` | The period is not a year. RoleBand never annualises. |
 | `basis_unclear` | The posting did not say what the band covers. Splitting it would assume base. |
 | `total_compensation` | The band is total pay; it is the headline, `stated`. |
-| `employee_election` | Netflix: total pay whose cash and stock mix the employee chooses. |
+| `employee_election` | The company states that each person picks the cash and equity mix (`equity_vehicle = cash_election` in the atlas: Netflix). No figure of its is split, whether a stated total, a stated base or an estimated total. |
 | `plugin_without_split` | A plugin answers pay and its rows give no split for this level. Our heuristic and policy are our data and never split a plugin's figure. |
 | `plugin_not_covered` | A plugin answers pay and has not read this company. |
 | `not_us_pay` | RoleBand answers pay and the posting's pay is not US pay: another country, or places in several. Our split is measured on US pay only. |
@@ -262,6 +264,37 @@ bonus and equity are unknown, not zero.
 
 While a plugin answers pay, the package also omits the offer `policy` line,
 which is RoleBand's data.
+
+## The Stock tab
+
+Insights' Stock tab sums the same packages Job detail shows: both build a
+role's package through `api/comp_packages.role_package`, from the shown
+source's estimate, the band the posting states, the company's rungs for the
+posting's country and whether the level is placed. A role therefore reads the
+same on both screens (`test_a_role_reads_the_same_package_on_job_detail_and_the_stock_tab`).
+
+`analytics/stock_trajectory.build_comp_trajectory` takes each split package's
+parts at the middle of their ranges. A company's row is the median total of its
+roles, split by each part's dollar-weighted share, so its parts add up to its
+total. Each part says where it comes from:
+
+| Source | Base | Bonus | Equity |
+|---|---|---|---|
+| `posted` | the posted base range | the posting's stated percentage | |
+| `company_rule` | | the company's stated bonus rule, none included | |
+| `measured` | | a pay row for the company and level | a pay row for the company and level |
+| `estimated` | the estimated total, split | the split heuristic | a share of base |
+| `mixed` | the company's roles differ | | |
+
+A company whose people pick the cash and equity mix gets a row of its own with
+its total and no split, and no price move changes it. One of its roles with no
+total, stated or estimated, is counted apart with the rest. Every other role with a
+pay figure but no split is counted apart by reason: the package's
+`no_split_reason`, `not_us_pay` for any posting whose pay is not US pay (the tab
+is in US dollars), `base_only` for a role priced by a base alone (posted or
+estimated) with no total, and
+`level_unplaced` for an estimate the package built nothing on. A role with no
+pay figure is not counted.
 
 ## A role list's Base column
 
