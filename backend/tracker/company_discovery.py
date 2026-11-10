@@ -17,7 +17,14 @@ from typing import Any
 from tracker.company_catalog import CATALOG, FAMILY_CONNECTORS
 from tracker.company_directory import DIRECTORY_SOURCES
 from tracker.config import COMPANIES
-from tracker.source_review import SourceReview, declared_adapter, source_wall, user_directed_source
+from tracker.source_review import (
+    SourceReview,
+    declared_adapter,
+    directed_source,
+    is_wall_consent,
+    source_wall,
+    user_directed_source,
+)
 
 
 @dataclass(frozen=True)
@@ -343,15 +350,29 @@ def company_wall(slug: str, tracked: Any | None = None) -> SourceReview | None:
     return source_wall(provider, company=slug) if provider else None
 
 
-def has_consented(slug: str, tracked: Any | None) -> bool:
-    """Whether the user consented to collecting this walled company.
+def company_direction(slug: str, tracked: Any | None = None) -> SourceReview | None:
+    """The register row of the user-directed source this company is collected
+    through, or None. Resolved as `company_wall` resolves a wall."""
+    provider = collecting_provider(slug, tracked)
+    return directed_source(provider, company=slug) if provider else None
 
-    The dashboard shows the consent dialog only when this is false, so a
-    consent given once is never asked for again.
+
+def has_consented(slug: str, tracked: Any | None) -> bool:
+    """Whether the user agreed to collecting this walled or user-directed company.
+
+    The dashboard shows the follow dialog only when this is false, so an
+    agreement given once is never asked for again. A walled company counts
+    only a WALL consent (`source_policy.is_wall_consent`'s rule): an agreement
+    that showed no wall does not answer one.
     """
-    if company_wall(slug, tracked) is None or tracked is None:
+    if tracked is None:
         return False
-    return bool(getattr(tracked, "consent_fingerprint", None))
+    fingerprint = getattr(tracked, "consent_fingerprint", None)
+    if company_wall(slug, tracked) is not None:
+        return is_wall_consent(fingerprint)
+    if company_direction(slug, tracked) is None:
+        return False
+    return bool(fingerprint)
 
 
 def is_curated(slug: str, tracked: Any | None = None) -> bool:
@@ -365,9 +386,9 @@ def is_curated(slug: str, tracked: Any | None = None) -> bool:
     curated: the curated list is what a user gets without being asked, and a
     wall is exactly what must be asked about.
 
-    Nor is a company on a USER-DIRECTED source. That source needs no consent,
-    but it is collected only when a user chooses the company, and the curated
-    list is exactly the place a company arrives without being chosen.
+    Nor is a company on a USER-DIRECTED source. It is collected only at its
+    user's direction, given when they choose the company, and the curated list
+    is exactly the place a company arrives without being chosen.
     """
     if slug in _PARKED or company_wall(slug, tracked) is not None:
         return False
@@ -433,7 +454,9 @@ def _wall_fields(slug: str, row: Any | None) -> dict[str, Any]:
     wall = company_wall(slug, row)
     return {
         "wall": None if wall is None else wall.wall.value if wall.wall else None,
+        "directed": company_direction(slug, row) is not None,
         "consented": has_consented(slug, row),
+        "scan_on_schedule": bool(getattr(row, "scan_on_schedule", False)),
     }
 
 

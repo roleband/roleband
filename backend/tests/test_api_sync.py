@@ -646,6 +646,7 @@ def followed_row(binding_id, slug, *, attempted=None, full=None, cause=None, err
     return (
         binding_id, slug, slug.title(), adapter, "adapter", None, NOW - timedelta(days=60),
         full, attempted, 0, cause, attempted if cause else None, 0, list(errors), [], None, None, None,
+        False,
     )
 
 

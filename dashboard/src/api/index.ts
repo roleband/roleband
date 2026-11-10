@@ -87,7 +87,7 @@ export type {
 } from "./lineage";
 export type {
   AddCompanyPayload, BoardSearch, CompanyBenefitGroup, CompanyBenefitItem, CompanyCard,
-  CompanyCompLevel, CompanyConnectorState, CompanyConsent, CompanyDirectoryMatch, CompanyDirectorySearch, CompanyDirectoryStatus,
+  AgreementPayload, CompanyCompLevel, CompanyConnectorState, CompanyConsent, CompanyDirectoryMatch, CompanyDirectorySearch, CompanyDirectoryStatus,
   CompanyDiscoveryCompany, CompanyDiscoverySector,
   CompanyDiscoveryState, CompanyList, CompanyLocation, CompanyNames, CompanyOpenCounts, CompanyPrices,
   CompanyProfileDetail, CompanyProfileFieldWrite, CompanyProfileList, CompanyProfileSummary,

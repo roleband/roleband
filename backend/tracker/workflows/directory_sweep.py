@@ -81,7 +81,7 @@ from tracker.platform.util import clean_location
 from tracker.profiles.seed import ensure_company_profile
 from tracker.schema import dedupe_key_for
 from tracker.settings_store import get_setting_dict, set_setting_dict
-from tracker.source_policy import CollectionPolicyDenied, collection_access
+from tracker.source_policy import CollectionPolicyDenied, collection_access, needs_agreement
 from tracker.taxonomy.place_scope import place_admits
 from tracker.workflows.collection_types import empty_stats, judge_listing
 from tracker.workflows.outage import network_up
@@ -334,6 +334,10 @@ async def check_company(
     access = collection_access(company.adapter, company=company.slug)
     if access.denied or access.walled:
         return Check(company.slug, REFUSED, 0, 0, access.reason)
+    if needs_agreement(company.adapter, company.slug, None):
+        # A user-directed source is read only for a company its user chose and
+        # agreed to; the sweep chooses for nobody.
+        return Check(company.slug, REFUSED, 0, 0, f"{company.slug!r} is read only at its user's direction")
     clock = SourceClock(
         stall_seconds=stall_seconds,
         hard_deadline=time.monotonic() + budget_seconds,

@@ -1,8 +1,8 @@
 import { wordsLanguage } from "../../copy/runtime";
-import { useEffect, useRef, type ReactNode } from "react";
-import { Button, Dialog } from "../../ui";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { Button, Dialog, Switch } from "../../ui";
 import { useCompanies } from "./CompaniesData";
-import { followCopy } from "./followCopy";
+import { followCopy, type FollowCopy } from "./followCopy";
 // The dialog form these confirmations wear (`.ledger-form`, `.ledger-confirm`)
 // belongs to the register material; setup asks them without Settings' chunk.
 import "../../design/materials/register-material.css";
@@ -37,6 +37,49 @@ function keepTogether(line: string): ReactNode[] {
   return parts;
 }
 
+/** A confirmation's body: its words, the Keep scanning checkbox when the
+ *  answer covers companies scanned only at the user's direction, and the two
+ *  answers. The safe one carries `safeRef`, so its dialog can focus it. */
+export function ConfirmBody({
+  copy,
+  keepScanning,
+  onKeepScanning,
+  safeRef,
+  onSafe,
+  onAct,
+  busy = false,
+}: {
+  copy: FollowCopy;
+  keepScanning: boolean;
+  onKeepScanning: (keep: boolean) => void;
+  safeRef: RefObject<HTMLButtonElement | null>;
+  onSafe: () => void;
+  onAct: () => void;
+  /** The answer's request is in flight: a second press would send it twice. */
+  busy?: boolean;
+}) {
+  return (
+    <div className="ledger-form ledger-confirm">
+      <h3>{copy.title}</h3>
+      {copy.paragraphs.map((line) => <p key={line}>{keepTogether(line)}</p>)}
+      {copy.keepScanning && (
+        <Switch className="ledger-confirm-choice" checked={keepScanning} onChange={onKeepScanning}>
+          {copy.keepScanning.label}
+          <small>{copy.keepScanning.hint}</small>
+        </Switch>
+      )}
+      <div className="ledger-form-actions">
+        <Button ref={safeRef} onClick={onSafe}>
+          {copy.safe}
+        </Button>
+        <Button variant="primary" onClick={onAct} disabled={busy}>
+          {copy.act}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function FollowConfirmDialog({
   onAnswered,
 }: {
@@ -51,11 +94,14 @@ export function FollowConfirmDialog({
   };
   const pending = confirmation;
   const safeRef = useRef<HTMLButtonElement>(null);
+  // Ticked for every new question: regular scans are the default answer.
+  const [keepScanning, setKeepScanning] = useState(true);
 
   // The safe answer takes focus: Enter on a dialog that just opened must never
   // follow seventy companies — or consent to a wall. A child's effect runs
   // before the Overlay's, which keeps focus it finds already inside.
   useEffect(() => {
+    setKeepScanning(true);
     if (pending) safeRef.current?.focus();
   }, [pending]);
 
@@ -72,25 +118,19 @@ export function FollowConfirmDialog({
       closeOnScrim={false}
       className="app-overlay"
     >
-      <div className="ledger-form ledger-confirm">
-        <h3>{copy?.title}</h3>
-        {copy?.paragraphs.map((line) => <p key={line}>{keepTogether(line)}</p>)}
-        <div className="ledger-form-actions">
-          <Button ref={safeRef} onClick={dismiss}>
-            {copy?.safe}
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => {
-              if (!copy) return;
-              confirmFollow({ copy, locale: shownLocale });
-              onAnswered?.(true);
-            }}
-          >
-            {copy?.act}
-          </Button>
-        </div>
-      </div>
+      {copy && (
+        <ConfirmBody
+          copy={copy}
+          keepScanning={keepScanning}
+          onKeepScanning={setKeepScanning}
+          safeRef={safeRef}
+          onSafe={dismiss}
+          onAct={() => {
+            confirmFollow({ copy, locale: shownLocale, keepScanning });
+            onAnswered?.(true);
+          }}
+        />
+      )}
     </Dialog>
   );
 }

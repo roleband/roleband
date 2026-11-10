@@ -41,7 +41,12 @@ from tracker.board_relocate import check_address, find_moved_board
 from tracker.board_resolve import board_answers, resolve_pasted_board
 from tracker.comp_providers.base import OUR_PAY_COUNTRY
 from tracker.company_directory import directory_company, directory_size, search_directory
-from tracker.company_discovery import COMPANY_DISCOVERY, SECTORS, build_company_discovery
+from tracker.company_discovery import (
+    COMPANY_DISCOVERY,
+    SECTORS,
+    build_company_discovery,
+    company_direction,
+)
 from tracker.company_store import (
     CONSENT_TEXT_MAX,
     CompanyError,
@@ -55,6 +60,7 @@ from tracker.company_store import (
     require_consent_to_follow,
     resolve_company,
     set_enabled,
+    set_scan_on_schedule,
     set_visible,
     unfollowed_company_slugs,
 )
@@ -101,14 +107,41 @@ from tracker.source_policy import collection_access
 from tracker.taxonomy.comp_families import REFERENCE_FAMILY
 from tracker.taxonomy.locations import LOCATION_GROUPS
 from tracker.workflows.directory_sweep import directory_status, set_follow
+from tracker.workflows.scheduler import queue_followed_reads
 
 router = APIRouter()
+
+
+class AgreementPayload(BaseModel):
+    """The user's answer to a follow dialog: a walled company's consent, or a
+    user-directed company's agreement and its "keep scanning" choice."""
+
+    #: The dialog may contain pinned English within the selected language.
+    locale: str = Field(default="en", pattern=LOCALE_TAG, max_length=35, json_schema_extra=text_class("code"))
+    #: The dialog text the user confirmed, verbatim, so the record says what
+    #: they agreed to rather than that they clicked something.
+    text: str = Field(json_schema_extra=text_class("record"), min_length=1, max_length=CONSENT_TEXT_MAX)
+    #: "Keep scanning": a user-directed company is then scanned on the regular
+    #: schedule, not only when the user asks. Must stay true for a company that
+    #: is only walled, which is scanned on schedule once consented.
+    scan_on_schedule: bool = True
+
+    @field_validator("locale")
+    @classmethod
+    def valid_locale(cls, value: str) -> str:
+        if not is_locale_tag(value):
+            raise ValueError("invalid consent locale")
+        return value
 
 
 class AddCompanyPayload(BaseModel):
     catalog_slug: str | None = None
     name: str | None = Field(None, json_schema_extra=text_class("content"))
     careers_url: str | None = None
+    #: The answer to the follow dialog, for a company that needs one. Without
+    #: it, such a company is refused with `consent-required`, whose `kind`
+    #: (`walled` or `directed`) names the dialog to show before the retry.
+    consent: AgreementPayload | None = None
 
 
 class FindBoardPayload(BaseModel):
@@ -125,29 +158,20 @@ class MoveBoardPayload(BaseModel):
 
 
 class EnabledPayload(BaseModel):
-    # Both optional so the two switches can be toggled independently.
+    # All optional so the switches can be toggled independently.
     enabled: bool | None = None
     visible: bool | None = None
+    #: A user-directed company's "keep scanning" choice; refused for any other
+    #: company and for one its user has not agreed to follow.
+    scan_on_schedule: bool | None = None
 
 
 
 
-class CompanyConsent(BaseModel):
-    """The user's answer to a walled company's consent dialog."""
+class CompanyConsent(AgreementPayload):
+    """The user's answer to one company's follow dialog, in a selection."""
 
-    #: The dialog may contain pinned English within the selected language.
-    locale: str = Field(default="en", pattern=LOCALE_TAG, max_length=35, json_schema_extra=text_class("code"))
     slug: str
-    #: The dialog text the user confirmed, verbatim, so the record says what
-    #: they agreed to rather than that they clicked something.
-    text: str = Field(json_schema_extra=text_class("record"), min_length=1, max_length=CONSENT_TEXT_MAX)
-
-    @field_validator("locale")
-    @classmethod
-    def valid_locale(cls, value: str) -> str:
-        if not is_locale_tag(value):
-            raise ValueError("invalid consent locale")
-        return value
 
 
 class DirectoryFollowPayload(BaseModel):
@@ -162,9 +186,9 @@ class CompanySelectionPayload(BaseModel):
     #: itself), so a write that restated the whole roster would undo those.
     follow: list[str] = []
     unfollow: list[str] = []
-    #: Consents given in the dialog that produced this selection: one per walled
-    #: company the dialog covered. Starting to follow a walled company without
-    #: one (or a stored one) is refused.
+    #: Agreements given in the dialog that produced this selection: one per
+    #: walled or user-directed company the dialog covered. Starting to follow
+    #: such a company without one (or a stored one) is refused.
     consents: list[CompanyConsent] = []
 
 
@@ -394,17 +418,24 @@ async def update_company_selection(
             row = await add_company(session, fields)
             tracked[row.slug] = row
             added.append(row)
-        # Consent first, then the transitions it unlocks — all before the
-        # commit, so a refused walled follow leaves nothing half-applied.
+        # Agreements first, then the transitions they unlock, all before the
+        # commit, so a refused follow leaves nothing half-applied. A row this
+        # request created starts out followed, so it is checked like a
+        # transition: it is one.
         for consent in payload.consents:
             if consent.slug not in desired or consent.slug not in tracked:
                 raise CompanyError(f"consent for '{consent.slug}', which this selection does not follow")
-            record_consent(tracked[consent.slug], consent.text, locale=consent.locale)
+            record_consent(
+                tracked[consent.slug], consent.text, locale=consent.locale,
+                scan_on_schedule=consent.scan_on_schedule,
+            )
+        created = {row.slug for row in added}
         followed_now: list[str] = []
         for slug in sorted(desired):
             row = tracked[slug]
-            if not row.enabled:
+            if not row.enabled or slug in created:
                 require_consent_to_follow(row)
+            if not row.enabled:
                 followed_now.append(slug)
             row.enabled = True
         for slug in dropped & set(tracked):
@@ -420,10 +451,29 @@ async def update_company_selection(
     if scrapeable:
         await job_requests.ring_role_discovery(session, scrapeable, max_list=150, requested_by="add_company")
         await session.commit()
-    await _start_first_scans(session, [*added, *(tracked[slug] for slug in followed_now if slug in tracked)])
+    started = [*added, *(tracked[slug] for slug in followed_now if slug in tracked)]
+    agreed = [tracked[consent.slug] for consent in payload.consents]
+    waiting = await _queue_directed_reads(session, [*started, *agreed])
+    await _start_first_scans(session, started or agreed)
 
     tracked = {row.slug: row for row in await get_tracked_companies(session)}
-    return build_company_discovery(tracked=tracked)
+    return {**build_company_discovery(tracked=tracked), "reads_waiting": waiting}
+
+
+async def _queue_directed_reads(session, rows: list[TrackedCompany]) -> list[str]:
+    """Queue the read the follow dialog's "Follow and scan" asked for, for each
+    user-directed company among `rows`; the companies whose read could not be
+    queued (their provider is paused or denied) are returned, so the screen can
+    say the read waits. Every other company joins the first-scan drain on its
+    own. Commits."""
+    directed = list(dict.fromkeys(
+        row.slug for row in rows
+        if row.enabled and row.status == "active" and row.adapter and company_direction(row.slug, row)
+    ))
+    if not directed:
+        return []
+    queued = set(await queue_followed_reads(session, directed))
+    return [slug for slug in directed if slug not in queued]
 
 
 async def _start_first_scans(session, followed: list[TrackedCompany]) -> None:
@@ -431,8 +481,8 @@ async def _start_first_scans(session, followed: list[TrackedCompany]) -> None:
 
     A company never scanned is due at once and joins one drain run;
     without this it waits for the next 600s tick. The dispatcher decides what
-    is collectable (a user-directed source still waits for the user's Sync),
-    so this only moves WHEN it looks. A request, so it joins one already
+    is collectable (a user-directed company joins only through the read its
+    dialog queued, `_queue_directed_reads`), so this only moves WHEN it looks. A request, so it joins one already
     queued and waits for a scan in flight, whose tick or the next picks the
     companies up. Commits.
     """
@@ -447,6 +497,10 @@ async def create_company(payload: AddCompanyPayload, session: SessionDep) -> dic
 
     URLs that aren't a board `detect_ats` collects are stored `pending`
     — visible in Settings but skipped by the pipeline until an adapter exists.
+
+    A company is added followed, so a walled or user-directed one needs the
+    answer to its follow dialog (`consent`): without it nothing is added and
+    the refusal (`consent-required`) names the dialog, for a retry with it.
     """
     try:
         fields = resolve_company(
@@ -457,12 +511,20 @@ async def create_company(payload: AddCompanyPayload, session: SessionDep) -> dic
         # A URL no pattern names may still be a board its page names.
         fields = await resolve_pasted_board(fields)
         row = await add_company(session, fields)
+        if payload.consent is not None:
+            record_consent(
+                row, payload.consent.text, locale=payload.consent.locale,
+                scan_on_schedule=payload.consent.scan_on_schedule,
+            )
+        require_consent_to_follow(row)
         await session.commit()
         # A tracked company must be a /company profile from the moment it exists.
         await ensure_company_profile(session, row.slug, row.display)
         await session.commit()
     except CompanyError as exc:
+        await session.rollback()
         raise company_error(exc) from exc
+    await _queue_directed_reads(session, [row])
     await _start_first_scans(session, [row])
     if row.status == "active" and row.adapter:
         # Best-effort bootstrap, skipped when a discovery is already queued or
@@ -477,13 +539,19 @@ async def create_company(payload: AddCompanyPayload, session: SessionDep) -> dic
 
 @router.patch("/api/companies/{slug}", response_model=TrackedCompanyRow)
 async def update_company(slug: str, payload: EnabledPayload, session: SessionDep) -> dict:
-    """Toggle a company's tracking (`enabled`) and/or visibility (`visible`).
+    """Toggle a company's tracking (`enabled`), visibility (`visible`) and, for a
+    user-directed company, whether it is scanned on the regular schedule
+    (`scan_on_schedule`).
 
-    Both fields are optional and applied independently. Built-in and user-added
+    Each field is optional and applied independently. Built-in and user-added
     companies are identical rows here — one code path, no special case.
+    Turning `scan_on_schedule` on also queues a read, so the company joins the
+    schedule read, not already stale.
     """
-    if payload.enabled is None and payload.visible is None:
-        raise api_error(400, ErrorCode.INVALID_INPUT, "provide 'enabled' and/or 'visible'")
+    if payload.enabled is None and payload.visible is None and payload.scan_on_schedule is None:
+        raise api_error(
+            400, ErrorCode.INVALID_INPUT, "provide 'enabled', 'visible' and/or 'scan_on_schedule'"
+        )
 
     # A built-in may not have been seeded yet on a brand-new DB (e.g. before the
     # first startup ran); ensure its row exists so the toggle always has a target.
@@ -495,6 +563,8 @@ async def update_company(slug: str, payload: EnabledPayload, session: SessionDep
             row = await set_enabled(session, slug, payload.enabled)
         if payload.visible is not None:
             row = await set_visible(session, slug, payload.visible)
+        if payload.scan_on_schedule is not None:
+            row = await set_scan_on_schedule(session, slug, payload.scan_on_schedule)
         await session.commit()
         if payload.enabled is False:
             # An unfollowed company costs nobody coverage: its Coverage row
@@ -503,7 +573,11 @@ async def update_company(slug: str, payload: EnabledPayload, session: SessionDep
             await generate_coverage_notifications(session)
             await session.commit()
     except CompanyError as exc:
+        await session.rollback()
         raise company_error(exc) from exc
+    if payload.scan_on_schedule:
+        await _queue_directed_reads(session, [row])
+        await _start_first_scans(session, [row])
     counts = await open_counts_by_company(session)
     return _company_out(row, counts.get(slug, 0))
 
@@ -559,8 +633,14 @@ async def move_company_board(slug: str, payload: MoveBoardPayload, session: Sess
             session, slug, adapter=payload.adapter, board_token=payload.board_token,
             board_region=payload.board_region.value if payload.board_region else None,
         )
+        moved = await session.get(TrackedCompany, slug)
+        if moved is not None and moved.enabled:
+            # A followed company moved onto a user-directed source is followed
+            # there only with its user's agreement, as a new follow would be.
+            require_consent_to_follow(moved)
         await session.commit()
     except CompanyError as exc:
+        await session.rollback()
         raise company_error(exc) from exc
     await generate_coverage_notifications(session)
     await session.commit()

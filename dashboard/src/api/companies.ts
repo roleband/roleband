@@ -91,8 +91,12 @@ export type CompanyOpenCounts = Schemas["CompanyOpenCountsResponse"];
 // absent from the map has never been measured — never read it as fast.
 export type CompanyNames = Schemas["CompanyNamesResponse"];
 
-/** One walled company's consent, as the dialog the user confirmed. */
+/** One company's agreement, as the dialog the user confirmed: its text, its
+ *  language, and for a company scanned only at the user's direction whether
+ *  it joins the scan schedule. */
 export type CompanyConsent = Schemas["CompanyConsent"];
+/** The same agreement for a company added by its link, which has no slug yet. */
+export type AgreementPayload = Schemas["AgreementPayload"];
 
 /** A careers page a company's roles moved to, verified to answer. */
 export type MovedBoard = Schemas["MovedBoard"];
@@ -131,8 +135,9 @@ export const companiesApi = {
   companyOpenCounts: () => getJSON<CompanyOpenCounts>("/api/companies/open-counts"),
   /** One write's change, and only it: the companies to follow and to unfollow.
    *  A company it does not name keeps whatever the server holds. `consents`
-   *  carries the dialog text the user confirmed for each walled company it
-   *  starts to follow; the server refuses a walled follow without one. */
+   *  carries the dialog text the user confirmed for each company it starts to
+   *  follow that needs an agreement (walled, or scanned only at the user's
+   *  direction); the server refuses such a follow without one. */
   setCompanySelection: (change: { follow: string[]; unfollow: string[] }, consents: CompanyConsent[] = []) =>
     putJSON<CompanyDiscoveryState>("/api/companies/selection", {
       follow: change.follow,

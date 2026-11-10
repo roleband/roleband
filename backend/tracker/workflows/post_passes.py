@@ -163,8 +163,8 @@ async def backfill_missing_descriptions(
     no adapter can fill would let unfillable rows hold the head of the queue
     every run, so no newer blank is ever reached.
 
-    A company RoleBand scans only when the user asks (`scanned_automatically`)
-    is asked only by a run that scanned it, `collected`, which for such a
+    A company scanned only when the user asks (`scanned_automatically`) is
+    asked only by a run that scanned it, `collected`, which for such a
     company is a sync the user started: this drain runs after every run,
     scheduled ones included, and must not make one of them reach it. An
     adapter whose `hydrate` needs the listing's payload is fillable only
@@ -188,7 +188,13 @@ async def backfill_missing_descriptions(
         for slug, cfg in (await get_active_targets(session)).items()
         if text_from_posting(cfg["adapter"])
         and not collection_access(cfg["adapter"], company=slug, consent=cfg.get("consent")).denied
-        and (slug in collected or scanned_automatically(cfg["adapter"], slug, cfg.get("consent")))
+        and (
+            slug in collected
+            or scanned_automatically(
+                cfg["adapter"], slug, cfg.get("consent"),
+                scan_on_schedule=cfg.get("scan_on_schedule", False),
+            )
+        )
     }
     if not fillable:
         return []

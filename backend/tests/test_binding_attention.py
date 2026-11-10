@@ -433,7 +433,9 @@ async def test_the_query_reads_each_followed_companys_active_binding_from_its_ru
     await db_session.commit()
 
     workday = {"wdco"}
-    rows = await followed_bindings(db_session, automatic=lambda _p, slug, _c: slug not in workday)
+    rows = await followed_bindings(
+        db_session, automatic=lambda _p, slug, _c, *, scan_on_schedule: slug not in workday
+    )
     assert [(r.company_slug, r.binding_id) for r in rows] == [
         ("downco", 11), ("emptyco", 12), ("fineco", 13), ("oldco", 19), ("twinco", 16), ("wdco", 18),
     ], "followed only, the active binding only (twinco's stable one, never movedco's retired one)"

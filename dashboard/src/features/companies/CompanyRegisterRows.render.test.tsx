@@ -56,13 +56,14 @@ const company = (slug: string, over: Partial<CompanyDiscoveryCompany> = {}): Com
   builtin: true,
   curated: true,
   directory: false,
-  wall: null,
+  directed: false, scan_on_schedule: false, wall: null,
   consented: false,
   status: null,
   ...over,
 });
 
 const state: CompanyDiscoveryState = {
+  reads_waiting: [],
   sectors: [{ slug: "faang", company_count: 5, ready_count: 0, selected_count: 1 }],
   companies: [
     company("google", { tracked: true, enabled: true, status: "active" }),

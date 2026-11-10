@@ -58,6 +58,12 @@ body[data-material="register"] .settings-design-system {
   text-wrap: pretty;
 }
 
+/* The Keep scanning switch's hint, under its label. */
+.ledger-confirm-choice small {
+  display: block;
+  color: var(--app-text-muted);
+}
+
 /* A settings path or a hyphenated word read as one name: never split across lines. */
 .ledger-confirm-unbroken {
   white-space: nowrap;
