@@ -1,8 +1,8 @@
 """Table-ownership completeness — the gate that keeps derived data automated.
 
-A table whose only producer is a manual CLI (an empty `clusters` table because
-`rebuild_clusters` ran only by hand) survives unless something asserts that
-every table has an automatic populator. This suite is that assertion:
+A derived table whose only producer is a manual CLI stays empty on every
+install that never runs it, unless something asserts that every table has an
+automatic populator. This suite is that assertion:
 
 * Every mapped table is claimed exactly once in `tracker/db/ownership.py`.
   Adding a model without a claim fails here, naming the table.
@@ -85,7 +85,6 @@ def test_every_derived_pass_owns_at_least_one_table():
         "skills_requirements",
         "lineage",
         "twins",
-        "clusters",
         "similarity",
         "demand_metrics",
         "skill_demand",

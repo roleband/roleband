@@ -72,43 +72,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/clusters": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Clusters
-         * @description All semantic clusters with size, label, top skills, and company mix.
-         */
-        get: operations["clusters_api_clusters_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/clusters/{cluster_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Cluster Detail */
-        get: operations["cluster_detail_api_clusters__cluster_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/companies": {
         parameters: {
             query?: never;
@@ -2649,35 +2612,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/skills/trends": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Skills Trends
-         * @description Skill demand over time from the `skill_demand_daily` V2 rollup.
-         *
-         *     Returns a shared, sorted `dates` axis and one aligned `series` per skill (0-filled
-         *     on days with no slice), so the client can draw sparklines without post-processing.
-         *     When `term` (concept slug) is omitted the top `limit` skills by their most-recent
-         *     count are chosen; otherwise exactly the requested slugs are returned. `days<=0`
-         *     means all history. Series exclude industries (they never enter the rollup).
-         *
-         *     History accrues one slice-set per pipeline run from the first run that extracted
-         *     skills, so a young install's series are near-flat; the client shows an accruing note.
-         */
-        get: operations["skills_trends_api_skills_trends_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/statistics/comp-trajectory": {
         parameters: {
             query?: never;
@@ -2894,8 +2828,8 @@ export interface paths {
          * Statistics Overview
          * @description Cockpit aggregate for the Statistics landing tab.
          *
-         *     KPI tiles + a short generated brief + highlight strips, pulling from the demand,
-         *     skills, and cluster layers. `days<=0` means all-time; otherwise the new/closed
+         *     KPI tiles + a short generated brief + highlight strips, pulling from the demand
+         *     and skills layers. `days<=0` means all-time; otherwise the new/closed
          *     counters are scoped to the last N days of lifecycle events (so the period control
          *     is meaningful as history accrues).
          */
@@ -3891,62 +3825,6 @@ export interface components {
              * @enum {string}
              */
             provider: "openai" | "anthropic" | "openai_compatible";
-        };
-        /**
-         * ClusterDetailResponse
-         * @description `GET /api/clusters/{cluster_id}`: the open members, most central first, as list rows.
-         */
-        ClusterDetailResponse: {
-            /** Family Hint */
-            family_hint: string | null;
-            /** Id */
-            id: number;
-            /** Items */
-            items: components["schemas"]["JobRow"][];
-            /** Size */
-            size: number;
-            /** Top Terms */
-            top_terms: components["schemas"]["ClusterTerm"][];
-        };
-        /**
-         * ClusterListResponse
-         * @description `GET /api/clusters`: largest first; `model_version` is null with no clusters.
-         */
-        ClusterListResponse: {
-            /** Items */
-            items: components["schemas"]["ClusterSummary"][];
-            /** Model Version */
-            model_version: string | null;
-        };
-        /**
-         * ClusterSummary
-         * @description A cluster with its company mix. With companies hidden, `size` counts the visible mix.
-         */
-        ClusterSummary: {
-            /** Companies */
-            companies: {
-                [key: string]: number;
-            };
-            /** Family Hint */
-            family_hint: string | null;
-            /** Id */
-            id: number;
-            /** Size */
-            size: number;
-            /** Top Terms */
-            top_terms: components["schemas"]["ClusterTerm"][];
-        };
-        /**
-         * ClusterTerm
-         * @description A characteristic skill of a cluster's members, as the clustering pass stored it.
-         */
-        ClusterTerm: {
-            /** Term */
-            term: string;
-            /** Weight */
-            weight: number;
-        } & {
-            [key: string]: unknown;
         };
         /** CommentWrite */
         CommentWrite: {
@@ -5522,7 +5400,7 @@ export interface components {
          * ErrorCode
          * @enum {string}
          */
-        ErrorCode: "job-not-found" | "company-not-found" | "company-profile-not-found" | "local-model-not-found" | "cloud-model-not-found" | "notification-not-found" | "link-not-found" | "suggestion-not-found" | "recipe-not-found" | "rule-not-found" | "cluster-not-found" | "fit-band-not-found" | "schedule-not-found" | "page-not-found" | "application-not-found" | "comment-not-found" | "interview-not-found" | "plugin-not-found" | "invalid-input" | "careers-page-refused" | "careers-page-unreachable" | "company-conflict" | "company-refused" | "consent-required" | "scope-refused" | "schedule-refused" | "scheduling-unavailable" | "discovery-unsupported" | "manual-scan-queued" | "switch-running" | "switch-not-started" | "no-switch-running" | "switch-not-stopped" | "price-key-refused" | "switch-not-managed" | "server-not-managed" | "model-unreachable" | "local-models-off" | "ai-egress-off" | "no-local-model" | "model-profiles-unreadable" | "plugin-not-runnable" | "plugin-running" | "plugin-approval-stale" | "plugin-still-enabled" | "plugin-confirm-mismatch" | "plugin-estimates-moving" | "field-answered-by-plugin" | "link-to-itself" | "already-linked" | "verdict-decided" | "pair-refused" | "not-a-member" | "suggestion-decided" | "last-world" | "recipe-invalid" | "recipe-conflict" | "usage-catalogue-changed" | "comment-not-yours" | "application-under-way";
+        ErrorCode: "job-not-found" | "company-not-found" | "company-profile-not-found" | "local-model-not-found" | "cloud-model-not-found" | "notification-not-found" | "link-not-found" | "suggestion-not-found" | "recipe-not-found" | "rule-not-found" | "fit-band-not-found" | "schedule-not-found" | "page-not-found" | "application-not-found" | "comment-not-found" | "interview-not-found" | "plugin-not-found" | "invalid-input" | "careers-page-refused" | "careers-page-unreachable" | "company-conflict" | "company-refused" | "consent-required" | "scope-refused" | "schedule-refused" | "scheduling-unavailable" | "discovery-unsupported" | "manual-scan-queued" | "switch-running" | "switch-not-started" | "no-switch-running" | "switch-not-stopped" | "price-key-refused" | "switch-not-managed" | "server-not-managed" | "model-unreachable" | "local-models-off" | "ai-egress-off" | "no-local-model" | "model-profiles-unreadable" | "plugin-not-runnable" | "plugin-running" | "plugin-approval-stale" | "plugin-still-enabled" | "plugin-confirm-mismatch" | "plugin-estimates-moving" | "field-answered-by-plugin" | "link-to-itself" | "already-linked" | "verdict-decided" | "pair-refused" | "not-a-member" | "suggestion-decided" | "last-world" | "recipe-invalid" | "recipe-conflict" | "usage-catalogue-changed" | "comment-not-yours" | "application-under-way";
         /**
          * ErrorDetail
          * @description The `detail` of every error the API answers on purpose.
@@ -7961,17 +7839,6 @@ export interface components {
             top_shared: string[];
             /** Union */
             union: number;
-        };
-        /** OverviewCluster */
-        OverviewCluster: {
-            /** Family Hint */
-            family_hint: string | null;
-            /** Id */
-            id: number;
-            /** Size */
-            size: number;
-            /** Terms */
-            terms: string[];
         };
         /**
          * OverviewHardest
@@ -10656,47 +10523,6 @@ export interface components {
             /** Pairs */
             pairs: components["schemas"]["OverlapPair"][];
         };
-        /** SkillTrendPoint */
-        SkillTrendPoint: {
-            /** Date */
-            date: string;
-            /** Job Count */
-            job_count: number;
-            /** Share */
-            share: number;
-        };
-        /**
-         * SkillTrendSeries
-         * @description One skill over the shared axis, zero on a day without a slice.
-         */
-        SkillTrendSeries: {
-            /** Current */
-            current: number;
-            /** Current Share */
-            current_share: number;
-            /** Delta */
-            delta: number;
-            /** Points */
-            points: components["schemas"]["SkillTrendPoint"][];
-            /** Share Delta */
-            share_delta: number;
-            /** Term */
-            term: string;
-        };
-        /**
-         * SkillTrendsResponse
-         * @description `GET /api/skills/trends`. `days <= 0` is all history.
-         */
-        SkillTrendsResponse: {
-            /** Dates */
-            dates: string[];
-            /** Days */
-            days: number;
-            /** Series */
-            series: components["schemas"]["SkillTrendSeries"][];
-            /** Set Changes */
-            set_changes: string[];
-        };
         /** SourceComparisonCoverage */
         SourceComparisonCoverage: {
             /** Bands */
@@ -10779,8 +10605,6 @@ export interface components {
             kpis: components["schemas"]["OverviewKpis"];
             /** Longest Open */
             longest_open: components["schemas"]["OverviewHardest"][];
-            /** Top Clusters */
-            top_clusters: components["schemas"]["OverviewCluster"][];
             /** Top Skills */
             top_skills: components["schemas"]["OverviewSkill"][];
         };
@@ -11956,69 +11780,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApplicationActivityResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    clusters_api_clusters_get: {
-        parameters: {
-            query?: {
-                side?: "all" | "yours" | "other";
-                family?: string[] | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ClusterListResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    cluster_detail_api_clusters__cluster_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                cluster_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ClusterDetailResponse"];
                 };
             };
             /** @description Validation Error */
@@ -16415,42 +16176,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TopSkillsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    skills_trends_api_skills_trends_get: {
-        parameters: {
-            query?: {
-                company?: string[] | null;
-                family?: string[] | null;
-                term?: string[] | null;
-                days?: number;
-                limit?: number;
-                side?: "all" | "yours" | "other";
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SkillTrendsResponse"];
                 };
             };
             /** @description Validation Error */

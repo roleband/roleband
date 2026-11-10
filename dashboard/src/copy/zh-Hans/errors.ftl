@@ -18,7 +18,6 @@ error-link-not-found = 这些招聘信息已不再关联。
 error-suggestion-not-found = 这条建议已不存在。
 error-recipe-not-found = 这个扫描方案已不存在。
 error-rule-not-found = 这条排除规则已不存在。
-error-cluster-not-found = 这个集群已不存在。
 error-fit-band-not-found = 找不到这个匹配等级。
 error-schedule-not-found = 这家公司还没有扫描计划。扫描结束后请重试。
 error-page-not-found = 这里什么都没有。

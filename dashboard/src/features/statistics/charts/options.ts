@@ -1,7 +1,6 @@
 
 export const SIGNAL = "var(--app-data-1)";
 export const DATA_2 = "var(--app-data-2)";
-export const WARN = "var(--app-data-3)";
 export const DANGER = "var(--app-data-4)";
 export const MUTED = "var(--app-text-muted)";
 export const FAINT = "var(--app-text-faint)";

@@ -1,59 +1,5 @@
 ## insights: moved as it was found (wording=as-is)
 
-## features/statistics/ClustersView.tsx
-# kind=sentence
-insights-clusters-view-semantic-groups-built-from-role = Roles clustered by what their descriptions say, and named by the skills they share. One kind of role can split into several clusters.
-# kind=label
-insights-clusters-view-market-terrain = Open roles by cluster
-# kind=heading
-insights-clusters-view-group-landscape = Cluster map
-# kind=sentence
-insights-clusters-view-area-encodes-active-role-volume = The bigger the box, the more open roles. Select one to see its roles.
-# kind=label
-insights-clusters-view-groups = { $count } clusters
-# kind=label wording=as-is
-insights-clusters-view-roles = { $family_display } · { $size } roles
-# kind=label wording=as-is
-insights-clusters-view-clear = Clear
-# kind=label note="After the companies a cluster names: and 4 more companies. $n is the formatted count, $count the number"
-insights-clusters-view-and-more-companies = { $count ->
-    [one] and { $n } more company
-   *[other] and { $n } more companies
-}
-# kind=label
-insights-clusters-view-role-groups = { $count ->
-    [one] { $count } cluster
-   *[other] { $count } clusters
-}
-# kind=status
-insights-clusters-view-largest-group = Largest cluster: { $label } · { $size } roles
-# kind=status
-insights-clusters-view-groups-are-built-from-role = Clusters are built from role descriptions after a scan
-# kind=label
-insights-clusters-view-about-role-groups = About clusters
-# kind=label
-insights-clusters-view-groups-tile = Clusters
-# kind=label wording=as-is
-insights-clusters-view-from-role-descriptions = from role descriptions
-# kind=label
-insights-clusters-view-roles-grouped = Roles clustered
-# kind=label
-insights-clusters-view-largest = Largest cluster
-# kind=label
-insights-clusters-view-roles-in-one-group = roles in one cluster
-# kind=label
-insights-clusters-view-with-a-grouped-role = with a clustered role
-# kind=aria
-insights-clusters-view-how-to-read-the-cluster = How to read the cluster map
-# kind=status
-insights-clusters-view-loading = Loading clusters…
-# kind=heading
-insights-clusters-view-load-failed = Couldn't load clusters
-# kind=status
-insights-clusters-view-group-loading = Loading this cluster…
-# kind=heading
-insights-clusters-view-group-load-failed = Couldn't load this cluster
-
 ## features/statistics/CompTrendChart.tsx
 # kind=heading
 insights-comp-trend-chart-compensation-over-time = Total compensation over time
@@ -76,7 +22,7 @@ insights-comp-trend-chart-reference-marker = Compensation estimates changed on {
 insights-comp-trend-chart-history-is-still-accruing-one = Not enough history yet. The line fills in after a few days of scans.
 # kind=sentence
 insights-comp-trend-chart-no-comp-history-yet = No compensation history yet.
-# kind=label wording=as-is same-as=insights-clusters-view-roles
+# kind=label wording=as-is
 insights-comp-trend-chart-roles = { $dim } · { $count } roles
 # kind=label
 insights-comp-trend-chart-by-family = By discipline
@@ -346,10 +292,6 @@ insights-overview-panel-what-is-pulling-the-market = Most-wanted skills
 insights-overview-panel-the-skills-open-roles-name = Skills ranked by how many open roles name them.
 # kind=label wording=as-is
 insights-overview-panel-leads-roles = { $display } leads · { $job_count } roles
-# kind=heading
-insights-overview-panel-largest-groups = Largest clusters
-# kind=sentence
-insights-overview-panel-no-groups-built-yet = No clusters built yet.
 # kind=heading same-as=insights-demand-longest-open-roles
 insights-overview-panel-open-the-longest = Longest-open roles
 # kind=sentence
@@ -972,61 +914,6 @@ insights-offer-at-your-valuation-moved = { $move ->
 # kind=tooltip note="Hover name of a figure in the At your valuation column; $date is when the valuation was entered"
 insights-offer-at-your-valuation-full = Equity at the valuation you entered on { $date }
 
-## features/statistics/TrendsPanel.tsx
-# kind=label wording=as-is
-insights-trends-panel-demand-history = Demand history
-# kind=heading wording=as-is
-insights-trends-panel-skill-demand-over-time = Skill demand over time
-# kind=label wording=as-is
-insights-trends-panel-each-skill-s-share-of = Each skill's share of the day's skill mentions · { $window }
-# kind=status
-insights-trends-panel-top-plotted-in-ledger = Top { $plotted } charted · { $total } in the list
-# kind=sentence
-insights-trends-panel-history-is-still-accruing-one = Not enough history yet. The lines fill in after a few days of scans.
-# kind=sentence wording=as-is
-insights-trends-panel-no-skill-history-yet = No skill history yet.
-# kind=sentence
-insights-trends-panel-what-is-measured-changed-on = The companies or skills counted changed on { $dates }, so the chart shows shares, not counts.
-# kind=label
-insights-trends-panel-current-ledger = Current list
-# kind=label wording=as-is
-insights-trends-panel-now = Now
-# kind=label wording=as-is
-insights-trends-panel-skill-leads = { $skill } leads
-# kind=label wording=as-is
-insights-trends-panel-nothing-to-plot-yet = Nothing to plot yet
-# kind=label wording=as-is
-insights-trends-panel-leader-share-line = { $current_share } of skill mentions on the latest day · { $days } days of history · { $window }
-# kind=status
-insights-trends-panel-history-accrues-one-day-per = History builds one day per scan · { $window }
-# kind=label wording=as-is
-insights-trends-panel-leader-s-share = Leader's share
-# kind=label wording=as-is
-insights-trends-panel-of-skill-mentions = of skill mentions
-# kind=label
-insights-trends-panel-in-the-ledger = in the list
-# kind=label wording=as-is
-insights-trends-panel-history = History
-# kind=label wording=as-is
-insights-trends-panel-days = { $count ->
-    [one] day
-   *[other] days
-}
-# kind=label wording=as-is
-insights-trends-panel-latest-day = Latest day
-# kind=label wording=as-is
-insights-trends-panel-none-yet = None yet
-# kind=label
-insights-trends-panel-of-the-series = of history
-# kind=label wording=as-is
-insights-trends-panel-of-skill-mentions-open-roles = { $current_share } of skill mentions, { $current } open roles
-# kind=label wording=as-is
-insights-trends-panel-change-points = change { $share_delta } points
-# kind=status
-insights-trends-panel-loading = Loading skill trends…
-# kind=heading
-insights-trends-panel-load-failed = Couldn't load skill trends
-
 ## features/statistics/VelocityPanel.tsx
 # kind=label
 insights-velocity-panel-market-current = By company
@@ -1130,17 +1017,6 @@ insights-statistics-charts-the-market-s-rate = × the market's rate →
 insights-statistics-charts-what-sets-these-roles-apart = What sets these roles apart
 # kind=label wording=as-is
 insights-statistics-charts-of-these-roles-the-market = { $skill }: { $share }% of these roles, ×{ $lift } the market
-# kind=label
-insights-statistics-charts-set-changed = counting changed
-# kind=aria wording=as-is
-insights-statistics-charts-skill-demand-trends = Skill demand trends
-# kind=label wording=as-is note="$points is the change in the skill's share, in percentage points"
-insights-statistics-charts-skill-mentions-change = { $direction ->
-    [up] { $skill }: { $share }% of mentions, +{ $points } points
-   *[down] { $skill }: { $share }% of mentions, { $points } points
-}
-# kind=label note="A skill's share of the latest day's skill mentions, with no change stated because what was measured changed within the window"
-insights-statistics-charts-skill-mentions-share = { $skill }: { $share }% of mentions
 # kind=label wording=as-is
 insights-statistics-charts-pair-alike = { $similarity }% alike · { $shared } shared skills
 # kind=tooltip note="Two companies compared on the skill overlap chart, its tooltip's title"
@@ -1153,12 +1029,6 @@ insights-statistics-charts-less-alike = less
 insights-statistics-charts-cross-company-skill-overlap-heatmap = Cross-company skill overlap heatmap
 # kind=label wording=as-is
 insights-statistics-charts-pair-similarity = { $a } and { $b }: { $percent }%
-# kind=label wording=as-is
-insights-statistics-charts-cluster-roles = { $size } roles · { $family }
-# kind=aria
-insights-statistics-charts-role-cluster-landscape = Cluster map
-# kind=label wording=as-is
-insights-statistics-charts-roles = { $label }: { $size } roles
 
 ## features/statistics/charts/compBands.ts
 # kind=sentence
@@ -1232,15 +1102,11 @@ insights-disclosure-median-floor = Median low
 insights-disclosure-no-band-posted = no range posted
 
 ## features/statistics/charts/StatisticsCharts.tsx (by hand)
-# kind=label wording=as-is
-insights-statistics-charts-more-signals = +{ $count } signals
-# kind=label wording=as-is
-insights-statistics-charts-cluster-size = { $size } roles
 
 ## features/statistics/CompensationPanel.tsx
 # kind=label wording=as-is
 insights-compensation-panel-median-pay = { $p50 } median
-# kind=label wording=as-is same-as=insights-statistics-charts-cluster-size
+# kind=label wording=as-is
 insights-compensation-panel-priced-roles = { $with_comp } roles
 # kind=status
 insights-compensation-panel-loading = Loading compensation…
@@ -1380,11 +1246,9 @@ insights-skill-collaboration = Collaboration
 # kind=name note="Skill category; slug industry"
 insights-skill-industry = Industry
 
-## Statistics names said from codes the server sends: a cluster with
-## no terms or family, the cohort series, and the fixed age bands
+## Statistics names said from codes the server sends: the cohort series
+## and the fixed age bands
 ## (backend/tracker/analytics/velocity.py AGING_BANDS, by `lo`).
-# kind=label wording=as-is
-insights-cluster-unlabeled = Unlabeled cluster
 # kind=label wording=as-is
 insights-series-same-companies = Same companies
 # kind=label wording=as-is
@@ -1411,11 +1275,6 @@ insights-brief-opened = { $allTime ->
 }
 # kind=sentence wording=as-is
 insights-brief-top-skill = Top skill: { $skill } ({ $count } roles).
-# kind=sentence
-insights-brief-largest-group = Largest cluster: { $group } ({ $size ->
-    [one] { $size } role
-   *[other] { $size } roles
-}).
 
 ## features/statistics/LevelsPanel.tsx
 # kind=status

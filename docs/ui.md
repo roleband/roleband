@@ -829,7 +829,7 @@ Insights (`features/statistics/`) opens in its basic view: the Overview,
 Hiring, Compensation and Skills tabs, each with the panels a weekly reader
 needs (the window's motion and top skills, who hires and where, the median pay
 and its middle half by level, company and discipline). The Advanced view switch
-in the page header adds the other six tabs and every other panel; a tab passes
+in the page header adds the other four tabs and every other panel; a tab passes
 `advanced` down to the panels the basic view leaves out.
 
 Turning the advanced view on asks in a dialog until the person says yes; the
@@ -838,7 +838,8 @@ again asks nothing. A link to an advanced tab opens it in the basic view with a
 line offering the rest, and the tab leaves the bar once the person moves on. A
 panel that holds a tab's only figures in some case (the base estimates when no
 role has a total) shows in both views. A figure that tells no reader anything
-is removed, not moved to the advanced view.
+is removed, not moved to the advanced view
+([0004](decisions/0004-insights-answers-a-question.md)).
 
 The Stock tab (advanced) shows each company's typical total compensation as
 base, bonus and equity share. Under each figure a chip says where it comes

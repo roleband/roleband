@@ -1,8 +1,6 @@
 import { DemandView } from "./Demand";
 import { SkillsView } from "./SkillsView";
-import { ClustersView } from "./ClustersView";
 import { OverviewPanel } from "./OverviewPanel";
-import { TrendsPanel } from "./TrendsPanel";
 import { OverlapPanel } from "./OverlapPanel";
 import { CompensationPanel } from "./CompensationPanel";
 import { StockTrajectoryPanel } from "./StockTrajectoryPanel";
@@ -44,7 +42,7 @@ import { roleName } from "../../copy/vocab";
 
 const SUBTAB_SLUGS = STATISTICS_TABS.map((t) => t.slug) as [string, ...string[]];
 
-// days<=0 == all-time. Overview, Velocity, Trends, and Compensation's trend chart
+// days<=0 == all-time. Overview, Velocity, and Compensation's trend chart
 // honor this period lens;
 // the others are current-snapshot views (demand shows its own "as of" date).
 // The `?window=` lens stores readable strings; `all` maps to days<=0.
@@ -73,7 +71,6 @@ const PERIOD_AWARE = new Set<string>([
   "overview",
   "velocity",
   "compensation",
-  "trends",
 ]);
 
 export function StatisticsView({ onOpen }: { onOpen: (id: number, companySlug?: string | null) => void }) {
@@ -235,9 +232,7 @@ export function StatisticsView({ onOpen }: { onOpen: (id: number, companySlug?: 
         {view === "levels" && <LevelsPanel scope={scope} onResetSide={() => setSide("all")} />}
         {view === "trajectory" && <StockTrajectoryPanel />}
         {view === "skills" && <SkillsView key={scopeKey} scope={scope} companies={companyOptions} />}
-        {view === "trends" && <TrendsPanel days={days} scope={scope} />}
         {view === "overlap" && <OverlapPanel key={scopeKey} scope={scope} companies={companyOptions} />}
-        {view === "clusters" && <ClustersView scope={scope} onOpen={onOpen} />}
       </div>
     </main>
   );

@@ -153,7 +153,7 @@ need the writer of a table, read that file first.
    inventory promotion and retention; search vectors and content fingerprints;
    skills and requirements; embeddings; stated pay and pay periods; the pay
    reference; posting pages; relevance review; profile inference; place sets,
-   lineage, twins, clusters and similarity; demand, skill-demand, comp and
+   lineage, twins and similarity; demand, skill-demand, comp and
    disclosure metrics; prices; and bound tuning. Each owns its tables and each
    is claimed in `db/ownership.py`, so a new derived table cannot ship as a CLI
    nobody wired in.

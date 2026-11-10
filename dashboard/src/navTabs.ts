@@ -14,9 +14,7 @@ import {
   shellTabInsightsLevels,
   shellTabInsightsStock,
   shellTabInsightsSkills,
-  shellTabInsightsTrends,
   shellTabInsightsOverlap,
-  shellTabInsightsGroups,
   shellTabSettingsCompanies,
   shellTabSettingsAi,
   shellTabSettingsSchedule,
@@ -49,9 +47,7 @@ export const STATISTICS_TABS: SubTabDef[] = [
   { slug: "levels", get label() { return shellTabInsightsLevels(); } },
   { slug: "trajectory", get label() { return shellTabInsightsStock(); } },
   { slug: "skills", get label() { return shellTabInsightsSkills(); } },
-  { slug: "trends", get label() { return shellTabInsightsTrends(); } },
   { slug: "overlap", get label() { return shellTabInsightsOverlap(); } },
-  { slug: "clusters", get label() { return shellTabInsightsGroups(); } },
 ];
 
 // Settings sub-tabs. The section shell switch-renders these; each is a

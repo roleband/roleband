@@ -72,7 +72,7 @@ def main() -> None:
             "silently. `modelled_count` is the SECOND claim: how many of these routes declare "
             "a response_model. It is deliberately reported as 'N of M' rather than as a pass, "
             "because this gate does not verify response shapes it was never given. "
-            "The number may only rise."
+            "The number may only rise, except by the modelled routes a deliberate removal takes away."
         ),
         "modelled_count": modelled,
         "route_count": len(rows),

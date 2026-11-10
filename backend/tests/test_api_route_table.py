@@ -10,7 +10,7 @@ Three claims, kept apart because each is blind to the others:
 2. **A modelled route stays modelled, and coverage never falls**.
    Freezing the table says nothing about response SHAPES, so the fixture also
    records each route's declared model and a `modelled_count` that may only
-   rise.
+   rise, except by the modelled routes a deliberate removal takes away.
 
 3. **A route without a response model is a named exception, never a default**.
    Claim 2 cannot see a NEW route: add a `-> dict` handler,

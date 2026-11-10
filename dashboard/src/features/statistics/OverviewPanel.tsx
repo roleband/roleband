@@ -14,12 +14,10 @@ import {
   insightsCommonOpenRoles,
   insightsOverviewPanelAboutTheDemandField,
   insightsOverviewPanelCompanies,
-  insightsOverviewPanelLargestGroups,
   insightsOverviewPanelLeadsRoles,
   insightsOverviewPanelLoadFailed,
   insightsOverviewPanelLoading,
   insightsOverviewPanelMostNamedSkills,
-  insightsOverviewPanelNoGroupsBuiltYet,
   insightsOverviewPanelNoOpenRoles,
   insightsOverviewPanelOpenTheLongest,
   insightsOverviewPanelOpenedClosed,
@@ -30,7 +28,7 @@ import {
 } from "../../copy/gen/insights";
 import { Msg } from "../../ui/Msg";
 import { skillName } from "../../copy/vocab";
-import { clusterLabel, overviewBrief } from "./names";
+import { overviewBrief } from "./names";
 
 export function OverviewPanel({
   days,
@@ -41,7 +39,7 @@ export function OverviewPanel({
   days: number;
   scope?: InsightsScope;
   onOpen: (id: number, companySlug?: string | null) => void;
-  /** The advanced view adds the largest groups and the roles open longest. */
+  /** The advanced view adds the roles open longest. */
   advanced?: boolean;
 }) {
   const { data, error, retry } = useAsyncResource<StatisticsOverview>(
@@ -60,7 +58,7 @@ export function OverviewPanel({
       <InsightHero
         tab="overview"
         figure={insightsOverviewPanelOpenedClosed({ new_count: String(n(k.new_count)), closed_count: String(n(k.closed_count)) })}
-        line={overviewBrief(data, advanced)}
+        line={overviewBrief(data)}
         kpis={[
           { label: insightsCommonOpenRoles(), value: n(k.open_total), sub: insightsOverviewPanelCompanies({ companies: String(n(k.companies)) }) },
           { label: insightsCommonNew(), value: n(k.new_count), sub: window, tone: "good" },
@@ -86,26 +84,9 @@ export function OverviewPanel({
         </div>
       )}
 
-      {/* Two cards of three rows each, and no skills list: it would draw
-          the chart above a second time. */}
+      {/* Three rows, and no skills list: it would draw the chart above a
+          second time. */}
       {advanced && <div className="demand-grid">
-        <div className="panel">
-          <h3>{insightsOverviewPanelLargestGroups()}</h3>
-          {data.top_clusters.length === 0 && <p className="hiring-note">{insightsOverviewPanelNoGroupsBuiltYet()}</p>}
-          {data.top_clusters.map((c) => (
-            <div className="bar-row" key={c.id}>
-              <span title={clusterLabel(c)}>{clusterLabel(c)}</span>
-              <div className="bar-track">
-                <div
-                  className="bar-fill"
-                  style={{ width: `${(c.size / Math.max(1, data.top_clusters[0].size)) * 100}%` }}
-                />
-              </div>
-              <span className="val">{n(c.size)}</span>
-            </div>
-          ))}
-        </div>
-
         <div className="panel">
           <h3>
             {insightsOverviewPanelOpenTheLongest()}

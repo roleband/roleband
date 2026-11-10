@@ -30,8 +30,6 @@ REFUSED = [
     ("/api/runs", {"limit": -1}),
     ("/api/pursuits", {"limit": -1}),
     ("/api/skills/top", {"limit": -1}),
-    ("/api/skills/trends", {"limit": -1}),
-    ("/api/skills/trends", {"days": 1_000_000}),
     ("/api/skills/overlap", {"limit_companies": -1}),
     ("/api/statistics/overview", {"days": -1}),
     ("/api/statistics/overview", {"days": 1_000_000}),
@@ -47,7 +45,6 @@ ACCEPTED = [
     ("/api/jobs", {"posted_within_days": 30}),
     ("/api/statistics/overview", {"days": 0}),  # All-time
     ("/api/statistics/velocity", {"days": 0}),
-    ("/api/skills/trends", {"days": 0}),
     ("/api/skills/overlap", {"min_jobs": 2, "limit_companies": 10}),
 ]
 

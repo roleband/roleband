@@ -56,7 +56,6 @@ from tracker.comp_providers.base import OUR_PAY_COUNTRY
 from tracker.company_discovery import COMPANY_DISCOVERY
 from tracker.config import get_settings
 from tracker.db.models import (
-    Cluster,
     CompanyProfile,
     CompSnapshot,
     DisclosureSnapshot,
@@ -185,8 +184,8 @@ async def statistics_overview(
 ) -> dict:
     """Cockpit aggregate for the Statistics landing tab.
 
-    KPI tiles + a short generated brief + highlight strips, pulling from the demand,
-    skills, and cluster layers. `days<=0` means all-time; otherwise the new/closed
+    KPI tiles + a short generated brief + highlight strips, pulling from the demand
+    and skills layers. `days<=0` means all-time; otherwise the new/closed
     counters are scoped to the last N days of lifecycle events (so the period control
     is meaningful as history accrues).
     """
@@ -246,42 +245,11 @@ async def statistics_overview(
         )
     ]
 
-    # Largest clusters, sized by the postings on the Board: `Cluster.size` is
-    # precomputed over every company, hidden and unfollowed ones too, so read
-    # alone it ranks clusters by roles this page excludes. The same
-    # rule as `/api/clusters`.
-    sizes = (
-        await session.execute(
-            exclude_hidden(
-                select(Job.cluster_id, func.count().label("n")).where(
-                    Job.cluster_id.isnot(None), Job.status == "open", Job.in_scope.is_(True),
-                    *scope.conds(),
-                ),
-                hidden,
-            )
-            .group_by(Job.cluster_id)
-            .order_by(func.count().desc(), Job.cluster_id)
-            .limit(3)
-        )
-    ).all()
-    by_id = {
-        c.id: c
-        for c in (
-            await session.scalars(select(Cluster).where(Cluster.id.in_([cid for cid, _ in sizes])))
-        ).all()
-    }
-    top_clusters = [
-        {"id": c.id, "family_hint": c.family_hint, "terms": [t["term"] for t in (c.top_terms or [])[:3]], "size": n}
-        for cid, n in sizes
-        if (c := by_id.get(cid)) is not None
-    ]
-
     # Open the longest: the open role listed longest, by the age one posting
     # shows (`listed_days`) and ordered by the Board's Age sort, its SQL twin.
     # Never our first-sighting clock: that is an aggregate's measure, not a
     # posting's age.
-    # Three, beside the three largest groups, so the row stays even. Only
-    # plausible ages.
+    # Three, and only plausible ages.
     oldest = (
         await session.scalars(
             exclude_hidden(
@@ -310,7 +278,6 @@ async def statistics_overview(
             "saved_total": saved_total or 0,
         },
         "top_skills": top_skills,
-        "top_clusters": top_clusters,
         "longest_open": longest,
     }
 
