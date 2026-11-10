@@ -42,13 +42,37 @@ public sealed class TransportTests
     {
         var resources = Bundle("roleband-release");
         File.WriteAllText(Path.Combine(resources, "build.json"), "{\"format\":1,\"channel\":\"release\"}");
-        var installed = Path.Combine(KnownFolders.LocalAppData, "RoleBand");
+        var installed = Path.Combine(KnownFolders.LocalAppData, "RoleBand", "data");
         var existed = Path.Exists(installed);
         var release = EngineConfiguration.Packaged(resources, fixture: true);
         Assert.AreEqual((installed, false, false), (release.State, release.SyntheticFixture, release.Development),
             "a fixture would write test data into the person's history");
         Assert.AreEqual(existed, Path.Exists(installed), "reading the configuration creates nothing");
         Assert.ThrowsExactly<IOException>(() => EngineConfiguration.Packaged(resources, Path.Combine(resources, "state")));
+    }
+
+    [TestMethod]
+    public void AReleaseKeepsItsDataPrivateInsideTheFolderWindowsCreatesForThePackage()
+    {
+        // Windows creates the package's kept folder at install, protected, with explicit access for SYSTEM,
+        // Administrators and the account: a folder that is not private by RoleBand's rule.
+        var kept = Path.Combine(Path.GetTempPath(), "roleband-kept", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(kept);
+        var windows = new DirectorySecurity();
+        windows.SetAccessRuleProtection(true, false);
+        foreach (var who in new[] { new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
+                                    new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null), PrivateStorage.AccountSid })
+            windows.AddAccessRule(new FileSystemAccessRule(who, FileSystemRights.FullControl,
+                InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit, PropagationFlags.None, AccessControlType.Allow));
+        new DirectoryInfo(kept).SetAccessControl(windows);
+        Assert.ThrowsExactly<IOException>(() => PrivateStorage.EnsureDirectory(kept), "the kept folder itself is not private");
+        var data = Path.Combine(kept, "data");
+        PrivateStorage.EnsureDirectory(Path.Combine(data, "logs"));
+        PrivateStorage.Verify(data, true);
+        PrivateStorage.Verify(Path.Combine(data, "logs"), true);
+        PrivateStorage.EnsureDirectory(data);
+        Assert.AreEqual("data", Path.GetFileName(EngineConfiguration.ReleaseState));
+        Assert.AreEqual(Path.Combine(KnownFolders.LocalAppData, "RoleBand"), Path.GetDirectoryName(EngineConfiguration.ReleaseState));
     }
 
     [TestMethod]

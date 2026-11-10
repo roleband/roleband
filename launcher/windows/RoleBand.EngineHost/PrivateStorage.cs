@@ -33,10 +33,13 @@ public static class PrivateStorage
     public static bool OwnedHere(SecurityIdentifier? owner, SecurityIdentifier account, SecurityIdentifier defaultOwner) =>
         owner is not null && (owner.Equals(account) || owner.Equals(defaultOwner));
 
+    /// <summary>A private folder: created with access for this account and SYSTEM only, or checked to have no more.
+    /// A missing parent is created private too; one made with inherited access would fail its own check later.</summary>
     public static void EnsureDirectory(string path)
     {
         path = Path.GetFullPath(path);
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var parent = Path.GetDirectoryName(path);
+        if (parent is not null && !Directory.Exists(parent)) EnsureDirectory(parent);
         if (Directory.Exists(path)) { Verify(path, true); return; }
         var sddl = $"O:{AccountSid.Value}D:P(A;OICI;FA;;;{AccountSid.Value})(A;OICI;FA;;;SY)";
         if (!ConvertStringSecurityDescriptorToSecurityDescriptor(sddl, 1, out var descriptor, out _))

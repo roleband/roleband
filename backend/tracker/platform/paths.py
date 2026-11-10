@@ -19,7 +19,8 @@ def user_data_dir() -> Path:
     if sys.platform == "win32":
         from tracker.platform.windows_state import local_app_data
 
-        return local_app_data() / "RoleBand"
+        # Windows creates the package's kept folder with wider access; the private data lives in one inside it.
+        return local_app_data() / "RoleBand" / "data"
     return Path.home() / ".roleband"
 
 

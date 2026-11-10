@@ -169,7 +169,9 @@ one channel. A trial (`trial.json`) runs synthetic data with network jobs off in
 its own `LocalAppData\RoleBandTrials` folder and never opens installed data. A
 release (`build.json`, `--channel release`) needs the committed
 `release-identity.json` for `roleband/roleband`, opens the person's own
-`LocalAppData\RoleBand` and never takes a fixture; only that engine works in
+`LocalAppData\RoleBand\data` and never takes a fixture (Windows creates the package's kept folder,
+`LocalAppData\RoleBand`, at install with access for Administrators too, so the private data is a folder
+inside it); only that engine works in
 installed data, so Undo can restore its database. A bundle naming both channels or
 neither is refused. `Package.ps1` refuses a bundle that differs from its assembly
 hashes, then validates and packs an unsigned MSIX: a trial keeps the trial

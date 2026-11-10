@@ -46,7 +46,7 @@ public sealed record EngineConfiguration(string Resources, string State, string 
         if (File.Exists(build) && !File.Exists(trial))
         {
             if (!IsRelease(build)) throw new IOException("Invalid release build marker.");
-            var own = Path.GetFullPath(state ?? Path.Combine(KnownFolders.LocalAppData, "RoleBand"));
+            var own = Path.GetFullPath(state ?? ReleaseState);
             if (LeadsInto(own, resources)) throw new IOException("Engine state must be separate from resources.");
             return new(resources, own, python, python, metadata.RootElement.GetProperty("version").GetString()!, false, false);
         }
@@ -60,6 +60,10 @@ public sealed record EngineConfiguration(string Resources, string State, string 
         return new(resources, ValidateState(resources, Path.GetFullPath(state)), python, python,
                    metadata.RootElement.GetProperty("version").GetString()!, false, fixture);
     }
+
+    /// <summary>A release's own data. Windows creates the package's kept folder, LocalAppData\RoleBand, at install with
+    /// access for Administrators too, so the private data lives in a folder RoleBand creates inside it.</summary>
+    public static string ReleaseState => Path.Combine(KnownFolders.LocalAppData, "RoleBand", "data");
 
     private static bool IsRelease(string marker)
     {

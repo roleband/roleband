@@ -50,7 +50,7 @@ def test_default_state_and_installed_roots_follow_the_known_folder(monkeypatch):
 
     monkeypatch.delenv("ROLEBAND_STATE_DIR", raising=False)
     installed = local_app_data() / "RoleBand"
-    assert user_data_dir() == installed
+    assert user_data_dir() == installed / "data"
     assert set(installed_data_roots()) == {installed, Path.home() / ".roleband"}
 
 
