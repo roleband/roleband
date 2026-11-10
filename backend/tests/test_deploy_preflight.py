@@ -17,6 +17,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="macOS and POSIX tooling runs on the Mac")
+
 SCRIPT = Path(__file__).resolve().parents[2] / "deploy" / "preflight.sh"
 BACKEND = Path(__file__).resolve().parents[1]
 

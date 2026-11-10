@@ -246,7 +246,8 @@ On Windows, run `backend/.venv/Scripts/python.exe deploy/check_local.py windows`
 from the root. It runs the Windows functional suite, packaging tools, native host
 tests and WinUI build. The packaging tests use PowerShell 7 (`pwsh`). `--test`
 selects specific pytest files or cases instead.
-`--windows-lane checkpoints|engine|native` runs one CI lane and `--backend-workers`
+`--windows-lane checkpoints|engine|suite|native` runs one CI lane (`suite` is the rest of the backend suite, which the
+Windows app's engine runs too) and `--backend-workers`
 sets the pytest worker count (default four). Each run uses a short directory under
 `%SystemDrive%\rb` for PostgreSQL, native test scratch space and reports. The bundled
 PostgreSQL needs short-name aliases for non-ASCII paths. Keep scratch on a volume

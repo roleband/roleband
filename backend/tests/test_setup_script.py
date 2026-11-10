@@ -23,6 +23,8 @@ import yaml
 
 from scripts.lock_dependencies import PLATFORMS as LOCKED
 
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="macOS and POSIX tooling runs on the Mac")
+
 #: setup.sh installs on macOS and Linux; Windows installs from its package.
 PLATFORMS = {name: platform for name, platform in LOCKED.items() if not name.startswith("windows-")}
 

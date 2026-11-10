@@ -16,9 +16,12 @@ import os
 import plistlib
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
+
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="macOS and POSIX tooling runs on the Mac")
 
 ROOT = Path(__file__).resolve().parents[2]
 

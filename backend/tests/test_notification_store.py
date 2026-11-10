@@ -31,6 +31,7 @@ from tracker.notifications import (
     overdue_pursuit_clause,
     tracked_job_ids,
 )
+from tracker.platform.local_zone import local_zone
 from tracker.workflows.collection_types import empty_stats
 
 pytestmark = pytest.mark.asyncio
@@ -38,8 +39,9 @@ pytestmark = pytest.mark.asyncio
 # Local noon today. The digest keys on the machine's LOCAL calendar day (see
 # `digest.local_today`), so a hardcoded UTC instant would drift in and out of
 # "today" depending on the runner's offset: a UTC-midnight boundary puts the
-# fixture events in tomorrow on a UTC+2 host.
-_LOCAL_TZ = datetime.now().astimezone().tzinfo
+# fixture events in tomorrow on a UTC+2 host. The zone is the one the digest reads (on Windows the
+# host names it; the C runtime's own offset is not it).
+_LOCAL_TZ = local_zone()
 TODAY = datetime.now(_LOCAL_TZ).date()
 NOW = datetime.combine(TODAY, time(12, 0), tzinfo=_LOCAL_TZ).astimezone(UTC)
 

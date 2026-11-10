@@ -325,11 +325,16 @@ def positive_integer(value: str) -> int:
 
 
 def windows_tests(backend: Path, lane: str) -> list[str]:
+    """The pytest selection of a Windows lane: the native suites split in two, and `suite` runs everything else."""
+    if lane == "all":
+        return ["tests"]
     tests = backend / "tests"
     checkpoints = {"test_windows_checkpoint.py", "test_windows_recovery.py", "test_windows_migration.py"}
     files = {path.name for pattern in ("test_windows_*.py", "test_supervisor_*.py")
              for path in tests.glob(pattern)}
     files.update(("test_local_http_auth.py", "test_skip_policy.py"))
+    if lane == "suite":
+        return ["tests", *(f"--ignore=tests/{name}" for name in sorted(files))]
     if lane == "checkpoints":
         files &= checkpoints
     elif lane == "engine":
@@ -352,7 +357,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--ux-workers", type=positive_integer)
     parser.add_argument("--ci-parity", action="store_true", help="require backend integration tests instead of allowing local skips")
     parser.add_argument("--test", action="append", default=[], help="test file/node selector")
-    parser.add_argument("--windows-lane", choices=("all", "checkpoints", "engine", "native"), default="all")
+    parser.add_argument("--windows-lane", choices=("all", "checkpoints", "engine", "suite", "native"), default="all")
     parser.add_argument("--parallel", action="store_true", help="run the backend and dashboard lanes at the same time; only for the all profile")
     parser.add_argument("--docker-browsers", action="store_true",
                         help=f"build and run both browser projects in a Linux container (default {DOCKER_UX_WORKERS} workers); "

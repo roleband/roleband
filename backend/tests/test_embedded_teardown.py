@@ -37,6 +37,7 @@ pytest.importorskip("pixeltable_pgserver", reason="embedded Postgres wheel not i
 
 import psutil  # noqa: E402 - a pgserver dependency, present whenever the wheel is
 
+from tests.conftest import posix_processes  # noqa: E402
 from tests.embedded_utils import cluster_locale, destroy, running_clusters  # noqa: E402
 from tracker.platform.embedded_db import ensure_server, stop_server  # noqa: E402
 
@@ -189,6 +190,7 @@ class TestTheSessionStopsWhatATestLeftRunning:
         finally:
             session.cleanup()
 
+    @posix_processes
     def test_when_it_is_interrupted(self, tmp_path, workers):
         session = _ProbeSession(tmp_path, workers)
         try:

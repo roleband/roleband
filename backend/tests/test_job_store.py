@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from tracker.db import job_store
 from tracker.db.models import JobRequest, JobRun, JobStatus
+from tracker.platform.embedded_db import asyncpg_arguments
 
 pytestmark = pytest.mark.asyncio
 
@@ -56,11 +57,7 @@ async def test_a_claimed_request_no_longer_absorbs_new_rings(db_session):
 
 
 async def test_a_request_is_announced_only_when_its_transaction_commits(db_session):
-    url = db_session.bind.url.set(drivername="postgresql")
-    connection = await asyncpg.connect(
-        dsn=url.render_as_string(hide_password=False).split("?")[0],
-        **({"host": url.query["host"]} if "host" in url.query else {}),
-    )
+    connection = await asyncpg.connect(**asyncpg_arguments(db_session.bind.url))
     heard: asyncio.Queue[str] = asyncio.Queue()
     await connection.add_listener(job_store.CHANNEL, lambda *args: heard.put_nowait(args[-1]))
     try:

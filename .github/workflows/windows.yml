@@ -1,8 +1,8 @@
 name: windows
 
 # The Windows functional suite (real embedded PostgreSQL, Job Objects, ACLs and
-# sharing handles), the packaging tool tests and the native host tests. All of them
-# skip on Linux, so without this lane no CI run executes them.
+# sharing handles), the packaging tool tests and the native host tests, which skip on
+# Linux, and the rest of the backend suite on Windows, which the packaged engine runs.
 on:
   push:
     branches: [main]
@@ -58,8 +58,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lane: [checkpoints, engine, native]
-    timeout-minutes: 60
+        lane: [checkpoints, engine, suite, native]
+    # The suite lane is the whole backend suite apart from the native one.
+    timeout-minutes: ${{ matrix.lane == 'suite' && 120 || 60 }}
     defaults:
       run:
         shell: pwsh

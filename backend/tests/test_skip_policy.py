@@ -94,12 +94,12 @@ class TestClassification:
             "embedded Postgres wheel not installed",
             "repo venv not present",
             "a reason nobody has reviewed yet",
-            # CI provisions the golden test's model, so a missing one is a failure there.
+            # The Linux lane provisions the golden test's model, so a missing one is a failure there.
             "MiniLM ONNX artifacts not provisioned locally",
         ],
     )
     def test_required_reasons_are_not_optional(self, reason):
-        assert not skip_policy.is_optional(reason)
+        assert not skip_policy.is_optional(reason, windows=False)
 
     @pytest.mark.parametrize(
         "reason",
@@ -112,6 +112,13 @@ class TestClassification:
     )
     def test_named_optional_reasons_stay_skips(self, reason):
         assert skip_policy.is_optional(reason)
+
+    @pytest.mark.parametrize("reason", ["macOS and POSIX tooling runs on the Mac", "gitleaks is not installed",
+                                        "no zoneinfo file for Europe/Stockholm on this machine"])
+    def test_a_windows_reason_stays_a_skip_on_windows_only(self, reason):
+        """The Linux lane is where these run, so there the same reason is a failure."""
+        assert skip_policy.is_optional(reason, windows=True)
+        assert not skip_policy.is_optional(reason, windows=False)
 
     def test_an_optional_pattern_does_not_excuse_a_longer_reason(self):
         """Full match, not search: a prefix must not smuggle a new reason in."""

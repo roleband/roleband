@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import copy
 import io
+import os
 import subprocess
 import sys
 import textwrap
@@ -550,7 +551,10 @@ def test_rows_cross_the_wire_as_json():
 
 def _runner(tmp_path: Path, body: str, lines: list[dict]) -> subprocess.CompletedProcess:
     (tmp_path / "noisy_plugin.py").write_text(textwrap.dedent(body))
-    env = {"PYTHONPATH": f"{SDK}:{tmp_path}", "PATH": "/usr/bin:/bin"}
+    env = {"PYTHONPATH": os.pathsep.join((str(SDK), str(tmp_path))), "PATH": os.defpath}
+    if sys.platform == "win32":
+        # Windows cannot start an interpreter without its system folder.
+        env["SYSTEMROOT"] = os.environ["SYSTEMROOT"]
     stdin = "".join(protocol.encode(m) for m in lines)
     return subprocess.run(
         [sys.executable, "-m", "roleband_plugin_sdk.runner", "--entry", "noisy_plugin:plugin", "--job", "refresh"],

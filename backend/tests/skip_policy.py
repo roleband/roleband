@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 
 import pytest
 
@@ -70,13 +71,43 @@ OPTIONAL_SKIPS: tuple[tuple[re.Pattern[str], str], ...] = (
 )
 
 
+#: Reasons that may stay skips on Windows only, where the backend lane on Linux runs what they skip.
+WINDOWS_SKIPS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (
+        re.compile(r"macOS and POSIX tooling runs on the Mac"),
+        "deploy/*.sh, setup.sh, launchd registration and the shell restore drill; the Windows app ships none of them",
+    ),
+    (
+        re.compile(r"macOS bundle state redirects through HOME"),
+        "the Mac app bundle's state; the Windows package keeps its own (tests/test_windows_state.py)",
+    ),
+    (
+        re.compile(r"preflight\.sh needs git and shasum"),
+        "the Mac's unattended-run preflight script",
+    ),
+    (
+        re.compile(r"gitleaks is not installed"),
+        "the release export's secret-scan configuration is the same on every platform",
+    ),
+    (
+        re.compile(r"MiniLM ONNX artifacts not provisioned locally"),
+        "golden embeddings need the provisioned model, which only the Linux lane caches",
+    ),
+    (
+        re.compile(r"no zoneinfo file for [A-Za-z_/+-]+ on this machine"),
+        "Windows has no system zoneinfo files; the tzdata package answers instead",
+    ),
+)
+
+
 def enforced() -> bool:
     return os.environ.get(ENV_FLAG) == "1"
 
 
-def is_optional(reason: str) -> bool:
+def is_optional(reason: str, *, windows: bool = sys.platform == "win32") -> bool:
     """True when `reason` is a known, allowed skip. Unknown reasons are required."""
-    return any(pattern.fullmatch(reason.strip()) for pattern, _why in OPTIONAL_SKIPS)
+    allowed = OPTIONAL_SKIPS + WINDOWS_SKIPS if windows else OPTIONAL_SKIPS
+    return any(pattern.fullmatch(reason.strip()) for pattern, _why in allowed)
 
 
 def skip_reason(longrepr: object) -> str:

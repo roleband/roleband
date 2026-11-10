@@ -22,6 +22,9 @@ runner = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = runner
 spec.loader.exec_module(runner)
 
+#: The Mac and Linux profiles of the runner; on Windows it runs only the windows profile.
+posix_runner = pytest.mark.skipif(sys.platform == "win32", reason="macOS and POSIX tooling runs on the Mac")
+
 
 @pytest.fixture
 def checkout(tmp_path):
@@ -90,7 +93,7 @@ def test_unavailable_command_has_a_failed_report(checkout):
     assert json.loads((output / "report.json").read_text())["exit_code"] == 127
 
 
-def test_windows_ci_lanes_cover_the_full_functional_selection_once(tmp_path):
+def test_windows_ci_lanes_cover_the_whole_backend_suite_once(tmp_path):
     tests = tmp_path / "tests"
     tests.mkdir()
     for name in ("test_windows_checkpoint.py", "test_windows_migration.py", "test_windows_recovery.py",
@@ -98,11 +101,15 @@ def test_windows_ci_lanes_cover_the_full_functional_selection_once(tmp_path):
         (tests / name).touch()
     checkpoints = set(runner.windows_tests(tmp_path, "checkpoints"))
     engine = set(runner.windows_tests(tmp_path, "engine"))
+    suite = runner.windows_tests(tmp_path, "suite")
     assert checkpoints.isdisjoint(engine)
-    assert checkpoints | engine == set(runner.windows_tests(tmp_path, "all"))
     assert "tests/test_windows_migration.py" in checkpoints
     assert {"tests/test_windows_new.py", "tests/test_supervisor_new.py"} <= engine
     assert "tests/test_unrelated.py" not in checkpoints | engine
+    # The suite lane runs every other test, the pipeline, API and plugins among them, and none twice.
+    assert suite[0] == "tests"
+    assert {argument.removeprefix("--ignore=") for argument in suite[1:]} == checkpoints | engine
+    assert runner.windows_tests(tmp_path, "all") == ["tests"]
 
 
 def test_a_passing_command_cannot_verify_changed_installed_packages(checkout):
@@ -162,6 +169,7 @@ else:
     return root, env
 
 
+@posix_runner
 def test_cli_gives_browser_runs_their_own_build_port_and_reports(cli_tools, tmp_path):
     root, env = cli_tools
     output = tmp_path / "run"
@@ -181,6 +189,7 @@ def test_cli_gives_browser_runs_their_own_build_port_and_reports(cli_tools, tmp_
     assert browser_env["VITE_API_TARGET"] == "http://127.0.0.1:9"
 
 
+@posix_runner
 def test_cli_termination_stops_its_detached_child_and_records_cancellation(cli_tools, tmp_path):
     root, env = cli_tools
     output = tmp_path / "run"
@@ -250,6 +259,7 @@ def test_a_failed_lane_stops_itself_while_the_other_lane_finishes(checkout):
     assert sorted(names) == ["after-slow", "fails", "slow"]
 
 
+@posix_runner
 def test_each_step_reports_its_own_cpu_while_the_lanes_overlap(checkout):
     root, output = checkout
     burn = [sys.executable, "-c", "import time\nwhile time.process_time() < 0.6: pass"]
@@ -261,6 +271,7 @@ def test_each_step_reports_its_own_cpu_while_the_lanes_overlap(checkout):
     assert steps["idle"]["user_seconds"] + steps["idle"]["system_seconds"] < 0.3, "the burner's CPU is not the sleeper's"
 
 
+@posix_runner
 def test_termination_stops_both_lanes_children(checkout, tmp_path):
     root, output = checkout
     ready = [tmp_path / "first", tmp_path / "second"]
@@ -302,6 +313,7 @@ def test_termination_stops_both_lanes_children(checkout, tmp_path):
                 pass
 
 
+@posix_runner
 def test_cli_parallel_is_only_for_the_complete_profile(cli_tools, tmp_path):
     root, env = cli_tools
     done = subprocess.run([sys.executable, str(root / "deploy" / "check_local.py"), "dashboard", "--parallel",
@@ -326,6 +338,7 @@ def _docker_runs(env: dict[str, str]) -> list[list[str]]:
     return [call["argv"] for call in calls if call["tool"] == "docker" and call["argv"][0] == "run"]
 
 
+@posix_runner
 def test_docker_browsers_build_and_test_in_a_container_without_network(cli_tools, tmp_path):
     root, env = cli_tools
     _docker_checkout(root)
@@ -363,6 +376,7 @@ def test_docker_browsers_build_and_test_in_a_container_without_network(cli_tools
     assert [s["name"] for s in report["steps"]][-1] == "docker-cleanup"
 
 
+@posix_runner
 def test_docker_browsers_take_an_explicit_worker_budget(cli_tools, tmp_path):
     root, env = cli_tools
     _docker_checkout(root)
@@ -373,6 +387,7 @@ def test_docker_browsers_take_an_explicit_worker_budget(cli_tools, tmp_path):
     assert "ROLEBAND_UX_WORKERS=6" in _docker_runs(env)[-1]
 
 
+@posix_runner
 @pytest.mark.parametrize("profile", ["backend", "unit"])
 def test_docker_browsers_are_refused_where_no_browser_runs(cli_tools, tmp_path, profile):
     root, env = cli_tools
@@ -382,6 +397,7 @@ def test_docker_browsers_are_refused_where_no_browser_runs(cli_tools, tmp_path, 
     assert "--docker-browsers is only valid for all, dashboard or ux profiles" in done.stderr
 
 
+@posix_runner
 def test_docker_browsers_without_docker_are_refused(cli_tools, tmp_path):
     root, env = cli_tools
     alone = tmp_path / "no-docker"
