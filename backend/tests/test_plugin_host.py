@@ -801,7 +801,9 @@ async def test_the_plugin_environment_carries_nothing_of_ours(db_session, tmp_pa
     keys = next(m for m in logged if m.startswith("plugin:plugin-template ")).split(" ", 1)[1].split(",")
     assert "ROLEBAND_DATABASE_URL" not in keys and "ANTHROPIC_API_KEY" not in keys
     assert set(keys) <= {"PATH", "HOME", "LANG", "LC_ALL", "TMPDIR",
-                         "__CF_USER_TEXT_ENCODING", "LC_CTYPE"}
+                         "__CF_USER_TEXT_ENCODING", "LC_CTYPE",
+                         # Windows: the system, temporary and profile folders any process there needs.
+                         "SYSTEMROOT", "TEMP", "TMP", "USERPROFILE"}
 
 
 async def test_a_plugin_is_paced_at_its_own_delay_never_faster_than_the_core():
@@ -929,7 +931,7 @@ async def test_a_stop_ends_the_run_stopped_and_serves_nothing_after(db_session, 
     assert web.requests == [] and await plugin_levels(db_session) == []
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="Windows refuses a signal to an exited process it still holds")
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows process control requires Windows")
 async def test_a_stop_whose_runner_has_already_exited_still_closes_the_run(db_session, tmp_path, monkeypatch):
     """A runner can finish between the host's stop and its signal. On Windows a signal to a process that has exited
     but was not yet waited for is refused as access denied; the run closes `stopped` all the same, and is never

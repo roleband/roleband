@@ -81,8 +81,9 @@ def test_a_backup_folder_the_backup_creates_is_private_to_the_account(server, tm
     _assert_private(out / "monthly" / archive.name, 0o600)
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="POSIX narrows such a folder's mode instead, as tested above")
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows private storage requires Windows")
 def test_a_backup_folder_other_accounts_can_open_is_refused_before_anything_is_written(server, tmp_path):
+    """POSIX narrows such a folder's mode instead, as the first test checks."""
     from tracker.platform.backups import dump_database
     from tracker.platform.windows_private import require_private
 
