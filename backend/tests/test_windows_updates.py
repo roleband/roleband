@@ -140,6 +140,18 @@ def test_automatic_checks_run_once_a_day_even_after_a_failure(state, identity, f
     assert run(state, identity, feed, manual=False, now=NOW + AUTOMATIC_INTERVAL).status == "offered"
 
 
+def test_a_release_with_only_the_mac_files_is_no_update_yet_and_offered_once_windows_files_arrive(state, identity, feed):
+    feed.publish("0.1.3")
+    windows = feed.releases["0.1.3"]
+    feed.releases["0.1.3"] = {"RoleBand-0.1.3.dmg": b"the macOS image"}
+    waiting = run(state, identity, feed, manual=True)
+    assert (waiting.status, waiting.offer) == ("up-to-date", None), "never 'couldn't check', never an offer"
+    assert windows_updates.status(state, identity, "0.1.2")["checked_at"] == NOW
+    feed.releases["0.1.3"] = {**feed.releases["0.1.3"], **windows}
+    arrived = run(state, identity, feed, manual=True, now=NOW + 1)
+    assert (arrived.status, arrived.offer.version) == ("offered", "0.1.3")
+
+
 def test_a_verified_offer_survives_a_restart_and_a_later_failure(state, identity, feed):
     feed.publish("0.1.3")
     first = run(state, identity, feed, manual=True)

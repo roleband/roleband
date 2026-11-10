@@ -247,7 +247,8 @@ def fetch_release(identity: Identity, version: str, *,
 def check(state: Path, identity: Identity, installed: str, *, manual: bool, now: float | None = None,
           transport: httpx.BaseTransport | None = None, held_back: str | None = None) -> Result:
     """Ask the feed once, as allowed. `held_back` is a version this installation updated to and undid: it is
-    not offered again, and only a newer release is."""
+    not offered again, and only a newer release is. The feed's releases are shared with the macOS app, so a newer
+    release without this app's files is no update yet."""
     now = time.time() if now is None else now
     record = _load(state / CHECK) or {}
     offer = _stored_offer(record, identity, installed, held_back)
@@ -281,7 +282,13 @@ def check(state: Path, identity: Identity, installed: str, *, manual: bool, now:
                 _save(state / CHECK, record)
                 return Result("offered", offer)
             _package, checksum_name, metadata_name, signature_name = names(version)
-            checksum = _asset(client, identity.feed, version, checksum_name, CHECKSUM_LIMIT, now)
+            try:
+                checksum = _asset(client, identity.feed, version, checksum_name, CHECKSUM_LIMIT, now)
+            except ReleaseMissing:
+                # The release both apps share has no Windows files yet, or never will: no update for this app.
+                record.update(checked_at=now, installed=installed)
+                _save(state / CHECK, record)
+                return Result("up-to-date", offer)
             metadata = _asset(client, identity.feed, version, metadata_name, METADATA_LIMIT, now)
             signature = _asset(client, identity.feed, version, signature_name, 64, now)
             offer = verify_offer(identity, installed, checksum, metadata, signature)
