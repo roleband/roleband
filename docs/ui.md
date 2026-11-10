@@ -171,7 +171,9 @@ is also a gold-tinted banner under the flyout's summary, with a download glyph, 
 own Update, so it cannot pass unnoticed; the idle icon's tooltip names it; and the menu adds Update
 to the version, in its own group before Settings. Update is the only press: the card and the banner
 follow the download, with how much has arrived of how much and Cancel, which keeps what arrived
-for the next Update. A download does not hold the engine: under a stopped engine's summary the banner
+for the next Update. Update and Cancel take each other's place, and focus moves with them; a press
+whose button goes with nothing in its place leaves focus on the next control, never on nothing. A
+download does not hold the engine: under a stopped engine's summary the banner
 keeps its Cancel and Restart stays. A lost connection pauses it: Download paused, resumes once you're online,
 and it tries again by itself when Windows reports a network change, else at growing intervals.
 Without room for the download and its install, nothing is fetched: Not enough space, with what

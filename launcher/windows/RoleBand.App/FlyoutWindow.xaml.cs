@@ -225,7 +225,6 @@ public sealed partial class FlyoutWindow : Window
         ScanProgress.Value = view.Progress ?? 0;
         AutomationProperties.SetName(ScanProgress, view.ProgressLabel ?? view.Title);
         RenderLines(view.Lines);
-        RenderUpdate(view.Update);
         var said = IsOpen && message is not null && MessageText.Text != message;
         MessageText.Text = message ?? "";
         MessageText.Visibility = message is null ? Visibility.Collapsed : Visibility.Visible;
@@ -241,6 +240,8 @@ public sealed partial class FlyoutWindow : Window
         }];
         PrimaryButton.IsEnabled = view.PrimaryEnabled;
         ToolTipService.SetToolTip(PrimaryButton, view.PrimaryHelpKey is { } help ? copy[help] : null);
+        // After the gold press, which takes focus from a banner that goes away.
+        RenderUpdate(view.Update);
 
         DetailsButton.Visibility = view.Details ? Visibility.Visible : Visibility.Collapsed;
         if (view.Details) ScanButton.Visibility = Visibility.Collapsed;
@@ -309,11 +310,27 @@ public sealed partial class FlyoutWindow : Window
         }
     }
 
-    /// <summary>The update banner: a download glyph in gold for an offer or a download, a caution glyph for a failure.</summary>
+    /// <summary>The update banner: a download glyph in gold for an offer or a download, a caution glyph for a failure.
+    /// Update and Cancel replace each other as a download starts and stops; a press that hides its own button hands
+    /// focus to the one now in its place, or to the gold press when the banner goes, before it hides.</summary>
     private void RenderUpdate(FlyoutUpdate? update)
     {
-        UpdateBanner.Visibility = update is null ? Visibility.Collapsed : Visibility.Visible;
-        if (update is null) return;
+        var pressed = IsOpen && Content.XamlRoot is { } root ? FocusManager.GetFocusedElement(root) as Button : null;
+        var install = update?.Action is not null;
+        var cancel = update is { Cancel: true, Action: null };
+        if (update is not null) UpdateBanner.Visibility = Visibility.Visible;
+        if (install) UpdateButton.Visibility = Visibility.Visible;
+        if (cancel) UpdateCancelButton.Visibility = Visibility.Visible;
+        if ((pressed == UpdateButton && !install) || (pressed == UpdateCancelButton && !cancel))
+            (cancel ? UpdateCancelButton : install ? UpdateButton : PrimaryButton.IsEnabled ? PrimaryButton : SettingsButton)
+                .Focus(FocusState.Programmatic);
+        if (!install) UpdateButton.Visibility = Visibility.Collapsed;
+        if (!cancel) UpdateCancelButton.Visibility = Visibility.Collapsed;
+        if (update is null)
+        {
+            UpdateBanner.Visibility = Visibility.Collapsed;
+            return;
+        }
         UpdateGlyph.Glyph = update.Failed ? "" : "";
         UpdateGlyph.Foreground = Brush(update.Failed ? "SystemFillColorCautionBrush" : "RoleBandGold");
         var announce = IsOpen && UpdateTitle.Text != update.Title;
@@ -321,8 +338,6 @@ public sealed partial class FlyoutWindow : Window
         UpdateCaption.Text = update.Caption ?? "";
         UpdateCaption.Visibility = update.Caption is null ? Visibility.Collapsed : Visibility.Visible;
         UpdateButton.Content = update.Action ?? "";
-        UpdateButton.Visibility = update.Action is null ? Visibility.Collapsed : Visibility.Visible;
-        UpdateCancelButton.Visibility = update.Cancel && update.Action is null ? Visibility.Visible : Visibility.Collapsed;
         UpdateProgress.Visibility = update.Busy ? Visibility.Visible : Visibility.Collapsed;
         UpdateProgress.IsIndeterminate = update.Percent is null;
         UpdateProgress.Value = update.Percent ?? 0;

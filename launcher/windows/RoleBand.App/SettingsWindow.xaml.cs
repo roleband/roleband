@@ -110,7 +110,8 @@ public sealed partial class SettingsWindow : Window
             var problem = state.Problem;
             var wasOpen = ProblemBar.IsOpen;
             // A press that hides its own button would leave focus to walk the buttons as each one hides, read aloud one
-            // by one: it rests on the banner instead, which says what the press started.
+            // by one: in the banner it rests on the banner, which says what the press started; in the updates card, on
+            // the button that takes the pressed one's place.
             var pressed = Content.XamlRoot is { } root ? FocusManager.GetFocusedElement(root) as Button : null;
             // An undo under way is news, not a fault; a failed update or a refused Undo waits on Undo; anything else is an error.
             // The bar announces itself as it opens, with the words it has then: they are set first.
@@ -163,14 +164,21 @@ public sealed partial class SettingsWindow : Window
             UpdateBusy.IsActive = update.Busy;
             UpdateBusy.Visibility = update.Busy ? Visibility.Visible : Visibility.Collapsed;
             UpdateButton.Content = update.Action ?? "";
-            UpdateButton.Visibility = update.Action is null ? Visibility.Collapsed : Visibility.Visible;
             var help = update.HelpKey is { } helpKey ? copy[helpKey] : null;
             ToolTipService.SetToolTip(UpdateButton, help);
             AutomationProperties.SetHelpText(UpdateButton, help ?? "");
-            CancelUpdateButton.Visibility = update.Cancel ? Visibility.Visible : Visibility.Collapsed;
             var available = update.Kind != UpdateRowKind.Unavailable;
-            CheckButton.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
             CheckButton.IsEnabled = update.CanCheck;
+            // Update and Cancel replace each other as a download starts and stops. The card's buttons are shown first, so
+            // a press that hides its own button hands focus to the one now in its place before it hides.
+            (Button Button, bool Visible)[] card = [(CancelUpdateButton, update.Cancel), (UpdateButton, update.Action is not null), (CheckButton, available)];
+            foreach (var (button, visible) in card) if (visible) button.Visibility = Visibility.Visible;
+            if (card.Any(item => item.Button == pressed && !item.Visible))
+            {
+                Control? next = card.Where(item => item.Visible && item.Button.IsEnabled).Select(item => item.Button).FirstOrDefault();
+                (next ?? (AutomaticSwitch.IsEnabled ? AutomaticSwitch : null))?.Focus(FocusState.Programmatic);
+            }
+            foreach (var (button, visible) in card) if (!visible) button.Visibility = Visibility.Collapsed;
             AutomaticRow.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
             AutomaticDivider.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
             AutomaticSwitch.IsOn = update.Automatic;
