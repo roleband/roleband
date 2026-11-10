@@ -33,7 +33,8 @@ certificate ([decision 0012](0012-windows-distribution-and-signing.md)).
 - An App Installer file, if used, may not check for updates on its own: offers and their
   consent stay with the app.
 
-Development packages keep their separate trial identity, data namespace and trial key.
+Development packages keep their separate trial package identity and data namespace, and
+trust only a trial update identity ([decision 0009](0009-windows-release-authorization.md)).
 
 ## Consequences
 

@@ -166,28 +166,47 @@ refuses local changes, builds the dashboard itself and records the revision, so
 every bundled byte traces to that commit. A pinned standalone Python and hashed
 Windows wheels keep development Python out of the runtime layout. A bundle names
 one channel. A trial (`trial.json`) runs synthetic data with network jobs off in
-its own `LocalAppData\RoleBandTrials` folder and never opens installed data. A
-release (`build.json`, `--channel release`) needs the committed
-`release-identity.json` for `roleband/roleband`, opens the person's own
-`LocalAppData\RoleBand\data` and never takes a fixture (Windows creates the package's kept folder,
-`LocalAppData\RoleBand`, at install with access for Administrators too, so the private data is a folder
-inside it); only that engine works in
-installed data, so Undo can restore its database. A bundle naming both channels or
-neither is refused. `Package.ps1` refuses a bundle that differs from its assembly
-hashes, then validates and packs an unsigned MSIX: a trial keeps the trial
-identity, a release takes the package name and publisher from its update
-identity ([decision 0012](decisions/0012-windows-distribution-and-signing.md)).
+its own `LocalAppData\RoleBandTrials` folder and never opens installed data. It
+trusts only `launcher/windows/trial-identity.json`, never the release identity:
+assembly refuses one for `roleband/roleband` or for a package other than the
+trial's, and a trial without one offers no update. A release (`build.json`,
+`--channel release`) needs the committed `release-identity.json`, for RoleBand's
+own package and publisher on `roleband/roleband` with a spare key. It opens the
+person's own data, in the folder `EngineConfiguration.ReleaseState` names, and
+never takes a fixture; only that engine works in installed data, so Undo can
+restore its database. A bundle naming both channels or neither is refused.
+`Package.ps1` refuses a bundle that differs from its assembly hashes
+(`bundle-hashes.json`), then validates and packs an unsigned MSIX: a trial keeps
+the trial identity, and a release takes the package name and publisher from its
+update identity, and RoleBand's name and kept `LocalAppData\RoleBand` folder
+([decision 0012](decisions/0012-windows-distribution-and-signing.md)).
 
 `launcher/windows/Tools/identity.py generate` makes that identity once: RoleBand's
 self-signed code-signing certificate and the release key in one folder, the spare
-release key in another kept offline. `launcher/windows/release-identity.json` and the
-public `launcher/windows/RoleBand.cer` are committed. `.github/workflows/windows-release.yml`
-builds a published release's tag with no secret, then, in the `windows-release`
-environment that waits for the owner's approval, checks the certificate and key
-against the committed identity, signs with `signtool` (not timestamped), prepares
-the four release files and attaches them and `RoleBand.cer` to that release.
-`release.py prepare` refuses a package whose own manifest names another package,
-publisher or version than the release it prepares.
+release key in another kept offline. `launcher/windows/release-identity.json` and
+the public `launcher/windows/RoleBand.cer` are committed.
+`.github/workflows/windows-release.yml` builds a published release's tag with no
+secret; a tag whose commit has neither file gets no Windows files. In the
+`windows-release` environment, and from `main` only when run by hand,
+`identity.py check` confirms that the certificate is the committed `RoleBand.cer`
+with its own private key and that the release key is the one the identity names.
+The job then signs with `signtool` (not timestamped), prepares the four release
+files and attaches them and `RoleBand.cer` to that release. Both jobs install
+their tools only from the hashed wheels in `launcher/windows/signing-requirements.txt`,
+which `Tools/lock_runtime.py` writes from the runtime lock. `release.py prepare`
+refuses a package whose own manifest names another package, publisher or version
+than the release it prepares, or, for RoleBand's own package, another name or
+kept folder.
+
+A rehearsal tries a release's install and update on one machine before the first
+real release: `identity.py generate --rehearsal` makes an identity for
+`roleband/roleband-windows-trials`, and `assemble.py --channel release --rehearsal`
+builds a release from a commit whose `release-identity.json` is that identity
+(`identity.py check --rehearsal` checks its signing material). A rehearsal keeps
+the release's package name and publisher, and Windows updates an installed package
+in place from any certificate with that publisher the machine trusts. A machine
+used for a rehearsal therefore removes the rehearsal certificate from Trusted
+People before it installs a real release.
 
 `backend/desktop.py checkpoint` creates or rechecks a private logical recovery
 checkpoint through a fresh-cluster restore drill. The command requires explicit

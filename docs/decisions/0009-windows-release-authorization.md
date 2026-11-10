@@ -25,8 +25,11 @@ downloaded package must match the signed digest and size before it is applied. V
 runs in `tracker/platform/windows_release.py`; `launcher/windows/Tools/release.py` writes
 and checks release folders.
 
-Trial packages trust a trial key and feed; production keys stay on the Mac. A build
-without an identity never asks a feed.
+A trial package trusts only its own identity, `launcher/windows/trial-identity.json`, for a
+trial feed and the trial package, never the release identity, so a trial installed beside
+the app never takes a real release. [Decision 0012](0012-windows-distribution-and-signing.md)
+says where the Windows release key and certificate are kept. A build without an identity
+never asks a feed.
 
 Checking follows the Mac's contract. Nothing is requested before an explicit choice,
 recorded with the words shown and their language. Automatic checks stay off until enabled

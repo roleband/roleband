@@ -80,9 +80,16 @@ Check generated native
 copy with `node dashboard/scripts/export-launcher-copy.mjs --windows --check`.
 Packaging tool changes run `python -m unittest discover -s launcher/windows/Tools -p "test_*.py"`:
 assembly refuses tracked edits, untracked files and ignored files in the engine
-sources and a release without the shared feed's identity, and `Package.ps1` refuses
-a bundle edited, extended or trimmed after assembly, one naming no channel or two,
-and a release without its publisher, and can package the same bundle again. Its `resources.pri` step, which lets Windows find
+sources, a release identity that is not RoleBand's own package and publisher on the
+shared feed with a spare key, and a trial identity for that feed or another package,
+and never gives a trial the release identity. `Package.ps1` refuses a bundle edited,
+extended or trimmed after assembly, one naming no channel or two, and a release
+without its publisher, and can package the same bundle again. `identity.py check`
+refuses a certificate that is not the committed one, lacks its private key, names
+another subject or expires within a year; a failed `generate` leaves both folders
+empty, and on Windows .NET opens the signing file with its key, as `signtool` does.
+`release.py prepare` refuses a release package that keeps the trial's folder or name,
+and a release key whose passphrase is missing or wrong, with a reason. Its `resources.pri` step, which lets Windows find
 the sized icons and keeps the app's own resources, is checked by dumping the file with `makepri`. MSIX packing alone does not prove installation, retention or package recovery.
 
 `launcher/windows/Tools/PackageContextProbe` exercises the native package-policy
@@ -473,8 +480,8 @@ misjudged.
 | `contract-drift.yml` | Every push and PR | Regenerates `openapi.json` and `api.gen.ts`, fails on any diff |
 | `hygiene.yml` | Every push and PR | `backend/scripts/check_project_name.py`, `backend/scripts/check_comment_hygiene.py`; actionlint on every workflow, with shellcheck on its `run:` steps, from its image pinned by digest |
 | `mac-launcher.yml` | Every push and PR, weekly, and each release; its jobs run only when needed | A Linux `changes` job picks the tiers. Native tier (macOS): copy export check, Swift tests, installer and release tests, install guide in Chromium and WebKit, source app build, transport test. Bundle tier (macOS, never on a PR): the dashboard and the standalone app with its engine, launched read-only, packaged as a candidate for local signing |
-| `windows-release.yml` | A published release, or by hand for a release's tag | Builds the Windows package from the tag, then, after the owner approves the `windows-release` environment, signs it and attaches the Windows files; it releases, so it tests nothing a pull request has not |
-| `windows.yml` | Main pushes and PRs; a PR that changes no Windows input skips its checks | On separate `windows-2025` runners: checkpoint, recovery and migration tests; remaining Windows and supervisor tests with local authentication and skip-policy tests; packaging tools, native host tests and WinUI build. Uses the local Windows runner and strict integration skips. The bundled-engine test runs when assembled trial resources are supplied. Advisory |
+| `windows-release.yml` | A published release, or by hand for a release's tag; only `main`'s signs when run by hand | Builds the Windows package from the tag, then, after the owner approves the `windows-release` environment, signs it and attaches the Windows files; a tag whose commit has no Windows identity gets none. It releases, so it tests nothing a pull request has not |
+| `windows.yml` | Main pushes and PRs; a PR that changes no Windows input skips its checks | On separate `windows-2025` runners, one per lane: checkpoint, recovery and migration tests (`checkpoints`); remaining Windows and supervisor tests with local authentication and skip-policy tests (`engine`); the rest of the backend suite (`suite`); packaging tools, native host tests and WinUI build (`native`). Uses the local Windows runner and strict integration skips. The bundled-engine test runs when assembled trial resources are supplied. Advisory |
 | `codeql.yml` | Every push and PR, and weekly; the Swift scan only when it is needed | Code scanning with the default query suite. `actions`, `javascript-typescript` and `python` on Linux, without a build. Swift on macOS with the Xcode `mac-launcher.yml` pins, traced through a release build of the `RoleBandLauncher` product, the one `build-app.sh` ships; its `changes` job runs it when `launcher/**` or the workflow changed, and a weekly or manual run always does. Advisory: no required check waits on it |
 | `links.yml` | Markdown changes, and weekly | External links in every tracked `*.md` resolve (lychee; loopback skipped, a rate limit counts as alive). Only the weekly run fails; on a pull request it reports |
 | `vendored-provenance.yml` | Monthly, and when vendored pins change | Vendored snapshots against upstream; a notice, never a PR blocker |

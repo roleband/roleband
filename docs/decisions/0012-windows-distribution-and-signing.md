@@ -21,9 +21,10 @@ publishes to `roleband/roleband`, and both apps read that repository's latest re
   package's publisher and stays the same for good; a new certificate keeps that subject.
 - Signatures are not timestamped, since that needs an outside time server. The certificate
   is valid for 25 years and is replaced with the same subject well before it expires.
-- A tag-triggered workflow builds, signs and attaches the Windows files. The certificate and
-  the Windows release key are secrets of a protected environment that runs only after the
-  owner approves; the spare release key never leaves offline storage.
+- A workflow builds, signs and attaches the Windows files when a release is published, or
+  when run by hand for a published release's tag, which signs only from `main`. The
+  certificate and the Windows release key are secrets of a protected environment that runs
+  only after the owner approves; the spare release key never leaves offline storage.
 
 ## Consequences
 
@@ -32,8 +33,7 @@ they are. Someone who can run the protected environment can sign a Windows updat
 spare key is the way back from a compromise ([decision 0009](0009-windows-release-authorization.md)).
 A first install needs the certificate trusted on the machine, which takes an administrator
 once; updates after that need nothing. Smart App Control may refuse a publisher Microsoft
-does not know, so a clean machine with it on is tested before each first release. This
-replaces the timestamp in [decision 0011](0011-windows-msix-packaging.md).
+does not know, so a clean machine with it on is tested before each first release.
 
 ## Alternatives considered
 
