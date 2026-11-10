@@ -920,7 +920,7 @@ always inside operator limits.
 
 `POST_PASSES` (`backend/tracker/workflows/post_passes.py`) is the one producer of
 derived data: backfills, content fingerprint, search vectors, skills, embeddings,
-disclosed pay, posting pages, place sets, lineage, twins, clusters, similarity,
+disclosed pay, posting pages, place sets, lineage, twins, similarity,
 demand, pay metrics, prices, tuning. Order matters (the fingerprint gates
 embeddings and pay extraction). Each entry says whether it runs on capped or
 discovery scans and whether its failure is fatal. A long run also runs the
@@ -1006,7 +1006,7 @@ descriptions are fetched, so only kept postings cost a detail request.
 Semantic features run locally: a bundled ONNX embedding model (768 dimensions,
 CPU), downloaded once from a pinned revision and checked against our sha256 per
 file (`backend/tracker/semantic/manifest.py`). Vectors live in pgvector;
-embeddings, clusters and similarity are post-passes.
+embeddings and similarity are post-passes.
 
 **No automatic pass calls a model.** Pay extraction is a deterministic scanner
 (`backend/tracker/intelligence_runtime/disclosed_comp.py`); the relevance

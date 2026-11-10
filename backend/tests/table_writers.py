@@ -227,6 +227,16 @@ class _Visitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
+def _delete_root(node: ast.AST) -> ast.Call | None:
+    """The `delete(Model)` call at the root of a `.where(...)` chain, if there is one."""
+    while isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "where":
+        node = node.func.value
+    if not isinstance(node, ast.Call):
+        return None
+    func = node.func
+    return node if (func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)) == "delete" else None
+
+
 class _ReaderVisitor(ast.NodeVisitor):
     """Modules that QUERY a table: `select(Model)`, `session.get(Model, ...)`, `Model.column`.
 
@@ -240,6 +250,8 @@ class _ReaderVisitor(ast.NodeVisitor):
         self.module = module
         self.hits = hits
         self.alias: dict[str, str] = {}
+        # The model a delete's filter refers to while that filter is visited.
+        self.deleting: str | None = None
 
     def visit_Assign(self, node: ast.Assign) -> None:
         if len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
@@ -255,19 +267,33 @@ class _ReaderVisitor(ast.NodeVisitor):
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
         found = self._name(node.value)
-        if found and not node.attr.startswith("__"):
+        if found and found != self.deleting and not node.attr.startswith("__"):
             self.hits[_CLASS_TABLE[found]].add(self.module)
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
         func = node.func
         name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+        root = _delete_root(func.value) if name == "where" and isinstance(func, ast.Attribute) else None
+        if root is not None:
+            # A delete's filter names the deleted model's columns only to pick
+            # rows, so those are not a read; any other table it names, and any
+            # subquery in it, still is.
+            self.visit(func.value)
+            outer, self.deleting = self.deleting, self._name(root.args[0]) if root.args else None
+            for part in [*node.args, *(keyword.value for keyword in node.keywords)]:
+                self.visit(part)
+            self.deleting = outer
+            return
+        outer = self.deleting
         if name in {"select", "get", "exists"}:
+            self.deleting = None
             for argument in node.args:
                 found = self._name(argument)
                 if found:
                     self.hits[_CLASS_TABLE[found]].add(self.module)
         self.generic_visit(node)
+        self.deleting = outer
 
 
 def scan_readers(backend: Path = BACKEND) -> dict[str, set[str]]:

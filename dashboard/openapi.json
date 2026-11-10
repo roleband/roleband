@@ -1833,154 +1833,6 @@
     "title": "CloudModelTestResult",
     "type": "object"
    },
-   "ClusterDetailResponse": {
-    "additionalProperties": false,
-    "description": "`GET /api/clusters/{cluster_id}`: the open members, most central first, as list rows.",
-    "properties": {
-     "family_hint": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Family Hint",
-      "x-text": "code"
-     },
-     "id": {
-      "title": "Id",
-      "type": "integer"
-     },
-     "items": {
-      "items": {
-       "$ref": "#/components/schemas/JobRow"
-      },
-      "title": "Items",
-      "type": "array"
-     },
-     "size": {
-      "title": "Size",
-      "type": "integer"
-     },
-     "top_terms": {
-      "items": {
-       "$ref": "#/components/schemas/ClusterTerm"
-      },
-      "title": "Top Terms",
-      "type": "array"
-     }
-    },
-    "required": [
-     "id",
-     "family_hint",
-     "size",
-     "top_terms",
-     "items"
-    ],
-    "title": "ClusterDetailResponse",
-    "type": "object"
-   },
-   "ClusterListResponse": {
-    "additionalProperties": false,
-    "description": "`GET /api/clusters`: largest first; `model_version` is null with no clusters.",
-    "properties": {
-     "items": {
-      "items": {
-       "$ref": "#/components/schemas/ClusterSummary"
-      },
-      "title": "Items",
-      "type": "array"
-     },
-     "model_version": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Model Version"
-     }
-    },
-    "required": [
-     "items",
-     "model_version"
-    ],
-    "title": "ClusterListResponse",
-    "type": "object"
-   },
-   "ClusterSummary": {
-    "additionalProperties": false,
-    "description": "A cluster with its company mix. With companies hidden, `size` counts the visible mix.",
-    "properties": {
-     "companies": {
-      "additionalProperties": {
-       "type": "integer"
-      },
-      "title": "Companies",
-      "type": "object"
-     },
-     "family_hint": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Family Hint",
-      "x-text": "code"
-     },
-     "id": {
-      "title": "Id",
-      "type": "integer"
-     },
-     "size": {
-      "title": "Size",
-      "type": "integer"
-     },
-     "top_terms": {
-      "items": {
-       "$ref": "#/components/schemas/ClusterTerm"
-      },
-      "title": "Top Terms",
-      "type": "array"
-     }
-    },
-    "required": [
-     "id",
-     "family_hint",
-     "size",
-     "top_terms",
-     "companies"
-    ],
-    "title": "ClusterSummary",
-    "type": "object"
-   },
-   "ClusterTerm": {
-    "additionalProperties": true,
-    "description": "A characteristic skill of a cluster's members, as the clustering pass stored it.",
-    "properties": {
-     "term": {
-      "title": "Term",
-      "type": "string"
-     },
-     "weight": {
-      "title": "Weight",
-      "type": "number"
-     }
-    },
-    "required": [
-     "term",
-     "weight"
-    ],
-    "title": "ClusterTerm",
-    "type": "object"
-   },
    "CommentWrite": {
     "properties": {
      "body": {
@@ -6425,7 +6277,6 @@
      "suggestion-not-found",
      "recipe-not-found",
      "rule-not-found",
-     "cluster-not-found",
      "fit-band-not-found",
      "schedule-not-found",
      "page-not-found",
@@ -14141,46 +13992,6 @@
      "top_shared"
     ],
     "title": "OverlapPair",
-    "type": "object"
-   },
-   "OverviewCluster": {
-    "additionalProperties": false,
-    "properties": {
-     "family_hint": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Family Hint",
-      "x-text": "code"
-     },
-     "id": {
-      "title": "Id",
-      "type": "integer"
-     },
-     "size": {
-      "title": "Size",
-      "type": "integer"
-     },
-     "terms": {
-      "items": {
-       "type": "string"
-      },
-      "title": "Terms",
-      "type": "array"
-     }
-    },
-    "required": [
-     "id",
-     "family_hint",
-     "terms",
-     "size"
-    ],
-    "title": "OverviewCluster",
     "type": "object"
    },
    "OverviewHardest": {
@@ -22226,112 +22037,6 @@
     "title": "SkillOverlapResponse",
     "type": "object"
    },
-   "SkillTrendPoint": {
-    "additionalProperties": false,
-    "properties": {
-     "date": {
-      "title": "Date",
-      "type": "string"
-     },
-     "job_count": {
-      "title": "Job Count",
-      "type": "integer"
-     },
-     "share": {
-      "title": "Share",
-      "type": "number"
-     }
-    },
-    "required": [
-     "date",
-     "job_count",
-     "share"
-    ],
-    "title": "SkillTrendPoint",
-    "type": "object"
-   },
-   "SkillTrendSeries": {
-    "additionalProperties": false,
-    "description": "One skill over the shared axis, zero on a day without a slice.",
-    "properties": {
-     "current": {
-      "title": "Current",
-      "type": "integer"
-     },
-     "current_share": {
-      "title": "Current Share",
-      "type": "number"
-     },
-     "delta": {
-      "title": "Delta",
-      "type": "integer"
-     },
-     "points": {
-      "items": {
-       "$ref": "#/components/schemas/SkillTrendPoint"
-      },
-      "title": "Points",
-      "type": "array"
-     },
-     "share_delta": {
-      "title": "Share Delta",
-      "type": "number"
-     },
-     "term": {
-      "title": "Term",
-      "type": "string"
-     }
-    },
-    "required": [
-     "term",
-     "current",
-     "delta",
-     "current_share",
-     "share_delta",
-     "points"
-    ],
-    "title": "SkillTrendSeries",
-    "type": "object"
-   },
-   "SkillTrendsResponse": {
-    "additionalProperties": false,
-    "description": "`GET /api/skills/trends`. `days <= 0` is all history.",
-    "properties": {
-     "dates": {
-      "items": {
-       "type": "string"
-      },
-      "title": "Dates",
-      "type": "array"
-     },
-     "days": {
-      "title": "Days",
-      "type": "integer"
-     },
-     "series": {
-      "items": {
-       "$ref": "#/components/schemas/SkillTrendSeries"
-      },
-      "title": "Series",
-      "type": "array"
-     },
-     "set_changes": {
-      "items": {
-       "type": "string"
-      },
-      "title": "Set Changes",
-      "type": "array"
-     }
-    },
-    "required": [
-     "days",
-     "dates",
-     "series",
-     "set_changes"
-    ],
-    "title": "SkillTrendsResponse",
-    "type": "object"
-   },
    "SourceComparisonCoverage": {
     "additionalProperties": false,
     "properties": {
@@ -22519,13 +22224,6 @@
       "title": "Longest Open",
       "type": "array"
      },
-     "top_clusters": {
-      "items": {
-       "$ref": "#/components/schemas/OverviewCluster"
-      },
-      "title": "Top Clusters",
-      "type": "array"
-     },
      "top_skills": {
       "items": {
        "$ref": "#/components/schemas/OverviewSkill"
@@ -22538,7 +22236,6 @@
      "days",
      "kpis",
      "top_skills",
-     "top_clusters",
      "longest_open"
     ],
     "title": "StatisticsOverviewResponse",
@@ -25837,110 +25534,6 @@
      }
     },
     "summary": "Activity Ep"
-   }
-  },
-  "/api/clusters": {
-   "get": {
-    "description": "All semantic clusters with size, label, top skills, and company mix.",
-    "operationId": "clusters_api_clusters_get",
-    "parameters": [
-     {
-      "in": "query",
-      "name": "side",
-      "required": false,
-      "schema": {
-       "default": "all",
-       "enum": [
-        "all",
-        "yours",
-        "other"
-       ],
-       "title": "Side",
-       "type": "string"
-      }
-     },
-     {
-      "in": "query",
-      "name": "family",
-      "required": false,
-      "schema": {
-       "anyOf": [
-        {
-         "items": {
-          "type": "string"
-         },
-         "type": "array"
-        },
-        {
-         "type": "null"
-        }
-       ],
-       "title": "Family"
-      }
-     }
-    ],
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/ClusterListResponse"
-        }
-       }
-      },
-      "description": "Successful Response"
-     },
-     "422": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
-        }
-       }
-      },
-      "description": "Validation Error"
-     }
-    },
-    "summary": "Clusters"
-   }
-  },
-  "/api/clusters/{cluster_id}": {
-   "get": {
-    "operationId": "cluster_detail_api_clusters__cluster_id__get",
-    "parameters": [
-     {
-      "in": "path",
-      "name": "cluster_id",
-      "required": true,
-      "schema": {
-       "title": "Cluster Id",
-       "type": "integer"
-      }
-     }
-    ],
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/ClusterDetailResponse"
-        }
-       }
-      },
-      "description": "Successful Response"
-     },
-     "422": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
-        }
-       }
-      },
-      "description": "Validation Error"
-     }
-    },
-    "summary": "Cluster Detail"
    }
   },
   "/api/companies": {
@@ -32236,133 +31829,6 @@
     "summary": "Skills Top"
    }
   },
-  "/api/skills/trends": {
-   "get": {
-    "description": "Skill demand over time from the `skill_demand_daily` V2 rollup.\n\nReturns a shared, sorted `dates` axis and one aligned `series` per skill (0-filled\non days with no slice), so the client can draw sparklines without post-processing.\nWhen `term` (concept slug) is omitted the top `limit` skills by their most-recent\ncount are chosen; otherwise exactly the requested slugs are returned. `days<=0`\nmeans all history. Series exclude industries (they never enter the rollup).\n\nHistory accrues one slice-set per pipeline run from the first run that extracted\nskills, so a young install's series are near-flat; the client shows an accruing note.",
-    "operationId": "skills_trends_api_skills_trends_get",
-    "parameters": [
-     {
-      "in": "query",
-      "name": "company",
-      "required": false,
-      "schema": {
-       "anyOf": [
-        {
-         "items": {
-          "type": "string"
-         },
-         "type": "array"
-        },
-        {
-         "type": "null"
-        }
-       ],
-       "title": "Company"
-      }
-     },
-     {
-      "in": "query",
-      "name": "family",
-      "required": false,
-      "schema": {
-       "anyOf": [
-        {
-         "items": {
-          "type": "string"
-         },
-         "type": "array"
-        },
-        {
-         "type": "null"
-        }
-       ],
-       "title": "Family"
-      }
-     },
-     {
-      "in": "query",
-      "name": "term",
-      "required": false,
-      "schema": {
-       "anyOf": [
-        {
-         "items": {
-          "type": "string"
-         },
-         "type": "array"
-        },
-        {
-         "type": "null"
-        }
-       ],
-       "title": "Term"
-      }
-     },
-     {
-      "in": "query",
-      "name": "days",
-      "required": false,
-      "schema": {
-       "default": 90,
-       "maximum": 3650,
-       "minimum": 0,
-       "title": "Days",
-       "type": "integer"
-      }
-     },
-     {
-      "in": "query",
-      "name": "limit",
-      "required": false,
-      "schema": {
-       "default": 8,
-       "maximum": 50,
-       "minimum": 1,
-       "title": "Limit",
-       "type": "integer"
-      }
-     },
-     {
-      "in": "query",
-      "name": "side",
-      "required": false,
-      "schema": {
-       "default": "all",
-       "enum": [
-        "all",
-        "yours",
-        "other"
-       ],
-       "title": "Side",
-       "type": "string"
-      }
-     }
-    ],
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/SkillTrendsResponse"
-        }
-       }
-      },
-      "description": "Successful Response"
-     },
-     "422": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
-        }
-       }
-      },
-      "description": "Validation Error"
-     }
-    },
-    "summary": "Skills Trends"
-   }
-  },
   "/api/statistics/comp-trajectory": {
    "get": {
     "description": "Each company's typical package for the Stock tab, from the packages Job\ndetail shows, so a role reads the same on both screens.\n\nCompanies split into public (equity tracks a listed ticker, so it flexes\nwith the stock price), private, and those where each person picks the cash\nand stock mix. The UI applies a stock-price scenario to the equity part\nclient-side. The roles `/api/statistics/compensation` describes: a place set once.",
@@ -32680,7 +32146,7 @@
   },
   "/api/statistics/overview": {
    "get": {
-    "description": "Cockpit aggregate for the Statistics landing tab.\n\nKPI tiles + a short generated brief + highlight strips, pulling from the demand,\nskills, and cluster layers. `days<=0` means all-time; otherwise the new/closed\ncounters are scoped to the last N days of lifecycle events (so the period control\nis meaningful as history accrues).",
+    "description": "Cockpit aggregate for the Statistics landing tab.\n\nKPI tiles + a short generated brief + highlight strips, pulling from the demand\nand skills layers. `days<=0` means all-time; otherwise the new/closed\ncounters are scoped to the last N days of lifecycle events (so the period control\nis meaningful as history accrues).",
     "operationId": "statistics_overview_api_statistics_overview_get",
     "parameters": [
      {

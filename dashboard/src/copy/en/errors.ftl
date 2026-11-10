@@ -33,8 +33,6 @@ error-recipe-not-found = That recipe is gone.
 # kind=error next=none
 error-rule-not-found = That exclusion is gone.
 # kind=error next=none
-error-cluster-not-found = That cluster is gone.
-# kind=error next=none
 error-fit-band-not-found = That fit grade can't be found.
 # kind=error
 error-schedule-not-found = That company has no schedule yet. Try again when the scan ends.

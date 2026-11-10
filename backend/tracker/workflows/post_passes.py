@@ -66,7 +66,6 @@ from tracker.profiles.prices import PRICES_PASS, run_refresh
 from tracker.schema import RawJob
 from tracker.scope.projection import recompute_saved_scope
 from tracker.scope.promotion import promote_locked
-from tracker.semantic.cluster import rebuild_clusters
 from tracker.semantic.embed import EMBED_COMMIT_BATCH, embed_jobs, stale_job_ids
 from tracker.semantic.similarity import refresh_similarity
 from tracker.semantic.tier_store import reconcile_tier
@@ -667,14 +666,6 @@ async def _pass_twins(ctx: PostPassContext) -> None:
         budget -= caught_up["processed"]
 
 
-async def _pass_clusters(ctx: PostPassContext) -> None:
-    # KMeans role clusters over ALL open, embedded jobs (not just touched_ids):
-    # neighbor/cluster structure is a whole-corpus property, so this is correct
-    # on capped runs too. Self-guards on too-few embeddings (returns 0), and
-    # only relabels a corpus the last fit already clustered.
-    ctx.results["clusters"] = await rebuild_clusters(ctx.session)
-
-
 async def _pass_similarity(ctx: PostPassContext) -> None:
     # Precomputed nearest-neighbor sets (within/cross company), refreshed for
     # what changed since the last run; whole-corpus, so capped runs keep it too.
@@ -789,7 +780,6 @@ POST_PASSES: tuple[PostPass, ...] = (
     PostPass("place_sets", _pass_place_sets, enabled=lambda s: s.place_sets_enabled),
     PostPass("lineage", _pass_lineage, capped_ok=False, enabled=lambda s: s.lineage_enabled),
     PostPass("twins", _pass_twins, capped_ok=False, enabled=lambda s: s.twin_enabled),
-    PostPass("clusters", _pass_clusters),
     PostPass("similarity", _pass_similarity),
     PostPass(DEMAND_PASS, _pass_demand_metrics, fatal=True),
     PostPass("skill_demand", _pass_skill_demand, fatal=True),
@@ -847,8 +837,8 @@ async def run_refresh_passes(ctx: PostPassContext) -> None:
     """The passes a long run takes over the rows it has written so far, while
     it still reads: the incremental ones a discovery probe runs (search,
     embeddings, pay estimates, skills), so new roles are findable and priced
-    before the run ends. The whole-corpus passes (duplicates, clusters,
-    metrics, tuning) wait for the end, where every pass runs again over all
+    before the run ends. The whole-corpus passes (duplicates, metrics,
+    tuning) wait for the end, where every pass runs again over all
     the run's rows. None is fatal here: the end of the run is where a failure
     fails it."""
     await _run_passes(ctx, refresh=True)

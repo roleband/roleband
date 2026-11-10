@@ -178,7 +178,7 @@ class Job(Base):
     content_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Semantic embedding of (title + description). Re-embedded when a job's text
-    # changes (content_changed_at > embedded_at). Powers similarity + clustering.
+    # changes (content_changed_at > embedded_at). Powers similarity.
     embedding: Mapped[list[float] | None] = mapped_column(Vector(_EMBED_DIM), nullable=True)
     embedded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # WHICH artifact produced `embedding`. Without it the system could
@@ -244,7 +244,7 @@ class Job(Base):
     # those rows. Stored so the Board can order by it.
     required_years: Mapped[float | None] = mapped_column(Float, nullable=True)
 
-    # Semantic cluster assignment (rebuilt in batch; complements `family`, never replaces).
+    # The stored skill-profile group, kept with `clusters` (see db/ownership.py).
     cluster_id: Mapped[int | None] = mapped_column(
         ForeignKey("clusters.id", ondelete="SET NULL"), nullable=True, index=True
     )
@@ -1413,8 +1413,9 @@ class DemandMetric(Base):
 
 
 class SkillDemandDaily(Base):
-    """Daily rollup of skill demand per (company × family × concept). Powers the
-    Statistics "Trends" sub-tab (skill demand over time).
+    """Daily rollup of skill demand per (company × family × concept). No screen
+    reads it; it is kept written so a view that needs weeks of history can start
+    from it.
 
     `job_count` = distinct open jobs at that company+family with a displayable
     requirement for the concept on `metric_date` (high-confidence, non-context;
@@ -1771,7 +1772,8 @@ class JobSimilarity(Base):
 
 
 class Cluster(Base):
-    """A semantic cluster of roles (KMeans over embeddings), rebuilt in batch.
+    """A semantic cluster of roles (KMeans over embeddings). Nothing writes or reads
+    these rows; db/ownership.py says why they are kept.
 
     Complements the hand-curated `family` taxonomy: one family (e.g. software_engineering)
     legitimately splits into several skill clusters (distributed-systems vs frontend vs
@@ -2252,8 +2254,7 @@ class CompanyPriceBar(Base):
 
 # --------------------------------------------------------------------------- #
 # Skills — closed catalogue + evidence-grounded per-job requirements.
-# The sole skill system: powers job detail, the Statistics analytics tabs, and
-# cluster labels.
+# The sole skill system: powers job detail and the Statistics analytics tabs.
 # --------------------------------------------------------------------------- #
 
 

@@ -442,7 +442,7 @@ silence a failure your change did not intend is not allowed.
 
 | Artifact | Guard | How it moves |
 |---|---|---|
-| `backend/tests/fixtures/route_table.json` | `tests/test_api_route_table.py` | `scripts.freeze_route_table` for a deliberate route change, named in the PR; `modelled_count` only rises |
+| `backend/tests/fixtures/route_table.json` | `tests/test_api_route_table.py` | `scripts.freeze_route_table` for a deliberate route change, named in the PR; `modelled_count` only rises, except by the modelled routes a deliberate removal takes away, and `route_count - modelled_count` (the routes without a model) never rises |
 | `backend/tests/fixtures/schema_metadata.json` | `tests/test_schema_metadata.py` | `scripts.freeze_schema_metadata`, with the model change's migration |
 | `ignore_imports` in `backend/pyproject.toml` | `tests/test_import_contracts.py` | Only shrinks |
 | `dashboard/src/test/ratchet-baseline.json` | `src/test/ratchet.test.ts` | Only lowered |

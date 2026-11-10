@@ -1,38 +1,5 @@
 ## insights
 
-## features/statistics/ClustersView.tsx
-insights-clusters-view-semantic-groups-built-from-role = Puestos agrupados en clústeres según lo que dicen sus descripciones, con el nombre de las habilidades que comparten. Un mismo tipo de puesto puede dividirse en varios clústeres.
-insights-clusters-view-market-terrain = Puestos abiertos por clúster
-insights-clusters-view-group-landscape = Mapa de clústeres
-insights-clusters-view-area-encodes-active-role-volume = Cuanto mayor es el recuadro, más puestos abiertos. Selecciona uno para ver sus puestos.
-insights-clusters-view-groups = { $count } clústeres
-insights-clusters-view-roles = { $family_display } · { $size } puestos
-insights-clusters-view-clear = Borrar
-insights-clusters-view-and-more-companies = { $count ->
-    [one] y { $n } empresa más
-    [many] y { $n } de empresas más
-   *[other] y { $n } empresas más
-}
-insights-clusters-view-role-groups = { $count ->
-    [one] { $count } clúster
-    [many] { $count } de clústeres
-   *[other] { $count } clústeres
-}
-insights-clusters-view-largest-group = Clúster más grande: { $label } · { $size } puestos
-insights-clusters-view-groups-are-built-from-role = Los clústeres se forman a partir de las descripciones de los puestos tras un escaneo
-insights-clusters-view-about-role-groups = Acerca de los clústeres
-insights-clusters-view-groups-tile = Clústeres
-insights-clusters-view-from-role-descriptions = a partir de las descripciones
-insights-clusters-view-roles-grouped = Puestos en clústeres
-insights-clusters-view-largest = Clúster más grande
-insights-clusters-view-roles-in-one-group = puestos en un clúster
-insights-clusters-view-with-a-grouped-role = con un puesto en un clúster
-insights-clusters-view-how-to-read-the-cluster = Cómo leer el mapa de clústeres
-insights-clusters-view-loading = Cargando los clústeres…
-insights-clusters-view-load-failed = No se pudieron cargar los clústeres
-insights-clusters-view-group-loading = Cargando este clúster…
-insights-clusters-view-group-load-failed = No se pudo cargar este clúster
-
 ## features/statistics/CompTrendChart.tsx
 insights-comp-trend-chart-compensation-over-time = Compensación total a lo largo del tiempo
 insights-comp-trend-chart-median-total-pay = Mediana de la compensación total estimada{ $series ->
@@ -192,8 +159,6 @@ insights-overview-panel-most-named-skills = Habilidades más mencionadas
 insights-overview-panel-what-is-pulling-the-market = Habilidades más buscadas
 insights-overview-panel-the-skills-open-roles-name = Habilidades ordenadas según cuántos puestos abiertos las mencionan.
 insights-overview-panel-leads-roles = { $display } encabeza · { $job_count } puestos
-insights-overview-panel-largest-groups = Clústeres más grandes
-insights-overview-panel-no-groups-built-yet = Aún no se ha formado ningún clúster.
 insights-overview-panel-open-the-longest = Puestos abiertos desde hace más tiempo
 insights-overview-panel-the-roles-advertised-longest-that = Puestos abiertos desde hace más tiempo. Puede que sean difíciles de cubrir o que simplemente sigan publicados. No cuentan las fechas de hace más de un año.
 insights-overview-panel-no-open-roles = No hay puestos abiertos.
@@ -604,37 +569,6 @@ insights-offer-vs-today = { $sign ->
 }
 insights-offer-show-table = Ver la tabla
 
-## features/statistics/TrendsPanel.tsx
-insights-trends-panel-demand-history = Historial de demanda
-insights-trends-panel-skill-demand-over-time = Demanda de habilidades a lo largo del tiempo
-insights-trends-panel-each-skill-s-share-of = Proporción de cada habilidad en las menciones del día · { $window }
-insights-trends-panel-top-plotted-in-ledger = { $plotted } principales en el gráfico · { $total } en la lista
-insights-trends-panel-history-is-still-accruing-one = Aún no hay suficiente historial. Las líneas se completan tras unos días de escaneos.
-insights-trends-panel-no-skill-history-yet = Aún no hay historial de habilidades.
-insights-trends-panel-what-is-measured-changed-on = Las empresas o habilidades contadas cambiaron el { $dates }, así que el gráfico muestra proporciones, no recuentos.
-insights-trends-panel-current-ledger = Lista actual
-insights-trends-panel-now = Ahora
-insights-trends-panel-skill-leads = { $skill } encabeza
-insights-trends-panel-nothing-to-plot-yet = Nada que mostrar aún
-insights-trends-panel-leader-share-line = { $current_share } de las menciones el último día · { $days } d de historial · { $window }
-insights-trends-panel-history-accrues-one-day-per = El historial suma un día por escaneo · { $window }
-insights-trends-panel-leader-s-share = Proporción de la primera
-insights-trends-panel-of-skill-mentions = de las menciones de habilidades
-insights-trends-panel-in-the-ledger = en la lista
-insights-trends-panel-history = Historial
-insights-trends-panel-days = { $count ->
-    [one] día
-    [many] días
-   *[other] días
-}
-insights-trends-panel-latest-day = Último día
-insights-trends-panel-none-yet = Aún ninguna
-insights-trends-panel-of-the-series = del historial
-insights-trends-panel-of-skill-mentions-open-roles = { $current_share } de las menciones, { $current } puestos abiertos
-insights-trends-panel-change-points = cambio de { $share_delta } puntos
-insights-trends-panel-loading = Cargando las tendencias de habilidades…
-insights-trends-panel-load-failed = No se pudieron cargar las tendencias de habilidades
-
 ## features/statistics/VelocityPanel.tsx
 insights-velocity-panel-market-current = Por empresa
 insights-velocity-panel-hiring-flow = Flujo de contratación
@@ -695,22 +629,12 @@ insights-statistics-charts-share-of-these-roles = proporción de estos puestos �
 insights-statistics-charts-the-market-s-rate = × la tasa del mercado →
 insights-statistics-charts-what-sets-these-roles-apart = Qué distingue a estos puestos
 insights-statistics-charts-of-these-roles-the-market = { $skill }: { $share }% de estos puestos, ×{ $lift } el mercado
-insights-statistics-charts-set-changed = cambió lo que se cuenta
-insights-statistics-charts-skill-demand-trends = Tendencias de demanda de habilidades
-insights-statistics-charts-skill-mentions-change = { $direction ->
-    [up] { $skill }: { $share }% de las menciones, +{ $points } puntos
-   *[down] { $skill }: { $share }% de las menciones, { $points } puntos
-}
-insights-statistics-charts-skill-mentions-share = { $skill }: { $share }% de las menciones
 insights-statistics-charts-pair-alike = { $similarity }% parecidas · { $shared } habilidades compartidas
 insights-statistics-charts-pair = { $a } × { $b }
 insights-statistics-charts-more-alike = más parecidas
 insights-statistics-charts-less-alike = menos
 insights-statistics-charts-cross-company-skill-overlap-heatmap = Mapa de calor de coincidencia de habilidades entre empresas
 insights-statistics-charts-pair-similarity = { $a } y { $b }: { $percent }%
-insights-statistics-charts-cluster-roles = { $size } puestos · { $family }
-insights-statistics-charts-role-cluster-landscape = Mapa de clústeres
-insights-statistics-charts-roles = { $label }: { $size } puestos
 
 ## features/statistics/charts/compBands.ts
 insights-comp-bands-level-summary = { $label }: { $bands } { $bands ->
@@ -765,8 +689,6 @@ insights-disclosure-median-floor = Mínimo mediano
 insights-disclosure-no-band-posted = sin rango publicado
 
 ## features/statistics/charts/StatisticsCharts.tsx (by hand)
-insights-statistics-charts-more-signals = +{ $count } señales
-insights-statistics-charts-cluster-size = { $size } puestos
 
 ## features/statistics/CompensationPanel.tsx
 insights-compensation-panel-median-pay = { $p50 } de mediana
@@ -857,8 +779,7 @@ insights-skill-leadership = Liderazgo
 insights-skill-collaboration = Colaboración
 insights-skill-industry = Sector
 
-## Nombres de estadísticas: grupo sin términos, serie de cohorte y franjas de antigüedad
-insights-cluster-unlabeled = Grupo sin etiqueta
+## Nombres de estadísticas: serie de cohorte y franjas de antigüedad
 insights-series-same-companies = Mismas empresas
 insights-aging-from-0-days = < 1 semana
 insights-aging-from-7-days = 1–2 semanas
@@ -874,11 +795,6 @@ insights-brief-opened = { $allTime ->
    *[no] { $opened } nuevos en { $days } d, { $closed } cerrados.
 }
 insights-brief-top-skill = Habilidad principal: { $skill } ({ $count } puestos).
-insights-brief-largest-group = Clúster más grande: { $group } ({ $size ->
-    [one] { $size } puesto
-    [many] { $size } de puestos
-   *[other] { $size } puestos
-}).
 insights-comp-trend-chart-reference-changed = { $count ->
     [one] La línea discontinua marca cuándo cambiaron a la vez las estimaciones de compensación: un cambio de datos, no del mercado.
     [many] Las líneas discontinuas marcan cuándo cambiaron a la vez las estimaciones de compensación: un cambio de datos, no del mercado.

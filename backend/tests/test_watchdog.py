@@ -14,9 +14,9 @@ from tracker.workflows import watchdog
 
 def test_stale_derivations_reads_the_status_payload():
     # Populated when a producing pass is stale; empty/absent when clean.
-    assert stale_derivations({"derivations_stale": ["clusters", "similarity"]}) == [
-        "clusters",
+    assert stale_derivations({"derivations_stale": ["similarity", "skill_demand"]}) == [
         "similarity",
+        "skill_demand",
     ]
     assert stale_derivations({"derivations_stale": []}) == []
     assert stale_derivations({}) == []  # older API payloads lack the key

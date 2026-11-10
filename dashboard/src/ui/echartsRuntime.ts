@@ -6,7 +6,6 @@ import {
   LineChart,
   ScatterChart,
   SunburstChart,
-  TreemapChart,
 } from "echarts/charts";
 import {
   AriaComponent,
@@ -40,7 +39,6 @@ echarts.use([
   TitleComponent,
   TooltipComponent,
   TransformComponent,
-  TreemapChart,
   SunburstChart,
   VisualMapComponent,
 ]);

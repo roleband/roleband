@@ -35,11 +35,7 @@ shell-tab-insights-stock = Stock
 # kind=label
 shell-tab-insights-skills = Skills
 # kind=label
-shell-tab-insights-trends = Trends
-# kind=label
 shell-tab-insights-overlap = Overlap
-# kind=label
-shell-tab-insights-groups = Clusters
 
 ## Settings tabs (SETTINGS_TABS)
 # kind=label

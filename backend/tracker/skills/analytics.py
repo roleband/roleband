@@ -1,17 +1,17 @@
-"""Skills analytics: daily demand rollup + the pure trend/overlap transforms.
+"""Skills analytics: the daily demand rollup and the pure overlap transforms.
 
 `compute_skill_demand` snapshots, per (company × family × concept), how many currently
-open jobs carry a displayable requirement for that concept, into `skill_demand_daily`
-(the Trends series). `build_trend_series` and `compute_overlap` are pure pivots behind
-the Trends and Overlap endpoints — table-agnostic; they operate on rows the API feeds
-them. Industries are excluded everywhere here: a business vertical is never a skill.
+open jobs carry a displayable requirement for that concept, into `skill_demand_daily`,
+a daily history no screen reads yet. `compute_overlap` and `seriate` are pure transforms
+behind the Overlap endpoint; they operate on rows the API feeds them. Industries are
+excluded everywhere here: a business vertical is never a skill.
 """
 
 from __future__ import annotations
 
 import math
 from collections import Counter
-from collections.abc import Collection, Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime
 
 from sqlalchemy import delete, func, select
@@ -61,89 +61,6 @@ async def compute_skill_demand(session: AsyncSession) -> int:
             ],
         )
     return len(rows)
-
-
-#: A day whose skill mentions moved by this share against the day before is a
-#: change in what is measured (a company set arriving, an extraction re-run),
-#: not in demand, and is marked on the axis.
-SET_CHANGE = 0.3
-
-
-def build_trend_series(
-    rows: Iterable[tuple[str, str, int]],
-    *,
-    terms: Sequence[str] | None = None,
-    limit: int = 8,
-    exclude: Collection[str] = (),
-) -> tuple[list[str], list[dict]]:
-    """Pivot dated (date, term, count) rows into a shared date axis + aligned series.
-
-    Pure transform behind `GET /api/skills/trends`. `rows` are (date_iso, term,
-    count) where `term` is a concept slug, EVERY concept of each day (the shares
-    are over the day's whole). Returns `(dates, series)` where `dates` is the
-    sorted union of all dates seen and each series' `points` are 0-filled across
-    that axis (so sparklines need no gap handling). When `terms` is given those
-    exact slugs are returned in order; otherwise the top `limit` by most-recent
-    count, leaving out `exclude` (the competencies).
-
-    Each point carries its `share` of the day's skill mentions: the
-    raw count moves with whatever is measured, so a company set arriving or a
-    re-extraction would read as a surge in demand.
-    `current`/`delta` are the counts at the window's ends, kept for the ledger's
-    roles; `current_share`/`share_delta` are the normalised reading.
-    """
-    rows = list(rows)
-    dates: set[str] = set()
-    by_term: dict[str, dict[str, int]] = {}
-    totals: dict[str, int] = {}
-    for date_iso, term, count in rows:
-        dates.add(date_iso)
-        by_term.setdefault(term, {})[date_iso] = int(count)
-        totals[date_iso] = totals.get(date_iso, 0) + int(count)
-    axis = sorted(dates)
-    latest = axis[-1] if axis else ""
-
-    if terms is not None:
-        chosen = [t for t in terms if t in by_term]
-    else:
-        chosen = sorted(
-            (t for t in by_term if t not in exclude), key=lambda t: by_term[t].get(latest, 0), reverse=True
-        )[:limit]
-
-    series: list[dict] = []
-    for t in chosen:
-        counts = by_term[t]
-        points = [
-            {
-                "date": d,
-                "job_count": counts.get(d, 0),
-                "share": round(counts.get(d, 0) / totals[d], 4) if totals.get(d) else 0.0,
-            }
-            for d in axis
-        ]
-        current = points[-1]["job_count"] if points else 0
-        first = points[0]["job_count"] if points else 0
-        current_share = points[-1]["share"] if points else 0.0
-        first_share = points[0]["share"] if points else 0.0
-        series.append({
-            "term": t, "current": current, "delta": current - first,
-            "current_share": current_share, "share_delta": round(current_share - first_share, 4),
-            "points": points,
-        })
-    return axis, series
-
-
-def set_changes(rows: Iterable[tuple[str, str, int]], threshold: float = SET_CHANGE) -> list[str]:
-    """Days whose total skill mentions moved by `threshold` or more against the
-    day before: the measured set changed there. Pure."""
-    totals: dict[str, int] = {}
-    for date_iso, _term, count in rows:
-        totals[date_iso] = totals.get(date_iso, 0) + int(count)
-    days = sorted(totals)
-    return [
-        d for prev, d in zip(days, days[1:], strict=False)
-        if totals[prev] and abs(totals[d] / totals[prev] - 1) >= threshold
-    ]
 
 
 def compute_overlap(

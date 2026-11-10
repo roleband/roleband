@@ -38,7 +38,6 @@ export type Demand = Schemas["DemandResponse"];
 
 export type OverviewKpis = Schemas["OverviewKpis"];
 export type OverviewSkill = Schemas["OverviewSkill"];
-export type OverviewCluster = Schemas["OverviewCluster"];
 export type OverviewHardest = Schemas["OverviewHardest"];
 
 /** `GET /api/statistics/overview`. `days <= 0` is all-time. */

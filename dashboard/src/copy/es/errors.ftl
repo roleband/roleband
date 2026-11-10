@@ -18,7 +18,6 @@ error-link-not-found = Esas ofertas ya no están vinculadas.
 error-suggestion-not-found = Esa sugerencia ya no existe.
 error-recipe-not-found = Esa receta ya no existe.
 error-rule-not-found = Esa exclusión ya no existe.
-error-cluster-not-found = Ese clúster ya no existe.
 error-fit-band-not-found = No se encuentra ese grado de encaje.
 error-schedule-not-found = Esa empresa aún no tiene programación. Inténtalo de nuevo cuando termine el escaneo.
 error-page-not-found = Aquí no hay nada.
