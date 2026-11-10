@@ -194,6 +194,15 @@ jobs:
           $setup = Join-Path $env:RUNNER_TEMP "RoleBand-Setup-$($env:TAG.Substring(1)).exe"
           Copy-Item (Join-Path $env:RUNNER_TEMP 'unsigned/RoleBand-Setup.exe') $setup
           $files = @(Get-ChildItem (Join-Path $env:RUNNER_TEMP 'release') -File | ForEach-Object FullName) + $setup + (Resolve-Path launcher/windows/RoleBand.cer).Path
-          # Without --clobber, a rerun cannot replace a file already attached.
-          gh release upload $env:TAG --repo $env:GITHUB_REPOSITORY @files
+          # The Windows app reads a release as carrying its files only once the checksum file is attached, so that
+          # file goes last. Before it, a rerun replaces whatever an interrupted run attached, which no app has read;
+          # once it is attached, nothing is replaced.
+          $marker = @($files | Where-Object { $_.EndsWith('.sha256') })
+          if ($marker.Count -ne 1) { throw "Expected one checksum file, found $($marker.Count)" }
+          $attached = @(gh release view $env:TAG --repo $env:GITHUB_REPOSITORY --json assets --jq '.assets[].name')
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          if ($attached -contains (Split-Path -Leaf $marker[0])) { throw "$env:TAG already carries its Windows files" }
+          gh release upload $env:TAG --repo $env:GITHUB_REPOSITORY --clobber @($files | Where-Object { $_ -ne $marker[0] })
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          gh release upload $env:TAG --repo $env:GITHUB_REPOSITORY $marker[0]
           if ($LASTEXITCODE) { exit $LASTEXITCODE }

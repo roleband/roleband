@@ -192,7 +192,9 @@ secret; a tag whose commit has neither file gets no Windows files. In the
 with its own private key and that the release key is the one the identity names.
 The job then signs the package and Setup with `signtool` (not timestamped), prepares
 the four release files and attaches them, `RoleBand-Setup-<version>.exe` and
-`RoleBand.cer` to that release. Both jobs install
+`RoleBand.cer` to that release, the checksum file last: the app reads a release as
+carrying Windows files only once it is attached, so a rerun replaces what an
+interrupted one attached, and refuses a release that already has it. Both jobs install
 their tools only from the hashed wheels in `launcher/windows/signing-requirements.txt`,
 which `Tools/lock_runtime.py` writes from the runtime lock. `release.py prepare`
 refuses a package whose own manifest names another package, publisher or version
