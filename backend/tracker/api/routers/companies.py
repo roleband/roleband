@@ -1049,7 +1049,8 @@ async def company_claims(slug: str, session: SessionDep) -> dict:
         await session.execute(
             select(CompanyFact)
             .where(CompanyFact.company_slug == slug, shown)
-            .order_by(CompanyFact.field, CompanyFact.observed_at.desc())
+            # Two sources can observe a field at the same moment: the source, then the id, keeps one order on every read.
+            .order_by(CompanyFact.field, CompanyFact.observed_at.desc(), CompanyFact.source, CompanyFact.id.desc())
         )
     ).scalars().all()
     return {

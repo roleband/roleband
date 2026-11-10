@@ -321,6 +321,19 @@ async def test_claims_are_every_source_s_word_grouped_by_field_newest_first(api_
 
 
 @pytest.mark.asyncio
+async def test_claims_observed_at_the_same_moment_read_in_source_order(api_client, profiles, db_session):
+    """Sources often stamp one moment; without a tiebreak the database returns them in whatever order its plan
+    gives, which can differ between two reads. Recorded in an order that neither way of reading by id matches."""
+    at = NOW + timedelta(days=1)
+    for source, value in (("reported", 2200), ("sec_edgar", 2100), ("blueprint", 2300)):
+        await profile_store.record_fact(db_session, "reddit", "headcount", value, source, observed_at=at)
+        await db_session.commit()
+    claims = (await _call(api_client, "GET", f"{P}/reddit/claims"))["claims"]
+    tied = [c["source"] for c in claims if c["field"] == "headcount" and c["value"] in (2100, 2200, 2300)]
+    assert tied == ["blueprint", "reported", "sec_edgar"]
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("query", "answered", "days"),
     [("", "3m", [60, 2, 1]), ("?range=1m", "1m", [2, 1]), ("?range=6m", "6m", [120, 60, 2, 1]),
