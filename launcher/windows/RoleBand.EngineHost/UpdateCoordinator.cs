@@ -11,6 +11,14 @@ public interface IPackageDeployer
     /// <param name="downgrade">Register a lower version, to return to the previous one.</param>
     /// <param name="progress">Windows' own percentage of the install.</param>
     Task AddAsync(string package, bool downgrade, IProgress<int>? progress, CancellationToken cancellation);
+
+    /// <summary>Where Windows' install of a release file stands, as its own deployment log says.</summary>
+    /// <param name="packageName">The package's name, without version or publisher.</param>
+    /// <param name="since">When the update began; earlier installs are not this one.</param>
+    Task<InstallFinding> FindAsync(string packageName, string version, string file, DateTimeOffset since, CancellationToken cancellation);
+
+    /// <summary>Asks Windows to open the app again once an install has closed it.</summary>
+    void ReopenWhenReplaced();
 }
 
 /// <summary>An update command refused the step, with its reason and the kind of failure it reported.</summary>
@@ -24,7 +32,8 @@ public sealed class UpdateRefused(string reason, string? kind) : IOException(rea
 public interface IUpdateCommands
 {
     /// <param name="lines">Told each line the command writes to stderr while it runs, such as a download's progress.</param>
-    /// <param name="cancellation">Stops the command and every process it started.</param>
+    /// <param name="cancellation">Stops a download and every process it started. Every other command changes the journal or
+    /// the database and runs to its end, since one stopped partway would leave them half-changed.</param>
     Task<JsonElement> RunAsync(IReadOnlyList<string> arguments, CancellationToken cancellation, Action<string>? lines = null);
 }
 
@@ -42,10 +51,25 @@ public sealed class WindowsPackageDeployer : IPackageDeployer
             throw new IOException(result.ErrorText, error);
     }
 
+    /// <summary>How far before the update began the deployment log is read, so the install's own start is in it.</summary>
+    private static readonly TimeSpan LogMargin = TimeSpan.FromMinutes(5);
+
+    public async Task<InstallFinding> FindAsync(string packageName, string version, string file, DateTimeOffset since,
+                                                CancellationToken cancellation)
+    {
+        var events = await WindowsDeployments.ReadAsync(DateTimeOffset.Now - since + LogMargin, cancellation);
+        return WindowsDeployments.Find(events, packageName, version, file, since, DateTimeOffset.Now);
+    }
+
+    public void ReopenWhenReplaced() => _ = RegisterApplicationRestart(null, 0);
+
     private sealed class Percentage(IProgress<int>? progress) : IProgress<DeploymentProgress>
     {
         public void Report(DeploymentProgress value) => progress?.Report((int)Math.Min(value.percentage, 100u));
     }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    private static extern int RegisterApplicationRestart(string? commandLine, int flags);
 }
 
 public sealed class EngineUpdateCommands(EngineConfiguration configuration) : IUpdateCommands
@@ -55,16 +79,17 @@ public sealed class EngineUpdateCommands(EngineConfiguration configuration) : IU
         var start = configuration.EngineStart(["update", .. arguments, "--state", configuration.State]);
         using var process = System.Diagnostics.Process.Start(start) ?? throw new IOException("The update command did not start.");
         // A cancelled download stops at once: its partial file stays, and the next one resumes from it.
-        using var stop = cancellation.Register(() =>
+        var download = arguments[0] == "download";
+        using var stop = download ? cancellation.Register(() =>
         {
             try { process.Kill(entireProcessTree: true); }
             catch (InvalidOperationException) { }
             catch (System.ComponentModel.Win32Exception) { }
-        });
+        }) : default;
         var output = process.StandardOutput.ReadToEndAsync(CancellationToken.None);
         var errors = ReadLinesAsync(process.StandardError, lines);
         await process.WaitForExitAsync(CancellationToken.None);
-        cancellation.ThrowIfCancellationRequested();
+        if (download) cancellation.ThrowIfCancellationRequested();
         var text = await output;
         try
         {
@@ -122,10 +147,59 @@ public static class Reconnection
 /// stopped, settled by the version that runs next, and never left `applying` by a switch
 /// Windows refused.
 /// </summary>
-public sealed class UpdateCoordinator(IUpdateCommands commands, IPackageDeployer deployer)
+/// <param name="wait">Waits between readings of Windows' deployment log.</param>
+public sealed class UpdateCoordinator(IUpdateCommands commands, IPackageDeployer deployer,
+                                      Func<TimeSpan, CancellationToken, Task>? wait = null)
 {
+    /// <summary>How often Windows' deployment log is read while it installs an update this version began.</summary>
+    public static readonly TimeSpan InstallPoll = TimeSpan.FromSeconds(3);
+
+    /// <summary>How long Windows is given to close this version once it has put another in its place.</summary>
+    public static readonly TimeSpan CloseGrace = TimeSpan.FromSeconds(30);
+
+    private readonly Func<TimeSpan, CancellationToken, Task> wait = wait ?? Task.Delay;
+
     public static UpdateCoordinator For(EngineConfiguration configuration) =>
         new(new EngineUpdateCommands(configuration), new WindowsPackageDeployer());
+
+    /// <summary>
+    /// This version opened while the update it began is still applying. Settling the journal now would record that the
+    /// switch never happened, while Windows may still be installing it or have installed it; so Windows' deployment log
+    /// is asked first. While it installs, <paramref name="report"/> is told so and the wait goes on; Windows closes this
+    /// version when it is done and opens the new one, which settles the update. Once Windows has installed it, this
+    /// version never settles it: the engine stays closed. A failed install is reported with Windows' reason.
+    /// </summary>
+    /// <param name="packageName">The installed package's name, without version or publisher.</param>
+    /// <returns>Whether this version may settle the update as not having happened and start its engine.</returns>
+    public async Task<bool> AwaitWindowsAsync(LastUpdate pending, string packageName, Action<UpdateRun?> report,
+                                              CancellationToken cancellation = default)
+    {
+        var since = pending.Since ?? DateTimeOffset.Now - WindowsDeployments.Patience;
+        var reopens = false;
+        while (true)
+        {
+            var finding = await deployer.FindAsync(packageName, pending.To, pending.Package!, since, cancellation);
+            switch (finding.State)
+            {
+                case InstallProgress.Running:
+                    // Only a process that asked is opened again after Windows closes it for the install.
+                    if (!reopens) deployer.ReopenWhenReplaced();
+                    reopens = true;
+                    report(new UpdateRun(UpdateStep.Installing, pending.To));
+                    await wait(InstallPoll, cancellation);
+                    continue;
+                case InstallProgress.Finished:
+                    report(new UpdateRun(UpdateStep.Installing, pending.To, Percent: 100));
+                    return false;
+                case InstallProgress.Failed:
+                    report(new UpdateRun(UpdateStep.InstallFailed, pending.To, Reason: finding.Reason));
+                    return true;
+                default:
+                    report(null);
+                    return true;
+            }
+        }
+    }
 
     /// <summary>Settles a journal the previous run left; call before starting the engine.</summary>
     public async Task<string?> ResumeAsync(CancellationToken cancellation = default) =>
@@ -219,8 +293,7 @@ public sealed class UpdateCoordinator(IUpdateCommands commands, IPackageDeployer
         var begun = await commands.RunAsync(["begin", "--package", package], cancellation);
         if (!begun.TryGetProperty("phase", out var phase) || phase.GetString() != "applying")
             throw new IOException(Reason(begun) ?? "The update could not be started.");
-        // Ask Windows to open RoleBand again once the replacement has closed it.
-        _ = RegisterApplicationRestart(null, 0);
+        deployer.ReopenWhenReplaced();
         try
         {
             await deployer.AddAsync(package, downgrade: false, progress, cancellation);
@@ -245,7 +318,7 @@ public sealed class UpdateCoordinator(IUpdateCommands commands, IPackageDeployer
         if (!begun.TryGetProperty("package", out var package) || package.ValueKind != JsonValueKind.String)
             throw new UpdateRefused(Reason(begun) ?? "The previous version could not be prepared.",
                 begun.TryGetProperty("kind", out var kind) && kind.ValueKind == JsonValueKind.String ? kind.GetString() : null);
-        _ = RegisterApplicationRestart(null, 0);
+        deployer.ReopenWhenReplaced();
         await deployer.AddAsync(package.GetString()!, downgrade: true, progress, cancellation);
     }
 
@@ -255,7 +328,4 @@ public sealed class UpdateCoordinator(IUpdateCommands commands, IPackageDeployer
 
     private static string? Reason(JsonElement answer) =>
         answer.TryGetProperty("reason", out var reason) && reason.ValueKind == JsonValueKind.String ? reason.GetString() : null;
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
-    private static extern int RegisterApplicationRestart(string? commandLine, int flags);
 }

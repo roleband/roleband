@@ -41,6 +41,12 @@ public sealed class LifecycleTests
             print("not a progress line", file=sys.stderr, flush=True)
             time.sleep(120)
             sys.exit(0)
+        if mode == "slow-command" and "update" in sys.argv:
+            note("command-begin")
+            time.sleep(3)
+            note("command-end")
+            print(json.dumps({"phase": "recovered"}), flush=True)
+            sys.exit(0)
         if mode == "exit-early":
             note("started")
             os._exit(3)
@@ -169,6 +175,60 @@ public sealed class LifecycleTests
         Assert.IsTrue(clock.Elapsed < TimeSpan.FromSeconds(10), $"Cancel took {clock.Elapsed}");
         CollectionAssert.AreEqual(new[] { (0L, 300L), (150L, 300L), (300L, 300L) }, counted, "only progress lines count");
         await Until(() => !Running(child), TimeSpan.FromSeconds(10), "the download's own child to end");
+    }
+
+    [TestMethod]
+    public async Task OnlyADownloadIsStoppedByCancelEveryOtherCommandRunsToItsEnd()
+    {
+        // A restore of the database, a resume or a settle stopped partway would leave the journal or the data half-changed.
+        var engine = new StandIn("slow-command");
+        using var cancel = new CancellationTokenSource();
+        var recover = new EngineUpdateCommands(engine.Configuration).RunAsync(["recover"], cancel.Token);
+        await Until(() => engine.Events().Contains("command-begin"), TimeSpan.FromSeconds(30), "the command to begin");
+        cancel.Cancel();
+        var answer = await recover.WaitAsync(TimeSpan.FromSeconds(30));
+        Assert.AreEqual("recovered", answer.GetProperty("phase").GetString());
+        CollectionAssert.Contains(engine.Events(), "command-end");
+    }
+
+    private static readonly LastUpdate Applying =
+        new("applying", "0.8.0", "0.9.0", "from", DateTimeOffset.Now.AddMinutes(-2), "RoleBand-0.9.0-Windows-x64.msix");
+
+    [TestMethod]
+    public async Task AVersionOpenedWhileWindowsInstallsItsUpdateWaitsAndNeverSettlesAnInstalledOne()
+    {
+        var waits = new List<TimeSpan>();
+        Task Wait(TimeSpan span, CancellationToken cancellation) { waits.Add(span); return Task.CompletedTask; }
+        var deployer = new RecordingDeployer(null, new InstallFinding(InstallProgress.Running), new InstallFinding(InstallProgress.Running),
+            new InstallFinding(InstallProgress.Finished));
+        var commands = new RecordingCommands(() => false);
+        var reported = new List<UpdateRun?>();
+        var settle = await new UpdateCoordinator(commands, deployer, Wait).AwaitWindowsAsync(Applying, "RoleBand.Windows", reported.Add);
+        Assert.IsFalse(settle, "Windows installed the new version, which settles the update when it opens");
+        CollectionAssert.AreEqual(new[] { "find", "reopen", "find", "find" }, deployer.Steps,
+            "asked to open the new version before the wait, or Windows closes this one and nothing opens");
+        CollectionAssert.AreEqual(new UpdateRun?[] { new(UpdateStep.Installing, "0.9.0"), new(UpdateStep.Installing, "0.9.0"),
+            new(UpdateStep.Installing, "0.9.0", Percent: 100) }, reported, "Installing, then Restarting to update, and it stays");
+        CollectionAssert.AreEqual(new[] { UpdateCoordinator.InstallPoll, UpdateCoordinator.InstallPoll }, waits);
+        Assert.AreEqual(0, commands.Calls.Count, "nothing touches the journal");
+    }
+
+    [TestMethod]
+    public async Task AnInstallWindowsRefusedOrNeverBeganLeavesTheUpdateForThisVersionToSettle()
+    {
+        Task Wait(TimeSpan span, CancellationToken cancellation) => Task.CompletedTask;
+        var refused = new RecordingDeployer(null, new InstallFinding(InstallProgress.Failed, "The disk is full."));
+        var reported = new List<UpdateRun?>();
+        Assert.IsTrue(await new UpdateCoordinator(new RecordingCommands(() => false), refused, Wait)
+            .AwaitWindowsAsync(Applying, "RoleBand.Windows", reported.Add));
+        Assert.AreEqual(new UpdateRun(UpdateStep.InstallFailed, "0.9.0", Reason: "The disk is full."), reported.Single());
+        CollectionAssert.AreEqual(new[] { "find" }, refused.Steps, "nothing for Windows to open again");
+
+        var never = new RecordingDeployer();
+        reported.Clear();
+        Assert.IsTrue(await new UpdateCoordinator(new RecordingCommands(() => false), never, Wait)
+            .AwaitWindowsAsync(Applying, "RoleBand.Windows", reported.Add));
+        CollectionAssert.AreEqual(new UpdateRun?[] { null }, reported);
     }
 
     private static bool Running(int pid)
@@ -350,19 +410,35 @@ public sealed class LifecycleTests
         }
     }
 
-    private sealed class RecordingDeployer(Exception? failure = null) : IPackageDeployer
+    /// <summary>Windows' installer, recording what it is asked; its deployment log answers the findings given, one per
+    /// reading, and keeps the last.</summary>
+    private sealed class RecordingDeployer(Exception? failure = null, params InstallFinding[] findings) : IPackageDeployer
     {
         public List<string> Packages { get; } = [];
 
         public List<bool> Downgrades { get; } = [];
 
+        /// <summary>What the coordinator did, in order: "add", "find", "reopen".</summary>
+        public List<string> Steps { get; } = [];
+
         public Task AddAsync(string package, bool downgrade, IProgress<int>? progress, CancellationToken cancellation)
         {
+            Steps.Add("add");
             Packages.Add(package);
             Downgrades.Add(downgrade);
             foreach (var percent in new[] { 12, 57, 100 }) progress?.Report(percent);
             return failure is null ? Task.CompletedTask : Task.FromException(failure);
         }
+
+        public Task<InstallFinding> FindAsync(string packageName, string version, string file, DateTimeOffset since,
+                                              CancellationToken cancellation)
+        {
+            var reading = Steps.Count(step => step == "find");
+            Steps.Add("find");
+            return Task.FromResult(findings.Length == 0 ? new InstallFinding(InstallProgress.None) : findings[Math.Min(reading, findings.Length - 1)]);
+        }
+
+        public void ReopenWhenReplaced() => Steps.Add("reopen");
     }
 
     private sealed class Collected : IProgress<int>
@@ -379,11 +455,15 @@ public sealed class LifecycleTests
         var commands = new RecordingCommands(() => session.OwnsEngine, ("begin", """{"phase": "applying"}"""),
             ("recover-begin", """{"phase": "recovering", "package": "C:\\state\\packages\\previous.msix"}"""));
         var installing = new Collected();
-        await new UpdateCoordinator(commands, new RecordingDeployer()).ApplyAsync(session, Package, installing);
+        var deployer = new RecordingDeployer();
+        await new UpdateCoordinator(commands, deployer).ApplyAsync(session, Package, installing);
         CollectionAssert.AreEqual(new[] { 12, 57, 100 }, installing.Values);
+        CollectionAssert.AreEqual(new[] { "reopen", "add" }, deployer.Steps, "Windows is asked to open the app again before it closes it");
         var returning = new Collected();
-        await new UpdateCoordinator(commands, new RecordingDeployer()).ReturnToPreviousAsync(session, returning);
+        var back = new RecordingDeployer();
+        await new UpdateCoordinator(commands, back).ReturnToPreviousAsync(session, returning);
         CollectionAssert.AreEqual(new[] { 12, 57, 100 }, returning.Values);
+        CollectionAssert.AreEqual(new[] { "reopen", "add" }, back.Steps);
     }
 
     private const string Package = @"C:\state\packages\RoleBand-0.9.0-Windows-x64.msix";

@@ -71,7 +71,7 @@ public static class WindowsDeployments
     }
 
     /// <summary>The log's start, run, finish and failure events of the last <paramref name="span"/>, newest first; none when
-    /// the log cannot be read, which leaves an unfinished update to be settled as before.</summary>
+    /// the log cannot be read, which leaves an unfinished update for the version that began it to settle.</summary>
     public static async Task<IReadOnlyList<DeploymentEvent>> ReadAsync(TimeSpan span, CancellationToken cancellation = default)
     {
         try

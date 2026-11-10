@@ -27,8 +27,8 @@ internal sealed class TrayApp
     private EngineConfiguration? configuration;
     private string? launchFailure;
     private bool quitting;
-    // Set as Quit closes the windows: a timer tick or an engine change already queued must not draw on them, or the
-    // exception ends the process before the engine's stop is complete.
+    // Set as Quit closes the windows: a timer tick or an engine change already queued must not draw on a closed window,
+    // which throws.
     private bool closed;
     private readonly DispatcherQueueTimer clock;
 
@@ -40,9 +40,7 @@ internal sealed class TrayApp
     private int failures;
     private CancellationTokenSource? polling;
     private readonly SemaphoreSlim wake = new(0);
-    private FlyoutView? view;
     private DateTimeOffset? lastScanAt;
-    private bool updateFailed;
     private bool radarWhenReady;
 
     // First open: the record lives in the account's state; the setup window only draws it.
@@ -53,17 +51,17 @@ internal sealed class TrayApp
     private bool loginBusy, loginError, openFailed;
 
     // Settings.
-    private UpdateFacts? updateFacts;
-    private UpdateRun? updateRun;
+    // Where updates stand. It is only ever replaced whole, after any await, so a change made meanwhile is never lost.
+    private UpdateState update = new();
     // The download under way, which Cancel and Quit stop.
     private CancellationTokenSource? downloading;
-    // An undo returning to this version: pressed in this session, or found unfinished when the app opened.
-    private string? returningTo, undoFailure;
-    private bool returning, undoGone, undoPressed;
-    private int? returnPercent;
-    private bool updateChecking, updateChoosing, settingsLoginError;
-    private string? lastUpdateResult, settingsError;
+    private bool updateChoosing, settingsLoginError;
+    private string? settingsError;
     private DateTimeOffset nextAutomaticCheck = DateTimeOffset.MinValue;
+
+    // A source run's simulated press waits for the engine as a person would, and leaves a failure on screen a moment.
+    private static readonly TimeSpan SimulatedReadyPatience = TimeSpan.FromMinutes(2), SimulatedPoll = TimeSpan.FromMilliseconds(500),
+                                     SimulatedLook = TimeSpan.FromSeconds(4);
 
     public TrayApp(Exception? failure, bool atLogin)
     {
@@ -144,9 +142,7 @@ internal sealed class TrayApp
 
     /// <summary>The app's whole state at this moment, which every surface is drawn from.</summary>
     private AppState State() => new(engine?.Snapshot, launchFailure, setup,
-        new UpdateState(updates is null ? UpdateFacts.Unavailable : updateFacts, updateRun, updateChecking, lastUpdateResult, updateFailed,
-            returningTo, returning, undoFailure, returnPercent, undoGone),
-        DateTimeOffset.Now, scanStatus, requested, lastScanAt);
+        updates is null ? update with { Facts = UpdateFacts.Unavailable } : update, DateTimeOffset.Now, scanStatus, requested, lastScanAt);
 
     private Surfaces Surfaces() => AppSurfaces.Of(copy, State());
 
@@ -208,8 +204,6 @@ internal sealed class TrayApp
         }
     }
 
-    private FlyoutView CurrentView() => Surfaces().Flyout;
-
     private void Render(EngineSnapshot snapshot)
     {
         if (closed) return;
@@ -249,7 +243,7 @@ internal sealed class TrayApp
     {
         if (closed) return;
         if (scanStatus?.Presentation.LastScanAt is { } last) lastScanAt = last;
-        view = CurrentView();
+        var view = Surfaces().Flyout;
         tray?.Show(view.Badge, view.Tooltip);
         flyout.Render(view, controlMessage is null ? null : copy[controlMessage]);
     }
@@ -288,11 +282,7 @@ internal sealed class TrayApp
     private async Task RefreshSettingsAsync()
     {
         login = await loginItem.ReadAsync();
-        if (updates is not null)
-        {
-            try { updateFacts = await updates.StatusAsync(); }
-            catch (Exception error) { Debug.WriteLine(error); }
-        }
+        await ReadUpdateAsync();
         RenderSettings();
     }
 
@@ -303,7 +293,7 @@ internal sealed class TrayApp
         var surfaces = Surfaces();
         settings.Render(new SettingsState(
             surfaces.Problem,
-            undoFailure ?? snapshot?.Diagnostic ?? launchFailure,
+            update.UndoFailure ?? snapshot?.Diagnostic ?? launchFailure,
             surfaces.Updates,
             AboutPanel.Login(login, loginBusy),
             settingsLoginError,
@@ -330,30 +320,36 @@ internal sealed class TrayApp
 
     private async Task CheckUpdatesAsync(bool manual)
     {
-        if (updates is null || updateChecking || updateRun is { InProgress: true }) return;
+        if (updates is null || update.Checking || update.Run is { InProgress: true }) return;
         // A check asked for by hand starts a new look: the last update's result or failure gives way to what it finds.
-        if (manual) updateRun = null;
+        if (manual) update = update with { Run = null };
         if (!manual)
         {
             // Without the choice, an automatic check would only be refused; read the kept state instead.
-            try { updateFacts ??= await updates.StatusAsync(); }
+            try
+            {
+                if (update.Facts is null)
+                {
+                    var kept = await updates.StatusAsync();
+                    update = update with { Facts = kept };
+                }
+            }
             catch (Exception error) { Debug.WriteLine(error); return; }
-            if (updateFacts is not { Available: true, Automatic: true }) { RenderSettings(); return; }
+            if (update.Facts is not { Available: true, Automatic: true }) { RenderSettings(); return; }
         }
-        updateChecking = manual;
+        update = update with { Checking = manual };
         RenderSettings();
         try
         {
             var (facts, status) = await updates.CheckNowAsync(manual);
-            updateFacts = facts;
-            if (status is "up-to-date" or "offered" or "failed" or "rate-limited") lastUpdateResult = status;
+            update = update with { Facts = facts, LastResult = status is "up-to-date" or "offered" or "failed" or "rate-limited" ? status : update.LastResult };
         }
         catch (Exception error)
         {
-            if (manual) lastUpdateResult = "failed";
+            if (manual) update = update with { LastResult = "failed" };
             Debug.WriteLine(error);
         }
-        updateChecking = false;
+        update = update with { Checking = false };
         RenderSettings();
     }
 
@@ -365,28 +361,30 @@ internal sealed class TrayApp
         try
         {
             await updates.ConsentAsync(automatic, AboutPanel.ConsentText(), AboutPanel.ConsentLanguage);
-            updateFacts = await updates.StatusAsync();
+            var facts = await updates.StatusAsync();
+            update = update with { Facts = facts };
         }
         catch (Exception error) { Debug.WriteLine(error); }
         updateChoosing = false;
         RenderSettings();
-        if (automatic && updateFacts is { Automatic: true }) await CheckUpdatesAsync(manual: false);
+        if (automatic && update.Facts is { Automatic: true }) await CheckUpdatesAsync(manual: false);
     }
 
     /// <summary>Update, the only press an update needs: download and verify the offered version, then let Windows replace
-    /// this version with it and open it again. A download or a switch that fails leaves this version running.</summary>
+    /// this version with it and open it again. A download or a switch that fails leaves this version running. A press
+    /// from a surface drawn before the state changed does nothing unless the offer can still be installed.</summary>
     private async Task UpdateNowAsync()
     {
-        if (engine is null || updates is null || updateRun is { InProgress: true } || updateFacts?.Offer is not { } version) return;
+        if (engine is null || updates is null || State().Update.Installable is not { } version) return;
         using var cancel = new CancellationTokenSource();
         downloading = cancel;
-        updateRun = new UpdateRun(UpdateStep.Downloading, version);
+        update = update with { Run = new UpdateRun(UpdateStep.Downloading, version) };
         RenderUpdate();
         var progress = new Progress<(long Received, long Total)>(counted =>
         {
             // A report can land after the attempt it came from has paused; the bytes it counts are still here.
-            if (updateRun is not { Step: UpdateStep.Downloading or UpdateStep.Paused } run || run.Version != version) return;
-            updateRun = run with { Received = counted.Received, Total = counted.Total };
+            if (update.Run is not { Step: UpdateStep.Downloading or UpdateStep.Paused } run || run.Version != version) return;
+            update = update with { Run = run with { Received = counted.Received, Total = counted.Total } };
             RenderUpdate();
         });
         string? package = null;
@@ -394,24 +392,26 @@ internal sealed class TrayApp
         {
             for (var attempt = 0; ; attempt++)
             {
-                (updateRun, package) = UpdateRun.Downloaded(await updates.DownloadAsync(progress, cancel.Token), version, updateRun);
-                if (updateRun.Step != UpdateStep.Paused) break;
+                var reply = await updates.DownloadAsync(progress, cancel.Token);
+                (var run, package) = UpdateRun.Downloaded(reply, version, update.Run);
+                update = update with { Run = run };
+                if (run.Step != UpdateStep.Paused) break;
                 // A lost connection waits for the network, then resumes from the bytes already here.
                 RenderUpdate();
                 await Reconnection.WaitAsync(Reconnection.Delay(attempt), cancel.Token);
-                updateRun = updateRun with { Step = UpdateStep.Downloading };
+                if (update.Run is { } paused) update = update with { Run = paused with { Step = UpdateStep.Downloading } };
                 RenderUpdate();
             }
         }
         catch (OperationCanceledException) when (cancel.IsCancellationRequested)
         {
             // Cancel leaves the offer as it was; the bytes downloaded stay for the next Update.
-            (updateRun, package) = (null, null);
+            (update, package) = (update with { Run = null }, null);
         }
         catch (Exception error)
         {
             Debug.WriteLine(error);
-            (updateRun, package) = (UpdateRun.Broken(version, updateRun), null);
+            (update, package) = (update with { Run = UpdateRun.Broken(version, update.Run) }, null);
         }
         finally { downloading = null; }
         if (quitting) return;
@@ -422,18 +422,25 @@ internal sealed class TrayApp
             // Windows installs while this version stays open, then closes it and opens the new one.
             await updates.ApplyAsync(engine, package, new Progress<int>(percent =>
             {
-                if (updateRun is { Step: UpdateStep.Installing } run) updateRun = run with { Percent = percent };
+                if (update.Run is { Step: UpdateStep.Installing } run) update = update with { Run = run with { Percent = percent } };
                 RenderUpdate();
             }));
         }
         catch (Exception error)
         {
             Debug.WriteLine(error);
-            updateRun = new UpdateRun(UpdateStep.InstallFailed, version, Reason: error.Message);
+            update = update with { Run = new UpdateRun(UpdateStep.InstallFailed, version, Reason: error.Message) };
             RenderUpdate();
             // The switch stopped the engine first; nothing was installed, so this version carries on.
             await StartAsync();
+            return;
         }
+        // Still open: the start asks Windows what it did, and carries on only if it installed nothing.
+        await AwaitCloseAsync(async () =>
+        {
+            update = update with { Run = null };
+            await StartAsync();
+        });
     }
 
     private void CancelUpdate() => downloading?.Cancel();
@@ -444,42 +451,63 @@ internal sealed class TrayApp
         RenderSettings();
     }
 
+    /// <summary>Undo, from a failed update. A press from a surface drawn before the state changed does nothing unless the
+    /// update can still be undone.</summary>
     private async Task UndoUpdateAsync()
     {
-        if (engine is null || updates is null || returning || undoPressed) return;
+        if (engine is null || updates is null || !State().CanUndo) return;
         // The press is answered at once, before anything is asked, and a second press meanwhile does nothing. Windows
         // takes a while to put the previous package back, then closes this version and opens that one, whose start
         // restores the database.
-        undoPressed = true;
-        returningTo = updateFacts?.Last?.From ?? returningTo;
-        returning = returningTo is not null;
-        returnPercent = null;
-        settingsError = undoFailure = null;
-        undoGone = false;
+        update = update with
+        {
+            Returning = true, ReturningTo = update.Facts?.Last?.From ?? update.ReturningTo, ReturnPercent = null, UndoFailure = null,
+            UndoGone = false,
+        };
+        settingsError = null;
         RenderUpdate();
         try
         {
-            try { updateFacts = await updates.StatusAsync(); }
+            try
+            {
+                var facts = await updates.StatusAsync();
+                update = update with { Facts = facts, ReturningTo = facts.Last?.From ?? update.ReturningTo };
+            }
             catch (Exception error) { Debug.WriteLine(error); }
-            returningTo = updateFacts?.Last?.From ?? returningTo;
-            returning = returningTo is not null;
             RenderUpdate();
-            await updates.ReturnToPreviousAsync(engine, new Progress<int>(percent => { returnPercent = percent; RenderUpdate(); }));
+            await updates.ReturnToPreviousAsync(engine, new Progress<int>(percent =>
+            {
+                update = update with { ReturnPercent = percent };
+                RenderUpdate();
+            }));
         }
         catch (Exception error)
         {
             // Refused or failed: the banner says so with Try again, and the reason shows below it.
-            returning = false;
-            undoFailure = error.Message;
-            undoGone = error is UpdateRefused { Kind: "missing" };
+            update = update with { Returning = false, UndoFailure = error.Message, UndoGone = error is UpdateRefused { Kind: "missing" } };
             // Whether the update is still failed, and open to a newer release, is the journal's to say.
-            try { updateFacts = await updates.StatusAsync(); }
-            catch (Exception status) { Debug.WriteLine(status); }
-            if (returningTo is null) settingsError = "engine-refused";
+            await ReadUpdateAsync();
+            if (update.ReturningTo is null) settingsError = "engine-refused";
             Debug.WriteLine(error);
             RenderUpdate();
+            return;
         }
-        finally { undoPressed = false; }
+        // Still open: the Undo is no longer on its way, and is offered again.
+        await AwaitCloseAsync(() =>
+        {
+            update = update with { Returning = false };
+            RenderUpdate();
+            return Task.CompletedTask;
+        });
+    }
+
+    /// <summary>Windows closes this version once it has put another in its place, and opens that one. Should this version
+    /// still be open after <see cref="UpdateCoordinator.CloseGrace"/>, <paramref name="stillOpen"/> decides what it does
+    /// next, so no state waits for a close that is not coming.</summary>
+    private async Task AwaitCloseAsync(Func<Task> stillOpen)
+    {
+        await Task.Delay(UpdateCoordinator.CloseGrace);
+        if (!quitting && !closed) await stillOpen();
     }
 
     // First open.
@@ -612,36 +640,24 @@ internal sealed class TrayApp
         try
         {
             // Read first, so a version that is the update's new one says it is finishing the update while it prepares.
-            try { updateFacts = await updates.StatusAsync(); }
-            catch (Exception error) { Debug.WriteLine(error); }
+            await ReadUpdateAsync();
             RenderUpdate();
-            // Opened while its own update is still applying: only Windows knows whether it is still installing it.
-            if (updateFacts?.Last is { Phase: "applying", Running: "from", Package: not null } pending && Native.PackageName() is { } name)
-                await WaitForWindowsAsync(pending, name);
+            // Opened while its own update is still applying: only Windows knows whether it is installing it, or has. Once
+            // it has, the new version settles the update, and this one keeps its engine closed.
+            if (update.Facts?.Last is { Phase: "applying", Running: "from", Package: not null } pending && Native.PackageName() is { } name
+                && !await updates.AwaitWindowsAsync(pending, name, run => { update = update with { Run = run }; RenderUpdate(); }))
+                return;
             var phase = await updates.StartAsync(engine);
-            if (phase is "failed" or "recovering" or "complete" or "recovered" or "preparing")
-            {
-                // How the update ended, or the undo under way, comes from its journal, as every later open reads it.
-                try { updateFacts = await updates.StatusAsync(); }
-                catch (Exception error) { Debug.WriteLine(error); }
-            }
+            // How the update ended, or the undo under way, comes from its journal, as every later open reads it.
+            if (phase is "failed" or "recovering" or "complete" or "recovered" or "preparing") await ReadUpdateAsync();
             if (phase is "failed" or "recovering")
             {
-                updateFailed = true;
-                // Opened while Windows puts the previous version back: say so, rather than ask for Undo again.
-                if (phase == "recovering") returningTo = updateFacts?.Last?.From;
+                // Opened with the Undo unfinished: Windows may have refused the previous version, so it is offered again.
+                update = update with { FoundFailed = true, ReturningTo = phase == "recovering" ? update.Facts?.Last?.From : update.ReturningTo };
                 OpenSettings();
             }
             RenderUpdate();
-            if (simulation?.Press is { } press && !simulationPressed)
-            {
-                simulationPressed = true;
-                // Pressed as a person would: Update with the radar running, Undo once the failure has been on screen.
-                for (var wait = 0; press == "update" && engine.Snapshot.State != EngineState.Ready && wait < 240; wait++)
-                    await Task.Delay(500);
-                if (press == "undo") await Task.Delay(TimeSpan.FromSeconds(4));
-                _ = press == "undo" ? UndoUpdateAsync() : UpdateNowAsync();
-            }
+            await PressSimulationAsync();
         }
         catch (Exception error)
         {
@@ -655,43 +671,33 @@ internal sealed class TrayApp
         }
     }
 
-    /// <summary>
-    /// This version opened while the update it began is still applying. Settling the journal now would record that the
-    /// switch never happened, while Windows may still be installing it; so Windows' deployment log is asked first. While
-    /// it installs, the app says so and waits; Windows closes this version when it is done and opens the new one. A
-    /// failed install is said with Windows' reason, and the update is then settled as not having happened.
-    /// </summary>
-    private async Task WaitForWindowsAsync(LastUpdate pending, string packageName)
+    /// <summary>Reads where updates stand; a failed read keeps what was known.</summary>
+    private async Task ReadUpdateAsync()
     {
-        var since = pending.Since ?? DateTimeOffset.Now - WindowsDeployments.Patience;
-        var file = pending.Package!;
-        while (true)
+        if (updates is null) return;
+        try
         {
-            var events = await WindowsDeployments.ReadAsync(DateTimeOffset.Now - since + TimeSpan.FromMinutes(5));
-            var finding = WindowsDeployments.Find(events, packageName, pending.To, file, since, DateTimeOffset.Now);
-            switch (finding.State)
-            {
-                case InstallProgress.Running:
-                    updateRun = new UpdateRun(UpdateStep.Installing, pending.To);
-                    RenderUpdate();
-                    await Task.Delay(TimeSpan.FromSeconds(3));
-                    continue;
-                case InstallProgress.Finished:
-                    // The new version is in place; Windows closes this one. Should it not, this version carries on.
-                    updateRun = new UpdateRun(UpdateStep.Installing, pending.To, Percent: 100);
-                    RenderUpdate();
-                    await Task.Delay(TimeSpan.FromSeconds(30));
-                    updateRun = null;
-                    return;
-                case InstallProgress.Failed:
-                    updateRun = new UpdateRun(UpdateStep.InstallFailed, pending.To, Reason: finding.Reason);
-                    RenderUpdate();
-                    return;
-                default:
-                    updateRun = null;
-                    return;
-            }
+            var facts = await updates.StatusAsync();
+            update = update with { Facts = facts };
         }
+        catch (Exception error) { Debug.WriteLine(error); }
+    }
+
+    /// <summary>A source run's simulated update presses what its scenario follows, once, as a person would: Update with the
+    /// radar running, Undo once the failure has been on screen.</summary>
+    private async Task PressSimulationAsync()
+    {
+        if (engine is null || simulation?.Press is not { } press || simulationPressed) return;
+        simulationPressed = true;
+        if (press == "undo")
+        {
+            await Task.Delay(SimulatedLook);
+            _ = UndoUpdateAsync();
+            return;
+        }
+        var giveUp = DateTimeOffset.Now + SimulatedReadyPatience;
+        while (engine.Snapshot.State != EngineState.Ready && DateTimeOffset.Now < giveUp) await Task.Delay(SimulatedPoll);
+        _ = UpdateNowAsync();
     }
 
     /// <summary>Reads the status quickly while a scan runs and the flyout is open, slowly otherwise; opening the

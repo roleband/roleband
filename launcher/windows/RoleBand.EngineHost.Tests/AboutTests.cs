@@ -504,6 +504,12 @@ public sealed class AboutTests
     {
         public Task AddAsync(string package, bool downgrade, IProgress<int>? progress, CancellationToken cancellation) =>
             throw new AssertFailedException("Settings and About never install a package.");
+
+        public Task<InstallFinding> FindAsync(string packageName, string version, string file, DateTimeOffset since,
+                                              CancellationToken cancellation) =>
+            throw new AssertFailedException("Settings and About never ask Windows about an install.");
+
+        public void ReopenWhenReplaced() => throw new AssertFailedException("Settings and About never ask to be opened again.");
     }
 
     [TestMethod]

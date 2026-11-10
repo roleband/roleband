@@ -169,4 +169,11 @@ public sealed class SimulatedUpdate : IUpdateCommands, IPackageDeployer
             throw new IOException("The package could not be installed because a higher version of this package is already installed. (simulated)");
         if (stop < 100) await Task.Delay(Timeout.Infinite, cancellation);
     }
+
+    /// <summary>Windows' log holds no install of a simulated package.</summary>
+    public Task<InstallFinding> FindAsync(string packageName, string version, string file, DateTimeOffset since,
+                                          CancellationToken cancellation) =>
+        Task.FromResult(new InstallFinding(InstallProgress.None));
+
+    public void ReopenWhenReplaced() { }
 }
