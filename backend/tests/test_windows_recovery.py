@@ -14,7 +14,7 @@ from pathlib import Path
 import psutil
 import pytest
 
-from tests.embedded_utils import psql
+from tests.embedded_utils import psql, running_clusters
 from tests.test_windows_checkpoint import server as server
 from tracker.platform.embedded_db import ensure_server
 
@@ -168,9 +168,9 @@ def test_killed_coordinator_blocks_start_and_retries_into_fresh_storage(checkpoi
     assert resolved["attempts"][:1] == record["attempts"]
     assert len(resolved["attempts"]) == 2
     assert scratch.exists()
-    pidfile = scratch / "db" / "postmaster.pid"
-    if pidfile.exists():
-        assert not psutil.pid_exists(abs(int(pidfile.read_text().splitlines()[0])))
+    # No server still runs on the interrupted scratch. Asked of the process table by data folder: Windows soon gives a
+    # stopped postmaster's PID to another process, so a PID that exists says nothing.
+    assert running_clusters(scratch) == {}
     require_launchable(state)
 
 
@@ -188,9 +188,7 @@ def test_abandon_keeps_original_files_and_stops_interrupted_scratch(checkpoint, 
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout)["phase"] == "abandoned"
     assert json.loads(result.stdout)["attempts"] == record["attempts"]
-    pidfile = scratch / "db" / "postmaster.pid"
-    if pidfile.exists():
-        assert not psutil.pid_exists(abs(int(pidfile.read_text().splitlines()[0])))
+    assert running_clusters(scratch) == {}, "abandon stopped the interrupted scratch's server"
     assert scratch.exists()
     for path, value in originals.items():
         assert path.read_bytes() == value
