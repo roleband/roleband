@@ -4,6 +4,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
@@ -11,6 +12,17 @@ from cryptography.hazmat.primitives.asymmetric import ed25519
 
 TOOL = Path(__file__).with_name("release.py")
 COMMIT = "c" * 40
+VERSION = json.loads((Path(__file__).resolve().parents[3] / "dashboard/package.json").read_text(encoding="utf-8"))["version"]
+
+
+def package(path, name="RoleBand.Windows.Trial", publisher="CN=RoleBand Windows Trial", version=f"{VERSION}.1"):
+    """A package whose manifest states its identity, as makeappx writes it."""
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("AppxManifest.xml",
+                         '<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10">'
+                         f'<Identity Name="{name}" Publisher="{publisher}" Version="{version}" '
+                         'ProcessorArchitecture="x64" /></Package>')
+        archive.writestr("payload.bin", b"synthetic package")
 
 
 class ReleaseToolTests(unittest.TestCase):
@@ -24,7 +36,7 @@ class ReleaseToolTests(unittest.TestCase):
             "format": 1, "feed": "roleband/roleband-trials", "package_name": "RoleBand.Windows.Trial",
             "publisher": "CN=RoleBand Windows Trial",
             "release_public_key": base64.b64encode(self.key.public_key().public_bytes_raw()).decode()}))
-        (self.root / "built.msix").write_bytes(b"PK\x03\x04 synthetic package")
+        package(self.root / "built.msix")
 
     def tearDown(self):
         self.directory.cleanup()
@@ -61,6 +73,18 @@ class ReleaseToolTests(unittest.TestCase):
         self.assertEqual(self.prepare().returncode, 0)
         (self.root / "release" / "install.ps1").write_text("Remove-Item")
         self.assertIn("unexpected files", self.verify().stderr)
+
+    def test_a_package_stating_another_identity_or_version_is_not_released(self):
+        for stated in ({"name": "RoleBand.Other"}, {"publisher": "CN=Someone Else"}, {"version": "9.9.9.1"},
+                       {"version": f"{VERSION}.0"}):
+            with self.subTest(stated=stated):
+                package(self.root / "built.msix", **stated)
+                result = self.prepare()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("The package states", result.stderr)
+                self.assertFalse((self.root / "release").exists(), "nothing is written for it")
+        (self.root / "built.msix").write_bytes(b"PK\x03\x04 not an archive")
+        self.assertIn("no readable AppxManifest.xml", self.prepare().stderr)
 
     def test_an_installed_version_at_or_past_the_release_is_not_offered(self):
         self.assertEqual(self.prepare().returncode, 0)

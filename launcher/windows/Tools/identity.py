@@ -97,8 +97,9 @@ def generate(signing: Path, spare: Path, passphrase: bytes, spare_passphrase: by
     return identity
 
 
-def check(pfx: bytes, release_key: bytes, passphrase: bytes, identity: dict) -> str:
-    """The certificate's SHA-256, once the certificate and the release key are the ones the identity names."""
+def check(pfx: bytes, release_key: bytes, passphrase: bytes, identity: dict, public: bytes | None = None) -> str:
+    """The certificate's SHA-256, once the certificate and the release key are the ones the identity names, and the
+    certificate is the public one people trust, when given."""
     try:
         _key, cert, _others = pkcs12.load_key_and_certificates(pfx, passphrase)
         release = serialization.load_pem_private_key(release_key, passphrase)
@@ -106,6 +107,8 @@ def check(pfx: bytes, release_key: bytes, passphrase: bytes, identity: dict) -> 
         raise ValueError("The signing material does not open with this passphrase") from error
     if cert is None or cert.subject != SUBJECT or identity.get("publisher") != PUBLISHER:
         raise ValueError("The certificate is not RoleBand's publisher")
+    if public is not None and cert.public_bytes(serialization.Encoding.DER) != public:
+        raise ValueError("The certificate is not the RoleBand.cer people trust")
     if not isinstance(release, ed25519.Ed25519PrivateKey) or _raw(release) != identity.get("release_public_key"):
         raise ValueError("The release key is not the one the committed identity names")
     if cert.not_valid_after_utc < datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=365):
@@ -130,6 +133,7 @@ def main(argv=None):
     verify.add_argument("--signing", type=Path, required=True,
                         help="a folder holding RoleBand-signing.pfx and release-key.pem")
     verify.add_argument("--identity", type=Path, required=True)
+    verify.add_argument("--certificate", type=Path, help="the public RoleBand.cer committed beside the identity")
     verify.add_argument("--passphrase-env", help="read the passphrase from this environment variable")
     args = parser.parse_args(argv)
     try:
@@ -143,7 +147,8 @@ def main(argv=None):
                           else getpass.getpass("Signing passphrase: ")).encode()
             print(check((args.signing / "RoleBand-signing.pfx").read_bytes(),
                         (args.signing / "release-key.pem").read_bytes(), passphrase,
-                        json.loads(args.identity.read_text(encoding="utf-8"))))
+                        json.loads(args.identity.read_text(encoding="utf-8")),
+                        args.certificate.read_bytes() if args.certificate else None))
     except (OSError, KeyError, ValueError) as error:
         parser.exit(1, f"{error}\n")
 

@@ -80,6 +80,10 @@ class GenerateTests(unittest.TestCase):
             check(pfx, key, PASSPHRASE, other)
         with self.assertRaisesRegex(ValueError, "does not open"):
             check(pfx, key, b"not the passphrase", self.identity)
+        public = (self.signing / "RoleBand.cer").read_bytes()
+        self.assertEqual(64, len(check(pfx, key, PASSPHRASE, self.identity, public)))
+        with self.assertRaisesRegex(ValueError, "not the RoleBand.cer"):
+            check(pfx, key, PASSPHRASE, self.identity, (self.root / "other-signing" / "RoleBand.cer").read_bytes())
 
     @unittest.skipUnless(sys.platform == "win32", "Windows renders the subject")
     def test_windows_renders_the_subject_as_the_package_publisher(self):

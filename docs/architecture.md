@@ -176,6 +176,17 @@ hashes, then validates and packs an unsigned MSIX: a trial keeps the trial
 identity, a release takes the package name and publisher from its update
 identity ([decision 0012](decisions/0012-windows-distribution-and-signing.md)).
 
+`launcher/windows/Tools/identity.py generate` makes that identity once: RoleBand's
+self-signed code-signing certificate and the release key in one folder, the spare
+release key in another kept offline. `launcher/windows/release-identity.json` and the
+public `launcher/windows/RoleBand.cer` are committed. `.github/workflows/windows-release.yml`
+builds a published release's tag with no secret, then, in the `windows-release`
+environment that waits for the owner's approval, checks the certificate and key
+against the committed identity, signs with `signtool` (not timestamped), prepares
+the four release files and attaches them and `RoleBand.cer` to that release.
+`release.py prepare` refuses a package whose own manifest names another package,
+publisher or version than the release it prepares.
+
 `backend/desktop.py checkpoint` creates or rechecks a private logical recovery
 checkpoint through a fresh-cluster restore drill. The command requires explicit
 paths and refuses a running source engine; it neither promotes a restored
