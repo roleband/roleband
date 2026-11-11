@@ -44,6 +44,7 @@ error-model-unreachable = 无法连接到模型。请确认它正在运行，然
 error-local-models-off = 你自己的模型已关闭。请在 设置 › AI 中开启。
 error-no-local-model = 你自己的模型尚未设置。请在 设置 › AI 中添加一个。
 error-model-profiles-unreadable = 无法读取你的模型设置。未做任何更改。
+error-key-saved-for-another-address = 已保存的密钥属于之前的地址。请输入这个地址的密钥。
 error-link-to-itself = 招聘信息不能与自身关联。
 error-already-linked = 这些招聘信息已经关联。
 error-verdict-decided = 你已经对这些做出了决定。请在 已决定 中更改。

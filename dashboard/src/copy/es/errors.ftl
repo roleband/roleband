@@ -44,6 +44,7 @@ error-model-unreachable = No se pudo conectar con el modelo. Comprueba que se es
 error-local-models-off = Tu propio modelo está desactivado. Actívalo en Ajustes › IA.
 error-no-local-model = Tu propio modelo no está configurado. Añade uno en Ajustes › IA.
 error-model-profiles-unreadable = No se pudieron leer tus ajustes de modelos. No se cambió nada.
+error-key-saved-for-another-address = La clave guardada es de la dirección anterior. Introduce la clave de esta.
 error-link-to-itself = Una oferta no se puede vincular consigo misma.
 error-already-linked = Estas ofertas ya están vinculadas.
 error-verdict-decided = Ya tomaste una decisión sobre estas. Cámbialo en Decididos.

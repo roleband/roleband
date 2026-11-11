@@ -722,6 +722,41 @@ describe("capabilities card", () => {
     expect(mocked.deleteCloudLLMProfile).toHaveBeenCalledWith("c1");
   });
 
+  it("a new address saved with the key left blank is refused in words, and saves once its key is typed", async () => {
+    mocked.cloudLLMProfiles.mockResolvedValue({ profiles: [cloudModelProfileFixture] });
+    mocked.updateCloudLLMProfile.mockRejectedValueOnce(
+      new ApiError("the saved key is for another address; send this address's key with the edit", 409, "key-saved-for-another-address"),
+    );
+    mocked.updateCloudLLMProfile.mockResolvedValueOnce({ ...cloudModelProfileFixture, base_url: "https://llm.example.net/v1" });
+    mount();
+
+    const card = await screen.findByRole("region", { name: "Extended capabilities" });
+    await userEvent.click(within(card).getByRole("button", { name: "Configure OpenAI API" }));
+    const dialog = screen.getByRole("dialog", { name: "Configure OpenAI API" });
+    const address = within(dialog).getByLabelText(msg("ai-cloud-dialog-server-address-https"));
+    await userEvent.clear(address);
+    await userEvent.type(address, "https://llm.example.net/v1");
+    const save = within(dialog).getByRole("button", { name: msg("ai-cloud-dialog-save", { choice: "no" }) });
+    await userEvent.click(save);
+
+    expect(mocked.updateCloudLLMProfile).toHaveBeenLastCalledWith(
+      "c1", expect.objectContaining({ base_url: "https://llm.example.net/v1", api_key: null }),
+    );
+    const alert = await within(dialog).findByRole("alert");
+    expect(alert).toHaveTextContent(msg("ai-cloud-dialog-could-not-save"));
+    expect(alert).toHaveTextContent(msg("error-key-saved-for-another-address"));
+    expect(alert).not.toHaveTextContent("send this address's key");
+    // Nothing typed is lost: the address stays, and the key goes with the next save.
+    expect(address).toHaveValue("https://llm.example.net/v1");
+
+    await userEvent.type(within(dialog).getByLabelText(msg("ai-cloud-dialog-api-key")), "sk-for-the-new-address");
+    await userEvent.click(save);
+    expect(mocked.updateCloudLLMProfile).toHaveBeenLastCalledWith(
+      "c1", expect.objectContaining({ base_url: "https://llm.example.net/v1", api_key: "sk-for-the-new-address" }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Configure OpenAI API" })).not.toBeInTheDocument());
+  });
+
   // One connected service, its own switch ON. Only the permission above it
   // varies, so the permission alone must decide whether the vendor is reached.
   const oneService = (enabled: boolean) => ({ profiles: [{ ...cloudModelProfileFixture, enabled }] });
