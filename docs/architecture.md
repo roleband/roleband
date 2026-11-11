@@ -1132,10 +1132,13 @@ holds a separate key in tab storage and signs through
 Exact Host and Origin checks include the endpoint port. The protocol, replay
 bounds and browser-origin isolation are owned by
 [the local HTTP decision](decisions/0003-windows-local-http.md).
-The dashboard shell is served under a Content-Security-Policy
+Every file of the dashboard build is served under one Content-Security-Policy
 (`dashboard/csp-policy.json`, rendered by `backend/tracker/api/csp.py` with the
-configured usage-statistics host): scripts from this origin only, and
-connections to this origin and that host alone. `vite preview` serves the same
+configured usage-statistics host), with `X-Content-Type-Options: nosniff` and
+`X-Frame-Options: DENY`: scripts from this origin only, connections to this
+origin and that host alone, and no page may frame it. The API serves no
+documentation pages and no schema route; `scripts.export_openapi` builds the
+schema in process. `vite preview` serves the same
 file, and `dashboard/tests/ux/csp.spec.ts` walks every route of the build for a
 refusal.
 
