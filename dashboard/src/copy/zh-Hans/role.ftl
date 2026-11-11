@@ -75,9 +75,6 @@ role-job-detail-postings = { $lineage_size } 条招聘信息
 role-job-detail-reposted = 重新发布 ×{ $repost_count }
 role-job-detail-description = 职位描述
 role-job-detail-view-posting = 查看招聘信息
-role-job-detail-radar-s-read = 雷达的判断
-role-job-detail-advisory-unclear = 招聘信息的措辞没有明确对应某一个领域。
-role-job-detail-advisory-basis = 根据招聘信息的措辞推测，不会把任何职位移出你的雷达。
 role-job-detail-details = 详情
 role-job-detail-team = 团队
 role-job-detail-workplace = 办公方式
@@ -97,9 +94,6 @@ role-job-detail-compare = { $choice ->
    *[no] 对比
 }
 role-job-detail-it-s-no-longer-in = 这个职位已不存在。
-role-job-detail-likely-your-kind-of-role = 很可能对口
-role-job-detail-likely-outside-your-worlds = 很可能超出你的领域
-role-job-detail-hard-to-place = 难以归类
 role-job-detail-questions-the-employer-added-beyond = 雇主在姓名、联系方式和简历之外提出的问题
 role-job-detail-similarity = 相似度
 
@@ -230,7 +224,6 @@ role-listing-age-compare-the-postings = 对比招聘信息
 role-listing-age-possibly-the-same-role-not = 可能是同一职位：{ $value }，确认前不计入
 role-listing-age-review = 审核
 role-listing-age-listed-for = 已发布
-role-listing-age-history = 历史记录
 role-listing-age-listing-history = 发布历史
 role-listing-age-role = 职位
 role-listing-age-first-listed-postings = 首次发布 { $roleSince } · { $rolePostings } 条招聘信息

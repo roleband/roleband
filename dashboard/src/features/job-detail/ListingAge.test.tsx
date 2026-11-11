@@ -77,7 +77,7 @@ describe("ListingAge", () => {
     const onOpen = vi.fn();
     const user = userEvent.setup();
     renderAge({}, onOpen);
-    await user.click(screen.getByRole("button", { name: "History" }));
+    await user.click(screen.getByRole("button", { name: msg("role-listing-age-listing-history") }));
     const panel = await screen.findByRole("dialog", { name: msg("role-listing-age-listing-history") });
     const events = await within(panel).findByRole("list", { name: "Events" });
     expect(read).toHaveBeenCalledTimes(1);
@@ -106,7 +106,7 @@ describe("ListingAge", () => {
       const onShowPostings = vi.fn();
       const user = userEvent.setup();
       renderAge({}, vi.fn(), onShowPostings);
-      await user.click(screen.getByRole("button", { name: "History" }));
+      await user.click(screen.getByRole("button", { name: msg("role-listing-age-listing-history") }));
       const panel = await screen.findByRole("dialog", { name: msg("role-listing-age-listing-history") });
       await user.click(await within(panel).findByRole("button", { name: "Compare the postings" }));
 
@@ -122,7 +122,7 @@ describe("ListingAge", () => {
     read.mockRejectedValueOnce(new Error("503"));
     const user = userEvent.setup();
     renderAge();
-    await user.click(screen.getByRole("button", { name: "History" }));
+    await user.click(screen.getByRole("button", { name: msg("role-listing-age-listing-history") }));
     const panel = await screen.findByRole("dialog", { name: msg("role-listing-age-listing-history") });
     expect(await within(panel).findByText(msg("role-listing-age-couldn-t-read-the-history"), { exact: false })).toBeVisible();
     await user.click(within(panel).getByRole("button", { name: msg("role-listing-age-retry") }));

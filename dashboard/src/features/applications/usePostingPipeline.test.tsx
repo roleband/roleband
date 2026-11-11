@@ -154,10 +154,11 @@ describe("a posting off the board", () => {
     expect(api.setFavorite).toHaveBeenCalledWith(101, true);
     expect(await within(bar()).findByRole("button", { name: stageNamed("Considering") })).toBeInTheDocument();
     expect(within(bar()).queryByRole("button", { name: msg("jobs-save") }), "no second star beside the stage").toBeNull();
-    expect(await within(column()).findByRole("link", { name: "Considering" })).toHaveAttribute("href", "/pipeline/101");
+    expect((await findRow(msg("applications-posting-stage"))).textContent).toBe(msg("taxonomy-stage-saved"));
     expect(await findRow(msg("applications-fact-days")), "saved just now: no count of zero days")
       .toHaveTextContent(new RegExp(`^${msg("applications-posting-since-today")}`));
-    expect(row(msg("applications-posting-next-step"))).toHaveTextContent(msg("applications-posting-no-step"));
+    expect(row(msg("applications-posting-next-step")), "no step set, no Next step row").toBeUndefined();
+    expect(row(msg("applications-posting-interview")), "no interview booked, no Interview row").toBeUndefined();
     expect(screen.getByText("View & apply")).toBeInTheDocument();
   });
 });
@@ -176,7 +177,7 @@ describe("a posting on the board", () => {
     expect(screen.getByText("View posting")).toBeInTheDocument();
   });
 
-  it("says what waits in rows of their own, each with the board's date, and links only the stage", async () => {
+  it("says what waits in rows of their own, in plain words with nothing to press but the history", async () => {
     detail = applicationDetailFixture({
       application: applicationCardFixture({
         pursuit_id: 10, stage: "applied", stage_since: daysAgo(3),
@@ -184,15 +185,38 @@ describe("a posting on the board", () => {
       }),
     });
     const { unmount } = renderPosting(posting({ is_favorite: true, pursuit: pursuit("applied") }));
-    const due = msg("applications-card-due-step", { offset: 1, date: "" });
+    const tomorrow = msg("applications-posting-due-day", { offset: 1, date: "" });
     const step = await findRow(msg("applications-posting-next-step"));
-    expect(step).toHaveTextContent("Email the recruiter");
-    expect(within(step).getByText(due)).not.toHaveClass("ui-badge-danger");
-    expect(within(column()).getAllByRole("link").map((link) => link.textContent), "the stage is the one way to the application")
-      .toEqual(["Applied"]);
+    expect(step.textContent, "the step alone: its date has a row of its own").toBe("Email the recruiter");
+    const due = row(msg("applications-posting-due"))!;
+    expect(due.textContent).toBe(tomorrow);
+    expect(due, "a date still to come is plain").not.toHaveClass("jd-pipeline-late");
+    expect(column().querySelector(".ui-badge"), "no pill in the section").toBeNull();
+    // The stage is read here and changed in the bar: the rows hold one
+    // control, the history, and the one way to the application stands on the
+    // heading line, outside them.
+    expect(row(msg("applications-posting-stage"))!.textContent).toBe(msg("taxonomy-stage-applied"));
+    const links = within(column()).getAllByRole("link");
+    expect(links.map((link) => link.textContent)).toEqual([msg("applications-posting-open")]);
+    expect(links[0]).toHaveAttribute("href", "/pipeline/101");
+    expect(links[0].closest("dl"), "not in a row").toBeNull();
+    expect(links[0].parentElement, "beside the section's heading").toContainElement(within(column()).getByText(msg("applications-posting-row")));
+    expect(within(column()).getAllByRole("button").map((button) => button.getAttribute("aria-label")))
+      .toEqual([msg("applications-posting-history-title")]);
     expect(row(msg("applications-posting-interview")), "no interview booked, no Interview row").toBeUndefined();
-    expect(within(bar()).queryByText(due), "due tomorrow: the section says it, the bar does not").toBeNull();
+    expect(within(bar()).queryByText(tomorrow), "due tomorrow: the section says it, the bar does not").toBeNull();
     unmount();
+
+    // A step with no date has no Due row.
+    detail = applicationDetailFixture({
+      application: applicationCardFixture({
+        pursuit_id: 10, stage: "applied", stage_since: daysAgo(3), next_action: "Email the recruiter", next_action_due: null,
+      }),
+    });
+    const undated = renderPosting(posting({ is_favorite: true, pursuit: pursuit("applied") }));
+    expect((await findRow(msg("applications-posting-next-step"))).textContent).toBe("Email the recruiter");
+    expect(row(msg("applications-posting-due")), "no date set, no Due row").toBeUndefined();
+    undated.unmount();
 
     // Overdue, the one state the board paints red.
     detail = applicationDetailFixture({
@@ -203,11 +227,14 @@ describe("a posting on the board", () => {
     });
     const second = renderPosting(posting({ is_favorite: true, pursuit: pursuit("applied") }));
     const late = msg("applications-card-overdue", { days: 2 });
-    expect(within(await findRow(msg("applications-posting-next-step"))).getByText(late)).toHaveClass("ui-badge-danger");
+    await findRow(msg("applications-posting-next-step"));
+    expect(row(msg("applications-posting-due"))!.textContent).toBe(late);
+    expect(row(msg("applications-posting-due")), "the one row that takes a colour").toHaveClass("jd-pipeline-late");
     expect(within(bar()).queryByText(late)).toBeNull();
     second.unmount();
 
-    // A booked interview gets its own row, the round and when, beside the step.
+    // A booked interview gets its own row beside the step: when it is, and
+    // nothing else. The round is the application page's to say.
     const interview = { id: 1, label: "Hiring manager", scheduled_at: tomorrowNoon(), all_day: false, format: "video" as const };
     detail = applicationDetailFixture({
       application: applicationCardFixture({
@@ -216,9 +243,9 @@ describe("a posting on the board", () => {
       }),
     });
     renderPosting(posting({ is_favorite: true, pursuit: pursuit("interviewing") }));
-    const round = await findRow(msg("applications-posting-interview"));
-    expect(round).toHaveTextContent("Hiring manager");
-    expect(within(round).getByText(interviewWhen(interview)), "when, as the application page says it").toBeInTheDocument();
+    const booked = await findRow(msg("applications-posting-interview"));
+    expect(booked.textContent, "when, as the application page says it, and only that").toBe(interviewWhen(interview));
+    expect(within(column()).queryByText(/Hiring manager/), "the round stays on the application page").toBeNull();
     expect(row(msg("applications-posting-next-step"))).toHaveTextContent("Email the recruiter");
   });
 
@@ -234,7 +261,11 @@ describe("a posting on the board", () => {
     });
     renderPosting(posting({ is_favorite: true, pursuit: pursuit("applied") }));
     const days = await findRow(msg("applications-fact-days"));
-    await userEvent.click(within(days).getByRole("button", { name: msg("applications-posting-history") }));
+    // The clock carries no word: its name says which history it opens.
+    const clock = within(days).getByRole("button", { name: msg("applications-posting-history-title") });
+    expect(clock).toHaveTextContent("");
+    expect(clock).toHaveAttribute("title", msg("applications-posting-history-title"));
+    await userEvent.click(clock);
     const history = await screen.findByRole("dialog", { name: msg("applications-posting-history-title") });
     const lines = within(history).getAllByRole("listitem").map((line) => line.textContent);
     expect(lines).toHaveLength(4);
@@ -273,7 +304,7 @@ describe("a posting on the board", () => {
     await userEvent.click(within(await menuOf()).getByRole("button", { name: /Applied/ }));
     expect(await within(bar()).findByRole("button", { name: stageNamed("Applied") }), "moving again, not \"Applied at Applied\"")
       .toBeInTheDocument();
-    expect(within(column()).getByRole("link", { name: "Applied" })).toBeInTheDocument();
+    expect(row(msg("applications-posting-stage"))!.textContent).toBe(msg("taxonomy-stage-applied"));
     ended.unmount();
 
     detail = applicationDetailFixture({
@@ -299,7 +330,7 @@ describe("a posting on the board", () => {
     await waitFor(() => expect(api.setPursuit).toHaveBeenCalledWith(101, { stage: "saved" }));
     expect(await within(bar()).findByRole("button", { name: stageNamed("Applied") }), "the stage the server kept").toBeInTheDocument();
     expect(within(bar()).queryByRole("button", { name: msg("jobs-save") })).toBeNull();
-    expect(await within(column()).findByRole("link", { name: "Applied" })).toBeInTheDocument();
+    expect((await findRow(msg("applications-posting-stage"))).textContent).toBe(msg("taxonomy-stage-applied"));
   });
 
   it("moves to another stage from the menu, the pipeline's own way, and announces the save", async () => {
@@ -311,7 +342,7 @@ describe("a posting on the board", () => {
     await userEvent.click(within(await menuOf()).getByRole("button", { name: /Applied/ }));
     await waitFor(() => expect(api.setPursuit).toHaveBeenCalledWith(101, { stage: "applied" }));
     expect(await within(bar()).findByRole("button", { name: stageNamed("Applied") })).toBeInTheDocument();
-    expect(await within(column()).findByRole("link", { name: "Applied" }), "the section follows the move").toBeInTheDocument();
+    await waitFor(() => expect(row(msg("applications-posting-stage"))?.textContent, "the section follows the move").toBe(msg("taxonomy-stage-applied")));
     expect(screen.getByText("View posting")).toBeInTheDocument();
     expect(appState.savedChanged, "the board and an application page under the posting re-read")
       .toHaveBeenCalledWith({ jobId: 101, saved: true });
@@ -355,13 +386,13 @@ describe("a posting on the board", () => {
     renderPosting(posting({ is_favorite: true, pursuit: pursuit("rejected") }));
     const ended = msg("applications-card-ended", { ending: "Rejected", stage: "Applied" });
     expect(await within(bar()).findByRole("button", { name: ended })).toBeInTheDocument();
-    expect(await within(column()).findByRole("link", { name: ended })).toHaveAttribute("href", "/pipeline/101");
+    expect(await findRow(msg("applications-posting-stage"))).toHaveTextContent(ended);
     const when = await findRow(msg("applications-posting-ended"));
     expect(when).toHaveTextContent(/Nov 3/);
     expect(row(msg("applications-fact-days"))).toBeUndefined();
     expect(row(msg("applications-posting-next-step")), "an ended application has nothing waiting").toBeUndefined();
 
-    await userEvent.click(within(when).getByRole("button", { name: msg("applications-posting-history") }));
+    await userEvent.click(within(when).getByRole("button", { name: msg("applications-posting-history-title") }));
     const history = await screen.findByRole("dialog", { name: msg("applications-posting-history-title") });
     const lines = within(history).getAllByRole("listitem");
     expect(lines.map((line) => line.textContent), "the ending is the last line: no today line").toHaveLength(2);

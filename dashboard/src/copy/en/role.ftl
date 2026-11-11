@@ -152,12 +152,6 @@ role-job-detail-reposted = reposted ×{ $repost_count }
 # kind=label wording=as-is
 role-job-detail-description = Description
 # kind=label wording=as-is
-role-job-detail-radar-s-read = Radar's read
-# kind=sentence note="Radar's read, when the posting's wording sits between worlds"
-role-job-detail-advisory-unclear = The posting's wording doesn't clearly match one world.
-# kind=sentence note="Foot of Radar's read: where the guess comes from, and that it hides nothing"
-role-job-detail-advisory-basis = A guess from the posting's wording. It never takes a role off your radar.
-# kind=label wording=as-is
 role-job-detail-details = Details
 # kind=label wording=as-is
 role-job-detail-team = Team
@@ -194,12 +188,6 @@ role-job-detail-compare = { $choice ->
 }
 # kind=sentence
 role-job-detail-it-s-no-longer-in = This role no longer exists.
-# kind=label wording=as-is
-role-job-detail-likely-your-kind-of-role = Likely your kind of role
-# kind=label wording=as-is
-role-job-detail-likely-outside-your-worlds = Likely outside your worlds
-# kind=label wording=as-is
-role-job-detail-hard-to-place = Hard to place
 # kind=tooltip
 role-job-detail-questions-the-employer-added-beyond = Questions the employer asks beyond name, contact details and CV
 # kind=tooltip wording=as-is
@@ -412,8 +400,6 @@ role-listing-age-possibly-the-same-role-not = Possibly the same role: { $value }
 role-listing-age-review = Review
 # kind=label wording=as-is
 role-listing-age-listed-for = Listed for
-# kind=button wording=as-is
-role-listing-age-history = History
 # kind=label
 role-listing-age-listing-history = Posting history
 # kind=label wording=as-is

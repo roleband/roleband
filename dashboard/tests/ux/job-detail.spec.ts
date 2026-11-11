@@ -350,8 +350,9 @@ test("browser back and forward move between the board and an opportunity", async
 /* The bar holds one control for where the person stands with the role. Off
    the pipeline it is the star; once saved, the star's place holds the
    pipeline's own stage button, and the side column gains a Pipeline section:
-   the stage, which links to the application, its days, and what waits.
-   Nothing about the pipeline shows before the role is in it. */
+   the stage, its days, and what waits, in plain words. The stage is changed
+   in the bar and read in the section. Nothing about the pipeline shows
+   before the role is in it. */
 const DAY = 86_400_000;
 const tomorrowNoon = () => {
   const d = new Date();
@@ -411,9 +412,11 @@ test("a role off the pipeline shows the star alone, and saving turns it into the
   await expect(panel.getByRole("button", { name: "Considering", exact: true })).toBeVisible();
   await expect(panel.getByRole("button", { name: msg("jobs-save") }), "the stage takes the star's place").toHaveCount(0);
   const facts = panel.locator("dl.jd-pipeline-facts");
-  await expect(facts.getByRole("link", { name: "Considering" })).toHaveAttribute("href", "/pipeline/101");
+  await expect(facts.locator("dd").first()).toHaveText(msg("taxonomy-stage-saved"));
   await expect(facts).toContainText(msg("applications-posting-since-today"));
-  await expect(facts).toContainText(msg("applications-posting-no-step"));
+  // Nothing waits yet: no row says so.
+  await expect(facts.getByText(msg("applications-posting-next-step"), { exact: true })).toHaveCount(0);
+  await expect(facts.getByText(msg("applications-posting-interview"), { exact: true })).toHaveCount(0);
   // Still deciding: applying stays the action.
   await expect(panel.getByRole("link", { name: /view & apply/i })).toHaveClass(/ui-btn-primary/);
 });
@@ -432,27 +435,57 @@ test("an applied role names its stage in the bar, and its days and what is due i
 
   await expect(bar.getByRole("button", { name: "Applied", exact: true })).toBeVisible();
   await expect(bar.getByText(/\d+d\b|days/), "the bar holds the stage, never its age").toHaveCount(0);
-  const due = msg("applications-card-due-step", { offset: 1, date: "" });
+  const due = msg("applications-posting-due-day", { offset: 1, date: "" });
   await expect(bar.getByRole("link", { name: /view & apply/i })).toHaveCount(0);
   const view = bar.getByRole("link", { name: msg("role-job-detail-view-posting") });
   await expect(view).toHaveAttribute("href", jobFixture.url);
   await expect(view).not.toHaveClass(/ui-btn-primary/);
   const facts = panel.locator("dl.jd-pipeline-facts");
-  await expect(facts.getByRole("link")).toHaveText("Applied");
-  await expect(facts.getByRole("link")).toHaveAttribute("href", "/pipeline/101");
-  await expect(facts).toContainText(`${msg("applications-fact-days")}12 days`);
-  // The step, then the board's pill on its own line under it.
-  const step = facts.locator("dd.jd-pipeline");
-  await expect(step).toContainText("Email the recruiter");
-  const pill = step.locator(".app-due");
-  await expect(pill).toHaveText(due);
-  const words = await step.getByText("Email the recruiter").boundingBox();
-  const badge = await pill.boundingBox();
-  expect(badge!.y, "the pill sits under the step").toBeGreaterThanOrEqual(words!.y + words!.height - 1);
+  const value = (term: string) => facts.locator("dt", { hasText: new RegExp(`^${term}$`) }).locator("xpath=following-sibling::dd[1]");
+  // The stage is read here, in the row's own ink, and changed in the bar.
+  const stage = value(msg("applications-posting-stage"));
+  await expect(stage).toHaveText(msg("taxonomy-stage-applied"));
+  await expect(facts.getByRole("link")).toHaveCount(0);
+  const twelveDays = msg("applications-fact-days-value", { days: 12 });
+  await expect(value(msg("applications-fact-days"))).toContainText(twelveDays);
+  // The step and the day it is due are two rows of plain words: no pill.
+  await expect(value(msg("applications-posting-next-step"))).toHaveText("Email the recruiter");
+  await expect(value(msg("applications-posting-due"))).toHaveText(due);
+  await expect(facts.locator(".ui-badge")).toHaveCount(0);
+  const ink = (row: Locator) => row.evaluate((el) => getComputedStyle(el).color);
+  const plain = await ink(value(msg("applications-fact-days")));
+  expect(await ink(stage), "the stage is not coloured").toBe(plain);
+  expect(await ink(value(msg("applications-posting-due"))), "a date still to come is not coloured").toBe(plain);
   // The bar holds controls only: the date is read once, in the section.
   await expect(bar.getByText(due)).toHaveCount(0);
 
-  await facts.getByRole("button", { name: msg("applications-posting-history") }).click();
+  // Every row is one line high, the one with the history's clock included:
+  // a control taller than the text must not push its row apart from the rest.
+  const heights = await facts.locator("dd").evaluateAll((rows) => rows.map((row) => Math.round(row.getBoundingClientRect().height)));
+  expect(heights.length).toBe(4);
+  expect(new Set(heights).size, `row heights ${heights.join(", ")}`).toBe(1);
+
+  // The way to the application stands on the section's heading line, at its
+  // far end, and nowhere in the rows.
+  const open = panel.locator(".jd-aside").getByRole("link", { name: msg("applications-posting-open") });
+  await expect(open).toHaveAttribute("href", "/pipeline/101");
+  const heading = (await panel.locator(".jd-aside .section-title", { hasText: msg("applications-posting-row") }).boundingBox())!;
+  const link = (await open.boundingBox())!;
+  const column = (await panel.locator(".jd-aside").boundingBox())!;
+  expect(link.y, "on the heading's line").toBeLessThan(heading.y + heading.height);
+  expect(link.y + link.height, "on the heading's line").toBeGreaterThan(heading.y);
+  expect(link.x, "after the heading").toBeGreaterThanOrEqual(heading.x + heading.width);
+  expect(Math.abs(link.x + link.width - (column.x + column.width)), "at the line's far end").toBeLessThanOrEqual(1);
+  expect((await facts.locator("dt").first().boundingBox())!.y, "above the rows").toBeGreaterThan(link.y + link.height - 1);
+
+  // The clock stands right after the days it explains, and says which history it opens.
+  const clock = facts.getByRole("button", { name: msg("applications-posting-history-title") });
+  await expect(clock).toHaveText("");
+  const days = (await facts.getByText(twelveDays).boundingBox())!;
+  const mark = (await clock.boundingBox())!;
+  expect(mark.x, "after the figure").toBeGreaterThanOrEqual(days.x + days.width);
+  expect(mark.x - (days.x + days.width), "and beside it").toBeLessThanOrEqual(12);
+  await clock.click();
   const history = page.getByRole("dialog", { name: msg("applications-posting-history-title") });
   await expect(history.getByRole("listitem").last()).toHaveText(
     `${msg("applications-posting-history-today")}${msg("applications-posting-history-now", { stage: "Applied", days: 12 })}`,
@@ -460,37 +493,64 @@ test("an applied role names its stage in the bar, and its days and what is due i
   await expectOnTop(history.getByText(msg("applications-posting-history-title")), "the application history");
 });
 
-test("the side column leads with the radar's read while deciding, and with the pipeline once applied", async ({ page }) => {
-  let applied = false;
-  const review = { ...ANCHOR_REVIEW, domain: null, relevance: "uncertain", confidence: 0.25, rationale: "" };
+/* The side column is the person's own facts first, then the posting's: where
+   the application stands, the Details, then similar roles. The radar's guess
+   at a posting's world is not shown: stored with the posting, it reaches no
+   one until it has something to say. */
+test("the side column reads Pipeline, Details, then More like this, and shows no guess at the role's world", async ({ page }) => {
+  let relevance = "relevant";
   await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: {
-    ...jobFixture, relevance_review: review, is_favorite: true,
-    pursuit: { ...appliedPursuit, stage: applied ? "applied" : "saved" },
+    ...jobFixture, is_favorite: true, pursuit: appliedPursuit,
+    relevance_review: {
+      domain: relevance === "uncertain" ? null : "payments_fintech", relevance, confidence: 0.63,
+      rationale: "Nearest world anchor: 'Payments & Fintech' (cosine 0.30, margin 0.020 over 'Customer Support & Service').",
+      tracked_worlds: ["ai_ml"], prompt_version: "relevance_review/emb-v1",
+      provider: "builtin", model_id: "lightonai/DenseOn", reviewed_at: "2026-08-07T12:00:00Z",
+    },
   } }));
   await mockGet(page, "/api/applications/101", (route) => route.fulfill({ json: applicationDetailFixture({
-    application: applicationCardFixture({ pursuit_id: 10, stage: applied ? "applied" : "saved", stage_since: new Date(Date.now() - 3 * DAY).toISOString() }),
+    application: applicationCardFixture({ pursuit_id: 10, stage: "applied", stage_since: new Date(Date.now() - 3 * DAY).toISOString() }),
   }) }));
-  const heads = (panel: Locator) => panel.locator(".jd-aside > .section-title").allTextContents();
-  const [read, pipeline, details] = [msg("role-job-detail-radar-s-read"), msg("applications-posting-row"), msg("role-job-detail-details")];
-
+  await mockGet(page, "/api/jobs/101/similar**", (route) => route.fulfill({ json: {
+    scope: new URL(route.request().url()).searchParams.get("scope"),
+    items: [{ ...jobFixture, id: 900, title: "A similar role", score: 0.9 }],
+  } }));
   await page.goto("/company/openai/job/101");
-  const panel = detail(page);
-  await expect(panel.locator(".jd-aside .section-title", { hasText: pipeline })).toBeVisible();
-  expect((await heads(panel)).slice(0, 3), "still deciding: the read leads, in full").toEqual([read, pipeline, details]);
-  await expect(panel.locator(".jd-advisory")).toContainText(msg("role-job-detail-advisory-basis"));
+  const column = detail(page).locator(".jd-aside");
+  for (relevance of ["relevant", "irrelevant", "uncertain"]) {
+    await page.reload();
+    await expect(column.locator(".similar-row").first()).toBeVisible();
+    expect(await column.locator(".section-title").allTextContents(), `a ${relevance} review`).toEqual([
+      msg("applications-posting-row"), msg("role-job-detail-details"), msg("role-job-detail-more-like-this"),
+    ]);
+    for (const internal of [/Payments/, /cosine/i, /margin/i, /anchor/i, /DenseOn/, /builtin/]) {
+      await expect(column, `a ${relevance} review`).not.toContainText(internal);
+    }
+  }
+});
 
-  applied = true;
-  await page.reload();
-  await expect(panel.locator("dl.jd-pipeline-facts").getByRole("link", { name: "Applied" })).toBeVisible();
-  expect((await heads(panel)).slice(0, 3), "applied: where it stands leads, the read follows Details").toEqual([pipeline, details, read]);
-  const fold = panel.getByRole("button", { name: msg("role-job-detail-hard-to-place") });
-  await expect(fold).toHaveAttribute("aria-expanded", "false");
-  await expect(panel.locator(".jd-advisory"), "folded to its verdict").toHaveCount(0);
-  await fold.click();
-  await expect(fold).toHaveAttribute("aria-expanded", "true");
-  const opened = panel.locator(".jd-advisory");
-  await expect(opened).toContainText(msg("role-job-detail-advisory-basis"));
-  await expect(opened, "the fold already says the verdict").not.toContainText(msg("role-job-detail-hard-to-place"));
+/* Sections are told apart before their rows are read: a hairline opens each
+   one after the first, with more room above it than between two rows, and the
+   first stands flush with the top of the column. */
+test("each side-column section after the first opens with a hairline and room above it", async ({ page }) => {
+  await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: { ...jobFixture, is_favorite: true, pursuit: appliedPursuit } }));
+  await mockGet(page, "/api/applications/101", (route) => route.fulfill({ json: applicationDetailFixture({
+    application: applicationCardFixture({ pursuit_id: 10, stage: "applied", stage_since: new Date(Date.now() - 3 * DAY).toISOString() }),
+  }) }));
+  await page.goto("/company/openai/job/101");
+  const column = detail(page).locator(".jd-aside");
+  await expect(column.locator("dl.jd-pipeline-facts")).toBeVisible();
+  const heads = await column.locator(".section-title").evaluateAll((titles) => titles.map((title) => {
+    const style = getComputedStyle(title);
+    return { rule: parseFloat(style.borderTopWidth), above: parseFloat(style.marginTop) + parseFloat(style.paddingTop) };
+  }));
+  const rowGap = await column.locator("dl.kv").first().evaluate((list) => parseFloat(getComputedStyle(list).rowGap));
+  expect(heads.length).toBeGreaterThanOrEqual(2);
+  expect(heads[0], "the first section starts the column").toEqual({ rule: 0, above: 0 });
+  for (const head of heads.slice(1)) {
+    expect(head.rule).toBeGreaterThan(0);
+    expect(head.above, "more room than between two rows").toBeGreaterThan(rowGap * 2);
+  }
 });
 
 test("the stage button's star is the radar's saved gold, at a live stage and after an ending", async ({ page }) => {
@@ -553,62 +613,36 @@ test("moving to Interviewing from the posting asks for the interview first, over
   expect(writes).toEqual([]);
 });
 
-/* Radar's read is a hint for the reader. The stored rationale, model id and
-   confidence are bench material: none of them may reach the screen, and the
-   world appears by its name, never its slug. Fixtures carry what the anchor
-   classifier really stores. */
-const ANCHOR_REVIEW = {
-  tracked_worlds: ["ai_ml"], prompt_version: "relevance_review/emb-v1",
-  provider: "builtin", model_id: "lightonai/DenseOn", reviewed_at: "2026-08-07T12:00:00Z",
-};
+/* A Details row is shown when the posting states the fact. A posting that
+   names no team, or only its employer's own name, and does not say where the
+   work happens has neither row: an empty row reads as a missing fact. */
+test("Details shows the team and the workplace only when the posting states them", async ({ page }) => {
+  let stated: Record<string, unknown> = {};
+  await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: { ...jobFixture, ...stated } }));
+  const terms = () => detail(page).locator(".jd-aside dl.kv dt").allTextContents();
+  const [team, workplace, listed, status] = [
+    msg("role-job-detail-team"), msg("role-job-detail-workplace"), msg("role-listing-age-listed-for"), msg("role-job-detail-status"),
+  ];
 
-async function openWithReview(page: Page, review: Record<string, unknown>) {
-  await page.route("/api/jobs/101", (route) => route.fulfill({ json: {
-    ...jobFixture, relevance_review: { ...ANCHOR_REVIEW, ...review },
-  } }));
   await page.goto("/company/openai/job/101");
-  const box = detail(page).locator(".jd-advisory");
-  await expect(box).toBeVisible();
-  return box;
-}
+  const details = detail(page).locator(".jd-aside dl.kv");
+  await expect(details.getByText("API", { exact: true })).toBeVisible();
+  await expect(details.getByText(msg("taxonomy-workplace-hybrid"), { exact: true })).toBeVisible();
+  expect(await terms()).toEqual([team, workplace, listed, status]);
 
-async function expectNoInternals(box: Locator) {
-  for (const internal of [/cosine/i, /margin/i, /anchor/i, /DenseOn/, /builtin/, /%/, /_/]) {
-    await expect(box).not.toContainText(internal);
-  }
-}
+  // The employer's own name in the team field, and no workplace stated.
+  stated = { team: "OpenAI", department: null, workplace_type: "unknown" };
+  await page.reload();
+  await expect(details.getByText(listed, { exact: true })).toBeVisible();
+  expect(await terms(), "the age and the status are always said").toEqual([listed, status]);
+  await expect(details.getByText("—")).toHaveCount(0);
 
-test("a placed role's read names the world and its basis, never the score or model", async ({ page }) => {
-  const box = await openWithReview(page, {
-    domain: "payments_fintech", relevance: "irrelevant", confidence: 0.63,
-    rationale: "Nearest world anchor: 'Payments & Fintech' (cosine 0.30, margin 0.020 over 'Customer Support & Service').",
-  });
-
-  await expect(box).toContainText(msg("role-job-detail-likely-outside-your-worlds"));
-  await expect(box).toContainText(msg("vocab-domain-payments-fintech"));
-  await expect(box).toContainText(msg("role-job-detail-advisory-basis"));
-  // The "between worlds" line belongs to a role it could not place.
-  await expect(box).not.toContainText(msg("role-job-detail-advisory-unclear"));
-  await expectNoInternals(box);
-});
-
-test("a role it cannot place says so plainly, with no world named", async ({ page }) => {
-  const box = await openWithReview(page, {
-    domain: null, relevance: "uncertain", confidence: 0.25,
-    rationale: "No world is clearly nearest: 'AI & Machine Learning' at cosine 0.25 is only 0.001 ahead of 'Cloud & Infrastructure'.",
-  });
-
-  await expect(box).toContainText(msg("role-job-detail-hard-to-place"));
-  await expect(box).toContainText(msg("role-job-detail-advisory-unclear"));
-  await expect(box).toContainText(msg("role-job-detail-advisory-basis"));
-  await expect(box).not.toContainText(msg("vocab-domain-ai-ml"));
-  await expectNoInternals(box);
-});
-
-test("no advisory, no card — the aside stays quiet for unreviewed roles", async ({ page }) => {
-  await page.goto("/company/openai/job/101");
-  await expect(detail(page).getByRole("heading", { name: jobFixture.title })).toBeVisible();
-  await expect(detail(page).getByText("Radar's read")).toHaveCount(0);
+  // A department stands in for a missing team.
+  stated = { team: null, department: "Product", workplace_type: "remote" };
+  await page.reload();
+  await expect(details.getByText("Product", { exact: true })).toBeVisible();
+  await expect(details.getByText(msg("taxonomy-workplace-remote"), { exact: true })).toBeVisible();
+  expect(await terms()).toEqual([team, workplace, listed, status]);
 });
 
 /* What applying asks, read from the posting's own page. Absent until
@@ -698,7 +732,7 @@ test("Details says one age with its basis, and the history opens on demand", asy
   for (const gone of ["Posted", "First seen"]) await expect(details.getByText(gone, { exact: true })).toHaveCount(0);
   expect(reads.started).toBe(0);
 
-  await details.getByRole("button", { name: "History" }).click();
+  await details.getByRole("button", { name: msg("role-listing-age-listing-history") }).click();
   const panel = page.getByRole("dialog", { name: "Posting history" });
   const events = panel.getByRole("list", { name: "Events" });
   await expect(events).toContainText(`${msg("role-listing-age-published-by-the-employer")} · ${msg("role-listing-age-the-start")}`);
@@ -722,7 +756,7 @@ async function openListingHistory(page: Page) {
   } }));
   await page.goto("/company/openai/job/101");
   const cover = detail(page);
-  const button = cover.locator("dl.kv").getByRole("button", { name: "History" });
+  const button = cover.locator("dl.kv").getByRole("button", { name: msg("role-listing-age-listing-history") });
   await button.click();
   const dialog = page.getByRole("dialog", { name: "Posting history" });
   await expect(dialog.getByRole("list", { name: "Events" })).toBeVisible();
@@ -852,7 +886,8 @@ test("reached by a direct link, the detail is the page, not a dialog", async ({ 
 });
 
 /* Similar positions: two categories, three rows each, visibly two blocks.
-   More rows, at body size under small labels, read as one wall. The
+   More rows, at body size under small labels, read as one wall. Each
+   category's caption is quieter than the section's kicker above it. The
    source is answered with FIVE per scope on purpose: the cap must hold on
    the page even when the request's `limit` is ignored. */
 test("similar positions show at most three per category, fetched as three, and the categories are set apart", async ({ page }) => {
@@ -889,21 +924,32 @@ test("similar positions show at most three per category, fetched as three, and t
   for (const scope of ["within", "cross"]) expect(requested).toContain(`?scope=${scope}&limit=3`);
   for (const query of requested) expect(query).toMatch(/(\?|&)limit=3(&|$)/);
 
-  // Set apart on the page, not only in the DOM: each category opens with a
-  // hairline, and its head and its rows are on different type steps, with
-  // the rows stepped below the body size of the prose.
+  // Set apart on the page, not only in the DOM: the second category opens
+  // with a hairline (the first stands under the section's own), and a
+  // category's head and its rows are on different type steps, with the rows
+  // stepped below the body size of the prose.
   const metrics = await groups.nth(1).evaluate((group) => {
     const px = (el: Element | null, prop: string) => parseFloat(getComputedStyle(el!).getPropertyValue(prop));
+    const head = group.querySelector(".similar-label");
     return {
       hairline: px(group, "border-top-width"),
-      head: px(group.querySelector(".similar-label"), "font-size"),
+      head: px(head, "font-size"),
+      headCase: getComputedStyle(head!).textTransform,
+      headWeight: px(head, "font-weight"),
       row: px(group.querySelector(".mj-title"), "font-size"),
+      rowWeight: px(group.querySelector(".mj-title"), "font-weight"),
       body: parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--app-type-body")),
     };
   });
   expect(metrics.hairline).toBeGreaterThan(0);
   expect(metrics.head).not.toBe(metrics.row);
   expect(metrics.row).toBeLessThan(metrics.body);
+  // The caption never outranks what it captions, nor the kicker over it.
+  expect(metrics.head).toBeLessThan(metrics.row);
+  expect(metrics.headWeight).toBeLessThan(metrics.rowWeight);
+  expect(metrics.headCase).toBe("none");
+  expect(await groups.nth(0).evaluate((group) => parseFloat(getComputedStyle(group).borderTopWidth)),
+    "one line between the section's kicker and its first category, not two").toBe(0);
 });
 
 /* The eyebrow modifier's cascade.

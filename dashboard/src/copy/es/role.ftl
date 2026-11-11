@@ -75,9 +75,6 @@ role-job-detail-postings = { $lineage_size } ofertas
 role-job-detail-reposted = republicado ×{ $repost_count }
 role-job-detail-description = Descripción
 role-job-detail-view-posting = Ver la oferta
-role-job-detail-radar-s-read = Lectura del radar
-role-job-detail-advisory-unclear = La redacción de la oferta no encaja claramente con un solo ámbito.
-role-job-detail-advisory-basis = Una estimación a partir de la redacción de la oferta. Nunca saca un puesto de tu radar.
 role-job-detail-details = Detalles
 role-job-detail-team = Equipo
 role-job-detail-workplace = Modalidad
@@ -97,9 +94,6 @@ role-job-detail-compare = { $choice ->
    *[no] Comparar
 }
 role-job-detail-it-s-no-longer-in = Este puesto ya no existe.
-role-job-detail-likely-your-kind-of-role = Probablemente tu tipo de puesto
-role-job-detail-likely-outside-your-worlds = Probablemente fuera de tus ámbitos
-role-job-detail-hard-to-place = Difícil de clasificar
 role-job-detail-questions-the-employer-added-beyond = Preguntas que hace el empleador además del nombre, los datos de contacto y el CV
 role-job-detail-similarity = Similitud
 
@@ -238,7 +232,6 @@ role-listing-age-compare-the-postings = Comparar las ofertas
 role-listing-age-possibly-the-same-role-not = Quizá el mismo puesto: { $value }, no cuenta hasta confirmarlo.
 role-listing-age-review = Revisar
 role-listing-age-listed-for = Publicado durante
-role-listing-age-history = Historial
 role-listing-age-listing-history = Historial de publicación
 role-listing-age-role = Puesto
 role-listing-age-first-listed-postings = Primera publicación { $roleSince } · { $rolePostings } ofertas

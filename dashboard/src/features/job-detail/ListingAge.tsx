@@ -20,7 +20,6 @@ import {
   roleListingAgeFirstListedPostings,
   roleListingAgeFirstSeenByRoleband,
   roleListingAgeGoneFromTheCareersPage,
-  roleListingAgeHistory,
   roleListingAgeLevel,
   roleListingAgeListedFor,
   roleListingAgeListingHistory,
@@ -203,13 +202,15 @@ export function ListingAge({
         <span>{relDays(job.listed_days)}</span>
         <Button
           ref={setAnchor}
-          variant="ghost"
+          variant="icon"
           size="sm"
+          aria-label={roleListingAgeListingHistory()}
+          title={roleListingAgeListingHistory()}
           aria-haspopup="dialog"
           aria-expanded={open}
           onClick={() => setOpen((was) => !was)}
         >
-          <Icon name="clock" size={13} /> {roleListingAgeHistory()}
+          <Icon name="clock" size={14} />
         </Button>
         <Popover isOpen={open} onClose={() => setOpen(false)} anchor={anchor} within={column} label={roleListingAgeListingHistory()} className="app-overlay jd-history-popover">
           <div className="jd-history-title">{roleListingAgeListingHistory()}</div>
