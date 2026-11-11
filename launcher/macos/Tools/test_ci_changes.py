@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ci_changes import decide, glob_regex, needed
+from ci_changes import decide, glob_regex, needed, only
 
 TOOLS = Path(__file__).resolve().parent
 NATIVE = ['launcher/**', 'dashboard/src/copy/**', '.nvmrc']
@@ -57,6 +57,17 @@ class TierTests(unittest.TestCase):
         for event in ('release', 'workflow_dispatch', 'schedule'):
             self.assertTrue(needed(event, ['docs/testing.md'], launcher, (*both, event)), event)
 
+    def test_a_change_is_docs_only_when_every_file_is_documentation(self):
+        docs = ['**.md', 'docs/images/**']
+        self.assertTrue(only('pull_request', ['README.md', 'docs/testing.md', 'docs/images/board-dark.webp'], docs))
+        self.assertFalse(only('pull_request', ['README.md', 'backend/tracker/api/app.py'], docs))
+        self.assertFalse(only('pull_request', ['docs/notes.txt'], docs))
+        self.assertFalse(only('pull_request', ['README.mdx'], docs))
+        self.assertFalse(only('pull_request', [], docs))
+        self.assertFalse(only('pull_request', None, docs))
+        for event in ('push', 'release', 'workflow_dispatch', 'schedule'):
+            self.assertFalse(only(event, ['README.md'], docs), event)
+
     def test_globs_follow_github(self):
         self.assertTrue(glob_regex('launcher/**').fullmatch('launcher/macos/Tools/bundle.py'))
         self.assertFalse(glob_regex('backend/*').fullmatch('backend/tracker/api/app.py'))
@@ -69,12 +80,15 @@ class TierTests(unittest.TestCase):
 class WorkflowStepTests(unittest.TestCase):
     """The script as the workflow runs it: a real repository, a real diff, GITHUB_OUTPUT."""
 
-    def run_step(self, repo, event, base, head, tier=None, skip_events=None):
+    def run_step(self, repo, event, base, head, tier=None, skip_events=None, docs=None):
         with tempfile.NamedTemporaryFile('r', suffix='.txt') as output:
             env = {**os.environ, 'EVENT': event, 'BASE': base, 'HEAD': head, 'GITHUB_OUTPUT': output.name}
             env.pop('SKIP_EVENTS', None)
+            env.pop('DOCS_PATHS', None)
             if skip_events:
                 env['SKIP_EVENTS'] = skip_events
+            if docs:
+                env['DOCS_PATHS'] = docs
             if tier:
                 env.update(TIER=tier, PATHS='backend/**\n')
             else:
@@ -112,6 +126,15 @@ class WorkflowStepTests(unittest.TestCase):
             self.assertEqual(self.run_step(repo, 'pull_request', base, entry, 'backend'), {'backend': 'true'})
             self.assertEqual(self.run_step(repo, 'push', base, notes, 'backend'), {'backend': 'true'})
             self.assertEqual(self.run_step(repo, 'pull_request', 'f' * 40, notes, 'backend'), {'backend': 'true'})
+
+            self.assertEqual(self.run_step(repo, 'pull_request', base, notes, 'backend', docs='notes/**\n'),
+                             {'backend': 'false', 'docs': 'true'})
+            self.assertEqual(self.run_step(repo, 'pull_request', base, entry, 'backend', docs='notes/**\n'),
+                             {'backend': 'true', 'docs': 'false'})
+            self.assertEqual(self.run_step(repo, 'push', base, notes, 'backend', docs='notes/**\n'),
+                             {'backend': 'true', 'docs': 'false'})
+            self.assertEqual(self.run_step(repo, 'pull_request', 'f' * 40, notes, 'backend', docs='notes/**\n'),
+                             {'backend': 'true', 'docs': 'false'})
 
             self.assertEqual(self.run_step(repo, 'push', base, notes, 'backend', 'pull_request push'), {'backend': 'false'})
             self.assertEqual(self.run_step(repo, 'push', notes, entry, 'backend', 'pull_request push'), {'backend': 'true'})

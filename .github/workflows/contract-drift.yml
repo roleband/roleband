@@ -13,7 +13,54 @@ permissions:
   contents: read
 
 jobs:
+  # A gate takes no `paths:` filter, so this job decides whether a pull request can change
+  # the schema at all. PATHS is every file regen-diff reads: the exporter and the `tracker`
+  # package it imports, what that package names outside backend/, the locks and the two
+  # generated files.
+  changes:
+    name: contract-drift-changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      contract: ${{ steps.decide.outputs.contract }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          TIER: contract
+          PATHS: |
+            backend/tracker/**
+            backend/scripts/__init__.py
+            backend/scripts/export_openapi.py
+            backend/requirements.txt
+            backend/requirements-dev.txt
+            backend/constraints/linux-x86_64.txt
+            robots/python/**
+            sdk/python/**
+            dashboard/package.json
+            dashboard/package-lock.json
+            dashboard/openapi.json
+            dashboard/src/api.gen.ts
+            dashboard/csp-policy.json
+            dashboard/src/companies.json
+            CHANGELOG.md
+            .python-version
+            .nvmrc
+            launcher/macos/Tools/ci_changes.py
+            .github/workflows/contract-drift.yml
+        run: python3 launcher/macos/Tools/ci_changes.py
+
+  # The required check. Skipped, it counts as passed.
   regen-diff:
+    needs: changes
+    # Runs when `changes` fails too.
+    if: ${{ !cancelled() && needs.changes.outputs.contract != 'false' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
