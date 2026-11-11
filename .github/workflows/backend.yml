@@ -43,6 +43,8 @@ jobs:
             launcher/macos/Tools/**
             launcher/macos/test-transport.py
             launcher/macos/runtime-lock.txt
+            launcher/windows/release-identity.json
+            launcher/windows/RoleBand.cer
             dashboard/csp-policy.json
             dashboard/openapi.json
             dashboard/package.json
