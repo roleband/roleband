@@ -64,11 +64,14 @@ test("a direct link to a sub-tab renders it selected, with the breadcrumb", asyn
 
 test("Pace's age bands name their clock and the unknown ages in one plain line", async ({ page, isMobile }) => {
   await page.goto("/statistics/velocity");
-  const ages = page.locator(".panel").filter({ has: page.getByRole("heading", { name: "Age of open roles" }) });
+  const ages = page.locator(".panel").filter({
+    has: page.getByRole("heading", { name: msg("insights-velocity-panel-age-of-open-roles") }),
+  });
   const note = ages.locator(".vel-basis");
   // The info button's tip is in the line, read on hover or focus.
-  await expect(note).toHaveText(/^Counted from when each role was first listed\. Age unknown: 2/);
-  await expect(note.getByRole("button", { name: "What “unknown” means" })).toBeVisible();
+  const line = `${msg("insights-velocity-panel-counted-from-first-listed")} ${msg("insights-velocity-panel-age-unknown", { count: "2" })}`;
+  await expect(note).toHaveText(new RegExp(`^${escape(line)}`));
+  await expect(note.getByRole("button", { name: msg("insights-velocity-panel-what-unknown-means") })).toBeVisible();
   await expect(ages.locator("p")).toHaveCount(1);
   // One line under the bands, never wrapped to two.
   // A phone's narrow panel wraps any sentence, so the check is desktop's.

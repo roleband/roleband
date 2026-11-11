@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { VelocityStats } from "../../api";
 import { api } from "../../api";
+import { msg } from "../../test/msg";
 import { VelocityPanel } from "./VelocityPanel";
 
 vi.mock("../../api", () => ({
@@ -67,7 +68,7 @@ describe("VelocityPanel", () => {
     expect(within(appleRow as HTMLElement).getAllByRole("cell").map((c) => c.textContent)).toEqual([
       "Apple", "392", "392", "0",
     ]);
-    expect(within(screen.getByRole("table")).queryByText("Time posted")).toBeNull();
+    expect(within(screen.getByRole("table")).queryByText(msg("insights-velocity-panel-time-posted"))).toBeNull();
 
     // Aging: the current single band holds all open roles.
     const ageRow = screen.getByText("< 1 week").closest(".bar-row")!;
@@ -99,9 +100,9 @@ describe("VelocityPanel", () => {
     render(<VelocityPanel days={30} />);
     // One role in the singular; the closings with no known start are counted
     // beside it, so the two add up to the Closed tile.
-    expect(await screen.findByText("Fills in once 5 closed roles have a known start. 1 has so far.")).toBeInTheDocument();
-    const postedPanel = screen.getByRole("heading", { name: "How long postings stay up" }).closest(".panel") as HTMLElement;
-    expect(within(postedPanel).getByText(/Time posted unknown: 3/)).toBeInTheDocument();
+    expect(await screen.findByText(msg("insights-velocity-panel-this-builds-up-as-roles", { closed_sample: 1 }))).toBeInTheDocument();
+    const postedPanel = screen.getByRole("heading", { name: msg("insights-velocity-panel-how-long-postings-stay-up") }).closest(".panel") as HTMLElement;
+    expect(within(postedPanel).getByText(msg("insights-velocity-panel-time-posted-unknown", { count: "3" }), { exact: false })).toBeInTheDocument();
   });
 
   it("reads the measure, and never claims the role was filled", async () => {
@@ -170,7 +171,7 @@ describe("VelocityPanel", () => {
     const googleRow = within(screen.getByRole("table")).getByText("Google").closest("tr")!;
     expect(within(googleRow as HTMLElement).getByText("12d")).toBeInTheDocument();
     // The posted distribution draws the bands it was handed.
-    const postedPanel = screen.getByRole("heading", { name: "How long postings stay up" }).closest(".panel")!;
+    const postedPanel = screen.getByRole("heading", { name: msg("insights-velocity-panel-how-long-postings-stay-up") }).closest(".panel")!;
     expect(within(postedPanel as HTMLElement).getByText("< 1 week")).toBeInTheDocument();
   });
 
@@ -191,8 +192,8 @@ describe("VelocityPanel", () => {
     });
     render(<VelocityPanel days={0} />);
     await screen.findByRole("heading", { level: 2, name: /opened/ });
-    const agePanel = screen.getByRole("heading", { name: "Age of open roles" }).closest(".panel") as HTMLElement;
-    expect(agePanel.querySelector(".vel-basis")).toHaveTextContent("Counted from when each role was first listed. Age unknown: 18");
+    const agePanel = screen.getByRole("heading", { name: msg("insights-velocity-panel-age-of-open-roles") }).closest(".panel") as HTMLElement;
+    expect(agePanel.querySelector(".vel-basis")).toHaveTextContent(`${msg("insights-velocity-panel-counted-from-first-listed")} ${msg("insights-velocity-panel-age-unknown", { count: "18" })}`);
     expect(agePanel.querySelectorAll("p")).toHaveLength(1);
     expect(screen.queryByText(/dated by the employer/)).toBeNull();
   });
@@ -244,9 +245,9 @@ describe("VelocityPanel", () => {
     });
     render(<VelocityPanel days={30} />);
     expect(await screen.findByRole("heading", { level: 2, name: "494 opened" })).toBeInTheDocument();
-    expect(screen.getByText(/1,867 found already listed/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "What “found already listed” means" })).toHaveAccessibleDescription(
-      "Already listed when first seen: on a company's first scan, or dated earlier by the employer.",
+    expect(screen.getByText(msg("insights-velocity-panel-more-already-listed-when-found", { already_listed: "1,867" }), { exact: false })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: msg("insights-velocity-panel-what-already-listed-means") })).toHaveAccessibleDescription(
+      msg("insights-velocity-panel-why-already-listed"),
     );
   });
 
@@ -261,13 +262,13 @@ describe("VelocityPanel", () => {
     mock({ days: 30, since: null, kpis: { ...kpis, age_unknown: 18, closed_unknown: 8 }, aging: AGING, posted: AGING, by_company: [] });
     const { unmount } = render(<VelocityPanel days={30} />);
     await screen.findByRole("heading", { level: 2, name: /opened/ });
-    const agePanel = screen.getByRole("heading", { name: "Age of open roles" }).closest(".panel") as HTMLElement;
-    expect(within(agePanel).getByText(/Age unknown: 18/)).toBeInTheDocument();
-    expect(within(agePanel).getByRole("button", { name: "What “unknown” means" })).toHaveAccessibleDescription(
-      "Found on a company's first scan, with no date from the employer.",
+    const agePanel = screen.getByRole("heading", { name: msg("insights-velocity-panel-age-of-open-roles") }).closest(".panel") as HTMLElement;
+    expect(within(agePanel).getByText(msg("insights-velocity-panel-age-unknown", { count: "18" }), { exact: false })).toBeInTheDocument();
+    expect(within(agePanel).getByRole("button", { name: msg("insights-velocity-panel-what-unknown-means") })).toHaveAccessibleDescription(
+      msg("insights-velocity-panel-why-a-start-is-unknown"),
     );
-    const postedPanel = screen.getByRole("heading", { name: "How long postings stay up" }).closest(".panel") as HTMLElement;
-    expect(within(postedPanel).getByText(/Time posted unknown: 8/)).toBeInTheDocument();
+    const postedPanel = screen.getByRole("heading", { name: msg("insights-velocity-panel-how-long-postings-stay-up") }).closest(".panel") as HTMLElement;
+    expect(within(postedPanel).getByText(msg("insights-velocity-panel-time-posted-unknown", { count: "8" }), { exact: false })).toBeInTheDocument();
     unmount();
 
     mock({ days: 30, since: null, kpis: { ...kpis, age_unknown: 0, closed_unknown: 0 }, aging: AGING, posted: AGING, by_company: [] });
@@ -296,7 +297,7 @@ describe("VelocityPanel", () => {
     const table = await screen.findByRole("table");
     const row = within(table).getByText("Google").closest("tr") as HTMLElement;
     expect(within(row).getAllByRole("cell").map((c) => c.textContent)).toEqual(["Google", "6", "3", "4", ""]);
-    const tip = within(table).getByRole("button", { name: "What “Time posted” measures" });
-    expect(tip).toHaveAccessibleDescription("Days from first listed to closed. Needs 5 closed roles with a known start.");
+    const tip = within(table).getByRole("button", { name: msg("insights-velocity-panel-what-time-posted-measures") });
+    expect(tip).toHaveAccessibleDescription(msg("insights-velocity-panel-from-the-first-scan-that"));
   });
 });
