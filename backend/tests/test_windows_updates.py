@@ -402,6 +402,7 @@ def test_status_reads_what_checks_kept_without_asking_the_feed(state, identity, 
     assert len(feed.requests) == asked + 1, "only the rate-limited check asked"
 
 
+@windows_only
 def test_a_source_run_never_takes_the_committed_identity(tmp_path, monkeypatch, capsys):
     """The checkout commits RoleBand's release identity for release builds. A source run of the engine reports
     updates unavailable instead of reading the real feed with it; only a package's own copy is trusted."""
