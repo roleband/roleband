@@ -361,8 +361,18 @@ def _launched(tokens: list[str], wd: str) -> set[str]:
     if tokens[:2] == ["ruff", "check"]:
         found |= {_join(wd, arg) for arg in tokens[2:] if not arg.startswith("-")}
     if tokens[:1] == ["swift"] and "--package-path" in tokens[:-1]:
-        found.add(_join(wd, tokens[tokens.index("--package-path") + 1]))
+        found |= swift_package_reads(tokens, _join(wd, tokens[tokens.index("--package-path") + 1]))
     return found
+
+
+def swift_package_reads(tokens: list[str], package: str) -> set[str]:
+    """A SwiftPM package's manifest, its lock file and its sources; `swift test` compiles its
+    tests as well. Every target of the package lives in one of those two folders, which is
+    SwiftPM's default layout and the only one `Package.swift` here uses."""
+    reads = {f"{package}/Package.swift", f"{package}/Package.resolved", f"{package}/Sources"}
+    if tokens[1:2] == ["test"]:
+        reads.add(f"{package}/Tests")
+    return reads
 
 
 def workflow_inputs(name: str, data: dict) -> set[str]:
@@ -527,6 +537,62 @@ def test_the_swift_scan_inputs_are_derived_not_assumed():
         assert expected in swift, expected
     assert any(p.startswith("launcher/macos/Sources/") for p in swift)
     assert "launcher/macos/Package.swift" in unwatched(swift, [".github/workflows/codeql.yml"])
+
+
+def over_watched(inputs: set[str], paths: list[str], tracked: list[str]) -> list[str]:
+    """Tracked files a tier's paths match that none of its jobs reads: a change to one of
+    them alone holds a runner for nothing."""
+    return sorted(f for f in tracked if covered(f, paths) and f not in inputs)
+
+
+def test_the_swift_scan_watches_only_what_it_compiles():
+    """The scan holds a macOS runner for a whole compile, so a launcher file outside the package
+    it builds (a release record, the Windows app, the Swift tests) does not start it."""
+    tracked = _tracked()
+    _, paths = _gate_tier("codeql.yml")
+    assert over_watched(tier_inputs("codeql.yml", tracked), paths, tracked) == []
+
+
+def test_a_swift_tier_watching_the_whole_launcher_is_reported():
+    """The control for the test above."""
+    tracked = _tracked()
+    found = over_watched(tier_inputs("codeql.yml", tracked), ["launcher/**"], tracked)
+    for path in ("launcher/macos/bundle-size.json", "launcher/macos/Tests/LauncherCoreTests",
+                 "launcher/windows/RoleBand.App/TrayApp.cs"):
+        assert any(f == path or f.startswith(path + "/") for f in found), path
+    assert not [f for f in found if f.startswith("launcher/macos/Sources/")]
+
+
+#: A target's own folder, `path:` as an argument label; Swift allows space before the colon.
+TARGET_PATH = re.compile(r"\bpath\s*:")
+
+
+def test_every_swift_target_sits_in_the_default_layout():
+    """`swift_package_reads` names Sources/ and Tests/ only; a target given its own `path:`
+    would compile files the Swift scan does not watch."""
+    manifest = (REPO / "launcher" / "macos" / "Package.swift").read_text()
+    assert not TARGET_PATH.search(manifest)
+
+
+@pytest.mark.parametrize("argument", ['path: "Core"', 'path : "Core"', 'path:"Core"', 'path\n    : "Core"'])
+def test_a_target_with_its_own_folder_is_reported(argument):
+    """The control for the test above."""
+    assert TARGET_PATH.search(f'.target(name: "Core", {argument})')
+    assert not TARGET_PATH.search('.target(name: "Core", resources: [.process("Resources")])')
+
+
+def test_the_launcher_copy_check_runs_with_the_catalogue_on_linux():
+    """The export check needs Node only, so a catalogue change runs it in the dashboard gate
+    and starts no Mac runner, unless it changes the exported files under launcher/."""
+    checks = yaml.safe_load((WORKFLOWS / "dashboard.yml").read_text())["jobs"]["checks"]
+    assert checks["runs-on"].startswith("ubuntu-")
+    assert "node scripts/export-launcher-copy.mjs --check" in [step.get("run") for step in checks["steps"]]
+    _, dashboard = _gate_tier("dashboard.yml")
+    assert covered("launcher/macos/Sources/LauncherCore/Resources/copy.en.json", dashboard)
+    data, native, _ = _mac_tiers()
+    assert "export-launcher-copy" not in str(data["jobs"])
+    assert not covered("dashboard/src/copy/en/jobs.ftl", native)
+    assert covered("launcher/macos/Sources/LauncherCore/Resources/copy.en.json", native)
 
 
 # CodeQL scans the whole tree for actions, JavaScript/TypeScript and Python on every change,

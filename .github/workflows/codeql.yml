@@ -3,8 +3,8 @@ name: codeql
 # Code scanning with the default query suite. No `paths:` filter: the workflow-level
 # filter would stop the three Linux scans as well, and they read the whole tree. The
 # Swift scan holds a macOS runner for as long as the launcher takes to compile, so its
-# `changes` job runs it only when the launcher or this file changed; a weekly or manual
-# run, or a diff that cannot be read, scans it anyway.
+# `changes` job runs it only when the Swift package it compiles, the decision script or
+# this file changed; a weekly or manual run, or a diff that cannot be read, scans it anyway.
 on:
   push:
     branches: [main]
@@ -64,7 +64,10 @@ jobs:
           TIER: swift
           SKIP_EVENTS: pull_request push
           PATHS: |
-            launcher/**
+            launcher/macos/Package.swift
+            launcher/macos/Package.resolved
+            launcher/macos/Sources/**
+            launcher/macos/Tools/ci_changes.py
             .github/workflows/codeql.yml
         run: python3 launcher/macos/Tools/ci_changes.py
 

@@ -43,9 +43,6 @@ jobs:
           HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
           NATIVE_PATHS: |
             launcher/**
-            dashboard/src/copy/**
-            dashboard/scripts/export-launcher-copy.mjs
-            dashboard/scripts/copy/**
             dashboard/package.json
             dashboard/package-lock.json
             backend/tracker/__init__.py
@@ -90,8 +87,6 @@ jobs:
           xcodebuild -version
       - run: npm ci
         working-directory: dashboard
-      - name: Verify native copy
-        run: node dashboard/scripts/export-launcher-copy.mjs --check
       # One test at a time keeps the three-core hosted Mac predictable, and the step limit ends
       # a stalled run early. Local runs stay parallel, where concurrency faults show up.
       - name: Native behavior tests
