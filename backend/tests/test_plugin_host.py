@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import ctypes
+import errno
 import importlib.util
 import json
 import os
@@ -343,6 +344,51 @@ async def test_code_a_plugin_saves_in_its_data_directory_never_runs(db_session, 
     assert not marks.exists() or sorted(p.name for p in marks.iterdir()) == []
 
 
+def _refuses_writes(folder: Path) -> bool:
+    """Whether creating a folder and a file in `folder` are both refused, by real attempts: `os.access` on Windows
+    reads only the read-only attribute, never the folder's access list, where the two are separate rights. macOS's
+    sealed system volume refuses with EROFS, not a permission error. Any other failure is not an answer and is
+    raised."""
+    probe = folder / f"plugin-probe-{os.getpid()}"
+    attempts = ((Path.mkdir, Path.rmdir), (Path.touch, Path.unlink))
+    for create, remove in attempts:
+        try:
+            create(probe)
+        except PermissionError:
+            continue
+        except OSError as failed:
+            if failed.errno == errno.EROFS:
+                continue
+            raise
+        remove(probe)
+        return False
+    return True
+
+
+def test_the_write_probe_answers_only_for_a_refusal(tmp_path, monkeypatch):
+    assert not _refuses_writes(tmp_path)
+    assert not list(tmp_path.iterdir()), "the probe cleans up what it made"
+    for code, refused in ((errno.EROFS, True), (errno.EACCES, True), (errno.ENOSPC, None)):
+        def fail(self, *_args, code=code, **_kwargs):
+            raise OSError(code, os.strerror(code))
+        monkeypatch.setattr(Path, "mkdir", fail)
+        monkeypatch.setattr(Path, "touch", fail)
+        if refused:
+            assert _refuses_writes(tmp_path)
+        else:
+            with pytest.raises(OSError):
+                _refuses_writes(tmp_path)
+    # A folder refused but a file allowed is still a place a plugin can write.
+    monkeypatch.undo()
+
+    def no_folders(self, *_args, **_kwargs):
+        raise PermissionError(errno.EACCES, "folders refused", str(self))
+
+    monkeypatch.setattr(Path, "mkdir", no_folders)
+    assert not _refuses_writes(tmp_path)
+    assert not list(tmp_path.iterdir()), "the probe cleans up what it made"
+
+
 async def test_the_runner_is_isolated_and_starts_where_the_plugin_cannot_write(db_session, tmp_path):
     """Isolated mode (no current directory, user site-packages or PYTHON*
     variables on the path) and a working directory outside every plugin folder."""
@@ -379,14 +425,7 @@ async def test_the_runner_is_isolated_and_starts_where_the_plugin_cannot_write(d
         # An elevated run may write anywhere, so no attempt can tell; the folder is the one ordinary accounts cannot write.
         assert Path(cwd) == Path(os.environ["SystemRoot"])
     else:
-        # A real attempt: `os.access` on Windows reads only the read-only attribute, never the folder's access list.
-        probe_dir = Path(cwd) / f"plugin-probe-{os.getpid()}"
-        try:
-            with pytest.raises(PermissionError):
-                probe_dir.mkdir()
-        finally:
-            if probe_dir.is_dir():
-                probe_dir.rmdir()
+        assert _refuses_writes(Path(cwd)), f"a plugin could write in {cwd}"
     assert said.split("path0=", 1)[1] == str(SDK), "the SDK this core ships leads the path, never ''"
 
 
