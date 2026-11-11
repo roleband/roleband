@@ -1,7 +1,8 @@
 name: codeql
 
 # Code scanning with the default query suite. No `paths:` filter: the workflow-level
-# filter would stop the three Linux scans as well, and they read the whole tree. The
+# filter would stop the Linux scans as well, and they read the whole tree. The Windows
+# app's C# reads without a build there, so it needs no Windows runner. The
 # Swift scan holds a macOS runner for as long as the launcher takes to compile, so its
 # `changes` job runs it only when the Swift package it compiles, the decision script or
 # this file changed; a weekly or manual run, or a diff that cannot be read, scans it anyway.
@@ -32,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [actions, javascript-typescript, python]
+        language: [actions, csharp, javascript-typescript, python]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

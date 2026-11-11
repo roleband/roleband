@@ -43,8 +43,10 @@ jobs:
             launcher/macos/Tools/**
             launcher/macos/test-transport.py
             launcher/macos/runtime-lock.txt
+            launcher/macos/packaging-requirements.txt
             launcher/windows/release-identity.json
             launcher/windows/RoleBand.cer
+            launcher/windows/runtime-lock.txt
             dashboard/csp-policy.json
             dashboard/openapi.json
             dashboard/package.json
@@ -130,8 +132,9 @@ jobs:
       # The lock pins every transitive package, so this run installs the graph a
       # developer's machine does rather than whatever resolved today.
       - run: pip install -r requirements.txt -r requirements-dev.txt -c constraints/linux-x86_64.txt
-      # Known advisories against every platform lock and the Mac app's runtime
-      # lock; an accepted one needs a current entry in audit-exceptions.toml.
+      # Known advisories against every platform lock, both apps' runtime locks and
+      # the Mac packaging tools; an accepted one needs a current entry in
+      # audit-exceptions.toml.
       - name: dependency audit
         if: matrix.shard == 1
         run: python -m scripts.check_dependency_audit

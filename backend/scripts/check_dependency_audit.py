@@ -5,10 +5,12 @@ Usage (from `backend/`):
     .venv/bin/python -m scripts.check_dependency_audit --report audit.json
 
 Audits every platform lock in `constraints/` (the whole graph each source install
-gets, every requirements file and transitive package included) and the Mac app's
-`launcher/macos/runtime-lock.txt`, with the `pip_audit` module. A pin that only one
-platform or only the app carries still ships, so each lock is read. Every pin is
-exact, so the audit reads the pins as written and installs nothing.
+gets, every requirements file and transitive package included), the runtime locks
+of the Mac and Windows apps, and the Mac app's packaging tools, which run on the
+machine that builds and signs a release, with the `pip_audit` module. A pin that
+only one platform, only one app or only the release build carries still ships or
+runs, so each lock is read. Every pin is exact, so the audit reads the pins as
+written and installs nothing.
 
 The only way to accept a finding is an entry in `audit-exceptions.toml`: the
 advisory id (or any of its aliases), the package, the reason it does not reach
@@ -30,7 +32,13 @@ from datetime import date
 from pathlib import Path
 
 BACKEND = Path(__file__).resolve().parents[1]
-LOCKS = (*sorted((BACKEND / "constraints").glob("*.txt")), BACKEND.parent / "launcher" / "macos" / "runtime-lock.txt")
+LAUNCHER = BACKEND.parent / "launcher"
+LOCKS = (
+    *sorted((BACKEND / "constraints").glob("*.txt")),
+    LAUNCHER / "macos" / "runtime-lock.txt",
+    LAUNCHER / "macos" / "packaging-requirements.txt",
+    LAUNCHER / "windows" / "runtime-lock.txt",
+)
 EXCEPTIONS = BACKEND / "audit-exceptions.toml"
 FIELDS = ("id", "package", "reason", "expires")
 
