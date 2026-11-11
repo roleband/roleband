@@ -11,6 +11,7 @@ builds from the scope gate in `db/queries/scope.py`.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -47,6 +48,7 @@ from tracker.db.pay_band import (
 from tracker.db.queries.runs import committed_per_source_expr, stale_run_where
 from tracker.db.queries.scope import job_scope_expr, load_scope_exclusions
 from tracker.health import RunScope
+from tracker.lineage.place_sets import closing_role_notes
 from tracker.pay_disclosure import settle_band
 from tracker.platform.locks import advisory_xact_lock
 from tracker.platform.util import html_to_text
@@ -67,6 +69,8 @@ from tracker.taxonomy.role_answers import RoleAnswer
 
 if TYPE_CHECKING:
     from tracker.enrich.inventory import InventoryRow
+
+log = logging.getLogger(__name__)
 
 #: The smallest move of the employer's date recorded as a `redated` event.
 REDATE_MIN = timedelta(days=1)
@@ -1040,12 +1044,22 @@ async def close_missing(
     now = _now()
     closed = 0
     seen_ids = {job.id for key, job in existing.items() if key in seen_keys}
-    for job in {job.id: job for job in existing.values()}.values():
-        if job.id in seen_ids or job.status == "closed":
-            continue
-        if closable_job_ids is not None and job.id not in closable_job_ids:
-            continue
-        detail: dict = {"basis": ClosureBasis.ABSENT_FROM_COMPLETE_LISTING.value}
+    closing = [
+        job for job in {job.id: job for job in existing.values()}.values()
+        if job.id not in seen_ids and job.status != "closed"
+        and (closable_job_ids is None or job.id in closable_job_ids)
+    ]
+    # Which postings of each one's role stay listed and which close with it,
+    # asked while they are all still open (`place_sets.closing_role_notes`).
+    # The note serves Insights' counts, which take a closing without one as
+    # its own role, so a failure to write it never holds a closure back.
+    try:
+        roles = await closing_role_notes(session, [job.id for job in closing], company=company)
+    except Exception:
+        log.warning("closing %s without role notes: the place-set read failed", company, exc_info=True)
+        roles = {}
+    for job in closing:
+        detail: dict = {"basis": ClosureBasis.ABSENT_FROM_COMPLETE_LISTING.value, **roles.get(job.id, {})}
         if job.absent_since is not None:
             # The first of the two misses; this run is the second.
             detail["first_missed_at"] = job.absent_since.isoformat()

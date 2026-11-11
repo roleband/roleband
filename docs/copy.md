@@ -86,6 +86,7 @@ radar looks for**.
 | **Duplicates**: *Same role*, *Related roles*, *Different roles* | twin openings, same opening | |
 | **coverage** | | The one word for whether RoleBand can read a company's careers page |
 | **New** (a role) | today, just posted | Listed in the last 2 days: copy says *in the last 2 days*. *Closed* still says today |
+| **Opened** / **Closed** (Insights) | appeared, came down, gone | Roles first seen in a period that were new when found, and roles whose last posting closed in it. *New* is the Board's 2-day rule |
 
 Words for how RoleBand works are banned from screen: scrape, connector, adapter,
 drift, lineage, inventory, catalog, persona, scope, sync, epoch, facet, hydrate,

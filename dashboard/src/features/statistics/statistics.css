@@ -225,18 +225,6 @@
 
 /* ---- a note beside a chart ------------------------------------------- */
 
-.trends-note {
-  margin: var(--app-space-3) 0 var(--app-space-1);
-  padding: var(--app-space-2) var(--app-space-3);
-  border: 1px solid var(--app-border);
-  border-left: 2px solid var(--app-warning);
-  border-radius: var(--app-radius-sm);
-  background: var(--app-warning-soft);
-  color: var(--app-text-muted);
-  font-size: var(--app-type-meta);
-  line-height: 1.45;
-}
-
 /* ---- trajectory ---------------------------------------------------------- */
 
 .traj-slider-row {
@@ -859,6 +847,13 @@
 }
 
 /* ---- Pace: one company table, open roles as an in-cell bar ---- */
+/* The quiet line under a Pace chart: its clock and its unknown count. */
+.vel-basis {
+  margin: var(--app-space-3) 0 0;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+
 .vel-companies {
   margin-bottom: var(--app-space-3);
   overflow-x: auto;

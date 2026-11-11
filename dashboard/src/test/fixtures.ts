@@ -574,7 +574,7 @@ export const notificationsFixture: NotificationList = {
 export const overviewFixture: StatisticsOverview = {
   days: 30,
   since: "2026-10-01T06:00:00Z",
-  kpis: { open_total: 12, new_count: 4, first_scan_count: 0, closed_count: 1, companies: 3, saved_total: 2 },
+  kpis: { open_total: 12, new_count: 4, already_listed_count: 0, closed_count: 1, companies: 3, saved_total: 2 },
   top_skills: [],
 };
 

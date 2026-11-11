@@ -17,12 +17,12 @@ describe("agingBandName", () => {
 });
 
 describe("overviewBrief", () => {
-  const kpis = { open_total: 3192, companies: 41, new_count: 120, closed_count: 30, first_scan_count: 0, saved_total: 0 };
+  const kpis = { open_total: 3192, companies: 41, new_count: 120, closed_count: 30, already_listed_count: 0, saved_total: 0 };
 
   it("says the facts the server's brief said, with the region's digits", async () => {
     await activate("en", { region: "en-US" });
     const data = {
-      days: 30, since: "2026-10-12T06:00:00Z", kpis: { ...kpis, first_scan_count: 12 },
+      days: 30, since: "2026-10-12T06:00:00Z", kpis: { ...kpis, already_listed_count: 12 },
       top_skills: [{ term: "python", category: "language", job_count: 1435 }],
     };
     // The roles already listed at a company's first scan are when the

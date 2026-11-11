@@ -1,7 +1,8 @@
-"""Pure-logic tests for hiring-velocity assembly (no DB).
+"""Pure-logic tests for the Pace assembly (no DB).
 
-Pins the aging buckets, medians, activity merge, and the observed-duration sample gate
-behind the Statistics "Velocity" sub-tab.
+Pins the aging bands, the medians, the unknown ages beside them, the
+per-company minimum, and the response model behind the Statistics "Pace"
+sub-tab.
 """
 
 from __future__ import annotations
@@ -35,42 +36,74 @@ def test_aging_histogram_band_boundaries_are_zero_filled():
     assert len(hist) == 6  # every band present
 
 
+def test_an_age_below_zero_is_the_first_band_so_the_bands_add_up():
+    hist = aging_histogram([-0.5, 3])
+    assert [(h["lo"], h["count"]) for h in hist][:2] == [(0, 2), (7, 0)]
+    assert sum(h["count"] for h in hist) == 2
+
+
 def _fixture():
-    open_rows = [("google", 2), ("google", 10), ("openai", 40), ("openai", 100), ("meta", 3)]
-    event_rows = [
-        ("google", "opened", 5),
-        ("google", "changed", 2),
-        ("google", "closed", 1),
-        ("openai", "opened", 8),
-        ("openai", "closed", 3),
-        ("meta", "opened", 1),
+    open_rows = [
+        ("google", 2, False), ("google", 10, True), ("openai", 40, False),
+        ("openai", 100, False), ("meta", 3, True),
     ]
-    # 6 closed samples (>= MIN_DURATION_SAMPLE) so the overall median reports.
-    duration_rows = [("google", 10), ("google", 20), ("openai", 5), ("openai", 15), ("openai", 25), ("meta", 8)]
-    return open_rows, event_rows, duration_rows
+    openings = [*[("google", "opened")] * 5, *[("openai", "opened")] * 8, ("meta", "opened")]
+    # 6 roles came down with a known time posted (>= MIN_DURATION_SAMPLE),
+    # so the overall median reports.
+    came_down = [
+        ("google", 10, False), ("google", 20, False), ("openai", 5, False),
+        ("openai", 15, True), ("openai", 25, False), ("meta", 8, False),
+    ]
+    return open_rows, openings, came_down
 
 
-def test_build_velocity_kpis_sum_openings_and_closings_only():
+def test_build_velocity_counts_openings_and_roles_that_came_down():
     v = build_velocity(*_fixture(), open_total=5, days=30)
     k = v["kpis"]
-    assert (k["opened"], k["closed"]) == (14, 4)
-    # A `changed` event is our own relabelling as often as an employer's edit,
-    # and opened minus closed subtracts two different populations: neither is
-    # served, so the fixture's `changed` row counts toward nothing.
+    assert (k["opened"], k["closed"]) == (14, 6)
     assert "updated" not in k and "net" not in k
-    assert all("updated" not in c for c in v["by_company"])
     assert k["median_days_open"] == 10  # median of [2,3,10,40,100]
     assert k[DURATION_KEY] == 12.5  # median of [5,8,10,15,20,25]
-    assert k["closed_sample"] == 6
+    assert (k["closed_sample"], k["closed_unknown"], k["age_unknown"]) == (6, 0, 0)
+
+
+def test_unknown_ages_stay_out_of_the_medians_and_bands_and_are_counted_beside_them():
+    open_rows = [("a", 2, True), ("a", None, False), ("a", None, False), ("b", 40, False)]
+    came_down = [("a", None, False), ("b", 12, True)]
+    v = build_velocity(open_rows, [], came_down, open_total=4, days=30)
+    k = v["kpis"]
+    assert k["age_unknown"] == 2
+    assert sum(b["count"] for b in v["aging"]) + k["age_unknown"] == k["open_total"]
+    assert k["median_days_open"] == 21  # median of [2, 40]: the unknowns are not 0
+    assert (k["closed"], k["closed_sample"], k["closed_unknown"]) == (2, 1, 1)
+    assert sum(b["count"] for b in v["posted"]) == k["closed_sample"]
+    # Each share is over the rows the bands draw.
+    assert k["employer_dated_share"] == 1 / 2
+    assert k["closed_employer_dated_share"] == 1.0
+    # A company counts its unknown open roles; its median does not.
+    a = next(c for c in v["by_company"] if c["company"] == "a")
+    assert (a["open"], a["median_days_open"], a["closed"]) == (3, 2, 1)
 
 
 def test_build_velocity_observed_duration_gated_by_min_sample():
-    open_rows, event_rows, _ = _fixture()
-    thin = [("google", 10), ("openai", 20)]  # only 2 < MIN_DURATION_SAMPLE
+    open_rows, openings, _ = _fixture()
+    thin = [("google", 10, False), ("openai", 20, False)]  # only 2 < MIN_DURATION_SAMPLE
     assert MIN_DURATION_SAMPLE > 2
-    v = build_velocity(open_rows, event_rows, thin, open_total=5, days=30)
+    v = build_velocity(open_rows, openings, thin, open_total=5, days=30)
     assert v["kpis"][DURATION_KEY] is None
     assert v["kpis"]["closed_sample"] == 2
+
+
+def test_a_company_states_time_posted_only_from_five_known_durations():
+    """Four known durations and three unknown are still too few for one
+    company; five known give its median."""
+    four = [("a", d, False) for d in (1, 2, 3, 4)] + [("a", None, False)] * 3
+    v = build_velocity([], [], four, open_total=0, days=30)
+    assert v["by_company"][0][DURATION_KEY] is None
+    assert v["by_company"][0]["closed"] == 7
+    five = [("a", d, False) for d in (1, 2, 3, 4, 50)]
+    v = build_velocity([], [], five, open_total=0, days=30)
+    assert v["by_company"][0][DURATION_KEY] == 3
 
 
 def test_build_velocity_by_company_ranked_by_opened_with_medians():
@@ -80,7 +113,7 @@ def test_build_velocity_by_company_ranked_by_opened_with_medians():
     openai = v["by_company"][0]
     assert openai["open"] == 2 and openai["closed"] == 3
     assert openai["median_days_open"] == 70  # median of [40,100]
-    assert openai[DURATION_KEY] == 15  # median of [5,15,25]
+    assert openai[DURATION_KEY] is None  # 3 durations: under the minimum
 
 
 def test_the_duration_is_never_named_a_time_to_fill():
@@ -92,8 +125,8 @@ def test_the_duration_is_never_named_a_time_to_fill():
     from tracker.api.routers.statistics import VelocityOut
 
     reported = build_velocity(*_fixture(), open_total=5, days=30)
-    open_rows, event_rows, _ = _fixture()
-    thin = build_velocity(open_rows, event_rows, [("google", 10)], open_total=5, days=30)
+    open_rows, openings, _ = _fixture()
+    thin = build_velocity(open_rows, openings, [("google", 10, False)], open_total=5, days=30)
 
     for payload in (reported, thin):
         rows = [payload["kpis"], *payload["by_company"]]
@@ -138,47 +171,36 @@ def test_build_velocity_empty_is_safe():
     assert v["by_company"] == []
     assert sum(b["count"] for b in v["aging"]) == 0
     assert len(v["aging"]) == 6
+    assert (v["kpis"]["employer_dated_share"], v["kpis"]["closed_employer_dated_share"]) == (None, None)
 
 
-def test_reposted_events_are_a_separate_bucket_and_excluded_from_opened():
-    # The SQL remaps a repost/duplicate successor's opened event to 'reposted', so
-    # build_velocity sees it as its own type. It must NOT count as opened.
-    event_rows = [
-        ("google", "opened", 4),
-        ("google", "reposted", 3),
-        ("google", "closed", 1),
-    ]
-    v = build_velocity([("google", 5)], event_rows, [], open_total=1, days=30)
+def test_reposts_and_finds_already_listed_are_their_own_buckets_never_opened():
+    openings = [*[("google", "opened")] * 4, *[("google", "reposted")] * 3, *[("google", "already_listed")] * 2]
+    v = build_velocity([("google", 5, False)], openings, [], open_total=1, days=30)
     k = v["kpis"]
-    assert k["opened"] == 4  # reposts excluded
-    assert k["reposted"] == 3
+    assert (k["opened"], k["reposted"], k["already_listed"]) == (4, 3, 2)
     assert v["by_company"][0]["reposted"] == 3
 
 
-def test_each_age_aggregate_states_its_employer_dated_share_over_its_own_sample():
-    """The ages keep our first-sighting clock; each sample says how much of it
-    the employer dated (`analytics.age_basis`). The open share is over the open
-    rows behind the median and the bands, the closed share over the duration
-    sample, and an empty sample is None, never "0% dated"."""
-    open_rows, event_rows, duration_rows = _fixture()  # 5 open, 6 closed
-    v = build_velocity(
-        open_rows, event_rows, duration_rows, open_total=5, days=30,
-        open_employer_dated=2, closed_employer_dated=3,
-    )
-    assert v["kpis"]["employer_dated_share"] == 2 / 5
-    assert v["kpis"]["closed_employer_dated_share"] == 3 / 6
-    # The clock is untouched by the share: the median is still over the ages given.
-    assert v["kpis"]["median_days_open"] == 10
-
-    empty = build_velocity([], [], [], open_total=0, days=7)
-    assert (empty["kpis"]["employer_dated_share"], empty["kpis"]["closed_employer_dated_share"]) == (None, None)
-    undated = build_velocity(open_rows, event_rows, duration_rows, open_total=5, days=30)
-    assert (undated["kpis"]["employer_dated_share"], undated["kpis"]["closed_employer_dated_share"]) == (0.0, 0.0)
-
-
-def test_posted_bands_count_each_closed_posting_once_on_the_aging_bands():
-    """Pace draws how long postings stayed up beside the age of open
-    roles, on the same bands, so the two read as one pair."""
-    v = build_velocity([("a", 1)], [], [("a", 3), ("a", 10), ("b", 45), ("b", 200)], open_total=1, days=30)
+def test_posted_bands_count_each_role_that_came_down_once_on_the_aging_bands():
+    """Pace draws how long roles stayed up beside the age of open roles, on
+    the same bands, so the two read as one pair."""
+    came_down = [("a", 3, False), ("a", 10, False), ("b", 45, False), ("b", 200, False)]
+    v = build_velocity([("a", 1, False)], [], came_down, open_total=1, days=30)
     assert [(b["lo"], b["count"]) for b in v["posted"]] == [(0, 1), (7, 1), (14, 0), (30, 1), (60, 0), (90, 1)]
     assert [b["lo"] for b in v["posted"]] == [b["lo"] for b in v["aging"]]
+
+
+def test_every_company_that_opened_or_closed_a_role_keeps_its_row():
+    """Twenty companies opened roles and one only closed one: the table lists
+    all twenty-one, past the limit, so its Opened and Closed columns add up
+    to the tiles; a company with neither fills the table only up to it."""
+    open_rows = [(f"c{i}", 5, False) for i in range(20)] + [("quiet", 9, False)]
+    openings = [(f"c{i}", "opened") for i in range(20)]
+    v = build_velocity(open_rows, openings, [("gone", 30, False)], open_total=21, days=30, company_limit=15)
+    names = [c["company"] for c in v["by_company"]]
+    assert len(names) == 21 and "gone" in names and "quiet" not in names
+    assert sum(c["opened"] for c in v["by_company"]) == v["kpis"]["opened"]
+    assert sum(c["closed"] for c in v["by_company"]) == v["kpis"]["closed"]
+    few = build_velocity(open_rows[-1:], [], [], open_total=1, days=30)
+    assert [c["company"] for c in few["by_company"]] == ["quiet"]

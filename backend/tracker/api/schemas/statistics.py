@@ -76,12 +76,13 @@ class StatsResponse(Built):
 
 class OverviewKpis(Built):
     open_total: int
-    #: Roles first seen in the window that opened while their company was
-    #: read, not reposts, never a first read's finds.
+    #: Roles first seen in the window that were new when found, by the New
+    #: rule at our first sighting (`db.queries.motion`); never reposts.
     new_count: int
-    #: Roles a company's first read found in the window: already listed then
-    #: (`schema.Arrival`).
-    first_scan_count: int
+    #: Roles first seen in the window that were already listed when found: a
+    #: company's first read, or a posting the employer dated earlier
+    #: (`db.queries.motion`). Never in `new_count`.
+    already_listed_count: int
     closed_count: int
     companies: int
     saved_total: int

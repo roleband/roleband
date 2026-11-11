@@ -210,8 +210,10 @@ async def test_the_overview_scopes_openings_to_its_window_and_names_the_leaders(
     body = await _get(api_client, ROUTES["overview"])
     assert list(body) == _fields(contract.StatisticsOverviewResponse)
     assert body["kpis"] == {
-        # Every original role first seen in the 30 days, `g-closed` at its edge.
-        "open_total": 27, "new_count": 25, "first_scan_count": 0, "closed_count": 1, "companies": 4, "saved_total": 2,
+        # Every original role first seen in the 30 days that was new when
+        # found; `g-closed`, at the window's edge, carried an employer date 10
+        # days older than our first sighting, so it was already listed.
+        "open_total": 27, "new_count": 24, "already_listed_count": 1, "closed_count": 1, "companies": 4, "saved_total": 2,
     }
     # Skills from evidence-grounded requirements; an industry is never a skill.
     assert body["top_skills"] == [
@@ -225,8 +227,9 @@ async def test_the_overview_scopes_openings_to_its_window_and_names_the_leaders(
     # (`statistics/names.test.ts`); the response carries no English brief.
     assert "brief" not in body
     all_time = await _get(api_client, f"{ROUTES['overview']}?days=0")
-    # `o-old` and `g-senior` join; the repost is never new (as Pace and the header).
-    assert (all_time["days"], all_time["kpis"]["new_count"]) == (0, 27)
+    # `g-senior` joins; `o-old`, dated by its employer 75 days before we saw
+    # it, was already listed; the repost is never new (as Pace and the header).
+    assert (all_time["days"], all_time["kpis"]["new_count"], all_time["kpis"]["already_listed_count"]) == (0, 25, 2)
 
 
 @pytest.mark.asyncio
@@ -709,11 +712,14 @@ async def test_every_insights_tab_describes_one_set_of_roles(api_client, db_sess
         "hiring": hiring["open_total"],
     }
     assert headlines == dict.fromkeys(headlines, 28)
-    # Pace's openings: the 25 seeded original roles first seen in the window and
-    # the set once; never the out-of-scope opening, the set's other two members
-    # or the repost. Overview's "new" is the same number.
-    assert (velocity["kpis"]["opened"], velocity["kpis"]["reposted"]) == (26, 1)
+    # Pace's openings: the 24 seeded original roles first seen in the window
+    # and new when found, and the set once; never the out-of-scope opening, the
+    # set's other two members, `g-closed` (already listed when found) or the
+    # repost. Overview's counts are the same numbers.
+    assert (velocity["kpis"]["opened"], velocity["kpis"]["reposted"]) == (25, 1)
     assert overview["kpis"]["new_count"] == velocity["kpis"]["opened"]
+    assert overview["kpis"]["already_listed_count"] == velocity["kpis"]["already_listed"] == 1
+    assert overview["kpis"]["closed_count"] == velocity["kpis"]["closed"] == 1
 
 
 
@@ -865,23 +871,32 @@ async def test_a_scope_narrows_every_tab_to_one_side_and_its_two_sides_add_up(ap
 
 
 @pytest.mark.asyncio
-async def test_a_company_first_scan_is_never_new_and_ages_from_its_listed_date(api_client, db_session, seeded):
-    """A first read reads a board that was already listing, so every posting on
-    it is stored at once. Counted as new, a set of companies arriving at once
-    swamps the month's openings, and aged by our first sighting its postings
-    all read "under a week"."""
+async def test_a_company_first_scan_opens_only_what_its_employer_dated_new_and_ages_from_its_listed_date(
+    api_client, db_session, seeded,
+):
+    """A first scan reads a board that was already listing, so every posting on
+    it is stored at once. Counted as opened, a set of companies arriving at
+    once would swamp the month's openings, so a first scan's find opens only
+    when its employer dated it within the New window; aged by our first
+    sighting its postings would all read "under a week". Its undated find has
+    no knowable age."""
     await _onboard_a_company(db_session)
     overview = await _get(api_client, ROUTES["overview"])
-    assert (overview["kpis"]["new_count"], overview["kpis"]["first_scan_count"]) == (26, 3)
+    # acme-new opened; the first read's three and `g-closed` were already listed.
+    assert (overview["kpis"]["new_count"], overview["kpis"]["already_listed_count"]) == (25, 4)
 
     velocity = await _get(api_client, "/api/statistics/velocity?days=30")
-    assert (velocity["kpis"]["opened"], velocity["kpis"]["first_scan"]) == (26, 3)
+    assert (velocity["kpis"]["opened"], velocity["kpis"]["already_listed"]) == (25, 4)
     assert not {"net", "updated"} & set(velocity["kpis"])
     bands = {band["lo"]: band["count"] for band in velocity["aging"]}
     # acme-dated starts at its employer's date, 200 days ago, not at this morning;
-    # acme-recent at 20 days; the undated find and the watched opening at today.
-    assert bands[90] == 1  # 3 months and more
+    # acme-recent at 20 days; the watched opening at today. The undated find is
+    # counted beside the bands, never as "under a week". A watched role starts
+    # at its employer's date too: `o-old`, seen 45 days ago, was dated 120.
+    assert bands[90] == 2  # 3 months and more: acme-dated and o-old
     assert bands[14] == 1  # 2 to 4 weeks
+    assert velocity["kpis"]["age_unknown"] == 1
+    assert sum(bands.values()) + velocity["kpis"]["age_unknown"] == velocity["kpis"]["open_total"]
 
     hiring = await _get(api_client, ROUTES["demand"])
     assert hiring["new"] == 4  # the seed's three and acme-new, never the first scan's three
@@ -890,8 +905,7 @@ async def test_a_company_first_scan_is_never_new_and_ages_from_its_listed_date(a
 
 @pytest.mark.asyncio
 async def test_velocity_states_the_employer_dated_share_of_each_age_sample(api_client, seeded):
-    """Pace's ages keep our first-sighting clock; each sample says how much of it
-    the employer dated: the open roles behind the median and the bands (2 of 27
+    """Each of Pace's age samples says how much of it the employer dated: the open roles behind the median and the bands (2 of 27
     visible, in scope), and the closed postings behind how long postings stay up
     (`g-closed`, dated). Hidden and out-of-scope rows never count."""
     kpis = (await _get(api_client, "/api/statistics/velocity?days=0"))["kpis"]

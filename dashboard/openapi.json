@@ -13930,16 +13930,16 @@
    "OverviewKpis": {
     "additionalProperties": false,
     "properties": {
+     "already_listed_count": {
+      "title": "Already Listed Count",
+      "type": "integer"
+     },
      "closed_count": {
       "title": "Closed Count",
       "type": "integer"
      },
      "companies": {
       "title": "Companies",
-      "type": "integer"
-     },
-     "first_scan_count": {
-      "title": "First Scan Count",
       "type": "integer"
      },
      "new_count": {
@@ -13958,7 +13958,7 @@
     "required": [
      "open_total",
      "new_count",
-     "first_scan_count",
+     "already_listed_count",
      "closed_count",
      "companies",
      "saved_total"
@@ -24573,6 +24573,14 @@
    "VelocityKpis": {
     "description": "Window totals.",
     "properties": {
+     "age_unknown": {
+      "title": "Age Unknown",
+      "type": "integer"
+     },
+     "already_listed": {
+      "title": "Already Listed",
+      "type": "integer"
+     },
      "closed": {
       "title": "Closed",
       "type": "integer"
@@ -24592,6 +24600,10 @@
       "title": "Closed Sample",
       "type": "integer"
      },
+     "closed_unknown": {
+      "title": "Closed Unknown",
+      "type": "integer"
+     },
      "employer_dated_share": {
       "anyOf": [
        {
@@ -24602,10 +24614,6 @@
        }
       ],
       "title": "Employer Dated Share"
-     },
-     "first_scan": {
-      "title": "First Scan",
-      "type": "integer"
      },
      "median_days_open": {
       "anyOf": [
@@ -24647,11 +24655,13 @@
      "opened",
      "closed",
      "reposted",
-     "first_scan",
+     "already_listed",
      "median_days_open",
+     "age_unknown",
      "employer_dated_share",
      "median_observed_listing_duration_days",
      "closed_sample",
+     "closed_unknown",
      "closed_employer_dated_share"
     ],
     "title": "VelocityKpis",
@@ -31544,7 +31554,7 @@
   },
   "/api/statistics/velocity": {
    "get": {
-    "description": "Hiring-velocity motion over a time window (honors the period lens).\n\nOpened and closed roles from first sightings and lifecycle events, the aging\ndistribution of still-open roles, and the observed listing duration of roles\nthat closed in the window. `days<=0` means all-time. The duration needs a\nspread of closed roles, so it accrues with history; the UI flags a thin sample.\n\nIt is not a time to fill: it measures how long we observed a posting\nadvertised, and a public board says nothing about whether anyone was hired.",
+    "description": "Hiring-velocity motion over a time window (honors the period lens).\n\nThe roles that opened and came down in the window, each once\n(`db.queries.motion`), the ages of the roles still open, and how long the\nroles that came down had been posted. `days<=0` means all-time. The\nduration needs a spread of roles that came down, so it accrues with\nhistory; the UI flags a thin sample.\n\nIt is not a time to fill: it measures how long a posting was advertised,\nand a public board says nothing about whether anyone was hired.",
     "operationId": "statistics_velocity_api_statistics_velocity_get",
     "parameters": [
      {

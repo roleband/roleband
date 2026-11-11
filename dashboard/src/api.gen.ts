@@ -2881,13 +2881,14 @@ export interface paths {
          * Statistics Velocity
          * @description Hiring-velocity motion over a time window (honors the period lens).
          *
-         *     Opened and closed roles from first sightings and lifecycle events, the aging
-         *     distribution of still-open roles, and the observed listing duration of roles
-         *     that closed in the window. `days<=0` means all-time. The duration needs a
-         *     spread of closed roles, so it accrues with history; the UI flags a thin sample.
+         *     The roles that opened and came down in the window, each once
+         *     (`db.queries.motion`), the ages of the roles still open, and how long the
+         *     roles that came down had been posted. `days<=0` means all-time. The
+         *     duration needs a spread of roles that came down, so it accrues with
+         *     history; the UI flags a thin sample.
          *
-         *     It is not a time to fill: it measures how long we observed a posting
-         *     advertised, and a public board says nothing about whether anyone was hired.
+         *     It is not a time to fill: it measures how long a posting was advertised,
+         *     and a public board says nothing about whether anyone was hired.
          */
         get: operations["statistics_velocity_api_statistics_velocity_get"];
         put?: never;
@@ -7867,12 +7868,12 @@ export interface components {
         };
         /** OverviewKpis */
         OverviewKpis: {
+            /** Already Listed Count */
+            already_listed_count: number;
             /** Closed Count */
             closed_count: number;
             /** Companies */
             companies: number;
-            /** First Scan Count */
-            first_scan_count: number;
             /** New Count */
             new_count: number;
             /** Open Total */
@@ -11495,16 +11496,20 @@ export interface components {
          * @description Window totals.
          */
         VelocityKpis: {
+            /** Age Unknown */
+            age_unknown: number;
+            /** Already Listed */
+            already_listed: number;
             /** Closed */
             closed: number;
             /** Closed Employer Dated Share */
             closed_employer_dated_share: number | null;
             /** Closed Sample */
             closed_sample: number;
+            /** Closed Unknown */
+            closed_unknown: number;
             /** Employer Dated Share */
             employer_dated_share: number | null;
-            /** First Scan */
-            first_scan: number;
             /** Median Days Open */
             median_days_open: number | null;
             /** Median Observed Listing Duration Days */

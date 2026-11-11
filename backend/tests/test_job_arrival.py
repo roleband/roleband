@@ -147,14 +147,15 @@ def _arrivals(roles: dict[str, Job]) -> dict[str, str | None]:
 
 async def test_a_first_read_is_new_on_the_employers_date_alone(api_client, board):
     """At a company followed today, a posting the employer dated yesterday is
-    new and one dated last month is not; an undated find never is."""
+    new and one dated last month is not; an undated find never is. Overview
+    counts the one new find as opened, and the others as already listed."""
     roles = await board.read(NOW - timedelta(hours=1), ("yesterday", "last-month", "undated"), posted={
         "yesterday": NOW - timedelta(days=1), "last-month": NOW - timedelta(days=30),
     })
     assert set(_arrivals(roles).values()) == {"first_read"}
     assert await _new(api_client) == {"yesterday"}
     overview = (await api_client.get("/api/statistics/overview?days=30")).json()["kpis"]
-    assert (overview["new_count"], overview["first_scan_count"]) == (0, 3)
+    assert (overview["new_count"], overview["already_listed_count"]) == (1, 2)
 
 
 async def test_a_read_after_a_complete_one_dates_what_it_finds(api_client, board):
@@ -165,8 +166,8 @@ async def test_a_read_after_a_complete_one_dates_what_it_finds(api_client, board
     assert await _new(api_client) == {"fresh"}
     overview = (await api_client.get("/api/statistics/overview?days=30")).json()["kpis"]
     velocity = (await api_client.get("/api/statistics/velocity?days=30")).json()["kpis"]
-    assert (overview["new_count"], overview["first_scan_count"]) == (1, 1)
-    assert (velocity["opened"], velocity["first_scan"]) == (1, 1)
+    assert (overview["new_count"], overview["already_listed_count"]) == (1, 1)
+    assert (velocity["opened"], velocity["already_listed"]) == (1, 1)
 
 
 async def test_without_an_inventory_the_sighting_is_the_roles_creation(api_client, board):
@@ -236,11 +237,11 @@ async def test_a_posting_held_out_of_scope_ages_from_the_inventorys_sighting(api
     # Pace and Overview count each at its first sighting, not at the admit:
     # widening the scope today adds no opening today.
     overview = (await api_client.get("/api/statistics/overview?days=7")).json()["kpis"]
-    assert (overview["new_count"], overview["first_scan_count"]) == (1, 0)
+    assert (overview["new_count"], overview["already_listed_count"]) == (1, 0)
     velocity = (await api_client.get("/api/statistics/velocity?days=7")).json()["kpis"]
-    assert (velocity["opened"], velocity["first_scan"]) == (1, 0)
+    assert (velocity["opened"], velocity["already_listed"]) == (1, 0)
     month = (await api_client.get("/api/statistics/overview?days=29")).json()["kpis"]
-    assert (month["new_count"], month["first_scan_count"]) == (2, 0)
+    assert (month["new_count"], month["already_listed_count"]) == (2, 0)
 
 
 async def test_a_catch_up_of_postings_a_first_read_listed_is_a_first_read(api_client, board):
@@ -252,7 +253,7 @@ async def test_a_catch_up_of_postings_a_first_read_listed_is_a_first_read(api_cl
     assert roles["b"].first_seen == NOW - timedelta(days=10, seconds=-30)
     assert await _new(api_client) == set()
     velocity = (await api_client.get("/api/statistics/velocity?days=30")).json()["kpis"]
-    assert (velocity["opened"], velocity["first_scan"]) == (0, 2)
+    assert (velocity["opened"], velocity["already_listed"]) == (0, 2)
 
 
 # --------------------------------------------------------------------------- #
@@ -308,9 +309,9 @@ async def test_a_window_longer_than_the_history_counts_nothing_found_before_it(a
     await board.read(NOW - timedelta(hours=1), ("a", "b"))
     for days in (0, 30):
         overview = (await api_client.get(f"/api/statistics/overview?days={days}")).json()["kpis"]
-        assert (overview["new_count"], overview["first_scan_count"]) == (1, 0), days
+        assert (overview["new_count"], overview["already_listed_count"]) == (1, 0), days
         velocity = (await api_client.get(f"/api/statistics/velocity?days={days}")).json()["kpis"]
-        assert (velocity["opened"], velocity["first_scan"], velocity["open_total"]) == (1, 0, 2), days
+        assert (velocity["opened"], velocity["already_listed"], velocity["open_total"]) == (1, 0, 2), days
 
 
 async def test_each_companies_side_has_its_own_history_and_an_unfollowed_company_none(

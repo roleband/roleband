@@ -82,7 +82,7 @@ insights-overview-panel-most-named-skills = Habilidades más mencionadas
 insights-overview-panel-what-is-pulling-the-market = Habilidades más buscadas
 insights-overview-panel-the-skills-open-roles-name = Habilidades ordenadas según cuántos puestos abiertos las mencionan.
 insights-overview-panel-leads-roles = { $display } encabeza · { $job_count } puestos
-insights-overview-panel-opened-closed = { $new_count } abiertos · { $closed_count } cerrados
+insights-overview-panel-opened-closed = { $new_count } publicados · { $closed_count } cerrados
 insights-overview-panel-about-the-demand-field = Acerca de este gráfico
 
 ## features/statistics/PayBands.tsx
@@ -486,20 +486,29 @@ insights-offer-show-table = Ver la tabla
 insights-velocity-panel-companies = Empresas · { $window }
 insights-velocity-panel-open = Abiertos
 insights-velocity-panel-time-posted = Tiempo publicado
-insights-velocity-panel-from-the-first-scan-that = Días que una oferta estuvo publicada, desde que se vio por primera vez hasta que desapareció. Las ofertas se cierran por varios motivos: cubiertas, en pausa o caducadas.
+insights-velocity-panel-from-the-first-scan-that = Días desde la primera publicación hasta el cierre. Requiere 5 puestos cerrados con inicio conocido.
 insights-velocity-panel-age-of-open-roles = Antigüedad de los puestos abiertos
 insights-velocity-panel-how-long-postings-stay-up = Cuánto tiempo siguen publicadas las ofertas
-insights-velocity-panel-this-builds-up-as-roles = Se completa a medida que se cierran puestos. De momento solo lo han hecho { $closed_sample }.
+insights-velocity-panel-this-builds-up-as-roles = { $closed_sample ->
+    [one] Se completa cuando 5 puestos cerrados tengan un inicio conocido. De momento, 1.
+    [many] Se completa cuando 5 puestos cerrados tengan un inicio conocido. De momento, { $closed_sample }.
+   *[other] Se completa cuando 5 puestos cerrados tengan un inicio conocido. De momento, { $closed_sample }.
+}
 insights-velocity-panel-median-age = Antigüedad mediana: { $median_days_open }
 insights-velocity-panel-median-time-posted = Tiempo publicado mediano: { $median_observed_listing_duration_days }
-insights-velocity-panel-more-already-listed-when-their = { $first_scan } más ya publicados en el primer escaneo de su empresa
+insights-velocity-panel-more-already-listed-when-found = { $already_listed } encontrados ya publicados
 insights-velocity-panel-what-time-posted-measures = Qué mide «Tiempo publicado»
+insights-velocity-panel-age-unknown = Antigüedad desconocida: { $count }
+insights-velocity-panel-time-posted-unknown = Tiempo publicado desconocido: { $count }
+insights-velocity-panel-what-unknown-means = Qué significa «desconocido»
+insights-velocity-panel-why-a-start-is-unknown = Encontrada en el primer escaneo de una empresa, sin fecha del empleador.
+insights-velocity-panel-counted-from-first-listed = Contado desde la primera publicación de cada puesto.
+insights-velocity-panel-what-already-listed-means = Qué significa «encontrados ya publicados»
+insights-velocity-panel-why-already-listed = Ya publicados al verlos por primera vez: en el primer escaneo de una empresa, o con una fecha anterior del empleador.
 
 ## features/statistics/ageCopy.ts
 insights-age-copy-listed-today = Publicado hoy
 insights-age-copy-listed-for = Publicado desde hace { $days }
-insights-age-copy-dated-by-the-employer = { $percent }% con fecha del empleador
-insights-age-copy-counted-from-when-each-role = Desde la primera publicación de cada puesto · { $dated }
 
 ## features/statistics/charts/StatisticsCharts.tsx
 insights-statistics-charts-skill-open-roles = { $job_count } puestos abiertos · { $category }
@@ -578,7 +587,7 @@ insights-overview-panel-loading = Cargando el resumen…
 insights-overview-panel-load-failed = No se pudo cargar el resumen
 
 ## features/statistics/VelocityPanel.tsx
-insights-velocity-panel-opened-count = { $opened } nuevos
+insights-velocity-panel-opened-count = { $opened } publicados
 insights-velocity-panel-open-count = { $open_total } abiertos
 insights-velocity-panel-loading = Cargando el ritmo de contratación…
 insights-velocity-panel-load-failed = No se pudo cargar el ritmo de contratación
