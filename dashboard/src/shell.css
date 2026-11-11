@@ -569,6 +569,10 @@ textarea {
   color: var(--tb-text-muted);
   white-space: nowrap;
   font-size: 11px;
+  /* The text can carry the scan, the companies behind and the wider market's
+     count at once: on a narrow bar it ends in an ellipsis rather than pushing
+     Scan now off the edge. The tooltip and the accessible name keep it whole. */
+  min-width: 0;
 }
 
 .freshness-badge .dot {
@@ -590,6 +594,9 @@ textarea {
   font-weight: var(--app-weight-body);
   letter-spacing: normal;
   font-variant-numeric: tabular-nums;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .freshness-badge.fresh .dot {

@@ -829,6 +829,21 @@ async def directory_status(session: AsyncSession) -> dict:
     }
 
 
+async def first_pass(session: AsyncSession) -> dict | None:
+    """The first pass while it runs, as the header shows it beside the last scan.
+
+    None when the set is not followed, and once every company has been read: the
+    daily re-reads after that are routine, like a scheduled scan's, and are not
+    news the header should carry.
+    """
+    if not (await read_follow(session))["following"]:
+        return None
+    status = await directory_status(session)
+    if status["checked"] >= status["to_check"]:
+        return None
+    return {key: status[key] for key in ("checked", "to_check", "with_roles", "waiting_for_power")}
+
+
 async def sweep_under_lock(*, run_seconds: float, report: Callable[[dict], None]) -> list[dict]:
     """The sweep's passes under the directory lock, each reported as it ends.
     Another sweep holding the lock is one result saying so, not a failure.
