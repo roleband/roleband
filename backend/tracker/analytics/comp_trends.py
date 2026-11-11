@@ -15,8 +15,9 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
+from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, exists, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -119,8 +120,9 @@ async def compute_comp_metrics(session: AsyncSession) -> int:
     percentiles, read directly) and `comp_snapshot` (raw values per company/level/
     family, so the trend can recompute exact percentiles over a visible-company
     subset at read time), over the roles Insights describes
-    (`insights_role_conds`: open, in scope, a place set once), so a role listed
-    in twenty places weighs once. Both REPLACE today's rows: a group that no
+    (`insights_role_conds`: open, in scope, a place set once, through its first
+    member with an estimate from the source), so a role listed in twenty places
+    weighs once. Both REPLACE today's rows: a group that no
     longer has such a role with comp is gone from today, and its old values
     never pool with the survivors. Earlier days are untouched.
 
@@ -140,15 +142,24 @@ async def compute_comp_metrics(session: AsyncSession) -> int:
     plugin = ((applied or {}).get("active") or {}).get("pay.levels") or []
     sources = [OUR_ESTIMATE_SOURCE, *plugin[:1]]
 
-    estimated = (
-        await session.execute(
-            select(Job.company, level_key_expr(Job), Job.family, JobCompEstimate.comp_median,
-                   JobCompEstimate.source)
-            .join(JobCompEstimate, JobCompEstimate.job_id == Job.id)
-            .where(*insights_role_conds(), JobCompEstimate.source.in_(sources),
-                   JobCompEstimate.comp_currency == "USD")
-        )
-    ).all()
+    estimated: list = []
+    for source in sources:
+        # A place set's estimate is its first member's that has one from this
+        # source: a member at a place outside the estimate's country (no dollar
+        # estimate) never stands for the role.
+        def priced(peer: Any, source: str = source) -> list:
+            return [exists().where(JobCompEstimate.job_id == peer.id, JobCompEstimate.source == source,
+                                   JobCompEstimate.comp_currency == "USD")]
+
+        estimated += (
+            await session.execute(
+                select(Job.company, level_key_expr(Job), Job.family, JobCompEstimate.comp_median,
+                       JobCompEstimate.source)
+                .join(JobCompEstimate, JobCompEstimate.job_id == Job.id)
+                .where(*insights_role_conds(priced), JobCompEstimate.source == source,
+                       JobCompEstimate.comp_currency == "USD")
+            )
+        ).all()
     rows = [(company, level, family, median) for company, level, family, median, source in estimated
             if source == OUR_ESTIMATE_SOURCE]
 

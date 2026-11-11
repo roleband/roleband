@@ -751,6 +751,26 @@ async def test_a_role_listed_in_three_places_counts_once_in_every_skills_read_an
     assert sum(c.roles for c in cells) == pay["coverage"]["total_open"]
     assert [c.bands for c in cells if c.pay_basis == "base"] == [[{"low": 180000, "high": 240000, "reqs": 1}]]
 
+
+@pytest.mark.asyncio
+async def test_a_role_listed_in_several_places_keeps_its_estimate_through_the_posting_that_has_one(
+    db_session, seeded,
+):
+    """The set's first posting (EMEA) has no estimate and London's is in
+    pounds; Berlin's is in dollars. The daily pay record keeps the role's
+    one dollar estimate: a posting without one never stands for the role."""
+    members = await _add_a_place_set_and_an_other_company(db_session, seeded)
+    db_session.add_all([
+        JobCompEstimate(job_id=members["pm-london"], source="roleband", comp_median=150000, comp_currency="GBP"),
+        JobCompEstimate(job_id=members["pm-berlin"], source="roleband", comp_median=300000),
+    ])
+    await db_session.commit()
+    await comp_trends.compute_comp_metrics(db_session)
+    await db_session.commit()
+    values = (await db_session.scalars(select(CompSnapshot.comp_values).where(
+        CompSnapshot.company == "stripe", CompSnapshot.metric_date >= DAY_START))).all()
+    assert [v for vs in values for v in vs] == [300000]
+
 async def _onboard_a_company(db_session) -> dict[str, int]:
     """`acme` arrives today: its FIRST run finds three roles its board was already
     listing (one dated by its employer 200 days ago, one 20 days ago, one
