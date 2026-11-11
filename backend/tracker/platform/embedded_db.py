@@ -1,7 +1,7 @@
 """Embedded Postgres lifecycle: start or attach a server for a PGDATA directory.
 
 L0 primitive. It takes a path and returns a live server; *which* path (and so
-which database) is policy that lives in `config.py`. Imports no tracker module.
+which database) is policy that lives in `config.py`.
 
 Provenance: `pixeltable-pgserver` 0.6.0 — fork of `orm011/pgserver`, PostgreSQL
 License + Apache-2.0. The wheel ships PG 16.14 (`pginstall/`) and 18.4
@@ -31,7 +31,9 @@ Upstream behaviours this module compensates for:
 * **The socket option is unquoted, and the start takes no server settings.**
   Outside Windows every start goes through a quoted pg_ctl option string,
   which also carries the caller's `server_settings`, before upstream attaches.
-  Windows keeps upstream's start and the stock settings.
+* **Windows trust authentication exposes the cluster to other accounts.**
+  The native adapter owns initialization, account-private credentials, SCRAM,
+  runtime settings and process/endpoint validation before any connection.
 """
 
 from __future__ import annotations
@@ -41,6 +43,7 @@ import contextlib
 import json
 import logging
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -48,6 +51,11 @@ from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from importlib import metadata
 from pathlib import Path
+from typing import TYPE_CHECKING
+from urllib.parse import parse_qsl, quote, urlencode
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import URL
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +105,10 @@ def claim_cluster(pgdata: Path, owner: str) -> None:
     pgdata = Path(pgdata).expanduser()
     record = owner_record(pgdata)
     try:
+        if sys.platform == "win32" and record.exists():
+            from tracker.platform.windows_private import require_private
+
+            require_private(record)
         recorded = json.loads(record.read_text()).get("owner")
     except FileNotFoundError:
         recorded = None
@@ -109,8 +121,17 @@ def claim_cluster(pgdata: Path, owner: str) -> None:
             f"the database at {pgdata} was made by another installation"
             + (f" ({recorded})" if recorded else "") + " and stays in its care"
         )
-    record.parent.mkdir(parents=True, exist_ok=True)
+    if sys.platform == "win32":
+        from tracker.platform.windows_private import private_directory
+
+        private_directory(record.parent)
+    else:
+        record.parent.mkdir(parents=True, exist_ok=True)
     partial = record.with_name(record.name + ".partial")
+    if sys.platform == "win32" and partial.exists():
+        from tracker.platform.windows_private import require_private
+
+        require_private(partial)
     partial.write_text(json.dumps({"owner": owner}) + "\n")
     os.replace(partial, record)
 
@@ -167,6 +188,12 @@ class EmbeddedServer:
         userinfo, at, hostport = netloc.rpartition("@")
         if at and userinfo.endswith(":"):
             netloc = f"{userinfo[:-1]}{at}{hostport}"
+        path, question, query = tail.partition("?")
+        if driver == "asyncpg" and question and "sslmode=" in query:
+            # SQLAlchemy forwards URL options as asyncpg keyword arguments.
+            # direct asyncpg DSNs accept libpq's sslmode spelling as well.
+            options = [("ssl" if key == "sslmode" else key, value) for key, value in parse_qsl(query)]
+            tail = path + "?" + urlencode(options, quote_via=quote)
         return f"postgresql+{driver}://{netloc}{slash}{tail}"
 
     def dsn(self) -> str:
@@ -176,6 +203,22 @@ class EmbeddedServer:
     def tool(self, name: str) -> Path:
         """Absolute path to a bundled client binary (`pg_dump`, `psql`, ...)."""
         return _tool(self.bin_dir, name)
+
+
+def asyncpg_arguments(url: URL) -> dict:
+    """Driver arguments for direct clients of the configured SQLAlchemy URL."""
+    arguments = {
+        "user": url.username, "password": url.password, "database": url.database, "port": url.port,
+    }
+    for name in ("host", "passfile", "ssl"):
+        value = url.query.get(name)
+        if isinstance(value, tuple):
+            value = value[0]
+        if value:
+            arguments[name] = value
+    if "host" not in arguments and url.host:
+        arguments["host"] = url.host
+    return {key: value for key, value in arguments.items() if value is not None}
 
 
 def bundled_bin_dir(postgres_version: int = DEFAULT_POSTGRES_VERSION) -> Path:
@@ -204,10 +247,15 @@ def _tool(bin_dir: Path, name: str) -> Path:
     exe = bin_dir / (f"{name}.exe" if os.name == "nt" else name)
     if not exe.exists():
         raise EmbeddedDbError(f"{name} not found in the pgserver wheel at {bin_dir}")
+    if os.name == "nt":
+        from tracker.platform.windows_private import native_path
+
+        return Path(native_path(exe))
     return exe
 
 
-def run_psql(server_dsn: str, bin_dir: Path, sql: str, *, timeout: float | None = 60.0) -> str:
+def run_psql(server_dsn: str, bin_dir: Path, sql: str, *, timeout: float | None = 60.0,
+             env: Mapping[str, str] | None = None) -> str:
     """Run one statement through the bundled psql, raising on SQL error.
 
     The one psql runner — app code, scripts, and tests all use this.
@@ -217,13 +265,27 @@ def run_psql(server_dsn: str, bin_dir: Path, sql: str, *, timeout: float | None 
     that accepts connections but never answers would otherwise hang the
     supervisor forever — launchd will not start a second instance of a label
     that is still running. Pass `timeout=None` for statements that may
-    legitimately run long (ANALYZE after a full restore).
+    legitimately run long (ANALYZE after a full restore). `env` adds variables for a server that is not the
+    embedded one, such as a migration's source, whose libpq settings `forget_libpq_environment` removed.
     """
+    arguments = ["-c", sql]
+    payload = None
+    if os.name == "nt":
+        # The Windows client's argv uses the ANSI code page. UTF-8 data on stdin
+        # avoids that conversion. gexec keeps the whole SQL in one server query,
+        # including the implicit transaction boundary of a multi-statement -c.
+        payload = f"SELECT convert_from(decode('{sql.encode('utf-8').hex()}', 'hex'), 'UTF8') \\gexec\n"
+        arguments = ["-f", "-"]
     try:
         proc = subprocess.run(
-            [str(_tool(bin_dir, "psql")), server_dsn, "-v", "ON_ERROR_STOP=1", "-tAX", "-c", sql],
+            # `-d`, not a leading positional DSN: the Windows build's getopt stops
+            # at the first positional and ignores every option after it.
+            [str(_tool(bin_dir, "psql")), "-w", "-d", server_dsn, "-v", "ON_ERROR_STOP=1", "-tAX", *arguments],
+            input=payload,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            env={**os.environ, **(env or {}), "PGCLIENTENCODING": "UTF8"},
             timeout=timeout,
         )
     except subprocess.TimeoutExpired:
@@ -260,12 +322,38 @@ def locale_available(name: str) -> bool:
     """
     probe = (
         "import locale, sys\n"
+        "if sys.platform == 'win32' and sys.argv[1] not in ('C', 'POSIX'):\n"
+        "    import ctypes\n"
+        "    from ctypes import wintypes\n"
+        "    name = sys.argv[1].split('.')[0].replace('_', '-')\n"
+        "    names = set()\n"
+        "    callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.LPWSTR, wintypes.DWORD, wintypes.LPARAM)\n"
+        "    def remember(value, flags, parameter):\n"
+        "        names.add(value.lower())\n"
+        "        return True\n"
+        "    callback = callback_type(remember)\n"
+        "    if not ctypes.windll.kernel32.EnumSystemLocalesEx(callback, 0, 0, None):\n"
+        "        sys.exit(1)\n"
+        "    if name.lower() not in names:\n"
+        "        sys.exit(1)\n"
         "try:\n"
         "    locale.setlocale(locale.LC_ALL, sys.argv[1])\n"
         "except locale.Error:\n"
         "    sys.exit(1)\n"
     )
-    return subprocess.run([sys.executable, "-c", probe, name], capture_output=True).returncode == 0
+    options: dict = {}
+    if sys.platform == "win32":
+        import psutil
+
+        # A native image avoids the venv redirector's inherited pipe lifetime.
+        # The probe must not inherit the desktop host's control input.
+        options = {"executable": psutil.Process().exe(), "creationflags": subprocess.CREATE_NO_WINDOW,
+                   "env": {**os.environ, "__PYVENV_LAUNCHER__": sys.executable}}
+    try:
+        return subprocess.run([sys.executable, "-c", probe, name], capture_output=True,
+                              stdin=subprocess.DEVNULL, timeout=10, **options).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
 
 
 def _prune_dead_holders(pgdata: Path) -> int:
@@ -309,6 +397,14 @@ def stop_server(pgdata: Path, *, postgres_version: int = DEFAULT_POSTGRES_VERSIO
     # printing "was not running" over a server it left up.
     pgserver = _upstream()
 
+    if os.name == "nt":
+        from tracker.platform.windows_db import stop_cluster
+
+        try:
+            stop_cluster(pgdata.resolve(), bundled_bin_dir(postgres_version))
+        except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
+            raise EmbeddedDbError(f"cannot stop Windows embedded database at {pgdata}: {exc}") from exc
+        return True
     _prune_dead_holders(pgdata)
     exe = _tool(bundled_bin_dir(postgres_version), "pg_ctl")
     proc = subprocess.run(
@@ -418,6 +514,27 @@ def _quoted_server(pgserver, pgdata: Path, postgres_version: int, server_setting
     return handle
 
 
+#: What libpq and the drivers read from the environment when a connection leaves it unnamed. The embedded
+#: cluster's connections name host, port, user, database and password file, but a password set for another
+#: PostgreSQL on this machine still wins over that file, and options, a service or a TLS mode would reshape the
+#: connection. PGCLIENTENCODING stays: the psql runner sets it on purpose.
+LIBPQ_ENVIRONMENT = frozenset({
+    "PGHOST", "PGHOSTADDR", "PGPORT", "PGDATABASE", "PGUSER", "PGPASSWORD", "PGPASSFILE", "PGSERVICE",
+    "PGSERVICEFILE", "PGOPTIONS", "PGAPPNAME", "PGSSLMODE", "PGREQUIRESSL", "PGSSLCOMPRESSION", "PGSSLCERT",
+    "PGSSLKEY", "PGSSLCERTMODE", "PGSSLROOTCERT", "PGSSLCRL", "PGSSLCRLDIR", "PGSSLSNI", "PGSSLNEGOTIATION",
+    "PGREQUIREPEER", "PGSSLMINPROTOCOLVERSION", "PGSSLMAXPROTOCOLVERSION", "PGGSSENCMODE", "PGKRBSRVNAME",
+    "PGGSSLIB", "PGGSSDELEGATION", "PGCONNECT_TIMEOUT", "PGTARGETSESSIONATTRS", "PGLOADBALANCEHOSTS",
+    "PGCHANNELBINDING", "PGREQUIREAUTH", "PGDATESTYLE", "PGTZ", "PGGEQO", "PGSYSCONFDIR", "PGDATA",
+})
+
+
+def forget_libpq_environment() -> None:
+    """Drop the libpq variables this process inherited, for itself and every tool it starts. An embedded cluster is
+    this process's only database, so nothing of the machine's own PostgreSQL setup applies to it."""
+    for name in [name for name in os.environ if name.upper() in LIBPQ_ENVIRONMENT]:
+        del os.environ[name]
+
+
 def ensure_server(
     pgdata: Path,
     *,
@@ -429,20 +546,22 @@ def ensure_server(
 ) -> EmbeddedServer:
     """Start or attach the server owning `pgdata`, with `database` present.
 
-    Idempotent and safe to call from every process: upstream refcounts holders
-    in `<pgdata>/.handle_pids.json` and stops the server when the last exits.
-    `server_settings` are `-c` settings for a start; attaching to a running
-    server leaves its settings as they are.
+    Idempotent and safe to call from every process. POSIX uses upstream holder
+    tracking; Windows serializes initialization and start under a private lock.
+    `server_settings` apply on a start. Attaching to a running server leaves
+    its settings as they are.
     """
-    pgserver = _upstream()
-
+    forget_libpq_environment()
     pgdata = Path(pgdata).expanduser()
-    pgdata.parent.mkdir(parents=True, exist_ok=True)
+    if os.name == "nt":
+        from tracker.platform.windows_recovery import require_launchable
+
+        require_launchable(pgdata.absolute().parent)
+    pgserver = _upstream()
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,62}", database):
+        raise EmbeddedDbError("embedded database name must be a PostgreSQL identifier of at most 63 characters")
     first_run = not (pgdata / "PG_VERSION").exists()
     if first_run and locale and not locale_available(locale):
-        # initdb would say only "invalid locale settings; check LANG and LC_*",
-        # which points at the environment rather than at the pin that set it.
-        # Minimal Linux images ship C, C.UTF-8 and POSIX and nothing else.
         raise EmbeddedDbError(
             f"cannot create the embedded database at {pgdata}: its collation is pinned to "
             f"{locale!r} and this system has no such locale. Install it (Debian/Ubuntu: "
@@ -451,18 +570,31 @@ def ensure_server(
             f"ROLEBAND_DB_LOCALE=C.UTF-8. It is chosen once, at this first start, and fixes "
             f"how text sorts for the life of the database."
         )
+    if os.name == "nt":
+        from tracker.platform.windows_db import ensure_cluster
+
+        pgdata = pgdata.resolve()
+        bin_dir = bundled_bin_dir(postgres_version)
+        try:
+            port, passfile = ensure_cluster(
+                pgdata, bin_dir, postgres_version, locale or DEFAULT_LOCALE, server_settings or {},
+            )
+        except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
+            raise EmbeddedDbError(f"cannot open Windows embedded database at {pgdata}: {exc}") from exc
+        query = urlencode({"passfile": str(passfile), "sslmode": "disable"}, quote_via=quote)
+        prefix = f"postgresql://postgres@127.0.0.1:{port}"
+        _ensure_database(f"{prefix}/postgres?{query}", bin_dir, database)
+        server = EmbeddedServer(pgdata, database, bin_dir, f"{prefix}/{quote(database)}?{query}")
+        require_extensions(server, required_extensions)
+        return server
+    pgdata.parent.mkdir(parents=True, exist_ok=True)
     _prune_dead_holders(pgdata)
 
     try:
         # Locale only matters on the initdb inside this call; on later calls the
         # cluster already exists and upstream skips initdb.
         with _pinned_locale(locale if first_run else None):
-            if os.name != "nt":
-                handle = _quoted_server(pgserver, pgdata, postgres_version, server_settings or {})
-            else:
-                handle = pgserver.get_server(
-                    pgdata, cleanup_mode=DEFAULT_CLEANUP_MODE, postgres_version=postgres_version
-                )
+            handle = _quoted_server(pgserver, pgdata, postgres_version, server_settings or {})
     except Exception as exc:
         log = pgdata / "log"
         tail = ""

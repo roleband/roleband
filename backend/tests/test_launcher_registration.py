@@ -20,6 +20,8 @@ from tracker.platform.launcher import (
     unregister_installation,
 )
 
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="macOS and POSIX tooling runs on the Mac")
+
 
 def checkout(path: Path) -> Path:
     (path / "deploy").mkdir(parents=True)

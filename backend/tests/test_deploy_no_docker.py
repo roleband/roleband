@@ -13,10 +13,13 @@ from __future__ import annotations
 
 import re
 import stat
+import sys
 from pathlib import Path
 
 import pytest
 import yaml
+
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="macOS and POSIX tooling runs on the Mac")
 
 ROOT = Path(__file__).resolve().parents[2]
 DEPLOY = ROOT / "deploy"

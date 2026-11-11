@@ -16,9 +16,10 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import func, select
 
-from scripts.seed_synthetic import SYNTHETIC_PREFIX, clear, seed
-from tracker.db.models import Job, SourceBinding
+from scripts.seed_synthetic import SYNTHETIC_PREFIX, clear, seed, seed_trial
+from tracker.db.models import Job, ScrapeRun, SourceBinding
 from tracker.schema import UNPLACED_BASIS_VALUES
+from tracker.settings_store import get_enabled_bands, set_enabled_bands
 from tracker.taxonomy.locations import pay_country
 
 # Small on purpose: these assert behaviour, not throughput, and each seeded row
@@ -95,6 +96,57 @@ async def test_seeding_twice_upserts_rather_than_duplicating(db_session):
 
     assert first == second == _COUNT
     assert await db_session.scalar(select(func.count()).select_from(Job)) == _COUNT
+
+
+@pytest.mark.asyncio
+async def test_a_trial_is_seeded_on_its_first_start_only(db_session):
+    """A later start leaves the trial user's bands and scan history as they are, also once the
+    postings are gone."""
+    first = await seed_trial(db_session)
+    await set_enabled_bands(db_session, ["mid"])
+    scans = await db_session.scalar(select(func.count()).select_from(ScrapeRun))
+
+    assert first > 0
+    assert await seed_trial(db_session) == first
+    assert await get_enabled_bands(db_session) == {"mid"}
+    assert await db_session.scalar(select(func.count()).select_from(ScrapeRun)) == scans
+
+    await clear(db_session)
+    assert await seed_trial(db_session) == 0
+    assert await get_enabled_bands(db_session) == {"mid"}
+    assert await db_session.scalar(select(func.count()).select_from(ScrapeRun)) == scans
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("postings", ["kept", "removed"])
+async def test_a_trial_seeded_without_the_record_is_not_seeded_again(db_session, postings):
+    """A database `seed` filled has no record of a trial's seeding; its user's bands stay, whether
+    or not its postings are still there."""
+    await seed(db_session, _COUNT, seed_value=1, derived=False)
+    await set_enabled_bands(db_session, ["mid"])
+    if postings == "removed":
+        await clear(db_session)
+    scans = await db_session.scalar(select(func.count()).select_from(ScrapeRun))
+
+    assert await seed_trial(db_session) == (_COUNT if postings == "kept" else 0)
+    assert await get_enabled_bands(db_session) == {"mid"}
+    assert await db_session.scalar(select(func.count()).select_from(ScrapeRun)) == scans
+    await clear(db_session)
+    assert await seed_trial(db_session) == 0
+    assert await get_enabled_bands(db_session) == {"mid"}
+
+
+@pytest.mark.asyncio
+async def test_a_trial_holding_only_a_posting_of_its_own_is_left_as_it_is(db_session):
+    """No synthetic postings, scan or saved bands, but a posting `seed` would refuse to write
+    beside: the trial starts on it instead of failing to seed."""
+    db_session.add(_a_row_the_seeder_must_never_touch())
+    await db_session.flush()
+
+    assert await seed_trial(db_session) == 0
+    assert (await db_session.scalars(select(Job.req_id))).all() == ["REAL-12345"]
+    assert await db_session.scalar(select(func.count()).select_from(ScrapeRun)) == 0
+    assert await seed_trial(db_session) == 0
 
 
 @pytest.mark.asyncio

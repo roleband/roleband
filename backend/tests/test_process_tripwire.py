@@ -47,7 +47,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from tests.conftest import EscapeRefused
+from tests.conftest import EscapeRefused, posix_processes
 from tracker.config import get_settings
 
 BACKEND = Path(__file__).resolve().parents[1]
@@ -123,6 +123,9 @@ REACHING = frozenset(
         # `python -m tracker.supervisor`: runs the service, and `stop --jobs`
         # stops the runs a dead supervisor left.
         "tracker.supervisor.__main__",
+        # The Windows engine host: starts the API service and the dispatcher, and
+        # stops them when the app quits.
+        "tracker.supervisor.desktop",
     }
 )
 
@@ -568,6 +571,7 @@ def test_signalling_a_process_is_refused(no_escape):
         os.kill(ABSENT_PID, 15)
 
 
+@posix_processes
 def test_signalling_a_process_group_is_refused(no_escape):
     with pytest.raises(EscapeRefused):
         os.killpg(ABSENT_PID, 15)
@@ -592,9 +596,23 @@ def test_an_outbound_urllib_request_is_refused(no_escape):
         urllib.request.urlopen("http://127.0.0.1:9/")
 
 
+@posix_processes
 def test_observing_a_process_is_still_allowed(no_escape):
     """`kill(pid, 0)` asks whether a process exists; the liveness probes need it."""
     assert os.kill(os.getpid(), 0) is None
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows process control requires Windows")
+def test_windows_native_control_and_zero_signals_are_refused(no_escape):
+    """On Windows `os.kill(pid, 0)` terminates rather than probes, so it is refused with native control.
+
+    Windows process IDs are multiples of four, so 7 names no process even if the refusal were missing."""
+    from tracker.platform import windows_process
+
+    with pytest.raises(EscapeRefused):
+        os.kill(7, 0)
+    with pytest.raises(EscapeRefused, match="native process control"):
+        windows_process._kernel()
 
 
 def test_an_in_process_transport_is_still_allowed(no_escape):

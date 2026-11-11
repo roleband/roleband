@@ -39,10 +39,13 @@ second user.
    }
    ```
 
+   On Windows the command is `<repo>\backend\.venv\Scripts\python.exe`.
+
 3. Restart the client and ask it to call `get_server_status`.
 
 The server opens the database itself, so the API does not need to be running.
-To debug it by hand: `cd backend && .venv/bin/python -m tracker.mcp.server`.
+To debug it by hand: `cd backend && .venv/bin/python -m tracker.mcp.server`
+(on Windows, `.venv\Scripts\python.exe -m tracker.mcp.server`).
 
 ## Access gates
 

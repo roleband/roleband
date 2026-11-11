@@ -33,6 +33,7 @@ from sqlalchemy.engine import URL
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from tracker.db import job_store
+from tracker.platform.embedded_db import asyncpg_arguments
 from tracker.supervisor import activation, logs, maintenance, singleton
 from tracker.supervisor.activation import Watcher
 from tracker.supervisor.api import ApiService
@@ -41,22 +42,9 @@ from tracker.supervisor.dispatch import Dispatcher
 
 logger = logging.getLogger("tracker.supervisor")
 
-
-def asyncpg_arguments(url: URL) -> dict:
-    """asyncpg connection arguments for a SQLAlchemy URL, including the embedded
-    server's socket directory, which travels in the URL's query."""
-    arguments: dict = {
-        "user": url.username,
-        "password": url.password,
-        "database": url.database,
-        "port": url.port,
-    }
-    host = url.query.get("host") or url.host
-    if isinstance(host, tuple):
-        host = host[0]
-    if host:
-        arguments["host"] = host
-    return {key: value for key, value in arguments.items() if value is not None}
+#: How long quit waits for cancelled runs to settle; below the Windows host's stop timeout, so the host never has
+#: to force the engine down while it is still releasing its lock.
+QUIT_DRAIN_SECONDS = 20.0
 
 
 class Listener:
@@ -99,6 +87,7 @@ async def serve(
     watcher: Watcher | None = None,
     reexec: Callable[[], None] | None = None,
     beat: Callable[[], None] = lambda: None,
+    cancel_on_stop: bool = False,
 ) -> None:
     """`recover` brings a database back that cannot be reached; it runs here, in
     the supervisor, because with the database down no job can even be recorded."""
@@ -171,10 +160,21 @@ async def serve(
                     api=api, watcher=watcher, beat=beat,
                 )
         finally:
+            if cancel_on_stop and stop.is_set():
+                try:
+                    await dispatcher.drain(cancel=True, reason="app_quit")
+                    deadline = awake_seconds() + QUIT_DRAIN_SECONDS
+                    while dispatcher.watched and awake_seconds() < deadline:
+                        beat()
+                        await dispatcher.settle()
+                        await asyncio.sleep(0.05)
+                except Exception:  # noqa: BLE001 - quit still stops the API and releases the lock
+                    logger.exception("could not cancel the running jobs before quitting")
             if api is not None:
                 # The API serves only while this supervisor dispatches: not in
                 # maintenance, not beside another supervisor, not across a re-exec.
                 await api.stop(grace_seconds=10.0 if ended in (None, STOPPED) else 30.0)
+                api.close()
             await listener.close()
             await singleton.release(held)
         if ended is None:

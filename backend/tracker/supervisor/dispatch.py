@@ -142,8 +142,8 @@ class Dispatcher:
             for run in await job_store.live_runs(session):
                 verdict = adopt.reconcile(
                     run,
-                    is_run=runner.is_run,
-                    find_run=runner.find_run,
+                    is_run=lambda pid, run_id, began: runner.is_run(pid, run_id, began, data_dir=self.data_dir),
+                    find_run=lambda run_id: runner.find_run(run_id, data_dir=self.data_dir),
                     read_result=lambda run_id: child.read_result(runner.result_path(self.data_dir, run_id)),
                 )
                 verdicts.append((run.id, verdict))
@@ -166,7 +166,8 @@ class Dispatcher:
                 else:
                     await job_store.finish_run(
                         session, run.id, state=verdict.state or job_store.LOST,
-                        exit_code=verdict.exit_code, result=verdict.result,
+                        exit_code=child.exit_status(verdict.exit_code) if verdict.exit_code is not None else None,
+                        result=verdict.result,
                     )
             await session.commit()
         return verdicts
@@ -207,6 +208,8 @@ class Dispatcher:
             process = watched.launched.process
             if exit_code is None and process is not None:
                 exit_code = process.returncode
+            if exit_code is not None:
+                exit_code = child.exit_status(exit_code)
             raw = child.read_result(runner.raw_path(self.data_dir, run_id))
             if result is not None or process is not None:
                 result = {**(result or {}), **results.summarize(watched.job.name, exit_code, raw)}
@@ -237,11 +240,15 @@ class Dispatcher:
             logger.info("%s run %s ended %s (exit %s)", watched.key, run_id, state, exit_code)
         return ended
 
-    @staticmethod
-    def _ended(watched: Watched) -> bool:
+    def _ended(self, watched: Watched) -> bool:
         process = watched.launched.process
         if process is not None:
             return process.poll() is not None
+        if sys.platform == "win32":
+            return not runner.is_run(
+                watched.launched.pid, watched.launched.run_id, watched.launched.proc_started_at,
+                data_dir=self.data_dir,
+            )
         # Adopted. After a re-exec it is still this process's child, and one that
         # exited stays a zombie, keeping its group alive, until it is reaped.
         try:
@@ -283,6 +290,8 @@ class Dispatcher:
             runner.stop_group(
                 watched.launched.pgid, watched.job.grace_seconds,
                 reap=process.poll if process is not None else None,
+                run_id=watched.launched.run_id, proc_started_at=watched.launched.proc_started_at,
+                data_dir=self.data_dir,
             )
         )
         logger.info("stopping %s run %s: %s", watched.key, watched.launched.run_id, why)

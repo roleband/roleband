@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import socket
+import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import MappingProxyType
@@ -62,7 +63,15 @@ def downloads(tmp_path, monkeypatch):
         tiers=MappingProxyType({"fp32": ArtifactSpec("graph", "model.onnx", hashlib.sha256(graph).hexdigest(), len(graph))}),
         tokenizer=ArtifactSpec("tokenizer", "tokenizer.json", hashlib.sha256(tokenizer).hexdigest(), len(tokenizer)),
     )
-    monkeypatch.setattr(provision, "DATA_DIR", tmp_path)
+    # The data folder as an installed app has it: private to the account, which the packaged warmup requires.
+    data = tmp_path / "data"
+    if sys.platform == "win32":
+        from tracker.platform.windows_private import private_directory
+
+        private_directory(data)
+    else:
+        data.mkdir()
+    monkeypatch.setattr(provision, "DATA_DIR", data)
     monkeypatch.setattr(provision, "_MIRRORS", (f"http://127.0.0.1:{server.server_port}/{{path}}",))
     monkeypatch.setattr(provision.time, "sleep", lambda seconds: None)
     try:

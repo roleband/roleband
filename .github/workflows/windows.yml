@@ -1,0 +1,142 @@
+name: windows
+
+# The Windows functional suite (real embedded PostgreSQL, Job Objects, ACLs and
+# sharing handles), the packaging tool tests and the native host tests, which skip on
+# Linux, and the rest of the backend suite on Windows, which the packaged engine runs.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Read the code, nothing more: no job here writes to the repository.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # A gate takes no `paths:` filter, so this job decides whether a pull request needs the
+  # Windows lane at all. PATHS is every file it reads.
+  changes:
+    name: windows-changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      windows: ${{ steps.decide.outputs.windows }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          TIER: windows
+          PATHS: |
+            backend/**
+            sdk/python/**
+            robots/python/**
+            launcher/windows/**
+            global.json
+            dashboard/package.json
+            deploy/check_local.py
+            launcher/macos/Tools/ci_changes.py
+            .python-version
+            .github/workflows/windows.yml
+        run: python3 launcher/macos/Tools/ci_changes.py
+
+  checks:
+    name: windows (${{ matrix.lane }}${{ matrix.shard && format(' {0}', matrix.shard) || '' }})
+    needs: changes
+    # Runs when `changes` fails too.
+    if: ${{ !cancelled() }}
+    runs-on: windows-2025
+    strategy:
+      # Every lane and shard reports: one red runner must not hide another's failures.
+      fail-fast: false
+      matrix:
+        # The suite lane is the rest of the backend suite, split by test file across
+        # four runners with the backend lane's cut (`--shard` in backend/conftest.py).
+        # The hash places files unevenly, so a shard count is chosen by the largest
+        # shard it leaves; SUITE_SHARDS below names the same count.
+        include:
+          - lane: checkpoints
+          - lane: engine
+          - lane: native
+          - { lane: suite, shard: 1 }
+          - { lane: suite, shard: 2 }
+          - { lane: suite, shard: 3 }
+          - { lane: suite, shard: 4 }
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      # An unlisted skip fails the run (tests/skip_policy.py), as in the backend lane.
+      ROLEBAND_REQUIRE_INTEGRATION: "1"
+      PYTHONUTF8: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.changes.outputs.windows != 'false'
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: needs.changes.outputs.windows != 'false'
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+            backend/constraints/windows-x86_64.txt
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        if: needs.changes.outputs.windows != 'false' && matrix.lane == 'native'
+        with:
+          # The SDK the lock files were made with: another patch brings its own native-compiler packages.
+          global-json-file: global.json
+      # The native source-engine test starts backend/.venv, as a developer checkout does.
+      - name: backend environment
+        if: needs.changes.outputs.windows != 'false'
+        working-directory: backend
+        run: |
+          python -m venv .venv
+          .venv\Scripts\python.exe -m pip install -r requirements.txt -r requirements-dev.txt -c constraints/windows-x86_64.txt
+          .venv\Scripts\python.exe -m pip install -e ..\robots\python
+          .venv\Scripts\python.exe -m scripts.install_pg_contrib
+      - name: check Windows lane
+        id: check
+        if: needs.changes.outputs.windows != 'false'
+        env:
+          WINDOWS_LANE: ${{ matrix.lane }}
+          WINDOWS_SHARD: ${{ matrix.shard }}
+          SUITE_SHARDS: 4
+        run: |
+          $run = $env:WINDOWS_LANE
+          $cut = @()
+          if ($env:WINDOWS_SHARD) {
+            $run = "$run-$env:WINDOWS_SHARD"
+            $cut = @('--shard', "$env:WINDOWS_SHARD/$env:SUITE_SHARDS")
+          }
+          $output = Join-Path "$env:SystemDrive\rb" $run
+          "output=$output" >> $env:GITHUB_OUTPUT
+          "run=$run" >> $env:GITHUB_OUTPUT
+          .\backend\.venv\Scripts\python.exe deploy/check_local.py windows --windows-lane $env:WINDOWS_LANE @cut --output $output
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: upload test outcomes
+        if: always() && steps.check.outputs.output != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-test-results-${{ steps.check.outputs.run }}
+          path: |
+            ${{ steps.check.outputs.output }}/*.log
+            ${{ steps.check.outputs.output }}/*.xml
+            ${{ steps.check.outputs.output }}/*.trx
+            ${{ steps.check.outputs.output }}/report.json
+          if-no-files-found: ignore
+          retention-days: 7

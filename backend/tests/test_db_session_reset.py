@@ -69,7 +69,9 @@ async def test_a_reset_waits_for_a_session_that_has_not_committed_yet(db_session
         await until_waiting(engine, reset, pid=pid)
         assert not reset.done(), "the reset waits on the writer's lock instead of reading past it"
         await writer.commit()
-        await asyncio.wait_for(reset, 10)
+        # A bound, not a budget: the claims are that the reset waited and then left nothing. Truncating every table
+        # and committing it can take longer than ten seconds on a runner loaded by the whole suite.
+        await asyncio.wait_for(reset, 60)
     async with engine.connect() as conn:
         assert await _left_behind(conn) == {}
 

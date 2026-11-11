@@ -13,9 +13,12 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
+
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="macOS and POSIX tooling runs on the Mac")
 
 SCRIPT = Path(__file__).resolve().parents[2] / "deploy" / "build_dashboard.sh"
 

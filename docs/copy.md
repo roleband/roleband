@@ -5,6 +5,9 @@ Every string a person can read in RoleBand is either a message in one catalog
 written in a subset of [Fluent](https://projectfluent.org/), compiled into
 TypeScript functions, checked against the product's language rules, and
 translated per message. Identifiers, API field names and URL paths are not copy.
+Neither is a failure's technical reason: the native apps and Windows Setup show it
+under the catalogued message that says what failed, in English as it was raised
+(by the engine, Windows or the program itself), for the person to report.
 
 ---
 

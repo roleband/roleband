@@ -7,7 +7,7 @@ retired: []
 register:
   formal: false
   forbidden: [usted, ustedes]
-proper_nouns: [RoleBand, IA, LinkedIn, macOS, Apple, Google, Stripe]
+proper_nouns: [RoleBand, Windows, IA, LinkedIn, macOS, Apple, Google, Stripe]
 mechanics:
   # Regla del propietario: nunca la raya larga. Los puntos suspensivos son un carácter.
   forbid: ["—", "..."]
@@ -18,4 +18,4 @@ next_steps: ["Inténtalo de nuevo.", "Inténtalo de nuevo cuando termine el esca
   "Revisa los años e inténtalo de nuevo.", "Añádelo e inténtalo de nuevo.", "Corrígelos e inténtalo de nuevo.",
   "Actívalo en Ajustes › IA.", "Desactívalo en Ajustes › Plugins.", "Añade uno en Ajustes › IA.", "Cámbialo en Decididos.", "Revísala en tu cuenta de Tiingo e inténtalo de nuevo.",
   "Selecciona el texto y cópialo tú.",
-  "Revisa el enlace o prueba con otro.", "Mueve su escaneo completo.", "Inícialo tú y luego prueba la conexión.", "Detenlo tú.", "Márcalo como Retirado."]
+  "Revisa el enlace o prueba con otro.", "Mueve su escaneo completo.", "Inícialo tú y luego prueba la conexión.", "Detenlo tú.", "Márcalo como Retirado.", "Abre tu Radar desde la app."]

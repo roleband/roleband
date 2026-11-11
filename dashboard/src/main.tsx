@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { shellApi } from "./api/shell";
+import { captureBrowserHandoff } from "./api/localAuthentication";
 import { setCompanyNames } from "./format";
 import { installGlobalErrorCapture } from "./diagnostics/clientErrors";
 import { intentRevision, storedChoice } from "./copy/runtime";
@@ -27,6 +28,7 @@ import "./design/dataviz.css";
 import "./shell.css";
 
 // Before the tree mounts, so a throw during the first render is recorded too.
+captureBrowserHandoff();
 installGlobalErrorCapture();
 
 /* The first screen's code, and at "/" the setup question the shell asks

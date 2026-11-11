@@ -114,6 +114,29 @@ class TestEndToEndCopy:
         finally:
             destroy(target_pgdata)
 
+    def test_a_source_reached_through_the_environment_is_still_read_after_the_target_starts(
+            self, source, tmp_path, monkeypatch):
+        """The caller's libpq settings (a password file, a socket directory) reach the source; starting the
+        embedded target removes them from the process, and the source's tools must still have them."""
+        from urllib.parse import parse_qsl, urlsplit, urlunsplit
+
+        parts = urlsplit(source.dsn())
+        named = {"host": "PGHOST", "port": "PGPORT", "passfile": "PGPASSFILE", "sslmode": "PGSSLMODE"}
+        for key, value in parse_qsl(parts.query):
+            monkeypatch.setenv(named[key], value)
+        if parts.port is not None:
+            monkeypatch.setenv("PGPORT", str(parts.port))
+        bare = urlunsplit((parts.scheme, parts.netloc.rsplit(":", 1)[0] if parts.port else parts.netloc,
+                           parts.path, "", ""))
+        target_pgdata = tmp_path / "from-env" / "db"
+        target_pgdata.parent.mkdir(parents=True)
+        try:
+            assert migrate(bare, target_pgdata, database="roleband") == 0
+            target = ensure_server(target_pgdata, database="roleband", locale=cluster_locale())
+            assert psql(target, "SELECT count(*) FROM jobs") == "40"
+        finally:
+            destroy(target_pgdata)
+
     def test_refuses_to_migrate_into_an_existing_cluster(self, source, tmp_path):
         """The guard that stops a second run from restoring over live data."""
         target_pgdata = tmp_path / "occupied" / "db"

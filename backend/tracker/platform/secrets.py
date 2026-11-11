@@ -2,8 +2,8 @@
 
 A key saved in Settings (the price feed's, a cloud or local model's) is stored
 as `sealed:v1:<Fernet token>`. The Fernet key lives in a file of its own,
-`~/.roleband/secret.key` (`ROLEBAND_SECRET_KEY_FILE` names another), readable by
-its owner only and outside `data/`, so a database dump or a backup copied
+`secret.key` in retained account state (`ROLEBAND_SECRET_KEY_FILE` names another), readable by
+its owner only in retained account state, so a database dump or a backup copied
 elsewhere holds ciphertext, not the key.
 
 A value without the prefix is a key saved before sealing existed: it reads as
@@ -18,10 +18,13 @@ from __future__ import annotations
 import base64
 import logging
 import os
+import sys
 import tempfile
 from pathlib import Path
 
 from cryptography.fernet import Fernet, InvalidToken
+
+from tracker.platform.paths import user_data_dir
 
 PREFIX = "sealed:v1:"
 KEY_FILE_ENV = "ROLEBAND_SECRET_KEY_FILE"
@@ -35,7 +38,7 @@ class SecretUnavailable(Exception):
 
 def key_path() -> Path:
     override = os.environ.get(KEY_FILE_ENV)
-    return Path(override).expanduser() if override else Path.home() / ".roleband" / "secret.key"
+    return Path(override).expanduser() if override else user_data_dir() / "secret.key"
 
 
 def is_sealed(value: object) -> bool:
@@ -44,9 +47,15 @@ def is_sealed(value: object) -> bool:
 
 def _read_key(path: Path) -> bytes | None:
     try:
+        if sys.platform == "win32":
+            from tracker.platform.windows_private import require_private
+
+            require_private(path)
         key = path.read_bytes().strip()
     except FileNotFoundError:
         return None
+    except OSError as error:
+        raise SecretUnavailable("the saved-key file is unavailable or not private") from error
     try:
         valid = len(base64.urlsafe_b64decode(key)) == 32
     except ValueError:
@@ -62,11 +71,17 @@ def _create_key(path: Path) -> bytes:
     The key reaches its name by `link`, which fails if the name exists, so two
     processes saving their first key at once agree on one: the loser reads the
     winner's, and no reader ever sees a half-written file."""
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if sys.platform == "win32":
+        from tracker.platform.windows_private import private_directory
+
+        private_directory(path.parent)
+    else:
+        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     key = Fernet.generate_key()
     fd, temp = tempfile.mkstemp(dir=path.parent, prefix=".secret-key-")
     try:
-        os.fchmod(fd, 0o600)
+        if sys.platform != "win32":
+            os.fchmod(fd, 0o600)
         os.write(fd, key + b"\n")
         os.fsync(fd)
         os.close(fd)

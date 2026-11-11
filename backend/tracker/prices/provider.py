@@ -139,7 +139,7 @@ class FixturePriceProvider:
 
     def _load(self) -> dict:
         if self._data is None:
-            with open(self._path) as f:
+            with open(self._path, encoding="utf-8") as f:
                 self._data = json.load(f)
         return self._data
 

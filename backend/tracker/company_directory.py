@@ -59,7 +59,7 @@ class DirectoryCompany:
 def directory() -> dict[str, DirectoryCompany]:
     """Every directory company by slug, in rank order. Empty when unbuilt."""
     try:
-        raw = json.loads(DIRECTORY_PATH.read_text())
+        raw = json.loads(DIRECTORY_PATH.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return {}
     return {

@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import sys
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
@@ -231,7 +232,9 @@ async def test_a_cancelled_run_releases_its_lock_and_heartbeat_and_writes_no_ter
     assert row.status == "running" and row.finished_at is None
     # The marker left behind is what `POST /api/sync/cancel` reads: it ends a
     # running run only when the run names the process group it signalled.
-    assert row.process_group == os.getpgrp(), "the running marker does not name its process group"
+    # Windows has no process group; a run outside the supervisor's run wrapper names none.
+    expected = None if sys.platform == "win32" else os.getpgrp()
+    assert row.process_group == expected, "the running marker does not name its process group"
 
 
 # --------------------------------------------------------------------------- #

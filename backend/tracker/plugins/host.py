@@ -54,6 +54,7 @@ from tracker.db.models import PluginInstall, TrackedCompany
 from tracker.platform.clock import SourceClock
 from tracker.platform.http import RetryDeadlineExceeded, RetryPolicy, request_with_retry
 from tracker.platform.locks import AlreadyRunning, run_lock
+from tracker.platform.paths import venv_python
 from tracker.platform.ratelimit import RateLimiter, RateLimiterPool
 from tracker.platform.safe_fetch import BlockedDestination, public_client
 from tracker.plugin_manifest import accept
@@ -115,8 +116,9 @@ class HostConfig:
     #: Seconds a runner gets to exit after its end before it is killed.
     exit_grace_seconds: float = 10.0
     #: Signals the runner (a stop ends it, a runner past its grace is killed);
-    #: None is `os.kill`. Tests under `no_escape` pass the real one for the
-    #: runner they started, explicitly, as with `spawn`.
+    #: None is the runner process's own `terminate` and `kill`. Tests under
+    #: `no_escape` pass the real `os.kill` for the runner they started,
+    #: explicitly, as with `spawn`.
     send_signal: Callable[[int, int], None] | None = None
     #: The pacer; None is the shared per-plugin limiter at `pacing_delay`.
     limiter: RateLimiter | None = None
@@ -136,7 +138,7 @@ def installed_config(install: PluginInstall, *, python: str | None = None,
     and the SDK is the one `plugin_manifest.accept` checked the range against."""
     home = Path(install.source_dir).parent
     return HostConfig(
-        python=python or str(home / "venv" / "bin" / "python"),
+        python=python or str(venv_python(home / "venv")),
         pythonpath=[str(SDK_DIR), str(code_root(Path(install.source_dir)))],
         data_dir=home / "data",
         on_open=on_open,
@@ -410,6 +412,24 @@ def _prune_logs(data_dir: Path, *, keep: int) -> None:
             old.unlink()
 
 
+#: The least the host waits for the plugin's next line, a spent budget included: what the plugin read before the
+#: budget ran out is still on its way, across a pipe and a process switch. A wait shorter than that crossing
+#: drops it, with the companies it retires.
+_LINE_FLOOR_SECONDS = 0.25
+
+
+def _enders(proc: asyncio.subprocess.Process,
+            send_signal: Callable[[int, int], None] | None) -> tuple[Callable[[], None], Callable[[], None]]:
+    """How the host ends its runner: asks it to stop, then kills it. By default the process's own `terminate` and
+    `kill`, which know a runner that has already exited; a bare signal to its PID is refused then on Windows, as
+    access denied. Windows has no SIGKILL; its SIGTERM already ends a process outright."""
+    if send_signal is None:
+        return proc.terminate, proc.kill
+    pid = proc.pid
+    return (lambda: send_signal(pid, signal.SIGTERM),
+            lambda: send_signal(pid, getattr(signal, "SIGKILL", signal.SIGTERM)))
+
+
 class _Stopped(Exception):
     """The user's stop arrived while the host waited for the plugin."""
 
@@ -423,7 +443,7 @@ async def _readline(stream: asyncio.StreamReader, timeout: float, stop: asyncio.
     if stop is not None:
         waits.append(asyncio.ensure_future(stop.wait()))
     try:
-        done, _ = await asyncio.wait(waits, timeout=max(timeout, 0.01), return_when=asyncio.FIRST_COMPLETED)
+        done, _ = await asyncio.wait(waits, timeout=max(timeout, _LINE_FLOOR_SECONDS), return_when=asyncio.FIRST_COMPLETED)
     finally:
         for waiting in waits:
             if not waiting.done():
@@ -589,17 +609,17 @@ async def _run_held(
             message = f"the host failed: {type(exc).__name__}: {exc}"
         finally:
             proc.stdin.close()
-            send = config.send_signal or os.kill
+            terminate, kill = _enders(proc, config.send_signal)
             if session.ended == protocol.STOPPED:
                 # The run is over for the user: end the runner now, whatever it
                 # is doing; it holds no write of its own.
                 with contextlib.suppress(ProcessLookupError):
-                    send(proc.pid, signal.SIGTERM)
+                    terminate()
             try:
                 await asyncio.wait_for(proc.wait(), timeout=config.exit_grace_seconds)
             except TimeoutError:
                 with contextlib.suppress(ProcessLookupError):
-                    send(proc.pid, signal.SIGKILL)
+                    kill()
                 await proc.wait()
             if own_client:
                 await client.aclose()

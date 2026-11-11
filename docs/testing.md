@@ -27,6 +27,142 @@ shown, and report any check you skipped with its reason.
 | A workflow (`.github/workflows/`) | From the root: `docker run --rm -v "$PWD:/repo:ro" -w /repo rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667`, the image CI runs (1.7.12), with its shellcheck; from `backend/`: `.venv/bin/python -m pytest tests/test_ci_workflow_*.py` |
 | User-facing text | `npm run copy:check`, and `npm run test:unit`, which fails while a translation is stale (see [copy.md](copy.md)) |
 
+The Windows native host runs from the root with `dotnet test
+launcher/windows/RoleBand.EngineHost.Tests`, on the .NET SDK that `global.json` names
+exactly: each SDK patch brings its own native-compiler packages, which Setup's lock file
+records, so a new SDK is a change to `global.json` and that lock together. Set `ROLEBAND_WINDOWS_TRIAL_RESOURCES`
+to an assembled trial's `Resources` directory to include its packaged runtime;
+without it that test explicitly reports inconclusive. The tests use private
+synthetic databases and verify authenticated requests, refusal of forged and
+stalled responses, an exclusive desktop lease, retained roles, clean shutdown
+and automatic recovery after terminating their owned engine. `LifecycleTests` drive
+the session against a stand-in engine process built from the engine's own record,
+discovery and health code: one stop request per engine, a preserved engine and lease
+when a stop is not confirmed, one-click retry after failed preparation, the restart
+limit, recycled process IDs, and a timestamped host log with one rotated copy. The same
+stand-in drives `UpdateCoordinator` with recording package-manager and command stand-ins:
+an update is journaled only after the engine stopped, a refused journal never switches the
+package, a switch Windows refuses is resumed as never happened, and the new version settles
+the update by its preparation; the real package switch needs an installed trial. Build the actual
+app with `dotnet build launcher/windows/RoleBand.App -p:Platform=x64` and
+check on Windows: the icon's flyout opens by the icon and closes on a second click, Esc or a click
+elsewhere; the right-click menu's bold default, pause and Quit; Settings and setup; Quit stops the
+engine. A source run started with `--simulate-update <scenario>` plays the update commands and
+Windows' installer instead of the real ones, opens Settings and presses what the scenario follows,
+so each update state (a download, a pause, a full disk, Windows' install, a failed update, an Undo
+and its refusals, the next open's result) can be looked at without a signed build;
+`SimulatedUpdate.Scenarios` names them, and `--theme light` or `dark` draws in that theme. A
+packaged app ignores both. `TrayTests` hold every engine state to a name in all three languages, Open Radar to Ready
+and the tooltip to the shell's limit. `CompanionTests` drive the flyout, the icon's badge and the
+menu with status replies in the engine's schema: the summary for a scan, rest, a pause, a hold, an
+engine on its way and a stopped engine; the menu's order, its one bold default, a pause as a checked
+item that can only be lifted, and items left out rather than greyed; the default command, and a
+launch from Start waiting for the engine rather than opening Settings; the Settings banner; and
+words in all three languages. `TrayArtTests` hold the notification-area icon to one file per state and
+taskbar theme, each frame taken at the size it was drawn for, and the flyout's place against a
+taskbar on any edge, an auto-hidden one and a second display. The icon files come from
+`launcher/windows/Tools/make_icons.py`, which draws `icons.py` with an installed Edge or Chrome;
+`test_icons.py` holds every asset to its size, each tray frame to its own drawing and every badge to
+a real cut-out.
+`ScanTests` drive the scan model with status replies in the engine's schema: which press
+each scan queue allows, the picture against the status card, the gold place, the new-roles link,
+the schedule line, words for every state in all three languages, and Scan now and Pause refusing a
+state that moved without sending a change. `EngineTrialTests` read a real engine's status, pause and
+resume its schedule and open New through a browser handoff; Scan now is left to a manual check,
+because it reads real job boards. `SetupTests` hold first open to its rules: nothing runs before
+Welcome's Continue, an existing database never waits there, Get ready waits for the database and
+service but not the model, the start-with-Windows choice registers only on a change or on leaving
+the last step and stays when Windows refuses, the last step completes only with an engine that
+answers, there are three steps, and every page has Windows words in all three languages. The startup task itself needs an installed package; a source run reports it
+unavailable. `AboutTests` hold the update row to a check the feed answered, a failure or rate limit
+to Couldn't check with Check now still offered, the choice to its pinned English words, and Start
+with Windows to Windows' own state; they also run the engine's own `update consent`, `status` and `check`
+on a throwaway folder, where a source build has no release identity and asks nothing of the feed.
+Check generated native
+copy with `node dashboard/scripts/export-launcher-copy.mjs --windows --check`.
+Packaging tool changes run `python -m unittest discover -s launcher/windows/Tools -p "test_*.py"`:
+assembly refuses tracked edits, untracked files and ignored files in the engine
+sources, a release identity that is not RoleBand's own package and publisher on the
+shared feed with a spare key, and a trial identity for that feed or another package,
+and never gives a trial the release identity. `Package.ps1` refuses a bundle edited,
+extended or trimmed after assembly, one naming no channel or two, and a release
+without its publisher, and can package the same bundle again. `identity.py check`
+refuses a certificate that is not the committed one, lacks its private key, names
+another subject or expires within a year; a failed `generate` leaves both folders
+empty, and on Windows .NET opens the signing file with its key, as `signtool` does.
+`release.py prepare` refuses a release package that keeps the trial's folder or name,
+and a release key whose passphrase is missing or wrong, with a reason. Its `resources.pri` step, which lets Windows find
+the sized icons and keeps the app's own resources, is checked by dumping the file with `makepri`. MSIX packing alone does not prove installation, retention or package recovery.
+
+`launcher/windows/Tools/PackageContextProbe` exercises the native package-policy
+bootstrap against installed trial resources. Build it with `dotnet build`, then
+launch its executable with `Invoke-CommandInDesktopPackage` using the installed
+trial's family and app ID, without `-PreventBreakaway`. Pass absolute
+`--resources`, fresh synthetic `--state` and writable `--report` paths in `-Args`.
+Its JSON report requires authenticated fixture reads, retained rows after restart,
+and clean shutdown. Keeping the policy switch on the launcher under test prevents
+the test runner from masking a broken bootstrap. This needs an installed trial;
+ordinary unpackaged native tests cannot verify package-context inheritance.
+
+`tests/test_windows_checkpoint.py` exercises real PG16 exports and scratch restores:
+Unicode and dated observations, saved-role state, sequences, a concurrent commit,
+damaged archives, mismatched restored data, private storage and refusal of an
+existing or overlapping target. It also runs the desktop command against stopped
+app-owned synthetic clusters and verifies both lifecycle leases. Run it on Windows
+with explicit throwaway state overrides. Scratch clusters are stopped and retained.
+The operator entry point is `backend/desktop.py --source checkpoint create` with
+explicit `--pgdata`, `--database`, `--destination` and `--verification-state`;
+`checkpoint verify` takes `--checkpoint` and a fresh `--verification-state`.
+Neither command restores over the source database. These checks do not establish
+package rollback or a complete update recovery transaction.
+
+`tests/test_windows_recovery.py` terminates real drill coordinators before and
+during scratch database startup, then exercises retry, abandonment, changed
+checkpoint refusal, damaged journals and live lifecycle leases. It verifies that
+unfinished drills block run/prepare/seed and direct embedded-server startup, while
+abandonment preserves the original database, credentials, key and saved roles.
+The native `RecoveryTests` verify that blocked startup never spawns an engine and
+releases its desktop lease. The command is `desktop.py --source recovery begin
+--state <retained-state> --checkpoint <verified-checkpoint>`; `status`, `retry` and
+`abandon` require the same explicit `--state`. Run these only with synthetic trial
+state. They establish scratch recovery behavior, not database promotion.
+
+`tests/test_windows_restore.py` promotes real bound checkpoints, verifies retained
+encrypted settings and byte-identical displaced databases, and rejects changed
+keys, passwords, schema heads and unbound checkpoints. It terminates a real
+coordinator during preparation and uses Windows sharing handles to interrupt
+directory promotion and metadata publication. Resume must recognize an already
+completed switch; abort is allowed only before that switch. A final check that keeps
+failing after the switch is reinstated: the original returns byte for byte with its
+credentials, key and later history, and a reinstatement interrupted at each
+directory move or the reader-floor write resumes. Native `RestoreTests`
+require pending restores and newer reader contracts to stop before engine spawn.
+The operator command is `desktop.py --source restore begin --state <retained-state>
+--checkpoint <bound-checkpoint> --preserve-current`; `status`, `resume`, `abort`
+and `reinstate` take the same explicit `--state`. Use synthetic trial state. These checks prove
+offline checkpoint promotion, not signed application rollback.
+
+`tests/test_windows_migration.py` runs `desktop.py prepare` on real app-owned state
+one migration behind head. A migration made to fail leaves the previous schema and
+a verified checkpoint bound to its heads and credentials, which a retry reuses;
+a blocked checkpoint folder stops the upgrade; a current schema takes no checkpoint.
+The guard's own cases check reuse only while the archive and history are unchanged.
+
+The engine and the native host each validate the retained records that gate
+startup: storage metadata and the restore and drill journals. Both read the cases in
+`launcher/windows/contracts/retained-records.json` (`tests/test_windows_records.py`
+and native `RecordContractTests`) and must reach each case's verdict: accepted,
+damaged, needs a newer reader, or unfinished. A rule changed on one side is a new
+case there, so the other side fails until it agrees.
+
+`tests/test_windows_restart.py` terminates a real scratch postmaster and verifies
+automatic restart with Unicode history, saved state and unchanged credentials/key.
+It also exercises PID reuse, an unrecorded live postmaster, foreign or malformed
+PID records and refusal to restart from a cancellable child. Stale PID evidence is
+retained. PostgreSQL's active log stays outside PGDATA. The native lifecycle tests
+start with a dead predecessor record from a different resource root; live
+predecessors and foreign retained-state records remain refusals.
+
 The native engine-host integration tests accept `ROLEBAND_HOST_TEST_RESOURCES`
 pointing at an assembled app's `Contents/Resources`. They exercise its real
 Python, Postgres, supervisor and API with a new scratch home and database;
@@ -115,6 +251,24 @@ migration checks and live smoke commands in the change-scoped gate still apply
 where required. The runner reports its own invocation; it does not certify the
 supervisor's preflight.
 
+On Windows, run `backend/.venv/Scripts/python.exe deploy/check_local.py windows`
+from the root. It runs the Windows functional suite, packaging tools, native host
+tests, WinUI build and a native publish of Setup. The packaging tests use PowerShell 7 (`pwsh`). `--test`
+selects specific pytest files or cases instead.
+`--windows-lane checkpoints|engine|suite|native` runs one CI lane (`suite` is the rest of the backend suite, which the
+Windows app's engine runs too), `--windows-lane suite --shard INDEX/TOTAL` runs one CI shard of it, cut by test
+file as the backend workflow cuts the Linux suite, and `--backend-workers`
+sets the pytest worker count (default four). Each run uses a short directory under
+`%SystemDrive%\rb` for PostgreSQL, native test scratch space and reports. The bundled
+PostgreSQL needs short-name aliases for non-ASCII paths. Keep scratch on a volume
+that creates them. The runner stops its throwaway clusters, releases successful
+scratch space and keeps reports and failed scratch state for diagnosis.
+
+For browser tests on Windows, start Docker Desktop in Linux container mode and use
+`backend/.venv/Scripts/python.exe deploy/check_local.py ux --docker-browsers --ux-workers 4`.
+The same source snapshot, Playwright image version and offline build and browser
+steps are used on macOS and Windows. Native Windows tests run on the host.
+
 The runner keeps logs, JUnit/JSON test results and a timing report in a new
 temporary directory outside the checkout. `--output` selects a new directory
 there. It records HEAD, tracked and untracked source content, dirty paths,
@@ -122,7 +276,8 @@ interpreter/package versions, command arguments, per-step lane, start, wall and
 CPU times, and the integration mode. A step's CPU time is its own process tree's,
 so it stays correct while the lanes overlap. Changed source or installed packages invalidate the result with exit 76;
 a failed command stops the profile and retains its evidence. CPU time sums work
-across processes and is not elapsed time. Use a frozen worktree and run one heavy
+across processes and is not elapsed time. Windows reports wall time and leaves
+per-process-tree CPU time empty. Use a frozen worktree and run one heavy
 benchmark at a time when comparing settings.
 
 `--backend-workers`, `--unit-workers` and `--ux-workers` set independent worker
@@ -328,6 +483,8 @@ misjudged.
 | `contract-drift.yml` | Every push and PR | Regenerates `openapi.json` and `api.gen.ts`, fails on any diff |
 | `hygiene.yml` | Every push and PR | `backend/scripts/check_project_name.py`, `backend/scripts/check_comment_hygiene.py`; actionlint on every workflow, with shellcheck on its `run:` steps, from its image pinned by digest |
 | `mac-launcher.yml` | Every push and PR, weekly, and each release; its jobs run only when needed | A Linux `changes` job picks the tiers. Native tier (macOS): copy export check, Swift tests, installer and release tests, install guide in Chromium and WebKit, source app build, transport test. Bundle tier (macOS, never on a PR): the dashboard and the standalone app with its engine, launched read-only, packaged as a candidate for local signing |
+| `windows-release.yml` | A published release, or by hand for a release's tag; only `main`'s signs when run by hand | Builds the Windows package from the tag, then, after the owner approves the `windows-release` environment, signs it and attaches the Windows files; a tag whose commit has no Windows identity gets none. It releases, so it tests nothing a pull request has not |
+| `windows.yml` | Main pushes and PRs; a PR that changes no Windows input skips its checks | On separate `windows-2025` runners, one per lane: checkpoint, recovery and migration tests (`checkpoints`); remaining Windows and supervisor tests with local authentication and skip-policy tests (`engine`); the rest of the backend suite (`suite`), split by test file across four runners (`windows (suite 1)` to `windows (suite 4)`, each uploading its own `windows-test-results-suite-N`); packaging tools, native host tests, WinUI build and Setup's native publish (`native`). Uses the local Windows runner and strict integration skips. The bundled-engine test runs when assembled trial resources are supplied. Advisory |
 | `codeql.yml` | Every push and PR, and weekly; the Swift scan only when it is needed | Code scanning with the default query suite. `actions`, `javascript-typescript` and `python` on Linux, without a build. Swift on macOS with the Xcode `mac-launcher.yml` pins, traced through a release build of the `RoleBandLauncher` product, the one `build-app.sh` ships; its `changes` job runs it when `launcher/**` or the workflow changed, and a weekly or manual run always does. Advisory: no required check waits on it |
 | `links.yml` | Markdown changes, and weekly | External links in every tracked `*.md` resolve (lychee; loopback skipped, a rate limit counts as alive). Only the weekly run fails; on a pull request it reports |
 | `vendored-provenance.yml` | Monthly, and when vendored pins change | Vendored snapshots against upstream; a notice, never a PR blocker |

@@ -23,6 +23,7 @@ ENVIRONMENTS: dict[str, dict[str, str]] = {
     "macos-arm64": {"sys_platform": "darwin", "platform_system": "Darwin", "platform_machine": "arm64"},
     "linux-x86_64": {"sys_platform": "linux", "platform_system": "Linux", "platform_machine": "x86_64"},
     "linux-aarch64": {"sys_platform": "linux", "platform_system": "Linux", "platform_machine": "aarch64"},
+    "windows-x86_64": {"sys_platform": "win32", "platform_system": "Windows", "platform_machine": "AMD64"},
 }
 
 _PIN = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]*)(?:\[[^\]]*\])?==(\S+?)\s*(?:;.*)?$")

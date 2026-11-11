@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -33,7 +33,7 @@ function tsxUnder(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
     const path = join(dir, name);
     if (statSync(path).isDirectory()) tsxUnder(path, out);
-    else if (name.endsWith(".tsx") && !name.includes(".test.")) out.push(relative(SRC, path));
+    else if (name.endsWith(".tsx") && !name.includes(".test.")) out.push(relative(SRC, path).split(sep).join("/"));
   }
   return out;
 }

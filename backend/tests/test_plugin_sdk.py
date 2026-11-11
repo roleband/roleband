@@ -43,6 +43,7 @@ from roleband_plugin_sdk import (
     RunEnded,
     protocol,
 )
+from roleband_plugin_sdk.launch import RUN_CWD, runner_command, runner_env
 from roleband_plugin_sdk.manifest import validate_manifest
 from roleband_plugin_sdk.runner import StdioTransport
 from roleband_plugin_sdk.testing import FakeHost, FakeResponse
@@ -549,12 +550,12 @@ def test_rows_cross_the_wire_as_json():
 
 
 def _runner(tmp_path: Path, body: str, lines: list[dict]) -> subprocess.CompletedProcess:
+    """The runner as the host starts it (`launch`): isolated, in `RUN_CWD`, with only `runner_env()`."""
     (tmp_path / "noisy_plugin.py").write_text(textwrap.dedent(body))
-    env = {"PYTHONPATH": f"{SDK}:{tmp_path}", "PATH": "/usr/bin:/bin"}
     stdin = "".join(protocol.encode(m) for m in lines)
     return subprocess.run(
-        [sys.executable, "-m", "roleband_plugin_sdk.runner", "--entry", "noisy_plugin:plugin", "--job", "refresh"],
-        input=stdin, capture_output=True, text=True, env=env, timeout=30, check=False,
+        runner_command(sys.executable, [SDK, tmp_path], "noisy_plugin:plugin", "refresh"),
+        input=stdin, capture_output=True, text=True, cwd=RUN_CWD, env=runner_env(), timeout=30, check=False,
     )
 
 
@@ -596,6 +597,45 @@ def test_the_runner_reports_an_entry_that_does_not_load(tmp_path):
     (end,) = [protocol.decode(line) for line in done.stdout.splitlines()]
     assert end["status"] == "error" and "broken plugin" in end["message"]
     assert done.returncode == 1
+
+
+#: A job using what a library underneath a plugin may: an event loop, which opens a socket pair, and a temporary
+#: file.
+ORDINARY = """
+    import asyncio
+    import tempfile
+    from roleband_plugin_sdk import Plugin
+    plugin = Plugin()
+
+    @plugin.job("refresh")
+    def refresh(ctx):
+        asyncio.run(asyncio.sleep(0))
+        with tempfile.TemporaryFile() as scratch:
+            scratch.write(b"scratch")
+        ctx.log("done")
+"""
+
+
+def test_the_runner_s_environment_holds_what_any_process_needs(tmp_path):
+    """The runner inherits only `PASSED_ENV`, and starts in a folder it cannot write. On Windows a process without
+    the system folder's variable opens no socket, and one without TEMP finds no temporary folder."""
+    done = _runner(tmp_path, ORDINARY, [START, protocol.reply_ok(1, None)])
+    messages = [protocol.decode(line) for line in done.stdout.splitlines()]
+    assert [m["type"] for m in messages] == ["call", "end"], done.stderr[-2000:]
+    assert messages[1]["status"] == "ok", (messages[1], done.stderr[-2000:])
+
+
+def test_pip_s_environment_reaches_the_network_stack_and_a_temporary_folder():
+    """pip resolves the index's name and builds in a temporary folder, under the plugin's own environment."""
+    from tracker.plugins.install import build_env
+
+    probe = ("import socket, tempfile\n"
+             "socket.getaddrinfo('localhost', 443)\n"
+             "with tempfile.TemporaryDirectory() as scratch:\n"
+             "    pass\n")
+    done = subprocess.run([sys.executable, "-I", "-c", probe], cwd=RUN_CWD, env=build_env(), capture_output=True,
+                          text=True, timeout=60, check=False)
+    assert done.returncode == 0, done.stderr[-2000:]
 
 
 def test_a_reply_to_the_wrong_call_is_a_protocol_error():

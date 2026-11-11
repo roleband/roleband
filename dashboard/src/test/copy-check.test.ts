@@ -127,7 +127,8 @@ describe("the rules catch what they claim (fail-first)", () => {
     }
   });
 
-  it("a message moved as-is reports its wording instead of blocking, and still needs a kind", () => {
+  // Runs the whole catalog check twice, like the translation tests below: its time is the catalog's, not a budget.
+  it("a message moved as-is reports its wording instead of blocking, and still needs a kind", { timeout: 30_000 }, () => {
     const root = mkdtempSync(join(tmpdir(), "copy-check-"));
     try {
       cpSync(COPY, root, { recursive: true, filter: (src) => !src.includes(`${join(COPY, "gen")}`) });

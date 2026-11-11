@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import fcntl
 import hashlib
 import io
 import json
@@ -17,6 +16,7 @@ import tempfile
 from importlib import metadata
 from pathlib import Path
 
+from tracker.platform import filelock
 from tracker.platform.embedded_db import bundled_bin_dir
 
 BUNDLES = Path(__file__).resolve().parents[1] / "tracker/platform/pgcontrib"
@@ -53,22 +53,22 @@ def install(bin_dir: Path) -> None:
         raise ValueError("pg_trgm bundle is incomplete")
     tree = bin_dir.parent
     with (tree / ".roleband-pgcontrib.lock").open("w") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+        filelock.lock(lock)
         # Publish the control file last so Postgres sees only a complete extension.
         for name in sorted(files, key=lambda name: name.endswith(".control")):
             target = tree / name
             if target.is_file() and target.read_bytes() == files[name]:
                 continue
             target.parent.mkdir(parents=True, exist_ok=True)
+            # Closed before the rename: Windows refuses to rename an open file.
             with tempfile.NamedTemporaryFile(dir=target.parent, delete=False) as temporary:
                 staged = Path(temporary.name)
-                try:
-                    temporary.write(files[name])
-                    temporary.flush()
-                    staged.chmod(0o644)
-                    os.replace(staged, target)
-                finally:
-                    staged.unlink(missing_ok=True)
+            try:
+                staged.write_bytes(files[name])
+                staged.chmod(0o644)
+                os.replace(staged, target)
+            finally:
+                staged.unlink(missing_ok=True)
 
 
 def main() -> None:

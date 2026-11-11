@@ -47,7 +47,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.db import job_store
 from tracker.db.models import JobRun, PluginRun
-from tracker.platform.paths import DATA_DIR, PACKAGED, REPO_ROOT
+from tracker.platform.paths import DATA_DIR, PACKAGED, REPO_ROOT, venv_python
 from tracker.plugins import store
 from tracker.plugins.registry import InstallRecord, install_records
 from tracker.plugins.schedule import CONTINUE_AFTER, INTERVALS, RETRY_AFTER, RunRecord, next_start
@@ -153,7 +153,7 @@ def _python() -> str:
     """The checkout's interpreter (a worktree has none: the running one)."""
     if PACKAGED:
         return sys.executable
-    venv = REPO_ROOT / "backend" / ".venv" / "bin" / "python"
+    venv = venv_python(REPO_ROOT / "backend" / ".venv")
     return str(venv) if venv.exists() else sys.executable
 
 

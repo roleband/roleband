@@ -11,6 +11,7 @@ import {
   errorPluginEstimatesMoving,
   errorFieldAnsweredByPlugin,
   errorOffline,
+  errorEngineLocked,
   errorServer,
   errorInvalidInput,
   errorJobNotFound,
@@ -80,6 +81,7 @@ const names = (value: ErrorParams[string] | undefined): string[] =>
   (Array.isArray(value) ? value : value === undefined ? [] : [String(value)]).map((slug) => companyName(slug));
 
 const BY_CODE: Record<ErrorCode, (params: ErrorParams) => string> = {
+  "engine-locked": () => errorEngineLocked(),
   "offline": () => errorOffline(),
   "server": () => errorServer(),
   "invalid-input": () => errorInvalidInput(),

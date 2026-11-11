@@ -1,0 +1,67 @@
+<Window
+    x:Class="RoleBand.App.SetupWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid x:Name="Root" Background="{ThemeResource RoleBandSurface}">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <!-- Where the person is: step n of three, as Windows' own setup says it. -->
+    <StackPanel Padding="32,28,32,0" Spacing="8">
+      <Grid x:Name="StepStrip" ColumnSpacing="8" AutomationProperties.AccessibilityView="Raw">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+      </Grid>
+      <TextBlock x:Name="StepLabel" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                 AutomationProperties.AutomationId="SetupSteps" />
+    </StackPanel>
+
+    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+      <StackPanel Padding="32,24,32,20" Spacing="16">
+        <StackPanel Spacing="6">
+          <TextBlock x:Name="Heading" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap"
+                     AutomationProperties.HeadingLevel="Level1" AutomationProperties.AutomationId="SetupHeading" />
+          <TextBlock x:Name="Body" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        </StackPanel>
+        <Border Padding="4" CornerRadius="8" BorderThickness="1"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+          <StackPanel x:Name="Rows" />
+        </Border>
+        <HyperlinkButton x:Name="LoginSettings" Visibility="Collapsed" Padding="4,2" AutomationProperties.AutomationId="LoginSettings" />
+        <TextBlock x:Name="Problem" TextWrapping="Wrap" Visibility="Collapsed" AutomationProperties.LiveSetting="Assertive"
+                   Foreground="{ThemeResource SystemFillColorCautionBrush}" />
+        <TextBlock x:Name="Note" TextWrapping="Wrap" FontSize="12" Visibility="Collapsed"
+                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+      </StackPanel>
+    </ScrollViewer>
+
+    <Border Grid.Row="2" Padding="20,12" BorderThickness="0,1,0,0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
+      <Grid ColumnSpacing="8">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <Button x:Name="BackButton" AutomationProperties.AutomationId="SetupBack" />
+        <HyperlinkButton x:Name="LaterButton" Grid.Column="1" AutomationProperties.AutomationId="SetupLater" />
+        <Button x:Name="SecondaryButton" Grid.Column="3" AutomationProperties.AutomationId="SetupSecondary" />
+        <Button x:Name="PrimaryButton" Grid.Column="4" MinWidth="120" Style="{StaticResource AccentButtonStyle}"
+                AutomationProperties.AutomationId="SetupPrimary">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <ProgressRing x:Name="PrimaryBusy" Width="14" Height="14" IsActive="False" Visibility="Collapsed" />
+            <TextBlock x:Name="PrimaryText" />
+          </StackPanel>
+        </Button>
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

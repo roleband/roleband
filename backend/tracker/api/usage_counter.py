@@ -136,6 +136,10 @@ NOT_COUNTED: Mapping[tuple[str, str], str] = {
         )
     },
     **{
+        ("POST", path): "the browser handoff signing the Radar in to its own engine: authentication, not an action"
+        for path in ("/api/local-auth/browser-ticket", "/api/local-auth/browser-session")
+    },
+    **{
         (method, path): (
             "the person's own offer and private-company valuations stay on this computer: not even "
             "that one was saved is counted")

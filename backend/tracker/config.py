@@ -7,6 +7,7 @@ the location-group surface for callers that import it from here.
 
 from __future__ import annotations
 
+import sys
 from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, TypedDict
@@ -18,7 +19,7 @@ from tracker.blueprint import BLUEPRINT
 from tracker.platform.database_presets import PRESETS, DatabasePreset, PresetName, preset_for
 from tracker.platform.embedded_db import DEFAULT_LOCALE
 from tracker.platform.memory import total_memory_bytes
-from tracker.platform.paths import PACKAGED
+from tracker.platform.paths import PACKAGED, user_data_dir
 
 if TYPE_CHECKING:
     from tracker.platform.embedded_db import EmbeddedServer
@@ -486,7 +487,7 @@ class Settings(BaseSettings):
     def cache_dir(self) -> Path:
         if self.cache_dir_override:
             return Path(self.cache_dir_override).expanduser()
-        return Path.home() / ".roleband" / "cache"
+        return user_data_dir() / "cache"
 
     # Installed plugins: `<id>/{src,venv,data}`. Beside the
     # database for the same reasons (`embedded_pgdata`): outside the checkout,
@@ -500,18 +501,17 @@ class Settings(BaseSettings):
     def plugins_dir(self) -> Path:
         if self.plugins_dir_override:
             return Path(self.plugins_dir_override).expanduser()
-        return Path.home() / ".roleband" / "plugins"
+        return user_data_dir() / "plugins"
 
     def embedded_pgdata(self) -> Path:
         """Where the embedded cluster lives. See `db_pgdata` for why not the checkout.
 
-        A dotted home directory is portable, sync-free, and survives
-        reinstalling the app. The embedded-server adapter quotes paths that
-        contain spaces or shell syntax.
+        Retained account state stays outside the replaced application code.
+        The embedded-server adapter quotes paths containing spaces or shell syntax.
         """
         if self.db_pgdata:
             return Path(self.db_pgdata).expanduser()
-        return Path.home() / ".roleband" / "db"
+        return user_data_dir() / "db"
 
     def ensure_embedded_server(self) -> EmbeddedServer:
         """Start or attach the embedded server. Idempotent; safe from any process.
@@ -520,10 +520,18 @@ class Settings(BaseSettings):
         five entrypoints (API, scheduler, watchdog, CLI, backup) inherit it with
         no per-entrypoint wiring.
         """
-        from tracker.platform.embedded_db import claim_cluster, ensure_server
+        from tracker.platform.embedded_db import EmbeddedDbError, claim_cluster, ensure_server
+        from tracker.platform.paths import within_installed_data
 
         if PACKAGED:
             claim_cluster(self.embedded_pgdata(), "app")
+        elif sys.platform == "win32" and within_installed_data(self.embedded_pgdata()):
+            # On Windows the default state folder is the installed app's. A source run opening its cluster would
+            # migrate it without the checkpoint the app takes before every migration.
+            raise EmbeddedDbError(
+                f"A source run does not open the installed app's database ({self.embedded_pgdata()}). "
+                "Set ROLEBAND_PGDATA to a folder of its own."
+            )
         memory = total_memory_bytes()
         return ensure_server(
             self.embedded_pgdata(),
