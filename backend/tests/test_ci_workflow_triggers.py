@@ -961,7 +961,7 @@ def aggregate_gaps(data: dict, name: str) -> list[str]:
 
 
 def test_the_required_windows_check_passes_only_when_every_lane_did():
-    """The ruleset requires `windows`; lanes and shards report under their own names, so the
+    """A ruleset requires one name; lanes and shards report under their own names, so the
     one job named `windows` stands for all of them, and runs even when the run is cancelled."""
     data = yaml.safe_load((WORKFLOWS / "windows.yml").read_text())
     assert aggregate_gaps(data, "windows") == []
