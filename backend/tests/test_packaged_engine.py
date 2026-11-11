@@ -277,6 +277,31 @@ else:
     assert result.returncode == 0, result.stderr
 
 
+@pytest.mark.parametrize(("dev_origins", "allowed"), [
+    (None, None),
+    ('["http://localhost:5173"]', "http://localhost:5173"),
+], ids=["no-variable", "variable-names-it"])
+def test_packaged_api_allows_a_dev_servers_origin_only_when_named(bundle, tmp_path, dev_origins, allowed):
+    # A preflight is answered by the CORS layer alone, so no route or database runs.
+    result = probe(bundle, tmp_path, f"""
+import asyncio, os
+if {dev_origins!r} is not None:
+    os.environ['ROLEBAND_DEV_ORIGINS'] = {dev_origins!r}
+from httpx import ASGITransport, AsyncClient
+from tracker.api.app import app
+
+async def preflight():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url='http://127.0.0.1:8010') as client:
+        return await client.options('/api/settings', headers={{
+            'Origin': 'http://localhost:5173', 'Access-Control-Request-Method': 'PUT'}})
+
+response = asyncio.run(preflight())
+print(repr(response.headers.get('access-control-allow-origin')))
+""")
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip().splitlines()[-1] == repr(allowed)
+
+
 def test_isolated_packaged_entrypoint_uses_built_version(bundle, tmp_path):
     result = probe(bundle, tmp_path, """
 import os

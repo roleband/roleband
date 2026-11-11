@@ -1,0 +1,50 @@
+[
+  {
+    "name": "Python 3.12.0a1",
+    "is_published": true,
+    "pre_release": true,
+    "release_date": "2022-10-25T02:16:12Z"
+  },
+  {
+    "name": "Python 3.12.0rc3",
+    "is_published": true,
+    "pre_release": true,
+    "release_date": "2023-09-19T10:44:39Z"
+  },
+  {
+    "name": "Python 3.12.12",
+    "is_published": true,
+    "pre_release": false,
+    "release_date": "2025-10-09T11:11:14Z"
+  },
+  {
+    "name": "Python 3.12.13",
+    "is_published": true,
+    "pre_release": false,
+    "release_date": "2026-03-03T13:01:42Z"
+  },
+  {
+    "name": "Python 3.12.14",
+    "is_published": true,
+    "pre_release": false,
+    "release_date": "2026-08-12T15:23:33Z"
+  },
+  {
+    "name": "Python 3.12.15",
+    "is_published": true,
+    "pre_release": false,
+    "release_date": "2026-09-30T22:23:24Z"
+  },
+  {
+    "name": "Python 3.12.16",
+    "is_published": true,
+    "pre_release": false,
+    "release_date": "2026-10-25T18:35:25Z"
+  },
+  {
+    "name": "Python 3.13.18",
+    "is_published": true,
+    "pre_release": false,
+    "release_date": "2026-10-25T19:09:44Z"
+  }
+]

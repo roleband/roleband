@@ -234,6 +234,22 @@ async def test_an_operator_can_add_a_host_but_never_loses_the_loopback(monkeypat
             assert got == expected, f"Host {host!r}: {got}"
 
 
+@pytest.mark.parametrize(("packaged", "dev_origins", "expected"), [
+    (False, None, ["http://localhost:5173", "http://127.0.0.1:5173"]),
+    (True, None, []),
+    (True, '["http://localhost:5174"]', ["http://localhost:5174"]),
+    (False, '["http://localhost:5174"]', ["http://localhost:5174"]),
+])
+async def test_only_a_source_run_allows_the_dev_servers_origin_by_default(monkeypatch, packaged, dev_origins, expected):
+    import tracker.config
+
+    monkeypatch.setattr(tracker.config, "PACKAGED", packaged)
+    monkeypatch.delenv("ROLEBAND_DEV_ORIGINS", raising=False)
+    if dev_origins is not None:
+        monkeypatch.setenv("ROLEBAND_DEV_ORIGINS", dev_origins)
+    assert Settings(_env_file=None).dev_origins == expected
+
+
 async def test_the_dev_servers_preflight_is_still_answered(api_client):
     response = await api_client.options(
         "/api/settings",
