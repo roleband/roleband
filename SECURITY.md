@@ -89,17 +89,23 @@ Their public halves, also in `launcher/windows/RoleBand.cer` and
 
 Setup trusts only the certificate it was built with, and the app checks every update
 against these keys itself. Before trusting `RoleBand.cer` by hand, or to check a package
-or Setup you got another way, run these in PowerShell in the folder that holds them:
+or Setup you got another way, run these in PowerShell in the folder that holds them,
+with `$file` set to the name of the file you downloaded, such as
+`RoleBand-Setup-<version>.exe` or the `.msix`:
 
 ```powershell
 (Get-FileHash RoleBand.cer -Algorithm SHA256).Hash
-$signer = (Get-AuthenticodeSignature RoleBand-Setup-<version>.exe).SignerCertificate
-(Get-FileHash -InputStream ([IO.MemoryStream]::new($signer.RawData)) -Algorithm SHA256).Hash
+$file = '.\RoleBand-Setup-0.1.4.exe'
+$signature = Get-AuthenticodeSignature $file
+$signature.Status
+(Get-FileHash -InputStream ([IO.MemoryStream]::new($signature.SignerCertificate.RawData)) -Algorithm SHA256).Hash
 ```
 
-Both digests must equal the certificate's in the table, ignoring case; the same works
-for the `.msix`. Anyone can make a certificate with RoleBand's name, so the publisher
-alone proves nothing: only the digest does.
+Both digests must equal the certificate's in the table, ignoring case. The status must
+be `Valid` once `RoleBand.cer` is trusted; before that, Windows reports `UnknownError`
+because it does not trust the certificate yet. Any other status, such as `HashMismatch`,
+means the file was changed after it was signed, whatever certificate it names. Anyone can
+make a certificate with RoleBand's name, so the publisher alone proves nothing.
 
 ## What leaves your computer
 

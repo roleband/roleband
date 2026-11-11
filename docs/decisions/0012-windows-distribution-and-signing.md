@@ -39,8 +39,9 @@ once, through Setup ([decision 0013](0013-windows-setup.md)); updates after that
 Smart App Control, when on, runs only apps Microsoft's app intelligence knows or apps signed
 by a certificate authority in Microsoft's Trusted Root Program
 ([Microsoft's description](https://learn.microsoft.com/windows/apps/develop/smart-app-control/overview)),
-so it blocks the GitHub package whatever the machine trusts. Those PCs install from the
-Store, whose copies Microsoft signs, or turn Smart App Control off. The Store's copy carries
+so it blocks the GitHub package whatever the machine trusts. Until the Store channel
+exists, those PCs install only with Smart App Control off; after that, they can install
+the Store's copy, which Microsoft signs. The Store's copy carries
 the publisher Partner Center assigns, so Windows treats it as a different app from the
 GitHub one: the two
 must not share a data folder or an updater without a decision of their own.
