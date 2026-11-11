@@ -630,12 +630,13 @@ def unscanned_languages(data: dict, tracked: list[str]) -> list[str]:
         written.add("actions")
     scanned: set[str] = set()
     for job in data["jobs"].values():
-        scanned.update((job.get("strategy") or {}).get("matrix", {}).get("language") or [])
         for step in job.get("steps") or []:
             if str(step.get("uses", "")).startswith("github/codeql-action/init@"):
                 language = str((step.get("with") or {}).get("languages", ""))
-                if "${{" not in language:
-                    scanned.update(language.split(","))
+                if language == "${{ matrix.language }}":
+                    scanned.update((job.get("strategy") or {}).get("matrix", {}).get("language") or [])
+                elif "${{" not in language:
+                    scanned.update(part.strip() for part in language.split(","))
     return sorted(written - scanned)
 
 
@@ -650,6 +651,10 @@ def test_a_language_no_scan_reads_is_reported():
     data["jobs"]["analyze"]["strategy"]["matrix"]["language"] = ["actions", "javascript-typescript", "python"]
     assert unscanned_languages(data, _tracked()) == ["csharp"]
     assert unscanned_languages(data, ["a.py", "b.mts"]) == []
+    data = _codeql()
+    next(step for step in data["jobs"]["analyze"]["steps"]
+         if str(step.get("uses", "")).startswith("github/codeql-action/init@"))["with"]["languages"] = "python"
+    assert unscanned_languages(data, ["a.py", "b.cs", "c.ts"]) == ["csharp", "javascript-typescript"]
 
 
 def test_the_linux_scans_read_without_a_build():
@@ -946,6 +951,8 @@ def aggregate_gaps(data: dict, name: str) -> list[str]:
         gaps.append(f"runs if {result.get('if')}: skipped, it would count as passed")
     step = (result.get("steps") or [{}])[-1]
     run = str(step.get("run", ""))
+    if result.get("continue-on-error") or any(s.get("continue-on-error") for s in result.get("steps") or []):
+        gaps.append("continues on error: a failed test still passes it")
     for job_id in needs:
         variable = next((k for k, v in (step.get("env") or {}).items() if v == f"${{{{ needs.{job_id}.result }}}}"), None)
         if variable is None or f'test "${variable}" = success' not in run:
@@ -973,6 +980,50 @@ def test_a_windows_check_that_can_pass_over_a_lane_is_reported():
     ]
     data["jobs"]["result"]["steps"][-1]["run"] = 'echo "lanes: $LANES"'
     assert "does not require checks to succeed" in aggregate_gaps(data, "windows")
+    tolerant = yaml.safe_load((WORKFLOWS / "windows.yml").read_text())
+    tolerant["jobs"]["result"]["steps"][-1]["continue-on-error"] = True
+    assert aggregate_gaps(tolerant, "windows") == ["continues on error: a failed test still passes it"]
+    tolerant = yaml.safe_load((WORKFLOWS / "windows.yml").read_text())
+    tolerant["jobs"]["result"]["continue-on-error"] = True
+    assert aggregate_gaps(tolerant, "windows") == ["continues on error: a failed test still passes it"]
+
+
+def lock_check_gaps(job: dict) -> list[str]:
+    """How the native lane could let a build rewrite a lock file unnoticed."""
+    steps = job.get("steps") or []
+    check = next((i for i, s in enumerate(steps) if s.get("id") == "check"), None)
+    lock = next((i for i, s in enumerate(steps) if "git diff --exit-code" in str(s.get("run", ""))
+                 and "packages.lock.json" in str(s.get("run", ""))), None)
+    if lock is None:
+        return ["no step fails on a rewritten packages.lock.json"]
+    gaps = []
+    if check is None or lock < check:
+        gaps.append("the lock check runs before the lane builds")
+    if "matrix.lane == 'native'" not in str(steps[lock].get("if", "")):
+        gaps.append("the lock check is not tied to the native lane")
+    if steps[lock].get("continue-on-error"):
+        gaps.append("the lock check continues on error")
+    return gaps
+
+
+def test_the_native_lane_fails_when_a_build_rewrites_a_lock_file():
+    """Restores outside locked mode rewrite a stale lock and pass, and the release build's
+    locked restore then fails: a Dependabot SDK or package PR is caught here instead."""
+    job = yaml.safe_load((WORKFLOWS / "windows.yml").read_text())["jobs"]["checks"]
+    assert lock_check_gaps(job) == []
+
+
+def test_a_missing_or_misplaced_lock_check_is_reported():
+    """The control for the test above."""
+    job = yaml.safe_load((WORKFLOWS / "windows.yml").read_text())["jobs"]["checks"]
+    steps = job["steps"]
+    lock = next(s for s in steps if "packages.lock.json" in str(s.get("run", "")))
+    moved = {**job, "steps": [lock, *(s for s in steps if s is not lock)]}
+    assert lock_check_gaps(moved) == ["the lock check runs before the lane builds"]
+    lock_any_lane = {**job, "steps": [{**s, "if": "always()"} if s is lock else s for s in steps]}
+    assert lock_check_gaps(lock_any_lane) == ["the lock check is not tied to the native lane"]
+    assert lock_check_gaps({**job, "steps": [s for s in steps if s is not lock]}) == [
+        "no step fails on a rewritten packages.lock.json"]
 
 
 def _local_browser_image() -> str:
