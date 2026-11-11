@@ -397,9 +397,9 @@ async def test_a_stub_holds_its_job_open_while_the_rest_of_the_board_closes(monk
     assert collection.list_complete is True
     assert collection.stats["records_dropped"] == 0
 
-    def mk(req_id: str) -> Job:
+    def mk(job_id: int, req_id: str) -> Job:
         return Job(
-            id=abs(hash(req_id)) % 1000,
+            id=job_id,
             company="nvidia",
             req_id=req_id,
             dedupe_key=f"nvidia:{req_id}",
@@ -408,7 +408,7 @@ async def test_a_stub_holds_its_job_open_while_the_rest_of_the_board_closes(monk
             status="open",
         )
 
-    served, stubbed, vanished = mk("JR1"), mk("JR2"), mk("JR3")
+    served, stubbed, vanished = mk(1, "JR1"), mk(2, "JR2"), mk(3, "JR3")
     existing = {j.dedupe_key: j for j in (served, stubbed, vanished)}
 
     closed = await close_missing(

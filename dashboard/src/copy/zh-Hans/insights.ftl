@@ -473,10 +473,10 @@ insights-velocity-panel-what-time-posted-measures = “发布时长”衡量的�
 insights-velocity-panel-age-unknown = 发布时长未知：{ $count }
 insights-velocity-panel-time-posted-unknown = 在线时长未知：{ $count }
 insights-velocity-panel-what-unknown-means = “未知”是什么意思
-insights-velocity-panel-why-a-start-is-unknown = 在公司首次扫描时发现，雇主未注明日期。
+insights-velocity-panel-why-a-start-is-unknown = 在公司首次扫描时发现，雇主未注明更早的日期。
 insights-velocity-panel-counted-from-first-listed = 自各职位首次发布起算。
 insights-velocity-panel-what-already-listed-means = “发现时已发布”是什么意思
-insights-velocity-panel-why-already-listed = 首次看到时已经发布：在公司首次扫描时发现，或雇主注明的日期更早。
+insights-velocity-panel-why-already-listed = 首次看到时已经发布：雇主注明的日期早于 2 天前，或在公司首次扫描时发现且没有最近 2 天内的日期。
 
 ## features/statistics/ageCopy.ts
 insights-age-copy-listed-today = 今天发布

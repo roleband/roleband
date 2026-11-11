@@ -785,13 +785,13 @@ insights-velocity-panel-time-posted-unknown = Time posted unknown: { $count }
 # kind=aria note="The info button's screen-reader name, beside the Age unknown and Time posted unknown lines"
 insights-velocity-panel-what-unknown-means = What “unknown” means
 # kind=sentence
-insights-velocity-panel-why-a-start-is-unknown = Found on a company's first scan, with no date from the employer.
+insights-velocity-panel-why-a-start-is-unknown = Found on a company's first scan, with no earlier date from the employer.
 # kind=sentence
 insights-velocity-panel-counted-from-first-listed = Counted from when each role was first listed.
 # kind=aria note="The info button's screen-reader name, after the found already listed count in Pace's summary line"
 insights-velocity-panel-what-already-listed-means = What “found already listed” means
 # kind=sentence
-insights-velocity-panel-why-already-listed = Already listed when first seen: on a company's first scan, or dated earlier by the employer.
+insights-velocity-panel-why-already-listed = Already listed when first seen: dated more than 2 days earlier by the employer, or found on a company's first scan with no date in the last 2 days.
 
 ## features/statistics/ageCopy.ts
 # kind=label wording=as-is

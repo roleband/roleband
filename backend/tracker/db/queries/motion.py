@@ -241,7 +241,7 @@ def open_ages(postings: Postings, now: datetime) -> list[OpenAge]:
         if r.status != "open" or (r.set_id is not None and first_open_of_set[r.set_id] is not r):
             continue
         role = [postings.by_id[i] for i in members[roles.find(r.id)]]
-        out.append(OpenAge(r.company, _whole_days(_start(role), now), bool(r.employer_dated)))
+        out.append(OpenAge(r.company, _whole_days(_start(role), now), any(m.employer_dated for m in role)))
     return out
 
 

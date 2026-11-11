@@ -13,7 +13,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from sqlalchemy import event
+from sqlalchemy import event, text
 
 from tests.factories import make_company, make_job, record_whole_read
 from tracker.analytics.demand import compute_demand_metrics
@@ -65,6 +65,10 @@ async def _seed(db_session) -> None:
         )
     db_session.add_all(JobPlaceSetMember(job_id=job.id, set_id=place_set.id, status="auto") for job in places)
     await db_session.commit()
+    # Statistics for the rows, as a database holding them has: an analyze that
+    # ran while an earlier test left the tables empty would plan these reads
+    # for one row each, and nested loops over this seed never finish.
+    await db_session.execute(text("ANALYZE jobs, job_place_set_member, job_place_set, job_lifecycle_events"))
 
 
 @pytest.mark.asyncio

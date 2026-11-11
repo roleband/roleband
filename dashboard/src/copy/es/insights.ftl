@@ -501,10 +501,10 @@ insights-velocity-panel-what-time-posted-measures = Qué mide «Tiempo publicado
 insights-velocity-panel-age-unknown = Antigüedad desconocida: { $count }
 insights-velocity-panel-time-posted-unknown = Tiempo publicado desconocido: { $count }
 insights-velocity-panel-what-unknown-means = Qué significa «desconocido»
-insights-velocity-panel-why-a-start-is-unknown = Encontrada en el primer escaneo de una empresa, sin fecha del empleador.
+insights-velocity-panel-why-a-start-is-unknown = Encontrada en el primer escaneo de una empresa, sin una fecha anterior del empleador.
 insights-velocity-panel-counted-from-first-listed = Contado desde la primera publicación de cada puesto.
 insights-velocity-panel-what-already-listed-means = Qué significa «encontrados ya publicados»
-insights-velocity-panel-why-already-listed = Ya publicados al verlos por primera vez: en el primer escaneo de una empresa, o con una fecha anterior del empleador.
+insights-velocity-panel-why-already-listed = Ya publicados al verlos por primera vez: con una fecha del empleador de más de 2 días antes, o encontrados en el primer escaneo de una empresa sin una fecha de los últimos 2 días.
 
 ## features/statistics/ageCopy.ts
 insights-age-copy-listed-today = Publicado hoy

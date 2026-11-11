@@ -400,7 +400,8 @@ async def test_a_repost_continues_its_role_and_ages_from_the_earliest_posting(ap
     """The original, dated by its employer 60 days before we saw it, came
     down; its repost is open. The role has not come down, the repost is not an
     opening (and the original was already listed when found), and the open
-    role is as old as the original's employer date."""
+    role is as old as the original's employer date, so its age is the
+    employer's though the repost carries no date."""
     await _follow(db_session, "google")
     original = make_job("original", first_seen=NOW - timedelta(days=20), last_seen=NOW - timedelta(days=12),
                         arrival="new", posted_at=NOW - timedelta(days=80))
@@ -416,6 +417,7 @@ async def test_a_repost_continues_its_role_and_ages_from_the_earliest_posting(ap
     kpis = pace["kpis"]
     assert (kpis["opened"], kpis["already_listed"], kpis["reposted"], kpis["closed"]) == (0, 1, 1, 0)
     assert {b["lo"]: b["count"] for b in pace["aging"]}[60] == 1  # 80 days: 2 to 3 months
+    assert kpis["employer_dated_share"] == 1.0
     assert (await api_client.get("/api/demand")).json()["closed"] == 0
 
 
