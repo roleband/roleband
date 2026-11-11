@@ -123,7 +123,9 @@ def test_a_finding_only_in_one_launcher_lock_fails_the_command_naming_it(monkeyp
     monkeypatch.setattr(audit, "run_pip_audit", run)
     assert audit.main(["--exceptions", str(EXCEPTIONS)]) == 1
     lines = [line for line in capsys.readouterr().out.splitlines() if "GHSA-xmj3-9gf7-h52w" in line]
-    assert len(lines) == 1 and lines[0].endswith(f"in launcher/{lock}; upgrade it, or add a reviewed exception")
+    assert len(lines) == 1
+    assert lines[0].startswith("setuptools 83.0.0: GHSA-xmj3-9gf7-h52w")
+    assert lines[0].endswith(f"in launcher/{lock}; upgrade it, or add a reviewed exception")
 
 
 def test_a_pin_shared_by_several_locks_is_one_finding_naming_each_lock():
