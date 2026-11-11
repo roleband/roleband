@@ -12,7 +12,10 @@ Code and data copied or generated from an upstream source are pinned in
 sha256, licence). `backend/scripts/check_vendored_upstream.py` compares each pin
 with upstream, and `backend/tests/test_vendored_provenance.py` checks the
 register. A new copied or generated artifact gets an entry there in the same
-change.
+change. The apps' standalone Python is pinned in `launcher/macos/runtime.json` and
+`launcher/windows/runtime.json`; `backend/scripts/check_runtime_python.py` reports a
+pin behind python.org's newest release of its series, and
+`backend/tests/test_runtime_python.py` checks the same against a copy of that list.
 
 ## In the repository
 
@@ -36,8 +39,8 @@ their files end up in the built dashboard or on the user's machine.
 
 | Item | Origin | Licence | Where it ends up | Modified |
 |---|---|---|---|---|
-| Standalone CPython and its native libraries | Astral python-build-standalone 20260414, CPython 3.12.13 for macOS arm64; archive URLs and sha256 in `launcher/macos/runtime.json` | CPython and upstream component licences, retained from the matching full distribution | The app's `Contents/Resources/python`; notices in `Contents/Resources/licenses/python-runtime` | Runtime packages are installed and bytecode precompiled; Mach-O signatures use the app's identity. Interpreter source unchanged. |
-| Windows development runtime | Astral python-build-standalone 20260414, CPython 3.12.13 for Windows x64; archive URL and sha256 in `launcher/windows/runtime.json` | CPython and upstream component licences | The trial's `Resources/runtime`, with the archive's included notice files | Interpreter source unchanged. The unstripped archive preserves valid vendor PE certificate tables. |
+| Standalone CPython and its native libraries | Astral python-build-standalone 20261110, CPython 3.12.16 for macOS arm64; archive URLs and sha256 in `launcher/macos/runtime.json` | CPython and upstream component licences, retained from the matching full distribution | The app's `Contents/Resources/python`; notices in `Contents/Resources/licenses/python-runtime` | Runtime packages are installed and bytecode precompiled; Mach-O signatures use the app's identity. Interpreter source unchanged. |
+| Windows development runtime | Astral python-build-standalone 20261110, CPython 3.12.16 for Windows x64; archive URL and sha256 in `launcher/windows/runtime.json` | CPython and upstream component licences | The trial's `Resources/runtime`, with the archive's included notice files | Interpreter source unchanged. The unstripped archive preserves valid vendor PE certificate tables. |
 | Windows development Python packages | PyPI wheels pinned by sha256 in `launcher/windows/runtime-lock.txt`; local SDK and robots wheels built from this repository | Each wheel's own metadata and included notices | The trial's `Resources/runtime/Lib/site-packages` and offline `Resources/plugin-wheels` | No upstream package source changes. Included package metadata and notice files remain in the runtime. |
 | Windows native host dependencies | NuGet `Microsoft.WindowsAppSDK` 2.6.5 and the .NET 10 self-contained runtime; package graph in `launcher/windows/RoleBand.App/packages.lock.json` | Microsoft Windows App SDK package licence terms; .NET runtime MIT licence and third-party notices | The development trial's native host and runtime files | Upstream native binaries unchanged. |
 | The app's Python packages | PyPI wheels pinned by sha256 in `launcher/macos/runtime-lock.txt` | Each wheel's own metadata | The app's `Contents/Resources/python`; each package's notice files in `Contents/Resources/licenses/python-packages`, listed in `python-packages.json` | No. A wheel that ships no licence text gets its upstream licence file, pinned by version and sha256 under `package_notices` in `launcher/macos/runtime.json`; the SDK and robots wheels get the repository's `LICENSE`. `launcher/macos/Tools/bundle_licenses.py` fails the build for a package with neither. |
