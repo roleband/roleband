@@ -11,7 +11,7 @@ shown, and report any check you skipped with its reason.
 | Change | Commands |
 |---|---|
 | Any change | From the repository root: `python backend/scripts/check_comment_hygiene.py` and `python backend/scripts/check_project_name.py` (standard library only, seconds) |
-| Docs only (`*.md`) | From `backend/`: `.venv/bin/python -m pytest tests/test_*doc*.py`; the link check runs in CI |
+| Docs only (`*.md`, `docs/images/`) | From `backend/`: `.venv/bin/python -m pytest -m reads_docs`, the tests CI runs for such a change; the link check runs in CI |
 | Any backend change (`backend/`) | `.venv/bin/ruff check tracker tests scripts ../sdk/python ../examples`, `.venv/bin/lint-imports`, `.venv/bin/mypy`, `.venv/bin/python -m pytest`; a new module meant to be typed goes in `[tool.mypy] files` |
 | Native Mac launcher | From the root: `launcher/macos/test-core.sh`, `node dashboard/scripts/export-launcher-copy.mjs --check`, and `launcher/macos/build-app.sh`, then `python3 launcher/macos/test-transport.py` with the built app's `Contents/MacOS/RoleBandLauncher` to test its HTTP client. Installer changes also run `python3 -m unittest discover -s launcher/macos/Tools -p 'test_*.py'`, and from `backend/` `.venv/bin/ruff check ../launcher/macos/Tools ../launcher/macos/test-transport.py`, and build/mount/verify the disk image with its pinned packaging tools. Source installation and release tests replace external commands, use scratch app folders, and never register launchd or contact GitHub. Update staging, transaction and helper tests use scratch app folders and stopped Postgres clusters; a release trial still needs the persistent signing identity and a previous release's real data. Run the deploy and CI workflow contracts for installer/workflow changes. Test first open, login approval and return from Settings, Escape, browser reopening and sleep/wake on a real Mac. |
 | Standalone Mac bundle | Build the dashboard with `deploy/build_dashboard.sh`, install `zstd`, then use `launcher/macos/build-bundle.sh` to build a candidate without private keys. A change to the backend requirements or constraints regenerates `launcher/macos/runtime-lock.txt` with `Tools/lock_runtime.py`. Move its Swift build folder aside, make the app read-only, then run the app executable with `--check-copy` and `--check-engine` plus a new scratch directory. The probe refuses an external database, writes only its own state and verifies unchanged bundle hashes. It runs the bundled interpreter in isolation, checks native imports, starts a scratch database with vector and pg_trgm and installs the SDK wheels offline; it never starts setup or owns a source installation. Use `Tools/release.py candidate` to package it. Locally, `Tools/signing.py seal` copies the candidate into a new app signed with a scratch keychain and release public key; `Tools/release.py prepare` verifies nested signatures, release provenance, the image checksum and Ed25519 signature. A separately trusted public key is required for verification and local attachment. The release identity comes from `generate --spare-directory`, which asks for the release-key passphrase and the certificate password; `import` asks for the certificate password and `prepare` for the passphrase when used. |
@@ -480,9 +480,9 @@ misjudged.
 
 | Workflow | Runs on | Steps |
 |---|---|---|
-| `backend.yml` | Every push and PR; a PR that changes no backend input runs only the tests that read past `backend/` | Dependency audit of the locked graph; the MiniLM model for the embedding golden test; Postgres 16 with pgvector; install the prebuilt `pg_trgm`; ruff; mypy; import-linter; pytest with `ROLEBAND_REQUIRE_INTEGRATION=1`, split by test file across two shards; the required `backend` check passes when both shards do |
+| `backend.yml` | Every push and PR; a PR that changes no backend input runs only the tests that read past `backend/`, and one that changes only documentation only those that read it | Dependency audit of the locked graph; the MiniLM model for the embedding golden test; Postgres 16 with pgvector; install the prebuilt `pg_trgm`; ruff; mypy; import-linter; pytest with `ROLEBAND_REQUIRE_INTEGRATION=1`, split by test file across two shards; the required `backend` check passes when both shards do |
 | `dashboard.yml` | Every push and PR; a PR that changes no dashboard input skips its checks | Dependency audit of production packages; lint; knip; build; the check that the Mac app's exported copy is current; Vitest; Playwright on both projects against the built app, split across four shards by whole spec file and recorded time (`ROLEBAND_UX_SHARD`); each shard runs in the Playwright image of the locked `@playwright/test` version, the one `--docker-browsers` uses, so nothing is installed over it; the image is pinned by digest, so a Playwright upgrade moves its tag and digest in the same change |
-| `contract-drift.yml` | Every push and PR | Regenerates `openapi.json` and `api.gen.ts`, fails on any diff |
+| `contract-drift.yml` | Every push and PR; a PR that changes no schema input skips it | Regenerates `openapi.json` and `api.gen.ts`, fails on any diff |
 | `hygiene.yml` | Every push and PR | `backend/scripts/check_project_name.py`, `backend/scripts/check_comment_hygiene.py`; actionlint on every workflow, with shellcheck on its `run:` steps, from its image pinned by digest |
 | `mac-launcher.yml` | Every push and PR, weekly, and each release; its jobs run only when needed | A Linux `changes` job picks the tiers. Native tier (macOS): Swift tests, installer and release tests, install guide in Chromium and WebKit, source app build, transport test. Bundle tier (macOS, never on a PR): the dashboard and the standalone app with its engine, launched read-only, packaged as a candidate for local signing |
 | `windows-release.yml` | A published release, which only builds; by hand from `main` for a release's tag, which also signs | Builds the Windows package from the tag. Run by hand from `main` (Actions > windows-release > Run workflow, with the tag) and once the owner approves the `windows-release` environment, it refuses a tag whose commit `main` does not hold, then signs with `main`'s own tools and attaches the Windows files; the tagged commit gives only the package, `RoleBand.cer`, `release-identity.json` and the version. A tag whose commit has no Windows identity gets none. It releases, so it tests nothing a pull request has not |
@@ -529,16 +529,25 @@ copies the whole engine and dashboard but watches only its own inputs, so an
 engine change it does not name is built by the weekly run or the next release.
 The same test holds that each tier's list covers every file its steps read.
 
-The backend and dashboard workflows filter the same way, with one tier each (`TIER`,
-`PATHS` in their `changes` job), and only a pull request can skip it: a push to `main`
-or a manual run runs everything. A pull request that changes none of the backend's
-paths still runs the backend tests that read past `backend/` (`pytest -m repo_wide`;
-`backend/tests/repo_wide.py` marks them), because a change anywhere can break the
-secret scan, the vendor-name scan or a docs check; the rest of the suite and the
-linters are skipped. A dashboard pull request outside the dashboard's paths skips the
-`dashboard` job, and each `ux` shard starts and skips its steps, since a matrix job
-skipped whole reports a single `ux` check and the required shards would wait forever.
-When the `changes` job fails, both workflows run in full.
+The backend, contract-drift and dashboard workflows filter the same way, with one tier
+each (`TIER`, `PATHS` in their `changes` job), and only a pull request can skip it: a push
+to `main` or a manual run runs everything. A pull request that changes none of the
+backend's paths still runs the backend tests that read past `backend/`
+(`pytest -m repo_wide`; `backend/tests/repo_wide.py` marks them), because a change
+anywhere can break the secret scan, the vendor-name scan or a docs check; the rest of the
+suite and the linters are skipped. One that changes only documentation (`DOCS_PATHS`: any
+`*.md` file and `docs/images/`) runs fewer still, `pytest -m reads_docs`: the repo-wide
+modules whose code names a Markdown file, a `docs` path or a `*.md` glob, or lists the
+tracked tree, such as the docs checks and the secret and vendor-name scans. A Markdown
+file the backend's paths name, such as `CHANGELOG.md`, runs the whole suite instead. The
+source cannot show every read, so whenever the suite runs an audit hook watches the files
+each test opens, and a test that opened documentation without the mark fails.
+`contract-drift`'s `regen-diff` watches the schema exporter's whole import closure, the
+files that closure names, the locks and the two generated files, so a pull request that
+cannot change the schema skips it. A dashboard pull request outside the dashboard's paths
+skips the `dashboard` job, and each `ux` shard starts and skips its steps, since a matrix
+job skipped whole reports a single `ux` check and the required shards would wait forever.
+When the `changes` job fails, each of these workflows runs in full.
 CodeQL's Swift scan is a tier of the same kind that a push may skip too
 (`SKIP_EVENTS`), since no required check waits on it, and it scans when its
 `changes` job fails. It traces its own build (`build-mode: manual`): the test holds

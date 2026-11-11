@@ -12,7 +12,9 @@ The Mac workflow names two tiers (`NATIVE_PATHS`, `BUNDLE_PATHS`) and gates push
 bundle never runs for a pull request; it is the slow tier, and every release builds it.
 Any other workflow names one tier (`TIER`, `PATHS`), which only a pull request can skip
 unless `SKIP_EVENTS` names the events that may skip it: CodeQL's Swift scan lets a push skip
-too, since no required check waits on it.
+too, since no required check waits on it. A workflow may also name `DOCS_PATHS`: its `docs`
+output says whether every changed file is one of them, so a pull request that changes only
+documentation can run only the checks that read it.
 
 Anything this script cannot judge runs everything: a release, a manual or scheduled run, a
 push with no previous commit, or a diff git cannot produce.
@@ -70,6 +72,13 @@ def needed(event, changed, globs, skippable=('pull_request',)):
     return any(matches(path, globs) for path in changed)
 
 
+def only(event, changed, globs, skippable=('pull_request',)):
+    """Whether a change stays within `globs`; whatever cannot be judged, or an empty diff, does not."""
+    if event in EVERYTHING or event not in skippable or not changed:
+        return False
+    return all(matches(path, globs) for path in changed)
+
+
 def changed_files(event, base, head):
     if not base or NO_COMMIT.fullmatch(base) or not head:
         return None
@@ -91,6 +100,8 @@ def main():
     if 'TIER' in os.environ:
         skippable = os.environ.get('SKIP_EVENTS', 'pull_request').split()
         tiers = {os.environ['TIER']: needed(event, changed, patterns(os.environ['PATHS']), skippable)}
+        if 'DOCS_PATHS' in os.environ:
+            tiers['docs'] = only(event, changed, patterns(os.environ['DOCS_PATHS']), skippable)
     else:
         tiers = decide(event, changed, patterns(os.environ['NATIVE_PATHS']), patterns(os.environ['BUNDLE_PATHS']))
     seen = 'unknown' if changed is None else f'{len(changed)} changed files'
