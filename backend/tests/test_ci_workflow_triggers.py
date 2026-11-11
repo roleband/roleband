@@ -984,7 +984,9 @@ def signing_gaps(job: dict) -> list[str]:
         for step in steps
         if str(step.get("uses", "")).startswith("actions/checkout@") and "ref" in (step.get("with") or {})
     ]
-    secret = next((i for i, step in enumerate(steps) if "secrets." in json.dumps(step)), len(steps))
+    # A secret named outside the steps, such as the job's `env`, reaches every step.
+    job_wide = "secrets." in json.dumps({key: value for key, value in job.items() if key != "steps"})
+    secret = 0 if job_wide else next((i for i, step in enumerate(steps) if "secrets." in json.dumps(step)), len(steps))
     ancestry = next(
         (i for i, step in enumerate(steps)
          if "git merge-base --is-ancestor" in str(step.get("run", "")) and "origin/main" in str(step.get("run", ""))),
@@ -992,7 +994,7 @@ def signing_gaps(job: dict) -> list[str]:
     )
     if ancestry is None:
         gaps.append("never checks that main holds the tag")
-    elif ancestry > secret:
+    elif ancestry >= secret:
         gaps.append("checks that main holds the tag only after a step names a secret")
     return gaps
 
@@ -1023,4 +1025,9 @@ def test_a_sign_job_a_tag_could_reach_is_reported():
         "checks that main holds the tag only after a step names a secret",
     ]
     main_only = "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'"
-    assert signing_gaps({"if": main_only, "steps": [{"uses": "actions/checkout@v7"}, ancestry, secrets]}) == []
+    checkout = {"uses": "actions/checkout@v7"}
+    assert signing_gaps({"if": main_only, "steps": [checkout, ancestry, secrets]}) == []
+    job_wide = {"if": main_only, "env": secrets["env"], "steps": [checkout, ancestry, {"run": "python sign.py"}]}
+    in_ancestry = {"if": main_only, "steps": [checkout, {**ancestry, "env": secrets["env"]}]}
+    for job in (job_wide, in_ancestry):
+        assert signing_gaps(job) == ["checks that main holds the tag only after a step names a secret"]
