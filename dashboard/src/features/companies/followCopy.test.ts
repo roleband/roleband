@@ -2,7 +2,7 @@ import { activate } from "../../copy/activate";
 import { wordsLanguage } from "../../copy/runtime";
 import { describe, expect, it } from "vitest";
 import type { CompanyDiscoveryCompany } from "../../api";
-import { SITE_WALL_SENTENCE, agreementCopy, awaitingConsent, consentsFor, followCopy, wallSentence } from "./followCopy";
+import { SITE_WALL_SENTENCE, agreementCopy, agreementText, awaitingConsent, consentsFor, followCopy, shownSentences, wallSentence } from "./followCopy";
 import type { SectorGroup } from "./companiesModel";
 
 /* The follow confirmations' words are the consent a walled company is
@@ -18,6 +18,11 @@ const company = (over: Partial<CompanyDiscoveryCompany>): CompanyDiscoveryCompan
 const deepmind = company({ slug: "deepmind", display: "DeepMind", wall: "robots" });
 const stripe = company({ slug: "stripe", display: "Stripe" });
 const none = { volume: null, seconds: null } as const;
+const LEDE = "Your radar starts with a curated list of well-known companies. More companies bring more roles, and each scan takes longer.";
+const SOME_WALLED = "Some of these companies limit automated collection on their careers sites.";
+const SOME_DIRECTED = "Some of these companies' careers sites are scanned only at your direction.";
+const BY_FOLLOWING = "By following them, you choose to collect their public postings.";
+const UNFOLLOW_NOTE = "Unfollow any time in Settings › Followed companies.";
 
 describe("follow confirmations and the consent they record", () => {
   it("records exactly the words shown, once per walled company it starts to collect", () => {
@@ -25,19 +30,16 @@ describe("follow confirmations and the consent they record", () => {
     const copy = followCopy(pending);
     expect(copy).toEqual({
       title: "Follow the whole list?",
-      paragraphs: [
-        "Your radar starts with a curated list of well-known companies, so your first roles come from employers you know.",
-        "More companies bring more roles, and each scan takes longer.",
-        "Some of these companies limit automated collection on their careers sites. " +
-          "By following them, you choose to collect their public postings.",
-        "You can unfollow any company in Settings › Followed companies.",
-      ],
+      paragraphs: [LEDE],
+      consent: { facts: [{ site: "walled", text: SOME_WALLED }], choice: BY_FOLLOWING },
+      note: UNFOLLOW_NOTE,
       safe: "Keep curated list",
       act: "Follow all 2",
     });
-    expect(consentsFor(pending)).toEqual([
-      { slug: "deepmind", locale: "en", text: [copy.title, ...copy.paragraphs].join("\n\n"), scan_on_schedule: true },
-    ]);
+    // The stored text is every sentence shown, in the order shown.
+    const text = ["Follow the whole list?", LEDE, SOME_WALLED, BY_FOLLOWING, UNFOLLOW_NOTE].join("\n\n");
+    expect(agreementText(copy)).toBe(text);
+    expect(consentsFor(pending)).toEqual([{ slug: "deepmind", locale: "en", text, scan_on_schedule: true }]);
   });
 
   it("a sector's Follow all shows and records the same consent sentence as the whole list", () => {
@@ -45,25 +47,19 @@ describe("follow confirmations and the consent they record", () => {
       bulk: [deepmind, stripe], trackedCount: 0 } as unknown as SectorGroup;
     const pending = { kind: "sector" as const, group, companies: [deepmind, stripe], estimate: none };
     const copy = followCopy(pending);
-    expect(copy.paragraphs[copy.paragraphs.length - 1]).toBe(
-      "Some of these companies limit automated collection on their careers sites. " +
-        "By following them, you choose to collect their public postings.",
-    );
+    expect(copy.consent).toEqual({ facts: [{ site: "walled", text: SOME_WALLED }], choice: BY_FOLLOWING });
     expect(consentsFor(pending)).toEqual([
-      { slug: "deepmind", locale: "en", text: [copy.title, ...copy.paragraphs].join("\n\n"), scan_on_schedule: true },
+      { slug: "deepmind", locale: "en", text: agreementText(copy), scan_on_schedule: true },
     ]);
     const clear = { ...pending, companies: [stripe], group: { ...group, bulk: [stripe] } };
-    expect(followCopy(clear).paragraphs.join(" ")).not.toContain("automated collection");
+    expect(followCopy(clear).consent).toBeUndefined();
+    expect(shownSentences(followCopy(clear)).join(" ")).not.toMatch(/automated collection|collect/);
   });
 
   it("names no wall and records nothing when the set has no unconsented walled company", () => {
     const consented = { ...deepmind, consented: true };
     const pending = { kind: "include" as const, companies: [consented, stripe], estimate: none };
-    expect(followCopy(pending).paragraphs).toEqual([
-      "Your radar starts with a curated list of well-known companies, so your first roles come from employers you know.",
-      "More companies bring more roles, and each scan takes longer.",
-      "You can unfollow any company in Settings › Followed companies.",
-    ]);
+    expect(shownSentences(followCopy(pending))).toEqual([LEDE, UNFOLLOW_NOTE]);
     expect(consentsFor(pending)).toEqual([]);
     expect(awaitingConsent([consented, stripe])).toEqual([]);
   });
@@ -82,18 +78,25 @@ describe("follow confirmations and the consent they record", () => {
   it("an individual walled follow shows the reason and what following means", () => {
     const copy = followCopy({ kind: "agree-follow", company: deepmind });
     expect(copy.title).toBe("Follow DeepMind?");
-    expect(copy.paragraphs).toEqual([
+    expect(shownSentences(copy)).toEqual([
       SITE_WALL_SENTENCE,
       "By following, you choose to collect DeepMind's public postings. Unfollow at any time to stop.",
     ]);
+    // One company's agreement stores the same words, in the same order, as
+    // before its dialog split them into a fact and a choice.
+    expect(agreementText(copy)).toBe([
+      "Follow DeepMind?",
+      SITE_WALL_SENTENCE,
+      "By following, you choose to collect DeepMind's public postings. Unfollow at any time to stop.",
+    ].join("\n\n"));
   });
 
   it("warns once about the walled companies in Follow the whole list, naming none of them", () => {
     const wise = company({ slug: "wise", display: "Wise", wall: "bot_wall" });
     const pending = { kind: "include" as const, companies: [deepmind, wise, stripe], estimate: none };
-    const paragraphs = followCopy(pending).paragraphs;
-    expect(paragraphs.filter((line) => line.includes("limit automated collection"))).toHaveLength(1);
-    expect(paragraphs.join(" ")).not.toMatch(/DeepMind|Wise|\d/);
+    const sentences = shownSentences(followCopy(pending));
+    expect(sentences.filter((line) => line.includes("limit automated collection"))).toHaveLength(1);
+    expect(sentences.join(" ")).not.toMatch(/DeepMind|Wise|\d/);
     // Both are consented to, in the words shown.
     expect(consentsFor(pending).map((entry) => entry.slug)).toEqual(["deepmind", "wise"]);
   });
@@ -104,18 +107,17 @@ describe("follow confirmations and the consent they record", () => {
     const copy = followCopy(pending);
     expect(copy).toEqual({
       title: "Follow the other companies too?",
-      paragraphs: [
-        "Your radar adds the other companies to the ones on the list.",
-        "Some of these companies' careers sites limit automated collection. " +
-          "By picking this, you choose to collect their public postings.",
-        "With more companies, scans take longer.",
-        "Change it any time in Settings › Followed companies.",
-      ],
+      paragraphs: ["Your radar adds the other companies to the ones on the list.", "With more companies, scans take longer."],
+      consent: {
+        facts: [{ site: "walled", text: SOME_WALLED }],
+        choice: "By picking this, you choose to collect their public postings.",
+      },
+      note: "Change it any time in Settings › Followed companies.",
       safe: "Cancel",
       act: "Follow them",
     });
-    expect([copy.title, ...copy.paragraphs].join(" ")).not.toMatch(/\d|DeepMind|Wise|Stripe/);
-    const text = [copy.title, ...copy.paragraphs].join("\n\n");
+    const text = agreementText(copy);
+    expect(text).not.toMatch(/\d|DeepMind|Wise|Stripe/);
     expect(consentsFor(pending)).toEqual([
       { slug: "deepmind", locale: "en", text, scan_on_schedule: true },
       { slug: "wise", locale: "en", text, scan_on_schedule: true },
@@ -125,7 +127,7 @@ describe("follow confirmations and the consent they record", () => {
   it("the list and the other companies without a walled company to follow says nothing of walls and consents to nothing", () => {
     for (const companies of [[stripe], [{ ...deepmind, consented: true }, stripe], []]) {
       const pending = { kind: "everything" as const, companies };
-      expect(followCopy(pending).paragraphs.join(" ")).not.toMatch(/limit|collect/);
+      expect(shownSentences(followCopy(pending)).join(" ")).not.toMatch(/limit|collect/);
       expect(consentsFor(pending)).toEqual([]);
     }
   });
@@ -144,7 +146,7 @@ it("records the rendered consent snapshot even after the locale changes", async 
   const pending = { kind: "agree-follow" as const, company: deepmind };
   const shown = { copy: followCopy(pending), locale: wordsLanguage(), keepScanning: true };
   await activate("en");
-  expect(consentsFor(pending, shown)).toEqual([{ slug: "deepmind", locale: "es", text: [shown.copy.title,...shown.copy.paragraphs].join("\n\n"), scan_on_schedule: true }]);
+  expect(consentsFor(pending, shown)).toEqual([{ slug: "deepmind", locale: "es", text: agreementText(shown.copy), scan_on_schedule: true }]);
 });
 
 describe("a company scanned only at the user's direction", () => {
@@ -155,16 +157,14 @@ describe("a company scanned only at the user's direction", () => {
     const copy = followCopy({ kind: "agree-follow", company: nvidia });
     expect(copy).toEqual({
       title: "Follow NVIDIA?",
-      paragraphs: [
-        DIRECTED,
-        "By following, you choose to collect NVIDIA's public postings. Unfollow at any time to stop.",
-      ],
+      paragraphs: [],
+      consent: {
+        facts: [{ site: "directed", text: DIRECTED }],
+        choice: "By following, you choose to collect NVIDIA's public postings. Unfollow at any time to stop.",
+      },
       safe: "Cancel",
       act: "Follow and scan",
-      keepScanning: {
-        label: "Keep scanning this company",
-        hint: "Unticked, it's scanned now, then only when you ask.",
-      },
+      keepScanning: "Keep scanning this company",
     });
     expect(awaitingConsent([nvidia])).toEqual([nvidia]);
     expect(awaitingConsent([{ ...nvidia, consented: true }])).toEqual([]);
@@ -173,7 +173,7 @@ describe("a company scanned only at the user's direction", () => {
   it("records the checkbox as the agreement's choice, either way", () => {
     const pending = { kind: "agree-follow" as const, company: nvidia };
     const copy = followCopy(pending);
-    const text = [copy.title, ...copy.paragraphs].join("\n\n");
+    const text = agreementText(copy);
     for (const keepScanning of [true, false]) {
       expect(consentsFor(pending, { copy, locale: "en", keepScanning })).toEqual([
         { slug: "nvidia", locale: "en", text, scan_on_schedule: keepScanning },
@@ -190,7 +190,7 @@ describe("a company scanned only at the user's direction", () => {
 
   it("a company both walled and directed states both and keeps the checkbox", () => {
     const both = agreementCopy({ display: "NVIDIA", walled: true, directed: true });
-    expect(both.paragraphs.slice(0, 2)).toEqual([SITE_WALL_SENTENCE, DIRECTED]);
+    expect(both.consent?.facts).toEqual([{ site: "walled", text: SITE_WALL_SENTENCE }, { site: "directed", text: DIRECTED }]);
     expect(both.act).toBe("Follow and scan");
     expect(both.keepScanning).toBeDefined();
   });
@@ -200,13 +200,15 @@ describe("a company scanned only at the user's direction", () => {
     const group = { slug: "ai", display: "AI", bulk: [nvidia, adobe, deepmind, stripe] } as unknown as SectorGroup;
     const pending = { kind: "sector" as const, group, companies: [nvidia, adobe, deepmind, stripe], estimate: none };
     const copy = followCopy(pending);
-    const directedLines = copy.paragraphs.filter((line) => line.includes("only at your direction"));
-    expect(directedLines).toEqual([
-      "Some of these companies' careers sites are scanned only at your direction. " +
-        "By following them, you choose to collect their public postings.",
-    ]);
-    expect(copy.paragraphs.join(" ")).not.toMatch(/NVIDIA|Adobe/);
-    expect(copy.keepScanning?.label).toBe("Keep scanning these companies");
+    // Walled and directed: each fact once, and what following means once
+    // under both, never repeated per fact.
+    expect(copy.consent).toEqual({
+      facts: [{ site: "walled", text: SOME_WALLED }, { site: "directed", text: SOME_DIRECTED }],
+      choice: BY_FOLLOWING,
+    });
+    expect(shownSentences(copy).filter((line) => line.includes("choose to collect"))).toEqual([BY_FOLLOWING]);
+    expect(shownSentences(copy).join(" ")).not.toMatch(/NVIDIA|Adobe/);
+    expect(copy.keepScanning).toBe("Keep scanning these companies");
     const agreements = consentsFor(pending, { copy, locale: "en", keepScanning: false });
     expect(agreements.map(({ slug, scan_on_schedule }) => [slug, scan_on_schedule])).toEqual([
       ["nvidia", false], ["adobe", false], ["deepmind", true],
@@ -214,6 +216,7 @@ describe("a company scanned only at the user's direction", () => {
     // Without a directed company left to agree to, no line and no checkbox.
     const agreed = followCopy({ ...pending, companies: [{ ...nvidia, consented: true }, stripe] });
     expect(agreed.keepScanning).toBeUndefined();
-    expect(agreed.paragraphs.join(" ")).not.toContain("your direction");
+    expect(shownSentences(agreed).join(" ")).not.toContain("your direction");
+    expect(agreed.consent).toBeUndefined();
   });
 });

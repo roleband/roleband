@@ -1,7 +1,6 @@
 {
   "ai-egress-detail": "Text from postings is sent only to the AI providers you turn on, including providers you add or turn on later.",
   "spike-consent-wall": "Its careers site limits automated collection.",
-  "companies-follow-copy-some-of-these-companies-careers": "Some of these companies' careers sites limit automated collection. By picking this, you choose to collect their public postings.",
   "jobs-standing-hedge": "patterns in how it is listed, not a verdict on the company. It may still be hiring.",
   "privacy-consent-intro": "We're free and open source, and we get better with every release.",
   "privacy-consent-intro-data": "Anonymous data shows us what to fix and what to build next.",
@@ -12,8 +11,10 @@
   "privacy-never": "Company names, role titles, compensation, your CV or anything you type.",
   "privacy-consent-change": "Change it any time in Settings › Privacy.",
   "launcher-update-automatic": "Check for updates automatically",
-  "companies-follow-copy-some-of-these-companies-limit": "Some of these companies limit automated collection on their careers sites. By following them, you choose to collect their public postings.",
+  "companies-follow-copy-some-of-these-companies-limit": "Some of these companies limit automated collection on their careers sites.",
   "companies-follow-copy-by-following-you-choose-to": "By following, you choose to collect {$display}'s public postings. Unfollow at any time to stop.",
   "companies-follow-copy-scanned-at-your-direction": "Its careers site is scanned only at your direction.",
-  "companies-follow-copy-some-are-scanned-at-your-direction": "Some of these companies' careers sites are scanned only at your direction. By following them, you choose to collect their public postings."
+  "companies-follow-copy-some-are-scanned-at-your-direction": "Some of these companies' careers sites are scanned only at your direction.",
+  "companies-follow-copy-by-following-them": "By following them, you choose to collect their public postings.",
+  "companies-follow-copy-by-picking-this": "By picking this, you choose to collect their public postings."
 }

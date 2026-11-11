@@ -431,16 +431,18 @@ companies-follow-copy-thousands-of-roles = thousands of roles
 companies-follow-copy-hundreds-of-roles = hundreds of roles
 # kind=label wording=as-is
 companies-follow-copy-more-roles = more roles
-# kind=sentence
-companies-follow-copy-following-all-will-likely-bring = More companies bring more roles, and each scan takes longer.
 # kind=heading
 companies-follow-copy-follow-more = Follow the whole list?
 # kind=sentence
-companies-follow-copy-roleband-starts-you-with-a = Your radar starts with a { $curatedList } of well-known companies, so your first roles come from employers you know.
-# kind=consent note="Shown in the Follow the whole list dialog only when some of the companies limit automated collection. The whole dialog's text is the consent the server stores for them."
-companies-follow-copy-some-of-these-companies-limit = Some of these companies limit automated collection on their careers sites. By following them, you choose to collect their public postings.
-# kind=sentence
-companies-follow-copy-you-can-unfollow-any-company = You can unfollow any company in Settings › Followed companies.
+companies-follow-copy-roleband-starts-you-with-a = Your radar starts with a { $curatedList } of well-known companies. More companies bring more roles, and each scan takes longer.
+# kind=consent note="A bulk follow dialog's fact, shown only when some of the companies limit automated collection. With the dialog's other sentences, the text the server stores as this person's consent"
+companies-follow-copy-some-of-these-companies-limit = Some of these companies limit automated collection on their careers sites.
+# kind=consent note="Said once under a bulk follow dialog's facts, whichever of them it shows"
+companies-follow-copy-by-following-them = By following them, you choose to collect their public postings.
+# kind=consent note="Said once under the facts of the dialog that adds the other companies, whichever of them it shows"
+companies-follow-copy-by-picking-this = By picking this, you choose to collect their public postings.
+# kind=sentence note="A quiet line above the Follow the whole list answers, kept on one line"
+companies-follow-copy-unfollow-any-time = Unfollow any time in Settings › Followed companies.
 # kind=label wording=as-is
 companies-follow-copy-keep = Keep { $curatedList }
 # kind=label wording=as-is
@@ -476,17 +478,12 @@ companies-follow-copy-by-following-you-choose-to = By following, you choose to c
 companies-follow-copy-follow-company = Follow { $display }
 # kind=consent note="The follow dialog for a company whose careers site is scanned only at the person's direction. With the dialog's other sentences, the text the server stores as this person's agreement"
 companies-follow-copy-scanned-at-your-direction = Its careers site is scanned only at your direction.
-# kind=consent note="Shown in a bulk follow dialog when some of the companies are scanned only at the person's direction. The whole dialog's text is the agreement the server stores for them."
-companies-follow-copy-some-are-scanned-at-your-direction = Some of these companies' careers sites are scanned only at your direction. By following them, you choose to collect their public postings.
-# kind=label note="The follow dialog's checkbox, ticked at first: on, the companies join the scan schedule; off, they are scanned now and then when the person asks"
+# kind=consent note="A bulk follow dialog's fact, shown only when some of the companies are scanned only at the person's direction. With the dialog's other sentences, the text the server stores as this person's agreement"
+companies-follow-copy-some-are-scanned-at-your-direction = Some of these companies' careers sites are scanned only at your direction.
+# kind=label note="The follow dialog's switch, on at first: on, the companies join the scan schedule; off, they are scanned now and then when the person asks"
 companies-follow-copy-keep-scanning = { $count ->
     [one] Keep scanning this company
    *[other] Keep scanning these companies
-}
-# kind=sentence note="Under the Keep scanning checkbox"
-companies-follow-copy-keep-scanning-hint = { $count ->
-    [one] Unticked, it's scanned now, then only when you ask.
-   *[other] Unticked, they're scanned now, then only when you ask.
 }
 # kind=button note="The follow dialog's answer for companies scanned only at the person's direction: follows them and starts their scan"
 companies-follow-copy-follow-and-scan = Follow and scan
@@ -504,8 +501,6 @@ companies-follow-copy-start-scanning = Start scanning
 companies-follow-copy-follow-every-company-question = Follow the other companies too?
 # kind=sentence
 companies-follow-copy-your-radar-covers-the-whole = Your radar adds the other companies to the ones on the list.
-# kind=consent note="Shown only when some of the companies limit automated collection. The whole dialog's text is the consent the server stores for them."
-companies-follow-copy-some-of-these-companies-careers = Some of these companies' careers sites limit automated collection. By picking this, you choose to collect their public postings.
 # kind=sentence
 companies-follow-copy-with-more-companies-scans-take = With more companies, scans take longer.
 # kind=sentence

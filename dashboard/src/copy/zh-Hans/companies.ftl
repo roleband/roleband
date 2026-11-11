@@ -250,10 +250,9 @@ companies-model-other-companies = 其他公司
 companies-follow-copy-thousands-of-roles = 数千个职位
 companies-follow-copy-hundreds-of-roles = 数百个职位
 companies-follow-copy-more-roles = 更多职位
-companies-follow-copy-following-all-will-likely-bring = 公司越多，职位越多，每次扫描也会更久。
 companies-follow-copy-follow-more = 关注整个列表？
-companies-follow-copy-roleband-starts-you-with-a = 你的雷达从一份知名公司的{ $curatedList }开始，所以你最先看到的职位来自你熟悉的雇主。
-companies-follow-copy-you-can-unfollow-any-company = 你可以在 设置 › 已关注的公司 中取消关注任何公司。
+companies-follow-copy-roleband-starts-you-with-a = 你的雷达从一份知名公司的{ $curatedList }开始。公司越多，职位越多，每次扫描也会更久。
+companies-follow-copy-unfollow-any-time = 可随时在 设置 › 关注的公司 中取消关注。
 companies-follow-copy-keep = 保留{ $curatedList }
 companies-follow-copy-follow-all = 关注全部 { $count } 家
 companies-follow-copy-unfollow-outside-your = 取消关注你的{ $curatedList }之外的 { $count } 家公司？
@@ -350,8 +349,5 @@ companies-company-register-rows-keep-scanning-state = { $state ->
 }
 companies-follow-copy-keep-scanning = { $count ->
    *[other] 持续扫描
-}
-companies-follow-copy-keep-scanning-hint = { $count ->
-   *[other] 不勾选时，现在扫描一次，之后仅在你要求时扫描。
 }
 companies-follow-copy-follow-and-scan = 关注并扫描
