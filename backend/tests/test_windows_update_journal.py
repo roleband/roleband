@@ -507,6 +507,59 @@ class TestNoOneIsStuck:
         assert (answer["status"], answer["kind"]) == ("refused", kind) and "0.1.2" in answer["reason"]
         assert windows_update_journal.read(state)["phase"] == "failed", "Undo stays one press away"
 
+    @pytest.mark.parametrize("free", [10 * 2**30, 1 * 2**30], ids=["room", "no-room"])
+    def test_an_undo_without_room_for_the_previous_version_is_refused_before_it_downloads(
+            self, state, tmp_path, monkeypatch, capsys, free):
+        """Room for its package and Windows' copy of it, as an update's own download needs; the release's size is known
+        once its signed files are read, so the check runs between those and the download."""
+        import shutil
+        from types import SimpleNamespace
+
+        from scripts.windows_update import _recover_begin
+        from tracker.platform import windows_packages, windows_update_journal
+
+        identity, kept = _keeper(state, tmp_path)
+        _failed(state, tmp_path)
+        downloaded = []
+
+        def fetch(state_, identity_, version, *, room, **_kwargs):
+            room(SimpleNamespace(version=version, bytes=600 * 2**20))
+            downloaded.append(version)
+            return kept(version)
+
+        monkeypatch.setattr(windows_packages, "retain_running", fetch)
+        monkeypatch.setattr(shutil, "disk_usage", lambda _path: SimpleNamespace(total=free, used=0, free=free))
+        if free > 2 * 2**30:
+            assert _recover_begin(state, identity, "0.1.3") == 0
+            assert downloaded == ["0.1.2"]
+            return
+        assert _recover_begin(state, identity, "0.1.3") == 1
+        answer = json.loads(capsys.readouterr().out)
+        assert (answer["status"], answer["kind"]) == ("refused", "space")
+        assert answer["needed"] == 2 * 600 * 2**20 + 256 * 2**20
+        assert downloaded == [], "nothing was downloaded"
+        assert windows_update_journal.read(state)["phase"] == "failed", "Undo stays one press away"
+
+    def test_keeping_the_running_release_asks_for_room_before_downloading(self, monkeypatch, tmp_path):
+        from types import SimpleNamespace
+
+        from tracker.platform import windows_packages, windows_updates
+
+        offer = SimpleNamespace(version="0.1.2", bytes=1)
+        order = []
+        monkeypatch.setattr(windows_packages, "retained", lambda *_args: [])
+        monkeypatch.setattr(windows_updates, "fetch_release", lambda *_args, **_kwargs: (b"", b"", b""))
+        monkeypatch.setattr(windows_packages, "verify_offer", lambda *_args: offer)
+        monkeypatch.setattr(windows_packages, "download", lambda *_args, **_kwargs: order.append("download"))
+
+        def refuse(seen):
+            order.append(("room", seen.version))
+            raise OSError("no room")
+
+        with pytest.raises(OSError, match="no room"):
+            windows_packages.retain_running(tmp_path, SimpleNamespace(), "0.1.2", room=refuse)
+        assert order == [("room", "0.1.2")], "refused before any download"
+
     @pytest.mark.parametrize("journal_state", ["preparing", "damaged"])
     def test_an_undo_that_cannot_begin_is_refused_before_anything_is_downloaded(self, state, tmp_path, monkeypatch,
                                                                                 capsys, journal_state):

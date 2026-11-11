@@ -57,6 +57,14 @@ def _held_back(update: dict[str, Any] | None) -> str | None:
 _SPACE_MARGIN = 256 * 2**20
 
 
+class _NoRoom(OSError):
+    """Too little free space for a download and Windows' copy of it, found before the download starts."""
+
+    def __init__(self, needed: int) -> None:
+        super().__init__(errno.ENOSPC, "not enough free space")
+        self.needed = needed
+
+
 def _space_needed(offer: Any, missing: set[str]) -> int:
     """Room for the packages still to download, and for Windows' copy of the update when it installs it. A version not
     kept yet is counted at the update's size, the nearest known."""
@@ -178,9 +186,16 @@ def _recover_begin(state: Path, identity: Any, running: str) -> int:
         return 1
     previous = [path for offer, path in retained(state, identity) if offer.version == record["from_version"]]
     if not previous:
+
+        def room(offer: Any) -> None:
+            # Its package and Windows' copy of it when it installs it, as for an update's own download.
+            needed = _space_needed(offer, {offer.version})
+            if shutil.disk_usage(state).free < needed:
+                raise _NoRoom(needed)
+
         try:
             # Kept as if it were running, so keeping it never prunes it again.
-            previous = [retain_running(state, identity, record["from_version"])]
+            previous = [retain_running(state, identity, record["from_version"], room=room)]
         except (OSError, HTTPError, ReleaseError, RateLimited) as error:
             kind = _failure(error)
             version = record["from_version"]
@@ -189,7 +204,10 @@ def _recover_begin(state: Path, identity: Any, running: str) -> int:
                 "offline": f"Undo downloads version {version} first, and the connection was lost.",
                 "space": f"There is not enough free space to download version {version}.",
             }.get(kind, f"Version {version} could not be downloaded from its release, so the update was not undone.")
-            print(json.dumps({"status": "refused", "kind": kind, "reason": f"{reason} ({error})"}))
+            if isinstance(error, _NoRoom):
+                print(json.dumps({"status": "refused", "kind": kind, "needed": error.needed, "reason": reason}))
+            else:
+                print(json.dumps({"status": "refused", "kind": kind, "reason": f"{reason} ({error})"}))
             return 1
     try:
         journal.recover_begin(state, running)

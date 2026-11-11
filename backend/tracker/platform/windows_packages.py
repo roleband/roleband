@@ -152,11 +152,13 @@ def download(state: Path, identity: Identity, offer: Offer, signed: tuple[bytes,
 
 
 def retain_running(state: Path, identity: Identity, installed: str, *,
-                   transport: httpx.BaseTransport | None = None, progress: Progress | None = None) -> Path:
+                   transport: httpx.BaseTransport | None = None, progress: Progress | None = None,
+                   room: Callable[[Offer], None] | None = None) -> Path:
     """Keep the running version's own release package: the only way back from its first update.
 
     Windows keeps no copy of an installed package, so the way back is the published release of
-    the running version, verified like any update before it is kept.
+    the running version, verified like any update before it is kept. `room` sees the verified
+    release, whose size is known only then, and may refuse it before anything is downloaded.
     """
     from tracker.platform.windows_updates import fetch_release
 
@@ -167,6 +169,8 @@ def retain_running(state: Path, identity: Identity, installed: str, *,
     offer = verify_offer(identity, "0.0.0", *signed)
     if offer.version != installed:
         raise ReleaseError("The feed's release files describe another version")
+    if room is not None:
+        room(offer)
     return download(state, identity, offer, signed, installed, transport=transport, progress=progress)
 
 

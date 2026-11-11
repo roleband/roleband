@@ -254,7 +254,8 @@ def _tool(bin_dir: Path, name: str) -> Path:
     return exe
 
 
-def run_psql(server_dsn: str, bin_dir: Path, sql: str, *, timeout: float | None = 60.0) -> str:
+def run_psql(server_dsn: str, bin_dir: Path, sql: str, *, timeout: float | None = 60.0,
+             env: Mapping[str, str] | None = None) -> str:
     """Run one statement through the bundled psql, raising on SQL error.
 
     The one psql runner — app code, scripts, and tests all use this.
@@ -264,7 +265,8 @@ def run_psql(server_dsn: str, bin_dir: Path, sql: str, *, timeout: float | None 
     that accepts connections but never answers would otherwise hang the
     supervisor forever — launchd will not start a second instance of a label
     that is still running. Pass `timeout=None` for statements that may
-    legitimately run long (ANALYZE after a full restore).
+    legitimately run long (ANALYZE after a full restore). `env` adds variables for a server that is not the
+    embedded one, such as a migration's source, whose libpq settings `forget_libpq_environment` removed.
     """
     arguments = ["-c", sql]
     payload = None
@@ -283,7 +285,7 @@ def run_psql(server_dsn: str, bin_dir: Path, sql: str, *, timeout: float | None 
             capture_output=True,
             text=True,
             encoding="utf-8",
-            env={**os.environ, "PGCLIENTENCODING": "UTF8"},
+            env={**os.environ, **(env or {}), "PGCLIENTENCODING": "UTF8"},
             timeout=timeout,
         )
     except subprocess.TimeoutExpired:
