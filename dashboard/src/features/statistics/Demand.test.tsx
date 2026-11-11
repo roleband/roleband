@@ -1,11 +1,10 @@
 import { msg } from "../../test/msg";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Demand, HiringCompany } from "../../api";
 import { api } from "../../api";
 import { activate } from "../../copy/activate";
-import { jobFixture } from "../../test/fixtures";
 import { DemandView } from "./Demand";
 
 vi.mock("../../api", async () => {
@@ -14,10 +13,15 @@ vi.mock("../../api", async () => {
 });
 
 /* The chart is canvas; it renders the bars it is handed as text here, so a test
-   can read exactly what the view chose to draw. */
+   can read exactly what the view chose to draw, and a bar is a button that
+   clicks the way the chart reports a click (`HiringCompaniesChart.test.tsx`). */
 vi.mock("./charts/StatisticsCharts", () => ({
-  HiringCompaniesChart: ({ bars }: { bars: { label: string; open: number }[] }) => (
-    <ol aria-label="Company chart">{bars.map((b) => <li key={b.label}>{`${b.label}: ${b.open}`}</li>)}</ol>
+  HiringCompaniesChart: ({ bars, onPick }: { bars: { company: string; label: string; open: number }[]; onPick?: (company: string) => void }) => (
+    <ol aria-label="Company chart">
+      {bars.map((b) => (
+        <li key={b.label}><button type="button" onClick={() => onPick?.(b.company)}>{`${b.label}: ${b.open}`}</button></li>
+      ))}
+    </ol>
   ),
 }));
 
@@ -52,23 +56,24 @@ const demand = (over: Partial<Demand> = {}): Demand => ({
   ],
   unplaced: 3,
   employer_dated_share: 466 / 640,
-  // A posting its employer dated 170 days ago that we first saw 3 days ago.
-  longest_open: Array.from({ length: 8 }, (_, i) => ({
-    ...jobFixture, id: 7 + i, company: "anthropic", title: i === 0 ? "Staff Product Manager, Claude" : `Role ${i}`,
-    days_open: 3, listed_days: 170 - i,
-  })),
-  listed_over_a_year: 0,
-  most_reposted: [],
-  most_updated_open: [],
   ...over,
 });
 
 beforeEach(() => vi.clearAllMocks());
 
-function renderHiring({ advanced = false } = {}) {
+/** Where the Board route was asked for: its path and query, or nothing yet. */
+function BoardProbe() {
+  const { pathname, search } = useLocation();
+  return <p data-testid="board">{`${pathname}${search}`}</p>;
+}
+
+function renderHiring(scope?: Parameters<typeof DemandView>[0]["scope"]) {
   return render(
-    <MemoryRouter>
-      <DemandView onOpen={vi.fn()} advanced={advanced} />
+    <MemoryRouter initialEntries={["/statistics/demand"]}>
+      <Routes>
+        <Route path="/statistics/demand" element={<DemandView scope={scope} />} />
+        <Route path="/" element={<BoardProbe />} />
+      </Routes>
     </MemoryRouter>,
   );
 }
@@ -142,12 +147,23 @@ it("asks the route for the scope it is given and names the side it shows", async
   vi.mocked(api.demand).mockResolvedValue(demand({
     companies: [company("anthropic", 40), company("google", 30), company("stripe", 4)],
   }));
-  render(<MemoryRouter><DemandView scope={scope} onOpen={vi.fn()} /></MemoryRouter>);
+  renderHiring(scope);
   const bars = within(await screen.findByRole("list", { name: "Company chart" })).getAllByRole("listitem");
   expect(bars.map((li) => li.textContent)).toEqual(["Anthropic: 40", "Google: 30", "stripe: 4"]);
   expect(api.demand).toHaveBeenCalledWith(scope);
   expect(screen.getByText("Your companies")).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /Show all/ })).toBeNull();
+  // No tail to fold, and still the full list: a chart bar takes no keyboard
+  // focus, so the list is how a keyboard reaches each company's roles.
+  expect(screen.queryByText(/more hold/)).toBeNull();
+  expect(screen.getByRole("button", { name: "Show all 3 companies" })).toBeInTheDocument();
+});
+
+it("opens the Board narrowed to a company when its bar is clicked", async () => {
+  vi.mocked(api.demand).mockResolvedValue(demand());
+  renderHiring();
+  const chart = await screen.findByRole("list", { name: "Company chart" });
+  fireEvent.click(within(chart).getByRole("button", { name: "Google: 30" }));
+  expect(await screen.findByTestId("board")).toHaveTextContent(/^\/\?company=google$/);
 });
 
 it("opens every company in a searchable sheet", async () => {
@@ -158,8 +174,17 @@ it("opens every company in a searchable sheet", async () => {
   expect(within(sheet).getByText("20 of 20 companies")).toBeInTheDocument();
   fireEvent.change(within(sheet).getByRole("searchbox", { name: "Find a company" }), { target: { value: "strip" } });
   expect(within(sheet).getByText("1 of 20 companies")).toBeInTheDocument();
-  expect(within(sheet).getByText("stripe")).toBeInTheDocument();
   expect(within(sheet).queryByText("Anthropic")).toBeNull();
+
+  // Each company is a link to its roles on the Board, the folded tail too.
+  const stripe = within(sheet).getByRole("link", { name: "stripe" });
+  expect(stripe).toHaveAttribute("href", "/?company=stripe");
+  fireEvent.change(within(sheet).getByRole("searchbox", { name: "Find a company" }), { target: { value: "" } });
+  expect(within(sheet).getAllByRole("link")).toHaveLength(20);
+  expect(within(sheet).getByRole("link", { name: "tail-14" })).toHaveAttribute("href", "/?company=tail-14");
+
+  fireEvent.click(stripe);
+  expect(await screen.findByTestId("board")).toHaveTextContent(/^\/\?company=stripe$/);
 });
 
 it("opens a region into its countries, with roles that name only the region apart", async () => {
@@ -179,48 +204,12 @@ it("opens a region into its countries, with roles that name only the region apar
   expect(screen.getByText("3 roles name no specific place, such as Remote alone.")).toBeInTheDocument();
 });
 
-it("captions a longest-open role with its listed age, and lists five", async () => {
-  vi.mocked(api.demand).mockResolvedValue(demand());
-  renderHiring({ advanced: true });
-  const row = await screen.findByRole("link", { name: /Staff Product Manager, Claude/ });
-  expect(row).toHaveTextContent("Anthropic · Listed for 170 days");
-  expect(row).not.toHaveTextContent(/\bopen\b/i);
-  expect(screen.getByRole("link", { name: /Role 4/ })).toBeInTheDocument();
-  expect(screen.queryByRole("link", { name: /Role 5/ })).toBeNull();
-});
-
-it("says how many roles with a stale listing date the longest-open list left out", async () => {
-  vi.mocked(api.demand).mockResolvedValue(demand({ listed_over_a_year: 95 }));
-  renderHiring({ advanced: true });
-  expect(await screen.findByText(msg("insights-demand-listed-over-a-year-are", { role: "95 roles" }))).toBeInTheDocument();
-});
-
 it("says so when nothing is open", async () => {
   vi.mocked(api.demand).mockResolvedValue(
-    demand({ open_total: 0, new_today: 0, closed_today: 0, companies: [], regions: [], unplaced: 0, longest_open: [] }),
+    demand({ open_total: 0, new_today: 0, closed_today: 0, companies: [], regions: [], unplaced: 0 }),
   );
   renderHiring();
   expect(await screen.findByText("No open roles at these companies.")).toBeInTheDocument();
   expect(screen.getByText("No open roles yet.")).toBeInTheDocument();
-  expect(screen.queryByText(/listed over a year/)).toBeNull();
-});
-
-it("shows a posting with only a base estimate as a base estimate, never a dash", async () => {
-  // Fail-first: the lists printed fmtComp(comp_median), a bare dash here.
-  const baseOnly = { ...jobFixture, id: 90, title: "Staff Engineer, Billing", company: "anthropic", listed_days: 400,
-    comp_low: null, comp_high: null, comp_median: null, comp_base_median: 210_000 };
-  vi.mocked(api.demand).mockResolvedValue(demand({ longest_open: [baseOnly], most_reposted: [{ ...baseOnly, id: 91, repost_count: 2 }] }));
-  renderHiring({ advanced: true });
-  const rows = await screen.findAllByText(msg("shared-pay-est-base", { range: "$210K" }));
-  expect(rows).toHaveLength(2);
-});
-
-it("keeps the basic view to who is hiring and where, without the role lists", async () => {
-  vi.mocked(api.demand).mockResolvedValue(demand({ listed_over_a_year: 95 }));
-  renderHiring();
-  expect(await screen.findByRole("heading", { name: /^Open roles by company/ })).toBeInTheDocument();
-  expect(screen.queryByRole("link", { name: /Staff Product Manager, Claude/ })).toBeNull();
-  expect(screen.queryByText(/listed over a year/)).toBeNull();
-  expect(screen.queryByRole("heading", { name: /Reposted roles/ })).toBeNull();
-  expect(screen.queryByRole("heading", { name: /Updated but never closed/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: /Show all/ })).toBeNull();
 });

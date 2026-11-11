@@ -8,8 +8,8 @@ import { readInsightsView, writeInsightsView } from "./insightsView";
 import { StatisticsView } from "./StatisticsView";
 
 vi.mock("./OverviewPanel", () => ({
-  OverviewPanel: ({ scope, advanced }: { scope?: { side: string; families: readonly string[] }; advanced?: boolean }) => (
-    <div data-advanced={String(Boolean(advanced))}>Overview content{scope ? ` scope=${scope.side}:${scope.families.join("+")}` : ""}</div>
+  OverviewPanel: ({ scope }: { scope?: { side: string; families: readonly string[] } }) => (
+    <div>Overview content{scope ? ` scope=${scope.side}:${scope.families.join("+")}` : ""}</div>
   ),
 }));
 vi.mock("../../api", async () => {
@@ -19,10 +19,11 @@ vi.mock("../../api", async () => {
 });
 vi.mock("./Demand", () => ({ DemandView: () => <div>Demand content</div> }));
 vi.mock("./VelocityPanel", () => ({ VelocityPanel: () => <div>Velocity content</div> }));
-vi.mock("./CompensationPanel", () => ({ CompensationPanel: () => <div>Compensation content</div> }));
+vi.mock("./CompensationPanel", () => ({
+  CompensationPanel: ({ advanced }: { advanced?: boolean }) => <div data-advanced={String(Boolean(advanced))}>Compensation content</div>,
+}));
 vi.mock("./StockTrajectoryPanel", () => ({ StockTrajectoryPanel: () => <div>Trajectory content</div> }));
 vi.mock("./SkillsView", () => ({ SkillsView: () => <div>Skills content</div> }));
-vi.mock("./OverlapPanel", () => ({ OverlapPanel: () => <div>Overlap content</div> }));
 vi.mock("./LevelsPanel", async () => {
   const actual = await vi.importActual<typeof import("./LevelsPanel")>("./LevelsPanel");
   return { ...actual, LevelsPanel: ({ scope }: { scope: { side: string } }) => <div>Levels content scope={scope.side}</div> };
@@ -39,7 +40,7 @@ function renderStats(route = "/statistics/overview", extra?: ReactElement) {
   return render(
     <MemoryRouter initialEntries={[route]}>
       <Routes>
-        <Route path="/statistics/:tab" element={<StatisticsView onOpen={vi.fn()} />} />
+        <Route path="/statistics/:tab" element={<StatisticsView />} />
       </Routes>
       <LocationProbe />
       {extra}
@@ -143,12 +144,12 @@ describe("StatisticsView", () => {
     expect(screen.getByTestId("location")).toHaveTextContent("/statistics/overview");
   });
 
-  it.each(["trends", "clusters"])("sends a saved link to the removed %s tab to Overview", async (slug) => {
+  it.each(["trends", "clusters", "overlap"])("sends a saved link to the removed %s tab to Overview", async (slug) => {
     // The removed tab's window was its own, so Overview opens with none.
     renderStats(`/statistics/${slug}?window=90`);
     expect(await screen.findByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByTestId("location")).toHaveTextContent(/^\/statistics\/overview$/);
-    expect(screen.queryByRole("tab", { name: /Trends|Clusters/ })).toBeNull();
+    expect(screen.queryByRole("tab", { name: /Trends|Clusters|Overlap/ })).toBeNull();
   });
 
   it("keeps the companies side on Levels, without disciplines or a window", async () => {
@@ -173,20 +174,20 @@ describe("StatisticsView", () => {
 
 describe("the basic and advanced views", () => {
   const BASIC = ["Overview", "Hiring", "Compensation", "Skills"];
-  const ADVANCED = ["Pace", "Levels", "Stock", "Overlap"];
+  const ADVANCED = ["Pace", "Levels", "Stock"];
   const listed = () => within(screen.getByRole("tablist")).getAllByRole("tab").map((tab) => tab.textContent);
   const advancedSwitch = () => screen.getByRole("checkbox", { name: msg("insights-statistics-view-advanced-view") });
 
   it("starts basic: four tabs, the switch off, and the panels told so", () => {
-    renderStats();
+    renderStats("/statistics/compensation");
     expect(listed()).toEqual(BASIC);
     expect(advancedSwitch()).not.toBeChecked();
-    expect(screen.getByText(/Overview content/)).toHaveAttribute("data-advanced", "false");
+    expect(screen.getByText("Compensation content")).toHaveAttribute("data-advanced", "false");
   });
 
   it("asks once before the advanced view, and lists every tab after a yes", async () => {
     const user = userEvent.setup();
-    renderStats();
+    renderStats("/statistics/compensation");
     await user.click(advancedSwitch());
 
     const dialog = screen.getByRole("dialog", { name: msg("insights-statistics-view-advanced-warning-title") });
@@ -198,8 +199,8 @@ describe("the basic and advanced views", () => {
     await user.click(within(dialog).getByRole("button", { name: msg("insights-statistics-view-show-me-everything") }));
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(advancedSwitch()).toBeChecked();
-    expect(listed()).toEqual(["Overview", "Hiring", "Pace", "Compensation", "Levels", "Stock", "Skills", "Overlap"]);
-    expect(screen.getByText(/Overview content/)).toHaveAttribute("data-advanced", "true");
+    expect(listed()).toEqual(["Overview", "Hiring", "Pace", "Compensation", "Levels", "Stock", "Skills"]);
+    expect(screen.getByText("Compensation content")).toHaveAttribute("data-advanced", "true");
     expect(readInsightsView()).toBe("advanced");
   });
 
@@ -238,10 +239,11 @@ describe("the basic and advanced views", () => {
 
   it("opens a link to an advanced tab in the basic view, says so, and offers the switch", async () => {
     const user = userEvent.setup();
-    renderStats("/statistics/overlap");
-    expect(screen.getByText("Overlap content")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Overlap" })).toHaveAttribute("aria-selected", "true");
-    expect(listed()).toEqual([...BASIC, "Overlap"]);
+    renderStats("/statistics/trajectory");
+    expect(screen.getByText("Trajectory content")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Stock" })).toHaveAttribute("aria-selected", "true");
+    // In its place in the bar, between Compensation and Skills.
+    expect(listed()).toEqual(["Overview", "Hiring", "Compensation", "Stock", "Skills"]);
     expect(screen.getByText(msg("insights-statistics-view-part-of-advanced-view"))).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: msg("insights-statistics-view-show-advanced-view") }));

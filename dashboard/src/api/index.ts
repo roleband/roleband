@@ -68,12 +68,12 @@ export type {
   CompPartSource, CompTrajectory, CompTrajectoryChoice, OfferTerms, OfferTermsCompany, CompTrajectoryCompany, CompTrajectorySetApart, CompTrendDim, CompTrendPoint, CompTrendSeries, CompTrends,
   CompensationStats, Demand, InsightsScope, DisclosedBand, LevelGuide, LevelGuideCell, LevelGuideCompany, LevelGuideEntry, DisclosedBands, DisclosureCompany, HiringCompany, HiringRegion,
   DisclosureGroup, DisclosureLevel, DisclosureRates, DisclosureTrendDim, DisclosureTrendPoint,
-  DisclosureTrendSeries, DisclosureTrends, OverviewHardest, OverviewKpis,
-  OverviewSkill, StatisticsOverview, Stats, UpdatedOpenJob, VelocityAging, VelocityCompany,
+  DisclosureTrendSeries, DisclosureTrends, OverviewKpis,
+  OverviewSkill, StatisticsOverview, Stats, VelocityAging, VelocityCompany,
   VelocityKpis, VelocityStats,
 } from "./statistics";
 export type {
-  OverlapCompany, OverlapPair, SkillsOverlap, SkillsQuery, TopSkill, TopSkills,
+  SkillsQuery, TopSkill, TopSkills,
 } from "./skills";
 export type {
   DecidedQuery, DecidedReviewItem, DescriptionDiffEvidence, DuplicateLLMAssessment, DuplicateProposal,

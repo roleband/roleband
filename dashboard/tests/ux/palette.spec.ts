@@ -16,17 +16,16 @@ import { msg } from "../../src/test/msg";
 
 const emptyDemand = {
   open_total: 0, new_today: 0, closed_today: 0, companies: [], regions: [], unplaced: 0, employer_dated_share: null,
-  longest_open: [], listed_over_a_year: 0, most_reposted: [], most_updated_open: [],
 };
 const velocityFixture = {
   days: 30,
   kpis: {
-    open_total: 12, opened: 5, updated: 3, closed: 1, net: 4,
+    open_total: 12, opened: 5, closed: 1,
     median_days_open: 20, median_observed_listing_duration_days: null, closed_sample: 1,
   },
   aging: [{ lo: 0, hi: 30, label: "0–30d", count: 8 }],
   by_company: [
-    { company: "google", open: 6, opened: 3, updated: 2, closed: 1, median_days_open: 18, median_observed_listing_duration_days: null },
+    { company: "google", open: 6, opened: 3, closed: 1, median_days_open: 18, median_observed_listing_duration_days: null },
   ],
 };
 

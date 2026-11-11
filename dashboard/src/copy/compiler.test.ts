@@ -60,7 +60,9 @@ function fluentSays(b: FluentBundle, id: string, args: Record<string, unknown>):
 afterAll(() => activate("en"));
 
 
-describe.each(LOCALES.filter((l) => l.status !== "pseudo").map((l) => l.code))("compiled copy matches @fluent/bundle (%s)", (code) => {
+// Each locale formats every message at every count twice, once per compiler,
+// so its time grows with the catalogue: seconds on a shared CI runner.
+describe.each(LOCALES.filter((l) => l.status !== "pseudo").map((l) => l.code))("compiled copy matches @fluent/bundle (%s)", { timeout: 30_000 }, (code) => {
   it("for every message and count, falling back to English where the locale is partial", async () => {
     await activate(code, { region: code });
     const own = bundle(code);

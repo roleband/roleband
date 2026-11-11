@@ -916,3 +916,20 @@ test("a group you open stays open; one you never touched stays shut", async ({ p
   await expect(company).toHaveAttribute("aria-expanded", "false");
   await expect(rail.getByRole("checkbox", { name: "OpenAI" })).toHaveCount(0);
 });
+
+/* A native select's popup is drawn by the OS, in whatever appearance the page
+   declares. A dark page on a light Mac must still open a dark menu, and the
+   reverse; the OS setting is the opposite of the theme in both cases here. */
+for (const [theme, os] of [["dark", "light"], ["light", "dark"]] as const) {
+  test(`a native select's popup takes the ${theme} theme on a ${os} system`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: os });
+    await page.addInitScript((t) => localStorage.setItem("theme", t), theme);
+    await page.goto("/");
+
+    const sort = page.getByLabel("Sort by", { exact: true });
+    await expect(sort).toBeVisible();
+    await expect(sort).toHaveCSS("color-scheme", theme);
+    // The app's own select, so it wears the app's chevron rather than the platform's.
+    await expect(sort).toHaveCSS("appearance", "none");
+  });
+}

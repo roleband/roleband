@@ -343,11 +343,8 @@ applications-page-withdraw = Withdraw
 applications-link-copied = Link copied
 # kind=toast
 applications-link-copy-failed = Couldn't copy the link. Copy it from the address bar instead.
-# kind=label note="The stage button in the page's header: the stage and how long the application has been in it"
-applications-stage-button = { $stage } · { $days ->
-        [one] 1 day
-       *[other] { $days } days
-    }
+# kind=label same-as=applications-interview-when-timed note="The stage button on the application page: the stage, then $days, the short days-in-stage count (12d) with its full words for screen readers. From the day after the move; on the day itself the button says the stage alone"
+applications-stage-button = { $stage } · { $days }
 # kind=aria
 applications-stage-menu-label = Change the stage of { $title }
 # kind=toast
@@ -384,7 +381,7 @@ applications-next-interview-none = No interview booked.
 applications-next-interview-all-day = { $date }, all day
 # kind=label note="A timed interview's day and time"
 applications-next-interview-at = { $date }, { $time }
-# kind=label same-as=applications-interview-when-timed note="When an interview is, then its format"
+# kind=label same-as=applications-stage-button note="When an interview is, then its format"
 applications-next-interview-meta = { $when } · { $format }
 # kind=button note="Opens the interview's meeting link"
 applications-next-interview-join = Join
@@ -542,3 +539,32 @@ applications-read-posting = Read the posting
 applications-interview-add = Add interview
 # kind=aria
 applications-interview-edit-label = Edit { $label }
+
+## The posting's Pipeline section, above its Details
+# kind=heading note="The section of a role in the pipeline, on its posting: where the application stands and what waits"
+applications-posting-row = Pipeline
+# kind=label note="Pipeline row: the application's stage, a link to the application"
+applications-posting-stage = Stage
+# kind=label note="Pipeline row value for an application moved into its stage today, in place of a count of days"
+applications-posting-since-today = Since today
+# kind=label note="Pipeline row of an ended application: the day it ended"
+applications-posting-ended = Ended
+# kind=label same-as=applications-month-legend-interview note="Pipeline row: the next interview's round, then when it is"
+applications-posting-interview = Interview
+# kind=label same-as=applications-month-legend-step note="Pipeline row: the next step, then its due date"
+applications-posting-next-step = Next step
+# kind=label note="Pipeline row value when the application has no next step"
+applications-posting-no-step = None yet
+# kind=button note="Opens the application's history beside the Pipeline section's days in this stage"
+applications-posting-history = History
+# kind=heading note="Title of the application's history: when it reached each stage, and its interviews"
+applications-posting-history-title = Application history
+# kind=label note="A line in the application's history: an interview, by its round; $label is the round the person named"
+applications-posting-history-interview = { $label } interview
+# kind=label note="Date column of the history's last line, the application as it stands now"
+applications-posting-history-today = Today
+# kind=label note="The history's last line: the stage the application is in and how long it has been there"
+applications-posting-history-now = { $days ->
+        [one] { $stage } for 1 day
+       *[other] { $stage } for { $days } days
+    }

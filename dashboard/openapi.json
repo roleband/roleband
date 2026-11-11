@@ -4410,7 +4410,7 @@
    },
    "DemandResponse": {
     "additionalProperties": false,
-    "description": "`GET /api/demand`, the Hiring tab: where roles are open now, by company and\nplace, today's openings and closings, and the three persistent-role lists.\n\nRead live from the roles Insights describes, never by summing the\n`demand_metrics` rollup, whose slices count a posting once per place group.",
+    "description": "`GET /api/demand`, the Hiring tab: where roles are open now, by company and\nplace, and today's openings and closings.\n\nRead live from the roles Insights describes, never by summing the\n`demand_metrics` rollup, whose slices count a posting once per place group.",
     "properties": {
      "closed_today": {
       "title": "Closed Today",
@@ -4433,31 +4433,6 @@
        }
       ],
       "title": "Employer Dated Share"
-     },
-     "listed_over_a_year": {
-      "title": "Listed Over A Year",
-      "type": "integer"
-     },
-     "longest_open": {
-      "items": {
-       "$ref": "#/components/schemas/JobRow"
-      },
-      "title": "Longest Open",
-      "type": "array"
-     },
-     "most_reposted": {
-      "items": {
-       "$ref": "#/components/schemas/JobRow"
-      },
-      "title": "Most Reposted",
-      "type": "array"
-     },
-     "most_updated_open": {
-      "items": {
-       "$ref": "#/components/schemas/UpdatedOpenJob"
-      },
-      "title": "Most Updated Open",
-      "type": "array"
      },
      "new_today": {
       "title": "New Today",
@@ -4486,11 +4461,7 @@
      "companies",
      "regions",
      "unplaced",
-     "employer_dated_share",
-     "longest_open",
-     "listed_over_a_year",
-     "most_reposted",
-     "most_updated_open"
+     "employer_dated_share"
     ],
     "title": "DemandResponse",
     "type": "object"
@@ -13927,111 +13898,6 @@
     "title": "OverdueBinding",
     "type": "object"
    },
-   "OverlapCompany": {
-    "additionalProperties": false,
-    "properties": {
-     "company": {
-      "title": "Company",
-      "type": "string"
-     },
-     "open": {
-      "title": "Open",
-      "type": "integer"
-     },
-     "skill_count": {
-      "title": "Skill Count",
-      "type": "integer"
-     }
-    },
-    "required": [
-     "company",
-     "skill_count",
-     "open"
-    ],
-    "title": "OverlapCompany",
-    "type": "object"
-   },
-   "OverlapPair": {
-    "additionalProperties": false,
-    "description": "Two companies sharing at least one skill; `a` precedes `b` in the order shown.",
-    "properties": {
-     "a": {
-      "title": "A",
-      "type": "string"
-     },
-     "b": {
-      "title": "B",
-      "type": "string"
-     },
-     "shared": {
-      "title": "Shared",
-      "type": "integer"
-     },
-     "similarity": {
-      "title": "Similarity",
-      "type": "number"
-     },
-     "top_shared": {
-      "items": {
-       "type": "string"
-      },
-      "title": "Top Shared",
-      "type": "array"
-     },
-     "union": {
-      "title": "Union",
-      "type": "integer"
-     }
-    },
-    "required": [
-     "a",
-     "b",
-     "shared",
-     "union",
-     "similarity",
-     "top_shared"
-    ],
-    "title": "OverlapPair",
-    "type": "object"
-   },
-   "OverviewHardest": {
-    "additionalProperties": false,
-    "description": "The open role listed the longest, by the age one posting shows.",
-    "properties": {
-     "company": {
-      "title": "Company",
-      "type": "string"
-     },
-     "id": {
-      "title": "Id",
-      "type": "integer"
-     },
-     "listed_days": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Listed Days"
-     },
-     "title": {
-      "title": "Title",
-      "type": "string",
-      "x-text": "content"
-     }
-    },
-    "required": [
-     "id",
-     "title",
-     "company",
-     "listed_days"
-    ],
-    "title": "OverviewHardest",
-    "type": "object"
-   },
    "OverviewKpis": {
     "additionalProperties": false,
     "properties": {
@@ -22006,37 +21872,6 @@
     "title": "SimilarJobsResponse",
     "type": "object"
    },
-   "SkillOverlapResponse": {
-    "additionalProperties": false,
-    "description": "`GET /api/skills/overlap`: the floor a skill must clear per company, echoed.",
-    "properties": {
-     "companies": {
-      "items": {
-       "$ref": "#/components/schemas/OverlapCompany"
-      },
-      "title": "Companies",
-      "type": "array"
-     },
-     "min_jobs": {
-      "title": "Min Jobs",
-      "type": "integer"
-     },
-     "pairs": {
-      "items": {
-       "$ref": "#/components/schemas/OverlapPair"
-      },
-      "title": "Pairs",
-      "type": "array"
-     }
-    },
-    "required": [
-     "companies",
-     "pairs",
-     "min_jobs"
-    ],
-    "title": "SkillOverlapResponse",
-    "type": "object"
-   },
    "SourceComparisonCoverage": {
     "additionalProperties": false,
     "properties": {
@@ -22217,13 +22052,6 @@
      "kpis": {
       "$ref": "#/components/schemas/OverviewKpis"
      },
-     "longest_open": {
-      "items": {
-       "$ref": "#/components/schemas/OverviewHardest"
-      },
-      "title": "Longest Open",
-      "type": "array"
-     },
      "top_skills": {
       "items": {
        "$ref": "#/components/schemas/OverviewSkill"
@@ -22235,8 +22063,7 @@
     "required": [
      "days",
      "kpis",
-     "top_skills",
-     "longest_open"
+     "top_skills"
     ],
     "title": "StatisticsOverviewResponse",
     "type": "object"
@@ -24234,510 +24061,6 @@
     "title": "UnreadPayload",
     "type": "object"
    },
-   "UpdatedOpenJob": {
-    "additionalProperties": false,
-    "description": "A list row, then how often and how recently the posting changed.",
-    "properties": {
-     "closed_at": {
-      "anyOf": [
-       {
-        "format": "date-time",
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Closed At"
-     },
-     "comp_as_of": {
-      "anyOf": [
-       {
-        "format": "date",
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Comp As Of"
-     },
-     "comp_base_high": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Comp Base High"
-     },
-     "comp_base_low": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Comp Base Low"
-     },
-     "comp_base_median": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Comp Base Median"
-     },
-     "comp_component": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Comp Component",
-      "x-text": "code"
-     },
-     "comp_currency": {
-      "title": "Comp Currency",
-      "type": "string"
-     },
-     "comp_high": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Comp High"
-     },
-     "comp_low": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Comp Low"
-     },
-     "comp_median": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Comp Median"
-     },
-     "comp_provenance": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Comp Provenance"
-     },
-     "comp_provider": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Comp Provider",
-      "x-text": "identifier"
-     },
-     "company": {
-      "title": "Company",
-      "type": "string"
-     },
-     "company_unfollowed": {
-      "title": "Company Unfollowed",
-      "type": "boolean"
-     },
-     "days_open": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Days Open"
-     },
-     "department": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Department"
-     },
-     "discloses_pay": {
-      "title": "Discloses Pay",
-      "type": "boolean"
-     },
-     "domains": {
-      "items": {
-       "type": "string"
-      },
-      "title": "Domains",
-      "type": "array"
-     },
-     "family": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Family"
-     },
-     "first_seen": {
-      "format": "date-time",
-      "title": "First Seen",
-      "type": "string"
-     },
-     "id": {
-      "title": "Id",
-      "type": "integer"
-     },
-     "in_scope": {
-      "title": "In Scope",
-      "type": "boolean"
-     },
-     "is_dismissed": {
-      "title": "Is Dismissed",
-      "type": "boolean"
-     },
-     "is_favorite": {
-      "title": "Is Favorite",
-      "type": "boolean"
-     },
-     "last_seen": {
-      "format": "date-time",
-      "title": "Last Seen",
-      "type": "string"
-     },
-     "last_updated_at": {
-      "format": "date-time",
-      "title": "Last Updated At",
-      "type": "string"
-     },
-     "level_band": {
-      "title": "Level Band",
-      "type": "string"
-     },
-     "level_basis": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Level Basis"
-     },
-     "level_confidence": {
-      "title": "Level Confidence",
-      "type": "string"
-     },
-     "lineage_days_open": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Lineage Days Open"
-     },
-     "lineage_id": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Lineage Id"
-     },
-     "lineage_role": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Lineage Role"
-     },
-     "lineage_seq": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Lineage Seq"
-     },
-     "lineage_size": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Lineage Size"
-     },
-     "listed_basis": {
-      "anyOf": [
-       {
-        "enum": [
-         "employer",
-         "sighting"
-        ],
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Listed Basis"
-     },
-     "listed_days": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Listed Days"
-     },
-     "listed_since": {
-      "anyOf": [
-       {
-        "format": "date-time",
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Listed Since"
-     },
-     "location_groups": {
-      "items": {
-       "type": "string"
-      },
-      "title": "Location Groups",
-      "type": "array"
-     },
-     "locations": {
-      "items": {
-       "type": "string"
-      },
-      "title": "Locations",
-      "type": "array"
-     },
-     "new_listing": {
-      "title": "New Listing",
-      "type": "boolean"
-     },
-     "place_count": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Place Count"
-     },
-     "place_set_size": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Place Set Size"
-     },
-     "posted_at": {
-      "anyOf": [
-       {
-        "format": "date-time",
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Posted At"
-     },
-     "posted_base": {
-      "anyOf": [
-       {
-        "$ref": "#/components/schemas/PostedBase"
-       },
-       {
-        "type": "null"
-       }
-      ]
-     },
-     "repost_count": {
-      "title": "Repost Count",
-      "type": "integer"
-     },
-     "req_id": {
-      "title": "Req Id",
-      "type": "string"
-     },
-     "status": {
-      "title": "Status",
-      "type": "string"
-     },
-     "team": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Team"
-     },
-     "title": {
-      "title": "Title",
-      "type": "string",
-      "x-text": "content"
-     },
-     "track": {
-      "title": "Track",
-      "type": "string"
-     },
-     "twin_count": {
-      "title": "Twin Count",
-      "type": "integer"
-     },
-     "update_count": {
-      "title": "Update Count",
-      "type": "integer"
-     },
-     "url": {
-      "title": "Url",
-      "type": "string"
-     },
-     "viewed_at": {
-      "anyOf": [
-       {
-        "format": "date-time",
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Viewed At"
-     },
-     "workplace_type": {
-      "title": "Workplace Type",
-      "type": "string"
-     }
-    },
-    "required": [
-     "id",
-     "is_favorite",
-     "is_dismissed",
-     "company_unfollowed",
-     "company",
-     "req_id",
-     "title",
-     "url",
-     "department",
-     "team",
-     "locations",
-     "location_groups",
-     "domains",
-     "workplace_type",
-     "level_band",
-     "level_confidence",
-     "level_basis",
-     "family",
-     "track",
-     "comp_low",
-     "comp_high",
-     "comp_median",
-     "comp_currency",
-     "comp_provenance",
-     "status",
-     "in_scope",
-     "posted_at",
-     "first_seen",
-     "last_seen",
-     "viewed_at",
-     "closed_at",
-     "days_open",
-     "repost_count",
-     "lineage_id",
-     "lineage_seq",
-     "lineage_role",
-     "lineage_size",
-     "lineage_days_open",
-     "listed_since",
-     "listed_days",
-     "listed_basis",
-     "new_listing",
-     "twin_count",
-     "place_count",
-     "place_set_size",
-     "discloses_pay",
-     "update_count",
-     "last_updated_at"
-    ],
-    "title": "UpdatedOpenJob",
-    "type": "object"
-   },
    "UsageConsentPayload": {
     "additionalProperties": false,
     "properties": {
@@ -25191,17 +24514,12 @@
      "reposted": {
       "title": "Reposted",
       "type": "integer"
-     },
-     "updated": {
-      "title": "Updated",
-      "type": "integer"
      }
     },
     "required": [
      "company",
      "open",
      "opened",
-     "updated",
      "closed",
      "reposted",
      "median_days_open",
@@ -25269,10 +24587,6 @@
       ],
       "title": "Median Observed Listing Duration Days"
      },
-     "net": {
-      "title": "Net",
-      "type": "integer"
-     },
      "open_total": {
       "title": "Open Total",
       "type": "integer"
@@ -25284,20 +24598,14 @@
      "reposted": {
       "title": "Reposted",
       "type": "integer"
-     },
-     "updated": {
-      "title": "Updated",
-      "type": "integer"
      }
     },
     "required": [
      "open_total",
      "opened",
-     "updated",
      "closed",
      "reposted",
      "first_scan",
-     "net",
      "median_days_open",
      "employer_dated_share",
      "median_observed_listing_duration_days",
@@ -31607,113 +30915,6 @@
     "summary": "Put Retention Ep"
    }
   },
-  "/api/skills/overlap": {
-   "get": {
-    "description": "Cross-company skill similarity over currently-open roles.\n\nA company's skill set = skill concepts required in at least `min_jobs` of its\nopen roles (the floor trims one-off mentions that inflate spurious overlap;\nindustries and competencies are excluded: a vertical is not a skill, and what\nevery role is expected to do is overlap every company shares). Each pair\nis scored by the cosine of rarity-weighted skill vectors (`compute_overlap`).\nThe companies are those named in `company`, else the top `limit_companies` by\nopen roles in the scope, shown in an order that puts similar ones together.",
-    "operationId": "skills_overlap_api_skills_overlap_get",
-    "parameters": [
-     {
-      "in": "query",
-      "name": "min_jobs",
-      "required": false,
-      "schema": {
-       "default": 2,
-       "minimum": 1,
-       "title": "Min Jobs",
-       "type": "integer"
-      }
-     },
-     {
-      "in": "query",
-      "name": "limit_companies",
-      "required": false,
-      "schema": {
-       "default": 12,
-       "maximum": 50,
-       "minimum": 1,
-       "title": "Limit Companies",
-       "type": "integer"
-      }
-     },
-     {
-      "in": "query",
-      "name": "company",
-      "required": false,
-      "schema": {
-       "anyOf": [
-        {
-         "items": {
-          "type": "string"
-         },
-         "type": "array"
-        },
-        {
-         "type": "null"
-        }
-       ],
-       "title": "Company"
-      }
-     },
-     {
-      "in": "query",
-      "name": "side",
-      "required": false,
-      "schema": {
-       "default": "all",
-       "enum": [
-        "all",
-        "yours",
-        "other"
-       ],
-       "title": "Side",
-       "type": "string"
-      }
-     },
-     {
-      "in": "query",
-      "name": "family",
-      "required": false,
-      "schema": {
-       "anyOf": [
-        {
-         "items": {
-          "type": "string"
-         },
-         "type": "array"
-        },
-        {
-         "type": "null"
-        }
-       ],
-       "title": "Family"
-      }
-     }
-    ],
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/SkillOverlapResponse"
-        }
-       }
-      },
-      "description": "Successful Response"
-     },
-     "422": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
-        }
-       }
-      },
-      "description": "Validation Error"
-     }
-    },
-    "summary": "Skills Overlap"
-   }
-  },
   "/api/skills/top": {
    "get": {
     "description": "The Skills tab: a slice's skills by how characteristic they are\nof it, against the whole market; the whole market by share; competencies\napart, industries excluded.",
@@ -32146,7 +31347,7 @@
   },
   "/api/statistics/overview": {
    "get": {
-    "description": "Cockpit aggregate for the Statistics landing tab.\n\nKPI tiles + a short generated brief + highlight strips, pulling from the demand\nand skills layers. `days<=0` means all-time; otherwise the new/closed\ncounters are scoped to the last N days of lifecycle events (so the period control\nis meaningful as history accrues).",
+    "description": "Cockpit aggregate for the Statistics landing tab.\n\nKPI tiles, a short generated brief and the top skills, pulling from the demand\nand skills layers. `days<=0` means all-time; otherwise the new/closed\ncounters are scoped to the last N days of lifecycle events (so the period control\nis meaningful as history accrues).",
     "operationId": "statistics_overview_api_statistics_overview_get",
     "parameters": [
      {
@@ -32223,7 +31424,7 @@
   },
   "/api/statistics/velocity": {
    "get": {
-    "description": "Hiring-velocity motion over a time window (honors the period lens).\n\nOpened / updated / closed activity + net flow from lifecycle events, the aging\ndistribution of still-open roles, and the observed listing duration of roles\nthat closed in the window. `days<=0` means all-time. The duration needs a\nspread of closed roles, so it accrues with history; the UI flags a thin sample.\n\nIt is not a time to fill: it measures how long we observed a posting\nadvertised, and a public board says nothing about whether anyone was hired.",
+    "description": "Hiring-velocity motion over a time window (honors the period lens).\n\nOpened and closed roles from first sightings and lifecycle events, the aging\ndistribution of still-open roles, and the observed listing duration of roles\nthat closed in the window. `days<=0` means all-time. The duration needs a\nspread of closed roles, so it accrues with history; the UI flags a thin sample.\n\nIt is not a time to fill: it measures how long we observed a posting\nadvertised, and a public board says nothing about whether anyone was hired.",
     "operationId": "statistics_velocity_api_statistics_velocity_get",
     "parameters": [
      {

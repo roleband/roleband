@@ -143,30 +143,6 @@ insights-demand-each-role-once = each role once
 insights-demand-with-an-open-role = with an open role
 # kind=label wording=as-is
 insights-demand-how-companies-are-counted = How companies are counted
-# kind=heading wording=as-is
-insights-demand-longest-open-roles = Longest-open roles
-# kind=tooltip
-insights-demand-potential-hard-to-fill-signal = May be hard to fill.
-# kind=sentence wording=as-is
-insights-demand-no-data-yet = No data yet.
-# kind=sentence
-insights-demand-listed-over-a-year-are = { $role } listed over a year are left out as stale.
-# kind=heading wording=as-is
-insights-demand-reposted-roles = Reposted roles
-# kind=tooltip
-insights-demand-closed-then-reappeared-a-repeated = Closed, then posted again. Often a sign it's hard to fill.
-# kind=sentence wording=as-is
-insights-demand-none-detected-yet = None detected yet.
-# kind=label wording=as-is
-insights-demand-reposted = { $company } · reposted ×{ $repost_count }
-# kind=heading wording=as-is
-insights-demand-updated-but-never-closed = Updated but never closed
-# kind=tooltip
-insights-demand-changed-repeatedly-without-a-closure = Changed several times, never closed.
-# kind=label wording=as-is
-insights-demand-updated-times = Updated { $update_count } times
-# kind=label wording=as-is
-insights-demand-about = About { $title }
 # kind=label wording=as-is
 insights-demand-how-regions-are-counted = How regions are counted
 # kind=label wording=as-is
@@ -235,54 +211,6 @@ insights-disclosure-panel-band-trend-loading = Loading the posted range trend…
 # kind=heading
 insights-disclosure-panel-band-trend-load-failed = Couldn't load the posted range trend
 
-## features/statistics/OverlapPanel.tsx
-# kind=heading wording=as-is
-insights-overlap-panel-how-alike-their-roles-are = How alike their roles are
-# kind=sentence wording=as-is
-insights-overlap-panel-not-enough-companies-with-skills = Not enough companies with skills to compare. Pick two or more.
-# kind=label
-insights-overlap-panel-shared-vocabulary = Shared skills
-# kind=sentence
-insights-overlap-panel-each-company-is-its-open = Companies are compared on the skills their open roles name. Rarer skills weigh more. A skill counts once { $min_jobs } of a company's roles name it.
-# kind=label wording=as-is
-insights-overlap-panel-comparison = { $companies } × { $companies } comparison
-# kind=label wording=as-is
-insights-overlap-panel-exact-matrix = Exact matrix
-# kind=sentence
-insights-overlap-panel-cells-show-how-alike-two = Each cell scores how alike two companies are, 0 to 100. The diagonal counts each company's skills. Hover for shared skills.
-# kind=label wording=as-is note="The company picker: how many companies are picked, or the default set"
-insights-overlap-panel-companies-picked = { $picker ->
-    [default] Most open roles
-   *[chosen] { $picked } companies
-}
-# kind=label wording=as-is
-insights-overlap-panel-pair-names = { $a } and { $b }
-# kind=label wording=as-is
-insights-overlap-panel-no-shared-skills-yet = No shared skills yet
-# kind=label wording=as-is note="Follows the two names of the closest pair"
-insights-overlap-panel-most-alike-of = are the most alike of { $companies } companies on the skills that set companies apart ({ $similarity })
-# kind=label wording=as-is
-insights-overlap-panel-companies-compared = { $companies } companies compared
-# kind=label wording=as-is
-insights-overlap-panel-closest-pair = Closest pair
-# kind=label wording=as-is
-insights-overlap-panel-median-pair = Median pair
-# kind=label wording=as-is
-insights-overlap-panel-furthest-pair = Furthest pair
-# kind=label wording=as-is
-insights-overlap-panel-how-skill-overlap-is-calculated = How skill overlap is calculated
-# kind=aria wording=as-is
-insights-overlap-panel-cross-company-skill-overlap-matrix = Cross-company skill overlap matrix
-# kind=label wording=as-is
-insights-overlap-panel-skills-open = { $company } · { $skill_count } skills · { $open } open
-# kind=label wording=as-is note="$listed is some when shared skills are named after the colon"
-insights-overlap-panel-pair-alike = { $listed ->
-    [none] { $a } and { $b }: { $percent }% alike, { $shared } of { $union } skills shared
-   *[some] { $a } and { $b }: { $percent }% alike, { $shared } of { $union } skills shared: { $skills }
-}
-# kind=tooltip
-insights-overlap-panel-no-shared-skills = { $a } and { $b }: no shared skills
-
 ## features/statistics/OverviewPanel.tsx
 # kind=label wording=as-is
 insights-overview-panel-most-named-skills = Most named skills
@@ -292,18 +220,10 @@ insights-overview-panel-what-is-pulling-the-market = Most-wanted skills
 insights-overview-panel-the-skills-open-roles-name = Skills ranked by how many open roles name them.
 # kind=label wording=as-is
 insights-overview-panel-leads-roles = { $display } leads · { $job_count } roles
-# kind=heading same-as=insights-demand-longest-open-roles
-insights-overview-panel-open-the-longest = Longest-open roles
-# kind=sentence
-insights-overview-panel-the-roles-advertised-longest-that = Roles open the longest. They may be hard to fill, or just left up. Dates over a year old don't count.
-# kind=sentence wording=as-is
-insights-overview-panel-no-open-roles = No open roles.
 # kind=label wording=as-is
 insights-overview-panel-opened-closed = { $new_count } opened · { $closed_count } closed
 # kind=label
 insights-overview-panel-about-the-demand-field = About this chart
-# kind=label
-insights-overview-panel-what-open-the-longest-means = What longest-open means
 
 ## features/statistics/PayBands.tsx
 # kind=sentence
@@ -367,17 +287,8 @@ insights-skills-view-how-skills-are-ranked = How skills are ranked
 insights-skills-view-roles = Roles
 # kind=label wording=as-is
 insights-skills-view-naming-a-skill = naming a skill
-# kind=label
-insights-skills-view-share-or-lift = { $view ->
-    [narrowed] vs market
-   *[market] Share
-}
-# kind=label wording=as-is
-insights-skills-view-ranked-here = ranked here
 # kind=label wording=as-is
 insights-skills-view-expected = Expected
-# kind=label wording=as-is
-insights-skills-view-of-every-role = of every role
 # kind=label wording=as-is
 insights-skills-view-any-company = Any company
 # kind=aria note="The info button's screen-reader name, beside the Expected of the role column"
@@ -406,7 +317,7 @@ insights-statistics-view-advanced-view = Advanced view
 # kind=heading
 insights-statistics-view-advanced-warning-title = Fair warning
 # kind=sentence note="Shown once, the first time the person turns the advanced view on; a light joke, not a warning about risk"
-insights-statistics-view-advanced-warning-body = Advanced view is for people who read footnotes for fun: percentiles, heatmaps, flow charts and every number behind them. You can switch back any time.
+insights-statistics-view-advanced-warning-body = Advanced view is for people who read footnotes for fun: how long roles stay open, how often pay is posted, levels and stock side by side, and the small samples behind them. You can switch back any time.
 # kind=button
 insights-statistics-view-show-me-everything = Show me everything
 # kind=button
@@ -915,17 +826,6 @@ insights-offer-at-your-valuation-moved = { $move ->
 insights-offer-at-your-valuation-full = Equity at the valuation you entered on { $date }
 
 ## features/statistics/VelocityPanel.tsx
-# kind=label
-insights-velocity-panel-market-current = By company
-# kind=heading wording=as-is
-insights-velocity-panel-hiring-flow = Hiring flow
-# kind=sentence wording=as-is
-insights-velocity-panel-closures-pull-left-openings-push = Closures pull left, openings push right; diamonds mark update pressure.
-# kind=label wording=as-is note="$direction is up when as many roles opened as closed, or more"
-insights-velocity-panel-net = { $direction ->
-    [up] Net +{ $net } { $window }
-   *[down] Net { $net } { $window }
-}
 # kind=heading wording=as-is
 insights-velocity-panel-companies = Companies · { $window }
 # kind=label wording=as-is
@@ -948,12 +848,6 @@ insights-velocity-panel-median-age = { $median_days_open } median age
 insights-velocity-panel-median-time-posted = { $median_observed_listing_duration_days } median time posted
 # kind=label wording=as-is
 insights-velocity-panel-more-already-listed-when-their = { $first_scan } more already listed when their company was first scanned
-# kind=label wording=as-is
-insights-velocity-panel-net-flow = Net flow
-# kind=label wording=as-is
-insights-velocity-panel-opened-closed = opened − closed
-# kind=label wording=as-is
-insights-velocity-panel-how-to-read-hiring-flow = How to read hiring flow
 # kind=aria note="The info button's screen-reader name, beside the Time posted chart"
 insights-velocity-panel-what-time-posted-measures = What “Time posted” measures
 
@@ -989,12 +883,6 @@ insights-statistics-charts-open-roles-by-company = Open roles by company
 insights-statistics-charts-open-new-closed = { $label }: { $open } open, { $fresh } new, { $closed } closed
 # kind=label wording=as-is
 insights-statistics-charts-closed = Closed ←
-# kind=label wording=as-is
-insights-statistics-charts-opened = → Opened
-# kind=aria wording=as-is
-insights-statistics-charts-hiring-flow-by-company = Hiring flow by company
-# kind=label wording=as-is
-insights-statistics-charts-opened-closed-updated = { $company }: { $opened } opened, { $closed } closed, { $updated } updated
 # kind=label wording=as-is note="A company's change in equity under the stock scenario: $amount is the size of the change, $direction its sign"
 insights-statistics-charts-equity-change = { $direction ->
     [flat] $0 change
@@ -1017,18 +905,6 @@ insights-statistics-charts-the-market-s-rate = × the market's rate →
 insights-statistics-charts-what-sets-these-roles-apart = What sets these roles apart
 # kind=label wording=as-is
 insights-statistics-charts-of-these-roles-the-market = { $skill }: { $share }% of these roles, ×{ $lift } the market
-# kind=label wording=as-is
-insights-statistics-charts-pair-alike = { $similarity }% alike · { $shared } shared skills
-# kind=tooltip note="Two companies compared on the skill overlap chart, its tooltip's title"
-insights-statistics-charts-pair = { $a } × { $b }
-# kind=label wording=as-is
-insights-statistics-charts-more-alike = more alike
-# kind=label note="The low end of the overlap scale, opposite more alike"
-insights-statistics-charts-less-alike = less
-# kind=aria wording=as-is
-insights-statistics-charts-cross-company-skill-overlap-heatmap = Cross-company skill overlap heatmap
-# kind=label wording=as-is
-insights-statistics-charts-pair-similarity = { $a } and { $b }: { $percent }%
 
 ## features/statistics/charts/compBands.ts
 # kind=sentence
@@ -1127,18 +1003,6 @@ insights-demand-today = today
 # kind=label note="Under a count of new roles: 3 new in the last 2 days"
 insights-demand-last-2-days = last 2 days
 
-## features/statistics/OverlapPanel.tsx
-# kind=label wording=as-is
-insights-overlap-panel-skills = { $skill_count } skills
-# kind=status
-insights-overlap-panel-loading = Loading skill overlap…
-# kind=heading
-insights-overlap-panel-load-failed = Couldn't load skill overlap
-# kind=label note="Under a count of companies: 12 compared"
-insights-overlap-panel-compared = compared
-# kind=label note="Under a pair's similarity: 82% alike"
-insights-overlap-panel-alike = alike
-
 ## features/statistics/OverviewPanel.tsx
 # kind=label wording=as-is
 insights-overview-panel-companies = { $companies } companies
@@ -1168,14 +1032,6 @@ insights-comp-bands-employer-at-level = { $published ->
 
 ## features/statistics/charts/disclosure.ts
 
-## features/statistics/charts/StatisticsCharts.tsx
-# kind=label wording=as-is note="A cell of the overlap heatmap: a company against itself shows its skill count, a pair its similarity, a pair with none shows nothing"
-insights-statistics-charts-overlap-cell = { $cell ->
-    [self] { $skillCount }{ "\u000A" }skills
-    [pair] { $similarity }%
-   *[empty] { "" }
-}
-
 ## The two sides of Insights' company split (docs/copy.md)
 # kind=label
 insights-your-companies = Your companies
@@ -1198,10 +1054,6 @@ insights-common-new = New
 # kind=label wording=as-is
 insights-common-closed = Closed
 # kind=label wording=as-is
-insights-common-updated = Updated
-# kind=label wording=as-is
-insights-common-skills = Skills
-# kind=label wording=as-is
 insights-common-market = Market
 # kind=label wording=as-is
 insights-common-by-level = By level
@@ -1209,8 +1061,6 @@ insights-common-by-level = By level
 insights-common-by-company = By company
 # kind=label wording=as-is
 insights-common-all-companies = All companies
-# kind=label wording=as-is
-insights-common-distinct-skills = { $count } distinct skills
 # kind=label note="The period a figure covers: all-time, or last 30d"
 insights-common-last-days-or-all-time = { $period ->
     [all] all time

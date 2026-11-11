@@ -74,9 +74,7 @@ role-job-detail-view-apply = Ver y postular
 role-job-detail-postings = { $lineage_size } ofertas
 role-job-detail-reposted = republicado ×{ $repost_count }
 role-job-detail-description = Descripción
-role-job-detail-your-progress = Tu progreso
-role-job-detail-set-a-stage = Elige una etapa…
-role-job-detail-next = Siguiente: { $next_action }
+role-job-detail-view-posting = Ver la oferta
 role-job-detail-radar-s-read = Lectura del radar
 role-job-detail-advisory-unclear = La redacción de la oferta no encaja claramente con un solo ámbito.
 role-job-detail-advisory-basis = Una estimación a partir de la redacción de la oferta. Nunca saca un puesto de tu radar.
@@ -88,7 +86,6 @@ role-job-detail-to-apply = Para postular
 role-job-detail-more-like-this = Más como este
 role-job-detail-other-companies = Otras empresas
 role-job-detail-same-company = Misma empresa · { $company }
-role-job-detail-couldn-t-update-the-stage = Error al actualizar la etapa
 role-job-detail-role = { $choice ->
     [yes] Puesto: { $title }
    *[no] Puesto
@@ -100,11 +97,6 @@ role-job-detail-compare = { $choice ->
    *[no] Comparar
 }
 role-job-detail-it-s-no-longer-in = Este puesto ya no existe.
-role-job-detail-not-started = { $choice ->
-    [yes] Etapa
-   *[no] Fuera de tu seguimiento
-}
-role-job-detail-stage = Etapa
 role-job-detail-likely-your-kind-of-role = Probablemente tu tipo de puesto
 role-job-detail-likely-outside-your-worlds = Probablemente fuera de tus ámbitos
 role-job-detail-hard-to-place = Difícil de clasificar
@@ -246,13 +238,10 @@ role-listing-age-compare-the-postings = Comparar las ofertas
 role-listing-age-possibly-the-same-role-not = Quizá el mismo puesto: { $value }, no cuenta hasta confirmarlo.
 role-listing-age-review = Revisar
 role-listing-age-listed-for = Publicado durante
-role-listing-age-since = desde { $listed_since }, { $bASIS }
 role-listing-age-history = Historial
 role-listing-age-listing-history = Historial de publicación
 role-listing-age-role = Puesto
 role-listing-age-first-listed-postings = Primera publicación { $roleSince } · { $rolePostings } ofertas
-role-listing-age-the-employer-s-date = la fecha del empleador
-role-listing-age-when-roleband-first-saw-it = visto por primera vez
 role-listing-age-title = Título
 role-listing-age-stated-pay = Rango publicado
 role-listing-age-level = Nivel
@@ -381,7 +370,6 @@ role-place-set-section-states-pay = · publica { $range }
 role-place-set-section-states-no-pay = · no publica rango
 
 ## Qué hace elegir una etapa.
-role-job-detail-tracking-explainer = Elige una etapa y el puesto se guarda con ella. Ponle fecha límite al siguiente paso para recibir un recordatorio.
 role-job-comp-panel-estimate-of-total = Compensación total estimada: { $range }
 role-job-comp-panel-split-not-reported = reparto no disponible
 role-job-comp-panel-the-plugin-reports-no-split = El plugin de compensación no da un reparto entre base, bonus y acciones para este nivel.

@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { JobDetail } from "../features/job-detail/JobDetail";
+import { usePostingPipeline } from "../features/applications/usePostingPipeline";
 import { useJobActions, useJobWorkspace } from "../context/JobWorkspace";
 import { positionPath } from "../routing/paths";
 
@@ -66,6 +67,7 @@ export function JobRoute({ asOverlay = false }: { asOverlay?: boolean }) {
       onToggleCompare={() => toggleCompare(jobId)}
       onViewCompare={openCompare}
       onCompanyResolved={onCompanyResolved}
+      usePipeline={usePostingPipeline}
     />
   );
 }

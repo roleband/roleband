@@ -15,7 +15,6 @@ export const ADVANCED_TABS: ReadonlySet<string> = new Set([
   "velocity",
   "levels",
   "trajectory",
-  "overlap",
 ]);
 
 /** The stored view, or null when the person has never turned the advanced

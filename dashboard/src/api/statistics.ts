@@ -29,16 +29,12 @@ export type HiringCompany = Schemas["HiringCompany"];
 /** Roles open in one region, each once; `region_wide` names only the region. */
 export type HiringRegion = Schemas["HiringRegion"];
 
-/** A list row, then how often and how recently the posting changed. */
-export type UpdatedOpenJob = Schemas["UpdatedOpenJob"];
-
 /** `GET /api/demand`, the Hiring tab: where roles are open now, by company and
- *  place, each role once, and the persistent-role lists. */
+ *  place, each role once. */
 export type Demand = Schemas["DemandResponse"];
 
 export type OverviewKpis = Schemas["OverviewKpis"];
 export type OverviewSkill = Schemas["OverviewSkill"];
-export type OverviewHardest = Schemas["OverviewHardest"];
 
 /** `GET /api/statistics/overview`. `days <= 0` is all-time. */
 export type StatisticsOverview = Schemas["StatisticsOverviewResponse"];

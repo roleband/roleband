@@ -69,18 +69,6 @@ insights-demand-hiring-now-today-new-closed = { $company } 正在招聘 · 最�
 insights-demand-each-role-once = 每个职位计一次
 insights-demand-with-an-open-role = 有在招职位
 insights-demand-how-companies-are-counted = 公司如何计数
-insights-demand-longest-open-roles = 招聘时间最长的职位
-insights-demand-potential-hard-to-fill-signal = 可能难以招到人。
-insights-demand-no-data-yet = 暂无数据。
-insights-demand-listed-over-a-year-are = 发布超过一年的 { $role } 视为过时，不计入。
-insights-demand-reposted-roles = 重新发布的职位
-insights-demand-closed-then-reappeared-a-repeated = 关闭后又重新发布。通常说明难以招到人。
-insights-demand-none-detected-yet = 暂未发现。
-insights-demand-reposted = { $company } · 重新发布 ×{ $repost_count }
-insights-demand-updated-but-never-closed = 多次更新但从未关闭
-insights-demand-changed-repeatedly-without-a-closure = 多次变更，从未关闭。
-insights-demand-updated-times = 更新 { $update_count } 次
-insights-demand-about = 关于 { $title }
 insights-demand-how-regions-are-counted = 地区如何计数
 insights-demand-all-companies-hiring = 所有在招公司
 insights-demand-find-a-company = 查找公司
@@ -118,45 +106,13 @@ insights-disclosure-panel-trend-load-failed = 无法加载薪酬透明度趋势
 insights-disclosure-panel-band-trend-loading = 正在加载公布区间趋势…
 insights-disclosure-panel-band-trend-load-failed = 无法加载公布区间趋势
 
-## features/statistics/OverlapPanel.tsx
-insights-overlap-panel-how-alike-their-roles-are = 各公司职位的相似程度
-insights-overlap-panel-not-enough-companies-with-skills = 有技能数据的公司不足，无法比较。请选择两家或更多。
-insights-overlap-panel-shared-vocabulary = 共同技能
-insights-overlap-panel-each-company-is-its-open = 按在招职位提到的技能比较各公司。越少见的技能权重越高。一家公司有 { $min_jobs } 个职位提到某项技能时，该技能才计入。
-insights-overlap-panel-comparison = { $companies } × { $companies } 对比
-insights-overlap-panel-exact-matrix = 精确矩阵
-insights-overlap-panel-cells-show-how-alike-two = 每个单元格给出两家公司的相似度，从 0 到 100。对角线是每家公司的技能数。悬停可查看共同技能。
-insights-overlap-panel-companies-picked = { $picker ->
-    [default] 在招职位最多
-   *[chosen] { $picked } 家公司
-}
-insights-overlap-panel-pair-names = { $a } 和 { $b }
-insights-overlap-panel-no-shared-skills-yet = 暂无共同技能
-insights-overlap-panel-most-alike-of = 是 { $companies } 家公司中特色技能最相近的一对（{ $similarity }）
-insights-overlap-panel-companies-compared = 已比较 { $companies } 家公司
-insights-overlap-panel-closest-pair = 最相近的一对
-insights-overlap-panel-median-pair = 中位的一对
-insights-overlap-panel-furthest-pair = 差异最大的一对
-insights-overlap-panel-how-skill-overlap-is-calculated = 如何计算技能重合度
-insights-overlap-panel-cross-company-skill-overlap-matrix = 跨公司技能重合矩阵
-insights-overlap-panel-skills-open = { $company } · { $skill_count } 项技能 · { $open } 个在招
-insights-overlap-panel-pair-alike = { $listed ->
-    [none] { $a } 和 { $b }：相似度 { $percent }%，{ $union } 项技能中共有 { $shared } 项
-   *[some] { $a } 和 { $b }：相似度 { $percent }%，{ $union } 项技能中共有 { $shared } 项：{ $skills }
-}
-insights-overlap-panel-no-shared-skills = { $a } 和 { $b }：无共同技能
-
 ## features/statistics/OverviewPanel.tsx
 insights-overview-panel-most-named-skills = 最常提到的技能
 insights-overview-panel-what-is-pulling-the-market = 需求最大的技能
 insights-overview-panel-the-skills-open-roles-name = 技能按提到它的在招职位数排序。
 insights-overview-panel-leads-roles = { $display } 领先 · { $job_count } 个职位
-insights-overview-panel-open-the-longest = 招聘时间最长的职位
-insights-overview-panel-the-roles-advertised-longest-that = 招聘时间最长的职位。它们可能难以招到人，也可能只是一直挂着。发布日期超过一年的不计入。
-insights-overview-panel-no-open-roles = 暂无在招职位。
 insights-overview-panel-opened-closed = 新增 { $new_count } · 关闭 { $closed_count }
 insights-overview-panel-about-the-demand-field = 关于此图表
-insights-overview-panel-what-open-the-longest-means = “招聘时间最长”指什么
 
 ## features/statistics/PayBands.tsx
 insights-pay-bands-each-line-is-one-published = 每条线代表一个公布的区间。带边框的部分是该级别的中位区间。
@@ -192,13 +148,7 @@ insights-skills-view-of-roles-name-it = { $view ->
 insights-skills-view-how-skills-are-ranked = 技能如何排序
 insights-skills-view-roles = 职位
 insights-skills-view-naming-a-skill = 提到某项技能
-insights-skills-view-share-or-lift = { $view ->
-    [narrowed] 相对市场
-   *[market] 占比
-}
-insights-skills-view-ranked-here = 在此排序
 insights-skills-view-expected = 基本要求
-insights-skills-view-of-every-role = 所有职位都应具备
 insights-skills-view-any-company = 任意公司
 insights-skills-view-what-expected-of-the-role = “职位的基本要求”是什么意思
 insights-skills-view-skills-order = { $view ->
@@ -215,7 +165,7 @@ insights-statistics-view-statistics-sections = 洞察分区
 insights-statistics-view-discipline = 职能
 insights-statistics-view-advanced-view = 高级视图
 insights-statistics-view-advanced-warning-title = 丑话说在前头
-insights-statistics-view-advanced-warning-body = 高级视图专为把脚注当乐趣来读的人准备：百分位数、热力图、流向图，以及背后的每一个数字。你随时可以切换回来。
+insights-statistics-view-advanced-warning-body = 高级视图专为把脚注当乐趣来读的人准备：职位开放多久、薪酬公开的频率、职级与股票的并排对比，以及背后的小样本。你随时可以切换回来。
 insights-statistics-view-show-me-everything = 全都给我看
 insights-statistics-view-keep-it-simple = 保持简单
 insights-statistics-view-part-of-advanced-view = 这个标签页属于高级视图。
@@ -546,13 +496,6 @@ insights-offer-vs-today = { $sign ->
 insights-offer-show-table = 查看表格
 
 ## features/statistics/VelocityPanel.tsx
-insights-velocity-panel-market-current = 按公司
-insights-velocity-panel-hiring-flow = 招聘流动
-insights-velocity-panel-closures-pull-left-openings-push = 关闭向左，新增向右；菱形表示更新压力。
-insights-velocity-panel-net = { $direction ->
-    [up] 净增 +{ $net } { $window }
-   *[down] 净增 { $net } { $window }
-}
 insights-velocity-panel-companies = 公司 · { $window }
 insights-velocity-panel-open = 在招
 insights-velocity-panel-opened = 新增
@@ -564,9 +507,6 @@ insights-velocity-panel-this-builds-up-as-roles = 随着职位关闭逐渐完整
 insights-velocity-panel-median-age = 发布时长中位数 { $median_days_open }
 insights-velocity-panel-median-time-posted = 在线时长中位数 { $median_observed_listing_duration_days }
 insights-velocity-panel-more-already-listed-when-their = 另有 { $first_scan } 个在公司首次扫描时已发布
-insights-velocity-panel-net-flow = 净流动
-insights-velocity-panel-opened-closed = 新增 − 关闭
-insights-velocity-panel-how-to-read-hiring-flow = 如何解读招聘流动
 insights-velocity-panel-what-time-posted-measures = “发布时长”衡量的是什么
 
 ## features/statistics/ageCopy.ts
@@ -585,9 +525,6 @@ insights-statistics-charts-closed-count = 关闭 −{ $closed }
 insights-statistics-charts-open-roles-by-company = 各公司在招职位
 insights-statistics-charts-open-new-closed = { $label }：在招 { $open }，新增 { $fresh }，关闭 { $closed }
 insights-statistics-charts-closed = 关闭 ←
-insights-statistics-charts-opened = → 新增
-insights-statistics-charts-hiring-flow-by-company = 各公司招聘流动
-insights-statistics-charts-opened-closed-updated = { $company }：新增 { $opened }，关闭 { $closed }，更新 { $updated }
 insights-statistics-charts-equity-change = { $direction ->
     [flat] 变化 $0
     [down] −{ $amount }
@@ -601,12 +538,6 @@ insights-statistics-charts-share-of-these-roles = 这些职位中的占比 →
 insights-statistics-charts-the-market-s-rate = × 市场比例 →
 insights-statistics-charts-what-sets-these-roles-apart = 这些职位的独特之处
 insights-statistics-charts-of-these-roles-the-market = { $skill }：这些职位的 { $share }%，市场的 ×{ $lift }
-insights-statistics-charts-pair-alike = 相似度 { $similarity }% · { $shared } 项共同技能
-insights-statistics-charts-pair = { $a } × { $b }
-insights-statistics-charts-more-alike = 更相似
-insights-statistics-charts-less-alike = 不太相似
-insights-statistics-charts-cross-company-skill-overlap-heatmap = 跨公司技能重合热力图
-insights-statistics-charts-pair-similarity = { $a } 和 { $b }：{ $percent }%
 
 ## features/statistics/charts/compBands.ts
 insights-comp-bands-level-summary = { $label }：{ $bands } 个区间，来自 { $employers } 个雇主，中位数 { $low } 至 { $high }。
@@ -666,13 +597,6 @@ insights-demand-load-failed = 无法加载招聘动态
 insights-demand-today = 今天
 insights-demand-last-2-days = 最近 2 天
 
-## features/statistics/OverlapPanel.tsx
-insights-overlap-panel-skills = { $skill_count } 项技能
-insights-overlap-panel-loading = 正在加载技能重合度…
-insights-overlap-panel-load-failed = 无法加载技能重合度
-insights-overlap-panel-compared = 已比较
-insights-overlap-panel-alike = 相似
-
 ## features/statistics/OverviewPanel.tsx
 insights-overview-panel-companies = { $companies } 家公司
 insights-overview-panel-loading = 正在加载概览…
@@ -693,13 +617,6 @@ insights-comp-bands-employer-at-level = { $published ->
 
 ## features/statistics/charts/disclosure.ts
 
-## features/statistics/charts/StatisticsCharts.tsx
-insights-statistics-charts-overlap-cell = { $cell ->
-    [self] { $skillCount }{ "\u000A" }项技能
-    [pair] { $similarity }%
-   *[empty] { "" }
-}
-
 ## 洞察中公司划分的两侧
 insights-your-companies = 你的公司
 insights-other-companies = 其他公司
@@ -712,13 +629,10 @@ insights-common-open-roles = 在招职位
 insights-common-open-roles-unit = 个在招职位
 insights-common-new = 新增
 insights-common-closed = 已关闭
-insights-common-updated = 已更新
-insights-common-skills = 技能
 insights-common-market = 市场
 insights-common-by-level = 按级别
 insights-common-by-company = 按公司
 insights-common-all-companies = 所有公司
-insights-common-distinct-skills = { $count } 项不同技能
 insights-common-last-days-or-all-time = { $period ->
     [all] 全部时间
    *[days] 最近 { $days } 天

@@ -10,7 +10,7 @@ from functools import cache
 
 from fastapi import APIRouter
 from pydantic import BaseModel
-from sqlalchemy import case, column, func, not_, select, text
+from sqlalchemy import case, column, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import load_only
 
@@ -51,7 +51,6 @@ from tracker.api.schemas.statistics import (
     StatisticsOverviewResponse,
     StatsResponse,
 )
-from tracker.api.serializers.jobs import serialize_job
 from tracker.comp_providers.base import OUR_PAY_COUNTRY
 from tracker.company_discovery import COMPANY_DISCOVERY
 from tracker.config import get_settings
@@ -74,14 +73,10 @@ from tracker.db.queries.jobs import (
     exclude_hidden,
     facet_count_stmt,
     insights_role_conds,
-    most_updated_open_stmt,
     new_listing_clause,
     open_in_scope_count_stmt,
     pair_on_board,
     place_set_later_ids,
-    plausibly_listed,
-    resolve_ordering,
-    row_context,
 )
 from tracker.db.queries.reference_pay import reported_rows, split_rows
 from tracker.db.queries.scope import level_key_expr
@@ -184,7 +179,7 @@ async def statistics_overview(
 ) -> dict:
     """Cockpit aggregate for the Statistics landing tab.
 
-    KPI tiles + a short generated brief + highlight strips, pulling from the demand
+    KPI tiles, a short generated brief and the top skills, pulling from the demand
     and skills layers. `days<=0` means all-time; otherwise the new/closed
     counters are scoped to the last N days of lifecycle events (so the period control
     is meaningful as history accrues).
@@ -245,28 +240,6 @@ async def statistics_overview(
         )
     ]
 
-    # Open the longest: the open role listed longest, by the age one posting
-    # shows (`listed_days`) and ordered by the Board's Age sort, its SQL twin.
-    # Never our first-sighting clock: that is an aggregate's measure, not a
-    # posting's age.
-    # Three, and only plausible ages.
-    oldest = (
-        await session.scalars(
-            exclude_hidden(
-                select(Job).where(*insights_role_conds(), *scope.conds(), plausibly_listed()), hidden
-            ).order_by(*resolve_ordering("days_open", "desc")).limit(3)
-        )
-    ).all()
-    longest = [
-        {
-            "id": job.id,
-            "title": job.title,
-            "company": job.company,
-            "listed_days": serialize_job(job)["listed_days"],
-        }
-        for job in oldest
-    ]
-
     return {
         "days": days,
         "kpis": {
@@ -278,7 +251,6 @@ async def statistics_overview(
             "saved_total": saved_total or 0,
         },
         "top_skills": top_skills,
-        "longest_open": longest,
     }
 
 
@@ -737,13 +709,10 @@ class VelocityKpis(BaseModel):
 
     open_total: int
     opened: int
-    updated: int
     closed: int
     reposted: int
-    #: Roles a company's first read found: already listed, never in `opened`
-    #: or `net`.
+    #: Roles a company's first read found: already listed, never in `opened`.
     first_scan: int
-    net: int
     median_days_open: float | None
     #: Share of the open roles behind `median_days_open` and `aging` that the
     #: employer dated (`analytics.age_basis`); None when there are none.
@@ -767,7 +736,6 @@ class VelocityCompany(BaseModel):
     company: str
     open: int
     opened: int
-    updated: int
     closed: int
     reposted: int
     median_days_open: float | None
@@ -790,7 +758,7 @@ async def statistics_velocity(
 ) -> dict:
     """Hiring-velocity motion over a time window (honors the period lens).
 
-    Opened / updated / closed activity + net flow from lifecycle events, the aging
+    Opened and closed roles from first sightings and lifecycle events, the aging
     distribution of still-open roles, and the observed listing duration of roles
     that closed in the window. `days<=0` means all-time. The duration needs a
     spread of closed roles, so it accrues with history; the UI flags a thin sample.
@@ -854,8 +822,8 @@ async def statistics_velocity(
 
     # Openings are roles, counted once at their first sighting (`first_seen`),
     # whichever writer stored them: a first read's find is `first_scan`, apart
-    # from opened and net; a repost/duplicate successor is `reposted`, so it
-    # never inflates either. A place set's later member is the set's own
+    # from opened; a repost/duplicate successor is `reposted`, so it never
+    # inflates it. A place set's later member is the set's own
     # opening, left out. Only in-scope roles count.
     opening_where = [
         c for c in (
@@ -873,10 +841,10 @@ async def statistics_velocity(
         "WHERE " + " AND ".join(opening_where) + " "
         "GROUP BY j.company, 5"
     )
-    # The rest of the motion is events in the window: updates and closings.
+    # The rest of the motion is the closings in the window.
     event_where = [
         c for c in (
-            "j.in_scope IS true", "e.event_type IN ('changed','closed')",
+            "j.in_scope IS true", "e.event_type = 'closed'",
             None if all_time else "e.created_at >= :cutoff", hide_j or None,
         ) if c
     ]
@@ -1010,21 +978,6 @@ async def demand(session: SessionDep, hidden: OffBoardDep, scope: InsightsScopeD
         key=lambda c: (-c["open"], -c["new_today"], c["company"]),
     )
 
-    roles_now = exclude_hidden(select(Job).where(*insights_role_conds(), *scope.conds()), hidden)
-    # Longest-open: ordered by the age each row shows (`listed_days`), through
-    # the Board's Age sort, never by our first sighting.
-    # Only plausible ages: a 2016 employer date is a stale date, not
-    # a role that has waited ten years. The rest are counted, never hidden.
-    longest = (
-        await session.scalars(
-            roles_now.where(plausibly_listed()).order_by(*resolve_ordering("days_open", "desc")).limit(10)
-        )
-    ).all()
-    implausibly_old = await session.scalar(
-        exclude_hidden(
-            select(func.count()).where(*insights_role_conds(), *scope.conds(), not_(plausibly_listed())), hidden
-        )
-    )
     open_count, dated_count = (
         await session.execute(
             exclude_hidden(
@@ -1036,17 +989,7 @@ async def demand(session: SessionDep, hidden: OffBoardDep, scope: InsightsScopeD
             )
         )
     ).one()
-    reposted = (
-        await session.scalars(
-            roles_now.where(Job.repost_count > 0).order_by(Job.repost_count.desc(), Job.id).limit(10)
-        )
-    ).all()
-    updated_rows = (
-        await session.execute(most_updated_open_stmt(limit=10, hidden=hidden).where(*scope.conds()))
-    ).all()
     places = build_hiring_places(locations for _, locations in roles.values())
-    shown = list({job.id: job for job in [*longest, *reposted, *(job for job, _, _ in updated_rows)]}.values())
-    ctx = await row_context(session, shown, unfollowed=hidden.unfollowed, standing=False)
     return {
         "open_total": len(roles),
         "new_today": sum(new_today.values()),
@@ -1055,15 +998,4 @@ async def demand(session: SessionDep, hidden: OffBoardDep, scope: InsightsScopeD
         "regions": places["regions"],
         "unplaced": places["unplaced"],
         "employer_dated_share": employer_dated_share(dated_count, open_count),
-        "longest_open": [serialize_job(j, **ctx) for j in longest],
-        "listed_over_a_year": implausibly_old or 0,
-        "most_reposted": [serialize_job(j, **ctx) for j in reposted],
-        "most_updated_open": [
-            {
-                **serialize_job(job, **ctx),
-                "update_count": int(update_count or 0),
-                "last_updated_at": last_updated_at,
-            }
-            for job, update_count, last_updated_at in updated_rows
-        ],
     }

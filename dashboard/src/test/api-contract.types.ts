@@ -53,7 +53,6 @@ import {
   type LocalServerStatus,
   type MatchingStopResult,
   type Notification,
-  type OverlapPair,
   type ProfileSuggestion,
   type PursuitInfo,
   type PursuitListItem,
@@ -475,9 +474,9 @@ export const summaryWithoutMedian: CompensationStats["overall"] = { ...marketSum
 // @ts-expect-error — the comp trend groups by overall, company, level or family, never another axis.
 export const unknownTrendDim: CompTrends["dim"] = "region";
 
-declare const tracked: Demand["most_updated_open"][number];
-// @ts-expect-error — a changed posting always says how many times it changed.
-export const updatedWithoutCount: Demand["most_updated_open"][number] = { ...tracked, update_count: undefined };
+declare const region: Demand["regions"][number];
+// @ts-expect-error — a region always says how many of its roles name no country in it.
+export const regionWithoutWide: Demand["regions"][number] = { ...region, region_wide: undefined };
 
 declare const packaged: NonNullable<CompTrajectory["overall"]>;
 // @ts-expect-error — a split is measured, estimated or mixed; never another source.
@@ -485,16 +484,11 @@ export const unknownSplit: CompTrajectory["overall"] = { ...packaged, split_sour
 
 export type SkillsRouteContract = [
   Expect<Equals<Returns<typeof api.skillsTop>, Ok<"skills_top_api_skills_top_get">>>,
-  Expect<Equals<Returns<typeof api.skillsOverlap>, Ok<"skills_overlap_api_skills_overlap_get">>>,
 ];
 
 declare const leader: TopSkill;
 // @ts-expect-error — every concept is filed under a category, so a leaderboard skill always names one.
 export const uncategorizedSkill: TopSkill = { ...leader, category: null };
-
-declare const pairWithoutSimilarity: Omit<OverlapPair, "similarity">;
-// @ts-expect-error: a shared pair always carries its similarity.
-export const missingSimilarity: OverlapPair = pairWithoutSimilarity;
 
 export type ProfileRouteContract = [
   Expect<Equals<Returns<typeof api.pursuits>, Ok<"list_pursuits_ep_api_pursuits_get">>>,

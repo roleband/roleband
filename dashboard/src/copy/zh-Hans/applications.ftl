@@ -296,7 +296,7 @@ applications-link-copied = 链接已复制
 
 applications-link-copy-failed = 无法复制链接。请从地址栏复制。
 
-applications-stage-button = { $stage } · { $days } 天
+applications-stage-button = { $stage } · { $days }
 
 applications-stage-menu-label = 更改 { $title } 的阶段
 
@@ -472,3 +472,27 @@ applications-read-posting = 查看招聘信息
 applications-interview-add = 添加面试
 
 applications-interview-edit-label = 编辑{ $label }
+
+applications-posting-row = 求职进展
+
+applications-posting-stage = 阶段
+
+applications-posting-since-today = 从今天起
+
+applications-posting-ended = 结束
+
+applications-posting-interview = 面试
+
+applications-posting-next-step = 下一步
+
+applications-posting-no-step = 暂无
+
+applications-posting-history = 历史记录
+
+applications-posting-history-title = 求职进展历史
+
+applications-posting-history-interview = { $label }面试
+
+applications-posting-history-today = 今天
+
+applications-posting-history-now = { $stage }，{ $days } 天

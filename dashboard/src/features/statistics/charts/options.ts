@@ -5,7 +5,6 @@ export const DANGER = "var(--app-data-4)";
 export const MUTED = "var(--app-text-muted)";
 export const FAINT = "var(--app-text-faint)";
 export const BORDER = "var(--app-border)";
-export const SUNKEN = "var(--app-surface-sunken)";
 
 export const compactGrid = {
   left: 8,

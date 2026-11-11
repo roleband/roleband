@@ -500,7 +500,9 @@ Modifier classes on top of a variant:
 `Button` defaults to `type="button"`; a form's submit passes `type="submit"`.
 
 **Primary means scarce, not "commits state".** One primary per surface, and it
-is what the surface is for (View & apply on Job detail). Many screens have
+is what the surface is for (View & apply on Job detail). A surface whose purpose
+is done loses its primary: once the person has applied, Job detail's link reads
+View posting, a strong ghost, and the posting has none. Many screens have
 none: a list you scan has no single action. A verb repeated on every row is
 never primary; it is a `link` or `ghost`. A dialog's primary is its purpose.
 `tests/ux/job-detail.spec.ts` and `tests/ux/profile.spec.ts` count the visible
@@ -952,8 +954,11 @@ Insights (`features/statistics/`) opens in its basic view: the Overview,
 Hiring, Compensation and Skills tabs, each with the panels a weekly reader
 needs (the window's motion and top skills, who hires and where, the median pay
 and its middle half by level, company and discipline). The Advanced view switch
-in the page header adds the other four tabs and every other panel; a tab passes
-`advanced` down to the panels the basic view leaves out.
+in the page header adds the other three tabs (Pace, Levels and Stock) and every
+other panel; a tab passes `advanced` down to the panels the basic view leaves
+out. Insights lists no roles: each company on Hiring, a chart bar or a row of
+its full list, opens the Board narrowed to that company (`/?company=`), and
+Back returns to Hiring.
 
 Turning the advanced view on asks in a dialog until the person says yes; the
 answer is kept on this device (`insightsView.ts`), so turning it off and on

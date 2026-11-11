@@ -55,7 +55,6 @@ async def _get(api_client, path: str) -> object:
     "/api/jobs/{original}/lineage",
     "/api/lineage/review?status=reviewed&confidence=",
     "/api/lineage/review?status=reviewed&confidence=&detail=false",
-    "/api/demand",
 ])
 async def test_a_saved_posting_reads_as_saved_wherever_it_is_listed(api_client, marked, path):
     rows = _rows(await _get(api_client, path.format(original=marked.original)))

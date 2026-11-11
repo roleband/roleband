@@ -12,30 +12,6 @@ vi.mock("../../api", async () => {
 
 vi.mock("./charts/StatisticsCharts", () => ({ OverviewSignalChart: () => null }));
 
-/* The longest-open list names postings, so each reads its own listed age
-   (`listed_days`), the age its Board row shows; never "N days open"
-   from our first sighting. Three rows, in the advanced view. */
-it("captions each role open the longest with its listed age", async () => {
-  vi.mocked(api.statisticsOverview).mockResolvedValue({
-    ...overviewFixture,
-    longest_open: [
-      { id: 7, title: "Staff Product Manager, Claude", company: "anthropic", listed_days: 170 },
-      { id: 8, title: "Engineering Manager, Search", company: "google", listed_days: 120 },
-      { id: 9, title: "Director, Payments", company: "stripe", listed_days: 0 },
-    ],
-  });
-  render(
-    <MemoryRouter>
-      <OverviewPanel days={30} onOpen={vi.fn()} advanced />
-    </MemoryRouter>,
-  );
-
-  const row = await screen.findByRole("link", { name: /Staff Product Manager, Claude/ });
-  expect(row).toHaveTextContent("Anthropic · Listed for 170 days");
-  expect(row).not.toHaveTextContent(/\bopen\b/i);
-  expect(screen.getByRole("link", { name: /Director, Payments/ })).toHaveTextContent("Listed today");
-});
-
 it("leads with the window's motion and never draws the top skills twice", async () => {
   vi.mocked(api.statisticsOverview).mockResolvedValue({
     ...overviewFixture,
@@ -44,7 +20,7 @@ it("leads with the window's motion and never draws the top skills twice", async 
   });
   render(
     <MemoryRouter>
-      <OverviewPanel days={30} onOpen={vi.fn()} />
+      <OverviewPanel days={30} />
     </MemoryRouter>,
   );
   expect(await screen.findByRole("heading", { level: 2, name: "494 opened · 217 closed" })).toBeInTheDocument();
@@ -61,26 +37,19 @@ it("leads with the window's motion and never draws the top skills twice", async 
   expect(screen.getByText(/Top skill: Roadmapping \(1,435 roles\)\./)).toBeInTheDocument();
 });
 
-it("keeps the basic view to the window's motion and the top skills", async () => {
+it("lists no roles and groups none: the window's motion and the top skills", async () => {
   vi.mocked(api.statisticsOverview).mockResolvedValue({
     ...overviewFixture,
-    longest_open: [{ id: 7, title: "Staff Product Manager, Claude", company: "anthropic", listed_days: 170 }],
+    top_skills: [{ term: "python", category: "language", job_count: 12 }],
   });
-  const { unmount } = render(
+  render(
     <MemoryRouter>
-      <OverviewPanel days={30} onOpen={vi.fn()} />
+      <OverviewPanel days={30} />
     </MemoryRouter>,
   );
   expect(await screen.findByRole("heading", { level: 2 })).toBeInTheDocument();
-  expect(screen.queryByRole("link", { name: /Staff Product Manager, Claude/ })).toBeNull();
-  unmount();
-
-  render(
-    <MemoryRouter>
-      <OverviewPanel days={30} onOpen={vi.fn()} advanced />
-    </MemoryRouter>,
-  );
-  expect(await screen.findByRole("link", { name: /Staff Product Manager, Claude/ })).toBeInTheDocument();
-  // Neither view groups roles by skill profile: no card and no sentence.
-  expect(screen.queryByText(/cluster|group/i)).toBeNull();
+  // A role's age answers nothing here (docs/decisions/0004-insights-answers-a-question.md):
+  // no role link, and no card or sentence that groups roles by skill profile.
+  expect(screen.queryByRole("link")).toBeNull();
+  expect(screen.queryByText(/longest|cluster|group/i)).toBeNull();
 });

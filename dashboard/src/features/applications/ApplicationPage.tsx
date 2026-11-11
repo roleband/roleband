@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { isNotFound, type ApplicationDetail, type ApplicationInterview, type InterviewWrite, type JobDetail } from "../../api";
 import { useJobActions } from "../../context/JobWorkspace";
-import { STAGE_LABEL, type StageSlug } from "../../copy/vocabulary";
+import type { StageSlug } from "../../copy/vocabulary";
 import { companyName } from "../../format";
 import { JobLinkRow } from "../../patterns/jobs/JobLinkRow";
 import { postingPlaces } from "../../patterns/jobs/location";
@@ -28,13 +28,13 @@ import {
   applicationsPageWithdraw,
   applicationsInterviewAdd,
   applicationsReadPosting,
-  applicationsStageButton,
   applicationsStageMenuLabel,
 } from "../../copy/gen/applications";
 import { ActivityFeed } from "./ActivityFeed";
 import { ApplicationFacts } from "./ApplicationFacts";
 import { NextPanel, NotesBlock } from "./ApplicationPanels";
-import { applicationPath, CLOSED_STAGES, daysInStage, placeInColumn } from "./board";
+import { applicationPath, CLOSED_STAGES, placeInColumn } from "./board";
+import { StageLabel } from "./StageLabel";
 import { crossingKey, latestCrossing, readDismissed, writeDismissed, type Crossing } from "./crossings";
 import { InterviewDialog } from "./InterviewDialog";
 import { backOf } from "./pageOrigin";
@@ -154,7 +154,6 @@ export function ApplicationPage({ jobId }: { jobId: number }) {
       <AsyncBoundary resource={detail} failed={applicationsPageLoadFailed()} skeleton={<div className="app-page-skeleton" aria-hidden="true" />}>
         {(data: ApplicationDetail) => {
           const shown = card ?? data.application;
-          const days = daysInStage(shown, now);
           const place = board.data ? placeInColumn(board.data.applications, jobId, now) : null;
           const job: JobDetail | null = posting.data ?? null;
           const crossing = job ? latestCrossing(job.lifecycle, data.stages_reached) : null;
@@ -232,7 +231,7 @@ export function ApplicationPage({ jobId }: { jobId: number }) {
                   aria-keyshortcuts="m"
                   onClick={() => setStageOpen((open) => !open)}
                 >
-                  {applicationsStageButton({ stage: STAGE_LABEL[shown.stage], days: days ?? 0 })}
+                  <StageLabel card={shown} now={now} />
                   <Icon name="chevronDown" size={14} />
                 </Button>
               </header>

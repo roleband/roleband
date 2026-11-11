@@ -17,6 +17,7 @@ import {
   applicationsCommentFailed,
   applicationsInterviewDeleteFailed,
 } from "../../copy/gen/applications";
+import { movedCard } from "./board";
 import { usePursuitWrite, useStageMove } from "./useStageMove";
 
 type PursuitUpdate = Parameters<typeof api.setPursuit>[1];
@@ -62,9 +63,9 @@ export function useApplicationController(jobId: number) {
   const paintStage = useCallback(
     (_jobId: number, stage: StageSlug) => {
       const now = new Date().toISOString();
-      paint({ stage, stage_since: now, last_activity_at: now });
+      mutateDetail((current) => current && { ...current, application: movedCard(current.application, stage, now) });
     },
-    [paint],
+    [mutateDetail],
   );
   const move = useStageMove({ paint: paintStage, refresh: reread });
 
