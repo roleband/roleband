@@ -345,7 +345,7 @@ def test_api_tests_the_unsaved_local_profile_draft_without_persisting(monkeypatc
     draft = LocalLLMProfileInput(
         name="Draft connection",
         provider="openai_compatible",
-        base_url="http://localhost:9000/v1",
+        base_url="http://127.0.0.1:8000/api/v2",
         model="draft-model",
         api_key=None,
         parameters=LocalLLMParameters(enable_thinking=True, max_tokens=1024),
@@ -394,8 +394,9 @@ def test_api_tests_the_unsaved_local_profile_draft_without_persisting(monkeypatc
 
     assert result["ok"] is True
     assert seen[0].model == "draft-model"
-    assert seen[0].base_url == "http://localhost:9000/v1"
-    # An omitted draft key means keep the write-only saved key for this probe.
+    assert seen[0].base_url == "http://127.0.0.1:8000/api/v2"
+    # An omitted draft key means keep the write-only saved key for this probe,
+    # which is of the server the key was saved for.
     assert seen[0].api_key == "secret-local-key"
     assert stored.model == "Ornith-1.0-35B-5bit-mlx"
     assert session.committed is True

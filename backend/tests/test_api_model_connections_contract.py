@@ -7,13 +7,17 @@ connection routes send. These tests hold it to its sources:
    `local_llm.server`; a saved connection serves every stored field but its key.
 2. **Local connections** over real HTTP: saved, updated, selected, switched off
    and deleted, the key write-only throughout, a refused write changing nothing.
+   A saved key stays at the address it was saved for: an edit or a draft that
+   names another address and no key is refused, and reaches no server.
 3. **The local server**: its status as each machine leaves it, and a start or
    stop reporting the fresh probe beside what the CLI said, refused for a server
    the app does not manage.
 4. **The local test**: an answer, a truncated one, an unsaved draft tested with
    the saved key and never saved, and each failure with what it logs.
 5. **Cloud connections** and their test: model discovery for the OpenAI family, a
-   one-token message for Anthropic, and the provider's refusals as a 502.
+   one-token message for Anthropic, and the provider's refusals as a 502. The
+   saved key follows a connection to another host or port only when the edit
+   brings a key of its own.
 6. **Drift**: a builder that serves the key, drops a key or adds one fails the response.
 
 `no_escape` guards every test and `pin_integration_machine` owns the machine: the
@@ -444,6 +448,52 @@ async def test_an_unsaved_draft_is_tested_with_the_saved_key_and_never_saved(api
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
+    "address",
+    ["http://127.0.0.1:8001/v1", "http://localhost:8000/v1", "https://127.0.0.1:8000/v1"],
+    ids=["another_port", "another_loopback_name", "another_scheme"],
+)
+async def test_a_saved_local_key_is_never_sent_to_another_address(api_client, db_session, machine, address):
+    """Another port, or another loopback name, can be another process's listener. Neither an edit
+    nor a draft that names no key reaches it with the saved one."""
+    saved = await seed_local_connection(db_session)
+    before = await _call(api_client, "GET", LOCAL)
+    edit = {"name": "Local Qwen", "provider": "omlx", "base_url": address, "model": MODEL_ID, "api_key": None}
+
+    for method, path, body in (
+        ("PUT", f"{LOCAL}/{saved.id}", edit),
+        ("POST", f"{LOCAL}/{saved.id}/test", {"profile": edit}),
+    ):
+        refused = await _call(api_client, method, path, body, status=409)
+        assert code_of(refused) == "key-saved-for-another-address"
+        assert LOCAL_KEY not in json.dumps(refused)
+
+    assert machine.local_server.requests == []
+    assert await _test_log(db_session) == []
+    assert await _call(api_client, "GET", LOCAL) == before
+    assert await _saved_local_key(db_session) == LOCAL_KEY
+
+
+@pytest.mark.asyncio
+async def test_a_local_draft_at_another_address_is_tested_with_the_key_it_brings(api_client, db_session, machine):
+    saved = await seed_local_connection(db_session)
+    draft = {
+        "name": "Draft", "provider": "omlx", "base_url": "http://127.0.0.1:8001/v1", "model": MODEL_ID,
+        "api_key": "key-for-8001",
+    }
+    body = await _call(api_client, "POST", f"{LOCAL}/{saved.id}/test", {"profile": draft})
+    assert body["ok"] is True
+    assert {(request.url.port, request.headers["authorization"]) for request in machine.local_server.requests} == {
+        (8001, "Bearer key-for-8001"),
+    }
+    assert await _saved_local_key(db_session) == LOCAL_KEY
+
+    moved = await _call(api_client, "PUT", f"{LOCAL}/{saved.id}", draft)
+    assert (moved["base_url"], moved["has_api_key"]) == ("http://127.0.0.1:8001/v1", True)
+    assert await _saved_local_key(db_session) == "key-for-8001"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
     ("model", "server_up", "status", "detail", "failure_class"),
     [
         ("gemma-3-12b", True, 400, f'Model "gemma-3-12b" is not available. Server models: {MODEL_ID}.', "model_not_found"),
@@ -519,6 +569,61 @@ async def test_a_cloud_update_keeps_the_key_and_a_delete_serves_what_remains(api
         (anthropic.id, "https://api.anthropic.com/v1", False),
     ]
     assert await _call(api_client, "DELETE", f"{CLOUD}/{anthropic.id}") == {"profiles": [updated]}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "moved",
+    [
+        {"base_url": "https://llm.example.net/v1"},
+        {"base_url": "https://api.openai.com:8443/v1"},
+        {"base_url": "https://llm.example.net/v1", "provider": "anthropic", "model": "claude-haiku-4-5"},
+    ],
+    ids=["another_host", "another_port", "another_host_and_provider"],
+)
+async def test_a_saved_cloud_key_is_never_sent_to_another_address(api_client, db_session, machine, moved):
+    """The key is write-only, so an edit that names none keeps the saved one. That edit cannot also
+    name the server the key is then sent to: the test below it would hand the key to that server."""
+    saved = await seed_cloud_connection(db_session)
+    before = await _call(api_client, "GET", CLOUD)
+
+    refused = await _call(api_client, "PUT", f"{CLOUD}/{saved.id}", {**OPENAI_BODY, **moved}, status=409)
+    assert code_of(refused) == "key-saved-for-another-address"
+    assert CLOUD_KEY not in json.dumps(refused)
+    assert await _call(api_client, "GET", CLOUD) == before
+
+    await _call(api_client, "POST", f"{CLOUD}/{saved.id}/test")
+    assert [(request.url.host, request.url.port, request.headers["authorization"]) for request in machine.cloud.requests] == [
+        ("api.openai.com", None, f"Bearer {CLOUD_KEY}"),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_cloud_connection_moves_with_a_key_of_its_own_and_keeps_it_at_that_address(
+    api_client, db_session, machine
+):
+    saved = await seed_cloud_connection(db_session)
+    moved = await _call(api_client, "PUT", f"{CLOUD}/{saved.id}", {
+        **OPENAI_BODY, "provider": "openai_compatible", "base_url": "https://llm.example.net/v1", "api_key": "sk-new-address",
+    })
+    assert (moved["base_url"], moved["has_api_key"]) == ("https://llm.example.net/v1", True)
+
+    # The same server under another path, model, provider and name is still the server the key was saved for.
+    edited = await _call(api_client, "PUT", f"{CLOUD}/{saved.id}", {
+        **OPENAI_BODY, "name": "Gateway", "provider": "openai", "base_url": "https://LLM.example.net:443/api/v2",
+        "model": "gpt-5",
+    })
+    assert (edited["base_url"], edited["model"], edited["has_api_key"]) == ("https://LLM.example.net:443/api/v2", "gpt-5", True)
+    db_session.expire_all()
+    assert [profile.api_key for profile in (await get_cloud_state(db_session)).profiles] == ["sk-new-address"]
+    assert machine.cloud.requests == []
+
+
+@pytest.mark.asyncio
+async def test_a_cloud_connection_without_a_key_moves_freely(api_client, db_session, machine):
+    saved = await seed_cloud_connection(db_session, api_key=None)
+    moved = await _call(api_client, "PUT", f"{CLOUD}/{saved.id}", {**OPENAI_BODY, "base_url": "https://llm.example.net/v1"})
+    assert (moved["base_url"], moved["has_api_key"]) == ("https://llm.example.net/v1", False)
 
 
 @pytest.mark.asyncio

@@ -174,7 +174,11 @@ bench's (`scripts.bench_relevance_review`).
 
 **Secret storage.** API keys are write-only on the wire: responses carry
 `has_api_key`, never the key, and an edit that sends `api_key: null` keeps the
-stored key. How keys are stored is in [SECURITY.md](../SECURITY.md).
+stored key. The stored key stays with the server it was saved for (scheme, host
+and port): an edit, or a local test of an unsaved edit, that names another server
+sends that server's key or is refused with `key-saved-for-another-address`, so
+no edit can choose where a stored key is sent. How keys are stored is in
+[SECURITY.md](../SECURITY.md).
 
 ## Changing the server
 

@@ -6,6 +6,44 @@ import pytest
 
 from tracker.cloud_llm.models import CloudLLMProfile, CloudLLMProfileInput
 from tracker.intelligence_runtime import cloud_profiles as store
+from tracker.intelligence_runtime._profile_keys import KeySavedForAnotherAddress, kept_key
+
+SAVED_AT = "https://api.openai.com/v1"
+
+
+@pytest.mark.parametrize(
+    "url", [SAVED_AT, "https://API.OpenAI.com:443/v2/other", "https://api.openai.com"],
+    ids=["unchanged", "case_default_port_and_path", "no_path"],
+)
+def test_an_edit_without_a_key_keeps_the_saved_one_at_its_server(url):
+    assert kept_key(SAVED_AT, "saved", url, None) == "saved"
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://api.openai.com.example.net/v1",
+        "https://example.net/api.openai.com/v1",
+        "https://api.openai.com@example.net/v1",
+        "https://eu.api.openai.com/v1",
+        "https://api.openai.com:8443/v1",
+        "http://api.openai.com/v1",
+        "https://api.openai.com:https/v1",
+    ],
+    ids=[
+        "name_as_prefix", "name_in_path", "name_as_userinfo", "subdomain", "another_port", "another_scheme",
+        "unreadable_port",
+    ],
+)
+def test_an_edit_without_a_key_never_takes_the_saved_one_to_another_server(url):
+    with pytest.raises(KeySavedForAnotherAddress):
+        kept_key(SAVED_AT, "saved", url, None)
+
+
+def test_an_edit_that_brings_a_key_or_leaves_none_behind_names_any_server():
+    assert kept_key(SAVED_AT, "saved", "https://example.net/v1", "brought") == "brought"
+    assert kept_key(SAVED_AT, "saved", SAVED_AT, "brought") == "brought"
+    assert kept_key(SAVED_AT, None, "https://example.net/v1", None) is None
 
 
 def test_cloud_profile_rejects_insecure_and_private_destinations():

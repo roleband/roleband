@@ -1,13 +1,17 @@
-"""Key conversion for raw model-profile rows, without validating away stored data."""
+"""Saved model-profile keys: which server one is for, and key conversion for raw
+rows without validating away stored data."""
 
 from __future__ import annotations
 
 from collections.abc import Callable
+from urllib.parse import urlsplit
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.platform.secrets import seal
 from tracker.settings_store import get_setting_dict, set_setting_dict
+
+_DEFAULT_PORTS = {"http": 80, "https": 443}
 
 
 class ProfilesUnreadable(Exception):
@@ -16,6 +20,37 @@ class ProfilesUnreadable(Exception):
     A write built on what could be read would replace every saved profile, and
     its sealed key, with nothing; the stores refuse it instead.
     """
+
+
+class KeySavedForAnotherAddress(Exception):
+    """An edit named no key and a server the saved key is not for."""
+
+
+def _server(url: str) -> tuple[str, str | None, int | None] | None:
+    """Scheme, host and port; None for an address whose port cannot be read."""
+    parts = urlsplit(url)
+    try:
+        return parts.scheme, parts.hostname, parts.port or _DEFAULT_PORTS.get(parts.scheme)
+    except ValueError:
+        return None
+
+
+def kept_key(saved_url: str, saved_key: str | None, url: str, key: str | None) -> str | None:
+    """The key a connection holds after an edit that sent `key` for `url`.
+
+    The key is write-only, so an edit that changes something else arrives with
+    none and keeps the saved one. It keeps it only at the server the key was
+    saved for (scheme, host and port): the key is a secret shared with that
+    server, and an edit that kept the key while naming where it is sent would
+    hand it to any server the edit's author chose. A path, a model or a
+    provider leaves the server what it was.
+    """
+    if key is not None or saved_key is None:
+        return key
+    server = _server(url)
+    if server is None or server != _server(saved_url):
+        raise KeySavedForAnotherAddress
+    return saved_key
 
 
 def with_keys(value: dict, convert: Callable[[str | None], str | None]) -> dict:
