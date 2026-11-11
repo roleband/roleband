@@ -193,7 +193,7 @@ the public `launcher/windows/RoleBand.cer` are committed.
 secret; a tag whose commit has neither file gets no Windows files. Signing runs only
 when the workflow is run by hand from `main` for that tag, in the `windows-release`
 environment, which admits only `main`: a release runs the tag's own workflow file,
-so it builds and signs nothing. The signing job refuses a tag whose commit `main`
+so it builds the unsigned files and signs nothing. The signing job refuses a tag whose commit `main`
 does not hold before any step sees a secret, and runs only `main`'s own tools; from
 the tagged commit it reads, as files, the package, `RoleBand.cer`,
 `release-identity.json` and the version. `identity.py check` confirms that the
