@@ -345,20 +345,24 @@ async def test_code_a_plugin_saves_in_its_data_directory_never_runs(db_session, 
 
 
 def _refuses_writes(folder: Path) -> bool:
-    """Whether creating something in `folder` is refused, by a real attempt: `os.access` on Windows reads only the
-    read-only attribute, never the folder's access list. macOS's sealed system volume refuses with EROFS, not a
-    permission error. Any other failure is not an answer and is raised."""
+    """Whether creating a folder and a file in `folder` are both refused, by real attempts: `os.access` on Windows
+    reads only the read-only attribute, never the folder's access list, where the two are separate rights. macOS's
+    sealed system volume refuses with EROFS, not a permission error. Any other failure is not an answer and is
+    raised."""
     probe = folder / f"plugin-probe-{os.getpid()}"
-    try:
-        probe.mkdir()
-    except PermissionError:
-        return True
-    except OSError as failed:
-        if failed.errno == errno.EROFS:
-            return True
-        raise
-    probe.rmdir()
-    return False
+    attempts = ((Path.mkdir, Path.rmdir), (Path.touch, Path.unlink))
+    for create, remove in attempts:
+        try:
+            create(probe)
+        except PermissionError:
+            continue
+        except OSError as failed:
+            if failed.errno == errno.EROFS:
+                continue
+            raise
+        remove(probe)
+        return False
+    return True
 
 
 def test_the_write_probe_answers_only_for_a_refusal(tmp_path, monkeypatch):
@@ -368,11 +372,21 @@ def test_the_write_probe_answers_only_for_a_refusal(tmp_path, monkeypatch):
         def fail(self, *_args, code=code, **_kwargs):
             raise OSError(code, os.strerror(code))
         monkeypatch.setattr(Path, "mkdir", fail)
+        monkeypatch.setattr(Path, "touch", fail)
         if refused:
             assert _refuses_writes(tmp_path)
         else:
             with pytest.raises(OSError):
                 _refuses_writes(tmp_path)
+    # A folder refused but a file allowed is still a place a plugin can write.
+    monkeypatch.undo()
+
+    def no_folders(self, *_args, **_kwargs):
+        raise PermissionError(errno.EACCES, "folders refused", str(self))
+
+    monkeypatch.setattr(Path, "mkdir", no_folders)
+    assert not _refuses_writes(tmp_path)
+    assert not list(tmp_path.iterdir()), "the probe cleans up what it made"
 
 
 async def test_the_runner_is_isolated_and_starts_where_the_plugin_cannot_write(db_session, tmp_path):
