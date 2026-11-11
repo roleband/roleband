@@ -112,6 +112,39 @@ def test_windows_ci_lanes_cover_the_whole_backend_suite_once(tmp_path):
     assert runner.windows_tests(tmp_path, "all") == ["tests"]
 
 
+def test_a_windows_suite_shard_cuts_the_suite_lane_selection(tmp_path):
+    (tmp_path / "tests").mkdir()
+    for name in ("test_windows_checkpoint.py", "test_supervisor_new.py", "test_unrelated.py"):
+        (tmp_path / "tests" / name).touch()
+    whole = runner.windows_tests(tmp_path, "suite")
+    # The same selection, the ignores included, so a shard never runs a native suite.
+    assert runner.windows_tests(tmp_path, "suite", "2/3") == [*whole, "--shard=2/3"]
+    for lane in ("checkpoints", "engine", "native", "all"):
+        with pytest.raises(ValueError, match="only the suite lane"):
+            runner.windows_tests(tmp_path, lane, "1/2")
+
+
+@pytest.mark.parametrize("value", ["0/4", "5/4", "4", "a/4", "1/", "-1/4"])
+def test_a_shard_outside_its_count_is_refused(value):
+    with pytest.raises(runner.argparse.ArgumentTypeError):
+        runner.shard(value)
+    assert runner.shard("4/4") == "4/4"
+    assert runner.shard("01/04") == "1/4"
+
+
+@pytest.mark.parametrize("args", [
+    ["windows", "--shard", "1/2"],
+    ["windows", "--windows-lane", "engine", "--shard", "1/2"],
+    ["backend", "--shard", "1/2"],
+])
+def test_cli_shards_only_the_windows_suite_lane(args, tmp_path):
+    done = subprocess.run([sys.executable, str(SCRIPT), *args, "--output", str(tmp_path / "run")],
+                          capture_output=True, text=True, timeout=20)
+    assert done.returncode == 2
+    assert "--shard splits only the windows profile's suite lane" in done.stderr
+    assert not (tmp_path / "run").exists()
+
+
 def test_a_passing_command_cannot_verify_changed_installed_packages(checkout):
     root, output = checkout
     (root / ".gitignore").write_text("node_modules/\n")
