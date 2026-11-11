@@ -259,6 +259,7 @@ class TestDatabaseRecovery:
         monkeypatch.setenv("ROLEBAND_STATE_DIR", str(state))
         monkeypatch.delenv("ROLEBAND_PGDATA", raising=False)
         monkeypatch.delenv("ROLEBAND_DATABASE_URL", raising=False)
+        monkeypatch.setenv("ROLEBAND_DB_EMBEDDED", "true")
         stops: list[object] = []
         monkeypatch.setattr(watchdog, "get_settings", lambda: config.Settings(_env_file=None))
         monkeypatch.setattr(watchdog, "stop_server", lambda pgdata: stops.append(pgdata) or True)

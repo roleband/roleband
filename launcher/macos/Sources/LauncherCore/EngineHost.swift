@@ -315,10 +315,8 @@ public actor EngineHost {
         }
         // PostgreSQL's fast shutdown is SIGINT; SIGTERM is smart shutdown and can wait
         // indefinitely for clients. Its separate session is stopped only after the clients.
-        if let pid = LaunchMode.runningServer(configuration.pgdata), let server = OwnedProcess.read(pid), server.isPostgres {
-            guard let path = LaunchMode.executable(pid), LaunchMode.isInsideApp(path) else {
-                throw LaunchMode.recordedByApp(configuration.pgdata) ? HostProblem.databaseInUse : HostProblem.sourceInstallation
-            }
+        if let pid = LaunchMode.runningServer(configuration.pgdata), let server = OwnedProcess.read(pid), server.isPostgres,
+           !(try serverIsAnotherPrograms(pid)) {
             guard server.matchesDatabase(configuration.pgdata) else { throw HostProblem.processInspection }
             try server.signal(SIGINT)
             let deadline = ProcessInfo.processInfo.systemUptime + grace
@@ -333,6 +331,15 @@ public actor EngineHost {
         child = nil
         if token != nil { try FileManager.default.removeItem(at: configuration.record) }
         token = nil
+    }
+
+    /// A server from outside the app on the app's own database belongs to another program: the app
+    /// neither stops it nor waits for it, so quitting and backing off still finish. On a database the
+    /// app did not record, it is a source installation's, which the app refuses to run beside.
+    private func serverIsAnotherPrograms(_ pid: pid_t) throws -> Bool {
+        if let path = LaunchMode.executable(pid), LaunchMode.isInsideApp(path) { return false }
+        guard LaunchMode.recordedByApp(configuration.pgdata) else { throw HostProblem.sourceInstallation }
+        return true
     }
 
     private func didStop() {

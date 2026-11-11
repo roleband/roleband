@@ -508,8 +508,12 @@ private struct ForeignServer {
         clock.advance(60)
         try await host.check()
         #expect(await host.state == .needsAttention, "no further retry while the database is in use")
+        // Quitting stops what is the app's and leaves the other program's server running.
+        try await host.stop()
+        #expect(await host.state == .stopped)
+        #expect(server.process.isRunning, "quitting does not stop the other program's server")
+        #expect(!FileManager.default.fileExists(atPath: fixture.configuration.record.path))
     } catch { try? await host.stop(); throw error }
-    try await host.stop()
 }
 
 @Test func crashDiagnosticsReadOnlyBoundedLogTails() async throws {
