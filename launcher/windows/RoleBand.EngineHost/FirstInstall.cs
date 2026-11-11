@@ -199,8 +199,10 @@ public sealed class ReleaseDownload(HttpMessageHandler handler)
         }
         catch
         {
-            // A download starts again from its first byte, so what a failed or cancelled one wrote is never used.
-            File.Delete(partial);
+            // A download starts again from its first byte, so what a failed or cancelled one wrote is never used. Removing it
+            // is best effort: a scanner may hold the new file for a moment, and the failure to report is the download's.
+            try { File.Delete(partial); }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
             throw;
         }
     }
