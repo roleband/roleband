@@ -23,6 +23,7 @@ declares its own models beside its handler.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import Field
@@ -97,8 +98,19 @@ class StatisticsOverviewResponse(Built):
     brief is the dashboard's, said from these facts."""
 
     days: int
+    #: Where the figures start: the window's start, or the scope's history when
+    #: that is shorter (`queries.insights.window_since`). None before any whole read.
+    since: datetime | None
     kpis: OverviewKpis
     top_skills: list[OverviewSkill]
+
+
+class InsightsHistoryResponse(Built):
+    """`GET /api/statistics/history`: when the history of the scope's companies
+    starts (`queries.insights.history_since`) and how many whole days it covers."""
+
+    since: datetime | None
+    days: int
 
 
 # --------------------------------------------------------------------------- #
@@ -522,8 +534,9 @@ class HiringCompany(Built):
     company: str
     open: int
     #: New by the Board's rule (`queries.jobs.new_listing_clause`).
-    new_today: int
-    closed_today: int
+    new: int
+    #: Closed in the same 2 days as `new`.
+    closed: int
 
 
 class HiringCountry(Built):
@@ -544,16 +557,16 @@ class HiringRegion(Built):
 
 class DemandResponse(Built):
     """`GET /api/demand`, the Hiring tab: where roles are open now, by company and
-    place, and today's openings and closings.
+    place, and the roles new and closed in the New rule's 2 days.
 
     Read live from the roles Insights describes, never by summing the
     `demand_metrics` rollup, whose slices count a posting once per place group."""
 
     open_total: int
     #: New by the Board's rule and in scope, not reposts, a place set once.
-    new_today: int
-    #: Closed today, a place set once.
-    closed_today: int
+    new: int
+    #: Closed in the same 2 days, a place set once.
+    closed: int
     companies: list[HiringCompany]
     regions: list[HiringRegion]
     #: Roles whose places name nothing a region holds ("Remote", "Anywhere").

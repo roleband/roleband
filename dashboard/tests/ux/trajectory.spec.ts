@@ -6,6 +6,7 @@ import {
   jobFixture,
   jobListFixture,
   notificationsFixture,
+  historyFixture,
   overviewFixture,
   statsFixture,
   statusFixture,
@@ -50,6 +51,7 @@ const offerTermsFixture = {
 test.beforeEach(async ({ page }) => {
   await showAdvancedInsights(page);
   await page.route("/api/statistics/overview**", (route) => route.fulfill({ json: overviewFixture }));
+  await page.route("/api/statistics/history**", (route) => route.fulfill({ json: historyFixture }));
   await page.route("/api/profile", (route) => route.fulfill({ json: {
     profile: null, scope_configured: true,
   } }));

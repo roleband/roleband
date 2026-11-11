@@ -8,7 +8,7 @@ import { InsightHero, n } from "./InsightHero";
 import {
   insightsCommonClosed,
   insightsCommonCompany,
-  insightsCommonLastDaysOrAllTime,
+  insightsCommonOpened,
   insightsVelocityPanelAgeOfOpenRoles,
   insightsVelocityPanelCompanies,
   insightsVelocityPanelFromTheFirstScanThat,
@@ -20,7 +20,6 @@ import {
   insightsVelocityPanelMoreAlreadyListedWhenTheir,
   insightsVelocityPanelOpen,
   insightsVelocityPanelOpenCount,
-  insightsVelocityPanelOpened,
   insightsVelocityPanelOpenedCount,
   insightsVelocityPanelThisBuildsUpAsRoles,
   insightsVelocityPanelTimePosted,
@@ -28,6 +27,7 @@ import {
 } from "../../copy/gen/insights";
 import { Msg } from "../../ui/Msg";
 import { agingBandName } from "./names";
+import { periodLabel } from "./period";
 
 const days = (value: number | null) => (value == null ? "" : `${Math.round(value)}d`);
 
@@ -41,7 +41,7 @@ export function VelocityPanel({ days: period, scope }: { days: number; scope?: I
   if (!data) return <ResourceLoadState error={error} loading={insightsVelocityPanelLoading()} failed={insightsVelocityPanelLoadFailed()} onRetry={retry} />;
 
   const k = data.kpis;
-  const window = insightsCommonLastDaysOrAllTime({ period: period <= 0 ? "all" : "days", days: period });
+  const window = periodLabel(period, data.since);
   const openMax = Math.max(1, ...data.by_company.map((c) => c.open));
   const thinPosted = k.median_observed_listing_duration_days == null;
 
@@ -62,7 +62,7 @@ export function VelocityPanel({ days: period, scope }: { days: number; scope?: I
             .join(" · ")
         }
         kpis={[
-          { label: insightsVelocityPanelOpened(), value: n(k.opened), sub: window, tone: "good" },
+          { label: insightsCommonOpened(), value: n(k.opened), sub: window, tone: "good" },
           { label: insightsCommonClosed(), value: n(k.closed), sub: window },
         ]}
       />
@@ -77,7 +77,7 @@ export function VelocityPanel({ days: period, scope }: { days: number; scope?: I
             <tr>
               <th>{insightsCommonCompany()}</th>
               <th className="num vel-open-col">{insightsVelocityPanelOpen()}</th>
-              <th className="num">{insightsVelocityPanelOpened()}</th>
+              <th className="num">{insightsCommonOpened()}</th>
               <th className="num">{insightsCommonClosed()}</th>
               <th className="num">
                 {insightsVelocityPanelTimePosted()}

@@ -3,22 +3,31 @@ import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { api } from "../../api";
+import { historyFixture } from "../../test/fixtures";
 import { msg } from "../../test/msg";
 import { readInsightsView, writeInsightsView } from "./insightsView";
 import { StatisticsView } from "./StatisticsView";
 
 vi.mock("./OverviewPanel", () => ({
-  OverviewPanel: ({ scope }: { scope?: { side: string; families: readonly string[] } }) => (
-    <div>Overview content{scope ? ` scope=${scope.side}:${scope.families.join("+")}` : ""}</div>
+  OverviewPanel: ({ scope, days }: { scope?: { side: string; families: readonly string[] }; days: number }) => (
+    <div data-days={days}>Overview content{scope ? ` scope=${scope.side}:${scope.families.join("+")}` : ""}</div>
   ),
 }));
 vi.mock("../../api", async () => {
   const actual = await vi.importActual<typeof import("../../api")>("../../api");
-  const { facetsFixture } = await import("../../test/fixtures");
-  return { ...actual, api: { ...actual.api, facets: vi.fn().mockResolvedValue(facetsFixture) } };
+  const { facetsFixture, historyFixture } = await import("../../test/fixtures");
+  return {
+    ...actual,
+    api: {
+      ...actual.api,
+      facets: vi.fn().mockResolvedValue(facetsFixture),
+      insightsHistory: vi.fn().mockResolvedValue(historyFixture),
+    },
+  };
 });
 vi.mock("./Demand", () => ({ DemandView: () => <div>Demand content</div> }));
-vi.mock("./VelocityPanel", () => ({ VelocityPanel: () => <div>Velocity content</div> }));
+vi.mock("./VelocityPanel", () => ({ VelocityPanel: ({ days }: { days: number }) => <div data-days={days}>Velocity content</div> }));
 vi.mock("./CompensationPanel", () => ({
   CompensationPanel: ({ advanced }: { advanced?: boolean }) => <div data-advanced={String(Boolean(advanced))}>Compensation content</div>,
 }));
@@ -51,7 +60,10 @@ function renderStats(route = "/statistics/overview", extra?: ReactElement) {
 describe("StatisticsView", () => {
   // These cases walk every tab, so they read the advanced view, which lists
   // them all; the basic view has its own cases below.
-  beforeEach(() => writeInsightsView("advanced"));
+  beforeEach(() => {
+    writeInsightsView("advanced");
+    vi.mocked(api.insightsHistory).mockClear().mockResolvedValue(historyFixture);
+  });
 
   it("narrows every tab but Stock by one scope, kept in the address", async () => {
     // Your companies / Other companies and disciplines, one bar for all
@@ -60,11 +72,11 @@ describe("StatisticsView", () => {
     renderStats("/statistics/overview?side=other");
     expect(screen.getByRole("group", { name: "Companies" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Other companies" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByText("Overview content scope=other:")).toBeInTheDocument();
+    expect(await screen.findByText("Overview content scope=other:")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Your companies" }));
     expect(screen.getByTestId("location")).toHaveTextContent("/statistics/overview?side=yours");
-    expect(screen.getByText("Overview content scope=yours:")).toBeInTheDocument();
+    expect(await screen.findByText("Overview content scope=yours:")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "All companies" }));
     expect(screen.getByTestId("location")).toHaveTextContent(/^\/statistics\/overview$/);
@@ -82,9 +94,9 @@ describe("StatisticsView", () => {
     expect(screen.getByTestId("location")).toHaveTextContent("/statistics/velocity?window=90&side=other&family=design_ux");
   });
 
-  it("reads disciplines from the address into the scope", () => {
+  it("reads disciplines from the address into the scope", async () => {
     renderStats("/statistics/overview?family=product_management&family=engineering_management");
-    expect(screen.getByText("Overview content scope=all:product_management+engineering_management")).toBeInTheDocument();
+    expect(await screen.findByText("Overview content scope=all:product_management+engineering_management")).toBeInTheDocument();
   });
 
   it("shows the period lens only for tabs whose data honors it", async () => {
@@ -92,7 +104,7 @@ describe("StatisticsView", () => {
     renderStats();
 
     expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("group", { name: "Time range" })).toBeInTheDocument();
+    expect(await screen.findByRole("group", { name: "Time range" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "30d" })).toHaveAttribute("aria-pressed", "true");
 
     await user.click(screen.getByRole("tab", { name: "Hiring" }));
@@ -100,7 +112,7 @@ describe("StatisticsView", () => {
     expect(screen.queryByRole("group", { name: "Time range" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "Pace" }));
-    expect(screen.getByRole("group", { name: "Time range" })).toBeInTheDocument();
+    expect(await screen.findByRole("group", { name: "Time range" })).toBeInTheDocument();
 
     // Pay describes the roles open now and draws nothing over time.
     await user.click(screen.getByRole("tab", { name: "Compensation" }));
@@ -136,10 +148,44 @@ describe("StatisticsView", () => {
     expect(screen.getByText("Compensation content")).toBeInTheDocument();
   });
 
-  it("honors the ?window= lens from the URL", () => {
+  it("honors the ?window= lens from the URL", async () => {
     renderStats("/statistics/overview?window=90");
-    expect(screen.getByRole("button", { name: "90d" })).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByRole("button", { name: "90d" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "30d" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByText(/^Overview content/)).toHaveAttribute("data-days", "90");
+  });
+
+  it("offers no window while the history is shorter than the shortest, and shows all of it", async () => {
+    // Six days: every window would show the same figures as all time.
+    vi.mocked(api.insightsHistory).mockResolvedValue({ since: "2026-11-03T06:02:00Z", days: 6 });
+    renderStats("/statistics/overview?window=30");
+    expect(await screen.findByText(/^Overview content/)).toHaveAttribute("data-days", "0");
+    expect(screen.queryByRole("group", { name: "Time range" })).toBeNull();
+    expect(api.insightsHistory).toHaveBeenLastCalledWith({ side: "all", families: [] });
+  });
+
+  it("offers only the windows the history covers, and reads a longer saved one as all time", async () => {
+    vi.mocked(api.insightsHistory).mockResolvedValue({ since: "2026-10-10T06:00:00Z", days: 31 });
+    renderStats("/statistics/velocity?window=90&side=yours");
+    const range = await screen.findByRole("group", { name: "Time range" });
+    expect(within(range).getAllByRole("button").map((b) => b.textContent)).toEqual(["7d", "30d", "All time"]);
+    expect(within(range).getByRole("button", { name: "All time" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Velocity content")).toHaveAttribute("data-days", "0");
+    expect(api.insightsHistory).toHaveBeenLastCalledWith({ side: "yours", families: [] });
+  });
+
+  it("offers every window when the history cannot be read", async () => {
+    vi.mocked(api.insightsHistory).mockRejectedValue(new Error("offline"));
+    renderStats("/statistics/overview?window=90");
+    const range = await screen.findByRole("group", { name: "Time range" });
+    expect(within(range).getAllByRole("button")).toHaveLength(4);
+    expect(screen.getByText(/^Overview content/)).toHaveAttribute("data-days", "90");
+  });
+
+  it("asks for no history on a tab without a window", async () => {
+    renderStats("/statistics/demand");
+    expect(await screen.findByText("Demand content")).toBeInTheDocument();
+    expect(api.insightsHistory).not.toHaveBeenCalled();
   });
 
   it("redirects an unknown sub-tab to Overview", async () => {

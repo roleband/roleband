@@ -31,7 +31,7 @@ insights-compensation-panel-median = { $roles } · 中位数 { $p50 }
 
 ## features/statistics/Demand.tsx
 insights-demand-open-roles-by-company = 各公司在招职位
-insights-demand-each-role-counts-once-however = 每个职位只计一次，无论在多少个地点发布。新增指最近 2 天，关闭指今天。
+insights-demand-each-role-counts-once-however = 每个职位只计一次，无论在多少个地点发布。新增和关闭都指最近 2 天。
 insights-demand-no-open-roles-at-these = 这些公司暂无在招职位。
 insights-demand-more-hold = { $share ->
     [none] 另有 { $companies } 有 { $roles }。
@@ -47,7 +47,7 @@ insights-demand-and-more-countries = { $more ->
 }
 insights-demand-name-no-place-we-can = { $role } 未注明具体地点，例如只写了“远程”。
 insights-demand-of = { $shown } / { $companies }
-insights-demand-hiring-now-today-new-closed = { $company } 正在招聘 · 最近 2 天新增 { $new_today }，今日关闭 { $closed_today }
+insights-demand-hiring-now-new-closed = { $company } 正在招聘 · 最近 2 天新增 { $new }，关闭 { $closed }
 insights-demand-each-role-once = 每个职位计一次
 insights-demand-with-an-open-role = 有在招职位
 insights-demand-how-companies-are-counted = 公司如何计数
@@ -461,7 +461,6 @@ insights-offer-show-table = 查看表格
 ## features/statistics/VelocityPanel.tsx
 insights-velocity-panel-companies = 公司 · { $window }
 insights-velocity-panel-open = 在招
-insights-velocity-panel-opened = 新增
 insights-velocity-panel-time-posted = 发布时长
 insights-velocity-panel-from-the-first-scan-that = 招聘信息从首次发现到下线持续的天数。下线原因有多种：已招到、暂停或过期。
 insights-velocity-panel-age-of-open-roles = 在招职位的发布时长
@@ -482,7 +481,7 @@ insights-age-copy-counted-from-when-each-role = 自各职位首次发布起算 �
 insights-statistics-charts-skill-open-roles = { $job_count } 个在招职位 · { $category }
 insights-statistics-charts-market-demand-field = 需求最大的技能
 insights-statistics-charts-company-open-roles = { $open } 个在招职位
-insights-statistics-charts-new-closed-today = 最近 2 天 { $new_roles } · 今日 { $closed_roles }
+insights-statistics-charts-new-closed = 最近 2 天 { $new_roles } · { $closed_roles }
 insights-statistics-charts-new-count = 新增 +{ $fresh }
 insights-statistics-charts-closed-count = 关闭 −{ $closed }
 insights-statistics-charts-open-roles-by-company = 各公司在招职位
@@ -533,7 +532,6 @@ insights-compensation-panel-min-max = 最低–最高
 insights-demand-open = { $role } 在招
 insights-demand-loading = 正在加载招聘动态…
 insights-demand-load-failed = 无法加载招聘动态
-insights-demand-today = 今天
 insights-demand-last-2-days = 最近 2 天
 
 ## features/statistics/OverviewPanel.tsx
@@ -567,6 +565,7 @@ insights-common-company = 公司
 insights-common-open-roles = 在招职位
 insights-common-open-roles-unit = 个在招职位
 insights-common-new = 新增
+insights-common-opened = 新开放
 insights-common-closed = 已关闭
 insights-common-market = 市场
 insights-common-by-level = 按级别
@@ -576,6 +575,7 @@ insights-common-last-days-or-all-time = { $period ->
     [all] 全部时间
    *[days] 最近 { $days } 天
 }
+insights-common-since-date = 自 { $date } 起（{ $days } 天）
 
 ## 技能类别
 insights-skill-language = 编程语言
@@ -600,9 +600,10 @@ insights-aging-from-90-days = 3 个月以上
 
 ## 概览的一行摘要
 insights-brief-open = { $companies } 家公司共有 { $open } 个在招职位。
-insights-brief-opened = { $allTime ->
-    [yes] 累计新增 { $opened } 个，关闭 { $closed } 个。
-   *[no] { $days } 天内新增 { $opened } 个，关闭 { $closed } 个。
+insights-brief-opened = { $period ->
+    [since] 自 { $date } 起新开放 { $opened } 个，关闭 { $closed } 个。
+    [all] 累计新开放 { $opened } 个，关闭 { $closed } 个。
+   *[days] { $days } 天内新开放 { $opened } 个，关闭 { $closed } 个。
 }
 insights-brief-top-skill = 最热门技能：{ $skill }（{ $count } 个职位）。
 insights-compensation-panel-spread = p25–p75：{ $low }–{ $high } · { $roles }

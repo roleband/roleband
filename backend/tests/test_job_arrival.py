@@ -16,6 +16,7 @@ import pytest_asyncio
 from sqlalchemy import func, select, text
 
 from tests.factories import make_company, make_enriched, make_job
+from tracker.company_directory import FOLLOWED_WITH_SET
 from tracker.db import repo
 from tracker.db.inventory_store import write_inventory
 from tracker.db.models import (
@@ -232,9 +233,14 @@ async def test_a_posting_held_out_of_scope_ages_from_the_inventorys_sighting(api
     assert roles["old"].first_seen == NOW - timedelta(days=19, seconds=-30)
     assert roles["recent"].first_seen == NOW - timedelta(hours=20, seconds=-30)
     assert await _new(api_client) == {"recent"}
-    # Pace and Overview count each at its first sighting, not at the admit.
+    # Pace and Overview count each at its first sighting, not at the admit:
+    # widening the scope today adds no opening today.
     overview = (await api_client.get("/api/statistics/overview?days=7")).json()["kpis"]
     assert (overview["new_count"], overview["first_scan_count"]) == (1, 0)
+    velocity = (await api_client.get("/api/statistics/velocity?days=7")).json()["kpis"]
+    assert (velocity["opened"], velocity["first_scan"]) == (1, 0)
+    month = (await api_client.get("/api/statistics/overview?days=29")).json()["kpis"]
+    assert (month["new_count"], month["first_scan_count"]) == (2, 0)
 
 
 async def test_a_catch_up_of_postings_a_first_read_listed_is_a_first_read(api_client, board):
@@ -245,6 +251,71 @@ async def test_a_catch_up_of_postings_a_first_read_listed_is_a_first_read(api_cl
     assert roles["b"].arrival == "first_read"
     assert roles["b"].first_seen == NOW - timedelta(days=10, seconds=-30)
     assert await _new(api_client) == set()
+    velocity = (await api_client.get("/api/statistics/velocity?days=30")).json()["kpis"]
+    assert (velocity["opened"], velocity["first_scan"]) == (0, 2)
+
+
+# --------------------------------------------------------------------------- #
+# How far back a window reaches
+# --------------------------------------------------------------------------- #
+
+
+async def _read_whole(session, slug: str, at: datetime, **company) -> None:
+    """`slug`, followed with `company`'s fields, read whole once at `at`."""
+    session.add(make_company(slug, slug.title(), **company))
+    await session.flush()
+    binding = SourceBinding(company_slug=slug, connector_kind="greenhouse", connector_id=slug)
+    run = ScrapeRun(status="ok", started_at=at, per_source={}, drift_alerts=[])
+    session.add_all([binding, run])
+    await session.flush()
+    session.add(ScrapeSourceRun(
+        run_id=run.id, binding_id=binding.id, company_slug=slug, provider_key=slug, scan_mode="reconcile",
+        outcome="ok", started_at=at, finished_at=at, kept=1, list_complete=True,
+    ))
+    await session.commit()
+
+
+def _at(value: str | None) -> datetime | None:
+    return None if value is None else datetime.fromisoformat(value)
+
+
+async def test_a_history_starts_at_the_first_whole_read_and_bounds_every_window(api_client, board):
+    """Capped reads 10 days ago prove nothing about what the board held; the
+    first whole read, 6 days ago, starts the history. A window longer than the
+    history starts with it; a shorter one at its own start."""
+    assert (await api_client.get("/api/statistics/history")).json() == {"since": None, "days": 0}
+    await board.read(NOW - timedelta(days=10), ("a",), outcome="capped", complete=False)
+    await board.read(NOW - timedelta(days=9), ("a",), outcome="capped", complete=False)
+    start = NOW - timedelta(days=6, hours=1)
+    await board.read(start - timedelta(minutes=1), ("a",))
+    assert (await api_client.get("/api/statistics/history")).json() == {
+        "since": start.isoformat().replace("+00:00", "Z"), "days": 6,
+    }
+    for route in ("overview", "velocity"):
+        for days in (0, 7, 30):
+            since = (await api_client.get(f"/api/statistics/{route}?days={days}")).json()["since"]
+            assert _at(since) == start, (route, days)
+        week = _at((await api_client.get(f"/api/statistics/{route}?days=3")).json()["since"])
+        assert week is not None and NOW - timedelta(days=3, minutes=1) < week < NOW - timedelta(days=2), route
+
+
+async def test_each_companies_side_has_its_own_history_and_an_unfollowed_company_none(
+    api_client, db_session, board,
+):
+    """Your companies were first read whole 6 days ago, the Other companies 20
+    days ago. A company no longer followed was read 40 days ago, and its reads
+    start no history: its roles are on no tab."""
+    await board.read(NOW - timedelta(days=6, hours=1), ("a",))
+    await _read_whole(db_session, "beta", NOW - timedelta(days=20), source=FOLLOWED_WITH_SET)
+    await _read_whole(db_session, "gone", NOW - timedelta(days=40), enabled=False)
+    history = {
+        side: (await api_client.get("/api/statistics/history", params={"side": side})).json()
+        for side in ("all", "yours", "other")
+    }
+    assert {side: h["days"] for side, h in history.items()} == {"all": 20, "yours": 6, "other": 20}
+    assert _at(history["yours"]["since"]) == NOW - timedelta(days=6, hours=1, seconds=-60)
+    overview = (await api_client.get("/api/statistics/overview", params={"side": "yours", "days": 0})).json()
+    assert overview["since"] == history["yours"]["since"]
 
 
 async def test_a_role_already_on_the_board_moves_back_to_its_first_sighting(board):

@@ -22,7 +22,7 @@ import {
   insightsStatisticsChartsEquityShockwaveByCompany,
   insightsStatisticsChartsLiftTheMarketSRate,
   insightsStatisticsChartsMarketDemandField,
-  insightsStatisticsChartsNewClosedToday,
+  insightsStatisticsChartsNewClosed,
   insightsStatisticsChartsNewCount,
   insightsStatisticsChartsNoChange,
   insightsStatisticsChartsOfTheseRolesTheMarket,
@@ -132,7 +132,7 @@ export function HiringCompaniesChart({
         const row = rows[p.dataIndex];
         return tooltipHtml(row.label, [
           insightsStatisticsChartsCompanyOpenRoles({ open: row.open }),
-          withParts(insightsStatisticsChartsNewClosedToday, {
+          withParts(insightsStatisticsChartsNewClosed, {
             new_roles: { text: insightsStatisticsChartsNewCount({ fresh: row.fresh }), tone: "new" },
             closed_roles: { text: insightsStatisticsChartsClosedCount({ closed: row.closed }), tone: "closed" },
           }),

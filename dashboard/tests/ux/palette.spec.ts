@@ -7,7 +7,7 @@ import {
   jobFixture,
   jobListFixture,
   notificationsFixture,
-  overviewFixture,
+  historyFixture, overviewFixture,
   statsFixture,
   statusFixture,
   syncStartedFixture,
@@ -15,10 +15,11 @@ import {
 import { msg } from "../../src/test/msg";
 
 const emptyDemand = {
-  open_total: 0, new_today: 0, closed_today: 0, companies: [], regions: [], unplaced: 0, employer_dated_share: null,
+  open_total: 0, new: 0, closed: 0, companies: [], regions: [], unplaced: 0, employer_dated_share: null,
 };
 const velocityFixture = {
   days: 30,
+  since: null,
   kpis: {
     open_total: 12, opened: 5, closed: 1,
     median_days_open: 20, median_observed_listing_duration_days: null, closed_sample: 1,
@@ -41,6 +42,7 @@ test.beforeEach(async ({ page }) => {
   await page.route("/api/notifications**", (route) => route.fulfill({ json: notificationsFixture }));
   await page.route("/api/demand", (route) => route.fulfill({ json: emptyDemand }));
   await page.route("/api/statistics/overview**", (route) => route.fulfill({ json: overviewFixture }));
+  await page.route("/api/statistics/history**", (route) => route.fulfill({ json: historyFixture }));
   await page.route("/api/statistics/velocity**", (route) => route.fulfill({ json: velocityFixture }));
   await page.route("/api/jobs/101", (route) => route.fulfill({ json: jobFixture }));
   await page.route("/api/jobs/*/similar**", (route) => route.fulfill({ json: { scope: "cross", items: [] } }));

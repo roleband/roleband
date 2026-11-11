@@ -9,13 +9,13 @@ import type { HiringCompany } from "../../api";
 export interface CompanyRest {
   companies: number;
   open: number;
-  newToday: number;
-  closedToday: number;
+  fresh: number;
+  closed: number;
 }
 
 /** The first `limit` companies (already ranked and scoped by the server),
  *  and the rest folded into one row. `rest` is null when nothing is
- *  folded. A company with nothing open is not hiring, whatever closed today. */
+ *  folded. A company with nothing open is not hiring, whatever closed lately. */
 export function topCompanies(
   companies: readonly HiringCompany[],
   limit = 15,
@@ -28,10 +28,10 @@ export function topCompanies(
         (acc, c) => ({
           companies: acc.companies + 1,
           open: acc.open + c.open,
-          newToday: acc.newToday + c.new_today,
-          closedToday: acc.closedToday + c.closed_today,
+          fresh: acc.fresh + c.new,
+          closed: acc.closed + c.closed,
         }),
-        { companies: 0, open: 0, newToday: 0, closedToday: 0 },
+        { companies: 0, open: 0, fresh: 0, closed: 0 },
       )
     : null;
   return { rows, rest, total: ranked.length };

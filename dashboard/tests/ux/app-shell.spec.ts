@@ -11,7 +11,7 @@ import { expect, mockGet, test, type Page } from "./fixtures";
 import { msg } from "../../src/test/msg";
 import { installBoardRoutes } from "./boardHarness";
 import { installEveryRoute } from "./routesHarness";
-import { overviewFixture, statsFixture, statusFixture } from "../../src/test/fixtures";
+import { historyFixture, overviewFixture, statsFixture, statusFixture } from "../../src/test/fixtures";
 
 test.beforeEach(async ({ page }) => {
   await installBoardRoutes(page);
@@ -140,6 +140,7 @@ test("a browser that blocks site data still opens the app", async ({ page }) => 
 
 test("every route offers exactly one main landmark", async ({ page }) => {
   await page.route("/api/statistics/overview**", (route) => route.fulfill({ json: overviewFixture }));
+  await page.route("/api/statistics/history**", (route) => route.fulfill({ json: historyFixture }));
   await page.route("/api/company-profiles**", (route) => route.fulfill({ json: {
     items: [], attribution: null,
   } }));

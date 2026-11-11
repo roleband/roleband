@@ -26,6 +26,7 @@ describe("VelocityPanel", () => {
   it("shows activity KPIs, the company table, and aging distribution", async () => {
     mock({
       days: 30,
+      since: null,
       kpis: {
         open_total: 732, first_scan: 0,
         opened: 733,
@@ -74,6 +75,7 @@ describe("VelocityPanel", () => {
   it("flags the observed duration as accruing when few roles have closed", async () => {
     mock({
       days: 30,
+      since: null,
       kpis: {
         open_total: 732, first_scan: 0,
         opened: 733,
@@ -100,6 +102,7 @@ describe("VelocityPanel", () => {
     // A "time to fill" heading would assert a hire nobody observed.
     mock({
       days: 0,
+      since: null,
       kpis: {
         open_total: 500, first_scan: 0,
         opened: 900,
@@ -131,6 +134,7 @@ describe("VelocityPanel", () => {
   it("renders per-company time-posted bars once closures accrue", async () => {
     mock({
       days: 0,
+      since: null,
       kpis: {
         open_total: 500, first_scan: 0,
         opened: 900,
@@ -170,6 +174,7 @@ describe("VelocityPanel", () => {
   it("states each age sample's employer-dated share beside it", async () => {
     mock({
       days: 0,
+      since: null,
       kpis: {
         open_total: 640, first_scan: 0, opened: 900, reposted: 12, closed: 40,
         median_days_open: 12, employer_dated_share: 466 / 640,
@@ -193,6 +198,7 @@ describe("VelocityPanel", () => {
   it("states no share for an empty sample, never 0%", async () => {
     mock({
       days: 7,
+      since: null,
       kpis: {
         open_total: 0, first_scan: 0, opened: 0, reposted: 0, closed: 0,
         median_days_open: null, employer_dated_share: null,
@@ -217,6 +223,7 @@ describe("VelocityPanel", () => {
     });
     mock({
       days: 30,
+      since: null,
       kpis: {
         open_total: 155, first_scan: 0, opened: 1092, reposted: 0, closed: 0, median_days_open: 0,
         median_observed_listing_duration_days: null, closed_sample: 0, employer_dated_share: null,
@@ -241,6 +248,7 @@ describe("VelocityPanel", () => {
     // never new openings. They are said, not counted.
     mock({
       days: 30,
+      since: null,
       kpis: {
         open_total: 3192, first_scan: 1867, opened: 494, reposted: 0, closed: 217,
         median_days_open: 40, median_observed_listing_duration_days: null, closed_sample: 0,

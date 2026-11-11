@@ -37,6 +37,21 @@ it("leads with the window's motion and never draws the top skills twice", async 
   expect(screen.getByText(/Top skill: Roadmapping \(1,435 roles\)\./)).toBeInTheDocument();
 });
 
+it("calls the window's openings Opened, never New, and says all time is the history since its start", async () => {
+  // New is the Board's 2-day rule; Overview counts the roles that appeared
+  // in the window. With no window, the figures cover the history there is.
+  vi.mocked(api.statisticsOverview).mockResolvedValue({ ...overviewFixture, days: 0, since: "2026-11-03T06:02:00Z" });
+  render(
+    <MemoryRouter>
+      <OverviewPanel days={0} />
+    </MemoryRouter>,
+  );
+  expect(await screen.findByText("Opened")).toBeInTheDocument();
+  expect(screen.queryByText("New")).toBeNull();
+  expect(screen.getAllByText(/^since \S+ \S+ \(\d+ days\)$/)).toHaveLength(2);
+  expect(screen.queryByText(/all time|last \d+d/)).toBeNull();
+});
+
 it("lists no roles and groups none: the window's motion and the top skills", async () => {
   vi.mocked(api.statisticsOverview).mockResolvedValue({
     ...overviewFixture,

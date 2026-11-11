@@ -6,6 +6,8 @@ behind the Statistics "Velocity" sub-tab.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from tracker.analytics.velocity import (
     DURATION_KEY,
     MIN_DURATION_SAMPLE,
@@ -120,10 +122,13 @@ def test_the_response_model_drops_nothing_build_velocity_reports():
     """
     from tracker.api.routers.statistics import VelocityOut
 
-    payload = build_velocity(*_fixture(), open_total=5, days=30)
+    # The route adds where the figures start (`since`) beside what
+    # `build_velocity` reports.
+    since = datetime(2026, 11, 3, 6, 2, tzinfo=UTC)
+    payload = {**build_velocity(*_fixture(), open_total=5, days=30), "since": since}
     assert VelocityOut.model_validate(payload).model_dump() == payload
 
-    empty = build_velocity([], [], [], open_total=0, days=7)
+    empty = {**build_velocity([], [], [], open_total=0, days=7), "since": None}
     assert VelocityOut.model_validate(empty).model_dump() == empty
 
 

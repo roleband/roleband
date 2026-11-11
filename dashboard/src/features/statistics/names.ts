@@ -1,4 +1,5 @@
 import type { StatisticsOverview } from "../../api";
+import { date } from "../../copy/format";
 import {
   insightsAgingFrom0Days,
   insightsAgingFrom14Days,
@@ -28,11 +29,15 @@ export const agingBandName = (lo: number): string => AGING[lo]?.() ?? String(lo)
 
 /** The Overview's one line: its facts said as sentences, each only when it is
  *  there. */
-export function overviewBrief(data: Pick<StatisticsOverview, "days" | "kpis" | "top_skills">): string {
+export function overviewBrief(data: Pick<StatisticsOverview, "days" | "since" | "kpis" | "top_skills">): string {
   const k = data.kpis;
   const parts = [
     insightsBriefOpen({ open: k.open_total, companies: k.companies }),
-    insightsBriefOpened({ allTime: data.days <= 0 ? "yes" : "no", opened: k.new_count, days: data.days, closed: k.closed_count }),
+    insightsBriefOpened({
+      period: data.days > 0 ? "days" : data.since ? "since" : "all",
+      opened: k.new_count, days: data.days, closed: k.closed_count,
+      date: data.since ? date(data.since, "day") : "",
+    }),
   ];
   const skill = data.top_skills[0];
   if (skill) parts.push(insightsBriefTopSkill({ skill: skillName(skill.term), count: skill.job_count }));

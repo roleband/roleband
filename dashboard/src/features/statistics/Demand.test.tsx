@@ -26,7 +26,7 @@ vi.mock("./charts/StatisticsCharts", () => ({
 }));
 
 const company = (slug: string, open: number, _other = false, extra: Partial<HiringCompany> = {}): HiringCompany => ({
-  company: slug, open, new_today: 0, closed_today: 0, ...extra,
+  company: slug, open, new: 0, closed: 0, ...extra,
 });
 
 /* `/api/demand` as the route sends it: roles, each once, by company
@@ -34,15 +34,15 @@ const company = (slug: string, open: number, _other = false, extra: Partial<Hiri
    companies set, the long tail the tab must not draw one bar each for. */
 const demand = (over: Partial<Demand> = {}): Demand => ({
   open_total: 160,
-  new_today: 3,
-  closed_today: 2,
+  new: 3,
+  closed: 2,
   companies: [
-    company("anthropic", 40, false, { new_today: 2, closed_today: 1 }),
+    company("anthropic", 40, false, { new: 2, closed: 1 }),
     company("google", 30),
-    company("openai", 20, false, { new_today: 1 }),
+    company("openai", 20, false, { new: 1 }),
     ...Array.from({ length: 15 }, (_, i) => company(`tail-${String(i).padStart(2, "0")}`, 4, true)),
     company("netflix", 6),
-    company("stripe", 4, false, { closed_today: 1 }),
+    company("stripe", 4, false, { closed: 1 }),
   ],
   regions: [
     {
@@ -82,7 +82,7 @@ it("leads with the roles open now, each once, and the recent motion", async () =
   vi.mocked(api.demand).mockResolvedValue(demand());
   renderHiring();
   expect(await screen.findByRole("heading", { name: "160 roles open" })).toBeInTheDocument();
-  expect(screen.getByText("20 companies hiring now · 3 new in the last 2 days, 2 closed today")).toBeInTheDocument();
+  expect(screen.getByText("20 companies hiring now · 3 new and 2 closed in the last 2 days")).toBeInTheDocument();
 });
 
 /* The load lines are whole catalog messages. Built from a noun ("Loading
@@ -113,13 +113,14 @@ describe("while the numbers load, and when they fail", () => {
     expect(failed).not.toHaveTextContent(/hiring/i);
   });
 
-  it("names each tile's window in the reader's words once the numbers arrive", async () => {
+  it("counts new and closed over one period, named in the reader's words", async () => {
+    // Side by side, "+3 −1" reads as one stretch of time: both tiles say the
+    // same 2 days, and nothing on the tab counts only today.
     await activate("es");
     vi.mocked(api.demand).mockResolvedValue(demand());
     renderHiring();
-    expect(await screen.findByText(msg("insights-demand-last-2-days"))).toBeInTheDocument();
-    expect(screen.getAllByText(msg("insights-demand-today"))).toHaveLength(1);
-    expect(screen.queryByText("today")).toBeNull();
+    expect(await screen.findAllByText(msg("insights-demand-last-2-days"))).toHaveLength(2);
+    expect(screen.queryByText(/\bhoy\b/)).toBeNull();
     expect(screen.queryByText("last 2 days")).toBeNull();
   });
 });
@@ -206,7 +207,7 @@ it("opens a region into its countries, with roles that name only the region apar
 
 it("says so when nothing is open", async () => {
   vi.mocked(api.demand).mockResolvedValue(
-    demand({ open_total: 0, new_today: 0, closed_today: 0, companies: [], regions: [], unplaced: 0 }),
+    demand({ open_total: 0, new: 0, closed: 0, companies: [], regions: [], unplaced: 0 }),
   );
   renderHiring();
   expect(await screen.findByText("No open roles at these companies.")).toBeInTheDocument();
