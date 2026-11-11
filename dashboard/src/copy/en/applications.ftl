@@ -549,14 +549,20 @@ applications-posting-stage = Stage
 applications-posting-since-today = Since today
 # kind=label note="Pipeline row of an ended application: the day it ended"
 applications-posting-ended = Ended
-# kind=label same-as=applications-month-legend-interview note="Pipeline row: the next interview's round, then when it is"
+# kind=label same-as=applications-month-legend-interview note="Pipeline row: when the next interview is"
 applications-posting-interview = Interview
-# kind=label same-as=applications-month-legend-step note="Pipeline row: the next step, then its due date"
+# kind=label same-as=applications-month-legend-step note="Pipeline row: the next step"
 applications-posting-next-step = Next step
-# kind=label note="Pipeline row value when the application has no next step"
-applications-posting-no-step = None yet
-# kind=button note="Opens the application's history beside the Pipeline section's days in this stage"
-applications-posting-history = History
+# kind=link note="On the heading line of a posting's Pipeline section: opens the application's own page"
+applications-posting-open = Open application
+# kind=label note="Pipeline row: the day the next step is due, shown only when a due date is set"
+applications-posting-due = Due
+# kind=status note="Value of the Pipeline section's Due row. $offset is days from today; $date is a formatted day"
+applications-posting-due-day = { $offset ->
+        [0] Today
+        [1] Tomorrow
+       *[other] { $date }
+    }
 # kind=heading note="Title of the application's history: when it reached each stage, and its interviews"
 applications-posting-history-title = Application history
 # kind=label note="A line in the application's history: an interview, by its round; $label is the round the person named"

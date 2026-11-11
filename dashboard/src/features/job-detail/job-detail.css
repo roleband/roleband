@@ -99,6 +99,40 @@
   text-transform: uppercase;
 }
 
+/* The side column is a ledger of short sections. A hairline opens each one
+   after the first, with more room above it than between two rows, so a
+   section reads as a group before any of its rows is read. */
+.jd-aside .section-title {
+  margin-top: var(--app-space-5);
+  padding-top: var(--app-space-4);
+  border-top: 1px solid var(--app-border);
+}
+
+.jd-aside > .section-title:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* A heading line that also carries the way to the full record the section
+   summarises: the kicker at its start, a quiet link at its end, on one
+   baseline. The Pipeline section is the only one and always leads the column,
+   so the line draws no hairline of its own. */
+.jd-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--app-space-3);
+  margin-bottom: var(--app-space-2);
+  font-size: var(--app-type-meta);
+}
+
+.jd-aside .jd-section-head .section-title {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
 
 /* ---- reading surface ----------------------------------------------------- */
 
@@ -178,7 +212,7 @@
   border-top: 0;
 }
 
-/* ---- stage (bar) + pipeline row + advisory (aside) ----------------------- */
+/* ---- stage (bar) + pipeline rows (aside) --------------------------------- */
 
 .jd-stage {
   flex: 0 0 auto;
@@ -197,76 +231,18 @@
   color: var(--app-text-muted);
 }
 
-/* The thing that waits, then its date under it: a long step never runs into
-   the date, and the badge starts at the row's edge. */
-.jd-pipeline {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--app-space-1);
+/* The Pipeline section's rows are a label and plain words, each on its own
+   row: nothing in them is pressed, so nothing in them is coloured. A step the
+   person wrote may be one long unbroken string, and wraps inside its column. */
+.jd-pipeline-facts dd {
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
-.jd-pipeline-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--app-space-1);
-  max-width: 100%;
-  color: var(--app-action-text);
-  text-decoration: none;
-}
-
-.jd-pipeline-link:hover .jd-pipeline-text {
-  text-decoration: underline;
-}
-
-/* An empty next step is a fact, said quietly. */
-.jd-pipeline-none {
-  color: var(--app-text-muted);
-}
-
-/* The radar's read once the person has applied: its verdict alone, the rest
-   a press away. */
-.jd-advisory-fold {
-  gap: var(--app-space-1);
-  color: var(--app-text-muted);
-}
-
-.jd-advisory-fold + .jd-advisory {
-  margin-top: var(--app-space-2);
-}
-
-.jd-pipeline-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.jd-advisory {
-  border: 1px solid var(--app-border);
-  border-left: 3px solid var(--app-action);
-  border-radius: var(--app-radius-md);
-  padding: var(--app-space-2) var(--app-space-3);
-  margin-bottom: var(--app-space-4);
-}
-
-.jd-advisory[data-relevance="relevant"] {
-  border-left-color: var(--app-positive);
-}
-
-.jd-advisory[data-relevance="irrelevant"] {
-  border-left-color: var(--app-warning);
-}
-
-.jd-advisory-verdict {
-  font-weight: var(--app-weight-name);
-  font-size: var(--app-type-body);
-}
-
-.jd-advisory-domain {
-  color: var(--app-text-muted);
-  font-weight: var(--app-weight-body);
+/* The one exception: a step past its date, the state that asks the person to
+   act, says so in the danger ink. */
+.jd-pipeline-facts .jd-pipeline-late {
+  color: var(--app-danger);
 }
 
 .jd-advisory-rationale {
@@ -299,13 +275,19 @@
   margin: 0;
 }
 
-/* The one listing age and its history: the figure, where it counts
-   from, and the way into the history, on one Details row. */
+/* A duration and the way into the history behind it, on one row: the
+   listing's age in Details, the days in a stage in Pipeline. The clock stands
+   right after the figure it explains. Its box is the small control's, taller
+   than a line of text, so it gives its extra height back and the row stays as
+   high as the rows around it. */
 .jd-listed {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: var(--app-space-1) var(--app-space-2);
+  gap: var(--app-space-1);
+}
+
+.jd-listed .ui-btn-icon {
+  margin-block: calc(var(--app-space-1) * -1);
 }
 .jd-history-popover .ui-popover-inner {
   padding: var(--app-space-3);
@@ -380,25 +362,29 @@
 /* ---- similar positions --------------------------------------------------- */
 
 /* Two categories, at most three rows each (JobDetail SIMILAR_PER_CATEGORY),
-   told apart on three channels at once: a hairline opens each group, the
-   category head sits at the chrome floor (label, 12px, never the section
-   kicker's register, or the two levels of hierarchy collapse into one), and
-   the rows drop one step below the body (meta / micro) so the head is
-   visibly the larger thing. */
+   told apart on three channels at once: a hairline opens each group after
+   the first, the category head is a quiet caption in the reading face at the
+   chrome floor (never the section kicker's uppercase mono, or the two levels
+   of hierarchy collapse into one, and never louder than the kicker above it),
+   and the rows sit one step above the caption (meta) with their names in the
+   name weight. The first group stands under the section's own hairline and
+   kicker, so it draws no second line. */
 .similar-group {
   margin-top: var(--app-space-3);
   padding-top: var(--app-space-3);
   border-top: 1px solid var(--app-border);
 }
 
+.section-title + .similar-group {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
 .similar-label {
   margin: 0 0 var(--app-space-1);
   color: var(--app-text-muted);
-  font-family: var(--app-font-mono);
   font-size: var(--app-type-label);
-  font-weight: var(--app-weight-strong);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 .similar-row {
