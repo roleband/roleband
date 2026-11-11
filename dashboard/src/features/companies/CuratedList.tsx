@@ -6,6 +6,7 @@ import { followCopy, type ConsentFact, type FollowCopy } from "./followCopy";
 // The dialog form these confirmations wear (`.ledger-form`, `.ledger-confirm`)
 // belongs to the register material; setup asks them without Settings' chunk.
 import "../../design/materials/register-material.css";
+import "./CuratedList.css";
 import {
   companiesCuratedListConfirm,
 } from "../../copy/gen/companies";
