@@ -1,12 +1,9 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { DisclosureRates, DisclosureTrends } from "../../api";
-import { api } from "../../api";
+import { describe, expect, it, vi } from "vitest";
+import type { DisclosureRates } from "../../api";
 import { msg } from "../../test/msg";
-import { DisclosureRatePanel, DisclosureTrendPanel } from "./DisclosurePanel";
-
-vi.mock("../../api", () => ({ api: { disclosureTrends: vi.fn() } }));
+import { DisclosureRatePanel } from "./DisclosurePanel";
 
 // The chart itself is an echarts canvas; these specs assert the copy and the
 // wiring around it. The option builders are unit-tested in charts/disclosure.test.ts.
@@ -31,36 +28,6 @@ const rates = (over: Partial<DisclosureRates> = {}): DisclosureRates => ({
   ],
   ...over,
 });
-
-const trends = (over: Partial<DisclosureTrends> = {}): DisclosureTrends => ({
-  dim: "overall",
-  days: 90,
-  basis: "base",
-  dates: ["2026-07-20", "2026-07-21"],
-  series: [
-    {
-      key: "",
-      
-      checked: 600,
-      disclosed: 150,
-      points: [
-        {
-          date: "2026-07-20", open: 700, checked: 560, disclosed: 120, rate: 0.214,
-          bands: 4, reqs: 30, low_p50: 200_000, high_p50: 300_000,
-        },
-        {
-          date: "2026-07-21", open: 732, checked: 600, disclosed: 150, rate: 0.25,
-          bands: 5, reqs: 34, low_p50: 210_000, high_p50: 310_000,
-        },
-      ],
-    },
-  ],
-  cohort: null,
-  ...over,
-});
-
-const mockTrends = (data: DisclosureTrends = trends()) =>
-  vi.mocked(api.disclosureTrends).mockResolvedValue(data);
 
 describe("DisclosureRatePanel", () => {
   it("headlines the rate against the checked roles, not every open role", async () => {
@@ -119,151 +86,5 @@ describe("DisclosureRatePanel", () => {
 
     expect(screen.getByText(/no open roles have been checked/i)).toBeInTheDocument();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
-  });
-});
-
-describe("DisclosureTrendPanel", () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it("renders both the rate trend and the published-band trend", async () => {
-    mockTrends();
-    render(<DisclosureTrendPanel days={90} minRoles={5} />);
-
-    expect(
-      await screen.findByRole("img", { name: /post a range over time/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("img", { name: /median posted base salary range over time/i }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Market: 25% of 600 checked roles post a range \(from 21%\)/))
-      .toBeInTheDocument();
-  });
-
-  it("draws both market charts from one market-wide request", async () => {
-    mockTrends();
-    render(<DisclosureTrendPanel days={90} minRoles={5} />);
-    await screen.findByRole("img", { name: /post a range over time/i });
-    await screen.findByRole("img", { name: /median posted base salary range over time/i });
-
-    expect(api.disclosureTrends).toHaveBeenCalledTimes(1);
-    expect(api.disclosureTrends).toHaveBeenCalledWith("overall", 90, undefined);
-  });
-
-  it("returns to the market grouping without asking again", async () => {
-    mockTrends();
-    render(<DisclosureTrendPanel days={90} minRoles={5} />);
-    await screen.findByRole("img", { name: /post a range over time/i });
-    await userEvent.click(screen.getByRole("button", { name: "By company" }));
-    await waitFor(() =>
-      expect(api.disclosureTrends).toHaveBeenCalledWith("company", 90, undefined),
-    );
-
-    vi.mocked(api.disclosureTrends).mockClear();
-    await userEvent.click(screen.getByRole("button", { name: "Market" }));
-
-    expect(
-      await screen.findByText(/Market: 25% of 600 checked roles post a range \(from 21%\)/),
-    ).toBeInTheDocument();
-    expect(api.disclosureTrends).not.toHaveBeenCalled();
-  });
-
-  it("re-fetches the rate trend when the breakdown changes, keeping the band trend market-wide", async () => {
-    mockTrends();
-    render(<DisclosureTrendPanel days={90} minRoles={5} />);
-    await screen.findByRole("img", { name: /post a range over time/i });
-
-    vi.mocked(api.disclosureTrends).mockClear();
-    await userEvent.click(screen.getByRole("button", { name: "By company" }));
-
-    // A median of per-company medians is not a median, so the band chart stays
-    // pinned to the market grain no matter what the rate breakdown is set to.
-    await waitFor(() =>
-      expect(api.disclosureTrends).toHaveBeenCalledWith("company", 90, undefined),
-    );
-    expect(api.disclosureTrends).toHaveBeenCalledTimes(1);
-  });
-
-  it("names the fixed cohort beside a market line that moved with the company set", async () => {
-    const market = trends().series[0];
-    const fixed = {
-      ...market, key: "cohort", display: "Same companies",
-      points: market.points.map((p) => ({ ...p, rate: 0.4 })),
-    };
-    mockTrends(trends({ series: [market, fixed], cohort: { since: "2026-07-20", companies: 11 } }));
-    render(<DisclosureTrendPanel days={90} minRoles={5} />);
-
-    expect(
-      await screen.findByText(
-        msg("insights-disclosure-panel-the-market-line-moves-when", { companies: "11", since: "2026-07-20" }),
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Same companies: 40% of 600 checked roles post a range/)).toBeInTheDocument();
-  });
-
-  it("leaves out a same-companies line resting on fewer roles than every pay figure needs", async () => {
-    const market = trends().series[0];
-    const fixed = {
-      ...market, key: "cohort", display: "Same companies", checked: 4, disclosed: 4,
-      points: market.points.map((p) => ({ ...p, checked: 4, disclosed: 4, rate: 1 })),
-    };
-    mockTrends(trends({ series: [market, fixed], cohort: { since: "2026-10-12", companies: 1 } }));
-    render(<DisclosureTrendPanel days={90} minRoles={5} />);
-
-    expect(await screen.findByText(/Market: 25% of 600 checked roles post a range/)).toBeInTheDocument();
-    expect(screen.queryByText(/Same companies/)).not.toBeInTheDocument();
-    expect(
-      screen.queryByText(
-        msg("insights-disclosure-panel-the-market-line-moves-when", { companies: "1", since: "2026-10-12" }),
-      ),
-    ).not.toBeInTheDocument();
-  });
-
-  it("says nothing of a cohort when the company set never changed", async () => {
-    mockTrends();
-    render(<DisclosureTrendPanel days={90} minRoles={5} />);
-    await screen.findByRole("img", { name: /post a range over time/i });
-    expect(screen.queryByText(/Same companies/)).not.toBeInTheDocument();
-  });
-
-  it("warns that a single-day history is not yet a trend", async () => {
-    mockTrends(trends({ dates: ["2026-07-21"] }));
-    render(<DisclosureTrendPanel days={90} minRoles={5} />);
-
-    expect(await screen.findAllByText(msg("insights-disclosure-panel-history-is-still-accruing-one"))).not.toHaveLength(0);
-  });
-
-  it("shows an empty state for the band chart when no base band was ever posted", async () => {
-    mockTrends(
-      trends({
-        series: [
-          {
-            key: "", checked: 600, disclosed: 150,
-            points: [
-              {
-                date: "2026-07-21", open: 732, checked: 600, disclosed: 150, rate: 0.25,
-                bands: 0, reqs: 0, low_p50: null, high_p50: null,
-              },
-            ],
-          },
-        ],
-      }),
-    );
-    render(<DisclosureTrendPanel days={90} minRoles={5} />);
-
-    // The rate still charts — employers disclosed, just never on a base-pay basis.
-    expect(
-      await screen.findByRole("img", { name: /post a range over time/i }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/no posted base salary range recorded yet/i)).toBeInTheDocument();
-  });
-
-  it("surfaces a failed fetch with a retry instead of an empty chart", async () => {
-    vi.mocked(api.disclosureTrends).mockRejectedValue(
-      new Error("boom"),
-    );
-    render(<DisclosureTrendPanel days={90} minRoles={5} />);
-
-    expect(await screen.findAllByRole("button", { name: /try again/i })).not.toHaveLength(0);
-    expect(screen.getAllByText(/couldn't load/i)).not.toHaveLength(0);
   });
 });

@@ -41,8 +41,7 @@ import { roleName } from "../../copy/vocab";
 
 const SUBTAB_SLUGS = STATISTICS_TABS.map((t) => t.slug) as [string, ...string[]];
 
-// days<=0 == all-time. Overview, Velocity, and Compensation's trend chart
-// honor this period lens;
+// days<=0 == all-time. Overview and Velocity honor this period lens;
 // the others are current-snapshot views (demand shows its own "as of" date).
 // The `?window=` lens stores readable strings; `all` maps to days<=0.
 const PERIODS: { win: string; days: number; label: string }[] = [
@@ -69,7 +68,6 @@ const DISCIPLINE_AWARE = new Set<string>([...SCOPE_AWARE].filter((slug) => slug 
 const PERIOD_AWARE = new Set<string>([
   "overview",
   "velocity",
-  "compensation",
 ]);
 
 export function StatisticsView() {
@@ -227,7 +225,7 @@ export function StatisticsView() {
         {view === "overview" && <OverviewPanel days={days} scope={scope} />}
         {view === "demand" && <DemandView scope={scope} />}
         {view === "velocity" && <VelocityPanel days={days} scope={scope} />}
-        {view === "compensation" && <CompensationPanel days={days} scope={scope} advanced={advanced} />}
+        {view === "compensation" && <CompensationPanel scope={scope} advanced={advanced} />}
         {view === "levels" && <LevelsPanel scope={scope} onResetSide={() => setSide("all")} />}
         {view === "trajectory" && <StockTrajectoryPanel />}
         {view === "skills" && <SkillsView key={scopeKey} scope={scope} companies={companyOptions} />}

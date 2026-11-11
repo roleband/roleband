@@ -1,15 +1,10 @@
-import { afterEach, describe, expect, it } from "vitest";
-import type { DisclosureRates, DisclosureTrendPoint, DisclosureTrendSeries } from "../../../api";
-import { activate } from "../../../copy/activate";
+import { describe, expect, it } from "vitest";
+import type { DisclosureRates } from "../../../api";
 import { msg } from "../../../test/msg";
 import {
-  bandTrendSummary,
-  buildBandTrendOption,
   buildDisclosureRateOption,
-  buildDisclosureRateTrendOption,
   disclosureRateRows,
   disclosureRateSummary,
-  disclosureTrendSummary,
   unratedCount,
 } from "./disclosure";
 
@@ -25,28 +20,6 @@ const rates = (over: Partial<DisclosureRates> = {}): DisclosureRates => ({
     { level_band: "senior", open: 60, checked: 50, disclosed: 30, rate: 0.6 },
     { level_band: "staff", open: 40, checked: 30, disclosed: 10, rate: 0.3333 },
   ],
-  ...over,
-});
-
-const point = (over: Partial<DisclosureTrendPoint> = {}): DisclosureTrendPoint => ({
-  date: "2026-07-20",
-  open: 100,
-  checked: 80,
-  disclosed: 40,
-  rate: 0.5,
-  bands: 4,
-  reqs: 30,
-  low_p50: 200_000,
-  high_p50: 300_000,
-  ...over,
-});
-
-const series = (over: Partial<DisclosureTrendSeries> = {}): DisclosureTrendSeries => ({
-  key: "",
-  
-  checked: 80,
-  disclosed: 40,
-  points: [point()],
   ...over,
 });
 
@@ -167,178 +140,5 @@ describe("disclosureRateSummary", () => {
 
   it("handles a window where nothing has been checked", () => {
     expect(disclosureRateSummary([], 0)).toMatch(/no open roles have been checked/i);
-  });
-});
-
-describe("buildDisclosureRateTrendOption", () => {
-  it("plots the rate as a percentage on a fixed 0-100 axis", () => {
-    const option = opt(
-      buildDisclosureRateTrendOption("overall", ["2026-07-20", "2026-07-21"], [
-        series({ points: [point({ rate: 0.5 }), point({ date: "2026-07-21", rate: 0.62 })] }),
-      ]),
-    );
-
-    expect(option.yAxis.min).toBe(0);
-    expect(option.yAxis.max).toBe(100);
-    expect(option.series[0].data).toEqual([50, 62]);
-    expect(option.series[0].type).toBe("line");
-  });
-
-  it("leaves a gap on a day with nothing checked rather than dropping to zero", () => {
-    const option = opt(
-      buildDisclosureRateTrendOption("overall", ["2026-07-20", "2026-07-21"], [
-        series({
-          points: [point({ rate: null, checked: 0 }), point({ date: "2026-07-21", rate: 0.5 })],
-        }),
-      ]),
-    );
-
-    expect(option.series[0].data).toEqual([null, 50]);
-    // connectNulls would draw straight through the unknown day as if measured.
-    expect(option.series[0].connectNulls).toBe(false);
-  });
-
-  it("shows a legend only when there is more than one grouping", () => {
-    const one = opt(buildDisclosureRateTrendOption("overall", ["2026-07-20"], [series()]));
-    const many = opt(
-      buildDisclosureRateTrendOption("company", ["2026-07-20"], [
-        series({ key: "google" }),
-        series({ key: "meta" }),
-      ]),
-    );
-
-    expect(one.legend.show).toBe(false);
-    expect(many.series.map((s: any) => s.name)).toEqual(["Google", "Meta"]);
-  });
-
-  it("names and dashes the fixed cohort beside the market line", () => {
-    const option = opt(
-      buildDisclosureRateTrendOption("overall", ["2026-07-20"], [
-        series(),
-        series({ key: "cohort", }),
-      ]),
-    );
-
-    expect(option.legend.show).not.toBe(false);
-    expect(option.series.map((s: any) => [s.name, s.lineStyle.type])).toEqual([
-      ["Market", "solid"],
-      ["Same companies", "dashed"],
-    ]);
-  });
-});
-
-describe("disclosureTrendSummary", () => {
-  it("reports the latest share with its denominator and where it started", () => {
-    const text = disclosureTrendSummary("overall", ["2026-07-20", "2026-07-21"], [
-      series({
-        points: [point({ rate: 0.4 }), point({ date: "2026-07-21", rate: 0.62, checked: 90 })],
-      }),
-    ]);
-
-    expect(text).toContain("Market: 62% of 90 checked roles post a range (from 40%)");
-  });
-
-  it("says so when a grouping has no checked roles at all", () => {
-    const text = disclosureTrendSummary("company", ["2026-07-20"], [
-      series({ key: "openai", points: [point({ rate: null, checked: 0 })] }),
-    ]);
-    expect(text).toContain("OpenAI: no roles checked yet");
-  });
-
-  it("handles empty history", () => {
-    expect(disclosureTrendSummary("overall", [], [])).toMatch(/no pay-transparency history/i);
-  });
-
-  describe("in another language", () => {
-    afterEach(() => activate("en"));
-
-    it("names the grouping in the reader's words, never an English noun", async () => {
-      await activate("es");
-      // The sentence up to its per-series lines, as the reader's language says it for that grouping.
-      const opening = (dim: "level" | "company") =>
-        msg("insights-disclosure-share-of-open-roles-stating", { dim, span: "day", first: "2026-07-20", last: "2026-07-20", lines: "|" }).split("|")[0];
-      const byLevel = disclosureTrendSummary("level", ["2026-07-20"], [series({ key: "staff" })]);
-      expect(byLevel.startsWith(opening("level"))).toBe(true);
-      expect(byLevel).not.toMatch(/seniority|level/);
-      const byCompany = disclosureTrendSummary("company", ["2026-07-20"], [series({ key: "openai" })]);
-      expect(byCompany.startsWith(opening("company"))).toBe(true);
-      expect(byCompany).not.toMatch(/employer|company/);
-      expect(opening("level")).not.toBe(opening("company"));
-    });
-  });
-});
-
-describe("buildBandTrendOption", () => {
-  it("draws the floor-to-ceiling span from the floor, not from zero", () => {
-    const option = opt(
-      buildBandTrendOption(["2026-07-20"], series({ points: [point()] })),
-    );
-    const byName = Object.fromEntries(option.series.map((s: any) => [s.name, s]));
-
-    expect(byName["floor-offset"].data).toEqual([200_000]);
-    expect(byName["span"].data).toEqual([100_000]); // the WIDTH, stacked on the floor
-    expect(byName["floor-offset"].lineStyle.opacity).toBe(0);
-    expect(byName["floor-offset"].silent).toBe(true);
-  });
-
-  it("plots the floor and ceiling as their own readable lines", () => {
-    const option = opt(
-      buildBandTrendOption(["2026-07-20", "2026-07-21"], series({
-        points: [point(), point({ date: "2026-07-21", low_p50: 210_000, high_p50: 320_000 })],
-      })),
-    );
-    const byName = Object.fromEntries(option.series.map((s: any) => [s.name, s]));
-
-    const floor = msg("insights-disclosure-median-floor");
-    const ceiling = msg("insights-disclosure-median-ceiling");
-    expect(byName[floor].data).toEqual([200_000, 210_000]);
-    expect(byName[ceiling].data).toEqual([300_000, 320_000]);
-    expect(option.legend.data).toEqual([ceiling, floor]);
-  });
-
-  it("keeps a day with no posted band as a hole in the span", () => {
-    const option = opt(
-      buildBandTrendOption(["2026-07-20", "2026-07-21"], series({
-        points: [point({ low_p50: null, high_p50: null, bands: 0 }), point({ date: "2026-07-21" })],
-      })),
-    );
-    const span = option.series.find((s: any) => s.name === "span");
-    expect(span.data).toEqual([null, 100_000]);
-  });
-
-  it("does not force the money axis through zero", () => {
-    // A band trend is read for its movement; anchoring at $0 flattens it.
-    const option = opt(buildBandTrendOption(["2026-07-20"], series()));
-    expect(option.yAxis.scale).toBe(true);
-    expect(option.yAxis.min).toBeUndefined();
-  });
-});
-
-describe("bandTrendSummary", () => {
-  it("states the band, how many distinct bands it came from, and the unit", () => {
-    const text = bandTrendSummary("base", series({ points: [point({ bands: 4, reqs: 30 })] }));
-
-    expect(text).toContain("across 4 distinct ranges covering 30 open roles");
-    expect(text).toContain("$200K to $300K");
-    expect(text).toMatch(/one reading per distinct range, not per role/i);
-  });
-
-  it("handles history with no posted band", () => {
-    expect(
-      bandTrendSummary("base", series({ points: [point({ low_p50: null, high_p50: null })] })),
-    ).toMatch(/no posted range/i);
-    expect(bandTrendSummary("base", undefined)).toMatch(/no posted range/i);
-  });
-
-  it("names the pay basis from the catalog, never as the API's slug", async () => {
-    expect(bandTrendSummary("base", series())).toContain(msg("vocab-pay-basis-base"));
-    await activate("zh-Hans");
-    try {
-      const text = bandTrendSummary("base", series());
-      expect(text).toContain(msg("vocab-pay-basis-base"));
-      expect(text).not.toMatch(/base/);
-    } finally {
-      await activate("en");
-    }
   });
 });

@@ -1,40 +1,5 @@
 ## insights: moved as it was found (wording=as-is)
 
-## features/statistics/CompTrendChart.tsx
-# kind=heading
-insights-comp-trend-chart-compensation-over-time = Total compensation over time
-# kind=heading note="$series is single when the chart draws one line, which shows its p25-p75 band"
-insights-comp-trend-chart-median-total-pay = Median estimated total compensation{ $series ->
-        [single] { " " }with p25–p75 spread
-       *[several] { "" }
-    } · { $period ->
-        [all] all time
-       *[days] last { $days }d
-    }
-# kind=sentence note="A reference change moved every estimate at once: a plugin turned on or off, or a new edition of RoleBand's data"
-insights-comp-trend-chart-reference-changed = { $count ->
-    [one] The dashed line marks when compensation estimates changed together: a change of data, not of the market.
-   *[other] Dashed lines mark when compensation estimates changed together: a change of data, not of the market.
-}
-# kind=aria
-insights-comp-trend-chart-reference-marker = Compensation estimates changed on { $date }
-# kind=sentence
-insights-comp-trend-chart-history-is-still-accruing-one = Not enough history yet. The line fills in after a few days of scans.
-# kind=sentence
-insights-comp-trend-chart-no-comp-history-yet = No compensation history yet.
-# kind=label wording=as-is
-insights-comp-trend-chart-roles = { $dim } · { $count } roles
-# kind=label
-insights-comp-trend-chart-by-family = By discipline
-# kind=label wording=as-is
-insights-comp-trend-chart-breakdown = Breakdown
-# kind=aria
-insights-comp-trend-chart-compensation-percentile-trend = Compensation percentile trend
-# kind=status
-insights-comp-trend-chart-loading = Loading the compensation trend…
-# kind=heading
-insights-comp-trend-chart-load-failed = Couldn't load the compensation trend
-
 ## features/statistics/CompensationPanel.tsx
 # kind=heading wording=as-is
 insights-compensation-panel-compensation = Compensation
@@ -163,28 +128,6 @@ insights-disclosure-panel-the-share-of-open-roles = The share of checked open ro
 insights-disclosure-panel-of-checked-roles-state-pay = { $rate } of { $checked } checked roles post a range
 # kind=sentence
 insights-disclosure-panel-no-open-roles-have-been = No open roles have been checked for a posted range yet.
-# kind=sentence same-as=insights-comp-trend-chart-history-is-still-accruing-one
-insights-disclosure-panel-history-is-still-accruing-one = Not enough history yet. The line fills in after a few days of scans.
-# kind=label wording=as-is
-insights-disclosure-panel-over-time = Over time
-# kind=heading wording=as-is
-insights-disclosure-panel-pay-transparency-trend = Pay transparency trend
-# kind=status
-insights-disclosure-panel-share-of-checked-open-roles = Share of checked open roles that post a range · { $window }
-# kind=sentence wording=as-is
-insights-disclosure-panel-no-pay-transparency-history-yet = No pay-transparency history yet.
-# kind=sentence note="$since is the day the Same companies set was read"
-insights-disclosure-panel-the-market-line-moves-when = The market line shifts as companies are added. Same companies follows only the { $companies } scanned on { $since }.
-# kind=heading
-insights-disclosure-panel-published-band-trend = Posted range trend
-# kind=sentence
-insights-disclosure-panel-the-median-floor-and-ceiling = The median low and high of posted base ranges. Each range counts once, however many roles share it.
-# kind=status note="$basis names the pay the bands state (vocab-pay-basis-*)"
-insights-disclosure-panel-median-published-band = Median posted { $basis } range · { $window }
-# kind=sentence
-insights-disclosure-panel-no-published-base-salary-band = No posted base salary range recorded yet.
-# kind=sentence
-insights-disclosure-panel-pay-transparency-over-time-covers = This trend covers every discipline.
 # kind=aria
 insights-disclosure-panel-how-the-disclosure-rate-is = How pay transparency is measured
 # kind=label
@@ -194,22 +137,6 @@ insights-disclosure-panel-share-of-open-roles-stating = { $group ->
     [company] Share of open roles that post a range, by company
    *[level] Share of open roles that post a range, by level
 }
-# kind=label wording=as-is
-insights-disclosure-panel-trend-breakdown = Trend breakdown
-# kind=aria
-insights-disclosure-panel-share-of-open-roles-stating-over-time = Share of open roles that post a range over time
-# kind=aria
-insights-disclosure-panel-about-the-published-band-trend = About the posted range trend
-# kind=aria
-insights-disclosure-panel-median-published-base-salary-band = Median posted base salary range over time
-# kind=status
-insights-disclosure-panel-trend-loading = Loading the pay transparency trend…
-# kind=heading
-insights-disclosure-panel-trend-load-failed = Couldn't load the pay transparency trend
-# kind=status
-insights-disclosure-panel-band-trend-loading = Loading the posted range trend…
-# kind=heading
-insights-disclosure-panel-band-trend-load-failed = Couldn't load the posted range trend
 
 ## features/statistics/OverviewPanel.tsx
 # kind=label wording=as-is
@@ -941,41 +868,6 @@ insights-disclosure-of-roles = { $label }: { $rate }, { $disclosed } of { $check
 insights-disclosure-rate-states-pay = { $rate } post a range
 # kind=tooltip note="Under a company's share of roles stating pay: the roles that state it, of the open roles checked"
 insights-disclosure-of-checked-open-roles = { $disclosed } of { $checked } checked open roles
-# kind=sentence wording=as-is
-insights-disclosure-no-pay-transparency-history-recorded = No pay-transparency history recorded yet.
-# kind=label wording=as-is
-insights-disclosure-no-roles-checked-yet = { $dim }: no roles checked yet
-# kind=status note="One line of the trend summary: $readings is several when more than one day has a rate; $from is the first day's"
-insights-disclosure-of-checked-roles-state-pay = { $series }: { $pct } of { $checked } checked roles post a range{ $readings ->
-        [single] { "" }
-       *[several] { " " }(from { $from })
-    }
-# kind=sentence note="The trend chart's summary: $dim is how the lines are grouped, $span whether the chart covers one day or a range, $lines one line per series"
-insights-disclosure-share-of-open-roles-stating = Share of open roles that post a range, by { $dim ->
-        [company] company
-        [level] level
-       *[overall] the market
-    }, { $span ->
-        [day] on { $first }
-       *[range] from { $first } to { $last }
-    }. { $lines }.
-# kind=label wording=as-is
-insights-disclosure-not-checked = not checked
-# kind=label wording=as-is
-insights-disclosure-rate-percent = { $rate }%
-# kind=sentence
-insights-disclosure-no-published-pay-band-has = No posted range has been recorded yet.
-# kind=sentence note="$basis names the pay the bands state (vocab-pay-basis-*): base salary. $readings is several when more than one day has a band; $start_low and $start_high are the first day's"
-insights-disclosure-median-published-salary-band-across = Median posted { $basis } range across { $bands } distinct ranges covering { $roles } open roles: { $low_p50 } to { $high_p50 }.{ $readings ->
-        [single] { "" }
-       *[several] { " " }Started at { $start_low } to { $start_high }.
-    } One reading per distinct range, not per role.
-# kind=label
-insights-disclosure-median-ceiling = Median high
-# kind=label
-insights-disclosure-median-floor = Median low
-# kind=label
-insights-disclosure-no-band-posted = no range posted
 
 ## features/statistics/charts/StatisticsCharts.tsx (by hand)
 
@@ -1066,11 +958,6 @@ insights-common-last-days-or-all-time = { $period ->
     [all] all time
    *[days] last { $days }d
 }
-# kind=label same-as=insights-common-last-days-or-all-time note="The period a chart covers: all history, or last 30d"
-insights-common-last-days-or-all-history = { $period ->
-    [all] all time
-   *[days] last { $days }d
-}
 
 ## Skill categories (backend/tracker/skills/catalog.yaml), from copy/skills.ts
 # kind=name note="Skill category; slug language"
@@ -1099,8 +986,6 @@ insights-skill-industry = Industry
 ## Statistics names said from codes the server sends: the cohort series
 ## and the fixed age bands
 ## (backend/tracker/analytics/velocity.py AGING_BANDS, by `lo`).
-# kind=label wording=as-is
-insights-series-same-companies = Same companies
 # kind=label wording=as-is
 insights-aging-from-0-days = < 1 week
 # kind=label wording=as-is

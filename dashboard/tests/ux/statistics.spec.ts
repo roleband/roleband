@@ -140,8 +140,6 @@ test("every Insights tab opens with the same hero, named by its tab", async ({ p
       disclosure: { overall: { open: 12, checked: 0, disclosed: 0, rate: null }, by_company: [], by_level: [] },
       base_estimates: { min_roles: 5, coverage: { with_base: 0, total_open: 12 }, overall: null, by_level: [], by_company: [], by_family: [] },
     },
-    "/api/statistics/comp-trends**": { dim: "overall", days: 30, dates: [], series: [] },
-    "/api/statistics/disclosure-trends**": { dim: "overall", days: 30, basis: "base", dates: [], series: [], cohort: null },
     "/api/statistics/offer-terms": { feed_configured: false, companies: [] },
     "/api/profile/offer": { offer: null, valuations: {} },
     "/api/statistics/comp-trajectory": {
