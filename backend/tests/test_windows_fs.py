@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows file primitives require Windows")
+pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows private storage requires Windows")
 
 
 @contextmanager
