@@ -1,7 +1,7 @@
 {
  "_why": "The route table is frozen so the router split cannot add or drop an endpoint silently. `modelled_count` is the SECOND claim: how many of these routes declare a response_model. It is deliberately reported as 'N of M' rather than as a pass, because this gate does not verify response shapes it was never given. The number may only rise, except by the modelled routes a deliberate removal takes away.",
- "modelled_count": 173,
- "route_count": 179,
+ "modelled_count": 175,
+ "route_count": 181,
  "routes": [
   {
    "method": "DELETE",
@@ -632,6 +632,16 @@
    "method": "POST",
    "path": "/api/lineage/links/{link_id}/review",
    "response_schema": "DuplicateVerdictResult"
+  },
+  {
+   "method": "POST",
+   "path": "/api/local-auth/browser-session",
+   "response_schema": "BrowserSession"
+  },
+  {
+   "method": "POST",
+   "path": "/api/local-auth/browser-ticket",
+   "response_schema": "BrowserTicket"
   },
   {
    "method": "POST",

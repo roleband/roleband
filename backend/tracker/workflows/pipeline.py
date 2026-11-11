@@ -56,7 +56,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import time
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -94,6 +93,7 @@ from tracker.health import RunScope
 from tracker.notifications import generate_sync_started_notification, update_sync_progress
 from tracker.platform.heartbeat import heartbeat_loop
 from tracker.platform.locks import release_dedicated_advisory_lock, take_dedicated_advisory_lock
+from tracker.platform.os_process import current_run_group
 from tracker.platform.version import code_version
 from tracker.plugins.reestimate import reestimate, reference_inputs
 from tracker.profiles.seed import ensure_company_profiles
@@ -651,7 +651,7 @@ async def run_pipeline(
                 scope=run_scope,
                 code_version=code_version(),
                 # What a cancel signals; it ends only a run in that group.
-                process_group=os.getpgrp(),
+                process_group=current_run_group(),
             )
             session.add(run)
             # Commit the marker immediately: if this process later crashes or

@@ -42,6 +42,8 @@ import pytest
 
 from scripts.db_uri import _with_database
 
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="macOS and POSIX tooling runs on the Mac")
+
 REPO = Path(__file__).resolve().parents[2]
 DEPLOY = REPO / "deploy"
 CHECK_DB = "roleband_restore_check"

@@ -24,6 +24,7 @@ import platform
 import shutil
 import signal
 import socket
+import stat
 import subprocess
 import sys
 import tarfile
@@ -155,28 +156,33 @@ def runtime_state(root: Path) -> dict:
     }
 
 
-def run_step(step: Step, output: Path, env: dict[str, str], running: dict[int, str]) -> dict:
+def run_step(step: Step, output: Path, env: dict[str, str], running: dict[int, subprocess.Popen]) -> dict:
     start = time.perf_counter()
     log = output / f"{step.name}.log"
     print(f"check-local: {step.name} (log: {log})", flush=True)
-    user = system = 0.0
+    windows = sys.platform == "win32"
+    user = system = None if windows else 0.0
     with log.open("w") as stream:
         try:
             process = subprocess.Popen(step.argv, cwd=step.cwd, env=env, stdout=stream,
-                                       stderr=subprocess.STDOUT, start_new_session=True)
+                                       stderr=subprocess.STDOUT, start_new_session=not windows,
+                                       creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if windows else 0)
         except OSError as error:
             stream.write(str(error))
             code = 127
         else:
-            running[process.pid] = step.name
+            running[process.pid] = process
             try:
                 # This child's own CPU: RUSAGE_CHILDREN would also count whatever
                 # the other lane's commands finished meanwhile.
-                _, status, usage = os.wait4(process.pid, 0)
+                if windows:
+                    code = process.wait()
+                else:
+                    _, status, usage = os.wait4(process.pid, 0)
+                    process.returncode = code = os.waitstatus_to_exitcode(status)
+                    user, system = usage.ru_utime, usage.ru_stime
             finally:
                 running.pop(process.pid, None)
-            process.returncode = code = os.waitstatus_to_exitcode(status)
-            user, system = usage.ru_utime, usage.ru_stime
     result = {
         "name": step.name, "cwd": str(step.cwd), "argv": list(step.argv),
         "exit_code": code, "wall_seconds": time.perf_counter() - start,
@@ -187,7 +193,7 @@ def run_step(step: Step, output: Path, env: dict[str, str], running: dict[int, s
 
 
 def run_lane(lane: int, steps: Sequence[Step], output: Path, env: dict[str, str], origin: float,
-             running: dict[int, str], stopping: threading.Event, results: list[dict]) -> None:
+             running: dict[int, subprocess.Popen], stopping: threading.Event, results: list[dict]) -> None:
     """Run steps in order until one fails or the run is stopped."""
     for step in steps:
         if stopping.is_set():
@@ -201,8 +207,16 @@ def run_lane(lane: int, steps: Sequence[Step], output: Path, env: dict[str, str]
             return
 
 
-def stop(running: dict[int, str], lanes: Sequence[threading.Thread]) -> None:
+def stop(running: dict[int, subprocess.Popen], lanes: Sequence[threading.Thread]) -> None:
     """Terminate every running command's process group; kill what outlives five seconds."""
+    if sys.platform == "win32":
+        for process in list(running.values()):
+            if process.poll() is None:
+                subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                               capture_output=True, check=False)
+        for lane in lanes:
+            lane.join()
+        return
     for sig, grace in ((signal.SIGTERM, 5.0), (signal.SIGKILL, None)):
         for pid in list(running):
             try:
@@ -216,8 +230,27 @@ def stop(running: dict[int, str], lanes: Sequence[threading.Thread]) -> None:
             lane.join(None if deadline is None else max(0.0, deadline - time.monotonic()))
 
 
+def remove_readonly_file(unlink, path: str, error: OSError) -> None:
+    # Git marks loose objects read-only on Windows, even in throwaway checkouts.
+    file = Path(path)
+    if (not isinstance(error, PermissionError) or file.is_symlink() or not file.is_file()
+            or file.stat().st_mode & stat.S_IWRITE):
+        raise error
+    file.chmod(stat.S_IWRITE)
+    unlink(path)
+
+
+def discard_scratch(output: Path) -> None:
+    for name in ("tmp", "s", "t"):
+        path = output / name
+        if path.exists():
+            if path.resolve() != path:
+                raise OSError(f"scratch path was redirected: {path}")
+            shutil.rmtree(path, onexc=remove_readonly_file)
+
+
 def execute(root: Path, output: Path, steps: Sequence[Step], env: dict[str, str], *,
-            cleanup: Sequence[Step] = (), alongside: Sequence[Step] = ()) -> int:
+            cleanup: Sequence[Step] = (), alongside: Sequence[Step] = (), discard: bool = False) -> int:
     """Run `steps`, and `alongside` at the same time as a second lane. A failed
     step ends its own lane; the other lane runs on, and cleanup waits for both."""
     before = source_state(root)
@@ -225,7 +258,7 @@ def execute(root: Path, output: Path, steps: Sequence[Step], env: dict[str, str]
     started = time.perf_counter()
     started_at = datetime.now(UTC).isoformat()
     results: list[dict] = []
-    running: dict[int, str] = {}
+    running: dict[int, subprocess.Popen] = {}
     stopping = threading.Event()
     lanes = [threading.Thread(target=run_lane, args=(index, lane, output, env, started, running, stopping, results))
              for index, lane in enumerate((steps, alongside)) if lane]
@@ -250,19 +283,29 @@ def execute(root: Path, output: Path, steps: Sequence[Step], env: dict[str, str]
         changed = before["fingerprint"] != after["fingerprint"]
         environment_changed = runtime_before != runtime_after
         code = 76 if changed or environment_changed else 130 if interrupted else next((r["exit_code"] for r in results if r["exit_code"]), 0)
+        scratch_error = None
+        if discard and code == 0:
+            try:
+                discard_scratch(output)
+            except OSError as error:
+                code = 1
+                scratch_error = str(error)
+                print(f"check-local: scratch cleanup failed: {error}", file=sys.stderr)
         report = {
             "schema_version": 1, "checkout": str(root), "source_before": before,
             "source_after": after, "source_changed": changed, "exit_code": code,
             "runtime_before": runtime_before, "runtime_after": runtime_after,
             "environment_changed": environment_changed,
+            "scratch_cleanup_error": scratch_error,
             "started_at": started_at, "finished_at": datetime.now(UTC).isoformat(),
             "wall_seconds": time.perf_counter() - started,
-            "machine": {"platform": platform.platform(), "cpus": os.cpu_count(), "load_average": os.getloadavg()},
+            "machine": {"platform": platform.platform(), "cpus": os.cpu_count(),
+                        "load_average": os.getloadavg() if hasattr(os, "getloadavg") else None},
             "python": {"executable": sys.executable, "version": sys.version},
             "profile": {key: env.get(key) for key in (
                 "ROLEBAND_CHECK_PROFILE", "ROLEBAND_REQUIRE_INTEGRATION", "ROLEBAND_UX_MODE",
                 "ROLEBAND_UX_WORKERS", "ROLEBAND_UX_PORT", "ROLEBAND_PGDATA", "ROLEBAND_CHECK_TESTS",
-                "ROLEBAND_CHECK_BROWSERS",
+                "ROLEBAND_CHECK_BROWSERS", "ROLEBAND_CHECK_WINDOWS_LANE", "ROLEBAND_CHECK_WINDOWS_SHARD",
             )},
             "lanes": len(lanes),
             "steps": results,
@@ -281,15 +324,58 @@ def positive_integer(value: str) -> int:
     return number
 
 
+def shard(value: str) -> str:
+    """`INDEX/TOTAL`, as `--shard` in backend/conftest.py takes it."""
+    index, sep, total = value.partition("/")
+    if not (sep and index.isdigit() and total.isdigit() and 1 <= int(index) <= int(total)):
+        raise argparse.ArgumentTypeError(f"takes INDEX/TOTAL with 1 <= INDEX <= TOTAL, not {value!r}")
+    return f"{int(index)}/{int(total)}"
+
+
+def windows_tests(backend: Path, lane: str, part: str | None = None) -> list[str]:
+    """The pytest selection of a Windows lane: the native suites split in two, and `suite` runs everything else.
+
+    `part` (`INDEX/TOTAL`) cuts the suite lane by test file, as backend.yml cuts the
+    Linux suite; the TOTAL parts together run the lane's whole selection.
+    """
+    if part is not None:
+        if lane != "suite":
+            raise ValueError("only the suite lane is split into shards")
+        return [*windows_tests(backend, lane), f"--shard={part}"]
+    if lane == "all":
+        return ["tests"]
+    tests = backend / "tests"
+    checkpoints = {"test_windows_checkpoint.py", "test_windows_recovery.py", "test_windows_migration.py"}
+    files = {path.name for pattern in ("test_windows_*.py", "test_supervisor_*.py")
+             for path in tests.glob(pattern)}
+    files.update(("test_local_http_auth.py", "test_skip_policy.py"))
+    if lane == "suite":
+        return ["tests", *(f"--ignore=tests/{name}" for name in sorted(files))]
+    if lane == "checkpoints":
+        files &= checkpoints
+    elif lane == "engine":
+        files -= checkpoints
+    return [f"tests/{name}" for name in sorted(files)]
+
+
+def windows_scratch() -> Path:
+    # The bundled PostgreSQL needs a short ASCII alias for Unicode paths. The
+    # system volume provides it on the supported test runners.
+    return Path(Path(os.environ["SystemRoot"]).anchor) / "rb"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("profile", choices=("all", "backend", "dashboard", "unit", "ux"))
+    parser.add_argument("profile", choices=("all", "backend", "dashboard", "unit", "ux", "windows"))
     parser.add_argument("--output", type=Path, help="new report directory outside the checkout")
     parser.add_argument("--backend-workers", type=positive_integer)
     parser.add_argument("--unit-workers", type=positive_integer)
     parser.add_argument("--ux-workers", type=positive_integer)
     parser.add_argument("--ci-parity", action="store_true", help="require backend integration tests instead of allowing local skips")
-    parser.add_argument("--test", action="append", default=[], help="test file/node selector; only for backend, unit or ux profiles")
+    parser.add_argument("--test", action="append", default=[], help="test file/node selector")
+    parser.add_argument("--windows-lane", choices=("all", "checkpoints", "engine", "suite", "native"), default="all")
+    parser.add_argument("--shard", type=shard, metavar="INDEX/TOTAL",
+                        help="run one shard of the suite lane, split by test file; only with --windows-lane suite")
     parser.add_argument("--parallel", action="store_true", help="run the backend and dashboard lanes at the same time; only for the all profile")
     parser.add_argument("--docker-browsers", action="store_true",
                         help=f"build and run both browser projects in a Linux container (default {DOCKER_UX_WORKERS} workers); "
@@ -300,8 +386,19 @@ def main(argv: list[str] | None = None) -> int:
         raise KeyboardInterrupt
 
     signal.signal(signal.SIGTERM, interrupted)
-    if args.test and args.profile not in ("backend", "unit", "ux"):
-        parser.error("--test is only valid for backend, unit or ux profiles")
+    if args.shard and (args.profile != "windows" or args.windows_lane != "suite"):
+        parser.error("--shard splits only the windows profile's suite lane (--windows-lane suite)")
+    windows = sys.platform == "win32"
+    if args.profile == "windows" and not windows:
+        parser.error("the windows profile requires native Windows")
+    if windows and args.profile != "windows" and not (args.profile == "ux" and args.docker_browsers):
+        parser.error("on Windows use the windows profile or ux --docker-browsers")
+    if args.windows_lane != "all" and args.profile != "windows":
+        parser.error("--windows-lane requires the windows profile")
+    if args.test and args.profile not in ("backend", "unit", "ux", "windows"):
+        parser.error("--test is only valid for backend, unit, ux or windows profiles")
+    if args.profile == "windows" and args.test and args.windows_lane != "all":
+        parser.error("--test selects a focused run instead of a Windows lane")
     if args.parallel and args.profile != "all":
         parser.error("--parallel is only valid for the all profile")
     if args.docker_browsers and args.profile not in ("all", "dashboard", "ux"):
@@ -311,7 +408,17 @@ def main(argv: list[str] | None = None) -> int:
     root = Path(__file__).resolve().parents[1]
     if args.output and args.output.resolve().is_relative_to(root):
         parser.error("reports must be outside the checkout")
-    output = args.output.resolve() if args.output else Path(tempfile.mkdtemp(prefix="roleband-check-"))
+    scratch = windows_scratch() if windows else None
+    if scratch is not None:
+        scratch.mkdir(exist_ok=True)
+        if scratch.resolve() != scratch or (args.output and not args.output.resolve().is_relative_to(scratch)):
+            parser.error(f"Windows reports and scratch state must live under {scratch}")
+        if args.output and (not str(args.output.resolve()).isascii() or len(str(args.output.resolve())) > 48):
+            parser.error("use a short ASCII output path for Windows PostgreSQL tests")
+        if args.profile == "windows" and shutil.disk_usage(scratch).free < 12 * 2**30:
+            parser.error(f"free at least 12 GiB on {scratch.anchor} for test clusters")
+    output = args.output.resolve() if args.output else Path(tempfile.mkdtemp(
+        prefix="r-" if windows else "roleband-check-", dir=scratch))
     if args.output:
         try:
             output.mkdir(parents=True, exist_ok=False)
@@ -326,6 +433,43 @@ def main(argv: list[str] | None = None) -> int:
     steps: list[Step] = []
     dashboard_steps: list[Step] = []
     cleanup: list[Step] = []
+    if windows:
+        temp = output / "tmp"
+        temp.mkdir()
+        state = output / "s"
+        env.update(TEMP=str(temp), TMP=str(temp), PYTHONUTF8="1", PYTHONDONTWRITEBYTECODE="1",
+                   ROLEBAND_STATE_DIR=str(state), ROLEBAND_PGDATA=str(state / "db"),
+                   ROLEBAND_CACHE_DIR=str(state / "cache"), ROLEBAND_PLUGINS_DIR=str(state / "plugins"),
+                   ROLEBAND_SECRET_KEY_FILE=str(state / "secret.key"), ROLEBAND_DATABASE_URL="",
+                   ROLEBAND_DB_EMBEDDED="true", ROLEBAND_NO_USAGE_STATS="1",
+                   # The C# compiler's shared server outlives a build and keeps analyzer files open in the
+                   # scratch TEMP, which then cannot be removed; each build compiles in its own process.
+                   UseSharedCompilation="false")
+    if args.profile == "windows":
+        env.update(ROLEBAND_REQUIRE_INTEGRATION="1", ROLEBAND_CHECK_WINDOWS_LANE=args.windows_lane,
+                   ROLEBAND_CHECK_WINDOWS_SHARD=args.shard or "")
+        # Native compilation finds the C++ linker through Visual Studio's locator, which its installer keeps off PATH.
+        locator = Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Microsoft Visual Studio" / "Installer"
+        if (locator / "vswhere.exe").is_file():
+            env["PATH"] = env.get("PATH", "") + os.pathsep + str(locator)
+        if args.windows_lane != "native":
+            steps.append(Step("pytest", backend, [python, "-m", "pytest", "-n", str(args.backend_workers or 4),
+                         "-q", "-rs", "-p", "no:cacheprovider", "--durations=20",
+                         f"--basetemp={output / 't'}", f"--junitxml={output / 'pytest.xml'}",
+                         *(args.test or windows_tests(backend, args.windows_lane, args.shard))]))
+        if args.windows_lane in ("all", "native") and not args.test:
+            steps.extend([
+                Step("packaging-tools", root, [python, "-m", "unittest", "discover", "-s", "launcher/windows/Tools", "-p", "test_*.py"]),
+                Step("native", root, ["dotnet", "test", "launcher/windows/RoleBand.EngineHost.Tests",
+                     *([] if env.get("ROLEBAND_WINDOWS_TRIAL_RESOURCES") else
+                       ["--filter", "FullyQualifiedName!~BundledEngineStartsWithoutDeveloperPython"]),
+                     "--logger", "trx;LogFileName=native.trx", "--results-directory", str(output),
+                     "--", "MSTest.MapInconclusiveToFailed=true"]),
+                Step("winui-build", root, ["dotnet", "build", "launcher/windows/RoleBand.App", "-p:Platform=x64"]),
+                # Setup is compiled to native code, which reports what it cannot compile only when published.
+                Step("setup-publish", root, ["dotnet", "publish", "launcher/windows/RoleBand.Setup", "-c", "Release",
+                                             "-o", str(output / "setup")]),
+            ])
     if args.profile in ("all", "backend", "dashboard"):
         steps.extend(Step(name, root, [python, f"backend/scripts/{script}.py"]) for name, script in (
             ("comment-hygiene", "check_comment_hygiene"), ("project-name", "check_project_name"),
@@ -342,12 +486,14 @@ def main(argv: list[str] | None = None) -> int:
         steps.append(Step("pytest", backend, [python, "-m", "pytest", *workers,
                      "--durations=30", "-rs", f"--junitxml={output / 'pytest.xml'}",
                      f"--basetemp={output / 'pytest-temp'}", *args.test]))
+    if args.profile in ("all", "backend", "windows"):
         cleanup.append(Step("cluster-cleanup", backend, [python, "-c",
             ("import sys; from pathlib import Path; from tracker.supervisor.residue import stop_clusters; "
             "errors = stop_clusters(Path(sys.argv[1])); print('\\n'.join(errors)); sys.exit(bool(errors))"), str(output)]))
     if args.profile in ("all", "dashboard", "unit", "ux"):
-        dashboard_steps.append(Step("node-version", dashboard, ["node", "--version"]))
-        dashboard_steps.append(Step("npm-version", dashboard, ["npm", "--version"]))
+        if not windows:
+            dashboard_steps.append(Step("node-version", dashboard, ["node", "--version"]))
+            dashboard_steps.append(Step("npm-version", dashboard, ["npm", "--version"]))
         if args.profile in ("all", "dashboard"):
             dashboard_steps.append(Step("dashboard-lint", dashboard, ["npm", "run", "lint"]))
         if args.profile in ("all", "dashboard", "unit"):
@@ -371,7 +517,7 @@ def main(argv: list[str] | None = None) -> int:
             dashboard_steps.append(Step("playwright", dashboard, ["npm", "run", "test:ux", "--", *args.test]))
     if args.parallel:
         return execute(root, output, steps, env, cleanup=cleanup, alongside=dashboard_steps)
-    return execute(root, output, [*steps, *dashboard_steps], env, cleanup=cleanup)
+    return execute(root, output, [*steps, *dashboard_steps], env, cleanup=cleanup, discard=windows)
 
 
 if __name__ == "__main__":

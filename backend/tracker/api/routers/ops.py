@@ -10,7 +10,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import case, func, literal_column, or_, select, text, true
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -165,11 +165,14 @@ async def health(session: SessionDep) -> dict:
 
 
 @router.get("/api/launcher-health", response_model=LauncherHealthResponse)
-async def launcher_health() -> dict:
+async def launcher_health(request: Request) -> dict:
     settings = get_settings()
     identity = installation_identity(
         REPO_ROOT, api_host=settings.api_host, api_port=settings.api_port, version=__version__,
     )
+    authority = getattr(request.app.state, "local_authority", None)
+    if authority is not None:
+        identity["api_origin"] = authority.endpoint
     return preparation.payload(DATA_DIR, identity, packaged=PACKAGED)
 
 

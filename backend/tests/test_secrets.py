@@ -6,7 +6,7 @@ What must hold, each a plausible way to get it wrong:
    model key are stored sealed, so a dump or a backup of the database holds
    ciphertext; each store still hands its callers the key itself.
 2. **The key file is the owner's alone and there is one.** It is created on the
-   first save with mode 0600, and processes saving their first key at once agree
+   first save with account-private permissions, and processes saving their first key at once agree
    on one key rather than each writing its own.
 3. **A key saved before sealing still works**, and saving seals it; sealing a
    sealed value does not seal it twice.
@@ -25,7 +25,6 @@ import subprocess
 import sys
 
 import pytest
-from cryptography.fernet import Fernet
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
@@ -111,9 +110,9 @@ async def test_a_key_this_machine_cannot_open_reads_as_no_key(db_session, monkey
     created = await store.create_profile(db_session, payload(**values, api_key=secret))
     await db_session.commit()
 
-    elsewhere = tmp_path / "elsewhere.key"
+    elsewhere = tmp_path / "elsewhere" / "secret.key"
     if available == "foreign":
-        elsewhere.write_bytes(Fernet.generate_key())
+        secrets._create_key(elsewhere)
     monkeypatch.setenv(secrets.KEY_FILE_ENV, str(elsewhere))
     assert await prices.saved_api_key(db_session) is None
     [profile] = (await store.get_state(db_session)).profiles
@@ -257,14 +256,20 @@ def test_the_first_seal_creates_a_key_file_only_its_owner_can_read(tmp_path, mon
     sealed = secrets.seal(PRICE_KEY)
 
     assert sealed.startswith(secrets.PREFIX) and PRICE_KEY not in sealed
-    assert stat.S_IMODE(path.stat().st_mode) == 0o600
-    assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
+    if sys.platform == "win32":
+        from tracker.platform.windows_private import require_private
+
+        require_private(path)
+        require_private(path.parent)
+    else:
+        assert stat.S_IMODE(path.stat().st_mode) == 0o600
+        assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
     assert secrets.unseal(sealed) == PRICE_KEY
     assert not list(path.parent.glob(".secret-key-*")), "no temporary file is left behind"
 
 
 def test_processes_saving_their_first_key_at_once_agree_on_one(tmp_path, monkeypatch):
-    path = tmp_path / "secret.key"
+    path = tmp_path / "private" / "secret.key"
     monkeypatch.setenv(secrets.KEY_FILE_ENV, str(path))
     code = "import sys; from tracker.platform import secrets; print(secrets.seal(sys.argv[1]))"
     env = {**os.environ, "PYTHONPATH": str(REPO_ROOT / "backend")}
@@ -281,7 +286,7 @@ def test_a_process_that_found_no_key_adopts_the_one_written_since(tmp_path, monk
     """The window the concurrent test can miss, held open: this process read no
     key file, another wrote one before this one's write. The first key stays,
     and both seals open with it."""
-    path = tmp_path / "secret.key"
+    path = tmp_path / "private" / "secret.key"
     monkeypatch.setenv(secrets.KEY_FILE_ENV, str(path))
     theirs = secrets.seal("their key")
     written = path.read_bytes()
@@ -304,22 +309,22 @@ def test_a_process_that_found_no_key_adopts_the_one_written_since(tmp_path, monk
 
 
 def test_empty_legacy_and_sealed_values_pass_through_as_they_are(tmp_path, monkeypatch):
-    monkeypatch.setenv(secrets.KEY_FILE_ENV, str(tmp_path / "secret.key"))
+    monkeypatch.setenv(secrets.KEY_FILE_ENV, str(tmp_path / "private" / "secret.key"))
     assert secrets.seal(None) is None and secrets.seal("") == ""
-    assert not (tmp_path / "secret.key").exists(), "nothing to seal makes no key file"
+    assert not (tmp_path / "private" / "secret.key").exists(), "nothing to seal makes no key file"
     sealed = secrets.seal(PRICE_KEY)
     assert secrets.seal(sealed) == sealed, "never sealed twice"
     assert secrets.unseal(PRICE_KEY) == PRICE_KEY, "a key saved before sealing reads as itself"
 
 
 def test_a_sealed_value_without_its_key_file_is_unavailable_not_garbage(tmp_path, monkeypatch):
-    monkeypatch.setenv(secrets.KEY_FILE_ENV, str(tmp_path / "secret.key"))
+    monkeypatch.setenv(secrets.KEY_FILE_ENV, str(tmp_path / "private" / "secret.key"))
     sealed = secrets.seal(PRICE_KEY)
-    (tmp_path / "secret.key").unlink()
+    (tmp_path / "private" / "secret.key").unlink()
 
     with pytest.raises(secrets.SecretUnavailable):
         secrets.unseal(sealed)
     assert secrets.unseal_or_none(sealed) is None
-    (tmp_path / "secret.key").write_text("not a key\n")
+    (tmp_path / "private" / "secret.key").write_text("not a key\n")
     with pytest.raises(secrets.SecretUnavailable):
         secrets.unseal(sealed)

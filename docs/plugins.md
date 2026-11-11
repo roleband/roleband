@@ -90,9 +90,11 @@ company only `complete=False` reads and retires nothing for it.
   installed copy (`<home>/src`), its bytecode caches included, before every
   run and puts it, with the core's
   SDK, ahead of the venv's site-packages on the runner's path. The runner is
-  isolated (`python -I`) and starts in a directory no plugin can write, so
-  nothing a plugin saves (its data directory included) is ever imported: open
-  your files through `ctx.data_dir`, never the working directory.
+  isolated (`python -I`) and starts in a directory an ordinary account cannot
+  write (`/` on macOS and Linux, the Windows folder on Windows; a process run as
+  administrator can write either), so nothing a plugin saves (its data
+  directory included) is ever imported: open your files through
+  `ctx.data_dir`, never the working directory.
   Known gap: the venv itself is writable and not hashed, so a plugin that
   rewrites its own dependencies is not caught; nor are the build outputs pip
   may leave beside the source (`build/`, `dist/`, `*.egg-info`), which run
@@ -222,7 +224,7 @@ python -m roleband_plugin_sdk.checks src
 `FakeHost(root, companies=..., responses=..., state=...)` runs a job in process (or
 `subprocess=True`) against recorded responses; an unrecorded URL is a refusal.
 With `subprocess=True` the runner starts as the host starts it
-(`roleband_plugin_sdk.launch`): isolated, in `/`, with the SDK and your code on
+(`roleband_plugin_sdk.launch`): isolated, in `/` (the Windows folder on Windows), with the SDK and your code on
 its path and a data directory of its own, so a relative path fails in the test
 as it would live.
 It applies the real host's rules from the shared `policy`: the pacing floor (each

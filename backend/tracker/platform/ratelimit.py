@@ -23,12 +23,13 @@ pass to end.
 from __future__ import annotations
 
 import asyncio
-import fcntl
 import hashlib
 import re
 import time
 from collections.abc import Awaitable, Callable
 from pathlib import Path
+
+from tracker.platform import filelock
 
 #: A stored slot further ahead than this is stale (a clock step, or a file left
 #: by a run whose clock we do not share), never a queue to wait behind.
@@ -58,7 +59,7 @@ class SharedSlot:
     def reserve(self, min_delay: float, now: float) -> float:
         """Claim the earliest instant at least `min_delay` after the last claim."""
         with open(self._path, "a+b") as handle:
-            fcntl.flock(handle, fcntl.LOCK_EX)
+            filelock.lock(handle)
             try:
                 handle.seek(0)
                 try:
@@ -73,7 +74,7 @@ class SharedSlot:
                 handle.write(repr(start).encode())
                 handle.flush()
             finally:
-                fcntl.flock(handle, fcntl.LOCK_UN)
+                filelock.unlock(handle)
         return start
 
 

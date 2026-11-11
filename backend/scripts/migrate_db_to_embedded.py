@@ -23,14 +23,17 @@ column is spot-checked for dimensionality — a restore that silently dropped th
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 from urllib.parse import urlparse
 
 from tracker.config import REQUIRED_EXTENSIONS, get_settings
 from tracker.platform.embedded_db import (
     DEFAULT_POSTGRES_VERSION,
+    LIBPQ_ENVIRONMENT,
     EmbeddedDbError,
     EmbeddedServer,
     bundled_bin_dir,
@@ -53,24 +56,25 @@ def _run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, capture_output=True, text=True, **kwargs)
 
 
-def _psql(server_dsn: str, bin_dir: Path, sql: str) -> str:
+def _psql(server_dsn: str, bin_dir: Path, sql: str, env: Mapping[str, str] | None = None) -> str:
     """The shared runner, without a timeout: this is an interactive operator
     tool, statements like the verification counts and ANALYZE legitimately
     scale with the database, and Ctrl-C is the bound."""
-    return run_psql(server_dsn, bin_dir, sql, timeout=None)
+    return run_psql(server_dsn, bin_dir, sql, timeout=None, env=env)
 
 
-def _server_major(dsn: str, bin_dir: Path) -> int:
-    return int(_psql(dsn, bin_dir, "SHOW server_version").split(".")[0])
+def _server_major(dsn: str, bin_dir: Path, env: Mapping[str, str] | None = None) -> int:
+    return int(_psql(dsn, bin_dir, "SHOW server_version", env).split(".")[0])
 
 
-def _table_counts(dsn: str, bin_dir: Path) -> dict[str, int]:
+def _table_counts(dsn: str, bin_dir: Path, env: Mapping[str, str] | None = None) -> dict[str, int]:
     """Exact row count per public table. Slower than the planner estimate, and
     the only thing that can prove the copy is complete."""
     names = _psql(
         dsn,
         bin_dir,
         "SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename",
+        env,
     ).split()
     if not names:
         return {}
@@ -78,7 +82,7 @@ def _table_counts(dsn: str, bin_dir: Path) -> dict[str, int]:
         f"SELECT '{name}' AS t, count(*) AS n FROM \"{name}\"" for name in names
     )
     counts: dict[str, int] = {}
-    for line in _psql(dsn, bin_dir, f"SELECT t||' '||n FROM ({union}) s ORDER BY t").splitlines():
+    for line in _psql(dsn, bin_dir, f"SELECT t||' '||n FROM ({union}) s ORDER BY t", env).splitlines():
         table, _, count = line.partition(" ")
         if table:
             counts[table] = int(count)
@@ -105,6 +109,11 @@ def migrate(
     print(f"source : {host} ({source_dsn.split('@')[-1]})")
     print(f"target : {pgdata}")
 
+    # The source may be reached through the caller's libpq settings (a password
+    # file, a service, a socket directory). Starting the embedded target drops
+    # them from this process, so they are kept here for the source's tools only.
+    source_env = {name: value for name, value in os.environ.items() if name.upper() in LIBPQ_ENVIRONMENT}
+
     # A dry run must start nothing, so it borrows the wheel's client binaries
     # directly; a real run starts the target first, which guarantees the dump
     # tool and the restore target are the same build.
@@ -118,7 +127,7 @@ def migrate(
         )
         bin_dir = server.bin_dir
 
-    src_major = _server_major(source_dsn, bin_dir)
+    src_major = _server_major(source_dsn, bin_dir, source_env)
     # On a dry run nothing is started; the target major is the wheel's pinned
     # one — `bundled_bin_dir()` above selected its install tree by exactly
     # this number, so shelling out to pg_config would only re-derive it.
@@ -133,8 +142,8 @@ def migrate(
             f"pin a newer wheel major before migrating."
         )
 
-    source_counts = _table_counts(source_dsn, bin_dir)
-    source_head = _psql(source_dsn, bin_dir, "SELECT version_num FROM alembic_version")
+    source_counts = _table_counts(source_dsn, bin_dir, source_env)
+    source_head = _psql(source_dsn, bin_dir, "SELECT version_num FROM alembic_version", source_env)
     total = sum(source_counts.values())
     print(f"source : {len(source_counts)} tables, {total:,} rows, alembic head {source_head}")
 
@@ -144,7 +153,8 @@ def migrate(
 
     dump = pgdata.parent / "roleband-migration.dump"
     print(f"\ndumping to {dump} ...")
-    proc = _run([str(server.tool("pg_dump")), source_dsn, "-Fc", "-f", str(dump)])
+    proc = _run([str(server.tool("pg_dump")), "-d", source_dsn, "-Fc", "-f", str(dump)],
+                env={**os.environ, **source_env})
     if proc.returncode != 0:
         raise MigrationError(f"pg_dump failed: {(proc.stderr or '').strip()[-500:]}")
     print(f"dump   : {dump.stat().st_size / 1e6:.1f} MB")

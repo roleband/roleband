@@ -19,6 +19,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from tests.conftest import allow_windows_process_control, posix_processes
 from tracker.db import job_store
 from tracker.db.models import JobRequest, JobRun, JobStatus
 from tracker.platform.paths import REPO_ROOT
@@ -32,7 +33,7 @@ from tracker.supervisor.service import serve
 
 REAL_POPEN = subprocess.Popen
 REAL_KILL = os.kill
-REAL_KILLPG = os.killpg
+REAL_KILLPG = getattr(os, "killpg", None)  # absent on Windows
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("no_escape")]
 
@@ -42,7 +43,9 @@ def real_processes(no_escape, monkeypatch):
     """The fake jobs here are real processes this file starts and ends."""
     monkeypatch.setattr(subprocess, "Popen", REAL_POPEN)
     monkeypatch.setattr(os, "kill", REAL_KILL)
-    monkeypatch.setattr(os, "killpg", REAL_KILLPG)
+    if REAL_KILLPG is not None:
+        monkeypatch.setattr(os, "killpg", REAL_KILLPG)
+    allow_windows_process_control(monkeypatch)
 
 
 #: Ends by itself after a while, so a failing assertion never leaves it behind.
@@ -115,6 +118,7 @@ async def test_an_answer_counts_only_from_a_live_process_and_for_the_standing_re
 # --- the supervisor ----------------------------------------------------------------
 
 
+@posix_processes
 async def test_maintenance_stops_the_running_job_lets_go_and_resumes_when_lifted(db_session, tmp_path):
     await _ring(db_session, "nap")
     stop = asyncio.Event()
@@ -226,6 +230,7 @@ async def test_maintenance_on_with_no_supervisor_leaves_the_request_standing(cli
     assert maintenance.requested(cli_on_test_db) is None
 
 
+@posix_processes
 async def test_stop_jobs_with_no_supervisor_stops_what_a_dead_one_left(db_session, cli_on_test_db, capsys):
     """The run's job must be one the registry knows: only those are adopted."""
     left = JobSpec("reestimate", ("{python}", "-c", "import time; time.sleep(30)"), OnRequest(),

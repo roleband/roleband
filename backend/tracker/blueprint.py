@@ -202,7 +202,7 @@ def _check_price_fixture(bp: CompanyBlueprint) -> list[str]:
     if not bp.ticker:
         return ["is_public but no ticker declared"]
     try:
-        tickers = json.loads(_PRICES_FIXTURE.read_text())["tickers"]
+        tickers = json.loads(_PRICES_FIXTURE.read_text(encoding="utf-8"))["tickers"]
     except (OSError, ValueError, KeyError) as exc:
         return [f"prices fixture unreadable: {exc}"]
     if bp.ticker not in tickers:
@@ -212,7 +212,7 @@ def _check_price_fixture(bp: CompanyBlueprint) -> list[str]:
 
 def _check_dashboard_branding(bp: CompanyBlueprint) -> list[str]:
     try:
-        companies = json.loads(_DASHBOARD_COMPANIES.read_text())
+        companies = json.loads(_DASHBOARD_COMPANIES.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         return [f"dashboard/src/companies.json unreadable: {exc}"]
     entry = companies.get(bp.slug)

@@ -15,6 +15,7 @@ import pytest
 from sqlalchemy import event, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from tests.conftest import allow_windows_process_control, posix_processes
 from tracker.db import job_store
 from tracker.db.models import JobRun, JobStatus
 from tracker.platform.paths import REPO_ROOT
@@ -26,7 +27,7 @@ from tracker.supervisor.service import serve
 
 REAL_POPEN = subprocess.Popen
 REAL_KILL = os.kill
-REAL_KILLPG = os.killpg
+REAL_KILLPG = getattr(os, "killpg", None)  # absent on Windows
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("no_escape")]
 
@@ -36,7 +37,9 @@ def real_processes(no_escape, monkeypatch):
     """The fake jobs here are real processes this file starts and ends."""
     monkeypatch.setattr(subprocess, "Popen", REAL_POPEN)
     monkeypatch.setattr(os, "kill", REAL_KILL)
-    monkeypatch.setattr(os, "killpg", REAL_KILLPG)
+    if REAL_KILLPG is not None:
+        monkeypatch.setattr(os, "killpg", REAL_KILLPG)
+    allow_windows_process_control(monkeypatch)
 
 
 NAP = JobSpec("nap", ("{python}", "-c", "import time; time.sleep(30)"), OnRequest(), power=Power.NONE, uses_database=False)
@@ -104,20 +107,34 @@ async def test_a_committed_request_wakes_the_supervisor_long_before_its_poll(db_
         stop.set()
         await service
         for watched in dispatcher.watched.values():
-            REAL_KILLPG(watched.launched.pgid, signal.SIGKILL)
+            await runner.stop_group(watched.launched.pgid, 0)
 
 
-async def test_a_second_supervisor_never_dispatches_while_the_first_holds_the_database(db_session, tmp_path):
+async def test_a_second_supervisor_never_dispatches_while_the_first_holds_the_database(db_session, tmp_path, monkeypatch):
+    refused = 0
+    hold = singleton.hold
+
+    async def counted(engine):
+        nonlocal refused
+        held = await hold(engine)
+        refused += held is None
+        return held
+
+    monkeypatch.setattr(singleton, "hold", counted)
     stop = asyncio.Event()
     first = _dispatcher(db_session, tmp_path)
     second = _dispatcher(db_session, tmp_path / "other")
     one = asyncio.create_task(serve(first, db_session.bind, stop, idle_seconds=0.1))
     await _eventually(lambda: asyncio.sleep(0, result=first.ticks >= 1))
     two = asyncio.create_task(serve(second, db_session.bind, stop, idle_seconds=0.1, lock_retry_seconds=0.1))
-    await asyncio.sleep(0.6)
-    stop.set()
-    await asyncio.gather(one, two)
+    try:
+        # Counted, not timed: the second is refused the lock again and again while the first keeps dispatching.
+        await _eventually(lambda: asyncio.sleep(0, result=refused >= 3 and first.ticks >= 2))
+    finally:
+        stop.set()
+        await asyncio.gather(one, two)
 
+    assert refused >= 3, "the second asked for the lock and was refused each time"
     assert first.ticks > 1
     assert second.ticks == 0
     again = await singleton.hold(db_session.bind)
@@ -125,6 +142,7 @@ async def test_a_second_supervisor_never_dispatches_while_the_first_holds_the_da
     await singleton.release(again)
 
 
+@posix_processes
 async def test_a_stop_ends_supervision_and_leaves_the_running_job_running(db_session, tmp_path):
     await job_store.ring(db_session, "nap", requested_by="cli")
     await db_session.commit()
@@ -146,7 +164,7 @@ async def test_a_stop_ends_supervision_and_leaves_the_running_job_running(db_ses
 
 
 class FakeApi:
-    """The service's view of the API: tended each look, stopped on the way out."""
+    """The service's view of the API: tended each look, stopped and closed on the way out."""
 
     def __init__(self, tmp_path) -> None:
         self.log = tmp_path / "api.log"
@@ -158,6 +176,9 @@ class FakeApi:
 
     async def stop(self, grace_seconds: float = 30.0) -> None:
         self.events.append("stop")
+
+    def close(self) -> None:
+        self.events.append("close")
 
     def status(self):
         return job_store.Status(key="api", job="api", state=self.state, since=datetime.now(UTC))
@@ -183,7 +204,7 @@ async def test_landed_code_restarts_the_supervisor_only_after_the_api_stops_and_
     order: list[str] = []
 
     def reexec() -> None:
-        order.extend(api.events[-1:])
+        order.extend(api.events[-2:])
 
     stop = asyncio.Event()
     dispatcher = _dispatcher(db_session, tmp_path)
@@ -192,7 +213,7 @@ async def test_landed_code_restarts_the_supervisor_only_after_the_api_stops_and_
         serve(dispatcher, db_session.bind, stop, idle_seconds=0.05, api=api, watcher=watcher, reexec=reexec),
         timeout=10,
     )
-    assert order[0] == "stop", "the API stops before the exec"
+    assert order == ["stop", "close"], "the API stops and releases its port before the exec"
     assert api.events.count("tend") == 2
     again = await singleton.hold(db_session.bind)
     assert again is not None, "the lock is free for the new image"
@@ -250,6 +271,7 @@ LOUD = JobSpec(
 )
 
 
+@posix_processes
 async def test_a_run_whose_log_rotates_says_so_and_a_run_in_another_log_does_not(db_session, tmp_path):
     log = runner.log_path(tmp_path, LOUD)
     earlier = await job_store.open_run(db_session, "loud", "loud:earlier", trigger="request")
@@ -331,6 +353,7 @@ async def _busy(db_session, tmp_path, jobs=(NAP, QUICK), **timing):
     return stop, service, dispatcher
 
 
+@posix_processes
 async def test_a_supervisor_waiting_on_a_running_job_only_watches_it_between_full_looks(db_session, tmp_path):
     """No plan, no `pmset`, no status write while nothing changes: each turn
     is the one query that asks whether the run was cancelled."""
@@ -357,6 +380,7 @@ async def test_a_supervisor_waiting_on_a_running_job_only_watches_it_between_ful
         await _shut(stop, service, dispatcher)
 
 
+@posix_processes
 async def test_while_a_job_runs_the_full_look_and_the_heartbeat_still_come_every_idle_interval(db_session, tmp_path):
     stop, service, dispatcher = await _busy(db_session, tmp_path, idle_seconds=0.4, busy_seconds=0.05)
     try:
@@ -410,6 +434,7 @@ async def test_an_end_is_recorded_and_published_within_a_busy_turn_while_the_ful
         await _shut(stop, service, dispatcher)
 
 
+@posix_processes
 async def test_a_request_rung_while_a_job_runs_starts_at_once(db_session, tmp_path):
     stop, service, dispatcher = await _busy(db_session, tmp_path, idle_seconds=60, busy_seconds=0.05)
     try:
@@ -442,6 +467,7 @@ class SteadyApi(FakeApi):
         return job_store.Status(key="api", job="api", state=self.state, since=self.since)
 
 
+@posix_processes
 async def test_a_change_in_the_api_s_row_is_published_by_the_next_turn(db_session, tmp_path):
     api = SteadyApi(tmp_path)
     await job_store.ring(db_session, "nap", requested_by="cli")

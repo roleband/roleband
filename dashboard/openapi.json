@@ -1436,6 +1436,71 @@
     "title": "BoardSearchResponse",
     "type": "object"
    },
+   "BrowserExchange": {
+    "additionalProperties": false,
+    "properties": {
+     "ticket": {
+      "maxLength": 64,
+      "minLength": 64,
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Ticket",
+      "type": "string",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "ticket"
+    ],
+    "title": "BrowserExchange",
+    "type": "object"
+   },
+   "BrowserSession": {
+    "additionalProperties": false,
+    "properties": {
+     "key_id": {
+      "title": "Key Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "origin": {
+      "title": "Origin",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "secret": {
+      "title": "Secret",
+      "type": "string",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "key_id",
+     "secret",
+     "origin"
+    ],
+    "title": "BrowserSession",
+    "type": "object"
+   },
+   "BrowserTicket": {
+    "additionalProperties": false,
+    "properties": {
+     "expires_in": {
+      "title": "Expires In",
+      "type": "integer"
+     },
+     "url": {
+      "title": "Url",
+      "type": "string",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "url",
+     "expires_in"
+    ],
+    "title": "BrowserTicket",
+    "type": "object"
+   },
    "CalendarInterview": {
     "additionalProperties": false,
     "properties": {
@@ -6172,6 +6237,7 @@
    },
    "ErrorCode": {
     "enum": [
+     "engine-locked",
      "job-not-found",
      "company-not-found",
      "company-profile-not-found",
@@ -28654,6 +28720,68 @@
      }
     },
     "summary": "Lineage Review"
+   }
+  },
+  "/api/local-auth/browser-session": {
+   "post": {
+    "operationId": "browser_session_api_local_auth_browser_session_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/BrowserExchange"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrowserSession"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Browser Session",
+    "tags": [
+     "local-auth"
+    ]
+   }
+  },
+  "/api/local-auth/browser-ticket": {
+   "post": {
+    "operationId": "browser_ticket_api_local_auth_browser_ticket_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BrowserTicket"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Browser Ticket",
+    "tags": [
+     "local-auth"
+    ]
    }
   },
   "/api/notifications": {

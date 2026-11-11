@@ -1831,7 +1831,8 @@ class ScrapeRun(Base):
     # other trace. Nullable: a deployment need not be a git checkout, and naming
     # itself must never be able to fail a scrape.
     code_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    # The OS process group executing this run (`os.getpgrp()` at open).
+    # The OS process group executing this run (`os_process.current_run_group()`
+    # at open; on Windows, which has no groups, the supervisor's run wrapper).
     # `POST /api/sync/cancel` signals a process GROUP, so this is what names the
     # run a cancel stopped; the newest running run could be a scheduled run in a
     # group the cancel never touched. Nullable: NULL when none was recorded. A

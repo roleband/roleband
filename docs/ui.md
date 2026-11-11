@@ -101,6 +101,129 @@ complete and offers another attempt in the same window. Not now or closing a
 valid Ready page completes setup without opening the browser. Completion does
 not reopen the status panel over the browser.
 
+## Windows notification area
+
+The Windows app is a companion by the clock, shaped by Microsoft's guidance for a background
+task with no window of its own: an icon, a flyout, a menu, and windows only for detail. It has no
+main window and no taskbar button. Closing a window never quits; Quit does, stops the engine, and
+leaves the app running if the engine did not stop, with the reason in Settings. One copy runs per
+data folder: starting it again, from Start or anywhere else, hands the start to the running copy.
+
+**The icon.** One icon for the app's life: the radar mark, with a badge for any state but ready
+(scanning or starting, paused, needs attention, stopped). The glyph, not the colour, carries the
+state. Each state ships as an .ico per taskbar theme with frames drawn for 16, 20, 24 and 32
+pixels, and the frame drawn for the notification area's size is taken, never a scaled one; the
+icon follows the taskbar's theme and scale as they change, and a contrast theme takes the set
+whose ink stands out on its window colour. Badges are cut out of the mark, not painted over it. The
+tooltip names the product and the state on one line within the shell's 127 characters, with a
+scan's percent. A click or Enter opens the flyout, a second click closes it; a double-click runs the
+default command; a right click or Shift+F10 opens the menu.
+
+**Surfaces.** The flyout, Settings and setup are solid and neutral, never tinted by the wallpaper. A
+framed window's title bar is one step darker than its body, cards sit inset from the body without
+outlines. A framed window keeps the edge Windows gives every app; the flyout, which has no title
+bar, draws its edge in the dividers' tone. Gold is the accent: the primary button, switches that are
+on, links and accent text, and the tint of a notice that must not be missed.
+
+**The flyout.** A borderless window next to the point Windows reports for the icon, a margin off
+the taskbar on whichever edge it is, inside that display's work area; it closes on Esc or when
+focus leaves it, but not for its own pause menu. It keeps three parts in every state, and a state
+changes their words, never their places. The summary is a title (the scan and its percent with a
+progress bar, the last scan, a pause and its end, a hold, or Scanning has stopped) and at most three
+lines: roles found so far and the first three companies being read with a count of the rest, or
+companies scanned with the new-roles count as a link to New, and the schedule line. The tasks are Open
+Radar, the one gold action, then Scan now or Stop scan and Pause or Resume; a stopped engine puts
+Restart in the gold place and Details, which opens Settings, beside it. An engine on its way keeps
+Open Radar off with the reason as its tooltip. The one link is the Settings gear. A request's
+outcome shows as a line until the flyout is next opened. Every target is at least 40 by 40, for
+touch. Before setup finishes the icon opens setup, and the flyout never shows a setup card.
+Without an icon the flyout keeps a frame and stays open, and closing it quits.
+
+**The menu.** Windows' order for tray menus: the default command first and bold, the scan's tasks,
+Pause scans with its durations in a submenu, Settings, and Quit RoleBand last. A pause shows as
+Pause scans checked, whose submenu offers Resume scans alone, since a pause can only be lifted.
+Items that don't apply are left out, never greyed: a stopped engine's menu is Settings (bold),
+Restart scanning and Quit; before the engine first answers it is Settings and Quit; before setup
+finishes it leads with Finish setup. The default command, run by the bold item, a double-click and a
+second start, is setup while setup is unfinished, Settings while scanning has stopped, and otherwise
+the Radar, which an engine still starting opens once it answers. A launch from Start, before the
+engine has started, opens the Radar once it answers, or Settings if it stops with a reason; a launch
+by the startup task opens quietly.
+
+**Settings.** A resizable window, from the gear, the menu or Details. A problem leads when
+there is one: Scanning has stopped with Restart, Open logs folder and the engine's last lines, or an
+update the previous run could not finish with Undo the update in the gold place, Update to a newer
+release beside it when one is offered, and no Restart, since a failed update keeps the engine closed
+until it is undone or replaced; such an update opens Settings by itself. Setup holding the engine at Welcome is not a stop, so it shows no problem and no Restart.
+Updates follow the rules at the top of this page in one card: the status as its title, the version
+and the last check the feed answered as its caption, Check for updates, and the automatic choice,
+labelled with its pinned English words in every language and recording them with their language; it
+reads `update status`, which asks nothing of the network, and a build without a release identity
+says it doesn't update itself and offers neither. On this PC holds Start with Windows as Windows has
+it: a task turned off in Startup apps says so with a link there, one set by policy shows the
+policy's value and cannot be changed, and a copy without a package has no startup task and no row.
+In your browser opens Scan times and All settings. About names where the scan history is kept, that
+uninstalling keeps it, and opens it in File Explorer, with the version, the licence and the logs
+folder.
+
+**Updating.** An offer puts Update, the gold press, beside Check for updates. While scanning runs it
+is also a gold-tinted banner under the flyout's summary, with a download glyph, the version and its
+own Update, so it cannot pass unnoticed; the idle icon's tooltip names it; and the menu adds Update
+to the version, in its own group before Settings. Update is the only press: the card and the banner
+follow the download, with how much has arrived of how much and Cancel, which keeps what arrived
+for the next Update. Update and Cancel take each other's place, and focus moves with them; a press
+whose button goes with nothing in its place leaves focus on the next control, never on nothing. A
+download does not hold the engine: under a stopped engine's summary the banner
+keeps its Cancel and Restart stays. A lost connection pauses it: Download paused, resumes once you're online,
+and it tries again by itself when Windows reports a network change, else at growing intervals.
+Without room for the download and its install, nothing is fetched: Not enough space, with what
+it needs and Try again. Then the switch: Installing the version with Windows' own percentage while the
+app stays open, then Restarting to update when Windows closes it and opens the verified version,
+even during a scan. Opened again while Windows still installs, the app says the same and waits;
+an install Windows refused says Couldn't install, that nothing was installed, and Windows' reason. The version that opens says Finishing the update to it, in
+the card and as the flyout's whole state, until it is ready or has failed. While Windows replaces
+the app its stopped engine is that
+replacement: the flyout says Restarting to update, Settings shows no problem, and the menu has no
+Restart. A failure names its step (the free space, the download, the check of the signed release,
+or Windows' switch), says nothing was installed where that is so, and offers Try again; a newer offer replaces
+it. Undo is answered at once: Settings says Returning to the previous version, with progress, and
+that RoleBand closes and opens again on it with the data as it was before the update; the flyout
+says the same, and nothing is left to press twice. Only the session that pressed Undo knows it is on
+its way: opened again with the previous version not back, the app says it couldn't return to it, that
+the data is kept, and offers Try again. An Undo that cannot finish says
+so in the same banner, that the data has not changed, with Try again and the reason below it; the
+flyout says it too, never Returning to. When the previous version is no longer published, Undo is
+not offered again: both say so, the flyout leads with Check for updates, and a newer release can
+be installed over the failed one.
+A failed update's card says that version couldn't finish, never Up to date, and keeps Check for
+updates and Update: a newer release replaces it. The flyout says the update couldn't finish, with
+Undo in the gold place and the newer release's banner when there is one, and the menu offers Undo
+and Update to the newer release after Settings, never Restart. Every surface is drawn from one app
+state, and a control appears only in a state where pressing it does something. The next open says Updated to, or
+Back on with the undone version and that nothing was lost, read from the update's journal, until
+a newer offer arrives; an undone version is not offered again. The flyout keeps only offers,
+steps, failures and an undo under way.
+
+**First open.** A small setup window of three steps, as Windows' own setup counts them, with Back
+on the left and the way forward on the right. Welcome holds the engine: nothing runs before
+Continue. Getting ready waits for the database and the service but not the model, and turns into
+Setup stopped with Try again and the logs if one fails. The last step keeps the Mac's At login and
+Ready together: the Start with Windows switch, how to keep the icon out of the overflow with a link
+to taskbar settings, then Not now or Open Radar, both of which register the switch's choice first,
+stay on the page if Windows refuses it, and complete setup only with an engine that answers. Set up
+later and the close button keep the step; the icon, a double-click and Start reopen it there. There
+is no placement step: the package installs where Windows puts it. The startup task is declared off.
+Words that name the Mac, the menu bar or macOS have Windows forms (`launcher-windows-*`). An account
+whose data folder already holds a database counts as set up, so an existing install never waits at
+Welcome. The setup record is `launcher/setup.json` in the account's private state; the window
+builds a page's rows once and updates them in place, so focus survives the engine's updates.
+
+`Companion` holds the flyout's, the icon's and the menu's rules, `SettingsPanel` and `AboutPanel`
+the Settings window's, `SetupFlow` setup's, and `FlyoutPlacement` and `TrayArt` where the flyout
+opens and which icon frame shows. The windows only draw them, and the one-second clock never
+rebuilds a link, so it keeps keyboard focus. The icon files come from
+`launcher/windows/Tools/make_icons.py`, which draws the brand geometry for each size.
+
 ## Launcher installation guide
 
 The disk image puts Start here before the app-to-Applications drag. The guide

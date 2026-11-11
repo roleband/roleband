@@ -7,12 +7,20 @@ import json
 import os
 import plistlib
 import stat
+import sys
 import tempfile
 from pathlib import Path
 from typing import Literal, TypedDict
 
 MAX_REGISTRATION_BYTES = 8192
 MAX_PLIST_BYTES = 32768
+
+
+def _uid() -> int:
+    if sys.platform == "win32":
+        raise ValueError("Source launcher registration requires POSIX ownership")
+    else:
+        return os.getuid()
 
 
 class InstallationIdentity(TypedDict):
@@ -49,10 +57,12 @@ def registration_path(home: Path) -> Path:
 
 def installed_checkout(root: Path, *, home: Path) -> bool:
     """Only the checkout named by the user's installed item may publish itself."""
+    if sys.platform == "win32":
+        return False
     path = home / "Library" / "LaunchAgents" / "com.roleband.plist"
     try:
         info = path.lstat()
-        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != _uid():
             return False
         with path.open("rb") as handle:
             data = handle.read(MAX_PLIST_BYTES + 1)
@@ -81,7 +91,7 @@ def _private_directory(home: Path) -> Path:
     for path in (home / ".roleband", home / ".roleband" / "launcher"):
         path.mkdir(mode=0o700, exist_ok=True)
         info = path.lstat()
-        if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != _uid():
             raise ValueError("Launcher discovery directory must be owned by the current user")
     directory = registration_path(home).parent
     directory.chmod(0o700)
@@ -118,10 +128,10 @@ def unregister_installation(root: Path, *, home: Path) -> bool:
     try:
         for directory in (home / ".roleband", target.parent):
             info = directory.lstat()
-            if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
+            if not stat.S_ISDIR(info.st_mode) or info.st_uid != _uid():
                 return False
         info = target.lstat()
-        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != _uid():
             return False
         with target.open("rb") as handle:
             data = handle.read(MAX_REGISTRATION_BYTES + 1)

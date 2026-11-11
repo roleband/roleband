@@ -83,7 +83,7 @@ def _norm(label: str) -> str:
 
 @cache
 def taxonomy() -> Taxonomy:
-    raw = json.loads((DATASET / "taxonomy.json").read_text())
+    raw = json.loads((DATASET / "taxonomy.json").read_text(encoding="utf-8"))
     alias: dict[str, str] = {}
     for t in raw["benefit_types"]:
         for name in (t["label"], *t.get("aliases", ())):

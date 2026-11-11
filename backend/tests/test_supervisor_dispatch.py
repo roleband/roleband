@@ -22,6 +22,7 @@ import pytest
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from tests.conftest import allow_windows_process_control, posix_processes
 from tracker.db import job_store
 from tracker.db.models import JobRequest, JobRun, JobStatus, MachineAwakeSample
 from tracker.platform.paths import REPO_ROOT
@@ -33,7 +34,7 @@ from tracker.supervisor.registry import Every, JobSpec, OnRequest, Power
 
 REAL_POPEN = subprocess.Popen
 REAL_KILL = os.kill
-REAL_KILLPG = os.killpg
+REAL_KILLPG = getattr(os, "killpg", None)  # absent on Windows
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("no_escape")]
 
@@ -44,7 +45,9 @@ def real_processes(no_escape, monkeypatch):
     process is a fake job this file starts under `tmp_path`."""
     monkeypatch.setattr(subprocess, "Popen", REAL_POPEN)
     monkeypatch.setattr(os, "kill", REAL_KILL)
-    monkeypatch.setattr(os, "killpg", REAL_KILLPG)
+    if REAL_KILLPG is not None:
+        monkeypatch.setattr(os, "killpg", REAL_KILLPG)
+    allow_windows_process_control(monkeypatch)
 
 
 def _job(name: str, code: str, schedule=None, **fields) -> JobSpec:
@@ -168,6 +171,7 @@ async def test_a_job_over_its_timeout_is_stopped_and_recorded_as_timed_out(db_se
     assert run.state == job_store.TIMED_OUT
 
 
+@posix_processes
 async def test_a_cancelled_run_is_stopped_and_its_request_cancelled(db_session, tmp_path):
     long = replace(SLEEPER, timeout_seconds=None)
     request = await job_store.ring(db_session, "sleeper", requested_by="sync")
@@ -409,7 +413,12 @@ async def test_an_adopted_run_that_is_still_our_child_is_reaped_when_it_exits(db
     """After a re-exec the supervisor's jobs are still its children, with no
     handle to reap them by: an exited one would stay a zombie and keep its
     group alive for ever."""
-    quick = _job("quick", "import time; time.sleep(0.5); raise SystemExit(3)")
+    # The job exits when the test says so, after it is adopted: a job that exits on a timer can end before a slow
+    # runner adopts it, which tests the other path.
+    go = tmp_path / "go"
+    quick = _job("quick", f"import pathlib, time; p = pathlib.Path({str(go)!r}); end = time.monotonic() + 60; "
+                          "[time.sleep(0.05) for _ in iter(lambda: p.exists() or time.monotonic() > end, True)]; "
+                          "raise SystemExit(3)")
     await job_store.ring(db_session, "quick", requested_by="cli")
     await db_session.commit()
     before = _dispatcher(db_session, tmp_path, jobs=(quick,))
@@ -418,8 +427,19 @@ async def test_an_adopted_run_that_is_still_our_child_is_reaped_when_it_exits(db
     kept = before.watched[run.id].launched.process  # never polled: the old image's handle is gone
 
     after = _dispatcher(db_session, tmp_path, jobs=(quick,))
-    [(_, verdict)] = await after.adopt()
-    assert verdict.action == "adopt"
+    try:
+        [(_, verdict)] = await after.adopt()
+        assert verdict.action == "adopt"
+    except BaseException:
+        # Only when adoption failed is the old handle used: the job is released and reaped here, within a bound.
+        go.write_text("")
+        try:
+            await asyncio.to_thread(kept.wait, 10)
+        except subprocess.TimeoutExpired:
+            kept.kill()
+            await asyncio.to_thread(kept.wait, 10)
+        raise
+    go.write_text("")
     await _until_settled(after, timeout=10)
     [run] = await _runs(db_session, "quick")
     assert (run.state, run.exit_code) == (job_store.EXITED, 3)

@@ -1,0 +1,186 @@
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using System.Numerics;
+
+namespace RoleBand.EngineHost;
+
+public static class RecoveryGuard
+{
+    private const int ReaderContract = 1;
+    public static void RequireLaunchable(string state)
+    {
+        RequireUpdateSettled(state);
+        RequireRestoreResolved(state);
+        var marker = Path.Combine(state, "db.auth", "cluster.json");
+        if (Path.Exists(marker))
+        {
+            using var document = Parse(marker);
+            Storage(document.RootElement, state, true);
+        }
+        RequireDrillResolved(state);
+    }
+
+    private static void RequireDrillResolved(string state)
+    {
+        var directory = Path.Combine(state, "recovery");
+        if (!Path.Exists(directory)) return;
+        PrivateStorage.Verify(directory, true);
+        var path = Path.Combine(directory, "check.json");
+        if (!Path.Exists(path)) return;
+        try
+        {
+            using var document = JsonDocument.Parse(PrivateStorage.Read(path, 128 * 1024));
+            var root = document.RootElement;
+            var phase = root.GetProperty("phase").GetString();
+            var attempts = root.GetProperty("attempts").EnumerateArray().Select(item => item.GetString()).ToArray();
+            if (root.GetProperty("format").GetInt32() != 1 || root.GetProperty("kind").GetString() != "checkpoint-drill"
+                || root.GetProperty("state").GetString() != state
+                || phase is not ("verifying" or "failed" or "verified" or "abandoned")
+                || !Path.IsPathFullyQualified(root.GetProperty("checkpoint").GetString()!)
+                || !Hex(root.GetProperty("manifest_sha256").GetString(), 64)
+                || !Hex(root.GetProperty("archive_sha256").GetString(), 64)
+                || attempts.Length is < 1 or > 256 || attempts.Any(item => !Hex(item, 32))
+                || attempts.Distinct().Count() != attempts.Length)
+                throw new IOException("The recovery journal is damaged or unsupported. Preserve it for repair.");
+            if (phase is not ("verified" or "abandoned"))
+                throw new IOException("A recovery check is unfinished. The current database has not been replaced. "
+                    + "Use the recovery retry command, or recovery abandon to keep the current database. "
+                    + $"Retained state: {state}");
+        }
+        catch (Exception error) when (error is JsonException or KeyNotFoundException or InvalidOperationException or ArgumentException or FormatException)
+        {
+            throw new IOException("The recovery journal is damaged or unsupported. Preserve it for repair.", error);
+        }
+    }
+
+    private static readonly string[] UpdateKeys =
+        ["format", "kind", "id", "state", "from_version", "to_version", "package", "package_sha256", "phase"];
+
+    // The engine settles `applying` (desktop.py update resume) before this runs; `preparing` is
+    // allowed because the engine lease already keeps a second engine out.
+    private static void RequireUpdateSettled(string state)
+    {
+        var directory = Path.Combine(state, "recovery");
+        if (!Path.Exists(directory)) return;
+        PrivateStorage.Verify(directory, true);
+        var path = Path.Combine(directory, "update.json");
+        if (!Path.Exists(path)) return;
+        string phase, from, to;
+        try
+        {
+            using var document = JsonDocument.Parse(PrivateStorage.Read(path, 64 * 1024));
+            var root = document.RootElement;
+            phase = root.GetProperty("phase").GetString()!;
+            from = root.GetProperty("from_version").GetString()!;
+            to = root.GetProperty("to_version").GetString()!;
+            if (root.EnumerateObject().Select(property => property.Name).Order().SequenceEqual(UpdateKeys.Order()) is false
+                || root.GetProperty("format").ValueKind != JsonValueKind.Number || root.GetProperty("format").GetInt32() != 1
+                || root.GetProperty("kind").GetString() != "package-update" || root.GetProperty("state").GetString() != state
+                || !Hex(root.GetProperty("id").GetString(), 32)
+                || phase is not ("applying" or "preparing" or "complete" or "failed" or "aborted" or "recovering" or "recovered")
+                || !Path.IsPathFullyQualified(root.GetProperty("package").GetString()!)
+                || !Hex(root.GetProperty("package_sha256").GetString(), 64)
+                || Version(from) is not { } older || Version(to) is not { } newer || older.CompareTo(newer) >= 0)
+                throw new IOException("The update journal is damaged or unsupported. Preserve it for repair.");
+        }
+        catch (Exception error) when (error is JsonException or KeyNotFoundException or InvalidOperationException or ArgumentException or FormatException)
+        {
+            throw new IOException("The update journal is damaged or unsupported. Preserve it for repair.", error);
+        }
+        if (phase is "applying" or "failed" or "recovering")
+            throw new IOException($"A Windows update from {from} to {to} is unfinished. Open RoleBand to finish or "
+                + "recover it before anything else uses the database.");
+    }
+
+    private static (int, int, int)? Version(string value)
+    {
+        var match = Regex.Match(value, "\\A(0|[1-9][0-9]{0,4})\\.(0|[1-9][0-9]{0,4})\\.(0|[1-9][0-9]{0,4})\\z");
+        if (!match.Success) return null;
+        var parts = match.Groups.Values.Skip(1).Select(group => int.Parse(group.Value)).ToArray();
+        return parts.Any(part => part > 65535) ? null : (parts[0], parts[1], parts[2]);
+    }
+
+    private static void RequireRestoreResolved(string state)
+    {
+        var directory = Path.Combine(state, "recovery");
+        if (!Path.Exists(directory)) return;
+        PrivateStorage.Verify(directory, true);
+        var path = Path.Combine(directory, "restore.json");
+        if (!Path.Exists(path)) return;
+        try
+        {
+            using var document = Parse(path);
+            var root = document.RootElement;
+            var phase = root.GetProperty("phase").GetString();
+            var attempts = root.GetProperty("attempts").EnumerateArray().Select(item => item.GetString()).ToArray();
+            var profile = root.GetProperty("profile");
+            if (root.GetProperty("format").GetInt32() != 1 || root.GetProperty("kind").GetString() != "checkpoint-restore"
+                || root.GetProperty("state").GetString() != state || !Hex(root.GetProperty("id").GetString(), 32)
+                || phase is not ("preparing" or "prepared" or "retaining" or "installing" or "checking" or "complete" or "aborted"
+                    or "reinstating" or "reinstated")
+                || !Path.IsPathFullyQualified(root.GetProperty("checkpoint").GetString()!)
+                || !Hex(root.GetProperty("manifest_sha256").GetString(), 64) || !Hex(root.GetProperty("archive_sha256").GetString(), 64)
+                || attempts.Length > 256 || attempts.Any(item => !Hex(item, 32)) || attempts.Distinct().Count() != attempts.Length
+                || (phase is not ("preparing" or "aborted") && attempts.Length == 0)
+                || profile.EnumerateObject().Count() != 3 || !Hex(profile.GetProperty("owner").GetString(), 64)
+                || !Hex(profile.GetProperty("password").GetString(), 64)
+                || (profile.GetProperty("key").ValueKind != JsonValueKind.Null && !Hex(profile.GetProperty("key").GetString(), 64)))
+                throw new IOException("The restore journal is damaged or unsupported. Preserve it for repair.");
+            Storage(root.GetProperty("original_metadata"), state, false);
+            Identity(root.GetProperty("original_directory"));
+            if (phase is not ("preparing" or "aborted")) Identity(root.GetProperty("restored_directory"));
+            if (phase is not ("complete" or "aborted" or "reinstated"))
+                throw new IOException("Database restore is unfinished. With a compatible signed repair package, use restore "
+                    + "resume to finish it or restore reinstate to return the original database.");
+        }
+        catch (Exception error) when (error is JsonException or KeyNotFoundException or InvalidOperationException or ArgumentException or FormatException or OverflowException)
+        {
+            throw new IOException("The restore journal is damaged or unsupported. Preserve it for repair.", error);
+        }
+    }
+
+    private static JsonDocument Parse(string path)
+    {
+        try { return JsonDocument.Parse(PrivateStorage.Read(path, 128 * 1024)); }
+        catch (JsonException error) { throw new IOException("Retained Windows metadata is damaged. Preserve it for repair.", error); }
+    }
+
+    private static void Storage(JsonElement root, string state, bool requireReader)
+    {
+        try
+        {
+            // A writer that changes the record declares the reader it needs. Its other fields may be
+            // unknown here, so that floor is read before the shape: an older engine then asks for a
+            // newer one instead of reporting damage.
+            if (requireReader && root.ValueKind == JsonValueKind.Object
+                && root.TryGetProperty("format", out var declared) && Integer(declared) is >= 2
+                && root.TryGetProperty("minimum_reader", out var floorValue) && Integer(floorValue) is { } floor
+                && floor > ReaderContract && floor <= 65535)
+                throw new IOException($"This database requires Windows reader contract {floor}; this engine supports {ReaderContract}. Install a compatible signed package or use a compatible recovery checkpoint.");
+            var format = root.GetProperty("format").GetInt32();
+            if (format is not (1 or 2) || root.EnumerateObject().Count() != (format == 1 ? 3 : 4)
+                || root.GetProperty("pgdata").GetString() != Path.Combine(state, "db") || root.GetProperty("version").GetInt32() != 16)
+                throw new IOException("Windows storage metadata is damaged or names another cluster.");
+            var minimum = format == 1 ? 1 : root.GetProperty("minimum_reader").GetInt32();
+            if (minimum is < 1 or > 65535) throw new IOException("Windows storage metadata is damaged: its reader contract is invalid.");
+        }
+        catch (Exception error) when (error is KeyNotFoundException or InvalidOperationException or FormatException or OverflowException)
+        { throw new IOException("Windows storage metadata is damaged. Preserve it for repair.", error); }
+    }
+
+    private static int? Integer(JsonElement value) =>
+        value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var number) ? number : null;
+
+    private static void Identity(JsonElement value)
+    {
+        // Volume serial, then a nonzero file ID; "-0" is a JSON integer equal to zero.
+        var items = value.EnumerateArray().ToArray();
+        if (items.Length != 2 || items.Any(item => item.ValueKind != JsonValueKind.Number
+                || !BigInteger.TryParse(item.GetRawText(), out _))
+            || BigInteger.Parse(items[0].GetRawText()) < 0 || BigInteger.Parse(items[1].GetRawText()) <= 0)
+            throw new IOException("The restore journal is damaged: a directory identity is invalid. Preserve it for repair.");
+    }
+
+    private static bool Hex(string? value, int length) => value is not null
+        && value.Length == length && Regex.IsMatch(value, "\\A[0-9a-f]+\\z");
+}

@@ -213,6 +213,16 @@ class BundleTests(unittest.TestCase):
                 self.lock_fixture(lock)
                 with self.assertRaises(ValueError):
                     bundle.check_runtime_lock(self.root)
+        # A package only Windows needs is not part of the Mac runtime; one the Mac needs still is.
+        for marker, required in [('sys_platform == "win32"', False), ("sys_platform == 'darwin'", True),
+                                 ('sys_platform != "win32"', True), ('sys_platform != "darwin"', False)]:
+            with self.subTest(marker):
+                self.lock_fixture(good, requirements=f'alpha==1.0\nbeta==2.0\ndelta==4.0; {marker}\n')
+                if required:
+                    with self.assertRaisesRegex(ValueError, 'delta'):
+                        bundle.check_runtime_lock(self.root)
+                else:
+                    bundle.check_runtime_lock(self.root)
 
     def test_binaries_that_need_a_macos_newer_than_14_are_refused(self):
         app = self.root / 'RoleBand.app'

@@ -21,6 +21,7 @@ Contracts:
 from __future__ import annotations
 
 import asyncio
+import ctypes
 import importlib.util
 import json
 import os
@@ -50,6 +51,7 @@ from tracker.db.models import (
 )
 from tracker.db.queries.reference_pay import package_rows, pay_level_rows
 from tracker.levels.words import rung_band
+from tracker.platform.paths import venv_python
 from tracker.platform.ratelimit import RateLimiter
 from tracker.plugins import store
 from tracker.plugins.host import HostConfig, NotRunnable, pacing_delay, run_job
@@ -95,9 +97,11 @@ def _config(row: PluginInstall, web: Web, **kw) -> HostConfig:
     tested on its own, so these runs do not wait the core's 2 s per request."""
     home = Path(row.source_dir)
     kw.setdefault("stall_seconds", 30)
+    kw.setdefault("spawn", spawn_runner)
+    kw.setdefault("send_signal", REAL_KILL)
     return HostConfig(python=sys.executable, pythonpath=[str(SDK), str(home / "src")],
                       data_dir=home.parent / "data", client=web.client(),
-                      limiter=RateLimiter(2.0, sleep=_no_sleep), spawn=spawn_runner, send_signal=REAL_KILL, **kw)
+                      limiter=RateLimiter(2.0, sleep=_no_sleep), **kw)
 
 
 async def _run(db, row, web, **kw):
@@ -308,7 +312,7 @@ async def test_the_host_runs_the_approved_copy_ahead_of_the_venv_s(db_session, t
     row = await _installed(db_session, tmp_path)
     config = installed_config(row)
     home = Path(row.source_dir).parent
-    assert config.python == str(home / "venv" / "bin" / "python")
+    assert config.python == str(venv_python(home / "venv"))
     assert config.pythonpath == [str(SDK), str(Path(row.source_dir) / "src")]
     assert config.data_dir == home / "data"
 
@@ -370,7 +374,19 @@ async def test_the_runner_is_isolated_and_starts_where_the_plugin_cannot_write(d
     assert "isolated=1" in said
     cwd = said.split("cwd=", 1)[1].split(" ", 1)[0]
     home = str(Path(row.source_dir).parent)
-    assert not cwd.startswith(home) and not os.access(cwd, os.W_OK)
+    assert not cwd.startswith(home)
+    if sys.platform == "win32" and ctypes.windll.shell32.IsUserAnAdmin():
+        # An elevated run may write anywhere, so no attempt can tell; the folder is the one ordinary accounts cannot write.
+        assert Path(cwd) == Path(os.environ["SystemRoot"])
+    else:
+        # A real attempt: `os.access` on Windows reads only the read-only attribute, never the folder's access list.
+        probe_dir = Path(cwd) / f"plugin-probe-{os.getpid()}"
+        try:
+            with pytest.raises(PermissionError):
+                probe_dir.mkdir()
+        finally:
+            if probe_dir.is_dir():
+                probe_dir.rmdir()
     assert said.split("path0=", 1)[1] == str(SDK), "the SDK this core ships leads the path, never ''"
 
 
@@ -789,8 +805,28 @@ async def test_the_plugin_environment_carries_nothing_of_ours(db_session, tmp_pa
     assert result.outcome == "partial" or result.outcome == "clean"
     keys = next(m for m in logged if m.startswith("plugin:plugin-template ")).split(" ", 1)[1].split(",")
     assert "ROLEBAND_DATABASE_URL" not in keys and "ANTHROPIC_API_KEY" not in keys
-    assert set(keys) <= {"PATH", "HOME", "LANG", "LC_ALL", "TMPDIR",
-                         "__CF_USER_TEXT_ENCODING", "LC_CTYPE"}
+    allowed = {"PATH", "HOME", "LANG", "LC_ALL", "TMPDIR", "__CF_USER_TEXT_ENCODING", "LC_CTYPE"}
+    if sys.platform == "win32":
+        # The system, temporary and profile folders any process there needs.
+        allowed |= {"SYSTEMROOT", "TEMP", "TMP", "USERPROFILE"}
+    assert set(keys) <= allowed
+
+
+@pytest.mark.parametrize(("system", "machine", "expected"), [
+    ("win32", "AMD64", "windows-x86_64.txt"),
+    ("darwin", "arm64", "macos-arm64.txt"),
+    ("linux", "x86_64", "linux-x86_64.txt"),
+    ("linux", "aarch64", "linux-aarch64.txt"),
+])
+async def test_an_unlocked_plugin_installs_under_its_own_platform_s_pins(monkeypatch, system, machine, expected):
+    """Each platform's pins differ: on Windows the Linux file names versions the core does not run."""
+    from tracker.plugins import install as installer
+
+    monkeypatch.setattr(installer.sys, "platform", system)
+    monkeypatch.setattr(installer.platform, "machine", lambda: machine)
+    constraints = installer.constraints_file()
+    assert constraints.name == expected
+    assert constraints.is_file()
 
 
 async def test_a_plugin_is_paced_at_its_own_delay_never_faster_than_the_core():
@@ -916,6 +952,50 @@ async def test_a_stop_ends_the_run_stopped_and_serves_nothing_after(db_session, 
     result = await run_job(db_session, row.plugin_id, "refresh", trigger="cli", config=_config(row, web), stop=stop)
     assert result.outcome == "stopped" and result.retired == 0
     assert web.requests == [] and await plugin_levels(db_session) == []
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows process control requires Windows")
+async def test_a_stop_whose_runner_has_already_exited_still_closes_the_run(db_session, tmp_path, monkeypatch):
+    """A runner can finish between the host's stop and its signal. On Windows a signal to a process that has exited
+    but was not yet waited for is refused as access denied; the run closes `stopped` all the same, and is never
+    left `running`."""
+    import psutil
+
+    await seed_plugin_companies(db_session)
+    quick = tmp_path / "quick"
+    shutil.copytree(TEMPLATE, quick)
+    (quick / "src" / "roleband_plugin_template" / "__init__.py").write_text(
+        "from roleband_plugin_sdk import Plugin\nplugin = Plugin()\n\n"
+        "@plugin.job('refresh')\ndef refresh(ctx):\n    pass\n")
+    row = await _installed(db_session, tmp_path, source=quick)
+    runners: list[psutil.Process] = []
+
+    def once_exited(send):
+        def late(*args):
+            # The runner ends on its own before the signal lands.
+            runners[0].wait(timeout=20)
+            return send(*args)
+        return late
+
+    async def spawn(*args, **kwargs):
+        proc = await spawn_runner(*args, **kwargs)
+        runners.append(psutil.Process(proc.pid))
+        for name in ("send_signal", "terminate", "kill"):
+            setattr(proc, name, once_exited(getattr(proc, name)))
+        return proc
+
+    def kill(pid, sig):
+        assert pid == runners[0].pid, "only the runner this test started is signalled"
+        REAL_KILL(pid, sig)
+
+    monkeypatch.setattr(os, "kill", once_exited(kill))
+    stop = asyncio.Event()
+    stop.set()
+    config = _config(row, Web(), spawn=spawn, send_signal=None)
+    result = await run_job(db_session, row.plugin_id, "refresh", trigger="cli", config=config, stop=stop)
+    assert result.outcome == "stopped"
+    run = await db_session.get(PluginRun, result.run_id, populate_existing=True)
+    assert run.outcome == "stopped" and run.ended_at is not None
 
 
 async def test_an_active_plugin_s_taxonomy_keyed_ladder_reaches_the_estimate_and_the_profile(

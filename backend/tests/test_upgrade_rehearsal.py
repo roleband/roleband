@@ -9,6 +9,7 @@ comes from the `baseline_database` fixture (`tests/upgrade_rehearsal.py`).
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
 import pytest
@@ -362,5 +363,11 @@ def test_a_symlinked_temp_path_is_accepted(tmp_path):
     real = (tmp_path / "real").resolve()
     real.mkdir()
     link = tmp_path / "link"
-    link.symlink_to(real)
+    if sys.platform == "win32":
+        # The same aliasing without the symlink privilege an ordinary Windows account lacks.
+        import _winapi
+
+        _winapi.CreateJunction(str(real), str(link))
+    else:
+        link.symlink_to(real)
     require_own_pgdata(str(real), link)  # must not raise

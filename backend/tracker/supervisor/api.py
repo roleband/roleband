@@ -1,7 +1,7 @@
 """The API, run by the supervisor as its own child.
 
-It shares the supervisor's process group, so it ends when the supervisor ends
-and the next supervisor starts it afresh. The supervisor restarts it when it
+Its process containment ends with the supervisor, and the next supervisor
+starts it afresh. The supervisor restarts it when it
 exits, and when it stops answering `/api/health`: alive but hung is what a
 process watch alone cannot see. Restarts back off (1 s doubling to 60 s), so an
 API that cannot start does not spin.
@@ -10,7 +10,9 @@ API that cannot start does not spin.
 from __future__ import annotations
 
 import asyncio
+import http.client
 import logging
+import socket
 import subprocess
 import sys
 from collections.abc import Mapping, Sequence
@@ -20,6 +22,7 @@ from pathlib import Path
 import httpx
 
 from tracker.db import job_store
+from tracker.platform.local_http import Client, required
 from tracker.platform.paths import backend_dir
 from tracker.supervisor import runner
 
@@ -38,9 +41,11 @@ EXITED = "api_exited"
 UNHEALTHY = "api_unhealthy"
 
 
-def uvicorn_command(python: str, host: str, port: int) -> list[str]:
+def uvicorn_command(python: str, host: str, port: int, *, authenticated: bool = False) -> list[str]:
     # No access log: one line per dashboard poll is most of the volume an
     # always-on API writes, and none of it is read.
+    if authenticated:
+        return [python, "-m", "tracker.supervisor.http_server", "--host", host, "--port", str(port)]
     return [python, "-m", "uvicorn", "tracker.api.app:app", "--host", host, "--port", str(port), "--no-access-log"]
 
 
@@ -61,8 +66,12 @@ class ApiService:
         max_backoff_seconds: float = 60.0,
     ) -> None:
         self.repo_root = repo_root
+        self.data_dir = data_dir
         self.host, self.port = host, port
-        self.command = list(command) if command is not None else uvicorn_command(python, host, port)
+        self.authenticated = required() or (env is not None and (
+            env.get("ROLEBAND_LOCAL_AUTH") == "1" or (sys.platform == "win32" and env.get("ROLEBAND_PACKAGED") == "1")
+        ))
+        self.command = list(command) if command is not None else uvicorn_command(python, host, port, authenticated=self.authenticated)
         self.env = env
         self.log = data_dir / "logs" / "api.log"
         self.start_grace = start_grace_seconds
@@ -70,6 +79,13 @@ class ApiService:
         self.failures_to_restart = failures_to_restart
         self.max_backoff = max_backoff_seconds
         self.process: subprocess.Popen | None = None
+        self._process_identity: datetime | None = None
+        # An authenticated Windows API serves on a socket this supervisor holds for its whole life: the port is
+        # never free between API processes, so no other account's process can take the engine's address.
+        self.shares_listener = sys.platform == "win32" and self.authenticated and command is None
+        self._listener: socket.socket | None = None
+        self._handoff: asyncio.Task[None] | None = None
+        self._handed_to: int | None = None
         self.state = STOPPED
         self.reason: str | None = None
         self.since = datetime.now(UTC)
@@ -91,18 +107,65 @@ class ApiService:
     def _env(self) -> dict[str, str]:
         merged = runner.child_env(self.env, 0, self.repo_root)
         merged.pop(runner.RUN_ENV, None)
+        if self.authenticated:
+            merged["ROLEBAND_LOCAL_AUTH"] = "1"
+            merged["ROLEBAND_STATE_DIR"] = str(self.data_dir)
+        if self.shares_listener:
+            from tracker.supervisor.http_server import SHARED_ENV
+
+            merged[SHARED_ENV] = "1"
         return merged
 
     def _start(self, now: float) -> None:
+        if self.authenticated and sys.platform == "win32":
+            from tracker.platform.windows_private import private_directory
+
+            private_directory(self.data_dir)
+            if self.shares_listener:
+                from tracker.supervisor.http_server import exclusive_socket
+
+                private_directory(self.data_dir / "launcher")
+                if self._listener is None:
+                    self._listener = exclusive_socket(self.host, self.port)
         self.process = runner.start_service(
             self.command, cwd=backend_dir(self.repo_root), env=self._env(), log=self.log
         )
+        if self.shares_listener:
+            self._handoff = asyncio.get_running_loop().create_task(self._hand_over(self.process))
+        self._process_identity = runner.process_started_at(self.process) if sys.platform == "win32" else None
         self._started_at = self._probed_at = now
         self._failures = 0
         self._set(STARTING)
         logger.info("api started (pid %s) on %s:%s", self.process.pid, self.host, self.port)
 
+    async def _hand_over(self, process: subprocess.Popen) -> None:
+        """Give the held socket to the API process, which runs under the Windows trampoline `process` started.
+
+        It waits as long as the trampoline lives: `stop` cancels it, and an API that never asks is never healthy.
+        """
+        from tracker.supervisor.http_server import hand_over
+
+        while process.poll() is None:
+            pid = _requesting(process.pid, self.data_dir)
+            if pid is not None and self._listener is not None:
+                hand_over(self._listener, self.data_dir, pid)
+                self._handed_to = pid
+                return
+            await asyncio.sleep(0.05)
+
+    def close(self) -> None:
+        """Release the held socket once no API will run again; `stop` first."""
+        if self._listener is not None:
+            self._listener.close()
+            self._listener = None
+
     async def _healthy(self) -> bool:
+        if self.authenticated:
+            try:
+                status, _ = await asyncio.to_thread(lambda: Client(self.data_dir).request("GET", "/api/health"))
+                return status == 200
+            except (OSError, ValueError, http.client.HTTPException):
+                return False
         try:
             async with httpx.AsyncClient(timeout=3.0, trust_env=False) as client:
                 response = await client.get(self.url)
@@ -150,17 +213,36 @@ class ApiService:
             await self._end(now, UNHEALTHY)
 
     async def stop(self, grace_seconds: float = 30.0) -> None:
-        """SIGTERM, time for requests in flight, then SIGKILL."""
+        """Request a stop, allow requests in flight, then force termination."""
         process, self.process = self.process, None
+        identity, self._process_identity = self._process_identity, None
+        handoff, self._handoff = self._handoff, None
+        if handoff is not None and not handoff.done():
+            handoff.cancel()
+        handed_to, self._handed_to = self._handed_to, None
+        if handed_to is not None:
+            from tracker.supervisor.http_server import handoff_path
+
+            # Only that process could use it; one that died before reading it leaves nothing behind.
+            handoff_path(self.data_dir, handed_to).unlink(missing_ok=True)
+        if self.shares_listener:
+            # One API process runs at a time, so any request left is from one that is ending.
+            for request in (self.data_dir / "launcher").glob("api-listener-*.request"):
+                request.unlink(missing_ok=True)
         if process is None:
             return
         if process.poll() is None:
-            process.terminate()
-            try:
-                await asyncio.to_thread(process.wait, grace_seconds)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                await asyncio.to_thread(process.wait)
+            if sys.platform == "win32":
+                await runner.stop_group(
+                    process.pid, grace_seconds, reap=process.poll, run_id=0, proc_started_at=identity,
+                )
+            else:
+                process.terminate()
+                try:
+                    await asyncio.to_thread(process.wait, grace_seconds)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    await asyncio.to_thread(process.wait)
         self._set(STOPPED)
 
     def status(self) -> job_store.Status:
@@ -170,3 +252,16 @@ class ApiService:
         return job_store.Status(
             key=KEY, job=KEY, state=self.state, reason=self.reason, since=self.since, detail=detail
         )
+
+
+def _requesting(trampoline: int, data: Path) -> int | None:
+    """The process under `trampoline` that has asked for the socket, if one has."""
+    import psutil
+
+    from tracker.supervisor.http_server import request_path
+
+    try:
+        descendants = psutil.Process(trampoline).children(recursive=True)
+    except psutil.Error:
+        return None
+    return next((process.pid for process in descendants if request_path(data, process.pid).exists()), None)

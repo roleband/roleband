@@ -49,7 +49,7 @@ from tracker.workflows.collection_types import empty_stats
 
 NOW = datetime(2026, 7, 20, 12, 0, tzinfo=UTC)
 
-#: The process group the live scrape records at open (`os.getpgrp()` in the pipeline).
+#: The process group the live scrape records at open (`os_process.current_run_group()` in the pipeline).
 LIVE_GROUP = 48_213
 
 Roster = Literal["fresh", "mixed", "unscheduled"]

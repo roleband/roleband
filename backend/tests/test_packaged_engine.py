@@ -13,6 +13,11 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 
+# The probes redirect state through HOME. Windows resolves packaged state from
+# the LocalAppData known folder, which no environment variable redirects, so the
+# probe would write into the account's real retained state.
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="macOS bundle state redirects through HOME")
+
 
 @pytest.fixture
 def bundle(tmp_path):

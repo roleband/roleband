@@ -19,6 +19,7 @@ import pytest
 
 from tests import skip_policy
 from tests.plugin_web import TEMPLATE, Web, plugin_levels, seed_plugin_companies
+from tracker.platform.paths import venv_python
 from tracker.platform.ratelimit import RateLimiter
 from tracker.plugins import store
 from tracker.plugins.host import HostConfig, run_job
@@ -52,7 +53,7 @@ async def test_the_installed_template_runs_from_its_own_venv(db_session, tmp_pat
     await store.set_enabled(db_session, row.plugin_id, True)
     await db_session.commit()
     home = tmp_path / "plugins" / row.plugin_id
-    config = HostConfig(python=str(home / "venv" / "bin" / "python"), data_dir=home / "data",
+    config = HostConfig(python=str(venv_python(home / "venv")), data_dir=home / "data",
                         client=Web().client(), limiter=RateLimiter(2.0, sleep=_no_sleep), spawn=REAL_SPAWN)
     result = await run_job(db_session, row.plugin_id, "refresh", trigger="cli", config=config)
     assert result.outcome == "clean", (result.message, result.stderr)

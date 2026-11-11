@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.22000.0</TargetPlatformMinVersion>
+    <SupportedOSPlatformVersion>10.0.22000.0</SupportedOSPlatformVersion>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <SelfContained>true</SelfContained>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>RoleBand.ico</ApplicationIcon>
+    <PublishTrimmed>false</PublishTrimmed>
+    <EnableMsixTooling>false</EnableMsixTooling>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.6.5" />
+    <ProjectReference Include="../RoleBand.EngineHost/RoleBand.EngineHost.csproj" />
+    <EmbeddedResource Include="Tray/*.ico" LogicalName="RoleBand.Tray.%(Filename)%(Extension)" />
+    <Content Include="RoleBand.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../Assets/Square44x44Logo.targetsize-64_altform-unplated.png" Link="Images/AppMark.png"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="PublishNativeResources" AfterTargets="Publish">
+    <ItemGroup>
+      <_NativePublishedResources Include="$(TargetDir)**/*.xbf" />
+      <_NativePublishedResources Include="$(TargetDir)$(AssemblyName).pri" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_NativePublishedResources)"
+          DestinationFiles="@(_NativePublishedResources->'$(PublishDir)%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+</Project>

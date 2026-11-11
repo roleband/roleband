@@ -3,12 +3,35 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 
 from tests.embedded_utils import cluster_locale, destroy, psql
 from tracker.platform.embedded_db import ensure_server
+
+
+def _folder(path: Path) -> Path:
+    """A backup folder as a person's machine has it: private to the account, as the backup itself requires."""
+    if sys.platform == "win32":
+        from tracker.platform.windows_private import private_directory
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        private_directory(path)
+    else:
+        path.mkdir(parents=True)
+    return path
+
+
+def _assert_private(path: Path, mode: int) -> None:
+    if sys.platform == "win32":
+        from tracker.platform.windows_private import require_private
+
+        require_private(path)
+    else:
+        assert path.stat().st_mode & 0o777 == mode, path
 
 
 @pytest.fixture
@@ -24,8 +47,7 @@ def server(tmp_path):
 def test_backup_verifies_publishes_monthly_and_prunes_only_daily(server, tmp_path):
     from tracker.platform.backups import dump_database
 
-    out = tmp_path / "user home" / ".roleband" / "backups"
-    out.mkdir(parents=True)
+    out = _folder(tmp_path / "user home" / ".roleband" / "backups")
     for day in range(1, 16):
         (out / f"roleband_202601{day:02d}_063000.dump").write_bytes(b"prior backup")
     archive = dump_database(server, out, now=datetime(2026, 2, 1, 6, 30))
@@ -37,18 +59,48 @@ def test_backup_verifies_publishes_monthly_and_prunes_only_daily(server, tmp_pat
     assert len(list(out.glob("*.dump"))) == 14
     assert not (out / "roleband_20260101_063000.dump").exists()
     assert (out / "monthly" / archive.name).read_bytes() == archive.read_bytes()
-    assert archive.stat().st_mode & 0o777 == 0o600
-    assert out.stat().st_mode & 0o777 == 0o700
-    assert (out / "monthly").stat().st_mode & 0o777 == 0o700
-    assert all(p.stat().st_mode & 0o777 == 0o600 for p in out.rglob("*.dump"))
+    _assert_private(archive, 0o600)
+    _assert_private(out / "monthly", 0o700)
+    _assert_private(out / "monthly" / archive.name, 0o600)
+    if sys.platform != "win32":
+        # The folder and the dumps this test made: the backup narrows them. On Windows they are private because the
+        # test made them so; a folder that is not is refused (below).
+        _assert_private(out, 0o700)
+        for dump in out.rglob("*.dump"):
+            _assert_private(dump, 0o600)
+
+
+def test_a_backup_folder_the_backup_creates_is_private_to_the_account(server, tmp_path):
+    from tracker.platform.backups import dump_database
+
+    out = tmp_path / "user home" / ".roleband" / "backups"
+    archive = dump_database(server, out, now=datetime(2026, 2, 1, 6, 30))
+    _assert_private(out, 0o700)
+    _assert_private(out / "monthly", 0o700)
+    _assert_private(archive, 0o600)
+    _assert_private(out / "monthly" / archive.name, 0o600)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows private storage requires Windows")
+def test_a_backup_folder_other_accounts_can_open_is_refused_before_anything_is_written(server, tmp_path):
+    """POSIX narrows such a folder's mode instead, as the first test checks."""
+    from tracker.platform.backups import dump_database
+    from tracker.platform.windows_private import require_private
+
+    out = tmp_path / "shared" / "backups"
+    out.mkdir(parents=True)
+    with pytest.raises(PermissionError):
+        require_private(out)  # as made: it inherits what the folders above it grant other accounts
+    with pytest.raises(PermissionError):
+        dump_database(server, out)
+    assert list(out.iterdir()) == [], "no archive, partial file or monthly folder"
 
 
 @pytest.mark.parametrize("failed_tool", ["pg_dump", "pg_restore"])
 def test_failed_dump_or_verification_keeps_prior_archives(server, tmp_path, monkeypatch, failed_tool):
     from tracker.platform import backups
 
-    out = tmp_path / "backups"
-    out.mkdir()
+    out = _folder(tmp_path / "backups")
     prior = out / "roleband_20260101_063000.dump"
     prior.write_bytes(b"prior good backup")
     run = subprocess.run
@@ -70,9 +122,8 @@ def test_empty_database_cannot_supersede_a_prior_monthly_backup(server, tmp_path
     from tracker.platform.backups import BackupError, dump_database
 
     psql(server, "DELETE FROM jobs")
-    out = tmp_path / "backups"
-    monthly = out / "monthly"
-    monthly.mkdir(parents=True)
+    out = _folder(tmp_path / "backups")
+    monthly = _folder(out / "monthly")
     prior = monthly / "roleband_20260101_063000.dump"
     prior.write_bytes(b"only surviving archive")
     with pytest.raises(BackupError, match="empty"):

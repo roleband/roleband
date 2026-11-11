@@ -26,6 +26,7 @@ a real re-embed, and the self-test would reach a real model.
 
 from __future__ import annotations
 
+import sys
 from datetime import timedelta
 from typing import get_args
 
@@ -59,7 +60,7 @@ from tracker.intelligence.provider import (
 )
 from tracker.intelligence_runtime.selftest import EXPECTED_HINT, SAMPLE_POSTING, TEST_TASK
 from tracker.pay_disclosure import DisclosedComp
-from tracker.platform.paths import REPO_ROOT
+from tracker.platform.paths import REPO_ROOT, venv_python
 from tracker.search import fit
 from tracker.semantic import matching as matching_policy
 from tracker.semantic import provision
@@ -642,7 +643,7 @@ async def test_each_band_previews_its_strongest_open_roles_best_first(api_client
 @pytest.mark.asyncio
 async def test_agent_access_is_off_until_saved_and_copy_ready_from_the_start(api_client, machine):
     body = await _call(api_client, "GET", "/api/intelligence/agents")
-    python = str(REPO_ROOT / "backend" / ".venv" / "bin" / "python")
+    python = str(venv_python(REPO_ROOT / "backend" / ".venv"))
     cwd = str(REPO_ROOT / "backend")
     assert list(body) == _fields(contract.AgentAccessResponse)
     assert body == {
@@ -670,6 +671,20 @@ async def test_agent_access_is_off_until_saved_and_copy_ready_from_the_start(api
         "claude_json": {"mcpServers": {"roleband": {"command": python, "args": ["-m", "tracker.mcp.server"],
                                                    "cwd": cwd}}},
     }
+
+
+def test_the_codex_command_is_quoted_for_the_shell_it_is_pasted_into(monkeypatch):
+    """An installed interpreter's path can hold a space; the command is pasted into a terminal as it is."""
+    from tracker.agents.config import AgentAccessConfig
+    from tracker.api.routers import intelligence
+
+    windows = sys.platform == "win32"
+    python = r"C:\Program Files\Role Band\python.exe" if windows else "/Applications/Role Band.app/python"
+    monkeypatch.setattr(intelligence, "PACKAGED", True)
+    monkeypatch.setattr(intelligence.sys, "executable", python)
+    command = intelligence._agent_connection_state(AgentAccessConfig())["codex_command"]
+    quoted = f'"{python}"' if windows else f"'{python}'"
+    assert command.startswith(f"codex mcp add roleband -- {quoted} -I "), command
 
 
 @pytest.mark.asyncio

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import webbrowser
 from pathlib import Path
 
 from tracker import __version__
@@ -13,7 +14,8 @@ from tracker.platform.launcher import (
     register_installation,
     unregister_installation,
 )
-from tracker.platform.paths import REPO_ROOT
+from tracker.platform.local_http import Client
+from tracker.platform.paths import DATA_DIR, REPO_ROOT
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +35,13 @@ def refresh_registration() -> bool:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("register", "unregister"))
+    parser.add_argument("action", choices=("register", "unregister", "open"))
     args = parser.parse_args()
+    if args.action == "open":
+        url = Client(DATA_DIR).browser_url()
+        if not webbrowser.open(url):
+            raise OSError("The browser did not open")
+        return
     if args.action == "register":
         changed = refresh_registration()
     else:

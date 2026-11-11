@@ -6,6 +6,8 @@ Pure, no server: `test_embedded_db.py` starts real clusters with a preset.
 
 from __future__ import annotations
 
+import sys
+
 import pytest
 from pydantic import ValidationError
 
@@ -90,6 +92,15 @@ def test_the_model_reads_memory_through_the_one_reader():
     assert provision.detect_total_ram_bytes is memory.total_memory_bytes
     measured = memory.total_memory_bytes()
     assert measured is not None and measured > 0
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows memory reader requires Windows")
+def test_windows_reads_installed_memory_exactly():
+    """A misdeclared structure or a wrong unit still returns a positive number;
+    psutil reads the same quantity independently."""
+    import psutil
+
+    assert memory.total_memory_bytes() == psutil.virtual_memory().total
 
 
 def test_without_a_named_preset_the_memory_picks():

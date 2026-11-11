@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+         xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+         xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+         xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+         xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+         xmlns:virtualization="http://schemas.microsoft.com/appx/manifest/virtualization/windows10"
+         IgnorableNamespaces="uap uap5 uap10 rescap virtualization">
+  <Identity Name="RoleBand.Windows.Trial" Publisher="CN=RoleBand Windows Trial" Version="0.1.1.1" ProcessorArchitecture="x64" />
+  <Properties>
+    <DisplayName>RoleBand Windows trial</DisplayName>
+    <PublisherDisplayName>RoleBand</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <virtualization:FileSystemWriteVirtualization>
+      <virtualization:ExcludedDirectories>
+        <virtualization:ExcludedDirectory>$(KnownFolder:LocalAppData)\RoleBandTrials</virtualization:ExcludedDirectory>
+      </virtualization:ExcludedDirectories>
+    </virtualization:FileSystemWriteVirtualization>
+  </Properties>
+  <Resources>
+    <Resource Language="en-us" />
+    <Resource Language="es" />
+    <Resource Language="zh-Hans" />
+  </Resources>
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.22000.0" MaxVersionTested="10.0.26200.0" />
+  </Dependencies>
+  <Applications>
+    <Application Id="App" Executable="RoleBand.App.exe" EntryPoint="Windows.FullTrustApplication"
+                 uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL">
+      <uap:VisualElements DisplayName="RoleBand Windows trial" Description="RoleBand synthetic development trial"
+                          Square150x150Logo="Assets\Square150x150Logo.png"
+                          Square44x44Logo="Assets\Square44x44Logo.png" BackgroundColor="transparent" />
+      <Extensions>
+        <!-- Open at login: off until the person turns it on during setup or in the panel. -->
+        <uap5:Extension Category="windows.startupTask" Executable="RoleBand.App.exe" EntryPoint="Windows.FullTrustApplication">
+          <uap5:StartupTask TaskId="RoleBandAtLogin" Enabled="false" DisplayName="RoleBand" />
+        </uap5:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+    <rescap:Capability Name="unvirtualizedResources" />
+  </Capabilities>
+</Package>

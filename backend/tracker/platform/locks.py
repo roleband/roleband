@@ -1,10 +1,10 @@
-"""Cross-process mutual exclusion: ``fcntl.flock`` file lock + Postgres
+"""Cross-process mutual exclusion: a file lock (``filelock``) + Postgres
 advisory-lock helpers.
 
-The flock is the primary guard against two pipeline runs overlapping (a
-scheduled run racing a watchdog catch-up, or a manual CLI). The OS releases an
-``flock`` automatically when the holding process dies, so a crashed or hung run
-never leaves a stale lock behind — no timestamp/pid cleanup needed.
+The file lock is the primary guard against two pipeline runs overlapping (a
+scheduled run racing a watchdog catch-up, or a manual CLI). The OS releases it
+automatically when the holding process dies, so a crashed or hung run never
+leaves a stale lock behind — no timestamp/pid cleanup needed.
 
 The advisory helpers provide session-scoped run exclusion and
 transaction-scoped read-modify-write serialization across processes sharing
@@ -14,13 +14,14 @@ one database.
 from __future__ import annotations
 
 import asyncio
-import fcntl
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
+
+from tracker.platform import filelock
 
 
 class AlreadyRunning(RuntimeError):
@@ -31,16 +32,16 @@ class AlreadyRunning(RuntimeError):
 def run_lock(path: str | Path) -> Iterator[None]:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    handle = open(path, "w")  # noqa: SIM115 - held open for the lock's lifetime
+    handle = open(path, "w", encoding="utf-8")  # noqa: SIM115 - held open for the lock's lifetime
     try:
         try:
-            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            filelock.lock(handle, blocking=False)
         except OSError as exc:
             raise AlreadyRunning(f"run lock held: {path}") from exc
         try:
             yield
         finally:
-            fcntl.flock(handle, fcntl.LOCK_UN)
+            filelock.unlock(handle)
     finally:
         handle.close()
 

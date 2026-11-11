@@ -174,6 +174,10 @@ WITH_ARGUMENTS: dict[str, Callable[[Sequence[str]], Coroutine[Any, Any, Any]]] =
 
 
 def main(argv: list[str] | None = None) -> int:
+    if sys.platform == "win32":
+        import signal
+
+        signal.signal(signal.SIGBREAK, signal.default_int_handler)
     args = sys.argv[1:] if argv is None else argv
     name, rest = (args[0], args[1:]) if args else ("", [])
     if not (name in ENTRIES and not rest) and name not in WITH_ARGUMENTS:

@@ -20,7 +20,6 @@ unapproved code.
 from __future__ import annotations
 
 import hashlib
-import os
 import platform
 import shutil
 import subprocess
@@ -32,7 +31,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.db.models import PluginInstall
-from tracker.platform.paths import PACKAGED, REPO_ROOT, backend_dir
+from tracker.platform.paths import PACKAGED, REPO_ROOT, backend_dir, venv_python
 from tracker.plugin_manifest import COMPANY_FACTS, fact_rank_of
 from tracker.plugins import store, writer
 
@@ -42,10 +41,6 @@ LOCK_FILES = ("pylock.toml", "uv.lock", "requirements.lock")
 #: The one lock format pip installs, every pin with its hash. A plugin with
 #: another lock exports this one (`uv export --format requirements-txt`).
 PIP_LOCK = "requirements.lock"
-#: What pip, and the plugin's build backend it runs, see of our environment:
-#: what the plugin's own runs see (`roleband_plugin_sdk.launch.PASSED_ENV`), no
-#: address or key of ours.
-BUILD_ENV = ("PATH", "HOME", "LANG", "LC_ALL", "TMPDIR")
 SDK_DIR = REPO_ROOT / "sdk" / "python"
 #: The SDK depends on it and neither is on an index, so a plugin's venv
 #: installs both from this checkout.
@@ -143,8 +138,12 @@ def inspect(source: Path) -> Inspected:
 
 def constraints_file() -> Path:
     machine = platform.machine().lower()
-    name = "macos-arm64.txt" if sys.platform == "darwin" else (
-        "linux-aarch64.txt" if machine in ("aarch64", "arm64") else "linux-x86_64.txt")
+    if sys.platform == "win32":
+        name = "windows-x86_64.txt"
+    elif sys.platform == "darwin":
+        name = "macos-arm64.txt"
+    else:
+        name = "linux-aarch64.txt" if machine in ("aarch64", "arm64") else "linux-x86_64.txt"
     return backend_dir(REPO_ROOT) / "constraints" / name
 
 
@@ -178,9 +177,11 @@ def pip_steps(python: Path, src: Path) -> list[list[str]]:
 
 
 def build_env() -> dict[str, str]:
-    env = {k: os.environ[k] for k in BUILD_ENV if k in os.environ}
-    env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
-    return env
+    """What pip, and the plugin's build backend it runs, see of our environment: what the plugin's own runs see
+    (`roleband_plugin_sdk.launch.PASSED_ENV`), no address or key of ours."""
+    from roleband_plugin_sdk.launch import runner_env
+
+    return {**runner_env(), "PIP_DISABLE_PIP_VERSION_CHECK": "1"}
 
 
 def build_venv(home: Path, *, src: Path | None = None, into: Path | None = None) -> Path:
@@ -191,7 +192,7 @@ def build_venv(home: Path, *, src: Path | None = None, into: Path | None = None)
     if venv.exists():
         shutil.rmtree(venv)
     subprocess.run([sys.executable, "-m", "venv", str(venv)], check=True, env=build_env())
-    python = venv / "bin" / "python"
+    python = venv_python(venv)
     for step in pip_steps(python, src or home / "src"):
         subprocess.run(step, check=True, env=build_env())
     return python

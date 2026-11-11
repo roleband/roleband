@@ -57,3 +57,16 @@ def test_an_unreadable_machine_is_utc(monkeypatch, tmp_path):
     monkeypatch.setenv("TZ", "Not/AZone")
     monkeypatch.setattr(zone_module, "_LOCALTIME", tmp_path / "missing")
     assert local_zone() == ZoneInfo("UTC")
+
+
+def test_the_zone_the_windows_host_names_is_read_after_tz(monkeypatch, tmp_path):
+    """Windows keeps no IANA zone of its own; the host passes the one it converts."""
+    monkeypatch.setattr(zone_module, "_LOCALTIME", tmp_path / "missing")
+    monkeypatch.delenv("TZ", raising=False)
+    monkeypatch.setenv(zone_module.WINDOWS_ZONE, FAR)
+    assert local_zone() == ZoneInfo(FAR)
+    monkeypatch.setenv("TZ", "UTC")
+    assert local_zone() == ZoneInfo("UTC"), "TZ still overrides"
+    monkeypatch.delenv("TZ")
+    monkeypatch.setenv(zone_module.WINDOWS_ZONE, "Not/AZone")
+    assert local_zone() == ZoneInfo("UTC")

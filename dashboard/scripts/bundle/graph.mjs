@@ -3,14 +3,16 @@
 // CSS, and the modules inside them. Pure: it reads a Rolldown bundle, it writes
 // nothing. `plugins.mjs` feeds it from the real build, `check-bundle-size.mjs`
 // from the stubbed one.
+import { posix } from "node:path";
 
 /** A module id as the gate names it: dashboard-relative, no bundler \0 prefix
  *  and no query, so the same file reads the same in every build and checkout. */
 function moduleName(id, root) {
-  let name = id.replace(/^\0/, "").replace(/\?.*$/, "");
+  let name = id.replace(/^\0/, "").replace(/\?.*$/, "").replaceAll("\\", "/");
   const nm = name.lastIndexOf("/node_modules/");
   if (nm >= 0) return name.slice(nm + 1);
-  if (root && name.startsWith(root + "/")) name = name.slice(root.length + 1);
+  const base = root ? posix.normalize(root.replaceAll("\\", "/")).replace(/\/$/, "") : "";
+  if (base && name.startsWith(base + "/")) name = name.slice(base.length + 1);
   return name;
 }
 

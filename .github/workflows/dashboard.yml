@@ -51,6 +51,7 @@ jobs:
             launcher/contracts/status-cases.json
             launcher/macos/Sources/LauncherCore/Resources/**
             launcher/macos/Tools/ci_changes.py
+            launcher/windows/RoleBand.EngineHost/Resources/**
             .nvmrc
             .github/workflows/dashboard.yml
         run: python3 launcher/macos/Tools/ci_changes.py

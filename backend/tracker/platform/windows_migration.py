@@ -1,0 +1,79 @@
+"""Protect retained Windows data with a verified checkpoint before its schema changes."""
+
+from __future__ import annotations
+
+import sys
+import uuid
+from collections.abc import Iterable
+from datetime import UTC, datetime
+from pathlib import Path
+
+from tracker.platform.embedded_db import EmbeddedServer
+
+if sys.platform != "win32":
+    raise ImportError("Windows migration checkpoints require Windows")
+
+#: Names the latest pre-migration checkpoint, for `restore begin` with the previous package.
+RECORD = Path("recovery") / "pre-migration.json"
+
+
+def _preparing_update(state: Path) -> str | None:
+    """The update this preparation belongs to, which recovery restores this checkpoint for."""
+    from tracker.platform import windows_update_journal
+
+    update = windows_update_journal.read(state)
+    return update["id"] if update is not None and update["phase"] == "preparing" else None
+
+
+def checkpoint_before_migration(server: EmbeddedServer, state: Path, current: Iterable[str],
+                                target: Iterable[str]) -> Path:
+    """Return a verified bound checkpoint of the database as it is before migrating.
+
+    Raises instead of returning when none can be made, so the caller never migrates
+    unprotected data. A retry after a failed migration reuses the recorded checkpoint
+    when the database still matches it, since a failed upgrade rolls back.
+    """
+    from tracker.platform.windows_checkpoint import (
+        PRE_MIGRATION,
+        CheckpointError,
+        create_checkpoint,
+        intact,
+        still_matches,
+    )
+    from tracker.platform.windows_private import private_directory
+    from tracker.platform.windows_storage import StorageCompatibilityError, read_json, write_json
+
+    record = state / RECORD
+    if record.exists():
+        update = _preparing_update(state)
+        try:
+            recorded = read_json(record)
+        except StorageCompatibilityError as error:
+            # Unreadable, the record may be the one from before this update (the update journal counts it as
+            # migrated), and a new checkpoint would take its place.
+            if update is not None:
+                raise CheckpointError("The checkpoint record from before this update is damaged; preserve it for repair") from error
+            recorded = {}
+        previous = Path(str(recorded.get("checkpoint", "")))
+        # An update has one way back: the checkpoint from before its first migration. A newer release taking over a
+        # failed update migrates whatever the failed version left, never ready and never written to by the person,
+        # and Undo still restores the data from before either. A new checkpoint would hold what that migration left,
+        # so without the whole one from before, nothing migrates.
+        if update is not None and recorded.get("update_id") == update:
+            if not previous.is_absolute() or intact(server, previous) is None:
+                raise CheckpointError("The checkpoint from before this update is damaged; preserve it for repair")
+            return previous
+        if previous.is_absolute() and still_matches(server, previous):
+            if recorded.get("update_id") != update:
+                write_json(record, {**recorded, "update_id": update})
+            return previous
+    name = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
+    checkpoints, checks = state / "recovery" / "pre-migration", state / "recovery" / "pre-migration-checks"
+    private_directory(state / "recovery")
+    private_directory(checkpoints)
+    private_directory(checks)
+    checkpoint = create_checkpoint(server, checkpoints / name, checks / name, purpose=PRE_MIGRATION)
+    write_json(record, {"format": 1, "checkpoint": str(checkpoint), "from_heads": sorted(current),
+                        "to_heads": sorted(target), "created_at": datetime.now(UTC).isoformat(),
+                        "update_id": _preparing_update(state)})
+    return checkpoint

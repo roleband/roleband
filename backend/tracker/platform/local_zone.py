@@ -30,8 +30,13 @@ def zone_name_from_link(target: str | None) -> str | None:
     return name or None
 
 
+#: The IANA zone the Windows host names for the engine. Windows keeps its own zone names and Python has no map
+#: to IANA ones, so the host converts it; `TZ` cannot carry it, because the C runtime reads `TZ` in its own form.
+WINDOWS_ZONE = "ROLEBAND_LOCAL_ZONE"
+
+
 def local_zone() -> ZoneInfo:
-    """`TZ` when it names a zone, else the zone `/etc/localtime` links to, else
+    """`TZ` when it names a zone, else the zone the Windows host names, else the zone `/etc/localtime` links to, else
     the rules in `/etc/localtime` itself (a container copies the file rather
     than linking it), else UTC. A machine this cannot read is UTC: a wrong zone
     shifts a day boundary or a ready-by time, it never stops a scan.
@@ -39,7 +44,7 @@ def local_zone() -> ZoneInfo:
     Read on every call, never cached: a process that lives for weeks must see
     the zone the machine is set to now."""
     localtime = _LOCALTIME
-    candidates = [os.environ.get("TZ", "").lstrip(":")]
+    candidates = [os.environ.get("TZ", "").lstrip(":"), os.environ.get(WINDOWS_ZONE, "")]
     try:
         candidates.append(zone_name_from_link(os.readlink(localtime)) or "")
     except OSError:

@@ -25,7 +25,7 @@ def _origin(url: str) -> str:
 
 @cache
 def dashboard_csp(usage_host: str) -> str:
-    directives: dict[str, list[str]] = json.loads(POLICY_FILE.read_text())["directives"]
+    directives: dict[str, list[str]] = json.loads(POLICY_FILE.read_text(encoding="utf-8"))["directives"]
     origin = _origin(usage_host)
     return "; ".join(
         " ".join([name, *(origin if value == "{usage_host}" else value for value in values)])

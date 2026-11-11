@@ -4,7 +4,9 @@ import { fileURLToPath } from "node:url";
 import { readLocale } from "./copy/catalog.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../src/copy");
-const out = resolve(root, "../../../launcher/macos/Sources/LauncherCore/Resources");
+const out = resolve(root, process.argv.includes("--windows")
+  ? "../../../launcher/windows/RoleBand.EngineHost/Resources"
+  : "../../../launcher/macos/Sources/LauncherCore/Resources");
 const check = process.argv.includes("--check");
 const englishOnly = new Set(JSON.parse(readFileSync(resolve(root, "locales.json"), "utf8")).englishOnly);
 const english = readLocale(root, "en").messages.filter(m => m.id.startsWith("launcher-"));

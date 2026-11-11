@@ -239,8 +239,8 @@ def no_escape(monkeypatch):
     For suites that drive routes which, were a guard broken, would REALLY run:
     start a scrape, terminate the user's running sync, bill a model call. They
     are pointed at the scratch database, but a spawned process or an outbound
-    request is not. `os.kill(pid, 0)` stays allowed — a liveness probe observes
-    a process, it does not act on one. In-process transports (`ASGITransport`,
+    request is not. POSIX `os.kill(pid, 0)` stays allowed as a liveness probe.
+    Windows kill calls and native process control are refused. In-process transports (`ASGITransport`,
     `MockTransport`) are unaffected; only the network ones are refused.
     """
     import asyncio
@@ -267,7 +267,7 @@ def no_escape(monkeypatch):
     real_kill = os.kill
 
     def kill(pid, sig):
-        if sig == 0:
+        if sig == 0 and os.name != "nt":
             return real_kill(pid, 0)
         raise EscapeRefused(f"signal {sig} to pid {pid}")
 
@@ -275,10 +275,36 @@ def no_escape(monkeypatch):
     monkeypatch.setattr(asyncio, "create_subprocess_exec", refuse("subprocess"))
     monkeypatch.setattr(asyncio, "create_subprocess_shell", refuse("subprocess"))
     monkeypatch.setattr(os, "kill", kill)
-    monkeypatch.setattr(os, "killpg", refuse("process-group signal"))
+    if hasattr(os, "killpg"):
+        monkeypatch.setattr(os, "killpg", refuse("process-group signal"))
+    if os.name == "nt":
+        from tracker.platform import windows_process
+
+        monkeypatch.setattr(windows_process, "_kernel", refuse("native process control"))
     monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", refused_async)
     monkeypatch.setattr(httpx.HTTPTransport, "handle_request", refuse("outbound HTTP"))
     monkeypatch.setattr(urllib.request, "urlopen", refuse("outbound HTTP"))
+
+
+if os.name == "nt":
+    from tracker.platform import windows_process as _windows_process
+
+    #: Captured at import, before `no_escape` replaces it.
+    _REAL_WINDOWS_KERNEL = _windows_process._kernel
+
+
+#: For a test whose premise is POSIX process groups and signals. On Windows
+#: `os.kill(pid, 0)` terminates the process it probes rather than testing it;
+#: Windows containment and stops are tested in tests/test_windows_supervisor.py.
+posix_processes = pytest.mark.skipif(os.name == "nt", reason="POSIX process groups and signals")
+
+
+def allow_windows_process_control(monkeypatch) -> None:
+    """Hand native Windows process control back after `no_escape`, for suites
+    whose subject is the processes they start: the counterpart of restoring
+    `os.kill` and `os.killpg`. Nothing on other platforms."""
+    if os.name == "nt":
+        monkeypatch.setattr(_windows_process, "_kernel", _REAL_WINDOWS_KERNEL)
 
 
 @pytest.fixture(autouse=True)
@@ -408,21 +434,21 @@ def _no_test_locks_the_checkouts_data(monkeypatch):
     """The checkout's `data/` holds the supervisor's run locks (`daily.lock`
     is the scan's). A test that took one would hold up a real scan, and a real
     scan holding it would answer in the test's place. A test locks files under
-    its own `tmp_path` instead. Every `fcntl.flock` of a file under the
+    its own `tmp_path` instead. Every `filelock.lock` of a file under the
     checkout's `data/` is refused."""
-    import fcntl
+    from tracker.platform import filelock
 
-    real = fcntl.flock
+    real = filelock.lock
     hits: list[str] = []
 
-    def flock(fd, operation):
-        name = getattr(fd, "name", None)
+    def lock(file, *, blocking=True):
+        name = getattr(file, "name", None)
         if isinstance(name, str) and Path(name).resolve().is_relative_to(CHECKOUT_DATA):
             hits.append(name)
             raise CheckoutLockRefused(f"a test locked {name}; give it a data directory under tmp_path")
-        return real(fd, operation)
+        return real(file, blocking=blocking)
 
-    monkeypatch.setattr(fcntl, "flock", flock)
+    monkeypatch.setattr(filelock, "lock", lock)
     yield
     # A caller that swallows errors (a tick that reports and goes on) would
     # hide the refusal; the test fails here instead.
@@ -431,13 +457,13 @@ def _no_test_locks_the_checkouts_data(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _no_test_touches_the_machines_secret_key(monkeypatch, tmp_path):
-    """Saving an API key seals it with the key file in `~/.roleband`
+    """Saving an API key seals it with a retained account key file
     (`platform.secrets`), creating it on first use. No test may create, read or
     replace the user's: each gets a key file of its own under its `tmp_path`,
     and so does every process it starts."""
     from tracker.platform import secrets
 
-    monkeypatch.setenv(secrets.KEY_FILE_ENV, str(tmp_path / "secret.key"))
+    monkeypatch.setenv(secrets.KEY_FILE_ENV, str(tmp_path / "keys" / "secret.key"))
 
 
 @pytest.fixture(autouse=True)

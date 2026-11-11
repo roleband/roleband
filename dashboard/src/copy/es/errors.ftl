@@ -63,6 +63,7 @@ error-plugin-still-enabled = Los datos de un plugin solo se pueden eliminar mien
 error-plugin-confirm-mismatch = Lo que escribiste no coincide con el nombre mostrado. Inténtalo de nuevo.
 error-plugin-estimates-moving = Las estimaciones aún se están actualizando para dejar fuera sus datos. Inténtalo de nuevo cuando termine.
 error-field-answered-by-plugin = Un plugin aporta este dato mientras está activado, así que un valor que pongas aquí no se mostraría. Desactívalo en Ajustes › Plugins.
+error-engine-locked = No se pudo volver a conectar. Abre tu Radar desde la app.
 
 error-application-not-found = Ese puesto ya no está en tu seguimiento.
 

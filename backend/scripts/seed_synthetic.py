@@ -59,12 +59,17 @@ from tracker.blueprint import BLUEPRINT
 from tracker.comp_providers.static import StaticCompProvider
 from tracker.company_store import ensure_builtins, ensure_source_bindings
 from tracker.config import get_settings
-from tracker.db.models import Job, ScrapeRun
+from tracker.db.models import AppSetting, Job, ScrapeRun
 from tracker.db.session import session_scope
 from tracker.enrich.comp import CompResolver
 from tracker.enrich.enricher import annotate, build_enriched
 from tracker.schema import RawJob, WorkplaceType
-from tracker.settings_store import set_enabled_bands
+from tracker.settings_store import (
+    ENABLED_BANDS_KEY,
+    get_setting_dict,
+    set_enabled_bands,
+    set_setting_dict,
+)
 from tracker.workflows.collection_types import (
     ScanMode,
     SourceCollection,
@@ -80,6 +85,10 @@ SYNTHETIC_PREFIX = "SYNTH-"
 #: The bands `_TITLES` produces. Kept beside the titles so the seeded scope and
 #: the seeded data cannot drift apart.
 _SEEDED_BANDS: tuple[str, ...] = ("senior", "staff", "principal", "director_plus")
+
+#: The app setting that records a desktop trial's seeding. It is kept apart from
+#: the postings, which the trial's user can remove.
+TRIAL_SEEDED_KEY = "synthetic_trial_seeded"
 
 #: Reserved by RFC 2606, so a synthetic apply URL can never resolve to a real
 #: host even if something follows it.
@@ -297,6 +306,34 @@ async def seed(session, count: int, *, seed_value: int, derived: bool = True) ->
         return await _synthetic_job_count(session)
     finally:
         await resolver.aclose()
+
+
+async def seed_trial(session) -> int:
+    """Seed a Windows desktop trial on its first start. Returns the synthetic jobs present.
+
+    The trial runs this at every start. Once seeded the database is its user's:
+    seeding again would put the radar's bands back to the seeded ones and record
+    another synthetic scan over what the user changed since. The seeding is
+    recorded in its own setting, written in the same transaction, so removing
+    the postings does not bring it back. A database without the record that is
+    already in use gets the record without a seed.
+    """
+    if await get_setting_dict(session, TRIAL_SEEDED_KEY) is None:
+        if not await _in_use(session):
+            await seed(session, 12, seed_value=20261105, derived=False)
+        await set_setting_dict(session, TRIAL_SEEDED_KEY, {"seeded": True})
+    return await _synthetic_job_count(session)
+
+
+async def _in_use(session) -> bool:
+    """Whether a database holds anything a seed would have left or a user saved:
+    any posting, a scan (removing postings keeps their runs), or saved bands. A
+    posting without the synthetic prefix counts too: `seed` refuses that database."""
+    if await session.scalar(select(func.count()).select_from(Job)):
+        return True
+    if await session.scalar(select(func.count()).select_from(ScrapeRun)):
+        return True
+    return await session.get(AppSetting, ENABLED_BANDS_KEY) is not None
 
 
 async def clear(session) -> int:

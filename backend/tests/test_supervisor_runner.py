@@ -19,6 +19,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.conftest import allow_windows_process_control, posix_processes
 from tracker.platform.paths import REPO_ROOT
 from tracker.supervisor import child, logs, runner
 from tracker.supervisor.registry import JobSpec, OnRequest, Power
@@ -28,7 +29,7 @@ from tracker.supervisor.registry import JobSpec, OnRequest, Power
 #: behaviour under test, and every process is one this file started.
 REAL_POPEN = subprocess.Popen
 REAL_KILL = os.kill
-REAL_KILLPG = os.killpg
+REAL_KILLPG = getattr(os, "killpg", None)  # absent on Windows
 
 pytestmark = pytest.mark.usefixtures("no_escape")
 
@@ -37,7 +38,9 @@ pytestmark = pytest.mark.usefixtures("no_escape")
 def real_processes(no_escape, monkeypatch):
     monkeypatch.setattr(subprocess, "Popen", REAL_POPEN)
     monkeypatch.setattr(os, "kill", REAL_KILL)
-    monkeypatch.setattr(os, "killpg", REAL_KILLPG)
+    if REAL_KILLPG is not None:
+        monkeypatch.setattr(os, "killpg", REAL_KILLPG)
+    allow_windows_process_control(monkeypatch)
 
 
 def _job(code: str, **fields) -> JobSpec:
@@ -95,11 +98,13 @@ def test_a_job_appends_to_its_log_and_records_where_its_output_begins(tmp_path):
     _wait(second)
 
     assert second.log_offset == size
-    text = second.log_path.read_text()
-    assert text.index("first run") < text.index("second run"), "a log is appended to, never replaced"
-    assert text[second.log_offset :].strip() == "second run"
+    # The offset counts bytes; a text read would fold Windows line endings.
+    data = second.log_path.read_bytes()
+    assert data.index(b"first run") < data.index(b"second run"), "a log is appended to, never replaced"
+    assert data[second.log_offset :].strip() == b"second run"
 
 
+@posix_processes
 def test_a_job_runs_as_the_leader_of_its_own_session(tmp_path):
     launched = _launch(_job("import time; time.sleep(30)"), 7, tmp_path)
     try:
@@ -128,6 +133,7 @@ def test_a_job_gets_its_run_id_and_loads_this_checkout_s_code(tmp_path):
     )
 
 
+@posix_processes
 def test_a_job_outlives_the_process_that_started_it_and_still_reports_its_end(tmp_path):
     """A supervisor that dies mid-run must not take the run with it, and its
     successor must be able to prove the orphan is the run and read how it ended."""
@@ -166,6 +172,7 @@ def test_a_job_outlives_the_process_that_started_it_and_still_reports_its_end(tm
     assert child.read_result(runner.result_path(tmp_path, 123))["exit_code"] == 5
 
 
+@posix_processes
 def test_stopping_a_job_terminates_it_and_its_result_says_how_it_ended(tmp_path):
     launched = _launch(_job("import time; print('ready', flush=True); time.sleep(60)"), 8, tmp_path)
     _wait_for(lambda: "ready" in launched.log_path.read_text())
@@ -192,6 +199,7 @@ def test_a_stop_during_startup_ends_the_run_and_leaves_nothing_running(tmp_path)
     assert not runner.group_alive(launched.pgid), "nothing the run started may linger"
 
 
+@posix_processes
 def test_a_job_that_ignores_sigterm_is_killed_after_its_grace(tmp_path):
     code = (
         "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); "
@@ -207,6 +215,7 @@ def test_a_job_that_ignores_sigterm_is_killed_after_its_grace(tmp_path):
     assert launched.process.poll() is not None
 
 
+@posix_processes
 def test_stopping_a_job_reaches_the_processes_it_started(tmp_path):
     code = (
         "import subprocess, sys, time; "
@@ -294,7 +303,7 @@ def test_rotating_twice_keeps_one_copy_so_a_log_is_bounded_by_twice_its_limit(tm
 def test_a_running_writer_keeps_appending_at_the_new_end_after_rotation(tmp_path):
     """The child's descriptor is append-mode: after the truncate its next write
     lands at offset 0, not past a hole of zero bytes."""
-    log = tmp_path / "job.log"
+    log = tmp_path / "logs" / "job.log"
     fd = logs.open_append(log)
     try:
         os.write(fd, b"before\n" * 400)
@@ -302,6 +311,35 @@ def test_a_running_writer_keeps_appending_at_the_new_end_after_rotation(tmp_path
         os.write(fd, b"after\n")
     finally:
         os.close(fd)
+    assert log.read_bytes() == b"after\n"
+
+
+def test_a_child_holding_the_log_keeps_appending_at_the_new_end_after_rotation(tmp_path):
+    """The descriptor a detached job inherits: its writes land at the end, never
+    over earlier output, and after rotation at the start of the emptied file."""
+    log, go = tmp_path / "logs" / "job.log", tmp_path / "go"
+    fd = logs.open_append(log)
+    os.write(fd, b"earlier run\n")
+    code = (
+        "import pathlib, sys, time\n"
+        "sys.stdout.buffer.write(b'before\\n' * 400); sys.stdout.flush()\n"
+        f"while not pathlib.Path({str(go)!r}).exists(): time.sleep(0.02)\n"
+        "sys.stdout.buffer.write(b'after\\n'); sys.stdout.flush()\n"
+    )
+    try:
+        writer = REAL_POPEN([sys.executable, "-c", code], stdout=fd)
+    finally:
+        os.close(fd)
+    try:
+        _wait_for(lambda: log.stat().st_size >= len(b"earlier run\n") + 2800)
+        assert log.read_bytes() == b"earlier run\n" + b"before\n" * 400
+        assert logs.rotate(log, limit=100)
+        go.touch()
+        assert writer.wait(timeout=20) == 0
+    finally:
+        if writer.poll() is None:
+            writer.kill()
+    assert logs.rotated(log).read_bytes() == b"earlier run\n" + b"before\n" * 400
     assert log.read_bytes() == b"after\n"
 
 
@@ -316,9 +354,16 @@ def test_trimming_the_launchd_stream_keeps_its_tail(tmp_path):
 
 
 def test_a_log_is_readable_by_its_owner_only(tmp_path):
-    fd = logs.open_append(tmp_path / "deep" / "job.log")
+    log = tmp_path / "deep" / "job.log"
+    fd = logs.open_append(log)
     os.close(fd)
-    assert (tmp_path / "deep" / "job.log").stat().st_mode & 0o777 == 0o600
+    if sys.platform == "win32":
+        from tracker.platform.windows_private import require_private
+
+        require_private(log.parent)
+        require_private(log)
+    else:
+        assert log.stat().st_mode & 0o777 == 0o600
 
 
 def test_the_copy_names_only_log_files_the_supervisor_writes(tmp_path):
