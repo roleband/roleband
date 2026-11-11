@@ -1,4 +1,4 @@
-"""Export the FastAPI OpenAPI schema without starting a server.
+"""Export the FastAPI OpenAPI schema, without starting a server.
 
 Feeds openapi-typescript (dashboard `npm run gen:api`) -> committed
 dashboard/src/api.gen.ts. Deterministic output (sorted keys) so the CI
