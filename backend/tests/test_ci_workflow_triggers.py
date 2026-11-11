@@ -563,11 +563,22 @@ def test_a_swift_tier_watching_the_whole_launcher_is_reported():
     assert not [f for f in found if f.startswith("launcher/macos/Sources/")]
 
 
+#: A target's own folder, `path:` as an argument label; Swift allows space before the colon.
+TARGET_PATH = re.compile(r"\bpath\s*:")
+
+
 def test_every_swift_target_sits_in_the_default_layout():
     """`swift_package_reads` names Sources/ and Tests/ only; a target given its own `path:`
     would compile files the Swift scan does not watch."""
     manifest = (REPO / "launcher" / "macos" / "Package.swift").read_text()
-    assert "path:" not in manifest
+    assert not TARGET_PATH.search(manifest)
+
+
+@pytest.mark.parametrize("argument", ['path: "Core"', 'path : "Core"', 'path:"Core"', 'path\n    : "Core"'])
+def test_a_target_with_its_own_folder_is_reported(argument):
+    """The control for the test above."""
+    assert TARGET_PATH.search(f'.target(name: "Core", {argument})')
+    assert not TARGET_PATH.search('.target(name: "Core", resources: [.process("Resources")])')
 
 
 def test_the_launcher_copy_check_runs_with_the_catalogue_on_linux():
