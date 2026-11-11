@@ -1,11 +1,10 @@
 """Realistic rows for the skills contract.
 
-The skill leaderboard and overlap read evidence-grounded `job_skills` over open,
+The skill leaderboard reads evidence-grounded `job_skills` over open,
 in-scope roles; the daily demand rollup counts the same requirements.
 
 Counts are chosen so no ordering the builders leave unspecified is ever exercised
-by a tie: the leaderboard orders by count alone, overlap ranks companies by open
-roles, and a pair's shared skills sort by the smaller count.
+by a tie: the leaderboard orders by count alone.
 
 | rows | what they exercise |
 |---|---|
@@ -13,7 +12,7 @@ roles, and a pair's shared skills sort by the smaller count.
 | google `g4` | python only as context and sql only at low confidence: neither counts |
 | google `g-closed`, `g-out` | a closed and an out-of-scope role naming python: never counted |
 | openai `o1`..`o3` | kubernetes on three, python and stakeholder management on two |
-| anthropic `a1`, `a2` | python on two, stakeholder management on one: in the overlap at a floor of 2 by python alone |
+| anthropic `a1`, `a2` | python on two, stakeholder management on one |
 | hidden-co `h1`, `h2` | python and sql on two roles of a company the seed leaves visible and `hide_company` hides |
 | concepts `fintech`, `perl` | an industry and a deprecated concept: never skills |
 """

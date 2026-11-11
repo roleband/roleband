@@ -1,8 +1,7 @@
 """Hiring-velocity analytics for the Statistics "Velocity" sub-tab.
 
 Pure, DB-free assembly of pipeline-motion signals over a time window: how many
-roles opened / were updated / closed, the net flow, the aging distribution of
-still-open roles, and how long the postings that disappeared had been observed.
+roles opened and closed, the aging distribution of still-open roles, and how long the postings that disappeared had been observed.
 Unlike the other analytics sub-tabs this one is inherently period-scoped, so it
 honors the shared period lens. The API layer runs the SQL (event counts, ages in
 days, observed durations) and hands primitives here so all the shaping is
@@ -90,10 +89,9 @@ def build_velocity(
     `event_rows`: `(company, event_type, count)` for the window: roles first
         seen in it, and lifecycle events in it. `opened` counts only
         genuinely-new roles; a repost/duplicate re-listing arrives as a
-        synthetic `reposted` type, so it never inflates opened or net.
-        `changed` surfaces as "updated". A role a company's first read found
-        arrives as `first_scan`: the board was already listing it, so it is
-        counted apart and never in opened or net.
+        synthetic `reposted` type, so it never inflates opened. A role a
+        company's first read found arrives as `first_scan`: the board was
+        already listing it, so it is counted apart and never in opened.
     `duration_rows`: `(company, observed_days)` for roles that closed in the window
         (one sample per lineage — only a terminal, fully-closed member contributes).
         Observed availability, not a hire: see the module docstring.
@@ -108,12 +106,11 @@ def build_velocity(
         ages_by_co.setdefault(company, []).append(float(d))
 
     opened: dict[str, int] = {}
-    updated: dict[str, int] = {}
     closed: dict[str, int] = {}
     reposted: dict[str, int] = {}
     first_scan: dict[str, int] = {}
     bucket = {
-        "opened": opened, "changed": updated, "closed": closed, "reposted": reposted,
+        "opened": opened, "closed": closed, "reposted": reposted,
         "first_scan": first_scan,
     }
     for company, event_type, n in event_rows:
@@ -131,7 +128,7 @@ def build_velocity(
     tot_closed = sum(closed.values())
 
     companies = (
-        set(ages_by_co) | set(opened) | set(updated) | set(closed)
+        set(ages_by_co) | set(opened) | set(closed)
         | set(reposted) | set(duration_by_co)
     )
     by_company = sorted(
@@ -140,7 +137,6 @@ def build_velocity(
                 "company": c,
                 "open": len(ages_by_co.get(c, [])),
                 "opened": opened.get(c, 0),
-                "updated": updated.get(c, 0),
                 "closed": closed.get(c, 0),
                 "reposted": reposted.get(c, 0),
                 "median_days_open": _median(ages_by_co.get(c, [])),
@@ -157,11 +153,9 @@ def build_velocity(
         "kpis": {
             "open_total": open_total,
             "opened": tot_opened,
-            "updated": sum(updated.values()),
             "closed": tot_closed,
             "reposted": sum(reposted.values()),
             "first_scan": sum(first_scan.values()),
-            "net": tot_opened - tot_closed,
             "median_days_open": _median(all_ages),
             "employer_dated_share": employer_dated_share(open_employer_dated, len(all_ages)),
             DURATION_KEY: (

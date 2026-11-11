@@ -325,18 +325,6 @@ _LISTED_FOR = (
     func.coalesce(case((Job.status != "open", Job.closed_at)), func.now()) - _LISTED_SINCE
 )
 
-#: Above this a listed age reads as a stale or evergreen employer date, not a
-#: role that has waited this long, and such rows would lead "Open the longest".
-#: The posting keeps its age everywhere it is shown; only the longest-open lists
-#: leave it out.
-PLAUSIBLE_LISTING_DAYS = 365
-
-
-def plausibly_listed():
-    """ORM clause: the posting's listed age is within `PLAUSIBLE_LISTING_DAYS`."""
-    return _LISTED_FOR <= timedelta(days=PLAUSIBLE_LISTING_DAYS)
-
-
 def base_pay(entity=Job):
     """The yearly base in US dollars a list row shows, as one comparable
     figure: the posting's own base range from its low end, else the estimated
@@ -640,41 +628,6 @@ def run_new_roles_stmt(run_id: int, hidden: list[str]) -> Select:
     return board_count_stmt({"status": "open", "hidden": hidden, "new_today_only": True}).where(
         Job.id.in_(opened)
     )
-
-
-def most_updated_open_stmt(
-    limit: int = 10, min_updates: int = 2, hidden: list[str] | None = None
-) -> Select:
-    changed_counts = (
-        select(
-            JobLifecycleEvent.job_id.label("job_id"),
-            func.count().label("update_count"),
-            func.max(JobLifecycleEvent.created_at).label("last_updated_at"),
-        )
-        .where(JobLifecycleEvent.event_type == "changed")
-        .group_by(JobLifecycleEvent.job_id)
-        .having(func.count() >= min_updates)
-        .subquery()
-    )
-    closed_jobs = (
-        select(JobLifecycleEvent.job_id)
-        .where(JobLifecycleEvent.event_type == "closed")
-        .distinct()
-        .subquery()
-    )
-    stmt = (
-        select(
-            Job,
-            changed_counts.c.update_count,
-            changed_counts.c.last_updated_at,
-        )
-        .join(changed_counts, changed_counts.c.job_id == Job.id)
-        .outerjoin(closed_jobs, closed_jobs.c.job_id == Job.id)
-        .where(Job.status == "open", Job.in_scope.is_(True), closed_jobs.c.job_id.is_(None))
-        .order_by(changed_counts.c.update_count.desc(), changed_counts.c.last_updated_at.desc())
-        .limit(limit)
-    )
-    return exclude_hidden(stmt, hidden or [])
 
 
 async def lineage_meta_for(session: AsyncSession, jobs) -> dict[int, JobLineage]:

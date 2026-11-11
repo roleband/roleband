@@ -14,7 +14,6 @@ import {
   insightsSkillsViewAgainstTheMarket,
   insightsSkillsViewAnyCompany,
   insightsSkillsViewCategory,
-  insightsSkillsViewExpected,
   insightsSkillsViewExpectedOfTheRole,
   insightsSkillsViewHowSkillsAreRanked,
   insightsSkillsViewLeadSkill,
@@ -23,20 +22,16 @@ import {
   insightsSkillsViewLoading,
   insightsSkillsViewNamingASkill,
   insightsSkillsViewNoSkillsExtractedForThis,
-  insightsSkillsViewOfEveryRole,
   insightsSkillsViewOfRolesNameIt,
   insightsSkillsViewPickACompanyADiscipline,
   insightsSkillsViewProcessLeadershipAndCollaborationAsks,
-  insightsSkillsViewRankedHere,
   insightsSkillsViewRoles,
-  insightsSkillsViewShareOrLift,
   insightsSkillsViewShareOfRoles,
   insightsSkillsViewSkill,
   insightsSkillsViewSkillsOrder,
   insightsSkillsViewWhatExpectedOfTheRole,
   insightsSkillsViewWhatSetsTheseRolesApart,
   insightsCommonMarket,
-  insightsCommonSkills,
 } from "../../copy/gen/insights";
 import { skillName } from "../../copy/vocab";
 
@@ -89,9 +84,6 @@ export function SkillsView({ scope, companies = [] }: { scope?: InsightsScope; c
           }
           kpis={[
             { label: insightsSkillsViewRoles(), value: n(data.roles), sub: insightsSkillsViewNamingASkill() },
-            { label: insightsSkillsViewShareOrLift({ view }), value: data.narrowed ? lift(lead.lift) : pct(lead.share), sub: skillName(lead.term) },
-            { label: insightsCommonSkills(), value: n(skills.length), sub: insightsSkillsViewRankedHere() },
-            { label: insightsSkillsViewExpected(), value: n(data.competencies.length), sub: insightsSkillsViewOfEveryRole() },
           ]}
         />
       )}

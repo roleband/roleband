@@ -77,18 +77,6 @@ insights-demand-hiring-now-today-new-closed = { $company } contratando ahora · 
 insights-demand-each-role-once = cada puesto una vez
 insights-demand-with-an-open-role = con un puesto abierto
 insights-demand-how-companies-are-counted = Cómo se cuentan las empresas
-insights-demand-longest-open-roles = Puestos abiertos desde hace más tiempo
-insights-demand-potential-hard-to-fill-signal = Puede ser difícil de cubrir.
-insights-demand-no-data-yet = Aún no hay datos.
-insights-demand-listed-over-a-year-are = Se excluyen por obsoletos los { $role } publicados hace más de un año.
-insights-demand-reposted-roles = Puestos republicados
-insights-demand-closed-then-reappeared-a-repeated = Cerrado y publicado de nuevo. Suele indicar que es difícil de cubrir.
-insights-demand-none-detected-yet = Aún no se ha detectado ninguno.
-insights-demand-reposted = { $company } · republicado ×{ $repost_count }
-insights-demand-updated-but-never-closed = Actualizados pero nunca cerrados
-insights-demand-changed-repeatedly-without-a-closure = Cambió varias veces sin llegar a cerrarse.
-insights-demand-updated-times = Actualizado { $update_count } veces
-insights-demand-about = Acerca de { $title }
 insights-demand-how-regions-are-counted = Cómo se cuentan las regiones
 insights-demand-all-companies-hiring = Todas las empresas que contratan
 insights-demand-find-a-company = Buscar una empresa
@@ -126,45 +114,13 @@ insights-disclosure-panel-trend-load-failed = No se pudo cargar la tendencia de 
 insights-disclosure-panel-band-trend-loading = Cargando la tendencia de los rangos publicados…
 insights-disclosure-panel-band-trend-load-failed = No se pudo cargar la tendencia de los rangos publicados
 
-## features/statistics/OverlapPanel.tsx
-insights-overlap-panel-how-alike-their-roles-are = Cuánto se parecen sus puestos
-insights-overlap-panel-not-enough-companies-with-skills = No hay suficientes empresas con habilidades para comparar. Elige dos o más.
-insights-overlap-panel-shared-vocabulary = Habilidades compartidas
-insights-overlap-panel-each-company-is-its-open = Las empresas se comparan por las habilidades que mencionan sus puestos abiertos. Las habilidades menos comunes pesan más. Una habilidad cuenta cuando la mencionan al menos { $min_jobs } puestos de una empresa.
-insights-overlap-panel-comparison = Comparación { $companies } × { $companies }
-insights-overlap-panel-exact-matrix = Matriz exacta
-insights-overlap-panel-cells-show-how-alike-two = Cada celda puntúa de 0 a 100 cuánto se parecen dos empresas. La diagonal cuenta las habilidades de cada empresa. Pasa el cursor para ver las habilidades compartidas.
-insights-overlap-panel-companies-picked = { $picker ->
-    [default] Más puestos abiertos
-   *[chosen] { $picked } empresas
-}
-insights-overlap-panel-pair-names = { $a } y { $b }
-insights-overlap-panel-no-shared-skills-yet = Aún no hay habilidades compartidas
-insights-overlap-panel-most-alike-of = son las más parecidas de { $companies } empresas en las habilidades que las distinguen ({ $similarity })
-insights-overlap-panel-companies-compared = { $companies } empresas comparadas
-insights-overlap-panel-closest-pair = Par más cercano
-insights-overlap-panel-median-pair = Par mediano
-insights-overlap-panel-furthest-pair = Par más lejano
-insights-overlap-panel-how-skill-overlap-is-calculated = Cálculo de la coincidencia de habilidades
-insights-overlap-panel-cross-company-skill-overlap-matrix = Matriz de coincidencia de habilidades entre empresas
-insights-overlap-panel-skills-open = { $company } · { $skill_count } habilidades · { $open } abiertos
-insights-overlap-panel-pair-alike = { $listed ->
-    [none] { $a } y { $b }: { $percent }% parecidas, { $shared } de { $union } habilidades compartidas
-   *[some] { $a } y { $b }: { $percent }% parecidas, { $shared } de { $union } habilidades compartidas: { $skills }
-}
-insights-overlap-panel-no-shared-skills = { $a } y { $b }: sin habilidades compartidas
-
 ## features/statistics/OverviewPanel.tsx
 insights-overview-panel-most-named-skills = Habilidades más mencionadas
 insights-overview-panel-what-is-pulling-the-market = Habilidades más buscadas
 insights-overview-panel-the-skills-open-roles-name = Habilidades ordenadas según cuántos puestos abiertos las mencionan.
 insights-overview-panel-leads-roles = { $display } encabeza · { $job_count } puestos
-insights-overview-panel-open-the-longest = Puestos abiertos desde hace más tiempo
-insights-overview-panel-the-roles-advertised-longest-that = Puestos abiertos desde hace más tiempo. Puede que sean difíciles de cubrir o que simplemente sigan publicados. No cuentan las fechas de hace más de un año.
-insights-overview-panel-no-open-roles = No hay puestos abiertos.
 insights-overview-panel-opened-closed = { $new_count } abiertos · { $closed_count } cerrados
 insights-overview-panel-about-the-demand-field = Acerca de este gráfico
-insights-overview-panel-what-open-the-longest-means = Qué significa «más tiempo abiertos»
 
 ## features/statistics/PayBands.tsx
 insights-pay-bands-each-line-is-one-published = Cada línea es un rango publicado. El tramo resaltado es el rango mediano del nivel.
@@ -208,13 +164,7 @@ insights-skills-view-of-roles-name-it = { $view ->
 insights-skills-view-how-skills-are-ranked = Cómo se ordenan las habilidades
 insights-skills-view-roles = Puestos
 insights-skills-view-naming-a-skill = que mencionan una habilidad
-insights-skills-view-share-or-lift = { $view ->
-    [narrowed] vs. mercado
-   *[market] Proporción
-}
-insights-skills-view-ranked-here = ordenadas aquí
 insights-skills-view-expected = Esperadas
-insights-skills-view-of-every-role = de cualquier puesto
 insights-skills-view-any-company = Cualquier empresa
 insights-skills-view-what-expected-of-the-role = Qué significa «Lo que se espera del puesto»
 insights-skills-view-skills-order = { $view ->
@@ -231,7 +181,7 @@ insights-statistics-view-statistics-sections = Secciones de análisis
 insights-statistics-view-discipline = Disciplina
 insights-statistics-view-advanced-view = Vista avanzada
 insights-statistics-view-advanced-warning-title = Quedas avisado
-insights-statistics-view-advanced-warning-body = La vista avanzada es para quien lee las notas al pie por diversión: percentiles, mapas de calor, diagramas de flujo y cada número que hay detrás. Puedes volver cuando quieras.
+insights-statistics-view-advanced-warning-body = La vista avanzada es para quien lee las notas al pie por diversión: cuánto tiempo siguen abiertos los puestos, con qué frecuencia se publica el salario, niveles y acciones lado a lado, y las muestras pequeñas que hay detrás. Puedes volver cuando quieras.
 insights-statistics-view-show-me-everything = Enséñamelo todo
 insights-statistics-view-keep-it-simple = Mantenlo simple
 insights-statistics-view-part-of-advanced-view = Esta pestaña es parte de la vista avanzada.
@@ -570,13 +520,6 @@ insights-offer-vs-today = { $sign ->
 insights-offer-show-table = Ver la tabla
 
 ## features/statistics/VelocityPanel.tsx
-insights-velocity-panel-market-current = Por empresa
-insights-velocity-panel-hiring-flow = Flujo de contratación
-insights-velocity-panel-closures-pull-left-openings-push = Los cierres tiran hacia la izquierda y las aperturas empujan hacia la derecha; los rombos marcan la presión de actualizaciones.
-insights-velocity-panel-net = { $direction ->
-    [up] Neto +{ $net } { $window }
-   *[down] Neto { $net } { $window }
-}
 insights-velocity-panel-companies = Empresas · { $window }
 insights-velocity-panel-open = Abiertos
 insights-velocity-panel-opened = Nuevos
@@ -588,9 +531,6 @@ insights-velocity-panel-this-builds-up-as-roles = Se completa a medida que se ci
 insights-velocity-panel-median-age = Antigüedad mediana: { $median_days_open }
 insights-velocity-panel-median-time-posted = Tiempo publicado mediano: { $median_observed_listing_duration_days }
 insights-velocity-panel-more-already-listed-when-their = { $first_scan } más ya publicados en el primer escaneo de su empresa
-insights-velocity-panel-net-flow = Flujo neto
-insights-velocity-panel-opened-closed = nuevos − cerrados
-insights-velocity-panel-how-to-read-hiring-flow = Cómo leer el flujo
 insights-velocity-panel-what-time-posted-measures = Qué mide «Tiempo publicado»
 
 ## features/statistics/ageCopy.ts
@@ -613,9 +553,6 @@ insights-statistics-charts-closed-count = −{ $closed } cerrados
 insights-statistics-charts-open-roles-by-company = Puestos abiertos por empresa
 insights-statistics-charts-open-new-closed = { $label }: { $open } abiertos, { $fresh } nuevos, { $closed } cerrados
 insights-statistics-charts-closed = Cerrados ←
-insights-statistics-charts-opened = → Nuevos
-insights-statistics-charts-hiring-flow-by-company = Flujo de contratación por empresa
-insights-statistics-charts-opened-closed-updated = { $company }: { $opened } nuevos, { $closed } cerrados, { $updated } actualizados
 insights-statistics-charts-equity-change = { $direction ->
     [flat] Cambio de $0
     [down] −{ $amount }
@@ -629,12 +566,6 @@ insights-statistics-charts-share-of-these-roles = proporción de estos puestos �
 insights-statistics-charts-the-market-s-rate = × la tasa del mercado →
 insights-statistics-charts-what-sets-these-roles-apart = Qué distingue a estos puestos
 insights-statistics-charts-of-these-roles-the-market = { $skill }: { $share }% de estos puestos, ×{ $lift } el mercado
-insights-statistics-charts-pair-alike = { $similarity }% parecidas · { $shared } habilidades compartidas
-insights-statistics-charts-pair = { $a } × { $b }
-insights-statistics-charts-more-alike = más parecidas
-insights-statistics-charts-less-alike = menos
-insights-statistics-charts-cross-company-skill-overlap-heatmap = Mapa de calor de coincidencia de habilidades entre empresas
-insights-statistics-charts-pair-similarity = { $a } y { $b }: { $percent }%
 
 ## features/statistics/charts/compBands.ts
 insights-comp-bands-level-summary = { $label }: { $bands } { $bands ->
@@ -704,13 +635,6 @@ insights-demand-load-failed = No se pudo cargar la actividad de contratación
 insights-demand-today = hoy
 insights-demand-last-2-days = últimos 2 días
 
-## features/statistics/OverlapPanel.tsx
-insights-overlap-panel-skills = { $skill_count } habilidades
-insights-overlap-panel-loading = Cargando la coincidencia de habilidades…
-insights-overlap-panel-load-failed = No se pudo cargar la coincidencia de habilidades
-insights-overlap-panel-compared = comparadas
-insights-overlap-panel-alike = de similitud
-
 ## features/statistics/OverviewPanel.tsx
 insights-overview-panel-companies = { $companies } empresas
 insights-overview-panel-loading = Cargando el resumen…
@@ -731,13 +655,6 @@ insights-comp-bands-employer-at-level = { $published ->
 
 ## features/statistics/charts/disclosure.ts
 
-## features/statistics/charts/StatisticsCharts.tsx
-insights-statistics-charts-overlap-cell = { $cell ->
-    [self] { $skillCount }{ "\u000A" }habilidades
-    [pair] { $similarity }%
-   *[empty] { "" }
-}
-
 ## Los dos lados de la división por empresas de Análisis
 insights-your-companies = Tus empresas
 insights-other-companies = Otras empresas
@@ -750,13 +667,10 @@ insights-common-open-roles = Puestos abiertos
 insights-common-open-roles-unit = puestos abiertos
 insights-common-new = Nuevos
 insights-common-closed = Cerrados
-insights-common-updated = Actualizados
-insights-common-skills = Habilidades
 insights-common-market = Mercado
 insights-common-by-level = Por nivel
 insights-common-by-company = Por empresa
 insights-common-all-companies = Todas las empresas
-insights-common-distinct-skills = { $count } habilidades distintas
 insights-common-last-days-or-all-time = { $period ->
     [all] todo el periodo
    *[days] últimos { $days } d

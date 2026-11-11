@@ -1,17 +1,16 @@
-"""Skills analytics: the daily demand rollup and the pure overlap transforms.
+"""Skills analytics: the daily demand rollup and the skill ranking.
 
 `compute_skill_demand` snapshots, per (company × family × concept), how many currently
 open jobs carry a displayable requirement for that concept, into `skill_demand_daily`,
-a daily history no screen reads yet. `compute_overlap` and `seriate` are pure transforms
-behind the Overlap endpoint; they operate on rows the API feeds them. Industries are
-excluded everywhere here: a business vertical is never a skill.
+a daily history no screen reads yet. `rank_skills` is the pure ranking behind the
+Skills tab. Industries are excluded everywhere here: a business vertical is never a
+skill.
 """
 
 from __future__ import annotations
 
 import math
-from collections import Counter
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping
 from datetime import UTC, datetime
 
 from sqlalchemy import delete, func, select
@@ -61,81 +60,6 @@ async def compute_skill_demand(session: AsyncSession) -> int:
             ],
         )
     return len(rows)
-
-
-def compute_overlap(
-    skill_sets: Mapping[str, Mapping[str, int]],
-    ranked: Sequence[str],
-    roles: Mapping[str, int] | None = None,
-) -> list[dict]:
-    """Pairwise cross-company skill similarity for the companies in `ranked` order.
-
-    Pure transform behind `GET /api/skills/overlap`. `skill_sets` maps company ->
-    {concept slug: roles naming it}; `roles` maps company -> its open roles (the
-    largest count stands in when absent). Each company is a vector of its
-    skills' role shares weighted by inverse document frequency across the
-    compared companies, `ln((1 + C) / (1 + df))`, so a skill every company names
-    weighs nothing, and `similarity` is the cosine of two vectors.
-    Jaccard over the raw skill sets would score the shared generic skills as
-    the overlap. `shared`/`union` still count the sets; `top_shared_terms` are the shared skills weighing most in both.
-    Pairs with no shared skill are omitted; `a` precedes `b` in `ranked` order.
-    """
-    companies = len(ranked)
-    df: Counter[str] = Counter()
-    for c in ranked:
-        df.update(skill_sets.get(c, {}).keys())
-    idf = {t: math.log((1 + companies) / (1 + n)) for t, n in df.items()}
-
-    def vector(c: str) -> dict[str, float]:
-        counts = skill_sets.get(c, {})
-        denom = (roles or {}).get(c) or max(counts.values(), default=1)
-        return {t: (n / denom) * idf.get(t, 0.0) for t, n in counts.items()}
-
-    vectors = {c: vector(c) for c in ranked}
-    norms = {c: math.sqrt(sum(w * w for w in v.values())) for c, v in vectors.items()}
-    pairs: list[dict] = []
-    for i in range(len(ranked)):
-        for j in range(i + 1, len(ranked)):
-            a, b = ranked[i], ranked[j]
-            va, vb = vectors[a], vectors[b]
-            shared = set(va) & set(vb)
-            if not shared:
-                continue
-            dot = sum(va[t] * vb[t] for t in shared)
-            norm = norms[a] * norms[b]
-            top_shared = sorted(shared, key=lambda t: (-(va[t] * vb[t]), t))[:5]
-            pairs.append(
-                {
-                    "a": a,
-                    "b": b,
-                    "shared": len(shared),
-                    "union": len(set(va) | set(vb)),
-                    "similarity": round(dot / norm, 3) if norm else 0.0,
-                    "top_shared_terms": top_shared,
-                }
-            )
-    return pairs
-
-
-def seriate(ranked: Sequence[str], pairs: Iterable[Mapping]) -> list[str]:
-    """`ranked` reordered so similar companies sit side by side. Pure.
-
-    Greedy nearest neighbour from the company most similar to the rest: a
-    heatmap in this order shows its blocks; in volume order it is noise."""
-    sim: dict[tuple[str, str], float] = {}
-    for p in pairs:
-        sim[(p["a"], p["b"])] = sim[(p["b"], p["a"])] = float(p["similarity"])
-    left = list(ranked)
-    if len(left) < 3:
-        return left
-    current = max(left, key=lambda c: (sum(sim.get((c, o), 0.0) for o in left if o != c), -left.index(c)))
-    order = [current]
-    left.remove(current)
-    while left:
-        current = max(left, key=lambda c: (sim.get((order[-1], c), 0.0), -ranked.index(c)))
-        order.append(current)
-        left.remove(current)
-    return order
 
 
 #: Skill categories that name what a role is expected to do, not a skill that

@@ -14,7 +14,6 @@ import {
   shellTabInsightsLevels,
   shellTabInsightsStock,
   shellTabInsightsSkills,
-  shellTabInsightsOverlap,
   shellTabSettingsCompanies,
   shellTabSettingsAi,
   shellTabSettingsSchedule,
@@ -47,7 +46,6 @@ export const STATISTICS_TABS: SubTabDef[] = [
   { slug: "levels", get label() { return shellTabInsightsLevels(); } },
   { slug: "trajectory", get label() { return shellTabInsightsStock(); } },
   { slug: "skills", get label() { return shellTabInsightsSkills(); } },
-  { slug: "overlap", get label() { return shellTabInsightsOverlap(); } },
 ];
 
 // Settings sub-tabs. The section shell switch-renders these; each is a

@@ -1,4 +1,4 @@
-/* The Skills and Overlap company pickers: one searchable list, most open roles
+/* The Skills company picker: one searchable list, most open roles
  * first, of the companies on the Insights scope's side. Pure, so the side rule
  * is unit-tested.
  *

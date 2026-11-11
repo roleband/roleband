@@ -34,8 +34,6 @@ shell-tab-insights-levels = Levels
 shell-tab-insights-stock = Stock
 # kind=label
 shell-tab-insights-skills = Skills
-# kind=label
-shell-tab-insights-overlap = Overlap
 
 ## Settings tabs (SETTINGS_TABS)
 # kind=label
