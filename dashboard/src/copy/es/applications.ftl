@@ -535,9 +535,15 @@ applications-posting-interview = Entrevista
 
 applications-posting-next-step = Siguiente paso
 
-applications-posting-no-step = Ninguno aún
+applications-posting-open = Abrir la candidatura
 
-applications-posting-history = Historial
+applications-posting-due = Vence
+
+applications-posting-due-day = { $offset ->
+        [0] Hoy
+        [1] Mañana
+       *[other] { $date }
+    }
 
 applications-posting-history-title = Historial de seguimiento
 

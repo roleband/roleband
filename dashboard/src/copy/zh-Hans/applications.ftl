@@ -485,9 +485,15 @@ applications-posting-interview = 面试
 
 applications-posting-next-step = 下一步
 
-applications-posting-no-step = 暂无
+applications-posting-open = 打开申请
 
-applications-posting-history = 历史记录
+applications-posting-due = 截止
+
+applications-posting-due-day = { $offset ->
+        [0] 今天
+        [1] 明天
+       *[other] { $date }
+    }
 
 applications-posting-history-title = 求职进展历史
 

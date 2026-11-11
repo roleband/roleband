@@ -9,7 +9,7 @@ import { useSaveCommand } from "../../context/useSaveCommand";
 import { useToast } from "../../ui/Toast";
 import { Job, PursuitStage, SimilarJob, api, isNotFound } from "../../api";
 import { statusName } from "../../copy/vocab";
-import { WORKPLACE_LABEL, companyName } from "../../format";
+import { companyName } from "../../format";
 import { payPoint } from "../../payShown";
 import { usePayCoverage } from "../../payCoverage";
 import JobCompPanel from "./JobCompPanel";
@@ -17,7 +17,7 @@ import { JobDescription } from "./JobDescription";
 import { JobRequirementsPanel } from "./JobRequirementsPanel";
 import { LineageStack } from "./LineageStack";
 import { ListingAge } from "./ListingAge";
-import { RadarRead } from "./RadarRead";
+import { postingTeam, postingWorkplace } from "./detailFacts";
 import { PostingReality } from "./PostingReality";
 import { unfollowedSentence } from "../../patterns/jobs/unfollowed";
 import { applyAsk } from "./applyAsk";
@@ -197,6 +197,8 @@ export function JobDetail({
   // Where the person stands with the role, read as the pipeline reads it.
   const pipeline = usePipeline(job, { showSaved, paintPosting, rereadPosting, onSave: saveFav, now, column: aside });
   const { applied } = pipeline;
+  const team = job && postingTeam(job);
+  const workplace = job && postingWorkplace(job);
 
   // Once the job is loaded, report its company so a bare /job/:id URL can
   // canonicalize to the company-scoped position path.
@@ -393,18 +395,22 @@ export function JobDetail({
               </div>
 
               <aside className="jd-aside" ref={setAside}>
-                {/* While the person decides, the radar's read leads; once they
-                    have applied, where the application stands does, and the
-                    read folds to its verdict under Details. */}
-                {job.relevance_review && !applied && <RadarRead key={job.id} review={job.relevance_review} folded={false} />}
                 {pipeline.section}
 
                 <div className="section-title">{roleJobDetailDetails()}</div>
                 <dl className="kv">
-                  <dt>{roleJobDetailTeam()}</dt>
-                  <dd>{job.team || job.department ? <Content text={(job.team || job.department)!} /> : "—"}</dd>
-                  <dt>{roleJobDetailWorkplace()}</dt>
-                  <dd>{WORKPLACE_LABEL[job.workplace_type] ?? job.workplace_type}</dd>
+                  {team && (
+                    <>
+                      <dt>{roleJobDetailTeam()}</dt>
+                      <dd><Content text={team} /></dd>
+                    </>
+                  )}
+                  {workplace && (
+                    <>
+                      <dt>{roleJobDetailWorkplace()}</dt>
+                      <dd>{workplace}</dd>
+                    </>
+                  )}
                   {/* One age, with where it counts from; the dates behind it
                       are the history, on demand. */}
                   <ListingAge
@@ -425,8 +431,6 @@ export function JobDetail({
                     </>
                   )}
                 </dl>
-
-                {job.relevance_review && applied && <RadarRead key={job.id} review={job.relevance_review} folded />}
 
                 <PostingReality reality={job.posting_reality} />
 
