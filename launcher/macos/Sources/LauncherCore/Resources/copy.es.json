@@ -107,6 +107,7 @@
   "host-recovering-body": "El escaneo se detuvo de forma inesperada.\nSe volverá a intentar automáticamente.",
   "host-attention": "Necesita atención",
   "host-attention-body": "Los escaneos no pudieron continuar.\nRevisa los registros y pulsa Reiniciar.",
+  "host-in-use-body": "Otro programa tiene tus datos abiertos, así que el escaneo se detuvo.\nDetén ese programa y pulsa Reiniciar.",
   "host-stopped": "El escaneo se ha detenido",
   "host-quit-note": "Al salir se detienen los escaneos",
   "host-stop-failed": "No se pudieron detener los escaneos.\nInténtalo de nuevo.",

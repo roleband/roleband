@@ -162,6 +162,8 @@ launcher-host-recovering-body = 扫描意外停止。
 launcher-host-attention = 需要处理
 launcher-host-attention-body = 扫描无法持续运行。
     请查看日志，然后尝试重新启动。
+launcher-host-in-use-body = 另一个程序正打开着你的数据，因此扫描已停止。
+    请停止该程序，然后尝试重新启动。
 launcher-host-stopped = 扫描已停止
 launcher-host-quit-note = 退出将停止扫描
 launcher-host-stop-failed = 无法停止扫描。

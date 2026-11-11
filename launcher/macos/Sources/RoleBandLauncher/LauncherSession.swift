@@ -6,6 +6,7 @@ struct OwnedEngineSnapshot: Equatable, Sendable {
     var state: HostState
     var diagnostics = ""
     var preparation: EnginePreparation?
+    var problem: HostProblem?
 }
 
 /// The process boundary stays injectable; the model and its lifecycle remain real in tests.
@@ -21,7 +22,8 @@ struct OwnedEngineService: Sendable {
         return Self(start: { try await host.start() }, restart: { try await host.restart() },
                     stop: { try await host.stop() }, snapshot: {
             let state = await host.state
-            return OwnedEngineSnapshot(state: state, diagnostics: await tails.lines(for: state), preparation: await host.preparation)
+            return OwnedEngineSnapshot(state: state, diagnostics: await tails.lines(for: state), preparation: await host.preparation,
+                                       problem: await host.problem)
         })
     }
 

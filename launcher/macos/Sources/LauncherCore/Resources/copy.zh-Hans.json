@@ -107,6 +107,7 @@
   "host-recovering-body": "扫描意外停止。\n将自动重试。",
   "host-attention": "需要处理",
   "host-attention-body": "扫描无法持续运行。\n请查看日志，然后尝试重新启动。",
+  "host-in-use-body": "另一个程序正打开着你的数据，因此扫描已停止。\n请停止该程序，然后尝试重新启动。",
   "host-stopped": "扫描已停止",
   "host-quit-note": "退出将停止扫描",
   "host-stop-failed": "无法停止扫描。\n请重试。",

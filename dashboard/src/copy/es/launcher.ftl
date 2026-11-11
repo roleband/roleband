@@ -162,6 +162,8 @@ launcher-host-recovering-body = El escaneo se detuvo de forma inesperada.
 launcher-host-attention = Necesita atención
 launcher-host-attention-body = Los escaneos no pudieron continuar.
     Revisa los registros y pulsa Reiniciar.
+launcher-host-in-use-body = Otro programa tiene tus datos abiertos, así que el escaneo se detuvo.
+    Detén ese programa y pulsa Reiniciar.
 launcher-host-stopped = El escaneo se ha detenido
 launcher-host-quit-note = Al salir se detienen los escaneos
 launcher-host-stop-failed = No se pudieron detener los escaneos.

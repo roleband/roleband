@@ -91,6 +91,7 @@ final class LauncherModel: ObservableObject {
     private let ownedEngine: OwnedEngineService?
     @Published private(set) var hostState: HostState?
     @Published private(set) var diagnosticLines = ""
+    @Published private(set) var hostProblem: HostProblem?
     @Published private(set) var preparation: EnginePreparation?
     @Published private(set) var setupLoginChoice = true
     var preparationReady: Bool { verified != nil && (ownedEngine == nil || hostState == .running) }
@@ -259,7 +260,7 @@ final class LauncherModel: ObservableObject {
         }
     }
     var helpKey: String? {
-        if hostState == .needsAttention { return "host-attention-body" }
+        if hostState == .needsAttention { return hostProblem == .databaseInUse ? "host-in-use-body" : "host-attention-body" }
         if case .backingOff = hostState { return "host-recovering-body" }
         if attached && engineState == .stopped { return "attached-stopped-body" }
         if let verified { return verified.presentation.reasonKey(source: attached) }
@@ -449,6 +450,7 @@ final class LauncherModel: ObservableObject {
         if hostState != snapshot.state { hostState = snapshot.state }
         if preparation != snapshot.preparation { preparation = snapshot.preparation }
         if diagnosticLines != snapshot.diagnostics { diagnosticLines = snapshot.diagnostics }
+        if hostProblem != snapshot.problem { hostProblem = snapshot.problem }
         if snapshot.state != .running {
             task?.cancel()
             timer?.invalidate()

@@ -437,6 +437,41 @@ func bundledPostgresStopsAfterClientsAndALeftoverStopsBeforeTheNextEngine() asyn
     try await host.stop()
 }
 
+@Test func theAppsDatabaseServedFromOutsideTheAppIsReportedAsInUseAndLeftRunning() async throws {
+    let fixture = try HostFixture()
+    defer { fixture.remove() }
+    let pgdata = fixture.configuration.pgdata
+    try FileManager.default.createDirectory(at: pgdata, withIntermediateDirectories: true)
+    try Data("16\n".utf8).write(to: pgdata.appendingPathComponent("PG_VERSION"))
+    try Data(#"{"owner": "app"}"#.utf8).write(to: pgdata.deletingLastPathComponent().appendingPathComponent("db.owner.json"))
+    // A server from a checkout: an executable named postgres, outside any app bundle.
+    let outside = fixture.root.appendingPathComponent("checkout/bin/postgres")
+    try FileManager.default.createDirectory(at: outside.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try FileManager.default.copyItem(at: URL(fileURLWithPath: "/bin/sleep"), to: outside)
+    // A system binary copied elsewhere breaks its launch constraint and is killed; signed ad hoc, it runs.
+    let sign = Process()
+    sign.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
+    sign.arguments = ["--force", "--sign", "-", outside.path]
+    sign.standardError = FileHandle.nullDevice
+    try sign.run()
+    sign.reap()
+    try #require(sign.terminationStatus == 0)
+    let server = Process()
+    server.executableURL = outside
+    server.arguments = ["60"]
+    try server.run()
+    defer { server.terminate(); server.reap() }
+    try Data("\(server.processIdentifier)\n\(pgdata.path)\n".utf8).write(to: pgdata.appendingPathComponent("postmaster.pid"))
+    let host = fixture.host()
+    await #expect(throws: HostProblem.databaseInUse) { try await host.start() }
+    let problem = await host.problem
+    let state = await host.state
+    #expect(problem == .databaseInUse && state == .needsAttention)
+    #expect(server.isRunning, "the other program's server is not the app's to stop")
+    #expect(!FileManager.default.fileExists(atPath: fixture.data.appendingPathComponent("engine-ready").path))
+    try await host.stop()
+}
+
 @Test func crashDiagnosticsReadOnlyBoundedLogTails() async throws {
     let fixture = try HostFixture()
     defer { fixture.remove() }

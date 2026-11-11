@@ -181,6 +181,9 @@ launcher-host-attention = Needs attention
 # kind=sentence
 launcher-host-attention-body = Scanning couldn't keep running.
     Review the logs, then try Restart.
+# kind=sentence
+launcher-host-in-use-body = Another program has your data open, so scanning stopped.
+    Stop that program, then try Restart.
 # kind=status
 launcher-host-stopped = Scanning has stopped
 # kind=status

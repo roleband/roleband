@@ -107,6 +107,7 @@
   "host-recovering-body": "Scanning stopped unexpectedly.\nTrying again automatically.",
   "host-attention": "Needs attention",
   "host-attention-body": "Scanning couldn't keep running.\nReview the logs, then try Restart.",
+  "host-in-use-body": "Another program has your data open, so scanning stopped.\nStop that program, then try Restart.",
   "host-stopped": "Scanning has stopped",
   "host-quit-note": "Quitting stops scanning",
   "host-stop-failed": "Couldn't stop scanning.\nTry again.",

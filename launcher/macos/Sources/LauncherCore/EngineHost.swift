@@ -49,6 +49,8 @@ public struct HostConfiguration: Sendable {
 public actor EngineHost {
     public private(set) var state: HostState = .stopped
     public private(set) var lastFailure: String?
+    /// The refusal behind `needsAttention`, when it was one, so the panel can say what to do.
+    public private(set) var problem: HostProblem?
     public private(set) var preparation: EnginePreparation?
     private let configuration: HostConfiguration
     private let now: @Sendable () -> TimeInterval
@@ -161,6 +163,7 @@ public actor EngineHost {
             try await cleanUp()
             restarts = []
             lastFailure = nil
+            problem = nil
             try launch()
             if automatic {
                 monitor?.cancel()
@@ -278,6 +281,7 @@ public actor EngineHost {
 
     private func failed(_ reason: String) async throws {
         lastFailure = reason
+        problem = nil
         do { try await cleanUp() } catch { attention(error); throw error }
         restarts.removeAll { now() - $0 >= 600 }
         state = restarts.count >= 3 ? .needsAttention : .backingOff(until: now() + pow(2, Double(restarts.count)))
@@ -344,6 +348,7 @@ public actor EngineHost {
 
     private func attention(_ error: any Error) {
         lastFailure = String(describing: error)
+        problem = error as? HostProblem
         state = .needsAttention
     }
 }

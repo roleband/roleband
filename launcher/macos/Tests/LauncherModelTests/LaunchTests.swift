@@ -192,8 +192,8 @@ private actor HostBoundary {
         if failStop { throw HostProblem.stopFailed }
         current = OwnedEngineSnapshot(state: .stopped)
     }
-    func set(_ state: HostState, diagnostics: String = "", failStop: Bool = false) {
-        current = OwnedEngineSnapshot(state: state, diagnostics: diagnostics)
+    func set(_ state: HostState, diagnostics: String = "", failStop: Bool = false, problem: HostProblem? = nil) {
+        current = OwnedEngineSnapshot(state: state, diagnostics: diagnostics, problem: problem)
         self.failStop = failStop
     }
     func snapshot() -> OwnedEngineSnapshot { current }
@@ -397,6 +397,15 @@ func aRefusedQuitOffersTheSameUpdateAgainAndKeepsCheckingForUpdates() async thro
     await model.refreshHost()
     #expect(model.titleKey == "host-attention" && model.menuBarBadge == "exclamationmark.triangle.fill")
     #expect(model.diagnosticLines == "api: last useful error" && model.engineActionKey == "engine-restart")
+    #expect(model.helpKey == "host-attention-body")
+    // Another program took the app's database: the panel says so, and Restart is still the way back.
+    await host.set(.needsAttention, problem: .databaseInUse)
+    await model.refreshHost()
+    #expect(model.titleKey == "host-attention" && model.helpKey == "host-in-use-body")
+    #expect(model.engineActionKey == "engine-restart")
+    await host.set(.needsAttention, diagnostics: "api: last useful error")
+    await model.refreshHost()
+    #expect(model.helpKey == "host-attention-body")
     await model.refreshAndWait()
     #expect(model.verified == nil)
     await model.startEngineAndWait()

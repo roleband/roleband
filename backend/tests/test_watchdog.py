@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -243,6 +244,28 @@ class TestDatabaseRecovery:
         failure = watchdog.recover_db() or ""
         assert "missing required extension" in failure
         assert "initial attach error" in failure
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="macOS and POSIX tooling runs on the Mac")
+    def test_another_installations_cluster_is_reported_never_stopped(self, monkeypatch, tmp_path):
+        # The Mac app's cluster may be running for the app right now. A source watchdog that the
+        # ownership guard refuses must not take the restart path and stop it.
+        import json
+
+        from tracker import config
+
+        state = tmp_path / "state"
+        state.mkdir()
+        (state / "db.owner.json").write_text(json.dumps({"owner": "app"}))
+        monkeypatch.setenv("ROLEBAND_STATE_DIR", str(state))
+        monkeypatch.delenv("ROLEBAND_PGDATA", raising=False)
+        monkeypatch.delenv("ROLEBAND_DATABASE_URL", raising=False)
+        stops: list[object] = []
+        monkeypatch.setattr(watchdog, "get_settings", lambda: config.Settings(_env_file=None))
+        monkeypatch.setattr(watchdog, "stop_server", lambda pgdata: stops.append(pgdata) or True)
+
+        failure = watchdog.recover_db() or ""
+        assert "ROLEBAND_PGDATA" in failure
+        assert stops == []
 
     def test_an_external_database_is_not_ours_to_restart(self, monkeypatch):
         class _Settings:
