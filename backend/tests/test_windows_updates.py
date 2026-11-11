@@ -402,6 +402,20 @@ def test_status_reads_what_checks_kept_without_asking_the_feed(state, identity, 
     assert len(feed.requests) == asked + 1, "only the rate-limited check asked"
 
 
+def test_a_source_run_never_takes_the_committed_identity(tmp_path, monkeypatch, capsys):
+    """The checkout commits RoleBand's release identity for release builds. A source run of the engine reports
+    updates unavailable instead of reading the real feed with it; only a package's own copy is trusted."""
+    from scripts import windows_update
+    from tracker.platform import paths
+
+    assert (paths.REPO_ROOT / "launcher" / "windows" / "release-identity.json").is_file()
+    monkeypatch.setattr(paths, "PACKAGED", False)
+    assert windows_update.main(["status", "--state", str(tmp_path / "state")]) == 0
+    assert json.loads(capsys.readouterr().out) == {"status": "unavailable", "reason": "This build carries no update identity."}
+    monkeypatch.setattr(paths, "PACKAGED", True)
+    assert windows_update.identity_path() == paths.REPO_ROOT / "release-identity.json"
+
+
 def _download_command(state, identity, feed, monkeypatch):
     import base64
 
