@@ -12,6 +12,7 @@ import {
   insightsBriefTopSkill,
 } from "../../copy/gen/insights";
 import { skillName } from "../../copy/vocab";
+import { fromSince } from "./period";
 
 /* Names the Statistics screens give what the API sends as slugs. */
 
@@ -34,7 +35,7 @@ export function overviewBrief(data: Pick<StatisticsOverview, "days" | "since" | 
   const parts = [
     insightsBriefOpen({ open: k.open_total, companies: k.companies }),
     insightsBriefOpened({
-      period: data.days > 0 ? "days" : data.since ? "since" : "all",
+      period: fromSince(data.days, data.since) ? "since" : data.days > 0 ? "days" : "all",
       opened: k.new_count, days: data.days, closed: k.closed_count,
       date: data.since ? date(data.since, "day") : "",
     }),

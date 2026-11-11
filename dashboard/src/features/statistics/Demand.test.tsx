@@ -82,7 +82,7 @@ it("leads with the roles open now, each once, and the recent motion", async () =
   vi.mocked(api.demand).mockResolvedValue(demand());
   renderHiring();
   expect(await screen.findByRole("heading", { name: "160 roles open" })).toBeInTheDocument();
-  expect(screen.getByText("20 companies hiring now · 3 new and 2 closed in the last 2 days")).toBeInTheDocument();
+  expect(screen.getByText(msg("insights-demand-hiring-now-new-closed", { company: msg("shared-count-company", { count: 20 }), new: "3", closed: "2" }))).toBeInTheDocument();
 });
 
 /* The load lines are whole catalog messages. Built from a noun ("Loading

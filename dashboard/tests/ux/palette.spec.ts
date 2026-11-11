@@ -1,5 +1,5 @@
 import { installJobDetailRoutes } from "./boardHarness";
-import { expect, test } from "./fixtures";
+import { expect, mockGet, test } from "./fixtures";
 import type { Locator, Page } from "@playwright/test";
 import { detail } from "./boardHarness";
 import {
@@ -42,7 +42,7 @@ test.beforeEach(async ({ page }) => {
   await page.route("/api/notifications**", (route) => route.fulfill({ json: notificationsFixture }));
   await page.route("/api/demand", (route) => route.fulfill({ json: emptyDemand }));
   await page.route("/api/statistics/overview**", (route) => route.fulfill({ json: overviewFixture }));
-  await page.route("/api/statistics/history**", (route) => route.fulfill({ json: historyFixture }));
+  await mockGet(page, "/api/statistics/history**", (route) => route.fulfill({ json: historyFixture }));
   await page.route("/api/statistics/velocity**", (route) => route.fulfill({ json: velocityFixture }));
   await page.route("/api/jobs/101", (route) => route.fulfill({ json: jobFixture }));
   await page.route("/api/jobs/*/similar**", (route) => route.fulfill({ json: { scope: "cross", items: [] } }));

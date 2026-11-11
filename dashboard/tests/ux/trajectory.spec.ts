@@ -1,5 +1,5 @@
 import { msg } from "../../src/test/msg";
-import { expect, test } from "./fixtures";
+import { expect, mockGet, test } from "./fixtures";
 import { showAdvancedInsights } from "./insightsView";
 import {
   facetsFixture,
@@ -51,7 +51,7 @@ const offerTermsFixture = {
 test.beforeEach(async ({ page }) => {
   await showAdvancedInsights(page);
   await page.route("/api/statistics/overview**", (route) => route.fulfill({ json: overviewFixture }));
-  await page.route("/api/statistics/history**", (route) => route.fulfill({ json: historyFixture }));
+  await mockGet(page, "/api/statistics/history**", (route) => route.fulfill({ json: historyFixture }));
   await page.route("/api/profile", (route) => route.fulfill({ json: {
     profile: null, scope_configured: true,
   } }));

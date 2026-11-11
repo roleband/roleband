@@ -1,6 +1,6 @@
 import { installJobDetailRoutes } from "./boardHarness";
 import { msg } from "../../src/test/msg";
-import { expect, test } from "./fixtures";
+import { expect, mockGet, test } from "./fixtures";
 import { expectOnTop, pointAndClick } from "./paint";
 import {
   facetsFixture,
@@ -25,7 +25,7 @@ test.beforeEach(async ({ page }) => {
   await page.route("/api/notifications**", (route) => route.fulfill({ json: notificationsFixture }));
   await page.route("/api/demand**", (route) => route.fulfill({ json: hiringFixture }));
   await page.route("/api/statistics/overview**", (route) => route.fulfill({ json: overviewFixture }));
-  await page.route("/api/statistics/history**", (route) => route.fulfill({ json: historyFixture }));
+  await mockGet(page, "/api/statistics/history**", (route) => route.fulfill({ json: historyFixture }));
   await page.route("/api/jobs/*/similar**", (route) => route.fulfill({ json: { scope: "cross", items: [] } }));
   await page.route("/api/jobs?**", (route) => route.fulfill({ json: jobListFixture }));
 });

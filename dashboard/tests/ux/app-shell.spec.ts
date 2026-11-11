@@ -140,7 +140,7 @@ test("a browser that blocks site data still opens the app", async ({ page }) => 
 
 test("every route offers exactly one main landmark", async ({ page }) => {
   await page.route("/api/statistics/overview**", (route) => route.fulfill({ json: overviewFixture }));
-  await page.route("/api/statistics/history**", (route) => route.fulfill({ json: historyFixture }));
+  await mockGet(page, "/api/statistics/history**", (route) => route.fulfill({ json: historyFixture }));
   await page.route("/api/company-profiles**", (route) => route.fulfill({ json: {
     items: [], attribution: null,
   } }));

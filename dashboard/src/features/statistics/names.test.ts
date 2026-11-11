@@ -38,8 +38,20 @@ describe("overviewBrief", () => {
       `${msg("insights-brief-open", { open: "3,192", companies: "41" })} `
       + msg("insights-brief-opened", { period: "since", opened: "120", closed: "30", days: 0, date: date("2026-11-03T06:02:00Z", "day") }),
     );
-    expect(overviewBrief({ days: 0, since: "2026-11-03T06:02:00Z", kpis, top_skills: [] })).not.toMatch(/all time/);
     // Before any whole read there is no start to name.
-    expect(overviewBrief({ days: 0, since: null, kpis, top_skills: [] })).toMatch(/closed, all time\.$/);
+    expect(overviewBrief({ days: 0, since: null, kpis, top_skills: [] })).toBe(
+      `${msg("insights-brief-open", { open: "3,192", companies: "41" })} `
+      + msg("insights-brief-opened", { period: "all", opened: "120", closed: "30", days: 0, date: "" }),
+    );
+  });
+
+  it("names where the history starts when it is shorter than the window asked for", () => {
+    // The history could not be read, so the view asked for 90 days; the route
+    // counted from the history's start, 8 days ago.
+    const since = new Date(Date.now() - 8 * 86_400_000).toISOString();
+    expect(overviewBrief({ days: 90, since, kpis, top_skills: [] })).toBe(
+      `${msg("insights-brief-open", { open: "3,192", companies: "41" })} `
+      + msg("insights-brief-opened", { period: "since", opened: "120", closed: "30", days: 90, date: date(since, "day") }),
+    );
   });
 });

@@ -2,7 +2,9 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { expect, it, vi } from "vitest";
 import { api } from "../../api";
+import { date } from "../../copy/format";
 import { overviewFixture } from "../../test/fixtures";
+import { msg } from "../../test/msg";
 import { OverviewPanel } from "./OverviewPanel";
 
 vi.mock("../../api", async () => {
@@ -46,10 +48,12 @@ it("calls the window's openings Opened, never New, and says all time is the hist
       <OverviewPanel days={0} />
     </MemoryRouter>,
   );
-  expect(await screen.findByText("Opened")).toBeInTheDocument();
-  expect(screen.queryByText("New")).toBeNull();
-  expect(screen.getAllByText(/^since \S+ \S+ \(\d+ days\)$/)).toHaveLength(2);
-  expect(screen.queryByText(/all time|last \d+d/)).toBeNull();
+  expect(await screen.findByText(msg("insights-common-opened"))).toBeInTheDocument();
+  expect(screen.queryByText(msg("insights-common-new"))).toBeNull();
+  const since = "2026-11-03T06:02:00Z";
+  const days = Math.floor((Date.now() - Date.parse(since)) / 86_400_000);
+  expect(screen.getAllByText(msg("insights-common-since-date", { date: date(since, "day"), days }))).toHaveLength(2);
+  expect(screen.queryByText(msg("insights-common-last-days-or-all-time", { period: "all", days: 0 }))).toBeNull();
 });
 
 it("lists no roles and groups none: the window's motion and the top skills", async () => {

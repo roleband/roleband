@@ -1,4 +1,5 @@
 import type { Page } from "./fixtures";
+import { mockGet } from "./fixtures";
 import { installBoardRoutes } from "./boardHarness";
 import { applicationCardFixture, applicationDetailFixture, historyFixture, overviewFixture } from "../../src/test/fixtures";
 import { companyDiscovery, companyOpenCounts } from "./settingsHarness";
@@ -25,7 +26,7 @@ export async function installEveryRoute(page: Page) {
     route.fulfill({ json: { suggestions: [] } }));
   await page.route("/api/statistics/overview**", (route) =>
     route.fulfill({ json: overviewFixture }));
-  await page.route("/api/statistics/history**", (route) => route.fulfill({ json: historyFixture }));
+  await mockGet(page, "/api/statistics/history**", (route) => route.fulfill({ json: historyFixture }));
   /* These two are answered EMPTY rather than populated, deliberately. Their
      rich fixtures live inside `companies.spec.ts` and `review.spec.ts`, and the
      lineage one is a function of the query string — extracting that to dress a
