@@ -296,10 +296,13 @@ async def preflight():
             'Origin': 'http://localhost:5173', 'Access-Control-Request-Method': 'PUT'}})
 
 response = asyncio.run(preflight())
-print(repr(response.headers.get('access-control-allow-origin')))
+print(response.status_code, repr(response.headers.get('access-control-allow-origin')))
 """)
     assert result.returncode == 0, result.stderr
-    assert result.stdout.strip().splitlines()[-1] == repr(allowed)
+    status, header = result.stdout.strip().splitlines()[-1].split(" ", 1)
+    assert header == repr(allowed)
+    if allowed is not None:
+        assert status == "200", result.stdout
 
 
 def test_isolated_packaged_entrypoint_uses_built_version(bundle, tmp_path):

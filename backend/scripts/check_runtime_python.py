@@ -25,8 +25,9 @@ import argparse
 import json
 import re
 import sys
+import time
 import urllib.parse
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -102,10 +103,22 @@ def behind(pins: Mapping[str, Version], releases: Iterable[Mapping[str, Any]]) -
     return late
 
 
-def fetch_releases() -> list[dict[str, Any]]:
-    with httpx.Client(timeout=30.0, follow_redirects=True,
+def fetch_releases(transport: httpx.BaseTransport | None = None, attempts: int = 3,
+                   pause: float = 5.0, sleep: Callable[[float], None] = time.sleep) -> list[dict[str, Any]]:
+    """python.org's release list. A connection failure or a server error is tried again,
+    `attempts` times in all; the last failure is raised."""
+    with httpx.Client(timeout=30.0, follow_redirects=True, transport=transport,
                       headers={"User-Agent": "roleband-runtime-check"}) as client:
-        response = client.get(RELEASES_URL)
+        for attempt in range(1, attempts + 1):
+            try:
+                response = client.get(RELEASES_URL)
+                if response.status_code < 500:
+                    break
+                response.raise_for_status()
+            except (httpx.TransportError, httpx.HTTPStatusError):
+                if attempt == attempts:
+                    raise
+            sleep(pause * attempt)
     response.raise_for_status()
     releases = response.json()
     if not isinstance(releases, list):
