@@ -28,13 +28,18 @@ def built_dashboard(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         encoding="utf-8",
     )
     (dist / "assets" / "index-abc123.js").write_text("console.log(1)", encoding="utf-8")
+    (dist / "theme-boot.js").write_text("document.documentElement.dataset.theme='dark'", encoding="utf-8")
+    (dist / "manifest.webmanifest").write_text("{}", encoding="utf-8")
+    (dist / "icon-192.png").write_bytes(b"\x89PNG\r\n\x1a\n")
     monkeypatch.setattr(spa, "DASHBOARD_DIST", dist)
     return dist
 
 
 @pytest.fixture()
 def client(built_dashboard: Path) -> TestClient:
+    """Composed as app.py composes it: the /assets mount first, then the router."""
     app = FastAPI()
+    app.mount("/assets", spa.DashboardAssets(directory=built_dashboard / "assets"), name="assets")
     app.include_router(spa.router)
     return TestClient(app)
 
@@ -121,3 +126,61 @@ def test_the_policy_file_names_every_directive_once_and_the_host_by_placeholder(
     directives = json.loads(POLICY_FILE.read_text())["directives"]
     assert "{usage_host}" in directives["connect-src"]
     assert all("unsafe" not in value for value in directives["script-src"])
+
+
+#: Every way a path reaches a file of the build. The case variants name
+#: `index.html` on a case-insensitive filesystem (macOS, Windows); the test
+#: creates them where the filesystem tells the names apart.
+_BUILD_PATHS = [
+    "/", "/settings/companies", "/index.html", "/INDEX.HTML", "/Index.Html", "/index.html/",
+    "//index.html", "/theme-boot.js", "/manifest.webmanifest", "/icon-192.png",
+    "/assets/index-abc123.js",
+]
+
+
+@pytest.mark.parametrize("path", _BUILD_PATHS)
+def test_every_file_of_the_build_is_served_under_the_shell_s_policy(
+    client: TestClient, built_dashboard: Path, path: str
+) -> None:
+    for variant in ("INDEX.HTML", "Index.Html"):
+        if not (built_dashboard / variant).exists():
+            (built_dashboard / variant).write_text((built_dashboard / "index.html").read_text())
+    shell = client.get("/").headers
+    response = client.get(path)
+    assert response.status_code == 200
+    assert response.headers["content-security-policy"] == shell["content-security-policy"]
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-frame-options"] == "DENY"
+    if not path.startswith("/assets/"):
+        assert response.headers["cache-control"] == "no-cache"
+
+
+_FASTAPI_PAGES = ["/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json"]
+
+
+@pytest.mark.parametrize("path", _FASTAPI_PAGES)
+def test_the_composed_app_has_no_documentation_pages_or_schema_route(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, path: str
+) -> None:
+    """Swagger UI and ReDoc load script from a CDN into this origin. Headless,
+    the paths are not found."""
+    from tracker.api.app import app
+
+    monkeypatch.setattr(spa, "DASHBOARD_DIST", tmp_path / "absent")
+    response = TestClient(app, base_url="http://127.0.0.1:8010").get(path)
+    assert response.status_code == 404
+    assert "swagger" not in response.text.lower() and "redoc" not in response.text.lower()
+
+
+@pytest.mark.parametrize("path", _FASTAPI_PAGES)
+def test_with_a_build_those_paths_are_the_dashboard_shell_under_its_policy(
+    built_dashboard: Path, path: str
+) -> None:
+    from tracker.api.app import app
+
+    response = TestClient(app, base_url="http://127.0.0.1:8010").get(path)
+    assert response.status_code == 200
+    assert "index-abc123.js" in response.text
+    assert "cdn.jsdelivr.net" not in response.text
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert _directives(response.headers["content-security-policy"])["script-src"] == ["'self'"]

@@ -92,9 +92,11 @@ class Settings(BaseSettings):
     )
     # Origins a dashboard dev server answers from, allowed cross-origin by the
     # API (Vite's default port). A dev server on another port adds its origin
-    # as a JSON list: ROLEBAND_DEV_ORIGINS='["http://127.0.0.1:5174"]'.
+    # as a JSON list: ROLEBAND_DEV_ORIGINS='["http://127.0.0.1:5174"]'. A
+    # packaged app serves its own dashboard and runs no dev server, so it
+    # allows none unless the variable names them.
     dev_origins: list[str] = Field(
-        default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"],
+        default_factory=lambda: [] if PACKAGED else ["http://localhost:5173", "http://127.0.0.1:5173"],
         validation_alias="ROLEBAND_DEV_ORIGINS",
     )
     postgres_host: str = "localhost"

@@ -7,7 +7,8 @@ name: vendored-provenance
 # policy is right and it creates one blind spot: a stale snapshot is
 # indistinguishable from a current one, so upstream fixes silently never arrive.
 # This job is the notice, not an updater - it never edits code and no dependency
-# bot can see vendored source.
+# bot can see vendored source. A second step asks the same of the apps' bundled
+# Python: whether python.org has a newer release of the pinned series.
 #
 # NON-BLOCKING by construction. It runs on a schedule and on demand, never on
 # push or pull_request, so a GitHub outage or an API rate limit can never fail
@@ -15,9 +16,10 @@ name: vendored-provenance
 #
 # CAVEAT worth knowing: `schedule` only fires on the default branch of the
 # GitHub remote. A checkout whose commits sit unpushed is not covered, so treat
-# this as a backstop and run the script by hand monthly:
+# this as a backstop and run the scripts by hand monthly, from `backend/`:
 #
-#     cd backend && .venv/bin/python -m scripts.check_vendored_upstream
+#     .venv/bin/python -m scripts.check_vendored_upstream
+#     .venv/bin/python -m scripts.check_runtime_python
 
 on:
   schedule:
@@ -31,6 +33,9 @@ on:
     paths:
       - "backend/tracker/vendored.py"
       - "backend/scripts/check_vendored_upstream.py"
+      - "backend/scripts/check_runtime_python.py"
+      - "launcher/macos/runtime.json"
+      - "launcher/windows/runtime.json"
       - ".python-version"
       - ".github/workflows/vendored-provenance.yml"
 
@@ -79,4 +84,25 @@ jobs:
           # DRIFT and UNKNOWN are information, and this job must not become a
           # red X people learn to ignore.
           [ "$code" = "2" ] && exit 1
+          exit 0
+      - name: check the bundled Python
+        working-directory: backend
+        run: |
+          set +e
+          python -m scripts.check_runtime_python | tee runtime.txt
+          code=${PIPESTATUS[0]}
+          {
+            echo "## Bundled Python"
+            echo
+            echo '```'
+            cat runtime.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          case $code in
+            0) echo "::notice::the bundled Python is the newest release of its series" ;;
+            1) echo "::warning::a newer Python security release is out - move the runtime pins" ;;
+            3) echo "::notice::could not read python.org; no verdict about the pins" ;;
+            2) echo "::error::a runtime pin names another build than its archives"; exit 1 ;;
+            *) echo "::error::the bundled Python check failed"; exit 1 ;;
+          esac
           exit 0

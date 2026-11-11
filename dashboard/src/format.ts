@@ -7,7 +7,12 @@ export { fmtComp, fmtCompIn, fmtRange } from "./money";
    the package declares its modules side-effect-free. Only what the shell itself
    calls is defined in this file; `npm run build` names anything else. */
 export { BAND_LABEL, BAND_ORDER, LOC_LABEL, WORKPLACE_LABEL, flagEmoji, isMetro, relDays } from "./labels";
-import { shellFreshnessBehind, shellFreshnessChecked, shellFreshnessNever, shellScanScanning } from "./copy/gen/shell";
+import {
+  shellFreshnessChecked,
+  shellFreshnessMarket,
+  shellFreshnessNever,
+  shellScanScanning,
+} from "./copy/gen/shell";
 import {
   formatAgeDays,
   formatAgeHours,
@@ -120,8 +125,14 @@ export function ageLabel(hours: number | null | undefined): string {
 // Pure label logic for the data-freshness badge, given /api/status.
 //
 // The age is the newest scan's, so one company that cannot be read shows as
-// behind beside a recent scan rather than ageing the whole badge. Red is kept
+// behind (the amber dot) beside a recent scan rather than ageing the whole badge. Red is kept
 // for scans that have stopped: the newest one is older than the window.
+//
+// The badge says one thing. While the wider market's first pass runs, that is
+// the pass, and the scan's words move to `scan`, for the tooltip; the dot keeps
+// the scan's tone. Two states outrank
+// the pass: a live scan, which the pass waits for, and scans that have
+// stopped, which is the warning the badge exists for.
 export function freshnessLabel(
   s: {
     running: boolean;
@@ -130,10 +141,29 @@ export function freshnessLabel(
     stale: boolean;
     freshness_max_hours: number;
     scheduler: { unread: readonly unknown[] };
+    wider_market?: { checked: number; to_check: number; waiting_for_power: boolean } | null;
   } | null,
-): { text: string; tone: FreshnessTone } {
+): { text: string; tone: FreshnessTone; scan?: string } {
   if (!s) return { text: "—", tone: "unknown" };
   if (s.running) return { text: shellScanScanning(), tone: "unknown" };
+  const scan = scanState(s);
+  const market = s.wider_market;
+  if (!market || scan.tone === "stale") return scan;
+  const text = shellFreshnessMarket({
+    scan: market.waiting_for_power ? "paused" : "running",
+    // Floored, so the badge never reads 100% while a company is still unread.
+    percent: Math.min(99, Math.floor((market.checked / Math.max(1, market.to_check)) * 100)),
+  });
+  return { text, tone: scan.tone, scan: scan.text };
+}
+
+function scanState(s: {
+  last_success_age_hours: number | null;
+  last_scan_age_hours: number | null;
+  stale: boolean;
+  freshness_max_hours: number;
+  scheduler: { unread: readonly unknown[] };
+}): { text: string; tone: FreshnessTone } {
   // Null age means no followed company was ever read. It is not "a company is
   // behind": that state carries the age of the oldest scan.
   if (s.last_success_age_hours == null) {
@@ -141,8 +171,8 @@ export function freshnessLabel(
   }
   const hours = s.last_scan_age_hours ?? s.last_success_age_hours;
   const age = ageLabel(hours);
-  const behind = s.scheduler.unread.length;
-  const text = behind > 0 ? shellFreshnessBehind({ age, count: behind }) : shellFreshnessChecked({ age });
+  // Companies behind are the amber dot and the tooltip's list, never more
+  // words in the badge.
   const tone = hours > s.freshness_max_hours ? "stale" : s.stale ? "behind" : "fresh";
-  return { text, tone };
+  return { text: shellFreshnessChecked({ age }), tone };
 }

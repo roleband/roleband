@@ -463,6 +463,7 @@ export const statusFixture: SystemStatus = {
   reference: referenceFixture(),
   plugins_running: 0,
   matching_switch: "none",
+  wider_market: null,
   jobs: [],
   supervisor: { state: "running", since: "2026-08-08T10:00:00Z", reason: null },
 };

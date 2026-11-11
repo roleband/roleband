@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from dataclasses import dataclass
@@ -75,6 +76,7 @@ from tracker.settings_store import SCHEDULE_PLAN_KEY, update_schedule_plan_setti
 from tracker.source_policy import collection_access, scanned_automatically
 from tracker.workflows import schedule_plan
 from tracker.workflows.collection_types import ScanMode
+from tracker.workflows.directory_sweep import first_pass, read_follow
 from tracker.workflows.launcher_status import (
     ScanSchedule,
     in_flight_slugs,
@@ -375,8 +377,42 @@ _scan_bound: _ScanBound | None = None
 
 
 def forget_scan_bound() -> None:
-    global _scan_bound
+    """Drop every part a status read reuses: the scan-bound part and the wider market's count."""
+    global _scan_bound, _wider_market
     _scan_bound = None
+    _wider_market = None
+
+
+# The wider market's first pass, as the header shows it. Counting it reads every
+# directory check and asks the host for its power source, and status is polled
+# every few seconds while the pass runs, so the count is reused for a short
+# while. The follow setting is the key: starting or stopping the set shows on
+# the next read.
+WIDER_MARKET_REUSE_SECONDS = 15.0
+
+
+@dataclass(frozen=True)
+class _WiderMarket:
+    key: str
+    read_at: float
+    value: dict | None
+
+
+_wider_market: _WiderMarket | None = None
+
+
+async def _wider_market_read(session: AsyncSession) -> dict | None:
+    global _wider_market
+    follow = await read_follow(session)
+    if not follow["following"]:
+        return None
+    key = json.dumps(follow, sort_keys=True, default=str)
+    reused = _wider_market
+    if reused is not None and reused.key == key and _reuse_clock() - reused.read_at < WIDER_MARKET_REUSE_SECONDS:
+        return reused.value
+    value = await first_pass(session)
+    _wider_market = _WiderMarket(key, _reuse_clock(), value)
+    return value
 
 
 async def _scan_bound_reads(
@@ -557,6 +593,7 @@ async def status(session: SessionDep) -> dict:
         # watched from Settings; the shell says one is running anywhere else.
         "matching_switch": matching.phase_of(model_status, reembed_running=reembed_requested or reembed_executing),
         **await plugin_status.status_block(session),
+        "wider_market": await _wider_market_read(session),
         "jobs": jobs,
         "supervisor": supervisor,
     }

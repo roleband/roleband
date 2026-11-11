@@ -170,10 +170,15 @@ shell-freshness-oldest = Oldest scan: { $when }
 shell-freshness-never = Not scanned yet
 # kind=status note="$age is the time since the newest scan finished"
 shell-freshness-checked = Last scan · { $age }
-# kind=status note="$age is the time since the newest scan finished; $count is how many companies were not read in full lately"
-shell-freshness-behind = Last scan · { $age } · { $count ->
-    [one] { $count } company behind
-   *[other] { $count } companies behind
+# kind=status note="Shown alone while the first scan of the wider market runs; $percent is how much of it is read, 0 to 99"
+shell-freshness-market = { $scan ->
+    [paused] Wider market paused
+   *[running] Wider market { $percent }%
+}
+# kind=tooltip note="$checked of $total companies read so far; $hiring of them hire for the person's radar"
+shell-freshness-market-title = { $scan ->
+    [paused] First scan of the wider market: { $checked } of { $total } companies read, { $hiring } hiring for you. Resumes when you plug in
+   *[running] First scan of the wider market: { $checked } of { $total } companies read, { $hiring } hiring for you
 }
 # kind=tooltip note="$companies is a list of company names"
 shell-freshness-waiting = Waiting for a full scan: { $companies }

@@ -82,6 +82,14 @@ shell-freshness-offline-aria = 上次扫描：未知
 shell-freshness-offline-title = 状态不可用
 shell-freshness-oldest = 最早的扫描：{ $when }
 shell-freshness-never = 尚未扫描
+shell-freshness-market = { $scan ->
+    [paused] 更广的市场已暂停
+   *[running] 更广的市场 { $percent }%
+}
+shell-freshness-market-title = { $scan ->
+    [paused] 更广的市场首次扫描：已读取 { $total } 家公司中的 { $checked } 家，{ $hiring } 家正在为你招聘。接通电源后继续
+   *[running] 更广的市场首次扫描：已读取 { $total } 家公司中的 { $checked } 家，{ $hiring } 家正在为你招聘
+}
 shell-freshness-waiting = 等待完整扫描：{ $companies }
 shell-reason-setup-source = 在源代码文件夹中运行 ./setup.sh 以完成更新。完成后会立即继续扫描。
 shell-freshness-aria = 上次扫描：{ $state }
@@ -197,7 +205,6 @@ shell-model-switch-title = 在 设置 › AI 中查看进度。排序在此期�
 shell-tab-settings-plugins = 插件
 shell-tab-settings-privacy = 隐私
 shell-freshness-checked = 上次扫描 · { $age }
-shell-freshness-behind = 上次扫描 · { $age } · { $count } 家公司未及时扫描
 shell-scan-updating-estimates = 更新估算中…
 shell-scan-updating-estimates-aria = 正在更新估算
 
