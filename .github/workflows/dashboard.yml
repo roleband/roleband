@@ -94,6 +94,10 @@ jobs:
         run: npm run knip
       - name: build + typecheck
         run: npm run build
+      # The Mac app's copy is exported from this catalogue, and the check that the export
+      # is current needs Node only, so it runs with the catalogue's gate on Linux.
+      - name: native launcher copy is current
+        run: node scripts/export-launcher-copy.mjs --check
       - name: vitest
         run: npm run test:unit -- --reporter=default --reporter=json --outputFile=test-results/vitest.json
       - name: upload unit test timings and outcomes
