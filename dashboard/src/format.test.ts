@@ -96,11 +96,14 @@ describe("format helpers", () => {
     expect(freshnessLabel(idle(50, 50, true))).toEqual({
       text: msg("shell-freshness-checked", { age: msg("format-age-days", { count: 2 }) }), tone: "stale",
     });
-    // One company unread for three days beside a scan 15 minutes ago.
+    // One company unread for three days beside a scan 15 minutes ago: amber,
+    // and the words stay the newest scan's age, with no count.
     expect(freshnessLabel(idle(0.25, 75, true, [{ company: "shopify" }]))).toEqual({
-      text: msg("shell-freshness-behind", { age: msg("format-age-minutes", { count: 15 }), count: 1 }),
+      text: msg("shell-freshness-checked", { age: msg("format-age-minutes", { count: 15 }) }),
       tone: "behind",
     });
+    expect(freshnessLabel(idle(0.25, 0.25, false)).text)
+      .toBe(msg("shell-freshness-checked", { age: msg("format-age-minutes", { count: 15 }) }));
     // Scans stopped: red however few companies are behind.
     expect(freshnessLabel(idle(30, 75, true, [{ company: "shopify" }])).tone).toBe("stale");
     // A status from before the field existed reads the oldest scan's age.
@@ -110,6 +113,43 @@ describe("format helpers", () => {
       .toBe(msg("shell-freshness-checked", { age: msg("format-age-minutes", { count: 15 }) }));
     expect(freshnessLabel(idle(0.001, 0.001, false)).text)
       .toBe(msg("shell-freshness-checked", { age: msg("format-age-just-now") }));
+  });
+
+  it("says one thing: the wider market's first pass, unless a scan runs or scans stopped", () => {
+    const market = { checked: 6610, to_check: 12500, waiting_for_power: false };
+    const idle = (scan: number | null, oldest: number | null, stale: boolean, unread: unknown[] = []) => ({
+      running: false, last_scan_age_hours: scan, last_success_age_hours: oldest, stale,
+      freshness_max_hours: 26, scheduler: { unread }, wider_market: market,
+    });
+    const checked = msg("shell-freshness-checked", { age: msg("format-age-minutes", { count: 15 }) });
+    expect(freshnessLabel(idle(0.25, 0.25, false))).toEqual({
+      text: msg("shell-freshness-market", { scan: "running", percent: 52 }), tone: "fresh", scan: checked,
+    });
+    // Companies behind: the amber dot stays.
+    const behind = freshnessLabel(idle(0.25, 75, true, [{ company: "shopify" }, { company: "openai" }]));
+    expect(behind.text).toBe(msg("shell-freshness-market", { scan: "running", percent: 52 }));
+    expect(behind.tone).toBe("behind");
+    expect(behind.scan).toBe(checked);
+    // Scans stopped: the warning outranks the pass.
+    expect(freshnessLabel(idle(30, 30, true))).toEqual({
+      text: msg("shell-freshness-checked", { age: msg("format-age-days", { count: 1 }) }),
+      tone: "stale",
+    });
+    // The pass waits while a scan reads.
+    expect(freshnessLabel({ ...idle(0.25, 0.25, false), running: true }).text).toBe(msg("shell-scan-scanning"));
+    // Following only the wider market: no scan yet.
+    expect(freshnessLabel(idle(null, null, true))).toMatchObject({ text: msg("shell-freshness-market", { scan: "running", percent: 52 }), tone: "unknown" });
+    expect(freshnessLabel({ ...idle(0.25, 0.25, false), wider_market: { ...market, waiting_for_power: true } }).text)
+      .toBe(msg("shell-freshness-market", { scan: "paused", percent: 52 }));
+    // Never 100% while a company is unread, and 0% at the start.
+    expect(freshnessLabel({ ...idle(0.25, 0.25, false), wider_market: { ...market, checked: 12499 } }).text)
+      .toBe(msg("shell-freshness-market", { scan: "running", percent: 99 }));
+    expect(freshnessLabel({ ...idle(0.25, 0.25, false), wider_market: { ...market, checked: 0 } }).text)
+      .toBe(msg("shell-freshness-market", { scan: "running", percent: 0 }));
+    // Over, or never started: the scan's words.
+    expect(freshnessLabel({ ...idle(0.25, 0.25, false), wider_market: null }).text).toBe(checked);
+    // The badge never grows past a short phrase in this state.
+    expect(freshnessLabel(idle(0.25, 75, true, [{ company: "a" }, { company: "b" }])).text.length).toBeLessThanOrEqual(20);
   });
 });
 

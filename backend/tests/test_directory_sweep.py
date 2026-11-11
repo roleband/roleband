@@ -1433,3 +1433,70 @@ async def test_the_register_reads_the_set_and_follows_it_in_one_switch(api_clien
     assert started == [True], "stopping starts nothing"
     roster = (await api_client.get("/api/companies/discovery")).json()
     assert next(c for c in roster["companies"] if c["slug"] == "a")["enabled"] is False
+
+
+@pytest.mark.asyncio
+async def test_the_header_status_carries_the_first_pass_until_every_company_is_read(
+    api_client, db_session, monkeypatch, no_escape,
+):
+    """The set's first pass is no scan run, so `running` and the last scan never
+    hear of it: `/api/status` carries its count instead, and drops it when the
+    pass is over, when the set is stopped, and while it is not followed."""
+    from tracker.api.routers import ops as ops_router
+
+    companies = {c.slug: c for c in [_company(0, "a"), _company(1, "b"), _company(2, "c")]}
+    monkeypatch.setattr(company_directory, "directory", lambda: companies)
+    monkeypatch.setattr(directory_sweep, "directory", lambda: companies)
+
+    async def ring_directory(_session, *, requested_by):
+        return None
+
+    monkeypatch.setattr(companies_router.job_requests, "ring_directory", ring_directory)
+    clock = [1000.0]
+    monkeypatch.setattr(ops_router, "_reuse_clock", lambda: clock[0])
+    machine(monkeypatch)
+    await seed_company_contract(db_session)
+
+    async def header():
+        response = await api_client.get("/api/status")
+        assert response.status_code == 200, response.text
+        return response.json()
+
+    assert (await header())["wider_market"] is None, "not followed: nothing to show"
+
+    await api_client.put("/api/companies/directory/follow", json={"following": True})
+    started = await header()
+    assert started["wider_market"] == {"checked": 0, "to_check": 3, "with_roles": 0, "waiting_for_power": False}
+    assert started["running"] is False, "the pass is not a scan run"
+
+    db_session.add(DirectoryCheck(slug="a", checked_at=datetime.now(UTC), outcome="ok",
+                                  scanned=4, roles_for_you=1))
+    db_session.add(TrackedCompany(slug="a", display="A", adapter="greenhouse", board_token="a",
+                                  status="active", enabled=True, visible=True, source="directory-set"))
+    await db_session.commit()
+    clock[0] += ops_router.WIDER_MARKET_REUSE_SECONDS - 1
+    assert (await header())["wider_market"]["checked"] == 0, "inside the window the count is reused"
+    clock[0] += 1
+    assert (await header())["wider_market"] == {
+        "checked": 1, "to_check": 3, "with_roles": 1, "waiting_for_power": False,
+    }
+
+    machine(monkeypatch, batt=ON_BATTERY)
+    clock[0] += ops_router.WIDER_MARKET_REUSE_SECONDS
+    assert (await header())["wider_market"]["waiting_for_power"] is True
+    machine(monkeypatch)
+
+    for slug in ("b", "c"):
+        db_session.add(DirectoryCheck(slug=slug, checked_at=datetime.now(UTC), outcome="ok",
+                                      scanned=2, roles_for_you=0))
+    await db_session.commit()
+    clock[0] += ops_router.WIDER_MARKET_REUSE_SECONDS
+    assert (await header())["wider_market"] is None, "every company read once: the daily re-reads are routine"
+
+    for slug in ("b", "c"):
+        await db_session.delete(await db_session.get(DirectoryCheck, slug))
+    await db_session.commit()
+    clock[0] += ops_router.WIDER_MARKET_REUSE_SECONDS
+    assert (await header())["wider_market"] is not None
+    await api_client.put("/api/companies/directory/follow", json={"following": False})
+    assert (await header())["wider_market"] is None, "a stop shows on the next read, not after the window"
