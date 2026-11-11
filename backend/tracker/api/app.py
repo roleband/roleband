@@ -25,7 +25,6 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
-from fastapi.staticfiles import StaticFiles
 from pydantic.json_schema import models_json_schema
 
 from tracker import __version__
@@ -125,7 +124,17 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.local_authority = None
 
 
-app = FastAPI(title="RoleBand Job Tracker API", version=__version__, lifespan=_lifespan)
+# No documentation pages and no schema route: Swagger UI and ReDoc load script
+# from a CDN into this origin. The schema is still built in process by
+# `app.openapi()`, which `scripts.export_openapi` writes for the dashboard.
+app = FastAPI(
+    title="RoleBand Job Tracker API",
+    version=__version__,
+    lifespan=_lifespan,
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
 
 # Innermost of the three: counts only what the boundary admitted and the router
 # answered, by the route the router matched (tracker/api/usage_counter.py).
@@ -169,7 +178,7 @@ app.include_router(plugins.router)
 if (DASHBOARD_DIST / "index.html").is_file():
     _assets_dir = DASHBOARD_DIST / "assets"
     if _assets_dir.is_dir():
-        app.mount("/assets", StaticFiles(directory=_assets_dir), name="assets")
+        app.mount("/assets", spa.DashboardAssets(directory=_assets_dir), name="assets")
 
 app.include_router(spa.router)
 
