@@ -27,7 +27,9 @@ Retain a bounded private journal with `preparing`, `prepared`, `retaining`,
 `installing`, `checking`, `complete` and `aborted` phases. Publish journal changes
 through a flushed temporary file and handle-based atomic replacement. Readers
 share deletion; Windows [replacement semantics](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_rename_information)
-let them retain the opened snapshot without blocking publication. Record NTFS
+let them retain the opened snapshot without blocking publication. Readers share
+writing too: publication holds its handle until the rename is flushed, and a
+reader can open the new name before then. Nothing writes into a published name. Record NTFS
 directory identities before moving the old database into the transaction's
 retained storage and the restored database into its place. Resume recognizes a
 completed rename even when the following journal publication was interrupted.
