@@ -61,10 +61,11 @@ test("Follow all sits in the toolbar and asks before following every listed comp
   const ask = page.getByRole("dialog", { name: "Follow the whole list?" });
   await expect(ask).toBeVisible();
   await expect(ask.locator("p")).toHaveText([
-    "Your radar starts with a curated list of well-known companies, so your first roles come from employers you know.",
-    "More companies bring more roles, and each scan takes longer.",
-    "You can unfollow any company in Settings › Followed companies.",
+    "Your radar starts with a curated list of well-known companies. More companies bring more roles, and each scan takes longer.",
+    "Unfollow any time in Settings › Followed companies.",
   ]);
+  // The switch is named by its label alone: no hint repeats what it says.
+  await expect(ask.getByText(/Unticked|scanned now/)).toHaveCount(0);
   // No paragraph ends on a word alone on its line.
   const lastLines = await ask.locator("p").evaluateAll((paragraphs) => paragraphs.map((p) => {
     const words: { top: number; word: string }[] = [];
@@ -90,6 +91,13 @@ test("Follow all sits in the toolbar and asks before following every listed comp
     }
   }
   await page.setViewportSize({ width: 1280, height: 720 });
+  // The note above the answers is one line in the desktop dialog.
+  const noteLines = await ask.getByText("Unfollow any time in", { exact: false }).evaluate((note) => {
+    const range = document.createRange();
+    range.selectNodeContents(note);
+    return new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size;
+  });
+  expect(noteLines).toBe(1);
   const keep = ask.getByRole("button", { name: "Keep curated list" });
   await expect(keep).toBeFocused();
 

@@ -1,11 +1,12 @@
 import { wordsLanguage } from "../../copy/runtime";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-import { Button, Dialog, Switch } from "../../ui";
+import { Button, Dialog, Icon, Switch, type IconName } from "../../ui";
 import { useCompanies } from "./CompaniesData";
-import { followCopy, type FollowCopy } from "./followCopy";
+import { followCopy, type ConsentFact, type FollowCopy } from "./followCopy";
 // The dialog form these confirmations wear (`.ledger-form`, `.ledger-confirm`)
 // belongs to the register material; setup asks them without Settings' chunk.
 import "../../design/materials/register-material.css";
+import "./CuratedList.css";
 import {
   companiesCuratedListConfirm,
 } from "../../copy/gen/companies";
@@ -37,9 +38,13 @@ function keepTogether(line: string): ReactNode[] {
   return parts;
 }
 
-/** A confirmation's body: its words, the Keep scanning checkbox when the
- *  answer covers companies scanned only at the user's direction, and the two
- *  answers. The safe one carries `safeRef`, so its dialog can focus it. */
+const FACT_ICON = { walled: "shield", directed: "pointer" } as const satisfies Record<ConsentFact["site"], IconName>;
+
+/** A confirmation's body, one zone per kind of word: what the answer brings,
+ *  what following agrees to, the Keep scanning switch when the answer covers
+ *  companies scanned only at the user's direction, and a quiet note above the
+ *  two answers. Every sentence is a paragraph in the order `shownSentences`
+ *  records it. The safe answer carries `safeRef`, so its dialog can focus it. */
 export function ConfirmBody({
   copy,
   keepScanning,
@@ -59,15 +64,26 @@ export function ConfirmBody({
   busy?: boolean;
 }) {
   return (
-    <div className="ledger-form ledger-confirm">
+    <div className="ledger-form ledger-confirm ledger-follow">
       <h3>{copy.title}</h3>
       {copy.paragraphs.map((line) => <p key={line}>{keepTogether(line)}</p>)}
+      {copy.consent && (
+        <div className="ledger-confirm-zone ledger-confirm-consent">
+          {copy.consent.facts.map((fact) => (
+            <p key={fact.site} className="ledger-confirm-fact">
+              <Icon name={FACT_ICON[fact.site]} />
+              {keepTogether(fact.text)}
+            </p>
+          ))}
+          <p className="ledger-confirm-agree">{keepTogether(copy.consent.choice)}</p>
+        </div>
+      )}
       {copy.keepScanning && (
-        <Switch className="ledger-confirm-choice" checked={keepScanning} onChange={onKeepScanning}>
-          {copy.keepScanning.label}
-          <small>{copy.keepScanning.hint}</small>
+        <Switch className="ledger-confirm-zone ledger-confirm-switch" checked={keepScanning} onChange={onKeepScanning}>
+          {copy.keepScanning}
         </Switch>
       )}
+      {copy.note && <p className="ledger-confirm-zone ledger-confirm-note">{keepTogether(copy.note)}</p>}
       <div className="ledger-form-actions">
         <Button ref={safeRef} onClick={onSafe}>
           {copy.safe}

@@ -181,7 +181,8 @@ describe("SetupCompanies", () => {
 
     const ask = await screen.findByRole("dialog", { name: msg("companies-follow-copy-follow-every-company-question") });
     expect(onStart).not.toHaveBeenCalled();
-    expect(ask).toHaveTextContent(msg("companies-follow-copy-some-of-these-companies-careers"));
+    expect(ask).toHaveTextContent(msg("companies-follow-copy-some-of-these-companies-limit"));
+    expect(ask).toHaveTextContent(msg("companies-follow-copy-by-picking-this"));
     const shown = dialogText(ask);
     await userEvent.click(within(ask).getByRole("button", { name: msg("companies-follow-copy-follow-every-company") }));
 
@@ -220,7 +221,8 @@ describe("SetupCompanies", () => {
     await start();
 
     const ask = await screen.findByRole("dialog", { name: msg("companies-follow-copy-follow-every-company-question") });
-    expect(ask).not.toHaveTextContent(msg("companies-follow-copy-some-of-these-companies-careers"));
+    expect(ask).not.toHaveTextContent(msg("companies-follow-copy-some-of-these-companies-limit"));
+    expect(ask).not.toHaveTextContent(msg("companies-follow-copy-by-picking-this"));
     await userEvent.click(within(ask).getByRole("button", { name: msg("companies-follow-copy-follow-every-company") }));
 
     await waitFor(() => expect(api.followCompanyDirectory).toHaveBeenCalledWith(true));
