@@ -36,6 +36,8 @@ test("Hiring is a basic tab with no window of its own", async ({ page }) => {
   await expect(page.getByRole("group", { name: "Time range" })).toHaveCount(0);
   await expect(page.getByRole("banner", { name: msg("shell-topbar-aria") })).toContainText("Insights/Hiring");
   // No role lists: Hiring answers who hires and where, and the Board lists roles.
+  // Asked of the loaded panel, not the one still waiting for its answer.
+  await expect(page.getByRole("heading", { level: 2, name: "236 roles open" })).toBeVisible();
   await expect(page.locator("#statistics-tabpanel a[href*='/job/']")).toHaveCount(0);
 });
 
@@ -101,8 +103,10 @@ test("a company in the full list is a link to its roles on the Board, and Back r
 test("a company's name on the chart opens its roles on the Board", async ({ page }) => {
   await page.goto("/statistics/demand");
   const name = page.locator(".chart-demand svg text", { hasText: /^Google$/ });
-  // Mid-screen, clear of the phone's bottom bar.
-  await name.evaluate((el) => el.scrollIntoView({ block: "center" }));
+  await expect(name).toBeVisible();
+  // The chart, mid-screen and clear of the phone's bottom bar. WebKit does not
+  // scroll to an SVG text element itself, so the chart's box is what scrolls.
+  await page.locator(".chart-demand").evaluate((el) => el.scrollIntoView({ block: "center" }));
   await expectOnTop(name, "Google's name on the chart");
   const narrowed = page.waitForRequest((r) => r.url().includes("/api/jobs?") && r.url().includes("company=google"));
   await pointAndClick(page, name);
