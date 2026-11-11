@@ -944,3 +944,90 @@ def test_a_ux_shard_off_the_local_image_is_reported():
     ]
     pinned = {"jobs": {"ux": {"container": {"image": "mcr.microsoft.com/playwright:v1.64.1-noble@sha256:" + "a" * 64}}}}
     assert browser_image_gaps(pinned, local, "1.64.1") == []
+
+
+# The Windows release is signed with a certificate no timestamp limits and no one can
+# recall, so the signing secrets meet only code that is on main. A run uses the
+# workflow file of the ref it starts from: a release's is the tag's, a run by hand's
+# is its branch's. The sign job therefore runs only by hand from main, runs main's
+# own tools, and refuses a tag main does not hold before any step names a secret.
+SIGNING_RUNS = (
+    ("release", "refs/tags/v1.2.3", False),
+    ("workflow_dispatch", "refs/heads/feature", False),
+    ("workflow_dispatch", "refs/tags/v1.2.3", False),
+    ("push", "refs/heads/main", False),
+    ("workflow_dispatch", "refs/heads/main", True),
+)
+
+
+def runs_when(condition: str, event: str, ref: str) -> bool:
+    """A job `if:` of `==`, `&&`, `||` and parentheses, for one event and ref with the build done."""
+    values = {"github.event_name": event, "github.ref": ref, "needs.build.outputs.identity": "true"}
+    expression = re.sub(r"\$\{\{|\}\}", "", condition)
+    if re.search(r"![^=]", expression):
+        raise NotImplementedError("negation is not used here; teach this test first")
+    # A context missing from `values` raises KeyError, so a new condition fails loudly.
+    expression = re.sub(r"\b[a-z_]+(?:\.[a-z_]+)+\b", lambda found: repr(values[found[0]]), expression)
+    expression = expression.replace("&&", " and ").replace("||", " or ")
+    return bool(eval(expression, {"__builtins__": {}}))  # noqa: S307 - built from the workflow file only
+
+
+def signing_gaps(job: dict) -> list[str]:
+    gaps = [
+        f"signs on {event} from {ref}" if signs else f"does not sign on {event} from {ref}"
+        for event, ref, expected in SIGNING_RUNS
+        if (signs := runs_when(str(job.get("if", "true")), event, ref)) is not expected
+    ]
+    steps = job.get("steps") or []
+    gaps += [
+        f"checks out {step['with']['ref']}, not the workflow's own commit"
+        for step in steps
+        if str(step.get("uses", "")).startswith("actions/checkout@") and "ref" in (step.get("with") or {})
+    ]
+    # A secret named outside the steps, such as the job's `env`, reaches every step.
+    job_wide = "secrets." in json.dumps({key: value for key, value in job.items() if key != "steps"})
+    secret = 0 if job_wide else next((i for i, step in enumerate(steps) if "secrets." in json.dumps(step)), len(steps))
+    ancestry = next(
+        (i for i, step in enumerate(steps)
+         if "git merge-base --is-ancestor" in str(step.get("run", "")) and "origin/main" in str(step.get("run", ""))),
+        None,
+    )
+    if ancestry is None:
+        gaps.append("never checks that main holds the tag")
+    elif ancestry >= secret:
+        gaps.append("checks that main holds the tag only after a step names a secret")
+    return gaps
+
+
+def test_only_main_signs_a_windows_release_and_only_a_tag_main_holds():
+    data = yaml.safe_load((WORKFLOWS / "windows-release.yml").read_text())
+    assert signing_gaps(data["jobs"]["sign"]) == []
+
+
+def test_a_sign_job_a_tag_could_reach_is_reported():
+    """The control for the test above: a job a release starts, that checks out and runs
+    the tagged commit, with no ancestry check, fails it on each count."""
+    secrets = {"name": "sign", "env": {"SIGNING_PFX": "${{ secrets.WINDOWS_SIGNING_PFX }}"}, "run": "python sign.py"}
+    ancestry = {"name": "on main", "run": "git merge-base --is-ancestor $env:COMMIT origin/main"}
+    tagged = {
+        "if": "needs.build.outputs.identity == 'true' && (github.event_name == 'release' || github.ref == 'refs/heads/main')",
+        "steps": [{"uses": "actions/checkout@v7", "with": {"ref": "${{ needs.build.outputs.commit }}"}}, secrets],
+    }
+    assert signing_gaps(tagged) == [
+        "signs on release from refs/tags/v1.2.3",
+        "signs on push from refs/heads/main",
+        "checks out ${{ needs.build.outputs.commit }}, not the workflow's own commit",
+        "never checks that main holds the tag",
+    ]
+    late = {"if": "github.ref == 'refs/heads/main'", "steps": [{"uses": "actions/checkout@v7"}, secrets, ancestry]}
+    assert signing_gaps(late) == [
+        "signs on push from refs/heads/main",
+        "checks that main holds the tag only after a step names a secret",
+    ]
+    main_only = "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'"
+    checkout = {"uses": "actions/checkout@v7"}
+    assert signing_gaps({"if": main_only, "steps": [checkout, ancestry, secrets]}) == []
+    job_wide = {"if": main_only, "env": secrets["env"], "steps": [checkout, ancestry, {"run": "python sign.py"}]}
+    in_ancestry = {"if": main_only, "steps": [checkout, {**ancestry, "env": secrets["env"]}]}
+    for job in (job_wide, in_ancestry):
+        assert signing_gaps(job) == ["checks that main holds the tag only after a step names a secret"]
