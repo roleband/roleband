@@ -137,7 +137,8 @@ internal sealed class Installer(NativeCopy copy, InstallRelease? release)
 
     private async Task InstallAsync()
     {
-        using var handler = new SocketsHttpHandler { AllowAutoRedirect = false };
+        // No cookies: a release host that sets one never gets it back, so a request says no more than SECURITY.md lists.
+        using var handler = new SocketsHttpHandler { AllowAutoRedirect = false, UseCookies = false };
         var feed = new ReleaseDownload(handler);
         var folder = Path.Combine(Path.GetTempPath(), Scratch, release!.Version);
         try
