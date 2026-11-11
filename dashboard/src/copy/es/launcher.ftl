@@ -178,6 +178,14 @@ launcher-elsewhere-fresh = Empezar de cero con esta app
 launcher-elsewhere-fresh-body = Mueve la carpeta .roleband a otro lugar y vuelve a abrir la app.
     No se elimina nada.
 launcher-elsewhere-finder-help = Abre la carpeta que contiene la base de datos
+launcher-in-use-title = Otro programa está usando tus datos
+launcher-in-use-body = Un programa ajeno a esta app, como un comando ejecutado en Terminal, tiene tus datos abiertos.
+    Para protegerlos, esta app no se inicia mientras ese programa los tenga abiertos.
+launcher-in-use-restart = Reiniciar este equipo
+launcher-in-use-restart-body = El reinicio detiene el otro programa y no borra nada.
+    Después, vuelve a abrir esta app.
+launcher-in-use-stop = Detener el otro programa
+launcher-in-use-stop-body = Si lo iniciaste en Terminal, detenlo allí y vuelve a abrir esta app.
 launcher-update-stopped-title = No se pudo terminar una actualización
 launcher-update-stopped-body = Se conservan tus datos y la copia de seguridad hecha antes de la actualización.
     Para protegerlos, nada se inicia hasta que la actualización termine o se deshaga.

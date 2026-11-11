@@ -2,7 +2,7 @@ import Darwin
 import Foundation
 
 public enum HostProblem: Error, Equatable, Sendable {
-    case sourceInstallation, databaseOwnedElsewhere, alreadyOwned, invalidConfiguration, processInspection, stopFailed
+    case sourceInstallation, databaseOwnedElsewhere, databaseInUse, alreadyOwned, invalidConfiguration, processInspection, stopFailed
 }
 
 public enum HostState: Equatable, Sendable {
@@ -181,6 +181,7 @@ public actor EngineHost {
     private func ownedMode(_ app: URL) throws -> LaunchMode {
         let mode = LaunchMode.decide(bundle: app, home: configuration.home)
         if mode == .databaseOwnedElsewhere { throw HostProblem.databaseOwnedElsewhere }
+        if mode == .databaseInUse { throw HostProblem.databaseInUse }
         return mode
     }
 

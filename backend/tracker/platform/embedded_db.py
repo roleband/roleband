@@ -136,6 +136,24 @@ def claim_cluster(pgdata: Path, owner: str) -> None:
     os.replace(partial, record)
 
 
+def refuse_installed_cluster(pgdata: Path) -> None:
+    """Refuse a source run a cluster that an installed app recorded as its own.
+
+    Only the app writes the record, so any record, readable or not, means the
+    cluster is not this checkout's. Starting it with the checkout's Postgres
+    leaves a server the Mac app cannot tell from a source install's, and the app
+    then starts no engine of its own.
+    """
+    pgdata = Path(pgdata).expanduser()
+    record = owner_record(pgdata)
+    if not os.path.lexists(record):
+        return
+    raise ClusterOwnedElsewhere(
+        f"A source run does not open the installed app's database ({pgdata}). "
+        "Set ROLEBAND_PGDATA to a folder of its own."
+    )
+
+
 # Upstream versions whose behaviour this module was verified against. The four
 # corrections in the module docstring were *measured*, not read off a README,
 # and two of them hold private upstream state (`PostgresServer._lock`,

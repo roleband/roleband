@@ -13,11 +13,16 @@ struct LaunchBlock {
     let home: URL
     var update: StoppedUpdate?
     var moving: Bool { update == nil && mode == .moveToApplications }
+    /// Another program has the app's database open. Nothing in the folder is the person's to move
+    /// while it does, so this window offers no Finder button.
+    var inUse: Bool { update == nil && mode == .databaseInUse }
     var size: NSSize {
         if update != nil { return NSSize(width: 480, height: 320) }
         return moving ? NSSize(width: 440, height: 372) : NSSize(width: 480, height: 404)
     }
-    var titleKey: String { update != nil ? "update-stopped-title" : moving ? "installer-copy" : "elsewhere-title" }
+    var titleKey: String {
+        update != nil ? "update-stopped-title" : moving ? "installer-copy" : inUse ? "in-use-title" : "elsewhere-title"
+    }
     var finderFolder: URL { moving ? URL(fileURLWithPath: "/Applications") : HomeLayout(home).data }
     var helperLog: URL { HomeLayout(home).data.appendingPathComponent("logs/update-helper.log") }
 
@@ -73,19 +78,25 @@ struct BlockedLaunchView: View {
     var body: some View {
         VStack(spacing: 0) {
             if let update = block.update { stoppedContent(update).padding(.bottom, 24) }
-            else if block.moving { moveContent } else { elsewhereContent.padding(.bottom, 24) }
+            else if block.moving { moveContent }
+            else if block.inUse { inUseContent.padding(.bottom, 24) }
+            else { elsewhereContent.padding(.bottom, 24) }
             Spacer(minLength: 0)
             Divider()
             HStack(spacing: 8) {
+                if block.inUse { Spacer() }
                 Button(copy.text("quit"), action: quit)
-                    .buttonStyle(LaunchButtonStyle(palette: palette)).keyboardShortcut(.cancelAction)
-                Spacer()
+                    .buttonStyle(LaunchButtonStyle(palette: palette, primary: block.inUse))
+                    .keyboardShortcut(block.inUse ? .defaultAction : .cancelAction)
                 let retrying = block.update?.retry == true
-                Button(copy.text("install-reveal"), action: reveal)
-                    .buttonStyle(LaunchButtonStyle(palette: palette, primary: !retrying))
-                    .keyboardShortcut(retrying ? nil : .defaultAction)
-                    .help(copy.text(block.update != nil ? "update-stopped-finder-help"
-                                    : block.moving ? "move-finder-help" : "elsewhere-finder-help"))
+                if !block.inUse {
+                    Spacer()
+                    Button(copy.text("install-reveal"), action: reveal)
+                        .buttonStyle(LaunchButtonStyle(palette: palette, primary: !retrying))
+                        .keyboardShortcut(retrying ? nil : .defaultAction)
+                        .help(copy.text(block.update != nil ? "update-stopped-finder-help"
+                                        : block.moving ? "move-finder-help" : "elsewhere-finder-help"))
+                }
                 if retrying {
                     Button(copy.text("retry"), action: retry)
                         .buttonStyle(LaunchButtonStyle(palette: palette, primary: true)).keyboardShortcut(.defaultAction)
@@ -124,6 +135,24 @@ struct BlockedLaunchView: View {
                 row("elsewhere-keep", caption: "elsewhere-keep-body", symbol: "terminal")
                 Divider().padding(.leading, 41).padding(.trailing, 10)
                 row("elsewhere-fresh", caption: "elsewhere-fresh-body", symbol: "plus.circle")
+            }.background(palette.card, in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(palette.line, lineWidth: 0.7))
+        }.padding(.top, 44).padding(.horizontal, 32)
+    }
+
+    private var inUseContent: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Image(systemName: "lock.circle").font(.system(size: 40))
+                .foregroundStyle(palette.warning).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 8) {
+                title
+                Text(copy.text("in-use-body")).font(.system(size: 13)).foregroundStyle(palette.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            VStack(spacing: 0) {
+                row("in-use-restart", caption: "in-use-restart-body", symbol: "arrow.clockwise")
+                Divider().padding(.leading, 41).padding(.trailing, 10)
+                row("in-use-stop", caption: "in-use-stop-body", symbol: "terminal")
             }.background(palette.card, in: RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(palette.line, lineWidth: 0.7))
         }.padding(.top, 44).padding(.horizontal, 32)

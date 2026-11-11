@@ -40,6 +40,7 @@ from tests.skip_policy import (  # noqa: F401 - hooks register by name in a conf
 )
 from tests.upgrade_rehearsal import baseline_database  # noqa: F401 - fixtures register by name in a conftest
 from tracker.db.models import Base
+from tracker.platform.embedded_db import ClusterOwnedElsewhere
 
 # Derived files (the built-in pay rows) are built into a test
 # cache, never the developer's ~/.roleband. Keyed by fingerprint and written
@@ -55,6 +56,8 @@ _unavailable: str | None = None
 
 _resolved = False
 _resolved_base: URL | None = None
+#: Why the configured database was refused: it is an installed app's.
+_refused: str | None = None
 
 
 def _base_url() -> URL | None:
@@ -73,14 +76,20 @@ def _base_url() -> URL | None:
     the file SKIPS -- green, silent, and testing nothing. One resolution per
     process also makes the answer independent of which fixture happens to ask
     first.
+
+    A refusal to open an installed app's database is not "no server": it is a
+    run that forgot `ROLEBAND_PGDATA`, and `db_session` fails it by name.
     """
-    global _resolved, _resolved_base
+    global _resolved, _resolved_base, _refused
     if _resolved:
         return _resolved_base
     try:
         from tracker.config import get_settings
 
         _resolved_base = make_url(get_settings().database_url)
+    except ClusterOwnedElsewhere as refused:
+        _refused = str(refused)
+        _resolved_base = None
     except Exception:  # noqa: BLE001 - no server configured is a skip, not an error
         _resolved_base = None
     _resolved = True
@@ -173,6 +182,8 @@ async def db_session() -> AsyncIterator[AsyncSession]:
     in cannot change a result.
     """
     base = _base_url()
+    if _refused:
+        pytest.fail(f"{_refused} Tests that need a database run on a throwaway cluster.", pytrace=False)
     if base is None:
         pytest.skip("no database configured")
 

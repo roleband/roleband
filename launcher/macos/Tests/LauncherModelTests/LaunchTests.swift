@@ -114,6 +114,33 @@ func blockedLaunchesNeverCreateDependenciesOrChangeFiles(caseName: String) async
 }
 
 @MainActor
+@Test func aDatabaseInUseBlocksTheLaunchWithItsOwnWordsInEveryLanguage() throws {
+    let fixture = try LaunchFixture()
+    defer { fixture.remove() }
+    var factories = 0
+    let session = LauncherSession(mode: .databaseInUse) {
+        factories += 1
+        preconditionFailure("A blocked launch must not construct live dependencies")
+    }
+    #expect(session.model == nil && factories == 0)
+    let block = LaunchBlock(mode: .databaseInUse, bundle: fixture.app, home: fixture.home)
+    #expect(block.inUse && !block.moving && block.titleKey == "in-use-title")
+    #expect(!LaunchBlock(mode: .databaseOwnedElsewhere, bundle: fixture.app, home: fixture.home).inUse)
+    let keys = ["in-use-title", "in-use-body", "in-use-restart", "in-use-restart-body", "in-use-stop", "in-use-stop-body"]
+    for language in ["en", "es", "zh-Hans"] {
+        let copy = LauncherCopy(language: language)
+        let english = LauncherCopy(language: "en")
+        for key in keys {
+            let text = copy.text(key)
+            #expect(text != key, "\(language) has no \(key)")
+            #expect(!text.contains("install.sh"))
+            if language != "en" { #expect(text != english.text(key), "\(language) shows English for \(key)") }
+        }
+        #expect(copy.text("in-use-title") != copy.text("elsewhere-title"))
+    }
+}
+
+@MainActor
 @Test func anUpdateThatStoppedShowsItsLogAndOnlyARecoverableOneOffersAnotherTry() throws {
     let fixture = try LaunchFixture()
     defer { fixture.remove() }

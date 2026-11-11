@@ -55,7 +55,7 @@ final class LauncherSession {
     init(mode: LaunchMode, dependencies: () -> LauncherDependencies) {
         self.mode = mode
         switch mode {
-        case .moveToApplications, .databaseOwnedElsewhere:
+        case .moveToApplications, .databaseOwnedElsewhere, .databaseInUse:
             model = nil
         case .attach, .owned:
             var dependencies = dependencies()
