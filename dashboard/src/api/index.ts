@@ -65,10 +65,9 @@ export type {
 } from "./ops";
 export type {
   CompCompany, CompFamily, CompHistBin, CompLevel, CompPackage, CompSkill, CompSummary,
-  CompPartSource, CompTrajectory, CompTrajectoryChoice, OfferTerms, OfferTermsCompany, CompTrajectoryCompany, CompTrajectorySetApart, CompTrendDim, CompTrendPoint, CompTrendSeries, CompTrends,
+  CompPartSource, CompTrajectory, CompTrajectoryChoice, OfferTerms, OfferTermsCompany, CompTrajectoryCompany, CompTrajectorySetApart,
   CompensationStats, Demand, InsightsScope, DisclosedBand, LevelGuide, LevelGuideCell, LevelGuideCompany, LevelGuideEntry, DisclosedBands, DisclosureCompany, HiringCompany, HiringRegion,
-  DisclosureGroup, DisclosureLevel, DisclosureRates, DisclosureTrendDim, DisclosureTrendPoint,
-  DisclosureTrendSeries, DisclosureTrends, OverviewKpis,
+  DisclosureGroup, DisclosureLevel, DisclosureRates, OverviewKpis,
   OverviewSkill, StatisticsOverview, Stats, VelocityAging, VelocityCompany,
   VelocityKpis, VelocityStats,
 } from "./statistics";

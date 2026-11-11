@@ -1,23 +1,5 @@
 ## insights
 
-## features/statistics/CompTrendChart.tsx
-insights-comp-trend-chart-compensation-over-time = 总薪酬变化趋势
-insights-comp-trend-chart-median-total-pay = 估算总薪酬中位数{ $series ->
-        [single] （含 p25–p75 分布）
-       *[several] { "" }
-    } · { $period ->
-        [all] 全部时间
-       *[days] 最近 { $days } 天
-    }
-insights-comp-trend-chart-history-is-still-accruing-one = 历史数据还不够。扫描几天后，这条线会逐渐完整。
-insights-comp-trend-chart-no-comp-history-yet = 暂无薪酬历史。
-insights-comp-trend-chart-roles = { $dim } · { $count } 个职位
-insights-comp-trend-chart-by-family = 按职能
-insights-comp-trend-chart-breakdown = 细分
-insights-comp-trend-chart-compensation-percentile-trend = 薪酬百分位趋势
-insights-comp-trend-chart-loading = 正在加载薪酬趋势…
-insights-comp-trend-chart-load-failed = 无法加载薪酬趋势
-
 ## features/statistics/CompensationPanel.tsx
 insights-compensation-panel-compensation = 薪酬
 insights-compensation-panel-no-open-roles-with-a = 暂无带薪酬估算的在招职位。
@@ -80,31 +62,12 @@ insights-disclosure-panel-who-states-pay = 谁公布了薪酬区间
 insights-disclosure-panel-the-share-of-open-roles = 已检查的在招职位中公布薪酬区间的比例。任何区间都计入：基本工资、总薪酬或未说明。
 insights-disclosure-panel-of-checked-roles-state-pay = 已检查的 { $checked } 个职位中 { $rate } 公布了薪酬区间
 insights-disclosure-panel-no-open-roles-have-been = 暂无在招职位检查过是否公布薪酬区间。
-insights-disclosure-panel-history-is-still-accruing-one = 历史数据还不够。扫描几天后，这条线会逐渐完整。
-insights-disclosure-panel-over-time = 随时间变化
-insights-disclosure-panel-pay-transparency-trend = 薪酬透明度趋势
-insights-disclosure-panel-share-of-checked-open-roles = 已检查的在招职位中公布薪酬区间的占比 · { $window }
-insights-disclosure-panel-no-pay-transparency-history-yet = 暂无薪酬透明度历史。
-insights-disclosure-panel-the-market-line-moves-when = 市场曲线会随新增公司而变化。“相同公司”只跟踪在 { $since } 扫描的 { $companies }。
-insights-disclosure-panel-published-band-trend = 公布区间趋势
-insights-disclosure-panel-the-median-floor-and-ceiling = 公布的基本工资区间下限和上限的中位数。每个区间只计一次，无论有多少职位使用它。
-insights-disclosure-panel-median-published-band = 公布的{ $basis }区间中位数 · { $window }
-insights-disclosure-panel-no-published-base-salary-band = 暂未记录公布的基本工资区间。
-insights-disclosure-panel-pay-transparency-over-time-covers = 这一趋势涵盖所有职能。
 insights-disclosure-panel-how-the-disclosure-rate-is = 薪酬透明度如何计算
 insights-disclosure-panel-disclosure-breakdown = 薪酬透明度细分
 insights-disclosure-panel-share-of-open-roles-stating = { $group ->
     [company] 公布薪酬区间的在招职位占比（按公司）
    *[level] 公布薪酬区间的在招职位占比（按级别）
 }
-insights-disclosure-panel-trend-breakdown = 趋势细分
-insights-disclosure-panel-share-of-open-roles-stating-over-time = 公布薪酬区间的在招职位占比随时间变化
-insights-disclosure-panel-about-the-published-band-trend = 关于公布区间趋势
-insights-disclosure-panel-median-published-base-salary-band = 公布的基本工资区间中位数随时间变化
-insights-disclosure-panel-trend-loading = 正在加载薪酬透明度趋势…
-insights-disclosure-panel-trend-load-failed = 无法加载薪酬透明度趋势
-insights-disclosure-panel-band-trend-loading = 正在加载公布区间趋势…
-insights-disclosure-panel-band-trend-load-failed = 无法加载公布区间趋势
 
 ## features/statistics/OverviewPanel.tsx
 insights-overview-panel-most-named-skills = 最常提到的技能
@@ -556,30 +519,6 @@ insights-disclosure-share-of-checked-open-roles = 已检查的在招职位中，
 insights-disclosure-of-roles = { $label }：{ $rate }，{ $checked } 个职位中 { $disclosed } 个
 insights-disclosure-rate-states-pay = { $rate } 公布了薪酬区间
 insights-disclosure-of-checked-open-roles = 已检查的 { $checked } 个在招职位中 { $disclosed } 个
-insights-disclosure-no-pay-transparency-history-recorded = 暂未记录薪酬透明度历史。
-insights-disclosure-no-roles-checked-yet = { $dim }：尚无已检查的职位
-insights-disclosure-of-checked-roles-state-pay = { $series }：已检查的 { $checked } 个职位中 { $pct } 公布了薪酬区间{ $readings ->
-        [single] { "" }
-       *[several] （起初为 { $from }）
-    }
-insights-disclosure-share-of-open-roles-stating = 按{ $dim ->
-        [company] 公司
-        [level] 级别
-       *[overall] 市场
-    }统计的公布薪酬区间的在招职位占比，{ $span ->
-        [day] 在 { $first }
-       *[range] 从 { $first } 到 { $last }
-    }。{ $lines }。
-insights-disclosure-not-checked = 未检查
-insights-disclosure-rate-percent = { $rate }%
-insights-disclosure-no-published-pay-band-has = 暂未记录公布的薪酬区间。
-insights-disclosure-median-published-salary-band-across = 公布的{ $basis }区间中位数，基于 { $bands } 个不同区间，涵盖 { $roles } 个在招职位：{ $low_p50 } 至 { $high_p50 }。{ $readings ->
-        [single] { "" }
-       *[several] 起初为 { $start_low } 至 { $start_high }。
-    }每个不同区间计一次，而不是每个职位。
-insights-disclosure-median-ceiling = 上限中位数
-insights-disclosure-median-floor = 下限中位数
-insights-disclosure-no-band-posted = 未公布区间
 
 ## features/statistics/charts/StatisticsCharts.tsx (by hand)
 
@@ -637,10 +576,6 @@ insights-common-last-days-or-all-time = { $period ->
     [all] 全部时间
    *[days] 最近 { $days } 天
 }
-insights-common-last-days-or-all-history = { $period ->
-    [all] 全部时间
-   *[days] 最近 { $days } 天
-}
 
 ## 技能类别
 insights-skill-language = 编程语言
@@ -656,7 +591,6 @@ insights-skill-collaboration = 协作
 insights-skill-industry = 行业
 
 ## 统计名称：同一批公司序列和固定发布时长区间
-insights-series-same-companies = 相同公司
 insights-aging-from-0-days = < 1 周
 insights-aging-from-7-days = 1–2 周
 insights-aging-from-14-days = 2–4 周
@@ -671,10 +605,6 @@ insights-brief-opened = { $allTime ->
    *[no] { $days } 天内新增 { $opened } 个，关闭 { $closed } 个。
 }
 insights-brief-top-skill = 最热门技能：{ $skill }（{ $count } 个职位）。
-insights-comp-trend-chart-reference-changed = { $count ->
-   *[other] 虚线标出薪酬估算一起变化的时间：这是数据的变化，而不是市场的变化。
-}
-insights-comp-trend-chart-reference-marker = 薪酬估算于 { $date } 变化
 insights-compensation-panel-spread = p25–p75：{ $low }–{ $high } · { $roles }
 insights-compensation-panel-estimated-base-by-level = 各级别的估算基本工资
 insights-compensation-panel-base-only = 仅基本工资

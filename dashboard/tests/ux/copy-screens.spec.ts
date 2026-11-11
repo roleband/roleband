@@ -253,10 +253,6 @@ test("an estimated base on the Board and the Pay tab's base panel say only the c
     base_estimates: { min_roles: 5, coverage: { with_base: 40, total_open: 40 }, overall: summary(210_000, 40),
       by_level: [{ level_band: "senior", ...summary(196_000, 25) }], by_company: [], by_family: [] },
   } }));
-  await mockGet(page, "/api/statistics/comp-trends**", (route) => route.fulfill({ json: {
-    dim: "overall", days: 30, dates: [], series: [] } }));
-  await mockGet(page, "/api/statistics/disclosure-trends**", (route) => route.fulfill({ json: {
-    dim: "overall", days: 30, basis: "base", dates: [], series: [], cohort: null } }));
   await page.goto("/statistics/compensation");
   // The panel itself: the rest of the Pay tab is scanned by its own specs.
   await expect(page.locator("main section.panel")).toContainText("⟦");

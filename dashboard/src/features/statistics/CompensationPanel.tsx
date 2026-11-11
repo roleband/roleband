@@ -2,8 +2,7 @@ import { CompensationStats, CompSummary, InsightsScope, api } from "../../api";
 import { useAsyncResource } from "../../hooks/useAsyncResource";
 import { useSourceSwitch } from "../../context/SyncState";
 import { fmtComp, companyName, BAND_LABEL } from "../../format";
-import { CompTrendChart } from "./CompTrendChart";
-import { DisclosurePanel } from "./DisclosurePanel";
+import { DisclosureRatePanel } from "./DisclosurePanel";
 import { PayBands } from "./PayBands";
 import { exclusionNote } from "./charts/compBands";
 import { InfoTip } from "../../ui/InfoTip";
@@ -103,18 +102,16 @@ function BaseEstimatesPanel({ base }: { base: CompensationStats["base_estimates"
 }
 
 export function CompensationPanel({
-  days,
   scope,
   advanced = false,
 }: {
-  days: number;
   scope?: InsightsScope;
   /** The basic view keeps the median and its middle half, and pay by level,
    *  company and discipline; the advanced view adds every other panel. */
   advanced?: boolean;
 }) {
-  // The roles open now: the window moves the trend charts, never this
-  // population.
+  // The roles open now. Pay over time waits for enough history to compare
+  // like with like (docs/decisions/0004-insights-answers-a-question.md).
   const { data, error, retry, refresh } = useAsyncResource<CompensationStats>(
     () => api.compensation(scope), [scope], { keep: "stats/compensation" });
   // Pay statistics follow the source answering pay.
@@ -124,14 +121,13 @@ export function CompensationPanel({
   if (!data.overall) {
     return (
       <>
-        {advanced && <CompTrendChart days={days} scope={scope} />}
         <div className="panel">
           <h3>{insightsCompensationPanelCompensation()}</h3>
           <div className="empty-hint">{insightsCompensationPanelNoOpenRolesWithA()}</div>
         </div>
         {/* Disclosure is read off the postings, not the estimate: a missing
             comp_median must not hide what employers actually published. */}
-        {advanced && <DisclosurePanel rates={data.disclosure} days={days} scope={scope} minRoles={data.min_roles} />}
+        {advanced && <DisclosureRatePanel rates={data.disclosure} />}
         {/* With no total to show, the base estimates are the only pay figures,
             so both views keep them. */}
         <BaseEstimatesPanel base={data.base_estimates} />
@@ -210,8 +206,6 @@ export function CompensationPanel({
         ]}
       />
 
-      {advanced && <CompTrendChart days={days} scope={scope} />}
-
       {advanced && data.disclosed.bands.length > 0 && (
         <div className="panel chart-panel chart-panel-wide">
           <div className="chart-panel-head">
@@ -231,7 +225,7 @@ export function CompensationPanel({
       )}
 
       {/* What employers print (above) vs. how many of them print anything (here). */}
-      {advanced && <DisclosurePanel rates={data.disclosure} days={days} scope={scope} minRoles={data.min_roles} />}
+      {advanced && <DisclosureRatePanel rates={data.disclosure} />}
 
       {/* Equal pairs: each row of the grid holds two cards of one kind and
           length. The basic view has no distribution, so pay by level stands

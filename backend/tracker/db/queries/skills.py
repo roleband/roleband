@@ -5,8 +5,9 @@ Two surfaces build from it — `/api/skills/top` and the statistics overview's
 helper, so it lives beside the other owned reads and both routers import it
 from here.
 
-What counts is narrow on purpose: only evidence-grounded requirements on open,
-in-scope roles, at high confidence, above the `context` band, on an active
+What counts is narrow on purpose: only evidence-grounded requirements on the
+roles Insights describes (`insights_role_conds`: open, in scope, a place set
+once), at high confidence, above the `context` band, on an active
 concept that is not an industry — a business vertical is never a skill.
 `ELIGIBLE_REQUIREMENT` holds that rule for every read that counts skills.
 """
@@ -19,12 +20,11 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.db.models import Job, JobSkill, SkillConcept
-from tracker.db.queries.jobs import exclude_hidden
+from tracker.db.queries.jobs import exclude_hidden, insights_role_conds
 
 #: Which of a role's requirements count as its skills, wherever skills are
-#: counted: the leaderboard, overlap, the skills that pay, a group's labels and
-#: the daily demand rollup. Which roles count (open, in scope, visible) is each
-#: read's own. A single posting's requirements (Job detail) keep industries,
+#: counted: the leaderboard, the skills that pay, a group's labels and the
+#: daily demand rollup. Which roles count is each read's own. A single posting's requirements (Job detail) keep industries,
 #: so that read does not use it.
 ELIGIBLE_REQUIREMENT = (
     JobSkill.confidence == "high",
@@ -59,7 +59,7 @@ def top_skills_stmt(
         .select_from(JobSkill)
         .join(SkillConcept, SkillConcept.id == JobSkill.concept_id)
         .join(Job, Job.id == JobSkill.job_id)
-        .where(Job.status == "open", Job.in_scope.is_(True), *ELIGIBLE_REQUIREMENT),
+        .where(*insights_role_conds(), *ELIGIBLE_REQUIREMENT),
         hidden,
     )
     if company:
@@ -90,7 +90,8 @@ async def top_skills(
 ) -> list[dict]:
     """Most-emphasized skills across currently-open jobs.
 
-    `job_count` = distinct open jobs with a displayable requirement for the concept.
+    `job_count` = distinct roles (`insights_role_conds`) with a displayable
+    requirement for the concept.
     """
     stmt = top_skills_stmt(
         hidden, company=company, family=family, location_group=location_group, limit=limit,
@@ -118,7 +119,7 @@ async def skill_role_counts(
     The denominator is the roles with at least one named skill, not every open
     role, so a company whose postings are not read yet is not read as one whose
     roles ask for nothing."""
-    eligible = [Job.status == "open", Job.in_scope.is_(True), *ELIGIBLE_REQUIREMENT, *conds]
+    eligible = [*insights_role_conds(), *ELIGIBLE_REQUIREMENT, *conds]
     base = (
         select(SkillConcept.slug, SkillConcept.display, SkillConcept.category, JobSkill.job_id)
         .select_from(JobSkill)

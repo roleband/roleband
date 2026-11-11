@@ -101,6 +101,10 @@ describe("StatisticsView", () => {
 
     await user.click(screen.getByRole("tab", { name: "Pace" }));
     expect(screen.getByRole("group", { name: "Time range" })).toBeInTheDocument();
+
+    // Pay describes the roles open now and draws nothing over time.
+    await user.click(screen.getByRole("tab", { name: "Compensation" }));
+    expect(screen.queryByRole("group", { name: "Time range" })).not.toBeInTheDocument();
   });
 
   it("supports arrow-key navigation across the statistics tabs", async () => {

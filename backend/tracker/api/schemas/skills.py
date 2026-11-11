@@ -1,13 +1,12 @@
 """Response contracts for the skills routes.
 
-`GET /api/skills/top` and `/api/skills/overlap`.
+`GET /api/skills/top`.
 
 - Shapes the handlers and `skills.analytics` build forbid unknown keys, declared
   in the order they are written.
-- A leaderboard count is an integer; a skill's specificity and a pair's
-  similarity are rounded floats.
-- Companies, concept slugs, families and categories stay `str`: database strings.
-  One key set per route, so no unions.
+- A leaderboard count is an integer; a share, lift or distinctiveness is a
+  rounded float.
+- Concept slugs and categories stay `str`: database strings.
 """
 
 from __future__ import annotations
