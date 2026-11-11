@@ -558,7 +558,7 @@ runner and `DEVELOPER_DIR` of the `mac-launcher` build, and that
 from the files the code under test names outside its directory, and fails on a path
 it misses.
 
-In CI Playwright forbids `.only` and never
+In CI, Playwright forbids `.only` and never
 retries: a flaky test is diagnosed, not retried.
 
 Backend, dashboard and CodeQL workflows cancel superseded runs of the same pull request.
