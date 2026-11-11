@@ -657,7 +657,7 @@ migrations.
   the day it widens. A window, and every count in it, starts no earlier than the scope's history:
   the start of the first read that saw a whole listing of one of its companies
   (`db/queries/insights.history_since`), so a partial read before it adds no
-  openings. Hiring's closed count uses the New
+  openings, and before any such read nothing counts as opened. Hiring's closed count uses the New
   rule's period, so its new and closed numbers describe one stretch of time.
 - **Runs.** `scrape_runs` holds a heartbeat, totals, `per_source` (each company's
   counts, errors and outcome) and `drift_alerts`, the audit surface for adapter

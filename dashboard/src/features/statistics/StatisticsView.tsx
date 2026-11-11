@@ -128,7 +128,7 @@ export function StatisticsView() {
     { keep: "stats/history" },
   );
   const historyKnown = !periodAware || history.data != null || history.error != null;
-  const covered = coveredWindows(PERIODS, history.data ? history.data.days : history.error ? null : 0);
+  const covered = coveredWindows(PERIODS, history.data ? history.data.since : history.error ? undefined : null);
   const shown = covered.some((p) => p.win === win) ? win : "all";
   const days = shown === "all" ? 0 : Number(shown);
   // One read of the filter options for the screen: the discipline select and

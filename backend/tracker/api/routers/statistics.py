@@ -188,8 +188,11 @@ async def statistics_overview(
     shorter, so nothing found before the history is counted.
     """
     now = datetime.now(UTC)
-    since = window_since(await history_since(session, scope, hidden), days, now)
-    cutoff = since
+    history = await history_since(session, scope, hidden)
+    since = window_since(history, days, now)
+    # The counters start where the figures say they do; before any whole read
+    # there is no history, and what a partial read found is no opening.
+    cutoff = since if history is not None else now
 
     open_total = await session.scalar(open_in_scope_count_stmt(hidden, *scope.conds()))
     companies = await session.scalar(
@@ -775,10 +778,12 @@ async def statistics_velocity(
     advertised, and a public board says nothing about whether anyone was hired.
     """
     now = datetime.now(UTC)
-    # The counters start where the figures say they do (`since`).
-    since = window_since(await history_since(session, scope, hidden), days, now)
-    all_time = since is None
-    cutoff = since
+    history = await history_since(session, scope, hidden)
+    since = window_since(history, days, now)
+    # The counters start where the figures say they do; before any whole read
+    # there is no history, and what a partial read found is no opening.
+    cutoff = since if history is not None else now
+    all_time = cutoff is None
     params: dict = {} if all_time else {"cutoff": cutoff}
     if hidden:
         params["hidden"] = hidden

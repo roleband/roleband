@@ -155,9 +155,12 @@ describe("StatisticsView", () => {
     expect(screen.getByText(/^Overview content/)).toHaveAttribute("data-days", "90");
   });
 
+  /** A history of `days` days and a few hours, by the view's own clock. */
+  const historyOf = (days: number) => ({ since: new Date(Date.now() - (days * 24 + 6) * 3_600_000).toISOString(), days });
+
   it("offers no window while the history is shorter than the shortest, and shows all of it", async () => {
     // Six days: every window would show the same figures as all time.
-    vi.mocked(api.insightsHistory).mockResolvedValue({ since: "2026-11-03T06:02:00Z", days: 6 });
+    vi.mocked(api.insightsHistory).mockResolvedValue(historyOf(6));
     renderStats("/statistics/overview?window=30");
     expect(await screen.findByText(/^Overview content/)).toHaveAttribute("data-days", "0");
     expect(screen.queryByRole("group", { name: "Time range" })).toBeNull();
@@ -165,7 +168,7 @@ describe("StatisticsView", () => {
   });
 
   it("offers only the windows the history covers, and reads a longer saved one as all time", async () => {
-    vi.mocked(api.insightsHistory).mockResolvedValue({ since: "2026-10-10T06:00:00Z", days: 31 });
+    vi.mocked(api.insightsHistory).mockResolvedValue(historyOf(31));
     renderStats("/statistics/velocity?window=90&side=yours");
     const range = await screen.findByRole("group", { name: "Time range" });
     expect(within(range).getAllByRole("button").map((b) => b.textContent)).toEqual(["7d", "30d", "All time"]);
