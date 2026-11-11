@@ -5,6 +5,7 @@
   <p>RoleBand watches the companies you care about and ranks every opening<br>
   by how well it fits you.</p>
   <p><b>Free</b> · <b>Open source</b> · <b>Runs on your computer</b></p>
+  <p>🌐 English · Español · 简体中文 · <a href="https://github.com/roleband/roleband/discussions/categories/ideas?discussions_q=is%3Aopen+category%3AIdeas+label%3Alanguage+sort%3Atop">more on the way</a></p>
   <p>
     <a href="#install">Install</a> ·
     <a href="#how-it-works">How it works</a> ·
@@ -39,6 +40,7 @@
   and when it closed.
 - **It runs itself.** Scans happen in the background, and RoleBand tells you
   what is new.
+- **In your language.** English, Spanish or Chinese.
 
 ## How it works
 
@@ -87,7 +89,7 @@ The Radar and the ranking pictures come from a real install.</sub>
 
 **And more:** works with Claude and Codex · equity in real money · a pay floor
 · side-by-side comparison · duplicates grouped · your own AI model or Apple
-Intelligence · open pay data · English, Spanish and Simplified Chinese.
+Intelligence · open pay data.
 
 ## Roadmap
 
@@ -146,6 +148,12 @@ the `.roleband` folder in your home folder; delete that folder to remove it too.
 
 **On Linux**, run `git pull` in the `roleband` folder; RoleBand picks the update
 up by itself, and says so when `./setup.sh` is needed.
+
+## Get involved
+
+- **A company missing or wrong?** [Tell us](https://github.com/roleband/roleband/issues/new?template=company.yml).
+- **Want another language?** [Vote for it](https://github.com/roleband/roleband/discussions/categories/ideas?discussions_q=is%3Aopen+category%3AIdeas+label%3Alanguage+sort%3Atop) or [help translate](docs/copy.md#adding-or-updating-a-translation).
+- **An idea or a bug?** [Share an idea](https://github.com/roleband/roleband/discussions/categories/ideas?discussions_q=is%3Aopen+category%3AIdeas+sort%3Atop) or [report a bug](https://github.com/roleband/roleband/issues/new?template=bug.yml).
 
 ---
 
