@@ -46,7 +46,12 @@ async def test_heartbeat_loop_bumps_heartbeat_then_stops_on_cancel(monkeypatch):
     monkeypatch.setattr(pipeline, "session_scope", fake_scope)
 
     task = pipeline._heartbeat_task(run_id=42, interval_seconds=0.001)
-    await asyncio.sleep(0.02)  # let it beat several times
+    # A loaded host can take well past a fixed window to schedule the first beat;
+    # the claim is that one comes, so wait for it with a bound.
+    for _ in range(500):
+        if session.execs or task.done():
+            break
+        await asyncio.sleep(0.01)
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task

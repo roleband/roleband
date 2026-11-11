@@ -128,6 +128,17 @@ jobs:
           "run=$run" >> $env:GITHUB_OUTPUT
           .\backend\.venv\Scripts\python.exe deploy/check_local.py windows --windows-lane $env:WINDOWS_LANE @cut --output $output
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      # A restore outside locked mode rewrites a stale packages.lock.json instead of
+      # failing, while the release build restores in locked mode. A lock file the native
+      # lane's builds changed is one the change should have committed.
+      - name: lock files unchanged
+        if: needs.changes.outputs.windows != 'false' && matrix.lane == 'native'
+        run: |
+          git diff --exit-code --stat -- '*packages.lock.json'
+          if ($LASTEXITCODE) {
+            Write-Output "::error::A build rewrote the lock files above: restore them with this change's packages and SDK, and commit them."
+            exit $LASTEXITCODE
+          }
       - name: upload test outcomes
         if: always() && steps.check.outputs.output != ''
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -140,3 +151,23 @@ jobs:
             ${{ steps.check.outputs.output }}/report.json
           if-no-files-found: ignore
           retention-days: 7
+
+  # One check for a ruleset to require. Lanes and shards report under their own names, so
+  # this one job stands for all of them: it passes only when every one passed, and a
+  # lane that failed, was cancelled or never started fails it. A change with no Windows
+  # input still passes, since each lane then succeeds with its steps skipped. A failed
+  # `changes` job runs every lane, so its own result hides nothing. `always()`, not
+  # `!cancelled()`: a skipped job counts as passed for a required check, so this job
+  # runs and fails when the run is cancelled.
+  result:
+    name: windows
+    needs: checks
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - env:
+          LANES: ${{ needs.checks.result }}
+        run: |
+          echo "lanes: $LANES"
+          test "$LANES" = success
