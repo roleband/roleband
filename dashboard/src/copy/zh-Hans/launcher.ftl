@@ -185,7 +185,8 @@ launcher-in-use-restart = 重新启动这台电脑
 launcher-in-use-restart-body = 重新启动会停止另一个程序，不会删除任何内容。
     然后重新打开此应用。
 launcher-in-use-stop = 停止另一个程序
-launcher-in-use-stop-body = 如果是你在终端中启动的，请在终端中停止它，然后重新打开此应用。
+launcher-in-use-stop-body = 如果是你在终端中启动的，请在终端中停止它。
+    然后退出此应用并重新打开。
 launcher-update-stopped-title = 有一项更新未能完成
 launcher-update-stopped-body = 你的数据和更新前做的备份都已保留。
     为了保护它们，在更新完成或撤销之前不会启动任何内容。

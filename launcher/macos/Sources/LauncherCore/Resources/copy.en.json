@@ -124,7 +124,7 @@
   "in-use-restart": "Restart this computer",
   "in-use-restart-body": "A restart stops the other program, and nothing is deleted.\nThen open this app again.",
   "in-use-stop": "Stop the other program",
-  "in-use-stop-body": "If you started it in Terminal, stop it there, then open this app again.",
+  "in-use-stop-body": "If you started it in Terminal, stop it there.\nThen quit this app and open it again.",
   "update-stopped-title": "An update couldn't finish",
   "update-stopped-body": "Your data and the backup made before the update are kept.\nTo keep them safe, nothing starts until the update finishes or is undone.",
   "update-stopped-retry-body": "Try again to finish it. If it stops again, the update log says why.",

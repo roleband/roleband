@@ -77,6 +77,21 @@ def test_a_named_folder_the_app_recorded_is_refused_too(tmp_path, monkeypatch, s
     assert started == []
 
 
+def test_a_link_to_a_cluster_the_app_recorded_is_refused(tmp_path, monkeypatch, started):
+    app = tmp_path / "app-state" / "db"
+    app.mkdir(parents=True)
+    embedded_db.owner_record(app).write_text(json.dumps({"owner": "app"}))
+    link = tmp_path / "mine" / "db"
+    link.parent.mkdir()
+    link.symlink_to(app, target_is_directory=True)
+    monkeypatch.setenv("ROLEBAND_PGDATA", str(link))
+    monkeypatch.delenv("ROLEBAND_DATABASE_URL", raising=False)
+
+    with pytest.raises(embedded_db.ClusterOwnedElsewhere):
+        _source_settings().ensure_embedded_server()
+    assert started == []
+
+
 def test_a_source_run_still_opens_a_cluster_with_no_record(default_state, started):
     """Negative control: a source install's own cluster carries no record and opens."""
     pgdata = default_state / "db"

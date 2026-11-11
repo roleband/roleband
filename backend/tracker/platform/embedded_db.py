@@ -145,8 +145,8 @@ def refuse_installed_cluster(pgdata: Path) -> None:
     then starts no engine of its own.
     """
     pgdata = Path(pgdata).expanduser()
-    record = owner_record(pgdata)
-    if not os.path.lexists(record):
+    # A link names the cluster by another path; the record sits beside the cluster itself.
+    if not any(os.path.lexists(owner_record(path)) for path in (pgdata, Path(os.path.realpath(pgdata)))):
         return
     raise ClusterOwnedElsewhere(
         f"A source run does not open the installed app's database ({pgdata}). "

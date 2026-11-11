@@ -124,7 +124,7 @@
   "in-use-restart": "Reiniciar este equipo",
   "in-use-restart-body": "El reinicio detiene el otro programa y no borra nada.\nDespués, vuelve a abrir esta app.",
   "in-use-stop": "Detener el otro programa",
-  "in-use-stop-body": "Si lo iniciaste en Terminal, detenlo allí y vuelve a abrir esta app.",
+  "in-use-stop-body": "Si lo iniciaste en Terminal, detenlo allí.\nDespués, sal de esta app y vuelve a abrirla.",
   "update-stopped-title": "No se pudo terminar una actualización",
   "update-stopped-body": "Se conservan tus datos y la copia de seguridad hecha antes de la actualización.\nPara protegerlos, nada se inicia hasta que la actualización termine o se deshaga.",
   "update-stopped-retry-body": "Inténtalo de nuevo para terminarla. Si vuelve a detenerse, el registro de la actualización explica por qué.",

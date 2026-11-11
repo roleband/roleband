@@ -124,7 +124,7 @@
   "in-use-restart": "重新启动这台电脑",
   "in-use-restart-body": "重新启动会停止另一个程序，不会删除任何内容。\n然后重新打开此应用。",
   "in-use-stop": "停止另一个程序",
-  "in-use-stop-body": "如果是你在终端中启动的，请在终端中停止它，然后重新打开此应用。",
+  "in-use-stop-body": "如果是你在终端中启动的，请在终端中停止它。\n然后退出此应用并重新打开。",
   "update-stopped-title": "有一项更新未能完成",
   "update-stopped-body": "你的数据和更新前做的备份都已保留。\n为了保护它们，在更新完成或撤销之前不会启动任何内容。",
   "update-stopped-retry-body": "请重试以完成更新。如果再次中断，更新日志会说明原因。",

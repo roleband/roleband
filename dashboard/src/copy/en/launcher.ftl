@@ -222,7 +222,8 @@ launcher-in-use-restart-body = A restart stops the other program, and nothing is
 # kind=heading
 launcher-in-use-stop = Stop the other program
 # kind=sentence
-launcher-in-use-stop-body = If you started it in Terminal, stop it there, then open this app again.
+launcher-in-use-stop-body = If you started it in Terminal, stop it there.
+    Then quit this app and open it again.
 # kind=heading
 launcher-update-stopped-title = An update couldn't finish
 # kind=sentence

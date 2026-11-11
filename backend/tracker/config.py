@@ -521,7 +521,7 @@ class Settings(BaseSettings):
         no per-entrypoint wiring.
         """
         from tracker.platform.embedded_db import (
-            EmbeddedDbError,
+            ClusterOwnedElsewhere,
             claim_cluster,
             ensure_server,
             refuse_installed_cluster,
@@ -534,7 +534,7 @@ class Settings(BaseSettings):
             if within_installed_data(self.embedded_pgdata()):
                 # On Windows the default state folder is the installed app's. A source run opening its cluster would
                 # migrate it without the checkpoint the app takes before every migration.
-                raise EmbeddedDbError(
+                raise ClusterOwnedElsewhere(
                     f"A source run does not open the installed app's database ({self.embedded_pgdata()}). "
                     "Set ROLEBAND_PGDATA to a folder of its own."
                 )

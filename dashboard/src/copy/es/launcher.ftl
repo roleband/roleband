@@ -185,7 +185,8 @@ launcher-in-use-restart = Reiniciar este equipo
 launcher-in-use-restart-body = El reinicio detiene el otro programa y no borra nada.
     Después, vuelve a abrir esta app.
 launcher-in-use-stop = Detener el otro programa
-launcher-in-use-stop-body = Si lo iniciaste en Terminal, detenlo allí y vuelve a abrir esta app.
+launcher-in-use-stop-body = Si lo iniciaste en Terminal, detenlo allí.
+    Después, sal de esta app y vuelve a abrirla.
 launcher-update-stopped-title = No se pudo terminar una actualización
 launcher-update-stopped-body = Se conservan tus datos y la copia de seguridad hecha antes de la actualización.
     Para protegerlos, nada se inicia hasta que la actualización termine o se deshaga.
