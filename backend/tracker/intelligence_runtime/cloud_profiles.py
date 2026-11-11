@@ -9,6 +9,8 @@ state, because the row is a single JSON blob.
 The API key is write-only on the wire, so an edit that changes only the model
 arrives with `api_key=None` and `update_profile` keeps the stored one. Treating
 that as "clear it" would break a working connection the user cannot retype.
+The stored key stays with the server it was saved for (`kept_key`): an edit
+that names another one brings that server's key, or is refused.
 """
 
 from __future__ import annotations
@@ -18,7 +20,12 @@ from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.cloud_llm.models import CloudLLMProfile, CloudLLMProfileInput, CloudLLMState
-from tracker.intelligence_runtime._profile_keys import ProfilesUnreadable, reseal_raw, with_keys
+from tracker.intelligence_runtime._profile_keys import (
+    ProfilesUnreadable,
+    kept_key,
+    reseal_raw,
+    with_keys,
+)
 from tracker.platform.locks import advisory_xact_lock
 from tracker.platform.secrets import seal, unseal_or_none
 from tracker.settings_store import get_setting_dict, set_setting_dict
@@ -77,10 +84,8 @@ async def update_profile(session: AsyncSession, profile_id: str, payload: CloudL
     for index, current in enumerate(state.profiles):
         if current.id != profile_id:
             continue
-        values = payload.model_dump()
-        if payload.api_key is None:
-            values["api_key"] = current.api_key
-        profile = CloudLLMProfile(id=profile_id, **values)
+        key = kept_key(current.base_url, current.api_key, payload.base_url, payload.api_key)
+        profile = CloudLLMProfile(id=profile_id, **{**payload.model_dump(), "api_key": key})
         state.profiles[index] = profile
         await _save(session, state)
         return profile

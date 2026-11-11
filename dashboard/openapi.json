@@ -6278,6 +6278,7 @@
      "ai-egress-off",
      "no-local-model",
      "model-profiles-unreadable",
+     "key-saved-for-another-address",
      "plugin-not-runnable",
      "plugin-running",
      "plugin-approval-stale",

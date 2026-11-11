@@ -92,6 +92,8 @@ error-ai-egress-off = Sending postings to AI providers is off. Turn it on in Set
 error-no-local-model = Your own model isn't set up. Add one in Settings › AI.
 # kind=error next=none note="Saving an AI connection after an update: the saved connections no longer validate, so the save was refused and nothing was lost"
 error-model-profiles-unreadable = Your model settings couldn't be read. Nothing was changed.
+# kind=error next=none note="Saving or testing an AI connection after its server address was changed with the key field left blank: the saved key is for the previous server and is not sent to the new one. The message is itself the instruction"
+error-key-saved-for-another-address = The saved key is for the previous address. Enter the key for this one.
 # kind=error next=none
 error-link-to-itself = A posting can't be linked to itself.
 # kind=error next=none

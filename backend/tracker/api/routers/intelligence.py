@@ -50,7 +50,7 @@ from tracker.db.queries.jobs import apply_job_filters, row_context
 from tracker.intelligence.prompts import PROMPT_VERSION
 from tracker.intelligence.providers.local import LocalLLMProvider
 from tracker.intelligence.registry import build_provider
-from tracker.intelligence_runtime._profile_keys import ProfilesUnreadable
+from tracker.intelligence_runtime._profile_keys import KeySavedForAnotherAddress, ProfilesUnreadable
 from tracker.intelligence_runtime.cloud_profiles import (
     create_profile as create_cloud_llm_profile,
 )
@@ -73,6 +73,9 @@ from tracker.intelligence_runtime.local_profiles import (
     delete_profile as delete_local_llm_profile,
 )
 from tracker.intelligence_runtime.local_profiles import (
+    edited as edited_local_llm_profile,
+)
+from tracker.intelligence_runtime.local_profiles import (
     get_profile as get_local_llm_profile,
 )
 from tracker.intelligence_runtime.local_profiles import (
@@ -91,7 +94,7 @@ from tracker.intelligence_runtime.routing import routing_state
 from tracker.intelligence_runtime.selftest import run_self_test
 from tracker.intelligence_runtime.telemetry import log_ai_task
 from tracker.local_llm.client import LocalLLMClient, LocalLLMError
-from tracker.local_llm.models import LocalLLMProfile, LocalLLMProfileInput
+from tracker.local_llm.models import LocalLLMProfileInput
 from tracker.local_llm.server import binary_path as omlx_binary_path
 from tracker.local_llm.server import control as control_omlx_server
 from tracker.platform.os_process import shell_join
@@ -215,14 +218,22 @@ async def _intelligence_state(session: AsyncSession) -> dict:
 
 @contextmanager
 def _profiles_writable() -> Iterator[None]:
-    """A write to saved model connections that no longer validate is refused:
-    built on the empty list they read as, it would delete them (`ProfilesUnreadable`)."""
+    """The two refusals of an edit to a saved model connection. A write to
+    connections that no longer validate: built on the empty list they read as,
+    it would delete them (`ProfilesUnreadable`). And an edit, saved or tried
+    unsaved, that names another server and no key: the saved key is not sent
+    there (`KeySavedForAnotherAddress`)."""
     try:
         yield
     except ProfilesUnreadable as exc:
         raise api_error(
             409, ErrorCode.MODEL_PROFILES_UNREADABLE,
             "saved model connections no longer validate; nothing was changed",
+        ) from exc
+    except KeySavedForAnotherAddress as exc:
+        raise api_error(
+            409, ErrorCode.KEY_SAVED_FOR_ANOTHER_ADDRESS,
+            "the saved key is for another address; send this address's key with the edit",
         ) from exc
 
 
@@ -487,10 +498,8 @@ async def test_local_llm_profile(
     if profile is None:
         raise api_error(404, ErrorCode.LOCAL_MODEL_NOT_FOUND, "local model profile not found")
     if payload.profile is not None:
-        values = payload.profile.model_dump()
-        if payload.profile.api_key is None:
-            values["api_key"] = profile.api_key
-        profile = LocalLLMProfile(id=profile.id, **values)
+        with _profiles_writable():
+            profile = edited_local_llm_profile(profile, payload.profile)
     await end_read(session)
     try:
         result = await LocalLLMClient(profile).test_connection(payload.prompt)

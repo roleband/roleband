@@ -15,7 +15,12 @@ from uuid import uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracker.intelligence_runtime._profile_keys import ProfilesUnreadable, reseal_raw, with_keys
+from tracker.intelligence_runtime._profile_keys import (
+    ProfilesUnreadable,
+    kept_key,
+    reseal_raw,
+    with_keys,
+)
 from tracker.local_llm.models import LocalLLMProfile, LocalLLMProfileInput, LocalLLMState
 from tracker.platform.locks import advisory_xact_lock
 from tracker.platform.secrets import seal, unseal_or_none
@@ -74,6 +79,13 @@ async def create_profile(
     return profile
 
 
+def edited(saved: LocalLLMProfile, edit: LocalLLMProfileInput) -> LocalLLMProfile:
+    """`saved` as `edit` leaves it, saved or tried unsaved: the edit's values, and
+    the saved key when the edit names none and the same server (`kept_key`)."""
+    key = kept_key(saved.base_url, saved.api_key, edit.base_url, edit.api_key)
+    return LocalLLMProfile(id=saved.id, **{**edit.model_dump(), "api_key": key})
+
+
 async def update_profile(
     session: AsyncSession, profile_id: str, payload: LocalLLMProfileInput
 ) -> LocalLLMProfile | None:
@@ -81,10 +93,7 @@ async def update_profile(
     for index, current in enumerate(state.profiles):
         if current.id != profile_id:
             continue
-        values = payload.model_dump()
-        if payload.api_key is None:
-            values["api_key"] = current.api_key
-        profile = LocalLLMProfile(id=profile_id, **values)
+        profile = edited(current, payload)
         state.profiles[index] = profile
         await _save(session, state)
         return profile

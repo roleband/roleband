@@ -69,6 +69,8 @@ class ErrorCode(StrEnum):
     NO_LOCAL_MODEL = "no-local-model"
     #: The saved model connections no longer validate; a write would replace them.
     MODEL_PROFILES_UNREADABLE = "model-profiles-unreadable"
+    #: An edit named another server and no key; the saved key is not sent there.
+    KEY_SAVED_FOR_ANOTHER_ADDRESS = "key-saved-for-another-address"
     # Plugins: what the install allows, and what the user saw.
     PLUGIN_NOT_RUNNABLE = "plugin-not-runnable"
     PLUGIN_RUNNING = "plugin-running"
