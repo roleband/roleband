@@ -94,6 +94,8 @@ def _answers(*replies):
         asked.append(reply)
         if isinstance(reply, Exception):
             raise reply
+        if isinstance(reply, list):
+            return httpx.Response(200, json=reply)
         return httpx.Response(reply, json=RELEASES if reply == 200 else {"detail": "unavailable"})
 
     return httpx.MockTransport(handle), asked
@@ -119,3 +121,10 @@ def test_a_refusal_is_not_tried_again():
     with pytest.raises(httpx.HTTPStatusError):
         fetch_releases(transport, sleep=lambda _: None)
     assert asked == [404]
+
+
+@pytest.mark.parametrize("answer", [[*RELEASES, None], [*RELEASES, "Python 3.12.17"]], ids=["null", "string"])
+def test_a_release_list_holding_something_else_than_records_gives_no_verdict(answer):
+    transport, _ = _answers(answer)
+    with pytest.raises(ValueError, match="not a record"):
+        fetch_releases(transport, sleep=lambda _: None)

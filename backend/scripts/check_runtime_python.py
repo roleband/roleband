@@ -123,6 +123,8 @@ def fetch_releases(transport: httpx.BaseTransport | None = None, attempts: int =
     releases = response.json()
     if not isinstance(releases, list):
         raise ValueError("python.org answered without a release list")
+    if not all(isinstance(release, dict) for release in releases):
+        raise ValueError("python.org answered with a release that is not a record")
     return releases
 
 

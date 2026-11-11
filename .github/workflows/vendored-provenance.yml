@@ -16,10 +16,10 @@ name: vendored-provenance
 #
 # CAVEAT worth knowing: `schedule` only fires on the default branch of the
 # GitHub remote. A checkout whose commits sit unpushed is not covered, so treat
-# this as a backstop and run the script by hand monthly:
+# this as a backstop and run the scripts by hand monthly, from `backend/`:
 #
-#     cd backend && .venv/bin/python -m scripts.check_vendored_upstream
-#     cd backend && .venv/bin/python -m scripts.check_runtime_python
+#     .venv/bin/python -m scripts.check_vendored_upstream
+#     .venv/bin/python -m scripts.check_runtime_python
 
 on:
   schedule:
