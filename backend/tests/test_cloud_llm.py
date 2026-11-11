@@ -29,10 +29,11 @@ def test_an_edit_without_a_key_keeps_the_saved_one_at_its_server(url):
         "https://api.openai.com:8443/v1",
         "http://api.openai.com/v1",
         "https://api.openai.com:https/v1",
+        "https://api.openai.com:0/v1",
     ],
     ids=[
         "name_as_prefix", "name_in_path", "name_as_userinfo", "subdomain", "another_port", "another_scheme",
-        "unreadable_port",
+        "unreadable_port", "port_zero",
     ],
 )
 def test_an_edit_without_a_key_never_takes_the_saved_one_to_another_server(url):

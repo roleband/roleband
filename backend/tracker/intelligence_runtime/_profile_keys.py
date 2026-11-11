@@ -30,9 +30,10 @@ def _server(url: str) -> tuple[str, str | None, int | None] | None:
     """Scheme, host and port; None for an address whose port cannot be read."""
     parts = urlsplit(url)
     try:
-        return parts.scheme, parts.hostname, parts.port or _DEFAULT_PORTS.get(parts.scheme)
+        port = parts.port
     except ValueError:
         return None
+    return parts.scheme, parts.hostname, _DEFAULT_PORTS.get(parts.scheme) if port is None else port
 
 
 def kept_key(saved_url: str, saved_key: str | None, url: str, key: str | None) -> str | None:
