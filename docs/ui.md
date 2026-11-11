@@ -961,8 +961,8 @@ its full list, opens the Board narrowed to that company (`/?company=`), and
 Back returns to Hiring.
 
 Every Insights figure counts a role listed in several places once
-(`db/queries/jobs.insights_role_conds`), and so do the daily rollups written
-for later views: skills named, pay estimates and posted pay. Compensation shows
+(`db/queries/jobs.insights_role_conds`), a place filter takes it when any of
+those places matches, and so do the daily rollups written for later views: skills named, pay estimates and posted pay. Compensation shows
 the roles open now and draws no pay over time: the daily pay rollups keep
 building, and a chart over them waits until there is enough history to compare
 like with like. The window switch shows only on the tabs whose figures it moves

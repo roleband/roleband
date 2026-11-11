@@ -14,7 +14,8 @@ concept that is not an industry — a business vertical is never a skill.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from typing import Any
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +33,15 @@ ELIGIBLE_REQUIREMENT = (
     SkillConcept.status == "active",
     SkillConcept.facet != "industry",
 )
+
+
+def at_places(location_group: list[str] | None) -> Callable[[Any], list] | None:
+    """The place filter as a place-set member test: a role listed in several
+    places is in a place's figures when any of its members is there, and the
+    member that is there stands for it."""
+    if not location_group:
+        return None
+    return lambda peer: [peer.location_groups.overlap(location_group)]
 
 
 def top_skills_stmt(
@@ -59,7 +69,7 @@ def top_skills_stmt(
         .select_from(JobSkill)
         .join(SkillConcept, SkillConcept.id == JobSkill.concept_id)
         .join(Job, Job.id == JobSkill.job_id)
-        .where(*insights_role_conds(), *ELIGIBLE_REQUIREMENT),
+        .where(*insights_role_conds(at_places(location_group)), *ELIGIBLE_REQUIREMENT),
         hidden,
     )
     if company:
@@ -111,15 +121,22 @@ async def top_skills(
 
 
 async def skill_role_counts(
-    session: AsyncSession, hidden: list[str], conds: Sequence = ()
+    session: AsyncSession,
+    hidden: list[str],
+    conds: Sequence = (),
+    *,
+    location_group: list[str] | None = None,
 ) -> tuple[dict[str, int], int, dict[str, tuple[str, str]]]:
     """`(roles per concept, roles naming any concept, slug -> (display, category))`
-    over the eligible requirements of `top_skills_stmt`, narrowed by `conds`.
+    over the eligible requirements of `top_skills_stmt`, narrowed by `conds`
+    and to roles listed at any of `location_group`.
 
     The denominator is the roles with at least one named skill, not every open
     role, so a company whose postings are not read yet is not read as one whose
     roles ask for nothing."""
-    eligible = [*insights_role_conds(), *ELIGIBLE_REQUIREMENT, *conds]
+    eligible = [*insights_role_conds(at_places(location_group)), *ELIGIBLE_REQUIREMENT, *conds]
+    if location_group:
+        eligible.append(Job.location_groups.overlap(location_group))
     base = (
         select(SkillConcept.slug, SkillConcept.display, SkillConcept.category, JobSkill.job_id)
         .select_from(JobSkill)

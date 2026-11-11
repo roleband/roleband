@@ -37,12 +37,12 @@ async def skills_top(
         slice_conds.append(Job.company.in_(company))
     if family:
         slice_conds.append(Job.family.in_(family))
-    if location_group:
-        slice_conds.append(Job.location_groups.overlap(location_group))
     market_counts, market_roles, meta = await skill_role_counts(session, hidden)
-    narrowed = bool(slice_conds)
+    narrowed = bool(slice_conds or location_group)
     if narrowed:
-        slice_counts, slice_roles, _ = await skill_role_counts(session, hidden, slice_conds)
+        slice_counts, slice_roles, _ = await skill_role_counts(
+            session, hidden, slice_conds, location_group=location_group
+        )
     else:
         slice_counts, slice_roles = market_counts, market_roles
     ranked = rank_skills(

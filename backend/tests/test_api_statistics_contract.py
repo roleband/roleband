@@ -51,7 +51,6 @@ from tracker.analytics.comp_trends import DISCLOSURE_BASIS
 from tracker.api.routers import statistics as router
 from tracker.api.schemas import statistics as contract
 from tracker.company_directory import FOLLOWED_WITH_SET
-from tracker.skills.analytics import compute_skill_demand
 from tracker.db.models import (
     CompSnapshot,
     DisclosureSnapshot,
@@ -67,6 +66,7 @@ from tracker.db.models import (
     SkillDemandDaily,
     TrackedCompany,
 )
+from tracker.skills.analytics import compute_skill_demand
 
 ROUTES = {
     "stats": "/api/stats",
@@ -722,6 +722,18 @@ async def test_a_role_listed_in_three_places_counts_once_in_every_skills_read_an
     assert skills["roles"] == 1
     overview = await _get(api_client, f"{ROUTES['overview']}?side=other")
     assert [(s["term"], s["job_count"]) for s in overview["top_skills"]] == [("python", 1)]
+
+    # A place filter reaches a set through any member: London and Berlin are
+    # later members than the set's first (EMEA), and each place, or both,
+    # counts the role once.
+    for key, groups in (("pm-emea", ["emea"]), ("pm-london", ["uk"]), ("pm-berlin", ["germany"])):
+        (await db_session.get(Job, members[key])).location_groups = groups
+    await db_session.commit()
+    for places in ("uk", "germany", "uk&location_group=germany"):
+        placed = await _get(api_client, f"/api/skills/top?side=other&location_group={places}")
+        assert ([(s["term"], s["job_count"]) for s in placed["items"]], placed["roles"]) == ([("python", 1)], 1), places
+    nowhere = await _get(api_client, "/api/skills/top?side=other&location_group=france")
+    assert (nowhere["items"], nowhere["roles"]) == ([], 0)
 
     await compute_skill_demand(db_session)
     await comp_trends.compute_comp_metrics(db_session)
