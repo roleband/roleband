@@ -23,14 +23,12 @@ declares its own models beside its handler.
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Literal
 
 from pydantic import Field
 from pydantic.json_schema import SkipJsonSchema
 
 from tracker.api.schemas.base import Built
-from tracker.api.schemas.jobs import JobRow
 from tracker.api.schemas.plugins import ReferenceChangeView
 from tracker.api.schemas.text_class import text
 
@@ -94,16 +92,6 @@ class OverviewSkill(Built):
     job_count: int
 
 
-class OverviewHardest(Built):
-    """The open role listed the longest, by the age one posting shows."""
-
-    id: int
-    title: str = Field(json_schema_extra=text("content"))
-    company: str
-    #: The row's own `listed_days` (serialize_job), never our first-sighting clock.
-    listed_days: int | None
-
-
 class StatisticsOverviewResponse(Built):
     """`GET /api/statistics/overview`. `days <= 0` is all-time. The one-line
     brief is the dashboard's, said from these facts."""
@@ -111,8 +99,6 @@ class StatisticsOverviewResponse(Built):
     days: int
     kpis: OverviewKpis
     top_skills: list[OverviewSkill]
-    #: The three open roles listed longest, plausible ages only.
-    longest_open: list[OverviewHardest]
 
 
 # --------------------------------------------------------------------------- #
@@ -556,16 +542,9 @@ class HiringRegion(Built):
     countries: list[HiringCountry]
 
 
-class UpdatedOpenJob(JobRow):
-    """A list row, then how often and how recently the posting changed."""
-
-    update_count: int
-    last_updated_at: datetime
-
-
 class DemandResponse(Built):
     """`GET /api/demand`, the Hiring tab: where roles are open now, by company and
-    place, today's openings and closings, and the three persistent-role lists.
+    place, and today's openings and closings.
 
     Read live from the roles Insights describes, never by summing the
     `demand_metrics` rollup, whose slices count a posting once per place group."""
@@ -582,14 +561,6 @@ class DemandResponse(Built):
     #: Share of the open roles that the employer dated (`analytics.age_basis`).
     #: None when nothing is open.
     employer_dated_share: float | None
-    #: Ordered by `listed_days`, the age each row shows, longest first; only
-    #: ages within `PLAUSIBLE_LISTING_DAYS`.
-    longest_open: list[JobRow]
-    #: Open roles listed longer than that: a stale or evergreen date, left out
-    #: of `longest_open` and counted here.
-    listed_over_a_year: int
-    most_reposted: list[JobRow]
-    most_updated_open: list[UpdatedOpenJob]
 
 
 class LevelGuideEntry(Built):

@@ -117,22 +117,6 @@
   align-items: start;
 }
 
-.update-counter {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  margin-left: var(--app-space-1);
-  color: var(--app-warning);
-  font-family: var(--app-font-mono);
-  font-size: var(--app-type-meta);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.update-counter svg {
-  flex: 0 0 auto;
-}
-
 /* ---- overview cockpit ---------------------------------------------------- */
 
 .cockpit {
@@ -846,93 +830,6 @@
   border-radius: 2px;
 }
 
-/* ---- overlap matrix ------------------------------------------------------ */
-
-.overlap-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--app-space-3);
-  flex-wrap: wrap;
-}
-
-.overlap-scroll {
-  margin-top: var(--app-space-3);
-  overflow-x: auto;
-}
-
-.overlap-matrix {
-  display: grid;
-  width: max-content;
-  font-size: var(--app-type-meta);
-}
-
-.ovl-corner {
-  position: sticky;
-  left: 0;
-  background: var(--app-surface-raised);
-  z-index: 2;
-}
-
-.ovl-colhead {
-  padding: 0 2px var(--app-space-2);
-  text-align: center;
-  color: var(--app-text-muted);
-  font-size: var(--app-type-meta);
-  font-weight: var(--app-weight-name);
-  line-height: 1.1;
-  overflow: hidden;
-}
-
-.ovl-colhead span {
-  display: inline-block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 48px;
-}
-
-.ovl-rowhead {
-  position: sticky;
-  left: 0;
-  z-index: 1;
-  padding: 0 var(--app-space-3) 0 2px;
-  background: var(--app-surface-raised);
-  display: flex;
-  align-items: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--app-text-muted);
-  font-weight: var(--app-weight-name);
-}
-
-.ovl-cell {
-  height: 40px;
-  margin: 1px;
-  border-radius: var(--app-radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--app-font-mono);
-  font-size: var(--app-type-meta);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--app-text);
-  cursor: default;
-}
-
-.ovl-cell.diag {
-  background: var(--app-surface-sunken);
-  color: var(--app-text-faint);
-}
-
-.overlap-foot {
-  margin-top: var(--app-space-3);
-  color: var(--app-text-muted);
-  font-size: var(--app-type-meta);
-}
-
 /* ---- cards in a grid ---------------------------------------------------- */
 
 /* A card in a multi-column grid takes the tighter inset: the
@@ -983,7 +880,6 @@
   }
 
   .chart-skills { height: 320px; }
-  .chart-overlap { height: 380px; }
 
 }
 

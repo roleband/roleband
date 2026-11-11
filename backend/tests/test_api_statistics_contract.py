@@ -49,7 +49,6 @@ from tracker.analytics import comp_package, comp_residual, comp_split, comp_tren
 from tracker.analytics.comp_trends import DISCLOSURE_BASIS
 from tracker.api.routers import statistics as router
 from tracker.api.schemas import statistics as contract
-from tracker.api.schemas.jobs import JobRow
 from tracker.company_directory import FOLLOWED_WITH_SET
 from tracker.db.models import (
     CompSnapshot,
@@ -101,10 +100,6 @@ async def _get(api_client, path: str, status: int = 200) -> dict:
 
 def _day(days_before_today: int) -> str:
     return (DAY_START - timedelta(days=days_before_today)).date().isoformat()
-
-
-def _zulu(at) -> str:
-    return at.isoformat().replace("+00:00", "Z")
 
 
 # --------------------------------------------------------------------------- #
@@ -164,7 +159,7 @@ async def test_an_empty_radar_answers_every_shape_with_nothing_in_it(api_client,
         "review_pending": 0, "notif_unread": 0, "notif_high_unread": 0, "by_company": {},
     }
     overview = await _get(api_client, ROUTES["overview"])
-    assert (overview["top_skills"], overview["longest_open"]) == ([], [])
+    assert overview["top_skills"] == []
     compensation = await _get(api_client, ROUTES["compensation"])
     assert (compensation["overall"], compensation["histogram"], compensation["coverage"]) == (
         None, [], {"with_comp": 0, "total_open": 0, "pct": 0.0},
@@ -179,8 +174,7 @@ async def test_an_empty_radar_answers_every_shape_with_nothing_in_it(api_client,
     assert (await _get(api_client, ROUTES["disclosure_trends"]))["dates"] == []
     assert await _get(api_client, ROUTES["demand"]) == {
         "open_total": 0, "new_today": 0, "closed_today": 0, "companies": [], "regions": [], "unplaced": 0,
-        "employer_dated_share": None, "longest_open": [], "listed_over_a_year": 0, "most_reposted": [],
-        "most_updated_open": [],
+        "employer_dated_share": None,
     }
 
 
@@ -219,17 +213,9 @@ async def test_the_overview_scopes_openings_to_its_window_and_names_the_leaders(
         {"term": "python", "category": "language", "job_count": 17},
         {"term": "sql", "category": "language", "job_count": 3},
     ]
-    # The role listed longest by its own age (`listed_days`): `o-old`, which the
-    # employer dated 120 days ago, not `g-senior`, which we saw first (60 days).
-    hardest, *rest = body["longest_open"]
-    assert len(rest) == 2 and all(list(row) == _fields(contract.OverviewHardest) for row in body["longest_open"])
-    assert (hardest["id"], hardest["title"], hardest["company"]) == (
-        seeded.ids["o-old"], "Staff Product Manager, openai-old", "openai",
-    )
-    demand = await _get(api_client, ROUTES["demand"])
-    rows = {row["id"]: row for row in demand["longest_open"]}
-    assert hardest["listed_days"] == rows[seeded.ids["o-old"]]["listed_days"]
-    assert hardest["listed_days"] - rows[seeded.ids["g-senior"]]["listed_days"] == 60
+    # No role list: a role's age answers nothing on Overview
+    # (docs/decisions/0004-insights-answers-a-question.md).
+    assert "longest_open" not in body
     # The dashboard builds the brief from these facts
     # (`statistics/names.test.ts`); the response carries no English brief.
     assert "brief" not in body
@@ -672,29 +658,12 @@ async def test_hiring_counts_each_role_once_by_company_and_by_place(api_client, 
     assert regions["africa"] == {"key": "africa", "open": 1, "region_wide": 1, "countries": []}
     assert regions["middle_east"] == {"key": "middle_east", "open": 1, "region_wide": 1, "countries": []}
 
-    # The persistent-role lists, ordered by the age each row shows, not by our
-    # first sighting: the role its employer dated 120 days ago leads the one we
-    # saw first, 60 days ago.
-    assert all(list(row) == _fields(JobRow) for row in body["longest_open"] + body["most_reposted"])
-    longest = body["longest_open"]
-    assert [row["id"] for row in longest[:2]] == [seeded.ids["o-old"], seeded.ids["g-senior"]]
-    ages = [row["listed_days"] for row in longest]
-    assert ages == sorted(ages, reverse=True)
-    assert len(longest) == 10
     # Two of the 28 open roles are dated by their employer; the hidden,
     # out-of-scope and closed rows are dated too and must not count.
     assert body["employer_dated_share"] == 2 / 28
-    reposted = [row["id"] for row in body["most_reposted"]]
-    assert reposted[0] == seeded.ids["g-staff"]
-    assert set(reposted[1:]) == {seeded.ids["o-repost"], seeded.ids["n-staff"]}
-    updated = body["most_updated_open"]
-    assert all(list(row) == _fields(contract.UpdatedOpenJob) for row in updated)
-    # Two updates at least, still open, never closed.
-    assert [(row["id"], row["update_count"], row["last_updated_at"]) for row in updated] == [
-        (seeded.ids["g-staff"], 3, _zulu(NOW - timedelta(days=1))),
-        (seeded.ids["n-staff"], 2, _zulu(NOW - timedelta(hours=6))),
-    ]
-
+    # Hiring lists no roles: a role's age, reposts or updates answer no question
+    # a person acts on (docs/decisions/0004-insights-answers-a-question.md).
+    assert not {"longest_open", "listed_over_a_year", "most_reposted", "most_updated_open"} & set(body)
 
 @pytest.mark.asyncio
 async def test_every_insights_tab_describes_one_set_of_roles(api_client, db_session, seeded):
@@ -804,7 +773,7 @@ async def test_a_company_first_scan_is_never_new_and_ages_from_its_listed_date(a
 
     velocity = await _get(api_client, "/api/statistics/velocity?days=30")
     assert (velocity["kpis"]["opened"], velocity["kpis"]["first_scan"]) == (26, 3)
-    assert velocity["kpis"]["net"] == 26 - velocity["kpis"]["closed"]
+    assert not {"net", "updated"} & set(velocity["kpis"])
     bands = {band["lo"]: band["count"] for band in velocity["aging"]}
     # acme-dated starts at its employer's date, 200 days ago, not at this morning;
     # acme-recent at 20 days; the undated find and the watched opening at today.
@@ -814,20 +783,6 @@ async def test_a_company_first_scan_is_never_new_and_ages_from_its_listed_date(a
     hiring = await _get(api_client, ROUTES["demand"])
     assert hiring["new_today"] == 4  # the seed's three and acme-new, never the first scan's three
     assert [(c["company"], c["new_today"]) for c in hiring["companies"] if c["company"] == "acme"] == [("acme", 1)]
-
-
-@pytest.mark.asyncio
-async def test_the_longest_open_lists_leave_out_a_stale_date_and_count_it(api_client, db_session, seeded):
-    """An employer date years old ("Listed for 3,905 days") is a stale date, not
-    a role that waited ten years. Such a role keeps its age, leaves the
-    longest-open lists and is counted."""
-    db_session.add(_role("openai", "evergreen", first_posted_at=NOW - timedelta(days=3000)))
-    await db_session.commit()
-    hiring = await _get(api_client, ROUTES["demand"])
-    assert hiring["listed_over_a_year"] == 1
-    assert hiring["longest_open"][0]["id"] == seeded.ids["o-old"]
-    overview = await _get(api_client, ROUTES["overview"])
-    assert overview["longest_open"][0]["id"] == seeded.ids["o-old"]
 
 
 @pytest.mark.asyncio
@@ -958,6 +913,14 @@ def _points_with_an_extra_key(real):
     return drifted
 
 
+def _each_region_adding(real):
+    def drifted(*args, **kwargs):
+        body = real(*args, **kwargs)
+        return {**body, "regions": [{**r, "drift": 1} for r in body["regions"]]}
+
+    return drifted
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("name", "drift", "route"),
@@ -969,12 +932,12 @@ def _points_with_an_extra_key(real):
         ("build_equity_residuals", _each_group_without_modeled_share, "equity"),
         ("build_comp_trend_series", _series_without_count, "comp_trends"),
         ("build_disclosure_trend_series", _points_with_an_extra_key, "disclosure_trends"),
-        ("serialize_job", _adding, "demand"),
+        ("build_hiring_places", _each_region_adding, "demand"),
     ],
     # No builder here writes English: the dashboard names families, so there is
     # no name left to drift.
     ids=["comp_stats_key_added", "skill_premium_dropped", "trajectory_key_added", "offer_terms_key_added", "residual_share_dropped",
-         "trend_count_dropped", "disclosure_point_key_added", "demand_row_key_added"],
+         "trend_count_dropped", "disclosure_point_key_added", "demand_region_key_added"],
 )
 async def test_a_builder_that_drifts_fails_the_response(api_client, seeded, monkeypatch, name, drift, route):
     monkeypatch.setattr(router, name, drift(getattr(router, name)))

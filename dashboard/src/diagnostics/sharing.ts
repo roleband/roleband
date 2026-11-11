@@ -53,7 +53,7 @@ const SCREENS = new Set([
 const SUB_TABS = new Set([
   "direction", "experience",
   "companies", "intelligence", "schedule", "recipes", "language", "privacy", "retention", "plugins",
-  "overview", "demand", "velocity", "compensation", "levels", "trajectory", "skills", "overlap",
+  "overview", "demand", "velocity", "compensation", "levels", "trajectory", "skills",
 ]);
 
 export function screenPath(pathname: string): string {

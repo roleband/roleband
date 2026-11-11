@@ -2,9 +2,7 @@ import type { EChartsCoreOption } from "echarts/core";
 import type {
   CompTrajectoryCompany,
   OverviewSkill,
-  SkillsOverlap,
   TopSkill,
-  VelocityCompany,
 } from "../../../api";
 import { companyName, fmtComp } from "../../../format";
 import { EChart } from "../../../ui/EChart";
@@ -15,42 +13,28 @@ import {
   FAINT,
   MUTED,
   SIGNAL,
-  SUNKEN,
   categoryAxis,
   compactGrid,
   valueAxis,
 } from "./options";
 import {
-  insightsStatisticsChartsClosed,
   insightsStatisticsChartsClosedCount,
-  insightsStatisticsChartsCrossCompanySkillOverlapHeatmap,
   insightsStatisticsChartsEquityShockwaveByCompany,
-  insightsStatisticsChartsHiringFlowByCompany,
-  insightsStatisticsChartsLessAlike,
   insightsStatisticsChartsLiftTheMarketSRate,
   insightsStatisticsChartsMarketDemandField,
-  insightsStatisticsChartsMoreAlike,
   insightsStatisticsChartsNewClosedToday,
   insightsStatisticsChartsNewCount,
   insightsStatisticsChartsNoChange,
   insightsStatisticsChartsOfTheseRolesTheMarket,
   insightsStatisticsChartsOpenNewClosed,
   insightsStatisticsChartsOpenRolesByCompany,
-  insightsStatisticsChartsOpened,
-  insightsStatisticsChartsOpenedClosedUpdated,
-  insightsStatisticsChartsPair,
   insightsStatisticsChartsShareOfTheseRoles,
   insightsStatisticsChartsTheMarketSRate,
   insightsStatisticsChartsWhatSetsTheseRolesApart,
-  insightsCommonDistinctSkills,
   insightsCommonOpenRoles,
   insightsCommonOpenRolesUnit,
-  insightsCommonUpdated,
   insightsStatisticsChartsCompanyOpenRoles,
   insightsStatisticsChartsEquityChange,
-  insightsStatisticsChartsOverlapCell,
-  insightsStatisticsChartsPairAlike,
-  insightsStatisticsChartsPairSimilarity,
   insightsStatisticsChartsShareAgainstMarket,
   insightsStatisticsChartsSkillOpenRoles,
 } from "../../../copy/gen/insights";
@@ -113,8 +97,10 @@ export function OverviewSignalChart({ skills }: { skills: OverviewSkill[] }) {
   );
 }
 
-/** One bar of the Hiring company chart: a company, or the folded rest. */
+/** One bar of the Hiring company chart: one company. */
 export interface HiringBar {
+  /** The company's slug, which a click on its bar hands to `onPick`. */
+  company: string;
   label: string;
   open: number;
   fresh: number;
@@ -123,8 +109,21 @@ export interface HiringBar {
 
 /** Open roles by company, leaders first. The caller bounds the rows
  *  (`hiring.topCompanies`): this draws what it is given, never a bar per company. */
-export function HiringCompaniesChart({ bars }: { bars: readonly HiringBar[] }) {
+export function HiringCompaniesChart({
+  bars,
+  onPick,
+}: {
+  bars: readonly HiringBar[];
+  /** A click on a company's bar or its label. */
+  onPick?: (company: string) => void;
+}) {
   const rows = bars.slice().reverse();
+  // A bar answers with its index; an axis label, with its text.
+  const pick = (p: unknown) => {
+    const { componentType, dataIndex, value } = p as { componentType?: string; dataIndex?: number; value?: unknown };
+    const row = componentType === "yAxis" ? rows.find((r) => r.label === value) : rows[dataIndex ?? -1];
+    if (row) onPick?.(row.company);
+  };
   const option: EChartsCoreOption = {
     grid: { ...compactGrid, right: 118, top: 24 },
     tooltip: {
@@ -141,13 +140,14 @@ export function HiringCompaniesChart({ bars }: { bars: readonly HiringBar[] }) {
       },
     },
     xAxis: valueAxis,
-    yAxis: { ...categoryAxis, data: rows.map((row) => row.label) },
+    yAxis: { ...categoryAxis, data: rows.map((row) => row.label), triggerEvent: Boolean(onPick) },
     series: [
       {
         name: insightsCommonOpenRoles(),
         type: "bar",
         data: rows.map((row) => ({ value: row.open })),
         barMaxWidth: 13,
+        cursor: onPick ? "pointer" : "default",
         itemStyle: {
           color: {
             type: "linear",
@@ -183,67 +183,9 @@ export function HiringCompaniesChart({ bars }: { bars: readonly HiringBar[] }) {
       ariaLabel={insightsStatisticsChartsOpenRolesByCompany()}
       className="chart-demand"
       height={Math.max(220, 54 + rows.length * 30)}
+      onEvents={onPick ? { click: pick } : undefined}
       option={option}
       summary={bars.map((b) => insightsStatisticsChartsOpenNewClosed({ label: String(b.label), open: b.open, fresh: b.fresh, closed: b.closed })).join("; ")}
-    />
-  );
-}
-
-export function VelocityFlowChart({ companies }: { companies: VelocityCompany[] }) {
-  const rows = companies.slice().sort((a, b) => a.opened + a.closed - (b.opened + b.closed));
-  const option: EChartsCoreOption = {
-    grid: { ...compactGrid, right: 34, top: 34 },
-    legend: {
-      top: 0,
-      right: 4,
-      itemWidth: 9,
-      itemHeight: 5,
-      textStyle: { color: MUTED, fontSize: 9 },
-    },
-    tooltip: {
-      trigger: "axis",
-      axisPointer: { type: "shadow" },
-      valueFormatter: (value: number) => String(Math.abs(value)),
-    },
-    xAxis: {
-      ...valueAxis,
-      axisLabel: { color: FAINT, fontSize: 9, formatter: (v: number) => String(Math.abs(v)) },
-    },
-    yAxis: { ...categoryAxis, data: rows.map((c) => companyName(c.company)) },
-    series: [
-      {
-        name: insightsStatisticsChartsClosed(),
-        type: "bar",
-        stack: "flow",
-        data: rows.map((c) => -c.closed),
-        barMaxWidth: 14,
-        itemStyle: { color: DANGER, opacity: 0.74, borderRadius: [4, 0, 0, 4] },
-      },
-      {
-        name: insightsStatisticsChartsOpened(),
-        type: "bar",
-        stack: "flow",
-        data: rows.map((c) => c.opened),
-        barMaxWidth: 14,
-        itemStyle: { color: SIGNAL, borderRadius: [0, 4, 4, 0] },
-      },
-      {
-        name: insightsCommonUpdated(),
-        type: "scatter",
-        data: rows.map((c) => c.updated),
-        symbol: "diamond",
-        symbolSize: 8,
-        itemStyle: { color: DATA_2 },
-      },
-    ],
-  };
-  return (
-    <EChart
-      ariaLabel={insightsStatisticsChartsHiringFlowByCompany()}
-      className="chart-velocity"
-      height={Math.max(260, 64 + rows.length * 32)}
-      option={option}
-      summary={rows.map((c) => insightsStatisticsChartsOpenedClosedUpdated({ company: String(companyName(c.company)), opened: c.opened, closed: c.closed, updated: c.updated })).join("; ")}
     />
   );
 }
@@ -403,95 +345,6 @@ export function SkillsConstellationChart({ skills }: { skills: TopSkill[] }) {
       height={350}
       option={option}
       summary={rows.map((s) => insightsStatisticsChartsOfTheseRolesTheMarket({ skill: skillName(s.term), share: Math.round(s.share * 100), lift: String(s.lift) })).join(", ")}
-    />
-  );
-}
-
-export function OverlapHeatmapChart({ data }: { data: SkillsOverlap }) {
-  const names = data.companies.map((c) => companyName(c.company));
-  const bySlug = new Map(data.companies.map((c, index) => [c.company, index]));
-  const pairCells = data.pairs.flatMap((pair) => {
-    const a = bySlug.get(pair.a);
-    const b = bySlug.get(pair.b);
-    if (a == null || b == null) return [];
-    const value = Math.round(pair.similarity * 100);
-    return [
-      { value: [a, b, value], shared: pair.shared, terms: pair.top_shared.map(skillName) },
-      { value: [b, a, value], shared: pair.shared, terms: pair.top_shared.map(skillName) },
-    ];
-  });
-  const diagonalCells = data.companies.map((company, index) => ({
-    value: [index, index, 0],
-    diagonal: true,
-    skillCount: company.skill_count,
-    shared: company.skill_count,
-    terms: [] as string[],
-    itemStyle: { color: SUNKEN },
-  }));
-  const cells = [...pairCells, ...diagonalCells];
-  const option: EChartsCoreOption = {
-    grid: { left: 92, right: 24, top: 18, bottom: 52 },
-    tooltip: {
-      formatter: (p: { value: [number, number, number]; data: { diagonal?: boolean; skillCount?: number; shared: number; terms: string[] } }) =>
-        p.data.diagonal
-          ? tooltipHtml(names[p.value[0]], [
-              insightsCommonDistinctSkills({ count: p.data.skillCount ?? 0 }),
-            ])
-          : tooltipHtml(insightsStatisticsChartsPair({ a: names[p.value[0]], b: names[p.value[1]] }), [
-              insightsStatisticsChartsPairAlike({ similarity: p.value[2], shared: p.data.shared }),
-              p.data.terms.join(", "),
-            ]),
-    },
-    xAxis: {
-      ...categoryAxis,
-      data: names,
-      splitArea: { show: true },
-      axisLabel: { color: MUTED, fontSize: 9, interval: 0, rotate: names.length > 4 ? 28 : 0 },
-    },
-    // The route orders companies so similar ones sit together; the y axis reads
-    // top-down in that order, so the diagonal runs top-left to bottom-right.
-    yAxis: { ...categoryAxis, data: names, inverse: true, splitArea: { show: true } },
-    visualMap: {
-      min: 0,
-      max: 100,
-      calculable: false,
-      orient: "horizontal",
-      left: "center",
-      bottom: 0,
-      itemWidth: 7,
-      itemHeight: 110,
-      text: [insightsStatisticsChartsMoreAlike(), insightsStatisticsChartsLessAlike()],
-      textStyle: { color: FAINT, fontSize: 9 },
-      inRange: { color: [SUNKEN, DATA_2, SIGNAL] },
-    },
-    series: [
-      {
-        type: "heatmap",
-        data: cells,
-        label: {
-          show: true,
-          color: "var(--app-text)",
-          fontFamily: mono,
-          fontSize: 9,
-          formatter: (p: { value: [number, number, number]; data: { diagonal?: boolean; skillCount?: number } }) =>
-            insightsStatisticsChartsOverlapCell({
-              cell: p.data.diagonal ? "self" : p.value[2] ? "pair" : "empty",
-              skillCount: p.data.skillCount ?? 0,
-              similarity: p.value[2],
-            }),
-        },
-        itemStyle: { borderColor: "var(--app-surface-raised)", borderWidth: 1, borderRadius: 3 },
-        emphasis: { itemStyle: { borderColor: "var(--app-text)", borderWidth: 1 } },
-      },
-    ],
-  };
-  return (
-    <EChart
-      ariaLabel={insightsStatisticsChartsCrossCompanySkillOverlapHeatmap()}
-      className="chart-overlap"
-      height={Math.max(340, 160 + names.length * 30)}
-      option={option}
-      summary={data.pairs.map((p) => insightsStatisticsChartsPairSimilarity({ a: companyName(p.a), b: companyName(p.b), percent: Math.round(p.similarity * 100) })).join("; ")}
     />
   );
 }

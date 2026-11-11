@@ -48,11 +48,15 @@ def _fixture():
     return open_rows, event_rows, duration_rows
 
 
-def test_build_velocity_kpis_sum_activity_and_flow():
+def test_build_velocity_kpis_sum_openings_and_closings_only():
     v = build_velocity(*_fixture(), open_total=5, days=30)
     k = v["kpis"]
-    assert (k["opened"], k["updated"], k["closed"]) == (14, 2, 4)  # changed -> updated
-    assert k["net"] == 10  # opened - closed
+    assert (k["opened"], k["closed"]) == (14, 4)
+    # A `changed` event is our own relabelling as often as an employer's edit,
+    # and opened minus closed subtracts two different populations: neither is
+    # served, so the fixture's `changed` row counts toward nothing.
+    assert "updated" not in k and "net" not in k
+    assert all("updated" not in c for c in v["by_company"])
     assert k["median_days_open"] == 10  # median of [2,3,10,40,100]
     assert k[DURATION_KEY] == 12.5  # median of [5,8,10,15,20,25]
     assert k["closed_sample"] == 6
@@ -72,7 +76,7 @@ def test_build_velocity_by_company_ranked_by_opened_with_medians():
     order = [c["company"] for c in v["by_company"]]
     assert order == ["openai", "google", "meta"]  # opened 8 > 5 > 1
     openai = v["by_company"][0]
-    assert openai["open"] == 2 and openai["closed"] == 3 and openai["updated"] == 0
+    assert openai["open"] == 2 and openai["closed"] == 3
     assert openai["median_days_open"] == 70  # median of [40,100]
     assert openai[DURATION_KEY] == 15  # median of [5,15,25]
 
@@ -131,9 +135,9 @@ def test_build_velocity_empty_is_safe():
     assert len(v["aging"]) == 6
 
 
-def test_reposted_events_are_a_separate_bucket_and_excluded_from_opened_and_net():
+def test_reposted_events_are_a_separate_bucket_and_excluded_from_opened():
     # The SQL remaps a repost/duplicate successor's opened event to 'reposted', so
-    # build_velocity sees it as its own type. It must NOT count as opened or shift net.
+    # build_velocity sees it as its own type. It must NOT count as opened.
     event_rows = [
         ("google", "opened", 4),
         ("google", "reposted", 3),
@@ -143,7 +147,6 @@ def test_reposted_events_are_a_separate_bucket_and_excluded_from_opened_and_net(
     k = v["kpis"]
     assert k["opened"] == 4  # reposts excluded
     assert k["reposted"] == 3
-    assert k["net"] == 3  # opened(4) - closed(1); reposts do not move net
     assert v["by_company"][0]["reposted"] == 3
 
 

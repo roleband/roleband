@@ -1,11 +1,8 @@
 import { InsightsScope, StatisticsOverview, api } from "../../api";
 import { useAsyncResource } from "../../hooks/useAsyncResource";
-import { companyName } from "../../format";
-import { listedFor } from "./ageCopy";
 import { OverviewSignalChart } from "./charts/StatisticsCharts";
 import { InfoTip } from "../../ui/InfoTip";
 import { ResourceLoadState } from "../../ui/ResourceLoadState";
-import { JobLinkRow } from "../../patterns/jobs/JobLinkRow";
 import { InsightHero, n } from "./InsightHero";
 import {
   insightsCommonClosed,
@@ -18,30 +15,15 @@ import {
   insightsOverviewPanelLoadFailed,
   insightsOverviewPanelLoading,
   insightsOverviewPanelMostNamedSkills,
-  insightsOverviewPanelNoOpenRoles,
-  insightsOverviewPanelOpenTheLongest,
   insightsOverviewPanelOpenedClosed,
-  insightsOverviewPanelTheRolesAdvertisedLongestThat,
   insightsOverviewPanelTheSkillsOpenRolesName,
   insightsOverviewPanelWhatIsPullingTheMarket,
-  insightsOverviewPanelWhatOpenTheLongestMeans,
 } from "../../copy/gen/insights";
 import { Msg } from "../../ui/Msg";
 import { skillName } from "../../copy/vocab";
 import { overviewBrief } from "./names";
 
-export function OverviewPanel({
-  days,
-  scope,
-  onOpen,
-  advanced = false,
-}: {
-  days: number;
-  scope?: InsightsScope;
-  onOpen: (id: number, companySlug?: string | null) => void;
-  /** The advanced view adds the roles open longest. */
-  advanced?: boolean;
-}) {
+export function OverviewPanel({ days, scope }: { days: number; scope?: InsightsScope }) {
   const { data, error, retry } = useAsyncResource<StatisticsOverview>(
     () => api.statisticsOverview(days, scope),
     [days, scope],
@@ -83,30 +65,6 @@ export function OverviewPanel({
           <OverviewSignalChart skills={data.top_skills} />
         </div>
       )}
-
-      {/* Three rows, and no skills list: it would draw the chart above a
-          second time. */}
-      {advanced && <div className="demand-grid">
-        <div className="panel">
-          <h3>
-            {insightsOverviewPanelOpenTheLongest()}
-            <InfoTip label={insightsOverviewPanelWhatOpenTheLongestMeans()}>
-              {insightsOverviewPanelTheRolesAdvertisedLongestThat()}
-            </InfoTip>
-          </h3>
-          {data.longest_open.length === 0 && <p className="hiring-note">{insightsOverviewPanelNoOpenRoles()}</p>}
-          {data.longest_open.map((job) => (
-            <JobLinkRow className="mini-job" key={job.id} jobId={job.id} company={job.company} onOpen={onOpen}>
-              <div>
-                <div className="mj-title" data-selection="content">{job.title}</div>
-                <div className="mj-meta">
-                  {[companyName(job.company), listedFor(job.listed_days)].filter(Boolean).join(" · ")}
-                </div>
-              </div>
-            </JobLinkRow>
-          ))}
-        </div>
-      </div>}
     </>
   );
 }

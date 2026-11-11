@@ -5,9 +5,8 @@
 import type { Locator, Page } from "@playwright/test";
 import { msg } from "../../src/test/msg";
 import { expect, mockApi, mockGet, test, watchReads } from "./fixtures";
-import { applicationCardFixture, applicationDetailFixture, hiringFixture, jobFixture } from "../../src/test/fixtures";
+import { applicationCardFixture, applicationDetailFixture, jobFixture } from "../../src/test/fixtures";
 import { appleJobFixture, comparison, detail, installBoardRoutes, jobFixture2 } from "./boardHarness";
-import { showAdvancedInsights } from "./insightsView";
 import { expectOnTop, pointAndClick, strangersOver } from "./paint";
 
 test.beforeEach(async ({ page }) => {
@@ -347,30 +346,6 @@ test("browser back and forward move between the board and an opportunity", async
  * The register renders as the left rail from 1360px; below that the toolbar
  * carries a "Filters · N" opener over the same component.
  */
-
-test("opening a job over a nested Statistics tab returns to that exact tab", async ({ page }) => {
-  // The job overlay works over a nested background route. Opening a job from
-  // /statistics/demand and pressing Back lands on /statistics/demand with the
-  // Demand tab still selected, never on the board.
-  const demandFixture = {
-    ...hiringFixture,
-    most_updated_open: [{ ...jobFixture2, update_count: 3, last_updated_at: "2026-07-12T16:00:00Z" }],
-  };
-  await page.route("/api/demand", (route) => route.fulfill({ json: demandFixture }));
-  // The role lists are the advanced view's.
-  await showAdvancedInsights(page);
-
-  await page.goto("/statistics/demand");
-  await expect(page.getByRole("tab", { name: "Hiring", exact: true })).toHaveAttribute("aria-selected", "true");
-
-  await page.getByText("Principal Engineer, Platform").click();
-  await expect(page).toHaveURL(/\/company\/openai\/job\/202$/);
-  await expect(detail(page).getByRole("heading", { name: "Principal Engineer, Platform" })).toBeVisible();
-
-  await page.getByRole("button", { name: "Back" }).click();
-  await expect(page).toHaveURL(/\/statistics\/demand$/);
-  await expect(page.getByRole("tab", { name: "Hiring", exact: true })).toHaveAttribute("aria-selected", "true");
-});
 
 /* The bar holds one control for where the person stands with the role. Off
    the pipeline it is the star; once saved, the star's place holds the

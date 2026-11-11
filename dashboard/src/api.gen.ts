@@ -2562,34 +2562,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/skills/overlap": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Skills Overlap
-         * @description Cross-company skill similarity over currently-open roles.
-         *
-         *     A company's skill set = skill concepts required in at least `min_jobs` of its
-         *     open roles (the floor trims one-off mentions that inflate spurious overlap;
-         *     industries and competencies are excluded: a vertical is not a skill, and what
-         *     every role is expected to do is overlap every company shares). Each pair
-         *     is scored by the cosine of rarity-weighted skill vectors (`compute_overlap`).
-         *     The companies are those named in `company`, else the top `limit_companies` by
-         *     open roles in the scope, shown in an order that puts similar ones together.
-         */
-        get: operations["skills_overlap_api_skills_overlap_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/skills/top": {
         parameters: {
             query?: never;
@@ -2828,7 +2800,7 @@ export interface paths {
          * Statistics Overview
          * @description Cockpit aggregate for the Statistics landing tab.
          *
-         *     KPI tiles + a short generated brief + highlight strips, pulling from the demand
+         *     KPI tiles, a short generated brief and the top skills, pulling from the demand
          *     and skills layers. `days<=0` means all-time; otherwise the new/closed
          *     counters are scoped to the last N days of lifecycle events (so the period control
          *     is meaningful as history accrues).
@@ -2853,7 +2825,7 @@ export interface paths {
          * Statistics Velocity
          * @description Hiring-velocity motion over a time window (honors the period lens).
          *
-         *     Opened / updated / closed activity + net flow from lifecycle events, the aging
+         *     Opened and closed roles from first sightings and lifecycle events, the aging
          *     distribution of still-open roles, and the observed listing duration of roles
          *     that closed in the window. `days<=0` means all-time. The duration needs a
          *     spread of closed roles, so it accrues with history; the UI flags a thin sample.
@@ -4734,7 +4706,7 @@ export interface components {
         /**
          * DemandResponse
          * @description `GET /api/demand`, the Hiring tab: where roles are open now, by company and
-         *     place, today's openings and closings, and the three persistent-role lists.
+         *     place, and today's openings and closings.
          *
          *     Read live from the roles Insights describes, never by summing the
          *     `demand_metrics` rollup, whose slices count a posting once per place group.
@@ -4746,14 +4718,6 @@ export interface components {
             companies: components["schemas"]["HiringCompany"][];
             /** Employer Dated Share */
             employer_dated_share: number | null;
-            /** Listed Over A Year */
-            listed_over_a_year: number;
-            /** Longest Open */
-            longest_open: components["schemas"]["JobRow"][];
-            /** Most Reposted */
-            most_reposted: components["schemas"]["JobRow"][];
-            /** Most Updated Open */
-            most_updated_open: components["schemas"]["UpdatedOpenJob"][];
             /** New Today */
             new_today: number;
             /** Open Total */
@@ -7813,47 +7777,6 @@ export interface components {
              */
             reason: "never_reconciled" | "not_scheduled";
         };
-        /** OverlapCompany */
-        OverlapCompany: {
-            /** Company */
-            company: string;
-            /** Open */
-            open: number;
-            /** Skill Count */
-            skill_count: number;
-        };
-        /**
-         * OverlapPair
-         * @description Two companies sharing at least one skill; `a` precedes `b` in the order shown.
-         */
-        OverlapPair: {
-            /** A */
-            a: string;
-            /** B */
-            b: string;
-            /** Shared */
-            shared: number;
-            /** Similarity */
-            similarity: number;
-            /** Top Shared */
-            top_shared: string[];
-            /** Union */
-            union: number;
-        };
-        /**
-         * OverviewHardest
-         * @description The open role listed the longest, by the age one posting shows.
-         */
-        OverviewHardest: {
-            /** Company */
-            company: string;
-            /** Id */
-            id: number;
-            /** Listed Days */
-            listed_days: number | null;
-            /** Title */
-            title: string;
-        };
         /** OverviewKpis */
         OverviewKpis: {
             /** Closed Count */
@@ -10511,18 +10434,6 @@ export interface components {
              */
             scope: "within" | "cross" | "all";
         };
-        /**
-         * SkillOverlapResponse
-         * @description `GET /api/skills/overlap`: the floor a skill must clear per company, echoed.
-         */
-        SkillOverlapResponse: {
-            /** Companies */
-            companies: components["schemas"]["OverlapCompany"][];
-            /** Min Jobs */
-            min_jobs: number;
-            /** Pairs */
-            pairs: components["schemas"]["OverlapPair"][];
-        };
         /** SourceComparisonCoverage */
         SourceComparisonCoverage: {
             /** Bands */
@@ -10603,8 +10514,6 @@ export interface components {
             /** Days */
             days: number;
             kpis: components["schemas"]["OverviewKpis"];
-            /** Longest Open */
-            longest_open: components["schemas"]["OverviewHardest"][];
             /** Top Skills */
             top_skills: components["schemas"]["OverviewSkill"][];
         };
@@ -11342,130 +11251,6 @@ export interface components {
             /** Ids */
             ids: number[];
         };
-        /**
-         * UpdatedOpenJob
-         * @description A list row, then how often and how recently the posting changed.
-         */
-        UpdatedOpenJob: {
-            /** Closed At */
-            closed_at: string | null;
-            /** Comp As Of */
-            comp_as_of?: string | null;
-            /** Comp Base High */
-            comp_base_high?: number | null;
-            /** Comp Base Low */
-            comp_base_low?: number | null;
-            /** Comp Base Median */
-            comp_base_median?: number | null;
-            /** Comp Component */
-            comp_component?: string | null;
-            /** Comp Currency */
-            comp_currency: string;
-            /** Comp High */
-            comp_high: number | null;
-            /** Comp Low */
-            comp_low: number | null;
-            /** Comp Median */
-            comp_median: number | null;
-            /** Comp Provenance */
-            comp_provenance: string | null;
-            /** Comp Provider */
-            comp_provider?: string | null;
-            /** Company */
-            company: string;
-            /** Company Unfollowed */
-            company_unfollowed: boolean;
-            /** Days Open */
-            days_open: number | null;
-            /** Department */
-            department: string | null;
-            /** Discloses Pay */
-            discloses_pay: boolean;
-            /** Domains */
-            domains: string[];
-            /** Family */
-            family: string | null;
-            /**
-             * First Seen
-             * Format: date-time
-             */
-            first_seen: string;
-            /** Id */
-            id: number;
-            /** In Scope */
-            in_scope: boolean;
-            /** Is Dismissed */
-            is_dismissed: boolean;
-            /** Is Favorite */
-            is_favorite: boolean;
-            /**
-             * Last Seen
-             * Format: date-time
-             */
-            last_seen: string;
-            /**
-             * Last Updated At
-             * Format: date-time
-             */
-            last_updated_at: string;
-            /** Level Band */
-            level_band: string;
-            /** Level Basis */
-            level_basis: string | null;
-            /** Level Confidence */
-            level_confidence: string;
-            /** Lineage Days Open */
-            lineage_days_open: number | null;
-            /** Lineage Id */
-            lineage_id: number | null;
-            /** Lineage Role */
-            lineage_role: string | null;
-            /** Lineage Seq */
-            lineage_seq: number | null;
-            /** Lineage Size */
-            lineage_size: number | null;
-            /** Listed Basis */
-            listed_basis: ("employer" | "sighting") | null;
-            /** Listed Days */
-            listed_days: number | null;
-            /** Listed Since */
-            listed_since: string | null;
-            /** Location Groups */
-            location_groups: string[];
-            /** Locations */
-            locations: string[];
-            /** New Listing */
-            new_listing: boolean;
-            /** Place Count */
-            place_count: number | null;
-            /** Place Set Size */
-            place_set_size: number | null;
-            /** Posted At */
-            posted_at: string | null;
-            posted_base?: components["schemas"]["PostedBase"] | null;
-            /** Repost Count */
-            repost_count: number;
-            /** Req Id */
-            req_id: string;
-            /** Status */
-            status: string;
-            /** Team */
-            team: string | null;
-            /** Title */
-            title: string;
-            /** Track */
-            track: string;
-            /** Twin Count */
-            twin_count: number;
-            /** Update Count */
-            update_count: number;
-            /** Url */
-            url: string;
-            /** Viewed At */
-            viewed_at: string | null;
-            /** Workplace Type */
-            workplace_type: string;
-        };
         /** UsageConsentPayload */
         UsageConsentPayload: {
             /** Answers */
@@ -11614,8 +11399,6 @@ export interface components {
             opened: number;
             /** Reposted */
             reposted: number;
-            /** Updated */
-            updated: number;
         };
         /**
          * VelocityKpis
@@ -11636,16 +11419,12 @@ export interface components {
             median_days_open: number | null;
             /** Median Observed Listing Duration Days */
             median_observed_listing_duration_days: number | null;
-            /** Net */
-            net: number;
             /** Open Total */
             open_total: number;
             /** Opened */
             opened: number;
             /** Reposted */
             reposted: number;
-            /** Updated */
-            updated: number;
         };
         /** VelocityOut */
         VelocityOut: {
@@ -16106,41 +15885,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RetentionState"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    skills_overlap_api_skills_overlap_get: {
-        parameters: {
-            query?: {
-                min_jobs?: number;
-                limit_companies?: number;
-                company?: string[] | null;
-                side?: "all" | "yours" | "other";
-                family?: string[] | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SkillOverlapResponse"];
                 };
             };
             /** @description Validation Error */

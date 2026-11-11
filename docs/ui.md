@@ -831,8 +831,11 @@ Insights (`features/statistics/`) opens in its basic view: the Overview,
 Hiring, Compensation and Skills tabs, each with the panels a weekly reader
 needs (the window's motion and top skills, who hires and where, the median pay
 and its middle half by level, company and discipline). The Advanced view switch
-in the page header adds the other four tabs and every other panel; a tab passes
-`advanced` down to the panels the basic view leaves out.
+in the page header adds the other three tabs (Pace, Levels and Stock) and every
+other panel; a tab passes `advanced` down to the panels the basic view leaves
+out. Insights lists no roles: each company on Hiring, a chart bar or a row of
+its full list, opens the Board narrowed to that company (`/?company=`), and
+Back returns to Hiring.
 
 Turning the advanced view on asks in a dialog until the person says yes; the
 answer is kept on this device (`insightsView.ts`), so turning it off and on

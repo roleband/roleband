@@ -1,7 +1,6 @@
 import { DemandView } from "./Demand";
 import { SkillsView } from "./SkillsView";
 import { OverviewPanel } from "./OverviewPanel";
-import { OverlapPanel } from "./OverlapPanel";
 import { CompensationPanel } from "./CompensationPanel";
 import { StockTrajectoryPanel } from "./StockTrajectoryPanel";
 import { VelocityPanel } from "./VelocityPanel";
@@ -73,7 +72,7 @@ const PERIOD_AWARE = new Set<string>([
   "compensation",
 ]);
 
-export function StatisticsView({ onOpen }: { onOpen: (id: number, companySlug?: string | null) => void }) {
+export function StatisticsView() {
   // Sub-tab lives in the path (`/statistics/:tab`); the period lives in `?window=`.
   const { tab: view } = useTabRoute({
     base: "/statistics",
@@ -119,7 +118,7 @@ export function StatisticsView({ onOpen }: { onOpen: (id: number, companySlug?: 
     [side, familyKey],
   );
   // One read of the filter options for the screen: the discipline select and
-  // the Skills and Overlap company pickers all draw from it.
+  // the Skills company picker both draw from it.
   const facets = useAsyncResource<Facets>(api.facets, [], { keep: "facets" }).data;
   const familyOptions = facets
     ? Object.entries(facets.families)
@@ -128,7 +127,7 @@ export function StatisticsView({ onOpen }: { onOpen: (id: number, companySlug?: 
     : [];
   // A picker on a narrowed side needs to know which companies are on it; the
   // roster says, and is read only then.
-  const picksCompanies = view === "skills" || view === "overlap";
+  const picksCompanies = view === "skills";
   const sideRoster = picksCompanies && side !== "all";
   const other = useAsyncResource<ReadonlySet<string> | null>(
     () => (sideRoster ? api.companies().then(otherCompanies) : Promise.resolve(null)),
@@ -225,14 +224,13 @@ export function StatisticsView({ onOpen }: { onOpen: (id: number, companySlug?: 
         role="tabpanel"
         aria-labelledby={`statistics-tab-${view}`}
       >
-        {view === "overview" && <OverviewPanel days={days} scope={scope} onOpen={onOpen} advanced={advanced} />}
-        {view === "demand" && <DemandView scope={scope} onOpen={onOpen} advanced={advanced} />}
+        {view === "overview" && <OverviewPanel days={days} scope={scope} />}
+        {view === "demand" && <DemandView scope={scope} />}
         {view === "velocity" && <VelocityPanel days={days} scope={scope} />}
         {view === "compensation" && <CompensationPanel days={days} scope={scope} advanced={advanced} />}
         {view === "levels" && <LevelsPanel scope={scope} onResetSide={() => setSide("all")} />}
         {view === "trajectory" && <StockTrajectoryPanel />}
         {view === "skills" && <SkillsView key={scopeKey} scope={scope} companies={companyOptions} />}
-        {view === "overlap" && <OverlapPanel key={scopeKey} scope={scope} companies={companyOptions} />}
       </div>
     </main>
   );

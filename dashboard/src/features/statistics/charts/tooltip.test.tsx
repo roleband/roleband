@@ -6,7 +6,6 @@ import { msg } from "../../../test/msg";
 import { buildDisclosureRateOption, disclosureRateRows } from "./disclosure";
 import {
   HiringCompaniesChart,
-  OverlapHeatmapChart,
   OverviewSignalChart,
   SkillsConstellationChart,
 } from "./StatisticsCharts";
@@ -66,7 +65,7 @@ describe("chart tooltips", () => {
   });
 
   it("show a hostile company name as text on the Hiring company chart, with today's motion tinted", () => {
-    render(<HiringCompaniesChart bars={[{ label: EVIL, open: 20, fresh: 3, closed: 2 }]} />);
+    render(<HiringCompaniesChart bars={[{ company: "evil", label: EVIL, open: 20, fresh: 3, closed: 2 }]} />);
     const box = expectInert(formatter("chart-demand")({ dataIndex: 0 }));
     expect(box.querySelector("strong")?.textContent).toBe(EVIL);
     expect(box.querySelector(".chart-tip-new")?.textContent).toBe(msg("insights-statistics-charts-new-count", { fresh: 3 }));
@@ -80,27 +79,6 @@ describe("chart tooltips", () => {
     }]} />);
     const box = expectInert(formatter("chart-skills")({ dataIndex: 0 }));
     expect(box.querySelector("strong")?.textContent).toBe(EVIL);
-  });
-
-  it("show hostile company and skill names as text on the overlap heatmap, a pair and a diagonal cell alike", () => {
-    render(<OverlapHeatmapChart data={{
-      min_jobs: 2,
-      companies: [
-        { company: "evil", skill_count: 20, open: 30 },
-        { company: "google", skill_count: 18, open: 12 },
-      ],
-      pairs: [{ a: "evil", b: "google", shared: 8, union: 30, similarity: 0.27, top_shared: [EVIL] }],
-    }} />);
-    const cells = options.get("chart-overlap")!.series[0].data as { value: number[]; diagonal?: boolean }[];
-    const pair = cells.find((c) => !c.diagonal && c.value[0] === 0 && c.value[1] === 1)!;
-    const diagonal = cells.find((c) => c.diagonal && c.value[0] === 0)!;
-
-    const pairBox = expectInert(formatter("chart-overlap")({ value: pair.value, data: pair }));
-    expect(pairBox.querySelector("strong")?.textContent).toContain(EVIL);
-    expect(pairBox.querySelector("strong")?.textContent).toContain("Google");
-
-    const diagonalBox = expectInert(formatter("chart-overlap")({ value: diagonal.value, data: diagonal }));
-    expect(diagonalBox.querySelector("strong")?.textContent).toBe(EVIL);
   });
 
   it("show a hostile company name as text on the pay transparency chart", () => {
