@@ -108,11 +108,13 @@ async def history_since(session: AsyncSession, scope: InsightsScope, hidden: lis
 
 def window_since(history: datetime | None, days: int, now: datetime) -> datetime | None:
     """The start of what a window of `days` covers (`days <= 0` is all time):
-    the window's own start, or the history's when the history is shorter."""
-    cutoff = None if days <= 0 else now - timedelta(days=days)
-    if history is None or cutoff is None:
-        return cutoff or history
-    return max(cutoff, history)
+    the window's own start, or the history's when the history is shorter.
+    None before any whole read: there is no history for a window to cover."""
+    if history is None:
+        return None
+    if days <= 0:
+        return history
+    return max(now - timedelta(days=days), history)
 
 
 def history_days(history: datetime | None, now: datetime) -> int:

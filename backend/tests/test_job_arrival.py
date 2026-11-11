@@ -323,10 +323,14 @@ async def test_before_any_whole_read_no_window_counts_an_opening(api_client, boa
     assert roles["c"].arrival == "new"
     assert (await api_client.get("/api/statistics/history")).json() == {"since": None, "days": 0}
     for days in (0, 7):
-        overview = (await api_client.get(f"/api/statistics/overview?days={days}")).json()["kpis"]
-        assert (overview["new_count"], overview["first_scan_count"], overview["open_total"]) == (0, 0, 3), days
-        velocity = (await api_client.get(f"/api/statistics/velocity?days={days}")).json()["kpis"]
-        assert (velocity["opened"], velocity["first_scan"], velocity["open_total"]) == (0, 0, 3), days
+        overview = (await api_client.get(f"/api/statistics/overview?days={days}")).json()
+        kpis = overview["kpis"]
+        assert (kpis["new_count"], kpis["first_scan_count"], kpis["open_total"]) == (0, 0, 3), days
+        velocity = (await api_client.get(f"/api/statistics/velocity?days={days}")).json()
+        kpis = velocity["kpis"]
+        assert (kpis["opened"], kpis["first_scan"], kpis["open_total"]) == (0, 0, 3), days
+        # No history, so no start to name: the figures cover nothing yet.
+        assert (overview["since"], velocity["since"]) == (None, None), days
 
 
 async def test_each_companies_side_has_its_own_history_and_an_unfollowed_company_none(
