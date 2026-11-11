@@ -15,11 +15,12 @@ from pathlib import Path
 from typing import Any
 
 
-def identity_path() -> Path:
+def identity_path() -> Path | None:
+    """The update identity this build trusts, which a package carries in its resources. A source run has none: the
+    checkout's committed identity is what release builds are made from, and a checkout never updates from their feed."""
     from tracker.platform.paths import PACKAGED, REPO_ROOT
 
-    # A package carries the identity it trusts in its resources; a checkout keeps it with the launcher.
-    return REPO_ROOT / "release-identity.json" if PACKAGED else REPO_ROOT / "launcher" / "windows" / "release-identity.json"
+    return REPO_ROOT / "release-identity.json" if PACKAGED else None
 
 
 def _journal(state: Path) -> dict[str, Any] | None:
@@ -286,15 +287,15 @@ def main(argv: list[str] | None = None) -> int:
             "from" if running == record["from_version"] else None)
         print(json.dumps({"phase": record["phase"] if record else None, "running": role}))
         return 0
-    path = identity_path()
-    if not path.is_file():
+    identity_file = identity_path()
+    if identity_file is None or not identity_file.is_file():
         print(json.dumps({"status": "unavailable", "reason": "This build carries no update identity."}))
         return 0
     if args.action == "status":
         from tracker.platform.windows_updates import status
 
         try:
-            identity = read_identity(json.loads(path.read_text(encoding="utf-8")))
+            identity = read_identity(json.loads(identity_file.read_text(encoding="utf-8")))
         except (ValueError, ReleaseError):
             print(json.dumps({"status": "unavailable", "reason": "This build's update identity is damaged."}))
             return 1
@@ -303,7 +304,7 @@ def main(argv: list[str] | None = None) -> int:
                           "update": update}))
         return 0
     try:
-        identity = read_identity(json.loads(path.read_text(encoding="utf-8")))
+        identity = read_identity(json.loads(identity_file.read_text(encoding="utf-8")))
     except (ValueError, ReleaseError):
         print(json.dumps({"status": "unavailable", "reason": "This build's update identity is damaged."}))
         return 1

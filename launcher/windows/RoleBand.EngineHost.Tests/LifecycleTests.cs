@@ -130,10 +130,16 @@ public sealed class LifecycleTests
             File.WriteAllText(path, JsonSerializer.Serialize(new { backend = Path.Combine(checkout, "backend"), mode, noise }));
         }
 
+        /// <summary>The stand-in's events so far. It appends while it runs, so the read shares writing with it; a line
+        /// it is still writing is left for the next read.</summary>
         public string[] Events()
         {
             var path = Path.Combine(Root, "backend", "events.log");
-            return File.Exists(path) ? File.ReadAllLines(path) : [];
+            if (!File.Exists(path)) return [];
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            var text = new StreamReader(stream).ReadToEnd();
+            return text[..(text.LastIndexOf('\n') + 1)].Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => line.TrimEnd('\r')).ToArray();
         }
     }
 

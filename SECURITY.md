@@ -72,6 +72,41 @@ plutil -extract RoleBandUpdateSpareKey raw /Applications/RoleBand.app/Contents/I
 The first prints nothing when the signature holds. The digest and the two keys must
 equal the table; any other value means the app is not RoleBand's.
 
+## Checking a Windows release
+
+The Windows app, its package and Setup are signed with RoleBand's own code-signing
+certificate, `RoleBand.cer` on each release, and its release files with a Windows
+release key ([decision 0012](docs/decisions/0012-windows-distribution-and-signing.md)).
+Their public halves, also in `launcher/windows/RoleBand.cer` and
+`launcher/windows/release-identity.json`:
+
+| | Value |
+|---|---|
+| Signing certificate, SHA-256 | `1c35c320526519f88dec21419c0c7574e5ffa4fde6e76fbd946d0279f7805abe` |
+| Publisher | `CN=RoleBand, O=RoleBand, DC=roleband, DC=com` |
+| Release key (Ed25519) | `8zQEuuQsOl9wQpOH6y6mvusPS52M6q/iVQ71+7Q2NI4=` |
+| Spare release key (Ed25519) | `LSNzZBYG1gp9VPSIZN9oKi3RyzRxGHhXOraCAUg0mnU=` |
+
+Setup trusts only the certificate it was built with, and the app checks every update
+against these keys itself. Before trusting `RoleBand.cer` by hand, or to check a package
+or Setup you got another way, run these in PowerShell in the folder that holds them,
+with `$file` set to the name of the file you downloaded, such as
+`RoleBand-Setup-<version>.exe` or the `.msix`:
+
+```powershell
+(Get-FileHash RoleBand.cer -Algorithm SHA256).Hash
+$file = '.\RoleBand-Setup-0.1.4.exe'
+$signature = Get-AuthenticodeSignature $file
+$signature.Status
+(Get-FileHash -InputStream ([IO.MemoryStream]::new($signature.SignerCertificate.RawData)) -Algorithm SHA256).Hash
+```
+
+Both digests must equal the certificate's in the table, ignoring case. The status must
+be `Valid` once `RoleBand.cer` is trusted; before that, Windows reports `UnknownError`
+because it does not trust the certificate yet. Any other status, such as `HashMismatch`,
+means the file was changed after it was signed, whatever certificate it names. Anyone can
+make a certificate with RoleBand's name, so the publisher alone proves nothing.
+
 ## What leaves your computer
 
 | What | When | Controlled in |

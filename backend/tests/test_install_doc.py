@@ -1,7 +1,9 @@
 """The README's install steps and SECURITY.md's update rows describe the Mac app as
-it ships: a downloaded disk image, not a source checkout. Each fact is read from
-the app's own code, so the docs cannot drift from what a release carries."""
+it ships: a downloaded disk image, not a source checkout. SECURITY.md publishes both
+apps' signing identities. Each fact is read from the apps' own code and committed
+identity, so the docs cannot drift from what a release carries."""
 
+import hashlib
 import json
 import plistlib
 import re
@@ -91,3 +93,19 @@ def test_security_publishes_the_recorded_release_identity():
     written = set(re.findall(r"info\['(RoleBandUpdate\w*Key)'\]", signing))
     assert written == {"RoleBandUpdatePublicKey", "RoleBandUpdateSpareKey"}
     assert set(re.findall(r"plutil -extract (\w+) raw", section)) == written
+
+
+def test_security_publishes_the_committed_windows_identity():
+    """SECURITY.md's Windows certificate digest, publisher and keys are the committed
+    identity's, and its commands name the Setup file a release attaches."""
+    windows = REPO / "launcher" / "windows"
+    identity = json.loads((windows / "release-identity.json").read_text(encoding="utf-8"))
+    certificate = hashlib.sha256((windows / "RoleBand.cer").read_bytes()).hexdigest()
+    section = _section((REPO / "SECURITY.md").read_text(encoding="utf-8"), "## Checking a Windows release")
+    assert f"`{certificate}`" in section, "SECURITY.md does not publish RoleBand.cer's digest"
+    for field in ("publisher", "release_public_key", "spare_release_public_key"):
+        assert f"`{identity[field]}`" in section, f"SECURITY.md does not publish {field}"
+    workflow = (REPO / ".github" / "workflows" / "windows-release.yml").read_text(encoding="utf-8")
+    setup = re.search(r'"(RoleBand-Setup-)\$\(\$env:TAG\.Substring\(1\)\)(\.exe)"', workflow)
+    assert setup, "windows-release.yml no longer names the attached Setup in one string"
+    assert f"{setup.group(1)}<version>{setup.group(2)}" in section
