@@ -1272,6 +1272,8 @@ describe("CompaniesSection — curated list", () => {
     fireEvent.click(act);
 
     const ask = await screen.findByRole("dialog", { name: "Follow all 2 companies in AI?" });
+    // A short word that opens a sentence mid-paragraph keeps to the word after it.
+    expect(within(ask).getByText("You can", { exact: true })).toHaveClass("ledger-confirm-unbroken");
     const cancel = within(ask).getByRole("button", { name: "Cancel" });
     await waitFor(() => expect(cancel).toHaveFocus());
     fireEvent.click(cancel);
