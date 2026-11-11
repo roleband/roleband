@@ -28,7 +28,7 @@ from tracker.db.repo import reconcile_stale_runs
 from tracker.db.session import session_scope
 from tracker.health import freshness, should_catch_up, stale_derivations
 from tracker.osnotify import TITLE, banner, notify
-from tracker.platform.embedded_db import EmbeddedDbError, stop_server
+from tracker.platform.embedded_db import ClusterOwnedElsewhere, EmbeddedDbError, stop_server
 from tracker.platform.http import make_client
 from tracker.platform.local_http import Client, required
 from tracker.platform.paths import DATA_DIR
@@ -105,6 +105,9 @@ def recover_db() -> str | None:
         return "external database is unreachable (ROLEBAND_DATABASE_URL)"
     try:
         settings.ensure_embedded_server()
+    except ClusterOwnedElsewhere as refused:
+        # Another installation's cluster, possibly running for it now: stopping it is never this process's call.
+        return str(refused)
     except EmbeddedDbError as attach_error:
         # Attaching is not always enough: the *running server* can be the
         # fault. A postmaster started from an install tree that was later

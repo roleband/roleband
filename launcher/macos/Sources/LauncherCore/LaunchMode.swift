@@ -20,6 +20,9 @@ public enum LaunchMode: Equatable, Sendable {
     /// A database the app did not make, from a source install whose registration and item are gone.
     /// The app starts nothing and never opens, migrates or restores it.
     case databaseOwnedElsewhere
+    /// The app's own database, served by a database server from outside the app, such as one a
+    /// command in a source checkout started. The app starts nothing until that server stops.
+    case databaseInUse
     /// The app starts and supervises its own engine. `leftover` is a database server that an
     /// earlier run of the app left behind, to stop before starting again.
     case owned(leftover: pid_t?)
@@ -41,7 +44,7 @@ public enum LaunchMode: Equatable, Sendable {
         // pg_ctl starts the server in its own session, so its executable, not its process group,
         // says who started it: the app's bundled runtime, or a checkout's virtualenv.
         if let pid = runningServer(pgdata), let path = executable(pid), path.lastPathComponent == "postgres" {
-            guard isInsideApp(path) else { return .attach }
+            guard isInsideApp(path) else { return recordedByApp(pgdata) ? .databaseInUse : .attach }
             leftover = pid
         }
         guard madeByApp(pgdata) else { return .databaseOwnedElsewhere }
@@ -51,12 +54,21 @@ public enum LaunchMode: Equatable, Sendable {
     /// True when no cluster exists yet or the engine recorded the app as its maker. The engine
     /// writes `db.owner.json` beside the cluster before creating it; a source install writes none.
     static func madeByApp(_ pgdata: URL) -> Bool {
-        let record = pgdata.deletingLastPathComponent().appendingPathComponent("\(pgdata.lastPathComponent).owner.json")
-        guard let data = try? Data(contentsOf: record) else {
-            return !FileManager.default.fileExists(atPath: record.path)
-                && !FileManager.default.fileExists(atPath: pgdata.appendingPathComponent("PG_VERSION").path)
+        let record = ownerRecord(pgdata)
+        guard FileManager.default.fileExists(atPath: record.path) else {
+            return !FileManager.default.fileExists(atPath: pgdata.appendingPathComponent("PG_VERSION").path)
         }
+        return recordedByApp(pgdata)
+    }
+
+    /// True only when `db.owner.json` names the app: a cluster the app made, whoever serves it now.
+    static func recordedByApp(_ pgdata: URL) -> Bool {
+        guard let data = try? Data(contentsOf: ownerRecord(pgdata)) else { return false }
         return (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["owner"] as? String == "app"
+    }
+
+    static func ownerRecord(_ pgdata: URL) -> URL {
+        pgdata.deletingLastPathComponent().appendingPathComponent("\(pgdata.lastPathComponent).owner.json")
     }
 
     static func runningServer(_ pgdata: URL) -> pid_t? {

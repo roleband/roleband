@@ -181,6 +181,9 @@ launcher-host-attention = Needs attention
 # kind=sentence
 launcher-host-attention-body = Scanning couldn't keep running.
     Review the logs, then try Restart.
+# kind=sentence
+launcher-host-in-use-body = Another program has your data open, so scanning stopped.
+    Stop that program, then try Restart.
 # kind=status
 launcher-host-stopped = Scanning has stopped
 # kind=status
@@ -209,6 +212,21 @@ launcher-elsewhere-fresh-body = Move the .roleband folder elsewhere, then open t
     Nothing is deleted.
 # kind=tooltip
 launcher-elsewhere-finder-help = Opens the folder that holds the database
+# kind=heading
+launcher-in-use-title = Another program is using your data
+# kind=sentence
+launcher-in-use-body = A program from outside this app, such as a command run in Terminal, has your data open.
+    To keep it safe, this app doesn't start while that program has it open.
+# kind=heading
+launcher-in-use-restart = Restart this computer
+# kind=sentence
+launcher-in-use-restart-body = A restart stops the other program, and nothing is deleted.
+    Then open this app again.
+# kind=heading
+launcher-in-use-stop = Stop the other program
+# kind=sentence
+launcher-in-use-stop-body = If you started it in Terminal, stop it there.
+    Then quit this app and open it again.
 # kind=heading
 launcher-update-stopped-title = An update couldn't finish
 # kind=sentence

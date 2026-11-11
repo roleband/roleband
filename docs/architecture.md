@@ -48,8 +48,12 @@ file does not prove that the API answers or that the background item runs.
 
 The native Mac launcher uses AppKit for its menu-bar item and SwiftUI for the
 panel and first-open setup. At launch it selects placement guidance, attachment
-to a verified existing engine, a database-ownership block, or ownership of the
-packaged engine. Attached mode verifies `/api/status.launcher` before opening
+to a verified existing engine, a database-ownership block, a database-in-use
+block, or ownership of the packaged engine. The in-use block covers a cluster
+whose record names the app while a postgres from outside the app serves it: the
+app starts nothing, leaves that server running and offers only Quit. When such a
+server appears after the app owns the engine, the host stops retrying and waits
+in needs-attention, and Quit still finishes. Attached mode verifies `/api/status.launcher` before opening
 the browser and leaves the engine running on Quit. An explicit source-engine
 Start request requires the registered checkout, installed plist and loaded
 per-user job to match and the job to be confirmed stopped. An HTTP timeout alone
@@ -286,7 +290,12 @@ maker: before creating one, packaged mode writes `db.owner.json` containing
 `{"owner": "app"}` beside it, and a source installation writes none. Packaged
 mode, and the app before it starts anything, refuse a cluster without that
 record, including one a source uninstall left behind. Packaged mode never
-migrates, takes over or stops a source installation.
+migrates, takes over or stops a source installation. In the other direction, a
+source process on macOS or Linux refuses any cluster with a `db.owner.json`
+beside it, following a `ROLEBAND_PGDATA` link to the cluster it names, and on
+Windows refuses one inside the installed app's data folder. The test harness
+fails a test that needs that database instead of skipping it, and the watchdog
+reports the refusal without stopping the server.
 
 ### Packaged process host
 

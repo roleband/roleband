@@ -114,6 +114,33 @@ func blockedLaunchesNeverCreateDependenciesOrChangeFiles(caseName: String) async
 }
 
 @MainActor
+@Test func aDatabaseInUseBlocksTheLaunchWithItsOwnWordsInEveryLanguage() throws {
+    let fixture = try LaunchFixture()
+    defer { fixture.remove() }
+    var factories = 0
+    let session = LauncherSession(mode: .databaseInUse) {
+        factories += 1
+        preconditionFailure("A blocked launch must not construct live dependencies")
+    }
+    #expect(session.model == nil && factories == 0)
+    let block = LaunchBlock(mode: .databaseInUse, bundle: fixture.app, home: fixture.home)
+    #expect(block.inUse && !block.moving && block.titleKey == "in-use-title")
+    #expect(!LaunchBlock(mode: .databaseOwnedElsewhere, bundle: fixture.app, home: fixture.home).inUse)
+    let keys = ["in-use-title", "in-use-body", "in-use-restart", "in-use-restart-body", "in-use-stop", "in-use-stop-body"]
+    for language in ["en", "es", "zh-Hans"] {
+        let copy = LauncherCopy(language: language)
+        let english = LauncherCopy(language: "en")
+        for key in keys {
+            let text = copy.text(key)
+            #expect(text != key, "\(language) has no \(key)")
+            #expect(!text.contains("install.sh"))
+            if language != "en" { #expect(text != english.text(key), "\(language) shows English for \(key)") }
+        }
+        #expect(copy.text("in-use-title") != copy.text("elsewhere-title"))
+    }
+}
+
+@MainActor
 @Test func anUpdateThatStoppedShowsItsLogAndOnlyARecoverableOneOffersAnotherTry() throws {
     let fixture = try LaunchFixture()
     defer { fixture.remove() }
@@ -165,8 +192,8 @@ private actor HostBoundary {
         if failStop { throw HostProblem.stopFailed }
         current = OwnedEngineSnapshot(state: .stopped)
     }
-    func set(_ state: HostState, diagnostics: String = "", failStop: Bool = false) {
-        current = OwnedEngineSnapshot(state: state, diagnostics: diagnostics)
+    func set(_ state: HostState, diagnostics: String = "", failStop: Bool = false, problem: HostProblem? = nil) {
+        current = OwnedEngineSnapshot(state: state, diagnostics: diagnostics, problem: problem)
         self.failStop = failStop
     }
     func snapshot() -> OwnedEngineSnapshot { current }
@@ -370,6 +397,15 @@ func aRefusedQuitOffersTheSameUpdateAgainAndKeepsCheckingForUpdates() async thro
     await model.refreshHost()
     #expect(model.titleKey == "host-attention" && model.menuBarBadge == "exclamationmark.triangle.fill")
     #expect(model.diagnosticLines == "api: last useful error" && model.engineActionKey == "engine-restart")
+    #expect(model.helpKey == "host-attention-body")
+    // Another program took the app's database: the panel says so, and Restart is still the way back.
+    await host.set(.needsAttention, problem: .databaseInUse)
+    await model.refreshHost()
+    #expect(model.titleKey == "host-attention" && model.helpKey == "host-in-use-body")
+    #expect(model.engineActionKey == "engine-restart")
+    await host.set(.needsAttention, diagnostics: "api: last useful error")
+    await model.refreshHost()
+    #expect(model.helpKey == "host-attention-body")
     await model.refreshAndWait()
     #expect(model.verified == nil)
     await model.startEngineAndWait()

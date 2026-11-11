@@ -437,6 +437,85 @@ func bundledPostgresStopsAfterClientsAndALeftoverStopsBeforeTheNextEngine() asyn
     try await host.stop()
 }
 
+/// A server from a checkout: an executable named postgres, outside any app bundle, serving the app's
+/// database. Built here rather than copied: macOS kills a system binary run from another folder.
+private struct ForeignServer {
+    let process = Process()
+    init(_ fixture: HostFixture) throws {
+        let pgdata = fixture.configuration.pgdata
+        try FileManager.default.createDirectory(at: pgdata, withIntermediateDirectories: true)
+        try Data("16\n".utf8).write(to: pgdata.appendingPathComponent("PG_VERSION"))
+        try Data(#"{"owner": "app"}"#.utf8).write(to: pgdata.deletingLastPathComponent().appendingPathComponent("db.owner.json"))
+        let folder = fixture.root.appendingPathComponent("checkout/bin")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let source = folder.appendingPathComponent("postgres.c")
+        try Data("#include <unistd.h>\nint main(void) { sleep(120); return 0; }\n".utf8).write(to: source)
+        let compile = Process()
+        compile.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
+        compile.arguments = ["clang", "-o", folder.appendingPathComponent("postgres").path, source.path]
+        try compile.run()
+        compile.reap()
+        try #require(compile.terminationStatus == 0)
+        process.executableURL = folder.appendingPathComponent("postgres")
+        try process.run()
+        try Data("\(process.processIdentifier)\n\(pgdata.path)\n".utf8).write(to: pgdata.appendingPathComponent("postmaster.pid"))
+        try #require(process.isRunning, "the foreign server did not stay up")
+    }
+    func end() { process.terminate(); process.reap() }
+}
+
+@Test func theAppsDatabaseServedFromOutsideTheAppIsReportedAsInUseAndLeftRunning() async throws {
+    let fixture = try HostFixture()
+    defer { fixture.remove() }
+    let server = try ForeignServer(fixture)
+    defer { server.end() }
+    let host = fixture.host()
+    await #expect(throws: HostProblem.databaseInUse) { try await host.start() }
+    let problem = await host.problem
+    let state = await host.state
+    #expect(problem == .databaseInUse && state == .needsAttention)
+    #expect(server.process.isRunning, "the other program's server is not the app's to stop")
+    #expect(!FileManager.default.fileExists(atPath: fixture.data.appendingPathComponent("engine-ready").path))
+    try await host.stop()
+}
+
+@Test func aServerFromOutsideTheAppDuringBackoffStopsTheRetriesAndKeepsItsReason() async throws {
+    let fixture = try HostFixture()
+    defer { fixture.remove() }
+    let clock = HostClock()
+    let host = fixture.host(clock: clock, healthy: true)
+    try await host.start()
+    do {
+        try await fixture.waitForEngine()
+        try await host.check()
+        let engine = try OwnedProcess.marked(fixture.token())
+        for process in engine { try process.signal(SIGKILL) }
+        while engine.contains(where: \.isAlive) { try await Task.sleep(for: .milliseconds(10)) }
+        for _ in 0..<500 {
+            try await host.check()
+            if case .backingOff = await host.state { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        guard case .backingOff = await host.state else { Issue.record("the host did not back off"); try await host.stop(); return }
+        let server = try ForeignServer(fixture)
+        defer { server.end() }
+        clock.advance(60)
+        try await host.check()
+        let problem = await host.problem
+        let state = await host.state
+        #expect(problem == .databaseInUse && state == .needsAttention)
+        #expect(server.process.isRunning, "the other program's server is not the app's to stop")
+        clock.advance(60)
+        try await host.check()
+        #expect(await host.state == .needsAttention, "no further retry while the database is in use")
+        // Quitting stops what is the app's and leaves the other program's server running.
+        try await host.stop()
+        #expect(await host.state == .stopped)
+        #expect(server.process.isRunning, "quitting does not stop the other program's server")
+        #expect(!FileManager.default.fileExists(atPath: fixture.configuration.record.path))
+    } catch { try? await host.stop(); throw error }
+}
+
 @Test func crashDiagnosticsReadOnlyBoundedLogTails() async throws {
     let fixture = try HostFixture()
     defer { fixture.remove() }
