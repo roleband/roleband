@@ -13,7 +13,9 @@ newest recent release that carries Windows files.
 ## Decision
 
 - The first Windows channel is the GitHub release; the Microsoft Store follows only after
-  one release has been built, published and updated through RoleBand's own updater.
+  one release has been built, published and updated through RoleBand's own updater. The
+  Store then stays a second channel beside GitHub, not its replacement: RoleBand links to
+  both.
 - Each GitHub release carries both apps' files under one version. Each platform attaches
   its own files to the published release and signs them with its own release key; an app
   reads a release without its own files as no update yet.
@@ -33,8 +35,15 @@ No single machine has to be present for a Windows release, and the macOS keys st
 they are. Someone who can run the protected environment can sign a Windows update, so the
 spare key is the way back from a compromise ([decision 0009](0009-windows-release-authorization.md)).
 A first install needs the certificate trusted on the machine, which takes an administrator
-once, through Setup ([decision 0013](0013-windows-setup.md)); updates after that need nothing. Smart App Control may refuse a publisher Microsoft
-does not know, so a clean machine with it on is tested before each first release.
+once, through Setup ([decision 0013](0013-windows-setup.md)); updates after that need nothing.
+Smart App Control, when on, runs only apps Microsoft's app intelligence knows or apps signed
+by a certificate authority in Microsoft's Trusted Root Program
+([Microsoft's description](https://learn.microsoft.com/windows/apps/develop/smart-app-control/overview)),
+so it blocks the GitHub package whatever the machine trusts. Those PCs install from the
+Store, whose copies Microsoft signs, or turn Smart App Control off. The Store's copy carries
+the publisher Partner Center assigns, so Windows treats it as a different app from the
+GitHub one: the two
+must not share a data folder or an updater without a decision of their own.
 
 ## Alternatives considered
 
