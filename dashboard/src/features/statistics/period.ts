@@ -10,20 +10,32 @@ import { insightsCommonLastDaysOrAllTime, insightsCommonSinceDate } from "../../
 
 const DAY_MS = 86_400_000;
 
-/** All time, and each window shorter than the history (`historyDays` whole
- *  days; null when unknown, which offers every window). */
-export function coveredWindows<P extends { days: number }>(periods: readonly P[], historyDays: number | null): P[] {
-  return periods.filter((p) => p.days <= 0 || historyDays == null || p.days < historyDays);
+/** All time, and each window shorter than the history that starts at `since`,
+ *  to the millisecond: seven days and 23 hours of history cover a 7-day window.
+ *  `since` is null before any whole read (all time only), and undefined when
+ *  the history could not be read (every window). */
+export function coveredWindows<P extends { days: number }>(
+  periods: readonly P[],
+  since: string | null | undefined,
+  now: number = Date.now(),
+): P[] {
+  const span = since == null ? null : now - Date.parse(since);
+  return periods.filter((p) => p.days <= 0 || since === undefined || (span != null && p.days * DAY_MS < span));
 }
+
+/** The clocks of the route and the view may differ by this much: both run on
+ *  the person's machine, and a response kept from an earlier visit only moves
+ *  the window's start further back from the view's clock. */
+const CLOCK_SLACK_MS = 60_000;
 
 /** Whether the figures start where the response says, rather than at the
  *  window's own start: all time, or a window the history is shorter than. The
- *  route reports the later of the two, so a start more than half a day after
- *  the window's means the history clipped it (the view offers no such window,
- *  but asks for one when the history could not be read). */
+ *  route reports the later of the two, so a start after the window's means the
+ *  history clipped it (the view offers no such window, but asks for one when
+ *  the history could not be read). */
 export function fromSince(days: number, since: string | null | undefined, now: number = Date.now()): since is string {
   if (!since) return false;
-  return days <= 0 || Date.parse(since) > now - days * DAY_MS + DAY_MS / 2;
+  return days <= 0 || Date.parse(since) > now - days * DAY_MS + CLOCK_SLACK_MS;
 }
 
 /** "last 30d" for a window; for all time or a window the history clipped,

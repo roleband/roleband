@@ -15,7 +15,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy import select, text
 
-from tests.factories import make_company, make_job
+from tests.factories import make_company, make_job, record_whole_read
 from tests.lineage_rows import lineage_link
 from tests.place_set_rows import place_set_job
 from tracker.config import get_settings
@@ -31,7 +31,11 @@ NOW = datetime.now(UTC).replace(microsecond=0)
 
 
 async def _follow(session, *companies: str) -> None:
+    """Follow `companies`, each read whole long before any posting here."""
     session.add_all(make_company(slug, slug.title()) for slug in companies)
+    await session.flush()
+    for slug in companies:
+        await record_whole_read(session, slug, NOW - timedelta(days=365))
     await session.commit()
 
 

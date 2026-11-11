@@ -314,6 +314,22 @@ async def test_a_window_longer_than_the_history_counts_nothing_found_before_it(a
         assert (velocity["opened"], velocity["already_listed"], velocity["open_total"]) == (1, 0, 2), days
 
 
+async def test_before_any_whole_read_no_window_counts_an_opening(api_client, board):
+    """Reads our page ceiling always cuts never complete, so no history starts,
+    yet the third one's find is new on the Board. Overview and Pace count no
+    opening in any window until a whole read starts the history, so the find
+    never leaves the all-time count when it does; the roles stay open."""
+    for at, kept in ((5, ("a",)), (3, ("a", "b")), (1, ("a", "b", "c"))):
+        roles = await board.read(NOW - timedelta(hours=at), kept, outcome="truncated", complete=False)
+    assert roles["c"].arrival == "new"
+    assert (await api_client.get("/api/statistics/history")).json() == {"since": None, "days": 0}
+    for days in (0, 7):
+        overview = (await api_client.get(f"/api/statistics/overview?days={days}")).json()["kpis"]
+        assert (overview["new_count"], overview["already_listed_count"], overview["open_total"]) == (0, 0, 3), days
+        velocity = (await api_client.get(f"/api/statistics/velocity?days={days}")).json()["kpis"]
+        assert (velocity["opened"], velocity["already_listed"], velocity["open_total"]) == (0, 0, 3), days
+
+
 async def test_each_companies_side_has_its_own_history_and_an_unfollowed_company_none(
     api_client, db_session, board,
 ):

@@ -138,7 +138,7 @@ test("a deep link with a window lens survives reload", async ({ page }) => {
 test("with six days of history there is no window to pick, and the figures say since when", async ({ page }) => {
   // Every window would show the figures of all time, so none is offered, and a
   // saved 30-day link reads the whole history and says where it starts.
-  const since = "2026-11-03T06:02:00Z";
+  const since = new Date(Date.now() - (6 * 24 + 6) * 3_600_000).toISOString();
   await mockGet(page, "/api/statistics/history**", (route) => route.fulfill({ json: { since, days: 6 } }));
   await mockGet(page, "/api/statistics/overview**", (route) =>
     route.fulfill({ json: { ...overviewFixture, days: 0, since } }));

@@ -677,8 +677,9 @@ migrations.
   window, and every count in it, starts no earlier than the scope's history:
   the start of the first scan that saw a whole listing of one of its
   companies (`db/queries/insights.history_since`), so a partial scan before it
-  adds no openings. Hiring's closed count uses the New
-  rule's period, so its new and closed numbers describe one stretch of time.
+  adds no openings, and before any such scan nothing counts as opened. Hiring's
+  closed count uses the New rule's period, so its new and closed numbers
+  describe one stretch of time.
 - **Role ages.** Pace ages a role from its listing start over every posting it
   joins, the earliest `least(first_posted_at, first_seen)`, and its time posted
   runs to its closing. A first scan's posting with no earlier employer date has

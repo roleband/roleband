@@ -4,18 +4,24 @@ import { msg } from "../../test/msg";
 import { coveredWindows, periodLabel } from "./period";
 
 const WINDOWS = [{ days: 7 }, { days: 30 }, { days: 90 }, { days: 0 }];
-const days = (history: number | null) => coveredWindows(WINDOWS, history).map((w) => w.days);
+const NOW = Date.parse("2026-11-11T12:00:00Z");
+const HOUR_MS = 3_600_000;
+const ago = (hours: number) => new Date(NOW - hours * HOUR_MS).toISOString();
+const days = (since: string | null | undefined) => coveredWindows(WINDOWS, since, NOW).map((w) => w.days);
 
 it("offers all time, and each window shorter than the history", () => {
   // A window the history does not exceed shows the same figures as all time.
-  expect(days(0)).toEqual([0]);
-  expect(days(6)).toEqual([0]);
-  expect(days(7)).toEqual([0]);
-  expect(days(8)).toEqual([7, 0]);
-  expect(days(31)).toEqual([7, 30, 0]);
-  expect(days(120)).toEqual([7, 30, 90, 0]);
+  expect(days(null)).toEqual([0]);
+  expect(days(ago(6 * 24))).toEqual([0]);
+  expect(days(ago(7 * 24))).toEqual([0]);
+  expect(days(ago(7 * 24 + 1))).toEqual([7, 0]);
+  // Seven days and 23 hours are seven whole days, and cover a 7-day window.
+  expect(days(ago(7 * 24 + 23))).toEqual([7, 0]);
+  expect(days(ago(30 * 24 - 1))).toEqual([7, 0]);
+  expect(days(ago(31 * 24))).toEqual([7, 30, 0]);
+  expect(days(ago(120 * 24))).toEqual([7, 30, 90, 0]);
   // Unknown history: every window, as before there was a history to read.
-  expect(days(null)).toEqual([7, 30, 90, 0]);
+  expect(days(undefined)).toEqual([7, 30, 90, 0]);
 });
 
 const lastDays = (days: number) => msg("insights-common-last-days-or-all-time", { period: "days", days });
@@ -41,4 +47,7 @@ it("says a window the history clipped as the history since its start, and a whol
   // so the view offered the window): the figures cover the 8 days.
   const history = "2026-11-03T06:02:00Z";
   expect(periodLabel(90, history, now)).toBe(sinceDate(history, 8));
+  // Clipped by hours, not days: 29 days and 18 hours of history under a 30-day window.
+  const short = new Date(now - (30 * 24 - 6) * 3_600_000).toISOString();
+  expect(periodLabel(30, short, now)).toBe(sinceDate(short, 29));
 });

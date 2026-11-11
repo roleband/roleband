@@ -188,7 +188,11 @@ async def statistics_overview(
     shorter, so nothing found before the history is counted.
     """
     now = datetime.now(UTC)
-    since = window_since(await history_since(session, scope, hidden), days, now)
+    history = await history_since(session, scope, hidden)
+    since = window_since(history, days, now)
+    # The counters start where the figures say they do; before any whole read
+    # there is no history, and what a partial read found is no opening.
+    cutoff = since if history is not None else now
 
     open_total = await session.scalar(open_in_scope_count_stmt(hidden, *scope.conds()))
     companies = await session.scalar(
@@ -203,8 +207,8 @@ async def statistics_overview(
     # Pace's openings and roles that came down (`db.queries.motion`), so the
     # two tabs say one number.
     postings = await motion.load(session, scope, hidden)
-    opened = motion.openings(postings, since)
-    went = motion.came_down(postings, since)
+    opened = motion.openings(postings, cutoff)
+    went = motion.came_down(postings, cutoff)
     new_count = sum(1 for o in opened if o.kind == "opened")
     already_listed_count = sum(1 for o in opened if o.kind == "already_listed")
     closed_count = len(went)
@@ -761,12 +765,16 @@ async def statistics_velocity(
     and a public board says nothing about whether anyone was hired.
     """
     now = datetime.now(UTC)
-    since = window_since(await history_since(session, scope, hidden), days, now)
+    history = await history_since(session, scope, hidden)
+    since = window_since(history, days, now)
+    # The counters start where the figures say they do; before any whole read
+    # there is no history, and what a partial read found is no opening.
+    cutoff = since if history is not None else now
     open_total = await session.scalar(open_in_scope_count_stmt(hidden, *scope.conds()))
     postings = await motion.load(session, scope, hidden)
     ages = motion.open_ages(postings, now)
-    opened = motion.openings(postings, since)
-    went = motion.came_down(postings, since)
+    opened = motion.openings(postings, cutoff)
+    went = motion.came_down(postings, cutoff)
     return {
         **build_velocity(
             [(a.company, a.days, a.employer_dated) for a in ages],
