@@ -348,6 +348,17 @@ class ReleaseNotesResponse(Built):
     notes: str | None = Field(json_schema_extra=text("content"))
 
 
+class WiderMarketPass(Built):
+    """The background scan's first read of the wider market: how many companies
+    it has read, of how many, and how many of them hire for the radar."""
+
+    checked: int
+    to_check: int
+    with_roles: int
+    #: The scan waits for mains power, so the count holds still on battery.
+    waiting_for_power: bool
+
+
 class SystemStatusResponse(Built):
     """`GET /api/status`: freshness and supervision for the watchdog and badge.
 
@@ -395,6 +406,9 @@ class SystemStatusResponse(Built):
     #: The matching model's background job: its weights downloading, or the
     #: corpus re-embedding onto it; `none` when neither runs.
     matching_switch: Literal["downloading", "converting", "none"] = Field(default="none", json_schema_extra=text("code"))
+    #: The wider market's first pass while it runs; null when the set is not
+    #: followed or every company in it has been read once.
+    wider_market: WiderMarketPass | None = None
     #: Every supervised job: what it is doing, or why it waits.
     jobs: list[JobView] = Field(default_factory=list)
     supervisor: SupervisorView = Field(default_factory=lambda: SupervisorView(state="absent", since=None))

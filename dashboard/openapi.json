@@ -22954,6 +22954,16 @@
      },
      "supervisor": {
       "$ref": "#/components/schemas/SupervisorView"
+     },
+     "wider_market": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/WiderMarketPass"
+       },
+       {
+        "type": "null"
+       }
+      ]
      }
     },
     "required": [
@@ -24662,6 +24672,36 @@
     "description": "A family, track or world: the key is its slug, and the client names it\nfrom its catalog (`dashboard/src/copy/vocab.ts`). No English here.",
     "properties": {},
     "title": "VocabFacetOption",
+    "type": "object"
+   },
+   "WiderMarketPass": {
+    "additionalProperties": false,
+    "description": "The background scan's first read of the wider market: how many companies\nit has read, of how many, and how many of them hire for the radar.",
+    "properties": {
+     "checked": {
+      "title": "Checked",
+      "type": "integer"
+     },
+     "to_check": {
+      "title": "To Check",
+      "type": "integer"
+     },
+     "waiting_for_power": {
+      "title": "Waiting For Power",
+      "type": "boolean"
+     },
+     "with_roles": {
+      "title": "With Roles",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "checked",
+     "to_check",
+     "with_roles",
+     "waiting_for_power"
+    ],
+    "title": "WiderMarketPass",
     "type": "object"
    }
   }

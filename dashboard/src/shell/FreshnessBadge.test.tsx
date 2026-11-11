@@ -80,6 +80,38 @@ describe("FreshnessBadge", () => {
     expect(badge).toHaveClass("fresh");
   });
 
+  it("shows only the wider market's progress, with the scan's words one hover away", async () => {
+    vi.spyOn(api, "status").mockResolvedValue(status({
+      wider_market: { checked: 6610, to_check: 12500, with_roles: 42, waiting_for_power: false },
+    }));
+    renderBadge();
+    const marketTitle = msg("shell-freshness-market-title", {
+      scan: "running", checked: 6610, total: 12500, hiring: 42,
+    });
+    const badge = await screen.findByRole("status", { name: (name) => name.startsWith(marketTitle) });
+    await waitFor(() => expect(badge.querySelector("strong")?.textContent)
+      .toBe(msg("shell-freshness-market", { scan: "running", percent: 52 })));
+    expect(badge).toHaveClass("fresh");
+    const scan = msg("shell-freshness-checked", { age: msg("format-age-hours", { count: 2 }) });
+    const title = badge.getAttribute("title") ?? "";
+    expect(title.startsWith(marketTitle)).toBe(true);
+    expect(title).toContain(scan);
+    expect(badge).toHaveAccessibleName(title);
+  });
+
+  it("says nothing about the wider market while the engine is held", async () => {
+    vi.spyOn(api, "status").mockResolvedValue(status({
+      launcher: launcherFixture({ hold: { kind: "attention", reason: "supervisor_stale" } }),
+      wider_market: { checked: 6610, to_check: 12743, with_roles: 42, waiting_for_power: false },
+    }));
+    renderBadge();
+    const badge = await screen.findByRole("status", { name: msg("shell-freshness-aria", { state: msg("launcher-needs-attention") }) });
+    expect(badge).not.toHaveTextContent(msg("shell-freshness-market", { scan: "running", percent: 51 }));
+    expect(badge.getAttribute("title")).not.toContain(msg("shell-freshness-market-title", {
+      scan: "running", checked: 6610, total: 12743, hiring: 42,
+    }));
+  });
+
   it("turns red when scans have stopped: the newest one is older than the window", async () => {
     vi.spyOn(api, "status").mockResolvedValue(status({
       last_success_age_hours: 40, last_scan_age_hours: 40, stale: true,
@@ -93,7 +125,7 @@ describe("FreshnessBadge", () => {
   // A company whose page cannot be read stays behind for days while every
   // other company is scanned on time. It must not age the whole badge to
   // "8d ago" in red, nor empty it to "No data yet" over a full Board.
-  it("dates the newest scan and counts the companies behind when some are", async () => {
+  it("dates the newest scan and names the companies behind in the tooltip", async () => {
     vi.spyOn(api, "status").mockResolvedValue(status({
       last_success_at: "2026-07-04T06:00:00Z",
       last_success_age_hours: 192,
@@ -116,9 +148,10 @@ describe("FreshnessBadge", () => {
     }));
     renderBadge();
     const badge = await screen.findByRole("status", { name: /Last scan/ });
-    await waitFor(() => expect(badge).toHaveTextContent(msg("shell-freshness-behind", {
-      age: msg("format-age-minutes", { count: 15 }), count: 2,
-    })));
+    // Amber, and the words are the newest scan's age alone: which companies
+    // are behind is the tooltip's to say.
+    await waitFor(() => expect(badge.querySelector("strong")?.textContent)
+      .toBe(msg("shell-freshness-checked", { age: msg("format-age-minutes", { count: 15 }) })));
     expect(badge).toHaveClass("behind");
     expect(badge).not.toHaveClass("stale");
     expect(badge).not.toHaveTextContent(msg("format-age-days", { count: 8 }));
