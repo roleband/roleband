@@ -2,8 +2,9 @@ name: windows-release
 
 # Builds the Windows app from a published release's tag, signs it with RoleBand's own certificate and attaches the
 # Windows files to that release, which both apps share (docs/decisions/0012-windows-distribution-and-signing.md).
-# The build holds no secret. Signing runs only in the protected windows-release environment, which holds the
-# certificate and the Windows release key; the spare key is never here.
+# The build holds no secret. Signing runs only by hand from main, in the protected windows-release environment,
+# which holds the certificate and the Windows release key; the spare key is never here. A published release runs
+# the tag's own copy of this file, so it builds the unsigned package and signs nothing.
 on:
   release:
     types: [published]
@@ -110,8 +111,9 @@ jobs:
   sign:
     name: sign and attach
     needs: build
-    # A run by hand uses the workflow file of the branch it is started from, so only main's may sign.
-    if: needs.build.outputs.identity == 'true' && (github.event_name == 'release' || github.ref == 'refs/heads/main')
+    # Every run uses the workflow file of the ref it starts from: a release's is the tag's, a run by hand's is its
+    # branch's. Only main's own copy, and the tools beside it, may meet the signing secrets.
+    if: needs.build.outputs.identity == 'true' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: windows-2025
     timeout-minutes: 30
     environment: windows-release
@@ -121,15 +123,35 @@ jobs:
       run:
         shell: pwsh
     env:
-      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      TAG: ${{ inputs.tag }}
       COMMIT: ${{ needs.build.outputs.commit }}
       PYTHONUTF8: "1"
       PYTHONDONTWRITEBYTECODE: "1"
     steps:
+      # main at the commit this run started from: every tool below runs from here. The tagged commit is only read.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.build.outputs.commit }}
+          fetch-depth: 0
           persist-credentials: false
+      - name: the tag names the built commit, which main holds
+        run: |
+          $tagged = git rev-parse --verify --quiet "refs/tags/$($env:TAG)^{commit}"
+          if ($LASTEXITCODE -or $tagged -cne $env:COMMIT) { throw "The tag $env:TAG does not name the built commit $env:COMMIT" }
+          git merge-base --is-ancestor $env:COMMIT origin/main
+          if ($LASTEXITCODE -eq 1) { throw "$env:TAG is not on main, so it is not signed" }
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      # The certificate, identity and version the tagged commit committed, read as files, never run.
+      - name: the tagged commit's Windows identity and version
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'tagged.zip'
+          git archive --format=zip --output $archive $env:COMMIT `
+            launcher/windows/RoleBand.cer launcher/windows/release-identity.json dashboard/package.json
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $tagged = Join-Path $env:RUNNER_TEMP 'tagged'
+          Expand-Archive -LiteralPath $archive -DestinationPath $tagged
+          $version = (Get-Content -Raw (Join-Path $tagged 'dashboard/package.json') | ConvertFrom-Json).version
+          if ($env:TAG -cne "v$version") { throw "The tag $env:TAG does not name version $version" }
+          "VERSION=$version" >> $env:GITHUB_ENV
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version-file: .python-version
@@ -154,19 +176,21 @@ jobs:
           RELEASE_KEY: ${{ secrets.WINDOWS_RELEASE_KEY }}
           SIGNING_PASSPHRASE: ${{ secrets.WINDOWS_SIGNING_PASSPHRASE }}
         run: |
+          $identity = Join-Path $env:RUNNER_TEMP 'tagged/launcher/windows/release-identity.json'
+          $certificate = Join-Path $env:RUNNER_TEMP 'tagged/launcher/windows/RoleBand.cer'
           $secret = Join-Path $env:RUNNER_TEMP 'signing'
           New-Item -ItemType Directory $secret | Out-Null
           try {
             [IO.File]::WriteAllBytes((Join-Path $secret 'RoleBand-signing.pfx'), [Convert]::FromBase64String($env:SIGNING_PFX))
             [IO.File]::WriteAllText((Join-Path $secret 'release-key.pem'), $env:RELEASE_KEY)
-            python launcher/windows/Tools/identity.py check --signing $secret --identity launcher/windows/release-identity.json `
-              --certificate launcher/windows/RoleBand.cer --passphrase-env SIGNING_PASSPHRASE
+            python launcher/windows/Tools/identity.py check --signing $secret --identity $identity `
+              --certificate $certificate --passphrase-env SIGNING_PASSPHRASE
             if ($LASTEXITCODE) { exit $LASTEXITCODE }
             $kits = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10/bin/10.0.26100.0/x64'
             $package = Join-Path $env:RUNNER_TEMP 'unsigned/RoleBand.msix'
             $setup = Join-Path $env:RUNNER_TEMP 'unsigned/RoleBand-Setup.exe'
-            $trusted = [IO.File]::ReadAllBytes((Resolve-Path launcher/windows/RoleBand.cer).Path)
-            $publisher = (Get-Content -Raw launcher/windows/release-identity.json | ConvertFrom-Json).publisher
+            $trusted = [IO.File]::ReadAllBytes($certificate)
+            $publisher = (Get-Content -Raw $identity | ConvertFrom-Json).publisher
             foreach ($file in @($package, $setup)) {
               # Not timestamped: that would need an outside time server; the certificate lasts 25 years instead.
               & (Join-Path $kits 'signtool.exe') sign /fd SHA256 /f (Join-Path $secret 'RoleBand-signing.pfx') /p $env:SIGNING_PASSPHRASE $file
@@ -178,14 +202,14 @@ jobs:
               if ($signer.Subject -cne $publisher) { throw "$file is signed by '$($signer.Subject)', not '$publisher'" }
             }
             python launcher/windows/Tools/release.py prepare --package $package --destination (Join-Path $env:RUNNER_TEMP 'release') `
-              --identity launcher/windows/release-identity.json --key (Join-Path $secret 'release-key.pem') `
-              --commit $env:COMMIT --passphrase-env SIGNING_PASSPHRASE
+              --identity $identity --key (Join-Path $secret 'release-key.pem') `
+              --commit $env:COMMIT --version $env:VERSION --passphrase-env SIGNING_PASSPHRASE
             if ($LASTEXITCODE) { exit $LASTEXITCODE }
           } finally {
             Remove-Item -LiteralPath $secret -Recurse -Force -ErrorAction SilentlyContinue
           }
           python launcher/windows/Tools/release.py verify --directory (Join-Path $env:RUNNER_TEMP 'release') `
-            --identity launcher/windows/release-identity.json --installed 0.0.0
+            --identity $identity --installed 0.0.0
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: attach
         env:
@@ -193,7 +217,7 @@ jobs:
         run: |
           $setup = Join-Path $env:RUNNER_TEMP "RoleBand-Setup-$($env:TAG.Substring(1)).exe"
           Copy-Item (Join-Path $env:RUNNER_TEMP 'unsigned/RoleBand-Setup.exe') $setup
-          $files = @(Get-ChildItem (Join-Path $env:RUNNER_TEMP 'release') -File | ForEach-Object FullName) + $setup + (Resolve-Path launcher/windows/RoleBand.cer).Path
+          $files = @(Get-ChildItem (Join-Path $env:RUNNER_TEMP 'release') -File | ForEach-Object FullName) + $setup + (Join-Path $env:RUNNER_TEMP 'tagged/launcher/windows/RoleBand.cer')
           # The Windows app reads a release as carrying its files only once the checksum file is attached, so that
           # file goes last. Before it, a rerun replaces whatever an interrupted run attached, which no app has read;
           # once it is attached, nothing is replaced.

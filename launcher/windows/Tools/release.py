@@ -93,6 +93,7 @@ def main(argv=None):
     make.add_argument("--key", type=Path, required=True)
     make.add_argument("--revision", type=int, default=0)
     make.add_argument("--commit")
+    make.add_argument("--version", help="the version released; by default the checkout's dashboard/package.json")
     make.add_argument("--passphrase-env", help="read the key's passphrase from this environment variable")
     verify = commands.add_parser("verify")
     verify.add_argument("--directory", type=Path, required=True)
@@ -102,7 +103,7 @@ def main(argv=None):
     try:
         identity = read_identity(json.loads(args.identity.read_text(encoding="utf-8")))
         if args.action == "prepare":
-            version = json.loads((ROOT / "dashboard/package.json").read_text(encoding="utf-8"))["version"]
+            version = args.version or json.loads((ROOT / "dashboard/package.json").read_text(encoding="utf-8"))["version"]
             commit = args.commit or subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
             stamped(args.package, identity, version, args.revision)
             for path in prepare(args.package, args.destination, identity, signing_key(args.key, args.passphrase_env),

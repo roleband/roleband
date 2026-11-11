@@ -90,6 +90,14 @@ class ReleaseToolTests(unittest.TestCase):
         self.assertEqual(offer["commit"], COMMIT)
         self.assertTrue(offer["package_version"].endswith(".1"))
 
+    def test_a_named_version_is_released_whatever_the_checkout_states(self):
+        """The signing job runs this tool from main, whose version can be past the tag's."""
+        package(self.root / "built.msix", version="9.8.7.1")
+        result = self.prepare("--version", "9.8.7")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(self.verify().stdout)["version"], "9.8.7")
+        self.assertIn("The package states", self.prepare("--version", "9.8.6").stderr)
+
     def test_a_replaced_package_is_refused(self):
         self.assertEqual(self.prepare().returncode, 0)
         package = next((self.root / "release").glob("*.msix"))

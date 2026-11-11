@@ -190,10 +190,15 @@ self-signed code-signing certificate and the release key in one folder, the spar
 release key in another kept offline. `launcher/windows/release-identity.json` and
 the public `launcher/windows/RoleBand.cer` are committed.
 `.github/workflows/windows-release.yml` builds a published release's tag with no
-secret; a tag whose commit has neither file gets no Windows files. In the
-`windows-release` environment, and from `main` only when run by hand,
-`identity.py check` confirms that the certificate is the committed `RoleBand.cer`
-with its own private key and that the release key is the one the identity names.
+secret; a tag whose commit has neither file gets no Windows files. Signing runs only
+when the workflow is run by hand from `main` for that tag, in the `windows-release`
+environment, which admits only `main`: a release runs the tag's own workflow file,
+so it builds and signs nothing. The signing job refuses a tag whose commit `main`
+does not hold before any step sees a secret, and runs only `main`'s own tools; from
+the tagged commit it reads, as files, the package, `RoleBand.cer`,
+`release-identity.json` and the version. `identity.py check` confirms that the
+certificate is that committed `RoleBand.cer` with its own private key and that the
+release key is the one the identity names.
 The job then signs the package and Setup with `signtool` (not timestamped), prepares
 the four release files and attaches them, `RoleBand-Setup-<version>.exe` and
 `RoleBand.cer` to that release, the checksum file last: the app reads a release as
