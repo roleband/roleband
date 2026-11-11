@@ -210,6 +210,7 @@ async def test_status_before_anything_exists(api_client, spawned):
                       "last_change": None},
         "plugins_running": 0,
         "matching_switch": "none",
+        "wider_market": None,
         "jobs": [],
         "supervisor": {"state": "absent", "since": None, "reason": None},
     }

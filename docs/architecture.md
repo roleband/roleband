@@ -190,10 +190,15 @@ self-signed code-signing certificate and the release key in one folder, the spar
 release key in another kept offline. `launcher/windows/release-identity.json` and
 the public `launcher/windows/RoleBand.cer` are committed.
 `.github/workflows/windows-release.yml` builds a published release's tag with no
-secret; a tag whose commit has neither file gets no Windows files. In the
-`windows-release` environment, and from `main` only when run by hand,
-`identity.py check` confirms that the certificate is the committed `RoleBand.cer`
-with its own private key and that the release key is the one the identity names.
+secret; a tag whose commit has neither file gets no Windows files. Signing runs only
+when the workflow is run by hand from `main` for that tag, in the `windows-release`
+environment, which admits only `main`: a release runs the tag's own workflow file,
+so it builds the unsigned files and signs nothing. The signing job refuses a tag whose commit `main`
+does not hold before any step sees a secret, and runs only `main`'s own tools; from
+the tagged commit it reads, as files, the package, `RoleBand.cer`,
+`release-identity.json` and the version. `identity.py check` confirms that the
+certificate is that committed `RoleBand.cer` with its own private key and that the
+release key is the one the identity names.
 The job then signs the package and Setup with `signtool` (not timestamped), prepares
 the four release files and attaches them, `RoleBand-Setup-<version>.exe` and
 `RoleBand.cer` to that release, the checksum file last: the app reads a release as
@@ -1161,10 +1166,13 @@ holds a separate key in tab storage and signs through
 Exact Host and Origin checks include the endpoint port. The protocol, replay
 bounds and browser-origin isolation are owned by
 [the local HTTP decision](decisions/0003-windows-local-http.md).
-The dashboard shell is served under a Content-Security-Policy
+Every file of the dashboard build is served under one Content-Security-Policy
 (`dashboard/csp-policy.json`, rendered by `backend/tracker/api/csp.py` with the
-configured usage-statistics host): scripts from this origin only, and
-connections to this origin and that host alone. `vite preview` serves the same
+configured usage-statistics host), with `X-Content-Type-Options: nosniff` and
+`X-Frame-Options: DENY`: scripts from this origin only, connections to this
+origin and that host alone, and no page may frame it. The API serves no
+documentation pages and no schema route; `scripts.export_openapi` builds the
+schema in process. `vite preview` serves the same
 file, and `dashboard/tests/ux/csp.spec.ts` walks every route of the build for a
 refusal.
 

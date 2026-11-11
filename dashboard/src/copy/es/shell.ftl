@@ -90,6 +90,14 @@ shell-freshness-offline-aria = Último escaneo: desconocido
 shell-freshness-offline-title = Estado no disponible
 shell-freshness-oldest = Escaneo más antiguo: { $when }
 shell-freshness-never = Aún sin escanear
+shell-freshness-market = { $scan ->
+    [paused] Mercado amplio en pausa
+   *[running] Mercado amplio { $percent } %
+}
+shell-freshness-market-title = { $scan ->
+    [paused] Primer escaneo del mercado amplio: { $checked } de { $total } empresas leídas, { $hiring } contratan para ti. Se reanuda cuando conectes el cargador
+   *[running] Primer escaneo del mercado amplio: { $checked } de { $total } empresas leídas, { $hiring } contratan para ti
+}
 shell-freshness-waiting = Esperando un escaneo completo: { $companies }
 shell-reason-setup-source = Ejecuta ./setup.sh en tu carpeta de código fuente para terminar la actualización. El escaneo se reanuda justo después.
 shell-freshness-aria = Último escaneo: { $state }
@@ -221,11 +229,6 @@ shell-model-switch-title = Consulta su progreso en Ajustes › IA. La clasificac
 shell-tab-settings-plugins = Plugins
 shell-tab-settings-privacy = Privacidad
 shell-freshness-checked = Último escaneo · { $age }
-shell-freshness-behind = Último escaneo · { $age } · { $count ->
-    [one] { $count } empresa atrasada
-    [many] { $count } de empresas atrasadas
-   *[other] { $count } empresas atrasadas
-}
 shell-scan-updating-estimates = Actualizando estimaciones…
 shell-scan-updating-estimates-aria = Actualizando estimaciones
 

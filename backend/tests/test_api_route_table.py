@@ -54,10 +54,6 @@ NON_JSON_ROUTES: dict[tuple[str, str], str] = {
         "the built dashboard: a file under dist, else index.html for a client-side route; an unknown "
         "/api path is refused with a 404 before either (routers/spa.py)"
     ),
-    ("GET", "/openapi.json"): "FastAPI's own schema document, generated from the models it describes",
-    ("GET", "/docs"): "FastAPI's Swagger UI page",
-    ("GET", "/docs/oauth2-redirect"): "FastAPI's Swagger UI OAuth helper page",
-    ("GET", "/redoc"): "FastAPI's ReDoc page",
 }
 
 
@@ -184,11 +180,11 @@ def test_each_exception_answers_no_json_of_ours():
 def test_a_new_json_route_without_a_model_is_named_while_one_with_a_model_is_not():
     """What the gate says about routes the real API does not have.
 
-    The throwaway app carries FastAPI's own four routes, so they must stay
-    silent here exactly as they do on the real one.
+    The throwaway app is built as the real one is, without FastAPI's
+    documentation and schema routes.
     """
 
-    probe = FastAPI()
+    probe = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
     @probe.get("/api/probe")
     async def unmodelled() -> dict:

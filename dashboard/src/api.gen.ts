@@ -10945,6 +10945,7 @@ export interface components {
             /** Stuck Running */
             stuck_running: number;
             supervisor?: components["schemas"]["SupervisorView"];
+            wider_market?: components["schemas"]["WiderMarketPass"] | null;
         };
         /** TextChange */
         TextChange: {
@@ -11541,6 +11542,21 @@ export interface components {
          *     from its catalog (`dashboard/src/copy/vocab.ts`). No English here.
          */
         VocabFacetOption: Record<string, never>;
+        /**
+         * WiderMarketPass
+         * @description The background scan's first read of the wider market: how many companies
+         *     it has read, of how many, and how many of them hire for the radar.
+         */
+        WiderMarketPass: {
+            /** Checked */
+            checked: number;
+            /** To Check */
+            to_check: number;
+            /** Waiting For Power */
+            waiting_for_power: boolean;
+            /** With Roles */
+            with_roles: number;
+        };
     };
     responses: never;
     parameters: never;

@@ -1,12 +1,12 @@
 {
   "format": 1,
-  "python": "3.12.13",
-  "release": "20260414",
-  "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260414/cpython-3.12.13%2B20260414-aarch64-apple-darwin-install_only_stripped.tar.gz",
-  "sha256": "38f71c324ae14ee5ef844c62e06b6faa5ba3040c898b4c1d03b8b6e88794356b",
+  "python": "3.12.16",
+  "release": "20261110",
+  "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.12.16%2B20261110-aarch64-apple-darwin-install_only_stripped.tar.gz",
+  "sha256": "2f11b8aa3726bdbd87dd9eb76568412faddf4f47e26913fa45d6a2e424972acd",
   "notices": {
-    "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260414/cpython-3.12.13%2B20260414-aarch64-apple-darwin-pgo%2Blto-full.tar.zst",
-    "sha256": "612b1af85f33fe57351c0e8e40677c95d9ef63774c1f13ae8054c59c785a84ca"
+    "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.12.16%2B20261110-aarch64-apple-darwin-pgo%2Blto-full.tar.zst",
+    "sha256": "4da072af9dbbc2557d3aabf51db553a19694f6ac61b5b7169749e4acfa5a052d"
   },
   "pgvector_notice": {
     "url": "https://raw.githubusercontent.com/pgvector/pgvector/v0.8.5/LICENSE",
