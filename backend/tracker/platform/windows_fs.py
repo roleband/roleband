@@ -4,6 +4,10 @@ A record is read through a handle that shares deletion and published by
 replacing the name through a handle, so a reader keeps its snapshot without
 blocking a writer. `MoveFileEx` cannot replace a target that any process holds
 open, and the native host reads these records with `FileShare.Delete`.
+
+Publication keeps its write handle on the record until the rename is flushed,
+and a reader can see the new name before then, so a reader shares writing too.
+Nothing writes into a published name: its bytes are complete before the rename.
 """
 
 from __future__ import annotations
@@ -61,10 +65,11 @@ def _kernel() -> Any:
 
 @contextmanager
 def reader(path: Path) -> Iterator[BinaryIO]:
-    """A read handle that shares reading and deletion, so publication can replace the name."""
+    """A read handle that shares deletion, so publication can replace the name, and writing, so a record whose
+    publication is still flushing reads."""
     kernel = _kernel()
-    generic_read, share_read_delete, open_existing, normal = 0x80000000, 0x5, 3, 0x80
-    handle = kernel.CreateFileW(str(path), generic_read, share_read_delete, None, open_existing, normal, None)
+    generic_read, share_all, open_existing, normal = 0x80000000, 0x7, 3, 0x80
+    handle = kernel.CreateFileW(str(path), generic_read, share_all, None, open_existing, normal, None)
     if handle == wintypes.HANDLE(-1).value:
         raise ctypes.WinError(ctypes.get_last_error())
     try:

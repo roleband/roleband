@@ -73,11 +73,13 @@ public static class PrivateStorage
                 throw new IOException("Private state grants access to another account.");
     }
 
+    /// <summary>A record's bytes. The engine keeps its write handle on a record it publishes until the rename that
+    /// names it is flushed, so the read shares writing; nothing writes into a published name.</summary>
     public static byte[] Read(string path, int maximum = 8192)
     {
         Verify(Path.GetDirectoryName(path)!, true);
         Verify(path);
-        using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
+        using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         if (file.Length > maximum) throw new IOException("Private state exceeds its size limit.");
         var bytes = new byte[checked((int)file.Length)];
         file.ReadExactly(bytes);
