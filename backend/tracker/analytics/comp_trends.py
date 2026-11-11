@@ -121,7 +121,7 @@ async def compute_comp_metrics(session: AsyncSession) -> int:
     family, so the trend can recompute exact percentiles over a visible-company
     subset at read time), over the roles Insights describes
     (`insights_role_conds`: open, in scope, a place set once, through its first
-    member with an estimate from the source), so a role listed in twenty places
+    member with a dollar value from the source), so a role listed in twenty places
     weighs once. Both REPLACE today's rows: a group that no
     longer has such a role with comp is gone from today, and its old values
     never pool with the survivors. Earlier days are untouched.
@@ -144,12 +144,13 @@ async def compute_comp_metrics(session: AsyncSession) -> int:
 
     estimated: list = []
     for source in sources:
-        # A place set's estimate is its first member's that has one from this
-        # source: a member at a place outside the estimate's country (no dollar
-        # estimate) never stands for the role.
+        # A place set's estimate is its first member's that has a dollar value
+        # from this source: a member at a place outside the estimate's country,
+        # or one whose estimate has no value, never stands for the role.
         def priced(peer: Any, source: str = source) -> list:
             return [exists().where(JobCompEstimate.job_id == peer.id, JobCompEstimate.source == source,
-                                   JobCompEstimate.comp_currency == "USD")]
+                                   JobCompEstimate.comp_currency == "USD",
+                                   JobCompEstimate.comp_median.is_not(None))]
 
         estimated += (
             await session.execute(
@@ -157,7 +158,7 @@ async def compute_comp_metrics(session: AsyncSession) -> int:
                        JobCompEstimate.source)
                 .join(JobCompEstimate, JobCompEstimate.job_id == Job.id)
                 .where(*insights_role_conds(priced), JobCompEstimate.source == source,
-                       JobCompEstimate.comp_currency == "USD")
+                       JobCompEstimate.comp_currency == "USD", JobCompEstimate.comp_median.is_not(None))
             )
         ).all()
     rows = [(company, level, family, median) for company, level, family, median, source in estimated

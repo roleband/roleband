@@ -756,11 +756,13 @@ async def test_a_role_listed_in_three_places_counts_once_in_every_skills_read_an
 async def test_a_role_listed_in_several_places_keeps_its_estimate_through_the_posting_that_has_one(
     db_session, seeded,
 ):
-    """The set's first posting (EMEA) has no estimate and London's is in
-    pounds; Berlin's is in dollars. The daily pay record keeps the role's
-    one dollar estimate: a posting without one never stands for the role."""
+    """The set's first posting (EMEA) has a dollar estimate with no value and
+    London's is in pounds; Berlin's is in dollars. The daily pay record keeps
+    the role's one dollar value: a posting without one never stands for the
+    role."""
     members = await _add_a_place_set_and_an_other_company(db_session, seeded)
     db_session.add_all([
+        JobCompEstimate(job_id=members["pm-emea"], source="roleband", comp_median=None),
         JobCompEstimate(job_id=members["pm-london"], source="roleband", comp_median=150000, comp_currency="GBP"),
         JobCompEstimate(job_id=members["pm-berlin"], source="roleband", comp_median=300000),
     ])
