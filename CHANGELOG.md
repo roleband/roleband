@@ -6,6 +6,38 @@ Notable changes to RoleBand, newest first. The format follows
 
 ## [Unreleased]
 
+## [0.1.3]
+
+Your offer on the Stock tab, Workday companies scanned in one press, a
+plainer Insights, and clearer words everywhere.
+
+- **Your offer, year by year.** On the Stock tab, enter a job offer one
+  question at a time and see what each of its four years pays, at today's
+  price and after a move. A question the company already answers is skipped.
+  The offer stays on this computer.
+- **The Stock tab reads each role the way its page does.** Base is the posted
+  range where a posting states one, bonus follows the posting or the company's
+  own rule, and stock is a measured grant or a marked estimate. Public and
+  private companies, and companies where each person picks their own cash and
+  stock mix, sit in separate tables, with one search under the chart.
+- **Insights keeps only what answers a question.** Trends, the Cluster map and
+  Overlap are gone, with the longest-open, reposted and updated lists and the
+  tiles that repeated a figure shown elsewhere. A company on Hiring opens its
+  roles on the Board.
+- **Following a Workday company scans it.** The follow dialog asks whether to
+  keep scanning it on the schedule, and one press follows and scans.
+- **A posting shows where your application stands**, in a Pipeline section with
+  its stage, the days in that stage, a booked interview and the next step. On
+  the board, the star becomes the stage button.
+- **Picking a time** on the schedule opens a list of half hours, each saying
+  when the scan starts.
+- **A retirement benefit reads as the plan the employer names**: a 401(k), an
+  RRSP, or a retirement plan.
+- **A full scan reads every company to the end of its list**, however large.
+- **Clearer words on every screen**, in English, Spanish and Chinese: one
+  vocabulary throughout, errors that end with a next step, and health
+  notifications that say what happened and what happens next.
+
 ## [0.1.2]
 
 A pipeline for the roles you pursue, and fixes.
