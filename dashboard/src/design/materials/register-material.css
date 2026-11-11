@@ -58,10 +58,65 @@ body[data-material="register"] .settings-design-system {
   text-wrap: pretty;
 }
 
-/* The Keep scanning switch's hint, under its label. */
-.ledger-confirm-choice small {
-  display: block;
+/* A follow dialog's opening words explain its title; the title is the
+ * question. The plugin dialogs keep their paragraphs in full ink. */
+.ledger-follow > p:not(.ledger-confirm-zone) {
   color: var(--app-text-muted);
+}
+
+/* Each zone after the opening words sits under a hairline: what following
+ * agrees to, the Keep scanning switch, the note. One surface, so no zone
+ * nests a card. */
+.ledger-confirm-zone {
+  padding-top: var(--app-space-3);
+  border-top: 1px solid var(--app-border);
+}
+
+/* `.ledger-form > div` (0-1-1) sets the form's tight field gap. */
+.ledger-confirm > .ledger-confirm-consent {
+  gap: var(--app-space-2);
+}
+
+/* A fact's glyph hangs in the margin, so the sentence stays one run of text
+ * in its paragraph, as the agreement records it. */
+.ledger-confirm-fact,
+.ledger-confirm-agree {
+  position: relative;
+  padding-left: calc(var(--app-icon-md) + var(--app-space-2));
+}
+
+/* On the first line's centre, whatever the type size. */
+.ledger-confirm-fact svg {
+  position: absolute;
+  top: calc((1.5em - var(--app-icon-md)) / 2);
+  left: 0;
+  width: var(--app-icon-md);
+  height: var(--app-icon-md);
+  color: var(--app-text-muted);
+}
+
+/* What following means, under the facts' text rather than their glyphs. */
+.ledger-confirm-agree {
+  color: var(--app-text-muted);
+}
+
+/* A settings row: the name on the left, the switch on the right. Beats
+ * `.ledger-form label` (0-1-1), the uppercase field label a switch is not. */
+.ledger-form .ledger-confirm-switch {
+  flex-direction: row-reverse;
+  justify-content: space-between;
+  gap: var(--app-space-3);
+  color: var(--app-text);
+  font-family: inherit;
+  font-size: var(--app-type-body);
+  font-weight: var(--app-weight-ui);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.ledger-confirm .ledger-confirm-note {
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
 }
 
 /* A settings path or a hyphenated word read as one name: never split across lines. */

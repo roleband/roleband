@@ -288,10 +288,9 @@ companies-model-other-companies = Otras empresas
 companies-follow-copy-thousands-of-roles = miles de puestos
 companies-follow-copy-hundreds-of-roles = cientos de puestos
 companies-follow-copy-more-roles = más puestos
-companies-follow-copy-following-all-will-likely-bring = Más empresas traen más puestos, y cada escaneo tarda más.
 companies-follow-copy-follow-more = ¿Seguir toda la lista?
-companies-follow-copy-roleband-starts-you-with-a = Tu radar empieza con una { $curatedList } de empresas conocidas, para que tus primeros puestos vengan de empleadores que conoces.
-companies-follow-copy-you-can-unfollow-any-company = Puedes dejar de seguir cualquier empresa en Ajustes › Empresas seguidas.
+companies-follow-copy-roleband-starts-you-with-a = Tu radar empieza con una { $curatedList } de empresas conocidas. Más empresas traen más puestos, y cada escaneo tarda más.
+companies-follow-copy-unfollow-any-time = Deja de seguir cuando quieras en Ajustes › Empresas que sigues.
 companies-follow-copy-keep = Mantener la { $curatedList }
 companies-follow-copy-follow-all = Seguir las { $count }
 companies-follow-copy-unfollow-outside-your = ¿Dejar de seguir { $count } { $count ->
@@ -406,10 +405,5 @@ companies-follow-copy-keep-scanning = { $count ->
     [one] Seguir escaneando esta empresa
     [many] Seguir escaneando estas empresas
    *[other] Seguir escaneando estas empresas
-}
-companies-follow-copy-keep-scanning-hint = { $count ->
-    [one] Sin marcar, se escanea ahora y después solo cuando lo pidas.
-    [many] Sin marcar, se escanean ahora y después solo cuando lo pidas.
-   *[other] Sin marcar, se escanean ahora y después solo cuando lo pidas.
 }
 companies-follow-copy-follow-and-scan = Seguir y escanear

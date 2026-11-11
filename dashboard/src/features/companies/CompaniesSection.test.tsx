@@ -1365,11 +1365,10 @@ describe("CompaniesSection — walled companies follow only through their dialog
     renderSection();
     fireEvent.click(await screen.findByRole("button", { name: "Follow all" }));
     const ask = await screen.findByRole("dialog", { name: "Follow the whole list?" });
-    expect(ask).toHaveTextContent(
-      "Some of these companies limit automated collection on their careers sites. By following them, you choose to collect their public postings.",
-    );
-    // A settings path, a hyphenated word and a short sentence opener each keep to one line.
-    for (const run of ["Settings › Followed companies", "well-known", "By following"]) {
+    expect(within(ask).getByText("Some of these companies limit automated collection on their careers sites.")).toBeInTheDocument();
+    expect(within(ask).getAllByText(/choose to collect/)).toHaveLength(1);
+    // A settings path and a hyphenated word each keep to one line.
+    for (const run of ["Settings › Followed companies", "well-known"]) {
       expect(within(ask).getByText(run, { exact: true })).toHaveClass("ledger-confirm-unbroken");
     }
     fireEvent.click(within(ask).getByRole("button", { name: "Follow all 3" }));

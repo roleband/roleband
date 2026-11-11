@@ -3,7 +3,9 @@ import type { CompanyConsent, CompanyDiscoveryCompany } from "../../api";
 import { CURATED_LIST } from "../../copy/vocabulary";
 import { aboutCount, type FollowEstimate, type SectorGroup } from "./companiesModel";
 import {
+  companiesFollowCopyByFollowingThem,
   companiesFollowCopyByFollowingYouChooseTo,
+  companiesFollowCopyByPickingThis,
   companiesFollowCopyChangeItAnyTimeIn,
   companiesFollowCopyCancel,
   companiesFollowCopyFollow,
@@ -14,12 +16,10 @@ import {
   companiesFollowCopyFollowAll,
   companiesFollowCopyFollowAllIn,
   companiesFollowCopyFollowMore,
-  companiesFollowCopyFollowingAllWillLikelyBring,
   companiesFollowCopyHundredsOfRoles,
   companiesFollowCopyKeep,
   companiesFollowCopyKeepFollowing,
   companiesFollowCopyKeepScanning,
-  companiesFollowCopyKeepScanningHint,
   companiesFollowCopyMoreRoles,
   companiesFollowCopyRolebandScansTheBestKnown,
   companiesFollowCopyRolebandStartsYouWithA,
@@ -29,18 +29,17 @@ import {
   companiesFollowCopyScanAboutMoreCompanies,
   companiesFollowCopyScannedAtYourDirection,
   companiesFollowCopySomeAreScannedAtYourDirection,
-  companiesFollowCopySomeOfTheseCompaniesCareers,
   companiesFollowCopySomeOfTheseCompaniesLimit,
   companiesFollowCopyStartScanning,
   companiesFollowCopyThisWillLikelyAddTo,
   companiesFollowCopyThousandsOfRoles,
   companiesFollowCopyUnfollow,
   companiesFollowCopyUnfollowCompanyQuestion,
+  companiesFollowCopyUnfollowAnyTime,
   companiesFollowCopyUnfollowCompany,
   companiesFollowCopyUnfollowOutsideYour,
   companiesFollowCopyWithMoreCompaniesScansTake,
   companiesFollowCopyYouCanStopAtAny,
-  companiesFollowCopyYouCanUnfollowAnyCompany,
   companiesFollowCopyYourRadarCoversTheWhole,
 } from "../../copy/gen/companies";
 
@@ -84,14 +83,27 @@ export type FollowConfirmation =
 
 export interface FollowCopy {
   title: string;
+  /** What the answer brings. */
   paragraphs: string[];
+  /** Present when the answer starts collecting a company that needs the
+   *  user's agreement: one fact per kind of site, then what following means. */
+  consent?: { facts: ConsentFact[]; choice: string };
+  /** A quiet line above the answers. */
+  note?: string;
   /** The safe answer. It takes focus. */
   safe: string;
   act: string;
   /** Present when the answer covers companies scanned only at the user's
-   *  direction: the checkbox that puts them on the scan schedule, ticked at
-   *  first. Its state is the agreement's `scan_on_schedule`. */
-  keepScanning?: { label: string; hint: string };
+   *  direction: the label of the switch that puts them on the scan schedule,
+   *  on at first. Its state is the agreement's `scan_on_schedule`. */
+  keepScanning?: string;
+}
+
+/** One reason a site waits for the user's agreement, said once for every
+ *  company it covers. */
+export interface ConsentFact {
+  site: "walled" | "directed";
+  text: string;
 }
 
 /** A company this write would start collecting without the user's agreement:
@@ -109,34 +121,41 @@ export interface AgreementSubject {
   directed: boolean;
 }
 
-function keepScanning(count: number): FollowCopy["keepScanning"] {
-  return {
-    label: companiesFollowCopyKeepScanning({ count }),
-    hint: companiesFollowCopyKeepScanningHint({ count }),
-  };
-}
-
 /** One company's agreement: the wall's sentence, the directed site's, or both
  *  (a company can be both), then what following means. */
 export function agreementCopy(subject: AgreementSubject): FollowCopy {
   const display = String(subject.display);
+  const facts: ConsentFact[] = [];
+  if (subject.walled) facts.push({ site: "walled", text: SITE_WALL_SENTENCE });
+  if (subject.directed) facts.push({ site: "directed", text: companiesFollowCopyScannedAtYourDirection() });
   return {
     title: companiesFollowCopyFollow({ display }),
-    paragraphs: [
-      subject.walled ? SITE_WALL_SENTENCE : null,
-      subject.directed ? companiesFollowCopyScannedAtYourDirection() : null,
-      companiesFollowCopyByFollowingYouChooseTo({ display }),
-    ].filter((line): line is string => line !== null),
+    paragraphs: [],
+    consent: { facts, choice: companiesFollowCopyByFollowingYouChooseTo({ display }) },
     safe: companiesFollowCopyCancel(),
     act: subject.directed ? companiesFollowCopyFollowAndScan() : companiesFollowCopyFollowCompany({ display }),
-    ...(subject.directed ? { keepScanning: keepScanning(1) } : {}),
+    ...(subject.directed ? { keepScanning: companiesFollowCopyKeepScanning({ count: 1 }) } : {}),
   };
 }
 
-/** The bulk answer's checkbox, when any of its companies is directed. */
-function bulkKeepScanning(companies: readonly CompanyDiscoveryCompany[]): Pick<FollowCopy, "keepScanning"> {
-  const directed = awaitingConsent(companies).filter((company) => company.directed).length;
-  return directed > 0 ? { keepScanning: keepScanning(directed) } : {};
+/** What a bulk follow agrees to, and its Keep scanning switch: one fact for
+ *  its walled companies and one for its directed ones, naming none of them,
+ *  then `choice` once for both. Absent when none of them needs agreement. */
+function bulkConsent(
+  companies: readonly CompanyDiscoveryCompany[],
+  choice: () => string,
+): Pick<FollowCopy, "consent" | "keepScanning"> {
+  const waiting = awaitingConsent(companies);
+  const directed = waiting.filter((company) => company.directed).length;
+  const facts: ConsentFact[] = [];
+  if (waiting.some((company) => company.wall !== null)) {
+    facts.push({ site: "walled", text: companiesFollowCopySomeOfTheseCompaniesLimit() });
+  }
+  if (directed > 0) facts.push({ site: "directed", text: companiesFollowCopySomeAreScannedAtYourDirection() });
+  return {
+    ...(facts.length > 0 ? { consent: { facts, choice: choice() } } : {}),
+    ...(directed > 0 ? { keepScanning: companiesFollowCopyKeepScanning({ count: directed }) } : {}),
+  };
 }
 
 
@@ -155,38 +174,17 @@ export function wallSentence(company: CompanyDiscoveryCompany): string | null {
   return company.wall === null ? null : SITE_WALL_SENTENCE;
 }
 
-/** The line that makes a bulk follow an informed choice about its walled
- *  companies: Follow all includes them. Absent when none. Every bulk follow
- *  records the same pinned consent sentence. */
-function walledLine(companies: readonly CompanyDiscoveryCompany[]): string | null {
-  return awaitingConsent(companies).some((company) => company.wall !== null)
-    ? companiesFollowCopySomeOfTheseCompaniesLimit()
-    : null;
-}
-
-/** The same for companies scanned only at the user's direction. */
-function directedLine(companies: readonly CompanyDiscoveryCompany[]): string | null {
-  return awaitingConsent(companies).some((company) => company.directed)
-    ? companiesFollowCopySomeAreScannedAtYourDirection()
-    : null;
-}
-
 export function followCopy(pending: FollowConfirmation): FollowCopy {
   switch (pending.kind) {
     case "include": {
       const n = pending.companies.length;
       return {
         title: companiesFollowCopyFollowMore(),
-        paragraphs: [
-          companiesFollowCopyRolebandStartsYouWithA({ curatedList: CURATED_LIST() }),
-          companiesFollowCopyFollowingAllWillLikelyBring(),
-          walledLine(pending.companies),
-          directedLine(pending.companies),
-          companiesFollowCopyYouCanUnfollowAnyCompany(),
-        ].filter((line): line is string => line !== null),
+        paragraphs: [companiesFollowCopyRolebandStartsYouWithA({ curatedList: CURATED_LIST() })],
+        ...bulkConsent(pending.companies, companiesFollowCopyByFollowingThem),
+        note: companiesFollowCopyUnfollowAnyTime(),
         safe: companiesFollowCopyKeep({ curatedList: CURATED_LIST() }),
         act: companiesFollowCopyFollowAll({ count: n }),
-        ...bulkKeepScanning(pending.companies),
       };
     }
     case "exclude": {
@@ -204,14 +202,10 @@ export function followCopy(pending: FollowConfirmation): FollowCopy {
       const n = pending.group.bulk.length;
       return {
         title: companiesFollowCopyFollowAllIn({ count: n, sector: pending.group.display }),
-        paragraphs: [
-          companiesFollowCopyThisWillLikelyAddTo({ estimate: String(volume(pending.estimate)) }),
-          walledLine(pending.companies),
-          directedLine(pending.companies),
-        ].filter((line): line is string => line !== null),
+        paragraphs: [companiesFollowCopyThisWillLikelyAddTo({ estimate: String(volume(pending.estimate)) })],
+        ...bulkConsent(pending.companies, companiesFollowCopyByFollowingThem),
         safe: companiesFollowCopyCancel(),
         act: companiesFollowCopyFollowAll({ count: n }),
-        ...bulkKeepScanning(pending.companies),
       };
     }
     case "agree-follow": {
@@ -234,19 +228,13 @@ export function followCopy(pending: FollowConfirmation): FollowCopy {
     case "everything": {
       // Says that some sites limit collection, never how many: the choice is
       // the list and the other companies, and the consent is the same for one company or ten.
-      const walled = awaitingConsent(pending.companies).some((company) => company.wall !== null);
       return {
         title: companiesFollowCopyFollowEveryCompanyQuestion(),
-        paragraphs: [
-          companiesFollowCopyYourRadarCoversTheWhole(),
-          walled ? companiesFollowCopySomeOfTheseCompaniesCareers() : null,
-          directedLine(pending.companies),
-          companiesFollowCopyWithMoreCompaniesScansTake(),
-          companiesFollowCopyChangeItAnyTimeIn(),
-        ].filter((line): line is string => line !== null),
+        paragraphs: [companiesFollowCopyYourRadarCoversTheWhole(), companiesFollowCopyWithMoreCompaniesScansTake()],
+        ...bulkConsent(pending.companies, companiesFollowCopyByPickingThis),
+        note: companiesFollowCopyChangeItAnyTimeIn(),
         safe: companiesFollowCopyCancel(),
         act: companiesFollowCopyFollowEveryCompany(),
-        ...bulkKeepScanning(pending.companies),
       };
     }
     case "walled-unfollow": {
@@ -271,9 +259,20 @@ export interface FollowAnswer {
   keepScanning: boolean;
 }
 
+/** Every sentence the dialog shows, in the order it shows them: the
+ *  paragraphs, the consent facts and what following means, then the note.
+ *  The switch and the answers are controls, not part of what is agreed. */
+export function shownSentences(copy: FollowCopy): string[] {
+  return [
+    ...copy.paragraphs,
+    ...(copy.consent ? [...copy.consent.facts.map((fact) => fact.text), copy.consent.choice] : []),
+    ...(copy.note ? [copy.note] : []),
+  ];
+}
+
 /** The text an agreement stores: the whole dialog the user confirmed. */
 export function agreementText(copy: FollowCopy): string {
-  return [copy.title, ...copy.paragraphs].join("\n\n");
+  return [copy.title, ...shownSentences(copy)].join("\n\n");
 }
 
 /** The agreements this answer records: one per company it starts to collect
