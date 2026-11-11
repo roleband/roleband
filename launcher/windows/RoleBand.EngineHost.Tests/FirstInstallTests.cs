@@ -179,10 +179,33 @@ public sealed class FirstInstallTests
             try
             {
                 await Assert.ThrowsExactlyAsync<NotTheRelease>(() => DownloadAsync(release, files, folder), why);
-                Assert.IsFalse(File.Exists(Path.Combine(folder, release.PackageFile)), why);
+                CollectionAssert.AreEqual(Array.Empty<string>(), Directory.Exists(folder) ? Directory.GetFiles(folder) : [],
+                    $"{why}: neither the package nor its partial download is left");
             }
             finally { if (Directory.Exists(folder)) Directory.Delete(folder, true); }
         }
+    }
+
+    [TestMethod]
+    public async Task ACancelledDownloadLeavesNothingBehind()
+    {
+        var release = Release();
+        // Larger than one read, so the cancellation lands while the file is half written.
+        var package = new byte[1 << 20];
+        var folder = Folder();
+        try
+        {
+            using var feed = new Feed(new() { [release.MetadataFile] = Metadata(release, package), [release.PackageFile] = package });
+            using var cancel = new CancellationTokenSource();
+            var download = new ReleaseDownload(feed);
+            var file = await download.MetadataAsync(release, CancellationToken.None);
+            var reported = 0;
+            await Assert.ThrowsAsync<OperationCanceledException>(() => download.PackageAsync(release, file, folder,
+                new Synchronous(_ => { if (++reported == 1) cancel.Cancel(); }), cancel.Token));
+            Assert.AreEqual(1, reported, "the download stopped after its first part");
+            CollectionAssert.AreEqual(Array.Empty<string>(), Directory.GetFiles(folder));
+        }
+        finally { if (Directory.Exists(folder)) Directory.Delete(folder, true); }
     }
 
     [TestMethod]

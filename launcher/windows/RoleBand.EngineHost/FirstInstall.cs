@@ -172,28 +172,37 @@ public sealed class ReleaseDownload(HttpMessageHandler handler)
         Directory.CreateDirectory(folder);
         var package = Path.Combine(folder, release.PackageFile);
         var partial = package + ".partial";
-        using (var response = await FollowAsync(client, release.Download(release.PackageFile), cancellation))
-        await using (var source = await response.Content.ReadAsStreamAsync(cancellation))
-        await using (var target = File.Create(partial))
+        try
         {
-            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-            var buffer = new byte[1 << 16];
-            long received = 0;
-            int read;
-            while ((read = await source.ReadAsync(buffer, cancellation)) > 0)
+            using (var response = await FollowAsync(client, release.Download(release.PackageFile), cancellation))
+            await using (var source = await response.Content.ReadAsStreamAsync(cancellation))
+            await using (var target = File.Create(partial))
             {
-                received += read;
-                if (received > size) throw new NotTheRelease("The package is larger than its release says.");
-                hash.AppendData(buffer, 0, read);
-                await target.WriteAsync(buffer.AsMemory(0, read), cancellation);
-                progress?.Report((received, size));
+                using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+                var buffer = new byte[1 << 16];
+                long received = 0;
+                int read;
+                while ((read = await source.ReadAsync(buffer, cancellation)) > 0)
+                {
+                    received += read;
+                    if (received > size) throw new NotTheRelease("The package is larger than its release says.");
+                    hash.AppendData(buffer, 0, read);
+                    await target.WriteAsync(buffer.AsMemory(0, read), cancellation);
+                    progress?.Report((received, size));
+                }
+                if (received != size || Convert.ToHexStringLower(hash.GetHashAndReset()) != sha256)
+                    throw new NotTheRelease("The package is not the one its release names.");
             }
-            if (received != size || Convert.ToHexStringLower(hash.GetHashAndReset()) != sha256)
-                throw new NotTheRelease("The package is not the one its release names.");
+            Manifest(release, partial);
+            File.Move(partial, package, overwrite: true);
+            return package;
         }
-        Manifest(release, partial);
-        File.Move(partial, package, overwrite: true);
-        return package;
+        catch
+        {
+            // A download starts again from its first byte, so what a failed or cancelled one wrote is never used.
+            File.Delete(partial);
+            throw;
+        }
     }
 
     /// <summary>The package's size and SHA-256, from a release metadata file that names this release.</summary>

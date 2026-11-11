@@ -182,7 +182,6 @@ internal sealed class Installer(NativeCopy copy, InstallRelease? release)
                 Window.Navigate(new Page(copy["windows-setup-failed"], error.Message, PageIcon.Error, [new PageButton(Close, copy["menu-close"])]));
                 return;
             }
-            TryDelete(folder);
             await InstalledRoleBand.OpenAsync(release);
             Window.Press(Close);
         }
@@ -200,6 +199,8 @@ internal sealed class Installer(NativeCopy copy, InstallRelease? release)
         }
         finally
         {
+            // However the attempt ended, its download is no use to the next one, which starts from the first byte.
+            TryDelete(folder);
             Volatile.Write(ref busy, 0);
         }
     }
@@ -230,7 +231,7 @@ internal sealed class Installer(NativeCopy copy, InstallRelease? release)
     /// <summary>The folder under the temporary folder that holds Setup's downloads.</summary>
     private const string Scratch = "RoleBand-Setup";
 
-    /// <summary>Removes a finished download, and Setup's folder with it when nothing else is in it.</summary>
+    /// <summary>Removes an attempt's download, and Setup's folder with it when nothing else is in it.</summary>
     private static void TryDelete(string folder)
     {
         try
