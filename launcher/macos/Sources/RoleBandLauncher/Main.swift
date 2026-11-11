@@ -77,7 +77,9 @@ enum LauncherMain {
             app.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
             let language = arguments.first(where: { $0.hasPrefix("--lang=") }).map { String($0.dropFirst(7)) }
             let stopped = arguments.contains("--update-stopped") || arguments.contains("--update-unreadable")
-            let block = LaunchBlock(mode: arguments.contains("--owned-elsewhere") ? .databaseOwnedElsewhere : .moveToApplications,
+            let mode: LaunchMode = arguments.contains("--owned-elsewhere") ? .databaseOwnedElsewhere
+                : arguments.contains("--in-use") ? .databaseInUse : .moveToApplications
+            let block = LaunchBlock(mode: mode,
                                     bundle: Bundle.main.bundleURL, home: FileManager.default.homeDirectoryForCurrentUser,
                                     update: stopped ? .init(id: UUID(), retry: arguments.contains("--update-stopped")) : nil)
             let view = NSHostingView(rootView: BlockedLaunchView(block: block, copy: LauncherCopy(language: language), quit: {}, reveal: {})

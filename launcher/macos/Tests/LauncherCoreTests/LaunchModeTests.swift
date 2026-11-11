@@ -113,3 +113,35 @@ func exitedProcess() throws -> pid_t {
     let checkout = URL(fileURLWithPath: "/Users/someone/RoleBand/backend/.venv/lib/python3.12/site-packages/pixeltable_pgserver/pginstall/bin/postgres")
     #expect(LaunchMode.decide(bundle: fixture.installed, home: fixture.home, executable: { _ in checkout }) == .attach)
 }
+
+@Test func theAppsOwnDatabaseServedFromOutsideTheAppIsInUseNotASourceInstall() throws {
+    let fixture = try LaunchModeFixture()
+    try fixture.write(".roleband/db/PG_VERSION", "16\n")
+    let live = getpid()
+    try fixture.serverRuns(live)
+    let checkout = URL(fileURLWithPath: "/Users/someone/RoleBand/backend/.venv/lib/python3.12/site-packages/pixeltable_pgserver/pginstall/bin/postgres")
+    // Only a record naming the app makes the database the app's; anything else stays a source install's.
+    for record in [#"{"owner": "source"}"#, "not json"] {
+        try fixture.write(".roleband/db.owner.json", record)
+        #expect(LaunchMode.decide(bundle: fixture.installed, home: fixture.home, executable: { _ in checkout }) == .attach)
+    }
+    try fixture.write(".roleband/db.owner.json", #"{"owner": "app"}"#)
+    #expect(LaunchMode.decide(bundle: fixture.installed, home: fixture.home, executable: { _ in checkout }) == .databaseInUse)
+    let otherApp = try fixture.app(fixture.home.appendingPathComponent("Applications/Other.app"), identifier: "com.example.other")
+    #expect(LaunchMode.decide(bundle: fixture.installed, home: fixture.home, executable: { _ in otherApp }) == .databaseInUse)
+    // The app's own server is still a leftover to stop, and a server that has gone is no obstacle.
+    let ownServer = try fixture.app(fixture.installed)
+    #expect(LaunchMode.decide(bundle: fixture.installed, home: fixture.home, executable: { _ in ownServer }) == .owned(leftover: live))
+    try fixture.serverRuns(try exitedProcess())
+    #expect(LaunchMode.decide(bundle: fixture.installed, home: fixture.home, executable: { _ in checkout }) == .owned(leftover: nil))
+}
+
+@Test func aSourceInstallsEvidenceOutranksAServerOnTheAppsDatabase() throws {
+    let fixture = try LaunchModeFixture()
+    try fixture.write(".roleband/db.owner.json", #"{"owner": "app"}"#)
+    try fixture.write(".roleband/db/PG_VERSION", "16\n")
+    try fixture.serverRuns(getpid())
+    try fixture.write(".roleband/launcher/installation.json")
+    let checkout = URL(fileURLWithPath: "/Users/someone/RoleBand/backend/.venv/lib/python3.12/site-packages/pixeltable_pgserver/pginstall/bin/postgres")
+    #expect(LaunchMode.decide(bundle: fixture.installed, home: fixture.home, executable: { _ in checkout }) == .attach)
+}

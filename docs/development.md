@@ -54,7 +54,10 @@ For development, also know:
   the configuration resolves, which is `~/.roleband/db` by default. If you
   already run RoleBand on this machine and want a throwaway clone to keep its
   hands off your real data, set `ROLEBAND_PGDATA` to a directory of its own (and
-  `ROLEBAND_DATABASE_URL=""`) for every command in that clone.
+  `ROLEBAND_DATABASE_URL=""`) for every command in that clone. A cluster the Mac
+  app made (it writes `db.owner.json` beside it) is refused to every command run
+  from a clone, tests included, so on a Mac with the app installed a clone needs
+  `ROLEBAND_PGDATA` before it can reach any database.
 - **Background work runs under the supervisor** ([architecture](architecture.md#background-work)).
   `.venv/bin/python -m tracker.supervisor plan` prints what every job would do
   now and why; `run --dry-run-network` supervises with every job that reaches a

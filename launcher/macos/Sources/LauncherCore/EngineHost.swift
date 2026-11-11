@@ -2,7 +2,7 @@ import Darwin
 import Foundation
 
 public enum HostProblem: Error, Equatable, Sendable {
-    case sourceInstallation, databaseOwnedElsewhere, alreadyOwned, invalidConfiguration, processInspection, stopFailed
+    case sourceInstallation, databaseOwnedElsewhere, databaseInUse, alreadyOwned, invalidConfiguration, processInspection, stopFailed
 }
 
 public enum HostState: Equatable, Sendable {
@@ -49,6 +49,8 @@ public struct HostConfiguration: Sendable {
 public actor EngineHost {
     public private(set) var state: HostState = .stopped
     public private(set) var lastFailure: String?
+    /// The refusal behind `needsAttention`, when it was one, so the panel can say what to do.
+    public private(set) var problem: HostProblem?
     public private(set) var preparation: EnginePreparation?
     private let configuration: HostConfiguration
     private let now: @Sendable () -> TimeInterval
@@ -161,6 +163,7 @@ public actor EngineHost {
             try await cleanUp()
             restarts = []
             lastFailure = nil
+            problem = nil
             try launch()
             if automatic {
                 monitor?.cancel()
@@ -181,6 +184,7 @@ public actor EngineHost {
     private func ownedMode(_ app: URL) throws -> LaunchMode {
         let mode = LaunchMode.decide(bundle: app, home: configuration.home)
         if mode == .databaseOwnedElsewhere { throw HostProblem.databaseOwnedElsewhere }
+        if mode == .databaseInUse { throw HostProblem.databaseInUse }
         return mode
     }
 
@@ -249,7 +253,10 @@ public actor EngineHost {
             restarts.removeAll { now() - $0 >= 600 }
             guard restarts.count < 3 else { state = .needsAttention; return }
             restarts.append(now())
-            do { try launch() } catch { try await failed(String(describing: error)) }
+            do { try launch() } catch HostProblem.databaseInUse {
+                // Another program serves the database: a retry cannot start, so wait for the person.
+                attention(HostProblem.databaseInUse)
+            } catch { try await failed(String(describing: error)) }
         case .starting, .running:
             guard child?.running() == true else { try await failed("engine_exited"); return }
             do {
@@ -277,6 +284,7 @@ public actor EngineHost {
 
     private func failed(_ reason: String) async throws {
         lastFailure = reason
+        problem = nil
         do { try await cleanUp() } catch { attention(error); throw error }
         restarts.removeAll { now() - $0 >= 600 }
         state = restarts.count >= 3 ? .needsAttention : .backingOff(until: now() + pow(2, Double(restarts.count)))
@@ -307,10 +315,8 @@ public actor EngineHost {
         }
         // PostgreSQL's fast shutdown is SIGINT; SIGTERM is smart shutdown and can wait
         // indefinitely for clients. Its separate session is stopped only after the clients.
-        if let pid = LaunchMode.runningServer(configuration.pgdata), let server = OwnedProcess.read(pid), server.isPostgres {
-            guard let path = LaunchMode.executable(pid), LaunchMode.isInsideApp(path) else {
-                throw HostProblem.sourceInstallation
-            }
+        if let pid = LaunchMode.runningServer(configuration.pgdata), let server = OwnedProcess.read(pid), server.isPostgres,
+           !(try serverIsAnotherPrograms(pid)) {
             guard server.matchesDatabase(configuration.pgdata) else { throw HostProblem.processInspection }
             try server.signal(SIGINT)
             let deadline = ProcessInfo.processInfo.systemUptime + grace
@@ -325,6 +331,15 @@ public actor EngineHost {
         child = nil
         if token != nil { try FileManager.default.removeItem(at: configuration.record) }
         token = nil
+    }
+
+    /// A server from outside the app on the app's own database belongs to another program: the app
+    /// neither stops it nor waits for it, so quitting and backing off still finish. On a database the
+    /// app did not record, it is a source installation's, which the app refuses to run beside.
+    private func serverIsAnotherPrograms(_ pid: pid_t) throws -> Bool {
+        if let path = LaunchMode.executable(pid), LaunchMode.isInsideApp(path) { return false }
+        guard LaunchMode.recordedByApp(configuration.pgdata) else { throw HostProblem.sourceInstallation }
+        return true
     }
 
     private func didStop() {
@@ -343,6 +358,7 @@ public actor EngineHost {
 
     private func attention(_ error: any Error) {
         lastFailure = String(describing: error)
+        problem = error as? HostProblem
         state = .needsAttention
     }
 }

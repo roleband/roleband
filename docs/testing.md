@@ -335,7 +335,9 @@ the `db_session` fixture from `backend/tests/conftest.py`:
   on whatever server the settings resolve to, so parallel workers never
   collide. Locally that is the embedded Postgres, which starts on first use;
   in CI it is a Postgres 16 service with pgvector, named by
-  `ROLEBAND_DATABASE_URL`.
+  `ROLEBAND_DATABASE_URL`. When the settings resolve to a cluster the Mac app
+  made, every test that needs a database fails and names `ROLEBAND_PGDATA`; the
+  suite never starts the app's database.
 - The schema is built from the SQLAlchemy models with the `vector` and
   `pg_trgm` extensions. Before each test every table is emptied and every
   sequence its columns own is restarted: the tables holding committed rows are
