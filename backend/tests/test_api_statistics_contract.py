@@ -41,6 +41,7 @@ from tests.statistics_contract_seed import (
     REPORTS_PLUGIN,
     SeededStatistics,
     _role,
+    _skill,
     _stated,
     pin_statistics_clock,
     seed_statistics,
@@ -61,8 +62,11 @@ from tracker.db.models import (
     JobPlaceSetMember,
     PluginInstall,
     ScrapeRun,
+    SkillConcept,
+    SkillDemandDaily,
     TrackedCompany,
 )
+from tracker.skills.analytics import compute_skill_demand
 
 ROUTES = {
     "stats": "/api/stats",
@@ -690,6 +694,84 @@ async def test_every_insights_tab_describes_one_set_of_roles(api_client, db_sess
     assert (velocity["kpis"]["opened"], velocity["kpis"]["reposted"]) == (26, 1)
     assert overview["kpis"]["new_count"] == velocity["kpis"]["opened"]
 
+
+
+@pytest.mark.asyncio
+async def test_a_role_listed_in_three_places_counts_once_in_every_skills_read_and_daily_rollup(
+    api_client, db_session, seeded,
+):
+    """The three stripe postings of one role each name Python, carry the same
+    estimate and print the same band. Every read that counts skills and every
+    daily rollup counts that role once, as the headlines do, so a company that
+    lists one role in twenty cities does not weigh twenty times."""
+    members = await _add_a_place_set_and_an_other_company(db_session, seeded)
+    python = (await db_session.scalars(select(SkillConcept).where(SkillConcept.slug == "python"))).one()
+    for job_id in members.values():
+        job = await db_session.get(Job, job_id)
+        for field, value in _stated(180000, 240000).items():
+            setattr(job, field, value)
+        job.comp_median = 300000
+        db_session.add_all([_skill(job, python), JobCompEstimate(job_id=job_id, source="roleband", comp_median=300000)])
+    await db_session.commit()
+
+    # Stripe is the one Other company: its side holds the set once.
+    pay = await _get(api_client, f"{ROUTES['compensation']}?side=other")
+    assert pay["coverage"]["total_open"] == 3  # s-senior, s-unread and the set
+    skills = await _get(api_client, "/api/skills/top?side=other")
+    assert [(s["term"], s["job_count"]) for s in skills["items"]] == [("python", 1)]
+    assert skills["roles"] == 1
+    overview = await _get(api_client, f"{ROUTES['overview']}?side=other")
+    assert [(s["term"], s["job_count"]) for s in overview["top_skills"]] == [("python", 1)]
+
+    # A place filter reaches a set through any member: London and Berlin are
+    # later members than the set's first (EMEA), and each place, or both,
+    # counts the role once.
+    for key, groups in (("pm-emea", ["emea"]), ("pm-london", ["uk"]), ("pm-berlin", ["germany"])):
+        (await db_session.get(Job, members[key])).location_groups = groups
+    await db_session.commit()
+    for places in ("uk", "germany", "uk&location_group=germany"):
+        placed = await _get(api_client, f"/api/skills/top?side=other&location_group={places}")
+        assert ([(s["term"], s["job_count"]) for s in placed["items"]], placed["roles"]) == ([("python", 1)], 1), places
+    nowhere = await _get(api_client, "/api/skills/top?side=other&location_group=france")
+    assert (nowhere["items"], nowhere["roles"]) == ([], 0)
+
+    await compute_skill_demand(db_session)
+    await comp_trends.compute_comp_metrics(db_session)
+    await comp_trends.compute_disclosure_metrics(db_session)
+    await db_session.commit()
+    demand = (await db_session.scalars(select(SkillDemandDaily.job_count).where(
+        SkillDemandDaily.company == "stripe", SkillDemandDaily.metric_date >= DAY_START))).all()
+    assert demand == [1]
+    values = (await db_session.scalars(select(CompSnapshot.comp_values).where(
+        CompSnapshot.company == "stripe", CompSnapshot.metric_date >= DAY_START))).all()
+    assert [v for vs in values for v in vs] == [300000]
+    cells = (await db_session.scalars(select(DisclosureSnapshot).where(
+        DisclosureSnapshot.company == "stripe", DisclosureSnapshot.metric_date >= DAY_START))).all()
+    # A day's open count is the Compensation tab's, and the band is one role's.
+    assert sum(c.roles for c in cells) == pay["coverage"]["total_open"]
+    assert [c.bands for c in cells if c.pay_basis == "base"] == [[{"low": 180000, "high": 240000, "reqs": 1}]]
+
+
+@pytest.mark.asyncio
+async def test_a_role_listed_in_several_places_keeps_its_estimate_through_the_posting_that_has_one(
+    db_session, seeded,
+):
+    """The set's first posting (EMEA) has a dollar estimate with no value and
+    London's is in pounds; Berlin's is in dollars. The daily pay record keeps
+    the role's one dollar value: a posting without one never stands for the
+    role."""
+    members = await _add_a_place_set_and_an_other_company(db_session, seeded)
+    db_session.add_all([
+        JobCompEstimate(job_id=members["pm-emea"], source="roleband", comp_median=None),
+        JobCompEstimate(job_id=members["pm-london"], source="roleband", comp_median=150000, comp_currency="GBP"),
+        JobCompEstimate(job_id=members["pm-berlin"], source="roleband", comp_median=300000),
+    ])
+    await db_session.commit()
+    await comp_trends.compute_comp_metrics(db_session)
+    await db_session.commit()
+    values = (await db_session.scalars(select(CompSnapshot.comp_values).where(
+        CompSnapshot.company == "stripe", CompSnapshot.metric_date >= DAY_START))).all()
+    assert [v for vs in values for v in vs] == [300000]
 
 async def _onboard_a_company(db_session) -> dict[str, int]:
     """`acme` arrives today: its FIRST run finds three roles its board was already

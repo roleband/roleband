@@ -36,7 +36,6 @@ import {
   type CompanyProfileDetail,
   type CompensationStats,
   type CompTrajectory,
-  type CompTrends,
   type DecidedQuery,
   type Demand,
   type DuplicateVerdictResult,
@@ -457,11 +456,6 @@ export type StatisticsRouteContract = [
     Returns<typeof api.compTrajectory>,
     Ok<"statistics_comp_trajectory_api_statistics_comp_trajectory_get">
   >>,
-  Expect<Equals<Returns<typeof api.compTrends>, Ok<"statistics_comp_trends_api_statistics_comp_trends_get">>>,
-  Expect<Equals<
-    Returns<typeof api.disclosureTrends>,
-    Ok<"statistics_disclosure_trends_api_statistics_disclosure_trends_get">
-  >>,
   Expect<Equals<Returns<typeof api.velocity>, Ok<"statistics_velocity_api_statistics_velocity_get">>>,
   Expect<Equals<Returns<typeof api.levelGuide>, Ok<"statistics_levels_api_statistics_levels_get">>>,
   Expect<Equals<Returns<typeof api.demand>, Ok<"demand_api_demand_get">>>,
@@ -470,9 +464,6 @@ export type StatisticsRouteContract = [
 declare const marketSummary: NonNullable<CompensationStats["overall"]>;
 // @ts-expect-error — a comp group is never empty, so its median is always a number.
 export const summaryWithoutMedian: CompensationStats["overall"] = { ...marketSummary, p50: null };
-
-// @ts-expect-error — the comp trend groups by overall, company, level or family, never another axis.
-export const unknownTrendDim: CompTrends["dim"] = "region";
 
 declare const region: Demand["regions"][number];
 // @ts-expect-error — a region always says how many of its roles name no country in it.

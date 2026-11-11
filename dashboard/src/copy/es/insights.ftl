@@ -1,23 +1,5 @@
 ## insights
 
-## features/statistics/CompTrendChart.tsx
-insights-comp-trend-chart-compensation-over-time = Compensación total a lo largo del tiempo
-insights-comp-trend-chart-median-total-pay = Mediana de la compensación total estimada{ $series ->
-        [single] { " " }con dispersión p25–p75
-       *[several] { "" }
-    } · { $period ->
-        [all] todo el periodo
-       *[days] últimos { $days } d
-    }
-insights-comp-trend-chart-history-is-still-accruing-one = Aún no hay suficiente historial. La línea se completa tras unos días de escaneos.
-insights-comp-trend-chart-no-comp-history-yet = Aún no hay historial de compensación.
-insights-comp-trend-chart-roles = { $dim } · { $count } puestos
-insights-comp-trend-chart-by-family = Por disciplina
-insights-comp-trend-chart-breakdown = Desglose
-insights-comp-trend-chart-compensation-percentile-trend = Tendencia de la compensación por percentil
-insights-comp-trend-chart-loading = Cargando la tendencia de la compensación…
-insights-comp-trend-chart-load-failed = No se pudo cargar la tendencia de la compensación
-
 ## features/statistics/CompensationPanel.tsx
 insights-compensation-panel-compensation = Compensación
 insights-compensation-panel-no-open-roles-with-a = Aún no hay puestos abiertos con una estimación de compensación.
@@ -88,31 +70,12 @@ insights-disclosure-panel-who-states-pay = Quién publica un rango
 insights-disclosure-panel-the-share-of-open-roles = La proporción de puestos abiertos revisados que publican un rango. Cuenta cualquier rango: salario base, compensación total o sin indicar.
 insights-disclosure-panel-of-checked-roles-state-pay = { $rate } de { $checked } puestos revisados publican un rango
 insights-disclosure-panel-no-open-roles-have-been = Aún no se ha revisado ningún puesto abierto en busca de un rango publicado.
-insights-disclosure-panel-history-is-still-accruing-one = Aún no hay suficiente historial. La línea se completa tras unos días de escaneos.
-insights-disclosure-panel-over-time = A lo largo del tiempo
-insights-disclosure-panel-pay-transparency-trend = Tendencia de la transparencia salarial
-insights-disclosure-panel-share-of-checked-open-roles = Proporción de puestos abiertos revisados que publican un rango · { $window }
-insights-disclosure-panel-no-pay-transparency-history-yet = Aún no hay historial de transparencia salarial.
-insights-disclosure-panel-the-market-line-moves-when = La línea del mercado cambia al añadirse empresas. Mismas empresas sigue solo a las { $companies } escaneadas el { $since }.
-insights-disclosure-panel-published-band-trend = Tendencia de los rangos publicados
-insights-disclosure-panel-the-median-floor-and-ceiling = El mínimo y el máximo medianos de los rangos base publicados. Cada rango cuenta una vez, sin importar cuántos puestos lo compartan.
-insights-disclosure-panel-median-published-band = Rango mediano publicado de { $basis } · { $window }
-insights-disclosure-panel-no-published-base-salary-band = Aún no se ha registrado ningún rango publicado de salario base.
-insights-disclosure-panel-pay-transparency-over-time-covers = Esta tendencia abarca todas las disciplinas.
 insights-disclosure-panel-how-the-disclosure-rate-is = Cómo se mide la transparencia salarial
 insights-disclosure-panel-disclosure-breakdown = Desglose de transparencia salarial
 insights-disclosure-panel-share-of-open-roles-stating = { $group ->
     [company] Proporción de puestos abiertos que publican un rango, por empresa
    *[level] Proporción de puestos abiertos que publican un rango, por nivel
 }
-insights-disclosure-panel-trend-breakdown = Desglose de la tendencia
-insights-disclosure-panel-share-of-open-roles-stating-over-time = Proporción de puestos abiertos que publican un rango a lo largo del tiempo
-insights-disclosure-panel-about-the-published-band-trend = Acerca de la tendencia de los rangos publicados
-insights-disclosure-panel-median-published-base-salary-band = Rango mediano publicado de salario base a lo largo del tiempo
-insights-disclosure-panel-trend-loading = Cargando la tendencia de la transparencia salarial…
-insights-disclosure-panel-trend-load-failed = No se pudo cargar la tendencia de la transparencia salarial
-insights-disclosure-panel-band-trend-loading = Cargando la tendencia de los rangos publicados…
-insights-disclosure-panel-band-trend-load-failed = No se pudo cargar la tendencia de los rangos publicados
 
 ## features/statistics/OverviewPanel.tsx
 insights-overview-panel-most-named-skills = Habilidades más mencionadas
@@ -594,30 +557,6 @@ insights-disclosure-share-of-checked-open-roles = Proporción de puestos abierto
 insights-disclosure-of-roles = { $label }: { $rate }, { $disclosed } de { $checked } puestos
 insights-disclosure-rate-states-pay = { $rate } publican un rango
 insights-disclosure-of-checked-open-roles = { $disclosed } de { $checked } puestos abiertos revisados
-insights-disclosure-no-pay-transparency-history-recorded = Aún no se ha registrado historial de transparencia salarial.
-insights-disclosure-no-roles-checked-yet = { $dim }: ningún puesto revisado aún
-insights-disclosure-of-checked-roles-state-pay = { $series }: { $pct } de { $checked } puestos revisados publican un rango{ $readings ->
-        [single] { "" }
-       *[several] { " " }(desde { $from })
-    }
-insights-disclosure-share-of-open-roles-stating = Proporción de puestos abiertos que publican un rango, por { $dim ->
-        [company] empresa
-        [level] nivel
-       *[overall] el mercado
-    }, { $span ->
-        [day] el { $first }
-       *[range] del { $first } al { $last }
-    }. { $lines }.
-insights-disclosure-not-checked = sin revisar
-insights-disclosure-rate-percent = { $rate }%
-insights-disclosure-no-published-pay-band-has = Aún no se ha registrado ningún rango publicado.
-insights-disclosure-median-published-salary-band-across = Rango mediano publicado de { $basis } en { $bands } rangos distintos que abarcan { $roles } puestos abiertos: de { $low_p50 } a { $high_p50 }.{ $readings ->
-        [single] { "" }
-       *[several] { " " }Empezó entre { $start_low } y { $start_high }.
-    } Una lectura por rango distinto, no por puesto.
-insights-disclosure-median-ceiling = Máximo mediano
-insights-disclosure-median-floor = Mínimo mediano
-insights-disclosure-no-band-posted = sin rango publicado
 
 ## features/statistics/charts/StatisticsCharts.tsx (by hand)
 
@@ -675,10 +614,6 @@ insights-common-last-days-or-all-time = { $period ->
     [all] todo el periodo
    *[days] últimos { $days } d
 }
-insights-common-last-days-or-all-history = { $period ->
-    [all] todo el periodo
-   *[days] últimos { $days } d
-}
 
 ## Categorías de habilidades
 insights-skill-language = Lenguaje
@@ -694,7 +629,6 @@ insights-skill-collaboration = Colaboración
 insights-skill-industry = Sector
 
 ## Nombres de estadísticas: serie de cohorte y franjas de antigüedad
-insights-series-same-companies = Mismas empresas
 insights-aging-from-0-days = < 1 semana
 insights-aging-from-7-days = 1–2 semanas
 insights-aging-from-14-days = 2–4 semanas
@@ -709,12 +643,6 @@ insights-brief-opened = { $allTime ->
    *[no] { $opened } nuevos en { $days } d, { $closed } cerrados.
 }
 insights-brief-top-skill = Habilidad principal: { $skill } ({ $count } puestos).
-insights-comp-trend-chart-reference-changed = { $count ->
-    [one] La línea discontinua marca cuándo cambiaron a la vez las estimaciones de compensación: un cambio de datos, no del mercado.
-    [many] Las líneas discontinuas marcan cuándo cambiaron a la vez las estimaciones de compensación: un cambio de datos, no del mercado.
-   *[other] Las líneas discontinuas marcan cuándo cambiaron a la vez las estimaciones de compensación: un cambio de datos, no del mercado.
-}
-insights-comp-trend-chart-reference-marker = Las estimaciones de compensación cambiaron el { $date }
 insights-compensation-panel-spread = p25–p75: { $low }–{ $high } · { $roles }
 insights-compensation-panel-estimated-base-by-level = Salario base estimado por nivel
 insights-compensation-panel-base-only = Solo base

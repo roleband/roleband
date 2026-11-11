@@ -74,34 +74,6 @@ const compFixture = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-const disclosureTrendFixture = (dim: string) => ({
-  dim,
-  days: 30,
-  basis: "base",
-  cohort: null,
-  dates: ["2026-07-20", "2026-07-21"],
-  series:
-    dim === "company"
-      ? [
-          {
-            key: "google", checked: 200, disclosed: 160,
-            points: [
-              { date: "2026-07-20", open: 190, checked: 180, disclosed: 120, rate: 0.667, bands: 3, reqs: 20, low_p50: 250_000, high_p50: 350_000 },
-              { date: "2026-07-21", open: 200, checked: 200, disclosed: 160, rate: 0.8, bands: 4, reqs: 24, low_p50: 262_000, high_p50: 365_000 },
-            ],
-          },
-        ]
-      : [
-          {
-            key: "", checked: 600, disclosed: 150,
-            points: [
-              { date: "2026-07-20", open: 700, checked: 560, disclosed: 118, rate: 0.211, bands: 3, reqs: 25, low_p50: 240_000, high_p50: 334_000 },
-              { date: "2026-07-21", open: 749, checked: 600, disclosed: 150, rate: 0.25, bands: 4, reqs: 31, low_p50: 262_000, high_p50: 365_000 },
-            ],
-          },
-        ],
-});
-
 test.beforeEach(async ({ page }) => {
   await showAdvancedInsights(page);
   await page.route("/api/statistics/overview**", (route) =>
@@ -113,13 +85,6 @@ test.beforeEach(async ({ page }) => {
   await page.route("/api/jobs/*/similar**", (route) => route.fulfill({ json: { scope: "cross", items: [] } }));
   await page.route("/api/jobs/101", (route) => route.fulfill({ json: jobFixture }));
   await page.route("/api/jobs?**", (route) => route.fulfill({ json: jobListFixture }));
-  await page.route("/api/statistics/comp-trends**", (route) =>
-    route.fulfill({ json: { dim: "overall", days: 30, dates: [], series: [] } }),
-  );
-  await page.route("/api/statistics/disclosure-trends**", (route) => {
-    const dim = new URL(route.request().url()).searchParams.get("dim") ?? "overall";
-    return route.fulfill({ json: disclosureTrendFixture(dim) });
-  });
   await page.route("/api/statistics/compensation**", (route) => route.fulfill({ json: compFixture() }));
 });
 
@@ -241,57 +206,22 @@ test("reports the disclosure rate against checked roles and names the backlog", 
   expect(errors).toEqual([]);
 });
 
-test("charts disclosure and published bands over time", async ({ page }) => {
-  await page.goto("/statistics");
-  await page.getByRole("tab", { name: "Compensation" }).click();
-
-  const rateTrend = page.getByRole("img", { name: /post a range over time/i });
-  await expect(rateTrend).toBeVisible();
-  const bandTrend = page.getByRole("img", { name: /median posted base salary range over time/i });
-  await expect(bandTrend).toBeVisible();
-  // The chart's accessible description carries the actual figures, including the
-  // unit: distinct bands, not roles.
-  await expect(
-    page.getByText(/across 4 distinct ranges covering 31 open roles: \$262K to \$365K/),
-  ).toBeAttached();
-
-  // Switching the rate breakdown must re-drive its own fetch...
-  const request = page.waitForRequest(
-    (r) => r.url().includes("/api/statistics/disclosure-trends") && r.url().includes("dim=company"),
-  );
-  await page.getByRole("group", { name: "Trend breakdown" }).getByRole("button", { name: "By company" }).click();
-  await request;
-  await expect(rateTrend).toBeVisible();
-
-  // ...while the band trend stays market-wide: a median of per-company medians is
-  // not a median, so it must not follow the breakdown toggle.
-  await expect(bandTrend).toBeVisible();
-  await expect(page.getByText(/^Median posted base salary range\s*·/)).toBeVisible();
-});
-
-test("the window moves the trend charts, never the snapshot of open roles", async ({ page }) => {
-  // A snapshot of roles FIRST SEEN in the window would let 7d/30d change WHICH
-  // roles it summarises. The window re-drives the trend routes and never
-  // refetches the snapshot.
-  const snapshots: string[] = [];
+test("Pay has no window and draws no pay over time; who posts a range stays", async ({ page }) => {
+  // The daily pay snapshots began counting a role listed in several places
+  // once, so a line across that day would read the change as a market move.
+  // The trend routes are left unmocked: a request to either fails the test.
+  const asked: string[] = [];
   page.on("request", (r) => {
-    if (r.url().includes("/api/statistics/compensation")) snapshots.push(r.url());
+    if (r.url().includes("/api/statistics/")) asked.push(new URL(r.url()).pathname);
   });
-  await page.goto("/statistics/compensation");
+  await page.goto("/statistics/compensation?window=7");
   await expect(page.getByRole("heading", { level: 2, name: /median/ })).toHaveText(/\$479K median/);
-  // A dev build mounts twice (StrictMode), so count what the mount sent and
-  // hold the window click to adding nothing.
-  const mounted = snapshots.length;
-  expect(mounted).toBeGreaterThan(0);
+  await expect(page.getByRole("img", { name: /post a range, by company/i })).toBeVisible();
 
-  const trend = page.waitForRequest((r) => r.url().includes("/api/statistics/comp-trends") && r.url().includes("days=7"));
-  await page.getByRole("group", { name: "Time range" }).getByRole("button", { name: "7d" }).click();
-  await trend;
-  await expect(page.getByRole("heading", { level: 2, name: /median/ })).toHaveText(/\$479K median/);
-  expect(snapshots).toHaveLength(mounted);
-  expect(snapshots.every((url) => !url.includes("days="))).toBe(true);
+  await expect(page.getByRole("group", { name: "Time range" })).toHaveCount(0);
+  await expect(page.getByRole("img", { name: /over time/i })).toHaveCount(0);
+  expect(asked.filter((path) => /trends/.test(path))).toEqual([]);
 });
-
 
 test("a fresh install's base-only roles have their own panel, apart from the totals", async ({ page }) => {
   // RoleBand's data prices these by their base

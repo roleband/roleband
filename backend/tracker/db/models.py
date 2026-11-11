@@ -1417,8 +1417,9 @@ class SkillDemandDaily(Base):
     reads it; it is kept written so a view that needs weeks of history can start
     from it.
 
-    `job_count` = distinct open jobs at that company+family with a displayable
-    requirement for the concept on `metric_date` (high-confidence, non-context;
+    `job_count` = distinct roles Insights describes (open, in scope, a place set
+    once) at that company+family with a displayable requirement for the concept
+    on `metric_date` (high-confidence, non-context;
     industries excluded — a vertical is never a skill). One row-set is appended per
     pipeline run, mirroring DemandMetric.
     `family` is nullable to mirror jobs with an unclassified family.

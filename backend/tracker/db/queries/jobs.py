@@ -87,14 +87,16 @@ def open_in_scope_count_stmt(hidden: list[str] | None = None, *narrowed) -> Sele
     return exclude_hidden(select(func.count()).where(*insights_role_conds(), *narrowed), hidden or [])
 
 
-def insights_role_conds() -> list:
+def insights_role_conds(eligible: Callable[[Any], list] | None = None) -> list:
     """The roles Insights describes: open, in scope, a place set once.
 
     One rule for every Statistics tab, so a headline count cannot differ from
     tab to tab. Off-board companies are removed by the caller (`exclude_hidden`).
     Roles marked Not for me stay: Insights describes the market, the Board the
-    person's list."""
-    return [Job.status == "open", Job.in_scope.is_(True), not_(place_set_outranked())]
+    person's list. `eligible` takes a read's filter that members of one set do
+    not share (a place), so the member that passes it stands for the role
+    (`place_set_outranked`)."""
+    return [Job.status == "open", Job.in_scope.is_(True), not_(place_set_outranked(eligible=eligible))]
 
 
 def place_set_later_ids() -> Select:

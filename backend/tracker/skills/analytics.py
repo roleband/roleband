@@ -18,14 +18,15 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.db.models import Job, JobSkill, SkillConcept, SkillDemandDaily
+from tracker.db.queries.jobs import insights_role_conds
 from tracker.db.queries.skills import ELIGIBLE_REQUIREMENT
 
 
 async def compute_skill_demand(session: AsyncSession) -> int:
     """Recompute today's skill-demand slices from `job_skills`. Returns slices written.
 
-    Counts a distinct open, in-scope job once per (company, family, concept) when it
-    has an eligible requirement for that concept (`ELIGIBLE_REQUIREMENT`), the same
+    Counts a role Insights describes (`insights_role_conds`: open, in scope, a place
+    set once) once per (company, family, concept) when it has an eligible requirement for that concept (`ELIGIBLE_REQUIREMENT`), the same
     rule as `/api/skills/top`. Summing `job_count` across a concept's
     slices never double-counts (a job has one company+family). REPLACES today's
     slices: a slice whose last posting left is gone from today, not
@@ -44,7 +45,7 @@ async def compute_skill_demand(session: AsyncSession) -> int:
             .select_from(JobSkill)
             .join(SkillConcept, SkillConcept.id == JobSkill.concept_id)
             .join(Job, Job.id == JobSkill.job_id)
-            .where(Job.status == "open", Job.in_scope.is_(True), *ELIGIBLE_REQUIREMENT)
+            .where(*insights_role_conds(), *ELIGIBLE_REQUIREMENT)
             .group_by(Job.company, Job.family, JobSkill.concept_id)
         )
     ).all()

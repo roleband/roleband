@@ -11,29 +11,10 @@ vi.mock("../../context/SyncState", () => ({
   useSourceSwitch: () => {},
 }));
 vi.mock("../../api", () => ({
-  api: { compensation: vi.fn(), compTrends: vi.fn(), disclosureTrends: vi.fn() },
+  api: { compensation: vi.fn() },
 }));
 
-const mock = (data: CompensationStats) => {
-  vi.mocked(api.compensation).mockResolvedValue(data);
-  // The embedded CompTrendChart fetches on mount; give it an empty payload.
-  vi.mocked(api.compTrends).mockResolvedValue({
-    dim: "overall",
-    days: 30,
-    reference_changes: [],
-    dates: [],
-    series: [],
-  });
-  // Same for the embedded DisclosureTrendPanel.
-  vi.mocked(api.disclosureTrends).mockResolvedValue({
-    dim: "overall",
-    days: 30,
-    basis: "base",
-    dates: [],
-    series: [],
-    cohort: null,
-  });
-};
+const mock = (data: CompensationStats) => vi.mocked(api.compensation).mockResolvedValue(data);
 
 const sum = (p25: number, p50: number, p75: number, p90: number, count: number) => ({
   count,
@@ -121,7 +102,7 @@ describe("CompensationPanel", () => {
 
   it("renders the median hero, how many open roles have an estimate, and percentile KPIs", async () => {
     mock(base());
-    render(<CompensationPanel days={30} />);
+    render(<CompensationPanel />);
 
     const hero = await screen.findByRole("heading", { level: 2 });
     expect(hero).toHaveTextContent("$479K median");
@@ -136,7 +117,7 @@ describe("CompensationPanel", () => {
 
   it("keeps the basic view to the median, its middle half, and pay by level, company and discipline", async () => {
     mock(base({ base_estimates: someBase }));
-    render(<CompensationPanel days={30} />);
+    render(<CompensationPanel />);
 
     expect(await screen.findByRole("heading", { level: 2 })).toHaveTextContent("$479K median");
     expect(screen.getByText(msg("insights-compensation-panel-coverage"))).toBeInTheDocument();
@@ -149,13 +130,11 @@ describe("CompensationPanel", () => {
     expect(screen.queryByText(msg("insights-compensation-panel-estimated-comp-distribution"))).toBeNull();
     expect(screen.queryByRole("region", { name: msg("insights-compensation-panel-estimated-base-by-level") })).toBeNull();
     expect(screen.queryByText(msg("insights-compensation-panel-what-a-skill-adds-at"))).toBeNull();
-    expect(api.compTrends).not.toHaveBeenCalled();
-    expect(api.disclosureTrends).not.toHaveBeenCalled();
   });
 
   it("orders levels by seniority and shows each band's median and the roles it rests on", async () => {
     mock(base({ coverage: { with_comp: 671, total_open: 732, pct: 0.916 } }));
-    render(<CompensationPanel days={30} />);
+    render(<CompensationPanel />);
 
     const seniorRow = (await screen.findAllByText("Senior")).map((el) => el.closest(".comp-row")).find(Boolean)!;
     expect(within(seniorRow as HTMLElement).getByText("$306K")).toBeInTheDocument();
@@ -173,7 +152,7 @@ describe("CompensationPanel", () => {
 
   it("renders distribution bins and formats company + family rows", async () => {
     mock(base());
-    render(<CompensationPanel days={30} advanced />);
+    render(<CompensationPanel advanced />);
 
     const bin = (await screen.findByText("$200K–$400K")).closest(".comp-hist-row")!;
     expect(within(bin as HTMLElement).getByText("309")).toBeInTheDocument();
@@ -190,7 +169,7 @@ describe("CompensationPanel", () => {
     const co = (i: number) => ({ company: `co-${i}`, ...sum(1, 900_000 - i, 2, 3, 10) });
     const fam = (i: number) => ({ family: `f${i}`, family_display: `Family ${i}`, ...sum(1, 800_000 - i, 2, 3, 10) });
     mock(base({ by_company: Array.from({ length: 15 }, (_, i) => co(i)), by_family: Array.from({ length: 11 }, (_, i) => fam(i)) }));
-    render(<CompensationPanel days={30} />);
+    render(<CompensationPanel />);
 
     const companies = (await screen.findByRole("heading", { name: msg("insights-compensation-panel-top-paying-companies") })).closest(".panel")!;
     const families = screen.getByRole("heading", { name: "Median estimated total compensation by discipline" }).closest(".panel")!;
@@ -208,7 +187,7 @@ describe("CompensationPanel", () => {
         ],
       }),
     );
-    render(<CompensationPanel days={30} advanced />);
+    render(<CompensationPanel advanced />);
 
     const up = (await screen.findByText("GCP")).closest(".comp-row")!;
     expect(within(up as HTMLElement).getByText("+$132K")).toHaveClass("pay-premium");
@@ -225,7 +204,7 @@ describe("CompensationPanel", () => {
     // A base is never drawn on the totals' axis, where it
     // would read as a lower-paying role.
     mock(base({ base_estimates: someBase }));
-    render(<CompensationPanel days={30} advanced />);
+    render(<CompensationPanel advanced />);
     const panel = await screen.findByRole("region", { name: msg("insights-compensation-panel-estimated-base-by-level") });
     expect(panel).toHaveTextContent(msg("insights-compensation-panel-base-only-lead", { count: 40 }));
     expect(within(panel).getByText("Senior")).toBeInTheDocument();
@@ -237,7 +216,7 @@ describe("CompensationPanel", () => {
 
   it("shows no base panel when no role is priced by its base alone", async () => {
     mock(base());
-    render(<CompensationPanel days={30} />);
+    render(<CompensationPanel />);
     await screen.findByText(msg("insights-compensation-panel-median-comp-by-level"));
     expect(screen.queryByRole("region", { name: msg("insights-compensation-panel-estimated-base-by-level") })).toBeNull();
   });
@@ -245,7 +224,7 @@ describe("CompensationPanel", () => {
   it("still reports base-only roles when no role has a total estimate, in the basic view too", async () => {
     mock(base({ coverage: { with_comp: 0, total_open: 40, pct: 0 }, overall: null, histogram: [], by_level: [],
       by_company: [], by_family: [], by_skill: [], base_estimates: someBase }));
-    render(<CompensationPanel days={30} />);
+    render(<CompensationPanel />);
     expect(await screen.findByText(/No open roles with a compensation estimate/i)).toBeInTheDocument();
     expect(screen.getByRole("region", { name: msg("insights-compensation-panel-estimated-base-by-level") }))
       .toBeInTheDocument();
@@ -263,17 +242,17 @@ describe("CompensationPanel", () => {
         by_skill: [],
       }),
     );
-    render(<CompensationPanel days={30} />);
+    render(<CompensationPanel />);
     expect(await screen.findByText(/No open roles with a compensation estimate/i)).toBeInTheDocument();
   });
 
-  it("describes the roles open now: the window moves the trend charts, never this population", async () => {
-    // Keeping roles FIRST SEEN in the window would make 7d/30d change WHICH
-    // roles are summarised, not the period: with most open postings first
-    // seen in the last 30 days, "30d" would be all-time. The window moves the
-    // two trend charts on this tab.
+  it("describes the roles open now, and draws no pay over time until there is history to compare", async () => {
+    // A day's snapshot changed what it counts when a role listed in several
+    // places began to count once, so a line across that day would show the
+    // change as a market move. Who states pay, a figure of the roles open
+    // now, stays.
     mock(base());
-    const { rerender } = render(<CompensationPanel days={30} advanced />);
+    render(<CompensationPanel advanced />);
     await screen.findByRole("heading", { level: 2 });
     expect(
       screen.getByText(
@@ -281,17 +260,17 @@ describe("CompensationPanel", () => {
         { exact: false },
       ),
     ).toBeInTheDocument();
-    await vi.waitFor(() => expect(api.compTrends).toHaveBeenLastCalledWith("overall", 30, undefined));
-
-    rerender(<CompensationPanel days={7} advanced />);
-    await vi.waitFor(() => expect(api.compTrends).toHaveBeenLastCalledWith("overall", 7, undefined));
+    const who = msg("insights-disclosure-panel-who-states-pay");
+    expect(screen.getByRole("heading", { level: 3, name: (name) => name.startsWith(who) })).toBeInTheDocument();
+    const titles = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent ?? "");
+    expect(titles.filter((t) => /over time|trend/i.test(t))).toEqual([]);
     expect(api.compensation).toHaveBeenCalledTimes(1);
     expect(api.compensation).toHaveBeenCalledWith(undefined);
   });
 
   it("says the figure is estimated rather than posted, and never claims otherwise", async () => {
     mock(base());
-    render(<CompensationPanel days={30} />);
+    render(<CompensationPanel />);
     await screen.findByRole("heading", { level: 2 });
 
     expect(screen.getByRole("button", { name: "How compensation is estimated" }))
@@ -319,7 +298,7 @@ describe("CompensationPanel", () => {
       }),
     );
     const user = userEvent.setup();
-    render(<CompensationPanel days={30} advanced />);
+    render(<CompensationPanel advanced />);
 
     const rows = within(await screen.findByRole("list", { name: "Posted base salary ranges by level" }));
     // One row per level, never one per band: four bands, two rows.

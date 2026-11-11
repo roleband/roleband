@@ -110,27 +110,6 @@ export type CompTrajectory = Schemas["CompTrajectoryResponse"];
 export type OfferTerms = Schemas["OfferTermsResponse"];
 export type OfferTermsCompany = Schemas["OfferTermsCompany"];
 
-export type CompTrendDim = CompTrends["dim"];
-export type CompTrendPoint = Schemas["CompTrendPoint"];
-export type CompTrendSeries = Schemas["CompTrendSeries"];
-
-/** `GET /api/statistics/comp-trends`: one aligned series per key over a shared axis. */
-export type CompTrends = Schemas["CompTrendsResponse"];
-
-export type DisclosureTrendDim = DisclosureTrends["dim"];
-
-/**
- * One day of pay transparency for one grouping. `rate` follows `DisclosureGroup`
- * (denominated in `checked`). `low_p50` / `high_p50` are the median published band,
- * pooled strictly within the response's `basis` and counted one vote per *distinct*
- * band; `reqs` carries the req count for context.
- */
-export type DisclosureTrendPoint = Schemas["DisclosureTrendPoint"];
-export type DisclosureTrendSeries = Schemas["DisclosureTrendSeries"];
-
-/** `GET /api/statistics/disclosure-trends`. */
-export type DisclosureTrends = Schemas["DisclosureTrendsResponse"];
-
 /* `GET /api/statistics/velocity` wire types are aliases of the generated schemas
    (`VelocityOut` and its rows live beside the handler in `routers/statistics.py`). The window
    totals and each company row count `reposted` as well as opened, updated and closed. */
@@ -143,17 +122,13 @@ export const statisticsApi = {
   demand: (scope?: InsightsScope) => getJSON<Demand>(scoped(`/api/demand`, scope)),
   statisticsOverview: (days = 30, scope?: InsightsScope) =>
     getJSON<StatisticsOverview>(scoped(`/api/statistics/overview?days=${days}`, scope)),
-  /** The roles open now; no window. The trend routes carry time. */
+  /** The roles open now; no window. */
   compensation: (scope?: InsightsScope) =>
     getJSON<CompensationStats>(scoped(`/api/statistics/compensation`, scope)),
   compTrajectory: (signal?: AbortSignal) =>
     getJSON<CompTrajectory>("/api/statistics/comp-trajectory", signal),
   offerTerms: (signal?: AbortSignal) => getJSON<OfferTerms>("/api/statistics/offer-terms", signal),
   levelGuide: (signal?: AbortSignal) => getJSON<LevelGuide>("/api/statistics/levels", signal),
-  compTrends: (dim: CompTrendDim = "overall", days = 90, scope?: InsightsScope) =>
-    getJSON<CompTrends>(scoped(`/api/statistics/comp-trends?dim=${dim}&days=${days}`, scope)),
-  disclosureTrends: (dim: DisclosureTrendDim = "overall", days = 90, scope?: InsightsScope) =>
-    getJSON<DisclosureTrends>(scoped(`/api/statistics/disclosure-trends?dim=${dim}&days=${days}`, scope)),
   velocity: (days = 30, scope?: InsightsScope) =>
     getJSON<VelocityStats>(scoped(`/api/statistics/velocity?days=${days}`, scope)),
 };

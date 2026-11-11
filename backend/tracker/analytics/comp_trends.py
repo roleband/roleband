@@ -15,8 +15,9 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
+from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, exists, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,6 +36,7 @@ from tracker.db.models import (
     JobCompEstimate,
     ReferenceState,
 )
+from tracker.db.queries.jobs import insights_role_conds
 from tracker.db.queries.scope import level_key_expr
 from tracker.levels import UNSTATED_LEVEL
 from tracker.schema import OUR_ESTIMATE_SOURCE
@@ -117,9 +119,12 @@ async def compute_comp_metrics(session: AsyncSession) -> int:
     Writes two representations of the same open-role comp: `comp_metrics` (stored
     percentiles, read directly) and `comp_snapshot` (raw values per company/level/
     family, so the trend can recompute exact percentiles over a visible-company
-    subset at read time). Both REPLACE today's rows: a group that no
-    longer has an open in-scope posting with comp is gone from today, and its
-    old values never pool with the survivors. Earlier days are untouched.
+    subset at read time), over the roles Insights describes
+    (`insights_role_conds`: open, in scope, a place set once, through its first
+    member with a dollar value from the source), so a role listed in twenty places
+    weighs once. Both REPLACE today's rows: a group that no
+    longer has such a role with comp is gone from today, and its old values
+    never pool with the survivors. Earlier days are untouched.
 
     Grouped by the level key (`db.queries.scope.level_key_expr`): a role whose
     level we cannot place is `unstated`. Older days may hold the band instead,
@@ -137,15 +142,25 @@ async def compute_comp_metrics(session: AsyncSession) -> int:
     plugin = ((applied or {}).get("active") or {}).get("pay.levels") or []
     sources = [OUR_ESTIMATE_SOURCE, *plugin[:1]]
 
-    estimated = (
-        await session.execute(
-            select(Job.company, level_key_expr(Job), Job.family, JobCompEstimate.comp_median,
-                   JobCompEstimate.source)
-            .join(JobCompEstimate, JobCompEstimate.job_id == Job.id)
-            .where(Job.status == "open", Job.in_scope.is_(True), JobCompEstimate.source.in_(sources),
-                   JobCompEstimate.comp_currency == "USD")
-        )
-    ).all()
+    estimated: list = []
+    for source in sources:
+        # A place set's estimate is its first member's that has a dollar value
+        # from this source: a member at a place outside the estimate's country,
+        # or one whose estimate has no value, never stands for the role.
+        def priced(peer: Any, source: str = source) -> list:
+            return [exists().where(JobCompEstimate.job_id == peer.id, JobCompEstimate.source == source,
+                                   JobCompEstimate.comp_currency == "USD",
+                                   JobCompEstimate.comp_median.is_not(None))]
+
+        estimated += (
+            await session.execute(
+                select(Job.company, level_key_expr(Job), Job.family, JobCompEstimate.comp_median,
+                       JobCompEstimate.source)
+                .join(JobCompEstimate, JobCompEstimate.job_id == Job.id)
+                .where(*insights_role_conds(priced), JobCompEstimate.source == source,
+                       JobCompEstimate.comp_currency == "USD", JobCompEstimate.comp_median.is_not(None))
+            )
+        ).all()
     rows = [(company, level, family, median) for company, level, family, median, source in estimated
             if source == OUR_ESTIMATE_SOURCE]
 
@@ -304,7 +319,9 @@ def build_disclosure_trend_series(
 async def compute_disclosure_metrics(session: AsyncSession) -> int:
     """Recompute today's pay-transparency snapshot. Returns the number of cells written.
 
-    Replaces (rather than upserts) the day's rows: these cells are *denominators*,
+    Over the roles Insights describes (`insights_role_conds`), so a day's open
+    count is the Compensation tab's. Replaces (rather than upserts) the day's
+    rows: these cells are *denominators*,
     so a cell that emptied since an earlier run today — every role in it closed —
     must disappear, not linger and inflate the open count. The comp tables upsert
     because a stale percentile is merely stale; a stale denominator is wrong.
@@ -324,7 +341,7 @@ async def compute_disclosure_metrics(session: AsyncSession) -> int:
                 Job.disclosed_pay_basis,
                 Job.disclosed_currency,
                 Job.disclosed_pay_period,
-            ).where(Job.status == "open", Job.in_scope.is_(True))
+            ).where(*insights_role_conds())
         )
     ).all()
 
