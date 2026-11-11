@@ -144,6 +144,46 @@ updates:
       - dependency-name: typescript
         versions: [">=6"]
 
+  # The Windows app's packages. Each project keeps a packages.lock.json, and the
+  # release build restores RoleBand.App in locked mode (Tools/assemble.py), so a
+  # version change moves the lock files with it. The Windows lane restores
+  # without locked mode and rewrites a stale lock instead of failing, so green CI
+  # does not show the lock files moved: read that the PR changes them. Each
+  # project is listed: a new one is added here too.
+  - package-ecosystem: nuget
+    directories:
+      - /launcher/windows/RoleBand.App
+      - /launcher/windows/RoleBand.EngineHost
+      - /launcher/windows/RoleBand.EngineHost.Tests
+      - /launcher/windows/RoleBand.Setup
+      - /launcher/windows/Tools/PackageContextProbe
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      # Minor/patch in one PR across every project, so a package two projects share
+      # moves in both at once. A major arrives on its own.
+      windows:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # The .NET SDK `global.json` pins, with roll-forward off. Each SDK patch brings
+  # its own native-compiler packages, which RoleBand.Setup's packages.lock.json
+  # records, so a new SDK is a change to `global.json` and that lock together
+  # (docs/testing.md). A PR from here changes only `global.json`, and green CI
+  # does not clear it: the Windows lane rewrites a stale lock instead of failing.
+  # Restore RoleBand.Setup with the new SDK on Windows and commit its lock file
+  # to the same branch before merging.
+  - package-ecosystem: dotnet-sdk
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: "chore(deps)"
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

@@ -140,3 +140,23 @@ jobs:
             ${{ steps.check.outputs.output }}/report.json
           if-no-files-found: ignore
           retention-days: 7
+
+  # The check the ruleset requires. Lanes and shards report under their own names, so
+  # this one job stands for all of them: it passes only when every one passed, and a
+  # lane that failed, was cancelled or never started fails it. A change with no Windows
+  # input still passes, since each lane then succeeds with its steps skipped. A failed
+  # `changes` job runs every lane, so its own result hides nothing. `always()`, not
+  # `!cancelled()`: a skipped job counts as passed for a required check, so this job
+  # runs and fails when the run is cancelled.
+  result:
+    name: windows
+    needs: checks
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - env:
+          LANES: ${{ needs.checks.result }}
+        run: |
+          echo "lanes: $LANES"
+          test "$LANES" = success

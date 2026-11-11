@@ -5,6 +5,8 @@ from __future__ import annotations
 import tomllib
 from datetime import date
 
+import pytest
+
 from scripts.check_dependency_audit import EXCEPTIONS, FIELDS, findings, main, problems
 
 TODAY = date(2026, 10, 19)
@@ -92,28 +94,36 @@ def test_the_command_exits_one_on_a_finding_and_zero_once_it_is_excepted(tmp_pat
     assert main(["--report", str(report), "--exceptions", str(listed)]) == 0
 
 
-def test_every_lock_an_install_or_the_mac_app_uses_is_audited():
-    """A pin that only the macOS lock or the app's runtime lock carries still ships:
-    the audit reads every platform lock and the app's runtime lock, not only CI's."""
+def test_every_lock_an_install_an_app_or_the_release_build_uses_is_audited():
+    """A pin that only the macOS lock, one app's runtime lock or the release build's
+    packaging tools carry still ships or runs: the audit reads each, not only CI's."""
     from scripts.check_dependency_audit import BACKEND, LOCKS
 
-    expected = {*(BACKEND / "constraints").glob("*.txt"), BACKEND.parent / "launcher" / "macos" / "runtime-lock.txt"}
+    launcher = BACKEND.parent / "launcher"
+    expected = {
+        *(BACKEND / "constraints").glob("*.txt"),
+        launcher / "macos" / "runtime-lock.txt",
+        launcher / "macos" / "packaging-requirements.txt",
+        launcher / "windows" / "runtime-lock.txt",
+    }
     assert set(LOCKS) == expected
     assert all(lock.is_file() for lock in LOCKS)
 
 
-def test_a_finding_only_in_the_mac_runtime_lock_fails_the_command(monkeypatch, capsys):
+@pytest.mark.parametrize("lock", ["macos/runtime-lock.txt", "macos/packaging-requirements.txt",
+                                  "windows/runtime-lock.txt"])
+def test_a_finding_only_in_one_launcher_lock_fails_the_command_naming_it(monkeypatch, capsys, lock):
     from scripts import check_dependency_audit as audit
 
-    def run(lock):
-        if lock.name == "runtime-lock.txt":
+    def run(path):
+        if path == audit.LAUNCHER / lock:
             return _report(("setuptools", "83.0.0", "GHSA-xmj3-9gf7-h52w", []))
         return _report()
 
     monkeypatch.setattr(audit, "run_pip_audit", run)
     assert audit.main(["--exceptions", str(EXCEPTIONS)]) == 1
-    out = capsys.readouterr().out
-    assert "setuptools 83.0.0: GHSA-xmj3-9gf7-h52w" in out and "runtime-lock.txt" in out
+    lines = [line for line in capsys.readouterr().out.splitlines() if "GHSA-xmj3-9gf7-h52w" in line]
+    assert len(lines) == 1 and lines[0].endswith(f"in launcher/{lock}; upgrade it, or add a reviewed exception")
 
 
 def test_a_pin_shared_by_several_locks_is_one_finding_naming_each_lock():
