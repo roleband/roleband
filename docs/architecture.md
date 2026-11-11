@@ -654,9 +654,10 @@ migrations.
   in their window: a first read goes to the first-scan bucket, a repost or
   duplicate to reposted. A role a wider scope admits counts at its first
   sighting, never at the admission, so widening the scope adds no openings on
-  the day it widens. A window starts no earlier than the scope's history, the
-  first read that saw a whole listing of one of its companies
-  (`db/queries/insights.history_since`). Hiring's closed count uses the New
+  the day it widens. A window, and every count in it, starts no earlier than the scope's history:
+  the start of the first read that saw a whole listing of one of its companies
+  (`db/queries/insights.history_since`), so a partial read before it adds no
+  openings. Hiring's closed count uses the New
   rule's period, so its new and closed numbers describe one stretch of time.
 - **Runs.** `scrape_runs` holds a heartbeat, totals, `per_source` (each company's
   counts, errors and outcome) and `drift_alerts`, the audit surface for adapter

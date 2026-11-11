@@ -2857,9 +2857,9 @@ export interface paths {
          * @description Cockpit aggregate for the Statistics landing tab.
          *
          *     KPI tiles, a short generated brief and the top skills, pulling from the demand
-         *     and skills layers. `days<=0` means all-time; otherwise the opened and closed
-         *     counters are scoped to the last N days. `since` is where the figures start:
-         *     the window's start, or the scope's history when that is shorter.
+         *     and skills layers. `days<=0` means all-time. The opened and closed counters
+         *     start at `since`: the window's start, or the scope's history when that is
+         *     shorter, so nothing found before the history is counted.
          */
         get: operations["statistics_overview_api_statistics_overview_get"];
         put?: never;

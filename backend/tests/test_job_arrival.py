@@ -281,13 +281,13 @@ def _at(value: str | None) -> datetime | None:
 
 async def test_a_history_starts_at_the_first_whole_read_and_bounds_every_window(api_client, board):
     """Capped reads 10 days ago prove nothing about what the board held; the
-    first whole read, 6 days ago, starts the history. A window longer than the
-    history starts with it; a shorter one at its own start."""
+    first whole read, 6 days ago, starts the history when it starts. A window
+    longer than the history starts with it; a shorter one at its own start."""
     assert (await api_client.get("/api/statistics/history")).json() == {"since": None, "days": 0}
     await board.read(NOW - timedelta(days=10), ("a",), outcome="capped", complete=False)
     await board.read(NOW - timedelta(days=9), ("a",), outcome="capped", complete=False)
     start = NOW - timedelta(days=6, hours=1)
-    await board.read(start - timedelta(minutes=1), ("a",))
+    await board.read(start, ("a",))
     assert (await api_client.get("/api/statistics/history")).json() == {
         "since": start.isoformat().replace("+00:00", "Z"), "days": 6,
     }
@@ -297,6 +297,20 @@ async def test_a_history_starts_at_the_first_whole_read_and_bounds_every_window(
             assert _at(since) == start, (route, days)
         week = _at((await api_client.get(f"/api/statistics/{route}?days=3")).json()["since"])
         assert week is not None and NOW - timedelta(days=3, minutes=1) < week < NOW - timedelta(days=2), route
+
+
+async def test_a_window_longer_than_the_history_counts_nothing_found_before_it(api_client, board):
+    """A capped read 10 days ago found `a`; the history starts with the first
+    whole read, 6 days ago. Overview and Pace say their figures start there,
+    so no window counts `a` among the roles found, while `a` stays open."""
+    await board.read(NOW - timedelta(days=10), ("a",), outcome="capped", complete=False)
+    await board.read(NOW - timedelta(days=6, hours=1), ("a",))
+    await board.read(NOW - timedelta(hours=1), ("a", "b"))
+    for days in (0, 30):
+        overview = (await api_client.get(f"/api/statistics/overview?days={days}")).json()["kpis"]
+        assert (overview["new_count"], overview["first_scan_count"]) == (1, 0), days
+        velocity = (await api_client.get(f"/api/statistics/velocity?days={days}")).json()["kpis"]
+        assert (velocity["opened"], velocity["first_scan"], velocity["open_total"]) == (1, 0, 2), days
 
 
 async def test_each_companies_side_has_its_own_history_and_an_unfollowed_company_none(
@@ -313,7 +327,7 @@ async def test_each_companies_side_has_its_own_history_and_an_unfollowed_company
         for side in ("all", "yours", "other")
     }
     assert {side: h["days"] for side, h in history.items()} == {"all": 20, "yours": 6, "other": 20}
-    assert _at(history["yours"]["since"]) == NOW - timedelta(days=6, hours=1, seconds=-60)
+    assert _at(history["yours"]["since"]) == NOW - timedelta(days=6, hours=1)
     overview = (await api_client.get("/api/statistics/overview", params={"side": "yours", "days": 0})).json()
     assert overview["since"] == history["yours"]["since"]
 

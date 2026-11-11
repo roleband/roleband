@@ -92,11 +92,12 @@ async def resolve_insights_scope(
 
 
 async def history_since(session: AsyncSession, scope: InsightsScope, hidden: list[str]) -> datetime | None:
-    """When the history of the scope's companies starts: the first read of one
-    of them that saw its whole listing (`list_complete`, or a board proven
-    `empty`), off-board companies aside. None before any such read. A partial
-    read never starts it: what it missed may have been listed all along."""
-    stmt = select(func.min(ScrapeSourceRun.finished_at)).where(
+    """When the history of the scope's companies starts: the start of the first
+    read of one of them that saw its whole listing (`list_complete`, or a board
+    proven `empty`), off-board companies aside, so what that read found is
+    inside it. None before any such read. A partial read never starts it: what
+    it missed may have been listed all along."""
+    stmt = select(func.min(ScrapeSourceRun.started_at)).where(
         or_(ScrapeSourceRun.list_complete.is_(True), ScrapeSourceRun.outcome == SourceOutcome.EMPTY.value),
         *scope.company_conds(ScrapeSourceRun.company_slug),
     )

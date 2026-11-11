@@ -183,14 +183,13 @@ async def statistics_overview(
     """Cockpit aggregate for the Statistics landing tab.
 
     KPI tiles, a short generated brief and the top skills, pulling from the demand
-    and skills layers. `days<=0` means all-time; otherwise the opened and closed
-    counters are scoped to the last N days. `since` is where the figures start:
-    the window's start, or the scope's history when that is shorter.
+    and skills layers. `days<=0` means all-time. The opened and closed counters
+    start at `since`: the window's start, or the scope's history when that is
+    shorter, so nothing found before the history is counted.
     """
     now = datetime.now(UTC)
-    all_time = days <= 0
-    cutoff = None if all_time else now - timedelta(days=days)
     since = window_since(await history_since(session, scope, hidden), days, now)
+    cutoff = since
 
     open_total = await session.scalar(open_in_scope_count_stmt(hidden, *scope.conds()))
     companies = await session.scalar(
@@ -776,9 +775,10 @@ async def statistics_velocity(
     advertised, and a public board says nothing about whether anyone was hired.
     """
     now = datetime.now(UTC)
-    all_time = days <= 0
-    cutoff = None if all_time else now - timedelta(days=days)
+    # The counters start where the figures say they do (`since`).
     since = window_since(await history_since(session, scope, hidden), days, now)
+    all_time = since is None
+    cutoff = since
     params: dict = {} if all_time else {"cutoff": cutoff}
     if hidden:
         params["hidden"] = hidden

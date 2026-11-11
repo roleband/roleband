@@ -31467,7 +31467,7 @@
   },
   "/api/statistics/overview": {
    "get": {
-    "description": "Cockpit aggregate for the Statistics landing tab.\n\nKPI tiles, a short generated brief and the top skills, pulling from the demand\nand skills layers. `days<=0` means all-time; otherwise the opened and closed\ncounters are scoped to the last N days. `since` is where the figures start:\nthe window's start, or the scope's history when that is shorter.",
+    "description": "Cockpit aggregate for the Statistics landing tab.\n\nKPI tiles, a short generated brief and the top skills, pulling from the demand\nand skills layers. `days<=0` means all-time. The opened and closed counters\nstart at `since`: the window's start, or the scope's history when that is\nshorter, so nothing found before the history is counted.",
     "operationId": "statistics_overview_api_statistics_overview_get",
     "parameters": [
      {
