@@ -305,7 +305,7 @@ def execute(root: Path, output: Path, steps: Sequence[Step], env: dict[str, str]
             "profile": {key: env.get(key) for key in (
                 "ROLEBAND_CHECK_PROFILE", "ROLEBAND_REQUIRE_INTEGRATION", "ROLEBAND_UX_MODE",
                 "ROLEBAND_UX_WORKERS", "ROLEBAND_UX_PORT", "ROLEBAND_PGDATA", "ROLEBAND_CHECK_TESTS",
-                "ROLEBAND_CHECK_BROWSERS", "ROLEBAND_CHECK_WINDOWS_LANE",
+                "ROLEBAND_CHECK_BROWSERS", "ROLEBAND_CHECK_WINDOWS_LANE", "ROLEBAND_CHECK_WINDOWS_SHARD",
             )},
             "lanes": len(lanes),
             "steps": results,
@@ -324,8 +324,24 @@ def positive_integer(value: str) -> int:
     return number
 
 
-def windows_tests(backend: Path, lane: str) -> list[str]:
-    """The pytest selection of a Windows lane: the native suites split in two, and `suite` runs everything else."""
+def shard(value: str) -> str:
+    """`INDEX/TOTAL`, as `--shard` in backend/conftest.py takes it."""
+    index, sep, total = value.partition("/")
+    if not (sep and index.isdigit() and total.isdigit() and 1 <= int(index) <= int(total)):
+        raise argparse.ArgumentTypeError(f"takes INDEX/TOTAL with 1 <= INDEX <= TOTAL, not {value!r}")
+    return f"{int(index)}/{int(total)}"
+
+
+def windows_tests(backend: Path, lane: str, part: str | None = None) -> list[str]:
+    """The pytest selection of a Windows lane: the native suites split in two, and `suite` runs everything else.
+
+    `part` (`INDEX/TOTAL`) cuts the suite lane by test file, as backend.yml cuts the
+    Linux suite; the TOTAL parts together run the lane's whole selection.
+    """
+    if part is not None:
+        if lane != "suite":
+            raise ValueError("only the suite lane is split into shards")
+        return [*windows_tests(backend, lane), f"--shard={part}"]
     if lane == "all":
         return ["tests"]
     tests = backend / "tests"
@@ -358,6 +374,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--ci-parity", action="store_true", help="require backend integration tests instead of allowing local skips")
     parser.add_argument("--test", action="append", default=[], help="test file/node selector")
     parser.add_argument("--windows-lane", choices=("all", "checkpoints", "engine", "suite", "native"), default="all")
+    parser.add_argument("--shard", type=shard, metavar="INDEX/TOTAL",
+                        help="run one shard of the suite lane, split by test file; only with --windows-lane suite")
     parser.add_argument("--parallel", action="store_true", help="run the backend and dashboard lanes at the same time; only for the all profile")
     parser.add_argument("--docker-browsers", action="store_true",
                         help=f"build and run both browser projects in a Linux container (default {DOCKER_UX_WORKERS} workers); "
@@ -368,6 +386,8 @@ def main(argv: list[str] | None = None) -> int:
         raise KeyboardInterrupt
 
     signal.signal(signal.SIGTERM, interrupted)
+    if args.shard and (args.profile != "windows" or args.windows_lane != "suite"):
+        parser.error("--shard splits only the windows profile's suite lane (--windows-lane suite)")
     windows = sys.platform == "win32"
     if args.profile == "windows" and not windows:
         parser.error("the windows profile requires native Windows")
@@ -426,7 +446,8 @@ def main(argv: list[str] | None = None) -> int:
                    # scratch TEMP, which then cannot be removed; each build compiles in its own process.
                    UseSharedCompilation="false")
     if args.profile == "windows":
-        env.update(ROLEBAND_REQUIRE_INTEGRATION="1", ROLEBAND_CHECK_WINDOWS_LANE=args.windows_lane)
+        env.update(ROLEBAND_REQUIRE_INTEGRATION="1", ROLEBAND_CHECK_WINDOWS_LANE=args.windows_lane,
+                   ROLEBAND_CHECK_WINDOWS_SHARD=args.shard or "")
         # Native compilation finds the C++ linker through Visual Studio's locator, which its installer keeps off PATH.
         locator = Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Microsoft Visual Studio" / "Installer"
         if (locator / "vswhere.exe").is_file():
@@ -435,7 +456,7 @@ def main(argv: list[str] | None = None) -> int:
             steps.append(Step("pytest", backend, [python, "-m", "pytest", "-n", str(args.backend_workers or 4),
                          "-q", "-rs", "-p", "no:cacheprovider", "--durations=20",
                          f"--basetemp={output / 't'}", f"--junitxml={output / 'pytest.xml'}",
-                         *(args.test or windows_tests(backend, args.windows_lane))]))
+                         *(args.test or windows_tests(backend, args.windows_lane, args.shard))]))
         if args.windows_lane in ("all", "native") and not args.test:
             steps.extend([
                 Step("packaging-tools", root, [python, "-m", "unittest", "discover", "-s", "launcher/windows/Tools", "-p", "test_*.py"]),

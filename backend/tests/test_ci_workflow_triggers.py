@@ -739,6 +739,75 @@ def test_a_shard_cut_the_matrix_does_not_match_is_reported():
     ]
 
 
+#: The lanes `deploy/check_local.py windows --windows-lane` runs in CI; `all` is local only.
+WINDOWS_LANES = {"checkpoints", "engine", "native", "suite"}
+
+
+def windows_shard_gaps(job: dict) -> list[str]:
+    """How the Windows lanes' matrix and the suite's `--shard INDEX/TOTAL` cut disagree.
+
+    The Windows job runs pytest through `check_local.py`, which takes the shard
+    from the matrix entry and the count from SUITE_SHARDS; every lane is one
+    `include` entry and the suite has one per shard.
+    """
+    entries = (job.get("strategy") or {}).get("matrix", {}).get("include") or []
+    check = next((s for s in job.get("steps") or [] if "check_local.py windows" in str(s.get("run", ""))), {})
+    total = int((check.get("env") or {}).get("SUITE_SHARDS") or 0)
+    gaps = []
+    lanes = {entry.get("lane") for entry in entries}
+    if lanes != WINDOWS_LANES:
+        gaps.append(f"runs lanes {sorted(map(str, lanes))}, not {sorted(WINDOWS_LANES)}")
+    gaps += [f"the {e['lane']} lane is cut into shards" for e in entries if e.get("lane") != "suite" and "shard" in e]
+    shards = sorted(e.get("shard", 0) for e in entries if e.get("lane") == "suite")
+    if shards != list(range(1, total + 1)):
+        gaps.append(f"cuts the suite into {total} shards, the matrix runs {shards}")
+    run = str(check.get("run", ""))
+    if "--shard" not in run or "$env:WINDOWS_SHARD/$env:SUITE_SHARDS" not in run:
+        gaps.append("runs the whole suite on every shard")
+    if (check.get("env") or {}).get("WINDOWS_SHARD") != "${{ matrix.shard }}":
+        gaps.append("does not take its shard from the matrix")
+    return gaps
+
+
+def test_the_windows_suite_shards_together_run_the_whole_suite():
+    """Too few matrix entries for the cut leaves test files unrun on Windows with
+    every check green; a cut the check step does not pass runs the suite on each."""
+    data = yaml.safe_load((WORKFLOWS / "windows.yml").read_text())
+    assert windows_shard_gaps(data["jobs"]["checks"]) == []
+
+
+def test_a_windows_cut_the_matrix_does_not_match_is_reported():
+    check = {
+        "env": {"WINDOWS_LANE": "${{ matrix.lane }}", "WINDOWS_SHARD": "${{ matrix.shard }}", "SUITE_SHARDS": 3},
+        "run": "python deploy/check_local.py windows --windows-lane $env:WINDOWS_LANE --output $output",
+    }
+    job = {
+        "strategy": {"matrix": {"include": [
+            {"lane": "checkpoints"}, {"lane": "engine", "shard": 1},
+            {"lane": "suite", "shard": 1}, {"lane": "suite", "shard": 2},
+        ]}},
+        "steps": [{"name": "setup", "run": "python -m venv .venv"}, check],
+    }
+    assert windows_shard_gaps(job) == [
+        "runs lanes ['checkpoints', 'engine', 'suite'], not ['checkpoints', 'engine', 'native', 'suite']",
+        "the engine lane is cut into shards",
+        "cuts the suite into 3 shards, the matrix runs [1, 2]",
+        "runs the whole suite on every shard",
+    ]
+
+
+def test_each_windows_runner_uploads_its_own_results():
+    """Two runners uploading under one artifact name fail the second upload and
+    lose its outcomes; the name follows the output folder the check step names."""
+    job = yaml.safe_load((WORKFLOWS / "windows.yml").read_text())["jobs"]["checks"]
+    check = next(s for s in job["steps"] if s.get("id") == "check")
+    upload = next(s for s in job["steps"] if str(s.get("uses", "")).startswith("actions/upload-artifact@"))
+    assert upload["with"]["name"] == "windows-test-results-${{ steps.check.outputs.run }}"
+    assert '"run=$run" >> $env:GITHUB_OUTPUT' in check["run"]
+    assert '$run = "$run-$env:WINDOWS_SHARD"' in check["run"]
+    assert "Join-Path \"$env:SystemDrive\\rb\" $run" in check["run"]
+
+
 def test_the_required_backend_check_passes_only_when_every_shard_did():
     """The ruleset requires `backend`; the shards report under their own names, so
     the one job named `backend` has to stand for all of them, even when one fails."""
