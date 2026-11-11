@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import ctypes
+import errno
 import importlib.util
 import json
 import os
@@ -343,6 +344,37 @@ async def test_code_a_plugin_saves_in_its_data_directory_never_runs(db_session, 
     assert not marks.exists() or sorted(p.name for p in marks.iterdir()) == []
 
 
+def _refuses_writes(folder: Path) -> bool:
+    """Whether creating something in `folder` is refused, by a real attempt: `os.access` on Windows reads only the
+    read-only attribute, never the folder's access list. macOS's sealed system volume refuses with EROFS, not a
+    permission error. Any other failure is not an answer and is raised."""
+    probe = folder / f"plugin-probe-{os.getpid()}"
+    try:
+        probe.mkdir()
+    except PermissionError:
+        return True
+    except OSError as failed:
+        if failed.errno == errno.EROFS:
+            return True
+        raise
+    probe.rmdir()
+    return False
+
+
+def test_the_write_probe_answers_only_for_a_refusal(tmp_path, monkeypatch):
+    assert not _refuses_writes(tmp_path)
+    assert not list(tmp_path.iterdir()), "the probe cleans up what it made"
+    for code, refused in ((errno.EROFS, True), (errno.EACCES, True), (errno.ENOSPC, None)):
+        def fail(self, *_args, code=code, **_kwargs):
+            raise OSError(code, os.strerror(code))
+        monkeypatch.setattr(Path, "mkdir", fail)
+        if refused:
+            assert _refuses_writes(tmp_path)
+        else:
+            with pytest.raises(OSError):
+                _refuses_writes(tmp_path)
+
+
 async def test_the_runner_is_isolated_and_starts_where_the_plugin_cannot_write(db_session, tmp_path):
     """Isolated mode (no current directory, user site-packages or PYTHON*
     variables on the path) and a working directory outside every plugin folder."""
@@ -379,14 +411,7 @@ async def test_the_runner_is_isolated_and_starts_where_the_plugin_cannot_write(d
         # An elevated run may write anywhere, so no attempt can tell; the folder is the one ordinary accounts cannot write.
         assert Path(cwd) == Path(os.environ["SystemRoot"])
     else:
-        # A real attempt: `os.access` on Windows reads only the read-only attribute, never the folder's access list.
-        probe_dir = Path(cwd) / f"plugin-probe-{os.getpid()}"
-        try:
-            with pytest.raises(PermissionError):
-                probe_dir.mkdir()
-        finally:
-            if probe_dir.is_dir():
-                probe_dir.rmdir()
+        assert _refuses_writes(Path(cwd)), f"a plugin could write in {cwd}"
     assert said.split("path0=", 1)[1] == str(SDK), "the SDK this core ships leads the path, never ''"
 
 
