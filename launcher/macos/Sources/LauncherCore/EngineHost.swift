@@ -253,7 +253,10 @@ public actor EngineHost {
             restarts.removeAll { now() - $0 >= 600 }
             guard restarts.count < 3 else { state = .needsAttention; return }
             restarts.append(now())
-            do { try launch() } catch { try await failed(String(describing: error)) }
+            do { try launch() } catch HostProblem.databaseInUse {
+                // Another program serves the database: a retry cannot start, so wait for the person.
+                attention(HostProblem.databaseInUse)
+            } catch { try await failed(String(describing: error)) }
         case .starting, .running:
             guard child?.running() == true else { try await failed("engine_exited"); return }
             do {
@@ -314,7 +317,7 @@ public actor EngineHost {
         // indefinitely for clients. Its separate session is stopped only after the clients.
         if let pid = LaunchMode.runningServer(configuration.pgdata), let server = OwnedProcess.read(pid), server.isPostgres {
             guard let path = LaunchMode.executable(pid), LaunchMode.isInsideApp(path) else {
-                throw HostProblem.sourceInstallation
+                throw LaunchMode.recordedByApp(configuration.pgdata) ? HostProblem.databaseInUse : HostProblem.sourceInstallation
             }
             guard server.matchesDatabase(configuration.pgdata) else { throw HostProblem.processInspection }
             try server.signal(SIGINT)
