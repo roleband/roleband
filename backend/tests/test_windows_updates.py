@@ -413,6 +413,15 @@ def test_a_source_run_never_takes_the_committed_identity(tmp_path, monkeypatch, 
     monkeypatch.setattr(paths, "PACKAGED", False)
     assert windows_update.main(["status", "--state", str(tmp_path / "state")]) == 0
     assert json.loads(capsys.readouterr().out) == {"status": "unavailable", "reason": "This build carries no update identity."}
+
+
+def test_only_a_package_names_an_update_identity(monkeypatch):
+    """The path itself, on every platform: a package's resources hold its identity, a source checkout names none."""
+    from scripts import windows_update
+    from tracker.platform import paths
+
+    monkeypatch.setattr(paths, "PACKAGED", False)
+    assert windows_update.identity_path() is None
     monkeypatch.setattr(paths, "PACKAGED", True)
     assert windows_update.identity_path() == paths.REPO_ROOT / "release-identity.json"
 
