@@ -148,7 +148,15 @@ public sealed class SessionEndTests
 
         public void Detach() => OnThread(() => listener?.Dispose());
 
-        public nint Send(uint message, nint wParam, nint lParam) => SendMessage(window, message, wParam, lParam);
+        /// <summary>The window's answer; a window that does not answer within five seconds fails the test rather than
+        /// hanging the run.</summary>
+        public nint Send(uint message, nint wParam, nint lParam)
+        {
+            const uint AbortIfHung = 0x2;
+            if (SendMessageTimeout(window, message, wParam, lParam, AbortIfHung, 5000, out var result) == 0)
+                throw new TimeoutException($"The window did not answer message 0x{message:X4}.");
+            return result;
+        }
 
         private void OnThread(Action action)
         {
@@ -214,8 +222,9 @@ public sealed class SessionEndTests
     private static extern nint DispatchMessage(ref WindowMessage message);
     [DllImport("user32.dll", EntryPoint = "PostThreadMessageW")]
     private static extern bool PostThreadMessage(uint thread, uint message, nint wParam, nint lParam);
-    [DllImport("user32.dll", EntryPoint = "SendMessageW")]
-    private static extern nint SendMessage(nint window, uint message, nint wParam, nint lParam);
+    [DllImport("user32.dll", EntryPoint = "SendMessageTimeoutW")]
+    private static extern nint SendMessageTimeout(nint window, uint message, nint wParam, nint lParam, uint flags, uint timeout,
+                                                  out nint result);
     [DllImport("kernel32.dll")]
     private static extern uint GetCurrentThreadId();
 }
