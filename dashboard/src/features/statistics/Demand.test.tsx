@@ -179,8 +179,8 @@ it("opens the Board narrowed to a company when its bar is clicked", async () => 
 it("hands the chart the bars it already drew when only the sheet opens", async () => {
   vi.mocked(api.demand).mockResolvedValue(demand());
   renderHiring();
-  fireEvent.click(await screen.findByRole("button", { name: "Show all 20 companies" }));
-  await screen.findByRole("dialog", { name: "All companies hiring" });
+  fireEvent.click(await screen.findByRole("button", { name: msg("insights-demand-show-all", { company: msg("shared-count-company", { count: 20 }) }) }));
+  await screen.findByRole("dialog", { name: msg("insights-demand-all-companies-hiring") });
   expect(handed.bars.length).toBeGreaterThan(1);
   expect(new Set(handed.bars).size).toBe(1);
 });

@@ -1150,6 +1150,10 @@ def aggregate_gaps(data: dict, name: str) -> list[str]:
                                        ("skipped", "", " after a failed decision")):
             if passes({job_id: outcome}, decision):
                 gaps.append(f"passes when {job_id} was {outcome}{why}")
+        # A part with a decision of its own may be skipped when the change did not need it.
+        if job_id in reads and reads[job_id].replace("RESULT_", "NEEDED_", 1) in decisions \
+                and not passes({job_id: "skipped"}, "false"):
+            gaps.append(f"fails when {job_id} was skipped and the change did not need it")
     return gaps
 
 
@@ -1219,6 +1223,14 @@ def test_a_required_check_whose_step_lets_a_part_through_is_reported():
     assert aggregate_gaps(mac, "mac-launcher") == [
         "passes when build was skipped after a failed decision",
         "passes when bundle was skipped after a failed decision",
+    ]
+    # And one that fails a part the change did not need would hold every pull request.
+    mac = yaml.safe_load((WORKFLOWS / "mac-launcher.yml").read_text())
+    mac_step = mac["jobs"]["result"]["steps"][0]
+    mac_step["run"] = mac_step["run"].replace('r == "success" or', 'r == "success" or False and')
+    assert aggregate_gaps(mac, "mac-launcher") == [
+        "fails when build was skipped and the change did not need it",
+        "fails when bundle was skipped and the change did not need it",
     ]
 
 
