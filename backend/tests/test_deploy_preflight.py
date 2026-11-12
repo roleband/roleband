@@ -55,12 +55,21 @@ def repo(tmp_path) -> Path:
     return root
 
 
-def _run(repo: Path, *args: str, cwd: Path | None = None, backend: bool = False) -> subprocess.CompletedProcess:
+def _own_database(repo: Path) -> dict[str, str]:
+    """A database folder of the test's own. Without it the throwaway checkout, which
+    has no `.env`, would name the default folder, which on a Mac can be the app's."""
+    return {"ROLEBAND_PGDATA": str(repo.parent / "pgdata"), "ROLEBAND_DATABASE_URL": "", "ROLEBAND_DB_EMBEDDED": "true"}
+
+
+def _run(repo: Path, *args: str, cwd: Path | None = None, backend: bool = False,
+         env_overrides: dict[str, str] | None = None) -> subprocess.CompletedProcess:
     env = {
         **os.environ,
         "ROLEBAND_PREFLIGHT_PYTHON": sys.executable,
         "ROLEBAND_PREFLIGHT_TIMEOUT": "120",
         "PYTHONDONTWRITEBYTECODE": "1",
+        **_own_database(repo),
+        **(env_overrides or {}),
     }
     if backend:
         # The cleanup is the backend's own module; the throwaway repo has none.
@@ -157,6 +166,7 @@ def _start_hanging_suite(repo: Path) -> subprocess.Popen:
         "ROLEBAND_PREFLIGHT_PYTHON": sys.executable,
         "PYTHONDONTWRITEBYTECODE": "1",
         "PYTHONPATH": str(BACKEND),
+        **_own_database(repo),
     }
     env.pop("ROLEBAND_SKIP_PREFLIGHT", None)
     process = subprocess.Popen(
@@ -239,3 +249,23 @@ def test_a_killed_suite_s_cluster_is_stopped_by_the_next_run(repo):
         assert clusters_under(_basetemp(repo)) == []
     finally:
         stop_clusters(_basetemp(repo))
+
+
+def test_clearing_residue_never_starts_the_default_database(repo, tmp_path):
+    """The cleanup resolves no database it would have to start. Run as a checkout
+    without settings runs it (no `ROLEBAND_PGDATA`, the default folder in a home of
+    the test's own), it must leave that folder untouched."""
+    pytest.importorskip("pixeltable_pgserver", reason="embedded Postgres wheel not installed")
+    from tracker.supervisor.residue import clusters_under, stop_clusters
+
+    home = tmp_path / "home"
+    home.mkdir()
+    # Empty values override the backend's `.env`, leaving the default location.
+    default = {"HOME": str(home), "ROLEBAND_PGDATA": "", "ROLEBAND_DATABASE_URL": "", "ROLEBAND_STATE_DIR": ""}
+    try:
+        done = _run(repo, "--clear-residue", backend=True, env_overrides=default)
+        assert done.returncode == 0, done.stdout + done.stderr
+        assert clusters_under(home) == []
+        assert not (home / ".roleband").exists(), "the cleanup opened the default database folder"
+    finally:
+        stop_clusters(home)
