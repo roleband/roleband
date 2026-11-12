@@ -212,26 +212,105 @@ async def test_the_dashboards_own_writes_still_land(api_client, db_session, job,
 
 async def test_an_operator_can_add_a_host_but_never_loses_the_loopback(monkeypatch):
     """`ROLEBAND_API_TRUSTED_HOSTS` EXTENDS the set. Were it to replace it, an
-    operator naming their LAN host would lock out the watchdog, which checks
-    health at `api_host` — 127.0.0.1 by default — and restarts what it cannot reach."""
+    operator naming a hosts-file alias of the loopback would lock out the
+    watchdog, which checks health at `api_host` (127.0.0.1 by default) and
+    restarts what it cannot reach."""
     # A local import keeps other boundary tests collectable when this symbol is absent.
     from tracker.api.boundary import LoopbackBoundary
 
-    monkeypatch.setenv("ROLEBAND_API_TRUSTED_HOSTS", '["Mybox.local."]')
+    monkeypatch.setenv("ROLEBAND_API_TRUSTED_HOSTS", '["Roleband.test."]')
     settings = Settings(_env_file=None)
-    assert settings.api_trusted_hosts == ["Mybox.local."]
+    assert settings.api_trusted_hosts == ["Roleband.test."]
 
     inner = Starlette(routes=[Route("/api/health", lambda _request: PlainTextResponse("ok"))])
     guarded = LoopbackBoundary(inner, trusted_hosts=[settings.api_host, *settings.api_trusted_hosts])
     async with AsyncClient(transport=ASGITransport(app=guarded), base_url="http://127.0.0.1:8010") as client:
         for host, expected in [
-            ("mybox.local:8010", 200),
+            ("roleband.test:8010", 200),
             ("127.0.0.1:8010", 200),
             ("[::1]:8010", 200),
-            ("otherbox.local:8010", 400),
+            ("other.test:8010", 400),
         ]:
             got = (await client.get("/api/health", headers={"Host": host})).status_code
             assert got == expected, f"Host {host!r}: {got}"
+
+
+# --------------------------------------------------------------------------- #
+# Another machine: no mode serves one, whatever the API is bound to
+# --------------------------------------------------------------------------- #
+
+FOREIGN_PEERS = ["192.168.1.20", "10.0.0.5", "203.0.113.7", "fe80::1", "::ffff:192.168.1.20", "0.0.0.0"]
+LOOPBACK_PEERS = ["127.0.0.1", "127.0.0.2", "::1", "::ffff:127.0.0.1"]
+
+
+def _guarded_health() -> Starlette:
+    return Starlette(routes=[
+        Route("/api/health", lambda _request: PlainTextResponse("ok")),
+        Route("/api/sync/cancel", lambda _request: PlainTextResponse("cancelled"), methods=["POST"]),
+    ])
+
+
+@pytest.mark.parametrize("peer", FOREIGN_PEERS)
+async def test_a_connection_from_another_machine_is_refused(no_escape, peer):
+    """An API bound to every interface by hand (`uvicorn --host 0.0.0.0`) still
+    serves only this computer: a request from a LAN address is refused before
+    routing, with a Host this machine answers to and no browser origin."""
+    from tracker.api.app import app
+
+    transport = ASGITransport(app=app, client=(peer, 51000))
+    async with AsyncClient(transport=transport, base_url="http://127.0.0.1:8010") as client:
+        for method, path in [("GET", "/api/health"), ("GET", "/api/status"), ("POST", "/api/sync/cancel")]:
+            response = await client.request(method, path)
+            assert response.status_code == 403, f"{method} {path} from {peer}: {response.status_code}"
+            assert response.text == "Only this computer may connect"
+
+
+@pytest.mark.parametrize("peer", LOOPBACK_PEERS)
+async def test_every_loopback_peer_is_served(peer):
+    """The control: a guard that refused every peer would pass the test above."""
+    from tracker.api.boundary import LoopbackBoundary
+
+    guarded = LoopbackBoundary(_guarded_health())
+    transport = ASGITransport(app=guarded, client=(peer, 51000))
+    async with AsyncClient(transport=transport, base_url="http://127.0.0.1:8010") as client:
+        assert (await client.get("/api/health")).status_code == 200, f"{peer} was refused"
+        assert (await client.post("/api/sync/cancel")).status_code == 200, f"{peer} was refused"
+
+
+async def test_a_unix_socket_connection_has_no_peer_and_is_served():
+    from tracker.api.boundary import LoopbackBoundary
+
+    guarded = LoopbackBoundary(_guarded_health())
+    sent: list[dict] = []
+
+    async def receive() -> dict:
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def send(message: dict) -> None:
+        sent.append(message)
+
+    scope = {
+        "type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1", "method": "GET",
+        "scheme": "http", "path": "/api/health", "raw_path": b"/api/health", "query_string": b"",
+        "root_path": "", "headers": [(b"host", b"127.0.0.1:8010")], "client": None, "server": None,
+    }
+    await guarded(scope, receive, send)
+    assert sent[0]["status"] == 200
+
+
+@pytest.mark.parametrize("host", ["0.0.0.0", "::", "192.168.1.20", "mybox.local", "example.com", ""])
+async def test_the_api_never_starts_on_an_address_another_machine_can_reach(monkeypatch, host):
+    from pydantic import ValidationError
+
+    monkeypatch.setenv("ROLEBAND_API_HOST", host)
+    with pytest.raises(ValidationError, match="serves only this computer"):
+        Settings(_env_file=None)
+
+
+@pytest.mark.parametrize("host", ["127.0.0.1", "::1", "localhost", "LOCALHOST", "127.0.0.2"])
+async def test_every_loopback_address_is_a_valid_api_host(monkeypatch, host):
+    monkeypatch.setenv("ROLEBAND_API_HOST", host)
+    assert Settings(_env_file=None).api_host == host
 
 
 @pytest.mark.parametrize(("packaged", "dev_origins", "expected"), [

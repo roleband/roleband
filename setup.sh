@@ -252,7 +252,7 @@ cat <<'EOF'
 
     Then start the API and the dashboard, in two shells:
 
-      cd backend && .venv/bin/uvicorn tracker.api.app:app --port 8010
+      cd backend && .venv/bin/uvicorn tracker.api.app:app --port 8010 --no-proxy-headers
       cd dashboard && npm run dev
 
     Open http://localhost:5173. The README's Quickstart says the same.
