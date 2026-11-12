@@ -51,9 +51,16 @@ panel and first-open setup. At launch it selects placement guidance, attachment
 to a verified existing engine, a database-ownership block, a database-in-use
 block, or ownership of the packaged engine. The in-use block covers a cluster
 whose record names the app while a postgres from outside the app serves it: the
-app starts nothing, leaves that server running and offers only Quit. When such a
-server appears after the app owns the engine, the host stops retrying and waits
-in needs-attention, and Quit still finishes. Attached mode verifies `/api/status.launcher` before opening
+app starts nothing, leaves that server running and offers only Quit. Every five
+seconds it makes the launch decision again, and once that decision changes it
+starts a helper in its own session and quits. The helper waits for it to exit and
+then opens the app, which launches as from any open. The app cannot open its
+successor itself: Launch Services waits for a new copy to finish launching, and
+only one copy launches at a time. When such a server appears after the app owns the engine, the
+host stops retrying and waits in needs-attention, making the same check every
+five seconds and starting the engine once the server is gone; Quit still
+finishes. In attached mode Try again makes the launch decision again too, and a
+changed decision reopens the app the same way. Attached mode verifies `/api/status.launcher` before opening
 the browser and leaves the engine running on Quit. An explicit source-engine
 Start request requires the registered checkout, installed plist and loaded
 per-user job to match and the job to be confirmed stopped. An HTTP timeout alone

@@ -374,9 +374,17 @@ public enum UpdateHelperProcess {
     }
 
     /// Starts the helper in its own session, so quitting the app neither signals nor waits for it.
-    /// Its environment is built here and never carries the engine's owner marker.
     public static func spawn(executable: URL, recovering: Bool, id: UUID, home: URL) throws {
-        let log = HomeLayout(home).data.appendingPathComponent("logs/update-helper.log")
+        try DetachedHelper.spawn(executable: executable, arguments: [recovering ? "--recover-update" : "--apply-update", id.uuidString],
+                                 home: home, log: "update-helper.log")
+    }
+}
+
+/// A copy of the app's executable run as a helper in its own session, so quitting the app neither
+/// signals nor waits for it. Its environment is built here and never carries the engine's owner marker.
+public enum DetachedHelper {
+    public static func spawn(executable: URL, arguments helperArguments: [String], home: URL, log name: String) throws {
+        let log = HomeLayout(home).data.appendingPathComponent("logs/\(name)")
         try FileManager.default.createDirectory(at: log.deletingLastPathComponent(), withIntermediateDirectories: true,
                                                 attributes: [.posixPermissions: 0o700])
         var attributes: posix_spawnattr_t?
@@ -399,8 +407,7 @@ public enum UpdateHelperProcess {
         posix_spawn_file_actions_addopen(&actions, STDOUT_FILENO, log.path, O_WRONLY | O_CREAT | O_APPEND, 0o600)
         posix_spawn_file_actions_adddup2(&actions, STDOUT_FILENO, STDERR_FILENO)
         posix_spawn_file_actions_addchdir_np(&actions, "/")
-        let mode = recovering ? "--recover-update" : "--apply-update"
-        let arguments: [String] = [executable.path, mode, id.uuidString]
+        let arguments: [String] = [executable.path] + helperArguments
         let environment: [String] = ["HOME=" + home.path, "PATH=/usr/bin:/bin:/usr/sbin:/sbin", "LANG=en_US.UTF-8"]
         let argv: [UnsafeMutablePointer<CChar>?] = arguments.map { strdup($0) }
         let env: [UnsafeMutablePointer<CChar>?] = environment.map { strdup($0) }

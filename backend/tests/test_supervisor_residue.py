@@ -16,11 +16,12 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from tests.conftest import _base_url
+from tracker.config import Settings
 from tracker.supervisor import residue
 
 pytest.importorskip("pixeltable_pgserver", reason="embedded Postgres wheel not installed")
 
-from tests.embedded_utils import cluster_locale, destroy  # noqa: E402
+from tests.embedded_utils import cluster_locale, destroy, psql  # noqa: E402
 from tracker.platform.embedded_db import ensure_server  # noqa: E402
 
 #: Above any real pid_max, so never a live process.
@@ -82,3 +83,40 @@ async def test_only_scratch_databases_of_gone_processes_are_dropped():
             for name in names:
                 await conn.execute(text(f'DROP DATABASE IF EXISTS "{name}"'))
         await admin.dispose()
+
+
+def _settings(monkeypatch, pgdata, url: str | None = None) -> Settings:
+    # The environment, not a constructor argument, carries these: pydantic resolves
+    # their aliases, so an ambient value would beat the field name.
+    monkeypatch.setenv("ROLEBAND_PGDATA", str(pgdata))
+    monkeypatch.setenv("ROLEBAND_DB_EMBEDDED", "true")
+    if url is None:
+        monkeypatch.delenv("ROLEBAND_DATABASE_URL", raising=False)
+    else:
+        monkeypatch.setenv("ROLEBAND_DATABASE_URL", url)
+    return Settings(_env_file=None)
+
+
+def test_an_external_server_is_named_as_configured_and_nothing_starts(tmp_path, monkeypatch):
+    settings = _settings(monkeypatch, tmp_path / "pg", "postgresql://u@db.invalid:5432/d")
+    url = residue.scratch_server(settings)
+    assert url is not None and url.host == "db.invalid" and url.database == "d"
+    assert not (tmp_path / "pg").exists()
+
+
+def test_an_embedded_cluster_is_reached_only_while_it_runs(tmp_path, monkeypatch):
+    pgdata = tmp_path / "pg"
+    settings = _settings(monkeypatch, pgdata)
+    assert residue.scratch_server(settings) is None
+    assert not pgdata.exists(), "looking for the scratch server started one"
+
+    server = ensure_server(pgdata, database="probe", locale=cluster_locale())
+    try:
+        dead = f"roleband_test_{DEAD + uuid.uuid4().int % 10**6}"
+        psql(server, f'CREATE DATABASE "{dead}"')
+        url = residue.scratch_server(settings)
+        assert url is not None
+        # The URL reaches this cluster: the dead suite's database there is dropped.
+        assert residue.clean(tmp_path / "suite", url)["dropped"] == [dead]
+    finally:
+        destroy(pgdata)
