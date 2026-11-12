@@ -245,10 +245,10 @@ test("an estimated base on the Board and the Pay tab's base panel say only the c
   const summary = (p50: number, count: number) => ({ count, min: p50 - 50_000, max: p50 + 90_000,
     p25: p50 - 20_000, p50, p75: p50 + 20_000, p90: p50 + 60_000 });
   await mockGet(page, "/api/statistics/compensation**", (route) => route.fulfill({ json: {
-    currency: "USD", min_roles: 5, coverage: { with_comp: 0, total_open: 40, pct: 0 }, overall: null, histogram: [],
-    by_level: [], by_company: [], by_family: [], by_skill: [],
-    disclosed: { bands: [], reqs: 0, companies: 0,
-      excluded: { unclear: 0, total: 0, not_usd: 0, not_yearly: 0, implausible: 0 }, truncated: false },
+    currency: "USD", min_roles: 5, coverage: { with_comp: 0, total_open: 40, pct: 0 }, overall: null,
+    by_level: [], by_company: [], by_family: [],
+    posted: { min_employers: 5, min_ranges: 8, default_country: null, countries: [], your_levels: [],
+      excluded: { not_base: 0, not_yearly: 0, implausible: 0, no_country: 0, placed_by_pay: 0 } },
     disclosure: { overall: { open: 40, checked: 0, disclosed: 0, rate: null }, by_company: [], by_level: [] },
     base_estimates: { min_roles: 5, coverage: { with_base: 40, total_open: 40 }, overall: summary(210_000, 40),
       by_level: [{ level_band: "senior", ...summary(196_000, 25) }], by_company: [], by_family: [] },

@@ -174,10 +174,6 @@
 
 /* ---- compensation -------------------------------------------------------- */
 
-.comp-hist-row {
-  grid-template-columns: 132px 1fr 56px;
-}
-
 /* Every pay row says what it rests on: a fourth column of roles. */
 .bar-row.comp-row {
   grid-template-columns: 132px 1fr 56px 64px;
@@ -197,30 +193,9 @@
   white-space: nowrap;
 }
 
-.comp-row .bar-fill.is-below {
-  background: var(--app-text-faint);
-}
-
 .pay-pair {
   align-items: stretch;
   margin-bottom: var(--app-space-2);
-}
-
-.comp-hist-row > span:first-child {
-  font-family: var(--app-font-mono);
-  font-size: var(--app-type-meta);
-  color: var(--app-text-muted);
-}
-
-.pay-skill {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-.pay-premium {
-  color: var(--app-positive);
 }
 
 /* ---- a note beside a chart ------------------------------------------- */
@@ -910,7 +885,65 @@
   overflow-x: auto;
 }
 
-/* ---- Pay: published bands, a row per level ---- */
+/* ---- Pay: posted base salary, the tab's answer ---- */
+.posted-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--app-space-2);
+  margin-top: var(--app-space-3);
+}
+
+.posted-levels {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A level, its typical range, and what it rests on: the bar rows' columns. */
+.posted-level {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(120px, auto) minmax(120px, auto);
+  align-items: center;
+  gap: var(--app-space-3);
+  padding: var(--app-space-2) 0;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.posted-level:last-child {
+  border-bottom: 0;
+}
+
+.posted-level-name {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  min-width: 0;
+}
+
+.posted-level-value {
+  font-family: var(--app-font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.posted-level-value.dim {
+  color: var(--app-text-faint);
+  font-family: inherit;
+  font-size: var(--app-type-meta);
+}
+
+@media (max-width: 640px) {
+  .posted-level {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .posted-level .comp-n {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+}
+
+/* ---- Pay: posted ranges, a row per level ---- */
 .pay-bands-pick {
   display: flex;
   flex-wrap: wrap;

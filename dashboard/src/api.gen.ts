@@ -2684,15 +2684,16 @@ export interface paths {
          * Statistics Compensation
          * @description Compensation across the roles open now: the roles Insights describes.
          *
-         *     Two different quantities live in this payload and must not be conflated:
+         *     The quantities in this payload must not be conflated:
          *
-         *     * `overall` / `histogram` / `by_level` / `by_company` / `by_family` / `by_skill`
-         *       aggregate `Job.comp_median`, which is an *imputed total-comp estimate* — a
-         *       lookup keyed by (company, level, family), not anything an employer said. It
-         *       carries very few distinct values, so it is a reference point, not a sample.
-         *     * `disclosed` carries the bands employers actually printed in the posting, as
-         *       *base salary* (see `build_disclosed_bands`). Base pay and total comp cannot
-         *       share an axis, so the UI keeps them in separate panels.
+         *     * `posted` carries the ranges employers print in their postings, as yearly
+         *       *base salary* per country and level (see `build_posted_pay`), with the
+         *       person's levels so the screen can open on them. It leads the tab.
+         *     * `overall` / `by_level` / `by_company` / `by_family` aggregate
+         *       `Job.comp_median`, an *imputed total-comp estimate*: a lookup keyed by
+         *       company and level, not anything an employer said, and only for US
+         *       postings. Base pay and total comp cannot share an axis, so the UI keeps
+         *       them in separate panels.
          *     * `disclosure` is the *rate* — how many open roles state pay at all, overall
          *       and per company/level. Basis-independent, and denominated in roles the
          *       disclosure pass has actually read (see `build_disclosure_rates`).
@@ -3982,15 +3983,6 @@ export interface components {
             /** P90 */
             p90: number;
         };
-        /** CompHistogramBin */
-        CompHistogramBin: {
-            /** Count */
-            count: number;
-            /** Hi */
-            hi: number;
-            /** Lo */
-            lo: number;
-        };
         /**
          * CompLevelSummary
          * @description `level_band` first, then the summary.
@@ -4057,21 +4049,6 @@ export interface components {
             ratio_high: number | null;
             /** Verdict */
             verdict: ("consistent" | "stated_above_measured" | "stated_below_measured") | null;
-        };
-        /**
-         * CompSkill
-         * @description A skill named by enough priced roles; `premium` is what they pay over like
-         *     roles, same level and discipline; `count` is the roles behind it.
-         */
-        CompSkill: {
-            /** Count */
-            count: number;
-            /** P50 */
-            p50: number;
-            /** Premium */
-            premium: number;
-            /** Term */
-            term: string;
         };
         /**
          * CompSource
@@ -4740,7 +4717,7 @@ export interface components {
         };
         /**
          * CompensationStatsResponse
-         * @description `GET /api/statistics/compensation`: the estimate's spread beside what employers printed.
+         * @description `GET /api/statistics/compensation`: what employers post, beside the estimate.
          *
          *     A snapshot of the roles open now: no window. The Window lens moves
          *     the trend routes beside it, never this population.
@@ -4753,21 +4730,17 @@ export interface components {
             by_family: components["schemas"]["CompFamilySummary"][];
             /** By Level */
             by_level: components["schemas"]["CompLevelSummary"][];
-            /** By Skill */
-            by_skill: components["schemas"]["CompSkill"][];
             coverage: components["schemas"]["CompCoverage"];
             /**
              * Currency
              * @constant
              */
             currency: "USD";
-            disclosed: components["schemas"]["DisclosedBands"];
             disclosure: components["schemas"]["DisclosureRates"];
-            /** Histogram */
-            histogram: components["schemas"]["CompHistogramBin"][];
             /** Min Roles */
             min_roles: number;
             overall: components["schemas"]["CompSummary"] | null;
+            posted: components["schemas"]["PostedPay"];
         };
         /**
          * DecoderCell
@@ -4918,7 +4891,10 @@ export interface components {
             /** Tracked */
             tracked: boolean;
         };
-        /** DisclosedBand */
+        /**
+         * DisclosedBand
+         * @description One distinct base range an employer posts at a level, with the roles on it.
+         */
         DisclosedBand: {
             /** Company */
             company: string;
@@ -4930,21 +4906,6 @@ export interface components {
             low: number;
             /** Reqs */
             reqs: number;
-        };
-        /**
-         * DisclosedBands
-         * @description Distinct base-salary bands employers printed, with the reqs on each.
-         */
-        DisclosedBands: {
-            /** Bands */
-            bands: components["schemas"]["DisclosedBand"][];
-            /** Companies */
-            companies: number;
-            excluded: components["schemas"]["DisclosedExclusions"];
-            /** Reqs */
-            reqs: number;
-            /** Truncated */
-            truncated: boolean;
         };
         /**
          * DisclosedComp
@@ -4974,19 +4935,6 @@ export interface components {
             pay_period: string | null;
             /** Snippet */
             snippet: string | null;
-        };
-        /** DisclosedExclusions */
-        DisclosedExclusions: {
-            /** Implausible */
-            implausible: number;
-            /** Not Usd */
-            not_usd: number;
-            /** Not Yearly */
-            not_yearly: number;
-            /** Total */
-            total: number;
-            /** Unclear */
-            unclear: number;
         };
         /**
          * DisclosureCohort
@@ -8503,6 +8451,98 @@ export interface components {
              * @enum {string}
              */
             period: "year" | "hour" | "month";
+        };
+        /**
+         * PostedCountry
+         * @description Posted base pay for the roles in one country, in its own currency.
+         */
+        PostedCountry: {
+            /** Bands */
+            bands: components["schemas"]["DisclosedBand"][];
+            /** Country */
+            country: string;
+            /** Currency */
+            currency: string | null;
+            /** Levels */
+            levels: components["schemas"]["PostedLevel"][];
+            not_placed: components["schemas"]["PostedUnplaced"];
+            /** Other Currency */
+            other_currency: number;
+            /** Ranges */
+            ranges: number;
+            /** Yours */
+            yours: boolean;
+        };
+        /**
+         * PostedExclusions
+         * @description Roles with a posted range that no country's figure reads, by reason.
+         */
+        PostedExclusions: {
+            /** Implausible */
+            implausible: number;
+            /** No Country */
+            no_country: number;
+            /** Not Base */
+            not_base: number;
+            /** Not Yearly */
+            not_yearly: number;
+            /** Placed By Pay */
+            placed_by_pay: number;
+        };
+        /**
+         * PostedLevel
+         * @description One level's posted base pay in one country and currency
+         *     (`comp_stats._level_figure`). Each distinct range votes once. Below the
+         *     minimums `enough` is false and the figure fields are null; the counts say
+         *     why.
+         */
+        PostedLevel: {
+            /** Employers */
+            employers: number;
+            /** Enough */
+            enough: boolean;
+            /** High */
+            high: number | null;
+            /** Level Band */
+            level_band: string;
+            /** Low */
+            low: number | null;
+            /** Mid P25 */
+            mid_p25: number | null;
+            /** Mid P75 */
+            mid_p75: number | null;
+            /** Ranges */
+            ranges: number;
+            /** Roles */
+            roles: number;
+        };
+        /**
+         * PostedPay
+         * @description `comp_stats.build_posted_pay`: what employers post as yearly base pay,
+         *     per country and level, and the levels the person picked.
+         */
+        PostedPay: {
+            /** Countries */
+            countries: components["schemas"]["PostedCountry"][];
+            /** Default Country */
+            default_country: string | null;
+            excluded: components["schemas"]["PostedExclusions"];
+            /** Min Employers */
+            min_employers: number;
+            /** Min Ranges */
+            min_ranges: number;
+            /** Your Levels */
+            your_levels: string[];
+        };
+        /**
+         * PostedUnplaced
+         * @description Roles whose level cannot be placed, and their distinct ranges: counted apart.
+         */
+        PostedUnplaced: {
+            /** Ranges */
+            ranges: number;
+            /** Roles */
+            roles: number;
         };
         /**
          * PostingDiff

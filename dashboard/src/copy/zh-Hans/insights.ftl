@@ -1,33 +1,19 @@
 ## insights
 
 ## features/statistics/CompensationPanel.tsx
-insights-compensation-panel-compensation = 薪酬
-insights-compensation-panel-no-open-roles-with-a = 暂无带薪酬估算的在招职位。
-insights-compensation-panel-open-roles-now-coverage = { $total_open } 个在招职位中，有 { $with_comp } 个有估算（{ $pct }%）
 insights-compensation-panel-estimated-total-compensation-is-imputed = 根据公司、级别和职能估算，并非雇主公布。请将其视为参考，而不是录用报价。
 insights-compensation-panel-published-bands = 公布的薪酬区间
-insights-compensation-panel-what-employers-actually-print = 公布的薪酬区间
 insights-compensation-panel-bands-from-employers = { $bands } 个区间 · { $employers } 个雇主
-insights-compensation-panel-estimated-comp-distribution = 估算总薪酬分布
 insights-compensation-panel-median-comp-by-level = 各级别估算总薪酬中位数
 insights-compensation-panel-top-paying-companies = 薪酬最高的公司
 insights-compensation-panel-median-pay-by-discipline = 各职能估算总薪酬中位数
-insights-compensation-panel-what-a-skill-adds-at = 同级别下各技能的薪酬
-insights-compensation-panel-roles-naming-the-skill-against = 提到该技能的职位，与同一级别和职能的全部职位对比。它反映的是哪些雇主要求该技能，而不是它值多少。
-insights-compensation-panel-not-enough-priced-roles-per = 每项技能下有估算的职位还不够多。
 insights-compensation-panel-roles = { $count ->
    *[other] { $count } 个职位
 }
 insights-compensation-panel-groups-of-roles-or-more = 每柱至少 { $min_roles } 个职位
 insights-compensation-panel-base-salary-quoted-from-the = 招聘信息中公布的基本工资，不是估算。每条线代表一个公布的区间，无论有多少职位使用它。
 insights-compensation-panel-how-compensation-is-estimated = 薪酬如何估算
-insights-compensation-panel-coverage = 已估算
-insights-compensation-panel-middle-50 = 中间 50%
-insights-compensation-panel-top-decile = 前 10%
-insights-compensation-panel-range = 跨度
 insights-compensation-panel-about-published-salary-bands = 关于公布区间
-insights-compensation-panel-how-a-skill-s-pay = 技能薪酬差异如何计算
-insights-compensation-panel-median = { $roles } · 中位数 { $p50 }
 
 ## features/statistics/Demand.tsx
 insights-demand-open-roles-by-company = 各公司在招职位
@@ -78,7 +64,7 @@ insights-overview-panel-opened-closed = 新开放 { $new_count } · 关闭 { $cl
 insights-overview-panel-about-the-demand-field = 关于此图表
 
 ## features/statistics/PayBands.tsx
-insights-pay-bands-each-line-is-one-published = 每条线代表一个公布的区间。带边框的部分是该级别的中位区间。
+insights-pay-bands-each-line-is-one-published = 每条线代表一个公布的区间。带边框的部分是该级别的典型区间。
 insights-pay-bands-any-employer = 任意雇主
 insights-pay-bands-published-base-salary-bands-by = 各级别公布的基本工资区间
 insights-pay-bands-bands-from-employers = { $bands } 个区间 · { $employers } 个雇主
@@ -507,11 +493,6 @@ insights-statistics-charts-what-sets-these-roles-apart = 这些职位的独特�
 insights-statistics-charts-of-these-roles-the-market = { $skill }：这些职位的 { $share }%，市场的 ×{ $lift }
 
 ## features/statistics/charts/compBands.ts
-insights-comp-bands-level-summary = { $label }：{ $bands } 个区间，来自 { $employers } 个雇主，中位数 { $low } 至 { $high }。
-insights-comp-bands-1-more-role-states-a = 另有 1 个职位公布了区间，但从未说明是否包含奖金或股权，因此未显示。
-insights-comp-bands-more-roles-state-a-range = 另有 { $unclear } 个职位公布了区间，但从未说明是否包含奖金或股权，因此未显示。
-insights-comp-bands-1-more-role-states-base = 另有 1 个职位以其他货币或按小时、按月公布基本工资，因此不在此年薪美元刻度上。
-insights-comp-bands-more-roles-state-base-pay = 另有 { $elsewhere } 个职位以其他货币或按小时、按月公布基本工资，因此不在此年薪美元刻度上。
 
 ## features/statistics/charts/disclosure.ts
 insights-disclosure-unclassified = 级别未知
@@ -527,11 +508,8 @@ insights-disclosure-of-checked-open-roles = 已检查的 { $checked } 个在招�
 ## features/statistics/charts/StatisticsCharts.tsx (by hand)
 
 ## features/statistics/CompensationPanel.tsx
-insights-compensation-panel-median-pay = 中位数 { $p50 }
-insights-compensation-panel-priced-roles = { $with_comp } 个职位
 insights-compensation-panel-loading = 正在加载薪酬…
 insights-compensation-panel-load-failed = 无法加载薪酬
-insights-compensation-panel-min-max = 最低–最高
 
 ## features/statistics/Demand.tsx
 insights-demand-open = { $role } 在招
@@ -613,7 +591,6 @@ insights-brief-opened = { $period ->
 insights-brief-top-skill = 最热门技能：{ $skill }（{ $count } 个职位）。
 insights-compensation-panel-spread = p25–p75：{ $low }–{ $high } · { $roles }
 insights-compensation-panel-estimated-base-by-level = 各级别的估算基本工资
-insights-compensation-panel-base-only = 仅基本工资
 insights-compensation-panel-base-only-lead =
     { $count ->
        *[other] 另有 { $count } 个职位只有基本工资估算，因此不在上面的数字中。
@@ -685,3 +662,36 @@ insights-levels-followed-without-guide = 你关注的公司中有 { $count } 家
 insights-levels-empty = 没有匹配的公司或级别
 
 insights-levels-reset = 全部重置
+
+insights-posted-typically = 通常为 { $low } 至 { $high }
+insights-posted-too-few = 区间还太少
+insights-posted-none = 暂无公布的区间
+insights-posted-line = { $country } { $level } 职位公布的基本工资：{ $employers } 个雇主的 { $ranges } 个区间，共 { $roles } 个职位。
+insights-posted-needs = 一个级别至少需要 { $min_employers } 个雇主和 { $min_ranges } 个区间，才能给出典型区间。
+insights-posted-none-at-level = { $country } 尚无在招职位在此级别公布年度基本工资区间。
+insights-posted-none-in-country = { $country } 尚无在招职位在已知级别公布年度基本工资区间。
+insights-posted-none-anywhere = 尚无在招职位公布年度基本工资区间。
+insights-posted-how-read = 典型区间的计算方式
+insights-posted-how-read-body = 每个不同的区间只计一次，无论有多少职位共用它。典型区间从下限的中位数到上限的中位数，中间一半覆盖各区间中点居中的 50%。只计年度基本工资，使用该国自己的货币，从不换算。级别由其区间推断的职位不计入。
+insights-posted-middle-half = 中间一半
+insights-posted-midpoints = 区间中点
+insights-posted-share = 公布区间的比例
+insights-posted-checked = 已检查 { $checked } 个职位，涵盖所有国家和级别
+insights-posted-country = 国家
+insights-posted-level = 级别
+insights-posted-your-place = { $name }（你的地点）
+insights-posted-by-level = { $country } 各级别公布的基本工资
+insights-posted-your-level = 你的级别
+insights-posted-not-placed = 级别未知：{ $roles } 个职位，{ $ranges } 个区间，单独计数，不计入任何级别。
+insights-posted-other-currency = 另有 { $count } 个职位以其他货币公布区间，从不换算。
+insights-posted-estimate-us-only = 估算，仅限美国
+insights-posted-every-range = { $country } 所有公布的区间
+insights-comp-bands-level-ranges = { $label }：{ $employers } 个雇主的 { $bands } 个区间{ $figure ->
+    [none] ，太少，无法给出典型区间。
+   *[some] ，通常为 { $low } 至 { $high }。
+}
+insights-comp-bands-not-base = 另有 { $count } 个职位公布的区间是总薪酬或未说明，因此不显示。
+insights-comp-bands-not-yearly = 另有 { $count } 个职位按小时或按月公布基本工资，因此不在此年度刻度上。
+insights-comp-bands-implausible = 另有 { $count } 个职位公布的是占位区间（例如 $1 至 $2），因此不显示。
+insights-comp-bands-no-country = 另有 { $count } 个职位列出多个国家的地点或没有地点，因此不计入任何国家。
+insights-comp-bands-placed-by-pay = 另有 { $count } 个职位的级别由其区间推断，因此不计入。

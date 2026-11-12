@@ -47,23 +47,23 @@ export type InsightsHistory = Schemas["InsightsHistoryResponse"];
 /** One group of the imputed total-comp estimate: dollars at the ends, interpolated
  *  percentiles between. A group is never empty, so every figure is present. */
 export type CompSummary = Schemas["CompSummary"];
-export type CompHistBin = Schemas["CompHistogramBin"];
 export type CompLevel = Schemas["CompLevelSummary"];
 export type CompCompany = Schemas["CompCompanySummary"];
 export type CompFamily = Schemas["CompFamilySummary"];
-export type CompSkill = Schemas["CompSkill"];
 
-/** One pay band an employer actually printed, plus the open reqs sitting on it. */
+/** One distinct base range an employer posts at a level, with the roles on it. */
 export type DisclosedBand = Schemas["DisclosedBand"];
 
 /**
- * Employer-disclosed base-salary bands. Distinct from every other field on
- * `CompensationStats`, which aggregates the *imputed total-comp* estimate — base
- * pay and total comp are different quantities and never share an axis.
- * `excluded.unclear` counts roles whose posting gave a range but never said
- * whether it bundles bonus/equity, so they cannot be placed on a base-pay scale.
+ * What employers post as yearly base pay, per country and level. Distinct from
+ * every estimate field on `CompensationStats`: base pay and an estimated total
+ * never share an axis. A country's figures are in its own currency, never
+ * converted; each distinct range votes once, and a level below the minimums
+ * carries counts but no figure.
  */
-export type DisclosedBands = Schemas["DisclosedBands"];
+export type PostedPay = Schemas["PostedPay"];
+export type PostedCountry = Schemas["PostedCountry"];
+export type PostedLevel = Schemas["PostedLevel"];
 
 /**
  * How many open roles state pay at all, for one grouping. `rate` is

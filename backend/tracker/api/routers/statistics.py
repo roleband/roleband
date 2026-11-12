@@ -20,9 +20,9 @@ from tracker.analytics.comp_package import choose_rung_row
 from tracker.analytics.comp_residual import build_equity_residuals, build_source_comparison
 from tracker.analytics.comp_stats import (
     build_comp_stats,
-    build_disclosed_bands,
     build_disclosure_rates,
-    rank_skill_comp,
+    build_posted_pay,
+    level_order,
 )
 from tracker.analytics.comp_trends import (
     DISCLOSURE_BASIS,
@@ -65,7 +65,6 @@ from tracker.db.models import (
     JobLifecycleEvent,
     JobLineageLink,
     JobPlaceSetMember,
-    JobSkill,
     JobTwinLink,
     Notification,
     SkillConcept,
@@ -84,7 +83,6 @@ from tracker.db.queries.jobs import (
 )
 from tracker.db.queries.reference_pay import reported_rows, split_rows
 from tracker.db.queries.scope import level_key_expr
-from tracker.db.queries.skills import ELIGIBLE_REQUIREMENT
 from tracker.db.queries.skills import top_skills as read_top_skills
 from tracker.enrich.enricher import ESTIMATE_FIELDS
 from tracker.intelligence_runtime.disclosed_comp import residual_band_versions
@@ -96,8 +94,9 @@ from tracker.plugins.registry import PAY_LEVELS, reader_providers
 from tracker.plugins.status import reference_changes
 from tracker.profiles import prices as price_store
 from tracker.schema import OUR_ESTIMATE_SOURCE
+from tracker.settings_store import get_enabled_bands, get_enabled_locations
 from tracker.skills.analytics import COMPETENCY_CATEGORIES
-from tracker.taxonomy.locations import pay_country
+from tracker.taxonomy.locations import country_code, pay_country
 from tracker.taxonomy.tracks import TRACKS, allowed_bands_for
 
 router = APIRouter()
@@ -244,15 +243,16 @@ async def statistics_overview(
 async def statistics_compensation(session: SessionDep, hidden: OffBoardDep, narrowed: InsightsScopeDep) -> dict:
     """Compensation across the roles open now: the roles Insights describes.
 
-    Two different quantities live in this payload and must not be conflated:
+    The quantities in this payload must not be conflated:
 
-    * `overall` / `histogram` / `by_level` / `by_company` / `by_family` / `by_skill`
-      aggregate `Job.comp_median`, which is an *imputed total-comp estimate* — a
-      lookup keyed by (company, level, family), not anything an employer said. It
-      carries very few distinct values, so it is a reference point, not a sample.
-    * `disclosed` carries the bands employers actually printed in the posting, as
-      *base salary* (see `build_disclosed_bands`). Base pay and total comp cannot
-      share an axis, so the UI keeps them in separate panels.
+    * `posted` carries the ranges employers print in their postings, as yearly
+      *base salary* per country and level (see `build_posted_pay`), with the
+      person's levels so the screen can open on them. It leads the tab.
+    * `overall` / `by_level` / `by_company` / `by_family` aggregate
+      `Job.comp_median`, an *imputed total-comp estimate*: a lookup keyed by
+      company and level, not anything an employer said, and only for US
+      postings. Base pay and total comp cannot share an axis, so the UI keeps
+      them in separate panels.
     * `disclosure` is the *rate* — how many open roles state pay at all, overall
       and per company/level. Basis-independent, and denominated in roles the
       disclosure pass has actually read (see `build_disclosure_rates`).
@@ -309,47 +309,28 @@ async def statistics_compensation(session: SessionDep, hidden: OffBoardDep, narr
         "by_family": base["by_family"],
     }
 
-    # "Skills that pay": what roles naming a skill concept pay over like
-    # roles, same level and discipline. The stored band, not the
-    # level key: it compares estimates with estimates looked up at that band,
-    # and shows no level. Industries are not skills,
-    # and what every role is expected to do sets no role apart.
-    skill_rows = (
-        await session.execute(
-            select(SkillConcept.slug, SkillConcept.display, Job.level_band, Job.family, Job.comp_median)
-            .select_from(JobSkill)
-            .join(SkillConcept, SkillConcept.id == JobSkill.concept_id)
-            .join(Job, Job.id == JobSkill.job_id)
-            .where(
-                *scope,
-                *ELIGIBLE_REQUIREMENT,
-                SkillConcept.category.notin_(COMPETENCY_CATEGORIES),
-                Job.comp_median.isnot(None),
-                in_usd,
-            )
-        )
-    ).all()
-    by_skill = rank_skill_comp(
-        [(r.slug, r.level_band, r.family, r.comp_median) for r in skill_rows],
-        [(r.level_band, r.family, r.comp_median) for r in rows],
-    )
-    stats["by_skill"] = by_skill
-
-    # Employer-disclosed bands (base salary), kept apart from the estimate above.
-    disclosed_rows = (
+    # What employers post: yearly base ranges per country and level, every
+    # range counted, kept apart from the estimate above.
+    posted_rows = (
         await session.execute(
             select(
                 Job.company,
                 level,
+                Job.level_basis,
                 Job.disclosed_base_min,
                 Job.disclosed_base_max,
                 Job.disclosed_pay_basis,
                 Job.disclosed_currency,
                 Job.disclosed_pay_period,
-            ).where(*scope, Job.disclosed_base_min.isnot(None))
+                Job.location_groups,
+            ).where(*scope, Job.disclosed_base_min.isnot(None), Job.disclosed_base_max.isnot(None))
         )
     ).all()
-    stats["disclosed"] = build_disclosed_bands([tuple(r) for r in disclosed_rows])
+    your_countries = {code for code in map(country_code, await get_enabled_locations(session)) if code}
+    stats["posted"] = {
+        **build_posted_pay([tuple(r) for r in posted_rows], your_countries=your_countries),
+        "your_levels": sorted(await get_enabled_bands(session), key=level_order),
+    }
 
     # Disclosure rate. Its own scan, unfiltered by `disclosed_base_min`: the rate's
     # denominator is every *checked* open role, so the roles that disclosed nothing

@@ -196,12 +196,13 @@ own data (the dataset, the seed pay and our stored rows) is US pay
 (`comp_providers/base.OUR_PAY_COUNTRY`), so it answers US postings only. A
 plugin's rung is for the `country` it states; one that states none prices no
 posting. Readers match a row to the posting by country (`pay_level_index`,
-`package_rows`, `comp_package.country_rows`); the company page and Statistics
-show US rows.
+`package_rows`, `comp_package.country_rows`); the company page and the
+estimate panels on Insights show US rows. Posted pay on Insights is read per
+country instead ([Posted pay on Insights](#posted-pay-on-insights)).
 
 Of the US rows, only those that can stand for US pay are read
 (`analytics/comp_market.us_rows`), by the estimate, the package, the company
-page and Statistics alike. A row that states its country is US pay exactly
+page and the Insights estimate panels alike. A row that states its country is US pay exactly
 when it states the US. A row that states none (ours, read for the US) is held
 to the floor: a median base under $45,000 is set aside, and so is every such
 row of a company and family whose priced rows are at least half under it.
@@ -350,6 +351,39 @@ shown range never falls back to the estimate the row does not show
 (`test_api_jobs_sort.py` checks the two agree on every case). Money a search
 query names applies as these bounds. The agent tools keep their own estimate filter and sort
 (`comp_min`, `comp_median`: the total, else the estimated base).
+
+## Posted pay on Insights
+
+Insights' Compensation tab opens on what employers post, not on the estimate
+(`analytics/comp_stats.build_posted_pay`, the `posted` block of
+`GET /api/statistics/compensation`).
+
+- **The unit is a distinct range.** A range (company, low, high) at one level
+  counts once, however many roles carry it: an employer posts one range per
+  level and place and hangs many roles off it.
+- **The figure.** A level's typical range runs from the median low to the
+  median high of its ranges; its middle half spans the 25th to 75th
+  percentile of the ranges' midpoints. A level shows a figure only with at
+  least `POSTED_MIN_EMPLOYERS` employers and `POSTED_MIN_RANGES` ranges;
+  below that it shows its counts and what a figure needs.
+- **One country, one currency.** A role counts for its pay country (above).
+  A country's figure is in the currency most of its ranges at a placed level
+  use, and its ranges in any other currency are counted apart. Nothing is converted or
+  annualised. The tab opens on the US and the person's own levels, and lists
+  each of the person's countries even with no range, so the screen can say
+  so.
+- **What is read.** Yearly base pay only. Each role left out is counted
+  under its reason in `excluded`: a range that is total compensation or
+  unclear (`not_base`), per hour or month or of a size its period rules out
+  (`not_yearly`, `pay_period.effective_period`), a placeholder
+  (`implausible`), no pay country (`no_country`), or a level read from the
+  range itself (`placed_by_pay`, `LevelBasis.PAY_GRADE`: counting it would
+  describe pay by pay). A role whose level we cannot place is counted apart
+  in `not_placed`, never inside a level.
+- **The estimate stays apart.** The estimate panels (by level, company and
+  discipline, and the base-only estimates) read US rows only and are labelled
+  as estimates of US pay. Base pay and an estimated total never share an
+  axis.
 
 ## Checks beside the headline
 
