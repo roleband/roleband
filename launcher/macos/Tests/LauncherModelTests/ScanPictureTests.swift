@@ -123,3 +123,46 @@ private func withPictureModel(_ body: (LauncherModel, PictureEngine, AsyncStream
 private extension Result {
     var isSuccess: Bool { if case .success = self { true } else { false } }
 }
+
+/// The left column of the scan picture starts at the card's content edge, where the progress line
+/// and the schedule line start, so the column must be as wide as its widest line.
+@Test func theScanPicturesLeftColumnHoldsEveryLanguagesFactsInsideTheCard() {
+    // A label wider than the default column: the column grows to hold it instead of letting it spill left.
+    let wide = "empresas escaneadas"
+    #expect(FactColumn.width(wide, font: FactColumn.labelFont) > FactColumn.restMinimum)
+    #expect(FactColumn.rest([.init(figure: "5.008", label: wide)]) >= FactColumn.width(wide, font: FactColumn.labelFont))
+    for language in ["en", "es", "zh-Hans"] {
+        let copy = LauncherCopy(language: language)
+        let companies = copy.text("scan-companies-read"), newRoles = copy.text("scan-new-roles")
+        let count = 5_008.formatted(.number.locale(copy.locale))
+        let read = FactColumn.rest([.init(figure: count, label: companies)])
+        let rest = FactColumn.rest([.init(figure: count, label: companies), .init(figure: "18", label: newRoles, linked: true)])
+        #expect(read >= FactColumn.width(companies, font: FactColumn.labelFont), "\(language)")
+        #expect(read >= FactColumn.width(count, font: FactColumn.figureFont), "\(language)")
+        #expect(rest >= FactColumn.width(newRoles, font: FactColumn.labelFont) + FactColumn.linkArrow, "\(language)")
+        // The companies fact fits the default column, and no shipped language needs a shrunk label.
+        #expect(read == FactColumn.restMinimum, "\(language)")
+        #expect(rest < FactColumn.maximum, "\(language)")
+    }
+}
+
+@Test func theScanPicturesLeftColumnStopsGrowingWhereTheChannelsWouldGrowTooShort() {
+    let long = String(repeating: "scanned companies ", count: 4)
+    #expect(FactColumn.rest([.init(figure: "5,008", label: long)]) == FactColumn.maximum)
+    #expect(FactColumn.live(names: [long], clock: "1m") == FactColumn.maximum)
+    #expect(FactColumn.rest([.init(figure: "42", label: "x")]) == FactColumn.restMinimum)
+    #expect(FactColumn.live(names: ["Apple"], clock: "1m") == FactColumn.liveMinimum)
+}
+
+@Test func aLiveCompanyNameIsCutToTheColumnAndItsClockFitsAWholeHour() {
+    let name = "Palo Alto Networks Federal Systems Group"
+    let cut = FactColumn.truncated(name, font: FactColumn.nameFont, to: FactColumn.maximum)
+    #expect(cut != name && cut.hasSuffix("…") && name.hasPrefix(String(cut.dropLast())))
+    #expect(FactColumn.width(cut, font: FactColumn.nameFont) <= FactColumn.maximum)
+    #expect(FactColumn.truncated("Nvidia", font: FactColumn.nameFont, to: FactColumn.liveMinimum) == "Nvidia")
+    let start = Date(timeIntervalSinceReferenceDate: 0)
+    let clock = ScanTime.running(since: start, now: start.addingTimeInterval(3_599), locale: LauncherCopy(language: "es").locale)
+    // The Spanish clock is wider than the live column's minimum, so the column grows to hold it.
+    #expect(FactColumn.width(clock, font: FactColumn.clockFont) > FactColumn.liveMinimum)
+    #expect(FactColumn.live(names: ["Nvidia"], clock: clock) >= FactColumn.width(clock, font: FactColumn.clockFont))
+}

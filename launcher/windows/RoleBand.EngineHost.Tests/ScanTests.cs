@@ -196,7 +196,7 @@ public sealed class ScanTests
         var withNew = ScanPanel.View(copy, Ready, Status(Reply()), null, Now);
         Assert.AreEqual(BrowserRoute.NewRoles, withNew.Facts.Single(fact => fact.Label == "new roles").Opens);
         Assert.AreEqual("7", withNew.Facts.Single(fact => fact.Label == "new roles").Figure);
-        Assert.IsNull(withNew.Facts.Single(fact => fact.Label == "companies scanned").Opens);
+        Assert.IsNull(withNew.Facts.Single(fact => fact.Label == "companies").Opens);
         var none = ScanPanel.View(copy, Ready, Status(Reply(scan: Picture(newRoles: 0))), null, Now);
         Assert.IsTrue(none.Facts.All(fact => fact.Opens is null));
         var live = ScanPanel.View(copy, Ready, Status(Reply(activity: "scanning", running: true, scan: Live())), null, Now);
@@ -219,7 +219,7 @@ public sealed class ScanTests
         var read = ScanPanel.View(copy, Ready, Status(Reply(activity: "scanning", running: true,
             scan: Picture("persisting", percent: 100, total: 41, pending: 5, recorded: 88))), null, Now);
         Assert.AreEqual("scan-title-adding", read.TitleKey);
-        Assert.AreEqual(new ScanFact("41", "companies scanned"), read.Facts.Single());
+        Assert.AreEqual(new ScanFact("41", "companies"), read.Facts.Single());
         Assert.AreEqual(new ScanFact("88", "recorded"), read.Tank);
         Assert.AreEqual(new ScanFact("5", "to add"), read.TankFloor);
         var finishing = ScanPanel.View(copy, Ready, Status(Reply(activity: "scanning", running: true,
