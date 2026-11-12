@@ -66,6 +66,11 @@ struct SetupView: View {
                         Text(model.text(subtitle, model.setupStopKey == nil ? [:] : model.helpValues))
                             .font(.system(size: 13)).foregroundStyle(palette.secondary)
                             .fixedSize(horizontal: false, vertical: true)
+                        // The footer offers the next free port beside this reason.
+                        if let refusal = model.setupPortRefusal {
+                            Text(model.text(refusal.key, refusal.values)).font(.system(size: 13)).foregroundStyle(palette.warning)
+                                .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.updatesFrequently)
+                        }
                     }
                     content
                 }.padding(.horizontal, 32).padding(.top, 28).padding(.bottom, 20)

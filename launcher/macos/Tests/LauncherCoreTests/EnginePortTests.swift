@@ -22,12 +22,25 @@ func testSocket(_ family: Int32) -> Int32 {
     }
 }
 
+/// The port engine-host tests serve on when a test names none. No test is given it by `quietPort()`.
+let fixturePort = 47391
+
+/// The ports `quietPort()` has given out in this run.
+private final class GivenPorts: @unchecked Sendable {
+    private let lock = NSLock()
+    private var given: Set<Int> = [fixturePort]
+    /// Records `port` and says whether it was still unclaimed.
+    func claim(_ port: Int) -> Bool { lock.withLock { given.insert(port).inserted } }
+}
+private let givenPorts = GivenPorts()
+
 /// A free loopback port below the kernel's range for chosen ports (49152 and up). No socket another
-/// test opens on port 0, or connects from, is given it while a test closes it and looks again.
+/// test opens on port 0, or connects from, is given it while a test closes it and looks again, and
+/// no two tests running at once are given the same one.
 func quietPort() throws -> Int {
     for _ in 0..<500 {
         let port = Int.random(in: 40000..<49000)
-        if EnginePort.isFree(port) && !EnginePort.browserRefused.contains(port) { return port }
+        if !EnginePort.browserRefused.contains(port) && EnginePort.isFree(port) && givenPorts.claim(port) { return port }
     }
     throw POSIXError(.EADDRINUSE)
 }

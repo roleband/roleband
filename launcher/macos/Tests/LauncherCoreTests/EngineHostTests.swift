@@ -13,7 +13,7 @@ private final class HostClock: @unchecked Sendable {
 private struct HostFixture: Sendable {
     /// Below the kernel's range for chosen ports (49152 and up), so no socket another test opens on
     /// port 0 lands on it and makes the host's port check refuse a start.
-    static let defaultPort = 47391
+    static let defaultPort = fixturePort
     let root: URL
     let configuration: HostConfiguration
     var data: URL { configuration.data }

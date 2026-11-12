@@ -206,6 +206,8 @@ final class LauncherModel: ObservableObject {
         }
     }
     @Published private(set) var setupCompleted: Bool
+    /// Whether a browser has been sent to Radar, which may then keep settings at its address.
+    @Published private(set) var radarOpened: Bool
     @Published private(set) var completingSetup = false
     @Published private(set) var setupOpenFailed = false
     @Published private(set) var loginState = LoginState.unknown
@@ -286,6 +288,7 @@ final class LauncherModel: ObservableObject {
         bundleURL = dependencies.bundleURL
         homeURL = dependencies.homeURL
         setupCompleted = preferences.bool(forKey: "setupCompleted")
+        radarOpened = preferences.bool(forKey: "radarOpened")
         setupLoginChoice = preferences.object(forKey: "setupLoginChoice") as? Bool ?? true
         let saved = preferences.string(forKey: "setupStep").flatMap(SetupStep.init(id:)) ?? .welcome
         step = saved == .installation && AppLocation.isInstalled(bundleURL, home: homeURL) ? .connection : saved
@@ -338,9 +341,18 @@ final class LauncherModel: ObservableObject {
         guard hostState == .needsAttention, hostProblem == .portInUse || hostProblem == .databaseInUse else { return nil }
         return helpKey
     }
-    /// The note on what a port move changes in the browser. Before setup completes Radar has never
-    /// been opened, so nothing in the browser would change.
-    var showsPortNote: Bool { setupCompleted }
+    /// Why setup's last port move was refused, while the port still keeps setup stopped: the offered
+    /// port may have been taken since it was offered.
+    var setupPortRefusal: PortRefusal? { setupStopKey != nil && hostProblem == .portInUse ? portRefusal : nil }
+    /// The note on what a port move changes in the browser. Until a browser has been sent to Radar
+    /// it keeps nothing at the engine's address, so nothing would change. Setup completes by opening
+    /// Radar, or after the person skipped that, so a completed setup counts too.
+    var showsPortNote: Bool { setupCompleted || radarOpened }
+    private func noteRadarOpened() {
+        guard !radarOpened else { return }
+        radarOpened = true
+        preferences.set(true, forKey: "radarOpened")
+    }
     /// The database row while setup runs: one the engine never began is waiting, not being created.
     var setupDatabaseState: String { preparation?.database ?? (preparationFailed ? "waiting" : "creating") }
     /// The named values `helpKey`'s message takes.
@@ -443,8 +455,9 @@ final class LauncherModel: ObservableObject {
                 problem = nil
                 failures = 0
                 // A browser that does not open says nothing about the engine, which just answered.
-                if let route = openAfterRead, !openBrowser(try route.url(for: installation)) {
-                    controlMessage = "setup-browser-error"
+                if let route = openAfterRead {
+                    if openBrowser(try route.url(for: installation)) { noteRadarOpened() }
+                    else { controlMessage = "setup-browser-error" }
                 }
             } catch is CancellationError {
                 // Only `stop()` cancels a read; the next `refresh()` must find the model idle.
@@ -867,6 +880,7 @@ final class LauncherModel: ObservableObject {
             let url = try BrowserRoute.radar.url(for: status.installation)
             guard finish() else { return false }
             setupOpenFailed = !openBrowser(url)
+            if !setupOpenFailed { noteRadarOpened() }
             return !setupOpenFailed
         } catch {
             verified = nil

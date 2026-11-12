@@ -321,9 +321,33 @@ private actor GatedEngine {
     #expect(!model.showsPortNote, "during setup Radar has never been opened, so there is nothing to warn about")
     #expect(model.portSuggestion == 8011)
     #expect(model.setupDatabaseState == "waiting", "no database is being created while nothing runs")
+    #expect(model.setupPortRefusal == nil)
     await model.usePortAndWait(8011)
     #expect(await boundary.calls == ["stop", "use 8011", "start"])
     #expect(model.setupStopKey == nil)
+}
+
+@MainActor
+@Test func setupSaysWhyAMoveToAPortTakenMeanwhileWasRefused() async throws {
+    let home = FileManager.default.temporaryDirectory.appendingPathComponent("port-setup-\(UUID().uuidString)")
+    let bundle = home.appendingPathComponent("Applications/RoleBand.app")
+    try FileManager.default.createDirectory(at: bundle, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: home) }
+    let boundary = PortBoundary(try ownedInstallation())
+    let model = LauncherModel(installation: .fixed(try ownedInstallation()), mode: .owned(leftover: nil),
+                              ownedEngine: boundary.service, readStatus: noEngine, preferences: .scratch("port-test"),
+                              bundleURL: bundle, homeURL: home, language: "en", portFree: { _ in true })
+    model.step = .connection
+    await boundary.hold(by: "Python", suggestion: 8011)
+    await model.refreshHost()
+    // Python still holds 8010, and another program takes 8011 before the engine starts there.
+    await boundary.takeOnStart(8010)
+    await boundary.takeOnStart(8011)
+    await model.usePortAndWait(8011)
+    #expect(await boundary.calls == ["stop", "use 8011", "start", "use 8010", "start"])
+    #expect(model.setupStopKey != nil, "setup stays stopped on the held port")
+    let refusal = try #require(model.setupPortRefusal)
+    #expect(model.text(refusal.key, refusal.values) == "Port 8011 is in use. Choose another.")
 }
 
 @MainActor

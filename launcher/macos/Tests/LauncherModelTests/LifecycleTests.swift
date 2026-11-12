@@ -139,3 +139,27 @@ private actor Sources {
     #expect(await quit { body in Task { @MainActor in AppQuit.request(body) } } == "shutdown")
     #expect(await quit { body in DispatchQueue.main.async { MainActor.assumeIsolated { AppQuit.request(body) } } } == "shutdown")
 }
+
+@MainActor
+@Test func radarOpenedBeforeSetupCompletesShowsWhatAPortMoveCosts() async throws {
+    let install = try installation()
+    let preferences = UserDefaults.scratch("radar-opened")
+    var opens = true
+    let model = LauncherModel(installation: .fixed(install), readStatus: { try reply($0) },
+                              openBrowser: { _ in opens }, preferences: preferences)
+    defer { model.stop() }
+    #expect(!model.setupCompleted && !model.showsPortNote, "nothing in the browser yet: no note")
+    // A browser that does not open keeps nothing at the address.
+    opens = false
+    model.refresh(open: .radar)
+    await model.refreshAndWait()
+    #expect(!model.showsPortNote)
+    opens = true
+    model.refresh(open: .radar)
+    await model.refreshAndWait()
+    #expect(!model.setupCompleted)
+    #expect(model.showsPortNote, "Radar opened during setup may keep settings that a move would leave behind")
+    let relaunched = LauncherModel(installation: .fixed(install), readStatus: { try reply($0) }, preferences: preferences)
+    defer { relaunched.stop() }
+    #expect(relaunched.showsPortNote, "the next launch remembers it")
+}
