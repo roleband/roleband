@@ -83,10 +83,12 @@ internal sealed class TrayApp
         flyout.CancelUpdateRequested += CancelUpdate;
         flyout.Undo += async () => { flyout.Hide(); await UndoUpdateAsync(); };
         flyout.CheckUpdates += async () => { flyout.Hide(); OpenSettings(); await CheckUpdatesAsync(manual: true); };
+        // A quit closes the flyout's window, so it never runs inside one of that window's messages: Windows' end and the
+        // icon's menu ask for it, and the dispatcher runs it once the message is answered.
         try
         {
-            sessionEnd = new SessionEnd(flyout.Handle);
-            sessionEnd.Ending += async () => await QuitAsync();
+            sessionEnd = new SessionEnd(flyout.Handle, StopForSessionEnd);
+            sessionEnd.Ending += () => dispatcher.TryEnqueue(async () => await QuitAsync());
         }
         catch (Exception error) { Debug.WriteLine(error); }
         try
@@ -94,11 +96,11 @@ internal sealed class TrayApp
             tray = new TrayIcon(flyout.Handle, Menu);
             tray.Selected += Selected;
             tray.DoubleClicked += () => { flyout.Hide(); RunDefault(); };
-            tray.Chosen += async command => await ChooseAsync(command);
+            tray.Chosen += command => dispatcher.TryEnqueue(async () => await ChooseAsync(command));
+            tray.Appeared += () => dispatcher.TryEnqueue(flyout.Dock);
         }
         catch (Exception error)
         {
-            // Without the icon the flyout keeps a frame and stays open, and closing it quits.
             tray = null;
             Debug.WriteLine(error);
         }
@@ -146,7 +148,9 @@ internal sealed class TrayApp
             RenderFlyout();
             OpenSettings();
         }
-        if (tray is null) flyout.ShowStandalone();
+        // Without the icon the flyout keeps a frame and stays open, and closing it quits; an icon that appears later, once
+        // Explorer's taskbar takes it, docks the flyout again.
+        if (tray is not { Shown: true }) flyout.ShowStandalone();
     }
 
     /// <summary>A second start of the app, redirected here: Start and the icon's default command do the same.</summary>
@@ -824,6 +828,14 @@ internal sealed class TrayApp
     {
         try { Process.Start(new ProcessStartInfo(target) { UseShellExecute = true }); }
         catch (Exception error) { Debug.WriteLine(error); }
+    }
+
+    /// <summary>The engine's stop when Windows ends the app, which <see cref="SessionEnd"/> waits for before it answers
+    /// Windows; the quit that follows finds the engine stopped.</summary>
+    private Task StopForSessionEnd()
+    {
+        downloading?.Cancel();
+        return engine?.StopAsync() ?? Task.CompletedTask;
     }
 
     /// <summary>Quit stops the engine; the app stays if the engine did not stop, with the reason in Settings. When Windows

@@ -164,6 +164,20 @@ public sealed partial class FlyoutWindow : Window
         Activate();
     }
 
+    /// <summary>Back to the icon's flyout once the icon is there: no title bar, above other windows, out of the task
+    /// switchers, and hidden until the icon opens it.</summary>
+    public void Dock()
+    {
+        if (!standalone || closing) return;
+        standalone = false;
+        if (presenter.State == OverlappedPresenterState.Minimized) presenter.Restore();
+        presenter.SetBorderAndTitleBar(true, false);
+        presenter.IsAlwaysOnTop = true;
+        presenter.IsMinimizable = false;
+        AppWindow.IsShownInSwitchers = false;
+        Hide();
+    }
+
     public void Hide()
     {
         if (!IsOpen) return;
