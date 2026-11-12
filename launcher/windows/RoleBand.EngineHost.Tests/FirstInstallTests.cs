@@ -246,6 +246,104 @@ public sealed class FirstInstallTests
         Assert.IsFalse(InstalledRoleBand.AtLeast("0.1.9", "0.1.25"));
     }
 
+    /// <summary>Setup's folder in a fresh scratch place, with an attempt's download in it as Setup leaves it.</summary>
+    private static (string Setup, string Folder, string Package) Downloaded()
+    {
+        var setup = Path.Combine(Path.GetTempPath(), "roleband-download-tests", Guid.NewGuid().ToString("N"), "RoleBand-Setup");
+        var folder = Path.Combine(setup, "0.2.1");
+        Directory.CreateDirectory(folder);
+        var package = Path.Combine(folder, "RoleBand-0.2.1-Windows-x64.msix");
+        File.WriteAllBytes(package, new byte[64 * 1024]);
+        return (setup, folder, package);
+    }
+
+    /// <summary>Holds the package as a virus scanner reading the new file can: open, without sharing deletion.</summary>
+    private static FileStream Scanning(string package) => new(package, FileMode.Open, FileAccess.Read, FileShare.Read);
+
+    [TestMethod]
+    public async Task AnInstallsOutcomeArrivesOnlyOnceItsDownloadIsGone()
+    {
+        var (setup, folder, _) = Downloaded();
+        var installing = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var outcome = DownloadFolder.UsingAsync(folder, () => installing.Task);
+
+        // While Windows still installs, the attempt's download stays where the attempt left it.
+        Assert.IsFalse(outcome.IsCompleted);
+        Assert.IsTrue(Directory.Exists(folder), "nothing is removed before the attempt ends");
+        installing.SetResult(true);
+        var installed = await outcome;
+
+        // Setup closes, and its process ends, the moment it has this outcome: nothing may be left to remove then.
+        Assert.IsTrue(installed);
+        Assert.IsFalse(Directory.Exists(folder), "no empty version folder is left");
+        Assert.IsFalse(Directory.Exists(setup), "Setup's own folder goes with its last download");
+        Directory.Delete(Path.GetDirectoryName(setup)!);
+    }
+
+    [TestMethod]
+    public async Task AFailedAttemptsDownloadIsRemovedBeforeItsErrorArrives()
+    {
+        var (setup, folder, _) = Downloaded();
+
+        await Assert.ThrowsExactlyAsync<HttpRequestException>(() =>
+            DownloadFolder.UsingAsync<bool>(folder, () => throw new HttpRequestException("offline")));
+
+        Assert.IsFalse(Directory.Exists(setup));
+        Directory.Delete(Path.GetDirectoryName(setup)!);
+    }
+
+    [TestMethod]
+    public async Task ADownloadHeldPastThePatienceIsLeftWholeWithoutAnError()
+    {
+        var (setup, folder, package) = Downloaded();
+        var waits = new List<TimeSpan>();
+        using (Scanning(package))
+            Assert.IsFalse(await DownloadFolder.RemoveAsync(folder, DownloadFolder.Patience, wait =>
+            {
+                waits.Add(wait);
+                return Task.CompletedTask;
+            }));
+
+        Assert.IsTrue(File.Exists(package), "a file nobody may delete is left whole");
+        Assert.AreEqual(DownloadFolder.Patience, waits.Aggregate(TimeSpan.Zero, (sum, wait) => sum + wait), "tried for the whole patience");
+        Directory.Delete(Path.GetDirectoryName(setup)!, recursive: true);
+    }
+
+    [TestMethod]
+    public async Task ADownloadAScannerLetsGoOfBetweenTriesIsStillRemoved()
+    {
+        var (setup, folder, package) = Downloaded();
+        var scanner = Scanning(package);
+        var waits = 0;
+
+        // The scanner lets go while removal waits after its first, failed try.
+        Assert.IsTrue(await DownloadFolder.RemoveAsync(folder, DownloadFolder.Patience, async _ =>
+        {
+            waits++;
+            await scanner.DisposeAsync();
+        }));
+
+        Assert.AreEqual(1, waits, "the first try failed and the second removed it");
+        Assert.IsFalse(Directory.Exists(setup));
+        Directory.Delete(Path.GetDirectoryName(setup)!);
+    }
+
+    [TestMethod]
+    public async Task RemovingADownloadKeepsWhateverElseIsInSetupsFolder()
+    {
+        var (setup, folder, _) = Downloaded();
+        var other = Path.Combine(setup, "0.2.0");
+        Directory.CreateDirectory(other);
+
+        Assert.IsTrue(await DownloadFolder.RemoveAsync(folder, DownloadFolder.Patience));
+
+        Assert.IsFalse(Directory.Exists(folder));
+        Assert.IsTrue(Directory.Exists(other), "another attempt's folder is not this one's to remove");
+        Assert.IsTrue(await DownloadFolder.RemoveAsync(Path.Combine(setup, "0.1.0"), TimeSpan.Zero), "a folder never made is already gone");
+        Directory.Delete(Path.GetDirectoryName(setup)!, recursive: true);
+    }
+
     /// <summary>Records each report as it is made, unlike <see cref="Progress{T}"/>, which posts it later.</summary>
     private sealed class Synchronous(Action<(long, long)> report) : IProgress<(long Received, long Total)>
     {
