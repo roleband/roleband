@@ -34,6 +34,9 @@ public sealed class TrayHook : IDisposable
     /// <summary>An icon that was missing has been added.</summary>
     public event Action? Appeared;
 
+    /// <summary>The timer's tries are spent and the icon is still missing; only a new taskbar can bring it back.</summary>
+    public event Action? Missing;
+
     /// <param name="window">A top-level window owned by the calling thread, which must run its messages.</param>
     /// <param name="add">Adds the icon, or updates it when the shell still has it; false, or an exception, when the shell
     /// refused it.</param>
@@ -101,15 +104,25 @@ public sealed class TrayHook : IDisposable
         if (!added)
         {
             // Setting the timer again keeps it running; it stops once its tries are spent.
-            if (tries++ < Retries) SetTimer(hook.Window, RetryTimer, interval, 0);
-            else KillTimer(hook.Window, RetryTimer);
+            if (tries++ < Retries)
+            {
+                SetTimer(hook.Window, RetryTimer, interval, 0);
+                return;
+            }
+            KillTimer(hook.Window, RetryTimer);
+            Raise(Missing);
             return;
         }
         KillTimer(hook.Window, RetryTimer);
         Shown = true;
+        Raise(Appeared);
+    }
+
+    private void Raise(Action? handlers)
+    {
         try
         {
-            Appeared?.Invoke();
+            handlers?.Invoke();
         }
         catch (Exception error)
         {

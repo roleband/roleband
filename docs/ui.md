@@ -126,9 +126,9 @@ whose ink stands out on its window colour. Badges are cut out of the mark, not p
 tooltip names the product and the state on one line within the shell's 127 characters, with a
 scan's percent. A click or Enter opens the flyout, a second click closes it; a double-click runs the
 default command; a right click or Shift+F10 opens the menu. When the notification area refuses the
-icon, as it can at sign-in while Explorer starts, the flyout opens as a framed window that stays open
-and whose close button quits; the icon is tried again for a minute and whenever Explorer creates its
-taskbar, and once it is there the flyout goes back to it.
+icon, as it can at sign-in while Explorer starts or after Explorer restarts, the flyout opens as a
+framed window that stays open and whose close button quits; the icon is tried again for a minute and
+whenever Explorer creates its taskbar, and once it is there the flyout goes back to it.
 
 **Surfaces.** The flyout, Settings and setup are solid and neutral, never tinted by the wallpaper. A
 framed window's title bar is one step darker than its body, cards sit inset from the body without

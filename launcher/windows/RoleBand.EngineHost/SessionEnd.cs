@@ -89,9 +89,17 @@ public sealed class SessionEnd : IDisposable
         finally
         {
             answered.TrySetResult();
-            PostMessage(hook.Window, ended, 0, 0);
+            if (!PostMessage(hook.Window, ended, 0, 0)) Ask();
         }
         return false;
+    }
+
+    /// <summary>Raises <see cref="Ending"/> through the thread's synchronization context, after the current message, or at
+    /// once without one.</summary>
+    private void Ask()
+    {
+        if (SynchronizationContext.Current is { } context) context.Post(_ => Ending?.Invoke(), null);
+        else Ending?.Invoke();
     }
 
     private Task Stop()

@@ -91,8 +91,8 @@ answered, even when its steps need the window's thread, and for at most the pati
 asked to close once, only after the answer, and a Quit already under way also goes on only then; an
 engine that did not stop keeps an ordinary Quit open but not Windows' end; and the app asks to end
 before processes at the default shutdown level. `TrayHookTests` hold the icon's hook on such a window
-to a shell that refuses the icon, as at sign-in: the app runs on without it, tries again on a timer
-and when the taskbar is created, and an exception from the add or a handler never leaves the window
+to a shell that refuses the icon, as at sign-in: the app runs on without it, tries again on a timer,
+hears once when the tries are spent, and tries again when the taskbar is created, and an exception from the add or a handler never leaves the window
 procedure; a hook its owner dropped stays callable until removed. `FirstInstallTests` also hold Setup
 to stopping when it cannot read whose desktop it runs on, its trust step to an exit code whatever
 fails, and any error of an attempt to a page with buttons once the download is removed. That the

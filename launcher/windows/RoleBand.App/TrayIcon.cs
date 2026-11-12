@@ -43,6 +43,13 @@ internal sealed class TrayIcon : IDisposable
         remove => hook.Appeared -= value;
     }
 
+    /// <summary>The icon could not be added again after Explorer restarted, so the app has no surface until it shows one.</summary>
+    public event Action? Missing
+    {
+        add => hook.Missing += value;
+        remove => hook.Missing -= value;
+    }
+
     /// <param name="menu">The menu, read when it opens.</param>
     public TrayIcon(nint window, Func<IReadOnlyList<MenuEntry>> menu)
     {

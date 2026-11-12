@@ -76,15 +76,18 @@ public sealed class TrayHookTests
         using var window = new WindowThread();
         var taskbar = false;
         var adds = 0;
+        var missing = 0;
         var hook = Hook(window, () => { adds++; return taskbar; }, retry: TimeSpan.FromMilliseconds(10));
+        window.Run(() => hook.Missing += () => missing++);
 
         await Until(() => window.Run(() => adds) == 1 + TrayHook.Retries, "every try");
         await Task.Delay(300);
-        Assert.AreEqual((false, 1 + TrayHook.Retries), window.Run(() => (hook.Shown, adds)));
+        Assert.AreEqual((false, 1 + TrayHook.Retries, 1), window.Run(() => (hook.Shown, adds, missing)),
+            "the app hears once that the icon is gone for good, to show a window of its own");
 
         window.Run(() => taskbar = true);
         window.Send(TaskbarCreated, 0, 0);
-        Assert.IsTrue(window.Run(() => hook.Shown));
+        Assert.AreEqual((true, 1), window.Run(() => (hook.Shown, missing)));
     }
 
     [TestMethod]

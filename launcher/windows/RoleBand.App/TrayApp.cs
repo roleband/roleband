@@ -29,6 +29,9 @@ internal sealed class TrayApp
     private EngineConfiguration? configuration;
     private string? launchFailure;
     private bool quitting;
+    // Windows is ending the app, so nothing starts the engine or an update's install again. Kept apart from quitting,
+    // which must stay unset for the quit that follows.
+    private bool sessionEnding;
     // Set as Quit closes the windows: a timer tick or an engine change already queued must not draw on a closed window,
     // which throws.
     private bool closed;
@@ -98,6 +101,7 @@ internal sealed class TrayApp
             tray.DoubleClicked += () => { flyout.Hide(); RunDefault(); };
             tray.Chosen += command => dispatcher.TryEnqueue(async () => await ChooseAsync(command));
             tray.Appeared += () => dispatcher.TryEnqueue(flyout.Dock);
+            tray.Missing += () => dispatcher.TryEnqueue(() => { if (!flyout.Standalone) flyout.ShowStandalone(); });
         }
         catch (Exception error)
         {
@@ -149,7 +153,7 @@ internal sealed class TrayApp
             OpenSettings();
         }
         // Without the icon the flyout keeps a frame and stays open, and closing it quits; an icon that appears later, once
-        // Explorer's taskbar takes it, docks the flyout again.
+        // Explorer's taskbar takes it, docks the flyout again, and one lost for good after Explorer restarts frames it.
         if (tray is not { Shown: true }) flyout.ShowStandalone();
     }
 
@@ -433,7 +437,7 @@ internal sealed class TrayApp
             (update, package) = (update with { Run = UpdateRun.Broken(version, update.Run) }, null);
         }
         finally { downloading = null; }
-        if (quitting) return;
+        if (quitting || sessionEnding) return;
         RenderUpdate();
         if (package is null) return;
         try
@@ -654,7 +658,7 @@ internal sealed class TrayApp
 
     private async Task StartAsync()
     {
-        if (engine is null || updates is null) return;
+        if (engine is null || updates is null || sessionEnding) return;
         // Settles an update the previous run began before anything opens the database.
         try
         {
@@ -834,8 +838,11 @@ internal sealed class TrayApp
     /// Windows; the quit that follows finds the engine stopped.</summary>
     private Task StopForSessionEnd()
     {
-        downloading?.Cancel();
-        return engine?.StopAsync() ?? Task.CompletedTask;
+        sessionEnding = true;
+        var stop = engine?.StopAsync() ?? Task.CompletedTask;
+        try { downloading?.Cancel(); }
+        catch (ObjectDisposedException) { }
+        return stop;
     }
 
     /// <summary>Quit stops the engine; the app stays if the engine did not stop, with the reason in Settings. When Windows
