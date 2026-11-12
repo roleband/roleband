@@ -83,7 +83,12 @@ the engine is given the folder the app reads, an alert is shown once in the orde
 file is gone, a file still being written waits, a malformed, stale or undeletable one is never
 shown, a burst shows the first few, the words reach Windows as text, and macOS still posts its
 own banner. Windows notifications themselves need an installed package; a source run takes the
-alerts without showing them.
+alerts without showing them. `SessionEndTests` send Windows' end-of-session messages to a real
+window on its own message loop: the app is asked to close once, only when Windows confirms the end
+(an install's or a sign-out's), never on the query alone or an end called off, and not after the
+listener is gone; an engine that did not stop keeps an ordinary Quit open but not Windows' end, and
+the wait for the engine is cut short only once Windows confirms, also mid-Quit. That the built app then exits is checked by asking a running source run to
+close through Restart Manager (`RmShutdown` without force), which reports whether it closed.
 Check generated native
 copy with `node dashboard/scripts/export-launcher-copy.mjs --windows --check`.
 Packaging tool changes run `python -m unittest discover -s launcher/windows/Tools -p "test_*.py"`:
