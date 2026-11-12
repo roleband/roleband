@@ -705,6 +705,11 @@ private struct ScanTab: View {
                         Text(model.text(key)).font(PanelType.fact).foregroundStyle(p.secondary)
                             .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.updatesFrequently)
                     }
+                    // Moving the port changes Radar's address: what that costs shows before the click.
+                    if attention, model.portSuggestion != nil {
+                        Text(model.text("panel-port-note")).font(PanelType.fact).foregroundStyle(p.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     // The offered port may have been taken since it was offered: the reason shows here,
                     // beside the next free port's button.
                     if model.hostProblem == .portInUse, let refusal = model.portRefusal {

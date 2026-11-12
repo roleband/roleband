@@ -689,14 +689,28 @@ final class LauncherModel: ObservableObject {
             do {
                 // A quit cancels this task but not the engine's own work: each step checks, so the
                 // engine never starts again after the quit stopped it.
+                let previous = self.enginePort
                 try await ownedEngine.stop()
                 try Task.checkCancellation()
                 _ = try await ownedEngine.use(port)
-                EnginePort.save(port, in: self.preferences)
                 self.enginePort = port
                 self.lastGood = nil
                 try Task.checkCancellation()
-                if !held { try await ownedEngine.start() }
+                if !held {
+                    do { try await ownedEngine.start() } catch HostProblem.portInUse {
+                        // Another program took the port while the engine stopped. The engine goes
+                        // back to its port and the saved choice stays as it was.
+                        _ = try await ownedEngine.use(previous)
+                        self.enginePort = previous
+                        self.portRefusal = .busy(port)
+                        try Task.checkCancellation()
+                        try? await ownedEngine.start()
+                        await self.refreshHost()
+                        return nil
+                    }
+                }
+                // Saved only once the engine took the port, or, while setup holds it, once it moved.
+                EnginePort.save(port, in: self.preferences)
             } catch is CancellationError {
                 throw CancellationError()
             } catch {

@@ -9,7 +9,18 @@ private actor PortBoundary {
     var current = OwnedEngineSnapshot(state: .stopped)
     var installation: Installation
     init(_ installation: Installation) { self.installation = installation }
-    func start() { calls.append("start"); current = OwnedEngineSnapshot(state: .running) }
+    /// Ports another program takes while the engine stops, so its start there is refused.
+    var takenOnStart: Set<Int> = []
+    func takeOnStart(_ port: Int) { takenOnStart.insert(port) }
+    func start() throws {
+        calls.append("start")
+        if let port = URL(string: installation.apiOrigin)?.port, takenOnStart.contains(port) {
+            current = OwnedEngineSnapshot(state: .needsAttention, problem: .portInUse,
+                                          portConflict: PortConflict(port: port, holder: nil, suggestion: nil))
+            throw HostProblem.portInUse
+        }
+        current = OwnedEngineSnapshot(state: .running)
+    }
     func stop() { calls.append("stop"); current = OwnedEngineSnapshot(state: .stopped) }
     func use(_ port: Int) throws -> Installation {
         calls.append("use \(port)")
@@ -22,7 +33,7 @@ private actor PortBoundary {
     }
     func snapshot() -> OwnedEngineSnapshot { current }
     nonisolated var service: OwnedEngineService {
-        OwnedEngineService(start: { await self.start() }, restart: { await self.start() },
+        OwnedEngineService(start: { try await self.start() }, restart: { try await self.start() },
                            stop: { await self.stop() }, snapshot: { await self.snapshot() },
                            use: { try await self.use($0) })
     }
@@ -220,4 +231,18 @@ private actor GatedEngine {
                            stop: { await self.stop() }, snapshot: { OwnedEngineSnapshot(state: .stopped) },
                            use: { try await self.use($0) })
     }
+}
+
+@MainActor
+@Test func aPortTakenWhileTheEngineStopsSendsItBackAndKeepsTheSavedChoice() async throws {
+    let boundary = PortBoundary(try ownedInstallation())
+    let preferences = UserDefaults.scratch("port-test")
+    let model = portModel(boundary, preferences: preferences)
+    await boundary.takeOnStart(8030)
+    await model.usePortAndWait(8030)
+    #expect(await boundary.calls == ["stop", "use 8030", "start", "use 8010", "start"])
+    #expect(preferences.object(forKey: EnginePort.preferenceKey) == nil, "the port that works stays the saved one")
+    #expect(model.enginePort == 8010)
+    #expect(model.portRefusal == .busy(8030))
+    #expect(model.hostState == .running && model.hostProblem == nil)
 }
