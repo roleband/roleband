@@ -264,7 +264,7 @@ async def test_compensation_keeps_the_estimate_apart_from_printed_bands_over_the
     # The total and the unclear range are not base; the hourly one is pay, just
     # not yearly; only the placeholder is no salary.
     assert posted["excluded"] == {
-        "not_base": 2, "not_yearly": 1, "implausible": 1, "no_country": 0, "placed_by_pay": 0,
+        "not_base": 2, "not_yearly": 1, "implausible": 1, "no_country": 0, "placed_by_pay": 0, "without_country": 0,
     }
     assert list(posted) == _fields(contract.PostedPay)
     # The rate is denominated in roles the disclosure pass has read: `o-old` was never read.
@@ -381,6 +381,29 @@ async def test_pay_in_another_currency_stays_off_the_dollar_axes_and_is_counted(
     ))).one()
     assert cell.bands == [{"low": 250000, "high": 320000, "reqs": 2}]
     assert cell.roles == 3
+
+
+@pytest.mark.asyncio
+async def test_a_dollar_estimate_for_pay_outside_the_us_stays_off_the_us_estimate(api_client, db_session, seeded):
+    # The estimate panels read "Estimate, US only". A plugin can price a
+    # Toronto role, or one in two countries, in US dollars: the currency is
+    # right and the country is not, so neither counts as priced.
+    before = await _get(api_client, ROUTES["compensation"])
+    db_session.add_all([
+        _role("google", "toronto", level="staff", comp=900000, locations=["Toronto, ON, Canada"],
+              location_groups=["canada"]),
+        _role("google", "two-countries", level="staff", comp=900000, location_groups=["silicon_valley", "canada"]),
+        _role("google", "toronto-base", level="staff", comp_component="base", comp_base_median=400000,
+              location_groups=["canada"]),
+    ])
+    await db_session.commit()
+
+    body = await _get(api_client, ROUTES["compensation"])
+    assert (body["overall"], body["by_level"]) == (before["overall"], before["by_level"])
+    assert body["coverage"]["with_comp"] == before["coverage"]["with_comp"]
+    assert body["coverage"]["total_open"] == before["coverage"]["total_open"] + 3
+    assert body["base_estimates"]["overall"] == before["base_estimates"]["overall"]
+    assert body["base_estimates"]["coverage"]["with_base"] == before["base_estimates"]["coverage"]["with_base"]
 
 
 @pytest.mark.asyncio

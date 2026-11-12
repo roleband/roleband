@@ -479,6 +479,33 @@ def test_a_posting_that_states_no_bonus_gets_none_whatever_the_company_rule():
     assert _equity_share(pkg) == (pytest.approx(0.52, abs=1e-3), pytest.approx(0.52, abs=1e-3))
 
 
+ENTRY_BAND = {**GOOGLE_BAND, "base_min": 120000, "base_max": 160000, "bonus_pct": None,
+              "snippet": "US: $120,000 - $160,000 (USD)"}
+
+
+def _early(band):
+    return build_job_package(
+        company="stripe", band=band, family="software_engineering",
+        comp_low=None, comp_median=None, comp_high=None, comp_provenance=None,
+        disclosed=ENTRY_BAND, baselines={},
+    )
+
+
+def test_an_early_career_role_reads_less_stock_than_a_senior_one_on_the_same_base():
+    """A $120K to $160K entry base: the estimated stock is a fraction of the
+    base, and below what a senior role on the same base reads."""
+    entry, mid, senior = (_kinds(_early(band))["equity"] for band in ("entry", "mid", "senior"))
+    assert entry["high"] < 0.5 * 160000
+    assert entry["high"] < mid["high"] < senior["high"]
+
+
+def test_an_internship_gets_no_estimated_equity_segment():
+    pkg = _early("intern")
+    assert pkg["split_source"] == SPLIT_HEURISTIC
+    assert "equity" not in _kinds(pkg)
+    assert pkg["total"]["low"] == 120000 + _kinds(pkg)["bonus"]["low"]
+
+
 def test_openai_reads_the_same_heuristic_equity_as_a_peer_with_the_same_rules():
     assert _kinds(_heuristic("openai"))["equity"] == _kinds(_heuristic("anthropic"))["equity"]
 

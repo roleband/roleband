@@ -100,7 +100,7 @@ export function levelSummary(
 }
 
 /** What no country's figure reads, and why, a sentence per reason; "" when nothing. */
-export function exclusionNote(excluded: PostedPay["excluded"]): string {
+export function exclusionNote(excluded: Omit<PostedPay["excluded"], "without_country">): string {
   const notes: [number, (args: { count: number }) => string][] = [
     [excluded.not_base, insightsCompBandsNotBase],
     [excluded.not_yearly, insightsCompBandsNotYearly],
