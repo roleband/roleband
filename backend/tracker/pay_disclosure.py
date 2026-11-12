@@ -350,10 +350,17 @@ def _read_candidate(match: re.Match, pay_text: str) -> _Reading | None:
     # "£" and "€" name a currency as surely as a code. A "$" does not: postings
     # write it beside other codes ("$81 - $139 EUR"), a zone letter before it
     # reads as a dollar prefix ("Zone A\n$190,000"), and a dollar band can carry
-    # a stray sign ("$150,000 - £180,000" for New York). So a dollar sign never
-    # makes two currencies; the code, where there is one, decides.
+    # a stray sign ("$150,000 - £180,000" for New York). So one dollar sign never
+    # makes two currencies; the code, where there is one, decides. Only a country
+    # prefix on BOTH dollar signs, naming two ("CA$150,000 - US$180,000"), does.
     named = codes | {_SIGN_CURRENCIES[sign] for sign in (groups.get("symbol"), groups.get("high_symbol")) if sign in _SIGN_CURRENCIES}
-    if len(named) > 1:
+    dollar_prefixes = {
+        _DOLLAR_CURRENCIES[sign_prefix.upper()]
+        for sign_prefix in (groups.get("prefix"), groups.get("high_prefix"))
+        if sign_prefix
+    }
+    both_prefixed = bool(groups.get("prefix") and groups.get("high_prefix"))
+    if len(named) > 1 or (both_prefixed and len(dollar_prefixes) > 1):
         # Two bounds in two currencies are two figures, not one band.
         return None
     explicit_currency = next(iter(codes), None)

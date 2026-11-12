@@ -265,9 +265,8 @@ def test_two_amounts_with_no_separator_are_a_band():
 
 
 def test_a_code_repeated_before_the_high_amount_is_one_band():
-    """GitHub and Grafana write the code before each bound. Reading only a code
-    before the low amount found no band at all, so the posting showed an
-    estimate in place of the range it states."""
+    """GitHub and Grafana write the code before each bound: the two bounds are
+    one band in that currency."""
     for raw, band in (
         ("The base salary range for this job is USD $160,200.00 - USD $425,000.00 /Yr.",
          (160200, 425000, "USD", PayPeriod.year)),
@@ -291,6 +290,8 @@ def test_two_bounds_in_two_currencies_are_not_one_band():
         "Salary: £100,000 - €120,000 per year",
         "The salary range is from £100,000 up to €120,000 per year.",
         "Salary: €100,000 - £120,000 GBP per year",
+        "Salary: CA$150,000 - US$180,000 per year",
+        "The salary range is from C$150,000 up to US$180,000 per year.",
     ):
         assert not extract_grounded_band(raw, raw).disclosed, raw
     # A dollar sign names no currency of its own: the code decides, and a stray
@@ -301,14 +302,16 @@ def test_two_bounds_in_two_currencies_are_not_one_band():
         ("The salary range is €150,000 - EUR 180,000 per year.", "EUR"),
         ("Hourly rate: $81 - $139 EUR", "EUR"),
         ("Zone A\n$190,000—$304,000 USD", "USD"),
+        ("Salary: CA$150,000 - C$180,000 per year", "CAD"),
+        ("Salary: US$150,000 - $180,000 per year", "USD"),
         ("New York office, paying a salary range of $150,000 - £180,000 per annum.", "USD"),
     ):
         assert extract_grounded_band(raw, raw).currency == currency, raw
 
 
 def test_a_zone_or_level_number_before_a_band_does_not_hide_it():
-    """"Zone 1 $284,800" read as a band from 1 failed the ratio test, but the
-    failed match had already used up the real band's low amount."""
+    """A zone or level number before a band ("Zone 1 $284,800") is a label: the
+    band after it is read whole, from its own low amount."""
     for raw, band in (
         ("Compensation\nUS Zone 1\n$284,800—$385,200 USD\nUS Zone 2\n$256,300—$346,700 USD", (284800, 385200)),
         ("The national base pay ranges for this position.\nI4\n$130,600—$192,000 USD\nI5\n$159,800—$235,000 USD",
@@ -334,8 +337,9 @@ def test_a_period_written_as_words_between_the_number_and_the_dash_is_read_throu
 
 
 def test_an_amount_with_a_broken_comma_group_is_not_a_bound():
-    """A dropped or doubled digit, read with its commas removed, made a band the
-    posting never states: $29,000 to $181,000 from "$181,000-$290,00"."""
+    """An amount with a dropped or doubled digit ("$290,00", "$215,0000") bounds
+    no band: read with its commas removed it would state a figure the posting
+    does not, such as $29,000 to $181,000 from "$181,000-$290,00"."""
     for raw in (
         "The base salary range for this position is $181,000-$290,00 per year.",
         "Total Cash Compensation Range: $215,0000 – $305,000 per year",
