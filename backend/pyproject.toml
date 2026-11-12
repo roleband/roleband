@@ -210,7 +210,9 @@ warn_unused_ignores = true
 mypy_path = "../sdk/python:../robots/python"
 files = [
     "packaged.py",
+    "scripts/check_embedded_postgres.py",
     "scripts/check_runtime_python.py",
+    "scripts/upstream_http.py",
     "scripts/install_pg_contrib.py",
     "scripts/package_pg_contrib.py",
     "scripts/windows_checkpoint.py",
