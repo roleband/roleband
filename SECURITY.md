@@ -75,10 +75,10 @@ equal the table; any other value means the app is not RoleBand's.
 ## Checking a Windows release
 
 The Windows app, its package and Setup are signed with RoleBand's own code-signing
-certificate, `RoleBand.cer` on each release, and its release files with a Windows
-release key ([decision 0012](docs/decisions/0012-windows-distribution-and-signing.md)).
+certificate, and its release files with a Windows release key
+([decision 0012](docs/decisions/0012-windows-distribution-and-signing.md)).
 Their public halves, also in `launcher/windows/RoleBand.cer` and
-`launcher/windows/release-identity.json`:
+`launcher/windows/release-identity.json` at each release's tag:
 
 | | Value |
 |---|---|
@@ -88,8 +88,9 @@ Their public halves, also in `launcher/windows/RoleBand.cer` and
 | Spare release key (Ed25519) | `LSNzZBYG1gp9VPSIZN9oKi3RyzRxGHhXOraCAUg0mnU=` |
 
 Setup trusts only the certificate it was built with, and the app checks every update
-against these keys itself. Before trusting `RoleBand.cer` by hand, or to check a package
-or Setup you got another way, run these in PowerShell in the folder that holds them,
+against these keys itself. Before trusting `RoleBand.cer` by hand (download it from
+`launcher/windows` at the release's tag), or to check a package or Setup you got another
+way, run these in PowerShell in the folder that holds them,
 with `$file` set to the name of the file you downloaded, such as
 `RoleBand-Setup-<version>.exe` or the `.msix`:
 
