@@ -16,8 +16,8 @@
   </p>
   <p>
     <a href="#install-on-macos"><img alt="Install on macOS" src="docs/images/button-macos.svg"></a>
+    <a href="#install-on-windows"><img alt="Install on Windows" src="docs/images/button-windows.svg"></a>
     <a href="#install-on-linux"><img alt="Install on Linux" src="docs/images/button-linux.svg"></a>
-    <a href="https://github.com/roleband/roleband/issues/82"><img alt="Windows: in development" src="docs/images/button-windows.svg"></a>
   </p>
   <a href="https://github.com/roleband/roleband"><img alt="GitHub stars" src="https://img.shields.io/github/stars/roleband/roleband?style=social"></a>
 </div>
@@ -100,8 +100,7 @@ Follow what comes next on the
 
 ### Install on macOS
 
-For Macs with Apple silicon and macOS 14 or later. Everything RoleBand needs
-comes inside the app: there is nothing else to install.
+For Macs with Apple silicon and macOS 14 or later.
 
 1. Download `RoleBand-<version>-macOS-arm64.dmg` from the
    [latest release](https://github.com/roleband/roleband/releases/latest).
@@ -111,13 +110,29 @@ comes inside the app: there is nothing else to install.
    than by Apple. Open **System Settings > Privacy & Security**, click
    **Open Anyway** for RoleBand, and confirm. You do this once; updates do not
    ask again.
-4. RoleBand prepares your Mac: it creates its database and downloads its AI
-   model. Then **Open Radar** opens it in your browser, where a short welcome
-   sets up what you are looking for.
 
 RoleBand lives in the menu bar and scans while it runs; choose **Open at login**
 during setup to keep it scanning after a restart. Your data stays on your Mac,
 in the `.roleband` folder in your home folder.
+
+### Install on Windows
+
+For Windows 11 PCs with an Intel or AMD processor.
+
+1. Download `RoleBand-Setup-<version>.exe` from the
+   [latest release](https://github.com/roleband/roleband/releases/latest).
+2. Open it. Windows doesn't know RoleBand yet, so it may say **Windows
+   protected your PC**. Click **More info**, then **Run anyway**.
+3. Click **Install**, then **Yes** when Windows asks for permission. This lets
+   your PC trust RoleBand's signature, so you do it only once; updates do not
+   ask again.
+
+RoleBand lives in the notification area by the clock and scans while it runs;
+choose **Start with Windows** during setup to keep it scanning after a restart.
+Your data stays on your PC, in `%LOCALAPPDATA%\RoleBand`.
+
+If Smart App Control is on, Windows won't run RoleBand yet. A Microsoft Store
+version that works with it is on the way.
 
 ### Install on Linux
 
@@ -145,6 +160,13 @@ you choose **Update**, and puts the previous app and your data back if the
 update fails. To remove RoleBand, turn off **Open at login**, quit it from its
 menu-bar panel and move it from Applications to the Trash. Your data stays in
 the `.roleband` folder in your home folder; delete that folder to remove it too.
+
+**On Windows**, the app checks for updates the same way; to check now, open its
+Settings from the icon by the clock and choose **Check for updates**. To remove
+RoleBand, open Windows **Settings > Apps > Installed apps**, choose **…** next to
+RoleBand, then **Uninstall**.
+Your data stays in `%LOCALAPPDATA%\RoleBand`; delete that folder to remove it
+too.
 
 **On Linux**, run `git pull` in the `roleband` folder; RoleBand picks the update
 up by itself, and says so when `./setup.sh` is needed.
@@ -318,6 +340,7 @@ gives the checks for each step.
 | Platform | Support |
 |---|---|
 | macOS 14 or later, Apple silicon | Full: the downloadable app, and from source setup, tests and the always-on background item. Apple Intelligence integration is experimental and optional. |
+| Windows 11, x64 | The downloadable app. From source, the tests (`backend/constraints/windows-x86_64.txt`; CI runs here); `setup.sh` does not run on Windows. |
 | Linux x86_64 | Setup, the app and tests (`backend/constraints/linux-x86_64.txt`; CI runs here). No installer: run `python -m tracker.supervisor run` under your own service manager. |
 | Linux aarch64 | Builds: setup has a dependency lock (`backend/constraints/linux-aarch64.txt`), but no full run has been tried on this platform. No installer. |
 | macOS, Intel | Not supported: the app is built for Apple silicon only, and `setup.sh` refuses (no dependency lock). |
