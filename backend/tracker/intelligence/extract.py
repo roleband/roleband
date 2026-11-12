@@ -5,8 +5,7 @@ The pass itself — the query, the per-job commit, the telemetry write — needs
 store, so it lives in `tracker/intelligence_runtime/disclosed_comp.py`.
 This module is what a reader that only wants to know *which* task a log row
 belongs to, or *whether* a job is stale, can import without loading the database
-layer: `api/routers/statistics.py` and `scripts/report_equity_residuals.py` both
-take only `TASK`.
+layer.
 """
 
 from __future__ import annotations

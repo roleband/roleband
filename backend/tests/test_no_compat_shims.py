@@ -48,7 +48,6 @@ RETIRED = {
     "tracker.comp_trends": "tracker.analytics.comp_trends",
     "tracker.comp_package": "tracker.analytics.comp_package",
     "tracker.comp_split": "tracker.analytics.comp_split",
-    "tracker.comp_residual": "tracker.analytics.comp_residual",
     "tracker.util": "tracker.platform.util",
     "tracker.paths": "tracker.platform.paths",
     "tracker.runlock": "tracker.platform.locks",

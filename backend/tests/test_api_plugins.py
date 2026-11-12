@@ -687,34 +687,6 @@ async def test_a_plugin_s_total_is_never_split_by_our_heuristic(api_client, db_s
     assert ours["split_source"] == "heuristic" and ours["components"] and ours["no_split_reason"] is None
 
 
-async def test_the_equity_check_never_models_a_plugin_s_figure_with_our_heuristic(api_client, db_session):
-    """The same on the diagnostic: acme states its base, so the check reads the
-    equity its shown total implies. The plugin's rung measures no split, so
-    there is no modeled share to check it against: the row is counted
-    `unsplit`. When our source answers, our heuristic models its split."""
-    await _install(db_session, approved=True, enabled=True)
-    await _pay(db_session, clean=True)
-    job = (await db_session.execute(select(Job))).scalar_one()
-    job.status, job.in_scope = "open", True
-    job.disclosed_base_min, job.disclosed_base_max, job.disclosed_currency = 400_000, 500_000, "USD"
-    job.disclosed_pay_basis, job.disclosed_pay_period, job.disclosed_bonus_pct = "base", "year", 0.1
-    job.structured_prompt_version = "disclosed_comp/v5"
-    await db_session.commit()
-    await reestimate(db_session)
-
-    body = (await api_client.get("/api/statistics/equity-validation")).json()
-    assert body["groups"] == []
-    assert body["excluded"]["unsplit"] == 1 and body["coverage"]["used_reqs"] == 0
-
-    (await db_session.get(PluginInstall, "tpl")).enabled = False
-    await db_session.commit()
-    await reestimate(db_session)
-    body = (await api_client.get("/api/statistics/equity-validation")).json()
-    [group] = body["groups"]
-    assert (group["company"], group["comp_medians"], group["model_source"]) == ("acme", [300_000], "heuristic")
-    assert body["excluded"]["unsplit"] == 0
-
-
 async def test_a_job_at_a_company_the_plugin_has_not_read_says_so(api_client, db_session):
     """The job names who answers pay and whether it has read the
     company; one it has not read is "not covered", never "split not reported"

@@ -93,14 +93,6 @@ async def active_parser_version(session: AsyncSession) -> str:
     return await get_active_prompt_version(session, TASK, PAY_PARSER_VERSION)
 
 
-#: Stamps whose bands the equity residuals read: the current parser's and the
-#: last prompt-era stamp, which already derived the stated bonus share (v5).
-#: A band stamped by either is one the residuals' guard was written to admit.
-LEGACY_BAND_VERSION = "disclosed_comp/v5"
-
-
-async def residual_band_versions(session: AsyncSession) -> set[str]:
-    return {await active_parser_version(session), LEGACY_BAND_VERSION}
 
 
 #: The band a row's posting page states, as `disclosed_*` columns, or None

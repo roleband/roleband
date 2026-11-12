@@ -22,7 +22,7 @@ from tracker.analytics.comp_package import (
     PROV_STATED,
     SPLIT_CROSS_FAMILY,
     SPLIT_MEASURED,
-    cash_election,
+    employee_election,
 )
 from tracker.analytics.comp_split import is_public, parent_ticker, ticker_for
 from tracker.levels.model import BONUS_NONE, BONUS_PCT_OF_BASE
@@ -216,7 +216,7 @@ def build_comp_trajectory(
     set_apart: Counter[str] = Counter()
     for role in roles:
         reason = _set_apart_reason(role)
-        if reason != NO_SPLIT_NOT_US and cash_election(role.company):
+        if reason != NO_SPLIT_NOT_US and employee_election(role.company):
             # The person picks the mix, whatever the posting states or omits.
             if (total := _choice_total(role.package)) is not None:
                 choice.setdefault(role.company, []).append(total)

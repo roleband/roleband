@@ -29,7 +29,7 @@ from tracker.db.models import (
     CompanyProfile,
     PluginInstall,
 )
-from tracker.db.queries.reference_pay import package_rows, pay_level_rows, reported_rows, split_rows
+from tracker.db.queries.reference_pay import package_rows, pay_level_rows, reported_rows
 from tracker.plugins.registry import (
     COMPANY_BENEFITS,
     COMPANY_FACTS,
@@ -317,7 +317,6 @@ async def test_every_pay_surface_answers_a_company_from_the_one_source(db_sessio
     assert [(r.provider, r.base_amount, r.tc_median) for r in await pay_level_rows(db_session, providers)] == [
         ("tpl", 999_000, None)], "the plugin answers acme and states no total"
     assert [(r.provider, r.base_amount) for r in await package_rows(db_session, providers, "acme", "US")] == [("tpl", 999_000)]
-    assert await split_rows(db_session, providers, "US") == [], "the plugin answers acme and states no split"
 
 
 @pytest.mark.asyncio

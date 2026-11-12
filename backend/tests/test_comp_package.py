@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 from tracker.analytics.comp_package import (
     EQUITY_MEASURED_GRANT,
     EQUITY_RATIO,
@@ -406,16 +408,90 @@ def test_a_cash_election_company_s_stated_base_stands_alone():
     assert pkg["no_split_reason"] == NO_SPLIT_EMPLOYEE_ELECTION
 
 
-def test_a_company_whose_people_pick_stock_types_is_still_split():
-    """Spotify's people pick between stock vehicles, not between cash and
-    stock: the election rule alone does not refuse a split."""
-    pkg = build_job_package(
-        company="spotify", band="staff", family="software_engineering",
+@pytest.mark.parametrize("company", ["spotify", "shopify"])
+def test_a_company_that_states_its_people_pick_the_mix_is_never_split(company):
+    """The equity rule says each person picks the mix, with no vehicle stated:
+    a split of ours would invent the mix the employer leaves to the person,
+    for a stated base and for an estimated total alike."""
+    base = build_job_package(
+        company=company, band="principal", family="software_engineering",
+        comp_low=None, comp_median=None, comp_high=None, comp_provenance=None,
+        disclosed={**GOOGLE_BAND, "bonus_pct": None}, baselines={},
+    )
+    assert base["stated"] == {"low": 240000, "high": 334000}
+    assert (base["components"], base["total"], base["no_split_reason"]) == ([], None, NO_SPLIT_EMPLOYEE_ELECTION)
+    total = build_job_package(
+        company=company, band="principal", family="software_engineering",
         comp_low=400000, comp_median=500000, comp_high=600000, comp_provenance="estimated",
         disclosed={"disclosed": False}, baselines={},
     )
+    assert (total["components"], total["no_split_reason"]) == ([], NO_SPLIT_EMPLOYEE_ELECTION)
+
+
+# --- the heuristic split, where nothing is measured ------------------------------
+
+
+def _heuristic(company, band="principal"):
+    return build_job_package(
+        company=company, band=band, family="software_engineering",
+        comp_low=None, comp_median=None, comp_high=None, comp_provenance=None,
+        disclosed={**GOOGLE_BAND, "bonus_pct": None}, baselines={},
+    )
+
+
+def _equity_share(pkg):
+    equity = _kinds(pkg)["equity"]
+    return (equity["low"] / pkg["total"]["low"], equity["high"] / pkg["total"]["high"])
+
+
+@pytest.mark.parametrize(("band", "share"), [("principal", 0.52), ("director_plus", 0.58)])
+@pytest.mark.parametrize("company", ["openai", "amazon", "anthropic", "stripe"])
+def test_heuristic_equity_is_the_level_s_share_of_the_total_at_any_company(company, band, share):
+    """No company has its own equity multiplier, and a company that pays no
+    bonus (OpenAI, Amazon, Anthropic) keeps the level's equity share."""
+    pkg = _heuristic(company, band)
+    assert pkg["split_source"] == SPLIT_HEURISTIC and pkg["equity_basis"] == EQUITY_RATIO
+    assert _equity_share(pkg) == (pytest.approx(share, abs=1e-3), pytest.approx(share, abs=1e-3))
+
+
+def test_a_posting_s_stated_bonus_keeps_heuristic_equity_at_the_level_s_share():
+    """OpenAI's rule is no bonus; a posting that states 25% still leaves
+    equity at the level's share of the total it adds up to."""
+    pkg = build_job_package(
+        company="openai", band="principal", family="software_engineering",
+        comp_low=None, comp_median=None, comp_high=None, comp_provenance=None,
+        disclosed={**GOOGLE_BAND, "bonus_pct": 0.25}, baselines={},
+    )
+    assert _kinds(pkg)["bonus"]["provenance"] == PROV_STATED
+    assert _equity_share(pkg) == (pytest.approx(0.52, abs=1e-3), pytest.approx(0.52, abs=1e-3))
+
+
+def test_a_posting_that_states_no_bonus_gets_none_whatever_the_company_rule():
+    """Microsoft's rule is a bonus; a posting that states 0% is the fact:
+    no bonus segment, and equity stays the level's share of base plus equity."""
+    pkg = build_job_package(
+        company="microsoft", band="principal", family="software_engineering",
+        comp_low=None, comp_median=None, comp_high=None, comp_provenance=None,
+        disclosed={**GOOGLE_BAND, "bonus_pct": 0.0}, baselines={},
+    )
+    assert "bonus" not in _kinds(pkg)
+    assert pkg["total"]["low"] == 240000 + _kinds(pkg)["equity"]["low"]
+    assert _equity_share(pkg) == (pytest.approx(0.52, abs=1e-3), pytest.approx(0.52, abs=1e-3))
+
+
+def test_openai_reads_the_same_heuristic_equity_as_a_peer_with_the_same_rules():
+    assert _kinds(_heuristic("openai"))["equity"] == _kinds(_heuristic("anthropic"))["equity"]
+
+
+@pytest.mark.parametrize("company", ["tsmc", "two-sigma"])
+def test_a_company_that_grants_no_equity_gets_no_equity_segment(company):
+    """TSMC states it grants no equity: the base it posts stands with a bonus,
+    and the total is their sum."""
+    pkg = _heuristic(company)
+    assert "equity" not in _kinds(pkg)
+    assert pkg["total"]["low"] == sum(c["low"] for c in pkg["components"])
     assert pkg["no_split_reason"] is None
-    assert {c["kind"] for c in pkg["components"]} >= {"base", "equity"}
+
 
 def test_checked_but_nothing_stated_is_estimate_only():
     pkg = build_job_package(
