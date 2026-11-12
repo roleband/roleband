@@ -194,7 +194,7 @@ companies-register-chrome-followed-companies-wait-for-your = { $count ->
 companies-register-chrome-roleband-doesn-t-scan-them = { $count ->
    *[other] 你回复之前不会扫描它们。
 }
-companies-register-chrome-review = 查看 { $display }
+companies-register-chrome-review = 查看
 companies-register-chrome-companies-failed-the-last-scan = { $count ->
    *[other] { $count } 家公司上次扫描失败
 }
@@ -351,3 +351,29 @@ companies-follow-copy-keep-scanning = { $count ->
    *[other] 持续扫描
 }
 companies-follow-copy-follow-and-scan = 关注并扫描
+companies-data-review-kept = { $count ->
+   *[other] 已关注 { $count } 家公司。
+}
+companies-data-review-dropped = { $count ->
+   *[other] 已取消关注 { $count } 家公司。
+}
+companies-data-review-failed = 无法保存你的回答。没有任何更改。
+companies-follow-copy-keep-following-these = { $rest ->
+    [0] 继续关注 { $first } 和 { $second }？
+   *[other] 继续关注 { $first }、{ $second } 等另外 { $rest } 家公司？
+}
+companies-follow-copy-keep-following-one = 继续关注 { $display }？
+companies-follow-copy-sites-changed = { $count ->
+   *[other] 招聘网站更改了可读取的方式。在你回答之前，不会扫描。
+}
+companies-follow-copy-not-now = 以后再说
+companies-follow-copy-keep-following-count = 继续关注 { $count } 家
+companies-follow-copy-let-me-choose = 让我选择
+companies-follow-copy-which-to-unfollow = 要取消关注哪些公司？
+companies-follow-copy-find-a-company = 查找公司
+companies-follow-copy-select-all = { $state ->
+    [all] 全部取消
+   *[some] 全选
+}
+companies-follow-copy-companies-to-unfollow = 要取消关注的公司
+companies-follow-copy-count-to-unfollow = 将取消关注 { $count } 家
