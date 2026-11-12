@@ -1353,9 +1353,10 @@ describe("CompaniesSection — walled companies follow only through their dialog
     expect(strip).toHaveTextContent("1 followed company waits for your consent");
     expect(within(screen.getByRole("region", { name: "AI" })).getByText("Needs consent")).toBeInTheDocument();
 
-    fireEvent.click(within(strip).getByRole("button", { name: "Review DeepMind" }));
-    const ask = await screen.findByRole("dialog", { name: "Follow DeepMind?" });
-    fireEvent.click(within(ask).getByRole("button", { name: "Follow DeepMind" }));
+    fireEvent.click(within(strip).getByRole("button", { name: msg("companies-register-chrome-review") }));
+    const ask = await screen.findByRole("dialog", { name: msg("companies-follow-copy-keep-following-one", { display: "DeepMind" }) });
+    expect(within(ask).getByText("Its careers site limits automated collection.")).toBeInTheDocument();
+    fireEvent.click(within(ask).getByRole("button", { name: msg("companies-follow-copy-keep-following") }));
     await waitFor(() => expect(api.setCompanySelection).toHaveBeenCalledTimes(1));
     const [sent, consents] = vi.mocked(api.setCompanySelection).mock.calls[0];
     expect(sent).toEqual(change(["deepmind"]));
@@ -1475,12 +1476,12 @@ describe("CompaniesSection — a company scanned at your direction follows and s
     });
     renderSection();
     const strip = await screen.findByRole("region", { name: "Companies needing attention" });
-    expect(within(strip).getByRole("button", { name: "Review NVIDIA" })).toBeInTheDocument();
+    expect(within(strip).getByRole("button", { name: msg("companies-register-chrome-review") })).toBeInTheDocument();
 
     fireEvent.click(await within(sectorPanel("AI")).findByRole("button", { name: "Scan NVIDIA now" }));
-    const ask = await screen.findByRole("dialog", { name: "Follow NVIDIA?" });
+    const ask = await screen.findByRole("dialog", { name: msg("companies-follow-copy-keep-following-one", { display: "NVIDIA" }) });
     expect(api.sync).not.toHaveBeenCalled();
-    fireEvent.click(within(ask).getByRole("button", { name: "Follow and scan" }));
+    fireEvent.click(within(ask).getByRole("button", { name: msg("companies-follow-copy-keep-following") }));
     await waitFor(() => expect(api.setCompanySelection).toHaveBeenCalledTimes(1));
     expect(vi.mocked(api.setCompanySelection).mock.calls[0][1]?.map((entry) => entry.slug)).toEqual(["nvidia"]);
   });

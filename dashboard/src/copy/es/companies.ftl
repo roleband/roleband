@@ -218,7 +218,7 @@ companies-register-chrome-roleband-doesn-t-scan-them = { $count ->
     [many] No se escanean hasta que respondas.
    *[other] No se escanean hasta que respondas.
 }
-companies-register-chrome-review = Revisar { $display }
+companies-register-chrome-review = Revisar
 companies-register-chrome-companies-failed-the-last-scan = { $count ->
     [one] { $count } empresa: último escaneo fallido
     [many] { $count } de empresas: último escaneo fallido
@@ -407,3 +407,35 @@ companies-follow-copy-keep-scanning = { $count ->
    *[other] Seguir escaneando estas empresas
 }
 companies-follow-copy-follow-and-scan = Seguir y escanear
+companies-data-review-kept = { $count ->
+    [one] Siguiendo { $count } empresa.
+    [many] Siguiendo { $count } de empresas.
+   *[other] Siguiendo { $count } empresas.
+}
+companies-data-review-dropped = { $count ->
+    [one] Dejaste de seguir { $count } empresa.
+    [many] Dejaste de seguir { $count } de empresas.
+   *[other] Dejaste de seguir { $count } empresas.
+}
+companies-data-review-failed = No se pudo guardar tu respuesta. No cambió nada.
+companies-follow-copy-keep-following-these = { $rest ->
+    [0] ¿Seguir siguiendo a { $first } y { $second }?
+   *[other] ¿Seguir siguiendo a { $first }, { $second } y { $rest } más?
+}
+companies-follow-copy-keep-following-one = ¿Seguir siguiendo a { $display }?
+companies-follow-copy-sites-changed = { $count ->
+    [one] Su sitio de empleo cambió la forma en que puede leerse. Hasta que respondas, no se escanea.
+    [many] Sus sitios de empleo cambiaron la forma en que pueden leerse. Hasta que respondas, no se escanean.
+   *[other] Sus sitios de empleo cambiaron la forma en que pueden leerse. Hasta que respondas, no se escanean.
+}
+companies-follow-copy-not-now = Ahora no
+companies-follow-copy-keep-following-count = Seguir siguiendo { $count }
+companies-follow-copy-let-me-choose = Prefiero elegir
+companies-follow-copy-which-to-unfollow = ¿Qué empresas dejar de seguir?
+companies-follow-copy-find-a-company = Buscar una empresa
+companies-follow-copy-select-all = { $state ->
+    [all] Quitar todas
+   *[some] Marcar todas
+}
+companies-follow-copy-companies-to-unfollow = Empresas que dejar de seguir
+companies-follow-copy-count-to-unfollow = { $count } para dejar de seguir

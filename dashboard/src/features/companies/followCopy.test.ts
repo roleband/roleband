@@ -1,4 +1,5 @@
 import { activate } from "../../copy/activate";
+import { msg } from "../../test/msg";
 import { wordsLanguage } from "../../copy/runtime";
 import { describe, expect, it } from "vitest";
 import type { CompanyDiscoveryCompany } from "../../api";
@@ -218,5 +219,76 @@ describe("a company scanned only at the user's direction", () => {
     expect(agreed.keepScanning).toBeUndefined();
     expect(shownSentences(agreed).join(" ")).not.toContain("your direction");
     expect(agreed.consent).toBeUndefined();
+  });
+});
+
+describe("followed companies that wait for an answer", () => {
+  // Followed before their sites needed an agreement: kept, not scanned.
+  const waiting = (slug: string, display: string, over: Partial<CompanyDiscoveryCompany> = {}) =>
+    company({ slug, display, directed: true, tracked: true, enabled: true, ...over });
+  const many = Array.from({ length: 40 }, (_, index) =>
+    waiting(`co-${String(index).padStart(2, "0")}`, `Company ${String(index).padStart(2, "0")}`));
+  const CHANGED = msg("companies-follow-copy-sites-changed", { count: 40 });
+  const TITLE = msg("companies-follow-copy-keep-following-these", { first: "Company 00", second: "Company 01", rest: 38 });
+
+  it("asks one question for forty, naming two, with the bulk agreement said once", () => {
+    const copy = followCopy({ kind: "keep-following", companies: many });
+    expect(copy).toEqual({
+      title: TITLE,
+      paragraphs: [CHANGED],
+      consent: { facts: [{ site: "directed", text: SOME_DIRECTED }], choice: BY_FOLLOWING },
+      choose: msg("companies-follow-copy-let-me-choose"),
+      safe: msg("companies-follow-copy-not-now"),
+      act: msg("companies-follow-copy-keep-following-count", { count: 40 }),
+      keepScanning: msg("companies-follow-copy-keep-scanning", { count: 40 }),
+    });
+    // The link is a control: the agreement never records it.
+    expect(agreementText(copy)).toBe([TITLE, CHANGED, SOME_DIRECTED, BY_FOLLOWING].join("\n\n"));
+  });
+
+  it("names both when there are two, and states each kind of site once", () => {
+    const walled = waiting("deepmind", "DeepMind", { directed: false, wall: "robots" });
+    const copy = followCopy({ kind: "keep-following", companies: [walled, many[0]] });
+    expect(copy.title).toBe(msg("companies-follow-copy-keep-following-these", { first: "DeepMind", second: "Company 00", rest: 0 }));
+    expect(copy.consent?.facts.map((fact) => fact.site)).toEqual(["walled", "directed"]);
+    expect(shownSentences(copy).filter((line) => line.includes("choose to collect"))).toEqual([BY_FOLLOWING]);
+  });
+
+  it("asks about one company in its own words, with no choose step", () => {
+    const snyk = waiting("snyk", "Snyk");
+    const copy = followCopy({ kind: "keep-following", companies: [snyk] });
+    expect(copy).toEqual({
+      title: msg("companies-follow-copy-keep-following-one", { display: "Snyk" }),
+      paragraphs: [msg("companies-follow-copy-sites-changed", { count: 1 })],
+      consent: {
+        facts: [{ site: "directed", text: "Its careers site is scanned only at your direction." }],
+        choice: "By following, you choose to collect Snyk's public postings. Unfollow at any time to stop.",
+      },
+      safe: msg("companies-follow-copy-not-now"),
+      act: msg("companies-follow-copy-keep-following"),
+      keepScanning: msg("companies-follow-copy-keep-scanning", { count: 1 }),
+    });
+  });
+
+  it("agrees for every company kept, in the first step's words, and for none ticked to unfollow", () => {
+    const pending = { kind: "keep-following" as const, companies: many };
+    const copy = followCopy(pending);
+    const text = agreementText(copy);
+    const unfollow = new Set(["co-03", "co-17", "co-39"]);
+    const agreed = consentsFor(pending, { copy, locale: "en", keepScanning: false, unfollow });
+    expect(agreed).toHaveLength(37);
+    const slugs = agreed.map((consent) => consent.slug);
+    for (const slug of unfollow) expect(slugs).not.toContain(slug);
+    expect(new Set(agreed.map((consent) => consent.text))).toEqual(new Set([text]));
+    expect(agreed.every((consent) => consent.scan_on_schedule === false)).toBe(true);
+    // Every one ticked: nothing is agreed to.
+    const all = new Set(many.map((one) => one.slug));
+    expect(consentsFor(pending, { copy, locale: "en", keepScanning: true, unfollow: all })).toEqual([]);
+  });
+
+  it("asks nothing again of a company agreed to since", () => {
+    const agreed = { ...many[0], consented: true };
+    const pending = { kind: "keep-following" as const, companies: [agreed, many[1]] };
+    expect(consentsFor(pending).map((consent) => consent.slug)).toEqual(["co-01"]);
   });
 });
