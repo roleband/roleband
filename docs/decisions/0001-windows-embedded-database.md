@@ -18,10 +18,11 @@ transient file supplies initdb and is removed when initialization returns.
 Connection URLs contain the password-file path. Credentials stay out of process
 arguments. An initialization marker binds credentials to the cluster path and
 PostgreSQL major. It is written last, before any server starts, so a password file
-without a marker is a first initialization that never finished and holds no history:
-its folder and credentials are renamed aside, never deleted, and initialization starts
-again. Unrecognized clusters, and a marker whose cluster is missing, require recovery
-or fresh storage.
+without a marker, beside a data folder no server has run, is a first initialization
+that never finished and holds no history: its folder and credentials are renamed
+aside, never deleted, and initialization starts again. Unrecognized clusters, a
+cluster that has run without its marker, and a marker whose cluster is missing
+require recovery or fresh storage.
 
 A private interprocess lock serializes startup. Each start chooses a loopback
 port and regenerates runtime settings. Before connecting, the adapter verifies

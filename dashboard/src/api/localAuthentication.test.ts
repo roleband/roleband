@@ -78,7 +78,7 @@ describe("local browser authentication", () => {
       const authorization = new Headers(init.headers).get("Authorization")!;
       if (failure === "redirect") throw new TypeError("Redirect refused");
       const headers: Record<string, string> = failure === "missing" ? {} : { "X-RoleBand-Proof": mac(`response-v1\n${authorization}\n200\n${digest('{"sentinel":"private"}')}`) };
-      return new Response('{"sentinel":"foreign"}', { headers });
+      return new Response('{"sentinel":"foreign"}', { status: failure === "missing" ? 401 : 200, headers });
     });
     vi.stubGlobal("fetch", network);
     const { localFetch } = await import("./localAuthentication");
@@ -138,6 +138,33 @@ describe("local browser authentication", () => {
     expect(window.sessionStorage.getItem(storage)).toBeNull();
     await expect(localFetch("/api/read")).rejects.toBeInstanceOf(LocalAuthenticationError);
     expect(network).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not send a write again when the reply without a proof is not a refusal", async () => {
+    window.sessionStorage.setItem(storage, JSON.stringify({ key_id: keyId, secret, origin: window.location.origin }));
+    const network = vi.fn(async () => new Response("Internal Server Error", { status: 500 }));
+    vi.stubGlobal("fetch", network);
+    const { localFetch, LocalAuthenticationError } = await import("./localAuthentication");
+    await expect(localFetch("/api/write", { method: "POST", body: "{}" })).rejects.toBeInstanceOf(LocalAuthenticationError);
+    expect(network).toHaveBeenCalledTimes(1);
+  });
+
+  it("locks without signing again when the clock does not reach a later second", async () => {
+    window.sessionStorage.setItem(storage, JSON.stringify({ key_id: keyId, secret, origin: window.location.origin }));
+    const stepped = Date.now();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(stepped);
+    const network = vi.fn(async () => new Response('{"detail":"locked"}', { status: 401 }));
+    vi.stubGlobal("fetch", network);
+    try {
+      const { localFetch, LocalAuthenticationError } = await import("./localAuthentication");
+      const started = performance.now();
+      await expect(localFetch("/api/read")).rejects.toBeInstanceOf(LocalAuthenticationError);
+      expect(performance.now() - started).toBeLessThan(3000);
+      expect(network).toHaveBeenCalledTimes(1);
+      expect(window.sessionStorage.getItem(storage)).toBeNull();
+    } finally {
+      clock.mockRestore();
+    }
   });
 
   it("refuses to send credentials to another origin", async () => {

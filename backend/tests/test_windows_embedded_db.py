@@ -253,6 +253,27 @@ def test_a_first_setup_stopped_after_initdb_but_before_its_record_is_kept_aside(
         destroy(server.pgdata)
 
 
+def test_a_cluster_that_has_run_and_lost_its_record_is_refused_and_left_in_place(tmp_path):
+    pgdata = tmp_path / "used" / "db"
+    auth = pgdata.parent / "db.auth"
+    server = ensure_server(pgdata, database="probe")
+    assert stop_server(server.pgdata)
+    assert (pgdata / "postmaster.opts").exists()
+    record = auth / "cluster.json"
+    lost = record.with_name("cluster.lost")
+    record.rename(lost)
+    try:
+        with pytest.raises(EmbeddedDbError, match="no verified SCRAM credentials"):
+            ensure_server(pgdata, database="probe")
+        assert (pgdata / "PG_VERSION").exists()
+        assert (auth / "pgpass.conf").exists()
+        assert not list(auth.glob("*.unfinished-*"))
+        assert not list(pgdata.parent.glob("db.unfinished-*"))
+    finally:
+        lost.rename(record)
+        destroy(pgdata)
+
+
 def test_a_finished_cluster_whose_data_folder_is_missing_is_still_refused(tmp_path):
     pgdata = tmp_path / "finished" / "db"
     auth = pgdata.parent / "db.auth"

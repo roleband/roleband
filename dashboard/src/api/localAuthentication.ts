@@ -114,10 +114,15 @@ async function signedFetch(credential: Session, key: CryptoKey, url: string, tar
   return { response, authorization };
 }
 
-async function laterSecond(than: number): Promise<void> {
+/** Waits until the wall clock reads a later second than `than`, or reports that it did not within
+ * two seconds, as when the clock is stepped back. */
+async function laterSecond(than: number): Promise<boolean> {
+  const deadline = performance.now() + 2000;
   while (Math.floor(Date.now() / 1000) <= than) {
-    await new Promise((resolve) => setTimeout(resolve, 1000 - (Date.now() % 1000) + 1));
+    if (performance.now() >= deadline) return false;
+    await new Promise((resolve) => setTimeout(resolve, Math.min(1000 - (Date.now() % 1000) + 1, 250)));
   }
+  return true;
 }
 
 export async function localFetch(url: string, init?: RequestInit): Promise<Response> {
@@ -129,13 +134,14 @@ export async function localFetch(url: string, init?: RequestInit): Promise<Respo
   }
   const key = await crypto.subtle.importKey("raw", bytes(credential.secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
   let { response, authorization } = await signedFetch(credential, key, url, target, init);
-  if (!response.headers.has("X-RoleBand-Proof")) {
-    // An API process refuses, without a proof, a signature stamped in or before the second it
-    // started, so a request that waited through an API restart comes back like this. The engine
-    // accepts one signed in a later second than the refusal; a listener that is not the engine
-    // cannot prove that one either.
+  // An API process refuses, with a 401 and no proof, a signature stamped in or before the second it
+  // started, so a request that waited through an API restart comes back like this. The engine
+  // accepts one signed in a later second than the refusal; a listener that is not the engine cannot
+  // prove that one either. Other replies without a proof are not sent again: a route that fails
+  // after a write answers 500 without one.
+  if (response.status === 401 && !response.headers.has("X-RoleBand-Proof")
+      && await laterSecond(Math.floor(Date.now() / 1000))) {
     void response.body?.cancel().catch(() => {});
-    await laterSecond(Math.floor(Date.now() / 1000));
     ({ response, authorization } = await signedFetch(credential, key, url, target, init));
   }
   const proof = response.headers.get("X-RoleBand-Proof") ?? "";
