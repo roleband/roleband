@@ -119,6 +119,25 @@ def test_alerts_the_app_is_not_taking_stop_piling_up(monkeypatch, commands, tmp_
     assert all(json.loads(path.read_text(encoding="utf-8"))["message"] == "waiting" for path in _alerts(folder))
 
 
+def test_an_alert_of_any_length_stays_within_what_the_app_reads(monkeypatch, commands, tmp_path):
+    """The app drops a file over the contract's size unshown; long words are cut instead, and the cut is shown."""
+    folder = tmp_path / "alerts"
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setenv(osnotify.ALERTS_ENV, str(folder))
+    assert osnotify.ALERT_MAX_BYTES == CONTRACT["max_bytes"]
+    # Control characters are the longest once written as JSON (six bytes each).
+    worst = "\x01" * 20_000
+
+    assert osnotify.notify(worst, worst, subtitle=worst)
+
+    [alert] = _alerts(folder)
+    assert alert.stat().st_size <= CONTRACT["max_bytes"]
+    record = json.loads(alert.read_text(encoding="utf-8"))
+    assert record["message"].endswith("…") and record["title"].endswith("…") and record["subtitle"].endswith("…")
+    assert osnotify.notify("RoleBand", "short")
+    assert json.loads(_alerts(folder)[-1].read_text(encoding="utf-8"))["message"] == "short", "short words are kept whole"
+
+
 def test_a_folder_that_cannot_be_written_is_logged_not_raised(monkeypatch, commands, tmp_path):
     blocker = tmp_path / "alerts"
     blocker.write_text("a file where the folder should be", encoding="utf-8")

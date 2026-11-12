@@ -3,6 +3,7 @@
   "environment": "ROLEBAND_ALERTS_DIR",
   "folder": "alerts",
   "format": 1,
+  "max_bytes": 16384,
   "example": {
     "format": 1,
     "title": "RoleBand",

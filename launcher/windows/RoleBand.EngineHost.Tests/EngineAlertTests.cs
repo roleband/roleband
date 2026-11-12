@@ -51,6 +51,7 @@ public sealed class EngineAlertTests
         Assert.AreEqual(Path.Combine(state, Contract["folder"]!.GetValue<string>()), start.Environment[EngineAlerts.Variable]);
         Assert.AreEqual(EngineAlerts.Folder(state), start.Environment[EngineAlerts.Variable]);
         Assert.AreEqual(EngineAlerts.Format, Contract["format"]!.GetValue<int>());
+        Assert.AreEqual(EngineAlerts.MaxBytes, Contract["max_bytes"]!.GetValue<long>());
     }
 
     [TestMethod]
@@ -103,6 +104,17 @@ public sealed class EngineAlertTests
 
         Assert.AreEqual(1, taken.Count, "only the alert inside the age limit is shown");
         Assert.AreEqual(0, Directory.GetFiles(folder).Length, "a dropped alert does not wait to be looked at again");
+    }
+
+    [TestMethod]
+    public void AnAlertOfTheLargestSizeIsShownAndOneByteMoreIsNot()
+    {
+        var json = Example(record => record["created_at"] = Now.ToString("o")).ToJsonString();
+        File.WriteAllText(Path.Combine(folder, "1.json"), new string(' ', (int)EngineAlerts.MaxBytes - json.Length) + json);
+        File.WriteAllText(Path.Combine(folder, "2.json"), new string(' ', (int)EngineAlerts.MaxBytes - json.Length + 1) + json);
+
+        Assert.AreEqual(1, EngineAlerts.Take(folder, Now).Count);
+        Assert.AreEqual(0, Directory.GetFiles(folder).Length);
     }
 
     [TestMethod]

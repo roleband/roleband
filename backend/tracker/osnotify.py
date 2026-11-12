@@ -34,6 +34,12 @@ ALERT_FORMAT = 1
 #: Alerts waiting for the app beyond this many are dropped, so an app that is not
 #: reading them never fills the folder.
 MAX_PENDING_ALERTS = 20
+#: The largest alert file the app reads (`max_bytes` in the contract).
+ALERT_MAX_BYTES = 16 * 1024
+#: Longer words are cut, with an ellipsis, so every alert file stays within
+#: `ALERT_MAX_BYTES`: a character takes at most six bytes once written as JSON.
+_MAX_TITLE_CHARS = 200
+_MAX_MESSAGE_CHARS = 1000
 _SEQUENCE = itertools.count()
 
 
@@ -64,6 +70,10 @@ def build_command(
     return ["osascript", "-e", script]
 
 
+def _cut(text: str, limit: int) -> str:
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
 def write_alert(folder: Path, title: str, message: str, *, subtitle: str | None = None) -> Path | None:
     """Leave one alert for the Windows app. Returns its file, or None when too many already wait.
 
@@ -75,9 +85,9 @@ def write_alert(folder: Path, title: str, message: str, *, subtitle: str | None 
         return None
     record = {
         "format": ALERT_FORMAT,
-        "title": title,
-        "message": message,
-        "subtitle": subtitle,
+        "title": _cut(title, _MAX_TITLE_CHARS),
+        "message": _cut(message, _MAX_MESSAGE_CHARS),
+        "subtitle": None if subtitle is None else _cut(subtitle, _MAX_TITLE_CHARS),
         "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
     }
     # Windows' clock can give two alerts of one pass the same time; the sequence keeps both, in order.

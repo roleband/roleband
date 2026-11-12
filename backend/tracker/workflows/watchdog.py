@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 
@@ -178,20 +179,29 @@ API_PATIENCE_SECONDS = 60.0
 API_RETRY_SECONDS = 5.0
 
 
+API_ASK_SECONDS = 3.0
+
+
 async def _pause(seconds: float) -> None:
     await asyncio.sleep(seconds)
 
 
+def _now() -> float:
+    return time.monotonic()
+
+
 async def _api_answers(client: httpx.AsyncClient, base: str) -> bool:
-    waited = 0.0
+    """Whether the API answers within the patience, which the requests' own time counts against."""
+    deadline = _now() + API_PATIENCE_SECONDS
     while True:
-        health = await _http_get(client, base, "/api/health", 3.0)
+        remaining = deadline - _now()
+        health = await _http_get(client, base, "/api/health", max(0.5, min(API_ASK_SECONDS, remaining)))
         if health is not None and health.status_code == 200:
             return True
-        if waited >= API_PATIENCE_SECONDS:
+        remaining = deadline - _now()
+        if remaining <= 0:
             return False
-        await _pause(API_RETRY_SECONDS)
-        waited += API_RETRY_SECONDS
+        await _pause(min(API_RETRY_SECONDS, remaining))
 
 
 async def _http_get(client: httpx.AsyncClient, base: str, path: str, timeout: float):

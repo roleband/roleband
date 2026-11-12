@@ -24,7 +24,8 @@ public static class EngineAlerts
     /// <summary>At most this many alerts are shown from one look; the rest are dropped rather than stacked.</summary>
     public const int MaxShown = 3;
 
-    private const long MaxBytes = 16 * 1024;
+    /// <summary>The largest alert file read; a larger one is dropped unshown. The engine keeps its alerts within it.</summary>
+    public const long MaxBytes = 16 * 1024;
 
     public static string Folder(string state) => Path.Combine(state, "alerts");
 
