@@ -203,3 +203,18 @@ async def test_uvicorn_runs_the_app_without_access_lines():
     command = api_module.uvicorn_command("/py", "127.0.0.1", 8010)
     assert command[:4] == ["/py", "-m", "uvicorn", "tracker.api.app:app"]
     assert "--no-access-log" in command
+
+
+async def test_neither_server_lets_a_forwarded_header_name_the_peer():
+    """The loopback boundary refuses peers that are not this computer; uvicorn's proxy
+    headers would let `X-Forwarded-For` rename the peer for any address
+    `FORWARDED_ALLOW_IPS` trusts."""
+    from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+
+    from tracker.supervisor.http_server import server_config
+
+    assert "--no-proxy-headers" in api_module.uvicorn_command("/py", "127.0.0.1", 8010)
+    config = server_config("127.0.0.1", 8010)
+    config.load()
+    assert config.proxy_headers is False
+    assert not isinstance(config.loaded_app, ProxyHeadersMiddleware)

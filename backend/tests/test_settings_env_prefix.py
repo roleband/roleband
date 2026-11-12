@@ -44,11 +44,12 @@ def test_a_name_another_tool_uses_never_configures_the_app(monkeypatch):
 
 
 def test_the_prefixed_name_configures_it(monkeypatch):
-    for name, value in AMBIENT.items():
+    # The API host must stay on this computer's loopback, so its prefixed value is one.
+    for name, value in (AMBIENT | {"API_HOST": "::1"}).items():
         monkeypatch.setenv(f"ROLEBAND_{name}", value)
     settings = Settings(_env_file=None)
     assert settings.postgres_db == "someone_elses_db"
-    assert settings.api_host == "0.0.0.0"
+    assert settings.api_host == "::1"
     assert settings.anthropic_api_key == "sk-ambient-not-ours"
     assert settings.search_llm_enabled is True
     assert settings.scraper_min_delay_seconds == 0.0

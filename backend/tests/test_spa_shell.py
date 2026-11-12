@@ -156,6 +156,8 @@ def test_every_file_of_the_build_is_served_under_the_shell_s_policy(
 
 
 _FASTAPI_PAGES = ["/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json"]
+#: Starlette's test client names its peer "testclient"; the composed app serves only loopback peers.
+LOOPBACK_PEER = ("127.0.0.1", 50000)
 
 
 @pytest.mark.parametrize("path", _FASTAPI_PAGES)
@@ -167,7 +169,7 @@ def test_the_composed_app_has_no_documentation_pages_or_schema_route(
     from tracker.api.app import app
 
     monkeypatch.setattr(spa, "DASHBOARD_DIST", tmp_path / "absent")
-    response = TestClient(app, base_url="http://127.0.0.1:8010").get(path)
+    response = TestClient(app, base_url="http://127.0.0.1:8010", client=LOOPBACK_PEER).get(path)
     assert response.status_code == 404
     assert "swagger" not in response.text.lower() and "redoc" not in response.text.lower()
 
@@ -178,7 +180,7 @@ def test_with_a_build_those_paths_are_the_dashboard_shell_under_its_policy(
 ) -> None:
     from tracker.api.app import app
 
-    response = TestClient(app, base_url="http://127.0.0.1:8010").get(path)
+    response = TestClient(app, base_url="http://127.0.0.1:8010", client=LOOPBACK_PEER).get(path)
     assert response.status_code == 200
     assert "index-abc123.js" in response.text
     assert "cdn.jsdelivr.net" not in response.text
