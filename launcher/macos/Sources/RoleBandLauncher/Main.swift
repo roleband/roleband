@@ -272,11 +272,13 @@ enum AppReopen {
     }
 
     /// In the fresh copy: waits, for at most `limit` seconds, until the copy that opened it has quit.
-    static func waitForPrevious(_ arguments: [String], limit: TimeInterval = 30, alive: (pid_t) -> Bool = AppReopen.alive) {
+    static func waitForPrevious(_ arguments: [String], limit: TimeInterval = 30, alive: (pid_t) -> Bool = AppReopen.alive,
+                                now: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+                                pause: () -> Void = { usleep(50_000) }) {
         guard let index = arguments.firstIndex(of: argument), arguments.indices.contains(index + 1),
               let previous = pid_t(arguments[index + 1]), previous > 0, previous != getpid() else { return }
-        let deadline = ProcessInfo.processInfo.systemUptime + limit
-        while alive(previous), ProcessInfo.processInfo.systemUptime < deadline { usleep(50_000) }
+        let deadline = now() + limit
+        while alive(previous), now() < deadline { pause() }
     }
 
     static func alive(_ pid: pid_t) -> Bool { kill(pid, 0) == 0 || errno == EPERM }

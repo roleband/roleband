@@ -42,7 +42,9 @@ private final class Decisions {
     var reopened = 0
     let recheck = LaunchRecheck(interval: .milliseconds(1), decide: { decisions.next() }, reopen: { reopened += 1; return true })
     let watching = recheck.watch(.databaseInUse)
-    while decisions.made < 5 { try await Task.sleep(for: .milliseconds(1)) }
+    let deadline = ProcessInfo.processInfo.systemUptime + 5
+    while decisions.made < 5, ProcessInfo.processInfo.systemUptime < deadline { try await Task.sleep(for: .milliseconds(1)) }
+    #expect(decisions.made >= 5, "the watch kept looking while the decision stayed the same")
     watching.cancel()
     await watching.value
     #expect(reopened == 0)
@@ -77,14 +79,19 @@ private final class Decisions {
 
 @Test func aFreshCopyWaitsForTheCopyThatOpenedIt() {
     var looks = 0
-    AppReopen.waitForPrevious(["RoleBand"], alive: { _ in looks += 1; return true })
+    var clock: TimeInterval = 0
+    var pauses = 0
+    let pause = { pauses += 1; clock += 1 }
+    AppReopen.waitForPrevious(["RoleBand"], alive: { _ in looks += 1; return true }, now: { clock }, pause: pause)
     #expect(looks == 0, "an ordinary open waits for nothing")
-    AppReopen.waitForPrevious(["RoleBand", AppReopen.argument, "4242"], alive: { _ in looks += 1; return looks < 3 })
+    AppReopen.waitForPrevious(["RoleBand", AppReopen.argument, "4242"], alive: { _ in looks += 1; return looks < 3 },
+                              now: { clock }, pause: pause)
     #expect(looks == 3, "it waits until the previous copy has quit")
-    let started = ProcessInfo.processInfo.systemUptime
-    AppReopen.waitForPrevious(["RoleBand", AppReopen.argument, "4242"], limit: 0.2, alive: { _ in true })
-    #expect(ProcessInfo.processInfo.systemUptime - started < 2, "a copy that never quits does not hold the open forever")
+    pauses = 0
+    AppReopen.waitForPrevious(["RoleBand", AppReopen.argument, "4242"], limit: 10, alive: { _ in true }, now: { clock }, pause: pause)
+    #expect(pauses == 10, "a copy that never quits holds the open only until the limit")
     looks = 0
-    AppReopen.waitForPrevious(["RoleBand", AppReopen.argument, String(getpid())], alive: { _ in looks += 1; return true })
+    AppReopen.waitForPrevious(["RoleBand", AppReopen.argument, String(getpid())], alive: { _ in looks += 1; return true },
+                              now: { clock }, pause: pause)
     #expect(looks == 0, "a copy never waits for itself")
 }

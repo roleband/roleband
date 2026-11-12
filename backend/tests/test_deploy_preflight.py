@@ -58,7 +58,7 @@ def repo(tmp_path) -> Path:
 def _own_database(repo: Path) -> dict[str, str]:
     """A database folder of the test's own. Without it the throwaway checkout, which
     has no `.env`, would name the default folder, which on a Mac can be the app's."""
-    return {"ROLEBAND_PGDATA": str(repo.parent / "pgdata"), "ROLEBAND_DATABASE_URL": ""}
+    return {"ROLEBAND_PGDATA": str(repo.parent / "pgdata"), "ROLEBAND_DATABASE_URL": "", "ROLEBAND_DB_EMBEDDED": "true"}
 
 
 def _run(repo: Path, *args: str, cwd: Path | None = None, backend: bool = False,
