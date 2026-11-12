@@ -227,10 +227,11 @@ def test_current_pins_pass_without_asking_pypi():
 
 def test_a_major_past_its_end_of_life_is_behind_even_on_its_last_minor():
     versions = [{**v, "supported": False} if v["major"] == "16" else v for v in VERSIONS]
-    code, lines, _ = _report(pins=Pins(wheel="0.7.3", postgres=(16, 16), pgvector=(0, 8, 7)), versions=versions)
+    code, lines, asked = _report(versions=versions)
     assert code == EXIT_BEHIND
     assert lines[0].startswith("BEHIND    postgresql.org lists Postgres 16 as unsupported before its end-of-life date")
     assert not any(line.startswith("WHEEL") for line in lines)
+    assert PYPI_URL not in asked
 
 
 def test_a_major_past_its_end_of_life_date_says_so_and_names_no_wheel():
