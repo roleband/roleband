@@ -39,6 +39,11 @@ and only reports what the posting literally says.
   `pay_numbers.USD_PER_UNIT`, never converted for display. A word that
   contradicts the size gives `unclear`: shown with no unit, never split, never
   counted. Every reader of a stored period goes through `effective_period`.
+- **Bounds**: a band is two amounts in one currency, and its code or symbol
+  may sit on either amount or both ("USD $160,200.00 - USD $425,000.00").
+  Two currencies are two figures, never one band. An amount with a broken
+  comma group ("$290,00", "$215,0000") is a typo and bounds nothing, so the
+  next stated band is read instead.
 - **Several bands, one per place**: `extract_grounded_band` takes the band
   whose label names the posting's first city or metro (`enrich/classify.first_place`)
   when exactly one does, else the first stated. A connector knows no place, so a reader

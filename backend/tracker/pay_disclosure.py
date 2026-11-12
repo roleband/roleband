@@ -45,7 +45,7 @@ MAX_COMP = 100_000_000  # sanity ceiling (whole currency units / year)
 #: number per run. A band a connector read from a structured field
 #: is never re-read (`jobs.disclosed_source`). Independent of the experimental
 #: prompt's `intelligence.prompts.PROMPT_VERSION`, which does not extract.
-PAY_PARSER_VERSION = "pay_parser/2026-10-26.1"
+PAY_PARSER_VERSION = "pay_parser/2026-11-12.1"
 
 
 #: The periods a list row writes a posted base range with. An unclear period
@@ -131,24 +131,44 @@ class DisclosedComp(BaseModel):
 # not read as a band, and without that lookahead it would.
 # The country must be a token of its own: without the lookbehind, the "s" of
 # "is $184,050" reads as Singapore and the band comes back SGD.
-_DOLLAR_PREFIX = r"(?:(?<![A-Za-z])(?:US|CA|C|A|NZ|HK|S)\s?)?"
+# Nor may a line break part it from its sign: "Zone A\n$190,000" is a zone.
+_DOLLAR_PREFIX = r"(?:(?<![A-Za-z])(?:US|CA|C|A|NZ|HK|S)[ \xa0]?)?"
 _MONEY_AHEAD = r"(?=" + _DOLLAR_PREFIX + r"[$£€])"
 # An optional piece carries its own leading whitespace, `(?:\s*X)?`, never
 # `\s*X?\s*`: two `\s*` beside an absent piece can split one run of spaces
 # every possible way, and a run that leads nowhere then costs cubic time.
-_PERIOD_WORD = r"(?:year|yr|annum|month|mo|hour|hr)"
-_PER_PERIOD = r"(?:\s*/\s*" + _PERIOD_WORD + r")?"
+# A whole word, so "/yearly" is not read as "/year" with "ly" left over
+# between the amount and the dash; an abbreviation may carry its full stop
+# ("$174,900/yr. to $215,000/yr.").
+_PERIOD_WORD = r"(?:(?:year|month|hour)(?:ly)?|annum|annually|(?:yr|mo|hr)\.?)(?![A-Za-z])"
+# "$140,000/yr", "$140,000 per year", "$140,000 a year", "$140,000 annually".
+_PER_PERIOD = (
+    r"(?:\s*(?:(?:/\s*|per\s+|an?\s+)" + _PERIOD_WORD + r"|(?:annually|yearly|monthly|hourly)(?![A-Za-z])))?"
+)
+#: The two amounts may go without a separator only when the LOW one is money
+#: too. Without that, the zone or level number in front of a band, "Zone 1
+#: $284,800—$385,200" or "I4 $130,600—$192,000", is read as a low of 1 or 4.
+#: That reading fails the ratio test, but the match has already consumed the
+#: real band's low amount, so the scan never sees the band at all.
+_NO_SEPARATOR = (
+    r"(?(symbol)\s+" + _MONEY_AHEAD
+    + r"|(?(lead_currency)\s+" + _MONEY_AHEAD
+    + r"|(?(low_currency)\s+" + _MONEY_AHEAD + r"|(?!))))"
+)
 _EXPLICIT_BAND_RE = re.compile(
     # Never from inside a run of whitespace: a match from there is a match from
     # the run's first space, and every start in the run would read the rest of it.
     r"(?!(?<=\s)\s)"
     # A code before the low amount, Workday's and SAP's "USD 150,000 - 200,000".
     r"(?:(?P<lead_currency>" + CURRENCY_CODE + r")\s*+)?"
-    r"(?:(?<![A-Za-z])(?P<prefix>US|CA|C|A|NZ|HK|S)\s?)?(?P<symbol>[$£€])?\s*"
+    r"(?:(?<![A-Za-z])(?P<prefix>US|CA|C|A|NZ|HK|S)[ \xa0]?)?(?P<symbol>[$£€])?\s*"
     r"(?P<low>" + AMOUNT + r")(?:\s*(?P<low_suffix>[kKmM](?![A-Za-z])))?"
     r"(?:\s*(?P<low_currency>" + CURRENCY_CODE + r"))?" + _PER_PERIOD +
-    r"(?:\s*(?:[-–—]|to\b|and\b)\s*|\s+" + _MONEY_AHEAD + r")"
-    r"(?:(?:(?<![A-Za-z])(?P<high_prefix>US|CA|C|A|NZ|HK|S)\s?)?[$£€]\s*)?"
+    r"(?:\s*(?:[-–—]|to\b|and\b)\s*|" + _NO_SEPARATOR + r")"
+    # The code repeated before the high amount: "USD $160,200 - USD $425,000",
+    # "EUR 133,600 - EUR 160,320".
+    r"(?:(?P<high_lead_currency>" + CURRENCY_CODE + r")\s*+)?"
+    r"(?:(?:(?<![A-Za-z])(?P<high_prefix>US|CA|C|A|NZ|HK|S)[ \xa0]?)?(?P<high_symbol>[$£€])\s*)?"
     r"(?P<high>" + AMOUNT + r")\s*(?P<high_suffix>[kKmM](?![A-Za-z]))?" + _PER_PERIOD +
     r"(?:\s*(?P<currency>" + CURRENCY_CODE + r"))?",
     re.IGNORECASE,
@@ -166,12 +186,18 @@ _EXPLICIT_BAND_RE = re.compile(
 #: amount with its symbol (some employers write the sentence with a bare
 #: "to"). Both bounds still pass `_read_candidate` and are grounded like any
 #: other band.
+#:
+#: "between" opens the same shape, and closes it with "to" or "and":
+#:
+#:     the reasonably expected salary range is between $132,500 [minimum
+#:     salary in our lowest geographic market] to $184,000 [maximum ...]
 _FROM_UP_TO_RE = re.compile(
-    r"\bfrom\s+(?:(?<![A-Za-z])(?P<prefix>US|CA|C|A|NZ|HK|S)\s?)?(?P<symbol>[$£€])\s*"
+    r"\b(?:from|(?P<between>between))\s+"
+    r"(?:(?<![A-Za-z])(?P<prefix>US|CA|C|A|NZ|HK|S)[ \xa0]?)?(?P<symbol>[$£€])\s*"
     r"(?P<low>" + AMOUNT + r")(?:\s*(?P<low_suffix>[kKmM](?![A-Za-z])))?"
     r"\s*(?:(?P<low_currency>" + CURRENCY_CODE + r")" + _PER_PERIOD + r"|/\s*" + _PERIOD_WORD + r")?"
-    r"[^\d$£€.;!?\n]{0,80}?\b(?:up\s+)?to\s+"
-    r"(?:(?<![A-Za-z])(?P<high_prefix>US|CA|C|A|NZ|HK|S)\s?)?[$£€]\s*"
+    r"[^\d$£€.;!?\n]{0,80}?\b(?:(?:up\s+)?to|(?(between)and|(?!)))\s+"
+    r"(?:(?<![A-Za-z])(?P<high_prefix>US|CA|C|A|NZ|HK|S)[ \xa0]?)?(?P<high_symbol>[$£€])\s*"
     r"(?P<high>" + AMOUNT + r")\s*(?P<high_suffix>[kKmM](?![A-Za-z]))?" + _PER_PERIOD +
     r"(?:\s*(?P<currency>" + CURRENCY_CODE + r"))?",
     re.IGNORECASE,
@@ -181,6 +207,7 @@ _FROM_UP_TO_RE = re.compile(
 #: either number's prefix — a band writes it on both ("CA$142,000 - CA$190,000")
 #: or only on the first.
 _DOLLAR_CURRENCIES = {"US": "USD", "CA": "CAD", "C": "CAD", "A": "AUD", "NZ": "NZD", "HK": "HKD", "S": "SGD"}
+_SIGN_CURRENCIES = {"£": "GBP", "€": "EUR"}
 
 
 def _has_currency_evidence(match: re.Match) -> bool:
@@ -191,9 +218,10 @@ def _has_currency_evidence(match: re.Match) -> bool:
     bounds to reject it — which they would, at every scale but the one where a
     headcount and a salary overlap.
     """
+    groups = match.groupdict()
     return bool(
-        match.group("symbol") or match.group("low_currency") or match.group("currency")
-        or match.groupdict().get("lead_currency")
+        groups["symbol"] or groups["low_currency"] or groups["currency"]
+        or groups.get("lead_currency") or groups.get("high_lead_currency") or groups.get("high_symbol")
     )
 
 
@@ -269,10 +297,38 @@ class _Reading(NamedTuple):
     salary: bool
 
 
+#: Comma groups a written amount can have: at most three digits first, then
+#: groups of two or three (Indian "12,00,000"), and three last. Anything else
+#: is a typo that dropped or doubled a digit: "$181,000-$290,00" read with the
+#: comma removed is a band from $29,000, and "$215,0000 - $305,000" one up to
+#: $2,150,000.
+_GROUPED_RE = re.compile(r"\d{1,3}(?:,\d{2,3})*,\d{3}")
+
+
+def _bound(raw: str, suffix: str | None) -> int | None:
+    """One bound's amount, or None for an amount written with a broken comma
+    group. A k or m that would lift a number already written in thousands
+    past any pay ("$174,000K/year") repeats the thousands: the amount is the
+    number as written. Only a reading no band could hold is reinterpreted, so
+    a k that is the real scale ("$150k") keeps it."""
+    # The amount pattern takes a comma that ends the clause ("$120,000, paid
+    # monthly") with the digits; it is punctuation, not a group. A doubled
+    # comma ("$200,,000") loses no digit and reads as one.
+    whole = re.sub(r",+", ",", raw.split(".", 1)[0]).rstrip(",")
+    if "," in whole and not _GROUPED_RE.fullmatch(whole):
+        return None
+    value = explicit_amount(raw, suffix)
+    if suffix and value is not None and value > MAX_COMP:
+        plain = explicit_amount(raw, None)
+        if plain is not None and plain >= 1_000:
+            return plain
+    return value
+
+
 def _read_candidate(match: re.Match, pay_text: str) -> _Reading | None:
     """The amounts, currency and period ONE regex candidate states, or None."""
-    low = explicit_amount(match.group("low"), match.group("low_suffix"))
-    high = explicit_amount(match.group("high"), match.group("high_suffix"))
+    low = _bound(match.group("low"), match.group("low_suffix"))
+    high = _bound(match.group("high"), match.group("high_suffix"))
     if low is None or high is None:
         return None
     low, high = sorted((low, high))
@@ -286,11 +342,34 @@ def _read_candidate(match: re.Match, pay_text: str) -> _Reading | None:
     # A code after the LOW number is as authoritative as one after the high —
     # "168,000 USD - 258,750" states its currency exactly once, and reading only
     # the trailing position would store that band with no currency at all.
-    explicit_currency = (
-        match.group("currency") or match.group("low_currency") or match.groupdict().get("lead_currency")
-    )
-    prefix = (match.group("prefix") or match.group("high_prefix") or "").upper()
-    symbol_currency = {"$": "USD", "£": "GBP", "€": "EUR"}.get(match.group("symbol"))
+    groups = match.groupdict()
+    codes = {
+        code.upper()
+        for code in (groups["currency"], groups["low_currency"], groups.get("lead_currency"), groups.get("high_lead_currency"))
+        if code
+    }
+    # "£" and "€" name a currency as surely as a code. A "$" does not: postings
+    # write it beside other codes ("$81 - $139 EUR"), a zone letter before it
+    # reads as a dollar prefix ("Zone A\n$190,000"), and a dollar band can carry
+    # a stray sign ("$150,000 - £180,000" for New York). So one dollar sign never
+    # makes two currencies; the code, where there is one, decides. Only a country
+    # prefix on BOTH dollar signs, naming two ("CA$150,000 - US$180,000"), does
+    # when no code settles it. A prefix sits on its sign's line: a letter on the
+    # line above ("Zone A\n$190,000") is a label.
+    named = codes | {_SIGN_CURRENCIES[sign] for sign in (groups.get("symbol"), groups.get("high_symbol")) if sign in _SIGN_CURRENCIES}
+    dollar_prefixes = {
+        _DOLLAR_CURRENCIES[sign_prefix.upper()]
+        for sign_prefix in (groups.get("prefix"), groups.get("high_prefix"))
+        if sign_prefix
+    }
+    both_prefixed = bool(groups.get("prefix") and groups.get("high_prefix"))
+    if len(named) > 1 or (not codes and both_prefixed and len(dollar_prefixes) > 1):
+        # Two bounds in two currencies are two figures, not one band.
+        return None
+    explicit_currency = next(iter(codes), None)
+    prefix = (groups.get("prefix") or groups.get("high_prefix") or "").upper()
+    symbol = groups.get("symbol") or groups.get("high_symbol") or ""
+    symbol_currency = {"$": "USD", "£": "GBP", "€": "EUR"}.get(symbol)
     if symbol_currency == "USD" and prefix:
         symbol_currency = _DOLLAR_CURRENCIES.get(prefix, "USD")
     currency = (explicit_currency or symbol_currency or "").upper() or None

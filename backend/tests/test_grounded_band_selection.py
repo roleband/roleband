@@ -264,6 +264,144 @@ def test_two_amounts_with_no_separator_are_a_band():
     assert band.currency == "USD", "'is $184,050' must not read as Singapore"
 
 
+def test_a_code_repeated_before_the_high_amount_is_one_band():
+    """GitHub and Grafana write the code before each bound: the two bounds are
+    one band in that currency."""
+    for raw, band in (
+        ("The base salary range for this job is USD $160,200.00 - USD $425,000.00 /Yr.",
+         (160200, 425000, "USD", PayPeriod.year)),
+        ("In Ireland, the base compensation range for this role is EUR 133,600 - EUR 160,320. Actual compensation may vary",
+         (133600, 160320, "EUR", PayPeriod.year)),
+        ("In Canada, the base compensation range for this role is CAD $211,450 - CAD $253,740.",
+         (211450, 253740, "CAD", PayPeriod.year)),
+        ("The cash compensation for this role is a range of USD 90,000-USD 120,000, inclusive of variable pay.",
+         (90000, 120000, "USD", PayPeriod.year)),
+        ("The base salary range is USD 209,000.00 USD – USD 250,000.00. Your base salary will be determined",
+         (209000, 250000, "USD", PayPeriod.year)),
+    ):
+        read = extract_grounded_band(raw, raw)
+        assert (read.base_min, read.base_max, read.currency, read.pay_period) == band, raw
+
+
+def test_two_bounds_in_two_currencies_are_not_one_band():
+    for raw in (
+        "The salary range is USD 100,000 - EUR 120,000.",
+        "Salary: €100,000 - USD 120,000 per year",
+        "Salary: £100,000 - €120,000 per year",
+        "The salary range is from £100,000 up to €120,000 per year.",
+        "Salary: €100,000 - £120,000 GBP per year",
+        "Salary: CA$150,000 - US$180,000 per year",
+        "The salary range is from C$150,000 up to US$180,000 per year.",
+    ):
+        assert not extract_grounded_band(raw, raw).disclosed, raw
+    # A dollar sign names no currency of its own: the code decides, and a stray
+    # sign on a dollar band leaves it in dollars.
+    for raw, currency in (
+        ("The salary range is CAD $150,000 - $180,000 per year.", "CAD"),
+        ("The salary range is $150,000 - CAD $180,000 per year.", "CAD"),
+        ("The salary range is €150,000 - EUR 180,000 per year.", "EUR"),
+        ("Hourly rate: $81 - $139 EUR", "EUR"),
+        ("Zone A\n$190,000—$304,000 USD", "USD"),
+        ("Salary: CA$150,000 - C$180,000 per year", "CAD"),
+        ("Salary: US$150,000 - $180,000 per year", "USD"),
+        # A zone letter on the line above is a label, not a country prefix.
+        ("Zone A\n$190,000-US$304,000 USD", "USD"),
+        ("Zone C\n$149,000-US$238,000", "USD"),
+        # A code settles two prefixes.
+        ("Salary: CA$150,000 - US$180,000 USD per year", "USD"),
+        ("New York office, paying a salary range of $150,000 - £180,000 per annum.", "USD"),
+    ):
+        assert extract_grounded_band(raw, raw).currency == currency, raw
+
+
+def test_a_zone_or_level_number_before_a_band_does_not_hide_it():
+    """A zone or level number before a band ("Zone 1 $284,800") is a label: the
+    band after it is read whole, from its own low amount."""
+    for raw, band in (
+        ("Compensation\nUS Zone 1\n$284,800—$385,200 USD\nUS Zone 2\n$256,300—$346,700 USD", (284800, 385200)),
+        ("The national base pay ranges for this position.\nI4\n$130,600—$192,000 USD\nI5\n$159,800—$235,000 USD",
+         (130600, 192000)),
+        ("These ranges may be modified in the future.\nRegion 1 $198,050 - $233,000\nRegion 2 $180,200 - $212,000",
+         (198050, 233000)),
+        ("The estimated annual base salary range for this role is:\nZone 1 | $126,600—$148,700 USD", (126600, 148700)),
+    ):
+        read = extract_grounded_band(raw, raw)
+        assert (read.base_min, read.base_max, read.currency) == (*band, "USD"), raw
+
+
+def test_a_period_written_as_words_between_the_number_and_the_dash_is_read_through():
+    for raw in (
+        "The salary range for this role is $181,000 per year - $242,000 per year. This role is bonus eligible.",
+        "Pay is $181,000 a year - $242,000 a year.",
+        "Pay is $181,000/yearly to $242,000/yearly in Phoenix.",
+        "Pay is $181,000 annually - $242,000 annually.",
+        "Base pay range: $181,000/yr. to $242,000/yr. plus target bonus",
+    ):
+        read = extract_grounded_band(raw, raw)
+        assert (read.base_min, read.base_max, read.pay_period) == (181000, 242000, PayPeriod.year), raw
+
+
+def test_an_amount_with_a_broken_comma_group_is_not_a_bound():
+    """An amount with a dropped or doubled digit ("$290,00", "$215,0000") bounds
+    no band: read with its commas removed it would state a figure the posting
+    does not, such as $29,000 to $181,000 from "$181,000-$290,00"."""
+    for raw in (
+        "The base salary range for this position is $181,000-$290,00 per year.",
+        "Total Cash Compensation Range: $215,0000 – $305,000 per year",
+        "The salary range offered for this position is between $1450,000 to $170,000 annually.",
+        "The typical base salary range for this position is $118,000.00 - $164,00.00, annualized.",
+    ):
+        assert not extract_grounded_band(raw, raw).disclosed, raw
+    # The next band is still read when the first has the typo.
+    raw = "$105,000/yearly to $129,00/yearly in Denver and Atlanta, and $98,775/yearly to $121,000/yearly in Phoenix."
+    read = extract_grounded_band(raw, raw)
+    assert (read.base_min, read.base_max) == (98775, 121000)
+
+
+def test_well_formed_amounts_keep_their_band_in_any_order_or_grouping():
+    for raw, band in (
+        ("A reasonable estimate of the current range is $188,700 to $174,000.", (174000, 188700, "USD")),
+        ("Compensation Range:\n$271,000 - $216,800\n", (216800, 271000, "USD")),
+        ("The salary range is INR 12,00,000 - 18,00,000 per annum.", (1200000, 1800000, "INR")),
+        ("The salary range is $118,000.00 - $164,000.00 per year.", (118000, 164000, "USD")),
+        ("The annual compensation range for this role is $170,000 - $200,,000.", (170000, 200000, "USD")),
+        ("The compensation is $150,000 - $200,000, paid bi-weekly.", (150000, 200000, "USD")),
+    ):
+        read = extract_grounded_band(raw, raw)
+        assert (read.base_min, read.base_max, read.currency) == band, raw
+
+
+def test_a_symbol_on_the_high_amount_alone_is_money():
+    raw = "The total target base compensation for this role will be between 200,000 - $250,000 per year."
+    read = extract_grounded_band(raw, raw)
+    assert (read.base_min, read.base_max, read.currency) == (200000, 250000, "USD")
+
+
+def test_a_k_after_a_number_already_in_thousands_repeats_the_thousands():
+    for raw in (
+        "The base pay for this position ranges from $174,000K/year to $299,000K/year.",
+        "The Salary Range for this role is $174,000k - $299,000.",
+    ):
+        read = extract_grounded_band(raw, raw)
+        assert (read.base_min, read.base_max) == (174000, 299000), raw
+    # A k that is the real scale keeps it.
+    raw = "Salary: $150k - $180k per year"
+    assert (extract_grounded_band(raw, raw).base_min, extract_grounded_band(raw, raw).base_max) == (150000, 180000)
+
+
+def test_between_and_to_split_by_words_is_a_band():
+    raw = (
+        "In the state of California, the reasonably expected salary range is between $132,500 [minimum "
+        "salary in our lowest geographic market within California] to $184,000 [maximum salary in our "
+        "highest geographic market within California]."
+    )
+    read = extract_grounded_band(raw, raw)
+    assert (read.base_min, read.base_max, read.pay_period) == (132500, 184000, PayPeriod.year)
+    # "and" closes only a "between": a "from" followed by other money is no band.
+    raw = "Our customers grew from $120,000 in their first year and $180,000 after three."
+    assert not extract_grounded_band(raw, raw).disclosed
+
+
 def test_two_bare_numbers_with_no_separator_are_not_a_band():
     """The separator may only be dropped when the SECOND number carries its own
     currency marker; otherwise a headcount reads as pay."""
@@ -435,6 +573,8 @@ def test_the_first_place_is_the_first_a_location_lists():
 #: descriptions are collapsed before the scan.
 HOSTILE = [
     ("_EXPLICIT_BAND_RE", "search", "0" + " " * 600 + "x", "$120,000   USD  /year  -  $150,000"),
+    ("_EXPLICIT_BAND_RE", "search", "0 - USD" + " " * 2000 + "x", "USD $120,000  per  year  -  USD   $150,000"),
+    ("_EXPLICIT_BAND_RE", "search", "0 per" + " " * 2000 + "x", "$120,000 per" + " " * 40 + "year - $150,000"),
     ("_FROM_UP_TO_RE", "search", "from $0" + " " * 2000 + "x", "from $133,900 k  USD /year in our lowest market up to $231,400"),
     ("_PLACE_AFTER_RE", "match", " " * 20_000 + "x", "  USD annually , in San Francisco"),
     ("_RANGE_HEADING_RE", "search", "Pay Range" + " " * 1500 + "x", "\nPay Range  :  $  "),
