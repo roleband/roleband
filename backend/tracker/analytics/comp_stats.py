@@ -1,11 +1,11 @@
 """Compensation analytics for the Statistics "Compensation" sub-tab.
 
-Pure, DB-free aggregation over the estimated compensation on open jobs: overall
-percentile summary, a distribution histogram, and per-level / per-company /
-per-family breakdowns. The API layer fetches `(company, level_band, family,
-comp_median)` for open jobs and hands the rows here, so all the math is unit-
-testable without a database. Comp is an *estimate* (see `Job.comp_provenance`);
-the UI surfaces that caveat.
+Pure, DB-free aggregation over the roles open now: what employers post as
+base pay (`build_posted_pay`), the estimate's percentile summary and its
+per-level, per-company and per-family breakdowns, and who states pay. The API
+layer fetches the rows and hands them here, so all the math is unit-testable
+without a database. The estimate is a lookup, not a posting (see
+`Job.comp_provenance`), and the UI labels it so.
 """
 
 from __future__ import annotations
@@ -14,11 +14,9 @@ from collections.abc import Iterable, Sequence
 
 from tracker.levels import UNSTATED_LEVEL
 from tracker.pay_disclosure import band_stated, disclosure_known
-from tracker.pay_period import not_yearly_usd
-from tracker.schema import LEVEL_BAND_ORDER, LevelBand, parse_band
-
-# Candidate "nice" histogram bucket widths (USD), smallest first.
-_NICE_STEPS = (25_000, 50_000, 100_000, 150_000, 200_000, 250_000, 500_000)
+from tracker.pay_period import effective_period, not_yearly_usd, size_classes
+from tracker.schema import LEVEL_BAND_ORDER, LevelBand, LevelBasis, parse_band
+from tracker.taxonomy.locations import pay_country
 
 
 def _percentile(sorted_vals: Sequence[int], p: float) -> float | None:
@@ -47,34 +45,6 @@ def _summary(vals: Sequence[int]) -> dict:
         "p75": _percentile(s, 0.75),
         "p90": _percentile(s, 0.90),
     }
-
-
-def _nice_step(rough: float) -> int:
-    """Smallest 'nice' bucket width >= rough."""
-    for step in _NICE_STEPS:
-        if step >= rough:
-            return step
-    return 1_000_000
-
-
-def _histogram(vals: Sequence[int], target_bins: int = 8) -> list[dict]:
-    """Bucket comp values into ~target_bins even bands aligned to a nice step."""
-    if not vals:
-        return []
-    lo, hi = min(vals), max(vals)
-    if hi == lo:
-        return [{"lo": lo, "hi": lo, "count": len(vals)}]
-    step = _nice_step((hi - lo) / target_bins)
-    start = (lo // step) * step
-    n_bins = int((hi - start) // step) + 1
-    counts = [0] * n_bins
-    for v in vals:
-        i = min(int((v - start) // step), n_bins - 1)
-        counts[i] += 1
-    return [
-        {"lo": start + i * step, "hi": start + (i + 1) * step, "count": c}
-        for i, c in enumerate(counts)
-    ]
 
 
 def _grouped(rows: Iterable[tuple], key_idx: int) -> dict[object, list[int]]:
@@ -150,7 +120,6 @@ def build_comp_stats(
             "pct": round(len(vals) / total_open, 3) if total_open else 0.0,
         },
         "overall": _summary(vals) if vals else None,
-        "histogram": _histogram(vals),
         "by_level": by_level,
         "by_company": by_company,
         "by_family": by_family,
@@ -205,148 +174,174 @@ def _as_band(raw: object) -> LevelBand | None:
 
 
 
-# A skill's premium compares like with like: its roles against all
-# roles at the same level in the same discipline. A cell counts only when the
-# skill has `SKILL_CELL_MIN` roles in it and the cell has `CELL_MIN`.
-SKILL_CELL_MIN = 3
-CELL_MIN = 6
-
-
-def rank_skill_comp(
-    rows: Iterable[tuple],
-    market: Iterable[tuple],
-    *,
-    min_jobs: int = 15,
-    limit: int = 12,
-) -> list[dict]:
-    """Rank skills by what roles naming them pay over like roles that do not say.
-
-    `rows` are `(term, level_band, family, comp_median)`, one per (job, skill)
-    pair; `market` is `(level_band, family, comp_median)` for every priced role.
-
-    "Skill median minus market median" would measure mix, not pay: a skill named
-    mostly by Directors would read as a premium. So `premium` is the role-weighted
-    mean, over the (level, discipline) cells the skill has enough roles in, of
-    the skill's median there minus the cell's. The estimate is a lookup keyed by
-    company, level and discipline, so what is left is which EMPLOYERS ask for
-    the skill. `count` is the roles behind the premium (`min_jobs` at least);
-    `p50` their median. Highest premium first; past `limit`, the top and the
-    bottom halves, so a skill that pays less is shown too.
-    """
-    cells: dict[tuple, list[int]] = {}
-    for level, family, comp in market:
-        if comp is not None:
-            cells.setdefault((level, family), []).append(int(comp))
-    cell_median = {k: _percentile(sorted(vs), 0.5) or 0.0 for k, vs in cells.items() if len(vs) >= CELL_MIN}
-
-    by_skill: dict[str, dict[tuple, list[int]]] = {}
-    for term, level, family, comp in rows:
-        if comp is not None:
-            by_skill.setdefault(term, {}).setdefault((level, family), []).append(int(comp))
-
-    out: list[dict] = []
-    for term, skill_cells in by_skill.items():
-        counted = [
-            (vs, cell_median[k])
-            for k, vs in skill_cells.items()
-            if k in cell_median and len(vs) >= SKILL_CELL_MIN
-        ]
-        n = sum(len(vs) for vs, _ in counted)
-        if n < min_jobs:
-            continue
-        diff = sum(len(vs) * ((_percentile(sorted(vs), 0.5) or 0.0) - med) for vs, med in counted)
-        pooled = sorted(v for vs, _ in counted for v in vs)
-        out.append({"term": term, "count": n, "p50": _percentile(pooled, 0.5), "premium": round(diff / n)})
-    out.sort(key=lambda d: (-d["premium"], d["term"]))
-    if len(out) <= limit:
-        return out
-    return out[: (limit + 1) // 2] + out[len(out) - limit // 2 :]
-
-
 # Below this an annual figure is not a salary: Anthropic posts a literal
 # "Annual Salary: $1—$2 USD" placeholder on some reqs. The extraction is correct
 # (the span is verbatim), so the posting is what is junk — drop it here rather
 # than let it set the axis floor.
 DISCLOSED_FLOOR = 50_000
-BAND_LIMIT = 200
+#: A level shows a typical posted range once this many employers and distinct
+#: ranges stand behind it. Below either, one employer's ladder would be the
+#: figure (one employer can post a single range on dozens of roles).
+POSTED_MIN_EMPLOYERS = 5
+POSTED_MIN_RANGES = 8
+
+#: The country a posted-pay read opens on.
+POSTED_DEFAULT_COUNTRY = "US"
 
 
-def _band_order(d: dict) -> tuple:
-    """Seniority, then the widest-paying band first within a level; the low end
-    breaks the last tie, so two reads of one table list the same bands in the
-    same order (two bands sharing level, top and company swapped places)."""
+def _posted_order(d: dict) -> tuple:
+    """Seniority, then the widest-paying range first within a level; company
+    and low end break the last ties, so two reads list ranges in one order."""
     return (level_order(d["level_band"]), -d["high"], d["company"], d["low"])
 
 
-def build_disclosed_bands(rows: Sequence[tuple], *, limit: int = BAND_LIMIT) -> dict:
-    """Collapse employer-disclosed pay bands into one entry per distinct band.
+def _level_figure(ranges: dict[tuple[str, int, int], int], *, min_employers: int, min_ranges: int) -> dict:
+    """One level's posted pay in one country and currency. Each distinct range
+    (company, low, high) votes once, however many roles carry it: an employer
+    posts one range per level and place and hangs many roles off it. The
+    figure is the median low to the median high, with the middle half of the
+    ranges' midpoints, and is withheld below the minimums."""
+    employers = len({company for company, _, _ in ranges})
+    enough = employers >= min_employers and len(ranges) >= min_ranges
+    lows = sorted(low for _, low, _ in ranges)
+    highs = sorted(high for _, _, high in ranges)
+    mids = sorted((low + high) / 2 for _, low, high in ranges)
+    return {
+        "ranges": len(ranges),
+        "employers": employers,
+        "roles": sum(ranges.values()),
+        "enough": enough,
+        "low": _percentile(lows, 0.5) if enough else None,
+        "high": _percentile(highs, 0.5) if enough else None,
+        "mid_p25": _percentile(mids, 0.25) if enough else None,
+        "mid_p75": _percentile(mids, 0.75) if enough else None,
+    }
 
-    `rows` are `(company, level, base_min, base_max, pay_basis, currency,
-    pay_period)`, where `level` is the level key (`db.queries.scope.level_key_expr`):
-    a band printed on roles whose level we cannot place is its own `unstated`
-    row, listed last, never Mid-level. Postings do
-    not state a salary per role: an employer publishes a band per (company, level)
-    and hangs many reqs off it.
-    So the honest unit here is the *band*, with the number of open reqs sitting on
-    it; this is emphatically not a per-role sample, and must not be charted as a
-    distribution.
 
-    Only `base` rows are kept. `unclear` rows (the posting gives a range but never
-    says whether it bundles bonus/equity, like Netflix's bare "the range for this
-    role is ...") cannot share an axis with base pay, and `total` rows are
-    a different quantity altogether. Both are counted in `excluded` so the UI can
-    say what it left out instead of silently dropping it (pay_basis is
-    derived from the span, never taken from the model).
+def _currency_weight(currency: str, rows: list[tuple[str, str, int, int]]) -> tuple[int, int, bool, str]:
+    """How strongly one currency's `(company, level, low, high)` rows claim a
+    country: distinct ranges at a placed level, then all distinct ranges, then
+    the US dollar, then the code, so the choice never depends on arrival."""
+    placed = {(c, lo, hi) for c, level, lo, hi in rows if level != UNSTATED_LEVEL}
+    return len(placed), len({(c, lo, hi) for c, _, lo, hi in rows}), currency == "USD", currency
 
-    The axis is yearly US dollars: a band `pay_period.not_yearly_usd` refuses
-    is counted under the reason it gives, `not_usd` or `not_yearly`. An amount
-    that is no pay at any size stays `implausible`.
+
+def build_posted_pay(
+    rows: Iterable[tuple],
+    *,
+    your_countries: Iterable[str] = (),
+    min_employers: int = POSTED_MIN_EMPLOYERS,
+    min_ranges: int = POSTED_MIN_RANGES,
+) -> dict:
+    """What employers post as yearly base pay, per country and level.
+
+    `rows` are `(company, level, level_basis, base_min, base_max, pay_basis,
+    currency, period, location_groups)` for the roles open now, `level` the
+    level key (`db.queries.scope.level_key_expr`).
+
+    A figure is one country and one currency: nothing is converted or
+    annualised. A role counts for the country every place it names lies in
+    (`taxonomy.locations.pay_country`); a role naming places in several
+    countries, or none we can place, counts for none. A country's currency is
+    the one most of its ranges at a placed level are posted in, and its ranges
+    in any other are counted apart.
+
+    Only yearly base pay is read. A range that is total pay or unclear, hourly
+    or monthly, or no salary at any size is counted under its reason in
+    `excluded`, never silently dropped. A role whose level was read from its
+    posted range (`LevelBasis.PAY_GRADE`) is left out too: its range placed
+    its level, so counting it would describe pay by pay. A role whose level
+    we cannot place is counted apart in `not_placed`, never inside a level.
+
+    `bands` lists every distinct range at a placed level, uncapped, for the
+    chart. `your_countries` are the countries of the person's places: each
+    is listed even with no range, so the screen can say so.
     """
-    counts: dict[tuple[str, str, int, int], int] = {}
-    excluded = {"unclear": 0, "total": 0, "not_usd": 0, "not_yearly": 0, "implausible": 0}
+    excluded = {"not_base": 0, "not_yearly": 0, "implausible": 0, "no_country": 0, "placed_by_pay": 0}
+    cells: dict[str, dict[str, list[tuple[str, str, int, int]]]] = {}
 
-    for company, band, lo, hi, basis, currency, period in rows:
-        if lo is None or hi is None or company is None or band is None:
+    for company, level, basis, lo, hi, pay_basis, currency, period, places in rows:
+        if company is None or lo is None or hi is None:
             continue
-        if basis != "base":
-            if basis in excluded:
-                excluded[basis] += 1
+        if pay_basis != "base":
+            excluded["not_base"] += 1
             continue
-        refused = not_yearly_usd(lo, hi, currency, period)
-        if refused:
-            excluded[refused] += 1
-            continue
-        lo, hi = int(lo), int(hi)
-        if lo < DISCLOSED_FLOOR or hi < lo:
+        currency = (currency or "USD").upper()
+        if not size_classes(lo, hi, currency):
             excluded["implausible"] += 1
             continue
-        counts[(company, band, lo, hi)] = counts.get((company, band, lo, hi), 0) + 1
+        if effective_period(period, lo, hi, currency) != "year":
+            excluded["not_yearly"] += 1
+            continue
+        lo, hi = int(lo), int(hi)
+        if currency == "USD" and lo < DISCLOSED_FLOOR:
+            excluded["implausible"] += 1
+            continue
+        country = pay_country(places)
+        if country is None:
+            excluded["no_country"] += 1
+            continue
+        if basis == LevelBasis.PAY_GRADE.value:
+            excluded["placed_by_pay"] += 1
+            continue
+        cells.setdefault(country, {}).setdefault(currency, []).append((company, level or UNSTATED_LEVEL, lo, hi))
 
-    bands = [
-        {"company": c, "level_band": b, "low": lo, "high": hi, "reqs": n}
-        for (c, b, lo, hi), n in counts.items()
-    ]
-    # Seniority, then the widest-paying band first within a level.
-    bands.sort(key=_band_order)
-
-    truncated = len(bands) > limit
-    if truncated:
-        # Keep the bands carrying the most open reqs, then restore the sort order.
-        bands = sorted(bands, key=lambda d: (-d["reqs"], _band_order(d)))[:limit]
-        bands.sort(key=_band_order)
-
+    countries = []
+    for country, by_currency in cells.items():
+        # The country's own currency: the one most of its distinct ranges at a
+        # placed level use. Ranges at no placed level never enter a level, so
+        # counting them could pick a currency with nothing to show; they only
+        # break a tie.
+        currency = max(by_currency, key=lambda cur: _currency_weight(cur, by_currency[cur]))
+        levels: dict[str, dict[tuple[str, int, int], int]] = {}
+        for company, level, lo, hi in by_currency[currency]:
+            key = (company, lo, hi)
+            cell = levels.setdefault(level, {})
+            cell[key] = cell.get(key, 0) + 1
+        unplaced = levels.pop(UNSTATED_LEVEL, {})
+        bands = sorted(
+            (
+                {"company": company, "level_band": level, "low": lo, "high": hi, "reqs": reqs}
+                for level, ranges in levels.items()
+                for (company, lo, hi), reqs in ranges.items()
+            ),
+            key=_posted_order,
+        )
+        countries.append({
+            "country": country,
+            "currency": currency,
+            "ranges": len(bands),
+            "levels": [
+                {"level_band": level, **_level_figure(ranges, min_employers=min_employers, min_ranges=min_ranges)}
+                for level, ranges in sorted(levels.items(), key=lambda kv: level_order(kv[0]))
+            ],
+            "not_placed": {"roles": sum(unplaced.values()), "ranges": len(unplaced)},
+            "other_currency": sum(len(rs) for cur, rs in by_currency.items() if cur != currency),
+            "bands": bands,
+        })
+    listed = {c["country"] for c in countries}
+    yours = set(your_countries)
+    countries.extend(
+        {"country": code, "currency": None, "ranges": 0, "levels": [], "not_placed": {"roles": 0, "ranges": 0},
+         "other_currency": 0, "bands": []}
+        for code in sorted(yours - listed)
+    )
+    for entry in countries:
+        entry["yours"] = entry["country"] in yours
+    countries.sort(key=lambda c: (-c["ranges"], c["country"]))
+    codes = [c["country"] for c in countries]
     return {
-        "bands": bands,
-        "reqs": sum(b["reqs"] for b in bands),
-        "companies": len({b["company"] for b in bands}),
+        "min_employers": min_employers,
+        "min_ranges": min_ranges,
+        "default_country": POSTED_DEFAULT_COUNTRY if POSTED_DEFAULT_COUNTRY in codes else (codes[0] if codes else None),
+        "countries": countries,
         "excluded": excluded,
-        "truncated": truncated,
     }
 
 
 # --- pay transparency: the disclosure RATE and its longitudinal grain ---------
 #
-# `build_disclosed_bands` above answers "what did employers print?". These answer
+# `build_posted_pay` above answers "what did employers print?". These answer
 # "how many of them printed anything?" — a different question with a different
 # denominator, and the one field nothing aggregated. Both builders take the same
 # per-role row shape:
@@ -397,7 +392,7 @@ def build_disclosure_rates(
     Basis-independent by construction: a posted range counts the same whether it
     is base, total or unclear — the question is whether the employer said
     anything, not what they said. (Band *values* are basis-scoped and handled by
-    `build_disclosed_bands` / the snapshot below.)
+    `build_posted_pay` and the snapshot below.)
 
     Each row is `(company, level_band, structured_at, base_min, base_max,
     pay_basis)`; the snapshot's rows carry two more columns after these, which
@@ -459,8 +454,8 @@ def build_disclosure_snapshot_rows(rows: Sequence[tuple]) -> list[dict]:
     every basis and the disclosed count is the sum over the non-empty ones.
 
     Each row is the rate's six columns followed by the band's currency and
-    period. Band values (not the rate) apply `build_disclosed_bands`' rules, as
-    the trend draws them on a yearly US-dollar axis: a band in another currency
+    period. Band values (not the rate) are yearly US-dollar base pay, as the
+    trend draws them on that axis: a band in another currency
     or period (`pay_period.not_yearly_usd`) still counts as disclosed and adds
     no band entry, and so does one under the plausibility floor. Anthropic's
     literal `Annual Salary: $1—$2 USD` is a real disclosure, so it belongs in

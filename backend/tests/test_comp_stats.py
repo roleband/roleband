@@ -1,19 +1,18 @@
 """Pure-logic tests for compensation aggregation (no DB).
 
-Pins the percentile/histogram math and the ordering/coverage rules behind the
-Statistics "Compensation" sub-tab.
+Pins the percentile math, the posted-pay rules and the ordering and coverage
+rules behind the Statistics "Compensation" sub-tab.
 """
 
 from __future__ import annotations
 
 from tracker.analytics.comp_stats import (
     COMP_MIN_ROLES,
-    SKILL_CELL_MIN,
-    _histogram,
+    POSTED_MIN_EMPLOYERS,
+    POSTED_MIN_RANGES,
     _percentile,
     build_comp_stats,
-    build_disclosed_bands,
-    rank_skill_comp,
+    build_posted_pay,
 )
 
 
@@ -26,23 +25,6 @@ def test_percentile_linear_interpolation_matches_percentile_cont():
     assert _percentile(vals, 1.0) == 1_000_000
     assert _percentile([], 0.5) is None
     assert _percentile([420_000], 0.9) == 420_000
-
-
-def test_histogram_aligns_to_nice_step_and_counts_every_value():
-    vals = [0, 50_000, 100_000, 150_000, 200_000, 250_000, 300_000, 350_000, 400_000]
-    bins = _histogram(vals)
-    # range 400k over ~8 target bins -> 50k nice step, aligned at 0.
-    assert bins[0]["lo"] == 0
-    assert bins[0]["hi"] - bins[0]["lo"] == 50_000
-    assert sum(b["count"] for b in bins) == len(vals)  # nothing dropped
-    # Max value falls in the last bin, not off the end.
-    assert bins[-1]["count"] >= 1
-
-
-def test_histogram_handles_degenerate_and_empty():
-    assert _histogram([]) == []
-    one = _histogram([500_000])
-    assert one == [{"lo": 500_000, "hi": 500_000, "count": 1}]
 
 
 def _fixture():
@@ -91,185 +73,184 @@ def test_a_group_below_the_minimum_is_not_listed_and_the_minimum_is_stated():
     assert s["overall"]["count"] == 6 and s["overall"]["max"] == 1_100_000
 
 
-def _market(cells):
-    """`(level, family, comp)` rows: `cells` maps (level, family) to its comps."""
-    return [(lv, fam, c) for (lv, fam), comps in cells.items() for c in comps]
-
-
-def test_a_skill_premium_compares_roles_at_the_same_level_and_discipline():
-    # Every Director role pays $1M and every Staff role $500K; Python is named by
-    # Directors only. Against the market median it read as a $500K premium; at
-    # its own level it pays exactly what everyone does.
-    market = _market({("director_plus", "pm"): [1_000_000] * 10, ("staff", "pm"): [500_000] * 30})
-    rows = [("python", "director_plus", "pm", 1_000_000)] * 10 + [("cuda", "staff", "pm", 500_000)] * 10
-    ranked = {r["term"]: r for r in rank_skill_comp(rows, market, min_jobs=5)}
-    assert ranked["python"]["premium"] == 0
-    assert ranked["python"]["p50"] == 1_000_000
-    assert ranked["cuda"]["premium"] == 0
-
-
-def test_a_skill_that_better_payers_ask_for_earns_its_premium_and_one_that_lesser_payers_do_loses():
-    staff = [400_000] * 10 + [600_000] * 10  # the cell's median is $500K
-    market = _market({("staff", "eng"): staff, ("senior", "eng"): [300_000] * 6 + [350_000] * 6})
-    rows = (
-        [("cuda", "staff", "eng", 600_000)] * 6  # +$100K in Staff
-        + [("cuda", "senior", "eng", 350_000)] * 4  # +$25K in Senior
-        + [("cpp", "staff", "eng", 400_000)] * 5  # -$100K
-    )
-    ranked = rank_skill_comp(rows, market, min_jobs=5)
-    assert [r["term"] for r in ranked] == ["cuda", "cpp"]
-    cuda, cpp = ranked
-    assert cuda["count"] == 10 and cuda["premium"] == round((6 * 100_000 + 4 * 25_000) / 10)
-    assert cpp["premium"] == -100_000
-
-
-def test_a_skill_premium_rests_only_on_cells_with_enough_roles():
-    market = _market({("staff", "eng"): [500_000] * 10, ("principal", "eng"): [700_000] * 3})
-    # Two roles in Staff (below SKILL_CELL_MIN) and a principal cell below CELL_MIN.
-    rows = [("rust", "staff", "eng", 900_000)] * (SKILL_CELL_MIN - 1) + [("rust", "principal", "eng", 900_000)] * 20
-    assert rank_skill_comp(rows, market, min_jobs=1) == []
-    # With enough roles in a counted cell it appears, on those roles alone.
-    more = rows + [("rust", "staff", "eng", 600_000)] * 2
-    [rust] = rank_skill_comp(more, market, min_jobs=1)
-    assert rust["count"] == SKILL_CELL_MIN + 1 and rust["premium"] == 250_000  # median 750K over 500K
-
-
-def test_past_the_limit_the_list_keeps_the_top_and_the_bottom():
-    market = _market({("staff", "eng"): [500_000] * 10})
-    rows = [(f"s{i}", "staff", "eng", 500_000 + i * 10_000) for i in range(6) for _ in range(3)]
-    ranked = rank_skill_comp(rows, market, min_jobs=3, limit=4)
-    assert [r["term"] for r in ranked] == ["s5", "s4", "s1", "s0"]
-
-
 def test_empty_input_yields_null_overall():
     s = build_comp_stats([], total_open=0)
     assert s["overall"] is None
-    assert s["histogram"] == []
     assert s["by_level"] == [] and s["by_company"] == []
     assert s["coverage"]["pct"] == 0.0
 
 
-# --- Employer-disclosed bands -------------------------------------------------
-# A posting states a band per (company, level), not a salary per role: Google hangs
-# several requisitions off one band. These pin the band-as-unit contract and the
-# basis guard -- base pay and total comp may never share an axis.
+# --- Posted base pay ----------------------------------------------------------
+# An employer posts one range per level and place and hangs many roles off it,
+# so the unit is the distinct range. A figure is one country and one currency.
 
-def _band_row(
-    company="google", band="staff", lo=240_000, hi=334_000, basis="base",
-    currency="USD", period="year",
-):
-    return (company, band, lo, hi, basis, currency, period)
+US = ["silicon_valley"]
 
 
-def test_disclosed_bands_collapse_reqs_onto_one_band():
-    out = build_disclosed_bands([_band_row()] * 18)
-    assert len(out["bands"]) == 1, "18 reqs on one posted band must not become 18 entries"
-    assert out["bands"][0]["reqs"] == 18
-    assert out["reqs"] == 18
+def _posted(company="google", level="staff", lo=240_000, hi=334_000, *, basis="base", currency="USD",
+            period="year", places=US, level_basis="company"):
+    return (company, level, level_basis, lo, hi, basis, currency, period, places)
 
 
-def test_disclosed_bands_keep_same_band_from_different_companies_apart():
-    out = build_disclosed_bands(
-        [_band_row(company="google"), _band_row(company="deepmind")]
-    )
-    assert len(out["bands"]) == 2, "identical numbers from two employers are two bands"
-    assert out["companies"] == 2
+def _country(out, code="US"):
+    return next(c for c in out["countries"] if c["country"] == code)
 
 
-def test_disclosed_bands_exclude_non_base_and_report_them():
-    """The category error this whole payload exists to prevent.
-
-    `unclear` = the posting gave a range but never said if it bundles bonus/equity.
-    `total` = a different quantity (including Netflix's employee-elected cash/options
-    amount). Neither can sit on a base-pay axis,
-    and neither may be dropped silently.
-    """
-    out = build_disclosed_bands(
-        [
-            _band_row(basis="base"),
-            _band_row(company="netflix", lo=440_000, hi=725_000, basis="total"),
-            _band_row(company="netflix", lo=440_000, hi=725_000, basis="total"),
-            _band_row(company="openai", lo=300_000, hi=500_000, basis="total"),
-        ]
-    )
-    assert [b["company"] for b in out["bands"]] == ["google"]
-    assert out["excluded"] == {
-        "unclear": 0, "total": 3, "not_usd": 0, "not_yearly": 0, "implausible": 0,
-    }
-
-
-def test_disclosed_bands_keep_other_currencies_off_the_dollar_axis():
-    """A euro or rupee base band is not a dollar band: plotted as-is, INR
-    6,612,600 set the axis ceiling. Nothing is converted, so it is counted
-    and left out, and a band stored with no currency is a dollar band."""
-    out = build_disclosed_bands(
-        [
-            _band_row(company="mews", lo=90_000, hi=120_000, currency="EUR"),
-            _band_row(company="google-in", lo=4_000_000, hi=6_612_600, currency="INR"),
-            _band_row(company="figma", lo=180_000, hi=240_000, currency=None),
-            _band_row(),
-        ]
-    )
-    assert sorted(b["company"] for b in out["bands"]) == ["figma", "google"]
-    assert out["excluded"]["not_usd"] == 2
-
-
-def test_disclosed_bands_never_annualize_hourly_or_monthly_pay():
-    """The axis is yearly. An hourly or monthly band, or a stored period its
-    size contradicts ("$600,000 / hr" reads unclear), is counted, not drawn."""
-    out = build_disclosed_bands(
-        [
-            _band_row(company="intern", lo=50, hi=70, period="hour"),
-            _band_row(company="contract", lo=12_000, hi=15_000, period="month"),
-            _band_row(company="typo", lo=600_000, hi=700_000, period="hour"),
-            _band_row(company="nodate", lo=200_000, hi=260_000, period=None),
-            _band_row(),
-        ]
-    )
-    assert sorted(b["company"] for b in out["bands"]) == ["google", "nodate"]
-    assert out["excluded"]["not_yearly"] == 3
-
-
-def test_disclosed_bands_drop_placeholder_postings():
-    """Anthropic prints a literal "Annual Salary: $1-$2 USD" on some reqs.
-
-    The extraction is right (the span is verbatim) -- the posting is junk. It must
-    not be allowed to set the axis floor.
-    """
-    out = build_disclosed_bands([_band_row(company="anthropic", lo=1, hi=2), _band_row()])
-    assert [b["company"] for b in out["bands"]] == ["google"]
-    assert out["excluded"]["implausible"] == 1
-
-
-def test_disclosed_bands_order_by_seniority_then_pay():
-    out = build_disclosed_bands(
-        [
-            _band_row(band="principal", lo=262_000, hi=365_000),
-            _band_row(band="senior", lo=174_000, hi=253_000),
-            _band_row(band="staff", lo=219_000, hi=306_000),
-            _band_row(band="staff", lo=262_000, hi=365_000),
-        ]
-    )
-    assert [(b["level_band"], b["high"]) for b in out["bands"]] == [
-        ("senior", 253_000),
-        ("staff", 365_000),
-        ("staff", 306_000),
-        ("principal", 365_000),
+def _market(level="principal", employers=POSTED_MIN_EMPLOYERS, per=2, start=200_000):
+    """`employers` employers, each posting `per` distinct ranges at `level`."""
+    return [
+        _posted(f"co{e}", level, start + 10_000 * (e * per + r), start + 80_000 + 10_000 * (e * per + r))
+        for e in range(employers)
+        for r in range(per)
     ]
 
 
-def test_disclosed_bands_truncation_keeps_the_busiest_and_says_so():
-    rows = [_band_row(lo=100_000 + i * 1_000, hi=200_000 + i * 1_000) for i in range(5)]
-    rows += [_band_row(lo=900_000, hi=950_000)] * 9  # the band most reqs sit on
-    out = build_disclosed_bands(rows, limit=3)
-    assert out["truncated"] is True
-    assert len(out["bands"]) == 3
-    assert max(b["reqs"] for b in out["bands"]) == 9
+def test_one_range_on_many_roles_votes_once():
+    out = build_posted_pay([_posted()] * 20)
+    [staff] = _country(out)["levels"]
+    assert (staff["ranges"], staff["employers"], staff["roles"]) == (1, 1, 20)
+    assert _country(out)["bands"] == [
+        {"company": "google", "level_band": "staff", "low": 240_000, "high": 334_000, "reqs": 20},
+    ]
 
 
-def test_disclosed_bands_empty_input():
-    out = build_disclosed_bands([])
-    assert out["bands"] == [] and out["reqs"] == 0 and out["truncated"] is False
+def test_a_range_many_roles_share_weighs_no_more_in_the_figure():
+    # The lowest range carries 30 roles. Weighted by role it would pull the
+    # median low and high down to its own; one vote per range leaves the
+    # figure where the ten ranges put it.
+    rows = _market(per=2)
+    rows += [rows[0]] * 29
+    [principal] = _country(build_posted_pay(rows))["levels"]
+    assert (principal["ranges"], principal["roles"]) == (10, 39)
+    assert (principal["low"], principal["high"]) == (245_000, 325_000)
+    assert (principal["mid_p25"], principal["mid_p75"]) == (262_500, 307_500)
+
+
+def test_a_level_shows_the_median_low_to_the_median_high_and_the_middle_half_of_midpoints():
+    rows = _market(per=2)  # 5 employers, 10 ranges: 200K-280K up to 290K-370K
+    [principal] = _country(build_posted_pay(rows))["levels"]
+    assert principal["enough"] is True
+    assert (principal["low"], principal["high"]) == (245_000, 325_000)
+    # Midpoints 240K to 330K in steps of 10K: the middle half runs 262.5K to 307.5K.
+    assert (principal["mid_p25"], principal["mid_p75"]) == (262_500, 307_500)
+
+
+def test_a_level_below_either_minimum_is_counted_and_shows_no_figure():
+    four_employers = _market(employers=POSTED_MIN_EMPLOYERS - 1, per=3)  # 12 ranges, 4 employers
+    seven_ranges = _market(employers=7, per=1)  # 7 employers, 7 ranges
+    for rows, counts in ((four_employers, (12, 4)), (seven_ranges, (7, 7))):
+        [level] = _country(build_posted_pay(rows))["levels"]
+        assert (level["ranges"], level["employers"]) == counts
+        assert (level["enough"], level["low"], level["high"], level["mid_p25"]) == (False, None, None, None)
+    assert (POSTED_MIN_EMPLOYERS, POSTED_MIN_RANGES) == (5, 8)
+
+
+def test_a_country_reads_its_own_currency_and_never_converts():
+    """A pound range is the UK's, in pounds; it never lands on the dollar axis,
+    and a dollar range posted for a UK role is counted apart, not converted."""
+    out = build_posted_pay([
+        _posted(),
+        _posted("monzo", lo=90_000, hi=120_000, currency="GBP", places=["london"]),
+        _posted("wise", lo=95_000, hi=130_000, currency="GBP", places=["london"]),
+        _posted("stripe", lo=200_000, hi=260_000, currency="USD", places=["london"]),
+        _posted("figma", lo=180_000, hi=240_000, currency=None),  # no currency stored: dollars
+    ])
+    us, gb = _country(out), _country(out, "GB")
+    assert (us["currency"], [b["company"] for b in us["bands"]]) == ("USD", ["google", "figma"])
+    assert (gb["currency"], sorted(b["company"] for b in gb["bands"]), gb["other_currency"]) == (
+        "GBP", ["monzo", "wise"], 1,
+    )
+
+
+def test_a_country_reads_the_currency_of_its_ranges_at_a_placed_level():
+    """Nine pound ranges at no placed level never outvote eight dollar ranges
+    at a level: the figure is in dollars, and the pound roles are counted apart."""
+    rows = [_posted(f"us{i}", "senior", 200_000 + i * 1_000, 260_000 + i * 1_000) for i in range(8)]
+    rows += [_posted(f"uk{i}", None, 90_000 + i * 1_000, 120_000 + i * 1_000, currency="GBP") for i in range(9)]
+    us = _country(build_posted_pay(rows))
+    assert (us["currency"], us["ranges"], us["other_currency"]) == ("USD", 8, 9)
+    assert [level["level_band"] for level in us["levels"]] == ["senior"]
+
+
+def test_hourly_monthly_and_contradicted_periods_are_counted_never_annualised():
+    out = build_posted_pay([
+        _posted("intern", lo=60, hi=90, period="hour"),
+        _posted("contract", lo=12_000, hi=15_000, period="month"),
+        _posted("typo", lo=600_000, hi=700_000, period="hour"),
+        _posted("nodate", lo=200_000, hi=260_000, period=None),
+        _posted(),
+    ])
+    assert sorted(b["company"] for b in _country(out)["bands"]) == ["google", "nodate"]
+    assert out["excluded"]["not_yearly"] == 3
+
+
+def test_what_is_not_base_or_not_salary_is_counted_under_its_reason():
+    out = build_posted_pay([
+        _posted(),
+        _posted("netflix", lo=440_000, hi=725_000, basis="total"),
+        _posted("openai", lo=300_000, hi=500_000, basis="unclear"),
+        _posted("anthropic", lo=1, hi=2),  # a literal "$1-$2" placeholder
+    ])
+    assert [b["company"] for b in _country(out)["bands"]] == ["google"]
+    assert out["excluded"] == {"not_base": 2, "not_yearly": 0, "implausible": 1, "no_country": 0, "placed_by_pay": 0}
+
+
+def test_a_role_in_several_countries_or_none_counts_for_no_country():
+    out = build_posted_pay([_posted(), _posted("acme", places=[*US, "london"]), _posted("remote", places=[])])
+    assert [c["country"] for c in out["countries"]] == ["US"]
+    assert out["excluded"]["no_country"] == 2
+
+
+def test_a_level_read_from_the_range_is_left_out_and_an_unplaced_level_is_counted_apart():
+    out = build_posted_pay([
+        _posted(),
+        _posted("microsoft", level="principal", level_basis="pay_grade"),
+        _posted("apple", level="unstated", lo=150_000, hi=200_000),
+        _posted("apple", level="unstated", lo=150_000, hi=200_000),
+    ])
+    us = _country(out)
+    assert [lv["level_band"] for lv in us["levels"]] == ["staff"]
+    assert us["not_placed"] == {"roles": 2, "ranges": 1}
+    assert all(b["level_band"] != "unstated" for b in us["bands"])
+    assert out["excluded"]["placed_by_pay"] == 1
+
+
+def test_every_range_is_kept_however_many_and_one_role_ranges_too():
+    rows = [_posted(f"co{i}", lo=200_000 + i * 100, hi=300_000 + i * 100) for i in range(250)]
+    rows += [_posted("busy", lo=500_000, hi=600_000)] * 40
+    us = _country(build_posted_pay(rows))
+    assert us["ranges"] == len(us["bands"]) == 251
+    assert sum(b["reqs"] == 1 for b in us["bands"]) == 250
+
+
+def test_ranges_list_by_seniority_then_pay_however_rows_arrive():
+    rows = [
+        _posted(level="principal", lo=262_000, hi=365_000),
+        _posted(level="senior", lo=174_000, hi=253_000),
+        _posted(level="staff", lo=219_000, hi=306_000),
+        _posted(level="staff", lo=262_000, hi=365_000),
+        _posted(level="staff", lo=250_000, hi=365_000),
+    ]
+    forward = _country(build_posted_pay(rows))["bands"]
+    assert forward == _country(build_posted_pay(list(reversed(rows))))["bands"]
+    assert [(b["level_band"], b["low"]) for b in forward] == [
+        ("senior", 174_000), ("staff", 250_000), ("staff", 262_000), ("staff", 219_000), ("principal", 262_000),
+    ]
+    assert [lv["level_band"] for lv in _country(build_posted_pay(rows))["levels"]] == ["senior", "staff", "principal"]
+
+
+def test_the_persons_countries_are_listed_even_with_no_range_and_the_us_leads():
+    out = build_posted_pay(
+        [_posted("monzo", lo=90_000, hi=120_000, currency="GBP", places=["london"])] * 3 + [_posted()],
+        your_countries={"SE", "GB"},
+    )
+    assert [(c["country"], c["ranges"], c["yours"]) for c in out["countries"]] == [
+        ("GB", 1, True), ("US", 1, False), ("SE", 0, True),
+    ]
+    assert _country(out, "SE")["currency"] is None
+    assert out["default_country"] == "US"
+    assert build_posted_pay([], your_countries={"SE"})["default_country"] == "SE"
+    assert build_posted_pay([])["default_country"] is None
 
 
 # --- order of input never orders the output --------------------------------- #
@@ -282,18 +263,3 @@ def test_families_whose_median_ties_list_in_the_same_order_however_rows_arrive()
     forward = build_comp_stats(rows, total_open=10)["by_family"]
     backward = build_comp_stats(list(reversed(rows)), total_open=10)["by_family"]
     assert [d["family"] for d in forward] == [d["family"] for d in backward] == ["data_science", "infrastructure_sre"]
-
-
-def test_bands_sharing_level_top_and_company_list_in_the_same_order_however_rows_arrive():
-    rows = [_band_row(lo=172_400, hi=334_000), _band_row(lo=173_800, hi=334_000)]
-    forward = build_disclosed_bands(rows)["bands"]
-    backward = build_disclosed_bands(list(reversed(rows)))["bands"]
-    assert forward == backward
-    assert [b["low"] for b in forward] == [172_400, 173_800]
-
-
-def test_the_bands_a_limit_keeps_do_not_depend_on_arrival_order():
-    rows = [_band_row(company=c) for c in ("c", "a", "b")]
-    kept = {b["company"] for b in build_disclosed_bands(rows, limit=2)["bands"]}
-    assert kept == {b["company"] for b in build_disclosed_bands(list(reversed(rows)), limit=2)["bands"]}
-    assert kept == {"a", "b"}

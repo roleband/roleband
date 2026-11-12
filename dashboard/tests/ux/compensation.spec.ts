@@ -1,5 +1,6 @@
 import { expect, mockGet, test } from "./fixtures";
 import { showAdvancedInsights } from "./insightsView";
+import { msg } from "../../src/test/msg";
 import {
   facetsFixture,
   jobFixture,
@@ -11,9 +12,9 @@ import {
 } from "../../src/test/fixtures";
 
 // Compensation sub-tab. Two different quantities live here and must stay apart:
-// the imputed total-comp estimate (a lookup, few distinct values) and the bands
-// employers actually printed (base salary). The snapshot is the roles open now;
-// the window moves the trend charts only.
+// the base salary employers post, which the tab leads with, per country and
+// level in the country's own currency, and the estimate (a lookup of US pay,
+// few distinct values), which every panel built from it names as such.
 
 const summary = (p50: number, count: number) => ({
   count,
@@ -25,40 +26,58 @@ const summary = (p50: number, count: number) => ({
   p90: p50 + 200_000,
 });
 
+const level = (level_band: string, low: number | null, high: number | null, ranges: number, employers: number, roles: number) => ({
+  level_band, ranges, employers, roles, enough: low != null, low, high,
+  mid_p25: low == null ? null : low + 10_000, mid_p75: high == null ? null : high - 10_000,
+});
+
+const postedFixture = (over: Record<string, unknown> = {}) => ({
+  min_employers: 5,
+  min_ranges: 8,
+  default_country: "US",
+  your_levels: ["principal", "director_plus"],
+  excluded: { not_base: 90, not_yearly: 3, implausible: 1, no_country: 4, placed_by_pay: 6 },
+  countries: [
+    {
+      country: "US", currency: "USD", ranges: 3, yours: true,
+      levels: [level("staff", 230_000, 330_000, 9, 6, 40), level("principal", 198_000, 270_000, 241, 141, 600)],
+      not_placed: { roles: 37, ranges: 12 }, other_currency: 2,
+      bands: [
+        { company: "google", level_band: "staff", low: 262_000, high: 365_000, reqs: 18 },
+        { company: "google-deepmind", level_band: "staff", low: 207_000, high: 301_000, reqs: 1 },
+        { company: "google", level_band: "principal", low: 240_000, high: 334_000, reqs: 12 },
+      ],
+    },
+    {
+      country: "GB", currency: "GBP", ranges: 1, yours: false,
+      levels: [level("principal", null, null, 1, 1, 2)],
+      not_placed: { roles: 0, ranges: 0 }, other_currency: 0,
+      bands: [{ company: "google-deepmind", level_band: "principal", low: 110_000, high: 150_000, reqs: 2 }],
+    },
+    {
+      country: "SE", currency: null, ranges: 0, yours: true, levels: [],
+      not_placed: { roles: 0, ranges: 0 }, other_currency: 0, bands: [],
+    },
+  ],
+  ...over,
+});
+
 const compFixture = (over: Record<string, unknown> = {}) => ({
   currency: "USD",
   min_roles: 5,
   coverage: { with_comp: 732, total_open: 749, pct: 0.977 },
   overall: summary(479_251, 732),
-  histogram: [
-    { lo: 200_000, hi: 400_000, count: 309 },
-    { lo: 400_000, hi: 600_000, count: 148 },
-  ],
   by_level: [
     { level_band: "senior", ...summary(306_217, 406) },
     { level_band: "staff", ...summary(644_468, 265) },
   ],
   by_company: [{ company: "openai", ...summary(900_000, 58) }],
   by_family: [{ family: "software_engineering", ...summary(479_251, 400) }],
-  by_skill: [
-    { term: "rust", p50: 900_000, premium: 120_749, count: 17 },
-    { term: "cpp", p50: 420_000, premium: -60_000, count: 26 },
-  ],
-  disclosed: {
-    bands: [
-      { company: "google", level_band: "staff", low: 262_000, high: 365_000, reqs: 18 },
-      { company: "google", level_band: "principal", low: 240_000, high: 334_000, reqs: 12 },
-      { company: "google-deepmind", level_band: "staff", low: 207_000, high: 301_000, reqs: 1 },
-    ],
-    reqs: 31,
-    companies: 2,
-    excluded: { unclear: 90, total: 0, not_usd: 0, not_yearly: 0, implausible: 1 },
-    truncated: false,
-  },
-  // 749 open, 600 read by the disclosure pass, 150 of those stating a band. The
+  posted: postedFixture(),
+  base_estimates: { min_roles: 5, coverage: { with_base: 0, total_open: 749 }, overall: null, by_level: [], by_company: [], by_family: [] },
+  // 749 open, 600 read by the disclosure pass, 150 of those stating a range. The
   // gap between 749 and 600 is our extraction backlog, not employer silence, and
   // the panel has to say which is which.
-  base_estimates: { min_roles: 5, coverage: { with_base: 0, total_open: 749 }, overall: null, by_level: [], by_company: [], by_family: [] },
   disclosure: {
     overall: { open: 749, checked: 600, disclosed: 150, rate: 0.25 },
     by_company: [
@@ -69,6 +88,7 @@ const compFixture = (over: Record<string, unknown> = {}) => ({
     by_level: [
       { level_band: "senior", open: 406, checked: 400, disclosed: 100, rate: 0.25 },
       { level_band: "staff", open: 265, checked: 200, disclosed: 50, rate: 0.25 },
+      { level_band: "unstated", open: 300, checked: 250, disclosed: 90, rate: 0.36 },
     ],
   },
   ...over,
@@ -89,34 +109,95 @@ test.beforeEach(async ({ page }) => {
   await page.route("/api/statistics/compensation**", (route) => route.fulfill({ json: compFixture() }));
 });
 
-test("shows employer-published bands, keeps them apart from the imputed estimate", async ({ page }) => {
+test("opens on what employers post at the person's level, apart from the estimate", async ({ page }) => {
   const errors: string[] = [];
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
 
   await page.goto("/statistics");
   await page.getByRole("tab", { name: "Compensation" }).click();
 
-  // The hero stays compact. Its methodology remains available on demand.
-  await expect(page.getByRole("heading", { level: 2, name: /median/ })).toHaveText(/\$479K median/);
-  await expect(page.getByText("732 of 749 open roles have an estimate (98%)")).toBeVisible();
-  // The answer leads the tab, as on every Insights tab.
-  await expect(page.locator(".insight-hero .eyebrow")).toHaveText("Compensation");
-  const estimateTip = page.getByRole("button", { name: "How compensation is estimated" });
-  await estimateTip.hover();
-  await expect(page.getByRole("tooltip").filter({ hasText: /Estimated from company, level and discipline/i })).toBeVisible();
+  // The answer leads the tab, as on every Insights tab: posted base salary at
+  // the person's own level, never the estimate's median.
+  const hero = page.locator(".insight-hero");
+  await expect(hero.locator(".eyebrow")).toHaveText("Compensation");
+  await expect(hero.getByRole("heading", { level: 2 })).toHaveText("Typically $198K to $270K");
+  await expect(hero).toContainText(
+    msg("insights-posted-line", { level: "Principal", country: "United States", ranges: 241, employers: 141, roles: 600 }),
+  );
+  await expect(hero.locator(".kpi", { hasText: msg("insights-posted-middle-half") })).toContainText("$208K–$260K");
+  await expect(hero.locator(".kpi", { hasText: msg("insights-posted-share") })).toContainText("25%");
+  // The estimate's median ($479K overall) is no headline; it stays in the estimate panels.
+  await expect(hero).not.toContainText("$479K");
+  const readTip = page.getByRole("button", { name: msg("insights-posted-how-read") });
+  await readTip.hover();
+  await expect(page.getByRole("tooltip").filter({ hasText: msg("insights-posted-how-read-body") })).toBeVisible();
 
-  // Published bands: a row per level, never a bar per band.
-  const rows = page.getByRole("list", { name: "Posted base salary ranges by level" });
+  // Every level of the country, and the roles with no placed level said apart, never as a row.
+  const byLevel = page.getByRole("region", { name: msg("insights-posted-by-level", { country: "United States" }) });
+  await expect(byLevel.getByRole("listitem")).toHaveCount(3);
+  await expect(byLevel.getByRole("listitem").last()).toContainText("Director+");
+  await expect(byLevel.getByRole("listitem").last()).toContainText(msg("insights-posted-none"));
+  await expect(byLevel).toContainText(msg("insights-posted-not-placed", { roles: 37, ranges: 12 }));
+  await expect(byLevel.getByRole("listitem").filter({ hasText: /not placed/i })).toHaveCount(0);
+
+  // Every estimate panel says it is one, of US pay.
+  for (const heading of ["Median estimated total compensation by level", "Top-paying companies"]) {
+    const panel = page.locator(".panel", { has: page.getByRole("heading", { level: 3, name: heading }) });
+    await expect(panel.locator(".eyebrow")).toHaveText(msg("insights-posted-estimate-us-only"));
+  }
+  await expect(page.locator(".comp-row", { hasText: "OpenAI" })).toContainText("58 roles");
+  expect(errors).toEqual([]);
+});
+
+test("switches country in the country's own currency, and names a country with nothing posted", async ({ page }) => {
+  await page.goto("/statistics/compensation");
+  const heading = page.locator(".insight-hero").getByRole("heading", { level: 2 });
+  await expect(heading).toHaveText(msg("insights-posted-typically", { low: "$198K", high: "$270K" }));
+
+  const country = page.getByRole("combobox", { name: msg("insights-posted-country") });
+  await country.selectOption("GB");
+  // One range from one employer: counts, and why there is no figure, never a figure.
+  await expect(heading).toHaveText(msg("insights-posted-too-few"));
+  await expect(page.locator(".insight-hero")).toContainText(msg("insights-posted-needs", { min_employers: 5, min_ranges: 8 }));
+  await expect(page).toHaveURL(/country=GB/);
+
+  await expect(country.locator("option", { hasText: msg("insights-posted-your-place", { name: "Sweden" }) })).toHaveCount(1);
+  await country.selectOption("SE");
+  await expect(heading).toHaveText(msg("insights-posted-none"));
+  await expect(page.getByText(msg("insights-posted-none-in-country", { country: "Sweden" }))).toBeVisible();
+});
+
+test("a level picked is kept in the link and survives a reload", async ({ page }) => {
+  await page.goto("/statistics/compensation");
+  const heading = page.locator(".insight-hero").getByRole("heading", { level: 2 });
+  await expect(heading).toHaveText(msg("insights-posted-typically", { low: "$198K", high: "$270K" }));
+
+  await page.getByRole("combobox", { name: msg("insights-posted-level") }).selectOption("staff");
+  await expect(heading).toHaveText(msg("insights-posted-typically", { low: "$230K", high: "$330K" }));
+  await expect(page).toHaveURL(/level=staff/);
+
+  await page.reload();
+  await expect(heading).toHaveText(msg("insights-posted-typically", { low: "$230K", high: "$330K" }));
+  await expect(page.getByRole("combobox", { name: msg("insights-posted-level") })).toHaveValue("staff");
+});
+
+test("draws every posted range a row per level, and colours only the employer picked", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.goto("/statistics/compensation");
+
+  const rows = page.getByRole("list", { name: msg("insights-pay-bands-published-base-salary-bands-by") });
   await expect(rows.getByRole("listitem")).toHaveCount(2);
-  await expect(page.getByText(/3 ranges · 2 employers/)).toBeVisible();
-  const staff = rows.getByRole("img", { name: /^Staff: 2 ranges from 2 employers/ });
+  const staff = rows.getByRole("img", {
+    name: msg("insights-comp-bands-level-ranges", { label: "Staff", bands: 2, employers: 2, figure: "some", low: "$230K", high: "$330K" }),
+  });
   await expect(staff.locator(".pay-band[data-chosen]")).toHaveCount(0);
-  // The exclusion detail is available from the compact heading.
-  const publishedTip = page.getByRole("button", { name: "About posted ranges" });
-  await publishedTip.focus();
-  await expect(page.getByRole("tooltip").filter({ hasText: /90 more roles post a range/i })).toBeVisible();
+  // Every reason a role is left out is available from the heading.
+  const about = page.getByRole("button", { name: msg("insights-compensation-panel-about-published-salary-bands") });
+  await about.focus();
+  await expect(page.getByRole("tooltip").filter({ hasText: msg("insights-comp-bands-placed-by-pay", { count: 6 }) })).toBeVisible();
 
-  // Picking an employer is the only colour on the chart, and it is drawn where its band is.
+  // Picking an employer is the only colour on the chart, and it is drawn where its range is.
   await page.locator(".pay-bands-pick").getByRole("button", { name: /^Filter by/ }).click();
   await page.getByRole("option", { name: /Google DeepMind/ }).click();
   await expect(staff).toHaveAttribute("aria-label", /Google DeepMind: \$207K to \$301K/);
@@ -126,60 +207,17 @@ test("shows employer-published bands, keeps them apart from the imputed estimate
   const bar = await picked.boundingBox();
   expect(track && bar && bar.x >= track.x && bar.x + bar.width <= track.x + track.width + 1).toBe(true);
   await expect(rows.getByRole("img", { name: /^Principal/ })).toHaveAttribute("aria-label", /posts no range/);
-
-  // Every pay row says how many roles it rests on.
-  await expect(page.locator(".comp-row", { hasText: "OpenAI" })).toContainText("58 roles");
-  // A skill that pays less at the same level is shown as less.
-  await expect(page.locator(".comp-row", { hasText: "C++" })).toContainText("−$60K");
   expect(errors).toEqual([]);
 });
 
-test("roles whose level we cannot place get their own row on Pay, never a rung's", async ({ page }) => {
-  // The server counts them under `unstated`, listed after the rungs: a bare
-  // title is stored at Mid for sorting only, and counted as Mid it would make
-  // a "Mid-level" row of published pay above Senior.
-  const base = compFixture();
-  await page.route("/api/statistics/compensation**", (route) =>
-    route.fulfill({
-      json: compFixture({
-        disclosed: {
-          ...(base.disclosed as Record<string, unknown>),
-          bands: [
-            { company: "google", level_band: "staff", low: 262_000, high: 365_000, reqs: 18 },
-            { company: "google", level_band: "principal", low: 240_000, high: 334_000, reqs: 12 },
-            { company: "apple", level_band: "unstated", low: 251_000, high: 350_000, reqs: 4 },
-          ],
-          reqs: 34,
-          companies: 2,
-        },
-        disclosure: {
-          ...(base.disclosure as Record<string, unknown>),
-          by_level: [
-            { level_band: "staff", open: 265, checked: 200, disclosed: 50, rate: 0.25 },
-            { level_band: "unstated", open: 300, checked: 250, disclosed: 90, rate: 0.36 },
-          ],
-        },
-      }),
-    }),
-  );
-  const errors: string[] = [];
-  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
-
-  await page.goto("/statistics");
-  await page.getByRole("tab", { name: "Compensation" }).click();
-
-  const rows = page.getByRole("list", { name: "Posted base salary ranges by level" });
-  await expect(rows.getByRole("listitem")).toHaveCount(3);
-  await expect(rows.getByRole("listitem").last()).toContainText("Level unknown");
-  await expect(rows.getByRole("img", { name: /^Level unknown: 1 range from 1 employer/ })).toBeVisible();
-  await expect(rows.getByText(/^unstated$/)).toHaveCount(0);
-  await expect(rows.getByText("Mid-level")).toHaveCount(0);
-
-  await page.getByRole("group", { name: "Pay transparency breakdown" }).getByRole("button", { name: "By level" }).click();
-  const byLevel = page.getByRole("img", { name: /post a range, by level/i });
-  await expect(byLevel.getByText("Level unknown")).toBeVisible();
-  await expect(byLevel.getByText(/^unstated$/)).toHaveCount(0);
-  expect(errors).toEqual([]);
+test("the posted ranges chart follows the country, in its currency", async ({ page }) => {
+  await page.goto("/statistics/compensation?country=GB");
+  const rows = page.getByRole("list", { name: msg("insights-pay-bands-published-base-salary-bands-by") });
+  await expect(rows.getByRole("img", {
+    name: msg("insights-comp-bands-level-ranges", { label: "Principal", bands: 1, employers: 1, figure: "none", low: "", high: "" }),
+  })).toBeVisible();
+  await expect(page.locator(".pay-bands-axis")).toContainText("£");
+  await expect(page.locator(".pay-bands-axis")).not.toContainText("$");
 });
 
 test("reports the disclosure rate against checked roles and names the backlog", async ({ page }) => {
@@ -195,14 +233,18 @@ test("reports the disclosure rate against checked roles and names the backlog", 
   await expect(page.locator(".chart-insight", { hasText: /25% of 600 checked roles post a range/ })).toBeVisible();
   await expect(page.getByText(/149 of 749 open roles haven't been checked/i)).toBeVisible();
 
+  // Who states pay opens by level; a role whose level we cannot place has its own row, never a rung's.
+  const byLevel = page.getByRole("img", { name: /post a range, by level/i });
+  await expect(byLevel).toBeVisible();
+  await expect(byLevel.getByText("Level unknown")).toBeVisible();
+  await expect(byLevel.getByText(/^unstated$/)).toHaveCount(0);
+
+  await page.getByRole("group", { name: "Pay transparency breakdown" }).getByRole("button", { name: "By company" }).click();
   const rateChart = page.getByRole("img", { name: /post a range, by company/i });
   await expect(rateChart).toBeVisible();
   await expect(rateChart.getByText("80% · 160/200")).toBeVisible();
   // Netflix has nothing checked; it must not be drawn as a 0% employer.
   await expect(rateChart.getByText("Netflix")).toHaveCount(0);
-
-  await page.getByRole("group", { name: "Pay transparency breakdown" }).getByRole("button", { name: "By level" }).click();
-  await expect(page.getByRole("img", { name: /post a range, by level/i })).toBeVisible();
 
   expect(errors).toEqual([]);
 });
@@ -216,8 +258,9 @@ test("Pay has no window and draws no pay over time; who posts a range stays", as
     if (r.url().includes("/api/statistics/")) asked.push(new URL(r.url()).pathname);
   });
   await page.goto("/statistics/compensation?window=7");
-  await expect(page.getByRole("heading", { level: 2, name: /median/ })).toHaveText(/\$479K median/);
-  await expect(page.getByRole("img", { name: /post a range, by company/i })).toBeVisible();
+  await expect(page.locator(".insight-hero").getByRole("heading", { level: 2 }))
+    .toHaveText(msg("insights-posted-typically", { low: "$198K", high: "$270K" }));
+  await expect(page.getByRole("img", { name: /post a range, by level/i })).toBeVisible();
 
   await expect(page.getByRole("group", { name: "Time range" })).toHaveCount(0);
   await expect(page.getByRole("img", { name: /over time/i })).toHaveCount(0);
@@ -241,6 +284,8 @@ test("a fresh install's base-only roles have their own panel, apart from the tot
   await expect(panel).toBeVisible();
   await expect(panel).toContainText("40 more roles have only a base salary estimate");
   await expect(panel).toContainText("$196K");
-  // The totals' hero is the totals' alone.
-  await expect(page.getByRole("heading", { level: 2, name: /median/ })).toHaveText(/\$479K median/);
+  await expect(panel.locator(".eyebrow")).toHaveText(msg("insights-posted-estimate-us-only"));
+  // The totals' level chart is the totals' alone.
+  const totals = page.locator(".panel", { has: page.getByRole("heading", { level: 3, name: "Median estimated total compensation by level" }) });
+  await expect(totals).not.toContainText("$196K");
 });

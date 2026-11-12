@@ -15,7 +15,7 @@ is equity by construction. Vocabulary in the output sticks
 to `implied_*`, `residual_vs_model`, `consistent`.
 
 Pure and DB-free: the API/report layer runs the SQL and injects rows, mirroring
-`comp_stats.build_disclosed_bands`.
+`comp_stats.build_posted_pay`.
 """
 
 from __future__ import annotations

@@ -2127,30 +2127,6 @@
     "title": "CompFamilySummary",
     "type": "object"
    },
-   "CompHistogramBin": {
-    "additionalProperties": false,
-    "properties": {
-     "count": {
-      "title": "Count",
-      "type": "integer"
-     },
-     "hi": {
-      "title": "Hi",
-      "type": "integer"
-     },
-     "lo": {
-      "title": "Lo",
-      "type": "integer"
-     }
-    },
-    "required": [
-     "lo",
-     "hi",
-     "count"
-    ],
-    "title": "CompHistogramBin",
-    "type": "object"
-   },
    "CompLevelSummary": {
     "additionalProperties": false,
     "description": "`level_band` first, then the summary.",
@@ -2335,36 +2311,6 @@
      "verdict"
     ],
     "title": "CompReconciliation",
-    "type": "object"
-   },
-   "CompSkill": {
-    "additionalProperties": false,
-    "description": "A skill named by enough priced roles; `premium` is what they pay over like\nroles, same level and discipline; `count` is the roles behind it.",
-    "properties": {
-     "count": {
-      "title": "Count",
-      "type": "integer"
-     },
-     "p50": {
-      "title": "P50",
-      "type": "number"
-     },
-     "premium": {
-      "title": "Premium",
-      "type": "number"
-     },
-     "term": {
-      "title": "Term",
-      "type": "string"
-     }
-    },
-    "required": [
-     "term",
-     "count",
-     "p50",
-     "premium"
-    ],
-    "title": "CompSkill",
     "type": "object"
    },
    "CompSource": {
@@ -4303,7 +4249,7 @@
    },
    "CompensationStatsResponse": {
     "additionalProperties": false,
-    "description": "`GET /api/statistics/compensation`: the estimate's spread beside what employers printed.\n\nA snapshot of the roles open now: no window. The Window lens moves\nthe trend routes beside it, never this population.",
+    "description": "`GET /api/statistics/compensation`: what employers post, beside the estimate.\n\nA snapshot of the roles open now: no window. The Window lens moves\nthe trend routes beside it, never this population.",
     "properties": {
      "base_estimates": {
       "$ref": "#/components/schemas/BaseEstimates"
@@ -4329,13 +4275,6 @@
       "title": "By Level",
       "type": "array"
      },
-     "by_skill": {
-      "items": {
-       "$ref": "#/components/schemas/CompSkill"
-      },
-      "title": "By Skill",
-      "type": "array"
-     },
      "coverage": {
       "$ref": "#/components/schemas/CompCoverage"
      },
@@ -4344,18 +4283,8 @@
       "title": "Currency",
       "type": "string"
      },
-     "disclosed": {
-      "$ref": "#/components/schemas/DisclosedBands"
-     },
      "disclosure": {
       "$ref": "#/components/schemas/DisclosureRates"
-     },
-     "histogram": {
-      "items": {
-       "$ref": "#/components/schemas/CompHistogramBin"
-      },
-      "title": "Histogram",
-      "type": "array"
      },
      "min_roles": {
       "title": "Min Roles",
@@ -4370,18 +4299,19 @@
         "type": "null"
        }
       ]
+     },
+     "posted": {
+      "$ref": "#/components/schemas/PostedPay"
      }
     },
     "required": [
      "min_roles",
      "coverage",
      "overall",
-     "histogram",
      "by_level",
      "by_company",
      "by_family",
-     "by_skill",
-     "disclosed",
+     "posted",
      "disclosure",
      "base_estimates",
      "currency"
@@ -4739,6 +4669,7 @@
    },
    "DisclosedBand": {
     "additionalProperties": false,
+    "description": "One distinct base range an employer posts at a level, with the roles on it.",
     "properties": {
      "company": {
       "title": "Company",
@@ -4769,43 +4700,6 @@
      "reqs"
     ],
     "title": "DisclosedBand",
-    "type": "object"
-   },
-   "DisclosedBands": {
-    "additionalProperties": false,
-    "description": "Distinct base-salary bands employers printed, with the reqs on each.",
-    "properties": {
-     "bands": {
-      "items": {
-       "$ref": "#/components/schemas/DisclosedBand"
-      },
-      "title": "Bands",
-      "type": "array"
-     },
-     "companies": {
-      "title": "Companies",
-      "type": "integer"
-     },
-     "excluded": {
-      "$ref": "#/components/schemas/DisclosedExclusions"
-     },
-     "reqs": {
-      "title": "Reqs",
-      "type": "integer"
-     },
-     "truncated": {
-      "title": "Truncated",
-      "type": "boolean"
-     }
-    },
-    "required": [
-     "bands",
-     "reqs",
-     "companies",
-     "excluded",
-     "truncated"
-    ],
-    "title": "DisclosedBands",
     "type": "object"
    },
    "DisclosedComp": {
@@ -4935,40 +4829,6 @@
      "checked_at"
     ],
     "title": "DisclosedComp",
-    "type": "object"
-   },
-   "DisclosedExclusions": {
-    "additionalProperties": false,
-    "properties": {
-     "implausible": {
-      "title": "Implausible",
-      "type": "integer"
-     },
-     "not_usd": {
-      "title": "Not Usd",
-      "type": "integer"
-     },
-     "not_yearly": {
-      "title": "Not Yearly",
-      "type": "integer"
-     },
-     "total": {
-      "title": "Total",
-      "type": "integer"
-     },
-     "unclear": {
-      "title": "Unclear",
-      "type": "integer"
-     }
-    },
-    "required": [
-     "unclear",
-     "total",
-     "not_usd",
-     "not_yearly",
-     "implausible"
-    ],
-    "title": "DisclosedExclusions",
     "type": "object"
    },
    "DisclosureCohort": {
@@ -15984,6 +15844,258 @@
      "period"
     ],
     "title": "PostedBase",
+    "type": "object"
+   },
+   "PostedCountry": {
+    "additionalProperties": false,
+    "description": "Posted base pay for the roles in one country, in its own currency.",
+    "properties": {
+     "bands": {
+      "items": {
+       "$ref": "#/components/schemas/DisclosedBand"
+      },
+      "title": "Bands",
+      "type": "array"
+     },
+     "country": {
+      "title": "Country",
+      "type": "string"
+     },
+     "currency": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Currency"
+     },
+     "levels": {
+      "items": {
+       "$ref": "#/components/schemas/PostedLevel"
+      },
+      "title": "Levels",
+      "type": "array"
+     },
+     "not_placed": {
+      "$ref": "#/components/schemas/PostedUnplaced"
+     },
+     "other_currency": {
+      "title": "Other Currency",
+      "type": "integer"
+     },
+     "ranges": {
+      "title": "Ranges",
+      "type": "integer"
+     },
+     "yours": {
+      "title": "Yours",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "country",
+     "currency",
+     "ranges",
+     "yours",
+     "levels",
+     "not_placed",
+     "other_currency",
+     "bands"
+    ],
+    "title": "PostedCountry",
+    "type": "object"
+   },
+   "PostedExclusions": {
+    "additionalProperties": false,
+    "description": "Roles with a posted range that no country's figure reads, by reason.",
+    "properties": {
+     "implausible": {
+      "title": "Implausible",
+      "type": "integer"
+     },
+     "no_country": {
+      "title": "No Country",
+      "type": "integer"
+     },
+     "not_base": {
+      "title": "Not Base",
+      "type": "integer"
+     },
+     "not_yearly": {
+      "title": "Not Yearly",
+      "type": "integer"
+     },
+     "placed_by_pay": {
+      "title": "Placed By Pay",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "not_base",
+     "not_yearly",
+     "implausible",
+     "no_country",
+     "placed_by_pay"
+    ],
+    "title": "PostedExclusions",
+    "type": "object"
+   },
+   "PostedLevel": {
+    "additionalProperties": false,
+    "description": "One level's posted base pay in one country and currency\n(`comp_stats._level_figure`). Each distinct range votes once. Below the\nminimums `enough` is false and the figure fields are null; the counts say\nwhy.",
+    "properties": {
+     "employers": {
+      "title": "Employers",
+      "type": "integer"
+     },
+     "enough": {
+      "title": "Enough",
+      "type": "boolean"
+     },
+     "high": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "High"
+     },
+     "level_band": {
+      "title": "Level Band",
+      "type": "string"
+     },
+     "low": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Low"
+     },
+     "mid_p25": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mid P25"
+     },
+     "mid_p75": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mid P75"
+     },
+     "ranges": {
+      "title": "Ranges",
+      "type": "integer"
+     },
+     "roles": {
+      "title": "Roles",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "level_band",
+     "ranges",
+     "employers",
+     "roles",
+     "enough",
+     "low",
+     "high",
+     "mid_p25",
+     "mid_p75"
+    ],
+    "title": "PostedLevel",
+    "type": "object"
+   },
+   "PostedPay": {
+    "additionalProperties": false,
+    "description": "`comp_stats.build_posted_pay`: what employers post as yearly base pay,\nper country and level, and the levels the person picked.",
+    "properties": {
+     "countries": {
+      "items": {
+       "$ref": "#/components/schemas/PostedCountry"
+      },
+      "title": "Countries",
+      "type": "array"
+     },
+     "default_country": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Default Country"
+     },
+     "excluded": {
+      "$ref": "#/components/schemas/PostedExclusions"
+     },
+     "min_employers": {
+      "title": "Min Employers",
+      "type": "integer"
+     },
+     "min_ranges": {
+      "title": "Min Ranges",
+      "type": "integer"
+     },
+     "your_levels": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Your Levels",
+      "type": "array"
+     }
+    },
+    "required": [
+     "min_employers",
+     "min_ranges",
+     "default_country",
+     "countries",
+     "excluded",
+     "your_levels"
+    ],
+    "title": "PostedPay",
+    "type": "object"
+   },
+   "PostedUnplaced": {
+    "additionalProperties": false,
+    "description": "Roles whose level cannot be placed, and their distinct ranges: counted apart.",
+    "properties": {
+     "ranges": {
+      "title": "Ranges",
+      "type": "integer"
+     },
+     "roles": {
+      "title": "Roles",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "roles",
+     "ranges"
+    ],
+    "title": "PostedUnplaced",
     "type": "object"
    },
    "PostingDiff": {
@@ -31243,7 +31355,7 @@
   },
   "/api/statistics/compensation": {
    "get": {
-    "description": "Compensation across the roles open now: the roles Insights describes.\n\nTwo different quantities live in this payload and must not be conflated:\n\n* `overall` / `histogram` / `by_level` / `by_company` / `by_family` / `by_skill`\n  aggregate `Job.comp_median`, which is an *imputed total-comp estimate* \u2014 a\n  lookup keyed by (company, level, family), not anything an employer said. It\n  carries very few distinct values, so it is a reference point, not a sample.\n* `disclosed` carries the bands employers actually printed in the posting, as\n  *base salary* (see `build_disclosed_bands`). Base pay and total comp cannot\n  share an axis, so the UI keeps them in separate panels.\n* `disclosure` is the *rate* \u2014 how many open roles state pay at all, overall\n  and per company/level. Basis-independent, and denominated in roles the\n  disclosure pass has actually read (see `build_disclosure_rates`).\n\nCoverage is reported so the UI can state how much of the open set is estimated.\n\nNo window. Keeping roles FIRST SEEN in the last N days would change the\npopulation, not the period: most open postings are first seen recently, so\na 30-day window is nearly all-time and a 7-day one a sample of whatever was\nonboarded that week. The trend routes carry time.",
+    "description": "Compensation across the roles open now: the roles Insights describes.\n\nThe quantities in this payload must not be conflated:\n\n* `posted` carries the ranges employers print in their postings, as yearly\n  *base salary* per country and level (see `build_posted_pay`), with the\n  person's levels so the screen can open on them. It leads the tab.\n* `overall` / `by_level` / `by_company` / `by_family` aggregate\n  `Job.comp_median`, an *imputed total-comp estimate*: a lookup keyed by\n  company and level, not anything an employer said, and only for US\n  postings. Base pay and total comp cannot share an axis, so the UI keeps\n  them in separate panels.\n* `disclosure` is the *rate* \u2014 how many open roles state pay at all, overall\n  and per company/level. Basis-independent, and denominated in roles the\n  disclosure pass has actually read (see `build_disclosure_rates`).\n\nCoverage is reported so the UI can state how much of the open set is estimated.\n\nNo window. Keeping roles FIRST SEEN in the last N days would change the\npopulation, not the period: most open postings are first seen recently, so\na 30-day window is nearly all-time and a 7-day one a sample of whatever was\nonboarded that week. The trend routes carry time.",
     "operationId": "statistics_compensation_api_statistics_compensation_get",
     "parameters": [
      {

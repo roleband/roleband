@@ -1,24 +1,16 @@
 ## insights
 
 ## features/statistics/CompensationPanel.tsx
-insights-compensation-panel-compensation = Compensación
-insights-compensation-panel-no-open-roles-with-a = Aún no hay puestos abiertos con una estimación de compensación.
-insights-compensation-panel-open-roles-now-coverage = { $with_comp } de { $total_open } puestos abiertos tienen una estimación ({ $pct }%)
 insights-compensation-panel-estimated-total-compensation-is-imputed = Estimada a partir de la empresa, el nivel y la disciplina, no indicada por las empresas. Tómala como referencia, no como una oferta.
 insights-compensation-panel-published-bands = Rangos publicados
-insights-compensation-panel-what-employers-actually-print = Rangos publicados
 insights-compensation-panel-bands-from-employers = { $bands } rangos · { $employers ->
     [one] { $employers } empleador
     [many] { $employers } de empleadores
    *[other] { $employers } empleadores
 }
-insights-compensation-panel-estimated-comp-distribution = Distribución de la compensación total estimada
 insights-compensation-panel-median-comp-by-level = Mediana de la compensación total estimada por nivel
 insights-compensation-panel-top-paying-companies = Empresas que más pagan
 insights-compensation-panel-median-pay-by-discipline = Mediana de la compensación total estimada por disciplina
-insights-compensation-panel-what-a-skill-adds-at = Compensación por habilidad, mismo nivel
-insights-compensation-panel-roles-naming-the-skill-against = Puestos que mencionan la habilidad frente a todos los puestos del mismo nivel y disciplina. Muestra qué empresas la piden, no cuánto vale.
-insights-compensation-panel-not-enough-priced-roles-per = Aún no hay suficientes puestos con estimación para cada habilidad.
 insights-compensation-panel-roles = { $count ->
     [one] { $count } puesto
     [many] { $count } de puestos
@@ -27,13 +19,7 @@ insights-compensation-panel-roles = { $count ->
 insights-compensation-panel-groups-of-roles-or-more = { $min_roles }+ puestos por barra
 insights-compensation-panel-base-salary-quoted-from-the = Salario base tal como se publica, no una estimación. Cada línea es un rango publicado, sin importar cuántos puestos lo compartan.
 insights-compensation-panel-how-compensation-is-estimated = Cómo se estima la compensación
-insights-compensation-panel-coverage = Con estimación
-insights-compensation-panel-middle-50 = 50% central
-insights-compensation-panel-top-decile = 10% superior
-insights-compensation-panel-range = Dispersión
 insights-compensation-panel-about-published-salary-bands = Acerca de los rangos publicados
-insights-compensation-panel-how-a-skill-s-pay = Cómo se mide la diferencia de compensación de una habilidad
-insights-compensation-panel-median = { $roles } · mediana { $p50 }
 
 ## features/statistics/Demand.tsx
 insights-demand-open-roles-by-company = Puestos abiertos por empresa
@@ -86,7 +72,7 @@ insights-overview-panel-opened-closed = { $new_count } publicados · { $closed_c
 insights-overview-panel-about-the-demand-field = Acerca de este gráfico
 
 ## features/statistics/PayBands.tsx
-insights-pay-bands-each-line-is-one-published = Cada línea es un rango publicado. El tramo resaltado es el rango mediano del nivel.
+insights-pay-bands-each-line-is-one-published = Cada línea es un rango publicado. El tramo resaltado es el rango típico del nivel.
 insights-pay-bands-any-employer = Cualquier empleador
 insights-pay-bands-published-base-salary-bands-by = Rangos publicados de salario base por nivel
 insights-pay-bands-bands-from-employers = { $bands ->
@@ -539,19 +525,6 @@ insights-statistics-charts-what-sets-these-roles-apart = Qué distingue a estos 
 insights-statistics-charts-of-these-roles-the-market = { $skill }: { $share }% de estos puestos, ×{ $lift } el mercado
 
 ## features/statistics/charts/compBands.ts
-insights-comp-bands-level-summary = { $label }: { $bands } { $bands ->
-        [one] rango
-        [many] rangos
-       *[other] rangos
-    } de { $employers } { $employers ->
-        [one] empleador
-        [many] empleadores
-       *[other] empleadores
-    }, mediana de { $low } a { $high }.
-insights-comp-bands-1-more-role-states-a = 1 puesto más publica un rango pero nunca dice si incluye bonus o acciones, así que no se muestra.
-insights-comp-bands-more-roles-state-a-range = { $unclear } puestos más publican un rango pero nunca dicen si incluye bonus o acciones, así que no se muestran.
-insights-comp-bands-1-more-role-states-base = 1 puesto más publica el salario base en otra moneda o por hora o por mes, así que no está en esta escala anual en dólares.
-insights-comp-bands-more-roles-state-base-pay = { $elsewhere } puestos más publican el salario base en otra moneda o por hora o por mes, así que no están en esta escala anual en dólares.
 
 ## features/statistics/charts/disclosure.ts
 insights-disclosure-unclassified = Nivel desconocido
@@ -569,11 +542,8 @@ insights-disclosure-of-checked-open-roles = { $disclosed } de { $checked } puest
 ## features/statistics/charts/StatisticsCharts.tsx (by hand)
 
 ## features/statistics/CompensationPanel.tsx
-insights-compensation-panel-median-pay = { $p50 } de mediana
-insights-compensation-panel-priced-roles = { $with_comp } puestos
 insights-compensation-panel-loading = Cargando la compensación…
 insights-compensation-panel-load-failed = No se pudo cargar la compensación
-insights-compensation-panel-min-max = mín–máx
 
 ## features/statistics/Demand.tsx
 insights-demand-open = { $role } abiertos
@@ -659,7 +629,6 @@ insights-brief-opened = { $period ->
 insights-brief-top-skill = Habilidad principal: { $skill } ({ $count } puestos).
 insights-compensation-panel-spread = p25–p75: { $low }–{ $high } · { $roles }
 insights-compensation-panel-estimated-base-by-level = Salario base estimado por nivel
-insights-compensation-panel-base-only = Solo base
 insights-compensation-panel-base-only-lead =
     { $count ->
         [one] { $count } puesto más solo tiene un salario base estimado, así que no está en las cifras de arriba.
@@ -738,3 +707,92 @@ insights-levels-followed-without-guide = { $count ->
 insights-levels-empty = Ninguna empresa ni nivel coincide
 
 insights-levels-reset = Restablecer todo
+
+insights-posted-typically = Normalmente de { $low } a { $high }
+insights-posted-too-few = Aún hay pocos rangos
+insights-posted-none = Aún no hay rangos publicados
+insights-posted-line = Salario base publicado para puestos de nivel { $level } en { $country }: { $ranges ->
+    [one] { $ranges } rango
+    [many] { $ranges } de rangos
+   *[other] { $ranges } rangos
+} de { $employers ->
+    [one] { $employers } empleador
+    [many] { $employers } de empleadores
+   *[other] { $employers } empleadores
+}, { $roles ->
+    [one] { $roles } puesto
+    [many] { $roles } de puestos
+   *[other] { $roles } puestos
+}.
+insights-posted-needs = Un rango típico necesita al menos { $min_employers } empleadores y { $min_ranges } rangos en un mismo nivel.
+insights-posted-none-at-level = Ningún puesto abierto en { $country } publica aún un rango de salario base anual en este nivel.
+insights-posted-none-in-country = Ningún puesto abierto en { $country } publica aún un rango de salario base anual en un nivel conocido.
+insights-posted-none-anywhere = Ningún puesto abierto publica aún un rango de salario base anual.
+insights-posted-how-read = Cómo se lee el rango típico
+insights-posted-how-read-body = Cada rango distinto cuenta una vez, sin importar cuántos puestos lo compartan. El rango típico va de la mediana de los mínimos a la mediana de los máximos, y la mitad central abarca el 50% central de los puntos medios de los rangos. Solo salario base anual, en la moneda del propio país, nunca convertido. Se dejan fuera los puestos cuyo nivel se dedujo de su rango.
+insights-posted-middle-half = Mitad central
+insights-posted-midpoints = Puntos medios
+insights-posted-share = Puestos que publican rango
+insights-posted-checked = { $checked ->
+    [one] { $checked } puesto revisado, todos los países y niveles
+    [many] { $checked } de puestos revisados, todos los países y niveles
+   *[other] { $checked } puestos revisados, todos los países y niveles
+}
+insights-posted-country = País
+insights-posted-level = Nivel
+insights-posted-your-place = { $name }, tu lugar
+insights-posted-by-level = Salario base publicado por nivel en { $country }
+insights-posted-your-level = Tu nivel
+insights-posted-not-placed = Nivel desconocido: { $roles ->
+    [one] { $roles } puesto
+    [many] { $roles } de puestos
+   *[other] { $roles } puestos
+} con { $ranges ->
+    [one] { $ranges } rango
+    [many] { $ranges } de rangos
+   *[other] { $ranges } rangos
+}, contados aparte de cualquier nivel.
+insights-posted-other-currency = { $count ->
+    [one] { $count } puesto más publica su rango en otra moneda, nunca convertida.
+    [many] { $count } de puestos más publican su rango en otra moneda, nunca convertida.
+   *[other] { $count } puestos más publican su rango en otra moneda, nunca convertida.
+}
+insights-posted-estimate-us-only = Estimación, solo EE. UU.
+insights-posted-every-range = Todos los rangos publicados en { $country }
+insights-comp-bands-level-ranges = { $label }: { $bands ->
+    [one] { $bands } rango
+    [many] { $bands } de rangos
+   *[other] { $bands } rangos
+} de { $employers ->
+    [one] { $employers } empleador
+    [many] { $employers } de empleadores
+   *[other] { $employers } empleadores
+}{ $figure ->
+    [none] , pocos para un rango típico.
+   *[some] , normalmente de { $low } a { $high }.
+}
+insights-comp-bands-not-base = { $count ->
+    [one] { $count } puesto más publica un rango que es la compensación total o no lo indica, así que no se muestra.
+    [many] { $count } de puestos más publican un rango que es la compensación total o no lo indica, así que no se muestran.
+   *[other] { $count } puestos más publican un rango que es la compensación total o no lo indica, así que no se muestran.
+}
+insights-comp-bands-not-yearly = { $count ->
+    [one] { $count } puesto más publica su salario base por hora o por mes, así que no está en esta escala anual.
+    [many] { $count } de puestos más publican su salario base por hora o por mes, así que no están en esta escala anual.
+   *[other] { $count } puestos más publican su salario base por hora o por mes, así que no están en esta escala anual.
+}
+insights-comp-bands-implausible = { $count ->
+    [one] { $count } puesto más publica un rango de relleno, como $1 a $2, así que no se muestra.
+    [many] { $count } de puestos más publican un rango de relleno, como $1 a $2, así que no se muestran.
+   *[other] { $count } puestos más publican un rango de relleno, como $1 a $2, así que no se muestran.
+}
+insights-comp-bands-no-country = { $count ->
+    [one] { $count } puesto más indica lugares en varios países o en ninguno, así que ningún país lo cuenta.
+    [many] { $count } de puestos más indican lugares en varios países o en ninguno, así que ningún país los cuenta.
+   *[other] { $count } puestos más indican lugares en varios países o en ninguno, así que ningún país los cuenta.
+}
+insights-comp-bands-placed-by-pay = { $count ->
+    [one] { $count } puesto más tuvo su nivel deducido de su rango, así que se deja fuera.
+    [many] { $count } de puestos más tuvieron su nivel deducido de su rango, así que se dejan fuera.
+   *[other] { $count } puestos más tuvieron su nivel deducido de su rango, así que se dejan fuera.
+}
