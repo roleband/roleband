@@ -8,6 +8,7 @@ import json
 import plistlib
 import re
 from pathlib import Path
+from xml.etree import ElementTree
 
 REPO = Path(__file__).resolve().parents[2]
 LAUNCHER = REPO / "launcher" / "macos"
@@ -109,3 +110,30 @@ def test_security_publishes_the_committed_windows_identity():
     setup = re.search(r'"(RoleBand-Setup-)\$\(\$env:TAG\.Substring\(1\)\)(\.exe)"', workflow)
     assert setup, "windows-release.yml no longer names the attached Setup in one string"
     assert f"{setup.group(1)}<version>{setup.group(2)}" in section
+
+
+def test_a_windows_release_attaches_only_files_a_person_or_an_app_reads():
+    """The attach step uploads the release folder (package, checksum, metadata,
+    signature) and Setup. The certificate stays in the repository: Setup carries it
+    compiled in, so a copy on the release page is a file nothing reads."""
+    workflow = (REPO / ".github" / "workflows" / "windows-release.yml").read_text(encoding="utf-8")
+    attach = workflow.split("      - name: attach\n", 1)[1].split("\n      - ", 1)[0]
+    files = re.search(r"^\s*\$files = (.+)$", attach, re.M)
+    assert files, "the attach step no longer gathers its uploads in one $files line"
+    assert "'release'" in files.group(1) and "$setup" in files.group(1)
+    uploads = re.findall(r"gh release upload \$env:TAG --repo \$env:GITHUB_REPOSITORY (.+)$", attach, re.M)
+    assert uploads and all(re.fullmatch(r"(--clobber )?(\$marker\[0\]|@\(\$files \| .+\))", u) for u in uploads), \
+        "the attach step uploads something other than its $files"
+    # Each step is its own PowerShell session, so a path the attach step uploads is named inside it.
+    assert ".cer" not in attach, "a release attaches RoleBand.cer again"
+
+    setup = REPO / "launcher" / "windows" / "RoleBand.Setup"
+    project = ElementTree.parse(setup / "RoleBand.Setup.csproj").getroot()
+    default = project.find(".//RoleBandCertificate")
+    assert default is not None and default.text.endswith("../RoleBand.cer"), "Setup no longer builds from RoleBand.cer"
+    # Embedded whenever the certificate file exists, by an item group no condition switches off.
+    embedded = {item.get("LogicalName") for group in project.iter("ItemGroup") if group.get("Condition") is None
+                for item in group.iter("EmbeddedResource") if item.get("Include") == "$(RoleBandCertificate)"
+                and item.get("Condition") in (None, "Exists('$(RoleBandCertificate)')")}
+    requested = re.search(r'GetManifestResourceStream\("([^"]+\.cer)"\)', (setup / "Program.cs").read_text(encoding="utf-8"))
+    assert requested and requested.group(1) in embedded, "Setup does not embed the certificate under the name it reads"

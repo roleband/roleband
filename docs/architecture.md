@@ -200,8 +200,8 @@ the tagged commit it reads, as files, the package, `RoleBand.cer`,
 certificate is that committed `RoleBand.cer` with its own private key and that the
 release key is the one the identity names.
 The job then signs the package and Setup with `signtool` (not timestamped), prepares
-the four release files and attaches them, `RoleBand-Setup-<version>.exe` and
-`RoleBand.cer` to that release, the checksum file last: the app reads a release as
+the four release files and attaches them and `RoleBand-Setup-<version>.exe` to that
+release, the checksum file last: the app reads a release as
 carrying Windows files only once it is attached, so a rerun replaces what an
 interrupted one attached, and refuses a release that already has it. Both jobs install
 their tools only from the hashed wheels in `launcher/windows/signing-requirements.txt`,

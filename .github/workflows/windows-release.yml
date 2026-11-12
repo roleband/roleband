@@ -218,7 +218,7 @@ jobs:
         run: |
           $setup = Join-Path $env:RUNNER_TEMP "RoleBand-Setup-$($env:TAG.Substring(1)).exe"
           Copy-Item (Join-Path $env:RUNNER_TEMP 'unsigned/RoleBand-Setup.exe') $setup
-          $files = @(Get-ChildItem (Join-Path $env:RUNNER_TEMP 'release') -File | ForEach-Object FullName) + $setup + (Join-Path $env:RUNNER_TEMP 'tagged/launcher/windows/RoleBand.cer')
+          $files = @(Get-ChildItem (Join-Path $env:RUNNER_TEMP 'release') -File | ForEach-Object FullName) + $setup
           # The Windows app reads a release as carrying its files only once the checksum file is attached, so that
           # file goes last. Before it, a rerun replaces whatever an interrupted run attached, which no app has read;
           # once it is attached, nothing is replaced.
