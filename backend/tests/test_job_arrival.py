@@ -479,12 +479,26 @@ async def test_a_backfill_that_dies_keeps_its_saved_batches_and_resumes(
 # --------------------------------------------------------------------------- #
 
 
+def _blocks(node: dict) -> int:
+    return node["Shared Hit Blocks"] + node["Shared Read Blocks"]
+
+
+def _table_blocks(node: dict) -> int:
+    """Blocks the plan's table and index scans read themselves. A node's count
+    includes its children's, so each scan keeps only its own; nodes that scan
+    nothing (a sort, an aggregate) are left out, as the catalog lookups they
+    may make depend on the connection's caches, not on the data."""
+    children = node.get("Plans", [])
+    own = _blocks(node) - sum(_blocks(child) for child in children)
+    scans = "Relation Name" in node or "Index Name" in node
+    return (own if scans else 0) + sum(_table_blocks(child) for child in children)
+
+
 async def _buffers_to_count_new(session) -> int:
     stmt = board_count_stmt({"status": "open", "hidden": [], "new_today_only": True})
     sql = str(stmt.compile(dialect=session.bind.dialect, compile_kwargs={"literal_binds": True}))
     plan = (await session.execute(text(f"EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) {sql}"))).scalar_one()
-    root = (json.loads(plan) if isinstance(plan, str) else plan)[0]["Plan"]
-    return root["Shared Hit Blocks"] + root["Shared Read Blocks"]
+    return _table_blocks((json.loads(plan) if isinstance(plan, str) else plan)[0]["Plan"])
 
 
 async def test_the_new_count_reads_about_as_much_over_ten_times_the_history(db_session):
