@@ -201,6 +201,28 @@ public sealed class UpdateCoordinator(IUpdateCommands commands, IPackageDeployer
         }
     }
 
+    /// <summary>
+    /// Reads where updates stand, as the first step of every open, and asks Windows about an update this version began
+    /// that is still applying. A status that cannot be read throws, since without it nothing says whether Windows is
+    /// installing that update: the journal stays as it is and the engine closed until a later open reads it.
+    /// </summary>
+    /// <param name="packageName">The installed package's name, or null for a copy without a package, which Windows never
+    /// replaces.</param>
+    /// <param name="read">Told where updates stand, before Windows is asked.</param>
+    /// <param name="report">Told how Windows' install goes, as <see cref="AwaitWindowsAsync"/> reports it.</param>
+    /// <returns>Whether this version may settle the journal and start its engine.</returns>
+    public async Task<bool> MaySettleAsync(string? packageName, Action<UpdateFacts> read, Action<UpdateRun?> report,
+                                           CancellationToken cancellation = default)
+    {
+        var reply = await commands.RunAsync(["status"], cancellation);
+        read(UpdateFacts.Read(reply));
+        // A build without a usable update identity reports updates unavailable, and still names the update.
+        if (UpdateFacts.ReadLast(reply) is not { Phase: "applying", Running: "from" } pending || packageName is null) return true;
+        if (pending.Package is null)
+            throw new IOException("The unfinished update names no package, so Windows cannot be asked whether it is installing it.");
+        return await AwaitWindowsAsync(pending, packageName, report, cancellation);
+    }
+
     /// <summary>Settles a journal the previous run left; call before starting the engine.</summary>
     public async Task<string?> ResumeAsync(CancellationToken cancellation = default) =>
         (await ResumeWithRoleAsync(cancellation)).Phase;

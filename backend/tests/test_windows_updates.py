@@ -415,6 +415,34 @@ def test_a_source_run_never_takes_the_committed_identity(tmp_path, monkeypatch, 
     assert json.loads(capsys.readouterr().out) == {"status": "unavailable", "reason": "This build carries no update identity."}
 
 
+@windows_only
+@pytest.mark.parametrize("identity", ["missing", "damaged"])
+def test_a_build_without_a_usable_identity_still_names_the_update_it_left_applying(tmp_path, monkeypatch, capsys, identity):
+    """The native host asks Windows whether it is still installing an update this version began before `resume`
+    settles it as never having happened, and it learns of that update only from `status`."""
+    from scripts import windows_update
+    from tracker.platform import releases
+    from tracker.platform import windows_update_journal as journal
+    from tracker.platform.windows_private import private_directory
+
+    state = tmp_path / "state"
+    private_directory(state)
+    damaged = tmp_path / "release-identity.json"
+    damaged.write_text("{", encoding="utf-8")
+    monkeypatch.setattr(windows_update, "identity_path", lambda: None if identity == "missing" else damaged)
+    monkeypatch.setattr(releases, "running_version", lambda *_: "0.1.2")
+    windows_update.main(["status", "--state", str(state)])
+    assert "update" not in json.loads(capsys.readouterr().out), "no update, nothing named"
+    journal.begin(state, from_version="0.1.2", to_version="0.1.3", package=tmp_path / "update.msix", package_sha256="a" * 64)
+    windows_update.main(["status", "--state", str(state)])
+    answer = json.loads(capsys.readouterr().out)
+    assert answer["status"] == "unavailable"
+    assert {key: answer["update"][key] for key in ("phase", "from", "to", "running", "package")} == {
+        "phase": "applying", "from": "0.1.2", "to": "0.1.3", "running": "from", "package": "update.msix"}
+    windows_update.main(["check", "--state", str(state)])
+    assert "update" not in json.loads(capsys.readouterr().out), "only status names it"
+
+
 def test_only_a_package_names_an_update_identity(monkeypatch):
     """The path itself, on every platform: a package's resources hold its identity, a source checkout names none."""
     from scripts import windows_update

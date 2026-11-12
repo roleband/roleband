@@ -54,9 +54,25 @@ public sealed class LifecycleTests
         record = {"format": 1, "pid": os.getpid(), "started": psutil.Process().create_time(), "executable": sys.executable,
                   "resources": str(HERE.parent), "state": str(DATA_DIR), "marker": marker}
         publish(DATA_DIR / "launcher" / "owned-engine.json", json.dumps(record).encode())
+        if mode == "silent":
+            note("started")
+            for line in sys.stdin:
+                note("stdin " + line.strip())
+                if line.strip() == "stop":
+                    break
+            note("exited")
+            sys.exit(0)
+        if mode == "holds-output":
+            import subprocess
+            child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"], stdout=sys.stdout, stderr=sys.stderr)
+            note(f"child {child.pid}")
         failed = mode == "prepare-fail"
-        preparation.update(DATA_DIR, database="failed" if failed else "ready", service="failed" if failed else "ready",
-                           model="unused", reason="service_failed" if failed else None)
+        if mode in ("stuck", "progressing"):
+            preparation.update(DATA_DIR, database="creating", service="starting", model="downloading", downloaded_bytes=0,
+                               total_bytes=100, reason=None)
+        else:
+            preparation.update(DATA_DIR, database="failed" if failed else "ready", service="failed" if failed else "ready",
+                               model="unused", reason="service_failed" if failed else None)
         if mode == "slow-health":
             real = prepare.health
 
@@ -82,6 +98,23 @@ public sealed class LifecycleTests
                 return answer
 
             prepare.health = malformed
+        if mode == "malformed-after-ready":
+            real = prepare.health
+            answers = {"count": 0}
+
+            def flaky(**arguments):
+                answer = real(**arguments)
+                answers["count"] += 1
+                if 1 < answers["count"] <= 1 + behaviour["bad"]:
+                    note("health-malformed")
+                    big = 10 ** 30
+                    return {**answer, "preparation": {"format": 1, "database": "ready", "model": "unused",
+                            "service": "ready", "downloaded_bytes": big, "total_bytes": big, "reason": None}}
+                if answers["count"] > 1:
+                    note("health-good")
+                return answer
+
+            prepare.health = flaky
         for _ in range(behaviour["noise"]):
             print("x" * 100, flush=True)
         note("started")
@@ -90,6 +123,12 @@ public sealed class LifecycleTests
                 time.sleep(1.5)
                 note("crashed")
                 os._exit(3)
+            if mode == "progressing":
+                for received in range(5, 101, 5):
+                    time.sleep(0.3)
+                    preparation.update(DATA_DIR, downloaded_bytes=received)
+                preparation.update(DATA_DIR, database="ready", service="ready", model="ready")
+                note("prepared")
             for line in sys.stdin:
                 note("stdin " + line.strip())
                 if line.strip() == "stop" and mode != "ignore-stop":
@@ -103,7 +142,7 @@ public sealed class LifecycleTests
         public string State { get; }
         public EngineConfiguration Configuration { get; }
 
-        public StandIn(string mode, int noise = 0)
+        public StandIn(string mode, int noise = 0, int bad = 0)
         {
             var checkout = new DirectoryInfo(AppContext.BaseDirectory);
             while (!File.Exists(Path.Combine(checkout.FullName, "backend", "desktop.py")))
@@ -113,7 +152,7 @@ public sealed class LifecycleTests
             State = Path.Combine(scratch, "state");
             Directory.CreateDirectory(Path.Combine(Root, "backend"));
             File.WriteAllText(Path.Combine(Root, "backend", "desktop.py"), Script);
-            Behave(mode, noise, checkout.FullName);
+            Behave(mode, noise, checkout.FullName, bad);
             var python = Path.Combine(checkout.FullName, "backend", ".venv", "Scripts", "python.exe");
             var native = File.ReadAllLines(Path.Combine(checkout.FullName, "backend", ".venv", "pyvenv.cfg"))
                 .Select(line => line.Split('=', 2)).Where(parts => parts.Length == 2 && parts[0].Trim() == "executable")
@@ -123,11 +162,12 @@ public sealed class LifecycleTests
                 package.RootElement.GetProperty("version").GetString()!, true, false);
         }
 
-        public void Behave(string mode, int noise = 0, string? checkout = null)
+        /// <param name="bad">For "malformed-after-ready": how many answers after the first are malformed.</param>
+        public void Behave(string mode, int noise = 0, string? checkout = null, int bad = 0)
         {
             var path = Path.Combine(Root, "backend", "behaviour.json");
             checkout ??= Path.GetDirectoryName(JsonDocument.Parse(File.ReadAllText(path)).RootElement.GetProperty("backend").GetString())!;
-            File.WriteAllText(path, JsonSerializer.Serialize(new { backend = Path.Combine(checkout, "backend"), mode, noise }));
+            File.WriteAllText(path, JsonSerializer.Serialize(new { backend = Path.Combine(checkout, "backend"), mode, noise, bad }));
         }
 
         /// <summary>The stand-in's events so far. It appends while it runs, so the read shares writing with it; a line
@@ -399,6 +439,233 @@ public sealed class LifecycleTests
         Assert.AreEqual(2, engine.Events().Count(line => line == "health-malformed"), "the engine answered badly twice");
         lock (states) CollectionAssert.DoesNotContain(states, EngineState.Attention);
         await session.StopAsync();
+    }
+
+    /// <summary>Long enough for a stand-in still starting its interpreter to read the stop it was sent.</summary>
+    private static readonly EngineSessionOptions Patient = Quick with { StopTimeout = TimeSpan.FromSeconds(30) };
+
+    [TestMethod]
+    public async Task AnEngineThatNeverAnswersIsEndedAndRetriedUntilTheLimit()
+    {
+        var engine = new StandIn("silent");
+        await using var session = new EngineSession(engine.Configuration, Patient with { SilentPreparation = TimeSpan.FromSeconds(2) });
+        await session.StartAsync();
+        await Until(() => session.Snapshot.State == EngineState.Attention, TimeSpan.FromSeconds(180), "the restart limit");
+        StringAssert.Contains(session.Snapshot.Diagnostic!, "reached its limit");
+        Assert.IsTrue(session.GaveUp);
+        Assert.AreEqual(Quick.RestartLimit + 1, engine.Events().Count(line => line == "started"));
+        Assert.AreEqual(Quick.RestartLimit + 1, engine.Events().Count(line => line == "stdin stop"), "each silent engine was asked to stop");
+        Assert.IsFalse(session.OwnsEngine);
+        using var lease = PrivateStorage.Lease(engine.State, "desktop.lock");
+    }
+
+    [TestMethod]
+    public async Task APreparationThatStopsChangingIsEndedAtTheDeadline()
+    {
+        var engine = new StandIn("stuck");
+        var states = new List<EngineState>();
+        await using var session = new EngineSession(engine.Configuration, Patient with { PreparationDeadline = TimeSpan.FromSeconds(2) });
+        session.Changed += snapshot => { lock (states) states.Add(snapshot.State); };
+        await session.StartAsync();
+        await Until(() => session.Snapshot.State == EngineState.Attention, TimeSpan.FromSeconds(180), "the restart limit");
+        StringAssert.Contains(session.Snapshot.Diagnostic!, "reached its limit");
+        Assert.IsTrue(session.GaveUp);
+        Assert.IsFalse(session.PreparationFailed, "a stalled preparation is not one the engine reported failed");
+        lock (states) CollectionAssert.Contains(states, EngineState.Preparing);
+        Assert.AreEqual(Quick.RestartLimit + 1, engine.Events().Count(line => line == "stdin stop"));
+        Assert.IsFalse(session.OwnsEngine);
+    }
+
+    [TestMethod]
+    public async Task APreparationThatKeepsChangingOutlastsTheDeadline()
+    {
+        // An update's migration of a long history can take longer than the deadline from launch; only a preparation
+        // that stops changing is ended.
+        var engine = new StandIn("progressing");
+        await using var session = new EngineSession(engine.Configuration, Quick with { PreparationDeadline = TimeSpan.FromSeconds(2) });
+        await session.StartAsync();
+        await Until(() => session.Snapshot.State == EngineState.Ready, TimeSpan.FromSeconds(90), "Ready");
+        CollectionAssert.Contains(engine.Events(), "prepared");
+        Assert.AreEqual(1, engine.Events().Count(line => line == "started"));
+        CollectionAssert.DoesNotContain(engine.Events(), "stdin stop", "the engine was never asked to stop while it prepared");
+        await session.StopAsync();
+        Assert.AreEqual(EngineState.Stopped, session.Snapshot.State);
+    }
+
+    [TestMethod]
+    [DataRow(2, false)]
+    [DataRow(1000, true)]
+    public async Task AReadyEngineIsRestartedAfterThreeFailedReadsInARow(int bad, bool restarted)
+    {
+        var engine = new StandIn("malformed-after-ready", bad: bad);
+        var states = new List<EngineState>();
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        session.Changed += snapshot => { lock (states) states.Add(snapshot.State); };
+        await session.StartAsync();
+        await Until(() => session.Snapshot.State == EngineState.Ready, TimeSpan.FromSeconds(90), "Ready");
+        if (restarted)
+        {
+            await Until(() => engine.Events().Count(line => line == "started") >= 2, TimeSpan.FromSeconds(60), "a second engine");
+            Assert.IsTrue(engine.Events().Count(line => line == "health-malformed") >= 3);
+            CollectionAssert.Contains(engine.Events(), "stdin stop", "the unhealthy engine was asked to stop");
+            lock (states) CollectionAssert.Contains(states, EngineState.Recovering);
+        }
+        else
+        {
+            await Until(() => engine.Events().Count(line => line == "health-good") >= 2, TimeSpan.FromSeconds(30),
+                "good answers after the failed ones");
+            Assert.AreEqual(2, engine.Events().Count(line => line == "health-malformed"));
+            Assert.AreEqual(1, engine.Events().Count(line => line == "started"));
+            lock (states) CollectionAssert.DoesNotContain(states, EngineState.Recovering);
+            Assert.AreEqual(EngineState.Ready, session.Snapshot.State);
+        }
+        await session.StopAsync();
+    }
+
+    [TestMethod]
+    public async Task StopDuringTheWaitBeforeARestartEndsAtOnce()
+    {
+        var engine = new StandIn("crash");
+        await using var session = new EngineSession(engine.Configuration, Quick with { FirstBackoff = TimeSpan.FromMinutes(5) });
+        await session.StartAsync();
+        await Until(() => session.Snapshot.State == EngineState.Recovering, TimeSpan.FromSeconds(90), "the wait before a restart");
+        var clock = Stopwatch.StartNew();
+        await session.StopAsync();
+        Assert.IsTrue(clock.Elapsed < TimeSpan.FromSeconds(10), $"Stop took {clock.Elapsed}");
+        Assert.AreEqual(EngineState.Stopped, session.Snapshot.State);
+        Assert.IsFalse(session.OwnsEngine);
+        Assert.AreEqual(1, engine.Events().Count(line => line == "started"), "no engine starts after the stop");
+        using var lease = PrivateStorage.Lease(engine.State, "desktop.lock");
+    }
+
+    [TestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public async Task AKeptEngineThatExitsLetsTheNextStartReachReady(bool waitForRelease)
+    {
+        var engine = new StandIn("ignore-stop");
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        await session.StartAsync();
+        await Until(() => session.Snapshot.State == EngineState.Ready, TimeSpan.FromSeconds(90), "Ready");
+        await session.StopAsync();
+        Assert.AreEqual(EngineState.Attention, session.Snapshot.State);
+        var pid = session.Snapshot.ProcessId ?? throw new AssertFailedException("The kept engine has no process ID.");
+        await session.StartAsync();
+        Assert.AreEqual(EngineState.Attention, session.Snapshot.State, "a kept engine still running blocks a start");
+        Assert.IsTrue(session.OwnsEngine);
+        Assert.AreEqual(1, engine.Events().Count(line => line == "started"));
+        engine.Behave("ready");
+        using (var kept = Process.GetProcessById(pid))
+        {
+            kept.Kill();
+            await kept.WaitForExitAsync();
+        }
+        if (waitForRelease)
+        {
+            await Until(() => !session.OwnsEngine, TimeSpan.FromSeconds(30), "the lock to go with the kept engine");
+            Assert.AreEqual(EngineState.Stopped, session.Snapshot.State);
+            using (PrivateStorage.Lease(engine.State, "desktop.lock")) { }
+        }
+        await session.StartAsync();
+        await Until(() => session.Snapshot.State == EngineState.Ready, TimeSpan.FromSeconds(90), "Ready after the kept engine exited");
+        Assert.AreEqual(2, engine.Events().Count(line => line == "started"));
+        await session.StopAsync();
+        Assert.AreEqual(EngineState.Stopped, session.Snapshot.State);
+    }
+
+    [TestMethod]
+    [DataRow("""{"format": 1, "pid": """)]
+    [DataRow("[]")]
+    [DataRow("""{"format": 2, "pid": PID, "started": 1}""")]
+    public async Task ARecordThatNamesNoRunningEngineDoesNotBlockAStart(string text)
+    {
+        var engine = new StandIn("ready");
+        PrivateStorage.EnsureDirectory(engine.State);
+        PrivateStorage.EnsureDirectory(Path.Combine(engine.State, "launcher"));
+        File.WriteAllText(Path.Combine(engine.State, "launcher", "owned-engine.json"),
+            text.Replace("PID", Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal));
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        await session.StartAsync();
+        await Until(() => session.Snapshot.State == EngineState.Ready, TimeSpan.FromSeconds(90), "Ready beside the old record");
+        await session.StopAsync();
+        Assert.AreEqual(EngineState.Stopped, session.Snapshot.State);
+    }
+
+    [TestMethod]
+    public async Task AProcessThatKeepsTheEngineOutputOpenDoesNotHoldUpAStop()
+    {
+        var engine = new StandIn("holds-output");
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        await session.StartAsync();
+        await Until(() => session.Snapshot.State == EngineState.Ready, TimeSpan.FromSeconds(90), "Ready");
+        var child = int.Parse(engine.Events().Single(line => line.StartsWith("child ", StringComparison.Ordinal))[6..],
+            System.Globalization.CultureInfo.InvariantCulture);
+        try
+        {
+            var clock = Stopwatch.StartNew();
+            await session.StopAsync().WaitAsync(TimeSpan.FromSeconds(60));
+            Assert.IsTrue(clock.Elapsed < TimeSpan.FromSeconds(30), $"Stop took {clock.Elapsed}");
+            Assert.AreEqual(EngineState.Stopped, session.Snapshot.State);
+            Assert.IsFalse(session.OwnsEngine);
+            Assert.IsTrue(Running(child), "the process holding the output outlived the engine");
+        }
+        finally
+        {
+            try
+            {
+                using var held = Process.GetProcessById(child);
+                held.Kill();
+            }
+            catch (ArgumentException) { }
+        }
+    }
+
+    private static Task NoWait(TimeSpan span, CancellationToken cancellation) => Task.CompletedTask;
+
+    private const string Unfinished = """
+        "update": {"phase": "applying", "from": "0.8.0", "to": "0.9.0", "running": "from", "since": 1800000000,
+                   "package": "RoleBand-0.9.0-Windows-x64.msix"}
+        """;
+
+    [TestMethod]
+    public async Task AnUpdateLeftApplyingIsTakenToWindowsEvenWhenUpdatesAreUnavailable()
+    {
+        // A build whose update identity is damaged reports updates unavailable; the update it began is still Windows' to finish.
+        var deployer = new RecordingDeployer(null, new InstallFinding(InstallProgress.Running), new InstallFinding(InstallProgress.Finished));
+        var commands = new RecordingCommands(() => false,
+            ("status", $$"""{"status": "unavailable", "reason": "This build's update identity is damaged.", {{Unfinished}}}"""));
+        var read = new List<UpdateFacts>();
+        var settle = await new UpdateCoordinator(commands, deployer, NoWait).MaySettleAsync("RoleBand.Windows", read.Add, _ => { });
+        Assert.IsFalse(settle, "Windows installed the new version, which settles the update");
+        CollectionAssert.AreEqual(new[] { "find", "reopen", "find" }, deployer.Steps);
+        Assert.AreEqual(UpdateFacts.Unavailable, read.Single());
+        CollectionAssert.AreEqual(new[] { "status" }, commands.Calls, "nothing touches the journal");
+    }
+
+    [TestMethod]
+    public async Task AStatusThatCannotBeReadSettlesNothing()
+    {
+        var deployer = new RecordingDeployer();
+        var commands = new RecordingCommands(() => false, ("status", """{"reason": "no status in this answer"}"""));
+        var read = new List<UpdateFacts>();
+        await Assert.ThrowsExactlyAsync<IOException>(
+            () => new UpdateCoordinator(commands, deployer, NoWait).MaySettleAsync("RoleBand.Windows", read.Add, _ => { }));
+        CollectionAssert.AreEqual(new[] { "status" }, commands.Calls);
+        Assert.AreEqual(0, deployer.Steps.Count);
+        Assert.AreEqual(0, read.Count);
+    }
+
+    [TestMethod]
+    [DataRow("RoleBand.Windows", """{"status": "ok"}""")]
+    [DataRow(null, $$"""{"status": "ok", {{Unfinished}}}""")]
+    public async Task WindowsIsAskedOnlyAboutAnUpdateThisPackageLeftApplying(string? packageName, string status)
+    {
+        var deployer = new RecordingDeployer(null, new InstallFinding(InstallProgress.Running));
+        var commands = new RecordingCommands(() => false, ("status", status));
+        var read = new List<UpdateFacts>();
+        Assert.IsTrue(await new UpdateCoordinator(commands, deployer, NoWait).MaySettleAsync(packageName, read.Add, _ => { }));
+        Assert.AreEqual(0, deployer.Steps.Count, "no update applying, or a copy without a package, which Windows never replaces");
+        Assert.IsTrue(read.Single().Available);
     }
 
     private sealed class RecordingCommands(Func<bool> engineRunning, params (string Action, string Answer)[] answers) : IUpdateCommands
