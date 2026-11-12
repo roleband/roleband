@@ -31,6 +31,8 @@ internal sealed class TrayApp
     // which throws.
     private bool closed;
     private readonly DispatcherQueueTimer clock;
+    // The engine's alerts, looked for on the clock; null until the engine's configuration is known.
+    private Alerts? alerts;
 
     // The scan: read on the app's own schedule, quickly while a scan runs and the flyout is open.
     private ScanStatus? scanStatus;
@@ -95,7 +97,11 @@ internal sealed class TrayApp
         // The summary's clocks move while the flyout is open; nothing is read from the engine here.
         clock = dispatcher.CreateTimer();
         clock.Interval = TimeSpan.FromSeconds(1);
-        clock.Tick += (_, _) => { if (flyout.IsOpen) RenderFlyout(); };
+        clock.Tick += (_, _) =>
+        {
+            if (flyout.IsOpen) RenderFlyout();
+            if (!closed) alerts?.ShowWaiting();
+        };
         clock.Start();
 
         try
@@ -113,6 +119,7 @@ internal sealed class TrayApp
             updates = simulation is null ? UpdateCoordinator.For(configuration) : new UpdateCoordinator(simulation, simulation);
             engine.Changed += snapshot => dispatcher.TryEnqueue(() => Render(snapshot));
             statePath = configuration.State;
+            alerts = new Alerts(EngineAlerts.Folder(configuration.State));
             setup = SetupStore.Read(configuration.State);
             Render(engine.Snapshot);
             // A simulated update is looked at in Settings, which opens with it.
