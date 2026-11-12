@@ -24,7 +24,7 @@ import psutil  # noqa: E402 - a pgserver dependency, present whenever the wheel 
 from tests.embedded_utils import cluster_locale, destroy, psql  # noqa: E402
 from tracker.platform.embedded_db import EmbeddedServer, ensure_server, stop_server  # noqa: E402
 
-pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="Windows starts and locks its cluster natively")
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="the POSIX database start clears a crash's lock files")
 
 BACKEND = Path(__file__).resolve().parents[1]
 
