@@ -1297,3 +1297,25 @@ def test_a_sign_job_a_tag_could_reach_is_reported():
     in_ancestry = {"if": main_only, "steps": [checkout, {**ancestry, "env": secrets["env"]}]}
     for job in (job_wide, in_ancestry):
         assert signing_gaps(job) == ["checks that main holds the tag only after a step names a secret"]
+
+
+def windows_release_gaps(data: dict) -> list[str]:
+    """The Windows release starts only by hand: a release event would build from the
+    tag's own copy of the workflow a package no step uses, and hold the signing run
+    behind it in the tag's queue. Its title names the release it builds."""
+    gaps = [f"starts on {event}" for event in triggers(data) if event != "workflow_dispatch"]
+    if "inputs.tag" not in str(data.get("run-name", "")):
+        gaps.append("its runs are not titled with the tag")
+    return gaps
+
+
+def test_the_windows_release_runs_only_by_hand_and_names_its_tag():
+    assert windows_release_gaps(yaml.safe_load((WORKFLOWS / "windows-release.yml").read_text())) == []
+
+
+def test_a_windows_release_a_publication_starts_is_reported():
+    """The control for the test above."""
+    published = {True: {"release": {"types": ["published"]}, "workflow_dispatch": None}}
+    assert windows_release_gaps(published) == ["starts on release", "its runs are not titled with the tag"]
+    titled = {True: ["workflow_dispatch"], "run-name": "RoleBand ${{ inputs.tag }} for Windows"}
+    assert windows_release_gaps(titled) == []

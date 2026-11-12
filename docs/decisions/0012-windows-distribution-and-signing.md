@@ -24,9 +24,9 @@ newest recent release that carries Windows files.
   package's publisher and stays the same for good; a new certificate keeps that subject.
 - Signatures are not timestamped, since that needs an outside time server. The certificate
   is valid for 25 years and is replaced with the same subject well before it expires.
-- A workflow builds the unsigned Windows files when a release is published. Signing and
-  attaching run only when the owner runs that workflow by hand from `main` for the
-  published release's tag, and only for a tag whose commit `main` holds; the signing job
+- A workflow builds, signs and attaches the Windows files only when the owner runs it by
+  hand from `main` for a published release's tag, and only for a tag whose commit `main`
+  holds; the signing job
   runs `main`'s own tools and reads the tagged commit only as files. The certificate and
   the Windows release key are secrets of a protected environment that admits only `main`
   and runs only after the owner approves; the spare release key never leaves offline
