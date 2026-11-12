@@ -95,9 +95,17 @@ final class Listener {
     #expect(EnginePort.holder(of: listener.port) == nil)
 }
 
-@Test func anAppIsNamedByItsBundleAndAnyOtherProgramByItsExecutable() {
+@Test func aProgramThatHasQuitIsNotNamed() throws {
+    let program = Process()
+    program.executableURL = URL(fileURLWithPath: "/usr/bin/true")
+    try program.runWithoutTestSockets()
+    program.waitUntilExit()
+    #expect(EnginePort.name(program.processIdentifier) == nil)
+}
+
+@Test func anAppIsNamedByItsBundleAndAnyOtherProgramByItsExecutable() throws {
     // This process is the test runner: a plain executable, or a helper inside Xcode's app bundle.
-    let name = EnginePort.name(getpid())
+    let name = try #require(EnginePort.name(getpid()))
     let path = LaunchMode.executable(getpid())!
     if let app = path.pathComponents.first(where: { $0.hasSuffix(".app") }) { #expect(name == String(app.dropLast(4))) }
     else { #expect(name == path.lastPathComponent) }
@@ -161,20 +169,59 @@ private final class IPv6Listener {
     #expect(EnginePort.listener(on: other.port) == getpid(), "the 127.0.0.1 listener is the holder")
 }
 
-@Test func thisAccountsListenersOnEveryAddressLeave127001FreeAndAreNotTheHolder() throws {
+@Test func thisAccountsListenersOnEveryAddressLeave127001FreeButThePortIsNeverOffered() throws {
     // The engine binds 127.0.0.1 with SO_REUSEADDR, and the kernel lets a specific address join a
-    // port that a socket of the same account holds on every address. Only a listener on
-    // 127.0.0.1 itself refuses the engine, so only such a listener is named.
+    // port that a socket of the same account holds on every address. An engine already on such a
+    // port still starts, and only a listener on 127.0.0.1 itself is named. A port to move to must
+    // be unused, or the engine would take 127.0.0.1's connections from the other program.
     for (ipv6Only, label) in [(true, "IPv6-only"), (false, "dual-stack")] {
         let wildcard = try IPv6Listener(port: try quietPort(), address: in6addr_any, ipv6Only: ipv6Only)
         defer { wildcard.close() }
         #expect(EnginePort.isFree(wildcard.port), "a \(label) socket on every address")
         #expect(EnginePort.listener(on: wildcard.port) == nil, "a \(label) socket on every address")
+        #expect(!EnginePort.isUnused(wildcard.port), "a \(label) socket on every address")
+        #expect(EnginePort.suggestion(after: wildcard.port - 1) != wildcard.port, "a \(label) socket on every address")
     }
     let ipv4Wildcard = try Listener(address: "0.0.0.0", port: try quietPort())
     defer { ipv4Wildcard.close() }
     #expect(EnginePort.isFree(ipv4Wildcard.port), "an IPv4 socket on every address")
     #expect(EnginePort.listener(on: ipv4Wildcard.port) == nil)
+    #expect(!EnginePort.isUnused(ipv4Wildcard.port), "an IPv4 socket on every address")
+    #expect(EnginePort.suggestion(after: ipv4Wildcard.port - 1) != ipv4Wildcard.port)
+    #expect(PortConflict.find(ipv4Wildcard.port - 1).suggestion != ipv4Wildcard.port)
+}
+
+@Test func aPortHeldOnEitherLoopbackAddressIsNotUnused() throws {
+    let ipv4 = try Listener(port: try quietPort())
+    defer { ipv4.close() }
+    #expect(!EnginePort.isUnused(ipv4.port), "held on 127.0.0.1")
+    let ipv6 = try IPv6Listener(port: try quietPort())
+    defer { ipv6.close() }
+    #expect(EnginePort.isFree(ipv6.port) && !EnginePort.isUnused(ipv6.port), "held on ::1")
+    #expect(!EnginePort.isUnused(0) && !EnginePort.isUnused(70000))
+}
+
+@Test func aPortTheEngineJustLeftCountsAsUnused() async throws {
+    // The side that closes first keeps the port in TIME_WAIT: moving back to the engine's last
+    // port must not be refused for it.
+    let server = try Listener(port: try quietPort())
+    let client = testSocket(AF_INET)
+    var address = sockaddr_in()
+    address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+    address.sin_family = sa_family_t(AF_INET)
+    address.sin_addr = in_addr(s_addr: inet_addr("127.0.0.1"))
+    address.sin_port = in_port_t(UInt16(server.port).bigEndian)
+    let connected = withUnsafePointer(to: &address) {
+        $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { connect(client, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) == 0 }
+    }
+    try #require(connected)
+    let accepted = accept(server.fd, nil, nil)
+    try #require(accepted >= 0)
+    Darwin.close(accepted)
+    server.close()
+    try await Task.sleep(for: .milliseconds(100))
+    Darwin.close(client)
+    #expect(EnginePort.isUnused(server.port))
 }
 
 @Test func onlyAListenerOn127001HoldsTheEnginesAddress() {

@@ -717,6 +717,22 @@ func bundledSupervisorServesVerifiedStatusAndQuitLeavesNoEngineProcesses() async
     } catch { try? await host.stop(); throw error }
 }
 
+@Test func aStartAskedForByWorkAQuitCancelledStartsNothing() async throws {
+    // A port move asks for a start, and a quit cancels the move, then stops the engine. Whichever
+    // of the two reaches the host first, no engine runs once the quit's stop returns.
+    let fixture = try HostFixture()
+    defer { fixture.remove() }
+    let host = fixture.host()
+    let move = Task {
+        withUnsafeCurrentTask { $0?.cancel() }
+        try await host.start()
+    }
+    await #expect(throws: CancellationError.self) { try await move.value }
+    #expect(await host.state == .stopped)
+    #expect(!FileManager.default.fileExists(atPath: fixture.configuration.record.path), "no engine was launched")
+    try await host.stop()
+}
+
 @Test func repeatedStartAndStopAreIdempotentAndReleaseOwnershipForTheNextHost() async throws {
     let fixture = try HostFixture()
     defer { fixture.remove() }

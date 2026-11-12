@@ -31,5 +31,5 @@ private let accountPreferences = URL(fileURLWithPath: String(cString: getpwuid(g
             if uses > 0 { named.append("\(file.lastPathComponent): \(uses)") }
         }
     }
-    #expect(named == ["PanelPreview.swift: 1"])
+    #expect(named == ["EnginePort.swift: 1"])
 }

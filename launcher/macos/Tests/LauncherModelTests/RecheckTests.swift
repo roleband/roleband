@@ -22,7 +22,20 @@ private final class Decisions {
     var reopened = 0
     let recheck = LaunchRecheck(interval: .milliseconds(1), decide: { decisions.next() }, reopen: { reopened += 1; return true })
     await recheck.watch(.databaseInUse).value
-    #expect(decisions.made == 3, "it looks again until the decision changes, then stops looking")
+    #expect(decisions.made == 4, "it looks again until the decision has changed on two looks, then stops looking")
+    #expect(reopened == 1)
+}
+
+@MainActor
+@Test func aServerThatLetsGoForAMomentDoesNotReopenTheApp() async {
+    // The other program restarts its server: the database looks free on one look and is held again
+    // on the next. Only a decision that stays changed reopens the app, and only once.
+    let free = LaunchMode.owned(leftover: nil)
+    let decisions = Decisions([free, .databaseInUse, free, .databaseInUse, free, .databaseInUse, free, free])
+    var reopened = 0
+    let recheck = LaunchRecheck(interval: .milliseconds(1), decide: { decisions.next() }, reopen: { reopened += 1; return true })
+    await recheck.watch(.databaseInUse).value
+    #expect(decisions.made == 8, "no reopen while the decision flips back")
     #expect(reopened == 1)
 }
 

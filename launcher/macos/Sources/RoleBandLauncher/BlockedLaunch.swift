@@ -34,19 +34,24 @@ struct LaunchBlock {
 }
 
 /// While another program holds the app's database, the blocked launch makes its startup decision
-/// again every few seconds. Once the decision changes it hands over to a fresh copy of the app, which
-/// starts as it would from any open, so the person need not quit and reopen it. A copy that could
-/// not be opened leaves the watch running, to try again at the next look.
+/// again every few seconds. Once the decision has changed on `settle` looks in a row it hands over
+/// to a fresh copy of the app, which starts as it would from any open, so the person need not quit
+/// and reopen it. A server that lets go for a moment and comes back changes one look only, so the
+/// app does not close and reopen with each restart of that server. A copy that could not be opened
+/// leaves the watch running, to try again at the next look.
 struct LaunchRecheck {
     var interval: Duration = .seconds(5)
+    var settle = 2
     var decide: @MainActor () -> LaunchMode
     var reopen: @MainActor () async -> Bool
 
     @MainActor func watch(_ mode: LaunchMode) -> Task<Void, Never> {
         Task { @MainActor in
+            var changed = 0
             while !Task.isCancelled {
                 do { try await Task.sleep(for: interval) } catch { return }
-                if decide() != mode, await reopen() { return }
+                changed = decide() != mode ? changed + 1 : 0
+                if changed >= settle, await reopen() { return }
             }
         }
     }
