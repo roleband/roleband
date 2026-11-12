@@ -78,6 +78,12 @@ unavailable. `AboutTests` hold the update row to a check the feed answered, a fa
 to Couldn't check with Check now still offered, the choice to its pinned English words, and Start
 with Windows to Windows' own state; they also run the engine's own `update consent`, `status` and `check`
 on a throwaway folder, where a source build has no release identity and asks nothing of the feed.
+`EngineAlertTests` and `tests/test_osnotify.py` both read `launcher/windows/contracts/engine-alerts.json`:
+the engine is given the folder the app reads, an alert is shown once in the order written and its
+file is gone, a file still being written waits, a malformed, stale or undeletable one is never
+shown, a burst shows the first few, the words reach Windows as text, and macOS still posts its
+own banner. Windows notifications themselves need an installed package; a source run takes the
+alerts without showing them.
 Check generated native
 copy with `node dashboard/scripts/export-launcher-copy.mjs --windows --check`.
 Packaging tool changes run `python -m unittest discover -s launcher/windows/Tools -p "test_*.py"`:

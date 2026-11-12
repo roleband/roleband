@@ -1,19 +1,40 @@
-"""Best-effort macOS desktop notifications.
+"""Best-effort desktop notifications.
 
 Used by the daily run (on failure) and the watchdog (on a newly-detected
 unhealthy condition). Never raises: notification failure must not affect the
 pipeline or supervision path.
+
+On macOS the engine posts the banner itself. On Windows the RoleBand app shows
+it: an engine the app starts is given a folder (`ALERTS_ENV`), and each alert is
+one JSON file there that the app takes, shows and deletes
+(`launcher/windows/RoleBand.EngineHost/EngineAlerts.cs`).
 """
 
 from __future__ import annotations
 
+import itertools
+import json
 import logging
+import os
 import shutil
 import subprocess
+import sys
+import time
+from datetime import UTC, datetime
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 TITLE = "RoleBand"
+
+#: Names the folder where a Windows engine leaves alerts for the app that started it.
+ALERTS_ENV = "ROLEBAND_ALERTS_DIR"
+#: The alert file format the app reads.
+ALERT_FORMAT = 1
+#: Alerts waiting for the app beyond this many are dropped, so an app that is not
+#: reading them never fills the folder.
+MAX_PENDING_ALERTS = 20
+_SEQUENCE = itertools.count()
 
 
 def build_command(
@@ -43,8 +64,44 @@ def build_command(
     return ["osascript", "-e", script]
 
 
+def write_alert(folder: Path, title: str, message: str, *, subtitle: str | None = None) -> Path | None:
+    """Leave one alert for the Windows app. Returns its file, or None when too many already wait.
+
+    The file appears whole: it is written under a dot name the app ignores and
+    then renamed. Names sort in the order the alerts were written."""
+    folder.mkdir(parents=True, exist_ok=True)
+    if sum(1 for entry in folder.glob("*.json") if not entry.name.startswith(".")) >= MAX_PENDING_ALERTS:
+        logger.warning("desktop notification dropped: %d alerts are waiting for the app", MAX_PENDING_ALERTS)
+        return None
+    record = {
+        "format": ALERT_FORMAT,
+        "title": title,
+        "message": message,
+        "subtitle": subtitle,
+        "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
+    }
+    # Windows' clock can give two alerts of one pass the same time; the sequence keeps both, in order.
+    name = f"{time.time_ns():020d}-{os.getpid()}-{next(_SEQUENCE):06d}.json"
+    partial = folder / f".{name}.tmp"
+    partial.write_text(json.dumps(record, ensure_ascii=False), encoding="utf-8")
+    final = folder / name
+    os.replace(partial, final)
+    return final
+
+
 def notify(title: str, message: str, *, subtitle: str | None = None) -> bool:
-    """Post a desktop banner. Returns True if the command was dispatched."""
+    """Post a desktop banner. Returns True if it was dispatched."""
+    if sys.platform == "win32":
+        folder = os.environ.get(ALERTS_ENV)
+        if not folder:
+            # A source run nobody's app started: there is no window to show it in.
+            logger.info("desktop notification not shown (no RoleBand app): %s", message)
+            return False
+        try:
+            return write_alert(Path(folder), title, message, subtitle=subtitle) is not None
+        except Exception as exc:  # noqa: BLE001 - notifications are best-effort
+            logger.warning("desktop notification failed: %s", exc)
+            return False
     cmd = build_command(
         title,
         message,

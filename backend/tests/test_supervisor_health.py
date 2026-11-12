@@ -152,6 +152,12 @@ def stale_world(monkeypatch, tmp_path):
         yield None
 
     monkeypatch.setattr(watchdog, "session_scope", no_session)
+    calls["pauses"] = []
+
+    async def pause(seconds: float) -> None:
+        calls["pauses"].append(seconds)
+
+    monkeypatch.setattr(watchdog, "_pause", pause)
     return calls
 
 
@@ -188,6 +194,25 @@ async def test_an_unhealthy_api_is_reported_and_restarted_by_nobody_here(stale_w
     firing = await entries.health()
     assert firing.get("api_down")
     assert stale_world["processes"] == []
+    assert sum(stale_world["pauses"]) == watchdog.API_PATIENCE_SECONDS, "reported only after the API's start grace"
+
+
+async def test_an_api_still_starting_is_not_reported_down(stale_world, monkeypatch):
+    """The first pass runs while the supervisor is still starting the API; it waits for it rather than alert."""
+    asked: list[str] = []
+
+    async def starting(_client, _base, path, _timeout):
+        asked.append(path)
+        if path == "/api/health" and asked.count("/api/health") < 3:
+            return None
+        return _Response(200, {}) if path == "/api/health" else _Response(200, {"status": "fresh"})
+
+    monkeypatch.setattr(watchdog, "_http_get", starting)
+    firing = await watchdog.run_once(catch_up=_nothing, reconcile_runs=False)
+    assert "api_down" not in firing
+    assert asked.count("/api/health") == 3
+    assert stale_world["pauses"] == [watchdog.API_RETRY_SECONDS] * 2
+    assert "/api/status" in asked, "the pass goes on to read the status once the API answers"
 
 
 async def test_an_authenticated_engine_is_asked_with_a_signed_request(monkeypatch):

@@ -165,6 +165,18 @@ importing configuration. Its supervisor owns PostgreSQL outside cancellable jobs
 and shuts down through a parent-only pipe. These boundaries are owned by
 [the native host decision](decisions/0004-windows-native-engine-host.md).
 
+The engine's desktop alerts (`tracker/osnotify.py`: a failed scan, a health
+condition that starts firing, a finished re-ranking) reach the screen through the
+app. On macOS the engine posts them itself. On Windows the app names a folder in
+the engine's environment (`ROLEBAND_ALERTS_DIR`, `alerts` in the state folder);
+each engine process writes one JSON file there per alert, whole and in order, and
+the app takes them on its own one-second clock, deletes them and shows each as a
+Windows notification under the package's identity. Alerts reach the app this way
+even while the API does not answer, which is one thing they report. An engine no
+app started has no folder and shows nothing; at most 20 alerts wait, and the app
+drops one older than an hour and shows at most three from one look. Both sides
+read `launcher/windows/contracts/engine-alerts.json`.
+
 `launcher/windows/Tools/assemble.py` builds a bundle from one clean commit: it
 refuses local changes, builds the dashboard itself and records the revision, so
 every bundled byte traces to that commit. A pinned standalone Python and hashed
