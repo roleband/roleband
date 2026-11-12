@@ -545,7 +545,9 @@ public sealed class LifecycleTests
     public async Task AKeptEngineThatExitsLetsTheNextStartReachReady(bool waitForRelease)
     {
         var engine = new StandIn("ignore-stop");
+        var trail = new List<string>();
         await using var session = new EngineSession(engine.Configuration, Quick);
+        session.Changed += snapshot => { lock (trail) trail.Add($"{snapshot.State} {snapshot.Diagnostic}"); };
         await session.StartAsync();
         await Until(() => session.Snapshot.State == EngineState.Ready, TimeSpan.FromSeconds(90), "Ready");
         await session.StopAsync();
@@ -573,7 +575,16 @@ public sealed class LifecycleTests
             using (PrivateStorage.Lease(engine.State, "desktop.lock")) { }
         }
         await session.StartAsync();
-        await Until(() => session.Snapshot.State == EngineState.Ready, TimeSpan.FromSeconds(90), "Ready after the kept engine exited");
+        try
+        {
+            await Until(() => session.Snapshot.State == EngineState.Ready, TimeSpan.FromSeconds(90), "Ready after the kept engine exited");
+        }
+        catch (AssertFailedException)
+        {
+            string[] seen;
+            lock (trail) seen = [.. trail];
+            Assert.Fail($"No Ready after the kept engine exited. States: {string.Join(" | ", seen)}. Stand-in: {string.Join(" | ", engine.Events())}");
+        }
         Assert.AreEqual(2, engine.Events().Count(line => line == "started"));
         await session.StopAsync();
         Assert.AreEqual(EngineState.Stopped, session.Snapshot.State);
