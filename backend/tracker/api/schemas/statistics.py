@@ -137,12 +137,6 @@ class CompSummary(Built):
     p90: float
 
 
-class CompHistogramBin(Built):
-    lo: int
-    hi: int
-    count: int
-
-
 class CompLevelSummary(CompSummary, _LevelBandKey):
     """`level_band` first, then the summary."""
 
@@ -155,17 +149,9 @@ class CompFamilySummary(CompSummary, _FamilyKey):
     """`family` first, then the summary; the client names the family."""
 
 
-class CompSkill(Built):
-    """A skill named by enough priced roles; `premium` is what they pay over like
-    roles, same level and discipline; `count` is the roles behind it."""
-
-    term: str
-    count: int
-    p50: float
-    premium: float
-
-
 class DisclosedBand(Built):
+    """One distinct base range an employer posts at a level, with the roles on it."""
+
     company: str
     level_band: str
     low: int
@@ -173,24 +159,77 @@ class DisclosedBand(Built):
     reqs: int
 
 
-class DisclosedExclusions(Built):
-    unclear: int
-    total: int
-    #: Base bands in another currency; the axis is US dollars, nothing is converted.
-    not_usd: int
-    #: Base bands stated per hour or month, or whose period reads `unclear`.
-    not_yearly: int
-    implausible: int
+class PostedLevel(_LevelBandKey):
+    """One level's posted base pay in one country and currency
+    (`comp_stats._level_figure`). Each distinct range votes once. Below the
+    minimums `enough` is false and the figure fields are null; the counts say
+    why."""
+
+    ranges: int
+    employers: int
+    roles: int
+    enough: bool
+    #: The median low and the median high of the ranges.
+    low: float | None
+    high: float | None
+    #: The middle half of the ranges' midpoints.
+    mid_p25: float | None
+    mid_p75: float | None
 
 
-class DisclosedBands(Built):
-    """Distinct base-salary bands employers printed, with the reqs on each."""
+class PostedUnplaced(Built):
+    """Roles whose level cannot be placed, and their distinct ranges: counted apart."""
 
+    roles: int
+    ranges: int
+
+
+class PostedCountry(Built):
+    """Posted base pay for the roles in one country, in its own currency."""
+
+    #: ISO 3166-1 alpha-2.
+    country: str
+    #: The currency most of the country's ranges are posted in; null with no range.
+    currency: str | None
+    #: Distinct ranges at a placed level.
+    ranges: int
+    #: One of the person's places lies in this country.
+    yours: bool
+    levels: list[PostedLevel]
+    not_placed: PostedUnplaced
+    #: Roles whose range is in another currency, never converted.
+    other_currency: int
+    #: Every distinct range at a placed level, uncapped.
     bands: list[DisclosedBand]
-    reqs: int
-    companies: int
-    excluded: DisclosedExclusions
-    truncated: bool
+
+
+class PostedExclusions(Built):
+    """Roles with a posted range that no country's figure reads, by reason."""
+
+    #: The range is total pay, or does not say what it holds.
+    not_base: int
+    #: Stated per hour or month, or a period its size contradicts.
+    not_yearly: int
+    #: No salary at any size.
+    implausible: int
+    #: The role names places in several countries, or none we can place.
+    no_country: int
+    #: The role's level was read from this range.
+    placed_by_pay: int
+
+
+class PostedPay(Built):
+    """`comp_stats.build_posted_pay`: what employers post as yearly base pay,
+    per country and level, and the levels the person picked."""
+
+    min_employers: int
+    min_ranges: int
+    #: The country the tab opens on; null with no country to show.
+    default_country: str | None
+    countries: list[PostedCountry]
+    excluded: PostedExclusions
+    #: The person's levels, in seniority order.
+    your_levels: list[str]
 
 
 class DisclosureCounts(Built):
@@ -236,7 +275,7 @@ class BaseEstimates(Built):
 
 
 class CompensationStatsResponse(Built):
-    """`GET /api/statistics/compensation`: the estimate's spread beside what employers printed.
+    """`GET /api/statistics/compensation`: what employers post, beside the estimate.
 
     A snapshot of the roles open now: no window. The Window lens moves
     the trend routes beside it, never this population."""
@@ -245,12 +284,10 @@ class CompensationStatsResponse(Built):
     min_roles: int
     coverage: CompCoverage
     overall: CompSummary | None
-    histogram: list[CompHistogramBin]
     by_level: list[CompLevelSummary]
     by_company: list[CompCompanySummary]
     by_family: list[CompFamilySummary]
-    by_skill: list[CompSkill]
-    disclosed: DisclosedBands
+    posted: PostedPay
     disclosure: DisclosureRates
     base_estimates: BaseEstimates
     currency: Literal["USD"]

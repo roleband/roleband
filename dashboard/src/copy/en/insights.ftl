@@ -1,33 +1,21 @@
 ## insights: moved as it was found (wording=as-is)
 
 ## features/statistics/CompensationPanel.tsx
-# kind=heading wording=as-is
-insights-compensation-panel-compensation = Compensation
-# kind=sentence wording=as-is
-insights-compensation-panel-no-open-roles-with-a = No open roles with a compensation estimate yet.
-# kind=status
-insights-compensation-panel-open-roles-now-coverage = { $with_comp } of { $total_open } open roles have an estimate ({ $pct }%)
 # kind=sentence
 insights-compensation-panel-estimated-total-compensation-is-imputed = Estimated from company, level and discipline, not stated by employers. Treat it as a reference, not an offer.
 # kind=label
 insights-compensation-panel-published-bands = Posted ranges
-# kind=heading
-insights-compensation-panel-what-employers-actually-print = Posted ranges
 # kind=status
 insights-compensation-panel-bands-from-employers = { $bands } ranges · { $employers ->
     [one] { $employers } employer
    *[other] { $employers } employers
 }
 # kind=heading
-insights-compensation-panel-estimated-comp-distribution = Estimated total compensation distribution
-# kind=heading
 insights-compensation-panel-median-comp-by-level = Median estimated total compensation by level
 # kind=tooltip note="A bar's tooltip: p25–p75 is the 25th to 75th percentile of the group's estimates, then how many roles it rests on"
 insights-compensation-panel-spread = p25–p75: { $low }–{ $high } · { $roles }
 # kind=heading note="Roles RoleBand's data prices by their base alone, shown apart from total comp"
 insights-compensation-panel-estimated-base-by-level = Estimated base salary by level
-# kind=label note="Eyebrow over the base-only panel"
-insights-compensation-panel-base-only = Base only
 # kind=sentence note="Why these roles are apart: no total exists for them"
 insights-compensation-panel-base-only-lead = { $count ->
     [one] { $count } more role has only a base salary estimate, so it isn't in the figures above.
@@ -37,12 +25,6 @@ insights-compensation-panel-base-only-lead = { $count ->
 insights-compensation-panel-top-paying-companies = Top-paying companies
 # kind=heading
 insights-compensation-panel-median-pay-by-discipline = Median estimated total compensation by discipline
-# kind=heading
-insights-compensation-panel-what-a-skill-adds-at = Compensation by skill, same level
-# kind=sentence
-insights-compensation-panel-roles-naming-the-skill-against = Roles naming the skill against all roles at the same level and discipline. It shows which employers ask for it, not what it is worth.
-# kind=sentence
-insights-compensation-panel-not-enough-priced-roles-per = Not enough roles with an estimate for each skill yet.
 # kind=label wording=as-is
 insights-compensation-panel-roles = { $count ->
     [one] { $count } role
@@ -55,19 +37,7 @@ insights-compensation-panel-base-salary-quoted-from-the = Base salary as posted,
 # kind=label wording=as-is
 insights-compensation-panel-how-compensation-is-estimated = How compensation is estimated
 # kind=label
-insights-compensation-panel-coverage = Estimated
-# kind=label wording=as-is
-insights-compensation-panel-middle-50 = Middle 50%
-# kind=label
-insights-compensation-panel-top-decile = Top 10%
-# kind=label
-insights-compensation-panel-range = Spread
-# kind=label
 insights-compensation-panel-about-published-salary-bands = About posted ranges
-# kind=aria
-insights-compensation-panel-how-a-skill-s-pay = How a skill's compensation difference is measured
-# kind=label wording=as-is note="A skill row's tooltip: how many roles, then their median pay"
-insights-compensation-panel-median = { $roles } · { $p50 } median
 
 ## features/statistics/Demand.tsx
 # kind=heading wording=as-is
@@ -154,7 +124,7 @@ insights-overview-panel-about-the-demand-field = About this chart
 
 ## features/statistics/PayBands.tsx
 # kind=sentence
-insights-pay-bands-each-line-is-one-published = Each line is one posted range. The outlined span is the level's median range.
+insights-pay-bands-each-line-is-one-published = Each line is one posted range. The outlined span is the level's typical range.
 # kind=label wording=as-is
 insights-pay-bands-any-employer = Any employer
 # kind=aria
@@ -845,22 +815,6 @@ insights-statistics-charts-what-sets-these-roles-apart = What sets these roles a
 insights-statistics-charts-of-these-roles-the-market = { $skill }: { $share }% of these roles, ×{ $lift } the market
 
 ## features/statistics/charts/compBands.ts
-# kind=sentence
-insights-comp-bands-level-summary = { $label }: { $bands } { $bands ->
-        [one] range
-       *[other] ranges
-    } from { $employers } { $employers ->
-        [one] employer
-       *[other] employers
-    }, median { $low } to { $high }.
-# kind=toast
-insights-comp-bands-1-more-role-states-a = 1 more role posts a range but never says whether it includes bonus or equity, so it is not shown.
-# kind=toast
-insights-comp-bands-more-roles-state-a-range = { $unclear } more roles post a range but never say whether it includes bonus or equity, so they are not shown.
-# kind=toast
-insights-comp-bands-1-more-role-states-base = 1 more role posts its base salary in another currency or per hour or month, so it is not on this yearly dollar scale.
-# kind=toast
-insights-comp-bands-more-roles-state-base-pay = { $elsewhere } more roles post their base salary in another currency or per hour or month, so they are not on this yearly dollar scale.
 
 ## features/statistics/charts/disclosure.ts
 # kind=label
@@ -883,16 +837,10 @@ insights-disclosure-of-checked-open-roles = { $disclosed } of { $checked } check
 ## features/statistics/charts/StatisticsCharts.tsx (by hand)
 
 ## features/statistics/CompensationPanel.tsx
-# kind=label wording=as-is
-insights-compensation-panel-median-pay = { $p50 } median
-# kind=label wording=as-is
-insights-compensation-panel-priced-roles = { $with_comp } roles
 # kind=status
 insights-compensation-panel-loading = Loading compensation…
 # kind=heading
 insights-compensation-panel-load-failed = Couldn't load compensation
-# kind=label note="Under a pay range: lowest to highest"
-insights-compensation-panel-min-max = min–max
 
 ## features/statistics/Demand.tsx
 # kind=label wording=as-is
@@ -1099,3 +1047,110 @@ insights-levels-followed-without-guide = { $count ->
 insights-levels-empty = No company or level matches
 # kind=button
 insights-levels-reset = Reset all
+
+## features/statistics/CompensationPanel.tsx: posted pay
+# kind=label note="The Pay tab's headline: the median low to the median high of the posted base ranges at one level"
+insights-posted-typically = Typically { $low } to { $high }
+# kind=label note="The headline when a level has some ranges but fewer than the minimums"
+insights-posted-too-few = Too few ranges yet
+# kind=label note="The headline when no role in the country posts a range at the level"
+insights-posted-none = No posted ranges yet
+# kind=status note="Under the headline: what the figure rests on"
+insights-posted-line = Posted base salary for { $level } roles in { $country }: { $ranges ->
+    [one] { $ranges } range
+   *[other] { $ranges } ranges
+} from { $employers ->
+    [one] { $employers } employer
+   *[other] { $employers } employers
+}, { $roles ->
+    [one] { $roles } role
+   *[other] { $roles } roles
+}.
+# kind=sentence
+insights-posted-needs = A typical range needs at least { $min_employers } employers and { $min_ranges } ranges at one level.
+# kind=sentence
+insights-posted-none-at-level = No open role in { $country } posts a yearly base salary range at this level yet.
+# kind=sentence
+insights-posted-none-in-country = No open role in { $country } posts a yearly base salary range at a placed level yet.
+# kind=sentence
+insights-posted-none-anywhere = No open role posts a yearly base salary range yet.
+# kind=aria
+insights-posted-how-read = How the typical range is read
+# kind=sentence
+insights-posted-how-read-body = Each distinct range counts once, however many roles share it. The typical range runs from the median low to the median high, and the middle half spans the middle 50% of the ranges' midpoints. Yearly base salary only, in the country's own currency, never converted. Roles whose level was read from their range are left out.
+# kind=label
+insights-posted-middle-half = Middle half
+# kind=label note="Under the middle half: what it is measured on"
+insights-posted-midpoints = Range midpoints
+# kind=label note="A headline tile: the share of checked open roles that post a range"
+insights-posted-share = Share posting a range
+# kind=status note="Under the share posting a range: the tile counts every country and level, whatever the pickers show"
+insights-posted-checked = { $checked ->
+    [one] { $checked } role checked, all countries and levels
+   *[other] { $checked } roles checked, all countries and levels
+}
+# kind=label
+insights-posted-country = Country
+# kind=label
+insights-posted-level = Level
+# kind=label note="A country in the picker that holds one of the person's places"
+insights-posted-your-place = { $name }, your place
+# kind=heading
+insights-posted-by-level = Posted base salary by level in { $country }
+# kind=label note="A tag on a row the person picked as their level"
+insights-posted-your-level = Your level
+# kind=sentence
+insights-posted-not-placed = Level not placed: { $roles ->
+    [one] { $roles } role
+   *[other] { $roles } roles
+} on { $ranges ->
+    [one] { $ranges } range
+   *[other] { $ranges } ranges
+}, counted apart from every level.
+# kind=sentence
+insights-posted-other-currency = { $count ->
+    [one] { $count } more role posts its range in another currency, never converted.
+   *[other] { $count } more roles post their range in another currency, never converted.
+}
+# kind=label note="Eyebrow over every panel built from the estimate, which reads US pay only"
+insights-posted-estimate-us-only = Estimate, US only
+# kind=heading
+insights-posted-every-range = Every posted range in { $country }
+
+## features/statistics/charts/compBands.ts: posted pay
+# kind=sentence note="A level's row in words, for a screen reader; $figure says whether the level has a typical range"
+insights-comp-bands-level-ranges = { $label }: { $bands ->
+    [one] { $bands } range
+   *[other] { $bands } ranges
+} from { $employers ->
+    [one] { $employers } employer
+   *[other] { $employers } employers
+}{ $figure ->
+    [none] , too few for a typical range.
+   *[some] , typically { $low } to { $high }.
+}
+# kind=sentence
+insights-comp-bands-not-base = { $count ->
+    [one] { $count } more role posts a range that is total compensation or does not say, so it is not shown.
+   *[other] { $count } more roles post a range that is total compensation or does not say, so they are not shown.
+}
+# kind=sentence
+insights-comp-bands-not-yearly = { $count ->
+    [one] { $count } more role posts its base salary per hour or month, so it is not on this yearly scale.
+   *[other] { $count } more roles post their base salary per hour or month, so they are not on this yearly scale.
+}
+# kind=sentence
+insights-comp-bands-implausible = { $count ->
+    [one] { $count } more role posts a placeholder range, such as $1 to $2, so it is not shown.
+   *[other] { $count } more roles post a placeholder range, such as $1 to $2, so they are not shown.
+}
+# kind=sentence
+insights-comp-bands-no-country = { $count ->
+    [one] { $count } more role names places in several countries or none, so no country counts it.
+   *[other] { $count } more roles name places in several countries or none, so no country counts them.
+}
+# kind=sentence
+insights-comp-bands-placed-by-pay = { $count ->
+    [one] { $count } more role had its level read from its range, so it is left out.
+   *[other] { $count } more roles had their level read from their range, so they are left out.
+}

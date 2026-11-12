@@ -1,8 +1,9 @@
 import { msg } from "../../test/msg";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CompensationStats, CompSkill } from "../../api";
+import type { CompensationStats, DisclosedBand, PostedCountry, PostedLevel } from "../../api";
 import { api } from "../../api";
 import { CompensationPanel } from "./CompensationPanel";
 
@@ -26,12 +27,70 @@ const sum = (p25: number, p50: number, p75: number, p90: number, count: number) 
   p90,
 });
 
-const skill = (
-  term: string,
-  p50: number,
-  premium: number,
-  count: number,
-): CompSkill => ({ term, p50, premium, count });
+const figure = (
+  level_band: string,
+  low: number,
+  high: number,
+  ranges: number,
+  employers: number,
+  roles: number,
+): PostedLevel => ({
+  level_band, ranges, employers, roles, enough: true, low, high,
+  mid_p25: low + 10_000, mid_p75: high - 10_000,
+});
+// A level with ranges, but fewer than the minimums: counts, no figure.
+const thin = (level_band: string, ranges: number, employers: number, roles: number): PostedLevel => ({
+  level_band, ranges, employers, roles, enough: false, low: null, high: null, mid_p25: null, mid_p75: null,
+});
+const band = (company: string, level_band: string, low: number, high: number, reqs = 1): DisclosedBand =>
+  ({ company, level_band, low, high, reqs });
+
+const us: PostedCountry = {
+  country: "US",
+  currency: "USD",
+  ranges: 22,
+  yours: true,
+  levels: [
+    figure("senior", 180_000, 240_000, 9, 6, 40),
+    thin("staff", 3, 2, 5),
+    figure("principal", 198_000, 270_000, 241, 141, 600),
+    figure("director_plus", 220_000, 290_000, 666, 442, 1_500),
+  ],
+  not_placed: { roles: 37, ranges: 12 },
+  other_currency: 2,
+  bands: [
+    band("google", "senior", 200_000, 280_000, 9),
+    band("google", "principal", 262_000, 365_000, 18),
+    band("google-deepmind", "principal", 207_000, 301_000),
+    band("apple", "principal", 240_000, 340_000, 4),
+    band("apple", "principal", 300_000, 420_000, 2),
+  ],
+};
+const gb: PostedCountry = {
+  country: "GB",
+  currency: "GBP",
+  ranges: 13,
+  yours: false,
+  levels: [figure("principal", 110_000, 150_000, 13, 9, 20)],
+  not_placed: { roles: 0, ranges: 0 },
+  other_currency: 0,
+  bands: [band("deepmind", "principal", 110_000, 150_000)],
+};
+// One of the person's places, with no range posted there.
+const se: PostedCountry = {
+  country: "SE", currency: null, ranges: 0, yours: true, levels: [],
+  not_placed: { roles: 0, ranges: 0 }, other_currency: 0, bands: [],
+};
+
+const posted = (over: Partial<CompensationStats["posted"]> = {}): CompensationStats["posted"] => ({
+  min_employers: 5,
+  min_ranges: 8,
+  default_country: "US",
+  countries: [us, gb, se],
+  excluded: { not_base: 90, not_yearly: 3, implausible: 1, no_country: 4, placed_by_pay: 6 },
+  your_levels: ["principal", "director_plus"],
+  ...over,
+});
 
 // No role priced by its base alone: the block is sent, empty.
 const noBase: CompensationStats["base_estimates"] = {
@@ -55,33 +114,14 @@ const base = (over: Partial<CompensationStats> = {}): CompensationStats => ({
   currency: "USD",
   min_roles: 5,
   coverage: { with_comp: 732, total_open: 732, pct: 1.0 },
-  overall: sum(306_217, 479_251, 644_468, 900_000, 732),
-  histogram: [
-    { lo: 200_000, hi: 400_000, count: 309 },
-    { lo: 400_000, hi: 600_000, count: 148 },
-  ],
+  overall: sum(306_217, 600_000, 644_468, 900_000, 732),
   by_level: [
     { level_band: "senior", ...sum(250_000, 306_217, 340_000, 400_000, 406) },
     { level_band: "staff", ...sum(560_000, 644_468, 720_000, 820_000, 265) },
   ],
   by_company: [{ company: "openai", ...sum(700_000, 900_000, 1_000_000, 1_200_000, 58) }],
-  by_family: [
-    {
-      family: "ml_ai_research",
-      ...sum(400_000, 479_251, 600_000, 820_000, 170),
-    },
-  ],
-  by_skill: [skill("data_pipeline", 900_000, 420_749, 17)],
-  disclosed: {
-    bands: [
-      { company: "google", level_band: "staff", low: 262_000, high: 365_000, reqs: 18 },
-      { company: "google-deepmind", level_band: "staff", low: 207_000, high: 301_000, reqs: 1 },
-    ],
-    reqs: 19,
-    companies: 2,
-    excluded: { unclear: 90, total: 0, not_usd: 0, not_yearly: 0, implausible: 1 },
-    truncated: false,
-  },
+  by_family: [{ family: "ml_ai_research", ...sum(400_000, 479_251, 600_000, 820_000, 170) }],
+  posted: posted(),
   disclosure: {
     overall: { open: 732, checked: 600, disclosed: 150, rate: 0.25 },
     by_company: [
@@ -97,49 +137,177 @@ const base = (over: Partial<CompensationStats> = {}): CompensationStats => ({
   ...over,
 });
 
+const show = (props: { advanced?: boolean } = {}, url = "/statistics/compensation") =>
+  render(
+    <MemoryRouter initialEntries={[url]}>
+      <CompensationPanel {...props} />
+    </MemoryRouter>,
+  );
+
+const headline = () => screen.findByRole("heading", { level: 2 });
+const byLevel = (country: string) =>
+  screen.getByRole("region", { name: msg("insights-posted-by-level", { country }) });
+
 describe("CompensationPanel", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("renders the median hero, how many open roles have an estimate, and percentile KPIs", async () => {
+  it("opens on the typical posted base salary at the person's level in the US, never the estimate", async () => {
     mock(base());
-    render(<CompensationPanel />);
+    show();
 
-    const hero = await screen.findByRole("heading", { level: 2 });
-    expect(hero).toHaveTextContent("$479K median");
-    expect(
-      screen.getByText(
-        msg("insights-compensation-panel-open-roles-now-coverage", { with_comp: "732", total_open: "732", pct: 100 }),
-        { exact: false },
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByText(msg("insights-compensation-panel-coverage"))).toBeInTheDocument();
+    expect(await headline()).toHaveTextContent(msg("insights-posted-typically", { low: "$198K", high: "$270K" }));
+    // The estimate's median is no headline anywhere on the tab.
+    expect(screen.queryByText(/\$600K/)).toBeNull();
+    expect(screen.getByText(
+      msg("insights-posted-line", { level: "Principal", country: "United States", ranges: 241, employers: 141, roles: 600 }),
+      { exact: false },
+    )).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: msg("insights-posted-how-read") }))
+      .toHaveAccessibleDescription(msg("insights-posted-how-read-body"));
+    expect(screen.getByRole("combobox", { name: msg("insights-posted-country") })).toHaveValue("US");
+    expect(screen.getByRole("combobox", { name: msg("insights-posted-level") })).toHaveValue("principal");
   });
 
-  it("keeps the basic view to the median, its middle half, and pay by level, company and discipline", async () => {
-    mock(base({ base_estimates: someBase }));
-    render(<CompensationPanel />);
+  it("shows the middle half and the share posting a range, never an estimate coverage tile", async () => {
+    mock(base());
+    show();
+    await headline();
 
-    expect(await screen.findByRole("heading", { level: 2 })).toHaveTextContent("$479K median");
-    expect(screen.getByText(msg("insights-compensation-panel-coverage"))).toBeInTheDocument();
-    expect(screen.getByText(msg("insights-compensation-panel-middle-50"))).toBeInTheDocument();
-    expect(screen.queryByText(msg("insights-compensation-panel-top-decile"))).toBeNull();
+    const tile = (label: string) => screen.getByText(label).closest(".kpi") as HTMLElement;
+    expect(within(tile(msg("insights-posted-middle-half"))).getByText("$208K–$260K")).toBeInTheDocument();
+    expect(within(tile(msg("insights-posted-share"))).getByText("25%")).toBeInTheDocument();
+    expect(within(tile(msg("insights-posted-share"))).getByText(msg("insights-posted-checked", { checked: 600 })))
+      .toBeInTheDocument();
+    const labels = [...document.querySelectorAll(".kpi-l")].map((el) => el.textContent);
+    expect(labels).toEqual([msg("insights-posted-middle-half"), msg("insights-posted-share")]);
+  });
+
+  it("withholds the figure for a level below the minimums and says why, with its counts", async () => {
+    mock(base());
+    show({}, "/statistics/compensation?level=staff");
+
+    const h = await headline();
+    expect(h).toHaveTextContent(msg("insights-posted-too-few"));
+    expect(h).not.toHaveTextContent("$");
+    expect(screen.getByText(
+      msg("insights-posted-line", { level: "Staff", country: "United States", ranges: 3, employers: 2, roles: 5 }),
+      { exact: false },
+    )).toHaveTextContent(msg("insights-posted-needs", { min_employers: 5, min_ranges: 8 }));
+    const middle = screen.getByText(msg("insights-posted-middle-half")).closest(".kpi") as HTMLElement;
+    expect(middle.querySelector(".kpi-n")).toHaveTextContent(/^—$/);
+  });
+
+  it("switches country and level, and reads each country in its own currency", async () => {
+    mock(base());
+    const user = userEvent.setup();
+    show();
+    await headline();
+
+    await user.selectOptions(screen.getByRole("combobox", { name: msg("insights-posted-level") }), "director_plus");
+    expect(await headline()).toHaveTextContent(msg("insights-posted-typically", { low: "$220K", high: "$290K" }));
+
+    // The level picked stays picked in another country, which says it has nothing there.
+    await user.selectOptions(screen.getByRole("combobox", { name: msg("insights-posted-country") }), "GB");
+    expect(await headline()).toHaveTextContent(msg("insights-posted-none"));
+    expect(screen.getByText(msg("insights-posted-none-at-level", { country: "United Kingdom" }))).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: msg("insights-posted-level") })).toHaveValue("director_plus");
+
+    await user.selectOptions(screen.getByRole("combobox", { name: msg("insights-posted-level") }), "principal");
+    expect(await headline()).toHaveTextContent(msg("insights-posted-typically", { low: "£110K", high: "£150K" }));
+    expect(byLevel("United Kingdom")).toBeInTheDocument();
+  });
+
+  it("keeps a level that is not the person's when the new country has no range there", async () => {
+    mock(base());
+    const user = userEvent.setup();
+    show();
+    await headline();
+
+    await user.selectOptions(screen.getByRole("combobox", { name: msg("insights-posted-level") }), "senior");
+    expect(await headline()).toHaveTextContent(msg("insights-posted-typically", { low: "$180K", high: "$240K" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: msg("insights-posted-country") }), "GB");
+    expect(await headline()).toHaveTextContent(msg("insights-posted-none"));
+    expect(screen.getByText(msg("insights-posted-none-at-level", { country: "United Kingdom" }))).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: msg("insights-posted-level") })).toHaveValue("senior");
+  });
+
+  it("names a country of the person's with nothing posted, rather than hiding it", async () => {
+    mock(base());
+    const user = userEvent.setup();
+    show();
+    await headline();
+
+    const picker = screen.getByRole("combobox", { name: msg("insights-posted-country") });
+    expect(within(picker).getByRole("option", { name: msg("insights-posted-your-place", { name: "Sweden" }) }))
+      .toBeInTheDocument();
+    expect(within(picker).getByRole("option", { name: "United Kingdom" })).toBeInTheDocument();
+    await user.selectOptions(picker, "SE");
+    expect(await headline()).toHaveTextContent(msg("insights-posted-none"));
+    expect(screen.getByText(msg("insights-posted-none-in-country", { country: "Sweden" }))).toBeInTheDocument();
+    // Both of the person's levels are still listed there, each saying it has nothing.
+    const rows = within(byLevel("Sweden")).getAllByRole("listitem");
+    expect(rows.map((r) => r.querySelector("strong")?.textContent)).toEqual(["Principal", "Director+"]);
+    for (const row of rows) {
+      expect(row).toHaveTextContent(msg("insights-posted-none"));
+      expect(row).not.toHaveTextContent(msg("insights-pay-bands-bands-from-employers", { bands: 0, employers: 0 }));
+    }
+  });
+
+  it("lists every level with its figure or why it has none, and counts unplaced roles apart", async () => {
+    mock(base());
+    show();
+    await headline();
+
+    const panel = byLevel("United States");
+    const rows = within(panel).getAllByRole("listitem");
+    expect(rows.map((r) => r.querySelector("strong")?.textContent)).toEqual(["Senior", "Staff", "Principal", "Director+"]);
+    expect(rows[0]).toHaveTextContent("$180K–$240K");
+    expect(rows[1]).toHaveTextContent(msg("insights-posted-too-few"));
+    expect(rows[1]).toHaveTextContent(msg("insights-pay-bands-bands-from-employers", { bands: 3, employers: 2 }));
+    expect(within(rows[2]).getByText(msg("insights-posted-your-level"))).toBeInTheDocument();
+    expect(within(rows[0]).queryByText(msg("insights-posted-your-level"))).toBeNull();
+    // Roles with no placed level are said once, below the levels, never inside one.
+    expect(within(panel).getByText(msg("insights-posted-not-placed", { roles: 37, ranges: 12 }))).toBeInTheDocument();
+    expect(rows.some((r) => /not placed/i.test(r.textContent ?? ""))).toBe(false);
+    expect(within(panel).getByText(msg("insights-posted-other-currency", { count: 2 }))).toBeInTheDocument();
+  });
+
+  it("says when nothing is posted anywhere, and still shows the estimates", async () => {
+    mock(base({ posted: posted({ countries: [], default_country: null }) }));
+    show();
+
+    expect(await headline()).toHaveTextContent(msg("insights-posted-none"));
+    expect(screen.getByText(msg("insights-posted-none-anywhere"))).toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).toBeNull();
     expect(screen.getByText(msg("insights-compensation-panel-median-comp-by-level"))).toBeInTheDocument();
-    expect(screen.getByText(msg("insights-compensation-panel-top-paying-companies"))).toBeInTheDocument();
-    expect(screen.getByText(msg("insights-compensation-panel-median-pay-by-discipline"))).toBeInTheDocument();
-    // Every other panel is the advanced view's, and asks the server nothing.
-    expect(screen.queryByText(msg("insights-compensation-panel-estimated-comp-distribution"))).toBeNull();
-    expect(screen.queryByRole("region", { name: msg("insights-compensation-panel-estimated-base-by-level") })).toBeNull();
-    expect(screen.queryByText(msg("insights-compensation-panel-what-a-skill-adds-at"))).toBeNull();
   });
 
-  it("orders levels by seniority and shows each band's median and the roles it rests on", async () => {
-    mock(base({ coverage: { with_comp: 671, total_open: 732, pct: 0.916 } }));
-    render(<CompensationPanel />);
+  it("marks every estimate panel as a US-only estimate", async () => {
+    mock(base());
+    show();
+    await headline();
 
-    const seniorRow = (await screen.findAllByText("Senior")).map((el) => el.closest(".comp-row")).find(Boolean)!;
-    expect(within(seniorRow as HTMLElement).getByText("$306K")).toBeInTheDocument();
-    // Every row says what it rests on: a median of one role must not pass for a level's pay.
-    expect(within(seniorRow as HTMLElement).getByText("406 roles")).toBeInTheDocument();
+    for (const heading of [
+      msg("insights-compensation-panel-median-comp-by-level"),
+      msg("insights-compensation-panel-top-paying-companies"),
+      msg("insights-compensation-panel-median-pay-by-discipline"),
+    ]) {
+      const panel = screen.getByRole("heading", { level: 3, name: (name) => name.startsWith(heading) }).closest(".panel")!;
+      expect(within(panel as HTMLElement).getByText(msg("insights-posted-estimate-us-only"))).toBeInTheDocument();
+    }
+    expect(screen.getByRole("button", { name: msg("insights-compensation-panel-how-compensation-is-estimated") }))
+      .toHaveAccessibleDescription(msg("insights-compensation-panel-estimated-total-compensation-is-imputed"));
+  });
+
+  it("orders estimate levels by seniority and shows each median and the roles it rests on", async () => {
+    mock(base());
+    show();
+    await headline();
+
+    const panel = screen.getByText(msg("insights-compensation-panel-median-comp-by-level")).closest(".panel") as HTMLElement;
+    const seniorRow = within(panel).getByText("Senior").closest(".comp-row") as HTMLElement;
+    expect(within(seniorRow).getByText("$306K")).toBeInTheDocument();
+    expect(within(seniorRow).getByText(msg("insights-compensation-panel-roles", { count: 406 }))).toBeInTheDocument();
     expect(seniorRow.getAttribute("title")).toContain(
       msg("insights-compensation-panel-spread", {
         low: "$250K",
@@ -147,184 +315,117 @@ describe("CompensationPanel", () => {
         roles: msg("insights-compensation-panel-roles", { count: 406 }),
       }),
     );
-    expect(screen.getAllByText(msg("insights-compensation-panel-groups-of-roles-or-more", { min_roles: 5 }))).toHaveLength(3);
-  });
-
-  it("renders distribution bins and formats company + family rows", async () => {
-    mock(base());
-    render(<CompensationPanel advanced />);
-
-    const bin = (await screen.findByText("$200K–$400K")).closest(".comp-hist-row")!;
-    expect(within(bin as HTMLElement).getByText("309")).toBeInTheDocument();
-
-    const coRow = screen.getByText("OpenAI").closest(".comp-row")!; // companyName() applied
-    expect(within(coRow as HTMLElement).getByText("$900K")).toBeInTheDocument();
-    expect(within(coRow as HTMLElement).getByText("58 roles")).toBeInTheDocument();
-
-    const famRow = screen.getByText("ML / AI Research").closest(".comp-row")!;
-    expect(within(famRow as HTMLElement).getByText("$479K")).toBeInTheDocument();
   });
 
   it("shows companies and disciplines as an equal pair, the same number of rows each", async () => {
     const co = (i: number) => ({ company: `co-${i}`, ...sum(1, 900_000 - i, 2, 3, 10) });
     const fam = (i: number) => ({ family: `f${i}`, family_display: `Family ${i}`, ...sum(1, 800_000 - i, 2, 3, 10) });
     mock(base({ by_company: Array.from({ length: 15 }, (_, i) => co(i)), by_family: Array.from({ length: 11 }, (_, i) => fam(i)) }));
-    render(<CompensationPanel />);
+    show();
 
     const companies = (await screen.findByRole("heading", { name: msg("insights-compensation-panel-top-paying-companies") })).closest(".panel")!;
-    const families = screen.getByRole("heading", { name: "Median estimated total compensation by discipline" }).closest(".panel")!;
+    const families = screen.getByRole("heading", { name: msg("insights-compensation-panel-median-pay-by-discipline") }).closest(".panel")!;
     expect(companies.querySelectorAll(".comp-row")).toHaveLength(8);
     expect(families.querySelectorAll(".comp-row")).toHaveLength(8);
     expect(companies.parentElement).toBe(families.parentElement);
   });
 
-  it("says what a skill adds at the same level, signed, with the roles behind it", async () => {
-    mock(
-      base({
-        by_skill: [
-          skill("gcp", 780_000, 131_597, 31),
-          skill("cpp", 420_000, -149_585, 26),
-        ],
-      }),
-    );
-    render(<CompensationPanel advanced />);
-
-    const up = (await screen.findByText("GCP")).closest(".comp-row")!;
-    expect(within(up as HTMLElement).getByText("+$132K")).toHaveClass("pay-premium");
-    expect(within(up as HTMLElement).getByText("31 roles")).toBeInTheDocument();
-    // A skill that pays less is shown as less, never dropped and never as a gain.
-    const down = screen.getByText("C++").closest(".comp-row")!;
-    expect(within(down as HTMLElement).getByText("−$150K")).not.toHaveClass("pay-premium");
-    expect(down.querySelector(".bar-fill")).toHaveClass("is-below");
-    expect(screen.getByRole("button", { name: /How a skill's compensation difference is measured/ }))
-      .toHaveAccessibleDescription(msg("insights-compensation-panel-roles-naming-the-skill-against"));
-  });
-
-  it("reports roles priced by their base alone apart from the totals, labelled as base", async () => {
-    // A base is never drawn on the totals' axis, where it
-    // would read as a lower-paying role.
+  it("keeps the basic view to posted pay and the estimates; every range and who states pay are advanced", async () => {
     mock(base({ base_estimates: someBase }));
-    render(<CompensationPanel advanced />);
-    const panel = await screen.findByRole("region", { name: msg("insights-compensation-panel-estimated-base-by-level") });
-    expect(panel).toHaveTextContent(msg("insights-compensation-panel-base-only-lead", { count: 40 }));
-    expect(within(panel).getByText("Senior")).toBeInTheDocument();
-    expect(within(panel).getByText("$196K")).toBeInTheDocument();
-    // The totals' level chart is unchanged: no base row joined it.
-    const totals = screen.getByText(msg("insights-compensation-panel-median-comp-by-level")).closest(".panel")!;
-    expect(within(totals as HTMLElement).queryByText("$196K")).toBeNull();
-  });
+    show();
+    await headline();
 
-  it("shows no base panel when no role is priced by its base alone", async () => {
-    mock(base());
-    render(<CompensationPanel />);
-    await screen.findByText(msg("insights-compensation-panel-median-comp-by-level"));
+    expect(screen.queryByRole("list", { name: msg("insights-pay-bands-published-base-salary-bands-by") })).toBeNull();
+    expect(screen.queryByText(msg("insights-disclosure-panel-who-states-pay"), { exact: false })).toBeNull();
     expect(screen.queryByRole("region", { name: msg("insights-compensation-panel-estimated-base-by-level") })).toBeNull();
   });
 
-  it("still reports base-only roles when no role has a total estimate, in the basic view too", async () => {
-    mock(base({ coverage: { with_comp: 0, total_open: 40, pct: 0 }, overall: null, histogram: [], by_level: [],
-      by_company: [], by_family: [], by_skill: [], base_estimates: someBase }));
-    render(<CompensationPanel />);
-    expect(await screen.findByText(/No open roles with a compensation estimate/i)).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: msg("insights-compensation-panel-estimated-base-by-level") }))
-      .toBeInTheDocument();
+  it("still reports base-only estimates when no role has a total estimate, in the basic view too", async () => {
+    mock(base({ coverage: { with_comp: 0, total_open: 40, pct: 0 }, overall: null, by_level: [],
+      by_company: [], by_family: [], base_estimates: someBase }));
+    show();
+
+    // Posted pay still leads; no empty state stands in for the missing estimate.
+    expect(await headline()).toHaveTextContent(msg("insights-posted-typically", { low: "$198K", high: "$270K" }));
+    expect(screen.queryByText(/compensation estimate yet/i)).toBeNull();
+    expect(screen.queryByText(msg("insights-compensation-panel-median-comp-by-level"))).toBeNull();
+    const panel = screen.getByRole("region", { name: msg("insights-compensation-panel-estimated-base-by-level") });
+    expect(panel).toHaveTextContent(msg("insights-compensation-panel-base-only-lead", { count: 40 }));
+    expect(within(panel).getByText(msg("insights-posted-estimate-us-only"))).toBeInTheDocument();
   });
 
-  it("shows an empty state when no open role has a comp estimate", async () => {
-    mock(
-      base({
-        coverage: { with_comp: 0, total_open: 0, pct: 0 },
-        overall: null,
-        histogram: [],
-        by_level: [],
-        by_company: [],
-        by_family: [],
-        by_skill: [],
-      }),
-    );
-    render(<CompensationPanel />);
-    expect(await screen.findByText(/No open roles with a compensation estimate/i)).toBeInTheDocument();
-  });
-
-  it("describes the roles open now, and draws no pay over time until there is history to compare", async () => {
-    // A day's snapshot changed what it counts when a role listed in several
-    // places began to count once, so a line across that day would show the
-    // change as a market move. Who states pay, a figure of the roles open
-    // now, stays.
+  it("draws every posted range of the country a row per level and colours only the employer picked", async () => {
     mock(base());
-    render(<CompensationPanel advanced />);
-    await screen.findByRole("heading", { level: 2 });
-    expect(
-      screen.getByText(
-        msg("insights-compensation-panel-open-roles-now-coverage", { with_comp: "732", total_open: "732", pct: 100 }),
-        { exact: false },
-      ),
-    ).toBeInTheDocument();
-    const who = msg("insights-disclosure-panel-who-states-pay");
-    expect(screen.getByRole("heading", { level: 3, name: (name) => name.startsWith(who) })).toBeInTheDocument();
-    const titles = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent ?? "");
-    expect(titles.filter((t) => /over time|trend/i.test(t))).toEqual([]);
-    expect(api.compensation).toHaveBeenCalledTimes(1);
-    expect(api.compensation).toHaveBeenCalledWith(undefined);
-  });
-
-  it("says the figure is estimated rather than posted, and never claims otherwise", async () => {
-    mock(base());
-    render(<CompensationPanel />);
-    await screen.findByRole("heading", { level: 2 });
-
-    expect(screen.getByRole("button", { name: "How compensation is estimated" }))
-      .toHaveAccessibleDescription(msg("insights-compensation-panel-estimated-total-compensation-is-imputed"));
-    // No posted range reaches comp_median, so the copy must never claim the
-    // estimate blends posted ranges in.
-    expect(screen.queryByText(/blend posted ranges/i)).not.toBeInTheDocument();
-  });
-
-  it("draws published bands a row per level and colours only the employer picked", async () => {
-    mock(
-      base({
-        disclosed: {
-          bands: [
-            { company: "google", level_band: "senior", low: 200_000, high: 280_000, reqs: 9 },
-            { company: "google", level_band: "staff", low: 262_000, high: 365_000, reqs: 18 },
-            { company: "google-deepmind", level_band: "staff", low: 207_000, high: 301_000, reqs: 1 },
-            { company: "apple", level_band: "staff", low: 240_000, high: 340_000, reqs: 4 },
-            { company: "apple", level_band: "staff", low: 300_000, high: 420_000, reqs: 2 },
-          ],
-          reqs: 34, companies: 3,
-          excluded: { unclear: 90, total: 0, not_usd: 0, not_yearly: 0, implausible: 1 },
-          truncated: false,
-        },
-      }),
-    );
     const user = userEvent.setup();
-    render(<CompensationPanel advanced />);
+    show({ advanced: true });
+    await headline();
 
-    const rows = within(await screen.findByRole("list", { name: "Posted base salary ranges by level" }));
-    // One row per level, never one per band: four bands, two rows.
+    expect(screen.getByRole("heading", {
+      level: 3,
+      name: (name) => name.startsWith(msg("insights-posted-every-range", { country: "United States" })),
+    })).toBeInTheDocument();
+    const rows = within(screen.getByRole("list", { name: msg("insights-pay-bands-published-base-salary-bands-by") }));
+    // One row per level, never one per range: five ranges, two rows.
     expect(rows.getAllByRole("listitem")).toHaveLength(2);
-    const staff = rows.getByRole("img", { name: /^Staff: 4 ranges from 3 employers/ });
-    // One vote per band: the median of [207K, 240K, 262K, 300K] floors, not Google's 18 reqs.
-    expect(staff).toHaveAccessibleName(/median \$251K to/);
-    expect(staff.querySelectorAll(".pay-band[data-chosen]")).toHaveLength(0);
-    expect(screen.getByText(/5 ranges · 3 employers/)).toBeInTheDocument();
+    const principal = rows.getByRole("img", { name: /^Principal: 4 ranges from 3 employers/ });
+    // The outline is the server's typical range, not a median the screen recomputes.
+    expect(principal).toHaveAccessibleName(/typically \$198K to \$270K\.$/);
+    expect(principal.querySelectorAll(".pay-band[data-chosen]")).toHaveLength(0);
 
     await user.click(screen.getByRole("button", { name: /^Filter by/ }));
     await user.click(await screen.findByRole("option", { name: /Google DeepMind/ }));
-    expect(staff).toHaveAccessibleName(/Google DeepMind: \$207K to \$301K/);
-    expect(staff.querySelectorAll(".pay-band[data-chosen]")).toHaveLength(1);
-    // A level the employer publishes nothing at says so, rather than showing the market.
+    expect(principal).toHaveAccessibleName(/Google DeepMind: \$207K to \$301K/);
+    expect(principal.querySelectorAll(".pay-band[data-chosen]")).toHaveLength(1);
     expect(rows.getByRole("img", { name: /^Senior/ })).toHaveAccessibleName(/posts no range at this level/);
-    expect(rows.getByText("No range")).toBeInTheDocument();
 
-    // Several bands at one level read as their span and count; each band is still said.
-    await user.click(screen.getByRole("button", { name: /^Filter by/ }));
-    await user.click(await screen.findByRole("option", { name: /Apple/ }));
-    expect(rows.getAllByRole("listitem")[1]).toHaveTextContent("$240K–$420K · 2 ranges");
-    expect(staff).toHaveAccessibleName(/Apple: \$240K to \$340K, \$300K to \$420K/);
+    // Every reason a role is left out is said, beside the chart.
+    const about = screen.getByRole("button", { name: msg("insights-compensation-panel-about-published-salary-bands") });
+    expect(about).toHaveAccessibleDescription(expect.stringContaining(msg("insights-comp-bands-placed-by-pay", { count: 6 })));
+    expect(about).toHaveAccessibleDescription(expect.stringContaining(msg("insights-comp-bands-no-country", { count: 4 })));
+  });
 
-    // The roles left off the base-pay scale are still said.
-    expect(screen.getByRole("button", { name: "About posted ranges" }))
-      .toHaveAccessibleDescription(/90 more roles post a range/i);
+  it("draws every range, however many, in the chosen country's currency", async () => {
+    const many = Array.from({ length: 251 }, (_, i) => band(`co-${i}`, "principal", 100_000 + i * 100, 140_000 + i * 100));
+    mock(base({ posted: posted({ countries: [{ ...gb, bands: many }], default_country: "GB" }) }));
+    show({ advanced: true });
+    await headline();
+
+    const principal = screen.getByRole("img", { name: /^Principal: 251 ranges from 251 employers/ });
+    expect(principal.querySelectorAll(".pay-band")).toHaveLength(251);
+    expect(principal).toHaveAccessibleName(/typically £110K to £150K/);
+  });
+
+  it("says why each role was left out when no range in the country qualifies", async () => {
+    mock(base());
+    show({ advanced: true }, "/statistics/compensation?country=SE");
+    await headline();
+
+    const every = msg("insights-posted-every-range", { country: "Sweden" });
+    const panel = screen.getByRole("heading", { level: 3, name: (name) => name.startsWith(every) }).closest(".panel") as HTMLElement;
+    expect(within(panel).queryByRole("list", { name: msg("insights-pay-bands-published-base-salary-bands-by") })).toBeNull();
+    const note = panel.querySelector(".hiring-note");
+    expect(note).toHaveTextContent(msg("insights-comp-bands-not-base", { count: 90 }));
+    expect(note).toHaveTextContent(msg("insights-comp-bands-placed-by-pay", { count: 6 }));
+  });
+
+  it("says why each role was left out when no country has a range at all", async () => {
+    mock(base({ posted: posted({ countries: [], default_country: null }) }));
+    show({ advanced: true });
+    expect(await headline()).toHaveTextContent(msg("insights-posted-none"));
+    expect(screen.getByText(msg("insights-comp-bands-not-base", { count: 90 }), { exact: false })).toBeInTheDocument();
+  });
+
+  it("opens who states pay by level, and draws no pay over time", async () => {
+    mock(base());
+    show({ advanced: true });
+    await headline();
+
+    const who = msg("insights-disclosure-panel-who-states-pay");
+    expect(screen.getByRole("heading", { level: 3, name: (name) => name.startsWith(who) })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: msg("insights-common-by-level") })).toHaveAttribute("aria-pressed", "true");
+    const titles = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent ?? "");
+    expect(titles.filter((t) => /over time|trend|skill/i.test(t))).toEqual([]);
+    expect(api.compensation).toHaveBeenCalledTimes(1);
+    expect(api.compensation).toHaveBeenCalledWith(undefined);
   });
 });

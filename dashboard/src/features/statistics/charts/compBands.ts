@@ -1,48 +1,38 @@
 import { compare as copyCompare } from "../../../copy/format";
-import type { DisclosedBand, DisclosedBands } from "../../../api";
-import { companyName, fmtComp } from "../../../format";
+import type { DisclosedBand, PostedLevel, PostedPay } from "../../../api";
+import { companyName, fmtCompIn } from "../../../format";
 import { levelLabel } from "./levelLabel";
 import {
-  insightsCompBands1MoreRoleStatesA,
-  insightsCompBands1MoreRoleStatesBase,
-  insightsCompBandsLevelSummary,
-  insightsCompBandsMoreRolesStateARange,
-  insightsCompBandsMoreRolesStateBasePay,
   insightsCompBandsEmployerAtLevel,
+  insightsCompBandsImplausible,
+  insightsCompBandsLevelRanges,
+  insightsCompBandsNoCountry,
+  insightsCompBandsNotBase,
+  insightsCompBandsNotYearly,
+  insightsCompBandsPlacedByPay,
   insightsCompBandsTo,
 } from "../../../copy/gen/insights";
 
 /**
- * Posted pay bands, by level.
+ * Posted base ranges, by level, in one country and its currency.
  *
- * Deliberately NOT a distribution. An employer publishes a band per
- * (company, level) and hangs many reqs off it, so a dot-per-role plot would
- * assert a per-role salary sample that does not exist. The unit is the band
+ * Deliberately NOT a distribution. An employer posts a range per
+ * (company, level) and hangs many roles off it, so a dot-per-role plot would
+ * assert a per-role salary sample that does not exist. The unit is the range
  * itself.
  *
- * A row per level: every band a faint span, the level's median band outlined,
- * and colour kept for the employer a reader picks, since colour cycled across
- * every employer would name no one.
+ * A row per level: every range a faint span, the level's typical range
+ * outlined when it has one, and colour kept for the employer a reader picks,
+ * since colour cycled across every employer would name no one.
  */
 
 export interface LevelBands {
   level: string;
   bands: DisclosedBand[];
   employers: number;
-  reqs: number;
-  /** Median floor and ceiling, one vote per band; null for a level with none. */
-  low: number | null;
-  high: number | null;
 }
 
-function median(xs: number[]): number | null {
-  if (!xs.length) return null;
-  const s = [...xs].sort((a, b) => a - b);
-  const mid = (s.length - 1) / 2;
-  return (s[Math.floor(mid)] + s[Math.ceil(mid)]) / 2;
-}
-
-/** Bands grouped by level, in the order the API ranks them (seniority). */
+/** Ranges grouped by level, in the order the API sends them (seniority). */
 export function bandsByLevel(bands: readonly DisclosedBand[]): LevelBands[] {
   const by = new Map<string, DisclosedBand[]>();
   for (const b of bands) by.set(b.level_band, [...(by.get(b.level_band) ?? []), b]);
@@ -50,20 +40,25 @@ export function bandsByLevel(bands: readonly DisclosedBand[]): LevelBands[] {
     level,
     bands: bs,
     employers: new Set(bs.map((b) => b.company)).size,
-    reqs: bs.reduce((n, b) => n + b.reqs, 0),
-    low: median(bs.map((b) => b.low)),
-    high: median(bs.map((b) => b.high)),
   }));
 }
 
-const STEPS = [25_000, 50_000, 100_000, 200_000, 250_000, 500_000];
+/** The smallest of 1, 2, 2.5 and 5 times a power of ten that splits `span`
+ *  into at most six steps, so any currency's amounts get round ticks. */
+function niceStep(span: number): number {
+  const magnitude = 10 ** Math.floor(Math.log10(Math.max(span, 1) / 6));
+  for (const m of [1, 2, 2.5, 5, 10]) {
+    if (span / (m * magnitude) <= 6) return m * magnitude;
+  }
+  return 10 * magnitude;
+}
 
-/** One dollar scale for every row: rounded ends and three to six ticks. */
+/** One scale for every row: rounded ends and three to six ticks. */
 export function bandScale(bands: readonly DisclosedBand[]): { min: number; max: number; ticks: number[] } {
   if (!bands.length) return { min: 0, max: 1, ticks: [] };
   const lo = Math.min(...bands.map((b) => b.low));
   const hi = Math.max(...bands.map((b) => b.high));
-  const step = STEPS.find((s) => (hi - lo) / s <= 6) ?? 1_000_000;
+  const step = niceStep(hi - lo);
   const min = Math.floor(lo / step) * step;
   const max = Math.max(min + step, Math.ceil(hi / step) * step);
   const ticks: number[] = [];
@@ -71,7 +66,7 @@ export function bandScale(bands: readonly DisclosedBand[]): { min: number; max: 
   return { min, max, ticks };
 }
 
-/** Employers with a band, most open roles on their bands first. */
+/** Employers with a range, most open roles on their ranges first. */
 export function bandEmployers(bands: readonly DisclosedBand[]): { value: string; label: string; count: number }[] {
   const reqs = new Map<string, number>();
   for (const b of bands) reqs.set(b.company, (reqs.get(b.company) ?? 0) + b.reqs);
@@ -81,34 +76,40 @@ export function bandEmployers(bands: readonly DisclosedBand[]): { value: string;
 }
 
 /** One level's row, said in words for a screen reader. */
-export function levelSummary(row: LevelBands, picked: readonly DisclosedBand[], employer: string | null): string {
-  const label = levelLabel(row.level);
-  const summary = insightsCompBandsLevelSummary({
-    label,
+export function levelSummary(
+  row: LevelBands,
+  figure: PostedLevel | undefined,
+  picked: readonly DisclosedBand[],
+  employer: string | null,
+  currency: string,
+): string {
+  const money = (x: number) => fmtCompIn(x, currency);
+  const low = figure?.low ?? null;
+  const high = figure?.high ?? null;
+  const summary = insightsCompBandsLevelRanges({
+    label: levelLabel(row.level),
     bands: row.bands.length,
     employers: row.employers,
-    low: fmtComp(row.low),
-    high: fmtComp(row.high),
+    figure: low != null && high != null ? "some" : "none",
+    low: low != null ? money(low) : "",
+    high: high != null ? money(high) : "",
   });
   if (!employer) return summary;
-  const ranges = picked.map((b) => insightsCompBandsTo({ low: fmtComp(b.low), high: fmtComp(b.high) })).join(", ");
+  const ranges = picked.map((b) => insightsCompBandsTo({ low: money(b.low), high: money(b.high) })).join(", ");
   return insightsCompBandsEmployerAtLevel({ summary, employer: companyName(employer), published: picked.length ? "some" : "none", ranges });
 }
 
-/** What the yearly base-pay dollar scale left out, and why; "" when nothing. */
-export function exclusionNote(excluded: DisclosedBands["excluded"]): string {
-  const notes: string[] = [];
-  const { unclear } = excluded;
-  if (unclear === 1) {
-    notes.push(insightsCompBands1MoreRoleStatesA());
-  } else if (unclear) {
-    notes.push(insightsCompBandsMoreRolesStateARange({ unclear: unclear }));
-  }
-  const elsewhere = excluded.not_usd + excluded.not_yearly;
-  if (elsewhere === 1) {
-    notes.push(insightsCompBands1MoreRoleStatesBase());
-  } else if (elsewhere) {
-    notes.push(insightsCompBandsMoreRolesStateBasePay({ elsewhere: elsewhere }));
-  }
-  return notes.join(" ");
+/** What no country's figure reads, and why, a sentence per reason; "" when nothing. */
+export function exclusionNote(excluded: PostedPay["excluded"]): string {
+  const notes: [number, (args: { count: number }) => string][] = [
+    [excluded.not_base, insightsCompBandsNotBase],
+    [excluded.not_yearly, insightsCompBandsNotYearly],
+    [excluded.implausible, insightsCompBandsImplausible],
+    [excluded.no_country, insightsCompBandsNoCountry],
+    [excluded.placed_by_pay, insightsCompBandsPlacedByPay],
+  ];
+  return notes
+    .filter(([count]) => count > 0)
+    .map(([count, say]) => say({ count }))
+    .join(" ");
 }

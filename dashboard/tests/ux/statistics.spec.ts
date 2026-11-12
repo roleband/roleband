@@ -170,9 +170,10 @@ test("every Insights tab opens with the same hero, named by its tab", async ({ p
   const routes: Record<string, unknown> = {
     "/api/demand": hiringFixture,
     "/api/statistics/compensation**": {
-      currency: "USD", min_roles: 5, coverage: { with_comp: 4, total_open: 12, pct: 0.333 }, overall: summary(500_000), histogram: [],
-      by_level: [], by_company: [], by_family: [], by_skill: [],
-      disclosed: { bands: [], reqs: 0, companies: 0, excluded: { unclear: 0, total: 0, not_usd: 0, not_yearly: 0, implausible: 0 }, truncated: false },
+      currency: "USD", min_roles: 5, coverage: { with_comp: 4, total_open: 12, pct: 0.333 }, overall: summary(500_000),
+      by_level: [], by_company: [], by_family: [],
+      posted: { min_employers: 5, min_ranges: 8, default_country: null, countries: [], your_levels: [],
+        excluded: { not_base: 0, not_yearly: 0, implausible: 0, no_country: 0, placed_by_pay: 0 } },
       disclosure: { overall: { open: 12, checked: 0, disclosed: 0, rate: null }, by_company: [], by_level: [] },
       base_estimates: { min_roles: 5, coverage: { with_base: 0, total_open: 12 }, overall: null, by_level: [], by_company: [], by_family: [] },
     },

@@ -66,6 +66,7 @@ from tracker.db.models import (
     SkillDemandDaily,
     TrackedCompany,
 )
+from tracker.settings_store import set_enabled_bands, set_enabled_locations
 from tracker.skills.analytics import compute_skill_demand
 
 ROUTES = {
@@ -165,9 +166,9 @@ async def test_an_empty_radar_answers_every_shape_with_nothing_in_it(api_client,
     overview = await _get(api_client, ROUTES["overview"])
     assert overview["top_skills"] == []
     compensation = await _get(api_client, ROUTES["compensation"])
-    assert (compensation["overall"], compensation["histogram"], compensation["coverage"]) == (
-        None, [], {"with_comp": 0, "total_open": 0, "pct": 0.0},
-    )
+    assert (compensation["overall"], compensation["coverage"]) == (None, {"with_comp": 0, "total_open": 0, "pct": 0.0})
+    # No range: every country listed is one of the person's places, with nothing in it.
+    assert all(c["ranges"] == 0 and c["yours"] and c["bands"] == [] for c in compensation["posted"]["countries"])
     assert compensation["disclosure"]["overall"] == {"open": 0, "checked": 0, "disclosed": 0, "rate": None}
     trajectory = await _get(api_client, ROUTES["trajectory"])
     assert (trajectory["overall"], trajectory["public"], trajectory["private"]) == (None, [], [])
@@ -250,25 +251,33 @@ async def test_compensation_keeps_the_estimate_apart_from_printed_bands_over_the
     assert [row["family"] for row in body["by_family"]] == ["product_management"]
     assert all(row["count"] >= 5 for key in ("by_level", "by_company", "by_family") for row in body[key])
     assert all(list(row) == _fields(contract.CompFamilySummary) for row in body["by_family"])
-    # Only a skill enough priced roles name; its premium is over like roles, same level and discipline.
-    # 17 roles name Python; `count` is the 15 in a (level, discipline) cell with enough roles to compare.
-    [python] = body["by_skill"]
-    assert (python["term"], python["count"]) == ("python", 15)
-    assert isinstance(python["premium"], float)
+    # No dollar premium per skill: an employer sets a range per level and
+    # place, not per skill, so a premium would only name who asks for it.
+    assert "by_skill" not in body and "histogram" not in body
 
-    # One band per distinct print, with the reqs on it; what cannot sit on a base axis is counted, not dropped.
-    # `g-senior`'s band is in: it is open, however long ago we first saw it.
-    assert body["disclosed"] == {
-        "bands": [
-            {"company": "google", "level_band": "senior", "low": 200000, "high": 260000, "reqs": 1},
-            {"company": "google", "level_band": "staff", "low": 250000, "high": 320000, "reqs": 2},
-            {"company": "google", "level_band": "principal", "low": 340000, "high": 450000, "reqs": 1},
-        ],
-        "reqs": 4, "companies": 1,
-        # The hourly band is pay, just not yearly; only the placeholder is implausible.
-        "excluded": {"unclear": 1, "total": 1, "not_usd": 0, "not_yearly": 1, "implausible": 1},
-        "truncated": False,
+    # One range per distinct print, with the roles on it; what is not yearly
+    # base pay is counted, not dropped. `g-senior`'s range is in: it is open,
+    # however long ago we first saw it.
+    posted = body["posted"]
+    us = next(c for c in posted["countries"] if c["country"] == "US")
+    assert (posted["default_country"], us["currency"], us["ranges"]) == ("US", "USD", 3)
+    assert us["bands"] == [
+        {"company": "google", "level_band": "senior", "low": 200000, "high": 260000, "reqs": 1},
+        {"company": "google", "level_band": "staff", "low": 250000, "high": 320000, "reqs": 2},
+        {"company": "google", "level_band": "principal", "low": 340000, "high": 450000, "reqs": 1},
+    ]
+    # One employer is one ladder, not a market: every level is counted and none shows a figure.
+    assert [(lv["level_band"], lv["ranges"], lv["employers"], lv["roles"], lv["enough"], lv["low"])
+            for lv in us["levels"]] == [
+        ("senior", 1, 1, 1, False, None), ("staff", 1, 1, 2, False, None), ("principal", 1, 1, 1, False, None),
+    ]
+    assert (posted["min_employers"], posted["min_ranges"]) == (5, 8)
+    # The total and the unclear range are not base; the hourly one is pay, just
+    # not yearly; only the placeholder is no salary.
+    assert posted["excluded"] == {
+        "not_base": 2, "not_yearly": 1, "implausible": 1, "no_country": 0, "placed_by_pay": 0,
     }
+    assert list(posted) == _fields(contract.PostedPay)
     # The rate is denominated in roles the disclosure pass has read: `o-old` was never read.
     assert body["disclosure"]["overall"] == {"open": 27, "checked": 9, "disclosed": 8, "rate": 0.8889}
     rates = {row["company"]: row for row in body["disclosure"]["by_company"]}
@@ -279,6 +288,19 @@ async def test_compensation_keeps_the_estimate_apart_from_printed_bands_over_the
     assert body["currency"] == "USD"
     # The Window lens is not this route's: a stray `days` changes nothing.
     assert await _get(api_client, f"{ROUTES['compensation']}?days=7") == body
+
+
+@pytest.mark.asyncio
+async def test_posted_pay_opens_on_the_persons_levels_and_lists_their_countries(api_client, db_session, seeded):
+    """The person's levels come in seniority order, whatever order they were
+    saved in, and a country of theirs with no posted range is still listed, so
+    the screen can say so rather than hide it."""
+    await set_enabled_bands(db_session, ["director_plus", "principal"])
+    await set_enabled_locations(db_session, ["silicon_valley", "sweden"])
+    await db_session.commit()
+    posted = (await _get(api_client, ROUTES["compensation"]))["posted"]
+    assert posted["your_levels"] == ["principal", "director_plus"]
+    assert [(c["country"], c["ranges"], c["yours"]) for c in posted["countries"]] == [("US", 3, True), ("SE", 0, True)]
 
 
 @pytest.mark.asyncio
@@ -305,12 +327,10 @@ async def test_a_role_whose_level_we_cannot_place_never_counts_under_a_level_on_
     # The estimate by level is unchanged: no Mid-level row of bare titles, no
     # Senior pulled by a guess, and no row restating a guessed lookup.
     assert body["by_level"] == before["by_level"]
-    # Printed bands keep placed rows separate from the unplaced row, which is last.
-    assert body["disclosed"]["bands"][:3] == before["disclosed"]["bands"]
-    assert [(b["level_band"], b["low"], b["high"]) for b in body["disclosed"]["bands"][3:]] == [
-        ("unstated", 260000, 350000), ("unstated", 180000, 295000),
-    ]
-    assert not [b for b in body["disclosed"]["bands"] if b["level_band"] == "mid"]
+    # Posted ranges at unplaced roles are counted apart, never inside a level.
+    us, us_before = (next(c for c in b["posted"]["countries"] if c["country"] == "US") for b in (body, before))
+    assert (us["bands"], us["levels"]) == (us_before["bands"], us_before["levels"])
+    assert us["not_placed"] == {"roles": 2, "ranges": 2}
     # Rates keep each level separate and count unplaced roles once, in the last row.
     rates = body["disclosure"]["by_level"]
     assert rates[:-1] == before["disclosure"]["by_level"]
@@ -335,7 +355,7 @@ async def test_pay_in_another_currency_stays_off_the_dollar_axes_and_is_counted(
     # off those axes; it still counts as open, read and disclosed.
     before = await _get(api_client, ROUTES["compensation"])
     london = _role("google", "london", level="staff", comp=180000, comp_currency="GBP", locations=["London, UK"],
-                   **{**_stated(150000, 210000), "disclosed_currency": "GBP"})
+                   location_groups=["london"], **{**_stated(150000, 210000), "disclosed_currency": "GBP"})
     db_session.add(london)
     await db_session.flush()
     # The daily rollup reads each job's own estimate rows: one in pounds, one in dollars beside it.
@@ -350,8 +370,13 @@ async def test_pay_in_another_currency_stays_off_the_dollar_axes_and_is_counted(
     assert body["by_level"] == before["by_level"]
     assert body["coverage"]["with_comp"] == before["coverage"]["with_comp"]
     assert body["coverage"]["total_open"] == before["coverage"]["total_open"] + 1
-    assert body["disclosed"]["bands"] == before["disclosed"]["bands"]
-    assert body["disclosed"]["excluded"] == {**before["disclosed"]["excluded"], "not_usd": 1}
+    # Posted pay keeps the pound range in the UK, in pounds, and the US figures as they were.
+    countries = {c["country"]: c for c in body["posted"]["countries"]}
+    before_us = next(c for c in before["posted"]["countries"] if c["country"] == "US")
+    assert countries["US"] == before_us
+    assert (countries["GB"]["currency"], countries["GB"]["bands"]) == (
+        "GBP", [{"company": "google", "level_band": "staff", "low": 150000, "high": 210000, "reqs": 1}],
+    )
     assert body["disclosure"]["overall"]["disclosed"] == before["disclosure"]["overall"]["disclosed"] + 1
 
     await comp_trends.compute_comp_metrics(db_session)
@@ -992,9 +1017,10 @@ def _adding(real):
     return drifted
 
 
-def _each_skill_without_premium(real):
+def _each_country_without_bands(real):
     def drifted(*args, **kwargs):
-        return [{k: v for k, v in row.items() if k != "premium"} for row in real(*args, **kwargs)]
+        body = real(*args, **kwargs)
+        return {**body, "countries": [{k: v for k, v in c.items() if k != "bands"} for c in body["countries"]]}
 
     return drifted
 
@@ -1043,7 +1069,7 @@ def _each_region_adding(real):
     ("name", "drift", "route"),
     [
         ("build_comp_stats", _adding, "compensation"),
-        ("rank_skill_comp", _each_skill_without_premium, "compensation"),
+        ("build_posted_pay", _each_country_without_bands, "compensation"),
         ("build_comp_trajectory", _adding, "trajectory"),
         ("build_offer_terms", _each_row_adding, "offer_terms"),
         ("build_equity_residuals", _each_group_without_modeled_share, "equity"),
@@ -1053,7 +1079,7 @@ def _each_region_adding(real):
     ],
     # No builder here writes English: the dashboard names families, so there is
     # no name left to drift.
-    ids=["comp_stats_key_added", "skill_premium_dropped", "trajectory_key_added", "offer_terms_key_added", "residual_share_dropped",
+    ids=["comp_stats_key_added", "posted_bands_dropped", "trajectory_key_added", "offer_terms_key_added", "residual_share_dropped",
          "trend_count_dropped", "disclosure_point_key_added", "demand_region_key_added"],
 )
 async def test_a_builder_that_drifts_fails_the_response(api_client, seeded, monkeypatch, name, drift, route):
