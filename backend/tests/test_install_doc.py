@@ -109,3 +109,17 @@ def test_security_publishes_the_committed_windows_identity():
     setup = re.search(r'"(RoleBand-Setup-)\$\(\$env:TAG\.Substring\(1\)\)(\.exe)"', workflow)
     assert setup, "windows-release.yml no longer names the attached Setup in one string"
     assert f"{setup.group(1)}<version>{setup.group(2)}" in section
+
+
+def test_a_windows_release_attaches_only_files_a_person_or_an_app_reads():
+    """The attach step uploads the release folder (package, checksum, metadata,
+    signature) and Setup. The certificate stays in the repository: Setup carries it
+    compiled in, so a copy on the release page is a file nothing reads."""
+    workflow = (REPO / ".github" / "workflows" / "windows-release.yml").read_text(encoding="utf-8")
+    attach = workflow.split("      - name: attach\n", 1)[1].split("\n      - ", 1)[0]
+    files = re.search(r"^\s*\$files = (.+)$", attach, re.M)
+    assert files, "the attach step no longer gathers its uploads in one $files line"
+    assert "'release'" in files.group(1) and "$setup" in files.group(1)
+    assert ".cer" not in files.group(1), "a release attaches RoleBand.cer again"
+    setup = (REPO / "launcher" / "windows" / "RoleBand.Setup" / "RoleBand.Setup.csproj").read_text(encoding="utf-8")
+    assert 'EmbeddedResource Include="$(RoleBandCertificate)"' in setup, "Setup no longer carries the certificate"
