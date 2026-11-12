@@ -1,0 +1,14 @@
+{
+  "description": "An engine alert the Windows app shows as a notification. The app names the folder in the engine's environment; the engine writes one file per alert there (backend/tracker/osnotify.py), and the app takes, shows and deletes them (RoleBand.EngineHost/EngineAlerts.cs). backend/tests/test_osnotify.py and the native EngineAlertTests both read this file.",
+  "environment": "ROLEBAND_ALERTS_DIR",
+  "folder": "alerts",
+  "format": 1,
+  "max_bytes": 16384,
+  "example": {
+    "format": 1,
+    "title": "RoleBand",
+    "message": "The last scan failed. Your saved roles are unchanged.",
+    "subtitle": null,
+    "created_at": "2026-01-01T09:00:00+00:00"
+  }
+}
