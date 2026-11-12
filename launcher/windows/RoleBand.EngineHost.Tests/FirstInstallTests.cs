@@ -293,30 +293,37 @@ public sealed class FirstInstallTests
     }
 
     [TestMethod]
-    public async Task OneTryWhileAScannerHoldsThePackageLeavesIt()
+    public async Task ADownloadHeldPastThePatienceIsLeftWholeWithoutAnError()
     {
         var (setup, folder, package) = Downloaded();
+        var waits = new List<TimeSpan>();
         using (Scanning(package))
-            Assert.IsFalse(await DownloadFolder.RemoveAsync(folder, TimeSpan.Zero));
+            Assert.IsFalse(await DownloadFolder.RemoveAsync(folder, DownloadFolder.Patience, wait =>
+            {
+                waits.Add(wait);
+                return Task.CompletedTask;
+            }));
 
-        Assert.IsTrue(File.Exists(package), "a file nobody may delete is left whole, without an error");
+        Assert.IsTrue(File.Exists(package), "a file nobody may delete is left whole");
+        Assert.AreEqual(DownloadFolder.Patience, waits.Aggregate(TimeSpan.Zero, (sum, wait) => sum + wait), "tried for the whole patience");
         Directory.Delete(Path.GetDirectoryName(setup)!, recursive: true);
     }
 
     [TestMethod]
-    public async Task ADownloadAScannerLetsGoOfAMomentLaterIsStillRemoved()
+    public async Task ADownloadAScannerLetsGoOfBetweenTriesIsStillRemoved()
     {
         var (setup, folder, package) = Downloaded();
         var scanner = Scanning(package);
-        var release = Task.Run(async () =>
+        var waits = 0;
+
+        // The scanner lets go while removal waits after its first, failed try.
+        Assert.IsTrue(await DownloadFolder.RemoveAsync(folder, DownloadFolder.Patience, async _ =>
         {
-            await Task.Delay(TimeSpan.FromMilliseconds(600));
+            waits++;
             await scanner.DisposeAsync();
-        });
+        }));
 
-        Assert.IsTrue(await DownloadFolder.RemoveAsync(folder, DownloadFolder.Patience));
-        await release;
-
+        Assert.AreEqual(1, waits, "the first try failed and the second removed it");
         Assert.IsFalse(Directory.Exists(setup));
         Directory.Delete(Path.GetDirectoryName(setup)!);
     }

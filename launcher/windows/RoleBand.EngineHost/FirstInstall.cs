@@ -439,8 +439,10 @@ public static class DownloadFolder
     /// for up to <paramref name="patience"/>. It never throws: the folder is in the temporary folder, and what is left
     /// there is not worth an error.
     /// </summary>
-    public static async Task<bool> RemoveAsync(string folder, TimeSpan patience)
+    /// <param name="delay">Waits between tries; <see cref="Task.Delay(TimeSpan)"/> unless a test steps it.</param>
+    public static async Task<bool> RemoveAsync(string folder, TimeSpan patience, Func<TimeSpan, Task>? delay = null)
     {
+        delay ??= Task.Delay;
         var waited = TimeSpan.Zero;
         while (true)
         {
@@ -456,7 +458,7 @@ public static class DownloadFolder
             catch (Exception error) when (error is IOException or UnauthorizedAccessException)
             {
                 if (waited >= patience) return false;
-                await Task.Delay(Every);
+                await delay(Every);
                 waited += Every;
             }
         }

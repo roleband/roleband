@@ -138,22 +138,25 @@ internal sealed class Installer(NativeCopy copy, InstallRelease? release)
     private async Task InstallAsync()
     {
         var folder = Path.Combine(Path.GetTempPath(), Scratch, release!.Version);
-        bool installed;
+        Page? outcome;
         try
         {
             // However the attempt ended, its download is no use to the next one, which starts from the first byte.
-            installed = await DownloadFolder.UsingAsync(folder, () => AttemptAsync(release, folder));
+            outcome = await DownloadFolder.UsingAsync(folder, () => AttemptAsync(release, folder));
         }
         finally
         {
             Volatile.Write(ref busy, 0);
         }
-        // Closing ends Setup's process, so it waits until the download is removed.
-        if (installed) Window.Press(Close);
+        // The outcome shows only once the download is removed: closing ends Setup's process, and an outcome's own Close
+        // or Retry must not meet a removal still under way.
+        if (outcome is null) Window.Press(Close);
+        else Window.Navigate(outcome);
     }
 
-    /// <summary>One attempt to download, check and install the release; true when RoleBand is installed and opened.</summary>
-    private async Task<bool> AttemptAsync(InstallRelease target, string folder)
+    /// <summary>One attempt to download, check and install the release: null when RoleBand is installed and opened,
+    /// otherwise the page that says how the attempt ended.</summary>
+    private async Task<Page?> AttemptAsync(InstallRelease target, string folder)
     {
         // No cookies: a release host that sets one never gets it back, so a request says no more than SECURITY.md lists.
         using var handler = new SocketsHttpHandler { AllowAutoRedirect = false, UseCookies = false };
@@ -169,8 +172,7 @@ internal sealed class Installer(NativeCopy copy, InstallRelease? release)
             Window.Navigate(new Page(copy["windows-setup-approving"], null, PageIcon.App, [], Waiting: true));
             if (!await ApproveAsync())
             {
-                Window.Navigate(Stopped("windows-setup-not-approved", "windows-setup-not-approved-body", PageIcon.Warning, retry: true));
-                return false;
+                return Stopped("windows-setup-not-approved", "windows-setup-not-approved-body", PageIcon.Warning, retry: true);
             }
             string package;
             using (download = new CancellationTokenSource())
@@ -196,25 +198,23 @@ internal sealed class Installer(NativeCopy copy, InstallRelease? release)
             catch (Exception error) when (error is IOException or COMException)
             {
                 // Windows' own reason, in Windows' language.
-                Window.Navigate(new Page(copy["windows-setup-failed"], error.Message, PageIcon.Error, [new PageButton(Close, copy["menu-close"])]));
-                return false;
+                return new Page(copy["windows-setup-failed"], error.Message, PageIcon.Error, [new PageButton(Close, copy["menu-close"])]);
             }
             await InstalledRoleBand.OpenAsync(target);
-            return true;
+            return null;
         }
         catch (OperationCanceledException)
         {
-            Window.Navigate(Welcome());
+            return Welcome();
         }
         catch (NotTheRelease error)
         {
-            Window.Navigate(Stopped("windows-setup-failed", "windows-setup-not-genuine-body", PageIcon.Error, error.Message));
+            return Stopped("windows-setup-failed", "windows-setup-not-genuine-body", PageIcon.Error, error.Message);
         }
         catch (Exception error) when (error is HttpRequestException or IOException)
         {
-            Window.Navigate(DownloadFailed(error.Message));
+            return DownloadFailed(error.Message);
         }
-        return false;
     }
 
     /// <summary>"120 MB of 350 MB".</summary>
