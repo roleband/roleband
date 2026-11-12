@@ -97,6 +97,7 @@ public sealed class EngineAlertTests
         Leave("4.json", Example(record => record["created_at"] = (Now - EngineAlerts.MaxAge - TimeSpan.FromMinutes(1)).ToString("o")));
         Leave("5.json", Example(record => record["created_at"] = "yesterday"));
         File.WriteAllText(Path.Combine(folder, "6.json"), "not json");
+        File.WriteAllText(Path.Combine(folder, "6a.json"), Example().ToJsonString().Replace("\"RoleBand\"", "\"\\uD800\""));
         File.WriteAllText(Path.Combine(folder, "7.json"), new string(' ', 20_000) + Example().ToJsonString());
         Leave("8.json", Example(record => record["created_at"] = (Now - EngineAlerts.MaxAge + TimeSpan.FromMinutes(1)).ToString("o")));
 

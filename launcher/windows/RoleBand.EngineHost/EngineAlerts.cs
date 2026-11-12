@@ -106,8 +106,20 @@ public static class EngineAlerts
         }
     }
 
-    private static string? Text(JsonElement root, string name) =>
-        root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+    /// <summary>A string field, or null when it is missing, not a string, or not text: JSON accepts a lone surrogate
+    /// escape such as <c>\uD800</c>, which only fails when the string is read.</summary>
+    private static string? Text(JsonElement root, string name)
+    {
+        if (!root.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.String) return null;
+        try
+        {
+            return value.GetString();
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+    }
 
     /// <summary>The notification Windows shows for an alert: its title, then the subtitle when there is one, then the
     /// message, each as text Windows never reads as markup.</summary>
