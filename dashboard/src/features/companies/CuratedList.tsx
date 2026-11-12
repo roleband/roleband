@@ -1,6 +1,7 @@
 import { wordsLanguage } from "../../copy/runtime";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-import { Button, Dialog, Icon, Switch, type IconName } from "../../ui";
+import type { CompanyDiscoveryCompany } from "../../api";
+import { Button, Dialog, Icon, SearchField, Switch, type IconName } from "../../ui";
 import { useCompanies } from "./CompaniesData";
 import { followCopy, type ConsentFact, type FollowCopy } from "./followCopy";
 // The dialog form these confirmations wear (`.ledger-form`, `.ledger-confirm`)
@@ -9,6 +10,14 @@ import "../../design/materials/register-material.css";
 import "./CuratedList.css";
 import {
   companiesCuratedListConfirm,
+  companiesFollowCopyCompaniesToUnfollow,
+  companiesFollowCopyCountToUnfollow,
+  companiesFollowCopyFindACompany,
+  companiesFollowCopyKeepFollowingCount,
+  companiesFollowCopySelectAll,
+  companiesFollowCopyUnfollow,
+  companiesFollowCopyWhichToUnfollow,
+  companiesSetupBack,
 } from "../../copy/gen/companies";
 
 /* The follow confirmations.
@@ -52,6 +61,7 @@ export function ConfirmBody({
   safeRef,
   onSafe,
   onAct,
+  onChoose,
   busy = false,
 }: {
   copy: FollowCopy;
@@ -60,6 +70,8 @@ export function ConfirmBody({
   safeRef: RefObject<HTMLButtonElement | null>;
   onSafe: () => void;
   onAct: () => void;
+  /** Opens the step that picks companies one by one (`copy.choose`). */
+  onChoose?: () => void;
   /** The answer's request is in flight: a second press would send it twice. */
   busy?: boolean;
 }) {
@@ -84,12 +96,111 @@ export function ConfirmBody({
         </Switch>
       )}
       {copy.note && <p className="ledger-confirm-zone ledger-confirm-note">{keepTogether(copy.note)}</p>}
+      {copy.choose && onChoose && (
+        <p className="ledger-confirm-zone ledger-confirm-note">
+          <Button variant="link" onClick={onChoose}>{copy.choose}</Button>
+        </p>
+      )}
       <div className="ledger-form-actions">
         <Button ref={safeRef} onClick={onSafe}>
           {copy.safe}
         </Button>
         <Button variant="primary" onClick={onAct} disabled={busy}>
           {copy.act}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** "Let me choose": the same question, answered company by company. Only the
+ *  task is on screen: which companies to unfollow. The agreement and the Keep
+ *  scanning choice were read on the step before, and the answer records them
+ *  in that step's words. Back takes focus, as the safe answer does there. */
+function ChooseStep({
+  companies,
+  ticked,
+  onTicked,
+  backRef,
+  onBack,
+  onAct,
+}: {
+  /** In name order, fixed when the question was asked. */
+  companies: CompanyDiscoveryCompany[];
+  ticked: ReadonlySet<string>;
+  onTicked: (ticked: Set<string>) => void;
+  backRef: RefObject<HTMLButtonElement | null>;
+  onBack: () => void;
+  onAct: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const needle = query.trim().toLocaleLowerCase();
+  const shown = needle
+    ? companies.filter((company) =>
+        company.display.toLocaleLowerCase().includes(needle)
+        || company.aliases.some((alias) => alias.toLocaleLowerCase().includes(needle)))
+    : companies;
+  const allShown = shown.length > 0 && shown.every((company) => ticked.has(company.slug));
+  const total = companies.length;
+  const count = ticked.size;
+
+  const tick = (slug: string, on: boolean) => {
+    const next = new Set(ticked);
+    if (on) next.add(slug);
+    else next.delete(slug);
+    onTicked(next);
+  };
+  // Acts on the rows a search leaves, so a search then Select all ticks
+  // exactly what is on screen.
+  const tickShown = () => {
+    const next = new Set(ticked);
+    for (const company of shown) {
+      if (allShown) next.delete(company.slug);
+      else next.add(company.slug);
+    }
+    onTicked(next);
+  };
+
+  return (
+    <div className="ledger-form ledger-confirm ledger-follow ledger-choose">
+      <h3>{companiesFollowCopyWhichToUnfollow()}</h3>
+      <div className="ledger-choose-tools">
+        <SearchField
+          className="ledger-choose-search"
+          label={companiesFollowCopyFindACompany()}
+          placeholder={companiesFollowCopyFindACompany()}
+          value={query}
+          onChange={setQuery}
+        />
+        <Button variant="link" onClick={tickShown} disabled={shown.length === 0}>
+          {companiesFollowCopySelectAll({ state: allShown ? "all" : "some" })}
+        </Button>
+      </div>
+      <div className="ledger-choose-list" role="group" aria-label={companiesFollowCopyCompaniesToUnfollow()}>
+        {shown.map((company) => (
+          <label key={company.slug} className="ledger-choose-row">
+            <input
+              type="checkbox"
+              checked={ticked.has(company.slug)}
+              onChange={(event) => tick(company.slug, event.target.checked)}
+            />
+            <span>{company.display}</span>
+          </label>
+        ))}
+      </div>
+      <div className="ledger-form-actions">
+        {count > 0 && (
+          <p className="ledger-choose-count is-leading" role="status">
+            {companiesFollowCopyCountToUnfollow({ count })}
+          </p>
+        )}
+        <Button ref={backRef} onClick={onBack}>
+          {companiesSetupBack()}
+        </Button>
+        <Button variant="primary" onClick={onAct}>
+          {count === total
+            ? companiesFollowCopyUnfollow({ count })
+            : companiesFollowCopyKeepFollowingCount({ count: total - count })}
         </Button>
       </div>
     </div>
@@ -110,41 +221,71 @@ export function FollowConfirmDialog({
   };
   const pending = confirmation;
   const safeRef = useRef<HTMLButtonElement>(null);
+  const backRef = useRef<HTMLButtonElement>(null);
   // Ticked for every new question: regular scans are the default answer.
   const [keepScanning, setKeepScanning] = useState(true);
+  // "Let me choose" and its ticks; a new question starts on its first step
+  // with nothing ticked.
+  const [choosing, setChoosing] = useState(false);
+  const [unfollow, setUnfollow] = useState<Set<string>>(() => new Set());
 
   // The safe answer takes focus: Enter on a dialog that just opened must never
   // follow seventy companies — or consent to a wall. A child's effect runs
   // before the Overlay's, which keeps focus it finds already inside.
   useEffect(() => {
     setKeepScanning(true);
+    setChoosing(false);
+    setUnfollow(new Set());
     if (pending) safeRef.current?.focus();
   }, [pending]);
+
+  // Each step's safe answer takes focus as the step appears.
+  const stepShown = useRef(false);
+  useEffect(() => {
+    if (!stepShown.current) {
+      stepShown.current = true;
+      return;
+    }
+    (choosing ? backRef : safeRef).current?.focus();
+  }, [choosing]);
 
   // Rendered from the same words the consent records (followCopy.ts).
   const copy = pending ? followCopy(pending) : null;
   const shownLocale = wordsLanguage();
+  const choosingFrom = choosing && pending?.kind === "keep-following" ? pending.companies : null;
+  const answer = () => {
+    if (!copy) return;
+    confirmFollow({ copy, locale: shownLocale, keepScanning, ...(choosingFrom ? { unfollow } : {}) });
+    onAnswered?.(true);
+  };
 
   return (
     <Dialog
       isOpen={pending !== null}
       onClose={dismiss}
-      label={copy?.title ?? companiesCuratedListConfirm()}
+      label={choosingFrom ? companiesFollowCopyWhichToUnfollow() : copy?.title ?? companiesCuratedListConfirm()}
       width={440}
       closeOnScrim={false}
       className="app-overlay"
     >
-      {copy && (
+      {choosingFrom ? (
+        <ChooseStep
+          companies={choosingFrom}
+          ticked={unfollow}
+          onTicked={setUnfollow}
+          backRef={backRef}
+          onBack={() => setChoosing(false)}
+          onAct={answer}
+        />
+      ) : copy && (
         <ConfirmBody
           copy={copy}
           keepScanning={keepScanning}
           onKeepScanning={setKeepScanning}
           safeRef={safeRef}
           onSafe={dismiss}
-          onAct={() => {
-            confirmFollow({ copy, locale: shownLocale, keepScanning });
-            onAnswered?.(true);
-          }}
+          onAct={answer}
+          onChoose={() => setChoosing(true)}
         />
       )}
     </Dialog>

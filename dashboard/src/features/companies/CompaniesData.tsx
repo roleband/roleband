@@ -24,6 +24,7 @@ import type {
 } from "../../api";
 import { api } from "../../api";
 import { CURATED_LIST } from "../../copy/vocabulary";
+import { compare as compareWords } from "../../copy/format";
 import { awaitingConsent, consentsFor, type FollowAnswer, type FollowConfirmation } from "./followCopy";
 import { useSyncActions, useSyncStatus } from "../../context/SyncState";
 import type { AsyncResource } from "../../hooks/useAsyncResource";
@@ -67,6 +68,9 @@ import {
   companiesDataCouldnTUndoThatChange,
   companiesDataUndo,
   companiesDataUnfollowed,
+  companiesDataReviewDropped,
+  companiesDataReviewFailed,
+  companiesDataReviewKept,
   companiesDataCuratedFollowFailed,
   companiesDataCuratedFollowResult,
   companiesDataFollowFailed,
@@ -147,6 +151,9 @@ interface RosterWrite {
    *  collect that needs one. The Undo carries none: the stored agreement
    *  covers a follow it puts back, and an Undo of a follow only removes one. */
   consents?: CompanyConsent[];
+  /** False when the write cannot be undone: following again a company never
+   *  agreed to is refused, and an agreement is never taken back. */
+  undo?: boolean;
 }
 
 /** What the directory search said about the current query. */
@@ -229,8 +236,9 @@ export interface CompaniesContextValue {
    *  their direction): not scanned on their own until the user answers their
    *  dialog. */
   awaitingConsent: CompanyDiscoveryCompany[];
-  /** Open a followed company's agreement dialog. */
-  reviewConsent: (company: CompanyDiscoveryCompany) => void;
+  /** Ask once about every followed company that waits for agreement, or,
+   *  given one, about that company alone. */
+  reviewConsent: (company?: CompanyDiscoveryCompany) => void;
   /** The bulk write waiting on an answer, if any. */
   confirmation: FollowConfirmation | null;
   confirmFollow: (shown: FollowAnswer) => void;
@@ -680,7 +688,7 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
   const commit = useCallback(
     (write: RosterWrite) => {
       if (!state) return Promise.resolve();
-      const { next, slugs, key, failure, describe, consents } = write;
+      const { next, slugs, key, failure, describe, consents, undo = true } = write;
       const previous = chosen;
       const request = selectionChange(next, slugs);
       // Optimistic at the CLICK, not at the write. The queue may hold this
@@ -704,19 +712,21 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
             text: waiting > 0
               ? `${describe(previous)} ${companiesDataReadsWaiting({ count: waiting })}`
               : describe(previous),
-            action: {
-              label: companiesDataUndo(),
-              // Through the ref: a verb whose own undo calls it cannot list
-              // itself as a dependency, and an unstable verb is what the
-              // memoized context value exists to avoid.
-              onClick: () => void commitRef.current({
-                next: previous,
-                slugs,
-                key,
-                failure: companiesDataCouldnTUndoThatChange(),
-                describe: () => companiesDataChangeUndone(),
-              }),
-            },
+            ...(undo ? {
+              action: {
+                label: companiesDataUndo(),
+                // Through the ref: a verb whose own undo calls it cannot list
+                // itself as a dependency, and an unstable verb is what the
+                // memoized context value exists to avoid.
+                onClick: () => void commitRef.current({
+                  next: previous,
+                  slugs,
+                  key,
+                  failure: companiesDataCouldnTUndoThatChange(),
+                  describe: () => companiesDataChangeUndone(),
+                }),
+              },
+            } : {}),
           });
         } catch (caught) {
           // These rows go back to what the server holds; a later click on
@@ -752,6 +762,14 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
     });
   }, [chosen, commit]);
 
+  const tracked = useMemo(
+    () => (state ? state.companies.filter((company) => chosen.has(company.slug)) : []),
+    [state, chosen],
+  );
+
+  /** Followed and never agreed to: kept on the roster, not scanned on its own. */
+  const awaitingConsentList = useMemo(() => awaitingConsent(tracked), [tracked]);
+
   const [confirmation, setConfirmation] = useState<FollowConfirmation | null>(null);
 
   /** A company the user never agreed to (walled, or scanned only at their
@@ -773,10 +791,15 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
   }, [chosen, writeCompany]);
 
   /** A followed company with no stored agreement is not scanned on its own
-   *  until its user answers the same dialog a new follow gets. */
-  const reviewConsent = useCallback((company: CompanyDiscoveryCompany) => {
-    setConfirmation({ kind: "agree-follow", company });
-  }, []);
+   *  until its user answers. One question covers every such company, in name
+   *  order, fixed when it is asked: one that starts waiting meanwhile waits
+   *  for the next question. */
+  const reviewConsent = useCallback((company?: CompanyDiscoveryCompany) => {
+    const companies = company
+      ? [company]
+      : [...awaitingConsentList].sort((a, b) => compareWords(a.display, b.display));
+    if (companies.length > 0) setConfirmation({ kind: "keep-following", companies });
+  }, [awaitingConsentList]);
 
   /** Select-all covers exactly `group.bulk` — this sector's on-screen rows that
    *  the roster will accept. One write. */
@@ -924,6 +947,34 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
     }
     if (pending.kind === "directory") {
       void writeDirectory(true);
+      return;
+    }
+    if (pending.kind === "keep-following") {
+      // One write: the agreements for the companies kept and the unfollows
+      // for the ones ticked, so a failure leaves every one of them waiting.
+      const dropped = pending.companies.filter((company) => shown.unfollow?.has(company.slug));
+      const kept = pending.companies.length - dropped.length;
+      // Named both ways, not read from `chosen`: a kept company is followed
+      // by this write even if another write let it go meanwhile, since the
+      // server refuses an agreement for a company the selection drops.
+      const next = new Set(chosen);
+      for (const company of pending.companies) next.add(company.slug);
+      for (const company of dropped) next.delete(company.slug);
+      void commit({
+        next,
+        slugs: pending.companies.map((company) => company.slug),
+        consents,
+        key: "roster:review",
+        failure: companiesDataReviewFailed(),
+        // A question about one company names it, as its row's follow does.
+        describe: () => [
+          ...(kept > 0 && pending.companies.length < 2
+            ? [companiesDataFollowed({ coverage: "covered", company: pending.companies[0].display })]
+            : kept > 0 ? [companiesDataReviewKept({ count: kept })] : []),
+          ...(dropped.length > 0 ? [companiesDataReviewDropped({ count: dropped.length })] : []),
+        ].join(" "),
+        undo: false,
+      });
       return;
     }
     // "everything" is the list's Follow all and the set's, answered once. Both
@@ -1112,15 +1163,7 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
     [writeExclusive, resource, counts, toast, clearFailure],
   );
 
-  const tracked = useMemo(
-    () => (state ? state.companies.filter((company) => chosen.has(company.slug)) : []),
-    [state, chosen],
-  );
-
   const alerts = useMemo<CompanyAlert[]>(() => buildAlerts(tracked), [tracked]);
-
-  /** Followed and never agreed to: kept on the roster, not scanned on its own. */
-  const awaitingConsentList = useMemo(() => awaitingConsent(tracked), [tracked]);
 
   const summary = useMemo(
     () => trackedSummary({ tracked, openRoles, countsReady: Boolean(counts.data) }),

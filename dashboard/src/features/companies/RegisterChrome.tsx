@@ -65,16 +65,15 @@ export function AttentionStrip() {
             {companiesRegisterChromeFollowedCompaniesWaitForYour({ count: awaitingConsent.length })}
           </b>
           <span>{companiesRegisterChromeRolebandDoesnTScanThem({ count: awaitingConsent.length })}</span>
-          {awaitingConsent.map((company) => (
-            <Button
-              key={company.slug}
-              size="sm"
-              className="ui-btn-strong ledger-attention-act"
-              onClick={() => reviewConsent(company)}
-            >
-              <Msg of={companiesRegisterChromeReview} elems={{ display: company.display }} />
-            </Button>
-          ))}
+          {/* One question for all of them, however many: the dialog lets
+              the reader pick any to unfollow. */}
+          <Button
+            size="sm"
+            className="ui-btn-strong ledger-attention-act"
+            onClick={() => reviewConsent()}
+          >
+            {companiesRegisterChromeReview()}
+          </Button>
         </p>
       )}
       {failedSources.length > 0 && (

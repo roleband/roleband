@@ -960,8 +960,9 @@ and a fixed decision console (`DecisionConsole.tsx`) answering `d`, `t` and
 
 Insights (`features/statistics/`) opens in its basic view: the Overview,
 Hiring, Compensation and Skills tabs, each with the panels a weekly reader
-needs (the window's motion and top skills, who hires and where, the median pay
-and its middle half by level, company and discipline). The Advanced view switch
+needs (the window's motion and top skills, who hires and where, posted pay at
+the person's level, and the estimate by level, company and discipline). The
+Advanced view switch
 in the page header adds the other three tabs (Pace, Levels and Stock) and every
 other panel; a tab passes `advanced` down to the panels the basic view leaves
 out. Insights lists no roles: each company on Hiring, a chart bar or a row of
@@ -974,6 +975,20 @@ those places matches, and so do the daily rollups written for later views:
 skills named, pay estimates and posted pay. Compensation shows the roles open
 now and draws no pay over time: the daily pay rollups keep building, and a
 chart over them waits until there is enough history to compare like with like.
+
+Compensation leads with posted base salary for one country and level
+([pay.md](pay.md#posted-pay-on-insights)): the typical range as its figure,
+the middle half and the share of checked roles posting a range as its tiles,
+and a Country and a Level picker kept in the link (`?country=&level=`). It
+opens on the US and the person's first level with a figure; a level picked
+stays picked in another country, which then says it has no range there. A
+level below the minimums shows its counts and what a figure needs, never a
+figure. A panel lists every level of the country with its typical range, the
+person's levels tagged, and the roles with no placed level said once below
+the levels. The estimate panels follow, each labelled an estimate of US pay.
+The advanced view adds every posted range of the country (`PayBands.tsx`, in
+its currency, uncapped, with an employer picker), who states pay by level, and
+the base-only estimates.
 
 The window switch shows only on the tabs whose figures it moves (Overview and
 Pace), and offers only the windows the history covers: a scope's history starts

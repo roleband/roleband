@@ -77,12 +77,23 @@
   font-size: var(--app-type-name);
 }
 
+/* A row of the strip, not prose: the full width, so its action sits at the
+ * right edge. Beats Settings' reading measure, `.settings-content p` (0-1-1). */
+.ledger-attention > .ledger-attention-row {
+  max-width: none;
+  /* On a phone the action drops to its own line rather than past the edge. */
+  flex-wrap: wrap;
+}
+
 .ledger-attention-row > svg {
   align-self: center;
   color: var(--app-warning);
 }
 
 .ledger-attention-row b {
+  /* Never wider than the line beside its icon, so a long label wraps inside
+   * itself instead of leaving the icon alone on a line. */
+  max-width: calc(100% - 16px - var(--app-space-2));
   font-weight: var(--app-weight-name);
 }
 

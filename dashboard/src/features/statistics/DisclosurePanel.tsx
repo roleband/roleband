@@ -27,7 +27,7 @@ import { Msg } from "../../ui/Msg";
 
 /**
  * Pay transparency: the disclosure RATE, by company or level. Sits beside the
- * published-bands chart, which shows what employers print but never how many of
+ * posted-ranges chart, which shows what employers print but never how many of
  * them print anything.
  *
  * The denominator is stated everywhere it is used. `open - checked` roles are
@@ -51,8 +51,15 @@ function BacklogNote({ open, checked }: { open: number; checked: number }) {
   );
 }
 
-export function DisclosureRatePanel({ rates }: { rates: DisclosureRates }) {
-  const [group, setGroup] = useState<"company" | "level">("company");
+export function DisclosureRatePanel({
+  rates,
+  initialGroup = "company",
+}: {
+  rates: DisclosureRates;
+  /** The grouping the panel opens on. */
+  initialGroup?: "company" | "level";
+}) {
+  const [group, setGroup] = useState<"company" | "level">(initialGroup);
   const rows = useMemo(() => disclosureRateRows(rates, group), [rates, group]);
   const unrated = unratedCount(rates, group);
   const option = useMemo(() => buildDisclosureRateOption(rows), [rows]);

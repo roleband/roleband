@@ -1,6 +1,6 @@
 """Pure-logic tests for the pay-disclosure RATE and its daily snapshot grain (no DB).
 
-The rate answers a different question from `build_disclosed_bands` and gets its
+The rate answers a different question from `build_posted_pay` and gets its
 denominator from a different place, so the two things this suite exists to stop
 are: (1) counting roles the extraction pass has not read yet as employer silence,
 which would make the rate track our own backlog; (2) letting the basis rules that
@@ -12,9 +12,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from tracker.analytics.comp_stats import (
-    build_disclosed_bands,
     build_disclosure_rates,
     build_disclosure_snapshot_rows,
+    build_posted_pay,
 )
 
 READ = datetime(2026, 7, 20, tzinfo=UTC)  # structured_at: the pass has read this role
@@ -25,6 +25,11 @@ def _role(company, band, *, checked=READ, lo=None, hi=None, basis=None, currency
     """One (company, level_band, structured_at, base_min, base_max, pay_basis,
     currency, pay_period) row: the rate reads the first six columns."""
     return (company, band, checked, lo, hi, basis, currency, period)
+
+
+def _posted_rows(rows):
+    """The same roles as `build_posted_pay` rows, every one in a US place."""
+    return [(c, b, "stated", lo, hi, basis, cur, per, ["silicon_valley"]) for c, b, _chk, lo, hi, basis, cur, per in rows]
 
 
 def _company(rates, name):
@@ -95,12 +100,10 @@ def test_rate_counts_every_basis_while_bands_keep_only_base():
     assert rates["overall"]["rate"] == 1.0
     assert rates["overall"]["disclosed"] == 3
 
-    band_rows = [(c, b, lo, hi, basis, "USD", "year") for c, b, _chk, lo, hi, basis, *_ in rows]
-    bands = build_disclosed_bands(band_rows)
-    assert len(bands["bands"]) == 1
-    assert bands["excluded"] == {
-        "unclear": 1, "total": 1, "not_usd": 0, "not_yearly": 0, "implausible": 0,
-    }
+    posted = build_posted_pay(_posted_rows(rows))
+    [us] = posted["countries"]
+    assert [b["company"] for b in us["bands"]] == ["google"]
+    assert posted["excluded"]["not_base"] == 2
 
 
 def test_a_stated_band_with_no_basis_still_counts_as_disclosed():
@@ -148,9 +151,12 @@ def test_a_band_in_another_currency_or_period_discloses_but_never_enters_the_dol
     }
     assert build_disclosure_rates(rows)["overall"]["disclosed"] == 4
 
-    bands = build_disclosed_bands([(c, b, lo, hi, basis, cur, per) for c, b, _chk, lo, hi, basis, cur, per in rows])
-    assert [b["company"] for b in bands["bands"]] == ["google"]
-    assert (bands["excluded"]["not_usd"], bands["excluded"]["not_yearly"]) == (2, 1)
+    # Posted pay reads the same roles in their own currency: the pound and
+    # rupee ranges are counted apart from the US dollar figure, never converted.
+    posted = build_posted_pay(_posted_rows(rows))
+    [us] = posted["countries"]
+    assert (us["currency"], [b["company"] for b in us["bands"]], us["other_currency"]) == ("USD", ["google"], 2)
+    assert posted["excluded"]["not_yearly"] == 1
 
 
 def test_a_one_sided_band_discloses_but_spans_nothing():

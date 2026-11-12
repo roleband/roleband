@@ -172,6 +172,18 @@ importing configuration. Its supervisor owns PostgreSQL outside cancellable jobs
 and shuts down through a parent-only pipe. These boundaries are owned by
 [the native host decision](decisions/0004-windows-native-engine-host.md).
 
+The engine's desktop alerts (`tracker/osnotify.py`: a failed scan, a health
+condition that starts firing, a finished re-ranking) reach the screen through the
+app. On macOS the engine posts them itself. On Windows the app names a folder in
+the engine's environment (`ROLEBAND_ALERTS_DIR`, `alerts` in the state folder);
+each engine process writes one JSON file there per alert, whole and in order, and
+the app takes them on its own one-second clock, deletes them and shows each as a
+Windows notification under the package's identity. Alerts reach the app this way
+even while the API does not answer, which is one thing they report. An engine no
+app started has no folder and shows nothing; at most 20 alerts wait, and the app
+drops one older than an hour and shows at most three from one look. Both sides
+read `launcher/windows/contracts/engine-alerts.json`.
+
 `launcher/windows/Tools/assemble.py` builds a bundle from one clean commit: it
 refuses local changes, builds the dashboard itself and records the revision, so
 every bundled byte traces to that commit. A pinned standalone Python and hashed
@@ -224,8 +236,13 @@ before 11, a start as another administrator account or a Store-only policy; star
 again through the administrator prompt only to add that certificate to Local Machine >
 Trusted People; downloads its release's package from the feed, checks its size, SHA-256,
 manifest and Windows' verdict on its signer (`FirstInstall.cs` in the host library); and
-installs it for the person who started it. The checks are tested in
-`RoleBand.EngineHost.Tests/FirstInstallTests.cs`; the window is Windows' task dialog.
+installs it for the person who started it. Each attempt downloads into
+`RoleBand-Setup\<version>` in the temporary folder and removes it, and Setup's folder
+when nothing else is in it, before the attempt's outcome is known: Setup ends its process
+as soon as an install succeeds, so a removal still under way then would be cut off. A file
+another program holds without sharing deletion is tried again for ten seconds. The checks
+are tested in `RoleBand.EngineHost.Tests/FirstInstallTests.cs`; the window is Windows'
+task dialog.
 
 A rehearsal tries a release's install and update on one machine before the first
 real release: `identity.py generate --rehearsal` makes an identity for
