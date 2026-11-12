@@ -589,16 +589,16 @@ def build_job_package(
         package["reconciliation"] = _reconcile(row, split_source, hi)
 
     bonus_r, equity_r = _ratios(row, company, band)
-    stated_pct = disclosed.get("bonus_pct")
-    # The posting's own "+ 25% bonus target" beats our modelled ratio: it is stated.
-    bonus_prov = PROV_STATED if stated_pct else PROV_ESTIMATED
-    if stated_pct:
-        bonus_r = float(stated_pct)
+    raw_pct = disclosed.get("bonus_pct")
+    stated_pct = float(raw_pct) if raw_pct is not None else None
+    # The posting's own "+ 25% bonus target" beats our modelled ratio: it is
+    # stated, and so is a stated zero.
+    bonus_prov = PROV_STATED if stated_pct is not None else PROV_ESTIMATED
+    if stated_pct is not None:
+        bonus_r = stated_pct
 
     bonus_lo, bonus_hi = lo * bonus_r, hi * bonus_r
-    equity_lo, equity_hi, equity_basis = _equity(
-        row, company, band, lo, hi, float(stated_pct) if stated_pct else None
-    )
+    equity_lo, equity_hi, equity_basis = _equity(row, company, band, lo, hi, stated_pct)
     package["equity_basis"] = equity_basis
 
     components = [

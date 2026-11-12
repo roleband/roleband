@@ -466,6 +466,19 @@ def test_a_posting_s_stated_bonus_keeps_heuristic_equity_at_the_level_s_share():
     assert _equity_share(pkg) == (pytest.approx(0.52, abs=1e-3), pytest.approx(0.52, abs=1e-3))
 
 
+def test_a_posting_that_states_no_bonus_gets_none_whatever_the_company_rule():
+    """Microsoft's rule is a bonus; a posting that states 0% is the fact:
+    no bonus segment, and equity stays the level's share of base plus equity."""
+    pkg = build_job_package(
+        company="microsoft", band="principal", family="software_engineering",
+        comp_low=None, comp_median=None, comp_high=None, comp_provenance=None,
+        disclosed={**GOOGLE_BAND, "bonus_pct": 0.0}, baselines={},
+    )
+    assert "bonus" not in _kinds(pkg)
+    assert pkg["total"]["low"] == 240000 + _kinds(pkg)["equity"]["low"]
+    assert _equity_share(pkg) == (pytest.approx(0.52, abs=1e-3), pytest.approx(0.52, abs=1e-3))
+
+
 def test_openai_reads_the_same_heuristic_equity_as_a_peer_with_the_same_rules():
     assert _kinds(_heuristic("openai"))["equity"] == _kinds(_heuristic("anthropic"))["equity"]
 
