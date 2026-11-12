@@ -267,14 +267,21 @@ def build_posted_pay(
     `excluded` counts every role left out, across all countries; each
     country's own `excluded` counts the roles in that country only, so a
     note under one country's heading never counts another's roles.
+    `excluded["without_country"]` counts every role left out that names
+    several countries or none, whatever its reason: no country's note
+    counts it otherwise, so each says it.
     """
-    excluded = {"not_base": 0, "not_yearly": 0, "implausible": 0, "no_country": 0, "placed_by_pay": 0}
+    excluded = {
+        "not_base": 0, "not_yearly": 0, "implausible": 0, "no_country": 0, "placed_by_pay": 0, "without_country": 0,
+    }
     by_country: dict[str, dict[str, int]] = {}
     cells: dict[str, dict[str, list[tuple[str, str, int, int]]]] = {}
 
     def leave_out(reason: str, country: str | None) -> None:
         excluded[reason] += 1
-        if country is not None:
+        if country is None:
+            excluded["without_country"] += 1
+        else:
             own = by_country.setdefault(country, _country_exclusions())
             own[reason] += 1
 
@@ -295,6 +302,7 @@ def build_posted_pay(
         lo, hi = int(lo), int(hi)
         if country is None:
             excluded["no_country"] += 1
+            excluded["without_country"] += 1
             continue
         if basis == LevelBasis.PAY_GRADE.value:
             leave_out("placed_by_pay", country)

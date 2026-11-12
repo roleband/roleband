@@ -225,6 +225,9 @@ class PostedExclusions(Built):
     no_country: int
     #: The role's level was read from this range.
     placed_by_pay: int
+    #: Every role above that names several countries or none, whatever its
+    #: reason, `no_country` included: no country's own counts hold it.
+    without_country: int
 
 
 class PostedPay(Built):

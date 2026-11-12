@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DisclosedBand, PostedLevel, PostedPay } from "../../../api";
+import type { DisclosedBand, PostedLevel } from "../../../api";
 import { msg } from "../../../test/msg";
 import { bandEmployers, bandScale, bandsByLevel, exclusionNote, levelSummary } from "./compBands";
 
@@ -102,7 +102,7 @@ describe("bandEmployers", () => {
   });
 });
 
-const none: PostedPay["excluded"] = { not_base: 0, not_yearly: 0, implausible: 0, no_country: 0, placed_by_pay: 0 };
+const none: Parameters<typeof exclusionNote>[0] = { not_base: 0, not_yearly: 0, implausible: 0, no_country: 0, placed_by_pay: 0 };
 
 describe("exclusionNote", () => {
   it("says every reason a role is left out, one sentence each, singular for one", () => {

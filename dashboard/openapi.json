@@ -15710,6 +15710,10 @@
      "placed_by_pay": {
       "title": "Placed By Pay",
       "type": "integer"
+     },
+     "without_country": {
+      "title": "Without Country",
+      "type": "integer"
      }
     },
     "required": [
@@ -15717,7 +15721,8 @@
      "not_yearly",
      "implausible",
      "no_country",
-     "placed_by_pay"
+     "placed_by_pay",
+     "without_country"
     ],
     "title": "PostedExclusions",
     "type": "object"

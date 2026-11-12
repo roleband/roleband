@@ -90,7 +90,7 @@ const posted = (over: Partial<CompensationStats["posted"]> = {}): CompensationSt
   min_ranges: 8,
   default_country: "US",
   countries: [us, gb, se],
-  excluded: { not_base: 90, not_yearly: 3, implausible: 1, no_country: 4, placed_by_pay: 6 },
+  excluded: { not_base: 90, not_yearly: 3, implausible: 1, no_country: 4, placed_by_pay: 6, without_country: 5 },
   your_levels: ["principal", "director_plus"],
   ...over,
 });
@@ -384,7 +384,7 @@ describe("CompensationPanel", () => {
     // Every reason a role is left out is said, beside the chart.
     const about = screen.getByRole("button", { name: msg("insights-compensation-panel-about-published-salary-bands") });
     expect(about).toHaveAccessibleDescription(expect.stringContaining(msg("insights-comp-bands-placed-by-pay", { count: 6 })));
-    expect(about).toHaveAccessibleDescription(expect.stringContaining(msg("insights-comp-bands-no-country", { count: 4 })));
+    expect(about).toHaveAccessibleDescription(expect.stringContaining(msg("insights-comp-bands-no-country", { count: 5 })));
   });
 
   it("draws every range, however many, in the chosen country's currency", async () => {
@@ -408,8 +408,9 @@ describe("CompensationPanel", () => {
     expect(within(panel).queryByRole("list", { name: msg("insights-pay-bands-published-base-salary-bands-by") })).toBeNull();
     const note = panel.querySelector(".hiring-note");
     expect(note).toHaveTextContent(msg("insights-comp-bands-not-yearly", { count: 1 }));
-    // Roles in no one country are no country's, so they are said here too.
-    expect(note).toHaveTextContent(msg("insights-comp-bands-no-country", { count: 4 }));
+    // Every role in no one country is no country's, so it is said here too:
+    // the four with base yearly pay and the one whose range is total pay.
+    expect(note).toHaveTextContent(msg("insights-comp-bands-no-country", { count: 5 }));
     // The US's and the UK's roles are never counted under Sweden.
     expect(note).not.toHaveTextContent(/total compensation or does not say/);
     expect(note).not.toHaveTextContent(/level read from/);

@@ -16,7 +16,7 @@ const country = (code: string, levels: PostedLevel[], over: Partial<PostedCountr
 
 const posted = (countries: PostedCountry[], over: Partial<PostedPay> = {}): PostedPay => ({
   min_employers: 5, min_ranges: 8, default_country: countries[0]?.country ?? null, countries,
-  excluded: { not_base: 0, not_yearly: 0, implausible: 0, no_country: 0, placed_by_pay: 0 },
+  excluded: { not_base: 0, not_yearly: 0, implausible: 0, no_country: 0, placed_by_pay: 0, without_country: 0 },
   your_levels: [], ...over,
 });
 

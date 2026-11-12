@@ -216,7 +216,9 @@ def test_what_is_not_base_or_not_salary_is_counted_under_its_reason():
         _posted("anthropic", lo=1, hi=2),  # a literal "$1-$2" placeholder
     ])
     assert [b["company"] for b in _country(out)["bands"]] == ["google"]
-    assert out["excluded"] == {"not_base": 2, "not_yearly": 0, "implausible": 1, "no_country": 0, "placed_by_pay": 0}
+    assert out["excluded"] == {
+        "not_base": 2, "not_yearly": 0, "implausible": 1, "no_country": 0, "placed_by_pay": 0, "without_country": 0,
+    }
 
 
 def test_an_entry_range_under_fifty_thousand_dollars_is_real_pay_in_and_outside_the_us():
@@ -255,7 +257,11 @@ def test_each_country_counts_only_its_own_roles_left_out():
     assert _country(out)["excluded"] == {**zero, "not_base": 1, "not_yearly": 1}
     assert _country(out, "GB")["excluded"] == {**zero, "not_yearly": 1}
     assert _country(out, "SE")["excluded"] == zero
-    assert out["excluded"] == {"not_base": 2, "not_yearly": 2, "implausible": 0, "no_country": 1, "placed_by_pay": 0}
+    # The total-pay role in two countries keeps its reason, and is one of
+    # the two roles no country's own counts hold.
+    assert out["excluded"] == {
+        "not_base": 2, "not_yearly": 2, "implausible": 0, "no_country": 1, "placed_by_pay": 0, "without_country": 2,
+    }
 
 
 def test_a_level_read_from_the_range_is_left_out_and_an_unplaced_level_is_counted_apart():

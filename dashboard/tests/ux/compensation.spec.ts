@@ -36,7 +36,7 @@ const postedFixture = (over: Record<string, unknown> = {}) => ({
   min_ranges: 8,
   default_country: "US",
   your_levels: ["principal", "director_plus"],
-  excluded: { not_base: 90, not_yearly: 3, implausible: 1, no_country: 4, placed_by_pay: 6 },
+  excluded: { not_base: 90, not_yearly: 3, implausible: 1, no_country: 4, placed_by_pay: 6, without_country: 5 },
   countries: [
     {
       country: "US", currency: "USD", ranges: 3, yours: true,

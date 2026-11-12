@@ -264,7 +264,7 @@ async def test_compensation_keeps_the_estimate_apart_from_printed_bands_over_the
     # The total and the unclear range are not base; the hourly one is pay, just
     # not yearly; only the placeholder is no salary.
     assert posted["excluded"] == {
-        "not_base": 2, "not_yearly": 1, "implausible": 1, "no_country": 0, "placed_by_pay": 0,
+        "not_base": 2, "not_yearly": 1, "implausible": 1, "no_country": 0, "placed_by_pay": 0, "without_country": 0,
     }
     assert list(posted) == _fields(contract.PostedPay)
     # The rate is denominated in roles the disclosure pass has read: `o-old` was never read.

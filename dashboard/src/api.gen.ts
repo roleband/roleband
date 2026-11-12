@@ -8374,6 +8374,8 @@ export interface components {
             not_yearly: number;
             /** Placed By Pay */
             placed_by_pay: number;
+            /** Without Country */
+            without_country: number;
         };
         /**
          * PostedLevel

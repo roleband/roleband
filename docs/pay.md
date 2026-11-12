@@ -396,7 +396,9 @@ Insights' Compensation tab opens on what employers post, not on the estimate
   counting it would describe pay by pay). A low salary is still a salary: no
   floor above the size classes applies. `excluded` counts across all
   countries; each country's own `excluded` counts its roles only, so the note
-  under a country's heading never counts another's. A role whose level we
+  under a country's heading never counts another's. Every role left out that
+  names several countries or none, whatever its reason, is counted again in
+  `without_country`, which each country's note says, as no country holds it. A role whose level we
   cannot place is counted apart in `not_placed`, never inside a level.
 - **The estimate stays apart.** The estimate panels (by level, company and
   discipline, and the base-only estimates) read only roles whose pay country
