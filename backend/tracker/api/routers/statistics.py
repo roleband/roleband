@@ -183,8 +183,8 @@ async def statistics_overview(
     now = datetime.now(UTC)
     history = await history_since(session, scope, hidden)
     since = window_since(history, days, now)
-    # The counters start where the figures say they do; before any whole read
-    # there is no history, and what a partial read found is no opening.
+    # The counters start where the figures say they do; before the history
+    # starts there is none, and what a read before it found is no opening.
     cutoff = since if history is not None else now
 
     open_total = await session.scalar(open_in_scope_count_stmt(hidden, *scope.conds()))
@@ -199,7 +199,7 @@ async def statistics_overview(
 
     # Pace's openings and roles that came down (`db.queries.motion`), so the
     # two tabs say one number.
-    postings = await motion.load(session, scope, hidden)
+    postings = await motion.load(session, scope, hidden, since=cutoff if days > 0 else None)
     opened = motion.openings(postings, cutoff)
     went = motion.came_down(postings, cutoff)
     new_count = sum(1 for o in opened if o.kind == "opened")
@@ -637,7 +637,7 @@ class VelocityCompany(BaseModel):
 class VelocityOut(BaseModel):
     days: int
     #: Where the figures start: the window's start, or the scope's history when
-    #: that is shorter (`queries.insights.window_since`). None before any whole read.
+    #: that is shorter (`queries.insights.window_since`). None before the history starts.
     since: datetime | None
     kpis: VelocityKpis
     aging: list[VelocityAgingBand]
@@ -665,11 +665,11 @@ async def statistics_velocity(
     now = datetime.now(UTC)
     history = await history_since(session, scope, hidden)
     since = window_since(history, days, now)
-    # The counters start where the figures say they do; before any whole read
-    # there is no history, and what a partial read found is no opening.
+    # The counters start where the figures say they do; before the history
+    # starts there is none, and what a read before it found is no opening.
     cutoff = since if history is not None else now
     open_total = await session.scalar(open_in_scope_count_stmt(hidden, *scope.conds()))
-    postings = await motion.load(session, scope, hidden)
+    postings = await motion.load(session, scope, hidden, since=cutoff if days > 0 else None, open_roles=True)
     ages = motion.open_ages(postings, now)
     opened = motion.openings(postings, cutoff)
     went = motion.came_down(postings, cutoff)
@@ -745,7 +745,10 @@ async def demand(session: SessionDep, hidden: OffBoardDep, scope: InsightsScopeD
         )
     ).all()
     new = dict(new_rows)
-    closed = motion.per_company(motion.came_down(await motion.load(session, scope, hidden), now - NEW_LISTING_WINDOW))
+    went_since = now - NEW_LISTING_WINDOW
+    closed = motion.per_company(
+        motion.came_down(await motion.load(session, scope, hidden, since=went_since), went_since)
+    )
     companies = sorted(
         (
             {

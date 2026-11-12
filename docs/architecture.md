@@ -736,9 +736,10 @@ migrations.
   closing (`closed_at`), as an opening counts at our first sighting; the first
   miss stays on the event. A role that came back is open, not come down. A
   window, and every count in it, starts no earlier than the scope's history:
-  the start of the first scan that saw a whole listing of one of its
-  companies (`db/queries/insights.history_since`), so a partial scan before it
-  adds no openings, and before any such scan nothing counts as opened. Hiring's
+  the start of the scan after which one of its companies was known, by the rule
+  that dates arrivals (`db/arrival.py`, `db/queries/insights.history_since`),
+  so a scan before it adds no openings, and before any such scan nothing counts
+  as opened. Hiring's
   closed count uses the New rule's period, so its new and closed numbers
   describe one stretch of time.
 - **Role ages.** Pace ages a role from its listing start over every posting it

@@ -40,8 +40,8 @@ export type OverviewSkill = Schemas["OverviewSkill"];
  *  the figures start, the window's start or the history's when that is shorter. */
 export type StatisticsOverview = Schemas["StatisticsOverviewResponse"];
 
-/** `GET /api/statistics/history`: when the scope's history starts (its first
- *  whole read) and how many whole days it covers. */
+/** `GET /api/statistics/history`: when the scope's history starts (the read
+ *  after which one of its companies was known) and how many whole days it covers. */
 export type InsightsHistory = Schemas["InsightsHistoryResponse"];
 
 /** One group of the imputed total-comp estimate: dollars at the ends, interpolated

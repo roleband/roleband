@@ -47,8 +47,6 @@ click==8.4.2
     # via
     #   import-linter
     #   uvicorn
-cloudpickle==3.1.2
-    # via joblib
 cryptography==50.0.2
     # via
     #   -r requirements.txt
@@ -115,8 +113,6 @@ import-linter==2.15
     # via -r requirements-dev.txt
 iniconfig==2.3.0
     # via pytest
-joblib==1.6.0
-    # via scikit-learn
 jsonschema==4.26.0
     # via mcp
 jsonschema-specifications==2025.9.1
@@ -141,14 +137,10 @@ mypy==2.4.1
     # via -r requirements-dev.txt
 mypy-extensions==1.1.0
     # via mypy
-narwhals==2.23.0
-    # via scikit-learn
 numpy==2.1.3
     # via
     #   -r requirements.txt
     #   onnxruntime
-    #   scikit-learn
-    #   scipy
 onnxruntime==1.31.0
     # via -r requirements.txt
 packageurl-python==0.17.6
@@ -258,10 +250,6 @@ rpds-py==2026.6.3
     #   referencing
 ruff==0.17.3
     # via -r requirements-dev.txt
-scikit-learn==1.9.0
-    # via -r requirements.txt
-scipy==1.18.0
-    # via scikit-learn
 selectolax==1.0.2
     # via -r requirements.txt
 setuptools==84.2.1
@@ -281,8 +269,6 @@ starlette==1.10.0
     #   fastapi
     #   mcp
     #   sse-starlette
-threadpoolctl==3.7.0
-    # via scikit-learn
 tokenizers==0.23.3
     # via -r requirements.txt
 tomli==2.5.0

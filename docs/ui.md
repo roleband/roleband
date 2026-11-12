@@ -996,8 +996,9 @@ left out and why, who states pay by level, and the base-only estimates.
 
 The window switch shows only on the tabs whose figures it moves (Overview and
 Pace), and offers only the windows the history covers: a scope's history starts
-with the first read that saw a whole listing of one of its companies
-(`GET /api/statistics/history`, `db/queries/insights.history_since`). A window
+with the read after which one of its companies was known, by the rule that dates
+a posting's arrival (`GET /api/statistics/history`,
+`db/queries/insights.history_since`). A window
 as long as the history or longer would show the figures of all time, so it is
 not offered, a saved link to it reads as all time, and with fewer windows than
 two the switch does not show. All time reads "since 3 Nov (8 days)", never as a

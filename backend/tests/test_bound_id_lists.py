@@ -38,11 +38,48 @@ READS = (
 )
 
 
-async def _seed(db_session, *, analyze: bool = True) -> None:
+#: Roles that opened and came down long before any window a read shows.
+HISTORY = 10 * MANY
+
+
+async def _history(db_session, now: datetime) -> None:
+    """HISTORY postings at `veteran`, read whole for over a year, each first
+    seen 200 to 365 days ago and closed 100 days later, with the events a
+    closing writes: every second one closed in the same read as the next."""
+    await record_whole_read(db_session, "veteran", now - timedelta(days=400))
+    db_session.add_all(
+        make_job(
+            f"history-{i}", company="veteran", status="closed", arrival="new",
+            first_seen=now - timedelta(days=365 - i // 2 % 165), last_seen=now - timedelta(days=266 - i // 2 % 165),
+            closed_at=now - timedelta(days=265 - i // 2 % 165),
+        )
+        for i in range(HISTORY)
+    )
+    await db_session.flush()
+    await db_session.execute(text("""
+        INSERT INTO job_lifecycle_events (job_id, event_type, detail, created_at)
+        SELECT id, 'opened', '{}'::jsonb, first_seen FROM jobs WHERE company = 'veteran'
+        UNION ALL
+        SELECT id, 'closed',
+               jsonb_build_object(
+                   'basis', 'absent_from_complete_listing', 'listed_with', '[]'::jsonb,
+                   'closed_with', jsonb_build_array(CASE WHEN n % 2 = 1 THEN after ELSE before END)),
+               closed_at
+        FROM (
+            SELECT id, closed_at, row_number() OVER w AS n, lead(id) OVER w AS after, lag(id) OVER w AS before
+            FROM jobs WHERE company = 'veteran' WINDOW w AS (ORDER BY id)
+        ) closings
+    """))
+
+
+async def _seed(db_session, *, analyze: bool = True, history: bool = True) -> None:
     """acme's first scan finds MANY roles its board was already listing; a later
     run finds one role listed at MANY + 1 places, a place set with MANY later
-    members."""
+    members. Before them, a year of HISTORY roles at another company opened
+    and came down, each closing with its note."""
     now = datetime.now(UTC)
+    if history:
+        await _history(db_session, now)
     first = ScrapeRun(started_at=now - timedelta(hours=4), status="ok")
     later = ScrapeRun(started_at=now - timedelta(hours=2), status="ok")
     db_session.add_all([make_company("acme", "Acme"), first, later])
@@ -118,6 +155,64 @@ async def test_pace_and_overview_keep_their_rules_at_volume(api_client, db_sessi
     assert kpis["age_unknown"] == MANY  # the first scan's undated finds
     overview = (await api_client.get("/api/statistics/overview?days=30")).json()["kpis"]
     assert (overview["new_count"], overview["already_listed_count"]) == (1, MANY)
+
+
+#: The reads whose window ends now and whose figures all fit in it. Overview
+#: and Pace with a window; Hiring's two days.
+WINDOWED_READS = (
+    "/api/statistics/overview?days=30",
+    "/api/statistics/velocity?days=30",
+    "/api/demand",
+)
+
+
+async def _postings_read(api_client, db_session) -> dict[str, int]:
+    """The posting rows each windowed read reads: every statement it sends,
+    run again under `EXPLAIN (ANALYZE)`."""
+    sent: dict[str, list[tuple[str, object]]] = {}
+    reading = [""]
+
+    def record(conn, cursor, statement, parameters, context, executemany):
+        if statement.lstrip().upper().startswith(("SELECT", "WITH")):
+            sent.setdefault(reading[0], []).append((statement, parameters))
+
+    engine = db_session.bind.sync_engine
+    event.listen(engine, "before_cursor_execute", record)
+    try:
+        for path in WINDOWED_READS:
+            reading[0] = path
+            response = await api_client.get(path)
+            assert response.status_code == 200, (path, response.text)
+    finally:
+        event.remove(engine, "before_cursor_execute", record)
+    assert set(sent) == set(WINDOWED_READS), "every read must reach the listener, or this proves nothing"
+
+    read: dict[str, int] = {}
+    connection = await db_session.connection()
+    for path, statements in sent.items():
+        for statement, parameters in statements:
+            plan = await connection.exec_driver_sql(f"EXPLAIN (ANALYZE, FORMAT JSON) {statement}", parameters)
+            read[path] = read.get(path, 0) + _rows_read(plan.scalar_one()[0]["Plan"]).get("jobs", 0)
+    await db_session.rollback()
+    return read
+
+
+@pytest.mark.asyncio
+async def test_a_windowed_read_never_reads_the_history_it_does_not_show(api_client, db_session):
+    """The same reads before and after a year of HISTORY roles that opened
+    and came down long before any window: a window's read reads the roles it
+    shows and the open ones, so the history adds next to nothing, and a read
+    does not grow with every month an install runs."""
+    await _seed(db_session, history=False)
+    without = await _postings_read(api_client, db_session)
+    await _history(db_session, datetime.now(UTC))
+    await db_session.commit()
+    await db_session.execute(text("ANALYZE jobs, job_lifecycle_events"))
+    with_history = await _postings_read(api_client, db_session)
+    grew = {path: with_history[path] - without[path] for path in WINDOWED_READS}
+    # A plan chosen on the new statistics may probe the open postings once
+    # more by id; a read of the history would add every one of its postings.
+    assert all(n < HISTORY // 4 for n in grew.values()), (grew, without)
 
 
 def _rows_read(plan: dict) -> dict[str, int]:

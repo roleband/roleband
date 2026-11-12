@@ -620,9 +620,13 @@ async def closing_role_notes(
     here, the answer travels with the closure. Ids rather than a verdict: a
     sibling that stays open may be outside the scope a count is read in, which
     only the reader knows. The read runs in a savepoint, so a failure leaves
-    the caller's transaction usable."""
+    the caller's transaction usable.
+
+    With place sets off there is no rule to ask: no note is written, so each
+    closing counts as its posting alone, as no stored set joins it either,
+    and a scan spends no read on it."""
     ids = set(job_ids)
-    if not ids:
+    if not ids or not get_settings().place_sets_enabled:
         return {}
     async with session.begin_nested():
         groups, _ = await place_set_groups(session, ids, companies={company})
