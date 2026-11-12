@@ -655,15 +655,43 @@ migrations.
   the header count, the New view, `JobRow.new_listing`, the Hiring tile, the
   demand pass and the digest. Arrival is stored rather than derived on read
   because the header count runs on every request, served by the partial index
-  `ix_jobs_open_listed_since`. Pace and Overview count openings by `first_seen`
-  in their window: a first read goes to the first-scan bucket, a repost or
-  duplicate to reposted. A role a wider scope admits counts at its first
+  `ix_jobs_open_listed_since`. A role a wider scope admits counts at its first
   sighting, never at the admission, so widening the scope adds no openings on
-  the day it widens. A window, and every count in it, starts no earlier than the scope's history:
-  the start of the first read that saw a whole listing of one of its companies
-  (`db/queries/insights.history_since`), so a partial read before it adds no
-  openings, and before any such read nothing counts as opened. Hiring's closed count uses the New
-  rule's period, so its new and closed numbers describe one stretch of time.
+  the day it widens.
+- **Opened and came down.** Overview, Pace and Hiring count both from one
+  module, `db/queries/motion.py`, which reads the scope's postings once per
+  request and joins them into roles: a place set once and a lineage once.
+  Stored place sets hold open postings only, so a closing records its role on
+  the `closed` event while the posting is still open
+  (`place_sets.closing_role_notes`, called by `repo.close_missing`): the ids
+  of the role's postings that stay open (`listed_with`) and of those closing
+  in the same read (`closed_with`). Ids rather than a verdict, because only the
+  reader knows the scope: the ids join only postings the scope holds, so a
+  sibling at a place out of scope keeps no in-scope role listed. A closing
+  without ids counts its posting as its own role, and the note is best effort:
+  a failed read closes the posting without one. Reading the note keeps the
+  place-set rule, which compares posting texts, off the request path. A role
+  first seen in a window, by its earliest posting, picked before the window
+  applies, **opened** when it was new when found, by the New rule asked at its
+  first sighting (a first scan's find opens only when its employer dated it
+  within the New window); any other original was **already listed**, and a
+  repost or duplicate is **reposted**. A role **came down** when every
+  in-scope posting of it is closed, counted when the scan confirmed its last
+  closing (`closed_at`), as an opening counts at our first sighting; the first
+  miss stays on the event. A role that came back is open, not come down. A
+  window, and every count in it, starts no earlier than the scope's history:
+  the start of the first scan that saw a whole listing of one of its
+  companies (`db/queries/insights.history_since`), so a partial scan before it
+  adds no openings, and before any such scan nothing counts as opened. Hiring's
+  closed count uses the New rule's period, so its new and closed numbers
+  describe one stretch of time.
+- **Role ages.** Pace ages a role from its listing start over every posting it
+  joins, the earliest `least(first_posted_at, first_seen)`, and its time posted
+  runs to its closing. A first scan's posting with no earlier employer date has
+  no knowable start; when it would be a role's earliest, the role's age is
+  unknown and is counted beside the bands and medians, never in them
+  (`analytics/age_basis.py`). A company's time posted needs 5 closed roles with
+  a known start.
 - **Runs.** `scrape_runs` holds a heartbeat, totals, `per_source` (each company's
   counts, errors and outcome) and `drift_alerts`, the audit surface for adapter
   failures and drift. `per_source` is written once, when the run ends; a run

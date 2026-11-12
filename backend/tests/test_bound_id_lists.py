@@ -13,7 +13,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from sqlalchemy import event
+from sqlalchemy import event, text
 
 from tests.factories import make_company, make_job, record_whole_read
 from tracker.analytics.demand import compute_demand_metrics
@@ -65,6 +65,10 @@ async def _seed(db_session) -> None:
         )
     db_session.add_all(JobPlaceSetMember(job_id=job.id, set_id=place_set.id, status="auto") for job in places)
     await db_session.commit()
+    # Statistics for the rows, as a database holding them has: an analyze that
+    # ran while an earlier test left the tables empty would plan these reads
+    # for one row each, and nested loops over this seed never finish.
+    await db_session.execute(text("ANALYZE jobs, job_place_set_member, job_place_set, job_lifecycle_events"))
 
 
 @pytest.mark.asyncio
@@ -101,11 +105,13 @@ async def test_no_read_binds_a_list_of_ids_that_grows_with_the_data(api_client, 
 @pytest.mark.asyncio
 async def test_pace_and_overview_keep_their_rules_at_volume(api_client, db_session):
     """The same seed through the rules themselves: the first scan's finds are
-    never openings, and the place set opens once and is open once."""
+    never openings and have no knowable age, and the place set opens once and
+    is open once."""
     await _seed(db_session)
     velocity = (await api_client.get("/api/statistics/velocity?days=30")).json()
     kpis = velocity["kpis"]
-    assert (kpis["opened"], kpis["first_scan"], kpis["open_total"]) == (1, MANY, MANY + 1)
-    assert sum(band["count"] for band in velocity["aging"]) == kpis["open_total"]
+    assert (kpis["opened"], kpis["already_listed"], kpis["open_total"]) == (1, MANY, MANY + 1)
+    assert sum(band["count"] for band in velocity["aging"]) + kpis["age_unknown"] == kpis["open_total"]
+    assert kpis["age_unknown"] == MANY  # the first scan's undated finds
     overview = (await api_client.get("/api/statistics/overview?days=30")).json()["kpis"]
-    assert (overview["new_count"], overview["first_scan_count"]) == (1, MANY)
+    assert (overview["new_count"], overview["already_listed_count"]) == (1, MANY)

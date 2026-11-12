@@ -24,7 +24,7 @@ const velocityFixture = {
   days: 30,
   since: null,
   kpis: {
-    open_total: 12, opened: 5, closed: 1, reposted: 0, first_scan: 0,
+    open_total: 12, opened: 5, closed: 1, reposted: 0, already_listed: 0, age_unknown: 2, closed_unknown: 0,
     median_days_open: 20, employer_dated_share: 0.5,
     median_observed_listing_duration_days: null, closed_sample: 1, closed_employer_dated_share: 1,
   },
@@ -62,18 +62,24 @@ test("a direct link to a sub-tab renders it selected, with the breadcrumb", asyn
   await expect(page.getByRole("banner", { name: msg("shell-topbar-aria") })).toContainText("Insights/Pace");
 });
 
-test("Pace's age bands name their clock and the share the employer dated", async ({ page, isMobile }) => {
+test("Pace's age bands name their clock and the unknown ages in one plain line", async ({ page, isMobile }) => {
   await page.goto("/statistics/velocity");
-  const ages = page.locator(".panel").filter({ has: page.getByRole("heading", { name: "Age of open roles" }) });
-  const note = ages.locator(".trends-note");
-  await expect(note).toHaveText("Counted from when each role was first listed · 50% dated by the employer");
-  // One line under the bands, like its neighbour's note, never wrapped to two.
+  const ages = page.locator(".panel").filter({
+    has: page.getByRole("heading", { name: msg("insights-velocity-panel-age-of-open-roles") }),
+  });
+  const note = ages.locator(".vel-basis");
+  // The info button's tip is in the line, read on hover or focus.
+  const line = `${msg("insights-velocity-panel-counted-from-first-listed")} ${msg("insights-velocity-panel-age-unknown", { count: "2" })}`;
+  await expect(note).toHaveText(new RegExp(`^${escape(line)}`));
+  await expect(note.getByRole("button", { name: msg("insights-velocity-panel-what-unknown-means") })).toBeVisible();
+  await expect(ages.locator("p")).toHaveCount(1);
+  // One line under the bands, never wrapped to two.
   // A phone's narrow panel wraps any sentence, so the check is desktop's.
   if (isMobile) return;
+  // Measured by the line's own height: the tip's hidden text sits elsewhere.
   expect(await note.evaluate((el) => {
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    return new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size;
+    const lineHeight = parseFloat(getComputedStyle(el).lineHeight);
+    return Math.round(el.getBoundingClientRect().height / lineHeight);
   })).toBe(1);
 });
 

@@ -74,7 +74,7 @@ insights-overview-panel-most-named-skills = 最常提到的技能
 insights-overview-panel-what-is-pulling-the-market = 需求最大的技能
 insights-overview-panel-the-skills-open-roles-name = 技能按提到它的在招职位数排序。
 insights-overview-panel-leads-roles = { $display } 领先 · { $job_count } 个职位
-insights-overview-panel-opened-closed = 新增 { $new_count } · 关闭 { $closed_count }
+insights-overview-panel-opened-closed = 新开放 { $new_count } · 关闭 { $closed_count }
 insights-overview-panel-about-the-demand-field = 关于此图表
 
 ## features/statistics/PayBands.tsx
@@ -462,20 +462,25 @@ insights-offer-show-table = 查看表格
 insights-velocity-panel-companies = 公司 · { $window }
 insights-velocity-panel-open = 在招
 insights-velocity-panel-time-posted = 发布时长
-insights-velocity-panel-from-the-first-scan-that = 招聘信息从首次发现到下线持续的天数。下线原因有多种：已招到、暂停或过期。
+insights-velocity-panel-from-the-first-scan-that = 从首次发布到关闭的天数。需要 5 个起始时间已知的已关闭职位。
 insights-velocity-panel-age-of-open-roles = 在招职位的发布时长
 insights-velocity-panel-how-long-postings-stay-up = 招聘信息在线多久
-insights-velocity-panel-this-builds-up-as-roles = 随着职位关闭逐渐完整。目前只有 { $closed_sample } 个已关闭。
+insights-velocity-panel-this-builds-up-as-roles = 有 5 个起始时间已知的已关闭职位后显示。目前有 { $closed_sample } 个。
 insights-velocity-panel-median-age = 发布时长中位数 { $median_days_open }
 insights-velocity-panel-median-time-posted = 在线时长中位数 { $median_observed_listing_duration_days }
-insights-velocity-panel-more-already-listed-when-their = 另有 { $first_scan } 个在公司首次扫描时已发布
+insights-velocity-panel-more-already-listed-when-found = { $already_listed } 个发现时已发布
 insights-velocity-panel-what-time-posted-measures = “发布时长”衡量的是什么
+insights-velocity-panel-age-unknown = 发布时长未知：{ $count }
+insights-velocity-panel-time-posted-unknown = 在线时长未知：{ $count }
+insights-velocity-panel-what-unknown-means = “未知”是什么意思
+insights-velocity-panel-why-a-start-is-unknown = 在公司首次扫描时发现，雇主未注明更早的日期。
+insights-velocity-panel-counted-from-first-listed = 自各职位首次发布起算。
+insights-velocity-panel-what-already-listed-means = “发现时已发布”是什么意思
+insights-velocity-panel-why-already-listed = 首次看到时已经发布：雇主注明的日期早于 2 天前，或在公司首次扫描时发现且没有最近 2 天内的日期。
 
 ## features/statistics/ageCopy.ts
 insights-age-copy-listed-today = 今天发布
 insights-age-copy-listed-for = 已发布 { $days }
-insights-age-copy-dated-by-the-employer = { $percent }% 由雇主注明日期
-insights-age-copy-counted-from-when-each-role = 自各职位首次发布起算 · { $dated }
 
 ## features/statistics/charts/StatisticsCharts.tsx
 insights-statistics-charts-skill-open-roles = { $job_count } 个在招职位 · { $category }
@@ -540,7 +545,7 @@ insights-overview-panel-loading = 正在加载概览…
 insights-overview-panel-load-failed = 无法加载概览
 
 ## features/statistics/VelocityPanel.tsx
-insights-velocity-panel-opened-count = 新增 { $opened }
+insights-velocity-panel-opened-count = 新开放 { $opened }
 insights-velocity-panel-open-count = 在招 { $open_total }
 insights-velocity-panel-loading = 正在加载招聘节奏…
 insights-velocity-panel-load-failed = 无法加载招聘节奏

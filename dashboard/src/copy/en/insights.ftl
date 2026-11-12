@@ -760,31 +760,44 @@ insights-velocity-panel-open = Open
 # kind=label wording=as-is
 insights-velocity-panel-time-posted = Time posted
 # kind=sentence
-insights-velocity-panel-from-the-first-scan-that = Days a posting stayed up, from first seen to gone. Postings close for several reasons: filled, paused or expired.
+insights-velocity-panel-from-the-first-scan-that = Days from first listed to closed. Needs 5 closed roles with a known start.
 # kind=heading wording=as-is
 insights-velocity-panel-age-of-open-roles = Age of open roles
 # kind=heading wording=as-is
 insights-velocity-panel-how-long-postings-stay-up = How long postings stay up
 # kind=sentence
-insights-velocity-panel-this-builds-up-as-roles = Fills in as roles close. Only { $closed_sample } have so far.
+insights-velocity-panel-this-builds-up-as-roles = { $closed_sample ->
+    [one] Fills in once 5 closed roles have a known start. 1 has so far.
+   *[other] Fills in once 5 closed roles have a known start. { $closed_sample } have so far.
+}
 # kind=label wording=as-is
 insights-velocity-panel-median-age = { $median_days_open } median age
 # kind=label wording=as-is
 insights-velocity-panel-median-time-posted = { $median_observed_listing_duration_days } median time posted
-# kind=label wording=as-is
-insights-velocity-panel-more-already-listed-when-their = { $first_scan } more already listed when their company was first scanned
+# kind=label
+insights-velocity-panel-more-already-listed-when-found = { $already_listed } found already listed
 # kind=aria note="The info button's screen-reader name, beside the Time posted chart"
 insights-velocity-panel-what-time-posted-measures = What “Time posted” measures
+# kind=label
+insights-velocity-panel-age-unknown = Age unknown: { $count }
+# kind=label
+insights-velocity-panel-time-posted-unknown = Time posted unknown: { $count }
+# kind=aria note="The info button's screen-reader name, beside the Age unknown and Time posted unknown lines"
+insights-velocity-panel-what-unknown-means = What “unknown” means
+# kind=sentence
+insights-velocity-panel-why-a-start-is-unknown = Found on a company's first scan, with no earlier date from the employer.
+# kind=sentence
+insights-velocity-panel-counted-from-first-listed = Counted from when each role was first listed.
+# kind=aria note="The info button's screen-reader name, after the found already listed count in Pace's summary line"
+insights-velocity-panel-what-already-listed-means = What “found already listed” means
+# kind=sentence
+insights-velocity-panel-why-already-listed = Already listed when first seen: dated more than 2 days earlier by the employer, or found on a company's first scan with no date in the last 2 days.
 
 ## features/statistics/ageCopy.ts
 # kind=label wording=as-is
 insights-age-copy-listed-today = Listed today
 # kind=label wording=as-is
 insights-age-copy-listed-for = Listed for { $days }
-# kind=label wording=as-is
-insights-age-copy-dated-by-the-employer = { $percent }% dated by the employer
-# kind=label wording=as-is
-insights-age-copy-counted-from-when-each-role = Counted from when each role was first listed · { $dated }
 
 ## features/statistics/charts/StatisticsCharts.tsx
 # kind=label wording=as-is note="A skill's tooltip: its open roles, then its category"
@@ -939,7 +952,7 @@ insights-common-open-roles = Open roles
 insights-common-open-roles-unit = open roles
 # kind=label wording=as-is
 insights-common-new = New
-# kind=label note="Roles that appeared while their company was being watched, in a period; never a company's first read"
+# kind=label note="Roles first seen in a period that were new when found; from a company's first scan, only those its employer dated in the last 2 days"
 insights-common-opened = Opened
 # kind=label wording=as-is
 insights-common-closed = Closed

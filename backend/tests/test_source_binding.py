@@ -19,6 +19,7 @@ import pytest
 
 from tracker.company_store import plan_binding_seeds
 from tracker.connectors.recipes.outcome import SourceOutcome
+from tracker.db import repo
 from tracker.db.binding import (
     ActivationDecision,
     ClosureScope,
@@ -27,6 +28,18 @@ from tracker.db.binding import (
 )
 from tracker.db.models import Job, JobLifecycleEvent, SourceBinding
 from tracker.db.repo import close_missing
+
+
+async def _no_role_notes(session, job_ids, *, company):
+    return {}
+
+
+@pytest.fixture
+def no_role_notes(monkeypatch):
+    """`close_missing` asks the place-set rule for each closing's role, a
+    database read this fake session cannot answer; the role notes have their
+    own tests against a real database (`test_insights_motion.py`)."""
+    monkeypatch.setattr(repo, "closing_role_notes", _no_role_notes)
 
 
 def make_binding(
@@ -176,7 +189,7 @@ def make_job(job_id: int, key: str) -> Job:
 
 
 @pytest.mark.asyncio
-async def test_close_missing_skips_jobs_outside_the_scope():
+async def test_close_missing_skips_jobs_outside_the_scope(no_role_notes):
     session = FakeSession()
     run = SimpleNamespace(id=7)
     existing = {"a": make_job(1, "a"), "b": make_job(2, "b"), "c": make_job(3, "c")}
@@ -211,7 +224,7 @@ async def test_close_missing_with_empty_scope_closes_nothing():
 
 
 @pytest.mark.asyncio
-async def test_close_missing_without_scope_preserves_legacy_behavior():
+async def test_close_missing_without_scope_preserves_legacy_behavior(no_role_notes):
     """`closable_job_ids=None` = pre-binding callers keep working unchanged."""
     session = FakeSession()
     existing = {"a": make_job(1, "a"), "b": make_job(2, "b")}

@@ -595,9 +595,65 @@ async def still_listed_elsewhere(
     and pairs are read and compared once; `companies` bounds the read to the
     companies the ids belong to, and defaults to exactly those.
     """
-    ids = sorted(set(job_ids))
+    ids = set(job_ids)
+    groups, by_id = await place_set_groups(session, ids, companies=companies, reads=reads)
+    found: dict[int, list[Posting]] = {}
+    for job_id, members in groups.items():
+        # Two asked postings in one group are not each other's elsewhere.
+        others = [m for m in members if m not in ids]
+        if others:
+            found[job_id] = [by_id[m] for m in others]
+    return found
+
+
+async def closing_role_notes(
+    session: AsyncSession, job_ids: Iterable[int], *, company: str
+) -> dict[int, dict]:
+    """What the place-set rule says about postings a read is about to close,
+    for their `closed` events: `listed_with`, the open postings of the same
+    role that stay, and `closed_with`, the other postings of the role closing
+    in this read. Asked while they are still open, so the other open postings
+    are exactly the ones that stay.
+
+    The stored sets lose a posting once it closes, and asking the rule again
+    when a count is read costs a read of every posting's text; asked once
+    here, the answer travels with the closure. Ids rather than a verdict: a
+    sibling that stays open may be outside the scope a count is read in, which
+    only the reader knows. The read runs in a savepoint, so a failure leaves
+    the caller's transaction usable."""
+    ids = set(job_ids)
     if not ids:
         return {}
+    async with session.begin_nested():
+        groups, _ = await place_set_groups(session, ids, companies={company})
+    notes: dict[int, dict] = {}
+    for job_id in ids:
+        members = groups.get(job_id, [job_id])
+        notes[job_id] = {
+            "listed_with": sorted(m for m in members if m not in ids),
+            "closed_with": sorted(m for m in members if m in ids and m != job_id),
+        }
+    return notes
+
+
+async def place_set_groups(
+    session: AsyncSession,
+    job_ids: Iterable[int],
+    *,
+    companies: set[str] | None = None,
+    reads: PlaceSetReads | None = None,
+) -> tuple[dict[int, list[int]], dict[int, Posting]]:
+    """For each asked posting, whatever its status, the members of the place
+    set the rule forms now from it, the other asked postings and the open
+    postings of its company (itself included, earliest first); postings in no
+    set are left out. With the postings read, by id.
+
+    The stored sets hold open postings only, so a question about a closed
+    posting's role (is it still listed, which closed postings were one role)
+    is answered here, by the rule the rebuild applies."""
+    ids = sorted(set(job_ids))
+    if not ids:
+        return {}, {}
     if companies is None:
         # A set never spans two companies: only the asked postings' own can
         # hold one of theirs.
@@ -635,14 +691,11 @@ async def still_listed_elsewhere(
         rejected=await _rejected_ids(session, candidates),
     )
     by_id = {p.id: p for p in postings}
-    found: dict[int, list[Posting]] = {}
+    groups: dict[int, list[int]] = {}
     for place_set in sets:
         for job_id in set(place_set.member_ids) & set(ids):
-            # Two closed postings in one group are not each other's elsewhere.
-            others = [m for m in place_set.member_ids if m not in ids]
-            if others:
-                found[job_id] = [by_id[m] for m in others]
-    return found
+            groups[job_id] = list(place_set.member_ids)
+    return groups, by_id
 
 
 async def _decided_pairs(session: AsyncSession, ids: list[int]) -> set[frozenset[int]]:
