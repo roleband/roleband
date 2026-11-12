@@ -17,12 +17,13 @@ change. The apps' standalone Python is pinned in `launcher/macos/runtime.json` a
 pin behind python.org's newest release of its series, and
 `backend/tests/test_runtime_python.py` checks the same against a copy of that list.
 The embedded PostgreSQL and its pgvector are pinned by the `pixeltable-pgserver` wheel
-and recorded in `backend/tracker/platform/pgcontrib/manifest.json`. The dependency
-audit cannot see them, because advisories name PostgreSQL, not the wheel.
+and recorded in `backend/tracker/platform/pgcontrib/manifest.json`; the manifest's one
+pgvector version, the Windows bundle's source, is tested equal to the wheel's own. The
+dependency audit cannot see them, because advisories name PostgreSQL, not the wheel.
 `backend/scripts/check_embedded_postgres.py` reports a Postgres behind postgresql.org's
-newest minor of its major (or a major past its end of life) and a pgvector behind the
-newest patch of its series, and names the newest wheel and the Postgres it builds, so the
-reader knows whether moving the wheel pin closes the gap.
+newest minor of its major (or a major no longer supported) and a pgvector behind the
+newest patch of its series. When a newer minor is out, it names the newest wheel and the
+Postgres it builds, so the reader knows whether moving the wheel pin closes the gap.
 `backend/tests/test_embedded_postgres_check.py` checks the verdicts against copies of
 those lists. The wheel's Postgres 18 install is not checked: RoleBand does not run it.
 

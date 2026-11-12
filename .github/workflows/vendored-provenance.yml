@@ -137,7 +137,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           case $code in
             0) echo "::notice::the embedded Postgres and pgvector are the newest releases of their series" ;;
-            1) echo "::warning::a newer Postgres or pgvector release is out - read the WHEEL line for the fix" ;;
+            1) echo "::warning::the embedded Postgres or pgvector is behind - read the report in the job summary" ;;
             3) echo "::notice::could not read an upstream release list; no verdict about the pins" ;;
             2) echo "::error::the pg_trgm manifest disagrees with the wheel pins"; exit 1 ;;
             *) echo "::error::the embedded Postgres check failed"; exit 1 ;;

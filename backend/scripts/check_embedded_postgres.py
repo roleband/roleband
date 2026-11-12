@@ -7,9 +7,14 @@ cannot see them: advisories name PostgreSQL, never the wheel. This reads the pin
 versions, reads postgresql.org's release list and pgvector's tags, and names each one
 that is behind.
 
-When Postgres is behind it also reads the newest wheel on PyPI and the Postgres version
-its source builds, because that decides the fix: move the wheel pin, or wait for (or ask)
-upstream to build the release.
+The manifest records pgvector once, as the source of the Windows `vector.dll`, which
+replaces only the library and keeps the wheel's extension files; a test holds it equal to
+the wheel's own pgvector, so that one version is what every platform runs.
+
+When a newer minor of a supported major is out, it also reads the newest wheel on PyPI and
+the Postgres version its source builds, because that decides the fix: move the wheel pin,
+or wait for (or ask) upstream to build the release. A major that is no longer supported
+gets no wheel line: leaving it is a major upgrade, not a pin move.
 
 The verdict logic is tested offline (`tests/test_embedded_postgres_check.py`); only this
 script fetches. Exit codes:
@@ -215,8 +220,12 @@ def report(pins: Pins, *, transport: httpx.BaseTransport | None = None,
     else:
         if not release.supported:
             behind = True
-            lines.append(f"BEHIND    Postgres {major} reached its end of life on {release.eol}; "
-                         "it takes no more security releases")
+            if today < release.eol:
+                lines.append(f"BEHIND    postgresql.org lists Postgres {major} as unsupported "
+                             f"before its end-of-life date, {release.eol}")
+            else:
+                lines.append(f"BEHIND    Postgres {major} reached its end of life on {release.eol}; "
+                             "it takes no more security releases")
         elif pins.postgres < release.latest:
             behind = True
             lines.append(f"BEHIND    Postgres {show(pins.postgres)} ships; {show(release.latest)} is out "

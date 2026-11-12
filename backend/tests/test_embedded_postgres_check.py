@@ -9,6 +9,7 @@ against the live lists; these tests pin the verdicts it draws from them.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from datetime import date
 from pathlib import Path
@@ -31,6 +32,7 @@ from scripts.check_embedded_postgres import (
     pinned,
     postgres_release,
     report,
+    show,
     wheel_postgres,
 )
 
@@ -54,6 +56,19 @@ def test_the_repository_pins_one_postgres_and_one_wheel_everywhere():
     assert pins.wheel in VERIFIED_UPSTREAM_VERSIONS
     assert pins.postgres[0] == DEFAULT_POSTGRES_VERSION
     assert pins.pgvector[:2] == (0, 8)
+
+
+def test_the_manifest_pgvector_is_the_one_the_wheel_ships():
+    """The Windows bundle swaps in its own `vector.dll` but keeps the wheel's extension
+    files, so its source must be the wheel's pgvector; that makes the one version the
+    check reads the version every platform runs."""
+    pytest.importorskip("pixeltable_pgserver", reason="embedded Postgres wheel not installed")
+    from tracker.platform.embedded_db import DEFAULT_POSTGRES_VERSION, bundled_bin_dir
+
+    (control,) = bundled_bin_dir(DEFAULT_POSTGRES_VERSION).parent.glob("share/**/extension/vector.control")
+    shipped = re.search(r"default_version\s*=\s*'([^']+)'", control.read_text())
+    assert shipped is not None
+    assert show(pinned(ROOT).pgvector) == shipped.group(1)
 
 
 def _copy_pins(tmp_path: Path, edit_manifest=None, edit_pin=None) -> Path:
@@ -214,7 +229,18 @@ def test_a_major_past_its_end_of_life_is_behind_even_on_its_last_minor():
     versions = [{**v, "supported": False} if v["major"] == "16" else v for v in VERSIONS]
     code, lines, _ = _report(pins=Pins(wheel="0.7.3", postgres=(16, 16), pgvector=(0, 8, 7)), versions=versions)
     assert code == EXIT_BEHIND
-    assert lines[0].startswith("BEHIND    Postgres 16 reached its end of life on 2028-11-09")
+    assert lines[0].startswith("BEHIND    postgresql.org lists Postgres 16 as unsupported before its end-of-life date")
+    assert not any(line.startswith("WHEEL") for line in lines)
+
+
+def test_a_major_past_its_end_of_life_date_says_so_and_names_no_wheel():
+    transport, asked = _upstream()
+    code, lines = report(SHIPPED, transport=transport, sleep=lambda _: None, today=date(2028, 11, 10))
+    assert code == EXIT_BEHIND
+    assert lines[0] == ("BEHIND    Postgres 16 reached its end of life on 2028-11-09; "
+                        "it takes no more security releases")
+    assert not any(line.startswith("WHEEL") for line in lines)
+    assert PYPI_URL not in asked
 
 
 def test_an_unreadable_release_list_gives_no_verdict():
