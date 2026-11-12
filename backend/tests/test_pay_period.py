@@ -13,7 +13,6 @@ from __future__ import annotations
 import pytest
 
 from tracker.analytics.comp_package import build_job_package
-from tracker.analytics.comp_residual import build_equity_residuals
 from tracker.connectors.detail.ashby import AshbyDetailConnector
 from tracker.pay_disclosure import extract_grounded_band
 from tracker.pay_period import PayPeriod, decide_period, effective_period, size_class, size_classes
@@ -306,22 +305,6 @@ def test_a_band_that_is_not_yearly_is_never_split(period, reason):
     package = build_job_package(**_ROLE, disclosed=disclosed)
     assert package["no_split_reason"] == reason
     assert package["components"] == [] and package["total"] is None
-
-
-def test_the_equity_check_counts_only_bands_whose_size_agrees_with_their_period():
-    # A salary stored with no period enters as yearly. A salary stored as
-    # hourly is a contradiction the stored row cannot resolve (the words are
-    # not kept), and so is one stored `unclear` (its words contradicted it):
-    # both stay out, and so does a tiny amount stored yearly.
-    rows = [
-        ("google", "staff", 400_000, 150_000, 200_000, "USD", "base", None, 0.15, "v"),
-        ("google", "staff", 400_000, 150_000, 200_000, "USD", "base", "unclear", 0.15, "v"),
-        ("google", "staff", 400_000, 150_000, 200_000, "USD", "base", "hour", 0.15, "v"),
-        ("google", "staff", 400_000, 45, 60, "USD", "base", "year", 0.15, "v"),
-    ]
-    out = build_equity_residuals(rows, observed={}, accepted_versions={"v"})
-    assert out["excluded"]["not_yearly"] == 3
-    assert sum(group["reqs"] for group in out["groups"]) == 1
 
 
 # --------------------------------------------------------------------------- #

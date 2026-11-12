@@ -391,9 +391,9 @@ TIER_PROBES = [
     # The writer that owns the persistence. Without this row an
     # empty answer above would be indistinguishable from a blind probe.
     ("tracker.scope.catalog_store", (), ("tracker.db",)),
-    # `api/routers/statistics.py` and `scripts/report_equity_residuals.py`
-    # import this for `TASK` alone. It loads `tracker.intelligence` and nothing
-    # else; the pass that needs the store is next door.
+    # A reader that only wants `TASK` or `is_stale` imports this. It loads
+    # `tracker.intelligence` and nothing else; the pass that needs the store is
+    # next door.
     ("tracker.intelligence.extract", ("tracker.db", "tracker.settings_store"), ()),
     ("tracker.intelligence_runtime.disclosed_comp", (), ("tracker.db", "tracker.settings_store")),
     # The price provider is an L3 implementation. Its store is in the service

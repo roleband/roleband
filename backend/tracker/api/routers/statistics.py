@@ -15,9 +15,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import load_only
 
 from tracker.analytics.age_basis import employer_dated_share, employer_dated_sql
-from tracker.analytics.comp_market import us_rows
-from tracker.analytics.comp_package import choose_rung_row
-from tracker.analytics.comp_residual import build_equity_residuals, build_source_comparison
 from tracker.analytics.comp_stats import (
     build_comp_stats,
     build_disclosure_rates,
@@ -46,7 +43,6 @@ from tracker.api.schemas.statistics import (
     CompTrendsResponse,
     DemandResponse,
     DisclosureTrendsResponse,
-    EquityValidationResponse,
     InsightsHistoryResponse,
     LevelGuideResponse,
     OfferTermsResponse,
@@ -81,11 +77,9 @@ from tracker.db.queries.jobs import (
     pair_on_board,
     place_set_later_ids,
 )
-from tracker.db.queries.reference_pay import reported_rows, split_rows
 from tracker.db.queries.scope import level_key_expr
 from tracker.db.queries.skills import top_skills as read_top_skills
 from tracker.enrich.enricher import ESTIMATE_FIELDS
-from tracker.intelligence_runtime.disclosed_comp import residual_band_versions
 from tracker.levels.companies import COMPANIES
 from tracker.levels.ladder import flat_guide, level_guide, lineage
 from tracker.levels.pay import PAY_POLICIES
@@ -353,35 +347,6 @@ async def statistics_compensation(session: SessionDep, hidden: OffBoardDep, narr
     return stats
 
 
-async def _observed_splits(session: AsyncSession) -> dict:
-    """Real per-level base/stock/bonus shares, harvested into Company Profiles.
-
-    Where a (company, band) is covered, the split heuristic is not used at all.
-    Only rows with a measured stock_pct qualify — NULL means "split unknown",
-    not "no equity" (a 0.0, e.g. Netflix, is a real measurement and is kept).
-    Keyed by (company, band) only, so it reads the reference ladder alone: with
-    every family harvested an unfiltered read would let whichever
-    family's row came last silently overwrite the rest. A band that collapses
-    several rungs (Microsoft 65-67 are all principal) reads the row
-    `comp_package.choose_rung_row` picks, the one the package beside it reads,
-    never whichever row Postgres returned last.
-    """
-    providers = await reader_providers(session)
-    splits_read = await split_rows(session, providers, OUR_PAY_COUNTRY)
-    grouped: dict[tuple[str, str], list] = {}
-    for row in us_rows(splits_read):  # a worldwide-mix row is not US pay
-        grouped.setdefault((row.company_slug, row.band), []).append(row)
-    splits: dict = {}
-    for (company, band), candidates in grouped.items():
-        chosen = choose_rung_row(company, band, candidates)
-        splits[(company, band)] = {
-            "base_pct": chosen.base_pct,
-            "stock_pct": chosen.stock_pct,
-            "bonus_pct": chosen.bonus_pct,
-        }
-    return splits
-
-
 #: The job columns a role's package reads (`api.comp_packages.role_package`).
 _PACKAGE_COLUMNS = (
     Job.id, Job.company, Job.level_band, Job.level_basis, Job.family, Job.location_groups,
@@ -493,63 +458,6 @@ async def statistics_levels() -> dict:
     Insights scope and window do not apply. Who is followed comes from
     `/api/companies/discovery`, which the screen already reads."""
     return _level_guide()
-
-
-@router.get("/api/statistics/equity-validation", response_model=EquityValidationResponse)
-async def statistics_equity_validation(session: SessionDep, hidden: OffBoardDep) -> dict:
-    """Diagnostic: the modeled equity slice checked against employer-stated cash.
-
-    For open roles with a stated base band (basis='base'), implied equity =
-    comp_median − stated base × (1 + bonus share); `build_equity_residuals`
-    aggregates that per (company, band) and compares it to the modeled equity
-    share. Deliberately a separate endpoint — this is a model-confidence
-    surface, not part of the hot compensation payload.
-    """
-    scope = [Job.status == "open", Job.in_scope.is_(True), Job.disclosed_base_min.isnot(None)]
-    if hidden:
-        scope.append(Job.company.notin_(hidden))
-    rows = (
-        await session.execute(
-            select(
-                Job.company,
-                Job.level_band,
-                Job.comp_median,
-                Job.disclosed_base_min,
-                Job.disclosed_base_max,
-                Job.disclosed_currency,
-                Job.disclosed_pay_basis,
-                Job.disclosed_pay_period,
-                Job.disclosed_bonus_pct,
-                Job.structured_prompt_version,
-            ).where(*scope)
-        )
-    ).all()
-
-    observed = await _observed_splits(session)
-    providers = await reader_providers(session)
-    payload = build_equity_residuals(
-        [tuple(r) for r in rows],
-        observed=observed,
-        # The current parser's stamp and v5's: a connector band keeps the stamp
-        # it was written with, since the text pass never re-reads it.
-        accepted_versions=await residual_band_versions(session),
-        # Our split heuristic is our data: it models no share for a plugin's
-        # figure, so a band its rows do not split is counted out.
-        heuristic=providers.source_for(PAY_LEVELS) is None,
-    )
-
-    # Second, independent cross-check: self-reported realized equity share (a
-    # plugin's `pay.observations`) vs the model. Only the latest snapshot; hidden
-    # companies excluded. A reference surface, so a missing snapshot must not
-    # break the primary residual payload.
-    reported, latest = await reported_rows(session, providers, hidden=hidden or ())
-    payload["reported"] = build_source_comparison(
-        [(r.company_slug, r.band, r.total_usd, r.equity_usd) for r in reported],
-        observed=observed,
-        sources={r.provider for r in reported},
-    )
-    payload["reported"]["snapshot_date"] = latest.isoformat() if latest else None
-    return payload
 
 
 @router.get("/api/statistics/comp-trends", response_model=CompTrendsResponse)

@@ -224,8 +224,8 @@ names them under the split ("Split from Levels, as of Oct 1").
 | Component | Estimator, first that applies | Provenance |
 |---|---|---|
 | Base | The stated band | `stated` |
-| Bonus | 1. the posting's stated percentage × base; 2. the row's bonus/base ratio × base; 3. the company policy's target midpoint (`levels/pay.bonus_ratio_for`); 4. the `analytics/comp_split.split_tc` heuristic | `stated` for 1, else `estimated` |
-| Equity | 1. the row's annualised grant (`stock_usd`) as a point, widened to 0.60..1.40 (`_EQUITY_SPREAD_LOW/HIGH`), `equity_basis = measured_grant`; 2. otherwise a share of the stated base, `equity_basis = ratio` | `estimated` |
+| Bonus | 1. the posting's stated percentage × base; 2. the row's bonus/base ratio × base; 3. the company policy's target midpoint (`levels/pay.bonus_ratio_for`); 4. the heuristic's flat share (`analytics/comp_split.BONUS_PCT`) | `stated` for 1, else `estimated` |
+| Equity | 1. the row's annualised grant (`stock_usd`) as a point, widened to 0.60..1.40 (`_EQUITY_SPREAD_LOW/HIGH`), `equity_basis = measured_grant`; 2. otherwise a share of the stated base from the heuristic, `equity_basis = ratio` ([The heuristic split](#the-heuristic-split)) | `estimated` |
 | Total | The sum of the segments shown | `estimated` |
 
 Bonus is a ratio of base because companies set it that way: a level-set target
@@ -248,6 +248,19 @@ whole. With only an estimated base (the
 built-in provider), the package shows one estimated base segment and no total:
 bonus and equity are unknown, not zero.
 
+### The heuristic split
+
+With no measured split, the package reads shares that are the same for every
+company (`analytics/comp_split.heuristic_ratios`): equity is a share of the
+year's total pay that rises with the level, the bonus is the company's stated
+rule or else a flat share of the total, and base is the rest. Whatever the
+bonus, equity stays the level's share of the total: a company that pays no
+bonus does not get a larger equity share for it. A company's own facts enter
+only as stated rules: its bonus rule, and an equity rule of `none`, which
+draws no equity segment. No company has an equity multiplier of its own; a
+company whose figures need one needs measured rows instead. Every figure built
+this way is `estimated`, and nothing checks the shares against stated pay.
+
 ### When a band is not split
 
 `no_split_reason` says why the stated figure is shown whole:
@@ -257,7 +270,7 @@ bonus and equity are unknown, not zero.
 | `hourly`, `monthly`, `period_unclear` | The period is not a year. RoleBand never annualises. |
 | `basis_unclear` | The posting did not say what the band covers. Splitting it would assume base. |
 | `total_compensation` | The band is total pay; it is the headline, `stated`. |
-| `employee_election` | The company states that each person picks the cash and equity mix (`equity_vehicle = cash_election` in the atlas: Netflix). No figure of its is split, whether a stated total, a stated base or an estimated total. |
+| `employee_election` | The company states that each person picks the cash and equity mix: `equity_rule = employee_election` or `equity_vehicle = cash_election` in the atlas (Netflix is one). No figure of its is split, whether a stated total, a stated base or an estimated total. |
 | `plugin_without_split` | A plugin answers pay and its rows give no split for this level. Our heuristic and policy are our data and never split a plugin's figure. |
 | `plugin_not_covered` | A plugin answers pay and has not read this company. |
 | `not_us_pay` | RoleBand answers pay and the posting's pay is not US pay: another country, or places in several. Our split is measured on US pay only. |
@@ -432,8 +445,7 @@ Staff and Principal: blueprint checks `offer_policy` and `pay_reference` in
 | Which rung is which band | `levels/atlas/` files, loaded by `levels/companies.py`; `levels/ladder.band_for`, `levels/words.resolve_band` |
 | The rung the employer printed on the posting | `taxonomy/stated_level.py` into `jobs.raw_level`; banded through `levels/atlas/printed.csv` |
 | Which family a role borrows from | `taxonomy/comp_families.py` (`REFERENCE_FAMILY`, `BORROW_ORDER`, `borrow_rank`) |
-| The heuristic split, where nothing is measured | `analytics/comp_split.py` (`_EQUITY_PCT_BY_BAND`, `_EQUITY_MULT`) |
-| The equity model checked against stated bases | `analytics/comp_residual.py`, `GET /api/statistics/equity-validation` |
+| The heuristic split, where nothing is measured | `analytics/comp_split.py` (`_EQUITY_PCT_BY_BAND`, `BONUS_PCT`, `heuristic_ratios`) |
 | What the offer calculator fills in for a company | `analytics/stock_trajectory.build_offer_terms`, `GET /api/statistics/offer-terms`; the arithmetic in `dashboard/src/features/statistics/offerModel.ts` |
 | Where the person's offer and valuations are kept | `user_profile/offer.py`, `/api/profile/offer` |
 | Stated pay against the user's pay floor | `analytics/pay_floor.floor_check` |

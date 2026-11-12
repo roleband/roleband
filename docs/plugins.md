@@ -58,7 +58,7 @@ Every row is validated on both sides; a missing amount is `None`, never `0`.
 | Slot | Row (`roleband_plugin_sdk.slots`) | Core table | Core adds |
 |---|---|---|---|
 | `pay.levels` | `PayLevel`: taxonomy `family`, `vendor_family`, `label`, `aliases`, `tc`/`base`/`stock`/`bonus`, `currency`, `country`, `source_url`, `as_of`. One row per rung and country (the key is family, label, country); a rung with no `country` prices no posting | `company_comp_level` | band (atlas first, then words; `band_source`) |
-| `pay.observations` | `PayObservation`: `source_level`, `function`, `family`, `location`, `yoe`, `total`/`base`/`equity`/`bonus` (each optional, at least one), `currency`, `country`, `snapshot_date`, `dedup_key`. Only a submission for the US in USD that states a total and its equity enters the US comparison; the rest are kept | `external_comp_observation` | band at read (atlas, then the label's words), `ingested_at` |
+| `pay.observations` | `PayObservation`: `source_level`, `function`, `family`, `location`, `yoe`, `total`/`base`/`equity`/`bonus` (each optional, at least one), `currency`, `country`, `snapshot_date`, `dedup_key`. Each submission is kept, the first under its `dedup_key`; no screen reads them yet | `external_comp_observation` | band at read (atlas, then the label's words), `ingested_at` |
 | `company.facts` | `FactClaim`: `field` (`FACT_FIELDS`), `value`, `observed_at` | `company_fact` (claims) | rank from the manifest, capped at 50 |
 | `company.benefits` | `Benefit`: `name`, `category`, `value_usd`, `value_text`, `description`, `detail`, `perk_id`, `country`. One row per perk and country (the key is name, country); a perk with no `country` is shown as unscoped, never company-wide | `company_benefit` | benefit type (dataset aliases); never a summed total |
 
@@ -137,8 +137,8 @@ company only `complete=False` reads and retires nothing for it.
   atlas when read (send `aliases` for a rung the atlas may not know; the stored
   row is never re-banded); benefits whole; `company.facts` only `headcount`
   (identity, equity vehicle and vesting are always RoleBand's, and a plugin
-  cannot claim another field); pay observations banded by the atlas from
-  `source_level`, a level it cannot place not read.
+  cannot claim another field); pay observations are stored, banded by the
+  atlas from `source_level` when read, and no screen reads them yet.
 - `ctx.state.get/set` keeps a small JSON store between runs, committed as it is
   written: at most 10,000 keys (`protocol.MAX_STATE_KEYS`) of at most 64 KiB
   each (`protocol.MAX_STATE_BYTES`). A key past the cap is refused; rewriting

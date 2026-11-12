@@ -71,6 +71,19 @@ class TestCompanyRules:
         assert out["overall"] is None
         assert out["set_apart"] == []
 
+    def test_a_company_whose_rule_says_the_person_picks_the_mix_is_a_choice_row(self):
+        """Spotify states the rule with no vehicle: its estimated total stands
+        whole on a row of its own, as Netflix's does, never split by ours."""
+        out = build_comp_trajectory([_role("spotify", median=600_000)])
+        assert _by_company(out) == {}
+        [spotify] = out["choice"]
+        assert (spotify["company"], spotify["count"], spotify["median_tc"]) == ("spotify", 1, 600_000)
+        assert not {"equity", "equity_pct", "bonus"} & set(spotify)
+
+    def test_a_company_that_grants_no_equity_has_no_equity_part(self):
+        [tsmc] = _by_company(build_comp_trajectory([_role("tsmc", posted=_posted(300_000, 400_000))])).values()
+        assert tsmc["equity"] == 0 and tsmc["base"] > 0
+
     @pytest.mark.parametrize("company", ["amazon", "openai", "anthropic"])
     def test_a_company_that_pays_no_bonus_shows_none(self, company):
         out = build_comp_trajectory([

@@ -23,10 +23,11 @@ Pure: no DB access. The API injects `baselines`, mirroring `comp_split.py`.
 from __future__ import annotations
 
 from tracker.analytics.comp_market import us_rows
-from tracker.analytics.comp_split import split_tc
+from tracker.analytics.comp_split import heuristic_ratios
 from tracker.comp_providers.base import OUR_PAY_COUNTRY
+from tracker.levels import model as level_rules
 from tracker.levels.ladder import rung_for_band
-from tracker.levels.pay import bonus_ratio_for, equity_vehicle_for, pay_label
+from tracker.levels.pay import bonus_ratio_for, equity_vehicle_for, pay_label, policy_for
 from tracker.levels.pay import describe as describe_policy
 from tracker.schema import LevelBand, parse_band
 from tracker.taxonomy.comp_families import borrow_rank
@@ -275,7 +276,7 @@ def _lookup(baselines: Baselines, company: str, family: str | None, band: str) -
     return None, SPLIT_HEURISTIC
 
 
-def _ratios(row: dict | None, company: str, band: str) -> tuple[float, float]:
+def _ratios(row: dict | None, company: str, band: str, stated_bonus: float | None = None) -> tuple[float, float]:
     """(bonus_per_base, equity_per_base) — what the company adds ON TOP of each $1 of base.
 
     Expressed against BASE, not against total comp, because base is the number the
@@ -288,19 +289,18 @@ def _ratios(row: dict | None, company: str, band: str) -> tuple[float, float]:
             float(row.get("stock_amount") or 0.0) / base,
         )
 
-    # No observed split: fall back to comp_split's share-of-TC heuristic and convert it
-    # into the same base-relative form. The BONUS side prefers the company's stated
-    # policy (`levels.pay`): a flat 12% for Amazon or OpenAI, which pay none, is an
-    # invented segment the user can see.
+    # No observed split: comp_split's band shares, in the same base-relative form.
+    # What is stated comes first: the posting's bonus, then the company's bonus
+    # rule (a flat 12% for Amazon or OpenAI, which pay none, is an invented
+    # segment the user can see), and an equity rule of none.
     try:
         level = parse_band(band)
     except ValueError:
         level = LevelBand.SENIOR
-    guess = split_tc(1_000_000, company, level)
-    base = float(guess["base"]) or 1.0
-    policy_bonus = bonus_ratio_for(company, level)
-    bonus_r = policy_bonus if policy_bonus is not None else float(guess["bonus"]) / base
-    return bonus_r, float(guess["equity"]) / base
+    bonus = stated_bonus if stated_bonus is not None else bonus_ratio_for(company, level)
+    return heuristic_ratios(
+        level, bonus, equity_none=policy_for(company).equity_rule == level_rules.EQUITY_NONE
+    )
 
 
 def _reconcile(row: dict | None, split_source: str | None, stated_high: int | None) -> dict:
@@ -341,7 +341,7 @@ def _shares(total: int, bonus_r: float, equity_r: float) -> tuple[int, int]:
 
 
 def _equity(
-    row: dict | None, company: str, band: str, lo: int, hi: int
+    row: dict | None, company: str, band: str, lo: int, hi: int, stated_bonus: float | None = None
 ) -> tuple[float, float, str]:
     """Annual equity for this role, and which estimator produced it.
 
@@ -356,14 +356,18 @@ def _equity(
     if stock:
         grant = float(stock)
         return grant * _EQUITY_SPREAD_LOW, grant * _EQUITY_SPREAD_HIGH, EQUITY_MEASURED_GRANT
-    _, equity_r = _ratios(row, company, band)
+    _, equity_r = _ratios(row, company, band, stated_bonus)
     return lo * equity_r, hi * equity_r, EQUITY_RATIO
 
 
-def cash_election(company: str) -> bool:
-    """Each employee picks how much of the pay is cash and how much stock, as the
-    company states it: no split of its pay into cash and stock is a fact."""
-    return equity_vehicle_for(company) == "cash_election"
+def employee_election(company: str) -> bool:
+    """Each employee picks how much of the pay is cash and how much equity, as the
+    company states it, by its equity rule or its equity vehicle: no split of its
+    pay into cash and equity is a fact."""
+    return (
+        equity_vehicle_for(company) == "cash_election"
+        or policy_for(company).equity_rule == level_rules.EQUITY_EMPLOYEE_ELECTION
+    )
 
 
 def _component(kind: str, low: float, high: float, provenance: str) -> dict | None:
@@ -485,7 +489,7 @@ def build_job_package(
                                        PROV_ESTIMATED),) if c
             ]
             return package
-        if comp_median is not None and cash_election(company):
+        if comp_median is not None and employee_election(company):
             # The person picks the cash and stock mix: a ratio would invent one.
             package["no_split_reason"] = NO_SPLIT_EMPLOYEE_ELECTION
             return package
@@ -496,9 +500,9 @@ def build_job_package(
         if comp_median is not None and band and level_placed:
             bonus_r, equity_r = _ratios(row, company, band)
             lo_tc, hi_tc = comp_low or comp_median, comp_high or comp_median
-            # Base absorbs the rounding, exactly as `comp_split.split_tc` does, so the
-            # segments always add back up to the total they were derived from — a bar
-            # whose parts do not sum to its own headline is a bug the user can see.
+            # Base absorbs the rounding, so the segments always add back up to the
+            # total they were derived from: a bar whose parts do not sum to its own
+            # headline is a bug the user can see.
             bonus_lo, equity_lo = _shares(lo_tc, bonus_r, equity_r)
             bonus_hi, equity_hi = _shares(hi_tc, bonus_r, equity_r)
             package["components"] = [
@@ -552,7 +556,7 @@ def build_job_package(
     if basis == "total" and lo is not None:
         package["total"] = {"low": lo, "high": hi, "provenance": PROV_STATED}
         package["no_split_reason"] = (
-            NO_SPLIT_EMPLOYEE_ELECTION if cash_election(company) else NO_SPLIT_TOTAL
+            NO_SPLIT_EMPLOYEE_ELECTION if employee_election(company) else NO_SPLIT_TOTAL
         )
         return package
 
@@ -571,7 +575,7 @@ def build_job_package(
         return package
 
     # The stated base stands; what is added on top is the person's own mix.
-    if cash_election(company):
+    if employee_election(company):
         package["no_split_reason"] = NO_SPLIT_EMPLOYEE_ELECTION
         return package
 
@@ -592,7 +596,9 @@ def build_job_package(
         bonus_r = float(stated_pct)
 
     bonus_lo, bonus_hi = lo * bonus_r, hi * bonus_r
-    equity_lo, equity_hi, equity_basis = _equity(row, company, band, lo, hi)
+    equity_lo, equity_hi, equity_basis = _equity(
+        row, company, band, lo, hi, float(stated_pct) if stated_pct else None
+    )
     package["equity_basis"] = equity_basis
 
     components = [

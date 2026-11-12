@@ -51,7 +51,6 @@ STATISTICS = (
     "/api/statistics/compensation",
     "/api/statistics/comp-trends",
     "/api/statistics/comp-trajectory",
-    "/api/statistics/equity-validation",
 )
 
 #: Floats closer than this are the same answer.
