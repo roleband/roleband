@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from sqlalchemy import and_, exists, or_, tuple_
+from sqlalchemy import Select, and_, exists, false, func, or_, select, true, tuple_
 from sqlalchemy.orm import aliased
 
 from tracker.db.models import Job, JobPlaceSetMember
@@ -26,14 +26,14 @@ _PEER_MEMBER = aliased(JobPlaceSetMember)
 _PEER = aliased(Job)
 
 
-def place_set_outranked(*, eligible: Callable[[Any], list] | None = None):
-    """ORM clause: another member of this posting's place set comes first.
+def place_set_later(*, eligible: Callable[[Any], list] | None = None) -> Select:
+    """Ids of the postings another member of their place set comes before.
 
     A place set is one role, so every count and the Board show it
     once, through its first member: the earliest `first_seen` (then id) among
     the members in the same status and scope as this one that pass
-    `eligible`. A posting this is true for is a set's later member; one in no
-    set is never outranked. The peer must share status and scope because the
+    `eligible`. A posting listed here is a set's later member; one in no set
+    never is. The peer must share status and scope because the
     rebuild only runs between scans: a member that just closed, or one at a
     place out of scope, never hides the open, in-scope row the person can see.
 
@@ -43,21 +43,45 @@ def place_set_outranked(*, eligible: Callable[[Any], list] | None = None):
     the member that passes it instead of hiding the role behind an earlier
     member that fails it. None: every member is eligible, the
     unfiltered Board and every count.
+
+    The later members are found once per statement, over the members alone:
+    each set's members in one status and scope, eligible ones first, then by
+    `first_seen` and id, so the first in that order is the earliest eligible
+    member, and a member is later when that one came before it (by
+    `first_seen`, then id), eligible or not. A member compared row by row
+    with its peers lets the planner, on statistics that undercount the
+    tables, pair every open posting with every other.
     """
-    peer = [
-        _SELF_MEMBER.job_id == Job.id,
-        _SELF_MEMBER.status == "auto",
-        _PEER_MEMBER.set_id == _SELF_MEMBER.set_id,
-        _PEER_MEMBER.status == "auto",
-        _PEER_MEMBER.job_id != Job.id,
-        _PEER.id == _PEER_MEMBER.job_id,
-        _PEER.status == Job.status,
-        _PEER.in_scope.is_not_distinct_from(Job.in_scope),
-        tuple_(_PEER.first_seen, _PEER.id) < tuple_(Job.first_seen, Job.id),
-    ]
-    if eligible is not None:
-        peer.extend(eligible(_PEER))
-    return exists().where(and_(*peer))
+    passes = (
+        func.coalesce(and_(true(), *eligible(_PEER)), false()) if eligible is not None else true()
+    ).label("passes")
+    window = {
+        "partition_by": (_PEER_MEMBER.set_id, _PEER.status, _PEER.in_scope),
+        "order_by": (passes.desc(), _PEER.first_seen, _PEER.id),
+    }
+    ranked = (
+        select(
+            _PEER.id.label("id"),
+            _PEER.first_seen.label("first_seen"),
+            func.first_value(passes).over(**window).label("first_passes"),
+            func.first_value(_PEER.first_seen).over(**window).label("first_first_seen"),
+            func.first_value(_PEER.id).over(**window).label("first_id"),
+        )
+        .select_from(_PEER_MEMBER)
+        .join(_PEER, _PEER.id == _PEER_MEMBER.job_id)
+        .where(_PEER_MEMBER.status == "auto")
+        .subquery("place_set_ranked")
+    )
+    return select(ranked.c.id).where(
+        ranked.c.first_passes.is_(True),
+        tuple_(ranked.c.first_first_seen, ranked.c.first_id) < tuple_(ranked.c.first_seen, ranked.c.id),
+    )
+
+
+def place_set_outranked(*, eligible: Callable[[Any], list] | None = None):
+    """ORM clause: another member of this posting's place set comes first
+    (`place_set_later`)."""
+    return Job.id.in_(place_set_later(eligible=eligible))
 
 
 def place_set_member_in(job_ids):

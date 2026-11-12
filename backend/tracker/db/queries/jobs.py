@@ -37,6 +37,7 @@ from tracker.levels import UNSTATED_LEVEL
 from tracker.lineage.counts import (
     is_new_job_clause,
     is_repost_job_clause,
+    place_set_later,
     place_set_member_in,
     place_set_outranked,
 )
@@ -101,14 +102,8 @@ def insights_role_conds(eligible: Callable[[Any], list] | None = None) -> list:
 
 def place_set_later_ids() -> Select:
     """Ids of the postings a place set shows through another member,
-    for the raw-SQL aggregates that cannot take the ORM clause.
-
-    Asked of members only: the outranking test runs per row, and most postings
-    are in no set."""
-    return select(Job.id).where(
-        Job.id.in_(select(JobPlaceSetMember.job_id).where(JobPlaceSetMember.status == "auto")),
-        place_set_outranked(),
-    )
+    for the raw-SQL aggregates that cannot take the ORM clause."""
+    return place_set_later()
 
 
 def board_posting_ids(hidden: list[str]) -> Select:

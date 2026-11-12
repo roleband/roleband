@@ -8,10 +8,12 @@ from datetime import timedelta
 import pytest
 from sqlalchemy import event, func, select, text
 
+from tests.factories import make_job
 from tests.place_set_rows import BODY, NOW, pending_duplicate, place_set_job
 from tracker.db.models import Job, JobLineageLink, JobPlaceSet, JobPlaceSetMember, JobTwinLink
 from tracker.lineage import detect as detect_module
 from tracker.lineage import place_sets as place_sets_module
+from tracker.lineage.counts import place_set_later
 from tracker.lineage.detect import detect_lineage, fetch_candidates
 from tracker.lineage.place_sets import (
     NotAMember,
@@ -746,3 +748,31 @@ async def test_a_shared_read_still_reads_a_persons_split_made_during_the_pass(db
 
     after = await still_listed_elsewhere(db_session, leeds, companies={"aecom"}, reads=shared)
     assert _ids(after, jobs) == {"leeds": ["london"]}
+
+
+async def test_a_set_shows_through_its_earliest_member_that_passes_the_filter(db_session):
+    """A set's members, oldest first: a (fails the filter), b (passes), c
+    (fails), d (passes), and e, closed, which passes. Unfiltered, a stands for
+    the open role. Filtered, b does: c and d came after it and are later
+    members, c although it fails the filter, while a, which came before any
+    member that passes, is not. A closed member is compared only with closed
+    ones, so e hides nothing."""
+    rows = {
+        key: make_job(key, first_seen=NOW - timedelta(hours=10 - n), status="closed" if key == "e" else "open")
+        for n, key in enumerate("eabcd")
+    }
+    place_set = JobPlaceSet(company="google", title="t", text_hash="0" * 32, size=5, places=[], rule_version="t1")
+    db_session.add_all([*rows.values(), place_set])
+    await db_session.flush()
+    db_session.add_all(JobPlaceSetMember(job_id=job.id, set_id=place_set.id, status="auto") for job in rows.values())
+    await db_session.commit()
+    name = {job.id: key for key, job in rows.items()}
+    passing = {rows[key].id for key in "bde"}
+
+    async def later(eligible=None) -> set[str]:
+        return {name[i] for i in (await db_session.scalars(place_set_later(eligible=eligible))).all()}
+
+    assert await later() == {"b", "c", "d"}
+    assert await later(lambda peer: []) == {"b", "c", "d"}  # no filter: every member passes
+    assert await later(lambda peer: [peer.id.in_(passing)]) == {"c", "d"}
+    assert await later(lambda peer: [peer.id.in_(set())]) == set()
