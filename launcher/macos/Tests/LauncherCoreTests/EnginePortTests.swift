@@ -80,40 +80,64 @@ final class Listener {
     #expect(throws: ConnectionProblem.invalidInstallation) { try installation.on(port: 0) }
 }
 
-/// A TCP listener on ::1, the IPv6 loopback, which is not the engine's 127.0.0.1.
+/// A TCP listener on an IPv6 address: ::1 by default, or every address, IPv6 only or dual-stack.
 private final class IPv6Listener {
     let fd: Int32
-    init(port: Int) throws {
-        fd = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP)
-        var only: Int32 = 1
+    let port: Int
+    /// Port 0 lets the kernel choose an unused port.
+    init(port: Int = 0, address: in6_addr = in6addr_loopback, ipv6Only: Bool = true) throws {
+        let fd = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP)
+        self.fd = fd
+        var only: Int32 = ipv6Only ? 1 : 0
         setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &only, socklen_t(MemoryLayout<Int32>.size))
         var bound = sockaddr_in6()
         bound.sin6_len = UInt8(MemoryLayout<sockaddr_in6>.size)
         bound.sin6_family = sa_family_t(AF_INET6)
-        bound.sin6_addr = in6addr_loopback
+        bound.sin6_addr = address
         bound.sin6_port = in_port_t(UInt16(port).bigEndian)
         let ok = withUnsafePointer(to: &bound) {
             $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(fd, $0, socklen_t(MemoryLayout<sockaddr_in6>.size)) == 0 }
         }
-        try #require(ok && listen(fd, 4) == 0, "could not listen on ::1: \(errno)")
+        try #require(ok && listen(fd, 4) == 0, "could not listen on IPv6: \(errno)")
+        var length = socklen_t(MemoryLayout<sockaddr_in6>.size)
+        _ = withUnsafeMutablePointer(to: &bound) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(fd, $0, &length) }
+        }
+        self.port = Int(UInt16(bigEndian: bound.sin6_port))
     }
     func close() { Darwin.close(fd) }
 }
 
 @Test func aListenerOnAnotherAddressIsNotNamedAsTheHolder() throws {
-    let probe = try Listener()
-    probe.close()
-    let other = try IPv6Listener(port: probe.port)
+    let other = try IPv6Listener()
     defer { other.close() }
     // The port number is taken on ::1 only: 127.0.0.1 is free, and no program holds it.
-    #expect(EnginePort.isFree(probe.port))
-    #expect(EnginePort.listener(on: probe.port) == nil)
-    let loopback = try Listener(port: probe.port)
+    #expect(EnginePort.isFree(other.port))
+    #expect(EnginePort.listener(on: other.port) == nil)
+    let loopback = try Listener(port: other.port)
     defer { loopback.close() }
-    #expect(EnginePort.listener(on: probe.port) == getpid(), "the 127.0.0.1 listener is the holder")
+    #expect(EnginePort.listener(on: other.port) == getpid(), "the 127.0.0.1 listener is the holder")
 }
 
-@Test func onlyLoopbackAndEveryAddressHoldTheEnginesAddress() {
+@Test func thisAccountsListenersOnEveryAddressLeave127001FreeAndAreNotTheHolder() throws {
+    // The engine binds 127.0.0.1 with SO_REUSEADDR, and the kernel lets a specific address join a
+    // port that a socket of the same account holds on every address. Only a listener on
+    // 127.0.0.1 itself refuses the engine, so only such a listener is named.
+    // Each listener takes a port the kernel chooses, so no port is closed and taken again while
+    // the other tests run.
+    for (ipv6Only, label) in [(true, "IPv6-only"), (false, "dual-stack")] {
+        let wildcard = try IPv6Listener(address: in6addr_any, ipv6Only: ipv6Only)
+        defer { wildcard.close() }
+        #expect(EnginePort.isFree(wildcard.port), "a \(label) socket on every address")
+        #expect(EnginePort.listener(on: wildcard.port) == nil, "a \(label) socket on every address")
+    }
+    let ipv4Wildcard = try Listener(address: "0.0.0.0")
+    defer { ipv4Wildcard.close() }
+    #expect(EnginePort.isFree(ipv4Wildcard.port), "an IPv4 socket on every address")
+    #expect(EnginePort.listener(on: ipv4Wildcard.port) == nil)
+}
+
+@Test func onlyAListenerOn127001HoldsTheEnginesAddress() {
     func ipv4(_ address: String) -> in_sockinfo {
         var info = in_sockinfo()
         info.insi_vflag = UInt8(INI_IPV4)
@@ -127,10 +151,10 @@ private final class IPv6Listener {
         return info
     }
     #expect(EnginePort.takesLoopback(ipv4("127.0.0.1")))
-    #expect(EnginePort.takesLoopback(ipv4("0.0.0.0")))
+    #expect(!EnginePort.takesLoopback(ipv4("0.0.0.0")), "every address leaves room for 127.0.0.1")
     #expect(!EnginePort.takesLoopback(ipv4("192.168.1.20")))
     #expect(!EnginePort.takesLoopback(ipv4("127.0.0.2")))
-    #expect(EnginePort.takesLoopback(ipv6([UInt8](repeating: 0, count: 16))), "a dual-stack socket on every address")
     #expect(EnginePort.takesLoopback(ipv6([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 127, 0, 0, 1])))
+    #expect(!EnginePort.takesLoopback(ipv6([UInt8](repeating: 0, count: 16))))
     #expect(!EnginePort.takesLoopback(ipv6([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1])), "::1 is not 127.0.0.1")
 }
