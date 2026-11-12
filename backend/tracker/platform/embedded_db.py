@@ -3,9 +3,9 @@
 L0 primitive. It takes a path and returns a live server; *which* path (and so
 which database) is policy that lives in `config.py`.
 
-Provenance: `pixeltable-pgserver` 0.6.0 — fork of `orm011/pgserver`, PostgreSQL
-License + Apache-2.0. The wheel ships PG 16.14 (`pginstall/`) and 18.4
-(`pginstall18/`), pgvector 0.8.5 in both, and the full client toolchain
+Provenance: `pixeltable-pgserver` 0.7.2 — fork of `orm011/pgserver`, PostgreSQL
+License + Apache-2.0. The wheel ships PG 16.15 (`pginstall/`) and 18.6
+(`pginstall18/`), pgvector 0.8.7 in both, and the full client toolchain
 (`initdb`, `pg_ctl`, `psql`, `pg_dump`, `pg_restore`, `pg_upgrade`). Measured
 from the wheel; re-measure on a version bump — `VERIFIED_UPSTREAM_VERSIONS` makes that
 mandatory rather than aspirational: an unverified wheel version is refused at
@@ -31,6 +31,8 @@ Upstream behaviours this module compensates for:
 * **The socket option is unquoted, and the start takes no server settings.**
   Outside Windows every start goes through a quoted pg_ctl option string,
   which also carries the caller's `server_settings`, before upstream attaches.
+  Upstream's own start then never runs, so neither does its clearing of a
+  lock file left by a crash: `_clear_stale_lock` repeats it before our start.
 * **Windows trust authentication exposes the cluster to other accounts.**
   The native adapter owns initialization, account-private credentials, SCRAM,
   runtime settings and process/endpoint validation before any connection.
@@ -60,9 +62,13 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # The docker container (`postgres_*` settings) runs PG 16; keep the major
-# identical so a dump/restore migration has no version variable in it. The wheel defaults to
-# 18 (`PGSERVER_POSTGRES_VERSION`), which we deliberately override.
+# identical so a dump/restore migration has no version variable in it. The wheel's own
+# default (`PGSERVER_POSTGRES_VERSION`) is not relied on: every call names the major.
 DEFAULT_POSTGRES_VERSION = 16
+
+# How long a start may take. A server recovering from a crash replays its log
+# before it accepts connections; upstream waits as long for its own starts.
+START_TIMEOUT_SECONDS = 60
 
 # Matches the :5433 container's `en_US.utf8`. libc collation (the build is
 # `--without-icu`), so exact ordering still varies by OS/glibc version — an
@@ -154,12 +160,13 @@ def refuse_installed_cluster(pgdata: Path) -> None:
     )
 
 
-# Upstream versions whose behaviour this module was verified against. The four
+# Upstream versions whose behaviour this module was verified against. The
 # corrections in the module docstring were *measured*, not read off a README,
-# and two of them hold private upstream state (`PostgresServer._lock`,
-# `PostgresServer._instances`) — none of that is API, so an unverified wheel
-# must fail loudly here rather than misbehave silently later.
-VERIFIED_UPSTREAM_VERSIONS = ("0.6.0",)
+# and several hold private upstream state (`PostgresServer._lock`,
+# `PostgresServer._instances`, `PostmasterInfo.pid_held_by_other`) — none of
+# that is API, so an unverified wheel must fail loudly here rather than
+# misbehave silently later.
+VERIFIED_UPSTREAM_VERSIONS = ("0.7.2",)
 
 
 def _upstream():
@@ -489,6 +496,27 @@ def require_extensions(server: EmbeddedServer, extensions: Sequence[str]) -> Non
         )
 
 
+def _clear_stale_lock(pgdata: Path, info) -> None:
+    """Delete a lock file left by a crash that Postgres would refuse to start over.
+
+    `info` is upstream's reading of `postmaster.pid` for a server it found not
+    running. Postgres replaces a lock file whose process is gone by itself, but
+    refuses one it cannot read, and on macOS and Linux one whose process number
+    now belongs to another process of this account: a reused number after a
+    restart, a zombie, or another cluster's server. Those two cases are cleared
+    here, with the socket's own lock file, as upstream does on its own start
+    path. Anything else stays for Postgres to judge, because a live server
+    shuts down within a minute of losing its lock file.
+    """
+    if info.pid is not None and not info.pid_held_by_other:
+        return
+    logger.warning("removing the stale lock file of the embedded Postgres at %s (%s)", pgdata,
+                   "unreadable" if info.pid is None else f"process {info.pid} is not this database's server")
+    (pgdata / "postmaster.pid").unlink(missing_ok=True)
+    if info.socket_path is not None:
+        Path(f"{info.socket_path}.lock").unlink(missing_ok=True)
+
+
 def _quoted_server(pgserver, pgdata: Path, postgres_version: int, server_settings: Mapping[str, str]):
     """Start with quoted postgres options, then use upstream's holder lifecycle.
 
@@ -509,6 +537,8 @@ def _quoted_server(pgserver, pgdata: Path, postgres_version: int, server_setting
         handle.ensure_pgdata_inited()
         info = PostmasterInfo.read_from_pgdata(handle.pgdata)
         if info is None or not info.is_running():
+            if info is not None:
+                _clear_stale_lock(handle.pgdata, info)
             socket = find_suitable_socket_dir(handle.pgdata, handle.runtime_path)
             if handle.system_user is not None and socket != handle.pgdata:
                 from pixeltable_pgserver.postgres_server import ensure_prefix_permissions
@@ -525,7 +555,7 @@ def _quoted_server(pgserver, pgdata: Path, postgres_version: int, server_setting
                 # -D and -l are otherwise interpolated into pg_ctl's shell
                 # command. PGDATA plus a relative log keeps both paths literal.
                 ("-w", "-o", shlex.join(options), "-l", "log", "start"),
-                bin_path=handle.bin_path, user=handle.system_user, timeout=10, cwd=handle.pgdata,
+                bin_path=handle.bin_path, user=handle.system_user, timeout=START_TIMEOUT_SECONDS, cwd=handle.pgdata,
                 env={**os.environ, "PGDATA": str(handle.pgdata)},
             )
     handle.start()

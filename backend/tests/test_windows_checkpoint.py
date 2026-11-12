@@ -181,6 +181,59 @@ def test_restored_rows_must_match_even_when_the_archive_is_valid(server, tmp_pat
     assert not (tmp_path / "mismatch" / "db" / "postmaster.pid").exists()
 
 
+def test_a_database_made_by_an_older_runtime_keeps_checkpointing(server, tmp_path):
+    """A database keeps the pgvector version it was made with; a restore gets the runtime's."""
+    from tracker.platform.windows_checkpoint import (
+        create_checkpoint,
+        still_matches,
+        verify_checkpoint,
+    )
+
+    default = psql(server, "SELECT default_version FROM pg_available_extensions WHERE name='vector'")
+    assert default != "0.8.5"
+    psql(server, "CREATE EXTENSION vector; UPDATE pg_extension SET extversion='0.8.5' WHERE extname='vector'")
+    checkpoint = create_checkpoint(server, tmp_path / "checkpoint", tmp_path / "verify")
+    manifest = json.loads((checkpoint / "checkpoint.json").read_text(encoding="utf-8"))
+    assert ["vector", "0.8.5"] in manifest["facts"]["extensions"]
+    assert verify_checkpoint(checkpoint, tmp_path / "recheck")["verified"] is True
+    restored = ensure_server(tmp_path / "recheck" / "db", database="roleband_restore_check")
+    try:
+        assert psql(restored, "SELECT extversion FROM pg_extension WHERE extname='vector'") == default
+    finally:
+        stop_server(restored.pgdata)
+    assert still_matches(server, checkpoint)
+
+
+def test_a_manifest_naming_an_older_extension_version_still_restores(server, tmp_path):
+    from tracker.platform.windows_checkpoint import create_checkpoint, verify_checkpoint
+
+    psql(server, "CREATE EXTENSION vector")
+    checkpoint = create_checkpoint(server, tmp_path / "checkpoint", tmp_path / "verify")
+    path = checkpoint / "checkpoint.json"
+    manifest = json.loads(path.read_text())
+    manifest["facts"]["extensions"] = [[name, "0.8.5" if name == "vector" else version]
+                                       for name, version in manifest["facts"]["extensions"]]
+    path.write_text(json.dumps(manifest))
+    assert verify_checkpoint(checkpoint, tmp_path / "recheck")["verified"] is True
+
+
+def test_a_recorded_extension_the_restore_lacks_is_refused(server, tmp_path):
+    from tracker.platform.windows_checkpoint import (
+        CheckpointError,
+        create_checkpoint,
+        verify_checkpoint,
+    )
+
+    checkpoint = create_checkpoint(server, tmp_path / "checkpoint", tmp_path / "verify")
+    path = checkpoint / "checkpoint.json"
+    manifest = json.loads(path.read_text())
+    assert "pg_trgm" not in [name for name, _version in manifest["facts"]["extensions"]]
+    manifest["facts"]["extensions"] = sorted([*manifest["facts"]["extensions"], ["pg_trgm", "1.6"]])
+    path.write_text(json.dumps(manifest))
+    with pytest.raises(CheckpointError, match="fingerprints"):
+        verify_checkpoint(checkpoint, tmp_path / "mismatch")
+
+
 def test_empty_jobs_and_unsupported_manifest_do_not_establish_recovery(server, tmp_path):
     from tracker.platform.windows_checkpoint import (
         CheckpointError,

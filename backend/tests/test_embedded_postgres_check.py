@@ -96,12 +96,12 @@ def _windows(manifest):
 
 
 @pytest.mark.parametrize("edit_manifest, edit_pin, message", [
-    (lambda m: m.update(postgres="16.15"), None, "is not the 16.15 source"),
+    (lambda m: m.update(postgres="16.16"), None, "is not the 16.16 source"),
     (lambda m: m.update(postgres="16"), None, "not a Postgres version"),
-    (lambda m: m.update(wheel_version="0.7.2"), None, "was built against"),
-    (lambda m: _windows(m)["pgvector"].update(version="0.8.7"), None, "pgvector source is not 0.8.7"),
+    (lambda m: m.update(wheel_version="0.7.3"), None, "was built against"),
+    (lambda m: _windows(m)["pgvector"].update(version="0.8.8"), None, "pgvector source is not 0.8.8"),
     (lambda m: _windows(m).pop("pgvector"), None, "one pgvector version"),
-    (None, lambda text: text.replace("pixeltable-pgserver==0.6.0", "pixeltable-pgserver==0.7.2"), "pins pixeltable-pgserver"),
+    (None, lambda text: text.replace("pixeltable-pgserver==0.7.2", "pixeltable-pgserver==0.7.3"), "pins pixeltable-pgserver"),
     (None, lambda text: "\n".join(line for line in text.splitlines() if "pixeltable-pgserver==" not in line), "nowhere"),
 ], ids=["source-url", "not-a-version", "platform-wheel", "pgvector-url", "no-pgvector", "lock-moved", "lock-missing"])
 def test_pins_that_disagree_are_refused(tmp_path, edit_manifest, edit_pin, message):

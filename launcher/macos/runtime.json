@@ -9,7 +9,7 @@
     "sha256": "4da072af9dbbc2557d3aabf51db553a19694f6ac61b5b7169749e4acfa5a052d"
   },
   "pgvector_notice": {
-    "url": "https://raw.githubusercontent.com/pgvector/pgvector/v0.8.5/LICENSE",
+    "url": "https://raw.githubusercontent.com/pgvector/pgvector/v0.8.7/LICENSE",
     "sha256": "6bba9ebeb73e27477463b05e5ef1bf303bccbddb3db9bbc95905d351604d6a87"
   },
   "package_notices": {
