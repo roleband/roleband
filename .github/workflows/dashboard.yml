@@ -57,7 +57,7 @@ jobs:
         run: python3 launcher/macos/Tools/ci_changes.py
 
   checks:
-    name: dashboard
+    name: dashboard (checks)
     needs: changes
     # Runs when `changes` fails too.
     if: ${{ !cancelled() && needs.changes.outputs.dashboard != 'false' }}
@@ -94,10 +94,12 @@ jobs:
         run: npm run knip
       - name: build + typecheck
         run: npm run build
-      # The Mac app's copy is exported from this catalogue, and the check that the export
-      # is current needs Node only, so it runs with the catalogue's gate on Linux.
+      # Both native apps' copy is exported from this catalogue, and the check that each
+      # export is current needs Node only, so it runs with the catalogue's gate on Linux.
       - name: native launcher copy is current
         run: node scripts/export-launcher-copy.mjs --check
+      - name: Windows launcher copy is current
+        run: node scripts/export-launcher-copy.mjs --windows --check
       - name: vitest
         run: npm run test:unit -- --reporter=default --reporter=json --outputFile=test-results/vitest.json
       - name: upload unit test timings and outcomes
@@ -124,8 +126,8 @@ jobs:
   # shard before any test runs.
   #
   # Every shard starts and skips its steps when the change does not need them: a matrix job
-  # skipped whole reports one check, `ux`, and the required `ux (1)` to `ux (4)` would wait
-  # forever.
+  # skipped whole reports one check, `ux`, in place of `ux (1)` to `ux (4)`, and the
+  # required `dashboard` check would read the shards as skipped.
   ux:
     needs: changes
     if: ${{ !cancelled() }}
@@ -201,3 +203,29 @@ jobs:
           path: dashboard/test-results/
           if-no-files-found: ignore
           retention-days: 7
+
+  # The check the ruleset requires, standing for `checks` and every `ux` shard. `always()`:
+  # a skipped job counts as passed for a required check, so this job runs and fails when
+  # the run is cancelled. `checks` may be skipped only when the change needs no dashboard
+  # job; the shards then pass with their steps skipped. The step is windows.yml's.
+  result:
+    name: dashboard
+    needs: [changes, checks, ux]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - shell: python
+        env:
+          RESULT_checks: ${{ needs.checks.result }}
+          NEEDED_checks: ${{ needs.changes.outputs.dashboard }}
+          RESULT_ux: ${{ needs.ux.result }}
+        run: |
+          import os
+          results = {k.removeprefix("RESULT_"): v for k, v in os.environ.items() if k.startswith("RESULT_")}
+          # A part may be skipped only when the change did not need it: NEEDED_<part> is 'false'.
+          passed = {p: r == "success" or (r == "skipped" and os.environ.get(f"NEEDED_{p}") == "false") for p, r in results.items()}
+          for part, result in sorted(results.items()):
+              print(f"{part}: {result}")
+          if not results or not all(passed.values()):
+              raise SystemExit("not passed: " + (", ".join(sorted(p for p, ok in passed.items() if not ok)) or "no part reported"))

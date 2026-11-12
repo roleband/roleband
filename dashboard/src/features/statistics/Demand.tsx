@@ -1,5 +1,5 @@
 import { number as copyNumber } from "../../copy/format";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ResourceLoadState } from "../../ui/ResourceLoadState";
 import { Demand as DemandData, HiringRegion, InsightsScope, api } from "../../api";
@@ -71,6 +71,15 @@ export function DemandView({ scope }: { scope?: InsightsScope }) {
   const openBoard = useCallback((company: string) => navigate(boardFor(company)), [navigate]);
   const side = scope?.side ?? "all";
   const [allOpen, setAllOpen] = useState(false);
+  /* One array per answer, so a render that changes no company (the sheet opening, a
+     search letter) hands the chart the bars it already drew and it keeps its picture. */
+  const bars = useMemo<HiringBar[]>(() => (data ? topCompanies(data.companies, TOP_COMPANIES).rows : []).map((c) => ({
+    company: c.company,
+    label: companyName(c.company),
+    open: c.open,
+    fresh: c.new,
+    closed: c.closed,
+  })), [data]);
   if (!data) {
     return (
       <div className="stats-view">
@@ -82,13 +91,6 @@ export function DemandView({ scope }: { scope?: InsightsScope }) {
   const hiring = data.companies.filter((c) => c.open > 0).length;
   const { rows, rest, total } = topCompanies(data.companies, TOP_COMPANIES);
   const sideOpen = rows.reduce((n, c) => n + c.open, 0) + (rest?.open ?? 0);
-  const bars: HiringBar[] = rows.map((c) => ({
-    company: c.company,
-    label: companyName(c.company),
-    open: c.open,
-    fresh: c.new,
-    closed: c.closed,
-  }));
 
   return (
     <>

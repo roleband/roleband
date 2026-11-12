@@ -15,14 +15,18 @@ vi.mock("../../api", async () => {
 /* The chart is canvas; it renders the bars it is handed as text here, so a test
    can read exactly what the view chose to draw, and a bar is a button that
    clicks the way the chart reports a click (`HiringCompaniesChart.test.tsx`). */
+const handed = vi.hoisted(() => ({ bars: [] as unknown[] }));
 vi.mock("./charts/StatisticsCharts", () => ({
-  HiringCompaniesChart: ({ bars, onPick }: { bars: { company: string; label: string; open: number }[]; onPick?: (company: string) => void }) => (
+  HiringCompaniesChart: ({ bars, onPick }: { bars: { company: string; label: string; open: number }[]; onPick?: (company: string) => void }) => {
+    handed.bars.push(bars);
+    return (
     <ol aria-label="Company chart">
       {bars.map((b) => (
         <li key={b.label}><button type="button" onClick={() => onPick?.(b.company)}>{`${b.label}: ${b.open}`}</button></li>
       ))}
     </ol>
-  ),
+    );
+  },
 }));
 
 const company = (slug: string, open: number, _other = false, extra: Partial<HiringCompany> = {}): HiringCompany => ({
@@ -59,7 +63,10 @@ const demand = (over: Partial<Demand> = {}): Demand => ({
   ...over,
 });
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  handed.bars = [];
+});
 
 /** Where the Board route was asked for: its path and query, or nothing yet. */
 function BoardProbe() {
@@ -165,6 +172,17 @@ it("opens the Board narrowed to a company when its bar is clicked", async () => 
   const chart = await screen.findByRole("list", { name: "Company chart" });
   fireEvent.click(within(chart).getByRole("button", { name: "Google: 30" }));
   expect(await screen.findByTestId("board")).toHaveTextContent(/^\/\?company=google$/);
+});
+
+/* The chart redraws from scratch on a new bars array, replacing the label under the
+   pointer, so a render that changes no company hands it the same array. */
+it("hands the chart the bars it already drew when only the sheet opens", async () => {
+  vi.mocked(api.demand).mockResolvedValue(demand());
+  renderHiring();
+  fireEvent.click(await screen.findByRole("button", { name: "Show all 20 companies" }));
+  await screen.findByRole("dialog", { name: "All companies hiring" });
+  expect(handed.bars.length).toBeGreaterThan(1);
+  expect(new Set(handed.bars).size).toBe(1);
 });
 
 it("opens every company in a searchable sheet", async () => {

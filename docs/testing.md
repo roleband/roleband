@@ -492,15 +492,15 @@ misjudged.
 | Workflow | Runs on | Steps |
 |---|---|---|
 | `backend.yml` | Every push and PR; a PR that changes no backend input runs only the tests that read past `backend/`, and one that changes only documentation only those that read it | Dependency audit of the locked graph; the MiniLM model for the embedding golden test; Postgres 16 with pgvector; install the prebuilt `pg_trgm`; ruff; mypy; import-linter; pytest with `ROLEBAND_REQUIRE_INTEGRATION=1`, split by test file across two shards; the required `backend` check passes when both shards do |
-| `dashboard.yml` | Every push and PR; a PR that changes no dashboard input skips its checks | Dependency audit of production packages; lint; knip; build; the check that the Mac app's exported copy is current; Vitest; Playwright on both projects against the built app, split across four shards by whole spec file and recorded time (`ROLEBAND_UX_SHARD`); each shard runs in the Playwright image of the locked `@playwright/test` version, the one `--docker-browsers` uses, so nothing is installed over it; the image is pinned by digest, so a Playwright upgrade moves its tag and digest in the same change |
-| `contract-drift.yml` | Every push and PR; a PR that changes no schema input skips it | Regenerates `openapi.json` and `api.gen.ts`, fails on any diff |
-| `hygiene.yml` | Every push and PR | `backend/scripts/check_project_name.py`, `backend/scripts/check_comment_hygiene.py`; actionlint on every workflow, with shellcheck on its `run:` steps, from its image pinned by digest |
-| `mac-launcher.yml` | Every push and PR, weekly, and each release; its jobs run only when needed | A Linux `changes` job picks the tiers. Native tier (macOS): Swift tests, installer and release tests, install guide in Chromium and WebKit, source app build, transport test. Bundle tier (macOS, never on a PR): the dashboard and the standalone app with its engine, launched read-only, packaged as a candidate for local signing |
+| `dashboard.yml` | Every push and PR; a PR that changes no dashboard input skips its checks | Dependency audit of production packages; lint; knip; build; the checks that both native apps' exported copy is current; Vitest; Playwright on both projects against the built app, split across four shards by whole spec file and recorded time (`ROLEBAND_UX_SHARD`); each shard runs in the Playwright image of the locked `@playwright/test` version, the one `--docker-browsers` uses, so nothing is installed over it; the image is pinned by digest, so a Playwright upgrade moves its tag and digest in the same change; the required `dashboard` check passes only when `dashboard (checks)` and every `ux` shard did |
+| `contract-drift.yml` | Every push and PR; a PR that changes no schema input skips it | Regenerates `openapi.json` and `api.gen.ts` (`regenerate`), fails on any diff; the required `regen-diff` check passes only when that job did, or was skipped because the change cannot touch the schema |
+| `hygiene.yml` | Every push and PR | `backend/scripts/check_project_name.py`, `backend/scripts/check_comment_hygiene.py`; actionlint on every workflow, with shellcheck on its `run:` steps, from its image pinned by digest; the required `hygiene` check passes only when all three did |
+| `mac-launcher.yml` | Every push and PR, weekly, and each release; its jobs run only when needed | A Linux `changes` job picks the tiers. Native tier (macOS): Swift tests, installer and release tests, install guide in Chromium and WebKit, source app build, transport test. Bundle tier (macOS, never on a PR): the dashboard and the standalone app with its engine, launched read-only, packaged as a candidate for local signing; the required `mac-launcher` check passes only when each tier did, or was skipped because the change did not need it |
 | `windows-release.yml` | By hand only, for a published release's tag: Actions > windows-release > Run workflow from `main`, or `gh workflow run windows-release.yml --ref main -f tag=<tag>` | Builds, signs and attaches the Windows files ([architecture.md](architecture.md#the-windows-app) says how). It releases, so it tests nothing a pull request has not |
-| `windows.yml` | Main pushes and PRs; a PR that changes no Windows input skips its checks | On separate `windows-2025` runners, one per lane: checkpoint, recovery and migration tests (`checkpoints`); remaining Windows and supervisor tests with local authentication and skip-policy tests (`engine`); the rest of the backend suite (`suite`), split by test file across four runners (`windows (suite 1)` to `windows (suite 4)`, each uploading its own `windows-test-results-suite-N`); packaging tools, native host tests, WinUI build and Setup's native publish, failing when a build rewrites a `packages.lock.json` (`native`). Uses the local Windows runner and strict integration skips. The bundled-engine test runs when assembled trial resources are supplied. The required `windows` check passes only when every lane and shard did, including a change with no Windows input, whose lanes pass with their steps skipped; a cancelled run fails it |
+| `windows.yml` | Main pushes and PRs; a PR that changes no Windows input skips its checks, and every backend input is a Windows input, since the `suite` lane runs the backend suite | On separate `windows-2025` runners, one per lane: checkpoint, recovery and migration tests (`checkpoints`); remaining Windows and supervisor tests with local authentication and skip-policy tests (`engine`); the rest of the backend suite (`suite`), split by test file across four runners (`windows (suite 1)` to `windows (suite 4)`, each uploading its own `windows-test-results-suite-N`); packaging tools, native host tests, WinUI build and Setup's native publish, failing when a build rewrites a `packages.lock.json` (`native`). Uses the local Windows runner and strict integration skips. The bundled-engine test runs when assembled trial resources are supplied. The required `windows` check passes only when every lane and shard did, including a change with no Windows input, whose lanes pass with their steps skipped; a cancelled run fails it |
 | `codeql.yml` | Every push and PR, and weekly; the Swift scan only when it is needed | Code scanning with the default query suite. `actions`, `csharp` (the Windows app), `javascript-typescript` and `python` on Linux, without a build. Swift on macOS with the Xcode `mac-launcher.yml` pins, traced through a release build of the `RoleBandLauncher` product, the one `build-app.sh` ships; its `changes` job runs it when the package it compiles (`launcher/macos/Package.swift`, `Package.resolved`, `Sources/`), the decision script `launcher/macos/Tools/ci_changes.py` or the workflow changed, and a weekly or manual run always does. Advisory: no required check waits on it |
 | `links.yml` | Markdown changes, and weekly | External links in every tracked `*.md` resolve (lychee; loopback skipped, a rate limit counts as alive). Only the weekly run fails; on a pull request it reports |
-| `vendored-provenance.yml` | Monthly, and when vendored, runtime or embedded Postgres pins change | Vendored snapshots against upstream, the apps' bundled Python against the newest release of its series, and the embedded Postgres and pgvector against theirs; a notice, never a PR blocker |
+| `vendored-provenance.yml` | Monthly, and when vendored, runtime or embedded Postgres pins change | Vendored snapshots against upstream, the apps' bundled Python against the newest release of its series, and the embedded Postgres and pgvector against theirs, each check running after another failed; a notice, never a PR blocker |
 
 Every job names its runner's version (`ubuntu-24.04`, `macos-15`), never a
 `-latest` label, which GitHub moves to a new operating system on its own
@@ -531,10 +531,23 @@ mac-launcher, windows) take no `paths:` filter, so a required check never waits 
 that was never scheduled; `backend/tests/test_ci_workflow_triggers.py` holds
 that, and fails when a filtered workflow's `paths:` misses a file its steps read.
 
+### Required checks
+
+The ruleset that guards `main` requires one check per gate workflow: `backend`,
+`dashboard`, `regen-diff`, `hygiene`, `mac-launcher` and `windows`. Each is a job of its
+own that waits on every other job in its workflow, runs `always()`, and passes only when
+each of them passed, or was skipped because the change did not need it. GitHub counts a
+skipped job as a passed required check, so a check that did the work itself, or ran only
+`if: !cancelled()`, would pass a run someone cancelled. `REQUIRED_CHECKS` in
+`backend/tests/test_ci_workflow_triggers.py` names them, and the test runs each check's
+step against every outcome of the jobs it stands for. A change to that list changes the
+ruleset with it.
+
 The Mac workflow filters inside itself instead. Its `changes` job lists the paths
 each tier watches (`NATIVE_PATHS`, `BUNDLE_PATHS`) and
 `launcher/macos/Tools/ci_changes.py` compares them with the change; a tier that
-is not needed reports as skipped, which a required check accepts. A release, a
+is not needed reports as skipped, which the required `mac-launcher` check accepts only
+when the decision said the tier was not needed. A release, a
 manual or weekly run, or a diff that cannot be read runs both tiers. The bundle
 copies the whole engine and dashboard but watches only its own inputs, so an
 engine change it does not name is built by the weekly run or the next release.
@@ -553,11 +566,11 @@ tracked tree, such as the docs checks and the secret and vendor-name scans. A Ma
 file the backend's paths name, such as `CHANGELOG.md`, runs the whole suite instead. The
 source cannot show every read, so whenever the suite runs an audit hook watches the files
 each test opens, and a test that opened documentation without the mark fails.
-`contract-drift`'s `regen-diff` watches the schema exporter's whole import closure, the
+`contract-drift`'s `regenerate` watches the schema exporter's whole import closure, the
 files that closure names, the locks and the two generated files, so a pull request that
 cannot change the schema skips it. A dashboard pull request outside the dashboard's paths
-skips the `dashboard` job, and each `ux` shard starts and skips its steps, since a matrix
-job skipped whole reports a single `ux` check and the required shards would wait forever.
+skips the `dashboard (checks)` job, and each `ux` shard starts and skips its steps, since a
+matrix job skipped whole reports a single `ux` check in place of `ux (1)` to `ux (4)`.
 When the `changes` job fails, each of these workflows runs in full.
 CodeQL's Swift scan is a tier of the same kind that a push may skip too
 (`SKIP_EVENTS`), since no required check waits on it, and it scans when its

@@ -21,10 +21,12 @@ import ast
 import configparser
 import importlib.util
 import json
+import os
 import posixpath
 import re
 import shlex
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -538,6 +540,7 @@ CODE_READS = {
     "backend.yml": backend_code_reads,
     "contract-drift.yml": contract_code_reads,
     "dashboard.yml": dashboard_code_reads,
+    "windows.yml": backend_code_reads,
 }
 #: The workflows that pick a single tier in a `changes` job.
 TIERED = ("backend.yml", "codeql.yml", "contract-drift.yml", "dashboard.yml", "windows.yml")
@@ -558,6 +561,30 @@ def test_each_gate_tier_watches_every_file_it_reads(name):
     _, paths = _gate_tier(name)
     missing = unwatched(tier_inputs(name, _tracked()), paths)
     assert not missing, f"{name}: a pull request changing only these would skip the jobs that read them: {missing}"
+
+
+def windows_backend_gaps(windows: list[str], backend: list[str], tracked: list[str]) -> list[str]:
+    """Tracked files the backend tier watches that the Windows tier does not. The `suite` lane
+    runs the backend suite, so what that suite reads is a Windows input too."""
+    own = {".github/workflows/backend.yml"}
+    return sorted(f for f in tracked if f not in own and covered(f, backend) and not covered(f, windows))
+
+
+def test_the_windows_tier_watches_what_the_backend_suite_reads():
+    tracked = _tracked()
+    _, windows = _gate_tier("windows.yml")
+    _, backend = _gate_tier("backend.yml")
+    assert windows_backend_gaps(windows, backend, tracked) == []
+
+
+def test_a_windows_tier_missing_a_backend_input_is_reported():
+    """The control for the test above."""
+    tracked = _tracked()
+    _, windows = _gate_tier("windows.yml")
+    _, backend = _gate_tier("backend.yml")
+    trimmed = [p for p in windows if p not in ("CHANGELOG.md", "dashboard/csp-policy.json")]
+    assert windows_backend_gaps(trimmed, backend, tracked) == ["CHANGELOG.md", "dashboard/csp-policy.json"]
+    assert ".github/workflows/backend.yml" not in windows_backend_gaps([], backend, tracked)
 
 
 def test_the_gate_tier_inputs_are_derived_not_assumed():
@@ -655,13 +682,16 @@ def test_a_target_with_its_own_folder_is_reported(argument):
 
 
 def test_the_launcher_copy_check_runs_with_the_catalogue_on_linux():
-    """The export check needs Node only, so a catalogue change runs it in the dashboard gate
-    and starts no Mac runner, unless it changes the exported files under launcher/."""
+    """The export check needs Node only, so a catalogue change runs it for both native apps in
+    the dashboard gate and starts no Mac runner, unless it changes the exported files under launcher/."""
     checks = yaml.safe_load((WORKFLOWS / "dashboard.yml").read_text())["jobs"]["checks"]
     assert checks["runs-on"].startswith("ubuntu-")
-    assert "node scripts/export-launcher-copy.mjs --check" in [step.get("run") for step in checks["steps"]]
+    runs = [step.get("run") for step in checks["steps"]]
+    assert "node scripts/export-launcher-copy.mjs --check" in runs
+    assert "node scripts/export-launcher-copy.mjs --windows --check" in runs
     _, dashboard = _gate_tier("dashboard.yml")
     assert covered("launcher/macos/Sources/LauncherCore/Resources/copy.en.json", dashboard)
+    assert covered("launcher/windows/RoleBand.EngineHost/Resources/copy.en.json", dashboard)
     data, native, _ = _mac_tiers()
     assert "export-launcher-copy" not in str(data["jobs"])
     assert not covered("dashboard/src/copy/en/jobs.ftl", native)
@@ -1057,69 +1087,152 @@ def test_each_windows_runner_uploads_its_own_results():
     assert "Join-Path \"$env:SystemDrive\\rb\" $run" in check["run"]
 
 
-def test_the_required_backend_check_passes_only_when_every_shard_did():
-    """The ruleset requires `backend`; the shards report under their own names, so
-    the one job named `backend` has to stand for all of them, even when one fails."""
-    jobs = yaml.safe_load((WORKFLOWS / "backend.yml").read_text())["jobs"]
-    named = [job for job in jobs.values() if job.get("name") == "backend"]
-    assert len(named) == 1
-    result = named[0]
-    assert result["needs"] == "checks"
-    assert "!cancelled()" in result["if"]
-    step = result["steps"][-1]
-    assert step["env"]["SHARDS"] == "${{ needs.checks.result }}"
-    assert 'test "$SHARDS" = success' in step["run"]
+#: The checks the ruleset "main takes changes that pass the gates" requires: one job per
+#: gate that stands for every other job in its workflow. Changing this map means changing
+#: the ruleset in the same breath (docs/testing.md#required-checks).
+REQUIRED_CHECKS = {
+    "backend.yml": "backend",
+    "contract-drift.yml": "regen-diff",
+    "dashboard.yml": "dashboard",
+    "hygiene.yml": "hygiene",
+    "mac-launcher.yml": "mac-launcher",
+    "windows.yml": "windows",
+}
+RESULT = re.compile(r"\$\{\{ needs\.([\w-]+)\.result \}\}")
+DECISION = re.compile(r"\$\{\{ needs\.changes\.outputs\.[\w-]+ \}\}")
+
+
+def _aggregate_passes(run: str, env: dict[str, str]) -> bool:
+    """Whether the aggregate's Python step exits 0 with `env` as its whole environment."""
+    keep = {k: v for k, v in os.environ.items() if k.upper() in ("PATH", "SYSTEMROOT")}
+    done = subprocess.run([sys.executable, "-c", run], env={**keep, **env}, capture_output=True, text=True, check=False)
+    return done.returncode == 0
 
 
 def aggregate_gaps(data: dict, name: str) -> list[str]:
-    """How the one job named `name` can pass while a job beside it did not."""
+    """How the one job named `name` can pass while a job beside it did not.
+
+    Its step is run, not read: with every part passed it must pass, and with any one
+    part failed, cancelled or skipped it must fail, unless the change did not need
+    that part (its `NEEDED_` decision is 'false'). An empty decision is a failed
+    `changes` job, which skips a part the change may well have needed.
+    """
     jobs = data.get("jobs") or {}
-    named = [job_id for job_id, job in jobs.items() if job.get("name") == name]
+    named = [job_id for job_id, job in jobs.items() if job.get("name", job_id) == name]
     if len(named) != 1:
         return [f"{len(named)} jobs named {name}"]
     result = jobs[named[0]]
     needs = result.get("needs") or []
     needs = [needs] if isinstance(needs, str) else needs
+    parts = [job_id for job_id in needs if job_id != "changes"]
     gaps = [f"does not wait on {job_id}" for job_id in jobs if job_id not in (named[0], "changes", *needs)]
     if result.get("if") != "${{ always() }}":
         gaps.append(f"runs if {result.get('if')}: skipped, it would count as passed")
-    step = (result.get("steps") or [{}])[-1]
-    run = str(step.get("run", ""))
-    if result.get("continue-on-error") or any(s.get("continue-on-error") for s in result.get("steps") or []):
+    steps = result.get("steps") or []
+    if result.get("continue-on-error") or any(s.get("continue-on-error") for s in steps):
         gaps.append("continues on error: a failed test still passes it")
-    for job_id in needs:
-        variable = next((k for k, v in (step.get("env") or {}).items() if v == f"${{{{ needs.{job_id}.result }}}}"), None)
-        if variable is None or f'test "${variable}" = success' not in run:
-            gaps.append(f"does not require {job_id} to succeed")
+    if len(steps) != 1 or steps[0].get("shell") != "python":
+        return [*gaps, "decides in something other than one Python step"]
+    env = {str(k): str(v) for k, v in (steps[0].get("env") or {}).items()}
+    reads = {found[1]: key for key, value in env.items() if (found := RESULT.fullmatch(value))}
+    decisions = [key for key, value in env.items() if DECISION.fullmatch(value)]
+    gaps += [f"does not read the result of {job_id}" for job_id in parts if job_id not in reads]
+
+    def passes(results: dict[str, str], decision: str) -> bool:
+        values = {reads[job_id]: results.get(job_id, "success") for job_id in parts if job_id in reads}
+        return _aggregate_passes(steps[0]["run"], {**values, **{key: decision for key in decisions}})
+
+    if not all(passes({}, decision) for decision in ("true", "false")):
+        gaps.append("fails when every part passed")
+    for job_id in parts:
+        for outcome, decision, why in (("failure", "false", ""), ("cancelled", "false", ""),
+                                       ("skipped", "true", " though the change needed it"),
+                                       ("skipped", "", " after a failed decision")):
+            if passes({job_id: outcome}, decision):
+                gaps.append(f"passes when {job_id} was {outcome}{why}")
     return gaps
 
 
-def test_the_required_windows_check_passes_only_when_every_lane_did():
-    """The ruleset requires `windows`; lanes and shards report under their own names, so the
-    one job named `windows` stands for all of them, and runs even when the run is cancelled."""
-    data = yaml.safe_load((WORKFLOWS / "windows.yml").read_text())
-    assert aggregate_gaps(data, "windows") == []
-    assert data["jobs"]["result"]["needs"] == "checks"
+@pytest.mark.parametrize(("workflow", "check"), sorted(REQUIRED_CHECKS.items()))
+def test_each_required_check_passes_only_when_every_job_beside_it_did(workflow, check):
+    """A required check that a cancelled run skips counts as passed, so each one runs
+    `always()`, waits on every job in its workflow and fails unless each of them passed."""
+    assert aggregate_gaps(yaml.safe_load((WORKFLOWS / workflow).read_text()), check) == []
 
 
-def test_a_windows_check_that_can_pass_over_a_lane_is_reported():
-    """The control for the test above."""
-    data = yaml.safe_load((WORKFLOWS / "windows.yml").read_text())
+def test_every_gate_has_one_required_check_and_it_names_a_job():
+    """The required names are real check names: a name no job reports would hold every pull
+    request forever, and a gate with none would merge whatever it found."""
+    assert set(REQUIRED_CHECKS) == set(GATES)
+    for workflow, check in REQUIRED_CHECKS.items():
+        assert check_names(yaml.safe_load((WORKFLOWS / workflow).read_text())).count(check) == 1, workflow
+
+
+def _windows() -> dict:
+    return yaml.safe_load((WORKFLOWS / "windows.yml").read_text())
+
+
+def test_a_required_check_that_can_pass_over_a_job_is_reported():
+    """The controls for the two tests above."""
     assert aggregate_gaps({"jobs": {"changes": {}, "checks": {}}}, "windows") == ["0 jobs named windows"]
+    data = _windows()
     data["jobs"]["result"]["if"] = "${{ !cancelled() }}"
     data["jobs"]["installer"] = {"name": "windows (installer)"}
     assert aggregate_gaps(data, "windows") == [
         "does not wait on installer",
         "runs if ${{ !cancelled() }}: skipped, it would count as passed",
     ]
-    data["jobs"]["result"]["steps"][-1]["run"] = 'echo "lanes: $LANES"'
-    assert "does not require checks to succeed" in aggregate_gaps(data, "windows")
-    tolerant = yaml.safe_load((WORKFLOWS / "windows.yml").read_text())
-    tolerant["jobs"]["result"]["steps"][-1]["continue-on-error"] = True
-    assert aggregate_gaps(tolerant, "windows") == ["continues on error: a failed test still passes it"]
-    tolerant = yaml.safe_load((WORKFLOWS / "windows.yml").read_text())
+    data = _windows()
+    data["jobs"]["result"]["steps"] = [{"env": {"LANES": "${{ needs.checks.result }}"}, "run": 'test "$LANES" = success'}]
+    assert aggregate_gaps(data, "windows") == ["decides in something other than one Python step"]
+    data = _windows()
+    data["jobs"]["result"]["steps"][0]["env"] = {}
+    assert aggregate_gaps(data, "windows")[0] == "does not read the result of checks"
+    tolerant = _windows()
     tolerant["jobs"]["result"]["continue-on-error"] = True
     assert aggregate_gaps(tolerant, "windows") == ["continues on error: a failed test still passes it"]
+
+
+def test_a_required_check_whose_step_lets_a_part_through_is_reported():
+    """The controls for the step itself: a skip taken as a pass, a step that cannot fail and one
+    that cannot pass."""
+    data = _windows()
+    step = data["jobs"]["result"]["steps"][0]
+    step["run"] = step["run"].replace('r == "success" or', 'r in ("success", "skipped") or')
+    assert aggregate_gaps(data, "windows") == [
+        "passes when checks was skipped though the change needed it",
+        "passes when checks was skipped after a failed decision",
+    ]
+    step["run"] = "pass"
+    assert aggregate_gaps(data, "windows") == [
+        "passes when checks was failure",
+        "passes when checks was cancelled",
+        "passes when checks was skipped though the change needed it",
+        "passes when checks was skipped after a failed decision",
+    ]
+    step["run"] = "raise SystemExit(1)"
+    assert aggregate_gaps(data, "windows") == ["fails when every part passed"]
+    # A decision-skipped part whose decision read as 'true' must not pass skipped either.
+    mac = yaml.safe_load((WORKFLOWS / "mac-launcher.yml").read_text())
+    mac_step = mac["jobs"]["result"]["steps"][0]
+    mac_step["run"] = mac_step["run"].replace('== "false"', '!= "true"')
+    assert aggregate_gaps(mac, "mac-launcher") == [
+        "passes when build was skipped after a failed decision",
+        "passes when bundle was skipped after a failed decision",
+    ]
+
+
+def test_the_dashboard_check_before_its_aggregate_is_reported():
+    """The control on the shape the dashboard had: its required job did the work under
+    `!cancelled()`, and the `ux` shards stood beside it."""
+    data = yaml.safe_load((WORKFLOWS / "dashboard.yml").read_text())
+    del data["jobs"]["result"]
+    data["jobs"]["checks"]["name"] = "dashboard"
+    gaps = aggregate_gaps(data, "dashboard")
+    assert gaps[:2] == [
+        "does not wait on ux",
+        "runs if ${{ !cancelled() && needs.changes.outputs.dashboard != 'false' }}: skipped, it would count as passed",
+    ]
 
 
 def lock_check_gaps(job: dict) -> list[str]:
@@ -1319,3 +1432,33 @@ def test_a_windows_release_a_publication_starts_is_reported():
     assert windows_release_gaps(published) == ["starts on release", "its runs are not titled with the tag"]
     titled = {True: ["workflow_dispatch"], "run-name": "RoleBand ${{ inputs.tag }} for Windows"}
     assert windows_release_gaps(titled) == []
+
+
+def provenance_gaps(job: dict) -> list[str]:
+    """Checks in the provenance job that an earlier check's failure would skip. Each one is a
+    separate notice, so a broken pin in one must not hide what the others would report."""
+    steps = job.get("steps") or []
+    checks = [step for step in steps if str(step.get("name", "")).startswith("check ")]
+    gaps = [] if len(checks) == 3 else [f"{len(checks)} checks, not 3"]
+    install = next((step.get("id") for step in steps if "pip install" in str(step.get("run", ""))), None)
+    for step in checks[1:]:
+        condition = str(step.get("if", ""))
+        if "!cancelled()" not in condition or f"steps.{install}.outcome == 'success'" not in condition:
+            gaps.append(f"{step['name']} runs only if every check before it passed, or without its install")
+    return gaps
+
+
+def test_each_provenance_check_runs_after_another_failed():
+    data = yaml.safe_load((WORKFLOWS / "vendored-provenance.yml").read_text())
+    assert provenance_gaps(data["jobs"]["check"]) == []
+
+
+def test_a_provenance_check_skipped_by_an_earlier_failure_is_reported():
+    """The control for the test above."""
+    job = yaml.safe_load((WORKFLOWS / "vendored-provenance.yml").read_text())["jobs"]["check"]
+    for step in job["steps"]:
+        step.pop("if", None)
+    assert provenance_gaps(job) == [
+        "check the bundled Python runs only if every check before it passed, or without its install",
+        "check the embedded Postgres runs only if every check before it passed, or without its install",
+    ]
