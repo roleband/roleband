@@ -15,7 +15,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy import event
 
-from tests.factories import make_company, make_job
+from tests.factories import make_company, make_job, record_whole_read
 from tracker.analytics.demand import compute_demand_metrics
 from tracker.db.models import JobLifecycleEvent, JobPlaceSet, JobPlaceSetMember, ScrapeRun
 
@@ -44,6 +44,7 @@ async def _seed(db_session) -> None:
     later = ScrapeRun(started_at=now - timedelta(hours=2), status="ok")
     db_session.add_all([make_company("acme", "Acme"), first, later])
     await db_session.flush()
+    await record_whole_read(db_session, "acme", first.started_at)
     finds = [
         make_job(f"find-{i}", company="acme", first_seen=first.started_at, arrival="first_read")
         for i in range(MANY)

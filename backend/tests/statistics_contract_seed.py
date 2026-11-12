@@ -34,7 +34,7 @@ from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.factories import make_company, make_job
+from tests.factories import make_company, make_job, record_whole_read
 from tracker.db.models import (
     CompanyCompLevel,
     CompanyProfile,
@@ -288,5 +288,7 @@ async def seed_statistics(session: AsyncSession) -> SeededStatistics:
         _observation("hidden-co", "staff", REPORTED_LATEST, 1, 500000, 200000),
         _observation("google", "staff", date(2026, 7, 1), 1, 580000, 240000),
     ])
+    # The radar's history starts before its oldest role (60 days).
+    await record_whole_read(session, "netflix", NOW - timedelta(days=90))
     await session.commit()
     return SeededStatistics(ids={key: job.id for key, job in jobs.items()})

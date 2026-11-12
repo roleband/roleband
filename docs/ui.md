@@ -962,11 +962,21 @@ Back returns to Hiring.
 
 Every Insights figure counts a role listed in several places once
 (`db/queries/jobs.insights_role_conds`), a place filter takes it when any of
-those places matches, and so do the daily rollups written for later views: skills named, pay estimates and posted pay. Compensation shows
-the roles open now and draws no pay over time: the daily pay rollups keep
-building, and a chart over them waits until there is enough history to compare
-like with like. The window switch shows only on the tabs whose figures it moves
-(Overview and Pace).
+those places matches, and so do the daily rollups written for later views:
+skills named, pay estimates and posted pay. Compensation shows the roles open
+now and draws no pay over time: the daily pay rollups keep building, and a
+chart over them waits until there is enough history to compare like with like.
+
+The window switch shows only on the tabs whose figures it moves (Overview and
+Pace), and offers only the windows the history covers: a scope's history starts
+with the first read that saw a whole listing of one of its companies
+(`GET /api/statistics/history`, `db/queries/insights.history_since`). A window
+as long as the history or longer would show the figures of all time, so it is
+not offered, a saved link to it reads as all time, and with fewer windows than
+two the switch does not show. All time reads "since 3 Nov (8 days)", never as a
+window it does not fill. Overview and Pace call a window's openings Opened:
+New is the Board's 2-day rule. Hiring counts new and closed over the same 2
+days, so a company's "+3 −1" is one stretch of time.
 
 Turning the advanced view on asks in a dialog until the person says yes; the
 answer is kept on this device (`insightsView.ts`), so turning it off and on

@@ -30,6 +30,7 @@ from tracker.analytics.comp_trends import (
     build_disclosure_trend_series,
 )
 from tracker.analytics.hiring import build_hiring_places
+from tracker.analytics.posting_reality import NEW_LISTING_WINDOW
 from tracker.analytics.stock_trajectory import (
     TrajectoryRole,
     build_comp_trajectory,
@@ -46,6 +47,7 @@ from tracker.api.schemas.statistics import (
     DemandResponse,
     DisclosureTrendsResponse,
     EquityValidationResponse,
+    InsightsHistoryResponse,
     LevelGuideResponse,
     OfferTermsResponse,
     StatisticsOverviewResponse,
@@ -68,6 +70,7 @@ from tracker.db.models import (
     Notification,
     SkillConcept,
 )
+from tracker.db.queries.insights import history_days, history_since, window_since
 from tracker.db.queries.jobs import (
     board_count_stmt,
     exclude_hidden,
@@ -180,12 +183,16 @@ async def statistics_overview(
     """Cockpit aggregate for the Statistics landing tab.
 
     KPI tiles, a short generated brief and the top skills, pulling from the demand
-    and skills layers. `days<=0` means all-time; otherwise the new/closed
-    counters are scoped to the last N days of lifecycle events (so the period control
-    is meaningful as history accrues).
+    and skills layers. `days<=0` means all-time. The opened and closed counters
+    start at `since`: the window's start, or the scope's history when that is
+    shorter, so nothing found before the history is counted.
     """
-    all_time = days <= 0
-    cutoff = None if all_time else datetime.now(UTC) - timedelta(days=days)
+    now = datetime.now(UTC)
+    history = await history_since(session, scope, hidden)
+    since = window_since(history, days, now)
+    # The counters start where the figures say they do; before any whole read
+    # there is no history, and what a partial read found is no opening.
+    cutoff = since if history is not None else now
 
     open_total = await session.scalar(open_in_scope_count_stmt(hidden, *scope.conds()))
     companies = await session.scalar(
@@ -242,6 +249,7 @@ async def statistics_overview(
 
     return {
         "days": days,
+        "since": since,
         "kpis": {
             "open_total": open_total or 0,
             "new_count": new_count or 0,
@@ -744,6 +752,9 @@ class VelocityCompany(BaseModel):
 
 class VelocityOut(BaseModel):
     days: int
+    #: Where the figures start: the window's start, or the scope's history when
+    #: that is shorter (`queries.insights.window_since`). None before any whole read.
+    since: datetime | None
     kpis: VelocityKpis
     aging: list[VelocityAgingBand]
     #: Observed listing durations of the postings that closed in the window, on
@@ -766,8 +777,13 @@ async def statistics_velocity(
     It is not a time to fill: it measures how long we observed a posting
     advertised, and a public board says nothing about whether anyone was hired.
     """
-    all_time = days <= 0
-    cutoff = None if all_time else datetime.now(UTC) - timedelta(days=days)
+    now = datetime.now(UTC)
+    history = await history_since(session, scope, hidden)
+    since = window_since(history, days, now)
+    # The counters start where the figures say they do; before any whole read
+    # there is no history, and what a partial read found is no opening.
+    cutoff = since if history is not None else now
+    all_time = cutoff is None
     params: dict = {} if all_time else {"cutoff": cutoff}
     if hidden:
         params["hidden"] = hidden
@@ -787,7 +803,7 @@ async def statistics_velocity(
     # One clock for the window and the ages: the app's, never the database's
     # `now()` beside a Python cutoff (the two disagree under a pinned test
     # clock).
-    params["now"] = datetime.now(UTC)
+    params["now"] = now
     # The set is built once, inside the one statement below, and read by its
     # parts. Bound back as an id list it would grow with the data, and a
     # generic plan searches a bound array row by row.
@@ -888,15 +904,27 @@ async def statistics_velocity(
     open_rows = [r for r in rows if r.part == "open"]
     duration_rows = [r for r in rows if r.part == "closed"]
 
-    return build_velocity(
-        [(r.company, r.days) for r in open_rows],
-        [(r.company, r.event_type, r.n) for r in rows if r.part == "event"],
-        [(r.company, r.days) for r in duration_rows],
-        open_total or 0,
-        days,
-        open_employer_dated=sum(1 for r in open_rows if r.employer_dated),
-        closed_employer_dated=sum(1 for r in duration_rows if r.employer_dated),
-    )
+    return {
+        **build_velocity(
+            [(r.company, r.days) for r in open_rows],
+            [(r.company, r.event_type, r.n) for r in rows if r.part == "event"],
+            [(r.company, r.days) for r in duration_rows],
+            open_total or 0,
+            days,
+            open_employer_dated=sum(1 for r in open_rows if r.employer_dated),
+            closed_employer_dated=sum(1 for r in duration_rows if r.employer_dated),
+        ),
+        "since": since,
+    }
+
+
+@router.get("/api/statistics/history", response_model=InsightsHistoryResponse)
+async def statistics_history(session: SessionDep, hidden: OffBoardDep, scope: InsightsScopeDep) -> dict:
+    """How much history the scope's companies have: when it starts and how
+    many whole days it covers. A window longer than it shows the same figures as
+    all time, so the dashboard offers only the windows it covers."""
+    since = await history_since(session, scope, hidden)
+    return {"since": since, "days": history_days(since, datetime.now(UTC))}
 
 
 @router.get("/api/demand", response_model=DemandResponse)
@@ -930,15 +958,17 @@ async def demand(session: SessionDep, hidden: OffBoardDep, scope: InsightsScopeD
     for company, _ in roles.values():
         open_by_company[company] = open_by_company.get(company, 0) + 1
 
-    # The motion, by the header's lenses: roles new by the Board's rule (not
-    # reposts) and roles closed today, a place set once. Not for me stays in:
-    # Insights is the market.
+    # The motion over one period, the New rule's: roles new by the Board's rule
+    # (not reposts) and roles closed in the same 2 days, a place set once, so
+    # the two numbers side by side describe one stretch of time. Not for me
+    # stays in: Insights is the market.
+    now = datetime.now(UTC)
     later = place_set_later_ids()
     new_rows = (
         await session.execute(
             exclude_hidden(
                 select(Job.company, func.count()).where(
-                    new_listing_clause(),
+                    new_listing_clause(now=now),
                     Job.in_scope.is_(True),
                     Job.id.notin_(later),
                     *scope.conds(),
@@ -954,7 +984,7 @@ async def demand(session: SessionDep, hidden: OffBoardDep, scope: InsightsScopeD
                 .join(JobLifecycleEvent, JobLifecycleEvent.job_id == Job.id)
                 .where(
                     JobLifecycleEvent.event_type == "closed",
-                    JobLifecycleEvent.created_at >= local_day_start_utc(),
+                    JobLifecycleEvent.created_at > now - NEW_LISTING_WINDOW,
                     Job.in_scope.is_(True),
                     Job.id.notin_(later),
                     *scope.conds(),
@@ -963,19 +993,19 @@ async def demand(session: SessionDep, hidden: OffBoardDep, scope: InsightsScopeD
             ).group_by(Job.company)
         )
     ).all()
-    new_today = dict(new_rows)
-    closed_today = dict(closed_rows)
+    new = dict(new_rows)
+    closed = dict(closed_rows)
     companies = sorted(
         (
             {
                 "company": company,
                 "open": open_by_company.get(company, 0),
-                "new_today": int(new_today.get(company, 0)),
-                "closed_today": int(closed_today.get(company, 0)),
+                "new": int(new.get(company, 0)),
+                "closed": int(closed.get(company, 0)),
             }
-            for company in set(open_by_company) | set(new_today) | set(closed_today)
+            for company in set(open_by_company) | set(new) | set(closed)
         ),
-        key=lambda c: (-c["open"], -c["new_today"], c["company"]),
+        key=lambda c: (-c["open"], -c["new"], c["company"]),
     )
 
     open_count, dated_count = (
@@ -992,8 +1022,8 @@ async def demand(session: SessionDep, hidden: OffBoardDep, scope: InsightsScopeD
     places = build_hiring_places(locations for _, locations in roles.values())
     return {
         "open_total": len(roles),
-        "new_today": sum(new_today.values()),
-        "closed_today": sum(closed_today.values()),
+        "new": sum(new.values()),
+        "closed": sum(closed.values()),
         "companies": companies,
         "regions": places["regions"],
         "unplaced": places["unplaced"],

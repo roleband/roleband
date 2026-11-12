@@ -12,10 +12,12 @@ import { useSearchParamList } from "../../routing/useSearchParamList";
 import { Button, Dialog, FilterSelect, Segmented, Switch, TabBar } from "../../ui";
 import { useCallback, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Facets, InsightsScope, api } from "../../api";
+import { Facets, InsightsHistory, InsightsScope, api } from "../../api";
 import { useAsyncResource } from "../../hooks/useAsyncResource";
 import { companyPickerOptions, otherCompanies } from "./companyPicker";
 import { ADVANCED_TABS, InsightsView, readInsightsView, writeInsightsView } from "./insightsView";
+import { coveredWindows } from "./period";
+import { ResourceLoadState } from "../../ui/ResourceLoadState";
 import "./statistics.css";
 import { PageHeader } from "../../patterns/PageHeader";
 import {
@@ -35,15 +37,18 @@ import {
   insightsYourCompanies,
   insightsCommonAllCompanies,
   insightsCommonCompanies,
+  insightsOverviewPanelLoading,
+  insightsVelocityPanelLoading,
 } from "../../copy/gen/insights";
 import { shellNavInsights } from "../../copy/gen/shell";
 import { roleName } from "../../copy/vocab";
 
 const SUBTAB_SLUGS = STATISTICS_TABS.map((t) => t.slug) as [string, ...string[]];
 
-// days<=0 == all-time. Overview and Velocity honor this period lens;
-// the others are current-snapshot views (demand shows its own "as of" date).
-// The `?window=` lens stores readable strings; `all` maps to days<=0.
+// days<=0 == all-time. Overview and Velocity honor this period lens, among
+// the windows the history covers (`period.coveredWindows`); the others are
+// current-snapshot views. The `?window=` lens stores readable strings; `all`
+// maps to days<=0.
 const PERIODS: { win: string; days: number; label: string }[] = [
   { win: "7", days: 7, get label() { return insightsPeriodDays({ days: 7 }); } },
   { win: "30", days: 30, get label() { return insightsPeriodDays({ days: 30 }); } },
@@ -92,7 +97,6 @@ export function StatisticsView() {
     },
     [navigate, search],
   );
-  const days = win === "all" ? 0 : Number(win);
   // Basic until the person turns the advanced view on. The first time, a
   // dialog asks; once they have said yes, the switch just switches.
   const [stored, setStored] = useState<InsightsView | null>(readInsightsView);
@@ -115,6 +119,18 @@ export function StatisticsView() {
     () => ({ side, families: familyKey ? familyKey.split(",") : [] }),
     [side, familyKey],
   );
+  // Only the windows the scope's history covers: a longer one shows the
+  // figures of all time, so a pick it does not cover reads as all time.
+  const periodAware = PERIOD_AWARE.has(view);
+  const history = useAsyncResource<InsightsHistory | null>(
+    () => (periodAware ? api.insightsHistory(scope) : Promise.resolve(null)),
+    [periodAware, scope],
+    { keep: "stats/history" },
+  );
+  const historyKnown = !periodAware || history.data != null || history.error != null;
+  const covered = coveredWindows(PERIODS, history.data ? history.data.since : history.error ? undefined : null);
+  const shown = covered.some((p) => p.win === win) ? win : "all";
+  const days = shown === "all" ? 0 : Number(shown);
   // One read of the filter options for the screen: the discipline select and
   // the Skills company picker both draw from it.
   const facets = useAsyncResource<Facets>(api.facets, [], { keep: "facets" }).data;
@@ -195,15 +211,15 @@ export function StatisticsView() {
             />}
           </div>
         )}
-        {PERIOD_AWARE.has(view) && (
+        {periodAware && covered.length > 1 && (
           <div className="stats-period-wrap">
             <span data-selection="chrome" className="stats-period-label">{insightsStatisticsViewWindow()}</span>
             <Segmented
               className="stats-period"
               label={insightsStatisticsViewWindow()}
-              value={win}
+              value={shown}
               onChange={setWin}
-              options={PERIODS.map((p) => ({ value: p.win, label: p.label }))}
+              options={covered.map((p) => ({ value: p.win, label: p.label }))}
             />
           </div>
         )}
@@ -222,9 +238,13 @@ export function StatisticsView() {
         role="tabpanel"
         aria-labelledby={`statistics-tab-${view}`}
       >
-        {view === "overview" && <OverviewPanel days={days} scope={scope} />}
+        {/* A panel waits for the history, so it asks once, for the window it shows. */}
+        {!historyKnown && (
+          <ResourceLoadState error={null} loading={view === "overview" ? insightsOverviewPanelLoading() : insightsVelocityPanelLoading()} />
+        )}
+        {historyKnown && view === "overview" && <OverviewPanel days={days} scope={scope} />}
         {view === "demand" && <DemandView scope={scope} />}
-        {view === "velocity" && <VelocityPanel days={days} scope={scope} />}
+        {historyKnown && view === "velocity" && <VelocityPanel days={days} scope={scope} />}
         {view === "compensation" && <CompensationPanel scope={scope} advanced={advanced} />}
         {view === "levels" && <LevelsPanel scope={scope} onResetSide={() => setSide("all")} />}
         {view === "trajectory" && <StockTrajectoryPanel />}

@@ -11,18 +11,24 @@ how a tab is read for one side.
 One object answers both query styles the statistics reads use: ORM conditions
 (`conds`) and a raw-SQL fragment with its parameters (`sql`), so a raw read
 cannot narrow differently from an ORM one.
+
+A scope's history starts at the first read that saw a whole listing of one of
+its companies (`history_since`): no opening before it can be dated
+(`db/arrival.py`), so no window reaches back further.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Any, Literal
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.company_directory import FOLLOWED_WITH_SET
-from tracker.db.models import Job, TrackedCompany
+from tracker.connectors.recipes.outcome import SourceOutcome
+from tracker.db.models import Job, ScrapeSourceRun, TrackedCompany
 
 Side = Literal["all", "yours", "other"]
 SIDES: tuple[Side, ...] = ("all", "yours", "other")
@@ -83,3 +89,34 @@ async def resolve_insights_scope(
             ).all()
         )
     return InsightsScope(side=side, families=tuple(sorted(set(families or []))), other=other)
+
+
+async def history_since(session: AsyncSession, scope: InsightsScope, hidden: list[str]) -> datetime | None:
+    """When the history of the scope's companies starts: the start of the first
+    read of one of them that saw its whole listing (`list_complete`, or a board
+    proven `empty`), off-board companies aside, so what that read found is
+    inside it. None before any such read. A partial read never starts it: what
+    it missed may have been listed all along."""
+    stmt = select(func.min(ScrapeSourceRun.started_at)).where(
+        or_(ScrapeSourceRun.list_complete.is_(True), ScrapeSourceRun.outcome == SourceOutcome.EMPTY.value),
+        *scope.company_conds(ScrapeSourceRun.company_slug),
+    )
+    if hidden:
+        stmt = stmt.where(ScrapeSourceRun.company_slug.notin_(hidden))
+    return await session.scalar(stmt)
+
+
+def window_since(history: datetime | None, days: int, now: datetime) -> datetime | None:
+    """The start of what a window of `days` covers (`days <= 0` is all time):
+    the window's own start, or the history's when the history is shorter.
+    None before any whole read: there is no history for a window to cover."""
+    if history is None:
+        return None
+    if days <= 0:
+        return history
+    return max(now - timedelta(days=days), history)
+
+
+def history_days(history: datetime | None, now: datetime) -> int:
+    """Whole days of history at `now`."""
+    return 0 if history is None else max(0, (now - history).days)

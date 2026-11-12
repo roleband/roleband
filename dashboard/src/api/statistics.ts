@@ -36,8 +36,13 @@ export type Demand = Schemas["DemandResponse"];
 export type OverviewKpis = Schemas["OverviewKpis"];
 export type OverviewSkill = Schemas["OverviewSkill"];
 
-/** `GET /api/statistics/overview`. `days <= 0` is all-time. */
+/** `GET /api/statistics/overview`. `days <= 0` is all-time; `since` is where
+ *  the figures start, the window's start or the history's when that is shorter. */
 export type StatisticsOverview = Schemas["StatisticsOverviewResponse"];
+
+/** `GET /api/statistics/history`: when the scope's history starts (its first
+ *  whole read) and how many whole days it covers. */
+export type InsightsHistory = Schemas["InsightsHistoryResponse"];
 
 /** One group of the imputed total-comp estimate: dollars at the ends, interpolated
  *  percentiles between. A group is never empty, so every figure is present. */
@@ -131,4 +136,7 @@ export const statisticsApi = {
   levelGuide: (signal?: AbortSignal) => getJSON<LevelGuide>("/api/statistics/levels", signal),
   velocity: (days = 30, scope?: InsightsScope) =>
     getJSON<VelocityStats>(scoped(`/api/statistics/velocity?days=${days}`, scope)),
+  /** The history the scope's companies have, for the windows it covers. */
+  insightsHistory: (scope?: InsightsScope) =>
+    getJSON<InsightsHistory>(scoped(`/api/statistics/history`, scope)),
 };

@@ -73,7 +73,7 @@ insights-compensation-panel-median = { $roles } · { $p50 } median
 # kind=heading wording=as-is
 insights-demand-open-roles-by-company = Open roles by company
 # kind=sentence
-insights-demand-each-role-counts-once-however = Each role counts once, however many places it is listed at. New counts the last 2 days, closed counts today.
+insights-demand-each-role-counts-once-however = Each role counts once, however many places it is listed at. New and closed both count the last 2 days.
 # kind=sentence wording=as-is
 insights-demand-no-open-roles-at-these = No open roles at these companies.
 # kind=sentence note="Under the company chart: the companies folded out of it. $share is none when this side has no open roles to take a share of"
@@ -100,8 +100,8 @@ insights-demand-and-more-countries = { $more ->
 insights-demand-name-no-place-we-can = { $role } name no specific place, such as Remote alone.
 # kind=label wording=as-is
 insights-demand-of = { $shown } of { $companies }
-# kind=status
-insights-demand-hiring-now-today-new-closed = { $company } hiring now · { $new_today } new in the last 2 days, { $closed_today } closed today
+# kind=status note="Roles new and closed over one period, the New rule's 2 days"
+insights-demand-hiring-now-new-closed = { $company } hiring now · { $new } new and { $closed } closed in the last 2 days
 # kind=label wording=as-is
 insights-demand-each-role-once = each role once
 # kind=label wording=as-is
@@ -758,8 +758,6 @@ insights-velocity-panel-companies = Companies · { $window }
 # kind=label wording=as-is
 insights-velocity-panel-open = Open
 # kind=label wording=as-is
-insights-velocity-panel-opened = Opened
-# kind=label wording=as-is
 insights-velocity-panel-time-posted = Time posted
 # kind=sentence
 insights-velocity-panel-from-the-first-scan-that = Days a posting stayed up, from first seen to gone. Postings close for several reasons: filled, paused or expired.
@@ -798,11 +796,11 @@ insights-statistics-charts-company-open-roles = { $open ->
     [one] { $open } open role
    *[other] { $open } open roles
 }
-# kind=tooltip note="A company's new roles (last 2 days) and closings (today), on its chart tooltip. $new_roles is the new ones ('+3 new') and $closed_roles the closings ('−2 closed'), each in its own colour"
-insights-statistics-charts-new-closed-today = { $new_roles } in the last 2 days · { $closed_roles } today
-# kind=tooltip note="Roles new at a company in the last 2 days, a part of the line 'new in the last 2 days · closed today'"
+# kind=tooltip note="A company's new roles and closings over the last 2 days, on its chart tooltip. $new_roles is the new ones ('+3 new') and $closed_roles the closings ('−2 closed'), each in its own colour"
+insights-statistics-charts-new-closed = { $new_roles } · { $closed_roles } in the last 2 days
+# kind=tooltip note="Roles new at a company in the last 2 days, a part of the line 'new · closed in the last 2 days'"
 insights-statistics-charts-new-count = +{ $fresh } new
-# kind=tooltip note="Roles a company closed today, a part of the line 'new · closed today'"
+# kind=tooltip note="Roles a company closed in the last 2 days, a part of the line 'new · closed in the last 2 days'"
 insights-statistics-charts-closed-count = −{ $closed } closed
 # kind=aria wording=as-is
 insights-statistics-charts-open-roles-by-company = Open roles by company
@@ -890,8 +888,6 @@ insights-demand-open = { $role } open
 insights-demand-loading = Loading hiring activity…
 # kind=heading
 insights-demand-load-failed = Couldn't load hiring activity
-# kind=label note="Under a count of roles closed: 3 closed today"
-insights-demand-today = today
 # kind=label note="Under a count of new roles: 3 new in the last 2 days"
 insights-demand-last-2-days = last 2 days
 
@@ -943,6 +939,8 @@ insights-common-open-roles = Open roles
 insights-common-open-roles-unit = open roles
 # kind=label wording=as-is
 insights-common-new = New
+# kind=label note="Roles that appeared while their company was being watched, in a period; never a company's first read"
+insights-common-opened = Opened
 # kind=label wording=as-is
 insights-common-closed = Closed
 # kind=label wording=as-is
@@ -958,6 +956,11 @@ insights-common-last-days-or-all-time = { $period ->
     [all] all time
    *[days] last { $days }d
 }
+# kind=label note="The period a figure covers when it is all the history there is: since the first day these companies were read in full, and how many days that is"
+insights-common-since-date = since { $date } ({ $days ->
+        [one] { $days } day
+       *[other] { $days } days
+    })
 
 ## Skill categories (backend/tracker/skills/catalog.yaml), from copy/skills.ts
 # kind=name note="Skill category; slug language"
@@ -1003,10 +1006,11 @@ insights-aging-from-90-days = 3 months+
 ## sentence is said only when its fact is there; the brief joins them with a space.
 # kind=sentence wording=as-is
 insights-brief-open = { $open } open roles across { $companies } companies.
-# kind=sentence
-insights-brief-opened = { $allTime ->
-    [yes] { $opened } opened, { $closed } closed, all time.
-   *[no] { $opened } opened in { $days }d, { $closed } closed.
+# kind=sentence note="$period: since names the start of all the history there is ($date, '3 Nov'); all is all time before any whole read; days is a window"
+insights-brief-opened = { $period ->
+    [since] { $opened } opened, { $closed } closed since { $date }.
+    [all] { $opened } opened, { $closed } closed, all time.
+   *[days] { $opened } opened in { $days }d, { $closed } closed.
 }
 # kind=sentence wording=as-is
 insights-brief-top-skill = Top skill: { $skill } ({ $count } roles).

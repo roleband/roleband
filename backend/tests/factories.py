@@ -8,11 +8,13 @@ its own tests, and a second module leaning on them breaks when they do.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
 
-from tracker.db.models import Job, TrackedCompany
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from tracker.db.models import Job, ScrapeRun, ScrapeSourceRun, SourceBinding, TrackedCompany
 from tracker.enrich.enricher import ScopeFilter, annotate
 from tracker.platform.drift import SchemaDriftDetector
 from tracker.schema import (
@@ -87,6 +89,23 @@ def make_company(slug: str, display: str, **over: Any) -> TrackedCompany:
     }
     row.update(over)
     return TrackedCompany(**row)
+
+
+async def record_whole_read(session: AsyncSession, slug: str, at: datetime) -> None:
+    """A read of `slug`'s whole listing at `at`. Insights' history starts at the
+    first such read, and counts no opening before it."""
+    if await session.get(TrackedCompany, slug) is None:
+        session.add(make_company(slug, slug.title()))
+        await session.flush()
+    binding = SourceBinding(company_slug=slug, connector_kind="greenhouse", connector_id=slug)
+    run = ScrapeRun(status="ok", started_at=at, per_source={}, drift_alerts=[])
+    session.add_all([binding, run])
+    await session.flush()
+    session.add(ScrapeSourceRun(
+        run_id=run.id, binding_id=binding.id, company_slug=slug, provider_key=slug, scan_mode="reconcile",
+        outcome="ok", started_at=at, finished_at=at + timedelta(minutes=1), kept=0, list_complete=True,
+    ))
+    await session.flush()
 
 
 def scope_filter(

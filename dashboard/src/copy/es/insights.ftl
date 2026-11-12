@@ -37,7 +37,7 @@ insights-compensation-panel-median = { $roles } · mediana { $p50 }
 
 ## features/statistics/Demand.tsx
 insights-demand-open-roles-by-company = Puestos abiertos por empresa
-insights-demand-each-role-counts-once-however = Cada puesto cuenta una vez, aunque se publique en varios lugares. Nuevos cuenta los últimos 2 días; cerrados, hoy.
+insights-demand-each-role-counts-once-however = Cada puesto cuenta una vez, aunque se publique en varios lugares. Nuevos y cerrados cuentan los últimos 2 días.
 insights-demand-no-open-roles-at-these = No hay puestos abiertos en estas empresas.
 insights-demand-more-hold = { $share ->
     [none] { $companies } más tienen { $roles }.
@@ -55,7 +55,7 @@ insights-demand-and-more-countries = { $more ->
 }
 insights-demand-name-no-place-we-can = { $role } no indican ningún lugar concreto, como Remoto sin más.
 insights-demand-of = { $shown } de { $companies }
-insights-demand-hiring-now-today-new-closed = { $company } contratando ahora · { $new_today } nuevos en los últimos 2 días, { $closed_today } cerrados hoy
+insights-demand-hiring-now-new-closed = { $company } contratando ahora · { $new } nuevos y { $closed } cerrados en los últimos 2 días
 insights-demand-each-role-once = cada puesto una vez
 insights-demand-with-an-open-role = con un puesto abierto
 insights-demand-how-companies-are-counted = Cómo se cuentan las empresas
@@ -485,7 +485,6 @@ insights-offer-show-table = Ver la tabla
 ## features/statistics/VelocityPanel.tsx
 insights-velocity-panel-companies = Empresas · { $window }
 insights-velocity-panel-open = Abiertos
-insights-velocity-panel-opened = Nuevos
 insights-velocity-panel-time-posted = Tiempo publicado
 insights-velocity-panel-from-the-first-scan-that = Días que una oferta estuvo publicada, desde que se vio por primera vez hasta que desapareció. Las ofertas se cierran por varios motivos: cubiertas, en pausa o caducadas.
 insights-velocity-panel-age-of-open-roles = Antigüedad de los puestos abiertos
@@ -510,7 +509,7 @@ insights-statistics-charts-company-open-roles = { $open ->
     [many] { $open } de puestos abiertos
    *[other] { $open } puestos abiertos
 }
-insights-statistics-charts-new-closed-today = { $new_roles } en los últimos 2 días · { $closed_roles } hoy
+insights-statistics-charts-new-closed = { $new_roles } · { $closed_roles } en los últimos 2 días
 insights-statistics-charts-new-count = +{ $fresh } nuevos
 insights-statistics-charts-closed-count = −{ $closed } cerrados
 insights-statistics-charts-open-roles-by-company = Puestos abiertos por empresa
@@ -571,7 +570,6 @@ insights-compensation-panel-min-max = mín–máx
 insights-demand-open = { $role } abiertos
 insights-demand-loading = Cargando la actividad de contratación…
 insights-demand-load-failed = No se pudo cargar la actividad de contratación
-insights-demand-today = hoy
 insights-demand-last-2-days = últimos 2 días
 
 ## features/statistics/OverviewPanel.tsx
@@ -605,6 +603,7 @@ insights-common-company = Empresa
 insights-common-open-roles = Puestos abiertos
 insights-common-open-roles-unit = puestos abiertos
 insights-common-new = Nuevos
+insights-common-opened = Publicados
 insights-common-closed = Cerrados
 insights-common-market = Mercado
 insights-common-by-level = Por nivel
@@ -614,6 +613,11 @@ insights-common-last-days-or-all-time = { $period ->
     [all] todo el periodo
    *[days] últimos { $days } d
 }
+insights-common-since-date = desde el { $date } ({ $days ->
+        [one] { $days } día
+        [many] { $days } días
+       *[other] { $days } días
+    })
 
 ## Categorías de habilidades
 insights-skill-language = Lenguaje
@@ -638,9 +642,10 @@ insights-aging-from-90-days = 3 meses o más
 
 ## El resumen de una línea de la vista general
 insights-brief-open = { $open } puestos abiertos en { $companies } empresas.
-insights-brief-opened = { $allTime ->
-    [yes] { $opened } nuevos, { $closed } cerrados, en todo el periodo.
-   *[no] { $opened } nuevos en { $days } d, { $closed } cerrados.
+insights-brief-opened = { $period ->
+    [since] { $opened } publicados, { $closed } cerrados desde el { $date }.
+    [all] { $opened } publicados, { $closed } cerrados, en todo el periodo.
+   *[days] { $opened } publicados en { $days } d, { $closed } cerrados.
 }
 insights-brief-top-skill = Habilidad principal: { $skill } ({ $count } puestos).
 insights-compensation-panel-spread = p25–p75: { $low }–{ $high } · { $roles }

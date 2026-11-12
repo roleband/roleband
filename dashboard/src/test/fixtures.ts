@@ -40,6 +40,7 @@ import {
   ScopeCells,
   ScopeSettingsPayload,
   ScopeSettingsSaveResult,
+  InsightsHistory,
   StatisticsOverview,
   Stats,
   SyncResult,
@@ -573,23 +574,28 @@ export const notificationsFixture: NotificationList = {
    dev-server proxy. Specs share this one definition. */
 export const overviewFixture: StatisticsOverview = {
   days: 30,
+  since: "2026-10-01T06:00:00Z",
   kpis: { open_total: 12, new_count: 4, first_scan_count: 0, closed_count: 1, companies: 3, saved_total: 2 },
   top_skills: [],
 };
+
+/** `GET /api/statistics/history`: a history long enough that every window
+ *  is covered, so the window switch offers them all. */
+export const historyFixture: InsightsHistory = { since: "2026-07-01T06:00:00Z", days: 120 };
 
 /** `GET /api/demand`, the Hiring tab: roles each once, by company
  *  and region. Eighteen companies so the tab folds a tail (fifteen drawn). */
 export const hiringFixture: Demand = {
   open_total: 236,
-  new_today: 4,
-  closed_today: 2,
+  new: 4,
+  closed: 2,
   companies: [
-    { company: "anthropic", open: 48, new_today: 2, closed_today: 1 },
-    { company: "google", open: 41, new_today: 1, closed_today: 0 },
-    { company: "openai", open: 33, new_today: 1, closed_today: 1 },
+    { company: "anthropic", open: 48, new: 2, closed: 1 },
+    { company: "google", open: 41, new: 1, closed: 0 },
+    { company: "openai", open: 33, new: 1, closed: 1 },
     ...Array.from({ length: 15 }, (_, i) => ({
       company: `market-${String(i + 1).padStart(2, "0")}`, open: 8 - Math.floor(i / 3),
-      new_today: 0, closed_today: 0,
+      new: 0, closed: 0,
     })),
   ],
   regions: [

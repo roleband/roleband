@@ -66,7 +66,7 @@ export type {
 export type {
   CompCompany, CompFamily, CompHistBin, CompLevel, CompPackage, CompSkill, CompSummary,
   CompPartSource, CompTrajectory, CompTrajectoryChoice, OfferTerms, OfferTermsCompany, CompTrajectoryCompany, CompTrajectorySetApart,
-  CompensationStats, Demand, InsightsScope, DisclosedBand, LevelGuide, LevelGuideCell, LevelGuideCompany, LevelGuideEntry, DisclosedBands, DisclosureCompany, HiringCompany, HiringRegion,
+  CompensationStats, Demand, InsightsHistory, InsightsScope, DisclosedBand, LevelGuide, LevelGuideCell, LevelGuideCompany, LevelGuideEntry, DisclosedBands, DisclosureCompany, HiringCompany, HiringRegion,
   DisclosureGroup, DisclosureLevel, DisclosureRates, OverviewKpis,
   OverviewSkill, StatisticsOverview, Stats, VelocityAging, VelocityCompany,
   VelocityKpis, VelocityStats,

@@ -1,11 +1,11 @@
-import { expect, test } from "./fixtures";
+import { expect, mockGet, test } from "./fixtures";
 import { showAdvancedInsights } from "./insightsView";
 import {
   facetsFixture,
   jobFixture,
   jobListFixture,
   notificationsFixture,
-  overviewFixture,
+  historyFixture, overviewFixture,
   statsFixture,
   statusFixture,
 } from "../../src/test/fixtures";
@@ -78,6 +78,7 @@ test.beforeEach(async ({ page }) => {
   await showAdvancedInsights(page);
   await page.route("/api/statistics/overview**", (route) =>
     route.fulfill({ json: overviewFixture }));
+  await mockGet(page, "/api/statistics/history**", (route) => route.fulfill({ json: historyFixture }));
   await page.route("/api/stats", (route) => route.fulfill({ json: statsFixture }));
   await page.route("/api/status", (route) => route.fulfill({ json: statusFixture }));
   await page.route("/api/facets", (route) => route.fulfill({ json: facetsFixture }));

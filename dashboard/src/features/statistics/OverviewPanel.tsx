@@ -6,8 +6,7 @@ import { ResourceLoadState } from "../../ui/ResourceLoadState";
 import { InsightHero, n } from "./InsightHero";
 import {
   insightsCommonClosed,
-  insightsCommonLastDaysOrAllTime,
-  insightsCommonNew,
+  insightsCommonOpened,
   insightsCommonOpenRoles,
   insightsOverviewPanelAboutTheDemandField,
   insightsOverviewPanelCompanies,
@@ -22,6 +21,7 @@ import {
 import { Msg } from "../../ui/Msg";
 import { skillName } from "../../copy/vocab";
 import { overviewBrief } from "./names";
+import { periodLabel } from "./period";
 
 export function OverviewPanel({ days, scope }: { days: number; scope?: InsightsScope }) {
   const { data, error, retry } = useAsyncResource<StatisticsOverview>(
@@ -32,7 +32,7 @@ export function OverviewPanel({ days, scope }: { days: number; scope?: InsightsS
 
   if (!data) return <ResourceLoadState error={error} loading={insightsOverviewPanelLoading()} failed={insightsOverviewPanelLoadFailed()} onRetry={retry} />;
 
-  const window = insightsCommonLastDaysOrAllTime({ period: days <= 0 ? "all" : "days", days });
+  const window = periodLabel(days, data.since);
   const k = data.kpis;
 
   return (
@@ -43,7 +43,7 @@ export function OverviewPanel({ days, scope }: { days: number; scope?: InsightsS
         line={overviewBrief(data)}
         kpis={[
           { label: insightsCommonOpenRoles(), value: n(k.open_total), sub: insightsOverviewPanelCompanies({ companies: String(n(k.companies)) }) },
-          { label: insightsCommonNew(), value: n(k.new_count), sub: window, tone: "good" },
+          { label: insightsCommonOpened(), value: n(k.new_count), sub: window, tone: "good" },
           { label: insightsCommonClosed(), value: n(k.closed_count), sub: window },
         ]}
       />
