@@ -412,8 +412,10 @@ describe("CompensationPanel", () => {
     // the four with base yearly pay and the one whose range is total pay.
     expect(note).toHaveTextContent(msg("insights-comp-bands-no-country", { count: 5 }));
     // The US's and the UK's roles are never counted under Sweden.
-    expect(note).not.toHaveTextContent(/total compensation or does not say/);
-    expect(note).not.toHaveTextContent(/level read from/);
+    for (const count of [80, 90, 10]) {
+      expect(note).not.toHaveTextContent(msg("insights-comp-bands-not-base", { count }));
+    }
+    expect(note).not.toHaveTextContent(msg("insights-comp-bands-placed-by-pay", { count: 6 }));
   });
 
   it("counts only the chosen country's roles left out beside its chart", async () => {

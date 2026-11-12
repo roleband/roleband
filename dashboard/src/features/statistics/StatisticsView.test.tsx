@@ -222,7 +222,7 @@ describe("StatisticsView", () => {
   it("leaves Pay's country and level behind on a tab switch, keeping the side and the window", async () => {
     const user = userEvent.setup();
     renderStats("/statistics/compensation?side=yours&window=90&country=GB&level=staff");
-    await user.click(screen.getByRole("tab", { name: "Overview" }));
+    await user.click(screen.getByRole("tab", { name: msg("shell-tab-insights-overview") }));
     expect(screen.getByTestId("location")).toHaveTextContent(/^\/statistics\/overview\?side=yours&window=90$/);
   });
 
