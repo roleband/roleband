@@ -13,9 +13,8 @@ declares its own models beside its handler.
   interpolations and always floats, even over one value; counts, dollars and
   histogram edges are integers; shares and rates are rounded floats.
 - **Literals where our code owns the vocabulary**: the trend dimensions each
-  handler accepts, the split and bonus sources `analytics.comp_split` and
-  `comp_residual` name, the pooled disclosure basis, and the `USD` the payloads
-  state. Companies, level bands and families stay `str`: they are database strings.
+  handler accepts, the part sources the Stock tab names, the pooled disclosure
+  basis, and the `USD` the payloads state. Companies, level bands and families stay `str`: they are database strings.
 - One key set per route, so no unions. A disclosure-trend point for a day a
   series has no cell is assembled with `date` last, and arrives with `date`
   first like every other point.
@@ -36,8 +35,6 @@ from tracker.api.schemas.text_class import text
 # Held to their sources by `tests/test_api_statistics_contract.py`.
 CompTrendDim = Literal["overall", "company", "level", "family"]
 DisclosureTrendDim = Literal["overall", "company", "level"]
-ModelSource = Literal["measured", "heuristic"]
-BonusSource = Literal["stated", "modeled"]
 
 
 class _CompanyKey(Built):
@@ -294,15 +291,8 @@ class CompensationStatsResponse(Built):
 
 
 # --------------------------------------------------------------------------- #
-# Stock trajectory and equity validation
+# Stock trajectory
 # --------------------------------------------------------------------------- #
-
-
-class EquityAssumptions(Built):
-    """`comp_split.equity_assumptions`: the heuristic's knobs, by level band."""
-
-    bonus_pct: float
-    equity_by_band: dict[str, float]
 
 
 PartSource = Literal["posted", "company_rule", "measured", "estimated", "mixed"]
@@ -400,92 +390,6 @@ class OfferTermsResponse(Built):
 
     feed_configured: bool
     companies: list[OfferTermsCompany]
-
-
-class ImpliedDollars(Built):
-    low: int
-    mid: int
-    high: int
-
-
-class ImpliedShares(Built):
-    low: float
-    mid: float
-    high: float
-
-
-class EquityResidualGroup(Built):
-    """One (company, band): the equity a stated base implies, against the modeled share."""
-
-    company: str
-    band: str
-    reqs: int
-    bands: int
-    comp_medians: list[int]
-    implied_equity: ImpliedDollars
-    implied_pct: ImpliedShares
-    modeled_pct: float
-    model_source: ModelSource
-    bonus_source: BonusSource
-    residual_vs_model_pct: float
-    consistent: bool
-
-
-class EquityResidualCoverage(Built):
-    rows: int
-    used_reqs: int
-    distinct_bands: int
-    companies: dict[str, int]
-
-
-class EquityResidualExclusions(Built):
-    basis_not_base: int
-    not_usd: int
-    not_yearly: int
-    stale_version: int
-    implausible: int
-    #: Rows whose (company, band) the answering plugin's rows do not split: no
-    #: modeled share to check them against. Zero while ours answers.
-    unsplit: int
-
-
-class SourceComparisonGroup(Built):
-    """An external source's realized equity share for one (company, band), against the model."""
-
-    company: str
-    band: str
-    n: int
-    n_estd: int
-    source_eq_share: float
-    source_eq_share_estd: float | None
-    model_stock_pct: float | None
-    delta_estd_vs_model: float | None
-
-
-class SourceComparisonCoverage(Built):
-    observations: int
-    bands: int
-
-
-class ReportedComparison(Built):
-    """The latest self-reported snapshot a plugin published, compared with the model;
-    `snapshot_date` is null and `sources` empty when no plugin answers."""
-
-    #: The plugins whose observations are compared.
-    sources: list[str]
-    groups: list[SourceComparisonGroup]
-    coverage: SourceComparisonCoverage
-    snapshot_date: str | None
-
-
-class EquityValidationResponse(Built):
-    """`GET /api/statistics/equity-validation`."""
-
-    groups: list[EquityResidualGroup]
-    coverage: EquityResidualCoverage
-    excluded: EquityResidualExclusions
-    assumptions: EquityAssumptions
-    reported: ReportedComparison
 
 
 # --------------------------------------------------------------------------- #

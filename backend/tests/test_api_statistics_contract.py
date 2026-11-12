@@ -1,17 +1,17 @@
 """The statistics and demand routes' response contract.
 
 `tracker/api/schemas/statistics.py` declares what `/api/stats`, the Statistics
-overview, compensation, stock trajectory, equity validation, both trends and
+overview, compensation, stock trajectory, both trends and
 `/api/demand` send. These tests hold it to its sources:
 
-1. **Vocabularies**: trend dimensions against what each handler accepts; split,
-   model and bonus sources against `analytics`; the pooled basis; the assumptions.
+1. **Vocabularies**: trend dimensions against what each handler accepts; part
+   sources and set-apart reasons against `analytics`; the pooled basis.
 2. **An empty radar**: every route answers its empty shape.
 3. **Each route over real HTTP** against `tests/statistics_contract_seed.py`: the
    populations each counts (open, in scope, visible, inside the window), today's
    new and reposted roles kept apart, the estimate kept apart from printed bands,
-   the rate denominated in roles read, packages that sum, residuals and their
-   exclusions, series recomputed from visible raw values, and the demand lists.
+   the rate denominated in roles read, packages that sum, series recomputed
+   from visible raw values, and the demand lists.
 4. **Hiding a company** removes it from every route.
 5. **Drift**: a builder that adds, drops or mistypes a key fails the response.
 
@@ -33,12 +33,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.api_errors import said
 from tests.factories import make_company
-from tests.plugin_seed import cover
 from tests.statistics_contract_seed import (
     DAY_START,
     NOW,
-    REPORTED_LATEST,
-    REPORTS_PLUGIN,
     SeededStatistics,
     _role,
     _skill,
@@ -46,7 +43,7 @@ from tests.statistics_contract_seed import (
     pin_statistics_clock,
     seed_statistics,
 )
-from tracker.analytics import comp_package, comp_residual, comp_split, comp_trends, stock_trajectory
+from tracker.analytics import comp_package, comp_trends, stock_trajectory
 from tracker.analytics.comp_trends import DISCLOSURE_BASIS
 from tracker.api.routers import statistics as router
 from tracker.api.schemas import statistics as contract
@@ -60,7 +57,6 @@ from tracker.db.models import (
     JobLifecycleEvent,
     JobPlaceSet,
     JobPlaceSetMember,
-    PluginInstall,
     ScrapeRun,
     SkillConcept,
     SkillDemandDaily,
@@ -74,7 +70,6 @@ ROUTES = {
     "overview": "/api/statistics/overview",
     "compensation": "/api/statistics/compensation",
     "trajectory": "/api/statistics/comp-trajectory",
-    "equity": "/api/statistics/equity-validation",
     "comp_trends": "/api/statistics/comp-trends",
     "disclosure_trends": "/api/statistics/disclosure-trends",
     "demand": "/api/demand",
@@ -122,10 +117,7 @@ def test_each_literal_is_the_vocabulary_it_mirrors():
     assert set(get_args(contract.SetApartReason)) == (
         refusals - {comp_package.NO_SPLIT_EMPLOYEE_ELECTION} | {stock_trajectory.SET_APART_BASE_ONLY}
     )
-    assert set(get_args(contract.ModelSource)) == {comp_split.SOURCE_OBSERVED, comp_split.SOURCE_HEURISTIC}
-    assert set(get_args(contract.BonusSource)) == {comp_residual.BONUS_STATED, comp_residual.BONUS_MODELED}
     assert get_args(contract.DisclosureTrendsResponse.model_fields["basis"].annotation) == (DISCLOSURE_BASIS,)
-    assert _fields(contract.EquityAssumptions) == list(comp_split.equity_assumptions())
 
 
 def test_every_shape_forbids_a_key_its_model_does_not_name():
@@ -172,9 +164,6 @@ async def test_an_empty_radar_answers_every_shape_with_nothing_in_it(api_client,
     assert compensation["disclosure"]["overall"] == {"open": 0, "checked": 0, "disclosed": 0, "rate": None}
     trajectory = await _get(api_client, ROUTES["trajectory"])
     assert (trajectory["overall"], trajectory["public"], trajectory["private"]) == (None, [], [])
-    equity = await _get(api_client, ROUTES["equity"])
-    assert (equity["groups"], equity["reported"]["groups"], equity["reported"]["snapshot_date"]) == ([], [], None)
-    assert equity["reported"]["sources"] == []
     assert (await _get(api_client, ROUTES["comp_trends"]))["series"] == []
     assert (await _get(api_client, ROUTES["disclosure_trends"]))["dates"] == []
     assert await _get(api_client, ROUTES["demand"]) == {
@@ -507,57 +496,6 @@ async def test_a_role_reads_the_same_package_on_job_detail_and_the_stock_tab(api
     assert row["bonus"] == pytest.approx(parts.get("bonus", 0), abs=1)
     assert row["equity"] == pytest.approx(parts.get("equity", 0), abs=1)
     assert row["median_tc"] == pytest.approx((detail["total"]["low"] + detail["total"]["high"]) / 2, abs=1)
-
-
-@pytest.mark.asyncio
-async def test_equity_validation_implies_equity_from_stated_cash_and_counts_every_exclusion(
-    api_client, seeded, db_session
-):
-    body = await _get(api_client, ROUTES["equity"])
-    assert list(body) == _fields(contract.EquityValidationResponse)
-    groups = {(g["company"], g["band"]): g for g in body["groups"]}
-    assert list(groups) == [("google", "senior"), ("google", "staff")]
-    staff, senior = groups[("google", "staff")], groups[("google", "senior")]
-    assert {k: staff[k] for k in ("reqs", "bands", "comp_medians", "modeled_pct", "model_source", "bonus_source")} == {
-        "reqs": 2, "bands": 1, "comp_medians": [594000], "modeled_pct": 0.4579, "model_source": "measured",
-        "bonus_source": "stated",
-    }
-    # No stated bonus and no observed senior rung: the bonus comes from google's other rungs.
-    assert (senior["model_source"], senior["bonus_source"]) == ("heuristic", "modeled")
-    for group in groups.values():
-        assert group["implied_equity"]["low"] <= group["implied_equity"]["mid"] <= group["implied_equity"]["high"]
-        shares = group["implied_pct"]
-        assert group["consistent"] is (shares["low"] <= group["modeled_pct"] <= shares["high"])
-    assert body["excluded"] == {
-        "basis_not_base": 2, "not_usd": 0, "not_yearly": 1, "stale_version": 1, "implausible": 1,
-        # Ours answers pay: our heuristic models the senior share, so nothing is unsplit.
-        "unsplit": 0,
-    }
-    assert body["coverage"] == {"rows": 8, "used_reqs": 3, "distinct_bands": 2, "companies": {"google": 3}}
-
-    # Our dataset holds no reported points: without the plugin RoleBand reads none
-    # of its stored ones; on, and having read the companies, it answers alone,
-    # each point banded from our atlas when read.
-    assert (body["reported"]["snapshot_date"], body["reported"]["coverage"]["observations"]) == (None, 0)
-    db_session.add(PluginInstall(
-        plugin_id=REPORTS_PLUGIN, name="Acme reports", version="1.0.0", source_dir="/x", manifest_sha="m",
-        code_sha="c", fingerprint="f", approved_fingerprint="f", enabled=True,
-        manifest={"plugin": {"id": REPORTS_PLUGIN}, "provides": [{"slot": "pay.observations"}]},
-    ))
-    await db_session.flush()
-    cover(db_session, REPORTS_PLUGIN, ("pay.observations",), ("google", "netflix", "openai", "hidden-co"))
-    await db_session.commit()
-    reported = (await _get(api_client, ROUTES["equity"]))["reported"]
-    assert (reported["sources"], reported["snapshot_date"], reported["coverage"]) == (
-        [REPORTS_PLUGIN], REPORTED_LATEST.isoformat(), {"observations": 3, "bands": 2},
-    )
-    by_group = {(g["company"], g["band"]): g for g in reported["groups"]}
-    assert {k: by_group[("google", "staff")][k] for k in ("n", "n_estd", "model_stock_pct")} == {
-        "n": 2, "n_estd": 1, "model_stock_pct": 0.4579,
-    }
-    assert {k: by_group[("netflix", "staff")][k] for k in ("n_estd", "source_eq_share_estd", "delta_estd_vs_model")} == {
-        "n_estd": 0, "source_eq_share_estd": None, "delta_estd_vs_model": None,
-    }
 
 
 @pytest.mark.asyncio
@@ -1025,14 +963,6 @@ def _each_country_without_bands(real):
     return drifted
 
 
-def _each_group_without_modeled_share(real):
-    def drifted(*args, **kwargs):
-        body = real(*args, **kwargs)
-        return {**body, "groups": [{k: v for k, v in g.items() if k != "modeled_pct"} for g in body["groups"]]}
-
-    return drifted
-
-
 def _each_row_adding(real):
     def drifted(*args, **kwargs):
         return [{**row, "drift": 1} for row in real(*args, **kwargs)]
@@ -1072,14 +1002,13 @@ def _each_region_adding(real):
         ("build_posted_pay", _each_country_without_bands, "compensation"),
         ("build_comp_trajectory", _adding, "trajectory"),
         ("build_offer_terms", _each_row_adding, "offer_terms"),
-        ("build_equity_residuals", _each_group_without_modeled_share, "equity"),
         ("build_comp_trend_series", _series_without_count, "comp_trends"),
         ("build_disclosure_trend_series", _points_with_an_extra_key, "disclosure_trends"),
         ("build_hiring_places", _each_region_adding, "demand"),
     ],
     # No builder here writes English: the dashboard names families, so there is
     # no name left to drift.
-    ids=["comp_stats_key_added", "posted_bands_dropped", "trajectory_key_added", "offer_terms_key_added", "residual_share_dropped",
+    ids=["comp_stats_key_added", "posted_bands_dropped", "trajectory_key_added", "offer_terms_key_added",
          "trend_count_dropped", "disclosure_point_key_added", "demand_region_key_added"],
 )
 async def test_a_builder_that_drifts_fails_the_response(api_client, seeded, monkeypatch, name, drift, route):

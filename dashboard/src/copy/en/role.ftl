@@ -93,7 +93,7 @@ role-job-comp-panel-period-unclear = period unclear
 # kind=sentence
 role-job-comp-panel-the-posting-s-wording-and = It's unclear whether this is per hour, month or year. See the employer's own words below.
 # kind=sentence
-role-job-comp-panel-states-this-as-total-annual = { $company } states this as total yearly compensation with no bonus. Employees pick their own mix of base salary and equity, so there's no fixed split.
+role-job-comp-panel-states-this-as-total-annual = { $company } lets each person pick their own mix of base salary and equity, so there's no fixed split.
 # kind=label note="Tag on an employer's pay figure that is not split: each employee chooses how much is salary and how much is stock"
 role-job-comp-panel-employee-selected-mix = you choose the mix
 # kind=label wording=as-is

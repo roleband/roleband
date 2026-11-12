@@ -24,7 +24,7 @@ reader that prices one posting keeps only its country's rows.
 `keep` is a reader's value filter (a band, a total, a base, a split), applied in
 Python after the scope: a plugin rung that states a total but no base is simply
 not a base, never a reason to read another source's base beside it. The reads
-that filter by value live here (`pay_level_rows`, `package_rows`, `split_rows`).
+that filter by value live here (`pay_level_rows`, `package_rows`).
 """
 
 from __future__ import annotations
@@ -242,28 +242,3 @@ async def package_rows_for(
     ).all()
     return admit_levels(providers, rows, keep=lambda r: (
         r.band is not None and r.base_amount is not None and r.country is not None))
-
-
-async def split_rows(session: AsyncSession, providers: Providers, country: str) -> list[Any]:
-    """The measured splits for one country: reference-ladder rows that know
-    every component's share (`stock_pct` is set only when all three are known)."""
-    rows = (
-        await session.execute(
-            select(
-                CompanyCompLevel.company_slug,
-                CompanyCompLevel.family,
-                CompanyCompLevel.band,
-                CompanyCompLevel.level_label,
-                CompanyCompLevel.aliases,
-                CompanyCompLevel.base_amount,
-                CompanyCompLevel.currency,
-                CompanyCompLevel.base_pct,
-                CompanyCompLevel.stock_pct,
-                CompanyCompLevel.bonus_pct,
-                CompanyCompLevel.provider,
-                CompanyCompLevel.country,
-            ).where(reference_ladder(), *level_scope(providers))
-        )
-    ).all()
-    return admit_levels(providers, rows, keep=lambda r: (
-        r.band is not None and r.stock_pct is not None and r.country == country))

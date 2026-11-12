@@ -2749,32 +2749,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/statistics/equity-validation": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Statistics Equity Validation
-         * @description Diagnostic: the modeled equity slice checked against employer-stated cash.
-         *
-         *     For open roles with a stated base band (basis='base'), implied equity =
-         *     comp_median − stated base × (1 + bonus share); `build_equity_residuals`
-         *     aggregates that per (company, band) and compares it to the modeled equity
-         *     share. Deliberately a separate endpoint — this is a model-confidence
-         *     surface, not part of the hot compensation payload.
-         */
-        get: operations["statistics_equity_validation_api_statistics_equity_validation_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/statistics/history": {
         parameters: {
             query?: never;
@@ -5301,92 +5275,6 @@ export interface components {
             visible?: boolean | null;
         };
         /**
-         * EquityAssumptions
-         * @description `comp_split.equity_assumptions`: the heuristic's knobs, by level band.
-         */
-        EquityAssumptions: {
-            /** Bonus Pct */
-            bonus_pct: number;
-            /** Equity By Band */
-            equity_by_band: {
-                [key: string]: number;
-            };
-        };
-        /** EquityResidualCoverage */
-        EquityResidualCoverage: {
-            /** Companies */
-            companies: {
-                [key: string]: number;
-            };
-            /** Distinct Bands */
-            distinct_bands: number;
-            /** Rows */
-            rows: number;
-            /** Used Reqs */
-            used_reqs: number;
-        };
-        /** EquityResidualExclusions */
-        EquityResidualExclusions: {
-            /** Basis Not Base */
-            basis_not_base: number;
-            /** Implausible */
-            implausible: number;
-            /** Not Usd */
-            not_usd: number;
-            /** Not Yearly */
-            not_yearly: number;
-            /** Stale Version */
-            stale_version: number;
-            /** Unsplit */
-            unsplit: number;
-        };
-        /**
-         * EquityResidualGroup
-         * @description One (company, band): the equity a stated base implies, against the modeled share.
-         */
-        EquityResidualGroup: {
-            /** Band */
-            band: string;
-            /** Bands */
-            bands: number;
-            /**
-             * Bonus Source
-             * @enum {string}
-             */
-            bonus_source: "stated" | "modeled";
-            /** Comp Medians */
-            comp_medians: number[];
-            /** Company */
-            company: string;
-            /** Consistent */
-            consistent: boolean;
-            implied_equity: components["schemas"]["ImpliedDollars"];
-            implied_pct: components["schemas"]["ImpliedShares"];
-            /**
-             * Model Source
-             * @enum {string}
-             */
-            model_source: "measured" | "heuristic";
-            /** Modeled Pct */
-            modeled_pct: number;
-            /** Reqs */
-            reqs: number;
-            /** Residual Vs Model Pct */
-            residual_vs_model_pct: number;
-        };
-        /**
-         * EquityValidationResponse
-         * @description `GET /api/statistics/equity-validation`.
-         */
-        EquityValidationResponse: {
-            assumptions: components["schemas"]["EquityAssumptions"];
-            coverage: components["schemas"]["EquityResidualCoverage"];
-            excluded: components["schemas"]["EquityResidualExclusions"];
-            /** Groups */
-            groups: components["schemas"]["EquityResidualGroup"][];
-            reported: components["schemas"]["ReportedComparison"];
-        };
-        /**
          * ErrorCode
          * @enum {string}
          */
@@ -5619,24 +5507,6 @@ export interface components {
             open: number;
             /** Region Wide */
             region_wide: number;
-        };
-        /** ImpliedDollars */
-        ImpliedDollars: {
-            /** High */
-            high: number;
-            /** Low */
-            low: number;
-            /** Mid */
-            mid: number;
-        };
-        /** ImpliedShares */
-        ImpliedShares: {
-            /** High */
-            high: number;
-            /** Low */
-            low: number;
-            /** Mid */
-            mid: number;
         };
         /**
          * InsightsHistoryResponse
@@ -9256,20 +9126,6 @@ export interface components {
             /** Version */
             version: string;
         };
-        /**
-         * ReportedComparison
-         * @description The latest self-reported snapshot a plugin published, compared with the model;
-         *     `snapshot_date` is null and `sources` empty when no plugin answers.
-         */
-        ReportedComparison: {
-            coverage: components["schemas"]["SourceComparisonCoverage"];
-            /** Groups */
-            groups: components["schemas"]["SourceComparisonGroup"][];
-            /** Snapshot Date */
-            snapshot_date: string | null;
-            /** Sources */
-            sources: string[];
-        };
         /** RequirementEvidence */
         RequirementEvidence: {
             /** End Offset */
@@ -10562,35 +10418,6 @@ export interface components {
              * @enum {string}
              */
             scope: "within" | "cross" | "all";
-        };
-        /** SourceComparisonCoverage */
-        SourceComparisonCoverage: {
-            /** Bands */
-            bands: number;
-            /** Observations */
-            observations: number;
-        };
-        /**
-         * SourceComparisonGroup
-         * @description An external source's realized equity share for one (company, band), against the model.
-         */
-        SourceComparisonGroup: {
-            /** Band */
-            band: string;
-            /** Company */
-            company: string;
-            /** Delta Estd Vs Model */
-            delta_estd_vs_model: number | null;
-            /** Model Stock Pct */
-            model_stock_pct: number | null;
-            /** N */
-            n: number;
-            /** N Estd */
-            n_estd: number;
-            /** Source Eq Share */
-            source_eq_share: number;
-            /** Source Eq Share Estd */
-            source_eq_share_estd: number | null;
         };
         /**
          * SourceOutcome
@@ -16255,26 +16082,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    statistics_equity_validation_api_statistics_equity_validation_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EquityValidationResponse"];
                 };
             };
         };

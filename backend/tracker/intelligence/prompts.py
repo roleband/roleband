@@ -9,8 +9,7 @@ so its answers stay comparable to them.
 `PROMPT_VERSION` does not gate re-extraction: the text pass stamps and compares
 `pay_disclosure.PAY_PARSER_VERSION`, and every band records who wrote it
 (`jobs.disclosed_source`). `disclosed_comp/v5` is the stamp on bands the model
-path wrote, and the equity residuals accept it
-(`disclosed_comp.residual_band_versions`).
+path wrote.
 
 The posting text is UNTRUSTED scraped content. It is fenced in explicit sentinels
 and the model is told the fenced text is data to extract from, never commands.
@@ -20,10 +19,8 @@ validation), not from the wording here — this only reduces the attack surface.
 
 from __future__ import annotations
 
-# Recorded on the self-test's log rows and read by the API and
-# `scripts/report_equity_residuals.py`. It equals
-# `intelligence_runtime.disclosed_comp.LEGACY_BAND_VERSION`: the self-test's
-# prompt is the one those bands were extracted with.
+# Recorded on the self-test's log rows. It equals the stamp on the bands the
+# model path wrote: the self-test's prompt is the one they were extracted with.
 PROMPT_VERSION = "disclosed_comp/v5"
 
 _JD_OPEN = "<<<JOB_DESCRIPTION>>>"

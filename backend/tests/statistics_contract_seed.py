@@ -1,7 +1,7 @@
 """Realistic rows and a pinned clock for the statistics and demand contract.
 
 The statistics routes aggregate over jobs, lifecycle events, skills,
-comp and disclosure snapshots, demand rollups and self-reported pay observations, and read
+comp and disclosure snapshots and demand rollups, and read
 the clock for "today" and each window. `pin_statistics_clock` fixes both at
 `NOW`: `datetime` and the user's local day start (UTC midnight here), in the
 router and in `db/queries/jobs.py` (the new-listing clause reads the clock). Every row is written with a fixed
@@ -10,9 +10,9 @@ timestamp relative to `NOW`.
 | key | what it exercises |
 |---|---|
 | `g-staff`, `g-staff-2` | one google staff base band twice (one band, two reqs), a stated bonus, python, three and zero updates, a saved role, the pending twin pair |
-| `g-principal` | a band written by a retired prompt version (`stale_version`), sql |
+| `g-principal` | a band written by a retired prompt version, sql |
 | `g-senior` | the open role we first saw earliest, outside a 30-day window, a band with no stated bonus (modeled from the company's observed ladder) |
-| `g-hourly`, `g-placeholder` | an hourly band and a `$1–$2` placeholder: `not_yearly` and `implausible`, as bands and as residuals |
+| `g-hourly`, `g-placeholder` | an hourly band and a `$1–$2` placeholder: `not_yearly` and `implausible` |
 | `g-closed` | closed today: counted closed, never listed as updated; employer-dated (the whole closed sample is) |
 | `g-fleet-01..15` | fifteen senior roles naming python, enough for "skills that pay", first seen 4 days ago (not new); an industry concept that must never count as a skill; `01` employer-dated AFTER our first sighting (dated, but our sighting is its start) |
 | `o-original`, `o-repost` | a lineage: the original first seen 2 days ago (new), the repost today (reposted, not new) with a suspected link awaiting review; a `total` band |
@@ -30,7 +30,7 @@ read's finds as `first_read`.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -41,7 +41,6 @@ from tracker.db.models import (
     CompSnapshot,
     DemandMetric,
     DisclosureSnapshot,
-    ExternalCompObservation,
     Favorite,
     Job,
     JobLifecycleEvent,
@@ -56,10 +55,6 @@ from tracker.taxonomy.comp_families import REFERENCE_FAMILY
 
 NOW = datetime(2026, 7, 20, 15, 0, tzinfo=UTC)
 DAY_START = NOW.replace(hour=0, minute=0, second=0, microsecond=0)
-REPORTED_LATEST = date(2026, 7, 15)
-#: The plugin whose own self-reported pay points the seed stores, read only
-#: while it is installed, on and has read the company.
-REPORTS_PLUGIN = "acme-reports"
 
 
 class _Clock(datetime):
@@ -117,21 +112,6 @@ def _rung(slug: str, label: str, band: str, base: float | None, stock: float | N
     return CompanyCompLevel(
         company_slug=slug, family=REFERENCE_FAMILY, level_label=label, band=band, tc_median=None,
         base_pct=base, stock_pct=stock, bonus_pct=bonus, provider="manual", fetched_at=NOW - timedelta(days=10),
-    )
-
-
-def _observation(slug: str, band: str | None, snapshot: date, n: int, total: int, equity: int):
-    """A plugin's point as it sends it: a US point at a level our atlas bands
-    when read (L6 is staff at google and netflix), or (`band=None`) a point
-    paid in another market, which no US comparison reads."""
-    us = band is not None
-    return ExternalCompObservation(
-        provider=REPORTS_PLUGIN, company_slug=slug, source_level="L6", band=None,
-        function="software-engineering",
-        location="united-states" if us else "united-kingdom", yoe=9, total_amount=total,
-        base_amount=total - equity, equity_amount=equity, bonus_amount=0,
-        currency="USD" if us else "GBP", country="US" if us else "GB",
-        snapshot_date=snapshot, dedup_key=f"reports|{slug}|{snapshot.isoformat()}|{n}", ingested_at=NOW - timedelta(days=4),
     )
 
 
@@ -281,12 +261,6 @@ async def seed_statistics(session: AsyncSession) -> SeededStatistics:
         cell(two_days, "google", "staff", "base", 1, 1, [{"low": 250000, "high": 320000, "reqs": 1}]),
         cell(two_days, "stripe", "senior", "", 2, 0, []),
         cell(DAY_START - timedelta(days=100), "google", "staff", "base", 1, 1, [{"low": 240000, "high": 300000, "reqs": 1}]),
-        _observation("google", "staff", REPORTED_LATEST, 1, 600000, 250000),
-        _observation("google", "staff", REPORTED_LATEST, 2, 420000, 0),
-        _observation("netflix", "staff", REPORTED_LATEST, 1, 800000, 0),
-        _observation("openai", None, REPORTED_LATEST, 1, 900000, 400000),
-        _observation("hidden-co", "staff", REPORTED_LATEST, 1, 500000, 200000),
-        _observation("google", "staff", date(2026, 7, 1), 1, 580000, 240000),
     ])
     # The radar's history starts before its oldest role (60 days).
     await record_whole_read(session, "netflix", NOW - timedelta(days=90))

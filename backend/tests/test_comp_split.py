@@ -8,60 +8,50 @@ from tracker.analytics.comp_split import (
     BONUS_PCT,
     PARENT_TICKERS_OUTSIDE_ATLAS,
     equity_pct,
+    heuristic_ratios,
     is_public,
-    split_tc,
     ticker_for,
 )
 from tracker.levels.identity import IDENTITIES
 from tracker.schema import LevelBand
 
+BANDS = (LevelBand.SENIOR, LevelBand.STAFF, LevelBand.PRINCIPAL, LevelBand.DIRECTOR_PLUS)
 
-class TestSplitTc:
-    def test_components_sum_back_to_total_exactly(self):
-        for tc in (298_053, 479_251, 900_001, 1_234_567):
-            parts = split_tc(tc, "google", LevelBand.STAFF)
-            assert parts["base"] + parts["bonus"] + parts["equity"] == tc
 
-    def test_bonus_is_flat_share_of_tc(self):
-        parts = split_tc(1_000_000, "google", LevelBand.SENIOR)
-        assert parts["bonus"] == round(1_000_000 * BONUS_PCT)
+def _shares(bonus_r: float, equity_r: float) -> tuple[float, float]:
+    """(bonus, equity) as shares of the year's total pay, from base-relative ratios."""
+    total = 1 + bonus_r + equity_r
+    return bonus_r / total, equity_r / total
+
+
+class TestHeuristicRatios:
+    @pytest.mark.parametrize("band", BANDS)
+    @pytest.mark.parametrize("bonus", [None, 0.0, 0.15, 0.275])
+    def test_equity_is_the_band_share_of_the_total_whatever_the_bonus_rule(self, band, bonus):
+        bonus_r, equity_r = heuristic_ratios(band, bonus)
+        assert _shares(bonus_r, equity_r)[1] == pytest.approx(equity_pct(band))
+
+    def test_a_stated_bonus_rule_is_the_bonus_per_base(self):
+        assert heuristic_ratios(LevelBand.PRINCIPAL, 0.0)[0] == 0.0
+        assert heuristic_ratios(LevelBand.PRINCIPAL, 0.2)[0] == pytest.approx(0.2)
+
+    def test_with_no_bonus_rule_the_bonus_is_the_flat_share_of_the_total(self):
+        bonus_share, _ = _shares(*heuristic_ratios(LevelBand.STAFF, None))
+        assert bonus_share == pytest.approx(BONUS_PCT)
 
     def test_equity_share_rises_with_seniority(self):
-        tc = 1_000_000
-        eq = {
-            band: split_tc(tc, "google", band)["equity"]
-            for band in (
-                LevelBand.SENIOR,
-                LevelBand.STAFF,
-                LevelBand.PRINCIPAL,
-                LevelBand.DIRECTOR_PLUS,
-            )
-        }
-        assert (
-            eq[LevelBand.SENIOR]
-            < eq[LevelBand.STAFF]
-            < eq[LevelBand.PRINCIPAL]
-            < eq[LevelBand.DIRECTOR_PLUS]
-        )
+        shares = [_shares(*heuristic_ratios(band, None))[1] for band in BANDS]
+        assert shares == sorted(shares) and len(set(shares)) == len(shares)
 
-    def test_cash_heavy_company_has_thinner_equity(self):
-        # Netflix pays mostly cash: its equity slice must be below a peer's.
-        nflx = split_tc(1_000_000, "netflix", LevelBand.STAFF)["equity"]
-        goog = split_tc(1_000_000, "google", LevelBand.STAFF)["equity"]
-        assert nflx < goog
+    def test_a_company_that_grants_no_equity_gets_none(self):
+        bonus_r, equity_r = heuristic_ratios(LevelBand.DIRECTOR_PLUS, None, equity_none=True)
+        assert equity_r == 0.0
+        assert _shares(bonus_r, equity_r)[0] == pytest.approx(BONUS_PCT)
 
-    def test_equity_heavy_company_has_fatter_equity(self):
-        # The company multiplier increases equity over the generic share;
-        # the clamp must still bound director_plus at the equity cap.
-        assert equity_pct("openai", LevelBand.STAFF) == pytest.approx(0.63)
-        assert equity_pct("openai", LevelBand.DIRECTOR_PLUS) == pytest.approx(0.80)
-        oai = split_tc(1_000_000, "openai", LevelBand.STAFF)["equity"]
-        goog = split_tc(1_000_000, "google", LevelBand.STAFF)["equity"]
-        assert oai > goog
-
-    def test_equity_pct_is_clamped(self):
-        assert 0.0 <= equity_pct("google", LevelBand.DIRECTOR_PLUS) <= 0.80
-        assert 0.0 <= equity_pct("netflix", LevelBand.SENIOR) <= 0.80
+    def test_the_equity_of_a_year_never_exceeds_the_rest_of_it_many_times_over(self):
+        for band in BANDS:
+            for bonus in (None, 0.0):
+                assert heuristic_ratios(band, bonus)[1] < 2.0
 
 
 class TestPublicRegistry:
@@ -88,53 +78,6 @@ class TestPublicRegistry:
     def test_a_company_outside_the_atlas_reads_the_fallback_table(self):
         assert "linkedin" not in IDENTITIES
         assert ticker_for("linkedin") == "MSFT"
-
-
-class TestObservedSplitOverridesHeuristic:
-    """The comp path must prefer REAL per-level splits over the heuristic."""
-
-    def _observed(self):
-        # Netflix as it actually is: 100% base, zero stock (cash election).
-        return {
-            ("netflix", "staff"): {"base_pct": 1.0, "stock_pct": 0.0, "bonus_pct": 0.0},
-            ("google", "principal"): {
-                "base_pct": 0.3476, "stock_pct": 0.5502, "bonus_pct": 0.1022,
-            },
-        }
-
-    def test_observed_split_is_used_when_available(self):
-        from tracker.analytics.comp_split import split_tc_observed
-
-        p = split_tc_observed(1_000_000, "google", LevelBand.PRINCIPAL, self._observed())
-        assert p["source"] == "measured"
-        assert p["equity"] == 550_200  # 55.02%, the measured share
-        assert p["base"] + p["bonus"] + p["equity"] == 1_000_000
-
-    def test_falls_back_to_heuristic_when_no_observation(self):
-        from tracker.analytics.comp_split import split_tc_observed
-
-        p = split_tc_observed(1_000_000, "stripe", LevelBand.STAFF, self._observed())
-        assert p["source"] == "heuristic"
-        assert p["base"] + p["bonus"] + p["equity"] == 1_000_000
-
-    def test_zero_equity_company_is_honoured_not_overridden_by_the_guess(self):
-        from tracker.analytics.comp_split import split_tc, split_tc_observed
-
-        # The heuristic invents an equity slice for Netflix...
-        guessed = split_tc(1_000_000, "netflix", LevelBand.STAFF)
-        assert guessed["equity"] > 0
-        # ...but the observed split says zero, and the observed split must win.
-        real = split_tc_observed(1_000_000, "netflix", LevelBand.STAFF, self._observed())
-        assert real["equity"] == 0
-        assert real["base"] == 1_000_000
-        assert real["source"] == "measured"
-
-    def test_under_a_plugin_the_heuristic_splits_nothing(self):
-        """The heuristic is our data: while a plugin answers pay, a level its
-        rows do not split gets no split of ours."""
-        from tracker.analytics.comp_split import split_tc_observed
-
-        assert split_tc_observed(1_000_000, "stripe", LevelBand.STAFF, self._observed(), heuristic=False) is None
 
 
 class TestSubsidiaryTracksItsListedParent:
