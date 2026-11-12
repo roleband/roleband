@@ -12,8 +12,16 @@ private actor PortBoundary {
     /// Ports another program takes while the engine stops, so its start there is refused.
     var takenOnStart: Set<Int> = []
     func takeOnStart(_ port: Int) { takenOnStart.insert(port) }
+    /// A refusal the engine's next start meets that has nothing to do with its port.
+    var refusal: HostProblem?
+    func refuseStart(_ problem: HostProblem) { refusal = problem }
     func start() throws {
         calls.append("start")
+        if let refusal {
+            self.refusal = nil
+            current = OwnedEngineSnapshot(state: .needsAttention, problem: refusal)
+            throw refusal
+        }
         if let port = URL(string: installation.apiOrigin)?.port, takenOnStart.contains(port) {
             current = OwnedEngineSnapshot(state: .needsAttention, problem: .portInUse,
                                           portConflict: PortConflict(port: port, holder: nil, suggestion: nil))
@@ -268,4 +276,19 @@ private actor GatedEngine {
     #expect(await eventually { !model.controlBusy })
     #expect(await gated.calls == ["stop", "use 8011", "start"])
     #expect(model.controlMessage == "engine-requested")
+}
+
+@MainActor
+@Test func aStartRefusedForAnotherReasonKeepsTheNewPortSaved() async throws {
+    let boundary = PortBoundary(try ownedInstallation())
+    let preferences = UserDefaults.scratch("port-test")
+    let model = portModel(boundary, preferences: preferences)
+    await boundary.refuseStart(.databaseInUse)
+    await model.usePortAndWait(8030)
+    #expect(await boundary.calls == ["stop", "use 8030", "start"])
+    // The engine stays on 8030 and starts there once the database is free, so 8030 is the saved port.
+    #expect(EnginePort.saved(in: preferences) == 8030)
+    #expect(model.enginePort == 8030)
+    #expect(model.portRefusal == nil)
+    #expect(model.hostProblem == .databaseInUse)
 }

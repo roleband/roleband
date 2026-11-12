@@ -709,6 +709,11 @@ final class LauncherModel: ObservableObject {
                         try? await ownedEngine.start()
                         await self.refreshHost()
                         return nil
+                    } catch {
+                        // The engine is on the new port and something other than the port stopped
+                        // it, so the choice is kept: the next launch and the update helper use it too.
+                        EnginePort.save(port, in: self.preferences)
+                        throw error
                     }
                 }
                 // Saved only once the engine took the port, or, while setup holds it, once it moved.
