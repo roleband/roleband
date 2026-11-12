@@ -7,6 +7,7 @@ struct OwnedEngineSnapshot: Equatable, Sendable {
     var diagnostics = ""
     var preparation: EnginePreparation?
     var problem: HostProblem?
+    var portConflict: PortConflict?
 }
 
 /// The process boundary stays injectable; the model and its lifecycle remain real in tests.
@@ -15,15 +16,23 @@ struct OwnedEngineService: Sendable {
     var restart: @Sendable () async throws -> Void
     var stop: @Sendable () async throws -> Void
     var snapshot: @Sendable () async -> OwnedEngineSnapshot
+    /// Serves the next engine on another port, while none runs, and returns its identity.
+    var use: @Sendable (Int) async throws -> Installation = { _ in throw HostProblem.invalidConfiguration }
 
-    static func live(_ configuration: HostConfiguration) -> Self {
+    /// `identity` is what status reads use, kept in step with the engine's port.
+    static func live(_ configuration: HostConfiguration, identity: OwnedIdentity? = nil) -> Self {
+        let identity = identity ?? OwnedIdentity(configuration.installation)
         let host = EngineHost(configuration: configuration)
         let tails = DiagnosticTails { await host.diagnosticLines() }
         return Self(start: { try await host.start() }, restart: { try await host.restart() },
                     stop: { try await host.stop() }, snapshot: {
             let state = await host.state
             return OwnedEngineSnapshot(state: state, diagnostics: await tails.lines(for: state), preparation: await host.preparation,
-                                       problem: await host.problem)
+                                       problem: await host.problem, portConflict: await host.portConflict)
+        }, use: { port in
+            let installation = try await host.use(port: port)
+            identity.value = installation
+            return installation
         })
     }
 
@@ -31,6 +40,19 @@ struct OwnedEngineService: Sendable {
         Self(start: { throw HostProblem.invalidConfiguration }, restart: { throw HostProblem.invalidConfiguration },
              stop: {}, snapshot: { OwnedEngineSnapshot(state: .needsAttention) })
     }
+}
+
+/// The app's own engine as status reads find it. It changes only when the person moves the engine
+/// to another port; each exchange reads it before and after, as for any installation source.
+final class OwnedIdentity: @unchecked Sendable {
+    private let lock = NSLock()
+    private var current: Installation
+    init(_ installation: Installation) { current = installation }
+    var value: Installation {
+        get { lock.withLock { current } }
+        set { lock.withLock { current = newValue } }
+    }
+    var source: InstallationSource { InstallationSource { self.value } }
 }
 
 /// The engine's log tails, read once each time the host enters needs-attention. Nothing runs

@@ -68,14 +68,22 @@ still change.
 Scans run on their own, so the roles they find are what the panel is for. Open
 Radar is the Scan tab's one gold action; Scan now or Stop scan and Pause sit
 below it, quiet, side by side. A stopped engine is the exception: restarting it
-takes the gold place, and Open Radar waits for an engine that answers. The
-footer holds Quit alone. A last scan with new roles makes its new-roles count a
+takes the gold place, and Open Radar waits for an engine that answers. When
+another program holds the engine's port and a free port is nearby, Use port N
+takes the gold place instead, with Restart quiet beside it; the title names the
+port and the message names the program holding it. Once setup is complete, a
+line says the data moves with Radar and the browser's theme, language and saved
+filters start fresh at the new address. With no free port nearby, Restart stays
+gold. Settings shows the port Radar opens at and lets the person
+choose another. The footer holds Quit alone. A last scan with new roles makes its new-roles count a
 link that opens the Radar on New (`/?lens=new`); with none, the count is plain.
 
 First open uses Welcome, Get ready, At login and Ready. Placement guidance is a
 separate window before setup when the app is outside Applications. Get ready
 shows actual database, model and service progress, including downloaded bytes,
-verification, offline waiting and actionable failures. Continue becomes available
+verification, offline waiting and actionable failures. A port or database another
+program holds stops it with the panel's message, which names that program, and a
+held port offers Use port N in the gold place. Continue becomes available
 when the database and service are usable, even while the model waits offline.
 Nothing runs before Continue on Welcome: the engine, and with it the first scan,
 starts when the person continues in a copy inside Applications, and at every open

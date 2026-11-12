@@ -36,7 +36,7 @@ private final class HelperFixture: @unchecked Sendable {
         parent = Process()
         parent.executableURL = URL(fileURLWithPath: "/bin/sleep")
         parent.arguments = [parentSeconds]
-        try parent.run()
+        try parent.runWithoutTestSockets()
         let trust = InstalledUpdateIdentity(version: "0.1.0", commit: String(repeating: "a", count: 40),
                                             publicKey: Data(repeating: 7, count: 32), certificateSHA256: String(repeating: "c", count: 64))
         plan = try UpdatePlan(id: UUID(), installed: installed, home: home, trust: trust, to: "0.1.1",
@@ -298,11 +298,11 @@ private final class HelperFixture: @unchecked Sendable {
 @Test func aLaunchedAppIsAskedToQuitThenKilledWhenItIgnoresTheRequest() async throws {
     let polite = Process()
     polite.executableURL = URL(fileURLWithPath: "/bin/sleep"); polite.arguments = ["30"]
-    try polite.run()
+    try polite.runWithoutTestSockets()
     let stubborn = Process()
     stubborn.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
     stubborn.arguments = ["-e", "$SIG{TERM}='IGNORE'; sleep 30"]
-    try stubborn.run()
+    try stubborn.runWithoutTestSockets()
     defer { for process in [polite, stubborn] where process.isRunning { kill(process.processIdentifier, SIGKILL) } }
     try await Task.sleep(for: .milliseconds(300))
     let app = LaunchedApp(grace: 0.5)

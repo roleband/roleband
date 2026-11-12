@@ -19,7 +19,9 @@
       (`mask_all_text`, `mask_all_element_attributes`).
    3. **Addresses are screens.** `before_send` rewrites every address to its
       screen (`/jobs/:id`) wherever the library puts it: values at any depth,
-      and keys, which is how heatmaps record the page. It drops referrers,
+      and keys, which is how heatmaps record the page. The app's own address
+      is reported as `REPORTED_ORIGIN` whatever port serves it, so a screen is
+      one page in the reports on every install. It drops referrers,
       titles and the target of an outbound click, and cleans exception
       messages of addresses, emails, quoted text and long numbers.
 
@@ -64,6 +66,11 @@ export function screenPath(pathname: string): string {
   return "/" + [first, ...rest.map((part) => (SUB_TABS.has(part) ? part : ":id"))].join("/");
 }
 
+/** The address every install reports for itself: the Mac app's default, so
+ *  reports stay continuous across a changed port and a port chosen per run. */
+export const REPORTED_ORIGIN = "http://127.0.0.1:8010";
+const REPORTED_HOST = new URL(REPORTED_ORIGIN).host;
+
 /** Any URL of this app reduced to its screen; any other site's to a marker,
  *  since its host alone can name an employer. The app's own script files
  *  name no record and stay whole, so a crash report can still be read. */
@@ -71,8 +78,8 @@ export function screenUrl(value: string): string {
   try {
     const url = new URL(value, window.location.origin);
     if (url.origin !== window.location.origin) return "<url>";
-    if (url.pathname.startsWith("/assets/")) return `${url.origin}${url.pathname}`;
-    return `${url.origin}${screenPath(url.pathname)}`;
+    if (url.pathname.startsWith("/assets/")) return `${REPORTED_ORIGIN}${url.pathname}`;
+    return `${REPORTED_ORIGIN}${screenPath(url.pathname)}`;
   } catch {
     return "";
   }
@@ -104,6 +111,7 @@ function dropped(key: string): boolean {
 }
 
 function cleanString(key: string, value: string): string {
+  if (/^\$(\w+_)?host$/.test(key)) return value === window.location.host ? REPORTED_HOST : "<host>";
   if (/pathname$/i.test(key)) return screenPath(value);
   if (ABSOLUTE_URL.test(value)) return screenUrl(value);
   if (/url$/i.test(key) && value.startsWith("/")) return screenPath(value);

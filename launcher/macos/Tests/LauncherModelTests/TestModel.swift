@@ -20,7 +20,7 @@ extension LauncherModel {
                      loginService: LoginService = LoginService(state: { .off }, setEnabled: { _ in }, openSettings: {}),
                      bundleURL: URL? = nil, homeURL: URL? = nil, language: String? = nil,
                      updates: LauncherUpdates? = nil, installOperations: UpdateInstallerOperations? = nil,
-                     updateNotice: UpdateNotice? = nil,
+                     updateNotice: UpdateNotice? = nil, portFree: @escaping @Sendable (Int) -> Bool = EnginePort.isFree,
                      decideMode: (() -> LaunchMode)? = nil, reopen: @escaping () -> Void = {}) {
         let scratch = FileManager.default.temporaryDirectory.appendingPathComponent("launcher-model-\(UUID().uuidString)")
         let home = homeURL ?? scratch.appendingPathComponent("home")
@@ -33,7 +33,7 @@ extension LauncherModel {
             preferences: preferences ?? .scratch("launcher-model"),
             loginService: loginService, bundleURL: bundleURL ?? scratch.appendingPathComponent("RoleBand.app"),
             homeURL: home, language: language, updates: updates, installOperations: installOperations,
-            updateNotice: updateNotice)
+            updateNotice: updateNotice, portFree: portFree)
         dependencies.decideMode = decideMode
         dependencies.reopen = reopen
         self.init(dependencies)

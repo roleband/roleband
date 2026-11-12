@@ -30,7 +30,7 @@ struct LaunchModeFixture {
 func exitedProcess() throws -> pid_t {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/usr/bin/true")
-    try process.run()
+    try process.runWithoutTestSockets()
     process.reap()
     return process.processIdentifier
 }
