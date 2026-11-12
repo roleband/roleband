@@ -53,8 +53,10 @@ block, or ownership of the packaged engine. The in-use block covers a cluster
 whose record names the app while a postgres from outside the app serves it: the
 app starts nothing, leaves that server running and offers only Quit. Every five
 seconds it makes the launch decision again, and once that decision changes it
-opens a fresh copy of itself, which waits for this one to quit and then launches
-as from any open. When such a server appears after the app owns the engine, the
+starts a helper in its own session and quits. The helper waits for it to exit and
+then opens the app, which launches as from any open. The app cannot open its
+successor itself: Launch Services waits for a new copy to finish launching, and
+only one copy launches at a time. When such a server appears after the app owns the engine, the
 host stops retrying and waits in needs-attention, making the same check every
 five seconds and starting the engine once the server is gone; Quit still
 finishes. In attached mode Try again makes the launch decision again too, and a

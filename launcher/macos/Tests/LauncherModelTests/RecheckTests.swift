@@ -77,21 +77,46 @@ private final class Decisions {
     #expect(asked == 2 && reopened == 1)
 }
 
-@Test func aFreshCopyWaitsForTheCopyThatOpenedIt() {
-    var looks = 0
+@MainActor
+@Test func aReopenStartsTheHelperBeforeItQuitsAndQuitsOnlyIfTheHelperStarted() {
+    var spawned: [(URL, [String])] = []
+    var quits = 0
+    let executable = URL(fileURLWithPath: "/Applications/RoleBand.app/Contents/MacOS/RoleBandLauncher")
+    var helpersAtQuit: [Int] = []
+    let requested = AppReopen.request(spawn: { spawned.append(($0, $1)) }, executable: executable, quit: {
+        helpersAtQuit.append(spawned.count)
+        quits += 1
+    })
+    #expect(requested && quits == 1)
+    #expect(helpersAtQuit == [1], "the helper is running before this copy quits")
+    #expect(spawned.first?.0 == executable && spawned.first?.1 == [AppReopen.argument, String(getpid())])
+
+    struct Refused: Error {}
+    #expect(!AppReopen.request(spawn: { _, _ in throw Refused() }, executable: executable, quit: { quits += 1 }))
+    #expect(quits == 1, "without a helper, this copy stays open and keeps watching")
+}
+
+@Test func theHelperOpensTheAppOnlyOnceThePreviousCopyHasQuit() async {
     var clock: TimeInterval = 0
     var pauses = 0
     let pause = { pauses += 1; clock += 1 }
-    AppReopen.waitForPrevious(["RoleBand"], alive: { _ in looks += 1; return true }, now: { clock }, pause: pause)
-    #expect(looks == 0, "an ordinary open waits for nothing")
-    AppReopen.waitForPrevious(["RoleBand", AppReopen.argument, "4242"], alive: { _ in looks += 1; return looks < 3 },
-                              now: { clock }, pause: pause)
-    #expect(looks == 3, "it waits until the previous copy has quit")
+    var opened = 0
+    var looks = 0
+    let quitsAfterTwoLooks = await AppReopen.reopen(after: 4242, alive: { _ in looks += 1; return looks < 3 },
+                                                    now: { clock }, pause: pause, open: { opened += 1 })
+    #expect(quitsAfterTwoLooks && opened == 1, "it opens the app once the previous copy is gone")
+
     pauses = 0
-    AppReopen.waitForPrevious(["RoleBand", AppReopen.argument, "4242"], limit: 10, alive: { _ in true }, now: { clock }, pause: pause)
-    #expect(pauses == 10, "a copy that never quits holds the open only until the limit")
-    looks = 0
-    AppReopen.waitForPrevious(["RoleBand", AppReopen.argument, String(getpid())], alive: { _ in looks += 1; return true },
-                              now: { clock }, pause: pause)
-    #expect(looks == 0, "a copy never waits for itself")
+    let neverQuits = await AppReopen.reopen(after: 4242, limit: 10, alive: { _ in true }, now: { clock }, pause: pause,
+                                            open: { opened += 1 })
+    #expect(!neverQuits && pauses == 10 && opened == 1, "a copy still running after the limit keeps its place")
+
+    struct Refused: Error {}
+    let refused = await AppReopen.reopen(after: 4242, alive: { _ in false }, now: { clock }, pause: pause,
+                                         open: { throw Refused() })
+    #expect(!refused)
+
+    let itself = await AppReopen.reopen(after: getpid(), alive: { _ in false }, now: { clock }, pause: pause,
+                                        open: { opened += 1 })
+    #expect(!itself && opened == 1, "a helper never waits for itself")
 }

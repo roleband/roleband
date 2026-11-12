@@ -25,6 +25,14 @@ enum LauncherMain {
             }
             dispatchMain()
         }
+        if arguments.count == 3, arguments[1] == AppReopen.argument, let previous = pid_t(arguments[2]) {
+            Task {
+                let opened = await AppReopen.reopen(after: previous)
+                FileHandle.standardError.write(Data("\(Date()) reopen after \(previous): \(opened ? "opened" : "not opened")\n".utf8))
+                exit(opened ? 0 : 1)
+            }
+            dispatchMain()
+        }
         if arguments.count == 6, arguments[1] == "--verify-update-bundle" {
             Task {
                 do {
@@ -189,7 +197,6 @@ enum LauncherMain {
             let executable = UpdateHelperProcess.executable(for: paths, fallback: Bundle.main.executableURL!)
             try UpdateHelperProcess.spawn(executable: executable, recovering: true, id: id, home: home)
         }
-        AppReopen.waitForPrevious(CommandLine.arguments)
         var stopped: LaunchBlock.StoppedUpdate?
         if case .owned = LaunchMode.decide(bundle: Bundle.main.bundleURL, home: home),
            let version = Bundle.main.object(forInfoDictionaryKey: "RoleBandVersion") as? String {
@@ -229,7 +236,7 @@ enum LauncherMain {
             withExtendedLifetime(delegate) { app.run() }
         } else {
             let recheck = LaunchRecheck(decide: { LaunchMode.decide(bundle: Bundle.main.bundleURL, home: home) },
-                                        reopen: { await AppReopen.request() })
+                                        reopen: { AppReopen.request() })
             let delegate = BlockedLaunchDelegate(block: LaunchBlock(mode: session.mode, bundle: Bundle.main.bundleURL, home: home),
                                                  recheck: recheck)
             app.delegate = delegate
@@ -252,33 +259,46 @@ enum AppOpener {
 }
 
 /// A fresh copy of this app, for a startup decision that has changed. Only one copy runs at a time,
-/// and a second one hands over to the first, so the fresh copy waits for this one to quit before
-/// it decides anything.
+/// and opening a copy through Launch Services waits until it has finished launching, so this copy
+/// cannot open the next one itself. A helper in its own session waits for this copy to quit and
+/// then opens the app as any open would.
 enum AppReopen {
-    static let argument = "--after-quit"
+    static let argument = "--reopen-after"
 
-    /// True once the fresh copy is open and this one is quitting.
-    @discardableResult @MainActor static func request(bundle: URL = Bundle.main.bundleURL) async -> Bool {
-        let configuration = NSWorkspace.OpenConfiguration()
-        configuration.createsNewApplicationInstance = true
-        configuration.addsToRecentItems = false
-        configuration.arguments = [argument, String(getpid())]
-        do { _ = try await NSWorkspace.shared.openApplication(at: bundle, configuration: configuration) } catch {
+    /// Starts the helper, then quits. False, and nothing quits, when the helper could not start.
+    @discardableResult @MainActor static func request(
+        spawn: (URL, [String]) throws -> Void = { executable, arguments in
+            try DetachedHelper.spawn(executable: executable, arguments: arguments,
+                                     home: FileManager.default.homeDirectoryForCurrentUser, log: "reopen.log")
+        },
+        executable: URL? = Bundle.main.executableURL, quit: () -> Void = { AppQuit.request() }) -> Bool {
+        guard let executable else { return false }
+        do { try spawn(executable, [argument, String(getpid())]) } catch {
             NSSound.beep()
             return false
         }
-        AppQuit.request()
+        quit()
         return true
     }
 
-    /// In the fresh copy: waits, for at most `limit` seconds, until the copy that opened it has quit.
-    static func waitForPrevious(_ arguments: [String], limit: TimeInterval = 30, alive: (pid_t) -> Bool = AppReopen.alive,
-                                now: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
-                                pause: () -> Void = { usleep(50_000) }) {
-        guard let index = arguments.firstIndex(of: argument), arguments.indices.contains(index + 1),
-              let previous = pid_t(arguments[index + 1]), previous > 0, previous != getpid() else { return }
+    /// In the helper: waits, for at most `limit` seconds, until the copy that started it has quit,
+    /// then opens the app. A copy that is still running after that keeps the person's app as it is.
+    static func reopen(after previous: pid_t, limit: TimeInterval = 30, alive: (pid_t) -> Bool = AppReopen.alive,
+                       now: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+                       pause: () -> Void = { usleep(50_000) },
+                       open: () async throws -> Void = { try await AppReopen.open(Bundle.main.bundleURL) }) async -> Bool {
+        guard previous > 0, previous != getpid() else { return false }
         let deadline = now() + limit
         while alive(previous), now() < deadline { pause() }
+        guard !alive(previous) else { return false }
+        do { try await open() } catch { return false }
+        return true
+    }
+
+    static func open(_ bundle: URL) async throws {
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.addsToRecentItems = false
+        _ = try await NSWorkspace.shared.openApplication(at: bundle, configuration: configuration)
     }
 
     static func alive(_ pid: pid_t) -> Bool { kill(pid, 0) == 0 || errno == EPERM }

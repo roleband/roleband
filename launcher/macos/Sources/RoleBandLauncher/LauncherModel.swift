@@ -74,7 +74,7 @@ struct LauncherDependencies {
                     openBrowser: { NSWorkspace.shared.open($0) }, preferences: preferences, loginService: .system,
                     bundleURL: bundle.bundleURL, homeURL: home, language: language)
         dependencies.decideMode = { LaunchMode.decide(bundle: bundle.bundleURL, home: home) }
-        dependencies.reopen = { Task { await AppReopen.request(bundle: bundle.bundleURL) } }
+        dependencies.reopen = { AppReopen.request() }
         if case .owned = mode {
             if let configuration = try? HostConfiguration(bundle: bundle, home: home, port: port) {
                 dependencies.installation = .fixed(configuration.installation)
