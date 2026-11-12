@@ -320,3 +320,13 @@ private actor GatedEngine {
     #expect(await boundary.calls == ["stop", "use 8011", "start"])
     #expect(model.setupStopKey == nil)
 }
+
+@MainActor
+@Test func aStartRefusedForAHeldPortAddsNoSecondMessage() async throws {
+    let boundary = PortBoundary(try ownedInstallation())
+    let model = portModel(boundary, preferences: .scratch("port-test"))
+    await boundary.takeOnStart(8010)
+    await model.startEngineAndWait()
+    #expect(model.hostProblem == .portInUse)
+    #expect(model.controlMessage == nil, "the status says why; no request line under it")
+}

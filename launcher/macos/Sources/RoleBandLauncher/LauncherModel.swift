@@ -760,6 +760,9 @@ final class LauncherModel: ObservableObject {
                 controlBusy = false
                 requestedScan = nil
                 return
+            } catch let held as HostProblem where held == .portInUse || held == .databaseInUse {
+                // The status already names what holds the port or the data; a second line adds nothing.
+                controlMessage = nil
             } catch ControlProblem.stateChanged { controlMessage = prefix + "-state-changed" }
             catch ControlProblem.refused { controlMessage = prefix + "-refused" }
             catch { controlMessage = prefix + "-unconfirmed" }
