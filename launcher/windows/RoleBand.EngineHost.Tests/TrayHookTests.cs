@@ -59,6 +59,32 @@ public sealed class TrayHookTests
     }
 
     [TestMethod]
+    public void AnIconLostWithExplorersRestartIsReportedAtOnce()
+    {
+        using var window = new WindowThread();
+        var taskbar = true;
+        var adds = 0;
+        var missing = 0;
+        var appeared = 0;
+        var hook = Hook(window, () => { adds++; return taskbar; });
+        window.Run(() =>
+        {
+            hook.Missing += () => missing++;
+            hook.Appeared += () => appeared++;
+        });
+
+        // Explorer restarts and its new taskbar is not ready for icons yet.
+        window.Run(() => taskbar = false);
+        window.Send(TaskbarCreated, 0, 0);
+        Assert.AreEqual((false, 2, 1), window.Run(() => (hook.Shown, adds, missing)),
+            "the flyout, hidden behind an icon that is gone, needs a window of its own now, not after every try");
+
+        window.Run(() => taskbar = true);
+        window.Send(TaskbarCreated, 0, 0);
+        Assert.AreEqual((true, 1, 1), window.Run(() => (hook.Shown, missing, appeared)));
+    }
+
+    [TestMethod]
     public async Task AnAddThatFailsIsTriedAgainUntilTheShellTakesIt()
     {
         using var window = new WindowThread();

@@ -27,6 +27,8 @@ public sealed class TrayHook : IDisposable
     private readonly uint taskbarCreated;
     private readonly uint interval;
     private int tries;
+    // The icon was shown before the taskbar it was on went away.
+    private bool lost;
 
     /// <summary>The icon is in the notification area.</summary>
     public bool Shown { get; private set; }
@@ -34,7 +36,9 @@ public sealed class TrayHook : IDisposable
     /// <summary>An icon that was missing has been added.</summary>
     public event Action? Appeared;
 
-    /// <summary>The timer's tries are spent and the icon is still missing; only a new taskbar can bring it back.</summary>
+    /// <summary>The icon is missing and the app has no other surface: an icon that was shown could not be added to a new
+    /// taskbar, or the timer's tries are spent. Tries go on after the first; <see cref="Appeared"/> follows a later
+    /// success.</summary>
     public event Action? Missing;
 
     /// <param name="window">A top-level window owned by the calling thread, which must run its messages.</param>
@@ -71,6 +75,7 @@ public sealed class TrayHook : IDisposable
         if (message == taskbarCreated && taskbarCreated != 0)
         {
             // A new taskbar has none of the old one's icons.
+            lost = Shown;
             Shown = false;
             tries = 0;
             Show();
@@ -103,6 +108,11 @@ public sealed class TrayHook : IDisposable
         }
         if (!added)
         {
+            if (lost)
+            {
+                lost = false;
+                Raise(Missing);
+            }
             // Setting the timer again keeps it running; it stops once its tries are spent.
             if (tries++ < Retries)
             {
@@ -114,6 +124,7 @@ public sealed class TrayHook : IDisposable
             return;
         }
         KillTimer(hook.Window, RetryTimer);
+        lost = false;
         Shown = true;
         Raise(Appeared);
     }

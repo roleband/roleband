@@ -232,6 +232,8 @@ public sealed class UpdateCoordinator(IUpdateCommands commands, IPackageDeployer
                 throw new IOException(Reason(recovered) ?? "The previous version's database could not be restored.");
             phase = "recovered";
         }
+        // The journal's commands run to their end; only the engine's start stops here, as when Windows is ending the app.
+        cancellation.ThrowIfCancellationRequested();
         await session.StartAsync();
         if (phase != "preparing") return phase;
         var verdict = new TaskCompletionSource<bool?>(TaskCreationOptions.RunContinuationsAsynchronously);

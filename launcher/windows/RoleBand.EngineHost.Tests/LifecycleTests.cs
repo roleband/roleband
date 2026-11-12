@@ -530,6 +530,28 @@ public sealed class LifecycleTests
     }
 
     [TestMethod]
+    public async Task AStartCancelledWhileTheJournalIsReadNeverStartsTheEngine()
+    {
+        // Windows ends the app while the start waits on the journal's resume, as at sign-out.
+        var engine = new StandIn("ready");
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        using var ending = new CancellationTokenSource();
+        var commands = new RecordingCommands(() =>
+        {
+            ending.Cancel();
+            return session.OwnsEngine;
+        });
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            new UpdateCoordinator(commands, new RecordingDeployer()).StartAsync(session, ending.Token));
+
+        CollectionAssert.AreEqual(new[] { "resume" }, commands.Calls, "the resume runs to its end");
+        Assert.IsFalse(session.OwnsEngine);
+        Assert.AreEqual(EngineState.Stopped, session.Snapshot.State);
+        CollectionAssert.DoesNotContain(engine.Events(), "started");
+    }
+
+    [TestMethod]
     public async Task ANewVersionThatCannotPrepareMarksTheUpdateFailed()
     {
         var engine = new StandIn("prepare-fail");

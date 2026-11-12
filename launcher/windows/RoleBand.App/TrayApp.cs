@@ -29,9 +29,9 @@ internal sealed class TrayApp
     private EngineConfiguration? configuration;
     private string? launchFailure;
     private bool quitting;
-    // Windows is ending the app, so nothing starts the engine or an update's install again. Kept apart from quitting,
-    // which must stay unset for the quit that follows.
-    private bool sessionEnding;
+    // Windows is ending the app, so nothing starts the engine or an update's install again, including a start already
+    // waiting on the update journal. Kept apart from quitting, which must stay unset for the quit that follows.
+    private readonly CancellationTokenSource sessionEnding = new();
     // Set as Quit closes the windows: a timer tick or an engine change already queued must not draw on a closed window,
     // which throws.
     private bool closed;
@@ -437,7 +437,7 @@ internal sealed class TrayApp
             (update, package) = (update with { Run = UpdateRun.Broken(version, update.Run) }, null);
         }
         finally { downloading = null; }
-        if (quitting || sessionEnding) return;
+        if (quitting || sessionEnding.IsCancellationRequested) return;
         RenderUpdate();
         if (package is null) return;
         try
@@ -658,7 +658,7 @@ internal sealed class TrayApp
 
     private async Task StartAsync()
     {
-        if (engine is null || updates is null || sessionEnding) return;
+        if (engine is null || updates is null || sessionEnding.IsCancellationRequested) return;
         // Settles an update the previous run began before anything opens the database.
         try
         {
@@ -670,7 +670,7 @@ internal sealed class TrayApp
             if (update.Facts?.Last is { Phase: "applying", Running: "from", Package: not null } pending && Native.PackageName() is { } name
                 && !await updates.AwaitWindowsAsync(pending, name, run => { update = update with { Run = run }; RenderUpdate(); }))
                 return;
-            var phase = await updates.StartAsync(engine);
+            var phase = await updates.StartAsync(engine, sessionEnding.Token);
             // How the update ended, or the undo under way, comes from its journal, as every later open reads it.
             if (phase is "failed" or "recovering" or "complete" or "recovered" or "preparing") await ReadUpdateAsync();
             if (phase is "failed" or "recovering")
@@ -681,6 +681,9 @@ internal sealed class TrayApp
             }
             RenderUpdate();
             await PressSimulationAsync();
+        }
+        catch (OperationCanceledException) when (sessionEnding.IsCancellationRequested)
+        {
         }
         catch (Exception error)
         {
@@ -838,7 +841,7 @@ internal sealed class TrayApp
     /// Windows; the quit that follows finds the engine stopped.</summary>
     private Task StopForSessionEnd()
     {
-        sessionEnding = true;
+        sessionEnding.Cancel();
         var stop = engine?.StopAsync() ?? Task.CompletedTask;
         try { downloading?.Cancel(); }
         catch (ObjectDisposedException) { }
