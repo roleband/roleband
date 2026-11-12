@@ -292,3 +292,31 @@ private actor GatedEngine {
     #expect(model.portRefusal == nil)
     #expect(model.hostProblem == .databaseInUse)
 }
+
+@MainActor
+@Test func setupStoppedByAHeldPortSaysWhoHoldsItAndOffersTheMove() async throws {
+    let home = FileManager.default.temporaryDirectory.appendingPathComponent("port-setup-\(UUID().uuidString)")
+    let bundle = home.appendingPathComponent("Applications/RoleBand.app")
+    try FileManager.default.createDirectory(at: bundle, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: home) }
+    let boundary = PortBoundary(try ownedInstallation())
+    let preferences = UserDefaults.scratch("port-test")
+    let model = LauncherModel(installation: .fixed(try ownedInstallation()), mode: .owned(leftover: nil),
+                              ownedEngine: boundary.service, readStatus: noEngine, preferences: preferences,
+                              bundleURL: bundle, homeURL: home, language: "en", portFree: { _ in true })
+    // Setup is past Welcome, on Get ready, where the engine prepares.
+    model.step = .connection
+    #expect(!model.setupCompleted && !model.engineHeld)
+    #expect(model.setupStopKey == nil && model.setupDatabaseState == "creating")
+    await boundary.hold(by: "Python", suggestion: 8011)
+    await model.refreshHost()
+    #expect(model.preparationFailed)
+    // Setup says what holds the port instead of a service failure, and offers the free port.
+    let key = try #require(model.setupStopKey)
+    #expect(model.text(key, model.helpValues).hasPrefix("Python is using port 8010, so scanning can't start."))
+    #expect(model.portSuggestion == 8011)
+    #expect(model.setupDatabaseState == "waiting", "no database is being created while nothing runs")
+    await model.usePortAndWait(8011)
+    #expect(await boundary.calls == ["stop", "use 8011", "start"])
+    #expect(model.setupStopKey == nil)
+}

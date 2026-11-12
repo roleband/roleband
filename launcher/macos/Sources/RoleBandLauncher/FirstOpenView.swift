@@ -33,7 +33,8 @@ struct SetupView: View {
         switch model.step {
         case .welcome, .installation: "first-welcome-body"
         case .connection:
-            if model.preparation?.database == "failed" { "first-database-failed" }
+            if let key = model.setupStopKey { key }
+            else if model.preparation?.database == "failed" { "first-database-failed" }
             else if model.preparationFailed { "first-service-failed" }
             else if model.preparationReady && model.preparation?.reason == "offline" { "first-offline-body" }
             else if model.preparationReady && model.preparation?.modelComplete == true { "first-prepared-body" }
@@ -61,7 +62,8 @@ struct SetupView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(model.text(heading)).font(.system(size: 22, weight: .bold))
                             .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
-                        Text(model.text(subtitle)).font(.system(size: 13)).foregroundStyle(palette.secondary)
+                        Text(model.text(subtitle, model.setupStopKey == nil ? [:] : model.helpValues))
+                            .font(.system(size: 13)).foregroundStyle(palette.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     content
@@ -86,7 +88,7 @@ struct SetupView: View {
             }
         case .connection:
             group {
-                preparationRow("externaldrive", title: "first-database", state: model.preparation?.database ?? "creating")
+                preparationRow("externaldrive", title: "first-database", state: model.setupDatabaseState)
                 rowDivider
                 VStack(spacing: 0) {
                     row("arrow.down.circle", title: "first-model", caption: modelCaption) {
@@ -207,12 +209,21 @@ struct SetupView: View {
             }
             Spacer(minLength: 0)
             if model.step == .connection && model.preparationFailed {
-                if let directory = model.engineLogDirectory {
+                // An engine refused before it started wrote no logs, so there is nothing to show.
+                if let directory = model.engineLogDirectory, FileManager.default.fileExists(atPath: directory.path) {
                     Button(model.text("engine-logs")) { NSWorkspace.shared.activateFileViewerSelecting([directory]) }
                         .buttonStyle(LaunchButtonStyle(palette: palette))
                 }
-                Button(model.text("retry")) { model.startEngine() }
-                    .buttonStyle(LaunchButtonStyle(palette: palette, primary: true)).disabled(model.controlBusy)
+                if let suggestion = model.portSuggestion {
+                    // Another program holds the port: moving is the way forward, as on the panel.
+                    Button(model.text("retry")) { model.startEngine() }
+                        .buttonStyle(LaunchButtonStyle(palette: palette)).disabled(model.controlBusy)
+                    Button(model.text("port-use", ["port": String(suggestion)])) { model.usePort(suggestion) }
+                        .buttonStyle(LaunchButtonStyle(palette: palette, primary: true)).disabled(model.controlBusy)
+                } else {
+                    Button(model.text("retry")) { model.startEngine() }
+                        .buttonStyle(LaunchButtonStyle(palette: palette, primary: true)).disabled(model.controlBusy)
+                }
             } else if model.step == .done {
                 Button(model.text("skip")) { if model.finish() { close() } }
                     .buttonStyle(LaunchButtonStyle(palette: palette)).disabled(model.completingSetup)

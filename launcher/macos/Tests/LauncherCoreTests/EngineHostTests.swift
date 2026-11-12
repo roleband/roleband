@@ -11,12 +11,15 @@ private final class HostClock: @unchecked Sendable {
 }
 
 private struct HostFixture: Sendable {
+    /// Below the kernel's range for chosen ports (49152 and up), so no socket another test opens on
+    /// port 0 lands on it and makes the host's port check refuse a start.
+    static let defaultPort = 47391
     let root: URL
     let configuration: HostConfiguration
     var data: URL { configuration.data }
 
     init(script: String = "import os,pathlib,time\n(pathlib.Path.home() / '.roleband/engine-ready').write_text(os.environ['ROLEBAND_ENGINE_OWNER'])\ntime.sleep(3600)\n",
-         port: Int = 58271) throws {
+         port: Int = HostFixture.defaultPort) throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent("host \(UUID().uuidString)")
         let home = root.appendingPathComponent("home")
         let resources = home.appendingPathComponent("Applications/RoleBand.app/Contents/Resources")
@@ -30,7 +33,7 @@ private struct HostFixture: Sendable {
         probe.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
         probe.arguments = ["-I", "-c", "import sys; print(sys.executable)"]
         probe.standardOutput = output
-        try probe.run()
+        try probe.runWithoutTestSockets()
         let executable = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         probe.reap()
@@ -235,7 +238,7 @@ func bundledPostgresStopsAfterClientsAndALeftoverStopsBeforeTheNextEngine() asyn
         #expect(env["ROLEBAND_PGDATA"] == fixture.configuration.pgdata.path)
         #expect(env["ROLEBAND_DATABASE_URL"] == "")
         #expect(env["ROLEBAND_PACKAGED"] == "1" && env["PYTHONDONTWRITEBYTECODE"] == "1" && env["PYTHONNOUSERSITE"] == "1")
-        #expect(env["ROLEBAND_API_HOST"] == "127.0.0.1" && env["ROLEBAND_API_PORT"] == "58271")
+        #expect(env["ROLEBAND_API_HOST"] == "127.0.0.1" && env["ROLEBAND_API_PORT"] == String(HostFixture.defaultPort))
         #expect(env["PYTHONPATH"] == nil && env["ROLEBAND_SKIP_PREFLIGHT"] == nil)
         #expect(try OwnedProcess.marked(fixture.token()).count == 1)
         try await host.check()
@@ -344,7 +347,7 @@ func bundledPostgresStopsAfterClientsAndALeftoverStopsBeforeTheNextEngine() asyn
     let unrelated = Process()
     unrelated.executableURL = URL(fileURLWithPath: "/bin/sleep")
     unrelated.arguments = ["3600"]
-    try unrelated.run()
+    try unrelated.runWithoutTestSockets()
     defer { unrelated.stopAndReap() }
     let host = fixture.host()
     try await host.start()
@@ -455,11 +458,11 @@ private struct ForeignServer {
         let compile = Process()
         compile.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
         compile.arguments = ["clang", "-o", folder.appendingPathComponent("postgres").path, source.path]
-        try compile.run()
+        try compile.runWithoutTestSockets()
         compile.reap()
         try #require(compile.terminationStatus == 0)
         process.executableURL = folder.appendingPathComponent("postgres")
-        try process.run()
+        try process.runWithoutTestSockets()
         try Data("\(process.processIdentifier)\n\(pgdata.path)\n".utf8).write(to: pgdata.appendingPathComponent("postmaster.pid"))
         try #require(process.isRunning, "the foreign server did not stay up")
     }
@@ -519,14 +522,10 @@ private struct ForeignServer {
 }
 
 /// A free loopback port for a test's own engine, so no other test's fixture shares it.
-private func freePort() throws -> Int {
-    let listener = try Listener()
-    listener.close()
-    return listener.port
-}
+private func freePort() throws -> Int { try quietPort() }
 
 @Test func aTakenPortStartsNothingNamesItsHolderAndAnotherPortStartsTheEngineThere() async throws {
-    let listener = try Listener()
+    let listener = try Listener(port: try quietPort())
     defer { listener.close() }
     let script = "import os,pathlib,time\nhome = pathlib.Path.home() / '.roleband'\n(home / 'engine-port').write_text(os.environ['ROLEBAND_API_PORT'])\n(home / 'engine-ready').write_text(os.environ['ROLEBAND_ENGINE_OWNER'])\ntime.sleep(3600)\n"
     let fixture = try HostFixture(script: script, port: listener.port)
@@ -803,7 +802,7 @@ private actor HealthSequence {
 }
 
 @Test func theEngineStartsOnItsOwnOnceAnotherProgramLetsGoOfThePort() async throws {
-    let listener = try Listener()
+    let listener = try Listener(port: try quietPort())
     var holding = true
     defer { if holding { listener.close() } }
     let fixture = try HostFixture(port: listener.port)

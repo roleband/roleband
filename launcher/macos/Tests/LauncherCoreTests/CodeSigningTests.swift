@@ -16,7 +16,7 @@ private func signedApp(_ folder: URL, identifier: String, rule: String? = nil) t
     sign.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
     sign.arguments = ["--force", "--sign", "-", "--identifier", identifier, app.path]
     sign.standardError = FileHandle.nullDevice
-    try sign.run(); sign.waitUntilExit()
+    try sign.runWithoutTestSockets(); sign.waitUntilExit()
     #expect(sign.terminationStatus == 0)
     return app
 }
@@ -47,7 +47,7 @@ private func signedApp(_ folder: URL, identifier: String, rule: String? = nil) t
         check.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
         check.arguments = ["--verify", "-R", "=" + UpdateBundleVerifier.developerID, app.path]
         check.standardError = FileHandle.nullDevice
-        try check.run(); check.waitUntilExit()
+        try check.runWithoutTestSockets(); check.waitUntilExit()
         // 3: the signature is valid but does not meet the requirement.
         #expect(check.terminationStatus == 3, "\(app.lastPathComponent)")
     }

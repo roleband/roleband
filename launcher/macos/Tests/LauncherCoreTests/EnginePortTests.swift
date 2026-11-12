@@ -3,12 +3,41 @@ import Foundation
 import Testing
 @testable import LauncherCore
 
+/// Held while a test opens a socket and while a test starts a program. A program started through
+/// Foundation's `Process` inherits every descriptor not yet marked close-on-exec, and one that keeps
+/// a listening socket keeps its port taken after the test closed it.
+let testSocketLock = NSLock()
+
+extension Process {
+    /// Starts the program while no test socket is being opened, so it inherits none.
+    func runWithoutTestSockets() throws { try testSocketLock.withLock { try run() } }
+}
+
+/// Opens a socket that no program a test starts can inherit.
+func testSocket(_ family: Int32) -> Int32 {
+    testSocketLock.withLock {
+        let fd = socket(family, SOCK_STREAM, IPPROTO_TCP)
+        _ = fcntl(fd, F_SETFD, FD_CLOEXEC)
+        return fd
+    }
+}
+
+/// A free loopback port below the kernel's range for chosen ports (49152 and up). No socket another
+/// test opens on port 0, or connects from, is given it while a test closes it and looks again.
+func quietPort() throws -> Int {
+    for _ in 0..<500 {
+        let port = Int.random(in: 40000..<49000)
+        if EnginePort.isFree(port) && !EnginePort.browserRefused.contains(port) { return port }
+    }
+    throw POSIXError(.EADDRINUSE)
+}
+
 /// A TCP listener on a free loopback port, owned by this test process.
 final class Listener {
     let fd: Int32
     let port: Int
     init(address: String = "127.0.0.1", port: Int = 0) throws {
-        let fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
+        let fd = testSocket(AF_INET)
         self.fd = fd
         var bound = sockaddr_in()
         bound.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
@@ -29,7 +58,7 @@ final class Listener {
 }
 
 @Test func aListeningPortIsNotFreeAndIsFreeAgainOnceItsProgramLetsGo() throws {
-    let listener = try Listener()
+    let listener = try Listener(port: try quietPort())
     #expect(!EnginePort.isFree(listener.port))
     listener.close()
     #expect(EnginePort.isFree(listener.port))
@@ -37,7 +66,7 @@ final class Listener {
 }
 
 @Test func theProgramHoldingAPortIsNamedWhenItIsThisAccounts() throws {
-    let listener = try Listener()
+    let listener = try Listener(port: try quietPort())
     defer { listener.close() }
     #expect(EnginePort.listener(on: listener.port) == getpid())
     #expect(EnginePort.holder(of: listener.port) == EnginePort.name(getpid()))
@@ -48,7 +77,7 @@ final class Listener {
 }
 
 @Test func nothingHoldsAPortNoProgramListensOn() throws {
-    let listener = try Listener()
+    let listener = try Listener(port: try quietPort())
     listener.close()
     #expect(EnginePort.holder(of: listener.port) == nil)
 }
@@ -86,7 +115,7 @@ private final class IPv6Listener {
     let port: Int
     /// Port 0 lets the kernel choose an unused port.
     init(port: Int = 0, address: in6_addr = in6addr_loopback, ipv6Only: Bool = true) throws {
-        let fd = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP)
+        let fd = testSocket(AF_INET6)
         self.fd = fd
         var only: Int32 = ipv6Only ? 1 : 0
         setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &only, socklen_t(MemoryLayout<Int32>.size))
@@ -109,7 +138,7 @@ private final class IPv6Listener {
 }
 
 @Test func aListenerOnAnotherAddressIsNotNamedAsTheHolder() throws {
-    let other = try IPv6Listener()
+    let other = try IPv6Listener(port: try quietPort())
     defer { other.close() }
     // The port number is taken on ::1 only: 127.0.0.1 is free, and no program holds it.
     #expect(EnginePort.isFree(other.port))
@@ -123,15 +152,13 @@ private final class IPv6Listener {
     // The engine binds 127.0.0.1 with SO_REUSEADDR, and the kernel lets a specific address join a
     // port that a socket of the same account holds on every address. Only a listener on
     // 127.0.0.1 itself refuses the engine, so only such a listener is named.
-    // Each listener takes a port the kernel chooses, so no port is closed and taken again while
-    // the other tests run.
     for (ipv6Only, label) in [(true, "IPv6-only"), (false, "dual-stack")] {
-        let wildcard = try IPv6Listener(address: in6addr_any, ipv6Only: ipv6Only)
+        let wildcard = try IPv6Listener(port: try quietPort(), address: in6addr_any, ipv6Only: ipv6Only)
         defer { wildcard.close() }
         #expect(EnginePort.isFree(wildcard.port), "a \(label) socket on every address")
         #expect(EnginePort.listener(on: wildcard.port) == nil, "a \(label) socket on every address")
     }
-    let ipv4Wildcard = try Listener(address: "0.0.0.0")
+    let ipv4Wildcard = try Listener(address: "0.0.0.0", port: try quietPort())
     defer { ipv4Wildcard.close() }
     #expect(EnginePort.isFree(ipv4Wildcard.port), "an IPv4 socket on every address")
     #expect(EnginePort.listener(on: ipv4Wildcard.port) == nil)

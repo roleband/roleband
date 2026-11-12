@@ -332,6 +332,14 @@ final class LauncherModel: ObservableObject {
         default: return nil
         }
     }
+    /// Setup's reason when another program holds what the engine needs, so it never started: the
+    /// panel's message, which names the program and says scanning starts once it lets go.
+    var setupStopKey: String? {
+        guard hostState == .needsAttention, hostProblem == .portInUse || hostProblem == .databaseInUse else { return nil }
+        return helpKey
+    }
+    /// The database row while setup runs: one the engine never began is waiting, not being created.
+    var setupDatabaseState: String { preparation?.database ?? (preparationFailed ? "waiting" : "creating") }
     /// The named values `helpKey`'s message takes.
     var helpValues: [String: String] {
         guard hostState == .needsAttention, hostProblem == .portInUse else { return [:] }

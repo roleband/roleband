@@ -59,6 +59,8 @@ public enum EnginePort {
         let fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
         guard fd >= 0 else { return false }
         defer { close(fd) }
+        // A program the app starts meanwhile must not inherit the probe and keep the port.
+        _ = fcntl(fd, F_SETFD, FD_CLOEXEC)
         var reuse: Int32 = 1
         guard setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, socklen_t(MemoryLayout<Int32>.size)) == 0 else { return false }
         var address = sockaddr_in()

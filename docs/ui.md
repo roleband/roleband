@@ -79,7 +79,9 @@ link that opens the Radar on New (`/?lens=new`); with none, the count is plain.
 First open uses Welcome, Get ready, At login and Ready. Placement guidance is a
 separate window before setup when the app is outside Applications. Get ready
 shows actual database, model and service progress, including downloaded bytes,
-verification, offline waiting and actionable failures. Continue becomes available
+verification, offline waiting and actionable failures. A port or database another
+program holds stops it with the panel's message, which names that program, and a
+held port offers Use port N in the gold place. Continue becomes available
 when the database and service are usable, even while the model waits offline.
 Nothing runs before Continue on Welcome: the engine, and with it the first scan,
 starts when the person continues in a copy inside Applications, and at every open
