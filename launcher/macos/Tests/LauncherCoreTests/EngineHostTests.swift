@@ -718,8 +718,8 @@ func bundledSupervisorServesVerifiedStatusAndQuitLeavesNoEngineProcesses() async
 }
 
 @Test func aStartAskedForByWorkAQuitCancelledStartsNothing() async throws {
-    // A port move asks for a start, and a quit cancels the move, then stops the engine. Whichever
-    // of the two reaches the host first, no engine runs once the quit's stop returns.
+    // A quit cancels the port move before it stops the engine. A start that reaches the host after
+    // that cancellation starts nothing, so the quit's stop cannot be followed by a running engine.
     let fixture = try HostFixture()
     defer { fixture.remove() }
     let host = fixture.host()

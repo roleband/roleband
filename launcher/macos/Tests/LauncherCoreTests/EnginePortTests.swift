@@ -201,7 +201,7 @@ private final class IPv6Listener {
     #expect(!EnginePort.isUnused(0) && !EnginePort.isUnused(70000))
 }
 
-@Test func aPortTheEngineJustLeftCountsAsUnused() async throws {
+@Test func aPortTheEngineJustLeftCountsAsUnused() throws {
     // The side that closes first keeps the port in TIME_WAIT: moving back to the engine's last
     // port must not be refused for it.
     let server = try Listener(port: try quietPort())
@@ -215,11 +215,21 @@ private final class IPv6Listener {
         $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { connect(client, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) == 0 }
     }
     try #require(connected)
-    let accepted = accept(server.fd, nil, nil)
+    // As for `testSocket`: a program another test starts must not inherit the connection and keep it open.
+    let accepted = testSocketLock.withLock {
+        let fd = accept(server.fd, nil, nil)
+        if fd >= 0 { _ = fcntl(fd, F_SETFD, FD_CLOEXEC) }
+        return fd
+    }
     try #require(accepted >= 0)
     Darwin.close(accepted)
     server.close()
-    try await Task.sleep(for: .milliseconds(100))
+    // The end of the stream shows the engine's side closed first, so its port lingers in TIME_WAIT
+    // once the client closes. A bounded read: a close that never arrives fails the test.
+    var limit = timeval(tv_sec: 5, tv_usec: 0)
+    setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &limit, socklen_t(MemoryLayout<timeval>.size))
+    var byte: UInt8 = 0
+    #expect(recv(client, &byte, 1, 0) == 0, "the engine's close reaches the client")
     Darwin.close(client)
     #expect(EnginePort.isUnused(server.port))
 }

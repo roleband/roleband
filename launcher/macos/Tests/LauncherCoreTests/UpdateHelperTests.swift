@@ -490,8 +490,17 @@ private final class StandInEngine: @unchecked Sendable {
                 connection.send(content: Data(head.utf8) + body, completion: .contentProcessed { _ in connection.cancel() })
             }
         }
-        await withCheckedContinuation { (ready: CheckedContinuation<Void, Never>) in
-            listener.stateUpdateHandler = { if case .ready = $0 { ready.resume() } }
+        // Every end state resumes once: a port taken before the listener started fails the test, never hangs it.
+        try await withCheckedThrowingContinuation { (ready: CheckedContinuation<Void, Error>) in
+            // The handler runs on the listener's queue, one state at a time; it removes itself once it resumed.
+            listener.stateUpdateHandler = { [listener] state in
+                switch state {
+                case .ready: listener.stateUpdateHandler = nil; ready.resume()
+                case .failed(let error): listener.stateUpdateHandler = nil; ready.resume(throwing: error)
+                case .cancelled: listener.stateUpdateHandler = nil; ready.resume(throwing: CancellationError())
+                default: break
+                }
+            }
             listener.start(queue: queue)
         }
     }

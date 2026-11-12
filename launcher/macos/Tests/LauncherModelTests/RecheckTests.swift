@@ -27,7 +27,7 @@ private final class Decisions {
 }
 
 @MainActor
-@Test func aServerThatLetsGoForAMomentDoesNotReopenTheApp() async {
+@Test(.timeLimit(.minutes(1))) func aServerThatLetsGoForAMomentDoesNotReopenTheApp() async {
     // The other program restarts its server: the database looks free on one look and is held again
     // on the next. Only a decision that stays changed reopens the app, and only once.
     let free = LaunchMode.owned(leftover: nil)
