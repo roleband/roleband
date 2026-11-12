@@ -302,7 +302,7 @@ total. Each part says where it comes from:
 | Source | Base | Bonus | Equity |
 |---|---|---|---|
 | `posted` | the posted base range | the posting's stated percentage | |
-| `company_rule` | | the company's stated bonus rule, none included | |
+| `company_rule` | | the company's stated bonus rule, none included | the company's equity rule of `none`: "No equity", never 0% |
 | `measured` | | a pay row for the company and level | a pay row for the company and level |
 | `estimated` | the estimated total, split | the split heuristic | a share of base |
 | `mixed` | the company's roles differ | | |
