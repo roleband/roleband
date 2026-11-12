@@ -152,7 +152,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # One check for a ruleset to require. Lanes and shards report under their own names, so
+  # The check the ruleset requires. Lanes and shards report under their own names, so
   # this one job stands for all of them: it passes only when every one passed, and a
   # lane that failed, was cancelled or never started fails it. A change with no Windows
   # input still passes, since each lane then succeeds with its steps skipped. A failed
