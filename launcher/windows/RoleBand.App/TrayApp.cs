@@ -17,6 +17,8 @@ internal sealed class TrayApp
     private readonly FlyoutWindow flyout;
     private readonly DispatcherQueue dispatcher;
     private TrayIcon? tray;
+    // Windows' sign-out, or an install that replaces the package, which this app answers by quitting.
+    private SessionEnd? sessionEnd;
     private SettingsWindow? settings;
     private SetupWindow? setupWindow;
     private EngineSession? engine;
@@ -81,6 +83,12 @@ internal sealed class TrayApp
         flyout.CancelUpdateRequested += CancelUpdate;
         flyout.Undo += async () => { flyout.Hide(); await UndoUpdateAsync(); };
         flyout.CheckUpdates += async () => { flyout.Hide(); OpenSettings(); await CheckUpdatesAsync(manual: true); };
+        try
+        {
+            sessionEnd = new SessionEnd(flyout.Handle);
+            sessionEnd.Ending += async () => await QuitAsync(sessionEnding: true);
+        }
+        catch (Exception error) { Debug.WriteLine(error); }
         try
         {
             tray = new TrayIcon(flyout.Handle, Menu);
@@ -818,15 +826,16 @@ internal sealed class TrayApp
         catch (Exception error) { Debug.WriteLine(error); }
     }
 
-    /// <summary>Quit stops the engine; the app stays if the engine did not stop, with the reason in Settings.</summary>
-    private async Task QuitAsync()
+    /// <summary>Quit stops the engine; the app stays if the engine did not stop, with the reason in Settings. When Windows
+    /// ends the app it closes whatever the engine did, since Windows ends what is left of the package itself.</summary>
+    private async Task QuitAsync(bool sessionEnding = false)
     {
         if (quitting) return;
         quitting = true;
         downloading?.Cancel();
         try { if (engine is not null) await engine.StopAsync(); }
         catch (Exception error) { Debug.WriteLine(error); }
-        if (engine?.OwnsEngine == true)
+        if (engine?.OwnsEngine == true && !sessionEnding)
         {
             quitting = false;
             settingsError = "host-stop-failed";
@@ -840,6 +849,8 @@ internal sealed class TrayApp
         settings?.Close();
         tray?.Dispose();
         tray = null;
+        sessionEnd?.Dispose();
+        sessionEnd = null;
         flyout.CloseForQuit();
         Application.Current.Exit();
     }

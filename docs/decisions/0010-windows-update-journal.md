@@ -31,7 +31,8 @@ nothing else does.
 The native host's `UpdateCoordinator` drives it. To apply, it stops the engine, has the
 journal begun, registers the app for restart and asks Windows' package manager to replace
 the package with app shutdown forced; if Windows refuses, it resumes the journal, which
-records `aborted`. Windows installs while the old version stays open, closing it only at the end, and
+records `aborted`. Windows installs while the old version stays open, closing it only at the end
+([the app quits when Windows asks](../architecture.md#the-windows-app)), and
 the app shows Windows' own percentage meanwhile. The old version can also be opened again while
 Windows still installs; before its start settles `applying` as never having happened, it reads
 Windows' deployment log (AppXDeploymentServer/Operational) for an install of the new package
