@@ -30,7 +30,7 @@ def bundle(tmp_path, monkeypatch):
     (tree / "bin").mkdir(parents=True)
     def pg_version(command, **kwargs):
         assert command == [str(tree / "bin/pg_config"), "--version"]
-        return "PostgreSQL 16.14\n"
+        return "PostgreSQL 16.15\n"
     monkeypatch.setattr(installer.subprocess, "check_output", pg_version)
     return tree, manifest, original, entry
 
@@ -93,8 +93,8 @@ def test_different_wheel_version_is_refused_before_installing(bundle, monkeypatc
 
 def test_different_postgres_build_is_refused_before_installing(bundle, monkeypatch):
     tree, *_ = bundle
-    monkeypatch.setattr(installer.subprocess, "check_output", lambda *a, **kw: "PostgreSQL 16.15\n")
-    with pytest.raises(ValueError, match="no prebuilt pg_trgm.*16.15"):
+    monkeypatch.setattr(installer.subprocess, "check_output", lambda *a, **kw: "PostgreSQL 16.16\n")
+    with pytest.raises(ValueError, match="no prebuilt pg_trgm.*16.16"):
         installer.install(tree / "bin")
     assert list(tree.iterdir()) == [tree / "bin"]
 
@@ -126,4 +126,4 @@ def test_every_supported_platform_has_a_complete_verified_bundle():
     # replaces it with a portable build of the same version.
     windows = manifest["platforms"]["windows-amd64"]
     assert "lib/postgresql/vector.dll" in windows["files"]
-    assert windows["pgvector"]["version"] == "0.8.5"
+    assert windows["pgvector"]["version"] == "0.8.7"
