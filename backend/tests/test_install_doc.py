@@ -8,6 +8,7 @@ import json
 import plistlib
 import re
 from pathlib import Path
+from xml.etree import ElementTree
 
 REPO = Path(__file__).resolve().parents[2]
 LAUNCHER = REPO / "launcher" / "macos"
@@ -120,6 +121,17 @@ def test_a_windows_release_attaches_only_files_a_person_or_an_app_reads():
     files = re.search(r"^\s*\$files = (.+)$", attach, re.M)
     assert files, "the attach step no longer gathers its uploads in one $files line"
     assert "'release'" in files.group(1) and "$setup" in files.group(1)
-    assert ".cer" not in files.group(1), "a release attaches RoleBand.cer again"
-    setup = (REPO / "launcher" / "windows" / "RoleBand.Setup" / "RoleBand.Setup.csproj").read_text(encoding="utf-8")
-    assert 'EmbeddedResource Include="$(RoleBandCertificate)"' in setup, "Setup no longer carries the certificate"
+    uploads = re.findall(r"gh release upload \$env:TAG --repo \$env:GITHUB_REPOSITORY (.+)$", attach, re.M)
+    assert uploads and all(re.fullmatch(r"(--clobber )?(\$marker\[0\]|@\(\$files \| .+\))", u) for u in uploads), \
+        "the attach step uploads something other than its $files"
+    # Each step is its own PowerShell session, so a path the attach step uploads is named inside it.
+    assert ".cer" not in attach, "a release attaches RoleBand.cer again"
+
+    setup = REPO / "launcher" / "windows" / "RoleBand.Setup"
+    project = ElementTree.parse(setup / "RoleBand.Setup.csproj").getroot()
+    default = project.find(".//RoleBandCertificate")
+    assert default is not None and default.text.endswith("../RoleBand.cer"), "Setup no longer builds from RoleBand.cer"
+    embedded = {item.get("LogicalName") for item in project.iter("EmbeddedResource")
+                if item.get("Include") == "$(RoleBandCertificate)"}
+    requested = re.search(r'GetManifestResourceStream\("([^"]+\.cer)"\)', (setup / "Program.cs").read_text(encoding="utf-8"))
+    assert requested and requested.group(1) in embedded, "Setup does not embed the certificate under the name it reads"
