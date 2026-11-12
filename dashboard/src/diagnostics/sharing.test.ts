@@ -133,7 +133,7 @@ describe("what an event carries", () => {
     } as never);
     const text = JSON.stringify(event);
     expect(text).not.toContain(CANARY);
-    expect((event as { properties: Record<string, unknown> }).properties.$current_url).toBe(`${window.location.origin}/company/:id`);
+    expect((event as { properties: Record<string, unknown> }).properties.$current_url).toBe(`${REPORTED}/company/:id`);
     expect(recentEvents[0].event).toBe("$pageview");
   });
 
@@ -141,6 +141,7 @@ describe("what an event carries", () => {
      properties on every event, heatmap buffers keyed by the page address,
      web vitals nested per metric, and the target of an outbound click. */
   const origin = window.location.origin;
+  const REPORTED = "http://127.0.0.1:8010";
 
   it("rewrites the session entry properties the library adds to every event", async () => {
     const { beforeSend } = await load();
@@ -161,9 +162,9 @@ describe("what an event carries", () => {
     const properties = (event as { properties: Record<string, unknown> }).properties;
     expect(JSON.stringify(event)).not.toContain(CANARY);
     expect(JSON.stringify(event)).not.toContain("48213");
-    expect(properties.$session_entry_url).toBe(`${origin}/company/:id`);
+    expect(properties.$session_entry_url).toBe(`${REPORTED}/company/:id`);
     expect(properties.$session_entry_pathname).toBe("/company/:id");
-    expect(properties.$session_entry_host).toBe(window.location.host);
+    expect(properties.$session_entry_host).toBe("127.0.0.1:8010");
     expect(properties).not.toHaveProperty("$session_entry_referrer");
     expect(properties).not.toHaveProperty("$external_click_url");
   });
@@ -182,8 +183,8 @@ describe("what an event carries", () => {
     } as never);
     const data = (event as { properties: Record<string, unknown> }).properties.$heatmap_data as Record<string, unknown[]>;
     expect(JSON.stringify(event)).not.toContain(CANARY);
-    expect(Object.keys(data)).toEqual([`${origin}/jobs/:id`]);
-    expect(data[`${origin}/jobs/:id`]).toHaveLength(2);
+    expect(Object.keys(data)).toEqual([`${REPORTED}/jobs/:id`]);
+    expect(data[`${REPORTED}/jobs/:id`]).toHaveLength(2);
   });
 
   it("rewrites addresses nested inside a metric, and keeps the app's own script files", async () => {
@@ -205,9 +206,34 @@ describe("what an event carries", () => {
     const properties = (event as { properties: Record<string, unknown> }).properties;
     expect(JSON.stringify(event)).not.toContain(CANARY);
     expect(properties.$web_vitals_LCP_event).toMatchObject({
-      name: "LCP", value: 1840, $current_url: `${origin}/company/:id`, attribution: { navigationURL: "/company/:id" },
+      name: "LCP", value: 1840, $current_url: `${REPORTED}/company/:id`, attribution: { navigationURL: "/company/:id" },
     });
-    expect(JSON.stringify(properties.$exception_list)).toContain(asset);
+    expect(JSON.stringify(properties.$exception_list)).toContain(`${REPORTED}/assets/index-4f2a9c.js`);
+  });
+
+  /* A port the person chose, or one picked for each run, would otherwise make
+     every screen a different page per install. */
+  it("reports the app's own address as one fixed origin, whatever port serves it", async () => {
+    const { beforeSend, REPORTED_ORIGIN } = await load();
+    expect(REPORTED_ORIGIN).toBe(REPORTED);
+    // Only meaningful while the test page is served from somewhere else.
+    expect(origin).not.toBe(REPORTED);
+    const event = beforeSend({
+      uuid: "u", event: "$pageview",
+      properties: {
+        $current_url: `${origin}/jobs/48213`,
+        $host: window.location.host,
+        $initial_host: `${CANARY}.example`,
+        $external_link: `http://127.0.0.1:9/jobs/48213`,
+      },
+    } as never);
+    const properties = (event as { properties: Record<string, unknown> }).properties;
+    expect(properties.$current_url).toBe(`${REPORTED}/jobs/:id`);
+    expect(properties.$host).toBe("127.0.0.1:8010");
+    expect(properties.$initial_host).toBe("<host>");
+    // Another program on this computer is another site, not the app on another port.
+    expect(properties.$external_link).toBe("<url>");
+    expect(JSON.stringify(event)).not.toContain(window.location.host);
   });
 });
 

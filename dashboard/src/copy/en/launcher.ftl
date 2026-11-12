@@ -184,6 +184,14 @@ launcher-host-attention-body = Scanning couldn't keep running.
 # kind=sentence
 launcher-host-in-use-body = Another program has your data open, so scanning stopped.
     Stop that program, then try Restart.
+# kind=sentence
+launcher-host-port-body = Another program is using port { $port }, so scanning can't start.
+    Switch to another port, or quit that program and try Restart.
+# kind=sentence
+launcher-host-port-holder-body = { $program } is using port { $port }, so scanning can't start.
+    Switch to another port, or quit { $program } and try Restart.
+# kind=button
+launcher-port-use = Use port { $port }
 # kind=status
 launcher-host-stopped = Scanning has stopped
 # kind=status
@@ -681,6 +689,29 @@ launcher-panel-opens-browser = Opens in your browser
 # kind=sentence
 launcher-panel-login-approval = Waiting for your approval in System Settings.
 
+# kind=label
+launcher-panel-port = Port
+# kind=sentence
+launcher-panel-port-caption = Radar opens at 127.0.0.1:{ $port }.
+# kind=button
+launcher-panel-port-change = Change
+# kind=aria
+launcher-panel-port-field = Port number
+# kind=button
+launcher-panel-port-save = Use this port
+# kind=button
+launcher-panel-port-cancel = Cancel
+# kind=sentence
+launcher-panel-port-note = Links saved with the old address stop working, and Radar's view settings start over.
+# kind=sentence
+launcher-panel-port-invalid = Choose a number from 1024 to 65535.
+# kind=sentence
+launcher-panel-port-busy = Port { $port } is in use. Choose another.
+# kind=sentence
+launcher-panel-port-blocked = Browsers don't open port { $port }. Choose another.
+# kind=sentence
+launcher-panel-port-failed = Couldn't move to port { $port }. Try again.
+
 # kind=status
 launcher-panel-version = Version { $version }
 # kind=heading
@@ -722,7 +753,7 @@ launcher-update-verifying = Checking { $version }
 launcher-update-restarting = Restarting to update
 # kind=status
 launcher-update-progress = { $received } of { $total }
-# kind=button
+# kind=button same-as=launcher-panel-port-cancel
 launcher-update-cancel = Cancel
 # kind=status
 launcher-update-paused = Download paused

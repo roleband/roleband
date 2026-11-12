@@ -56,11 +56,14 @@ struct LauncherDependencies {
     /// Owned mode only: an app that does not own its engine cannot replace itself.
     var installOperations: UpdateInstallerOperations?
     var updateNotice: UpdateNotice?
+    var portFree: @Sendable (Int) -> Bool = EnginePort.isFree
 
+    /// `port` is the owned engine's; without one it is the person's saved choice.
     static func live(mode: LaunchMode = .attach, bundle: Bundle = .main,
                      home: URL = FileManager.default.homeDirectoryForCurrentUser,
-                     port: Int = Installation.ownedPort,
+                     port: Int? = nil,
                      preferences: UserDefaults = .standard, language: String? = nil) -> Self {
+        let port = port ?? EnginePort.saved(in: preferences)
         let configured = ProcessInfo.processInfo.environment["ROLEBAND_LAUNCHER_REGISTRATION"]
             ?? bundle.object(forInfoDictionaryKey: "RoleBandRegistration") as? String
         let registration = configured.map { URL(fileURLWithPath: $0) } ?? HomeLayout(home).registration
@@ -71,8 +74,9 @@ struct LauncherDependencies {
                     bundleURL: bundle.bundleURL, homeURL: home, language: language)
         if case .owned = mode {
             if let configuration = try? HostConfiguration(bundle: bundle, home: home, port: port) {
-                dependencies.installation = .fixed(configuration.installation)
-                dependencies.ownedEngine = .live(configuration)
+                let identity = OwnedIdentity(configuration.installation)
+                dependencies.installation = identity.source
+                dependencies.ownedEngine = .live(configuration, identity: identity)
             } else { dependencies.ownedEngine = .unavailable }
             let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
             dependencies.installOperations = .live(installed: bundle.bundleURL, home: home,
@@ -85,6 +89,32 @@ struct LauncherDependencies {
     }
 }
 
+/// Why a port the person entered was not used.
+enum PortRefusal: Equatable {
+    /// No port number the engine can listen on.
+    case invalid
+    /// A port browsers refuse to open.
+    case blocked(Int)
+    /// Another program listens on it.
+    case busy(Int)
+    /// The engine could not be moved there; it stays on its port.
+    case failed(Int)
+    var key: String {
+        switch self {
+        case .invalid: "panel-port-invalid"
+        case .blocked: "panel-port-blocked"
+        case .busy: "panel-port-busy"
+        case .failed: "panel-port-failed"
+        }
+    }
+    var values: [String: String] {
+        switch self {
+        case .invalid: [:]
+        case .blocked(let port), .busy(let port), .failed(let port): ["port": String(port)]
+        }
+    }
+}
+
 @MainActor
 final class LauncherModel: ObservableObject {
     let mode: LaunchMode
@@ -92,6 +122,16 @@ final class LauncherModel: ObservableObject {
     @Published private(set) var hostState: HostState?
     @Published private(set) var diagnosticLines = ""
     @Published private(set) var hostProblem: HostProblem?
+    @Published private(set) var portConflict: PortConflict?
+    /// The port the app's own engine serves on, and Radar's address with it.
+    @Published private(set) var enginePort: Int
+    /// Why the last port the person entered was not used, or nil.
+    @Published private(set) var portRefusal: PortRefusal?
+    private let portFree: @Sendable (Int) -> Bool
+    /// The free port the panel offers while another program holds the engine's. The engine found
+    /// it when its start was refused; it is checked again on each refresh, so a port taken since
+    /// is never offered.
+    @Published private(set) var portSuggestion: Int?
     @Published private(set) var preparation: EnginePreparation?
     @Published private(set) var setupLoginChoice = true
     var preparationReady: Bool { verified != nil && (ownedEngine == nil || hostState == .running) }
@@ -227,6 +267,11 @@ final class LauncherModel: ObservableObject {
         launcherVersion = dependencies.launcherVersion
         openBrowser = dependencies.openBrowser
         preferences = dependencies.preferences
+        portFree = dependencies.portFree
+        // The engine's own identity says where it serves; an isolated run passes a port of its own.
+        let served = (try? dependencies.installation.current()).flatMap { URLComponents(string: $0.apiOrigin)?.port }
+        if case .owned = dependencies.mode, let served { enginePort = served }
+        else { enginePort = EnginePort.saved(in: dependencies.preferences) }
         loginService = dependencies.loginService
         bundleURL = dependencies.bundleURL
         homeURL = dependencies.homeURL
@@ -260,7 +305,13 @@ final class LauncherModel: ObservableObject {
         }
     }
     var helpKey: String? {
-        if hostState == .needsAttention { return hostProblem == .databaseInUse ? "host-in-use-body" : "host-attention-body" }
+        if hostState == .needsAttention {
+            switch hostProblem {
+            case .databaseInUse: return "host-in-use-body"
+            case .portInUse: return portConflict?.holder == nil ? "host-port-body" : "host-port-holder-body"
+            default: return "host-attention-body"
+            }
+        }
         if case .backingOff = hostState { return "host-recovering-body" }
         if attached && engineState == .stopped { return "attached-stopped-body" }
         if let verified { return verified.presentation.reasonKey(source: attached) }
@@ -270,6 +321,13 @@ final class LauncherModel: ObservableObject {
         case .identityMismatch, .invalidInstallation: return "invalid"
         default: return nil
         }
+    }
+    /// The named values `helpKey`'s message takes.
+    var helpValues: [String: String] {
+        guard hostState == .needsAttention, hostProblem == .portInUse else { return [:] }
+        var values = ["port": String(portConflict?.port ?? enginePort)]
+        if let holder = portConflict?.holder { values["program"] = holder }
+        return values
     }
     private var hostTitleKey: String? {
         switch hostState {
@@ -451,6 +509,9 @@ final class LauncherModel: ObservableObject {
         if preparation != snapshot.preparation { preparation = snapshot.preparation }
         if diagnosticLines != snapshot.diagnostics { diagnosticLines = snapshot.diagnostics }
         if hostProblem != snapshot.problem { hostProblem = snapshot.problem }
+        if portConflict != snapshot.portConflict { portConflict = snapshot.portConflict }
+        let suggestion = freeSuggestion()
+        if portSuggestion != suggestion { portSuggestion = suggestion }
         if snapshot.state != .running {
             task?.cancel()
             timer?.invalidate()
@@ -587,6 +648,59 @@ final class LauncherModel: ObservableObject {
             return "engine-requested"
         }
     }
+    /// Moves the app's engine to `port` and starts it there. The choice is saved only once the
+    /// engine has moved, so a refused port leaves the saved one in force.
+    func usePort(_ port: Int) {
+        guard ownsEngine, let ownedEngine, !controlBusy, !shuttingDown else { return }
+        portRefusal = nil
+        guard EnginePort.allowed.contains(port) else { portRefusal = .invalid; return }
+        guard EnginePort.usable(port) else { portRefusal = .blocked(port); return }
+        if port == enginePort {
+            // The port the engine already has: only a held port needs anything, and that is a restart.
+            if hostProblem == .portInUse { startEngine() }
+            return
+        }
+        guard portFree(port) else {
+            portRefusal = .busy(port)
+            portSuggestion = freeSuggestion()
+            return
+        }
+        let held = engineHeld
+        task?.cancel()
+        timer?.invalidate()
+        control(prefix: "engine", refreshSchedule: false) {
+            do {
+                // A quit cancels this task but not the engine's own work: each step checks, so the
+                // engine never starts again after the quit stopped it.
+                try await ownedEngine.stop()
+                try Task.checkCancellation()
+                _ = try await ownedEngine.use(port)
+                EnginePort.save(port, in: self.preferences)
+                self.enginePort = port
+                self.lastGood = nil
+                try Task.checkCancellation()
+                if !held { try await ownedEngine.start() }
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                if self.enginePort != port { self.portRefusal = .failed(port) }
+                await self.refreshHost()
+                throw error
+            }
+            await self.refreshHost()
+            self.failures = 0
+            return held ? nil : "engine-requested"
+        }
+    }
+    func usePortAndWait(_ port: Int) async { usePort(port); await controlTask?.value; await task?.value }
+    func clearPortRefusal() { portRefusal = nil }
+
+    /// The engine's suggestion while it is still free, else the next free port after it.
+    private func freeSuggestion() -> Int? {
+        guard hostProblem == .portInUse, let offered = portConflict?.suggestion else { return nil }
+        return portFree(offered) ? offered : EnginePort.suggestion(after: offered, isFree: portFree)
+    }
+
     private func control(prefix: String, refreshSchedule: Bool, operation: @escaping @MainActor () async throws -> String?) {
         timer?.invalidate()
         controlBusy = true

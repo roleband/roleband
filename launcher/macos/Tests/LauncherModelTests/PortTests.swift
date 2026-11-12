@@ -1,0 +1,223 @@
+import Foundation
+import LauncherCore
+import Testing
+@testable import RoleBandLauncher
+
+/// An owned engine whose port another program can hold, recording what the model asks of it.
+private actor PortBoundary {
+    var calls: [String] = []
+    var current = OwnedEngineSnapshot(state: .stopped)
+    var installation: Installation
+    init(_ installation: Installation) { self.installation = installation }
+    func start() { calls.append("start"); current = OwnedEngineSnapshot(state: .running) }
+    func stop() { calls.append("stop"); current = OwnedEngineSnapshot(state: .stopped) }
+    func use(_ port: Int) throws -> Installation {
+        calls.append("use \(port)")
+        installation = try installation.on(port: port)
+        return installation
+    }
+    func hold(by holder: String?, suggestion: Int?) {
+        current = OwnedEngineSnapshot(state: .needsAttention, problem: .portInUse,
+                                      portConflict: PortConflict(port: 8010, holder: holder, suggestion: suggestion))
+    }
+    func snapshot() -> OwnedEngineSnapshot { current }
+    nonisolated var service: OwnedEngineService {
+        OwnedEngineService(start: { await self.start() }, restart: { await self.start() },
+                           stop: { await self.stop() }, snapshot: { await self.snapshot() },
+                           use: { try await self.use($0) })
+    }
+}
+
+private func ownedInstallation() throws -> Installation {
+    try JSONDecoder().decode(Installation.self, from: Data(#"{"product":"roleband","instance":"0123456789abcdef01234567","api_origin":"http://127.0.0.1:8010","version":"0.2.0","format":1}"#.utf8))
+}
+
+/// No test reaches an engine on this Mac: the status read always finds none.
+private let noEngine: @Sendable (Installation) async throws -> VerifiedStatus = { _ in throw ConnectionProblem.unavailable }
+
+@MainActor
+private func portModel(_ boundary: PortBoundary, preferences: UserDefaults,
+                       free: @escaping @Sendable (Int) -> Bool = { _ in true }) -> LauncherModel {
+    preferences.set(true, forKey: "setupCompleted")
+    return LauncherModel(installation: .fixed(try! ownedInstallation()), mode: .owned(leftover: nil),
+                         ownedEngine: boundary.service, readStatus: noEngine, preferences: preferences, language: "en",
+                         portFree: free)
+}
+
+@MainActor
+@Test func aHeldPortNamesItsProgramAndOffersAFreeOne() async throws {
+    let boundary = PortBoundary(try ownedInstallation())
+    let model = portModel(boundary, preferences: .scratch("port-test"))
+    await boundary.hold(by: "Docker", suggestion: 8011)
+    await model.refreshHost()
+    #expect(model.hostState == .needsAttention)
+    #expect(model.helpKey == "host-port-holder-body")
+    #expect(model.text(try #require(model.helpKey), model.helpValues).hasPrefix("Docker is using port 8010, so scanning can't start."))
+    #expect(model.portSuggestion == 8011)
+
+    // Another account's program cannot be looked into: the message says only that one holds the port.
+    await boundary.hold(by: nil, suggestion: nil)
+    await model.refreshHost()
+    #expect(model.helpKey == "host-port-body")
+    #expect(model.text(try #require(model.helpKey), model.helpValues).hasPrefix("Another program is using port 8010"))
+    #expect(model.portSuggestion == nil, "no free port nearby, so no button promising one")
+}
+
+@MainActor
+@Test func aPortOutsideTheRangeOrInUseIsRefusedAndNothingMoves() async throws {
+    let boundary = PortBoundary(try ownedInstallation())
+    let preferences = UserDefaults.scratch("port-test")
+    let model = portModel(boundary, preferences: preferences, free: { $0 != 9000 })
+    for port in [0, 80, 1023, 65536] {
+        model.usePort(port)
+        #expect(model.portRefusal == .invalid, "port \(port)")
+    }
+    model.usePort(6000)
+    #expect(model.portRefusal == .blocked(6000))
+    #expect(model.text(model.portRefusal!.key, model.portRefusal!.values) == "Browsers don't open port 6000. Choose another.")
+    model.usePort(9000)
+    #expect(model.portRefusal == .busy(9000))
+    #expect(model.text(model.portRefusal!.key, model.portRefusal!.values) == "Port 9000 is in use. Choose another.")
+    // The port the engine already has, with nothing holding it, needs nothing.
+    model.usePort(8010)
+    #expect(model.portRefusal == nil)
+    await model.usePortAndWait(8010)
+    #expect(await boundary.calls.isEmpty)
+    #expect(preferences.object(forKey: EnginePort.preferenceKey) == nil)
+    #expect(model.enginePort == 8010)
+}
+
+@MainActor
+@Test func usingAnotherPortStopsMovesSavesAndStartsTheEngineThere() async throws {
+    let boundary = PortBoundary(try ownedInstallation())
+    let preferences = UserDefaults.scratch("port-test")
+    let model = portModel(boundary, preferences: preferences)
+    await boundary.hold(by: "Docker", suggestion: 8011)
+    await model.refreshHost()
+    await model.usePortAndWait(try #require(model.portSuggestion))
+    #expect(await boundary.calls == ["stop", "use 8011", "start"])
+    #expect(EnginePort.saved(in: preferences) == 8011)
+    #expect(model.enginePort == 8011)
+    #expect(model.hostState == .running && model.hostProblem == nil)
+    #expect(await boundary.installation.apiOrigin == "http://127.0.0.1:8011")
+
+    // Back to the default is stored as no choice at all.
+    await model.usePortAndWait(Installation.ownedPort)
+    #expect(await boundary.calls.suffix(3) == ["stop", "use 8010", "start"])
+    #expect(preferences.object(forKey: EnginePort.preferenceKey) == nil)
+    #expect(model.enginePort == 8010)
+}
+
+@MainActor
+@Test func aMoveTheEngineRefusesLeavesTheSavedPortAsItWas() async throws {
+    let installation = try ownedInstallation()
+    let preferences = UserDefaults.scratch("port-test")
+    preferences.set(true, forKey: "setupCompleted")
+    let refusing = OwnedEngineService(start: {}, restart: {}, stop: {}, snapshot: { OwnedEngineSnapshot(state: .stopped) },
+                                      use: { _ in throw HostProblem.invalidConfiguration })
+    let model = LauncherModel(installation: .fixed(installation), mode: .owned(leftover: nil), ownedEngine: refusing,
+                              readStatus: noEngine, preferences: preferences, language: "en", portFree: { _ in true })
+    await model.usePortAndWait(8020)
+    #expect(preferences.object(forKey: EnginePort.preferenceKey) == nil)
+    #expect(model.enginePort == 8010)
+    #expect(model.controlMessage == "engine-unconfirmed")
+    // The reason stays beside the port the person chose, in Settings as on the status tab.
+    #expect(model.portRefusal == .failed(8020))
+    #expect(model.text(model.portRefusal!.key, model.portRefusal!.values) == "Couldn't move to port 8020. Try again.")
+}
+
+@Test func theSavedPortIsTheDefaultUntilAnAllowedOneIsChosen() {
+    let preferences = UserDefaults.scratch("engine-port")
+    #expect(EnginePort.saved(in: preferences) == 8010)
+    for refused in [80, 1023, 6000, 65536, -1] {
+        preferences.set(refused, forKey: EnginePort.preferenceKey)
+        #expect(EnginePort.saved(in: preferences) == 8010, "\(refused) is no port the engine can use")
+    }
+    EnginePort.save(8123, in: preferences)
+    #expect(EnginePort.saved(in: preferences) == 8123)
+    EnginePort.save(8010, in: preferences)
+    #expect(preferences.object(forKey: EnginePort.preferenceKey) == nil)
+}
+
+/// Whether `condition` came true within a few seconds.
+@MainActor
+private func eventually(_ condition: @MainActor () async -> Bool) async -> Bool {
+    for _ in 0..<500 {
+        if await condition() { return true }
+        try? await Task.sleep(for: .milliseconds(10))
+    }
+    return await condition()
+}
+
+@MainActor
+@Test func anOfferedPortTakenSinceIsRefusedAndTheNextFreeOneOffered() async throws {
+    let taken = Taken()
+    let boundary = PortBoundary(try ownedInstallation())
+    let model = portModel(boundary, preferences: .scratch("port-test"), free: { !taken.contains($0) })
+    await boundary.hold(by: "Docker", suggestion: 8011)
+    await model.refreshHost()
+    #expect(model.portSuggestion == 8011)
+
+    // Another program takes 8011 before the click.
+    taken.insert(8011)
+    model.usePort(8011)
+    #expect(model.portRefusal == .busy(8011))
+    #expect(model.portSuggestion == 8012, "the button offers the next free port at once")
+    #expect(await boundary.calls.isEmpty)
+    // The engine's own record still says 8011; each refresh checks it again.
+    await model.refreshHost()
+    #expect(model.portSuggestion == 8012)
+}
+
+@MainActor
+@Test func aQuitDuringAPortChangeLeavesTheEngineStopped() async throws {
+    let gated = GatedEngine(try ownedInstallation())
+    let preferences = UserDefaults.scratch("port-test")
+    preferences.set(true, forKey: "setupCompleted")
+    let model = LauncherModel(installation: .fixed(try ownedInstallation()), mode: .owned(leftover: nil),
+                              ownedEngine: gated.service, readStatus: noEngine, preferences: preferences,
+                              language: "en", portFree: { _ in true })
+    model.usePort(8011)
+    #expect(await eventually { await gated.stopping })
+    // The quit cancels the change while the engine is still stopping.
+    model.stop()
+    await gated.release()
+    #expect(await eventually { !model.controlBusy })
+    try await Task.sleep(for: .milliseconds(50))
+    #expect(await gated.calls == ["stop"], "nothing moves or starts after the quit")
+    #expect(preferences.object(forKey: EnginePort.preferenceKey) == nil)
+    #expect(model.enginePort == 8010)
+}
+
+/// Ports other programs hold, changed while a test runs.
+private final class Taken: @unchecked Sendable {
+    private let lock = NSLock()
+    private var ports: Set<Int> = []
+    func insert(_ port: Int) { lock.withLock { _ = ports.insert(port) } }
+    func contains(_ port: Int) -> Bool { lock.withLock { ports.contains(port) } }
+}
+
+/// An owned engine whose first stop waits until the test lets it finish.
+private actor GatedEngine {
+    var calls: [String] = []
+    private var gate: CheckedContinuation<Void, Never>?
+    private var installation: Installation
+    init(_ installation: Installation) { self.installation = installation }
+    var stopping: Bool { gate != nil }
+    func stop() async {
+        calls.append("stop")
+        if calls.count == 1 { await withCheckedContinuation { gate = $0 } }
+    }
+    func release() { gate?.resume(); gate = nil }
+    func start() { calls.append("start") }
+    func use(_ port: Int) throws -> Installation {
+        calls.append("use \(port)")
+        installation = try installation.on(port: port)
+        return installation
+    }
+    nonisolated var service: OwnedEngineService {
+        OwnedEngineService(start: { await self.start() }, restart: { await self.start() },
+                           stop: { await self.stop() }, snapshot: { OwnedEngineSnapshot(state: .stopped) },
+                           use: { try await self.use($0) })
+    }
+}

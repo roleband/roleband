@@ -51,7 +51,8 @@ From the dashboard, through PostHog's browser library, while this kind is on:
 - `experiments`
 - `early_access`
 
-Screen addresses are reduced to the screen (`/jobs/:id`, never the job's id); text that comes
+Screen addresses are reduced to the screen (`/jobs/:id`, never the job's id), under one fixed
+address (`http://127.0.0.1:8010`) whatever port your install uses; text that comes
 from employers or from you (company names, titles, pay, your profile, notes, search) is masked
 and never captured with a click.
 

@@ -164,6 +164,11 @@ launcher-host-attention-body = Los escaneos no pudieron continuar.
     Revisa los registros y pulsa Reiniciar.
 launcher-host-in-use-body = Otro programa tiene tus datos abiertos, así que el escaneo se detuvo.
     Detén ese programa y pulsa Reiniciar.
+launcher-host-port-body = Otro programa está usando el puerto { $port }, así que el escaneo no puede empezar.
+    Cambia a otro puerto, o cierra ese programa y pulsa Reiniciar.
+launcher-host-port-holder-body = { $program } está usando el puerto { $port }, así que el escaneo no puede empezar.
+    Cambia a otro puerto, o cierra { $program } y pulsa Reiniciar.
+launcher-port-use = Usar puerto { $port }
 launcher-host-stopped = El escaneo se ha detenido
 launcher-host-quit-note = Al salir se detienen los escaneos
 launcher-host-stop-failed = No se pudieron detener los escaneos.
@@ -542,6 +547,17 @@ launcher-panel-all-settings = Todos los ajustes
 launcher-panel-opens-browser = Se abre en tu navegador
 # kind=sentence
 launcher-panel-login-approval = Esperando tu aprobación en Ajustes del Sistema.
+launcher-panel-port = Puerto
+launcher-panel-port-caption = Radar se abre en 127.0.0.1:{ $port }.
+launcher-panel-port-change = Cambiar
+launcher-panel-port-field = Número de puerto
+launcher-panel-port-save = Usar este puerto
+launcher-panel-port-cancel = Cancelar
+launcher-panel-port-note = Los enlaces guardados con la dirección anterior dejan de funcionar, y los ajustes de vista de Radar vuelven a empezar.
+launcher-panel-port-invalid = Elige un número del 1024 al 65535.
+launcher-panel-port-busy = El puerto { $port } está en uso. Elige otro.
+launcher-panel-port-blocked = Los navegadores no abren el puerto { $port }. Elige otro.
+launcher-panel-port-failed = No se pudo cambiar al puerto { $port }. Inténtalo de nuevo.
 # kind=status
 launcher-panel-version = Versión { $version }
 # kind=heading

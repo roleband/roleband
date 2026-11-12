@@ -310,8 +310,10 @@ public struct UpdateHelper: Sendable {
 }
 
 public extension UpdateHelper {
-    /// Live boundaries. `open` launches an app through Launch Services and returns its process id.
-    static func live(plan: UpdatePlan, open: @escaping @Sendable (URL) async throws -> pid_t) -> UpdateInstallOperations {
+    /// Live boundaries. `open` launches an app through Launch Services and returns its process id;
+    /// `port` is the one the person chose for the app's engine.
+    static func live(plan: UpdatePlan, port: Int = Installation.ownedPort,
+                     open: @escaping @Sendable (URL) async throws -> pid_t) -> UpdateInstallOperations {
         let verifier = UpdateBundleVerifier()
         let launched = LaunchedApp()
         let resources = plan.paths.installed.appendingPathComponent("Contents/Resources")
@@ -321,18 +323,18 @@ public extension UpdateHelper {
             try await launched.stop()
             // Reaping reads the engine's own record and marker; it makes no API call, so no instance is needed.
             let installation = Installation(product: "roleband", instance: String(repeating: "0", count: 24),
-                                            apiOrigin: "http://127.0.0.1:\(Installation.ownedPort)", version: plan.from, format: 1)
+                                            apiOrigin: "http://127.0.0.1:\(port)", version: plan.from, format: 1)
             let configuration = try HostConfiguration(resources: resources, home: plan.paths.home, installation: installation)
             try await EngineHost(configuration: configuration).reclaim()
         }, launch: { app in
             await launched.track(try await open(app))
         }, healthy: { version in
-            let installation = try Installation.owned(resources: resources, version: version)
+            let installation = try Installation.owned(resources: resources, version: version, port: port)
             guard try await StatusClient.read(installation).engineVersion == version else { return false }
             let health = try await EngineHealthClient.read(installation)
             return health.ready && !health.failed
         }, preparing: { version in
-            guard let installation = try? Installation.owned(resources: resources, version: version),
+            guard let installation = try? Installation.owned(resources: resources, version: version, port: port),
                   let health = try? await EngineHealthClient.read(installation) else { return false }
             return health.version == version && health.preparation?.database == "creating"
         })

@@ -311,9 +311,17 @@ with the identity and loopback port its caller gives, exposes lifecycle state,
 and creates no schema, provisions no model and never targets a source
 installation.
 
+Before each spawn the host binds the engine's port as the engine's server does
+(127.0.0.1, `SO_REUSEADDR`) and lets go. A port another program listens on ends
+the start with `portInUse` rather than an engine that cannot listen; it is not
+retried. The host names the program when it runs under this account (the kernel
+shows no other account's sockets) and offers the first free port after it.
+`use(port:)` moves a stopped engine to another port. A port is usable from 1024
+to 65535, less the Fetch standard's bad ports, which browsers refuse to open.
+
 The interpreter starts isolated, in a new process group, with only packaged
-mode, the data directory, embedded Postgres and the fixed loopback address and
-port in its environment; ambient Python paths, database URLs and source settings
+mode, the data directory, embedded Postgres and the loopback address and port
+in its environment; ambient Python paths, database URLs and source settings
 cannot reconfigure it. Before spawning, the host publishes a private recovery
 record holding a random marker that every engine child inherits, even one in its
 own session, so the next host finds them after the supervisor or the app dies.
@@ -336,8 +344,11 @@ receive these signals.
 `Installation.owned` builds the owned identity from the bundle alone: the
 instance is the first 24 hex characters of the SHA-256 of the POSIX-resolved
 Resources path bytes, as the Python engine computes it; the version is
-`RoleBandVersion`; the origin is `http://127.0.0.1:8010`, with a port override
-for isolated runs. A source-only shell or incomplete bundle metadata has no
+`RoleBandVersion`; the origin is `http://127.0.0.1:8010`, or the port the person
+chose in the panel's Settings (`EnginePort`, kept in the app's preferences, which
+the update helper reads too), with a port override for isolated runs. The
+browser keeps bookmarks and a page's stored settings per address, so the port
+changes only when the person changes it. A source-only shell or incomplete bundle metadata has no
 owned identity. It reads no source registration and writes no discovery state.
 
 ### First-open preparation

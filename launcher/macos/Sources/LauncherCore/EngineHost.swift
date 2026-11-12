@@ -3,6 +3,8 @@ import Foundation
 
 public enum HostProblem: Error, Equatable, Sendable {
     case sourceInstallation, databaseOwnedElsewhere, databaseInUse, alreadyOwned, invalidConfiguration, processInspection, stopFailed
+    /// Another program listens on the engine's port; `EngineHost.portConflict` says which and offers another.
+    case portInUse
 }
 
 public enum HostState: Equatable, Sendable {
@@ -52,7 +54,10 @@ public actor EngineHost {
     /// The refusal behind `needsAttention`, when it was one, so the panel can say what to do.
     public private(set) var problem: HostProblem?
     public private(set) var preparation: EnginePreparation?
-    private let configuration: HostConfiguration
+    /// What holds the engine's port, while `problem` is `portInUse`.
+    public private(set) var portConflict: PortConflict?
+    /// Changes only through `use(port:)`, while no engine runs.
+    private var configuration: HostConfiguration
     private let now: @Sendable () -> TimeInterval
     private let readHealth: @Sendable (Installation) async throws -> EngineHealth
     private let automatic: Bool
@@ -116,6 +121,23 @@ public actor EngineHost {
     public func restart() async throws {
         try await stop()
         try await start()
+    }
+
+    /// Serves the next engine on `port`, and returns its identity. Only while no engine runs:
+    /// the caller stops it first and starts it after.
+    public func use(port: Int) async throws -> Installation {
+        try await serial { try await self.reconfigure(port: port) }
+        return configuration.installation
+    }
+
+    private func reconfigure(port: Int) throws {
+        guard EnginePort.usable(port), state == .stopped || state == .needsAttention, child == nil else {
+            throw HostProblem.invalidConfiguration
+        }
+        let installation = try configuration.installation.on(port: port)
+        configuration = try HostConfiguration(resources: configuration.resources, home: configuration.home, installation: installation)
+        if problem == .portInUse { problem = nil }
+        portConflict = nil
     }
 
     /// Stops what an earlier owner of this database left running and releases ownership,
@@ -217,6 +239,13 @@ public actor EngineHost {
         // Recheck discovery after cleanup: a source install may have appeared while it waited.
         let app = configuration.resources.deletingLastPathComponent().deletingLastPathComponent()
         guard case .owned(leftover: nil) = try ownedMode(app) else { throw HostProblem.sourceInstallation }
+        // Checked after cleanup, so the app's own earlier engine no longer holds the port. An engine
+        // started on a taken port would only fail to listen, retrying behind a vague state.
+        guard EnginePort.isFree(configuration.port) else {
+            portConflict = PortConflict.find(configuration.port)
+            throw HostProblem.portInUse
+        }
+        portConflict = nil
         try FileManager.default.createDirectory(at: configuration.log.deletingLastPathComponent(), withIntermediateDirectories: true,
                                                attributes: [.posixPermissions: 0o700])
         if let size = try? FileManager.default.attributesOfItem(atPath: configuration.log.path)[.size] as? NSNumber, size.intValue > 10_000_000 {
@@ -253,9 +282,9 @@ public actor EngineHost {
             restarts.removeAll { now() - $0 >= 600 }
             guard restarts.count < 3 else { state = .needsAttention; return }
             restarts.append(now())
-            do { try launch() } catch HostProblem.databaseInUse {
-                // Another program serves the database: a retry cannot start, so wait for the person.
-                attention(HostProblem.databaseInUse)
+            do { try launch() } catch let problem as HostProblem where problem == .databaseInUse || problem == .portInUse {
+                // Another program serves the database or holds the port: a retry cannot start, so wait for the person.
+                attention(problem)
             } catch { try await failed(String(describing: error)) }
         case .starting, .running:
             guard child?.running() == true else { try await failed("engine_exited"); return }

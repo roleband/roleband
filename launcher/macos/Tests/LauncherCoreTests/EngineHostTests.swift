@@ -15,7 +15,8 @@ private struct HostFixture: Sendable {
     let configuration: HostConfiguration
     var data: URL { configuration.data }
 
-    init(script: String = "import os,pathlib,time\n(pathlib.Path.home() / '.roleband/engine-ready').write_text(os.environ['ROLEBAND_ENGINE_OWNER'])\ntime.sleep(3600)\n") throws {
+    init(script: String = "import os,pathlib,time\n(pathlib.Path.home() / '.roleband/engine-ready').write_text(os.environ['ROLEBAND_ENGINE_OWNER'])\ntime.sleep(3600)\n",
+         port: Int = 58271) throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent("host \(UUID().uuidString)")
         let home = root.appendingPathComponent("home")
         let resources = home.appendingPathComponent("Applications/RoleBand.app/Contents/Resources")
@@ -37,7 +38,7 @@ private struct HostFixture: Sendable {
         try FileManager.default.createSymbolicLink(atPath: resources.appendingPathComponent("python/bin/python3.12").path,
                                                  withDestinationPath: executable)
         try Data(script.utf8).write(to: resources.appendingPathComponent("engine/packaged.py"))
-        let identity: [String: Any] = ["product": "roleband", "format": 1, "version": "0.1.0", "api_origin": "http://127.0.0.1:58271",
+        let identity: [String: Any] = ["product": "roleband", "format": 1, "version": "0.1.0", "api_origin": "http://127.0.0.1:\(port)",
                                       "instance": "0123456789abcdef01234567"]
         let installation = try JSONDecoder().decode(Installation.self, from: JSONSerialization.data(withJSONObject: identity))
         configuration = try HostConfiguration(resources: resources, home: home, installation: installation)
@@ -516,6 +517,76 @@ private struct ForeignServer {
     } catch { try? await host.stop(); throw error }
 }
 
+/// A free loopback port for a test's own engine, so no other test's fixture shares it.
+private func freePort() throws -> Int {
+    let listener = try Listener()
+    listener.close()
+    return listener.port
+}
+
+@Test func aTakenPortStartsNothingNamesItsHolderAndAnotherPortStartsTheEngineThere() async throws {
+    let listener = try Listener()
+    defer { listener.close() }
+    let script = "import os,pathlib,time\nhome = pathlib.Path.home() / '.roleband'\n(home / 'engine-port').write_text(os.environ['ROLEBAND_API_PORT'])\n(home / 'engine-ready').write_text(os.environ['ROLEBAND_ENGINE_OWNER'])\ntime.sleep(3600)\n"
+    let fixture = try HostFixture(script: script, port: listener.port)
+    defer { fixture.remove() }
+    let host = fixture.host()
+    await #expect(throws: HostProblem.portInUse) { try await host.start() }
+    let problem = await host.problem
+    let state = await host.state
+    #expect(problem == .portInUse && state == .needsAttention)
+    let conflict = try #require(await host.portConflict)
+    #expect(conflict.port == listener.port && conflict.holder == EnginePort.name(getpid()))
+    #expect(!FileManager.default.fileExists(atPath: fixture.data.appendingPathComponent("engine-ready").path), "no engine on a taken port")
+    #expect(!FileManager.default.fileExists(atPath: fixture.configuration.record.path))
+    let suggestion = try #require(conflict.suggestion)
+    let moved = try await host.use(port: suggestion)
+    #expect(moved.apiOrigin == "http://127.0.0.1:\(suggestion)" && moved.instance == fixture.configuration.installation.instance)
+    let cleared = await host.problem
+    let gone = await host.portConflict
+    #expect(cleared == nil && gone == nil)
+    try await host.start()
+    do {
+        try await fixture.waitForEngine()
+        #expect(String(decoding: try await fixture.waitFor("engine-port"), as: UTF8.self) == String(suggestion))
+        // A running engine keeps its port: moving waits for a stop.
+        await #expect(throws: HostProblem.invalidConfiguration) { try await host.use(port: suggestion + 1) }
+        try await host.stop()
+    } catch { try? await host.stop(); throw error }
+}
+
+@Test func aPortTakenDuringBackoffStopsTheRetriesAndSaysWhy() async throws {
+    let fixture = try HostFixture(port: try freePort())
+    defer { fixture.remove() }
+    let clock = HostClock()
+    let host = fixture.host(clock: clock, healthy: true)
+    try await host.start()
+    do {
+        try await fixture.waitForEngine()
+        try await host.check()
+        let engine = try OwnedProcess.marked(fixture.token())
+        for process in engine { try process.signal(SIGKILL) }
+        while engine.contains(where: \.isAlive) { try await Task.sleep(for: .milliseconds(10)) }
+        for _ in 0..<500 {
+            try await host.check()
+            if case .backingOff = await host.state { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        guard case .backingOff = await host.state else { Issue.record("the host did not back off"); try await host.stop(); return }
+        let listener = try Listener(port: fixture.configuration.port)
+        defer { listener.close() }
+        clock.advance(60)
+        try await host.check()
+        let problem = await host.problem
+        let state = await host.state
+        #expect(problem == .portInUse && state == .needsAttention)
+        clock.advance(60)
+        try await host.check()
+        #expect(await host.state == .needsAttention, "no further retry while the port is taken")
+        try await host.stop()
+    } catch { try? await host.stop(); throw error }
+}
+
 @Test func crashDiagnosticsReadOnlyBoundedLogTails() async throws {
     let fixture = try HostFixture()
     defer { fixture.remove() }
@@ -535,13 +606,15 @@ func bundledSupervisorServesVerifiedStatusAndQuitLeavesNoEngineProcesses() async
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.withoutEscapingSlashes]
     func literal(_ path: URL) throws -> String { String(decoding: try encoder.encode(path.path), as: UTF8.self) }
+    // This engine really listens, so it gets a port no other test of the file uses.
+    let port = try freePort()
     let fixture = try HostFixture(script: """
     import os, runpy, sys
     sys.dont_write_bytecode = True
     os.environ['ROLEBAND_SEARCH_WARM_MODEL_ON_STARTUP'] = '0'
     sys.argv.append('--dry-run-network')
     runpy.run_path(\(try literal(resources.appendingPathComponent("engine/packaged.py"))), run_name='__main__')
-    """)
+    """, port: port)
     defer { fixture.remove() }
     try FileManager.default.removeItem(at: fixture.configuration.python)
     try FileManager.default.createSymbolicLink(at: fixture.configuration.python, withDestinationURL: resources.appendingPathComponent("python/bin/python3.12"))
@@ -558,7 +631,7 @@ func bundledSupervisorServesVerifiedStatusAndQuitLeavesNoEngineProcesses() async
     (pathlib.Path.home() / '.roleband/migrated').write_text('ready')
     """
     let bundle = try #require(Bundle(url: resources.deletingLastPathComponent().deletingLastPathComponent()))
-    let installation = try Installation.owned(bundle: bundle, port: 58271)
+    let installation = try Installation.owned(bundle: bundle, port: port)
     let configuration = try HostConfiguration(resources: fixture.configuration.resources, home: fixture.configuration.home, installation: installation)
     let host = EngineHost(configuration: configuration, now: { ProcessInfo.processInfo.systemUptime }, readStatus: StatusClient.read, automatic: false)
     do {

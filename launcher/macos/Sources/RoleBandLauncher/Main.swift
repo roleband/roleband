@@ -18,7 +18,7 @@ enum LauncherMain {
             Task {
                 let note: @Sendable (String) -> Void = { FileHandle.standardError.write(Data(("\(Date()) \($0)\n").utf8)) }
                 guard let plan = try? UpdatePlan.load(home: home, id: id) else { note("update \(id): plan refused"); exit(2) }
-                let helper = UpdateHelper(plan: plan, operations: UpdateHelper.live(plan: plan, open: AppOpener.open), note: note)
+                let helper = UpdateHelper(plan: plan, operations: UpdateHelper.live(plan: plan, port: EnginePort.saved(in: .standard), open: AppOpener.open), note: note)
                 let outcome = arguments[1] == "--apply-update" ? await helper.apply() : await helper.recover()
                 note("update \(id): \(outcome.rawValue)")
                 exit([.committed, .rolledBack, .unchanged].contains(outcome) ? 0 : 1)
