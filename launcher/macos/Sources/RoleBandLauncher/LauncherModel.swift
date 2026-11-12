@@ -682,10 +682,10 @@ final class LauncherModel: ObservableObject {
             portSuggestion = freeSuggestion()
             return
         }
-        let held = engineHeld
         task?.cancel()
         timer?.invalidate()
         control(prefix: "engine", refreshSchedule: false) {
+            var held = true
             do {
                 // A quit cancels this task but not the engine's own work: each step checks, so the
                 // engine never starts again after the quit stopped it.
@@ -696,6 +696,8 @@ final class LauncherModel: ObservableObject {
                 self.enginePort = port
                 self.lastGood = nil
                 try Task.checkCancellation()
+                // Setup can release its hold while the engine stops, so the hold is read now.
+                held = self.engineHeld
                 if !held {
                     do { try await ownedEngine.start() } catch HostProblem.portInUse {
                         // Another program took the port while the engine stopped. The engine goes

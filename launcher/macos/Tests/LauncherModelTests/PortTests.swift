@@ -246,3 +246,26 @@ private actor GatedEngine {
     #expect(model.portRefusal == .busy(8030))
     #expect(model.hostState == .running && model.hostProblem == nil)
 }
+
+@MainActor
+@Test func setupReleasingItsHoldDuringAMoveStartsTheEngineOnTheNewPort() async throws {
+    let home = FileManager.default.temporaryDirectory.appendingPathComponent("port-hold-\(UUID().uuidString)")
+    let bundle = home.appendingPathComponent("Applications/RoleBand.app")
+    try FileManager.default.createDirectory(at: bundle, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: home) }
+    let gated = GatedEngine(try ownedInstallation())
+    let preferences = UserDefaults.scratch("port-test")
+    let model = LauncherModel(installation: .fixed(try ownedInstallation()), mode: .owned(leftover: nil),
+                              ownedEngine: gated.service, readStatus: noEngine, preferences: preferences,
+                              bundleURL: bundle, homeURL: home, language: "en", portFree: { _ in true })
+    #expect(model.step == .welcome && model.engineHeld)
+    model.usePort(8011)
+    #expect(await eventually { await gated.stopping })
+    // Setup continues past Welcome while the engine is still stopping.
+    model.step = .connection
+    #expect(!model.engineHeld)
+    await gated.release()
+    #expect(await eventually { !model.controlBusy })
+    #expect(await gated.calls == ["stop", "use 8011", "start"])
+    #expect(model.controlMessage == "engine-requested")
+}
