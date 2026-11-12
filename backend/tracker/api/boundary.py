@@ -4,8 +4,11 @@ Mac and ordinary source mode authenticate nobody: one user, one machine,
 served on loopback. Authenticated local HTTP additionally checks its exact
 origin and signatures in `LocalAuthentication`; these browser protections apply
 in both modes.
-That model holds only while a web page the user happens to visit cannot reach
-it, and a page can, two ways that CORS never sees:
+That model holds only while nothing but this computer reaches it. Another
+machine never does: a connection whose peer is not a loopback address is
+refused 403 in every mode, so even an API bound to every interface by hand
+(`uvicorn --host 0.0.0.0`) serves no one else. A web page the user happens to
+visit can still reach it, two ways that CORS never sees:
 
 1. DNS rebinding. A hostile name re-resolves to 127.0.0.1 after its page has
    loaded. The page is then SAME-origin with this API, so no CORS rule runs;
@@ -38,6 +41,8 @@ from urllib.parse import urlsplit
 from starlette.datastructures import Headers
 from starlette.responses import PlainTextResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
+
+from tracker.platform.loopback import is_loopback_address
 
 #: The names a machine answers to for itself. Always trusted: configuration
 #: adds names (`api_host`, `api_trusted_hosts`), it never removes these.
@@ -109,6 +114,10 @@ class LoopbackBoundary:
             await PlainTextResponse(reason, status_code=status)(scope, receive, send)
 
     def _refusal(self, scope: Scope, headers: Headers) -> tuple[int, str] | None:
+        # A Unix socket has no peer address and is local by construction.
+        client = scope.get("client")
+        if client is not None and not is_loopback_address(str(client[0])):
+            return 403, "Only this computer may connect"
         trusted = self.trusted
         if self.local_origin is not None:
             origin = self.local_origin()
