@@ -257,6 +257,9 @@ function PostedByLevel({
   );
 }
 
+/** The query keys only the Pay tab reads: the country and level it shows. */
+export const PAY_PARAMS = ["country", "level"] as const;
+
 export function CompensationPanel({
   scope,
   advanced = false,
@@ -295,9 +298,12 @@ export function CompensationPanel({
   const companyMax = Math.max(1, ...companies.map((c) => c.p50 ?? 0));
   const familyMax = Math.max(1, ...families.map((f) => f.p50 ?? 0));
   const atLeast = insightsCompensationPanelGroupsOfRolesOrMore({ min_roles: data.min_roles });
+  // Under a country's heading, the roles left out are that country's; the
+  // roles in no one country are no country's, so they are said under any.
+  const excluded = country ? { ...country.excluded, no_country: posted.excluded.no_country } : posted.excluded;
   const rangesExplanation = [
     insightsCompensationPanelBaseSalaryQuotedFromThe(),
-    exclusionNote(posted.excluded),
+    exclusionNote(excluded),
   ].filter(Boolean).join(" ");
   const estimate = <span className="eyebrow">{insightsPostedEstimateUsOnly()}</span>;
 

@@ -58,6 +58,7 @@ const us: PostedCountry = {
   ],
   not_placed: { roles: 37, ranges: 12 },
   other_currency: 2,
+  excluded: { not_base: 80, not_yearly: 2, implausible: 1, placed_by_pay: 6 },
   bands: [
     band("google", "senior", 200_000, 280_000, 9),
     band("google", "principal", 262_000, 365_000, 18),
@@ -74,12 +75,14 @@ const gb: PostedCountry = {
   levels: [figure("principal", 110_000, 150_000, 13, 9, 20)],
   not_placed: { roles: 0, ranges: 0 },
   other_currency: 0,
+  excluded: { not_base: 10, not_yearly: 0, implausible: 0, placed_by_pay: 0 },
   bands: [band("deepmind", "principal", 110_000, 150_000)],
 };
 // One of the person's places, with no range posted there.
 const se: PostedCountry = {
   country: "SE", currency: null, ranges: 0, yours: true, levels: [],
   not_placed: { roles: 0, ranges: 0 }, other_currency: 0, bands: [],
+  excluded: { not_base: 0, not_yearly: 1, implausible: 0, placed_by_pay: 0 },
 };
 
 const posted = (over: Partial<CompensationStats["posted"]> = {}): CompensationStats["posted"] => ({
@@ -395,7 +398,7 @@ describe("CompensationPanel", () => {
     expect(principal).toHaveAccessibleName(/typically £110K to £150K/);
   });
 
-  it("says why each role was left out when no range in the country qualifies", async () => {
+  it("says why each of the country's own roles was left out when no range there qualifies", async () => {
     mock(base());
     show({ advanced: true }, "/statistics/compensation?country=SE");
     await headline();
@@ -404,8 +407,23 @@ describe("CompensationPanel", () => {
     const panel = screen.getByRole("heading", { level: 3, name: (name) => name.startsWith(every) }).closest(".panel") as HTMLElement;
     expect(within(panel).queryByRole("list", { name: msg("insights-pay-bands-published-base-salary-bands-by") })).toBeNull();
     const note = panel.querySelector(".hiring-note");
-    expect(note).toHaveTextContent(msg("insights-comp-bands-not-base", { count: 90 }));
-    expect(note).toHaveTextContent(msg("insights-comp-bands-placed-by-pay", { count: 6 }));
+    expect(note).toHaveTextContent(msg("insights-comp-bands-not-yearly", { count: 1 }));
+    // Roles in no one country are no country's, so they are said here too.
+    expect(note).toHaveTextContent(msg("insights-comp-bands-no-country", { count: 4 }));
+    // The US's and the UK's roles are never counted under Sweden.
+    expect(note).not.toHaveTextContent(/total compensation or does not say/);
+    expect(note).not.toHaveTextContent(/level read from/);
+  });
+
+  it("counts only the chosen country's roles left out beside its chart", async () => {
+    mock(base());
+    show({ advanced: true }, "/statistics/compensation?country=GB");
+    await headline();
+
+    const about = screen.getByRole("button", { name: msg("insights-compensation-panel-about-published-salary-bands") });
+    expect(about).toHaveAccessibleDescription(expect.stringContaining(msg("insights-comp-bands-not-base", { count: 10 })));
+    expect(about).toHaveAccessibleDescription(expect.not.stringContaining(msg("insights-comp-bands-not-base", { count: 90 })));
+    expect(about).toHaveAccessibleDescription(expect.not.stringContaining(msg("insights-comp-bands-placed-by-pay", { count: 6 })));
   });
 
   it("says why each role was left out when no country has a range at all", async () => {

@@ -8333,6 +8333,7 @@ export interface components {
             country: string;
             /** Currency */
             currency: string | null;
+            excluded: components["schemas"]["PostedCountryExclusions"];
             /** Levels */
             levels: components["schemas"]["PostedLevel"][];
             not_placed: components["schemas"]["PostedUnplaced"];
@@ -8342,6 +8343,21 @@ export interface components {
             ranges: number;
             /** Yours */
             yours: boolean;
+        };
+        /**
+         * PostedCountryExclusions
+         * @description One country's roles with a posted range that its figure does not read,
+         *     by reason. The reasons are `PostedExclusions`', less `no_country`.
+         */
+        PostedCountryExclusions: {
+            /** Implausible */
+            implausible: number;
+            /** Not Base */
+            not_base: number;
+            /** Not Yearly */
+            not_yearly: number;
+            /** Placed By Pay */
+            placed_by_pay: number;
         };
         /**
          * PostedExclusions

@@ -42,6 +42,7 @@ const postedFixture = (over: Record<string, unknown> = {}) => ({
       country: "US", currency: "USD", ranges: 3, yours: true,
       levels: [level("staff", 230_000, 330_000, 9, 6, 40), level("principal", 198_000, 270_000, 241, 141, 600)],
       not_placed: { roles: 37, ranges: 12 }, other_currency: 2,
+      excluded: { not_base: 80, not_yearly: 3, implausible: 1, placed_by_pay: 6 },
       bands: [
         { company: "google", level_band: "staff", low: 262_000, high: 365_000, reqs: 18 },
         { company: "google-deepmind", level_band: "staff", low: 207_000, high: 301_000, reqs: 1 },
@@ -52,11 +53,13 @@ const postedFixture = (over: Record<string, unknown> = {}) => ({
       country: "GB", currency: "GBP", ranges: 1, yours: false,
       levels: [level("principal", null, null, 1, 1, 2)],
       not_placed: { roles: 0, ranges: 0 }, other_currency: 0,
+      excluded: { not_base: 10, not_yearly: 0, implausible: 0, placed_by_pay: 0 },
       bands: [{ company: "google-deepmind", level_band: "principal", low: 110_000, high: 150_000, reqs: 2 }],
     },
     {
       country: "SE", currency: null, ranges: 0, yours: true, levels: [],
       not_placed: { roles: 0, ranges: 0 }, other_currency: 0, bands: [],
+      excluded: { not_base: 0, not_yearly: 0, implausible: 0, placed_by_pay: 0 },
     },
   ],
   ...over,

@@ -162,6 +162,16 @@ def test_a_country_reads_its_own_currency_and_never_converts():
     )
 
 
+def test_a_yearly_range_in_forints_is_hungary_s_and_never_a_placeholder():
+    out = build_posted_pay([
+        _posted("acme", "senior", 14_000_000, 20_000_000, currency="HUF", places=["hungary"]),
+        _posted("acme", "senior", 900_000, 1_300_000, currency="HUF", period="month", places=["hungary"]),
+    ])
+    hu = _country(out, "HU")
+    assert (hu["currency"], [(b["low"], b["high"]) for b in hu["bands"]]) == ("HUF", [(14_000_000, 20_000_000)])
+    assert (out["excluded"]["implausible"], out["excluded"]["not_yearly"]) == (0, 1)
+
+
 def test_a_country_reads_the_currency_of_its_ranges_at_a_placed_level():
     """Nine pound ranges at no placed level never outvote eight dollar ranges
     at a level: the figure is in dollars, and the pound roles are counted apart."""
@@ -209,10 +219,43 @@ def test_what_is_not_base_or_not_salary_is_counted_under_its_reason():
     assert out["excluded"] == {"not_base": 2, "not_yearly": 0, "implausible": 1, "no_country": 0, "placed_by_pay": 0}
 
 
+def test_an_entry_range_under_fifty_thousand_dollars_is_real_pay_in_and_outside_the_us():
+    """$45K to $65K a year is an ordinary entry salary, in the US and for a
+    dollar range posted elsewhere; only an amount that is no salary at any
+    size is a placeholder."""
+    out = build_posted_pay([
+        _posted("acme", "entry", 45_000, 65_000),
+        _posted("globex", "entry", 38_000, 52_000, places=["mexico"]),
+        _posted("anthropic", lo=1, hi=2),
+    ])
+    assert [(b["company"], b["low"], b["high"]) for b in _country(out)["bands"]] == [("acme", 45_000, 65_000)]
+    assert [(b["company"], b["low"]) for b in _country(out, "MX")["bands"]] == [("globex", 38_000)]
+    assert out["excluded"]["implausible"] == 1
+
+
 def test_a_role_in_several_countries_or_none_counts_for_no_country():
     out = build_posted_pay([_posted(), _posted("acme", places=[*US, "london"]), _posted("remote", places=[])])
     assert [c["country"] for c in out["countries"]] == ["US"]
     assert out["excluded"]["no_country"] == 2
+
+
+def test_each_country_counts_only_its_own_roles_left_out():
+    """A note under the UK's heading counts the UK's roles; the roles in no
+    one country are counted only across all countries."""
+    out = build_posted_pay([
+        _posted(),
+        _posted("netflix", lo=440_000, hi=725_000, basis="total"),
+        _posted("intern", lo=60, hi=90, period="hour"),
+        _posted("monzo", lo=90_000, hi=120_000, currency="GBP", places=["london"]),
+        _posted("wise", lo=4_000, hi=6_000, currency="GBP", period="month", places=["london"]),
+        _posted("acme", basis="total", places=[*US, "london"]),
+        _posted("remote", places=[]),
+    ], your_countries={"SE"})
+    zero = {"not_base": 0, "not_yearly": 0, "implausible": 0, "placed_by_pay": 0}
+    assert _country(out)["excluded"] == {**zero, "not_base": 1, "not_yearly": 1}
+    assert _country(out, "GB")["excluded"] == {**zero, "not_yearly": 1}
+    assert _country(out, "SE")["excluded"] == zero
+    assert out["excluded"] == {"not_base": 2, "not_yearly": 2, "implausible": 0, "no_country": 1, "placed_by_pay": 0}
 
 
 def test_a_level_read_from_the_range_is_left_out_and_an_unplaced_level_is_counted_apart():

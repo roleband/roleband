@@ -28,9 +28,13 @@ vi.mock("../../api", async () => {
 });
 vi.mock("./Demand", () => ({ DemandView: () => <div>Demand content</div> }));
 vi.mock("./VelocityPanel", () => ({ VelocityPanel: ({ days }: { days: number }) => <div data-days={days}>Velocity content</div> }));
-vi.mock("./CompensationPanel", () => ({
-  CompensationPanel: ({ advanced }: { advanced?: boolean }) => <div data-advanced={String(Boolean(advanced))}>Compensation content</div>,
-}));
+vi.mock("./CompensationPanel", async () => {
+  const actual = await vi.importActual<typeof import("./CompensationPanel")>("./CompensationPanel");
+  return {
+    ...actual,
+    CompensationPanel: ({ advanced }: { advanced?: boolean }) => <div data-advanced={String(Boolean(advanced))}>Compensation content</div>,
+  };
+});
 vi.mock("./StockTrajectoryPanel", () => ({ StockTrajectoryPanel: () => <div>Trajectory content</div> }));
 vi.mock("./SkillsView", () => ({ SkillsView: () => <div>Skills content</div> }));
 vi.mock("./LevelsPanel", async () => {
@@ -213,6 +217,13 @@ describe("StatisticsView", () => {
     expect(screen.getByRole("group", { name: "Companies" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /discipline/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Time range" })).not.toBeInTheDocument();
+  });
+
+  it("leaves Pay's country and level behind on a tab switch, keeping the side and the window", async () => {
+    const user = userEvent.setup();
+    renderStats("/statistics/compensation?side=yours&window=90&country=GB&level=staff");
+    await user.click(screen.getByRole("tab", { name: "Overview" }));
+    expect(screen.getByTestId("location")).toHaveTextContent(/^\/statistics\/overview\?side=yours&window=90$/);
   });
 
   it("leaves Levels' search and translation behind on a tab switch, keeping the side", async () => {

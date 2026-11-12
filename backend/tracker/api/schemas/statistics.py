@@ -181,6 +181,16 @@ class PostedUnplaced(Built):
     ranges: int
 
 
+class PostedCountryExclusions(Built):
+    """One country's roles with a posted range that its figure does not read,
+    by reason. The reasons are `PostedExclusions`', less `no_country`."""
+
+    not_base: int
+    not_yearly: int
+    implausible: int
+    placed_by_pay: int
+
+
 class PostedCountry(Built):
     """Posted base pay for the roles in one country, in its own currency."""
 
@@ -198,6 +208,8 @@ class PostedCountry(Built):
     other_currency: int
     #: Every distinct range at a placed level, uncapped.
     bands: list[DisclosedBand]
+    #: This country's roles with a posted range its figure does not read.
+    excluded: PostedCountryExclusions
 
 
 class PostedExclusions(Built):

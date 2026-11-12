@@ -384,6 +384,29 @@ async def test_pay_in_another_currency_stays_off_the_dollar_axes_and_is_counted(
 
 
 @pytest.mark.asyncio
+async def test_a_dollar_estimate_for_pay_outside_the_us_stays_off_the_us_estimate(api_client, db_session, seeded):
+    # The estimate panels read "Estimate, US only". A plugin can price a
+    # Toronto role, or one in two countries, in US dollars: the currency is
+    # right and the country is not, so neither counts as priced.
+    before = await _get(api_client, ROUTES["compensation"])
+    db_session.add_all([
+        _role("google", "toronto", level="staff", comp=900000, locations=["Toronto, ON, Canada"],
+              location_groups=["canada"]),
+        _role("google", "two-countries", level="staff", comp=900000, location_groups=["silicon_valley", "canada"]),
+        _role("google", "toronto-base", level="staff", comp_component="base", comp_base_median=400000,
+              location_groups=["canada"]),
+    ])
+    await db_session.commit()
+
+    body = await _get(api_client, ROUTES["compensation"])
+    assert (body["overall"], body["by_level"]) == (before["overall"], before["by_level"])
+    assert body["coverage"]["with_comp"] == before["coverage"]["with_comp"]
+    assert body["coverage"]["total_open"] == before["coverage"]["total_open"] + 3
+    assert body["base_estimates"]["overall"] == before["base_estimates"]["overall"]
+    assert body["base_estimates"]["coverage"]["with_base"] == before["base_estimates"]["coverage"]["with_base"]
+
+
+@pytest.mark.asyncio
 async def test_the_by_level_trends_show_printed_pay_for_unplaced_roles_but_never_their_estimate(
     api_client, db_session, seeded
 ):

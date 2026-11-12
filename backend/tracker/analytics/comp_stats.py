@@ -227,6 +227,12 @@ def _currency_weight(currency: str, rows: list[tuple[str, str, int, int]]) -> tu
     return len(placed), len(set(rows)), currency == "USD", currency
 
 
+def _country_exclusions() -> dict[str, int]:
+    """One country's roles left out, by reason. A role that names no country,
+    or several, is counted only across all countries."""
+    return {"not_base": 0, "not_yearly": 0, "implausible": 0, "placed_by_pay": 0}
+
+
 def build_posted_pay(
     rows: Iterable[tuple],
     *,
@@ -257,33 +263,41 @@ def build_posted_pay(
     `bands` lists every distinct range at a placed level, uncapped, for the
     chart. `your_countries` are the countries of the person's places: each
     is listed even with no range, so the screen can say so.
+
+    `excluded` counts every role left out, across all countries; each
+    country's own `excluded` counts the roles in that country only, so a
+    note under one country's heading never counts another's roles.
     """
     excluded = {"not_base": 0, "not_yearly": 0, "implausible": 0, "no_country": 0, "placed_by_pay": 0}
+    by_country: dict[str, dict[str, int]] = {}
     cells: dict[str, dict[str, list[tuple[str, str, int, int]]]] = {}
+
+    def leave_out(reason: str, country: str | None) -> None:
+        excluded[reason] += 1
+        if country is not None:
+            own = by_country.setdefault(country, _country_exclusions())
+            own[reason] += 1
 
     for company, level, basis, lo, hi, pay_basis, currency, period, places in rows:
         if company is None or lo is None or hi is None:
             continue
+        country = pay_country(places)
         if pay_basis != "base":
-            excluded["not_base"] += 1
+            leave_out("not_base", country)
             continue
         currency = (currency or "USD").upper()
         if not size_classes(lo, hi, currency):
-            excluded["implausible"] += 1
+            leave_out("implausible", country)
             continue
         if effective_period(period, lo, hi, currency) != "year":
-            excluded["not_yearly"] += 1
+            leave_out("not_yearly", country)
             continue
         lo, hi = int(lo), int(hi)
-        if currency == "USD" and lo < DISCLOSED_FLOOR:
-            excluded["implausible"] += 1
-            continue
-        country = pay_country(places)
         if country is None:
             excluded["no_country"] += 1
             continue
         if basis == LevelBasis.PAY_GRADE.value:
-            excluded["placed_by_pay"] += 1
+            leave_out("placed_by_pay", country)
             continue
         cells.setdefault(country, {}).setdefault(currency, []).append((company, level or UNSTATED_LEVEL, lo, hi))
 
@@ -319,12 +333,13 @@ def build_posted_pay(
             "not_placed": {"roles": sum(unplaced.values()), "ranges": len(unplaced)},
             "other_currency": sum(len(rs) for cur, rs in by_currency.items() if cur != currency),
             "bands": bands,
+            "excluded": by_country.get(country, _country_exclusions()),
         })
     listed = {c["country"] for c in countries}
     yours = set(your_countries)
     countries.extend(
         {"country": code, "currency": None, "ranges": 0, "levels": [], "not_placed": {"roles": 0, "ranges": 0},
-         "other_currency": 0, "bands": []}
+         "other_currency": 0, "bands": [], "excluded": by_country.get(code, _country_exclusions())}
         for code in sorted(yours - listed)
     )
     for entry in countries:

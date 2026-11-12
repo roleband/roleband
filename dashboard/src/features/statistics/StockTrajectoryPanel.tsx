@@ -159,8 +159,9 @@ function EquityTerms({ c }: { c: CompTrajectoryCompany }) {
   );
 }
 
-// Base and bonus with where each comes from. A bonus of zero the company's own
-// rule states reads as "No bonus", a fact, never as a figure of $0.
+// Base, bonus and equity with where each comes from. A bonus or equity of zero
+// the company's own rule states reads as "No bonus" or "No equity", a fact,
+// never as a figure of $0 or 0%.
 function CashParts({ c }: { c: CompPackage }) {
   return (
     <>
@@ -173,7 +174,7 @@ function CashParts({ c }: { c: CompPackage }) {
         <PartSource source={c.sources.bonus} />
       </td>
       <td className="num traj-part">
-        {fmtPct(c.equity_pct)}
+        {c.equity === 0 && c.sources.equity === "company_rule" ? insightsStockTrajectoryPanelNoEquity() : fmtPct(c.equity_pct)}
         <PartSource source={c.sources.equity} />
       </td>
     </>
