@@ -7,8 +7,10 @@ name: vendored-provenance
 # policy is right and it creates one blind spot: a stale snapshot is
 # indistinguishable from a current one, so upstream fixes silently never arrive.
 # This job is the notice, not an updater - it never edits code and no dependency
-# bot can see vendored source. A second step asks the same of the apps' bundled
-# Python: whether python.org has a newer release of the pinned series.
+# bot can see vendored source. Two more steps ask the same of the binaries every
+# install runs: whether python.org has a newer release of the apps' bundled Python,
+# and whether postgresql.org or pgvector has a newer release of the embedded
+# Postgres than the `pixeltable-pgserver` wheel ships.
 #
 # NON-BLOCKING by construction. It runs on a schedule and on demand, never on
 # push or pull_request, so a GitHub outage or an API rate limit can never fail
@@ -20,6 +22,7 @@ name: vendored-provenance
 #
 #     .venv/bin/python -m scripts.check_vendored_upstream
 #     .venv/bin/python -m scripts.check_runtime_python
+#     .venv/bin/python -m scripts.check_embedded_postgres
 
 on:
   schedule:
@@ -34,6 +37,14 @@ on:
       - "backend/tracker/vendored.py"
       - "backend/scripts/check_vendored_upstream.py"
       - "backend/scripts/check_runtime_python.py"
+      - "backend/scripts/__init__.py"
+      - "backend/scripts/check_embedded_postgres.py"
+      - "backend/scripts/upstream_http.py"
+      - "backend/tracker/platform/pgcontrib/manifest.json"
+      - "backend/requirements.txt"
+      - "backend/constraints/*.txt"
+      - "launcher/macos/runtime-lock.txt"
+      - "launcher/windows/runtime-lock.txt"
       - "launcher/macos/runtime.json"
       - "launcher/windows/runtime.json"
       - ".python-version"
@@ -45,7 +56,9 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    # A fetch that keeps failing takes about two minutes over its three tries, and
+    # the Postgres step makes up to four, so a slow upstream ends in UNKNOWN, not a timeout.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -104,5 +117,29 @@ jobs:
             3) echo "::notice::could not read python.org; no verdict about the pins" ;;
             2) echo "::error::a runtime pin names another build than its archives"; exit 1 ;;
             *) echo "::error::the bundled Python check failed"; exit 1 ;;
+          esac
+          exit 0
+      - name: check the embedded Postgres
+        working-directory: backend
+        env:
+          # Lifts the 60/hour unauthenticated GitHub API limit for pgvector's tags. Read-only.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          python -m scripts.check_embedded_postgres | tee postgres.txt
+          code=${PIPESTATUS[0]}
+          {
+            echo "## Embedded Postgres"
+            echo
+            echo '```'
+            cat postgres.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          case $code in
+            0) echo "::notice::the embedded Postgres and pgvector are the newest releases of their series" ;;
+            1) echo "::warning::a newer Postgres or pgvector release is out - read the WHEEL line for the fix" ;;
+            3) echo "::notice::could not read an upstream release list; no verdict about the pins" ;;
+            2) echo "::error::the pg_trgm manifest disagrees with the wheel pins"; exit 1 ;;
+            *) echo "::error::the embedded Postgres check failed"; exit 1 ;;
           esac
           exit 0
