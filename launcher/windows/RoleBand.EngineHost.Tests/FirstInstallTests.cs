@@ -264,17 +264,18 @@ public sealed class FirstInstallTests
     public async Task AnInstallsOutcomeArrivesOnlyOnceItsDownloadIsGone()
     {
         var (setup, folder, _) = Downloaded();
-        bool? seenDuring = null;
+        var installing = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        var installed = await DownloadFolder.UsingAsync(folder, () =>
-        {
-            seenDuring = Directory.Exists(folder);
-            return Task.FromResult(true);
-        });
+        var outcome = DownloadFolder.UsingAsync(folder, () => installing.Task);
+
+        // While Windows still installs, the attempt's download stays where the attempt left it.
+        Assert.IsFalse(outcome.IsCompleted);
+        Assert.IsTrue(Directory.Exists(folder), "nothing is removed before the attempt ends");
+        installing.SetResult(true);
+        var installed = await outcome;
 
         // Setup closes, and its process ends, the moment it has this outcome: nothing may be left to remove then.
         Assert.IsTrue(installed);
-        Assert.IsTrue(seenDuring, "the attempt downloads into its folder");
         Assert.IsFalse(Directory.Exists(folder), "no empty version folder is left");
         Assert.IsFalse(Directory.Exists(setup), "Setup's own folder goes with its last download");
         Directory.Delete(Path.GetDirectoryName(setup)!);
