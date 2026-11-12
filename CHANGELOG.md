@@ -6,6 +6,35 @@ Notable changes to RoleBand, newest first. The format follows
 
 ## [Unreleased]
 
+## [0.2.0]
+
+Windows joins the Mac, Insights counts every role once, and the top bar follows
+the wider market's first scan.
+
+- **Now on Windows 11.** Download `RoleBand-Setup-0.2.0.exe` from this release.
+  Setup asks an administrator once to trust the app's own certificate, then
+  installs the app for you; updates after that install through the app. Smart
+  App Control blocks it while it is on.
+- **Insights counts every role once.** A role listed in several places counts
+  once on every tab, in skills and in the daily history, and opened and came
+  down count the same roles. The period switch offers only periods the
+  history covers, so a week of scans no longer says "last 30 days". Overview's
+  tile for a period's openings reads Opened; New stays the last two days. Pay
+  over time is hidden until there is enough history to compare.
+- **The top bar follows the wider market's first scan.** While the first pass
+  over the directory runs, the scan badge reads "Wider market" and how far it
+  has come, with the counts in its tooltip. Companies waiting for a full scan
+  are the amber dot.
+- **The posting's side column reads as one ledger.** Every row is a label and
+  plain words on one line. The Pipeline section shows Stage, In this stage,
+  Interview, Next step and Due, and a step past its date reads as overdue.
+- **Follow dialogs say less.** The consent is said once, and Keep scanning is a
+  plain switch row.
+- **Safer by default.** A saved model key is sent only to the server it was
+  saved for. Every dashboard file carries the app's content policy, and the API
+  documentation pages are gone. The bundled Python moves to 3.12.16, with its
+  security fixes.
+
 ## [0.1.3]
 
 Your offer on the Stock tab, Workday companies scanned in one press, a
