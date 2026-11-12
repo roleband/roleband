@@ -304,6 +304,11 @@ def test_two_bounds_in_two_currencies_are_not_one_band():
         ("Zone A\n$190,000—$304,000 USD", "USD"),
         ("Salary: CA$150,000 - C$180,000 per year", "CAD"),
         ("Salary: US$150,000 - $180,000 per year", "USD"),
+        # A zone letter on the line above is a label, not a country prefix.
+        ("Zone A\n$190,000-US$304,000 USD", "USD"),
+        ("Zone C\n$149,000-US$238,000", "USD"),
+        # A code settles two prefixes.
+        ("Salary: CA$150,000 - US$180,000 USD per year", "USD"),
         ("New York office, paying a salary range of $150,000 - £180,000 per annum.", "USD"),
     ):
         assert extract_grounded_band(raw, raw).currency == currency, raw

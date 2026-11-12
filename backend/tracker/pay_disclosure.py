@@ -131,7 +131,8 @@ class DisclosedComp(BaseModel):
 # not read as a band, and without that lookahead it would.
 # The country must be a token of its own: without the lookbehind, the "s" of
 # "is $184,050" reads as Singapore and the band comes back SGD.
-_DOLLAR_PREFIX = r"(?:(?<![A-Za-z])(?:US|CA|C|A|NZ|HK|S)\s?)?"
+# Nor may a line break part it from its sign: "Zone A\n$190,000" is a zone.
+_DOLLAR_PREFIX = r"(?:(?<![A-Za-z])(?:US|CA|C|A|NZ|HK|S)[ \xa0]?)?"
 _MONEY_AHEAD = r"(?=" + _DOLLAR_PREFIX + r"[$£€])"
 # An optional piece carries its own leading whitespace, `(?:\s*X)?`, never
 # `\s*X?\s*`: two `\s*` beside an absent piece can split one run of spaces
@@ -160,14 +161,14 @@ _EXPLICIT_BAND_RE = re.compile(
     r"(?!(?<=\s)\s)"
     # A code before the low amount, Workday's and SAP's "USD 150,000 - 200,000".
     r"(?:(?P<lead_currency>" + CURRENCY_CODE + r")\s*+)?"
-    r"(?:(?<![A-Za-z])(?P<prefix>US|CA|C|A|NZ|HK|S)\s?)?(?P<symbol>[$£€])?\s*"
+    r"(?:(?<![A-Za-z])(?P<prefix>US|CA|C|A|NZ|HK|S)[ \xa0]?)?(?P<symbol>[$£€])?\s*"
     r"(?P<low>" + AMOUNT + r")(?:\s*(?P<low_suffix>[kKmM](?![A-Za-z])))?"
     r"(?:\s*(?P<low_currency>" + CURRENCY_CODE + r"))?" + _PER_PERIOD +
     r"(?:\s*(?:[-–—]|to\b|and\b)\s*|" + _NO_SEPARATOR + r")"
     # The code repeated before the high amount: "USD $160,200 - USD $425,000",
     # "EUR 133,600 - EUR 160,320".
     r"(?:(?P<high_lead_currency>" + CURRENCY_CODE + r")\s*+)?"
-    r"(?:(?:(?<![A-Za-z])(?P<high_prefix>US|CA|C|A|NZ|HK|S)\s?)?(?P<high_symbol>[$£€])\s*)?"
+    r"(?:(?:(?<![A-Za-z])(?P<high_prefix>US|CA|C|A|NZ|HK|S)[ \xa0]?)?(?P<high_symbol>[$£€])\s*)?"
     r"(?P<high>" + AMOUNT + r")\s*(?P<high_suffix>[kKmM](?![A-Za-z]))?" + _PER_PERIOD +
     r"(?:\s*(?P<currency>" + CURRENCY_CODE + r"))?",
     re.IGNORECASE,
@@ -192,11 +193,11 @@ _EXPLICIT_BAND_RE = re.compile(
 #:     salary in our lowest geographic market] to $184,000 [maximum ...]
 _FROM_UP_TO_RE = re.compile(
     r"\b(?:from|(?P<between>between))\s+"
-    r"(?:(?<![A-Za-z])(?P<prefix>US|CA|C|A|NZ|HK|S)\s?)?(?P<symbol>[$£€])\s*"
+    r"(?:(?<![A-Za-z])(?P<prefix>US|CA|C|A|NZ|HK|S)[ \xa0]?)?(?P<symbol>[$£€])\s*"
     r"(?P<low>" + AMOUNT + r")(?:\s*(?P<low_suffix>[kKmM](?![A-Za-z])))?"
     r"\s*(?:(?P<low_currency>" + CURRENCY_CODE + r")" + _PER_PERIOD + r"|/\s*" + _PERIOD_WORD + r")?"
     r"[^\d$£€.;!?\n]{0,80}?\b(?:(?:up\s+)?to|(?(between)and|(?!)))\s+"
-    r"(?:(?<![A-Za-z])(?P<high_prefix>US|CA|C|A|NZ|HK|S)\s?)?(?P<high_symbol>[$£€])\s*"
+    r"(?:(?<![A-Za-z])(?P<high_prefix>US|CA|C|A|NZ|HK|S)[ \xa0]?)?(?P<high_symbol>[$£€])\s*"
     r"(?P<high>" + AMOUNT + r")\s*(?P<high_suffix>[kKmM](?![A-Za-z]))?" + _PER_PERIOD +
     r"(?:\s*(?P<currency>" + CURRENCY_CODE + r"))?",
     re.IGNORECASE,
@@ -352,7 +353,9 @@ def _read_candidate(match: re.Match, pay_text: str) -> _Reading | None:
     # reads as a dollar prefix ("Zone A\n$190,000"), and a dollar band can carry
     # a stray sign ("$150,000 - £180,000" for New York). So one dollar sign never
     # makes two currencies; the code, where there is one, decides. Only a country
-    # prefix on BOTH dollar signs, naming two ("CA$150,000 - US$180,000"), does.
+    # prefix on BOTH dollar signs, naming two ("CA$150,000 - US$180,000"), does
+    # when no code settles it. A prefix sits on its sign's line: a letter on the
+    # line above ("Zone A\n$190,000") is a label.
     named = codes | {_SIGN_CURRENCIES[sign] for sign in (groups.get("symbol"), groups.get("high_symbol")) if sign in _SIGN_CURRENCIES}
     dollar_prefixes = {
         _DOLLAR_CURRENCIES[sign_prefix.upper()]
@@ -360,7 +363,7 @@ def _read_candidate(match: re.Match, pay_text: str) -> _Reading | None:
         if sign_prefix
     }
     both_prefixed = bool(groups.get("prefix") and groups.get("high_prefix"))
-    if len(named) > 1 or (both_prefixed and len(dollar_prefixes) > 1):
+    if len(named) > 1 or (not codes and both_prefixed and len(dollar_prefixes) > 1):
         # Two bounds in two currencies are two figures, not one band.
         return None
     explicit_currency = next(iter(codes), None)
