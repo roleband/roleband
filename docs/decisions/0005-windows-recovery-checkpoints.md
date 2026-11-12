@@ -12,7 +12,11 @@ Use logical PG16 checkpoints with account-private storage and a fresh-cluster
 restore drill. The database fingerprint and `pg_dump` share a repeatable-read
 [exported snapshot](https://www.postgresql.org/docs/16/functions-admin.html#FUNCTIONS-SNAPSHOT-SYNCHRONIZATION).
 The fingerprint covers ordinary and partitioned tables, materialized views,
-columns, indexes, constraints, extension versions, schema heads and sequence state.
+columns, indexes, constraints, extensions, schema heads and sequence state.
+Extensions are compared by name: a restore creates each at the runtime's default
+version, while the database it came from keeps the version it was made with, so a
+restored database may run a newer version than the manifest records. Every other
+part must match exactly.
 CHECK and partial-index predicates use PostgreSQL's planned expression output:
 dump/restore can move array casts onto constants while preserving their meaning.
 Other definition details remain part of the comparison.
