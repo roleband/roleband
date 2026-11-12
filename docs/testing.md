@@ -42,7 +42,8 @@ when a stop is not confirmed, one-click retry after failed preparation, the rest
 limit, recycled process IDs, and a timestamped host log with one rotated copy. The same
 stand-in drives `UpdateCoordinator` with recording package-manager and command stand-ins:
 an update is journaled only after the engine stopped, a refused journal never switches the
-package, a switch Windows refuses is resumed as never happened, and the new version settles
+package, a switch Windows refuses is resumed as never happened, an update or undo cancelled
+while the engine stops records and installs nothing, and the new version settles
 the update by its preparation; the real package switch needs an installed trial. Build the actual
 app with `dotnet build launcher/windows/RoleBand.App -p:Platform=x64` and
 check on Windows: the icon's flyout opens by the icon and closes on a second click, Esc or a click

@@ -516,6 +516,29 @@ public sealed class LifecycleTests
     }
 
     [TestMethod]
+    public async Task AnUpdateOrUndoCancelledDuringTheStopIsNeverRecordedOrInstalled()
+    {
+        // Windows ends the session while the engine stops for an update or an undo, as at sign-out.
+        var engine = new StandIn("ready");
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        await session.StartAsync();
+        await Until(() => session.Snapshot.State == EngineState.Ready, TimeSpan.FromSeconds(90), "Ready");
+        using var ending = new CancellationTokenSource();
+        ending.Cancel();
+        var commands = new RecordingCommands(() => session.OwnsEngine, ("begin", """{"phase": "applying"}"""),
+            ("recover-begin", $$"""{"phase": "recovering", "package": {{JsonSerializer.Serialize(Previous)}}}"""));
+        var deployer = new RecordingDeployer();
+        var coordinator = new UpdateCoordinator(commands, deployer);
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => coordinator.ApplyAsync(session, Package, cancellation: ending.Token));
+        await Assert.ThrowsAsync<OperationCanceledException>(() => coordinator.ReturnToPreviousAsync(session, cancellation: ending.Token));
+
+        Assert.IsFalse(session.OwnsEngine, "the engine still stops");
+        CollectionAssert.AreEqual(Array.Empty<string>(), commands.Calls, "the journal records nothing");
+        CollectionAssert.AreEqual(Array.Empty<string>(), deployer.Steps, "Windows installs nothing");
+    }
+
+    [TestMethod]
     public async Task TheNewVersionCompletesTheUpdateOnceItIsReady()
     {
         var engine = new StandIn("ready");

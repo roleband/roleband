@@ -447,7 +447,12 @@ internal sealed class TrayApp
             {
                 if (update.Run is { Step: UpdateStep.Installing } run) update = update with { Run = run with { Percent = percent } };
                 RenderUpdate();
-            }));
+            }), sessionEnding.Token);
+        }
+        catch (OperationCanceledException) when (sessionEnding.IsCancellationRequested)
+        {
+            // Windows is ending the session: the engine is stopped and nothing was recorded, so the next start carries on.
+            return;
         }
         catch (Exception error)
         {
@@ -478,7 +483,7 @@ internal sealed class TrayApp
     /// update can still be undone.</summary>
     private async Task UndoUpdateAsync()
     {
-        if (engine is null || updates is null || !State().CanUndo) return;
+        if (engine is null || updates is null || sessionEnding.IsCancellationRequested || !State().CanUndo) return;
         // The press is answered at once, before anything is asked, and a second press meanwhile does nothing. Windows
         // takes a while to put the previous package back, then closes this version and opens that one, whose start
         // restores the database.
@@ -502,7 +507,11 @@ internal sealed class TrayApp
             {
                 update = update with { ReturnPercent = percent };
                 RenderUpdate();
-            }));
+            }), sessionEnding.Token);
+        }
+        catch (OperationCanceledException) when (sessionEnding.IsCancellationRequested)
+        {
+            return;
         }
         catch (Exception error)
         {
