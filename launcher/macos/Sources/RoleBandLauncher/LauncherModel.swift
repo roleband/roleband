@@ -321,6 +321,9 @@ final class LauncherModel: ObservableObject {
         if hostState == .needsAttention {
             switch hostProblem {
             case .databaseInUse: return "host-in-use-body"
+            // With a free port on offer, the message names the button's own words.
+            case .portInUse where portSuggestion != nil:
+                return portConflict?.holder == nil ? "host-port-move-body" : "host-port-holder-move-body"
             case .portInUse: return portConflict?.holder == nil ? "host-port-body" : "host-port-holder-body"
             default: return "host-attention-body"
             }
@@ -360,6 +363,7 @@ final class LauncherModel: ObservableObject {
         guard hostState == .needsAttention, hostProblem == .portInUse else { return [:] }
         var values = ["port": String(portConflict?.port ?? enginePort)]
         if let holder = portConflict?.holder { values["program"] = holder }
+        if let portSuggestion { values["free"] = String(portSuggestion) }
         return values
     }
     private var hostTitleKey: String? {

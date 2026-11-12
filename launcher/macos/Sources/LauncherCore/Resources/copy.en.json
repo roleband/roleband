@@ -111,6 +111,8 @@
   "host-port-title": "Port {port} is in use",
   "host-port-body": "Another program is using it. Scanning starts once that program stops.",
   "host-port-holder-body": "{program} is using it. Scanning starts once {program} stops.",
+  "host-port-move-body": "Another program is using it. Use port {free} to scan now, or wait until that program stops.",
+  "host-port-holder-move-body": "{program} is using it. Use port {free} to scan now, or wait until {program} stops.",
   "port-use": "Use port {port}",
   "host-stopped": "Scanning has stopped",
   "host-quit-note": "Quitting stops scanning",

@@ -149,9 +149,7 @@ private struct PanelFooter: View {
                 .buttonStyle(FooterButtonStyle()).keyboardShortcut("q")
                 .help(model.ownsEngine ? model.text("host-quit-note") : "")
             }
-            .padding(.horizontal, -6)
         }
-        .padding(.bottom, -4)
     }
 }
 

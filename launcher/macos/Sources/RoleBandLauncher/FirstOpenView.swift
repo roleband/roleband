@@ -119,7 +119,7 @@ struct SetupView: View {
                     row("person.crop.circle", title: "first-login-toggle", caption: loginCaption) {
                         Toggle(model.text("first-login-toggle"), isOn: Binding(get: { model.setupLoginChoice },
                             set: { enabled in Task { await model.chooseSetupLogin(enabled) } }))
-                            .labelsHidden().toggleStyle(.switch).tint(.primary)
+                            .labelsHidden().toggleStyle(InkSwitchStyle())
                             .disabled(model.loginBusy)
                     }
                     if model.loginState == .approval {
@@ -131,7 +131,7 @@ struct SetupView: View {
                     row("arrow.triangle.2.circlepath", title: "update-automatic", caption: "first-updates-caption") {
                         Toggle(model.text("update-automatic"), isOn: Binding(get: { model.updates.automatic },
                             set: { model.updates.setAutomaticChecks($0, requestNotifications: false) }))
-                            .labelsHidden().toggleStyle(.switch).tint(.primary)
+                            .labelsHidden().toggleStyle(InkSwitchStyle())
                     }
                 }
                 Text(model.text("first-settings-note")).font(.system(size: 11)).foregroundStyle(palette.secondary)

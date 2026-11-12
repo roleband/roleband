@@ -70,14 +70,19 @@ private func portModel(_ boundary: PortBoundary, preferences: UserDefaults,
     await boundary.hold(by: "Docker", suggestion: 8011)
     await model.refreshHost()
     #expect(model.hostState == .needsAttention)
-    #expect(model.helpKey == "host-port-holder-body")
-    // The title names the problem; the body names who holds the port and what happens next.
+    #expect(model.helpKey == "host-port-holder-move-body")
+    // The title names the problem; the body names who holds the port and the button that moves past it.
     #expect(model.text(model.titleKey, model.helpValues) == "Port 8010 is in use")
-    #expect(model.text(try #require(model.helpKey), model.helpValues) == "Docker is using it. Scanning starts once Docker stops.")
+    #expect(model.text(try #require(model.helpKey), model.helpValues) == "Docker is using it. Use port 8011 to scan now, or wait until Docker stops.")
+    #expect(model.text("port-use", ["port": "8011"]) == "Use port 8011", "the message names the button's own words")
     #expect(model.showsPortNote, "set up: Radar has been opened, so a move changes what the browser keeps")
     #expect(model.portSuggestion == 8011)
 
     // Another account's program cannot be looked into: the message says only that one holds the port.
+    await boundary.hold(by: nil, suggestion: 8011)
+    await model.refreshHost()
+    #expect(model.text(try #require(model.helpKey), model.helpValues) == "Another program is using it. Use port 8011 to scan now, or wait until that program stops.")
+    // With no free port nearby there is no button, so the message promises none.
     await boundary.hold(by: nil, suggestion: nil)
     await model.refreshHost()
     #expect(model.helpKey == "host-port-body")
@@ -316,7 +321,7 @@ private actor GatedEngine {
     #expect(model.preparationFailed)
     // Setup says what holds the port instead of a service failure, and offers the free port.
     let key = try #require(model.setupStopKey)
-    #expect(model.text(key, model.helpValues) == "Python is using it. Scanning starts once Python stops.")
+    #expect(model.text(key, model.helpValues) == "Python is using it. Use port 8011 to scan now, or wait until Python stops.")
     #expect(model.text(model.titleKey, model.helpValues) == "Port 8010 is in use")
     #expect(!model.showsPortNote, "during setup Radar has never been opened, so there is nothing to warn about")
     #expect(model.portSuggestion == 8011)

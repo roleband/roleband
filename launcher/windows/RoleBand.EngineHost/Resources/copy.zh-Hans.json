@@ -111,6 +111,8 @@
   "host-port-title": "端口 {port} 正在使用中",
   "host-port-body": "另一个程序正在使用该端口。该程序停止后，扫描就会开始。",
   "host-port-holder-body": "{program} 正在使用该端口。{program} 停止后，扫描就会开始。",
+  "host-port-move-body": "另一个程序正在使用该端口。使用端口 {free} 即可立即扫描，或等待该程序停止。",
+  "host-port-holder-move-body": "{program} 正在使用该端口。使用端口 {free} 即可立即扫描，或等待 {program} 停止。",
   "port-use": "使用端口 {port}",
   "host-stopped": "扫描已停止",
   "host-quit-note": "退出将停止扫描",

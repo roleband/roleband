@@ -283,8 +283,9 @@ struct FooterButtonStyle: ButtonStyle {
     }
 }
 
-/// On is ink, never gold: a thing's own on/off state. Off is an outlined track with a grey knob,
-/// both at 3:1 against the card, so the two differ by more than the knob's side.
+/// The web app's switch: on is ink, never gold, because it shows a state, not an action; off is a
+/// grey track at 3:1 against the card. The knob is the surface colour in both, so the track's
+/// fill, not only the knob's side, tells the two apart.
 struct InkSwitchStyle: ToggleStyle {
     @Environment(\.isEnabled) private var enabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -297,11 +298,10 @@ struct InkSwitchStyle: ToggleStyle {
                 withAnimation(Self.animation(reduceMotion: reduceMotion)) { configuration.isOn.toggle() }
             } label: {
                 ZStack(alignment: on ? .trailing : .leading) {
-                    Capsule(style: .continuous).fill(on ? p.ink : .clear)
-                        .overlay(Capsule(style: .continuous).strokeBorder(on ? .clear : p.graphic, lineWidth: 1))
-                    Circle().fill(on ? (p.dark ? Color(white: 0.11) : .white) : p.graphic).padding(on ? 2 : 3.5)
+                    Capsule(style: .continuous).fill(on ? p.ink : p.graphic)
+                    Circle().fill(p.dark ? Color(white: 0.11) : .white).padding(2)
                 }
-                .frame(width: 30, height: 17).opacity(enabled ? 1 : 0.55).saturation(enabled ? 1 : 0)
+                .frame(width: 32, height: 18).opacity(enabled ? 1 : 0.55).saturation(enabled ? 1 : 0)
                 .contentShape(Capsule())
             }
             .buttonStyle(.plain)

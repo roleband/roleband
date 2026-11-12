@@ -111,6 +111,8 @@
   "host-port-title": "El puerto {port} está en uso",
   "host-port-body": "Otro programa lo está usando. El escaneo empieza cuando ese programa se detenga.",
   "host-port-holder-body": "{program} lo está usando. El escaneo empieza cuando {program} se detenga.",
+  "host-port-move-body": "Otro programa lo está usando. Usa el puerto {free} para escanear ahora o espera a que ese programa se detenga.",
+  "host-port-holder-move-body": "{program} lo está usando. Usa el puerto {free} para escanear ahora o espera a que {program} se detenga.",
   "port-use": "Usar puerto {port}",
   "host-stopped": "El escaneo se ha detenido",
   "host-quit-note": "Al salir se detienen los escaneos",
