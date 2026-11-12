@@ -1,24 +1,25 @@
 name: windows-release
+# The run's title in the Actions list: the release it builds, and whether it can sign.
+run-name: RoleBand ${{ inputs.tag }} for Windows${{ github.ref != 'refs/heads/main' && ' (build only, not main)' || '' }}
 
 # Builds the Windows app from a published release's tag, signs it with RoleBand's own certificate and attaches the
 # Windows files to that release, which both apps share (docs/decisions/0012-windows-distribution-and-signing.md).
-# The build holds no secret. Signing runs only by hand from main, in the protected windows-release environment,
-# which holds the certificate and the Windows release key; the spare key is never here. A published release runs
-# the tag's own copy of this file, so it builds the unsigned package and signs nothing.
+# It runs only by hand, after the release is published. The build holds no secret. Signing runs only from main, in
+# the protected windows-release environment, which holds the certificate and the Windows release key; the spare key
+# is never here. A release event would run the tag's own copy of this file, so this file takes none.
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       tag:
-        description: The published release to attach the Windows files to, such as v0.1.3
+        description: The published release to attach the Windows files to, such as v0.2.0
         required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: windows-release-${{ github.event.release.tag_name || inputs.tag }}
+  group: windows-release-${{ inputs.tag }}
   cancel-in-progress: false
 
 jobs:
@@ -30,7 +31,7 @@ jobs:
       run:
         shell: pwsh
     env:
-      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      TAG: ${{ inputs.tag }}
       PYTHONUTF8: "1"
       PYTHONDONTWRITEBYTECODE: "1"
     outputs:
@@ -39,7 +40,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          ref: ${{ inputs.tag }}
           persist-credentials: false
       # A release from a commit without the Windows identity gets no Windows files, and the run succeeds.
       - id: source
@@ -111,8 +112,8 @@ jobs:
   sign:
     name: sign and attach
     needs: build
-    # Every run uses the workflow file of the ref it starts from: a release's is the tag's, a run by hand's is its
-    # branch's. Only main's own copy, and the tools beside it, may meet the signing secrets.
+    # A run uses the workflow file of the branch it starts from, so only main's own copy, and the tools beside it,
+    # may meet the signing secrets.
     if: needs.build.outputs.identity == 'true' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: windows-2025
     timeout-minutes: 30

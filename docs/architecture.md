@@ -189,11 +189,11 @@ update identity, and RoleBand's name and kept `LocalAppData\RoleBand` folder
 self-signed code-signing certificate and the release key in one folder, the spare
 release key in another kept offline. `launcher/windows/release-identity.json` and
 the public `launcher/windows/RoleBand.cer` are committed.
-`.github/workflows/windows-release.yml` builds a published release's tag with no
-secret; a tag whose commit has neither file gets no Windows files. Signing runs only
-when the workflow is run by hand from `main` for that tag, in the `windows-release`
-environment, which admits only `main`: a release runs the tag's own workflow file,
-so it builds the unsigned files and signs nothing. The signing job refuses a tag whose commit `main`
+`.github/workflows/windows-release.yml` runs only by hand, for a published
+release's tag, and builds that tag with no secret; a tag whose commit has neither
+file gets no Windows files. A release event would run the tag's own copy of the
+workflow, so the workflow takes none. Signing runs only when it is run from `main`,
+in the `windows-release` environment, which admits only `main`. The signing job refuses a tag whose commit `main`
 does not hold before any step sees a secret, and runs only `main`'s own tools; from
 the tagged commit it reads, as files, the package, `RoleBand.cer`,
 `release-identity.json` and the version. `identity.py check` confirms that the
