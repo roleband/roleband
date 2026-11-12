@@ -217,6 +217,20 @@ describe("CompensationPanel", () => {
     expect(byLevel("United Kingdom")).toBeInTheDocument();
   });
 
+  it("keeps a level that is not the person's when the new country has no range there", async () => {
+    mock(base());
+    const user = userEvent.setup();
+    show();
+    await headline();
+
+    await user.selectOptions(screen.getByRole("combobox", { name: msg("insights-posted-level") }), "senior");
+    expect(await headline()).toHaveTextContent(msg("insights-posted-typically", { low: "$180K", high: "$240K" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: msg("insights-posted-country") }), "GB");
+    expect(await headline()).toHaveTextContent(msg("insights-posted-none"));
+    expect(screen.getByText(msg("insights-posted-none-at-level", { country: "United Kingdom" }))).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: msg("insights-posted-level") })).toHaveValue("senior");
+  });
+
   it("names a country of the person's with nothing posted, rather than hiding it", async () => {
     mock(base());
     const user = userEvent.setup();
@@ -379,6 +393,26 @@ describe("CompensationPanel", () => {
     const principal = screen.getByRole("img", { name: /^Principal: 251 ranges from 251 employers/ });
     expect(principal.querySelectorAll(".pay-band")).toHaveLength(251);
     expect(principal).toHaveAccessibleName(/typically £110K to £150K/);
+  });
+
+  it("says why each role was left out when no range in the country qualifies", async () => {
+    mock(base());
+    show({ advanced: true }, "/statistics/compensation?country=SE");
+    await headline();
+
+    const every = msg("insights-posted-every-range", { country: "Sweden" });
+    const panel = screen.getByRole("heading", { level: 3, name: (name) => name.startsWith(every) }).closest(".panel") as HTMLElement;
+    expect(within(panel).queryByRole("list", { name: msg("insights-pay-bands-published-base-salary-bands-by") })).toBeNull();
+    const note = panel.querySelector(".hiring-note");
+    expect(note).toHaveTextContent(msg("insights-comp-bands-not-base", { count: 90 }));
+    expect(note).toHaveTextContent(msg("insights-comp-bands-placed-by-pay", { count: 6 }));
+  });
+
+  it("says why each role was left out when no country has a range at all", async () => {
+    mock(base({ posted: posted({ countries: [], default_country: null }) }));
+    show({ advanced: true });
+    expect(await headline()).toHaveTextContent(msg("insights-posted-none"));
+    expect(screen.getByText(msg("insights-comp-bands-not-base", { count: 90 }), { exact: false })).toBeInTheDocument();
   });
 
   it("opens who states pay by level, and draws no pay over time", async () => {

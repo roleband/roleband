@@ -35,10 +35,19 @@ export function postedCountry(posted: PostedPay, asked: string | null): PostedCo
   return find(asked) ?? find(posted.default_country) ?? posted.countries[0] ?? null;
 }
 
-/** A country's levels with a range, and the person's own with none, junior first. */
-export function postedLevels(country: PostedCountry, yourLevels: readonly string[]): PostedLevel[] {
+/**
+ * A country's levels with a range, junior first, plus two with none: the
+ * person's own, and a known level picked in another country, so a pick
+ * stays picked and the screen says the new country has no range there.
+ */
+export function postedLevels(
+  country: PostedCountry,
+  yourLevels: readonly string[],
+  asked: string | null = null,
+): PostedLevel[] {
   const levels = new Map(country.levels.map((l) => [l.level_band, l]));
-  for (const level of yourLevels) if (!levels.has(level)) levels.set(level, emptyLevel(level));
+  const keep = asked && BAND_ORDER.includes(asked) ? [...yourLevels, asked] : yourLevels;
+  for (const level of keep) if (!levels.has(level)) levels.set(level, emptyLevel(level));
   return [...levels.values()].sort((a, b) => rank(a.level_band) - rank(b.level_band));
 }
 

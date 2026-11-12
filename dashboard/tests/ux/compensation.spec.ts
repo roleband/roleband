@@ -120,7 +120,7 @@ test("opens on what employers post at the person's level, apart from the estimat
   // the person's own level, never the estimate's median.
   const hero = page.locator(".insight-hero");
   await expect(hero.locator(".eyebrow")).toHaveText("Compensation");
-  await expect(hero.getByRole("heading", { level: 2 })).toHaveText("Typically $198K to $270K");
+  await expect(hero.getByRole("heading", { level: 2 })).toHaveText(msg("insights-posted-typically", { low: "$198K", high: "$270K" }));
   await expect(hero).toContainText(
     msg("insights-posted-line", { level: "Principal", country: "United States", ranges: 241, employers: 141, roles: 600 }),
   );
@@ -141,7 +141,7 @@ test("opens on what employers post at the person's level, apart from the estimat
   await expect(byLevel.getByRole("listitem").filter({ hasText: /not placed/i })).toHaveCount(0);
 
   // Every estimate panel says it is one, of US pay.
-  for (const heading of ["Median estimated total compensation by level", "Top-paying companies"]) {
+  for (const heading of [msg("insights-compensation-panel-median-comp-by-level"), msg("insights-compensation-panel-top-paying-companies")]) {
     const panel = page.locator(".panel", { has: page.getByRole("heading", { level: 3, name: heading }) });
     await expect(panel.locator(".eyebrow")).toHaveText(msg("insights-posted-estimate-us-only"));
   }
@@ -280,12 +280,12 @@ test("a fresh install's base-only roles have their own panel, apart from the tot
   await page.goto("/statistics");
   await page.getByRole("tab", { name: "Compensation" }).click();
 
-  const panel = page.getByRole("region", { name: "Estimated base salary by level" });
+  const panel = page.getByRole("region", { name: msg("insights-compensation-panel-estimated-base-by-level") });
   await expect(panel).toBeVisible();
   await expect(panel).toContainText("40 more roles have only a base salary estimate");
   await expect(panel).toContainText("$196K");
   await expect(panel.locator(".eyebrow")).toHaveText(msg("insights-posted-estimate-us-only"));
   // The totals' level chart is the totals' alone.
-  const totals = page.locator(".panel", { has: page.getByRole("heading", { level: 3, name: "Median estimated total compensation by level" }) });
+  const totals = page.locator(".panel", { has: page.getByRole("heading", { level: 3, name: msg("insights-compensation-panel-median-comp-by-level") }) });
   await expect(totals).not.toContainText("$196K");
 });

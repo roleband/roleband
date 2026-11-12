@@ -221,9 +221,10 @@ def _level_figure(ranges: dict[tuple[str, int, int], int], *, min_employers: int
 def _currency_weight(currency: str, rows: list[tuple[str, str, int, int]]) -> tuple[int, int, bool, str]:
     """How strongly one currency's `(company, level, low, high)` rows claim a
     country: distinct ranges at a placed level, then all distinct ranges, then
-    the US dollar, then the code, so the choice never depends on arrival."""
-    placed = {(c, lo, hi) for c, level, lo, hi in rows if level != UNSTATED_LEVEL}
-    return len(placed), len({(c, lo, hi) for c, _, lo, hi in rows}), currency == "USD", currency
+    the US dollar, then the code, so the choice never depends on arrival. A
+    range is distinct per level, as each level's figure counts it."""
+    placed = {row for row in rows if row[1] != UNSTATED_LEVEL}
+    return len(placed), len(set(rows)), currency == "USD", currency
 
 
 def build_posted_pay(

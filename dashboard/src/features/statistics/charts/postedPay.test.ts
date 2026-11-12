@@ -47,6 +47,13 @@ describe("postedLevels", () => {
       ["director_plus", 0, false],
     ]);
   });
+
+  it("keeps a known level picked elsewhere, empty, and never adds an unknown one", () => {
+    const se = country("SE", [level("senior")]);
+    expect(postedLevels(se, [], "staff").map((l) => [l.level_band, l.ranges])).toEqual([["senior", 10], ["staff", 0]]);
+    expect(postedLevels(se, [], "chief_wizard").map((l) => l.level_band)).toEqual(["senior"]);
+    expect(postedLevels(se, [], "unstated").map((l) => l.level_band)).toEqual(["senior"]);
+  });
 });
 
 describe("postedLevel", () => {

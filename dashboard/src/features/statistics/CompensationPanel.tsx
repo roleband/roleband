@@ -279,7 +279,7 @@ export function CompensationPanel({
 
   const posted = data.posted;
   const country = postedCountry(posted, params.get("country"));
-  const levels = country ? postedLevels(country, posted.your_levels) : [];
+  const levels = country ? postedLevels(country, posted.your_levels, params.get("level")) : [];
   const level = postedLevel(levels, posted.your_levels, params.get("level"));
   const choose = (key: "country" | "level") => (value: string) =>
     setParams((prev) => {
@@ -317,7 +317,10 @@ export function CompensationPanel({
         <PostedByLevel country={country} levels={levels} yourLevels={posted.your_levels} />
       )}
 
-      {advanced && country && country.bands.length > 0 && (
+      {/* The panel stays when no range qualifies, so the reasons each role
+          was left out can still be read. */}
+      {advanced && !country && <p className="hiring-note">{rangesExplanation}</p>}
+      {advanced && country && (
         <div className="panel chart-panel chart-panel-wide">
           <div className="chart-panel-head">
             <div>
@@ -327,14 +330,18 @@ export function CompensationPanel({
                 <InfoTip label={insightsCompensationPanelAboutPublishedSalaryBands()}>{rangesExplanation}</InfoTip>
               </h3>
             </div>
-            <span className="chart-insight">
-              {insightsCompensationPanelBandsFromEmployers({
-                bands: country.bands.length,
-                employers: new Set(country.bands.map((b) => b.company)).size,
-              })}
-            </span>
+            {country.bands.length > 0 && (
+              <span className="chart-insight">
+                {insightsCompensationPanelBandsFromEmployers({
+                  bands: country.bands.length,
+                  employers: new Set(country.bands.map((b) => b.company)).size,
+                })}
+              </span>
+            )}
           </div>
-          <PayBands key={country.country} country={country} />
+          {country.bands.length > 0
+            ? <PayBands key={country.country} country={country} />
+            : <p className="hiring-note">{rangesExplanation}</p>}
         </div>
       )}
 

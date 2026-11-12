@@ -172,6 +172,20 @@ def test_a_country_reads_the_currency_of_its_ranges_at_a_placed_level():
     assert [level["level_band"] for level in us["levels"]] == ["senior"]
 
 
+def test_one_range_posted_at_two_levels_counts_at_each_when_choosing_the_currency():
+    """Five pound employers posting the same two ranges at both Senior and Staff
+    hold twenty placed ranges, as the levels count them, and outvote eleven
+    dollar ranges: the figure is in pounds at both levels."""
+    rows = [
+        _posted(f"uk{e}", level, 90_000 + r * 10_000, 120_000 + r * 10_000, currency="GBP")
+        for e in range(5) for r in range(2) for level in ("senior", "staff")
+    ]
+    rows += [_posted(f"us{i}", "senior", 200_000 + i * 1_000, 260_000 + i * 1_000) for i in range(11)]
+    uk = _country(build_posted_pay(rows))
+    assert (uk["currency"], uk["ranges"], uk["other_currency"]) == ("GBP", 20, 11)
+    assert {level["level_band"]: level["enough"] for level in uk["levels"]} == {"senior": True, "staff": True}
+
+
 def test_hourly_monthly_and_contradicted_periods_are_counted_never_annualised():
     out = build_posted_pay([
         _posted("intern", lo=60, hi=90, period="hour"),
