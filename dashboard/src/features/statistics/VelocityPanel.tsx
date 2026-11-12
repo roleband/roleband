@@ -1,7 +1,6 @@
 import { InsightsScope, VelocityStats, api } from "../../api";
 import { useAsyncResource } from "../../hooks/useAsyncResource";
 import { companyName } from "../../format";
-import { ageAggregateNote, employerDated } from "./ageCopy";
 import { InfoTip } from "../../ui/InfoTip";
 import { ResourceLoadState } from "../../ui/ResourceLoadState";
 import { InsightHero, n } from "./InsightHero";
@@ -10,19 +9,26 @@ import {
   insightsCommonCompany,
   insightsCommonOpened,
   insightsVelocityPanelAgeOfOpenRoles,
+  insightsVelocityPanelAgeUnknown,
   insightsVelocityPanelCompanies,
+  insightsVelocityPanelCountedFromFirstListed,
   insightsVelocityPanelFromTheFirstScanThat,
   insightsVelocityPanelHowLongPostingsStayUp,
   insightsVelocityPanelLoadFailed,
   insightsVelocityPanelLoading,
   insightsVelocityPanelMedianAge,
   insightsVelocityPanelMedianTimePosted,
-  insightsVelocityPanelMoreAlreadyListedWhenTheir,
+  insightsVelocityPanelMoreAlreadyListedWhenFound,
   insightsVelocityPanelOpen,
   insightsVelocityPanelOpenCount,
   insightsVelocityPanelOpenedCount,
   insightsVelocityPanelThisBuildsUpAsRoles,
   insightsVelocityPanelTimePosted,
+  insightsVelocityPanelTimePostedUnknown,
+  insightsVelocityPanelWhatAlreadyListedMeans,
+  insightsVelocityPanelWhatUnknownMeans,
+  insightsVelocityPanelWhyAlreadyListed,
+  insightsVelocityPanelWhyAStartIsUnknown,
   insightsVelocityPanelWhatTimePostedMeasures,
 } from "../../copy/gen/insights";
 import { Msg } from "../../ui/Msg";
@@ -44,6 +50,9 @@ export function VelocityPanel({ days: period, scope }: { days: number; scope?: I
   const window = periodLabel(period, data.since);
   const openMax = Math.max(1, ...data.by_company.map((c) => c.open));
   const thinPosted = k.median_observed_listing_duration_days == null;
+  // A company's time posted needs 5 closed roles with a known start; until
+  // one has them, the column would be blank on every row.
+  const showPosted = data.by_company.some((c) => c.median_observed_listing_duration_days != null);
 
   return (
     <>
@@ -51,15 +60,20 @@ export function VelocityPanel({ days: period, scope }: { days: number; scope?: I
         tab="velocity"
         figure={insightsVelocityPanelOpenedCount({ opened: n(k.opened) })}
         line={
-          [
-            insightsVelocityPanelOpenCount({ open_total: n(k.open_total) }),
-            k.median_days_open != null && insightsVelocityPanelMedianAge({ median_days_open: String(days(k.median_days_open)) }),
-            k.median_observed_listing_duration_days != null &&
-              insightsVelocityPanelMedianTimePosted({ median_observed_listing_duration_days: String(days(k.median_observed_listing_duration_days)) }),
-            k.first_scan > 0 && insightsVelocityPanelMoreAlreadyListedWhenTheir({ first_scan: String(n(k.first_scan)) }),
-          ]
-            .filter(Boolean)
-            .join(" · ")
+          <>
+            {[
+              insightsVelocityPanelOpenCount({ open_total: n(k.open_total) }),
+              k.median_days_open != null && insightsVelocityPanelMedianAge({ median_days_open: String(days(k.median_days_open)) }),
+              k.median_observed_listing_duration_days != null &&
+                insightsVelocityPanelMedianTimePosted({ median_observed_listing_duration_days: String(days(k.median_observed_listing_duration_days)) }),
+              k.already_listed > 0 && insightsVelocityPanelMoreAlreadyListedWhenFound({ already_listed: String(n(k.already_listed)) }),
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+            {k.already_listed > 0 && (
+              <InfoTip label={insightsVelocityPanelWhatAlreadyListedMeans()}>{insightsVelocityPanelWhyAlreadyListed()}</InfoTip>
+            )}
+          </>
         }
         kpis={[
           { label: insightsCommonOpened(), value: n(k.opened), sub: window, tone: "good" },
@@ -79,12 +93,14 @@ export function VelocityPanel({ days: period, scope }: { days: number; scope?: I
               <th className="num vel-open-col">{insightsVelocityPanelOpen()}</th>
               <th className="num">{insightsCommonOpened()}</th>
               <th className="num">{insightsCommonClosed()}</th>
-              <th className="num">
-                {insightsVelocityPanelTimePosted()}
-                <InfoTip label={insightsVelocityPanelWhatTimePostedMeasures()}>
-                  {insightsVelocityPanelFromTheFirstScanThat()}
-                </InfoTip>
-              </th>
+              {showPosted && (
+                <th className="num">
+                  {insightsVelocityPanelTimePosted()}
+                  <InfoTip label={insightsVelocityPanelWhatTimePostedMeasures()}>
+                    {insightsVelocityPanelFromTheFirstScanThat()}
+                  </InfoTip>
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -101,7 +117,9 @@ export function VelocityPanel({ days: period, scope }: { days: number; scope?: I
                 </td>
                 <td className="num pos">{n(c.opened)}</td>
                 <td className="num">{n(c.closed)}</td>
-                <td className="num">{c.median_observed_listing_duration_days != null ? days(c.median_observed_listing_duration_days) : ""}</td>
+                {showPosted && (
+                  <td className="num">{c.median_observed_listing_duration_days != null ? days(c.median_observed_listing_duration_days) : ""}</td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -112,29 +130,49 @@ export function VelocityPanel({ days: period, scope }: { days: number; scope?: I
         <div className="panel">
           <h3>{insightsVelocityPanelAgeOfOpenRoles()}</h3>
           <Bands bands={data.aging} />
-          {/* The bands and the median age keep the first-sighting clock for a
-              role we watched open; this says how much of the sample
-              the employer also dated (analytics/age_basis). */}
-          {ageAggregateNote(k.employer_dated_share) && (
-            <div className="trends-note">{ageAggregateNote(k.employer_dated_share)}</div>
-          )}
+          <Basis lead={insightsVelocityPanelCountedFromFirstListed()} unknown={k.age_unknown} label={insightsVelocityPanelAgeUnknown} />
         </div>
 
         <div className="panel">
           <h3>{insightsVelocityPanelHowLongPostingsStayUp()}</h3>
           {thinPosted ? (
-            <div className="trends-note">
-              <Msg of={insightsVelocityPanelThisBuildsUpAsRoles} elems={{ closed_sample: k.closed_sample }} />
-            </div>
+            <p className="vel-basis">
+              {insightsVelocityPanelThisBuildsUpAsRoles({ closed_sample: k.closed_sample })}
+            </p>
           ) : (
             <Bands bands={data.posted} />
           )}
-          {!thinPosted && employerDated(k.closed_employer_dated_share) && (
-            <div className="trends-note">{employerDated(k.closed_employer_dated_share)}</div>
-          )}
+          <Basis unknown={k.closed_unknown} label={insightsVelocityPanelTimePostedUnknown} />
         </div>
       </div>
     </>
+  );
+}
+
+/* The plain line under a chart: which clock it counts by, and the roles whose
+ * start is unknown, which sit beside the bands, never in one, so the bands and
+ * this count add up to every role the panel describes. */
+function Basis({
+  lead,
+  unknown,
+  label,
+}: {
+  lead?: string;
+  unknown: number;
+  label: (args: { count: string }) => string;
+}) {
+  if (!lead && unknown <= 0) return null;
+  return (
+    <p className="vel-basis">
+      {lead}
+      {lead && unknown > 0 && " "}
+      {unknown > 0 && (
+        <>
+          {label({ count: n(unknown) })}
+          <InfoTip label={insightsVelocityPanelWhatUnknownMeans()}>{insightsVelocityPanelWhyAStartIsUnknown()}</InfoTip>
+        </>
+      )}
+    </p>
   );
 }
 

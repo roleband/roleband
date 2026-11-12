@@ -10,7 +10,7 @@ from functools import cache
 
 from fastapi import APIRouter
 from pydantic import BaseModel
-from sqlalchemy import case, column, func, select, text
+from sqlalchemy import case, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import load_only
 
@@ -70,6 +70,7 @@ from tracker.db.models import (
     Notification,
     SkillConcept,
 )
+from tracker.db.queries import motion
 from tracker.db.queries.insights import history_days, history_since, window_since
 from tracker.db.queries.jobs import (
     board_count_stmt,
@@ -90,12 +91,11 @@ from tracker.intelligence_runtime.disclosed_comp import residual_band_versions
 from tracker.levels.companies import COMPANIES
 from tracker.levels.ladder import flat_guide, level_guide, lineage
 from tracker.levels.pay import PAY_POLICIES
-from tracker.lineage.counts import is_new_job_clause
 from tracker.platform.util import local_day_start_utc
 from tracker.plugins.registry import PAY_LEVELS, reader_providers
 from tracker.plugins.status import reference_changes
 from tracker.profiles import prices as price_store
-from tracker.schema import OUR_ESTIMATE_SOURCE, Arrival
+from tracker.schema import OUR_ESTIMATE_SOURCE
 from tracker.skills.analytics import COMPETENCY_CATEGORIES
 from tracker.taxonomy.locations import pay_country
 from tracker.taxonomy.tracks import TRACKS, allowed_bands_for
@@ -204,36 +204,14 @@ async def statistics_overview(
     )
     saved_total = await session.scalar(select(func.count()).select_from(Favorite))
 
-    visible_job_ids = exclude_hidden(select(Job.id).where(Job.in_scope.is_(True), *scope.conds()), hidden)
-
-    def _events(kind: str):
-        stmt = (
-            select(func.count())
-            .select_from(JobLifecycleEvent)
-            .where(
-                JobLifecycleEvent.event_type == kind,
-                JobLifecycleEvent.job_id.in_(visible_job_ids),
-            )
-        )
-        return stmt if cutoff is None else stmt.where(JobLifecycleEvent.created_at >= cutoff)
-
-    # An opening is Pace's: a role first seen in the window, a place set once,
-    # so Overview's "new" and Pace's "opened" are one number. A first read's
-    # find was already listed (`schema.Arrival`): counted apart, never as new,
-    # and neither is a repost.
-    openings = exclude_hidden(
-        select(
-            func.count().filter(
-                Job.arrival.is_distinct_from(Arrival.FIRST_READ.value), is_new_job_clause()
-            ),
-            func.count().filter(Job.arrival == Arrival.FIRST_READ.value),
-        ).where(Job.in_scope.is_(True), *scope.conds(), Job.id.notin_(place_set_later_ids())),
-        hidden,
-    )
-    if cutoff is not None:
-        openings = openings.where(Job.first_seen >= cutoff)
-    new_count, first_scan_count = (await session.execute(openings)).one()
-    closed_count = await session.scalar(_events("closed"))
+    # Pace's openings and roles that came down (`db.queries.motion`), so the
+    # two tabs say one number.
+    postings = await motion.load(session, scope, hidden)
+    opened = motion.openings(postings, cutoff)
+    went = motion.came_down(postings, cutoff)
+    new_count = sum(1 for o in opened if o.kind == "opened")
+    already_listed_count = sum(1 for o in opened if o.kind == "already_listed")
+    closed_count = len(went)
 
     # Top skills (distinct open jobs with a displayable requirement),
     # industries excluded (a vertical is not a skill).
@@ -252,9 +230,9 @@ async def statistics_overview(
         "since": since,
         "kpis": {
             "open_total": open_total or 0,
-            "new_count": new_count or 0,
-            "first_scan_count": first_scan_count or 0,
-            "closed_count": closed_count or 0,
+            "new_count": new_count,
+            "already_listed_count": already_listed_count,
+            "closed_count": closed_count,
             "companies": companies or 0,
             "saved_total": saved_total or 0,
         },
@@ -719,15 +697,23 @@ class VelocityKpis(BaseModel):
     opened: int
     closed: int
     reposted: int
-    #: Roles a company's first read found: already listed, never in `opened`.
-    first_scan: int
+    #: Roles first seen in the window that were already listed when found: a
+    #: company's first read, or a posting the employer dated earlier. Never in
+    #: `opened`.
+    already_listed: int
     median_days_open: float | None
+    #: Open roles whose start is unknown (`analytics.age_basis`): outside
+    #: `median_days_open` and `aging`, so `aging` plus this is `open_total`.
+    age_unknown: int
     #: Share of the open roles behind `median_days_open` and `aging` that the
     #: employer dated (`analytics.age_basis`); None when there are none.
     employer_dated_share: float | None
     median_observed_listing_duration_days: float | None
+    #: Roles that came down with a known time posted: `closed_sample` plus
+    #: `closed_unknown` is `closed`.
     closed_sample: int
-    #: The same share over the `closed_sample` postings behind the duration.
+    closed_unknown: int
+    #: The same share over the `closed_sample` roles behind the duration.
     closed_employer_dated_share: float | None
 
 
@@ -757,8 +743,8 @@ class VelocityOut(BaseModel):
     since: datetime | None
     kpis: VelocityKpis
     aging: list[VelocityAgingBand]
-    #: Observed listing durations of the postings that closed in the window, on
-    #: the aging bands (never a time to hire).
+    #: How long the roles that came down in the window were posted, on the
+    #: aging bands (never a time to hire).
     posted: list[VelocityAgingBand]
     by_company: list[VelocityCompany]
 
@@ -769,13 +755,14 @@ async def statistics_velocity(
 ) -> dict:
     """Hiring-velocity motion over a time window (honors the period lens).
 
-    Opened and closed roles from first sightings and lifecycle events, the aging
-    distribution of still-open roles, and the observed listing duration of roles
-    that closed in the window. `days<=0` means all-time. The duration needs a
-    spread of closed roles, so it accrues with history; the UI flags a thin sample.
+    The roles that opened and came down in the window, each once
+    (`db.queries.motion`), the ages of the roles still open, and how long the
+    roles that came down had been posted. `days<=0` means all-time. The
+    duration needs a spread of roles that came down, so it accrues with
+    history; the UI flags a thin sample.
 
-    It is not a time to fill: it measures how long we observed a posting
-    advertised, and a public board says nothing about whether anyone was hired.
+    It is not a time to fill: it measures how long a posting was advertised,
+    and a public board says nothing about whether anyone was hired.
     """
     now = datetime.now(UTC)
     history = await history_since(session, scope, hidden)
@@ -783,136 +770,18 @@ async def statistics_velocity(
     # The counters start where the figures say they do; before any whole read
     # there is no history, and what a partial read found is no opening.
     cutoff = since if history is not None else now
-    all_time = cutoff is None
-    params: dict = {} if all_time else {"cutoff": cutoff}
-    if hidden:
-        params["hidden"] = hidden
-    # Raw SQL can't take an ORM condition; `<> ALL(:hidden)` is the asyncpg-safe
-    # exclusion, added only when something is hidden (empty arrays break inference).
-    # The Insights scope, as the same fragment on every raw read.
-    scope_job, scope_params = scope.sql("")
-    scope_j, _ = scope.sql("j.")
-    params.update(scope_params)
-    hide_job = (" AND company <> ALL(:hidden)" if hidden else "") + scope_job
-    hide_j = " AND ".join(
-        c for c in ("j.company <> ALL(:hidden)" if hidden else "", scope_j.removeprefix(" AND ")) if c
-    )
-    # The roles Insights describes: in scope, a place set once. A set's
-    # later members leave the ages, the openings and the durations, so the age
-    # bands sum to the headline and an opening at five places is one opening.
-    # One clock for the window and the ages: the app's, never the database's
-    # `now()` beside a Python cutoff (the two disagree under a pinned test
-    # clock).
-    params["now"] = now
-    # The set is built once, inside the one statement below, and read by its
-    # parts. Bound back as an id list it would grow with the data, and a
-    # generic plan searches a bound array row by row.
-    place_set_later = place_set_later_ids().cte("place_set_later").prefix_with("MATERIALIZED")
-    not_later = "NOT ({c}id IN (SELECT id FROM place_set_later))"
-    # A first read's find was already listed (`schema.Arrival`): it ages from
-    # its listed date, since our first sighting of it is our onboarding, not
-    # its opening. Roles we watched open keep the sighting clock.
-    start = (
-        "CASE WHEN {c}arrival = 'first_read' "
-        "THEN least({c}first_posted_at, {c}first_seen) "
-        "ELSE coalesce({c}lineage_first_seen, {c}first_seen) END"
-    )
-
     open_total = await session.scalar(open_in_scope_count_stmt(hidden, *scope.conds()))
-
-    # The parts share one column list (`part`, `company`, `days`,
-    # `employer_dated`, `event_type`, `n`), each filling the columns it has.
-    # Age is measured from the effective (lineage) first_seen so a reposted role
-    # keeps accruing days-open instead of resetting. This aggregate keeps our own
-    # first-sighting clock on purpose (the same for every source) for every role
-    # we watched open; a first read's find starts at its listed date (`start`).
-    # `employer_dated` feeds the share served beside it.
-    open_sql = (
-        "SELECT 'open' AS part, company, floor(extract(epoch FROM "
-        f"(:now - {start.format(c='')}))/86400.0) AS days, "
-        f"({employer_dated_sql()}) AS employer_dated, NULL::text AS event_type, NULL::bigint AS n "
-        "FROM jobs WHERE status='open' AND in_scope IS true AND "
-        + not_later.format(c="")
-        + hide_job
-    )
-
-    # Openings are roles, counted once at their first sighting (`first_seen`),
-    # whichever writer stored them: a first read's find is `first_scan`, apart
-    # from opened; a repost/duplicate successor is `reposted`, so it never
-    # inflates it. A place set's later member is the set's own
-    # opening, left out. Only in-scope roles count.
-    opening_where = [
-        c for c in (
-            "j.in_scope IS true", not_later.format(c="j."),
-            None if all_time else "j.first_seen >= :cutoff", hide_j or None,
-        ) if c
-    ]
-    opening_sql = (
-        "SELECT 'event', j.company, NULL, NULL, "
-        "CASE WHEN j.arrival = 'first_read' THEN 'first_scan' "
-        "     WHEN j.lineage_role IN ('repost','duplicate') THEN 'reposted' "
-        "     ELSE 'opened' END, "
-        "count(*) "
-        "FROM jobs j "
-        "WHERE " + " AND ".join(opening_where) + " "
-        "GROUP BY j.company, 5"
-    )
-    # The rest of the motion is the closings in the window.
-    event_where = [
-        c for c in (
-            "j.in_scope IS true", "e.event_type = 'closed'",
-            None if all_time else "e.created_at >= :cutoff", hide_j or None,
-        ) if c
-    ]
-    event_sql = (
-        "SELECT 'event', j.company, NULL, NULL, e.event_type, count(*) "
-        "FROM job_lifecycle_events e JOIN jobs j ON j.id = e.job_id "
-        "WHERE " + " AND ".join(event_where) + " "
-        "GROUP BY j.company, e.event_type"
-    )
-
-    # Observed listing duration: one sample per role. A standalone closed job
-    # counts; a lineage contributes exactly once, and only when no member is still
-    # open — measured from its terminal member back to the effective first_seen.
-    # `closed_at` is the reconciliation that FOUND it gone, so this is how long we
-    # observed the posting advertised, never a hiring duration.
-    hide_j2 = (" AND j.company <> ALL(:hidden)" if hidden else "") + scope_j
-    duration_sql = (
-        "SELECT 'closed', j.company, floor(extract(epoch FROM "
-        f"(j.closed_at - {start.format(c='j.')}))/86400.0), "
-        f"({employer_dated_sql('j.')}), NULL, NULL "
-        "FROM jobs j LEFT JOIN job_lineage l ON l.id = j.lineage_id "
-        "WHERE j.status='closed' AND j.closed_at IS NOT NULL AND j.in_scope IS true AND "
-        + not_later.format(c="j.")
-        + " "
-        "AND (j.lineage_id IS NULL OR (l.open_members = 0 AND j.lineage_seq = l.size))"
-        + ("" if all_time else " AND j.closed_at >= :cutoff")
-        + hide_j2
-    )
-
-    # Column aliases avoid SQLAlchemy Row's reserved attrs (e.g. `.t`, `.count`).
-    rows = (
-        await session.execute(
-            text(" UNION ALL ".join(
-                f"({sql})" for sql in (open_sql, opening_sql, event_sql, duration_sql)
-            ))
-            .columns(*(column(name) for name in ("part", "company", "days", "employer_dated", "event_type", "n")))
-            .add_cte(place_set_later),
-            params,
-        )
-    ).all()
-    open_rows = [r for r in rows if r.part == "open"]
-    duration_rows = [r for r in rows if r.part == "closed"]
-
+    postings = await motion.load(session, scope, hidden)
+    ages = motion.open_ages(postings, now)
+    opened = motion.openings(postings, cutoff)
+    went = motion.came_down(postings, cutoff)
     return {
         **build_velocity(
-            [(r.company, r.days) for r in open_rows],
-            [(r.company, r.event_type, r.n) for r in rows if r.part == "event"],
-            [(r.company, r.days) for r in duration_rows],
+            [(a.company, a.days, a.employer_dated) for a in ages],
+            [(o.company, o.kind) for o in opened],
+            [(c.company, c.days, c.employer_dated) for c in went],
             open_total or 0,
             days,
-            open_employer_dated=sum(1 for r in open_rows if r.employer_dated),
-            closed_employer_dated=sum(1 for r in duration_rows if r.employer_dated),
         ),
         "since": since,
     }
@@ -959,9 +828,9 @@ async def demand(session: SessionDep, hidden: OffBoardDep, scope: InsightsScopeD
         open_by_company[company] = open_by_company.get(company, 0) + 1
 
     # The motion over one period, the New rule's: roles new by the Board's rule
-    # (not reposts) and roles closed in the same 2 days, a place set once, so
-    # the two numbers side by side describe one stretch of time. Not for me
-    # stays in: Insights is the market.
+    # (not reposts) and roles that came down in the same 2 days, each once
+    # (`db.queries.motion`), so the two numbers side by side describe one
+    # stretch of time. Not for me stays in: Insights is the market.
     now = datetime.now(UTC)
     later = place_set_later_ids()
     new_rows = (
@@ -977,24 +846,8 @@ async def demand(session: SessionDep, hidden: OffBoardDep, scope: InsightsScopeD
             ).group_by(Job.company)
         )
     ).all()
-    closed_rows = (
-        await session.execute(
-            exclude_hidden(
-                select(Job.company, func.count(func.distinct(Job.id)))
-                .join(JobLifecycleEvent, JobLifecycleEvent.job_id == Job.id)
-                .where(
-                    JobLifecycleEvent.event_type == "closed",
-                    JobLifecycleEvent.created_at > now - NEW_LISTING_WINDOW,
-                    Job.in_scope.is_(True),
-                    Job.id.notin_(later),
-                    *scope.conds(),
-                ),
-                hidden,
-            ).group_by(Job.company)
-        )
-    ).all()
     new = dict(new_rows)
-    closed = dict(closed_rows)
+    closed = motion.per_company(motion.came_down(await motion.load(session, scope, hidden), now - NEW_LISTING_WINDOW))
     companies = sorted(
         (
             {

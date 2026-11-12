@@ -26,6 +26,7 @@ from tracker.config import get_settings
 from tracker.connectors.listing.base import RateLimiter
 from tracker.connectors.listing.workday import WorkdayAdapter, WorkdayBoard
 from tracker.connectors.recipes.outcome import SourceOutcome, classify_source_outcome
+from tracker.db import repo
 from tracker.platform.drift import SchemaDriftDetector
 from tracker.source_review import SOURCE_REVIEWS
 
@@ -323,7 +324,7 @@ async def test_a_named_stub_never_reaches_the_anomaly_ratio():
 
 
 @pytest.mark.asyncio
-async def test_a_stub_holds_its_job_open_while_the_rest_of_the_board_closes():
+async def test_a_stub_holds_its_job_open_while_the_rest_of_the_board_closes(monkeypatch):
     """The contract, at the seam that decides a job's fate.
 
     Three open jobs: one served normally, one served as a stub, one genuinely
@@ -331,6 +332,13 @@ async def test_a_stub_holds_its_job_open_while_the_rest_of_the_board_closes():
     without the vanished job, an implementation that simply never closes
     anything would pass.
     """
+
+    async def no_role_notes(session, job_ids, *, company):
+        return {}
+
+    # The fake session below cannot answer the place-set read a closing asks
+    # for its role notes; those have their own tests (`test_insights_motion.py`).
+    monkeypatch.setattr(repo, "closing_role_notes", no_role_notes)
     from types import SimpleNamespace
 
     from tracker.db.models import Job
@@ -389,9 +397,9 @@ async def test_a_stub_holds_its_job_open_while_the_rest_of_the_board_closes():
     assert collection.list_complete is True
     assert collection.stats["records_dropped"] == 0
 
-    def mk(req_id: str) -> Job:
+    def mk(job_id: int, req_id: str) -> Job:
         return Job(
-            id=abs(hash(req_id)) % 1000,
+            id=job_id,
             company="nvidia",
             req_id=req_id,
             dedupe_key=f"nvidia:{req_id}",
@@ -400,7 +408,7 @@ async def test_a_stub_holds_its_job_open_while_the_rest_of_the_board_closes():
             status="open",
         )
 
-    served, stubbed, vanished = mk("JR1"), mk("JR2"), mk("JR3")
+    served, stubbed, vanished = mk(1, "JR1"), mk(2, "JR2"), mk(3, "JR3")
     existing = {j.dedupe_key: j for j in (served, stubbed, vanished)}
 
     closed = await close_missing(

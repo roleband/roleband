@@ -976,7 +976,12 @@ not offered, a saved link to it reads as all time, and with fewer windows than
 two the switch does not show. All time reads "since 3 Nov (8 days)", never as a
 window it does not fill. Overview and Pace call a window's openings Opened:
 New is the Board's 2-day rule. Hiring counts new and closed over the same 2
-days, so a company's "+3 −1" is one stretch of time.
+days, so a company's "+3 −1" is one stretch of time. Pace's two age charts
+count a role whose start is unknown on the plain line under the bands ("Age
+unknown: 18"), never in "< 1 week". A company's time posted stays blank until 5
+of its closed roles have a known start, the column shows once one company has
+one, and its info button says so. Pace's company table keeps every company that
+opened or closed a role in the window, so its columns add up to the tiles.
 
 Turning the advanced view on asks in a dialog until the person says yes; the
 answer is kept on this device (`insightsView.ts`), so turning it off and on

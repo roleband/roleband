@@ -322,6 +322,8 @@ files = [
     # The companies side and disciplines an Insights read is narrowed to, and
     # when its history starts
     "tracker/db/queries/insights.py",
+    # The roles that opened and came down, each once, and the open roles' ages
+    "tracker/db/queries/motion.py",
     # The listing history and role age behind the route and the agent tool
     "tracker/db/queries/listing_history.py",
     "tracker/mcp/vocab.py",

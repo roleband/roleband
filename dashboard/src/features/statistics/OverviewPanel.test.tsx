@@ -17,7 +17,7 @@ vi.mock("./charts/StatisticsCharts", () => ({ OverviewSignalChart: () => null })
 it("leads with the window's motion and never draws the top skills twice", async () => {
   vi.mocked(api.statisticsOverview).mockResolvedValue({
     ...overviewFixture,
-    kpis: { ...overviewFixture.kpis, new_count: 494, closed_count: 217, first_scan_count: 1867, open_total: 3192 },
+    kpis: { ...overviewFixture.kpis, new_count: 494, closed_count: 217, already_listed_count: 1867, open_total: 3192 },
     top_skills: [{ term: "roadmap", category: "process", job_count: 1435 }],
   });
   render(

@@ -21,6 +21,7 @@ from tracker.api.serializers.jobs import serialize_job
 from tracker.connectors.detail import structure_job_detail
 from tracker.connectors.listing.base import RateLimiter
 from tracker.connectors.listing.workday import WorkdayAdapter
+from tracker.db import repo
 from tracker.db.models import Job, JobLifecycleEvent, JobObservation
 from tracker.db.pay_band import CONNECTOR_READER_VERSION
 from tracker.db.repo import apply_scope_state, close_missing, upsert_job
@@ -35,6 +36,18 @@ from tracker.schema import (
     SourceJobFacts,
 )
 from tracker.source_review import SOURCE_REVIEWS
+
+
+async def _no_role_notes(session, job_ids, *, company):
+    return {}
+
+
+@pytest.fixture(autouse=True)
+def _fake_session_reads_no_place_sets(monkeypatch):
+    """`close_missing` asks the place-set rule for each closing's role, a
+    database read this fake session cannot answer; the role notes have their
+    own tests against a real database (`test_insights_motion.py`)."""
+    monkeypatch.setattr(repo, "closing_role_notes", _no_role_notes)
 
 
 class FakeSession:
