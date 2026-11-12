@@ -124,7 +124,7 @@ public sealed class LifecycleTests
                 note("crashed")
                 os._exit(3)
             if mode == "progressing":
-                for received in range(5, 101, 5):
+                for received in range(3, 91, 3):
                     time.sleep(0.3)
                     preparation.update(DATA_DIR, downloaded_bytes=received)
                 preparation.update(DATA_DIR, database="ready", service="ready", model="ready")
@@ -481,8 +481,9 @@ public sealed class LifecycleTests
     {
         // An update's migration of a long history can take longer than the deadline from launch; only a preparation
         // that stops changing is ended.
+        // Thirty changes 0.3 s apart: nine seconds in all against a four-second deadline, with a wide margin per gap.
         var engine = new StandIn("progressing");
-        await using var session = new EngineSession(engine.Configuration, Quick with { PreparationDeadline = TimeSpan.FromSeconds(2) });
+        await using var session = new EngineSession(engine.Configuration, Quick with { PreparationDeadline = TimeSpan.FromSeconds(4) });
         await session.StartAsync();
         await Until(() => session.Snapshot.State == EngineState.Ready, TimeSpan.FromSeconds(90), "Ready");
         CollectionAssert.Contains(engine.Events(), "prepared");
@@ -550,16 +551,21 @@ public sealed class LifecycleTests
         await session.StopAsync();
         Assert.AreEqual(EngineState.Attention, session.Snapshot.State);
         var pid = session.Snapshot.ProcessId ?? throw new AssertFailedException("The kept engine has no process ID.");
-        await session.StartAsync();
-        Assert.AreEqual(EngineState.Attention, session.Snapshot.State, "a kept engine still running blocks a start");
-        Assert.IsTrue(session.OwnsEngine);
-        Assert.AreEqual(1, engine.Events().Count(line => line == "started"));
-        engine.Behave("ready");
-        using (var kept = Process.GetProcessById(pid))
+        try
         {
+            await session.StartAsync();
+            Assert.AreEqual(EngineState.Attention, session.Snapshot.State, "a kept engine still running blocks a start");
+            Assert.IsTrue(session.OwnsEngine);
+            Assert.AreEqual(1, engine.Events().Count(line => line == "started"));
+        }
+        finally
+        {
+            // The stand-in ignores every stop, so a failed assertion must not leave it running.
+            using var kept = Process.GetProcessById(pid);
             kept.Kill();
             await kept.WaitForExitAsync();
         }
+        engine.Behave("ready");
         if (waitForRelease)
         {
             await Until(() => !session.OwnsEngine, TimeSpan.FromSeconds(30), "the lock to go with the kept engine");
