@@ -496,6 +496,8 @@ private struct PortRow: View {
     final class Editor: ObservableObject {
         @Published var editing = false
         @Published var entry = ""
+        /// The port a move under way was asked for.
+        var target: Int?
     }
     @ObservedObject var model: LauncherModel
     @StateObject private var editor = Editor()
@@ -515,7 +517,13 @@ private struct PortRow: View {
                 }
                 if editor.editing { fields(p) }
             }
-            .onChange(of: model.enginePort) { editor.editing = false }
+            // The engine takes the new port before it starts and gives it back if the start is
+            // refused, so the editor closes only once the move has ended on the chosen port.
+            .onChange(of: model.controlBusy) {
+                guard !model.controlBusy, let target = editor.target else { return }
+                editor.target = nil
+                if model.enginePort == target { editor.editing = false }
+            }
         }
     }
 
@@ -557,7 +565,8 @@ private struct PortRow: View {
     private func use(_ port: Int) {
         let current = model.enginePort
         model.usePort(port)
-        if model.portRefusal == nil, port == current { editor.editing = false }
+        guard model.portRefusal == nil else { return }
+        if port == current { editor.editing = false } else { editor.target = port }
     }
 }
 

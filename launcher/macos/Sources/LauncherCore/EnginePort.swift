@@ -109,7 +109,26 @@ public enum EnginePort {
             let tcp = info.psi.soi_proto.pri_tcp
             // The local port is kept in network byte order in the low 16 bits.
             let local = Int(UInt16(bigEndian: UInt16(truncatingIfNeeded: tcp.tcpsi_ini.insi_lport)))
-            if local == port && tcp.tcpsi_state == TSI_S_LISTEN { return true }
+            if local == port && tcp.tcpsi_state == TSI_S_LISTEN && takesLoopback(tcp.tcpsi_ini) { return true }
+        }
+        return false
+    }
+
+    /// Whether a listener at this local address keeps the engine from binding 127.0.0.1: one on
+    /// 127.0.0.1 itself or on every address, in IPv4 or as a dual-stack IPv6 socket. A listener on
+    /// another address, ::1 included, shares the port number without holding the engine's address.
+    static func takesLoopback(_ ini: in_sockinfo) -> Bool {
+        let loopback = in_addr_t(UInt32(INADDR_LOOPBACK).bigEndian)
+        if ini.insi_vflag & UInt8(INI_IPV4) != 0 {
+            let address = ini.insi_laddr.ina_46.i46a_addr4.s_addr
+            if address == INADDR_ANY || address == loopback { return true }
+        }
+        if ini.insi_vflag & UInt8(INI_IPV6) != 0 {
+            var address = ini.insi_laddr.ina_6
+            let bytes = withUnsafeBytes(of: &address) { Array($0) }
+            if bytes.allSatisfy({ $0 == 0 }) { return true }
+            let mapped: [UInt8] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 127, 0, 0, 1]
+            if bytes == mapped { return true }
         }
         return false
     }
