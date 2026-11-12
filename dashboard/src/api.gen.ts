@@ -2774,6 +2774,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/statistics/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Statistics History
+         * @description How much history the scope's companies have: when it starts and how
+         *     many whole days it covers. A window longer than it shows the same figures as
+         *     all time, so the dashboard offers only the windows it covers.
+         */
+        get: operations["statistics_history_api_statistics_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/statistics/levels": {
         parameters: {
             query?: never;
@@ -2835,9 +2857,9 @@ export interface paths {
          * @description Cockpit aggregate for the Statistics landing tab.
          *
          *     KPI tiles, a short generated brief and the top skills, pulling from the demand
-         *     and skills layers. `days<=0` means all-time; otherwise the new/closed
-         *     counters are scoped to the last N days of lifecycle events (so the period control
-         *     is meaningful as history accrues).
+         *     and skills layers. `days<=0` means all-time. The opened and closed counters
+         *     start at `since`: the window's start, or the scope's history when that is
+         *     shorter, so nothing found before the history is counted.
          */
         get: operations["statistics_overview_api_statistics_overview_get"];
         put?: never;
@@ -4761,20 +4783,20 @@ export interface components {
         /**
          * DemandResponse
          * @description `GET /api/demand`, the Hiring tab: where roles are open now, by company and
-         *     place, and today's openings and closings.
+         *     place, and the roles new and closed in the New rule's 2 days.
          *
          *     Read live from the roles Insights describes, never by summing the
          *     `demand_metrics` rollup, whose slices count a posting once per place group.
          */
         DemandResponse: {
-            /** Closed Today */
-            closed_today: number;
+            /** Closed */
+            closed: number;
             /** Companies */
             companies: components["schemas"]["HiringCompany"][];
             /** Employer Dated Share */
             employer_dated_share: number | null;
-            /** New Today */
-            new_today: number;
+            /** New */
+            new: number;
             /** Open Total */
             open_total: number;
             /** Regions */
@@ -5619,12 +5641,12 @@ export interface components {
          * @description One company's open roles, a place set once, and its motion.
          */
         HiringCompany: {
-            /** Closed Today */
-            closed_today: number;
+            /** Closed */
+            closed: number;
             /** Company */
             company: string;
-            /** New Today */
-            new_today: number;
+            /** New */
+            new: number;
             /** Open */
             open: number;
         };
@@ -5666,6 +5688,17 @@ export interface components {
             low: number;
             /** Mid */
             mid: number;
+        };
+        /**
+         * InsightsHistoryResponse
+         * @description `GET /api/statistics/history`: when the history of the scope's companies
+         *     starts (`queries.insights.history_since`) and how many whole days it covers.
+         */
+        InsightsHistoryResponse: {
+            /** Days */
+            days: number;
+            /** Since */
+            since: string | null;
         };
         /**
          * IntelligenceFitBand
@@ -10569,6 +10602,8 @@ export interface components {
             /** Days */
             days: number;
             kpis: components["schemas"]["OverviewKpis"];
+            /** Since */
+            since: string | null;
             /** Top Skills */
             top_skills: components["schemas"]["OverviewSkill"][];
         };
@@ -11493,6 +11528,8 @@ export interface components {
             kpis: components["schemas"]["VelocityKpis"];
             /** Posted */
             posted: components["schemas"]["VelocityAgingBand"][];
+            /** Since */
+            since: string | null;
         };
         /**
          * VocabFacetOption
@@ -16193,6 +16230,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EquityValidationResponse"];
+                };
+            };
+        };
+    };
+    statistics_history_api_statistics_history_get: {
+        parameters: {
+            query?: {
+                side?: "all" | "yours" | "other";
+                family?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InsightsHistoryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

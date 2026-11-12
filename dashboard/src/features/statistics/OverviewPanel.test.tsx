@@ -2,7 +2,9 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { expect, it, vi } from "vitest";
 import { api } from "../../api";
+import { date } from "../../copy/format";
 import { overviewFixture } from "../../test/fixtures";
+import { msg } from "../../test/msg";
 import { OverviewPanel } from "./OverviewPanel";
 
 vi.mock("../../api", async () => {
@@ -35,6 +37,23 @@ it("leads with the window's motion and never draws the top skills twice", async 
   const drawn = screen.getAllByText(/Roadmapping/).filter((el) => !el.closest(".insight-hero"));
   expect(drawn).toHaveLength(1);
   expect(screen.getByText(/Top skill: Roadmapping \(1,435 roles\)\./)).toBeInTheDocument();
+});
+
+it("calls the window's openings Opened, never New, and says all time is the history since its start", async () => {
+  // New is the Board's 2-day rule; Overview counts the roles that appeared
+  // in the window. With no window, the figures cover the history there is.
+  vi.mocked(api.statisticsOverview).mockResolvedValue({ ...overviewFixture, days: 0, since: "2026-11-03T06:02:00Z" });
+  render(
+    <MemoryRouter>
+      <OverviewPanel days={0} />
+    </MemoryRouter>,
+  );
+  expect(await screen.findByText(msg("insights-common-opened"))).toBeInTheDocument();
+  expect(screen.queryByText(msg("insights-common-new"))).toBeNull();
+  const since = "2026-11-03T06:02:00Z";
+  const days = Math.floor((Date.now() - Date.parse(since)) / 86_400_000);
+  expect(screen.getAllByText(msg("insights-common-since-date", { date: date(since, "day"), days }))).toHaveLength(2);
+  expect(screen.queryByText(msg("insights-common-last-days-or-all-time", { period: "all", days: 0 }))).toBeNull();
 });
 
 it("lists no roles and groups none: the window's motion and the top skills", async () => {

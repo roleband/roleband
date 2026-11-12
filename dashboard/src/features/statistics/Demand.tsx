@@ -25,7 +25,7 @@ import {
   insightsDemandEachRoleCountsOnceHowever,
   insightsDemandEachRoleOnce,
   insightsDemandFindACompany,
-  insightsDemandHiringNowTodayNewClosed,
+  insightsDemandHiringNowNewClosed,
   insightsDemandHowCompaniesAreCounted,
   insightsDemandHowRegionsAreCounted,
   insightsDemandLast2Days,
@@ -40,7 +40,6 @@ import {
   insightsDemandOpenRolesByCompany,
   insightsDemandOpenRolesByRegion,
   insightsDemandShowAll,
-  insightsDemandToday,
   insightsDemandWithAnOpenRole,
   insightsOtherCompanies,
   insightsYourCompanies,
@@ -87,8 +86,8 @@ export function DemandView({ scope }: { scope?: InsightsScope }) {
     company: c.company,
     label: companyName(c.company),
     open: c.open,
-    fresh: c.new_today,
-    closed: c.closed_today,
+    fresh: c.new,
+    closed: c.closed,
   }));
 
   return (
@@ -96,12 +95,12 @@ export function DemandView({ scope }: { scope?: InsightsScope }) {
       <InsightHero
         tab="demand"
         figure={insightsDemandOpen({ role: String(count(NOUN.role, data.open_total)) })}
-        line={insightsDemandHiringNowTodayNewClosed({ company: String(count(NOUN.company, hiring)), new_today: String(n(data.new_today)), closed_today: String(n(data.closed_today)) })}
+        line={insightsDemandHiringNowNewClosed({ company: String(count(NOUN.company, hiring)), new: String(n(data.new)), closed: String(n(data.closed)) })}
         kpis={[
           { label: insightsCommonOpenRoles(), value: n(data.open_total), sub: insightsDemandEachRoleOnce() },
           { label: insightsCommonCompanies(), value: n(hiring), sub: insightsDemandWithAnOpenRole() },
-          { label: insightsCommonNew(), value: n(data.new_today), sub: insightsDemandLast2Days(), tone: "good" },
-          { label: insightsCommonClosed(), value: n(data.closed_today), sub: insightsDemandToday() },
+          { label: insightsCommonNew(), value: n(data.new), sub: insightsDemandLast2Days(), tone: "good" },
+          { label: insightsCommonClosed(), value: n(data.closed), sub: insightsDemandLast2Days() },
         ]}
       />
 

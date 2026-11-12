@@ -177,9 +177,10 @@ async def test_an_empty_radar_answers_every_shape_with_nothing_in_it(api_client,
     assert (await _get(api_client, ROUTES["comp_trends"]))["series"] == []
     assert (await _get(api_client, ROUTES["disclosure_trends"]))["dates"] == []
     assert await _get(api_client, ROUTES["demand"]) == {
-        "open_total": 0, "new_today": 0, "closed_today": 0, "companies": [], "regions": [], "unplaced": 0,
+        "open_total": 0, "new": 0, "closed": 0, "companies": [], "regions": [], "unplaced": 0,
         "employer_dated_share": None,
     }
+    assert await _get(api_client, "/api/statistics/history") == {"since": None, "days": 0}
 
 
 # --------------------------------------------------------------------------- #
@@ -638,10 +639,10 @@ async def test_hiring_counts_each_role_once_by_company_and_by_place(api_client, 
     await _add_a_place_set_and_an_other_company(db_session, seeded)
     body = await _get(api_client, ROUTES["demand"])
     assert list(body) == _fields(contract.DemandResponse)
-    assert (body["open_total"], body["new_today"], body["closed_today"], body["unplaced"]) == (28, 4, 1, 0)
+    assert (body["open_total"], body["new"], body["closed"], body["unplaced"]) == (28, 4, 1, 0)
     # The set is one stripe role (2 + 1, never 2 + 3) and one new role; the
     # out-of-scope opening and the hidden company's count nowhere.
-    assert [(c["company"], c["open"], c["new_today"], c["closed_today"]) for c in body["companies"]] == [
+    assert [(c["company"], c["open"], c["new"], c["closed"]) for c in body["companies"]] == [
         ("google", 21, 0, 1),
         ("stripe", 3, 3, 0),
         ("openai", 3, 1, 0),
@@ -668,6 +669,26 @@ async def test_hiring_counts_each_role_once_by_company_and_by_place(api_client, 
     # Hiring lists no roles: a role's age, reposts or updates answer no question
     # a person acts on (docs/decisions/0004-insights-answers-a-question.md).
     assert not {"longest_open", "listed_over_a_year", "most_reposted", "most_updated_open"} & set(body)
+
+@pytest.mark.asyncio
+async def test_hiring_counts_new_and_closed_over_the_same_two_days(api_client, db_session, seeded):
+    """A company's "+new −closed" is one stretch of time, the New rule's: a
+    role that came down yesterday counts as closed, one that came down four
+    days ago does not, as a role listed four days ago is not new."""
+    for key, ago in (("closed-yesterday", 1), ("closed-earlier", 4)):
+        job = _role("netflix", key, days_open=30, status="closed", closed_at=NOW - timedelta(days=ago))
+        db_session.add(job)
+        await db_session.flush()
+        db_session.add(JobLifecycleEvent(job_id=job.id, event_type="closed", detail={},
+                                         created_at=NOW - timedelta(days=ago)))
+    await db_session.commit()
+    body = await _get(api_client, ROUTES["demand"])
+    assert body["closed"] == 2  # `g-closed`, an hour ago, and closed-yesterday
+    assert [(c["company"], c["new"], c["closed"]) for c in body["companies"] if c["company"] == "netflix"] == [
+        ("netflix", 0, 1),
+    ]
+    assert sum(c["closed"] for c in body["companies"]) == body["closed"]
+
 
 @pytest.mark.asyncio
 async def test_every_insights_tab_describes_one_set_of_roles(api_client, db_session, seeded):
@@ -863,8 +884,8 @@ async def test_a_company_first_scan_is_never_new_and_ages_from_its_listed_date(a
     assert bands[14] == 1  # 2 to 4 weeks
 
     hiring = await _get(api_client, ROUTES["demand"])
-    assert hiring["new_today"] == 4  # the seed's three and acme-new, never the first scan's three
-    assert [(c["company"], c["new_today"]) for c in hiring["companies"] if c["company"] == "acme"] == [("acme", 1)]
+    assert hiring["new"] == 4  # the seed's three and acme-new, never the first scan's three
+    assert [(c["company"], c["new"]) for c in hiring["companies"] if c["company"] == "acme"] == [("acme", 1)]
 
 
 @pytest.mark.asyncio

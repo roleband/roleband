@@ -4410,10 +4410,10 @@
    },
    "DemandResponse": {
     "additionalProperties": false,
-    "description": "`GET /api/demand`, the Hiring tab: where roles are open now, by company and\nplace, and today's openings and closings.\n\nRead live from the roles Insights describes, never by summing the\n`demand_metrics` rollup, whose slices count a posting once per place group.",
+    "description": "`GET /api/demand`, the Hiring tab: where roles are open now, by company and\nplace, and the roles new and closed in the New rule's 2 days.\n\nRead live from the roles Insights describes, never by summing the\n`demand_metrics` rollup, whose slices count a posting once per place group.",
     "properties": {
-     "closed_today": {
-      "title": "Closed Today",
+     "closed": {
+      "title": "Closed",
       "type": "integer"
      },
      "companies": {
@@ -4434,8 +4434,8 @@
       ],
       "title": "Employer Dated Share"
      },
-     "new_today": {
-      "title": "New Today",
+     "new": {
+      "title": "New",
       "type": "integer"
      },
      "open_total": {
@@ -4456,8 +4456,8 @@
     },
     "required": [
      "open_total",
-     "new_today",
-     "closed_today",
+     "new",
+     "closed",
      "companies",
      "regions",
      "unplaced",
@@ -6751,16 +6751,16 @@
     "additionalProperties": false,
     "description": "One company's open roles, a place set once, and its motion.",
     "properties": {
-     "closed_today": {
-      "title": "Closed Today",
+     "closed": {
+      "title": "Closed",
       "type": "integer"
      },
      "company": {
       "title": "Company",
       "type": "string"
      },
-     "new_today": {
-      "title": "New Today",
+     "new": {
+      "title": "New",
       "type": "integer"
      },
      "open": {
@@ -6771,8 +6771,8 @@
     "required": [
      "company",
      "open",
-     "new_today",
-     "closed_today"
+     "new",
+     "closed"
     ],
     "title": "HiringCompany",
     "type": "object"
@@ -6875,6 +6875,34 @@
      "high"
     ],
     "title": "ImpliedShares",
+    "type": "object"
+   },
+   "InsightsHistoryResponse": {
+    "additionalProperties": false,
+    "description": "`GET /api/statistics/history`: when the history of the scope's companies\nstarts (`queries.insights.history_since`) and how many whole days it covers.",
+    "properties": {
+     "days": {
+      "title": "Days",
+      "type": "integer"
+     },
+     "since": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Since"
+     }
+    },
+    "required": [
+     "since",
+     "days"
+    ],
+    "title": "InsightsHistoryResponse",
     "type": "object"
    },
    "IntelligenceFitBand": {
@@ -22053,6 +22081,18 @@
      "kpis": {
       "$ref": "#/components/schemas/OverviewKpis"
      },
+     "since": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Since"
+     },
      "top_skills": {
       "items": {
        "$ref": "#/components/schemas/OverviewSkill"
@@ -22063,6 +22103,7 @@
     },
     "required": [
      "days",
+     "since",
      "kpis",
      "top_skills"
     ],
@@ -24655,10 +24696,23 @@
       },
       "title": "Posted",
       "type": "array"
+     },
+     "since": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Since"
      }
     },
     "required": [
      "days",
+     "since",
      "kpis",
      "aging",
      "posted",
@@ -31348,6 +31402,71 @@
     "summary": "Statistics Equity Validation"
    }
   },
+  "/api/statistics/history": {
+   "get": {
+    "description": "How much history the scope's companies have: when it starts and how\nmany whole days it covers. A window longer than it shows the same figures as\nall time, so the dashboard offers only the windows it covers.",
+    "operationId": "statistics_history_api_statistics_history_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "side",
+      "required": false,
+      "schema": {
+       "default": "all",
+       "enum": [
+        "all",
+        "yours",
+        "other"
+       ],
+       "title": "Side",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "family",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "items": {
+          "type": "string"
+         },
+         "type": "array"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Family"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/InsightsHistoryResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Statistics History"
+   }
+  },
   "/api/statistics/levels": {
    "get": {
     "description": "How every company with a reviewed ladder names each level, followed or\nnot, for the Levels tab. Reference data: it reads no postings, so the\nInsights scope and window do not apply. Who is followed comes from\n`/api/companies/discovery`, which the screen already reads.",
@@ -31388,7 +31507,7 @@
   },
   "/api/statistics/overview": {
    "get": {
-    "description": "Cockpit aggregate for the Statistics landing tab.\n\nKPI tiles, a short generated brief and the top skills, pulling from the demand\nand skills layers. `days<=0` means all-time; otherwise the new/closed\ncounters are scoped to the last N days of lifecycle events (so the period control\nis meaningful as history accrues).",
+    "description": "Cockpit aggregate for the Statistics landing tab.\n\nKPI tiles, a short generated brief and the top skills, pulling from the demand\nand skills layers. `days<=0` means all-time. The opened and closed counters\nstart at `since`: the window's start, or the scope's history when that is\nshorter, so nothing found before the history is counted.",
     "operationId": "statistics_overview_api_statistics_overview_get",
     "parameters": [
      {

@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { expect, test } from "./fixtures";
+import { expect, mockGet, test } from "./fixtures";
 import {
   facetsFixture,
   hiringFixture,
@@ -7,7 +7,7 @@ import {
   jobListFixture,
   levelGuideFixture,
   notificationsFixture,
-  overviewFixture,
+  historyFixture, overviewFixture,
   statsFixture,
   statusFixture,
 } from "../../src/test/fixtures";
@@ -22,6 +22,7 @@ import { showAdvancedInsights } from "./insightsView";
 
 const velocityFixture = {
   days: 30,
+  since: null,
   kpis: {
     open_total: 12, opened: 5, closed: 1, reposted: 0, first_scan: 0,
     median_days_open: 20, employer_dated_share: 0.5,
@@ -47,6 +48,7 @@ test.beforeEach(async ({ page }) => {
   await page.route("/api/jobs/*/similar**", (route) => route.fulfill({ json: { scope: "cross", items: [] } }));
   await page.route("/api/jobs?**", (route) => route.fulfill({ json: jobListFixture }));
   await page.route("/api/statistics/overview**", (route) => route.fulfill({ json: overviewFixture }));
+  await mockGet(page, "/api/statistics/history**", (route) => route.fulfill({ json: historyFixture }));
   await page.route("/api/statistics/velocity**", (route) => route.fulfill({ json: velocityFixture }));
 });
 
@@ -126,6 +128,34 @@ test("a deep link with a window lens survives reload", async ({ page }) => {
   await expect(page.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("button", { name: "90d" })).toHaveAttribute("aria-pressed", "true");
 });
+
+test("with six days of history there is no window to pick, and the figures say since when", async ({ page }) => {
+  // Every window would show the figures of all time, so none is offered, and a
+  // saved 30-day link reads the whole history and says where it starts.
+  const since = new Date(Date.now() - (6 * 24 + 6) * 3_600_000).toISOString();
+  await mockGet(page, "/api/statistics/history**", (route) => route.fulfill({ json: { since, days: 6 } }));
+  await mockGet(page, "/api/statistics/overview**", (route) =>
+    route.fulfill({ json: { ...overviewFixture, days: 0, since } }));
+  const asked = page.waitForRequest((r) => r.url().includes("/api/statistics/overview?days=0"));
+  await page.goto("/statistics/overview?window=30");
+
+  await asked;
+  const opened = page.locator(".insight-hero .kpi").filter({ hasText: msg("insights-common-opened") });
+  // The page dates the label by its own clock; the date's format is the locale's.
+  const days = await page.evaluate((start) => Math.floor((Date.now() - Date.parse(start)) / 86_400_000), since);
+  const [before, after] = msg("insights-common-since-date", { date: "\u0000", days }).split("\u0000");
+  await expect(opened).toContainText(new RegExp(`${escape(before)}.+${escape(after)}`));
+  await expect(page.getByRole("group", { name: msg("insights-statistics-view-window") })).toHaveCount(0);
+  await expect(page.locator(".insight-hero .kpi").filter({ hasText: new RegExp(`^${escape(msg("insights-common-new"))}`) })).toHaveCount(0);
+  for (const length of [0, 30]) {
+    const label = msg("insights-common-last-days-or-all-time", { period: length ? "days" : "all", days: length });
+    await expect(page.getByText(label)).toHaveCount(0);
+  }
+});
+
+function escape(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 /* Every tab opens with one hero whose eyebrow IS its tab label,
  * one level-2 figure, and two to four KPI tiles; nothing sits above it. */
