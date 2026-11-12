@@ -65,11 +65,11 @@ ai-assistants-card-allow-assistant-apps-to-update = Allow assistant apps to upda
 ai-assistants-card-stage-notes-next-action-audited = stage · notes · next step · recipe drafts · audited
 # kind=sentence
 ai-assistants-card-it-can-then-read-what = It can then read what this card lists, and nothing more.
-# kind=sentence wording=as-is
+# kind=sentence
 ai-assistants-card-run-this-once-in-a = Run this once in a terminal, then restart the app.
 # kind=sentence
 ai-assistants-card-most-apps-that-speak-mcp = Most MCP apps accept this. Add it to their MCP settings, then restart the app.
-# kind=sentence wording=as-is
+# kind=sentence
 ai-assistants-card-add-this-to-the-app = Add this to the app's settings, then restart the app.
 # kind=button wording=as-is
 ai-assistants-card-done = Done
