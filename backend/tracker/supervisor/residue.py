@@ -12,6 +12,10 @@ The preflight runs its suite with a temp root of its own (`--basetemp`), so ever
 cluster under that root is the preflight's to stop, whoever else is testing on
 this machine. A scratch database is dropped only when the process its name
 carries is gone: a suite still running elsewhere keeps its own.
+
+Cleaning up never starts a database. An embedded cluster that is down holds no
+scratch database, and the default folder can be the installed app's: a server
+started there from a checkout keeps the app from starting its own engine.
 """
 
 from __future__ import annotations
@@ -23,10 +27,14 @@ import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from sqlalchemy import text
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.ext.asyncio import create_async_engine
+
+if TYPE_CHECKING:
+    from tracker.config import Settings
 
 #: `tests/conftest.py` names each worker's scratch database after its PID.
 TEST_DATABASE = re.compile(r"roleband_test_(\d+)")
@@ -122,6 +130,15 @@ async def drop_dead_test_databases(url: URL, *, alive: Callable[[int], bool] = p
     return dropped
 
 
+def scratch_server(settings: Settings) -> URL | None:
+    """The server that holds the suites' scratch databases, or None when it is an
+    embedded cluster that is not running. Resolving an embedded URL starts its
+    server, so it is resolved only for a cluster already up."""
+    if settings.db_embedded and not settings.database_url_override and not clusters_under(settings.embedded_pgdata()):
+        return None
+    return make_url(settings.database_url)
+
+
 def clean(root: Path, url: URL | None) -> dict[str, list[str]]:
     """Stop the clusters under `root`, remove it once nothing runs there, and drop
     dead scratch databases on the server at `url` (skipped when None)."""
@@ -145,7 +162,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         from tracker.config import get_settings
 
-        url: URL | None = make_url(get_settings().database_url)
+        url = scratch_server(get_settings())
     except Exception:  # noqa: BLE001 - no server configured: only the clusters
         url = None
     outcome = clean(Path(args[0]), url)

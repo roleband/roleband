@@ -182,6 +182,7 @@ public sealed record EngineConfiguration(string Resources, string State, string 
             // Python cannot map Windows' own zone names to IANA ones, and TZ is read by the C runtime in its own
             // form, so the engine's daily slots and plans read the zone from here.
             ["ROLEBAND_LOCAL_ZONE"] = ScanControl.LocalTimezone(),
+            [EngineAlerts.Variable] = EngineAlerts.Folder(State),
         }) start.Environment[name] = value;
         if (Development || SyntheticFixture)
         {

@@ -291,6 +291,7 @@ files = [
     "tracker/platform/windows_process.py",
     "tracker/platform/windows_state.py",
     "tracker/platform/local_http.py",
+    "tracker/platform/loopback.py",
     "tracker/api/local_auth.py",
     "tracker/api/routers/local_auth.py",
     # The published datasets' one check command, and the app's pinned copy of them

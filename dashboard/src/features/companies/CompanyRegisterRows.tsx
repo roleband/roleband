@@ -81,12 +81,15 @@ function ConnectorCell({
   id,
   status,
   counts,
+  onReview,
 }: {
   company: CompanyDiscoveryCompany;
   on: boolean;
   id: string;
   status: ReturnType<CompaniesContextValue["sourceStatus"]>;
   counts: Counts;
+  /** Asks this company's agreement question. */
+  onReview: () => void;
 }) {
   const coverage = status?.coverage ?? null;
   const needsAttention = !!coverage?.rings;
@@ -97,6 +100,7 @@ function ConnectorCell({
   let label = companiesCompanyRegisterRowsPlanned();
   let warn = false;
   let title = connectorText(company);
+  let review = false;
 
   if (needsAttention && coverage) {
     dot = "is-warn";
@@ -126,10 +130,12 @@ function ConnectorCell({
     label = companiesCompanyRegisterRowsBlocked();
     warn = true;
   } else if ((company.wall !== null || company.directed) && company.enabled && !company.consented) {
-    // Followed, never agreed to: kept, and not scanned on its own.
+    // Followed, never agreed to: kept, and not scanned on its own. The
+    // label asks this company's question.
     dot = "is-warn";
     label = companiesCompanyRegisterRowsNeedsConsent();
     warn = true;
+    review = true;
   } else if (isConnectable(company)) {
     dot = company.connector_state !== "ready" ? "is-live" : "is-ready";
     label = companiesCompanyRegisterRowsLiveOrReady({ connector: company.connector_state });
@@ -177,7 +183,7 @@ function ConnectorCell({
   return (
     <span className={`ledger-state${warn ? " is-warn" : ""}`} id={id} title={title}>
       <span className={`ledger-dot ${dot}`} />
-      <span>{label}</span>
+      <span>{review ? <Button variant="link" onClick={onReview}>{label}</Button> : label}</span>
     </span>
   );
 }
@@ -398,7 +404,14 @@ const CompanyRowView = memo(function CompanyRowView({
       </span>
 
       <span className="ledger-state-cell">
-        <ConnectorCell company={company} on={on} id={stateId} status={status} counts={counts} />
+        <ConnectorCell
+          company={company}
+          on={on}
+          id={stateId}
+          status={status}
+          counts={counts}
+          onReview={() => reviewConsent(company)}
+        />
       </span>
 
       <span className="ledger-num">

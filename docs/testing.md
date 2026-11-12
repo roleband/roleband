@@ -22,7 +22,7 @@ shown, and report any check you skipped with its reason.
 | Pipeline, persistence or post-pass | The backend checks (including `tests/test_pipeline_lifecycle.py` and `tests/test_post_passes.py`); `.venv/bin/python -m tracker.daily --max-list 150 --no-hydrate -v` |
 | Dashboard component or logic (`dashboard/`) | `npm run lint`, `npm run knip`, `npm run test:unit`, `npm run build` |
 | Dashboard route or UX | The dashboard checks plus `npm run test:ux`; `ROLEBAND_UX_MODE=build npm run test:ux` before pushing (on macOS, `deploy/check_local.py ux --docker-browsers`); a run of a new spec on its own |
-| UI that reads a changed API | Start the API (`.venv/bin/uvicorn tracker.api.app:app --port 8010`) and `npm run dev`, load the changed route on `http://localhost:5173`, and check the browser console and network |
+| UI that reads a changed API | Start the API (`.venv/bin/uvicorn tracker.api.app:app --port 8010 --no-proxy-headers`) and `npm run dev`, load the changed route on `http://localhost:5173`, and check the browser console and network |
 | A dataset file (in a `roleband-data` checkout) | From `backend/`: `.venv/bin/python -m scripts.check_datasets --root ../../roleband-data`; then `scripts.data pin --try ../../roleband-data` and the backend checks; `scripts.data pin` once the data is pushed ([development.md](development.md#7-change-a-dataset)) |
 | A workflow (`.github/workflows/`) | From the root: `docker run --rm -v "$PWD:/repo:ro" -w /repo rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667`, the image CI runs (1.7.12), with its shellcheck; from `backend/`: `.venv/bin/python -m pytest tests/test_ci_workflow_*.py` |
 | User-facing text | `npm run copy:check`, and `npm run test:unit`, which fails while a translation is stale (see [copy.md](copy.md)) |
@@ -78,6 +78,12 @@ unavailable. `AboutTests` hold the update row to a check the feed answered, a fa
 to Couldn't check with Check now still offered, the choice to its pinned English words, and Start
 with Windows to Windows' own state; they also run the engine's own `update consent`, `status` and `check`
 on a throwaway folder, where a source build has no release identity and asks nothing of the feed.
+`EngineAlertTests` and `tests/test_osnotify.py` both read `launcher/windows/contracts/engine-alerts.json`:
+the engine is given the folder the app reads, an alert is shown once in the order written and its
+file is gone, a file still being written waits, a malformed, stale or undeletable one is never
+shown, a burst shows the first few, the words reach Windows as text, and macOS still posts its
+own banner. Windows notifications themselves need an installed package; a source run takes the
+alerts without showing them.
 Check generated native
 copy with `node dashboard/scripts/export-launcher-copy.mjs --windows --check`.
 Packaging tool changes run `python -m unittest discover -s launcher/windows/Tools -p "test_*.py"`:

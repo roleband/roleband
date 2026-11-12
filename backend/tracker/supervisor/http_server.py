@@ -121,6 +121,12 @@ def _release_completion_port(listener: socket.socket) -> None:
         raise OSError(f"could not detach the engine's socket from its earlier completion port (0x{status:08X})")
 
 
+def server_config(host: str, port: int) -> uvicorn.Config:
+    """The engine's server. Proxy headers stay off so the loopback boundary reads the socket's own
+    peer, never an address a request names in `X-Forwarded-For` (`tracker/supervisor/api.py`)."""
+    return uvicorn.Config("tracker.api.app:app", host=host, port=port, access_log=False, proxy_headers=False)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", default="127.0.0.1")
@@ -137,8 +143,7 @@ def main() -> None:
     listener = _received(DATA_DIR, args.host, args.port) if shared else exclusive_socket(args.host, args.port)
     with listener:
         os.environ["ROLEBAND_HTTP_EXCLUSIVE"] = "1"
-        config = uvicorn.Config("tracker.api.app:app", host=args.host, port=args.port, access_log=False)
-        uvicorn.Server(config).run(sockets=[listener])
+        uvicorn.Server(server_config(args.host, args.port)).run(sockets=[listener])
 
 
 if __name__ == "__main__":

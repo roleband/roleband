@@ -51,9 +51,16 @@ panel and first-open setup. At launch it selects placement guidance, attachment
 to a verified existing engine, a database-ownership block, a database-in-use
 block, or ownership of the packaged engine. The in-use block covers a cluster
 whose record names the app while a postgres from outside the app serves it: the
-app starts nothing, leaves that server running and offers only Quit. When such a
-server appears after the app owns the engine, the host stops retrying and waits
-in needs-attention, and Quit still finishes. Attached mode verifies `/api/status.launcher` before opening
+app starts nothing, leaves that server running and offers only Quit. Every five
+seconds it makes the launch decision again, and once that decision changes it
+starts a helper in its own session and quits. The helper waits for it to exit and
+then opens the app, which launches as from any open. The app cannot open its
+successor itself: Launch Services waits for a new copy to finish launching, and
+only one copy launches at a time. When such a server appears after the app owns the engine, the
+host stops retrying and waits in needs-attention, making the same check every
+five seconds and starting the engine once the server is gone; Quit still
+finishes. In attached mode Try again makes the launch decision again too, and a
+changed decision reopens the app the same way. Attached mode verifies `/api/status.launcher` before opening
 the browser and leaves the engine running on Quit. An explicit source-engine
 Start request requires the registered checkout, installed plist and loaded
 per-user job to match and the job to be confirmed stopped. An HTTP timeout alone
@@ -164,6 +171,18 @@ browser handoff. `backend/desktop.py` selects source or packaged resources befor
 importing configuration. Its supervisor owns PostgreSQL outside cancellable jobs
 and shuts down through a parent-only pipe. These boundaries are owned by
 [the native host decision](decisions/0004-windows-native-engine-host.md).
+
+The engine's desktop alerts (`tracker/osnotify.py`: a failed scan, a health
+condition that starts firing, a finished re-ranking) reach the screen through the
+app. On macOS the engine posts them itself. On Windows the app names a folder in
+the engine's environment (`ROLEBAND_ALERTS_DIR`, `alerts` in the state folder);
+each engine process writes one JSON file there per alert, whole and in order, and
+the app takes them on its own one-second clock, deletes them and shows each as a
+Windows notification under the package's identity. Alerts reach the app this way
+even while the API does not answer, which is one thing they report. An engine no
+app started has no folder and shows nothing; at most 20 alerts wait, and the app
+drops one older than an hour and shows at most three from one look. Both sides
+read `launcher/windows/contracts/engine-alerts.json`.
 
 `launcher/windows/Tools/assemble.py` builds a bundle from one clean commit: it
 refuses local changes, builds the dashboard itself and records the revision, so
