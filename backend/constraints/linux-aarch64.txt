@@ -168,7 +168,7 @@ pip-audit==2.10.1
     # via -r requirements-dev.txt
 pip-requirements-parser==32.0.1
     # via pip-audit
-pixeltable-pgserver==0.6.0
+pixeltable-pgserver==0.7.2
     # via -r requirements.txt
 platformdirs==4.11.3
     # via
