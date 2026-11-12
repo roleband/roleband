@@ -86,9 +86,58 @@ describe("local browser authentication", () => {
     if (failure !== "redirect") {
       expect(window.sessionStorage.getItem(storage)).toBeNull();
       await expect(localFetch("/api/read")).rejects.toThrow();
-      expect(network).toHaveBeenCalledTimes(1);
+      // A reply with no proof at all is signed once more before the tab locks; a wrong proof is not.
+      expect(network).toHaveBeenCalledTimes(failure === "missing" ? 2 : 1);
     }
     expect(network.mock.calls[0]?.[1]?.redirect).toBe("error");
+  });
+
+  it.each([
+    ["read", "GET", undefined],
+    ["write", "POST", '{"value":"café"}'],
+  ])("signs a %s refused during an API restart again, in a later second, and keeps the session", async (_case, method, body) => {
+    window.sessionStorage.setItem(storage, JSON.stringify({ key_id: keyId, secret, origin: window.location.origin }));
+    let started: number | null = null;
+    const seen: { stamp: number; nonce: string }[] = [];
+    const network = vi.fn(async (url: string, init: RequestInit) => {
+      const authorization = new Headers(init.headers).get("Authorization")!;
+      const [id, stamp, nonce, signed] = authorization.slice("RoleBand ".length).split(":");
+      expect(signed).toBe(mac(["request-v1", id, stamp, nonce, method, window.location.origin, url, digest(body ?? "")].join("\n")));
+      expect(init.body).toBe(body);
+      seen.push({ stamp: Number(stamp), nonce: nonce! });
+      // The new API process started while this request waited; it accepts only later stamps.
+      started ??= Math.floor(Date.now() / 1000);
+      if (Number(stamp) <= started) return new Response('{"detail":"locked"}', { status: 401 });
+      const reply = '{"sentinel":"account-private-history"}';
+      return new Response(reply, { headers: { "X-RoleBand-Proof": mac(`response-v1\n${authorization}\n200\n${digest(reply)}`) } });
+    });
+    vi.stubGlobal("fetch", network);
+    const { localFetch } = await import("./localAuthentication");
+    const response = await localFetch("/api/read", { method, body });
+    expect(await response.json()).toEqual({ sentinel: "account-private-history" });
+    expect(network).toHaveBeenCalledTimes(2);
+    expect(seen[1]!.stamp).toBeGreaterThan(started!);
+    expect(seen[1]!.nonce).not.toBe(seen[0]!.nonce);
+    expect(window.sessionStorage.getItem(storage)).not.toBeNull();
+    await localFetch("/api/read", { method, body });
+    expect(network).toHaveBeenCalledTimes(3);
+  });
+
+  it("locks the tab when the second signature also comes back without a proof", async () => {
+    window.sessionStorage.setItem(storage, JSON.stringify({ key_id: keyId, secret, origin: window.location.origin }));
+    const stamps: number[] = [];
+    const network = vi.fn(async (_url: string, init: RequestInit) => {
+      stamps.push(Number(new Headers(init.headers).get("Authorization")!.split(":")[1]));
+      return new Response('{"sentinel":"foreign"}', { status: 401 });
+    });
+    vi.stubGlobal("fetch", network);
+    const { localFetch, LocalAuthenticationError } = await import("./localAuthentication");
+    await expect(localFetch("/api/read")).rejects.toBeInstanceOf(LocalAuthenticationError);
+    expect(network).toHaveBeenCalledTimes(2);
+    expect(stamps[1]).toBeGreaterThan(stamps[0]!);
+    expect(window.sessionStorage.getItem(storage)).toBeNull();
+    await expect(localFetch("/api/read")).rejects.toBeInstanceOf(LocalAuthenticationError);
+    expect(network).toHaveBeenCalledTimes(2);
   });
 
   it("refuses to send credentials to another origin", async () => {

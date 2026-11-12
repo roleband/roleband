@@ -437,12 +437,79 @@ def test_an_api_restart_keeps_the_engines_browser_address_and_sessions(tmp_path,
     try:
         assert second.endpoint == first.endpoint
         assert second.secret != first.secret, "the control key is still each API process's own"
+        monkeypatch.setattr(local_http.time, "time", lambda: now + 3)
         _browser_request(second, browser)
         # The new process has no memory of the nonces the first one accepted.
         with pytest.raises(AuthenticationError):
             second.authenticate(captured, "GET", "/api/read", b"")
     finally:
         second.close()
+
+
+def test_a_signature_the_previous_api_process_accepted_in_its_last_second_is_refused(tmp_path, monkeypatch):
+    """The new process may start in the second a signature was stamped and accepted by the old one;
+    a browser session signs again in a later second instead."""
+    data = tmp_path / "state"
+    local_http.begin_engine_session(data)
+    now = float(int(time.time())) + 0.25
+    monkeypatch.setattr(local_http.time, "time", lambda: now)
+    first = Authority(data, "http://127.0.0.1:58329", engine_session=True)
+    try:
+        browser = _browser(first)
+        captured = authorization(browser["secret"], browser["key_id"], "GET", "/api/read", first.endpoint)
+        first.authenticate(captured, "GET", "/api/read", b"")
+    finally:
+        first.close()
+    monkeypatch.setattr(local_http.time, "time", lambda: now + 0.5)
+    second = Authority(data, "http://127.0.0.1:58329", engine_session=True)
+    try:
+        with pytest.raises(AuthenticationError):
+            second.authenticate(captured, "GET", "/api/read", b"")
+        with pytest.raises(AuthenticationError):
+            _browser_request(second, browser)
+        monkeypatch.setattr(local_http.time, "time", lambda: now + 1)
+        _browser_request(second, browser)
+    finally:
+        second.close()
+
+
+def test_a_clock_step_that_cannot_publish_its_new_key_refuses_the_request_and_keeps_the_old_key(tmp_path, monkeypatch):
+    data = tmp_path / "state"
+    authority = Authority(data, "http://127.0.0.1:58329")
+    try:
+        before = Client(data).secret
+        now = time.time()
+
+        def unwritable(path, payload):
+            raise PermissionError("discovery is not writable")
+
+        monkeypatch.setattr(local_http, "_write", unwritable)
+        monkeypatch.setattr(local_http.time, "time", lambda: now - 600)
+        signed_now = authorization(before, "control", "GET", "/api/read", authority.endpoint)
+        with pytest.raises(AuthenticationError):
+            authority.authenticate(signed_now, "GET", "/api/read", b"")
+        assert authority.secret == before == Client(data).secret
+    finally:
+        monkeypatch.undo()
+        authority.close()
+
+
+@pytest.mark.asyncio
+async def test_a_clock_step_that_cannot_publish_its_new_key_answers_401_not_500(engine, monkeypatch):
+    app, authority, touched = engine
+    now = time.time()
+
+    def unwritable(path, payload):
+        raise PermissionError("discovery is not writable")
+
+    monkeypatch.setattr(local_http, "_write", unwritable)
+    monkeypatch.setattr(local_http.time, "time", lambda: now - 600)
+    async with AsyncClient(transport=ASGITransport(app=app, raise_app_exceptions=False),
+                           base_url=authority.endpoint) as client:
+        response = await client.get("/api/read", headers=signed(authority, "GET", "/api/read"))
+    assert response.status_code == 401
+    assert PROOF_HEADER not in response.headers
+    assert touched == []
 
 
 def test_a_new_engine_starts_a_new_browser_address_without_old_sessions(tmp_path):

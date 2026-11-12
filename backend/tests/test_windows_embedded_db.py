@@ -192,24 +192,86 @@ def test_non_latin_storage_paths_start_query_and_stop(tmp_path, monkeypatch, cop
         destroy(server.pgdata)
 
 
-def test_failed_initialization_preserves_credentials_and_removes_transient_password(tmp_path, monkeypatch):
+def test_a_first_setup_whose_initdb_failed_is_kept_aside_and_the_next_start_begins_again(tmp_path, monkeypatch):
     run = subprocess.run
 
     def fail_initdb(argv, **kwargs):
         if Path(argv[0]).name == "initdb.exe":
+            (pgdata / "half-made").write_text("left by initdb", encoding="utf-8")
             return subprocess.CompletedProcess(argv, 1)
         return run(argv, **kwargs)
 
+    pgdata = tmp_path / "first-setup" / "db"
+    auth = pgdata.parent / "db.auth"
     monkeypatch.setattr(subprocess, "run", fail_initdb)
-    pgdata = tmp_path / "invalid-locale"
     with pytest.raises(EmbeddedDbError, match="initdb failed"):
         ensure_server(pgdata, database="probe")
-    auth = tmp_path / "invalid-locale.auth"
-    saved = (auth / "pgpass.conf").read_bytes()
+    abandoned = (auth / "pgpass.conf").read_bytes()
     assert not (auth / "initdb-password").exists()
-    with pytest.raises(EmbeddedDbError, match="recover|incomplete"):
+    assert not (auth / "cluster.json").exists()
+    monkeypatch.setattr(subprocess, "run", run)
+    server = ensure_server(pgdata, database="probe")
+    try:
+        assert psql(server, "SELECT 1") == "1"
+        assert (auth / "cluster.json").exists()
+        assert (auth / "pgpass.conf").read_bytes() != abandoned
+        [kept_password] = auth.glob("pgpass.conf.unfinished-*")
+        assert kept_password.read_bytes() == abandoned
+        [kept_folder] = pgdata.parent.glob("db.unfinished-*")
+        assert (kept_folder / "half-made").read_text(encoding="utf-8") == "left by initdb"
+        assert kept_password.name.removeprefix("pgpass.conf.") == kept_folder.name.removeprefix("db.")
+    finally:
+        destroy(server.pgdata)
+
+
+class Interrupted(BaseException):
+    """The person quits while setup runs."""
+
+
+def test_a_first_setup_stopped_after_initdb_but_before_its_record_is_kept_aside(tmp_path, monkeypatch):
+    from tracker.platform import windows_storage
+
+    def interrupted(*args, **kwargs):
+        raise Interrupted
+
+    pgdata = tmp_path / "first-setup" / "db"
+    auth = pgdata.parent / "db.auth"
+    recorded = windows_storage.metadata
+    monkeypatch.setattr(windows_storage, "metadata", interrupted)
+    with pytest.raises(Interrupted):
         ensure_server(pgdata, database="probe")
-    assert (auth / "pgpass.conf").read_bytes() == saved
+    assert (pgdata / "PG_VERSION").exists()
+    assert not (auth / "cluster.json").exists()
+    monkeypatch.setattr(windows_storage, "metadata", recorded)
+    server = ensure_server(pgdata, database="probe")
+    try:
+        assert psql(server, "SELECT 1") == "1"
+        [kept_folder] = pgdata.parent.glob("db.unfinished-*")
+        assert (kept_folder / "PG_VERSION").exists()
+        assert len(list(auth.glob("pgpass.conf.unfinished-*"))) == 1
+    finally:
+        destroy(server.pgdata)
+
+
+def test_a_finished_cluster_whose_data_folder_is_missing_is_still_refused(tmp_path):
+    pgdata = tmp_path / "finished" / "db"
+    auth = pgdata.parent / "db.auth"
+    server = ensure_server(pgdata, database="probe")
+    assert stop_server(server.pgdata)
+    password = (auth / "pgpass.conf").read_bytes()
+    moved = pgdata.with_name("db.elsewhere")
+    pgdata.rename(moved)
+    try:
+        with pytest.raises(EmbeddedDbError, match="recover the original cluster"):
+            ensure_server(pgdata, database="probe")
+        assert (auth / "pgpass.conf").read_bytes() == password
+        assert not list(auth.glob("*.unfinished-*"))
+        assert not list(pgdata.parent.glob("db.unfinished-*"))
+    finally:
+        if pgdata.exists() and not any(pgdata.iterdir()):
+            pgdata.rmdir()
+        moved.rename(pgdata)
+        destroy(pgdata)
 
 
 def test_existing_trust_cluster_is_refused_without_rewriting_its_files(server):
