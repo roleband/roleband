@@ -336,8 +336,10 @@ and creates no schema, provisions no model and never targets a source
 installation.
 
 Before each spawn the host binds the engine's port as the engine's server does
-(127.0.0.1, `SO_REUSEADDR`) and lets go. A port another program listens on ends
-the start with `portInUse` rather than an engine that cannot listen. Like a
+(127.0.0.1, `SO_REUSEADDR`) and lets go. When a listener refuses that bind, the
+start ends with `portInUse` rather than an engine that cannot listen. A listener
+on 127.0.0.1 refuses it; one on ::1, or one of this account on every address,
+shares the port number only and leaves the bind free. Like a
 database another program holds, the port is looked at again every few seconds
 and the engine starts once it is free. The host names the program when it runs under this account (the kernel
 shows no other account's sockets) and offers the first free port after it.
