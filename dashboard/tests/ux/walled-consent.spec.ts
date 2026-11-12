@@ -6,6 +6,7 @@
    answers. DeepMind is added to the shared register fixture here, followed and
    unconsented, the state a real install is in after the upgrade. */
 
+import { msg } from "../../src/test/msg";
 import { expect, test } from "./fixtures";
 import { companyDiscovery, installSettingsRoutes } from "./settingsHarness";
 
@@ -40,23 +41,23 @@ test("a walled company waiting for consent is named, and Review records the word
   await expect(strip).toContainText("1 followed company waits for your consent");
   await expect(page.getByRole("region", { name: "AI", exact: true }).getByText("Needs consent")).toBeVisible();
 
-  await strip.getByRole("button", { name: "Review", exact: true }).click();
-  const ask = page.getByRole("dialog", { name: "Keep following Google DeepMind?" });
+  await strip.getByRole("button", { name: msg("companies-register-chrome-review"), exact: true }).click();
+  const ask = page.getByRole("dialog", { name: msg("companies-follow-copy-keep-following-one", { display: "Google DeepMind" }) });
   // The consent wording, spelled out: it is the text a user agrees to and the
   // text counsel reads, so a change to it must be deliberate enough to change
   // this line too.
   await expect(ask.locator("p")).toHaveText([
-    "Its careers site changed how it can be read. Until you answer, it isn't scanned.",
+    msg("companies-follow-copy-sites-changed", { count: 1 }),
     "Its careers site limits automated collection.",
     "By following, you choose to collect Google DeepMind's public postings. Unfollow at any time to stop.",
   ]);
   // The safe answer holds focus: Enter on the fresh dialog consents to nothing.
-  await expect(ask.getByRole("button", { name: "Not now" })).toBeFocused();
+  await expect(ask.getByRole("button", { name: msg("companies-follow-copy-not-now") })).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(ask).toBeHidden();
   expect(writes).toEqual([]);
 
-  await strip.getByRole("button", { name: "Review", exact: true }).click();
+  await strip.getByRole("button", { name: msg("companies-register-chrome-review"), exact: true }).click();
   const heading = await ask.getByRole("heading").innerText();
   const paragraphs = await ask.locator("p").allInnerTexts();
   const shown = [heading, ...paragraphs].join("\n\n");
@@ -66,7 +67,7 @@ test("a walled company waiting for consent is named, and Review records the word
   const buttons = await ask.getByRole("button").allInnerTexts();
   const everything = (await ask.innerText()).replace(/\s+/g, " ").trim();
   expect(everything).toBe([heading, ...paragraphs, ...buttons].join(" ").replace(/\s+/g, " ").trim());
-  await ask.getByRole("button", { name: "Keep following", exact: true }).click();
+  await ask.getByRole("button", { name: msg("companies-follow-copy-keep-following"), exact: true }).click();
 
   await expect.poll(() => writes.length).toBe(1);
   expect(writes[0].follow).toEqual(["google-deepmind"]);
@@ -124,9 +125,10 @@ test("a Spanish confirmation submits its displayed wording and language together
   const ask=page.getByRole("dialog");
   const heading=await ask.getByRole("heading").innerText();
   expect(heading).toContain("Google DeepMind");
-  expect(heading).not.toBe("Keep following Google DeepMind?");
+  expect(heading).not.toBe(msg("companies-follow-copy-keep-following-one", { display: "Google DeepMind" }));
   const shown=[heading,...await ask.locator("p").allInnerTexts()].join("\n\n");
   expect(shown).toContain("Its careers site limits automated collection.");
+  // The Spanish answer, by its Spanish name: msg() reads English.
   await ask.getByRole("button",{name:"Seguir siguiendo",exact:true}).click();
   await expect.poll(()=>writes.length).toBe(1);
   expect(writes[0].consents).toEqual([{ slug: "google-deepmind", text: shown, locale: "es", scan_on_schedule: true }]);
@@ -157,32 +159,36 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 760 
     await page.goto("/settings/companies");
 
     const strip = page.getByRole("region", { name: "Companies needing attention" });
-    await expect(strip).toContainText("40 followed companies wait for your consent");
+    await expect(strip).toContainText(msg("companies-register-chrome-followed-companies-wait-for-your", { count: 40 }));
     await expect(strip.getByRole("button")).toHaveCount(1);
-    await strip.getByRole("button", { name: "Review", exact: true }).click();
+    await strip.getByRole("button", { name: msg("companies-register-chrome-review"), exact: true }).click();
 
-    const ask = page.getByRole("dialog", { name: "Keep following Waiting 00, Waiting 01 and 38 more?" });
-    await expect(ask.getByRole("button", { name: "Not now" })).toBeFocused();
-    await ask.getByRole("button", { name: "Let me choose" }).click();
+    const ask = page.getByRole("dialog", {
+      name: msg("companies-follow-copy-keep-following-these", { first: "Waiting 00", second: "Waiting 01", rest: 38 }),
+    });
+    await expect(ask.getByRole("button", { name: msg("companies-follow-copy-not-now") })).toBeFocused();
+    await ask.getByRole("button", { name: msg("companies-follow-copy-let-me-choose") }).click();
 
-    const choose = page.getByRole("dialog", { name: "Which companies to unfollow?" });
-    const list = choose.getByRole("group", { name: "Companies to unfollow" });
+    const choose = page.getByRole("dialog", { name: msg("companies-follow-copy-which-to-unfollow") });
+    const list = choose.getByRole("group", { name: msg("companies-follow-copy-companies-to-unfollow") });
     await expect(list.getByRole("checkbox")).toHaveCount(40);
     // The list scrolls, not the page: every row is there, the frame is shorter.
     const frame = await list.evaluate((node) => ({ scroll: node.scrollHeight, client: node.clientHeight }));
     expect(frame.scroll).toBeGreaterThan(frame.client);
-    const answer = choose.getByRole("button", { name: "Keep following 40" });
+    const answer = choose.getByRole("button", { name: msg("companies-follow-copy-keep-following-count", { count: 40 }) });
     await expect(answer).toBeInViewport();
-    await expect(choose.getByRole("button", { name: "Back" })).toBeFocused();
+    await expect(choose.getByRole("button", { name: msg("companies-setup-back") })).toBeFocused();
 
     await list.getByRole("checkbox", { name: "Waiting 39" }).click();
-    await expect(choose.getByText("1 to unfollow")).toBeVisible();
-    await choose.getByRole("button", { name: "Keep following 39" }).click();
+    await expect(choose.getByText(msg("companies-follow-copy-count-to-unfollow", { count: 1 }))).toBeVisible();
+    await choose.getByRole("button", { name: msg("companies-follow-copy-keep-following-count", { count: 39 }) }).click();
 
     await expect.poll(() => writes.length).toBe(1);
     expect(writes[0].unfollow).toEqual(["waiting-39"]);
     expect(writes[0].follow).toHaveLength(39);
     expect(writes[0].consents.map((consent) => consent.slug)).toEqual(writes[0].follow);
-    await expect(page.getByText("Following 39 companies. Stopped following 1 company.")).toBeVisible();
+    await expect(page.getByText(
+      `${msg("companies-data-review-kept", { count: 39 })} ${msg("companies-data-review-dropped", { count: 1 })}`,
+    )).toBeVisible();
   });
 }

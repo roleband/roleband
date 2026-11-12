@@ -1,4 +1,5 @@
 import { activate } from "../../copy/activate";
+import { msg } from "../../test/msg";
 import { wordsLanguage } from "../../copy/runtime";
 import { describe, expect, it } from "vitest";
 import type { CompanyDiscoveryCompany } from "../../api";
@@ -227,29 +228,28 @@ describe("followed companies that wait for an answer", () => {
     company({ slug, display, directed: true, tracked: true, enabled: true, ...over });
   const many = Array.from({ length: 40 }, (_, index) =>
     waiting(`co-${String(index).padStart(2, "0")}`, `Company ${String(index).padStart(2, "0")}`));
-  const CHANGED = "Their careers sites changed how they can be read. Until you answer, they aren't scanned.";
+  const CHANGED = msg("companies-follow-copy-sites-changed", { count: 40 });
+  const TITLE = msg("companies-follow-copy-keep-following-these", { first: "Company 00", second: "Company 01", rest: 38 });
 
   it("asks one question for forty, naming two, with the bulk agreement said once", () => {
     const copy = followCopy({ kind: "keep-following", companies: many });
     expect(copy).toEqual({
-      title: "Keep following Company 00, Company 01 and 38 more?",
+      title: TITLE,
       paragraphs: [CHANGED],
       consent: { facts: [{ site: "directed", text: SOME_DIRECTED }], choice: BY_FOLLOWING },
-      choose: "Let me choose",
-      safe: "Not now",
-      act: "Keep following 40",
-      keepScanning: "Keep scanning these companies",
+      choose: msg("companies-follow-copy-let-me-choose"),
+      safe: msg("companies-follow-copy-not-now"),
+      act: msg("companies-follow-copy-keep-following-count", { count: 40 }),
+      keepScanning: msg("companies-follow-copy-keep-scanning", { count: 40 }),
     });
     // The link is a control: the agreement never records it.
-    expect(agreementText(copy)).toBe(
-      ["Keep following Company 00, Company 01 and 38 more?", CHANGED, SOME_DIRECTED, BY_FOLLOWING].join("\n\n"),
-    );
+    expect(agreementText(copy)).toBe([TITLE, CHANGED, SOME_DIRECTED, BY_FOLLOWING].join("\n\n"));
   });
 
   it("names both when there are two, and states each kind of site once", () => {
     const walled = waiting("deepmind", "DeepMind", { directed: false, wall: "robots" });
     const copy = followCopy({ kind: "keep-following", companies: [walled, many[0]] });
-    expect(copy.title).toBe("Keep following DeepMind and Company 00?");
+    expect(copy.title).toBe(msg("companies-follow-copy-keep-following-these", { first: "DeepMind", second: "Company 00", rest: 0 }));
     expect(copy.consent?.facts.map((fact) => fact.site)).toEqual(["walled", "directed"]);
     expect(shownSentences(copy).filter((line) => line.includes("choose to collect"))).toEqual([BY_FOLLOWING]);
   });
@@ -258,15 +258,15 @@ describe("followed companies that wait for an answer", () => {
     const snyk = waiting("snyk", "Snyk");
     const copy = followCopy({ kind: "keep-following", companies: [snyk] });
     expect(copy).toEqual({
-      title: "Keep following Snyk?",
-      paragraphs: ["Its careers site changed how it can be read. Until you answer, it isn't scanned."],
+      title: msg("companies-follow-copy-keep-following-one", { display: "Snyk" }),
+      paragraphs: [msg("companies-follow-copy-sites-changed", { count: 1 })],
       consent: {
         facts: [{ site: "directed", text: "Its careers site is scanned only at your direction." }],
         choice: "By following, you choose to collect Snyk's public postings. Unfollow at any time to stop.",
       },
-      safe: "Not now",
-      act: "Keep following",
-      keepScanning: "Keep scanning this company",
+      safe: msg("companies-follow-copy-not-now"),
+      act: msg("companies-follow-copy-keep-following"),
+      keepScanning: msg("companies-follow-copy-keep-scanning", { count: 1 }),
     });
   });
 
@@ -277,7 +277,8 @@ describe("followed companies that wait for an answer", () => {
     const unfollow = new Set(["co-03", "co-17", "co-39"]);
     const agreed = consentsFor(pending, { copy, locale: "en", keepScanning: false, unfollow });
     expect(agreed).toHaveLength(37);
-    expect(agreed.map((consent) => consent.slug)).not.toEqual(expect.arrayContaining(["co-03", "co-17", "co-39"]));
+    const slugs = agreed.map((consent) => consent.slug);
+    for (const slug of unfollow) expect(slugs).not.toContain(slug);
     expect(new Set(agreed.map((consent) => consent.text))).toEqual(new Set([text]));
     expect(agreed.every((consent) => consent.scan_on_schedule === false)).toBe(true);
     // Every one ticked: nothing is agreed to.

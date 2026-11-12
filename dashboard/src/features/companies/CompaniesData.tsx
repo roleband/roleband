@@ -954,7 +954,11 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
       // for the ones ticked, so a failure leaves every one of them waiting.
       const dropped = pending.companies.filter((company) => shown.unfollow?.has(company.slug));
       const kept = pending.companies.length - dropped.length;
+      // Named both ways, not read from `chosen`: a kept company is followed
+      // by this write even if another write let it go meanwhile, since the
+      // server refuses an agreement for a company the selection drops.
       const next = new Set(chosen);
+      for (const company of pending.companies) next.add(company.slug);
       for (const company of dropped) next.delete(company.slug);
       void commit({
         next,
