@@ -19,6 +19,12 @@ import {
   companiesFollowCopyHundredsOfRoles,
   companiesFollowCopyKeep,
   companiesFollowCopyKeepFollowing,
+  companiesFollowCopyKeepFollowingCount,
+  companiesFollowCopyKeepFollowingOne,
+  companiesFollowCopyKeepFollowingThese,
+  companiesFollowCopyLetMeChoose,
+  companiesFollowCopyNotNow,
+  companiesFollowCopySitesChanged,
   companiesFollowCopyKeepScanning,
   companiesFollowCopyMoreRoles,
   companiesFollowCopyRolebandScansTheBestKnown,
@@ -74,6 +80,11 @@ export type FollowConfirmation =
    *  it, which is not scanned on its own until the user answers. */
   | { kind: "agree-follow"; company: CompanyDiscoveryCompany }
   | { kind: "walled-unfollow"; company: CompanyDiscoveryCompany }
+  /** Companies already followed that wait for the user's agreement (the
+   *  site's rules changed, or the company moved its site): one question for
+   *  all of them, in name order. Agreeing keeps them followed and scanned;
+   *  the ones the user ticks in "Let me choose" are unfollowed instead. */
+  | { kind: "keep-following"; companies: CompanyDiscoveryCompany[] }
   /** Follow every other company RoleBand can scan, as one decision. */
   | { kind: "directory"; size: number }
   /** Setup's "Plus other companies": every listed company still unfollowed
@@ -90,6 +101,9 @@ export interface FollowCopy {
   consent?: { facts: ConsentFact[]; choice: string };
   /** A quiet line above the answers. */
   note?: string;
+  /** The link to a second step that picks companies one by one. A control,
+   *  not a sentence: the agreement never records it. */
+  choose?: string;
   /** The safe answer. It takes focus. */
   safe: string;
   act: string;
@@ -237,6 +251,37 @@ export function followCopy(pending: FollowConfirmation): FollowCopy {
         act: companiesFollowCopyFollowEveryCompany(),
       };
     }
+    case "keep-following": {
+      const { companies } = pending;
+      const count = companies.length;
+      if (count === 1) {
+        const [company] = companies;
+        const agreement = agreementCopy({
+          display: company.display,
+          walled: company.wall !== null,
+          directed: company.directed,
+        });
+        return {
+          ...agreement,
+          title: companiesFollowCopyKeepFollowingOne({ display: String(company.display) }),
+          paragraphs: [companiesFollowCopySitesChanged({ count })],
+          safe: companiesFollowCopyNotNow(),
+          act: companiesFollowCopyKeepFollowing(),
+        };
+      }
+      return {
+        title: companiesFollowCopyKeepFollowingThese({
+          first: String(companies[0].display),
+          second: String(companies[1].display),
+          rest: count - 2,
+        }),
+        paragraphs: [companiesFollowCopySitesChanged({ count })],
+        ...bulkConsent(companies, companiesFollowCopyByFollowingThem),
+        choose: companiesFollowCopyLetMeChoose(),
+        safe: companiesFollowCopyNotNow(),
+        act: companiesFollowCopyKeepFollowingCount({ count }),
+      };
+    }
     case "walled-unfollow": {
       const { display } = pending.company;
       return {
@@ -251,12 +296,14 @@ export function followCopy(pending: FollowConfirmation): FollowCopy {
   }
 }
 
-/** What the reader answered: the words shown, their language, and the Keep
- *  scanning checkbox (ignored when the dialog had none). */
+/** What the reader answered: the words shown, their language, the Keep
+ *  scanning checkbox (ignored when the dialog had none), and the companies
+ *  ticked to unfollow in "Let me choose", which no agreement covers. */
 export interface FollowAnswer {
   copy: FollowCopy;
   locale: string;
   keepScanning: boolean;
+  unfollow?: ReadonlySet<string>;
 }
 
 /** Every sentence the dialog shows, in the order it shows them: the
@@ -286,7 +333,9 @@ export function consentsFor(pending: FollowConfirmation, shown: FollowAnswer = {
       ? [pending.company]
       : pending.kind === "include" || pending.kind === "sector" || pending.kind === "everything"
         ? awaitingConsent(pending.companies)
-        : [];
+        : pending.kind === "keep-following"
+          ? awaitingConsent(pending.companies).filter((company) => !shown.unfollow?.has(company.slug))
+          : [];
   return agreeing.map((company) => ({
     slug: company.slug,
     text,

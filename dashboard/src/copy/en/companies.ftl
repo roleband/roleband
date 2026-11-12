@@ -166,6 +166,18 @@ companies-data-reads-waiting = { $count ->
     [one] Its first scan waits until its job site can be scanned again.
    *[other] Their first scans wait until their job site can be scanned again.
 }
+# kind=toast note="After answering the review of followed companies that wait for consent: how many are still followed"
+companies-data-review-kept = { $count ->
+    [one] Following { $count } company.
+   *[other] Following { $count } companies.
+}
+# kind=toast note="After answering the review of followed companies that wait for consent: how many the person chose to unfollow"
+companies-data-review-dropped = { $count ->
+    [one] Stopped following { $count } company.
+   *[other] Stopped following { $count } companies.
+}
+# kind=error next=none note="The first sentence of a failure: why it failed follows, from the failure's code, or Try again. when nothing explains it"
+companies-data-review-failed = Couldn't save your answer. Nothing changed.
 # kind=sentence
 companies-data-company-added-to-your-roster = Company added to Followed companies.
 
@@ -335,8 +347,8 @@ companies-register-chrome-roleband-doesn-t-scan-them = { $count ->
     [one] It isn't scanned until you answer.
    *[other] They aren't scanned until you answer.
 }
-# kind=button wording=as-is
-companies-register-chrome-review = Review { $display }
+# kind=button note="Opens one question for every followed company that waits for consent"
+companies-register-chrome-review = Review
 # kind=label wording=as-is
 companies-register-chrome-companies-failed-the-last-scan = { $count ->
     [one] { $count } company failed the last scan
@@ -459,6 +471,37 @@ companies-follow-copy-roleband-stops-scanning-them-your = { $count ->
 }
 # kind=label wording=as-is
 companies-follow-copy-keep-following = Keep following
+# kind=heading note="Title of the question for followed companies that wait for consent. $rest counts the ones not named"
+companies-follow-copy-keep-following-these = { $rest ->
+    [0] Keep following { $first } and { $second }?
+   *[other] Keep following { $first }, { $second } and { $rest } more?
+}
+# kind=heading
+companies-follow-copy-keep-following-one = Keep following { $display }?
+# kind=sentence note="Why followed companies wait: their careers sites changed how they can be read, and they stay unscanned until the person answers"
+companies-follow-copy-sites-changed = { $count ->
+    [one] Its careers site changed how it can be read. Until you answer, it isn't scanned.
+   *[other] Their careers sites changed how they can be read. Until you answer, they aren't scanned.
+}
+# kind=button
+companies-follow-copy-not-now = Not now
+# kind=button note="Agrees for every company in the question; $count is how many stay followed"
+companies-follow-copy-keep-following-count = Keep following { $count }
+# kind=link note="Opens a list to pick which of the waiting companies to unfollow"
+companies-follow-copy-let-me-choose = Let me choose
+# kind=heading
+companies-follow-copy-which-to-unfollow = Which companies to unfollow?
+# kind=label
+companies-follow-copy-find-a-company = Find a company
+# kind=link note="$state is all when every company shown is ticked"
+companies-follow-copy-select-all = { $state ->
+    [all] Clear all
+   *[some] Select all
+}
+# kind=aria
+companies-follow-copy-companies-to-unfollow = Companies to unfollow
+# kind=status
+companies-follow-copy-count-to-unfollow = { $count } to unfollow
 # kind=label wording=as-is
 companies-follow-copy-unfollow = Unfollow { $count }
 # kind=tooltip wording=as-is

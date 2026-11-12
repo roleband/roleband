@@ -62,3 +62,97 @@
   color: var(--app-text-muted);
   font-size: var(--app-type-meta);
 }
+
+/* "Let me choose": the search and Select all on one line, the list under
+ * them. `.ledger-form > div` (0-1-1) would make each a tight grid. */
+.ledger-form > .ledger-choose-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-3);
+}
+
+/* The search field's wrapper is a <label>: it keeps its own type, not the
+ * uppercase field label `.ledger-form label` (0-1-1) gives the form's. */
+.ledger-form .ledger-choose-search.ui-search {
+  flex: 1 1 auto;
+  color: var(--app-text-muted);
+  font-family: var(--app-font-sans);
+  font-size: var(--app-type-body);
+  font-weight: normal;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+/* The input inside is bare text: the wrapper is the field. Beats the form's
+ * text-control box, `.ledger-form input:not(...):not(...)` (0-3-1). */
+.ledger-form .ledger-choose-search.ui-search input.ui-search-input {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.ledger-choose-tools .ui-btn-link {
+  font-size: var(--app-type-meta);
+  white-space: nowrap;
+}
+
+/* About nine names at once; the rest scroll inside the frame, so the
+ * answers stay on screen at any count. */
+.ledger-form > .ledger-choose-list {
+  display: block;
+  max-height: calc(9 * 2.75rem);
+  overflow-y: auto;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-md);
+}
+
+/* A row is the hit target. Beats `.ledger-form label` (0-1-1). */
+.ledger-form .ledger-choose-row {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-3);
+  padding: var(--app-space-2) var(--app-space-3);
+  color: var(--app-text);
+  font-family: var(--app-font-sans);
+  font-size: var(--app-type-body);
+  font-weight: normal;
+  letter-spacing: normal;
+  line-height: 1.5;
+  text-transform: none;
+}
+
+/* The row is the checkbox's hit target (a <label>), so it answers the
+ * pointer, as the usage question's groups do. */
+label.ledger-choose-row {
+  cursor: pointer;
+}
+
+.ledger-choose-row + .ledger-choose-row {
+  border-top: 1px solid var(--app-border);
+}
+
+.ledger-form .ledger-choose-row:hover {
+  background: var(--app-surface-hover);
+}
+
+/* A ticked company is CHOSEN: wash and name, as the usage question's
+ * groups are. */
+.ledger-form .ledger-choose-row:has(> input:checked) {
+  background: var(--app-chosen-wash);
+  color: var(--app-chosen-text);
+}
+
+.ledger-choose-row input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--app-action);
+}
+
+.ledger-confirm .ledger-choose-count {
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
