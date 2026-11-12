@@ -177,8 +177,10 @@ with `WM_ENDSESSION`, at sign-out and when it installs a new version of the pack
 while the app runs. A window that only agrees stays open, and Windows waits about
 thirty seconds before it terminates the process and records a hang, so the app quits
 on the confirmation (`SessionEnd` in the host library), as Quit does: it stops the
-engine and closes, even when the engine has not confirmed its stop, since Windows
-ends what is left of the package itself.
+engine and closes. Once Windows has confirmed, including during a Quit already under
+way, the app waits for the engine at most fifteen seconds and closes even when the
+engine has not confirmed its stop; the engine's supervisor stops by itself when the
+app's process is gone, and Windows ends what is left of the package.
 
 The engine's desktop alerts (`tracker/osnotify.py`: a failed scan, a health
 condition that starts firing, a finished re-ranking) reach the screen through the

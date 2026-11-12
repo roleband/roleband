@@ -7,7 +7,8 @@ namespace RoleBand.EngineHost.Tests;
 /// <summary>
 /// Windows ends the app by sending its windows WM_QUERYENDSESSION and then WM_ENDSESSION, at sign-out and when it installs
 /// a new version of the package. These tests send the same messages to a real top-level window running its own message
-/// loop, as the app's flyout does, and hold the app to closing only once Windows confirms the end.
+/// loop, as the app's flyout does, and hold the app to closing only once Windows confirms the end, and then within its
+/// patience even when the engine has not stopped.
 /// </summary>
 [TestClass]
 public sealed class SessionEndTests
@@ -64,6 +65,59 @@ public sealed class SessionEndTests
         Assert.AreEqual(0, endings);
     }
 
+    [TestMethod]
+    public void AnEngineThatDidNotStopKeepsAnOrdinaryQuitOpenButNotWindowsEnd()
+    {
+        using var window = new WindowThread();
+        window.Attach(() => { });
+
+        Assert.IsTrue(window.Listener.Closes(engineStillRunning: false));
+        Assert.IsFalse(window.Listener.Closes(engineStillRunning: true), "Quit keeps the app open to say the engine did not stop");
+        window.Send(SessionEnd.EndSession, 1, SessionEnd.CloseApp);
+        Assert.IsTrue(window.Listener.Closes(engineStillRunning: true), "Windows is ending the app; it closes regardless");
+    }
+
+    [TestMethod]
+    public async Task AnOrdinaryQuitWaitsForTheEngineToStop()
+    {
+        using var window = new WindowThread(patience: TimeSpan.FromMilliseconds(100));
+        window.Attach(() => { });
+        var stop = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var waiting = window.Listener.AwaitStopAsync(stop.Task);
+        await Task.Delay(500);
+        Assert.IsFalse(waiting.IsCompleted, "without Windows ending the app, nothing cuts the engine's stop short");
+        stop.SetResult();
+        await waiting.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [TestMethod]
+    public async Task WindowsEndingTheAppBoundsAQuitAlreadyWaitingForTheEngine()
+    {
+        using var window = new WindowThread(patience: TimeSpan.FromMilliseconds(200));
+        window.Attach(() => { });
+        var stop = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var waiting = window.Listener.AwaitStopAsync(stop.Task);
+        await Task.Delay(100);
+        Assert.IsFalse(waiting.IsCompleted);
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        window.Send(SessionEnd.EndSession, 1, SessionEnd.CloseApp);
+        await waiting.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.IsTrue(clock.Elapsed >= TimeSpan.FromMilliseconds(150), "the engine still gets the patience to stop cleanly");
+        Assert.IsFalse(stop.Task.IsCompleted, "the quit went on without the engine's stop");
+    }
+
+    [TestMethod]
+    public async Task AFailedStopStillReportsItsErrorWhenItEndsFirst()
+    {
+        using var window = new WindowThread();
+        window.Attach(() => { });
+
+        await Assert.ThrowsExactlyAsync<IOException>(() =>
+            window.Listener.AwaitStopAsync(Task.FromException(new IOException("The engine did not stop."))));
+    }
+
     /// <summary>A hidden top-level window on a thread of its own that runs its messages until disposed.</summary>
     private sealed class WindowThread : IDisposable
     {
@@ -73,10 +127,14 @@ public sealed class SessionEndTests
         private readonly TaskCompletionSource<(nint Window, uint Thread)> ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private nint window;
         private uint threadId;
+        private readonly TimeSpan? patience;
         private SessionEnd? listener;
 
-        public WindowThread()
+        public SessionEnd Listener => listener ?? throw new InvalidOperationException("Attach first.");
+
+        public WindowThread(TimeSpan? patience = null)
         {
+            this.patience = patience;
             thread = new Thread(Loop) { IsBackground = true };
             thread.Start();
             (window, threadId) = ready.Task.WaitAsync(TimeSpan.FromSeconds(10)).GetAwaiter().GetResult();
@@ -84,7 +142,7 @@ public sealed class SessionEndTests
 
         public void Attach(Action ending) => OnThread(() =>
         {
-            listener = new SessionEnd(window);
+            listener = new SessionEnd(window, patience);
             listener.Ending += ending;
         });
 

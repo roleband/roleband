@@ -86,7 +86,7 @@ internal sealed class TrayApp
         try
         {
             sessionEnd = new SessionEnd(flyout.Handle);
-            sessionEnd.Ending += async () => await QuitAsync(sessionEnding: true);
+            sessionEnd.Ending += async () => await QuitAsync();
         }
         catch (Exception error) { Debug.WriteLine(error); }
         try
@@ -827,15 +827,23 @@ internal sealed class TrayApp
     }
 
     /// <summary>Quit stops the engine; the app stays if the engine did not stop, with the reason in Settings. When Windows
-    /// ends the app it closes whatever the engine did, since Windows ends what is left of the package itself.</summary>
-    private async Task QuitAsync(bool sessionEnding = false)
+    /// ends the app, even during a Quit already under way, <see cref="SessionEnd"/> bounds the wait and the app closes.</summary>
+    private async Task QuitAsync()
     {
         if (quitting) return;
         quitting = true;
         downloading?.Cancel();
-        try { if (engine is not null) await engine.StopAsync(); }
+        try
+        {
+            if (engine is not null)
+            {
+                var stop = engine.StopAsync();
+                await (sessionEnd is null ? stop : sessionEnd.AwaitStopAsync(stop));
+            }
+        }
         catch (Exception error) { Debug.WriteLine(error); }
-        if (engine?.OwnsEngine == true && !sessionEnding)
+        var engineStillRunning = engine?.OwnsEngine == true;
+        if (!(sessionEnd?.Closes(engineStillRunning) ?? !engineStillRunning))
         {
             quitting = false;
             settingsError = "host-stop-failed";

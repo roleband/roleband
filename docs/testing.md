@@ -86,7 +86,8 @@ own banner. Windows notifications themselves need an installed package; a source
 alerts without showing them. `SessionEndTests` send Windows' end-of-session messages to a real
 window on its own message loop: the app is asked to close once, only when Windows confirms the end
 (an install's or a sign-out's), never on the query alone or an end called off, and not after the
-listener is gone. That the built app then exits is checked by asking a running source run to
+listener is gone; an engine that did not stop keeps an ordinary Quit open but not Windows' end, and
+the wait for the engine is cut short only once Windows confirms, also mid-Quit. That the built app then exits is checked by asking a running source run to
 close through Restart Manager (`RmShutdown` without force), which reports whether it closed.
 Check generated native
 copy with `node dashboard/scripts/export-launcher-copy.mjs --windows --check`.
