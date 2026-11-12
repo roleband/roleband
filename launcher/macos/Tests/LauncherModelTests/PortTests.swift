@@ -71,14 +71,17 @@ private func portModel(_ boundary: PortBoundary, preferences: UserDefaults,
     await model.refreshHost()
     #expect(model.hostState == .needsAttention)
     #expect(model.helpKey == "host-port-holder-body")
-    #expect(model.text(try #require(model.helpKey), model.helpValues).hasPrefix("Docker is using port 8010, so scanning can't start."))
+    // The title names the problem; the body names who holds the port and what happens next.
+    #expect(model.text(model.titleKey, model.helpValues) == "Port 8010 is in use")
+    #expect(model.text(try #require(model.helpKey), model.helpValues) == "Docker is using it. Scanning starts once Docker stops.")
+    #expect(model.showsPortNote, "set up: Radar has been opened, so a move changes what the browser keeps")
     #expect(model.portSuggestion == 8011)
 
     // Another account's program cannot be looked into: the message says only that one holds the port.
     await boundary.hold(by: nil, suggestion: nil)
     await model.refreshHost()
     #expect(model.helpKey == "host-port-body")
-    #expect(model.text(try #require(model.helpKey), model.helpValues).hasPrefix("Another program is using port 8010"))
+    #expect(model.text(try #require(model.helpKey), model.helpValues) == "Another program is using it. Scanning starts once that program stops.")
     #expect(model.portSuggestion == nil, "no free port nearby, so no button promising one")
 }
 
@@ -313,7 +316,9 @@ private actor GatedEngine {
     #expect(model.preparationFailed)
     // Setup says what holds the port instead of a service failure, and offers the free port.
     let key = try #require(model.setupStopKey)
-    #expect(model.text(key, model.helpValues).hasPrefix("Python is using port 8010, so scanning can't start."))
+    #expect(model.text(key, model.helpValues) == "Python is using it. Scanning starts once Python stops.")
+    #expect(model.text(model.titleKey, model.helpValues) == "Port 8010 is in use")
+    #expect(!model.showsPortNote, "during setup Radar has never been opened, so there is nothing to warn about")
     #expect(model.portSuggestion == 8011)
     #expect(model.setupDatabaseState == "waiting", "no database is being created while nothing runs")
     await model.usePortAndWait(8011)

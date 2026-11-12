@@ -22,7 +22,8 @@ struct SetupView: View {
         switch model.step {
         case .welcome, .installation: "first-welcome-title"
         case .connection:
-            if model.preparationFailed { "first-failed-title" }
+            if model.setupStopKey != nil && model.hostProblem == .portInUse { "host-port-title" }
+            else if model.preparationFailed { "first-failed-title" }
             else if model.preparationReady && model.preparation?.modelComplete == true { "first-prepared-title" }
             else { "first-preparing-title" }
         case .login: "first-login-title"
@@ -60,7 +61,7 @@ struct SetupView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(model.text(heading)).font(.system(size: 22, weight: .bold))
+                        Text(model.text(heading, model.helpValues)).font(.system(size: 22, weight: .bold))
                             .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
                         Text(model.text(subtitle, model.setupStopKey == nil ? [:] : model.helpValues))
                             .font(.system(size: 13)).foregroundStyle(palette.secondary)

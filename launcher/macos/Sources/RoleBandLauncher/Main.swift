@@ -392,7 +392,7 @@ final class LauncherDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate
         if model.shouldShowSetupAtLaunch { showSetup() }
     }
     private func updateIcon() {
-        let title = "RoleBand: \(model.text(model.titleKey))"
+        let title = "RoleBand: \(model.text(model.titleKey, model.helpValues))"
         statusItem?.button?.image = BrandGlyph.menuBar(badge: model.menuBarBadge)
         statusItem?.button?.setAccessibilityLabel(title)
         statusItem?.button?.toolTip = title

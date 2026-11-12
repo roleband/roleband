@@ -70,9 +70,11 @@ Radar is the Scan tab's one gold action; Scan now or Stop scan and Pause sit
 below it, quiet, side by side. A stopped engine is the exception: restarting it
 takes the gold place, and Open Radar waits for an engine that answers. When
 another program holds the engine's port and a free port is nearby, Use port N
-takes the gold place instead, with Restart quiet beside it and a line saying
-that links saved with the old address stop working; with no free port nearby,
-Restart stays gold. Settings shows the port Radar opens at and lets the person
+takes the gold place instead, with Restart quiet beside it; the title names the
+port and the message names the program holding it. Once setup is complete, a
+line says the data moves with Radar and the browser's theme, language and saved
+filters start fresh at the new address. With no free port nearby, Restart stays
+gold. Settings shows the port Radar opens at and lets the person
 choose another. The footer holds Quit alone. A last scan with new roles makes its new-roles count a
 link that opens the Radar on New (`/?lens=new`); with none, the count is plain.
 

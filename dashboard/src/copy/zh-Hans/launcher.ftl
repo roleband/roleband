@@ -164,10 +164,9 @@ launcher-host-attention-body = 扫描无法持续运行。
     请查看日志，然后尝试重新启动。
 launcher-host-in-use-body = 另一个程序正打开着你的数据，因此扫描已停止。
     该程序停止后，扫描会自动恢复。
-launcher-host-port-body = 另一个程序正在使用端口 { $port }，因此无法开始扫描。
-    该程序停止后，扫描会自动恢复；也可以现在换用其他端口。
-launcher-host-port-holder-body = { $program } 正在使用端口 { $port }，因此无法开始扫描。
-    { $program } 停止后，扫描会自动恢复；也可以现在换用其他端口。
+launcher-host-port-title = 端口 { $port } 正在使用中
+launcher-host-port-body = 另一个程序正在使用该端口。该程序停止后，扫描就会开始。
+launcher-host-port-holder-body = { $program } 正在使用该端口。{ $program } 停止后，扫描就会开始。
 launcher-port-use = 使用端口 { $port }
 launcher-host-stopped = 扫描已停止
 launcher-host-quit-note = 退出将停止扫描
@@ -553,11 +552,12 @@ launcher-panel-port-change = 更改
 launcher-panel-port-field = 端口号
 launcher-panel-port-save = 使用此端口
 launcher-panel-port-cancel = 取消
-launcher-panel-port-note = 用旧地址保存的链接将失效，雷达的视图设置也会重新开始。
+launcher-panel-port-note = 你的数据会随之迁移。主题、语言和已保存的筛选条件将重新开始。
 launcher-panel-port-invalid = 请选择 1024 到 65535 之间的数字。
 launcher-panel-port-busy = 端口 { $port } 正在使用中，请选择其他端口。
 launcher-panel-port-blocked = 浏览器无法打开端口 { $port }，请选择其他端口。
 launcher-panel-port-failed = 无法切换到端口 { $port }，请重试。
+launcher-panel-port-default = 返回端口 { $port }
 # kind=status
 launcher-panel-version = 版本 { $version }
 # kind=heading

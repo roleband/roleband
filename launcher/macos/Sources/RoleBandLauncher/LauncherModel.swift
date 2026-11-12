@@ -338,6 +338,9 @@ final class LauncherModel: ObservableObject {
         guard hostState == .needsAttention, hostProblem == .portInUse || hostProblem == .databaseInUse else { return nil }
         return helpKey
     }
+    /// The note on what a port move changes in the browser. Before setup completes Radar has never
+    /// been opened, so nothing in the browser would change.
+    var showsPortNote: Bool { setupCompleted }
     /// The database row while setup runs: one the engine never began is waiting, not being created.
     var setupDatabaseState: String { preparation?.database ?? (preparationFailed ? "waiting" : "creating") }
     /// The named values `helpKey`'s message takes.
@@ -351,7 +354,7 @@ final class LauncherModel: ObservableObject {
         switch hostState {
         case .starting: preparation == nil ? "host-starting" : "first-preparing-title"
         case .backingOff: "host-recovering"
-        case .needsAttention: "host-attention"
+        case .needsAttention: hostProblem == .portInUse ? "host-port-title" : "host-attention"
         case .stopped: "host-stopped"
         default: nil
         }

@@ -184,12 +184,12 @@ launcher-host-attention-body = Scanning couldn't keep running.
 # kind=sentence
 launcher-host-in-use-body = Another program has your data open, so scanning stopped.
     Scanning starts again by itself once that program stops.
+# kind=status
+launcher-host-port-title = Port { $port } is in use
 # kind=sentence
-launcher-host-port-body = Another program is using port { $port }, so scanning can't start.
-    Scanning starts again by itself once that program stops, or switch to another port now.
+launcher-host-port-body = Another program is using it. Scanning starts once that program stops.
 # kind=sentence
-launcher-host-port-holder-body = { $program } is using port { $port }, so scanning can't start.
-    Scanning starts again by itself once { $program } stops, or switch to another port now.
+launcher-host-port-holder-body = { $program } is using it. Scanning starts once { $program } stops.
 # kind=button
 launcher-port-use = Use port { $port }
 # kind=status
@@ -702,7 +702,7 @@ launcher-panel-port-save = Use this port
 # kind=button
 launcher-panel-port-cancel = Cancel
 # kind=sentence
-launcher-panel-port-note = Links saved with the old address stop working, and Radar's view settings start over.
+launcher-panel-port-note = Your data moves with it. Theme, language and saved filters start fresh.
 # kind=sentence
 launcher-panel-port-invalid = Choose a number from 1024 to 65535.
 # kind=sentence
@@ -711,6 +711,8 @@ launcher-panel-port-busy = Port { $port } is in use. Choose another.
 launcher-panel-port-blocked = Browsers don't open port { $port }. Choose another.
 # kind=sentence
 launcher-panel-port-failed = Couldn't move to port { $port }. Try again.
+# kind=link
+launcher-panel-port-default = Back to port { $port }
 
 # kind=status
 launcher-panel-version = Version { $version }

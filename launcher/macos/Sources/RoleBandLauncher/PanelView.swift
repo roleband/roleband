@@ -546,12 +546,12 @@ private struct PortRow: View {
             if let refusal = model.portRefusal {
                 Text(model.text(refusal.key, refusal.values)).font(PanelType.fact).foregroundStyle(p.warning)
                     .fixedSize(horizontal: false, vertical: true)
-            } else {
+            } else if model.showsPortNote {
                 Text(model.text("panel-port-note")).font(PanelType.fact).foregroundStyle(p.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if model.enginePort != Installation.ownedPort {
-                Button(model.text("port-use", ["port": String(Installation.ownedPort)])) { use(Installation.ownedPort) }
+                Button(model.text("panel-port-default", ["port": String(Installation.ownedPort)])) { use(Installation.ownedPort) }
                     .buttonStyle(LinkButtonStyle()).disabled(model.controlBusy)
             }
         }
@@ -715,7 +715,7 @@ private struct ScanTab: View {
                             .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.updatesFrequently)
                     }
                     // Moving the port changes Radar's address: what that costs shows before the click.
-                    if attention, model.portSuggestion != nil {
+                    if attention, model.portSuggestion != nil, model.showsPortNote {
                         Text(model.text("panel-port-note")).font(PanelType.fact).foregroundStyle(p.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -739,7 +739,7 @@ private struct ScanTab: View {
                     .foregroundStyle(attention ? p.warning : p.ink).frame(width: PanelMetrics.rowIcon)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(model.text(model.titleKey)).font(PanelType.title).foregroundStyle(p.ink)
+                    Text(model.text(model.titleKey, model.helpValues)).font(PanelType.title).foregroundStyle(p.ink)
                     if let key = model.helpKey {
                         Text(model.text(key, model.helpValues)).font(PanelType.fact).foregroundStyle(p.secondary)
                             .fixedSize(horizontal: false, vertical: true)
