@@ -222,7 +222,7 @@ finally:
             process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
             process.arguments = prefix + ["import sys,pathlib;sys.path.insert(0,sys.argv[1]);from tracker.platform.embedded_db import stop_server;stop_server(pathlib.Path.home()/'.roleband/db')", engine.path]
             process.standardOutput = FileHandle.nullDevice; process.standardError = FileHandle.nullDevice
-            try? process.run(); process.reap()
+            try? process.runWithoutTestSockets(); process.reap()
         }
         f.remove()
     }

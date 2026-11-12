@@ -100,7 +100,7 @@ server.serve_forever()
         FileManager.default.createFile(atPath: log.path, contents: Data())
         process.standardOutput = try FileHandle(forWritingTo: log)
         process.standardError = process.standardOutput
-        try process.run()
+        try process.runWithoutTestSockets()
         let deadline = ContinuousClock.now.advanced(by: .seconds(5))
         let portPath = root.appendingPathComponent("port")
         // The file exists before the server has written the port into it, so wait for a number.

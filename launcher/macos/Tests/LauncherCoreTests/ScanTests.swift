@@ -14,7 +14,7 @@ final class LocalEngineFixture {
         process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
         process.arguments = [fixture.path, mode, root.path]
         process.standardOutput = output
-        try process.run()
+        try process.runWithoutTestSockets()
         var data = Data()
         while let byte = try output.fileHandleForReading.read(upToCount: 1), !byte.isEmpty, byte != Data([10]) { data.append(byte) }
         let origin = try #require(String(data: data, encoding: .utf8))

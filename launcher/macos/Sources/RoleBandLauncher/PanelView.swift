@@ -149,9 +149,7 @@ private struct PanelFooter: View {
                 .buttonStyle(FooterButtonStyle()).keyboardShortcut("q")
                 .help(model.ownsEngine ? model.text("host-quit-note") : "")
             }
-            .padding(.horizontal, -6)
         }
-        .padding(.bottom, -4)
     }
 }
 
@@ -435,7 +433,14 @@ struct SettingsTab: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             SectionLabel(text: model.text("panel-on-mac"))
-            RowGroup { LoginRow(model: model) }
+            RowGroup {
+                LoginRow(model: model)
+                // A source install's port is its own configuration's, not this app's to change.
+                if model.ownsEngine {
+                    RowDivider()
+                    PortRow(model: model)
+                }
+            }
             SectionLabel(text: model.text("panel-in-browser")).padding(.top, 4)
             RowGroup {
                 ForEach(Array(Self.browserLinks.enumerated()), id: \.offset) { index, link in
@@ -479,6 +484,87 @@ private struct LoginRow: View {
     private var toggle: some View {
         Toggle(model.text("first-login-toggle"), isOn: binding).toggleStyle(InkSwitchStyle()).labelsHidden()
             .disabled(model.loginBusy)
+    }
+}
+
+/// The engine's port. Another port moves Radar to a new address, so the editor says what that
+/// costs before the person confirms it.
+private struct PortRow: View {
+    /// What the person is typing, kept by the row while the panel shows it.
+    final class Editor: ObservableObject {
+        @Published var editing = false
+        @Published var entry = ""
+        /// The port a move under way was asked for.
+        var target: Int?
+    }
+    @ObservedObject var model: LauncherModel
+    @StateObject private var editor = Editor()
+    var body: some View {
+        PaletteReader { p in
+            VStack(alignment: .leading, spacing: 6) {
+                PanelRow(symbol: "network", title: model.text("panel-port"),
+                         caption: model.text("panel-port-caption", ["port": String(model.enginePort)])) {
+                    if !editor.editing {
+                        Button(model.text("panel-port-change")) {
+                            editor.entry = String(model.enginePort)
+                            model.clearPortRefusal()
+                            editor.editing = true
+                        }
+                        .buttonStyle(MiniButtonStyle()).disabled(model.controlBusy)
+                    }
+                }
+                if editor.editing { fields(p) }
+            }
+            // The engine takes the new port before it starts and gives it back if the start is
+            // refused, so the editor closes only once the move has ended on the chosen port.
+            .onChange(of: model.controlBusy) {
+                guard !model.controlBusy, let target = editor.target else { return }
+                editor.target = nil
+                if model.enginePort == target { editor.editing = false }
+            }
+        }
+    }
+
+    private func fields(_ p: LaunchPalette) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                TextField(model.text("panel-port-field"), text: $editor.entry)
+                    .textFieldStyle(.roundedBorder).font(PanelType.control).frame(width: 76)
+                    .accessibilityLabel(model.text("panel-port-field"))
+                    .onSubmit(useEntry)
+                Button(model.text("panel-port-save"), action: useEntry)
+                    .buttonStyle(MiniButtonStyle())
+                Button(model.text("panel-port-cancel")) {
+                    editor.editing = false
+                    model.clearPortRefusal()
+                }
+                .buttonStyle(MiniButtonStyle())
+            }
+            .disabled(model.controlBusy)
+            if let refusal = model.portRefusal {
+                Text(model.text(refusal.key, refusal.values)).font(PanelType.fact).foregroundStyle(p.warning)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if model.showsPortNote {
+                Text(model.text("panel-port-note")).font(PanelType.fact).foregroundStyle(p.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if model.enginePort != Installation.ownedPort {
+                Button(model.text("panel-port-default", ["port": String(Installation.ownedPort)])) { use(Installation.ownedPort) }
+                    .buttonStyle(LinkButtonStyle()).disabled(model.controlBusy)
+            }
+        }
+        .padding(.leading, PanelMetrics.separatorInset).padding(.bottom, 9).padding(.top, -4)
+    }
+
+    /// Anything but digits is no port, and the model refuses it as one.
+    private func useEntry() { use(Int(editor.entry.trimmingCharacters(in: .whitespaces)) ?? 0) }
+    /// The move goes on after `usePort` returns. The editor closes once the engine is on the new
+    /// port, and stays open with the reason when the move is refused or fails.
+    private func use(_ port: Int) {
+        let current = model.enginePort
+        model.usePort(port)
+        guard model.portRefusal == nil else { return }
+        if port == current { editor.editing = false } else { editor.target = port }
     }
 }
 
@@ -626,6 +712,17 @@ private struct ScanTab: View {
                         Text(model.text(key)).font(PanelType.fact).foregroundStyle(p.secondary)
                             .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.updatesFrequently)
                     }
+                    // Moving the port changes Radar's address: what that costs shows before the click.
+                    if attention, model.portSuggestion != nil, model.showsPortNote {
+                        Text(model.text("panel-port-note")).font(PanelType.fact).foregroundStyle(p.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    // The offered port may have been taken since it was offered: the reason shows here,
+                    // beside the next free port's button.
+                    if model.hostProblem == .portInUse, let refusal = model.portRefusal {
+                        Text(model.text(refusal.key, refusal.values)).font(PanelType.fact).foregroundStyle(p.warning)
+                            .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.updatesFrequently)
+                    }
                 }
             }
         }
@@ -640,9 +737,9 @@ private struct ScanTab: View {
                     .foregroundStyle(attention ? p.warning : p.ink).frame(width: PanelMetrics.rowIcon)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(model.text(model.titleKey)).font(PanelType.title).foregroundStyle(p.ink)
+                    Text(model.text(model.titleKey, model.helpValues)).font(PanelType.title).foregroundStyle(p.ink)
                     if let key = model.helpKey {
-                        Text(model.text(key)).font(PanelType.fact).foregroundStyle(p.secondary)
+                        Text(model.text(key, model.helpValues)).font(PanelType.fact).foregroundStyle(p.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -704,7 +801,20 @@ private struct ScanTab: View {
 
     private func scanControls(now: Date) -> some View {
         HStack(spacing: 8) {
-            if attention, let key = model.engineActionKey {
+            if attention, let suggestion = model.portSuggestion {
+                // Another program holds the port: moving is the way forward, Restart waits for that program.
+                Button { model.usePort(suggestion) } label: {
+                    Label(model.text("port-use", ["port": String(suggestion)]), systemImage: "arrow.right.circle")
+                        .labelStyle(GapLabelStyle())
+                }
+                .buttonStyle(GoldButtonStyle(busy: model.controlBusy))
+                if let key = model.engineActionKey {
+                    Button { model.startEngine() } label: {
+                        Label(model.text(key), systemImage: "arrow.clockwise").labelStyle(GapLabelStyle())
+                    }
+                    .buttonStyle(QuietButtonStyle())
+                }
+            } else if attention, let key = model.engineActionKey {
                 Button { model.startEngine() } label: {
                     Label(model.text(key), systemImage: "arrow.clockwise").labelStyle(GapLabelStyle())
                 }

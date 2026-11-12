@@ -21,7 +21,7 @@ Everything runs locally against one database.
 | Pipeline | `backend/tracker/workflows/pipeline.py` (`python -m tracker.daily`) | One collection run: read boards, enrich, persist, run the post-passes. |
 | Supervisor | `backend/tracker/supervisor/` (`python -m tracker.supervisor run`) | The one background process: it serves the API as its child and runs every background job (scans, the directory read, plugins, prices, backups, health, the preflight). See [Background work](#background-work). |
 | Scan tick | `backend/tracker/workflows/scheduler.py` | The supervisor's `scan` job: a short tick that runs what is due, a full read when the computer wakes or the last one is old, the rest of a full read something stopped, a quick discovery check on a repeat while it is on (`backend/tracker/workflows/schedule_plan.py`). |
-| API | `backend/tracker/api/app.py` | FastAPI on `127.0.0.1:8010`: dashboard reads, the user's own writes, requests for background work, and the built dashboard from `dashboard/dist`. It starts no process: what it asks for, the supervisor runs. |
+| API | `backend/tracker/api/app.py` | FastAPI on `127.0.0.1:8010` by default (the Mac app can move it, see `EnginePort`): dashboard reads, the user's own writes, requests for background work, and the built dashboard from `dashboard/dist`. It starts no process: what it asks for, the supervisor runs. |
 | Dashboard | `dashboard/src/` | React 19, TypeScript, Vite. In development Vite serves `:5173` and proxies `/api` to `:8010`. |
 | MCP server | `backend/tracker/mcp/server.py` | Local STDIO server for external agents, reads and pursuit writes gated separately. See [mcp.md](mcp.md). |
 | Health | `backend/tracker/workflows/watchdog.py` | The supervisor's `health` job: database reachability, stuck runs, stale data (asks for a scan), a stale backup, desktop alerts. |
@@ -335,9 +335,20 @@ with the identity and loopback port its caller gives, exposes lifecycle state,
 and creates no schema, provisions no model and never targets a source
 installation.
 
+Before each spawn the host binds the engine's port as the engine's server does
+(127.0.0.1, `SO_REUSEADDR`) and lets go. When a listener refuses that bind, the
+start ends with `portInUse` rather than an engine that cannot listen. A listener
+on 127.0.0.1 refuses it; one on ::1, or one of this account on every address,
+shares the port number only and leaves the bind free. Like a
+database another program holds, the port is looked at again every few seconds
+and the engine starts once it is free. The host names the program when it runs under this account (the kernel
+shows no other account's sockets) and offers the first free port after it.
+`use(port:)` moves a stopped engine to another port. A port is usable from 1024
+to 65535, less the Fetch standard's bad ports, which browsers refuse to open.
+
 The interpreter starts isolated, in a new process group, with only packaged
-mode, the data directory, embedded Postgres and the fixed loopback address and
-port in its environment; ambient Python paths, database URLs and source settings
+mode, the data directory, embedded Postgres and the loopback address and port
+in its environment; ambient Python paths, database URLs and source settings
 cannot reconfigure it. Before spawning, the host publishes a private recovery
 record holding a random marker that every engine child inherits, even one in its
 own session, so the next host finds them after the supervisor or the app dies.
@@ -360,8 +371,11 @@ receive these signals.
 `Installation.owned` builds the owned identity from the bundle alone: the
 instance is the first 24 hex characters of the SHA-256 of the POSIX-resolved
 Resources path bytes, as the Python engine computes it; the version is
-`RoleBandVersion`; the origin is `http://127.0.0.1:8010`, with a port override
-for isolated runs. A source-only shell or incomplete bundle metadata has no
+`RoleBandVersion`; the origin is `http://127.0.0.1:8010`, or the port the person
+chose in the panel's Settings (`EnginePort`, kept in the app's preferences, which
+the update helper reads too), with a port override for isolated runs. The
+browser keeps bookmarks and a page's stored settings per address, so the port
+changes only when the person changes it. A source-only shell or incomplete bundle metadata has no
 owned identity. It reads no source registration and writes no discovery state.
 
 ### First-open preparation

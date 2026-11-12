@@ -22,7 +22,8 @@ struct SetupView: View {
         switch model.step {
         case .welcome, .installation: "first-welcome-title"
         case .connection:
-            if model.preparationFailed { "first-failed-title" }
+            if model.setupStopKey != nil && model.hostProblem == .portInUse { "host-port-title" }
+            else if model.preparationFailed { "first-failed-title" }
             else if model.preparationReady && model.preparation?.modelComplete == true { "first-prepared-title" }
             else { "first-preparing-title" }
         case .login: "first-login-title"
@@ -33,7 +34,8 @@ struct SetupView: View {
         switch model.step {
         case .welcome, .installation: "first-welcome-body"
         case .connection:
-            if model.preparation?.database == "failed" { "first-database-failed" }
+            if let key = model.setupStopKey { key }
+            else if model.preparation?.database == "failed" { "first-database-failed" }
             else if model.preparationFailed { "first-service-failed" }
             else if model.preparationReady && model.preparation?.reason == "offline" { "first-offline-body" }
             else if model.preparationReady && model.preparation?.modelComplete == true { "first-prepared-body" }
@@ -59,10 +61,16 @@ struct SetupView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(model.text(heading)).font(.system(size: 22, weight: .bold))
+                        Text(model.text(heading, model.helpValues)).font(.system(size: 22, weight: .bold))
                             .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
-                        Text(model.text(subtitle)).font(.system(size: 13)).foregroundStyle(palette.secondary)
+                        Text(model.text(subtitle, model.setupStopKey == nil ? [:] : model.helpValues))
+                            .font(.system(size: 13)).foregroundStyle(palette.secondary)
                             .fixedSize(horizontal: false, vertical: true)
+                        // The footer offers the next free port beside this reason.
+                        if let refusal = model.setupPortRefusal {
+                            Text(model.text(refusal.key, refusal.values)).font(.system(size: 13)).foregroundStyle(palette.warning)
+                                .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.updatesFrequently)
+                        }
                     }
                     content
                 }.padding(.horizontal, 32).padding(.top, 28).padding(.bottom, 20)
@@ -86,7 +94,7 @@ struct SetupView: View {
             }
         case .connection:
             group {
-                preparationRow("externaldrive", title: "first-database", state: model.preparation?.database ?? "creating")
+                preparationRow("externaldrive", title: "first-database", state: model.setupDatabaseState)
                 rowDivider
                 VStack(spacing: 0) {
                     row("arrow.down.circle", title: "first-model", caption: modelCaption) {
@@ -111,7 +119,7 @@ struct SetupView: View {
                     row("person.crop.circle", title: "first-login-toggle", caption: loginCaption) {
                         Toggle(model.text("first-login-toggle"), isOn: Binding(get: { model.setupLoginChoice },
                             set: { enabled in Task { await model.chooseSetupLogin(enabled) } }))
-                            .labelsHidden().toggleStyle(.switch).tint(.primary)
+                            .labelsHidden().toggleStyle(InkSwitchStyle())
                             .disabled(model.loginBusy)
                     }
                     if model.loginState == .approval {
@@ -123,7 +131,7 @@ struct SetupView: View {
                     row("arrow.triangle.2.circlepath", title: "update-automatic", caption: "first-updates-caption") {
                         Toggle(model.text("update-automatic"), isOn: Binding(get: { model.updates.automatic },
                             set: { model.updates.setAutomaticChecks($0, requestNotifications: false) }))
-                            .labelsHidden().toggleStyle(.switch).tint(.primary)
+                            .labelsHidden().toggleStyle(InkSwitchStyle())
                     }
                 }
                 Text(model.text("first-settings-note")).font(.system(size: 11)).foregroundStyle(palette.secondary)
@@ -207,12 +215,21 @@ struct SetupView: View {
             }
             Spacer(minLength: 0)
             if model.step == .connection && model.preparationFailed {
-                if let directory = model.engineLogDirectory {
+                // An engine refused before it started wrote no logs, so there is nothing to show.
+                if let directory = model.engineLogDirectory, FileManager.default.fileExists(atPath: directory.path) {
                     Button(model.text("engine-logs")) { NSWorkspace.shared.activateFileViewerSelecting([directory]) }
                         .buttonStyle(LaunchButtonStyle(palette: palette))
                 }
-                Button(model.text("retry")) { model.startEngine() }
-                    .buttonStyle(LaunchButtonStyle(palette: palette, primary: true)).disabled(model.controlBusy)
+                if let suggestion = model.portSuggestion {
+                    // Another program holds the port: moving is the way forward, as on the panel.
+                    Button(model.text("retry")) { model.startEngine() }
+                        .buttonStyle(LaunchButtonStyle(palette: palette)).disabled(model.controlBusy)
+                    Button(model.text("port-use", ["port": String(suggestion)])) { model.usePort(suggestion) }
+                        .buttonStyle(LaunchButtonStyle(palette: palette, primary: true)).disabled(model.controlBusy)
+                } else {
+                    Button(model.text("retry")) { model.startEngine() }
+                        .buttonStyle(LaunchButtonStyle(palette: palette, primary: true)).disabled(model.controlBusy)
+                }
             } else if model.step == .done {
                 Button(model.text("skip")) { if model.finish() { close() } }
                     .buttonStyle(LaunchButtonStyle(palette: palette)).disabled(model.completingSetup)
