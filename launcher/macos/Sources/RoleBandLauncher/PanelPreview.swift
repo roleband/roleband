@@ -108,8 +108,8 @@ enum PanelPreview {
             picture["phase"] = "collecting"
         }
         if scan == "finishing" {
-            picture.merge(["phase": "finishing", "percent": 100, "companies_total": 123, "roles_pending": 0,
-                           "roles_recorded": 59, "in_flight": []]) { $1 }
+            picture.merge(["phase": "finishing", "percent": 100, "companies_total": 5_008, "roles_pending": 0,
+                           "roles_recorded": 9_277, "in_flight": []]) { $1 }
         }
         return picture
     }

@@ -1,3 +1,4 @@
+import AppKit
 import LauncherCore
 import SwiftUI
 
@@ -51,6 +52,7 @@ struct ScanPictureCard: View {
             }
         }
         .fixedSize()
+        .padding(.trailing, SectionLabel.inset)
     }
 
     /// At rest the bar is an empty track: a full bar would only repeat "Scan complete".
@@ -136,13 +138,14 @@ private struct FlowInstrument: View {
 
     var body: some View {
         let flowing = live && !companies.isEmpty && !reduceMotion
+        let column = column()
         PaletteReader { p in
             TimelineView(.animation(minimumInterval: flowing ? 1.0 / 30 : 1, paused: !live)) { timeline in
                 GeometryReader { proxy in
                     let tankX = proxy.size.width - tankWidth
                     ZStack(alignment: .topLeading) {
                         Canvas { context, _ in
-                            draw(in: &context, tankX: tankX, now: timeline.date, flowing: flowing, p: p)
+                            draw(in: &context, column: column, tankX: tankX, now: timeline.date, flowing: flowing, p: p)
                         }
                         Tank(model: model, picture: picture, phase: phase, palette: p)
                             .frame(width: tankWidth, height: height)
@@ -154,11 +157,29 @@ private struct FlowInstrument: View {
                 .accessibilityLabel(summary(now: timeline.date))
                 .accessibilityAddTraits(.updatesFrequently)
                 .overlay(alignment: .topLeading) {
-                    if !live { LastScanFacts(model: model, picture: picture, palette: p, rowY: factY) }
-                    if let readTotal { CompaniesRead(model: model, count: readTotal, palette: p, y: centerY) }
+                    if !live { LastScanFacts(model: model, picture: picture, palette: p, column: column, rowY: factY) }
+                    if let readTotal { CompaniesRead(model: model, count: readTotal, palette: p, column: column, y: centerY) }
                 }
             }
         }
+    }
+
+    /// The left column for what the picture shows now; see `FactColumn`.
+    private func column() -> CGFloat {
+        let locale = model.copy.locale
+        let number = { (count: Int) in count.formatted(.number.locale(locale)) }
+        if let readTotal {
+            return FactColumn.rest([.init(figure: number(readTotal), label: model.text("scan-companies-read"))])
+        }
+        if live {
+            // The widest clock a company shows within its first hour, so the column holds still as the seconds count.
+            let start = Date(timeIntervalSinceReferenceDate: 0)
+            let clock = ScanTime.running(since: start, now: start.addingTimeInterval(3_599), locale: locale)
+            return FactColumn.live(names: companies.map(\.name), clock: clock)
+        }
+        let newRoles = picture.lastNewRoles ?? 0
+        return FactColumn.rest([.init(figure: number(picture.lastCompanies ?? 0), label: model.text("scan-companies-read")),
+                                .init(figure: number(newRoles), label: model.text("scan-new-roles"), linked: newRoles > 0)])
     }
 
     private var centerY: CGFloat { height / 2 }
@@ -182,26 +203,26 @@ private struct FlowInstrument: View {
         return (path, point)
     }
 
-    private func draw(in context: inout GraphicsContext, tankX: CGFloat, now: Date, flowing: Bool, p: LaunchPalette) {
+    private func draw(in context: inout GraphicsContext, column: CGFloat, tankX: CGFloat, now: Date, flowing: Bool, p: LaunchPalette) {
         let mouth = CGPoint(x: tankX - 1, y: centerY)
+        let spoutX = column + FactColumn.spoutGap
         if readTotal != nil {
-            let spout = CGPoint(x: LastScanFacts.labelRight + 8, y: centerY)
+            let spout = CGPoint(x: spoutX, y: centerY)
             context.stroke(channel(from: spout, to: mouth).0, with: .color(p.graphic), lineWidth: 1)
             dot(&context, at: spout, radius: 2.4, color: p.cyan)
         } else if live {
             let rows = companies
-            let labelRight: CGFloat = 64
-            let spoutX: CGFloat = 72
             let elapsed = now.timeIntervalSinceReferenceDate
             for (index, company) in rows.enumerated() {
                 let nameY = centerY + (CGFloat(index) - CGFloat(rows.count - 1) / 2) * rowPitch - 5
                 let (path, point) = channel(from: CGPoint(x: spoutX, y: nameY), to: mouth)
                 context.stroke(path, with: .color(p.graphic), lineWidth: 1)
-                context.draw(Text(company.name).font(.system(size: 12, weight: .medium)).foregroundStyle(p.cyan),
-                             at: CGPoint(x: labelRight, y: nameY), anchor: .trailing)
+                let name = FactColumn.truncated(company.name, font: FactColumn.nameFont, to: column)
+                context.draw(Text(name).font(Font(FactColumn.nameFont)).foregroundStyle(p.cyan),
+                             at: CGPoint(x: column, y: nameY), anchor: .trailing)
                 if let since = company.since {
-                    context.draw(Text(ScanTime.running(since: since, now: now, locale: model.copy.locale)).font(ScanType.figure(10.5, weight: .regular)).foregroundStyle(p.secondary),
-                                 at: CGPoint(x: labelRight, y: nameY + 13), anchor: .trailing)
+                    context.draw(Text(ScanTime.running(since: since, now: now, locale: model.copy.locale)).font(Font(FactColumn.clockFont)).foregroundStyle(p.secondary),
+                                 at: CGPoint(x: column, y: nameY + 13), anchor: .trailing)
                 }
                 dot(&context, at: CGPoint(x: spoutX, y: nameY), radius: 2.6, color: p.cyan)
                 guard flowing else { continue }
@@ -213,7 +234,6 @@ private struct FlowInstrument: View {
                 }
             }
         } else {
-            let spoutX = LastScanFacts.labelRight + 8
             for index in 0..<2 {
                 let y = factY(index)
                 let (path, _) = channel(from: CGPoint(x: spoutX, y: y), to: mouth)
@@ -254,10 +274,9 @@ private struct LastScanFacts: View {
     @ObservedObject var model: LauncherModel
     let picture: ScanPicture
     let palette: LaunchPalette
+    let column: CGFloat
     let rowY: (Int) -> CGFloat
     @ViewState private var hovering = false
-
-    static let labelRight: CGFloat = 92
 
     var body: some View {
         let p = palette
@@ -265,7 +284,7 @@ private struct LastScanFacts: View {
         ZStack(alignment: .topLeading) {
             fact(picture.lastCompanies ?? 0, label: Text(model.text("scan-companies-read")).foregroundStyle(p.secondary))
                 .accessibilityHidden(true)
-                .modifier(Place(y: rowY(0)))
+                .modifier(Place(column: column, y: rowY(0)))
             if newRoles > 0 {
                 Button { model.open(.newRoles) } label: {
                     fact(newRoles, label: HStack(spacing: 3) {
@@ -281,30 +300,30 @@ private struct LastScanFacts: View {
                 .help(model.text("scan-new-roles-open"))
                 .accessibilityLabel("\(newRoles) \(model.text("scan-new-roles"))")
                 .accessibilityHint(model.text("scan-new-roles-open"))
-                .modifier(Place(y: rowY(1)))
+                .modifier(Place(column: column, y: rowY(1)))
             } else {
                 fact(0, label: Text(model.text("scan-new-roles")).foregroundStyle(p.secondary))
                     .accessibilityHidden(true)
-                    .modifier(Place(y: rowY(1)))
+                    .modifier(Place(column: column, y: rowY(1)))
             }
         }
     }
 
     /// The figure centred on its spout's line and the label under it, right-aligned to the spout.
-    /// A label longer than the column grows to the left on one line.
+    /// The column is measured to fit both; past its cap the label shrinks on one line.
     private func fact(_ count: Int, label: some View) -> some View {
         VStack(alignment: .trailing, spacing: 0) {
-            Text(count.formatted(.number.locale(model.copy.locale))).font(ScanType.figure(17)).foregroundStyle(palette.ink)
-            label.font(PanelType.fact)
+            Text(count.formatted(.number.locale(model.copy.locale))).font(Font(FactColumn.figureFont)).foregroundStyle(palette.ink)
+            label.font(Font(FactColumn.labelFont)).lineLimit(1).minimumScaleFactor(0.75)
         }
-        .fixedSize()
     }
 
     /// Half the figure's line height up, so the figure's middle sits on the spout.
-    private struct Place: ViewModifier {
+    fileprivate struct Place: ViewModifier {
+        let column: CGFloat
         let y: CGFloat
         func body(content: Content) -> some View {
-            content.frame(width: LastScanFacts.labelRight, alignment: .trailing).offset(y: y - 10)
+            content.frame(width: column, alignment: .trailing).offset(y: y - 10)
         }
     }
 }
@@ -314,17 +333,73 @@ private struct CompaniesRead: View {
     @ObservedObject var model: LauncherModel
     let count: Int
     let palette: LaunchPalette
+    let column: CGFloat
     let y: CGFloat
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 0) {
-            Text(count.formatted(.number.locale(model.copy.locale))).font(ScanType.figure(17)).foregroundStyle(palette.ink)
-            Text(model.text("scan-companies-read")).font(PanelType.fact).foregroundStyle(palette.secondary)
+            Text(count.formatted(.number.locale(model.copy.locale))).font(Font(FactColumn.figureFont)).foregroundStyle(palette.ink)
+            Text(model.text("scan-companies-read")).font(Font(FactColumn.labelFont)).foregroundStyle(palette.secondary)
+                .lineLimit(1).minimumScaleFactor(0.75)
         }
-        .fixedSize()
-        .frame(width: LastScanFacts.labelRight, alignment: .trailing)
-        .offset(y: y - 10)
+        .modifier(LastScanFacts.Place(column: column, y: y))
         .accessibilityHidden(true)
+    }
+}
+
+/// The picture's left column, from the card's content edge to the spouts. It is as wide as its
+/// widest line, so a long language, a big count or a long company name never crosses the edge
+/// the progress line and the schedule line start on. It stops growing where the channels would
+/// grow too short to read; past that, rest labels shrink and company names are cut with an ellipsis.
+enum FactColumn {
+    /// Room the picture keeps for short lines, so the channels do not stretch across the card.
+    static let restMinimum: CGFloat = 92
+    static let liveMinimum: CGFloat = 64
+    /// The card's content is 288 pt wide and the tank 90; this leaves the channels at least 50 pt.
+    static let maximum: CGFloat = 140
+    /// From the column's right edge to the dots its channels leave from.
+    static let spoutGap: CGFloat = 8
+    /// The arrow after a fact that opens the Radar, with its spacing.
+    static let linkArrow: CGFloat = 11
+
+    static var figureFont: NSFont { .monospacedSystemFont(ofSize: 17, weight: .semibold) }
+    static var labelFont: NSFont { .systemFont(ofSize: 11) }
+    static var nameFont: NSFont { .systemFont(ofSize: 12, weight: .medium) }
+    static var clockFont: NSFont { .monospacedSystemFont(ofSize: 10.5, weight: .regular) }
+
+    struct Fact {
+        let figure: String
+        let label: String
+        var linked = false
+    }
+
+    static func width(_ text: String, font: NSFont) -> CGFloat {
+        ceil((text as NSString).size(withAttributes: [.font: font]).width)
+    }
+
+    static func rest(_ facts: [Fact]) -> CGFloat {
+        fitting(facts.flatMap { [width($0.figure, font: figureFont), width($0.label, font: labelFont) + ($0.linked ? linkArrow : 0)] },
+                minimum: restMinimum)
+    }
+
+    static func live(names: [String], clock: String) -> CGFloat {
+        fitting(names.map { width($0, font: nameFont) } + [width(clock, font: clockFont)], minimum: liveMinimum)
+    }
+
+    static func fitting(_ widths: [CGFloat], minimum: CGFloat) -> CGFloat {
+        min(maximum, max(minimum, widths.max() ?? 0))
+    }
+
+    /// The text cut at its end with an ellipsis so it fits `limit`; unchanged when it already fits.
+    static func truncated(_ text: String, font: NSFont, to limit: CGFloat) -> String {
+        guard width(text, font: font) > limit else { return text }
+        var kept = Substring(text)
+        while !kept.isEmpty {
+            kept = kept.dropLast()
+            let candidate = kept.trimmingCharacters(in: .whitespaces) + "…"
+            if width(candidate, font: font) <= limit { return candidate }
+        }
+        return "…"
     }
 }
 

@@ -82,10 +82,12 @@ extension View {
 /// The uppercase label above a group, outside its card.
 struct SectionLabel: View {
     let text: String
+    /// How far the label sits in from its card's edge; a status beside it keeps the same inset.
+    static let inset: CGFloat = 2
     var body: some View {
         PaletteReader { p in
             Text(text.uppercased()).font(PanelType.label).kerning(0.6).foregroundStyle(p.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 2)
+                .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, Self.inset)
                 .accessibilityAddTraits(.isHeader)
         }
     }
