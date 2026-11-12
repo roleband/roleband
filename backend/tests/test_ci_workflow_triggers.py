@@ -18,6 +18,7 @@ workflow's own documented choice (contract-drift watches `backend/tracker/**`).
 from __future__ import annotations
 
 import ast
+import configparser
 import importlib.util
 import json
 import posixpath
@@ -321,12 +322,12 @@ def test_the_decision_script_reads_globs_as_this_test_does():
         assert script.matches(path, native + bundle) == covered(path, native + bundle), path
 
 
-# The backend and dashboard gates filter the same way with one tier each (`TIER`, `PATHS`),
-# which only a pull request can skip. Their inputs are what the jobs' steps read, plus what
-# the code they test reads outside its own directory: the backend's code under test names
-# repository files off the repository root, and the dashboard reaches files with `../`.
-# The backend suite's own tests that read past backend/ run on every pull request
-# (tests/repo_wide.py), so only the code they test needs watching.
+# The backend, contract-drift and dashboard gates filter the same way with one tier each
+# (`TIER`, `PATHS`), which only a pull request can skip. Their inputs are what the jobs' steps
+# read, plus what the code they run reads outside its own directory: the backend's code names
+# repository files off the repository root, the schema exporter imports most of `tracker`, and
+# the dashboard reaches files with `../`. The backend suite's own tests that read past backend/
+# run on every pull request (tests/repo_wide.py), so only the code they test needs watching.
 
 ROOT_NAMES = {"REPO_ROOT"}
 #: Paths the code names that no checkout run reads, each with the reason.
@@ -486,11 +487,60 @@ def dashboard_code_reads(tracked: list[str]) -> set[str]:
     return found
 
 
+def import_closure(module_file: str, wd: str) -> set[str]:
+    """The first-party modules running `module_file` imports, with each package's `__init__`."""
+    seen: set[str] = set()
+    pending = [module_file]
+    while pending:
+        current = pending.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+        pending.extend(_direct_imports(current, wd))
+        package = posixpath.dirname(current)
+        while package != wd and posixpath.dirname(package) != package:
+            if (REPO / package / "__init__.py").is_file():
+                pending.append(f"{package}/__init__.py")
+            package = posixpath.dirname(package)
+    return seen
+
+
+def run_modules(data: dict) -> set[str]:
+    """The first-party module files a workflow's steps run with `python -m`, and what they import."""
+    found: set[str] = set()
+    for job in data["jobs"].values():
+        default_wd = ((job.get("defaults") or {}).get("run") or {}).get("working-directory", ".")
+        for step in job.get("steps") or []:
+            wd = step.get("working-directory", default_wd)
+            for line in str(step.get("run") or "").splitlines():
+                tokens = shlex.split(line, comments=True)
+                for i, token in enumerate(tokens[:-1]):
+                    if token == "-m" and (module_file := _module_file(wd, tokens[i + 1])):
+                        found |= import_closure(module_file, posixpath.normpath(wd))
+    return found
+
+
+def contract_code_reads(tracked: list[str]) -> set[str]:
+    """The exporter's whole import closure, and the paths outside backend/ those modules name."""
+    data = yaml.safe_load((WORKFLOWS / "contract-drift.yml").read_text())
+    closure = run_modules(data)
+    named = {
+        path for relative in closure
+        for path in named_paths(REPO / relative, (REPO / relative).read_text(encoding="utf-8"))
+        if (relative, path) not in NOT_READ_IN_A_CHECKOUT
+    }
+    return closure | named
+
+
 #: What the code a tier tests reads outside its own directory. CodeQL's Swift scan only
 #: compiles the package its build names, so its steps say all it reads.
-CODE_READS = {"backend.yml": backend_code_reads, "dashboard.yml": dashboard_code_reads}
+CODE_READS = {
+    "backend.yml": backend_code_reads,
+    "contract-drift.yml": contract_code_reads,
+    "dashboard.yml": dashboard_code_reads,
+}
 #: The workflows that pick a single tier in a `changes` job.
-TIERED = ("backend.yml", "codeql.yml", "dashboard.yml", "windows.yml")
+TIERED = ("backend.yml", "codeql.yml", "contract-drift.yml", "dashboard.yml", "windows.yml")
 
 
 def tier_inputs(name: str, tracked: list[str]) -> set[str]:
@@ -525,6 +575,29 @@ def test_the_gate_tier_inputs_are_derived_not_assumed():
         assert expected in dashboard, expected
     _, paths = _gate_tier("backend.yml")
     assert unwatched(backend, [p for p in paths if p != "dashboard/csp-policy.json"]) == ["dashboard/csp-policy.json"]
+
+
+def test_the_contract_tier_inputs_are_derived_not_assumed():
+    """The control: the schema's inputs include the exporter's whole import closure, its packages'
+    `__init__` files and the files that closure names, so dropping one from PATHS is caught."""
+    tracked = _tracked()
+    contract = tier_inputs("contract-drift.yml", tracked)
+    for expected in ("backend/scripts/export_openapi.py", "backend/scripts/__init__.py", "backend/tracker/__init__.py",
+                     "backend/tracker/api/app.py", "backend/requirements.txt", "robots/python/pyproject.toml",
+                     "dashboard/openapi.json", "dashboard/src/api.gen.ts", "dashboard/package-lock.json",
+                     "CHANGELOG.md", ".nvmrc", "launcher/macos/Tools/ci_changes.py"):
+        assert expected in contract, expected
+    direct = _direct_imports("backend/scripts/export_openapi.py", "backend") | {"backend/scripts/export_openapi.py"}
+    assert len(contract & set(tracked)) > len(direct) + 100, "the closure stops at the exporter's own imports"
+    _, paths = _gate_tier("contract-drift.yml")
+    assert unwatched(contract, [p for p in paths if p != "CHANGELOG.md"]) == ["CHANGELOG.md"]
+    assert unwatched(contract, [p for p in paths if p != "backend/tracker/**"])
+
+
+@pytest.mark.parametrize("path", ["README.md", "docs/testing.md", "docs/images/board-dark.webp", ".coderabbit.yaml"])
+def test_a_documentation_change_does_not_regenerate_the_schema(path):
+    _, paths = _gate_tier("contract-drift.yml")
+    assert not covered(path, paths)
 
 
 def test_the_swift_scan_inputs_are_derived_not_assumed():
@@ -614,6 +687,55 @@ def test_codeql_scans_every_change_and_waits_on_the_decision_only_for_swift():
     assert {"push", "pull_request", "schedule", "workflow_dispatch"} <= set(triggers(data))
     assert tier_gated_jobs(data) == ["swift"]
     assert set(data["jobs"]["changes"]["steps"][-1]["env"]["SKIP_EVENTS"].split()) == {"pull_request", "push"}
+
+
+#: The CodeQL language that reads a source file, by suffix; workflows are the `actions` language.
+CODEQL_LANGUAGES = {
+    ".py": "python", ".swift": "swift", ".cs": "csharp",
+    **dict.fromkeys((".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"), "javascript-typescript"),
+}
+
+
+def unscanned_languages(data: dict, tracked: list[str]) -> list[str]:
+    """Languages the tracked tree is written in that no CodeQL job scans."""
+    written = {CODEQL_LANGUAGES[suffix] for path in tracked if (suffix := posixpath.splitext(path)[1]) in CODEQL_LANGUAGES}
+    if any(path.startswith(".github/workflows/") for path in tracked):
+        written.add("actions")
+    scanned: set[str] = set()
+    for job in data["jobs"].values():
+        for step in job.get("steps") or []:
+            if str(step.get("uses", "")).startswith("github/codeql-action/init@"):
+                language = str((step.get("with") or {}).get("languages", ""))
+                if language == "${{ matrix.language }}":
+                    scanned.update((job.get("strategy") or {}).get("matrix", {}).get("language") or [])
+                elif "${{" not in language:
+                    scanned.update(part.strip() for part in language.split(","))
+    return sorted(written - scanned)
+
+
+def test_codeql_scans_every_language_the_tree_is_written_in():
+    """The Windows app's C# ships in the Windows release like the rest, so it is scanned too."""
+    assert unscanned_languages(_codeql(), _tracked()) == []
+
+
+def test_a_language_no_scan_reads_is_reported():
+    """The control for the test above."""
+    data = _codeql()
+    data["jobs"]["analyze"]["strategy"]["matrix"]["language"] = ["actions", "javascript-typescript", "python"]
+    assert unscanned_languages(data, _tracked()) == ["csharp"]
+    assert unscanned_languages(data, ["a.py", "b.mts"]) == []
+    data = _codeql()
+    next(step for step in data["jobs"]["analyze"]["steps"]
+         if str(step.get("uses", "")).startswith("github/codeql-action/init@"))["with"]["languages"] = "python"
+    assert unscanned_languages(data, ["a.py", "b.cs", "c.ts"]) == ["csharp", "javascript-typescript"]
+
+
+def test_the_linux_scans_read_without_a_build():
+    """C# and the rest read the source as it is on Linux; no Windows runner builds the app for a scan."""
+    analyze = _codeql()["jobs"]["analyze"]
+    assert analyze["runs-on"] == "ubuntu-24.04"
+    assert "csharp" in analyze["strategy"]["matrix"]["language"]
+    assert _with("github/codeql-action/init@", analyze)["build-mode"] == "none"
 
 
 def _with(step_uses: str, job: dict) -> dict:
@@ -756,14 +878,75 @@ def test_a_failed_decision_runs_the_gate(name):
             assert "== 'true'" not in job["if"], job_id
 
 
-def test_the_backend_runs_its_repo_wide_tests_whatever_changed():
+def evaluate(expression: str, values: dict[str, str]) -> object:
+    """A GitHub expression of `==`, `!=`, `&&`, `||` and parentheses over the contexts in `values`."""
+    expression = re.sub(r"\$\{\{|\}\}", "", expression)
+    if re.search(r"![^=]", expression):
+        raise NotImplementedError("negation is not used here; teach this test first")
+    # A context missing from `values` raises KeyError, so a new condition fails loudly.
+    expression = re.sub(r"\b[a-z_]+(?:\.[a-z_]+)+\b", lambda found: repr(values[found[0]]), expression)
+    return eval(expression.replace("&&", " and ").replace("||", " or "), {"__builtins__": {}})  # noqa: S307 - built from the workflow file only
+
+
+#: What the backend gate runs for each answer of its `changes` job; an empty answer is a failed decision.
+SUITES = {
+    ("true", "false"): "whole",
+    ("true", "true"): "whole",
+    ("false", "true"): "reads_docs",
+    ("false", "false"): "repo_wide",
+    ("", ""): "whole",
+}
+
+
+def suite_gaps(job: dict, markers: set[str]) -> list[str]:
+    """How a backend `checks` job's choice of tests differs from SUITES."""
+    gaps = []
+    for (backend, docs), want in SUITES.items():
+        got = evaluate(job["env"]["SUITE"], {"needs.changes.outputs.backend": backend, "needs.changes.outputs.docs": docs})
+        if got != want:
+            gaps.append(f"backend {backend or 'unknown'}, docs {docs or 'unknown'}: runs {got}, not {want}")
+    steps = {step["if"]: step["run"] for step in job["steps"] if "pytest" in str(step.get("run", ""))}
+    if steps.keys() != {"env.SUITE == 'whole'", "env.SUITE != 'whole'"}:
+        gaps.append(f"pytest steps run on {sorted(steps)}")
+    elif re.search(r"pytest\b.*\s-m\s", steps["env.SUITE == 'whole'"]) or '-m "$SUITE"' not in steps["env.SUITE != 'whole'"]:
+        gaps.append("the whole suite is narrowed, or a narrower one is not chosen by SUITE")
+    # `-m` with a marker nothing carries selects no test, and the run then fails with no word on why.
+    gaps += [f"no test carries the `{name}` marker" for name in set(SUITES.values()) - {"whole"} - markers]
+    return gaps
+
+
+def _markers() -> set[str]:
+    ini = configparser.ConfigParser()
+    ini.read(REPO / "backend" / "pytest.ini")
+    return {line.split(":", 1)[0].strip() for line in ini["pytest"]["markers"].splitlines() if line.strip()}
+
+
+def test_the_backend_runs_the_tests_a_change_can_break():
+    """A backend input runs the whole suite; otherwise the tests that read past backend/, and
+    only those that read documentation when nothing else changed."""
     data = yaml.safe_load((WORKFLOWS / "backend.yml").read_text())
-    pytest_steps = {
-        step["if"]: step["run"] for step in data["jobs"]["checks"]["steps"] if "pytest" in str(step.get("run", ""))
+    assert suite_gaps(data["jobs"]["checks"], _markers()) == []
+    decide = next(step for step in data["jobs"]["changes"]["steps"] if step.get("id") == "decide")
+    assert data["jobs"]["changes"]["outputs"]["docs"] == "${{ steps.decide.outputs.docs }}"
+    assert _lines(decide["env"]["DOCS_PATHS"]) == ["**.md", "docs/images/**"]
+
+
+def test_a_backend_choice_off_the_table_is_reported():
+    """The control for the test above: docs-only checked first, and a marker pytest.ini lacks."""
+    job = {
+        "env": {"SUITE": "${{ needs.changes.outputs.docs == 'true' && 'reads_docs' || "
+                         "needs.changes.outputs.backend != 'false' && 'whole' || 'repo_wide' }}"},
+        "steps": [
+            {"if": "env.SUITE == 'whole'", "run": "python -m pytest -q"},
+            {"if": "env.SUITE != 'whole'", "run": 'python -m pytest -q -m "$SUITE"'},
+        ],
     }
-    assert pytest_steps.keys() == {"env.WHOLE_SUITE == 'true'", "env.WHOLE_SUITE != 'true'"}
-    assert "repo_wide" not in pytest_steps["env.WHOLE_SUITE == 'true'"]
-    assert "-m repo_wide" in pytest_steps["env.WHOLE_SUITE != 'true'"]
+    assert suite_gaps(job, {"repo_wide"}) == [
+        "backend true, docs true: runs reads_docs, not whole",
+        "no test carries the `reads_docs` marker",
+    ]
+    job["steps"][0]["run"] = "python -m pytest -q -m repo_wide"
+    assert "the whole suite is narrowed, or a narrower one is not chosen by SUITE" in suite_gaps(job, {"repo_wide", "reads_docs"})
 
 
 def shard_gaps(job: dict) -> list[str]:
@@ -888,6 +1071,95 @@ def test_the_required_backend_check_passes_only_when_every_shard_did():
     assert 'test "$SHARDS" = success' in step["run"]
 
 
+def aggregate_gaps(data: dict, name: str) -> list[str]:
+    """How the one job named `name` can pass while a job beside it did not."""
+    jobs = data.get("jobs") or {}
+    named = [job_id for job_id, job in jobs.items() if job.get("name") == name]
+    if len(named) != 1:
+        return [f"{len(named)} jobs named {name}"]
+    result = jobs[named[0]]
+    needs = result.get("needs") or []
+    needs = [needs] if isinstance(needs, str) else needs
+    gaps = [f"does not wait on {job_id}" for job_id in jobs if job_id not in (named[0], "changes", *needs)]
+    if result.get("if") != "${{ always() }}":
+        gaps.append(f"runs if {result.get('if')}: skipped, it would count as passed")
+    step = (result.get("steps") or [{}])[-1]
+    run = str(step.get("run", ""))
+    if result.get("continue-on-error") or any(s.get("continue-on-error") for s in result.get("steps") or []):
+        gaps.append("continues on error: a failed test still passes it")
+    for job_id in needs:
+        variable = next((k for k, v in (step.get("env") or {}).items() if v == f"${{{{ needs.{job_id}.result }}}}"), None)
+        if variable is None or f'test "${variable}" = success' not in run:
+            gaps.append(f"does not require {job_id} to succeed")
+    return gaps
+
+
+def test_the_required_windows_check_passes_only_when_every_lane_did():
+    """A ruleset requires one name; lanes and shards report under their own names, so the
+    one job named `windows` stands for all of them, and runs even when the run is cancelled."""
+    data = yaml.safe_load((WORKFLOWS / "windows.yml").read_text())
+    assert aggregate_gaps(data, "windows") == []
+    assert data["jobs"]["result"]["needs"] == "checks"
+
+
+def test_a_windows_check_that_can_pass_over_a_lane_is_reported():
+    """The control for the test above."""
+    data = yaml.safe_load((WORKFLOWS / "windows.yml").read_text())
+    assert aggregate_gaps({"jobs": {"changes": {}, "checks": {}}}, "windows") == ["0 jobs named windows"]
+    data["jobs"]["result"]["if"] = "${{ !cancelled() }}"
+    data["jobs"]["installer"] = {"name": "windows (installer)"}
+    assert aggregate_gaps(data, "windows") == [
+        "does not wait on installer",
+        "runs if ${{ !cancelled() }}: skipped, it would count as passed",
+    ]
+    data["jobs"]["result"]["steps"][-1]["run"] = 'echo "lanes: $LANES"'
+    assert "does not require checks to succeed" in aggregate_gaps(data, "windows")
+    tolerant = yaml.safe_load((WORKFLOWS / "windows.yml").read_text())
+    tolerant["jobs"]["result"]["steps"][-1]["continue-on-error"] = True
+    assert aggregate_gaps(tolerant, "windows") == ["continues on error: a failed test still passes it"]
+    tolerant = yaml.safe_load((WORKFLOWS / "windows.yml").read_text())
+    tolerant["jobs"]["result"]["continue-on-error"] = True
+    assert aggregate_gaps(tolerant, "windows") == ["continues on error: a failed test still passes it"]
+
+
+def lock_check_gaps(job: dict) -> list[str]:
+    """How the native lane could let a build rewrite a lock file unnoticed."""
+    steps = job.get("steps") or []
+    check = next((i for i, s in enumerate(steps) if s.get("id") == "check"), None)
+    lock = next((i for i, s in enumerate(steps) if "git diff --exit-code" in str(s.get("run", ""))
+                 and "packages.lock.json" in str(s.get("run", ""))), None)
+    if lock is None:
+        return ["no step fails on a rewritten packages.lock.json"]
+    gaps = []
+    if check is None or lock < check:
+        gaps.append("the lock check runs before the lane builds")
+    if "matrix.lane == 'native'" not in str(steps[lock].get("if", "")):
+        gaps.append("the lock check is not tied to the native lane")
+    if steps[lock].get("continue-on-error"):
+        gaps.append("the lock check continues on error")
+    return gaps
+
+
+def test_the_native_lane_fails_when_a_build_rewrites_a_lock_file():
+    """Restores outside locked mode rewrite a stale lock and pass, and the release build's
+    locked restore then fails: a Dependabot SDK or package PR is caught here instead."""
+    job = yaml.safe_load((WORKFLOWS / "windows.yml").read_text())["jobs"]["checks"]
+    assert lock_check_gaps(job) == []
+
+
+def test_a_missing_or_misplaced_lock_check_is_reported():
+    """The control for the test above."""
+    job = yaml.safe_load((WORKFLOWS / "windows.yml").read_text())["jobs"]["checks"]
+    steps = job["steps"]
+    lock = next(s for s in steps if "packages.lock.json" in str(s.get("run", "")))
+    moved = {**job, "steps": [lock, *(s for s in steps if s is not lock)]}
+    assert lock_check_gaps(moved) == ["the lock check runs before the lane builds"]
+    lock_any_lane = {**job, "steps": [{**s, "if": "always()"} if s is lock else s for s in steps]}
+    assert lock_check_gaps(lock_any_lane) == ["the lock check is not tied to the native lane"]
+    assert lock_check_gaps({**job, "steps": [s for s in steps if s is not lock]}) == [
+        "no step fails on a rewritten packages.lock.json"]
+
+
 def _local_browser_image() -> str:
     """The image `deploy/check_local.py` runs the browsers in, with `{version}` unfilled."""
     tree = ast.parse((REPO / "deploy" / "check_local.py").read_text())
@@ -961,15 +1233,9 @@ SIGNING_RUNS = (
 
 
 def runs_when(condition: str, event: str, ref: str) -> bool:
-    """A job `if:` of `==`, `&&`, `||` and parentheses, for one event and ref with the build done."""
+    """A job `if:` for one event and ref with the build done."""
     values = {"github.event_name": event, "github.ref": ref, "needs.build.outputs.identity": "true"}
-    expression = re.sub(r"\$\{\{|\}\}", "", condition)
-    if re.search(r"![^=]", expression):
-        raise NotImplementedError("negation is not used here; teach this test first")
-    # A context missing from `values` raises KeyError, so a new condition fails loudly.
-    expression = re.sub(r"\b[a-z_]+(?:\.[a-z_]+)+\b", lambda found: repr(values[found[0]]), expression)
-    expression = expression.replace("&&", " and ").replace("||", " or ")
-    return bool(eval(expression, {"__builtins__": {}}))  # noqa: S307 - built from the workflow file only
+    return bool(evaluate(condition, values))
 
 
 def signing_gaps(job: dict) -> list[str]:

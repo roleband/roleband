@@ -33,7 +33,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from tests.repo_wide import reaches_past_backend
+from tests.repo_wide import DocReads, reaches_past_backend, reads_docs
 from tests.skip_policy import (  # noqa: F401 - hooks register by name in a conftest
     pytest_make_collect_report,
     pytest_runtest_makereport,
@@ -515,11 +515,18 @@ def _embedded_servers_stop_with_the_session(tmp_path_factory):
     stop_clusters_under(tmp_path_factory.getbasetemp())
 
 
+def pytest_configure(config):
+    config.pluginmanager.register(DocReads(), "doc-reads")
+
+
 def pytest_collection_modifyitems(items):
-    """Mark the tests a pull request runs whatever it changes (`tests/repo_wide.py`)."""
+    """Mark the tests a pull request runs whatever it changes, and those a documentation-only
+    pull request runs (`tests/repo_wide.py`)."""
     for item in items:
         if reaches_past_backend(item.path):
             item.add_marker(pytest.mark.repo_wide)
+        if reads_docs(item.path):
+            item.add_marker(pytest.mark.reads_docs)
 
 
 def pytest_sessionfinish(session, exitstatus):  # noqa: ARG001 - pytest hook signature

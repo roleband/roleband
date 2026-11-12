@@ -97,12 +97,16 @@ async def test_cancel_drops_sync_s_queued_request_and_keeps_a_first_scan_s(db_se
 
 async def test_cancel_answers_as_soon_as_the_supervisor_has_stopped_the_scan(db_session):
     run = await _running(db_session, requested_by=scan_requests.SYNC, group=4400)
+    # Read before the task starts: `stop_manual_scan` polls with `session.refresh` on this
+    # same object, which leaves its attributes expired while the query is awaited, and a
+    # read from the task in that gap loads outside the session's greenlet.
+    run_id = run.id
     factory = async_sessionmaker(db_session.bind, expire_on_commit=False)
 
     async def supervisor_stops_it() -> None:
         await asyncio.sleep(0.2)
         async with factory() as session:
-            await job_store.finish_run(session, run.id, state=job_store.RUN_CANCELLED, exit_code=-15)
+            await job_store.finish_run(session, run_id, state=job_store.RUN_CANCELLED, exit_code=-15)
             await session.commit()
 
     stopper = asyncio.create_task(supervisor_stops_it())
