@@ -217,8 +217,13 @@ before 11, a start as another administrator account or a Store-only policy; star
 again through the administrator prompt only to add that certificate to Local Machine >
 Trusted People; downloads its release's package from the feed, checks its size, SHA-256,
 manifest and Windows' verdict on its signer (`FirstInstall.cs` in the host library); and
-installs it for the person who started it. The checks are tested in
-`RoleBand.EngineHost.Tests/FirstInstallTests.cs`; the window is Windows' task dialog.
+installs it for the person who started it. Each attempt downloads into
+`RoleBand-Setup\<version>` in the temporary folder and removes it, and Setup's folder
+when nothing else is in it, before the attempt's outcome is known: Setup ends its process
+as soon as an install succeeds, so a removal still under way then would be cut off. A file
+another program holds without sharing deletion is tried again for ten seconds. The checks
+are tested in `RoleBand.EngineHost.Tests/FirstInstallTests.cs`; the window is Windows'
+task dialog.
 
 A rehearsal tries a release's install and update on one machine before the first
 real release: `identity.py generate --rehearsal` makes an identity for

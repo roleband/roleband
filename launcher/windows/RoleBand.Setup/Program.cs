@@ -137,23 +137,40 @@ internal sealed class Installer(NativeCopy copy, InstallRelease? release)
 
     private async Task InstallAsync()
     {
+        var folder = Path.Combine(Path.GetTempPath(), Scratch, release!.Version);
+        bool installed;
+        try
+        {
+            // However the attempt ended, its download is no use to the next one, which starts from the first byte.
+            installed = await DownloadFolder.UsingAsync(folder, () => AttemptAsync(release, folder));
+        }
+        finally
+        {
+            Volatile.Write(ref busy, 0);
+        }
+        // Closing ends Setup's process, so it waits until the download is removed.
+        if (installed) Window.Press(Close);
+    }
+
+    /// <summary>One attempt to download, check and install the release; true when RoleBand is installed and opened.</summary>
+    private async Task<bool> AttemptAsync(InstallRelease target, string folder)
+    {
         // No cookies: a release host that sets one never gets it back, so a request says no more than SECURITY.md lists.
         using var handler = new SocketsHttpHandler { AllowAutoRedirect = false, UseCookies = false };
         var feed = new ReleaseDownload(handler);
-        var folder = Path.Combine(Path.GetTempPath(), Scratch, release!.Version);
         try
         {
             ReleaseFile file;
             // The release's small metadata file first, so a PC without a connection hears so before anyone is asked for
             // permission, and the download's size is known from its first byte.
             using (download = new CancellationTokenSource())
-                file = await feed.MetadataAsync(release, download.Token);
+                file = await feed.MetadataAsync(target, download.Token);
             Volatile.Write(ref download, null);
             Window.Navigate(new Page(copy["windows-setup-approving"], null, PageIcon.App, [], Waiting: true));
             if (!await ApproveAsync())
             {
                 Window.Navigate(Stopped("windows-setup-not-approved", "windows-setup-not-approved-body", PageIcon.Warning, retry: true));
-                return;
+                return false;
             }
             string package;
             using (download = new CancellationTokenSource())
@@ -165,11 +182,11 @@ internal sealed class Installer(NativeCopy copy, InstallRelease? release)
                     Window.SetProgress((int)(value.Received * 100 / value.Total));
                     Window.SetBody(Received(value.Received, value.Total));
                 });
-                package = await feed.PackageAsync(release, file, folder, progress, download.Token);
+                package = await feed.PackageAsync(target, file, folder, progress, download.Token);
             }
             Volatile.Write(ref download, null);
             // Windows' own check of the signature, whose signer must be the certificate this Setup trusted.
-            if (WindowsSignature.Signer(package) is not { } signer || !signer.AsSpan().SequenceEqual(release.Certificate))
+            if (WindowsSignature.Signer(package) is not { } signer || !signer.AsSpan().SequenceEqual(target.Certificate))
                 throw new NotTheRelease("The package is not signed with RoleBand's certificate.");
             Window.Navigate(new Page(copy["windows-setup-installing"], null, PageIcon.App, [], Progress: true));
             try
@@ -180,10 +197,10 @@ internal sealed class Installer(NativeCopy copy, InstallRelease? release)
             {
                 // Windows' own reason, in Windows' language.
                 Window.Navigate(new Page(copy["windows-setup-failed"], error.Message, PageIcon.Error, [new PageButton(Close, copy["menu-close"])]));
-                return;
+                return false;
             }
-            await InstalledRoleBand.OpenAsync(release);
-            Window.Press(Close);
+            await InstalledRoleBand.OpenAsync(target);
+            return true;
         }
         catch (OperationCanceledException)
         {
@@ -197,12 +214,7 @@ internal sealed class Installer(NativeCopy copy, InstallRelease? release)
         {
             Window.Navigate(DownloadFailed(error.Message));
         }
-        finally
-        {
-            // However the attempt ended, its download is no use to the next one, which starts from the first byte.
-            TryDelete(folder);
-            Volatile.Write(ref busy, 0);
-        }
+        return false;
     }
 
     /// <summary>"120 MB of 350 MB".</summary>
@@ -230,19 +242,6 @@ internal sealed class Installer(NativeCopy copy, InstallRelease? release)
 
     /// <summary>The folder under the temporary folder that holds Setup's downloads.</summary>
     private const string Scratch = "RoleBand-Setup";
-
-    /// <summary>Removes an attempt's download, and Setup's folder with it when nothing else is in it.</summary>
-    private static void TryDelete(string folder)
-    {
-        try
-        {
-            Directory.Delete(folder, recursive: true);
-            var parent = Path.GetDirectoryName(folder);
-            if (parent is not null && !Directory.EnumerateFileSystemEntries(parent).Any()) Directory.Delete(parent);
-        }
-        catch (IOException) { }
-        catch (UnauthorizedAccessException) { }
-    }
 
     /// <summary>Reports at once, on the reporting thread; the window takes its updates from any thread.</summary>
     private sealed class Immediate<T>(Action<T> report) : IProgress<T>

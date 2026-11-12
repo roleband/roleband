@@ -246,6 +246,96 @@ public sealed class FirstInstallTests
         Assert.IsFalse(InstalledRoleBand.AtLeast("0.1.9", "0.1.25"));
     }
 
+    /// <summary>Setup's folder in a fresh scratch place, with an attempt's download in it as Setup leaves it.</summary>
+    private static (string Setup, string Folder, string Package) Downloaded()
+    {
+        var setup = Path.Combine(Path.GetTempPath(), "roleband-download-tests", Guid.NewGuid().ToString("N"), "RoleBand-Setup");
+        var folder = Path.Combine(setup, "0.2.1");
+        Directory.CreateDirectory(folder);
+        var package = Path.Combine(folder, "RoleBand-0.2.1-Windows-x64.msix");
+        File.WriteAllBytes(package, new byte[64 * 1024]);
+        return (setup, folder, package);
+    }
+
+    /// <summary>Holds the package as a virus scanner reading the new file can: open, without sharing deletion.</summary>
+    private static FileStream Scanning(string package) => new(package, FileMode.Open, FileAccess.Read, FileShare.Read);
+
+    [TestMethod]
+    public async Task AnInstallsOutcomeArrivesOnlyOnceItsDownloadIsGone()
+    {
+        var (setup, folder, _) = Downloaded();
+        bool? seenDuring = null;
+
+        var installed = await DownloadFolder.UsingAsync(folder, () =>
+        {
+            seenDuring = Directory.Exists(folder);
+            return Task.FromResult(true);
+        });
+
+        // Setup closes, and its process ends, the moment it has this outcome: nothing may be left to remove then.
+        Assert.IsTrue(installed);
+        Assert.IsTrue(seenDuring, "the attempt downloads into its folder");
+        Assert.IsFalse(Directory.Exists(folder), "no empty version folder is left");
+        Assert.IsFalse(Directory.Exists(setup), "Setup's own folder goes with its last download");
+        Directory.Delete(Path.GetDirectoryName(setup)!);
+    }
+
+    [TestMethod]
+    public async Task AFailedAttemptsDownloadIsRemovedBeforeItsErrorArrives()
+    {
+        var (setup, folder, _) = Downloaded();
+
+        await Assert.ThrowsExactlyAsync<HttpRequestException>(() =>
+            DownloadFolder.UsingAsync<bool>(folder, () => throw new HttpRequestException("offline")));
+
+        Assert.IsFalse(Directory.Exists(setup));
+        Directory.Delete(Path.GetDirectoryName(setup)!);
+    }
+
+    [TestMethod]
+    public async Task OneTryWhileAScannerHoldsThePackageLeavesIt()
+    {
+        var (setup, folder, package) = Downloaded();
+        using (Scanning(package))
+            Assert.IsFalse(await DownloadFolder.RemoveAsync(folder, TimeSpan.Zero));
+
+        Assert.IsTrue(File.Exists(package), "a file nobody may delete is left whole, without an error");
+        Directory.Delete(Path.GetDirectoryName(setup)!, recursive: true);
+    }
+
+    [TestMethod]
+    public async Task ADownloadAScannerLetsGoOfAMomentLaterIsStillRemoved()
+    {
+        var (setup, folder, package) = Downloaded();
+        var scanner = Scanning(package);
+        var release = Task.Run(async () =>
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(600));
+            await scanner.DisposeAsync();
+        });
+
+        Assert.IsTrue(await DownloadFolder.RemoveAsync(folder, DownloadFolder.Patience));
+        await release;
+
+        Assert.IsFalse(Directory.Exists(setup));
+        Directory.Delete(Path.GetDirectoryName(setup)!);
+    }
+
+    [TestMethod]
+    public async Task RemovingADownloadKeepsWhateverElseIsInSetupsFolder()
+    {
+        var (setup, folder, _) = Downloaded();
+        var other = Path.Combine(setup, "0.2.0");
+        Directory.CreateDirectory(other);
+
+        Assert.IsTrue(await DownloadFolder.RemoveAsync(folder, DownloadFolder.Patience));
+
+        Assert.IsFalse(Directory.Exists(folder));
+        Assert.IsTrue(Directory.Exists(other), "another attempt's folder is not this one's to remove");
+        Assert.IsTrue(await DownloadFolder.RemoveAsync(Path.Combine(setup, "0.1.0"), TimeSpan.Zero), "a folder never made is already gone");
+        Directory.Delete(Path.GetDirectoryName(setup)!, recursive: true);
+    }
+
     /// <summary>Records each report as it is made, unlike <see cref="Progress{T}"/>, which posts it later.</summary>
     private sealed class Synchronous(Action<(long, long)> report) : IProgress<(long Received, long Total)>
     {
