@@ -13,11 +13,14 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from sqlalchemy import event, text
+from sqlalchemy import event, func, select, text
+from sqlalchemy.dialects import postgresql
 
 from tests.factories import make_company, make_job, record_whole_read
 from tracker.analytics.demand import compute_demand_metrics
-from tracker.db.models import JobLifecycleEvent, JobPlaceSet, JobPlaceSetMember, ScrapeRun
+from tracker.db.models import Job, JobLifecycleEvent, JobPlaceSet, JobPlaceSetMember, ScrapeRun
+from tracker.db.queries.jobs import open_in_scope_count_stmt, structured_conds
+from tracker.lineage.counts import place_set_later
 
 #: More ids of each kind than a bound list may carry.
 MANY = 600
@@ -35,7 +38,7 @@ READS = (
 )
 
 
-async def _seed(db_session) -> None:
+async def _seed(db_session, *, analyze: bool = True) -> None:
     """acme's first scan finds MANY roles its board was already listing; a later
     run finds one role listed at MANY + 1 places, a place set with MANY later
     members."""
@@ -65,10 +68,10 @@ async def _seed(db_session) -> None:
         )
     db_session.add_all(JobPlaceSetMember(job_id=job.id, set_id=place_set.id, status="auto") for job in places)
     await db_session.commit()
-    # Statistics for the rows, as a database holding them has: an analyze that
-    # ran while an earlier test left the tables empty would plan these reads
-    # for one row each, and nested loops over this seed never finish.
-    await db_session.execute(text("ANALYZE jobs, job_place_set_member, job_place_set, job_lifecycle_events"))
+    if analyze:
+        # Statistics for the rows, as a database holding them has, so each read
+        # here is measured on the plan it gets in use.
+        await db_session.execute(text("ANALYZE jobs, job_place_set_member, job_place_set, job_lifecycle_events"))
 
 
 @pytest.mark.asyncio
@@ -115,3 +118,66 @@ async def test_pace_and_overview_keep_their_rules_at_volume(api_client, db_sessi
     assert kpis["age_unknown"] == MANY  # the first scan's undated finds
     overview = (await api_client.get("/api/statistics/overview?days=30")).json()["kpis"]
     assert (overview["new_count"], overview["already_listed_count"]) == (1, MANY)
+
+
+def _rows_read(plan: dict) -> dict[str, int]:
+    """Rows each table was read for over a whole `EXPLAIN (ANALYZE)` run: a
+    scan's rows per loop, those it returned and those its filter dropped,
+    times its loops, summed by relation."""
+    out: dict[str, int] = {}
+    if "Relation Name" in plan:
+        name = plan["Relation Name"]
+        per_loop = (
+            plan["Actual Rows"]
+            + plan.get("Rows Removed by Filter", 0)
+            + plan.get("Rows Removed by Index Recheck", 0)
+        )
+        out[name] = out.get(name, 0) + per_loop * plan["Actual Loops"]
+    for child in plan.get("Plans", []):
+        for name, rows in _rows_read(child).items():
+            out[name] = out.get(name, 0) + rows
+    return out
+
+
+def test_a_read_counts_the_rows_a_filter_dropped_on_every_loop():
+    """A scan that returns one row a loop but reads every posting to find it
+    is a whole pass per loop."""
+    scan = {"Relation Name": "jobs", "Actual Rows": 1, "Rows Removed by Filter": 1200, "Actual Loops": 1201}
+    plan = {"Node Type": "Nested Loop", "Actual Rows": 1201, "Actual Loops": 1, "Plans": [scan]}
+    assert _rows_read(plan) == {"jobs": 1201 * 1201}
+
+
+@pytest.mark.asyncio
+async def test_the_rule_reads_only_the_postings_in_a_set_however_long_the_history(db_session):
+    """Statistics taken when the members were most of the postings let the
+    planner join the members to every posting. The rule reads each member's
+    posting by its id, so postings in no set are never read for it."""
+    await _seed(db_session)
+    db_session.add_all(make_job(f"history-{i}", company="acme", status="closed") for i in range(10 * MANY))
+    await db_session.commit()
+    sql = place_set_later().compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+    plan = (await db_session.execute(text(f"EXPLAIN (ANALYZE, FORMAT JSON) {sql}"))).scalar_one()[0]["Plan"]
+    assert len((await db_session.scalars(place_set_later())).all()) == MANY
+    assert _rows_read(plan).get("jobs", 0) <= MANY + 1, _rows_read(plan)
+
+
+@pytest.mark.asyncio
+async def test_a_place_set_shows_once_in_one_pass_whatever_the_statistics_say(db_session):
+    """Statistics taken while the tables were empty (a fresh install before its
+    first scan) leave the planner free to check each open posting against
+    every other for an earlier member of its set: quadratic in open postings.
+    The rule finds a set's later members once per statement, so each count
+    reads the members and the postings a few times over, never once per
+    posting, and still shows the set once."""
+    await db_session.execute(text("ANALYZE jobs, job_place_set_member, job_place_set"))
+    await db_session.commit()
+    await _seed(db_session, analyze=False)
+    postings, members = MANY + MANY + 1, MANY + 1
+    board = select(func.count()).select_from(Job).where(*structured_conds({"status": "open", "hidden": []}))
+    for name, stmt in (("open count", open_in_scope_count_stmt()), ("Board", board)):
+        assert await db_session.scalar(stmt) == MANY + 1, name
+        sql = stmt.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+        plan = (await db_session.execute(text(f"EXPLAIN (ANALYZE, FORMAT JSON) {sql}"))).scalar_one()[0]["Plan"]
+        read = _rows_read(plan)
+        assert read.get("job_place_set_member", 0) <= 3 * members, (name, read)
+        assert read.get("jobs", 0) <= 3 * postings, (name, read)
