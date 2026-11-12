@@ -57,6 +57,10 @@ struct LauncherDependencies {
     var installOperations: UpdateInstallerOperations?
     var updateNotice: UpdateNotice?
     var portFree: @Sendable (Int) -> Bool = EnginePort.isFree
+    /// The startup decision, made again by Try again. Without it the mode never changes.
+    var decideMode: (() -> LaunchMode)?
+    /// Opens a fresh copy of the app for a changed startup decision, and quits this one.
+    var reopen: () -> Void = {}
 
     /// `port` is the owned engine's; without one it is the person's saved choice.
     static func live(mode: LaunchMode = .attach, bundle: Bundle = .main,
@@ -72,6 +76,8 @@ struct LauncherDependencies {
                         ?? bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
                     openBrowser: { NSWorkspace.shared.open($0) }, preferences: preferences, loginService: .system,
                     bundleURL: bundle.bundleURL, homeURL: home, language: language)
+        dependencies.decideMode = { LaunchMode.decide(bundle: bundle.bundleURL, home: home) }
+        dependencies.reopen = { AppReopen.request() }
         if case .owned = mode {
             if let configuration = try? HostConfiguration(bundle: bundle, home: home, port: port) {
                 let identity = OwnedIdentity(configuration.installation)
@@ -232,6 +238,8 @@ final class LauncherModel: ObservableObject {
     private let engine: EngineClient
     private let readNotes: @Sendable (VerifiedStatus, InstallationSource) async throws -> InstalledNotes
     private let openBrowser: (URL) -> Bool
+    private let decideMode: (() -> LaunchMode)?
+    private let reopen: () -> Void
     private let preferences: UserDefaults
     private let loginService: LoginService
     let bundleURL: URL
@@ -266,6 +274,8 @@ final class LauncherModel: ObservableObject {
         readNotes = dependencies.readNotes
         launcherVersion = dependencies.launcherVersion
         openBrowser = dependencies.openBrowser
+        decideMode = dependencies.decideMode
+        reopen = dependencies.reopen
         preferences = dependencies.preferences
         portFree = dependencies.portFree
         // The engine's own identity says where it serves; an isolated run passes a port of its own.
@@ -572,6 +582,13 @@ final class LauncherModel: ObservableObject {
     func panelShown() {
         panelOpen = true
         refresh()
+    }
+    /// Try again makes the startup decision again before it reads the status: when the source
+    /// install is gone, or the database is now the app's to run, only a fresh copy of the app starts
+    /// as that decision says. An owned engine decides again in its own Restart.
+    func retry() {
+        if attached, let decided = decideMode?(), decided != .attach { reopen(); return }
+        refresh(includeSchedule: true)
     }
     func becameActive() {
         if !checking { refresh() }

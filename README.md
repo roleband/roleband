@@ -229,7 +229,7 @@ cd backend
 Then start the API and the dashboard, in two shells:
 
 ```bash
-cd backend && .venv/bin/uvicorn tracker.api.app:app --port 8010
+cd backend && .venv/bin/uvicorn tracker.api.app:app --port 8010 --no-proxy-headers
 ```
 
 ```bash

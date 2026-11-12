@@ -33,6 +33,25 @@ struct LaunchBlock {
     }
 }
 
+/// While another program holds the app's database, the blocked launch makes its startup decision
+/// again every few seconds. Once the decision changes it hands over to a fresh copy of the app, which
+/// starts as it would from any open, so the person need not quit and reopen it. A copy that could
+/// not be opened leaves the watch running, to try again at the next look.
+struct LaunchRecheck {
+    var interval: Duration = .seconds(5)
+    var decide: @MainActor () -> LaunchMode
+    var reopen: @MainActor () async -> Bool
+
+    @MainActor func watch(_ mode: LaunchMode) -> Task<Void, Never> {
+        Task { @MainActor in
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: interval) } catch { return }
+                if decide() != mode, await reopen() { return }
+            }
+        }
+    }
+}
+
 struct LaunchPalette {
     let dark: Bool
     var increasedContrast = false
@@ -197,8 +216,14 @@ final class BlockedLaunchDelegate: NSObject, NSApplicationDelegate {
     private let block: LaunchBlock
     private let copy = LauncherCopy()
     private let retry: () throws -> Void
+    private let recheck: LaunchRecheck?
+    private var watching: Task<Void, Never>?
     private var window: NSWindow?
-    init(block: LaunchBlock, retry: @escaping () throws -> Void = {}) { self.block = block; self.retry = retry }
+    init(block: LaunchBlock, retry: @escaping () throws -> Void = {}, recheck: LaunchRecheck? = nil) {
+        self.block = block
+        self.retry = retry
+        self.recheck = recheck
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
@@ -219,7 +244,10 @@ final class BlockedLaunchDelegate: NSObject, NSApplicationDelegate {
         self.window = window
         NSApp.activate()
         window.makeKeyAndOrderFront(nil)
+        if block.inUse, let recheck { watching = recheck.watch(block.mode) }
     }
+
+    func applicationWillTerminate(_ notification: Notification) { watching?.cancel() }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

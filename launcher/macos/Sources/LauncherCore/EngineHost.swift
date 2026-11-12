@@ -62,6 +62,7 @@ public actor EngineHost {
     private let readHealth: @Sendable (Installation) async throws -> EngineHealth
     private let automatic: Bool
     private let grace: TimeInterval
+    private let monitorInterval: Duration
     private var monitor: Task<Void, Never>?
     private var operation: Task<Void, Error>?
     private var child: OwnedChild?
@@ -70,6 +71,9 @@ public actor EngineHost {
     private var startedAt: TimeInterval = 0
     private var failures = 0
     private var restarts: [TimeInterval] = []
+    private var attentionAt: TimeInterval = 0
+    /// How often a database or port held by another program is looked at again.
+    static let inUseRecheck: TimeInterval = 5
 
     deinit {
         monitor?.cancel()
@@ -82,21 +86,22 @@ public actor EngineHost {
 
     init(configuration: HostConfiguration, now: @escaping @Sendable () -> TimeInterval,
          readStatus: @escaping @Sendable (Installation) async throws -> VerifiedStatus,
-         automatic: Bool = true, stopGrace: TimeInterval = 10) {
+         automatic: Bool = true, stopGrace: TimeInterval = 10, monitorInterval: Duration = .seconds(3)) {
         self.init(configuration: configuration, now: now, readHealth: {
             _ = try await readStatus($0)
             return EngineHealth()
-        }, automatic: automatic, stopGrace: stopGrace)
+        }, automatic: automatic, stopGrace: stopGrace, monitorInterval: monitorInterval)
     }
 
     init(configuration: HostConfiguration, now: @escaping @Sendable () -> TimeInterval,
          readHealth: @escaping @Sendable (Installation) async throws -> EngineHealth,
-         automatic: Bool = true, stopGrace: TimeInterval = 10) {
+         automatic: Bool = true, stopGrace: TimeInterval = 10, monitorInterval: Duration = .seconds(3)) {
         self.configuration = configuration
         self.now = now
         self.readHealth = readHealth
         self.automatic = automatic
         self.grace = stopGrace
+        self.monitorInterval = monitorInterval
     }
 
     public func start() async throws {
@@ -187,19 +192,27 @@ public actor EngineHost {
             lastFailure = nil
             problem = nil
             try launch()
-            if automatic {
-                monitor?.cancel()
-                monitor = Task { [weak self] in
-                    while !Task.isCancelled {
-                        do { try await Task.sleep(for: .seconds(3)) } catch { return }
-                        guard !Task.isCancelled else { return }
-                        try? await self?.check()
-                    }
-                }
-            }
+            if automatic { startMonitoring() }
         } catch {
             attention(error)
+            // Monitoring goes on while another program holds the database or the port, so the engine
+            // starts once it lets go.
+            if automatic, let held = error as? HostProblem, held == .databaseInUse || held == .portInUse, monitor == nil {
+                startMonitoring()
+            }
             throw error
+        }
+    }
+
+    private func startMonitoring() {
+        monitor?.cancel()
+        let interval = monitorInterval
+        monitor = Task { [weak self] in
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: interval) } catch { return }
+                guard !Task.isCancelled else { return }
+                try? await self?.check()
+            }
         }
     }
 
@@ -307,7 +320,11 @@ public actor EngineHost {
                     try await failed("engine_unhealthy")
                 }
             }
-        case .stopped, .needsAttention: return
+        case .needsAttention:
+            // Held by another program: every few seconds, decide again as at launch and start once it is free.
+            guard problem == .databaseInUse || problem == .portInUse, now() - attentionAt >= Self.inUseRecheck else { return }
+            do { try await begin() } catch let held as HostProblem where held == .databaseInUse || held == .portInUse { return }
+        case .stopped: return
         }
     }
 
@@ -389,5 +406,6 @@ public actor EngineHost {
         lastFailure = String(describing: error)
         problem = error as? HostProblem
         state = .needsAttention
+        attentionAt = now()
     }
 }

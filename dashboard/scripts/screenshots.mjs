@@ -131,7 +131,7 @@ try {
   run(join(BACKEND, ".venv", "bin", "alembic"), ["upgrade", "head"], BACKEND);
   run(PYTHON, ["-m", "scripts.seed_synthetic", "--count", "120"], BACKEND);
 
-  api = spawn(PYTHON, ["-m", "uvicorn", "tracker.api.app:app", "--host", "127.0.0.1", "--port", String(PORT)], {
+  api = spawn(PYTHON, ["-m", "uvicorn", "tracker.api.app:app", "--host", "127.0.0.1", "--port", String(PORT), "--no-proxy-headers"], {
     cwd: BACKEND,
     env,
     stdio: ["ignore", "ignore", "inherit"],

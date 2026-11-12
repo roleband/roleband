@@ -43,10 +43,14 @@ UNHEALTHY = "api_unhealthy"
 
 def uvicorn_command(python: str, host: str, port: int, *, authenticated: bool = False) -> list[str]:
     # No access log: one line per dashboard poll is most of the volume an
-    # always-on API writes, and none of it is read.
+    # always-on API writes, and none of it is read. No proxy headers: the
+    # loopback boundary refuses a peer that is not this computer, and with
+    # them uvicorn would let `X-Forwarded-For` replace the socket's peer
+    # address for any address `FORWARDED_ALLOW_IPS` names.
     if authenticated:
         return [python, "-m", "tracker.supervisor.http_server", "--host", host, "--port", str(port)]
-    return [python, "-m", "uvicorn", "tracker.api.app:app", "--host", host, "--port", str(port), "--no-access-log"]
+    return [python, "-m", "uvicorn", "tracker.api.app:app", "--host", host, "--port", str(port), "--no-access-log",
+            "--no-proxy-headers"]
 
 
 class ApiService:

@@ -44,14 +44,15 @@ private struct HostFixture: Sendable {
         configuration = try HostConfiguration(resources: resources, home: home, installation: installation)
     }
 
-    func host(clock: HostClock = HostClock(), healthy: Bool = false, grace: TimeInterval = 0.1) -> EngineHost {
+    func host(clock: HostClock = HostClock(), healthy: Bool = false, grace: TimeInterval = 0.1,
+              automatic: Bool = false) -> EngineHost {
         EngineHost(configuration: configuration, now: { clock.read() }, readStatus: { installation in
             if !healthy { throw ConnectionProblem.unavailable }
             var identity = try JSONSerialization.jsonObject(with: JSONEncoder().encode(installation)) as! [String: Any]
             identity["status"] = ["observed_at": "2026-10-29T12:00:00Z", "activity": "idle", "attention": [], "model": "ready"]
             return try StatusClient.decode(JSONSerialization.data(withJSONObject: ["db": "ok", "launcher": identity]),
                                            status: 200, installation: installation)
-        }, automatic: false, stopGrace: grace)
+        }, automatic: automatic, stopGrace: grace, monitorInterval: .milliseconds(10))
     }
 
     func token() throws -> String {
@@ -587,6 +588,60 @@ private func freePort() throws -> Int {
     } catch { try? await host.stop(); throw error }
 }
 
+@Test func theEngineStartsOnItsOwnOnceAnotherProgramLetsGoOfTheDatabase() async throws {
+    let fixture = try HostFixture()
+    defer { fixture.remove() }
+    let clock = HostClock()
+    let host = fixture.host(clock: clock, healthy: true)
+    let server = try ForeignServer(fixture)
+    do {
+        await #expect(throws: HostProblem.databaseInUse) { try await host.start() }
+        clock.advance(EngineHost.inUseRecheck)
+        try await host.check()
+        #expect(await host.state == .needsAttention && server.process.isRunning, "still held: nothing starts or stops")
+        #expect(await host.problem == .databaseInUse)
+        server.end()
+        clock.advance(1)
+        try await host.check()
+        #expect(await host.state == .needsAttention, "it looks again only every few seconds")
+        clock.advance(EngineHost.inUseRecheck)
+        try await host.check()
+        #expect(await host.problem == nil)
+        try await fixture.waitForEngine()
+        try await host.check()
+        #expect(await host.state == .running, "the same host runs the engine, with no relaunch")
+        try await host.stop()
+    } catch {
+        if server.process.isRunning { server.end() }
+        try? await host.stop()
+        throw error
+    }
+}
+
+@Test func monitoringContinuesAfterAnInUseRefusalAndStartsTheEngineWithNoCall() async throws {
+    let fixture = try HostFixture()
+    defer { fixture.remove() }
+    let clock = HostClock()
+    let host = fixture.host(clock: clock, healthy: true, automatic: true)
+    let server = try ForeignServer(fixture)
+    do {
+        await #expect(throws: HostProblem.databaseInUse) { try await host.start() }
+        server.end()
+        clock.advance(EngineHost.inUseRecheck)
+        // Nothing here calls check(): only the host's own monitoring can start the engine.
+        let deadline = ProcessInfo.processInfo.systemUptime + 5
+        while await host.state != .running, ProcessInfo.processInfo.systemUptime < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(await host.state == .running)
+        try await host.stop()
+    } catch {
+        if server.process.isRunning { server.end() }
+        try? await host.stop()
+        throw error
+    }
+}
+
 @Test func crashDiagnosticsReadOnlyBoundedLogTails() async throws {
     let fixture = try HostFixture()
     defer { fixture.remove() }
@@ -745,4 +800,41 @@ private actor HealthSequence {
     }
     #expect(try await fixture.waitFor("ready.json") == Data("{\"job\": 1}".utf8))
     try await writer.value
+}
+
+@Test func theEngineStartsOnItsOwnOnceAnotherProgramLetsGoOfThePort() async throws {
+    let listener = try Listener()
+    var holding = true
+    defer { if holding { listener.close() } }
+    let fixture = try HostFixture(port: listener.port)
+    defer { fixture.remove() }
+    let clock = HostClock()
+    let host = fixture.host(clock: clock, healthy: true, automatic: true)
+    do {
+        await #expect(throws: HostProblem.portInUse) { try await host.start() }
+        clock.advance(EngineHost.inUseRecheck)
+        try await host.check()
+        #expect(await host.state == .needsAttention && !FileManager.default.fileExists(atPath: fixture.configuration.record.path),
+                "still held: nothing starts")
+        #expect(await host.problem == .portInUse)
+        listener.close()
+        holding = false
+        clock.advance(1)
+        try await host.check()
+        #expect(await host.state == .needsAttention, "it looks again only every few seconds")
+        // Nothing here calls check() again: only the host's own monitoring can start the engine.
+        clock.advance(EngineHost.inUseRecheck)
+        let deadline = ProcessInfo.processInfo.systemUptime + 5
+        while await host.state != .running, ProcessInfo.processInfo.systemUptime < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(await host.state == .running)
+        let problem = await host.problem
+        let conflict = await host.portConflict
+        #expect(problem == nil && conflict == nil)
+        try await host.stop()
+    } catch {
+        try? await host.stop()
+        throw error
+    }
 }

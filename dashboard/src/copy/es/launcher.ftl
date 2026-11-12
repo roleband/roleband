@@ -163,11 +163,11 @@ launcher-host-attention = Necesita atención
 launcher-host-attention-body = Los escaneos no pudieron continuar.
     Revisa los registros y pulsa Reiniciar.
 launcher-host-in-use-body = Otro programa tiene tus datos abiertos, así que el escaneo se detuvo.
-    Detén ese programa y pulsa Reiniciar.
+    El escaneo se reanuda solo cuando ese programa se detenga.
 launcher-host-port-body = Otro programa está usando el puerto { $port }, así que el escaneo no puede empezar.
-    Cambia a otro puerto, o cierra ese programa y pulsa Reiniciar.
+    El escaneo se reanuda solo cuando ese programa se detenga, o cambia ahora a otro puerto.
 launcher-host-port-holder-body = { $program } está usando el puerto { $port }, así que el escaneo no puede empezar.
-    Cambia a otro puerto, o cierra { $program } y pulsa Reiniciar.
+    El escaneo se reanuda solo cuando { $program } se detenga, o cambia ahora a otro puerto.
 launcher-port-use = Usar puerto { $port }
 launcher-host-stopped = El escaneo se ha detenido
 launcher-host-quit-note = Al salir se detienen los escaneos
@@ -187,13 +187,13 @@ launcher-elsewhere-fresh-body = Mueve la carpeta .roleband a otro lugar y vuelve
 launcher-elsewhere-finder-help = Abre la carpeta que contiene la base de datos
 launcher-in-use-title = Otro programa está usando tus datos
 launcher-in-use-body = Un programa ajeno a esta app, como un comando ejecutado en Terminal, tiene tus datos abiertos.
-    Para protegerlos, esta app no se inicia mientras ese programa los tenga abiertos.
+    Para protegerlos, esta app espera a que ese programa se detenga y después se inicia sola.
 launcher-in-use-restart = Reiniciar este equipo
 launcher-in-use-restart-body = El reinicio detiene el otro programa y no borra nada.
     Después, vuelve a abrir esta app.
 launcher-in-use-stop = Detener el otro programa
 launcher-in-use-stop-body = Si lo iniciaste en Terminal, detenlo allí.
-    Después, sal de esta app y vuelve a abrirla.
+    Después, esta app se inicia sola.
 launcher-update-stopped-title = No se pudo terminar una actualización
 launcher-update-stopped-body = Se conservan tus datos y la copia de seguridad hecha antes de la actualización.
     Para protegerlos, nada se inicia hasta que la actualización termine o se deshaga.

@@ -183,13 +183,13 @@ launcher-host-attention-body = Scanning couldn't keep running.
     Review the logs, then try Restart.
 # kind=sentence
 launcher-host-in-use-body = Another program has your data open, so scanning stopped.
-    Stop that program, then try Restart.
+    Scanning starts again by itself once that program stops.
 # kind=sentence
 launcher-host-port-body = Another program is using port { $port }, so scanning can't start.
-    Switch to another port, or quit that program and try Restart.
+    Scanning starts again by itself once that program stops, or switch to another port now.
 # kind=sentence
 launcher-host-port-holder-body = { $program } is using port { $port }, so scanning can't start.
-    Switch to another port, or quit { $program } and try Restart.
+    Scanning starts again by itself once { $program } stops, or switch to another port now.
 # kind=button
 launcher-port-use = Use port { $port }
 # kind=status
@@ -224,7 +224,7 @@ launcher-elsewhere-finder-help = Opens the folder that holds the database
 launcher-in-use-title = Another program is using your data
 # kind=sentence
 launcher-in-use-body = A program from outside this app, such as a command run in Terminal, has your data open.
-    To keep it safe, this app doesn't start while that program has it open.
+    To keep it safe, this app waits until that program stops, then starts by itself.
 # kind=heading
 launcher-in-use-restart = Restart this computer
 # kind=sentence
@@ -234,7 +234,7 @@ launcher-in-use-restart-body = A restart stops the other program, and nothing is
 launcher-in-use-stop = Stop the other program
 # kind=sentence
 launcher-in-use-stop-body = If you started it in Terminal, stop it there.
-    Then quit this app and open it again.
+    This app then starts by itself.
 # kind=heading
 launcher-update-stopped-title = An update couldn't finish
 # kind=sentence

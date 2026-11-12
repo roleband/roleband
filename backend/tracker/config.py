@@ -12,12 +12,13 @@ from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, TypedDict
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from tracker.blueprint import BLUEPRINT
 from tracker.platform.database_presets import PRESETS, DatabasePreset, PresetName, preset_for
 from tracker.platform.embedded_db import DEFAULT_LOCALE
+from tracker.platform.loopback import is_loopback_host
 from tracker.platform.memory import total_memory_bytes
 from tracker.platform.paths import PACKAGED, user_data_dir
 
@@ -79,14 +80,19 @@ class Settings(BaseSettings):
     postgres_port: int = 5433
 
     # Where the always-on API serves (the supervisor starts it on this pair);
-    # the health check derives its base URL from these.
+    # the health check derives its base URL from these. Only a loopback
+    # address or `localhost` is accepted: the API serves this computer alone,
+    # and refuses a connection from any other machine whatever it is bound to
+    # (`tracker/api/boundary.py`).
     api_host: str = "127.0.0.1"
     api_port: int = 8010
     # Host names the API answers to beyond the loopback names (always trusted)
-    # and `api_host` itself. Any other Host is refused 400 — the
-    # DNS-rebinding defence — and an unsafe request from a page on any other
-    # host is refused 403 (`tracker/api/boundary.py`). An operator serving on a
-    # LAN name adds it as a JSON list: ROLEBAND_API_TRUSTED_HOSTS='["mybox.local"]'.
+    # and `api_host` itself. Any other Host is refused 400, the DNS-rebinding
+    # defence, and an unsafe request from a page on any other host is refused
+    # 403. A name added here is one more name for this computer's own
+    # loopback, such as a hosts-file alias of 127.0.0.1, given as a JSON list:
+    # ROLEBAND_API_TRUSTED_HOSTS='["roleband.test"]'. It never opens the API
+    # to another machine.
     api_trusted_hosts: list[str] = Field(
         default_factory=list, validation_alias="ROLEBAND_API_TRUSTED_HOSTS"
     )
@@ -485,6 +491,16 @@ class Settings(BaseSettings):
     # RoleBand answers pay from its own data. `ROLEBAND_BUILTIN_PAY=false`
     # turns it off.
     builtin_pay_enabled: bool = Field(default=True, validation_alias="ROLEBAND_BUILTIN_PAY")
+
+    @field_validator("api_host")
+    @classmethod
+    def _api_host_on_loopback(cls, value: str) -> str:
+        if not is_loopback_host(value):
+            raise ValueError(
+                f"ROLEBAND_API_HOST={value!r}: the API serves only this computer; "
+                "use 127.0.0.1, ::1 or localhost"
+            )
+        return value
 
     def cache_dir(self) -> Path:
         if self.cache_dir_override:

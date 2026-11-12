@@ -163,11 +163,11 @@ launcher-host-attention = 需要处理
 launcher-host-attention-body = 扫描无法持续运行。
     请查看日志，然后尝试重新启动。
 launcher-host-in-use-body = 另一个程序正打开着你的数据，因此扫描已停止。
-    请停止该程序，然后尝试重新启动。
+    该程序停止后，扫描会自动恢复。
 launcher-host-port-body = 另一个程序正在使用端口 { $port }，因此无法开始扫描。
-    请换用其他端口，或退出该程序后尝试重新启动。
+    该程序停止后，扫描会自动恢复；也可以现在换用其他端口。
 launcher-host-port-holder-body = { $program } 正在使用端口 { $port }，因此无法开始扫描。
-    请换用其他端口，或退出 { $program } 后尝试重新启动。
+    { $program } 停止后，扫描会自动恢复；也可以现在换用其他端口。
 launcher-port-use = 使用端口 { $port }
 launcher-host-stopped = 扫描已停止
 launcher-host-quit-note = 退出将停止扫描
@@ -187,13 +187,13 @@ launcher-elsewhere-fresh-body = 请将 .roleband 文件夹移到其他位置，�
 launcher-elsewhere-finder-help = 打开存放数据库的文件夹
 launcher-in-use-title = 另一个程序正在使用你的数据
 launcher-in-use-body = 此应用之外的程序（例如在终端中运行的命令）正打开着你的数据。
-    为了保护数据，该程序打开数据期间，此应用不会启动。
+    为了保护数据，此应用会等待该程序停止，然后自动启动。
 launcher-in-use-restart = 重新启动这台电脑
 launcher-in-use-restart-body = 重新启动会停止另一个程序，不会删除任何内容。
     然后重新打开此应用。
 launcher-in-use-stop = 停止另一个程序
 launcher-in-use-stop-body = 如果是你在终端中启动的，请在终端中停止它。
-    然后退出此应用并重新打开。
+    之后此应用会自动启动。
 launcher-update-stopped-title = 有一项更新未能完成
 launcher-update-stopped-body = 你的数据和更新前做的备份都已保留。
     为了保护它们，在更新完成或撤销之前不会启动任何内容。
