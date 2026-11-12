@@ -131,7 +131,9 @@ def test_a_windows_release_attaches_only_files_a_person_or_an_app_reads():
     project = ElementTree.parse(setup / "RoleBand.Setup.csproj").getroot()
     default = project.find(".//RoleBandCertificate")
     assert default is not None and default.text.endswith("../RoleBand.cer"), "Setup no longer builds from RoleBand.cer"
-    embedded = {item.get("LogicalName") for item in project.iter("EmbeddedResource")
-                if item.get("Include") == "$(RoleBandCertificate)"}
+    # Embedded whenever the certificate file exists, by an item group no condition switches off.
+    embedded = {item.get("LogicalName") for group in project.iter("ItemGroup") if group.get("Condition") is None
+                for item in group.iter("EmbeddedResource") if item.get("Include") == "$(RoleBandCertificate)"
+                and item.get("Condition") in (None, "Exists('$(RoleBandCertificate)')")}
     requested = re.search(r'GetManifestResourceStream\("([^"]+\.cer)"\)', (setup / "Program.cs").read_text(encoding="utf-8"))
     assert requested and requested.group(1) in embedded, "Setup does not embed the certificate under the name it reads"
