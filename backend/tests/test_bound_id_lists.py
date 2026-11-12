@@ -20,6 +20,7 @@ from tests.factories import make_company, make_job, record_whole_read
 from tracker.analytics.demand import compute_demand_metrics
 from tracker.db.models import Job, JobLifecycleEvent, JobPlaceSet, JobPlaceSetMember, ScrapeRun
 from tracker.db.queries.jobs import open_in_scope_count_stmt, structured_conds
+from tracker.lineage.counts import place_set_later
 
 #: More ids of each kind than a bound list may carry.
 MANY = 600
@@ -120,16 +121,44 @@ async def test_pace_and_overview_keep_their_rules_at_volume(api_client, db_sessi
 
 
 def _rows_read(plan: dict) -> dict[str, int]:
-    """Rows each table gave up over a whole `EXPLAIN (ANALYZE)` run: a node's
-    rows per loop times its loops, summed by relation."""
+    """Rows each table was read for over a whole `EXPLAIN (ANALYZE)` run: a
+    scan's rows per loop, those it returned and those its filter dropped,
+    times its loops, summed by relation."""
     out: dict[str, int] = {}
     if "Relation Name" in plan:
         name = plan["Relation Name"]
-        out[name] = out.get(name, 0) + plan["Actual Rows"] * plan["Actual Loops"]
+        per_loop = (
+            plan["Actual Rows"]
+            + plan.get("Rows Removed by Filter", 0)
+            + plan.get("Rows Removed by Index Recheck", 0)
+        )
+        out[name] = out.get(name, 0) + per_loop * plan["Actual Loops"]
     for child in plan.get("Plans", []):
         for name, rows in _rows_read(child).items():
             out[name] = out.get(name, 0) + rows
     return out
+
+
+def test_a_read_counts_the_rows_a_filter_dropped_on_every_loop():
+    """A scan that returns one row a loop but reads every posting to find it
+    is a whole pass per loop."""
+    scan = {"Relation Name": "jobs", "Actual Rows": 1, "Rows Removed by Filter": 1200, "Actual Loops": 1201}
+    plan = {"Node Type": "Nested Loop", "Actual Rows": 1201, "Actual Loops": 1, "Plans": [scan]}
+    assert _rows_read(plan) == {"jobs": 1201 * 1201}
+
+
+@pytest.mark.asyncio
+async def test_the_rule_reads_only_the_postings_in_a_set_however_long_the_history(db_session):
+    """Statistics taken when the members were most of the postings let the
+    planner join the members to every posting. The rule reads each member's
+    posting by its id, so postings in no set are never read for it."""
+    await _seed(db_session)
+    db_session.add_all(make_job(f"history-{i}", company="acme", status="closed") for i in range(10 * MANY))
+    await db_session.commit()
+    sql = place_set_later().compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+    plan = (await db_session.execute(text(f"EXPLAIN (ANALYZE, FORMAT JSON) {sql}"))).scalar_one()[0]["Plan"]
+    assert len((await db_session.scalars(place_set_later())).all()) == MANY
+    assert _rows_read(plan).get("jobs", 0) <= MANY + 1, _rows_read(plan)
 
 
 @pytest.mark.asyncio

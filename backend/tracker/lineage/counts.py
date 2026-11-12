@@ -55,20 +55,29 @@ def place_set_later(*, eligible: Callable[[Any], list] | None = None) -> Select:
     passes = (
         func.coalesce(and_(true(), *eligible(_PEER)), false()) if eligible is not None else true()
     ).label("passes")
+    # Each member's posting is read by its id. OFFSET 0 keeps the planner from
+    # turning this lookup into a join that may scan every posting, so the rule
+    # reads the members' postings and no others, however long the history.
+    peer = (
+        select(_PEER.id, _PEER.first_seen, _PEER.status, _PEER.in_scope, passes)
+        .where(_PEER.id == _PEER_MEMBER.job_id)
+        .offset(0)
+        .lateral("place_set_peer")
+    )
     window = {
-        "partition_by": (_PEER_MEMBER.set_id, _PEER.status, _PEER.in_scope),
-        "order_by": (passes.desc(), _PEER.first_seen, _PEER.id),
+        "partition_by": (_PEER_MEMBER.set_id, peer.c.status, peer.c.in_scope),
+        "order_by": (peer.c.passes.desc(), peer.c.first_seen, peer.c.id),
     }
     ranked = (
         select(
-            _PEER.id.label("id"),
-            _PEER.first_seen.label("first_seen"),
-            func.first_value(passes).over(**window).label("first_passes"),
-            func.first_value(_PEER.first_seen).over(**window).label("first_first_seen"),
-            func.first_value(_PEER.id).over(**window).label("first_id"),
+            peer.c.id.label("id"),
+            peer.c.first_seen.label("first_seen"),
+            func.first_value(peer.c.passes).over(**window).label("first_passes"),
+            func.first_value(peer.c.first_seen).over(**window).label("first_first_seen"),
+            func.first_value(peer.c.id).over(**window).label("first_id"),
         )
         .select_from(_PEER_MEMBER)
-        .join(_PEER, _PEER.id == _PEER_MEMBER.job_id)
+        .join(peer, true())
         .where(_PEER_MEMBER.status == "auto")
         .subquery("place_set_ranked")
     )
