@@ -223,6 +223,25 @@ describe("StockTrajectoryPanel", () => {
     expect(within(stripe).getByText("$0")).toBeInTheDocument();
   });
 
+  it("says a company's own no-equity rule as a fact, and an estimated zero as a share", async () => {
+    mock(base({
+      public: [],
+      private: [
+        { company: "two-sigma", equity_vehicle: null, vesting: null,
+          ...pkg(500_000, 0, 100_000, { base: "posted", bonus: "estimated", equity: "company_rule" }) },
+        { company: "acme", equity_vehicle: null, vesting: null,
+          ...pkg(90_000, 0, 10_000, { base: "posted", bonus: "estimated", equity: "estimated" }) },
+      ],
+    }));
+    renderPanel();
+    const twoSigma = await screen.findByRole("row", { name: /two.sigma/i });
+    expect(within(twoSigma).getByText(msg("insights-stock-trajectory-panel-no-equity"))).toBeInTheDocument();
+    expect(twoSigma).not.toHaveTextContent("0%");
+    const acme = screen.getByRole("row", { name: /acme/i });
+    expect(within(acme).queryByText(msg("insights-stock-trajectory-panel-no-equity"))).not.toBeInTheDocument();
+    expect(acme).toHaveTextContent("0%");
+  });
+
   it("shows a cash-or-equity company apart, with a total that no price move changes", async () => {
     mock(base({
       choice: [{ company: "netflix", ticker: "NFLX", count: 4, median_tc: 756_250, total_source: "posted" }],

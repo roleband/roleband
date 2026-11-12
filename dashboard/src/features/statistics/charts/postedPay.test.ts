@@ -10,12 +10,13 @@ const thin = (level_band: string) => level(level_band, { ranges: 3, employers: 2
 
 const country = (code: string, levels: PostedLevel[], over: Partial<PostedCountry> = {}): PostedCountry => ({
   country: code, currency: "USD", ranges: levels.reduce((n, l) => n + l.ranges, 0), yours: false, levels,
-  not_placed: { roles: 0, ranges: 0 }, other_currency: 0, bands: [], ...over,
+  not_placed: { roles: 0, ranges: 0 }, other_currency: 0, bands: [],
+  excluded: { not_base: 0, not_yearly: 0, implausible: 0, placed_by_pay: 0 }, ...over,
 });
 
 const posted = (countries: PostedCountry[], over: Partial<PostedPay> = {}): PostedPay => ({
   min_employers: 5, min_ranges: 8, default_country: countries[0]?.country ?? null, countries,
-  excluded: { not_base: 0, not_yearly: 0, implausible: 0, no_country: 0, placed_by_pay: 0 },
+  excluded: { not_base: 0, not_yearly: 0, implausible: 0, no_country: 0, placed_by_pay: 0, without_country: 0 },
   your_levels: [], ...over,
 });
 

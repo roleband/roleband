@@ -257,7 +257,9 @@ bonus and equity are unknown, not zero.
 
 With no measured split, the package reads shares that are the same for every
 company (`analytics/comp_split.heuristic_ratios`): equity is a share of the
-year's total pay that rises with the level, the bonus is the company's stated
+year's total pay that rises with the level, from none for an internship to the
+largest share at Director+, and every level names its own share, so no
+early-career role reads more stock than a senior one. The bonus is the company's stated
 rule or else a flat share of the total, and base is the rest. Whatever the
 bonus, equity stays the level's share of the total: a company that pays no
 bonus does not get a larger equity share for it. A company's own facts enter
@@ -300,7 +302,7 @@ total. Each part says where it comes from:
 | Source | Base | Bonus | Equity |
 |---|---|---|---|
 | `posted` | the posted base range | the posting's stated percentage | |
-| `company_rule` | | the company's stated bonus rule, none included | |
+| `company_rule` | | the company's stated bonus rule, none included | the company's equity rule of `none`: "No equity", never 0% |
 | `measured` | | a pay row for the company and level | a pay row for the company and level |
 | `estimated` | the estimated total, split | the split heuristic | a share of base |
 | `mixed` | the company's roles differ | | |
@@ -393,14 +395,20 @@ Insights' Compensation tab opens on what employers post, not on the estimate
 - **What is read.** Yearly base pay only. Each role left out is counted
   under its reason in `excluded`: a range that is total compensation or
   unclear (`not_base`), per hour or month or of a size its period rules out
-  (`not_yearly`, `pay_period.effective_period`), a placeholder
-  (`implausible`), no pay country (`no_country`), or a level read from the
-  range itself (`placed_by_pay`, `LevelBasis.PAY_GRADE`: counting it would
-  describe pay by pay). A role whose level we cannot place is counted apart
-  in `not_placed`, never inside a level.
+  (`not_yearly`, `pay_period.effective_period`), a placeholder that is no pay
+  at any size, such as $1 to $2 (`implausible`), no pay country (`no_country`),
+  or a level read from the range itself (`placed_by_pay`, `LevelBasis.PAY_GRADE`:
+  counting it would describe pay by pay). A low salary is still a salary: no
+  floor above the size classes applies. `excluded` counts across all
+  countries; each country's own `excluded` counts its roles only, so the note
+  under a country's heading never counts another's. Every role left out that
+  names several countries or none, whatever its reason, is counted again in
+  `without_country`, which each country's note says, as no country holds it. A role whose level we
+  cannot place is counted apart in `not_placed`, never inside a level.
 - **The estimate stays apart.** The estimate panels (by level, company and
-  discipline, and the base-only estimates) read US rows only and are labelled
-  as estimates of US pay. Base pay and an estimated total never share an
+  discipline, and the base-only estimates) read only roles whose pay country
+  is the US and whose estimate is in US dollars, and are labelled as
+  estimates of US pay. Base pay and an estimated total never share an
   axis.
 
 ## Checks beside the headline

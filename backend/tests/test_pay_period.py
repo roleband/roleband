@@ -254,6 +254,22 @@ def test_size_classes_are_about_ten_times_apart_in_any_currency():
     assert size_classes(150_000, 200_000, "USD") == (PayPeriod.year,)
 
 
+@pytest.mark.parametrize(("low", "high", "currency", "period"), [
+    # Yearly and monthly salaries in currencies whose unit is a small fraction
+    # of a dollar: sized as dollars they read as no pay, or as the wrong period.
+    (14_000_000, 20_000_000, "HUF", PayPeriod.year),
+    (900_000, 1_300_000, "HUF", PayPeriod.month),
+    (25_000_000, 35_000_000, "IDR", PayPeriod.month),
+    (40_000_000, 60_000_000, "VND", PayPeriod.month),
+    (8_000_000, 12_000_000, "COP", PayPeriod.month),
+    (30_000_000, 45_000_000, "CLP", PayPeriod.year),
+    (2_500_000, 3_500_000, "CLP", PayPeriod.month),
+])
+def test_a_salary_in_a_small_unit_currency_is_sized_in_that_currency(low, high, currency, period):
+    assert size_class(low, high, currency) is period
+    assert size_class(low, high, "USD") is not period
+
+
 def test_a_structured_pay_field_may_be_decided_by_size_alone():
     # A Greenhouse tier labelled "Zone 1 (Menlo Park, CA; ...)" names no period.
     assert decide_period(PayPeriod.hour, None, structured=True) is PayPeriod.hour

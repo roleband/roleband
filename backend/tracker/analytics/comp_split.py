@@ -30,14 +30,18 @@ PARENT_TICKERS_OUTSIDE_ATLAS: dict[str, str] = {
 }
 
 # Share of a year's total pay that is equity, by seniority band. Senior packages
-# tip more toward stock, so the equity share grows with level.
+# tip more toward stock, so the equity share grows with level, and every band
+# names its own: a share that fell back to a default would give an early-career
+# role more stock than a senior one. An internship carries no equity grant.
 _EQUITY_PCT_BY_BAND: dict[LevelBand, float] = {
+    LevelBand.INTERN: 0.0,
+    LevelBand.ENTRY: 0.20,
+    LevelBand.MID: 0.28,
     LevelBand.SENIOR: 0.35,
     LevelBand.STAFF: 0.45,
     LevelBand.PRINCIPAL: 0.52,
     LevelBand.DIRECTOR_PLUS: 0.58,
 }
-_DEFAULT_EQUITY_PCT = 0.40
 
 #: Flat target-bonus share of a year's total pay, for a company that states no
 #: bonus rule of its own.
@@ -63,7 +67,7 @@ def parent_ticker(company: str) -> str | None:
 
 def equity_pct(band: LevelBand) -> float:
     """The heuristic equity share of a year's total pay at a band."""
-    return _EQUITY_PCT_BY_BAND.get(band, _DEFAULT_EQUITY_PCT)
+    return _EQUITY_PCT_BY_BAND[band]
 
 
 def heuristic_ratios(band: LevelBand, bonus_ratio: float | None, *, equity_none: bool = False) -> tuple[float, float]:

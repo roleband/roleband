@@ -54,6 +54,7 @@ USD_PER_UNIT: dict[str, float] = {
     "GBP": 1.27, "EUR": 1.08, "CHF": 1.13, "SEK": 0.095, "NOK": 0.094, "DKK": 0.145,
     "PLN": 0.25, "CZK": 0.044, "ILS": 0.27, "AED": 0.27, "INR": 0.012, "JPY": 0.0067,
     "KRW": 0.00073, "CNY": 0.14, "BRL": 0.18, "MXN": 0.055, "ZAR": 0.055,
+    "HUF": 0.0027, "IDR": 0.000062, "VND": 0.000039, "COP": 0.00025, "CLP": 0.00105,
 }
 
 #: Every code the size table knows, as a token of its own, so "USDC" does not
