@@ -68,8 +68,12 @@ still change.
 Scans run on their own, so the roles they find are what the panel is for. Open
 Radar is the Scan tab's one gold action; Scan now or Stop scan and Pause sit
 below it, quiet, side by side. A stopped engine is the exception: restarting it
-takes the gold place, and Open Radar waits for an engine that answers. The
-footer holds Quit alone. A last scan with new roles makes its new-roles count a
+takes the gold place, and Open Radar waits for an engine that answers. When
+another program holds the engine's port and a free port is nearby, Use port N
+takes the gold place instead, with Restart quiet beside it and a line saying
+that links saved with the old address stop working; with no free port nearby,
+Restart stays gold. Settings shows the port Radar opens at and lets the person
+choose another. The footer holds Quit alone. A last scan with new roles makes its new-roles count a
 link that opens the Radar on New (`/?lens=new`); with none, the count is plain.
 
 First open uses Welcome, Get ready, At login and Ready. Placement guidance is a
