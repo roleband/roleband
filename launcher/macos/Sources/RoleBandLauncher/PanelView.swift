@@ -723,7 +723,7 @@ private struct ScanTab: View {
                     }
                     .buttonStyle(QuietButtonStyle())
                 } else if model.verified == nil {
-                    Button(model.text("retry")) { model.refresh(includeSchedule: true) }.buttonStyle(QuietButtonStyle())
+                    Button(model.text("retry")) { model.retry() }.buttonStyle(QuietButtonStyle())
                     if model.attached, let directory = model.engineLogDirectory {
                         Button(model.text("engine-logs")) { NSWorkspace.shared.activateFileViewerSelecting([directory]) }
                             .buttonStyle(QuietButtonStyle())

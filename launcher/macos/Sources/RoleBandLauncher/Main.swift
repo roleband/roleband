@@ -189,6 +189,7 @@ enum LauncherMain {
             let executable = UpdateHelperProcess.executable(for: paths, fallback: Bundle.main.executableURL!)
             try UpdateHelperProcess.spawn(executable: executable, recovering: true, id: id, home: home)
         }
+        AppReopen.waitForPrevious(CommandLine.arguments)
         var stopped: LaunchBlock.StoppedUpdate?
         if case .owned = LaunchMode.decide(bundle: Bundle.main.bundleURL, home: home),
            let version = Bundle.main.object(forInfoDictionaryKey: "RoleBandVersion") as? String {
@@ -227,7 +228,10 @@ enum LauncherMain {
             app.delegate = delegate
             withExtendedLifetime(delegate) { app.run() }
         } else {
-            let delegate = BlockedLaunchDelegate(block: LaunchBlock(mode: session.mode, bundle: Bundle.main.bundleURL, home: home))
+            let recheck = LaunchRecheck(decide: { LaunchMode.decide(bundle: Bundle.main.bundleURL, home: home) },
+                                        reopen: { await AppReopen.request() })
+            let delegate = BlockedLaunchDelegate(block: LaunchBlock(mode: session.mode, bundle: Bundle.main.bundleURL, home: home),
+                                                 recheck: recheck)
             app.delegate = delegate
             withExtendedLifetime(delegate) { app.run() }
         }
@@ -245,6 +249,37 @@ enum AppOpener {
         guard pid > 0 else { throw CocoaError(.executableLoad) }
         return pid
     }
+}
+
+/// A fresh copy of this app, for a startup decision that has changed. Only one copy runs at a time,
+/// and a second one hands over to the first, so the fresh copy waits for this one to quit before
+/// it decides anything.
+enum AppReopen {
+    static let argument = "--after-quit"
+
+    /// True once the fresh copy is open and this one is quitting.
+    @discardableResult @MainActor static func request(bundle: URL = Bundle.main.bundleURL) async -> Bool {
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.createsNewApplicationInstance = true
+        configuration.addsToRecentItems = false
+        configuration.arguments = [argument, String(getpid())]
+        do { _ = try await NSWorkspace.shared.openApplication(at: bundle, configuration: configuration) } catch {
+            NSSound.beep()
+            return false
+        }
+        AppQuit.request()
+        return true
+    }
+
+    /// In the fresh copy: waits, for at most `limit` seconds, until the copy that opened it has quit.
+    static func waitForPrevious(_ arguments: [String], limit: TimeInterval = 30, alive: (pid_t) -> Bool = AppReopen.alive) {
+        guard let index = arguments.firstIndex(of: argument), arguments.indices.contains(index + 1),
+              let previous = pid_t(arguments[index + 1]), previous > 0, previous != getpid() else { return }
+        let deadline = ProcessInfo.processInfo.systemUptime + limit
+        while alive(previous), ProcessInfo.processInfo.systemUptime < deadline { usleep(50_000) }
+    }
+
+    static func alive(_ pid: pid_t) -> Bool { kill(pid, 0) == 0 || errno == EPERM }
 }
 
 @MainActor
