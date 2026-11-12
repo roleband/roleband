@@ -406,3 +406,68 @@ public static class InstalledRoleBand
     public static bool AtLeast(string installed, string version) =>
         System.Version.Parse(installed) >= System.Version.Parse(version);
 }
+
+/// <summary>The folder a Setup attempt downloads its package into, under Setup's own folder in the temporary folder.</summary>
+public static class DownloadFolder
+{
+    /// <summary>How long removal waits for a program that holds the package without letting it be deleted, such as a
+    /// virus scanner reading the new file.</summary>
+    public static readonly TimeSpan Patience = TimeSpan.FromSeconds(10);
+
+    private static readonly TimeSpan Every = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>
+    /// Runs an attempt that downloads into <paramref name="folder"/> and returns its outcome only once the folder is
+    /// removed, however the attempt ended. Setup ends its process as soon as it knows an install succeeded, so a removal
+    /// still under way then would be cut off between deleting the package and deleting its folder.
+    /// </summary>
+    public static async Task<T> UsingAsync<T>(string folder, Func<Task<T>> attempt)
+    {
+        try
+        {
+            return await attempt();
+        }
+        finally
+        {
+            await RemoveAsync(folder, Patience);
+        }
+    }
+
+    /// <summary>
+    /// Removes <paramref name="folder"/>, and its parent when nothing else is in it; true when the folder is gone. A file
+    /// another program holds open without sharing deletion cannot be deleted until it lets go, so removal is tried again
+    /// for up to <paramref name="patience"/>. It never throws: the folder is in the temporary folder, and what is left
+    /// there is not worth an error.
+    /// </summary>
+    /// <param name="delay">Waits between tries; <see cref="Task.Delay(TimeSpan)"/> unless a test steps it.</param>
+    public static async Task<bool> RemoveAsync(string folder, TimeSpan patience, Func<TimeSpan, Task>? delay = null)
+    {
+        delay ??= Task.Delay;
+        var waited = TimeSpan.Zero;
+        while (true)
+        {
+            try
+            {
+                Directory.Delete(folder, recursive: true);
+                break;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                break;
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            {
+                if (waited >= patience) return false;
+                await delay(Every);
+                waited += Every;
+            }
+        }
+        try
+        {
+            var parent = Path.GetDirectoryName(folder);
+            if (parent is not null && Directory.Exists(parent) && !Directory.EnumerateFileSystemEntries(parent).Any()) Directory.Delete(parent);
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+        return true;
+    }
+}
