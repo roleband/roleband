@@ -31,8 +31,8 @@ and only reports what the posting literally says.
   paragraph calls the band a salary. Last, a band whose pay country is the US
   or Canada (`BASE_BY_CONVENTION_COUNTRIES`,
   [0005](decisions/0005-unmarked-range-is-base-pay.md)) is base when the role does not sell
-  (`taxonomy/roles.sells` is false): pay-transparency law there asks for the
-  base range. It stays `unclear` when the posting describes an employee
+  (`taxonomy/roles.sells` is false): a posting there conventionally prints its
+  base salary as the one figure under a bare label. It stays `unclear` when the posting describes an employee
   election, or its paragraph says the range includes more or calls it total,
   cash or on-target pay. An explicit statement that this position's
   annual salary range is displayed below may cross the benefits paragraph to

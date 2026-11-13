@@ -658,6 +658,15 @@ def test_a_label_inside_the_match_that_names_other_money_is_refused():
     assert not extract_grounded_band(bonus, bonus).disclosed
     equity = "Minimum equity grant: $100,000, maximum equity grant: $150,000."
     assert not extract_grounded_band(equity, equity).disclosed
+    # Each bound carries its own label: joining two components states a band no
+    # employer wrote, whichever end names the other money.
+    mixed = "Minimum base salary: $120,000; maximum annual bonus: $160,000."
+    assert not extract_grounded_band(mixed, mixed).disclosed
+    reversed_mixed = "Minimum annual bonus: $120,000; maximum base salary: $160,000."
+    assert not extract_grounded_band(reversed_mixed, reversed_mixed).disclosed
+    both = "Minimum base salary: $120,000; maximum base salary: $160,000."
+    assert (extract_grounded_band(both, both).base_min,
+            extract_grounded_band(both, both).base_max) == (120000, 160000)
     # A label that names pay is still read.
     salary = ("Our minimum base salary for this role is $150,000 per year; "
               "maximum base salary for this role is $200,000 per year.")

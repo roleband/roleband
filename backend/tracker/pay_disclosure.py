@@ -304,9 +304,18 @@ def _label_names_other_money(pay_text: str, match: re.Match) -> bool:
     bonus: $150,000" the word "bonus" sits INSIDE the match, where that check
     cannot see it. A label naming a pay word ("Minimum base salary") is kept,
     by the same exception.
+
+    BOTH labels are read, because each bound carries its own: "Minimum base
+    salary: $120,000; maximum annual bonus: $160,000" names two different
+    components, and joining them states a band no employer wrote.
     """
-    label = pay_text[match.start() : match.start("low")]
-    return bool(_OTHER_MONEY_RE.search(label)) and not _PAY_LEAD_RE.search(label)
+    for label in (
+        pay_text[match.start() : match.start("low")],
+        pay_text[match.end("low") : match.start("high")],
+    ):
+        if _OTHER_MONEY_RE.search(label) and not _PAY_LEAD_RE.search(label):
+            return True
+    return False
 
 
 def _names_other_money(pay_text: str, match: re.Match) -> bool:
@@ -1011,9 +1020,13 @@ def _names_salary_at(text: str, span: tuple[int, int] | None) -> bool:
 
 
 #: Pay countries whose postings state base pay when they state one range.
-#: Their pay-transparency laws ask for the base salary range (or a sales
-#: role's on-target earnings), so an unmarked range there is base pay unless
-#: the role sells. Elsewhere an unmarked range stays `unclear`.
+#: Their pay-transparency rules make a posting carry a pay figure at all, and
+#: the figure employers there print under a bare label is conventionally the
+#: base salary; a selling role's may be on-target earnings instead. What each
+#: rule demands differs by state and province, and some ask for expected
+#: compensation rather than base, so this is a reading of what postings say,
+#: not of what any one law requires. Elsewhere an unmarked range stays
+#: `unclear`.
 BASE_BY_CONVENTION_COUNTRIES = frozenset({"US", "CA"})
 
 #: Words that call a range more than base pay without saying what it adds:

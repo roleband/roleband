@@ -8,16 +8,20 @@ settled by markers in the posting's own words: "base salary range", extras
 stated as added on top, a range the posting calls total compensation, or a
 definition per kind of role.
 
-Most US and Canadian employers write none of them. Pay-transparency law asks
-them for a figure, and they print one range under a neutral label: "Pay Range",
-"Zone 1", "California pay range", "Compensation:". A range with no marker is
+Most US and Canadian employers write none of them. Pay-transparency rules make
+them carry a figure, and they print one range under a neutral label: "Pay
+Range", "Zone 1", "California pay range", "Compensation:". A range with no marker is
 `unclear`, and an `unclear` range is never split. That unmarked label is the
 commonest shape in which a US or Canadian posting states its pay.
 
-Reading such a range as base is not an assumption about one employer. The law in
-those countries asks for the base salary range (or, for a commissioned role, its
-on-target earnings), and the panel distinguishes stated from estimated
-components, so a range read as base is labelled as the employer's own figure.
+Reading such a range as base is not an assumption about one employer, but about
+what postings in those countries conventionally state: the figure printed under
+a bare label is the base salary, and a selling role's may be on-target earnings
+instead. It is not a reading of any one statute. What the rules demand differs
+by state and province, and some ask for expected compensation, which may include
+a bonus, rather than for base. The convention is therefore a reading of the
+market's wording, and the markers below are what overrides it wherever an
+employer says something else.
 
 ## Decision
 
@@ -51,8 +55,9 @@ stored band a connector wrote is settled by the daily pass
   words "base salary".
 - `basis_unclear` now means what no rule settles: a selling role, a range called
   total or cash pay, or a posting outside the two countries.
-- Adding a country to the set is a claim about that country's law, so the set is
-  a named constant with the rule beside it.
+- Adding a country to the set is a claim about how that country's postings are
+  conventionally worded, so the set is a named constant with the reasoning
+  beside it. It is not a claim about a statute, and no code here reads one.
 - A stored `base` does not record whether a marker or this convention settled
   it, and the convention reads the role's family and the posting's country.
   Nothing re-settles a band when a later pass changes either, so a role
