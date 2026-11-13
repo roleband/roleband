@@ -9,6 +9,13 @@ import { applicationCardFixture, applicationDetailFixture, compPackageFixture, j
 import { appleJobFixture, comparison, detail, installBoardRoutes, jobFixture2, twoJobList } from "./boardHarness";
 import { expectOnTop, pointAndClick, strangersOver } from "./paint";
 
+/* Controls named by what the catalog says, so a copy edit cannot fail a test
+   that is not about copy. A stage button carries its days after the stage, and
+   the stage menu its posting's title, so both stay prefixes. */
+const STAGE_APPLIED = new RegExp(`^${msg("taxonomy-stage-applied")}\\b`);
+const STAGE_MENU = new RegExp(`^${msg("applications-stage-menu-label", { title: "" }).trimEnd()}`);
+const VIEW_APPLY = new RegExp(msg("role-job-detail-view-apply"), "i");
+
 test.beforeEach(async ({ page }) => {
   await installBoardRoutes(page);
 });
@@ -33,7 +40,7 @@ test("opening an opportunity shows a full-screen detail that fills the viewport"
   await expect(panel).toBeVisible();
   await expect(panel.getByRole("heading", { name: "Staff Product Manager, API" })).toBeVisible();
   await expect(panel).toContainText("Lead API product strategy.");
-  await expect(panel.getByRole("link", { name: /view & apply/i })).toHaveAttribute("href", jobFixture.url);
+  await expect(panel.getByRole("link", { name: VIEW_APPLY })).toHaveAttribute("href", jobFixture.url);
 
   // Full-screen: the detail covers the whole viewport, not a narrow side panel.
   const viewport = page.viewportSize()!;
@@ -326,7 +333,7 @@ test("a short /job/:id link canonicalizes to the company-scoped URL and reloads"
   await expect(page).toHaveURL(/\/company\/openai\/job\/202$/);
   const panel = detail(page);
   await expect(panel.getByRole("heading", { name: "Principal Engineer, Platform" })).toBeVisible();
-  await expect(panel.getByRole("link", { name: /view & apply/i })).toHaveAttribute("href", jobFixture2.url);
+  await expect(panel.getByRole("link", { name: VIEW_APPLY })).toHaveAttribute("href", jobFixture2.url);
 
   // Refresh on the canonical URL keeps the same opportunity.
   await page.reload();
@@ -450,7 +457,7 @@ test("a role off the pipeline shows the star alone, and saving turns it into the
 
   await expect(panel.getByText("Your progress")).toHaveCount(0);
   await expect(panel.locator(".jd-aside .section-title", { hasText: msg("applications-posting-row") })).toHaveCount(0);
-  await expect(panel.getByRole("link", { name: /view & apply/i })).toHaveClass(/ui-btn-primary/);
+  await expect(panel.getByRole("link", { name: VIEW_APPLY })).toHaveClass(/ui-btn-primary/);
 
   await panel.getByRole("button", { name: msg("jobs-save"), pressed: false }).click();
   // Saved just now: the stage alone, with no count of days.
@@ -463,7 +470,7 @@ test("a role off the pipeline shows the star alone, and saving turns it into the
   await expect(facts.getByText(msg("applications-posting-next-step"), { exact: true })).toHaveCount(0);
   await expect(facts.getByText(msg("applications-posting-interview"), { exact: true })).toHaveCount(0);
   // Still deciding: applying stays the action.
-  await expect(panel.getByRole("link", { name: /view & apply/i })).toHaveClass(/ui-btn-primary/);
+  await expect(panel.getByRole("link", { name: VIEW_APPLY })).toHaveClass(/ui-btn-primary/);
 });
 
 test("an applied role names its stage in the bar, and its days and what is due in the Pipeline section", async ({ page }) => {
@@ -481,7 +488,7 @@ test("an applied role names its stage in the bar, and its days and what is due i
   await expect(bar.getByRole("button", { name: "Applied", exact: true })).toBeVisible();
   await expect(bar.getByText(/\d+d\b|days/), "the bar holds the stage, never its age").toHaveCount(0);
   const due = msg("applications-posting-due-day", { offset: 1, date: "" });
-  await expect(bar.getByRole("link", { name: /view & apply/i })).toHaveCount(0);
+  await expect(bar.getByRole("link", { name: VIEW_APPLY })).toHaveCount(0);
   const view = bar.getByRole("link", { name: msg("role-job-detail-view-posting") });
   await expect(view).toHaveAttribute("href", jobFixture.url);
   await expect(view).not.toHaveClass(/ui-btn-primary/);
@@ -985,7 +992,7 @@ test("the next posting turns in place: one cover, no loading line, the old posti
     }).observe(document.body, { childList: true, subtree: true });
   });
   await scroll.evaluate((el) => { el.scrollTop = 500; });
-  const apply = panel.getByRole("link", { name: /view & apply/i });
+  const apply = panel.getByRole("link", { name: VIEW_APPLY });
   await expect(apply).toHaveAttribute("href", jobFixture.url);
 
   const pager = panel.getByRole("group", { name: msg("role-job-detail-pager") });
@@ -1010,7 +1017,7 @@ test("the next posting turns in place: one cover, no loading line, the old posti
   await expect(title).toHaveText(jobFixture2.title, FIRST_TURN);
   await expect(waiting, "gone once the posting has come").toHaveCount(0);
   await expect(panel.locator(".jd-container")).not.toHaveAttribute("inert", "");
-  await expect(panel.getByRole("link", { name: /view & apply/i })).toHaveAttribute("href", jobFixture2.url);
+  await expect(panel.getByRole("link", { name: VIEW_APPLY })).toHaveAttribute("href", jobFixture2.url);
   await expect.poll(() => scroll.evaluate((el) => el.scrollTop), { message: "the new posting opens at its top" }).toBe(0);
   await expect(cover, "the same cover, never opened again").toHaveAttribute("data-opened", "once");
   expect(await page.evaluate(() => (window as unknown as { loadingLines: number }).loadingLines)).toBe(0);
@@ -1255,8 +1262,9 @@ for (const [name, size, zoom] of [["a laptop", { width: 1440, height: 900 }, 1.1
     await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: { ...jobFixture, is_favorite: true, pursuit: appliedPursuit } }));
     await mockGet(page, "/api/applications/101", (route) => route.fulfill({ json: applicationDetailFixture() }));
     await page.goto("/company/openai/job/101");
-    await detail(page).getByRole("button", { name: /^Applied( · \d+ days? in this stage)?$/ }).click();
-    await page.getByRole("dialog", { name: /^Change the stage of / }).getByRole("button", { name: /Interviewing/ }).click();
+    await detail(page).getByRole("button", { name: STAGE_APPLIED }).click();
+    await page.getByRole("dialog", { name: STAGE_MENU })
+      .getByRole("button", { name: new RegExp(msg("taxonomy-stage-interviewing")) }).click();
     const form = page.getByRole("dialog", { name: msg("applications-interview-title") });
     await expect(form).toBeVisible();
     await expect.poll(() => form.evaluate((el) => el.getAnimations().every((one) => one.playState === "finished"))).toBe(true);
@@ -1276,15 +1284,15 @@ test("moving to Interviewing from the posting asks for the interview first, over
   await page.goto("/company/openai/job/101");
   const panel = detail(page);
 
-  await panel.getByRole("button", { name: /^Applied( · \d+ days? in this stage)?$/ }).click();
-  await page.getByRole("dialog", { name: /^Change the stage of / }).getByRole("button", { name: /Interviewing/ }).click();
+  await panel.getByRole("button", { name: STAGE_APPLIED }).click();
+  await page.getByRole("dialog", { name: STAGE_MENU }).getByRole("button", { name: new RegExp(msg("taxonomy-stage-interviewing")) }).click();
   const form = page.getByRole("dialog", { name: msg("applications-interview-title") });
   await expect(form).toBeVisible();
   await expectOnTop(form.getByRole("heading", { name: msg("applications-interview-title") }), "the interview form");
   expect(writes, "no move before the interview's date").toEqual([]);
   await form.getByRole("button", { name: msg("applications-interview-cancel") }).click();
   await expect(form).toHaveCount(0);
-  await expect(panel.getByRole("button", { name: /^Applied( · \d+ days? in this stage)?$/ })).toBeVisible();
+  await expect(panel.getByRole("button", { name: STAGE_APPLIED })).toBeVisible();
   expect(writes).toEqual([]);
 });
 

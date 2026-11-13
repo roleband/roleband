@@ -211,6 +211,29 @@ class TestPostingPlaces:
         assert posting_places(["US"]) == ["United States"]
         assert posting_places(["Remote (US)", "Canada"]) == ["Remote (US)", "Canada"]
 
+    def test_a_bare_country_code_is_named_in_words(self):
+        # "DE" is not among the codes `_canon_one` knows, so it used to pass
+        # through as if it were a city, and the posting showed "DE". Beside the
+        # country's own name it even won over it.
+        assert posting_places(["DE"]) == ["Germany"]
+        assert posting_places(["FR"]) == ["France"]
+        assert posting_places(["Germany", "DE"]) == ["Germany"]
+        assert posting_places(["DE", "Germany"]) == ["Germany"]
+        # An ambiguous state code names no country, so it keeps its own label.
+        assert posting_places(["IN"]) == ["IN"]
+
+    def test_countries_inside_a_remote_label_are_still_named(self):
+        # One office row carries no country when it names several, so the
+        # countries are the only thing left to say where the role is open.
+        assert posting_places(["Remote - Germany or France"]) == [
+            "Remote",
+            "France",
+            "Germany",
+        ]
+        # A US state code names a state, not the country: the rule
+        # `_remote_label` reads a remote place by.
+        assert posting_places(["Remote - IN"]) == ["Remote"]
+
     def test_placeholders_name_nothing(self):
         assert posting_places(["Multiple Locations"]) == []
         assert posting_places([]) == []

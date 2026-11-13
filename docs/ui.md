@@ -275,7 +275,7 @@ nothing else: no second namespace, no aliases, no token declared elsewhere.
 A name may be *restated* on a scope, with no new name introduced, where a
 surface scales as a whole: the posting's width steps set the ramp's own names
 on `.jd-container` so its text, headings and facts step together
-([Job detail](#job-detail)). That is the only one.
+([Cover](#cover)). That is the only one.
 `src/test/ratchet.test.ts` fails a set of extinct names (`--bg`, `--text`,
 `--accent` and family), because a `var()` on an undefined name silently paints
 as `unset`.

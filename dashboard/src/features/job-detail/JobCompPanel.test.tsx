@@ -95,7 +95,8 @@ describe("JobCompPanel", () => {
     const legend = document.querySelector(".pkg-legend") as HTMLElement;
     const rows = [...legend.querySelectorAll<HTMLElement>(".pkg-leg")];
     const row = (name: string) => rows.find((one) => one.textContent?.startsWith(name))!;
-    expect(row("Base").querySelector(".pkg-leg-hint")).toHaveTextContent(msg("role-job-comp-panel-guaranteed-cash"));
+    expect(row(msg("role-job-comp-panel-base")).querySelector(".pkg-leg-hint"))
+      .toHaveTextContent(msg("role-job-comp-panel-guaranteed-cash"));
     // Equity's own note may say "per year"; none of them may name a shorter one.
     for (const one of rows) {
       const hint = one.querySelector(".pkg-leg-hint")!.textContent ?? "";
@@ -310,7 +311,9 @@ describe("JobCompPanel", () => {
       ...withPackage(pounds),
       pay_floor_check: { verdict: "straddles", amount: 300000, currency: "GBP", basis: "base" },
     }} />, { wrapper: MemoryRouter });
-    expect(screen.getByTestId("pkg-floor")).toHaveTextContent("Your £300K minimum base falls inside this range");
+    expect(screen.getByTestId("pkg-floor")).toHaveTextContent(
+      msg("role-pay-floor-line-your-pay-floor-falls-inside", { floor: "£300K" }),
+    );
     const base = document.querySelector(".pkg-legend .pkg-leg-n");
     expect(base).toHaveTextContent(/^£\d+K–£\d+K/);
     expect(base).not.toHaveTextContent("$");

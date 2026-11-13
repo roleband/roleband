@@ -168,8 +168,11 @@ test.describe("posting steps", () => {
     await openPosting(page, { width: 1728, height: 1117 });
     const tall = await readStep(page);
     expect(short).toEqual(tall);
-    // The installed app's own frame at this width: content 1248 px from x 240.
-    expect(short.frame).toEqual({ x: 240, width: 1248 });
+    // The installed app's own frame at this width: content 1248 px, centred in
+    // the box. Centred in the BOX, not the window: a classic scrollbar narrows
+    // the box, and the frame moves with it.
+    expect(short.frame.width).toBe(1248);
+    expect(Math.abs(short.frame.x - (short.room - 1248) / 2)).toBeLessThanOrEqual(1);
   });
 
   test("the bar keeps its size and place at every step", async ({ page }) => {

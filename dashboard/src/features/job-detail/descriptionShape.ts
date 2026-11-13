@@ -38,6 +38,8 @@ const TITLE_MAX_WORDS = 6;
 const TITLE_MAX_CHARS = 60;
 const OPENS_TITLE = /^[\p{Lu}\p{N}]/u;
 const TITLE_BREAKS = /[:;,]$|[.!?…:;]\s/u;
+/** A line that carries on into the next one, so it is not an item of its own. */
+const RUNS_ON = /[,;]$/u;
 
 function paragraphs(content: string): string[][] {
   return content
@@ -53,7 +55,11 @@ const isHeading = (lines: string[]): boolean =>
   lines.length === 1
   && lines[0].endsWith(":")
   && lines[0].length <= HEADING_MAX_CHARS
-  && lines[0].split(/\s+/).length <= HEADING_MAX_WORDS;
+  && lines[0].split(/\s+/).length <= HEADING_MAX_WORDS
+  // One phrase, as a title with no colon is already held to be: a sentence
+  // that happens to end in a colon ("We value collaboration. Your tasks
+  // include:") is prose, and setting it as a heading would lose its first half.
+  && !TITLE_BREAKS.test(lines[0].replace(/\s*:$/, ""));
 
 /** A paragraph that reads as a title: one short line that opens with a
  *  capital or a number, closes with no mark and holds no sentence break. */
@@ -64,6 +70,13 @@ const isTitle = (lines: string[]): boolean =>
   && OPENS_TITLE.test(lines[0])
   && !BULLET.test(lines[0])
   && !TITLE_BREAKS.test(lines[0]);
+
+/** Lines that read as separate items rather than one sentence wrapped over
+ *  several: each opens as an item does, and none runs on into the next. A
+ *  source that keeps the employer's hard line breaks gives prose the shape of
+ *  a list, and only the words tell them apart. */
+const isItemRun = (lines: string[]): boolean =>
+  lines.every((line) => OPENS_TITLE.test(line) && !RUNS_ON.test(line));
 
 /** What a title stands over: whole sentences, or a list. Another unfinished
  *  line after it leaves both as they are. */
@@ -86,7 +99,7 @@ export function shapeBlocks(content: string): Block[] {
       blocks.push({ kind: "list", items: items.filter(Boolean) });
       continue;
     }
-    if (lines.length >= LIST_RUN) {
+    if (lines.length >= LIST_RUN && isItemRun(lines)) {
       blocks.push({ kind: "list", items: lines.map((line) => line.replace(BULLET, "")) });
       at += 1;
       continue;

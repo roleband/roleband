@@ -261,6 +261,45 @@ describe("turnPosting", () => {
     turnPosting(document.body.appendChild(document.createElement("div")), "next", commit);
     expect(commit).toHaveBeenCalledTimes(1);
   });
+
+  /* A turn is started from a control the turn itself takes away (the next
+     posting at the foot, a link under More like this), so something has to
+     hold the keyboard afterwards. As an overlay the dialog does; as the page
+     there is none, and focus would fall to the body. */
+  it.each([
+    ["an overlay", "dialog"],
+    ["the page", null],
+  ] as const)("leaves the keyboard on the posting when the turn is %s", async (_name, role) => {
+    const holder = document.body.appendChild(document.createElement("main"));
+    holder.className = "cover";
+    holder.tabIndex = -1;
+    if (role) holder.setAttribute("role", role);
+    const box = holder.appendChild(document.createElement("div"));
+    const gone = box.appendChild(document.createElement("button"));
+    gone.focus();
+    expect(document.activeElement).toBe(gone);
+
+    turnPosting(box, "next", () => gone.remove());
+    await Promise.resolve();
+
+    expect(document.activeElement).toBe(holder);
+  });
+
+  it("leaves focus where it is when it never left the posting", async () => {
+    const holder = document.body.appendChild(document.createElement("main"));
+    holder.className = "cover";
+    holder.tabIndex = -1;
+    const box = holder.appendChild(document.createElement("div"));
+    // The pager lives in the bar, outside the reading area and inside the
+    // cover: it survives the turn, so it keeps the keyboard.
+    const pager = holder.appendChild(document.createElement("button"));
+    pager.focus();
+
+    turnPosting(box, "next", () => undefined);
+    await Promise.resolve();
+
+    expect(document.activeElement).toBe(pager);
+  });
 });
 
 describe("useHeld", () => {

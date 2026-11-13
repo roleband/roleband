@@ -63,8 +63,10 @@ function settled(box: HTMLElement): Promise<void> {
  *  when the cover opens. Focus on the bar (the pager) stays where it is. */
 function arrive(box: HTMLElement, top: number): void {
   box.scrollTop = top;
-  const dialog = box.closest<HTMLElement>('[role="dialog"]');
-  if (dialog && !dialog.contains(document.activeElement)) dialog.focus({ preventScroll: true });
+  // As the page the cover is no dialog, and without it focus would fall to the
+  // body and the keyboard would lose the posting altogether.
+  const holder = box.closest<HTMLElement>('[role="dialog"]') ?? box.closest<HTMLElement>(".cover");
+  if (holder && !holder.contains(document.activeElement)) holder.focus({ preventScroll: true });
 }
 
 /** The turn under way, so one that another has overtaken leaves the

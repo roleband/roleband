@@ -34,6 +34,7 @@ export function useReadingChrome(
     if (!scroller || !title) return;
     const calm = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
     let docked = false;
+    let shown = -1;
 
     const read = () => {
       const top = scroller.getBoundingClientRect().top;
@@ -54,8 +55,15 @@ export function useReadingChrome(
           progress = Math.min(1, Math.max(0, (top + HANDOVER - panel.getBoundingClientRect().bottom) / HANDOVER));
         }
         if (calm) progress = progress >= 1 ? 1 : 0;
-        dock.style.gridTemplateRows = `${progress.toFixed(4)}fr`;
-        dock.style.setProperty("--jd-dock", progress.toFixed(4));
+        // Only on a change: the handover is a few dozen frames of a scroll
+        // that is otherwise all 0 or all 1, and the row size is layout, so
+        // writing it again for the same value would lay the column out for
+        // nothing.
+        if (progress !== shown) {
+          shown = progress;
+          dock.style.gridTemplateRows = `${progress.toFixed(4)}fr`;
+          dock.style.setProperty("--jd-dock", progress.toFixed(4));
+        }
         // Told when the copy is whole and again only when it is gone, so a
         // column that changes height on being told cannot flip it back. A
         // side column taller than the text sets the page's length: changing

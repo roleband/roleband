@@ -56,6 +56,18 @@ describe("shapeBlocks", () => {
     const long = "In this part of the job, working across every office and every region we operate in, you will be expected to:";
     expect(kinds(`${long}\n\nMap how teams operate.`)).toEqual(["para", "para"]);
     expect(kinds("A core pillar is modernisation. In this part of the job, you will:\n\nMap how teams operate.")[0]).toBe("para");
+    // Short enough for both size limits, so only the sentence break tells it
+    // from a heading. Set as one, it would lose its first half.
+    expect(kinds("We value craft. Your tasks include:\n\nMap how teams operate.")[0]).toBe("para");
+  });
+
+  it("keeps a wrapped sentence a paragraph, though it runs over three lines", () => {
+    // A source that keeps the employer's hard line breaks gives prose the
+    // shape of a list; a line ending in a comma is not an item.
+    const wrapped = "We build tools for offices,\nwhere people work together\nacross forty countries.";
+    expect(shapeBlocks(wrapped)).toEqual([
+      { kind: "para", lines: ["We build tools for offices,", "where people work together", "across forty countries."] },
+    ]);
   });
 
   it("takes bullet marks as a list and drops the marks, but keeps a hyphenated word", () => {
