@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import errno
 import http.client
+import io
 import json
 import os
 import re
@@ -41,6 +42,17 @@ ENVELOPE_KEYS = {"contract_version", "request_id", "workspace_id", "operation", 
 # --------------------------------------------------------------------------- #
 
 
+#: What a Windows process needs to start at all (Winsock does not load without
+#: SYSTEMROOT). None of it selects an engine.
+_WINDOWS_SYSTEM = ("SYSTEMROOT", "WINDIR", "SYSTEMDRIVE", "TEMP", "TMP", "COMSPEC", "PATHEXT")
+
+
+def _system_env() -> dict[str, str]:
+    if sys.platform != "win32":
+        return {}
+    return {name: os.environ[name] for name in _WINDOWS_SYSTEM if name in os.environ}
+
+
 @dataclass
 class Home:
     """A scratch HOME with an optional context file."""
@@ -64,6 +76,7 @@ def home(tmp_path) -> Home:
 
 def _env(home: Home, **extra: str) -> dict[str, str]:
     env = {
+        **_system_env(),
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         "HOME": str(home.root),
         "XDG_CONFIG_HOME": str(home.root / ".config"),
@@ -306,6 +319,33 @@ def test_a_closed_pipe_ends_quietly_with_the_outcome(home):
         os.close(writer)
     assert process.returncode == 0
     assert process.stderr == ""
+
+
+@pytest.mark.parametrize(
+    ("platform", "error", "quiet"),
+    [
+        ("linux", BrokenPipeError(errno.EPIPE, "Broken pipe"), True),
+        ("win32", OSError(errno.EINVAL, "Invalid argument"), True),
+        ("linux", OSError(errno.EINVAL, "Invalid argument"), False),
+        ("win32", OSError(errno.ENOSPC, "No space left on device"), False),
+    ],
+    ids=["posix-epipe", "windows-einval", "posix-einval-is-real", "windows-enospc-is-real"],
+)
+def test_only_a_reader_that_went_away_is_swallowed(monkeypatch, platform, error, quiet):
+    from tracker.cli import main as cli_main
+
+    class Closed(io.StringIO):
+        def write(self, text: str) -> int:
+            raise error
+
+    monkeypatch.setattr(cli_main.sys, "platform", platform)
+    guarded = cli_main._Guarded(Closed())
+    if quiet:
+        guarded.write("x")
+        assert guarded.broken
+    else:
+        with pytest.raises(OSError):
+            guarded.write("x")
 
 
 # --------------------------------------------------------------------------- #
@@ -620,6 +660,7 @@ class Engine:
     def start(self) -> None:
         self.state.mkdir(parents=True, exist_ok=True)
         env = {
+            **_system_env(),
             "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
             "HOME": str(self.state / "home"),
             "PYTHONPATH": os.pathsep.join(str(BACKEND / p) for p in (".", "../sdk/python", "../robots/python")),

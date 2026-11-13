@@ -10,6 +10,7 @@ of its code.
 from __future__ import annotations
 
 import argparse
+import errno
 import io
 import json
 import os
@@ -323,6 +324,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     return status
 
 
+def _reader_gone(error: OSError) -> bool:
+    # Windows reports a write to a pipe whose reader closed as EINVAL, not EPIPE.
+    if isinstance(error, BrokenPipeError):
+        return True
+    return sys.platform == "win32" and error.errno == errno.EINVAL
+
+
 class _Guarded(io.TextIOBase):
     """stdout that records a closed pipe instead of raising it."""
 
@@ -336,7 +344,9 @@ class _Guarded(io.TextIOBase):
             return len(text)
         try:
             return self._stream.write(text)
-        except BrokenPipeError:
+        except OSError as error:
+            if not _reader_gone(error):
+                raise
             self.broken = True
             return len(text)
 
@@ -345,7 +355,9 @@ class _Guarded(io.TextIOBase):
             return
         try:
             self._stream.flush()
-        except BrokenPipeError:
+        except OSError as error:
+            if not _reader_gone(error):
+                raise
             self.broken = True
 
     def isatty(self) -> bool:
