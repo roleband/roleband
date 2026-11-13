@@ -198,7 +198,7 @@ def test_a_restarted_api_keeps_the_engines_browser_address_and_open_tabs(databas
             await service.tend(time.monotonic() - began)
         assert service.state == RUNNING, service.log.read_text(encoding="utf-8")
 
-    def browser_read(browser, endpoint):
+    def signed_read(browser, endpoint):
         header = authorization(browser["secret"], browser["key_id"], "GET", "/api/settings/locale", endpoint)
         connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
         try:
@@ -206,10 +206,21 @@ def test_a_restarted_api_keeps_the_engines_browser_address_and_open_tabs(databas
                                                                        "Host": endpoint.removeprefix("http://")})
             response = connection.getresponse()
             body = response.read()
-            assert response.getheader(PROOF_HEADER) == response_proof(browser["secret"], header, response.status, body)
-            return response.status
+            return header, response.status, response.getheader(PROOF_HEADER), body
         finally:
             connection.close()
+
+    def browser_read(browser, endpoint):
+        # A new API process refuses, with a 401 and no proof, a signature stamped in or before the
+        # second it started. The dashboard signs once more in a later second; so does this tab.
+        header, status, proof, body = signed_read(browser, endpoint)
+        if status == 401 and proof is None:
+            refused = int(time.time())
+            while int(time.time()) <= refused:
+                time.sleep(.05)
+            header, status, proof, body = signed_read(browser, endpoint)
+        assert proof == response_proof(browser["secret"], header, status, body)
+        return status
 
     async def exercise():
         try:
