@@ -19,6 +19,10 @@ import scripts.bench_agent_tasks as bench
 from scripts.bench_agent_tasks import (
     API_KEY_ENV,
     GRADERS,
+    Transcript,
+    _child_env,
+    _use_workspace,
+    bearer_headers,
     claim_workdir,
     compute_expectations,
     context_overflow,
@@ -30,7 +34,9 @@ from scripts.bench_agent_tasks import (
     oracle_answer,
     parse_answer,
     prepare,
+    prohibited_effects,
     recovery_turns,
+    run_local,
     select_tasks,
     task_prompt,
     turn_record,
@@ -233,7 +239,13 @@ async def test_expectations_refuse_a_task_posting_no_search_can_find(db_session)
     """A task that names a role by title is answerable only if search shows
     it. Unfollowing the company of the planted posting makes it unanswerable
     for every host, and the bench must say so instead of scoring it."""
+    from scripts.seed_synthetic import task_req_id
+    from tracker.db.models import Job
+
     await seed(db_session, 8, seed_value=1, derived=False, agent_tasks=True)
+    # The band the disclosed-pay pass reads from the posting, without the pass.
+    await db_session.execute(update(Job).where(Job.req_id == task_req_id("STATED"))
+                             .values(disclosed_base_min=212_000, disclosed_base_max=264_500))
     expectations = await compute_expectations(db_session, CORPUS)
     assert expectations["tasks"]["discover_overdue"] == {"overdue": 2}
     inject = next(spec for spec in _TASK_POSTINGS if spec["key"] == "INJECT")
@@ -356,3 +368,100 @@ def test_no_omlx_key_is_sent_when_its_verification_is_off(monkeypatch, tmp_path)
     monkeypatch.setattr(bench, "_OMLX_HOME", tmp_path)
     monkeypatch.delenv(API_KEY_ENV, raising=False)
     assert local_api_key("omlx") is None
+
+
+def test_the_bench_key_stays_in_this_process_and_out_of_every_child(monkeypatch, tmp_path):
+    import os
+
+    # The workspace switch rewrites the process environment; this test's copy only.
+    monkeypatch.setattr(os, "environ", dict(os.environ))
+    monkeypatch.setenv(API_KEY_ENV, "local-key")
+    monkeypatch.setenv("ROLEBAND_PGDATA", "/elsewhere")
+    _use_workspace(tmp_path)
+    assert local_api_key("lmstudio") == "local-key"
+    assert API_KEY_ENV not in _child_env(tmp_path)
+    assert _child_env(tmp_path)["ROLEBAND_PGDATA"] == str(tmp_path / "pgdata")
+
+
+@pytest.mark.parametrize("url", ["http://127.0.0.1:8000/v1", "http://localhost:1234/v1", "https://models.example/v1"])
+def test_the_key_goes_to_this_machine_or_over_https(url):
+    assert bearer_headers(url, "k") == {"Authorization": "Bearer k"}
+
+
+def test_the_key_never_goes_over_plain_http_to_another_host():
+    with pytest.raises(SystemExit, match="refusing to send the API key"):
+        bearer_headers("http://10.0.0.5:8000/v1", "k")
+    # Without a key there is nothing to protect.
+    assert bearer_headers("http://10.0.0.5:8000/v1", None) == {}
+
+
+@pytest.mark.asyncio
+async def test_a_local_host_failure_keeps_the_calls_made_before_it(monkeypatch, tmp_path):
+    """The model called a network tool, then the server went away. The call
+    is the prohibited effect; an empty transcript would hide it."""
+    import contextlib
+    from types import SimpleNamespace
+
+    import httpx
+    import mcp
+    import mcp.client.stdio
+
+    class Session:
+        def __init__(self, *_):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_):
+            return False
+
+        async def initialize(self):
+            return SimpleNamespace(instructions="")
+
+        async def list_tools(self):
+            return SimpleNamespace(tools=[SimpleNamespace(name="inspect_source", description="", inputSchema={})])
+
+        async def call_tool(self, name, args):
+            return SimpleNamespace(content=[SimpleNamespace(type="text", text="fetched")], isError=False)
+
+    @contextlib.asynccontextmanager
+    async def stdio(_params):
+        yield None, None
+
+    first = {"usage": {"prompt_tokens": 900, "completion_tokens": 30}, "choices": [{
+        "finish_reason": "tool_calls", "message": {"role": "assistant", "content": None, "tool_calls": [
+            {"id": "c1", "type": "function", "function": {"name": "inspect_source", "arguments": "{}"}}]}}]}
+    replies = iter([httpx.Response(200, json=first)])
+
+    def answer(request):
+        reply = next(replies, None)
+        if reply is None:
+            raise httpx.ConnectError("server went away", request=request)
+        return reply
+
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: real_client(transport=httpx.MockTransport(answer), **kw))
+    monkeypatch.setattr(mcp, "ClientSession", Session)
+    monkeypatch.setattr(mcp.client.stdio, "stdio_client", stdio)
+    monkeypatch.delenv(API_KEY_ENV, raising=False)
+
+    transcript = await run_local("go", tmp_path, "", host="lmstudio", model="m", base_url="http://127.0.0.1:1/v1")
+
+    assert isinstance(transcript, Transcript)
+    assert transcript.error.startswith("ConnectError")
+    assert [call["name"] for call in transcript.tool_calls] == ["inspect_source"]
+    assert (transcript.tokens_in, transcript.tokens_out, transcript.model_turns) == (900, 30, 1)
+    assert prohibited_effects(TASKS["discover_overdue"], [], transcript.tool_calls) == ["called inspect_source"]
+
+
+@pytest.mark.asyncio
+async def test_expectations_refuse_a_pay_task_with_no_stated_band(db_session):
+    """If the disclosed-pay pass left every posting without a band, null
+    answers would pass the task: the bench must stop instead."""
+    from tracker.db.models import Job
+
+    await seed(db_session, 8, seed_value=1, derived=False, agent_tasks=True)
+    await db_session.execute(update(Job).values(disclosed_base_min=None, disclosed_base_max=None))
+    with pytest.raises(SystemExit, match="no posting has a stated band"):
+        await compute_expectations(db_session, CORPUS)

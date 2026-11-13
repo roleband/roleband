@@ -601,13 +601,11 @@ async def export_workspace(session, out_dir: Path) -> dict:
             json.dumps({key: _json_value(value) for key, value in row.items()}, sort_keys=True) + "\n"
             for row in rows
         )
+        data = body.encode("utf-8")
         path = out_dir / f"{name}.ndjson"
-        path.write_text(body, encoding="utf-8")
-        files[name] = {
-            "file": path.name,
-            "rows": len(rows),
-            "sha256": hashlib.sha256(body.encode("utf-8")).hexdigest(),
-        }
+        # Bytes, not text: text mode would write CRLF on Windows and break the hash.
+        path.write_bytes(data)
+        files[name] = {"file": path.name, "rows": len(rows), "sha256": hashlib.sha256(data).hexdigest()}
     manifest = {
         "format": EXPORT_FORMAT,
         "synthetic_prefix": SYNTHETIC_PREFIX,

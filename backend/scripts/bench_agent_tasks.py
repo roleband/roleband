@@ -397,8 +397,9 @@ def _child_env(workdir: Path, database_url: str = "") -> dict[str, str]:
 
 
 def _use_workspace(workdir: Path) -> None:
-    """Point this process's own settings at the workspace before anything reads them."""
-    for key in [key for key in os.environ if key.startswith("ROLEBAND_")]:
+    """Point this process's own settings at the workspace before anything reads them.
+    The bench's own key stays here; `_child_env` keeps it from every child."""
+    for key in [key for key in os.environ if key.startswith("ROLEBAND_") and key != API_KEY_ENV]:
         del os.environ[key]
     os.environ["ROLEBAND_PGDATA"] = str(workdir / "pgdata")
     os.environ["ROLEBAND_DATABASE_URL"] = ""
@@ -561,6 +562,10 @@ async def compute_expectations(session, corpus: dict) -> dict:
                     "stated_base_high": job.disclosed_base_max,
                     "estimated_total_median": job.comp_median,
                 }
+            # Null is a right answer for a posting that states nothing; a task
+            # whose postings all state nothing would pass a host that reads none.
+            if all(item["stated_base_low"] is None and item["stated_base_high"] is None for item in pay.values()):
+                raise SystemExit(f"task {task['id']}: no posting has a stated band; did the disclosed-pay pass run?")
             tasks[task["id"]] = {"pay": pay}
         elif task["grader"] == "clear_follow_up":
             tasks[task["id"]] = {"job_id": postings[expect["pursuit"]]}
@@ -755,6 +760,22 @@ def local_api_key(host: str) -> str | None:
     return None
 
 
+_LOOPBACK = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+def bearer_headers(base_url: str, key: str | None) -> dict[str, str]:
+    """The key travels only over HTTPS or to this machine: `--base-url` can name
+    any host, and plain HTTP shows a bearer token to the whole path."""
+    if not key:
+        return {}
+    from urllib.parse import urlsplit
+
+    parts = urlsplit(base_url)
+    if parts.scheme != "https" and parts.hostname not in _LOOPBACK:
+        raise SystemExit(f"refusing to send the API key over {parts.scheme}://{parts.hostname}; use https")
+    return {"Authorization": f"Bearer {key}"}
+
+
 def _local_model_dir(host: str, model: str) -> Path | None:
     if host != "omlx":
         return None
@@ -769,8 +790,7 @@ async def local_host_info(host: str, base_url: str, model: str) -> dict:
     """The exact server, model and sampling defaults a local run used."""
     import httpx
 
-    key = local_api_key(host)
-    headers = {"Authorization": f"Bearer {key}"} if key else {}
+    headers = bearer_headers(base_url, local_api_key(host))
     info: dict[str, Any] = {"server": host, "base_url": base_url, "model": model}
     async with httpx.AsyncClient(timeout=10) as client:
         response = await client.get(f"{base_url.rstrip('/')}/models", headers=headers)
@@ -846,15 +866,31 @@ async def run_local(prompt: str, workdir: Path, database_url: str, *, host: str,
     """A minimal agent loop: the MCP Python client for the tools, an
     OpenAI-compatible endpoint for the model. Earlier thinking is not sent back,
     as chat templates drop it anyway."""
+    headers = bearer_headers(base_url, local_api_key(host))
+    transcript = Transcript(host={"server": host, "base_url": base_url, "model": model, "max_turns": max_turns,
+                                  "context_window": context_window})
+    started = time.monotonic()
+    try:
+        await _local_loop(transcript, prompt, workdir, database_url, model=model, base_url=base_url,
+                          headers=headers, tokenizer=tokenizer, max_turns=max_turns)
+    except Exception as exc:
+        # The calls made before a failure are evidence (a network tool, a
+        # write): the trial is graded on them, not on an empty transcript.
+        transcript.error = f"{type(exc).__name__}: {exc}"
+    transcript.tokens_in = sum(turn["prompt_tokens"] or 0 for turn in transcript.turns)
+    transcript.tokens_out = sum(turn["completion_tokens"] or 0 for turn in transcript.turns)
+    transcript.model_turns = len(transcript.turns)
+    transcript.overflow = context_overflow(transcript.turns, context_window, transcript.error)
+    transcript.wall_s = time.monotonic() - started
+    return transcript
+
+
+async def _local_loop(transcript: Transcript, prompt: str, workdir: Path, database_url: str, *, model: str,
+                      base_url: str, headers: dict[str, str], tokenizer: Any, max_turns: int) -> None:
     import httpx
     from mcp import ClientSession
     from mcp.client.stdio import stdio_client
 
-    key = local_api_key(host)
-    headers = {"Authorization": f"Bearer {key}"} if key else {}
-    transcript = Transcript(host={"server": host, "base_url": base_url, "model": model, "max_turns": max_turns,
-                                  "context_window": context_window})
-    started = time.monotonic()
     async with stdio_client(_mcp_params(workdir, database_url)) as (read, write), ClientSession(read, write) as session:
         init = await session.initialize()
         tools = (await session.list_tools()).tools
@@ -866,7 +902,6 @@ async def run_local(prompt: str, workdir: Path, database_url: str, *, host: str,
                                           + (init.instructions or "")},
             {"role": "user", "content": prompt},
         ]
-        tokens_in = tokens_out = 0
         async with httpx.AsyncClient(timeout=900) as client:
             while len(transcript.turns) < max_turns:
                 asked = time.monotonic()
@@ -879,8 +914,6 @@ async def run_local(prompt: str, workdir: Path, database_url: str, *, host: str,
                 transcript.raw.append(body)
                 turn = turn_record(body, time.monotonic() - asked)
                 transcript.turns.append(turn)
-                tokens_in += turn["prompt_tokens"] or 0
-                tokens_out += turn["completion_tokens"] or 0
                 message = body["choices"][0]["message"]
                 # `content` is null beside tool calls; some servers refuse a
                 # message without the key, none refuses an empty string.
@@ -905,10 +938,6 @@ async def run_local(prompt: str, workdir: Path, database_url: str, *, host: str,
                     messages.append({"role": "tool", "tool_call_id": call["id"], "content": record["result"]})
             else:
                 transcript.error = f"no final answer within {max_turns} model turns"
-        transcript.tokens_in, transcript.tokens_out, transcript.model_turns = tokens_in, tokens_out, len(transcript.turns)
-    transcript.overflow = context_overflow(transcript.turns, context_window, transcript.error)
-    transcript.wall_s = time.monotonic() - started
-    return transcript
 
 
 def oracle_answer(task: dict, expect: dict) -> dict:
