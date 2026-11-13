@@ -44,6 +44,11 @@ def _top_region(slug: str) -> str | None:
     return chain[-1] if chain else None
 
 
+#: The most countries a place may name as one region and still count in each
+#: (ANZ); a union of more (the EU) counts region-wide.
+_PAIR = 2
+
+
 @lru_cache(maxsize=8192)
 def place_reach(piece: str) -> tuple[frozenset[str], frozenset[str]]:
     """`(countries, region_wide)` one place names: the countries it is in, and
@@ -52,9 +57,10 @@ def place_reach(piece: str) -> tuple[frozenset[str], frozenset[str]]:
     if named_regions:
         countries: set[str] = set()
         regions: set[str] = set()
+        # A count by country must not multiply a union, as it must not a region.
+        members = [s for s in named_regions if LOCATION_GROUPS.get(s, {}).get("kind") == "country"]
         for slug in named_regions:
-            kind = LOCATION_GROUPS.get(slug, {}).get("kind")
-            if kind == "country":  # a pair of countries named as a region (ANZ)
+            if slug in members and len(members) <= _PAIR:
                 countries.add(slug)
             elif (top := _top_region(slug)) is not None:
                 regions.add(top)

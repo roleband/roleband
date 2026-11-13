@@ -7,7 +7,7 @@ from collections.abc import Sequence
 
 from tracker.levels.titles import company_domains
 from tracker.schema import RawJob
-from tracker.taxonomy.cities import city_country
+from tracker.taxonomy.cities import city_country, fold
 from tracker.taxonomy.domains import DOMAIN_GROUPS, match_domains, source_category
 from tracker.taxonomy.locations import (
     LOCATION_GROUPS,
@@ -17,6 +17,7 @@ from tracker.taxonomy.locations import (
     metro_of_city,
     region_countries,
     region_places,
+    with_city_aliases,
 )
 from tracker.taxonomy.roles import classify_department, classify_role, is_frontline_associate
 from tracker.taxonomy.title_parse import normalize, org_path
@@ -102,7 +103,14 @@ def _resolve(locations: list[str]) -> tuple[list[str], list[str]]:
     a bare "Berlin" or "Tokyo", which no taxonomy group matches, lands in
     Germany or Japan.
     """
-    pieces = location_pieces(locations)
+    # Each place a string lists is read on its own, as `first_place` reads
+    # them: "Berlin or Remote" is Berlin, and Remote.
+    pieces = [
+        place.strip()
+        for piece in location_pieces(locations)
+        for place in _PLACE_LIST_RE.split(piece)
+        if place.strip()
+    ]
     if not pieces:
         return [], []
     matched: set[str] = countries_for(locations) & set(LOCATION_GROUPS)
@@ -121,17 +129,22 @@ def _resolve(locations: list[str]) -> tuple[list[str], list[str]]:
         if not named:
             regions = region_places(piece)
             for slug in regions:
+                # A set of countries named as one place ("ANZ", "EU"): each
+                # is reached by naming the set, so the region they share,
+                # implied below, sorts first.
                 if LOCATION_GROUPS.get(slug, {}).get("kind") == "country":
-                    matched.add(slug)
+                    by_region.add(slug)
                     continue
                 matched.add(slug)
                 by_region.update(c for c in region_countries(slug) if c not in matched)
             if regions:
                 continue
+        piece = with_city_aliases(piece)
+        low = fold(piece)
         here: set[str] = set()
         for slug, group in LOCATION_GROUPS.items():
             subs = group.get("substrings", ())
-            if not subs or not any(sub in piece for sub in subs):
+            if not subs or not any(sub in low for sub in subs):
                 continue
             home = group.get("parent") if group.get("kind") == "metro" else slug
             if not named or home in named:
