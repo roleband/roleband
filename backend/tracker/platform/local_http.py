@@ -6,6 +6,7 @@ import hashlib
 import hmac
 import http.client
 import json
+import logging
 import os
 import re
 import secrets
@@ -37,6 +38,7 @@ SESSION_ENV = "ROLEBAND_ENGINE_SESSION"
 _SESSION_LIMIT = 64 * 1024
 _HEX = re.compile(r"^[0-9a-f]{64}$")
 _NONCE = re.compile(r"^[0-9a-f]{32}$")
+logger = logging.getLogger(__name__)
 
 
 class AuthenticationError(ValueError):
@@ -167,8 +169,9 @@ def response_proof(secret: str, authorization_header: str, status: int, body: by
 class Credential:
     secret: str
     expires: float
-    #: Signatures stamped earlier were made for another API process, whose replay
-    #: memory this one does not have.
+    #: Signatures stamped at or before this second may have been accepted by another API
+    #: process, whose replay memory this one does not have. A browser refused for this
+    #: signs again in a later second.
     not_before: int = 0
 
 
@@ -245,11 +248,18 @@ class Authority:
             try:
                 scheme, value = header.split(" ", 1)
                 key_id, stamp, nonce, signed = value.split(":")
-                wall, elapsed = self._wall(), _elapsed()
+                try:
+                    wall = self._wall()
+                except OSError as error:
+                    # A clock step that cannot publish its new key leaves the old one in use;
+                    # this request is refused like any other that cannot be verified.
+                    logger.warning("cannot replace the engine key after a clock step: %s", error)
+                    raise AuthenticationError("Invalid authentication") from error
+                elapsed = _elapsed()
                 key = self._keys[key_id]
                 if (scheme != SCHEME or not stamp.isascii() or not stamp.isdecimal()
                         or abs(wall - int(stamp)) > WINDOW_SECONDS or key.expires <= elapsed
-                        or int(stamp) < key.not_before
+                        or int(stamp) <= key.not_before
                         or not _NONCE.fullmatch(nonce) or not _HEX.fullmatch(signed)
                         or len(body) > MAX_BODY):
                     raise AuthenticationError("Invalid authentication")

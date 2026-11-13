@@ -67,9 +67,12 @@ or cookie. Browser credentials last as long as the engine and cannot issue anoth
 handoff. The engine keeps 32; opening another ends the oldest. An API process
 records a browser key before returning it and adopts the recorded keys when it
 starts, so an API restart keeps open tabs; it refuses an adopted key's signatures
-stamped before it started, since it has no memory of the nonces its predecessor
-accepted. A missing or invalid response proof holds the browser connection closed
-until a fresh app handoff. An engine restart or a large clock step requires
+stamped in or before the second it started, since it has no memory of the nonces its
+predecessor accepted. That refusal is a 401 without a proof, like any refusal, so a
+tab signs a request refused that way once more, in a later second than the refusal,
+when its clock reaches one within two seconds. Any other reply without a proof, a
+second one, or an invalid response proof holds the browser connection closed until a
+fresh app handoff. An engine restart or a large clock step requires
 reopening through the app.
 
 The schema-free preparation responder uses the same control authentication and
