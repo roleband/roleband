@@ -215,8 +215,8 @@ def test_a_restarted_api_keeps_the_engines_browser_address_and_open_tabs(databas
         # second it started. The dashboard signs once more in a later second; so does this tab.
         header, status, proof, body = signed_read(browser, endpoint)
         if status == 401 and proof is None:
-            refused = int(time.time())
-            while int(time.time()) <= refused:
+            refused, deadline = int(time.time()), time.monotonic() + 2
+            while int(time.time()) <= refused and time.monotonic() < deadline:
                 time.sleep(.05)
             header, status, proof, body = signed_read(browser, endpoint)
         assert proof == response_proof(browser["secret"], header, status, body)
