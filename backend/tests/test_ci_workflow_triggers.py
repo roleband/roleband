@@ -1125,12 +1125,15 @@ def aggregate_gaps(data: dict, name: str) -> list[str]:
     needs = result.get("needs") or []
     needs = [needs] if isinstance(needs, str) else needs
     parts = [job_id for job_id in needs if job_id != "changes"]
-    gaps = [f"does not wait on {job_id}" for job_id in jobs if job_id not in (named[0], "changes", *needs)]
+    # `changes` is waited on but never read: a failed decision runs every part in full.
+    gaps = [f"does not wait on {job_id}" for job_id in jobs if job_id not in (named[0], *needs)]
     if result.get("if") != "${{ always() }}":
         gaps.append(f"runs if {result.get('if')}: skipped, it would count as passed")
     steps = result.get("steps") or []
     if result.get("continue-on-error") or any(s.get("continue-on-error") for s in steps):
         gaps.append("continues on error: a failed test still passes it")
+    if any("if" in step for step in steps):
+        gaps.append("its step has a condition: skipped, the job would pass")
     if len(steps) != 1 or steps[0].get("shell") != "python":
         return [*gaps, "decides in something other than one Python step"]
     env = {str(k): str(v) for k, v in (steps[0].get("env") or {}).items()}
@@ -1192,6 +1195,13 @@ def test_a_required_check_that_can_pass_over_a_job_is_reported():
     data = _windows()
     data["jobs"]["result"]["steps"][0]["env"] = {}
     assert aggregate_gaps(data, "windows")[0] == "does not read the result of checks"
+    data = _windows()
+    data["jobs"]["result"]["needs"] = "checks"
+    data["jobs"]["result"]["steps"][0]["if"] = "${{ false }}"
+    assert aggregate_gaps(data, "windows") == [
+        "does not wait on changes",
+        "its step has a condition: skipped, the job would pass",
+    ]
     tolerant = _windows()
     tolerant["jobs"]["result"]["continue-on-error"] = True
     assert aggregate_gaps(tolerant, "windows") == ["continues on error: a failed test still passes it"]

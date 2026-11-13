@@ -176,7 +176,7 @@ jobs:
   # like this one, with the same step (backend/tests/test_ci_workflow_triggers.py).
   result:
     name: windows
-    needs: checks
+    needs: [changes, checks]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5

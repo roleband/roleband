@@ -207,7 +207,7 @@ jobs:
   # run is cancelled. The step is the one every gate's required check runs (windows.yml).
   result:
     name: backend
-    needs: checks
+    needs: [changes, checks]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
