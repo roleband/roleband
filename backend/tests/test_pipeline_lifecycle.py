@@ -573,7 +573,11 @@ async def test_a_stopped_manual_sync_keeps_the_schedule_of_every_company_it_fini
             .join(SourceBinding, SourceBinding.id == SyncScheduleState.binding_id)
             .where(SourceBinding.company_slug == "amazon")
         )
-        rows = await _poll(db_session, query, until=lambda rs: rs and rs[0].last_outcome == "ok")
+        # Amazon's commit runs beside Apple's hanging read and, on a loaded Windows
+        # runner, finishes well after the default poll; the poll returns once it holds.
+        rows = await _poll(
+            db_session, query, until=lambda rs: rs and rs[0].last_outcome == "ok", timeout=30.0
+        )
         assert rows[0].last_outcome == "ok" and rows[0].manual_requested_at is None
     finally:
         task.cancel()
