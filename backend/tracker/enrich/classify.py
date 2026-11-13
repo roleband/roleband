@@ -7,7 +7,7 @@ from collections.abc import Sequence
 
 from tracker.levels.titles import company_domains
 from tracker.schema import RawJob
-from tracker.taxonomy.cities import city_country
+from tracker.taxonomy.cities import city_country, fold
 from tracker.taxonomy.domains import DOMAIN_GROUPS, match_domains, source_category
 from tracker.taxonomy.locations import (
     LOCATION_GROUPS,
@@ -17,6 +17,7 @@ from tracker.taxonomy.locations import (
     metro_of_city,
     region_countries,
     region_places,
+    with_city_aliases,
 )
 from tracker.taxonomy.roles import classify_department, classify_role, is_frontline_associate
 from tracker.taxonomy.title_parse import normalize, org_path
@@ -75,6 +76,18 @@ def first_place(locations: Sequence[str]) -> frozenset[str]:
     return frozenset()
 
 
+def listed_places(locations: Sequence[str]) -> list[str]:
+    """Each place a posting lists, read on its own as `first_place` reads
+    them: its strings split as `location_pieces` splits them, then on a
+    lowercase " or " ("Berlin or Remote" is Berlin, and Remote)."""
+    return [
+        place.strip()
+        for piece in location_pieces(list(locations))
+        for place in _PLACE_LIST_RE.split(piece)
+        if place.strip()
+    ]
+
+
 def location_slugs_for(locations: list[str]) -> list[str]:
     """`location_groups_for` plus the cities the places name, as stored on a
     job: taxonomy groups first (deepest first), then `city_<geonameid>`."""
@@ -102,10 +115,11 @@ def _resolve(locations: list[str]) -> tuple[list[str], list[str]]:
     a bare "Berlin" or "Tokyo", which no taxonomy group matches, lands in
     Germany or Japan.
     """
-    pieces = location_pieces(locations)
+    pieces = listed_places(locations)
     if not pieces:
         return [], []
-    matched: set[str] = countries_for(locations) & set(LOCATION_GROUPS)
+    named_by_piece = [countries_for([piece]) for piece in pieces]
+    matched: set[str] = set().union(*named_by_piece) & set(LOCATION_GROUPS)
     # City substrings are read per place, and a place that names a country
     # decides which country its city is in: "San Jose, Costa Rica" is not the
     # Bay Area and "London, Ontario, Canada" is not the UK. A metro matches
@@ -116,22 +130,26 @@ def _resolve(locations: list[str]) -> tuple[list[str], list[str]]:
     # after every place actually named, so `[0]` (the comp axis) is a named
     # place, or the region itself, never an arbitrary member country.
     by_region: set[str] = set()
-    for piece in pieces:
-        named = countries_for([piece])
+    for piece, named in zip(pieces, named_by_piece, strict=True):
         if not named:
             regions = region_places(piece)
             for slug in regions:
+                # A set of countries named as one place ("ANZ", "EU"): each
+                # is reached by naming the set, so the region they share,
+                # implied below, sorts first.
                 if LOCATION_GROUPS.get(slug, {}).get("kind") == "country":
-                    matched.add(slug)
+                    by_region.add(slug)
                     continue
                 matched.add(slug)
                 by_region.update(c for c in region_countries(slug) if c not in matched)
             if regions:
                 continue
+        piece = with_city_aliases(piece)
+        low = fold(piece)
         here: set[str] = set()
         for slug, group in LOCATION_GROUPS.items():
             subs = group.get("substrings", ())
-            if not subs or not any(sub in piece for sub in subs):
+            if not subs or not any(sub in low for sub in subs):
                 continue
             home = group.get("parent") if group.get("kind") == "metro" else slug
             if not named or home in named:
