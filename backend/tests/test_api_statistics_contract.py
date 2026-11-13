@@ -786,6 +786,45 @@ async def test_a_role_listed_in_several_places_keeps_its_estimate_through_the_po
         CompSnapshot.company == "stripe", CompSnapshot.metric_date >= DAY_START))).all()
     assert [v for vs in values for v in vs] == [300000]
 
+@pytest.mark.asyncio
+async def test_the_pay_tab_and_the_daily_pay_record_read_a_role_through_the_same_posting(
+    api_client, db_session, seeded,
+):
+    """A Stripe role listed in Austin first, with no estimate, and in New York,
+    with $250K. The tab and the daily record both read it through New York; with
+    the plain first-member rule the tab would read Austin and count no pay."""
+    austin = _role("stripe", "pm-austin", level="senior", days_open=0, locations=["Austin, TX"],
+                   location_groups=["austin"])
+    nyc = _role("stripe", "pm-nyc", level="senior", comp=250000, days_open=0, locations=["New York, NY"],
+                location_groups=["new_york"])
+    db_session.add_all([austin, nyc])
+    await db_session.flush()
+    place_set = JobPlaceSet(company="stripe", title="product manager", text_hash="1" * 32, size=2,
+                            places=["Austin, TX", "New York, NY"], rule_version="t1")
+    db_session.add(place_set)
+    await db_session.flush()
+    for i, job in enumerate((austin, nyc)):
+        job.first_seen = NOW - timedelta(minutes=30 - i)
+        db_session.add(JobPlaceSetMember(job_id=job.id, set_id=place_set.id, status="auto"))
+    db_session.add_all([
+        JobCompEstimate(job_id=austin.id, source="roleband", comp_median=None),
+        JobCompEstimate(job_id=nyc.id, source="roleband", comp_median=250000),
+    ])
+    await db_session.commit()
+
+    await comp_trends.compute_comp_metrics(db_session)
+    await db_session.commit()
+    recorded = (await db_session.scalars(select(CompSnapshot.comp_values).where(
+        CompSnapshot.company == "stripe", CompSnapshot.metric_date >= DAY_START))).all()
+    assert [v for vs in recorded for v in vs] == [250000]
+
+    body = await _get(api_client, ROUTES["compensation"])
+    # The seed's Stripe roles carry no estimate: the one priced role is this one.
+    assert body["coverage"]["with_comp"] == 26
+    assert body["coverage"]["total_open"] == 28
+    assert body["overall"]["count"] == 26 and body["overall"]["min"] == 250000
+
+
 async def _onboard_a_company(db_session) -> dict[str, int]:
     """`acme` arrives today: its FIRST run finds three roles its board was already
     listing (one dated by its employer 200 days ago, one 20 days ago, one

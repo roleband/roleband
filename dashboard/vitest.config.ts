@@ -2,8 +2,8 @@ import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import { copyCatalog } from "./scripts/copy/vite-plugin.mjs";
 
-// Native bundler callbacks need objects from Node's own realm.
-const nativeTests = ["src/test/bundle-gate.test.ts"];
+// Native bundler callbacks and a real Vite server need objects from Node's own realm.
+const nativeTests = ["src/test/bundle-gate.test.ts", "src/test/loopback-guard.test.ts"];
 
 export default defineConfig({
   plugins: [react(), copyCatalog()],

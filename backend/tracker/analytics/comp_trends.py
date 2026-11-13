@@ -15,9 +15,8 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
-from typing import Any
 
-from sqlalchemy import delete, exists, select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,7 +35,7 @@ from tracker.db.models import (
     JobCompEstimate,
     ReferenceState,
 )
-from tracker.db.queries.jobs import insights_role_conds
+from tracker.db.queries.jobs import insights_role_conds, priced_in_dollars
 from tracker.db.queries.scope import level_key_expr
 from tracker.levels import UNSTATED_LEVEL
 from tracker.schema import OUR_ESTIMATE_SOURCE
@@ -144,20 +143,12 @@ async def compute_comp_metrics(session: AsyncSession) -> int:
 
     estimated: list = []
     for source in sources:
-        # A place set's estimate is its first member's that has a dollar value
-        # from this source: a member at a place outside the estimate's country,
-        # or one whose estimate has no value, never stands for the role.
-        def priced(peer: Any, source: str = source) -> list:
-            return [exists().where(JobCompEstimate.job_id == peer.id, JobCompEstimate.source == source,
-                                   JobCompEstimate.comp_currency == "USD",
-                                   JobCompEstimate.comp_median.is_not(None))]
-
         estimated += (
             await session.execute(
                 select(Job.company, level_key_expr(Job), Job.family, JobCompEstimate.comp_median,
                        JobCompEstimate.source)
                 .join(JobCompEstimate, JobCompEstimate.job_id == Job.id)
-                .where(*insights_role_conds(priced), JobCompEstimate.source == source,
+                .where(*insights_role_conds(priced_in_dollars(source)), JobCompEstimate.source == source,
                        JobCompEstimate.comp_currency == "USD", JobCompEstimate.comp_median.is_not(None))
             )
         ).all()
