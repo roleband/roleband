@@ -1,5 +1,5 @@
 import { createHash, createHmac, webcrypto } from "node:crypto";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const secret = "a7".repeat(32);
 const keyId = "b4".repeat(16);
@@ -8,7 +8,33 @@ const storage = "roleband.local-session";
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
 const mac = (value: string) => createHmac("sha256", Buffer.from(secret, "hex")).update(value).digest("hex");
 
+/** Opens the tab the way the app does, so the session is stored by the code under test. */
+function enterThroughHandoff(): void {
+  window.history.replaceState(null, "", `/#roleband=${ticket}`);
+}
+
+function exchanged(): Response {
+  return new Response(JSON.stringify({ key_id: keyId, secret, origin: window.location.origin }));
+}
+
+/** Runs `pending` on the fake clock: Web Crypto settles on its own threads, then timers advance. */
+async function settle<T>(pending: Promise<T>): Promise<T> {
+  let done = false;
+  const tracked = pending.finally(() => { done = true; });
+  tracked.catch(() => {});
+  for (let step = 0; !done && step < 400; step += 1) {
+    await new Promise((resolve) => setImmediate(resolve));
+    await vi.advanceTimersByTimeAsync(25);
+  }
+  return tracked;
+}
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date", "performance"] });
   vi.resetModules();
   vi.stubGlobal("crypto", webcrypto);
   window.sessionStorage.clear();
@@ -82,7 +108,7 @@ describe("local browser authentication", () => {
     });
     vi.stubGlobal("fetch", network);
     const { localFetch } = await import("./localAuthentication");
-    await expect(localFetch("/api/read")).rejects.toThrow();
+    await expect(settle(localFetch("/api/read"))).rejects.toThrow();
     if (failure !== "redirect") {
       expect(window.sessionStorage.getItem(storage)).toBeNull();
       await expect(localFetch("/api/read")).rejects.toThrow();
@@ -96,10 +122,12 @@ describe("local browser authentication", () => {
     ["read", "GET", undefined],
     ["write", "POST", '{"value":"café"}'],
   ])("signs a %s refused during an API restart again, in a later second, and keeps the session", async (_case, method, body) => {
-    window.sessionStorage.setItem(storage, JSON.stringify({ key_id: keyId, secret, origin: window.location.origin }));
+    enterThroughHandoff();
+    vi.setSystemTime(1_800_000_000_400);
     let started: number | null = null;
     const seen: { stamp: number; nonce: string }[] = [];
     const network = vi.fn(async (url: string, init: RequestInit) => {
+      if (url === "/api/local-auth/browser-session") return exchanged();
       const authorization = new Headers(init.headers).get("Authorization")!;
       const [id, stamp, nonce, signed] = authorization.slice("RoleBand ".length).split(":");
       expect(signed).toBe(mac(["request-v1", id, stamp, nonce, method, window.location.origin, url, digest(body ?? "")].join("\n")));
@@ -113,54 +141,59 @@ describe("local browser authentication", () => {
     });
     vi.stubGlobal("fetch", network);
     const { localFetch } = await import("./localAuthentication");
-    const response = await localFetch("/api/read", { method, body });
+    const response = await settle(localFetch("/api/read", { method, body }));
     expect(await response.json()).toEqual({ sentinel: "account-private-history" });
-    expect(network).toHaveBeenCalledTimes(2);
-    expect(seen[1]!.stamp).toBeGreaterThan(started!);
+    expect(seen).toHaveLength(2);
+    expect(seen[1]!.stamp).toBe(started! + 1);
     expect(seen[1]!.nonce).not.toBe(seen[0]!.nonce);
     expect(window.sessionStorage.getItem(storage)).not.toBeNull();
-    await localFetch("/api/read", { method, body });
-    expect(network).toHaveBeenCalledTimes(3);
+    await settle(localFetch("/api/read", { method, body }));
+    expect(seen).toHaveLength(3);
   });
 
   it("locks the tab when the second signature also comes back without a proof", async () => {
-    window.sessionStorage.setItem(storage, JSON.stringify({ key_id: keyId, secret, origin: window.location.origin }));
+    enterThroughHandoff();
+    vi.setSystemTime(1_800_000_000_400);
     const stamps: number[] = [];
-    const network = vi.fn(async (_url: string, init: RequestInit) => {
-      stamps.push(Number(new Headers(init.headers).get("Authorization")!.split(":")[1]));
+    const network = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === "/api/local-auth/browser-session") return exchanged();
+      stamps.push(Number(new Headers(init?.headers).get("Authorization")!.split(":")[1]));
       return new Response('{"sentinel":"foreign"}', { status: 401 });
     });
     vi.stubGlobal("fetch", network);
     const { localFetch, LocalAuthenticationError } = await import("./localAuthentication");
-    await expect(localFetch("/api/read")).rejects.toBeInstanceOf(LocalAuthenticationError);
-    expect(network).toHaveBeenCalledTimes(2);
-    expect(stamps[1]).toBeGreaterThan(stamps[0]!);
+    await expect(settle(localFetch("/api/read"))).rejects.toBeInstanceOf(LocalAuthenticationError);
+    expect(stamps).toEqual([1_800_000_000, 1_800_000_001]);
     expect(window.sessionStorage.getItem(storage)).toBeNull();
-    await expect(localFetch("/api/read")).rejects.toBeInstanceOf(LocalAuthenticationError);
-    expect(network).toHaveBeenCalledTimes(2);
+    await expect(settle(localFetch("/api/read"))).rejects.toBeInstanceOf(LocalAuthenticationError);
+    expect(stamps).toHaveLength(2);
   });
 
   it("does not send a write again when the reply without a proof is not a refusal", async () => {
-    window.sessionStorage.setItem(storage, JSON.stringify({ key_id: keyId, secret, origin: window.location.origin }));
-    const network = vi.fn(async () => new Response("Internal Server Error", { status: 500 }));
-    vi.stubGlobal("fetch", network);
+    enterThroughHandoff();
+    const writes = vi.fn(async (url: string) => (url === "/api/local-auth/browser-session"
+      ? exchanged() : new Response("Internal Server Error", { status: 500 })));
+    vi.stubGlobal("fetch", writes);
     const { localFetch, LocalAuthenticationError } = await import("./localAuthentication");
-    await expect(localFetch("/api/write", { method: "POST", body: "{}" })).rejects.toBeInstanceOf(LocalAuthenticationError);
-    expect(network).toHaveBeenCalledTimes(1);
+    await expect(settle(localFetch("/api/write", { method: "POST", body: "{}" }))).rejects.toBeInstanceOf(LocalAuthenticationError);
+    expect(writes.mock.calls.filter(([url]) => url === "/api/write")).toHaveLength(1);
   });
 
-  it("locks without signing again when the clock does not reach a later second", async () => {
-    window.sessionStorage.setItem(storage, JSON.stringify({ key_id: keyId, secret, origin: window.location.origin }));
-    const stepped = Date.now();
+  it("locks without signing again when the clock does not reach a later second within two seconds", async () => {
+    enterThroughHandoff();
+    const stepped = 1_800_000_000_400;
+    vi.setSystemTime(stepped);
     const clock = vi.spyOn(Date, "now").mockReturnValue(stepped);
-    const network = vi.fn(async () => new Response('{"detail":"locked"}', { status: 401 }));
-    vi.stubGlobal("fetch", network);
+    const reads = vi.fn(async (url: string) => (url === "/api/local-auth/browser-session"
+      ? exchanged() : new Response('{"detail":"locked"}', { status: 401 })));
+    vi.stubGlobal("fetch", reads);
     try {
       const { localFetch, LocalAuthenticationError } = await import("./localAuthentication");
       const started = performance.now();
-      await expect(localFetch("/api/read")).rejects.toBeInstanceOf(LocalAuthenticationError);
-      expect(performance.now() - started).toBeLessThan(3000);
-      expect(network).toHaveBeenCalledTimes(1);
+      await expect(settle(localFetch("/api/read"))).rejects.toBeInstanceOf(LocalAuthenticationError);
+      expect(performance.now() - started).toBeGreaterThanOrEqual(2000);
+      expect(performance.now() - started).toBeLessThan(2500);
+      expect(reads.mock.calls.filter(([url]) => url === "/api/read")).toHaveLength(1);
       expect(window.sessionStorage.getItem(storage)).toBeNull();
     } finally {
       clock.mockRestore();
