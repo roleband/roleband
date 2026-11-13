@@ -79,7 +79,7 @@ def coverage_problems(served: set[tuple[str, str]], rows: list[dict]) -> list[st
             problems.append(f"{where}: needs exactly one of operation or excluded")
             continue
         if operation is not None:
-            if not isinstance(operation, str) or not OPERATION_ID.match(operation):
+            if not isinstance(operation, str) or not OPERATION_ID.fullmatch(operation):
                 problems.append(f"{where}: {operation!r} is not an operation ID")
             if reason is not None:
                 problems.append(f"{where}: a covered route carries no exclusion reason")
@@ -167,10 +167,12 @@ def test_a_row_names_one_disposition_in_the_contract_form():
     malformed = coverage_problems(
         _served(app), [*others, {**covered, "operation": "opportunities search"}]
     )
+    trailing_newline = coverage_problems(_served(app), [*others, {**covered, "operation": "status\n"}])
 
     assert both == [f"{where}: needs exactly one of operation or excluded"]
     assert neither == [f"{where}: needs exactly one of operation or excluded"]
     assert malformed == [f"{where}: 'opportunities search' is not an operation ID"]
+    assert trailing_newline == [f"{where}: 'status\\n' is not an operation ID"]
 
 
 def test_a_duplicate_row_fails():

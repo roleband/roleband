@@ -3,7 +3,7 @@
 ## Context
 
 On macOS the engine's HTTP is not authenticated: `local_http.required()` is
-false there. The engine listens on `127.0.0.1` only, and TCP loopback does not
+false there unless `ROLEBAND_LOCAL_AUTH=1` is set. The engine listens on `127.0.0.1` only, and TCP loopback does not
 tell the listener which account a caller runs as, so any local process, of any
 account on the Mac, can call the dashboard's routes today.
 The packaged Windows engine requires a signed request on every `/api/` route,
@@ -17,15 +17,17 @@ the changes feed, grants.
 
 ## Decision
 
-**Trust mode.** On macOS the first agent connection uses loopback trust, and
-says so: the `status` operation reports the mode as `local_loopback`. The
+**Trust mode.** Where the engine requires no local authentication (macOS,
+without `ROLEBAND_LOCAL_AUTH=1`), the first agent connection uses loopback
+trust, and says so: the `status` operation reports the mode as `local_loopback`. The
 boundary is the machine, not the account: the engine checks no caller identity,
 and the person's switches restrict which operations run, not who calls them. The command connects
 only to `127.0.0.1`, ignores proxy settings and follows no redirect. There is no
 silent fallback between trust modes, and no fallback from a development context
-to the installed app's port. On packaged Windows an agent request is signed like
-any other, so the agent path there needs a credential for reads as well as
-writes.
+to the installed app's port. Wherever the engine requires local authentication (packaged
+Windows, or an engine started with `ROLEBAND_LOCAL_AUTH=1`), an agent request
+is signed like any other, so the agent path there needs a credential for reads
+as well as writes.
 
 **Workspace identity.** The engine keeps a durable `workspace_id` for the
 person's data store, in that store, and creates it before it first returns it;

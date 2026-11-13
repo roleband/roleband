@@ -9,6 +9,10 @@ people who turn them on want the help, and many already give their CV to a
 cloud model. A few want to keep some of their data, or some kinds of action,
 away from an agent, or within models that run on their own computer.
 
+Only the two switches exist today. The categories and action groups below are
+built with the agent operations that read and write them, and
+`docs/architecture.md` describes them in that change.
+
 ## Decision
 
 Turning on the connection is the one consent. From then on everything is

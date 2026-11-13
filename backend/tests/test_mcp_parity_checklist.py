@@ -64,7 +64,7 @@ def parity_problems(registered: set[str], switches: dict[str, str], rows: list[d
     operations = [row.get("operation") for row in rows]
     for row in rows:
         name, operation = row.get("tool"), row.get("operation")
-        if not isinstance(operation, str) or not OPERATION_ID.match(operation):
+        if not isinstance(operation, str) or not OPERATION_ID.fullmatch(operation):
             problems.append(f"{name}: {operation!r} is not an operation ID")
         elif operations.count(operation) > 1:
             problems.append(f"{name}: {operation} replaces more than one tool")
@@ -141,4 +141,13 @@ def test_two_tools_cannot_share_one_replacement():
     assert problems == [
         "get_pursuits: pursuits.list replaces more than one tool",
         "save_opportunity: pursuits.list replaces more than one tool",
+    ]
+
+
+def test_an_operation_id_with_a_trailing_newline_fails():
+    rows = _checklist()["tools"]
+    patched = [{**row, "operation": "status\n"} if row["tool"] == "get_server_status" else row for row in rows]
+
+    assert parity_problems(_registered(), _published_switches(), patched) == [
+        "get_server_status: 'status\\n' is not an operation ID"
     ]

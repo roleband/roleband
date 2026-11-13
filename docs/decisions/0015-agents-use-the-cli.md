@@ -14,6 +14,10 @@ Most agent hosts can run a command. Fewer speak a given tool protocol, and a
 protocol tied to one host family does not serve a local model driven by a
 script.
 
+Neither the command nor the agent routes exist yet. This record sets the rules
+they are built to; `docs/architecture.md` describes them in the change that
+adds them.
+
 ## Decision
 
 - The `roleband` command is the interface for agents. It is a client of the
@@ -50,7 +54,8 @@ script.
   row names another switch than the one the tool answers under. Neither test
   can yet check that a named operation exists; that check follows the
   operation catalog.
-- An import contract on `tracker.cli` refuses database modules.
+- The `tracker.cli` package lands with an import contract that refuses database
+  modules.
 
 ## Alternatives considered
 
