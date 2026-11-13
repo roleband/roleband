@@ -863,6 +863,25 @@ async def test_a_role_priced_by_its_base_counts_once_and_never_beside_its_total(
     assert body["overall"]["min"] == 330000 and body["coverage"]["with_comp"] == 26
 
 
+@pytest.mark.asyncio
+async def test_a_closed_place_with_a_total_leaves_the_open_base_only_place_counted(api_client, db_session, seeded):
+    """The role's New York posting, priced with a total, closed before the place
+    sets were rebuilt; the open Austin posting is priced by base alone. The role
+    still counts as a base role: the totals read does not count the closed one."""
+    before = (await _get(api_client, ROUTES["compensation"]))["base_estimates"]["coverage"]["with_base"]
+    await _place_set(db_session, [
+        _role("netflix", "pm-austin", level="senior", days_open=0, locations=["Austin, TX"], location_groups=["austin"],
+              comp_component="base", comp_base_median=180000),
+        _role("netflix", "pm-nyc", level="senior", comp=330000, days_open=0, locations=["New York, NY"],
+              location_groups=["new_york"], status="closed", closed_at=NOW),
+    ], "4")
+    await db_session.commit()
+
+    body = await _get(api_client, ROUTES["compensation"])
+    assert body["base_estimates"]["coverage"]["with_base"] == before + 1
+    assert body["coverage"]["with_comp"] == 25
+
+
 async def _onboard_a_company(db_session) -> dict[str, int]:
     """`acme` arrives today: its FIRST run finds three roles its board was already
     listing (one dated by its employer 200 days ago, one 20 days ago, one

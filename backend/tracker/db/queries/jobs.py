@@ -125,7 +125,9 @@ def base_only_role_conds() -> list:
     `insights_role_conds` through a member with a dollar base and no dollar total
     when no member of the set has a total: a role with a priced total belongs to
     the totals (`priced_in_dollars`), never to both reads, and a set of several
-    base-only postings counts once.
+    base-only postings counts once. Only an open, in-scope total counts: the
+    totals read counts no other, so a closed member, or one at a place out of
+    scope, never hides the base-only posting.
     """
     def base_only(peer: Any) -> list:
         return [peer.comp_currency == "USD", peer.comp_component == "base",
@@ -136,7 +138,9 @@ def base_only_role_conds() -> list:
     return [
         *insights_role_conds(lambda peer: [or_(and_(*priced(peer)), and_(*base_only(peer)))]),
         *base_only(Job),
-        not_(place_set_member_in(select(with_total.id).where(*priced(with_total)))),
+        not_(place_set_member_in(select(with_total.id).where(
+            with_total.status == "open", with_total.in_scope.is_(True), *priced(with_total),
+        ))),
     ]
 
 
