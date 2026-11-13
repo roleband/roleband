@@ -6,6 +6,41 @@ Notable changes to RoleBand, newest first. The format follows
 
 ## [Unreleased]
 
+## [0.2.1]
+
+Pay opens on what employers post, a newer database runs underneath, and the
+posting reads as one page.
+
+- **Pay opens on posted base salary.** The Pay tab leads with the typical posted
+  base salary for one level in one country, then lists every company hiring at
+  that level with its posted range first. More postings show the pay they state:
+  a range with a repeated currency code, a zone number or a period in words, an
+  unmarked US or Canadian range (read as base), and a single stated figure. A
+  stated base shows even when the posting names no level. Estimated stock follows
+  each level's share and each company's stated rule, so early-career roles no
+  longer read more stock than senior ones.
+- **The posting reads as one page.** A wider window gives it more room, and the
+  pay card says what it knows. How a company builds an offer is on its company
+  profile, which says who stated each fact.
+- **A newer database.** The built-in database moves to Postgres 16.15 and
+  pgvector 0.8.7, with their fixes. Your data stays where it is, and the update
+  keeps a backup it returns to if anything fails.
+- **Insights stays quick as your history grows.** Overview, Pace and Hiring read
+  only the postings their period can reach.
+- **Places read right.** "Remote in Germany" and "Berlin or Remote" no longer
+  read as US states, and NYC, SF, EU and DE resolve. A company searched one place
+  at a time no longer closes postings in a place you stopped tracking.
+- **Companies waiting for consent are one question.** Settings asks once for all
+  of them, with a step to pick which to unfollow.
+- **The Mac app finds its way past a busy port.** It names the program using its
+  port and offers a free one. When another program holds its database, it starts
+  by itself once that program lets go. The tray's scan card fits its words in
+  every language.
+- **Windows behaves like a Windows app.** Engine alerts arrive as Windows
+  notifications, the app quits when Windows asks, open tabs keep working through
+  an engine restart, and the tray icon, sign-out and Setup end cleanly.
+- **Safer by default.** The engine answers only this computer.
+
 ## [0.2.0]
 
 Windows joins the Mac, Insights counts every role once, and the top bar follows
