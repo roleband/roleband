@@ -28,7 +28,13 @@ and only reports what the posting literally says.
   side, capped in length. Every writer then passes the basis through
   `settle_band`: an `unclear` band becomes base or total when the posting
   defines its bands per kind of role (sales reads total), or base when its
-  paragraph calls the band a salary. An explicit statement that this position's
+  paragraph calls the band a salary. Last, a band whose pay country is the US
+  or Canada (`BASE_BY_CONVENTION_COUNTRIES`,
+  [0005](decisions/0005-unmarked-range-is-base-pay.md)) is base when the role does not sell
+  (`taxonomy/roles.sells` is false): a posting there conventionally prints its
+  base salary as the one figure under a bare label. It stays `unclear` when the posting describes an employee
+  election, or its paragraph says the range includes more or calls it total,
+  cash or on-target pay. An explicit statement that this position's
   annual salary range is displayed below may cross the benefits paragraph to
   one labelled pay range; multiple ranges, conditional definitions and inclusive
   compensation wording leave that reference unresolved.
@@ -41,6 +47,9 @@ and only reports what the posting literally says.
   counted. Every reader of a stored period goes through `effective_period`.
 - **Bounds**: a band is two amounts in one currency, and its code or symbol
   may sit on either amount or both ("USD $160,200.00 - USD $425,000.00").
+  A k written once on the high amount scales a bare low under a thousand
+  ("$245-$280K"); a band may name its bounds minimum and maximum ("Salary
+  Min: $120,000  Salary Max: $160,000").
   Two currencies are two figures, never one band. An amount with a broken
   comma group ("$290,00", "$215,0000") is a typo and bounds nothing, so the
   next stated band is read instead.
@@ -274,18 +283,23 @@ this way is `estimated`, and nothing checks the shares against stated pay.
 
 ### When a band is not split
 
-`no_split_reason` says why the stated figure is shown whole:
+`no_split_reason` says why the stated figure is shown whole. A yearly base the
+posting states is still the bar's one stated segment, with no bonus, equity or
+total beside it ([0006](decisions/0006-stated-base-without-a-level.md)): the
+reasons below are about the parts RoleBand models, not about the employer's own
+figure. The three that would draw a figure as something it is not, an unclear
+basis, a period that is not a year and a stated total, draw no segment.
 
 | Reason | When |
 |---|---|
 | `hourly`, `monthly`, `period_unclear` | The period is not a year. RoleBand never annualises. |
-| `basis_unclear` | The posting did not say what the band covers, and it is not a yearly band of a role that does not sell (that one is read as base: see Rules). |
+| `basis_unclear` | The posting did not say what the band covers, and no rule settles it (outside the US and Canada, a selling role, or a range called total or cash pay). Splitting it would assume base. |
 | `total_compensation` | The band is total pay; it is the headline, `stated`. |
 | `employee_election` | The company states that each person picks the cash and equity mix: `equity_rule = employee_election` or `equity_vehicle = cash_election` in the atlas (Netflix is one). No figure of its is split, whether a stated total, a stated base or an estimated total. |
 | `plugin_without_split` | A plugin answers pay and its rows give no split for this level. Our heuristic and policy are our data and never split a plugin's figure. |
 | `plugin_not_covered` | A plugin answers pay and has not read this company. |
 | `not_us_pay` | RoleBand answers pay and the posting's pay is not US pay: another country, or places in several. Our split is measured on US pay only. |
-| `level_unplaced` | The posting names no level, or one we cannot place. Its band is a guess, so no row is read for it: no bonus, equity or total is built on it, and nothing is reconciled against it. |
+| `level_unplaced` | The posting names no level, or one we cannot place. Its band is a guess, so no row is read for it: no bonus, equity or total is built on it, and nothing is reconciled against it. A stated yearly base is still shown. |
 
 While a plugin answers pay, the package also omits the offer `policy` line,
 which is RoleBand's data.
@@ -476,7 +490,9 @@ Staff and Principal: blueprint checks `offer_policy` and `pay_reference` in
   pay built from postings never counts it as a stated base. Never annualise an
   hourly or monthly rate, never split a stated total.
 - Never price a level we cannot place. Its band is kept for sorting only: it
-  gets no estimate, and a stated band at it is shown whole.
+  gets no estimate, and nothing is built on it. The base the posting states is
+  not priced by us, so it is still shown
+  ([0006](decisions/0006-stated-base-without-a-level.md)).
 - Equity's range comes from equity's own tolerance, never from the width of
   the base band. For the same reason `tc_target_minus_base` is not used as a
   second equity estimator: evaluated at both ends of a posted band it rebuilds

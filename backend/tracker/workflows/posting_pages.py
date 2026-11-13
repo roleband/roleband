@@ -67,6 +67,7 @@ from tracker.schema import (
     SourceJobFacts,
 )
 from tracker.source_policy import collection_access
+from tracker.taxonomy.locations import pay_country
 
 logger = logging.getLogger(__name__)
 
@@ -308,6 +309,7 @@ def _write_band(job: Job, band: dict | None) -> BandChange:
     settled = settle_band(
         job.disclosed_pay_basis, job.description_text, job.family, job.title,
         [job.disclosed_base_min, job.disclosed_base_max],
+        country=pay_country(job.location_groups),
     )
     job.disclosed_pay_basis, job.disclosed_bonus_pct = settled.pay_basis, settled.bonus_pct
     return BandChange(before=before, after=band_snapshot(job))

@@ -23,7 +23,6 @@ from tracker.analytics.comp_package import (
     NO_SPLIT_EMPLOYEE_ELECTION,
     NO_SPLIT_HOURLY,
     NO_SPLIT_NOT_US,
-    NO_SPLIT_PERIOD_UNCLEAR,
     NO_SPLIT_PLUGIN,
     PROV_ESTIMATED,
     PROV_STATED,
@@ -227,7 +226,9 @@ def test_a_plugin_s_total_with_no_split_of_its_own_stays_whole():
 def test_a_stated_base_is_not_split_by_ours_under_a_plugin_without_a_split():
     pkg = build_job_package(**{**GOOGLE_879, "company": "stripe"}, disclosed=GOOGLE_BAND,
                             baselines=BASELINES, heuristic=False)
-    assert pkg["components"] == [] and pkg["total"] is None
+    # The employer's base is the employer's, whoever answers pay: it stays as the
+    # one stated segment, and no bonus or equity of ours goes under the plugin's figure.
+    assert pkg["components"] == [{"kind": "base", "low": 240000, "high": 334000, "provenance": "stated"}] and pkg["total"] is None
     assert pkg["no_split_reason"] == NO_SPLIT_PLUGIN
     assert pkg["stated"] == {"low": 240000, "high": 334000}
 
@@ -245,7 +246,10 @@ def test_ours_leaves_a_band_outside_us_pay_whole_and_names_our_data():
     pay is another country's (no row measures it) is not split by our
     heuristic, and the reason is ours, never a plugin's."""
     stated = build_job_package(**GOOGLE_879, disclosed=GOOGLE_BAND, baselines={}, us_pay=False)
-    assert stated["components"] == [] and stated["total"] is None and stated["split_source"] is None
+    # The posted base is stated wherever the posting is; only the parts our
+    # heuristic would model are withheld.
+    assert stated["components"] == [{"kind": "base", "low": 240000, "high": 334000, "provenance": "stated"}]
+    assert stated["total"] is None and stated["split_source"] is None
     assert stated["no_split_reason"] == NO_SPLIT_NOT_US
     assert stated["policy"] is not None and stated["policy"]["verified"]
 
@@ -267,9 +271,10 @@ def test_our_offer_policy_rides_only_on_our_figures():
         assert theirs["policy"] is None
 
 
-def test_a_yearly_band_of_unclear_basis_is_read_as_base():
-    """Anthropic states $210k-$260k a year without saying what it covers: a
-    posted salary range is the base, so the package is built on it."""
+def test_unclear_basis_is_never_decomposed():
+    """THE guard-rail. Anthropic states $210k-$260k but never says whether that is base or
+    total. Splitting it would require assuming it is base, an invented fact. Show the
+    number, refuse to explain it."""
     pkg = build_job_package(
         company="anthropic",
         band="senior",
@@ -292,54 +297,12 @@ def test_a_yearly_band_of_unclear_basis_is_read_as_base():
         baselines=BASELINES,
     )
 
-    # The figure stands as the base, and the package is built on it.
-    assert pkg["basis"] == "base"
-    assert pkg["no_split_reason"] is None
-    base = next(c for c in pkg["components"] if c["kind"] == "base")
-    assert (base["low"], base["high"], base["provenance"]) == (210000, 260000, PROV_STATED)
-    assert "equity" in {c["kind"] for c in pkg["components"]}
-    assert pkg["total"]["low"] > 210000
-
-
-def test_a_sales_band_of_unclear_basis_stays_whole():
-    """A sales role's range is often on-target earnings, so it is not read as
-    base; nor is a role whose family cannot tell."""
-    for family in ("sales_business_development", "customer_success", None):
-        pkg = build_job_package(
-            **{**GOOGLE_879, "family": family},
-            disclosed={**GOOGLE_BAND, "pay_basis": "unclear"},
-            baselines=BASELINES,
-        )
-        assert pkg["components"] == []
-        assert pkg["basis"] == "unclear"
-        assert pkg["no_split_reason"] == NO_SPLIT_BASIS_UNCLEAR
-
-
-def test_a_customer_facing_architect_s_band_stays_whole():
-    """A "Solutions Architect" sits in a family that does not sell, yet its
-    posted range can be on-target earnings. The title says so, so the band is
-    not read as base. Without the title the same posting reads as base, which
-    is why the title has to reach the reading."""
-    posting = dict(disclosed={**GOOGLE_BAND, "pay_basis": "unclear"}, baselines=BASELINES)
-    titled = build_job_package(**GOOGLE_879, **posting, title="Solutions Architect, Platform")
-    assert titled["basis"] == "unclear"
-    assert titled["components"] == []
-    assert titled["no_split_reason"] == NO_SPLIT_BASIS_UNCLEAR
-    assert build_job_package(**GOOGLE_879, **posting)["basis"] == "base"
-
-
-def test_a_band_with_an_unclear_period_and_basis_is_still_not_split():
-    """Only a yearly band reads as a salary: with the period unclear too,
-    nothing says the figure is a year's pay."""
-    pkg = build_job_package(
-        **{**GOOGLE_879, "family": "software_engineering"},
-        disclosed={**GOOGLE_BAND, "pay_basis": "unclear", "pay_period": "unclear"},
-        baselines=BASELINES,
-    )
-
     assert pkg["components"] == []
-    assert pkg["basis"] == "unclear"
-    assert pkg["no_split_reason"] == NO_SPLIT_PERIOD_UNCLEAR
+    assert pkg["total"] is None
+    assert pkg["no_split_reason"] == NO_SPLIT_BASIS_UNCLEAR
+    # ...but the stated figure and our independent estimate are both still shown.
+    assert pkg["stated"] == {"low": 210000, "high": 260000}
+    assert pkg["estimate"]["median"] == 563325
 
 
 def test_hourly_band_is_not_annualized():
@@ -446,22 +409,26 @@ def test_a_cash_election_company_s_stated_base_stands_alone():
         disclosed={**GOOGLE_BAND, "bonus_pct": None}, baselines=BASELINES,
     )
     assert pkg["stated"] == {"low": 240000, "high": 334000}
-    assert (pkg["components"], pkg["total"]) == ([], None)
+    # The base stands alone, literally: the mix the person picks sits on top of
+    # it and is never drawn.
+    assert (pkg["components"], pkg["total"]) == ([{"kind": "base", "low": 240000, "high": 334000, "provenance": "stated"}], None)
     assert pkg["no_split_reason"] == NO_SPLIT_EMPLOYEE_ELECTION
 
 
 @pytest.mark.parametrize("company", ["spotify", "shopify"])
 def test_a_company_that_states_its_people_pick_the_mix_is_never_split(company):
     """The equity rule says each person picks the mix, with no vehicle stated:
-    a split of ours would invent the mix the employer leaves to the person,
-    for a stated base and for an estimated total alike."""
+    a split of ours would invent the mix the employer leaves to the person. A
+    base the posting states is not that invention and stays; an estimated total
+    has no stated part at all, so it stays whole."""
     base = build_job_package(
         company=company, band="principal", family="software_engineering",
         comp_low=None, comp_median=None, comp_high=None, comp_provenance=None,
         disclosed={**GOOGLE_BAND, "bonus_pct": None}, baselines={},
     )
     assert base["stated"] == {"low": 240000, "high": 334000}
-    assert (base["components"], base["total"], base["no_split_reason"]) == ([], None, NO_SPLIT_EMPLOYEE_ELECTION)
+    assert (base["components"], base["total"], base["no_split_reason"]) == (
+        [{"kind": "base", "low": 240000, "high": 334000, "provenance": "stated"}], None, NO_SPLIT_EMPLOYEE_ELECTION)
     total = build_job_package(
         company=company, band="principal", family="software_engineering",
         comp_low=400000, comp_median=500000, comp_high=600000, comp_provenance="estimated",
@@ -768,20 +735,16 @@ def test_a_non_usd_band_is_never_reconciled_against_a_usd_median():
     assert pkg["reconciliation"] is None
 
 
-def test_a_band_read_as_base_is_reconciled_as_one():
-    """A yearly band of unclear basis is read as base, so it is compared with
-    the level's measured base exactly as a stated base is."""
-    plain = build_job_package(
-        **{**GOOGLE_879, "family": "software_engineering"}, disclosed=GOOGLE_BAND, baselines=BASELINES,
-    )
-    unclear = build_job_package(
+def test_an_undecomposed_band_has_nothing_to_reconcile():
+    """`unclear` is never decomposed, so there is no stated base to compare."""
+    pkg = build_job_package(
         **{**GOOGLE_879, "family": "software_engineering"},
         disclosed={**GOOGLE_BAND, "pay_basis": "unclear"},
         baselines=BASELINES,
     )
 
-    assert unclear["reconciliation"] == plain["reconciliation"]
-    assert unclear["components"] == plain["components"]
+    assert pkg["no_split_reason"] == NO_SPLIT_BASIS_UNCLEAR
+    assert pkg["reconciliation"] is None
 
 
 # --- one headline, market median as a check on it ----------------

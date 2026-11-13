@@ -16,6 +16,7 @@
  * arrives with no components at all, and we must not invent a split to fill the bar.
  */
 import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import { calendarDay } from "../../copy/format";
 
 import type { CompComponent, Job, JobCompPackage } from "../../api";
@@ -25,13 +26,11 @@ import { Icon } from "../../ui/Icon";
 import { InfoTip } from "../../ui/InfoTip";
 import { PayFloorLine } from "./PayFloorLine";
 import {
+  roleJobCompPanelAboutBaseSalary,
   roleJobCompPanelAboutTheSplit,
   roleJobCompPanelBase,
   roleJobCompPanelBaseCappedAt,
   roleJobCompPanelBaseSalaryIsTheFixed,
-  roleJobCompPanelAboutBaseSalary,
-  roleJobCompPanelBaseSalaryComesFromThe,
-  roleJobCompPanelBaseStatedByTheEmployer,
   roleJobCompPanelBasisNotStated,
   roleJobCompPanelSplitNotReported,
   roleJobCompPanelBonus,
@@ -54,13 +53,13 @@ import {
   roleJobCompPanelMonthlyRate,
   roleJobCompPanelNoAnnualBonus,
   roleJobCompPanelNoCompensationDataForThis,
+  roleJobCompPanelNoEstimateAvailable,
   roleJobCompPanelNoMeasuredSplitForThis,
   roleJobCompPanelNoMeasuredSplitForThis2,
   roleJobCompPanelNotReadYet,
   roleJobCompPanelOfBaseStated,
   roleJobCompPanelEstimateOfTotal,
   roleJobCompPanelOurIndependentEstimateOfTotal,
-  roleJobCompPanelPayUnknownWhy,
   roleJobCompPanelPerYearVestsOverTime,
   roleJobCompPanelPeriodUnclear,
   roleJobCompPanelPostedBandSitsWellAbove,
@@ -72,6 +71,7 @@ import {
   roleJobCompPanelStatedByTheEmployer,
   roleJobCompPanelStatesThisAsTotalAnnual,
   roleJobCompPanelTargetNotGuaranteed,
+  roleJobCompPanelTheEmployerSExactWords,
   roleJobCompPanelThePostedBandDoesNot,
   roleJobCompPanelThePostingGivesAMonthly,
   roleJobCompPanelThePostingGivesAnHourly,
@@ -86,13 +86,14 @@ import {
   roleJobCompPanelVests,
   roleJobCompPanelWeHaveNotCheckedThis,
   roleJobCompPanelYouChooseTheCashStock,
+  roleJobCompPanelStartOffer,
   roleJobCompPanelYr,
   roleJobCompPanelEstimatedBase,
-  roleJobCompPanelBaseOnly,
+  roleJobCompPanelFromRolebandData,
   roleJobCompPanelSplitFromPlugin,
   roleJobCompPanelSplitFromRoleband,
 } from "../../copy/gen/role";
-import { sharedPayNotCoveredHint } from "../../copy/gen/shared";
+import { sharedPayEstBaseHint, sharedPayNotCovered, sharedPayNotCoveredHint } from "../../copy/gen/shared";
 import { LEVEL_NOT_MAPPED, LEVEL_NOT_STATED } from "../../copy/vocabulary";
 import { Msg } from "../../ui/Msg";
 
@@ -152,6 +153,16 @@ function StatedTag({ provenance }: { provenance: CompComponent["provenance"] }) 
     <span className={`pkg-tag ${stated ? "pkg-tag-stated" : "pkg-tag-est"}`}>
       {PROVENANCE_LABEL[provenance]}
     </span>
+  );
+}
+
+function Quote({ snippet }: { snippet: string | null }) {
+  if (!snippet) return null;
+  return (
+    <details className="pkg-quote">
+      <summary>{roleJobCompPanelTheEmployerSExactWords()}</summary>
+      <q>{snippet}</q>
+    </details>
   );
 }
 
@@ -265,18 +276,15 @@ function splitFrom(job: Job, pkg: JobCompPackage): string | null {
     : roleJobCompPanelSplitFromRoleband({ choice: dated, date });
 }
 
-/** Each component's share of the bar, by the MIDPOINT of its range, so a wide
- *  band does not make a segment look bigger than it is. */
+/** The bar's segment widths, driven by the MIDPOINT of each component, so a
+ *  wide band does not make a segment look bigger than it is. One reading for
+ *  the panel and for its small copy. */
 function segmentWidths(pkg: JobCompPackage | null | undefined): number[] {
   const comps = pkg?.components ?? [];
   const total = comps.reduce((sum, c) => sum + mid(c), 0);
   if (total <= 0) return comps.map(() => 0);
   return comps.map((c) => (mid(c) / total) * 100);
 }
-
-/** The employer's own figure is a yearly base salary. */
-const statedIsYearlyBase = (pkg: JobCompPackage): boolean =>
-  !!pkg.stated && pkg.pay_period === "year" && pkg.basis === "base";
 
 /** Only the base is estimated: the package's one component is the headline
  *  figure again, so a bar, a legend or a split badge would only repeat it. */
@@ -308,9 +316,10 @@ function headlineOf(pkg: JobCompPackage) {
     headlineLabel = roleJobCompPanelEstimatedBase();
   } else if (stated) {
     headline = stated;
-    // The figure is the whole of what is known, so its heading says what kind
-    // of pay it is; no line under it has to.
-    headlineLabel = statedIsYearlyBase(pkg) ? roleJobCompPanelBaseStatedByTheEmployer() : roleJobCompPanelStatedByTheEmployer();
+    // The same label the panel gives it: the kind of pay is carried by the
+    // bar's stated segment and the line beside it, not by the heading, so the
+    // small copy can say nothing the panel does not.
+    headlineLabel = roleJobCompPanelStatedByTheEmployer();
   } else {
     return null;
   }
@@ -367,36 +376,21 @@ export function JobCompDock({ job }: { job: Job }) {
   );
 }
 
-/** Why the panel has no figure, in one sentence: the plugin answering pay has
- *  not read the company, the posting has not been read for pay yet, or the
- *  posting gives none and nothing was estimated. */
-function unknownWhy(job: Job, pkg: JobCompPackage | null | undefined): string {
-  if (notCovered(job)) return sharedPayNotCoveredHint({ plugin: pluginName(job) });
-  if (!pkg) return roleJobCompPanelNoCompensationDataForThis();
-  if (pkg.state === "unchecked") return roleJobCompPanelWeHaveNotCheckedThis();
-  return roleJobCompPanelPayUnknownWhy();
-}
-
-/** The panel with no figure to show: the heading it always carries and the
- *  one reason, as a short card. Nothing else belongs here: a stand-in word
- *  in the figure's place, a bar, a pay policy or a note about estimates
- *  would describe a figure that is not there. */
-function PayUnknown({ why }: { why: string }) {
-  return (
-    <div className="comp-panel pkg-panel pkg-unknown" data-testid="pkg-unknown">
-      <div className="pkg-eyebrow">{roleJobCompPanelEstimatedTotalComp()}</div>
-      <p className="pkg-unknown-why">{why}</p>
-    </div>
-  );
-}
-
 export default function JobCompPanel({ job }: { job: Job }) {
   const pkg: JobCompPackage | null | undefined = job.comp_package;
 
   const widths = useMemo(() => segmentWidths(pkg), [pkg]);
 
-  const shown = pkg ? headlineOf(pkg) : null;
-  if (!pkg || !shown) return <PayUnknown why={unknownWhy(job, pkg)} />;
+  if (!pkg) {
+    return (
+      <div className="comp-panel">
+        <div className="big">—</div>
+        <div className="prov">
+          {notCovered(job) ? sharedPayNotCoveredHint({ plugin: pluginName(job) }) : roleJobCompPanelNoCompensationDataForThis()}
+        </div>
+      </div>
+    );
+  }
 
   const { components, total, stated, estimate, state } = pkg;
   // A plugin answers pay: its figure is never called "ours", and its
@@ -424,13 +418,57 @@ export default function JobCompPanel({ job }: { job: Job }) {
     ? RECONCILE_NOTE[verdict]?.(BAND_LABEL[job.level_band] ?? job.level_band) ?? null
     : null;
 
-  const { headline, headlineLabel, headlineUnit, headlineCurrency } = shown;
-  // The employer's figure is the headline itself: nothing below repeats it.
-  // By the figure, not the object: a stated total is the employer's band and
-  // the package carries it twice, as `total` and as `stated`.
-  const statedLeads =
-    !!stated && headline.low === stated.low && headline.high === stated.high;
-  const onlyBase = baseOnly(pkg);
+  // The headline label must describe the number underneath it. When we cannot build a
+  // package (an unclear basis), the big figure falls back to our ESTIMATE — and calling
+  // that "stated by the employer" would be the exact lie this panel exists to prevent.
+  // The employer's own figure is shown separately, in its own box.
+  let headline: { low: number; high: number } | null = null;
+  let headlineLabel = notCovered(job)
+    ? sharedPayNotCovered({ plugin: pluginName(job) })
+    : roleJobCompPanelNoEstimateAvailable();
+  if (total) {
+    headline = total;
+    headlineLabel = roleJobCompPanelEstimatedTotalPackage({ choice: (total.provenance === "stated") ? "yes" : "no" });
+  } else if (estimate?.median != null) {
+    headline = { low: estimate.low ?? estimate.median, high: estimate.high ?? estimate.median };
+    headlineLabel = roleJobCompPanelEstimatedTotalComp();
+  } else if (pkg.base_estimate) {
+    // Only the base is estimated: say so, and never call it a total.
+    const base = pkg.base_estimate;
+    headline = { low: base.low ?? base.median, high: base.high ?? base.median };
+    headlineLabel = roleJobCompPanelEstimatedBase();
+  } else if (stated) {
+    headline = stated;
+    headlineLabel = roleJobCompPanelStatedByTheEmployer();
+  }
+
+  // A total or our estimate is always yearly; only the employer's own figure
+  // carries the posting's unit, so a yearly estimate never reads "/ hr".
+  const headlineUnit = headline === stated ? statedUnit : (" " + roleJobCompPanelYr());
+  // The headline IS the employer's figure: nothing below prints it a second
+  // time. A package with no split and no estimate of its own reads this way,
+  // and its stated base is already the bar's one segment.
+  // By the figure, not the object: a stated total is the employer's own band,
+  // and the package carries it twice, as `total` and as `stated`, so identity
+  // alone let the panel print the same range again below its own headline.
+  const headlineIsStated =
+    !!headline && !!stated && headline.low === stated.low && headline.high === stated.high;
+
+  // A split yearly package in dollars can start the person's own offer on the
+  // Stock tab. The figures travel in the page's history entry, not the address.
+  const part = (kind: string) => components.find((c) => c.kind === kind);
+  const offerFrom = total && cur === "USD" && part("base")
+    ? {
+        company: job.company,
+        title: job.title,
+        base: mid(part("base")!),
+        bonus: part("bonus") ? mid(part("bonus")!) : 0,
+        // A bonus the posting states outranks a company's no-bonus rule.
+        bonus_stated: part("bonus")?.provenance === "stated",
+        equity: part("equity") ? mid(part("equity")!) : 0,
+      }
+    : null;
+  const headlineCurrency = headline === stated || headline === total ? cur : "USD";
 
   return (
     <div className="comp-panel pkg-panel">
@@ -438,11 +476,17 @@ export default function JobCompPanel({ job }: { job: Job }) {
         <div>
           <div className="pkg-eyebrow">{headlineLabel}</div>
           <div className="big">
-            {span(headline, headlineCurrency)}
-            {headlineUnit && <span className="pkg-per">{headlineUnit}</span>}
+            {headline ? span(headline, headlineCurrency) : "—"}
+            {headline && headlineUnit && <span className="pkg-per">{headlineUnit}</span>}
           </div>
         </div>
-        {pkg.split_source && components.length > 0 && !onlyBase && (
+        {pkg.base_estimate && headline && !total && (
+          <p className="pkg-note" data-testid="comp-base-only">
+            {sharedPayEstBaseHint()}
+            {pkg.base_estimate.provider === "builtin" && <>{" "}{roleJobCompPanelFromRolebandData()}</>}
+          </p>
+        )}
+        {pkg.split_source && components.length > 0 && (
           <span className="pkg-split">
             <span className={`split-src split-src-${pkg.split_source}${suspectLevel ? " split-src-suspect" : ""}`}>
               {SPLIT_LABEL[pkg.split_source]}
@@ -454,7 +498,7 @@ export default function JobCompPanel({ job }: { job: Job }) {
             </InfoTip>
           </span>
         )}
-        {pkg.split_source && components.length > 0 && !onlyBase && splitFrom(job, pkg) && (
+        {pkg.split_source && components.length > 0 && splitFrom(job, pkg) && (
           <p className="pkg-note" data-testid="comp-split-from">{splitFrom(job, pkg)}</p>
         )}
       </div>
@@ -485,29 +529,20 @@ export default function JobCompPanel({ job }: { job: Job }) {
         </div>
       )}
 
-      {/* Which part of a larger figure is certain, in words, in the ink the
-          card gives the employer's own numbers: the base's own figure stands
-          in the breakdown below, once. The help mark says what base salary
-          is, for a reader the card's own words assume too much of. */}
-      {statedIsYearlyBase(pkg) && !statedLeads && (
-        <p className="pkg-stated" data-testid="pkg-stated-base">
+      {/* The one line that answers "what do I actually get for certain?" —
+          needed only while the headline above is an estimate. */}
+      {stated && !headlineIsStated && pkg.pay_period === "year" && pkg.basis === "base" && (
+        <div className="pkg-guaranteed">
           <Icon name="checkCircle" size={14} />
-          {roleJobCompPanelBaseSalaryComesFromThe()}
-          <InfoTip label={roleJobCompPanelAboutBaseSalary()}>
-            {roleJobCompPanelBaseSalaryIsTheFixed()}
-          </InfoTip>
-        </p>
+          <b>{span(stated, cur)}</b>
+          <span>{roleJobCompPanelBase()}</span>
+          <InfoTip label={roleJobCompPanelAboutBaseSalary()}>{roleJobCompPanelBaseSalaryIsTheFixed()}</InfoTip>
+        </div>
       )}
 
       <PayFloorLine check={job.pay_floor_check} />
 
-      {onlyBase && (
-        <div className="pkg-note" data-testid="comp-base-only">
-          {state === "none_stated" && <Icon name="xCircle" size={14} />}
-          {roleJobCompPanelBaseOnly({ choice: state === "none_stated" ? "none" : "other" })}
-        </div>
-      )}
-      {state === "none_stated" && !onlyBase && (
+      {state === "none_stated" && (
         <div className="pkg-note">
           <Icon name="xCircle" size={14} /> {roleJobCompPanelThisEmployerPublishesNoPay()}
         </div>
@@ -518,7 +553,7 @@ export default function JobCompPanel({ job }: { job: Job }) {
         </div>
       )}
 
-      {components.length > 0 && !onlyBase && (
+      {components.length > 0 && (
         <>
           <div className="pkg-bar" role="img" aria-label={components
             .map((c) => `${KIND_LABEL[c.kind]} ${span(c, cur)} ${PROVENANCE_LABEL[c.provenance]}`)
@@ -566,18 +601,27 @@ export default function JobCompPanel({ job }: { job: Job }) {
         </>
       )}
 
-      {/* No bar, and no employer's figure apart from the headline: a plugin's
-          estimate with no split of its own, or the employer's figure standing
-          as the headline. This says why there is no bar. */}
-      {pkg.no_split_reason && (!stated || statedLeads) && (
+      {offerFrom && (
+        <div className="pkg-foot">
+          <Link to="/statistics/trajectory" state={{ offerFrom }} data-testid="pkg-start-offer">
+            {roleJobCompPanelStartOffer()}
+          </Link>
+        </div>
+      )}
+
+      {/* Why there is no split, where the figure it is about is already above:
+          a plugin's estimate with no band stated, or a stated band the
+          headline carries. */}
+      {pkg.no_split_reason && (!stated || headlineIsStated) && (
         <p className="pkg-note" data-testid="pkg-no-split">
           <span className="pkg-tag pkg-tag-warn">{noSplitTag(pkg.no_split_reason, job)}</span>{" "}
           {noSplitWhy(pkg.no_split_reason, job)}
         </p>
       )}
 
-      {/* An employer figure we deliberately refuse to break down. */}
-      {pkg.no_split_reason && stated && !statedLeads && (
+      {/* An employer figure we deliberately refuse to break down, printed here
+          because the headline above is our estimate instead. */}
+      {pkg.no_split_reason && stated && !headlineIsStated && (
         <div className="pkg-unclear">
           <div className="pkg-unclear-n">
             {span(stated, cur)}
@@ -594,8 +638,9 @@ export default function JobCompPanel({ job }: { job: Job }) {
         </div>
       )}
 
-      {/* A band read from the posting's own pay field is in no sentence of
-          the description below: say where it came from. */}
+      <Quote snippet={pkg.snippet} />
+      {/* A band read from the posting's own pay field has no sentence to
+          quote: say where it came from instead. */}
       {"disclosed_comp" in job && job.disclosed_comp?.from_pay_field && (
         <div className="pkg-foot" data-testid="pkg-from-field">{roleJobCompPanelFromThePostingSPay()}</div>
       )}

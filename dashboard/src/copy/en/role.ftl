@@ -1,6 +1,14 @@
 ## role: moved as it was found (wording=as-is)
 
 ## features/job-detail/JobCompPanel.tsx
+# kind=link note="Opens the offer calculator on the Insights Stock tab, filled in from this role's base salary, bonus and equity"
+role-job-comp-panel-start-offer = Start an offer from this role
+# kind=label wording=as-is
+role-job-comp-panel-the-employer-s-exact-words = The employer's exact words
+# kind=label wording=as-is
+role-job-comp-panel-no-estimate-available = No estimate available
+# kind=sentence
+role-job-comp-panel-from-roleband-data = From built-in data.
 # kind=sentence wording=as-is
 role-job-comp-panel-no-compensation-data-for-this = No compensation data for this role.
 # kind=label wording=as-is
@@ -9,8 +17,6 @@ role-job-comp-panel-market-median-at-this-level = Market median at this level
 role-job-comp-panel-this-package-is-the-market = This estimate is { $toFixed }× the market median for this level, usually a sign the level or the discipline is wrong.
 # kind=label wording=as-is
 role-job-comp-panel-base = Base
-# kind=sentence note="Under an estimated total: the base salary part of it is the employer's own figure"
-role-job-comp-panel-base-salary-comes-from-the = Base salary comes from the posting.
 # kind=label note="Names the help mark beside the line above"
 role-job-comp-panel-about-base-salary = About base salary
 # kind=tooltip note="What base salary is, for a reader the line beside it assumes too much of"

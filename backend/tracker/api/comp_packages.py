@@ -57,7 +57,6 @@ def role_package(
         company=job.company,
         band=job.level_band,
         family=job.family,
-        title=job.title,
         comp_low=estimate["comp_low"],
         comp_median=estimate["comp_median"],
         comp_high=estimate["comp_high"],

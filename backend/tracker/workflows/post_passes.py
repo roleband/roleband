@@ -58,6 +58,7 @@ from tracker.intelligence_runtime.disclosed_comp import (
     backlog_ids,
     correct_pay_periods,
     extract_disclosed_comp,
+    settle_open_bands,
 )
 from tracker.lineage.detect import detect_lineage, rebuild_lineage_projection
 from tracker.lineage.place_sets import PlaceSetReads, rebuild_place_sets
@@ -648,10 +649,14 @@ async def _pass_disclosed_comp(ctx: PostPassContext) -> dict:
         page_band=page_band,
         run_id=run_id,
     )
+    # A connector's band is never handed to the text pass above, so a change to
+    # the basis rules reaches it only here.
+    settled = await settle_open_bands(ctx.session)
     return {
         "touched": touched["processed"],
         "backlog": backlog["processed"],
         "disclosed": touched["disclosed"] + backlog["disclosed"],
+        "settled": settled["settled"],
     }
 
 

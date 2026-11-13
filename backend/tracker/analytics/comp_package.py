@@ -31,7 +31,6 @@ from tracker.levels.pay import bonus_ratio_for, equity_vehicle_for, pay_label, p
 from tracker.levels.pay import describe as describe_policy
 from tracker.schema import LevelBand, parse_band
 from tracker.taxonomy.comp_families import borrow_rank
-from tracker.taxonomy.roles import sells
 
 # How the base/bonus/equity ratios were obtained, worst case last. This is the honesty
 # dial: a package scaled from another job family's ratios is NOT a measured split, and
@@ -380,6 +379,28 @@ def _component(kind: str, low: float, high: float, provenance: str) -> dict | No
     return {"kind": kind, "low": lo, "high": hi, "provenance": provenance}
 
 
+def _stated_base_only(package: dict, lo: int | None, hi: int | None, period: str | None) -> dict:
+    """The base the employer stated, as the one segment of the bar, for a package
+    nothing may be built on top of (`no_split_reason` is already set).
+
+    A yearly base salary the posting states is a fact about the pay, and the
+    reason there is no split is about the bonus, the equity and the total, not
+    about the base: the level is a guess, the pay country is not the one our
+    split is measured on, or the source answering pay reports no split. So the
+    figure is shown as the bar shows every stated component, and bonus, equity
+    and `total` stay absent, because those would be the invented part.
+
+    Only a yearly band in the posting's own currency: an hourly or monthly rate
+    and a band of an unknown period are refused before this
+    (`NO_SPLIT_HOURLY`, `NO_SPLIT_MONTHLY`, `NO_SPLIT_PERIOD_UNCLEAR`), and a
+    band the posting never called base never reaches it (`NO_SPLIT_BASIS_UNCLEAR`).
+    """
+    if lo is None or period != "year":
+        return package
+    package["components"] = [c for c in (_component("base", lo, hi if hi is not None else lo, PROV_STATED),) if c]
+    return package
+
+
 def build_job_package(
     *,
     company: str,
@@ -396,7 +417,6 @@ def build_job_package(
     us_pay: bool = True,
     covered: bool = True,
     level_placed: bool = True,
-    title: str | None = None,
 ) -> dict:
     """The full comp story for one role, ready to render.
 
@@ -414,8 +434,9 @@ def build_job_package(
     answers, a level no row splits gets no split (`NO_SPLIT_NOT_US`); the offer
     policy, which is the company's, stays.
     `level_placed=False`: the band is a guess (`schema.UNPLACED_BASES`). No row is
-    read for it, a stated base is shown whole (`NO_SPLIT_LEVEL_UNPLACED`), and no
-    estimated total is split by its ratios.
+    read for it (`NO_SPLIT_LEVEL_UNPLACED`) and no estimated total is split by its
+    ratios; a yearly base the posting states is still the bar's one stated
+    segment (`_stated_base_only`), with no bonus, equity or total beside it.
     """
     baselines = baselines or {}
     estimate = (
@@ -562,17 +583,9 @@ def build_job_package(
         )
         return package
 
-    # A yearly band that does not say what it covers is read as base salary for
-    # a role that does not sell: its posted range is the base unless the posting
-    # calls it a total, which returned above. A sales band is often on-target
-    # earnings, so it stays whole, and so does a title `sells` cannot read as
-    # one way or the other, which is why the posting's own title reaches it. The reading is this package's only:
-    # `pay_basis` stays as the posting gave it, so pay data built from postings
-    # never counts the band as a stated base.
-    if basis == "unclear" and period == "year" and sells(family, title) is False:
-        basis = "base"
-        package["basis"] = basis
-
+    # THE guard-rail. The employer stated a number but not what it covers. Decomposing it
+    # would require assuming it is base — the precise class of invented fact
+    # pay_basis must never carry. Show it, do not explain it.
     if basis != "base" or lo is None or not band:
         if basis != "base":
             package["no_split_reason"] = NO_SPLIT_BASIS_UNCLEAR
@@ -582,18 +595,22 @@ def build_job_package(
     # total are a level's, and this level is a guess.
     if not level_placed:
         package["no_split_reason"] = NO_SPLIT_LEVEL_UNPLACED
-        return package
+        return _stated_base_only(package, lo, hi, period)
 
     # The stated base stands; what is added on top is the person's own mix.
     if employee_election(company):
         package["no_split_reason"] = NO_SPLIT_EMPLOYEE_ELECTION
-        return package
+        # A rung row was read before this branch, and the bar now carries a
+        # stated base: leaving the split fields set would badge a package that
+        # applies no split as a measured one.
+        package["split_source"] = package["split_provider"] = package["split_as_of"] = None
+        return _stated_base_only(package, lo, hi, period)
 
     if unsplit:
         package["no_split_reason"] = (
             NO_SPLIT_NOT_US if heuristic else NO_SPLIT_PLUGIN if covered else NO_SPLIT_NOT_COVERED
         )
-        return package
+        return _stated_base_only(package, lo, hi, period)
 
     if disclosed.get("currency") in (None, "USD"):
         package["reconciliation"] = _reconcile(row, split_source, hi)
