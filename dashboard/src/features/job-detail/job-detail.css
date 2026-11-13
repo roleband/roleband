@@ -2,10 +2,11 @@
  * (Escape-to-back, routed overlay semantics), every value from --app-*.
  *
  * The detail deliberately reads roomier than the board: its prose sits at
- * `name` (15) with generous leading, stepping to `title` (16) on wide
- * viewports, the reading-surface exception, taken from the ramp rather than
- * literals. Facts sit at `meta`, chrome at `label`, exactly as everywhere
- * else. The screen paints its own ground, so it takes the system's page
+ * `name` with generous leading, the reading-surface exception, taken from the
+ * ramp rather than literals. Facts sit at `meta`, chrome at `label`, exactly
+ * as everywhere else. A wider cover steps the frame, the gaps and the type up
+ * together (the steps below), so the page uses the room and keeps its
+ * composition. The screen paints its own ground, so it takes the system's page
  * light: canvas + the ambient wash, viewport-anchored like every other
  * ground-painter.
  *
@@ -28,6 +29,79 @@
   padding: var(--app-space-6) var(--app-space-6) 96px;
 }
 
+/* ---- steps ----------------------------------------------------------------
+   The posting is designed at 1440 px and steps up at set widths of its own
+   scroll box: each step widens the frame and its gaps and sets the posting's
+   type one size up, together, so the pay panel, the side column and the
+   text keep their weight against each other. The main column stays about 40
+   ems of the reading size wide, so a line of the description stays at a
+   comfortable length while it fills the column. The bar is outside the box
+   and keeps its size; menus and pop-ups are portalled out and keep theirs.
+   A container query, not a viewport one: the box is the posting's own room,
+   and the window's breakpoints are a closed set (design/breakpoints.test.ts).
+   The steps restate the type ramp for the posting only, by its own names. */
+.cover.job-detail > .cover-scroll {
+  container: posting / inline-size;
+}
+
+@container posting (min-width: 1500px) {
+  .jd-container {
+    --jd-gap: 56px;
+    --app-type-read: 18px;
+    --app-type-read-head: 21px;
+    --app-type-read-title: 26px;
+    --app-type-display: 32px;
+    --app-type-stat: 24px;
+    --app-type-title: 16px;
+    --app-type-name: 16px;
+    --app-type-body: 15px;
+    --app-type-meta: 14px;
+    max-width: 1360px;
+    padding-inline: 56px;
+  }
+}
+
+@container posting (min-width: 1900px) {
+  .jd-container {
+    --jd-gap: 64px;
+    --jd-main: 1.5fr;
+    --app-type-read: 20px;
+    --app-type-read-head: 23px;
+    --app-type-read-title: 28px;
+    --app-type-display: 36px;
+    --app-type-stat: 26px;
+    --app-type-title: 17px;
+    --app-type-name: 17px;
+    --app-type-body: 16px;
+    --app-type-meta: 15px;
+    --app-type-label: 13px;
+    --app-type-micro: 13px;
+    --app-type-whisper: 11px;
+    max-width: 1520px;
+    padding-inline: 64px;
+  }
+}
+
+@container posting (min-width: 2400px) {
+  .jd-container {
+    --jd-gap: 72px;
+    --app-type-read: 22px;
+    --app-type-read-head: 25px;
+    --app-type-read-title: 30px;
+    --app-type-display: 40px;
+    --app-type-stat: 28px;
+    --app-type-title: 18px;
+    --app-type-name: 18px;
+    --app-type-body: 17px;
+    --app-type-meta: 16px;
+    --app-type-label: 14px;
+    --app-type-micro: 14px;
+    --app-type-whisper: 12px;
+    max-width: 1680px;
+    padding-inline: 72px;
+  }
+}
+
 
 /* ---- hero ---------------------------------------------------------------- */
 
@@ -46,9 +120,9 @@
    `.page-hero h1` recipe (tracking and weight, not only size) comes with the
    rank, so one rank is spelled one way. */
 .jd-hero h1 {
-  max-width: 900px;
+  max-width: 37.5em;
   margin: var(--app-space-3) 0 var(--app-space-3);
-  font-size: var(--app-type-page);
+  font-size: var(--app-type-read-title);
   line-height: 1.15;
   letter-spacing: -0.02em;
   font-weight: var(--app-weight-name);
@@ -72,8 +146,8 @@
 
 .jd-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
-  gap: 44px;
+  grid-template-columns: minmax(0, var(--jd-main, 1.6fr)) minmax(0, 1fr);
+  gap: var(--jd-gap, 44px);
   align-items: start;
 }
 
@@ -83,6 +157,275 @@
 
 .jd-aside {
   min-width: 0;
+}
+
+/* The side column stays in view while the main column scrolls: the pay
+   panel's small copy, where the person stands with the role, and the role's
+   facts are read beside any part of the description. The page has one
+   scroll, the cover's, and the column has none of its own. It stops under
+   the bar at the page's own top inset and keeps its first rows there, which
+   are the ones read while reading. Rows of a column taller than the window
+   wait below the window's edge and come into view at the end of the page,
+   when the column leaves with the text. */
+.jd-aside {
+  position: sticky;
+  top: var(--app-space-6);
+}
+
+/* ---- the role in the bar -------------------------------------------------- */
+
+/* The bar's middle. It takes the room between Back and the bar's actions, so
+   it is also what keeps them apart. Its words rise in when the posting's
+   heading has left (features/job-detail/readingChrome.ts sets `data-shown`
+   and the inset that lines it up with the heading). */
+.jd-bar-role {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--app-space-3);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(var(--app-space-1));
+  transition:
+    opacity var(--app-duration-medium) var(--app-ease),
+    transform var(--app-duration-slow) var(--app-ease-travel);
+}
+
+.jd-bar-role[data-shown] {
+  opacity: 1;
+  transform: none;
+}
+
+.jd-bar-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--app-text);
+  font-size: var(--app-type-body);
+  font-weight: var(--app-weight-name);
+}
+
+.jd-bar-sub {
+  flex: none;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+  white-space: nowrap;
+}
+
+/* The bar's controls for this posting, as the bar's own children: the box is
+   there to be keyed and made inert between two postings, not to lay out. */
+.jd-bar-actions {
+  display: contents;
+}
+
+/* ---- the turn ------------------------------------------------------------
+   One posting giving place to another in a cover that stays open
+   (`postingTurn.ts`). The reading area carries the name `posting` for the
+   length of the turn, so the browser draws it apart from the bar: the old
+   posting leaves first and quickly, then the new one comes in, so two texts
+   are never read through each other. Along the list it travels the way the
+   list runs; from a link on the posting it rises, as a cover does when it
+   opens. The bar stays where it is and only its words change. */
+
+::view-transition-group(posting) {
+  overflow: clip;
+}
+
+::view-transition-image-pair(posting) {
+  isolation: auto;
+}
+
+::view-transition-old(posting),
+::view-transition-new(posting) {
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(posting) {
+  animation: posting-leave var(--app-duration-fast) var(--app-ease) both;
+}
+
+::view-transition-new(posting) {
+  animation: posting-arrive var(--app-duration-slow) var(--app-ease-travel) 70ms both;
+}
+
+@keyframes posting-leave {
+  to {
+    opacity: 0;
+    transform: translateX(var(--posting-leave, 0));
+  }
+}
+
+@keyframes posting-arrive {
+  from {
+    opacity: 0;
+    transform: translate(var(--posting-arrive, 0), var(--posting-rise, 0));
+  }
+}
+
+:root[data-posting-turn="next"] {
+  --posting-leave: calc(-1 * var(--app-space-3));
+  --posting-arrive: var(--app-space-5);
+}
+
+:root[data-posting-turn="previous"] {
+  --posting-leave: var(--app-space-3);
+  --posting-arrive: calc(-1 * var(--app-space-5));
+}
+
+:root[data-posting-turn="open"] {
+  --posting-rise: var(--app-space-2);
+}
+
+:root[data-posting-turn]::view-transition-old(root),
+:root[data-posting-turn]::view-transition-new(root) {
+  animation-duration: var(--app-duration-medium);
+}
+
+/* A slow turn: while the next posting loads, the one on show stays, so a
+   wait past the moment a quick load takes (200 ms, as every loading state in
+   the app, overlays.css) draws a line running along the bar's foot. It says
+   the asked-for posting is coming, and the one on show is not it. */
+.job-detail .cover-bar {
+  position: relative;
+}
+
+.jd-waiting {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  overflow: hidden;
+  pointer-events: none;
+  animation: loading-appears 1ms 200ms both;
+}
+
+.jd-waiting::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 30%;
+  background: linear-gradient(to right, transparent, var(--app-action), transparent);
+  animation: posting-wait 1.2s var(--app-ease) infinite;
+}
+
+@keyframes posting-wait {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(340%); }
+}
+
+/* Asked for less motion: the line stands still. */
+@media (prefers-reduced-motion: reduce) {
+  .jd-waiting::before {
+    width: 100%;
+    background: var(--app-action-line);
+    animation: none;
+  }
+}
+
+/* The posting's place in its list: two quiet arrows around the count, with a
+   hairline after it that sets list navigation apart from the actions.
+   A focus ring is drawn outside its button, by the ring's offset and width,
+   and an arrow that cannot act now still takes focus (ui/Button.css), so the
+   gaps carry the ring: at the plain inline gap it would stand on the place's
+   first digit, and at the group's end on the hairline. */
+.jd-pager {
+  --jd-ring: calc(var(--app-ring-offset) + var(--app-ring-width));
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--jd-ring) + var(--app-space-1));
+  margin-right: var(--app-space-1);
+  padding-right: calc(var(--jd-ring) + var(--app-space-3));
+  border-right: 1px solid var(--app-border);
+}
+
+.jd-pager-place {
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ---- the pay panel's small copy ------------------------------------------ */
+
+/* One grid row whose share the scroll sets (readingChrome.ts), from nothing
+   to the copy's own height: the column below moves by layout, so nothing is
+   measured and the move holds at every step. `--jd-dock` is the same
+   progress, 0 to 1, for the copy's own look. */
+.jd-dock {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: min(1, calc(var(--jd-dock, 0) * 1.5));
+}
+
+.jd-dock-in {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* The panel again, smaller: its headline as the column's kicker, its figure,
+   its bar thinned, its components on one line. A hairline closes it, as one
+   opens every section below. */
+.pkg-mini {
+  margin-bottom: var(--app-space-5);
+  padding-bottom: var(--app-space-4);
+  border-bottom: 1px solid var(--app-border);
+}
+
+.pkg-mini-eyebrow {
+  color: var(--app-action-text);
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-whisper);
+  font-weight: var(--app-type-whisper-weight);
+  letter-spacing: var(--app-type-whisper-track);
+  text-transform: uppercase;
+}
+
+/* The figure arrives at the panel's size and settles at its own. */
+.pkg-mini .big {
+  margin: var(--app-space-1) 0 0;
+  color: var(--app-text);
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-stat);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transform-origin: left center;
+  transform: scale(calc(1.36 - 0.36 * var(--jd-dock, 1)));
+}
+
+.pkg-mini .pkg-bar {
+  height: 5px;
+  margin: var(--app-space-2) 0;
+}
+
+.pkg-mini-parts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--app-space-3);
+  color: var(--app-text-muted);
+  font-size: var(--app-type-micro);
+  font-variant-numeric: tabular-nums;
+}
+
+.pkg-mini-parts b {
+  color: var(--app-text);
+  font-weight: var(--app-weight-name);
+}
+
+/* The section under the copy opens the column, as it does without it. */
+.jd-aside > .jd-dock + .section-title {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 
 /* ---- section chrome ------------------------------------------------------ */
@@ -136,11 +479,15 @@
 
 /* ---- reading surface ----------------------------------------------------- */
 
-/* The description spans its column like the cards above it: the reading
-   measure is `.jd-container`'s, so the text carries no width cap of its own. */
+/* The employer's words are the screen's long read, so they are set for
+   reading: the reading size and the text colour (never the muted one a
+   secondary fact wears). They span the column, as the cards above them do;
+   the steps keep the column's width in step with the reading size. */
+.jd-sections,
 .jd-main .jd {
-  font-size: var(--app-type-name);
-  line-height: 1.78;
+  color: var(--app-text);
+  font-size: var(--app-type-read);
+  line-height: 1.62;
 }
 
 .jd {
@@ -150,54 +497,99 @@
   white-space: pre-wrap;
 }
 
-/* Justified only with hyphenation: without break points inside words the
-   browser can only widen the spaces, and a long word opens holes in the line.
-   Hyphenation reads the page's `lang`. Narrow screens set the text ragged
-   again (below), where a line holds too few words to justify. */
+/* Ragged right, words whole: a justified line stretches the spaces of a short
+   list item and breaks words at its end, and both slow reading. Stated rather
+   than left to the default, so the reading surface never takes an alignment
+   from what it sits in. */
 .jd-main .jd,
 .jd-section p,
 .jd-section li {
-  text-align: justify;
-  -webkit-hyphens: auto;
-  hyphens: auto;
+  text-align: start;
+  -webkit-hyphens: manual;
+  hyphens: manual;
 }
 
 .jd-section {
-  padding: 3px 0 var(--app-space-2);
+  padding: 0 0 var(--app-space-2);
 }
 
-.jd-section + .jd-section {
-  margin-top: var(--app-space-4);
-  padding-top: var(--app-space-4);
-  border-top: 1px solid var(--app-border);
-}
+/* Sections are parted by room alone: the heading already marks the break,
+   and a rule over it would say it twice. The room above a section is its
+   heading's own (below), so that the heading is the same box in its place
+   and stuck. */
 
+/* A section's heading stays at the top of the reading column while its
+   section is read, and the next section's pushes it out: the person always
+   knows which part of the posting they are in. In its place it draws no
+   ground of its own. Stuck (`data-stuck`, stuckHeadings.ts), its ground is
+   the canvas, solid, so what passes beneath is hidden, never seen through,
+   with a hairline at its foot as the bar has: a line passing under it goes
+   under an edge, not cut off in mid-air. A shadow, not a border, so the box
+   keeps its height and its words their place.
+
+   Stuck, its words stand level with the first line of the side column, which
+   stops at the page's top inset: the two columns open on one line. So the
+   room above the words is that inset, less half of what the heading's line
+   is taller than a kicker's (`--jd-head-inset`). */
 .jd-section h2 {
-  margin: 0 0 var(--app-space-3);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  --jd-head-inset: calc(var(--app-space-6) + (1.5 * var(--app-type-whisper) - 1.25 * var(--app-type-read-head)) / 2);
+  margin: 0 0 var(--app-space-2);
+  padding: var(--jd-head-inset) 0 var(--app-space-2);
   color: var(--app-text);
-  font-size: var(--app-type-screen);
+  font-size: var(--app-type-read-head);
+  font-weight: var(--app-weight-name);
   line-height: 1.25;
   letter-spacing: -0.02em;
 }
 
+.jd-section h2[data-stuck] {
+  background-color: var(--app-canvas);
+  box-shadow: 0 1px 0 var(--app-border);
+}
+
+/* The first heading follows the Description kicker at a heading's distance:
+   its room above reaches up behind the kicker, which is drawn over it. */
+.jd-section:first-child h2 {
+  margin-top: calc(var(--app-space-3) - var(--jd-head-inset));
+}
+
+.jd-main > .section-title {
+  position: relative;
+  z-index: 2;
+}
+
+/* A sub-heading inside a section: the reading size, in the name weight. */
+.jd-section h3 {
+  margin: var(--app-space-4) 0 var(--app-space-2);
+  color: var(--app-text);
+  font-size: var(--app-type-read);
+  font-weight: var(--app-weight-name);
+  line-height: 1.35;
+}
+
+.jd-section h2 + h3 {
+  margin-top: 0;
+}
+
 .jd-section p {
   margin: 0 0 var(--app-space-3);
-  color: var(--app-text-muted);
-  font-size: var(--app-type-name);
-  line-height: 1.78;
 }
 
 .jd-section ul {
-  margin: 0;
+  margin: 0 0 var(--app-space-3);
   padding-left: var(--app-space-4);
-  color: var(--app-text-muted);
 }
 
 .jd-section li {
   margin: 0 0 var(--app-space-2);
   padding-left: 3px;
-  font-size: var(--app-type-name);
-  line-height: 1.7;
+}
+
+.jd-section li::marker {
+  color: var(--app-text-faint);
 }
 
 .jd-section-pay_and_benefits {
@@ -208,8 +600,111 @@
   background: var(--app-positive-soft);
 }
 
-.jd-section-pay_and_benefits + .jd-section {
-  border-top: 0;
+/* The pay statement stands on a tint of its own, so its heading stays put:
+   a band of page ground would cut the tint. */
+.jd-section-pay_and_benefits h2,
+.jd-section-pay_and_benefits:first-child h2 {
+  position: static;
+  margin-top: 0;
+  padding: 0;
+  margin-bottom: var(--app-space-3);
+}
+
+/* A posting with no text of its own says so as a quiet fact, not in the
+   reading size: there is nothing to read. */
+.jd-empty {
+  margin: 0;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-body);
+}
+
+/* ---- the end of the read --------------------------------------------------
+   The text ends on the way on: the next posting in the list it was opened
+   from, under a rule across the column. The whole block is the control; its
+   ground shows only under the pointer, reaching out past the text's edges so
+   its words stay on the column's line. */
+.jd-end {
+  margin-top: var(--app-space-6);
+  padding-top: var(--app-space-4);
+  border-top: 1px solid var(--app-border);
+  font-size: var(--app-type-read);
+}
+
+.jd-next {
+  appearance: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--app-space-4);
+  row-gap: var(--app-space-1);
+  width: calc(100% + 2 * var(--app-space-3));
+  margin: 0 calc(-1 * var(--app-space-3));
+  padding: var(--app-space-3);
+  border: 0;
+  border-radius: var(--app-radius-lg);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: background-color var(--app-duration-fast) var(--app-ease);
+}
+
+.jd-next:hover {
+  background-color: var(--app-surface-hover);
+}
+
+.jd-next:focus-visible {
+  outline: var(--app-ring-width) solid var(--app-action);
+  outline-offset: calc(-1 * var(--app-ring-offset));
+}
+
+.jd-next > span {
+  grid-column: 1;
+}
+
+.jd-next-kicker {
+  color: var(--app-action-text);
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-whisper);
+  font-weight: var(--app-type-whisper-weight);
+  letter-spacing: var(--app-type-whisper-track);
+  text-transform: uppercase;
+}
+
+.jd-next-title {
+  margin-top: var(--app-space-1);
+  color: var(--app-text);
+  font-weight: var(--app-weight-name);
+  line-height: 1.35;
+}
+
+.jd-next-meta {
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+
+.jd-next > svg {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  color: var(--app-text-muted);
+  transition: transform var(--app-duration-fast) var(--app-ease), color var(--app-duration-fast) var(--app-ease);
+}
+
+.jd-next:hover > svg {
+  color: var(--app-text);
+  transform: translateX(3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jd-next,
+  .jd-next > svg {
+    transition: none;
+  }
+
+  .jd-next:hover > svg {
+    transform: none;
+  }
 }
 
 /* ---- stage (bar) + pipeline rows (aside) --------------------------------- */
@@ -359,6 +854,109 @@
   color: var(--app-text-muted);
 }
 
+/* A section heading that folds its section, a whole-row target: the
+   kicker's own words at the line's start, a chevron at its end, and the
+   whole line between them takes the click. The button is the kicker's line
+   and no taller; the pointer target around it is its `::after`, so the line
+   keeps its place and the keyboard's ring sits close around the words.
+
+   It paints no box. The chevron wears the kicker's colour, so it reads as
+   part of the heading; under a pointer the words and the chevron lift to the
+   text colour and the chevron leans the way the section will move. It points
+   down when the section is folded and turns over when it is open. */
+.jd-fold {
+  appearance: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--app-space-3);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: color var(--app-duration-medium) var(--app-ease);
+}
+
+.jd-fold::after {
+  content: "";
+  position: absolute;
+  inset: calc(-1 * var(--app-space-2)) 0;
+}
+
+.jd-fold svg {
+  display: block;
+  flex: none;
+  transition: transform var(--app-duration-slow) var(--app-ease-travel);
+}
+
+.jd-fold[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.jd-fold:hover {
+  color: var(--app-text);
+}
+
+.jd-fold[aria-expanded="false"]:hover svg {
+  transform: translateY(2px);
+}
+
+.jd-fold[aria-expanded="true"]:hover svg {
+  transform: translateY(-2px) rotate(180deg);
+}
+
+.jd-fold:focus-visible {
+  outline: var(--app-ring-width) solid var(--app-action);
+  outline-offset: var(--app-ring-offset);
+  border-radius: var(--app-radius-sm);
+}
+
+/* The rows fold into the heading and out of it: the row that holds them
+   closes to nothing, so the column below moves by layout, and they leave the
+   eye and the keyboard once it has. */
+.similar-fold {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition:
+    grid-template-rows var(--app-duration-slow) var(--app-ease-travel),
+    opacity var(--app-duration-slow) var(--app-ease-travel),
+    visibility 0s;
+}
+
+.similar-fold > .similar-groups {
+  min-height: 0;
+}
+
+/* Clipped only while shut: open, a row's focus ring reaches past the box. */
+.similar-fold[data-shut] > .similar-groups {
+  overflow: hidden;
+}
+
+.similar-fold[data-shut] {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    grid-template-rows var(--app-duration-slow) var(--app-ease-travel),
+    opacity var(--app-duration-slow) var(--app-ease-travel),
+    visibility 0s var(--app-duration-slow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .similar-fold,
+  .similar-fold[data-shut] {
+    transition: none;
+  }
+}
+
 /* ---- similar positions --------------------------------------------------- */
 
 /* Two categories, at most three rows each (JobDetail SIMILAR_PER_CATEGORY),
@@ -366,16 +964,19 @@
    the first, the category head is a quiet caption in the reading face at the
    chrome floor (never the section kicker's uppercase mono, or the two levels
    of hierarchy collapse into one, and never louder than the kicker above it),
-   and the rows sit one step above the caption (meta) with their names in the
-   name weight. The first group stands under the section's own hairline and
-   kicker, so it draws no second line. */
+   and the rows sit one step above the caption (meta). The rows stand beside
+   the text being read, in view the whole way down, so they are set quieter
+   than a list's rows: names in the control weight, the likeness in the muted
+   colour, and the name takes the action colour only under the pointer. The
+   first group stands under the section's own hairline and kicker, so it
+   draws no second line. */
 .similar-group {
   margin-top: var(--app-space-3);
   padding-top: var(--app-space-3);
   border-top: 1px solid var(--app-border);
 }
 
-.section-title + .similar-group {
+.similar-groups > .similar-group:first-child {
   margin-top: 0;
   padding-top: 0;
   border-top: 0;
@@ -391,6 +992,10 @@
   font-size: var(--app-type-meta);
 }
 
+.similar-row .mj-title {
+  font-weight: var(--app-weight-ui);
+}
+
 .similar-row .mj-meta {
   font-size: var(--app-type-micro);
 }
@@ -404,8 +1009,8 @@
 .similar-score {
   font-family: var(--app-font-mono);
   font-size: var(--app-type-meta);
-  font-weight: 700;
-  color: var(--app-action-text);
+  font-weight: var(--app-weight-ui);
+  color: var(--app-text-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -442,12 +1047,6 @@
   font-size: var(--app-type-display);
 }
 
-.comp-panel .prov {
-  margin-top: 3px;
-  color: var(--app-text-muted);
-  font-size: var(--app-type-meta);
-}
-
 
 /* ---- package breakdown (JobCompPanel) ------------------------------------ */
 
@@ -469,6 +1068,15 @@
   color: var(--app-text-muted);
 }
 
+/* No figure to show: the heading and the reason, as a short card. A word in
+   the figure's place, at a figure's size, would give the absence the place a
+   price has. */
+.pkg-unknown-why {
+  margin: var(--app-space-1) 0 0;
+  color: var(--app-text);
+  font-size: var(--app-type-body);
+}
+
 .pkg-per {
   font-size: var(--app-type-meta);
   font-weight: var(--app-weight-ui);
@@ -476,21 +1084,27 @@
   letter-spacing: 0;
 }
 
-.pkg-guaranteed {
+/* Which part of the figure the posting states, under an estimated total: a
+   mark, the words, and the help mark that says what the total counts. It
+   wears the ink the card gives the employer's own numbers, the bar's stated
+   end and the stated tag, so the one certain thing under an estimate is read
+   as certain. */
+.pkg-stated {
   display: flex;
   align-items: center;
   gap: var(--app-space-1);
-  margin-top: var(--app-space-1);
-  font-size: var(--app-type-meta);
+  margin: var(--app-space-1) 0 0;
   color: var(--app-positive);
+  font-size: var(--app-type-meta);
 }
 
-.pkg-guaranteed b {
+/* The figure reads as a figure, in the face every amount on this card uses. */
+.pkg-stated b {
   font-family: var(--app-font-mono);
   font-weight: 700;
 }
 
-.pkg-guaranteed .info-tip {
+.pkg-stated .info-tip {
   margin-left: -1px;
 }
 
@@ -524,7 +1138,6 @@
   margin-top: var(--app-space-1);
   font-size: var(--app-type-meta);
 }
-.pkg-floor-clears { color: var(--app-positive); }
 .pkg-floor-straddles { color: var(--app-warning); }
 .pkg-floor-below { color: var(--app-text-muted); }
 
@@ -786,28 +1399,6 @@
   padding: var(--app-space-2);
   border: 1px solid var(--app-warning-line);
   border-radius: var(--app-radius-sm);
-}
-
-.pkg-quote {
-  margin-top: var(--app-space-3);
-  font-size: var(--app-type-meta);
-}
-
-.pkg-quote summary {
-  color: var(--app-text-muted);
-  cursor: pointer;
-}
-
-.pkg-quote q {
-  display: block;
-  margin-top: var(--app-space-1);
-  padding: var(--app-space-2) var(--app-space-2);
-  border-left: 2px solid var(--app-border-strong);
-  border-radius: 0;
-  background: var(--app-surface-sunken);
-  font-family: var(--app-font-mono);
-  font-size: var(--app-type-meta);
-  color: var(--app-text-muted);
 }
 
 .pkg-foot {
@@ -1422,34 +2013,6 @@
 
 /* ---- responsive ---------------------------------------------------------- */
 
-/* Large screens: step the reading measure and container up so the detail
-   scales with the viewport — the type steps one role (`name` -> `title`),
-   never off the ramp. */
-@media (min-width: 1500px) {
-  .jd-container {
-    max-width: 1360px;
-    padding: 46px 56px 110px;
-  }
-
-  .jd-grid {
-    gap: 56px;
-  }
-
-  .jd-main .jd {
-    font-size: var(--app-type-title);
-    line-height: 1.8;
-  }
-
-  .jd-section p,
-  .jd-section li {
-    font-size: var(--app-type-title);
-  }
-
-  .kv {
-    font-size: var(--app-type-body);
-  }
-}
-
 @media (max-width: 860px) {
   .jd-container {
     padding: var(--app-space-4) var(--app-space-4) 80px;
@@ -1467,25 +2030,30 @@
     gap: var(--app-space-5);
   }
 
-  .jd-main .jd {
-    font-size: var(--app-type-body);
+  /* One column: the side column follows the description and scrolls with it. */
+  .jd-aside {
+    position: static;
   }
 
+  /* In one column the side column follows the text: nothing docks, and the
+     bar keeps to its controls. */
+  .jd-dock {
+    display: none;
+  }
+
+  .jd-bar-role {
+    visibility: hidden;
+  }
+
+  /* The reading size holds here too: one column is the narrowest the posting
+     gets, and the employer's words are what the person came to read. Only the
+     headings step down, to keep their distance from the text. */
   .jd-section h2 {
     font-size: var(--app-type-title);
   }
 
-  .jd-section p,
-  .jd-section li {
-    font-size: var(--app-type-body);
-  }
-
-  .jd-main .jd,
-  .jd-section p,
-  .jd-section li {
-    text-align: start;
-    -webkit-hyphens: manual;
-    hyphens: manual;
+  .jd-section h3 {
+    font-size: var(--app-type-name);
   }
 
   .jd-section-pay_and_benefits {

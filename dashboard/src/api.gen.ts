@@ -5709,6 +5709,8 @@ export interface components {
             place_count: number | null;
             /** Place Set Size */
             place_set_size: number | null;
+            /** Places */
+            places: string[];
             /** Posted At */
             posted_at: string | null;
             posted_base?: components["schemas"]["PostedBase"] | null;

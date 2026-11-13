@@ -501,6 +501,70 @@ def normalize_cities(locations: list[str]) -> list[str]:
     return out
 
 
+def _only_a_country(piece: str, countries: set[str]) -> bool:
+    """Whether a piece is a country code and nothing else. `_canon_one` knows
+    the country names and a few codes; the rest ("DE", "FR") fall through it as
+    if they were a city, and a code is never an office. `countries` is what the
+    piece names itself, so an ambiguous state code ("IN") names no country here
+    and keeps whatever label it had."""
+    text = piece.strip().strip(".")
+    return len(countries) == 1 and len(text) <= 3 and text.isalpha()
+
+
+def _countries_named(piece: str) -> set[str]:
+    """The countries a piece names itself. `countries_for` also reads a US
+    state ("Remote - TX", "Austin, TX"), which names a state, not the country,
+    so the States count only where the piece says so: the rule `_remote_label`
+    reads a remote place by."""
+    countries = countries_for([piece])
+    if "united_states" not in countries:
+        return countries
+    low = piece.lower()
+    said = "united states" in low or any(
+        token in re.split(r"[\s,()-]+", low) for token in ("us", "usa")
+    )
+    return countries if said else countries - {"united_states"}
+
+
+def posting_places(locations: list[str]) -> list[str]:
+    """The places a posting's own page names, each once: its offices as
+    canonical labels (`normalize_cities`), in the source's order, then each
+    country it names with no office in it, by the country's display name.
+
+    Sources write one office several ways ("Dublin, D, IE", "Ireland, Dublin,
+    Dublin") beside bare countries ("GB", "United Kingdom, Multiple
+    Locations"). A country an office already stands in adds nothing; one with
+    no office is still a place the role is open in, so it stays, whether it
+    stood alone or beside an office label that dropped it ("Remote - Germany
+    or France" is one office row, and both countries are still named).
+    """
+    offices: list[str] = []
+    covered: set[str] = set()
+    named: list[str] = []
+    for raw in locations:
+        for piece in _SPLIT_RE.split(raw or ""):
+            names = _countries_named(piece)
+            named.extend(slug for slug in sorted(names) if slug not in named)
+            office = _canon_one(piece)
+            if office is None or _only_a_country(piece, names):
+                continue
+            # The country an office covers is the one its canonical label
+            # stands in, not every country the raw piece names: a piece may
+            # name a country the label drops, and a bare city resolves to a
+            # country its own text never spells ("San Francisco" to
+            # California, so the States).
+            covered |= countries_for([office])
+            if office not in offices:
+                offices.append(office)
+    countries_only: list[str] = []
+    for slug in named:
+        node = location_node(slug)
+        name = node["display"] if node and slug not in covered else None
+        if name and name not in offices and name not in countries_only:
+            countries_only.append(name)
+    return offices + countries_only
+
+
 # Location groups: a nested scope axis. Each group has a `kind` and an optional
 # `parent`, forming a tree — metros nest under a country, countries nest under a
 # region (Europe). `kind="metro"` matches by substring; `kind="country"` matches

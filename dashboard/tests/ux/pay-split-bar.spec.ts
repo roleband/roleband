@@ -61,7 +61,8 @@ async function openPayCard(page: Page, theme: "light" | "dark", pkg: JobCompPack
   await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: { ...jobFixture, comp_package: pkg } }));
   await page.goto("/job/101");
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-  const bar = page.locator(".pkg-bar");
+  // The panel's own bar: its small copy in the side column draws the bar again.
+  const bar = page.locator(".pkg-panel .pkg-bar");
   await expect(bar.locator(".pkg-seg")).toHaveCount(3);
   await bar.scrollIntoViewIfNeeded();
   return bar;

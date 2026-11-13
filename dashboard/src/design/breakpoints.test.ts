@@ -86,7 +86,6 @@ export function viewportThresholds(): Threshold[] {
  * value and `@custom-media` has not shipped, so a TS constant plus a test IS
  * the only way to name one. */
 const FROZEN: Record<number, string> = {
-  1500: "job-detail wide reading measure — candidate: @container",
   1360: "shell — RAIL_QUERY (ui/FilterRail.tsx), gated",
   1359: "shell — RAIL_QUERY - 1 (patterns/rail-shell.css), gated",
   1240: "Profile walk's rail -> one column; top-stats third chip",

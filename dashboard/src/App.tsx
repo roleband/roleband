@@ -273,11 +273,16 @@ function Shell() {
   // Anything deeper (a position under a company: a third segment) is another
   // screen, keyed by the position whichever URL names it (`positionKey`).
   const [, , second, third] = routedLocation.pathname.split("/");
-  const boundaryKey =
-    positionKey(routedLocation.pathname) ??
-    ((activeTab?.entityParam && !third) || (!third && activeTab?.tabs?.some((t) => t.slug === second))
+  // A position is one screen showing one posting after another: one key for
+  // them all, so a posting that is the page turns to the next in its own
+  // cover (docs/ui.md "Job detail"), and `boundaryReset` names the posting.
+  const position = positionKey(routedLocation.pathname);
+  const boundaryKey = position
+    ? "position"
+    : ((activeTab?.entityParam && !third) || (!third && activeTab?.tabs?.some((t) => t.slug === second))
       ? activeTab!.path
       : routedLocation.pathname);
+  const boundaryReset = position ?? boundaryKey;
   // /welcome is the one route outside the tab table; it is not the dashboard.
   const routeLabel =
     activeTab?.label ??
@@ -479,6 +484,7 @@ function Shell() {
                without it, one dead chunk would blank every later route too.
                An entity section keeps one key across its picks (boundaryKey). */
             key={boundaryKey}
+            resetKey={boundaryReset}
             onError={(error, info) => recordClientError(error, "route", info.componentStack)}
             fallback={(error) => (
               <ResourceLoadState error={error} loading={shellLoadingPage()} failed={shellLoadPageFailed()} onRetry={reloadDocument} />
@@ -497,7 +503,11 @@ function Shell() {
           shell: here it is a modal dialog, above it is the page. */}
       {backgroundLocation && (
         <ErrorBoundary
-          key={`overlay:${positionKey(location.pathname) ?? location.pathname}`}
+          /* One boundary, and so one cover, for every posting: stepping to
+             another turns the posting inside it (docs/ui.md "Job detail")
+             and never opens the cover again. */
+          key={positionKey(location.pathname) ? "overlay:position" : `overlay:${location.pathname}`}
+          resetKey={positionKey(location.pathname) ?? location.pathname}
           onError={(error, info) => recordClientError(error, "overlay", info.componentStack)}
           fallback={(error) => (
             <ResourceLoadState error={error} loading={shellLoadingRole()} failed={shellLoadRoleFailed()} onRetry={reloadDocument} />

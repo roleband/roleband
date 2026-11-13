@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { shellApi, type CompareScope } from "../api/shell";
-import { COMPARE_ROUTE, coverBackground, listScreenOf, positionPath } from "../routing/paths";
+import { COMPARE_ROUTE, coverBackground, listScreenOf, positionKey, positionPath } from "../routing/paths";
 
 /* Three roles, not four (docs/ui.md "Cover"). The screen is a grid plus one
  * full description diff per role past the first: at four there are six
@@ -30,6 +30,19 @@ const perScope = <T,>(make: () => T): PerScope<T> => ({ radar: make(), pipeline:
  * changes constantly. `StatisticsRoute` wants only `openJob`; joined, it
  * would re-render on every compare toggle on any screen.
  */
+
+/** A posting in the list a cover was opened from: enough to open it, and its
+ *  title, for the posting before it to name it. */
+export interface PostingNeighbour {
+  id: number;
+  company?: string | null;
+  title?: string;
+}
+
+/** How many neighbours a cover carries in history state. A list is a page of
+ *  rows; the cap only keeps an unbounded one out of the history entry. */
+const NEIGHBOUR_CAP = 500;
+
 export interface JobWorkspaceValue {
   /** The compare selection of the list screen the reader is on (`compareScope`):
    *  Radar and the Pipeline each keep their own, so what is picked on one is not
@@ -92,7 +105,7 @@ export interface JobActions {
   /** Open the comparison as a cover over the current page (or over a role
    *  cover's background). No-op when already on it. */
   openCompare: () => void;
-  openJob: (id: number, companySlug?: string | null) => void;
+  openJob: (id: number, companySlug?: string | null, list?: readonly PostingNeighbour[]) => void;
   markJobViewed: (id: number) => void;
   /** Announce a confirmed save. Called by `useSaveCommand`, never by a screen:
    *  the command decides which writes count. */
@@ -275,7 +288,7 @@ export function JobWorkspaceProvider({ children }: { children: React.ReactNode }
   }, []);
 
   const openJob = useCallback(
-    (id: number, companySlug?: string | null) => {
+    (id: number, companySlug?: string | null, list?: readonly PostingNeighbour[]) => {
       markJobViewed(id);
       const current = locationRef.current;
       // When already viewing a job overlay, keep the original page underneath as
@@ -283,9 +296,21 @@ export function JobWorkspaceProvider({ children }: { children: React.ReactNode }
       // A comparison is the one cover a role stacks ON (one level,
       // docs/ui.md "Cover"): Back from a column's role
       // returns to the comparison, and from there to the list.
-      const background = current.pathname === COMPARE_ROUTE ? current : coverBackground(current);
       const to = companySlug ? positionPath(companySlug, id) : `/job/${id}`;
-      navigateRef.current(to, { state: { backgroundLocation: background } });
+      // A posting that is the page itself (reached by its link) has nothing
+      // under it to keep: the next posting takes its place as the page, in
+      // the same cover, and Back returns to it (`steppedFrom`).
+      const isPage = (current.state as { backgroundLocation?: unknown } | null)?.backgroundLocation == null;
+      if (isPage && positionKey(current.pathname)) {
+        navigateRef.current(to, { state: { steppedFrom: "posting" } });
+        return;
+      }
+      const background = current.pathname === COMPARE_ROUTE ? current : coverBackground(current);
+      // The list the row stood in travels with the cover, in the order it had
+      // when the row was opened, so the cover can step to the row's
+      // neighbours. A role opened from inside a cover has none.
+      const postingList = list && list.length > 1 ? list.slice(0, NEIGHBOUR_CAP) : undefined;
+      navigateRef.current(to, { state: { backgroundLocation: background, postingList } });
     },
     [markJobViewed],
   );

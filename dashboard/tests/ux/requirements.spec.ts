@@ -12,6 +12,10 @@ import {
    description, evidence disclosure with the employer quote, and the truth
    contract (empty = nothing catalogued found, never "no skills needed"). */
 
+// The panel is off the posting while its worth there is decided (JobDetail
+// SHOW_REQUIREMENTS): these describe it for when it returns.
+test.skip(true, "The role requirements panel is off the posting.");
+
 const requirementsFixture = {
   state: "ready",
   extractor_version: "2.0.0",

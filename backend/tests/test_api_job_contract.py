@@ -320,6 +320,9 @@ async def test_detail_branches_mean_what_they_say(api_client, seeded):
     assert repost["lineage_days_open"] == repost["days_open"] + 30
 
     plain = await detail(seeded.plain)
+    # The places line is tidied; the source's own wording stays beside it.
+    assert plain["locations"] == ["Mountain View, CA, USA"]
+    assert plain["places"] == ["Mountain View, CA"]
     assert plain["disclosed_comp"] is None and plain["comp_package"]["state"] == "unchecked"
     assert plain["comp_package"]["policy"]["verified"] is False
     assert plain["domains"] == [] and plain["requirements"]["state"] == "unavailable"
