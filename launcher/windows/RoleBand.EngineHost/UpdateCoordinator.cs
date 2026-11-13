@@ -254,6 +254,8 @@ public sealed class UpdateCoordinator(IUpdateCommands commands, IPackageDeployer
                 throw new IOException(Reason(recovered) ?? "The previous version's database could not be restored.");
             phase = "recovered";
         }
+        // The journal's commands run to their end; only the engine's start stops here, as when Windows is ending the app.
+        cancellation.ThrowIfCancellationRequested();
         await session.StartAsync();
         if (phase != "preparing") return phase;
         var verdict = new TaskCompletionSource<bool?>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -308,17 +310,20 @@ public sealed class UpdateCoordinator(IUpdateCommands commands, IPackageDeployer
         });
 
     /// <param name="progress">Windows' percentage of the install, while this version stays open until Windows closes it.</param>
+    /// <param name="cancellation">Cancels the update until the journal records it, as when Windows ends the session during
+    /// the engine's stop; once recorded, Windows' install runs to its end.</param>
     public async Task ApplyAsync(EngineSession session, string package, IProgress<int>? progress = null, CancellationToken cancellation = default)
     {
         await session.StopAsync();
         if (session.OwnsEngine) throw new IOException("The engine did not stop, so the update was not started.");
-        var begun = await commands.RunAsync(["begin", "--package", package], cancellation);
+        cancellation.ThrowIfCancellationRequested();
+        var begun = await commands.RunAsync(["begin", "--package", package], CancellationToken.None);
         if (!begun.TryGetProperty("phase", out var phase) || phase.GetString() != "applying")
             throw new IOException(Reason(begun) ?? "The update could not be started.");
         deployer.ReopenWhenReplaced();
         try
         {
-            await deployer.AddAsync(package, downgrade: false, progress, cancellation);
+            await deployer.AddAsync(package, downgrade: false, progress, CancellationToken.None);
         }
         catch
         {
@@ -332,16 +337,19 @@ public sealed class UpdateCoordinator(IUpdateCommands commands, IPackageDeployer
     /// From a failed update: registers the retained previous package again. That version's next
     /// Start puts back the database the update replaced, keeping the replaced one.
     /// </summary>
+    /// <param name="cancellation">Cancels the undo until the journal records it; once recorded, Windows' install runs to
+    /// its end.</param>
     public async Task ReturnToPreviousAsync(EngineSession session, IProgress<int>? progress = null, CancellationToken cancellation = default)
     {
         await session.StopAsync();
         if (session.OwnsEngine) throw new IOException("The engine did not stop, so the update was not undone.");
-        var begun = await commands.RunAsync(["recover-begin"], cancellation);
+        cancellation.ThrowIfCancellationRequested();
+        var begun = await commands.RunAsync(["recover-begin"], CancellationToken.None);
         if (!begun.TryGetProperty("package", out var package) || package.ValueKind != JsonValueKind.String)
             throw new UpdateRefused(Reason(begun) ?? "The previous version could not be prepared.",
                 begun.TryGetProperty("kind", out var kind) && kind.ValueKind == JsonValueKind.String ? kind.GetString() : null);
         deployer.ReopenWhenReplaced();
-        await deployer.AddAsync(package.GetString()!, downgrade: true, progress, cancellation);
+        await deployer.AddAsync(package.GetString()!, downgrade: true, progress, CancellationToken.None);
     }
 
     /// <summary>Records the new version's verdict on its own preparation.</summary>

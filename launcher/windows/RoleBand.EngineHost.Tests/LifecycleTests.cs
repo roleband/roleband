@@ -806,6 +806,36 @@ public sealed class LifecycleTests
     }
 
     [TestMethod]
+    [DataRow(false, DisplayName = "update")]
+    [DataRow(true, DisplayName = "undo")]
+    public async Task AnUpdateOrUndoCancelledDuringTheStopIsNeverRecordedOrInstalled(bool undo)
+    {
+        var engine = new StandIn("ready");
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        await session.StartAsync();
+        await Until(() => session.Snapshot.State == EngineState.Ready, TimeSpan.FromSeconds(90), "Ready");
+        // Windows ends the session once the engine has begun to stop, as at sign-out.
+        using var ending = new CancellationTokenSource();
+        session.Changed += snapshot =>
+        {
+            if (snapshot.State == EngineState.Stopping) ending.Cancel();
+        };
+        var commands = new RecordingCommands(() => session.OwnsEngine, ("begin", """{"phase": "applying"}"""),
+            ("recover-begin", $$"""{"phase": "recovering", "package": {{JsonSerializer.Serialize(Previous)}}}"""));
+        var deployer = new RecordingDeployer();
+        var coordinator = new UpdateCoordinator(commands, deployer);
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => undo
+            ? coordinator.ReturnToPreviousAsync(session, cancellation: ending.Token)
+            : coordinator.ApplyAsync(session, Package, cancellation: ending.Token));
+
+        Assert.IsTrue(ending.IsCancellationRequested, "the session ended during the stop");
+        Assert.IsFalse(session.OwnsEngine, "the engine still stops");
+        CollectionAssert.AreEqual(Array.Empty<string>(), commands.Calls, "the journal records nothing");
+        CollectionAssert.AreEqual(Array.Empty<string>(), deployer.Steps, "Windows installs nothing");
+    }
+
+    [TestMethod]
     public async Task TheNewVersionCompletesTheUpdateOnceItIsReady()
     {
         var engine = new StandIn("ready");
@@ -817,6 +847,28 @@ public sealed class LifecycleTests
         Assert.AreEqual(EngineState.Ready, session.Snapshot.State);
         CollectionAssert.AreEqual(new[] { "resume", "settle --prepared yes" }, commands.Calls);
         CollectionAssert.AreEqual(new[] { false, true }, commands.EngineRunningAt, "resume runs before the engine starts");
+    }
+
+    [TestMethod]
+    public async Task AStartCancelledWhileTheJournalIsReadNeverStartsTheEngine()
+    {
+        // Windows ends the app while the start waits on the journal's resume, as at sign-out.
+        var engine = new StandIn("ready");
+        await using var session = new EngineSession(engine.Configuration, Quick);
+        using var ending = new CancellationTokenSource();
+        var commands = new RecordingCommands(() =>
+        {
+            ending.Cancel();
+            return session.OwnsEngine;
+        });
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            new UpdateCoordinator(commands, new RecordingDeployer()).StartAsync(session, ending.Token));
+
+        CollectionAssert.AreEqual(new[] { "resume" }, commands.Calls, "the resume runs to its end");
+        Assert.IsFalse(session.OwnsEngine);
+        Assert.AreEqual(EngineState.Stopped, session.Snapshot.State);
+        CollectionAssert.DoesNotContain(engine.Events(), "started");
     }
 
     [TestMethod]

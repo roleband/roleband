@@ -1,6 +1,5 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Principal;
 using RoleBand.EngineHost;
@@ -40,29 +39,15 @@ internal static class Program
 
     /// <summary>The step that runs as an administrator: the compiled-in certificate into the machine's Trusted People.
     /// It takes nothing from its caller, so the prompt approves exactly this.</summary>
-    private static int Trust()
-    {
-        try
-        {
-            using var identity = WindowsIdentity.GetCurrent();
-            if (!new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator)) return TrustExit.NotAdministrator;
-            var release = Embedded();
-            if (release is null) return TrustExit.NoRelease;
-            using var certificate = PublisherTrust.Certificate(release);
-            using var store = new X509Store(StoreName.TrustedPeople, StoreLocation.LocalMachine);
-            PublisherTrust.Trust(store, certificate);
-            return TrustExit.Trusted;
-        }
-        catch (Exception error) when (error is IOException or CryptographicException or UnauthorizedAccessException)
-        {
-            return TrustExit.Failed;
-        }
-    }
-}
-
-internal static class TrustExit
-{
-    public const int Trusted = 0, Failed = 1, NotAdministrator = 3, NoRelease = 4;
+    private static int Trust() =>
+        PublisherTrust.Step(
+            () =>
+            {
+                using var identity = WindowsIdentity.GetCurrent();
+                return new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);
+            },
+            Embedded,
+            () => new X509Store(StoreName.TrustedPeople, StoreLocation.LocalMachine));
 }
 
 /// <summary>Setup's pages and the work between them.</summary>
@@ -142,7 +127,7 @@ internal sealed class Installer(NativeCopy copy, InstallRelease? release)
         try
         {
             // However the attempt ended, its download is no use to the next one, which starts from the first byte.
-            outcome = await DownloadFolder.UsingAsync(folder, () => AttemptAsync(release, folder));
+            outcome = await SetupAttempt.RunAsync(folder, () => AttemptAsync(release, folder), Failed);
         }
         finally
         {
@@ -161,61 +146,57 @@ internal sealed class Installer(NativeCopy copy, InstallRelease? release)
         // No cookies: a release host that sets one never gets it back, so a request says no more than SECURITY.md lists.
         using var handler = new SocketsHttpHandler { AllowAutoRedirect = false, UseCookies = false };
         var feed = new ReleaseDownload(handler);
+        ReleaseFile file;
+        // The release's small metadata file first, so a PC without a connection hears so before anyone is asked for
+        // permission, and the download's size is known from its first byte.
+        using (download = new CancellationTokenSource())
+            file = await feed.MetadataAsync(target, download.Token);
+        Volatile.Write(ref download, null);
+        Window.Navigate(new Page(copy["windows-setup-approving"], null, PageIcon.App, [], Waiting: true));
+        if (!await ApproveAsync())
+        {
+            return Stopped("windows-setup-not-approved", "windows-setup-not-approved-body", PageIcon.Warning, retry: true);
+        }
+        string package;
+        using (download = new CancellationTokenSource())
+        {
+            Window.Navigate(new Page(copy["windows-setup-downloading"], Received(0, file.Size), PageIcon.App,
+                [new PageButton(SetupWindow.Cancel, copy["update-cancel"])], Progress: true));
+            var progress = new Immediate<(long Received, long Total)>(value =>
+            {
+                Window.SetProgress((int)(value.Received * 100 / value.Total));
+                Window.SetBody(Received(value.Received, value.Total));
+            });
+            package = await feed.PackageAsync(target, file, folder, progress, download.Token);
+        }
+        Volatile.Write(ref download, null);
+        // Windows' own check of the signature, whose signer must be the certificate this Setup trusted.
+        if (WindowsSignature.Signer(package) is not { } signer || !signer.AsSpan().SequenceEqual(target.Certificate))
+            throw new NotTheRelease("The package is not signed with RoleBand's certificate.");
+        Window.Navigate(new Page(copy["windows-setup-installing"], null, PageIcon.App, [], Progress: true));
         try
         {
-            ReleaseFile file;
-            // The release's small metadata file first, so a PC without a connection hears so before anyone is asked for
-            // permission, and the download's size is known from its first byte.
-            using (download = new CancellationTokenSource())
-                file = await feed.MetadataAsync(target, download.Token);
-            Volatile.Write(ref download, null);
-            Window.Navigate(new Page(copy["windows-setup-approving"], null, PageIcon.App, [], Waiting: true));
-            if (!await ApproveAsync())
-            {
-                return Stopped("windows-setup-not-approved", "windows-setup-not-approved-body", PageIcon.Warning, retry: true);
-            }
-            string package;
-            using (download = new CancellationTokenSource())
-            {
-                Window.Navigate(new Page(copy["windows-setup-downloading"], Received(0, file.Size), PageIcon.App,
-                    [new PageButton(SetupWindow.Cancel, copy["update-cancel"])], Progress: true));
-                var progress = new Immediate<(long Received, long Total)>(value =>
-                {
-                    Window.SetProgress((int)(value.Received * 100 / value.Total));
-                    Window.SetBody(Received(value.Received, value.Total));
-                });
-                package = await feed.PackageAsync(target, file, folder, progress, download.Token);
-            }
-            Volatile.Write(ref download, null);
-            // Windows' own check of the signature, whose signer must be the certificate this Setup trusted.
-            if (WindowsSignature.Signer(package) is not { } signer || !signer.AsSpan().SequenceEqual(target.Certificate))
-                throw new NotTheRelease("The package is not signed with RoleBand's certificate.");
-            Window.Navigate(new Page(copy["windows-setup-installing"], null, PageIcon.App, [], Progress: true));
-            try
-            {
-                await new WindowsPackageDeployer().AddAsync(package, downgrade: false, new Immediate<int>(Window.SetProgress), CancellationToken.None);
-            }
-            catch (Exception error) when (error is IOException or COMException)
-            {
-                // Windows' own reason, in Windows' language.
-                return new Page(copy["windows-setup-failed"], error.Message, PageIcon.Error, [new PageButton(Close, copy["menu-close"])]);
-            }
-            await InstalledRoleBand.OpenAsync(target);
-            return null;
+            await new WindowsPackageDeployer().AddAsync(package, downgrade: false, new Immediate<int>(Window.SetProgress), CancellationToken.None);
         }
-        catch (OperationCanceledException)
+        catch (Exception error) when (error is IOException or COMException)
         {
-            return Welcome();
+            // Windows' own reason, in Windows' language.
+            return new Page(copy["windows-setup-failed"], error.Message, PageIcon.Error, [new PageButton(Close, copy["menu-close"])]);
         }
-        catch (NotTheRelease error)
-        {
-            return Stopped("windows-setup-failed", "windows-setup-not-genuine-body", PageIcon.Error, error.Message);
-        }
-        catch (Exception error) when (error is HttpRequestException or IOException)
-        {
-            return DownloadFailed(error.Message);
-        }
+        await InstalledRoleBand.OpenAsync(target);
+        return null;
     }
+
+    /// <summary>The page for an attempt that ended in <paramref name="error"/>: a canceled download returns to Welcome, and
+    /// every other error leaves Setup with buttons, its reason under the message.</summary>
+    private Page Failed(AttemptFailure failure, Exception error) => failure switch
+    {
+        AttemptFailure.Canceled => Welcome(),
+        AttemptFailure.NotGenuine => Stopped("windows-setup-failed", "windows-setup-not-genuine-body", PageIcon.Error, error.Message),
+        AttemptFailure.Download => DownloadFailed(error.Message),
+        _ => new Page(copy["windows-setup-failed"], null, PageIcon.Error,
+            [new PageButton(Retry, copy["retry"]), new PageButton(Close, copy["menu-close"])], Detail: error.Message),
+    };
 
     /// <summary>"120 MB of 350 MB".</summary>
     private string Received(long received, long total) =>
