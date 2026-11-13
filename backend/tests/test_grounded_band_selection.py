@@ -579,6 +579,8 @@ HOSTILE = [
     ("_PLACE_AFTER_RE", "match", " " * 20_000 + "x", "  USD annually , in San Francisco"),
     ("_RANGE_HEADING_RE", "search", "Pay Range" + " " * 1500 + "x", "\nPay Range  :  $  "),
     ("_MIN_MAX_RE", "search", "min $0" + " " * 2000 + "x", "Salary Min: $120,000   Salary Max: $160,000"),
+    ("_SHARED_K_AHEAD_RE", "match", "-" + " " * 2000 + "x", " to  $140K"),
+    ("_SHARED_K_AHEAD_RE", "match", " " * 2000 + "x", "  -  140K"),
 ]
 
 

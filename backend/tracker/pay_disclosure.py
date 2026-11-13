@@ -632,7 +632,11 @@ _BASIS_MAX = 1200
 
 #: The high amount of a range that writes its "k" once, on that amount
 #: ("$245-$280K"): the low before it is in thousands too (`_read_candidate`).
-_SHARED_K_AHEAD_RE = re.compile(r"\s*(?:[-–—]|\bto\b)\s*[$£€]?\s*\d{1,3}(?:\.\d+)?\s*[kK](?![A-Za-z])")
+#: Every run of whitespace is taken possessively (`\s*+`, as the band patterns
+#: above take theirs): nothing after a run is whitespace, so giving one back can
+#: never help a match, and a run that leads nowhere is then read once instead of
+#: at every split of itself.
+_SHARED_K_AHEAD_RE = re.compile(r"\s*+(?:[-–—]|\bto\b)\s*+[$£€]?\s*+\d{1,3}(?:\.\d+)?\s*+[kK](?![A-Za-z])")
 
 
 def _number_positions(text: str) -> list[tuple[int, int, int]]:
