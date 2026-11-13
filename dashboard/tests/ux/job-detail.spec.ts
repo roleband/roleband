@@ -872,9 +872,12 @@ test("a posting with no pay figure docks nothing above Pipeline", async ({ page 
   await page.goto("/company/apple/job/303");
   const panel = detail(page);
   await expect(panel.getByRole("heading", { name: "Responsibilities" })).toBeVisible();
-  const unknown = panel.getByTestId("pkg-unknown");
-  await expect(unknown.locator(".pkg-eyebrow")).toHaveText(msg("role-job-comp-panel-estimated-total-comp"));
-  await expect(unknown.locator(".big, .pkg-bar"), "no figure, no stand-in for one, no bar").toHaveCount(0);
+  const unknown = panel.locator(".comp-panel");
+  // The eyebrow names what is missing rather than labelling a figure that is
+  // not there, and the card stands in its place with no bar to draw.
+  await expect(unknown.locator(".pkg-eyebrow")).toHaveText(msg("role-job-comp-panel-no-estimate-available"));
+  await expect(unknown.locator(".big")).toHaveText("—");
+  await expect(unknown.locator(".pkg-bar"), "no figure, no bar").toHaveCount(0);
   const scroll = panel.locator(".cover-scroll");
   const column = panel.locator(".jd-aside");
   await scrollPosting(scroll, 1500);

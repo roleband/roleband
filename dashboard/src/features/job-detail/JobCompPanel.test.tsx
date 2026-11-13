@@ -339,10 +339,10 @@ describe("JobCompPanel", () => {
     const pounds: JobCompPackage = { ...GOOGLE, currency: "GBP" };
     render(<JobCompPanel job={{
       ...withPackage(pounds),
-      pay_floor_check: { verdict: "straddles", amount: 300000, currency: "GBP", basis: "base" },
+      pay_floor_check: { verdict: "clears", amount: 100000, currency: "GBP", basis: "base" },
     }} />, { wrapper: MemoryRouter });
     expect(screen.getByTestId("pkg-floor")).toHaveTextContent(
-      msg("role-pay-floor-line-your-pay-floor-falls-inside", { floor: "£300K" }),
+      msg("role-pay-floor-line-clears-your-pay-floor", { floor: "£100K" }),
     );
     const guaranteed = document.querySelector(".pkg-guaranteed");
     expect(guaranteed).toHaveTextContent(/^£\d+K–£\d+K/);
@@ -365,6 +365,7 @@ describe("JobCompPanel", () => {
 
   // The server decides the verdict; the panel says it in one line.
   it.each([
+    ["clears", "Clears your $250K minimum base"],
     ["straddles", "Your $250K minimum base falls inside this range"],
     ["below", "Below your $250K minimum base"],
   ] as const)("says how the stated pay compares with the pay floor: %s", (verdict, line) => {
@@ -372,13 +373,6 @@ describe("JobCompPanel", () => {
     expect(screen.getByTestId("pkg-floor")).toHaveTextContent(line);
   });
 
-  // The person set the floor and the stated base is one line up: pay that
-  // clears it adds nothing, so the line is kept for pay that does not.
-  it("says nothing about the pay floor when the stated pay clears it", () => {
-    render(<JobCompPanel job={{ ...withPackage(GOOGLE), pay_floor_check: { verdict: "clears", amount: 240000, currency: "USD", basis: "base" } }} />, { wrapper: MemoryRouter });
-    expect(screen.queryByTestId("pkg-floor")).toBeNull();
-    expect(screen.queryByText(/minimum base/)).toBeNull();
-  });
 
   it("writes a stated total once, though the package carries it twice", () => {
     // A stated total is the employer's own figure under the headline, and the

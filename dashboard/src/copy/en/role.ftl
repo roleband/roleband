@@ -473,6 +473,8 @@ role-listing-age-events = Events
 
 ## features/job-detail/PayFloorLine.tsx
 # kind=status
+role-pay-floor-line-clears-your-pay-floor = Clears your { $floor } minimum base
+# kind=status
 role-pay-floor-line-your-pay-floor-falls-inside = Your { $floor } minimum base falls inside this range
 # kind=status
 role-pay-floor-line-below-your-pay-floor = Below your { $floor } minimum base
