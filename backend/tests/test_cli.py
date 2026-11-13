@@ -230,6 +230,7 @@ def test_an_unknown_context_names_the_ones_there_are(home):
     "url",
     [
         "http://localhost:8011",  # a name, resolved by DNS
+        "http://[::1]:8011",  # the engine binds 127.0.0.1 only; ::1 reaches whatever else holds the port
         "http://192.168.1.10:8011",  # another machine
         "https://127.0.0.1:8011",
         "http://127.0.0.1",  # no port: no default is assumed
@@ -243,6 +244,13 @@ def test_a_context_must_be_a_literal_loopback_address_and_port(home, url):
     result = cli(home, "status", "--json")
     assert result.status == 2
     assert result.envelope["error"]["code"] == "context_invalid"
+
+
+def test_a_refused_context_names_the_one_address_the_engine_listens_on(home):
+    home.contexts(current="dev", dev={"url": "http://[::1]:8011"})
+    message = cli(home, "status", "--json").envelope["error"]["message"]
+    assert "http://127.0.0.1:PORT" in message
+    assert "::1" not in message
 
 
 def test_a_context_file_that_is_not_utf8_is_context_invalid(home):

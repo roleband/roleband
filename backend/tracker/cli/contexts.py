@@ -29,8 +29,9 @@ from tracker.cli.errors import ClientError
 CONFIG_ENV = "ROLEBAND_CLI_CONFIG"
 _NAME = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
 _WORKSPACE = re.compile(r"^ws_[0-9a-f]{32}$")
-#: Literal loopback addresses only: a name would depend on resolution.
-_LOOPBACK = {"127.0.0.1", "::1"}
+#: The engine binds 127.0.0.1 only. A name would depend on resolution, and ::1
+#: reaches whatever else holds the port there, never the engine.
+_LOOPBACK = "127.0.0.1"
 _ENTRY_KEYS = {"url", "workspace_id"}
 _FILE_KEYS = {"format", "current", "contexts"}
 
@@ -44,8 +45,7 @@ class Context:
 
     @property
     def url(self) -> str:
-        host = f"[{self.host}]" if ":" in self.host else self.host
-        return f"http://{host}:{self.port}"
+        return f"http://{self.host}:{self.port}"
 
 
 def config_path() -> Path:
@@ -99,7 +99,7 @@ def _parse(path: Path, name: str, entry: object) -> Context:
         raise _invalid(path, f"context {name!r} has a url that does not parse.", context=name) from None
     if (
         parts.scheme != "http"
-        or parts.hostname not in _LOOPBACK
+        or parts.hostname != _LOOPBACK
         or port is None
         or parts.username is not None
         or parts.path not in ("", "/")
@@ -108,7 +108,7 @@ def _parse(path: Path, name: str, entry: object) -> Context:
     ):
         raise _invalid(
             path,
-            f"context {name!r} must be http://127.0.0.1:PORT or http://[::1]:PORT.",
+            f"context {name!r} must be http://127.0.0.1:PORT.",
             context=name,
         )
     workspace = entry.get("workspace_id")
