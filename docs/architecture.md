@@ -175,8 +175,9 @@ and shuts down through a parent-only pipe. These boundaries are owned by
 The host reads the engine's health every second. A ready engine restarts after three
 failed reads in a row. One still preparing restarts after a minute without an answer, or
 when its preparation has not changed for the preparation deadline (1920 seconds); the
-deadline starts at the first answer and counts from the last change, so a long migration
-that keeps reporting is waited for, and the engine bounds each of its own steps within it.
+deadline starts at the first answer and counts from the last change, so a long migration is
+waited for while its preparation keeps changing, and the engine bounds each of its own steps
+within it. Answers that repeat the same preparation renew only the minute of silence.
 An engine that does not confirm a stop is kept with the data lock until it exits, and its
 exit releases the lock so the next start runs.
 
