@@ -367,12 +367,14 @@ def grade_trial(
 
 
 def claim_workdir(path: Path, *, create: bool) -> Path:
-    """The bench's own folder. Refuses anything under the installed app's data
-    and any existing folder the bench did not create."""
+    """The bench's own folder. Refuses anything under an installed app's data
+    (`~/.roleband`, and on Windows the app's LocalAppData folder) and any
+    existing folder the bench did not create."""
+    from tracker.platform.paths import within_installed_data
+
     path = path.expanduser().resolve()
-    installed = (Path.home() / ".roleband").resolve()
-    if path == installed or installed in path.parents:
-        raise SystemExit(f"refusing {path}: it is inside the installed app's data ({installed})")
+    if within_installed_data(path):
+        raise SystemExit(f"refusing {path}: it is inside an installed app's data")
     marker = path / MARKER
     if path.exists() and any(path.iterdir()) and not marker.exists():
         raise SystemExit(f"refusing {path}: it exists and was not created by this bench (no {MARKER})")

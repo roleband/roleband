@@ -224,9 +224,16 @@ def test_the_workspace_guard_refuses_folders_the_bench_did_not_make(tmp_path, mo
     with pytest.raises(SystemExit, match="not created by this bench"):
         claim_workdir(foreign, create=True)
 
-    monkeypatch.setenv("HOME", str(tmp_path))
-    with pytest.raises(SystemExit, match="installed app"):
-        claim_workdir(tmp_path / ".roleband" / "db", create=True)
+    # Every installed app's data root, the Mac's and Windows' alike, on any platform.
+    import tracker.platform.paths as paths
+
+    roots = (tmp_path / ".roleband", tmp_path / "LocalAppData" / "RoleBand")
+    monkeypatch.setattr(paths, "installed_data_roots", lambda: roots)
+    for root in roots:
+        with pytest.raises(SystemExit, match="installed app"):
+            claim_workdir(root / "db", create=True)
+        with pytest.raises(SystemExit, match="installed app"):
+            claim_workdir(root, create=True)
 
     with pytest.raises(SystemExit, match="prepare"):
         claim_workdir(tmp_path / "new", create=False)
