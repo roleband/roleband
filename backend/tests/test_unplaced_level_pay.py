@@ -147,6 +147,22 @@ def test_an_unmapped_level_shows_the_stated_base_and_builds_nothing_on_it():
     assert (pkg["split_source"], pkg["split_provider"]) == (None, None)
 
 
+@pytest.mark.parametrize("level_placed", [False, True], ids=["unplaced", "placed"])
+def test_a_base_stated_as_one_figure_is_one_segment(level_placed):
+    """A posting that states its base once ("The base salary for this role is
+    $225,000 per year") bounds the band at that figure both ends. The segment
+    carries it unchanged, so the panel prints one figure rather than a range of
+    a number with itself."""
+    point = {**STATED_BASE, "base_min": 225_000, "base_max": 225_000}
+    pkg = build_job_package(company="google", band="senior", family="product_management", comp_low=None,
+                            comp_median=None, comp_high=None, comp_provenance=None, disclosed=point,
+                            baselines=SENIOR_PM, level_placed=level_placed)
+
+    assert pkg["stated"] == {"low": 225_000, "high": 225_000}
+    base = next(c for c in pkg["components"] if c["kind"] == "base")
+    assert (base["low"], base["high"], base["provenance"]) == (225_000, 225_000, PROV_STATED)
+
+
 @pytest.mark.parametrize("disclosed, reason", [
     ({**STATED_BASE, "pay_basis": "unclear"}, "basis_unclear"),
     ({**STATED_BASE, "pay_period": "hour", "base_min": 70, "base_max": 110}, "hourly"),

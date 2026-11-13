@@ -53,6 +53,17 @@ and only reports what the posting literally says.
   Two currencies are two figures, never one band. An amount with a broken
   comma group ("$290,00", "$215,0000") is a typo and bounds nothing, so the
   next stated band is read instead.
+- **One amount**: a figure the posting states once ("The base salary for this
+  role is $150,000 per year", "Base Salary: $200,000", "$75,000 Annual
+  Salary") bounds the band at that figure both ends, and every reader shows
+  it as the one figure it is. One amount is the weaker statement, so it is
+  read only where no range is, and only where the posting itself says it is
+  pay: the pay label sits inside the match, and `_figure_states_pay` refuses
+  money the label hands off to ("Competitive salary plus a $10,000 signing
+  bonus"), a figure called other money straight after it ("$5,000 relocation
+  stipend"), an open bound before or after the amount ("up to $70,000",
+  "$120,000 minimum", "$110,000+"), and any figure with a second amount in its
+  own statement, which is a range this module failed to read.
 - **Several bands, one per place**: `extract_grounded_band` takes the band
   whose label names the posting's first city or metro (`enrich/classify.first_place`)
   when exactly one does, else the first stated. A connector knows no place, so a reader

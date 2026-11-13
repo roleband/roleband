@@ -45,7 +45,7 @@ MAX_COMP = 100_000_000  # sanity ceiling (whole currency units / year)
 #: number per run. A band a connector read from a structured field
 #: is never re-read (`jobs.disclosed_source`). Independent of the experimental
 #: prompt's `intelligence.prompts.PROMPT_VERSION`, which does not extract.
-PAY_PARSER_VERSION = "pay_parser/2026-11-13.1"
+PAY_PARSER_VERSION = "pay_parser/2026-11-13.2"
 
 
 #: The periods a list row writes a posted base range with. An unclear period
@@ -224,8 +224,76 @@ _MIN_MAX_RE = re.compile(
     re.IGNORECASE,
 )
 
+#: A figure the posting states ONCE, as the pay itself rather than as the end
+#: of a range:
+#:
+#:     The base salary for this role is $150,000 per year.
+#:     Pay: $48,000 annually
+#:     Base Salary: $200,000
+#:     $75,000 Annual Salary
+#:
+#: One amount is far weaker evidence than two. Two amounts joined by a dash are
+#: a range whatever surrounds them; a lone figure in a posting is more often a
+#: sign-on bonus, a tuition cap or a travel allowance than it is pay. So this
+#: pattern carries the words that make it pay INSIDE the match: a pay label,
+#: then at most 60 characters holding no digit, no currency sign and no
+#: sentence end. `_figure_states_pay` then reads what the label hands off to
+#: and what the amount is called afterwards, and `rank` puts every one-amount
+#: candidate behind every band, so a figure can only be read where no range is.
+#:
+#: The pattern states no `high` group, which is what makes it a one-amount
+#: candidate: `_read_candidate` reads the band's two bounds off the one amount,
+#: and `_one_bound` is that absence.
+#: Horizontal space only, for a pattern that must stay on one line.
+_H_SPACE = r"[^\S\n]"
+
+
+def _pay_label(space: str) -> str:
+    """The pay words a figure's label is made of, joined by `space`.
+
+    The trailing-label pattern passes horizontal space, so no part of a label
+    it reads can sit on the line below the amount."""
+    return (
+        r"(?:base" + space + r"++)?(?:salar(?:y|ies)|compensation|wages?|"
+        r"pay(?:" + space + r"++(?:range|rate|scale))?)"
+    )
+
+
+_PAY_LABEL = _pay_label(r"\s")
+_LABELLED_FIGURE_RE = re.compile(
+    r"\b(?P<label>" + _PAY_LABEL + r")\b(?P<gap>[^\d$£€.;!?\n]{0,60}?)"
+    r"(?:(?<![A-Za-z])(?P<prefix>US|CA|C|A|NZ|HK|S)[ \xa0]?)?(?P<symbol>[$£€])\s*+"
+    r"(?P<low>" + AMOUNT + r")(?:\s*+(?P<low_suffix>[kKmM](?![A-Za-z])))?"
+    r"(?:\s*+(?P<low_currency>" + CURRENCY_CODE + r"))?" + _PER_PERIOD +
+    r"(?:\s*+(?P<currency>" + CURRENCY_CODE + r"))?",
+    re.IGNORECASE,
+)
+
+#: The same figure with its label AFTER it: "$75,000 Annual Salary". Every gap
+#: in it is horizontal space, so the whole match sits on the amount's own line:
+#: the next line is a new statement, and a label read across the break turns
+#: "Programme cost: $75,000\nyearly salary reviews apply" into pay. Excluding
+#: the newline from `gap` alone leaves the period and currency fragments, and
+#: the label's own words, to cross it.
+_H_PERIOD = (
+    r"(?:" + _H_SPACE + r"*+(?:(?:/" + _H_SPACE + r"*+|per" + _H_SPACE + r"++|an?" + _H_SPACE + r"++)"
+    + _PERIOD_WORD + r"|(?:annually|yearly|monthly|hourly)(?![A-Za-z])))?"
+)
+_FIGURE_LABELLED_RE = re.compile(
+    r"(?:(?<![A-Za-z])(?P<prefix>US|CA|C|A|NZ|HK|S)[ \xa0]?)?(?P<symbol>[$£€])" + _H_SPACE + r"*+"
+    r"(?P<low>" + AMOUNT + r")(?:" + _H_SPACE + r"*+(?P<low_suffix>[kKmM](?![A-Za-z])))?"
+    r"(?:" + _H_SPACE + r"*+(?P<low_currency>" + CURRENCY_CODE + r"))?" + _H_PERIOD +
+    r"(?:" + _H_SPACE + r"*+(?P<currency>" + CURRENCY_CODE + r"))?"
+    r"(?P<gap>[^\d$£€.;!?\n]{0,20}?)\b"
+    r"(?P<label>(?:annual(?:ly)?" + _H_SPACE + r"++|yearly" + _H_SPACE + r"++)?"
+    + _pay_label(_H_SPACE) + r")\b",
+    re.IGNORECASE,
+)
+
 #: Every pattern a band is read with, in the order candidates are gathered.
-_BAND_PATTERNS = (_EXPLICIT_BAND_RE, _FROM_UP_TO_RE, _MIN_MAX_RE)
+_BAND_PATTERNS = (
+    _EXPLICIT_BAND_RE, _FROM_UP_TO_RE, _MIN_MAX_RE, _LABELLED_FIGURE_RE, _FIGURE_LABELLED_RE,
+)
 
 #: A dollar sign with a country in front of it is not a US dollar. Read from
 #: either number's prefix — a band writes it on both ("CA$142,000 - CA$190,000")
@@ -309,10 +377,10 @@ def _label_names_other_money(pay_text: str, match: re.Match) -> bool:
     salary: $120,000; maximum annual bonus: $160,000" names two different
     components, and joining them states a band no employer wrote.
     """
-    for label in (
-        pay_text[match.start() : match.start("low")],
-        pay_text[match.end("low") : match.start("high")],
-    ):
+    labels = [pay_text[match.start() : match.start("low")]]
+    if not _one_bound(match):
+        labels.append(pay_text[match.end("low") : match.start("high")])
+    for label in labels:
         if _OTHER_MONEY_RE.search(label) and not _PAY_LEAD_RE.search(label):
             return True
     return False
@@ -323,6 +391,120 @@ def _names_other_money(pay_text: str, match: re.Match) -> bool:
     not pay, with no pay word in its lead?"""
     return bool(_OTHER_MONEY_RE.search(_sentence_lead(pay_text, match, _OTHER_MONEY_PAD))) and not (
         _PAY_LEAD_RE.search(_sentence_lead(pay_text, match, _PAY_LEAD_PAD))
+    )
+
+
+def _one_bound(match: re.Match) -> bool:
+    """Does this candidate state ONE amount rather than two?
+
+    The pattern says so by having no `high` group at all, so there is no second
+    bound to read, to label or to ground."""
+    return "high" not in match.groupdict()
+
+
+#: Words that hand a pay label off to other money: "Competitive salary plus a
+#: $10,000 signing bonus" is a bonus the word "salary" introduced. A band needs
+#: no such check — "$150,000 - $180,000 plus bonus" is a band and its extras —
+#: but a lone figure after one of these words is the extra itself.
+_HANDS_OFF_RE = re.compile(
+    r"\+|\b(?:plus|and|with|along|addition|includes?|including|as\s+well)\b", re.IGNORECASE
+)
+#: How far past a lone figure its own noun can sit ("$10,000 signing bonus").
+_FIGURE_TRAIL_PAD = 30
+#: Words that make a figure ONE END of a range the posting never completes:
+#: "a minimum of $120,000", "up to $70,000", "starting at $150,000", "is >
+#: $250,000", and a "+" written on the amount itself ("$110,000+"). A "+" with
+#: a space before it is not one: "Salary: $185,000 + Bonus" states a base and
+#: what is added to it. A band stores two bounds and
+#: nothing that says a bound is open, so reading such a figure as the pay would
+#: invent the end the employer withheld: an open bound is a missed band.
+_ONE_SIDED_RE = re.compile(
+    r"\b(?:min(?:imum)?|max(?:imum)?|up\s+to|at\s+(?:least|most)|start(?:s|ing)?\s+(?:at|from)|"
+    r"from|as\s+(?:much|little|low|high)\s+as|over|under|above|below|exceed(?:s|ing)?|"
+    r"north\s+of|upwards?\s+of|no\s+less\s+than|begin(?:s|ning)?\s+at|"
+    r"(?:greater|more|less|fewer)\s+than)\b|[><≥≤]",
+    re.IGNORECASE,
+)
+#: How far before the figure a one-sided word reaches, when it sits outside the
+#: match ("Minimum base salary: $120,000" labels the figure from in front).
+_ONE_SIDED_PAD = 40
+#: Another amount the lone figure may be a bound of. Money-sized only: a
+#: currency sign with digits, a grouped number, four digits and more, or a
+#: number written with its scale, so "(40 hours per week)" and "for level 3 and
+#: 4 roles" are not amounts. A scale needs no currency of its own: "Base
+#: salary: $120k for junior roles to 180k for senior roles" names its high
+#: bound as plainly as any band does, at any number of digits ("$900k for this
+#: role or 1m for the lead role"). "401k" is the retirement plan, not an
+#: amount, and it sits beside a salary in every other posting.
+_OTHER_AMOUNT_RE = re.compile(
+    r"[$£€]\s*\d|\d{1,3},\d{3}|\d{4,}"
+    r"|(?<!\d)(?!401\s*\(?[kK])\d{1,3}(?:\.\d+)?\s*+[kKmM](?![A-Za-z])"
+)
+#: Words that open a bound AFTER the amount: "$120,000 minimum", "$120,000 or
+#: more", "$120,000 and above". "plus" is not one of them, because "$200,000,
+#: plus a discretionary bonus" states a base and what is added to it.
+_TRAILING_ONE_SIDED_RE = re.compile(
+    r"\b(?:min(?:imum)?|max(?:imum)?|or\s+(?:more|above|higher|less|lower)|"
+    r"and\s+(?:above|up|higher))\b",
+    re.IGNORECASE,
+)
+#: How far either way a second amount makes the figure part of a range.
+_FIGURE_ALONE_PAD = 80
+
+
+def _figure_states_pay(pay_text: str, match: re.Match) -> bool:
+    """Is the ONE amount this candidate states the pay its label names?
+
+    Money a pay label introduces and then hands to something else is refused,
+    on either side of the amount:
+
+    - the label hands off before the amount ("Competitive salary plus a
+      $10,000 signing bonus", "Pay for this role includes a $10,000 bonus");
+    - the amount is called other money straight after it ("$5,000 relocation
+      stipend"). A noun reached through one of the hand-off words is what the
+      pay EXCLUDES, not what it is, so "$150,000 per year plus bonus and
+      equity" keeps its band.
+
+    An open bound is refused as well, whether the word that opens it comes
+    before the amount ("up to $70,000", "a minimum of $120,000") or after it
+    ("$120,000 minimum", "$120,000 or more"), and a "+" written on the amount
+    opens one too: see `_ONE_SIDED_RE` and `_TRAILING_ONE_SIDED_RE`.
+
+    A second amount in the same statement refuses it too, whichever side it
+    sits: the figure is then one bound of a range this module failed to read,
+    and the low end of a range is not the pay. That is the whole of
+    "$181,000-$290,00 per year" (a typo breaks the high bound), "ranges from
+    $120,000 in some markets up to 180,000 in others" (no currency on the
+    high) and "from $90,000 for level 3 and 4 roles, up to $140,000" (a number
+    between the bounds). Each must stay a missed band rather than become a
+    figure the posting never stated alone.
+    """
+    gap = match.group("gap") or ""
+    if _OTHER_MONEY_RE.search(gap) or _HANDS_OFF_RE.search(gap):
+        return False
+    if _ONE_SIDED_RE.search(gap) or _ONE_SIDED_RE.search(
+        _sentence_lead(pay_text, match, _ONE_SIDED_PAD)
+    ):
+        return False
+    # Past the amount's own scale, so a "+" on "$180K+" is read where a "+" on
+    # "$180,000+" is.
+    amount_ends = match.end("low_suffix") if match.group("low_suffix") else match.end("low")
+    if pay_text[amount_ends : amount_ends + 1] == "+":
+        return False
+    trail = pay_text[match.end() : match.end() + _FIGURE_TRAIL_PAD]
+    stop = _SENTENCE_END_RE.search(trail)
+    trail = trail[: stop.start()] if stop else trail
+    named = _OTHER_MONEY_RE.search(trail)
+    if named and not _HANDS_OFF_RE.search(trail[: named.start()]):
+        return False
+    if _TRAILING_ONE_SIDED_RE.search(trail):
+        return False
+    statement = pay_text[match.end() : match.end() + _FIGURE_ALONE_PAD]
+    stop = _SENTENCE_END_RE.search(statement)
+    after = statement[: stop.start()] if stop else statement
+    return not (
+        _OTHER_AMOUNT_RE.search(after)
+        or _OTHER_AMOUNT_RE.search(_sentence_lead(pay_text, match, _FIGURE_ALONE_PAD))
     )
 
 
@@ -374,14 +556,18 @@ def _bound(raw: str, suffix: str | None) -> int | None:
 
 def _read_candidate(match: re.Match, pay_text: str) -> _Reading | None:
     """The amounts, currency and period ONE regex candidate states, or None."""
-    low_suffix, high_suffix = match.group("low_suffix"), match.group("high_suffix")
+    groups = match.groupdict()
+    low_suffix, high_suffix = groups["low_suffix"], groups.get("high_suffix")
     # "$245-$280K" and "$120–$140k" write the scale once, on the high amount:
     # a bare low under a thousand shares it. A low written in full ("$90,000 -
     # $110,000k") keeps its own size.
     if high_suffix and not low_suffix and (bare := explicit_amount(match.group("low"), None)) is not None and bare < 1_000:
         low_suffix = high_suffix
     low = _bound(match.group("low"), low_suffix)
-    high = _bound(match.group("high"), high_suffix)
+    # A one-amount candidate's band is that amount at both bounds: a figure
+    # stated once bounds itself, and grounding then asks the posting for the
+    # one number it does state.
+    high = low if _one_bound(match) else _bound(match.group("high"), high_suffix)
     if low is None or high is None:
         return None
     low, high = sorted((low, high))
@@ -395,7 +581,6 @@ def _read_candidate(match: re.Match, pay_text: str) -> _Reading | None:
     # A code after the LOW number is as authoritative as one after the high —
     # "168,000 USD - 258,750" states its currency exactly once, and reading only
     # the trailing position would store that band with no currency at all.
-    groups = match.groupdict()
     codes = {
         code.upper()
         for code in (groups["currency"], groups["low_currency"], groups.get("lead_currency"), groups.get("high_lead_currency"))
@@ -435,10 +620,46 @@ def _read_candidate(match: re.Match, pay_text: str) -> _Reading | None:
     return _Reading(low, high, currency, period, salary)
 
 
-def _grounded(reading: _Reading, description_text: str) -> DisclosedComp:
+def _locate_figure(description_text: str, amount: int) -> tuple[int, int] | None:
+    """Where the posting states `amount` AS PAY, for a band of one amount.
+
+    `locate_pay_span` grounds a band by its two bounds, and the tightest span
+    holding both pins it to the right statement. One amount has no second bound
+    to pin it: every occurrence of the number is an equally tight span, and the
+    first one wins. So a posting that says "Customers: 150,000" before "The
+    base salary for this role is $150,000 per year" would be quoted, and have
+    its basis read, at the customer count.
+
+    The figure patterns are therefore read again over the full posting, under
+    every filter a candidate passes, and the first occurrence they state as pay
+    is the band's place. The filters are what make it the band's place rather
+    than any labelled occurrence: "Bonus pay: $150,000" is refused here as it
+    is refused as a candidate, so a salary of the same figure further down is
+    not quoted, or settled, at the bonus. Grounding holds by construction: the
+    span is a match in `description_text`."""
+    for pattern in (_LABELLED_FIGURE_RE, _FIGURE_LABELLED_RE):
+        for match in pattern.finditer(description_text):
+            if _bound(match.group("low"), match.group("low_suffix")) != amount:
+                continue
+            if (
+                _names_other_money(description_text, match)
+                or _label_names_other_money(description_text, match)
+                or not _figure_states_pay(description_text, match)
+            ):
+                continue
+            ends = match.end("low_suffix") if match.group("low_suffix") else match.end("low")
+            return match.start("low"), ends
+    return None
+
+
+def _grounded(reading: _Reading, description_text: str, *, one_bound: bool = False) -> DisclosedComp:
     """The band `reading` states, grounded in the full posting, or `disclosed=False`.
     Located once: the quote, the basis and the bonus all read the same span."""
-    span = locate_pay_span(description_text, [reading.low, reading.high])
+    span = (
+        _locate_figure(description_text, reading.low)
+        if one_bound
+        else locate_pay_span(description_text, [reading.low, reading.high])
+    )
     if span is None:
         return DisclosedComp(disclosed=False)
     basis = basis_at(description_text, span)
@@ -561,9 +782,11 @@ def extract_grounded_band(
     REJECT a range that cannot be pay at any scale. The survivors
     are RANKED: a salary (yearly by its word or by a size that can only be
     yearly) first, so a stipend or a budget stated before it cannot displace
-    it; then pay wording nearby, because prose is the weaker signal (a budget
-    figure can sit one sentence away from the word "pay") and a terse band
-    carrying no pay word at all must still be accepted.
+    it; then a band of two amounts before a figure stated once, which is the
+    weaker statement and is read only where no range is; then pay wording
+    nearby, because prose is the weaker signal (a budget figure can sit one
+    sentence away from the word "pay") and a terse band carrying no pay word at
+    all must still be accepted.
 
     A posting may state one band per place: a national range and its Bay Area
     and New York one, "select cities", zones, cities. The comp model shows the
@@ -579,13 +802,14 @@ def extract_grounded_band(
         if _has_currency_evidence(match)
         and not _names_other_money(pay_text, match)
         and not _label_names_other_money(pay_text, match)
+        and (not _one_bound(match) or _figure_states_pay(pay_text, match))
         and (reading := _read_candidate(match, pay_text)) is not None
     ]
     # Stable sort: among equally-ranked candidates the earliest wins.
     # Grounding is the
     # expensive step, so it runs in rank order and stops at the first band.
-    def rank(pair: tuple[_Reading, re.Match]) -> tuple[bool, bool]:
-        return (not pair[0].salary, not _has_pay_context(pay_text, pair[1]))
+    def rank(pair: tuple[_Reading, re.Match]) -> tuple[bool, bool, bool]:
+        return (not pair[0].salary, _one_bound(pair[1]), not _has_pay_context(pay_text, pair[1]))
 
     # `rank` alone leaves the order each pattern was scanned in, so a band one
     # pattern reads later in the posting would beat an equally ranked one
@@ -595,19 +819,23 @@ def extract_grounded_band(
     # Several bands, one per place: the one for the posting's place.
     # Only among the best-ranked, and only when exactly one band names it: two
     # that do, or none, leave the order above to decide.
-    if place and places_in is not None and len({(r.low, r.high) for r, _ in readings}) > 1:
-        labels = _band_labels(pay_text, [m for _, m in readings])
-        best = rank(readings[0])
+    # A posting states a RANGE per place, so only two-amount candidates are
+    # considered: a lone figure overlaps the band it was read inside, and a
+    # label bounded by that overlap names a place for neither.
+    bands = [pair for pair in readings if not _one_bound(pair[1])]
+    if place and places_in is not None and len({(r.low, r.high) for r, _ in bands}) > 1:
+        labels = _band_labels(pay_text, [m for _, m in bands])
+        best = rank(bands[0])
         named = [
-            (r, m) for r, m in readings
+            (r, m) for r, m in bands
             if rank((r, m)) == best and _named_places(labels[(m.start(), m.end())], places_in) & place
         ]
         if len({(r.low, r.high, r.currency) for r, _ in named}) == 1:
             band = _grounded(named[0][0], description_text)
             if band.disclosed:
                 return band
-    for reading, _match in readings:
-        band = _grounded(reading, description_text)
+    for reading, match in readings:
+        band = _grounded(reading, description_text, one_bound=_one_bound(match))
         if band.disclosed:
             return band
     return DisclosedComp(disclosed=False)
