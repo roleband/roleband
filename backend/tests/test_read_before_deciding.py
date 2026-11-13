@@ -93,8 +93,14 @@ def test_a_bare_title_at_a_measured_range_reads_its_band():
     assert classify_family(job) == "program_management"
     reading = read_level(job, "program_management")
     assert (reading.band, reading.basis) == (row.band, LevelBasis.PAY_GRADE)
-    # Controls: the same title one dollar off the range, and at another company.
-    assert read_level(_job("amazon", job.title, pay=(row.base_min + 1, row.base_max)),
+    # Controls: the same title at a range sharing neither of the cell's
+    # measured bounds (sharing one would be the grade with its other end
+    # revised), and at another company.
+    bounds = {b for r in PAY_BANDS if (r.company, r.family, r.year) == (row.company, row.family, row.year)
+              for b in (r.base_min, r.base_max)}
+    off = tuple(next(v for v in range(bound + 1, bound + 1_000) if v not in bounds)
+                for bound in (row.base_min, row.base_max))
+    assert read_level(_job("amazon", job.title, pay=off),
                       "program_management").basis is not LevelBasis.PAY_GRADE
     assert grade_for_pay("acme", "program_management", row.base_min, row.base_max, 2026) is None
 

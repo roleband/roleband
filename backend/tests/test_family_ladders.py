@@ -191,7 +191,9 @@ def test_a_rung_word_outranks_the_range():
 @pytest.mark.parametrize(("change", "why"), [
     ({"posted": datetime(2027, 3, 1, tzinfo=UTC)}, "a later year's range is unmeasured"),
     ({"currency": "EUR"}, "the measured ranges are US base"),
-    ({"pay": (139_000, 197_000)}, "only the exact range is a grade"),
+    # Neither bound is measured: 197_000 and 198_000 both are, and a shared
+    # bound is the grade with its other end revised.
+    ({"pay": (139_000, 196_000)}, "a range sharing neither bound is not a grade"),
     ({"company": "amazon"}, "another company's range is not Google's grade"),
 ])
 def test_the_range_reads_only_where_it_was_measured(change, why, monkeypatch):
@@ -204,6 +206,20 @@ def test_the_range_reads_only_where_it_was_measured(change, why, monkeypatch):
     reading = _read("Product Manager, Google Analytics", company, **args)
     assert reading.basis is not LevelBasis.PAY_GRADE, why
     assert reading.band is S  # the generic, unconfirmed Product Manager
+
+
+@pytest.mark.parametrize(("pay", "band"), [
+    ((138_000, 196_000), M),   # L4's bottom, a lowered top
+    ((139_000, 197_000), M),   # L4's top, a raised bottom
+    ((240_000, 340_000), P),   # L7's bottom, a raised top
+], ids=["top-lowered", "bottom-raised", "top-raised"])
+def test_a_range_sharing_one_bound_reads_the_grade_it_revises(pay, band):
+    """Google revises one end of a grade's range between postings: 197_000 and
+    198_000 are both measured tops of Product Manager I. A range on one of a
+    grade's bounds is that grade."""
+    reading = _read("Product Manager, Google Analytics", pay=pay)
+
+    assert (reading.band, reading.basis) == (band, LevelBasis.PAY_GRADE)
 
 
 def test_reread_moves_only_when_the_range_names_a_rung():
