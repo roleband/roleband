@@ -591,6 +591,13 @@ TABLE_OWNERS: dict[str, TableOwnership] = {
         writers=("tracker/workflows/scheduler.py",),
         readers=("tracker/api/routers/ops.py",),
     ),
+    # One row, written by its migration or at engine start, never rewritten.
+    "workspace_identity": TableOwnership(
+        claim="infra",
+        lifecycle="canonical",
+        writers=("tracker/agents/operations/workspace.py",),
+        readers=("tracker/agents/operations/workspace.py",),
+    ),
     # Usage sharing's outbox (docs/architecture.md): written only while
     # the user shares, read by the daily flush and Settings > Privacy. Sent
     # rows are pruned after 30 days; unsent rows of a group the user stops

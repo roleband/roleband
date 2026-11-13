@@ -8,6 +8,8 @@ translated per message. Identifiers, API field names and URL paths are not copy.
 Neither is a failure's technical reason: the native apps and Windows Setup show it
 under the catalogued message that says what failed, in English as it was raised
 (by the engine, Windows or the program itself), for the person to report.
+The `roleband` command-line client is the other exception: it and the agent
+operations it calls answer in English (section 5).
 
 ---
 
@@ -287,6 +289,18 @@ To add an error:
 A screen says a failure with `errorText(caught, fallback)`, never `.message`. A
 failure that explains nothing (a crash, a malformed request, an unexplained
 server error) shows the screen's own `fallback` sentence, or the generic line.
+
+### Agent operations and the command-line client answer in English
+
+The agent operations under `/api/agent/v1/` and the `roleband` client
+(`backend/tracker/cli/`) are read by agents and by people at a terminal, not by
+the dashboard, so their text is not in `dashboard/src/copy/` and is not
+translated. Every outcome is an envelope whose `error.code` is the contract: a
+caller decides by the code and the exit status. `error.message`, an operation's
+`summary` and the client's human output are English for that reader, and
+`next_actions` name operations and arguments, not sentences. The client's human
+output escapes terminal control and bidirectional characters in any text it
+prints, whoever wrote it.
 
 ### Product words travel as slugs
 

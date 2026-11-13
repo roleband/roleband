@@ -193,8 +193,8 @@ no edit can choose where a stored key is sent. How keys are stored is in
   gate tests cover it, and test what it returns there. Those tests call the
   tool bodies against a real scratch Postgres.
 - Read through the query modules in `tracker/db/queries/`. `mcp/` and `api/`
-  never import each other; the import-linter contract "API and MCP are
-  independent transports" enforces it.
+  never import each other; the import-linter contract "API, MCP and CLI are
+  independent interfaces" enforces it.
 - Pursuit writes go through `upsert_pursuit(..., actor="agent")`, never a
   direct table write.
 

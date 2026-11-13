@@ -232,6 +232,25 @@
     "title": "AgentAccessResponse",
     "type": "object"
    },
+   "AgentSwitchState": {
+    "additionalProperties": false,
+    "properties": {
+     "allow_writes": {
+      "title": "Allow Writes",
+      "type": "boolean"
+     },
+     "enabled": {
+      "title": "Enabled",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "enabled",
+     "allow_writes"
+    ],
+    "title": "AgentSwitchState",
+    "type": "object"
+   },
    "AgentTool": {
     "additionalProperties": false,
     "properties": {
@@ -1020,6 +1039,39 @@
     "title": "ApplicationNextInterview",
     "type": "object"
    },
+   "AvailabilityShape": {
+    "additionalProperties": false,
+    "properties": {
+     "reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reason",
+      "x-text": "code"
+     },
+     "state": {
+      "enum": [
+       "available",
+       "unavailable",
+       "unknown"
+      ],
+      "title": "State",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "state",
+     "reason"
+    ],
+    "title": "AvailabilityShape",
+    "type": "object"
+   },
    "BandChange": {
     "additionalProperties": false,
     "description": "A stated base band as `[min, max]`, either end unknown; null when none was stated.",
@@ -1533,6 +1585,61 @@
      "step"
     ],
     "title": "CalendarStep",
+    "type": "object"
+   },
+   "CapabilitiesResult": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "engine_version": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Engine Version",
+      "x-text": "identifier"
+     },
+     "metadata_source": {
+      "enum": [
+       "bundled",
+       "engine"
+      ],
+      "title": "Metadata Source",
+      "type": "string",
+      "x-text": "code"
+     },
+     "operations": {
+      "items": {
+       "$ref": "#/components/schemas/OperationSummary"
+      },
+      "title": "Operations",
+      "type": "array"
+     },
+     "supported_contract_versions": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Supported Contract Versions",
+      "type": "array",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "contract_version",
+     "supported_contract_versions",
+     "engine_version",
+     "metadata_source",
+     "operations"
+    ],
+    "title": "CapabilitiesResult",
     "type": "object"
    },
    "CapabilityView": {
@@ -5439,6 +5546,35 @@
     "title": "DuplicateVerdictResult",
     "type": "object"
    },
+   "EffectsShape": {
+    "additionalProperties": false,
+    "properties": {
+     "external_action": {
+      "title": "External Action",
+      "type": "boolean"
+     },
+     "model_egress": {
+      "title": "Model Egress",
+      "type": "boolean"
+     },
+     "outbound_network": {
+      "title": "Outbound Network",
+      "type": "boolean"
+     },
+     "state_write": {
+      "title": "State Write",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "state_write",
+     "outbound_network",
+     "model_egress",
+     "external_action"
+    ],
+    "title": "EffectsShape",
+    "type": "object"
+   },
    "EgressPayload": {
     "properties": {
      "enabled": {
@@ -5489,6 +5625,387 @@
      }
     },
     "title": "EnabledPayload",
+    "type": "object"
+   },
+   "EngineTrust": {
+    "additionalProperties": false,
+    "properties": {
+     "mode": {
+      "enum": [
+       "local_loopback",
+       "signed_local_http"
+      ],
+      "title": "Mode",
+      "type": "string",
+      "x-text": "code"
+     },
+     "verified": {
+      "title": "Verified",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "mode",
+     "verified"
+    ],
+    "title": "EngineTrust",
+    "type": "object"
+   },
+   "EnvelopeError": {
+    "additionalProperties": false,
+    "properties": {
+     "code": {
+      "title": "Code",
+      "type": "string",
+      "x-text": "code"
+     },
+     "details": {
+      "additionalProperties": true,
+      "title": "Details",
+      "type": "object"
+     },
+     "message": {
+      "title": "Message",
+      "type": "string",
+      "x-text": "diagnostic"
+     },
+     "next_actions": {
+      "items": {
+       "$ref": "#/components/schemas/NextAction"
+      },
+      "title": "Next Actions",
+      "type": "array"
+     },
+     "retryable": {
+      "title": "Retryable",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "code",
+     "message",
+     "retryable"
+    ],
+    "title": "EnvelopeError",
+    "type": "object"
+   },
+   "EnvelopeMeta": {
+    "additionalProperties": false,
+    "properties": {
+     "data_classes": {
+      "items": {
+       "enum": [
+        "public_posting",
+        "market_statistic",
+        "private_pursuit",
+        "offer",
+        "candidate"
+       ],
+       "type": "string"
+      },
+      "title": "Data Classes",
+      "type": "array"
+     },
+     "idempotency_key": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Idempotency Key",
+      "x-text": "identifier"
+     },
+     "next_cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Cursor",
+      "x-text": "identifier"
+     },
+     "observed_at": {
+      "format": "date-time",
+      "title": "Observed At",
+      "type": "string"
+     },
+     "partial": {
+      "default": false,
+      "title": "Partial",
+      "type": "boolean"
+     },
+     "truncated": {
+      "default": false,
+      "title": "Truncated",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "observed_at"
+    ],
+    "title": "EnvelopeMeta",
+    "type": "object"
+   },
+   "EnvelopeNotice": {
+    "additionalProperties": false,
+    "description": "A structured warning: a stable code and English for logs.",
+    "properties": {
+     "code": {
+      "title": "Code",
+      "type": "string",
+      "x-text": "code"
+     },
+     "message": {
+      "title": "Message",
+      "type": "string",
+      "x-text": "diagnostic"
+     }
+    },
+    "required": [
+     "code",
+     "message"
+    ],
+    "title": "EnvelopeNotice",
+    "type": "object"
+   },
+   "Envelope_CapabilitiesResult_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/CapabilitiesResult"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[CapabilitiesResult]",
+    "type": "object"
+   },
+   "Envelope_OperationDetail_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/OperationDetail"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[OperationDetail]",
+    "type": "object"
+   },
+   "Envelope_StatusResult_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/StatusResult"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[StatusResult]",
     "type": "object"
    },
    "ErrorCode": {
@@ -12279,6 +12796,27 @@
     "title": "MovedBoard",
     "type": "object"
    },
+   "NextAction": {
+    "additionalProperties": false,
+    "description": "A typed suggestion of an operation to call next. Never a shell string,\nand never a permission the caller did not already have.",
+    "properties": {
+     "arguments": {
+      "additionalProperties": true,
+      "title": "Arguments",
+      "type": "object"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "operation"
+    ],
+    "title": "NextAction",
+    "type": "object"
+   },
    "NoLineage": {
     "additionalProperties": false,
     "description": "A posting that stands alone. `members` is always empty.",
@@ -12977,8 +13515,8 @@
       "anyOf": [
        {
         "enum": [
-         "none",
-         "pct_of_base"
+         "pct_of_base",
+         "none"
         ],
         "type": "string"
        },
@@ -13098,6 +13636,257 @@
      "companies"
     ],
     "title": "OfferTermsResponse",
+    "type": "object"
+   },
+   "OperationDetail": {
+    "additionalProperties": false,
+    "properties": {
+     "access": {
+      "enum": [
+       "read",
+       "write"
+      ],
+      "title": "Access",
+      "type": "string",
+      "x-text": "code"
+     },
+     "availability": {
+      "$ref": "#/components/schemas/AvailabilityShape"
+     },
+     "client_effects": {
+      "items": {
+       "enum": [
+        "file_write",
+        "browser_open",
+        "app_open"
+       ],
+       "type": "string"
+      },
+      "title": "Client Effects",
+      "type": "array",
+      "x-text": "code"
+     },
+     "contract_version": {
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data_classes": {
+      "items": {
+       "enum": [
+        "public_posting",
+        "market_statistic",
+        "private_pursuit",
+        "offer",
+        "candidate"
+       ],
+       "type": "string"
+      },
+      "title": "Data Classes",
+      "type": "array",
+      "x-text": "code"
+     },
+     "engine_effects": {
+      "$ref": "#/components/schemas/EffectsShape"
+     },
+     "examples": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Examples",
+      "type": "array"
+     },
+     "idempotency": {
+      "enum": [
+       "read",
+       "required_key",
+       "natural_key"
+      ],
+      "title": "Idempotency",
+      "type": "string",
+      "x-text": "code"
+     },
+     "input_schema": {
+      "additionalProperties": true,
+      "title": "Input Schema",
+      "type": "object"
+     },
+     "introduced": {
+      "title": "Introduced",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "metadata_source": {
+      "enum": [
+       "bundled",
+       "engine"
+      ],
+      "title": "Metadata Source",
+      "type": "string",
+      "x-text": "code"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "output_schema": {
+      "additionalProperties": true,
+      "title": "Output Schema",
+      "type": "object"
+     },
+     "output_schema_ref": {
+      "title": "Output Schema Ref",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "required_scopes": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Required Scopes",
+      "type": "array",
+      "x-text": "code"
+     },
+     "summary": {
+      "title": "Summary",
+      "type": "string",
+      "x-text": "diagnostic"
+     },
+     "supports_dry_run": {
+      "title": "Supports Dry Run",
+      "type": "boolean"
+     },
+     "tool_tiers": {
+      "items": {
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "type": "string"
+      },
+      "title": "Tool Tiers",
+      "type": "array",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "operation",
+     "contract_version",
+     "introduced",
+     "summary",
+     "access",
+     "input_schema",
+     "output_schema_ref",
+     "output_schema",
+     "required_scopes",
+     "engine_effects",
+     "client_effects",
+     "data_classes",
+     "tool_tiers",
+     "idempotency",
+     "supports_dry_run",
+     "availability",
+     "metadata_source",
+     "examples"
+    ],
+    "title": "OperationDetail",
+    "type": "object"
+   },
+   "OperationSummary": {
+    "additionalProperties": false,
+    "properties": {
+     "access": {
+      "enum": [
+       "read",
+       "write"
+      ],
+      "title": "Access",
+      "type": "string",
+      "x-text": "code"
+     },
+     "availability": {
+      "$ref": "#/components/schemas/AvailabilityShape"
+     },
+     "client_effects": {
+      "items": {
+       "enum": [
+        "file_write",
+        "browser_open",
+        "app_open"
+       ],
+       "type": "string"
+      },
+      "title": "Client Effects",
+      "type": "array",
+      "x-text": "code"
+     },
+     "data_classes": {
+      "items": {
+       "enum": [
+        "public_posting",
+        "market_statistic",
+        "private_pursuit",
+        "offer",
+        "candidate"
+       ],
+       "type": "string"
+      },
+      "title": "Data Classes",
+      "type": "array",
+      "x-text": "code"
+     },
+     "engine_effects": {
+      "$ref": "#/components/schemas/EffectsShape"
+     },
+     "idempotency": {
+      "enum": [
+       "read",
+       "required_key",
+       "natural_key"
+      ],
+      "title": "Idempotency",
+      "type": "string",
+      "x-text": "code"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "summary": {
+      "title": "Summary",
+      "type": "string",
+      "x-text": "diagnostic"
+     },
+     "tool_tiers": {
+      "items": {
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "type": "string"
+      },
+      "title": "Tool Tiers",
+      "type": "array",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "operation",
+     "summary",
+     "access",
+     "availability",
+     "engine_effects",
+     "client_effects",
+     "data_classes",
+     "tool_tiers",
+     "idempotency"
+    ],
+    "title": "OperationSummary",
     "type": "object"
    },
    "OptionalTextChange": {
@@ -22101,6 +22890,47 @@
     "title": "StatsResponse",
     "type": "object"
    },
+   "StatusResult": {
+    "additionalProperties": false,
+    "properties": {
+     "access": {
+      "$ref": "#/components/schemas/AgentSwitchState"
+     },
+     "contract_version": {
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "engine_session_id": {
+      "title": "Engine Session Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "engine_version": {
+      "title": "Engine Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "trust": {
+      "$ref": "#/components/schemas/EngineTrust"
+     },
+     "workspace_id": {
+      "title": "Workspace Id",
+      "type": "string",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "workspace_id",
+     "engine_session_id",
+     "engine_version",
+     "contract_version",
+     "trust",
+     "access"
+    ],
+    "title": "StatusResult",
+    "type": "object"
+   },
    "StoredOffer": {
     "additionalProperties": false,
     "properties": {
@@ -24709,6 +25539,112 @@
  },
  "openapi": "3.1.0",
  "paths": {
+  "/api/agent/v1/capabilities": {
+   "get": {
+    "operationId": "capabilities_api_agent_v1_capabilities_get",
+    "parameters": [
+     {
+      "description": "List only the operations in this tool tier.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "small",
+          "standard",
+          "full"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tier"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_CapabilitiesResult_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Capabilities",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "capabilities"
+   }
+  },
+  "/api/agent/v1/operations/{operation}": {
+   "get": {
+    "operationId": "describe_api_agent_v1_operations__operation__get",
+    "parameters": [
+     {
+      "description": "A dotted operation id from capabilities.",
+      "in": "path",
+      "name": "operation",
+      "required": true,
+      "schema": {
+       "maxLength": 128,
+       "minLength": 1,
+       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+       "title": "Operation",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_OperationDetail_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Describe",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "describe"
+   }
+  },
+  "/api/agent/v1/status": {
+   "get": {
+    "operationId": "status_api_agent_v1_status_get",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_StatusResult_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Status",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "status"
+   }
+  },
   "/api/applications": {
    "get": {
     "operationId": "board_ep_api_applications_get",

@@ -49,7 +49,8 @@ PYPROJECT = BACKEND / "pyproject.toml"
 LAYERS = "Backend layers (strictly downward)"
 ADAPTERS = "Concrete adapters are private to the registry"
 CONNECTORS = "Listing and detail connectors are independent"
-TRANSPORTS = "API and MCP are independent transports"
+TRANSPORTS = "API, MCP and CLI are independent interfaces"
+CLI_NO_DATABASE = "The CLI reaches no database"
 
 #: Permanent exemptions, not debt: `ARTIFACT_CHECKS` in `tracker/blueprint.py`
 #: deliberately reaches upward and is exercised at test time
@@ -79,6 +80,7 @@ ALLOWED_IGNORES = {
     ADAPTERS: frozenset(),
     CONNECTORS: CONNECTOR_IGNORES,
     TRANSPORTS: frozenset(),
+    CLI_NO_DATABASE: frozenset(),
 }
 
 
@@ -272,6 +274,11 @@ CASES = [
         ADAPTERS,
     ),
     Planted("the-two-transports-stay-apart", "tracker.api", "tracker.mcp", None, TRANSPORTS),
+    # Same row, so the layers allow it; only the independence contract refuses.
+    Planted("the-cli-is-not-a-client-of-api-modules", "tracker.cli", "tracker.api", None, TRANSPORTS),
+    # Downward, so the layers allow it; only the CLI's own contract refuses.
+    Planted("the-cli-reaches-no-database", "tracker.cli", "tracker.db", None, CLI_NO_DATABASE),
+    Planted("the-cli-reads-no-engine-settings", "tracker.cli", "tracker.config", None, CLI_NO_DATABASE),
     Planted("an-unmatched-ignore-is-an-error", None, None, "tracker.api -> tracker.db", None),
 ]
 
@@ -420,6 +427,12 @@ TIER_PROBES = [
     # writing and reading the rows is the store's job, next door.
     ("tracker.intelligence.telemetry", ("tracker.db",), ()),
     ("tracker.intelligence_runtime.telemetry", (), ("tracker.db",)),
+    # The CLI's every module, the lazily imported client path included, loads
+    # no store, no settings and no other interface. The operation core's error
+    # table is the control: the client maps exit statuses from it.
+    ("tracker.cli.main", ("tracker.db", "tracker.config", "tracker.api", "tracker.mcp"), ("tracker.agents",)),
+    ("tracker.cli.transport", ("tracker.db", "tracker.config", "tracker.api"), ("tracker.agents",)),
+    ("tracker.cli.contexts", ("tracker.db", "tracker.config", "tracker.api"), ()),
 ]
 
 
