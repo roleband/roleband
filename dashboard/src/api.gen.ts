@@ -5248,7 +5248,7 @@ export interface components {
              * Mode
              * @enum {string}
              */
-            mode: "same_account_loopback" | "signed_local_http";
+            mode: "local_loopback" | "signed_local_http";
             /** Verified */
             verified: boolean;
         };

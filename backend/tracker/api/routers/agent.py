@@ -58,7 +58,7 @@ async def status(
             contract_version=CONTRACT_VERSION,
             trust=EngineTrust(mode="signed_local_http", verified=True)
             if authority is not None
-            else EngineTrust(mode="same_account_loopback", verified=False),
+            else EngineTrust(mode="local_loopback", verified=False),
             access=AgentSwitchState(enabled=switches.enabled, allow_writes=switches.allow_writes),
         )
     )

@@ -349,7 +349,7 @@ async def test_status_names_the_durable_workspace_and_a_separate_engine_session(
     assert body["workspace_id"] == data["workspace_id"] == stored
     assert WORKSPACE.fullmatch(stored)
     assert data["engine_session_id"] and data["engine_session_id"] != stored
-    assert data["trust"] == {"mode": "same_account_loopback", "verified": False}
+    assert data["trust"] == {"mode": "local_loopback", "verified": False}
     assert data["access"] == {"enabled": True, "allow_writes": False}
     assert data["contract_version"] == CONTRACT_VERSION
     assert body["meta"]["data_classes"] == []

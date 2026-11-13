@@ -427,7 +427,7 @@ STATUS_DATA = {
     "engine_session_id": "f" * 32,
     "engine_version": "0.2.0",
     "contract_version": "1.0",
-    "trust": {"mode": "same_account_loopback", "verified": False},
+    "trust": {"mode": "local_loopback", "verified": False},
     "access": {"enabled": True, "allow_writes": False},
 }
 
@@ -751,7 +751,7 @@ def test_a_real_engine_refuses_until_the_switch_and_then_names_its_workspace(hom
     assert WORKSPACE.fullmatch(data["workspace_id"])
     assert body["workspace_id"] == data["workspace_id"]
     assert data["engine_session_id"] != data["workspace_id"]
-    assert data["trust"] == {"mode": "same_account_loopback", "verified": False}
+    assert data["trust"] == {"mode": "local_loopback", "verified": False}
     assert body["meta"]["context"]["name"] == "dev"
 
     capabilities = cli(home, "capabilities", "--tier", "small", "--json")

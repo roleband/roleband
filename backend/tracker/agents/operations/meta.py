@@ -30,12 +30,13 @@ _CODE: JsonDict = {"x-text": "code"}
 _IDENTIFIER: JsonDict = {"x-text": "identifier"}
 _DIAGNOSTIC: JsonDict = {"x-text": "diagnostic"}
 
-#: How the engine knows who is calling. `same_account_loopback`: any process of
-#: this user account that reaches the loopback address is trusted, which is how
-#: the Mac app serves today; nothing proves which program called.
-#: `signed_local_http`: requests are signed with a key from account-private
-#: discovery (the packaged Windows engine).
-TrustMode = Literal["same_account_loopback", "signed_local_http"]
+#: How the engine treats a caller. `local_loopback`: the engine requires no local
+#: authentication, so any process that reaches the loopback address is served;
+#: TCP loopback cannot tell the engine which account or program called.
+#: `signed_local_http`: the engine requires local authentication (packaged
+#: Windows, or `ROLEBAND_LOCAL_AUTH=1`), and every request is signed with a key
+#: from account-private discovery.
+TrustMode = Literal["local_loopback", "signed_local_http"]
 
 
 class EngineTrust(Shape):
