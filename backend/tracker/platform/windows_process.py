@@ -146,7 +146,7 @@ def owned_process(
         return None
 
 
-def _gone(kernel, handle: int) -> bool:
+def _gone(kernel: ctypes.CDLL, handle: int) -> bool:
     """Whether this kernel object's process has stopped running.
 
     The wait answers only once the object is signalled, which happens after the
