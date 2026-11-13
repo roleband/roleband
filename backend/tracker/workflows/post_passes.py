@@ -44,6 +44,7 @@ from tracker.db.models import DerivationState, Job, ScrapeRun
 from tracker.db.queries.scope import unplaced_level_expr
 from tracker.db.repo import (
     fill_blank_description,
+    hold_scope_projection,
     refresh_search_vectors,
     set_job_domains,
     set_job_places,
@@ -339,8 +340,17 @@ async def _rescope_after_reclassify(
     pass killed partway keeps the chunks it committed and records no
     fingerprint, so the pass that finishes the axis finds nothing left to write,
     and those rows would hold an `in_scope` their old derivation earned.
+
+    The projection lock is taken before the saved axes are read, not inside the
+    projection: a save that commits new axes in between would otherwise be
+    followed by a projection of the older ones. It costs no lock time, since the
+    projection takes the same transaction lock a moment later and holds it to
+    the pass's commit either way.
     """
-    return await recompute_saved_scope(session) if changes or job_ids is None else 0
+    if not (changes or job_ids is None):
+        return 0
+    await hold_scope_projection(session)
+    return await recompute_saved_scope(session)
 
 
 async def reclassify_domains(
