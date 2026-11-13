@@ -59,6 +59,23 @@ describe("HiringCompaniesChart", () => {
     expect(onPick).not.toHaveBeenCalled();
   });
 
+  it("keeps its option and handlers while its bars stay the same, and replaces them when the bars change", () => {
+    const onPick = vi.fn();
+    const { rerender } = render(<HiringCompaniesChart bars={bars} onPick={onPick} />);
+    const first = probe.current!;
+    rerender(<HiringCompaniesChart bars={bars} onPick={onPick} />);
+    // A new option redraws every label, so the one under the pointer would be a new element.
+    expect(probe.current!.option).toBe(first.option);
+    expect(probe.current!.onEvents).toBe(first.onEvents);
+
+    const fewer = bars.slice(0, 2);
+    rerender(<HiringCompaniesChart bars={fewer} onPick={onPick} />);
+    expect(probe.current!.option).not.toBe(first.option);
+    expect(probe.current!.option.yAxis.data).toEqual(["Google", "Anthropic"]);
+    click({ componentType: "series", dataIndex: 0 });
+    expect(onPick).toHaveBeenLastCalledWith("google");
+  });
+
   it("listens for nothing without onPick", () => {
     render(<HiringCompaniesChart bars={bars} />);
     expect(probe.current!.onEvents).toBeUndefined();

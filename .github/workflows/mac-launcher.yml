@@ -186,3 +186,30 @@ jobs:
           path: ${{ runner.temp }}/engine-probe.json
           if-no-files-found: error
           retention-days: 7
+
+  # The check the ruleset requires, standing for both tiers. `always()`: a skipped job
+  # counts as passed for a required check, so this job runs and fails when the run is
+  # cancelled. A tier may be skipped only when the change did not need it; a failed
+  # `changes` job leaves no answer, so its skipped tiers fail this. The step is windows.yml's.
+  result:
+    name: mac-launcher
+    needs: [changes, build, bundle]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - shell: python
+        env:
+          RESULT_build: ${{ needs.build.result }}
+          NEEDED_build: ${{ needs.changes.outputs.native }}
+          RESULT_bundle: ${{ needs.bundle.result }}
+          NEEDED_bundle: ${{ needs.changes.outputs.bundle }}
+        run: |
+          import os
+          results = {k.removeprefix("RESULT_"): v for k, v in os.environ.items() if k.startswith("RESULT_")}
+          # A part may be skipped only when the change did not need it: NEEDED_<part> is 'false'.
+          passed = {p: r == "success" or (r == "skipped" and os.environ.get(f"NEEDED_{p}") == "false") for p, r in results.items()}
+          for part, result in sorted(results.items()):
+              print(f"{part}: {result}")
+          if not results or not all(passed.values()):
+              raise SystemExit("not passed: " + (", ".join(sorted(p for p, ok in passed.items() if not ok)) or "no part reported"))

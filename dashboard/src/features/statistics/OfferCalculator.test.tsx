@@ -328,6 +328,8 @@ describe("OfferCalculator", () => {
     kept = { offer: { ...AMAZON_DONE, inputs: { ...AMAZON_DONE.inputs, base: 123_000 }, saved_at: SAVED_AT }, valuations: {} };
     renderPanel();
     const row = within(await screen.findByTestId("traj-public")).getByRole("row", { name: /Amazon/ });
+    // The kept offer arrives on its own request; started before it, the start races its arrival.
+    await screen.findByRole("button", { name: msg("insights-offer-chip-edit", { answer: msg("insights-offer-chip-base", { amount: comp(123_000) }) }) });
     fireEvent.click(within(row).getByRole("button", { name: msg("insights-offer-start-aria", { company: "Amazon" }) }));
 
     // The started offer takes focus, so the move to it is announced.

@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   # A gate takes no `paths:` filter, so this job decides whether a pull request can change
-  # the schema at all. PATHS is every file regen-diff reads: the exporter and the `tracker`
+  # the schema at all. PATHS is every file `regenerate` reads: the exporter and the `tracker`
   # package it imports, what that package names outside backend/, the locks and the two
   # generated files.
   changes:
@@ -56,8 +56,8 @@ jobs:
             .github/workflows/contract-drift.yml
         run: python3 launcher/macos/Tools/ci_changes.py
 
-  # The required check. Skipped, it counts as passed.
-  regen-diff:
+  regenerate:
+    name: contract-drift (regenerate)
     needs: changes
     # Runs when `changes` fails too.
     if: ${{ !cancelled() && needs.changes.outputs.contract != 'false' }}
@@ -103,3 +103,27 @@ jobs:
         # changed response shape can leave it byte-identical. openapi.json is
         # what the server declares.
         run: git diff --exit-code dashboard/src/api.gen.ts dashboard/openapi.json
+
+  # The check the ruleset requires. `always()`: a skipped job counts as passed for a
+  # required check, so this job runs and fails when the run is cancelled. `regenerate` may
+  # be skipped only when the change cannot touch the schema. The step is windows.yml's.
+  result:
+    name: regen-diff
+    needs: [changes, regenerate]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - shell: python
+        env:
+          RESULT_regenerate: ${{ needs.regenerate.result }}
+          NEEDED_regenerate: ${{ needs.changes.outputs.contract }}
+        run: |
+          import os
+          results = {k.removeprefix("RESULT_"): v for k, v in os.environ.items() if k.startswith("RESULT_")}
+          # A part may be skipped only when the change did not need it: NEEDED_<part> is 'false'.
+          passed = {p: r == "success" or (r == "skipped" and os.environ.get(f"NEEDED_{p}") == "false") for p, r in results.items()}
+          for part, result in sorted(results.items()):
+              print(f"{part}: {result}")
+          if not results or not all(passed.values()):
+              raise SystemExit("not passed: " + (", ".join(sorted(p for p, ok in passed.items() if not ok)) or "no part reported"))
