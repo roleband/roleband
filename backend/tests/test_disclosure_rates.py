@@ -32,10 +32,6 @@ def _posted_rows(rows):
     return [(c, b, "stated", lo, hi, basis, cur, per, ["silicon_valley"]) for c, b, _chk, lo, hi, basis, cur, per in rows]
 
 
-def _company(rates, name):
-    return next(c for c in rates["by_company"] if c["company"] == name)
-
-
 def _level(rates, band):
     return next(lvl for lvl in rates["by_level"] if lvl["level_band"] == band)
 
@@ -80,7 +76,7 @@ def test_rate_is_none_not_zero_when_nothing_has_been_checked():
     rates = build_disclosure_rates([_role("openai", "senior", checked=UNREAD)])
     # 0.0 would assert "this employer publishes nothing", which we have not observed.
     assert rates["overall"]["rate"] is None
-    assert _company(rates, "openai")["rate"] is None
+    assert _level(rates, "senior")["rate"] is None
 
 
 # --- basis independence ------------------------------------------------------
@@ -168,7 +164,7 @@ def test_a_one_sided_band_discloses_but_spans_nothing():
 # --- grouping and ordering ---------------------------------------------------
 
 
-def test_groups_split_by_company_and_level_over_the_same_roles():
+def test_groups_split_by_level_over_the_same_roles():
     rows = [
         _role("google", "senior", lo=200_000, hi=300_000, basis="base"),
         _role("google", "staff"),
@@ -176,15 +172,14 @@ def test_groups_split_by_company_and_level_over_the_same_roles():
     ]
     rates = build_disclosure_rates(rows)
 
-    assert _company(rates, "google") == {
-        "company": "google", "open": 2, "checked": 2, "disclosed": 1, "rate": 0.5
+    assert _level(rates, "senior") == {
+        "level_band": "senior", "open": 1, "checked": 1, "disclosed": 1, "rate": 1.0
     }
-    assert _company(rates, "meta")["rate"] == 1.0
-    assert _level(rates, "senior")["rate"] == 1.0
     assert _level(rates, "staff")["rate"] == 0.5  # google staff silent, meta staff not
+    assert rates["overall"]["rate"] == round(2 / 3, 4)
 
 
-def test_levels_are_ordered_by_seniority_and_companies_by_checked_roles():
+def test_levels_are_ordered_by_seniority():
     rows = [
         _role("google", "staff", lo=300_000, hi=400_000, basis="base"),
         _role("meta", "senior"),
@@ -197,43 +192,6 @@ def test_levels_are_ordered_by_seniority_and_companies_by_checked_roles():
     assert [lvl["level_band"] for lvl in rates["by_level"]] == [
         "mid", "senior", "staff", "director_plus"
     ]
-    # amazon has two checked roles, google and meta one each (by name), and
-    # openai, with nothing checked, comes last.
-    assert [c["company"] for c in rates["by_company"]] == [
-        "amazon", "google", "meta", "openai"
-    ]
-
-
-def test_company_limit_truncates_the_ranking():
-    rows = [_role(f"co{i}", "senior", lo=100_000 + i, hi=200_000) for i in range(20)]
-    assert len(build_disclosure_rates(rows, company_limit=5)["by_company"]) == 5
-
-
-def test_the_limit_keeps_the_employers_most_roles_are_at_whatever_they_post():
-    # Twenty small employers all post a range; the two largest post little or
-    # nothing. Cut by rate, the chart would be bars at 100% that never show
-    # who stays silent.
-    small = [_role(f"co{i:02}", "senior", lo=100_000, hi=200_000, basis="base") for i in range(20)]
-    silent = [_role("aecom", "senior") for _ in range(30)]
-    some = [_role("turner", "senior", lo=100_000, hi=200_000, basis="base")]
-    some += [_role("turner", "senior") for _ in range(9)]
-    cut = build_disclosure_rates(small + silent + some, company_limit=5)["by_company"]
-    assert [c["company"] for c in cut] == ["aecom", "turner", "co00", "co01", "co02"]
-    assert [c["rate"] for c in cut[:2]] == [0.0, 0.1]
-
-
-def test_companies_with_equal_figures_rank_by_name_whatever_order_their_rows_arrive():
-    """Two reads of one table must rank alike: equal rate and checked count fall
-    back to the name, so neither the order nor which company the limit cuts
-    follows input row order."""
-    tied = ["muon-space", "astera-labs", "zeta", "acme"]
-    rows = [_role(c, "senior", lo=100_000, hi=200_000, basis="base") for c in tied]
-    forward = build_disclosure_rates(rows)["by_company"]
-    backward = build_disclosure_rates(rows[::-1])["by_company"]
-    assert [c["company"] for c in forward] == ["acme", "astera-labs", "muon-space", "zeta"]
-    assert forward == backward
-    cut = [c["company"] for c in build_disclosure_rates(rows[::-1], company_limit=2)["by_company"]]
-    assert cut == ["acme", "astera-labs"]
 
 
 def test_unclassified_level_uses_the_empty_sentinel_not_none():

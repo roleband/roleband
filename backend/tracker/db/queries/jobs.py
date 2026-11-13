@@ -119,7 +119,26 @@ def priced_in_dollars(source: str | None = None) -> Callable[[Any], list]:
     return eligible
 
 
-def base_only_role_conds() -> list:
+def base_only(peer: Any) -> list:
+    """The posting prices its role by a dollar base alone: no dollar total."""
+    return [peer.comp_currency == "USD", peer.comp_component == "base",
+            peer.comp_median.is_(None), peer.comp_base_median.is_not(None)]
+
+
+def priced_at(at: Iterable[str] | None = None) -> Callable[[Any], list]:
+    """`priced_in_dollars`, narrowed to a member listed at one of `at`: the
+    posting that prices a role for the figures of one country is one of the
+    postings that place the role there."""
+    priced = priced_in_dollars()
+    places = list(at or ())
+
+    def eligible(peer: Any) -> list:
+        return [*([peer.location_groups.overlap(places)] if places else []), *priced(peer)]
+
+    return eligible
+
+
+def base_only_role_conds(at: Iterable[str] | None = None) -> list:
     """The roles a pay read prices by their dollar base alone, one posting each.
 
     `insights_role_conds` through a member with a dollar base and no dollar total
@@ -128,18 +147,26 @@ def base_only_role_conds() -> list:
     base-only postings counts once. Only an open, in-scope total counts: the
     totals read counts no other, so a closed member, or one at a place out of
     scope, never hides the base-only posting.
-    """
-    def base_only(peer: Any) -> list:
-        return [peer.comp_currency == "USD", peer.comp_component == "base",
-                peer.comp_median.is_(None), peer.comp_base_median.is_not(None)]
 
+    `at` narrows every member test to the postings listed at one of those
+    location groups, for a read of one country's figures.
+    """
     priced = priced_in_dollars()
+    places = list(at or ())
+    here = [Job.location_groups.overlap(places)] if places else []
+
+    def member(peer: Any) -> list:
+        return [*([peer.location_groups.overlap(places)] if places else []),
+                or_(and_(*priced(peer)), and_(*base_only(peer)))]
+
     with_total = aliased(Job)
     return [
-        *insights_role_conds(lambda peer: [or_(and_(*priced(peer)), and_(*base_only(peer)))]),
+        *insights_role_conds(member),
+        *here,
         *base_only(Job),
         not_(place_set_member_in(select(with_total.id).where(
             with_total.status == "open", with_total.in_scope.is_(True), *priced(with_total),
+            *([with_total.location_groups.overlap(places)] if places else []),
         ))),
     ]
 

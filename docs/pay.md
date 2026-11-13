@@ -405,11 +405,53 @@ Insights' Compensation tab opens on what employers post, not on the estimate
   names several countries or none, whatever its reason, is counted again in
   `without_country`, which each country's note says, as no country holds it. A role whose level we
   cannot place is counted apart in `not_placed`, never inside a level.
-- **The estimate stays apart.** The estimate panels (by level, company and
-  discipline, and the base-only estimates) read only roles whose pay country
-  is the US and whose estimate is in US dollars, and are labelled as
-  estimates of US pay. Base pay and an estimated total never share an
-  axis.
+- **The estimate stays apart.** No panel aggregates the estimate: a median of
+  lookups describes our own reference data, not a market. Each company's own
+  estimate is its cell in the company table below, read only for roles whose
+  pay country is the US and whose estimate is in US dollars. Base pay and an
+  estimated total never share an axis.
+
+## The company table at one level
+
+`GET /api/statistics/pay-table` (`analytics/pay_table.py`) answers which
+companies to target at the person's level: one row per company hiring at that
+level in one country, read the same way the level's own figure is.
+
+- **Which roles are the country's.** A company has a row when any place one of
+  its roles lists lies in the country, as Insights' place filter takes a role.
+  Its posted cell reads only the ranges of roles whose pay country is that one
+  (above), so a role listing places in several countries puts the company in
+  the table and its range in no country's figure; the cell says so.
+- **The row's figure.** The median low to the median high of the company's
+  distinct ranges at the level, with each range and the roles on it. The order
+  is the middle of that figure, highest first: the top end alone would rank an
+  employer posting one wide national range above one posting narrow ranges per
+  city at the same middle. A company with no range shown follows by open roles,
+  then by name, whatever its estimate.
+- **The estimate.** The role's stored estimate, read through the posting that
+  prices the role (`db.queries.jobs.priced_at`, `base_only_role_conds`), the
+  posting the daily pay record reads, so one role is never priced from two
+  postings. A base estimate names the level and the disciplines it pooled; a
+  total names the rung it read, and only where a seed answered it
+  (`comp_providers.static`), since the built-in base reads no single rung. With
+  several disciplines the cell is the span of their estimates, never an average
+  no lookup gives. Estimates are US pay, so another country has none.
+- **Equity.** Only what the employer itself states (`levels.pay.stated_equity`):
+  the stock type, the vest schedule, its own rule of none, or that each person
+  picks the mix. An estimated fact is not stated, and a rule that merely sizes
+  the grant tells a reader nothing, so neither shows. No share is ever drawn
+  here: without a measured split every share would be the heuristic one, one
+  constant per level (see "The heuristic split").
+- **The share posting a range.** Over the row's own checked roles at that level
+  and country, which is what the cell's figure rests on. The tab's own tile
+  counts every country and level and says so.
+- **The skill filter** narrows the table alone, over the skills the table's
+  roles name (`ELIGIBLE_REQUIREMENT`), offered once at least
+  `SKILL_MIN_ROLES` of them name one. No dollar figure is ever shown per skill:
+  an employer sets a range per level and place before any skill.
+- **Pay by discipline** (advanced) reads the level's own rule per discipline,
+  and withholds a discipline below the minimums or where one employer posts
+  more than `DISCIPLINE_MAX_EMPLOYER_SHARE` of its ranges.
 
 ## Checks beside the headline
 
@@ -462,6 +504,8 @@ Staff and Principal: blueprint checks `offer_policy` and `pay_reference` in
 | What the offer calculator fills in for a company | `analytics/stock_trajectory.build_offer_terms`, `GET /api/statistics/offer-terms`; the arithmetic in `dashboard/src/features/statistics/offerModel.ts` |
 | Where the person's offer and valuations are kept | `user_profile/offer.py`, `/api/profile/offer` |
 | Stated pay against the user's pay floor | `analytics/pay_floor.floor_check` |
+| Each company's posted range and estimate at one level | `analytics/pay_table.py`, `GET /api/statistics/pay-table` |
+| The equity facts a company itself states | `levels/pay.stated_equity` |
 | Comparing our base with a plugin's per-level rows | `python -m scripts.bench_level_pay compare` |
 
 ## Rules

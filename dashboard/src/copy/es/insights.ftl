@@ -796,3 +796,65 @@ insights-comp-bands-placed-by-pay = { $count ->
     [many] { $count } de puestos más tuvieron su nivel deducido de su rango, así que se dejan fuera.
    *[other] { $count } puestos más tuvieron su nivel deducido de su rango, así que se dejan fuera.
 }
+insights-pay-table-heading = Empresas que contratan puestos { $level } en { $country }
+insights-pay-table-heading-skill = Empresas que contratan puestos { $level } en { $country } y piden { $skill }
+insights-pay-table-posted = Rango base publicado
+insights-pay-table-estimate = Estimación
+insights-pay-table-ranges = { $count ->
+    [one] { $count } rango
+    [many] { $count } de rangos
+   *[other] { $count } rangos
+}
+insights-pay-table-some-roles = en { $posting } de { $roles } puestos
+insights-pay-table-no-range = Sin rango publicado
+insights-pay-table-total = Publica compensación total
+insights-pay-table-unclear = El rango no se indica como base
+insights-pay-table-several-countries = Abarca varios países
+insights-pay-table-not-yearly = El rango no es anual
+insights-pay-table-placed-by-pay = Nivel deducido del rango
+insights-pay-table-unread = Sin leer todavía
+insights-pay-table-est-base = Base (est.)
+insights-pay-table-est-base-full = Salario base estimado
+insights-pay-table-est-tc = CT (est.)
+insights-pay-table-est-tc-full = Compensación total estimada
+insights-pay-table-est-base-from = Estimado para puestos { $level } en { $disciplines }, con datos integrados.
+insights-pay-table-est-tc-from = Estimado para { $rung }, con datos integrados.
+insights-pay-table-est-tc-from-level = Estimado para puestos { $level }, con datos integrados.
+insights-pay-table-estimates-us = Las estimaciones solo leen pagos de EE. UU., así que este país no tiene ninguna.
+insights-pay-table-not-placed = { $roles ->
+    [one] { $roles } puesto
+    [many] { $roles } de puestos
+   *[other] { $roles } puestos
+} en { $companies ->
+    [one] { $companies } empresa
+    [many] { $companies } de empresas
+   *[other] { $companies } empresas
+} no tienen nivel asignado.
+insights-pay-table-more-silent = { $count ->
+    [one] { $count } empresa más contrata en este nivel sin publicar un rango.
+    [many] { $count } de empresas más contratan en este nivel sin publicar un rango.
+   *[other] { $count } empresas más contratan en este nivel sin publicar un rango.
+}
+insights-pay-table-any-skill = Cualquier habilidad
+insights-pay-table-skill-empty = Ningún puesto de este nivel en { $country } pide { $skill }.
+insights-pay-table-empty = Ninguna empresa tiene un puesto abierto en este nivel en { $country }.
+insights-pay-table-followed-as-set = Seguida con un conjunto
+insights-pay-table-ranges-read = { $company }: { $ranges }
+insights-pay-table-how-read = Una fila muestra desde la mediana de los mínimos hasta la mediana de los máximos de los rangos distintos que la empresa publica en este nivel y en este país. Una estimación solo aparece cuando la empresa no publica rango, y nunca marca el orden. La columna de acciones indica lo que declara el empleador.
+insights-pay-table-about = Cómo se lee la fila de una empresa
+insights-pay-discipline-heading = Salario base publicado por disciplina para puestos { $level } en { $country }
+insights-pay-discipline-yours = Tu disciplina
+insights-pay-discipline-too-few = { $families }: muy pocos empleadores publican un rango para sostener una cifra.
+insights-pay-discipline-one-employer = { $families }: un solo empleador publica la mayoría de los rangos, así que ninguna cifra se sostiene.
+insights-pay-discipline-note = Una diferencia entre disciplinas también refleja qué empresas contratan cada una, no solo el pago.
+insights-pay-discipline-counts = { $ranges ->
+    [one] { $ranges } rango
+    [many] { $ranges } de rangos
+   *[other] { $ranges } rangos
+} de { $employers ->
+    [one] { $employers } empleador
+    [many] { $employers } de empleadores
+   *[other] { $employers } empleadores
+}
+insights-pay-table-loading = Cargando las empresas de este nivel…
+insights-pay-table-load-failed = No se pudieron cargar las empresas de este nivel

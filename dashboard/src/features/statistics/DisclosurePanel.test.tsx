@@ -1,5 +1,4 @@
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { DisclosureRates } from "../../api";
 import { msg } from "../../test/msg";
@@ -18,10 +17,6 @@ vi.mock("./charts/EChart", () => ({
 
 const rates = (over: Partial<DisclosureRates> = {}): DisclosureRates => ({
   overall: { open: 732, checked: 600, disclosed: 150, rate: 0.25 },
-  by_company: [
-    { company: "google", open: 200, checked: 200, disclosed: 160, rate: 0.8 },
-    { company: "openai", open: 60, checked: 50, disclosed: 5, rate: 0.1 },
-  ],
   by_level: [
     { level_band: "senior", open: 406, checked: 400, disclosed: 100, rate: 0.25 },
     { level_band: "staff", open: 265, checked: 200, disclosed: 50, rate: 0.25 },
@@ -59,18 +54,13 @@ describe("DisclosureRatePanel", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("re-renders the chart when the grouping toggles", async () => {
+  it("draws the rate by level, the grouping each company's own row cannot show", async () => {
     render(<DisclosureRatePanel rates={rates()} />);
-
-    expect(
-      screen.getByRole("img", { name: /post a range, by company/i }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Google: 80%, 160 of 200 roles/)).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("button", { name: "By level" }));
 
     expect(screen.getByRole("img", { name: /post a range, by level/i })).toBeInTheDocument();
     expect(screen.getByText(/Senior: 25%, 100 of 400 roles/)).toBeInTheDocument();
+    // No company grouping here: a company's share at one level is its table row.
+    expect(screen.queryByRole("button", { name: "By company" })).not.toBeInTheDocument();
   });
 
   it("shows an empty state instead of a chart when nothing has been checked", () => {
@@ -78,8 +68,7 @@ describe("DisclosureRatePanel", () => {
       <DisclosureRatePanel
         rates={{
           overall: { open: 40, checked: 0, disclosed: 0, rate: null },
-          by_company: [{ company: "google", open: 40, checked: 0, disclosed: 0, rate: null }],
-          by_level: [],
+          by_level: [{ level_band: "senior", open: 40, checked: 0, disclosed: 0, rate: null }],
         }}
       />,
     );

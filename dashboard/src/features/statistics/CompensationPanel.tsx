@@ -1,41 +1,33 @@
 import { useSearchParams } from "react-router-dom";
-import { CompensationStats, CompSummary, InsightsScope, PostedCountry, PostedLevel, PostedPay, api } from "../../api";
+import { CompensationStats, InsightsScope, PayTable as PayTableData, PostedCountry, PostedLevel, PostedPay, api } from "../../api";
 import { useAsyncResource } from "../../hooks/useAsyncResource";
 import { useSourceSwitch } from "../../context/SyncState";
-import { fmtComp, fmtCompIn, companyName, BAND_LABEL } from "../../format";
+import { fmtCompIn } from "../../format";
 import { country as countryName } from "../../copy/format";
 import { DisclosureRatePanel } from "./DisclosurePanel";
 import { PayBands } from "./PayBands";
+import { PayTable } from "./PayTable";
 import { exclusionNote } from "./charts/compBands";
 import { pct } from "./charts/disclosure";
 import { levelLabel } from "./charts/levelLabel";
 import { postedCountry, postedLevel, postedLevels } from "./charts/postedPay";
 import { InfoTip } from "../../ui/InfoTip";
-import { Badge, Select } from "../../ui";
+import { Badge, Button, Select } from "../../ui";
 import { ResourceLoadState } from "../../ui/ResourceLoadState";
 import { InsightHero } from "./InsightHero";
+import { commonTryAgain } from "../../copy/gen/common";
+import { sharedRefreshFailed } from "../../copy/gen/shared";
 import {
   insightsCompensationPanelAboutPublishedSalaryBands,
   insightsCompensationPanelBandsFromEmployers,
-  insightsCompensationPanelBaseOnlyLead,
   insightsCompensationPanelBaseSalaryQuotedFromThe,
-  insightsCompensationPanelEstimatedBaseByLevel,
-  insightsCompensationPanelEstimatedTotalCompensationIsImputed,
-  insightsCompensationPanelGroupsOfRolesOrMore,
-  insightsCompensationPanelHowCompensationIsEstimated,
   insightsCompensationPanelLoadFailed,
   insightsCompensationPanelLoading,
-  insightsCompensationPanelMedianCompByLevel,
-  insightsCompensationPanelMedianPayByDiscipline,
   insightsCompensationPanelPublishedBands,
-  insightsCompensationPanelRoles,
-  insightsCompensationPanelSpread,
-  insightsCompensationPanelTopPayingCompanies,
   insightsPayBandsBandsFromEmployers,
   insightsPostedByLevel,
   insightsPostedChecked,
   insightsPostedCountry,
-  insightsPostedEstimateUsOnly,
   insightsPostedEveryRange,
   insightsPostedHowRead,
   insightsPostedHowReadBody,
@@ -49,6 +41,8 @@ import {
   insightsPostedNoneAtLevel,
   insightsPostedNoneInCountry,
   insightsPostedNotPlaced,
+  insightsPayTableLoadFailed,
+  insightsPayTableLoading,
   insightsPostedOtherCurrency,
   insightsPostedShare,
   insightsPostedTooFew,
@@ -57,60 +51,6 @@ import {
   insightsPostedYourPlace,
   insightsLevelsYourLevel,
 } from "../../copy/gen/insights";
-import { roleName } from "../../copy/vocab";
-
-// One ranked "name | median-bar | value | roles" row, scaled against the group
-// max. Every row says how many roles it rests on.
-function CompBar({
-  label,
-  s,
-  max,
-  title,
-}: {
-  label: string;
-  s: CompSummary;
-  max: number;
-  title?: string;
-}) {
-  const median = s.p50 ?? 0;
-  return (
-    <div className="bar-row comp-row" title={title}>
-      <span>{label}</span>
-      <div className="bar-track">
-        <div className="bar-fill" style={{ width: `${(median / max) * 100}%` }} />
-      </div>
-      <span className="val">{fmtComp(median)}</span>
-      <span className="comp-n">{roles(s.count)}</span>
-    </div>
-  );
-}
-
-const roles = (count: number) => insightsCompensationPanelRoles({ count });
-const iqr = (s: CompSummary) =>
-  insightsCompensationPanelSpread({ low: String(fmtComp(s.p25)), high: String(fmtComp(s.p75)), roles: roles(s.count) });
-// The two lists in a pair show the same number of rows.
-const PAIR_ROWS = 8;
-
-/* Roles whose pay estimate is a base alone. No total exists for them, so they
-   have their own panel and their own axis: a base drawn beside totals reads as
-   a lower-paying role. The payload may omit the block, so it is read
-   optionally. */
-function BaseEstimatesPanel({ base }: { base: CompensationStats["base_estimates"] | undefined }) {
-  if (!base?.overall) return null;
-  const max = Math.max(1, ...base.by_level.map((l) => l.p50 ?? 0));
-  const heading = insightsCompensationPanelEstimatedBaseByLevel();
-  return (
-    <section className="panel" aria-label={heading}>
-      <span className="eyebrow">{insightsPostedEstimateUsOnly()}</span>
-      <h3>{heading}</h3>
-      <p className="hiring-note">{insightsCompensationPanelBaseOnlyLead({ count: base.coverage.with_base })}</p>
-      {base.by_level.map((l) => (
-        <CompBar key={l.level_band} label={BAND_LABEL[l.level_band] ?? l.level_band} s={l} max={max} title={iqr(l)} />
-      ))}
-      <p className="hiring-note">{insightsCompensationPanelGroupsOfRolesOrMore({ min_roles: base.min_roles })}</p>
-    </section>
-  );
-}
 
 /** A range in the country's own currency, never converted. */
 const inCurrency = (country: PostedCountry) => (low: number, high: number) =>
@@ -257,17 +197,16 @@ function PostedByLevel({
   );
 }
 
-/** The query keys only the Pay tab reads: the country and level it shows. */
-export const PAY_PARAMS = ["country", "level"] as const;
+/** The query keys only the Pay tab reads: the country, level and skill it shows. */
+export const PAY_PARAMS = ["country", "level", "skill"] as const;
 
 export function CompensationPanel({
   scope,
   advanced = false,
 }: {
   scope?: InsightsScope;
-  /** The basic view keeps posted pay and the estimates by level, company and
-   *  discipline; the advanced view adds every posted range, who states pay
-   *  and the base-only estimates. */
+  /** The basic view keeps posted pay and the company table; the advanced view
+   *  adds every posted range, who states pay, and pay by discipline. */
   advanced?: boolean;
 }) {
   // The roles open now. Pay over time waits for enough history to compare
@@ -278,26 +217,38 @@ export function CompensationPanel({
   useSourceSwitch(refresh);
   const [params, setParams] = useSearchParams();
 
-  if (!data) return <ResourceLoadState error={error} loading={insightsCompensationPanelLoading()} failed={insightsCompensationPanelLoadFailed()} onRetry={retry} />;
-
-  const posted = data.posted;
-  const country = postedCountry(posted, params.get("country"));
-  const levels = country ? postedLevels(country, posted.your_levels, params.get("level")) : [];
-  const level = postedLevel(levels, posted.your_levels, params.get("level"));
-  const choose = (key: "country" | "level") => (value: string) =>
+  const posted = data?.posted;
+  const country = posted ? postedCountry(posted, params.get("country")) : null;
+  const levels = country && posted ? postedLevels(country, posted.your_levels, params.get("level")) : [];
+  const level = posted ? postedLevel(levels, posted.your_levels, params.get("level")) : null;
+  const skill = params.get("skill");
+  // The table follows the hero's pickers, so it is its own read: the picked
+  // level and country are the question it answers. With neither picked there is
+  // no question, so the tab asks nothing.
+  const table = useAsyncResource<PayTableData | null>(
+    (signal) => (country && level
+      ? api.payTable(country.country, level.level_band, skill, scope, signal)
+      : Promise.resolve(null)),
+    [country?.country ?? "", level?.level_band ?? "", skill, scope],
+    { keep: "stats/pay-table" },
+  );
+  // The table's estimates are the postings' stored figures, which the source
+  // answering pay writes, so a switch re-reads the table too.
+  useSourceSwitch(table.refresh);
+  const choose = (key: "country" | "level" | "skill") => (value: string | null) =>
     setParams((prev) => {
       const next = new URLSearchParams(prev);
-      next.set(key, value);
+      if (value === null) next.delete(key);
+      else next.set(key, value);
+      // A level or country of its own answers its own skills.
+      if (key !== "skill") next.delete("skill");
       return next;
     }, { replace: true });
 
-  const o = data.overall;
-  const levelMax = Math.max(1, ...data.by_level.map((l) => l.p50 ?? 0));
-  const companies = data.by_company.slice(0, PAIR_ROWS);
-  const families = data.by_family.slice(0, PAIR_ROWS);
-  const companyMax = Math.max(1, ...companies.map((c) => c.p50 ?? 0));
-  const familyMax = Math.max(1, ...families.map((f) => f.p50 ?? 0));
-  const atLeast = insightsCompensationPanelGroupsOfRolesOrMore({ min_roles: data.min_roles });
+  if (!data || !posted) {
+    return <ResourceLoadState error={error} loading={insightsCompensationPanelLoading()} failed={insightsCompensationPanelLoadFailed()} onRetry={retry} />;
+  }
+
   // Under a country's heading, the roles left out are that country's; every
   // role in no one country, whatever else left it out, is no country's, so
   // each heading says it.
@@ -306,7 +257,6 @@ export function CompensationPanel({
     insightsCompensationPanelBaseSalaryQuotedFromThe(),
     exclusionNote(excluded),
   ].filter(Boolean).join(" ");
-  const estimate = <span className="eyebrow">{insightsPostedEstimateUsOnly()}</span>;
 
   return (
     <>
@@ -319,6 +269,32 @@ export function CompensationPanel({
         onCountry={choose("country")}
         onLevel={choose("level")}
       />
+
+      {/* Every company at the picked level, posted range first. A read of its
+          own, so it says for itself when it is loading or could not be read;
+          a failure that leaves the last answer on screen says so and stays. */}
+      {country && level && (table.data
+        ? (
+          <>
+            {table.refreshError && (
+              <div className="empty-hint" role="status">
+                {sharedRefreshFailed()}{" "}
+                <Button variant="ghost" size="sm" onClick={() => void table.refresh({ preserveData: true })}>
+                  {commonTryAgain()}
+                </Button>
+              </div>
+            )}
+            <PayTable data={table.data} skill={skill} onSkill={choose("skill")} advanced={advanced} />
+          </>
+        )
+        : (
+          <ResourceLoadState
+            error={table.error}
+            loading={insightsPayTableLoading()}
+            failed={insightsPayTableLoadFailed()}
+            onRetry={table.retry}
+          />
+        ))}
 
       {country && levels.length > 0 && (
         <PostedByLevel country={country} levels={levels} yourLevels={posted.your_levels} />
@@ -353,56 +329,7 @@ export function CompensationPanel({
       )}
 
       {/* What employers post (above) vs. how many of them post anything (here). */}
-      {advanced && <DisclosureRatePanel rates={data.disclosure} initialGroup="level" />}
-
-      {/* The estimate reads US pay only, so every panel built from it says so. */}
-      {o && (
-        <>
-          <div className="panel">
-            {estimate}
-            <h3>
-              {insightsCompensationPanelMedianCompByLevel()}
-              <InfoTip label={insightsCompensationPanelHowCompensationIsEstimated()}>
-                {insightsCompensationPanelEstimatedTotalCompensationIsImputed()}
-              </InfoTip>
-            </h3>
-            {data.by_level.map((l) => (
-              <CompBar
-                key={l.level_band}
-                label={BAND_LABEL[l.level_band] ?? l.level_band}
-                s={l}
-                max={levelMax}
-                title={iqr(l)}
-              />
-            ))}
-            <p className="hiring-note">{atLeast}</p>
-          </div>
-
-          <div className="demand-grid pay-pair">
-            <div className="panel">
-              {estimate}
-              <h3>{insightsCompensationPanelTopPayingCompanies()}</h3>
-              {companies.map((c) => (
-                <CompBar key={c.company} label={companyName(c.company)} s={c} max={companyMax} title={iqr(c)} />
-              ))}
-              <p className="hiring-note">{atLeast}</p>
-            </div>
-
-            <div className="panel">
-              {estimate}
-              <h3>{insightsCompensationPanelMedianPayByDiscipline()}</h3>
-              {families.map((f) => (
-                <CompBar key={f.family ?? "none"} label={roleName(f.family)} s={f} max={familyMax} title={iqr(f)} />
-              ))}
-              <p className="hiring-note">{atLeast}</p>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* With no total to show, the base estimates are the only estimate
-          figures, so both views keep them then. */}
-      {(advanced || !o) && <BaseEstimatesPanel base={data.base_estimates} />}
+      {advanced && <DisclosureRatePanel rates={data.disclosure} />}
     </>
   );
 }

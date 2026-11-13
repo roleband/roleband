@@ -1,5 +1,5 @@
 import { number as copyNumber } from "../../copy/format";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { DisclosureRates } from "../../api";
 import { EChart } from "../../ui/EChart";
 import {
@@ -9,11 +9,8 @@ import {
   pct,
   unratedCount,
 } from "./charts/disclosure";
-import { InfoTip, Segmented } from "../../ui";
+import { InfoTip } from "../../ui";
 import {
-  insightsCommonByLevel,
-  insightsCommonByCompany,
-  insightsDisclosurePanelDisclosureBreakdown,
   insightsDisclosurePanelHowTheDisclosureRateIs,
   insightsDisclosurePanelNoOpenRolesHaveBeen,
   insightsDisclosurePanelOfCheckedRolesStatePay,
@@ -26,20 +23,16 @@ import {
 import { Msg } from "../../ui/Msg";
 
 /**
- * Pay transparency: the disclosure RATE, by company or level. Sits beside the
+ * Pay transparency: the disclosure RATE, by level. Sits beside the
  * posted-ranges chart, which shows what employers print but never how many of
- * them print anything.
+ * them print anything, and beside the company table, which carries each
+ * company's own share at one level.
  *
  * The denominator is stated everywhere it is used. `open - checked` roles are
  * queued for the disclosure pass, not silent employers, so they are excluded from
- * the rate and reported separately — the panel must never let a scraping backlog
+ * the rate and reported separately: the panel must never let a reading backlog
  * read as an employer choice.
  */
-
-const GROUPS: { key: "company" | "level"; label: string }[] = [
-  { key: "company", get label() { return insightsCommonByCompany(); } },
-  { key: "level", get label() { return insightsCommonByLevel(); } },
-];
 
 function BacklogNote({ open, checked }: { open: number; checked: number }) {
   const pending = open - checked;
@@ -51,17 +44,9 @@ function BacklogNote({ open, checked }: { open: number; checked: number }) {
   );
 }
 
-export function DisclosureRatePanel({
-  rates,
-  initialGroup = "company",
-}: {
-  rates: DisclosureRates;
-  /** The grouping the panel opens on. */
-  initialGroup?: "company" | "level";
-}) {
-  const [group, setGroup] = useState<"company" | "level">(initialGroup);
-  const rows = useMemo(() => disclosureRateRows(rates, group), [rates, group]);
-  const unrated = unratedCount(rates, group);
+export function DisclosureRatePanel({ rates }: { rates: DisclosureRates }) {
+  const rows = useMemo(() => disclosureRateRows(rates), [rates]);
+  const unrated = unratedCount(rates);
   const option = useMemo(() => buildDisclosureRateOption(rows), [rows]);
   const o = rates.overall;
 
@@ -84,15 +69,6 @@ export function DisclosureRatePanel({
               <Msg of={insightsDisclosurePanelOfCheckedRolesStatePay} elems={{ rate: pct(o.rate), checked: copyNumber(o.checked) }} />
             </span>
           )}
-          {rows.length > 0 && (
-            <Segmented
-              className="chart-seg"
-              label={insightsDisclosurePanelDisclosureBreakdown()}
-              value={group}
-              onChange={setGroup}
-              options={GROUPS.map((g) => ({ value: g.key, label: g.label }))}
-            />
-          )}
         </div>
       </div>
 
@@ -101,7 +77,7 @@ export function DisclosureRatePanel({
       ) : (
         <>
           <EChart
-            ariaLabel={insightsDisclosurePanelShareOfOpenRolesStating({ group })}
+            ariaLabel={insightsDisclosurePanelShareOfOpenRolesStating({ group: "level" })}
             className="chart-disclosure-rate"
             height={Math.max(180, 40 + rows.length * 26)}
             option={option}

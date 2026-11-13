@@ -81,12 +81,11 @@ describe("chart tooltips", () => {
     expect(box.querySelector("strong")?.textContent).toBe(EVIL);
   });
 
-  it("show a hostile company name as text on the pay transparency chart", () => {
+  it("show a hostile level name as text on the pay transparency chart", () => {
     const rows = disclosureRateRows({
       overall: { open: 50, checked: 50, disclosed: 40, rate: 0.8 },
-      by_company: [{ company: "evil", open: 50, checked: 50, disclosed: 40, rate: 0.8 }],
-      by_level: [],
-    }, "company");
+      by_level: [{ level_band: EVIL, open: 50, checked: 50, disclosed: 40, rate: 0.8 }],
+    });
     const option = buildDisclosureRateOption(rows) as Record<string, any>;
     const box = expectInert(option.tooltip.formatter({ dataIndex: 0 }));
     expect(box.querySelector("strong")?.textContent).toBe(EVIL);

@@ -2684,26 +2684,20 @@ export interface paths {
          * Statistics Compensation
          * @description Compensation across the roles open now: the roles Insights describes.
          *
-         *     The quantities in this payload must not be conflated:
-         *
          *     * `posted` carries the ranges employers print in their postings, as yearly
          *       *base salary* per country and level (see `build_posted_pay`), with the
          *       person's levels so the screen can open on them. It leads the tab.
-         *     * `overall` / `by_level` / `by_company` / `by_family` aggregate
-         *       `Job.comp_median`, an *imputed total-comp estimate*: a lookup keyed by
-         *       company and level, not anything an employer said, and only for US
-         *       postings. Base pay and total comp cannot share an axis, so the UI keeps
-         *       them in separate panels.
-         *     * `disclosure` is the *rate* — how many open roles state pay at all, overall
-         *       and per company/level. Basis-independent, and denominated in roles the
+         *     * `disclosure` is the *rate*: how many open roles state pay at all, overall
+         *       and per level. Basis-independent, and denominated in roles the
          *       disclosure pass has actually read (see `build_disclosure_rates`).
          *
-         *     Coverage is reported so the UI can state how much of the open set is estimated.
+         *     Each company's own range and estimate at one level are the company table's
+         *     (`statistics_pay_table`).
          *
          *     No window. Keeping roles FIRST SEEN in the last N days would change the
          *     population, not the period: most open postings are first seen recently, so
          *     a 30-day window is nearly all-time and a 7-day one a sample of whatever was
-         *     onboarded that week. The trend routes carry time.
+         *     onboarded that week.
          */
         get: operations["statistics_compensation_api_statistics_compensation_get"];
         put?: never;
@@ -2837,6 +2831,34 @@ export interface paths {
          *     shorter, so nothing found before the history is counted.
          */
         get: operations["statistics_overview_api_statistics_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/statistics/pay-table": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Statistics Pay Table
+         * @description Every company hiring at one level in one country, and posted pay by
+         *     discipline at that level (`analytics/pay_table.py`).
+         *
+         *     A role is the country's when any place it lists lies there, as the place
+         *     filter takes it; a company's posted cell reads only ranges for that country
+         *     alone, as the level's figure does. The side narrows both reads. The picked
+         *     disciplines narrow the table and are marked in the comparison, which shows
+         *     every discipline. The skill narrows the table only. The country's currency
+         *     is the one the tab's figure reads (`build_posted_pay`).
+         */
+        get: operations["statistics_pay_table_api_statistics_pay_table_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3551,33 +3573,6 @@ export interface components {
             /** To */
             to: (number | null)[] | null;
         };
-        /**
-         * BaseCoverage
-         * @description How many open roles have an estimated base only, of all open ones.
-         */
-        BaseCoverage: {
-            /** Total Open */
-            total_open: number;
-            /** With Base */
-            with_base: number;
-        };
-        /**
-         * BaseEstimates
-         * @description Roles priced by their base alone (`comp_component = "base"`): no total exists,
-         *     so they are summarised apart from the totals and never on their axis.
-         */
-        BaseEstimates: {
-            /** By Company */
-            by_company: components["schemas"]["CompCompanySummary"][];
-            /** By Family */
-            by_family: components["schemas"]["CompFamilySummary"][];
-            /** By Level */
-            by_level: components["schemas"]["CompLevelSummary"][];
-            coverage: components["schemas"]["BaseCoverage"];
-            /** Min Roles */
-            min_roles: number;
-            overall: components["schemas"]["CompSummary"] | null;
-        };
         /** BindPayload */
         BindPayload: {
             /** Recipe */
@@ -3873,28 +3868,6 @@ export interface components {
             /** Provider */
             provider: string | null;
         };
-        /**
-         * CompCompanySummary
-         * @description `company` first, then the summary.
-         */
-        CompCompanySummary: {
-            /** Company */
-            company: string;
-            /** Count */
-            count: number;
-            /** Max */
-            max: number;
-            /** Min */
-            min: number;
-            /** P25 */
-            p25: number;
-            /** P50 */
-            p50: number;
-            /** P75 */
-            p75: number;
-            /** P90 */
-            p90: number;
-        };
         /** CompComponent */
         CompComponent: {
             /** High */
@@ -3912,15 +3885,6 @@ export interface components {
              */
             provenance: "stated" | "estimated";
         };
-        /** CompCoverage */
-        CompCoverage: {
-            /** Pct */
-            pct: number;
-            /** Total Open */
-            total_open: number;
-            /** With Comp */
-            with_comp: number;
-        };
         /**
          * CompEstimate
          * @description The cohort estimate; the object exists only when a median does.
@@ -3934,50 +3898,6 @@ export interface components {
             median: number;
             /** Provenance */
             provenance: string | null;
-        };
-        /**
-         * CompFamilySummary
-         * @description `family` first, then the summary; the client names the family.
-         */
-        CompFamilySummary: {
-            /** Count */
-            count: number;
-            /** Family */
-            family: string;
-            /** Max */
-            max: number;
-            /** Min */
-            min: number;
-            /** P25 */
-            p25: number;
-            /** P50 */
-            p50: number;
-            /** P75 */
-            p75: number;
-            /** P90 */
-            p90: number;
-        };
-        /**
-         * CompLevelSummary
-         * @description `level_band` first, then the summary.
-         */
-        CompLevelSummary: {
-            /** Count */
-            count: number;
-            /** Level Band */
-            level_band: string;
-            /** Max */
-            max: number;
-            /** Min */
-            min: number;
-            /** P25 */
-            p25: number;
-            /** P50 */
-            p50: number;
-            /** P75 */
-            p75: number;
-            /** P90 */
-            p90: number;
         };
         /** CompMarketGap */
         CompMarketGap: {
@@ -4043,26 +3963,6 @@ export interface components {
             source: string;
         } & {
             [key: string]: unknown;
-        };
-        /**
-         * CompSummary
-         * @description `comp_stats._summary`: dollars at the ends, interpolated percentiles between.
-         */
-        CompSummary: {
-            /** Count */
-            count: number;
-            /** Max */
-            max: number;
-            /** Min */
-            min: number;
-            /** P25 */
-            p25: number;
-            /** P50 */
-            p50: number;
-            /** P75 */
-            p75: number;
-            /** P90 */
-            p90: number;
         };
         /** CompTotal */
         CompTotal: {
@@ -4691,29 +4591,13 @@ export interface components {
         };
         /**
          * CompensationStatsResponse
-         * @description `GET /api/statistics/compensation`: what employers post, beside the estimate.
+         * @description `GET /api/statistics/compensation`: what employers post, and who posts a range.
          *
-         *     A snapshot of the roles open now: no window. The Window lens moves
-         *     the trend routes beside it, never this population.
+         *     A snapshot of the roles open now: no window. Each company's own range and
+         *     estimate at one level are `GET /api/statistics/pay-table`'s.
          */
         CompensationStatsResponse: {
-            base_estimates: components["schemas"]["BaseEstimates"];
-            /** By Company */
-            by_company: components["schemas"]["CompCompanySummary"][];
-            /** By Family */
-            by_family: components["schemas"]["CompFamilySummary"][];
-            /** By Level */
-            by_level: components["schemas"]["CompLevelSummary"][];
-            coverage: components["schemas"]["CompCoverage"];
-            /**
-             * Currency
-             * @constant
-             */
-            currency: "USD";
             disclosure: components["schemas"]["DisclosureRates"];
-            /** Min Roles */
-            min_roles: number;
-            overall: components["schemas"]["CompSummary"] | null;
             posted: components["schemas"]["PostedPay"];
         };
         /**
@@ -4921,22 +4805,6 @@ export interface components {
             since: string;
         };
         /**
-         * DisclosureCompany
-         * @description `company` first, then the counts.
-         */
-        DisclosureCompany: {
-            /** Checked */
-            checked: number;
-            /** Company */
-            company: string;
-            /** Disclosed */
-            disclosed: number;
-            /** Open */
-            open: number;
-            /** Rate */
-            rate: number | null;
-        };
-        /**
          * DisclosureCounts
          * @description `rate` is `disclosed / checked`, null while nothing in the group is checked.
          */
@@ -4968,8 +4836,6 @@ export interface components {
         };
         /** DisclosureRates */
         DisclosureRates: {
-            /** By Company */
-            by_company: components["schemas"]["DisclosureCompany"][];
             /** By Level */
             by_level: components["schemas"]["DisclosureLevel"][];
             overall: components["schemas"]["DisclosureCounts"];
@@ -6623,6 +6489,15 @@ export interface components {
             version: string;
         };
         /**
+         * LevelBand
+         * @description Career stages — a full-market ladder where every rung is first-class.
+         *
+         *     Coarser than any company's ladder; `levels/ladder.walk_guide` decodes
+         *     each stage to per-company level labels.
+         * @enum {string}
+         */
+        LevelBand: "intern" | "entry" | "mid" | "senior" | "staff" | "principal" | "director_plus";
+        /**
          * LevelGuideCell
          * @description How one company names one level: one entry for every function, or one
          *     per track. Exactly one key is present (`response_model_exclude_unset`).
@@ -7756,6 +7631,17 @@ export interface components {
          * @enum {string}
          */
         PayBasis: "base" | "total" | "unclear";
+        /** PayByDiscipline */
+        PayByDiscipline: {
+            /** Disciplines */
+            disciplines: components["schemas"]["PayDiscipline"][];
+            /** Max Employer Share */
+            max_employer_share: number;
+            /** Min Employers */
+            min_employers: number;
+            /** Min Ranges */
+            min_ranges: number;
+        };
         /**
          * PayCoverage
          * @description `GET /api/pay-coverage`: who answers pay app-wide and, when a
@@ -7769,6 +7655,38 @@ export interface components {
             plugin: string | null;
             /** Plugin Name */
             plugin_name: string | null;
+        };
+        /**
+         * PayDiscipline
+         * @description Posted base pay of one discipline at the level
+         *     (`analytics.pay_table.build_pay_by_discipline`); the figure fields are
+         *     null while `withheld` says why.
+         */
+        PayDiscipline: {
+            /** Employers */
+            employers: number;
+            /** Enough */
+            enough: boolean;
+            /** Family */
+            family: string;
+            /** High */
+            high: number | null;
+            /** Low */
+            low: number | null;
+            /** Mid P25 */
+            mid_p25: number | null;
+            /** Mid P75 */
+            mid_p75: number | null;
+            /** Picked */
+            picked: boolean;
+            /** Ranges */
+            ranges: number;
+            /** Roles */
+            roles: number;
+            /** Top Share */
+            top_share: number;
+            /** Withheld */
+            withheld: ("too_few" | "one_employer") | null;
         };
         /**
          * PayFloor
@@ -7819,6 +7737,136 @@ export interface components {
          * @enum {string}
          */
         PayPeriod: "year" | "month" | "hour" | "unclear";
+        /**
+         * PayTableEquity
+         * @description The equity facts the company itself states (`levels.pay.stated_equity`);
+         *     an estimated fact is never here.
+         */
+        PayTableEquity: {
+            /** Rule */
+            rule: ("none" | "employee_election") | null;
+            /** Vehicle */
+            vehicle: string | null;
+            /** Vesting */
+            vesting: string | null;
+        };
+        /**
+         * PayTableEstimate
+         * @description The estimated base salary across the row's roles: one figure when
+         *     `low == high`, otherwise the span of the disciplines' estimates, never
+         *     their average. Each is a lookup of the company, the level and `families`.
+         */
+        PayTableEstimate: {
+            /** Families */
+            families: string[];
+            /** High */
+            high: number;
+            /** Low */
+            low: number;
+        };
+        /**
+         * PayTableRange
+         * @description One distinct range a company posts at the level, and the roles on it.
+         */
+        PayTableRange: {
+            /** High */
+            high: number;
+            /** Low */
+            low: number;
+            /** Roles */
+            roles: number;
+        };
+        /**
+         * PayTableResponse
+         * @description `GET /api/statistics/pay-table`: every company hiring at one level in
+         *     one country, posted range first, and posted pay by discipline there.
+         */
+        PayTableResponse: {
+            by_discipline: components["schemas"]["PayByDiscipline"];
+            /** Country */
+            country: string;
+            /** Currency */
+            currency: string | null;
+            /** Estimates */
+            estimates: boolean;
+            /** Level Band */
+            level_band: string;
+            /** Min Skill Roles */
+            min_skill_roles: number;
+            /** Not Placed */
+            not_placed: components["schemas"]["PayTableUnplaced"][];
+            /** Rows */
+            rows: components["schemas"]["PayTableRow"][];
+            /** Skill */
+            skill: string | null;
+            /** Skills */
+            skills: components["schemas"]["PayTableSkill"][];
+        };
+        /**
+         * PayTableRow
+         * @description One company hiring at the level in the country
+         *     (`analytics.pay_table.build_pay_table`).
+         */
+        PayTableRow: {
+            /** Checked */
+            checked: number;
+            /** Company */
+            company: string;
+            /** Currency */
+            currency: string | null;
+            equity: components["schemas"]["PayTableEquity"] | null;
+            estimate_base: components["schemas"]["PayTableEstimate"] | null;
+            estimate_total: components["schemas"]["PayTableTotal"] | null;
+            /** Followed As Set */
+            followed_as_set: boolean;
+            /** High */
+            high: number | null;
+            /** Low */
+            low: number | null;
+            /** Open Roles */
+            open_roles: number;
+            /** Other Currency */
+            other_currency: boolean;
+            /** Posting */
+            posting: number;
+            /** Ranges */
+            ranges: components["schemas"]["PayTableRange"][];
+            /** Reason */
+            reason: ("total" | "unclear" | "several_countries" | "not_yearly" | "placed_by_pay" | "unread" | "none") | null;
+        };
+        /**
+         * PayTableSkill
+         * @description A skill the table's roles name, offered by the skill filter.
+         */
+        PayTableSkill: {
+            /** Roles */
+            roles: number;
+            /** Term */
+            term: string;
+        };
+        /**
+         * PayTableTotal
+         * @description The estimated total compensation across the row's roles, as a span.
+         *     `rung` names the rung a seed total reads; null for any other source.
+         */
+        PayTableTotal: {
+            /** High */
+            high: number;
+            /** Low */
+            low: number;
+            /** Rung */
+            rung: string | null;
+        };
+        /**
+         * PayTableUnplaced
+         * @description A company's roles in the country whose level is not placed.
+         */
+        PayTableUnplaced: {
+            /** Company */
+            company: string;
+            /** Roles */
+            roles: number;
+        };
         /**
          * PlaceResult
          * @description One place the location search offers (`GET /api/scope/places`).
@@ -8380,7 +8428,7 @@ export interface components {
         /**
          * PostedLevel
          * @description One level's posted base pay in one country and currency
-         *     (`comp_stats._level_figure`). Each distinct range votes once. Below the
+         *     (`comp_stats.level_figure`). Each distinct range votes once. Below the
          *     minimums `enough` is false and the figure fields are null; the counts say
          *     why.
          */
@@ -16196,6 +16244,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatisticsOverviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    statistics_pay_table_api_statistics_pay_table_get: {
+        parameters: {
+            query: {
+                country: string;
+                level: components["schemas"]["LevelBand"];
+                skill?: string | null;
+                side?: "all" | "yours" | "other";
+                family?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayTableResponse"];
                 };
             };
             /** @description Validation Error */

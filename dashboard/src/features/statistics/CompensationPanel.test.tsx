@@ -3,7 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CompensationStats, DisclosedBand, PostedCountry, PostedLevel } from "../../api";
+import type { CompensationStats, DisclosedBand, PayTable, PostedCountry, PostedLevel } from "../../api";
 import { api } from "../../api";
 import { CompensationPanel } from "./CompensationPanel";
 
@@ -12,19 +12,19 @@ vi.mock("../../context/SyncState", () => ({
   useSourceSwitch: () => {},
 }));
 vi.mock("../../api", () => ({
-  api: { compensation: vi.fn() },
+  api: { compensation: vi.fn(), payTable: vi.fn() },
 }));
 
-const mock = (data: CompensationStats) => vi.mocked(api.compensation).mockResolvedValue(data);
+const mock = (data: CompensationStats, table: PayTable = emptyTable()) => {
+  vi.mocked(api.compensation).mockResolvedValue(data);
+  vi.mocked(api.payTable).mockResolvedValue(table);
+};
 
-const sum = (p25: number, p50: number, p75: number, p90: number, count: number) => ({
-  count,
-  min: 298_053,
-  max: 1_500_000,
-  p25,
-  p50,
-  p75,
-  p90,
+const emptyTable = (over: Partial<PayTable> = {}): PayTable => ({
+  country: "US", level_band: "principal", currency: "USD", skill: null, estimates: true,
+  rows: [], not_placed: [], skills: [], min_skill_roles: 3,
+  by_discipline: { min_employers: 5, min_ranges: 8, max_employer_share: 0.4, disciplines: [] },
+  ...over,
 });
 
 const figure = (
@@ -95,48 +95,15 @@ const posted = (over: Partial<CompensationStats["posted"]> = {}): CompensationSt
   ...over,
 });
 
-// No role priced by its base alone: the block is sent, empty.
-const noBase: CompensationStats["base_estimates"] = {
-  min_roles: 5, coverage: { with_base: 0, total_open: 732 }, overall: null, by_level: [], by_company: [], by_family: [],
-};
-// 40 roles priced by their base alone.
-const someBase: CompensationStats["base_estimates"] = {
-  min_roles: 5,
-  coverage: { with_base: 40, total_open: 772 },
-  overall: sum(180_000, 210_000, 240_000, 260_000, 40),
-  by_level: [
-    { level_band: "senior", ...sum(180_000, 196_000, 210_000, 220_000, 25) },
-    { level_band: "staff", ...sum(230_000, 247_000, 260_000, 270_000, 15) },
-  ],
-  by_company: [],
-  by_family: [],
-};
-
-// A full valid payload; individual tests override the slices they assert on.
 const base = (over: Partial<CompensationStats> = {}): CompensationStats => ({
-  currency: "USD",
-  min_roles: 5,
-  coverage: { with_comp: 732, total_open: 732, pct: 1.0 },
-  overall: sum(306_217, 600_000, 644_468, 900_000, 732),
-  by_level: [
-    { level_band: "senior", ...sum(250_000, 306_217, 340_000, 400_000, 406) },
-    { level_band: "staff", ...sum(560_000, 644_468, 720_000, 820_000, 265) },
-  ],
-  by_company: [{ company: "openai", ...sum(700_000, 900_000, 1_000_000, 1_200_000, 58) }],
-  by_family: [{ family: "ml_ai_research", ...sum(400_000, 479_251, 600_000, 820_000, 170) }],
   posted: posted(),
   disclosure: {
     overall: { open: 732, checked: 600, disclosed: 150, rate: 0.25 },
-    by_company: [
-      { company: "google", open: 200, checked: 200, disclosed: 160, rate: 0.8 },
-      { company: "openai", open: 60, checked: 50, disclosed: 5, rate: 0.1 },
-    ],
     by_level: [
       { level_band: "senior", open: 406, checked: 400, disclosed: 100, rate: 0.25 },
       { level_band: "staff", open: 265, checked: 200, disclosed: 50, rate: 0.25 },
     ],
   },
-  base_estimates: noBase,
   ...over,
 });
 
@@ -275,86 +242,82 @@ describe("CompensationPanel", () => {
     expect(within(panel).getByText(msg("insights-posted-other-currency", { count: 2 }))).toBeInTheDocument();
   });
 
-  it("says when nothing is posted anywhere, and still shows the estimates", async () => {
+  it("says when nothing is posted anywhere", async () => {
     mock(base({ posted: posted({ countries: [], default_country: null }) }));
     show();
 
     expect(await headline()).toHaveTextContent(msg("insights-posted-none"));
     expect(screen.getByText(msg("insights-posted-none-anywhere"))).toBeInTheDocument();
     expect(screen.queryByRole("combobox")).toBeNull();
-    expect(screen.getByText(msg("insights-compensation-panel-median-comp-by-level"))).toBeInTheDocument();
   });
 
-  it("marks every estimate panel as a US-only estimate", async () => {
+  const asked = () => {
+    const calls = vi.mocked(api.payTable).mock.calls;
+    return calls[calls.length - 1].slice(0, 3);
+  };
+
+  it("asks the table for the picked level, country and skill", async () => {
     mock(base());
+    show({}, "/statistics/compensation?skill=python");
+    await headline();
+
+    expect(asked()).toEqual(["US", "principal", "python"]);
+  });
+
+  it.each([
+    ["level", msg("insights-posted-level"), "director_plus", ["US", "director_plus", null]],
+    ["country", msg("insights-posted-country"), "GB", ["GB", "principal", null]],
+  ])("drops the skill when the %s changes, since a new one answers its own skills", async (_what, picker, value, want) => {
+    mock(base());
+    const user = userEvent.setup();
+    show({}, "/statistics/compensation?skill=python");
+    await headline();
+    expect(asked()).toEqual(["US", "principal", "python"]);
+
+    await user.selectOptions(screen.getByRole("combobox", { name: picker }), value);
+    await headline();
+    expect(asked()).toEqual(want);
+  });
+
+  it("says the company table could not be read, with a way to try again", async () => {
+    vi.mocked(api.compensation).mockResolvedValue(base());
+    vi.mocked(api.payTable).mockRejectedValue(new Error("no"));
     show();
     await headline();
 
-    for (const heading of [
-      msg("insights-compensation-panel-median-comp-by-level"),
-      msg("insights-compensation-panel-top-paying-companies"),
-      msg("insights-compensation-panel-median-pay-by-discipline"),
-    ]) {
-      const panel = screen.getByRole("heading", { level: 3, name: (name) => name.startsWith(heading) }).closest(".panel")!;
-      expect(within(panel as HTMLElement).getByText(msg("insights-posted-estimate-us-only"))).toBeInTheDocument();
-    }
-    expect(screen.getByRole("button", { name: msg("insights-compensation-panel-how-compensation-is-estimated") }))
-      .toHaveAccessibleDescription(msg("insights-compensation-panel-estimated-total-compensation-is-imputed"));
+    // Posted pay still leads; the table says for itself that it failed.
+    expect(await screen.findByText(msg("insights-pay-table-load-failed"))).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: msg("common-try-again") })).toBeInTheDocument();
   });
 
-  it("orders estimate levels by seniority and shows each median and the roles it rests on", async () => {
+  it("keeps the basic view to posted pay and the table; every range and who states pay are advanced", async () => {
     mock(base());
-    show();
-    await headline();
-
-    const panel = screen.getByText(msg("insights-compensation-panel-median-comp-by-level")).closest(".panel") as HTMLElement;
-    const seniorRow = within(panel).getByText("Senior").closest(".comp-row") as HTMLElement;
-    expect(within(seniorRow).getByText("$306K")).toBeInTheDocument();
-    expect(within(seniorRow).getByText(msg("insights-compensation-panel-roles", { count: 406 }))).toBeInTheDocument();
-    expect(seniorRow.getAttribute("title")).toContain(
-      msg("insights-compensation-panel-spread", {
-        low: "$250K",
-        high: "$340K",
-        roles: msg("insights-compensation-panel-roles", { count: 406 }),
-      }),
-    );
-  });
-
-  it("shows companies and disciplines as an equal pair, the same number of rows each", async () => {
-    const co = (i: number) => ({ company: `co-${i}`, ...sum(1, 900_000 - i, 2, 3, 10) });
-    const fam = (i: number) => ({ family: `f${i}`, family_display: `Family ${i}`, ...sum(1, 800_000 - i, 2, 3, 10) });
-    mock(base({ by_company: Array.from({ length: 15 }, (_, i) => co(i)), by_family: Array.from({ length: 11 }, (_, i) => fam(i)) }));
-    show();
-
-    const companies = (await screen.findByRole("heading", { name: msg("insights-compensation-panel-top-paying-companies") })).closest(".panel")!;
-    const families = screen.getByRole("heading", { name: msg("insights-compensation-panel-median-pay-by-discipline") }).closest(".panel")!;
-    expect(companies.querySelectorAll(".comp-row")).toHaveLength(8);
-    expect(families.querySelectorAll(".comp-row")).toHaveLength(8);
-    expect(companies.parentElement).toBe(families.parentElement);
-  });
-
-  it("keeps the basic view to posted pay and the estimates; every range and who states pay are advanced", async () => {
-    mock(base({ base_estimates: someBase }));
     show();
     await headline();
 
     expect(screen.queryByRole("list", { name: msg("insights-pay-bands-published-base-salary-bands-by") })).toBeNull();
     expect(screen.queryByText(msg("insights-disclosure-panel-who-states-pay"), { exact: false })).toBeNull();
-    expect(screen.queryByRole("region", { name: msg("insights-compensation-panel-estimated-base-by-level") })).toBeNull();
   });
 
-  it("still reports base-only estimates when no role has a total estimate, in the basic view too", async () => {
-    mock(base({ coverage: { with_comp: 0, total_open: 40, pct: 0 }, overall: null, by_level: [],
-      by_company: [], by_family: [], base_estimates: someBase }));
+  it("shows no estimate aggregate anywhere: no top paying, no estimate by level or discipline", async () => {
+    mock(base(), emptyTable({
+      rows: [{
+        company: "openai", followed_as_set: false, open_roles: 3, posting: 0, checked: 3, currency: null,
+        low: null, high: null, ranges: [], other_currency: false, reason: "none",
+        estimate_base: null, estimate_total: { low: 900_000, high: 900_000, rung: "L7" }, equity: null,
+      }],
+    }));
     show();
+    await headline();
 
-    // Posted pay still leads; no empty state stands in for the missing estimate.
-    expect(await headline()).toHaveTextContent(msg("insights-posted-typically", { low: "$198K", high: "$270K" }));
-    expect(screen.queryByText(/compensation estimate yet/i)).toBeNull();
+    // Each company's own estimate is its row; no panel ranks companies or
+    // disciplines by a median of lookups.
+    expect(screen.queryByText(msg("insights-compensation-panel-top-paying-companies"))).toBeNull();
     expect(screen.queryByText(msg("insights-compensation-panel-median-comp-by-level"))).toBeNull();
-    const panel = screen.getByRole("region", { name: msg("insights-compensation-panel-estimated-base-by-level") });
-    expect(panel).toHaveTextContent(msg("insights-compensation-panel-base-only-lead", { count: 40 }));
-    expect(within(panel).getByText(msg("insights-posted-estimate-us-only"))).toBeInTheDocument();
+    expect(screen.queryByText(msg("insights-compensation-panel-median-pay-by-discipline"))).toBeNull();
+    expect(screen.queryByText(msg("insights-posted-estimate-us-only"))).toBeNull();
+    expect(await screen.findByText("$900K")).toBeInTheDocument();
+
   });
 
   it("draws every posted range of the country a row per level and colours only the employer picked", async () => {
@@ -443,7 +406,7 @@ describe("CompensationPanel", () => {
 
     const who = msg("insights-disclosure-panel-who-states-pay");
     expect(screen.getByRole("heading", { level: 3, name: (name) => name.startsWith(who) })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: msg("insights-common-by-level") })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("img", { name: /post a range, by level/i })).toBeInTheDocument();
     const titles = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent ?? "");
     expect(titles.filter((t) => /over time|trend|skill/i.test(t))).toEqual([]);
     expect(api.compensation).toHaveBeenCalledTimes(1);

@@ -174,18 +174,6 @@
 
 /* ---- compensation -------------------------------------------------------- */
 
-/* Every pay row says what it rests on: a fourth column of roles. */
-.bar-row.comp-row {
-  grid-template-columns: 132px 1fr 56px 64px;
-}
-
-@media (max-width: 860px) {
-  /* The label column gives way first, as on every bar row (surfaces.css). */
-  .bar-row.comp-row {
-    grid-template-columns: 96px 1fr 52px 56px;
-  }
-}
-
 .comp-n {
   color: var(--app-text-faint);
   font-size: var(--app-type-meta);
@@ -193,9 +181,56 @@
   white-space: nowrap;
 }
 
-.pay-pair {
-  align-items: stretch;
-  margin-bottom: var(--app-space-2);
+/* ---- the company table at one level -------------------------------------- */
+
+/* A row's own ranges drawn against the level's typical range: one axis for the
+   whole table, so two companies' strips compare. The figure leads; the strip
+   is a second reading of the same fact, never the only one. */
+.pay-table-panel {
+  margin-bottom: var(--app-space-3);
+}
+
+.pay-table .pay-table-figure {
+  display: block;
+  font-family: var(--app-font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pay-table .comp-n {
+  display: block;
+  text-align: left;
+}
+
+.pay-table-strip {
+  position: relative;
+  display: block;
+  width: 112px;
+  height: 4px;
+  margin-top: var(--app-space-1);
+  border-radius: 2px;
+  background: var(--app-border);
+}
+
+.pay-table-span {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--app-action);
+}
+
+.pay-table-estimate .pay-table-kind {
+  color: var(--app-text-faint);
+  font-size: var(--app-type-whisper);
+  font-weight: var(--app-type-whisper-weight);
+  letter-spacing: var(--app-type-whisper-track);
+  text-transform: uppercase;
+}
+
+.pay-table-posted.dim,
+.pay-table-estimate.dim {
+  color: var(--app-text-faint);
 }
 
 /* ---- a note beside a chart ------------------------------------------- */
