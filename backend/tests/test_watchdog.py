@@ -6,7 +6,9 @@ import os
 import re
 import sys
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
+import httpx
 import pytest
 
 from tracker.health import freshness, stale_derivations
@@ -388,3 +390,21 @@ async def test_a_scan_whose_reading_stopped_too_long_ago_is_stopped(db_session):
     await db_session.commit()
     await db_session.refresh(job)
     assert job.cancel_reason == "stuck"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("host", ["127.0.0.1", "::1", "localhost"])
+async def test_the_api_check_reaches_the_host_the_api_binds(monkeypatch, host):
+    """Every loopback host the settings accept, IPv6 included, is a URL the check can ask."""
+    asked: list[httpx.URL] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        asked.append(request.url)
+        return httpx.Response(200)
+
+    monkeypatch.setattr(watchdog, "required", lambda: False)
+    monkeypatch.setattr(watchdog, "API_PATIENCE_SECONDS", 0.1)
+    settings = SimpleNamespace(api_host=host, api_port=8011)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(answer)) as client:
+        assert await watchdog._api_answers(client, watchdog._api_base(settings))
+    assert [(url.host, url.port, url.path) for url in asked] == [(host, 8011, "/api/health")]

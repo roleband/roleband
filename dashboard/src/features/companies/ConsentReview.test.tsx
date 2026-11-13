@@ -264,6 +264,77 @@ describe("followed companies that wait for an answer", () => {
   });
 });
 
+describe("an answer that is still saving", () => {
+  /** The first answer's save, held open until the test lets it land. */
+  function holdTheSave() {
+    let land: () => void = () => {};
+    const respond = vi.mocked(api.setCompanySelection).getMockImplementation()!;
+    vi.mocked(api.setCompanySelection).mockImplementationOnce((change, consents) =>
+      new Promise((resolve) => { land = () => resolve(respond(change, consents)); }));
+    return () => land();
+  }
+
+  it("cannot be answered again from the strip until it lands", async () => {
+    const land = holdTheSave();
+    renderStrip();
+    const dialog = await openQuestion();
+    await userEvent.click(within(dialog).getByRole("button", { name: msg("companies-follow-copy-keep-following-count", { count: 40 }) }));
+    await waitFor(() => expect(api.setCompanySelection).toHaveBeenCalledTimes(1));
+
+    const review = screen.getByRole("button", { name: msg("companies-register-chrome-review") }) as HTMLButtonElement;
+    expect(review.disabled).toBe(true);
+    await userEvent.click(review);
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    land();
+    await screen.findByText(msg("companies-data-review-kept", { count: 40 }));
+    expect(api.setCompanySelection).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks again once a failed save has landed", async () => {
+    vi.mocked(api.setCompanySelection).mockRejectedValueOnce(new ApiError("boom", 500));
+    renderStrip();
+    const dialog = await openQuestion();
+    await userEvent.click(within(dialog).getByRole("button", { name: msg("companies-follow-copy-keep-following-count", { count: 40 }) }));
+    await screen.findByTestId("failure");
+    const review = screen.getByRole("button", { name: msg("companies-register-chrome-review") }) as HTMLButtonElement;
+    expect(review.disabled).toBe(false);
+    expect(await openQuestion()).toBeTruthy();
+  });
+
+  it("cannot be answered again from a waiting company's row until it lands", async () => {
+    const land = holdTheSave();
+    render(
+      <MemoryRouter initialEntries={["/settings/companies"]}>
+        <AppProviders>
+          <ToastProvider>
+            <CompaniesDataProvider>
+              <CompaniesSection />
+            </CompaniesDataProvider>
+          </ToastProvider>
+        </AppProviders>
+      </MemoryRouter>,
+    );
+    const rowOf = async (display: string) =>
+      (await screen.findByRole("checkbox", { name: display })).closest(".ledger-row") as HTMLElement;
+    const needsConsent = msg("companies-company-register-rows-needs-consent");
+    await userEvent.click(within(await rowOf("Company 07")).getByRole("button", { name: needsConsent }));
+    const dialog = await screen.findByRole("dialog", { name: msg("companies-follow-copy-keep-following-one", { display: "Company 07" }) });
+    await userEvent.click(within(dialog).getByRole("button", { name: msg("companies-follow-copy-keep-following") }));
+    await waitFor(() => expect(api.setCompanySelection).toHaveBeenCalledTimes(1));
+
+    const other = within(await rowOf("Company 08")).getByRole("button", { name: needsConsent }) as HTMLButtonElement;
+    expect(other.disabled).toBe(true);
+    await userEvent.click(other);
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    land();
+    await screen.findByText(msg("companies-data-followed", { coverage: "covered", company: "Company 07" }));
+    expect((within(await rowOf("Company 08")).getByRole("button", { name: needsConsent }) as HTMLButtonElement).disabled).toBe(false);
+    expect(api.setCompanySelection).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("a waiting company's row", () => {
   it("its state asks that company alone, and the answer agrees for it alone", async () => {
     render(

@@ -43,7 +43,7 @@ import { Msg } from "../../ui/Msg";
 /** The roster's actionable warnings, above the register where they are read
  *  first. */
 export function AttentionStrip() {
-  const { alerts, failedSources, awaitingConsent, reviewConsent } = useCompanies();
+  const { alerts, failedSources, awaitingConsent, reviewConsent, consentSaving } = useCompanies();
   const { syncRunning, syncCompanies } = useCompaniesSync();
   if (alerts.length === 0 && failedSources.length === 0 && awaitingConsent.length === 0) return null;
 
@@ -70,6 +70,8 @@ export function AttentionStrip() {
           <Button
             size="sm"
             className="ui-btn-strong ledger-attention-act"
+            disabled={consentSaving}
+            aria-busy={consentSaving || undefined}
             onClick={() => reviewConsent()}
           >
             {companiesRegisterChromeReview()}

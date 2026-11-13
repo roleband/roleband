@@ -43,15 +43,16 @@ def real_processes(no_escape, monkeypatch):
         monkeypatch.setattr(windows_process, "_kernel", REAL_WINDOWS_KERNEL)
 
     async def loopback_only(self, request):
-        assert request.url.host == "127.0.0.1", request.url
+        assert request.url.host in {"127.0.0.1", "::1"}, request.url
         return await REAL_ASYNC_HTTP(self, request)
 
     monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", loopback_only)
 
 
 SERVER = """
-import http.server, pathlib, socketserver, sys
+import http.server, pathlib, socket, socketserver, sys
 answer = pathlib.Path(sys.argv[2])
+host = sys.argv[3] if len(sys.argv) > 3 else "127.0.0.1"
 class Health(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         code = int(answer.read_text().strip() or 200) if answer.exists() else 200
@@ -59,28 +60,37 @@ class Health(http.server.BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 class Quick(http.server.HTTPServer):
+    address_family = socket.AF_INET6 if ":" in host else socket.AF_INET
     def server_bind(self):
         # HTTPServer would look its own name up in DNS first, which can take seconds.
         socketserver.TCPServer.server_bind(self)
-        self.server_name, self.server_port = "127.0.0.1", self.server_address[1]
-Quick(("127.0.0.1", int(sys.argv[1])), Health).serve_forever()
+        self.server_name, self.server_port = host, self.server_address[1]
+Quick((host, int(sys.argv[1])), Health).serve_forever()
 """
 
 
-def _free_port() -> int:
-    with socket.socket() as probe:
-        probe.bind(("127.0.0.1", 0))
+def _free_port(host: str = "127.0.0.1") -> int:
+    with socket.socket(socket.AF_INET6 if ":" in host else socket.AF_INET) as probe:
+        probe.bind((host, 0))
         return probe.getsockname()[1]
 
 
-def _service(tmp_path: Path, *, command=None, **timing) -> tuple[ApiService, Path]:
-    port = _free_port()
+def _ipv6_loopback() -> bool:
+    try:
+        _free_port("::1")
+    except OSError:
+        return False
+    return True
+
+
+def _service(tmp_path: Path, *, command=None, host: str = "127.0.0.1", **timing) -> tuple[ApiService, Path]:
+    port = _free_port(host)
     answer = tmp_path / "answer"
     script = tmp_path / "server.py"
     script.write_text(SERVER)
     service = ApiService(
-        repo_root=REPO_ROOT, data_dir=tmp_path, host="127.0.0.1", port=port,
-        command=command or [sys.executable, str(script), str(port), str(answer)],
+        repo_root=REPO_ROOT, data_dir=tmp_path, host=host, port=port,
+        command=command or [sys.executable, str(script), str(port), str(answer), host],
         **{"start_grace_seconds": 5, "probe_every_seconds": 0, "failures_to_restart": 2, **timing},
     )
     return service, answer
@@ -107,6 +117,17 @@ async def test_the_api_starts_answers_and_stops_gracefully(tmp_path):
         await service.stop()
         assert process.poll() is not None
         assert service.state == api_module.STOPPED
+    finally:
+        await service.stop()
+
+
+@pytest.mark.skipif(not _ipv6_loopback(), reason="this machine has no IPv6 loopback")
+async def test_an_api_bound_on_the_ipv6_loopback_is_probed_there(tmp_path):
+    service, _ = _service(tmp_path, host="::1")
+    clock = [0.0]
+    try:
+        await _until(service, api_module.RUNNING, clock=clock)
+        assert service.restarts == 0
     finally:
         await service.stop()
 
