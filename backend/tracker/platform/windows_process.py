@@ -22,6 +22,9 @@ if sys.platform != "win32":
 
 CANCELLABLE_ENV = "ROLEBAND_CANCELLABLE_PROCESS"
 _MARKER = "tracker.supervisor.child"
+#: The exit code a live process reports. A process that really exits with it is
+#: indistinguishable by exit code alone, which is why the wait below is asked first.
+_STILL_ACTIVE = 259
 _job_handle: int | None = None
 
 
@@ -54,6 +57,7 @@ def _kernel():
     kernel.CloseHandle.argtypes = [wintypes.HANDLE]
     kernel.GetProcessTimes.argtypes = [wintypes.HANDLE, *([ctypes.POINTER(wintypes.FILETIME)] * 4)]
     kernel.TerminateProcess.argtypes = [wintypes.HANDLE, wintypes.UINT]
+    kernel.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
     kernel.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
     kernel.WaitForSingleObject.restype = wintypes.DWORD
     kernel.AttachConsole.argtypes = [wintypes.DWORD]
@@ -142,8 +146,27 @@ def owned_process(
         return None
 
 
+def _gone(kernel, handle: int) -> bool:
+    """Whether this kernel object's process has stopped running.
+
+    The wait answers only once the object is signalled, which happens after the
+    last thread is gone. A process that is still running its own exit path has
+    an exit status already and is not signalled yet, so both questions are
+    asked: TerminateProcess refuses a process in that state."""
+    if kernel.WaitForSingleObject(handle, 0) == 0:
+        return True
+    code = wintypes.DWORD()
+    if not kernel.GetExitCodeProcess(handle, ctypes.byref(code)):
+        return False
+    return code.value != _STILL_ACTIVE
+
+
 def terminate(process: psutil.Process) -> bool:
-    """Terminate the verified kernel object even if its PID is recycled later."""
+    """Terminate the verified kernel object even if its PID is recycled later.
+
+    False means the process this handle names is gone, by the caller's measure:
+    a recycled PID, or a process that had already stopped. A process that is
+    alive and refuses to die raises, and so does any other failure."""
     kernel = _kernel()
     handle = kernel.OpenProcess(0x101001, False, process.pid)
     if not handle:
@@ -154,9 +177,11 @@ def terminate(process: psutil.Process) -> bool:
         if abs(creation_time(handle) - process.create_time()) > 0.001:
             return False
         if not kernel.TerminateProcess(handle, 137):
-            if kernel.WaitForSingleObject(handle, 0) == 0:
+            # Captured before the calls below leave their own error behind.
+            error = ctypes.get_last_error()
+            if _gone(kernel, handle):
                 return False
-            raise ctypes.WinError(ctypes.get_last_error())
+            raise ctypes.WinError(error)
         return True
     finally:
         kernel.CloseHandle(handle)
