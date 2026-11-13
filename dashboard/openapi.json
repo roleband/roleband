@@ -13515,8 +13515,8 @@
       "anyOf": [
        {
         "enum": [
-         "none",
-         "pct_of_base"
+         "pct_of_base",
+         "none"
         ],
         "type": "string"
        },

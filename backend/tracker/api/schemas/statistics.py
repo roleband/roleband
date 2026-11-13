@@ -458,7 +458,7 @@ class OfferTermsCompany(_CompanyKey):
     #: Percent vesting each year, as the company states it; at most four years.
     vesting: list[float] | None
     vesting_stated_by: Literal["employer", "estimated"] | None
-    bonus_rule: Literal["none", "pct_of_base"] | None
+    bonus_rule: Literal["pct_of_base", "none"] | None
     sign_on_bridges_vesting: bool
     #: Only while a price key is saved, and only a quote already stored.
     quote: OfferQuote | None

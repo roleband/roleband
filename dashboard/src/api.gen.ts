@@ -7750,7 +7750,7 @@ export interface components {
          */
         OfferTermsCompany: {
             /** Bonus Rule */
-            bonus_rule: ("none" | "pct_of_base") | null;
+            bonus_rule: ("pct_of_base" | "none") | null;
             /** Company */
             company: string;
             /** Equity Vehicle */
