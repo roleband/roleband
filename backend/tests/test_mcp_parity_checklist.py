@@ -6,9 +6,11 @@ two and what is still undecided. The MCP server is removed only once the CLI
 does everything it does, so a tool added to the server without a row here would
 be lost silently at the removal.
 
-The switch is checked against the access class Settings publishes for each
-tool, which `test_agents.py` holds to the server's own gate: the replacement
-answers under exactly the switch the tool answers under.
+A row's switch is checked against the access class Settings publishes for each
+tool, which `test_agents.py` holds to the server's own gate, so a row cannot
+put the replacement under another switch than the tool's. Like the coverage
+ledger, this file checks the form of each operation ID, not that the operation
+exists.
 """
 
 from __future__ import annotations

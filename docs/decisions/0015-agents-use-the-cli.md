@@ -47,7 +47,9 @@ script.
   row names a route that is gone, and when an exclusion has no reason, so a new
   route cannot ship without a decision about agents.
   `tests/test_mcp_parity_checklist.py` fails when an MCP tool has no row or its
-  replacement is gated by another switch.
+  row names another switch than the one the tool answers under. Neither test
+  can yet check that a named operation exists; that check follows the
+  operation catalog.
 - An import contract on `tracker.cli` refuses database modules.
 
 ## Alternatives considered

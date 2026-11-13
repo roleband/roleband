@@ -1,9 +1,11 @@
-# 0016: Same-account trust on macOS, and a durable workspace identity
+# 0016: Loopback trust on macOS, and a durable workspace identity
 
 ## Context
 
 On macOS the engine's HTTP is not authenticated: `local_http.required()` is
-false there, so any process of the signed-in user can call loopback routes.
+false there. The engine listens on `127.0.0.1` only, and TCP loopback does not
+tell the listener which account a caller runs as, so any local process, of any
+account on the Mac, can call the dashboard's routes today.
 The packaged Windows engine requires a signed request on every `/api/` route,
 reads included, with the control or a browser key. The MCP server already
 reads and writes under the person's two switches with no credential of its own.
@@ -15,9 +17,10 @@ the changes feed, grants.
 
 ## Decision
 
-**Trust mode.** On macOS the first agent connection uses same-account loopback
-trust, and says so: the `status` operation reports the mode as `same_account_loopback`.
-The engine enforces the person's switches on every call. The command connects
+**Trust mode.** On macOS the first agent connection uses loopback trust, and
+says so: the `status` operation reports the mode as `local_loopback`. The
+boundary is the machine, not the account: the engine checks no caller identity,
+and the person's switches restrict which operations run, not who calls them. The command connects
 only to `127.0.0.1`, ignores proxy settings and follows no redirect. There is no
 silent fallback between trust modes, and no fallback from a development context
 to the installed app's port. On packaged Windows an agent request is signed like
@@ -37,9 +40,14 @@ agent uses it; restoring a backup over the original keeps the original's.
 
 - Reads and the person's own writes ship on macOS without a new credential,
   under exactly the switches the MCP server uses today.
-- This mode does not separate one same-account process from another. A hostile
-  program running as the person can call the engine directly; nothing in the
-  agent path claims otherwise.
+- The agent routes reach no further than the dashboard's own routes already
+  do: any local process, including one run by another account on the same Mac,
+  can call either. The MCP server is narrower, since it opens a database only
+  the person's account can read. Nothing in the agent path claims a narrower
+  boundary than the machine.
+- Holding the boundary to the person's account needs a caller check that TCP
+  loopback cannot give: a Unix socket with a peer-credential check, or a signed
+  request as on Windows. Either changes the trust mode and its reported name.
 - Telling assistants apart, or restricting one of them, needs a distinct agent
   credential bound to a principal and the workspace. Reusing the control key
   with a caller-supplied client name would let any holder act as any client.
