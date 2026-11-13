@@ -302,55 +302,66 @@ async def backfill_missing_descriptions(
 RECLASSIFY_BATCH = 500
 
 
-async def _write_reclassified(
-    session: AsyncSession,
-    changes: list[dict],
-    write: Callable[[AsyncSession, list[dict]], Awaitable[None]],
-    *,
-    label: str,
+async def _project_scope(
+    session: AsyncSession, job_ids: Collection[int] | None = None
 ) -> int:
-    """Write `changes` in committed chunks of `session`; returns how many.
-
-    The run after a classifier change rewrites every row whose derivation moved,
-    and one transaction over the whole table loses all of it when the run dies.
-    Chunks commit on the pass's own session, so the pass still writes to the
-    database its caller opened. A killed pass records no fingerprint
-    (`_mark_reclassified` runs only after it returns), so the rows it did not
-    reach are derived again on the next run, and the ones it saved read as
-    current and cost nothing.
-    """
-    by_id = {change["id"]: change for change in changes}
-
-    async def work(chunk_session: AsyncSession, ids: list[int]) -> int:
-        await write(chunk_session, [by_id[job_id] for job_id in ids])
-        return len(ids)
-
-    return await commit_in_batches(
-        list(by_id), work, size=RECLASSIFY_BATCH, label=label, session=session,
-        report=lambda line: logger.info("reclassify: %s", line),
-    )
-
-
-async def _rescope_after_reclassify(
-    session: AsyncSession, changes: list[dict], job_ids: Collection[int] | None
-) -> int:
-    """Re-project the saved scope after a reclassify, and how many rows moved.
-
-    Whenever a row changed, and on every whole-table pass even when none did: a
-    pass killed partway keeps the chunks it committed and records no
-    fingerprint, so the pass that finishes the axis finds nothing left to write,
-    and those rows would hold an `in_scope` their old derivation earned.
+    """Re-project the saved scope onto `job_ids` (or every row), and how many moved.
 
     The projection lock is taken before the saved axes are read, not inside the
     projection: a save that commits new axes in between would otherwise be
     followed by a projection of the older ones. It costs no lock time, since the
     projection takes the same transaction lock a moment later and holds it to
-    the pass's commit either way.
+    the caller's commit either way.
     """
-    if not (changes or job_ids is None):
-        return 0
     await hold_scope_projection(session)
-    return await recompute_saved_scope(session)
+    return await recompute_saved_scope(session, job_ids=job_ids)
+
+
+async def _reclassified(
+    session: AsyncSession,
+    changes: list[dict],
+    write: Callable[[AsyncSession, list[dict]], Awaitable[None]],
+    *,
+    job_ids: Collection[int] | None,
+    label: str,
+) -> dict[str, int]:
+    """Write `changes` and re-project the saved scope: the result of a reclassify.
+
+    The run after a classifier change rewrites every row whose derivation moved,
+    and one transaction over the whole table loses all of it when the run dies.
+    So the rows go in committed chunks, on the pass's own session, where the
+    pass's caller opened the database it reads. A killed pass records no
+    fingerprint (`_mark_reclassified` runs only after it returns), so the rows
+    it did not reach are derived again on the next run, and the ones it saved
+    read as current and cost nothing.
+
+    Each chunk projects the scope onto its own rows in the transaction that
+    writes them, because the two must not come apart: a pass over the run's own
+    rows leaves the fingerprint as it is, so nothing would make a later run
+    re-derive a row whose write survived a failed projection, and it would hold
+    an `in_scope` its old derivation earned.
+
+    The projection over every row then runs whenever something changed, and on
+    every whole-table pass even when nothing did: the pass that finishes a
+    killed one's axis finds nothing left to write, and its rows still need the
+    scope they were never projected onto.
+    """
+    by_id = {change["id"]: change for change in changes}
+    rescoped = 0
+
+    async def work(chunk_session: AsyncSession, ids: list[int]) -> int:
+        nonlocal rescoped
+        await write(chunk_session, [by_id[job_id] for job_id in ids])
+        rescoped += await _project_scope(chunk_session, ids)
+        return len(ids)
+
+    written = await commit_in_batches(
+        list(by_id), work, size=RECLASSIFY_BATCH, label=label, session=session,
+        report=lambda line: logger.info("reclassify: %s", line),
+    )
+    if changes or job_ids is None:
+        rescoped += await _project_scope(session)
+    return {"reclassified": written, "in_scope_changed": rescoped}
 
 
 async def reclassify_domains(
@@ -369,10 +380,10 @@ async def reclassify_domains(
 
     Pure derivation from stored fields, no network. Reads narrow columns (an
     ORM load would pull every description) and writes only rows whose answer
-    changed, in committed chunks (`_write_reclassified`), so once caught up
+    changed, in committed chunks (`_reclassified`), so once caught up
     this is a scan that writes nothing.
 
-    `in_scope` is recomputed (`_rescope_after_reclassify`). Skipping that because the
+    `in_scope` is recomputed (`_reclassified`). Skipping that because the
     axis "defaults to all worlds" fails the moment a user switches one off: a
     reclassified row can gain or lose exactly the world they hid.
     """
@@ -389,9 +400,9 @@ async def reclassify_domains(
         ))
         if row.domains is None or list(row.domains) != fresh:
             changes.append({"id": row.id, "domains": fresh})
-    written = await _write_reclassified(session, changes, set_job_domains, label="domain changes")
-    rescoped = await _rescope_after_reclassify(session, changes, job_ids)
-    return {"reclassified": written, "in_scope_changed": rescoped}
+    return await _reclassified(
+        session, changes, set_job_domains, job_ids=job_ids, label="domain changes"
+    )
 
 
 #: The classifier fingerprint each `jobs` reclassify pass last read the whole
@@ -435,9 +446,9 @@ async def reclassify_roles(
     drains without anyone running a command.
 
     Pure derivation from stored fields; narrow reads; writes only changed rows,
-    in committed chunks (`_write_reclassified`), so once caught up it is a scan
-    that writes nothing. `in_scope` is recomputed (`_rescope_after_reclassify`):
-    family and track are scope axes.
+    in committed chunks (`_reclassified`), so once caught up it is a scan
+    that writes nothing. `in_scope` is recomputed (`_reclassified`): family and
+    track are scope axes.
     """
     changes = await pending_roles(session, job_ids)
 
@@ -446,9 +457,7 @@ async def reclassify_roles(
         # The family is an estimate input no fingerprint names.
         await reestimate_module.refresh_jobs(chunk_session, [change["id"] for change in chunk])
 
-    written = await _write_reclassified(session, changes, write, label="role changes")
-    rescoped = await _rescope_after_reclassify(session, changes, job_ids)
-    return {"reclassified": written, "in_scope_changed": rescoped}
+    return await _reclassified(session, changes, write, job_ids=job_ids, label="role changes")
 
 
 async def pending_roles(
@@ -490,7 +499,7 @@ async def reclassify_places(
 
     Pure derivation from stored fields (`location_slugs_for`, the function
     ingest uses); narrow reads; writes only changed rows, in committed chunks
-    (`_write_reclassified`); `in_scope` recomputed (`_rescope_after_reclassify`). The
+    (`_reclassified`); `in_scope` recomputed with them. The
     posting inventory's rows are reclassified by `_pass_inventory_promotion`,
     not here.
     """
@@ -505,9 +514,9 @@ async def reclassify_places(
         cities = normalize_cities(places)
         if list(row.location_groups or []) != groups or list(row.location_cities or []) != cities:
             changes.append({"id": row.id, "location_groups": groups, "location_cities": cities})
-    written = await _write_reclassified(session, changes, set_job_places, label="place changes")
-    rescoped = await _rescope_after_reclassify(session, changes, job_ids)
-    return {"reclassified": written, "in_scope_changed": rescoped}
+    return await _reclassified(
+        session, changes, set_job_places, job_ids=job_ids, label="place changes"
+    )
 
 
 async def _pass_places_backfill(ctx: PostPassContext) -> None:
