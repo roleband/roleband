@@ -109,6 +109,7 @@ export function Popover({
         modal={false}
         scrim={false}
         takeFocus={takeFocus}
+        quietReturn
         closeOnScrim={closeOnScrim}
         className={`ui-popover${within ? " ui-popover-spans" : ""}${className ? ` ${className}` : ""}`}
         style={{ position: "fixed", ...pos }}

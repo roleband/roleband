@@ -86,7 +86,12 @@ from tracker.semantic.similarity import similar_for_job
 from tracker.settings_store import get_enabled_locations, get_intent_embedding, get_pay_floor
 from tracker.skills.extract import required_years
 from tracker.taxonomy.domains import DOMAIN_GROUPS
-from tracker.taxonomy.locations import LOCATION_GROUPS, pay_country, tracked_city_nodes
+from tracker.taxonomy.locations import (
+    LOCATION_GROUPS,
+    pay_country,
+    posting_places,
+    tracked_city_nodes,
+)
 from tracker.taxonomy.role_catalog import UNCLASSIFIED_KEY
 from tracker.taxonomy.roles import ROLE_GROUPS
 from tracker.taxonomy.tracks import TRACKS
@@ -378,6 +383,7 @@ async def get_job(job_id: int, session: SessionDep) -> dict:
     # list shows for this posting.
     data = serialize_job(job, detail=True, **ctx)
     data["feedback_reason"] = feedback.reason if feedback is not None else None
+    data["places"] = posting_places(list(job.locations or []))
 
     # Advisory relevance verdict, with its rationale.
     # Display material only — the verdict never gates anything server-side.

@@ -263,6 +263,11 @@
   --app-type-screen: 18px;  /* card / zone heading (h2) */
   --app-type-stat: 22px;    /* standalone numerals — policy strip, cadence */
   --app-type-title: 15px;   /* h3, sector heading, tile title */
+  --app-type-read: 17px;    /* long-form reading: a posting's own text */
+  /* A long read's own ramp, one clear step apart as `page` and `screen` are:
+     text, its section headings, its title. */
+  --app-type-read-head: 20px;  /* a section heading in a long read */
+  --app-type-read-title: 24px; /* a long read's title: a posting's h1 */
   --app-type-name: 15px;    /* primary row content — the company name */
   --app-type-body: 14px;    /* descriptions, controls, tab bar */
   --app-type-meta: 13px;    /* secondary facts — the fact floor */

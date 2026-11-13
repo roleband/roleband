@@ -530,8 +530,11 @@ Staff and Principal: blueprint checks `offer_policy` and `pay_reference` in
 
 ## Rules
 
-- Never split a band whose basis is `unclear`, never annualise an hourly or
-  monthly rate, never split a stated total.
+- A yearly band whose basis is `unclear` is read as base in the package when
+  the role does not sell (`taxonomy.roles.sells` is False); a sales role's or
+  an unknown family's stays whole. The stored `pay_basis` keeps `unclear`, so
+  pay built from postings never counts it as a stated base. Never annualise an
+  hourly or monthly rate, never split a stated total.
 - Never price a level we cannot place. Its band is kept for sorting only: it
   gets no estimate, and nothing is built on it. The base the posting states is
   not priced by us, so it is still shown

@@ -170,7 +170,7 @@ class TestSetApart:
             _role("google", None, median=600_000),
             _role("google", posted=_posted(90, 120, period="hour")),
             _role("google", posted=_posted(300_000, 380_000, basis="total")),
-            _role("google", posted=_posted(300_000, 380_000, basis="unclear")),
+            _role("google", posted=_posted(300_000, 380_000, basis="unclear"), family="sales_business_development"),
             _role("google", base_estimate=250_000),
             _role("google", median=600_000, heuristic=False),
         ])
@@ -194,7 +194,7 @@ class TestSetApart:
             _role("netflix", posted=_posted(90, 120, period="hour")),
             _role("netflix", posted=_posted(20_000, 25_000, period="month")),
             _role("netflix", posted=_posted(300_000, 400_000, period="unclear")),
-            _role("netflix", posted=_posted(300_000, 400_000, basis="unclear")),
+            _role("netflix", posted=_posted(300_000, 400_000, basis="unclear"), family="sales_business_development"),
             _role("netflix", posted=_posted(300_000, 400_000), level_placed=False),
         ])
         assert out["choice"] == []

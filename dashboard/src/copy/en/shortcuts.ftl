@@ -15,6 +15,12 @@ shortcuts-keyboard-shortcuts-show-these-shortcuts = Show these shortcuts
 shortcuts-keyboard-shortcuts-close-what-is-on-top = Close what is on top
 # kind=tooltip wording=as-is
 shortcuts-keyboard-shortcuts-on-a-role-in-a = On a role in a list
+# kind=tooltip note="Heading in the keyboard shortcuts sheet: the keys that work while a posting opened from a list is on screen"
+shortcuts-keyboard-shortcuts-in-a-posting = In a posting opened from a list
+# kind=tooltip note="Keyboard shortcuts sheet: what the J key does while a posting opened from a list is on screen"
+shortcuts-keyboard-shortcuts-next-in-list = Next in the list
+# kind=tooltip note="Keyboard shortcuts sheet: what the K key does while a posting opened from a list is on screen"
+shortcuts-keyboard-shortcuts-previous-in-list = Previous in the list
 # kind=label wording=as-is
 shortcuts-keyboard-shortcuts-next-role = Next role
 # kind=label wording=as-is

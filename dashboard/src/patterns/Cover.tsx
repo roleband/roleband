@@ -58,6 +58,10 @@ export function Cover({
       className={`cover${className ? ` ${className}` : ""}`}
       data-design-system="app"
       aria-label={asOverlay ? undefined : label}
+      // As the page there is no dialog to hold the keyboard, so the cover
+      // itself takes it when what had focus leaves with a turn. As an overlay
+      // the dialog owns that (ui/Overlay).
+      tabIndex={asOverlay ? undefined : -1}
     >
       <div className="cover-bar">{bar}</div>
       <div className="cover-scroll" ref={scrollRef}>{children}</div>

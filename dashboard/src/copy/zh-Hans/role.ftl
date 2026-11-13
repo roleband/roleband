@@ -1,13 +1,10 @@
 ## role：按原样迁移（wording=as-is）
 
 ## features/job-detail/JobCompPanel.tsx
-role-job-comp-panel-start-offer = 以这个职位开始一份录用条件
-role-job-comp-panel-the-employer-s-exact-words = 雇主的原话
 role-job-comp-panel-no-compensation-data-for-this = 这个职位没有薪酬数据。
 role-job-comp-panel-market-median-at-this-level = 该级别市场中位数
 role-job-comp-panel-this-package-is-the-market = 该估算是该级别市场中位数的 { $toFixed } 倍，通常说明级别或职能有误。
 role-job-comp-panel-base = 基本工资
-role-job-comp-panel-base-salary-stated-in-the = 招聘信息中注明的基本工资。
 role-job-comp-panel-this-employer-publishes-no-pay = 该雇主未公布薪酬区间。以下内容均为估算。
 role-job-comp-panel-we-have-not-checked-this = 还没有检查这条招聘信息是否公布了薪酬区间。
 role-job-comp-panel-stated = 已注明
@@ -16,7 +13,6 @@ role-job-comp-panel-our-independent-estimate-of-total = 总薪酬的独立估算
 role-job-comp-panel-from-the-posting-s-pay = 来自招聘信息的薪酬字段，而非正文。
 role-job-comp-panel-bonus = 奖金
 role-job-comp-panel-equity = 股权
-role-job-comp-panel-cash-every-month = 现金，每月发放
 role-job-comp-panel-target-not-guaranteed = 目标值，不保证
 role-job-comp-panel-per-year-vests-over-time = 每年，分期归属
 role-job-comp-panel-measured-split = 实测构成
@@ -53,14 +49,12 @@ role-job-comp-panel-total-compensation = 总薪酬
 role-job-comp-panel-the-posting-states-total-compensation = 招聘信息注明了总薪酬，但没有构成明细，因此不显示明细。
 role-job-comp-panel-basis-not-stated = 口径未注明
 role-job-comp-panel-the-posting-states-this-figure = 招聘信息没有说明这个数字是基本工资还是总薪酬，因此不拆分为基本工资、奖金和股权。
-role-job-comp-panel-no-estimate-available = 暂无估算
 role-job-comp-panel-estimated-total-package = { $choice ->
     [yes] 公布的总薪酬
    *[no] 估算总薪酬
 }
 role-job-comp-panel-estimated-total-comp = 估算总薪酬
 role-job-comp-panel-stated-by-the-employer = 由雇主注明
-role-job-comp-panel-about-stated-base-salary = 关于公布的基本工资
 role-job-comp-panel-of-base-stated = 基本工资的 { $round }%，已注明
 
 ## features/job-detail/JobDescription.tsx
@@ -259,7 +253,6 @@ role-listing-age-still-listed-at-the-last = 上次扫描时仍在发布
 role-listing-age-events = 事件
 
 ## features/job-detail/PayFloorLine.tsx
-role-pay-floor-line-clears-your-pay-floor = 高于你的最低基本工资 { $floor }
 role-pay-floor-line-your-pay-floor-falls-inside = 你的最低基本工资 { $floor } 落在这个区间内
 role-pay-floor-line-below-your-pay-floor = 低于你的最低基本工资 { $floor }
 
@@ -354,7 +347,6 @@ role-job-comp-panel-roleband-splits-us-pay-only = 薪酬仅依据美国数据拆
 role-job-comp-panel-level-not-stated-or-mapped = 没有标准级别时，不估算构成或总额。
 role-job-comp-panel-not-read-yet = 尚未读取
 role-job-comp-panel-estimated-base = 估算基本工资
-role-job-comp-panel-from-roleband-data = 来自内置数据。
 role-job-detail-could-not-unsave-this-role = { $choice ->
     [yes] 无法保存这个职位
    *[no] 无法将这个职位从求职进展中移除

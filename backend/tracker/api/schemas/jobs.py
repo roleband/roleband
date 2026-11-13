@@ -509,6 +509,9 @@ class JobDetailResponse(JobDetailRow):
     `posting_reality` is null for a closed posting."""
 
     feedback_reason: str | None = Field(json_schema_extra=text("code"))
+    #: The places the posting names, each once: its offices as canonical
+    #: labels, then any country it names with no office in it.
+    places: list[str] = Field(json_schema_extra=text("content"))
     pursuit: JobPursuit | None
     relevance_review: JobRelevanceReview | None
     comp_sources: list[CompSource]

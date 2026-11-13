@@ -5,9 +5,16 @@
 import type { Locator, Page } from "@playwright/test";
 import { msg } from "../../src/test/msg";
 import { expect, mockApi, mockGet, test, watchReads } from "./fixtures";
-import { applicationCardFixture, applicationDetailFixture, jobFixture } from "../../src/test/fixtures";
-import { appleJobFixture, comparison, detail, installBoardRoutes, jobFixture2 } from "./boardHarness";
+import { applicationCardFixture, applicationDetailFixture, compPackageFixture, jobFixture } from "../../src/test/fixtures";
+import { appleJobFixture, comparison, detail, installBoardRoutes, jobFixture2, twoJobList } from "./boardHarness";
 import { expectOnTop, pointAndClick, strangersOver } from "./paint";
+
+/* Controls named by what the catalog says, so a copy edit cannot fail a test
+   that is not about copy. A stage button carries its days after the stage, and
+   the stage menu its posting's title, so both stay prefixes. */
+const STAGE_APPLIED = new RegExp(`^${msg("taxonomy-stage-applied")}\\b`);
+const STAGE_MENU = new RegExp(`^${msg("applications-stage-menu-label", { title: "" }).trimEnd()}`);
+const VIEW_APPLY = new RegExp(msg("role-job-detail-view-apply"), "i");
 
 test.beforeEach(async ({ page }) => {
   await installBoardRoutes(page);
@@ -33,7 +40,7 @@ test("opening an opportunity shows a full-screen detail that fills the viewport"
   await expect(panel).toBeVisible();
   await expect(panel.getByRole("heading", { name: "Staff Product Manager, API" })).toBeVisible();
   await expect(panel).toContainText("Lead API product strategy.");
-  await expect(panel.getByRole("link", { name: /view & apply/i })).toHaveAttribute("href", jobFixture.url);
+  await expect(panel.getByRole("link", { name: VIEW_APPLY })).toHaveAttribute("href", jobFixture.url);
 
   // Full-screen: the detail covers the whole viewport, not a narrow side panel.
   const viewport = page.viewportSize()!;
@@ -94,6 +101,25 @@ test("the place tags add only what the place line does not say", async ({ page }
   await expect(meta.getByText("North America", { exact: true })).toHaveCount(0);
 });
 
+// A board writes one office several ways beside bare countries; the server
+// sends the places once each, and the line reads that, never the raw strings.
+test("the place line reads the server's tidied places over the source's own strings", async ({ page }) => {
+  await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: {
+    ...jobFixture,
+    locations: ["GB", "Dublin, D, IE", "United Kingdom, Multiple Locations, Multiple Locations", "Ireland, Dublin, Dublin"],
+    location_groups: ["ireland", "uk", "europe"],
+    places: ["Dublin, Ireland", "United Kingdom"],
+  } }));
+  await page.goto("/job/101");
+
+  const meta = detail(page).locator(".job-meta");
+  await expect(meta.getByText("Dublin, Ireland", { exact: true })).toBeVisible();
+  await expect(meta.getByText("United Kingdom", { exact: true })).toBeVisible();
+  await expect(meta).not.toContainText("Multiple Locations");
+  await expect(meta).not.toContainText("Dublin, D, IE");
+  await expect(meta).not.toContainText("GB");
+});
+
 test("Apple detail preserves source sections and Pay & Benefits", async ({ page }) => {
   await page.goto("/job/303");
 
@@ -126,16 +152,23 @@ const readyRequirements = {
   ],
 };
 
-// The description is the column's main text, so it spans the column exactly
-// as the requirements card above it does, at the base and the wide layout.
+// The description is the screen's long read, so it is set for reading: the
+// reading size of the posting's step, the text colour of the heading above it
+// (not the muted one), across the column under the pay panel, edge to edge
+// with it. The role requirements panel is off the posting.
 //
 // The measuring tests below open the company-scoped URL. A short /job/:id
 // rewrites itself once the job loads, which remounts the whole detail, so a
 // one-shot measurement taken after the first paint can land on nodes the
 // remount has already detached: `boundingBox()` answers null and a query
 // finds nothing.
-for (const width of [1440, 1600]) {
-  test(`the description spans the same width as the requirements card at ${width}px`, async ({ page }) => {
+const READ_PX = 17;
+/** How long the first posting a cover turns to may take to show. The Docker
+ *  WebKit draws a view transition in software and holds the page for seconds
+ *  over its first one (after which the app gives it no more). */
+const FIRST_TURN = { timeout: 20_000 };
+for (const [width, read] of [[1440, READ_PX], [1600, 18]] as const) {
+  test(`the description is set for reading at ${width}px, under the pay panel`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await mockGet(page, "/api/jobs/303", (route) =>
       route.fulfill({ json: { ...appleJobFixture, requirements: readyRequirements } }),
@@ -143,20 +176,24 @@ for (const width of [1440, 1600]) {
     await page.goto("/company/apple/job/303");
 
     const panel = detail(page);
-    const card = panel.locator(".req-panel");
+    const card = panel.locator(".comp-panel");
     await expect(card).toBeVisible();
+    await expect(panel.locator(".req-panel"), "no requirements panel, even for a posting that has them").toHaveCount(0);
     const cardBox = (await card.boundingBox())!;
+    const ink = await panel.locator(".jd-hero h1").evaluate((el) => getComputedStyle(el).color);
 
     for (const heading of ["Summary", "Minimum Qualifications"]) {
       const section = panel.locator(".jd-section").filter({ has: page.getByRole("heading", { name: heading }) });
       const box = (await section.boundingBox())!;
       expect(Math.abs(box.x - cardBox.x), `${heading} left edge`).toBeLessThanOrEqual(1);
-      expect(Math.abs(box.width - cardBox.width), `${heading} width`).toBeLessThanOrEqual(1);
+      expect(Math.abs(box.width - cardBox.width), `${heading} spans the column`).toBeLessThanOrEqual(1);
+      const text = section.locator("p, li").first();
+      expect(await text.evaluate((el) => [getComputedStyle(el).fontSize, getComputedStyle(el).color])).toEqual([`${read}px`, ink]);
     }
   });
 }
 
-test("a plain-text description spans the same width as the requirements card", async ({ page }) => {
+test("a plain-text description is set for reading too", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await mockGet(page, "/api/jobs/101", (route) =>
     route.fulfill({ json: { ...jobFixture, requirements: readyRequirements } }),
@@ -164,18 +201,42 @@ test("a plain-text description spans the same width as the requirements card", a
   await page.goto("/company/openai/job/101");
 
   const panel = detail(page);
-  const card = panel.locator(".req-panel");
+  const card = panel.locator(".comp-panel");
   const text = panel.locator(".jd-fallback");
   await expect(card).toBeVisible();
   await expect(text).toContainText("Lead API product strategy.");
   const cardBox = (await card.boundingBox())!;
   const box = (await text.boundingBox())!;
   expect(Math.abs(box.x - cardBox.x)).toBeLessThanOrEqual(1);
-  expect(Math.abs(box.width - cardBox.width)).toBeLessThanOrEqual(1);
+  expect(Math.abs(box.width - cardBox.width), "spans the column").toBeLessThanOrEqual(1);
+  expect(await text.evaluate((el) => getComputedStyle(el).fontSize)).toBe(`${READ_PX}px`);
 });
 
-// Justified text is only acceptable with hyphenation, and hyphenation only
-// works when the page names its language. A phone line holds too few words.
+/* A section's text keeps its shape: a short line ending in a colon is a
+   sub-heading, a run of unfinished one-line paragraphs is a list, and prose
+   stays prose (features/job-detail/descriptionShape.ts). */
+test("a section's sub-headings and lists are drawn as headings and lists", async ({ page }) => {
+  await mockGet(page, "/api/jobs/303", (route) => route.fulfill({ json: { ...appleJobFixture, description_sections: [
+    { key: "the_role", title: "The role", content: [
+      "This role looks across forty offices.", "A typical day:", "Run a portfolio of programs",
+      "Map one process end to end", "Coach two program managers", "We decide in writing.",
+      "Team Leadership", "Hire and develop the engineers on site. Set clear expectations.",
+    ].join("\n\n") },
+  ] } }));
+  await page.goto("/company/apple/job/303");
+  const section = detail(page).locator(".jd-section");
+  await expect(section.getByRole("heading", { level: 3, name: "A typical day" })).toBeVisible();
+  await expect(section.getByRole("listitem")).toHaveText(["Run a portfolio of programs", "Map one process end to end", "Coach two program managers"]);
+  // A title with no colon, standing before whole sentences, is a sub-heading too.
+  await expect(section.getByRole("heading", { level: 3, name: "Team Leadership" })).toBeVisible();
+  await expect(section.locator("p")).toHaveText([
+    "This role looks across forty offices.", "We decide in writing.",
+    "Hire and develop the engineers on site. Set clear expectations.",
+  ]);
+});
+
+// Ragged right, words whole: justified lines stretch the spaces of a short
+// list item and break words at the line's end, and both slow reading down.
 const descriptionSetting = (page: import("@playwright/test").Page) =>
   detail(page).locator(".jd-section p, .jd-section li").evaluateAll((els) =>
     els.map((el) => {
@@ -184,26 +245,17 @@ const descriptionSetting = (page: import("@playwright/test").Page) =>
     }),
   );
 
-test("the description is justified with hyphenation on a wide screen", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/company/apple/job/303");
-  await expect(detail(page).getByRole("heading", { name: "Summary" })).toBeVisible();
+for (const [name, size] of [["a wide screen", { width: 1440, height: 900 }], ["a phone", { width: 375, height: 812 }]] as const) {
+  test(`the description is left-aligned and breaks no word on ${name}`, async ({ page }) => {
+    await page.setViewportSize(size);
+    await page.goto("/company/apple/job/303");
+    await expect(detail(page).getByRole("heading", { name: "Summary" })).toBeVisible();
 
-  expect(await page.evaluate(() => document.documentElement.lang)).toBe("en");
-  const settings = await descriptionSetting(page);
-  expect(settings.length).toBeGreaterThan(2);
-  for (const setting of settings) expect(setting).toEqual({ align: "justify", hyphens: "auto" });
-});
-
-test("the description stays left-aligned on a phone", async ({ page }) => {
-  await page.setViewportSize({ width: 375, height: 812 });
-  await page.goto("/company/apple/job/303");
-  await expect(detail(page).getByRole("heading", { name: "Summary" })).toBeVisible();
-
-  const settings = await descriptionSetting(page);
-  expect(settings.length).toBeGreaterThan(2);
-  for (const setting of settings) expect(setting).toEqual({ align: "start", hyphens: "manual" });
-});
+    const settings = await descriptionSetting(page);
+    expect(settings.length).toBeGreaterThan(2);
+    for (const setting of settings) expect(setting).toEqual({ align: "start", hyphens: "manual" });
+  });
+}
 
 test("a role with no twins never asks for them", async ({ page }) => {
   const twins = watchReads(page, "GET", "/api/jobs/101/twins");
@@ -281,7 +333,7 @@ test("a short /job/:id link canonicalizes to the company-scoped URL and reloads"
   await expect(page).toHaveURL(/\/company\/openai\/job\/202$/);
   const panel = detail(page);
   await expect(panel.getByRole("heading", { name: "Principal Engineer, Platform" })).toBeVisible();
-  await expect(panel.getByRole("link", { name: /view & apply/i })).toHaveAttribute("href", jobFixture2.url);
+  await expect(panel.getByRole("link", { name: VIEW_APPLY })).toHaveAttribute("href", jobFixture2.url);
 
   // Refresh on the canonical URL keeps the same opportunity.
   await page.reload();
@@ -405,7 +457,7 @@ test("a role off the pipeline shows the star alone, and saving turns it into the
 
   await expect(panel.getByText("Your progress")).toHaveCount(0);
   await expect(panel.locator(".jd-aside .section-title", { hasText: msg("applications-posting-row") })).toHaveCount(0);
-  await expect(panel.getByRole("link", { name: /view & apply/i })).toHaveClass(/ui-btn-primary/);
+  await expect(panel.getByRole("link", { name: VIEW_APPLY })).toHaveClass(/ui-btn-primary/);
 
   await panel.getByRole("button", { name: msg("jobs-save"), pressed: false }).click();
   // Saved just now: the stage alone, with no count of days.
@@ -418,7 +470,7 @@ test("a role off the pipeline shows the star alone, and saving turns it into the
   await expect(facts.getByText(msg("applications-posting-next-step"), { exact: true })).toHaveCount(0);
   await expect(facts.getByText(msg("applications-posting-interview"), { exact: true })).toHaveCount(0);
   // Still deciding: applying stays the action.
-  await expect(panel.getByRole("link", { name: /view & apply/i })).toHaveClass(/ui-btn-primary/);
+  await expect(panel.getByRole("link", { name: VIEW_APPLY })).toHaveClass(/ui-btn-primary/);
 });
 
 test("an applied role names its stage in the bar, and its days and what is due in the Pipeline section", async ({ page }) => {
@@ -436,7 +488,7 @@ test("an applied role names its stage in the bar, and its days and what is due i
   await expect(bar.getByRole("button", { name: "Applied", exact: true })).toBeVisible();
   await expect(bar.getByText(/\d+d\b|days/), "the bar holds the stage, never its age").toHaveCount(0);
   const due = msg("applications-posting-due-day", { offset: 1, date: "" });
-  await expect(bar.getByRole("link", { name: /view & apply/i })).toHaveCount(0);
+  await expect(bar.getByRole("link", { name: VIEW_APPLY })).toHaveCount(0);
   const view = bar.getByRole("link", { name: msg("role-job-detail-view-posting") });
   await expect(view).toHaveAttribute("href", jobFixture.url);
   await expect(view).not.toHaveClass(/ui-btn-primary/);
@@ -590,6 +642,637 @@ test("the stage button's star is the radar's saved gold, at a live stage and aft
   expect((await colours()).star, "never the star").toBe(gold);
 });
 
+/* The side column stays in view while the description scrolls: where the
+   person stands with the role, and the role's facts, are read beside any part
+   of a long posting. The page has one scroll, and the column none of its own:
+   it keeps its first rows under the bar, and the last rows of a column taller
+   than the window come into view at the page's end. In one column it follows
+   the description. */
+const longPosting = {
+  ...appleJobFixture,
+  comp_package: compPackageFixture(),
+  is_favorite: true,
+  pursuit: { ...appliedPursuit, job_id: 303 },
+  description_sections: [
+    ...appleJobFixture.description_sections,
+    { key: "responsibilities", title: "Responsibilities", content: Array.from({ length: 30 }, (_, i) =>
+      `Paragraph ${i + 1}. You will set the direction for a platform that many teams build on, and explain what it leaves out to the people who depend on it.`).join("\n\n") },
+  ],
+};
+async function openLongPosting(page: Page, size: { width: number; height: number }) {
+  await page.setViewportSize(size);
+  await mockGet(page, "/api/jobs/303", (route) => route.fulfill({ json: longPosting }));
+  await mockGet(page, "/api/applications/303", (route) => route.fulfill({ json: applicationDetailFixture({
+    application: applicationCardFixture({ job_id: 303, pursuit_id: 10, stage: "applied", company: "apple", stage_since: new Date(Date.now() - 3 * DAY).toISOString() }),
+  }) }));
+  await mockGet(page, "/api/jobs/303/similar**", (route) => route.fulfill({ json: {
+    scope: "cross", items: [1, 2, 3].map((n) => ({ ...jobFixture, id: 900 + n, title: `Principal Product Manager, Platform ${n}`, score: 0.9 })),
+  } }));
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/company/apple/job/303");
+  const panel = detail(page);
+  await expect(panel.getByRole("heading", { name: "Responsibilities" })).toBeVisible();
+  await expect(panel.locator(".similar-row")).toHaveCount(6);
+  return {
+    column: panel.locator(".jd-aside"),
+    scroll: panel.locator(".cover-scroll"),
+    pipeline: panel.locator(".jd-aside .section-title").first(),
+    lastRow: panel.locator(".similar-row").last(),
+  };
+}
+/** How far under the bar the column stops: the page's own top inset. */
+const STUCK = 40;
+/** Scrolls the posting and waits for what follows its scroll (the pay copy,
+ *  the role in the bar): drawn on the scroll event, fired with the next frame.
+ *  Under reduced motion a change of style still takes a transition of a
+ *  frame, which is finished here. */
+const scrollPosting = (scroll: Locator, top: number) => scroll.evaluate(async (box, y) => {
+  box.scrollTop = y;
+  await new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done())));
+  for (const animation of document.getAnimations()) animation.finish();
+}, top);
+
+test("the side column stays in view while a long description scrolls", async ({ page }) => {
+  const { column, scroll, pipeline, lastRow } = await openLongPosting(page, { width: 1440, height: 1000 });
+  const card = (await detail(page).locator(".comp-panel").boundingBox())!;
+  const atRest = (await column.boundingBox())!;
+  expect(atRest.y, "at the top it stands beside the pay panel").toBeCloseTo(card.y, 0);
+
+  await scrollPosting(scroll, 1500);
+  const box = (await scroll.boundingBox())!;
+  const stuck = (await column.boundingBox())!;
+  expect(stuck.y - box.y, "stopped under the bar").toBeCloseTo(STUCK, 0);
+  await expect(pipeline).toBeInViewport({ ratio: 1 });
+  // Its More like this rows have folded away while the posting is read.
+  await expect(lastRow).toBeHidden();
+  await expect(column.locator("dl.kv").first()).toBeInViewport({ ratio: 1 });
+  // Fail-first: a column that scrolls with the page is 1500px above the window here.
+  await expect(detail(page).getByText("Paragraph 12.")).toBeInViewport();
+});
+
+test("a side column taller than the window keeps its first rows in view, and its last rows come at the end of the page", async ({ page }) => {
+  const { column, scroll, pipeline, lastRow } = await openLongPosting(page, { width: 1440, height: 560 });
+  const atRest = (await column.boundingBox())!;
+  const box = (await scroll.boundingBox())!;
+  expect(atRest.height, "taller than its room").toBeGreaterThan(box.height - 2 * STUCK);
+  // Fail-first: a column with a scroll of its own is clipped to its room.
+  expect(await column.evaluate((el) => [getComputedStyle(el).overflowY, el.scrollHeight - el.clientHeight])).toEqual(["visible", 0]);
+
+  await scrollPosting(scroll, 1500);
+  // More like this folds while the posting is read; opened again, the column is its full length.
+  await column.getByRole("button", { name: msg("role-job-detail-more-like-this") }).click();
+  await expect(lastRow).toBeVisible();
+  const stuck = (await column.boundingBox())!;
+  expect(stuck.y - box.y, "stopped under the bar").toBeCloseTo(STUCK, 0);
+  expect(stuck.height, "whole").toBeGreaterThanOrEqual(atRest.height);
+  await expect(pipeline).toBeInViewport({ ratio: 1 });
+  await expect(lastRow).not.toBeInViewport();
+  await expect(detail(page).getByText("Paragraph 12.")).toBeInViewport();
+
+  // The one scroll reaches the column's last row: at the page's end the column leaves with the text.
+  await scrollPosting(scroll, 100000);
+  await expect(lastRow).toBeInViewport({ ratio: 1 });
+});
+
+/* A long read has its own ramp: the title a clear step above the section
+   headings, the headings a step above the text. Sections are parted by room
+   alone: the heading marks the break, and a rule over it would say it twice. */
+test("section headings outrank the text by a step, and sections are parted by room, not rules", async ({ page }) => {
+  await openLongPosting(page, { width: 1440, height: 1000 });
+  const panel = detail(page);
+  const size = (one: Locator) => one.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+  const heading = panel.locator(".jd-section-minimum_qualifications h2");
+  const text = panel.locator(".jd-section-summary p").last();
+  expect((await size(heading)) / (await size(text)), "a heading a step above the text").toBeGreaterThanOrEqual(1.15);
+  expect((await size(panel.locator(".jd-hero h1"))) / (await size(heading)), "the title a step above its headings")
+    .toBeGreaterThanOrEqual(1.2);
+
+  const rules = await panel.locator(".jd-section:not(.jd-section-pay_and_benefits)")
+    .evaluateAll((all) => all.map((one) => getComputedStyle(one).borderTopWidth));
+  expect(rules.length).toBeGreaterThan(2);
+  expect([...new Set(rules)], "no rule over any section").toEqual(["0px"]);
+
+  // The room above a heading's words: at least two lines of the text.
+  const words = await heading.evaluate((el) => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    return range.getBoundingClientRect().top;
+  });
+  const above = (await text.boundingBox())!;
+  const line = await text.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
+  expect(words - (above.y + above.height)).toBeGreaterThanOrEqual(2 * line);
+});
+
+/* While a section is read its heading stays at the top of the reading column,
+   and the bar carries the role once the posting's own heading has left, at
+   the heading's left edge. */
+test("a section's heading stays at the top of the column, and the role rises into the bar", async ({ page }) => {
+  const { scroll } = await openLongPosting(page, { width: 1440, height: 1000 });
+  const panel = detail(page);
+  const role = panel.locator(".jd-bar-role");
+  const heading = panel.getByRole("heading", { name: "Responsibilities" });
+  await expect(role).not.toHaveAttribute("data-shown", "");
+  await expect.poll(() => role.evaluate((el) => getComputedStyle(el).opacity)).toBe("0");
+  await expect(role, "a copy for the eye: the heading is the one read out").toHaveAttribute("aria-hidden", "true");
+
+  await scrollPosting(scroll, 1500);
+  const box = (await scroll.boundingBox())!;
+  expect((await heading.boundingBox())!.y, "stuck at the top of the scroll box").toBeCloseTo(box.y, 0);
+  await expect(panel.getByText("Paragraph 12.")).toBeInViewport();
+  // Stuck, it stands on the canvas, solid: nothing passing beneath shows
+  // through it, blurred or not.
+  await expect(heading).toHaveAttribute("data-stuck", "");
+  const ground = await heading.evaluate((el) => {
+    const style = getComputedStyle(el);
+    const probe = document.createElement("i");
+    probe.style.color = "var(--app-canvas)";
+    el.append(probe);
+    const canvas = getComputedStyle(probe).color;
+    probe.remove();
+    return {
+      colour: style.backgroundColor,
+      canvas,
+      blur: style.backdropFilter || style.getPropertyValue("-webkit-backdrop-filter") || "none",
+      edge: style.boxShadow,
+      layers: el.querySelectorAll("[aria-hidden]").length,
+    };
+  });
+  expect(ground.colour, "the canvas itself, solid").toBe(ground.canvas);
+  expect(ground.colour).not.toBe("rgba(0, 0, 0, 0)");
+  expect(ground.blur, "no blur of what passes beneath").toBe("none");
+  // A line passing under it goes under an edge: a hairline at its foot.
+  expect(ground.edge, "a hairline at its foot").toContain(" 0px 1px 0px");
+  expect(ground.layers, "no layer drawn behind the words").toBe(0);
+  await expect(role).toHaveAttribute("data-shown", "");
+  await expect(role.locator(".jd-bar-title")).toHaveText(longPosting.title);
+  const title = (await panel.locator(".jd-hero h1").boundingBox())!;
+  expect((await role.locator(".jd-bar-title").boundingBox())!.x, "at the heading's left edge").toBeCloseTo(title.x, 0);
+
+  await scrollPosting(scroll, 0);
+  await expect(role).not.toHaveAttribute("data-shown", "");
+  // In its place a heading draws no ground: nothing lies over its section's first line.
+  await expect(heading).not.toHaveAttribute("data-stuck", "");
+  expect(await heading.evaluate((el) => {
+    const style = getComputedStyle(el);
+    return [style.backgroundColor, style.boxShadow];
+  })).toEqual(["rgba(0, 0, 0, 0)", "none"]);
+});
+
+/* The pay panel leads the page. As its last part leaves, its small copy grows
+   at the top of the side column, with the scroll and back with it; it says
+   what the panel says. */
+test("the pay panel's small copy grows above Pipeline as the panel leaves, and goes when it returns", async ({ page }) => {
+  const { column, scroll, pipeline } = await openLongPosting(page, { width: 1440, height: 1000 });
+  const panel = detail(page);
+  const dock = column.locator(".jd-dock");
+  const height = async () => (await dock.boundingBox())!.height;
+  expect(await height(), "nothing at the top of the page").toBe(0);
+  await expect(dock).toHaveAttribute("aria-hidden", "true");
+  const gap = async () => (await pipeline.boundingBox())!.y - (await column.boundingBox())!.y;
+  const before = await gap();
+
+  const leaves = await scroll.evaluate((el) => {
+    const card = el.querySelector(".pkg-panel")!.getBoundingClientRect();
+    return card.bottom - el.getBoundingClientRect().top;
+  });
+  // Under reduced motion (how the posting was opened) the copy does not grow: it is absent, then whole.
+  await scrollPosting(scroll, leaves - 85);
+  expect(await height(), "reduced motion: nothing part way").toBe(0);
+  await scrollPosting(scroll, leaves + 200);
+  const full = await height();
+  expect(full).toBeGreaterThan(40);
+  expect(await gap(), "Pipeline moved down by the copy").toBeCloseTo(before + full, 0);
+  await expect(dock.locator(".pkg-mini .big")).toHaveText(await panel.locator(".pkg-panel .big").innerText());
+  await expect(dock.locator(".pkg-mini-eyebrow")).toHaveText(await panel.locator(".pkg-panel .pkg-eyebrow").innerText());
+  expect((await dock.boundingBox())!.y - (await scroll.boundingBox())!.y, "in view, under the bar").toBeCloseTo(STUCK, 0);
+
+  await scrollPosting(scroll, 0);
+  expect(await height()).toBe(0);
+  expect(await gap()).toBeCloseTo(before, 0);
+  // With motion allowed it follows the scroll: part way while the panel's last part leaves.
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.reload();
+  await expect(panel.getByRole("heading", { name: "Responsibilities" })).toBeVisible();
+  await scrollPosting(scroll, leaves - 85);
+  const half = await height();
+  expect(half, "part way").toBeGreaterThan(0);
+  expect(half).toBeLessThan(full);
+  await scrollPosting(scroll, leaves + 200);
+  expect(await height()).toBeCloseTo(full, 0);
+});
+
+/* A posting with no pay figure says so where the panel stands, and that
+   stays there: nothing docks, because there is nothing to keep in view. */
+test("a posting with no pay figure docks nothing above Pipeline", async ({ page }) => {
+  await mockGet(page, "/api/jobs/303", (route) => route.fulfill({ json: { ...longPosting, comp_package: compPackageFixture({ estimate: null }) } }));
+  await mockGet(page, "/api/applications/303", (route) => route.fulfill({ json: applicationDetailFixture({
+    application: applicationCardFixture({ job_id: 303, pursuit_id: 10, stage: "applied", company: "apple" }),
+  }) }));
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/company/apple/job/303");
+  const panel = detail(page);
+  await expect(panel.getByRole("heading", { name: "Responsibilities" })).toBeVisible();
+  const unknown = panel.getByTestId("pkg-unknown");
+  await expect(unknown.locator(".pkg-eyebrow")).toHaveText(msg("role-job-comp-panel-estimated-total-comp"));
+  await expect(unknown.locator(".big, .pkg-bar"), "no figure, no stand-in for one, no bar").toHaveCount(0);
+  const scroll = panel.locator(".cover-scroll");
+  const column = panel.locator(".jd-aside");
+  await scrollPosting(scroll, 1500);
+  expect((await column.locator(".jd-dock").boundingBox())!.height).toBe(0);
+  await expect(column.locator(".pkg-mini")).toHaveCount(0);
+  await expect(column.locator(".section-title").first(), "Pipeline leads the column").toHaveText(msg("applications-posting-row"));
+  expect((await column.boundingBox())!.y - (await scroll.boundingBox())!.y, "under the bar").toBeCloseTo(STUCK, 0);
+});
+
+/* Stuck, a section's heading stands level with the first line of the side
+   column: the two columns open on one line. */
+test("a stuck section heading is level with the side column's first line", async ({ page }) => {
+  const { column, scroll } = await openLongPosting(page, { width: 1440, height: 1000 });
+  await scrollPosting(scroll, 1500);
+  const middle = (locator: Locator) => locator.evaluate((el) => {
+    // The words only, not the heading's padded box.
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const box = range.getBoundingClientRect();
+    return (box.top + box.bottom) / 2;
+  });
+  const heading = await middle(detail(page).getByRole("heading", { name: "Responsibilities" }));
+  const kicker = await middle(column.locator(".pkg-mini-eyebrow"));
+  expect(Math.abs(heading - kicker), "the heading's words and the column's first kicker").toBeLessThanOrEqual(1.5);
+});
+
+/* Opened from a list, a posting knows its place there: the bar steps to the
+   rows on either side, J and K do the same, and Back still returns to the
+   list. Opened by its link it has no list, and no pager. */
+test("a posting opened from the board steps to the next row and back, and Back returns to the board", async ({ page }) => {
+  await mockGet(page, "/api/jobs?**", (route) => route.fulfill({ json: twoJobList }));
+  await page.goto("/");
+  await page.getByText(jobFixture.title).click();
+  const panel = detail(page);
+  const pager = panel.getByRole("group", { name: msg("role-job-detail-pager") });
+  const previous = pager.getByRole("button", { name: msg("role-job-detail-pager-previous") });
+  const next = pager.getByRole("button", { name: msg("role-job-detail-pager-next") });
+  await expect(pager).toContainText(msg("role-job-detail-pager-place", { place: 1, count: 2 }));
+  await expect(previous, "nothing before the first row").toHaveAttribute("aria-disabled", "true");
+
+  await next.click();
+  await expect(page).toHaveURL(/\/company\/[^/]+\/job\/202$/);
+  await expect(panel.getByRole("heading", { level: 1, name: jobFixture2.title })).toBeVisible(FIRST_TURN);
+  await expect(pager).toContainText(msg("role-job-detail-pager-place", { place: 2, count: 2 }));
+  await expect(next, "nothing after the last row").toHaveAttribute("aria-disabled", "true");
+
+  await page.keyboard.press("k");
+  await expect(page).toHaveURL(/\/job\/101$/);
+  await expect(pager).toContainText(msg("role-job-detail-pager-place", { place: 1, count: 2 }));
+  await page.keyboard.press("j");
+  await expect(page).toHaveURL(/\/job\/202$/);
+
+  // Each step replaced the entry: one Back is the board, with the cover gone.
+  await panel.getByRole("button", { name: msg("role-job-detail-back-2") }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(panel).toHaveCount(0);
+});
+
+/* The read ends on the way on: under the employer's text, the next posting in
+   the list, named, which opens it as J does. The last row of the list has
+   nothing after it, and a posting opened by its link has no list. */
+test("a posting opened from the board ends on the next one, which it opens; the last row and a link end on nothing", async ({ page }) => {
+  await mockGet(page, "/api/jobs?**", (route) => route.fulfill({ json: twoJobList }));
+  await page.goto("/");
+  await page.getByText(jobFixture.title).click();
+  const panel = detail(page);
+  const end = panel.locator(".jd-end");
+  const onward = end.getByRole("button");
+  await expect(onward).toContainText(msg("role-job-detail-next-posting"));
+  await expect(onward).toContainText(jobFixture2.title);
+  await expect(onward).toContainText(msg("role-job-detail-pager-place", { place: 2, count: 2 }));
+  await expect(onward).toHaveAttribute("aria-keyshortcuts", "J");
+  const text = (await panel.locator(".jd-main > .jd-sections, .jd-main > .jd, .jd-main > .jd-empty").last().boundingBox())!;
+  expect((await end.boundingBox())!.y, "after the employer's text").toBeGreaterThan(text.y + text.height);
+
+  await onward.click();
+  await expect(page).toHaveURL(/\/company\/[^/]+\/job\/202$/);
+  await expect(panel.getByRole("heading", { level: 1, name: jobFixture2.title })).toBeVisible(FIRST_TURN);
+  await expect(panel.locator(".jd-end"), "the list's last row").toHaveCount(0);
+
+  await page.goto(`/job/${jobFixture.id}`);
+  await expect(panel.locator(".jd-hero h1")).toHaveText(jobFixture.title);
+  await expect(panel.locator(".jd-end"), "no list, no next").toHaveCount(0);
+});
+
+/* Stepping to another posting turns the posting inside a cover that stays
+   open. While the next one loads the one on show stays, for the eye only;
+   the screen is never emptied to a loading line, the bar keeps its controls,
+   and the new posting opens at its top. */
+test("the next posting turns in place: one cover, no loading line, the old posting stays until the new one is ready", async ({ page }) => {
+  await mockGet(page, "/api/jobs?**", (route) => route.fulfill({ json: twoJobList }));
+  let release = () => {};
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  await mockGet(page, "/api/jobs/202", async (route) => {
+    await held;
+    await route.fulfill({ json: { ...jobFixture2, description_text: "Second posting.\n\n".repeat(80) } });
+  });
+  await mockGet(page, "/api/jobs/101", (route) =>
+    route.fulfill({ json: { ...jobFixture, description_text: "First posting.\n\n".repeat(80) } }));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.getByText(jobFixture.title).click();
+  const panel = detail(page);
+  const title = panel.locator(".jd-hero h1");
+  await expect(title).toHaveText(jobFixture.title);
+
+  const cover = panel.locator(".cover");
+  const scroll = panel.locator(".cover-scroll");
+  await cover.evaluate((el: HTMLElement) => { el.dataset.opened = "once"; });
+  await page.evaluate(() => {
+    const seen = window as unknown as { loadingLines: number };
+    seen.loadingLines = 0;
+    new MutationObserver(() => {
+      if (document.querySelector(".cover .loading")) seen.loadingLines += 1;
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+  await scroll.evaluate((el) => { el.scrollTop = 500; });
+  const apply = panel.getByRole("link", { name: VIEW_APPLY });
+  await expect(apply).toHaveAttribute("href", jobFixture.url);
+
+  const pager = panel.getByRole("group", { name: msg("role-job-detail-pager") });
+  const waiting = panel.locator(".jd-waiting");
+  await expect(waiting, "nothing is on its way").toHaveCount(0);
+  await pager.getByRole("button", { name: msg("role-job-detail-pager-next") }).click();
+  // The step is acknowledged at once, in the bar; the posting waits for its data.
+  await expect(pager).toContainText(msg("role-job-detail-pager-place", { place: 2, count: 2 }));
+  await expect(title, "the posting on show stays").toHaveText(jobFixture.title);
+  await expect(panel.locator(".jd-container"), "for the eye only").toHaveAttribute("inert", "");
+  await expect(panel.locator(".jd-bar-actions"), "its controls take no input").toHaveAttribute("inert", "");
+  expect(await scroll.evaluate((el) => el.scrollTop), "and stays where it was read to").toBe(500);
+  // A wait past a quick load's moment shows a line along the bar's foot.
+  expect(await waiting.evaluate((el) => getComputedStyle(el).animationDelay), "never for a quick load").toBe("0.2s");
+  await expect.poll(() => waiting.evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
+  const bar = (await panel.locator(".cover-bar").boundingBox())!;
+  const line = (await waiting.boundingBox())!;
+  expect(line.width, "the bar's width").toBeCloseTo(bar.width, 0);
+  expect(line.y + line.height, "at its foot").toBeCloseTo(bar.y + bar.height, 0);
+
+  release();
+  await expect(title).toHaveText(jobFixture2.title, FIRST_TURN);
+  await expect(waiting, "gone once the posting has come").toHaveCount(0);
+  await expect(panel.locator(".jd-container")).not.toHaveAttribute("inert", "");
+  await expect(panel.getByRole("link", { name: VIEW_APPLY })).toHaveAttribute("href", jobFixture2.url);
+  await expect.poll(() => scroll.evaluate((el) => el.scrollTop), { message: "the new posting opens at its top" }).toBe(0);
+  await expect(cover, "the same cover, never opened again").toHaveAttribute("data-opened", "once");
+  expect(await page.evaluate(() => (window as unknown as { loadingLines: number }).loadingLines)).toBe(0);
+  // The turn leaves nothing behind it: a name left on the reading area would cancel the next one.
+  await expect(page.locator("html")).not.toHaveAttribute("data-posting-turn");
+  await expect.poll(() => scroll.evaluate((el: HTMLElement) => el.style.getPropertyValue("view-transition-name"))).toBe("");
+});
+
+/* The turn itself, where the browser has view transitions: the reading area
+   alone is drawn apart, the new posting comes in the way the list runs, and
+   under reduced motion the posting changes with no motion at all. */
+test("a step along the list turns the reading area that way; reduced motion turns nothing", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium", "the Docker WebKit is slow over its first turn, and the app gives it no second");
+  await mockGet(page, "/api/jobs?**", (route) => route.fulfill({ json: twoJobList }));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.getByText(jobFixture.title).click();
+  const panel = detail(page);
+  const title = panel.locator(".jd-hero h1");
+  await expect(title).toHaveText(jobFixture.title);
+
+  // Long enough to be read while it runs.
+  await page.addStyleTag({ content: "::view-transition-new(posting) { animation-duration: 20s !important; }" });
+  const turning = () => page.evaluate(() => {
+    const running = document.getAnimations().filter((one) => {
+      const effect = one.effect as KeyframeEffect | null;
+      return effect?.pseudoElement?.startsWith("::view-transition") ?? false;
+    });
+    const named = (name: string) => running.some((one) => (one.effect as KeyframeEffect).pseudoElement === name);
+    return {
+      way: document.documentElement.dataset.postingTurn ?? null,
+      readingArea: named("::view-transition-new(posting)"),
+      names: [...document.querySelectorAll<HTMLElement>("*")].filter((el) => el.style.getPropertyValue("view-transition-name")).map((el) => el.className),
+    };
+  });
+  const finish = () => page.evaluate(() => document.getAnimations().forEach((one) => one.finish()));
+
+  const pager = panel.getByRole("group", { name: msg("role-job-detail-pager") });
+  await pager.getByRole("button", { name: msg("role-job-detail-pager-next") }).click();
+  await expect.poll(turning).toEqual({ way: "next", readingArea: true, names: ["cover-scroll"] });
+  await expect(title, "the new posting is what comes in").toHaveText(jobFixture2.title);
+  await finish();
+  await expect.poll(turning).toEqual({ way: null, readingArea: false, names: [] });
+
+  await page.keyboard.press("k");
+  await expect.poll(turning).toEqual({ way: "previous", readingArea: true, names: ["cover-scroll"] });
+  await finish();
+  await expect(title).toHaveText(jobFixture.title);
+  await expect.poll(turning).toEqual({ way: null, readingArea: false, names: [] });
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.keyboard.press("j");
+  await expect(title).toHaveText(jobFixture2.title);
+  expect(await turning(), "no turn was started").toEqual({ way: null, readingArea: false, names: [] });
+});
+
+/* A posting that is the page itself (reached by its link) has nothing under
+   it: a link on it turns the page to the next posting in the same cover, and
+   Back, by the bar or the browser, returns to the first where it was left. */
+test("from a posting reached by its link, a similar role takes its place in the same cover, and Back returns to it", async ({ page }) => {
+  await mockGet(page, "/api/jobs/101", (route) =>
+    route.fulfill({ json: { ...jobFixture, description_text: "First posting.\n\n".repeat(80) } }));
+  await mockGet(page, "/api/jobs/101/similar**", (route) => route.fulfill({ json: {
+    scope: new URL(route.request().url()).searchParams.get("scope"),
+    items: [{ ...jobFixture2, score: 0.9 }],
+  } }));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/company/openai/job/101");
+  const panel = detail(page);
+  const title = panel.locator(".jd-hero h1");
+  await expect(title).toHaveText(jobFixture.title);
+  const cover = page.locator(".cover");
+  const scroll = page.locator(".cover-scroll");
+  await cover.evaluate((el: HTMLElement) => { el.dataset.opened = "once"; });
+  await scroll.evaluate((el) => { el.scrollTop = 400; });
+
+  // Clicked where it stands: a pointer would first scroll the row into view,
+  // and move the place the first posting is left at.
+  await panel.locator(".similar-row").first().dispatchEvent("click");
+  await expect(page).toHaveURL(/\/company\/[^/]+\/job\/202$/);
+  await expect(title).toHaveText(jobFixture2.title, FIRST_TURN);
+  // Still the page, in the cover it opened in: nothing was stacked on it.
+  await expect(page.getByRole("main", { name: /^Role:/ })).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".cover")).toHaveCount(1);
+  await expect(cover).toHaveAttribute("data-opened", "once");
+  await expect.poll(() => scroll.evaluate((el) => el.scrollTop), { message: "the new posting opens at its top" }).toBe(0);
+
+  // The bar's Back is the first posting, not the board, and where it was left.
+  await panel.getByRole("button", { name: msg("role-job-detail-back-2") }).click();
+  await expect(page).toHaveURL(/\/company\/[^/]+\/job\/101$/);
+  await expect(title).toHaveText(jobFixture.title, FIRST_TURN);
+  await expect.poll(() => scroll.evaluate((el) => el.scrollTop), { message: "where the first posting was left" }).toBe(400);
+  await expect(cover).toHaveAttribute("data-opened", "once");
+
+  // From there Back has no posting behind it: the board.
+  await panel.getByRole("button", { name: msg("role-job-detail-back-2") }).click();
+  await expect(page).toHaveURL(/\/$/);
+});
+
+/* An arrow that cannot act now still takes focus, so the ring the keyboard
+   draws around it must stand clear of the count it sits beside and of the
+   hairline at the group's end. */
+test("the pager's focus ring clears the count and the hairline, on either arrow", async ({ page }) => {
+  await mockGet(page, "/api/jobs?**", (route) => route.fulfill({ json: twoJobList }));
+  await page.goto("/");
+  await page.getByText(jobFixture.title).click();
+  const pager = detail(page).getByRole("group", { name: msg("role-job-detail-pager") });
+  await expect(pager).toBeVisible();
+
+  const clearance = (side: "first" | "last") => pager.evaluate((group: HTMLElement, which) => {
+    const arrows = [...group.querySelectorAll<HTMLElement>(".ui-btn")];
+    const arrow = which === "first" ? arrows[0] : arrows[arrows.length - 1];
+    arrow.focus();
+    const style = getComputedStyle(arrow);
+    const ring = parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset);
+    const drawn = arrow.getBoundingClientRect();
+    const count = group.querySelector(".jd-pager-place")!.getBoundingClientRect();
+    const whole = group.getBoundingClientRect();
+    return {
+      ring,
+      // The ring's near edge to the count, and the group's own end to the ring.
+      toCount: Math.round(which === "first" ? count.left - (drawn.right + ring) : (drawn.left - ring) - count.right),
+      toRule: Math.round(whole.right - (drawn.right + ring)),
+    };
+  }, side);
+
+  for (const side of ["first", "last"] as const) {
+    const seen = await clearance(side);
+    expect(seen.ring, `${side} arrow draws a ring`).toBeGreaterThan(0);
+    expect(seen.toCount, `${side} arrow's ring clears the count`).toBeGreaterThan(0);
+    expect(seen.toRule, `${side} arrow's ring clears the hairline`).toBeGreaterThan(0);
+  }
+});
+
+test("a posting opened by its link has no pager", async ({ page }) => {
+  await page.goto("/company/openai/job/101");
+  await expect(detail(page).getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(detail(page).getByRole("group", { name: msg("role-job-detail-pager") })).toHaveCount(0);
+});
+
+/* More like this folds to its heading, for a column of the role's own facts.
+   The choice is this browser's, and holds for the next posting opened. */
+test("More like this folds to its heading, and the next posting opens folded", async ({ page }) => {
+  const { column } = await openLongPosting(page, { width: 1440, height: 1000 });
+  const panel = detail(page);
+  const fold = column.getByRole("button", { name: msg("role-job-detail-more-like-this") });
+  await expect(fold).toHaveAttribute("aria-expanded", "true");
+  const open = (await column.boundingBox())!;
+  const target = (await fold.boundingBox())!;
+  expect(target.width, "the whole heading line").toBeCloseTo(open.width, 0);
+  // It paints no box of its own, at rest or under a pointer.
+  await fold.hover();
+  expect(await fold.evaluate((el) => [getComputedStyle(el).backgroundColor, getComputedStyle(el).borderTopWidth])).toEqual(["rgba(0, 0, 0, 0)", "0px"]);
+  // The pointer target reaches past the words' own line, above and below.
+  await page.mouse.click(open.x + 4, target.y - 6);
+  await expect(fold).toHaveAttribute("aria-expanded", "false");
+  await page.mouse.click(open.x + 4, target.y + target.height + 6);
+  await expect(fold).toHaveAttribute("aria-expanded", "true");
+  const chevron = (await fold.locator("svg").boundingBox())!;
+  expect(chevron.x + chevron.width, "the chevron at the line's end").toBeCloseTo(open.x + open.width, 0);
+  // The empty stretch between the words and the chevron folds it too.
+  await page.mouse.click(open.x + open.width / 2, target.y + target.height / 2);
+  await expect(fold).toHaveAttribute("aria-expanded", "false");
+  await page.mouse.click(open.x + open.width / 2, target.y + target.height / 2);
+  await expect(fold).toHaveAttribute("aria-expanded", "true");
+
+  await fold.focus();
+  await page.keyboard.press("Enter");
+  await expect(fold).toHaveAttribute("aria-expanded", "false");
+  await expect(fold).toBeFocused();
+  await expect(panel.locator(".similar-row").first()).toBeHidden();
+  await expect(panel.locator(".similar-label").first()).toBeHidden();
+  await page.keyboard.press("Tab");
+  expect(await page.evaluate(() => !!document.activeElement?.closest(".similar-fold")), "folded rows take no focus").toBe(false);
+  await fold.focus();
+  await expect(fold).toBeVisible();
+  expect((await column.boundingBox())!.height, "shorter by its rows").toBeLessThan(open.height - 100);
+  // The rest of the column is as it was.
+  await expect(column.locator("dl.kv").first()).toBeVisible();
+
+  await page.reload();
+  await expect(panel.getByRole("heading", { name: "Responsibilities" })).toBeVisible();
+  const again = panel.locator(".jd-aside").getByRole("button", { name: msg("role-job-detail-more-like-this") });
+  await expect(again).toHaveAttribute("aria-expanded", "false");
+  await expect(panel.locator(".similar-row").first()).toBeHidden();
+
+  await again.click();
+  await expect(again).toHaveAttribute("aria-expanded", "true");
+  await expect(panel.locator(".similar-row").first()).toBeVisible();
+  await expect(panel.locator(".similar-row")).toHaveCount(6);
+});
+
+/* More like this is for choosing where to go next: open at the top of a
+   posting, folded while it is read, open again back at the top. Opened while
+   reading it stays open, and none of that changes the choice the browser keeps. */
+test("More like this folds while the posting is read and opens again at the top", async ({ page }) => {
+  const { column, scroll } = await openLongPosting(page, { width: 1440, height: 1000 });
+  const fold = column.getByRole("button", { name: msg("role-job-detail-more-like-this") });
+  const rows = column.locator(".similar-row");
+  const open = (await column.boundingBox())!.height;
+  await expect(rows.first()).toBeVisible();
+
+  await scrollPosting(scroll, 1500);
+  await expect(fold).toHaveAttribute("aria-expanded", "false");
+  await expect(rows.first()).toBeHidden();
+  await expect(fold).toBeVisible();
+  await expect.poll(async () => (await column.boundingBox())!.height, "shorter by its rows").toBeLessThan(open - 100);
+  // The text did not move when the column changed.
+  expect(await scroll.evaluate((el) => el.scrollTop)).toBe(1500);
+
+  // Opened while reading, it stays open down the page.
+  await fold.click();
+  await expect(rows.first()).toBeVisible();
+  await scrollPosting(scroll, 2200);
+  await expect(fold).toHaveAttribute("aria-expanded", "true");
+  await fold.click();
+  await expect(rows.first()).toBeHidden();
+
+  await scrollPosting(scroll, 0);
+  await expect(fold).toHaveAttribute("aria-expanded", "true");
+  await expect(rows.first()).toBeVisible();
+  // Folding by the scroll is not the person's choice: the next visit opens it.
+  expect(await page.evaluate(() => localStorage.getItem("roleband.posting-similar-folded"))).toBeNull();
+});
+
+test("in one column the side column follows the description and scrolls with the page", async ({ page }) => {
+  const { column, scroll } = await openLongPosting(page, { width: 800, height: 900 });
+  const text = (await detail(page).locator(".jd-sections").boundingBox())!;
+  const below = (await column.boundingBox())!;
+  expect(below.y, "under the description").toBeGreaterThanOrEqual(text.y + text.height);
+  expect(await column.evaluate((el) => getComputedStyle(el).position)).toBe("static");
+  await scroll.evaluate((el) => { el.scrollTop = 600; });
+  expect((await column.boundingBox())!.y, "moves with the page").toBeCloseTo(below.y - 600, 0);
+});
+
+/* The form states its own size (15% larger than the screen, plain on a phone):
+   opened from a posting, it is the size it is in the pipeline. */
+for (const [name, size, zoom] of [["a laptop", { width: 1440, height: 900 }, 1.15], ["a phone", { width: 375, height: 812 }, 1]] as const) {
+  test(`the interview form opened from a posting is the pipeline's size on ${name}`, async ({ page }) => {
+    await page.setViewportSize(size);
+    await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: { ...jobFixture, is_favorite: true, pursuit: appliedPursuit } }));
+    await mockGet(page, "/api/applications/101", (route) => route.fulfill({ json: applicationDetailFixture() }));
+    await page.goto("/company/openai/job/101");
+    await detail(page).getByRole("button", { name: STAGE_APPLIED }).click();
+    await page.getByRole("dialog", { name: STAGE_MENU })
+      .getByRole("button", { name: new RegExp(msg("taxonomy-stage-interviewing")) }).click();
+    const form = page.getByRole("dialog", { name: msg("applications-interview-title") });
+    await expect(form).toBeVisible();
+    await expect.poll(() => form.evaluate((el) => el.getAnimations().every((one) => one.playState === "finished"))).toBe(true);
+    const drawn = await form.evaluate((el: HTMLElement) => el.getBoundingClientRect().width / el.offsetWidth);
+    expect(drawn).toBeCloseTo(zoom, 2);
+  });
+}
+
 test("moving to Interviewing from the posting asks for the interview first, over the cover", async ({ page }) => {
   const writes: unknown[] = [];
   await mockApi(page, "PUT", "/api/jobs/101/pursuit", (route) => {
@@ -601,15 +1284,15 @@ test("moving to Interviewing from the posting asks for the interview first, over
   await page.goto("/company/openai/job/101");
   const panel = detail(page);
 
-  await panel.getByRole("button", { name: /^Applied( · \d+ days? in this stage)?$/ }).click();
-  await page.getByRole("dialog", { name: /^Change the stage of / }).getByRole("button", { name: /Interviewing/ }).click();
+  await panel.getByRole("button", { name: STAGE_APPLIED }).click();
+  await page.getByRole("dialog", { name: STAGE_MENU }).getByRole("button", { name: new RegExp(msg("taxonomy-stage-interviewing")) }).click();
   const form = page.getByRole("dialog", { name: msg("applications-interview-title") });
   await expect(form).toBeVisible();
   await expectOnTop(form.getByRole("heading", { name: msg("applications-interview-title") }), "the interview form");
   expect(writes, "no move before the interview's date").toEqual([]);
   await form.getByRole("button", { name: msg("applications-interview-cancel") }).click();
   await expect(form).toHaveCount(0);
-  await expect(panel.getByRole("button", { name: /^Applied( · \d+ days? in this stage)?$/ })).toBeVisible();
+  await expect(panel.getByRole("button", { name: STAGE_APPLIED })).toBeVisible();
   expect(writes).toEqual([]);
 });
 
@@ -965,6 +1648,7 @@ test("similar positions show at most three per category, fetched as three, and t
  * must not have fallen back to the shared faint.
  */
 test("the requirements eyebrow keeps its ink after folding into the shared recipe", async ({ page }) => {
+  test.skip(true, "The role requirements panel is off the posting while its worth there is decided (JobDetail SHOW_REQUIREMENTS).");
   // The board harness's job carries no requirements, so the panel that owns
   // this eyebrow never mounts. Give it one.
   await page.route("/api/jobs/101", (route) =>

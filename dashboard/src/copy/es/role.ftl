@@ -1,13 +1,10 @@
 ## role: movido tal como se encontró (wording=as-is)
 
 ## features/job-detail/JobCompPanel.tsx
-role-job-comp-panel-start-offer = Empezar una oferta desde este puesto
-role-job-comp-panel-the-employer-s-exact-words = Las palabras exactas del empleador
 role-job-comp-panel-no-compensation-data-for-this = No hay datos de compensación para este puesto.
 role-job-comp-panel-market-median-at-this-level = Mediana de mercado del nivel
 role-job-comp-panel-this-package-is-the-market = Esta estimación es { $toFixed }× la mediana del mercado para este nivel, normalmente señal de que el nivel o la disciplina no son correctos.
 role-job-comp-panel-base = Base
-role-job-comp-panel-base-salary-stated-in-the = Salario base indicado en la oferta.
 role-job-comp-panel-this-employer-publishes-no-pay = Este empleador no publica ningún rango. Todo lo de abajo es una estimación.
 role-job-comp-panel-we-have-not-checked-this = Aún no se ha revisado si esta oferta publica un rango.
 role-job-comp-panel-stated = indicado
@@ -16,7 +13,6 @@ role-job-comp-panel-our-independent-estimate-of-total = Estimación independient
 role-job-comp-panel-from-the-posting-s-pay = Del campo de compensación de la oferta, no de su texto.
 role-job-comp-panel-bonus = Bono
 role-job-comp-panel-equity = Acciones
-role-job-comp-panel-cash-every-month = efectivo, cada mes
 role-job-comp-panel-target-not-guaranteed = objetivo, no garantizado
 role-job-comp-panel-per-year-vests-over-time = al año, con consolidación gradual
 role-job-comp-panel-measured-split = Reparto medido
@@ -53,14 +49,12 @@ role-job-comp-panel-total-compensation = compensación total
 role-job-comp-panel-the-posting-states-total-compensation = La oferta indica la compensación total sin desglose, así que no se muestra ninguno.
 role-job-comp-panel-basis-not-stated = tipo no indicado
 role-job-comp-panel-the-posting-states-this-figure = La oferta no dice si esta cifra es salario base o compensación total, así que no se divide en base, bonus y acciones.
-role-job-comp-panel-no-estimate-available = No hay estimación disponible
 role-job-comp-panel-estimated-total-package = { $choice ->
     [yes] Compensación total publicada
    *[no] Compensación total estimada
 }
 role-job-comp-panel-estimated-total-comp = Compensación total estimada
 role-job-comp-panel-stated-by-the-employer = Indicado por el empleador
-role-job-comp-panel-about-stated-base-salary = Sobre el salario base publicado
 role-job-comp-panel-of-base-stated = { $round }% del salario base, indicado
 
 ## features/job-detail/JobDescription.tsx
@@ -267,7 +261,6 @@ role-listing-age-still-listed-at-the-last = Seguía publicado en el último esca
 role-listing-age-events = Eventos
 
 ## features/job-detail/PayFloorLine.tsx
-role-pay-floor-line-clears-your-pay-floor = Supera tu base mínima de { $floor }
 role-pay-floor-line-your-pay-floor-falls-inside = Tu base mínima de { $floor } está dentro de este rango
 role-pay-floor-line-below-your-pay-floor = Por debajo de tu base mínima de { $floor }
 
@@ -370,7 +363,6 @@ role-job-comp-panel-roleband-splits-us-pay-only = La compensación se divide en 
 role-job-comp-panel-level-not-stated-or-mapped = Sin un nivel estándar, no se estima ningún reparto ni total.
 role-job-comp-panel-not-read-yet = aún sin leer
 role-job-comp-panel-estimated-base = Salario base estimado
-role-job-comp-panel-from-roleband-data = De los datos integrados.
 role-job-detail-could-not-unsave-this-role = { $choice ->
     [yes] No se pudo guardar este puesto
    *[no] No se pudo quitar este puesto de tu seguimiento
