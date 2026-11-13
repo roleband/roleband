@@ -357,7 +357,8 @@ async def _finish_source(
     # complete, error-free) says the listing is trustworthy
     # evidence; binding scope says WHICH jobs this
     # binding is entitled to speak for. A rebind passes the first
-    # and must still fail the second.
+    # and must still fail the second. A source that lists one place at a time
+    # speaks only for the places it was asked about.
     scope = await resolve_closure_scope(
         session,
         company,
@@ -365,6 +366,7 @@ async def _finish_source(
         listing_is_authoritative=scan_may_close(
             scan_mode, collection, max_list=max_list
         ),
+        queried_places=collection.catalog_places,
     )
     stats["closure_scope"] = scope.reason
     stats["closure_eligible"] = scope.may_close

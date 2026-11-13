@@ -23,6 +23,7 @@ from tracker.connectors.recipes.outcome import RESETS_ABSENCE, SourceOutcome
 from tracker.db.models import Job, JobLifecycleEvent
 from tracker.db.repo import Absence, count_miss
 from tracker.schema import ClosureBasis, RawJob
+from tracker.settings_store import set_enabled_locations
 from tracker.workflows import pipeline, post_passes
 from tracker.workflows.collection_types import ScanMode
 
@@ -220,6 +221,106 @@ async def test_a_posting_seen_again_starts_its_count_again(db_session, board, re
     job = await _gone(db_session)
     assert held["closed"] == 0
     assert (job.status, job.absent_scans) == ("open", 1)
+
+
+#: Where each place's postings are, as a source that searches one place at a
+#: time lists them: the query term for each tracked place, and what it returns.
+PLACE_TERMS = {"united_states": ["United States"], "germany": ["Germany"]}
+PLACE_OF = {"United States": "San Francisco, CA, USA", "Germany": "Berlin, Germany"}
+
+
+@pytest.fixture
+def place_board(scratch_scope, db_session, monkeypatch):
+    """apple on a source that lists only the places it is asked about.
+
+    `scan(listed, places)` tracks `places` through the settings store, then runs
+    a reconcile: the source answers each planned term with the postings
+    `listed` holds for it, whatever the tracked set, as an employer's board does.
+    """
+    asked: list[list[str]] = []
+
+    class PlaceSearch(BaseAdapter):
+        listing_scope = "filtered"
+        location_queries = PLACE_TERMS
+
+        async def fetch(self):
+            terms = self.planned_location_terms()
+            asked.append(terms)
+            async for job in self.scan_location_queries(terms, self._term):
+                yield job
+
+        async def _term(self, term, seen):
+            for req_id in self.listed.get(term, ()):
+                seen.add(req_id)
+                job = posting(req_id)
+                job.locations = [PLACE_OF[term]]
+                yield job
+
+    class Compensation:
+        def __init__(self, *_providers) -> None:
+            pass
+
+        async def resolve(self, _context):
+            return None, []
+
+        def reset(self, _providers, *, fingerprint):
+            self.fingerprint = fingerprint
+
+        async def aclose(self):
+            pass
+
+    monkeypatch.setattr(pipeline, "CompResolver", Compensation)
+    monkeypatch.setattr(post_passes, "POST_PASSES", ())
+    for adapter in ADAPTER_REGISTRY:
+        monkeypatch.setitem(ADAPTER_REGISTRY, adapter, PlaceSearch)
+    network = AsyncMock(side_effect=AssertionError("pipeline test attempted external HTTP"))
+    monkeypatch.setattr(httpx.AsyncClient, "send", network)
+
+    async def scan(listed: dict[str, list[str]], places: list[str]):
+        await set_enabled_locations(db_session, places)
+        await db_session.commit()
+        PlaceSearch.listed = listed
+        return await pipeline.run_pipeline(companies=["apple"], hydrate=False)
+
+    scan.asked = asked
+    yield scan
+    network.assert_not_awaited()
+
+
+async def _job(db_session, req_id: str) -> Job:
+    db_session.expire_all()
+    return (await db_session.scalars(select(Job).where(Job.req_id == req_id))).one()
+
+
+async def test_a_place_no_longer_tracked_is_not_judged_by_a_listing_that_never_asked_it(
+    db_session, place_board
+):
+    """Narrowing the tracked places stops the source asking about a place; its
+    postings are still listed, so nothing about them may be counted or closed.
+    The still-tracked place closes on two misses as before (the control)."""
+    employer = {"United States": ["us-kept", "us-gone"], "Germany": ["de-listed"]}
+    await place_board(employer, ["united_states", "germany"])
+    assert place_board.asked[-1] == ["United States", "Germany"]
+    assert (await _job(db_session, "de-listed")).status == "open"
+
+    employer = {"United States": ["us-kept"], "Germany": ["de-listed"]}
+    missed = await place_board(employer, ["united_states"])
+    assert place_board.asked[-1] == ["United States"]
+    stats = missed["per_source"]["apple"]
+    # The listing speaks for the two US postings only.
+    assert (stats["absence_open"], stats["absence_missed"]) == (2, 1)
+    assert (await _job(db_session, "us-gone")).absent_scans == 1
+
+    await _age_absence(db_session)
+    closing = await place_board(employer, ["united_states"])
+    assert closing["closed"] == 1
+    gone = await _job(db_session, "us-gone")
+    assert (gone.status, gone.closure_basis) == (
+        "closed", ClosureBasis.ABSENT_FROM_COMPLETE_LISTING.value,
+    )
+    held = await _job(db_session, "de-listed")
+    assert (held.status, held.absent_scans, held.absent_since) == ("open", 0, None)
+    assert (await _job(db_session, "us-kept")).status == "open"
 
 
 async def test_a_second_miss_counts_only_from_the_gap_after_the_first():

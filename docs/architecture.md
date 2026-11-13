@@ -971,6 +971,11 @@ is `ok`, `capped` or `empty`; `error` when none produced usable data; else
 - **Two gates.** Run quality (an uncapped, complete, reconciling scan) decides
   whether a listing is evidence; the binding's closure scope decides which
   postings it speaks for.
+- **A place listing speaks for its places.** A `filtered` or `windowed` source
+  is complete only over the location groups it was asked about
+  (`planned_location_items`), so its scope holds only postings with a place at
+  or under one of them (`binding.listed_by_query`). A posting in a place no
+  longer tracked, or with no place, keeps its count untouched.
 - **Two misses.** A posting closes on its second complete miss, at least
   `closure_second_miss_min_hours` (20 h) after the first. Any sighting resets
   it, and a `degraded`, `failed` or `blocked` scan of the company resets every
