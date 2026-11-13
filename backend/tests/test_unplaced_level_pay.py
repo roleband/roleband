@@ -7,8 +7,11 @@ $151,200 to $223,200 was shown a Senior Product Manager's $390,000. So:
 
 1. **No rung estimate.** Neither our resolver nor a plugin's answers a band
    whose basis is unplaced, in the scan and in the re-estimate alike.
-2. **The stated range still shows,** whole: no equity, bonus or total is built
-   from the guessed band, and nothing is reconciled against it.
+2. **The stated base still shows,** as the bar's one stated segment: no
+   equity, bonus or total is built from the guessed band, and nothing is
+   reconciled against it. The level is a guess; the base is the employer's
+   own figure, and a guessed level is no reason to withhold it
+   (docs/decisions/0006-stated-base-without-a-level.md).
 3. **A placed level is priced as before:** the controls for both.
 4. **Relevel re-estimates a row whose placement moves,** even when the band
    it keeps for sorting stays the same.
@@ -127,16 +130,39 @@ def _package(level_placed: bool) -> dict:
                              baselines=SENIOR_PM, level_placed=level_placed)
 
 
-def test_an_unmapped_level_shows_the_stated_base_whole():
+def test_an_unmapped_level_shows_the_stated_base_and_builds_nothing_on_it():
     pkg = _package(level_placed=False)
 
     assert pkg["stated"] == {"low": 151_200, "high": 223_200}
     assert pkg["no_split_reason"] == NO_SPLIT_LEVEL_UNPLACED
-    assert pkg["components"] == [] and pkg["total"] is None
+    # The employer's base, stated, and nothing else: the Senior row above would
+    # have added $300,000 of equity and a $60,000 bonus to a level nobody stated.
+    assert pkg["components"] == [
+        {"kind": "base", "low": 151_200, "high": 223_200, "provenance": PROV_STATED}
+    ]
+    assert pkg["total"] is None
     assert pkg["equity_basis"] is None
     # Nothing is checked against the guessed band's row either.
     assert (pkg["reconciliation"], pkg["market_gap"]) == (None, None)
     assert (pkg["split_source"], pkg["split_provider"]) == (None, None)
+
+
+@pytest.mark.parametrize("disclosed, reason", [
+    ({**STATED_BASE, "pay_basis": "unclear"}, "basis_unclear"),
+    ({**STATED_BASE, "pay_period": "hour", "base_min": 70, "base_max": 110}, "hourly"),
+    ({**STATED_BASE, "pay_period": "month", "base_min": 12_000, "base_max": 18_000}, "monthly"),
+    ({**STATED_BASE, "pay_period": "unclear"}, "period_unclear"),
+    ({**STATED_BASE, "pay_basis": "total"}, "total_compensation"),
+], ids=["basis-unclear", "hourly", "monthly", "period-unclear", "total"])
+def test_only_a_yearly_base_becomes_that_segment(disclosed, reason):
+    """The segment says "base, stated". A figure the posting never called base,
+    and a rate that is not yearly, must never be drawn as one."""
+    pkg = build_job_package(company="google", band="senior", family="product_management", comp_low=None,
+                            comp_median=None, comp_high=None, comp_provenance=None, disclosed=disclosed,
+                            baselines=SENIOR_PM, level_placed=False)
+
+    assert pkg["no_split_reason"] == reason
+    assert pkg["components"] == []
 
 
 def test_a_placed_level_with_the_same_stated_base_is_split():

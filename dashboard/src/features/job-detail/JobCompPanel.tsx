@@ -352,6 +352,10 @@ export default function JobCompPanel({ job }: { job: Job }) {
   // A total or our estimate is always yearly; only the employer's own figure
   // carries the posting's unit, so a yearly estimate never reads "/ hr".
   const headlineUnit = headline === stated ? statedUnit : (" " + roleJobCompPanelYr());
+  // The headline IS the employer's figure: nothing below prints it a second
+  // time. A package with no split and no estimate of its own reads this way,
+  // and its stated base is already the bar's one segment.
+  const headlineIsStated = headline === stated;
 
   // A split yearly package in dollars can start the person's own offer on the
   // Stock tab. The figures travel in the page's history entry, not the address.
@@ -428,8 +432,9 @@ export default function JobCompPanel({ job }: { job: Job }) {
         </div>
       )}
 
-      {/* The one line that answers "what do I actually get for certain?" */}
-      {stated && pkg.pay_period === "year" && pkg.basis === "base" && (
+      {/* The one line that answers "what do I actually get for certain?" —
+          needed only while the headline above is an estimate. */}
+      {stated && !headlineIsStated && pkg.pay_period === "year" && pkg.basis === "base" && (
         <div className="pkg-guaranteed">
           <Icon name="checkCircle" size={14} />
           <b>{span(stated, cur)}</b>
@@ -507,17 +512,19 @@ export default function JobCompPanel({ job }: { job: Job }) {
         </div>
       )}
 
-      {/* A plugin's figure with no split of its own, and no band stated: the
-          headline is its estimate, and this says why there is no bar. */}
-      {pkg.no_split_reason && !stated && (
+      {/* Why there is no split, where the figure it is about is already above:
+          a plugin's estimate with no band stated, or a stated band the
+          headline carries. */}
+      {pkg.no_split_reason && (!stated || headlineIsStated) && (
         <p className="pkg-note" data-testid="pkg-no-split">
           <span className="pkg-tag pkg-tag-warn">{noSplitTag(pkg.no_split_reason, job)}</span>{" "}
           {noSplitWhy(pkg.no_split_reason, job)}
         </p>
       )}
 
-      {/* An employer figure we deliberately refuse to break down. */}
-      {pkg.no_split_reason && stated && (
+      {/* An employer figure we deliberately refuse to break down, printed here
+          because the headline above is our estimate instead. */}
+      {pkg.no_split_reason && stated && !headlineIsStated && (
         <div className="pkg-unclear">
           <div className="pkg-unclear-n">
             {span(stated, cur)}
