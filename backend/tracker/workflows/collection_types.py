@@ -272,7 +272,8 @@ class SourceCollection:
     #: What the catalog could not count or was not asked: postings
     #: with no recognised place, postings with a place but no family (counted
     #: apart), and the location groups a source that lists
-    #: only asked-for places was queried for (None: the whole board).
+    #: only asked-for places was queried for (None: the whole board). Closure
+    #: reads the groups too: such a listing speaks only for postings in them.
     catalog_unplaced: int = 0
     catalog_unsorted: int = 0
     catalog_places: list[str] | None = None
