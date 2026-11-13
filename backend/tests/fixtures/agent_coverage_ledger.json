@@ -1,0 +1,960 @@
+{
+ "_why": "Every route of the dashboard API, with what an agent reaches it through: the ID of the operation that covers it, or an exclusion kind and the reason no operation does. tests/test_agent_coverage_ledger.py fails when a route has no row, so a new route cannot ship without that decision. Routes under /api/agent/v1/ are the operation surface itself and need no row.",
+ "rows": [
+  {
+   "method": "DELETE",
+   "path": "/api/company-profiles/{slug}/manual/{field}",
+   "excluded": "person_only",
+   "reason": "Un-pinning a field withdraws the person's own correction; only the person attests a company fact."
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/intelligence/cloud-models/{profile_id}",
+   "excluded": "app_setting",
+   "reason": "Model profiles, their keys and the local model server stay in the app, so no agent can change which model reads the person's data."
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/intelligence/local-models/{profile_id}",
+   "excluded": "app_setting",
+   "reason": "Model profiles, their keys and the local model server stay in the app, so no agent can change which model reads the person's data."
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/jobs/{job_id}/favorite",
+   "operation": "pursuits.unsave"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/jobs/{job_id}/feedback",
+   "operation": "feedback.set"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/jobs/{job_id}/pursuit/comments/{comment_id}",
+   "excluded": "destructive",
+   "reason": "Deletes a comment from the pursuit's timeline; an agent corrects with a new comment instead."
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/jobs/{job_id}/pursuit/interviews/{interview_id}",
+   "excluded": "destructive",
+   "reason": "Deletes an interview record; an agent changes one through interviews.patch instead."
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/lineage/links/{link_id}",
+   "operation": "duplicates.decide"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/plugins/{plugin_id}",
+   "excluded": "app_setting",
+   "reason": "Installing, enabling and removing plugins stays in the app."
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/profile/offer",
+   "excluded": "destructive",
+   "reason": "Forgets the person's offer, which keeps no earlier version to restore."
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/profile/offer/valuations/{company}",
+   "excluded": "destructive",
+   "reason": "Forgets a valuation the person entered, which keeps no earlier version to restore."
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/profile/pay-floor",
+   "operation": "pay_floor.set"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/scope/rules/{rule_id}",
+   "operation": "scope.propose"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/settings/price-feed",
+   "excluded": "app_setting",
+   "reason": "The price-feed key is a secret the person saves in the app."
+  },
+  {
+   "method": "GET",
+   "path": "/",
+   "excluded": "internal",
+   "reason": "The dashboard's page shell."
+  },
+  {
+   "method": "GET",
+   "path": "/api/applications",
+   "operation": "pursuits.list"
+  },
+  {
+   "method": "GET",
+   "path": "/api/applications/calendar",
+   "operation": "applications.calendar"
+  },
+  {
+   "method": "GET",
+   "path": "/api/applications/{job_id}",
+   "operation": "pursuits.get"
+  },
+  {
+   "method": "GET",
+   "path": "/api/applications/{job_id}/activity",
+   "operation": "applications.activity"
+  },
+  {
+   "method": "GET",
+   "path": "/api/companies",
+   "operation": "companies.list"
+  },
+  {
+   "method": "GET",
+   "path": "/api/companies/directory",
+   "operation": "companies.directory.search"
+  },
+  {
+   "method": "GET",
+   "path": "/api/companies/directory/status",
+   "operation": "companies.directory.search"
+  },
+  {
+   "method": "GET",
+   "path": "/api/companies/discovery",
+   "operation": "companies.catalog.list"
+  },
+  {
+   "method": "GET",
+   "path": "/api/companies/names",
+   "operation": "vocabulary.list"
+  },
+  {
+   "method": "GET",
+   "path": "/api/companies/open-counts",
+   "operation": "companies.list"
+  },
+  {
+   "method": "GET",
+   "path": "/api/companies/{company}/recipe-rebind/{binding_id}",
+   "operation": "recipes.rebind.get"
+  },
+  {
+   "method": "GET",
+   "path": "/api/companies/{slug}/card",
+   "operation": "companies.get"
+  },
+  {
+   "method": "GET",
+   "path": "/api/company-profiles",
+   "operation": "companies.list"
+  },
+  {
+   "method": "GET",
+   "path": "/api/company-profiles/{slug}",
+   "operation": "companies.get"
+  },
+  {
+   "method": "GET",
+   "path": "/api/company-profiles/{slug}/claims",
+   "operation": "companies.facts.list"
+  },
+  {
+   "method": "GET",
+   "path": "/api/company-profiles/{slug}/prices",
+   "operation": "companies.prices.get"
+  },
+  {
+   "method": "GET",
+   "path": "/api/compare-selection",
+   "excluded": "internal",
+   "reason": "The Compare tray's selection is view state of the dashboard."
+  },
+  {
+   "method": "GET",
+   "path": "/api/connector-recipes",
+   "operation": "recipes.list"
+  },
+  {
+   "method": "GET",
+   "path": "/api/connector-recipes/{slug}",
+   "operation": "recipes.get"
+  },
+  {
+   "method": "GET",
+   "path": "/api/connectors/capabilities",
+   "operation": "sources.adapters.list"
+  },
+  {
+   "method": "GET",
+   "path": "/api/demand",
+   "operation": "insights.demand"
+  },
+  {
+   "method": "GET",
+   "path": "/api/facets",
+   "operation": "vocabulary.list"
+  },
+  {
+   "method": "GET",
+   "path": "/api/health",
+   "excluded": "internal",
+   "reason": "The liveness probe of the launcher and supervisor; agents read status."
+  },
+  {
+   "method": "GET",
+   "path": "/api/intelligence",
+   "excluded": "app_setting",
+   "reason": "Model profiles, their keys and the local model server stay in the app, so no agent can change which model reads the person's data."
+  },
+  {
+   "method": "GET",
+   "path": "/api/intelligence/agents",
+   "excluded": "app_setting",
+   "reason": "The assistant-access and egress switches stay in the app, so no agent can widen its own access."
+  },
+  {
+   "method": "GET",
+   "path": "/api/intelligence/cloud-models",
+   "excluded": "app_setting",
+   "reason": "Model profiles, their keys and the local model server stay in the app, so no agent can change which model reads the person's data."
+  },
+  {
+   "method": "GET",
+   "path": "/api/intelligence/fit",
+   "operation": "intent.fit"
+  },
+  {
+   "method": "GET",
+   "path": "/api/intelligence/fit/band/{band}",
+   "operation": "intent.fit"
+  },
+  {
+   "method": "GET",
+   "path": "/api/intelligence/local-models",
+   "excluded": "app_setting",
+   "reason": "Model profiles, their keys and the local model server stay in the app, so no agent can change which model reads the person's data."
+  },
+  {
+   "method": "GET",
+   "path": "/api/intelligence/local-models/server",
+   "excluded": "app_setting",
+   "reason": "Model profiles, their keys and the local model server stay in the app, so no agent can change which model reads the person's data."
+  },
+  {
+   "method": "GET",
+   "path": "/api/jobs",
+   "operation": "opportunities.search"
+  },
+  {
+   "method": "GET",
+   "path": "/api/jobs/{job_id}",
+   "operation": "opportunities.get"
+  },
+  {
+   "method": "GET",
+   "path": "/api/jobs/{job_id}/history",
+   "operation": "opportunities.history"
+  },
+  {
+   "method": "GET",
+   "path": "/api/jobs/{job_id}/lineage",
+   "operation": "opportunities.duplicates"
+  },
+  {
+   "method": "GET",
+   "path": "/api/jobs/{job_id}/place-set",
+   "operation": "opportunities.duplicates"
+  },
+  {
+   "method": "GET",
+   "path": "/api/jobs/{job_id}/similar",
+   "operation": "opportunities.similar"
+  },
+  {
+   "method": "GET",
+   "path": "/api/jobs/{job_id}/twins",
+   "operation": "opportunities.duplicates"
+  },
+  {
+   "method": "GET",
+   "path": "/api/launcher-health",
+   "excluded": "internal",
+   "reason": "The Mac launcher's own health check."
+  },
+  {
+   "method": "GET",
+   "path": "/api/lineage/review",
+   "operation": "duplicates.queue"
+  },
+  {
+   "method": "GET",
+   "path": "/api/notifications",
+   "operation": "notifications.list"
+  },
+  {
+   "method": "GET",
+   "path": "/api/pay-coverage",
+   "operation": "plugins.list"
+  },
+  {
+   "method": "GET",
+   "path": "/api/plugins",
+   "operation": "plugins.list"
+  },
+  {
+   "method": "GET",
+   "path": "/api/plugins/{plugin_id}",
+   "operation": "plugins.get"
+  },
+  {
+   "method": "GET",
+   "path": "/api/plugins/{plugin_id}/robots",
+   "excluded": "person_only",
+   "reason": "Shown beside the consent to pass a site's robots rules, which only the person gives."
+  },
+  {
+   "method": "GET",
+   "path": "/api/profile",
+   "operation": "intent.get"
+  },
+  {
+   "method": "GET",
+   "path": "/api/profile/offer",
+   "operation": "offer.get"
+  },
+  {
+   "method": "GET",
+   "path": "/api/profile/pay-floor",
+   "operation": "pay_floor.get"
+  },
+  {
+   "method": "GET",
+   "path": "/api/profile/suggestions",
+   "operation": "suggestions.list"
+  },
+  {
+   "method": "GET",
+   "path": "/api/pursuits",
+   "operation": "pursuits.list"
+  },
+  {
+   "method": "GET",
+   "path": "/api/release-notes",
+   "excluded": "internal",
+   "reason": "The app's own release notes."
+  },
+  {
+   "method": "GET",
+   "path": "/api/runs",
+   "operation": "scans.list"
+  },
+  {
+   "method": "GET",
+   "path": "/api/schedule",
+   "operation": "schedule.get"
+  },
+  {
+   "method": "GET",
+   "path": "/api/scope/catalog",
+   "operation": "scope.get"
+  },
+  {
+   "method": "GET",
+   "path": "/api/scope/places",
+   "operation": "vocabulary.list"
+  },
+  {
+   "method": "GET",
+   "path": "/api/scope/rules",
+   "operation": "scope.get"
+  },
+  {
+   "method": "GET",
+   "path": "/api/settings",
+   "operation": "scope.get"
+  },
+  {
+   "method": "GET",
+   "path": "/api/settings/locale",
+   "excluded": "app_setting",
+   "reason": "Language and region are display settings of the app."
+  },
+  {
+   "method": "GET",
+   "path": "/api/settings/price-feed",
+   "excluded": "app_setting",
+   "reason": "The price-feed key is a secret the person saves in the app."
+  },
+  {
+   "method": "GET",
+   "path": "/api/settings/retention",
+   "excluded": "app_setting",
+   "reason": "How long unread postings are kept decides what is removed; it stays in the app."
+  },
+  {
+   "method": "GET",
+   "path": "/api/skills/top",
+   "operation": "insights.skills"
+  },
+  {
+   "method": "GET",
+   "path": "/api/statistics/comp-trajectory",
+   "operation": "insights.trajectory"
+  },
+  {
+   "method": "GET",
+   "path": "/api/statistics/comp-trends",
+   "operation": "insights.trends"
+  },
+  {
+   "method": "GET",
+   "path": "/api/statistics/compensation",
+   "operation": "insights.compensation"
+  },
+  {
+   "method": "GET",
+   "path": "/api/statistics/disclosure-trends",
+   "operation": "insights.trends"
+  },
+  {
+   "method": "GET",
+   "path": "/api/statistics/history",
+   "operation": "insights.history"
+  },
+  {
+   "method": "GET",
+   "path": "/api/statistics/levels",
+   "operation": "insights.levels"
+  },
+  {
+   "method": "GET",
+   "path": "/api/statistics/offer-terms",
+   "operation": "insights.offer_terms"
+  },
+  {
+   "method": "GET",
+   "path": "/api/statistics/overview",
+   "operation": "insights.overview"
+  },
+  {
+   "method": "GET",
+   "path": "/api/statistics/pay-table",
+   "operation": "insights.pay_table"
+  },
+  {
+   "method": "GET",
+   "path": "/api/statistics/velocity",
+   "operation": "insights.velocity"
+  },
+  {
+   "method": "GET",
+   "path": "/api/stats",
+   "operation": "radar.summary"
+  },
+  {
+   "method": "GET",
+   "path": "/api/status",
+   "operation": "status"
+  },
+  {
+   "method": "GET",
+   "path": "/api/sync/targets",
+   "operation": "scans.targets"
+  },
+  {
+   "method": "GET",
+   "path": "/api/twins/review",
+   "operation": "duplicates.queue"
+  },
+  {
+   "method": "GET",
+   "path": "/api/usage",
+   "excluded": "app_setting",
+   "reason": "Usage-data consent and the install ID are the person's answer, given in the app."
+  },
+  {
+   "method": "GET",
+   "path": "/api/usage/preview",
+   "excluded": "app_setting",
+   "reason": "Usage-data consent and the install ID are the person's answer, given in the app."
+  },
+  {
+   "method": "GET",
+   "path": "/api/usage/sent",
+   "excluded": "app_setting",
+   "reason": "Usage-data consent and the install ID are the person's answer, given in the app."
+  },
+  {
+   "method": "GET",
+   "path": "/{full_path:path}",
+   "excluded": "internal",
+   "reason": "The built dashboard's files and client-side routes."
+  },
+  {
+   "method": "PATCH",
+   "path": "/api/companies/{slug}",
+   "operation": "companies.follow"
+  },
+  {
+   "method": "PATCH",
+   "path": "/api/company-profiles/{slug}",
+   "excluded": "person_only",
+   "reason": "Pinning a value is the person's attestation of a company fact; agents propose research instead."
+  },
+  {
+   "method": "PATCH",
+   "path": "/api/jobs/{job_id}/pursuit/interviews/{interview_id}",
+   "operation": "interviews.patch"
+  },
+  {
+   "method": "PATCH",
+   "path": "/api/schedule/{binding_id}",
+   "excluded": "maintainer",
+   "reason": "Moves one connector deadline by hand, a diagnostic control over the dispatcher."
+  },
+  {
+   "method": "POST",
+   "path": "/api/companies",
+   "operation": "companies.follow"
+  },
+  {
+   "method": "POST",
+   "path": "/api/companies/{company}/recipe",
+   "operation": "scans.request"
+  },
+  {
+   "method": "POST",
+   "path": "/api/companies/{company}/recipe-rebind",
+   "operation": "recipes.rebind.start"
+  },
+  {
+   "method": "POST",
+   "path": "/api/companies/{company}/recipe-rebind/{binding_id}/activate",
+   "operation": "recipes.rebind.activate"
+  },
+  {
+   "method": "POST",
+   "path": "/api/companies/{company}/recipe-rebind/{binding_id}/decisions",
+   "excluded": "person_only",
+   "reason": "When a shadow listing loses postings, the person decides each one: a wrong recipe damages observation history, which cannot be rebuilt."
+  },
+  {
+   "method": "POST",
+   "path": "/api/companies/{company}/recipe-rebind/{binding_id}/rollback",
+   "operation": "recipes.rebind.rollback"
+  },
+  {
+   "method": "POST",
+   "path": "/api/companies/{slug}/board/find",
+   "operation": "companies.board.find"
+  },
+  {
+   "method": "POST",
+   "path": "/api/connector-recipes",
+   "operation": "recipes.draft.save"
+  },
+  {
+   "method": "POST",
+   "path": "/api/connector-recipes/{slug}/activate",
+   "operation": "recipes.activate"
+  },
+  {
+   "method": "POST",
+   "path": "/api/connector-recipes/{slug}/revisions/{revision_id}/validate",
+   "operation": "recipes.revisions.validate"
+  },
+  {
+   "method": "POST",
+   "path": "/api/connectors/preview",
+   "operation": "recipes.validate"
+  },
+  {
+   "method": "POST",
+   "path": "/api/intelligence/cloud-models",
+   "excluded": "app_setting",
+   "reason": "Model profiles, their keys and the local model server stay in the app, so no agent can change which model reads the person's data."
+  },
+  {
+   "method": "POST",
+   "path": "/api/intelligence/cloud-models/{profile_id}/test",
+   "excluded": "app_setting",
+   "reason": "Model profiles, their keys and the local model server stay in the app, so no agent can change which model reads the person's data."
+  },
+  {
+   "method": "POST",
+   "path": "/api/intelligence/local-models",
+   "excluded": "app_setting",
+   "reason": "Model profiles, their keys and the local model server stay in the app, so no agent can change which model reads the person's data."
+  },
+  {
+   "method": "POST",
+   "path": "/api/intelligence/local-models/server",
+   "excluded": "app_setting",
+   "reason": "Model profiles, their keys and the local model server stay in the app, so no agent can change which model reads the person's data."
+  },
+  {
+   "method": "POST",
+   "path": "/api/intelligence/local-models/{profile_id}/test",
+   "excluded": "app_setting",
+   "reason": "Model profiles, their keys and the local model server stay in the app, so no agent can change which model reads the person's data."
+  },
+  {
+   "method": "POST",
+   "path": "/api/intelligence/matching/resume",
+   "excluded": "app_setting",
+   "reason": "Which bundled matching model this computer runs is a setting of the app."
+  },
+  {
+   "method": "POST",
+   "path": "/api/intelligence/matching/stop",
+   "excluded": "app_setting",
+   "reason": "Which bundled matching model this computer runs is a setting of the app."
+  },
+  {
+   "method": "POST",
+   "path": "/api/intelligence/test",
+   "excluded": "maintainer",
+   "reason": "Runs one extraction through an experimental provider, a diagnostic."
+  },
+  {
+   "method": "POST",
+   "path": "/api/jobs/{job_id}/place-set/review",
+   "operation": "duplicates.decide"
+  },
+  {
+   "method": "POST",
+   "path": "/api/jobs/{job_id}/posting-page",
+   "excluded": "internal",
+   "reason": "Reads a posting's own page because the person opened it in the dashboard."
+  },
+  {
+   "method": "POST",
+   "path": "/api/jobs/{job_id}/pursuit/comments",
+   "operation": "comments.add"
+  },
+  {
+   "method": "POST",
+   "path": "/api/jobs/{job_id}/pursuit/interviews",
+   "operation": "interviews.add"
+  },
+  {
+   "method": "POST",
+   "path": "/api/jobs/{job_id}/view",
+   "excluded": "internal",
+   "reason": "Marks a posting seen by the person; an agent's read must not mark it seen."
+  },
+  {
+   "method": "POST",
+   "path": "/api/lineage/links/{link_id}/analyze",
+   "operation": "duplicates.analyze"
+  },
+  {
+   "method": "POST",
+   "path": "/api/lineage/links/{link_id}/review",
+   "operation": "duplicates.decide"
+  },
+  {
+   "method": "POST",
+   "path": "/api/local-auth/browser-session",
+   "excluded": "internal",
+   "reason": "Browser sign-in to the engine."
+  },
+  {
+   "method": "POST",
+   "path": "/api/local-auth/browser-ticket",
+   "excluded": "internal",
+   "reason": "Browser sign-in to the engine."
+  },
+  {
+   "method": "POST",
+   "path": "/api/notifications/read_all",
+   "operation": "notifications.read"
+  },
+  {
+   "method": "POST",
+   "path": "/api/notifications/unread",
+   "operation": "notifications.unread"
+  },
+  {
+   "method": "POST",
+   "path": "/api/notifications/{notification_id}/dismiss",
+   "operation": "notifications.dismiss"
+  },
+  {
+   "method": "POST",
+   "path": "/api/notifications/{notification_id}/read",
+   "operation": "notifications.read"
+  },
+  {
+   "method": "POST",
+   "path": "/api/notifications/{notification_id}/restore",
+   "operation": "notifications.restore"
+  },
+  {
+   "method": "POST",
+   "path": "/api/notifications/{notification_id}/unread",
+   "operation": "notifications.unread"
+  },
+  {
+   "method": "POST",
+   "path": "/api/plugins/{plugin_id}/approve",
+   "excluded": "person_only",
+   "reason": "Approving a plugin's install as shown is the person's consent to run its code."
+  },
+  {
+   "method": "POST",
+   "path": "/api/plugins/{plugin_id}/disable",
+   "excluded": "app_setting",
+   "reason": "Installing, enabling and removing plugins stays in the app."
+  },
+  {
+   "method": "POST",
+   "path": "/api/plugins/{plugin_id}/enable",
+   "excluded": "app_setting",
+   "reason": "Installing, enabling and removing plugins stays in the app."
+  },
+  {
+   "method": "POST",
+   "path": "/api/plugins/{plugin_id}/pause",
+   "excluded": "app_setting",
+   "reason": "Pausing a plugin's automatic runs is a setting of the app."
+  },
+  {
+   "method": "POST",
+   "path": "/api/plugins/{plugin_id}/refresh",
+   "operation": "scans.request"
+  },
+  {
+   "method": "POST",
+   "path": "/api/plugins/{plugin_id}/remove-data",
+   "excluded": "destructive",
+   "reason": "Deletes a plugin's pay and benefit rows."
+  },
+  {
+   "method": "POST",
+   "path": "/api/plugins/{plugin_id}/resume",
+   "excluded": "app_setting",
+   "reason": "Pausing a plugin's automatic runs is a setting of the app."
+  },
+  {
+   "method": "POST",
+   "path": "/api/profile/suggestions/{suggestion_id}/accept",
+   "operation": "suggestions.accept"
+  },
+  {
+   "method": "POST",
+   "path": "/api/profile/suggestions/{suggestion_id}/dismiss",
+   "operation": "suggestions.dismiss"
+  },
+  {
+   "method": "POST",
+   "path": "/api/scope/preview",
+   "operation": "scope.preview"
+  },
+  {
+   "method": "POST",
+   "path": "/api/scope/refresh",
+   "operation": "scans.request"
+  },
+  {
+   "method": "POST",
+   "path": "/api/scope/rules",
+   "operation": "scope.propose"
+  },
+  {
+   "method": "POST",
+   "path": "/api/settings/price-feed/refresh",
+   "operation": "prices.refresh"
+  },
+  {
+   "method": "POST",
+   "path": "/api/sync",
+   "operation": "scans.request"
+  },
+  {
+   "method": "POST",
+   "path": "/api/sync/cancel",
+   "operation": "operations.cancel"
+  },
+  {
+   "method": "POST",
+   "path": "/api/twins/links",
+   "operation": "duplicates.link"
+  },
+  {
+   "method": "POST",
+   "path": "/api/twins/links/{link_id}/analyze",
+   "operation": "duplicates.analyze"
+  },
+  {
+   "method": "POST",
+   "path": "/api/twins/links/{link_id}/review",
+   "operation": "duplicates.decide"
+  },
+  {
+   "method": "POST",
+   "path": "/api/usage/install-id/reset",
+   "excluded": "app_setting",
+   "reason": "Usage-data consent and the install ID are the person's answer, given in the app."
+  },
+  {
+   "method": "PUT",
+   "path": "/api/companies/directory/follow",
+   "operation": "companies.directory.follow"
+  },
+  {
+   "method": "PUT",
+   "path": "/api/companies/selection",
+   "operation": "companies.follow"
+  },
+  {
+   "method": "PUT",
+   "path": "/api/companies/{slug}/board",
+   "operation": "companies.board.set"
+  },
+  {
+   "method": "PUT",
+   "path": "/api/compare-selection",
+   "excluded": "internal",
+   "reason": "The Compare tray's selection is view state of the dashboard."
+  },
+  {
+   "method": "PUT",
+   "path": "/api/intelligence",
+   "excluded": "app_setting",
+   "reason": "Model profiles, their keys and the local model server stay in the app, so no agent can change which model reads the person's data."
+  },
+  {
+   "method": "PUT",
+   "path": "/api/intelligence/agents",
+   "excluded": "app_setting",
+   "reason": "The assistant-access and egress switches stay in the app, so no agent can widen its own access."
+  },
+  {
+   "method": "PUT",
+   "path": "/api/intelligence/cloud-models/{profile_id}",
+   "excluded": "app_setting",
+   "reason": "Model profiles, their keys and the local model server stay in the app, so no agent can change which model reads the person's data."
+  },
+  {
+   "method": "PUT",
+   "path": "/api/intelligence/egress",
+   "excluded": "app_setting",
+   "reason": "The assistant-access and egress switches stay in the app, so no agent can widen its own access."
+  },
+  {
+   "method": "PUT",
+   "path": "/api/intelligence/local-models/active/select",
+   "excluded": "app_setting",
+   "reason": "Model profiles, their keys and the local model server stay in the app, so no agent can change which model reads the person's data."
+  },
+  {
+   "method": "PUT",
+   "path": "/api/intelligence/local-models/enabled",
+   "excluded": "app_setting",
+   "reason": "Model profiles, their keys and the local model server stay in the app, so no agent can change which model reads the person's data."
+  },
+  {
+   "method": "PUT",
+   "path": "/api/intelligence/local-models/{profile_id}",
+   "excluded": "app_setting",
+   "reason": "Model profiles, their keys and the local model server stay in the app, so no agent can change which model reads the person's data."
+  },
+  {
+   "method": "PUT",
+   "path": "/api/intelligence/matching/tier",
+   "excluded": "app_setting",
+   "reason": "Which bundled matching model this computer runs is a setting of the app."
+  },
+  {
+   "method": "PUT",
+   "path": "/api/jobs/{job_id}/favorite",
+   "operation": "pursuits.save"
+  },
+  {
+   "method": "PUT",
+   "path": "/api/jobs/{job_id}/feedback",
+   "operation": "feedback.set"
+  },
+  {
+   "method": "PUT",
+   "path": "/api/jobs/{job_id}/pursuit",
+   "operation": "pursuits.patch"
+  },
+  {
+   "method": "PUT",
+   "path": "/api/jobs/{job_id}/pursuit/comments/{comment_id}",
+   "operation": "comments.correct"
+  },
+  {
+   "method": "PUT",
+   "path": "/api/plugins/{plugin_id}/robots",
+   "excluded": "person_only",
+   "reason": "Passing a site's robots rules is consent only the person gives."
+  },
+  {
+   "method": "PUT",
+   "path": "/api/plugins/{plugin_id}/schedule",
+   "excluded": "app_setting",
+   "reason": "How often a plugin runs is a setting of the app."
+  },
+  {
+   "method": "PUT",
+   "path": "/api/profile/offer",
+   "operation": "offer.set"
+  },
+  {
+   "method": "PUT",
+   "path": "/api/profile/offer/valuations/{company}",
+   "operation": "offer.valuations.set"
+  },
+  {
+   "method": "PUT",
+   "path": "/api/profile/pay-floor",
+   "operation": "pay_floor.set"
+  },
+  {
+   "method": "PUT",
+   "path": "/api/schedule/plan",
+   "excluded": "app_setting",
+   "reason": "When the radar collects is a setting of the app."
+  },
+  {
+   "method": "PUT",
+   "path": "/api/settings",
+   "operation": "scope.propose"
+  },
+  {
+   "method": "PUT",
+   "path": "/api/settings/intent",
+   "operation": "intent.set"
+  },
+  {
+   "method": "PUT",
+   "path": "/api/settings/locale",
+   "excluded": "app_setting",
+   "reason": "Language and region are display settings of the app."
+  },
+  {
+   "method": "PUT",
+   "path": "/api/settings/price-feed",
+   "excluded": "app_setting",
+   "reason": "The price-feed key is a secret the person saves in the app."
+  },
+  {
+   "method": "PUT",
+   "path": "/api/settings/retention",
+   "excluded": "app_setting",
+   "reason": "How long unread postings are kept decides what is removed; it stays in the app."
+  },
+  {
+   "method": "PUT",
+   "path": "/api/usage/consent",
+   "excluded": "app_setting",
+   "reason": "Usage-data consent and the install ID are the person's answer, given in the app."
+  }
+ ]
+}
