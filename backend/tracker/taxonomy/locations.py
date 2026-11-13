@@ -187,6 +187,13 @@ _FOREIGN_COUNTRY_TOKENS, _STATE_NAME_COLLISIONS = _build_country_tokens()
 #: Frankfurt as US is the worse error.
 _US_STATE_CODE_TOKENS: frozenset[str] = _US_STATE_ABBREVS - {"de"}
 
+#: A state name of several words inside a field ("Remote in Rhode Island",
+#: "Hybrid - New Mexico"): its last word alone is a country's name or alias
+#: ("island" is Iceland's, "mexico" Mexico), and the state must win.
+_MULTIWORD_STATE_RE = re.compile(
+    r"\b(?:" + "|".join(re.escape(name) for name in sorted(_US_STATE_NAMES, key=len, reverse=True) if " " in name) + r")\b"
+)
+
 
 def _shouted(piece: str) -> set[str]:
     """The words of two letters or more a board wrote in capitals, lowercased:
@@ -241,8 +248,10 @@ def countries_for(locations: list[str]) -> set[str]:
             # it is one ("Remote - USA", "Berlin DEU"). See the code rule below.
             shouted = _shouted(piece)
             us_signal = "united states" in low or bool({"us", "usa"} & words)
-            state_tokens = ((parts | words) & _US_STATE_NAMES) | _written_state_codes(
-                parts, shouted, _US_STATE_CODE_TOKENS,
+            state_tokens = (
+                ((parts | words) & _US_STATE_NAMES)
+                | set(_MULTIWORD_STATE_RE.findall(low))
+                | _written_state_codes(parts, shouted, _US_STATE_CODE_TOKENS)
             )
             hits: dict[str, list[str]] = {}
             for tok, slug in _FOREIGN_COUNTRY_TOKENS.items():

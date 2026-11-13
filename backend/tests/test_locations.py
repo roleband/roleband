@@ -489,6 +489,13 @@ EU_MEMBERS = set(next(u.members for u in UNIONS if u.slug == "european_union"))
     ("Remote, OR", ["united_states", "north_america"]),
     ("Paris TX", ["united_states", "north_america"]),
     ("Denver, CO or Long Beach, CA", ["united_states", "north_america"]),
+    # A state name of several words: its last word is no country.
+    ("Remote in Rhode Island", ["united_states", "north_america"]),
+    ("Hybrid in New Mexico", ["united_states", "north_america"]),
+    ("Remote - New Mexico", ["united_states", "north_america"]),
+    ("Remote in New Jersey", ["united_states", "north_america"]),
+    # Each place an " or " list names keeps its own country.
+    ("Remote - DE or Remote - IN", ["germany", "united_states", "north_america", "europe"]),
 ])
 def test_a_place_reads_as_the_country_it_names(raw, expected):
     assert location_groups_for([raw]) == expected

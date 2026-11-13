@@ -113,7 +113,8 @@ def _resolve(locations: list[str]) -> tuple[list[str], list[str]]:
     ]
     if not pieces:
         return [], []
-    matched: set[str] = countries_for(locations) & set(LOCATION_GROUPS)
+    named_by_piece = [countries_for([piece]) for piece in pieces]
+    matched: set[str] = set().union(*named_by_piece) & set(LOCATION_GROUPS)
     # City substrings are read per place, and a place that names a country
     # decides which country its city is in: "San Jose, Costa Rica" is not the
     # Bay Area and "London, Ontario, Canada" is not the UK. A metro matches
@@ -124,8 +125,7 @@ def _resolve(locations: list[str]) -> tuple[list[str], list[str]]:
     # after every place actually named, so `[0]` (the comp axis) is a named
     # place, or the region itself, never an arbitrary member country.
     by_region: set[str] = set()
-    for piece in pieces:
-        named = countries_for([piece])
+    for piece, named in zip(pieces, named_by_piece, strict=True):
         if not named:
             regions = region_places(piece)
             for slug in regions:
