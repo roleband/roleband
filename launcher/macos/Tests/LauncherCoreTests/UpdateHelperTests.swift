@@ -481,14 +481,7 @@ private final class StandInEngine: @unchecked Sendable {
         listener = try NWListener(using: parameters)
         listener.newConnectionHandler = { [self] connection in
             connection.start(queue: queue)
-            connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [self] data, _, _, _ in
-                let request = String(decoding: data ?? Data(), as: UTF8.self)
-                let path = request.split(separator: " ").dropFirst().first.map(String.init) ?? ""
-                let body = (try? reply(to: path)) ?? Data()
-                let head = "HTTP/1.1 \(body.isEmpty ? "404 Not Found" : "200 OK")\r\nContent-Type: application/json\r\n"
-                    + "Content-Length: \(body.count)\r\nConnection: close\r\n\r\n"
-                connection.send(content: Data(head.utf8) + body, completion: .contentProcessed { _ in connection.cancel() })
-            }
+            answer(connection, pending: Data())
         }
         // Every end state resumes once: a port taken before the listener started fails the test, never hangs it.
         try await withCheckedThrowingContinuation { (ready: CheckedContinuation<Void, Error>) in
@@ -502,6 +495,23 @@ private final class StandInEngine: @unchecked Sendable {
                 }
             }
             listener.start(queue: queue)
+        }
+    }
+
+    /// Reads until the request line is complete: one receive can hold only part of it.
+    private func answer(_ connection: NWConnection, pending: Data) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [self] data, _, done, error in
+            let buffer = pending + (data ?? Data())
+            guard let end = buffer.range(of: Data("\r\n".utf8)) else {
+                if done || error != nil { connection.cancel() } else { answer(connection, pending: buffer) }
+                return
+            }
+            let line = String(decoding: buffer[..<end.lowerBound], as: UTF8.self)
+            let path = line.split(separator: " ").dropFirst().first.map(String.init) ?? ""
+            let body = (try? reply(to: path)) ?? Data()
+            let head = "HTTP/1.1 \(body.isEmpty ? "404 Not Found" : "200 OK")\r\nContent-Type: application/json\r\n"
+                + "Content-Length: \(body.count)\r\nConnection: close\r\n\r\n"
+            connection.send(content: Data(head.utf8) + body, completion: .contentProcessed { _ in connection.cancel() })
         }
     }
 

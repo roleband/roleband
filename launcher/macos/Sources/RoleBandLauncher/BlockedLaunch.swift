@@ -42,6 +42,7 @@ struct LaunchBlock {
 struct LaunchRecheck {
     var interval: Duration = .seconds(5)
     var settle = 2
+    var sleep: @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
     var decide: @MainActor () -> LaunchMode
     var reopen: @MainActor () async -> Bool
 
@@ -49,7 +50,7 @@ struct LaunchRecheck {
         Task { @MainActor in
             var changed = 0
             while !Task.isCancelled {
-                do { try await Task.sleep(for: interval) } catch { return }
+                do { try await sleep(interval) } catch { return }
                 changed = decide() != mode ? changed + 1 : 0
                 if changed >= settle, await reopen() { return }
             }

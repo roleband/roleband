@@ -20,7 +20,7 @@ private final class Decisions {
 @Test func aBlockedLaunchReopensOnceTheOtherProgramLetsGoOfTheDatabase() async {
     let decisions = Decisions([.databaseInUse, .databaseInUse, .owned(leftover: nil)])
     var reopened = 0
-    let recheck = LaunchRecheck(interval: .milliseconds(1), decide: { decisions.next() }, reopen: { reopened += 1; return true })
+    let recheck = LaunchRecheck(sleep: { _ in await Task.yield() }, decide: { decisions.next() }, reopen: { reopened += 1; return true })
     await recheck.watch(.databaseInUse).value
     #expect(decisions.made == 4, "it looks again until the decision has changed on two looks, then stops looking")
     #expect(reopened == 1)
@@ -33,7 +33,7 @@ private final class Decisions {
     let free = LaunchMode.owned(leftover: nil)
     let decisions = Decisions([free, .databaseInUse, free, .databaseInUse, free, .databaseInUse, free, free])
     var reopened = 0
-    let recheck = LaunchRecheck(interval: .milliseconds(1), decide: { decisions.next() }, reopen: { reopened += 1; return true })
+    let recheck = LaunchRecheck(sleep: { _ in await Task.yield() }, decide: { decisions.next() }, reopen: { reopened += 1; return true })
     await recheck.watch(.databaseInUse).value
     #expect(decisions.made == 8, "no reopen while the decision flips back")
     #expect(reopened == 1)
@@ -43,7 +43,7 @@ private final class Decisions {
 @Test func aReopenThatFailsKeepsTheBlockedLaunchWatching() async {
     let decisions = Decisions([.owned(leftover: nil)])
     var reopened = 0
-    let recheck = LaunchRecheck(interval: .milliseconds(1), decide: { decisions.next() },
+    let recheck = LaunchRecheck(sleep: { _ in await Task.yield() }, decide: { decisions.next() },
                                 reopen: { reopened += 1; return reopened >= 3 })
     await recheck.watch(.databaseInUse).value
     #expect(reopened == 3, "a copy that could not open is tried again at the next look")
@@ -53,10 +53,9 @@ private final class Decisions {
 @Test func aBlockedLaunchStaysWhileTheDatabaseIsStillInUse() async throws {
     let decisions = Decisions([.databaseInUse])
     var reopened = 0
-    let recheck = LaunchRecheck(interval: .milliseconds(1), decide: { decisions.next() }, reopen: { reopened += 1; return true })
+    let recheck = LaunchRecheck(sleep: { _ in await Task.yield() }, decide: { decisions.next() }, reopen: { reopened += 1; return true })
     let watching = recheck.watch(.databaseInUse)
-    let deadline = ProcessInfo.processInfo.systemUptime + 5
-    while decisions.made < 5, ProcessInfo.processInfo.systemUptime < deadline { try await Task.sleep(for: .milliseconds(1)) }
+    for _ in 0..<10_000 where decisions.made < 5 { await Task.yield() }
     #expect(decisions.made >= 5, "the watch kept looking while the decision stayed the same")
     watching.cancel()
     await watching.value

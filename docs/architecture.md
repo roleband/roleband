@@ -52,8 +52,9 @@ to a verified existing engine, a database-ownership block, a database-in-use
 block, or ownership of the packaged engine. The in-use block covers a cluster
 whose record names the app while a postgres from outside the app serves it: the
 app starts nothing, leaves that server running and offers only Quit. Every five
-seconds it makes the launch decision again, and once that decision changes it
-starts a helper in its own session and quits. The helper waits for it to exit and
+seconds it makes the launch decision again, and once the changed decision holds on
+two looks in a row it starts a helper in its own session and quits; a server that
+lets go for a moment and comes back does not reopen the app. The helper waits for it to exit and
 then opens the app, which launches as from any open. The app cannot open its
 successor itself: Launch Services waits for a new copy to finish launching, and
 only one copy launches at a time. When such a server appears after the app owns the engine, the
@@ -352,8 +353,11 @@ on 127.0.0.1 refuses it; one on ::1, or one of this account on every address,
 shares the port number only and leaves the bind free. Like a
 database another program holds, the port is looked at again every few seconds
 and the engine starts once it is free. The host names the program when it runs under this account (the kernel
-shows no other account's sockets) and offers the first free port after it.
-`use(port:)` moves a stopped engine to another port. A port is usable from 1024
+shows no other account's sockets) and offers the first unused port after it. A
+port to move to, offered or typed, must be unused: binds on 127.0.0.1, ::1,
+0.0.0.0 and [::] all succeed, still with `SO_REUSEADDR`, so a port in TIME_WAIT
+counts as unused, but an engine never takes 127.0.0.1's connections from a
+program listening on every address. `use(port:)` moves a stopped engine to another port. A port is usable from 1024
 to 65535, less the Fetch standard's bad ports, which browsers refuse to open.
 
 The interpreter starts isolated, in a new process group, with only packaged
