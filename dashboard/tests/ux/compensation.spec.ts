@@ -286,7 +286,7 @@ test("the company table leads with each company's posted range at the picked lev
   await expect(google).toContainText("$262K–$365K");
   await expect(google).toContainText(msg("insights-pay-table-some-roles", { posting: 3, roles: 4 }));
   // Equity is what the employer states, never a share we estimate.
-  await expect(google).toContainText("RSUs");
+  await expect(google).toContainText(msg("insights-stock-trajectory-panel-rsus"));
   await expect(google).toContainText(msg("insights-stock-trajectory-panel-vests", { schedule: "25/25/25/25" }));
   await expect(table.getByText("%")).toHaveCount(0);
 
@@ -315,7 +315,8 @@ test("the table follows the level picker and the skill filter, and the skill rid
   await page.getByRole("combobox", { name: msg("insights-posted-level") }).selectOption("staff");
   await expect.poll(() => asked.some((q) => q.includes("level=staff"))).toBe(true);
 
-  await page.locator(".chart-head-controls").getByRole("button", { name: /^Filter by/ }).click();
+  const filterBy = msg("shared-filter-select-filter-by", { label: msg("insights-pay-table-any-skill").toLowerCase() });
+  await page.locator(".chart-head-controls").getByRole("button", { name: filterBy }).click();
   await page.getByRole("option", { name: /Python/ }).click();
   await expect(page).toHaveURL(/skill=python/);
   await expect.poll(() => asked.some((q) => q.includes("skill=python"))).toBe(true);

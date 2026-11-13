@@ -262,7 +262,7 @@ class PayTableEstimate(Built):
 
     low: int
     high: int
-    families: list[str]
+    families: list[str] = Field(json_schema_extra=text("code"))
 
 
 class PayTableTotal(Built):
@@ -271,15 +271,16 @@ class PayTableTotal(Built):
 
     low: int
     high: int
-    rung: str | None
+    rung: str | None = Field(json_schema_extra=text("content"))
 
 
 class PayTableEquity(Built):
     """The equity facts the company itself states (`levels.pay.stated_equity`);
     an estimated fact is never here."""
 
-    vehicle: str | None
-    vesting: str | None
+    vehicle: str | None = Field(json_schema_extra=text("code"))
+    #: The annual vest fractions as the company states them ("25/25/25/25").
+    vesting: str | None = Field(json_schema_extra=text("content"))
     rule: Literal["none", "employee_election"] | None
 
 
@@ -296,7 +297,7 @@ class PayTableRow(_CompanyKey):
     checked: int
     #: The figure's currency: the country's own, or another the company posts
     #: in (`other_currency`); null with no range shown.
-    currency: str | None
+    currency: str | None = Field(json_schema_extra=text("code"))
     #: The median low and the median high of the company's distinct ranges.
     low: float | None
     high: float | None
@@ -319,7 +320,7 @@ class PayTableUnplaced(_CompanyKey):
 class PayTableSkill(Built):
     """A skill the table's roles name, offered by the skill filter."""
 
-    term: str
+    term: str = Field(json_schema_extra=text("code"))
     roles: int
 
 

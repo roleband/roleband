@@ -109,7 +109,8 @@ describe("buildDisclosureRateOption", () => {
 
   it("tooltips the denominator, not just the share", () => {
     const option = opt(buildDisclosureRateOption(disclosureRateRows(rates())));
-    expect(option.tooltip.formatter({ dataIndex: 1 })).toContain("10 of 30 checked open roles");
+    expect(option.tooltip.formatter({ dataIndex: 1 }))
+      .toContain(msg("insights-disclosure-of-checked-open-roles", { disclosed: 10, checked: 30 }));
   });
 });
 
@@ -118,7 +119,9 @@ describe("disclosureRateSummary", () => {
     const rows = disclosureRateRows(rates());
     const text = disclosureRateSummary(rows, 1);
 
-    expect(text).toContain("Senior: 60%, 30 of 50 roles");
+    expect(text).toContain(msg("insights-disclosure-of-roles", {
+      label: "Senior", rate: "60%", disclosed: 30, checked: 50,
+    }));
     expect(text).toMatch(/1 more group has no role checked yet/);
   });
 

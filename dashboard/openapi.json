@@ -13676,7 +13676,8 @@
         "type": "null"
        }
       ],
-      "title": "Vehicle"
+      "title": "Vehicle",
+      "x-text": "code"
      },
      "vesting": {
       "anyOf": [
@@ -13687,7 +13688,8 @@
         "type": "null"
        }
       ],
-      "title": "Vesting"
+      "title": "Vesting",
+      "x-text": "content"
      }
     },
     "required": [
@@ -13707,7 +13709,8 @@
        "type": "string"
       },
       "title": "Families",
-      "type": "array"
+      "type": "array",
+      "x-text": "code"
      },
      "high": {
       "title": "High",
@@ -13854,7 +13857,8 @@
         "type": "null"
        }
       ],
-      "title": "Currency"
+      "title": "Currency",
+      "x-text": "code"
      },
      "equity": {
       "anyOf": [
@@ -13982,7 +13986,8 @@
      },
      "term": {
       "title": "Term",
-      "type": "string"
+      "type": "string",
+      "x-text": "code"
      }
     },
     "required": [
@@ -14013,7 +14018,8 @@
         "type": "null"
        }
       ],
-      "title": "Rung"
+      "title": "Rung",
+      "x-text": "content"
      }
     },
     "required": [
@@ -31493,7 +31499,7 @@
   },
   "/api/statistics/pay-table": {
    "get": {
-    "description": "Every company hiring at one level in one country, and posted pay by\ndiscipline at that level (`analytics/pay_table.py`).\n\nA role is the country's when any place it lists lies there, as the place\nfilter takes it; a company's posted cell reads only ranges for that country\nalone, as the level's figure does. The side narrows both reads. The picked\ndisciplines narrow the table and are marked in the comparison, which shows\nevery discipline. The skill narrows the table only. The country's currency\nis the one the tab's figure reads (`build_posted_pay`).",
+    "description": "Every company hiring at one level in one country, and posted pay by\ndiscipline at that level (`analytics/pay_table.py`).\n\nA role is the country's when any place it lists lies there, as the place\nfilter takes it; a company's posted cell reads only ranges for that country\nalone, as the level's figure does. The side narrows both reads. The picked\ndisciplines narrow the table and are marked in the comparison, which shows\nevery discipline. The skill narrows the table only.\n\nThe currency is the country's own (`build_posted_pay` over every\ndiscipline), never the picked discipline's: the comparison draws every\ndiscipline on one axis, and a discipline with no range of its own would\notherwise leave the country with no currency at all. Each row says the\ncurrency its own figure is in, and a company posting only in another\ncurrency is listed apart, so the tab's figure and a row can differ in\ncurrency while a discipline is picked.",
     "operationId": "statistics_pay_table_api_statistics_pay_table_get",
     "parameters": [
      {

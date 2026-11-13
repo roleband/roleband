@@ -255,11 +255,16 @@ describe("PayTable", () => {
     expect(screen.queryByRole("table")).toBeNull();
   });
 
-  it("says a picked skill matches no role at this level", () => {
-    show(table({ rows: [], skill: "rust", skills: [] }), { skill: "rust" });
+  it("says a picked skill matches no role at this level, and keeps the way back", async () => {
+    const { onSkill } = show(table({ rows: [], skill: "rust", skills: [] }), { skill: "rust" });
 
     expect(screen.getByText(msg("insights-pay-table-skill-empty", { country: "United States", skill: "Rust" })))
       .toBeInTheDocument();
+    // The table offers no skill of its own now, so the picked one is the only
+    // option: without it the person cannot return to every skill.
+    await userEvent.click(screen.getByRole("button", { name: /^Filter by/ }));
+    await userEvent.click(screen.getByRole("option", { name: "Rust" }));
+    expect(onSkill).toHaveBeenCalledWith(null);
   });
 
   it("keeps pay by discipline to the advanced view, every discipline at once", () => {

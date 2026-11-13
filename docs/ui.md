@@ -998,8 +998,8 @@ Under the hero, the company table (`PayTable.tsx`,
 company hiring at the picked level in the picked country, the posted range
 first. The row shows the median low to the median high of the company's own
 distinct ranges, a strip drawing them against the level's typical range and the
-same ranges as text, how many of its checked roles post one, its open roles at
-that level, and the equity its employer states (the Stock tab's words: the stock
+same ranges as text, how many of its checked roles post one where some do and
+some do not, its open roles at that level, and the equity its employer states (the Stock tab's words: the stock
 type, how it vests, no equity, or cash or equity). Where a company posts no
 range the cell says why, by its own reason, and the estimate column holds that
 company's estimate: a base for the level and its disciplines, or a total named

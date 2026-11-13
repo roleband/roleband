@@ -181,6 +181,17 @@ def test_a_range_in_another_currency_shows_in_its_own_currency_after_the_rest():
     assert (shopify["currency"], shopify["other_currency"], shopify["low"]) == ("CAD", True, 300_000)
 
 
+def test_a_range_in_another_currency_counts_the_roles_the_cell_shows():
+    # The cell shows the Canadian range, so the share posting rests on the
+    # roles behind it, never on the none the country's own currency has.
+    [shopify] = table([
+        role("shopify", 300_000, 400_000, currency="CAD"),
+        role("shopify", 300_000, 400_000, currency="CAD"),
+        role("shopify"),
+    ])["rows"]
+    assert (shopify["other_currency"], shopify["posting"], shopify["checked"]) == (True, 2, 3)
+
+
 def test_a_company_with_several_disciplines_shows_the_span_of_its_estimates_never_their_average():
     [qualcomm] = table(
         [role("qualcomm", family="engineering_management"), role("qualcomm")],
@@ -347,6 +358,19 @@ def test_every_discipline_shows_with_the_picked_one_marked():
     assert [(d["family"], d["picked"]) for d in out["disciplines"]] == [
         ("product_management", False), ("program_management", True),
     ]
+
+
+def test_a_discipline_whose_ranges_are_all_left_out_is_withheld_never_dropped():
+    # Its roles post total compensation, so none of its ranges qualifies. The
+    # comparison shows every discipline, so it reads as withheld with its
+    # counts, never as a discipline nobody hires.
+    roles = market("product_management", 5, 2) + [
+        role("netflix", 400_000, 900_000, family="data_science", pay_basis="total"),
+    ]
+    out = disciplines(roles)
+    assert set(out) == {"product_management", "data_science"}
+    ds = out["data_science"]
+    assert (ds["withheld"], ds["ranges"], ds["employers"], ds["low"], ds["top_share"]) == ("too_few", 0, 0, None, 0.0)
 
 
 def test_a_discipline_reads_one_level_and_one_country_only():

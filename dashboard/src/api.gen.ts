@@ -2855,8 +2855,15 @@ export interface paths {
          *     filter takes it; a company's posted cell reads only ranges for that country
          *     alone, as the level's figure does. The side narrows both reads. The picked
          *     disciplines narrow the table and are marked in the comparison, which shows
-         *     every discipline. The skill narrows the table only. The country's currency
-         *     is the one the tab's figure reads (`build_posted_pay`).
+         *     every discipline. The skill narrows the table only.
+         *
+         *     The currency is the country's own (`build_posted_pay` over every
+         *     discipline), never the picked discipline's: the comparison draws every
+         *     discipline on one axis, and a discipline with no range of its own would
+         *     otherwise leave the country with no currency at all. Each row says the
+         *     currency its own figure is in, and a company posting only in another
+         *     currency is listed apart, so the tab's figure and a row can differ in
+         *     currency while a discipline is picked.
          */
         get: operations["statistics_pay_table_api_statistics_pay_table_get"];
         put?: never;

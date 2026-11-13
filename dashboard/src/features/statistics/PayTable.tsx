@@ -245,7 +245,11 @@ export function PayTable({
     const ends = data.rows.flatMap((r) => (r.other_currency ? [] : r.ranges.flatMap((x) => [x.low, x.high])));
     return ends.length > 1 ? { min: Math.min(...ends), max: Math.max(...ends) } : null;
   }, [data.rows]);
-  const skills = data.skills.map((s) => ({ value: s.term, label: skillName(s.term) }));
+  // The picked skill is always among the options, even when the table's own
+  // roles no longer offer it: it is how the person returns to every skill.
+  const offered = data.skills.map((s) => s.term);
+  const skills = (skill && !offered.includes(skill) ? [skill, ...offered] : offered)
+    .map((term) => ({ value: term, label: skillName(term) }));
 
   return (
     <>

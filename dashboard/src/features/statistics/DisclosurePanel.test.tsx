@@ -60,7 +60,7 @@ describe("DisclosureRatePanel", () => {
     expect(screen.getByRole("img", { name: /post a range, by level/i })).toBeInTheDocument();
     expect(screen.getByText(/Senior: 25%, 100 of 400 roles/)).toBeInTheDocument();
     // No company grouping here: a company's share at one level is its table row.
-    expect(screen.queryByRole("button", { name: "By company" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: msg("insights-common-by-company") })).not.toBeInTheDocument();
   });
 
   it("shows an empty state instead of a chart when nothing has been checked", () => {

@@ -169,9 +169,11 @@ def _row(
         row.update(currency=currency, **_figure(shown))
     elif other:
         # The currency the company posts most distinct ranges in; the code
-        # breaks a tie, so two reads agree.
+        # breaks a tie, so two reads agree. The cell shows that currency's
+        # ranges, so `posting` counts the roles on them, not the none the
+        # country's own currency has.
         cur = max(other, key=lambda c: (len(other[c]), c))
-        row.update(currency=cur, other_currency=True, **_figure(other[cur]))
+        row.update(currency=cur, other_currency=True, posting=sum(other[cur].values()), **_figure(other[cur]))
     elif reasons:
         row["reason"] = max(reasons, key=lambda r: (reasons[r], -_REASON_ORDER.index(r)))
     else:
@@ -310,14 +312,19 @@ def build_pay_by_discipline(
     for role in roles:
         if role.level != level or not role.family:
             continue
+        # Every discipline with a role at the level is listed, so one whose
+        # ranges are all absent or left out is withheld with its counts
+        # rather than missing from the comparison.
+        ranges_of = cells.setdefault(role.family, Counter())
         read = _read_range(role, country, currency)
         if read[0] == "shown":
-            cells.setdefault(role.family, Counter())[(role.company, read[1], read[2])] += 1
+            ranges_of[(role.company, read[1], read[2])] += 1
 
     out = []
     for family, ranges in cells.items():
         figure = level_figure(dict(ranges), min_employers=min_employers, min_ranges=min_ranges)
-        top_share = max(Counter(company for company, _, _ in ranges).values()) / len(ranges)
+        top = Counter(company for company, _, _ in ranges)
+        top_share = max(top.values()) / len(ranges) if ranges else 0.0
         withheld = None
         if not figure["enough"]:
             withheld = "too_few"
