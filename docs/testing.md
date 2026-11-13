@@ -188,8 +188,8 @@ automatic restart with Unicode history, saved state and unchanged credentials/ke
 It also exercises PID reuse, an unrecorded live postmaster, foreign or malformed
 PID records and refusal to restart from a cancellable child. Stale PID evidence is
 retained. PostgreSQL's active log stays outside PGDATA. The native lifecycle tests
-start with a dead predecessor record from a different resource root; live
-predecessors and foreign retained-state records remain refusals.
+start with a dead predecessor record from a different resource root or retained
+state; a live predecessor, of this installation or another, remains a refusal.
 
 The native engine-host integration tests accept `ROLEBAND_HOST_TEST_RESOURCES`
 pointing at an assembled app's `Contents/Resources`. They exercise its real

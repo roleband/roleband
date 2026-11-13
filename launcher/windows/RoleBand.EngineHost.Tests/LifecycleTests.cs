@@ -602,6 +602,7 @@ public sealed class LifecycleTests
     [DataRow("""{"format": 1, "pid": """)]
     [DataRow("[]")]
     [DataRow("""{"format": 2, "pid": PID, "started": 1}""")]
+    [DataRow("""{"format": 1, "pid": PID, "started": 1, "state": "C:\\elsewhere\\state", "resources": "C:\\elsewhere\\Resources"}""")]
     public async Task ARecordThatNamesNoRunningEngineDoesNotBlockAStart(string text)
     {
         var engine = new StandIn("ready");
