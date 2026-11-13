@@ -364,7 +364,8 @@ async def statistics_compensation(session: SessionDep, hidden: OffBoardDep, narr
 
 #: The job columns a role's package reads (`api.comp_packages.role_package`).
 _PACKAGE_COLUMNS = (
-    Job.id, Job.company, Job.level_band, Job.level_basis, Job.family, Job.location_groups,
+    Job.id, Job.company, Job.title, Job.level_band, Job.level_basis, Job.family,
+    Job.location_groups,
     *(getattr(Job, name) for name in ESTIMATE_FIELDS),
     Job.structured_at, Job.disclosed_base_min, Job.disclosed_base_max, Job.disclosed_currency,
     Job.disclosed_pay_basis, Job.disclosed_pay_period, Job.disclosed_snippet,
