@@ -27,11 +27,11 @@ import asyncio
 import logging
 from collections.abc import Collection
 
-from sqlalchemy import Integer, any_, func, literal, or_, select
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.config import get_settings
+from tracker.db.ids import among
 from tracker.db.models import Job
 from tracker.platform import preparation
 from tracker.platform.paths import DATA_DIR, PACKAGED
@@ -246,7 +246,7 @@ async def stale_job_ids(session: AsyncSession, job_ids: Collection[int]) -> list
     active_tier = provision.resolve_tier()
     stmt = (
         select(Job.id)
-        .where(Job.id == any_(literal(list(job_ids), ARRAY(Integer))), stale_predicate(active_tier))
+        .where(among(Job.id, job_ids), stale_predicate(active_tier))
         .order_by(Job.id)
     )
     return list(await session.scalars(stmt))
@@ -264,7 +264,7 @@ async def embed_jobs(session: AsyncSession, job_ids: list[int]) -> int:
     active_tier = provision.resolve_tier()
     stale = (
         await session.scalars(
-            select(Job).where(Job.id.in_(job_ids), stale_predicate(active_tier))
+            select(Job).where(among(Job.id, job_ids), stale_predicate(active_tier))
         )
     ).all()
     if not stale:

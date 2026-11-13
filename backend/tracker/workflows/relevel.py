@@ -23,6 +23,7 @@ from typing import Any
 from sqlalchemy import Row, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tracker.db.ids import among
 from tracker.db.models import Job
 from tracker.db.repo import refresh_listed_rungs, set_job_levels
 from tracker.enrich.level_mapper import LevelReading, read_level
@@ -129,7 +130,7 @@ async def pending_relevels(
     texts: dict[int, str | None] = {}
     if needs_text:
         texts = dict((await session.execute(
-            select(Job.id, Job.description_text).where(Job.id.in_(needs_text))
+            select(Job.id, Job.description_text).where(among(Job.id, needs_text))
         )).tuples().all())
     pending = []
     for row in rows:

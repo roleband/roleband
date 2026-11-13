@@ -345,6 +345,8 @@ files = [
     "tracker/connectors/__init__.py",
     "tracker/db/ownership.py",
     "tracker/db/reconciliation.py",
+    # Id membership as one array parameter, which every run-sized read uses
+    "tracker/db/ids.py",
     # The connector runtime: transports, the context, and the client each consented tier builds
     "tracker/connectors/runtime",
     # The one fetch of a URL a user typed, and what may activate from it

@@ -1397,3 +1397,13 @@ async def test_the_budget_defers_the_rest_of_the_queue_to_the_next_run(
         (await db_session.scalars(select(Job.id).where(Job.embedded_at.isnot(None)))).all()
     )
     assert done == ids[:4]
+
+
+def test_touched_ids_list_each_row_once_in_first_seen_order():
+    # A held row the scan refreshed and then rewrote is appended twice by the
+    # writer; every pass reads the list, so it must not repeat an id.
+    ctx = _ctx(touched_ids=[5, 3, 5, 9, 3])
+    assert ctx.touched_ids == [5, 3, 9]
+
+    ctx.touch([9, 7, 7, 1, 5])
+    assert ctx.touched_ids == [5, 3, 9, 7, 1], "a row a pass brings in joins once, after the run's own"

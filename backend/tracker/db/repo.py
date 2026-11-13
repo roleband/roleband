@@ -28,6 +28,7 @@ from tracker.analytics.posting_reality import earliest_posted, plausible_posted
 from tracker.connectors.detail.base import sections_to_text
 from tracker.connectors.recipes.outcome import USABLE
 from tracker.db.arrival import classify_arrivals
+from tracker.db.ids import among
 from tracker.db.models import (
     Job,
     JobCompEstimate,
@@ -899,7 +900,7 @@ async def apply_saved_scope_to_jobs(
     )
     stmt = update(Job).where(Job.in_scope.is_distinct_from(expr))
     if job_ids is not None:
-        stmt = stmt.where(Job.id.in_(list(job_ids)))
+        stmt = stmt.where(among(Job.id, job_ids))
     changed = (await session.execute(
         stmt.values(in_scope=expr)
         .returning(Job.id, Job.in_scope)
