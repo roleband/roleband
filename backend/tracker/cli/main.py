@@ -229,12 +229,17 @@ def _live(args: argparse.Namespace, request_id: str) -> dict[str, Any]:
     deadline = time.monotonic() + (args.timeout or DEFAULT_TIMEOUT)
     envelope = transport.get(context, path, operation=args.command, deadline=deadline,
                              request_id=request_id, user_agent=f"roleband/{_version()}")
-    if context.workspace_id is not None and envelope.get("workspace_id") not in (None, context.workspace_id):
+    answered = envelope.get("workspace_id")
+    # A pinned context accepts a success only from its own workspace; an
+    # engine that cannot name one yet may still answer with a failure.
+    if context.workspace_id is not None and answered != context.workspace_id and (
+        answered is not None or envelope["ok"] is True
+    ):
         raise ClientError(
             "workspace_mismatch",
             f"Context {context.name!r} is pinned to another workspace than the one that answered.",
             details={"context": context.name, "expected": context.workspace_id,
-                     "answered": envelope.get("workspace_id")},
+                     "answered": answered},
         )
     meta = envelope.get("meta")
     if isinstance(meta, dict):

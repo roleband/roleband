@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import http.client
 import json
+import socket
+import threading
 import time
 from typing import Any
 from urllib.parse import quote, urlencode
@@ -59,7 +61,15 @@ def get(
         if remaining <= 0:
             raise ClientError("deadline_exceeded", "The deadline passed while connecting.")
         assert connection.sock is not None
-        connection.sock.settimeout(remaining)
+        sock = connection.sock
+        sock.settimeout(remaining)
+        # A socket timeout bounds each receive, not the whole exchange: a peer
+        # that trickles bytes would outlast it. The watchdog ends the exchange
+        # at the deadline itself.
+        expired = threading.Event()
+        watchdog = threading.Timer(remaining, _expire, args=(sock, expired))
+        watchdog.daemon = True
+        watchdog.start()
         try:
             connection.request(
                 "GET",
@@ -72,24 +82,40 @@ def get(
             )
             response = connection.getresponse()
             body = response.read(MAX_REPLY_BYTES + 1)
-        except TimeoutError:
-            raise ClientError(
-                "deadline_exceeded",
-                "The engine did not answer before the deadline. Accepted work, if any, continues.",
-                details={"context": context.name, "operation": operation},
-            ) from None
-        except (http.client.HTTPException, OSError) as error:
+        except (TimeoutError, http.client.HTTPException, OSError) as error:
+            if expired.is_set() or isinstance(error, TimeoutError):
+                raise _late(context, operation) from None
             raise ClientError(
                 "transport_error",
                 "The connection to the engine failed before a reply arrived.",
                 details={"context": context.name, "reason": type(error).__name__},
             ) from None
+        finally:
+            watchdog.cancel()
+        if expired.is_set():
+            raise _late(context, operation)
     finally:
         connection.close()
     if len(body) > MAX_REPLY_BYTES:
         raise ClientError("transport_error", "The engine's reply is larger than the client accepts.")
     return _envelope(body, status=response.status, content_type=response.getheader("Content-Type", ""),
                      operation=operation)
+
+
+def _expire(sock: socket.socket, expired: threading.Event) -> None:
+    expired.set()
+    try:
+        sock.shutdown(socket.SHUT_RDWR)
+    except OSError:
+        pass
+
+
+def _late(context: Context, operation: str) -> ClientError:
+    return ClientError(
+        "deadline_exceeded",
+        "The engine did not answer before the deadline. Accepted work, if any, continues.",
+        details={"context": context.name, "operation": operation},
+    )
 
 
 def _envelope(body: bytes, *, status: int, content_type: str, operation: str) -> dict[str, Any]:
@@ -111,7 +137,18 @@ def _envelope(body: bytes, *, status: int, content_type: str, operation: str) ->
         raise incompatible
     if envelope.get("operation") != operation or not isinstance(envelope.get("ok"), bool):
         raise incompatible
-    error = envelope.get("error")
-    if envelope["ok"] is False and not (isinstance(error, dict) and isinstance(error.get("code"), str)):
+    if envelope["ok"] is False and not _is_error(envelope.get("error")):
         raise incompatible
     return envelope
+
+
+def _is_error(error: object) -> bool:
+    """Whether a failure carries every field the client reads from it."""
+    return (
+        isinstance(error, dict)
+        and isinstance(error.get("code"), str)
+        and isinstance(error.get("message"), str)
+        and isinstance(error.get("retryable"), bool)
+        and isinstance(error.get("details"), dict)
+        and isinstance(error.get("next_actions"), list)
+    )

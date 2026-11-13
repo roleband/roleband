@@ -223,6 +223,7 @@ def test_an_unknown_context_names_the_ones_there_are(home):
         "http://127.0.0.1",  # no port: no default is assumed
         "http://127.0.0.1:8011/api",
         "http://user@127.0.0.1:8011",
+        "http://[::1:8011",  # an unclosed bracket does not parse
     ],
 )
 def test_a_context_must_be_a_literal_loopback_address_and_port(home, url):
@@ -230,6 +231,14 @@ def test_a_context_must_be_a_literal_loopback_address_and_port(home, url):
     result = cli(home, "status", "--json")
     assert result.status == 2
     assert result.envelope["error"]["code"] == "context_invalid"
+
+
+def test_a_context_file_that_is_not_utf8_is_context_invalid(home):
+    home.config.write_bytes(b'{"format": 1, "current": "dev", "contexts": {"d\xe9v": {}}}')
+    result = cli(home, "status", "--json")
+    assert result.status == 2
+    assert result.envelope["error"]["code"] == "context_invalid"
+    assert "Traceback" not in result.stderr
 
 
 def test_an_engine_that_is_down_is_engine_unavailable_with_exit_3(home):
@@ -308,6 +317,8 @@ class Reply:
     body: bytes = b""
     content_type: str = "application/json"
     delay: float = 0.0
+    #: Seconds between body bytes: a peer that keeps every receive alive.
+    trickle: float = 0.0
 
 
 @dataclass
@@ -327,8 +338,13 @@ class Stub:
                 self.send_header("Content-Length", str(len(stub.reply.body)))
                 self.end_headers()
                 try:
-                    self.wfile.write(stub.reply.body)
-                except (BrokenPipeError, ConnectionResetError):
+                    if stub.reply.trickle:
+                        for byte in stub.reply.body:
+                            self.wfile.write(bytes([byte]))
+                            time.sleep(stub.reply.trickle)
+                    else:
+                        self.wfile.write(stub.reply.body)
+                except OSError:
                     pass
 
             def log_message(self, *_args: object) -> None:
@@ -356,6 +372,12 @@ def _envelope(operation: str, *, ok: bool = True, data: object = None, error: di
     }).encode()
 
 
+def _failure(**fields: object) -> dict:
+    error = {"code": "access_disabled", "message": "off", "retryable": False, "details": {}, "next_actions": []}
+    error.update(fields)
+    return {key: value for key, value in error.items() if value is not ...}
+
+
 STATUS_DATA = {
     "workspace_id": "ws_" + "a" * 32,
     "engine_session_id": "f" * 32,
@@ -374,8 +396,12 @@ STATUS_DATA = {
         Reply(200, _envelope("status", data=STATUS_DATA, version="2.0")),
         Reply(200, _envelope("capabilities", data=STATUS_DATA)),  # answers another operation
         Reply(200, b"{not json"),
+        Reply(500, _envelope("status", ok=False, error=_failure(message=...))),
+        Reply(500, _envelope("status", ok=False, error=_failure(details=None))),
+        Reply(500, _envelope("status", ok=False, error=_failure(retryable="no"))),
     ],
-    ids=["no-agent-api", "html", "major-2", "wrong-operation", "garbage"],
+    ids=["no-agent-api", "html", "major-2", "wrong-operation", "garbage",
+         "failure-without-message", "failure-details-null", "failure-retryable-not-bool"],
 )
 def test_a_reply_outside_the_contract_is_incompatible_with_exit_10(home, reply):
     with Stub(reply) as stub:
@@ -386,8 +412,7 @@ def test_a_reply_outside_the_contract_is_incompatible_with_exit_10(home, reply):
 
 
 def test_the_exit_status_follows_the_error_code_not_the_http_status(home):
-    refusal = _envelope("status", ok=False, workspace_id=None, error={
-        "code": "access_disabled", "message": "off", "retryable": False, "details": {}, "next_actions": []})
+    refusal = _envelope("status", ok=False, workspace_id=None, error=_failure())
     with Stub(Reply(500, refusal)) as stub:
         home.contexts(current="dev", dev={"url": stub.url})
         result = cli(home, "status", "--json")
@@ -403,6 +428,24 @@ def test_a_context_pinned_to_one_workspace_refuses_another(home):
     error = result.envelope["error"]
     assert error["code"] == "workspace_mismatch"
     assert error["details"]["answered"] == "ws_" + "a" * 32
+
+
+def test_a_pinned_context_refuses_a_success_that_names_no_workspace(home):
+    with Stub(Reply(200, _envelope("status", data=STATUS_DATA, workspace_id=None))) as stub:
+        home.contexts(current="dev", dev={"url": stub.url, "workspace_id": "ws_" + "a" * 32})
+        result = cli(home, "status", "--json")
+    assert result.status == 3
+    assert result.envelope["error"]["code"] == "workspace_mismatch"
+    assert result.envelope["error"]["details"]["answered"] is None
+
+
+def test_a_pinned_context_passes_on_a_failure_from_an_engine_that_names_no_workspace(home):
+    refusal = _envelope("status", ok=False, workspace_id=None, error=_failure())
+    with Stub(Reply(403, refusal)) as stub:
+        home.contexts(current="dev", dev={"url": stub.url, "workspace_id": "ws_" + "a" * 32})
+        result = cli(home, "status", "--json")
+    assert result.status == 4
+    assert result.envelope["error"]["code"] == "access_disabled"
 
 
 def test_human_output_escapes_terminal_control_sequences(home):
@@ -426,6 +469,21 @@ def test_a_slow_engine_is_a_deadline_with_exit_8(home):
     assert elapsed < 3, "the client waited past its deadline"
 
 
+def test_a_reply_that_trickles_past_the_deadline_is_a_deadline_with_exit_8(home):
+    # Every byte arrives well inside the per-receive timeout; only a deadline
+    # on the whole exchange ends this before the body is done.
+    body = _envelope("status", data=STATUS_DATA)
+    assert len(body) * 0.05 > 10
+    with Stub(Reply(200, body, trickle=0.05)) as stub:
+        home.contexts(current="dev", dev={"url": stub.url})
+        started = time.monotonic()
+        result = cli(home, "status", "--json", "--timeout", "1s")
+        elapsed = time.monotonic() - started
+    assert result.status == 8
+    assert result.envelope["error"]["code"] == "deadline_exceeded"
+    assert elapsed < 4, "the client waited past its deadline"
+
+
 def test_the_client_sends_its_request_id_and_reaches_only_the_operations_route(home):
     with Stub(Reply(200, _envelope("describe", data={"operation": "status"}))) as stub:
         home.contexts(current="dev", dev={"url": stub.url})
@@ -444,10 +502,12 @@ def test_the_client_sends_its_request_id_and_reaches_only_the_operations_route(h
 def engine_database(tmp_path) -> Iterator[str]:
     """A new database on the throwaway cluster, schema built without
     migrations, so the engine's own start writes the workspace identity."""
-    from tests.conftest import _base_url
+    from tests import conftest
     from tracker.db.models import Base
 
-    base = _base_url()
+    base = conftest._base_url()
+    if conftest._refused:
+        pytest.fail(f"{conftest._refused} Tests that need a database run on a throwaway cluster.", pytrace=False)
     if base is None:
         pytest.skip("no database configured")
     name = f"roleband_cli_{os.getpid()}_{tmp_path.name[-12:]}".replace("-", "_").lower()

@@ -388,6 +388,13 @@ async def test_describe_returns_one_operation_in_full_from_the_engine(api_client
     assert data["input_schema"]["additionalProperties"] is False
     assert "tier" in data["input_schema"]["properties"]
     assert data["output_schema"]["title"] == "CapabilitiesResult"
+    # The reference is a JSON pointer into the described operation itself.
+    pointer = data["output_schema_ref"]
+    assert pointer.startswith("#/")
+    target = data
+    for token in pointer[2:].split("/"):
+        target = target[token]
+    assert target == data["output_schema"]
     assert data["required_scopes"] == ["agent_access.enabled"]
 
 

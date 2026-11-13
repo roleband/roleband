@@ -128,7 +128,7 @@ class OperationDescriptor:
             "summary": self.summary,
             "access": self.access,
             "input_schema": self.input.model_json_schema(),
-            "output_schema_ref": f"#/operations/{self.id}/output_schema",
+            "output_schema_ref": "#/output_schema",
             "output_schema": self.result.model_json_schema(),
             "required_scopes": list(self.required_scopes),
             "engine_effects": _effects(self.engine_effects),

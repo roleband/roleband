@@ -69,6 +69,8 @@ def _read(path: Path) -> dict[str, object]:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError:
         return {}
+    except UnicodeDecodeError:
+        raise _invalid(path, "it is not UTF-8 text.") from None
     except OSError as error:
         raise _invalid(path, f"it cannot be read ({error.strerror}).") from None
     try:
@@ -90,11 +92,11 @@ def _no_duplicates(pairs: list[tuple[str, object]]) -> dict[str, object]:
 def _parse(path: Path, name: str, entry: object) -> Context:
     if not isinstance(entry, dict) or not set(entry) <= _ENTRY_KEYS or not isinstance(entry.get("url"), str):
         raise _invalid(path, f"context {name!r} needs a url and may name a workspace_id.", context=name)
-    parts = urlsplit(entry["url"])
     try:
+        parts = urlsplit(entry["url"])
         port = parts.port
     except ValueError:
-        port = None
+        raise _invalid(path, f"context {name!r} has a url that does not parse.", context=name) from None
     if (
         parts.scheme != "http"
         or parts.hostname not in _LOOPBACK

@@ -260,7 +260,7 @@
     "title": "CapabilitiesResult",
     "type": "object"
    },
-   "output_schema_ref": "#/operations/capabilities/output_schema",
+   "output_schema_ref": "#/output_schema",
    "required_scopes": [
     "agent_access.enabled"
    ],
@@ -531,7 +531,7 @@
     "title": "OperationDetail",
     "type": "object"
    },
-   "output_schema_ref": "#/operations/describe/output_schema",
+   "output_schema_ref": "#/output_schema",
    "required_scopes": [
     "agent_access.enabled"
    ],
@@ -656,7 +656,7 @@
     "title": "StatusResult",
     "type": "object"
    },
-   "output_schema_ref": "#/operations/status/output_schema",
+   "output_schema_ref": "#/output_schema",
    "required_scopes": [
     "agent_access.enabled"
    ],
