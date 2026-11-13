@@ -76,6 +76,18 @@ def first_place(locations: Sequence[str]) -> frozenset[str]:
     return frozenset()
 
 
+def listed_places(locations: Sequence[str]) -> list[str]:
+    """Each place a posting lists, read on its own as `first_place` reads
+    them: its strings split as `location_pieces` splits them, then on a
+    lowercase " or " ("Berlin or Remote" is Berlin, and Remote)."""
+    return [
+        place.strip()
+        for piece in location_pieces(list(locations))
+        for place in _PLACE_LIST_RE.split(piece)
+        if place.strip()
+    ]
+
+
 def location_slugs_for(locations: list[str]) -> list[str]:
     """`location_groups_for` plus the cities the places name, as stored on a
     job: taxonomy groups first (deepest first), then `city_<geonameid>`."""
@@ -103,14 +115,7 @@ def _resolve(locations: list[str]) -> tuple[list[str], list[str]]:
     a bare "Berlin" or "Tokyo", which no taxonomy group matches, lands in
     Germany or Japan.
     """
-    # Each place a string lists is read on its own, as `first_place` reads
-    # them: "Berlin or Remote" is Berlin, and Remote.
-    pieces = [
-        place.strip()
-        for piece in location_pieces(locations)
-        for place in _PLACE_LIST_RE.split(piece)
-        if place.strip()
-    ]
+    pieces = listed_places(locations)
     if not pieces:
         return [], []
     named_by_piece = [countries_for([piece]) for piece in pieces]
