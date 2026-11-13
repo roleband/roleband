@@ -1,0 +1,136 @@
+{
+ "_why": "Each tool the MCP server registers, with the CLI operation that replaces it, the switch that gates both, and every deliberate difference between them. tests/test_mcp_parity_checklist.py fails when a registered tool has no row or a row names a tool the server does not register. `open` lists what is not decided yet, and must be empty before the MCP server is removed.",
+ "every_operation": [
+  "Reached by the roleband CLI over loopback HTTP to the running engine; the client opens no database. The MCP server opens the database itself and answers with the engine stopped.",
+  "One JSON envelope (ok, data, error, meta) with a typed error code and a process exit code, in place of a raised PermissionError, LookupError or ValueError.",
+  "meta carries the durable workspace_id; the rotating engine session is reported apart from it.",
+  "Unknown input keys and flags are rejected, never ignored.",
+  "Gated by the same two switches, read from the database on every call, so a change in Settings applies at once.",
+  "Every call acts as the one legacy agent principal, as an MCP call does today."
+ ],
+ "tools": [
+  {
+   "tool": "get_server_status",
+   "operation": "status",
+   "switch": "none",
+   "differences": [
+    "Also reports workspace_id, engine_session_id, the engine version and the trust mode of the connection.",
+    "The transport is loopback HTTP to the engine, not stdio; the command fails as a connection error when no engine runs."
+   ],
+   "open": []
+  },
+  {
+   "tool": "get_radar_summary",
+   "operation": "radar.summary",
+   "switch": "enabled",
+   "differences": [],
+   "open": []
+  },
+  {
+   "tool": "search_opportunities",
+   "operation": "opportunities.search",
+   "switch": "enabled",
+   "differences": [
+    "Strict filters: a company, family or location that matches nothing fails with a lookup hint naming the vocabulary command. The MCP tool lists it in `ignored`, drops a filter whose every value was unknown and widens the search.",
+    "Case and separators are still normalized, and nothing fuzzier is matched.",
+    "The Board's full filter set: level bands, tracks, workplace types, domains, base pay bounds and discloses pay, besides text, companies, families, locations, minimum estimated pay, saved only and the first-seen window.",
+    "The Board's sorts, best match included; the MCP tool offers newest, oldest and compensation.",
+    "Cursor paging over a deterministic sort with an ID tie-breaker; the MCP tool returns one page.",
+    "The default page is sized to the smallest certified context; more fields need --fields or --view.",
+    "A first-seen window below one day is an input error; the MCP tool lists it in `ignored`.",
+    "The text query takes the Board's search: whole words through the search index, and best match ranks exact, close and related matches. The MCP tool matches the letters anywhere in title, company and description.",
+    "A limit outside the declared range is an input error naming the range, as the Board's API refuses one; the MCP tool clamps it to 1 to 100."
+   ],
+   "open": []
+  },
+  {
+   "tool": "get_opportunity",
+   "operation": "opportunities.get",
+   "switch": "enabled",
+   "differences": [
+    "Declared views (summary, detail, evidence); the description comes with --view detail.",
+    "A description over the view's budget returns a typed excerpt marked truncated, or payload_too_large with a smaller view; the MCP tool returns the full text unbounded.",
+    "An unknown ID is a not-found error code, not a raised LookupError."
+   ],
+   "open": []
+  },
+  {
+   "tool": "listing_history",
+   "operation": "opportunities.history",
+   "switch": "enabled",
+   "differences": [],
+   "open": []
+  },
+  {
+   "tool": "get_pursuits",
+   "operation": "pursuits.list",
+   "switch": "enabled",
+   "differences": [
+    "Cursor paging; the MCP tool returns one page of up to 100.",
+    "Each pursuit carries its revision, which a patch passes back.",
+    "pursuits.get reads one pursuit with its notes by opportunity ID; the MCP server has no single-pursuit tool."
+   ],
+   "open": []
+  },
+  {
+   "tool": "save_opportunity",
+   "operation": "pursuits.save",
+   "switch": "allow_writes",
+   "differences": [
+    "An idempotency key: the client generates one when none is given and returns it in meta and in a timeout error; a retry with the same key replays the stored result.",
+    "receipts.get looks a write up by its key after a lost reply.",
+    "The result carries the pursuit's revision.",
+    "The audit event records that the write came through the CLI."
+   ],
+   "open": []
+  },
+  {
+   "tool": "update_pursuit",
+   "operation": "pursuits.patch",
+   "switch": "allow_writes",
+   "differences": [
+    "Explicit null clears a nullable field (notes, next action, its due date); an omitted field is unchanged. The MCP tool reads null as not given, so it cannot clear a field.",
+    "stage: null and priority: null are input errors.",
+    "--if-revision N is required: a dashboard edit between the agent's read and its write returns revision_conflict instead of overwriting it.",
+    "An idempotency key, replay before the revision check, and receipts.get, as for pursuits.save.",
+    "Input arrives as JSON through --input; a patch with no field is refused, as today."
+   ],
+   "open": []
+  },
+  {
+   "tool": "get_recipe_contract",
+   "operation": "recipes.contract.get",
+   "switch": "enabled",
+   "differences": [],
+   "open": []
+  },
+  {
+   "tool": "inspect_source",
+   "operation": "sources.inspect",
+   "switch": "enabled",
+   "differences": [
+    "The operation's descriptor declares its outbound network effect."
+   ],
+   "open": []
+  },
+  {
+   "tool": "validate_recipe",
+   "operation": "recipes.validate",
+   "switch": "enabled",
+   "differences": [
+    "The operation's descriptor declares its outbound network effect."
+   ],
+   "open": []
+  },
+  {
+   "tool": "save_recipe_draft",
+   "operation": "recipes.draft.save",
+   "switch": "allow_writes",
+   "differences": [
+    "An idempotency key and receipts.get, as for pursuits.save; a repeated MCP call stores a second draft revision.",
+    "No confirmed argument: the agent sets it itself, so it proves no review. Saving a draft never activates or binds a recipe, and a person who wants to check first sets the collection action group to ask first."
+   ],
+   "open": []
+  }
+ ]
+}
