@@ -1,11 +1,10 @@
 """Compensation analytics for the Statistics "Compensation" sub-tab.
 
 Pure, DB-free aggregation over the roles open now: what employers post as
-base pay (`build_posted_pay`), the estimate's percentile summary and its
-per-level, per-company and per-family breakdowns, and who states pay. The API
-layer fetches the rows and hands them here, so all the math is unit-testable
-without a database. The estimate is a lookup, not a posting (see
-`Job.comp_provenance`), and the UI labels it so.
+base pay (`build_posted_pay`), who states pay, and the daily rollups behind
+pay over time. The API layer fetches the rows and hands them here, so all the
+math is unit-testable without a database. Each company's own posted range and
+estimate at one level are `analytics/pay_table.py`'s.
 """
 
 from __future__ import annotations
@@ -33,20 +32,6 @@ def _percentile(sorted_vals: Sequence[int], p: float) -> float | None:
     return sorted_vals[lo] * (1 - frac) + sorted_vals[hi] * frac
 
 
-def _summary(vals: Sequence[int]) -> dict:
-    """Count + min/max + p25/p50/p75/p90 for one group of comp values."""
-    s = sorted(vals)
-    return {
-        "count": len(s),
-        "min": s[0] if s else None,
-        "max": s[-1] if s else None,
-        "p25": _percentile(s, 0.25),
-        "p50": _percentile(s, 0.50),
-        "p75": _percentile(s, 0.75),
-        "p90": _percentile(s, 0.90),
-    }
-
-
 def _grouped(rows: Iterable[tuple], key_idx: int) -> dict[object, list[int]]:
     groups: dict[object, list[int]] = {}
     for r in rows:
@@ -58,72 +43,12 @@ def _grouped(rows: Iterable[tuple], key_idx: int) -> dict[object, list[int]]:
     return groups
 
 
-# The fewest priced roles a level, company or discipline needs to be shown.
-# The estimate is a lookup with few distinct values, so a group of
-# one is one lookup cell, not a market.
-COMP_MIN_ROLES = 5
-
-
 def level_order(key: object) -> int:
     """Seniority rank of a level key: the rungs in order, then `unstated`
     (a role whose level we cannot place), as the Board lists it."""
     if key == UNSTATED_LEVEL:
         return max(LEVEL_BAND_ORDER.values()) + 1
     return LEVEL_BAND_ORDER.get(str(key), 0)
-
-
-def build_comp_stats(
-    rows: Sequence[tuple],
-    total_open: int,
-    *,
-    company_limit: int = 15,
-    min_roles: int = COMP_MIN_ROLES,
-) -> dict:
-    """Aggregate open-job comp into the Compensation panel payload.
-
-    `rows` are `(company, level, family, comp_median)`, `level` the level key
-    (`db.queries.scope.level_key_expr`); rows with a null
-    comp_median are ignored in the math but `total_open` reflects all open jobs so
-    the UI can report coverage. `by_level` is ordered by seniority and leaves
-    out `unstated` rows: their estimate was looked up at a guessed band, so a
-    row of them restates the guess. `by_company`
-    and `by_family` are ranked by median (p50) descending. A group needs
-    `min_roles` priced roles to be listed; `min_roles` is returned so the UI
-    can say so, and every group carries its `count`.
-    """
-    vals = [int(r[3]) for r in rows if r[3] is not None]
-
-    def _enough(groups: dict[object, list[int]]) -> list[tuple[object, list[int]]]:
-        return [(k, vs) for k, vs in groups.items() if k is not None and len(vs) >= min_roles]
-
-    by_level = [
-        {"level_band": lb, **_summary(vs)}
-        for lb, vs in sorted(_enough(_grouped(rows, 1)), key=lambda kv: level_order(kv[0]))
-        if lb != UNSTATED_LEVEL
-    ]
-    by_company = sorted(
-        ({"company": c, **_summary(vs)} for c, vs in _enough(_grouped(rows, 0))),
-        # Name breaks a tie in the median, so equal medians never swap places,
-        # or swap which company the limit cuts, between two reads of one table.
-        key=lambda d: (-(d["p50"] or 0), d["company"]),
-    )[:company_limit]
-    by_family = sorted(
-        ({"family": f, **_summary(vs)} for f, vs in _enough(_grouped(rows, 2))),
-        key=lambda d: (-(d["p50"] or 0), d["family"] or ""),
-    )
-
-    return {
-        "min_roles": min_roles,
-        "coverage": {
-            "with_comp": len(vals),
-            "total_open": total_open,
-            "pct": round(len(vals) / total_open, 3) if total_open else 0.0,
-        },
-        "overall": _summary(vals) if vals else None,
-        "by_level": by_level,
-        "by_company": by_company,
-        "by_family": by_family,
-    }
 
 
 def _pctiles(vals: Sequence[int]) -> dict:
@@ -195,7 +120,7 @@ def _posted_order(d: dict) -> tuple:
     return (level_order(d["level_band"]), -d["high"], d["company"], d["low"])
 
 
-def _level_figure(ranges: dict[tuple[str, int, int], int], *, min_employers: int, min_ranges: int) -> dict:
+def level_figure(ranges: dict[tuple[str, int, int], int], *, min_employers: int, min_ranges: int) -> dict:
     """One level's posted pay in one country and currency. Each distinct range
     (company, low, high) votes once, however many roles carry it: an employer
     posts one range per level and place and hangs many roles off it. The
@@ -335,7 +260,7 @@ def build_posted_pay(
             "currency": currency,
             "ranges": len(bands),
             "levels": [
-                {"level_band": level, **_level_figure(ranges, min_employers=min_employers, min_ranges=min_ranges)}
+                {"level_band": level, **level_figure(ranges, min_employers=min_employers, min_ranges=min_ranges)}
                 for level, ranges in sorted(levels.items(), key=lambda kv: level_order(kv[0]))
             ],
             "not_placed": {"roles": sum(unplaced.values()), "ranges": len(unplaced)},
@@ -403,12 +328,8 @@ def _rate(disclosed: int, checked: int) -> float | None:
     return round(disclosed / checked, 4) if checked else None
 
 
-def build_disclosure_rates(
-    rows: Sequence[tuple],
-    *,
-    company_limit: int = 15,
-) -> dict:
-    """Share of open roles whose posting states a pay band, overall / per company / per level.
+def build_disclosure_rates(rows: Sequence[tuple]) -> dict:
+    """Share of open roles whose posting states a pay band, overall and per level.
 
     `level_band` in each row is the level key (`db.queries.scope.level_key_expr`): roles
     whose level we cannot place are one `unstated` row, listed last.
@@ -426,37 +347,22 @@ def build_disclosure_rates(
     queued for the disclosure pass, so folding them in would report extraction
     progress as employer silence. Both counts are returned so the UI can state the
     backlog rather than hide it. A group with `checked == 0` keeps `rate: None`:
-    no rate is honest there, and 0.0 would be a lie.
-
-    `by_company` keeps the `company_limit` employers with the most checked
-    roles, most first.
+    no rate is honest there, and 0.0 would be a lie. Each company's own share
+    at one level is its row in the company table (`analytics/pay_table.py`).
     """
     overall = {"open": 0, "checked": 0, "disclosed": 0}
-    by_company: dict[str, dict] = {}
     by_level: dict[str, dict] = {}
 
-    for company, level_band, structured_at, lo, hi, basis, *_ in rows:
+    for _company, level_band, structured_at, lo, hi, basis, *_ in rows:
         checked, cell_basis = _disclosure_state(structured_at, lo, hi, basis)
         for bucket in (
             overall,
-            by_company.setdefault(company, {"open": 0, "checked": 0, "disclosed": 0}),
             by_level.setdefault(level_band or "", {"open": 0, "checked": 0, "disclosed": 0}),
         ):
             bucket["open"] += 1
             bucket["checked"] += int(checked)
             bucket["disclosed"] += int(bool(cell_basis))
 
-    def _largest(entries: list[dict]) -> list[dict]:
-        # The employers most checked roles are at, whatever they post. Cut by
-        # rate instead, the limit keeps only employers that all post a range
-        # (or, lowest first, all post none), since many sit at each end. The
-        # name breaks a tie, so the limit cuts the same employers on every
-        # read of one table.
-        return sorted(entries, key=lambda d: (-d["checked"], d["company"]))
-
-    companies = _largest(
-        [{"company": c, **v, "rate": _rate(v["disclosed"], v["checked"])} for c, v in by_company.items()]
-    )[:company_limit]
     levels = [
         {"level_band": lb, **v, "rate": _rate(v["disclosed"], v["checked"])}
         for lb, v in sorted(by_level.items(), key=lambda kv: level_order(kv[0]))
@@ -464,7 +370,6 @@ def build_disclosure_rates(
 
     return {
         "overall": {**overall, "rate": _rate(overall["disclosed"], overall["checked"])},
-        "by_company": companies,
         "by_level": levels,
     }
 

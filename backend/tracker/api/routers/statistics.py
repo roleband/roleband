@@ -7,16 +7,16 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from functools import cache
+from typing import Annotated, Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from pydantic import BaseModel
-from sqlalchemy import case, func, select, text
+from sqlalchemy import exists, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import load_only
 
 from tracker.analytics.age_basis import employer_dated_share, employer_dated_sql
 from tracker.analytics.comp_stats import (
-    build_comp_stats,
     build_disclosure_rates,
     build_posted_pay,
     level_order,
@@ -27,6 +27,12 @@ from tracker.analytics.comp_trends import (
     build_disclosure_trend_series,
 )
 from tracker.analytics.hiring import build_hiring_places
+from tracker.analytics.pay_table import (
+    EstimateRole,
+    TableRole,
+    build_pay_by_discipline,
+    build_pay_table,
+)
 from tracker.analytics.posting_reality import NEW_LISTING_WINDOW
 from tracker.analytics.stock_trajectory import (
     TrajectoryRole,
@@ -46,6 +52,7 @@ from tracker.api.schemas.statistics import (
     InsightsHistoryResponse,
     LevelGuideResponse,
     OfferTermsResponse,
+    PayTableResponse,
     StatisticsOverviewResponse,
     StatsResponse,
 )
@@ -61,12 +68,19 @@ from tracker.db.models import (
     JobLifecycleEvent,
     JobLineageLink,
     JobPlaceSetMember,
+    JobSkill,
     JobTwinLink,
     Notification,
     SkillConcept,
 )
 from tracker.db.queries import motion
-from tracker.db.queries.insights import history_days, history_since, window_since
+from tracker.db.queries.insights import (
+    InsightsScope,
+    followed_as_set,
+    history_days,
+    history_since,
+    window_since,
+)
 from tracker.db.queries.jobs import (
     base_only_role_conds,
     board_count_stmt,
@@ -77,22 +91,24 @@ from tracker.db.queries.jobs import (
     open_in_scope_count_stmt,
     pair_on_board,
     place_set_later_ids,
-    priced_in_dollars,
+    priced_at,
 )
 from tracker.db.queries.scope import level_key_expr
+from tracker.db.queries.skills import ELIGIBLE_REQUIREMENT, at_places
 from tracker.db.queries.skills import top_skills as read_top_skills
 from tracker.enrich.enricher import ESTIMATE_FIELDS
+from tracker.levels import UNSTATED_LEVEL
 from tracker.levels.companies import COMPANIES
 from tracker.levels.ladder import flat_guide, level_guide, lineage
-from tracker.levels.pay import PAY_POLICIES
+from tracker.levels.pay import PAY_POLICIES, level_label, stated_equity
 from tracker.platform.util import local_day_start_utc
 from tracker.plugins.registry import PAY_LEVELS, reader_providers
 from tracker.plugins.status import reference_changes
 from tracker.profiles import prices as price_store
-from tracker.schema import OUR_ESTIMATE_SOURCE
+from tracker.schema import OUR_ESTIMATE_SOURCE, LevelBand
 from tracker.settings_store import get_enabled_bands, get_enabled_locations
 from tracker.skills.analytics import COMPETENCY_CATEGORIES
-from tracker.taxonomy.locations import country_code, pay_country
+from tracker.taxonomy.locations import country_code, country_groups, country_slug, pay_country
 from tracker.taxonomy.tracks import TRACKS, allowed_bands_for
 
 router = APIRouter()
@@ -240,110 +256,77 @@ def _us_pay(location_groups: list[str] | None) -> bool:
     return pay_country(location_groups) == OUR_PAY_COUNTRY
 
 
+def _posted_columns(level: Any) -> tuple:
+    """The columns `build_posted_pay` reads, in its row order."""
+    return (
+        Job.company, level, Job.level_basis, Job.disclosed_base_min, Job.disclosed_base_max,
+        Job.disclosed_pay_basis, Job.disclosed_currency, Job.disclosed_pay_period, Job.location_groups,
+    )
+
+
+async def _posted_pay(session: AsyncSession, scope: list) -> dict:
+    """`build_posted_pay` over the roles `scope` selects that post a range,
+    with the person's places and levels."""
+    level = level_key_expr(Job).label("level")
+    rows = (
+        await session.execute(
+            select(*_posted_columns(level)).where(
+                *scope, Job.disclosed_base_min.isnot(None), Job.disclosed_base_max.isnot(None),
+            )
+        )
+    ).all()
+    your_countries = {code for code in map(country_code, await get_enabled_locations(session)) if code}
+    return {
+        **build_posted_pay([tuple(r) for r in rows], your_countries=your_countries),
+        "your_levels": sorted(await get_enabled_bands(session), key=level_order),
+    }
+
+
+def _names_skill(skill: str | None) -> list:
+    """The role's posting names this skill, by the rule every skills read
+    follows (`ELIGIBLE_REQUIREMENT`); nothing with no skill picked."""
+    if not skill:
+        return []
+    return [
+        exists().where(
+            JobSkill.job_id == Job.id,
+            SkillConcept.id == JobSkill.concept_id,
+            SkillConcept.slug == skill,
+            *ELIGIBLE_REQUIREMENT,
+        )
+    ]
+
+
+def _insights_scope(narrowed: InsightsScope, hidden: list[str]) -> list:
+    """The roles Insights describes, narrowed to the read's side and disciplines."""
+    return [*insights_role_conds(), *narrowed.conds(), *([Job.company.notin_(hidden)] if hidden else [])]
+
+
 @router.get("/api/statistics/compensation", response_model=CompensationStatsResponse)
 async def statistics_compensation(session: SessionDep, hidden: OffBoardDep, narrowed: InsightsScopeDep) -> dict:
     """Compensation across the roles open now: the roles Insights describes.
 
-    The quantities in this payload must not be conflated:
-
     * `posted` carries the ranges employers print in their postings, as yearly
       *base salary* per country and level (see `build_posted_pay`), with the
       person's levels so the screen can open on them. It leads the tab.
-    * `overall` / `by_level` / `by_company` / `by_family` aggregate
-      `Job.comp_median`, an *imputed total-comp estimate*: a lookup keyed by
-      company and level, not anything an employer said, and only for US
-      postings. Base pay and total comp cannot share an axis, so the UI keeps
-      them in separate panels.
-    * `disclosure` is the *rate* — how many open roles state pay at all, overall
-      and per company/level. Basis-independent, and denominated in roles the
+    * `disclosure` is the *rate*: how many open roles state pay at all, overall
+      and per level. Basis-independent, and denominated in roles the
       disclosure pass has actually read (see `build_disclosure_rates`).
 
-    Coverage is reported so the UI can state how much of the open set is estimated.
+    Each company's own range and estimate at one level are the company table's
+    (`statistics_pay_table`).
 
     No window. Keeping roles FIRST SEEN in the last N days would change the
     population, not the period: most open postings are first seen recently, so
     a 30-day window is nearly all-time and a 7-day one a sample of whatever was
-    onboarded that week. The trend routes carry time.
+    onboarded that week.
     """
-    # One predicate for every query below: filtering only some of them would mix
-    # populations and silently misreport the coverage percentage.
-    scope = [*insights_role_conds(), *narrowed.conds()]
-    if hidden:
-        scope.append(Job.company.notin_(hidden))
-
-    total_open = await session.scalar(select(func.count()).where(*scope))
-    # Every grouping by level reads the level key, never the stored band: a role
-    # whose level we cannot place is `unstated`, not the Mid its sort default
-    # says or the Senior/Staff a role word guessed.
+    # One predicate for both reads: filtering only one would mix populations.
+    scope = _insights_scope(narrowed, hidden)
     level = level_key_expr(Job).label("level")
-    # The estimate is US pay in US dollars, as every panel built from it says.
-    # An estimate in another currency, or for a role whose pay is for another
-    # country or for none (a plugin pricing non-US rungs), is not on that axis,
-    # so it counts as unpriced here: nothing is converted.
-    in_usd = Job.comp_currency == "USD"
-    # A role listed in several places is read through the posting the daily pay
-    # record keeps for it (`priced_in_dollars`), so the tab and its history agree.
-    # The count of open roles and the printed ranges keep the plain rule.
-    shown = [*narrowed.conds(), *([Job.company.notin_(hidden)] if hidden else [])]
-    estimate_scope = [*insights_role_conds(priced_in_dollars()), *shown]
-    rows = (
-        await session.execute(
-            select(Job.company, Job.level_band, Job.family, case((in_usd, Job.comp_median)).label("comp_median"),
-                   level, Job.location_groups).where(*estimate_scope)
-        )
-    ).all()
-
-    stats = build_comp_stats(
-        [(r.company, r.level, r.family, r.comp_median if _us_pay(r.location_groups) else None) for r in rows],
-        total_open or 0,
-    )
-
-    # Roles our dataset prices by their base alone have no total, so the block
-    # above cannot hold them; they are reported apart and labelled, never on
-    # the totals' axis.
-    base_rows = (
-        await session.execute(
-            select(Job.company, level, Job.family, Job.comp_base_median, Job.location_groups).where(
-                *base_only_role_conds(), *shown,
-            )
-        )
-    ).all()
-    base = build_comp_stats([tuple(r[:4]) for r in base_rows if _us_pay(r.location_groups)], total_open or 0)
-    stats["base_estimates"] = {
-        "min_roles": base["min_roles"],
-        "coverage": {"with_base": base["coverage"]["with_comp"], "total_open": base["coverage"]["total_open"]},
-        "overall": base["overall"],
-        "by_level": base["by_level"],
-        "by_company": base["by_company"],
-        "by_family": base["by_family"],
-    }
-
-    # What employers post: yearly base ranges per country and level, every
-    # range counted, kept apart from the estimate above.
-    posted_rows = (
-        await session.execute(
-            select(
-                Job.company,
-                level,
-                Job.level_basis,
-                Job.disclosed_base_min,
-                Job.disclosed_base_max,
-                Job.disclosed_pay_basis,
-                Job.disclosed_currency,
-                Job.disclosed_pay_period,
-                Job.location_groups,
-            ).where(*scope, Job.disclosed_base_min.isnot(None), Job.disclosed_base_max.isnot(None))
-        )
-    ).all()
-    your_countries = {code for code in map(country_code, await get_enabled_locations(session)) if code}
-    stats["posted"] = {
-        **build_posted_pay([tuple(r) for r in posted_rows], your_countries=your_countries),
-        "your_levels": sorted(await get_enabled_bands(session), key=level_order),
-    }
-
     # Disclosure rate. Its own scan, unfiltered by `disclosed_base_min`: the rate's
     # denominator is every *checked* open role, so the roles that disclosed nothing
-    # are exactly the rows that matter and the bands query above excludes them.
+    # are exactly the rows that matter and the posted read excludes them.
     rate_rows = (
         await session.execute(
             select(
@@ -356,10 +339,147 @@ async def statistics_compensation(session: SessionDep, hidden: OffBoardDep, narr
             ).where(*scope)
         )
     ).all()
-    stats["disclosure"] = build_disclosure_rates([tuple(r) for r in rate_rows])
+    return {
+        "posted": await _posted_pay(session, scope),
+        "disclosure": build_disclosure_rates([tuple(r) for r in rate_rows]),
+    }
 
-    stats["currency"] = "USD"
-    return stats
+
+@router.get("/api/statistics/pay-table", response_model=PayTableResponse)
+async def statistics_pay_table(
+    session: SessionDep,
+    hidden: OffBoardDep,
+    narrowed: InsightsScopeDep,
+    country: Annotated[str, Query(pattern=r"^[A-Za-z]{2}$")],
+    level: Annotated[LevelBand, Query()],
+    skill: Annotated[str | None, Query(max_length=128)] = None,
+) -> dict:
+    """Every company hiring at one level in one country, and posted pay by
+    discipline at that level (`analytics/pay_table.py`).
+
+    A role is the country's when any place it lists lies there, as the place
+    filter takes it; a company's posted cell reads only ranges for that country
+    alone, as the level's figure does. The side narrows both reads. The picked
+    disciplines narrow the table and are marked in the comparison, which shows
+    every discipline. The skill narrows the table only.
+
+    The currency is the country's own (`build_posted_pay` over every
+    discipline), never the picked discipline's: the comparison draws every
+    discipline on one axis, and a discipline with no range of its own would
+    otherwise leave the country with no currency at all. Each row says the
+    currency its own figure is in, and a company posting only in another
+    currency is listed apart, so the tab's figure and a row can differ in
+    currency while a discipline is picked.
+    """
+    code = country.upper()
+    slug = country_slug(code)
+    families = narrowed.families
+    roles: list[TableRole] = []
+    estimates: list[EstimateRole] = []
+    currency = None
+    if slug is not None:
+        # The country's own currency, read without the discipline filter: it is
+        # the country's, and the comparison below shows every discipline, so a
+        # discipline with no range of its own must not leave the country
+        # currencyless.
+        posted = await _posted_pay(session, [
+            *insights_role_conds(), *narrowed.company_conds(Job.company),
+            *([Job.company.notin_(hidden)] if hidden else []),
+        ])
+        currency = next((c["currency"] for c in posted["countries"] if c["country"] == code), None)
+        level_key = level_key_expr(Job)
+        # Every group in the country, since a posting carries its places' whole
+        # parent chain: a Mountain View role is the United States'.
+        groups = list(country_groups(code))
+        # A role listed in several places is read through a posting in this country.
+        where = [
+            *insights_role_conds(at_places(groups)),
+            Job.location_groups.overlap(groups),
+            level_key.in_([level.value, UNSTATED_LEVEL]),
+            *narrowed.company_conds(Job.company),
+            *([Job.company.notin_(hidden)] if hidden else []),
+        ]
+        rows = (
+            await session.execute(
+                select(
+                    Job.id, Job.company, Job.family, level_key.label("level"), Job.level_basis, Job.location_groups,
+                    Job.structured_at, Job.disclosed_base_min, Job.disclosed_base_max, Job.disclosed_pay_basis,
+                    Job.disclosed_currency, Job.disclosed_pay_period,
+                ).where(*where)
+            )
+        ).all()
+        named: dict[int, set[str]] = {}
+        for job_id, term in (
+            await session.execute(
+                select(JobSkill.job_id, SkillConcept.slug)
+                .join(SkillConcept, SkillConcept.id == JobSkill.concept_id)
+                .join(Job, Job.id == JobSkill.job_id)
+                .where(*where, *ELIGIBLE_REQUIREMENT)
+            )
+        ).all():
+            named.setdefault(job_id, set()).add(term)
+        roles = [
+            TableRole(
+                company=r.company, family=r.family, level=r.level, level_basis=r.level_basis,
+                places=tuple(r.location_groups or ()), structured_at=r.structured_at,
+                base_min=r.disclosed_base_min, base_max=r.disclosed_base_max, pay_basis=r.disclosed_pay_basis,
+                currency=r.disclosed_currency, period=r.disclosed_pay_period,
+                skills=frozenset(named.get(r.id, ())),
+            )
+            for r in rows
+        ]
+        # The estimate is read through the posting that prices the role
+        # (`priced_at`, `base_only_role_conds`), the posting the daily pay
+        # record reads, so one role is never priced from two postings. A role
+        # with a total is no base role, and both reads are US pay only.
+        estimate_columns = (
+            Job.company, Job.family, Job.comp_base_median, Job.comp_median, Job.comp_provider, Job.location_groups,
+        )
+        side = [*narrowed.company_conds(Job.company), *([Job.company.notin_(hidden)] if hidden else [])]
+        # The roles the table shows: its level, its side and the skill it is
+        # narrowed to, so a row's estimate rests on the same roles as its
+        # figure. A member test picks the posting; it never admits a role, so
+        # the dollar estimate is required of the row itself.
+        estimate_scope = [level_key == level.value, *side, *_names_skill(skill)]
+        priced_rows = (
+            await session.execute(
+                select(*estimate_columns).where(
+                    *insights_role_conds(priced_at(groups)),
+                    Job.location_groups.overlap(groups), Job.comp_currency == "USD", *estimate_scope,
+                )
+            )
+        ).all()
+        base_rows = (
+            await session.execute(
+                select(*estimate_columns).where(*base_only_role_conds(groups), *estimate_scope)
+            )
+        ).all()
+        # Each read answers its own kind: a role priced by a total has no base
+        # estimate of its own, since its base columns copy that same answer.
+        estimates = [
+            *(
+                EstimateRole(company=r.company, family=r.family, base=None, total=r.comp_median,
+                             provider=r.comp_provider)
+                for r in priced_rows if r.comp_median is not None and _us_pay(r.location_groups)
+            ),
+            *(
+                EstimateRole(company=r.company, family=r.family, base=r.comp_base_median, total=None,
+                             provider=r.comp_provider)
+                for r in base_rows if r.comp_base_median is not None and _us_pay(r.location_groups)
+            ),
+        ]
+    table = build_pay_table(
+        roles, country=code, currency=currency, level=level.value, estimates=estimates,
+        families=families, skill=skill,
+        followed_as_set=await followed_as_set(session),
+        rung=lambda company, band: level_label(company, LevelBand(band)), equity=stated_equity,
+    )
+    return {
+        **table,
+        "by_discipline": build_pay_by_discipline(
+            roles, country=code, currency=currency, level=level.value, families=families,
+        ),
+    }
 
 
 #: The job columns a role's package reads (`api.comp_packages.role_package`).

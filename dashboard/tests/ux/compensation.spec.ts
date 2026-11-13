@@ -16,16 +16,6 @@ import {
 // level in the country's own currency, and the estimate (a lookup of US pay,
 // few distinct values), which every panel built from it names as such.
 
-const summary = (p50: number, count: number) => ({
-  count,
-  min: 298_053,
-  max: 1_500_000,
-  p25: p50 - 40_000,
-  p50,
-  p75: p50 + 80_000,
-  p90: p50 + 200_000,
-});
-
 const level = (level_band: string, low: number | null, high: number | null, ranges: number, employers: number, roles: number) => ({
   level_band, ranges, employers, roles, enough: low != null, low, high,
   mid_p25: low == null ? null : low + 10_000, mid_p75: high == null ? null : high - 10_000,
@@ -66,32 +56,52 @@ const postedFixture = (over: Record<string, unknown> = {}) => ({
 });
 
 const compFixture = (over: Record<string, unknown> = {}) => ({
-  currency: "USD",
-  min_roles: 5,
-  coverage: { with_comp: 732, total_open: 749, pct: 0.977 },
-  overall: summary(479_251, 732),
-  by_level: [
-    { level_band: "senior", ...summary(306_217, 406) },
-    { level_band: "staff", ...summary(644_468, 265) },
-  ],
-  by_company: [{ company: "openai", ...summary(900_000, 58) }],
-  by_family: [{ family: "software_engineering", ...summary(479_251, 400) }],
   posted: postedFixture(),
-  base_estimates: { min_roles: 5, coverage: { with_base: 0, total_open: 749 }, overall: null, by_level: [], by_company: [], by_family: [] },
   // 749 open, 600 read by the disclosure pass, 150 of those stating a range. The
   // gap between 749 and 600 is our extraction backlog, not employer silence, and
   // the panel has to say which is which.
   disclosure: {
     overall: { open: 749, checked: 600, disclosed: 150, rate: 0.25 },
-    by_company: [
-      { company: "google", open: 200, checked: 200, disclosed: 160, rate: 0.8 },
-      { company: "openai", open: 60, checked: 50, disclosed: 5, rate: 0.1 },
-      { company: "netflix", open: 40, checked: 0, disclosed: 0, rate: null },
-    ],
     by_level: [
       { level_band: "senior", open: 406, checked: 400, disclosed: 100, rate: 0.25 },
       { level_band: "staff", open: 265, checked: 200, disclosed: 50, rate: 0.25 },
       { level_band: "unstated", open: 300, checked: 250, disclosed: 90, rate: 0.36 },
+    ],
+  },
+  ...over,
+});
+
+/** A message's text as a regular expression, for a name match. */
+const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const tableRow = (company: string, over: Record<string, unknown> = {}) => ({
+  company, followed_as_set: false, open_roles: 2, posting: 2, checked: 2, currency: "USD",
+  low: 250_000, high: 320_000, ranges: [{ low: 250_000, high: 320_000, roles: 2 }],
+  other_currency: false, reason: null, estimate_base: null, estimate_total: null, equity: null,
+  ...over,
+});
+
+const tableFixture = (over: Record<string, unknown> = {}) => ({
+  country: "US", level_band: "principal", currency: "USD", skill: null, estimates: true,
+  rows: [
+    tableRow("google", { open_roles: 4, posting: 3, checked: 4, low: 262_000, high: 365_000,
+      ranges: [{ low: 262_000, high: 365_000, roles: 3 }],
+      equity: { vehicle: "rsu", vesting: "25/25/25/25", rule: null } }),
+    tableRow("apple", { low: null, high: null, ranges: [], currency: null, posting: 0, reason: "total",
+      estimate_total: { low: 900_000, high: 900_000, rung: "ICT6" } }),
+    tableRow("netflix", { low: null, high: null, ranges: [], currency: null, posting: 0, reason: "none",
+      equity: { vehicle: "cash_election", vesting: null, rule: "employee_election" } }),
+  ],
+  not_placed: [{ company: "apple", roles: 299 }],
+  skills: [{ term: "python", roles: 8 }],
+  min_skill_roles: 3,
+  by_discipline: {
+    min_employers: 5, min_ranges: 8, max_employer_share: 0.4,
+    disciplines: [
+      { family: "product_management", picked: false, ranges: 10, employers: 5, roles: 40, enough: true,
+        low: 245_000, high: 325_000, mid_p25: 262_500, mid_p75: 307_500, top_share: 0.2, withheld: null },
+      { family: "data_science", picked: false, ranges: 4, employers: 3, roles: 9, enough: false,
+        low: null, high: null, mid_p25: null, mid_p75: null, top_share: 0.5, withheld: "too_few" },
     ],
   },
   ...over,
@@ -110,6 +120,7 @@ test.beforeEach(async ({ page }) => {
   await page.route("/api/jobs/101", (route) => route.fulfill({ json: jobFixture }));
   await page.route("/api/jobs?**", (route) => route.fulfill({ json: jobListFixture }));
   await page.route("/api/statistics/compensation**", (route) => route.fulfill({ json: compFixture() }));
+  await mockGet(page, "/api/statistics/pay-table**", (route) => route.fulfill({ json: tableFixture() }));
 });
 
 test("opens on what employers post at the person's level, apart from the estimate", async ({ page }) => {
@@ -143,12 +154,9 @@ test("opens on what employers post at the person's level, apart from the estimat
   await expect(byLevel).toContainText(msg("insights-posted-not-placed", { roles: 37, ranges: 12 }));
   await expect(byLevel.getByRole("listitem").filter({ hasText: /not placed/i })).toHaveCount(0);
 
-  // Every estimate panel says it is one, of US pay.
-  for (const heading of [msg("insights-compensation-panel-median-comp-by-level"), msg("insights-compensation-panel-top-paying-companies")]) {
-    const panel = page.locator(".panel", { has: page.getByRole("heading", { level: 3, name: heading }) });
-    await expect(panel.locator(".eyebrow")).toHaveText(msg("insights-posted-estimate-us-only"));
-  }
-  await expect(page.locator(".comp-row", { hasText: "OpenAI" })).toContainText("58 roles");
+  // No panel aggregates the estimate: each company's own is its table row.
+  await expect(page.getByText(msg("insights-compensation-panel-top-paying-companies"))).toHaveCount(0);
+  await expect(page.getByText(msg("insights-compensation-panel-median-comp-by-level"))).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
@@ -236,18 +244,13 @@ test("reports the disclosure rate against checked roles and names the backlog", 
   await expect(page.locator(".chart-insight", { hasText: /25% of 600 checked roles post a range/ })).toBeVisible();
   await expect(page.getByText(/149 of 749 open roles haven't been checked/i)).toBeVisible();
 
-  // Who states pay opens by level; a role whose level we cannot place has its own row, never a rung's.
+  // Who states pay is by level; a role whose level we cannot place has its own
+  // row, never a rung's. Each company's own share is its table row instead.
   const byLevel = page.getByRole("img", { name: /post a range, by level/i });
   await expect(byLevel).toBeVisible();
   await expect(byLevel.getByText("Level unknown")).toBeVisible();
   await expect(byLevel.getByText(/^unstated$/)).toHaveCount(0);
-
-  await page.getByRole("group", { name: "Pay transparency breakdown" }).getByRole("button", { name: "By company" }).click();
-  const rateChart = page.getByRole("img", { name: /post a range, by company/i });
-  await expect(rateChart).toBeVisible();
-  await expect(rateChart.getByText("80% · 160/200")).toBeVisible();
-  // Netflix has nothing checked; it must not be drawn as a 0% employer.
-  await expect(rateChart.getByText("Netflix")).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "Pay transparency breakdown" })).toHaveCount(0);
 
   expect(errors).toEqual([]);
 });
@@ -270,25 +273,67 @@ test("Pay has no window and draws no pay over time; who posts a range stays", as
   expect(asked.filter((path) => /trends/.test(path))).toEqual([]);
 });
 
-test("a fresh install's base-only roles have their own panel, apart from the totals", async ({ page }) => {
-  // RoleBand's data prices these by their base
-  // alone. They are counted, labelled and charted apart: never on the totals' axis.
-  await page.route("/api/statistics/compensation**", (route) => route.fulfill({ json: compFixture({
-    base_estimates: {
-      min_roles: 5, coverage: { with_base: 40, total_open: 789 }, overall: summary(210_000, 40),
-      by_level: [{ level_band: "senior", ...summary(196_000, 25) }, { level_band: "staff", ...summary(247_000, 15) }],
-      by_company: [], by_family: [],
-    },
-  }) }));
-  await page.goto("/statistics");
-  await page.getByRole("tab", { name: "Compensation" }).click();
+test("the company table leads with each company's posted range at the picked level", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.goto("/statistics/compensation");
 
-  const panel = page.getByRole("region", { name: msg("insights-compensation-panel-estimated-base-by-level") });
-  await expect(panel).toBeVisible();
-  await expect(panel).toContainText("40 more roles have only a base salary estimate");
-  await expect(panel).toContainText("$196K");
-  await expect(panel.locator(".eyebrow")).toHaveText(msg("insights-posted-estimate-us-only"));
-  // The totals' level chart is the totals' alone.
-  const totals = page.locator(".panel", { has: page.getByRole("heading", { level: 3, name: msg("insights-compensation-panel-median-comp-by-level") }) });
-  await expect(totals).not.toContainText("$196K");
+  const table = page.getByRole("region", {
+    name: msg("insights-pay-table-heading", { level: "Principal", country: "United States" }),
+  });
+  await expect(table).toBeVisible();
+  const google = table.getByRole("row", { name: /Google/ });
+  await expect(google).toContainText("$262K–$365K");
+  await expect(google).toContainText(msg("insights-pay-table-some-roles", { posting: 3, roles: 4 }));
+  // Equity is what the employer states, never a share we estimate.
+  await expect(google).toContainText(msg("insights-stock-trajectory-panel-rsus"));
+  await expect(google).toContainText(msg("insights-stock-trajectory-panel-vests", { schedule: "25/25/25/25" }));
+  await expect(table.getByText("%")).toHaveCount(0);
+
+  // A company that posts total compensation says so, and its estimate stands
+  // in the estimate column alone.
+  const apple = table.getByRole("row", { name: /Apple/ });
+  await expect(apple).toContainText(msg("insights-pay-table-total"));
+  await expect(apple).toContainText("$900K");
+  // Roles with no placed level are counted below the table, never as a row.
+  await expect(table).toContainText(msg("insights-pay-table-not-placed", { roles: 299, companies: 1 }));
+
+  // The company name opens the board narrowed to it.
+  await expect(table.getByRole("link", { name: "Google" })).toHaveAttribute("href", "/?company=google");
+  expect(errors).toEqual([]);
+});
+
+test("the table follows the level picker and the skill filter, and the skill rides the link", async ({ page }) => {
+  const asked: string[] = [];
+  await mockGet(page, "/api/statistics/pay-table**", (route) => {
+    asked.push(new URL(route.request().url()).search);
+    return route.fulfill({ json: tableFixture() });
+  });
+  await page.goto("/statistics/compensation");
+  await expect(page.getByRole("heading", { level: 3, name: new RegExp(escape(msg("insights-pay-table-heading", { level: "Principal", country: "United States" }))) })).toBeVisible();
+
+  await page.getByRole("combobox", { name: msg("insights-posted-level") }).selectOption("staff");
+  await expect.poll(() => asked.some((q) => q.includes("level=staff"))).toBe(true);
+
+  const filterBy = msg("shared-filter-select-filter-by", { label: msg("insights-pay-table-any-skill").toLowerCase() });
+  await page.locator(".chart-head-controls").getByRole("button", { name: filterBy }).click();
+  await page.getByRole("option", { name: /Python/ }).click();
+  await expect(page).toHaveURL(/skill=python/);
+  await expect.poll(() => asked.some((q) => q.includes("skill=python"))).toBe(true);
+
+  // A new level answers its own skills, so the skill leaves the link.
+  await page.getByRole("combobox", { name: msg("insights-posted-level") }).selectOption("principal");
+  await expect(page).not.toHaveURL(/skill=/);
+});
+
+test("pay by discipline stays in the advanced view and withholds what one employer fills", async ({ page }) => {
+  await page.goto("/statistics/compensation");
+  const heading = msg("insights-pay-discipline-heading", { level: "Principal", country: "United States" });
+  await expect(page.getByRole("region", { name: heading })).toBeVisible();
+
+  const panel = page.getByRole("region", { name: heading });
+  await expect(panel.getByRole("listitem")).toHaveCount(1);
+  await expect(panel).toContainText("$245K–$325K");
+  await expect(panel).toContainText(msg("insights-pay-discipline-too-few", { families: "Data Science & Analytics" }));
+  await expect(panel).toContainText(msg("insights-pay-discipline-note"));
 });

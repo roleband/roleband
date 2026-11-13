@@ -69,6 +69,7 @@ ROUTES = {
     "stats": "/api/stats",
     "overview": "/api/statistics/overview",
     "compensation": "/api/statistics/compensation",
+    "pay_table": "/api/statistics/pay-table?country=US&level=staff",
     "trajectory": "/api/statistics/comp-trajectory",
     "comp_trends": "/api/statistics/comp-trends",
     "disclosure_trends": "/api/statistics/disclosure-trends",
@@ -158,10 +159,12 @@ async def test_an_empty_radar_answers_every_shape_with_nothing_in_it(api_client,
     overview = await _get(api_client, ROUTES["overview"])
     assert overview["top_skills"] == []
     compensation = await _get(api_client, ROUTES["compensation"])
-    assert (compensation["overall"], compensation["coverage"]) == (None, {"with_comp": 0, "total_open": 0, "pct": 0.0})
     # No range: every country listed is one of the person's places, with nothing in it.
     assert all(c["ranges"] == 0 and c["yours"] and c["bands"] == [] for c in compensation["posted"]["countries"])
     assert compensation["disclosure"]["overall"] == {"open": 0, "checked": 0, "disclosed": 0, "rate": None}
+    table = await _get(api_client, ROUTES["pay_table"])
+    assert (table["rows"], table["not_placed"], table["skills"]) == ([], [], [])
+    assert table["by_discipline"]["disciplines"] == []
     trajectory = await _get(api_client, ROUTES["trajectory"])
     assert (trajectory["overall"], trajectory["public"], trajectory["private"]) == (None, [], [])
     assert (await _get(api_client, ROUTES["comp_trends"]))["series"] == []
@@ -226,24 +229,15 @@ async def test_the_overview_scopes_openings_to_its_window_and_names_the_leaders(
 async def test_compensation_keeps_the_estimate_apart_from_printed_bands_over_the_roles_open_now(api_client, seeded):
     body = await _get(api_client, ROUTES["compensation"])
     assert list(body) == _fields(contract.CompensationStatsResponse)
+    # The tab leads with what employers post, never with an estimate: no
+    # aggregate of lookups, and no dollar premium per skill (an employer sets a
+    # range per level and place, not per skill).
+    for key in ("overall", "by_level", "by_company", "by_family", "base_estimates", "by_skill", "histogram"):
+        assert key not in body, key
+
     # Every open role, whenever we first saw it: `g-senior` (60 days) and
     # `o-old` (45) are in. A window that kept only roles FIRST SEEN in it would
-    # change the population, not the period. Stripe carries no estimate.
-    assert body["coverage"] == {"with_comp": 25, "total_open": 27, "pct": 0.926}
-    assert (body["overall"]["count"], body["overall"]["min"], body["overall"]["max"]) == (25, 380000, 907556)
-    assert all(isinstance(body["overall"][p], float) for p in ("p25", "p50", "p75", "p90"))
-    # A group needs `min_roles` priced roles: netflix (1) and openai (3)
-    # must not rank first and second on one and three lookups.
-    assert body["min_roles"] == 5
-    assert [row["level_band"] for row in body["by_level"]] == ["senior", "staff"]
-    assert [row["company"] for row in body["by_company"]] == ["google"]
-    assert [row["family"] for row in body["by_family"]] == ["product_management"]
-    assert all(row["count"] >= 5 for key in ("by_level", "by_company", "by_family") for row in body[key])
-    assert all(list(row) == _fields(contract.CompFamilySummary) for row in body["by_family"])
-    # No dollar premium per skill: an employer sets a range per level and
-    # place, not per skill, so a premium would only name who asks for it.
-    assert "by_skill" not in body and "histogram" not in body
-
+    # change the population, not the period.
     # One range per distinct print, with the roles on it; what is not yearly
     # base pay is counted, not dropped. `g-senior`'s range is in: it is open,
     # however long ago we first saw it.
@@ -269,14 +263,32 @@ async def test_compensation_keeps_the_estimate_apart_from_printed_bands_over_the
     assert list(posted) == _fields(contract.PostedPay)
     # The rate is denominated in roles the disclosure pass has read: `o-old` was never read.
     assert body["disclosure"]["overall"] == {"open": 27, "checked": 9, "disclosed": 8, "rate": 0.8889}
-    rates = {row["company"]: row for row in body["disclosure"]["by_company"]}
-    assert {c: (r["checked"], r["disclosed"], r["rate"]) for c, r in rates.items()} == {
-        "google": (6, 6, 1.0), "openai": (1, 1, 1.0), "netflix": (1, 1, 1.0), "stripe": (1, 0, 0.0),
-    }
-    assert body["disclosure"]["by_company"][-1]["company"] == "stripe"
-    assert body["currency"] == "USD"
+    # Each company's own share is its table row, over the roles at one level.
+    assert "by_company" not in body["disclosure"]
     # The Window lens is not this route's: a stray `days` changes nothing.
     assert await _get(api_client, f"{ROUTES['compensation']}?days=7") == body
+
+
+@pytest.mark.asyncio
+async def test_the_company_table_carries_each_companys_own_range_and_estimate(api_client, seeded):
+    body = await _get(api_client, ROUTES["pay_table"])
+    assert list(body) == _fields(contract.PayTableResponse)
+    rows = {row["company"]: row for row in body["rows"]}
+    # Google's posted range leads; the rest post none at this level and follow
+    # by open roles, then by name.
+    assert list(rows) == ["google", "openai", "netflix"]
+    # Google posts one staff range on two roles: the range leads, the estimate follows.
+    google = rows["google"]
+    assert list(google) == _fields(contract.PayTableRow)
+    assert (google["low"], google["high"], google["currency"]) == (250000, 320000, "USD")
+    assert google["ranges"] == [{"low": 250000, "high": 320000, "roles": 2}]
+    assert (google["posting"], google["checked"], google["open_roles"]) == (2, 2, 2)
+    assert google["estimate_total"]["low"] == 594000
+    # Netflix states a total range, so no base figure stands, and the reason says why.
+    assert (rows["netflix"]["low"], rows["netflix"]["reason"]) == (None, "unclear")
+    # OpenAI states a total range, so no base figure stands either.
+    assert (rows["openai"]["low"], rows["openai"]["reason"]) == (None, "total")
+    assert body["estimates"] is True and body["currency"] == "USD"
 
 
 @pytest.mark.asyncio
@@ -313,9 +325,6 @@ async def test_a_role_whose_level_we_cannot_place_never_counts_under_a_level_on_
     await db_session.commit()
 
     body = await _get(api_client, ROUTES["compensation"])
-    # The estimate by level is unchanged: no Mid-level row of bare titles, no
-    # Senior pulled by a guess, and no row restating a guessed lookup.
-    assert body["by_level"] == before["by_level"]
     # Posted ranges at unplaced roles are counted apart, never inside a level.
     us, us_before = (next(c for c in b["posted"]["countries"] if c["country"] == "US") for b in (body, before))
     assert (us["bands"], us["levels"]) == (us_before["bands"], us_before["levels"])
@@ -324,6 +333,10 @@ async def test_a_role_whose_level_we_cannot_place_never_counts_under_a_level_on_
     rates = body["disclosure"]["by_level"]
     assert rates[:-1] == before["disclosure"]["by_level"]
     assert rates[-1] == {"level_band": "unstated", "open": 6, "checked": 2, "disclosed": 2, "rate": 1.0}
+    # The company table counts them under the company, never as a row of its own.
+    table = await _get(api_client, ROUTES["pay_table"])
+    assert [row["company"] for row in table["rows"]] == ["google", "openai", "netflix"]
+    assert table["not_placed"] == [{"company": "google", "roles": 6}]
 
     # The daily rollups the trends read store the same key.
     await comp_trends.compute_comp_metrics(db_session)
@@ -355,10 +368,6 @@ async def test_pay_in_another_currency_stays_off_the_dollar_axes_and_is_counted(
     await db_session.commit()
 
     body = await _get(api_client, ROUTES["compensation"])
-    assert body["overall"] == before["overall"]
-    assert body["by_level"] == before["by_level"]
-    assert body["coverage"]["with_comp"] == before["coverage"]["with_comp"]
-    assert body["coverage"]["total_open"] == before["coverage"]["total_open"] + 1
     # Posted pay keeps the pound range in the UK, in pounds, and the US figures as they were.
     countries = {c["country"]: c for c in body["posted"]["countries"]}
     before_us = next(c for c in before["posted"]["countries"] if c["country"] == "US")
@@ -367,6 +376,12 @@ async def test_pay_in_another_currency_stays_off_the_dollar_axes_and_is_counted(
         "GBP", [{"company": "google", "level_band": "staff", "low": 150000, "high": 210000, "reqs": 1}],
     )
     assert body["disclosure"]["overall"]["disclosed"] == before["disclosure"]["overall"]["disclosed"] + 1
+    # The UK table reads pounds and offers no estimate; the US table is untouched.
+    uk = await _get(api_client, "/api/statistics/pay-table?country=GB&level=staff")
+    assert (uk["currency"], uk["estimates"]) == ("GBP", False)
+    assert [(r["company"], r["low"], r["estimate_total"]) for r in uk["rows"]] == [("google", 150000, None)]
+    us_table = await _get(api_client, ROUTES["pay_table"])
+    assert next(r for r in us_table["rows"] if r["company"] == "google")["low"] == 250000
 
     await comp_trends.compute_comp_metrics(db_session)
     await comp_trends.compute_disclosure_metrics(db_session)
@@ -388,22 +403,21 @@ async def test_a_dollar_estimate_for_pay_outside_the_us_stays_off_the_us_estimat
     # The estimate panels read "Estimate, US only". A plugin can price a
     # Toronto role, or one in two countries, in US dollars: the currency is
     # right and the country is not, so neither counts as priced.
-    before = await _get(api_client, ROUTES["compensation"])
+    before = await _get(api_client, ROUTES["pay_table"])
     db_session.add_all([
         _role("google", "toronto", level="staff", comp=900000, locations=["Toronto, ON, Canada"],
               location_groups=["canada"]),
         _role("google", "two-countries", level="staff", comp=900000, location_groups=["silicon_valley", "canada"]),
         _role("google", "toronto-base", level="staff", comp_component="base", comp_base_median=400000,
-              location_groups=["canada"]),
+              location_groups=["silicon_valley", "canada"]),
     ])
     await db_session.commit()
 
-    body = await _get(api_client, ROUTES["compensation"])
-    assert (body["overall"], body["by_level"]) == (before["overall"], before["by_level"])
-    assert body["coverage"]["with_comp"] == before["coverage"]["with_comp"]
-    assert body["coverage"]["total_open"] == before["coverage"]["total_open"] + 3
-    assert body["base_estimates"]["overall"] == before["base_estimates"]["overall"]
-    assert body["base_estimates"]["coverage"]["with_base"] == before["base_estimates"]["coverage"]["with_base"]
+    body = await _get(api_client, ROUTES["pay_table"])
+    google, was = (next(r for r in b["rows"] if r["company"] == "google") for b in (body, before))
+    # The two-country roles join the US table (they list a US place), with no estimate of their own.
+    assert (google["estimate_total"], google["estimate_base"]) == (was["estimate_total"], was["estimate_base"])
+    assert google["open_roles"] == was["open_roles"] + 2
 
 
 @pytest.mark.asyncio
@@ -694,7 +708,7 @@ async def test_every_insights_tab_describes_one_set_of_roles(api_client, db_sess
         "overview": overview["kpis"]["open_total"],
         "pace": velocity["kpis"]["open_total"],
         "pace age bands": sum(band["count"] for band in velocity["aging"]),
-        "pay": compensation["coverage"]["total_open"],
+        "pay": compensation["disclosure"]["overall"]["open"],
         "hiring": hiring["open_total"],
     }
     assert headlines == dict.fromkeys(headlines, 28)
@@ -729,7 +743,11 @@ async def test_a_role_listed_in_three_places_counts_once_in_every_skills_read_an
 
     # Stripe is the one Other company: its side holds the set once.
     pay = await _get(api_client, f"{ROUTES['compensation']}?side=other")
-    assert pay["coverage"]["total_open"] == 3  # s-senior, s-unread and the set
+    assert pay["disclosure"]["overall"]["open"] == 3  # s-senior, s-unread and the set
+    # The set's three postings name no country we can place, so no country's
+    # table holds them; Stripe's two placed senior roles are its row.
+    table = await _get(api_client, "/api/statistics/pay-table?country=US&level=senior&side=other")
+    assert [(r["company"], r["open_roles"], r["posting"]) for r in table["rows"]] == [("stripe", 2, 0)]
     skills = await _get(api_client, "/api/skills/top?side=other")
     assert [(s["term"], s["job_count"]) for s in skills["items"]] == [("python", 1)]
     assert skills["roles"] == 1
@@ -761,7 +779,7 @@ async def test_a_role_listed_in_three_places_counts_once_in_every_skills_read_an
     cells = (await db_session.scalars(select(DisclosureSnapshot).where(
         DisclosureSnapshot.company == "stripe", DisclosureSnapshot.metric_date >= DAY_START))).all()
     # A day's open count is the Compensation tab's, and the band is one role's.
-    assert sum(c.roles for c in cells) == pay["coverage"]["total_open"]
+    assert sum(c.roles for c in cells) == pay["disclosure"]["overall"]["open"]
     assert [c.bands for c in cells if c.pay_basis == "base"] == [[{"low": 180000, "high": 240000, "reqs": 1}]]
 
 
@@ -818,11 +836,11 @@ async def test_the_pay_tab_and_the_daily_pay_record_read_a_role_through_the_same
         CompSnapshot.company == "stripe", CompSnapshot.metric_date >= DAY_START))).all()
     assert [v for vs in recorded for v in vs] == [250000]
 
-    body = await _get(api_client, ROUTES["compensation"])
+    table = await _get(api_client, "/api/statistics/pay-table?country=US&level=senior")
     # The seed's Stripe roles carry no estimate: the one priced role is this one.
-    assert body["coverage"]["with_comp"] == 26
-    assert body["coverage"]["total_open"] == 28
-    assert body["overall"]["count"] == 26 and body["overall"]["min"] == 250000
+    stripe = next(r for r in table["rows"] if r["company"] == "stripe")
+    assert stripe["estimate_total"]["low"] == 250000
+    assert stripe["open_roles"] == 3  # s-senior, s-unread and the set, counted once
 
 
 async def _place_set(db_session, jobs: list, digit: str) -> None:
@@ -843,8 +861,6 @@ async def test_a_role_priced_by_its_base_counts_once_and_never_beside_its_total(
     """A role at two places priced by base alone is one base role. A role whose
     first place is priced by base and whose second has a total is a total, and
     not also a base role."""
-    before = (await _get(api_client, ROUTES["compensation"]))["base_estimates"]["coverage"]["with_base"]
-
     def base_only(key: str, place: str, group: str, base: int):
         return _role("netflix", key, level="senior", days_open=0, locations=[place], location_groups=[group],
                      comp_component="base", comp_base_median=base)
@@ -858,9 +874,13 @@ async def test_a_role_priced_by_its_base_counts_once_and_never_beside_its_total(
     ], "3")
     await db_session.commit()
 
-    body = await _get(api_client, ROUTES["compensation"])
-    assert body["base_estimates"]["coverage"]["with_base"] == before + 1
-    assert body["overall"]["min"] == 330000 and body["coverage"]["with_comp"] == 26
+    table = await _get(api_client, "/api/statistics/pay-table?country=US&level=senior")
+    netflix = next(r for r in table["rows"] if r["company"] == "netflix")
+    # Each role is priced once: the base-only set through its first posting, and
+    # the second set as a total, which is no base.
+    assert netflix["estimate_base"] == {"low": 180000, "high": 180000, "families": ["product_management"]}
+    assert netflix["estimate_total"] == {"low": 330000, "high": 330000, "rung": None}
+    assert netflix["open_roles"] == 2
 
 
 @pytest.mark.asyncio
@@ -868,7 +888,6 @@ async def test_a_closed_place_with_a_total_leaves_the_open_base_only_place_count
     """The role's New York posting, priced with a total, closed before the place
     sets were rebuilt; the open Austin posting is priced by base alone. The role
     still counts as a base role: the totals read does not count the closed one."""
-    before = (await _get(api_client, ROUTES["compensation"]))["base_estimates"]["coverage"]["with_base"]
     await _place_set(db_session, [
         _role("netflix", "pm-austin", level="senior", days_open=0, locations=["Austin, TX"], location_groups=["austin"],
               comp_component="base", comp_base_median=180000),
@@ -877,9 +896,10 @@ async def test_a_closed_place_with_a_total_leaves_the_open_base_only_place_count
     ], "4")
     await db_session.commit()
 
-    body = await _get(api_client, ROUTES["compensation"])
-    assert body["base_estimates"]["coverage"]["with_base"] == before + 1
-    assert body["coverage"]["with_comp"] == 25
+    table = await _get(api_client, "/api/statistics/pay-table?country=US&level=senior")
+    netflix = next(r for r in table["rows"] if r["company"] == "netflix")
+    assert netflix["estimate_base"]["low"] == 180000
+    assert netflix["estimate_total"] is None
 
 
 async def _onboard_a_company(db_session) -> dict[str, int]:
@@ -924,7 +944,8 @@ async def test_a_scope_narrows_every_tab_to_one_side_and_its_two_sides_add_up(ap
         hiring = await _get(api_client, f"{ROUTES['demand']}?{query}")
         return {
             "overview": overview["kpis"]["open_total"], "pace": velocity["kpis"]["open_total"],
-            "pace bands": sum(b["count"] for b in velocity["aging"]), "pay": pay["coverage"]["total_open"],
+            "pace bands": sum(b["count"] for b in velocity["aging"]),
+            "pay": pay["disclosure"]["overall"]["open"],
             "hiring": hiring["open_total"], "companies": sorted(c["company"] for c in hiring["companies"]),
         }
 
@@ -1117,8 +1138,9 @@ def _each_region_adding(real):
 @pytest.mark.parametrize(
     ("name", "drift", "route"),
     [
-        ("build_comp_stats", _adding, "compensation"),
         ("build_posted_pay", _each_country_without_bands, "compensation"),
+        ("build_pay_table", _adding, "pay_table"),
+        ("build_pay_by_discipline", _adding, "pay_table"),
         ("build_comp_trajectory", _adding, "trajectory"),
         ("build_offer_terms", _each_row_adding, "offer_terms"),
         ("build_comp_trend_series", _series_without_count, "comp_trends"),
@@ -1127,7 +1149,8 @@ def _each_region_adding(real):
     ],
     # No builder here writes English: the dashboard names families, so there is
     # no name left to drift.
-    ids=["comp_stats_key_added", "posted_bands_dropped", "trajectory_key_added", "offer_terms_key_added",
+    ids=["posted_bands_dropped", "pay_table_key_added", "pay_discipline_key_added",
+         "trajectory_key_added", "offer_terms_key_added",
          "trend_count_dropped", "disclosure_point_key_added", "demand_region_key_added"],
 )
 async def test_a_builder_that_drifts_fails_the_response(api_client, seeded, monkeypatch, name, drift, route):

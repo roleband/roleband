@@ -1154,3 +1154,101 @@ insights-comp-bands-placed-by-pay = { $count ->
     [one] { $count } more role had its level read from its range, so it is left out.
    *[other] { $count } more roles had their level read from their range, so they are left out.
 }
+
+## features/statistics/PayTable.tsx
+# kind=heading note="The company table under the Pay tab's hero"
+insights-pay-table-heading = Companies hiring { $level } roles in { $country }
+# kind=heading note="The company table when a skill is picked"
+insights-pay-table-heading-skill = Companies hiring { $level } roles in { $country } that ask for { $skill }
+# kind=label note="Column: the base salary range a company posts at the picked level"
+insights-pay-table-posted = Posted base range
+# kind=label note="Column: the estimate, shown where a company posts no range"
+insights-pay-table-estimate = Estimate
+# kind=label note="A row's figure rests on several posted ranges"
+insights-pay-table-ranges = { $count ->
+    [one] { $count } range
+   *[other] { $count } ranges
+}
+# kind=status note="A company that posts a range on some of its roles at this level, not all"
+insights-pay-table-some-roles = on { $posting } of { $roles } roles
+# kind=label note="A row with no posted range: the company has been read and posts none"
+insights-pay-table-no-range = No posted range
+# kind=label note="A row with no posted range: what the company posts is total compensation"
+insights-pay-table-total = Posts total compensation
+# kind=status note="A row with no posted range: the posting does not say whether the range is base salary"
+insights-pay-table-unclear = Range not stated as base
+# kind=label note="A row with no posted range: the roles name places in more than one country"
+insights-pay-table-several-countries = Covers several countries
+# kind=label note="A row with no posted range: the range is per hour or per month"
+insights-pay-table-not-yearly = Range not yearly
+# kind=status note="A row with no posted range: the level was read from the range itself"
+insights-pay-table-placed-by-pay = Level read from the range
+# kind=label note="A row with no posted range: no posting of the company has been read yet"
+insights-pay-table-unread = Not read yet
+# kind=label note="Chip on an estimated base salary, short form; the full words are the hover"
+insights-pay-table-est-base = Est. base
+# kind=label note="The full words behind the Est. base chip"
+insights-pay-table-est-base-full = Estimated base salary
+# kind=label note="Chip on an estimated total compensation, short form; the full words are the hover"
+insights-pay-table-est-tc = Est. TC
+# kind=label note="The full words behind the Est. TC chip"
+insights-pay-table-est-tc-full = Estimated total compensation
+# kind=tooltip note="Where an estimated base salary comes from"
+insights-pay-table-est-base-from = Estimated for { $level } roles in { $disciplines }, from built-in data.
+# kind=tooltip note="Where an estimated total compensation comes from: the rung the figure is read at"
+insights-pay-table-est-tc-from = Estimated for { $rung }, from built-in data.
+# kind=tooltip note="Where an estimated total compensation comes from when no single rung was read"
+insights-pay-table-est-tc-from-level = Estimated for { $level } roles, from built-in data.
+# kind=sentence note="Under the table outside the US, in place of the estimate column"
+insights-pay-table-estimates-us = Estimates read US pay only, so this country has none.
+# kind=sentence note="Under the table: the roles of these companies whose level we cannot place"
+insights-pay-table-not-placed = { $roles ->
+    [one] { $roles } role
+   *[other] { $roles } roles
+} at { $companies ->
+    [one] { $companies } company
+   *[other] { $companies } companies
+} have no placed level.
+# kind=status note="Under a shortened table: the companies hiring at this level that post no range"
+insights-pay-table-more-silent = { $count ->
+    [one] { $count } more company hires at this level without posting a range.
+   *[other] { $count } more companies hire at this level without posting a range.
+}
+# kind=label note="The skill filter with nothing picked"
+insights-pay-table-any-skill = Any skill
+# kind=status note="A skill filter that no longer matches 3 roles in the table"
+insights-pay-table-skill-empty = No role at this level in { $country } names { $skill }.
+# kind=empty note="No company hires at the picked level in the picked country"
+insights-pay-table-empty = No company has an open role at this level in { $country }.
+# kind=label note="A company followed as part of a set, not one the person chose"
+insights-pay-table-followed-as-set = Followed with a set
+# kind=aria note="A company's posted ranges, read out as text beside the strip that draws them"
+insights-pay-table-ranges-read = { $company }: { $ranges }
+# kind=sentence note="The table's info mark: what a row's figure rests on"
+insights-pay-table-how-read = A row shows the median low to the median high of the company's distinct posted ranges at this level, in this country. An estimate shows only where a company posts no range, and never sets the order. Equity names what the employer states.
+# kind=aria
+insights-pay-table-about = How a company's row is read
+
+## features/statistics/PayDisciplines.tsx
+# kind=heading note="The advanced-view comparison of disciplines within one level"
+insights-pay-discipline-heading = Posted base salary by discipline for { $level } roles in { $country }
+# kind=label note="A tag on the discipline the person picked in the filter"
+insights-pay-discipline-yours = Your discipline
+# kind=status note="A discipline with too few employers or ranges to show a figure"
+insights-pay-discipline-too-few = { $families }: too few employers post a range for a figure to hold.
+# kind=status note="A discipline where one employer posts most of the ranges"
+insights-pay-discipline-one-employer = { $families }: one employer posts most of the ranges, so no figure holds.
+# kind=sentence note="Under the comparison: a gap between disciplines also reflects which companies hire each one"
+insights-pay-discipline-note = A gap between disciplines also reflects which companies hire each one, not pay alone.
+# kind=status note="A discipline's range count and employers"
+insights-pay-discipline-counts = { $ranges ->
+    [one] { $ranges } range
+   *[other] { $ranges } ranges
+} from { $employers ->
+    [one] { $employers } employer
+   *[other] { $employers } employers
+}
+# kind=status note="While the company table's own read is in flight"
+insights-pay-table-loading = Loading the companies at this level…
+# kind=heading note="The company table's read failed"
+insights-pay-table-load-failed = Couldn't load the companies at this level

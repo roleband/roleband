@@ -1,17 +1,15 @@
 """Pure-logic tests for compensation aggregation (no DB).
 
-Pins the percentile math, the posted-pay rules and the ordering and coverage
-rules behind the Statistics "Compensation" sub-tab.
+Pins the percentile math and the posted-pay rules behind the Statistics
+"Compensation" sub-tab. Each company's own row is `test_pay_table.py`.
 """
 
 from __future__ import annotations
 
 from tracker.analytics.comp_stats import (
-    COMP_MIN_ROLES,
     POSTED_MIN_EMPLOYERS,
     POSTED_MIN_RANGES,
     _percentile,
-    build_comp_stats,
     build_posted_pay,
 )
 
@@ -25,59 +23,6 @@ def test_percentile_linear_interpolation_matches_percentile_cont():
     assert _percentile(vals, 1.0) == 1_000_000
     assert _percentile([], 0.5) is None
     assert _percentile([420_000], 0.9) == 420_000
-
-
-def _fixture():
-    # (company, level_band, family, comp_median); one null-comp row.
-    return [
-        ("google", "staff", "swe", 600_000),
-        ("google", "senior", "swe", 300_000),
-        ("openai", "principal", "ml_ai_research", 1_000_000),  # out of level order on purpose
-        ("openai", "staff", "ml_ai_research", 800_000),
-        ("meta", "senior", "pm", None),  # counted in coverage, excluded from math
-    ]
-
-
-def test_coverage_counts_all_open_but_excludes_null_comp():
-    s = build_comp_stats(_fixture(), total_open=5)
-    assert s["coverage"] == {"with_comp": 4, "total_open": 5, "pct": 0.8}
-    assert s["overall"]["p50"] == 700_000
-    assert s["overall"]["min"] == 300_000 and s["overall"]["max"] == 1_000_000
-
-
-def test_by_level_is_ordered_by_seniority_not_input_order():
-    s = build_comp_stats(_fixture(), total_open=5, min_roles=1)
-    assert [x["level_band"] for x in s["by_level"]] == ["senior", "staff", "principal"]
-    staff = next(x for x in s["by_level"] if x["level_band"] == "staff")
-    assert staff["count"] == 2 and staff["p50"] == 700_000  # 600k & 800k
-
-
-def test_by_company_and_family_ranked_by_median_desc():
-    s = build_comp_stats(_fixture(), total_open=5, min_roles=1)
-    assert [x["company"] for x in s["by_company"]] == ["openai", "google"]
-    # pm only had a null-comp row, so it must not appear as a family group.
-    fams = [x["family"] for x in s["by_family"]]
-    assert fams == ["ml_ai_research", "swe"]
-    assert "pm" not in fams
-
-
-def test_a_group_below_the_minimum_is_not_listed_and_the_minimum_is_stated():
-    # One Operations role priced at $1.1M must not top "pay by discipline".
-    rows = [("apple", "staff", "pm", 500_000)] * 5 + [("openai", "staff", "ops", 1_100_000)]
-    s = build_comp_stats(rows, total_open=6)
-    assert s["min_roles"] == COMP_MIN_ROLES == 5
-    assert [f["family"] for f in s["by_family"]] == ["pm"]
-    assert [c["company"] for c in s["by_company"]] == ["apple"]
-    assert [lv["count"] for lv in s["by_level"]] == [6]
-    # The whole still counts every role: the gate is on groups, not the market.
-    assert s["overall"]["count"] == 6 and s["overall"]["max"] == 1_100_000
-
-
-def test_empty_input_yields_null_overall():
-    s = build_comp_stats([], total_open=0)
-    assert s["overall"] is None
-    assert s["by_level"] == [] and s["by_company"] == []
-    assert s["coverage"]["pct"] == 0.0
 
 
 # --- Posted base pay ----------------------------------------------------------
@@ -314,15 +259,3 @@ def test_the_persons_countries_are_listed_even_with_no_range_and_the_us_leads():
     assert out["default_country"] == "US"
     assert build_posted_pay([], your_countries={"SE"})["default_country"] == "SE"
     assert build_posted_pay([])["default_country"] is None
-
-
-# --- order of input never orders the output --------------------------------- #
-# Tied family medians and tied company-level bands must not retain input
-# order: explicit tiebreakers keep equivalent reads deterministic.
-
-
-def test_families_whose_median_ties_list_in_the_same_order_however_rows_arrive():
-    rows = [("acme", "senior", fam, 300_000) for fam in ("data_science", "infrastructure_sre") for _ in range(5)]
-    forward = build_comp_stats(rows, total_open=10)["by_family"]
-    backward = build_comp_stats(list(reversed(rows)), total_open=10)["by_family"]
-    assert [d["family"] for d in forward] == [d["family"] for d in backward] == ["data_science", "infrastructure_sre"]

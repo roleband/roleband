@@ -230,8 +230,8 @@ test("a plugin's settings say only the catalog's words", async ({ page }) => {
 });
 
 /* A fresh install's pay, no plugin on: a role priced by its base
- * alone on the Board, and the Pay tab's panel for such roles. */
-test("an estimated base on the Board and the Pay tab's base panel say only the catalog's words", async ({ page }) => {
+ * alone on the Board, and the company table that carries such an estimate. */
+test("an estimated base on the Board and in the Pay tab's company table says only the catalog's words", async ({ page }) => {
   await bootPseudo(page);
   await installBoardRoutes(page);
   const baseOnly = { ...twoJobList.items[0], comp_low: null, comp_high: null, comp_median: null,
@@ -242,22 +242,34 @@ test("an estimated base on the Board and the Pay tab's base panel say only the c
   expect(await unbracketed(page, "main"), "/ with an estimated base").toEqual([]);
 
   await installEveryRoute(page);
-  const summary = (p50: number, count: number) => ({ count, min: p50 - 50_000, max: p50 + 90_000,
-    p25: p50 - 20_000, p50, p75: p50 + 20_000, p90: p50 + 60_000 });
   await mockGet(page, "/api/statistics/compensation**", (route) => route.fulfill({ json: {
-    currency: "USD", min_roles: 5, coverage: { with_comp: 0, total_open: 40, pct: 0 }, overall: null,
-    by_level: [], by_company: [], by_family: [],
-    posted: { min_employers: 5, min_ranges: 8, default_country: null, countries: [], your_levels: [],
-      excluded: { not_base: 0, not_yearly: 0, implausible: 0, no_country: 0, placed_by_pay: 0 } },
-    disclosure: { overall: { open: 40, checked: 0, disclosed: 0, rate: null }, by_company: [], by_level: [] },
-    base_estimates: { min_roles: 5, coverage: { with_base: 40, total_open: 40 }, overall: summary(210_000, 40),
-      by_level: [{ level_band: "senior", ...summary(196_000, 25) }], by_company: [], by_family: [] },
+    posted: {
+      min_employers: 5, min_ranges: 8, default_country: "US", your_levels: ["senior"],
+      excluded: { not_base: 0, not_yearly: 0, implausible: 0, no_country: 0, placed_by_pay: 0, without_country: 0 },
+      countries: [{
+        country: "US", currency: "USD", ranges: 0, yours: true, levels: [], other_currency: 0,
+        not_placed: { roles: 0, ranges: 0 }, bands: [],
+        excluded: { not_base: 0, not_yearly: 0, implausible: 0, placed_by_pay: 0 },
+      }],
+    },
+    disclosure: { overall: { open: 40, checked: 0, disclosed: 0, rate: null }, by_level: [] },
+  } }));
+  await mockGet(page, "/api/statistics/pay-table**", (route) => route.fulfill({ json: {
+    country: "US", level_band: "senior", currency: "USD", skill: null, estimates: true,
+    rows: [{
+      company: "google", followed_as_set: false, open_roles: 25, posting: 0, checked: 25, currency: null,
+      low: null, high: null, ranges: [], other_currency: false, reason: "none",
+      estimate_base: { low: 196_000, high: 196_000, families: ["product_management"] },
+      estimate_total: null, equity: { vehicle: "rsu", vesting: "25/25/25/25", rule: null },
+    }],
+    not_placed: [{ company: "google", roles: 4 }], skills: [], min_skill_roles: 3,
+    by_discipline: { min_employers: 5, min_ranges: 8, max_employer_share: 0.4, disciplines: [] },
   } }));
   await page.goto("/statistics/compensation");
-  // The panel itself: the rest of the Pay tab is scanned by its own specs.
-  await expect(page.locator("main section.panel")).toContainText("⟦");
+  // The table itself: the rest of the Pay tab is scanned by its own specs.
+  await expect(page.locator("main section.pay-table-panel")).toContainText("⟦");
   await page.waitForLoadState("networkidle");
-  expect(await unbracketed(page, "main section.panel"), "the Pay tab's base-only panel").toEqual([]);
+  expect(await unbracketed(page, "main section.pay-table-panel"), "the Pay tab's company table").toEqual([]);
 });
 
 // A plugin partway through a long pass that also answers from what RoleBand read

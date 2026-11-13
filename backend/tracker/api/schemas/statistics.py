@@ -116,36 +116,6 @@ class InsightsHistoryResponse(Built):
 # --------------------------------------------------------------------------- #
 
 
-class CompCoverage(Built):
-    with_comp: int
-    total_open: int
-    pct: float
-
-
-class CompSummary(Built):
-    """`comp_stats._summary`: dollars at the ends, interpolated percentiles between."""
-
-    count: int
-    min: int
-    max: int
-    p25: float
-    p50: float
-    p75: float
-    p90: float
-
-
-class CompLevelSummary(CompSummary, _LevelBandKey):
-    """`level_band` first, then the summary."""
-
-
-class CompCompanySummary(CompSummary, _CompanyKey):
-    """`company` first, then the summary."""
-
-
-class CompFamilySummary(CompSummary, _FamilyKey):
-    """`family` first, then the summary; the client names the family."""
-
-
 class DisclosedBand(Built):
     """One distinct base range an employer posts at a level, with the roles on it."""
 
@@ -158,7 +128,7 @@ class DisclosedBand(Built):
 
 class PostedLevel(_LevelBandKey):
     """One level's posted base pay in one country and currency
-    (`comp_stats._level_figure`). Each distinct range votes once. Below the
+    (`comp_stats.level_figure`). Each distinct range votes once. Below the
     minimums `enough` is false and the figure fields are null; the counts say
     why."""
 
@@ -253,56 +223,150 @@ class DisclosureCounts(Built):
     rate: float | None
 
 
-class DisclosureCompany(DisclosureCounts, _CompanyKey):
-    """`company` first, then the counts."""
-
-
 class DisclosureLevel(DisclosureCounts, _LevelBandKey):
     """`level_band` first (`""` when unclassified), then the counts."""
 
 
 class DisclosureRates(Built):
     overall: DisclosureCounts
-    by_company: list[DisclosureCompany]
     by_level: list[DisclosureLevel]
 
 
-class BaseCoverage(Built):
-    """How many open roles have an estimated base only, of all open ones."""
-
-    with_base: int
-    total_open: int
-
-
-class BaseEstimates(Built):
-    """Roles priced by their base alone (`comp_component = "base"`): no total exists,
-    so they are summarised apart from the totals and never on their axis."""
-
-    min_roles: int
-    coverage: BaseCoverage
-    overall: CompSummary | None
-    by_level: list[CompLevelSummary]
-    by_company: list[CompCompanySummary]
-    by_family: list[CompFamilySummary]
-
-
 class CompensationStatsResponse(Built):
-    """`GET /api/statistics/compensation`: what employers post, beside the estimate.
+    """`GET /api/statistics/compensation`: what employers post, and who posts a range.
 
-    A snapshot of the roles open now: no window. The Window lens moves
-    the trend routes beside it, never this population."""
+    A snapshot of the roles open now: no window. Each company's own range and
+    estimate at one level are `GET /api/statistics/pay-table`'s."""
 
-    #: The fewest priced roles a level, company or discipline needs.
-    min_roles: int
-    coverage: CompCoverage
-    overall: CompSummary | None
-    by_level: list[CompLevelSummary]
-    by_company: list[CompCompanySummary]
-    by_family: list[CompFamilySummary]
     posted: PostedPay
     disclosure: DisclosureRates
-    base_estimates: BaseEstimates
-    currency: Literal["USD"]
+
+
+PayTableReason = Literal[
+    "total", "unclear", "several_countries", "not_yearly", "placed_by_pay", "unread", "none",
+]
+
+
+class PayTableRange(Built):
+    """One distinct range a company posts at the level, and the roles on it."""
+
+    low: int
+    high: int
+    roles: int
+
+
+class PayTableEstimate(Built):
+    """The estimated base salary across the row's roles: one figure when
+    `low == high`, otherwise the span of the disciplines' estimates, never
+    their average. Each is a lookup of the company, the level and `families`."""
+
+    low: int
+    high: int
+    families: list[str] = Field(json_schema_extra=text("code"))
+
+
+class PayTableTotal(Built):
+    """The estimated total compensation across the row's roles, as a span.
+    `rung` names the rung a seed total reads; null for any other source."""
+
+    low: int
+    high: int
+    rung: str | None = Field(json_schema_extra=text("content"))
+
+
+class PayTableEquity(Built):
+    """The equity facts the company itself states (`levels.pay.stated_equity`);
+    an estimated fact is never here."""
+
+    vehicle: str | None = Field(json_schema_extra=text("code"))
+    #: The annual vest fractions as the company states them ("25/25/25/25").
+    vesting: str | None = Field(json_schema_extra=text("content"))
+    rule: Literal["none", "employee_election"] | None
+
+
+class PayTableRow(_CompanyKey):
+    """One company hiring at the level in the country
+    (`analytics.pay_table.build_pay_table`)."""
+
+    followed_as_set: bool
+    #: Open roles at the level that list a place in the country.
+    open_roles: int
+    #: Roles whose range the cell shows, of the `checked` roles the
+    #: disclosure pass has read.
+    posting: int
+    checked: int
+    #: The figure's currency: the country's own, or another the company posts
+    #: in (`other_currency`); null with no range shown.
+    currency: str | None = Field(json_schema_extra=text("code"))
+    #: The median low and the median high of the company's distinct ranges.
+    low: float | None
+    high: float | None
+    ranges: list[PayTableRange]
+    other_currency: bool
+    #: Why no range is shown; null when one is.
+    reason: PayTableReason | None = Field(json_schema_extra=text("code"))
+    #: Estimates, US pay only; null elsewhere and where none answers.
+    estimate_base: PayTableEstimate | None
+    estimate_total: PayTableTotal | None
+    equity: PayTableEquity | None
+
+
+class PayTableUnplaced(_CompanyKey):
+    """A company's roles in the country whose level is not placed."""
+
+    roles: int
+
+
+class PayTableSkill(Built):
+    """A skill the table's roles name, offered by the skill filter."""
+
+    term: str = Field(json_schema_extra=text("code"))
+    roles: int
+
+
+class PayDiscipline(_FamilyKey):
+    """Posted base pay of one discipline at the level
+    (`analytics.pay_table.build_pay_by_discipline`); the figure fields are
+    null while `withheld` says why."""
+
+    picked: bool
+    ranges: int
+    employers: int
+    roles: int
+    enough: bool
+    low: float | None
+    high: float | None
+    mid_p25: float | None
+    mid_p75: float | None
+    #: The share of the discipline's ranges one employer posts, at most.
+    top_share: float
+    withheld: Literal["too_few", "one_employer"] | None
+
+
+class PayByDiscipline(Built):
+    min_employers: int
+    min_ranges: int
+    max_employer_share: float
+    disciplines: list[PayDiscipline]
+
+
+class PayTableResponse(Built):
+    """`GET /api/statistics/pay-table`: every company hiring at one level in
+    one country, posted range first, and posted pay by discipline there."""
+
+    #: ISO 3166-1 alpha-2.
+    country: str
+    level_band: str
+    #: The country's own currency (`PostedCountry.currency`); null with no range in it.
+    currency: str | None
+    skill: str | None
+    #: Estimates exist for this country (US pay only).
+    estimates: bool
+    rows: list[PayTableRow]
+    not_placed: list[PayTableUnplaced]
+    skills: list[PayTableSkill]
+    min_skill_roles: int
+    by_discipline: PayByDiscipline
 
 
 # --------------------------------------------------------------------------- #

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Mapping
+from functools import cache
 from types import MappingProxyType
 
 from tracker.taxonomy.cities import (
@@ -1012,6 +1013,13 @@ def location_group_covers(declared: str, wanted: str) -> bool:
 
 
 _COUNTRY_CODES: Mapping[str, str] = MappingProxyType({c.slug: c.alpha2.upper() for c in COUNTRIES if c.alpha2})
+_COUNTRY_SLUGS: Mapping[str, str] = MappingProxyType({code: slug for slug, code in _COUNTRY_CODES.items()})
+
+
+def country_slug(code: str) -> str | None:
+    """The location group of the country with this ISO 3166-1 alpha-2 code, as
+    a posting's `location_groups` names it; None for a code no country has."""
+    return _COUNTRY_SLUGS.get(code.upper())
 
 
 def country_code(slug: str) -> str | None:
@@ -1022,6 +1030,16 @@ def country_code(slug: str) -> str | None:
         if (LOCATION_GROUPS.get(group) or {}).get("kind") == "country" or group in _COUNTRY_CODES:
             return _COUNTRY_CODES.get(group)
     return None
+
+
+@cache
+def country_groups(code: str) -> tuple[str, ...]:
+    """Every taxonomy location group that lies in this country: the country
+    itself and each metro and city group under it, as a posting's
+    `location_groups` names them. A posting placed in the country carries at
+    least one, since a placed city brings its whole parent chain
+    (`location_groups_for`). Empty for a code no country has."""
+    return tuple(slug for slug in LOCATION_GROUPS if country_code(slug) == code.upper())
 
 
 def pay_country(location_groups: Iterable[str] | None) -> str | None:
