@@ -15,7 +15,6 @@ import errno
 import http.client
 import json
 import os
-import pty
 import re
 import select
 import socket
@@ -255,6 +254,7 @@ def test_an_engine_that_is_down_is_engine_unavailable_with_exit_3(home):
     assert described.status == 3 and described.envelope["data"] is None
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="a pseudo-terminal is POSIX")
 def test_agent_mode_selects_json_on_a_terminal_and_a_flag_still_wins(home):
     human = _on_a_terminal(home, ["capabilities", "--offline"])
     assert human.startswith("contract 1.")
@@ -265,6 +265,8 @@ def test_agent_mode_selects_json_on_a_terminal_and_a_flag_still_wins(home):
 
 
 def _on_a_terminal(home: Home, args: list[str], **env: str) -> str:
+    import pty
+
     leader, follower = pty.openpty()
     try:
         process = subprocess.Popen(
@@ -363,12 +365,14 @@ class Stub:
 
 
 def _envelope(operation: str, *, ok: bool = True, data: object = None, error: dict | None = None,
-              workspace_id: str | None = "ws_" + "a" * 32, version: str = "1.0") -> bytes:
+              workspace_id: object = "ws_" + "a" * 32, version: str = "1.0", request_id: object = "req_stub",
+              meta: object = None, warnings: object = ()) -> bytes:
+    if meta is None:
+        meta = {"observed_at": "2026-11-13T14:00:00Z", "partial": False, "truncated": False, "data_classes": []}
     return json.dumps({
-        "contract_version": version, "request_id": "req_stub", "workspace_id": workspace_id,
-        "operation": operation, "ok": ok, "data": data,
-        "meta": {"observed_at": "2026-11-13T14:00:00Z", "partial": False, "truncated": False, "data_classes": []},
-        "warnings": [], "error": error,
+        "contract_version": version, "request_id": request_id, "workspace_id": workspace_id,
+        "operation": operation, "ok": ok, "data": data, "meta": meta,
+        "warnings": list(warnings) if isinstance(warnings, tuple) else warnings, "error": error,
     }).encode()
 
 
@@ -399,9 +403,14 @@ STATUS_DATA = {
         Reply(500, _envelope("status", ok=False, error=_failure(message=...))),
         Reply(500, _envelope("status", ok=False, error=_failure(details=None))),
         Reply(500, _envelope("status", ok=False, error=_failure(retryable="no"))),
+        Reply(200, _envelope("status", data=STATUS_DATA, request_id=None)),
+        Reply(200, _envelope("status", data=STATUS_DATA, meta=[])),
+        Reply(200, _envelope("status", data=STATUS_DATA, warnings=None)),
+        Reply(200, _envelope("status", data=STATUS_DATA, workspace_id=7)),
     ],
     ids=["no-agent-api", "html", "major-2", "wrong-operation", "garbage",
-         "failure-without-message", "failure-details-null", "failure-retryable-not-bool"],
+         "failure-without-message", "failure-details-null", "failure-retryable-not-bool",
+         "request-id-null", "meta-not-object", "warnings-null", "workspace-id-not-text"],
 )
 def test_a_reply_outside_the_contract_is_incompatible_with_exit_10(home, reply):
     with Stub(reply) as stub:
@@ -409,6 +418,53 @@ def test_a_reply_outside_the_contract_is_incompatible_with_exit_10(home, reply):
         result = cli(home, "status", "--json")
     assert result.status == 10
     assert result.envelope["error"]["code"] == "contract_incompatible"
+
+
+def test_an_engine_that_accepts_only_signed_requests_is_transport_unverified(home):
+    from tracker.api.errors import ErrorCode, ErrorDetail
+
+    refusal = ErrorDetail(code=ErrorCode.ENGINE_LOCKED, params={}, message="Engine authentication required")
+    with Stub(Reply(401, json.dumps({"detail": refusal.model_dump(mode="json")}).encode())) as stub:
+        home.contexts(current="dev", dev={"url": stub.url})
+        result = cli(home, "status", "--json")
+    assert result.status == 3
+    error = result.envelope["error"]
+    assert error["code"] == "transport_unverified"
+    assert error["retryable"] is False
+    assert error["details"] == {"context": "dev", "trust": "signed_local_http"}
+
+
+def test_another_401_is_still_outside_the_contract(home):
+    with Stub(Reply(401, b'{"detail": {"code": "unauthorized"}}')) as stub:
+        home.contexts(current="dev", dev={"url": stub.url})
+        result = cli(home, "status", "--json")
+    assert result.status == 10
+    assert result.envelope["error"]["code"] == "contract_incompatible"
+
+
+def test_a_connect_that_times_out_at_the_deadline_is_a_deadline(monkeypatch):
+    from tracker.cli import transport
+    from tracker.cli.contexts import Context
+    from tracker.cli.errors import ClientError
+
+    def connect_slowly(self: http.client.HTTPConnection) -> None:
+        time.sleep(self.timeout)
+        raise TimeoutError
+
+    monkeypatch.setattr(http.client.HTTPConnection, "connect", connect_slowly)
+    context = Context(name="dev", host="127.0.0.1", port=9)
+
+    def outcome(seconds: float) -> str:
+        with pytest.raises(ClientError) as raised:
+            transport.get(context, "/api/agent/v1/status", operation="status",
+                          deadline=time.monotonic() + seconds, request_id="req_x", user_agent="test")
+        return raised.value.code
+
+    # The caller's deadline ran out while connecting.
+    assert outcome(0.2) == "deadline_exceeded"
+    # The connect limit ran out with deadline to spare: nothing answers.
+    monkeypatch.setattr(transport, "CONNECT_SECONDS", 0.1)
+    assert outcome(5) == "engine_unavailable"
 
 
 def test_the_exit_status_follows_the_error_code_not_the_http_status(home):

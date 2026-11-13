@@ -1628,7 +1628,8 @@
        "type": "string"
       },
       "title": "Supported Contract Versions",
-      "type": "array"
+      "type": "array",
+      "x-text": "identifier"
      }
     },
     "required": [
@@ -13662,7 +13663,8 @@
        "type": "string"
       },
       "title": "Client Effects",
-      "type": "array"
+      "type": "array",
+      "x-text": "code"
      },
      "contract_version": {
       "title": "Contract Version",
@@ -13681,7 +13683,8 @@
        "type": "string"
       },
       "title": "Data Classes",
-      "type": "array"
+      "type": "array",
+      "x-text": "code"
      },
      "engine_effects": {
       "$ref": "#/components/schemas/EffectsShape"
@@ -13743,7 +13746,8 @@
        "type": "string"
       },
       "title": "Required Scopes",
-      "type": "array"
+      "type": "array",
+      "x-text": "code"
      },
      "summary": {
       "title": "Summary",
@@ -13764,7 +13768,8 @@
        "type": "string"
       },
       "title": "Tool Tiers",
-      "type": "array"
+      "type": "array",
+      "x-text": "code"
      }
     },
     "required": [
@@ -13815,7 +13820,8 @@
        "type": "string"
       },
       "title": "Client Effects",
-      "type": "array"
+      "type": "array",
+      "x-text": "code"
      },
      "data_classes": {
       "items": {
@@ -13829,7 +13835,8 @@
        "type": "string"
       },
       "title": "Data Classes",
-      "type": "array"
+      "type": "array",
+      "x-text": "code"
      },
      "engine_effects": {
       "$ref": "#/components/schemas/EffectsShape"
@@ -13864,7 +13871,8 @@
        "type": "string"
       },
       "title": "Tool Tiers",
-      "type": "array"
+      "type": "array",
+      "x-text": "code"
      }
     },
     "required": [

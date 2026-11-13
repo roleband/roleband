@@ -3,7 +3,9 @@
 `http.client` directly: it follows no redirect and consults no proxy, so a
 request reaches the configured address or fails. A reply is accepted only as
 an envelope of this contract's major version for the operation asked; anything
-else (an older engine, another program on the port) is `contract_incompatible`.
+else (an older engine, another program on the port) is `contract_incompatible`,
+except an engine that accepts only signed requests, which this client does not
+make: that refusal is `transport_unverified`.
 """
 
 from __future__ import annotations
@@ -26,6 +28,8 @@ REQUEST_ID_HEADER = "X-RoleBand-Request-Id"
 CONNECT_SECONDS = 3.0
 #: A reply larger than this is refused rather than buffered.
 MAX_REPLY_BYTES = 16 * 1024 * 1024
+#: The code an engine that accepts only signed requests refuses an unsigned one with.
+_SIGNATURE_REQUIRED = "engine-locked"
 _ENVELOPE_KEYS = {"contract_version", "request_id", "workspace_id", "operation", "ok", "data", "meta", "warnings", "error"}
 
 
@@ -52,6 +56,8 @@ def get(
         try:
             connection.connect()
         except OSError as error:
+            if isinstance(error, TimeoutError) and time.monotonic() >= deadline:
+                raise _late(context, operation) from None
             raise ClientError(
                 "engine_unavailable",
                 f"No engine answers at context {context.name!r}. Open the app, or start the engine for this context.",
@@ -99,7 +105,7 @@ def get(
     if len(body) > MAX_REPLY_BYTES:
         raise ClientError("transport_error", "The engine's reply is larger than the client accepts.")
     return _envelope(body, status=response.status, content_type=response.getheader("Content-Type", ""),
-                     operation=operation)
+                     operation=operation, context=context)
 
 
 def _expire(sock: socket.socket, expired: threading.Event) -> None:
@@ -118,7 +124,7 @@ def _late(context: Context, operation: str) -> ClientError:
     )
 
 
-def _envelope(body: bytes, *, status: int, content_type: str, operation: str) -> dict[str, Any]:
+def _envelope(body: bytes, *, status: int, content_type: str, operation: str, context: Context) -> dict[str, Any]:
     incompatible = ClientError(
         "contract_incompatible",
         "The engine at this context does not answer this client's agent contract. Update the app or the client.",
@@ -130,16 +136,34 @@ def _envelope(body: bytes, *, status: int, content_type: str, operation: str) ->
         envelope = json.loads(body)
     except ValueError:
         raise incompatible from None
+    if status == 401 and _signature_required(envelope):
+        raise ClientError(
+            "transport_unverified",
+            "The engine at this context accepts only signed requests, which this client does not make yet.",
+            details={"context": context.name, "trust": "signed_local_http"},
+        )
     if not isinstance(envelope, dict) or not set(envelope) >= _ENVELOPE_KEYS:
         raise incompatible
     if not compatible(envelope.get("contract_version")):
         incompatible.details["contract_version"] = envelope.get("contract_version")
         raise incompatible
-    if envelope.get("operation") != operation or not isinstance(envelope.get("ok"), bool):
+    if (
+        envelope.get("operation") != operation
+        or not isinstance(envelope.get("ok"), bool)
+        or not isinstance(envelope.get("request_id"), str)
+        or not isinstance(envelope.get("workspace_id"), str | None)
+        or not isinstance(envelope.get("meta"), dict)
+        or not isinstance(envelope.get("warnings"), list)
+    ):
         raise incompatible
     if envelope["ok"] is False and not _is_error(envelope.get("error")):
         raise incompatible
     return envelope
+
+
+def _signature_required(reply: object) -> bool:
+    detail = reply.get("detail") if isinstance(reply, dict) else None
+    return isinstance(detail, dict) and detail.get("code") == _SIGNATURE_REQUIRED
 
 
 def _is_error(error: object) -> bool:

@@ -77,9 +77,9 @@ class OperationSummary(Shape):
     access: Access = Field(json_schema_extra=_CODE)
     availability: AvailabilityShape
     engine_effects: EffectsShape
-    client_effects: list[ClientEffect]
-    data_classes: list[DataClass]
-    tool_tiers: list[ToolTier]
+    client_effects: list[ClientEffect] = Field(json_schema_extra=_CODE)
+    data_classes: list[DataClass] = Field(json_schema_extra=_CODE)
+    tool_tiers: list[ToolTier] = Field(json_schema_extra=_CODE)
     idempotency: Idempotency = Field(json_schema_extra=_CODE)
 
 
@@ -89,7 +89,7 @@ class CapabilitiesInput(Shape):
 
 class CapabilitiesResult(Shape):
     contract_version: str = Field(json_schema_extra=_IDENTIFIER)
-    supported_contract_versions: list[str]
+    supported_contract_versions: list[str] = Field(json_schema_extra=_IDENTIFIER)
     #: Null in the client's bundled index, which no engine answered.
     engine_version: str | None = Field(json_schema_extra=_IDENTIFIER)
     metadata_source: Literal["bundled", "engine"] = Field(json_schema_extra=_CODE)
@@ -111,11 +111,11 @@ class OperationDetail(Shape):
     input_schema: dict[str, Any]
     output_schema_ref: str = Field(json_schema_extra=_IDENTIFIER)
     output_schema: dict[str, Any]
-    required_scopes: list[str]
+    required_scopes: list[str] = Field(json_schema_extra=_CODE)
     engine_effects: EffectsShape
-    client_effects: list[ClientEffect]
-    data_classes: list[DataClass]
-    tool_tiers: list[ToolTier]
+    client_effects: list[ClientEffect] = Field(json_schema_extra=_CODE)
+    data_classes: list[DataClass] = Field(json_schema_extra=_CODE)
+    tool_tiers: list[ToolTier] = Field(json_schema_extra=_CODE)
     idempotency: Idempotency = Field(json_schema_extra=_CODE)
     supports_dry_run: bool
     availability: AvailabilityShape

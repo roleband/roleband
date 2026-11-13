@@ -173,6 +173,27 @@ def test_a_tier_filter_leaves_out_operations_of_other_tiers():
     assert [d.id for d in catalog.in_tier(None)] == ["widgets.get", "widgets.list"]
 
 
+def _text_fields(schema: dict) -> list[tuple[str, dict]]:
+    """Every string or list-of-strings property in a schema and its $defs."""
+    out = []
+    for model_name, model in [("", schema), *schema.get("$defs", {}).items()]:
+        for field_name, prop in (model.get("properties") or {}).items():
+            options = [prop, *prop.get("anyOf", [])]
+            items = [option.get("items") or {} for option in options if option.get("type") == "array"]
+            if any(option.get("type") == "string" or "enum" in option for option in options) or any(
+                item.get("type") == "string" or "enum" in item for item in items
+            ):
+                out.append((f"{model_name or schema.get('title')}.{field_name}", prop))
+    return out
+
+
+@pytest.mark.parametrize("descriptor", REGISTERED, ids=lambda descriptor: descriptor.id)
+def test_every_text_field_an_operation_answers_declares_its_text_class(descriptor):
+    fields = _text_fields(descriptor.result.model_json_schema())
+    assert fields, "the walk found no text fields: it no longer reads this schema"
+    assert [name for name, prop in fields if "x-text" not in prop] == []
+
+
 def test_availability_is_only_unknown_offline_and_reasoned_when_not_available():
     with pytest.raises(ValueError):
         Availability("available", "why")

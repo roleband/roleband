@@ -78,6 +78,11 @@ WINDOWS_SKIPS: tuple[tuple[re.Pattern[str], str], ...] = (
         "deploy/*.sh, setup.sh, launchd registration and the shell restore drill; the Windows app ships none of them",
     ),
     (
+        re.compile(r"a pseudo-terminal is POSIX"),
+        "the client's terminal detection; Python has no pty module on Windows, and the "
+        "Linux lane runs it (tests/test_cli.py)",
+    ),
+    (
         re.compile(r"macOS bundle state redirects through HOME"),
         "the Mac app bundle's state; the Windows package keeps its own (tests/test_windows_state.py)",
     ),
