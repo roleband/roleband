@@ -133,13 +133,3 @@ enum PanelPreview {
         download: { _, _, _ in throw CancellationError() }, prepare: { _ in throw CancellationError() },
         discard: { _ in }, handOff: { _ in throw CancellationError() })
 }
-
-extension UserDefaults {
-    /// Preferences for one render or test. A suite named by an absolute path is the plist at that path,
-    /// so these sit in the temporary folder, which macOS clears, and never add a domain to
-    /// ~/Library/Preferences.
-    static func scratch(_ label: String) -> UserDefaults {
-        UserDefaults(suiteName: FileManager.default.temporaryDirectory
-            .appendingPathComponent("roleband-\(label)-\(UUID().uuidString)").path)!
-    }
-}

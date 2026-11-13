@@ -56,7 +56,8 @@ struct LauncherDependencies {
     /// Owned mode only: an app that does not own its engine cannot replace itself.
     var installOperations: UpdateInstallerOperations?
     var updateNotice: UpdateNotice?
-    var portFree: @Sendable (Int) -> Bool = EnginePort.isFree
+    /// Whether the engine may move to a port: no program listens there on any loopback or every address.
+    var portFree: @Sendable (Int) -> Bool = EnginePort.isUnused
     /// The startup decision, made again by Try again. Without it the mode never changes.
     var decideMode: (() -> LaunchMode)?
     /// Opens a fresh copy of the app for a changed startup decision, and quits this one.
@@ -744,7 +745,9 @@ final class LauncherModel: ObservableObject {
                         throw error
                     }
                 }
-                // Saved only once the engine took the port, or, while setup holds it, once it moved.
+                // Saved once the engine has started on the port, which was free when it started, or,
+                // while setup holds it, once it moved. The engine listens a moment later: a program
+                // that takes the port first shows as the port in use, with a way to move again.
                 EnginePort.save(port, in: self.preferences)
             } catch is CancellationError {
                 throw CancellationError()
