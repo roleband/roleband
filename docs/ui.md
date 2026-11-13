@@ -999,7 +999,7 @@ its primary is View & apply, an anchor wearing the primary classes.
   heading and one sentence of why (the plugin answering pay has not read the
   company, the posting has not been read for pay yet, or it gives no figure
   and nothing was estimated). No word stands in the figure's place, and
-  nothing describes a figure: no bar, no pay policy. Nothing docks.
+  nothing describes a figure: no bar, no note. Nothing docks.
 - **One posting gives place to another in a cover that stays open**
   (`postingTurn.ts`): by the pager, or by a link on the posting, whether the
   cover is a dialog over a list or the page itself. Both route error

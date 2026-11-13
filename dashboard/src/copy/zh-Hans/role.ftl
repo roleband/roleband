@@ -24,16 +24,6 @@ role-job-comp-panel-no-measured-split-for-this-2 = 按级别估算
 role-job-comp-panel-about-the-split = 关于此构成
 role-job-comp-panel-posted-band-sits-well-above = 公布的区间远高于这家公司实测的 { $band } 基本工资，因此级别可能更高。
 role-job-comp-panel-posted-band-sits-well-below = 公布的区间远低于这家公司实测的 { $band } 基本工资，因此级别可能更低。
-role-job-comp-panel-you-choose-the-cash-stock = 现金与股权的比例由你选择
-role-job-comp-panel-equity-fills-a-per-level = 股权补足各级别总薪酬目标的其余部分
-role-job-comp-panel-equity-is-a-dollar-grant = 股权是按级别确定金额的美元授予
-role-job-comp-panel-vests = { $choice ->
-    [yes] { $vesting } 归属，签约现金奖金补足第 1–2 年
-   *[no] { $vesting } 归属
-}
-role-job-comp-panel-no-annual-bonus = 无年度奖金
-role-job-comp-panel-bonus-is-a-level-set = 奖金为按级别设定的基本工资百分比
-role-job-comp-panel-base-capped-at = 基本工资上限为 { $base_cap_usd }
 role-job-comp-panel-yr = / 年
 role-job-comp-panel-mo = / 月
 role-job-comp-panel-hr = / 小时
