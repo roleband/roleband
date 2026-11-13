@@ -507,7 +507,11 @@ and the bonus target range `bonus_low`, `bonus_high`. `bonus_ratio_for` returns
 `None` (use the next estimator) when unverified. A company that pays no bonus
 and a company nobody checked are different answers, and the UI shows unknown,
 never zero, for the second. `levels/pay.describe` puts the policy on the
-package so the panel can state the vest schedule and bonus rule.
+package, and the company profile is the one surface that states it: it prints
+each fact with who stated it and marks the ones searched for and not found. A
+posting's pay panel states none of it, because the bonus and equity it shows
+come from the band's own shares whatever the policy says, so a sentence there
+would describe a figure it did not produce.
 
 Every built-in company must have a policy entry and a seeded rung at Senior,
 Staff and Principal: blueprint checks `offer_policy` and `pay_reference` in

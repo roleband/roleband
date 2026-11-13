@@ -407,12 +407,6 @@ describe("JobCompPanel", () => {
     const none: JobCompPackage = {
       ...GOOGLE, state: "none_stated", basis: null, stated: null, bonus_pct: null, snippet: null,
       components: [], total: null, estimate: null, split_source: null,
-      // A verified policy, which a panel with a figure prints as a line.
-      policy: {
-        verified: true, bonus_rule: "pct_of_base", equity_rule: "dollar_grant_by_level", vesting: "25/25/25/25",
-        sign_on_bridges_vesting: false, base_cap_usd: null, annual_refresh: true,
-        estimated: ["bonus_rule", "equity_rule", "annual_refresh"], unknown: [],
-      },
     };
     const { unmount } = render(<JobCompPanel job={withPackage(none)} />, { wrapper: MemoryRouter });
     const panel = screen.getByTestId("pkg-unknown");
@@ -420,7 +414,6 @@ describe("JobCompPanel", () => {
       msg("role-job-comp-panel-estimated-total-comp") + msg("role-job-comp-panel-pay-unknown-why"),
     );
     expect(panel.querySelector(".big, .pkg-bar, .pkg-note")).toBeNull();
-    expect(screen.queryByTestId("pkg-policy")).toBeNull();
     expect(screen.queryByText(/Everything below is an estimate/)).toBeNull();
     expect(panel).not.toHaveTextContent("—");
     unmount();
@@ -437,9 +430,11 @@ describe("JobCompPanel", () => {
     expect(screen.queryByText(msg("role-job-comp-panel-pay-unknown-why"))).toBeNull();
   });
 
-  it("states how the company builds the offer when that is verified, and nothing when it is not", () => {
-    // Amazon: no bonus, back-loaded vest bridged by sign-on, base cap — all verified facts.
-    const amazon: JobCompPackage = {
+  // The company's offer rules say nothing about the figures above them: the
+  // bonus and equity a panel shows come from the band's own shares whatever
+  // the rules are, so a verified policy puts no sentence on the card.
+  it("says nothing about how the company builds the offer, verified or not", () => {
+    const verified: JobCompPackage = {
       ...GOOGLE,
       bonus_pct: null,
       policy: {
@@ -450,35 +445,16 @@ describe("JobCompPanel", () => {
         sign_on_bridges_vesting: true,
         base_cap_usd: 350000,
         annual_refresh: true,
-        estimated: ["bonus_rule", "equity_rule", "vesting", "sign_on_bridges_vesting", "base_cap_usd"],
-        unknown: [],
-      },
-    };
-    const { unmount } = render(<JobCompPanel job={withPackage(amazon)} />, { wrapper: MemoryRouter });
-    const line = screen.getByTestId("pkg-policy");
-    expect(line).toHaveTextContent("vests 5/15/40/40, sign-on cash bridges years 1–2");
-    expect(line).toHaveTextContent("no annual bonus");
-    expect(line).toHaveTextContent("base capped at $350K");
-    unmount();
-
-    // Unverified: every field null. Must render NO policy line — null is "unknown",
-    // and a default sentence here would be exactly the invented fact the table forbids.
-    const unverified: JobCompPackage = {
-      ...GOOGLE,
-      policy: {
-        verified: false,
-        bonus_rule: null,
-        equity_rule: null,
-        vesting: null,
-        sign_on_bridges_vesting: false,
-        base_cap_usd: null,
-        annual_refresh: null,
         estimated: [],
         unknown: [],
       },
     };
-    render(<JobCompPanel job={withPackage(unverified)} />, { wrapper: MemoryRouter });
-    expect(screen.queryByTestId("pkg-policy")).not.toBeInTheDocument();
+    render(<JobCompPanel job={withPackage(verified)} />, { wrapper: MemoryRouter });
+    // The equity segment's own hint still says equity vests over time; what is
+    // gone is the schedule, the bonus rule, the equity rule and the base cap.
+    expect(document.body.textContent).not.toMatch(
+      /5\/15\/40\/40|sign-on cash|annual bonus|capped at|level-set|dollar grant/i,
+    );
   });
 
   // --- one headline, market median as a reading on it (docs/pay.md) ---------------
@@ -627,15 +603,11 @@ describe("a base-only estimate", () => {
 });
 
 describe("a stated base outside US pay, with RoleBand answering", () => {
-  it("is shown whole, names RoleBand's US data and no plugin, and keeps the offer policy", () => {
+  it("is shown whole, and names RoleBand's US data and no plugin", () => {
     const LONDON: JobCompPackage = compPackageFixture({
       state: "band", basis: "base", currency: "GBP", pay_period: "year",
       stated: { low: 90000, high: 130000 }, components: [], total: null, split_source: null,
       no_split_reason: "not_us_pay",
-      policy: {
-        verified: true, bonus_rule: "pct_of_base", equity_rule: "dollar_grant_by_level", vesting: "25/25/25/25",
-        sign_on_bridges_vesting: false, base_cap_usd: null, annual_refresh: true, estimated: [], unknown: [],
-      },
     });
     render(<JobCompPanel job={withPackage(LONDON)} />, { wrapper: MemoryRouter });
     // Under an estimate, the employer's own figure stands apart from it: in
@@ -650,7 +622,6 @@ describe("a stated base outside US pay, with RoleBand answering", () => {
     expect(note).toHaveTextContent(msg("role-job-comp-panel-roleband-splits-us-pay-only"));
     expect(note).not.toHaveTextContent(/plugin/i);
     expect(document.querySelector(".pkg-bar")).toBeNull();
-    expect(screen.getByTestId("pkg-policy")).toBeInTheDocument();
   });
 });
 
@@ -719,8 +690,6 @@ describe("a plugin's figure with no split of its own", () => {
     // No segment of ours under it: no base, bonus or equity label anywhere.
     expect(screen.queryByText(msg("role-job-comp-panel-estimated-split"))).toBeNull();
     expect(document.querySelector(".pkg-bar")).toBeNull();
-    // Our offer policy rides only on our figures.
-    expect(screen.queryByTestId("pkg-policy")).toBeNull();
   });
 
   it("a company the plugin has not read says so, never 'no estimate' or a split not reported", () => {

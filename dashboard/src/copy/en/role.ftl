@@ -55,23 +55,6 @@ role-job-comp-panel-about-the-split = About this split
 role-job-comp-panel-posted-band-sits-well-above = The posted range sits well above this company's measured { $band } base salary, so the level may be higher.
 # kind=sentence
 role-job-comp-panel-posted-band-sits-well-below = The posted range sits well below this company's measured { $band } base salary, so the level may be lower.
-# kind=toast
-role-job-comp-panel-you-choose-the-cash-stock = You choose the mix of cash and equity
-# kind=toast
-role-job-comp-panel-equity-fills-a-per-level = Equity makes up the rest of a total compensation target for each level
-# kind=toast wording=as-is
-role-job-comp-panel-equity-is-a-dollar-grant = Equity is a dollar grant sized by level
-# kind=toast wording=as-is
-role-job-comp-panel-vests = { $choice ->
-    [yes] vests { $vesting }, sign-on cash bridges years 1–2
-   *[no] vests { $vesting }
-}
-# kind=toast wording=as-is
-role-job-comp-panel-no-annual-bonus = no annual bonus
-# kind=toast wording=as-is
-role-job-comp-panel-bonus-is-a-level-set = bonus is a level-set % of base
-# kind=toast wording=as-is
-role-job-comp-panel-base-capped-at = base capped at { $base_cap_usd }
 # kind=label wording=as-is
 role-job-comp-panel-yr = / yr
 # kind=label wording=as-is

@@ -27,19 +27,15 @@ import { PayFloorLine } from "./PayFloorLine";
 import {
   roleJobCompPanelAboutTheSplit,
   roleJobCompPanelBase,
-  roleJobCompPanelBaseCappedAt,
   roleJobCompPanelBaseSalaryIsTheFixed,
   roleJobCompPanelAboutBaseSalary,
   roleJobCompPanelBaseStatedByTheEmployer,
   roleJobCompPanelBasisNotStated,
   roleJobCompPanelSplitNotReported,
   roleJobCompPanelBonus,
-  roleJobCompPanelBonusIsALevelSet,
   roleJobCompPanelEmployeeSelectedMix,
   roleJobCompPanelGuaranteedCash,
   roleJobCompPanelEquity,
-  roleJobCompPanelEquityFillsAPerLevel,
-  roleJobCompPanelEquityIsADollarGrant,
   roleJobCompPanelEstimated,
   roleJobCompPanelEstimatedSplit,
   roleJobCompPanelEstimatedTotalComp,
@@ -51,7 +47,6 @@ import {
   roleJobCompPanelMeasuredSplit,
   roleJobCompPanelMo,
   roleJobCompPanelMonthlyRate,
-  roleJobCompPanelNoAnnualBonus,
   roleJobCompPanelNoCompensationDataForThis,
   roleJobCompPanelNoMeasuredSplitForThis,
   roleJobCompPanelNoMeasuredSplitForThis2,
@@ -82,9 +77,7 @@ import {
   roleJobCompPanelThisEmployerPublishesNoPay,
   roleJobCompPanelThisPackageIsTheMarket,
   roleJobCompPanelTotalCompensation,
-  roleJobCompPanelVests,
   roleJobCompPanelWeHaveNotCheckedThis,
-  roleJobCompPanelYouChooseTheCashStock,
   roleJobCompPanelYr,
   roleJobCompPanelEstimatedBase,
   roleJobCompPanelBaseOnly,
@@ -152,28 +145,6 @@ function StatedTag({ provenance }: { provenance: CompComponent["provenance"] }) 
       {PROVENANCE_LABEL[provenance]}
     </span>
   );
-}
-
-// How the company constructs the offer, as one sentence of verified facts. Says
-// nothing for an unverified company: an absent line is "unknown", and a default
-// ("vests over 4 years") would be the guess the policy table exists to prevent.
-function policyLine(policy: JobCompPackage["policy"]): string | null {
-  if (!policy || !policy.verified) return null;
-  const parts: string[] = [];
-  if (policy.equity_rule === "employee_election") parts.push(roleJobCompPanelYouChooseTheCashStock());
-  else if (policy.equity_rule === "tc_target_minus_base")
-    parts.push(roleJobCompPanelEquityFillsAPerLevel());
-  else if (policy.equity_rule === "dollar_grant_by_level")
-    parts.push(roleJobCompPanelEquityIsADollarGrant());
-  if (policy.vesting) {
-    parts.push(
-      roleJobCompPanelVests({ choice: (policy.sign_on_bridges_vesting) ? "yes" : "no", vesting: String(policy.vesting) }),
-    );
-  }
-  if (policy.bonus_rule === "none") parts.push(roleJobCompPanelNoAnnualBonus());
-  else if (policy.bonus_rule === "pct_of_base") parts.push(roleJobCompPanelBonusIsALevelSet());
-  if (policy.base_cap_usd) parts.push(roleJobCompPanelBaseCappedAt({ base_cap_usd: String(fmtComp(policy.base_cap_usd)) }));
-  return parts.length ? parts.join(" · ") + "." : null;
 }
 
 /** The unit after an employer's own figure, by the period the server serves. */
@@ -599,12 +570,6 @@ export default function JobCompPanel({ job }: { job: Job }) {
           the description below: say where it came from. */}
       {"disclosed_comp" in job && job.disclosed_comp?.from_pay_field && (
         <div className="pkg-foot" data-testid="pkg-from-field">{roleJobCompPanelFromThePostingSPay()}</div>
-      )}
-
-      {policyLine(pkg.policy) && (
-        <div className="pkg-foot" data-testid="pkg-policy">
-          {policyLine(pkg.policy)}
-        </div>
       )}
     </div>
   );
