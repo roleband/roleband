@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Awaitable, Callable, Collection
+from collections.abc import Awaitable, Callable, Collection, Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -38,6 +38,7 @@ from tracker.connectors import (
 )
 from tracker.connectors.detail.base import sections_to_text
 from tracker.content import fingerprint_content
+from tracker.db.ids import among
 from tracker.db.inventory_store import reclassify_inventory_if_changed
 from tracker.db.models import DerivationState, Job, ScrapeRun
 from tracker.db.queries.scope import unplaced_level_expr
@@ -101,6 +102,19 @@ class PostPassContext:
     run: ScrapeRun | None = None
     scan_mode: ScanMode = ScanMode.RECONCILE
     results: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        # A row the run both refreshed and rewrote arrives twice; every pass
+        # reads the list, so each id is listed once, in first-seen order.
+        self.touched_ids[:] = dict.fromkeys(self.touched_ids)
+
+    def touch(self, job_ids: Iterable[int]) -> None:
+        """Add rows a pass brought in, each once, for the passes after it."""
+        seen = set(self.touched_ids)
+        for job_id in job_ids:
+            if job_id not in seen:
+                seen.add(job_id)
+                self.touched_ids.append(job_id)
 
     @property
     def clean_companies(self) -> set[str]:
@@ -307,7 +321,7 @@ async def reclassify_domains(
     stmt = select(Job.id, Job.company, Job.req_id, Job.title, Job.url,
                   Job.department, Job.team, Job.domains).order_by(Job.id.asc())
     if job_ids is not None:
-        stmt = stmt.where(Job.id.in_(list(job_ids)))
+        stmt = stmt.where(among(Job.id, job_ids))
     rows = (await session.execute(stmt)).all()
     changes = []
     for row in rows:
@@ -384,7 +398,7 @@ async def pending_roles(
     stmt = select(Job.id, Job.company, Job.req_id, Job.title, Job.url,
                   Job.department, Job.team, Job.family, Job.track).order_by(Job.id.asc())
     if job_ids is not None:
-        stmt = stmt.where(Job.id.in_(list(job_ids)))
+        stmt = stmt.where(among(Job.id, job_ids))
     rows = (await session.execute(stmt)).all()
     changes = []
     for row in rows:
@@ -419,7 +433,7 @@ async def reclassify_places(
     """
     stmt = select(Job.id, Job.locations, Job.location_groups, Job.location_cities).order_by(Job.id.asc())
     if job_ids is not None:
-        stmt = stmt.where(Job.id.in_(list(job_ids)))
+        stmt = stmt.where(among(Job.id, job_ids))
     rows = (await session.execute(stmt)).all()
     changes = []
     for row in rows:
@@ -450,7 +464,7 @@ async def _pass_inventory_promotion(ctx: PostPassContext) -> None:
     # Only after a classifier change: otherwise every row's cost is spent every run.
     reclassified = await reclassify_inventory_if_changed(ctx.session)
     result = await promote_locked(ctx.session)
-    ctx.touched_ids.extend(result.job_ids)
+    ctx.touch(result.job_ids)
     ctx.results["inventory"] = {
         "reclassified": reclassified, "promoted": result.promoted, "pending": result.pending,
     }
@@ -492,7 +506,7 @@ async def _pass_description_backfill(ctx: PostPassContext) -> None:
     )
     # Downstream passes work from `touched_ids`; a row we just gave text to has
     # to join them or its description would sit there unindexed and unenriched.
-    ctx.touched_ids.extend(job_id for job_id in filled if job_id not in ctx.touched_ids)
+    ctx.touch(filled)
     ctx.results["description_backfill"] = {"filled": len(filled)}
 
 

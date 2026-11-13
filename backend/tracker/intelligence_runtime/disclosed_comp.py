@@ -37,6 +37,7 @@ from sqlalchemy import and_, false, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.connectors.detail.base import PAY_SECTION_KEY
+from tracker.db.ids import among
 from tracker.db.models import Job, JobLifecycleEvent
 from tracker.db.pay_band import BandChange, apply_band, pay_place_key
 from tracker.enrich.classify import first_place, specific_places
@@ -69,22 +70,31 @@ def pay_input_text(job: Job) -> tuple[str, str]:
     return job.description_text or "", "full_description"
 
 
+def text_moved_clause():
+    """Never read, or the posting's text changed since its band was last read.
+    `content_changed_at` bumps only when title/description changed, so this
+    reuses that generic signal without a second content hash."""
+    return or_(Job.structured_at.is_(None), Job.content_changed_at > Job.structured_at)
+
+
 def stale_clause(active_version: str):
     """Re-run when never processed, content changed since last pass, or the
-    extractor version moved. `content_changed_at` bumps only when title/description
-    changed, so this reuses that generic signal without a second content hash.
+    extractor version moved.
 
     Never a row whose band a connector wrote: the text cannot re-derive
     a figure read from a structured field, so a version bump must never hand
     those rows to it."""
     return and_(
-        or_(
-            Job.structured_at.is_(None),
-            Job.content_changed_at > Job.structured_at,
-            Job.structured_prompt_version != active_version,
-        ),
+        or_(text_moved_clause(), Job.structured_prompt_version != active_version),
         Job.disclosed_source.is_distinct_from("connector"),
     )
+
+
+def _place_moved(job: Job) -> bool:
+    """The posting now names another first place than the one its band was
+    read for. A row stamped before place keys were recorded has none, and
+    reading it for the first time is not a move."""
+    return job.disclosed_place_key is not None and job.disclosed_place_key != pay_place_key(job.locations)
 
 
 async def active_parser_version(session: AsyncSession) -> str:
@@ -120,7 +130,7 @@ async def settle_stored_bands(session: AsyncSession, job_ids: list[int]) -> int:
     settled by their re-read. Returns how many rows changed. Commits nothing."""
     rows = await session.scalars(
         select(Job).where(
-            Job.id.in_(job_ids),
+            among(Job.id, job_ids),
             Job.disclosed_pay_basis == PayBasis.unclear.value,
             Job.disclosed_source.in_(("connector", "page")),
         )
@@ -215,7 +225,7 @@ async def owed_ids(
                 Job.id, Job.locations, Job.disclosed_place_key,
                 stale_clause(active).label("stale"), forced.label("forced"),
             )
-            .where(Job.id.in_(job_ids), Job.disclosed_source.is_distinct_from("connector"))
+            .where(among(Job.id, job_ids), Job.disclosed_source.is_distinct_from("connector"))
             .order_by(Job.id.desc())
         )
     ).all()
@@ -281,13 +291,22 @@ async def extract_disclosed_comp(
     owed = await owed_ids(session, job_ids, active, read_before=read_before)
     if cap is not None:
         owed = owed[:cap]
-    jobs = list(
+    rows = list(
         (
-            await session.scalars(select(Job).where(Job.id.in_(owed)).order_by(Job.id.desc()))
+            await session.execute(
+                select(Job, text_moved_clause().label("text_moved"))
+                .where(among(Job.id, owed))
+                .order_by(Job.id.desc())
+            )
         ).all()
     ) if owed else []
 
-    for job in jobs:
+    for row in rows:
+        job = row.Job
+        # Read before `_apply` restamps the row. Owed for any other reason (a
+        # new parser version, a forced re-read) is the reader changing, not the
+        # posting: the band is rewritten, but no move is recorded.
+        posting_moved = bool(row.text_moved) or _place_moved(job)
         desc = job.description_text or ""
         input_text, input_scope = pay_input_text(job)
 
@@ -311,8 +330,10 @@ async def extract_disclosed_comp(
             # A band the employer moved is a fact about THIS posting, so it
             # reaches the history whichever reader saw it move: the connector
             # (`repo.upsert_job`) and the page read
-            # (`posting_pages._record_move`) record theirs the same way.
-            if change is not None and change.moved and change.had_band:
+            # (`posting_pages._record_move`) record theirs the same way. A
+            # band that moved only because the reader changed is no such fact:
+            # saved roles would ring "pay raised" for a posting no one edited.
+            if change is not None and change.moved and change.had_band and posting_moved:
                 session.add(JobLifecycleEvent(
                     job_id=job.id, run_id=run_id, event_type="changed",
                     detail={"disclosed_base": change.event_detail()},

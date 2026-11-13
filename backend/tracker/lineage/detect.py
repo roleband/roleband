@@ -34,6 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from tracker.config import get_settings
+from tracker.db.ids import among
 from tracker.db.models import Job, JobLineage, JobLineageLink, JobPlaceSetMember, JobTwinLink
 from tracker.lineage.content_diff import signature_jaccard
 from tracker.lineage.decision_history import merge_history, without_history
@@ -454,7 +455,7 @@ async def detect_lineage(
     key = lineage_input_key().label("input_key")
     query = select(Job, key).where(Job.embedding.isnot(None), _stale_clause())
     if job_ids is not None:
-        query = query.where(Job.id.in_(job_ids))
+        query = query.where(among(Job.id, job_ids))
     if companies is not None:
         query = query.where(Job.company.in_(companies))
     query = query.order_by(Job.first_seen.asc(), Job.id.asc())
@@ -598,7 +599,7 @@ async def rebuild_lineage_projection(session: AsyncSession) -> int:
         fact_rows = (
             await session.execute(
                 select(Job.id, Job.company, Job.first_seen, Job.last_seen, Job.status).where(
-                    Job.id.in_(referenced)
+                    among(Job.id, referenced)
                 )
             )
         ).all()
