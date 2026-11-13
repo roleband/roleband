@@ -8,6 +8,7 @@ import { PageHeader } from "../../patterns/PageHeader";
 import { ResultsSummary } from "../../patterns/ResultsSummary";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { CompanyProfileSummary, api } from "../../api";
+import { number } from "../../copy/format";
 import { sectorName } from "../../copy/vocab";
 import { companiesModelOtherCompanies } from "../../copy/gen/companies";
 import { Button } from "../../ui/Button";
@@ -479,7 +480,7 @@ export function CompanyProfilesView() {
                 <span id="prof-review-why">{profilesCompanyProfilesViewAllProfilesCurrent()}</span>
               ) : (
                 <>
-                  <b className="is-warn">{reviewShown}</b>{" "}
+                  <b className="is-warn">{number(reviewShown)}</b>{" "}
                   <span>{profilesCompanyProfilesViewNeedReview({ count: reviewShown })}</span>
                 </>
               )}

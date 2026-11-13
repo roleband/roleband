@@ -1291,6 +1291,14 @@ describe("CompanyProfilesView — search + branding", () => {
     expect(count()).not.toContain("2");
   });
 
+  it("writes the review count with the region's grouping, like the count before it", async () => {
+    mockList(Array.from({ length: 1234 }, (_, i) =>
+      summary(`co-${i}`, `Company ${i}`, { data_health: "stale" })));
+    render(<CompanyProfilesView />);
+    await waitFor(() => expect(count()).toMatch(/1,234\s*need review/));
+    expect(count()).not.toContain("1234");
+  });
+
   /* A disabled review lens says why. The count beside it already does — "all
      profiles current" — so that sentence is the switch's description, and only
      while it holds. */
