@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -60,23 +61,67 @@ public sealed record InstallFacts(int Build, bool OtherAccount, bool StoreOnly)
         : StoreOnly ? InstallStop.StoreOnly
         : null;
 
-    public static InstallFacts Read() => new(Environment.OSVersion.Version.Build, RunsAsOtherAccount(), StoreAppsOnly());
+    public static InstallFacts Read()
+    {
+        using var current = WindowsIdentity.GetCurrent();
+        return new(Environment.OSVersion.Version.Build, RunsAsOtherAccount(ShellProcess(), ProcessAccount, current.User), StoreAppsOnly());
+    }
 
     /// <summary>Whether this process runs as an account other than the owner of the signed-in desktop's shell, which is
-    /// what Run as administrator with another account's password gives.</summary>
-    private static bool RunsAsOtherAccount()
+    /// what Run as administrator with another account's password gives. A shell whose account cannot be read counts as
+    /// another account's: an account can always read who runs its own shell, so a refusal means the shell belongs to
+    /// someone else.</summary>
+    /// <param name="shell">The shell's process ID, or null when the desktop has no shell.</param>
+    /// <param name="account">Reads the account a process runs as.</param>
+    /// <param name="running">The account this process runs as.</param>
+    public static bool RunsAsOtherAccount(uint? shell, Func<uint, SecurityIdentifier> account, SecurityIdentifier? running)
     {
-        var shell = GetShellWindow();
-        if (shell == 0 || GetWindowThreadProcessId(shell, out var pid) == 0) return false;
-        using var process = System.Diagnostics.Process.GetProcessById((int)pid);
-        if (!OpenProcessToken(process.Handle, TokenQuery, out var token)) return false;
+        if (shell is not { } process) return false;
         try
         {
-            using var owner = new WindowsIdentity(token);
-            using var current = WindowsIdentity.GetCurrent();
-            return owner.User is { } desktop && current.User is { } running && desktop != running;
+            return running is null || account(process) != running;
         }
-        finally { CloseHandle(token); }
+        catch (Exception)
+        {
+            return true;
+        }
+    }
+
+    /// <summary>The process that owns the desktop's shell window; 0 when the window's owner cannot be read; null when
+    /// there is no shell window.</summary>
+    private static uint? ShellProcess()
+    {
+        var shell = GetShellWindow();
+        if (shell == 0) return null;
+        return GetWindowThreadProcessId(shell, out var process) == 0 ? 0 : process;
+    }
+
+    /// <summary>The account <paramref name="process"/> runs as, read with the least rights that allow it: limited
+    /// information about the process and a query of its token.</summary>
+    public static SecurityIdentifier ProcessAccount(uint process)
+    {
+        var handle = OpenProcess(QueryLimitedInformation, false, process);
+        if (handle == 0) throw new Win32Exception(Marshal.GetLastWin32Error());
+        try
+        {
+            if (!OpenProcessToken(handle, TokenQuery, out var token)) throw new Win32Exception(Marshal.GetLastWin32Error());
+            try
+            {
+                const int TokenUser = 1, InsufficientBuffer = 122;
+                if (!GetTokenInformation(token, TokenUser, 0, 0, out var size) && Marshal.GetLastWin32Error() != InsufficientBuffer)
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
+                var buffer = Marshal.AllocHGlobal((int)size);
+                try
+                {
+                    if (!GetTokenInformation(token, TokenUser, buffer, size, out _)) throw new Win32Exception(Marshal.GetLastWin32Error());
+                    // TOKEN_USER starts with the pointer to the account's SID.
+                    return new SecurityIdentifier(Marshal.ReadIntPtr(buffer));
+                }
+                finally { Marshal.FreeHGlobal(buffer); }
+            }
+            finally { CloseHandle(token); }
+        }
+        finally { CloseHandle(handle); }
     }
 
     /// <summary>The "Allow all trusted apps to install" policy turned off: only Store apps install.</summary>
@@ -86,10 +131,17 @@ public sealed record InstallFacts(int Build, bool OtherAccount, bool StoreOnly)
         return policy?.GetValue("AllowAllTrustedApps") is int allowed && allowed == 0;
     }
 
-    private const uint TokenQuery = 0x0008;
+    private const uint TokenQuery = 0x0008, QueryLimitedInformation = 0x1000;
 
     [DllImport("user32.dll")]
     private static extern nint GetShellWindow();
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern nint OpenProcess(uint access, [MarshalAs(UnmanagedType.Bool)] bool inherit, uint processId);
+
+    [DllImport("advapi32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetTokenInformation(nint token, int kind, nint buffer, uint length, out uint returned);
 
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(nint window, out uint processId);
@@ -130,6 +182,77 @@ public static class PublisherTrust
         if (store.Certificates.Find(X509FindType.FindByThumbprint, certificate.Thumbprint, false).Count > 0) return false;
         store.Add(certificate);
         return true;
+    }
+
+    /// <summary>Setup's trust step, which runs as a process of its own behind Windows' administrator prompt: the
+    /// release's certificate into <paramref name="store"/>, ended with an exit code whatever happens. A step that crashed
+    /// would show Windows' crash report over Setup.</summary>
+    /// <param name="administrator">Whether the step runs with administrator rights.</param>
+    /// <param name="release">The release Setup was built for; null for a build without one.</param>
+    /// <param name="store">Opens the store, which Setup opens as the machine's Trusted People.</param>
+    public static int Step(Func<bool> administrator, Func<InstallRelease?> release, Func<X509Store> store)
+    {
+        try
+        {
+            if (!administrator()) return TrustExit.NotAdministrator;
+            if (release() is not { } built) return TrustExit.NoRelease;
+            using var certificate = Certificate(built);
+            using var trusted = store();
+            Trust(trusted, certificate);
+            return TrustExit.Trusted;
+        }
+        catch (Exception)
+        {
+            return TrustExit.Failed;
+        }
+    }
+}
+
+/// <summary>The exit codes of Setup's trust step, which the Setup that started it reads.</summary>
+public static class TrustExit
+{
+    public const int Trusted = 0, Failed = 1, NotAdministrator = 3, NoRelease = 4;
+}
+
+/// <summary>Why a Setup attempt ended without installing RoleBand.</summary>
+public enum AttemptFailure
+{
+    /// <summary>The person canceled the download.</summary>
+    Canceled,
+    /// <summary>A downloaded file is not the release's.</summary>
+    NotGenuine,
+    /// <summary>The release could not be downloaded.</summary>
+    Download,
+    /// <summary>Any other error, shown with its reason.</summary>
+    Unexpected,
+}
+
+/// <summary>One Setup attempt to download, check and install the release.</summary>
+public static class SetupAttempt
+{
+    /// <summary>Which failure an attempt's error is.</summary>
+    public static AttemptFailure Classify(Exception error) => error switch
+    {
+        OperationCanceledException => AttemptFailure.Canceled,
+        // A file that is not the release's is also an IOException, so it is told apart first.
+        NotTheRelease => AttemptFailure.NotGenuine,
+        HttpRequestException or IOException => AttemptFailure.Download,
+        _ => AttemptFailure.Unexpected,
+    };
+
+    /// <summary>Runs an attempt that downloads into <paramref name="folder"/> and returns its outcome once the folder is
+    /// removed. An error of any kind becomes <paramref name="failed"/>'s outcome, so Setup never stays on a page that waits
+    /// with no buttons.</summary>
+    public static async Task<T> RunAsync<T>(string folder, Func<Task<T>> attempt, Func<AttemptFailure, Exception, T> failed)
+    {
+        try
+        {
+            return await DownloadFolder.UsingAsync(folder, attempt);
+        }
+        catch (Exception error)
+        {
+            return failed(Classify(error), error);
+        }
     }
 }
 

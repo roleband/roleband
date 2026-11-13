@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using RoleBand.EngineHost;
 
@@ -18,8 +19,7 @@ internal sealed class TrayIcon : IDisposable
     private const int Select = 0x400, KeySelect = 0x401, ContextMenu = 0x7B, DoubleClick = 0x203;
     private const uint SettingChange = 0x001A, DisplayChange = 0x007E, DpiChanged = 0x02E0;
     private readonly nint window;
-    private readonly SubclassProcedure procedure;
-    private readonly uint taskbarCreated;
+    private readonly TrayHook hook;
     private readonly Func<IReadOnlyList<MenuEntry>> menu;
     private nint icon;
     private (bool Light, int Size) drawn;
@@ -33,21 +33,51 @@ internal sealed class TrayIcon : IDisposable
     public event Action? DoubleClicked;
     public event Action<MenuCommand>? Chosen;
 
+    /// <summary>The icon is in the notification area. Without it, the app shows the flyout as a window of its own.</summary>
+    public bool Shown => hook.Shown;
+
+    /// <summary>An icon that was missing, at sign-in or after Explorer restarted, is in the notification area.</summary>
+    public event Action? Appeared
+    {
+        add => hook.Appeared += value;
+        remove => hook.Appeared -= value;
+    }
+
+    /// <summary>The icon could not be added again after Explorer restarted, so the app has no surface until it shows one.</summary>
+    public event Action? Missing
+    {
+        add => hook.Missing += value;
+        remove => hook.Missing -= value;
+    }
+
     /// <param name="menu">The menu, read when it opens.</param>
     public TrayIcon(nint window, Func<IReadOnlyList<MenuEntry>> menu)
     {
         this.window = window;
         this.menu = menu;
-        icon = LoadIcon(badge);
-        procedure = Procedure;
-        if (!SetWindowSubclass(window, procedure, 1, 0)) throw new Win32Exception(Marshal.GetLastWin32Error());
-        taskbarCreated = RegisterWindowMessage("TaskbarCreated");
         // Win32 menus are drawn light unless the app allows dark ones; then they follow Windows' app theme. The
-        // switch has no documented name: uxtheme exports it by ordinal, as Windows' own apps use it.
-        const int AllowDark = 1;
-        SetPreferredAppMode(AllowDark);
-        AllowDarkModeForWindow(window, true);
-        Register();
+        // switch has no documented name: uxtheme exports it by ordinal, as Windows' own apps use it. A Windows
+        // without it draws the menus light.
+        try
+        {
+            const int AllowDark = 1;
+            SetPreferredAppMode(AllowDark);
+            AllowDarkModeForWindow(window, true);
+        }
+        catch (Exception error) when (error is EntryPointNotFoundException or DllNotFoundException)
+        {
+            Debug.WriteLine(error);
+        }
+        icon = LoadIcon(badge);
+        try
+        {
+            hook = new TrayHook(window, Place, Handle, error => Debug.WriteLine(error));
+        }
+        catch
+        {
+            DestroyIcon(icon);
+            throw;
+        }
     }
 
     public void Show(TrayBadge state, string text)
@@ -69,12 +99,16 @@ internal sealed class TrayIcon : IDisposable
         Shell_NotifyIcon(Modify, ref data);
     }
 
-    private void Register()
+    /// <summary>Adds the icon, or updates it when the shell still has it; false when the shell refused both.</summary>
+    private bool Place()
     {
+        // The taskbar may have changed its theme or scale while the icon was away.
+        if (Look() != drawn) Replace();
         var data = Data(MessageFlag | IconFlag | TipFlag | ShowTipFlag);
-        if (!Shell_NotifyIcon(Add, ref data)) throw new Win32Exception("The notification-area icon could not be added.");
+        if (!Shell_NotifyIcon(Add, ref data) && !Shell_NotifyIcon(Modify, ref data)) return false;
         data.Version = 4;
         Shell_NotifyIcon(SetVersion, ref data);
+        return true;
     }
 
     /// <summary>Draws the icon again for the taskbar's theme and scale, which can change while the app runs.</summary>
@@ -91,8 +125,9 @@ internal sealed class TrayIcon : IDisposable
         CallbackMessage = Callback, Icon = icon, Tip = tooltip,
     };
 
-    private nint Procedure(nint hwnd, uint message, nint wParam, nint lParam, nuint id, nuint data)
+    private bool Handle(uint message, nint wParam, nint lParam, out nint result)
     {
+        result = 0;
         if (message == Callback)
         {
             var x = (short)(wParam.ToInt64() & 0xFFFF);
@@ -115,22 +150,16 @@ internal sealed class TrayIcon : IDisposable
                     ShowMenu(x, y);
                     break;
             }
-            return 0;
-        }
-        if (message == taskbarCreated)
-        {
-            // Explorer restarted and forgot every icon.
-            Replace();
-            Register();
+            return true;
         }
         // Settings broadcasts are frequent; the icon is drawn again only when its theme or size really changed.
-        else if ((message is SettingChange or DisplayChange or DpiChanged) && Look() != drawn)
+        if ((message is SettingChange or DisplayChange or DpiChanged) && Look() != drawn)
         {
             Replace();
             var update = Data(IconFlag);
             Shell_NotifyIcon(Modify, ref update);
         }
-        return DefSubclassProc(hwnd, message, wParam, lParam);
+        return false;
     }
 
     private void ShowMenu(int x, int y)
@@ -204,11 +233,9 @@ internal sealed class TrayIcon : IDisposable
         disposed = true;
         var data = Data(0);
         Shell_NotifyIcon(Delete, ref data);
-        RemoveWindowSubclass(window, procedure, 1);
+        hook.Dispose();
         DestroyIcon(icon);
     }
-
-    private delegate nint SubclassProcedure(nint hwnd, uint message, nint wParam, nint lParam, nuint id, nuint data);
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct NotifyIconData
@@ -235,14 +262,6 @@ internal sealed class TrayIcon : IDisposable
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode, EntryPoint = "Shell_NotifyIconW")]
     private static extern bool Shell_NotifyIcon(uint message, ref NotifyIconData data);
-    [DllImport("comctl32.dll", SetLastError = true)]
-    private static extern bool SetWindowSubclass(nint window, SubclassProcedure procedure, nuint id, nuint data);
-    [DllImport("comctl32.dll")]
-    private static extern bool RemoveWindowSubclass(nint window, SubclassProcedure procedure, nuint id);
-    [DllImport("comctl32.dll")]
-    private static extern nint DefSubclassProc(nint window, uint message, nint wParam, nint lParam);
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern uint RegisterWindowMessage(string name);
     [DllImport("user32.dll", SetLastError = true)]
     private static extern nint CreateIconFromResourceEx(byte[] data, int size, bool icon, uint version, int width, int height, uint flags);
     [DllImport("user32.dll")]

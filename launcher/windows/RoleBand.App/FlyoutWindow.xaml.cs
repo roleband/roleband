@@ -41,6 +41,9 @@ public sealed partial class FlyoutWindow : Window
     /// closes the flyout rather than opening it again.</summary>
     public bool JustHid => Environment.TickCount64 - hiddenAt < 300;
 
+    /// <summary>Shown as a framed window of its own, for want of the icon.</summary>
+    public bool Standalone => standalone;
+
     /// <summary>A flyout closed for Quit has no window left to ask.</summary>
     public bool IsOpen => !closing && AppWindow.IsVisible;
 
@@ -162,6 +165,20 @@ public sealed partial class FlyoutWindow : Window
         Fit();
         AppWindow.Show(true);
         Activate();
+    }
+
+    /// <summary>Back to the icon's flyout once the icon is there: no title bar, above other windows, out of the task
+    /// switchers, and hidden until the icon opens it.</summary>
+    public void Dock()
+    {
+        if (!standalone || closing) return;
+        standalone = false;
+        if (presenter.State == OverlappedPresenterState.Minimized) presenter.Restore();
+        presenter.SetBorderAndTitleBar(true, false);
+        presenter.IsAlwaysOnTop = true;
+        presenter.IsMinimizable = false;
+        AppWindow.IsShownInSwitchers = false;
+        Hide();
     }
 
     public void Hide()

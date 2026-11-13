@@ -175,12 +175,16 @@ and shuts down through a parent-only pipe. These boundaries are owned by
 Windows ends the app by asking its windows with `WM_QUERYENDSESSION` and confirming
 with `WM_ENDSESSION`, at sign-out and when it installs a new version of the package
 while the app runs. A window that only agrees stays open, and Windows waits about
-thirty seconds before it terminates the process and records a hang, so the app quits
-on the confirmation (`SessionEnd` in the host library), as Quit does: it stops the
-engine and closes. Once Windows has confirmed, including during a Quit already under
-way, the app waits for the engine at most fifteen seconds and closes even when the
-engine has not confirmed its stop; the engine's supervisor stops by itself when the
-app's process is gone, and Windows ends what is left of the package.
+thirty seconds before it terminates the process and records a hang. Once the
+confirmation is answered, Windows may end the app and the engine's processes at any
+moment, so the app (`SessionEnd` in the host library) stops the engine before it
+answers, waiting at most fifteen seconds with its messages still running, and quits
+after the answer, as Quit does, closing even when the engine has not confirmed its
+stop. A Quit already under way goes on at the same point. The app also asks Windows
+to end it before processes at the default shutdown level, the engine's among them.
+At sign-out Windows shows that the app is still closing once it takes more than a few
+seconds, and the person can sign out without waiting; then the engine stops as
+Windows ends it, and PostgreSQL recovers on the next start, as after a power cut.
 
 The engine's desktop alerts (`tracker/osnotify.py`: a failed scan, a health
 condition that starts firing, a finished re-ranking) reach the screen through the
