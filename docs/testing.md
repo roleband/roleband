@@ -38,13 +38,19 @@ stalled responses, an exclusive desktop lease, retained roles, clean shutdown
 and automatic recovery after terminating their owned engine. `LifecycleTests` drive
 the session against a stand-in engine process built from the engine's own record,
 discovery and health code: one stop request per engine, a preserved engine and lease
-when a stop is not confirmed, one-click retry after failed preparation, the restart
-limit, recycled process IDs, and a timestamped host log with one rotated copy. The same
+when a stop is not confirmed, both let go once that engine exits so the next start reaches
+Ready, one-click retry after failed preparation, the restart limit, an engine that never
+answers, a preparation that stops changing (one that keeps changing outlasts the deadline),
+three failed reads in a row after Ready, a stop during the wait before a restart, a stop
+that a process holding the engine's output open does not hold up, recycled process IDs, a
+record that names no running engine, and a timestamped host log with one rotated copy. The same
 stand-in drives `UpdateCoordinator` with recording package-manager and command stand-ins:
 an update is journaled only after the engine stopped, a refused journal never switches the
 package, a switch Windows refuses is resumed as never happened, an update or undo cancelled
-while the engine stops records and installs nothing, and the new version settles
-the update by its preparation; the real package switch needs an installed trial. Build the actual
+while the engine stops records and installs nothing, an update this version left applying
+goes to Windows' deployment log first, even with updates unavailable, while a status that
+cannot be read settles nothing, and the new version settles the update by its preparation;
+the real package switch needs an installed trial. Build the actual
 app with `dotnet build launcher/windows/RoleBand.App -p:Platform=x64` and
 check on Windows: the icon's flyout opens by the icon and closes on a second click, Esc or a click
 elsewhere; the right-click menu's bold default, pause and Quit; Settings and setup; Quit stops the
@@ -182,8 +188,8 @@ automatic restart with Unicode history, saved state and unchanged credentials/ke
 It also exercises PID reuse, an unrecorded live postmaster, foreign or malformed
 PID records and refusal to restart from a cancellable child. Stale PID evidence is
 retained. PostgreSQL's active log stays outside PGDATA. The native lifecycle tests
-start with a dead predecessor record from a different resource root; live
-predecessors and foreign retained-state records remain refusals.
+start with a dead predecessor record from a different resource root or retained
+state; a live predecessor, of this installation or another, remains a refusal.
 
 The native engine-host integration tests accept `ROLEBAND_HOST_TEST_RESOURCES`
 pointing at an assembled app's `Contents/Resources`. They exercise its real

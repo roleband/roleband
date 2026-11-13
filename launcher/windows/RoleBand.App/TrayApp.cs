@@ -672,12 +672,11 @@ internal sealed class TrayApp
         try
         {
             // Read first, so a version that is the update's new one says it is finishing the update while it prepares.
-            await ReadUpdateAsync();
-            RenderUpdate();
             // Opened while its own update is still applying: only Windows knows whether it is installing it, or has. Once
-            // it has, the new version settles the update, and this one keeps its engine closed.
-            if (update.Facts?.Last is { Phase: "applying", Running: "from", Package: not null } pending && Native.PackageName() is { } name
-                && !await updates.AwaitWindowsAsync(pending, name, run => { update = update with { Run = run }; RenderUpdate(); }))
+            // it has, the new version settles the update, and this one keeps its engine closed. A failed read settles
+            // nothing.
+            if (!await updates.MaySettleAsync(Native.PackageName(), facts => { update = update with { Facts = facts }; RenderUpdate(); },
+                    run => { update = update with { Run = run }; RenderUpdate(); }, sessionEnding.Token))
                 return;
             var phase = await updates.StartAsync(engine, sessionEnding.Token);
             // How the update ended, or the undo under way, comes from its journal, as every later open reads it.
