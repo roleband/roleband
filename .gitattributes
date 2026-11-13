@@ -1,0 +1,4 @@
+# Datasets are pinned by their exact bytes (backend/tracker/datasets.lock.json),
+# so text stays LF on every platform: a Windows checkout with core.autocrlf
+# would otherwise rewrite them to CRLF and fail the lock check.
+* text=auto eol=lf
