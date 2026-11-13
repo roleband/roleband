@@ -487,24 +487,31 @@ def test_a_connect_that_times_out_at_the_deadline_is_a_deadline(monkeypatch):
     from tracker.cli.contexts import Context
     from tracker.cli.errors import ClientError
 
-    def connect_slowly(self: http.client.HTTPConnection) -> None:
-        time.sleep(self.timeout)
+    class Clock:
+        now = 1000.0
+
+        @classmethod
+        def monotonic(cls) -> float:
+            return cls.now
+
+    def connect_until_its_timeout(self: http.client.HTTPConnection) -> None:
+        Clock.now += self.timeout
         raise TimeoutError
 
-    monkeypatch.setattr(http.client.HTTPConnection, "connect", connect_slowly)
+    monkeypatch.setattr(transport, "time", Clock)
+    monkeypatch.setattr(http.client.HTTPConnection, "connect", connect_until_its_timeout)
     context = Context(name="dev", host="127.0.0.1", port=9)
 
     def outcome(seconds: float) -> str:
         with pytest.raises(ClientError) as raised:
             transport.get(context, "/api/agent/v1/status", operation="status",
-                          deadline=time.monotonic() + seconds, request_id="req_x", user_agent="test")
+                          deadline=Clock.now + seconds, request_id="req_x", user_agent="test")
         return raised.value.code
 
-    # The caller's deadline ran out while connecting.
-    assert outcome(0.2) == "deadline_exceeded"
+    # The caller's deadline, shorter than the connect limit, ran out while connecting.
+    assert outcome(transport.CONNECT_SECONDS / 2) == "deadline_exceeded"
     # The connect limit ran out with deadline to spare: nothing answers.
-    monkeypatch.setattr(transport, "CONNECT_SECONDS", 0.1)
-    assert outcome(5) == "engine_unavailable"
+    assert outcome(transport.CONNECT_SECONDS * 10) == "engine_unavailable"
 
 
 def test_the_exit_status_follows_the_error_code_not_the_http_status(home):
