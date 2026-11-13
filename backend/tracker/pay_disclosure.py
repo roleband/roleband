@@ -45,7 +45,7 @@ MAX_COMP = 100_000_000  # sanity ceiling (whole currency units / year)
 #: number per run. A band a connector read from a structured field
 #: is never re-read (`jobs.disclosed_source`). Independent of the experimental
 #: prompt's `intelligence.prompts.PROMPT_VERSION`, which does not extract.
-PAY_PARSER_VERSION = "pay_parser/2026-11-12.1"
+PAY_PARSER_VERSION = "pay_parser/2026-11-13.1"
 
 
 #: The periods a list row writes a posted base range with. An unclear period
@@ -203,6 +203,30 @@ _FROM_UP_TO_RE = re.compile(
     re.IGNORECASE,
 )
 
+#: A band whose bounds are named minimum and maximum, each with its own amount:
+#:
+#:     Salary Min: $120,000  Salary Max: $160,000
+#:     minimum base salary for this role ... is $150,000 per year; maximum
+#:     base salary for this role is $200,000 per year
+#:
+#: The words between may hold no digit and no currency sign, so a
+#: "minimum of 5 years" never reaches a figure. Grounding still demands both
+#: amounts within one short span.
+_MIN_MAX_RE = re.compile(
+    r"\bmin(?:imum)?\b[^\d$£€\n]{0,80}?"
+    r"(?:(?<![A-Za-z])(?P<prefix>US|CA|C|A|NZ|HK|S)[ \xa0]?)?(?P<symbol>[$£€])\s*"
+    r"(?P<low>" + AMOUNT + r")(?:\s*(?P<low_suffix>[kKmM](?![A-Za-z])))?"
+    r"(?:\s*(?P<low_currency>" + CURRENCY_CODE + r"))?" + _PER_PERIOD +
+    r"[^\d$£€\n]{0,80}?\bmax(?:imum)?\b[^\d$£€\n]{0,80}?"
+    r"(?:(?<![A-Za-z])(?P<high_prefix>US|CA|C|A|NZ|HK|S)[ \xa0]?)?(?P<high_symbol>[$£€])\s*"
+    r"(?P<high>" + AMOUNT + r")\s*(?P<high_suffix>[kKmM](?![A-Za-z]))?" + _PER_PERIOD +
+    r"(?:\s*(?P<currency>" + CURRENCY_CODE + r"))?",
+    re.IGNORECASE,
+)
+
+#: Every pattern a band is read with, in the order candidates are gathered.
+_BAND_PATTERNS = (_EXPLICIT_BAND_RE, _FROM_UP_TO_RE, _MIN_MAX_RE)
+
 #: A dollar sign with a country in front of it is not a US dollar. Read from
 #: either number's prefix — a band writes it on both ("CA$142,000 - CA$190,000")
 #: or only on the first.
@@ -271,6 +295,20 @@ def _sentence_lead(pay_text: str, match: re.Match, pad: int) -> str:
     return lead[ends[-1].end() :] if ends else lead
 
 
+def _label_names_other_money(pay_text: str, match: re.Match) -> bool:
+    """Does the words a pattern opens with, before its first amount, name money
+    that is not pay?
+
+    `_names_other_money` reads only what comes BEFORE a match. `_MIN_MAX_RE`
+    opens on "Minimum", so in "Minimum annual bonus: $100,000; maximum annual
+    bonus: $150,000" the word "bonus" sits INSIDE the match, where that check
+    cannot see it. A label naming a pay word ("Minimum base salary") is kept,
+    by the same exception.
+    """
+    label = pay_text[match.start() : match.start("low")]
+    return bool(_OTHER_MONEY_RE.search(label)) and not _PAY_LEAD_RE.search(label)
+
+
 def _names_other_money(pay_text: str, match: re.Match) -> bool:
     """Does the candidate's own sentence, just before it, say this money is
     not pay, with no pay word in its lead?"""
@@ -327,8 +365,14 @@ def _bound(raw: str, suffix: str | None) -> int | None:
 
 def _read_candidate(match: re.Match, pay_text: str) -> _Reading | None:
     """The amounts, currency and period ONE regex candidate states, or None."""
-    low = _bound(match.group("low"), match.group("low_suffix"))
-    high = _bound(match.group("high"), match.group("high_suffix"))
+    low_suffix, high_suffix = match.group("low_suffix"), match.group("high_suffix")
+    # "$245-$280K" and "$120–$140k" write the scale once, on the high amount:
+    # a bare low under a thousand shares it. A low written in full ("$90,000 -
+    # $110,000k") keeps its own size.
+    if high_suffix and not low_suffix and (bare := explicit_amount(match.group("low"), None)) is not None and bare < 1_000:
+        low_suffix = high_suffix
+    low = _bound(match.group("low"), low_suffix)
+    high = _bound(match.group("high"), high_suffix)
     if low is None or high is None:
         return None
     low, high = sorted((low, high))
@@ -521,10 +565,11 @@ def extract_grounded_band(
     """
     readings = [
         (reading, match)
-        for pattern in (_EXPLICIT_BAND_RE, _FROM_UP_TO_RE)
+        for pattern in _BAND_PATTERNS
         for match in pattern.finditer(pay_text or "")
         if _has_currency_evidence(match)
         and not _names_other_money(pay_text, match)
+        and not _label_names_other_money(pay_text, match)
         and (reading := _read_candidate(match, pay_text)) is not None
     ]
     # Stable sort: among equally-ranked candidates the earliest wins.
@@ -533,7 +578,11 @@ def extract_grounded_band(
     def rank(pair: tuple[_Reading, re.Match]) -> tuple[bool, bool]:
         return (not pair[0].salary, not _has_pay_context(pay_text, pair[1]))
 
-    readings.sort(key=rank)
+    # `rank` alone leaves the order each pattern was scanned in, so a band one
+    # pattern reads later in the posting would beat an equally ranked one
+    # another pattern read earlier. Position breaks the tie; `rank` itself stays
+    # as it is, because the place selection below compares ranks for equality.
+    readings.sort(key=lambda pair: (*rank(pair), pair[1].start()))
     # Several bands, one per place: the one for the posting's place.
     # Only among the best-ranked, and only when exactly one band names it: two
     # that do, or none, leave the order above to decide.
@@ -581,11 +630,19 @@ _BASIS_BLOCK = "\n\n"
 _BASIS_MAX = 1200
 
 
+#: The high amount of a range that writes its "k" once, on that amount
+#: ("$245-$280K"): the low before it is in thousands too (`_read_candidate`).
+_SHARED_K_AHEAD_RE = re.compile(r"\s*(?:[-–—]|\bto\b)\s*[$£€]?\s*\d{1,3}(?:\.\d+)?\s*[kK](?![A-Za-z])")
+
+
 def _number_positions(text: str) -> list[tuple[int, int, int]]:
     """(value, start, end) for every number in `text`, including k/m scaling."""
     found: list[tuple[int, int, int]] = []
-    for m in NUM_RE.finditer(text or ""):
+    text = text or ""
+    for m in NUM_RE.finditer(text):
         raw, suffix = m.group(1), (m.group(2) or "").lower()
+        if not suffix and _SHARED_K_AHEAD_RE.match(text, m.end()):
+            suffix = "k"
         values: set[int] = set()
         for value in number_readings(raw, suffix):
             values.add(int(value))
@@ -922,7 +979,7 @@ def _forward_salary(text: str, span: tuple[int, int]) -> bool:
     if (not _RANGE_HEADING_RE.search(link)
             or _INCLUSIVE_RE.search(definition) or _CONDITIONAL_RE.search(definition)):
         return False
-    ranges = [match for pattern in (_EXPLICIT_BAND_RE, _FROM_UP_TO_RE)
+    ranges = [match for pattern in _BAND_PATTERNS
               for match in pattern.finditer(text, declaration.end())
               if _has_currency_evidence(match)]
     return (len(ranges) == 1
@@ -949,8 +1006,26 @@ def _names_salary_at(text: str, span: tuple[int, int] | None) -> bool:
             or _forward_salary(text, span))
 
 
+#: Pay countries whose postings state base pay when they state one range.
+#: Their pay-transparency laws ask for the base salary range (or a sales
+#: role's on-target earnings), so an unmarked range there is base pay unless
+#: the role sells. Elsewhere an unmarked range stays `unclear`.
+BASE_BY_CONVENTION_COUNTRIES = frozenset({"US", "CA"})
+
+#: Words that call a range more than base pay without saying what it adds:
+#: "estimated total compensation for this role ranges from", "Our cash
+#: compensation range", "total compensation around 90-115k". Not markers of
+#: `total` on their own, but the convention never reads such a range as base.
+_NOT_JUST_BASE_RE = re.compile(
+    r"\btotal\s+(?:target\s+|annual\s+|starting\s+)*(?:cash\s+)?(?:compensation|comp|pay|earnings|rewards\s+range)\b"
+    r"|\bcash\s+compensation\b|\btotal\s+cash\b|\bon[-\s]target\b|\bOTE\b",
+    re.I,
+)
+
+
 def _settled_basis(
     basis: str | None, text: str, family: str | None, title: str | None, span: tuple[int, int] | None,
+    country: str | None,
 ) -> str | None:
     if basis != PayBasis.unclear.value:
         return basis
@@ -958,7 +1033,30 @@ def _settled_basis(
         return basis_for_role(basis, text, family, title)
     if _names_salary_at(text, span):
         return PayBasis.base.value
+    # Last, so every marker the posting states wins over the convention, and
+    # never for a role that sells or one whose kind cannot be told: its one
+    # range may be on-target earnings. A connector's band arrives unread by the
+    # text's markers, so an election, an inclusive range or one its paragraph
+    # calls total or cash pay is checked here.
+    if (
+        country in BASE_BY_CONVENTION_COUNTRIES
+        and sells(family, title) is False
+        # A band we cannot find in the text has no paragraph to read, so the
+        # wording that would refuse the convention cannot be checked at all. A
+        # source's figures need not appear in its prose, and reading such a
+        # band as base on a rule we could not test is the invented fact this
+        # module exists to refuse.
+        and span is not None
+        and not _EMPLOYEE_ELECTION_RE.search(text)
+        and not _calls_more_than_base(basis_context(text, span))
+    ):
+        return PayBasis.base.value
     return basis
+
+
+def _calls_more_than_base(context: str) -> bool:
+    return (_fires_unconditionally(_INCLUSIVE_RE, context)
+            or _fires_unconditionally(_NOT_JUST_BASE_RE, context))
 
 
 class SettledBand(NamedTuple):
@@ -977,13 +1075,16 @@ def settle_band(
     *,
     span: tuple[int, int] | None = None,
     stated_bonus: float | None = None,
+    country: str | None = None,
 ) -> SettledBand:
     """The basis and the stated bonus every writer of a band stores (connector,
     text, page).
 
     Only an `unclear` band is settled; a basis its markers state wins. A band the
     posting defines per kind of role takes the role's reading (`basis_for_role`);
-    otherwise a band its paragraph calls a salary is base. The bonus is read
+    otherwise a band its paragraph calls a salary is base, and so is one whose
+    pay `country` (`taxonomy.locations.pay_country`) posts base pay by
+    convention, for a role that does not sell. The bonus is read
     after that, against the settled basis: "Salary range: $150,000 - $200,000
     per year. Annual bonus target of 15%." is a base band with a 15% target,
     though no marker made it base before the word "salary" settled it. Only a
@@ -998,7 +1099,7 @@ def settle_band(
     text = description_text or ""
     if span is None:
         span = _locate(text, bounds)
-    settled = _settled_basis(basis, text, family, title, span)
+    settled = _settled_basis(basis, text, family, title, span, country)
     if settled != PayBasis.base.value:
         return SettledBand(settled, None)
     if stated_bonus is not None:

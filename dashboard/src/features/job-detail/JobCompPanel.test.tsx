@@ -152,7 +152,8 @@ describe("JobCompPanel", () => {
     currency: "USD",
     pay_period: "year",
     stated: { low: 151200, high: 223200 },
-    components: [],
+    // The employer's base, stated, with nothing built on the guessed level.
+    components: [{ kind: "base", low: 151200, high: 223200, provenance: "stated" }],
     total: null,
     estimate: null,
     split_source: null,
@@ -164,8 +165,39 @@ describe("JobCompPanel", () => {
   function expectPostedBaseWhole() {
     expect(screen.getAllByText("$151K–$223K").length).toBeGreaterThan(0);
     expect(screen.getByText(msg("role-job-comp-panel-level-not-stated-or-mapped"))).toBeInTheDocument();
-    expect(screen.queryByText("Equity")).not.toBeInTheDocument();
+    expect(screen.queryByText(msg("role-job-comp-panel-equity"))).not.toBeInTheDocument();
   }
+
+  it("draws the stated base as the bar's one segment, and models nothing on it", () => {
+    const { container } = render(
+      <JobCompPanel job={{ ...withPackage(UNPLACED), level_basis: "unmapped" }} />,
+      { wrapper: MemoryRouter },
+    );
+    // The bar is there, with a single stated base segment at full width.
+    const segments = container.querySelectorAll(".pkg-seg");
+    expect(segments).toHaveLength(1);
+    expect(segments[0]).toHaveClass("pkg-base");
+    expect(segments[0]).not.toHaveClass("pkg-est");
+    expect((segments[0] as HTMLElement).style.width).toBe("100%");
+    // Labelled as the employer's own figure, in the legend and the headline.
+    expect(screen.getByText(msg("role-job-comp-panel-base"))).toBeInTheDocument();
+    expect(screen.getByText(msg("role-job-comp-panel-stated-by-the-employer"))).toBeInTheDocument();
+    // Nothing modelled: no bonus, no equity, no total, and no stated/estimated
+    // bracket, which only divides a bar that holds both.
+    expect(screen.queryByText(msg("role-job-comp-panel-bonus"))).not.toBeInTheDocument();
+    expect(screen.queryByText(msg("role-job-comp-panel-equity"))).not.toBeInTheDocument();
+    expect(container.querySelector(".pkg-bracket")).toBeNull();
+    // The figure appears as the headline and as the segment's own value in the
+    // legend, which is what says it is base and stated. Nothing explains it a
+    // third time: the guaranteed line and the repeated block are for a package
+    // whose headline is an estimate instead.
+    expect(container.querySelector(".big")).toHaveTextContent("$151K–$223K");
+    expect(container.querySelector(".pkg-leg-n")).toHaveTextContent("$151K–$223K");
+    expect(container.querySelector(".pkg-guaranteed")).toBeNull();
+    expect(container.querySelector(".pkg-unclear-n")).toBeNull();
+    // And it still says why there is no split.
+    expect(screen.getByTestId("pkg-no-split")).toBeInTheDocument();
+  });
 
   it("shows an unmapped level's posted base whole, tagged as the job card tags it", () => {
     render(<JobCompPanel job={{ ...withPackage(UNPLACED), level_basis: "unmapped" }} />, { wrapper: MemoryRouter });
@@ -296,8 +328,11 @@ describe("JobCompPanel", () => {
     expect(screen.getByText("monthly rate")).toBeInTheDocument();
     expect(container).toHaveTextContent("/ mo");
     expect(container).not.toHaveTextContent("/ yr");
-    // In the posting's own currency, never a dollar sign on euros.
-    expect(container.querySelector(".pkg-unclear-n")).toHaveTextContent("€5K–€6K");
+    // In the posting's own currency, never a dollar sign on euros. The headline
+    // carries it: with no estimate of ours, the employer's figure IS the headline,
+    // and it is not printed a second time below.
+    expect(container.querySelector(".big")).toHaveTextContent("€5K–€6K");
+    expect(container.querySelector(".pkg-unclear-n")).toBeNull();
   });
 
   it("writes a stated band and the pay floor beside it in one currency and one format", () => {

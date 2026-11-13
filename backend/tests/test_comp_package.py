@@ -226,7 +226,9 @@ def test_a_plugin_s_total_with_no_split_of_its_own_stays_whole():
 def test_a_stated_base_is_not_split_by_ours_under_a_plugin_without_a_split():
     pkg = build_job_package(**{**GOOGLE_879, "company": "stripe"}, disclosed=GOOGLE_BAND,
                             baselines=BASELINES, heuristic=False)
-    assert pkg["components"] == [] and pkg["total"] is None
+    # The employer's base is the employer's, whoever answers pay: it stays as the
+    # one stated segment, and no bonus or equity of ours goes under the plugin's figure.
+    assert pkg["components"] == [{"kind": "base", "low": 240000, "high": 334000, "provenance": "stated"}] and pkg["total"] is None
     assert pkg["no_split_reason"] == NO_SPLIT_PLUGIN
     assert pkg["stated"] == {"low": 240000, "high": 334000}
 
@@ -244,7 +246,10 @@ def test_ours_leaves_a_band_outside_us_pay_whole_and_names_our_data():
     pay is another country's (no row measures it) is not split by our
     heuristic, and the reason is ours, never a plugin's."""
     stated = build_job_package(**GOOGLE_879, disclosed=GOOGLE_BAND, baselines={}, us_pay=False)
-    assert stated["components"] == [] and stated["total"] is None and stated["split_source"] is None
+    # The posted base is stated wherever the posting is; only the parts our
+    # heuristic would model are withheld.
+    assert stated["components"] == [{"kind": "base", "low": 240000, "high": 334000, "provenance": "stated"}]
+    assert stated["total"] is None and stated["split_source"] is None
     assert stated["no_split_reason"] == NO_SPLIT_NOT_US
     assert stated["policy"] is not None and stated["policy"]["verified"]
 
@@ -404,22 +409,26 @@ def test_a_cash_election_company_s_stated_base_stands_alone():
         disclosed={**GOOGLE_BAND, "bonus_pct": None}, baselines=BASELINES,
     )
     assert pkg["stated"] == {"low": 240000, "high": 334000}
-    assert (pkg["components"], pkg["total"]) == ([], None)
+    # The base stands alone, literally: the mix the person picks sits on top of
+    # it and is never drawn.
+    assert (pkg["components"], pkg["total"]) == ([{"kind": "base", "low": 240000, "high": 334000, "provenance": "stated"}], None)
     assert pkg["no_split_reason"] == NO_SPLIT_EMPLOYEE_ELECTION
 
 
 @pytest.mark.parametrize("company", ["spotify", "shopify"])
 def test_a_company_that_states_its_people_pick_the_mix_is_never_split(company):
     """The equity rule says each person picks the mix, with no vehicle stated:
-    a split of ours would invent the mix the employer leaves to the person,
-    for a stated base and for an estimated total alike."""
+    a split of ours would invent the mix the employer leaves to the person. A
+    base the posting states is not that invention and stays; an estimated total
+    has no stated part at all, so it stays whole."""
     base = build_job_package(
         company=company, band="principal", family="software_engineering",
         comp_low=None, comp_median=None, comp_high=None, comp_provenance=None,
         disclosed={**GOOGLE_BAND, "bonus_pct": None}, baselines={},
     )
     assert base["stated"] == {"low": 240000, "high": 334000}
-    assert (base["components"], base["total"], base["no_split_reason"]) == ([], None, NO_SPLIT_EMPLOYEE_ELECTION)
+    assert (base["components"], base["total"], base["no_split_reason"]) == (
+        [{"kind": "base", "low": 240000, "high": 334000, "provenance": "stated"}], None, NO_SPLIT_EMPLOYEE_ELECTION)
     total = build_job_package(
         company=company, band="principal", family="software_engineering",
         comp_low=400000, comp_median=500000, comp_high=600000, comp_provenance="estimated",

@@ -578,6 +578,7 @@ HOSTILE = [
     ("_FROM_UP_TO_RE", "search", "from $0" + " " * 2000 + "x", "from $133,900 k  USD /year in our lowest market up to $231,400"),
     ("_PLACE_AFTER_RE", "match", " " * 20_000 + "x", "  USD annually , in San Francisco"),
     ("_RANGE_HEADING_RE", "search", "Pay Range" + " " * 1500 + "x", "\nPay Range  :  $  "),
+    ("_MIN_MAX_RE", "search", "min $0" + " " * 2000 + "x", "Salary Min: $120,000   Salary Max: $160,000"),
 ]
 
 
@@ -596,3 +597,85 @@ def test_a_band_after_a_spaced_out_number_is_still_found_quickly():
     band = extract_grounded_band(text, text)
     assert time.perf_counter() - started < 1.0
     assert (band.base_min, band.base_max) == (120000, 150000)
+
+
+# --------------------------------------------------------------------------- #
+# A range that writes its scale once, or names its bounds minimum and maximum
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("text, bounds", [
+    ("The estimated base salary range for this position is $245-$280K, which does not include equity.",
+     (245000, 280000)),
+    ("Target compensation for this role is $120–$140k, plus bonus, equity and benefits.", (120000, 140000)),
+], ids=["dash", "en-dash"])
+def test_a_k_written_once_on_the_high_amount_scales_the_low(text, bounds):
+    band = extract_grounded_band(text, text)
+    assert (band.base_min, band.base_max, band.pay_period) == (*bounds, PayPeriod.year)
+
+
+def test_a_low_written_in_full_keeps_its_own_size():
+    text = "Salary Range: $90,000 - $110,000k annually"
+    band = extract_grounded_band(text, text)
+    assert (band.base_min, band.base_max) == (90000, 110000)
+
+
+def test_a_shared_k_reads_as_the_k_written_twice_and_never_without_money():
+    once, twice = "Salary: $120-$140K per year.", "Salary: $120K-$140K per year."
+    assert extract_grounded_band(once, once).span is not None
+    assert ((extract_grounded_band(once, once).base_min, extract_grounded_band(once, once).base_max)
+            == (extract_grounded_band(twice, twice).base_min, extract_grounded_band(twice, twice).base_max)
+            == (120000, 140000))
+    count = "We serve 5-10K users from 120-140K square feet."
+    assert not extract_grounded_band(count, count).disclosed
+
+
+@pytest.mark.parametrize("text", [
+    "Salary Min: $120,000  Salary Max: $160,000",
+    "Our minimum base salary for this role if hired in New York City is $120,000 per year; "
+    "maximum base salary for this role is $160,000 per year.",
+], ids=["labels", "sentences"])
+def test_a_range_named_by_its_minimum_and_maximum_is_read(text):
+    band = extract_grounded_band(text, text)
+    assert (band.base_min, band.base_max, band.pay_period) == (120000, 160000, PayPeriod.year)
+
+
+def test_a_minimum_that_is_not_pay_reaches_no_figure():
+    """The words between "minimum" and an amount hold no digit, so years of
+    experience never become a bound; the real range is still read."""
+    text = "Minimum of 5 years of experience, maximum 20% travel. Salary $100,000 - $130,000."
+    band = extract_grounded_band(text, text)
+    assert (band.base_min, band.base_max) == (100000, 130000)
+    assert not extract_grounded_band("Minimum 3 years. Maximum $5,000 relocation.", "x").disclosed
+
+
+def test_a_label_inside_the_match_that_names_other_money_is_refused():
+    """`_MIN_MAX_RE` opens on "Minimum", so the words that say what the money is
+    sit inside the match, where the lead check cannot see them."""
+    bonus = "Minimum annual bonus: $100,000; maximum annual bonus: $150,000."
+    assert not extract_grounded_band(bonus, bonus).disclosed
+    equity = "Minimum equity grant: $100,000, maximum equity grant: $150,000."
+    assert not extract_grounded_band(equity, equity).disclosed
+    # A label that names pay is still read.
+    salary = ("Our minimum base salary for this role is $150,000 per year; "
+              "maximum base salary for this role is $200,000 per year.")
+    band = extract_grounded_band(salary, salary)
+    assert (band.base_min, band.base_max) == (150000, 200000)
+
+
+def test_the_band_stated_earliest_wins_across_patterns_as_well():
+    """Equally ranked candidates are ordered by where they are stated, not by
+    which pattern happened to read them first."""
+    text = "Salary Min: $120,000 Salary Max: $160,000. Salary range: $200,000 - $250,000."
+    band = extract_grounded_band(text, text)
+    assert (band.base_min, band.base_max) == (120000, 160000)
+    # Reversed, the other band is the earliest and wins instead.
+    swapped = "Salary range: $200,000 - $250,000. Salary Min: $120,000 Salary Max: $160,000."
+    other = extract_grounded_band(swapped, swapped)
+    assert (other.base_min, other.base_max) == (200000, 250000)
+
+
+def test_a_k_written_once_is_shared_across_to_as_well_as_a_dash():
+    text = "Salary: $120 to $140K per year."
+    band = extract_grounded_band(text, text)
+    assert (band.base_min, band.base_max, band.pay_period) == (120000, 140000, PayPeriod.year)

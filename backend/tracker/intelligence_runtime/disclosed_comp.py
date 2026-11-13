@@ -54,6 +54,7 @@ from tracker.pay_disclosure import (
 )
 from tracker.pay_period import effective_period
 from tracker.settings_store import get_active_prompt_version
+from tracker.taxonomy.locations import pay_country
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +118,10 @@ def _settled(
     """The basis and bonus columns of a band this row states: an unclear band
     takes this role's reading or its stated salary, and the bonus is read
     against that (`pay_disclosure.settle_band`, which every writer of a band asks)."""
-    settled = settle_band(basis, job.description_text, job.family, job.title, bounds, span=span)
+    settled = settle_band(
+        basis, job.description_text, job.family, job.title, bounds,
+        span=span, country=pay_country(job.location_groups),
+    )
     return {"disclosed_pay_basis": settled.pay_basis, "disclosed_bonus_pct": settled.bonus_pct}
 
 
@@ -144,6 +148,40 @@ async def settle_stored_bands(session: AsyncSession, job_ids: list[int]) -> int:
             setattr(job, column, value)
         changed += (job.disclosed_pay_basis, job.disclosed_bonus_pct) != before
     return changed
+
+
+#: Rows settled per batch, as `correct_pay_periods` batches its corrections.
+#: Not about bind parameters, which `db/ids.among` already answers: settling
+#: loads whole rows, each with its posting text, and the candidates are the
+#: whole corpus's.
+_SETTLE_BATCH = 200
+
+
+async def settle_open_bands(session: AsyncSession) -> dict:
+    """Settle every open row whose stored band is still `unclear`.
+
+    A stored-field derivation like `correct_pay_periods`: a connector's band is
+    never handed to the text pass, so a change to the basis rules reaches it
+    only here, and the standalone backfill is for bulk catch-up alone. The id
+    query is narrow and a settled row stops being a candidate, so once caught
+    up this writes nothing; the rows that stay unclear are the ones no rule
+    settles (a selling role, a range called total pay). Commits nothing: the
+    pass around it owns the transaction."""
+    candidates = list(
+        (
+            await session.scalars(
+                select(Job.id).where(
+                    Job.status == "open",
+                    Job.disclosed_pay_basis == PayBasis.unclear.value,
+                    Job.disclosed_source.in_(("connector", "page")),
+                ).order_by(Job.in_scope.desc(), Job.id)
+            )
+        ).all()
+    )
+    settled = 0
+    for start in range(0, len(candidates), _SETTLE_BATCH):
+        settled += await settle_stored_bands(session, candidates[start : start + _SETTLE_BATCH])
+    return {"candidates": len(candidates), "settled": settled}
 
 
 def _apply(job: Job, dc: DisclosedComp, page_band: PageBand | None, version: str) -> BandChange | None:
