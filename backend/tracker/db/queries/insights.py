@@ -77,18 +77,17 @@ class InsightsScope:
         return "".join(f" AND {p}" for p in parts), params
 
 
+async def followed_as_set(session: AsyncSession) -> frozenset[str]:
+    """The companies followed as part of a set: the Other companies side."""
+    return frozenset(
+        (await session.scalars(select(TrackedCompany.slug).where(TrackedCompany.source == FOLLOWED_WITH_SET))).all()
+    )
+
+
 async def resolve_insights_scope(
     session: AsyncSession, side: Side = "all", families: list[str] | None = None
 ) -> InsightsScope:
-    other: frozenset[str] = frozenset()
-    if side != "all":
-        other = frozenset(
-            (
-                await session.scalars(
-                    select(TrackedCompany.slug).where(TrackedCompany.source == FOLLOWED_WITH_SET)
-                )
-            ).all()
-        )
+    other = await followed_as_set(session) if side != "all" else frozenset()
     return InsightsScope(side=side, families=tuple(sorted(set(families or []))), other=other)
 
 

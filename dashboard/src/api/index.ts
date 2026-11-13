@@ -64,11 +64,12 @@ export type {
   SyncSchedule, SyncTarget, SyncTargets, SystemStatus,
 } from "./ops";
 export type {
-  CompCompany, CompFamily, CompLevel, CompPackage, CompSummary,
+  CompPackage,
   CompPartSource, CompTrajectory, CompTrajectoryChoice, OfferTerms, OfferTermsCompany, CompTrajectoryCompany, CompTrajectorySetApart,
-  CompensationStats, Demand, InsightsHistory, InsightsScope, DisclosedBand, LevelGuide, LevelGuideCell, LevelGuideCompany, LevelGuideEntry, PostedCountry, PostedLevel, PostedPay, DisclosureCompany, HiringCompany, HiringRegion,
+  CompensationStats, Demand, InsightsHistory, InsightsScope, DisclosedBand, LevelGuide, LevelGuideCell, LevelGuideCompany, LevelGuideEntry, PostedCountry, PostedLevel, PostedPay, HiringCompany, HiringRegion,
   DisclosureGroup, DisclosureLevel, DisclosureRates, OverviewKpis,
-  OverviewSkill, StatisticsOverview, Stats, VelocityAging, VelocityCompany,
+  OverviewSkill, PayDiscipline, PayTable, PayTableEquity, PayTableRange, PayTableReason, PayTableRow, PayTableSkill,
+  StatisticsOverview, Stats, VelocityAging, VelocityCompany,
   VelocityKpis, VelocityStats,
 } from "./statistics";
 export type {

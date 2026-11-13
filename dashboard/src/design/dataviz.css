@@ -90,10 +90,6 @@
   gap: var(--app-space-2);
 }
 
-[data-design-system="app"] .chart-seg {
-  flex: 0 0 auto;
-}
-
 /* ---- the chart figure ---------------------------------------------------- */
 
 [data-design-system="app"] .echart {

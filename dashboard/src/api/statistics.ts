@@ -44,13 +44,6 @@ export type StatisticsOverview = Schemas["StatisticsOverviewResponse"];
  *  after which one of its companies was known) and how many whole days it covers. */
 export type InsightsHistory = Schemas["InsightsHistoryResponse"];
 
-/** One group of the imputed total-comp estimate: dollars at the ends, interpolated
- *  percentiles between. A group is never empty, so every figure is present. */
-export type CompSummary = Schemas["CompSummary"];
-export type CompLevel = Schemas["CompLevelSummary"];
-export type CompCompany = Schemas["CompCompanySummary"];
-export type CompFamily = Schemas["CompFamilySummary"];
-
 /** One distinct base range an employer posts at a level, with the roles on it. */
 export type DisclosedBand = Schemas["DisclosedBand"];
 
@@ -73,12 +66,28 @@ export type PostedLevel = Schemas["PostedLevel"];
  * the group has been checked yet. Basis-independent; only band values are scoped.
  */
 export type DisclosureGroup = Schemas["DisclosureCounts"];
-export type DisclosureCompany = Schemas["DisclosureCompany"];
 export type DisclosureLevel = Schemas["DisclosureLevel"];
 export type DisclosureRates = Schemas["DisclosureRates"];
 
 /** `GET /api/statistics/compensation`. */
 export type CompensationStats = Schemas["CompensationStatsResponse"];
+
+/**
+ * `GET /api/statistics/pay-table`: every company hiring at one level in one
+ * country. A row's figure is the posted base range it reads; an estimate never
+ * fills that cell and never sorts among posted pay, and equity names only what
+ * the employer states.
+ */
+export type PayTable = Schemas["PayTableResponse"];
+export type PayTableRow = Schemas["PayTableRow"];
+export type PayTableRange = Schemas["PayTableRange"];
+export type PayTableEquity = Schemas["PayTableEquity"];
+export type PayTableSkill = Schemas["PayTableSkill"];
+/** Why a company's posted cell holds no range. */
+export type PayTableReason = NonNullable<PayTableRow["reason"]>;
+/** Posted base pay of one discipline at one level; `withheld` says why a
+ *  discipline shows counts and no figure. */
+export type PayDiscipline = Schemas["PayDiscipline"];
 
 /** `GET /api/statistics/levels`: how every reviewed ladder names each level,
  *  followed or not. Reference data, so no scope or window. */
@@ -130,6 +139,9 @@ export const statisticsApi = {
   /** The roles open now; no window. */
   compensation: (scope?: InsightsScope) =>
     getJSON<CompensationStats>(scoped(`/api/statistics/compensation`, scope)),
+  /** The companies hiring at one level in one country, and pay by discipline there. */
+  payTable: (country: string, level: string, skill: string | null, scope?: InsightsScope, signal?: AbortSignal) =>
+    getJSON<PayTable>(scoped(`/api/statistics/pay-table?${qs({ country, level, skill: skill ?? undefined })}`, scope), signal),
   compTrajectory: (signal?: AbortSignal) =>
     getJSON<CompTrajectory>("/api/statistics/comp-trajectory", signal),
   offerTerms: (signal?: AbortSignal) => getJSON<OfferTerms>("/api/statistics/offer-terms", signal),

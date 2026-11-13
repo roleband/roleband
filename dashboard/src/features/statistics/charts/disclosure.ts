@@ -1,6 +1,5 @@
 import type { EChartsCoreOption } from "echarts/core";
 import type { DisclosureRates } from "../../../api";
-import { companyName } from "../../../format";
 import { levelLabel } from "./levelLabel";
 import { FAINT, MUTED, SIGNAL, compactGrid, valueAxis } from "./options";
 import {
@@ -32,30 +31,25 @@ export interface DisclosureRateRow {
   checked: number;
 }
 
-/** Rows for the current-state rate chart, unchecked groups dropped. Lowest
- * rate first: the employers that post no range are what a reader looks for here. */
-export function disclosureRateRows(
-  rates: DisclosureRates,
-  dim: "company" | "level",
-): DisclosureRateRow[] {
-  const source =
-    dim === "company"
-      ? rates.by_company.map((c) => ({ ...c, key: c.company, label: companyName(c.company) }))
-      : rates.by_level.map((l) => ({
-          ...l,
-          key: l.level_band,
-          label: l.level_band ? levelLabel(l.level_band) : insightsDisclosureUnclassified(),
-        }));
-  return source
+/** Rows for the current-state rate chart, unchecked levels dropped. Lowest
+ * rate first: the levels employers post no range at are what a reader looks
+ * for here. Each company's own share at one level is its row in the company
+ * table (`PayTable.tsx`). */
+export function disclosureRateRows(rates: DisclosureRates): DisclosureRateRow[] {
+  return rates.by_level
+    .map((l) => ({
+      ...l,
+      key: l.level_band,
+      label: l.level_band ? levelLabel(l.level_band) : insightsDisclosureUnclassified(),
+    }))
     .filter((row): row is typeof row & { rate: number } => row.rate !== null)
     .map(({ key, label, rate, disclosed, checked }) => ({ key, label, rate, disclosed, checked }))
     .sort((a, b) => a.rate - b.rate || b.checked - a.checked);
 }
 
-/** Groups whose rate cannot be stated yet, so the panel can say so out loud. */
-export function unratedCount(rates: DisclosureRates, dim: "company" | "level"): number {
-  const source = dim === "company" ? rates.by_company : rates.by_level;
-  return source.filter((row) => row.rate === null).length;
+/** Levels whose rate cannot be stated yet, so the panel can say so out loud. */
+export function unratedCount(rates: DisclosureRates): number {
+  return rates.by_level.filter((row) => row.rate === null).length;
 }
 
 export function disclosureRateSummary(rows: DisclosureRateRow[], unrated: number): string {
