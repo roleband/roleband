@@ -17,16 +17,18 @@ function exchanged(): Response {
   return new Response(JSON.stringify({ key_id: keyId, secret, origin: window.location.origin }));
 }
 
-/** Runs `pending` on the fake clock. Web Crypto settles on its own threads, in real time, so the
- * fake clock advances only between real turns of the event loop, until `pending` settles; the
- * test's own timeout bounds a promise that never does. */
+/** Runs `pending` on the fake clock. Web Crypto settles on its own threads, in real time, so this
+ * yields real turns of the event loop until `pending` settles, and moves the fake clock only when
+ * the code under test waits on a timer, straight to that timer. The stamps a test sees then do not
+ * depend on how long signing takes on the machine. The test's own timeout bounds a promise that
+ * never settles. */
 async function settle<T>(pending: Promise<T>): Promise<T> {
   let done = false;
   const tracked = pending.finally(() => { done = true; });
   tracked.catch(() => {});
   while (!done) {
     await new Promise((resolve) => setImmediate(resolve));
-    await vi.advanceTimersByTimeAsync(25);
+    if (!done && vi.getTimerCount() > 0) await vi.advanceTimersToNextTimerAsync();
   }
   return tracked;
 }
