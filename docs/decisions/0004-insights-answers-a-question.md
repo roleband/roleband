@@ -43,7 +43,7 @@ removing them is a separate, explicit step.
   `/statistics/trends` or `/statistics/clusters` opens Overview
   (`StatisticsView.test.tsx`).
 - A scan no longer refits the clusters, so it no longer changes or deletes the
-  stored groups; scikit-learn stays because the bundle probe imports it.
+  stored groups. Nothing uses scikit-learn, so the app does not install it.
 - `db/ownership.py` records `clusters` as `unpopulated` and `skill_demand_daily`
   as read by its writer alone; `tests/test_table_writers.py` holds both claims.
 - The question "which companies hire for roles like mine" is not answered by any

@@ -320,6 +320,35 @@ def test_keep_scanning_starts_off_and_a_downgrade_keeps_the_choice_once_made(bas
     assert run_psql(dsn, bin_dir, "select version_num from alembic_version") == "c085e66ad879"
 
 
+def test_the_insights_window_indexes_come_and_go_without_touching_a_row(baseline_database):
+    """The indexes Insights reads its window through: a closing note is found
+    from the posting it names, and a downgrade drops only the indexes."""
+    env, dsn, bin_dir = baseline_database
+    _seed(dsn, bin_dir)
+    before = _digest(dsn, bin_dir)
+    result = run_alembic(env, "upgrade", "e9b4d1a6c3f8")
+    assert result.returncode == 0, (result.stderr + result.stdout)[-2000:]
+    indexes = (
+        "select string_agg(indexname, ',' order by indexname) from pg_indexes where indexname in"
+        " ('ix_jobs_first_seen', 'ix_jobs_closed_at', 'ix_job_lifecycle_events_closing_note')"
+    )
+    assert run_psql(dsn, bin_dir, indexes) == "ix_job_lifecycle_events_closing_note,ix_jobs_closed_at,ix_jobs_first_seen"
+    run_psql(dsn, bin_dir, "insert into job_lifecycle_events (job_id, event_type, detail, created_at)"
+                           " select id, 'closed', jsonb_build_object('listed_with', jsonb_build_array(id)), now()"
+                           " from jobs order by id limit 1")
+    naming = (
+        "select count(*) from job_lifecycle_events e join jobs j on e.detail @>"
+        " jsonb_build_object('listed_with', jsonb_build_array(j.id)) where e.event_type = 'closed'"
+    )
+    assert run_psql(dsn, bin_dir, naming) == "1"
+    run_psql(dsn, bin_dir, "delete from job_lifecycle_events where detail ? 'listed_with'")
+
+    result = run_alembic(env, "downgrade", "-1")
+    assert result.returncode == 0, (result.stderr + result.stdout)[-2000:]
+    assert run_psql(dsn, bin_dir, indexes) == ""
+    assert _digest(dsn, bin_dir) == before
+
+
 def test_the_rehearsal_waits_for_its_opt_in_locally_and_always_runs_in_ci(
     monkeypatch, request
 ):

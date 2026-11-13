@@ -306,6 +306,71 @@ async def test_a_place_out_of_scope_keeps_no_in_scope_role_listed(api_client, db
     assert (await api_client.get("/api/demand")).json()["closed"] == 1
 
 
+async def test_a_place_that_stays_from_before_the_window_keeps_its_role_listed(
+    api_client, db_session, monkeypatch,
+):
+    """London and Leeds, one role seen 30 days ago. Leeds went 2 hours ago,
+    its note naming London, which stays: in a 7-day window, on Overview, Pace
+    and Hiring, nothing came down."""
+    await _follow(db_session, "aecom")
+    london, leeds = [await place_set_job(db_session, n, city) for n, city in enumerate(("London", "Leeds"))]
+    london.first_seen = leeds.first_seen = NOW - timedelta(days=30)
+    await db_session.commit()
+    await _rebuild(db_session)
+    await _close(db_session, monkeypatch, [leeds], first_miss=NOW - timedelta(hours=30), closed=NOW - timedelta(hours=2))
+    assert (await _closing_note(db_session, leeds))["listed_with"] == [london.id]
+    await _rebuild(db_session)
+
+    kpis = (await _motion(api_client, days=7))["kpis"]
+    assert (kpis["closed"], kpis["open_total"]) == (0, 1)
+    assert (await api_client.get("/api/demand")).json()["closed"] == 0
+
+
+async def test_a_place_that_went_before_the_window_still_dates_its_role(api_client, db_session, monkeypatch):
+    """London, seen 75 days ago, went 20 days ago naming Leeds, seen 35 days
+    ago, which stays: only London's note joins them. In a 7-day window the
+    open role is still as old as London, and when Leeds comes down the role
+    was posted from London's start, on Pace and on Hiring alike."""
+    await _follow(db_session, "aecom")
+    london, leeds = [await place_set_job(db_session, n, city) for n, city in enumerate(("London", "Leeds"))]
+    london.first_seen, leeds.first_seen = NOW - timedelta(days=75), NOW - timedelta(days=35)
+    await db_session.commit()
+    await _rebuild(db_session)
+    await _close(db_session, monkeypatch, [london], first_miss=NOW - timedelta(days=21), closed=NOW - timedelta(days=20))
+    assert (await _closing_note(db_session, london))["listed_with"] == [leeds.id]
+    await _rebuild(db_session)
+
+    pace = await _motion(api_client, days=7)
+    assert {b["lo"]: b["count"] for b in pace["aging"] if b["count"]} == {60: 1}
+
+    await _close(db_session, monkeypatch, [leeds], first_miss=NOW - timedelta(hours=30), closed=NOW - timedelta(hours=2))
+    await _rebuild(db_session)
+    pace = await _motion(api_client, days=7)
+    assert (pace["kpis"]["closed"], pace["kpis"]["open_total"]) == (1, 0)
+    assert {b["lo"]: b["count"] for b in pace["posted"] if b["count"]} == {60: 1}
+    assert (await api_client.get("/api/demand")).json()["closed"] == 1
+
+
+async def test_an_open_role_is_aged_through_the_member_every_count_shows(api_client, db_session, monkeypatch):
+    """One role open in London, seen first, and in Leeds, filed under another
+    discipline. Narrowed to Leeds's discipline, every count shows the role
+    through London, which the narrowing leaves out, so Pace ages no role
+    either, and its bands still add up to its open roles."""
+    await _follow(db_session, "aecom")
+    london, leeds = [await place_set_job(db_session, n, city) for n, city in enumerate(("London", "Leeds"))]
+    await db_session.commit()
+    await _rebuild(db_session)
+    assert await _set_of(db_session, london) == await _set_of(db_session, leeds) is not None
+    leeds.family = "software_engineering"
+    await db_session.commit()
+
+    pace = (await api_client.get("/api/statistics/velocity?days=30&family=software_engineering")).json()
+    kpis = pace["kpis"]
+    assert (kpis["open_total"], sum(b["count"] for b in pace["aging"]) + kpis["age_unknown"]) == (0, 0)
+    pace = (await api_client.get("/api/statistics/velocity?days=30&family=data_science")).json()
+    assert (pace["kpis"]["open_total"], sum(b["count"] for b in pace["aging"])) == (1, 1)
+
+
 async def test_a_closing_from_before_the_notes_counts_its_posting_alone(api_client, db_session, monkeypatch):
     """Two places of one role closed by a scan that recorded no ids: nothing
     says they were one role, so each counts once, as each was a posting."""
@@ -319,6 +384,27 @@ async def test_a_closing_from_before_the_notes_counts_its_posting_alone(api_clie
     await _rebuild(db_session)
     kpis = (await _motion(api_client))["kpis"]
     assert (kpis["opened"], kpis["closed"]) == (2, 2)
+
+
+async def test_with_place_sets_off_a_closing_asks_no_rule_and_counts_alone(api_client, db_session, monkeypatch):
+    """Place sets off: the scan that closes London and Leeds, one role by the
+    rule, never asks the rule, writes no ids, and each counts as its posting,
+    as the Board, with no stored set, shows them."""
+    await _follow(db_session, "aecom")
+    london, leeds = [await place_set_job(db_session, n, city) for n, city in enumerate(("London", "Leeds"))]
+    await db_session.commit()
+    monkeypatch.setattr(get_settings(), "place_sets_enabled", False)
+    asked: list[object] = []
+
+    async def asking(session, *args, **kwargs):
+        asked.append(args)
+        return {}, {}
+
+    monkeypatch.setattr(place_sets, "place_set_groups", asking)
+    await _close(db_session, monkeypatch, [london, leeds], first_miss=NOW - timedelta(hours=30), closed=NOW - timedelta(hours=2))
+    assert asked == []
+    assert "listed_with" not in await _closing_note(db_session, london)
+    assert (await _motion(api_client))["kpis"]["closed"] == 2
 
 
 async def test_a_failed_role_note_never_holds_a_closure_back(api_client, db_session, monkeypatch):
@@ -418,6 +504,9 @@ async def test_a_repost_continues_its_role_and_ages_from_the_earliest_posting(ap
     assert (kpis["opened"], kpis["already_listed"], kpis["reposted"], kpis["closed"]) == (0, 1, 1, 0)
     assert {b["lo"]: b["count"] for b in pace["aging"]}[60] == 1  # 80 days: 2 to 3 months
     assert kpis["employer_dated_share"] == 1.0
+    # A week back the original went before the window; the lineage still
+    # dates the open role.
+    assert {b["lo"]: b["count"] for b in (await _motion(api_client, days=7))["aging"]}[60] == 1
     assert (await api_client.get("/api/demand")).json()["closed"] == 0
 
 

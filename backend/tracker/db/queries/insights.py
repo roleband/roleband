@@ -12,9 +12,9 @@ One object answers both query styles the statistics reads use: ORM conditions
 (`conds`) and a raw-SQL fragment with its parameters (`sql`), so a raw read
 cannot narrow differently from an ORM one.
 
-A scope's history starts at the first read that saw a whole listing of one of
-its companies (`history_since`): no opening before it can be dated
-(`db/arrival.py`), so no window reaches back further.
+A scope's history starts where one of its companies became known
+(`history_since`): no opening before it can be dated (`db/arrival.py`), so no
+window reaches back further.
 """
 
 from __future__ import annotations
@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.company_directory import FOLLOWED_WITH_SET
 from tracker.connectors.recipes.outcome import SourceOutcome
+from tracker.db.arrival import KNOWN_AFTER_PARTIAL_READS, PARTIAL_EVIDENCE
 from tracker.db.models import Job, ScrapeSourceRun, TrackedCompany
 
 Side = Literal["all", "yours", "other"]
@@ -92,24 +93,43 @@ async def resolve_insights_scope(
 
 
 async def history_since(session: AsyncSession, scope: InsightsScope, hidden: list[str]) -> datetime | None:
-    """When the history of the scope's companies starts: the start of the first
-    read of one of them that saw its whole listing (`list_complete`, or a board
-    proven `empty`), off-board companies aside, so what that read found is
-    inside it. None before any such read. A partial read never starts it: what
-    it missed may have been listed all along."""
-    stmt = select(func.min(ScrapeSourceRun.started_at)).where(
-        or_(ScrapeSourceRun.list_complete.is_(True), ScrapeSourceRun.outcome == SourceOutcome.EMPTY.value),
-        *scope.company_conds(ScrapeSourceRun.company_slug),
-    )
+    """When the history of the scope's companies starts: the first read after
+    which one of them was known, by the rule that dates a posting's arrival
+    (`db/arrival.py`), off-board companies aside. That is a read that saw
+    its whole listing (`list_complete`, or a board proven `empty`), or, for a
+    source whose reads stop at our own ceilings, the second such read that
+    kept postings. It starts at that read's start, so what the read found is
+    inside it. None before any such read: until then no arrival is dated."""
+    companies = [*scope.company_conds(ScrapeSourceRun.company_slug)]
     if hidden:
-        stmt = stmt.where(ScrapeSourceRun.company_slug.notin_(hidden))
-    return await session.scalar(stmt)
+        companies.append(ScrapeSourceRun.company_slug.notin_(hidden))
+    whole = select(func.min(ScrapeSourceRun.started_at)).where(
+        or_(ScrapeSourceRun.list_complete.is_(True), ScrapeSourceRun.outcome == SourceOutcome.EMPTY.value),
+        *companies,
+    )
+    partial = (
+        select(
+            ScrapeSourceRun.started_at,
+            func.row_number()
+            .over(partition_by=ScrapeSourceRun.company_slug, order_by=ScrapeSourceRun.finished_at)
+            .label("n"),
+        )
+        .where(
+            ScrapeSourceRun.outcome.in_([outcome.value for outcome in PARTIAL_EVIDENCE]),
+            ScrapeSourceRun.kept > 0,
+            *companies,
+        )
+        .subquery()
+    )
+    known = select(func.min(partial.c.started_at)).where(partial.c.n == KNOWN_AFTER_PARTIAL_READS)
+    # `least` skips a NULL: either way of becoming known starts the history.
+    return await session.scalar(select(func.least(whole.scalar_subquery(), known.scalar_subquery())))
 
 
 def window_since(history: datetime | None, days: int, now: datetime) -> datetime | None:
     """The start of what a window of `days` covers (`days <= 0` is all time):
     the window's own start, or the history's when the history is shorter.
-    None before any whole read: there is no history for a window to cover."""
+    None before the history starts: there is none for a window to cover."""
     if history is None:
         return None
     if days <= 0:

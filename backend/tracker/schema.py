@@ -216,19 +216,23 @@ class Arrival(str, Enum):
     """How a role came to be stored: whether our first sighting of the posting
     says when it appeared (`jobs.arrival`, `db/arrival.py`).
 
-    A sighting dates an appearance only when the company's board had been read
-    whole before it. Before that, the board was already listing, and our first
-    sighting is when we started looking.
+    A sighting dates an appearance only when the company was known before it:
+    its board read whole, or read twice up to our own ceilings. Before that,
+    the board was already listing, and our first sighting is when we started
+    looking.
 
     NULL means not yet classified, and readers take the sighting at its word.
     """
 
-    #: First seen by this role's own creation, at a company read whole before.
+    #: First seen by this role's own creation, at a company known before.
     NEW = "new"
     #: First seen earlier by the inventory (out of scope then, or written by a
-    #: later run), at a company read whole before that sighting.
-    ALREADY_LISTED = "already_listed"
-    #: First seen before the company had a whole read: no date of appearance.
+    #: later run), at a company known before that sighting. Stored as
+    #: `already_listed`, which is not the opening kind of that name
+    #: (`db.queries.motion.opening_kind`): the earlier sighting may date the
+    #: posting as new.
+    SIGHTED_EARLIER = "already_listed"
+    #: First seen before the company was known: no date of appearance.
     FIRST_READ = "first_read"
 
 
