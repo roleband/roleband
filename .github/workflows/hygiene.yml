@@ -51,3 +51,28 @@ jobs:
       - uses: docker://rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 # v1.7.12
         with:
           args: -color
+
+  # The check the ruleset requires, standing for the three above. `always()`: a skipped job
+  # counts as passed for a required check, so this job runs and fails when the run is
+  # cancelled. The step is windows.yml's.
+  result:
+    name: hygiene
+    needs: [project-name, comment-hygiene, actionlint]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - shell: python
+        env:
+          RESULT_project_name: ${{ needs.project-name.result }}
+          RESULT_comment_hygiene: ${{ needs.comment-hygiene.result }}
+          RESULT_actionlint: ${{ needs.actionlint.result }}
+        run: |
+          import os
+          results = {k.removeprefix("RESULT_"): v for k, v in os.environ.items() if k.startswith("RESULT_")}
+          # A part may be skipped only when the change did not need it: NEEDED_<part> is 'false'.
+          passed = {p: r == "success" or (r == "skipped" and os.environ.get(f"NEEDED_{p}") == "false") for p, r in results.items()}
+          for part, result in sorted(results.items()):
+              print(f"{part}: {result}")
+          if not results or not all(passed.values()):
+              raise SystemExit("not passed: " + (", ".join(sorted(p for p, ok in passed.items() if not ok)) or "no part reported"))

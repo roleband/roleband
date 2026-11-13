@@ -202,16 +202,25 @@ jobs:
           retention-days: 7
 
   # The check the ruleset requires. It passes only when every shard passed, so a
-  # shard that failed, was skipped or never started fails it.
+  # shard that failed, was skipped or never started fails it. `always()`: a skipped
+  # job counts as passed for a required check, so this job runs and fails when the
+  # run is cancelled. The step is the one every gate's required check runs (windows.yml).
   result:
     name: backend
-    needs: checks
-    if: ${{ !cancelled() }}
+    needs: [changes, checks]
+    if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - env:
-          SHARDS: ${{ needs.checks.result }}
+      - shell: python
+        env:
+          RESULT_checks: ${{ needs.checks.result }}
         run: |
-          echo "shards: $SHARDS"
-          test "$SHARDS" = success
+          import os
+          results = {k.removeprefix("RESULT_"): v for k, v in os.environ.items() if k.startswith("RESULT_")}
+          # A part may be skipped only when the change did not need it: NEEDED_<part> is 'false'.
+          passed = {p: r == "success" or (r == "skipped" and os.environ.get(f"NEEDED_{p}") == "false") for p, r in results.items()}
+          for part, result in sorted(results.items()):
+              print(f"{part}: {result}")
+          if not results or not all(passed.values()):
+              raise SystemExit("not passed: " + (", ".join(sorted(p for p, ok in passed.items() if not ok)) or "no part reported"))

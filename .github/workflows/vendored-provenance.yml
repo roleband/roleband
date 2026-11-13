@@ -12,9 +12,10 @@ name: vendored-provenance
 # and whether postgresql.org or pgvector has a newer release of the embedded
 # Postgres than the `pixeltable-pgserver` wheel ships.
 #
-# NON-BLOCKING by construction. It runs on a schedule and on demand, never on
-# push or pull_request, so a GitHub outage or an API rate limit can never fail
-# somebody's PR. A failure here means "read this", not "the build is broken".
+# NON-BLOCKING by construction. It runs on a schedule, on demand and on a push to
+# main that changes a pin, never on a pull request, so a GitHub outage or an API rate
+# limit can never fail somebody's PR. A failure here means "read this", not "the build
+# is broken". The three checks are independent, so each runs after another one failed.
 #
 # CAVEAT worth knowing: `schedule` only fires on the default branch of the
 # GitHub remote. A checkout whose commits sit unpushed is not covered, so treat
@@ -70,7 +71,8 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       # httpx alone: the checker fetches and hashes blobs and needs none of the
       # DB/ML stack, so this stays a ~5s job rather than a full install.
-      - run: pip install "httpx[http2]==0.28.1"
+      - id: install
+        run: pip install "httpx[http2]==0.28.1"
       - name: check vendored upstream
         working-directory: backend
         env:
@@ -99,6 +101,7 @@ jobs:
           [ "$code" = "2" ] && exit 1
           exit 0
       - name: check the bundled Python
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         working-directory: backend
         run: |
           set +e
@@ -120,6 +123,7 @@ jobs:
           esac
           exit 0
       - name: check the embedded Postgres
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         working-directory: backend
         env:
           # Lifts the 60/hour unauthenticated GitHub API limit for pgvector's tags. Read-only.
