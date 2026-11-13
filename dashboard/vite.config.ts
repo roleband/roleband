@@ -2,11 +2,15 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { copyCatalog } from "./scripts/copy/vite-plugin.mjs";
 import { startupReport } from "./scripts/bundle/plugins.mjs";
+import { loopbackApi } from "./scripts/dev/loopback-guard.mjs";
 import csp from "./csp-policy.json" with { type: "json" };
 
 // Proxy /api to the FastAPI backend so the dashboard uses same-origin requests.
 // Target is overridable via VITE_API_TARGET (e.g. to run against a second API on
 // another port); it defaults to the standard dev backend on :8010.
+// The proxy keeps the browser's Host header, so the API's Host and Origin checks
+// see the page's own address, and `loopbackApi` refuses /api from another machine:
+// the API sees every proxied request as coming from 127.0.0.1.
 const API_TARGET = process.env.VITE_API_TARGET ?? "http://127.0.0.1:8010";
 
 /* The Content-Security-Policy the API serves the dashboard under
@@ -25,16 +29,13 @@ const OUT_DIR = process.env.ROLEBAND_DIST_OUT || "dist";
 export default defineConfig({
   /* startupReport writes dist/.vite/startup-report.json, the startup graph
      scripts/check-bundle-size.mjs gates. */
-  plugins: [react(), copyCatalog(), startupReport()],
+  plugins: [loopbackApi(), react(), copyCatalog(), startupReport()],
   build: { outDir: OUT_DIR },
   server: {
     // Defaults to the standard dev port; PORT lets a second instance run alongside it.
     port: Number(process.env.PORT) || 5173,
     proxy: {
-      "/api": {
-        target: API_TARGET,
-        changeOrigin: true,
-      },
+      "/api": { target: API_TARGET },
     },
   },
   /* `preview` serves the BUILD, and it needs the same proxy for the same
@@ -48,10 +49,7 @@ export default defineConfig({
     port: Number(process.env.PORT) || 5173,
     headers: { "Content-Security-Policy": PREVIEW_CSP },
     proxy: {
-      "/api": {
-        target: API_TARGET,
-        changeOrigin: true,
-      },
+      "/api": { target: API_TARGET },
     },
   },
 });

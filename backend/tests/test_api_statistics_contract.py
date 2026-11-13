@@ -786,6 +786,102 @@ async def test_a_role_listed_in_several_places_keeps_its_estimate_through_the_po
         CompSnapshot.company == "stripe", CompSnapshot.metric_date >= DAY_START))).all()
     assert [v for vs in values for v in vs] == [300000]
 
+@pytest.mark.asyncio
+async def test_the_pay_tab_and_the_daily_pay_record_read_a_role_through_the_same_posting(
+    api_client, db_session, seeded,
+):
+    """A Stripe role listed in Austin first, with no estimate, and in New York,
+    with $250K. The tab and the daily record both read it through New York; with
+    the plain first-member rule the tab would read Austin and count no pay."""
+    austin = _role("stripe", "pm-austin", level="senior", days_open=0, locations=["Austin, TX"],
+                   location_groups=["austin"])
+    nyc = _role("stripe", "pm-nyc", level="senior", comp=250000, days_open=0, locations=["New York, NY"],
+                location_groups=["new_york"])
+    db_session.add_all([austin, nyc])
+    await db_session.flush()
+    place_set = JobPlaceSet(company="stripe", title="product manager", text_hash="1" * 32, size=2,
+                            places=["Austin, TX", "New York, NY"], rule_version="t1")
+    db_session.add(place_set)
+    await db_session.flush()
+    for i, job in enumerate((austin, nyc)):
+        job.first_seen = NOW - timedelta(minutes=30 - i)
+        db_session.add(JobPlaceSetMember(job_id=job.id, set_id=place_set.id, status="auto"))
+    db_session.add_all([
+        JobCompEstimate(job_id=austin.id, source="roleband", comp_median=None),
+        JobCompEstimate(job_id=nyc.id, source="roleband", comp_median=250000),
+    ])
+    await db_session.commit()
+
+    await comp_trends.compute_comp_metrics(db_session)
+    await db_session.commit()
+    recorded = (await db_session.scalars(select(CompSnapshot.comp_values).where(
+        CompSnapshot.company == "stripe", CompSnapshot.metric_date >= DAY_START))).all()
+    assert [v for vs in recorded for v in vs] == [250000]
+
+    body = await _get(api_client, ROUTES["compensation"])
+    # The seed's Stripe roles carry no estimate: the one priced role is this one.
+    assert body["coverage"]["with_comp"] == 26
+    assert body["coverage"]["total_open"] == 28
+    assert body["overall"]["count"] == 26 and body["overall"]["min"] == 250000
+
+
+async def _place_set(db_session, jobs: list, digit: str) -> None:
+    """One role listed at each of `jobs`' places, the first listed first."""
+    db_session.add_all(jobs)
+    await db_session.flush()
+    place_set = JobPlaceSet(company=jobs[0].company, title="product manager", text_hash=digit * 32, size=len(jobs),
+                            places=[job.locations[0] for job in jobs], rule_version="t1")
+    db_session.add(place_set)
+    await db_session.flush()
+    for i, job in enumerate(jobs):
+        job.first_seen = NOW - timedelta(minutes=30 - i)
+        db_session.add(JobPlaceSetMember(job_id=job.id, set_id=place_set.id, status="auto"))
+
+
+@pytest.mark.asyncio
+async def test_a_role_priced_by_its_base_counts_once_and_never_beside_its_total(api_client, db_session, seeded):
+    """A role at two places priced by base alone is one base role. A role whose
+    first place is priced by base and whose second has a total is a total, and
+    not also a base role."""
+    before = (await _get(api_client, ROUTES["compensation"]))["base_estimates"]["coverage"]["with_base"]
+
+    def base_only(key: str, place: str, group: str, base: int):
+        return _role("netflix", key, level="senior", days_open=0, locations=[place], location_groups=[group],
+                     comp_component="base", comp_base_median=base)
+
+    await _place_set(db_session, [base_only("pm-austin", "Austin, TX", "austin", 180000),
+                                  base_only("pm-nyc", "New York, NY", "new_york", 200000)], "2")
+    await _place_set(db_session, [
+        base_only("em-austin", "Austin, TX", "austin", 210000),
+        _role("netflix", "em-nyc", level="senior", comp=330000, days_open=0, locations=["New York, NY"],
+              location_groups=["new_york"]),
+    ], "3")
+    await db_session.commit()
+
+    body = await _get(api_client, ROUTES["compensation"])
+    assert body["base_estimates"]["coverage"]["with_base"] == before + 1
+    assert body["overall"]["min"] == 330000 and body["coverage"]["with_comp"] == 26
+
+
+@pytest.mark.asyncio
+async def test_a_closed_place_with_a_total_leaves_the_open_base_only_place_counted(api_client, db_session, seeded):
+    """The role's New York posting, priced with a total, closed before the place
+    sets were rebuilt; the open Austin posting is priced by base alone. The role
+    still counts as a base role: the totals read does not count the closed one."""
+    before = (await _get(api_client, ROUTES["compensation"]))["base_estimates"]["coverage"]["with_base"]
+    await _place_set(db_session, [
+        _role("netflix", "pm-austin", level="senior", days_open=0, locations=["Austin, TX"], location_groups=["austin"],
+              comp_component="base", comp_base_median=180000),
+        _role("netflix", "pm-nyc", level="senior", comp=330000, days_open=0, locations=["New York, NY"],
+              location_groups=["new_york"], status="closed", closed_at=NOW),
+    ], "4")
+    await db_session.commit()
+
+    body = await _get(api_client, ROUTES["compensation"])
+    assert body["base_estimates"]["coverage"]["with_base"] == before + 1
+    assert body["coverage"]["with_comp"] == 25
+
+
 async def _onboard_a_company(db_session) -> dict[str, int]:
     """`acme` arrives today: its FIRST run finds three roles its board was already
     listing (one dated by its employer 200 days ago, one 20 days ago, one

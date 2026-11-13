@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, TypedDict, cast, get_args
 
-from sqlalchemy import Select, and_, case, false, func, not_, nullslast, or_, select, text
+from sqlalchemy import Select, and_, case, exists, false, func, not_, nullslast, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, defer
 
@@ -25,6 +25,7 @@ from tracker.analytics.posting_reality import NEW_LISTING_WINDOW, ListingEvidenc
 from tracker.db.models import (
     Favorite,
     Job,
+    JobCompEstimate,
     JobFeedback,
     JobLifecycleEvent,
     JobLineage,
@@ -98,6 +99,49 @@ def insights_role_conds(eligible: Callable[[Any], list] | None = None) -> list:
     not share (a place), so the member that passes it stands for the role
     (`place_set_outranked`)."""
     return [Job.status == "open", Job.in_scope.is_(True), not_(place_set_outranked(eligible=eligible))]
+
+
+def priced_in_dollars(source: str | None = None) -> Callable[[Any], list]:
+    """Which member of a place set stands for the role in a pay estimate read.
+
+    The first member with a US-dollar estimate that has a value: a member whose
+    estimate is in another currency, or has no value, never hides the one that
+    has. Pass it to `insights_role_conds` so every pay read of a role picks the
+    same posting. `source` reads that source's stored estimate
+    (`job_comp_estimate`); None reads the posting's own `comp_*`, the copy of
+    the selected source's row.
+    """
+    def eligible(peer: Any) -> list:
+        if source is None:
+            return [peer.comp_currency == "USD", peer.comp_median.is_not(None)]
+        return [exists().where(JobCompEstimate.job_id == peer.id, JobCompEstimate.source == source,
+                               JobCompEstimate.comp_currency == "USD", JobCompEstimate.comp_median.is_not(None))]
+    return eligible
+
+
+def base_only_role_conds() -> list:
+    """The roles a pay read prices by their dollar base alone, one posting each.
+
+    `insights_role_conds` through a member with a dollar base and no dollar total
+    when no member of the set has a total: a role with a priced total belongs to
+    the totals (`priced_in_dollars`), never to both reads, and a set of several
+    base-only postings counts once. Only an open, in-scope total counts: the
+    totals read counts no other, so a closed member, or one at a place out of
+    scope, never hides the base-only posting.
+    """
+    def base_only(peer: Any) -> list:
+        return [peer.comp_currency == "USD", peer.comp_component == "base",
+                peer.comp_median.is_(None), peer.comp_base_median.is_not(None)]
+
+    priced = priced_in_dollars()
+    with_total = aliased(Job)
+    return [
+        *insights_role_conds(lambda peer: [or_(and_(*priced(peer)), and_(*base_only(peer)))]),
+        *base_only(Job),
+        not_(place_set_member_in(select(with_total.id).where(
+            with_total.status == "open", with_total.in_scope.is_(True), *priced(with_total),
+        ))),
+    ]
 
 
 def place_set_later_ids() -> Select:

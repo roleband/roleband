@@ -82,6 +82,7 @@ function ConnectorCell({
   status,
   counts,
   onReview,
+  answering,
 }: {
   company: CompanyDiscoveryCompany;
   on: boolean;
@@ -90,6 +91,8 @@ function ConnectorCell({
   counts: Counts;
   /** Asks this company's agreement question. */
   onReview: () => void;
+  /** An answer to an agreement question is saving: the question waits for it. */
+  answering: boolean;
 }) {
   const coverage = status?.coverage ?? null;
   const needsAttention = !!coverage?.rings;
@@ -183,7 +186,7 @@ function ConnectorCell({
   return (
     <span className={`ledger-state${warn ? " is-warn" : ""}`} id={id} title={title}>
       <span className={`ledger-dot ${dot}`} />
-      <span>{review ? <Button variant="link" onClick={onReview}>{label}</Button> : label}</span>
+      <span>{review ? <Button variant="link" disabled={answering} onClick={onReview}>{label}</Button> : label}</span>
     </span>
   );
 }
@@ -267,6 +270,7 @@ function CompanyRow({
     toggleVisible,
     toggleKeepScanning,
     reviewConsent,
+    consentSaving,
     syncable,
   } = useCompanies();
   const { syncRunning, scanLive, syncCompanies } = useCompaniesSync();
@@ -293,6 +297,7 @@ function CompanyRow({
       toggleVisible={toggleShown}
       toggleKeepScanning={toggleSchedule}
       reviewConsent={agree}
+      answering={consentSaving}
       syncCompanies={scan}
     />
   );
@@ -315,6 +320,7 @@ const CompanyRowView = memo(function CompanyRowView({
   toggleVisible,
   toggleKeepScanning,
   reviewConsent,
+  answering,
   syncCompanies,
 }: {
   company: CompanyDiscoveryCompany;
@@ -335,6 +341,7 @@ const CompanyRowView = memo(function CompanyRowView({
   toggleVisible: (company: CompanyDiscoveryCompany) => void;
   toggleKeepScanning: (company: CompanyDiscoveryCompany) => void;
   reviewConsent: (company: CompanyDiscoveryCompany) => void;
+  answering: boolean;
   syncCompanies: CompaniesSyncValue["syncCompanies"];
 }) {
   const stateId = /* not copy: an element id */ `ledger-state-${sectorSlug}-${company.slug}`;
@@ -411,6 +418,7 @@ const CompanyRowView = memo(function CompanyRowView({
           status={status}
           counts={counts}
           onReview={() => reviewConsent(company)}
+          answering={answering}
         />
       </span>
 

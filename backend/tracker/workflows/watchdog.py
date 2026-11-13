@@ -32,6 +32,7 @@ from tracker.osnotify import TITLE, banner, notify
 from tracker.platform.embedded_db import ClusterOwnedElsewhere, EmbeddedDbError, stop_server
 from tracker.platform.http import make_client
 from tracker.platform.local_http import Client, required
+from tracker.platform.loopback import http_origin
 from tracker.platform.paths import DATA_DIR
 from tracker.platform.util import describe_exception
 from tracker.supervisor.results import FAILED
@@ -168,7 +169,7 @@ def dispatch_alerts(prev: dict, firing: dict) -> list[str]:
 
 
 def _api_base(settings) -> str:
-    return f"http://{settings.api_host}:{settings.api_port}"
+    return http_origin(settings.api_host, settings.api_port)
 
 
 #: How long a pass keeps asking an API that does not answer before it reports it
