@@ -272,6 +272,10 @@ chunk. Every other stylesheet is co-located with the component that imports it.
 `design/tokens.css` declares the whole vocabulary once, at `:root`, so every
 route and portalled overlay inherits it. Stylesheets consume `--app-*` and
 nothing else: no second namespace, no aliases, no token declared elsewhere.
+A name may be *restated* on a scope, with no new name introduced, where a
+surface scales as a whole: the posting's width steps set the ramp's own names
+on `.jd-container` so its text, headings and facts step together
+([Job detail](#job-detail)). That is the only one.
 `src/test/ratchet.test.ts` fails a set of extinct names (`--bg`, `--text`,
 `--accent` and family), because a `var()` on an undefined name silently paints
 as `unset`.
@@ -362,6 +366,8 @@ The ramp is whole pixels, declared once in `tokens.css`. Never write a literal
 | `stat` | 22 | Standalone numerals |
 | `title` | 16 | `h3`, sector heading, tile title |
 | `read` | 17 | Long-form reading: a posting's own text |
+| `read-head` | 20 | A section heading inside a long read |
+| `read-title` | 24 | A long read's own title: a posting's `h1` |
 | `name` | 15 | A row's primary string (a company name) |
 | `body` | 14 | Descriptions, controls, tab bar, prose |
 | `meta` | 13 | Secondary facts. The floor for anything that states a fact |

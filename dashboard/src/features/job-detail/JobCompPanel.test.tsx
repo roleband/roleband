@@ -647,6 +647,21 @@ describe("a stated yearly base that is all there is to show", () => {
     expect(screen.getByTestId("pkg-no-split")).toHaveTextContent(msg("role-job-comp-panel-level-not-stated-or-mapped"));
   });
 
+  it("writes a stated total once, though the package carries it twice", () => {
+    // A stated total is the employer's own figure under the headline, and the
+    // package also carries it as `stated`. The box below exists for a figure
+    // the headline does NOT show, so here it must stay away.
+    const { container } = render(
+      <JobCompPanel job={{ ...withPackage(NETFLIX), company: "netflix" }} />,
+      { wrapper: MemoryRouter },
+    );
+    expect(container.querySelector(".pkg-head .big")).toHaveTextContent("$440K–$725K");
+    expect(container.querySelector(".pkg-unclear")).toBeNull();
+    expect(container.textContent?.match(/\$440K–\$725K/g)).toHaveLength(1);
+    // Why it is not split is still said.
+    expect(screen.getByTestId("pkg-no-split")).toBeInTheDocument();
+  });
+
   it("a figure whose kind the posting does not give keeps the plain heading", () => {
     const UNCLEAR: JobCompPackage = compPackageFixture({
       state: "band", basis: "unclear", currency: "USD", pay_period: "year",

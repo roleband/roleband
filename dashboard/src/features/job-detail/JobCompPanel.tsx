@@ -426,7 +426,10 @@ export default function JobCompPanel({ job }: { job: Job }) {
 
   const { headline, headlineLabel, headlineUnit, headlineCurrency } = shown;
   // The employer's figure is the headline itself: nothing below repeats it.
-  const statedLeads = headline === stated;
+  // By the figure, not the object: a stated total is the employer's band and
+  // the package carries it twice, as `total` and as `stated`.
+  const statedLeads =
+    !!stated && headline.low === stated.low && headline.high === stated.high;
   const onlyBase = baseOnly(pkg);
 
   return (

@@ -65,6 +65,17 @@ describe("shapeBlocks", () => {
     expect(kinds("-based in Seattle.")).toEqual(["para"]);
   });
 
+  it("keeps a mark that opens the employer's own word", () => {
+    // A bullet is a mark and a space. Stripped without one, "*nix" becomes
+    // "nix" and the requirement changes.
+    expect(shapeBlocks("*nix experience is required.")).toEqual([
+      { kind: "para", lines: ["*nix experience is required."] },
+    ]);
+    expect(shapeBlocks("* Medical cover\n* Paid leave\n* Equity")).toEqual([
+      { kind: "list", items: ["Medical cover", "Paid leave", "Equity"] },
+    ]);
+  });
+
   it("reads a short title with no closing mark, before whole sentences, as a sub-heading", () => {
     const blocks = shapeBlocks([
       "Team Leadership",

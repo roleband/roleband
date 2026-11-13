@@ -515,12 +515,20 @@ def posting_places(locations: list[str]) -> list[str]:
     bare: list[str] = []
     for raw in locations:
         for piece in _SPLIT_RE.split(raw or ""):
-            countries = countries_for([piece])
             office = _canon_one(piece)
             if office is None:
-                bare.extend(slug for slug in sorted(countries) if slug not in bare)
+                bare.extend(
+                    slug
+                    for slug in sorted(countries_for([piece]))
+                    if slug not in bare
+                )
                 continue
-            covered |= countries
+            # The country an office covers is the one its canonical label
+            # stands in, not every country the raw piece names: a piece may
+            # name a country the label drops ("Remote - TX" canonicalises to
+            # "Remote"), and a bare city resolves to a country its own text
+            # never spells ("San Francisco" to California, so the States).
+            covered |= countries_for([office])
             if office not in offices:
                 offices.append(office)
     countries_only: list[str] = []

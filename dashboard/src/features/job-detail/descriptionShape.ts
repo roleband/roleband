@@ -23,7 +23,10 @@ export type Block =
   | { kind: "list"; items: string[] }
   | { kind: "para"; lines: string[] };
 
-const BULLET = /^\s*(?:[•·▪◦●○■*]|[-–—](?=\s))\s*/u;
+/* An asterisk and a dash are a bullet only before a space: they also open
+   an employer's own word ("*nix experience", "-40C"), and a mark stripped
+   there would change what the posting says. */
+const BULLET = /^\s*(?:[•·▪◦●○■]|[-–—*](?=\s))\s*/u;
 const ENDS_SENTENCE = /[.!?…]["'”’)\]]*$/u;
 /** How many lines, or one-line fragments in a row, read as a list. */
 const LIST_RUN = 3;

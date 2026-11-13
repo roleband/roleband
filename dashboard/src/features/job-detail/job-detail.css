@@ -2035,11 +2035,9 @@
     visibility: hidden;
   }
 
-  .jd-sections,
-  .jd-main .jd {
-    font-size: var(--app-type-name);
-  }
-
+  /* The reading size holds here too: one column is the narrowest the posting
+     gets, and the employer's words are what the person came to read. Only the
+     headings step down, to keep their distance from the text. */
   .jd-section h2 {
     font-size: var(--app-type-title);
   }

@@ -197,6 +197,16 @@ class TestPostingPlaces:
         assert posting_places(["London, UK", "United Kingdom"]) == ["London, UK"]
         assert posting_places(["Toronto, ON, Canada", "Canada"]) == ["Toronto, ON"]
 
+    def test_a_city_covers_its_country_without_naming_it(self):
+        # The piece says only the city, so its own text names no country; the
+        # canonical label places it, and the bare country adds nothing.
+        assert posting_places(["San Francisco", "US"]) == ["San Francisco, CA"]
+
+    def test_a_country_survives_an_office_label_that_drops_it(self):
+        # "Remote - TX" canonicalises to "Remote", which stands in no country,
+        # so the country the posting states is the only one left to show.
+        assert posting_places(["Remote - TX", "US"]) == ["Remote", "United States"]
+
     def test_a_country_with_no_office_is_named_in_words(self):
         assert posting_places(["US"]) == ["United States"]
         assert posting_places(["Remote (US)", "Canada"]) == ["Remote (US)", "Canada"]

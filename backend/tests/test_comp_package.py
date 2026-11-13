@@ -237,7 +237,7 @@ def test_a_plugin_s_own_split_still_splits_its_total():
     pkg = build_job_package(**{**GOOGLE_879, "family": "software_engineering"},
                             disclosed={"disclosed": False}, baselines=BASELINES, heuristic=False)
     assert pkg["split_source"] == SPLIT_MEASURED and pkg["no_split_reason"] is None
-    assert "equity" in {c["kind"] for c in pkg["components"]}
+    assert {c["kind"] for c in pkg["components"]} == {"base", "bonus", "equity"}
 
 
 def test_ours_leaves_a_band_outside_us_pay_whole_and_names_our_data():
@@ -313,6 +313,19 @@ def test_a_sales_band_of_unclear_basis_stays_whole():
         assert pkg["components"] == []
         assert pkg["basis"] == "unclear"
         assert pkg["no_split_reason"] == NO_SPLIT_BASIS_UNCLEAR
+
+
+def test_a_customer_facing_architect_s_band_stays_whole():
+    """A "Solutions Architect" sits in a family that does not sell, yet its
+    posted range can be on-target earnings. The title says so, so the band is
+    not read as base. Without the title the same posting reads as base, which
+    is why the title has to reach the reading."""
+    posting = dict(disclosed={**GOOGLE_BAND, "pay_basis": "unclear"}, baselines=BASELINES)
+    titled = build_job_package(**GOOGLE_879, **posting, title="Solutions Architect, Platform")
+    assert titled["basis"] == "unclear"
+    assert titled["components"] == []
+    assert titled["no_split_reason"] == NO_SPLIT_BASIS_UNCLEAR
+    assert build_job_package(**GOOGLE_879, **posting)["basis"] == "base"
 
 
 def test_a_band_with_an_unclear_period_and_basis_is_still_not_split():

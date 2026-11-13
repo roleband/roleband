@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, mockGet, test, type Page } from "./fixtures";
 import { applicationCardFixture, applicationDetailFixture, compPackageFixture, jobFixture } from "../../src/test/fixtures";
 import { detail, installBoardRoutes } from "./boardHarness";
+import { msg } from "../../src/test/msg";
 
 /* A posting on a wider window steps up (docs/ui.md, "Cover"): at set widths of
    its scroll box the frame, its gaps and the posting's type grow together, and
@@ -196,8 +197,10 @@ test.describe("posting steps", () => {
 
   test("the stage menu opens under its button at its own size on a wide step", async ({ page }) => {
     const menuWidth = async () => {
-      await detail(page).getByRole("button", { name: /^Applied/ }).click();
-      const menu = page.getByRole("dialog", { name: /^Change the stage of / });
+      await detail(page).getByRole("button", { name: msg("taxonomy-stage-applied"), exact: true }).click();
+      const menu = page.getByRole("dialog", {
+        name: msg("applications-stage-menu-label", { title: READING.title }),
+      });
       await expect(menu).toBeVisible();
       await page.evaluate(() => { for (const animation of document.getAnimations()) animation.finish(); });
       const button = (await page.locator(".jd-stage").boundingBox())!;

@@ -396,6 +396,7 @@ def build_job_package(
     us_pay: bool = True,
     covered: bool = True,
     level_placed: bool = True,
+    title: str | None = None,
 ) -> dict:
     """The full comp story for one role, ready to render.
 
@@ -564,10 +565,11 @@ def build_job_package(
     # A yearly band that does not say what it covers is read as base salary for
     # a role that does not sell: its posted range is the base unless the posting
     # calls it a total, which returned above. A sales band is often on-target
-    # earnings, so it stays whole. The reading is this package's only:
+    # earnings, so it stays whole, and so does a title `sells` cannot read as
+    # one way or the other, which is why the posting's own title reaches it. The reading is this package's only:
     # `pay_basis` stays as the posting gave it, so pay data built from postings
     # never counts the band as a stated base.
-    if basis == "unclear" and period == "year" and sells(family) is False:
+    if basis == "unclear" and period == "year" and sells(family, title) is False:
         basis = "base"
         package["basis"] = basis
 
