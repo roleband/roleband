@@ -681,7 +681,9 @@ Import-linter contracts in `backend/pyproject.toml` enforce this:
 in `pyproject.toml` names, freezes the allowlist, and plants a violation against each contract to
 prove it still fires. If a contract trips, move the code or edit the layer row,
 never the allowlist. mypy checks the module set under `[tool.mypy]`, which only
-grows (`backend/tests/test_typing_pilot.py`).
+grows; it runs once for the platform it is on and once for each of the others,
+because a body behind a platform gate is unreachable, and so unchecked, for
+every run but one (`backend/tests/test_typing_pilot.py`).
 
 ## Data model and persistence
 
@@ -940,7 +942,8 @@ change a commit boundary there first. In short: take the advisory lock and commi
 the `running` marker; commit built-ins, bindings and profiles; `collection.py`
 fetches with no session while one writer (`run_persistence.py`) commits rows as
 they arrive and each company as its scan ends (scope flags, closure, catalog,
-per-source record); `post_passes.py` runs each pass with its own commit; the
+per-source record); `post_passes.py` runs each pass with its own commit, and a
+pass that rewrites the whole table commits chunk by chunk inside it; the
 terminal status is recorded, or the failure after a rollback. A failing company
 is recorded in `per_source` and never stops the others.
 
@@ -971,6 +974,11 @@ is `ok`, `capped` or `empty`; `error` when none produced usable data; else
 - **Two gates.** Run quality (an uncapped, complete, reconciling scan) decides
   whether a listing is evidence; the binding's closure scope decides which
   postings it speaks for.
+- **A place listing speaks for its places.** A `filtered` or `windowed` source
+  is complete only over the location groups it was asked about
+  (`planned_location_items`), so its scope holds only postings with a place at
+  or under one of them (`binding.listed_by_query`). A posting in a place no
+  longer tracked, or with no place, keeps its count untouched.
 - **Two misses.** A posting closes on its second complete miss, at least
   `closure_second_miss_min_hours` (20 h) after the first. Any sighting resets
   it, and a `degraded`, `failed` or `blocked` scan of the company resets every

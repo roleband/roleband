@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Awaitable, Callable, Collection
+from collections.abc import Awaitable, Callable, Collection, Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -38,16 +38,19 @@ from tracker.connectors import (
 )
 from tracker.connectors.detail.base import sections_to_text
 from tracker.content import fingerprint_content
+from tracker.db.ids import among
 from tracker.db.inventory_store import reclassify_inventory_if_changed
 from tracker.db.models import DerivationState, Job, ScrapeRun
 from tracker.db.queries.scope import unplaced_level_expr
 from tracker.db.repo import (
     fill_blank_description,
+    hold_scope_projection,
     refresh_search_vectors,
     set_job_domains,
     set_job_places,
     set_job_roles,
 )
+from tracker.db.session import commit_in_batches
 from tracker.enrich.classify import classify_domains, classify_family, location_slugs_for
 from tracker.enrich.inventory import classifier_fingerprint
 from tracker.enrich.track import classify_track
@@ -101,6 +104,19 @@ class PostPassContext:
     run: ScrapeRun | None = None
     scan_mode: ScanMode = ScanMode.RECONCILE
     results: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        # A row the run both refreshed and rewrote arrives twice; every pass
+        # reads the list, so each id is listed once, in first-seen order.
+        self.touched_ids[:] = dict.fromkeys(self.touched_ids)
+
+    def touch(self, job_ids: Iterable[int]) -> None:
+        """Add rows a pass brought in, each once, for the passes after it."""
+        seen = set(self.touched_ids)
+        for job_id in job_ids:
+            if job_id not in seen:
+                seen.add(job_id)
+                self.touched_ids.append(job_id)
 
     @property
     def clean_companies(self) -> set[str]:
@@ -282,6 +298,72 @@ async def backfill_missing_descriptions(
     return filled
 
 
+#: Rows per transaction in a reclassify pass: the most a killed run re-derives.
+RECLASSIFY_BATCH = 500
+
+
+async def _project_scope(
+    session: AsyncSession, job_ids: Collection[int] | None = None
+) -> int:
+    """Re-project the saved scope onto `job_ids` (or every row), and how many moved.
+
+    The projection lock is taken before the saved axes are read, not inside the
+    projection: a save that commits new axes in between would otherwise be
+    followed by a projection of the older ones. It costs no lock time, since the
+    projection takes the same transaction lock a moment later and holds it to
+    the caller's commit either way.
+    """
+    await hold_scope_projection(session)
+    return await recompute_saved_scope(session, job_ids=job_ids)
+
+
+async def _reclassified(
+    session: AsyncSession,
+    changes: list[dict],
+    write: Callable[[AsyncSession, list[dict]], Awaitable[None]],
+    *,
+    job_ids: Collection[int] | None,
+    label: str,
+) -> dict[str, int]:
+    """Write `changes` and re-project the saved scope: the result of a reclassify.
+
+    The run after a classifier change rewrites every row whose derivation moved,
+    and one transaction over the whole table loses all of it when the run dies.
+    So the rows go in committed chunks, on the pass's own session, where the
+    pass's caller opened the database it reads. A killed pass records no
+    fingerprint (`_mark_reclassified` runs only after it returns), so the rows
+    it did not reach are derived again on the next run, and the ones it saved
+    read as current and cost nothing.
+
+    Each chunk projects the scope onto its own rows in the transaction that
+    writes them, because the two must not come apart: a pass over the run's own
+    rows leaves the fingerprint as it is, so nothing would make a later run
+    re-derive a row whose write survived a failed projection, and it would hold
+    an `in_scope` its old derivation earned.
+
+    The projection over every row then runs whenever something changed, and on
+    every whole-table pass even when nothing did: the pass that finishes a
+    killed one's axis finds nothing left to write, and its rows still need the
+    scope they were never projected onto.
+    """
+    by_id = {change["id"]: change for change in changes}
+    rescoped = 0
+
+    async def work(chunk_session: AsyncSession, ids: list[int]) -> int:
+        nonlocal rescoped
+        await write(chunk_session, [by_id[job_id] for job_id in ids])
+        rescoped += await _project_scope(chunk_session, ids)
+        return len(ids)
+
+    written = await commit_in_batches(
+        list(by_id), work, size=RECLASSIFY_BATCH, label=label, session=session,
+        report=lambda line: logger.info("reclassify: %s", line),
+    )
+    if changes or job_ids is None:
+        rescoped += await _project_scope(session)
+    return {"reclassified": written, "in_scope_changed": rescoped}
+
+
 async def reclassify_domains(
     session: AsyncSession, job_ids: Collection[int] | None = None
 ) -> dict[str, int]:
@@ -298,16 +380,17 @@ async def reclassify_domains(
 
     Pure derivation from stored fields, no network. Reads narrow columns (an
     ORM load would pull every description) and writes only rows whose answer
-    changed, so once caught up this is a scan that writes nothing.
+    changed, in committed chunks (`_reclassified`), so once caught up
+    this is a scan that writes nothing.
 
-    `in_scope` is recomputed when anything changed. Skipping that because the
+    `in_scope` is recomputed (`_reclassified`). Skipping that because the
     axis "defaults to all worlds" fails the moment a user switches one off: a
     reclassified row can gain or lose exactly the world they hid.
     """
     stmt = select(Job.id, Job.company, Job.req_id, Job.title, Job.url,
                   Job.department, Job.team, Job.domains).order_by(Job.id.asc())
     if job_ids is not None:
-        stmt = stmt.where(Job.id.in_(list(job_ids)))
+        stmt = stmt.where(among(Job.id, job_ids))
     rows = (await session.execute(stmt)).all()
     changes = []
     for row in rows:
@@ -317,9 +400,9 @@ async def reclassify_domains(
         ))
         if row.domains is None or list(row.domains) != fresh:
             changes.append({"id": row.id, "domains": fresh})
-    await set_job_domains(session, changes)
-    rescoped = await recompute_saved_scope(session) if changes else 0
-    return {"reclassified": len(changes), "in_scope_changed": rescoped}
+    return await _reclassified(
+        session, changes, set_job_domains, job_ids=job_ids, label="domain changes"
+    )
 
 
 #: The classifier fingerprint each `jobs` reclassify pass last read the whole
@@ -363,15 +446,18 @@ async def reclassify_roles(
     drains without anyone running a command.
 
     Pure derivation from stored fields; narrow reads; writes only changed rows,
-    so once caught up it is a scan that writes nothing. `in_scope` is recomputed
-    when anything changed: family and track are scope axes.
+    in committed chunks (`_reclassified`), so once caught up it is a scan
+    that writes nothing. `in_scope` is recomputed (`_reclassified`): family and
+    track are scope axes.
     """
     changes = await pending_roles(session, job_ids)
-    await set_job_roles(session, changes)
-    # The family is an estimate input no fingerprint names.
-    await reestimate_module.refresh_jobs(session, [change["id"] for change in changes])
-    rescoped = await recompute_saved_scope(session) if changes else 0
-    return {"reclassified": len(changes), "in_scope_changed": rescoped}
+
+    async def write(chunk_session: AsyncSession, chunk: list[dict]) -> None:
+        await set_job_roles(chunk_session, chunk)
+        # The family is an estimate input no fingerprint names.
+        await reestimate_module.refresh_jobs(chunk_session, [change["id"] for change in chunk])
+
+    return await _reclassified(session, changes, write, job_ids=job_ids, label="role changes")
 
 
 async def pending_roles(
@@ -379,12 +465,11 @@ async def pending_roles(
 ) -> list[dict]:
     """The rows (of all, or of `job_ids`) whose family or track the taxonomy
     reads differently now, one `{"id", "family", "track"}` each: the derivation
-    `reclassify_roles` writes, and `scripts.backfill_classifier` writes in
-    batches."""
+    `reclassify_roles` and `scripts.backfill_classifier` write in batches."""
     stmt = select(Job.id, Job.company, Job.req_id, Job.title, Job.url,
                   Job.department, Job.team, Job.family, Job.track).order_by(Job.id.asc())
     if job_ids is not None:
-        stmt = stmt.where(Job.id.in_(list(job_ids)))
+        stmt = stmt.where(among(Job.id, job_ids))
     rows = (await session.execute(stmt)).all()
     changes = []
     for row in rows:
@@ -413,13 +498,14 @@ async def reclassify_places(
     on every row being ancestor-closed.
 
     Pure derivation from stored fields (`location_slugs_for`, the function
-    ingest uses); narrow reads; writes only changed rows; `in_scope`
-    recomputed when anything changed. The posting inventory's rows are
-    reclassified by `_pass_inventory_promotion`, not here.
+    ingest uses); narrow reads; writes only changed rows, in committed chunks
+    (`_reclassified`); `in_scope` recomputed with them. The
+    posting inventory's rows are reclassified by `_pass_inventory_promotion`,
+    not here.
     """
     stmt = select(Job.id, Job.locations, Job.location_groups, Job.location_cities).order_by(Job.id.asc())
     if job_ids is not None:
-        stmt = stmt.where(Job.id.in_(list(job_ids)))
+        stmt = stmt.where(among(Job.id, job_ids))
     rows = (await session.execute(stmt)).all()
     changes = []
     for row in rows:
@@ -428,9 +514,9 @@ async def reclassify_places(
         cities = normalize_cities(places)
         if list(row.location_groups or []) != groups or list(row.location_cities or []) != cities:
             changes.append({"id": row.id, "location_groups": groups, "location_cities": cities})
-    await set_job_places(session, changes)
-    rescoped = await recompute_saved_scope(session) if changes else 0
-    return {"reclassified": len(changes), "in_scope_changed": rescoped}
+    return await _reclassified(
+        session, changes, set_job_places, job_ids=job_ids, label="place changes"
+    )
 
 
 async def _pass_places_backfill(ctx: PostPassContext) -> None:
@@ -450,7 +536,7 @@ async def _pass_inventory_promotion(ctx: PostPassContext) -> None:
     # Only after a classifier change: otherwise every row's cost is spent every run.
     reclassified = await reclassify_inventory_if_changed(ctx.session)
     result = await promote_locked(ctx.session)
-    ctx.touched_ids.extend(result.job_ids)
+    ctx.touch(result.job_ids)
     ctx.results["inventory"] = {
         "reclassified": reclassified, "promoted": result.promoted, "pending": result.pending,
     }
@@ -492,7 +578,7 @@ async def _pass_description_backfill(ctx: PostPassContext) -> None:
     )
     # Downstream passes work from `touched_ids`; a row we just gave text to has
     # to join them or its description would sit there unindexed and unenriched.
-    ctx.touched_ids.extend(job_id for job_id in filled if job_id not in ctx.touched_ids)
+    ctx.touch(filled)
     ctx.results["description_backfill"] = {"filled": len(filled)}
 
 

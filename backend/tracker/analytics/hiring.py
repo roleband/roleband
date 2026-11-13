@@ -6,7 +6,7 @@ region expands to every country in it ("Remote EMEA" is every EMEA country), so
 summed slices multiply each posting many times over. This counts ROLES, each
 once per region and once per country it names.
 
-Two kinds of place, read per place the posting lists (`location_pieces`):
+Two kinds of place, read per place the posting lists (`listed_places`):
 
 * A place that names a country, or a city or metro in one ("London, UK",
   "Munich"), puts the role in that country and its region.
@@ -26,11 +26,10 @@ from collections import Counter
 from collections.abc import Iterable, Sequence
 from functools import lru_cache
 
-from tracker.enrich.classify import location_groups_for
+from tracker.enrich.classify import listed_places, location_groups_for
 from tracker.taxonomy.locations import (
     LOCATION_GROUPS,
     location_group_ancestors,
-    location_pieces,
     region_places,
 )
 
@@ -44,6 +43,11 @@ def _top_region(slug: str) -> str | None:
     return chain[-1] if chain else None
 
 
+#: The most countries a place may name as one region and still count in each
+#: (ANZ); a union of more (the EU) counts region-wide.
+_PAIR = 2
+
+
 @lru_cache(maxsize=8192)
 def place_reach(piece: str) -> tuple[frozenset[str], frozenset[str]]:
     """`(countries, region_wide)` one place names: the countries it is in, and
@@ -52,9 +56,10 @@ def place_reach(piece: str) -> tuple[frozenset[str], frozenset[str]]:
     if named_regions:
         countries: set[str] = set()
         regions: set[str] = set()
+        # A count by country must not multiply a union, as it must not a region.
+        members = [s for s in named_regions if LOCATION_GROUPS.get(s, {}).get("kind") == "country"]
         for slug in named_regions:
-            kind = LOCATION_GROUPS.get(slug, {}).get("kind")
-            if kind == "country":  # a pair of countries named as a region (ANZ)
+            if slug in members and len(members) <= _PAIR:
                 countries.add(slug)
             elif (top := _top_region(slug)) is not None:
                 regions.add(top)
@@ -70,7 +75,7 @@ def role_reach(locations: Sequence[str]) -> tuple[set[str], set[str]]:
     """`(countries, region_wide)` over every place one role lists."""
     countries: set[str] = set()
     wide: set[str] = set()
-    for piece in location_pieces(list(locations)):
+    for piece in listed_places(locations):
         named, regions = place_reach(piece)
         countries |= named
         wide |= regions

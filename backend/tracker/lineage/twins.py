@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from tracker.config import get_settings
+from tracker.db.ids import among
 from tracker.db.models import Job, JobLineageLink, JobTwinLink
 from tracker.lineage.content_diff import DescriptionDiff, compare_descriptions, normalize_department
 from tracker.lineage.decision_history import merge_history, without_history
@@ -358,7 +359,7 @@ async def detect_twins(
     if stale_only:
         query = query.where(_stale_clause())
     if job_ids is not None:
-        query = query.where(Job.id.in_(job_ids))
+        query = query.where(among(Job.id, job_ids))
     if companies is not None:
         query = query.where(Job.company.in_(companies))
     query = query.order_by(Job.id.asc())

@@ -30,7 +30,7 @@ from tracker.taxonomy.cities import (
     fold,
     place_segments,
 )
-from tracker.taxonomy.countries import COUNTRIES
+from tracker.taxonomy.countries import COUNTRIES, UNIONS
 
 # Tokens that mean "a country", lowercased. Matched against whole comma parts.
 _US = {"us", "usa", "united states", "united states of america"}
@@ -116,7 +116,8 @@ _DEFAULT_REGION: dict[str, str] = {
 # "usa". The DE/Delaware collision (ISO Germany vs Delaware abbrev) is resolved in
 # Germany's favor — spelled-out "Delaware" still classifies US; the bare "DE"
 # abbrev does not (a mis-US-tag of Frankfurt is the worse error, since
-# united_states ships enabled and germany does not).
+# united_states ships enabled and germany does not). "DE" is Germany only in
+# capitals and with no place beside it outside Germany (`_CAPITALS_ONLY_CODES`).
 _US_STATE_NAMES: frozenset[str] = frozenset(_STATE_ABBREV)
 _US_STATE_ABBREVS: frozenset[str] = frozenset(v.lower() for v in _STATE_ABBREV.values())
 #: The same codes as a board prints them; an adapter reading a bare two-letter
@@ -140,6 +141,13 @@ _EXTRA_COUNTRY_TOKENS: dict[str, str] = {
     "new south wales": "australia",
 }
 
+#: Alpha-2 codes that collide with a state code yet read as their country, but
+#: only when written in capitals ("Remote - DE"), with no US named and no place
+#: beside them outside the country ("Wilmington, DE" is not Germany). Lowercase
+#: "de" is a word in place names ("Rio de Janeiro"). Kept out of
+#: `_FOREIGN_COUNTRY_TOKENS`, whose tokens never collide with a state code.
+_CAPITALS_ONLY_CODES: Mapping[str, str] = MappingProxyType({"de": "germany"})
+
 
 def _build_country_tokens() -> tuple[dict[str, str], frozenset[str]]:
     """Country match tokens, and the subset needing a non-US context.
@@ -152,7 +160,8 @@ def _build_country_tokens() -> tuple[dict[str, str], frozenset[str]]:
        Computed, not curated (`ca`=Canada/California, `in`=India/Indiana,
        `il`=Israel/Illinois, `la`=Laos/Louisiana...): admitting any one of them
        would mis-tag a US posting as foreign, and a rule cannot be forgotten
-       for the next country added.
+       for the next country added. `_CAPITALS_ONLY_CODES` are read apart, in
+       `countries_for`.
     3. **A name that is also a US state name needs a non-US signal.** Georgia is
        the only case in ISO 3166 — the country and the state share a name, so
        "Atlanta, Georgia, USA" must not tag the country. Nor must "Georgia -
@@ -174,12 +183,31 @@ def _build_country_tokens() -> tuple[dict[str, str], frozenset[str]]:
 
 _FOREIGN_COUNTRY_TOKENS, _STATE_NAME_COLLISIONS = _build_country_tokens()
 
-#: `de` stays excluded from the US side: spelled-out "Delaware" still classifies
-#: US, the bare abbrev does not. Mis-tagging Frankfurt as US is the worse
-#: error.
-_US_STATE_TOKENS: frozenset[str] = frozenset(
-    (_US_STATE_NAMES | _US_STATE_ABBREVS) - {"de"}
+#: State codes `countries_for` reads as the US. `de` stays excluded: spelled-out
+#: "Delaware" still classifies US, the bare abbrev does not. Mis-tagging
+#: Frankfurt as US is the worse error.
+_US_STATE_CODE_TOKENS: frozenset[str] = _US_STATE_ABBREVS - {"de"}
+
+#: A state name of several words inside a field ("Remote in Rhode Island",
+#: "Hybrid - New Mexico"): its last word alone is a country's name or alias
+#: ("island" is Iceland's, "mexico" Mexico), and the state must win.
+_MULTIWORD_STATE_RE = re.compile(
+    r"\b(?:" + "|".join(re.escape(name) for name in sorted(_US_STATE_NAMES, key=len, reverse=True) if " " in name) + r")\b"
 )
+
+
+def _shouted(piece: str) -> set[str]:
+    """The words of two letters or more a board wrote in capitals, lowercased:
+    how a code looks when it is one ("Remote - USA", "Austin TX")."""
+    return {w.lower() for w in re.split(r"[^A-Za-z0-9]+", piece) if len(w) > 1 and w.isupper()}
+
+
+def _written_state_codes(parts: set[str], shouted: set[str], codes: frozenset[str]) -> set[str]:
+    """The state codes a place names: a code in its own comma field
+    ("Portland, or") or in capitals ("Austin TX"). Lowercase inside a field it
+    is an English word: "Remote in Germany", "Berlin or Remote", "Hybrid in
+    London" name no state."""
+    return (parts | shouted) & codes
 
 
 #: Canada by its provinces. Boards write a Canadian place the way they
@@ -219,9 +247,13 @@ def countries_for(locations: list[str]) -> set[str]:
             words = {w for w in re.split(r"[^a-z0-9]+", low) if w}
             # Words the board wrote in capitals: how a country CODE looks when
             # it is one ("Remote - USA", "Berlin DEU"). See the code rule below.
-            shouted = {w.lower() for w in re.split(r"[^A-Za-z0-9]+", piece) if len(w) > 1 and w.isupper()}
+            shouted = _shouted(piece)
             us_signal = "united states" in low or bool({"us", "usa"} & words)
-            state_tokens = (parts | words) & _US_STATE_TOKENS
+            state_tokens = (
+                ((parts | words) & _US_STATE_NAMES)
+                | set(_MULTIWORD_STATE_RE.findall(low))
+                | _written_state_codes(parts, shouted, _US_STATE_CODE_TOKENS)
+            )
             hits: dict[str, list[str]] = {}
             for tok, slug in _FOREIGN_COUNTRY_TOKENS.items():
                 # A token standing as its own comma field is a named country;
@@ -262,13 +294,18 @@ def countries_for(locations: list[str]) -> set[str]:
                     continue
                 hits.setdefault(slug, []).append(tok)
             foreign = _unshadowed(hits, low)
+            if not us_signal and not state_tokens:
+                foreign |= {
+                    slug for code, slug in _CAPITALS_ONLY_CODES.items()
+                    if code in shouted and not _names_a_place_outside(piece, code, slug)
+                }
             if not foreign and not us_signal and not state_tokens and (
                 parts & _CA_PROVINCE_CODES
                 or any(name in parts or (" " in name and name in low) for name in _CA_PROVINCE_NAMES)
             ):
                 foreign.add("canada")
             out |= foreign
-            if us_signal or (not foreign and (parts | words) & _US_STATE_TOKENS):
+            if us_signal or (not foreign and state_tokens):
                 out.add("united_states")
     return out
 
@@ -321,14 +358,32 @@ def _unshadowed(hits: dict[str, list[str]], low: str) -> set[str]:
 
 
 def location_pieces(locations: list[str]) -> list[str]:
-    """Each place a posting names, lowercased: its strings split on `|`, `;`
-    and `/` exactly as `countries_for` splits them."""
+    """Each place a posting names, as the board wrote it: its strings split on
+    `|`, `;` and `/` exactly as `countries_for` splits them. The case is kept,
+    since a code is read by it ("Remote - IN" is Indiana, "Remote in X" is not)."""
     return [
-        low
+        piece.strip()
         for raw in locations
         for piece in _SPLIT_RE.split(raw or "")
-        if (low := fold(piece))
+        if fold(piece)
     ]
+
+
+#: What separates the segments of one place, as `place_segments` splits it.
+_SEGMENT_SEP_RE = re.compile(r"(\s*,\s*|\s+-\s+|\s*[()]\s*)")
+
+
+def with_city_aliases(piece: str) -> str:
+    """`piece` with each segment that is a short city name written out, as
+    `normalize_cities` writes it ("Hybrid - NYC" -> "Hybrid - New York"), so
+    the group and city readers find the place."""
+    fields = _SEGMENT_SEP_RE.split(piece)
+    return "".join(
+        _CITY_ALIASES.get(fold(field), field) if i % 2 == 0 else field
+        for i, field in enumerate(fields)
+    )
+
+
 _UK_REGIONS = {"england", "scotland", "wales", "northern ireland", "cambridgeshire", "london"}
 _PROVINCE_ABBREV = {"british columbia": "BC", "ontario": "ON", "quebec": "QC", "alberta": "AB"}
 # Sub-national regions better displayed as their country ("Frankfurt, Germany",
@@ -427,7 +482,7 @@ def _remote_label(text: str, low: str) -> str:
     if any(t in re.split(r"[\s,()-]+", low) for t in ("us", "usa")):
         return "Remote (US)"
     # The US only by its own name above: `countries_for` also reads a US state
-    # code, and "or" in "Germany or France" is Oregon's.
+    # code ("Remote - TX").
     countries = countries_for([text]) - {"united_states"}
     if len(countries) != 1:
         return "Remote"
@@ -654,7 +709,7 @@ LOCATION_GROUPS: dict[str, dict] = _build_location_groups()
 #: remote-Americas role, rather than a region-only place matching nothing and
 #: the posting being shown to nobody. "Global", "worldwide" and "anywhere"
 #: name no region and stay unplaced. A value is region slugs, or country
-#: slugs where the region is a pair of countries (ANZ).
+#: slugs where the place names a set of countries (ANZ, the EU).
 _REGION_PLACES: dict[str, tuple[str, ...]] = {
     "americas": ("north_america", "latin_america"),
     "the americas": ("north_america", "latin_america"),
@@ -668,6 +723,12 @@ _REGION_PLACES: dict[str, tuple[str, ...]] = {
     **{alias: (slug,) for slug, r in REGIONS.items() for alias in r.get("aliases", ())},
     "latin america": ("latin_america",),
     "gulf": ("gulf",),
+    # A union names its member countries, the way `scope/places.py` offers it.
+    **{
+        name: union.members
+        for union in UNIONS if union.slug == "european_union"
+        for name in ("eu", fold(union.display))
+    },
 }
 #: Words a board puts around a region that name no place ("Remote - EMEA").
 _REGION_NOISE = re.compile(r"\b(?:remote|hybrid|on-?site|region|only|based)\b|[()\-–:]")
@@ -874,19 +935,23 @@ def location_names(tracked: Iterable[str] = ()) -> list[tuple[str, str]]:
 
 
 def state_codes(piece: str) -> set[str]:
-    """US state abbreviations a place names ("portland, or, usa" -> {"OR"})."""
+    """US state abbreviations a place names ("Portland, OR, USA" -> {"OR"}),
+    read as `countries_for` reads them (`_written_state_codes`)."""
     low = fold(piece)
     parts = {p.strip() for p in low.split(",") if p.strip()}
-    words = {w for w in re.split(r"[^a-z0-9]+", low) if w}
     codes = {_STATE_ABBREV[name] for name in parts & _US_STATE_NAMES}
-    codes |= {tok.upper() for tok in (parts | words) & _US_STATE_ABBREVS}
+    codes |= {tok.upper() for tok in _written_state_codes(parts, _shouted(piece), _US_STATE_ABBREVS)}
     return codes
 
 
 def city_for_piece(piece: str, countries: set[str]) -> City | None:
-    """The gazetteer city one place names (see `cities.city_for_place`)."""
+    """The gazetteer city one place names (see `cities.city_for_place`).
+
+    A US state code constrains only a US city: in "Frankfurt, DE" the code is
+    Germany's, and as a constraint it would rule out every German city."""
+    codes = state_codes(piece) if not countries or "united_states" in countries else set()
     return city_for_place(
-        piece, countries, state_codes(piece), CITY_RESERVED_SEGMENTS, _CITY_WEAK_SEGMENTS,
+        piece, countries, codes, CITY_RESERVED_SEGMENTS, _CITY_WEAK_SEGMENTS,
     )
 
 

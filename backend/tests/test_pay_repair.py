@@ -17,9 +17,10 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import select
 
-from tests.factories import make_job
+from tests.factories import ADYEN_PAY_TEXT, make_job
 from tracker.connectors.listing.greenhouse import pay_tiers
-from tracker.db.models import Job
+from tracker.db.models import Job, JobLifecycleEvent
+from tracker.db.pay_band import pay_place_key
 from tracker.intelligence_runtime.disclosed_comp import extract_disclosed_comp
 from tracker.pay_disclosure import PAY_PARSER_VERSION
 from tracker.schema import (
@@ -160,3 +161,56 @@ async def test_the_pass_stores_the_band_for_the_postings_own_place(db_session):
     bands = await _bands(db_session)
     assert bands["bay"][:3] == (188_000, 304_200, "USD")
     assert bands["redmond"][:3] == (142_800, 274_800, "USD")
+
+
+async def _pay_moves(db_session) -> dict[str, tuple]:
+    """Each recorded band move, as (from min, to min), by requisition."""
+    rows = (await db_session.execute(
+        select(Job.req_id, JobLifecycleEvent.detail)
+        .join(JobLifecycleEvent, JobLifecycleEvent.job_id == Job.id)
+        .where(JobLifecycleEvent.event_type == "changed")
+    )).all()
+    return {
+        req: (detail["disclosed_base"]["from"]["min"], detail["disclosed_base"]["to"]["min"])
+        for req, detail in rows
+    }
+
+
+@pytest.mark.asyncio
+async def test_a_parser_update_rewrites_bands_without_recording_a_pay_move(db_session, stored):
+    """Only the reader changed, so no posting moved its pay: saved roles must
+    not ring "pay raised" or "pay lowered" for it."""
+    ids = [job.id for job in stored.values()]
+
+    await extract_disclosed_comp(db_session, ids, cap=None, page_band=page_band)
+    await db_session.commit()
+
+    assert (await _bands(db_session))["bonus"][:2] == (None, None), "the band is still corrected"
+    assert await _pay_moves(db_session) == {}
+
+
+@pytest.mark.asyncio
+async def test_a_band_the_posting_moved_is_recorded_even_on_a_parser_update(db_session):
+    salary = "Salary range: $150,000 - $200,000 per year."
+    rows = [
+        # Same text, older reader: the reader moved, not the posting.
+        _row("reread", salary, band=(120_000, 160_000), source="text"),
+        # The employer edited the text after its band was read.
+        _row("edited", salary, band=(120_000, 160_000), source="text",
+             content_changed_at=THEN + timedelta(hours=1)),
+        # The employer moved the posting from Chicago to San Francisco; its text
+        # states one band per city, and was read at the current version.
+        _row("relocated", ADYEN_PAY_TEXT, band=(235_000, 317_000), source="text",
+             structured_prompt_version=PAY_PARSER_VERSION, company="adyen",
+             locations=["San Francisco, CA"], disclosed_place_key=pay_place_key(["Chicago, IL"])),
+    ]
+    db_session.add_all(rows)
+    await db_session.commit()
+
+    await extract_disclosed_comp(db_session, [row.id for row in rows], cap=None, page_band=page_band)
+    await db_session.commit()
+
+    bands = await _bands(db_session)
+    assert bands["reread"][:2] == (150_000, 200_000)
+    assert bands["relocated"][:2] == (258_000, 348_000)
+    assert await _pay_moves(db_session) == {"edited": (120_000, 150_000), "relocated": (235_000, 258_000)}

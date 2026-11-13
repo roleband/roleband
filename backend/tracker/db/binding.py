@@ -20,8 +20,8 @@ closable. A non-stable binding closes nothing, ever.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from collections.abc import Collection, Iterable, Sequence
+from dataclasses import dataclass, replace
 from datetime import datetime
 
 from sqlalchemy import select
@@ -36,6 +36,7 @@ from tracker.db.models import (
     JobSourceIdentity,
     SourceBinding,
 )
+from tracker.taxonomy.locations import location_group_ancestors
 
 __all__ = [
     "ActivationDecision",
@@ -44,6 +45,7 @@ __all__ = [
     "decide_binding_activation",
     "decide_closure_scope",
     "get_active_binding",
+    "listed_by_query",
     "load_identity_map",
     "resolve_closure_scope",
 ]
@@ -337,18 +339,57 @@ async def activate_validated_binding(
     return decision
 
 
+def listed_by_query(location_groups: Iterable[str] | None, queried: Collection[str]) -> bool:
+    """Would a listing that asked only about `queried` have listed this posting?
+
+    True when one of the posting's places lies at or under a queried group: a
+    query returns everything below its group (`location_group_covers`). Its
+    region alone is not enough: a `germany` query never returns a UK posting,
+    though both carry `europe`. A posting with no place is never listed by a
+    place query, so no such listing is evidence about it.
+    """
+    wanted = frozenset(queried)
+    return any(
+        group in wanted or not wanted.isdisjoint(location_group_ancestors(group))
+        for group in location_groups or ()
+    )
+
+
 async def resolve_closure_scope(
     session: AsyncSession,
     company: str,
     *,
     open_jobs: Sequence[Job],
     listing_is_authoritative: bool,
+    queried_places: Collection[str] | None = None,
 ) -> ClosureScope:
-    """Load binding + identity state, then apply `decide_closure_scope`."""
+    """Load binding + identity state, then apply `decide_closure_scope`.
+
+    `queried_places` are the location groups a source that lists one place at
+    a time was asked about this scan, or None for a listing of the whole board.
+    Such a listing is complete only over what it asked, so a posting it could
+    not have listed is left out of the scope: no miss counted, nothing closed.
+    That is what keeps a place the person stopped tracking from reading as a
+    place whose postings all came down.
+    """
     if not listing_is_authoritative:
         return ClosureScope(
             False, frozenset(), "listing not authoritative (capped/incomplete/errors)"
         )
+    unasked = 0
+    if queried_places is not None:
+        asked = [job for job in open_jobs if listed_by_query(job.location_groups, queried_places)]
+        unasked = len(open_jobs) - len(asked)
+        open_jobs = asked
+    scope = await _resolve_closure_scope(session, company, open_jobs)
+    if unasked:
+        return replace(scope, reason=f"{scope.reason}; {unasked} outside the places queried")
+    return scope
+
+
+async def _resolve_closure_scope(
+    session: AsyncSession, company: str, open_jobs: Sequence[Job]
+) -> ClosureScope:
 
     binding = await get_active_binding(session, company)
     if binding is not None and binding.connector_kind == "recipe":

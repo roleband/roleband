@@ -60,7 +60,11 @@ and only reports what the posting literally says.
   sentence into its own section and grows the cut to sentence bounds, so the
   body never holds half a statement.
 - Changing how a band is read means bumping `PAY_PARSER_VERSION`; the text
-  pass then re-reads the bands it wrote, a capped number per run.
+  pass then re-reads the bands it wrote, a capped number per run. Where the
+  posting did not change since its last read, a band that re-read changes is
+  rewritten without a `changed` event: the reader moved, not the posting, so no
+  saved role is told its pay moved. A posting whose text or first place also
+  changed records the event as usual.
 
 **Who may write a band.** Three sources state one, and `correct_pay_periods`
 corrects one; `db/pay_band.py` holds the rule all of them apply.

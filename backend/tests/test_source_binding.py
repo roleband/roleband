@@ -25,9 +25,11 @@ from tracker.db.binding import (
     ClosureScope,
     decide_binding_activation,
     decide_closure_scope,
+    listed_by_query,
 )
 from tracker.db.models import Job, JobLifecycleEvent, SourceBinding
 from tracker.db.repo import close_missing
+from tracker.enrich.classify import location_slugs_for
 
 
 async def _no_role_notes(session, job_ids, *, company):
@@ -159,6 +161,33 @@ def test_missing_binding_row_preserves_legacy_behavior():
     assert result.may_close
     assert result.closable_job_ids == frozenset({1, 2, 3})
     assert "legacy" in result.reason
+
+
+# --------------------------------------------------------------------------- #
+# A listing of one place at a time speaks only for the places it asked
+# --------------------------------------------------------------------------- #
+
+
+def places(*locations: str) -> list[str]:
+    return location_slugs_for(list(locations))
+
+
+@pytest.mark.parametrize("stored,queried,listed", [
+    pytest.param(places("Munich, Germany"), {"germany"}, True, id="country-covers-its-city"),
+    pytest.param(places("London, UK"), {"uk"}, True, id="country-covers-its-metro"),
+    pytest.param(["city_2950159"], {"germany"}, True, id="a-bare-city-reaches-its-country"),
+    pytest.param(places("Munich, Germany"), {"united_states"}, False, id="another-country"),
+    # Both carry `europe`; a shared region is not a shared place.
+    pytest.param(places("London, UK"), {"germany"}, False, id="region-alone-is-not-enough"),
+    # A `london` query never returns Manchester, though both are in the UK.
+    pytest.param(places("Manchester, UK"), {"london"}, False, id="metro-does-not-cover-its-country"),
+    pytest.param(places("London, UK", "New York, NY"), {"united_states"}, True, id="one-place-asked"),
+    pytest.param(places("Remote"), {"united_states", "germany"}, False, id="no-place"),
+    pytest.param(None, {"united_states"}, False, id="no-place-stored"),
+    pytest.param(places("Munich, Germany"), set(), False, id="nothing-asked"),
+])
+def test_a_place_listing_speaks_only_for_postings_in_a_place_it_asked(stored, queried, listed):
+    assert listed_by_query(stored, queried) is listed
 
 
 # --------------------------------------------------------------------------- #

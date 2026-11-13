@@ -47,6 +47,26 @@ def test_a_region_named_as_a_pair_of_countries_is_those_countries():
     assert (countries, wide) == ({"australia", "new_zealand"}, set())
 
 
+def test_a_union_of_many_countries_is_region_wide_like_a_region():
+    assert role_reach(["Remote - EU"]) == (set(), {"europe"})
+    regions = _regions([["Remote - EU"], ["Berlin, Germany"]])
+    assert regions["europe"]["countries"] == [{"key": "germany", "open": 1}]
+    assert regions["europe"]["region_wide"] == 1
+
+
+def test_each_place_an_or_list_names_keeps_its_own_reach():
+    # A region or union listed beside a country stays region-wide; the
+    # country is counted, and the region is not expanded into its countries.
+    assert role_reach(["Remote - EU or Germany"]) == ({"germany"}, {"europe"})
+    assert role_reach(["Remote - EMEA or Germany"]) == ({"germany"}, {"europe", "middle_east", "africa"})
+
+
+def test_a_place_is_read_with_the_case_the_board_wrote():
+    # "in" is a word; "IN" is Indiana.
+    assert role_reach(["Remote in Germany"]) == ({"germany"}, set())
+    assert role_reach(["Remote - IN"]) == ({"united_states"}, set())
+
+
 def test_a_place_that_names_nothing_is_unplaced_never_dropped():
     out = build_hiring_places([["Remote"], ["Anywhere"], ["Berlin, Germany"]])
     assert out["unplaced"] == 2

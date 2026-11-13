@@ -8,11 +8,15 @@ merge or a phantom "US" office would corrupt the per-company offices view.
 from __future__ import annotations
 
 import asyncio
+import shutil
 
 import pytest
 
 from tracker.api.routers.companies import _company_locations
-from tracker.enrich.classify import location_groups_for
+from tracker.enrich import inventory
+from tracker.enrich.classify import location_groups_for, location_slugs_for
+from tracker.taxonomy.cities import city_by_slug
+from tracker.taxonomy.countries import UNIONS
 from tracker.taxonomy.locations import countries_for, normalize_cities
 
 # Every test here reaches code that starts or signals a process on this
@@ -451,3 +455,123 @@ def test_a_region_beside_a_named_place_names_only_that_place():
 def test_the_primary_group_is_a_named_place_or_the_region_never_a_member_country():
     assert location_groups_for(["Americas"])[0] == "north_america"
     assert location_groups_for(["Toronto", "Americas"])[0] == "canada"
+
+
+# --- Lowercase words are not state codes; short names resolve ---
+
+US_NY = ["new_york", "united_states", "north_america"]
+EU_MEMBERS = set(next(u.members for u in UNIONS if u.slug == "european_union"))
+
+
+@pytest.mark.parametrize(("raw", "expected"), [
+    # "in" is Indiana's code and "or" Oregon's: as lowercase words they are
+    # English, and the country the place names is the answer.
+    ("Remote in Germany", ["germany", "europe"]),
+    ("London, UK or Remote", ["london", "uk", "europe"]),
+    ("Berlin or Remote", ["germany", "europe"]),
+    ("Hybrid in London", ["london", "uk", "europe"]),
+    ("Hybrid in Paris", ["france", "europe"]),
+    ("Remote - Germany or France", ["france", "germany", "europe"]),
+    # Short names the display labels already write out.
+    ("NYC", US_NY),
+    ("Hybrid - NYC", US_NY),
+    ("SF", ["silicon_valley", "united_states", "north_america"]),
+    # "DE" in capitals with nothing beside it but "Remote".
+    ("Remote - DE", ["germany", "europe"]),
+    ("DE - Remote", ["germany", "europe"]),
+    # Controls: these read the same before and after.
+    ("Remote - Germany", ["germany", "europe"]),
+    ("Germany - Remote", ["germany", "europe"]),
+    ("New York City", US_NY),
+    ("Portland, OR", ["united_states", "north_america"]),
+    ("Austin, TX", ["austin", "united_states", "north_america"]),
+    ("Remote - IN", ["united_states", "north_america"]),
+    ("Remote, OR", ["united_states", "north_america"]),
+    ("Paris TX", ["united_states", "north_america"]),
+    ("Denver, CO or Long Beach, CA", ["united_states", "north_america"]),
+    # A state name of several words: its last word is no country.
+    ("Remote in Rhode Island", ["united_states", "north_america"]),
+    ("Hybrid in New Mexico", ["united_states", "north_america"]),
+    ("Remote - New Mexico", ["united_states", "north_america"]),
+    ("Remote in New Jersey", ["united_states", "north_america"]),
+    # Each place an " or " list names keeps its own country.
+    ("Remote - DE or Remote - IN", ["germany", "united_states", "north_america", "europe"]),
+])
+def test_a_place_reads_as_the_country_it_names(raw, expected):
+    assert location_groups_for([raw]) == expected
+
+
+@pytest.mark.parametrize("raw", [
+    # Delaware's code beside a place outside Germany, or a lowercase "de".
+    "Wilmington, DE",
+    "Remote - de",
+    "Rio de Janeiro, Brazil",
+    "Remote - DE, United States",
+])
+def test_de_is_germany_only_in_capitals_and_alone(raw):
+    assert "germany" not in location_groups_for([raw]), raw
+
+
+@pytest.mark.parametrize("raw", ["Remote - EU", "European Union", "EU"])
+def test_the_eu_names_its_member_countries_under_europe(raw):
+    groups = location_groups_for([raw])
+    # Europe first: the comp axis is the region, never an arbitrary member.
+    assert groups[0] == "europe"
+    assert set(groups) == EU_MEMBERS | {"europe"}
+    assert not {"uk", "switzerland", "norway", "united_states"} & set(groups)
+
+
+def test_a_set_of_countries_named_as_a_region_puts_the_region_first():
+    assert location_groups_for(["ANZ"]) == ["oceania", "australia", "new_zealand"]
+
+
+@pytest.mark.parametrize(("raw", "country"), [
+    # A US state code is no constraint on a city outside the US: "DE" is
+    # Germany's here, "GA" the state Georgia shares a name with, and "la"
+    # in "Andorra la Vella" is a word.
+    ("Frankfurt, DE", "DE"),
+    ("Berlin or Remote", "DE"),
+    ("Tbilisi, Georgia", "GE"),
+    ("Andorra la Vella, AND", "AD"),
+    ("Portland, OR", "US"),
+    ("Hybrid - NYC", "US"),
+])
+def test_the_city_a_place_names_is_in_its_country(raw, country):
+    cities = [city_by_slug(s) for s in location_slugs_for([raw]) if s.startswith("city_")]
+    assert [c.country for c in cities if c] == [country], (raw, cities)
+
+
+@pytest.mark.parametrize(("raw", "label"), [
+    ("Remote in Germany", "Remote (Germany)"),
+    ("Remote - DE", "Remote (Germany)"),
+    ("Remote - IN", "Remote"),
+])
+def test_a_remote_label_names_the_country_the_place_names(raw, label):
+    assert normalize_cities([raw]) == [label]
+
+
+@pytest.mark.parametrize("source", [
+    "taxonomy/locations.py", "taxonomy/cities.py", "taxonomy/countries.py", "enrich/classify.py",
+])
+def test_an_edit_to_the_place_reader_moves_the_classifier_fingerprint(source, tmp_path, monkeypatch):
+    # The places post-pass reads every stored posting again when this
+    # fingerprint moves (test_reclassify_gate_db); a file left out of it would
+    # leave stored postings on the old reading.
+    tracker = inventory._TRACKER
+    for entry in inventory.CLASSIFIER_SOURCES:
+        src, dst = tracker / entry, tmp_path / entry
+        if src.is_dir():
+            shutil.copytree(src, dst, ignore=shutil.ignore_patterns("__pycache__"))
+        else:
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+    monkeypatch.setattr(inventory, "_TRACKER", tmp_path)
+    inventory.classifier_fingerprint.cache_clear()
+    try:
+        before = inventory.classifier_fingerprint()
+        with (tmp_path / source).open("a") as fh:
+            fh.write("\n# edited\n")
+        inventory.classifier_fingerprint.cache_clear()
+        assert inventory.classifier_fingerprint() != before
+    finally:
+        inventory.classifier_fingerprint.cache_clear()
