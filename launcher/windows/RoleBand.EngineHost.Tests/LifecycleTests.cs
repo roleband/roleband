@@ -546,6 +546,7 @@ public sealed class LifecycleTests
     {
         var engine = new StandIn("ignore-stop");
         var trail = new List<string>();
+        int recorded;
         await using var session = new EngineSession(engine.Configuration, Quick);
         session.Changed += snapshot => { lock (trail) trail.Add($"{snapshot.State} {snapshot.Diagnostic}"); };
         await session.StartAsync();
@@ -553,6 +554,9 @@ public sealed class LifecycleTests
         await session.StopAsync();
         Assert.AreEqual(EngineState.Attention, session.Snapshot.State);
         var pid = session.Snapshot.ProcessId ?? throw new AssertFailedException("The kept engine has no process ID.");
+        // The record names the interpreter that runs the engine, which can be a child of the process the session started.
+        using (var record = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(engine.State, "launcher", "owned-engine.json"))))
+            recorded = record.RootElement.GetProperty("pid").GetInt32();
         try
         {
             await session.StartAsync();
@@ -564,9 +568,11 @@ public sealed class LifecycleTests
         {
             // The stand-in ignores every stop, so a failed assertion must not leave it running.
             using var kept = Process.GetProcessById(pid);
-            kept.Kill();
+            kept.Kill(entireProcessTree: true);
             await kept.WaitForExitAsync();
         }
+        // Until the recorded engine is gone too, a start is rightly refused as still closing.
+        await Until(() => !Running(recorded), TimeSpan.FromSeconds(30), "the recorded engine to exit");
         engine.Behave("ready");
         if (waitForRelease)
         {
