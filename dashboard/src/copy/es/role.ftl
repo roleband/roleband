@@ -24,16 +24,6 @@ role-job-comp-panel-no-measured-split-for-this-2 = Estimado según el nivel
 role-job-comp-panel-about-the-split = Sobre este reparto
 role-job-comp-panel-posted-band-sits-well-above = El rango publicado está muy por encima del salario base { $band } medido en esta empresa, así que el nivel puede ser más alto.
 role-job-comp-panel-posted-band-sits-well-below = El rango publicado está muy por debajo del salario base { $band } medido en esta empresa, así que el nivel puede ser más bajo.
-role-job-comp-panel-you-choose-the-cash-stock = Tú eliges la mezcla de efectivo y acciones
-role-job-comp-panel-equity-fills-a-per-level = Las acciones completan el resto de un objetivo de compensación total para cada nivel
-role-job-comp-panel-equity-is-a-dollar-grant = Las acciones son una concesión en dólares según el nivel
-role-job-comp-panel-vests = { $choice ->
-    [yes] se consolidan { $vesting }, un bono de firma en efectivo cubre los años 1–2
-   *[no] se consolidan { $vesting }
-}
-role-job-comp-panel-no-annual-bonus = sin bono anual
-role-job-comp-panel-bonus-is-a-level-set = el bono es un % del salario base fijado por nivel
-role-job-comp-panel-base-capped-at = salario base con tope de { $base_cap_usd }
 role-job-comp-panel-yr = / año
 role-job-comp-panel-mo = / mes
 role-job-comp-panel-hr = / h
