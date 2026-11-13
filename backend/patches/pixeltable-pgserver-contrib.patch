@@ -21,7 +21,8 @@ CONTRIB_MODULES is a list, so other stock modules (btree_gin, pg_stat_statements
 citext, ...) are one word each if you want them.
 
 Verified on macOS arm64 against PG 16.14: pg_trgm 1.6 creates, gin_trgm_ops
-indexes build, and similarity() uses them.
+indexes build, and similarity() uses them. The hunks apply unchanged to the
+v0.7.2 Makefile (PG 16.15).
 
 --- a/pgbuild/Makefile
 +++ b/pgbuild/Makefile

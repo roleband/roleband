@@ -83,6 +83,8 @@ class TestCompanyRules:
     def test_a_company_that_grants_no_equity_has_no_equity_part(self):
         [tsmc] = _by_company(build_comp_trajectory([_role("tsmc", posted=_posted(300_000, 400_000))])).values()
         assert tsmc["equity"] == 0 and tsmc["base"] > 0
+        # No equity is the company's stated rule, never an estimate of 0%.
+        assert tsmc["sources"]["equity"] == FROM_COMPANY_RULE
 
     @pytest.mark.parametrize("company", ["amazon", "openai", "anthropic"])
     def test_a_company_that_pays_no_bonus_shows_none(self, company):

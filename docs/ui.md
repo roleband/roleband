@@ -125,7 +125,10 @@ icon follows the taskbar's theme and scale as they change, and a contrast theme 
 whose ink stands out on its window colour. Badges are cut out of the mark, not painted over it. The
 tooltip names the product and the state on one line within the shell's 127 characters, with a
 scan's percent. A click or Enter opens the flyout, a second click closes it; a double-click runs the
-default command; a right click or Shift+F10 opens the menu.
+default command; a right click or Shift+F10 opens the menu. When the notification area refuses the
+icon, as it can at sign-in while Explorer starts or after Explorer restarts, the flyout opens as a
+framed window that stays open and whose close button quits; the icon is tried again for a minute and
+whenever Explorer creates its taskbar, and once it is there the flyout goes back to it.
 
 **Surfaces.** The flyout, Settings and setup are solid and neutral, never tinted by the wallpaper. A
 framed window's title bar is one step darker than its body, cards sit inset from the body without
@@ -979,7 +982,8 @@ chart over them waits until there is enough history to compare like with like.
 Compensation leads with posted base salary for one country and level
 ([pay.md](pay.md#posted-pay-on-insights)): the typical range as its figure,
 the middle half and the share of checked roles posting a range as its tiles,
-and a Country and a Level picker kept in the link (`?country=&level=`). It
+and a Country and a Level picker kept in the link (`?country=&level=`), which
+answer only this tab, so a switch to another tab leaves them behind. It
 opens on the US and the person's first level with a figure; a level picked
 stays picked in another country, which then says it has no range there. A
 level below the minimums shows its counts and what a figure needs, never a
@@ -987,8 +991,8 @@ figure. A panel lists every level of the country with its typical range, the
 person's levels tagged, and the roles with no placed level said once below
 the levels. The estimate panels follow, each labelled an estimate of US pay.
 The advanced view adds every posted range of the country (`PayBands.tsx`, in
-its currency, uncapped, with an employer picker), who states pay by level, and
-the base-only estimates.
+its currency, uncapped, with an employer picker) with that country's roles
+left out and why, who states pay by level, and the base-only estimates.
 
 The window switch shows only on the tabs whose figures it moves (Overview and
 Pace), and offers only the windows the history covers: a scope's history starts
@@ -1020,8 +1024,8 @@ base, bonus and equity share. Under each figure a chip says where it comes
 from (posted, company rule, measured, estimated, mixed), and one help mark on
 the Company column, which stays in view when a phone scrolls the table
 sideways, explains the chips. The equity column names the stock type and
-the vesting schedule the company states; "No bonus" stands for a company's own
-no-bonus rule, never for an unknown zero. Companies whose people choose the
+the vesting schedule the company states; "No bonus" and "No equity" stand for
+a company's own rule of none, never for an unknown or estimated zero. Companies whose people choose the
 cash and equity mix have their own table with a total and no split, and a line
 under the tables counts the roles left out, with each reason behind a help
 mark. One search under the chart narrows every table to the companies it
