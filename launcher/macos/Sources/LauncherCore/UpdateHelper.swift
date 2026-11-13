@@ -310,9 +310,15 @@ public struct UpdateHelper: Sendable {
 }
 
 public extension UpdateHelper {
-    /// Live boundaries. `open` launches an app through Launch Services and returns its process id;
-    /// `port` is the one the person chose for the app's engine.
-    static func live(plan: UpdatePlan, port: Int = Installation.ownedPort,
+    /// Live boundaries for the engine on the port saved in `preferences`, the one the app it
+    /// replaces served on. `open` launches an app through Launch Services and returns its process id.
+    static func live(plan: UpdatePlan, preferences: UserDefaults,
+                     open: @escaping @Sendable (URL) async throws -> pid_t) -> UpdateInstallOperations {
+        live(plan: plan, port: EnginePort.saved(in: preferences), open: open)
+    }
+
+    /// Live boundaries for the engine on `port`.
+    static func live(plan: UpdatePlan, port: Int,
                      open: @escaping @Sendable (URL) async throws -> pid_t) -> UpdateInstallOperations {
         let verifier = UpdateBundleVerifier()
         let launched = LaunchedApp()

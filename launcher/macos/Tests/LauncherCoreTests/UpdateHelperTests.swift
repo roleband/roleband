@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import Network
 import Testing
 @testable import LauncherCore
 
@@ -459,4 +460,100 @@ private final class Steps: @unchecked Sendable {
         if accepted { #expect(try UpdatePlan.load(home: f.home, id: f.plan.id).trust.trustedKeys.last == spare) }
         else { #expect(throws: UpdateHelperProblem.invalidPlan) { _ = try UpdatePlan.load(home: f.home, id: f.plan.id) } }
     }
+}
+
+/// An engine stand-in on one loopback port: it answers the status and health reads for `installation`
+/// and records the paths it was asked for.
+private final class StandInEngine: @unchecked Sendable {
+    private let listener: NWListener
+    private let queue = DispatchQueue(label: "stand-in-engine")
+    private let lock = NSLock()
+    private var asked: [String] = []
+    private var database = "ready"
+    let installation: Installation
+    var paths: [String] { lock.withLock { asked } }
+    func prepare(_ state: String) { lock.withLock { database = state } }
+
+    init(_ installation: Installation, port: Int) async throws {
+        self.installation = installation
+        let parameters = NWParameters.tcp
+        parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: NWEndpoint.Port(rawValue: UInt16(port))!)
+        listener = try NWListener(using: parameters)
+        listener.newConnectionHandler = { [self] connection in
+            connection.start(queue: queue)
+            answer(connection, pending: Data())
+        }
+        // Every end state resumes once: a port taken before the listener started fails the test, never hangs it.
+        try await withCheckedThrowingContinuation { (ready: CheckedContinuation<Void, Error>) in
+            // The handler runs on the listener's queue, one state at a time; it removes itself once it resumed.
+            listener.stateUpdateHandler = { [listener] state in
+                switch state {
+                case .ready: listener.stateUpdateHandler = nil; ready.resume()
+                case .failed(let error): listener.stateUpdateHandler = nil; ready.resume(throwing: error)
+                case .cancelled: listener.stateUpdateHandler = nil; ready.resume(throwing: CancellationError())
+                default: break
+                }
+            }
+            listener.start(queue: queue)
+        }
+    }
+
+    /// Reads until the request line is complete: one receive can hold only part of it.
+    private func answer(_ connection: NWConnection, pending: Data) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [self] data, _, done, error in
+            let buffer = pending + (data ?? Data())
+            guard let end = buffer.range(of: Data("\r\n".utf8)) else {
+                if done || error != nil { connection.cancel() } else { answer(connection, pending: buffer) }
+                return
+            }
+            let line = String(decoding: buffer[..<end.lowerBound], as: UTF8.self)
+            let path = line.split(separator: " ").dropFirst().first.map(String.init) ?? ""
+            let body = (try? reply(to: path)) ?? Data()
+            let head = "HTTP/1.1 \(body.isEmpty ? "404 Not Found" : "200 OK")\r\nContent-Type: application/json\r\n"
+                + "Content-Length: \(body.count)\r\nConnection: close\r\n\r\n"
+            connection.send(content: Data(head.utf8) + body, completion: .contentProcessed { _ in connection.cancel() })
+        }
+    }
+
+    private func reply(to path: String) throws -> Data {
+        lock.withLock { asked.append(path) }
+        let identity: [String: Any] = ["product": installation.product, "instance": installation.instance,
+                                       "api_origin": installation.apiOrigin, "version": installation.version, "format": installation.format]
+        switch path {
+        case "/api/status":
+            let status: [String: Any] = ["observed_at": "2026-10-27T18:00:00Z", "activity": "idle", "activity_since": NSNull(),
+                                         "hold": NSNull(), "attention": [Any](), "queued": NSNull(), "coverage_at": NSNull(),
+                                         "last_scan_at": NSNull(), "last_scan_outcome": NSNull(), "model": "ready"]
+            return try JSONSerialization.data(withJSONObject: ["db": "ok", "launcher": identity.merging(["status": status]) { $1 }])
+        case "/api/launcher-health":
+            let database = lock.withLock { self.database }
+            let preparation: [String: Any] = ["database": database, "model": "ready", "service": database == "ready" ? "ready" : "starting",
+                                              "downloaded_bytes": 0, "total_bytes": 0, "format": 1]
+            return try JSONSerialization.data(withJSONObject: ["status": "ok", "launcher": identity, "preparation": preparation])
+        default: return Data()
+        }
+    }
+
+    func stop() { listener.cancel() }
+}
+
+@Test func theUpdateHelperWatchesTheEngineOnThePortThePersonMovedItTo() async throws {
+    // The helper is its own process: it learns the moved port only from the saved preference. Asking
+    // any other port finds no new version there, and every update rolls back.
+    let fixture = try HelperFixture(); defer { fixture.remove() }
+    let resources = fixture.installed.appendingPathComponent("Contents/Resources")
+    try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
+    let preferences = UserDefaults.scratch("update-helper-port")
+    let moved = try quietPort()
+    EnginePort.save(moved, in: preferences)
+    let engine = try await StandInEngine(Installation.owned(resources: resources, version: "0.1.1", port: moved), port: moved)
+    defer { engine.stop() }
+
+    let operations = UpdateHelper.live(plan: fixture.plan, preferences: preferences, open: { _ in 0 })
+    #expect(try await operations.healthy("0.1.1"))
+    #expect(!(try await operations.healthy("0.1.2")), "an engine of another version is not the update")
+    engine.prepare("creating")
+    #expect(await operations.preparing("0.1.1"))
+    #expect(!(try await operations.healthy("0.1.1")), "an engine still creating its database is not healthy yet")
+    #expect(Set(engine.paths) == ["/api/status", "/api/launcher-health"])
 }

@@ -104,7 +104,11 @@ public actor EngineHost {
         self.monitorInterval = monitorInterval
     }
 
+    /// A caller cancelled before this reaches the host starts nothing. A quit cancels the work that
+    /// asked for a start before it stops the engine, so a start that arrives after the quit's stop
+    /// throws here, and one that arrived first is queued ahead of the stop.
     public func start() async throws {
+        try Task.checkCancellation()
         try await serial { try await self.begin() }
     }
 

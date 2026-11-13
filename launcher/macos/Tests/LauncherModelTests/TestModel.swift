@@ -20,7 +20,7 @@ extension LauncherModel {
                      loginService: LoginService = LoginService(state: { .off }, setEnabled: { _ in }, openSettings: {}),
                      bundleURL: URL? = nil, homeURL: URL? = nil, language: String? = nil,
                      updates: LauncherUpdates? = nil, installOperations: UpdateInstallerOperations? = nil,
-                     updateNotice: UpdateNotice? = nil, portFree: @escaping @Sendable (Int) -> Bool = EnginePort.isFree,
+                     updateNotice: UpdateNotice? = nil, portFree: @escaping @Sendable (Int) -> Bool = EnginePort.isUnused,
                      decideMode: (() -> LaunchMode)? = nil, reopen: @escaping () -> Void = {}) {
         let scratch = FileManager.default.temporaryDirectory.appendingPathComponent("launcher-model-\(UUID().uuidString)")
         let home = homeURL ?? scratch.appendingPathComponent("home")
