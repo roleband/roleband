@@ -449,12 +449,16 @@ describe("JobCompPanel", () => {
         unknown: [],
       },
     };
-    render(<JobCompPanel job={withPackage(verified)} />, { wrapper: MemoryRouter });
-    // The equity segment's own hint still says equity vests over time; what is
-    // gone is the schedule, the bonus rule, the equity rule and the base cap.
-    expect(document.body.textContent).not.toMatch(
-      /5\/15\/40\/40|sign-on cash|annual bonus|capped at|level-set|dollar grant/i,
-    );
+    // The same package with no policy at all draws the same card, to the
+    // character: a fact the panel does not read cannot reach the screen,
+    // whatever sentence a future change might phrase it in.
+    const { unmount } = render(<JobCompPanel job={withPackage(verified)} />, { wrapper: MemoryRouter });
+    expect(document.querySelector(".pkg-head .big")).toHaveTextContent("$592K–$824K");
+    const withPolicy = document.querySelector(".pkg-panel")!.textContent;
+    unmount();
+
+    render(<JobCompPanel job={withPackage({ ...verified, policy: null })} />, { wrapper: MemoryRouter });
+    expect(document.querySelector(".pkg-panel")!.textContent).toBe(withPolicy);
   });
 
   // --- one headline, market median as a reading on it (docs/pay.md) ---------------
