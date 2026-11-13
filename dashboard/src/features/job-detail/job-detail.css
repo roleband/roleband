@@ -1098,6 +1098,16 @@
   font-size: var(--app-type-meta);
 }
 
+/* The figure reads as a figure, in the face every amount on this card uses. */
+.pkg-stated b {
+  font-family: var(--app-font-mono);
+  font-weight: 700;
+}
+
+.pkg-stated .info-tip {
+  margin-left: -1px;
+}
+
 /* The split label and its help mark sit on the header's first row, away from
    its left edge, where a sentence anchored to the small mark would run off a
    narrow screen. The sentence hangs from the header instead: right-aligned
