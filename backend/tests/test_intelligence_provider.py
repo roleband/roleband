@@ -140,3 +140,11 @@ def test_availability_messages_are_actionable():
     assert "system settings" in (
         Availability(AvailabilityState.APPLE_INTELLIGENCE_DISABLED).message.lower()
     )
+
+
+def test_availability_messages_send_people_to_a_screen_that_exists():
+    # Settings has an AI tab; there is no "Intelligence" one to go to.
+    for state in (AvailabilityState.NOT_CONFIGURED, AvailabilityState.EGRESS_NOT_PERMITTED):
+        msg = Availability(state).message
+        assert "Settings › AI" in msg
+        assert "Intelligence" not in msg

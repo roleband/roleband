@@ -72,6 +72,12 @@ describe("errorText", () => {
     expect(text).not.toMatch(/jane-street/);
   });
 
+  it("an already-decided verdict points at the Decided view, not a History tab that does not exist", () => {
+    const text = errorText(new ApiError("decided", 409, "verdict-decided"));
+    expect(text).toMatch(/\bDecided\b/);
+    expect(text).not.toMatch(/History/);
+  });
+
   it("a scheduling refusal with no company names names this company, never an empty list", () => {
     for (const error of [new ApiError("paused", 409, "scheduling-unavailable", {}), new ApiError("paused", 409, "scheduling-unavailable", { companies: [] })]) {
       expect(errorText(error)).toBe(msg("error-scheduling-unavailable-unnamed"));
