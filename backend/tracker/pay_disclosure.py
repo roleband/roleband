@@ -244,10 +244,22 @@ _MIN_MAX_RE = re.compile(
 #: The pattern states no `high` group, which is what makes it a one-amount
 #: candidate: `_read_candidate` reads the band's two bounds off the one amount,
 #: and `_one_bound` is that absence.
-_PAY_LABEL = (
-    r"(?:base\s+)?(?:salar(?:y|ies)|compensation|wages?|"
-    r"pay(?:\s+(?:range|rate|scale))?)"
-)
+#: Horizontal space only, for a pattern that must stay on one line.
+_H_SPACE = r"[^\S\n]"
+
+
+def _pay_label(space: str) -> str:
+    """The pay words a figure's label is made of, joined by `space`.
+
+    The trailing-label pattern passes horizontal space, so no part of a label
+    it reads can sit on the line below the amount."""
+    return (
+        r"(?:base" + space + r"++)?(?:salar(?:y|ies)|compensation|wages?|"
+        r"pay(?:" + space + r"++(?:range|rate|scale))?)"
+    )
+
+
+_PAY_LABEL = _pay_label(r"\s")
 _LABELLED_FIGURE_RE = re.compile(
     r"\b(?P<label>" + _PAY_LABEL + r")\b(?P<gap>[^\d$£€.;!?\n]{0,60}?)"
     r"(?:(?<![A-Za-z])(?P<prefix>US|CA|C|A|NZ|HK|S)[ \xa0]?)?(?P<symbol>[$£€])\s*+"
@@ -261,9 +273,8 @@ _LABELLED_FIGURE_RE = re.compile(
 #: in it is horizontal space, so the whole match sits on the amount's own line:
 #: the next line is a new statement, and a label read across the break turns
 #: "Programme cost: $75,000\nyearly salary reviews apply" into pay. Excluding
-#: the newline from `gap` alone leaves the period and currency fragments to
-#: cross it.
-_H_SPACE = r"[^\S\n]"
+#: the newline from `gap` alone leaves the period and currency fragments, and
+#: the label's own words, to cross it.
 _H_PERIOD = (
     r"(?:" + _H_SPACE + r"*+(?:(?:/" + _H_SPACE + r"*+|per" + _H_SPACE + r"++|an?" + _H_SPACE + r"++)"
     + _PERIOD_WORD + r"|(?:annually|yearly|monthly|hourly)(?![A-Za-z])))?"
@@ -274,7 +285,8 @@ _FIGURE_LABELLED_RE = re.compile(
     r"(?:" + _H_SPACE + r"*+(?P<low_currency>" + CURRENCY_CODE + r"))?" + _H_PERIOD +
     r"(?:" + _H_SPACE + r"*+(?P<currency>" + CURRENCY_CODE + r"))?"
     r"(?P<gap>[^\d$£€.;!?\n]{0,20}?)\b"
-    r"(?P<label>(?:annual(?:ly)?" + _H_SPACE + r"++|yearly" + _H_SPACE + r"++)?" + _PAY_LABEL + r")\b",
+    r"(?P<label>(?:annual(?:ly)?" + _H_SPACE + r"++|yearly" + _H_SPACE + r"++)?"
+    + _pay_label(_H_SPACE) + r")\b",
     re.IGNORECASE,
 )
 
@@ -421,11 +433,12 @@ _ONE_SIDED_PAD = 40
 #: number written with its scale, so "(40 hours per week)" and "for level 3 and
 #: 4 roles" are not amounts. A scale needs no currency of its own: "Base
 #: salary: $120k for junior roles to 180k for senior roles" names its high
-#: bound as plainly as any band does. "401k" is the retirement plan, not an
+#: bound as plainly as any band does, at any number of digits ("$900k for this
+#: role or 1m for the lead role"). "401k" is the retirement plan, not an
 #: amount, and it sits beside a salary in every other posting.
 _OTHER_AMOUNT_RE = re.compile(
     r"[$£€]\s*\d|\d{1,3},\d{3}|\d{4,}"
-    r"|(?<!\d)(?!401\s*\(?[kK])\d{2,3}(?:\.\d+)?\s*+[kKmM](?![A-Za-z])"
+    r"|(?<!\d)(?!401\s*\(?[kK])\d{1,3}(?:\.\d+)?\s*+[kKmM](?![A-Za-z])"
 )
 #: Words that open a bound AFTER the amount: "$120,000 minimum", "$120,000 or
 #: more", "$120,000 and above". "plus" is not one of them, because "$200,000,
@@ -617,14 +630,22 @@ def _locate_figure(description_text: str, amount: int) -> tuple[int, int] | None
     base salary for this role is $150,000 per year" would be quoted, and have
     its basis read, at the customer count.
 
-    The figure patterns are therefore read again over the full posting, and the
-    first occurrence one of them states as pay is the band's place. Grounding
-    holds by construction: the span is a match in `description_text`."""
+    The figure patterns are therefore read again over the full posting, under
+    every filter a candidate passes, and the first occurrence they state as pay
+    is the band's place. The filters are what make it the band's place rather
+    than any labelled occurrence: "Bonus pay: $150,000" is refused here as it
+    is refused as a candidate, so a salary of the same figure further down is
+    not quoted, or settled, at the bonus. Grounding holds by construction: the
+    span is a match in `description_text`."""
     for pattern in (_LABELLED_FIGURE_RE, _FIGURE_LABELLED_RE):
         for match in pattern.finditer(description_text):
             if _bound(match.group("low"), match.group("low_suffix")) != amount:
                 continue
-            if not _figure_states_pay(description_text, match):
+            if (
+                _names_other_money(description_text, match)
+                or _label_names_other_money(description_text, match)
+                or not _figure_states_pay(description_text, match)
+            ):
                 continue
             ends = match.end("low_suffix") if match.group("low_suffix") else match.end("low")
             return match.start("low"), ends

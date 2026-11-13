@@ -767,8 +767,10 @@ def test_an_open_bound_is_a_missed_band_not_a_figure(text):
     # The high bound carries its scale instead of a currency, which no range
     # pattern joins across the words between.
     "Base salary: $120k for junior roles to 180k for senior roles.",
+    # A scale counts at one digit as surely as at three.
+    "Base salary: $900k for this role or 1m for the lead role.",
 ], ids=["no-currency-on-high", "broken-comma", "number-between", "two-places",
-        "scaled-high"])
+        "scaled-high", "single-digit-scale"])
 def test_one_bound_of_a_range_we_could_not_read_is_not_a_figure(text):
     """Every one of these states a range this module fails to read. Taking the
     bound it did read would show the low end of a range as the whole pay."""
@@ -786,15 +788,26 @@ def test_a_retirement_plan_beside_a_figure_is_not_a_second_amount(plan):
     assert (band.base_min, band.base_max) == (150_000, 150_000)
 
 
-def test_a_trailing_label_does_not_reach_across_a_line():
-    """A line break is a new statement. Reading the label below one turns a
-    cost into pay, and the period and currency fragments must not cross it
-    either, or they carry the match over the break themselves."""
-    text = "Programme cost: $75,000\nyearly salary reviews apply."
+@pytest.mark.parametrize("text", [
+    "Programme cost: $75,000\nyearly salary reviews apply.",
+    # The label's own words must not span the break either.
+    "Programme cost: $75,000 base\nsalary reviews apply.",
+], ids=["period-word", "label-word"])
+def test_a_trailing_label_does_not_reach_across_a_line(text):
+    """A line break is a new statement. Reading a label below one turns a cost
+    into pay, and every part of the match must stay on the amount's line: the
+    period fragment, the currency and the label's own words."""
     assert not extract_grounded_band(text, text).disclosed
-    # The same shape on one line is the figure it reads.
-    inline = "$75,000 yearly salary"
-    assert extract_grounded_band(inline, inline).base_min == 75_000
+
+
+@pytest.mark.parametrize("inline, figure", [
+    ("$75,000 yearly salary", 75_000),
+    ("$75,000 base salary", 75_000),
+    ("$150,000 Annual Base Salary", 150_000),
+], ids=["period-word", "label-word", "both"])
+def test_the_same_trailing_label_on_one_line_is_read(inline, figure):
+    """The control for the test above: the shape itself is pay."""
+    assert extract_grounded_band(inline, inline).base_min == figure
 
 
 def test_a_figure_is_grounded_where_the_posting_states_it_as_pay():
@@ -807,6 +820,18 @@ def test_a_figure_is_grounded_where_the_posting_states_it_as_pay():
     assert (band.base_min, band.base_max) == (150_000, 150_000)
     assert "base salary" in (band.source_snippet or "")
     assert "Customers" not in (band.source_snippet or "")
+
+
+def test_a_figure_is_not_grounded_at_other_money_of_the_same_size():
+    """Grounding reads the figure patterns again, so it owes the candidate's
+    own filters: a bonus of the same figure is refused there as it is refused
+    as a candidate, or the salary is quoted and settled at the bonus."""
+    text = ("Bonus pay: $150,000.\n\n" + "Filler sentence here. " * 6
+            + "Base salary: $150,000 per year.")
+    band = extract_grounded_band(text, text)
+    assert (band.base_min, band.base_max) == (150_000, 150_000)
+    assert "Base salary" in (band.source_snippet or "")
+    assert "Bonus" not in (band.source_snippet or "")
 
 
 def test_a_stated_range_always_beats_a_figure_stated_once():
