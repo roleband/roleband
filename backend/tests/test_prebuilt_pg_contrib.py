@@ -122,8 +122,12 @@ def test_every_supported_platform_has_a_complete_verified_bundle():
                 assert extracted is not None
                 assert hashlib.sha256(extracted.read()).hexdigest() == entry["files"][member.name]
         assert "share/postgresql/extension/pg_trgm.COPYRIGHT" in entry["files"]
-    # The wheel's own Windows pgvector is built with -march=native; the bundle
-    # replaces it with a portable build of the same version.
-    windows = manifest["platforms"]["windows-amd64"]
-    assert "lib/postgresql/vector.dll" in windows["files"]
-    assert windows["pgvector"]["version"] == "0.8.7"
+    # pgvector builds with -march=native everywhere but macOS ARM, so the wheel's
+    # own library runs only on CPUs with its build machine's features. These
+    # bundles replace it with a portable build of the same version.
+    portable = {"linux-aarch64": "vector.so", "linux-x86_64": "vector.so", "windows-amd64": "vector.dll"}
+    for key, library in portable.items():
+        entry = manifest["platforms"][key]
+        assert f"lib/postgresql/{library}" in entry["files"], key
+        assert entry["pgvector"]["version"] == "0.8.7", key
+    assert "pgvector" not in manifest["platforms"]["darwin-arm64"]

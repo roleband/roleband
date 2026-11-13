@@ -10,10 +10,14 @@ On Windows the wheel's server is built by MinGW gcc against the UCRT, so the
 bundle is built the same way: MSYS2's UCRT64 toolchain (`pacman -S
 mingw-w64-ucrt-x86_64-gcc make`), found at `ROLEBAND_MSYS2` or `C:\\msys64`. A
 DLL built against the older msvcrt would load, but would run a second C runtime
-inside the server. The Windows bundle also carries a pgvector rebuilt without
-`-march=native`: the wheel's own `vector.dll` was tuned to its build machine
-and dies with an illegal instruction on CPUs without AVX-512. pgvector picks its
-SIMD paths at run time, so the portable build gives up no fast path.
+inside the server.
+
+The Linux and Windows bundles also carry a pgvector rebuilt without
+`-march=native`, the flag pgvector's Makefile sets everywhere but macOS ARM: the
+wheel's own library is tuned to its build machine and dies with an illegal
+instruction on a CPU without that machine's features (an x86_64 one without
+AVX-512, for instance). pgvector picks its SIMD paths at run time, so the
+portable build gives up no fast path.
 """
 
 from __future__ import annotations
@@ -124,7 +128,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--wheel", type=Path)
     parser.add_argument("--source", type=Path)
-    parser.add_argument("--pgvector-source", type=Path, help="pgvector source tarball (Windows bundle)")
+    parser.add_argument("--pgvector-source", type=Path, help="pgvector source tarball (Linux and Windows bundles)")
     parser.add_argument("--download", action="store_true", help="download the pinned build inputs")
     args = parser.parse_args()
     if args.download:

@@ -7,9 +7,10 @@ cannot see them: advisories name PostgreSQL, never the wheel. This reads the pin
 versions, reads postgresql.org's release list and pgvector's tags, and names each one
 that is behind.
 
-The manifest records pgvector once, as the source of the Windows `vector.dll`, which
-replaces only the library and keeps the wheel's extension files; a test holds it equal to
-the wheel's own pgvector, so that one version is what every platform runs.
+The manifest records pgvector as the source of the portable `vector` library in the Linux
+and Windows bundles, which replaces only the library and keeps the wheel's extension files.
+This check requires one version across them, and a test holds it equal to the wheel's own
+pgvector, so that one version is what every platform runs.
 
 When a newer minor of a supported major is out, it also reads the newest wheel on PyPI and
 the Postgres version its source builds, because that decides the fix: move the wheel pin,
