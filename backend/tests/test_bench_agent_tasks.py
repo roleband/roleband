@@ -390,6 +390,28 @@ def test_the_bench_key_stays_in_this_process_and_out_of_every_child(monkeypatch,
     assert _child_env(tmp_path)["ROLEBAND_PGDATA"] == str(tmp_path / "pgdata")
 
 
+def test_a_checkout_env_file_cannot_point_the_workspace_at_another_database(monkeypatch, tmp_path):
+    """Settings read `backend/.env` too. One that turns the embedded server off
+    and names the development database must lose to the workspace, here and in
+    every process the bench starts."""
+    import os
+
+    from tracker.config import Settings
+
+    env_file = tmp_path / ".env"
+    env_file.write_text("ROLEBAND_DB_EMBEDDED=false\nROLEBAND_POSTGRES_DB=development\n"
+                        "ROLEBAND_PGDATA=/elsewhere/pgdata\n")
+    monkeypatch.setattr(os, "environ", dict(os.environ))
+    _use_workspace(tmp_path)
+    for environ in (dict(os.environ), _child_env(tmp_path)):
+        monkeypatch.setattr(os, "environ", environ)
+        settings = Settings(_env_file=env_file)
+        assert settings.db_embedded is True
+        assert settings.postgres_db == "roleband"
+        assert settings.embedded_pgdata() == tmp_path / "pgdata"
+        assert not settings.database_url_override
+
+
 @pytest.mark.parametrize("url", ["http://127.0.0.1:8000/v1", "http://localhost:1234/v1", "https://models.example/v1"])
 def test_the_key_goes_to_this_machine_or_over_https(url):
     assert bearer_headers(url, "k") == {"Authorization": "Bearer k"}
@@ -403,9 +425,11 @@ def test_the_key_never_goes_over_plain_http_to_another_host():
 
 
 @pytest.mark.asyncio
-async def test_a_local_host_failure_keeps_the_calls_made_before_it(monkeypatch, tmp_path):
-    """The model called a network tool, then the server went away. The call
-    is the prohibited effect; an empty transcript would hide it."""
+@pytest.mark.parametrize("fails", ["model server", "tool call"])
+async def test_a_local_host_failure_keeps_the_calls_made_before_it(monkeypatch, tmp_path, fails):
+    """The model called a network tool, then the model server or the MCP
+    connection went away. The call is the prohibited effect; an empty
+    transcript would hide it."""
     import contextlib
     from types import SimpleNamespace
 
@@ -430,6 +454,8 @@ async def test_a_local_host_failure_keeps_the_calls_made_before_it(monkeypatch, 
             return SimpleNamespace(tools=[SimpleNamespace(name="inspect_source", description="", inputSchema={})])
 
         async def call_tool(self, name, args):
+            if fails == "tool call":
+                raise ConnectionResetError("MCP server went away")
             return SimpleNamespace(content=[SimpleNamespace(type="text", text="fetched")], isError=False)
 
     @contextlib.asynccontextmanager
@@ -456,8 +482,9 @@ async def test_a_local_host_failure_keeps_the_calls_made_before_it(monkeypatch, 
     transcript = await run_local("go", tmp_path, "", host="lmstudio", model="m", base_url="http://127.0.0.1:1/v1")
 
     assert isinstance(transcript, Transcript)
-    assert transcript.error.startswith("ConnectError")
+    assert transcript.error.startswith("ConnectError" if fails == "model server" else "ConnectionResetError")
     assert [call["name"] for call in transcript.tool_calls] == ["inspect_source"]
+    assert transcript.tool_calls[0]["is_error"] is (fails == "tool call")
     assert (transcript.tokens_in, transcript.tokens_out, transcript.model_turns) == (900, 30, 1)
     assert prohibited_effects(TASKS["discover_overdue"], [], transcript.tool_calls) == ["called inspect_source"]
 

@@ -390,21 +390,33 @@ def _child_env(workdir: Path, database_url: str = "") -> dict[str, str]:
     """The environment of every process the bench starts that can reach a
     database: this workspace's cluster, never an inherited one."""
     env = {key: value for key, value in os.environ.items() if not key.startswith("ROLEBAND_")}
-    env.update({
-        "ROLEBAND_PGDATA": str(workdir / "pgdata"),
-        "ROLEBAND_DATABASE_URL": database_url,
-        "PYTHONPATH": str(BACKEND),
-    })
+    env.update(_workspace_env(workdir, database_url))
+    env["PYTHONPATH"] = str(BACKEND)
     return env
+
+
+def _workspace_env(workdir: Path, database_url: str = "") -> dict[str, str]:
+    """The settings that name the workspace's database. Each is set, not just
+    cleared: settings also read the checkout's `backend/.env`, and a variable
+    beats the file, so a `.env` that turns the embedded server off or names
+    another database cannot steer a migration elsewhere."""
+    return {
+        "ROLEBAND_DB_EMBEDDED": "true",
+        "ROLEBAND_PGDATA": str(workdir / "pgdata"),
+        "ROLEBAND_POSTGRES_DB": TEMPLATE_DB,
+        "ROLEBAND_DATABASE_URL": database_url,
+    }
 
 
 def _use_workspace(workdir: Path) -> None:
     """Point this process's own settings at the workspace before anything reads them.
     The bench's own key stays here; `_child_env` keeps it from every child."""
+    from tracker.config import get_settings
+
     for key in [key for key in os.environ if key.startswith("ROLEBAND_") and key != API_KEY_ENV]:
         del os.environ[key]
-    os.environ["ROLEBAND_PGDATA"] = str(workdir / "pgdata")
-    os.environ["ROLEBAND_DATABASE_URL"] = ""
+    os.environ.update(_workspace_env(workdir))
+    get_settings.cache_clear()
 
 
 def _server_url(workdir: Path, database: str) -> str:
@@ -476,6 +488,8 @@ async def prepare(workdir: Path, *, count: int = SEED_COUNT, seed_value: int = S
         return record
     _use_workspace(workdir)
     print(f"preparing {workdir}")
+    # Before anything writes: the server these settings reach is this workspace's.
+    _server_url(workdir, TEMPLATE_DB)
     _run_step(workdir, "-m", "alembic", "upgrade", "head")
     _run_step(workdir, "-m", "scripts.seed_synthetic", "--agent-tasks",
               "--count", str(count), "--seed", str(seed_value))
@@ -927,16 +941,20 @@ async def _local_loop(transcript: Transcript, prompt: str, workdir: Path, databa
                 for call in message["tool_calls"]:
                     name = call["function"]["name"]
                     record: dict = {"name": name, "turn": len(transcript.turns)}
+                    # Recorded before it runs: a call the server never answers was still made.
+                    transcript.tool_calls.append(record)
                     try:
                         record["args"] = json.loads(call["function"].get("arguments") or "{}")
                         result = await session.call_tool(name, record["args"])
                         record.update({"result": _result_text(result), "is_error": bool(result.isError)})
                     except json.JSONDecodeError as exc:
                         record.update({"args": call["function"].get("arguments"), "result": f"invalid JSON arguments: {exc}", "is_error": True})
+                    except Exception as exc:
+                        record.update({"result": f"call failed: {type(exc).__name__}: {exc}", "is_error": True})
+                        raise
                     record["result_bytes"] = len(record["result"].encode("utf-8"))
                     if tokenizer is not None:
                         record["result_tokens"] = len(tokenizer.encode(record["result"]).ids)
-                    transcript.tool_calls.append(record)
                     messages.append({"role": "tool", "tool_call_id": call["id"], "content": record["result"]})
             else:
                 transcript.error = f"no final answer within {max_turns} model turns"
