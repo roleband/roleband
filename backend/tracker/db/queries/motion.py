@@ -44,6 +44,7 @@ from sqlalchemy import (
     BigInteger,
     Integer,
     and_,
+    any_,
     case,
     cast,
     desc,
@@ -250,7 +251,10 @@ async def load(
         if open_roles:
             seed = or_(seed, Job.status == "open")
         reached = _reached(scope, hidden, seed)
-        wanted = Job.id.in_(select(reached.c.id).where(reached.c.kind == _POSTING))
+        # An array, not IN: no estimate of a recursive walk is close, and on a
+        # small table a guess makes a scan of every posting look cheaper than
+        # looking up the ones the walk reached.
+        wanted = Job.id == any_(func.array(select(reached.c.id).where(reached.c.kind == _POSTING).scalar_subquery()))
     stmt = select(
         Job.id,
         Job.company,
