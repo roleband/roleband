@@ -825,6 +825,44 @@ async def test_the_pay_tab_and_the_daily_pay_record_read_a_role_through_the_same
     assert body["overall"]["count"] == 26 and body["overall"]["min"] == 250000
 
 
+async def _place_set(db_session, jobs: list, digit: str) -> None:
+    """One role listed at each of `jobs`' places, the first listed first."""
+    db_session.add_all(jobs)
+    await db_session.flush()
+    place_set = JobPlaceSet(company=jobs[0].company, title="product manager", text_hash=digit * 32, size=len(jobs),
+                            places=[job.locations[0] for job in jobs], rule_version="t1")
+    db_session.add(place_set)
+    await db_session.flush()
+    for i, job in enumerate(jobs):
+        job.first_seen = NOW - timedelta(minutes=30 - i)
+        db_session.add(JobPlaceSetMember(job_id=job.id, set_id=place_set.id, status="auto"))
+
+
+@pytest.mark.asyncio
+async def test_a_role_priced_by_its_base_counts_once_and_never_beside_its_total(api_client, db_session, seeded):
+    """A role at two places priced by base alone is one base role. A role whose
+    first place is priced by base and whose second has a total is a total, and
+    not also a base role."""
+    before = (await _get(api_client, ROUTES["compensation"]))["base_estimates"]["coverage"]["with_base"]
+
+    def base_only(key: str, place: str, group: str, base: int):
+        return _role("netflix", key, level="senior", days_open=0, locations=[place], location_groups=[group],
+                     comp_component="base", comp_base_median=base)
+
+    await _place_set(db_session, [base_only("pm-austin", "Austin, TX", "austin", 180000),
+                                  base_only("pm-nyc", "New York, NY", "new_york", 200000)], "2")
+    await _place_set(db_session, [
+        base_only("em-austin", "Austin, TX", "austin", 210000),
+        _role("netflix", "em-nyc", level="senior", comp=330000, days_open=0, locations=["New York, NY"],
+              location_groups=["new_york"]),
+    ], "3")
+    await db_session.commit()
+
+    body = await _get(api_client, ROUTES["compensation"])
+    assert body["base_estimates"]["coverage"]["with_base"] == before + 1
+    assert body["overall"]["min"] == 330000 and body["coverage"]["with_comp"] == 26
+
+
 async def _onboard_a_company(db_session) -> dict[str, int]:
     """`acme` arrives today: its FIRST run finds three roles its board was already
     listing (one dated by its employer 200 days ago, one 20 days ago, one

@@ -119,6 +119,27 @@ def priced_in_dollars(source: str | None = None) -> Callable[[Any], list]:
     return eligible
 
 
+def base_only_role_conds() -> list:
+    """The roles a pay read prices by their dollar base alone, one posting each.
+
+    `insights_role_conds` through a member with a dollar base and no dollar total
+    when no member of the set has a total: a role with a priced total belongs to
+    the totals (`priced_in_dollars`), never to both reads, and a set of several
+    base-only postings counts once.
+    """
+    def base_only(peer: Any) -> list:
+        return [peer.comp_currency == "USD", peer.comp_component == "base",
+                peer.comp_median.is_(None), peer.comp_base_median.is_not(None)]
+
+    priced = priced_in_dollars()
+    with_total = aliased(Job)
+    return [
+        *insights_role_conds(lambda peer: [or_(and_(*priced(peer)), and_(*base_only(peer)))]),
+        *base_only(Job),
+        not_(place_set_member_in(select(with_total.id).where(*priced(with_total)))),
+    ]
+
+
 def place_set_later_ids() -> Select:
     """Ids of the postings a place set shows through another member,
     for the raw-SQL aggregates that cannot take the ORM clause."""

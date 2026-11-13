@@ -82,10 +82,20 @@ describe("a dev server with the guard", () => {
     expect(seen[0].host).toBe(new URL(url).host);
   });
 
-  it("refuses a request from another machine before the proxy forwards it", async () => {
+  it.each(["/api/health", "/api%2Fhealth", "/apihealth"])(
+    "refuses %s from another machine before the proxy forwards it",
+    async (path) => {
+      const { seen, url } = await stack("192.168.1.5");
+      const response = await fetch(new URL(path, url));
+      expect(response.status).toBe(403);
+      expect(seen).toHaveLength(0);
+    },
+  );
+
+  it("leaves a request outside /api to the dev server", async () => {
     const { seen, url } = await stack("192.168.1.5");
-    const response = await fetch(url);
-    expect(response.status).toBe(403);
+    const response = await fetch(new URL("/apple-touch-icon.png", url));
+    expect(response.status).not.toBe(403);
     expect(seen).toHaveLength(0);
   });
 });

@@ -68,6 +68,7 @@ from tracker.db.models import (
 from tracker.db.queries import motion
 from tracker.db.queries.insights import history_days, history_since, window_since
 from tracker.db.queries.jobs import (
+    base_only_role_conds,
     board_count_stmt,
     exclude_hidden,
     facet_count_stmt,
@@ -283,9 +284,8 @@ async def statistics_compensation(session: SessionDep, hidden: OffBoardDep, narr
     # A role listed in several places is read through the posting the daily pay
     # record keeps for it (`priced_in_dollars`), so the tab and its history agree.
     # The count of open roles and the printed ranges keep the plain rule.
-    estimate_scope = [*insights_role_conds(priced_in_dollars()), *narrowed.conds()]
-    if hidden:
-        estimate_scope.append(Job.company.notin_(hidden))
+    shown = [*narrowed.conds(), *([Job.company.notin_(hidden)] if hidden else [])]
+    estimate_scope = [*insights_role_conds(priced_in_dollars()), *shown]
     rows = (
         await session.execute(
             select(Job.company, Job.level_band, Job.family, case((in_usd, Job.comp_median)).label("comp_median"),
@@ -304,8 +304,7 @@ async def statistics_compensation(session: SessionDep, hidden: OffBoardDep, narr
     base_rows = (
         await session.execute(
             select(Job.company, level, Job.family, Job.comp_base_median, Job.location_groups).where(
-                *estimate_scope, in_usd, Job.comp_component == "base", Job.comp_median.is_(None),
-                Job.comp_base_median.isnot(None),
+                *base_only_role_conds(), *shown,
             )
         )
     ).all()
