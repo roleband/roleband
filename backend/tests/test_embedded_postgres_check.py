@@ -95,15 +95,29 @@ def _windows(manifest):
     return manifest["platforms"]["windows-amd64"]
 
 
+def _linux(manifest):
+    return manifest["platforms"]["linux-x86_64"]
+
+
+def _drop_pgvector(manifest):
+    for entry in manifest["platforms"].values():
+        entry.pop("pgvector", None)
+
+
+def _linux_pgvector_behind(manifest):
+    _linux(manifest)["pgvector"].update(version="0.8.6", source_url=_linux(manifest)["pgvector"]["source_url"].replace("0.8.7", "0.8.6"))
+
+
 @pytest.mark.parametrize("edit_manifest, edit_pin, message", [
     (lambda m: m.update(postgres="16.16"), None, "is not the 16.16 source"),
     (lambda m: m.update(postgres="16"), None, "not a Postgres version"),
     (lambda m: m.update(wheel_version="0.7.3"), None, "was built against"),
     (lambda m: _windows(m)["pgvector"].update(version="0.8.8"), None, "pgvector source is not 0.8.8"),
-    (lambda m: _windows(m).pop("pgvector"), None, "one pgvector version"),
+    (_drop_pgvector, None, "one pgvector version"),
+    (_linux_pgvector_behind, None, "one pgvector version"),
     (None, lambda text: text.replace("pixeltable-pgserver==0.7.2", "pixeltable-pgserver==0.7.3"), "pins pixeltable-pgserver"),
     (None, lambda text: "\n".join(line for line in text.splitlines() if "pixeltable-pgserver==" not in line), "nowhere"),
-], ids=["source-url", "not-a-version", "platform-wheel", "pgvector-url", "no-pgvector", "lock-moved", "lock-missing"])
+], ids=["source-url", "not-a-version", "platform-wheel", "pgvector-url", "no-pgvector", "two-pgvectors", "lock-moved", "lock-missing"])
 def test_pins_that_disagree_are_refused(tmp_path, edit_manifest, edit_pin, message):
     root = _copy_pins(tmp_path, edit_manifest, edit_pin)
     with pytest.raises(ValueError, match=message):
