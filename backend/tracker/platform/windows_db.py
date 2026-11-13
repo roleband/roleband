@@ -140,11 +140,37 @@ def _retire_dead_pid(pgdata: Path) -> bool:
         raise WindowsDbError("cannot establish that the recorded database process is dead") from exc
 
 
+def _set_aside_unfinished(pgdata: Path, auth: Path) -> None:
+    """Keep what a first setup left when it stopped before recording its cluster, out of the way.
+
+    The cluster record is written last, after initdb, and no server starts before it, so a
+    password file without one, beside a data folder no server has run, belongs to a setup
+    that never finished and holds no history. Everything is renamed, nothing deleted. The data folder goes first and the password file
+    last: an interruption here leaves the password file to repeat this on the next start.
+    """
+    from tracker.platform.windows_fs import move
+
+    suffix = "unfinished-" + uuid.uuid4().hex
+    if pgdata.exists() or pgdata.is_symlink():
+        move(pgdata, pgdata.with_name(f"{pgdata.name}.{suffix}"))
+    for name in ("initdb-password", "pgpass.conf"):
+        path = auth / name
+        if path.exists() or path.is_symlink():
+            move(path, auth / f"{name}.{suffix}")
+    logger.warning("first database setup at %s never finished; kept its files as *.%s and starting over",
+                   pgdata, suffix)
+
+
 def _initialize(pgdata: Path, auth: Path, bin_dir: Path, version: int, locale: str) -> None:
     from tracker.platform.windows_storage import metadata, read_json, validate, write_json
 
     marker = auth / "cluster.json"
     passfile = auth / "pgpass.conf"
+    # The postmaster writes postmaster.opts on every start and initdb never does, so a cluster
+    # that has run keeps it even after losing its record, and stays refused below.
+    if (passfile.is_file() and not passfile.is_symlink() and not (marker.exists() or marker.is_symlink())
+            and not any((pgdata / name).exists() for name in ("postmaster.opts", "postmaster.pid"))):
+        _set_aside_unfinished(pgdata, auth)
     if (pgdata / "PG_VERSION").exists():
         try:
             require_private(pgdata)

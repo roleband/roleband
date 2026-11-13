@@ -98,17 +98,12 @@ async function responseBytes(response: Response): Promise<Uint8Array<ArrayBuffer
   return body;
 }
 
-export async function localFetch(url: string, init?: RequestInit): Promise<Response> {
-  const credential = await session();
-  if (credential === null) return init === undefined ? fetch(url) : fetch(url, init);
-  const target = new URL(url, window.location.origin);
-  if (target.origin !== credential.origin || (init?.body !== undefined && typeof init.body !== "string")) {
-    throw new LocalAuthenticationError("invalid-engine-request-target");
-  }
+type Signed = { response: Response; authorization: string };
+
+async function signedFetch(credential: Session, key: CryptoKey, url: string, target: URL, init?: RequestInit): Promise<Signed> {
   const method = init?.method ?? "GET";
   const stamp = String(Math.floor(Date.now() / 1000));
   const nonce = hex(crypto.getRandomValues(new Uint8Array(16)));
-  const key = await crypto.subtle.importKey("raw", bytes(credential.secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
   const message = ["request-v1", credential.key_id, stamp, nonce, method, credential.origin,
     target.pathname + target.search, await digest(encoder.encode((init?.body as string | undefined) ?? ""))].join("\n");
   const signed = hex(await crypto.subtle.sign("HMAC", key, encoder.encode(message)));
@@ -116,6 +111,39 @@ export async function localFetch(url: string, init?: RequestInit): Promise<Respo
   const headers = new Headers(init?.headers);
   headers.set("Authorization", authorization);
   const response = await fetch(url, { ...init, headers, redirect: "error", cache: "no-store", credentials: "omit" });
+  return { response, authorization };
+}
+
+/** Waits until the wall clock reads a later second than `than`, or reports that it did not within
+ * two seconds, as when the clock is stepped back. */
+async function laterSecond(than: number): Promise<boolean> {
+  const deadline = performance.now() + 2000;
+  while (Math.floor(Date.now() / 1000) <= than) {
+    if (performance.now() >= deadline) return false;
+    await new Promise((resolve) => setTimeout(resolve, Math.min(1000 - (Date.now() % 1000) + 1, 250)));
+  }
+  return true;
+}
+
+export async function localFetch(url: string, init?: RequestInit): Promise<Response> {
+  const credential = await session();
+  if (credential === null) return init === undefined ? fetch(url) : fetch(url, init);
+  const target = new URL(url, window.location.origin);
+  if (target.origin !== credential.origin || (init?.body !== undefined && typeof init.body !== "string")) {
+    throw new LocalAuthenticationError("invalid-engine-request-target");
+  }
+  const key = await crypto.subtle.importKey("raw", bytes(credential.secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
+  let { response, authorization } = await signedFetch(credential, key, url, target, init);
+  // An API process refuses, with a 401 and no proof, a signature stamped in or before the second it
+  // started, so a request that waited through an API restart comes back like this. The engine
+  // accepts one signed in a later second than the refusal; a listener that is not the engine cannot
+  // prove that one either. Other replies without a proof are not sent again: a route that fails
+  // after a write answers 500 without one.
+  if (response.status === 401 && !response.headers.has("X-RoleBand-Proof")
+      && await laterSecond(Math.floor(Date.now() / 1000))) {
+    void response.body?.cancel().catch(() => {});
+    ({ response, authorization } = await signedFetch(credential, key, url, target, init));
+  }
   const proof = response.headers.get("X-RoleBand-Proof") ?? "";
   const responseMessage = `response-v1\n${authorization}\n${response.status}\n${await digest(await responseBytes(response))}`;
   if (!hex64.test(proof) || !await crypto.subtle.verify("HMAC", key, bytes(proof), encoder.encode(responseMessage))) {
