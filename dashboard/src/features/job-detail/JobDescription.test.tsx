@@ -1,5 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { msg } from "../../test/msg";
 import { JobDescription } from "./JobDescription";
 
 describe("JobDescription", () => {
@@ -34,5 +35,14 @@ describe("JobDescription", () => {
   it("falls back to legacy plain text when sections are absent", () => {
     render(<JobDescription fallback="Legacy complete description." />);
     expect(screen.getByText("Legacy complete description.")).toBeVisible();
+    expect(screen.getByText("Legacy complete description.").closest(".jd")).not.toBeNull();
+  });
+
+  it("with no text at all, says so as a quiet fact, not as text to read", () => {
+    const { container } = render(<JobDescription sections={[]} fallback={null} />);
+    const said = screen.getByText(msg("role-job-description-no-description-captured"));
+    expect(said.tagName).toBe("P");
+    expect(said).toHaveClass("jd-empty");
+    expect(container.querySelector(".jd, .jd-sections")).toBeNull();
   });
 });

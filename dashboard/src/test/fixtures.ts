@@ -134,6 +134,7 @@ export function jobDetailFixture(overrides: Partial<JobDetail> = {}): JobDetail 
     ...jobFixture,
     description_text: "Lead API product strategy.",
     description_html: null,
+    places: [...jobFixture.locations],
     // What the server sends for a posting with no standing verdict to give.
     posting_reality: null,
     // Null until the posting's own page has been read.

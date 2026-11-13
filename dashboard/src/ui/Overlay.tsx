@@ -88,10 +88,29 @@ export interface OverlayProps {
       opens on HOVER passes false: moving the pointer must never move the
       keyboard's focus — the opener opens it again by key with focus. */
   takeFocus?: boolean;
+  /** Give focus back without its ring to an opener that wore none: a
+      pop-up on a small control the pointer pressed (`Popover`). A cover or a
+      dialog leaves the ring to the browser, so the row or button it came
+      from is marked when the keyboard closes it. */
+  quietReturn?: boolean;
   /** Which rank of the layer scale (Overlay.css). `dialog` (default) is a
       question put over the screen; `cover` IS a screen, laid over the list it
       was opened from — ranked below the toast host that reports on it. */
   layer?: "dialog" | "cover";
+}
+
+/** Focus without the ring. `focusVisible` is in the HTML standard and not
+ *  yet in the DOM typings this project compiles against. */
+const QUIET: FocusOptions = { focusVisible: false } as FocusOptions;
+
+/** Whether an element shows its focus ring now. An engine without the
+ *  selector answers yes: the ring is the safe reading. */
+function showsFocusRing(el: Element): boolean {
+  try {
+    return el.matches(":focus-visible");
+  } catch {
+    return true;
+  }
 }
 
 export function Overlay({
@@ -108,6 +127,7 @@ export function Overlay({
   style,
   wrapperClassName,
   takeFocus = true,
+  quietReturn = false,
   layer = "dialog",
 }: OverlayProps) {
   const contentRef = useRef<HTMLDivElement | null>(null);
@@ -120,9 +140,14 @@ export function Overlay({
   // released before focus goes back to it (an inert element refuses focus).
   useEffect(() => {
     if (!isOpen) return;
+    // Whether the opener wore its focus ring when it opened this: the person
+    // was on the keyboard. Opened with a pointer, it wore none, and a pop-up
+    // that returns quietly gives none back with focus.
+    let ringed = true;
     if (takeFocus) {
       restoreRef.current =
         document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      ringed = !quietReturn || !restoreRef.current || showsFocusRing(restoreRef.current);
       const content = contentRef.current;
       // Children that autofocus (callback refs run before effects) win; otherwise
       // the container itself takes focus so keyboard users land inside.
@@ -141,9 +166,14 @@ export function Overlay({
       // the page is still inert, and drops the call without a word. Reading a
       // layout value brings it up to date first.
       if (behind.length > 0) void restore.offsetWidth;
-      restore.focus();
+      // Focus goes back either way, so the keyboard carries on from the
+      // opener. Without the option the browser decides the ring from the last
+      // key or click, and an Escape would ring a button the pointer opened.
+      // An engine that does not know the option ignores it.
+      if (ringed) restore.focus();
+      else restore.focus(QUIET);
     };
-  }, [isOpen, takeFocus, modal, layer]);
+  }, [isOpen, takeFocus, quietReturn, modal, layer]);
 
   // Escape closes — when this is the topmost layer, and only then (ui/
   // escapeLayer). A layer that declines Escape still holds its place.

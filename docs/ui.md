@@ -361,6 +361,7 @@ The ramp is whole pixels, declared once in `tokens.css`. Never write a literal
 | `screen` | 18 | Card or zone heading (`h2`) |
 | `stat` | 22 | Standalone numerals |
 | `title` | 16 | `h3`, sector heading, tile title |
+| `read` | 17 | Long-form reading: a posting's own text |
 | `name` | 15 | A row's primary string (a company name) |
 | `body` | 14 | Descriptions, controls, tab bar, prose |
 | `meta` | 13 | Secondary facts. The floor for anything that states a fact |
@@ -541,7 +542,8 @@ never a bare `<a target="_blank">`.
   Other controls in it stay siblings, so nothing nests. Test the whole-card
   click with `page.mouse`; Playwright refuses a locator click on a covered
   element.
-- **A whole-row target** (a notification row, a review option) is a bare
+- **A whole-row target** (a notification row, a review option, the posting's
+  folding More like this heading, the next posting at a posting's end) is a bare
   `<button>` carrying layout and no button chrome. It still owns hover,
   focus and disabled, and its ring is drawn inside.
 - `src/test/control-inventory.test.ts` lists every class outside `src/ui/`
@@ -662,7 +664,6 @@ are not gated.
 
 | px | Owner |
 |---|---|
-| 1500 (min) | Job detail's wide reading measure |
 | 1360 (min) / 1359 | The filter rail gets its own column (`RAIL_QUERY` in `ui/FilterRail.tsx`, and `rail-shell.css`) |
 | 1240 | Profile walk's rail folds under the step; third top-bar stat hides |
 | 1180 | Companies register bar column |
@@ -706,6 +707,11 @@ where the ring is drawn:
 - Never a tint, halo, glow, bar or another hue for focus.
 - Text fields ring on click as well as on Tab. A native select rings for the
   keyboard only (`ui/Select` marks pointer focus with `data-pointer`).
+- A pop-up gives focus back to the control that opened it. `ui/Popover` gives
+  it back without the ring when the pointer opened it (the opener wore none),
+  so an Escape does not ring a button the person never reached by keyboard;
+  the next key shows the ring. A cover or a dialog leaves the ring to the
+  browser, so the row it came from is marked when the keyboard closes it.
 - `outline: none` only beside a named carrier, or on an element that only
   script focuses.
 - In a combobox, focus stays in the field and the active option
@@ -736,6 +742,8 @@ carries a control sets `data-above-cover` to join the cover's Tab ring.
   opens the shortcuts sheet (`shell/KeyboardShortcuts.tsx`).
 - On a job list, `j` / `k` (or the arrow keys) move between rows, Enter opens
   the role, `s` saves and `c` adds to Compare.
+- In a posting opened from a list, `j` / `k` open the next and the previous
+  posting of that list, while the keyboard is on the posting itself.
 - Duplicate review answers `d`, `t` and `n` with a verdict.
 - On an application's page, `m` opens the stage menu and `i` adds an interview;
   while a stage menu is open, here or on a Board card, `1` to `5` move to the
@@ -860,7 +868,8 @@ large window. `features/scope/setupZoom.ts` sets the factor in `--setup-zoom` on
 the root element, and `setupZoom.css` applies it as CSS `zoom` on the root only
 while `.app.in-setup` is drawn, so the board and every other screen keep their
 plain size. Why this and not larger tokens or a scale transform:
-[decision 0001](decisions/0001-setup-magnification.md).
+[decision 0001](decisions/0001-setup-magnification.md). A posting is not
+magnified: it steps by width ([Cover](#cover)).
 
 - **The factor** takes six tenths of the room the window has beyond the
   design: the room is the lesser of its width over 1440 and its height over 760
@@ -933,13 +942,126 @@ it opens from. Job detail and Compare use it.
   is a modal `ui/Overlay` with no scrim. Back and Escape pop history.
   `coverBackground()` in `routing/paths.ts` computes the background. Covers do
   not stack, except a role opened from Compare.
-- Reached by URL, the same body is the page's one `main` landmark.
+- Reached by URL, the same body is the page's one `main` landmark. A role
+  opened from a role that is the page takes its place as the page, one
+  history entry on (`steppedFrom` in its state): nothing is stacked on it,
+  and Back, by the bar, Escape or the browser, returns to the first.
 - The bar: Back, a frame line (`role="status"`), a spacer, secondary verbs, at
   most one primary. It wraps instead of using a breakpoint.
 
-**Job detail** (`features/job-detail/`) keeps a reading measure
-(`.jd-container`); its primary is View & apply, an anchor wearing the primary
-classes. **Compare** (`features/compare/`) runs full width with up to three
+**Job detail** (`features/job-detail/`) is the screen for reading a posting;
+its primary is View & apply, an anchor wearing the primary classes.
+
+- **The pay panel leads the main column**, and the employer's text follows it
+  directly. The role requirements panel is off the screen
+  (`SHOW_REQUIREMENTS`) while its worth there is decided.
+- **The text is set for reading**: `--app-type-read`, the text colour, across
+  its column, left-aligned with no automatic hyphenation. `descriptionShape.ts` reads a section's shape back from its
+  plain text for display only: bullet marks and runs of three or more
+  unfinished one-line paragraphs are lists, a paragraph of three or more lines
+  is a list, a short line ending in a colon is
+  a sub-heading, so is a title of a few words with no closing mark that
+  stands before whole sentences or a list, and anything unclear stays a
+  paragraph. The stored words are
+  never changed. A posting with no text of its own says so in one quiet line
+  (`.jd-empty`), not in the reading size.
+- **A long read has its own type ramp**: the text at `--app-type-read`, its
+  section headings at `--app-type-read-head`, the posting's title at
+  `--app-type-read-title`, each a clear step above the last. Sections are
+  parted by room alone, with no rule over a heading.
+- **The header's places** are the server's `places`: each office once, as its
+  canonical label, then any country the posting names with no office in it.
+  The source's own strings stand only when that list is empty.
+- **A section's heading is sticky** at the top of the reading column until the
+  next section's pushes it out. Stuck, its words stand level with the first
+  line of the side column (`--jd-head-inset`), so the two columns open on one
+  line. In its place it draws no ground. Stuck
+  (`data-stuck`, set by an IntersectionObserver in `stuckHeadings.ts`, since
+  CSS has no stuck state outside Chromium), its ground is the canvas, solid,
+  with a hairline at its foot as the bar has: nothing passing beneath shows
+  through or is blurred, and a line passing under it goes under an edge.
+- **The bar carries the role** once the posting's heading has left the scroll
+  box: title, company and level in the bar's middle, at the heading's left
+  edge. It is a copy for the eye (`aria-hidden`).
+- **The pay panel writes each figure once.** Under an estimated total, one
+  sentence says the base is the posting's own, and the base's figure stands
+  in the breakdown. When the employer's yearly base is all there is, it is
+  the headline under "Stated base salary", and the reason
+  there is no split follows as a note with no figure. The employer's figure
+  gets a box of its own only under a headline that is someone's estimate.
+- **A posting with no pay figure** keeps the panel as a short card: its
+  heading and one sentence of why (the plugin answering pay has not read the
+  company, the posting has not been read for pay yet, or it gives no figure
+  and nothing was estimated). No word stands in the figure's place, and
+  nothing describes a figure: no bar, no pay policy. Nothing docks.
+- **One posting gives place to another in a cover that stays open**
+  (`postingTurn.ts`): by the pager, or by a link on the posting, whether the
+  cover is a dialog over a list or the page itself. Both route error
+  boundaries are keyed once for every posting, so the cover and its bar are
+  never opened again. The posting on show stays, inert, until the
+  next has loaded: the screen is not emptied to a loading line between two
+  postings; a wait past 200 ms, the app's moment for any loading state, draws
+  a line running along the bar's foot (`.jd-waiting`), still under reduced
+  motion. Then the reading area (`.cover-scroll`) turns in one view
+  transition, named for the length of the turn only: the old posting leaves
+  first, the new one comes in the way the list runs (or rises, from a link),
+  at its top, after its own late parts have landed. A posting reached by
+  going back or forward in history opens where this cover left it. The bar
+  stays in place.
+  Reduced motion, a browser without view transitions and a window that draws
+  no frames get the same change with no motion; so does, from its second
+  posting on, a browser that held the page still before its first turn began
+  (one that draws the pictures in software).
+- **The pay panel's small copy** (`JobCompDock`) grows at the top of the side
+  column while the last 170 px of the panel leave, and goes back with the
+  scroll; under reduced motion it is absent, then whole. It grows by a grid
+  row, so the column below moves by layout: the one place a layout property
+  follows the scroll, because the column has to make room.
+  `readingChrome.ts` writes both to the elements on the scroll event.
+- **The side column is sticky** under the bar at the page's top inset and has
+  no scroll of its own. Rows of a column taller than the window come into
+  view at the end of the page. Its More like this section folds to its
+  heading, a choice this browser keeps for every posting (`similarFold.ts`).
+  It also folds by itself while the posting is read, from the moment the pay
+  copy stands whole in the column until the pay panel is back, leaving the
+  role's own facts beside the text; opened while reading, it stays open for
+  that posting, and none of this changes the kept choice. It never folds
+  where the side column is longer than the text, since that would move the
+  scroll. Its rows are quieter than a list's rows: names in the control
+  weight, the likeness muted.
+  In one column, at 860 px and narrower, the column follows the description,
+  nothing docks and the bar keeps to its controls.
+- **A posting opened from a list knows its place there.** `openJob` takes the
+  list's rows in order and carries them in history state; the bar's pager
+  (and `j` / `k`) replaces the entry with the row on either side, so Back
+  still returns to the list. The Board passes its page of rows; a posting
+  opened by link, or from inside another posting, has no pager. Under the
+  employer's text such a posting ends on the next row, named by its title,
+  company and place in the list (`.jd-end`): the whole block opens it, as
+  `j` does. The list's last row, and a posting with no list, end on nothing.
+
+Job detail steps up on a wider window, by the width of its own scroll box
+(a container query, `posting`, so no window breakpoint is added) and never by
+its height. Each step widens the frame and its gaps and sets the posting's type
+one size up, together, so the pay panel, the side column and the text keep
+their weight against each other, and the main column stays about 40 ems of the
+reading size, so a line keeps a comfortable length while it fills the column.
+Why steps and not CSS `zoom`:
+[decision 0014](decisions/0014-posting-width-steps.md).
+
+| Box width | Frame | Gaps | Text / heading / title |
+|---|---|---|---|
+| up to 1499 | 1200 | 40 sides, 44 between | 17 / 20 / 24 |
+| 1500 | 1360 | 56, 56 | 18 / 21 / 26 |
+| 1900 | 1520 | 64, 64, main column 1.5 to 1 | 20 / 23 / 28 |
+| 2400 | 1680 | 72, 72 | 22 / 25 / 30 |
+
+The steps restate the type tokens on `.jd-container` only. The bar sits outside
+the scroll box and keeps its size, as do the menus, pop-ups and dialogs the
+posting opens, which are portalled out of it: they are the app's chrome, not
+the read. At 860 px and narrower the posting is one column.
+
+A columnar cover (Compare) uses the window's width itself. **Compare** (`features/compare/`) runs full width with up to three
 roles (`COMPARE_CAP` in `context/JobWorkspace.tsx`): sticky column heads with
 the role and its verbs (save, not for me, remove), a field ledger from
 `attributes.tsx`, and one description column per role. It is not a rail entry;
@@ -1056,10 +1178,9 @@ press), the four-year total, the bars with a legend, the slider, and the years
 as a table under "Show the table" for exact figures and screen readers. A chip
 says where a figure comes from when it is not simply the person's: typical,
 stated by the company, estimated, assumed, or the last close. "Start from this"
-on any table row, or "Start an offer from this role" in a role's compensation
-panel, starts a finished offer from that package (the role's figures travel in
-the history entry, never the address), with Undo; its figures read as typical
-until the person answers them, and "Use my figures" walks those questions. A
+on any table row starts a finished offer from that package, with Undo; its
+figures read as typical until the person answers them, and "Use my figures"
+walks those questions. A
 listed grant in shares offers the last close the prices job stored, with its
 date, while a price key is saved; otherwise the person types the price, with a
 link to Settings › Plugins › Stock prices. At a private company the valuation
@@ -1105,6 +1226,8 @@ Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs
 | Axe in both themes | `a11y.spec.ts` |
 | Pay split bar: hatch strength, gaps, forced colours; the split label's help mark | `pay-split-bar.spec.ts` |
 | Visible primaries counted | `job-detail.spec.ts`, `profile.spec.ts` |
+| The posting's side column stays in view with no scroll of its own and keeps its first rows, folds More like this, and follows the description in one column; the pay panel's small copy grows with the scroll; a section's heading sticks; the bar carries the role; the pager steps through the list; the next posting turns in place, in one cover, with no loading line | `job-detail.spec.ts` |
+| A posting steps by its box's width alone: frame, columns and type together, the text across its column, the bar, menus and pop-ups at their size, nothing zoomed | `job-detail-steps.spec.ts` |
 | First-run setup | `routing/setupMode.test.tsx`, `features/scope/walk/Walk.test.tsx`, `features/companies/SetupCompanies.test.tsx`, `welcome.spec.ts` |
 | First-run setup magnification: the factor, window units, placed pop-ups, the planet's pointer | `features/scope/setupZoom.test.ts`, `features/scope/welcome/globeDrag.test.ts`, `setup-magnification.spec.ts`, `setup-magnification-webkit.spec.ts`, `setup-magnification-unhinted.spec.ts` |
 | The board during and after the first scan | `board-first-scan.spec.ts` |

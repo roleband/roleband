@@ -6,7 +6,7 @@ import { Dialog } from "./Dialog";
 import { ABOVE_COVER, Overlay } from "./Overlay";
 import { Popover } from "./Popover";
 
-function Harness(props: { modal?: boolean; closeOnScrim?: boolean; closeOnEscape?: boolean }) {
+function Harness(props: { modal?: boolean; closeOnScrim?: boolean; closeOnEscape?: boolean; quietReturn?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <div>
@@ -41,6 +41,27 @@ describe("Overlay", () => {
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(opener).toHaveFocus();
+  });
+
+  // A pop-up that returns quietly gives focus back without its ring to an
+  // opener the pointer pressed (it wore none); one the keyboard was on, and
+  // the opener of any other overlay, gets the browser's own decision.
+  it.each([
+    ["without its ring from a quiet pop-up to an opener that wore none", true, false, [{ focusVisible: false }]],
+    ["as the browser decides from a quiet pop-up to an opener that wore its ring", true, true, []],
+    ["as the browser decides from any other overlay", false, false, []],
+  ] as const)("on closing, focus goes back %s", async (_name, quietReturn, ringed, args) => {
+    render(<Harness quietReturn={quietReturn} />);
+    const opener = screen.getByRole("button", { name: "Open it" });
+    const matches = opener.matches.bind(opener);
+    opener.matches = (selector: string) => (selector === ":focus-visible" ? ringed : matches(selector));
+    await userEvent.click(opener);
+    const focus = vi.spyOn(opener, "focus");
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(opener).toHaveFocus();
+    expect(focus).toHaveBeenCalledTimes(1);
+    expect(focus.mock.calls[0]).toEqual(args);
   });
 
   it("does not close on Escape when closeOnEscape is false", async () => {

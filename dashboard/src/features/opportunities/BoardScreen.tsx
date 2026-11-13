@@ -18,7 +18,7 @@ import {
   radarTruncated,
   radarTruncatedOther,
 } from "../../copy/gen/radar";
-import { useCallback, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import type { Job } from "../../api";
 import { useJobActions, useJobWorkspace } from "../../context/JobWorkspace";
 import { useMissionActions, useMissionState } from "../../context/MissionState";
@@ -71,13 +71,19 @@ export function BoardScreen(props: CompanyLens) {
   // One row renderer for BOTH sections: the exact and related lists must never
   // drift apart on row features (the render-layer twin of patchJob/removeJob).
   const inLens = filters.dismissed_only;
+  // The page's rows in the order they stand, exact then related: a posting
+  // opened from one steps to the rows on either side of it.
+  const neighbours = useMemo(
+    () => [...(list?.items ?? []), ...(list?.related_items ?? [])].map((job) => ({ id: job.id, company: job.company, title: job.title })),
+    [list],
+  );
   const renderRow = useCallback(
     (job: Job) => (
       <JobCard
         key={job.id}
         job={job}
         viewed={job.viewed_at != null || viewedIds.has(job.id)}
-        onOpen={() => openJob(job.id, job.company)}
+        onOpen={() => openJob(job.id, job.company, neighbours)}
         onToggleFav={() => toggleFav(job)}
         onDismiss={() => dismiss(job)}
         foot={inLens && <ExclusionOffers job={job} onExclude={excludeVocabulary} />}
@@ -87,7 +93,7 @@ export function BoardScreen(props: CompanyLens) {
         compareCap={compareCap}
       />
     ),
-    [compareCap, compareFull, compareIds, dismiss, excludeVocabulary, inLens, openJob, toggleCompare, toggleFav, viewedIds]
+    [compareCap, compareFull, compareIds, dismiss, excludeVocabulary, inLens, neighbours, openJob, toggleCompare, toggleFav, viewedIds]
   );
 
   /* Best fit puts the roles at a level we place first and says where

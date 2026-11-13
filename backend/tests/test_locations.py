@@ -17,7 +17,7 @@ from tracker.enrich import inventory
 from tracker.enrich.classify import location_groups_for, location_slugs_for
 from tracker.taxonomy.cities import city_by_slug
 from tracker.taxonomy.countries import UNIONS
-from tracker.taxonomy.locations import countries_for, normalize_cities
+from tracker.taxonomy.locations import countries_for, normalize_cities, posting_places
 
 # Every test here reaches code that starts or signals a process on this
 # machine, so none of them may.
@@ -173,6 +173,37 @@ class TestNormalizeCities:
         # Never seen in an alias table, still parseable -> keep it visible.
         assert normalize_cities(["Bee Cave, Texas, USA"]) == ["Bee Cave, TX"]
         assert normalize_cities(["Zürich, Switzerland"]) == ["Zürich, Switzerland"]
+
+
+class TestPostingPlaces:
+    """The places line on a posting's own page."""
+
+    def test_one_office_written_three_ways_and_a_bare_country(self):
+        # A board's own copy: the office twice in two orders, its region code,
+        # the UK as a code and again beside placeholders.
+        raw = [
+            "GB",
+            "Dublin, D, IE",
+            "United Kingdom, Multiple Locations, Multiple Locations",
+            "Ireland, Dublin, Dublin",
+        ]
+        assert posting_places(raw) == ["Dublin, Ireland", "United Kingdom"]
+
+    def test_a_country_an_office_stands_in_is_not_repeated(self):
+        assert posting_places(["San Francisco, CA | New York City, NY", "US"]) == [
+            "San Francisco, CA",
+            "New York, NY",
+        ]
+        assert posting_places(["London, UK", "United Kingdom"]) == ["London, UK"]
+        assert posting_places(["Toronto, ON, Canada", "Canada"]) == ["Toronto, ON"]
+
+    def test_a_country_with_no_office_is_named_in_words(self):
+        assert posting_places(["US"]) == ["United States"]
+        assert posting_places(["Remote (US)", "Canada"]) == ["Remote (US)", "Canada"]
+
+    def test_placeholders_name_nothing(self):
+        assert posting_places(["Multiple Locations"]) == []
+        assert posting_places([]) == []
 
 
 class _Rows:

@@ -9,10 +9,12 @@ import { useSaveCommand } from "../../context/useSaveCommand";
 import { useToast } from "../../ui/Toast";
 import { Job, PursuitStage, SimilarJob, api, isNotFound } from "../../api";
 import { statusName } from "../../copy/vocab";
-import { companyName } from "../../format";
+import { BAND_LABEL, companyName } from "../../format";
 import { payPoint } from "../../payShown";
 import { usePayCoverage } from "../../payCoverage";
-import JobCompPanel from "./JobCompPanel";
+import JobCompPanel, { JobCompDock } from "./JobCompPanel";
+import { useReadingChrome } from "./readingChrome";
+import { useHeld, useShownPosting } from "./postingTurn";
 import { JobDescription } from "./JobDescription";
 import { JobRequirementsPanel } from "./JobRequirementsPanel";
 import { LineageStack } from "./LineageStack";
@@ -23,6 +25,7 @@ import { unfollowedSentence } from "../../patterns/jobs/unfollowed";
 import { applyAsk } from "./applyAsk";
 import { PlaceSetSection } from "./PlaceSetSection";
 import { TwinDeck } from "./TwinDeck";
+import { readSimilarFolded, writeSimilarFolded } from "./similarFold";
 import { Icon } from "../../ui/Icon";
 import { CompanyChip } from "../../patterns/companies/CompanyChip";
 import { BandBadge, LocBadge } from "../../patterns/jobs/JobBadges";
@@ -35,6 +38,11 @@ import {
   roleJobDetail1InComparePickOne,
   roleJobDetailBack,
   roleJobDetailBack2,
+  roleJobDetailNextPosting,
+  roleJobDetailPager,
+  roleJobDetailPagerNext,
+  roleJobDetailPagerPlace,
+  roleJobDetailPagerPrevious,
   roleJobDetailCompare,
   roleJobDetailCompareIsFullMax,
   roleJobDetailCompareRoles,
@@ -60,6 +68,13 @@ import {
 import { Msg } from "../../ui/Msg";
 import { Content } from "../../ui/Content";
 import { shellLoadRoleFailed, shellLoadingRole } from "../../copy/gen/shell";
+
+/** Whether the role requirements panel stands above the description. */
+const SHOW_REQUIREMENTS: boolean = false;
+
+/** Whether the posting's level is one to show: a level it never stated, or
+ *  one that could not be placed, is kept for sorting only (`BandBadge`). */
+const stated = (job: Job): boolean => job.level_basis !== "none" && job.level_basis !== "unmapped";
 
 /** Similar positions shown per category (same company / other companies). */
 const SIMILAR_PER_CATEGORY = 3;
@@ -98,6 +113,8 @@ export function JobDetail({
   onViewCompare,
   onCompanyResolved,
   usePipeline,
+  pager,
+  returning = false,
   asOverlay = false,
 }: {
   jobId: number;
@@ -130,17 +147,36 @@ export function JobDetail({
   // canonicalize to /company/:slug/job/:id.
   onCompanyResolved?: (companySlug: string) => void;
   usePipeline: UsePostingPipeline;
+  /** The posting's place in the list it was opened from, and the way to the
+   *  postings on either side; absent when it was not opened from a list. A
+   *  step is undefined at the list's end. */
+  pager?: {
+    position: number;
+    count: number;
+    onPrevious?: () => void;
+    onNext?: () => void;
+    /** The posting `onNext` opens, as the list holds it. */
+    next?: { title?: string; company?: string | null };
+  };
+  /** The posting was reached by going back or forward in history. */
+  returning?: boolean;
 }) {
   // On the shared resource, which aborts the request it supersedes: a slow
   // /jobs/:id for the PREVIOUS position never lands after the next one.
   const detail = useAsyncResource<Job>((signal) => api.job(jobId, signal), [jobId]);
   const compareFull = compareDisabled && !compareOn;
   const fullReasonId = useId();
-  const { data: job, mutate: setJobData, refresh: refreshJob, error: notFoundError, loading, retry: retryJob } = detail;
+  const { data: fresh, mutate: setJobData, refresh: refreshJob, error: notFoundError, loading, retry: retryJob } = detail;
   // Its estimate moved with a reference change: re-read it.
   const { referenceVersion } = useSyncEpoch();
   useRefetchOn(referenceVersion, refreshJob);
   const notFound = notFoundError != null;
+  // The posting drawn: the one the route names, or, between two postings,
+  // the last one until the next has loaded and the reading area turns to it.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { job, turning } = useShownPosting(fresh, {
+    wanted: jobId, loading, failed: notFound, place: pager?.position ?? null, box: scrollRef, returning,
+  });
   // Three per category, fetched as three: more near-identical rows under the
   // two category labels read as one wall of text. The cap is a reading limit, not a ranking one: applied at the request so nothing is
   // fetched to be hidden, and again on the response so the reader never sees
@@ -161,8 +197,9 @@ export function JobDetail({
   // A confirmed save refreshes the counts and tells every reader of saved
   // state, the comparison under this cover included.
   const saveRole = useSaveCommand();
-  const within = similarWithin.data ?? [];
-  const cross = similarCross.data ?? [];
+  // The rows of the posting on show, not of the one still loading.
+  const within = useHeld(similarWithin.data, turning) ?? [];
+  const cross = useHeld(similarCross.data, turning) ?? [];
 
   // One clock per render, so the stage's days and every due date agree.
   const now = new Date();
@@ -194,6 +231,27 @@ export function JobDetail({
 
   /** The side column, which the histories open across. */
   const [aside, setAside] = useState<HTMLElement | null>(null);
+  // More like this is for choosing where to go next, so it stands open at the
+  // top of a posting and folds once the person is reading (the pay panel has
+  // left and its copy stands in the column), leaving the role's own facts
+  // beside the text. Opened while reading, it stays open for that posting.
+  // Folded at the top, it is folded everywhere: the choice this browser keeps.
+  const [similarFolded, setSimilarFolded] = useState(readSimilarFolded);
+  const [reading, setReading] = useState(false);
+  const [openedWhileReading, setOpenedWhileReading] = useState<number | null>(null);
+  const similarShut = similarFolded || (reading && openedWhileReading !== job?.id);
+  const foldSimilar = () => {
+    if (reading) {
+      setOpenedWhileReading(similarShut ? job?.id ?? null : null);
+      if (similarFolded) {
+        writeSimilarFolded(false);
+        setSimilarFolded(false);
+      }
+      return;
+    }
+    writeSimilarFolded(!similarFolded);
+    setSimilarFolded(!similarFolded);
+  };
   // Where the person stands with the role, read as the pipeline reads it.
   const pipeline = usePipeline(job, { showSaved, paintPosting, rereadPosting, onSave: saveFav, now, column: aside });
   const { applied } = pipeline;
@@ -203,8 +261,8 @@ export function JobDetail({
   // Once the job is loaded, report its company so a bare /job/:id URL can
   // canonicalize to the company-scoped position path.
   useEffect(() => {
-    if (job) onCompanyResolved?.(job.company);
-  }, [job, onCompanyResolved]);
+    if (fresh) onCompanyResolved?.(fresh.company);
+  }, [fresh, onCompanyResolved]);
 
   // Read what applying asks from the posting's own page, once, AFTER
   // the page is shown, so an open never waits on the source. The server says
@@ -213,8 +271,10 @@ export function JobDetail({
   // leaves the dependencies unchanged.
   const formReadable = job != null && "application_form_readable" in job && job.application_form_readable;
   const jobIdLoaded = job?.id;
-  // The header's place line: the first few places, which its tags must not repeat.
-  const places = job ? postingPlaces(job.locations).slice(0, 4) : [];
+  // The header's place line: the first few places, which its tags must not
+  // repeat. The server's tidied list (one label an office, countries in
+  // words); the source's own when it names nothing that list can hold.
+  const places = job ? (job.places?.length ? job.places : postingPlaces(job.locations)).slice(0, 4) : [];
   // One ask per posting per open, whatever the detail says afterwards: the
   // refresh below reads the flag again, and a server that kept saying
   // "readable" must not turn that into a loop.
@@ -245,11 +305,44 @@ export function JobDetail({
     };
   }, [formReadable, jobIdLoaded, setJobData, refreshJob]);
 
-  // Scroll to the top when switching between jobs (e.g. via a similar-role link).
-  const scrollRef = useRef<HTMLDivElement>(null);
+  // The elements that answer the scroll: the heading and the bar's copy of
+  // it, the main column (for its pay panel) and the panel's small copy.
+  const [titleEl, setTitleEl] = useState<HTMLElement | null>(null);
+  const [mainEl, setMainEl] = useState<HTMLElement | null>(null);
+  const [dockEl, setDockEl] = useState<HTMLElement | null>(null);
+  const [roleEl, setRoleEl] = useState<HTMLElement | null>(null);
+  useReadingChrome(scrollRef, { title: titleEl, main: mainEl, dock: dockEl, role: roleEl }, setReading);
+
+  // J and K step through the list, as they move through its rows: only while
+  // the keyboard is on the posting itself, never in a field, a menu or a
+  // dialog opened over it, and never with a modifier.
+  const onPrevious = pager?.onPrevious;
+  const onNext = pager?.onNext;
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: 0 });
-  }, [jobId]);
+    if (!onPrevious && !onNext) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
+      const key = event.key.toLowerCase();
+      if (key !== "j" && key !== "k") return;
+      const target = event.target as HTMLElement | null;
+      if (target && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))) return;
+      // On the posting: focus in the cover, on the dialog that holds it, or
+      // nowhere. Focus left on the list under the cover (the row that opened
+      // it) is nowhere too: that page is inert.
+      const cover = scrollRef.current?.closest(".cover");
+      const active = document.activeElement;
+      const onPosting = !active || active === document.body
+        || !!cover && (cover.contains(active) || active.contains(cover))
+        || !!active.closest("[inert]");
+      if (!onPosting) return;
+      const go = key === "j" ? onNext : onPrevious;
+      if (!go) return;
+      event.preventDefault();
+      go();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onPrevious, onNext]);
 
   const label = roleJobDetailRole({ choice: (job) ? "yes" : "no", title: (job) ? String(job.title) : "" });
 
@@ -262,13 +355,58 @@ export function JobDetail({
         <Button onClick={onBack} aria-label={roleJobDetailBack2()}>
           <Icon name="arrowLeft" size={15} /> {roleJobDetailBack()}
         </Button>
-        <div className="cover-bar-spacer" />
+        {/* The bar's middle: empty while the posting's heading is in view,
+            then the role, where the heading stood. A copy for the eye; the
+            heading itself is the one a screen reader reads. */}
+        {job ? (
+          <div className="jd-bar-role" ref={setRoleEl} aria-hidden="true">
+            <span className="jd-bar-title"><Content text={job.title} /></span>
+            <span className="jd-bar-sub">
+              {companyName(job.company)}
+              {stated(job) && <> · {BAND_LABEL[job.level_band] ?? job.level_band}</>}
+            </span>
+          </div>
+        ) : (
+          <div className="cover-bar-spacer" />
+        )}
         {/* The standing selection, stated where the gesture is. Leaving the
             cover does not end it — it is server-backed — so the
             reader who picks here needs to be told what happens next: at one
             the comparison is waiting for its other half, at two it can be
             read. Without this the count lives only in the rail badge, and the
             beacon that would say it does not raise until the second role. */}
+        {/* The place in the list the posting was opened from, and the rows on
+            either side: it opens the bar's right-hand group, apart from the
+            actions on this posting. */}
+        {pager && (
+          <div className="jd-pager" role="group" aria-label={roleJobDetailPager()}>
+            <Button
+              variant="icon"
+              size="sm"
+              aria-label={roleJobDetailPagerPrevious()}
+              aria-keyshortcuts="K"
+              aria-disabled={!pager.onPrevious || undefined}
+              onClick={() => pager.onPrevious?.()}
+            >
+              <Icon name="chevronLeft" size={15} />
+            </Button>
+            <span className="jd-pager-place">{roleJobDetailPagerPlace({ place: pager.position, count: pager.count })}</span>
+            <Button
+              variant="icon"
+              size="sm"
+              aria-label={roleJobDetailPagerNext()}
+              aria-keyshortcuts="J"
+              aria-disabled={!pager.onNext || undefined}
+              onClick={() => pager.onNext?.()}
+            >
+              <Icon name="chevronRight" size={15} />
+            </Button>
+          </div>
+        )}
+        {/* What acts on this posting. Between two postings the one drawn is
+            not the one the route names, so its controls take no input; each
+            posting gets its own, so a menu left open does not follow. */}
+        <div className="jd-bar-actions" key={job?.id ?? 0} inert={turning}>
         {job && compareCount === 1 && (
           <span className="jd-compare-state" role="status">
             {roleJobDetail1InComparePickOne()}
@@ -312,12 +450,16 @@ export function JobDetail({
             {applied ? roleJobDetailViewPosting() : roleJobDetailViewApply()} <Icon name="external" size={15} />
           </a>
         )}
+        </div>
+        {/* The next posting is still on its way: a line along the bar's foot,
+            drawn only once the wait outlasts a quick load. */}
+        {turning && <span className="jd-waiting" aria-hidden="true" />}
     </>
   );
 
   const body = (
     <>
-        {loading && (
+        {loading && !job && (
           <div className="jd-container">
             <ResourceLoadState error={null} loading={shellLoadingRole()} />
           </div>
@@ -335,7 +477,9 @@ export function JobDetail({
           </div>
         )}
         {job && (
-          <div className="jd-container">
+          /* Keyed by the posting: what a posting opened (a history, a deck)
+             belongs to it and does not carry over to the next. */
+          <div className="jd-container" key={job.id} inert={turning}>
             <header className="jd-hero">
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                 <CompanyChip slug={job.company} />
@@ -348,7 +492,7 @@ export function JobDetail({
                   )
                 )}
               </div>
-              <h1><Content text={job.title} /></h1>
+              <h1 ref={setTitleEl}><Content text={job.title} /></h1>
               <div className="job-meta">
                 {places.map((l, i) => (
                   <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
@@ -371,30 +515,58 @@ export function JobDetail({
             <PlaceSetSection jobId={job.id} onOpen={onOpen} />
 
             <div className="jd-grid">
-              <div className="jd-main">
+              <div className="jd-main" ref={setMainEl}>
                 {/* ONE total, not two. The market median is a reconciliation line
                     inside the package, not a peer panel with its own headline, so a
                     disagreement is stated rather than left for the reader to
                     arbitrate. */}
                 <JobCompPanel job={job} />
 
-                <JobRequirementsPanel
-                  requirements={job.requirements}
-                  onShowSection={(key) =>
-                    scrollRef.current
-                      ?.querySelector(`.jd-section-${key}`)
-                      ?.scrollIntoView({ behavior: "smooth", block: "start" })
-                  }
-                />
+                {/* Off the posting while its worth there is decided: the read
+                    starts under the pay panel. */}
+                {SHOW_REQUIREMENTS && (
+                  <JobRequirementsPanel
+                    requirements={job.requirements}
+                    onShowSection={(key) =>
+                      scrollRef.current
+                        ?.querySelector(`.jd-section-${key}`)
+                        ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                    }
+                  />
+                )}
 
                 <div className="section-title">{roleJobDetailDescription()}</div>
                 <JobDescription
                   sections={job.description_sections}
                   fallback={job.description_text}
                 />
+
+                {/* The read ends on the way on: the next posting in the list
+                    it was opened from, the step J takes. */}
+                {pager?.onNext && (
+                  <footer className="jd-end">
+                    <button type="button" className="jd-next" aria-keyshortcuts="J" onClick={pager.onNext}>
+                      <span className="jd-next-kicker">{roleJobDetailNextPosting()}</span>
+                      {pager.next?.title && (
+                        <span className="jd-next-title"><Content text={pager.next.title} /></span>
+                      )}
+                      <span className="jd-next-meta">
+                        {pager.next?.company && <>{companyName(pager.next.company)} · </>}
+                        {roleJobDetailPagerPlace({ place: pager.position + 1, count: pager.count })}
+                      </span>
+                      <Icon name="arrowRight" size={16} />
+                    </button>
+                  </footer>
+                )}
               </div>
 
               <aside className="jd-aside" ref={setAside}>
+                {/* The pay panel's small copy, grown by the scroll once the
+                    panel has left. The panel is the one a screen reader reads. */}
+                <div className="jd-dock" ref={setDockEl} aria-hidden="true">
+                  <div className="jd-dock-in"><JobCompDock job={job} /></div>
+                </div>
+
                 {pipeline.section}
 
                 <div className="section-title">{roleJobDetailDetails()}</div>
@@ -436,23 +608,37 @@ export function JobDetail({
 
                 {(within.length > 0 || cross.length > 0) && (
                   <>
-                    <div className="section-title">{roleJobDetailMoreLikeThis()}</div>
-                    {cross.length > 0 && (
-                      <div className="similar-group">
-                        <div data-selection="chrome" className="similar-label">{roleJobDetailOtherCompanies()}</div>
-                        {cross.map((s) => (
-                          <SimilarRow key={s.id} job={s} onOpen={onOpen} />
-                        ))}
+                    {/* The whole heading line folds the section away, for a
+                        column of the role's own facts only: the kicker's
+                        words, then a chevron at the line's end. */}
+                    <div className="section-title">
+                      <button type="button" className="jd-fold" aria-expanded={!similarShut} onClick={foldSimilar}>
+                        {roleJobDetailMoreLikeThis()}
+                        <Icon name="chevronDown" size={14} />
+                      </button>
+                    </div>
+                    {/* The rows stay in the page while folded, out of sight and out
+                        of reach, so the fold closes as smoothly as it opens. */}
+                    <div className="similar-fold" data-shut={similarShut || undefined} inert={similarShut}>
+                      <div className="similar-groups">
+                        {cross.length > 0 && (
+                          <div className="similar-group">
+                            <div data-selection="chrome" className="similar-label">{roleJobDetailOtherCompanies()}</div>
+                            {cross.map((s) => (
+                              <SimilarRow key={s.id} job={s} onOpen={onOpen} />
+                            ))}
+                          </div>
+                        )}
+                        {within.length > 0 && (
+                          <div className="similar-group">
+                            <div data-selection="chrome" className="similar-label"><Msg of={roleJobDetailSameCompany} elems={{ company: companyName(job.company) }} /></div>
+                            {within.map((s) => (
+                              <SimilarRow key={s.id} job={s} onOpen={onOpen} />
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {within.length > 0 && (
-                      <div className="similar-group">
-                        <div data-selection="chrome" className="similar-label"><Msg of={roleJobDetailSameCompany} elems={{ company: companyName(job.company) }} /></div>
-                        {within.map((s) => (
-                          <SimilarRow key={s.id} job={s} onOpen={onOpen} />
-                        ))}
-                      </div>
-                    )}
+                    </div>
                   </>
                 )}
               </aside>
@@ -464,7 +650,8 @@ export function JobDetail({
 
   /* The shell is patterns/Cover: opened from a list it is a modal
      dialog over the page still mounted underneath; reached by URL it is the
-     page. This screen keeps `job-detail` on the root for its scoped rules. */
+     page. This screen keeps `job-detail` on the root for its scoped rules.
+     It is a reading cover, so a large window draws it larger. */
   return (
     <Cover label={label} asOverlay={asOverlay} onBack={onBack} bar={bar} className="job-detail" scrollRef={scrollRef}>
       {body}

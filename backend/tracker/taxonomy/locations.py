@@ -500,6 +500,38 @@ def normalize_cities(locations: list[str]) -> list[str]:
     return out
 
 
+def posting_places(locations: list[str]) -> list[str]:
+    """The places a posting's own page names, each once: its offices as
+    canonical labels (`normalize_cities`), in the source's order, then each
+    country it names with no office in it, by the country's display name.
+
+    Sources write one office several ways ("Dublin, D, IE", "Ireland, Dublin,
+    Dublin") beside bare countries ("GB", "United Kingdom, Multiple
+    Locations"). A country an office already stands in adds nothing; one with
+    no office is still a place the role is open in, so it stays.
+    """
+    offices: list[str] = []
+    covered: set[str] = set()
+    bare: list[str] = []
+    for raw in locations:
+        for piece in _SPLIT_RE.split(raw or ""):
+            countries = countries_for([piece])
+            office = _canon_one(piece)
+            if office is None:
+                bare.extend(slug for slug in sorted(countries) if slug not in bare)
+                continue
+            covered |= countries
+            if office not in offices:
+                offices.append(office)
+    countries_only: list[str] = []
+    for slug in bare:
+        node = location_node(slug)
+        name = node["display"] if node and slug not in covered else None
+        if name and name not in offices and name not in countries_only:
+            countries_only.append(name)
+    return offices + countries_only
+
+
 # Location groups: a nested scope axis. Each group has a `kind` and an optional
 # `parent`, forming a tree — metros nest under a country, countries nest under a
 # region (Europe). `kind="metro"` matches by substring; `kind="country"` matches

@@ -7732,6 +7732,14 @@
       ],
       "title": "Place Set Size"
      },
+     "places": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Places",
+      "type": "array",
+      "x-text": "content"
+     },
      "posted_at": {
       "anyOf": [
        {
@@ -7930,6 +7938,7 @@
      "description_sections",
      "disclosed_comp",
      "feedback_reason",
+     "places",
      "pursuit",
      "relevance_review",
      "comp_sources",

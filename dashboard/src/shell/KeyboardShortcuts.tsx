@@ -24,6 +24,9 @@ import {
   shortcutsKeyboardShortcutsSaveItOrUnsaveIt,
   shortcutsKeyboardShortcutsSearchRoles,
   shortcutsKeyboardShortcutsShowTheseShortcuts,
+  shortcutsKeyboardShortcutsInAPosting,
+  shortcutsKeyboardShortcutsNextInList,
+  shortcutsKeyboardShortcutsPreviousInList,
 } from "../copy/gen/shortcuts";
 
 /* Every key the app answers to, in one sheet (docs/ui.md "Keys"), so `j`/`k`,
@@ -32,7 +35,7 @@ import {
  *
  * The shell loads this lazily on first open, so the list costs the startup
  * chunk nothing. The keys themselves are answered where they act — App (the
- * palette, `/`, `?`), JobList (`j`/`k`), JobCard (Enter, `s`, `c`),
+ * palette, `/`, `?`), JobList (`j`/`k`), JobCard (Enter, `s`, `c`), JobDetail (`j`/`k` between a list's postings),
  * ReviewScreen (D/T/N), ApplicationPage (`m`, `i`) and StageMenu (1 to 5), so a key added there belongs here in the same change.
  */
 
@@ -59,6 +62,13 @@ const GROUPS: Array<{ title: string; shortcuts: Shortcut[] }> = [
       { keys: ["↵"], get does() { return shortcutsKeyboardShortcutsOpenTheRole(); } },
       { keys: ["s"], get does() { return shortcutsKeyboardShortcutsSaveItOrUnsaveIt(); } },
       { keys: ["c"], get does() { return shortcutsKeyboardShortcutsAddToCompareOrTake(); } },
+    ],
+  },
+  {
+    get title() { return shortcutsKeyboardShortcutsInAPosting(); },
+    shortcuts: [
+      { keys: ["j"], get does() { return shortcutsKeyboardShortcutsNextInList(); } },
+      { keys: ["k"], get does() { return shortcutsKeyboardShortcutsPreviousInList(); } },
     ],
   },
   {

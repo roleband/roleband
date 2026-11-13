@@ -31,6 +31,7 @@ from tracker.levels.pay import bonus_ratio_for, equity_vehicle_for, pay_label, p
 from tracker.levels.pay import describe as describe_policy
 from tracker.schema import LevelBand, parse_band
 from tracker.taxonomy.comp_families import borrow_rank
+from tracker.taxonomy.roles import sells
 
 # How the base/bonus/equity ratios were obtained, worst case last. This is the honesty
 # dial: a package scaled from another job family's ratios is NOT a measured split, and
@@ -560,9 +561,16 @@ def build_job_package(
         )
         return package
 
-    # THE guard-rail. The employer stated a number but not what it covers. Decomposing it
-    # would require assuming it is base — the precise class of invented fact
-    # pay_basis must never carry. Show it, do not explain it.
+    # A yearly band that does not say what it covers is read as base salary for
+    # a role that does not sell: its posted range is the base unless the posting
+    # calls it a total, which returned above. A sales band is often on-target
+    # earnings, so it stays whole. The reading is this package's only:
+    # `pay_basis` stays as the posting gave it, so pay data built from postings
+    # never counts the band as a stated base.
+    if basis == "unclear" and period == "year" and sells(family) is False:
+        basis = "base"
+        package["basis"] = basis
+
     if basis != "base" or lo is None or not band:
         if basis != "base":
             package["no_split_reason"] = NO_SPLIT_BASIS_UNCLEAR

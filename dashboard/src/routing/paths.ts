@@ -18,7 +18,8 @@ export function positionKey(pathname: string): string | null {
 }
 
 /** The page a cover opens OVER. A cover never stacks on a role: opened from a
- *  role cover it reuses that cover's background, so Back lands on the list.
+ *  role cover it reuses that cover's background, so Back lands on the list,
+ *  and a role that is the page itself is replaced as the page (`openJob`).
  *  A comparison is the one exception a role may stack on (`openJob`), because
  *  a reader who opens a column expects Back to return to the comparison. */
 export function coverBackground(location: { pathname: string; state: unknown }): unknown {

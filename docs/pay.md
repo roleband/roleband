@@ -279,7 +279,7 @@ this way is `estimated`, and nothing checks the shares against stated pay.
 | Reason | When |
 |---|---|
 | `hourly`, `monthly`, `period_unclear` | The period is not a year. RoleBand never annualises. |
-| `basis_unclear` | The posting did not say what the band covers. Splitting it would assume base. |
+| `basis_unclear` | The posting did not say what the band covers, and it is not a yearly band of a role that does not sell (that one is read as base: see Rules). |
 | `total_compensation` | The band is total pay; it is the headline, `stated`. |
 | `employee_election` | The company states that each person picks the cash and equity mix: `equity_rule = employee_election` or `equity_vehicle = cash_election` in the atlas (Netflix is one). No figure of its is split, whether a stated total, a stated base or an estimated total. |
 | `plugin_without_split` | A plugin answers pay and its rows give no split for this level. Our heuristic and policy are our data and never split a plugin's figure. |
@@ -470,8 +470,11 @@ Staff and Principal: blueprint checks `offer_policy` and `pay_reference` in
 
 ## Rules
 
-- Never split a band whose basis is `unclear`, never annualise an hourly or
-  monthly rate, never split a stated total.
+- A yearly band whose basis is `unclear` is read as base in the package when
+  the role does not sell (`taxonomy.roles.sells` is False); a sales role's or
+  an unknown family's stays whole. The stored `pay_basis` keeps `unclear`, so
+  pay built from postings never counts it as a stated base. Never annualise an
+  hourly or monthly rate, never split a stated total.
 - Never price a level we cannot place. Its band is kept for sorting only: it
   gets no estimate, and a stated band at it is shown whole.
 - Equity's range comes from equity's own tolerance, never from the width of

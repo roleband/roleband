@@ -1,10 +1,6 @@
 ## role: moved as it was found (wording=as-is)
 
 ## features/job-detail/JobCompPanel.tsx
-# kind=link note="Opens the offer calculator on the Insights Stock tab, filled in from this role's base salary, bonus and equity"
-role-job-comp-panel-start-offer = Start an offer from this role
-# kind=label wording=as-is
-role-job-comp-panel-the-employer-s-exact-words = The employer's exact words
 # kind=sentence wording=as-is
 role-job-comp-panel-no-compensation-data-for-this = No compensation data for this role.
 # kind=label wording=as-is
@@ -13,8 +9,12 @@ role-job-comp-panel-market-median-at-this-level = Market median at this level
 role-job-comp-panel-this-package-is-the-market = This estimate is { $toFixed }× the market median for this level, usually a sign the level or the discipline is wrong.
 # kind=label wording=as-is
 role-job-comp-panel-base = Base
-# kind=sentence wording=as-is
-role-job-comp-panel-base-salary-stated-in-the = Base salary stated in the posting.
+# kind=sentence note="Under an estimated total: the base salary part of it is the employer's own figure"
+role-job-comp-panel-base-salary-comes-from-the = Base salary comes from the posting.
+# kind=label note="Names the help mark beside the line above"
+role-job-comp-panel-about-base-salary = About base salary
+# kind=tooltip note="What base salary is, for a reader the line beside it assumes too much of"
+role-job-comp-panel-base-salary-is-the-fixed = Base salary is the fixed cash a role pays in a year, before any bonus or equity.
 # kind=sentence
 role-job-comp-panel-this-employer-publishes-no-pay = This employer posts no range. Everything below is an estimate.
 # kind=sentence
@@ -33,8 +33,8 @@ role-job-comp-panel-from-the-posting-s-pay = From the posting's compensation fie
 role-job-comp-panel-bonus = Bonus
 # kind=label wording=as-is
 role-job-comp-panel-equity = Equity
-# kind=label wording=as-is
-role-job-comp-panel-cash-every-month = cash, every month
+# kind=label note="What sets base apart from the two beside it: the money that arrives whatever happens. Never a pay cadence, which the posting does not give"
+role-job-comp-panel-guaranteed-cash = guaranteed cash
 # kind=label wording=as-is
 role-job-comp-panel-target-not-guaranteed = target, not guaranteed
 # kind=label wording=as-is
@@ -114,8 +114,8 @@ role-job-comp-panel-roleband-splits-us-pay-only = Compensation is split into bas
 role-job-comp-panel-level-not-stated-or-mapped = Without a standard level, no split or total is estimated.
 # kind=label note="A plugin answers pay app-wide and has not read this posting's company yet"
 role-job-comp-panel-not-read-yet = not read yet
-# kind=label wording=as-is
-role-job-comp-panel-no-estimate-available = No estimate available
+# kind=sentence note="Why the pay panel shows no figure: the posting gives none and nothing was estimated"
+role-job-comp-panel-pay-unknown-why = The posting gives no pay figure, and there is not enough data to estimate one.
 # kind=label
 role-job-comp-panel-estimated-total-package = { $choice ->
     [yes] Posted total compensation
@@ -125,8 +125,8 @@ role-job-comp-panel-estimated-total-package = { $choice ->
 role-job-comp-panel-estimated-total-comp = Estimated total compensation
 # kind=label wording=as-is
 role-job-comp-panel-stated-by-the-employer = Stated by the employer
-# kind=aria
-role-job-comp-panel-about-stated-base-salary = About the posted base salary
+# kind=label note="Heading over the employer's own yearly base salary figure"
+role-job-comp-panel-base-stated-by-the-employer = Stated base salary
 # kind=label wording=as-is
 role-job-comp-panel-of-base-stated = { $round }% of base, stated
 
@@ -179,6 +179,16 @@ role-job-detail-role = { $choice ->
 }
 # kind=aria wording=as-is
 role-job-detail-back-2 = Back
+# kind=aria note="Names the group that holds a posting's place in the list it was opened from, with the previous and next buttons"
+role-job-detail-pager = Place in the list
+# kind=label note="A posting's place in the list it was opened from, for example 3 of 24"
+role-job-detail-pager-place = { $place } of { $count }
+# kind=aria note="Button: opens the posting before this one in the list"
+role-job-detail-pager-previous = Previous in the list
+# kind=aria note="Button: opens the posting after this one in the list"
+role-job-detail-pager-next = Next in the list
+# kind=label note="Kicker over the next posting's title, at the end of a posting opened from a list"
+role-job-detail-next-posting = Next posting
 # kind=tooltip
 role-job-detail-compare-is-full-max = Compare is full: { $compareCap } at most
 # kind=label wording=as-is
@@ -457,8 +467,6 @@ role-listing-age-events = Events
 
 ## features/job-detail/PayFloorLine.tsx
 # kind=status
-role-pay-floor-line-clears-your-pay-floor = Clears your { $floor } minimum base
-# kind=status
 role-pay-floor-line-your-pay-floor-falls-inside = Your { $floor } minimum base falls inside this range
 # kind=status
 role-pay-floor-line-below-your-pay-floor = Below your { $floor } minimum base
@@ -583,8 +591,11 @@ role-job-status-closed = closed
 ## The base-only estimate
 # kind=label
 role-job-comp-panel-estimated-base = Estimated base salary
-# kind=sentence
-role-job-comp-panel-from-roleband-data = From built-in data.
+# kind=sentence note="Under an estimated base salary, the only figure known; none = the posting states no range"
+role-job-comp-panel-base-only = { $choice ->
+    [none] No range in the posting. Bonus and equity unknown.
+   *[other] Bonus and equity unknown.
+}
 
 ## Who supplied the split
 # kind=sentence
