@@ -1,7 +1,10 @@
+using System.ComponentModel;
 using System.IO.Compression;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -36,6 +39,85 @@ public sealed class FirstInstallTests
         Assert.AreEqual(InstallStop.StoreOnly, new InstallFacts(22000, false, true).Stop);
         Assert.IsNull(new InstallFacts(InstallFacts.Windows11, false, false).Stop);
         Assert.IsNull(new InstallFacts(26200, false, false).Stop);
+    }
+
+    [TestMethod]
+    public void SetupStopsForAnotherAccountAndForAShellWhoseAccountItCannotRead()
+    {
+        using var current = WindowsIdentity.GetCurrent();
+        var me = current.User!;
+        var other = new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null);
+
+        Assert.IsFalse(InstallFacts.RunsAsOtherAccount(4321, _ => me, me), "the signed-in account itself");
+        Assert.IsTrue(InstallFacts.RunsAsOtherAccount(4321, _ => other, me), "an administrator's password typed for another account");
+        // Another account's shell can refuse to be read, and Setup must stop then rather than install for that account.
+        foreach (var refusal in new Exception[]
+                 {
+                     new Win32Exception(5), new UnauthorizedAccessException(), new InvalidOperationException(), new ArgumentException(),
+                 })
+            Assert.IsTrue(InstallFacts.RunsAsOtherAccount(4321, _ => throw refusal, me), refusal.GetType().Name);
+        Assert.IsTrue(InstallFacts.RunsAsOtherAccount(4321, _ => me, null), "this process's own account could not be read");
+        Assert.IsFalse(InstallFacts.RunsAsOtherAccount(null, _ => throw new Win32Exception(5), me), "a desktop without a shell has no other owner");
+    }
+
+    [TestMethod]
+    public void AProcessAccountIsReadWithQueryRightsAndARefusalStopsSetup()
+    {
+        using var current = WindowsIdentity.GetCurrent();
+
+        Assert.AreEqual(current.User, InstallFacts.ProcessAccount((uint)Environment.ProcessId));
+        using (var child = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe", "/c ping -n 30 127.0.0.1 > nul")
+               { CreateNoWindow = true, UseShellExecute = false })!)
+        {
+            try
+            {
+                Assert.AreEqual(current.User, InstallFacts.ProcessAccount((uint)child.Id), "a shell this account started");
+            }
+            finally
+            {
+                child.Kill(entireProcessTree: true);
+            }
+        }
+        // The idle process opens for nobody, as another account's shell can refuse to.
+        Assert.ThrowsExactly<Win32Exception>(() => InstallFacts.ProcessAccount(0));
+        Assert.IsTrue(InstallFacts.RunsAsOtherAccount(0, InstallFacts.ProcessAccount, current.User));
+        _ = InstallFacts.Read();
+    }
+
+    [TestMethod]
+    public void TheTrustStepEndsWithAnExitCodeWhateverGoesWrong()
+    {
+        using var certificate = Signing();
+        using var someoneElse = Signing("CN=Someone Else");
+        const string Name = "RoleBandTrustStepTests";
+        X509Store Store() => new(Name, StoreLocation.CurrentUser);
+        int Trusted()
+        {
+            using var store = Store();
+            store.Open(OpenFlags.ReadWrite);
+            return store.Certificates.Find(X509FindType.FindByThumbprint, certificate.Thumbprint, false).Count;
+        }
+        try
+        {
+            Assert.AreEqual(TrustExit.NotAdministrator, PublisherTrust.Step(() => false, () => Release(certificate.RawData), Store));
+            Assert.AreEqual(TrustExit.NoRelease, PublisherTrust.Step(() => true, () => null, Store));
+            // A build whose identity is damaged, a certificate that is not RoleBand's, a store that cannot be opened.
+            Assert.AreEqual(TrustExit.Failed, PublisherTrust.Step(() => true, () => throw new InvalidDataException("No feed."), Store));
+            Assert.AreEqual(TrustExit.Failed, PublisherTrust.Step(() => true, () => Release(someoneElse.RawData), Store));
+            Assert.AreEqual(TrustExit.Failed, PublisherTrust.Step(() => true, () => Release(certificate.RawData),
+                () => throw new CryptographicException("The store is locked.")));
+            Assert.AreEqual(TrustExit.Failed, PublisherTrust.Step(() => throw new System.Security.SecurityException(), () => Release(), Store));
+            Assert.AreEqual(0, Trusted(), "nothing is trusted when the step fails");
+
+            Assert.AreEqual(TrustExit.Trusted, PublisherTrust.Step(() => true, () => Release(certificate.RawData), Store));
+            Assert.AreEqual(1, Trusted());
+        }
+        finally
+        {
+            using var store = Store();
+            store.Open(OpenFlags.ReadWrite);
+            store.RemoveRange(store.Certificates);
+        }
     }
 
     [TestMethod]
@@ -342,6 +424,49 @@ public sealed class FirstInstallTests
         Assert.IsTrue(Directory.Exists(other), "another attempt's folder is not this one's to remove");
         Assert.IsTrue(await DownloadFolder.RemoveAsync(Path.Combine(setup, "0.1.0"), TimeSpan.Zero), "a folder never made is already gone");
         Directory.Delete(Path.GetDirectoryName(setup)!, recursive: true);
+    }
+
+    [TestMethod]
+    public async Task AnyErrorEndsAnAttemptWithItsReasonOnceTheDownloadIsGone()
+    {
+        // Errors from outside the download and Windows' install, such as reading the signature or opening the app.
+        foreach (var error in new Exception[]
+                 {
+                     new Win32Exception(5), new UnauthorizedAccessException("Access denied."), new COMException("Class not registered.", unchecked((int)0x80040154)),
+                     new InvalidOperationException("Not ready."), new ArgumentException("Bad path."),
+                 })
+        {
+            var (setup, folder, _) = Downloaded();
+            var outcome = await SetupAttempt.RunAsync<(AttemptFailure, Exception)>(folder, () => throw error, (failure, raised) => (failure, raised));
+
+            Assert.AreEqual((AttemptFailure.Unexpected, error), outcome, error.GetType().Name);
+            Assert.IsFalse(Directory.Exists(folder), "the outcome arrives after the download is removed");
+            Directory.Delete(Path.GetDirectoryName(setup)!, recursive: true);
+        }
+    }
+
+    [TestMethod]
+    public async Task AnAttemptsKnownEndingsKeepTheirPages()
+    {
+        var cases = new (Exception Error, AttemptFailure Failure)[]
+        {
+            (new OperationCanceledException(), AttemptFailure.Canceled),
+            (new TaskCanceledException(), AttemptFailure.Canceled),
+            (new NotTheRelease("Not signed with RoleBand's certificate."), AttemptFailure.NotGenuine),
+            (new HttpRequestException("Offline."), AttemptFailure.Download),
+            (new IOException("The disk is full."), AttemptFailure.Download),
+        };
+        foreach (var (error, failure) in cases)
+        {
+            var (setup, folder, _) = Downloaded();
+            Assert.AreEqual(failure, await SetupAttempt.RunAsync(folder, () => Task.FromException<AttemptFailure>(error), (kind, _) => kind),
+                error.GetType().Name);
+            Directory.Delete(Path.GetDirectoryName(setup)!, recursive: true);
+        }
+        var (installed, done, _) = Downloaded();
+        Assert.AreEqual("installed", await SetupAttempt.RunAsync(done, () => Task.FromResult("installed"), (_, _) => "failed"));
+        Assert.IsFalse(Directory.Exists(done));
+        Directory.Delete(Path.GetDirectoryName(installed)!, recursive: true);
     }
 
     /// <summary>Records each report as it is made, unlike <see cref="Progress{T}"/>, which posts it later.</summary>

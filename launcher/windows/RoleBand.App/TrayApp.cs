@@ -29,6 +29,9 @@ internal sealed class TrayApp
     private EngineConfiguration? configuration;
     private string? launchFailure;
     private bool quitting;
+    // Windows is ending the app, so nothing starts the engine or an update's install again, including a start already
+    // waiting on the update journal. Kept apart from quitting, which must stay unset for the quit that follows.
+    private readonly CancellationTokenSource sessionEnding = new();
     // Set as Quit closes the windows: a timer tick or an engine change already queued must not draw on a closed window,
     // which throws.
     private bool closed;
@@ -83,10 +86,12 @@ internal sealed class TrayApp
         flyout.CancelUpdateRequested += CancelUpdate;
         flyout.Undo += async () => { flyout.Hide(); await UndoUpdateAsync(); };
         flyout.CheckUpdates += async () => { flyout.Hide(); OpenSettings(); await CheckUpdatesAsync(manual: true); };
+        // A quit closes the flyout's window, so it never runs inside one of that window's messages: Windows' end and the
+        // icon's menu ask for it, and the dispatcher runs it once the message is answered.
         try
         {
-            sessionEnd = new SessionEnd(flyout.Handle);
-            sessionEnd.Ending += async () => await QuitAsync();
+            sessionEnd = new SessionEnd(flyout.Handle, StopForSessionEnd);
+            sessionEnd.Ending += () => dispatcher.TryEnqueue(async () => await QuitAsync());
         }
         catch (Exception error) { Debug.WriteLine(error); }
         try
@@ -94,11 +99,12 @@ internal sealed class TrayApp
             tray = new TrayIcon(flyout.Handle, Menu);
             tray.Selected += Selected;
             tray.DoubleClicked += () => { flyout.Hide(); RunDefault(); };
-            tray.Chosen += async command => await ChooseAsync(command);
+            tray.Chosen += command => dispatcher.TryEnqueue(async () => await ChooseAsync(command));
+            tray.Appeared += () => dispatcher.TryEnqueue(flyout.Dock);
+            tray.Missing += () => dispatcher.TryEnqueue(() => { if (!flyout.Standalone) flyout.ShowStandalone(); });
         }
         catch (Exception error)
         {
-            // Without the icon the flyout keeps a frame and stays open, and closing it quits.
             tray = null;
             Debug.WriteLine(error);
         }
@@ -146,7 +152,9 @@ internal sealed class TrayApp
             RenderFlyout();
             OpenSettings();
         }
-        if (tray is null) flyout.ShowStandalone();
+        // Without the icon the flyout keeps a frame and stays open, and closing it quits; an icon that appears later, once
+        // Explorer's taskbar takes it, docks the flyout again, and one lost for good after Explorer restarts frames it.
+        if (tray is not { Shown: true }) flyout.ShowStandalone();
     }
 
     /// <summary>A second start of the app, redirected here: Start and the icon's default command do the same.</summary>
@@ -429,7 +437,7 @@ internal sealed class TrayApp
             (update, package) = (update with { Run = UpdateRun.Broken(version, update.Run) }, null);
         }
         finally { downloading = null; }
-        if (quitting) return;
+        if (quitting || sessionEnding.IsCancellationRequested) return;
         RenderUpdate();
         if (package is null) return;
         try
@@ -439,7 +447,12 @@ internal sealed class TrayApp
             {
                 if (update.Run is { Step: UpdateStep.Installing } run) update = update with { Run = run with { Percent = percent } };
                 RenderUpdate();
-            }));
+            }), sessionEnding.Token);
+        }
+        catch (OperationCanceledException) when (sessionEnding.IsCancellationRequested)
+        {
+            // Windows is ending the session: the engine is stopped and nothing was recorded, so the next start carries on.
+            return;
         }
         catch (Exception error)
         {
@@ -470,7 +483,7 @@ internal sealed class TrayApp
     /// update can still be undone.</summary>
     private async Task UndoUpdateAsync()
     {
-        if (engine is null || updates is null || !State().CanUndo) return;
+        if (engine is null || updates is null || sessionEnding.IsCancellationRequested || !State().CanUndo) return;
         // The press is answered at once, before anything is asked, and a second press meanwhile does nothing. Windows
         // takes a while to put the previous package back, then closes this version and opens that one, whose start
         // restores the database.
@@ -494,7 +507,11 @@ internal sealed class TrayApp
             {
                 update = update with { ReturnPercent = percent };
                 RenderUpdate();
-            }));
+            }), sessionEnding.Token);
+        }
+        catch (OperationCanceledException) when (sessionEnding.IsCancellationRequested)
+        {
+            return;
         }
         catch (Exception error)
         {
@@ -650,7 +667,7 @@ internal sealed class TrayApp
 
     private async Task StartAsync()
     {
-        if (engine is null || updates is null) return;
+        if (engine is null || updates is null || sessionEnding.IsCancellationRequested) return;
         // Settles an update the previous run began before anything opens the database.
         try
         {
@@ -662,7 +679,7 @@ internal sealed class TrayApp
             if (update.Facts?.Last is { Phase: "applying", Running: "from", Package: not null } pending && Native.PackageName() is { } name
                 && !await updates.AwaitWindowsAsync(pending, name, run => { update = update with { Run = run }; RenderUpdate(); }))
                 return;
-            var phase = await updates.StartAsync(engine);
+            var phase = await updates.StartAsync(engine, sessionEnding.Token);
             // How the update ended, or the undo under way, comes from its journal, as every later open reads it.
             if (phase is "failed" or "recovering" or "complete" or "recovered" or "preparing") await ReadUpdateAsync();
             if (phase is "failed" or "recovering")
@@ -673,6 +690,9 @@ internal sealed class TrayApp
             }
             RenderUpdate();
             await PressSimulationAsync();
+        }
+        catch (OperationCanceledException) when (sessionEnding.IsCancellationRequested)
+        {
         }
         catch (Exception error)
         {
@@ -824,6 +844,17 @@ internal sealed class TrayApp
     {
         try { Process.Start(new ProcessStartInfo(target) { UseShellExecute = true }); }
         catch (Exception error) { Debug.WriteLine(error); }
+    }
+
+    /// <summary>The engine's stop when Windows ends the app, which <see cref="SessionEnd"/> waits for before it answers
+    /// Windows; the quit that follows finds the engine stopped.</summary>
+    private Task StopForSessionEnd()
+    {
+        sessionEnding.Cancel();
+        var stop = engine?.StopAsync() ?? Task.CompletedTask;
+        try { downloading?.Cancel(); }
+        catch (ObjectDisposedException) { }
+        return stop;
     }
 
     /// <summary>Quit stops the engine; the app stays if the engine did not stop, with the reason in Settings. When Windows
