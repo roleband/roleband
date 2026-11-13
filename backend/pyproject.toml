@@ -35,7 +35,7 @@ name = "Backend layers (strictly downward)"
 type = "layers"
 layers = [
     # L6 interface.
-    "tracker.api : tracker.mcp",
+    "tracker.api : tracker.mcp : tracker.cli",
     # L5 workflows.
     "tracker.workflows : tracker.daily : tracker.scheduler : tracker.watchdog : tracker.discover_roles : tracker.agents : tracker.supervisor",
     # L4 services. ":" is the layer rule ("same-layer imports allowed in L4"), not
@@ -90,6 +90,7 @@ source_modules = [
     # (`tests/test_import_contract_registry.py` holds the two equal).
     "tracker.api",
     "tracker.mcp",
+    "tracker.cli",
     "tracker.workflows",
     "tracker.daily",
     "tracker.scheduler",
@@ -166,18 +167,36 @@ ignore_imports = [
     "tracker.blueprint -> tracker.connectors",
 ]
 
-# The two transports are siblings in the L6 row (":", so the layers contract
-# alone would permit them to import each other), but they are alternative front
-# doors onto the same services, not a stack: each must reach the tiers below on
-# its own (docs/architecture.md). `routers/intelligence.py` names
+# The interfaces are siblings in the L6 row (":", so the layers contract alone
+# would permit them to import each other), but they are alternative front doors
+# onto the same services, not a stack: each must reach the tiers below on its
+# own (docs/architecture.md). `routers/intelligence.py` names
 # `tracker.mcp.server` only inside the argv of a subprocess, which is a string
-# and not an import.
+# and not an import. The CLI is a client of the API over HTTP, never of its
+# modules.
 [[tool.importlinter.contracts]]
-name = "API and MCP are independent transports"
+name = "API, MCP and CLI are independent interfaces"
 type = "independence"
 modules = [
     "tracker.api",
     "tracker.mcp",
+    "tracker.cli",
+]
+
+# The CLI is a thin client of a running engine: it opens no database, starts no
+# embedded server and reads no engine settings (`tracker.config` loads the
+# project `.env` and resolves the database). Indirect imports count, so a
+# writer or a session reached through any helper fails here too.
+[[tool.importlinter.contracts]]
+name = "The CLI reaches no database"
+type = "forbidden"
+source_modules = [
+    "tracker.cli",
+]
+forbidden_modules = [
+    "tracker.db",
+    "tracker.config",
+    "tracker.platform.embedded_db",
 ]
 
 # --------------------------------------------------------------------------- #
@@ -263,6 +282,12 @@ files = [
     "tracker/agents/pursuits.py",
     "tracker/agents/applications.py",
     "tracker/api/routers/applications.py",
+    # Agent operations: descriptors, envelope, policy, their routes and the client
+    "tracker/agents/operations",
+    "tracker/api/agent_operations.py",
+    "tracker/api/routers/agent.py",
+    "tracker/cli",
+    "scripts/export_agent_operations.py",
     # The one API answer each company-store refusal gets
     "tracker/api/company_errors.py",
     # What a notification says, as catalog keys

@@ -1587,6 +1587,30 @@ class AppSetting(Base):
     value: Mapped[dict] = mapped_column(JSONB, default=dict)
 
 
+class WorkspaceIdentity(Base):
+    """The durable identity of the person's workspace: one row, never rewritten.
+
+    Agent receipts, cursors and grants are keyed by `workspace_id`, so it
+    outlives every engine start and app update; the engine session id, which
+    changes with each start, is a different thing. The migration that adds the
+    table writes the row, and the engine writes it at start on a database made
+    without migrations (`tracker/agents/operations/workspace.py`).
+    """
+
+    __tablename__ = "workspace_identity"
+
+    singleton: Mapped[bool] = mapped_column(Boolean, primary_key=True, server_default=text("true"))
+    workspace_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint("singleton", name="ck_workspace_identity_singleton"),
+        CheckConstraint("workspace_id ~ '^ws_[0-9a-f]{32}$'", name="ck_workspace_identity_format"),
+    )
+
+
 class TrackedCompany(Base):
     """Every company to scrape — built-in and user-added alike — is a row here.
 

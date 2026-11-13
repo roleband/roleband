@@ -656,7 +656,7 @@ dispatching twice.
 
 | Layer | Modules | Notes |
 |---|---|---|
-| L6 interface | `api`, `mcp` | Independent front doors onto the same services. `api/app.py` only composes. |
+| L6 interface | `api`, `mcp`, `cli` | Independent front doors onto the same services. `api/app.py` only composes. `cli` is the `roleband` client: it reaches the engine over HTTP and imports no database module. |
 | L5 workflows | `workflows`, `daily`, `scheduler`, `watchdog`, `discover_roles`, `agents`, `supervisor` | Runs, scheduling, supervision. |
 | L4 services | The L4 row of the layers contract in `backend/pyproject.toml` is the list: `db`, the services (`enrich`, `skills`, `lineage`, `semantic`, `search`, `scope`, `profiles`, `analytics`, `notifications`, `intelligence_runtime`, `plugins`, ...) and the stores (`settings_store`, `pay_store`, `company_store`, ...) | Same-layer imports allowed; `db` is the shared store. `intelligence` sits just above L3 and composes the model backends. |
 | L3 implementations | `connectors`, `comp_providers`, `prices`, `cloud_llm`, `local_llm` | Never import each other. Their contracts and registries live inside them. |
@@ -675,7 +675,10 @@ Import-linter contracts in `backend/pyproject.toml` enforce this:
    by the layers); `backend/tests/test_import_contract_registry.py` derives
    both sides, the registry's adapters and those packages, so neither drifts.
 3. **Listing and detail connectors are independent.**
-4. **API and MCP are independent transports.**
+4. **API, MCP and CLI are independent interfaces.**
+5. **The CLI reaches no database**: `tracker.cli` imports nothing from
+   `tracker.db`, `tracker.config` or the embedded server, directly or through
+   another module.
 
 `backend/tests/test_import_contracts.py` fails a top-level module no layer row
 in `pyproject.toml` names, freezes the allowlist, and plants a violation against each contract to
@@ -1230,6 +1233,20 @@ the generated file or hand-write a response type.
 
 **Errors and text.** API errors are codes, and every API string field declares
 its text class: both are in [copy.md](copy.md).
+
+**Agent operations.** `/api/agent/v1/` serves the `roleband` client
+(`backend/tracker/cli/`), one explicit route per operation
+(`backend/tracker/api/routers/agent.py`). Each operation is a descriptor in
+`backend/tracker/agents/operations/`: its typed input and result, its engine
+and client effects, data classes, tool tiers and idempotency, registered once
+in `catalog.py`. Every answer, a failure included, is one envelope whose error
+code maps to an HTTP status and a process exit status in `outcomes.py`. The
+agent switches in Settings admit them: a read needs `enabled`, a write also
+`allow_writes`, and with `enabled` off every operation is refused.
+`workspace_identity` holds the workspace's durable id, which these answers
+carry; it outlives engine restarts and updates, unlike the engine session id.
+The client reads its bundled index, `backend/tracker/cli/operations.json`
+(`scripts.export_agent_operations`), for help and offline answers.
 
 **Trust boundary.** Mac and ordinary source mode use loopback access control.
 `LoopbackBoundary` (`backend/tracker/api/boundary.py`, outermost) refuses a Host

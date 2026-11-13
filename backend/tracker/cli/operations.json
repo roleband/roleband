@@ -1,0 +1,672 @@
+{
+ "contract_version": "1.0",
+ "format": 1,
+ "operations": [
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {
+     "tier": "small"
+    }
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "tier": {
+      "anyOf": [
+       {
+        "enum": [
+         "small",
+         "standard",
+         "full"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "List only the operations in this tool tier.",
+      "title": "Tier"
+     }
+    },
+    "title": "CapabilitiesInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "capabilities",
+   "output_schema": {
+    "$defs": {
+     "AvailabilityShape": {
+      "additionalProperties": false,
+      "properties": {
+       "reason": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Reason",
+        "x-text": "code"
+       },
+       "state": {
+        "enum": [
+         "available",
+         "unavailable",
+         "unknown"
+        ],
+        "title": "State",
+        "type": "string",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "state",
+       "reason"
+      ],
+      "title": "AvailabilityShape",
+      "type": "object"
+     },
+     "EffectsShape": {
+      "additionalProperties": false,
+      "properties": {
+       "external_action": {
+        "title": "External Action",
+        "type": "boolean"
+       },
+       "model_egress": {
+        "title": "Model Egress",
+        "type": "boolean"
+       },
+       "outbound_network": {
+        "title": "Outbound Network",
+        "type": "boolean"
+       },
+       "state_write": {
+        "title": "State Write",
+        "type": "boolean"
+       }
+      },
+      "required": [
+       "state_write",
+       "outbound_network",
+       "model_egress",
+       "external_action"
+      ],
+      "title": "EffectsShape",
+      "type": "object"
+     },
+     "OperationSummary": {
+      "additionalProperties": false,
+      "properties": {
+       "access": {
+        "enum": [
+         "read",
+         "write"
+        ],
+        "title": "Access",
+        "type": "string",
+        "x-text": "code"
+       },
+       "availability": {
+        "$ref": "#/$defs/AvailabilityShape"
+       },
+       "client_effects": {
+        "items": {
+         "enum": [
+          "file_write",
+          "browser_open",
+          "app_open"
+         ],
+         "type": "string"
+        },
+        "title": "Client Effects",
+        "type": "array"
+       },
+       "data_classes": {
+        "items": {
+         "enum": [
+          "public_posting",
+          "market_statistic",
+          "private_pursuit",
+          "offer",
+          "candidate"
+         ],
+         "type": "string"
+        },
+        "title": "Data Classes",
+        "type": "array"
+       },
+       "engine_effects": {
+        "$ref": "#/$defs/EffectsShape"
+       },
+       "idempotency": {
+        "enum": [
+         "read",
+         "required_key",
+         "natural_key"
+        ],
+        "title": "Idempotency",
+        "type": "string",
+        "x-text": "code"
+       },
+       "operation": {
+        "title": "Operation",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "summary": {
+        "title": "Summary",
+        "type": "string",
+        "x-text": "diagnostic"
+       },
+       "tool_tiers": {
+        "items": {
+         "enum": [
+          "small",
+          "standard",
+          "full"
+         ],
+         "type": "string"
+        },
+        "title": "Tool Tiers",
+        "type": "array"
+       }
+      },
+      "required": [
+       "operation",
+       "summary",
+       "access",
+       "availability",
+       "engine_effects",
+       "client_effects",
+       "data_classes",
+       "tool_tiers",
+       "idempotency"
+      ],
+      "title": "OperationSummary",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "engine_version": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Engine Version",
+      "x-text": "identifier"
+     },
+     "metadata_source": {
+      "enum": [
+       "bundled",
+       "engine"
+      ],
+      "title": "Metadata Source",
+      "type": "string",
+      "x-text": "code"
+     },
+     "operations": {
+      "items": {
+       "$ref": "#/$defs/OperationSummary"
+      },
+      "title": "Operations",
+      "type": "array"
+     },
+     "supported_contract_versions": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Supported Contract Versions",
+      "type": "array"
+     }
+    },
+    "required": [
+     "contract_version",
+     "supported_contract_versions",
+     "engine_version",
+     "metadata_source",
+     "operations"
+    ],
+    "title": "CapabilitiesResult",
+    "type": "object"
+   },
+   "output_schema_ref": "#/operations/capabilities/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "List the operations this engine offers and whether each can be called now.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {
+     "operation": "status"
+    }
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "operation": {
+      "description": "A dotted operation id from capabilities.",
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+      "title": "Operation",
+      "type": "string"
+     }
+    },
+    "required": [
+     "operation"
+    ],
+    "title": "DescribeInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "describe",
+   "output_schema": {
+    "$defs": {
+     "AvailabilityShape": {
+      "additionalProperties": false,
+      "properties": {
+       "reason": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Reason",
+        "x-text": "code"
+       },
+       "state": {
+        "enum": [
+         "available",
+         "unavailable",
+         "unknown"
+        ],
+        "title": "State",
+        "type": "string",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "state",
+       "reason"
+      ],
+      "title": "AvailabilityShape",
+      "type": "object"
+     },
+     "EffectsShape": {
+      "additionalProperties": false,
+      "properties": {
+       "external_action": {
+        "title": "External Action",
+        "type": "boolean"
+       },
+       "model_egress": {
+        "title": "Model Egress",
+        "type": "boolean"
+       },
+       "outbound_network": {
+        "title": "Outbound Network",
+        "type": "boolean"
+       },
+       "state_write": {
+        "title": "State Write",
+        "type": "boolean"
+       }
+      },
+      "required": [
+       "state_write",
+       "outbound_network",
+       "model_egress",
+       "external_action"
+      ],
+      "title": "EffectsShape",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "access": {
+      "enum": [
+       "read",
+       "write"
+      ],
+      "title": "Access",
+      "type": "string",
+      "x-text": "code"
+     },
+     "availability": {
+      "$ref": "#/$defs/AvailabilityShape"
+     },
+     "client_effects": {
+      "items": {
+       "enum": [
+        "file_write",
+        "browser_open",
+        "app_open"
+       ],
+       "type": "string"
+      },
+      "title": "Client Effects",
+      "type": "array"
+     },
+     "contract_version": {
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data_classes": {
+      "items": {
+       "enum": [
+        "public_posting",
+        "market_statistic",
+        "private_pursuit",
+        "offer",
+        "candidate"
+       ],
+       "type": "string"
+      },
+      "title": "Data Classes",
+      "type": "array"
+     },
+     "engine_effects": {
+      "$ref": "#/$defs/EffectsShape"
+     },
+     "examples": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Examples",
+      "type": "array"
+     },
+     "idempotency": {
+      "enum": [
+       "read",
+       "required_key",
+       "natural_key"
+      ],
+      "title": "Idempotency",
+      "type": "string",
+      "x-text": "code"
+     },
+     "input_schema": {
+      "additionalProperties": true,
+      "title": "Input Schema",
+      "type": "object"
+     },
+     "introduced": {
+      "title": "Introduced",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "metadata_source": {
+      "enum": [
+       "bundled",
+       "engine"
+      ],
+      "title": "Metadata Source",
+      "type": "string",
+      "x-text": "code"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "output_schema": {
+      "additionalProperties": true,
+      "title": "Output Schema",
+      "type": "object"
+     },
+     "output_schema_ref": {
+      "title": "Output Schema Ref",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "required_scopes": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Required Scopes",
+      "type": "array"
+     },
+     "summary": {
+      "title": "Summary",
+      "type": "string",
+      "x-text": "diagnostic"
+     },
+     "supports_dry_run": {
+      "title": "Supports Dry Run",
+      "type": "boolean"
+     },
+     "tool_tiers": {
+      "items": {
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "type": "string"
+      },
+      "title": "Tool Tiers",
+      "type": "array"
+     }
+    },
+    "required": [
+     "operation",
+     "contract_version",
+     "introduced",
+     "summary",
+     "access",
+     "input_schema",
+     "output_schema_ref",
+     "output_schema",
+     "required_scopes",
+     "engine_effects",
+     "client_effects",
+     "data_classes",
+     "tool_tiers",
+     "idempotency",
+     "supports_dry_run",
+     "availability",
+     "metadata_source",
+     "examples"
+    ],
+    "title": "OperationDetail",
+    "type": "object"
+   },
+   "output_schema_ref": "#/operations/describe/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "Describe one operation: its input and output schemas, effects and data classes.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "description": "The input of an operation that takes none.",
+    "properties": {},
+    "title": "NoInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "status",
+   "output_schema": {
+    "$defs": {
+     "AgentSwitchState": {
+      "additionalProperties": false,
+      "properties": {
+       "allow_writes": {
+        "title": "Allow Writes",
+        "type": "boolean"
+       },
+       "enabled": {
+        "title": "Enabled",
+        "type": "boolean"
+       }
+      },
+      "required": [
+       "enabled",
+       "allow_writes"
+      ],
+      "title": "AgentSwitchState",
+      "type": "object"
+     },
+     "EngineTrust": {
+      "additionalProperties": false,
+      "properties": {
+       "mode": {
+        "enum": [
+         "same_account_loopback",
+         "signed_local_http"
+        ],
+        "title": "Mode",
+        "type": "string",
+        "x-text": "code"
+       },
+       "verified": {
+        "title": "Verified",
+        "type": "boolean"
+       }
+      },
+      "required": [
+       "mode",
+       "verified"
+      ],
+      "title": "EngineTrust",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "access": {
+      "$ref": "#/$defs/AgentSwitchState"
+     },
+     "contract_version": {
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "engine_session_id": {
+      "title": "Engine Session Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "engine_version": {
+      "title": "Engine Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "trust": {
+      "$ref": "#/$defs/EngineTrust"
+     },
+     "workspace_id": {
+      "title": "Workspace Id",
+      "type": "string",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "workspace_id",
+     "engine_session_id",
+     "engine_version",
+     "contract_version",
+     "trust",
+     "access"
+    ],
+    "title": "StatusResult",
+    "type": "object"
+   },
+   "output_schema_ref": "#/operations/status/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "Name the workspace and the engine answering, and how the connection is trusted.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  }
+ ]
+}
