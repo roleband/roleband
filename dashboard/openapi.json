@@ -1086,80 +1086,6 @@
     "title": "BandChange",
     "type": "object"
    },
-   "BaseCoverage": {
-    "additionalProperties": false,
-    "description": "How many open roles have an estimated base only, of all open ones.",
-    "properties": {
-     "total_open": {
-      "title": "Total Open",
-      "type": "integer"
-     },
-     "with_base": {
-      "title": "With Base",
-      "type": "integer"
-     }
-    },
-    "required": [
-     "with_base",
-     "total_open"
-    ],
-    "title": "BaseCoverage",
-    "type": "object"
-   },
-   "BaseEstimates": {
-    "additionalProperties": false,
-    "description": "Roles priced by their base alone (`comp_component = \"base\"`): no total exists,\nso they are summarised apart from the totals and never on their axis.",
-    "properties": {
-     "by_company": {
-      "items": {
-       "$ref": "#/components/schemas/CompCompanySummary"
-      },
-      "title": "By Company",
-      "type": "array"
-     },
-     "by_family": {
-      "items": {
-       "$ref": "#/components/schemas/CompFamilySummary"
-      },
-      "title": "By Family",
-      "type": "array"
-     },
-     "by_level": {
-      "items": {
-       "$ref": "#/components/schemas/CompLevelSummary"
-      },
-      "title": "By Level",
-      "type": "array"
-     },
-     "coverage": {
-      "$ref": "#/components/schemas/BaseCoverage"
-     },
-     "min_roles": {
-      "title": "Min Roles",
-      "type": "integer"
-     },
-     "overall": {
-      "anyOf": [
-       {
-        "$ref": "#/components/schemas/CompSummary"
-       },
-       {
-        "type": "null"
-       }
-      ]
-     }
-    },
-    "required": [
-     "min_roles",
-     "coverage",
-     "overall",
-     "by_level",
-     "by_company",
-     "by_family"
-    ],
-    "title": "BaseEstimates",
-    "type": "object"
-   },
    "BindPayload": {
     "additionalProperties": false,
     "properties": {
@@ -1914,56 +1840,6 @@
     "title": "CompBaseEstimate",
     "type": "object"
    },
-   "CompCompanySummary": {
-    "additionalProperties": false,
-    "description": "`company` first, then the summary.",
-    "properties": {
-     "company": {
-      "title": "Company",
-      "type": "string"
-     },
-     "count": {
-      "title": "Count",
-      "type": "integer"
-     },
-     "max": {
-      "title": "Max",
-      "type": "integer"
-     },
-     "min": {
-      "title": "Min",
-      "type": "integer"
-     },
-     "p25": {
-      "title": "P25",
-      "type": "number"
-     },
-     "p50": {
-      "title": "P50",
-      "type": "number"
-     },
-     "p75": {
-      "title": "P75",
-      "type": "number"
-     },
-     "p90": {
-      "title": "P90",
-      "type": "number"
-     }
-    },
-    "required": [
-     "company",
-     "count",
-     "min",
-     "max",
-     "p25",
-     "p50",
-     "p75",
-     "p90"
-    ],
-    "title": "CompCompanySummary",
-    "type": "object"
-   },
    "CompComponent": {
     "additionalProperties": false,
     "properties": {
@@ -2000,30 +1876,6 @@
      "provenance"
     ],
     "title": "CompComponent",
-    "type": "object"
-   },
-   "CompCoverage": {
-    "additionalProperties": false,
-    "properties": {
-     "pct": {
-      "title": "Pct",
-      "type": "number"
-     },
-     "total_open": {
-      "title": "Total Open",
-      "type": "integer"
-     },
-     "with_comp": {
-      "title": "With Comp",
-      "type": "integer"
-     }
-    },
-    "required": [
-     "with_comp",
-     "total_open",
-     "pct"
-    ],
-    "title": "CompCoverage",
     "type": "object"
    },
    "CompEstimate": {
@@ -2075,106 +1927,6 @@
      "provenance"
     ],
     "title": "CompEstimate",
-    "type": "object"
-   },
-   "CompFamilySummary": {
-    "additionalProperties": false,
-    "description": "`family` first, then the summary; the client names the family.",
-    "properties": {
-     "count": {
-      "title": "Count",
-      "type": "integer"
-     },
-     "family": {
-      "title": "Family",
-      "type": "string"
-     },
-     "max": {
-      "title": "Max",
-      "type": "integer"
-     },
-     "min": {
-      "title": "Min",
-      "type": "integer"
-     },
-     "p25": {
-      "title": "P25",
-      "type": "number"
-     },
-     "p50": {
-      "title": "P50",
-      "type": "number"
-     },
-     "p75": {
-      "title": "P75",
-      "type": "number"
-     },
-     "p90": {
-      "title": "P90",
-      "type": "number"
-     }
-    },
-    "required": [
-     "family",
-     "count",
-     "min",
-     "max",
-     "p25",
-     "p50",
-     "p75",
-     "p90"
-    ],
-    "title": "CompFamilySummary",
-    "type": "object"
-   },
-   "CompLevelSummary": {
-    "additionalProperties": false,
-    "description": "`level_band` first, then the summary.",
-    "properties": {
-     "count": {
-      "title": "Count",
-      "type": "integer"
-     },
-     "level_band": {
-      "title": "Level Band",
-      "type": "string"
-     },
-     "max": {
-      "title": "Max",
-      "type": "integer"
-     },
-     "min": {
-      "title": "Min",
-      "type": "integer"
-     },
-     "p25": {
-      "title": "P25",
-      "type": "number"
-     },
-     "p50": {
-      "title": "P50",
-      "type": "number"
-     },
-     "p75": {
-      "title": "P75",
-      "type": "number"
-     },
-     "p90": {
-      "title": "P90",
-      "type": "number"
-     }
-    },
-    "required": [
-     "level_band",
-     "count",
-     "min",
-     "max",
-     "p25",
-     "p50",
-     "p75",
-     "p90"
-    ],
-    "title": "CompLevelSummary",
     "type": "object"
    },
    "CompMarketGap": {
@@ -2381,51 +2133,6 @@
      "source"
     ],
     "title": "CompSource",
-    "type": "object"
-   },
-   "CompSummary": {
-    "additionalProperties": false,
-    "description": "`comp_stats._summary`: dollars at the ends, interpolated percentiles between.",
-    "properties": {
-     "count": {
-      "title": "Count",
-      "type": "integer"
-     },
-     "max": {
-      "title": "Max",
-      "type": "integer"
-     },
-     "min": {
-      "title": "Min",
-      "type": "integer"
-     },
-     "p25": {
-      "title": "P25",
-      "type": "number"
-     },
-     "p50": {
-      "title": "P50",
-      "type": "number"
-     },
-     "p75": {
-      "title": "P75",
-      "type": "number"
-     },
-     "p90": {
-      "title": "P90",
-      "type": "number"
-     }
-    },
-    "required": [
-     "count",
-     "min",
-     "max",
-     "p25",
-     "p50",
-     "p75",
-     "p90"
-    ],
-    "title": "CompSummary",
     "type": "object"
    },
    "CompTotal": {
@@ -4249,72 +3956,18 @@
    },
    "CompensationStatsResponse": {
     "additionalProperties": false,
-    "description": "`GET /api/statistics/compensation`: what employers post, beside the estimate.\n\nA snapshot of the roles open now: no window. The Window lens moves\nthe trend routes beside it, never this population.",
+    "description": "`GET /api/statistics/compensation`: what employers post, and who posts a range.\n\nA snapshot of the roles open now: no window. Each company's own range and\nestimate at one level are `GET /api/statistics/pay-table`'s.",
     "properties": {
-     "base_estimates": {
-      "$ref": "#/components/schemas/BaseEstimates"
-     },
-     "by_company": {
-      "items": {
-       "$ref": "#/components/schemas/CompCompanySummary"
-      },
-      "title": "By Company",
-      "type": "array"
-     },
-     "by_family": {
-      "items": {
-       "$ref": "#/components/schemas/CompFamilySummary"
-      },
-      "title": "By Family",
-      "type": "array"
-     },
-     "by_level": {
-      "items": {
-       "$ref": "#/components/schemas/CompLevelSummary"
-      },
-      "title": "By Level",
-      "type": "array"
-     },
-     "coverage": {
-      "$ref": "#/components/schemas/CompCoverage"
-     },
-     "currency": {
-      "const": "USD",
-      "title": "Currency",
-      "type": "string"
-     },
      "disclosure": {
       "$ref": "#/components/schemas/DisclosureRates"
-     },
-     "min_roles": {
-      "title": "Min Roles",
-      "type": "integer"
-     },
-     "overall": {
-      "anyOf": [
-       {
-        "$ref": "#/components/schemas/CompSummary"
-       },
-       {
-        "type": "null"
-       }
-      ]
      },
      "posted": {
       "$ref": "#/components/schemas/PostedPay"
      }
     },
     "required": [
-     "min_roles",
-     "coverage",
-     "overall",
-     "by_level",
-     "by_company",
-     "by_family",
      "posted",
-     "disclosure",
-     "base_estimates",
-     "currency"
+     "disclosure"
     ],
     "title": "CompensationStatsResponse",
     "type": "object"
@@ -4851,48 +4504,6 @@
     "title": "DisclosureCohort",
     "type": "object"
    },
-   "DisclosureCompany": {
-    "additionalProperties": false,
-    "description": "`company` first, then the counts.",
-    "properties": {
-     "checked": {
-      "title": "Checked",
-      "type": "integer"
-     },
-     "company": {
-      "title": "Company",
-      "type": "string"
-     },
-     "disclosed": {
-      "title": "Disclosed",
-      "type": "integer"
-     },
-     "open": {
-      "title": "Open",
-      "type": "integer"
-     },
-     "rate": {
-      "anyOf": [
-       {
-        "type": "number"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Rate"
-     }
-    },
-    "required": [
-     "company",
-     "open",
-     "checked",
-     "disclosed",
-     "rate"
-    ],
-    "title": "DisclosureCompany",
-    "type": "object"
-   },
    "DisclosureCounts": {
     "additionalProperties": false,
     "description": "`rate` is `disclosed / checked`, null while nothing in the group is checked.",
@@ -4975,13 +4586,6 @@
    "DisclosureRates": {
     "additionalProperties": false,
     "properties": {
-     "by_company": {
-      "items": {
-       "$ref": "#/components/schemas/DisclosureCompany"
-      },
-      "title": "By Company",
-      "type": "array"
-     },
      "by_level": {
       "items": {
        "$ref": "#/components/schemas/DisclosureLevel"
@@ -4995,7 +4599,6 @@
     },
     "required": [
      "overall",
-     "by_company",
      "by_level"
     ],
     "title": "DisclosureRates",
@@ -10633,6 +10236,20 @@
     "title": "LauncherStatus",
     "type": "object"
    },
+   "LevelBand": {
+    "description": "Career stages \u2014 a full-market ladder where every rung is first-class.\n\nCoarser than any company's ladder; `levels/ladder.walk_guide` decodes\neach stage to per-company level labels.",
+    "enum": [
+     "intern",
+     "entry",
+     "mid",
+     "senior",
+     "staff",
+     "principal",
+     "director_plus"
+    ],
+    "title": "LevelBand",
+    "type": "string"
+   },
    "LevelGuideCell": {
     "additionalProperties": false,
     "description": "How one company names one level: one entry for every function, or one\nper track. Exactly one key is present (`response_model_exclude_unset`).",
@@ -13738,6 +13355,38 @@
     "title": "PayBasis",
     "type": "string"
    },
+   "PayByDiscipline": {
+    "additionalProperties": false,
+    "properties": {
+     "disciplines": {
+      "items": {
+       "$ref": "#/components/schemas/PayDiscipline"
+      },
+      "title": "Disciplines",
+      "type": "array"
+     },
+     "max_employer_share": {
+      "title": "Max Employer Share",
+      "type": "number"
+     },
+     "min_employers": {
+      "title": "Min Employers",
+      "type": "integer"
+     },
+     "min_ranges": {
+      "title": "Min Ranges",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "min_employers",
+     "min_ranges",
+     "max_employer_share",
+     "disciplines"
+    ],
+    "title": "PayByDiscipline",
+    "type": "object"
+   },
    "PayCoverage": {
     "additionalProperties": false,
     "description": "`GET /api/pay-coverage`: who answers pay app-wide and, when a\nplugin does, the companies it has read, as of the applied set. Every list\nthat shows pay says \"not covered\" for a company outside it.",
@@ -13781,6 +13430,115 @@
      "companies"
     ],
     "title": "PayCoverage",
+    "type": "object"
+   },
+   "PayDiscipline": {
+    "additionalProperties": false,
+    "description": "Posted base pay of one discipline at the level\n(`analytics.pay_table.build_pay_by_discipline`); the figure fields are\nnull while `withheld` says why.",
+    "properties": {
+     "employers": {
+      "title": "Employers",
+      "type": "integer"
+     },
+     "enough": {
+      "title": "Enough",
+      "type": "boolean"
+     },
+     "family": {
+      "title": "Family",
+      "type": "string"
+     },
+     "high": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "High"
+     },
+     "low": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Low"
+     },
+     "mid_p25": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mid P25"
+     },
+     "mid_p75": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mid P75"
+     },
+     "picked": {
+      "title": "Picked",
+      "type": "boolean"
+     },
+     "ranges": {
+      "title": "Ranges",
+      "type": "integer"
+     },
+     "roles": {
+      "title": "Roles",
+      "type": "integer"
+     },
+     "top_share": {
+      "title": "Top Share",
+      "type": "number"
+     },
+     "withheld": {
+      "anyOf": [
+       {
+        "enum": [
+         "too_few",
+         "one_employer"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Withheld"
+     }
+    },
+    "required": [
+     "family",
+     "picked",
+     "ranges",
+     "employers",
+     "roles",
+     "enough",
+     "low",
+     "high",
+     "mid_p25",
+     "mid_p75",
+     "top_share",
+     "withheld"
+    ],
+    "title": "PayDiscipline",
     "type": "object"
    },
    "PayFloor": {
@@ -13898,6 +13656,408 @@
     ],
     "title": "PayPeriod",
     "type": "string"
+   },
+   "PayTableEquity": {
+    "additionalProperties": false,
+    "description": "The equity facts the company itself states (`levels.pay.stated_equity`);\nan estimated fact is never here.",
+    "properties": {
+     "rule": {
+      "anyOf": [
+       {
+        "enum": [
+         "none",
+         "employee_election"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Rule"
+     },
+     "vehicle": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Vehicle",
+      "x-text": "code"
+     },
+     "vesting": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Vesting",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "vehicle",
+     "vesting",
+     "rule"
+    ],
+    "title": "PayTableEquity",
+    "type": "object"
+   },
+   "PayTableEstimate": {
+    "additionalProperties": false,
+    "description": "The estimated base salary across the row's roles: one figure when\n`low == high`, otherwise the span of the disciplines' estimates, never\ntheir average. Each is a lookup of the company, the level and `families`.",
+    "properties": {
+     "families": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Families",
+      "type": "array",
+      "x-text": "code"
+     },
+     "high": {
+      "title": "High",
+      "type": "integer"
+     },
+     "low": {
+      "title": "Low",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "low",
+     "high",
+     "families"
+    ],
+    "title": "PayTableEstimate",
+    "type": "object"
+   },
+   "PayTableRange": {
+    "additionalProperties": false,
+    "description": "One distinct range a company posts at the level, and the roles on it.",
+    "properties": {
+     "high": {
+      "title": "High",
+      "type": "integer"
+     },
+     "low": {
+      "title": "Low",
+      "type": "integer"
+     },
+     "roles": {
+      "title": "Roles",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "low",
+     "high",
+     "roles"
+    ],
+    "title": "PayTableRange",
+    "type": "object"
+   },
+   "PayTableResponse": {
+    "additionalProperties": false,
+    "description": "`GET /api/statistics/pay-table`: every company hiring at one level in\none country, posted range first, and posted pay by discipline there.",
+    "properties": {
+     "by_discipline": {
+      "$ref": "#/components/schemas/PayByDiscipline"
+     },
+     "country": {
+      "title": "Country",
+      "type": "string"
+     },
+     "currency": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Currency"
+     },
+     "estimates": {
+      "title": "Estimates",
+      "type": "boolean"
+     },
+     "level_band": {
+      "title": "Level Band",
+      "type": "string"
+     },
+     "min_skill_roles": {
+      "title": "Min Skill Roles",
+      "type": "integer"
+     },
+     "not_placed": {
+      "items": {
+       "$ref": "#/components/schemas/PayTableUnplaced"
+      },
+      "title": "Not Placed",
+      "type": "array"
+     },
+     "rows": {
+      "items": {
+       "$ref": "#/components/schemas/PayTableRow"
+      },
+      "title": "Rows",
+      "type": "array"
+     },
+     "skill": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Skill"
+     },
+     "skills": {
+      "items": {
+       "$ref": "#/components/schemas/PayTableSkill"
+      },
+      "title": "Skills",
+      "type": "array"
+     }
+    },
+    "required": [
+     "country",
+     "level_band",
+     "currency",
+     "skill",
+     "estimates",
+     "rows",
+     "not_placed",
+     "skills",
+     "min_skill_roles",
+     "by_discipline"
+    ],
+    "title": "PayTableResponse",
+    "type": "object"
+   },
+   "PayTableRow": {
+    "additionalProperties": false,
+    "description": "One company hiring at the level in the country\n(`analytics.pay_table.build_pay_table`).",
+    "properties": {
+     "checked": {
+      "title": "Checked",
+      "type": "integer"
+     },
+     "company": {
+      "title": "Company",
+      "type": "string"
+     },
+     "currency": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Currency",
+      "x-text": "code"
+     },
+     "equity": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PayTableEquity"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "estimate_base": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PayTableEstimate"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "estimate_total": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PayTableTotal"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "followed_as_set": {
+      "title": "Followed As Set",
+      "type": "boolean"
+     },
+     "high": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "High"
+     },
+     "low": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Low"
+     },
+     "open_roles": {
+      "title": "Open Roles",
+      "type": "integer"
+     },
+     "other_currency": {
+      "title": "Other Currency",
+      "type": "boolean"
+     },
+     "posting": {
+      "title": "Posting",
+      "type": "integer"
+     },
+     "ranges": {
+      "items": {
+       "$ref": "#/components/schemas/PayTableRange"
+      },
+      "title": "Ranges",
+      "type": "array"
+     },
+     "reason": {
+      "anyOf": [
+       {
+        "enum": [
+         "total",
+         "unclear",
+         "several_countries",
+         "not_yearly",
+         "placed_by_pay",
+         "unread",
+         "none"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reason",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "company",
+     "followed_as_set",
+     "open_roles",
+     "posting",
+     "checked",
+     "currency",
+     "low",
+     "high",
+     "ranges",
+     "other_currency",
+     "reason",
+     "estimate_base",
+     "estimate_total",
+     "equity"
+    ],
+    "title": "PayTableRow",
+    "type": "object"
+   },
+   "PayTableSkill": {
+    "additionalProperties": false,
+    "description": "A skill the table's roles name, offered by the skill filter.",
+    "properties": {
+     "roles": {
+      "title": "Roles",
+      "type": "integer"
+     },
+     "term": {
+      "title": "Term",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "term",
+     "roles"
+    ],
+    "title": "PayTableSkill",
+    "type": "object"
+   },
+   "PayTableTotal": {
+    "additionalProperties": false,
+    "description": "The estimated total compensation across the row's roles, as a span.\n`rung` names the rung a seed total reads; null for any other source.",
+    "properties": {
+     "high": {
+      "title": "High",
+      "type": "integer"
+     },
+     "low": {
+      "title": "Low",
+      "type": "integer"
+     },
+     "rung": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Rung",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "low",
+     "high",
+     "rung"
+    ],
+    "title": "PayTableTotal",
+    "type": "object"
+   },
+   "PayTableUnplaced": {
+    "additionalProperties": false,
+    "description": "A company's roles in the country whose level is not placed.",
+    "properties": {
+     "company": {
+      "title": "Company",
+      "type": "string"
+     },
+     "roles": {
+      "title": "Roles",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "company",
+     "roles"
+    ],
+    "title": "PayTableUnplaced",
+    "type": "object"
    },
    "PlaceResult": {
     "additionalProperties": false,
@@ -15738,7 +15898,7 @@
    },
    "PostedLevel": {
     "additionalProperties": false,
-    "description": "One level's posted base pay in one country and currency\n(`comp_stats._level_figure`). Each distinct range votes once. Below the\nminimums `enough` is false and the figure fields are null; the counts say\nwhy.",
+    "description": "One level's posted base pay in one country and currency\n(`comp_stats.level_figure`). Each distinct range votes once. Below the\nminimums `enough` is false and the figure fields are null; the counts say\nwhy.",
     "properties": {
      "employers": {
       "title": "Employers",
@@ -31016,7 +31176,7 @@
   },
   "/api/statistics/compensation": {
    "get": {
-    "description": "Compensation across the roles open now: the roles Insights describes.\n\nThe quantities in this payload must not be conflated:\n\n* `posted` carries the ranges employers print in their postings, as yearly\n  *base salary* per country and level (see `build_posted_pay`), with the\n  person's levels so the screen can open on them. It leads the tab.\n* `overall` / `by_level` / `by_company` / `by_family` aggregate\n  `Job.comp_median`, an *imputed total-comp estimate*: a lookup keyed by\n  company and level, not anything an employer said, and only for US\n  postings. Base pay and total comp cannot share an axis, so the UI keeps\n  them in separate panels.\n* `disclosure` is the *rate* \u2014 how many open roles state pay at all, overall\n  and per company/level. Basis-independent, and denominated in roles the\n  disclosure pass has actually read (see `build_disclosure_rates`).\n\nCoverage is reported so the UI can state how much of the open set is estimated.\n\nNo window. Keeping roles FIRST SEEN in the last N days would change the\npopulation, not the period: most open postings are first seen recently, so\na 30-day window is nearly all-time and a 7-day one a sample of whatever was\nonboarded that week. The trend routes carry time.",
+    "description": "Compensation across the roles open now: the roles Insights describes.\n\n* `posted` carries the ranges employers print in their postings, as yearly\n  *base salary* per country and level (see `build_posted_pay`), with the\n  person's levels so the screen can open on them. It leads the tab.\n* `disclosure` is the *rate*: how many open roles state pay at all, overall\n  and per level. Basis-independent, and denominated in roles the\n  disclosure pass has actually read (see `build_disclosure_rates`).\n\nEach company's own range and estimate at one level are the company table's\n(`statistics_pay_table`).\n\nNo window. Keeping roles FIRST SEEN in the last N days would change the\npopulation, not the period: most open postings are first seen recently, so\na 30-day window is nearly all-time and a 7-day one a sample of whatever was\nonboarded that week.",
     "operationId": "statistics_compensation_api_statistics_compensation_get",
     "parameters": [
      {
@@ -31344,6 +31504,106 @@
      }
     },
     "summary": "Statistics Overview"
+   }
+  },
+  "/api/statistics/pay-table": {
+   "get": {
+    "description": "Every company hiring at one level in one country, and posted pay by\ndiscipline at that level (`analytics/pay_table.py`).\n\nA role is the country's when any place it lists lies there, as the place\nfilter takes it; a company's posted cell reads only ranges for that country\nalone, as the level's figure does. The side narrows both reads. The picked\ndisciplines narrow the table and are marked in the comparison, which shows\nevery discipline. The skill narrows the table only.\n\nThe currency is the country's own (`build_posted_pay` over every\ndiscipline), never the picked discipline's: the comparison draws every\ndiscipline on one axis, and a discipline with no range of its own would\notherwise leave the country with no currency at all. Each row says the\ncurrency its own figure is in, and a company posting only in another\ncurrency is listed apart, so the tab's figure and a row can differ in\ncurrency while a discipline is picked.",
+    "operationId": "statistics_pay_table_api_statistics_pay_table_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "country",
+      "required": true,
+      "schema": {
+       "pattern": "^[A-Za-z]{2}$",
+       "title": "Country",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "level",
+      "required": true,
+      "schema": {
+       "$ref": "#/components/schemas/LevelBand"
+      }
+     },
+     {
+      "in": "query",
+      "name": "skill",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 128,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Skill"
+      }
+     },
+     {
+      "in": "query",
+      "name": "side",
+      "required": false,
+      "schema": {
+       "default": "all",
+       "enum": [
+        "all",
+        "yours",
+        "other"
+       ],
+       "title": "Side",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "family",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "items": {
+          "type": "string"
+         },
+         "type": "array"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Family"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PayTableResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Statistics Pay Table"
    }
   },
   "/api/statistics/velocity": {

@@ -37,7 +37,10 @@ from tracker.levels.model import (
     BONUS_NONE,
     BONUS_PCT_OF_BASE,
     BONUS_UNVERIFIED,
+    EQUITY_EMPLOYEE_ELECTION,
+    EQUITY_NONE,
     EQUITY_UNVERIFIED,
+    STATED_BY_EMPLOYER,
     PayPolicy,
 )
 from tracker.schema import LEVEL_BAND_ORDER, LevelBand, parse_band
@@ -89,6 +92,30 @@ def vesting_for(company: str) -> str | None:
 def equity_vehicle_for(company: str) -> str | None:
     """The curated equity vehicle where no scraped field expresses it."""
     return policy_for(company).equity_vehicle
+
+
+#: The equity rules a comparison across companies names: a rule that the
+#: company grants none, or that each person picks the mix. A rule that sizes
+#: the grant (by level, or from a target) says nothing a reader can act on.
+_STATED_EQUITY_RULES = (EQUITY_NONE, EQUITY_EMPLOYEE_ELECTION)
+
+
+def stated_equity(company: str) -> dict[str, str | None] | None:
+    """The equity facts the company itself states: its `vehicle`, `vesting`
+    and `rule` (only `none` or `employee_election`), each None where the
+    company states nothing or the atlas estimates it. None when it states none
+    of them, so an estimate never sits among stated facts."""
+    policy = policy_for(company)
+
+    def own(fact: str, value: str | None) -> str | None:
+        return value if value and policy.stated_by(fact) == STATED_BY_EMPLOYER else None
+
+    stated = {
+        "vehicle": own("equity_vehicle", policy.equity_vehicle),
+        "vesting": own("vesting", policy.vesting),
+        "rule": own("equity_rule", policy.equity_rule if policy.equity_rule in _STATED_EQUITY_RULES else None),
+    }
+    return stated if any(stated.values()) else None
 
 
 #: The company profile's vesting value for a company that grants equity one year at a time or fully

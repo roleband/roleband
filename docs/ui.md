@@ -1091,8 +1091,8 @@ and a fixed decision console (`DecisionConsole.tsx`) answering `d`, `t` and
 
 Insights (`features/statistics/`) opens in its basic view: the Overview,
 Hiring, Compensation and Skills tabs, each with the panels a weekly reader
-needs (the window's motion and top skills, who hires and where, posted pay at
-the person's level, and the estimate by level, company and discipline). The
+needs (the window's motion and top skills, who hires and where, and posted pay
+at the person's level with every company hiring there). The
 Advanced view switch
 in the page header adds the other three tabs (Pace, Levels and Stock) and every
 other panel; a tab passes `advanced` down to the panels the basic view leaves
@@ -1117,10 +1117,32 @@ stays picked in another country, which then says it has no range there. A
 level below the minimums shows its counts and what a figure needs, never a
 figure. A panel lists every level of the country with its typical range, the
 person's levels tagged, and the roles with no placed level said once below
-the levels. The estimate panels follow, each labelled an estimate of US pay.
-The advanced view adds every posted range of the country (`PayBands.tsx`, in
-its currency, uncapped, with an employer picker) with that country's roles
-left out and why, who states pay by level, and the base-only estimates.
+the levels. The advanced view adds every posted range of the country
+(`PayBands.tsx`, in its currency, uncapped, with an employer picker) with that
+country's roles left out and why, and who states pay by level.
+
+Under the hero, the company table (`PayTable.tsx`,
+`GET /api/statistics/pay-table`) answers which companies to target: one row per
+company hiring at the picked level in the picked country, the posted range
+first. The row shows the median low to the median high of the company's own
+distinct ranges, a strip drawing them against the level's typical range and the
+same ranges as text, how many of its checked roles post one where some do and
+some do not, its open roles at that level, and the equity its employer states (the Stock tab's words: the stock
+type, how it vests, no equity, or cash or equity). Where a company posts no
+range the cell says why, by its own reason, and the estimate column holds that
+company's estimate: a base for the level and its disciplines, or a total named
+by the rung it reads. An estimate never fills the posted cell and never sets the
+order; a company that posts no range follows by open roles. Outside the US the
+estimate column goes, with one line saying estimates read US pay only. The
+company name opens the Board narrowed to it; the open-roles figure is not a
+link, since the Board shows every level. A skill filter narrows the table
+alone, offering the skills at least three of its roles name, and the roles with
+no placed level are counted in one line below it. The table shows 20 rows with
+Show all, a line counting the companies it hides that post no range, and a find
+box that searches every row. The advanced view adds posted pay by discipline
+within the level: every discipline at once, the picked one tagged, those
+withheld named in one line with the rule each misses, and a line saying a gap
+also reflects which companies hire each discipline.
 
 The window switch shows only on the tabs whose figures it moves (Overview and
 Pace), and offers only the windows the history covers: a scope's history starts
@@ -1143,9 +1165,7 @@ Turning the advanced view on asks in a dialog until the person says yes; the
 answer is kept on this device (`insightsView.ts`), so turning it off and on
 again asks nothing. A link to an advanced tab opens it in the basic view with a
 line offering the rest, and the tab leaves the bar once the person moves on. A
-panel that holds a tab's only figures in some case (the base estimates when no
-role has a total) shows in both views. A figure that tells no reader anything
-is removed, not moved to the advanced view
+figure that tells no reader anything is removed, not moved to the advanced view
 ([0004](decisions/0004-insights-answers-a-question.md)).
 
 The Stock tab (advanced) shows each company's typical total compensation as

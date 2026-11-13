@@ -34,7 +34,8 @@ import {
   type CompanyDiscoveryCompany,
   type CompanyPrices,
   type CompanyProfileDetail,
-  type CompensationStats,
+  type PayTableEquity,
+  type PayTableRow,
   type CompTrajectory,
   type DecidedQuery,
   type Demand,
@@ -452,6 +453,7 @@ export type StatisticsRouteContract = [
     Returns<typeof api.compensation>,
     Ok<"statistics_compensation_api_statistics_compensation_get">
   >>,
+  Expect<Equals<Returns<typeof api.payTable>, Ok<"statistics_pay_table_api_statistics_pay_table_get">>>,
   Expect<Equals<
     Returns<typeof api.compTrajectory>,
     Ok<"statistics_comp_trajectory_api_statistics_comp_trajectory_get">
@@ -461,9 +463,13 @@ export type StatisticsRouteContract = [
   Expect<Equals<Returns<typeof api.demand>, Ok<"demand_api_demand_get">>>,
 ];
 
-declare const marketSummary: NonNullable<CompensationStats["overall"]>;
-// @ts-expect-error — a comp group is never empty, so its median is always a number.
-export const summaryWithoutMedian: CompensationStats["overall"] = { ...marketSummary, p50: null };
+declare const payRow: PayTableRow;
+// @ts-expect-error — a row always says how many roles the company has open at the level.
+export const rowWithoutOpenRoles: PayTableRow = { ...payRow, open_roles: undefined };
+
+declare const stated: NonNullable<PayTableEquity>;
+// @ts-expect-error — the equity column names a stated rule, never a share we estimate.
+export const estimatedEquityRule: PayTableEquity = { ...stated, rule: "dollar_grant_by_level" };
 
 declare const region: Demand["regions"][number];
 // @ts-expect-error — a region always says how many of its roles name no country in it.

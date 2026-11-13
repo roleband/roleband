@@ -166,16 +166,17 @@ function escape(text: string): string {
 /* Every tab opens with one hero whose eyebrow IS its tab label,
  * one level-2 figure, and two to four KPI tiles; nothing sits above it. */
 test("every Insights tab opens with the same hero, named by its tab", async ({ page }) => {
-  const summary = (p50: number) => ({ count: 4, min: p50 - 100_000, max: p50 + 200_000, p25: p50 - 50_000, p50, p75: p50 + 50_000, p90: p50 + 150_000 });
   const routes: Record<string, unknown> = {
     "/api/demand": hiringFixture,
     "/api/statistics/compensation**": {
-      currency: "USD", min_roles: 5, coverage: { with_comp: 4, total_open: 12, pct: 0.333 }, overall: summary(500_000),
-      by_level: [], by_company: [], by_family: [],
       posted: { min_employers: 5, min_ranges: 8, default_country: null, countries: [], your_levels: [],
         excluded: { not_base: 0, not_yearly: 0, implausible: 0, no_country: 0, placed_by_pay: 0, without_country: 0 } },
-      disclosure: { overall: { open: 12, checked: 0, disclosed: 0, rate: null }, by_company: [], by_level: [] },
-      base_estimates: { min_roles: 5, coverage: { with_base: 0, total_open: 12 }, overall: null, by_level: [], by_company: [], by_family: [] },
+      disclosure: { overall: { open: 12, checked: 0, disclosed: 0, rate: null }, by_level: [] },
+    },
+    "/api/statistics/pay-table**": {
+      country: "US", level_band: "senior", currency: "USD", skill: null, estimates: true,
+      rows: [], not_placed: [], skills: [], min_skill_roles: 3,
+      by_discipline: { min_employers: 5, min_ranges: 8, max_employer_share: 0.4, disciplines: [] },
     },
     "/api/statistics/offer-terms": { feed_configured: false, companies: [] },
     "/api/profile/offer": { offer: null, valuations: {} },
