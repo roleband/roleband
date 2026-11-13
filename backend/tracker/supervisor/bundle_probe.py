@@ -42,7 +42,7 @@ def probe(scratch: Path) -> dict[str, object]:
     app = REPO_ROOT.parent.parent
     before = snapshot(app)
     began = time.monotonic()
-    imports = ('numpy', 'onnxruntime', 'sklearn.cluster', 'tokenizers', 'cryptography.fernet',
+    imports = ('numpy', 'onnxruntime', 'tokenizers', 'cryptography.fernet',
                'asyncpg', 'psycopg2', 'curl_cffi', 'selectolax.lexbor', 'pydantic_core', 'uvloop',
                'roleband_robots', 'roleband_plugin_sdk', 'tracker.api.app', 'tracker.mcp.server')
     for name in imports:

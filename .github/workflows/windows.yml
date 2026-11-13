@@ -19,7 +19,8 @@ concurrency:
 
 jobs:
   # A gate takes no `paths:` filter, so this job decides whether a pull request needs the
-  # Windows lane at all. PATHS is every file it reads.
+  # Windows lane at all. PATHS is every file it reads: the `suite` lane runs the backend
+  # suite, so every path backend.yml watches is here too.
   changes:
     name: windows-changes
     runs-on: ubuntu-24.04
@@ -41,11 +42,24 @@ jobs:
             backend/**
             sdk/python/**
             robots/python/**
+            examples/**
             launcher/windows/**
+            launcher/macos/Tools/**
+            launcher/macos/test-transport.py
+            launcher/macos/runtime-lock.txt
+            launcher/macos/packaging-requirements.txt
             global.json
+            dashboard/csp-policy.json
+            dashboard/openapi.json
             dashboard/package.json
+            dashboard/src/companies.json
+            dashboard/src/api/notification-samples.json
+            dashboard/src/features/scope/walk/roleQuestions.gen.json
+            dashboard/src/introCities.gen.ts
+            dashboard/src/locations.gen.ts
             deploy/check_local.py
-            launcher/macos/Tools/ci_changes.py
+            docs/sources.md
+            CHANGELOG.md
             .python-version
             .github/workflows/windows.yml
         run: python3 launcher/macos/Tools/ci_changes.py
@@ -158,16 +172,24 @@ jobs:
   # input still passes, since each lane then succeeds with its steps skipped. A failed
   # `changes` job runs every lane, so its own result hides nothing. `always()`, not
   # `!cancelled()`: a skipped job counts as passed for a required check, so this job
-  # runs and fails when the run is cancelled.
+  # runs and fails when the run is cancelled. Every gate's required check is a job
+  # like this one, with the same step (backend/tests/test_ci_workflow_triggers.py).
   result:
     name: windows
-    needs: checks
+    needs: [changes, checks]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - env:
-          LANES: ${{ needs.checks.result }}
+      - shell: python
+        env:
+          RESULT_checks: ${{ needs.checks.result }}
         run: |
-          echo "lanes: $LANES"
-          test "$LANES" = success
+          import os
+          results = {k.removeprefix("RESULT_"): v for k, v in os.environ.items() if k.startswith("RESULT_")}
+          # A part may be skipped only when the change did not need it: NEEDED_<part> is 'false'.
+          passed = {p: r == "success" or (r == "skipped" and os.environ.get(f"NEEDED_{p}") == "false") for p, r in results.items()}
+          for part, result in sorted(results.items()):
+              print(f"{part}: {result}")
+          if not results or not all(passed.values()):
+              raise SystemExit("not passed: " + (", ".join(sorted(p for p, ok in passed.items() if not ok)) or "no part reported"))

@@ -41,7 +41,7 @@ def probe(resources, state):
 
     private_directory(state)
     before = snapshot(resources)
-    names = ("numpy", "onnxruntime", "sklearn.cluster", "tokenizers", "cryptography.fernet", "asyncpg", "psycopg2",
+    names = ("numpy", "onnxruntime", "tokenizers", "cryptography.fernet", "asyncpg", "psycopg2",
              "curl_cffi", "selectolax.lexbor", "pydantic_core", "roleband_robots", "roleband_plugin_sdk",
              "tracker.api.app", "tracker.mcp.server")
     for name in names:

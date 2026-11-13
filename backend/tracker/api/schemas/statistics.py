@@ -97,7 +97,7 @@ class StatisticsOverviewResponse(Built):
 
     days: int
     #: Where the figures start: the window's start, or the scope's history when
-    #: that is shorter (`queries.insights.window_since`). None before any whole read.
+    #: that is shorter (`queries.insights.window_since`). None before the history starts.
     since: datetime | None
     kpis: OverviewKpis
     top_skills: list[OverviewSkill]

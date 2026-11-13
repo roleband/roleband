@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import type { EChartsCoreOption } from "echarts/core";
 import type {
   CompTrajectoryCompany,
@@ -117,14 +118,19 @@ export function HiringCompaniesChart({
   /** A click on a company's bar or its label. */
   onPick?: (company: string) => void;
 }) {
-  const rows = bars.slice().reverse();
+  const rows = useMemo(() => bars.slice().reverse(), [bars]);
+  const pickable = Boolean(onPick);
   // A bar answers with its index; an axis label, with its text.
-  const pick = (p: unknown) => {
-    const { componentType, dataIndex, value } = p as { componentType?: string; dataIndex?: number; value?: unknown };
-    const row = componentType === "yAxis" ? rows.find((r) => r.label === value) : rows[dataIndex ?? -1];
-    if (row) onPick?.(row.company);
-  };
-  const option: EChartsCoreOption = {
+  const events = useMemo(() => onPick && {
+    click: (p: unknown) => {
+      const { componentType, dataIndex, value } = p as { componentType?: string; dataIndex?: number; value?: unknown };
+      const row = componentType === "yAxis" ? rows.find((r) => r.label === value) : rows[dataIndex ?? -1];
+      if (row) onPick(row.company);
+    },
+  }, [rows, onPick]);
+  /* A new option redraws the chart from scratch, replacing every bar and label under the
+     pointer, so it changes only with the rows it draws. */
+  const option = useMemo<EChartsCoreOption>(() => ({
     grid: { ...compactGrid, right: 118, top: 24 },
     tooltip: {
       trigger: "item",
@@ -140,14 +146,14 @@ export function HiringCompaniesChart({
       },
     },
     xAxis: valueAxis,
-    yAxis: { ...categoryAxis, data: rows.map((row) => row.label), triggerEvent: Boolean(onPick) },
+    yAxis: { ...categoryAxis, data: rows.map((row) => row.label), triggerEvent: pickable },
     series: [
       {
         name: insightsCommonOpenRoles(),
         type: "bar",
         data: rows.map((row) => ({ value: row.open })),
         barMaxWidth: 13,
-        cursor: onPick ? "pointer" : "default",
+        cursor: pickable ? "pointer" : "default",
         itemStyle: {
           color: {
             type: "linear",
@@ -177,13 +183,13 @@ export function HiringCompaniesChart({
         },
       },
     ],
-  };
+  }), [rows, pickable]);
   return (
     <EChart
       ariaLabel={insightsStatisticsChartsOpenRolesByCompany()}
       className="chart-demand"
       height={Math.max(220, 54 + rows.length * 30)}
-      onEvents={onPick ? { click: pick } : undefined}
+      onEvents={events}
       option={option}
       summary={bars.map((b) => insightsStatisticsChartsOpenNewClosed({ label: String(b.label), open: b.open, fresh: b.fresh, closed: b.closed })).join("; ")}
     />

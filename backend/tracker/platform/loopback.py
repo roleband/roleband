@@ -28,3 +28,12 @@ def is_loopback_address(value: str) -> bool:
 def is_loopback_host(value: str) -> bool:
     """True for a host the API may bind: a loopback IP literal or `localhost`."""
     return value.strip().lower().rstrip(".") == LOOPBACK_NAME or is_loopback_address(value)
+
+
+def http_origin(host: str, port: int) -> str:
+    """The `http://host:port` a client uses to reach a server bound on `host`.
+
+    An IPv6 literal goes in brackets, or the URL would read its colons as a port.
+    """
+    bare = host.strip().strip("[]")
+    return f"http://[{bare}]:{port}" if ":" in bare else f"http://{bare}:{port}"

@@ -3,7 +3,8 @@ role once, and how old the open roles are. Overview, Pace and Hiring read
 these, so one question gets one answer on every tab.
 
 Every count reads the postings Insights describes (in scope, not hidden) once
-(`load`) and joins them into roles. Postings of one place set are one role.
+(`load`): every role its window can reach, each whole, and none that opened
+and came down before it. It joins them into roles. Postings of one place set are one role.
 The stored place sets hold open postings only (`lineage.place_sets`), so a
 closed posting's set is what its `closed` event recorded while it was still
 open (`place_sets.closing_role_notes`): `listed_with`, the postings of its
@@ -39,14 +40,31 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Literal
 
-from sqlalchemy import case, desc, select
+from sqlalchemy import (
+    BigInteger,
+    Integer,
+    and_,
+    any_,
+    case,
+    cast,
+    desc,
+    false,
+    func,
+    literal_column,
+    or_,
+    select,
+    true,
+    union_all,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
+from sqlalchemy.sql.elements import ColumnClause
 
 from tracker.analytics.age_basis import aggregate_start
 from tracker.analytics.posting_reality import is_new_listing
 from tracker.db.models import Job, JobLifecycleEvent, JobPlaceSetMember
 from tracker.db.queries.insights import InsightsScope
-from tracker.db.queries.jobs import exclude_hidden
+from tracker.lineage.counts import place_set_later
 from tracker.schema import Arrival
 
 OpeningKind = Literal["opened", "already_listed", "reposted"]
@@ -93,7 +111,8 @@ def opening_kind(
 
 @dataclass(frozen=True)
 class Postings:
-    """The postings one scope describes, by id, read once per request."""
+    """The postings one scope describes that a count can reach, by id, read
+    once per request."""
 
     by_id: dict[int, Any]
 
@@ -118,26 +137,140 @@ def _stored_set() -> Any:
     )
 
 
-async def load(session: AsyncSession, scope: InsightsScope, hidden: list[str]) -> Postings:
-    """Every posting Insights describes, open or closed, with what joins it
-    into a role: its stored place set, its lineage and its closing note."""
-    stmt = exclude_hidden(
-        select(
-            Job.id,
-            Job.company,
-            Job.status,
-            Job.lineage_id,
-            Job.lineage_role,
-            Job.arrival,
-            Job.first_posted_at,
-            Job.first_seen,
-            Job.closed_at,
-            Job.posted_at.is_not(None).label("employer_dated"),
-            _stored_set().label("set_id"),
-            case((Job.status != "open", _last_close())).label("note"),
-        ).where(Job.in_scope.is_(True), *scope.conds()),
-        hidden,
+#: The kind of a posting's node in `_reached`'s walk.
+_POSTING: ColumnClause[str] = literal_column("'job'::text")
+
+#: The keys of a closing note that name the postings it joins.
+_NOTE_KEYS = ("listed_with", "closed_with")
+
+
+def _scoped(job: Any, scope: InsightsScope, hidden: list[str]) -> list:
+    """The postings Insights describes, on `job` (the table or an alias)."""
+    conds = [job.in_scope.is_(True), *scope.conds(company=job.company, family=job.family)]
+    return [*conds, job.company.notin_(hidden)] if hidden else conds
+
+
+def _reached(scope: InsightsScope, hidden: list[str], seed: Any) -> Any:
+    """The postings `seed` picks and every posting a role joins to them,
+    through any number of postings between: a lineage, a stored place set,
+    and a closing note in either direction.
+
+    The walk visits postings and, as nodes of their own, the lineages and
+    sets that hold them, so a group of any size is listed once, not once per
+    member. A posting's own notes name the others; a posting named in
+    another's `listed_with` is found from the note that names it.
+    `closed_with` needs no such search: a read writes it on every posting it
+    closes together, each naming the rest, so the postings it joins name each
+    other. Edges come from every `closed` event, not only the latest, so the
+    walk may reach a few postings no role joins; `load` applies the rule
+    itself. What it reaches is a whole number of roles, so every role it
+    touches is read entire however long ago its other postings closed, and
+    nothing else is read.
+
+    Rows are `(id, kind)`: a posting, a lineage or a set by its id."""
+    start = select(cast(Job.id, BigInteger).label("id"), _POSTING.label("kind")).where(
+        *_scoped(Job, scope, hidden), seed
     )
+    reached = start.cte("reached", recursive=True)
+    own, member, other = aliased(Job), aliased(Job), aliased(Job)
+    in_set, peer = aliased(JobPlaceSetMember), aliased(JobPlaceSetMember)
+    event = aliased(JobLifecycleEvent)
+    # Literals, so a branch that does not apply to a row's kind is skipped
+    # once per row, and the partial index on closing notes matches a
+    # prepared plan.
+    posting = _POSTING
+    lineage: ColumnClause[str] = literal_column("'lineage'::text")
+    place_set: ColumnClause[str] = literal_column("'set'::text")
+    is_posting = reached.c.kind == posting
+    closing = event.event_type == literal_column("'closed'")
+
+    def edge(stmt: Any, kind: Any) -> Any:
+        return stmt.add_columns(kind.label("kind")).correlate(reached)
+
+    joined = union_all(
+        edge(select(own.lineage_id.label("id")).where(is_posting, own.id == reached.c.id, own.lineage_id.is_not(None)), lineage),
+        edge(select(in_set.set_id.label("id")).where(
+            is_posting, in_set.job_id == reached.c.id, in_set.status == "auto", in_set.set_id.is_not(None)
+        ), place_set),
+        edge(select(member.id.label("id")).where(reached.c.kind == lineage, member.lineage_id == reached.c.id), posting),
+        edge(select(peer.job_id.label("id")).where(
+            reached.c.kind == place_set, peer.set_id == reached.c.id, peer.status == "auto"
+        ), posting),
+        *(
+            edge(
+                select(func.jsonb_array_elements_text(event.detail[key]).cast(Integer).label("id")).where(
+                    is_posting, event.job_id == reached.c.id, closing,
+                    func.jsonb_typeof(event.detail[key]) == "array",
+                ),
+                posting,
+            )
+            for key in _NOTE_KEYS
+        ),
+        edge(select(event.job_id.label("id")).where(
+            is_posting, closing,
+            event.detail.op("@>")(func.jsonb_build_object("listed_with", func.jsonb_build_array(reached.c.id))),
+        ), posting),
+    ).lateral("joined")
+    # A scalar subquery, so each posting reached is checked by its id and a
+    # step never reads the postings no role it holds joins.
+    described = (
+        select(literal_column("1"))
+        .where(other.id == joined.c.id, *_scoped(other, scope, hidden))
+        .correlate(joined)
+        .scalar_subquery()
+    )
+    step = (
+        select(cast(joined.c.id, BigInteger), joined.c.kind)
+        .select_from(reached.join(joined, true()))
+        .where(or_(joined.c.kind != posting, described.is_not(None)))
+    )
+    return reached.union(step)
+
+
+async def load(
+    session: AsyncSession,
+    scope: InsightsScope,
+    hidden: list[str],
+    *,
+    since: datetime | None,
+    open_roles: bool = False,
+) -> Postings:
+    """The postings Insights describes that a count from `since` can reach,
+    open or closed, with what joins them into a role: its stored place set,
+    its lineage and its closing note.
+
+    That is every role with a posting first seen or closed since `since`,
+    and with `open_roles` every role still open, each with all its postings
+    (`_reached`). A role that opened and came down before `since` is in no
+    count from it, so the read grows with the window and the open roles, not
+    with the history. None reads every posting: all time is the history."""
+    if since is None:
+        wanted: Any = and_(*_scoped(Job, scope, hidden))
+    else:
+        seed = or_(Job.first_seen >= since, Job.closed_at >= since)
+        if open_roles:
+            seed = or_(seed, Job.status == "open")
+        reached = _reached(scope, hidden, seed)
+        # An array, not IN: no estimate of a recursive walk is close, and on a
+        # small table a guess makes a scan of every posting look cheaper than
+        # looking up the ones the walk reached.
+        wanted = Job.id == any_(func.array(select(reached.c.id).where(reached.c.kind == _POSTING).scalar_subquery()))
+    stmt = select(
+        Job.id,
+        Job.company,
+        Job.status,
+        Job.lineage_id,
+        Job.lineage_role,
+        Job.arrival,
+        Job.first_posted_at,
+        Job.first_seen,
+        Job.closed_at,
+        Job.posted_at.is_not(None).label("employer_dated"),
+        _stored_set().label("set_id"),
+        case((Job.status != "open", _last_close())).label("note"),
+        # The set's member every count shows it through, for `open_ages`.
+        (Job.id.in_(place_set_later()) if open_roles else false()).label("later"),
+    ).where(wanted)
     return Postings({r.id: r for r in (await session.execute(stmt)).all()})
 
 
@@ -225,20 +358,14 @@ def _whole_days(start: datetime | None, end: datetime) -> int | None:
 
 
 def open_ages(postings: Postings, now: datetime) -> list[OpenAge]:
-    """Every open role Insights describes, a place set once (through its
-    earliest open posting, as every count shows it), aged from its role's
-    start."""
+    """Every open role Insights describes, a place set once, through the
+    member every count shows it by (`lineage.counts.place_set_later`), aged
+    from its role's start. Needs a `load` with `open_roles`."""
     roles = _roles(postings)
     members = roles.members(postings.by_id)
-    first_open_of_set: dict[int, Any] = {}
-    for r in postings.by_id.values():
-        if r.status == "open" and r.set_id is not None:
-            held = first_open_of_set.get(r.set_id)
-            if held is None or (r.first_seen, r.id) < (held.first_seen, held.id):
-                first_open_of_set[r.set_id] = r
     out: list[OpenAge] = []
     for r in postings.by_id.values():
-        if r.status != "open" or (r.set_id is not None and first_open_of_set[r.set_id] is not r):
+        if r.status != "open" or r.later:
             continue
         role = [postings.by_id[i] for i in members[roles.find(r.id)]]
         out.append(OpenAge(r.company, _whole_days(_start(role), now), any(m.employer_dated for m in role)))

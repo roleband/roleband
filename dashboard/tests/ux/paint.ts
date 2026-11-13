@@ -24,11 +24,16 @@ export async function expectOnTop(locator: Locator, what: string) {
 
 /* A pointer at the control's centre with no actionability checks and no
    `force`: the event lands on whatever is painted there, so a control that is
-   covered is simply not clicked and the assertion after it fails. */
+   covered is simply not clicked and the assertion after it fails. The box is
+   polled, not read once: a control drawn again between the last assertion and
+   this read has no box for that moment. */
 export async function pointAndClick(page: Page, locator: Locator) {
-  const box = await locator.boundingBox();
-  if (!box) throw new Error("the control has no box to point at");
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  const seen: { box: Awaited<ReturnType<Locator["boundingBox"]>> } = { box: null };
+  await expect
+    .poll(async () => (seen.box = await locator.boundingBox()) !== null, { message: "the control has no box to point at" })
+    .toBe(true);
+  const { x, y, width, height } = seen.box!;
+  await page.mouse.click(x + width / 2, y + height / 2);
 }
 
 /* Everything painted over a cover that is not the cover or the layer that

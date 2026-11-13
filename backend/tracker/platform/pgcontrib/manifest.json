@@ -28,10 +28,16 @@
       "wheel": "pixeltable_pgserver-0.7.2-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
       "wheel_url": "https://files.pythonhosted.org/packages/80/fa/50ec3c6c634b1229aa796a1edf73ecbb857340b8569a6b87d5f563a6a2f6/pixeltable_pgserver-0.7.2-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
       "wheel_sha256": "3a7c7f325f15505931c79628c0e273ce76b6125254262b06c653812885d170aa",
+      "pgvector": {
+        "version": "0.8.7",
+        "source_url": "https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.7.tar.gz",
+        "source_sha256": "cac0b10c360f05b2d521200105ba3697e773d4cd3731f5a915a7e37ebe0bea85"
+      },
       "bundle": "linux-x86_64.tar.gz",
-      "sha256": "805e2486d9f8eec03c8ab769c403de550bde0e7a89486567e271f152385faa83",
+      "sha256": "e02810998cdf94dacff3ded21cf766601033f8090981345437b1f9757e7b3b81",
       "files": {
         "lib/postgresql/pg_trgm.so": "e37bb985a92165501d8c52c66e39e10e8187de435f13b636fe5d715840b31c1d",
+        "lib/postgresql/vector.so": "450667056f113ed0ff594ce67b1e94d189601e8a8ea1de2f6b50eddb9b3f9680",
         "share/postgresql/extension/pg_trgm--1.0--1.1.sql": "a85cff55497081250bef3bb3b7fc8d8beb3b9bab64675501f79f923d7bd0a06c",
         "share/postgresql/extension/pg_trgm--1.1--1.2.sql": "0ed40419dc9b01417ce058aba210c615bf1ff04daba44e4d23085983a4565f7f",
         "share/postgresql/extension/pg_trgm--1.2--1.3.sql": "29caec4ef2830920c74c2594c11e0255c3a17102c59d244d9aacb3b1add541ea",
@@ -47,10 +53,16 @@
       "wheel": "pixeltable_pgserver-0.7.2-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
       "wheel_url": "https://files.pythonhosted.org/packages/9a/80/2b6786a29e78021ceb29b7fee51dec940280931dd26b22c9a0fcdb4bb42c/pixeltable_pgserver-0.7.2-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
       "wheel_sha256": "ad26ae220c4e2d837bef6cec5ffe08fc12e466898883436e2bea5370f2a4c2b6",
+      "pgvector": {
+        "version": "0.8.7",
+        "source_url": "https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.7.tar.gz",
+        "source_sha256": "cac0b10c360f05b2d521200105ba3697e773d4cd3731f5a915a7e37ebe0bea85"
+      },
       "bundle": "linux-aarch64.tar.gz",
-      "sha256": "ce62860f8bdea74a7349d21502805d86a514ad5963f9eec7f83a3f98f8044722",
+      "sha256": "5a6cc0016608111ba7ec820cb7b9eba713fab852abbd91519fa8e833ebd46dcf",
       "files": {
         "lib/postgresql/pg_trgm.so": "f26fa44d9824ed55607affce7e9d4cb37219b3a0d19dbbb3c4700ddcb236b285",
+        "lib/postgresql/vector.so": "43d44714d9b927088856bd5ea216d36c910a6934cedf523c5b809c1e778f09e0",
         "share/postgresql/extension/pg_trgm--1.0--1.1.sql": "a85cff55497081250bef3bb3b7fc8d8beb3b9bab64675501f79f923d7bd0a06c",
         "share/postgresql/extension/pg_trgm--1.1--1.2.sql": "0ed40419dc9b01417ce058aba210c615bf1ff04daba44e4d23085983a4565f7f",
         "share/postgresql/extension/pg_trgm--1.2--1.3.sql": "29caec4ef2830920c74c2594c11e0255c3a17102c59d244d9aacb3b1add541ea",

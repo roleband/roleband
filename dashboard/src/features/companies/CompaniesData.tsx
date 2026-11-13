@@ -239,6 +239,9 @@ export interface CompaniesContextValue {
   /** Ask once about every followed company that waits for agreement, or,
    *  given one, about that company alone. */
   reviewConsent: (company?: CompanyDiscoveryCompany) => void;
+  /** An answer to that question is saving: no second answer is asked for
+   *  until it lands, or the second would replace the first. */
+  consentSaving: boolean;
   /** The bulk write waiting on an answer, if any. */
   confirmation: FollowConfirmation | null;
   confirmFollow: (shown: FollowAnswer) => void;
@@ -771,6 +774,7 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
   const awaitingConsentList = useMemo(() => awaitingConsent(tracked), [tracked]);
 
   const [confirmation, setConfirmation] = useState<FollowConfirmation | null>(null);
+  const [consentSaving, setConsentSaving] = useState(false);
 
   /** A company the user never agreed to (walled, or scanned only at their
    *  direction) is followed through its own dialog: it states how the company
@@ -795,11 +799,12 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
    *  order, fixed when it is asked: one that starts waiting meanwhile waits
    *  for the next question. */
   const reviewConsent = useCallback((company?: CompanyDiscoveryCompany) => {
+    if (consentSaving) return;
     const companies = company
       ? [company]
       : [...awaitingConsentList].sort((a, b) => compareWords(a.display, b.display));
     if (companies.length > 0) setConfirmation({ kind: "keep-following", companies });
-  }, [awaitingConsentList]);
+  }, [awaitingConsentList, consentSaving]);
 
   /** Select-all covers exactly `group.bulk` — this sector's on-screen rows that
    *  the roster will accept. One write. */
@@ -960,6 +965,7 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
       const next = new Set(chosen);
       for (const company of pending.companies) next.add(company.slug);
       for (const company of dropped) next.delete(company.slug);
+      setConsentSaving(true);
       void commit({
         next,
         slugs: pending.companies.map((company) => company.slug),
@@ -974,7 +980,7 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
           ...(dropped.length > 0 ? [companiesDataReviewDropped({ count: dropped.length })] : []),
         ].join(" "),
         undo: false,
-      });
+      }).finally(() => setConsentSaving(false));
       return;
     }
     // "everything" is the list's Follow all and the set's, answered once. Both
@@ -1212,6 +1218,7 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
       requestEverything,
       awaitingConsent: awaitingConsentList,
       reviewConsent,
+      consentSaving,
       confirmation,
       confirmFollow,
       dismissFollow,
@@ -1228,7 +1235,7 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
       showPlanned, focusedSector, focusSector, scrollTarget, clearScrollTarget,
       toggleCompany, toggleSector, toggleVisible, toggleKeepScanning, addByUrl, syncable, retryable,
       setTrackedOnly, setShowPlanned, listAction, requestListAction, requestEverything, confirmation,
-      awaitingConsentList, reviewConsent,
+      awaitingConsentList, reviewConsent, consentSaving,
       confirmFollow, dismissFollow,
     ],
   );

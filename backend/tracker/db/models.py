@@ -288,6 +288,10 @@ class Job(Base):
         Index("ix_jobs_status_in_scope", "status", "in_scope"),
         Index("ix_jobs_lineage", "lineage_id", "lineage_seq"),
         Index("ix_jobs_lineage_role", "lineage_role"),
+        # Insights' window (`queries.motion.load`): the postings first seen or
+        # closed since a window's start.
+        Index("ix_jobs_first_seen", "first_seen"),
+        Index("ix_jobs_closed_at", "closed_at", postgresql_where=text("closed_at IS NOT NULL")),
         # Candidate prefilter for lineage detection (company + family + level_band).
         Index("ix_jobs_company_family_level", "company", "family", "level_band"),
         # Effective-age clock: every age metric reads
@@ -818,6 +822,22 @@ class JobLifecycleEvent(Base):
     )
 
     job: Mapped[Job] = relationship(back_populates="events")
+
+    __table_args__ = (
+        # The closings whose role note names a posting (`queries.motion._reached`):
+        # a note is found from the posting it names, not only from its own.
+        # Without the pending list: a read probes this index once per posting
+        # it reaches, and each probe would scan the whole list until a vacuum
+        # merged it.
+        Index(
+            "ix_job_lifecycle_events_closing_note",
+            "detail",
+            postgresql_using="gin",
+            postgresql_ops={"detail": "jsonb_path_ops"},
+            postgresql_where=text("event_type = 'closed'"),
+            postgresql_with={"fastupdate": "off"},
+        ),
+    )
 
 
 class JobLineage(Base):

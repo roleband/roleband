@@ -149,9 +149,9 @@ private extension Result {
 @Test func theScanPicturesLeftColumnStopsGrowingWhereTheChannelsWouldGrowTooShort() {
     let long = String(repeating: "scanned companies ", count: 4)
     #expect(FactColumn.rest([.init(figure: "5,008", label: long)]) == FactColumn.maximum)
-    #expect(FactColumn.live(names: [long], clock: "1m") == FactColumn.maximum)
+    #expect(FactColumn.live(names: [long], clocks: ["1m"]) == FactColumn.maximum)
     #expect(FactColumn.rest([.init(figure: "42", label: "x")]) == FactColumn.restMinimum)
-    #expect(FactColumn.live(names: ["Apple"], clock: "1m") == FactColumn.liveMinimum)
+    #expect(FactColumn.live(names: ["Apple"], clocks: ["1m"]) == FactColumn.liveMinimum)
 }
 
 @Test func aLiveCompanyNameIsCutToTheColumnAndItsClockFitsAWholeHour() {
@@ -164,5 +164,30 @@ private extension Result {
     let clock = ScanTime.running(since: start, now: start.addingTimeInterval(3_599), locale: LauncherCopy(language: "es").locale)
     // The Spanish clock is wider than the live column's minimum, so the column grows to hold it.
     #expect(FactColumn.width(clock, font: FactColumn.clockFont) > FactColumn.liveMinimum)
-    #expect(FactColumn.live(names: ["Nvidia"], clock: clock) >= FactColumn.width(clock, font: FactColumn.clockFont))
+    #expect(FactColumn.live(names: ["Nvidia"], clocks: [clock]) >= FactColumn.width(clock, font: FactColumn.clockFont))
+}
+
+@Test func theLiveColumnFitsAClockPastTheFirstHour() {
+    // Chinese writes the hour wider than the minute and second: "23小时59分钟" outgrows "59分钟59秒".
+    let locale = LauncherCopy(language: "zh-Hans").locale
+    let start = Date(timeIntervalSinceReferenceDate: 0)
+    let hours = ScanTime.running(since: start, now: start.addingTimeInterval(23 * 3_600 + 59 * 60), locale: locale)
+    let minutes = ScanTime.running(since: start, now: start.addingTimeInterval(3_599), locale: locale)
+    #expect(FactColumn.width(hours, font: FactColumn.clockFont) > FactColumn.width(minutes, font: FactColumn.clockFont))
+    #expect(FactColumn.width(hours, font: FactColumn.clockFont) > FactColumn.liveMinimum)
+    #expect(FactColumn.live(names: ["Sony"], clocks: FactColumn.widestClocks(locale: locale)) >= FactColumn.width(hours, font: FactColumn.clockFont))
+}
+
+@Test func theLiveColumnHoldsItsWidthWhileCompaniesComeAndGo() {
+    let long = FactColumn.live(names: ["Palo Alto Networks"], clocks: ["1m"])
+    let short = FactColumn.live(names: ["Apple"], clocks: ["1m"])
+    #expect(long > short)
+    var column = LiveColumn()
+    #expect(column.width(for: short) == short, "a scan starts as narrow as its names")
+    column.hold(column.width(for: long))
+    #expect(column.width(for: short) == long, "a long name that finished leaves the channels where they were")
+    column.hold(column.width(for: short))
+    #expect(column.width(for: short) == long)
+    column.hold(0)
+    #expect(column.width(for: short) == short, "the next scan starts narrow again")
 }

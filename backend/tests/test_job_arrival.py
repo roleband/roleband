@@ -314,24 +314,29 @@ async def test_a_window_longer_than_the_history_counts_nothing_found_before_it(a
         assert (velocity["opened"], velocity["already_listed"], velocity["open_total"]) == (1, 0, 2), days
 
 
-async def test_before_any_whole_read_no_window_counts_an_opening(api_client, board):
-    """Reads our page ceiling always cuts never complete, so no history starts,
-    yet the third one's find is new on the Board. Overview and Pace count no
-    opening in any window until a whole read starts the history, so the find
-    never leaves the all-time count when it does; the roles stay open."""
-    for at, kept in ((5, ("a",)), (3, ("a", "b")), (1, ("a", "b", "c"))):
-        roles = await board.read(NOW - timedelta(hours=at), kept, outcome="truncated", complete=False)
-    assert roles["c"].arrival == "new"
+async def test_reads_our_ceiling_cuts_start_the_history_where_the_board_dates_arrivals(api_client, board):
+    """Reads our page ceiling always cuts never complete, yet after two of
+    them the third one's find is new on the Board. The history starts with
+    the second read, as a whole read starts it: what that read found is
+    inside it, already listed, and the third read's find opened in it, on
+    Overview and Pace alike. One cut read starts nothing."""
+    first, second = NOW - timedelta(hours=5), NOW - timedelta(hours=3)
+    await board.read(first, ("a",), outcome="truncated", complete=False)
     assert (await api_client.get("/api/statistics/history")).json() == {"since": None, "days": 0}
+    await board.read(second, ("a", "b"), outcome="truncated", complete=False)
+    roles = await board.read(NOW - timedelta(hours=1), ("a", "b", "c"), outcome="truncated", complete=False)
+    assert _arrivals(roles) == {"a": "first_read", "b": "first_read", "c": "new"}
+    assert await _new(api_client) == {"c"}
+    history = (await api_client.get("/api/statistics/history")).json()
+    assert _at(history["since"]) == second
     for days in (0, 7):
         overview = (await api_client.get(f"/api/statistics/overview?days={days}")).json()
         kpis = overview["kpis"]
-        assert (kpis["new_count"], kpis["already_listed_count"], kpis["open_total"]) == (0, 0, 3), days
+        assert (kpis["new_count"], kpis["already_listed_count"], kpis["open_total"]) == (1, 1, 3), days
         velocity = (await api_client.get(f"/api/statistics/velocity?days={days}")).json()
         kpis = velocity["kpis"]
-        assert (kpis["opened"], kpis["already_listed"], kpis["open_total"]) == (0, 0, 3), days
-        # No history, so no start to name: the figures cover nothing yet.
-        assert (overview["since"], velocity["since"]) == (None, None), days
+        assert (kpis["opened"], kpis["already_listed"], kpis["open_total"]) == (1, 1, 3), days
+        assert _at(overview["since"]) == _at(velocity["since"]) == second, days
 
 
 async def test_each_companies_side_has_its_own_history_and_an_unfollowed_company_none(

@@ -32,7 +32,7 @@ it("says a window as its length, and all time as the history since its start", (
   const now = Date.parse("2026-11-11T12:00:00Z");
   expect(periodLabel(0, since, now)).toBe(sinceDate(since, 8));
   expect(periodLabel(0, since, Date.parse("2026-11-04T07:00:00Z"))).toBe(sinceDate(since, 1));
-  // Before any whole read there is no start to name.
+  // Before the history starts there is no start to name.
   expect(periodLabel(0, null, now)).toBe(msg("insights-common-last-days-or-all-time", { period: "all", days: 0 }));
 });
 

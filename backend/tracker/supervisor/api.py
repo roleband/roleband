@@ -23,6 +23,7 @@ import httpx
 
 from tracker.db import job_store
 from tracker.platform.local_http import Client, required
+from tracker.platform.loopback import http_origin
 from tracker.platform.paths import backend_dir
 from tracker.supervisor import runner
 
@@ -102,7 +103,7 @@ class ApiService:
 
     @property
     def url(self) -> str:
-        return f"http://{self.host}:{self.port}/api/health"
+        return f"{http_origin(self.host, self.port)}/api/health"
 
     def _set(self, state: str, reason: str | None = None) -> None:
         if (state, reason) != (self.state, self.reason):

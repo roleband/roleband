@@ -52,8 +52,9 @@ to a verified existing engine, a database-ownership block, a database-in-use
 block, or ownership of the packaged engine. The in-use block covers a cluster
 whose record names the app while a postgres from outside the app serves it: the
 app starts nothing, leaves that server running and offers only Quit. Every five
-seconds it makes the launch decision again, and once that decision changes it
-starts a helper in its own session and quits. The helper waits for it to exit and
+seconds it makes the launch decision again, and once the changed decision holds on
+two looks in a row it starts a helper in its own session and quits; a server that
+lets go for a moment and comes back does not reopen the app. The helper waits for it to exit and
 then opens the app, which launches as from any open. The app cannot open its
 successor itself: Launch Services waits for a new copy to finish launching, and
 only one copy launches at a time. When such a server appears after the app owns the engine, the
@@ -365,8 +366,11 @@ on 127.0.0.1 refuses it; one on ::1, or one of this account on every address,
 shares the port number only and leaves the bind free. Like a
 database another program holds, the port is looked at again every few seconds
 and the engine starts once it is free. The host names the program when it runs under this account (the kernel
-shows no other account's sockets) and offers the first free port after it.
-`use(port:)` moves a stopped engine to another port. A port is usable from 1024
+shows no other account's sockets) and offers the first unused port after it. A
+port to move to, offered or typed, must be unused: binds on 127.0.0.1, ::1,
+0.0.0.0 and [::] all succeed, still with `SO_REUSEADDR`, so a port in TIME_WAIT
+counts as unused, but an engine never takes 127.0.0.1's connections from a
+program listening on every address. `use(port:)` moves a stopped engine to another port. A port is usable from 1024
 to 65535, less the Fetch standard's bad ports, which browsers refuse to open.
 
 The interpreter starts isolated, in a new process group, with only packaged
@@ -721,7 +725,12 @@ migrations.
   the day it widens.
 - **Opened and came down.** Overview, Pace and Hiring count both from one
   module, `db/queries/motion.py`, which reads the scope's postings once per
-  request and joins them into roles: a place set once and a lineage once.
+  request and joins them into roles: a place set once and a lineage once. A
+  windowed read starts from the postings first seen or closed since the
+  window's start (and, for Pace, the open ones) and walks out to every posting
+  their roles join, by lineage, stored set and closing note in both
+  directions, so each role is read whole and the read does not grow with the
+  history; an all-time read reads every scoped posting.
   Stored place sets hold open postings only, so a closing records its role on
   the `closed` event while the posting is still open
   (`place_sets.closing_role_notes`, called by `repo.close_missing`): the ids
@@ -730,7 +739,8 @@ migrations.
   reader knows the scope: the ids join only postings the scope holds, so a
   sibling at a place out of scope keeps no in-scope role listed. A closing
   without ids counts its posting as its own role, and the note is best effort:
-  a failed read closes the posting without one. Reading the note keeps the
+  a failed read closes the posting without one. With place sets off no note
+  is written. Reading the note keeps the
   place-set rule, which compares posting texts, off the request path. A role
   first seen in a window, by its earliest posting, picked before the window
   applies, **opened** when it was new when found, by the New rule asked at its
@@ -741,9 +751,10 @@ migrations.
   closing (`closed_at`), as an opening counts at our first sighting; the first
   miss stays on the event. A role that came back is open, not come down. A
   window, and every count in it, starts no earlier than the scope's history:
-  the start of the first scan that saw a whole listing of one of its
-  companies (`db/queries/insights.history_since`), so a partial scan before it
-  adds no openings, and before any such scan nothing counts as opened. Hiring's
+  the start of the scan after which one of its companies was known, by the rule
+  that dates arrivals (`db/arrival.py`, `db/queries/insights.history_since`),
+  so a scan before it adds no openings, and before any such scan nothing counts
+  as opened. Hiring's
   closed count uses the New rule's period, so its new and closed numbers
   describe one stretch of time.
 - **Role ages.** Pace ages a role from its listing start over every posting it

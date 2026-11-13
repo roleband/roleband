@@ -126,6 +126,8 @@ private struct FlowInstrument: View {
     let picture: ScanPicture
     let phase: ScanPhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The widest live column this scan has needed; see `LiveColumn`.
+    @ViewState private var liveColumn = LiveColumn()
 
     private let rowPitch: CGFloat = 27
     private let height: CGFloat = 140
@@ -139,13 +141,15 @@ private struct FlowInstrument: View {
     var body: some View {
         let flowing = live && !companies.isEmpty && !reduceMotion
         let column = column()
+        // Measured here, once per change, rather than in the canvas on every frame.
+        let names = live ? companies.map { FactColumn.truncated($0.name, font: FactColumn.nameFont, to: column) } : []
         PaletteReader { p in
             TimelineView(.animation(minimumInterval: flowing ? 1.0 / 30 : 1, paused: !live)) { timeline in
                 GeometryReader { proxy in
                     let tankX = proxy.size.width - tankWidth
                     ZStack(alignment: .topLeading) {
                         Canvas { context, _ in
-                            draw(in: &context, column: column, tankX: tankX, now: timeline.date, flowing: flowing, p: p)
+                            draw(in: &context, column: column, names: names, tankX: tankX, now: timeline.date, flowing: flowing, p: p)
                         }
                         Tank(model: model, picture: picture, phase: phase, palette: p)
                             .frame(width: tankWidth, height: height)
@@ -162,6 +166,7 @@ private struct FlowInstrument: View {
                 }
             }
         }
+        .onChange(of: live && readTotal == nil ? column : 0, initial: true) { _, width in liveColumn.hold(width) }
     }
 
     /// The left column for what the picture shows now; see `FactColumn`.
@@ -172,10 +177,7 @@ private struct FlowInstrument: View {
             return FactColumn.rest([.init(figure: number(readTotal), label: model.text("scan-companies-read"))])
         }
         if live {
-            // The widest clock a company shows within its first hour, so the column holds still as the seconds count.
-            let start = Date(timeIntervalSinceReferenceDate: 0)
-            let clock = ScanTime.running(since: start, now: start.addingTimeInterval(3_599), locale: locale)
-            return FactColumn.live(names: companies.map(\.name), clock: clock)
+            return liveColumn.width(for: FactColumn.live(names: companies.map(\.name), clocks: FactColumn.widestClocks(locale: locale)))
         }
         let newRoles = picture.lastNewRoles ?? 0
         return FactColumn.rest([.init(figure: number(picture.lastCompanies ?? 0), label: model.text("scan-companies-read")),
@@ -203,7 +205,7 @@ private struct FlowInstrument: View {
         return (path, point)
     }
 
-    private func draw(in context: inout GraphicsContext, column: CGFloat, tankX: CGFloat, now: Date, flowing: Bool, p: LaunchPalette) {
+    private func draw(in context: inout GraphicsContext, column: CGFloat, names: [String], tankX: CGFloat, now: Date, flowing: Bool, p: LaunchPalette) {
         let mouth = CGPoint(x: tankX - 1, y: centerY)
         let spoutX = column + FactColumn.spoutGap
         if readTotal != nil {
@@ -217,7 +219,7 @@ private struct FlowInstrument: View {
                 let nameY = centerY + (CGFloat(index) - CGFloat(rows.count - 1) / 2) * rowPitch - 5
                 let (path, point) = channel(from: CGPoint(x: spoutX, y: nameY), to: mouth)
                 context.stroke(path, with: .color(p.graphic), lineWidth: 1)
-                let name = FactColumn.truncated(company.name, font: FactColumn.nameFont, to: column)
+                let name = index < names.count ? names[index] : company.name
                 context.draw(Text(name).font(Font(FactColumn.nameFont)).foregroundStyle(p.cyan),
                              at: CGPoint(x: column, y: nameY), anchor: .trailing)
                 if let since = company.since {
@@ -382,8 +384,16 @@ enum FactColumn {
                 minimum: restMinimum)
     }
 
-    static func live(names: [String], clock: String) -> CGFloat {
-        fitting(names.map { width($0, font: nameFont) } + [width(clock, font: clockFont)], minimum: liveMinimum)
+    static func live(names: [String], clocks: [String]) -> CGFloat {
+        fitting(names.map { width($0, font: nameFont) } + clocks.map { width($0, font: clockFont) }, minimum: liveMinimum)
+    }
+
+    /// The widest clocks a company can show: within its first hour, and within its first day,
+    /// whose hour unit is wider in some languages. The column fits both, so it holds still as the
+    /// seconds count and past the hour.
+    static func widestClocks(locale: Locale) -> [String] {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        return [3_599, 86_340].map { ScanTime.running(since: start, now: start.addingTimeInterval($0), locale: locale) }
     }
 
     static func fitting(_ widths: [CGFloat], minimum: CGFloat) -> CGFloat {
@@ -401,6 +411,18 @@ enum FactColumn {
         }
         return "…"
     }
+}
+
+/// The live column through one scan: it widens for a longer company name and never narrows while
+/// the scan runs, so the channels hold still as companies come and go. The next scan starts narrow.
+struct LiveColumn: Equatable {
+    private(set) var held: CGFloat = 0
+
+    /// The column for what is in flight now: `measured`, or wider if this scan needed more.
+    func width(for measured: CGFloat) -> CGFloat { max(held, measured) }
+
+    /// Keeps `width` for the rest of the scan; zero ends the scan.
+    mutating func hold(_ width: CGFloat) { held = width == 0 ? 0 : max(held, width) }
 }
 
 /// Two volumes in one tank, with the dashboard's words: the figure counts roles from companies
