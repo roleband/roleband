@@ -581,6 +581,9 @@ HOSTILE = [
     ("_MIN_MAX_RE", "search", "min $0" + " " * 2000 + "x", "Salary Min: $120,000   Salary Max: $160,000"),
     ("_SHARED_K_AHEAD_RE", "match", "-" + " " * 2000 + "x", " to  $140K"),
     ("_SHARED_K_AHEAD_RE", "match", " " * 2000 + "x", "  -  140K"),
+    ("_LABELLED_FIGURE_RE", "search", "salary" + " " * 2000 + "x", "Base Salary:  $150,000  USD  per year"),
+    ("_LABELLED_FIGURE_RE", "search", "salary $" + " " * 2000 + "x", "salary of  $150,000  /year"),
+    ("_FIGURE_LABELLED_RE", "search", "$0" + " " * 2000 + "x", "$75,000   annual  salary"),
 ]
 
 
@@ -690,3 +693,119 @@ def test_a_k_written_once_is_shared_across_to_as_well_as_a_dash():
     text = "Salary: $120 to $140K per year."
     band = extract_grounded_band(text, text)
     assert (band.base_min, band.base_max, band.pay_period) == (120000, 140000, PayPeriod.year)
+
+
+# --------------------------------------------------------------------------- #
+# A pay figure the posting states once, not as a range
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("text, figure", [
+    ("The base salary for this role is $150,000 per year.", 150_000),
+    ("The annual base pay for this role is $300,000. We consider scope and skills.", 300_000),
+    # A line ends the statement, so the equity package below it is not what
+    # this figure is called.
+    ("Compensation:\nSalary: $225,000\nCompetitive Equity Package\nBenefits", 225_000),
+    ("The base salary for this job is $242,350.00 per year. In addition, our package", 242_350),
+    ("Pay: $48,000 annually Key Responsibilities: the manager is responsible for", 48_000),
+    ("Base Salary: $200,000 #LI-DNP About Us IMC is a research-driven firm.", 200_000),
+    ("$75,000 Annual Salary", 75_000),
+    ("Salary: $185,000 + Bonus Job Summary: we are seeking an experienced engineer.", 185_000),
+], ids=["per-year", "no-period-word", "colon", "cents", "label-first", "terse",
+        "label-after", "plus-bonus"])
+def test_a_figure_stated_once_bounds_itself(text, figure):
+    """An employer who states one number states pay as surely as one who states
+    two. The band is that number at both bounds."""
+    band = extract_grounded_band(text, text)
+    assert (band.base_min, band.base_max) == (figure, figure)
+    assert band.pay_period is PayPeriod.year
+
+
+@pytest.mark.parametrize("text", [
+    "This role is eligible for a $10,000 sign-on bonus, subject to the terms.",
+    "Competitive salary plus a $10,000 signing bonus and equity.",
+    "Pay for this role includes a $10,000 bonus paid in the first quarter.",
+    "Salary and benefits include a $5,000 relocation stipend.",
+    "Scholarship for associates' children up to $28,000 per child.",
+    "$2,500 Interest-FREE technology loan program for every employee.",
+    "$25,000 employee educational assistance program.",
+], ids=["sign-on", "plus-bonus", "includes", "relocation", "scholarship",
+        "loan", "assistance"])
+def test_money_a_pay_word_hands_off_to_is_not_the_pay(text):
+    """A lone figure is weak evidence: a pay word in front of it introduces a
+    bonus, a stipend or a benefit as often as it introduces a salary."""
+    assert not extract_grounded_band(text, text).disclosed, text
+
+
+@pytest.mark.parametrize("text", [
+    "Compensation for this role is up to $70,000, based upon experience.",
+    "Competitive salary (starts at $120,000) and benefits.",
+    "Our estimated pay range for this role is $110,000+. Base salary varies.",
+    "The salary range for this full-time position is > $250,000 + equity.",
+    "The minimum base salary for this role is $120,000.",
+    "We pay no less than $95,000 for this role.",
+    # The scale is part of the amount, so the "+" is still written on it.
+    "The base salary for this role is $180K+. Other factors apply.",
+    # The word that opens the bound can follow the amount instead.
+    "Base salary: $120,000 minimum.",
+    "Base salary: $120,000 or more.",
+    "Base salary: $120,000 and above.",
+], ids=["up-to", "starts-at", "plus-sign", "greater-than", "minimum", "no-less-than",
+        "plus-after-k", "minimum-after", "or-more", "and-above"])
+def test_an_open_bound_is_a_missed_band_not_a_figure(text):
+    """A band stores two bounds and nothing that says a bound is open, so a
+    figure stated as one end would be shown as the whole pay."""
+    assert not extract_grounded_band(text, text).disclosed, text
+
+
+@pytest.mark.parametrize("text", [
+    "Base pay ranges from $120,000 in some markets up to 180,000 in others.",
+    "The base salary range for this position is $181,000-$290,00 per year.",
+    "Pay starts from $90,000 for level 3 and 4 roles, up to $140,000 for level 5.",
+    "Base Salary: Denver: $90,000 Long Beach: $95,000",
+    # The high bound carries its scale instead of a currency, which no range
+    # pattern joins across the words between.
+    "Base salary: $120k for junior roles to 180k for senior roles.",
+], ids=["no-currency-on-high", "broken-comma", "number-between", "two-places",
+        "scaled-high"])
+def test_one_bound_of_a_range_we_could_not_read_is_not_a_figure(text):
+    """Every one of these states a range this module fails to read. Taking the
+    bound it did read would show the low end of a range as the whole pay."""
+    assert not extract_grounded_band(text, text).disclosed, text
+
+
+def test_a_retirement_plan_beside_a_figure_is_not_a_second_amount():
+    """"401k" is the plan, not an amount, and it sits next to a salary in
+    posting after posting: reading it as a bound would refuse them all."""
+    text = "The base salary is $150,000 per year with 401k matching and medical."
+    band = extract_grounded_band(text, text)
+    assert (band.base_min, band.base_max) == (150_000, 150_000)
+
+
+def test_a_stated_range_always_beats_a_figure_stated_once():
+    """One amount is the weaker statement, so it is read only where no range
+    is, however early the figure sits."""
+    text = ("Salary: $120,000 for the junior track. The base salary range for "
+            "this role is $130,000 - $180,000 per year.")
+    band = extract_grounded_band(text, text)
+    assert (band.base_min, band.base_max) == (130_000, 180_000)
+
+
+def test_a_yearly_figure_still_loses_to_nothing_but_a_yearly_band():
+    """Rank order holds: a salary-sized figure outranks a monthly stipend
+    range, which is not a salary at all."""
+    text = ("Phone stipend: $1,000 - $1,500 per month. The salary for this "
+            "role is $150,000 per year.")
+    band = extract_grounded_band(text, text)
+    assert (band.base_min, band.base_max, band.pay_period) == (150_000, 150_000, PayPeriod.year)
+
+
+def test_a_figure_stated_once_is_grounded_and_settled_like_any_band():
+    """It is a band: the quote is the posting's own, and the basis is read
+    from the words around it."""
+    text = ("About us. The base salary for this role is $150,000 per year, "
+            "plus bonus and equity.")
+    band = extract_grounded_band(text, text)
+    assert band.source_snippet in text.replace("\n", " ")
+    assert band.pay_basis is pay_disclosure.PayBasis.base
+    assert band.confidence == "high"
