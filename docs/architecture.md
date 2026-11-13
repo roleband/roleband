@@ -173,6 +173,15 @@ importing configuration. Its supervisor owns PostgreSQL outside cancellable jobs
 and shuts down through a parent-only pipe. These boundaries are owned by
 [the native host decision](decisions/0004-windows-native-engine-host.md).
 
+The host reads the engine's health every second. A ready engine restarts after three
+failed reads in a row. One still preparing restarts after a minute without an answer, or
+when its preparation has not changed for the preparation deadline (1920 seconds); the
+deadline starts at the first answer and counts from the last change, so a long migration is
+waited for while its preparation keeps changing, and the engine bounds each of its own steps
+within it. Answers that repeat the same preparation renew only the minute of silence.
+An engine that does not confirm a stop is kept with the data lock until it exits, and its
+exit releases the lock so the next start runs.
+
 Windows ends the app by asking its windows with `WM_QUERYENDSESSION` and confirming
 with `WM_ENDSESSION`, at sign-out and when it installs a new version of the package
 while the app runs. A window that only agrees stays open, and Windows waits about
@@ -962,6 +971,11 @@ is `ok`, `capped` or `empty`; `error` when none produced usable data; else
 - **Two gates.** Run quality (an uncapped, complete, reconciling scan) decides
   whether a listing is evidence; the binding's closure scope decides which
   postings it speaks for.
+- **A place listing speaks for its places.** A `filtered` or `windowed` source
+  is complete only over the location groups it was asked about
+  (`planned_location_items`), so its scope holds only postings with a place at
+  or under one of them (`binding.listed_by_query`). A posting in a place no
+  longer tracked, or with no place, keeps its count untouched.
 - **Two misses.** A posting closes on its second complete miss, at least
   `closure_second_miss_min_hours` (20 h) after the first. Any sighting resets
   it, and a `degraded`, `failed` or `blocked` scan of the company resets every

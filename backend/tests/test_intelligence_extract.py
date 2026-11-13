@@ -64,8 +64,9 @@ class FakeSession:
         return FakeScalars(self._jobs)
 
     async def execute(self, stmt):
-        # `owed_ids` reads narrow columns first; the jobs a test
-        # hands over are owed exactly as their stamps say.
+        # `owed_ids` reads narrow columns first, then the pass reads each owed
+        # job with whether its text moved; the jobs a test hands over are owed
+        # exactly as their stamps say, and one row shape answers both reads.
         class Rows:
             def __init__(self, rows):
                 self._rows = rows
@@ -79,6 +80,8 @@ class FakeSession:
                 locations=j.locations,
                 disclosed_place_key=j.disclosed_place_key,
                 stale=j.structured_at is None,
+                Job=j,
+                text_moved=j.structured_at is None,
             )
             for j in self._jobs
         ])

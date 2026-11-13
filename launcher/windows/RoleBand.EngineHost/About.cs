@@ -53,7 +53,8 @@ public sealed record UpdateFacts(bool Available, bool Automatic, DateTimeOffset?
             Moment(reply, "checked_at"), offer, Moment(reply, "rate_limited_until") ?? Moment(reply, "until"), ReadLast(reply));
     }
 
-    private static LastUpdate? ReadLast(JsonElement reply)
+    /// <summary>The last update the answer names. A build that does not update itself still names one it left unfinished.</summary>
+    internal static LastUpdate? ReadLast(JsonElement reply)
     {
         if (!reply.TryGetProperty("update", out var update) || update.ValueKind != JsonValueKind.Object) return null;
         static string? Text(JsonElement value, string name) =>

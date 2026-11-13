@@ -66,6 +66,7 @@ from tracker.comp_providers.base import CompContext, CompEstimate
 from tracker.comp_providers.static import StaticCompProvider
 from tracker.comp_providers.table import ReferenceTableProvider
 from tracker.config import get_settings
+from tracker.db.ids import among
 from tracker.db.models import Job, JobCompEstimate, ReferenceChange, ReferenceState
 from tracker.db.queries.reference_pay import pay_level_rows
 from tracker.db.session import session_scope
@@ -365,7 +366,7 @@ async def _show(session: AsyncSession, selected: str, target: str, ids: Sequence
     or is not stamped `target`: the one move a list sees. A job with
     no row for that source shows nothing, never another source's figure.
     `ids`: only these jobs (`refresh_jobs`). Returns the jobs written."""
-    only = (Job.id.in_(ids),) if ids is not None else ()
+    only = (among(Job.id, ids),) if ids is not None else ()
     stale = Job.comp_ref_fp.is_distinct_from(target)
     copied = await session.execute(
         update(Job)
@@ -413,7 +414,7 @@ async def refresh_jobs(session: AsyncSession, job_ids: Iterable[int]) -> int:
     estimates = inputs.estimate_set()
     jobs = (await session.execute(
         select(Job.id, Job.company, Job.level_band, Job.level_basis, Job.family, Job.location_groups, Job.title)
-        .where(Job.id.in_(ids))
+        .where(among(Job.id, ids))
     )).all()
     rows: list[dict[str, Any]] = []
     for job in jobs:

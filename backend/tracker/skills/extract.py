@@ -31,6 +31,7 @@ from dataclasses import dataclass
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tracker.db.ids import among
 from tracker.db.models import Job, JobQualification, JobSkill, JobSkillEvidence
 from tracker.skills.catalog import AliasSpec, Catalog, get_catalog
 from tracker.skills.segment import EvidenceUnit, affirmed_text, segment_job
@@ -364,7 +365,7 @@ async def extract_requirements(
     if id_by_slug is None:
         id_by_slug = await sync_catalog(session, cat)
 
-    jobs = (await session.scalars(select(Job).where(Job.id.in_(job_ids)))).all()
+    jobs = (await session.scalars(select(Job).where(among(Job.id, job_ids)))).all()
     processed = 0
     for job in jobs:
         new_hash = requirements_content_hash(job.title, job.description_sections)

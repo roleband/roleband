@@ -287,9 +287,17 @@ def main(argv: list[str] | None = None) -> int:
             "from" if running == record["from_version"] else None)
         print(json.dumps({"phase": record["phase"] if record else None, "running": role}))
         return 0
+    def unavailable(reason: str) -> dict[str, Any]:
+        """Updates are off for this build. Its status still names an update it left applying: the native host asks
+        Windows about that update before `resume` settles it."""
+        answer: dict[str, Any] = {"status": "unavailable", "reason": reason}
+        if args.action == "status" and (update := _last_update(args.state, running_version(), _journal(args.state))):
+            answer["update"] = update
+        return answer
+
     identity_file = identity_path()
     if identity_file is None or not identity_file.is_file():
-        print(json.dumps({"status": "unavailable", "reason": "This build carries no update identity."}))
+        print(json.dumps(unavailable("This build carries no update identity.")))
         return 0
     if args.action == "status":
         from tracker.platform.windows_updates import status
@@ -297,7 +305,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             identity = read_identity(json.loads(identity_file.read_text(encoding="utf-8")))
         except (ValueError, ReleaseError):
-            print(json.dumps({"status": "unavailable", "reason": "This build's update identity is damaged."}))
+            print(json.dumps(unavailable("This build's update identity is damaged.")))
             return 1
         update = _last_update(args.state, running_version(), _journal(args.state))
         print(json.dumps({"status": "ok", **status(args.state, identity, running_version(), _held_back(update)),

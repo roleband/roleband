@@ -15,6 +15,7 @@ import logging
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tracker.db.ids import among
 from tracker.db.models import Job
 
 logger = logging.getLogger(__name__)
@@ -35,7 +36,7 @@ async def fingerprint_content(session: AsyncSession, job_ids: list[int]) -> int:
     """
     if not job_ids:
         return 0
-    jobs = (await session.scalars(select(Job).where(Job.id.in_(job_ids)))).all()
+    jobs = (await session.scalars(select(Job).where(among(Job.id, job_ids)))).all()
     bumped = 0
     for job in jobs:
         new_hash = content_fingerprint(job.title, job.description_text)
