@@ -76,6 +76,25 @@ def _say(line: str) -> None:
     print(line, flush=True)
 
 
+@asynccontextmanager
+async def _chunk_scope(session: AsyncSession | None) -> AsyncIterator[AsyncSession]:
+    """One chunk's transaction: a session of its own, or `session` committed in
+    place. A caller that already holds a session must get that one, because its
+    session can be on a different database from the process-wide factory's (a
+    scratch database, a test's) and its writes belong where its reads came
+    from."""
+    if session is None:
+        async with session_scope() as own:
+            yield own
+        return
+    try:
+        yield session
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+
+
 async def commit_in_batches(
     ids: Sequence[int],
     work: Callable[[AsyncSession, list[int]], Awaitable[int]],
@@ -83,6 +102,7 @@ async def commit_in_batches(
     size: int,
     label: str,
     report: Callable[[str], None] | None = _say,
+    session: AsyncSession | None = None,
 ) -> int:
     """Run `work` over `ids` in chunks of `size`, each chunk its own transaction.
 
@@ -90,12 +110,15 @@ async def commit_in_batches(
     before the one it died in, where a single transaction would roll back every
     row. Each report names the last id saved, so a caller whose rerun cannot
     skip finished work by itself resumes after it. Returns the sum of `work`.
+
+    `session`: run and commit each chunk on this session instead of opening one
+    per chunk, for a caller inside a pipeline that owns its own session.
     """
     done = 0
     for start in range(0, len(ids), size):
         chunk = list(ids[start:start + size])
-        async with session_scope() as session:
-            done += await work(session, chunk)
+        async with _chunk_scope(session) as chunk_session:
+            done += await work(chunk_session, chunk)
         if report is not None:
             report(f"saved {start + len(chunk)}/{len(ids)} {label} (through id {chunk[-1]})")
     return done

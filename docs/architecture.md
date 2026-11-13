@@ -940,7 +940,8 @@ change a commit boundary there first. In short: take the advisory lock and commi
 the `running` marker; commit built-ins, bindings and profiles; `collection.py`
 fetches with no session while one writer (`run_persistence.py`) commits rows as
 they arrive and each company as its scan ends (scope flags, closure, catalog,
-per-source record); `post_passes.py` runs each pass with its own commit; the
+per-source record); `post_passes.py` runs each pass with its own commit, and a
+pass that rewrites the whole table commits chunk by chunk inside it; the
 terminal status is recorded, or the failure after a rollback. A failing company
 is recorded in `per_source` and never stops the others.
 
