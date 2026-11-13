@@ -4,12 +4,13 @@ What makes it look expensive is not the code: mypy follows imports by default,
 so the entries in `[tool.mypy] files` drag in modules nobody put in the set and
 report their errors. `follow_imports = silent` keeps the report to the set.
 
-Four claims, because the first one alone can pass for the wrong reason:
+Five claims, because the first one alone can pass for the wrong reason:
 
 1. the configured set type-checks clean;
 2. it really checked something — a config that names nothing also "succeeds";
 3. nothing in it was made green by muting rather than fixing;
-4. the set may grow and may not shrink.
+4. the set may grow and may not shrink;
+5. it is clean for every platform the app runs on, not only the one it runs on now.
 
 Never add `ignore_errors` or widen a return to `Any` to get this green. Muting
 is the one change that looks identical to fixing from outside.
@@ -51,6 +52,15 @@ FROZEN: frozenset[str] = frozenset(
 )
 
 
+#: Every platform the app runs on. mypy checks one at a time: the host's, unless
+#: `--platform` names another. Code behind a gate for a platform it is not
+#: checking is unreachable, which means read and not checked.
+_PLATFORMS: tuple[str, ...] = ("win32", "darwin", "linux")
+
+#: The platforms the run on this machine says nothing about.
+_ELSEWHERE: tuple[str, ...] = tuple(p for p in _PLATFORMS if p != sys.platform)
+
+
 def _config() -> dict:
     return tomllib.loads(_PYPROJECT.read_text())["tool"]["mypy"]
 
@@ -62,6 +72,17 @@ def _run_mypy(*args: str, cwd: Path = _BACKEND) -> subprocess.CompletedProcess:
         capture_output=True,
         text=True,
     )
+
+
+def _platform_cache(platform: str) -> Path:
+    """A cache directory of its own, per platform.
+
+    mypy keys a cache to the options that wrote it, so a host run and a platform
+    run sharing one directory invalidate each other and both pay the cold cost
+    every time. `.mypy_cache` is ignored, children included.
+    """
+
+    return _BACKEND / ".mypy_cache" / f"platform-{platform}"
 
 
 # --------------------------------------------------------------------------- #
@@ -198,3 +219,73 @@ def test_the_settings_the_pilot_depends_on_are_pinned(setting, value):
         assert configured is not None, f"[tool.mypy] names no {setting}"
     else:
         assert configured == value, f"[tool.mypy] {setting} is {configured!r}, not {value!r}"
+
+
+# --------------------------------------------------------------------------- #
+# 5. Clean for every platform, not only the one this runs on
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("platform", _ELSEWHERE)
+def test_the_checked_set_type_checks_clean_for_every_platform(platform):
+    """A body gated to another platform is unreachable here, so nothing checks it.
+
+    The Windows modules in the set open with `if sys.platform != "win32": raise
+    ImportError(...)`. Off Windows mypy reads them, checks nothing inside, and
+    still counts them among the files it checked, so every claim above holds
+    while a half-annotated def sits in a body no run has looked at and the error
+    waits for the Windows lane.
+
+    An annotation is resolved even where the code around it is unreachable, so a
+    name belonging to one platform cannot appear in one: `ctypes.WinDLL` is not a
+    name off Windows, while its base class `ctypes.CDLL` is a name everywhere.
+    """
+
+    run = _run_mypy(f"--platform={platform}", f"--cache-dir={_platform_cache(platform)}")
+    assert run.returncode == 0, (
+        f"the typed-boundary pilot does not pass for {platform}:\n"
+        + (run.stdout or run.stderr)[-3000:]
+        + f"\n\nAnnotate the gated code for {platform} as well. An annotation that names a "
+        "type only that platform has fails everywhere else, so name one every platform "
+        "has: `ctypes.CDLL` where the value is a `ctypes.WinDLL`."
+    )
+    assert "no issues found in" in run.stdout, run.stdout[-2000:]
+    checked = int(run.stdout.split("no issues found in")[1].split()[0])
+    assert checked >= len(FROZEN), (
+        f"mypy checked {checked} files for {platform} and the frozen set names "
+        f"{len(FROZEN)} entries. A platform run that resolves nothing passes by "
+        "checking nothing."
+    )
+
+
+def test_a_gate_hides_a_fault_the_platform_run_finds(tmp_path):
+    """The control: the gate really does hide a fault, and `--platform` really finds it.
+
+    Without this, the runs above are satisfied by a flag mypy ignores, or by a
+    gate it stopped reading as a platform test, and they would pass on a set
+    nothing had checked.
+    """
+
+    elsewhere = _ELSEWHERE[0]
+    planted = tmp_path / "gated.py"
+    planted.write_text(
+        "import sys\n\n"
+        f'if sys.platform != "{elsewhere}":\n'
+        '    raise ImportError("another platform only")\n\n\n'
+        "def gone(handle, timeout: int) -> bool:\n"
+        "    return bool(handle) and timeout > 0\n"
+    )
+    flags = ("--follow-imports=silent", "--no-incremental", "--disallow-incomplete-defs")
+
+    here = _run_mypy(*flags, str(planted), cwd=tmp_path)
+    assert here.returncode == 0, (
+        "mypy reported a fault in a body this platform cannot reach, so the gate hides "
+        f"nothing and the runs above prove nothing: {here.stdout}"
+    )
+
+    there = _run_mypy(*flags, f"--platform={elsewhere}", str(planted), cwd=tmp_path)
+    assert there.returncode != 0, (
+        f"`--platform={elsewhere}` accepted a half-annotated def behind a {elsewhere} "
+        f"gate, so a platform run finds nothing the host run misses: {there.stdout}"
+    )
+    assert "no-untyped-def" in there.stdout, there.stdout[-1000:]

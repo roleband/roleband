@@ -29,10 +29,13 @@ once it is gone.
 
 - Never drop, truncate, reset or bulk-delete user data, in a migration, a script
   or a command you run, unless the person you work for asked for exactly that.
-- A command that rewrites many rows commits per batch and resumes (a version gate
+- Anything that rewrites many rows commits per batch and resumes (a version gate
   or a printed cursor), so a killed process does not roll back hours of work. A
-  function the post-passes also call stays commit-free; the command around it owns
-  the batches.
+  command owns its own batches. A post-pass that rewrites the whole table does
+  too, in chunks on the session it is given (`commit_in_batches(session=)`), and
+  records the fingerprint that ends the work only once it returns, so a killed run
+  keeps its chunks and the next one derives the rest. Every other function the
+  post-passes call stays commit-free: the pass around it owns the transaction.
 - Work against a throwaway database (`ROLEBAND_PGDATA`) whenever you are not sure
   which one a command will reach.
 

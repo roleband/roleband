@@ -1121,6 +1121,109 @@ async def test_reclassify_places_repairs_stale_place_lists_and_moves_them_on_the
 
 
 @pytest.mark.asyncio
+async def test_a_whole_table_pass_moves_the_radar_even_with_nothing_left_to_write(db_session):
+    """A pass killed partway keeps the chunks it committed and records no
+    fingerprint, so the pass that finishes the axis finds every row already
+    re-derived. It re-projects the saved scope anyway: the row here was read as
+    the UK when it was stored, and a "UK" radar must let it go."""
+    from sqlalchemy import select
+
+    from tracker.db.models import Job
+    from tracker.enrich.classify import location_slugs_for
+    from tracker.settings_store import (
+        set_enabled_bands,
+        set_enabled_domains,
+        set_enabled_locations,
+        set_enabled_roles,
+        set_enabled_tracks,
+    )
+    from tracker.taxonomy.locations import normalize_cities
+    from tracker.workflows.post_passes import reclassify_places
+
+    t0 = datetime(2026, 9, 1, tzinfo=UTC)
+    places = ["London, Kentucky, USA"]
+    db_session.add(Job(
+        company="amazon", req_id="kentucky", dedupe_key="amazon:kentucky",
+        title="Staff Software Engineer", url="https://example.test/kentucky", team=None, department=None,
+        # What the killed pass committed, beside the `in_scope` of the reading it replaced.
+        locations=places, location_groups=location_slugs_for(places),
+        location_cities=normalize_cities(places), domains=[],
+        workplace_type="onsite", level_band="staff", level_confidence="confirmed",
+        family="software_engineering", track="technical", comp_currency="USD",
+        status="open", in_scope=True, first_seen=t0, last_seen=t0, description_sections=[],
+    ))
+    await set_enabled_roles(db_session, ["software_engineering"])
+    await set_enabled_bands(db_session, ["staff"])
+    await set_enabled_tracks(db_session, ["technical"])
+    await set_enabled_locations(db_session, ["uk"])
+    await set_enabled_domains(db_session, [])
+    await db_session.commit()
+
+    assert await reclassify_places(db_session) == {"reclassified": 0, "in_scope_changed": 1}
+    await db_session.commit()
+    assert (await db_session.scalars(select(Job.in_scope))).one() is False
+
+
+@pytest.mark.asyncio
+async def test_a_chunk_a_pass_committed_never_holds_a_scope_its_places_lost(db_session, monkeypatch):
+    """A pass over the run's own rows leaves the classifier fingerprint as it
+    is, so nothing makes a later run re-derive a row this one already wrote.
+    Each chunk therefore projects the scope onto its own rows in the
+    transaction that writes them: the projection over every row failing after
+    it must not leave the row on a radar its places no longer reach."""
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from tracker.db.models import Job
+    from tracker.settings_store import (
+        set_enabled_bands,
+        set_enabled_domains,
+        set_enabled_locations,
+        set_enabled_roles,
+        set_enabled_tracks,
+    )
+    from tracker.workflows import post_passes
+    from tracker.workflows.post_passes import reclassify_places
+
+    t0 = datetime(2026, 9, 1, tzinfo=UTC)
+    db_session.add(Job(
+        company="amazon", req_id="kentucky", dedupe_key="amazon:kentucky",
+        title="Staff Software Engineer", url="https://example.test/kentucky", team=None, department=None,
+        # Read as the UK when it was stored, and on a UK radar because of it.
+        locations=["London, Kentucky, USA"], location_groups=["uk", "europe"],
+        location_cities=[], domains=[],
+        workplace_type="onsite", level_band="staff", level_confidence="confirmed",
+        family="software_engineering", track="technical", comp_currency="USD",
+        status="open", in_scope=True, first_seen=t0, last_seen=t0, description_sections=[],
+    ))
+    await set_enabled_roles(db_session, ["software_engineering"])
+    await set_enabled_bands(db_session, ["staff"])
+    await set_enabled_tracks(db_session, ["technical"])
+    await set_enabled_locations(db_session, ["uk"])
+    await set_enabled_domains(db_session, [])
+    await db_session.commit()
+    job_id = (await db_session.scalars(select(Job.id))).one()
+
+    real = post_passes.recompute_saved_scope
+
+    async def dies_over_every_row(session, job_ids=None):
+        if job_ids is None:
+            raise RuntimeError("the projection over every row failed")
+        return await real(session, job_ids=job_ids)
+
+    monkeypatch.setattr(post_passes, "recompute_saved_scope", dies_over_every_row)
+    with pytest.raises(RuntimeError):
+        await reclassify_places(db_session, [job_id])
+    await db_session.rollback()
+
+    factory = async_sessionmaker(db_session.bind, expire_on_commit=False)
+    async with factory() as other:
+        row = (await other.execute(select(Job.location_groups, Job.in_scope))).one()
+        assert "uk" not in row.location_groups, "the chunk's write is committed"
+        assert row.in_scope is False, "and the scope it was written with"
+
+
+@pytest.mark.asyncio
 async def test_a_workday_blank_is_filled_only_by_a_run_that_scanned_its_company(db_session, monkeypatch, no_escape):
     """Workday's hydrate needs its listing payload, which it rebuilds from the
     posting url, so the drain can fill a blank description back. But Workday
