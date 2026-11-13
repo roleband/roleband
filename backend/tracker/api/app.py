@@ -28,10 +28,12 @@ from fastapi.openapi.utils import get_openapi
 from pydantic.json_schema import models_json_schema
 
 from tracker import __version__
+from tracker.agents.operations.workspace import ensure_workspace_id
 from tracker.api.boundary import LoopbackBoundary
 from tracker.api.errors import ErrorDetail
 from tracker.api.local_auth import LocalAuthentication
 from tracker.api.routers import (
+    agent,
     applications,
     companies,
     intelligence,
@@ -83,6 +85,10 @@ async def _engine_lifespan(app: FastAPI) -> AsyncIterator[None]:
         # /company lists a new company immediately — a plugin's facts then
         # enrich rather than create.
         await ensure_company_profiles(session)
+        await session.commit()
+        # A migrated database already has its workspace id; one built without
+        # migrations gets it here, before any agent route can be asked for it.
+        await ensure_workspace_id(session)
         await session.commit()
     settings = get_settings()
     warm = None
@@ -168,6 +174,7 @@ app.include_router(companies.router)
 app.include_router(recipes.router)
 app.include_router(usage.router)
 app.include_router(plugins.router)
+app.include_router(agent.router)
 
 # --------------------------------------------------------------------------- #
 # Built dashboard (single-origin). Mounted last so every /api route wins first.

@@ -4,6 +4,57 @@
  */
 
 export interface paths {
+    "/api/agent/v1/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Capabilities */
+        get: operations["capabilities_api_agent_v1_capabilities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/operations/{operation}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Describe */
+        get: operations["describe_api_agent_v1_operations__operation__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Status */
+        get: operations["status_api_agent_v1_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/applications": {
         parameters: {
             query?: never;
@@ -3311,6 +3362,13 @@ export interface components {
              */
             transport: "stdio";
         };
+        /** AgentSwitchState */
+        AgentSwitchState: {
+            /** Allow Writes */
+            allow_writes: boolean;
+            /** Enabled */
+            enabled: boolean;
+        };
         /** AgentTool */
         AgentTool: {
             /**
@@ -3568,6 +3626,16 @@ export interface components {
              */
             scheduled_at: string;
         };
+        /** AvailabilityShape */
+        AvailabilityShape: {
+            /** Reason */
+            reason: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "available" | "unavailable" | "unknown";
+        };
         /**
          * BandChange
          * @description A stated base band as `[min, max]`, either end unknown; null when none was stated.
@@ -3757,6 +3825,22 @@ export interface components {
             kind: "step";
             /** Step */
             step: string;
+        };
+        /** CapabilitiesResult */
+        CapabilitiesResult: {
+            /** Contract Version */
+            contract_version: string;
+            /** Engine Version */
+            engine_version: string | null;
+            /**
+             * Metadata Source
+             * @enum {string}
+             */
+            metadata_source: "bundled" | "engine";
+            /** Operations */
+            operations: components["schemas"]["OperationSummary"][];
+            /** Supported Contract Versions */
+            supported_contract_versions: string[];
         };
         /** CapabilityView */
         CapabilityView: {
@@ -5133,6 +5217,17 @@ export interface components {
             /** Twin Link Id */
             twin_link_id: number | null;
         };
+        /** EffectsShape */
+        EffectsShape: {
+            /** External Action */
+            external_action: boolean;
+            /** Model Egress */
+            model_egress: boolean;
+            /** Outbound Network */
+            outbound_network: boolean;
+            /** State Write */
+            state_write: boolean;
+        };
         /** EgressPayload */
         EgressPayload: {
             /** Enabled */
@@ -5146,6 +5241,128 @@ export interface components {
             scan_on_schedule?: boolean | null;
             /** Visible */
             visible?: boolean | null;
+        };
+        /** EngineTrust */
+        EngineTrust: {
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "local_loopback" | "signed_local_http";
+            /** Verified */
+            verified: boolean;
+        };
+        /** EnvelopeError */
+        EnvelopeError: {
+            /** Code */
+            code: string;
+            /** Details */
+            details?: {
+                [key: string]: unknown;
+            };
+            /** Message */
+            message: string;
+            /** Next Actions */
+            next_actions?: components["schemas"]["NextAction"][];
+            /** Retryable */
+            retryable: boolean;
+        };
+        /** EnvelopeMeta */
+        EnvelopeMeta: {
+            /** Data Classes */
+            data_classes?: ("public_posting" | "market_statistic" | "private_pursuit" | "offer" | "candidate")[];
+            /** Idempotency Key */
+            idempotency_key?: string | null;
+            /** Next Cursor */
+            next_cursor?: string | null;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /**
+             * Partial
+             * @default false
+             */
+            partial: boolean;
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+        };
+        /**
+         * EnvelopeNotice
+         * @description A structured warning: a stable code and English for logs.
+         */
+        EnvelopeNotice: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+        };
+        /** Envelope[CapabilitiesResult] */
+        Envelope_CapabilitiesResult_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["CapabilitiesResult"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[OperationDetail] */
+        Envelope_OperationDetail_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["OperationDetail"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[StatusResult] */
+        Envelope_StatusResult_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["StatusResult"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
         };
         /**
          * ErrorCode
@@ -7304,6 +7521,19 @@ export interface components {
             shared: number;
         };
         /**
+         * NextAction
+         * @description A typed suggestion of an operation to call next. Never a shell string,
+         *     and never a permission the caller did not already have.
+         */
+        NextAction: {
+            /** Arguments */
+            arguments?: {
+                [key: string]: unknown;
+            };
+            /** Operation */
+            operation: string;
+        };
+        /**
          * NoLineage
          * @description A posting that stands alone. `members` is always empty.
          */
@@ -7520,7 +7750,7 @@ export interface components {
          */
         OfferTermsCompany: {
             /** Bonus Rule */
-            bonus_rule: ("none" | "pct_of_base") | null;
+            bonus_rule: ("pct_of_base" | "none") | null;
             /** Company */
             company: string;
             /** Equity Vehicle */
@@ -7546,6 +7776,83 @@ export interface components {
             companies: components["schemas"]["OfferTermsCompany"][];
             /** Feed Configured */
             feed_configured: boolean;
+        };
+        /** OperationDetail */
+        OperationDetail: {
+            /**
+             * Access
+             * @enum {string}
+             */
+            access: "read" | "write";
+            availability: components["schemas"]["AvailabilityShape"];
+            /** Client Effects */
+            client_effects: ("file_write" | "browser_open" | "app_open")[];
+            /** Contract Version */
+            contract_version: string;
+            /** Data Classes */
+            data_classes: ("public_posting" | "market_statistic" | "private_pursuit" | "offer" | "candidate")[];
+            engine_effects: components["schemas"]["EffectsShape"];
+            /** Examples */
+            examples: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Idempotency
+             * @enum {string}
+             */
+            idempotency: "read" | "required_key" | "natural_key";
+            /** Input Schema */
+            input_schema: {
+                [key: string]: unknown;
+            };
+            /** Introduced */
+            introduced: string;
+            /**
+             * Metadata Source
+             * @enum {string}
+             */
+            metadata_source: "bundled" | "engine";
+            /** Operation */
+            operation: string;
+            /** Output Schema */
+            output_schema: {
+                [key: string]: unknown;
+            };
+            /** Output Schema Ref */
+            output_schema_ref: string;
+            /** Required Scopes */
+            required_scopes: string[];
+            /** Summary */
+            summary: string;
+            /** Supports Dry Run */
+            supports_dry_run: boolean;
+            /** Tool Tiers */
+            tool_tiers: ("small" | "standard" | "full")[];
+        };
+        /** OperationSummary */
+        OperationSummary: {
+            /**
+             * Access
+             * @enum {string}
+             */
+            access: "read" | "write";
+            availability: components["schemas"]["AvailabilityShape"];
+            /** Client Effects */
+            client_effects: ("file_write" | "browser_open" | "app_open")[];
+            /** Data Classes */
+            data_classes: ("public_posting" | "market_statistic" | "private_pursuit" | "offer" | "candidate")[];
+            engine_effects: components["schemas"]["EffectsShape"];
+            /**
+             * Idempotency
+             * @enum {string}
+             */
+            idempotency: "read" | "required_key" | "natural_key";
+            /** Operation */
+            operation: string;
+            /** Summary */
+            summary: string;
+            /** Tool Tiers */
+            tool_tiers: ("small" | "standard" | "full")[];
         };
         /** OptionalTextChange */
         OptionalTextChange: {
@@ -10576,6 +10883,19 @@ export interface components {
             /** Saved Total */
             saved_total: number;
         };
+        /** StatusResult */
+        StatusResult: {
+            access: components["schemas"]["AgentSwitchState"];
+            /** Contract Version */
+            contract_version: string;
+            /** Engine Session Id */
+            engine_session_id: string;
+            /** Engine Version */
+            engine_version: string;
+            trust: components["schemas"]["EngineTrust"];
+            /** Workspace Id */
+            workspace_id: string;
+        };
         /** StoredOffer */
         StoredOffer: {
             /** Answered */
@@ -11508,6 +11828,72 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    capabilities_api_agent_v1_capabilities_get: {
+        parameters: {
+            query?: {
+                /** @description List only the operations in this tool tier. */
+                tier?: ("small" | "standard" | "full") | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_CapabilitiesResult_"];
+                };
+            };
+        };
+    };
+    describe_api_agent_v1_operations__operation__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A dotted operation id from capabilities. */
+                operation: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_OperationDetail_"];
+                };
+            };
+        };
+    };
+    status_api_agent_v1_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_StatusResult_"];
+                };
+            };
+        };
+    };
     board_ep_api_applications_get: {
         parameters: {
             query?: never;

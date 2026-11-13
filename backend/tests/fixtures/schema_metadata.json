@@ -1,7 +1,7 @@
 {
  "_why": "The schema as the models declare it, frozen so a change to a column, index, constraint or default cannot land without showing up in a reviewer's diff. `alembic check` already answers 'do the models and the migrations agree?', but only against a live cluster and only in a CI log; this fixture answers 'did the models change at all?' with no database, in the pull request itself. The two claims are independent: a model edit WITH a matching migration keeps `check` green and still belongs in review, which is what this catches. Regenerate deliberately, in the same change as the migration: `.venv/bin/python -m scripts.freeze_schema_metadata`.",
  "embedding_dim": 768,
- "table_count": 73,
+ "table_count": 74,
  "classes": {
   "AiTaskLog": "ai_task_log",
   "AppSetting": "app_settings",
@@ -75,7 +75,8 @@
   "SourceBindingTuning": "source_binding_tuning",
   "SyncScheduleState": "sync_schedule_state",
   "TrackedCompany": "tracked_company",
-  "UsageEvent": "usage_events"
+  "UsageEvent": "usage_events",
+  "WorkspaceIdentity": "workspace_identity"
  },
  "tables": {
   "ai_task_log": {
@@ -2367,6 +2368,24 @@
     "count": "1",
     "props": "dict()"
    },
+   "python_onupdate": {},
+   "comment": null,
+   "column_comments": {}
+  },
+  "workspace_identity": {
+   "create": [
+    "CREATE TABLE workspace_identity (",
+    "    singleton BOOLEAN DEFAULT true NOT NULL,",
+    "    workspace_id VARCHAR(64) NOT NULL,",
+    "    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,",
+    "    PRIMARY KEY (singleton),",
+    "    CONSTRAINT ck_workspace_identity_singleton CHECK (singleton),",
+    "    CONSTRAINT ck_workspace_identity_format CHECK (workspace_id ~ '^ws_[0-9a-f]{32}$'),",
+    "    UNIQUE (workspace_id)",
+    ")"
+   ],
+   "indexes": [],
+   "python_defaults": {},
    "python_onupdate": {},
    "comment": null,
    "column_comments": {}

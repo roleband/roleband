@@ -23,7 +23,7 @@ Everything runs locally against one database.
 | Scan tick | `backend/tracker/workflows/scheduler.py` | The supervisor's `scan` job: a short tick that runs what is due, a full read when the computer wakes or the last one is old, the rest of a full read something stopped, a quick discovery check on a repeat while it is on (`backend/tracker/workflows/schedule_plan.py`). |
 | API | `backend/tracker/api/app.py` | FastAPI on `127.0.0.1:8010` by default (the Mac app can move it, see `EnginePort`): dashboard reads, the user's own writes, requests for background work, and the built dashboard from `dashboard/dist`. It starts no process: what it asks for, the supervisor runs. |
 | Dashboard | `dashboard/src/` | React 19, TypeScript, Vite. In development Vite serves `:5173` and proxies `/api` to `:8010`. |
-| MCP server | `backend/tracker/mcp/server.py` | Local STDIO server for external agents, reads and pursuit writes gated separately. See [mcp.md](mcp.md). The `roleband` command, a client of the running engine, is to replace it ([0015](decisions/0015-agents-use-the-cli.md), with its trust and identity in [0016](decisions/0016-agent-trust-and-workspace-identity.md) and its access choices in [0017](decisions/0017-agent-access-open-by-default.md)); until that command lands, this server is the agent interface. |
+| MCP server | `backend/tracker/mcp/server.py` | Local STDIO server for external agents, reads and pursuit writes gated separately. See [mcp.md](mcp.md). The `roleband` command (`backend/tracker/cli/`), a client of the running engine through `/api/agent/v1/`, is to replace it ([0015](decisions/0015-agents-use-the-cli.md), with its trust and identity in [0016](decisions/0016-agent-trust-and-workspace-identity.md) and its access choices in [0017](decisions/0017-agent-access-open-by-default.md)). The command answers only `status`, `capabilities` and `describe` so far; until it reads the person's data, this server is the agent interface. |
 | Health | `backend/tracker/workflows/watchdog.py` | The supervisor's `health` job: database reachability, stuck runs, stale data (asks for a scan), a stale backup, desktop alerts. |
 
 On macOS, `deploy/install.sh` installs one per-user background item,
@@ -656,7 +656,7 @@ dispatching twice.
 
 | Layer | Modules | Notes |
 |---|---|---|
-| L6 interface | `api`, `mcp` | Independent front doors onto the same services. `api/app.py` only composes. |
+| L6 interface | `api`, `mcp`, `cli` | Independent front doors onto the same services. `api/app.py` only composes. `cli` is the `roleband` client: it reaches the engine over HTTP and imports no database module. |
 | L5 workflows | `workflows`, `daily`, `scheduler`, `watchdog`, `discover_roles`, `agents`, `supervisor` | Runs, scheduling, supervision. |
 | L4 services | The L4 row of the layers contract in `backend/pyproject.toml` is the list: `db`, the services (`enrich`, `skills`, `lineage`, `semantic`, `search`, `scope`, `profiles`, `analytics`, `notifications`, `intelligence_runtime`, `plugins`, ...) and the stores (`settings_store`, `pay_store`, `company_store`, ...) | Same-layer imports allowed; `db` is the shared store. `intelligence` sits just above L3 and composes the model backends. |
 | L3 implementations | `connectors`, `comp_providers`, `prices`, `cloud_llm`, `local_llm` | Never import each other. Their contracts and registries live inside them. |
@@ -675,7 +675,10 @@ Import-linter contracts in `backend/pyproject.toml` enforce this:
    by the layers); `backend/tests/test_import_contract_registry.py` derives
    both sides, the registry's adapters and those packages, so neither drifts.
 3. **Listing and detail connectors are independent.**
-4. **API and MCP are independent transports.**
+4. **API, MCP and CLI are independent interfaces.**
+5. **The CLI reaches no database**: `tracker.cli` imports nothing from
+   `tracker.db`, `tracker.config` or the embedded server, directly or through
+   another module.
 
 `backend/tests/test_import_contracts.py` fails a top-level module no layer row
 in `pyproject.toml` names, freezes the allowlist, and plants a violation against each contract to
@@ -1230,6 +1233,20 @@ the generated file or hand-write a response type.
 
 **Errors and text.** API errors are codes, and every API string field declares
 its text class: both are in [copy.md](copy.md).
+
+**Agent operations.** `/api/agent/v1/` serves the `roleband` client
+(`backend/tracker/cli/`), one explicit route per operation
+(`backend/tracker/api/routers/agent.py`). Each operation is a descriptor in
+`backend/tracker/agents/operations/`: its typed input and result, its engine
+and client effects, data classes, tool tiers and idempotency, registered once
+in `catalog.py`. Every answer, a failure included, is one envelope whose error
+code maps to an HTTP status and a process exit status in `outcomes.py`. The
+agent switches in Settings admit them: a read needs `enabled`, a write also
+`allow_writes`, and with `enabled` off every operation is refused.
+`workspace_identity` holds the workspace's durable id, which these answers
+carry; it outlives engine restarts and updates, unlike the engine session id.
+The client reads its bundled index, `backend/tracker/cli/operations.json`
+(`scripts.export_agent_operations`), for help and offline answers.
 
 **Trust boundary.** Mac and ordinary source mode use loopback access control.
 `LoopbackBoundary` (`backend/tracker/api/boundary.py`, outermost) refuses a Host
