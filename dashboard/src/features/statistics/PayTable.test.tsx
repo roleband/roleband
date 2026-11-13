@@ -73,6 +73,11 @@ const show = (data: PayTableData, props: { advanced?: boolean; skill?: string | 
 
 /** The row whose company cell is exactly this name, so "Google" never also
  *  matches "Google DeepMind". */
+/** The skill filter's trigger, named as the catalogue names it: by the skill
+ *  picked, or by "any skill" with none. */
+const filterTrigger = (label = msg("insights-pay-table-any-skill")) =>
+  msg("shared-filter-select-filter-by", { label: label.toLowerCase() });
+
 const rowOf = (company: string) =>
   screen.getByRole("rowheader", { name: company }).closest("tr") as HTMLElement;
 
@@ -228,7 +233,7 @@ describe("PayTable", () => {
   it("offers the skills the table's roles name and reports the pick", async () => {
     const { onSkill } = show(table({ skills: [{ term: "python", roles: 8 }, { term: "sql", roles: 3 }] }));
 
-    await userEvent.click(screen.getByRole("button", { name: /^Filter by/ }));
+    await userEvent.click(screen.getByRole("button", { name: filterTrigger() }));
     await userEvent.click(screen.getByRole("option", { name: "Python" }));
     expect(onSkill).toHaveBeenCalledWith("python");
   });
@@ -262,7 +267,7 @@ describe("PayTable", () => {
       .toBeInTheDocument();
     // The table offers no skill of its own now, so the picked one is the only
     // option: without it the person cannot return to every skill.
-    await userEvent.click(screen.getByRole("button", { name: /^Filter by/ }));
+    await userEvent.click(screen.getByRole("button", { name: filterTrigger("Rust") }));
     await userEvent.click(screen.getByRole("option", { name: "Rust" }));
     expect(onSkill).toHaveBeenCalledWith(null);
   });

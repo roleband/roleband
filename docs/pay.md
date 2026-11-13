@@ -201,13 +201,15 @@ own data (the dataset, the seed pay and our stored rows) is US pay
 (`comp_providers/base.OUR_PAY_COUNTRY`), so it answers US postings only. A
 plugin's rung is for the `country` it states; one that states none prices no
 posting. Readers match a row to the posting by country (`pay_level_index`,
-`package_rows`, `comp_package.country_rows`); the company page and the
-estimate panels on Insights show US rows. Posted pay on Insights is read per
-country instead ([Posted pay on Insights](#posted-pay-on-insights)).
+`package_rows`, `comp_package.country_rows`); the company page shows US rows
+(`api/routers/companies.py`), and so does the estimate in Insights' company
+table ([the company table at one level](#the-company-table-at-one-level)).
+Posted pay on Insights is read per country instead
+([Posted pay on Insights](#posted-pay-on-insights)).
 
 Of the US rows, only those that can stand for US pay are read
-(`analytics/comp_market.us_rows`), by the estimate, the package, the company
-page and the Insights estimate panels alike. A row that states its country is US pay exactly
+(`analytics/comp_market.us_rows`), by the estimate, the package and the company
+page alike. A row that states its country is US pay exactly
 when it states the US. A row that states none (ours, read for the US) is held
 to the floor: a median base under $45,000 is set aside, and so is every such
 row of a company and family whose priced rows are at least half under it.
