@@ -257,15 +257,24 @@ _LABELLED_FIGURE_RE = re.compile(
     re.IGNORECASE,
 )
 
-#: The same figure with its label AFTER it: "$75,000 Annual Salary". A trailing
-#: label reaches no further than the amount's own line, because the next line
-#: is a new statement ("$75,000\nSalary and benefits are reviewed annually").
+#: The same figure with its label AFTER it: "$75,000 Annual Salary". Every gap
+#: in it is horizontal space, so the whole match sits on the amount's own line:
+#: the next line is a new statement, and a label read across the break turns
+#: "Programme cost: $75,000\nyearly salary reviews apply" into pay. Excluding
+#: the newline from `gap` alone leaves the period and currency fragments to
+#: cross it.
+_H_SPACE = r"[^\S\n]"
+_H_PERIOD = (
+    r"(?:" + _H_SPACE + r"*+(?:(?:/" + _H_SPACE + r"*+|per" + _H_SPACE + r"++|an?" + _H_SPACE + r"++)"
+    + _PERIOD_WORD + r"|(?:annually|yearly|monthly|hourly)(?![A-Za-z])))?"
+)
 _FIGURE_LABELLED_RE = re.compile(
-    r"(?:(?<![A-Za-z])(?P<prefix>US|CA|C|A|NZ|HK|S)[ \xa0]?)?(?P<symbol>[$£€])\s*+"
-    r"(?P<low>" + AMOUNT + r")(?:\s*+(?P<low_suffix>[kKmM](?![A-Za-z])))?"
-    r"(?:\s*+(?P<low_currency>" + CURRENCY_CODE + r"))?" + _PER_PERIOD +
-    r"(?:\s*+(?P<currency>" + CURRENCY_CODE + r"))?"
-    r"(?P<gap>[^\d$£€.;!?\n]{0,20}?)\b(?P<label>(?:annual(?:ly)?\s+|yearly\s+)?" + _PAY_LABEL + r")\b",
+    r"(?:(?<![A-Za-z])(?P<prefix>US|CA|C|A|NZ|HK|S)[ \xa0]?)?(?P<symbol>[$£€])" + _H_SPACE + r"*+"
+    r"(?P<low>" + AMOUNT + r")(?:" + _H_SPACE + r"*+(?P<low_suffix>[kKmM](?![A-Za-z])))?"
+    r"(?:" + _H_SPACE + r"*+(?P<low_currency>" + CURRENCY_CODE + r"))?" + _H_PERIOD +
+    r"(?:" + _H_SPACE + r"*+(?P<currency>" + CURRENCY_CODE + r"))?"
+    r"(?P<gap>[^\d$£€.;!?\n]{0,20}?)\b"
+    r"(?P<label>(?:annual(?:ly)?" + _H_SPACE + r"++|yearly" + _H_SPACE + r"++)?" + _PAY_LABEL + r")\b",
     re.IGNORECASE,
 )
 
@@ -416,7 +425,7 @@ _ONE_SIDED_PAD = 40
 #: amount, and it sits beside a salary in every other posting.
 _OTHER_AMOUNT_RE = re.compile(
     r"[$£€]\s*\d|\d{1,3},\d{3}|\d{4,}"
-    r"|(?<!\d)(?!401\s*\(?k)\d{2,3}(?:\.\d+)?\s*+[kKmM](?![A-Za-z])"
+    r"|(?<!\d)(?!401\s*\(?[kK])\d{2,3}(?:\.\d+)?\s*+[kKmM](?![A-Za-z])"
 )
 #: Words that open a bound AFTER the amount: "$120,000 minimum", "$120,000 or
 #: more", "$120,000 and above". "plus" is not one of them, because "$200,000,
@@ -598,10 +607,38 @@ def _read_candidate(match: re.Match, pay_text: str) -> _Reading | None:
     return _Reading(low, high, currency, period, salary)
 
 
-def _grounded(reading: _Reading, description_text: str) -> DisclosedComp:
+def _locate_figure(description_text: str, amount: int) -> tuple[int, int] | None:
+    """Where the posting states `amount` AS PAY, for a band of one amount.
+
+    `locate_pay_span` grounds a band by its two bounds, and the tightest span
+    holding both pins it to the right statement. One amount has no second bound
+    to pin it: every occurrence of the number is an equally tight span, and the
+    first one wins. So a posting that says "Customers: 150,000" before "The
+    base salary for this role is $150,000 per year" would be quoted, and have
+    its basis read, at the customer count.
+
+    The figure patterns are therefore read again over the full posting, and the
+    first occurrence one of them states as pay is the band's place. Grounding
+    holds by construction: the span is a match in `description_text`."""
+    for pattern in (_LABELLED_FIGURE_RE, _FIGURE_LABELLED_RE):
+        for match in pattern.finditer(description_text):
+            if _bound(match.group("low"), match.group("low_suffix")) != amount:
+                continue
+            if not _figure_states_pay(description_text, match):
+                continue
+            ends = match.end("low_suffix") if match.group("low_suffix") else match.end("low")
+            return match.start("low"), ends
+    return None
+
+
+def _grounded(reading: _Reading, description_text: str, *, one_bound: bool = False) -> DisclosedComp:
     """The band `reading` states, grounded in the full posting, or `disclosed=False`.
     Located once: the quote, the basis and the bonus all read the same span."""
-    span = locate_pay_span(description_text, [reading.low, reading.high])
+    span = (
+        _locate_figure(description_text, reading.low)
+        if one_bound
+        else locate_pay_span(description_text, [reading.low, reading.high])
+    )
     if span is None:
         return DisclosedComp(disclosed=False)
     basis = basis_at(description_text, span)
@@ -776,8 +813,8 @@ def extract_grounded_band(
             band = _grounded(named[0][0], description_text)
             if band.disclosed:
                 return band
-    for reading, _match in readings:
-        band = _grounded(reading, description_text)
+    for reading, match in readings:
+        band = _grounded(reading, description_text, one_bound=_one_bound(match))
         if band.disclosed:
             return band
     return DisclosedComp(disclosed=False)

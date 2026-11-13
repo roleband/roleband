@@ -584,6 +584,7 @@ HOSTILE = [
     ("_LABELLED_FIGURE_RE", "search", "salary" + " " * 2000 + "x", "Base Salary:  $150,000  USD  per year"),
     ("_LABELLED_FIGURE_RE", "search", "salary $" + " " * 2000 + "x", "salary of  $150,000  /year"),
     ("_FIGURE_LABELLED_RE", "search", "$0" + " " * 2000 + "x", "$75,000   annual  salary"),
+    ("_FIGURE_LABELLED_RE", "search", "$0 USD" + " " * 2000 + "x", "$75,000 USD  yearly  pay"),
 ]
 
 
@@ -774,12 +775,38 @@ def test_one_bound_of_a_range_we_could_not_read_is_not_a_figure(text):
     assert not extract_grounded_band(text, text).disclosed, text
 
 
-def test_a_retirement_plan_beside_a_figure_is_not_a_second_amount():
+@pytest.mark.parametrize("plan", ["401k", "401K", "401(k)", "401 k"],
+                         ids=["lower", "upper", "bracketed", "spaced"])
+def test_a_retirement_plan_beside_a_figure_is_not_a_second_amount(plan):
     """"401k" is the plan, not an amount, and it sits next to a salary in
-    posting after posting: reading it as a bound would refuse them all."""
-    text = "The base salary is $150,000 per year with 401k matching and medical."
+    posting after posting: reading it as a bound would refuse them all,
+    whichever way the posting writes it."""
+    text = f"The base salary is $150,000 per year with {plan} matching and medical."
     band = extract_grounded_band(text, text)
     assert (band.base_min, band.base_max) == (150_000, 150_000)
+
+
+def test_a_trailing_label_does_not_reach_across_a_line():
+    """A line break is a new statement. Reading the label below one turns a
+    cost into pay, and the period and currency fragments must not cross it
+    either, or they carry the match over the break themselves."""
+    text = "Programme cost: $75,000\nyearly salary reviews apply."
+    assert not extract_grounded_band(text, text).disclosed
+    # The same shape on one line is the figure it reads.
+    inline = "$75,000 yearly salary"
+    assert extract_grounded_band(inline, inline).base_min == 75_000
+
+
+def test_a_figure_is_grounded_where_the_posting_states_it_as_pay():
+    """One amount has no second bound to pin it, so every equal number in the
+    posting is an equally tight span. The quote and the basis must come from
+    the statement the figure was read in, not from an earlier coincidence."""
+    text = ("Customers: 150,000. We serve them worldwide. Our team is growing. "
+            "The base salary for this role is $150,000 per year.")
+    band = extract_grounded_band(text, text)
+    assert (band.base_min, band.base_max) == (150_000, 150_000)
+    assert "base salary" in (band.source_snippet or "")
+    assert "Customers" not in (band.source_snippet or "")
 
 
 def test_a_stated_range_always_beats_a_figure_stated_once():
