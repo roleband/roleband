@@ -681,7 +681,9 @@ Import-linter contracts in `backend/pyproject.toml` enforce this:
 in `pyproject.toml` names, freezes the allowlist, and plants a violation against each contract to
 prove it still fires. If a contract trips, move the code or edit the layer row,
 never the allowlist. mypy checks the module set under `[tool.mypy]`, which only
-grows (`backend/tests/test_typing_pilot.py`).
+grows; it runs once for the platform it is on and once for each of the others,
+because a body behind a platform gate is unreachable, and so unchecked, for
+every run but one (`backend/tests/test_typing_pilot.py`).
 
 ## Data model and persistence
 
