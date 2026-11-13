@@ -114,7 +114,8 @@ class TestClassification:
         assert skip_policy.is_optional(reason)
 
     @pytest.mark.parametrize("reason", ["macOS and POSIX tooling runs on the Mac", "gitleaks is not installed",
-                                        "no zoneinfo file for Europe/Stockholm on this machine"])
+                                        "no zoneinfo file for Europe/Stockholm on this machine",
+                                        "the POSIX database start clears a crash's lock files"])
     def test_a_windows_reason_stays_a_skip_on_windows_only(self, reason):
         """The Linux lane is where these run, so there the same reason is a failure."""
         assert skip_policy.is_optional(reason, windows=True)

@@ -15617,6 +15617,9 @@
       ],
       "title": "Currency"
      },
+     "excluded": {
+      "$ref": "#/components/schemas/PostedCountryExclusions"
+     },
      "levels": {
       "items": {
        "$ref": "#/components/schemas/PostedLevel"
@@ -15648,9 +15651,40 @@
      "levels",
      "not_placed",
      "other_currency",
-     "bands"
+     "bands",
+     "excluded"
     ],
     "title": "PostedCountry",
+    "type": "object"
+   },
+   "PostedCountryExclusions": {
+    "additionalProperties": false,
+    "description": "One country's roles with a posted range that its figure does not read,\nby reason. The reasons are `PostedExclusions`', less `no_country`.",
+    "properties": {
+     "implausible": {
+      "title": "Implausible",
+      "type": "integer"
+     },
+     "not_base": {
+      "title": "Not Base",
+      "type": "integer"
+     },
+     "not_yearly": {
+      "title": "Not Yearly",
+      "type": "integer"
+     },
+     "placed_by_pay": {
+      "title": "Placed By Pay",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "not_base",
+     "not_yearly",
+     "implausible",
+     "placed_by_pay"
+    ],
+    "title": "PostedCountryExclusions",
     "type": "object"
    },
    "PostedExclusions": {
@@ -15676,6 +15710,10 @@
      "placed_by_pay": {
       "title": "Placed By Pay",
       "type": "integer"
+     },
+     "without_country": {
+      "title": "Without Country",
+      "type": "integer"
      }
     },
     "required": [
@@ -15683,7 +15721,8 @@
      "not_yearly",
      "implausible",
      "no_country",
-     "placed_by_pay"
+     "placed_by_pay",
+     "without_country"
     ],
     "title": "PostedExclusions",
     "type": "object"

@@ -94,6 +94,10 @@ WINDOWS_SKIPS: tuple[tuple[re.Pattern[str], str], ...] = (
         "golden embeddings need the provisioned model, which only the Linux lane caches",
     ),
     (
+        re.compile(r"the POSIX database start clears a crash's lock files"),
+        "Windows starts its database natively and handles its own stale lock file (tracker/platform/windows_db.py)",
+    ),
+    (
         re.compile(r"no zoneinfo file for [A-Za-z_/+-]+ on this machine"),
         "Windows has no system zoneinfo files; the tzdata package answers instead",
     ),

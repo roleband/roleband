@@ -21,13 +21,16 @@ jobs:
           - runner: ubuntu-24.04
             platform: linux-x86_64
             image: quay.io/pypa/manylinux_2_28_x86_64@sha256:b74a5b6f1705ecff17be8bd792589bef9b3b039766d12205720ecd2a9e919192
+          # Also writes the Windows app's runtime lock, which resolves only on Windows.
+          - runner: windows-2025
+            platform: windows-amd64
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        if: matrix.platform == 'darwin-arm64'
+        if: matrix.platform == 'darwin-arm64' || matrix.platform == 'windows-amd64'
         with:
           python-version-file: .python-version
       - name: build macOS bundle
@@ -36,8 +39,22 @@ jobs:
         run: |
           python -m pip install -c constraints/macos-arm64.txt certifi
           python -m scripts.package_pg_contrib --download
+      - name: build Windows bundle
+        if: matrix.platform == 'windows-amd64'
+        working-directory: backend
+        # The runner image carries MSYS2 at C:\msys64, where package_pg_contrib looks for it.
+        shell: pwsh
+        run: |
+          C:\msys64\usr\bin\bash.exe -lc "pacman -Sy --noconfirm --needed mingw-w64-ucrt-x86_64-gcc make"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python -m pip install -c constraints/windows-x86_64.txt certifi
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python -m scripts.package_pg_contrib --download
+      - name: lock the Windows app runtime
+        if: matrix.platform == 'windows-amd64'
+        run: python launcher/windows/Tools/lock_runtime.py
       - name: build Linux bundle
-        if: matrix.platform != 'darwin-arm64'
+        if: matrix.platform == 'linux-aarch64' || matrix.platform == 'linux-x86_64'
         env:
           BUILD_IMAGE: ${{ matrix.image }}
         run: >-
@@ -49,4 +66,6 @@ jobs:
           path: |
             backend/tracker/platform/pgcontrib/${{ matrix.platform }}.tar.gz
             backend/tracker/platform/pgcontrib/manifest.json
+            launcher/windows/runtime-lock.txt
+            launcher/windows/signing-requirements.txt
           retention-days: 14

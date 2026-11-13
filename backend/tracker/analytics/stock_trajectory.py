@@ -25,7 +25,7 @@ from tracker.analytics.comp_package import (
     employee_election,
 )
 from tracker.analytics.comp_split import is_public, parent_ticker, ticker_for
-from tracker.levels.model import BONUS_NONE, BONUS_PCT_OF_BASE
+from tracker.levels.model import BONUS_NONE, BONUS_PCT_OF_BASE, EQUITY_NONE
 from tracker.levels.pay import bonus_ratio_for, policy_for
 
 # Where a part of a company's package comes from. A company whose roles differ
@@ -97,9 +97,19 @@ def _parts(role: TrajectoryRole) -> _Parts | None:
         sources={
             "base": FROM_POSTED if base["provenance"] == PROV_STATED else FROM_ESTIMATED,
             "bonus": _bonus_source(role, by_kind.get("bonus")),
-            "equity": FROM_MEASURED if _measured(package) else FROM_ESTIMATED,
+            "equity": _equity_source(role),
         },
     )
+
+
+def _equity_source(role: TrajectoryRole) -> str:
+    """Read from a pay row, the company's stated rule of no equity, or ours.
+    Mirrors the order `comp_package._ratios` reads them in."""
+    if _measured(role.package):
+        return FROM_MEASURED
+    if policy_for(role.company).equity_rule == EQUITY_NONE:
+        return FROM_COMPANY_RULE
+    return FROM_ESTIMATED
 
 
 def _set_apart_reason(role: TrajectoryRole) -> str | None:

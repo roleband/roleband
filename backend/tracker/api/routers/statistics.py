@@ -233,6 +233,11 @@ async def statistics_overview(
     }
 
 
+def _us_pay(location_groups: list[str] | None) -> bool:
+    """The role's pay is for the US: every place it names lies there."""
+    return pay_country(location_groups) == OUR_PAY_COUNTRY
+
+
 @router.get("/api/statistics/compensation", response_model=CompensationStatsResponse)
 async def statistics_compensation(session: SessionDep, hidden: OffBoardDep, narrowed: InsightsScopeDep) -> dict:
     """Compensation across the roles open now: the roles Insights describes.
@@ -269,31 +274,35 @@ async def statistics_compensation(session: SessionDep, hidden: OffBoardDep, narr
     # whose level we cannot place is `unstated`, not the Mid its sort default
     # says or the Senior/Staff a role word guessed.
     level = level_key_expr(Job).label("level")
-    # The estimate is drawn in US dollars, the currency `stats` names. An
-    # estimate in another currency (a plugin pricing non-US rungs) is not on
-    # that axis, so it counts as unpriced here: nothing is converted.
+    # The estimate is US pay in US dollars, as every panel built from it says.
+    # An estimate in another currency, or for a role whose pay is for another
+    # country or for none (a plugin pricing non-US rungs), is not on that axis,
+    # so it counts as unpriced here: nothing is converted.
     in_usd = Job.comp_currency == "USD"
     rows = (
         await session.execute(
             select(Job.company, Job.level_band, Job.family, case((in_usd, Job.comp_median)).label("comp_median"),
-                   level).where(*scope)
+                   level, Job.location_groups).where(*scope)
         )
     ).all()
 
-    stats = build_comp_stats([(r.company, r.level, r.family, r.comp_median) for r in rows], total_open or 0)
+    stats = build_comp_stats(
+        [(r.company, r.level, r.family, r.comp_median if _us_pay(r.location_groups) else None) for r in rows],
+        total_open or 0,
+    )
 
     # Roles our dataset prices by their base alone have no total, so the block
     # above cannot hold them; they are reported apart and labelled, never on
     # the totals' axis.
     base_rows = (
         await session.execute(
-            select(Job.company, level, Job.family, Job.comp_base_median).where(
+            select(Job.company, level, Job.family, Job.comp_base_median, Job.location_groups).where(
                 *scope, in_usd, Job.comp_component == "base", Job.comp_median.is_(None),
                 Job.comp_base_median.isnot(None),
             )
         )
     ).all()
-    base = build_comp_stats([tuple(r) for r in base_rows], total_open or 0)
+    base = build_comp_stats([tuple(r[:4]) for r in base_rows if _us_pay(r.location_groups)], total_open or 0)
     stats["base_estimates"] = {
         "min_roles": base["min_roles"],
         "coverage": {"with_base": base["coverage"]["with_comp"], "total_open": base["coverage"]["total_open"]},
@@ -405,7 +414,7 @@ async def statistics_comp_trajectory(session: SessionDep, hidden: OffBoardDep) -
                 company=job.company,
                 band=job.level_band,
                 package=package,
-                us_pay=pay_country(job.location_groups) == OUR_PAY_COUNTRY,
+                us_pay=_us_pay(job.location_groups),
             )
             for job, package in packages
         ),

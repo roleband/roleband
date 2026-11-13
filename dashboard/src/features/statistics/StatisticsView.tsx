@@ -1,7 +1,7 @@
 import { DemandView } from "./Demand";
 import { SkillsView } from "./SkillsView";
 import { OverviewPanel } from "./OverviewPanel";
-import { CompensationPanel } from "./CompensationPanel";
+import { CompensationPanel, PAY_PARAMS } from "./CompensationPanel";
 import { StockTrajectoryPanel } from "./StockTrajectoryPanel";
 import { VelocityPanel } from "./VelocityPanel";
 import { LEVELS_PARAMS, LevelsPanel } from "./LevelsPanel";
@@ -89,9 +89,11 @@ export function StatisticsView() {
   const { search } = useLocation();
   const setView = useCallback(
     (tab: string) => {
-      // Levels' own keys (its search, its translation) answer only Levels.
+      // Levels' own keys (its search, its translation) answer only Levels,
+      // and Pay's (its country and level) only Pay.
       const next = new URLSearchParams(search);
       if (tab !== "levels") LEVELS_PARAMS.forEach((key) => next.delete(key));
+      if (tab !== "compensation") PAY_PARAMS.forEach((key) => next.delete(key));
       const query = next.toString();
       navigate({ pathname: `/statistics/${tab}`, search: query ? `?${query}` : "" });
     },

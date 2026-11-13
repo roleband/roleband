@@ -174,6 +174,22 @@ def _facts(conn: connection, *, empty_history: bool = False) -> dict[str, Any]:
         return json.loads(json.dumps(facts, ensure_ascii=False))
 
 
+def same_facts(live: dict[str, Any], recorded: Any) -> bool:
+    """Whether a database's facts are the ones a checkpoint recorded.
+
+    Extensions are compared by name. A restore creates each at the runtime's default
+    version while the database it was taken from keeps the version it was made with,
+    so their versions differ after any runtime update that carries a newer one.
+    """
+    def comparable(facts: Any) -> Any:
+        if not isinstance(facts, dict) or not isinstance(facts.get("extensions"), list):
+            return facts
+        return {**facts, "extensions": [entry[0] if isinstance(entry, list) and entry else entry
+                                        for entry in facts["extensions"]]}
+
+    return bool(comparable(live) == comparable(recorded))
+
+
 def _run(server: EmbeddedServer, tool: str, *arguments: str) -> None:
     from tracker.platform.windows_private import native_path
 
@@ -195,7 +211,7 @@ def _archive(directory: Path, manifest: dict[str, Any]) -> Path:
 
 def verify_restored(server: EmbeddedServer, manifest: dict[str, Any]) -> None:
     with closing(_connect(server)) as conn:
-        if _facts(conn, empty_history=_empty_history_allowed(manifest)) != manifest["facts"]:
+        if not same_facts(_facts(conn, empty_history=_empty_history_allowed(manifest)), manifest["facts"]):
             raise CheckpointError("Restored checkpoint does not match its schema and history fingerprints")
         conn.rollback()
         conn.set_session(readonly=False)
@@ -315,7 +331,7 @@ def still_matches(server: EmbeddedServer, directory: Path) -> bool:
     if manifest.get("retained_profile") != (retained_profile(server.pgdata) if owner.exists() else None):
         return False
     with closing(_connect(server)) as conn:
-        return bool(_facts(conn, empty_history=_empty_history_allowed(manifest)) == manifest.get("facts"))
+        return same_facts(_facts(conn, empty_history=_empty_history_allowed(manifest)), manifest.get("facts"))
 
 
 def verify_checkpoint(directory: Path, verification_state: Path) -> dict[str, Any]:
