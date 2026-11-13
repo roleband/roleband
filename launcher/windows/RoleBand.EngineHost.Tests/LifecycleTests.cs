@@ -571,8 +571,10 @@ public sealed class LifecycleTests
             kept.Kill(entireProcessTree: true);
             await kept.WaitForExitAsync();
         }
-        // Until the recorded engine is gone too, a start is rightly refused as still closing.
-        await Until(() => !Running(recorded), TimeSpan.FromSeconds(30), "the recorded engine to exit");
+        // Until the recorded engine is gone too, a start is rightly refused as still closing. The wait asks what the session
+        // asks: a process can leave the process list before its handle reports the exit.
+        await Until(() => ProcessClock.RunningSince(recorded) is null, TimeSpan.FromSeconds(30),
+            $"the recorded engine {recorded} (kept {pid}) to exit");
         engine.Behave("ready");
         if (waitForRelease)
         {
