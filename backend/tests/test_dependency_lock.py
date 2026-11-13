@@ -10,7 +10,9 @@ fails by package name first, so the fix is obvious: run
 
 from __future__ import annotations
 
+import ast
 import re
+from importlib import metadata
 
 import pytest
 from packaging.requirements import Requirement
@@ -112,3 +114,51 @@ def test_the_runtime_requirements_carry_no_test_tooling():
     """`deploy/install.sh` installs requirements.txt alone into the always-on runtime."""
     runtime = {canonicalize_name(r.name) for r in read_requirements((BACKEND / "requirements.txt").read_text())}
     assert not {name for name in runtime if name.startswith(("pytest", "ruff", "import-linter"))}
+
+
+#: Runtime requirements the app needs without importing them, and why.
+NEEDED_WITHOUT_IMPORT = {
+    "greenlet": "SQLAlchemy's asyncio extension runs on it",
+    "tzdata": "zoneinfo reads its time zones on Windows, which ships none",
+}
+
+
+def imported_modules(sources: list[str]) -> set[str]:
+    """The top-level modules `import` statements in `sources` name."""
+    names: set[str] = set()
+    for source in sources:
+        for node in ast.walk(ast.parse(source)):
+            if isinstance(node, ast.Import):
+                names.update(alias.name.split(".")[0] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                names.add(node.module.split(".")[0])
+    return names
+
+
+def unused(requirements: list[Requirement], imported: set[str], provides: dict[str, set[str]]) -> list[str]:
+    """The requirements no module of theirs is imported from."""
+    return sorted(
+        req.name for req in requirements
+        if canonicalize_name(req.name) not in NEEDED_WITHOUT_IMPORT
+        and not provides.get(canonicalize_name(req.name), set()) & imported
+    )
+
+
+def test_every_runtime_requirement_is_imported_by_the_app():
+    """A package the app no longer imports leaves the requirements, the
+    constraints and the runtime locks: every app ships it otherwise. A probe
+    naming it in a string is not a use."""
+    provides: dict[str, set[str]] = {}
+    for module, dists in metadata.packages_distributions().items():
+        for dist in dists:
+            provides.setdefault(canonicalize_name(dist), set()).add(module)
+    sources = [path.read_text() for path in (BACKEND / "tracker").rglob("*.py")]
+    runtime = read_requirements((BACKEND / "requirements.txt").read_text())
+    assert unused(runtime, imported_modules(sources), provides) == []
+
+
+def test_a_requirement_only_a_string_names_is_reported_unused():
+    probe = "imports = ('numpy', 'sklearn.cluster')\nimport numpy\n"
+    reqs = read_requirements("numpy==2.1.3\nscikit-learn==1.9.0\ngreenlet==3.1.1\n")
+    provides = {"numpy": {"numpy"}, "scikit-learn": {"sklearn"}, "greenlet": {"greenlet"}}
+    assert unused(reqs, imported_modules([probe]), provides) == ["scikit-learn"]

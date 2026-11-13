@@ -761,6 +761,7 @@
     ")"
    ],
    "indexes": [
+    "CREATE INDEX ix_job_lifecycle_events_closing_note ON job_lifecycle_events USING gin (detail jsonb_path_ops) WITH (fastupdate = off) WHERE event_type = 'closed'",
     "CREATE INDEX ix_job_lifecycle_events_created_at ON job_lifecycle_events (created_at)",
     "CREATE INDEX ix_job_lifecycle_events_event_type ON job_lifecycle_events (event_type)",
     "CREATE INDEX ix_job_lifecycle_events_job_id ON job_lifecycle_events (job_id)"
@@ -1338,6 +1339,7 @@
     ")"
    ],
    "indexes": [
+    "CREATE INDEX ix_jobs_closed_at ON jobs (closed_at) WHERE closed_at IS NOT NULL",
     "CREATE INDEX ix_jobs_cluster_id ON jobs (cluster_id)",
     "CREATE INDEX ix_jobs_company ON jobs (company)",
     "CREATE INDEX ix_jobs_company_family_level ON jobs (company, family, level_band)",
@@ -1347,6 +1349,7 @@
     "CREATE INDEX ix_jobs_effective_age ON jobs (COALESCE(lineage_first_seen, first_seen))",
     "CREATE INDEX ix_jobs_embedding_hnsw ON jobs USING hnsw (embedding vector_cosine_ops)",
     "CREATE INDEX ix_jobs_family ON jobs (family)",
+    "CREATE INDEX ix_jobs_first_seen ON jobs (first_seen)",
     "CREATE INDEX ix_jobs_in_scope ON jobs (in_scope)",
     "CREATE INDEX ix_jobs_level_band ON jobs (level_band)",
     "CREATE INDEX ix_jobs_lineage ON jobs (lineage_id, lineage_seq)",

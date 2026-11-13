@@ -12,7 +12,7 @@ const DAY_MS = 86_400_000;
 
 /** All time, and each window shorter than the history that starts at `since`,
  *  to the millisecond: seven days and 23 hours of history cover a 7-day window.
- *  `since` is null before any whole read (all time only), and undefined when
+ *  `since` is null before the history starts (all time only), and undefined when
  *  the history could not be read (every window). */
 export function coveredWindows<P extends { days: number }>(
   periods: readonly P[],
@@ -40,7 +40,7 @@ export function fromSince(days: number, since: string | null | undefined, now: n
 
 /** "last 30d" for a window; for all time or a window the history clipped,
  *  "since 3 Nov (8 days)" from the start the response reports; "all time"
- *  before any whole read. */
+ *  before the history starts. */
 export function periodLabel(days: number, since: string | null | undefined, now: number = Date.now()): string {
   if (fromSince(days, since, now)) {
     const elapsed = Math.max(0, Math.floor((now - Date.parse(since)) / DAY_MS));

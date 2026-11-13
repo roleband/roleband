@@ -967,7 +967,7 @@ insights-aging-from-90-days = 3 months+
 ## sentence is said only when its fact is there; the brief joins them with a space.
 # kind=sentence wording=as-is
 insights-brief-open = { $open } open roles across { $companies } companies.
-# kind=sentence note="$period: since names the start of all the history there is ($date, '3 Nov'); all is all time before any whole read; days is a window"
+# kind=sentence note="$period: since names the start of all the history there is ($date, '3 Nov'); all is all time before the history starts; days is a window"
 insights-brief-opened = { $period ->
     [since] { $opened } opened, { $closed } closed since { $date }.
     [all] { $opened } opened, { $closed } closed, all time.

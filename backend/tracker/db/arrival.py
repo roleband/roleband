@@ -18,8 +18,8 @@ The sighting dates the posting only if the company was already known at S:
 written after its upserts and its inventory write.
 
 Then `arrival` is `first_read` when the company was not known at S,
-`already_listed` when the posting was on the board before we stored it (S
-before creation, or admitted from the inventory), and `new` otherwise
+`Arrival.SIGHTED_EARLIER` when the posting was on the board before we stored
+it (S before creation, or admitted from the inventory), and `new` otherwise
 (`schema.Arrival`).
 
 One statement classifies a batch, and every writer of `jobs` calls it on the
@@ -43,8 +43,8 @@ from tracker.settings_store import get_retention_days
 
 #: Reads that saw the listing up to our own ceiling or all but a few records:
 #: a source whose reads always end this way is known after two of them.
-_PARTIAL_EVIDENCE = (SourceOutcome.TRUNCATED, SourceOutcome.BOUNDED, SourceOutcome.LOSSY)
-_KNOWN_AFTER_PARTIAL_READS = 2
+PARTIAL_EVIDENCE = (SourceOutcome.TRUNCATED, SourceOutcome.BOUNDED, SourceOutcome.LOSSY)
+KNOWN_AFTER_PARTIAL_READS = 2
 
 _CLASSIFY = """
 WITH target AS (
@@ -94,7 +94,7 @@ UPDATE jobs j
 SET first_seen = c.sighted,
     arrival = CASE
         WHEN NOT c.known THEN :first_read
-        WHEN c.listed_before THEN :already_listed
+        WHEN c.listed_before THEN :sighted_earlier
         ELSE :new
     END
 FROM classified c
@@ -117,10 +117,10 @@ async def classify_arrivals(session: AsyncSession, job_ids: Sequence[int]) -> li
         {
             "ids": list(job_ids),
             "window_days": window_days,
-            "partial": [outcome.value for outcome in _PARTIAL_EVIDENCE],
-            "partial_reads": _KNOWN_AFTER_PARTIAL_READS,
+            "partial": [outcome.value for outcome in PARTIAL_EVIDENCE],
+            "partial_reads": KNOWN_AFTER_PARTIAL_READS,
             "first_read": Arrival.FIRST_READ.value,
-            "already_listed": Arrival.ALREADY_LISTED.value,
+            "sighted_earlier": Arrival.SIGHTED_EARLIER.value,
             "new": Arrival.NEW.value,
         },
     )).all()

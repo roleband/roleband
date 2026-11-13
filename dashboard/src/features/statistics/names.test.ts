@@ -38,7 +38,7 @@ describe("overviewBrief", () => {
       `${msg("insights-brief-open", { open: "3,192", companies: "41" })} `
       + msg("insights-brief-opened", { period: "since", opened: "120", closed: "30", days: 0, date: date("2026-11-03T06:02:00Z", "day") }),
     );
-    // Before any whole read there is no start to name.
+    // Before the history starts there is no start to name.
     expect(overviewBrief({ days: 0, since: null, kpis, top_skills: [] })).toBe(
       `${msg("insights-brief-open", { open: "3,192", companies: "41" })} `
       + msg("insights-brief-opened", { period: "all", opened: "120", closed: "30", days: 0, date: "" }),
