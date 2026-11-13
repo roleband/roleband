@@ -8,7 +8,9 @@ the rest gone. Current state, never history: `first_seen_at` is set once,
 
 A steady board costs no row churn: an upsert rewrites a row only when its
 content changed, it was gone, or its last touch is older than the touch window.
-Commits nothing; the caller holds the company's transaction.
+Commits nothing; the caller holds the company's transaction. The one writer
+that commits is `reclassify_inventory`, which rewrites the whole table after a
+classifier change and so saves chunk by chunk.
 
 Retention: `remove_unread` deletes rows no scan has read since a
 cutoff, and `retention_counts` counts them with the same clause, so what
@@ -43,6 +45,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, insert
 from tracker.config import get_settings
 from tracker.db.models import PostingInventory, TrackedCompany
 from tracker.db.queries.companies import followed_company, is_followed
+from tracker.db.session import commit_in_batches
 from tracker.enrich.enricher import annotate
 from tracker.enrich.inventory import InventoryRow, classifier_fingerprint, inventory_row
 from tracker.schema import RawJob, WorkplaceType
@@ -50,6 +53,10 @@ from tracker.settings_store import get_setting_dict, set_setting_dict
 
 #: Rows per INSERT: 25 columns x 1,000 stays under asyncpg's 32,767 parameters.
 _BATCH = 1000
+
+#: Rows per transaction when re-deriving classifications: the most a killed run
+#: re-derives.
+_CLASSIFY_BATCH = 500
 
 #: Columns an upsert refreshes; `first_seen_at` is written by the insert only.
 _REFRESHED = (
@@ -195,9 +202,8 @@ async def write_inventory(
 
 async def pending_inventory_classes(session) -> list[dict]:
     """Re-derive every inventory row's classification from its stored fields;
-    the rows whose classification changed, written by
-    `write_inventory_classes` (one transaction, the pass) or in batches
-    (`scripts.backfill_classifier`).
+    the rows whose classification changed, written by `write_inventory_classes`
+    in committed batches (`reclassify_inventory`, `scripts.backfill_classifier`).
 
     The `jobs` reclassify passes (roles, domains, places) bring stored rows in
     line with a taxonomy change at once; promotion must not then admit by an
@@ -264,8 +270,23 @@ async def write_inventory_classes(session, changes: list[dict]) -> int:
 
 async def reclassify_inventory(session) -> int:
     """Re-derive every inventory row's classification and write what changed
-    (`pending_inventory_classes`); returns how many changed."""
-    return await write_inventory_classes(session, await pending_inventory_classes(session))
+    (`pending_inventory_classes`) in committed chunks of `session`; returns how
+    many changed.
+
+    The run after a classifier change rewrites every row whose classification
+    moved, and one transaction over the whole table loses all of it when the run
+    dies. A killed run records no fingerprint (`mark_classified` runs after
+    this returns), so the rows it did not reach are re-derived on the next run.
+    """
+    changes = {change["id"]: change for change in await pending_inventory_classes(session)}
+
+    async def write(chunk_session, ids: list[int]) -> int:
+        return await write_inventory_classes(chunk_session, [changes[row_id] for row_id in ids])
+
+    return await commit_in_batches(
+        list(changes), write, size=_CLASSIFY_BATCH, label="inventory classifications",
+        session=session, report=lambda line: logger.info("inventory reclassify: %s", line),
+    )
 
 
 async def mark_classified(session) -> None:

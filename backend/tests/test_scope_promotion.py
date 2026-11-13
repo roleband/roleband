@@ -17,7 +17,9 @@ Invariants:
   pending, and the run's post pass promotes;
 - I13 narrow then widen flips an existing job back and never duplicates it;
 - a promotion failure never fails the save, and a save that promoted queues a
-  sync of the companies it promoted from.
+  sync of the companies it promoted from;
+- a reclassify killed partway keeps the chunks it committed and records no
+  fingerprint, so the next run re-derives the rest.
 """
 
 from __future__ import annotations
@@ -54,6 +56,7 @@ from tracker.notifications.digest import _candidate_stmt
 from tracker.platform.locks import advisory_unlock, try_advisory_lock
 from tracker.schema import RawJob
 from tracker.scope import promotion
+from tracker.settings_store import get_setting_dict
 from tracker.taxonomy.role_answers import RoleAnswer
 from tracker.workflows.post_passes import PostPassContext, _pass_inventory_promotion
 
@@ -424,6 +427,45 @@ async def test_a_row_the_code_cannot_read_never_stops_the_reclassify(db_session,
     assert "skipped 1 rows it cannot read" in caplog.text
     # Recorded: the next run under this classifier reads nothing.
     assert await reclassify_inventory_if_changed(db_session) is None
+
+
+@pytest.mark.asyncio
+async def test_an_inventory_reclassify_killed_partway_keeps_the_chunks_it_saved(db_session, monkeypatch):
+    """A classifier change rewrites every inventory row whose classification
+    moved, so the writes commit in chunks: one transaction over the table would
+    lose all of it when the run dies. No fingerprint is recorded, so the next
+    run re-derives the rows the killed one never reached."""
+    from tracker.db import inventory_store
+
+    await _store(db_session, [_raw("keep"), _raw("other")])
+    await db_session.execute(update(PostingInventory).values(family="design_ux", content_hash="stale"))
+    await db_session.commit()
+    saved_row, lost_row = sorted((await db_session.scalars(select(PostingInventory.id))).all())
+
+    monkeypatch.setattr(inventory_store, "_CLASSIFY_BATCH", 1)
+    write = inventory_store.write_inventory_classes
+
+    async def dies_as_it_reaches_the_last_row(session, changes: list[dict]) -> int:
+        written = await write(session, changes)
+        if any(change["id"] == lost_row for change in changes):
+            raise RuntimeError("the run was killed")
+        return written
+
+    monkeypatch.setattr(inventory_store, "write_inventory_classes", dies_as_it_reaches_the_last_row)
+    with pytest.raises(RuntimeError):
+        await reclassify_inventory_if_changed(db_session)
+    await db_session.rollback()
+
+    # Another session: what the database holds, not what the pass's session says.
+    factory = async_sessionmaker(db_session.bind, expire_on_commit=False)
+    async with factory() as other:
+        families = dict(
+            (await other.execute(select(PostingInventory.id, PostingInventory.family))).all()
+        )
+        assert families[saved_row] == "software_engineering", "the chunk before the failure is committed"
+        assert families[lost_row] == "design_ux", "the chunk that died wrote nothing"
+        assert await get_setting_dict(other, inventory_store.CLASSIFIED_WITH_KEY) is None, \
+            "no fingerprint: the next run re-derives the rest"
 
 
 @pytest.mark.asyncio

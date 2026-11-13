@@ -39,7 +39,9 @@ holds no session; the heartbeat writes through its own short-lived sessions.
    it committed before stays committed.
 5. COMMIT per post-pass in `run_post_passes`, plus one per derivation-state
    record. A non-fatal failure rolls that pass back and continues; a fatal one
-   rolls back, records itself, and raises into step 7.
+   rolls back, records itself, and raises into step 7. A pass that rewrites the
+   whole table (the reclassify passes, `reestimate`) commits chunk by chunk
+   inside its own boundary, so a killed run keeps the chunks it saved.
 6. Success: `record_run_finished` flushes the terminal status and notifies; the
    heartbeat stops, the lock is released, and the session scope's exit commits.
 7. `Exception`: `record_run_failure` rolls back first (the session may be
