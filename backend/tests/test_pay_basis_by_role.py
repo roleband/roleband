@@ -362,3 +362,149 @@ async def test_every_writer_stores_the_bonus_target_of_a_band_its_salary_wording
     assert (job.disclosed_pay_basis, job.disclosed_bonus_pct) == ("base", 0.15)
     assert job.disclosed_source == {"connector-field": "connector", "connector-text": "connector",
                                     "stored-settle": "connector"}.get(writer, writer)
+
+
+# --- a range a US or Canadian posting states with no marker ------- #
+
+#: One range and no word saying what it covers, as most US and Canadian
+#: postings write it to meet pay-transparency law.
+UNMARKED = "Pay Range: Washington D.C.\n$163,000—$226,000 USD\n\nWe calibrate level and compensation."
+UNMARKED_BOUNDS = [163000, 226000]
+
+
+@pytest.mark.parametrize("country", ["US", "CA"])
+def test_an_unmarked_range_in_the_us_or_canada_is_base_for_a_role_that_does_not_sell(country):
+    assert derive_pay_basis(UNMARKED, UNMARKED_BOUNDS) is PayBasis.unclear
+    assert settle_band("unclear", UNMARKED, "software_engineering", "Software Engineer",
+                       UNMARKED_BOUNDS, country=country).pay_basis == "base"
+
+
+@pytest.mark.parametrize("country, family, title", [
+    # Elsewhere, or for a posting in several countries, nothing settles it.
+    ("GB", "software_engineering", "Software Engineer"),
+    (None, "software_engineering", "Software Engineer"),
+    # A range a selling role states may be on-target earnings.
+    ("US", "sales_business_development", "Account Executive"),
+    # A role whose commission cannot be told, or that has no family.
+    ("US", "customer_success", "Customer Success Manager"),
+    ("US", None, "Specialist"),
+], ids=["gb", "several-countries", "sales", "customer-success", "no-family"])
+def test_an_unmarked_range_stays_unclear_outside_the_convention(country, family, title):
+    assert settle_band("unclear", UNMARKED, family, title, UNMARKED_BOUNDS,
+                       country=country).pay_basis == "unclear"
+
+
+def test_what_the_posting_states_wins_over_the_convention():
+    # A stated total, Netflix's election and a per-role definition read for a
+    # sales role are never made base by the country.
+    assert settle_band("total", UNMARKED, "software_engineering", "Engineer", UNMARKED_BOUNDS,
+                       country="US").pay_basis == "total"
+    assert settle_band("unclear", NETFLIX, "software_engineering", "Engineering Manager",
+                       [436000, 791000], country="US").pay_basis == "unclear"
+    assert settle_band("unclear", DATABRICKS, "sales_business_development", "Account Executive",
+                       [226000, 285000], country="US").pay_basis == "total"
+    # A connector's band is stored unread by the text's markers: a range the
+    # text says includes commission is not made base.
+    ote = UNMARKED.replace("USD\n", "USD. The range includes both base salary and commission.\n")
+    assert settle_band("unclear", ote, "software_engineering", "Engineer", UNMARKED_BOUNDS,
+                       country="US").pay_basis == "unclear"
+
+
+@pytest.mark.parametrize("text", [
+    "The estimated total compensation for this role ranges from $163,000 - $226,000, along with an equity component.",
+    "Our cash compensation range for this role is $163,000/yr to $226,000/yr in Denver.",
+    "Total starting pay: $163,000 - $226,000 USD.",
+], ids=["total-compensation", "cash-compensation", "total-pay"])
+def test_a_range_its_paragraph_calls_total_or_cash_pay_is_not_made_base(text):
+    assert settle_band("unclear", text, "software_engineering", "Engineer", UNMARKED_BOUNDS,
+                       country="US").pay_basis == "unclear"
+
+
+def test_a_bonus_target_beside_a_range_the_convention_makes_base_is_kept():
+    text = UNMARKED.replace("USD\n", "USD. Annual bonus target of 10%.\n")
+    assert settle_band("unclear", text, "software_engineering", "Engineer", UNMARKED_BOUNDS,
+                       country="US") == ("base", 0.10)
+    assert settle_band("unclear", text, "software_engineering", "Engineer", UNMARKED_BOUNDS,
+                       country="GB") == ("unclear", None)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("source", ["connector", "text"])
+@pytest.mark.parametrize("groups, expected", [
+    (["canada", "north_america", "city_6167865"], "base"),
+    (["uk", "europe"], "unclear"),
+    (["canada", "united_states", "north_america"], "unclear"),
+], ids=["toronto", "london", "two-countries"])
+async def test_every_writer_reads_the_posting_country(db_session, source, groups, expected):
+    raw = RawJob(company="vast", req_id=f"eng-{source}-{expected}-{len(groups)}", title="Software Engineer",
+                 url="https://example.test/eng", locations=["Somewhere"],
+                 description_sections=[JobDescriptionSection("pay_and_benefits", "Compensation", UNMARKED)])
+    if source == "connector":
+        raw.source_disclosed_comp = SourceDisclosedComp(
+            base_min=163000, base_max=226000, currency="USD", pay_period="year", pay_basis="unclear")
+    job = Job(company=raw.company, req_id=raw.req_id, dedupe_key=raw.dedupe_key())
+    _apply_fields(job, EnrichedJob(raw=raw, level_band=LevelBand.SENIOR, level_confidence=LevelConfidence.CONFIRMED,
+                                  family="software_engineering", location_groups=groups))
+    db_session.add(job)
+    await db_session.flush()
+    if source == "text":
+        assert (await extract_disclosed_comp(db_session, [job.id], page_band=None))["disclosed"] == 1
+    await db_session.commit()
+    await db_session.refresh(job)
+    assert (job.disclosed_base_min, job.disclosed_base_max) == tuple(UNMARKED_BOUNDS)
+    assert job.disclosed_pay_basis == expected
+
+
+@pytest.mark.asyncio
+async def test_the_whole_corpus_settle_reaches_a_stored_connector_band_and_then_writes_nothing(db_session):
+    """A connector's band is never handed to the text pass, so the daily pass
+    settles stored rows itself (`settle_open_bands`); a row no rule settles
+    stays unclear and is never rewritten."""
+    from tracker.intelligence_runtime.disclosed_comp import settle_open_bands
+
+    async def stored(session, req_id, family, title, *, status="open"):
+        raw = RawJob(company="acme", req_id=req_id, title=title,
+                     url=f"https://example.test/{req_id}", locations=["Austin, TX"],
+                     description_sections=[JobDescriptionSection("pay_and_benefits", "Pay", UNMARKED)])
+        job = Job(company=raw.company, req_id=raw.req_id, dedupe_key=raw.dedupe_key())
+        _apply_fields(job, EnrichedJob(raw=raw, level_band=LevelBand.SENIOR,
+                                      level_confidence=LevelConfidence.CONFIRMED, family=family,
+                                      location_groups=["united_states"]))
+        job.status = status
+        job.disclosed_base_min, job.disclosed_base_max = UNMARKED_BOUNDS
+        job.disclosed_currency, job.disclosed_pay_period = "USD", "year"
+        job.disclosed_pay_basis, job.disclosed_source = "unclear", "connector"
+        session.add(job)
+        return job
+
+    session = db_session
+    engineer = await stored(session, "settle-eng", "software_engineering", "Software Engineer")
+    seller = await stored(session, "settle-sales", "sales_business_development", "Account Executive")
+    closed = await stored(session, "settle-closed", "software_engineering", "Engineer", status="closed")
+    await session.flush()
+    first = await settle_open_bands(session)
+    await session.commit()
+    for job in (engineer, seller, closed):
+        await session.refresh(job)
+    assert (engineer.disclosed_pay_basis, seller.disclosed_pay_basis) == ("base", "unclear")
+    # A closed row is not a candidate, and the selling role settles nothing.
+    assert closed.disclosed_pay_basis == "unclear"
+    assert first["settled"] == 1
+    # Caught up: the engineer has left the candidate set and nothing is written.
+    again = await settle_open_bands(session)
+    assert again["settled"] == 0 and again["candidates"] == first["candidates"] - 1
+
+
+def test_the_convention_needs_a_band_the_text_states():
+    """A source's figures need not appear in its prose. With no span there is no
+    paragraph to read, so the wording that would refuse the convention cannot be
+    checked, and the band keeps the basis its source gave it."""
+    commission = "The range includes both base salary and commission."
+    assert settle_band("unclear", commission, "software_engineering", "Engineer",
+                       UNMARKED_BOUNDS, country="US").pay_basis == "unclear"
+    # Bounds the text never states, with nothing to object to either.
+    assert settle_band("unclear", "We offer competitive pay.", "software_engineering",
+                       "Engineer", UNMARKED_BOUNDS, country="US").pay_basis == "unclear"
+    # The control: the same band, stated in the text, is read as base.
+    assert settle_band("unclear", UNMARKED, "software_engineering", "Engineer",
+                       UNMARKED_BOUNDS, country="US").pay_basis == "base"

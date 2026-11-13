@@ -65,7 +65,7 @@ from tracker.schema import (
     merge_source_facts,
     parse_band,
 )
-from tracker.taxonomy.locations import normalize_cities
+from tracker.taxonomy.locations import normalize_cities, pay_country
 from tracker.taxonomy.role_answers import RoleAnswer
 
 if TYPE_CHECKING:
@@ -334,6 +334,7 @@ def _apply_fields(job: Job, e: EnrichedJob, *, keep_comp: bool = False) -> BandC
         settled = settle_band(
             stated.pay_basis, job.description_text, job.family, job.title,
             [stated.base_min, stated.base_max], stated_bonus=stated.bonus_pct,
+            country=pay_country(job.location_groups),
         )
         values = {
             "disclosed_base_min": stated.base_min,

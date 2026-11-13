@@ -286,7 +286,11 @@ async def test_a_stated_base_outside_us_pay_is_left_whole_and_says_why(api_clien
     package = (await api_client.get(f"/api/jobs/{seeded.band}")).json()["comp_package"]
     assert package["state"] == "band" and package["stated"] == {"low": 230_000, "high": 330_000}
     assert package["no_split_reason"] == "not_us_pay"
-    assert package["components"] == [] and package["total"] is None and package["split_source"] is None
+    # The posted base reaches the reader as a stated segment; nothing is modelled on it.
+    assert package["components"] == [
+        {"kind": "base", "low": 230_000, "high": 330_000, "provenance": "stated"}
+    ]
+    assert package["total"] is None and package["split_source"] is None
     assert package["policy"]["verified"] is True
 
 
