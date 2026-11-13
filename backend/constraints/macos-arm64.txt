@@ -109,7 +109,7 @@ idna==3.18
     #   requests
 ijson==3.6.0
     # via -r requirements.txt
-import-linter==2.15
+import-linter==2.16
     # via -r requirements-dev.txt
 iniconfig==2.3.0
     # via pytest
@@ -248,7 +248,7 @@ rpds-py==2026.6.3
     # via
     #   jsonschema
     #   referencing
-ruff==0.17.3
+ruff==0.17.4
     # via -r requirements-dev.txt
 selectolax==1.0.2
     # via -r requirements.txt
