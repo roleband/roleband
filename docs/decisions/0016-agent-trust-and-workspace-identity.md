@@ -42,9 +42,9 @@ agent uses it; restoring a backup over the original keeps the original's.
 
 - Reads and the person's own writes ship on macOS without a new credential,
   under exactly the switches the MCP server uses today.
-- The agent routes reach no further than the dashboard's own routes already
-  do: any local process, including one run by another account on the same Mac,
-  can call either. The MCP server is narrower, since it opens a database only
+- Under loopback trust the agent routes reach no further than the dashboard's
+  own routes already do: any local process, including one run by another
+  account on the same Mac, can call either. The MCP server is narrower, since it opens a database only
   the person's account can read. Nothing in the agent path claims a narrower
   boundary than the machine.
 - Holding the boundary to the person's account needs a caller check that TCP
