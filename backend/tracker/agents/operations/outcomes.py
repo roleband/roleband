@@ -53,6 +53,8 @@ OUTCOMES: dict[str, Outcome] = {
     "context_required": Outcome(EXIT_INVALID, 400, False),
     "context_not_found": Outcome(EXIT_INVALID, 400, False),
     "context_invalid": Outcome(EXIT_INVALID, 400, False),
+    # `connect` names an agent host it has no tested settings for.
+    "unsupported_host": Outcome(EXIT_INVALID, 400, False),
     # 3: no engine, or the connection to it failed.
     "engine_unavailable": Outcome(EXIT_UNAVAILABLE, 503, True),
     "engine_not_ready": Outcome(EXIT_UNAVAILABLE, 503, True),

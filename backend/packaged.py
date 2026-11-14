@@ -24,13 +24,20 @@ def main() -> None:
     if args == ["--version"]:
         print(__version__)
         return
+    if args[:1] == ["client"]:
+        # The `roleband` command (`tracker.platform.command_shim` runs it with -I -B). It reads
+        # no settings and opens no database, so the packaged-mode variables above change nothing
+        # for it beyond the version it reports.
+        from tracker.cli.main import main as client
+
+        sys.exit(client(args[1:]))
     if args == ["prepare-database"]:
         from tracker.supervisor.prepare import migrate
 
         migrate()
         return
     if not args or args[0] not in {"supervisor", "mcp.server", "probe"}:
-        sys.exit("usage: packaged.py {supervisor|mcp.server|probe} [arguments]")
+        sys.exit("usage: packaged.py {supervisor|mcp.server|probe|client} [arguments]")
     if args[:2] == ["supervisor", "run"]:
         from tracker.supervisor.prepare import run
 

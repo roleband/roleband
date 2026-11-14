@@ -317,8 +317,8 @@ Windows own and what RoleBand's own records must carry.
 
 ### Packaged engine
 
-`backend/packaged.py`, the entry point for the app's supervisor and for external
-MCP clients, sets `ROLEBAND_PACKAGED=1` before importing the engine and disables
+`backend/packaged.py`, the entry point for the app's supervisor, for external
+MCP clients and for the `roleband` command, sets `ROLEBAND_PACKAGED=1` before importing the engine and disables
 bytecode writes, which child processes inherit. Source entry points keep their
 defaults, and packaged settings load no `.env`. `Contents/Resources` holds
 `engine` (code, Alembic files, constraints and `release.json`, whose version
@@ -327,6 +327,16 @@ CSP), the changelog and `plugin-wheels` (the SDK and robots-matcher wheels that
 plugin environments install, so nothing writes into the app). The app runs from
 a read-only tree; the build supplies this layout and validates the version and
 wheels.
+
+`packaged.py client` runs the `roleband` client. Each time the app starts its own
+engine, the supervisor writes `~/.local/bin/roleband`
+(`backend/tracker/platform/command_shim.py`), a script that runs the bundle's
+Python with `-I -B` on that mode, so the command writes no bytecode into the app
+and reads no project `.env`. The script names the bundle's own path, and is
+written only for an app in `/Applications` or `~/Applications`, never from a disk
+image or a translocated copy. Once the app has moved away, it prints one line
+asking the person to open the app and exits 3. Nothing edits a shell profile, and
+a `roleband` the app did not write is left alone.
 
 All writable state lives in `~/.roleband` (database, plugins, logs, locks,
 pacing, models, backups, supervisor files), so moving or replacing the app moves
@@ -1247,6 +1257,13 @@ agent switches in Settings admit them: a read needs `enabled`, a write also
 carry; it outlives engine restarts and updates, unlike the engine session id.
 The client reads its bundled index, `backend/tracker/cli/operations.json`
 (`scripts.export_agent_operations`), for help and offline answers.
+`roleband connect claude-code|codex --print|--apply` (`backend/tracker/cli/connect.py`)
+writes what a host needs to run the command without a prompt per call: for
+Claude Code the sandbox exclusion `roleband *` and the rule `Bash(roleband *)`,
+for Codex `network_access` in workspace-write mode. It merges into the person's
+file, keeps a backup, changes nothing on a second run, and installs the skill in
+`backend/tracker/cli/skills/` unless the person edited their copy. Any other host
+is refused as `unsupported_host`.
 
 **Trust boundary.** Mac and ordinary source mode use loopback access control.
 `LoopbackBoundary` (`backend/tracker/api/boundary.py`, outermost) refuses a Host
