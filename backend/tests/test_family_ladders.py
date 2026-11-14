@@ -211,12 +211,13 @@ def test_the_range_reads_only_where_it_was_measured(change, why, monkeypatch):
 @pytest.mark.parametrize(("pay", "band"), [
     ((138_000, 196_000), M),   # L4's bottom, a lowered top
     ((139_000, 197_000), M),   # L4's top, a raised bottom
-    ((240_000, 340_000), P),   # L7's bottom, a raised top
+    ((240_000, 336_000), P),   # L7's bottom, a raised top
 ], ids=["top-lowered", "bottom-raised", "top-raised"])
 def test_a_range_sharing_one_bound_reads_the_grade_it_revises(pay, band):
     """Google revises one end of a grade's range between postings: 197_000 and
-    198_000 are both measured tops of Product Manager I. A range on one of a
-    grade's bounds is that grade."""
+    198_000 are both measured tops of Product Manager I, 333_000 and 334_000
+    both tops of L7. A range that revises one of a grade's bounds by a little is
+    that grade; one that moves it far is not (`REVISED_BOUND`)."""
     reading = _read("Product Manager, Google Analytics", pay=pay)
 
     assert (reading.band, reading.basis) == (band, LevelBasis.PAY_GRADE)
