@@ -9,16 +9,15 @@ description: Read and update the person's job search in RoleBand (opportunities,
 `roleband` reaches the RoleBand engine running on this computer. Set `ROLEBAND_AGENT=1`, or pass `--json`, and every call prints exactly one JSON envelope: read `ok` first, then `data`, or `error.code` and `error.message` when `ok` is false.
 
 1. Run `roleband capabilities` to see the operations this engine offers and which of them the person has turned on.
-2. Before calling an operation, run `roleband describe OPERATION` (for example `roleband describe opportunities.search`). It gives the input and output schemas, the effects and the setting that controls it.
-3. An operation id maps to a command: `opportunities.search` is `roleband opportunities search`.
+2. Before calling an operation, run `roleband describe OPERATION` with an id from that list. It gives the input and output schemas, the effects and the setting that controls it.
 
 The exit status says what to do next:
 
 | Exit | Meaning | Next step |
 |---|---|---|
 | 0 | Done | Use `data` |
-| 2 | The input is wrong, or the operation does not exist | Fix the input; check `roleband capabilities` |
-| 3 | No engine answered | Ask the person to open RoleBand; `context_required` means no engine is set up for this command |
+| 2 | The input is wrong, or the operation does not exist | Fix the input; check `roleband capabilities`. `context_required` means no engine is set up for this command: tell the person |
+| 3 | No engine answered | Ask the person to open RoleBand |
 | 4 | The person's settings refuse it | Tell the person which setting `error.details` names; do not work around it |
 | 5 | Not found | Look the item up again |
 | 6 | It changed since you read it | Read it again, then decide |

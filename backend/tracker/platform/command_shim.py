@@ -115,6 +115,7 @@ def directory_on_path(directory: Path, search_path: str | None) -> bool:
     """Whether `directory` is one of the folders in `search_path` (a `PATH` value)."""
     wanted = os.path.realpath(directory)
     for entry in (search_path or "").split(os.pathsep):
-        if entry and os.path.realpath(os.path.expanduser(entry)) == wanted:
+        # A shell searches a `~` in PATH literally, so it is not the home folder here either.
+        if entry and os.path.realpath(entry) == wanted:
             return True
     return False

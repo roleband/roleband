@@ -123,6 +123,14 @@ def test_path_lookup_matches_the_folder_however_it_is_spelled(home):
     assert not command_shim.directory_on_path(folder, None)
 
 
+def test_a_tilde_in_path_is_not_the_home_folder(home, monkeypatch):
+    # A shell searches `~/.local/bin` in PATH as a folder named `~`, so the command is not found there.
+    monkeypatch.setenv("HOME", str(home))
+    folder = home / ".local" / "bin"
+    folder.mkdir(parents=True)
+    assert not command_shim.directory_on_path(folder, "/usr/bin:~/.local/bin")
+
+
 # --------------------------------------------------------------------------- #
 # The app's engine start
 # --------------------------------------------------------------------------- #

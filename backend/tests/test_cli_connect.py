@@ -167,6 +167,31 @@ def test_a_settings_file_it_cannot_merge_into_is_left_untouched(home, content):
     assert not home.skill("claude-code").exists()
 
 
+@pytest.mark.parametrize(("kind", "rule"), [
+    ("deny", "Bash"), ("deny", "Bash(*)"), ("ask", "Bash(roleband *)"), ("ask", "Bash(roleband:*)"),
+    ("deny", "Bash(roleband*)"),
+])
+def test_an_ask_or_deny_rule_that_would_still_stop_roleband_is_the_persons_to_change(home, kind, rule):
+    home.claude.parent.mkdir()
+    content = json.dumps({"permissions": {kind: [rule]}})
+    home.claude.write_text(content)
+    status, envelope = home.connect("claude-code", "apply")
+    assert status == 7 and envelope["error"]["code"] == "approval_required", envelope
+    assert envelope["error"]["details"] == {"path": str(home.claude), "rule": rule, "list": f"permissions.{kind}"}
+    assert home.claude.read_text() == content
+    assert _backups(home.claude) == []
+
+
+def test_ask_and_deny_rules_for_other_commands_are_kept(home):
+    home.claude.parent.mkdir()
+    home.claude.write_text(json.dumps({"permissions": {"deny": ["Bash(rm *)", "Read(.env)"], "ask": ["Bash(git push:*)"]}}))
+    status, _ = home.connect("claude-code", "apply")
+    assert status == 0
+    permissions = json.loads(home.claude.read_text())["permissions"]
+    assert permissions["deny"] == ["Bash(rm *)", "Read(.env)"] and permissions["ask"] == ["Bash(git push:*)"]
+    assert permissions["allow"] == ["Bash(roleband *)"]
+
+
 def test_a_linked_settings_file_stays_a_link(home, tmp_path):
     dotfiles = tmp_path / "dotfiles" / "claude-settings.json"
     dotfiles.parent.mkdir()
@@ -216,6 +241,21 @@ def test_an_unedited_older_skill_is_updated(home):
     assert status == 0
     assert envelope["data"]["skill"]["action"] == "update"
     assert skill.read_bytes() == SHIPPED_SKILL.read_bytes()
+
+
+def test_a_skill_saved_after_connect_read_it_is_kept(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(BACKEND))
+    from tracker.cli import connect
+
+    directory = tmp_path / "skills" / "roleband"
+    plan = connect._skill(directory)
+    assert plan.action == "install"
+    directory.mkdir(parents=True)
+    (directory / "SKILL.md").write_text("written by the person meanwhile\n")
+    connect._install_skill(plan)
+    assert (directory / "SKILL.md").read_text() == "written by the person meanwhile\n"
+    assert plan.action == "kept_edited"
+    assert not (directory / ".roleband-skill.json").exists()
 
 
 def test_the_shipped_skill_starts_from_capabilities_and_describe():

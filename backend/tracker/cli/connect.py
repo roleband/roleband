@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import fnmatch
 import json
 import os
 import re
@@ -132,6 +133,20 @@ def _no_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return dict(pairs)
 
 
+def _covers(rule: str) -> bool:
+    """Whether a Claude Code Bash rule applies to a roleband call: `Bash` alone, or a pattern
+    (with `*` wildcards, or the older `prefix:*` form) that matches one."""
+    if rule == "Bash":
+        return True
+    match = re.fullmatch(r"Bash\((.*)\)", rule)
+    if match is None:
+        return False
+    pattern = match.group(1)
+    if pattern.endswith(":*"):
+        pattern = pattern[:-2] + "*"
+    return fnmatch.fnmatchcase("roleband status", pattern)
+
+
 def _claude_settings(path: Path) -> FileChange:
     before, raw = _read(path)
     document: dict[str, Any] = {}
@@ -145,6 +160,18 @@ def _claude_settings(path: Path) -> FileChange:
             raise ClientError("invalid_input", f"{path} is not a JSON object; nothing was changed.",
                               details={"path": str(path)})
         document = parsed
+    permissions = document.get("permissions")
+    for kind in ("deny", "ask"):
+        rules = permissions.get(kind) if isinstance(permissions, dict) else None
+        for rule in rules if isinstance(rules, list) else []:
+            if isinstance(rule, str) and _covers(rule):
+                raise ClientError(
+                    "approval_required",
+                    f"Your rule {rule!r} in permissions.{kind} in {path} comes before any allow rule, so "
+                    f"Claude Code would still {'refuse' if kind == 'deny' else 'ask about'} every roleband call. "
+                    "Nothing was changed; remove or narrow that rule yourself if you want roleband to run.",
+                    details={"path": str(path), "rule": rule, "list": f"permissions.{kind}"},
+                )
     added: list[str] = []
 
     def listed(section: str, key: str, value: str) -> None:
@@ -240,6 +267,8 @@ class SkillPlan:
     path: Path
     action: str
     content: bytes
+    #: What was there when the plan was made; None when nothing was.
+    present: bytes | None = None
 
 
 def _skill(directory: Path) -> SkillPlan:
@@ -263,7 +292,7 @@ def _skill(directory: Path) -> SkillPlan:
     except (OSError, ValueError):
         pass
     if recorded == _sha256(present):
-        return SkillPlan(target, "update", shipped)
+        return SkillPlan(target, "update", shipped, present)
     return SkillPlan(target, "kept_edited", shipped)
 
 
@@ -271,6 +300,16 @@ def _install_skill(plan: SkillPlan) -> None:
     record = plan.path.with_name(SKILL_RECORD)
     stored = {"format": 1, "version": SKILL_VERSION, "sha256": _sha256(plan.content)}
     if plan.action in ("install", "update"):
+        # The person may have saved the skill since the plan read it: that copy is theirs.
+        try:
+            now = plan.path.read_bytes() if not plan.path.is_symlink() else b""
+        except FileNotFoundError:
+            now = None
+        except OSError:
+            now = b""
+        if now != plan.present:
+            plan.action = "kept_edited"
+            return
         plan.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         _replace(plan.path, plan.content, mode=0o644)
     if plan.action != "kept_edited":
