@@ -19,14 +19,19 @@ pay-bands --write`: there is no ladder to name a rung on, so a row names the
 band its anchoring titles state instead. The same rule holds: 2+
 anchors, four of every five agreeing.
 
-An exact (company, family, range) places a band. So does a range that shares
-ONE bound with a measured range and names no other grade: a company revises one
-end of a grade's range between postings, which is why $207,000-$300,000 and
-$207,000-$301,000 are separate measured rows above. Nothing weaker places a
-band. A range is never placed by its nearness to the company's other ranges,
-nor by sitting between two of them, nor by sitting inside one: each of those
-predicts the band far less often, and the last two pull director postings below
-director.
+An exact (company, family, range) places a band. So does a range that is a
+measured range with ONE bound REVISED and names no other grade: a company moves
+one end of a grade's range a little between postings, which is why
+$207,000-$300,000 and $207,000-$301,000 are separate measured rows above.
+`REVISED_BOUND` is how far the free bound may have moved, and it is the rule,
+not a tuning knob: a bound two grades share identifies neither of them, so a
+band floor or cap a company reuses across grades must not hand a posting the
+grade of whichever range the tables happen to hold.
+
+Nothing weaker places a band. A range is never placed by its nearness to the
+company's other ranges, nor by sitting between two of them, nor by sitting
+inside one: each of those predicts the band far less often, and the last two
+pull director postings below director.
 
 Pure data, no DB. A pay change never re-annotates the inventory (it has no
 pay), so this module and its CSVs are outside `CLASSIFIER_SOURCES`.
@@ -111,22 +116,41 @@ def has_measured_ranges(company: str, family: str | None, year: int) -> bool:
     return family is not None and any((slug, family, year) in _MEASURED for slug in lineage(company))
 
 
+#: How far a grade's free bound may have moved for a range to be that same
+#: grade with one end revised. Beyond this the two ranges have only a number in
+#: common: a company that opens or caps several grades at one figure would
+#: otherwise hand a posting the grade of whichever range the tables hold, and
+#: the shared figure is precisely the evidence that the bound names no grade.
+REVISED_BOUND = 5_000
+
+
 def _sharing_rows(rows: tuple[PayGrade, ...], base_min: int, base_max: int) -> list[PayGrade]:
     """The measured rows of one cell that share a bound with this range."""
     return [row for row in rows if row.base_min == base_min or row.base_max == base_max]
 
 
-def _shares_a_bound(rows: tuple[PayGrade, ...], base_min: int, base_max: int) -> PayGrade | None:
-    """The grade of a range sharing one bound with a measured range, or None.
+def _bound_revised(row: PayGrade, base_min: int, base_max: int) -> bool:
+    """Is this measured range this one with a single bound moved a little?"""
+    return ((row.base_min == base_min and abs(row.base_max - base_max) <= REVISED_BOUND)
+            or (row.base_max == base_max and abs(row.base_min - base_min) <= REVISED_BOUND))
 
-    Every sharing row must name the one grade: where a bound is shared by two
-    grades it belongs to both and names neither, so the range is refused rather
-    than given the first of them.
+
+def _shares_a_bound(rows: tuple[PayGrade, ...], base_min: int, base_max: int) -> PayGrade | None:
+    """The grade of a range that is a measured range with one bound revised.
+
+    Two conditions, and the second is the one a shared figure defeats:
+
+    1. some measured row is this range with one bound moved by at most
+       `REVISED_BOUND`, which is the company revising that grade;
+    2. every row sharing either bound names that one grade, however far its own
+       free bound sits, because a bound two grades share belongs to both and
+       names neither.
     """
     sharing = _sharing_rows(rows, base_min, base_max)
     if not sharing or len({(row.rung, row.band) for row in sharing}) > 1:
         return None
-    return sharing[0]
+    revised = [row for row in sharing if _bound_revised(row, base_min, base_max)]
+    return revised[0] if revised else None
 
 
 def grade_for_pay(
