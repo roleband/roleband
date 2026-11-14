@@ -8,7 +8,7 @@
 #
 #   deploy/restore_db.sh --check                 # newest dump -> scratch DB, verify, drop it
 #   deploy/restore_db.sh --check --into drill_a  # the same drill, into a named scratch DB
-#   deploy/restore_db.sh --into roleband_drill   # newest dump -> named scratch DB, kept
+#   deploy/restore_db.sh --into roleband_drill   # newest dump -> named scratch DB, kept, own workspace id
 #   deploy/restore_db.sh                         # newest dump -> live DB (prompts)
 #   deploy/restore_db.sh data/backups/roleband_20260723_161422.dump
 #
@@ -261,6 +261,27 @@ read -r REVISION JOBS OBSERVATIONS <<<"$FACTS"
   || fail "job_observations is empty: this dump holds no history to restore" "$LIVE_KEPT"
 
 echo "restore_db: $TARGET_DB verified: revision $REVISION; $JOBS jobs, $OBSERVATIONS observations"
+
+# A copy kept beside the original is another workspace: it gets a new
+# workspace id, so an agent's receipts and cursors for one are never taken for
+# the other's. Only the identity row changes. A live restore keeps the dump's
+# id, since it is the original coming back; a dump older than the identity
+# table has none, and its first migration makes a new one.
+if [ "$KEEP_SCRATCH" -eq 1 ]; then
+  IDENTITY="$("$BIN/psql" -X "$TARGET_DSN" -v ON_ERROR_STOP=1 -tAq -c \
+    "SELECT to_regclass('public.workspace_identity') IS NOT NULL" 2>"$RESTORE_ERR")" \
+    || { KEEP_SCRATCH=0
+         fail "could not read the restored workspace identity" "the copy was dropped"; }
+  if [ "$IDENTITY" = "t" ]; then
+    "$BIN/psql" -X "$TARGET_DSN" -v ON_ERROR_STOP=1 -tAq -c \
+      "UPDATE workspace_identity SET workspace_id = 'ws_' || replace(gen_random_uuid()::text, '-', '')" \
+      >/dev/null 2>"$RESTORE_ERR" \
+      || { KEEP_SCRATCH=0
+           fail "could not give $TARGET_DB its own workspace identity" \
+                "the copy named the original's workspace, so it was dropped"; }
+    echo "restore_db: $TARGET_DB has its own workspace identity"
+  fi
+fi
 
 if [ "$SWAP" -eq 1 ]; then
   # Again: the restore took minutes, and a supervisor may have started since.

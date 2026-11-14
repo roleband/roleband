@@ -1,4 +1,4 @@
-"""One GET to the engine over loopback, answered as the engine's envelope.
+"""One request to the engine over loopback, answered as the engine's envelope.
 
 `http.client` directly: it follows no redirect and consults no proxy, so a
 request reaches the configured address or fails. A reply is accepted only as
@@ -48,6 +48,25 @@ def get(
     user_agent: str,
 ) -> dict[str, Any]:
     """The engine's envelope for `operation`, whether it succeeded or not."""
+    return send(
+        context, "GET", path, operation=operation, deadline=deadline, request_id=request_id, user_agent=user_agent
+    )
+
+
+def send(
+    context: Context,
+    method: str,
+    path: str,
+    *,
+    operation: str,
+    deadline: float,
+    request_id: str,
+    user_agent: str,
+    body: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """`get` for any method, with an optional JSON object body and extra headers."""
+    payload = None if body is None else json.dumps(body, ensure_ascii=False, allow_nan=False).encode("utf-8")
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         raise ClientError("deadline_exceeded", "The deadline passed before the request was sent.")
@@ -78,16 +97,19 @@ def get(
         watchdog.start()
         try:
             connection.request(
-                "GET",
+                method,
                 path,
+                body=payload,
                 headers={
+                    **(headers or {}),
+                    **({"Content-Type": "application/json"} if payload is not None else {}),
                     "Accept": "application/json",
                     "User-Agent": user_agent,
                     REQUEST_ID_HEADER: request_id,
                 },
             )
             response = connection.getresponse()
-            body = response.read(MAX_REPLY_BYTES + 1)
+            reply = response.read(MAX_REPLY_BYTES + 1)
         except (TimeoutError, http.client.HTTPException, OSError) as error:
             if expired.is_set() or isinstance(error, TimeoutError):
                 raise _late(context, operation) from None
@@ -102,9 +124,9 @@ def get(
             raise _late(context, operation)
     finally:
         connection.close()
-    if len(body) > MAX_REPLY_BYTES:
+    if len(reply) > MAX_REPLY_BYTES:
         raise ClientError("transport_error", "The engine's reply is larger than the client accepts.")
-    return _envelope(body, status=response.status, content_type=response.getheader("Content-Type", ""),
+    return _envelope(reply, status=response.status, content_type=response.getheader("Content-Type", ""),
                      operation=operation, context=context)
 
 

@@ -281,6 +281,7 @@ files = [
     # The application pipeline: its store, its reads and its routes
     "tracker/agents/pursuits.py",
     "tracker/agents/applications.py",
+    "tracker/agents/receipts.py",
     "tracker/api/routers/applications.py",
     # Agent operations: descriptors, envelope, policy, their routes and the client
     "tracker/agents/operations",

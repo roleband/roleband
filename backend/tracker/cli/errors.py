@@ -30,20 +30,26 @@ class ClientError(Exception):
         self.message = message
         self.details = details or {}
         self.next_actions = next_actions or []
+        #: The key a write was sent under, so a caller whose write timed out
+        #: can retry it under the same key (`tracker/cli/writes.py`).
+        self.idempotency_key: str | None = None
 
 
 def new_request_id() -> str:
     return f"req_{secrets.token_hex(12)}"
 
 
-def _meta() -> dict[str, Any]:
-    return {
+def _meta(idempotency_key: str | None = None) -> dict[str, Any]:
+    meta: dict[str, Any] = {
         "observed_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "next_cursor": None,
         "partial": False,
         "truncated": False,
         "data_classes": [],
     }
+    if idempotency_key is not None:
+        meta["idempotency_key"] = idempotency_key
+    return meta
 
 
 def success_envelope(operation: str, data: dict[str, Any], *, request_id: str) -> dict[str, Any]:
@@ -72,7 +78,7 @@ def error_envelope(
         "operation": operation,
         "ok": False,
         "data": None,
-        "meta": _meta(),
+        "meta": _meta(error.idempotency_key),
         "warnings": [],
         "error": {
             "code": error.code,

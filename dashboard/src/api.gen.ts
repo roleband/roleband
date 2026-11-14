@@ -5286,6 +5286,11 @@ export interface components {
              */
             partial: boolean;
             /**
+             * Replayed
+             * @default false
+             */
+            replayed: boolean;
+            /**
              * Truncated
              * @default false
              */

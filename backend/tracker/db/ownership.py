@@ -591,7 +591,16 @@ TABLE_OWNERS: dict[str, TableOwnership] = {
         writers=("tracker/workflows/scheduler.py",),
         readers=("tracker/api/routers/ops.py",),
     ),
-    # One row, written by its migration or at engine start, never rewritten.
+    # One row per agent write, in the write's own transaction; replayed by
+    # a retry with the same key, never updated.
+    "command_receipts": TableOwnership(
+        claim="user",
+        lifecycle="append_only",
+        writers=("tracker/agents/receipts.py",),
+        readers=("tracker/agents/receipts.py",),
+    ),
+    # One row, written by its migration or at engine start. A scratch copy
+    # of the database is given a new id by `deploy/restore_db.sh --into`.
     "workspace_identity": TableOwnership(
         claim="infra",
         lifecycle="canonical",

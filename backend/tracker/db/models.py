@@ -1197,15 +1197,25 @@ class CompanyScopeRule(Base):
 
 
 class Pursuit(Base):
-    """Current job-seeker progress for one opportunity."""
+    """Current job-seeker progress for one opportunity.
+
+    `revision` counts the row's writes: 1 when it is created, one more with
+    every flush that changes it, whoever writes (the dashboard, the agent, a
+    seed). The mapper advances it, so no writer can forget to, and its UPDATE
+    names the revision it read, so a write from a stale copy of the row fails
+    instead of landing. An agent's write states the revision it read and is
+    refused when the row has moved since.
+    """
 
     __tablename__ = "pursuits"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
     # UPDATE refreshes updated_at in Postgres. Fetch it during flush so the
     # synchronous public serializer never initiates implicit async IO after
     # commit (MissingGreenlet, despite the pursuit already being saved).
-    __mapper_args__ = {"eager_defaults": True}
+    __mapper_args__ = {"eager_defaults": True, "version_id_col": revision}
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
     job_id: Mapped[int] = mapped_column(
         ForeignKey("jobs.id", ondelete="CASCADE"), unique=True, index=True
     )
@@ -1230,6 +1240,7 @@ class Pursuit(Base):
             name="ck_pursuit_stage",
         ),
         CheckConstraint("priority BETWEEN 1 AND 5", name="ck_pursuit_priority"),
+        CheckConstraint("revision >= 1", name="ck_pursuit_revision"),
     )
 
 
@@ -1588,13 +1599,16 @@ class AppSetting(Base):
 
 
 class WorkspaceIdentity(Base):
-    """The durable identity of the person's workspace: one row, never rewritten.
+    """The durable identity of the person's workspace: one row.
 
     Agent receipts, cursors and grants are keyed by `workspace_id`, so it
     outlives every engine start and app update; the engine session id, which
     changes with each start, is a different thing. The migration that adds the
     table writes the row, and the engine writes it at start on a database made
-    without migrations (`tracker/agents/operations/workspace.py`).
+    without migrations (`tracker/agents/operations/workspace.py`). The engine
+    never rewrites it. A scratch copy restored beside the original
+    (`deploy/restore_db.sh --into`) is given a new id, so its receipts and
+    cursors can never be taken for the original's.
     """
 
     __tablename__ = "workspace_identity"
@@ -1608,6 +1622,41 @@ class WorkspaceIdentity(Base):
     __table_args__ = (
         CheckConstraint("singleton", name="ck_workspace_identity_singleton"),
         CheckConstraint("workspace_id ~ '^ws_[0-9a-f]{32}$'", name="ck_workspace_identity_format"),
+    )
+
+
+class CommandReceipt(Base):
+    """The committed outcome of one agent write, kept so a retry replays it.
+
+    One row per `(workspace_id, principal_id, operation, idempotency_key)`,
+    written in the same transaction as the write it records, so a write that
+    rolled back leaves none. `input_hash` is the canonical hash of the
+    normalized request: the same key with another request is a conflict, never
+    a second write. `result` is the operation's result as it was answered, so a
+    replay returns the historical outcome even after the resource has moved on
+    (`tracker/agents/receipts.py`).
+    """
+
+    __tablename__ = "command_receipts"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    principal_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    operation: Mapped[str] = mapped_column(String(128), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    input_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    #: The contract version the operation's input and result belong to.
+    contract_version: Mapped[str] = mapped_column(String(16), nullable=False)
+    result: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id", "principal_id", "operation", "idempotency_key", name="uq_command_receipt_key"
+        ),
+        CheckConstraint("input_hash ~ '^[0-9a-f]{64}$'", name="ck_command_receipt_input_hash"),
     )
 
 

@@ -21,6 +21,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlalchemy.orm.exc import StaleDataError
 
 from tests.barriers import until_waiting
 from tests.test_recipe_adapter import RECIPE
@@ -174,25 +175,29 @@ async def test_without_the_role_lock_the_second_save_meets_the_first_row(db_sess
         )
 
 
-async def test_without_the_role_lock_both_stage_changes_read_the_same_old_stage(db_session, monkeypatch):
+async def test_without_the_role_lock_the_second_stage_change_is_refused_not_recorded_stale(
+    db_session, monkeypatch
+):
     """Positive control for the path that queues after its read: with the lock
     removed, the second change reads the stage the first is replacing and then
-    waits on the first's row, so both events record `saved` as the old stage."""
+    waits on the first's row. Its UPDATE names the revision it read, which the
+    first has moved past, so it fails instead of recording `saved` as the old
+    stage a second time: the lock is what lets it wait and succeed."""
     monkeypatch.setattr(pursuits, "lock_role_writes", _no_role_lock)
     job = await _a_job(db_session)
     await upsert_pursuit(db_session, job.id, PursuitUpdate(stage="saved"), actor="user")
     await db_session.commit()
 
-    await _second_beside_the_first(
-        db_session,
-        lambda s: upsert_pursuit(s, job.id, PursuitUpdate(stage="applied"), actor="user"),
-        lambda s: upsert_pursuit(s, job.id, PursuitUpdate(stage="interviewing"), actor="agent"),
-    )
+    with pytest.raises(StaleDataError):
+        await _second_beside_the_first(
+            db_session,
+            lambda s: upsert_pursuit(s, job.id, PursuitUpdate(stage="applied"), actor="user"),
+            lambda s: upsert_pursuit(s, job.id, PursuitUpdate(stage="interviewing"), actor="agent"),
+        )
     chain = (
         await db_session.execute(
             select(PursuitEvent.from_stage, PursuitEvent.to_stage).order_by(PursuitEvent.id)
         )
     ).all()
-    assert [tuple(c) for c in chain] == [
-        (None, "saved"), ("saved", "applied"), ("saved", "interviewing"),
-    ]
+    assert [tuple(c) for c in chain] == [(None, "saved"), ("saved", "applied")]
+    assert await db_session.scalar(select(Pursuit.revision).where(Pursuit.job_id == job.id)) == 2

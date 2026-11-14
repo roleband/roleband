@@ -33,6 +33,8 @@ AvailabilityState = Literal["available", "unavailable", "unknown"]
 #: An operation id: lowercase segments joined by dots.
 OPERATION_ID = r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$"
 _DOTTED = re.compile(OPERATION_ID)
+#: The input field a write names the revision it read in (`--if-revision`).
+REVISION_FIELD = "if_revision"
 _VERSION = re.compile(r"^1\.[0-9]+$")
 
 
@@ -75,6 +77,9 @@ class OperationDescriptor:
     #: The contract version that first offered it.
     introduced: str = CONTRACT_VERSION
     supports_dry_run: bool = False
+    #: A write that changes an existing record names the revision it read in
+    #: its input's `if_revision` field, and is refused when the record moved.
+    expects_revision: bool = False
     examples: tuple[dict[str, Any], ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
@@ -98,6 +103,12 @@ class OperationDescriptor:
             raise ValueError(f"{self.id}: a write declares its idempotency key")
         if self.input.model_config.get("extra") != "forbid":
             raise ValueError(f"{self.id}: its input must refuse unknown keys")
+        if self.expects_revision:
+            if self.access != "write":
+                raise ValueError(f"{self.id}: only a write states the revision it read")
+            stated = self.input.model_fields.get(REVISION_FIELD)
+            if stated is None or not stated.is_required() or stated.annotation is not int:
+                raise ValueError(f"{self.id}: a write that expects a revision takes a required int {REVISION_FIELD!r}")
 
     @property
     def required_scopes(self) -> tuple[str, ...]:

@@ -45,7 +45,11 @@ class EnvelopeMeta(_Wire):
     partial: bool = False
     truncated: bool = False
     data_classes: list[DataClass] = Field(default_factory=list)
+    #: The key a write ran under, on its result and on its failure alike.
     idempotency_key: str | None = Field(default=None, json_schema_extra=_IDENTIFIER)
+    #: True when a write's result is its committed receipt, answered again for
+    #: a retry: it describes that write's outcome, not the resource as it is now.
+    replayed: bool = False
 
 
 class EnvelopeNotice(_Wire):
@@ -124,6 +128,8 @@ def success(
     workspace_id: str | None,
     data_classes: tuple[DataClass, ...] = (),
     warnings: list[EnvelopeNotice] | None = None,
+    idempotency_key: str | None = None,
+    replayed: bool = False,
 ) -> Envelope[Any]:
     return Envelope[Any](
         request_id=request_id,
@@ -131,7 +137,9 @@ def success(
         operation=operation,
         ok=True,
         data=data,
-        meta=EnvelopeMeta(observed_at=now(), data_classes=list(data_classes)),
+        meta=EnvelopeMeta(
+            observed_at=now(), data_classes=list(data_classes), idempotency_key=idempotency_key, replayed=replayed
+        ),
         warnings=warnings or [],
         error=None,
     )
@@ -143,6 +151,7 @@ def failure(
     *,
     request_id: str,
     workspace_id: str | None,
+    idempotency_key: str | None = None,
 ) -> Envelope[Any]:
     return Envelope[Any](
         request_id=request_id,
@@ -150,7 +159,7 @@ def failure(
         operation=operation,
         ok=False,
         data=None,
-        meta=EnvelopeMeta(observed_at=now()),
+        meta=EnvelopeMeta(observed_at=now(), idempotency_key=idempotency_key),
         warnings=[],
         error=error.body(),
     )
