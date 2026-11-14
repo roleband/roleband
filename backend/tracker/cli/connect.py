@@ -133,9 +133,15 @@ def _no_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return dict(pairs)
 
 
+#: Calls an agent makes first, by the skill's own steps.
+_SAMPLE_CALLS = ("roleband status", "roleband capabilities", "roleband describe status")
+
+
 def _covers(rule: str) -> bool:
-    """Whether a Claude Code Bash rule applies to a roleband call: `Bash` alone, or a pattern
-    (with `*` wildcards, or the older `prefix:*` form) that matches one."""
+    """Whether a Claude Code Bash rule applies to some roleband call: `Bash` alone, a pattern
+    (with `*` wildcards, or the older `prefix:*` form) that matches a call the skill starts
+    with, or one whose fixed start is itself a roleband command, such as
+    `Bash(roleband describe *)`."""
     if rule == "Bash":
         return True
     match = re.fullmatch(r"Bash\((.*)\)", rule)
@@ -144,7 +150,8 @@ def _covers(rule: str) -> bool:
     pattern = match.group(1)
     if pattern.endswith(":*"):
         pattern = pattern[:-2] + "*"
-    return fnmatch.fnmatchcase("roleband status", pattern)
+    fixed = re.split(r"[*?\[]", pattern, maxsplit=1)[0]
+    return fixed.startswith("roleband ") or any(fnmatch.fnmatchcase(call, pattern) for call in _SAMPLE_CALLS)
 
 
 def _claude_settings(path: Path) -> FileChange:
@@ -296,7 +303,8 @@ def _skill(directory: Path) -> SkillPlan:
     return SkillPlan(target, "kept_edited", shipped)
 
 
-def _install_skill(plan: SkillPlan) -> None:
+def _install_skill(plan: SkillPlan, applied: list[str]) -> None:
+    """Install or update the skill as planned, adding each file it changes to `applied`."""
     record = plan.path.with_name(SKILL_RECORD)
     stored = {"format": 1, "version": SKILL_VERSION, "sha256": _sha256(plan.content)}
     if plan.action in ("install", "update"):
@@ -312,6 +320,7 @@ def _install_skill(plan: SkillPlan) -> None:
             return
         plan.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         _replace(plan.path, plan.content, mode=0o644)
+        applied.append(str(plan.path))
     if plan.action != "kept_edited":
         text = json.dumps(stored) + "\n"
         try:
@@ -320,6 +329,7 @@ def _install_skill(plan: SkillPlan) -> None:
             current = None
         if current != text:
             _replace(record, text.encode(), mode=0o644)
+            applied.append(str(record))
 
 
 # --------------------------------------------------------------------------- #
@@ -425,10 +435,23 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     skill = _skill(base / "skills" / "roleband")
     apply = args.connect_mode == "apply"
     backups: dict[str, str | None] = {}
+    applied: list[str] = []
     if apply:
-        for change in changes:
-            backups[str(change.path)] = _write(change)
-        _install_skill(skill)
+        try:
+            for change in changes:
+                backups[str(change.path)] = _write(change)
+                if change.action != "unchanged":
+                    applied.append(str(change.path))
+            _install_skill(skill, applied)
+        except OSError as error:
+            path = error.filename or "a file"
+            done = f" Already changed: {', '.join(applied)}." if applied else " Nothing was changed."
+            raise ClientError(
+                "internal_error",
+                f"connect could not write {path} ({error.strerror or error}).{done}",
+                details={"path": error.filename, "applied": applied,
+                         "backups": [backup for backup in backups.values() if backup]},
+            ) from None
     skill_note = {
         "install": "installs", "update": "updates", "unchanged": "is already current",
         "kept_edited": "is kept as you edited it; the new version is not installed",

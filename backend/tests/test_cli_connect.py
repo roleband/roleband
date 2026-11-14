@@ -169,7 +169,8 @@ def test_a_settings_file_it_cannot_merge_into_is_left_untouched(home, content):
 
 @pytest.mark.parametrize(("kind", "rule"), [
     ("deny", "Bash"), ("deny", "Bash(*)"), ("ask", "Bash(roleband *)"), ("ask", "Bash(roleband:*)"),
-    ("deny", "Bash(roleband*)"),
+    ("deny", "Bash(roleband*)"), ("ask", "Bash(roleband capabilities)"), ("deny", "Bash(roleband describe *)"),
+    ("ask", "Bash(roleband opportunities search *)"),
 ])
 def test_an_ask_or_deny_rule_that_would_still_stop_roleband_is_the_persons_to_change(home, kind, rule):
     home.claude.parent.mkdir()
@@ -184,12 +185,44 @@ def test_an_ask_or_deny_rule_that_would_still_stop_roleband_is_the_persons_to_ch
 
 def test_ask_and_deny_rules_for_other_commands_are_kept(home):
     home.claude.parent.mkdir()
-    home.claude.write_text(json.dumps({"permissions": {"deny": ["Bash(rm *)", "Read(.env)"], "ask": ["Bash(git push:*)"]}}))
+    home.claude.write_text(json.dumps({"permissions": {"deny": ["Bash(rm *)", "Bash(*rm -rf*)", "Read(.env)"],
+                                                       "ask": ["Bash(git push:*)", "Bash(rolebandx *)"]}}))
     status, _ = home.connect("claude-code", "apply")
     assert status == 0
     permissions = json.loads(home.claude.read_text())["permissions"]
-    assert permissions["deny"] == ["Bash(rm *)", "Read(.env)"] and permissions["ask"] == ["Bash(git push:*)"]
+    assert permissions["deny"] == ["Bash(rm *)", "Bash(*rm -rf*)", "Read(.env)"]
+    assert permissions["ask"] == ["Bash(git push:*)", "Bash(rolebandx *)"]
     assert permissions["allow"] == ["Bash(roleband *)"]
+
+
+@pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0, reason="root writes through permissions")
+def test_a_settings_folder_it_cannot_write_is_one_error_and_nothing_changes(home):
+    home.claude.parent.mkdir()
+    home.claude.write_text('{"model": "opus"}')
+    home.claude.parent.chmod(0o500)
+    try:
+        status, envelope = home.connect("claude-code", "apply")
+    finally:
+        home.claude.parent.chmod(0o755)
+    assert status == 1 and envelope["error"]["code"] == "internal_error", envelope
+    assert "Nothing was changed" in envelope["error"]["message"]
+    assert envelope["error"]["details"]["applied"] == []
+    assert home.claude.read_text() == '{"model": "opus"}'
+
+
+@pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0, reason="root writes through permissions")
+def test_a_skill_it_cannot_write_names_the_settings_already_changed(home):
+    skill_folder = home.skill("claude-code").parent
+    skill_folder.mkdir(parents=True)
+    skill_folder.chmod(0o500)
+    try:
+        status, envelope = home.connect("claude-code", "apply")
+    finally:
+        skill_folder.chmod(0o755)
+    assert status == 1 and envelope["error"]["code"] == "internal_error", envelope
+    assert envelope["error"]["details"]["applied"] == [str(home.claude)]
+    assert str(home.claude) in envelope["error"]["message"]
+    assert json.loads(home.claude.read_text())["permissions"]["allow"] == ["Bash(roleband *)"]
 
 
 def test_a_linked_settings_file_stays_a_link(home, tmp_path):
@@ -252,7 +285,7 @@ def test_a_skill_saved_after_connect_read_it_is_kept(tmp_path, monkeypatch):
     assert plan.action == "install"
     directory.mkdir(parents=True)
     (directory / "SKILL.md").write_text("written by the person meanwhile\n")
-    connect._install_skill(plan)
+    connect._install_skill(plan, [])
     assert (directory / "SKILL.md").read_text() == "written by the person meanwhile\n"
     assert plan.action == "kept_edited"
     assert not (directory / ".roleband-skill.json").exists()
