@@ -32,6 +32,8 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from tracker.agents.operations.catalog import CATALOG
+
 BACKEND = Path(__file__).resolve().parents[1]
 WORKSPACE = re.compile(r"^ws_[0-9a-f]{32}$")
 ENVELOPE_KEYS = {"contract_version", "request_id", "workspace_id", "operation", "ok", "data", "meta", "warnings", "error"}
@@ -150,7 +152,7 @@ def test_offline_capabilities_and_describe_read_the_bundle(home):
     assert body["workspace_id"] is None
     assert body["data"]["metadata_source"] == "bundled"
     assert body["data"]["engine_version"] is None
-    assert {entry["operation"] for entry in body["data"]["operations"]} == {"capabilities", "describe", "status"}
+    assert {entry["operation"] for entry in body["data"]["operations"]} == {descriptor.id for descriptor in CATALOG}
     # Offline availability is unknown, never false.
     assert {entry["availability"]["state"] for entry in body["data"]["operations"]} == {"unknown"}
 

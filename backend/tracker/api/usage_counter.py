@@ -122,6 +122,8 @@ NOT_COUNTED: Mapping[tuple[str, str], str] = {
         "a consent the user gives a plugin past its sites' robots rules: recorded on its install, "
         "not counted"),
     ("POST", "/api/usage/install-id/reset"): "usage sharing's own control: a reset must not leave a trace",
+    ("POST", "/api/agent/v1/recipes/validate"): (
+        "an agent read that sends its recipe as a body: it changes nothing, and no agent read is counted"),
     **{
         (method, path): (
             "an application's own comments and interviews: the stage change is the counted step, and a "

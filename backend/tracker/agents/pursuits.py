@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.agents.receipts import RevisionConflict
@@ -407,18 +408,50 @@ def public_interview(interview: PursuitInterview) -> dict:
     }
 
 
+@dataclass(frozen=True)
+class PursuitListKey:
+    """A pursuit's place in `list_pursuits`' order, for reading on after it."""
+
+    priority: int
+    updated_at: datetime
+    id: int
+
+
 async def list_pursuits(
     session: AsyncSession,
     *,
     stage: PursuitStage | None = None,
     limit: int = 50,
+    after: PursuitListKey | None = None,
+    with_revision: bool = False,
 ) -> list[dict]:
+    """Pursuits by priority, the most recently changed first within one, then
+    by id, so two rows changed in one transaction still have one order and a
+    page that ends between them resumes at the second (`after`).
+
+    `with_revision` adds each pursuit's `revision`, read with its fields, for a
+    caller that passes it back to a write."""
     stmt = select(Pursuit, Job).join(Job, Job.id == Pursuit.job_id)
     if stage is not None:
         stmt = stmt.where(Pursuit.stage == stage)
+    if after is not None:
+        stmt = stmt.where(
+            or_(
+                Pursuit.priority > after.priority,
+                and_(Pursuit.priority == after.priority, Pursuit.updated_at < after.updated_at),
+                and_(
+                    Pursuit.priority == after.priority,
+                    Pursuit.updated_at == after.updated_at,
+                    Pursuit.id > after.id,
+                ),
+            )
+        )
     rows = (
         await session.execute(
-            stmt.order_by(Pursuit.priority.asc(), Pursuit.updated_at.desc()).limit(limit)
+            stmt.order_by(Pursuit.priority.asc(), Pursuit.updated_at.desc(), Pursuit.id.asc()).limit(limit)
         )
     ).all()
-    return [public_pursuit(pursuit, job) for pursuit, job in rows]
+    return [
+        {**public_pursuit(pursuit, job), **({"revision": pursuit.revision} if with_revision else {})}
+        for pursuit, job in rows
+    ]

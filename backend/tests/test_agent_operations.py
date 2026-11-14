@@ -162,16 +162,27 @@ def test_an_operation_cannot_be_registered_twice():
 
 
 def test_the_catalog_lists_the_handshake_operations_in_every_tier():
-    assert [descriptor.id for descriptor in CATALOG] == ["capabilities", "describe", "status"]
+    listed = [descriptor.id for descriptor in CATALOG]
+    assert listed == sorted(listed)
+    assert len(listed) == len(REGISTERED)
     for tier in ("small", "standard", "full"):
-        assert {descriptor.id for descriptor in CATALOG.in_tier(tier)} == {"capabilities", "describe", "status"}
-    assert len(REGISTERED) == 3
+        assert {"capabilities", "describe", "status"} <= {descriptor.id for descriptor in CATALOG.in_tier(tier)}
 
 
 def test_a_tier_filter_leaves_out_operations_of_other_tiers():
     catalog = Catalog([_descriptor(), _descriptor(id="widgets.get", tool_tiers=("small", "full"))])
     assert [d.id for d in catalog.in_tier("small")] == ["widgets.get"]
     assert [d.id for d in catalog.in_tier(None)] == ["widgets.get", "widgets.list"]
+
+
+#: String formats that carry a date or a time, never text a person reads.
+_TIME_FORMATS = {"date", "date-time", "time", "duration"}
+
+
+def _is_text(option: dict) -> bool:
+    if "enum" in option:
+        return True
+    return option.get("type") == "string" and option.get("format") not in _TIME_FORMATS
 
 
 def _text_fields(schema: dict) -> list[tuple[str, dict]]:
@@ -181,17 +192,29 @@ def _text_fields(schema: dict) -> list[tuple[str, dict]]:
         for field_name, prop in (model.get("properties") or {}).items():
             options = [prop, *prop.get("anyOf", [])]
             items = [option.get("items") or {} for option in options if option.get("type") == "array"]
-            if any(option.get("type") == "string" or "enum" in option for option in options) or any(
-                item.get("type") == "string" or "enum" in item for item in items
-            ):
+            if any(_is_text(option) for option in options) or any(_is_text(item) for item in items):
                 out.append((f"{model_name or schema.get('title')}.{field_name}", prop))
     return out
+
+
+def test_the_text_class_walk_reads_every_result_schema():
+    found = {descriptor.id: _text_fields(descriptor.result.model_json_schema()) for descriptor in REGISTERED}
+    # Only a result made of counts may have no text field.
+    assert [operation for operation, fields in found.items() if not fields] == ["radar.summary"]
+
+
+def test_a_formatted_string_other_than_a_date_or_time_is_still_text():
+    schema = {"title": "R", "properties": {
+        "link": {"type": "string", "format": "uri"},
+        "seen": {"type": "string", "format": "date-time"},
+        "day": {"anyOf": [{"type": "string", "format": "date"}, {"type": "null"}]},
+    }}
+    assert [name for name, _ in _text_fields(schema)] == ["R.link"]
 
 
 @pytest.mark.parametrize("descriptor", REGISTERED, ids=lambda descriptor: descriptor.id)
 def test_every_text_field_an_operation_answers_declares_its_text_class(descriptor):
     fields = _text_fields(descriptor.result.model_json_schema())
-    assert fields, "the walk found no text fields: it no longer reads this schema"
     assert [name for name, prop in fields if "x-text" not in prop] == []
 
 
@@ -281,7 +304,17 @@ def test_every_operation_has_exactly_one_explicit_route_and_no_route_dispatches(
     for route in routes:
         # A path converter that swallows slashes would let one route serve any name.
         assert ":path}" not in route.path, route.path
-        assert route.methods == {"GET"}, f"{route.path}: the handshake operations are reads"
+        descriptor = CATALOG.get(route.openapi_extra["x-operation"])
+        assert descriptor is not None
+        # A read is a GET unless it takes a document, which travels as a POST body.
+        expected = {"POST"} if _takes_document(descriptor) else {"GET"}
+        assert route.methods == expected, route.path
+
+
+def _takes_document(descriptor: OperationDescriptor) -> bool:
+    return any(
+        prop.get("type") == "object" for prop in descriptor.input.model_json_schema().get("properties", {}).values()
+    )
 
 
 def test_an_agent_route_that_names_no_operation_cannot_be_built():
@@ -295,7 +328,13 @@ def test_an_agent_route_that_names_no_operation_cannot_be_built():
 
 
 def _example_path(route: APIRoute) -> str:
-    return route.path.replace("{operation}", "status")
+    return route.path.replace("{operation}", "status").replace("{opportunity_id}", "1")
+
+
+async def _call(api_client, route: APIRoute):
+    if "POST" in route.methods:
+        return await api_client.post(_example_path(route), json={})
+    return await api_client.get(_example_path(route))
 
 
 async def _enable(db_session, *, enabled: bool = True, allow_writes: bool = False) -> None:
@@ -327,7 +366,7 @@ async def test_a_switched_off_connection_is_refused_every_operation(api_client, 
     routes = _agent_routes()
     assert routes
     for route in routes:
-        response = await api_client.get(_example_path(route))
+        response = await _call(api_client, route)
         body = response.json()
         assert response.status_code == 403, route.path
         _assert_envelope(body, operation=route.openapi_extra["x-operation"], ok=False)
@@ -375,7 +414,7 @@ async def test_capabilities_lists_each_operation_with_live_availability(api_clie
     assert data["metadata_source"] == "engine"
     assert data["engine_version"]
     assert data["supported_contract_versions"] == [CONTRACT_VERSION]
-    assert [entry["operation"] for entry in data["operations"]] == ["capabilities", "describe", "status"]
+    assert [entry["operation"] for entry in data["operations"]] == [descriptor.id for descriptor in CATALOG]
     for entry in data["operations"]:
         assert entry["availability"] == {"state": "available", "reason": None}
         assert set(entry["engine_effects"]) == {"state_write", "outbound_network", "model_egress", "external_action"}
@@ -385,7 +424,10 @@ async def test_capabilities_lists_each_operation_with_live_availability(api_clie
 async def test_capabilities_filters_by_tier_and_refuses_unknown_input(api_client, db_session):
     await _enable(db_session)
     small = (await api_client.get(f"{PREFIX}/capabilities", params={"tier": "small"})).json()
-    assert {entry["operation"] for entry in small["data"]["operations"]} == {"capabilities", "describe", "status"}
+    assert {entry["operation"] for entry in small["data"]["operations"]} == {
+        descriptor.id for descriptor in CATALOG if "small" in descriptor.tool_tiers
+    }
+    assert "recipes.contract.get" not in {entry["operation"] for entry in small["data"]["operations"]}
 
     for params, field in (({"tier": "huge"}, "tier"), ({"verbose": "1"}, "verbose")):
         response = await api_client.get(f"{PREFIX}/capabilities", params=params)
