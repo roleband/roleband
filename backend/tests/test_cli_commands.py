@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import json
+import os
 import subprocess
 import sys
 from urllib.parse import parse_qs, urlsplit
@@ -331,7 +332,7 @@ def test_help_for_every_command_loads_no_model_or_http_library(home):
     argvs += [[*command.words, "--help"] for command in commands.build(_bundle())]
     result = subprocess.run(
         [sys.executable, "-c", _HELP_PROBE, json.dumps(argvs)],
-        cwd=home.root, env={"PYTHONPATH": str(BACKEND), "HOME": str(home.root), "PATH": "/usr/bin:/bin"},
+        cwd=home.root, env=test_cli._env(home),
         capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stderr
@@ -345,7 +346,7 @@ def test_the_probe_sees_a_library_a_command_loads():
     """Negative control: the probe would notice pydantic if help pulled it in."""
     result = subprocess.run(
         [sys.executable, "-c", "import tracker.agents.operations.catalog\n" + _HELP_PROBE, "[]"],
-        cwd=BACKEND, env={"PYTHONPATH": str(BACKEND), "PATH": "/usr/bin:/bin", "HOME": "/nonexistent"},
+        cwd=BACKEND, env={**test_cli._system_env(), "PYTHONPATH": str(BACKEND), "PATH": os.environ.get("PATH", "")},
         capture_output=True, text=True, timeout=60,
     )
     assert "pydantic" in json.loads(result.stdout)["loaded"]
@@ -385,6 +386,20 @@ def test_a_search_page_reads_as_a_table_for_a_person(home):
     # A warning qualifies the page, so a person sees it, escaped like any text.
     assert result.stderr == "warning: More postings match\\u001b[2J than ranked.\n"
 
+
+
+@pytest.mark.parametrize("fmt", ["--json", "--format=human"])
+def test_output_is_utf8_whatever_the_locale_encodes(home, fmt):
+    """Broken rule caught: on Windows a pipe takes the ANSI code page, which
+    cannot encode most titles, so the client crashed or wrote mojibake."""
+    page = {**_PAGE, "total": 1, "count": 1, "columns": ["id", "title", "company", "location", "more_locations",
+            "workplace", "level", "listed_days", "stated_pay", "estimated_pay", "pursuit"],
+            "rows": [[7, "产品经理 · Ingénieure", "acme", None, 0, None, None, None, None, None, None]]}
+    with Stub(Reply(200, _envelope("opportunities.search", data=page))) as stub:
+        home.contexts(current="dev", dev={"url": stub.url})
+        result = cli(home, "opportunities", "search", fmt, PYTHONIOENCODING="ascii")
+    assert result.status == 0, result
+    assert "产品经理 · Ingénieure" in result.stdout
 
 # --------------------------------------------------------------------------- #
 # A real engine on a seeded scratch database

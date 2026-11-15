@@ -111,7 +111,6 @@ def cli(home: Home, *args: str, cwd: Path | None = None, timeout: float = 30, **
         cwd=cwd or home.root,
         env=_env(home, **env),
         capture_output=True,
-        text=True,
         encoding="utf-8",
         timeout=timeout,
     )
