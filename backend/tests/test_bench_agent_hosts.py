@@ -494,6 +494,17 @@ async def test_the_local_loop_runs_the_trial_command_and_grades_on_its_log(monke
     cli.log.write_text("")
     settle_cli_calls(transcript, cli, tmp_path, host="lmstudio")
     assert transcript.breaches and "differ" in transcript.breaches[0]
+    # An entry whose call id is not a string, has none, or repeats is a breach, never an exception.
+    entry = {"argv": ["capabilities", "--offline"], "stdout": "", "stderr": "", "exit_code": 0}
+    for logged, expected in (
+        ([{**entry, "call": []}], "the command's log has 1 line(s) it never writes"),
+        ([{**entry, "call": None}], "the tool's calls ['1'] and the command's log [''] differ"),
+        ([{**entry, "call": "1"}, {**entry, "call": "1"}], "the tool's calls ['1'] and the command's log ['1', '1'] differ"),
+    ):
+        cli.log.write_text("".join(json.dumps(line) + "\n" for line in logged))
+        transcript.breaches = []
+        settle_cli_calls(transcript, cli, tmp_path, host="lmstudio")
+        assert expected in transcript.breaches
 
 
 # --- Codex ----------------------------------------------------------------------

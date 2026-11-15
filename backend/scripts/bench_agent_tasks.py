@@ -1076,7 +1076,8 @@ def read_cli_log(cli: CliSetup, breaches: list[str] | None = None) -> list[dict]
             argv, stdout, stderr = entry["argv"], entry["stdout"], entry["stderr"]
             if not (isinstance(argv, list) and all(isinstance(arg, str) for arg in argv)
                     and isinstance(stdout, str) and isinstance(stderr, str)
-                    and (entry["exit_code"] is None or isinstance(entry["exit_code"], int))):
+                    and (entry["exit_code"] is None or isinstance(entry["exit_code"], int))
+                    and isinstance(entry.get("call"), str | None)):
                 raise TypeError("not a log entry")
         except (ValueError, TypeError, KeyError, RecursionError):
             unreadable += 1
@@ -2192,10 +2193,12 @@ def settle_cli_calls(transcript: Transcript, cli: CliSetup, workdir: Path, *, ho
     logged = read_cli_log(cli, transcript.breaches)
     transcript.breaches += verify_cli_calls(logged, cli.engine.records)
     if host in LOCAL_SERVERS:
-        ran = {call["call"] for call in transcript.tool_calls if call.get("ran")}
-        seen = {call["call"] for call in logged}
+        # One log entry per run, compared as lists: an entry with no call id, or one
+        # logged twice, differs from the runs the loop made.
+        ran = sorted(str(call["call"]) for call in transcript.tool_calls if call.get("ran"))
+        seen = sorted("" if call["call"] is None else call["call"] for call in logged)
         if ran != seen:
-            transcript.breaches.append(f"the tool's calls {sorted(ran)} and the command's log {sorted(seen)} differ")
+            transcript.breaches.append(f"the tool's calls {ran} and the command's log {seen} differ")
         transcript.breaches += [f"used {call['name']} outside the command line"
                                 for call in transcript.tool_calls if call.get("kind") == "tool"]
         return
