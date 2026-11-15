@@ -76,7 +76,7 @@ greenlet==3.1.1
     #   -r requirements.txt
     #   playwright
     #   sqlalchemy
-grimp==3.17
+grimp==3.20
     # via import-linter
 h11==0.16.0
     # via
@@ -284,7 +284,6 @@ typing-extensions==4.16.0
     #   cyclonedx-python-lib
     #   fastapi
     #   huggingface-hub
-    #   import-linter
     #   mcp
     #   mypy
     #   pixeltable-pgserver
