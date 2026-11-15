@@ -162,6 +162,28 @@
       "title": "Allow Writes",
       "type": "boolean"
      },
+     "categories": {
+      "additionalProperties": {
+       "enum": [
+        "any_model",
+        "local_only",
+        "not_shared"
+       ],
+       "type": "string"
+      },
+      "default": {},
+      "propertyNames": {
+       "enum": [
+        "public_posting",
+        "market_statistic",
+        "private_pursuit",
+        "offer",
+        "candidate"
+       ]
+      },
+      "title": "Categories",
+      "type": "object"
+     },
      "enabled": {
       "default": false,
       "title": "Enabled",
@@ -8669,8 +8691,7 @@
      }
     },
     "required": [
-     "dates",
-     "estimate_sources"
+     "dates"
     ],
     "title": "Evidence",
     "type": "object"
@@ -9350,92 +9371,19 @@
      "rows": {
       "description": "One array per opportunity found, in the order asked, its values in the order `columns` names.",
       "items": {
-       "maxItems": 11,
-       "minItems": 11,
-       "prefixItems": [
-        {
-         "type": "integer"
-        },
-        {
-         "type": "string"
-        },
-        {
-         "type": "string"
-        },
-        {
-         "anyOf": [
-          {
-           "type": "string"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        },
-        {
-         "type": "integer"
-        },
-        {
-         "anyOf": [
-          {
-           "type": "string"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        },
-        {
-         "anyOf": [
-          {
-           "type": "string"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        },
-        {
-         "anyOf": [
-          {
-           "type": "integer"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        },
-        {
-         "anyOf": [
-          {
-           "type": "string"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        },
-        {
-         "anyOf": [
-          {
-           "type": "string"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        },
-        {
-         "anyOf": [
-          {
-           "type": "string"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        }
-       ],
+       "items": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
        "type": "array"
       },
       "title": "Rows",
@@ -17372,7 +17320,8 @@
        {
         "type": "null"
        }
-      ]
+      ],
+      "title": "Estimated Base"
      },
      "estimated_total_comp": {
       "anyOf": [
@@ -17382,7 +17331,8 @@
        {
         "type": "null"
        }
-      ]
+      ],
+      "title": "Estimated Total Comp"
      },
      "excerpt": {
       "anyOf": [
@@ -17485,7 +17435,8 @@
        {
         "type": "null"
        }
-      ]
+      ],
+      "title": "Pursuit"
      },
      "saved": {
       "title": "Saved",
@@ -17564,12 +17515,7 @@
      "listed_since",
      "listed_days",
      "listed_basis",
-     "estimate_component",
-     "estimated_total_comp",
-     "estimated_base",
      "employer_stated_pay",
-     "saved",
-     "pursuit",
      "view",
      "department",
      "team",
@@ -17618,7 +17564,8 @@
        {
         "type": "null"
        }
-      ]
+      ],
+      "title": "Estimated Base"
      },
      "estimated_total_comp": {
       "anyOf": [
@@ -17628,7 +17575,8 @@
        {
         "type": "null"
        }
-      ]
+      ],
+      "title": "Estimated Total Comp"
      },
      "evidence": {
       "$ref": "#/components/schemas/Evidence"
@@ -17724,7 +17672,8 @@
        {
         "type": "null"
        }
-      ]
+      ],
+      "title": "Pursuit"
      },
      "saved": {
       "title": "Saved",
@@ -17791,12 +17740,7 @@
      "listed_since",
      "listed_days",
      "listed_basis",
-     "estimate_component",
-     "estimated_total_comp",
-     "estimated_base",
      "employer_stated_pay",
-     "saved",
-     "pursuit",
      "view",
      "evidence"
     ],
@@ -17848,7 +17792,8 @@
        {
         "type": "null"
        }
-      ]
+      ],
+      "title": "Estimated Base"
      },
      "estimated_total_comp": {
       "anyOf": [
@@ -17858,7 +17803,8 @@
        {
         "type": "null"
        }
-      ]
+      ],
+      "title": "Estimated Total Comp"
      },
      "family": {
       "anyOf": [
@@ -17951,7 +17897,8 @@
        {
         "type": "null"
        }
-      ]
+      ],
+      "title": "Pursuit"
      },
      "saved": {
       "title": "Saved",
@@ -18018,12 +17965,7 @@
      "listed_since",
      "listed_days",
      "listed_basis",
-     "estimate_component",
-     "estimated_total_comp",
-     "estimated_base",
      "employer_stated_pay",
-     "saved",
-     "pursuit",
      "view"
     ],
     "title": "OpportunitySummary",
@@ -21456,92 +21398,19 @@
      "rows": {
       "description": "One array per posting, its values in the order `columns` names.",
       "items": {
-       "maxItems": 11,
-       "minItems": 11,
-       "prefixItems": [
-        {
-         "type": "integer"
-        },
-        {
-         "type": "string"
-        },
-        {
-         "type": "string"
-        },
-        {
-         "anyOf": [
-          {
-           "type": "string"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        },
-        {
-         "type": "integer"
-        },
-        {
-         "anyOf": [
-          {
-           "type": "string"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        },
-        {
-         "anyOf": [
-          {
-           "type": "string"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        },
-        {
-         "anyOf": [
-          {
-           "type": "integer"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        },
-        {
-         "anyOf": [
-          {
-           "type": "string"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        },
-        {
-         "anyOf": [
-          {
-           "type": "string"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        },
-        {
-         "anyOf": [
-          {
-           "type": "string"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        }
-       ],
+       "items": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
        "type": "array"
       },
       "title": "Rows",
@@ -23308,7 +23177,8 @@
       "x-text": "content"
      },
      "opportunity": {
-      "$ref": "#/components/schemas/PursuedOpportunity"
+      "$ref": "#/components/schemas/PursuedOpportunity",
+      "title": "Opportunity"
      },
      "priority": {
       "maximum": 5.0,
@@ -23355,8 +23225,7 @@
      "next_action_due",
      "created_at",
      "updated_at",
-     "revision",
-     "opportunity"
+     "revision"
     ],
     "title": "PursuitItem",
     "type": "object"
@@ -23785,6 +23654,7 @@
    },
    "RadarSummary": {
     "additionalProperties": false,
+    "description": "The pursuit counts are absent when the person does not share their\npursuits with assistants.",
     "properties": {
      "active_pursuits": {
       "minimum": 0.0,
@@ -23830,11 +23700,7 @@
      }
     },
     "required": [
-     "open_opportunities",
-     "saved_opportunities",
-     "active_pursuits",
-     "overdue_next_actions",
-     "pursuits_by_stage"
+     "open_opportunities"
     ],
     "title": "RadarSummary",
     "type": "object"
@@ -27539,92 +27405,19 @@
      "rows": {
       "description": "One array per opportunity, its values in the order `columns` names.",
       "items": {
-       "maxItems": 11,
-       "minItems": 11,
-       "prefixItems": [
-        {
-         "type": "integer"
-        },
-        {
-         "type": "string"
-        },
-        {
-         "type": "string"
-        },
-        {
-         "anyOf": [
-          {
-           "type": "string"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        },
-        {
-         "type": "integer"
-        },
-        {
-         "anyOf": [
-          {
-           "type": "string"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        },
-        {
-         "anyOf": [
-          {
-           "type": "string"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        },
-        {
-         "anyOf": [
-          {
-           "type": "integer"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        },
-        {
-         "anyOf": [
-          {
-           "type": "string"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        },
-        {
-         "anyOf": [
-          {
-           "type": "string"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        },
-        {
-         "anyOf": [
-          {
-           "type": "string"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        }
-       ],
+       "items": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
        "type": "array"
       },
       "title": "Rows",
@@ -28897,92 +28690,19 @@
      "rows": {
       "description": "One array per posting, its values in the order `columns` names.",
       "items": {
-       "maxItems": 11,
-       "minItems": 11,
-       "prefixItems": [
-        {
-         "type": "integer"
-        },
-        {
-         "type": "string"
-        },
-        {
-         "type": "string"
-        },
-        {
-         "anyOf": [
-          {
-           "type": "string"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        },
-        {
-         "type": "integer"
-        },
-        {
-         "anyOf": [
-          {
-           "type": "string"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        },
-        {
-         "anyOf": [
-          {
-           "type": "string"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        },
-        {
-         "anyOf": [
-          {
-           "type": "integer"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        },
-        {
-         "anyOf": [
-          {
-           "type": "string"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        },
-        {
-         "anyOf": [
-          {
-           "type": "string"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        },
-        {
-         "anyOf": [
-          {
-           "type": "string"
-          },
-          {
-           "type": "null"
-          }
-         ]
-        }
-       ],
+       "items": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
        "type": "array"
       },
       "title": "Rows",

@@ -1258,7 +1258,32 @@ and client effects, data classes, tool tiers and idempotency, registered once
 in `catalog.py`. Every answer, a failure included, is one envelope whose error
 code maps to an HTTP status and a process exit status in `outcomes.py`. The
 agent switches in Settings admit them: a read needs `enabled`, a write also
-`allow_writes`, and with `enabled` off every operation is refused.
+`allow_writes`, and with `enabled` off every operation is refused, whatever
+else the row holds. Beside the switches, `agent_access.categories` holds the
+person's choice per data category: `any_model`, `local_only` or `not_shared`
+([decision 0017](decisions/0017-agent-access-open-by-default.md)). A category
+with no choice is shared, and a row the engine cannot read is everything off;
+the Settings switches keep the stored choices when they save. Every caller of
+these operations is outside the engine, so only `any_model` shares a category
+(`policy.shared`). A category that is not shared is absent, not masked: an
+operation whose first declared data class is not shared is refused as
+`category_disabled` (exit 4, HTTP 403, `details.setting` naming the choice),
+and `capabilities` shows it unavailable for that reason. An operation leaves
+out the part of its answer from any other class it declares: its keys are
+absent, never null, and optional in the result schema (a search column leaves
+`columns` and every row). It refuses an input that selects by that part, and
+lists in `meta.data_classes` the classes it declares that are shared: those
+its answer may draw on, not a trace of what one call used. A class that only
+orders an answer counts the same way: queryless best match blends the profile
+statement and the saved, pursued and dismissed roles into the person's intent,
+each only while its class is shared, and without pursuits search lists the
+roles the person dismissed like any other; without market statistics its base
+pay bounds and pay sort read only the range a posting states, never the
+estimate a row falls back to. A Settings save of the two switches
+keeps stored choices the engine cannot read as they are, so the row still
+reads as everything off. A keyed write's receipt keeps the whole result; its
+answer, fresh or replayed, leaves the part out. Every operation but the
+handshake declares at least one data class.
 `workspace_identity` holds the workspace's durable id, which these answers
 carry; it outlives engine restarts and updates, unlike the engine session id.
 A write route takes a JSON body and an idempotency key header, and runs through
@@ -1338,6 +1363,9 @@ over are one `opportunities.get_many` call in `continue_with`. `get_many` reads
 up to 100 ids and refuses more rather than cutting the list; when some ids
 name nothing it answers the rest with `partial_result` (exit 9), the found rows
 in `data` and the missing ids in `data.not_found`.
+Their rows are search's columns less those of a category the person does not
+share (`search.shared_columns`), and without their pursuits a save or a pursuit
+opens no posting at a hidden company.
 
 **Trust boundary.** Mac and ordinary source mode use loopback access control.
 `LoopbackBoundary` (`backend/tracker/api/boundary.py`, outermost) refuses a Host

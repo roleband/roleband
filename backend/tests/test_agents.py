@@ -45,6 +45,10 @@ class ConfigSession:
     async def execute(self, stmt):
         self.executed.append(stmt)
 
+    async def scalar(self, stmt):
+        self.executed.append(stmt)
+        return self.row.value if self.row is not None else None
+
 
 def test_agent_access_defaults_off_and_round_trips_both_gates():
     assert asyncio.run(get_agent_access(ConfigSession())) == AgentAccessConfig(
@@ -56,9 +60,11 @@ def test_agent_access_defaults_off_and_round_trips_both_gates():
     session = ConfigSession()
     saved = asyncio.run(set_agent_access(session, AgentAccessConfig(enabled=True, allow_writes=True)))
     assert saved.allow_writes is True
-    assert session.executed[0].compile().params["value"] == {
+    # A save of the switches alone keeps the stored category choices, none here.
+    assert session.executed[-1].compile().params["value"] == {
         "enabled": True,
         "allow_writes": True,
+        "categories": {},
     }
 
 

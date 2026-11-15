@@ -10,6 +10,7 @@ that dispatches by name.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from functools import partial
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
@@ -43,7 +44,7 @@ from tracker.agents.operations.meta import (
     StatusResult,
 )
 from tracker.agents.operations.outcomes import CONTRACT_VERSION
-from tracker.agents.operations.policy import availability
+from tracker.agents.operations.policy import availability, withheld
 from tracker.api.agent_operations import (
     PREFIX,
     AgentRoute,
@@ -136,7 +137,9 @@ async def radar_summary(
     session: SessionDep,
     op: Annotated[OperationContext, Depends(admitted(radar.RADAR_SUMMARY))],
 ) -> Envelope[Any]:
-    return op.ok(await radar.radar_summary(session, now=datetime.now(UTC)))
+    return op.ok(
+        await radar.radar_summary(session, now=datetime.now(UTC), pursuits=op.shares("private_pursuit"))
+    )
 
 
 # Before `/opportunities/{opportunity_id}`, which would otherwise take `get-many` for an id.
@@ -149,7 +152,9 @@ async def opportunity_get_many(
     op: Annotated[OperationContext, Depends(admitted(opportunities.OPPORTUNITIES_GET_MANY))],
 ) -> Envelope[Any] | JSONResponse:
     params = op.input_as(opportunities.GetManyInput)
-    answer = await opportunities.get_many(op.session, params)
+    answer = await opportunities.get_many(
+        op.session, params, withheld=withheld(opportunities.OPPORTUNITIES_GET_MANY, op.switches),
+    )
     if answer.page.not_found:
         return op.partial(
             answer.page, opportunities.missing_ids(answer.page, params.ids),
@@ -167,7 +172,10 @@ async def opportunity_get(
     session: SessionDep,
     op: Annotated[OperationContext, Depends(admitted(opportunities.OPPORTUNITIES_GET))],
 ) -> Envelope[Any]:
-    found = await opportunities.opportunity(session, op.input_as(opportunities.OpportunityGetInput))
+    found = await opportunities.opportunity(
+        session, op.input_as(opportunities.OpportunityGetInput),
+        withheld=withheld(opportunities.OPPORTUNITIES_GET, op.switches),
+    )
     view = found.root
     if isinstance(view, opportunities.OpportunityDetail) and view.excerpt is not None:
         envelope = op.ok(found, warnings=[EnvelopeNotice(
@@ -189,7 +197,7 @@ async def opportunity_history(
     op: Annotated[OperationContext, Depends(admitted(opportunities.OPPORTUNITIES_HISTORY))],
 ) -> Envelope[Any]:
     wanted = op.input_as(opportunities.OpportunityHistoryInput).opportunity_id
-    return op.ok(await opportunities.history(session, wanted))
+    return op.ok(await opportunities.history(session, wanted, pursuits=op.shares("private_pursuit")))
 
 
 @router.get(
@@ -202,7 +210,8 @@ async def pursuit_list(
     op: Annotated[OperationContext, Depends(admitted(pursuits.PURSUITS_LIST))],
 ) -> Envelope[Any]:
     page, next_cursor = await pursuits.pursuit_page(
-        session, op.input_as(pursuits.PursuitListInput), workspace_id=op.workspace_id
+        session, op.input_as(pursuits.PursuitListInput), workspace_id=op.workspace_id,
+        postings=op.shares("public_posting"),
     )
     envelope = op.ok(page)
     envelope.meta.next_cursor = next_cursor
@@ -219,7 +228,7 @@ async def pursuit_get(
     op: Annotated[OperationContext, Depends(admitted(pursuits.PURSUITS_GET))],
 ) -> Envelope[Any]:
     wanted = op.input_as(pursuits.PursuitGetInput).opportunity_id
-    return op.ok(await pursuits.pursuit_of(session, wanted))
+    return op.ok(await pursuits.pursuit_of(session, wanted, postings=op.shares("public_posting")))
 
 
 @router.put(
@@ -234,6 +243,7 @@ async def pursuit_save(
     return await op.write(
         lambda: pursuits.save_pursuit(op.session, params, actor=op.actor),
         on_revision_conflict=pursuits.reread(params.opportunity_id),
+        shown=partial(pursuits.shown, postings=op.shares("public_posting")),
     )
 
 
@@ -249,6 +259,7 @@ async def pursuit_patch(
     return await op.write(
         lambda: pursuits.patch_pursuit(op.session, params, actor=op.actor),
         on_revision_conflict=pursuits.reread(params.opportunity_id),
+        shown=partial(pursuits.shown, postings=op.shares("public_posting")),
     )
 
 
@@ -327,6 +338,7 @@ async def receipt_get(
         await receipts.receipt_of(
             session, params, workspace_id=op.workspace_id, principal_id=op.principal_id,
             keyed=descriptor.idempotency == "required_key",
+            withheld=[category for category in descriptor.data_classes if not op.shares(category)],
         )
     )
 
@@ -339,7 +351,10 @@ async def receipt_get(
 async def opportunity_search(
     op: Annotated[OperationContext, Depends(admitted(search.OPPORTUNITIES_SEARCH))],
 ) -> Envelope[Any]:
-    answer = await search.search(op.session, op.input_as(search.SearchInput), workspace_id=op.workspace_id)
+    answer = await search.search(
+        op.session, op.input_as(search.SearchInput), workspace_id=op.workspace_id,
+        withheld=withheld(search.OPPORTUNITIES_SEARCH, op.switches),
+    )
     warnings: list[EnvelopeNotice] = []
     if answer.shortened:
         warnings.append(EnvelopeNotice(
@@ -469,7 +484,10 @@ async def company_prices(
 async def opportunity_similar(
     op: Annotated[OperationContext, Depends(admitted(relations.OPPORTUNITIES_SIMILAR))],
 ) -> Envelope[Any]:
-    data, fitted = await relations.similar(op.session, op.input_as(relations.SimilarInput))
+    data, fitted = await relations.similar(
+        op.session, op.input_as(relations.SimilarInput),
+        withheld=withheld(relations.OPPORTUNITIES_SIMILAR, op.switches),
+    )
     return _fitted(op, data, rows_left=bool(fitted.rest), row_cut=fitted.row_cut)
 
 
@@ -481,7 +499,10 @@ async def opportunity_similar(
 async def opportunity_duplicates(
     op: Annotated[OperationContext, Depends(admitted(relations.OPPORTUNITIES_DUPLICATES))],
 ) -> Envelope[Any]:
-    data, fitted = await relations.decks(op.session, op.input_as(relations.RelationInput))
+    data, fitted = await relations.decks(
+        op.session, op.input_as(relations.RelationInput),
+        withheld=withheld(relations.OPPORTUNITIES_DUPLICATES, op.switches),
+    )
     return _fitted(op, data, rows_left=bool(fitted.rest), row_cut=fitted.row_cut)
 
 
@@ -494,4 +515,4 @@ async def opportunity_reality(
     op: Annotated[OperationContext, Depends(admitted(relations.OPPORTUNITIES_REALITY))],
 ) -> Envelope[Any]:
     wanted = op.input_as(relations.RelationInput).opportunity_id
-    return op.ok(await relations.reality(op.session, wanted))
+    return op.ok(await relations.reality(op.session, wanted, pursuits=op.shares("private_pursuit")))

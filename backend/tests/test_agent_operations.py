@@ -9,6 +9,7 @@ session. The routes run over real ASGI on the scratch database.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import re
 from dataclasses import dataclass
@@ -32,7 +33,7 @@ from tracker.agents.operations.descriptor import (
 )
 from tracker.agents.operations.envelope import OperationError
 from tracker.agents.operations.outcomes import CONTRACT_VERSION, OUTCOMES, compatible, outcome
-from tracker.agents.operations.policy import admit, availability
+from tracker.agents.operations.policy import admit, availability, shared, withheld
 from tracker.agents.operations.workspace import ensure_workspace_id, get_workspace_id
 from tracker.api.agent_operations import PREFIX, REQUEST_ID_HEADER, AgentRoute
 from tracker.db.models import WorkspaceIdentity
@@ -59,6 +60,7 @@ CONTRACT_EXITS = {
     "workspace_mismatch": 3,
     "access_disabled": 4,
     "writes_disabled": 4,
+    "category_disabled": 4,
     "not_found": 5,
     "revision_conflict": 6,
     "idempotency_conflict": 6,
@@ -94,6 +96,7 @@ def test_an_error_with_a_code_outside_the_table_cannot_be_raised():
 def test_refusals_are_never_retryable_and_unavailability_is():
     assert not outcome("access_disabled").retryable
     assert not outcome("writes_disabled").retryable
+    assert not outcome("category_disabled").retryable
     assert outcome("engine_unavailable").retryable
     # Unverified transport stops automatic retry.
     assert not outcome("transport_unverified").retryable
@@ -255,6 +258,7 @@ def test_the_describe_input_takes_only_an_operation_id():
 class Switches:
     enabled: bool
     allow_writes: bool
+    categories: dict[str, str] = dataclasses.field(default_factory=dict)
 
 
 READ = _descriptor()
@@ -283,6 +287,40 @@ def test_reads_need_enabled_and_writes_need_allow_writes(switches, read, write):
             assert caught.value.code == refusal
             assert outcome(refusal).exit_status == 4
             assert availability(descriptor, switches) == Availability("unavailable", refusal)
+
+
+POSTINGS_AND_PURSUITS = _descriptor(id="widgets.list", data_classes=("public_posting", "private_pursuit"))
+
+
+@pytest.mark.parametrize("choice", ["not_shared", "local_only"])
+def test_a_read_whose_primary_category_is_not_shared_is_refused_with_its_own_code(choice):
+    switches = Switches(True, True, {"public_posting": choice})
+    with pytest.raises(OperationError) as caught:
+        admit(POSTINGS_AND_PURSUITS, switches)
+    assert caught.value.code == "category_disabled"
+    assert caught.value.details == {
+        "category": "public_posting", "setting": "agent_access.categories.public_posting",
+    }
+    assert outcome("category_disabled").exit_status == 4
+    assert outcome("category_disabled").http_status == 403
+    assert availability(POSTINGS_AND_PURSUITS, switches) == Availability("unavailable", "category_disabled")
+
+
+def test_a_secondary_category_switched_off_admits_the_operation_and_is_withheld():
+    switches = Switches(True, False, {"private_pursuit": "not_shared"})
+    admit(POSTINGS_AND_PURSUITS, switches)
+    assert withheld(POSTINGS_AND_PURSUITS, switches) == {"private_pursuit"}
+    assert shared(switches, "public_posting") and not shared(switches, "private_pursuit")
+
+
+def test_a_category_with_no_choice_is_shared_and_enabled_off_shares_nothing():
+    assert shared(Switches(True, False), "offer")
+    assert shared(Switches(True, False, {"offer": "any_model"}), "offer")
+    everything_open = Switches(False, False, {"public_posting": "any_model"})
+    assert not shared(everything_open, "public_posting")
+    with pytest.raises(OperationError) as caught:
+        admit(POSTINGS_AND_PURSUITS, everything_open)
+    assert caught.value.code == "access_disabled"
 
 
 # --------------------------------------------------------------------------- #

@@ -28,7 +28,7 @@ from tracker.agents.operations.outcomes import outcome
 from tracker.agents.operations.search import COLUMNS, PAGE_BUDGET_BYTES
 from tracker.agents.operations.workspace import ensure_workspace_id
 from tracker.api.agent_operations import PREFIX
-from tracker.db.models import Favorite, Job, TrackedCompany
+from tracker.db.models import Favorite, Job, Pursuit, TrackedCompany
 from tracker.lineage.place_sets import rebuild_place_sets
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("no_escape")]
@@ -531,3 +531,72 @@ async def test_opt_out_refuses_every_posting_read(api_client, workspace):
         response, body = await _agent(api_client, path, **params)
         _error(response, body, "access_disabled", 4)
         assert body["operation"] == operation and body["data"] is None
+
+
+# --------------------------------------------------------------------------- #
+# The person's category switches
+# --------------------------------------------------------------------------- #
+
+
+async def _choose(session, **categories: str) -> None:
+    await set_agent_access(session, AgentAccessConfig(enabled=True, allow_writes=False, categories=categories))
+    await session.commit()
+
+
+async def test_postings_off_refuses_every_posting_read(api_client, workspace):
+    session, lineage = workspace
+    await _choose(session, public_posting="not_shared")
+
+    for path, params in (
+        ("/opportunities/get-many", {"ids": [lineage.solo]}),
+        (f"/opportunities/{lineage.solo}/similar", {}),
+        (f"/opportunities/{lineage.solo}/duplicates", {}),
+        (f"/opportunities/{lineage.solo}/reality", {}),
+    ):
+        response, body = await _agent(api_client, path, **params)
+        _error(response, body, "category_disabled", 4)
+        assert body["error"]["details"]["category"] == "public_posting"
+
+
+async def test_rows_leave_out_the_pursuit_and_estimate_columns_of_a_category_off(api_client, workspace):
+    session, lineage = workspace
+    pursued = list((await session.scalars(select(Pursuit.job_id))).all())
+    assert pursued
+    asked = [*pursued, lineage.repost]
+    shared_page = _data((await _agent(api_client, "/opportunities/get-many", ids=asked, tier="full"))[1])
+    shared_decks = await _decks(api_client, lineage.repost)
+    columns = shared_page["columns"]
+    pursuit, estimate = columns.index("pursuit"), columns.index("estimated_pay")
+    assert any(row[pursuit] for row in shared_page["rows"])
+    await _choose(session, private_pursuit="not_shared", market_statistic="not_shared")
+    kept = [i for i, column in enumerate(columns) if i not in (pursuit, estimate)]
+
+    _, body = await _agent(api_client, "/opportunities/get-many", ids=asked, tier="full")
+    decks = await _decks(api_client, lineage.repost)
+
+    page = _data(body)
+    assert page["columns"] == [columns[i] for i in kept] == decks["columns"]
+    assert page["rows"] == [[row[i] for i in kept] for row in shared_page["rows"]]
+    assert decks["rows"] == [[row[i] for i in kept] for row in shared_decks["rows"]]
+    assert decks["reposts"] == shared_decks["reposts"]
+    assert body["meta"]["data_classes"] == ["public_posting"]
+
+
+async def test_a_save_grants_no_access_at_a_hidden_company_without_pursuits(api_client, workspace):
+    session, lineage = workspace
+    session.add(Favorite(job_id=lineage.repost))
+    await session.commit()
+    await _hide(session, "google")
+    paths = [f"/opportunities/{lineage.repost}/{relation}" for relation in RELATIONS]
+    # Shared, the save keeps the posting readable.
+    for path in paths:
+        response, body = await _agent(api_client, path)
+        assert response.status_code == 200, (path, body)
+    assert _data((await _agent(api_client, "/opportunities/get-many", ids=[lineage.repost]))[1])["rows"]
+    await _choose(session, private_pursuit="not_shared")
+
+    for path in paths:
+        response, body = await _agent(api_client, path)
+        _error(response, body, "not_found", 5)
+    response, body = await _agent(api_client, "/opportunities/get-many", ids=[lineage.repost])
+    _error(response, body, "not_found", 5)

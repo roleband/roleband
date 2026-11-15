@@ -25,6 +25,7 @@ A posting at a company the person hid is not found here, as in
 from __future__ import annotations
 
 import json
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Literal
@@ -34,7 +35,13 @@ from pydantic.config import JsonDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracker.agents.operations.descriptor import EngineEffects, OperationDescriptor, Shape, ToolTier
+from tracker.agents.operations.descriptor import (
+    DataClass,
+    EngineEffects,
+    OperationDescriptor,
+    Shape,
+    ToolTier,
+)
 from tracker.agents.operations.envelope import NextAction, OperationError
 from tracker.agents.operations.opportunities import (
     DETAIL_BUDGET_BYTES,
@@ -43,10 +50,11 @@ from tracker.agents.operations.opportunities import (
     visible_jobs,
 )
 from tracker.agents.operations.search import (
-    COLUMNS,
     PAGE_BUDGET_BYTES,
-    SearchRow,
+    PageRow,
+    only_columns,
     rows_within_budget,
+    shared_columns,
     summary_rows,
 )
 from tracker.analytics.posting_reality import (
@@ -93,7 +101,7 @@ class SimilarRoles(Shape):
     #: is the texts' cosine similarity, from 0 to 1.
     similar: list[tuple[int, float]]
     columns: list[str] = Field(json_schema_extra=_CODE)
-    rows: list[SearchRow] = Field(json_schema_extra=_CONTENT, description=_ROWS)
+    rows: list[PageRow] = Field(json_schema_extra=_CONTENT, description=_ROWS)
     #: The call that reads the similar roles this answer had no room for.
     continue_with: list[NextAction]
 
@@ -198,7 +206,7 @@ class PostingDecks(Shape):
     place_set_split: bool
     columns: list[str] = Field(json_schema_extra=_CODE)
     #: Every posting the decks name, once, the asked one first.
-    rows: list[SearchRow] = Field(json_schema_extra=_CONTENT, description=_ROWS)
+    rows: list[PageRow] = Field(json_schema_extra=_CONTENT, description=_ROWS)
     #: The call that reads the postings this answer had no room for.
     continue_with: list[NextAction]
 
@@ -284,10 +292,12 @@ OPERATIONS: tuple[OperationDescriptor, ...] = (OPPORTUNITIES_SIMILAR, OPPORTUNIT
 
 
 async def similar(
-    session: AsyncSession, params: SimilarInput, *, now: datetime | None = None
+    session: AsyncSession, params: SimilarInput, *, withheld: Collection[DataClass] = (), now: datetime | None = None,
 ) -> tuple[SimilarRoles, Fitted]:
-    """The similar roles, and how their rows fit the tier's budget."""
-    await visible_job(session, params.opportunity_id)
+    """The similar roles, and how their rows fit the tier's budget, without
+    the columns of the `withheld` categories."""
+    pursuits = "private_pursuit" not in withheld
+    await visible_job(session, params.opportunity_id, chosen_counts=pursuits)
     hidden = await off_board_company_slugs(session)
     # Off-Board companies are excluded before the limit, by the neighbour
     # contract the dashboard's Similar roles reads too.
@@ -302,8 +312,9 @@ async def similar(
     scored = [(job_id, round(score, 4)) for job_id, score in pairs if job_id in found]
     jobs = [found[job_id] for job_id, _ in scored]
     shell = SimilarRoles(opportunity_id=params.opportunity_id, scope=params.scope, similar=scored,
-                         columns=list(COLUMNS), rows=[], continue_with=[])
-    fitted = await _fit_rows(session, shell, jobs, PAGE_BUDGET_BYTES[params.tier], params.tier, now=now)
+                         columns=shared_columns(withheld), rows=[], continue_with=[])
+    fitted = await _fit_rows(session, shell, jobs, PAGE_BUDGET_BYTES[params.tier], params.tier,
+                             pursuits=pursuits, now=now)
     return shell.model_copy(update={"rows": fitted.rows, "continue_with": read_rest(fitted.rest, params.tier)}), fitted
 
 
@@ -333,7 +344,7 @@ def _twin_link(link: JobTwinLink) -> DeckLink:
 
 
 async def decks(
-    session: AsyncSession, params: RelationInput, *, now: datetime | None = None
+    session: AsyncSession, params: RelationInput, *, withheld: Collection[DataClass] = (), now: datetime | None = None,
 ) -> tuple[PostingDecks, Fitted]:
     """The posting's decks, and how their postings' rows fit the tier's budget.
 
@@ -341,8 +352,10 @@ async def decks(
     posting at a company the person hid keeps its deck, without the siblings
     there that are neither, and each count is of the members named. A place
     set holding such a sibling is left out whole, since its places name the
-    sibling's city."""
-    job = await visible_job(session, params.opportunity_id)
+    sibling's city. Without the person's pursuits a save or a pursuit grants
+    no access, and the rows hold no `pursuit` column."""
+    pursuits = "private_pursuit" not in withheld
+    job = await visible_job(session, params.opportunity_id, chosen_counts=pursuits)
     lineage = await session.get(JobLineage, job.lineage_id) if job.lineage_id is not None else None
     stack = await lineage_stack(session, lineage.id) if lineage is not None else []
     deck = await twin_deck(session, job.id)
@@ -352,7 +365,7 @@ async def decks(
     ids = list(dict.fromkeys([
         job.id, *(member.job.id for member in stack), *deck.member_ids, *(found["member_ids"] if found else ()),
     ]))
-    readable = await visible_jobs(session, ids, summary=True)
+    readable = await visible_jobs(session, ids, summary=True, chosen_counts=pursuits)
 
     reposts = None
     if lineage is not None:
@@ -411,18 +424,23 @@ async def decks(
     jobs = [readable[job_id] for job_id in dict.fromkeys(named)]
     shell = PostingDecks(
         opportunity_id=job.id, reposts=reposts, twins=twins, place_set=place_set,
-        place_set_split=bool(state["rejected"]), columns=list(COLUMNS), rows=[], continue_with=[],
+        place_set_split=bool(state["rejected"]), columns=shared_columns(withheld), rows=[], continue_with=[],
     )
-    fitted = await _fit_rows(session, shell, jobs, DETAIL_BUDGET_BYTES[params.tier], params.tier, now=now)
+    fitted = await _fit_rows(session, shell, jobs, DETAIL_BUDGET_BYTES[params.tier], params.tier,
+                             pursuits=pursuits, now=now)
     return shell.model_copy(update={"rows": fitted.rows, "continue_with": read_rest(fitted.rest, params.tier)}), fitted
 
 
 # --- reality ----------------------------------------------------------------- #
 
 
-async def reality(session: AsyncSession, opportunity_id: int, *, now: datetime | None = None) -> PostingVerdict:
+async def reality(
+    session: AsyncSession, opportunity_id: int, *, pursuits: bool = True, now: datetime | None = None,
+) -> PostingVerdict:
+    """The standing verdict. Without the person's `pursuits`, a save or a
+    pursuit of a posting at a hidden company grants no access to it."""
     now = now or datetime.now(UTC)
-    job = await visible_job(session, opportunity_id)
+    job = await visible_job(session, opportunity_id, chosen_counts=pursuits)
     context = await row_context(session, [job])
     facts = standing_facts(
         job, lineage_meta=context["lineage_meta"], role_starts=context["role_starts"] or {},
@@ -467,7 +485,7 @@ async def reality(session: AsyncSession, opportunity_id: int, *, now: datetime |
 
 @dataclass(frozen=True)
 class Fitted:
-    rows: list[SearchRow]
+    rows: list[PageRow]
     #: The postings left for the `continue_with` read.
     rest: list[Job]
     #: The first row was longer than the budget and its longest text was cut.
@@ -476,7 +494,7 @@ class Fitted:
 
 async def _fit_rows(
     session: AsyncSession, shell: SimilarRoles | PostingDecks, jobs: list[Job], budget: int, tier: ToolTier,
-    *, now: datetime | None,
+    *, pursuits: bool, now: datetime | None,
 ) -> Fitted:
     """The leading postings' rows that fit `budget` beside `shell`, and the
     postings left for the `continue_with` read. The answer is measured with
@@ -484,7 +502,7 @@ async def _fit_rows(
     `continue_with` it can carry; a shell with no room for one row is refused."""
     if not jobs:
         return Fitted([], [], row_cut=False)
-    rows = await summary_rows(session, jobs, now=now or datetime.now(UTC))
+    rows = only_columns(await summary_rows(session, jobs, now=now or datetime.now(UTC), pursuits=pursuits), shell.columns)
     widest = shell.model_copy(update={"continue_with": read_rest(jobs[1:], tier)})
     room = budget - _size(widest.model_dump(mode="json"))
     kept, cut = rows_within_budget(rows, room)

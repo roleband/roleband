@@ -129,8 +129,9 @@ def _search(data: dict[str, Any]) -> list[str]:
             row["title"], row["company"], place, row["workplace"], row["level"],
             None if row["listed_days"] is None else f"{row['listed_days']}d",
             None if row["stated_pay"] is None else f"stated {row['stated_pay']}",
-            None if row["estimated_pay"] is None else f"estimate {row['estimated_pay']}",
-            row["pursuit"],
+            # A column of a category the person does not share is absent.
+            None if row.get("estimated_pay") is None else f"estimate {row['estimated_pay']}",
+            row.get("pursuit"),
         ]
         lines.append(f"{escape(row['id']):>7}  " + " · ".join(escape(part) for part in parts if part is not None))
     return lines

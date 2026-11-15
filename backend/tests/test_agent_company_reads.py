@@ -483,3 +483,30 @@ async def test_every_company_read_answers_when_on_and_refuses_an_unknown_key(api
 
         response, body = await _agent(api_client, path, verbose="1")
         _error(response, body, "invalid_input", 2)
+
+
+# --------------------------------------------------------------------------- #
+# The person's category switches
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("choice", ["not_shared", "local_only"])
+async def test_market_statistics_off_refuses_every_company_read(api_client, workspace, choice):
+    await set_agent_access(
+        workspace, AgentAccessConfig(enabled=True, allow_writes=False, categories={"market_statistic": choice})
+    )
+    await workspace.commit()
+
+    for operation, path in READS.items():
+        response, body = await _agent(api_client, path)
+        _error(response, body, "category_disabled", 4)
+        assert body["operation"] == operation
+        assert body["error"]["details"]["category"] == "market_statistic"
+    # Another category off leaves them answering.
+    await set_agent_access(
+        workspace, AgentAccessConfig(enabled=True, allow_writes=False, categories={"private_pursuit": "not_shared"})
+    )
+    await workspace.commit()
+    for path in READS.values():
+        response, body = await _agent(api_client, path)
+        assert response.status_code == 200, body

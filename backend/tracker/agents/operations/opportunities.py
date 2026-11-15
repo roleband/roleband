@@ -13,29 +13,44 @@ is a typed excerpt: the description cut at a word, the sections left out, and
 
 A posting at a company the person hid is not found, unless the person saved or
 pursues it: the agent is offered what the person still wants to see, and what
-the person chose stays reachable, as it does from Saved.
+the person chose stays reachable, as it does from Saved. When the person does
+not share their pursuits, that exception is not made, so whether a hidden
+posting is found says nothing about them.
+
+A category the person does not share is left out of `get`, its keys absent:
+their pursuits (`saved` and `pursuit`, so no notes either) and market
+statistics (the estimates and `evidence.estimate_sources`).
 """
 
 from __future__ import annotations
 
 import json
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Annotated, Any, Literal
 
 from pydantic import Field, RootModel
 from pydantic.config import JsonDict
+from pydantic.experimental.missing_sentinel import MISSING
 from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracker.agents.operations.descriptor import EngineEffects, OperationDescriptor, Shape, ToolTier
+from tracker.agents.operations.descriptor import (
+    DataClass,
+    EngineEffects,
+    OperationDescriptor,
+    Shape,
+    ToolTier,
+)
 from tracker.agents.operations.envelope import NextAction, OperationError
 from tracker.agents.operations.pursuits import PURSUITS_GET, PursuitState, state_of
 from tracker.agents.operations.search import (
-    COLUMNS,
     PAGE_BUDGET_BYTES,
-    SearchRow,
+    PageRow,
+    only_columns,
     rows_within_budget,
+    shared_columns,
     summary_rows,
 )
 from tracker.analytics.posting_reality import listing_age
@@ -115,13 +130,16 @@ class _Facts(Shape):
     listed_days: int | None
     listed_basis: str | None = Field(json_schema_extra=_CODE)
     #: What the estimate prices: `total`, or `base` when only the base is known.
-    estimate_component: str | None = Field(json_schema_extra=_CODE)
-    estimated_total_comp: EstimatedTotalComp | None
-    estimated_base: EstimatedBase | None
+    #: The three estimate keys are absent when the person does not share
+    #: market statistics.
+    estimate_component: str | None | MISSING = Field(default=MISSING, json_schema_extra=_CODE)
+    estimated_total_comp: EstimatedTotalComp | None | MISSING = MISSING
+    estimated_base: EstimatedBase | None | MISSING = MISSING
     #: Null until the posting's text has been read for pay.
     employer_stated_pay: EmployerStatedPay | None
-    saved: bool
-    pursuit: PursuitState | None
+    #: Both absent when the person does not share their pursuits.
+    saved: bool | MISSING = MISSING
+    pursuit: PursuitState | None | MISSING = MISSING
 
 
 class OpportunitySummary(_Facts):
@@ -204,7 +222,8 @@ class EstimateSource(Shape):
 
 class Evidence(Shape):
     dates: PostingDates
-    estimate_sources: list[EstimateSource]
+    #: Absent when the person does not share market statistics.
+    estimate_sources: list[EstimateSource] | MISSING = MISSING
 
 
 class OpportunityEvidence(_Facts):
@@ -315,10 +334,14 @@ def _not_found(opportunity_id: int) -> OperationError:
     )
 
 
-async def visible_jobs(session: AsyncSession, ids: list[int], *, summary: bool = False) -> dict[int, Job]:
+async def visible_jobs(
+    session: AsyncSession, ids: list[int], *, summary: bool = False, chosen_counts: bool = True,
+) -> dict[int, Job]:
     """The postings of `ids` an agent may read, by id: none that is unknown, or
-    at a company the person hid and neither saved nor pursued. `summary` leaves
-    the description columns unread, as a list row does."""
+    at a company the person hid and neither saved nor pursued. With
+    `chosen_counts` false a saved or pursued posting at a hidden company is
+    left out too. `summary` leaves the description columns unread, as a list
+    row does."""
     if not ids:
         return {}
     statement = select(Job).where(Job.id.in_(ids))
@@ -334,17 +357,18 @@ async def visible_jobs(session: AsyncSession, ids: list[int], *, summary: bool =
     ) if jobs else set()
     at_hidden = [job.id for job in jobs if job.company in hidden]
     chosen: set[int] = set()
-    if at_hidden:
+    if at_hidden and chosen_counts:
         chosen = set((await session.scalars(select(Favorite.job_id).where(Favorite.job_id.in_(at_hidden)))).all())
         chosen |= set((await session.scalars(select(Pursuit.job_id).where(Pursuit.job_id.in_(at_hidden)))).all())
     return {job.id: job for job in jobs if job.company not in hidden or job.id in chosen}
 
 
-async def visible_job(session: AsyncSession, opportunity_id: int) -> Job:
+async def visible_job(session: AsyncSession, opportunity_id: int, *, chosen_counts: bool = True) -> Job:
     """The posting, unless it is unknown or at a company the person hid and
     neither saved nor pursued. Both answer the same `not_found`, so a hidden
-    posting cannot be told from a missing one."""
-    job = (await visible_jobs(session, [opportunity_id])).get(opportunity_id)
+    posting cannot be told from a missing one. With `chosen_counts` false a
+    saved or pursued posting at a hidden company is not found either."""
+    job = (await visible_jobs(session, [opportunity_id], chosen_counts=chosen_counts)).get(opportunity_id)
     if job is None:
         raise _not_found(opportunity_id)
     return job
@@ -409,17 +433,27 @@ def _summary_fields(job: Job, *, saved: bool, pursuit: Pursuit | None, now: date
 
 
 async def opportunity(
-    session: AsyncSession, params: OpportunityGetInput, *, now: datetime | None = None
+    session: AsyncSession, params: OpportunityGetInput, *, withheld: Collection[DataClass] = (),
+    now: datetime | None = None,
 ) -> OpportunityView:
-    job = await visible_job(session, params.opportunity_id)
-    saved = await session.scalar(select(exists().where(Favorite.job_id == job.id)))
-    pursuit = await session.scalar(select(Pursuit).where(Pursuit.job_id == job.id))
+    """One posting in the view asked for, without the `withheld` categories."""
+    pursuits = "private_pursuit" not in withheld
+    job = await visible_job(session, params.opportunity_id, chosen_counts=pursuits)
+    saved = await session.scalar(select(exists().where(Favorite.job_id == job.id))) if pursuits else None
+    pursuit = await session.scalar(select(Pursuit).where(Pursuit.job_id == job.id)) if pursuits else None
     if params.description_from is not None and params.view != "detail":
         raise OperationError(
             "invalid_input", "description_from reads a detail view; ask with view detail.",
             details={"field": "description_from", "reason": "detail_only"},
         )
     fields = _summary_fields(job, saved=bool(saved), pursuit=pursuit, now=now or datetime.now(UTC))
+    if not pursuits:
+        for key in ("saved", "pursuit"):
+            del fields[key]
+    statistics = "market_statistic" not in withheld
+    if not statistics:
+        for key in ("estimate_component", "estimated_total_comp", "estimated_base"):
+            del fields[key]
     if params.view == "detail":
         detail = {
             **fields,
@@ -432,7 +466,7 @@ async def opportunity(
         }
         return OpportunityView(bounded_detail(detail, tier=params.tier, start=params.description_from))
     if params.view == "evidence":
-        evidence = {**fields, "view": "evidence", "evidence": await _evidence(session, job)}
+        evidence = {**fields, "view": "evidence", "evidence": await _evidence(session, job, estimates=statistics)}
         return OpportunityView(OpportunityEvidence.model_validate(evidence))
     text = [NextAction(operation=OPPORTUNITIES_GET.id, arguments={
         "opportunity_id": job.id, "view": "detail", "tier": params.tier,
@@ -440,13 +474,8 @@ async def opportunity(
     return OpportunityView(OpportunitySummary.model_validate({**fields, "view": "summary", "continue_with": text}))
 
 
-async def _evidence(session: AsyncSession, job: Job) -> dict[str, Any]:
-    estimates = (
-        await session.scalars(
-            select(JobCompEstimate).where(JobCompEstimate.job_id == job.id).order_by(JobCompEstimate.source)
-        )
-    ).all()
-    return {
+async def _evidence(session: AsyncSession, job: Job, *, estimates: bool) -> dict[str, Any]:
+    evidence = {
         "dates": {
             "employer_published_at": job.posted_at,
             "employer_first_published_at": job.first_posted_at,
@@ -455,6 +484,16 @@ async def _evidence(session: AsyncSession, job: Job) -> dict[str, Any]:
             "closed_at": job.closed_at,
             "description_fetched_at": job.description_fetched_at,
         },
+    }
+    if not estimates:
+        return evidence
+    found = (
+        await session.scalars(
+            select(JobCompEstimate).where(JobCompEstimate.job_id == job.id).order_by(JobCompEstimate.source)
+        )
+    ).all()
+    return {
+        **evidence,
         "estimate_sources": [
             {
                 "source": estimate.source,
@@ -464,7 +503,7 @@ async def _evidence(session: AsyncSession, job: Job) -> dict[str, Any]:
                     for answer in estimate.sources or []
                 ],
             }
-            for estimate in estimates
+            for estimate in found
         ],
     }
 
@@ -493,7 +532,8 @@ def bounded_detail(fields: dict[str, Any], *, tier: ToolTier, start: int | None 
             details={"field": "description_from", "reason": "past_end", "description_chars": len(text)},
         )
     rest = text[begin:]
-    notes = full.pursuit.notes if full.pursuit is not None else None
+    pursuit = full.pursuit if isinstance(full.pursuit, PursuitState) else None
+    notes = pursuit.notes if pursuit is not None else None
     excerpt = Excerpt(
         truncated=True, tier=tier, budget_bytes=budget, full_bytes=full_bytes,
         description_chars=len(text), description_from=begin, kept_chars=0,
@@ -507,10 +547,10 @@ def bounded_detail(fields: dict[str, Any], *, tier: ToolTier, start: int | None 
     })
     shell = full.model_copy(update={"description": "", "description_sections": [], "excerpt": widest})
     room = budget - len(shell.model_dump_json().encode())
-    if notes and full.pursuit is not None and (room < 0 or start is not None):
+    if notes and pursuit is not None and (room < 0 or start is not None):
         # A read from a point is for the description; the notes are read whole elsewhere.
         kept_notes = "" if start is not None else _cut(notes, _size(notes) - 2 + room)
-        shell = shell.model_copy(update={"pursuit": full.pursuit.model_copy(update={"notes": kept_notes})})
+        shell = shell.model_copy(update={"pursuit": pursuit.model_copy(update={"notes": kept_notes})})
         excerpt = excerpt.model_copy(update={"kept_notes_chars": len(kept_notes)})
         # On a first read the notes' word-boundary slack is no room for a
         # scrap of description; on a read from a point the room is what is left.
@@ -568,8 +608,11 @@ def _cut(text: str, room: int) -> str:
     return word or text[:low]
 
 
-async def history(session: AsyncSession, opportunity_id: int, *, now: datetime | None = None) -> ListingHistory:
-    await visible_job(session, opportunity_id)
+async def history(
+    session: AsyncSession, opportunity_id: int, *, pursuits: bool = True, now: datetime | None = None
+) -> ListingHistory:
+    """The posting's listing history. `pursuits` false: see `visible_job`."""
+    await visible_job(session, opportunity_id, chosen_counts=pursuits)
     found = await listing_history(session, opportunity_id, now or datetime.now(UTC))
     if found is None:
         raise _not_found(opportunity_id)
@@ -594,7 +637,7 @@ class GetManyPage(Shape):
     #: Rows in this answer.
     count: int = Field(ge=0)
     columns: list[str] = Field(json_schema_extra=_CODE)
-    rows: list[SearchRow] = Field(
+    rows: list[PageRow] = Field(
         json_schema_extra={"x-text": "content"},
         description="One array per opportunity found, in the order asked, its values in the order `columns` names.",
     )
@@ -629,21 +672,26 @@ class GetManyAnswer:
     row_cut: bool
 
 
-async def get_many(session: AsyncSession, params: GetManyInput, *, now: datetime | None = None) -> GetManyAnswer:
+async def get_many(
+    session: AsyncSession, params: GetManyInput, *, withheld: Collection[DataClass] = (), now: datetime | None = None,
+) -> GetManyAnswer:
     """The opportunities of `params.ids`, readable as `opportunities.get`
-    reads one, as search rows in the order asked. Every unknown id is named in
-    `not_found`; when none is known the read is `not_found`. Rows past the
-    tier's budget are left to the `continue_with` call, never cut away."""
+    reads one, as search rows in the order asked, without the columns of the
+    `withheld` categories. Every unknown id is named in `not_found`; when none
+    is known the read is `not_found`. Rows past the tier's budget are left to
+    the `continue_with` call, never cut away."""
+    pursuits = "private_pursuit" not in withheld
     ids = list(dict.fromkeys(params.ids))
-    found = await visible_jobs(session, ids, summary=True)
+    found = await visible_jobs(session, ids, summary=True, chosen_counts=pursuits)
     missing = [job_id for job_id in ids if job_id not in found]
     if not found:
         raise OperationError(
             "not_found", "There is no opportunity with any of these ids.", details={"opportunity_ids": missing}
         )
     ordered = [found[job_id] for job_id in ids if job_id in found]
-    rows = await summary_rows(session, ordered, now=now or datetime.now(UTC))
-    page = GetManyPage(count=0, columns=list(COLUMNS), rows=[], not_found=missing, continue_with=[])
+    columns = shared_columns(withheld)
+    rows = only_columns(await summary_rows(session, ordered, now=now or datetime.now(UTC), pursuits=pursuits), columns)
+    page = GetManyPage(count=0, columns=columns, rows=[], not_found=missing, continue_with=[])
     # Measured with the call that would read every row but the first, the
     # largest `continue_with` this answer can carry.
     widest = page.model_copy(update={"continue_with": read_rest(ordered[1:], params.tier)})
