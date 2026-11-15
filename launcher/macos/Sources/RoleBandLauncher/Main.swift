@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import LauncherCore
 import SwiftUI
 
@@ -343,6 +344,7 @@ final class LauncherDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate
     private var notesWindow: NSWindow?
     private var offeredWindow: NSWindow?
     private var wakeObserver: NSObjectProtocol?
+    private var offerWatch: AnyCancellable?
     private var nativeNotifications: NativeUpdateNotifications?
     private var updateNotices: UpdateNotices?
     private var termination: DispatchSourceSignal?
@@ -363,6 +365,8 @@ final class LauncherDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate
             item.button?.action = #selector(togglePanel)
         }
         model.changed = { [weak self] in self?.updateIcon() }
+        // An offer arrives from the update check, not the engine, so it redraws the icon itself.
+        offerWatch = model.updates.objectWillChange.receive(on: RunLoop.main).sink { [weak self] _ in self?.updateIcon() }
         popover.behavior = .transient
         popover.delegate = self
         popover.contentViewController = NSHostingController(rootView: MainPanel(model: model,
@@ -407,7 +411,7 @@ final class LauncherDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate
         if model.shouldShowSetupAtLaunch { showSetup() }
     }
     private func updateIcon() {
-        let title = "RoleBand: \(model.text(model.titleKey, model.helpValues))"
+        let title = model.menuBarTitle
         statusItem?.button?.image = BrandGlyph.menuBar(badge: model.menuBarBadge)
         statusItem?.button?.setAccessibilityLabel(title)
         statusItem?.button?.toolTip = title

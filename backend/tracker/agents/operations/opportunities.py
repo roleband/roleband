@@ -12,21 +12,35 @@ is a typed excerpt: the description cut at a word, the sections left out, and
 
 A posting at a company the person hid is not found, unless the person saved or
 pursues it: the agent is offered what the person still wants to see, and what
-the person chose stays reachable, as it does from Saved.
+the person chose stays reachable, as it does from Saved. When the person does
+not share their pursuits, that exception is not made, so whether a hidden
+posting is found says nothing about them.
+
+A category the person does not share is left out of `get`, its keys absent:
+their pursuits (`saved` and `pursuit`, so no notes either) and market
+statistics (the estimates and `evidence.estimate_sources`).
 """
 
 from __future__ import annotations
 
 import json
+from collections.abc import Collection
 from datetime import UTC, date, datetime
 from typing import Any, Literal
 
 from pydantic import Field, RootModel
 from pydantic.config import JsonDict
+from pydantic.experimental.missing_sentinel import MISSING
 from sqlalchemy import exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracker.agents.operations.descriptor import EngineEffects, OperationDescriptor, Shape, ToolTier
+from tracker.agents.operations.descriptor import (
+    DataClass,
+    EngineEffects,
+    OperationDescriptor,
+    Shape,
+    ToolTier,
+)
 from tracker.agents.operations.envelope import NextAction, OperationError
 from tracker.agents.operations.pursuits import PURSUITS_GET, PursuitState, state_of
 from tracker.analytics.posting_reality import listing_age
@@ -105,13 +119,16 @@ class _Facts(Shape):
     listed_days: int | None
     listed_basis: str | None = Field(json_schema_extra=_CODE)
     #: What the estimate prices: `total`, or `base` when only the base is known.
-    estimate_component: str | None = Field(json_schema_extra=_CODE)
-    estimated_total_comp: EstimatedTotalComp | None
-    estimated_base: EstimatedBase | None
+    #: The three estimate keys are absent when the person does not share
+    #: market statistics.
+    estimate_component: str | None | MISSING = Field(default=MISSING, json_schema_extra=_CODE)
+    estimated_total_comp: EstimatedTotalComp | None | MISSING = MISSING
+    estimated_base: EstimatedBase | None | MISSING = MISSING
     #: Null until the posting's text has been read for pay.
     employer_stated_pay: EmployerStatedPay | None
-    saved: bool
-    pursuit: PursuitState | None
+    #: Both absent when the person does not share their pursuits.
+    saved: bool | MISSING = MISSING
+    pursuit: PursuitState | None | MISSING = MISSING
 
 
 class OpportunitySummary(_Facts):
@@ -194,7 +211,8 @@ class EstimateSource(Shape):
 
 class Evidence(Shape):
     dates: PostingDates
-    estimate_sources: list[EstimateSource]
+    #: Absent when the person does not share market statistics.
+    estimate_sources: list[EstimateSource] | MISSING = MISSING
 
 
 class OpportunityEvidence(_Facts):
@@ -308,10 +326,11 @@ def _not_found(opportunity_id: int) -> OperationError:
     )
 
 
-async def visible_job(session: AsyncSession, opportunity_id: int) -> Job:
+async def visible_job(session: AsyncSession, opportunity_id: int, *, chosen_counts: bool = True) -> Job:
     """The posting, unless it is unknown or at a company the person hid and
     neither saved nor pursued. Both answer the same `not_found`, so a hidden
-    posting cannot be told from a missing one."""
+    posting cannot be told from a missing one. With `chosen_counts` false a
+    saved or pursued posting at a hidden company is not found either."""
     job = await session.get(Job, opportunity_id)
     if job is None:
         raise _not_found(opportunity_id)
@@ -320,6 +339,8 @@ async def visible_job(session: AsyncSession, opportunity_id: int) -> Job:
             exists().where(TrackedCompany.slug == job.company, TrackedCompany.visible.is_(False))
         )
     )
+    if hidden and not chosen_counts:
+        raise _not_found(opportunity_id)
     if hidden:
         chosen = await session.scalar(
             select(
@@ -393,17 +414,27 @@ def _summary_fields(job: Job, *, saved: bool, pursuit: Pursuit | None, now: date
 
 
 async def opportunity(
-    session: AsyncSession, params: OpportunityGetInput, *, now: datetime | None = None
+    session: AsyncSession, params: OpportunityGetInput, *, withheld: Collection[DataClass] = (),
+    now: datetime | None = None,
 ) -> OpportunityView:
-    job = await visible_job(session, params.opportunity_id)
-    saved = await session.scalar(select(exists().where(Favorite.job_id == job.id)))
-    pursuit = await session.scalar(select(Pursuit).where(Pursuit.job_id == job.id))
+    """One posting in the view asked for, without the `withheld` categories."""
+    pursuits = "private_pursuit" not in withheld
+    job = await visible_job(session, params.opportunity_id, chosen_counts=pursuits)
+    saved = await session.scalar(select(exists().where(Favorite.job_id == job.id))) if pursuits else None
+    pursuit = await session.scalar(select(Pursuit).where(Pursuit.job_id == job.id)) if pursuits else None
     if params.description_from is not None and params.view != "detail":
         raise OperationError(
             "invalid_input", "description_from reads a detail view; ask with view detail.",
             details={"field": "description_from", "reason": "detail_only"},
         )
     fields = _summary_fields(job, saved=bool(saved), pursuit=pursuit, now=now or datetime.now(UTC))
+    if not pursuits:
+        for key in ("saved", "pursuit"):
+            del fields[key]
+    statistics = "market_statistic" not in withheld
+    if not statistics:
+        for key in ("estimate_component", "estimated_total_comp", "estimated_base"):
+            del fields[key]
     if params.view == "detail":
         detail = {
             **fields,
@@ -416,7 +447,7 @@ async def opportunity(
         }
         return OpportunityView(bounded_detail(detail, tier=params.tier, start=params.description_from))
     if params.view == "evidence":
-        evidence = {**fields, "view": "evidence", "evidence": await _evidence(session, job)}
+        evidence = {**fields, "view": "evidence", "evidence": await _evidence(session, job, estimates=statistics)}
         return OpportunityView(OpportunityEvidence.model_validate(evidence))
     text = [NextAction(operation=OPPORTUNITIES_GET.id, arguments={
         "opportunity_id": job.id, "view": "detail", "tier": params.tier,
@@ -424,13 +455,8 @@ async def opportunity(
     return OpportunityView(OpportunitySummary.model_validate({**fields, "view": "summary", "continue_with": text}))
 
 
-async def _evidence(session: AsyncSession, job: Job) -> dict[str, Any]:
-    estimates = (
-        await session.scalars(
-            select(JobCompEstimate).where(JobCompEstimate.job_id == job.id).order_by(JobCompEstimate.source)
-        )
-    ).all()
-    return {
+async def _evidence(session: AsyncSession, job: Job, *, estimates: bool) -> dict[str, Any]:
+    evidence = {
         "dates": {
             "employer_published_at": job.posted_at,
             "employer_first_published_at": job.first_posted_at,
@@ -439,6 +465,16 @@ async def _evidence(session: AsyncSession, job: Job) -> dict[str, Any]:
             "closed_at": job.closed_at,
             "description_fetched_at": job.description_fetched_at,
         },
+    }
+    if not estimates:
+        return evidence
+    found = (
+        await session.scalars(
+            select(JobCompEstimate).where(JobCompEstimate.job_id == job.id).order_by(JobCompEstimate.source)
+        )
+    ).all()
+    return {
+        **evidence,
         "estimate_sources": [
             {
                 "source": estimate.source,
@@ -448,7 +484,7 @@ async def _evidence(session: AsyncSession, job: Job) -> dict[str, Any]:
                     for answer in estimate.sources or []
                 ],
             }
-            for estimate in estimates
+            for estimate in found
         ],
     }
 
@@ -477,7 +513,8 @@ def bounded_detail(fields: dict[str, Any], *, tier: ToolTier, start: int | None 
             details={"field": "description_from", "reason": "past_end", "description_chars": len(text)},
         )
     rest = text[begin:]
-    notes = full.pursuit.notes if full.pursuit is not None else None
+    pursuit = full.pursuit if isinstance(full.pursuit, PursuitState) else None
+    notes = pursuit.notes if pursuit is not None else None
     excerpt = Excerpt(
         truncated=True, tier=tier, budget_bytes=budget, full_bytes=full_bytes,
         description_chars=len(text), description_from=begin, kept_chars=0,
@@ -491,10 +528,10 @@ def bounded_detail(fields: dict[str, Any], *, tier: ToolTier, start: int | None 
     })
     shell = full.model_copy(update={"description": "", "description_sections": [], "excerpt": widest})
     room = budget - len(shell.model_dump_json().encode())
-    if notes and full.pursuit is not None and (room < 0 or start is not None):
+    if notes and pursuit is not None and (room < 0 or start is not None):
         # A read from a point is for the description; the notes are read whole elsewhere.
         kept_notes = "" if start is not None else _cut(notes, _size(notes) - 2 + room)
-        shell = shell.model_copy(update={"pursuit": full.pursuit.model_copy(update={"notes": kept_notes})})
+        shell = shell.model_copy(update={"pursuit": pursuit.model_copy(update={"notes": kept_notes})})
         excerpt = excerpt.model_copy(update={"kept_notes_chars": len(kept_notes)})
         # On a first read the notes' word-boundary slack is no room for a
         # scrap of description; on a read from a point the room is what is left.
@@ -552,8 +589,11 @@ def _cut(text: str, room: int) -> str:
     return word or text[:low]
 
 
-async def history(session: AsyncSession, opportunity_id: int, *, now: datetime | None = None) -> ListingHistory:
-    await visible_job(session, opportunity_id)
+async def history(
+    session: AsyncSession, opportunity_id: int, *, pursuits: bool = True, now: datetime | None = None
+) -> ListingHistory:
+    """The posting's listing history. `pursuits` false: see `visible_job`."""
+    await visible_job(session, opportunity_id, chosen_counts=pursuits)
     found = await listing_history(session, opportunity_id, now or datetime.now(UTC))
     if found is None:
         raise _not_found(opportunity_id)

@@ -118,6 +118,8 @@ RECIPES_CONTRACT_GET = OperationDescriptor(
     idempotency="read",
     engine_effects=EngineEffects(),
     tool_tiers=_AUTHORING_TIERS,
+    # The contract says how a recipe reads public postings; it holds no person's data.
+    data_classes=("public_posting",),
 )
 
 SOURCES_INSPECT = OperationDescriptor(
@@ -169,6 +171,7 @@ RECIPES_DRAFT_SAVE = OperationDescriptor(
     idempotency="required_key",
     engine_effects=EngineEffects(state_write=True),
     tool_tiers=_AUTHORING_TIERS,
+    data_classes=("public_posting",),
 )
 
 OPERATIONS: tuple[OperationDescriptor, ...] = (

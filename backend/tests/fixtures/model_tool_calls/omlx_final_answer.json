@@ -1,0 +1,35 @@
+{
+  "id": "chatcmpl-1ddeb9fa",
+  "object": "chat.completion",
+  "created": 1794759427,
+  "model": "Qwen3.5-9B-MLX-4bit",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "You can filter job searches by the following workplace types:\n\n*   **onsite** (812 open roles)\n*   **remote** (241 open roles)\n*   **hybrid** (377 open roles)"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 622,
+    "completion_tokens": 52,
+    "total_tokens": 674,
+    "input_tokens": 622,
+    "output_tokens": 52,
+    "prompt_tokens_details": {
+      "cached_tokens": 518
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "time_to_first_token": 0.43,
+    "total_time": 1.81,
+    "prompt_eval_duration": 0.43,
+    "generation_duration": 1.38,
+    "prompt_tokens_per_second": 240.32,
+    "generation_tokens_per_second": 37.65
+  }
+}

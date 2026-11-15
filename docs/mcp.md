@@ -62,6 +62,9 @@ Every tool except `get_server_status` calls `_access()` (or
 call, so a change in Settings applies to a connected client at once, without a
 restart. A refused call raises `PermissionError` naming the setting to change.
 The Settings card never saves `allow_writes` on without `enabled`.
+The per-category choices beside the switches apply to the agent operations
+([architecture](architecture.md#api-contract)); these tools read only the two
+switches.
 
 ## Tools
 

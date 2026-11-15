@@ -275,3 +275,41 @@ private actor Engine {
     #expect(OfferButton.of(try offer("## Added\n- More.")) == .install)
     #expect(OfferButton.of(nil) == .install)
 }
+
+@MainActor @Test func anOfferedUpdateMarksTheMenuBarIconAtRestAndItsTooltipNamesTheVersion() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("panel-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let path = root.appendingPathComponent("installation.json")
+    try Data(#"{"product":"roleband","instance":"0123456789abcdef01234567","api_origin":"http://127.0.0.1:58241","version":"0.1.0","format":1}"#.utf8).write(to: path)
+    try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path.path)
+    let engine = Engine()
+    let updates = LauncherUpdates(preferences: preferences(), fetch: { release("0.1.1") }, authenticate: { _ in nil })
+    let model = LauncherModel(registration: path, readStatus: { try await engine.read($0) }, launcherVersion: "0.1.0", updates: updates)
+    defer { model.stop(); updates.stop() }
+    await model.refreshAndWait()
+    let state = "RoleBand: " + model.text(model.titleKey, model.helpValues)
+    #expect(model.symbol == "checkmark.circle" && model.menuBarBadge == nil && model.menuBarTitle == state)
+
+    await updates.checkManuallyAndWait()
+    #expect(model.menuBarBadge == "arrow.down.circle.fill")
+    #expect(model.menuBarTitle == state + ". Version 0.1.1 is ready")
+
+    // A running scan needs the person sooner, so its badge takes the place until it ends.
+    await engine.set(scanning: true)
+    await model.refreshAndWait()
+    #expect(model.menuBarBadge == "arrow.triangle.2.circlepath.circle.fill")
+    await engine.set(scanning: false)
+    await model.refreshAndWait()
+    #expect(model.menuBarBadge == "arrow.down.circle.fill")
+
+    // A version that was rolled back is not offered, so it marks nothing.
+    updates.suppress("0.1.1")
+    #expect(model.menuBarBadge == nil && model.menuBarTitle == state)
+}
+
+@MainActor @Test func theUpdateBadgeDrawsAsATemplateSoMacOSTintsItWithTheMenuBar() {
+    let image = BrandGlyph.menuBar(badge: "arrow.down.circle.fill")
+    #expect(image.isTemplate && image.size == BrandGlyph.menuBar.size)
+    #expect(NSImage(systemSymbolName: "arrow.down.circle.fill", accessibilityDescription: nil) != nil)
+}
