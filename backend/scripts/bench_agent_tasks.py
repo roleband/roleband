@@ -75,8 +75,10 @@ applied to a folder of the run's own, never to the person's.
 * `omlx`, `lmstudio`: one loop over an OpenAI-compatible endpoint
   (`--base-url`, defaults in `LOCAL_SERVERS`). MCP: the MCP Python client's
   tools. CLI: one tool, `roleband`, that runs the command with a list of
-  arguments, no shell, and returns its exit status, stdout and stderr. The
-  switch picks only the address, the key (`ROLEBAND_BENCH_API_KEY`, else
+  arguments and an optional standard input (the JSON `--input -` reads), no
+  shell, and returns its exit status, stdout and stderr. A call to any other
+  tool name runs nothing and is graded as the error it returns, as an unknown
+  MCP tool is. The switch picks only the address, the key (`ROLEBAND_BENCH_API_KEY`, else
   oMLX's own) and the version probe.
 * `oracle`, `oracle-wrong-answer`, `oracle-wrong-write`: no model. They answer
   from the expectations through the same interface; the first is the best the
@@ -1177,12 +1179,13 @@ _OFF_LIMITS = ("expectations.json", "prepared.json", "pgdata", "psql", "pg_dump"
 
 
 def _paths_named(command: str, cwd: Path) -> list[Path]:
-    """The paths a command line names, resolved from where it runs."""
+    """The paths a command line names, resolved from where it runs; `@FILE`,
+    the command's way to read input from a file, names FILE."""
     paths = []
     for token in _shell_tokens(command):
-        if "/" not in token and not token.startswith("~") and token not in {".", ".."}:
+        if "/" not in token and not token.startswith(("~", "@~")) and token not in {".", ".."}:
             continue
-        expanded = os.path.expandvars(os.path.expanduser(token.split("=", 1)[-1]))
+        expanded = os.path.expandvars(os.path.expanduser(token.split("=", 1)[-1].removeprefix("@")))
         paths.append(Path(os.path.normpath(cwd / expanded)))
     return paths
 
@@ -1193,6 +1196,14 @@ def _inside(path: Path, folder: Path) -> bool:
     except ValueError:
         return False
     return True
+
+
+def names_bench_files(command: str, cli: CliSetup, workdir: Path) -> bool:
+    """Whether a command line names the bench's answers, its database or any
+    of its files but the trial's log and its `roleband`."""
+    named = [path for path in _paths_named(command, cli.cwd) if _inside(path, workdir)
+             and path != cli.roleband and not _inside(path, cli.log.parent)]
+    return bool(named) or any(word in command for word in _OFF_LIMITS)
 
 
 def cli_breaches(host_calls: list[dict], graded: list[dict], cli: CliSetup, workdir: Path) -> list[str]:
@@ -1213,9 +1224,7 @@ def cli_breaches(host_calls: list[dict], graded: list[dict], cli: CliSetup, work
             breaches.append(f"ran a roleband that is not the trial's: {foreign[0]}")
         if not call.get("refused"):
             certain += sum(1 for _, runs in programs if runs)
-        named = [path for path in _paths_named(command, cli.cwd) if _inside(path, workdir)
-                 and path != cli.roleband and not _inside(path, cli.log.parent)]
-        if named or any(word in command for word in _OFF_LIMITS):
+        if names_bench_files(command, cli, workdir):
             breaches.append(f"named the bench's own files in a command: {command[:80]}")
     if len(graded) < certain:
         breaches.append(f"{certain - len(graded)} roleband call(s) did not reach the trial's command")
@@ -1797,16 +1806,24 @@ class ToolBox:
     call: Any
 
 
-#: The one tool of the CLI mode. Its arguments are an argument list, so there
-#: is no shell between the model and the command.
+#: The one tool of the CLI mode. Its arguments are an argument list and its
+#: standard input a string, so there is no shell between the model and the
+#: command: `stdin` is where a shell host would pipe (`echo '{...}' | roleband`).
 ROLEBAND_TOOL = {"type": "function", "function": {
     "name": "roleband",
     "description": "Run the `roleband` command with these arguments, without a shell. "
-                   "Returns its exit status, stdout and stderr.",
-    "parameters": {"type": "object", "properties": {"args": {
-        "type": "array", "items": {"type": "string"},
-        "description": "the arguments after `roleband`, one string each, such as [\"capabilities\"]",
-    }}, "required": ["args"]},
+                   "Returns its exit status, stdout and stderr. A command given `--input -` reads its JSON "
+                   "from `stdin`: put the JSON object there, not in the arguments.",
+    "parameters": {"type": "object", "properties": {
+        "args": {
+            "type": "array", "items": {"type": "string"},
+            "description": "the arguments after `roleband`, one string each, such as [\"capabilities\"]",
+        },
+        "stdin": {
+            "type": "string",
+            "description": "the command's standard input, such as {\"next_action_due\": null} for `--input -`",
+        },
+    }, "required": ["args"]},
 }}
 
 
@@ -1824,6 +1841,20 @@ def roleband_arguments(raw: Any) -> list[str]:
     if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
         raise ValueError("args is a list of strings, one per argument")
     return value[1:] if value[:1] == ["roleband"] else value
+
+
+def roleband_stdin(raw: Any) -> bytes | None:
+    """The standard input of a `roleband` tool call: a string, or a JSON
+    object or list given as itself (small models send the object, not its
+    text). Absent means none."""
+    value = raw.get("stdin") if isinstance(raw, dict) else None
+    if value is None:
+        return None
+    if isinstance(value, dict | list):
+        value = json.dumps(value)
+    if not isinstance(value, str):
+        raise ValueError("stdin is a string: the JSON text the command reads with --input -")
+    return value.encode("utf-8")
 
 
 @contextlib.asynccontextmanager
@@ -1854,13 +1885,15 @@ def cli_toolbox(cli: CliSetup, cwd: Path) -> ToolBox:
     async def call(name: str, args: Any) -> dict:
         nonlocal count
         if name != "roleband":
-            return {"name": name, "kind": "tool", "result": f"there is no tool named {name!r}", "is_error": True}
+            # Runs nothing, as an unknown MCP tool does: an error the model can recover from.
+            return {"name": name, "kind": "unknown_tool", "result": f"there is no tool named {name!r}",
+                    "is_error": True, "ran": False}
         try:
-            argv = roleband_arguments(args)
+            argv, stdin = roleband_arguments(args), roleband_stdin(args)
         except ValueError as exc:
             return {"name": "roleband", "kind": "roleband", "result": str(exc), "is_error": True, "ran": False}
         count += 1
-        ran = await run_roleband(cli, argv, cwd=cwd, call_id=str(count))
+        ran = await run_roleband(cli, argv, cwd=cwd, stdin=stdin, call_id=str(count))
         return {
             "name": operation_of(argv, cli.known_operations), "kind": "roleband", "argv": argv, "ran": True,
             "call": str(count), "result": ran["stdout"], "stderr": ran["stderr"], "exit_code": ran["exit_code"],
@@ -2235,8 +2268,14 @@ def settle_cli_calls(transcript: Transcript, cli: CliSetup, workdir: Path, *, ho
         seen = sorted("" if call["call"] is None else call["call"] for call in logged)
         if ran != seen:
             transcript.breaches.append(f"the tool's calls {ran} and the command's log {seen} differ")
-        transcript.breaches += [f"used {call['name']} outside the command line"
-                                for call in transcript.tool_calls if call.get("kind") == "tool"]
+        # The loop offers one tool and runs nothing else: a call to another name
+        # is graded as the error it returned, as in MCP mode. What the tool ran
+        # is held to the rule a shell host's commands are.
+        transcript.breaches += [
+            f"named the bench's own files in a command: {shlex.join(call['argv'])[:80]}"
+            for call in transcript.tool_calls
+            if call.get("ran") and names_bench_files(shlex.join(call["argv"]), cli, workdir)
+        ]
         return
     if host not in ORACLES:
         transcript.breaches += cli_breaches(transcript.host_calls, logged, cli, workdir)
