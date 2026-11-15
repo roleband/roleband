@@ -791,15 +791,23 @@ class Tee(io.TextIOBase):
 
 out, err = Tee(sys.stdout), Tee(sys.stderr)
 sys.stdout, sys.stderr = out, err
-started, status = time.time(), 1
+started, status, request_ids = time.time(), 1, []
 try:
-    from tracker.cli.main import main
+    import tracker.cli.main as client
 
-    status = main(sys.argv[1:])
+    # The request id the client sends, so a call printed for people can be
+    # matched to the request the engine answered.
+    def _request_id(make=client.new_request_id):
+        request_ids.append(make())
+        return request_ids[-1]
+
+    client.new_request_id = _request_id
+    status = client.main(sys.argv[1:])
 finally:
     sys.stdout, sys.stderr = out.stream, err.stream
     line = json.dumps({{"argv": sys.argv[1:], "exit_code": status, "stdout": "".join(out.parts),
                        "stderr": "".join(err.parts), "call": os.environ.get({call_env!r}),
+                       "request_id": request_ids[0] if request_ids else None,
                        "started": started, "wall_s": round(time.time() - started, 3)}}) + "\\n"
     descriptor = os.open({log!r}, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
     try:
@@ -1053,20 +1061,34 @@ def cli_setup(trial_dir: Path, engine: Engine, connect: dict, *, cwd: Path | Non
                     known_operations=known_operations(engine.operations), engine=engine, cwd=cwd, connect=connect)
 
 
-def read_cli_log(cli: CliSetup) -> list[dict]:
-    """Every call the trial's `roleband` answered, as graded tool calls."""
+def read_cli_log(cli: CliSetup, breaches: list[str] | None = None) -> list[dict]:
+    """Every call the trial's `roleband` answered, as graded tool calls. A
+    host can write to the log's folder, so a line that is not one the command
+    writes is left out and, given `breaches`, recorded there."""
     if not cli.log.exists():
         return []
-    calls = []
-    for line in cli.log.read_text(encoding="utf-8").splitlines():
+    calls, unreadable = [], 0
+    for line in cli.log.read_text(encoding="utf-8", errors="replace").splitlines():
         if not line.strip():
             continue
-        entry = json.loads(line)
+        try:
+            entry = json.loads(line)
+            argv, stdout, stderr = entry["argv"], entry["stdout"], entry["stderr"]
+            if not (isinstance(argv, list) and all(isinstance(arg, str) for arg in argv)
+                    and isinstance(stdout, str) and isinstance(stderr, str)
+                    and (entry["exit_code"] is None or isinstance(entry["exit_code"], int))):
+                raise TypeError("not a log entry")
+        except (ValueError, TypeError, KeyError):
+            unreadable += 1
+            continue
         calls.append({
-            "name": operation_of(entry["argv"], cli.known_operations), "args": entry["argv"],
-            "result": entry["stdout"], "stderr": entry["stderr"], "exit_code": entry["exit_code"],
+            "name": operation_of(argv, cli.known_operations), "args": argv,
+            "result": stdout, "stderr": stderr, "exit_code": entry["exit_code"],
             "is_error": entry["exit_code"] != 0, "call": entry.get("call"), "wall_s": entry.get("wall_s"),
+            "request_id": entry.get("request_id") if isinstance(entry.get("request_id"), str) else None,
         })
+    if unreadable and breaches is not None:
+        breaches.append(f"the command's log has {unreadable} line(s) it never writes")
     return calls
 
 
@@ -1216,39 +1238,46 @@ def _envelope(text: str | None) -> dict | None:
     return value if isinstance(value, dict) and "ok" in value else None
 
 
+def _as_answered(envelope: dict) -> dict:
+    """An envelope as the engine sent it: the client adds only the context it
+    used to `meta`."""
+    meta = envelope.get("meta")
+    if isinstance(meta, dict) and "context" in meta:
+        envelope = {**envelope, "meta": {key: value for key, value in meta.items() if key != "context"}}
+    return envelope
+
+
 def verify_cli_calls(logged: list[dict], records: list[dict]) -> list[str]:
-    """Hold the command's log to the proxy's records. An answer is graded only
-    if the engine gave it: its request id is one the proxy forwarded and its
-    `ok`, `data` and error code are the engine's. A call the client answered
-    alone (help, `--offline`, a refusal before any request) or printed for
-    people is kept for the count, with no result to grade. A request the log
-    does not account for reached the engine some other way."""
-    by_id = {record["request_id"]: record for record in records if record.get("request_id")}
-    breaches, accounted, unread = [], set(), 0
+    """Hold the command's log to the proxy's records. Each logged call that
+    reached the engine is matched to one request the proxy forwarded, by its
+    request id, and its answer is graded only if it is the engine's reply in
+    every field. A call the client answered alone (help, `--offline`, a
+    refusal before any request) or printed for people is kept for the count,
+    with no result to grade. A request no logged call matched reached the
+    engine some other way."""
+    unmatched: dict[str, list[dict]] = {}
+    for record in records:
+        unmatched.setdefault(record.get("request_id") or "", []).append(record)
+    breaches = []
     for call in logged:
         envelope = _envelope(call.get("result"))
-        request_id = envelope.get("request_id") if envelope else None
-        record = by_id.get(request_id) if isinstance(request_id, str) else None
-        if record is not None:
-            accounted.add(request_id)
+        request_id = envelope.get("request_id") if envelope else call.get("request_id")
+        pending = unmatched.get(request_id) if isinstance(request_id, str) and request_id else None
+        record = pending.pop(0) if pending else None
         client_error = envelope is not None and not envelope["ok"] and \
             (envelope.get("error") or {}).get("code") in _CLIENT_ERRORS
         if envelope is not None and record is not None and not client_error:
-            engine = _envelope(record["body"]) or {}
-            if (envelope.get("ok"), envelope.get("data"), (envelope.get("error") or {}).get("code")) != \
-                    (engine.get("ok"), engine.get("data"), (engine.get("error") or {}).get("code")):
+            if _as_answered(envelope) != _envelope(record["body"]):
                 breaches.append(f"the log's answer to {call['name']} is not the engine's")
-            call["verified"] = True
+                call.update({"verified": False, "stdout": call.get("result"), "result": ""})
+            else:
+                call["verified"] = True
             continue
-        if envelope is None:
-            # Text for people (help, a version, `--format human`): one such
-            # call may account for one request the proxy saw.
-            unread += 1
-        elif not client_error and "--offline" not in call.get("args", []):
+        if envelope is not None and not client_error and "--offline" not in call.get("args", []):
             breaches.append(f"the log holds an answer to {call['name']} the engine never gave")
         call.update({"verified": False, "stdout": call.get("result"), "result": ""})
-    stray = sum(1 for record in records if record.get("request_id") not in accounted) - unread
-    if stray > 0:
+    stray = sum(len(left) for left in unmatched.values())
+    if stray:
         breaches.append(f"the engine was reached {stray} time(s) outside the trial's command")
     return breaches
 
@@ -2052,6 +2081,8 @@ def select_tasks(corpus: dict, wanted: list[str] | None) -> list[dict]:
 async def run_trials(args: argparse.Namespace) -> Path:
     corpus = load_corpus()
     tasks = select_tasks(corpus, args.tasks)
+    if getattr(args, "interface", "mcp") == "cli" and sys.platform == "win32":
+        raise SystemExit("--interface cli gives the host a POSIX shell script as roleband; run it on macOS or Linux")
     workdir = claim_workdir(args.workdir, create=True)
     await prepare(workdir)
     _use_workspace(workdir)
@@ -2122,7 +2153,7 @@ def settle_cli_calls(transcript: Transcript, cli: CliSetup, workdir: Path, *, ho
     engine's own replies bear it out. The local loop ran each call itself, so
     its calls and the log must agree one for one; a shell host's own record
     only proves that nothing ran elsewhere."""
-    logged = read_cli_log(cli)
+    logged = read_cli_log(cli, transcript.breaches)
     transcript.breaches += verify_cli_calls(logged, cli.engine.records)
     if host in LOCAL_SERVERS:
         ran = {call["call"] for call in transcript.tool_calls if call.get("ran")}
