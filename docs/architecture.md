@@ -95,11 +95,13 @@ connection establishes a baseline per installation; newer installed releases
 remain unread until their notes are displayed. This local flow contacts no
 external update service.
 
-Native update checks use the public GitHub releases API only after an explicit
-choice. Automatic checks stay off until enabled. An explicit manual check
-authorizes one request independently of that setting; it neither changes an
-existing choice nor enables automatic checks. A default-off or declined choice
-prevents all passive requests. The native update interaction and
+Native update checks use the public GitHub releases API once a day unless the
+person turns automatic checks off ([decision 0019](decisions/0019-update-checks-on-by-default.md)).
+An install that never chose checks without recording a choice; turning the switch
+off or on records one. An explicit manual check authorizes one request
+independently of that setting and changes no choice. A choice to turn checks off,
+or a declined choice kept in older preferences, prevents all passive requests.
+The native update interaction and
 content rules are in [ui.md](ui.md#native-launcher-updates).
 Daily checks are throttled across restarts, including failed attempts; server
 rate limits also delay manual checks. Requests carry no credentials, refuse
