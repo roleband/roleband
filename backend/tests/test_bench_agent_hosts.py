@@ -413,14 +413,15 @@ async def test_an_answer_counts_only_if_the_engine_gave_it(tmp_path):
 def test_a_log_line_the_command_never_writes_is_a_breach_not_a_crash(tmp_path):
     cli = _cli(tmp_path)
     good = {"argv": ["status"], "exit_code": 3, "stdout": "{}", "stderr": ""}
+    nested = "[" * 200_000 + "]" * 200_000  # past the parser's recursion limit
     cli.log.write_text("\n".join([json.dumps(good), "{not json", json.dumps({**good, "argv": "status"}),
-                                   json.dumps({"argv": ["status"]}), json.dumps(good)]) + "\n")
+                                   json.dumps({"argv": ["status"]}), nested, json.dumps(good)]) + "\n")
     breaches: list[str] = []
     assert [call["args"] for call in read_cli_log(cli, breaches)] == [["status"], ["status"]]
-    assert breaches == ["the command's log has 3 line(s) it never writes"]
+    assert breaches == ["the command's log has 4 line(s) it never writes"]
     transcript = Transcript()
     settle_cli_calls(transcript, cli, tmp_path / "ws", host="claude-code")
-    assert "the command's log has 3 line(s) it never writes" in transcript.breaches
+    assert "the command's log has 4 line(s) it never writes" in transcript.breaches
     assert len(transcript.tool_calls) == 2
     # A well-formed line whose reply is not one the client prints: a breach, ungraded, and the run goes on.
     with cli.log.open("a") as log:

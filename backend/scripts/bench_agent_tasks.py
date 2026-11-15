@@ -1078,7 +1078,7 @@ def read_cli_log(cli: CliSetup, breaches: list[str] | None = None) -> list[dict]
                     and isinstance(stdout, str) and isinstance(stderr, str)
                     and (entry["exit_code"] is None or isinstance(entry["exit_code"], int))):
                 raise TypeError("not a log entry")
-        except (ValueError, TypeError, KeyError):
+        except (ValueError, TypeError, KeyError, RecursionError):
             unreadable += 1
             continue
         calls.append({
