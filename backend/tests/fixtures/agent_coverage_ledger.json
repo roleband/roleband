@@ -1,5 +1,15 @@
 {
- "_why": "Every route of the dashboard API, with what an agent reaches it through: the ID of the operation that covers it, or an exclusion kind and the reason no operation does. tests/test_agent_coverage_ledger.py fails when a route has no row, so a new route cannot ship without that decision. Routes under /api/agent/v1/ are the operation surface itself and need no row. agent_only names the operations that cover no dashboard route, each with why.",
+ "_why": "Every route of the dashboard API, with what an agent reaches it through: the ID of the operation that covers it, or an exclusion kind and the reason no operation does. tests/test_agent_coverage_ledger.py fails when a route has no row, so a new route cannot ship without that decision. Routes under /api/agent/v1/ are the operation surface itself and need no row. `unrouted` lists the operations that cover no dashboard route, each with why it exists.",
+ "unrouted": [
+  {
+   "operation": "context.export",
+   "why": "The dashboard has no export: it assembles one opportunity's posting, pay evidence, company facts and pursuit as one hashed packet an assistant keeps, from the reads opportunities.get and the company profile serve."
+  },
+  {
+   "operation": "changes.list",
+   "why": "The dashboard shows the current radar: an assistant needs what changed since it last looked, in commit order, from a position it holds."
+  }
+ ],
  "rows": [
   {
    "method": "DELETE",
@@ -89,7 +99,7 @@
   {
    "method": "GET",
    "path": "/api/applications",
-   "operation": "pursuits.list"
+   "operation": "applications.board"
   },
   {
    "method": "GET",
@@ -457,7 +467,7 @@
   {
    "method": "GET",
    "path": "/api/status",
-   "operation": "status"
+   "operation": "doctor"
   },
   {
    "method": "GET",
@@ -955,12 +965,6 @@
    "path": "/api/usage/consent",
    "excluded": "app_setting",
    "reason": "Usage-data consent and the install ID are the person's answer, given in the app."
-  }
- ],
- "agent_only": [
-  {
-   "operation": "changes.list",
-   "why": "Covers no dashboard route: the app shows the current radar, and an agent needs what changed since it last looked, in commit order, from a position it holds."
   }
  ]
 }
