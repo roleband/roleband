@@ -613,10 +613,17 @@ def structured_conds(
     # job the user later dismissed must still show in the pipeline and Compare.
     # Not for me is the role's: marking any member of a place set
     # hides every member, so no filter brings it back through a sibling.
+    # `keep_dismissed` lists them like any other role, for a reader that may
+    # not learn what the person dismissed.
     dismissed_ids = select(JobFeedback.job_id).where(JobFeedback.verdict == "dismissed")
     if params.get("dismissed_only"):
         conds.append(Job.id.in_(dismissed_ids))
-    elif browse_visibility and not params.get("ids") and not params.get("favorites_only"):
+    elif (
+        browse_visibility
+        and not params.get("ids")
+        and not params.get("favorites_only")
+        and not params.get("keep_dismissed")
+    ):
         conds.append(not_(place_set_member_in(dismissed_ids)))
     if params.get("ids"):
         conds.append(Job.id.in_(params["ids"]))
