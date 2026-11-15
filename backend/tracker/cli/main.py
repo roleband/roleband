@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any, NoReturn, TextIO, cast
 
 from tracker.agents.operations.outcomes import CONTRACT_VERSION, EXIT_OK, outcome
+from tracker.cli import connect
 from tracker.cli.errors import (
     PARSE_OPERATION,
     ClientError,
@@ -124,6 +125,7 @@ def build_parser() -> Parser:
     describe.add_argument("operation", metavar="OPERATION", type=_operation_id,
                           help="a dotted operation id, such as status")
     describe.add_argument("--offline", action="store_true", help="read the bundled index; ask no engine")
+    connect.register(command)
     return parser
 
 
@@ -165,7 +167,7 @@ def _isatty(stream: TextIO) -> bool:
 
 
 def _attempted(argv: Sequence[str]) -> str:
-    known = {"status", "capabilities", "describe"}
+    known = {"status", "capabilities", "describe", "connect"}
     for token in argv:
         if token in known:
             return token
@@ -251,6 +253,7 @@ def _live(args: argparse.Namespace, request_id: str) -> dict[str, Any]:
 _OFFLINE: dict[str, Callable[[argparse.Namespace], dict[str, Any]]] = {
     "capabilities": _offline_capabilities,
     "describe": _offline_describe,
+    "connect": connect.run,
 }
 
 

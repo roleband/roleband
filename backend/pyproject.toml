@@ -298,6 +298,7 @@ files = [
     "tracker/platform/tables.py",
     "tracker/platform/launcher.py",
     "tracker/platform/preparation.py",
+    "tracker/platform/command_shim.py",
     "tracker/platform/releases.py",
     "tracker/platform/paths.py",
     "tracker/platform/os_process.py",

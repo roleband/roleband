@@ -87,6 +87,16 @@ WINDOWS_SKIPS: tuple[tuple[re.Pattern[str], str], ...] = (
         "the Mac app bundle's state; the Windows package keeps its own (tests/test_windows_state.py)",
     ),
     (
+        re.compile(r"connect sets up Mac hosts"),
+        "`roleband connect` writes the agent host settings measured on the Mac; the Linux lane runs these "
+        "tests (tests/test_cli_connect.py)",
+    ),
+    (
+        re.compile(r"the shim is a POSIX script for the Mac app"),
+        "the `roleband` command the Mac app writes into ~/.local/bin; the Linux lane runs these tests "
+        "(tests/test_command_shim.py)",
+    ),
+    (
         re.compile(r"preflight\.sh needs git and shasum"),
         "the Mac's unattended-run preflight script",
     ),

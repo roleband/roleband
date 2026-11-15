@@ -51,6 +51,7 @@ CONTRACT_EXITS = {
     "context_required": 2,
     "context_not_found": 2,
     "context_invalid": 2,
+    "unsupported_host": 2,
     "engine_unavailable": 3,
     "engine_not_ready": 3,
     "transport_error": 3,

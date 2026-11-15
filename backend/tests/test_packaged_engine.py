@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -19,9 +21,11 @@ ROOT = Path(__file__).resolve().parents[2]
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="macOS bundle state redirects through HOME")
 
 
-@pytest.fixture
-def bundle(tmp_path):
-    resources = tmp_path / "RoleBand Test.app" / "Contents" / "Resources"
+@contextlib.contextmanager
+def assembled(parent: Path, interpreter: str | None = None, *, locked: bool = True):
+    """An app bundle in `parent`, read-only unless `locked` is false. With `interpreter`, its
+    `python/bin/python3.12` is a script that runs that interpreter, as the app's bundled one would."""
+    resources = parent / "RoleBand Test.app" / "Contents" / "Resources"
     engine = resources / "engine"
     shutil.copytree(ROOT / "backend" / "tracker", engine / "tracker", ignore=shutil.ignore_patterns("__pycache__"))
     shutil.copytree(ROOT / "backend" / "alembic", engine / "alembic", ignore=shutil.ignore_patterns("__pycache__"))
@@ -40,15 +44,25 @@ def bundle(tmp_path):
     (dashboard / "index.html").write_text("<html>packaged dashboard</html>")
     shutil.copy(ROOT / "dashboard" / "csp-policy.json", dashboard)
     shutil.copy(ROOT / "CHANGELOG.md", resources)
+    if interpreter is not None:
+        python = resources / "python" / "bin" / "python3.12"
+        python.parent.mkdir(parents=True)
+        python.write_text(f'#!/bin/sh\nexec {shlex.quote(interpreter)} "$@"\n')
     for path in resources.rglob("*"):
-        path.chmod(0o555 if path.is_dir() else 0o444)
-    resources.chmod(0o555)
+        path.chmod((0o555 if path.is_dir() or path.name == "python3.12" else 0o444) | (0 if locked else 0o200))
+    resources.chmod(0o555 if locked else 0o755)
     try:
         yield resources
     finally:
         resources.chmod(0o755)
         for path in resources.rglob("*"):
-            path.chmod(0o755 if path.is_dir() else 0o644)
+            path.chmod(0o755 if path.is_dir() or path.name == "python3.12" else 0o644)
+
+
+@pytest.fixture
+def bundle(tmp_path):
+    with assembled(tmp_path) as resources:
+        yield resources
 
 
 def probe(resources: Path, tmp_path: Path, script: str) -> subprocess.CompletedProcess:
@@ -322,6 +336,54 @@ help = subprocess.run([sys.executable, '-I', str(bootstrap), 'supervisor', '--he
 assert help.returncode == 0 and 'maintenance' in help.stdout, help.stderr
 """)
     assert result.returncode == 0, result.stderr
+
+
+def _tree(root: Path) -> dict[str, str]:
+    """Every path under `root`, a folder as "dir" and a file as its bytes' hash."""
+    import hashlib
+
+    return {str(path.relative_to(root)): "dir" if path.is_dir() else hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in sorted(root.rglob("*"))}
+
+
+def test_the_roleband_command_runs_the_bundles_client_and_writes_nothing_inside_it(tmp_path):
+    from tracker.platform import command_shim
+
+    home = tmp_path / "user home"
+    (home / "Applications").mkdir(parents=True)
+    # A project folder with its own .env, and a PYTHONHOME no interpreter can start from: one
+    # that read the PYTHON variables (no -I) would fail before the client ran.
+    decoy = tmp_path / "project"
+    decoy.mkdir()
+    (decoy / ".env").write_text("ROLEBAND_API_PORT=1\n")
+    env = {"HOME": str(home), "PATH": "/usr/bin:/bin", "LANG": "en_US.UTF-8", "PYTHONHOME": str(decoy),
+           "ROLEBAND_CLI_CONFIG": str(tmp_path / "cli.json")}
+    # Writable, as an app in the person's Applications folder is, so bytecode would land in it
+    # if the command ran without -B.
+    with assembled(home / "Applications", interpreter=sys.executable, locked=False) as resources:
+        app = resources.parent.parent
+        shim = command_shim.shim_path(home)
+        assert command_shim.install(app, resources / "python" / "bin" / "python3.12", home) == command_shim.WRITTEN
+        before = _tree(app)
+
+        def roleband(*args: str) -> subprocess.CompletedProcess[str]:
+            return subprocess.run([str(shim), *args], cwd=decoy, env=env, capture_output=True, text=True, timeout=60)
+
+        version = roleband("--version")
+        assert version.returncode == 0, version.stderr
+        assert version.stdout.startswith("roleband 1.2.3 "), version.stdout
+        offline = roleband("capabilities", "--offline", "--json")
+        assert offline.returncode == 0, offline.stderr
+        assert json.loads(offline.stdout)["data"]["metadata_source"] == "bundled"
+        connected = roleband("connect", "claude-code", "--apply", "--json")
+        assert connected.returncode == 0, connected.stdout + connected.stderr
+        answer = json.loads(connected.stdout)["data"]
+        assert answer["command"]["present"] is True
+        assert answer["skill"]["action"] == "install" and Path(answer["skill"]["path"]).is_file()
+        no_engine = roleband("status", "--json")
+        assert no_engine.returncode == 2 and json.loads(no_engine.stdout)["error"]["code"] == "context_required"
+        assert _tree(app) == before
+        assert not [path for path in app.rglob("__pycache__")]
 
 
 def test_packaged_children_ignore_the_persons_own_python_packages(tmp_path):

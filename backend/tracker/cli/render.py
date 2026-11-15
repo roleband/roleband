@@ -84,4 +84,10 @@ def _generic(data: object) -> list[str]:
     return [escape(line) for line in json.dumps(data, ensure_ascii=False, indent=2).splitlines()]
 
 
-_HUMAN = {"status": _status, "capabilities": _capabilities, "describe": _describe}
+def _connect(data: dict[str, Any]) -> list[str]:
+    from tracker.cli.connect import human_lines
+
+    return human_lines(data, escape)
+
+
+_HUMAN = {"status": _status, "capabilities": _capabilities, "describe": _describe, "connect": _connect}

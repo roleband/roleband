@@ -14,7 +14,7 @@ from typing import Any
 
 from tracker import __version__
 from tracker.config import get_settings
-from tracker.platform import preparation
+from tracker.platform import command_shim, preparation
 from tracker.platform.embedded_db import claim_cluster
 from tracker.platform.launcher import installation_identity
 from tracker.platform.local_http import (
@@ -192,6 +192,21 @@ def migrate() -> None:
     asyncio.run(backfill_arrivals())
 
 
+def write_command_shim(home: Path) -> str:
+    """Point `~/.local/bin/roleband` at this bundle. Runs on every start of the app's own engine,
+    which the app makes only from an installed copy; `command_shim.install` refuses any other
+    location itself. A shim that cannot be written never stops the engine."""
+    app = REPO_ROOT.parent.parent
+    try:
+        outcome = command_shim.install(app, Path(sys.executable), home)
+    except OSError:
+        logger.warning("the roleband command could not be written to %s", command_shim.shim_path(home), exc_info=True)
+        return "failed"
+    if outcome == command_shim.KEPT_FOREIGN:
+        logger.warning("%s is not RoleBand's command; it is left as it is", command_shim.shim_path(home))
+    return outcome
+
+
 def run() -> None:
     settings = get_settings()
     if settings.database_url_override or not settings.db_embedded:
@@ -199,6 +214,8 @@ def run() -> None:
     home = Path.home()
     if (DATA_DIR / "launcher" / "installation.json").exists() or (home / "Library/LaunchAgents/com.roleband.plist").exists():
         raise ValueError("An install from source keeps its own engine")
+    if sys.platform == "darwin":
+        write_command_shim(home)
     claim_cluster(settings.embedded_pgdata(), "app")
     preparation.update(DATA_DIR, database="creating", service="starting", reason=None)
     # Authenticated discovery follows each server's actual endpoint. A separate
