@@ -14,7 +14,7 @@ automatic-check and notices switches follow. The manual action works with automa
 checks off and leaves that choice unchanged. Show an up-to-date result only
 after a successful check; an unchecked state must not imply success.
 
-The login page and preferences use the same automatic-check toggle, initially off. The
+The login page and preferences use the same automatic-check toggle, initially on. The
 toggle remains visible after a change; no separate question or pair of choice
 buttons is needed. A routine update setting does not need a paragraph, privacy
 disclosure, provider name or network details,
@@ -110,7 +110,7 @@ completion do not change login items. A copy that has never registered reads as
 off, not unavailable: macOS reports it as not found until the first registration.
 Show the actual approval state and an inline System Settings action when approval
 is needed. Automatic
-update checks start off and share the same explicit choice as Settings.
+update checks start on and share the same choice as Settings.
 
 Ready is a concise completion page with Open Radar as the primary action and
 Not now as the quiet secondary action. Omit repeated checklists, optional settings,

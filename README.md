@@ -289,8 +289,8 @@ The launcher and the background engine have separate login settings; quitting
 the launcher keeps RoleBand running. It reopens the browser at the registered
 address, including a configured port.
 
-The final setup step offers optional update checks, also available in Launcher
-preferences. Automatic checks start off; enable the toggle to check automatically.
+The final setup step shows the automatic update check, also available in Launcher
+preferences. It checks once a day unless you turn the toggle off.
 Check now always runs a single check without changing that setting.
 An available release opens a notes preview with instructions for updating the
 checkout and rebuilding the launcher; only the downloaded app installs its own

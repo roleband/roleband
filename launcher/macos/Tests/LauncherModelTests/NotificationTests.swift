@@ -124,7 +124,7 @@ import LauncherCore
                                     "assets": ReleaseFiles.all("0.2.0").map { ["name": $0, "state": "uploaded"] }]
         try JSONSerialization.data(withJSONObject: release).write(to: file, options: .atomic)
         await updates.checkManuallyAndWait()
-        #expect(updates.offered?.version == "0.2.0" && !updates.automatic)
+        #expect(updates.offered?.version == "0.2.0" && updates.consent == .undecided)
         try Data("{}".utf8).write(to: file, options: .atomic)
         await updates.checkManuallyAndWait()
         #expect(updates.messageKey == "update-failed" && updates.offered?.version == "0.2.0")

@@ -53,6 +53,8 @@ private actor Engine {
     let updates = LauncherUpdates(preferences: defaults, fetch: { release("0.1.1") }, authenticate: { _ in nil })
     var asked: [Bool] = []
     updates.noticesChanged = { asked.append($0) }
+    #expect(updates.notices)
+    updates.setAutomaticChecks(false, requestNotifications: false)
     #expect(!updates.notices)
     updates.setAutomaticChecks(true, requestNotifications: false)
     #expect(updates.notices)

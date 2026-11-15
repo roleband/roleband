@@ -126,7 +126,8 @@ private extension Result {
 
 /// The left column of the scan picture starts at the card's content edge, where the progress line
 /// and the schedule line start, so the column must be as wide as its widest line.
-@Test func theScanPicturesLeftColumnHoldsEveryLanguagesFactsInsideTheCard() {
+// AppKit measures text on the main thread only; measuring from parallel tests can crash CoreText.
+@MainActor @Test func theScanPicturesLeftColumnHoldsEveryLanguagesFactsInsideTheCard() {
     // A label wider than the default column: the column grows to hold it instead of letting it spill left.
     let wide = "empresas escaneadas"
     #expect(FactColumn.width(wide, font: FactColumn.labelFont) > FactColumn.restMinimum)
@@ -146,7 +147,7 @@ private extension Result {
     }
 }
 
-@Test func theScanPicturesLeftColumnStopsGrowingWhereTheChannelsWouldGrowTooShort() {
+@MainActor @Test func theScanPicturesLeftColumnStopsGrowingWhereTheChannelsWouldGrowTooShort() {
     let long = String(repeating: "scanned companies ", count: 4)
     #expect(FactColumn.rest([.init(figure: "5,008", label: long)]) == FactColumn.maximum)
     #expect(FactColumn.live(names: [long], clocks: ["1m"]) == FactColumn.maximum)
@@ -154,7 +155,7 @@ private extension Result {
     #expect(FactColumn.live(names: ["Apple"], clocks: ["1m"]) == FactColumn.liveMinimum)
 }
 
-@Test func aLiveCompanyNameIsCutToTheColumnAndItsClockFitsAWholeHour() {
+@MainActor @Test func aLiveCompanyNameIsCutToTheColumnAndItsClockFitsAWholeHour() {
     let name = "Palo Alto Networks Federal Systems Group"
     let cut = FactColumn.truncated(name, font: FactColumn.nameFont, to: FactColumn.maximum)
     #expect(cut != name && cut.hasSuffix("…") && name.hasPrefix(String(cut.dropLast())))
@@ -167,7 +168,7 @@ private extension Result {
     #expect(FactColumn.live(names: ["Nvidia"], clocks: [clock]) >= FactColumn.width(clock, font: FactColumn.clockFont))
 }
 
-@Test func theLiveColumnFitsAClockPastTheFirstHour() {
+@MainActor @Test func theLiveColumnFitsAClockPastTheFirstHour() {
     // Chinese writes the hour wider than the minute and second: "23小时59分钟" outgrows "59分钟59秒".
     let locale = LauncherCopy(language: "zh-Hans").locale
     let start = Date(timeIntervalSinceReferenceDate: 0)

@@ -48,11 +48,29 @@ private final class UpdateClock: @unchecked Sendable {
     try await body(updates, transport, clock, preferences)
 }
 
-@MainActor @Test func unansweredAndDeclinedChoicesNeverSendUpdateRequestsEvenWhenAskedOrStarted() async throws {
+@MainActor @Test func anInstallThatNeverChoseChecksOnceADayWithoutRecordingAChoice() async throws {
+    try await withUpdates { updates, transport, clock, preferences in
+        #expect(updates.consent == .undecided && updates.automatic)
+        await updates.checkAndWait(automatic: true)
+        #expect(await transport.calls == 1)
+        #expect(updates.offered?.version == "0.2.0")
+        clock.advance(86399)
+        let restored = LauncherUpdates(preferences: preferences, fetch: { try await transport.fetch() }, now: { clock.now() }, authenticate: { _ in nil })
+        defer { restored.stop() }
+        await restored.checkAndWait(automatic: true)
+        #expect(await transport.calls == 1)
+        clock.advance(1)
+        await restored.checkAndWait(automatic: true)
+        #expect(await transport.calls == 2)
+        #expect(restored.consent == .undecided)
+        #expect(preferences.string(forKey: "updateConsent") == nil)
+        #expect(preferences.string(forKey: "updateConsentText") == nil)
+        #expect(preferences.object(forKey: "updateConsentAt") == nil)
+    }
+}
+
+@MainActor @Test func aDeclinedChoiceNeverSendsUpdateRequestsEvenWhenAskedOrStarted() async throws {
     try await withUpdates { updates, transport, _, preferences in
-        updates.start()
-        await updates.checkAndWait()
-        #expect(await transport.calls == 0)
         updates.choose(.declined)
         updates.start()
         await updates.checkAndWait()
@@ -201,12 +219,11 @@ private final class UpdateClock: @unchecked Sendable {
         defer { restored.stop() }
         restored.start()
         await restored.checkAndWait()
-        #expect(!restored.needsChoice && !restored.automatic)
+        #expect(restored.consent == .declined && !restored.automatic)
         #expect(await transport.calls == 0)
         #expect(preferences.string(forKey: "updateConsentText") == "Previously displayed wording")
         await restored.checkManuallyAndWait()
-        #expect(!restored.needsChoice && !restored.automatic)
-        #expect(restored.consent == .declined)
+        #expect(restored.consent == .declined && !restored.automatic)
         #expect(await transport.calls == 1)
         #expect(preferences.string(forKey: "updateConsentText") == "Previously displayed wording")
     }
@@ -214,9 +231,9 @@ private final class UpdateClock: @unchecked Sendable {
 
 @MainActor @Test func turningTheSetupToggleOffKeepsAutomaticChecksOffWithoutBlockingALaterExplicitCheck() async throws {
     try await withUpdates { updates, transport, clock, preferences in
-        #expect(updates.needsChoice)
+        #expect(updates.consent == .undecided && updates.automatic)
         updates.setAutomaticChecks(false)
-        #expect(!updates.needsChoice && !updates.automatic)
+        #expect(updates.consent == .manual && !updates.automatic)
         #expect(preferences.string(forKey: "updateConsentText") == updates.text("update-automatic"))
         updates.start()
         await updates.checkAndWait(automatic: true)
@@ -226,22 +243,22 @@ private final class UpdateClock: @unchecked Sendable {
         let restored = LauncherUpdates(preferences: preferences, fetch: { try await transport.fetch() }, now: { clock.now() }, authenticate: { _ in nil })
         defer { restored.stop() }
         restored.start()
-        #expect(!restored.needsChoice && !restored.automatic)
+        #expect(restored.consent == .manual && !restored.automatic)
         #expect(await transport.calls == 1)
     }
 }
 
-@MainActor @Test func checkNowIsAnExplicitOneOffRequestWithoutEnablingAutomaticChecksOrCreatingAPrivacyReceipt() async throws {
+@MainActor @Test func checkNowRecordsNoChoiceAndCountsAsTheDaysCheck() async throws {
     try await withUpdates { updates, transport, clock, preferences in
-        #expect(updates.needsChoice && !updates.automatic)
-        #expect(await transport.calls == 0)
         await updates.checkManuallyAndWait()
         #expect(await transport.calls == 1)
-        #expect(updates.needsChoice && !updates.automatic)
+        #expect(updates.consent == .undecided && updates.automatic)
         #expect(preferences.string(forKey: "updateConsentText") == nil)
-        clock.advance(86401)
-        updates.start()
+        await updates.checkAndWait(automatic: true)
         #expect(await transport.calls == 1)
+        clock.advance(86400)
+        await updates.checkAndWait(automatic: true)
+        #expect(await transport.calls == 2)
     }
 }
 
@@ -249,7 +266,7 @@ private final class UpdateClock: @unchecked Sendable {
     try await withUpdates { updates, transport, clock, preferences in
         updates.setAutomaticChecks(true)
         await updates.checkAndWait(automatic: true)
-        #expect(updates.automatic && !updates.needsChoice)
+        #expect(updates.automatic && updates.consent == .daily)
         let wording = updates.text("update-automatic")
         updates.setAutomaticChecks(false)
         #expect(!updates.automatic)
@@ -261,7 +278,7 @@ private final class UpdateClock: @unchecked Sendable {
         let restored = LauncherUpdates(preferences: preferences, fetch: { try await transport.fetch() }, now: { clock.now() }, authenticate: { _ in nil })
         defer { restored.stop() }
         restored.start()
-        #expect(!restored.automatic && !restored.needsChoice)
+        #expect(!restored.automatic && restored.consent == .manual)
         #expect(preferences.string(forKey: "updateConsentText") == wording)
     }
 }
