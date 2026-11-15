@@ -41,10 +41,10 @@ CONTRADICTION = "Base pay: $150,000 - $200,000 per month, paid in arrears."
 OVERLAP = "Base pay: $10,000 - $12,000 per hour."
 
 
-def _ashby_quote(interval: str) -> str:
-    """The quote the Ashby connector stores for a $180,000 - $220,000 band."""
+def _ashby_quote(interval: str, low: int = 180_000, high: int = 220_000) -> str:
+    """The quote the Ashby connector stores for a `low` - `high` band."""
     payload = {"compensation": {"summaryComponents": [{
-        "compensationType": "Salary", "minValue": 180_000, "maxValue": 220_000,
+        "compensationType": "Salary", "minValue": low, "maxValue": high,
         "currencyCode": "USD", "interval": interval,
     }]}}
     return AshbyDetailConnector().parse_payload(payload).source_disclosed_comp.source_snippet
@@ -129,14 +129,18 @@ def test_a_band_stored_whole_over_several_years_becomes_one_year_s_share():
     # Read since the connector divides: already a year's share, never divided twice.
     assert multi_year_share((90_000, 110_000, "USD", "year"), two_years) is None
     # Where month and year share the share's size, the stated years still decide.
-    assert multi_year_share((24_000, 28_000, "USD", "unclear"), two_years) == {
+    assert multi_year_share((24_000, 28_000, "USD", "unclear"), _ashby_quote("2 YEAR", 24_000, 28_000)) == {
         "disclosed_base_min": 12_000, "disclosed_base_max": 14_000, "disclosed_pay_period": "year",
     }
     # A share no year can hold is left whole: dividing it again could never end.
-    assert multi_year_share((600, 800, "USD", "unclear"), two_years) is None
+    assert multi_year_share((600, 800, "USD", "unclear"), _ashby_quote("2 YEAR", 600, 800)) is None
+    # Another band's quote never divides this one.
+    assert multi_year_share((24_000, 28_000, "USD", "unclear"), two_years) is None
     # A count of years about something else never divides the band.
     beside = "Base pay: $180,000 - $220,000 per month; retention bonus paid per 2 years"
     assert multi_year_share((180_000, 220_000, "USD", "unclear"), beside) is None
+    bonus = "Base pay: $180,000 - $220,000 per month; bonus $20,000 per 2 years"
+    assert multi_year_share((180_000, 220_000, "USD", "unclear"), bonus) is None
     assert multi_year_share((180_000, 220_000, "USD", "unclear"), "$180K - $220K USD per 2 years") == {
         "disclosed_base_min": 90_000, "disclosed_base_max": 110_000, "disclosed_pay_period": "year",
     }
@@ -226,9 +230,9 @@ async def test_a_run_killed_midway_keeps_the_batches_it_saved(db_session, monkey
 
 @pytest.mark.asyncio
 async def test_the_pass_divides_a_band_stored_whole_over_several_years(db_session):
-    quote = _ashby_quote("2 YEAR")
-    rows = []
+    rows, quotes = [], {}
     for key, low, high in (("salary", 180_000, 220_000), ("overlap", 24_000, 28_000)):
+        quote = quotes[key] = _ashby_quote("2 YEAR", low, high)
         legacy = _row(key, quote, low, high, "USD", "unclear")
         legacy.disclosed_snippet = quote
         legacy.disclosed_source = "connector"
@@ -245,8 +249,8 @@ async def test_the_pass_divides_a_band_stored_whole_over_several_years(db_sessio
         for job in (await db_session.scalars(select(Job))).all()
     }
     assert stored == {
-        "salary": (90_000, 110_000, "year", quote),
-        "overlap": (12_000, 14_000, "year", quote),
+        "salary": (90_000, 110_000, "year", quotes["salary"]),
+        "overlap": (12_000, 14_000, "year", quotes["overlap"]),
     }
 
     # Divided once: neither row is a candidate again.

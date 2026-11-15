@@ -493,7 +493,7 @@ def multi_year_share(
     left whole and `unclear`.
     """
     low, high, currency, period = stored
-    years = years_in_quote(quote)
+    years = years_in_quote(quote, low, high)
     if period != PayPeriod.unclear.value or years <= 1 or (low is None and high is None):
         return None
     share_low = low // years if low is not None else None

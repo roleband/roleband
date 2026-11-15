@@ -33,18 +33,28 @@ def _interval(raw: object) -> tuple[int, str] | None:
 
 
 #: The count `_formatted_salary` writes after an amount stated over several
-#: years, right after the amount or its currency code: "$180,000 - $220,000
-#: per 2 years", "$180K - $220K USD per 2 years".
-_YEARS_RE = re.compile(r"\d[\d,.]*\s*[kKmM]?(?:\s+[A-Z]{3})?\s+per (\d+) years\b")
+#: years: "$180,000 - $220,000 per 2 years", "$180K - $220K USD per 2 years".
+_YEARS_RE = re.compile(r"\bper (\d+) years\b")
+_AMOUNT_RE = re.compile(r"(\d[\d,]*(?:\.\d+)?)\s*([kKmM])?(?![\d,])")
+_SCALE = {"k": 1_000, "m": 1_000_000}
 
 
-def years_in_quote(quote: str | None) -> int:
-    """How many years a stored Ashby quote says its amount covers: the count
-    in "per 2 years" when it follows the amount itself, 1 otherwise. A count
-    elsewhere in the quote ("a retention bonus paid per 2 years") describes
-    something else."""
-    match = _YEARS_RE.search(quote or "")
-    return int(match.group(1)) if match else 1
+def years_in_quote(quote: str | None, low: int | None, high: int | None) -> int:
+    """How many years a stored Ashby quote says the band `low`-`high` covers:
+    the count in "per 2 years" when the amounts just before it, in the same
+    clause, are that band's; 1 otherwise. A count beside another figure
+    ("bonus $20,000 per 2 years") describes that figure."""
+    bounds = {bound for bound in (low, high) if bound is not None}
+    for match in _YEARS_RE.finditer(quote or ""):
+        clause = re.split(r"[;:\n]", (quote or "")[: match.start()])[-1]
+        amounts = {
+            round(float(number.replace(",", "")) * _SCALE.get(scale.lower(), 1) if scale else
+                  float(number.replace(",", "")))
+            for number, scale in _AMOUNT_RE.findall(clause)
+        }
+        if bounds and bounds <= amounts:
+            return int(match.group(1))
+    return 1
 
 
 def _stated_period(raw: object) -> PayPeriod | None:

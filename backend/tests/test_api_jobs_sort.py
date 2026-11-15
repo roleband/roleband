@@ -221,6 +221,9 @@ _BASE_ROWS = {
     "posted-max-only": ("base", "year", "USD", None, 160_000, None, "USD"),
     # A salary-sized amount stored as hourly: only a year holds it, so the row shows it yearly.
     "posted-hour-salary-sized": ("base", "hour", "USD", 165_000, 200_000, 300_000, "USD"),
+    # A salary-sized amount stored `unclear`, as a band stated whole over two
+    # years was: shown as could-not-tell, so it ranks and filters as nothing.
+    "posted-unclear-salary-sized": ("base", "unclear", "USD", 180_000, 220_000, None, "USD"),
     # No stored period: read by size, as yearly.
     "posted-no-period": ("base", None, "USD", 155_000, 190_000, 390_000, "USD"),
     # An estimate in another currency is shown in it and compares with nothing.
@@ -272,7 +275,7 @@ async def test_base_pay_sort_reads_the_posted_low_end_else_the_estimate(db_sessi
     desc = list((await db_session.execute(order("desc"))).scalars())
     assert desc[:7] == ranked
     # Shown but not comparable, or nothing at all: last, never ranked by an estimate the row hides.
-    assert set(desc[7:]) == {"posted-hourly", "posted-gbp", "estimate-eur", "nothing"}
+    assert set(desc[7:]) == {"posted-hourly", "posted-gbp", "estimate-eur", "nothing", "posted-unclear-salary-sized"}
     asc = list((await db_session.execute(order("asc"))).scalars())
     assert asc[:7] == ranked[::-1]
 
