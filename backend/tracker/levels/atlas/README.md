@@ -181,11 +181,16 @@ Every column but `company` may be empty: empty means not researched yet, never "
 
 A row exists only where at least two anchoring postings agree on four of every five.
 
-`pay_bands` accumulates. A refresh writes the ranges it can measure and keeps every
-row it did not re-measure, because a range stops being measurable when the postings
-that anchored it close, not when it stops being a range the company posted that year.
-So a row may name a range the company no longer posts, and one refresh measures one
-year without touching another's rows.
+`pay_bands` accumulates. A refresh writes the ranges it can measure and keeps the rows
+it did not re-measure, because a range stops being measurable when the postings that
+anchored it close, not when it stops being a range the company posted that year. So a
+row may name a range the company no longer posts, and one refresh measures one year
+without touching another's rows.
+
+A range the current postings disagree about is the one thing a refresh drops. Too
+little evidence to decide keeps what was measured when there was enough; evidence
+that contradicts it does not, because a range its anchors disagree on names no band
+and the dissenting postings are never guessed into agreement.
 
 ### title_pay.csv
 
