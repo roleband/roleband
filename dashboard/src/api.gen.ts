@@ -55,6 +55,142 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/v1/opportunities/{opportunity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Opportunity Get */
+        get: operations["opportunity_get_api_agent_v1_opportunities__opportunity_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/opportunities/{opportunity_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Opportunity History */
+        get: operations["opportunity_history_api_agent_v1_opportunities__opportunity_id__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/pursuits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pursuit List */
+        get: operations["pursuit_list_api_agent_v1_pursuits_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/pursuits/{opportunity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pursuit Get */
+        get: operations["pursuit_get_api_agent_v1_pursuits__opportunity_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/radar/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Radar Summary */
+        get: operations["radar_summary_api_agent_v1_radar_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/recipes/contract": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recipe Contract */
+        get: operations["recipe_contract_api_agent_v1_recipes_contract_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/recipes/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Recipe Validate */
+        post: operations["recipe_validate_api_agent_v1_recipes_validate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/sources/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Source Inspect */
+        get: operations["source_inspect_api_agent_v1_sources_inspect_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/v1/status": {
         parameters: {
             query?: never;
@@ -5267,6 +5403,24 @@ export interface components {
             /** Enabled */
             enabled: boolean;
         };
+        /**
+         * EmployerStatedPay
+         * @description The pay band the posting itself states; null bounds when it states none.
+         */
+        EmployerStatedPay: {
+            /** Basis */
+            basis: string | null;
+            /** Currency */
+            currency: string | null;
+            /** High */
+            high: number | null;
+            /** Low */
+            low: number | null;
+            /** Period */
+            period: string | null;
+            /** Snippet */
+            snippet: string | null;
+        };
         /** EnabledPayload */
         EnabledPayload: {
             /** Enabled */
@@ -5361,6 +5515,27 @@ export interface components {
             /** Workspace Id */
             workspace_id: string | null;
         };
+        /** Envelope[ListingHistory] */
+        Envelope_ListingHistory_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["ListingHistory"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
         /** Envelope[OperationDetail] */
         Envelope_OperationDetail_: {
             /**
@@ -5382,6 +5557,132 @@ export interface components {
             /** Workspace Id */
             workspace_id: string | null;
         };
+        /** Envelope[OpportunityView] */
+        Envelope_OpportunityView_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["OpportunityView"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[PursuitItem] */
+        Envelope_PursuitItem_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["PursuitItem"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[PursuitList] */
+        Envelope_PursuitList_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["PursuitList"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[RadarSummary] */
+        Envelope_RadarSummary_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["RadarSummary"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[RecipeContract] */
+        Envelope_RecipeContract_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["RecipeContract"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[RecipeValidation] */
+        Envelope_RecipeValidation_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["RecipeValidation"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
         /** Envelope[SearchPage] */
         Envelope_SearchPage_: {
             /**
@@ -5390,6 +5691,27 @@ export interface components {
              */
             contract_version: string;
             data: components["schemas"]["SearchPage"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[SourceInspection] */
+        Envelope_SourceInspection_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["SourceInspection"] | null;
             error: components["schemas"]["EnvelopeError"] | null;
             meta: components["schemas"]["EnvelopeMeta"];
             /** Ok */
@@ -5462,6 +5784,94 @@ export interface components {
             params: {
                 [key: string]: string | number | string[];
             };
+        };
+        /**
+         * EstimateSource
+         * @description One pay source's estimate for this posting and the answers behind it.
+         *     RoleBand's own data and a plugin's are separate sources, never mixed.
+         */
+        EstimateSource: {
+            /** Answers */
+            answers: components["schemas"]["ProviderAnswer"][];
+            /**
+             * Estimated At
+             * Format: date-time
+             */
+            estimated_at: string;
+            /** Source */
+            source: string;
+        };
+        /**
+         * EstimatedBase
+         * @description An estimate of base pay alone, where the data prices the posting by its base.
+         */
+        EstimatedBase: {
+            /** As Of */
+            as_of: string | null;
+            /** Currency */
+            currency: string;
+            /** High */
+            high: number | null;
+            /** Low */
+            low: number | null;
+            /** Median */
+            median: number | null;
+            /** Provider */
+            provider: string | null;
+        };
+        /**
+         * EstimatedTotalComp
+         * @description RoleBand's estimate of total pay, from the posting's market data.
+         */
+        EstimatedTotalComp: {
+            /** Currency */
+            currency: string;
+            /** High */
+            high: number | null;
+            /** Low */
+            low: number | null;
+            /** Median */
+            median: number | null;
+            /** Provenance */
+            provenance: string | null;
+        };
+        /** Evidence */
+        Evidence: {
+            dates: components["schemas"]["PostingDates"];
+            /** Estimate Sources */
+            estimate_sources: components["schemas"]["EstimateSource"][];
+        };
+        /**
+         * Excerpt
+         * @description Present when the detail did not fit the tier's budget. The description
+         *     is cut first; the pursuit's notes only when they alone do not fit, and
+         *     `pursuits.get` reads them whole.
+         */
+        Excerpt: {
+            /** Budget Bytes */
+            budget_bytes: number;
+            /** Description Chars */
+            description_chars: number;
+            /** Full Bytes */
+            full_bytes: number;
+            /** Kept Chars */
+            kept_chars: number;
+            /** Kept Notes Chars */
+            kept_notes_chars?: number | null;
+            /** Notes Chars */
+            notes_chars?: number | null;
+            /** Omitted Sections */
+            omitted_sections: number;
+            /**
+             * Tier
+             * @enum {string}
+             */
+            tier: "small" | "standard" | "full";
+            /**
+             * Truncated
+             * @constant
+             */
+            truncated: true;
         };
         /**
          * ExcludedBinding
@@ -5678,6 +6088,77 @@ export interface components {
             open: number;
             /** Region Wide */
             region_wide: number;
+        };
+        /**
+         * HistoryEvent
+         * @description One dated fact. Every key is sent; those a kind does not use are null.
+         */
+        HistoryEvent: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Count */
+            count: number | null;
+            /** Field */
+            field: string | null;
+            /** From At */
+            from_at: string | null;
+            /** Job Id */
+            job_id: number | null;
+            /** Kind */
+            kind: string;
+            /** Link */
+            link: string | null;
+            /** Req Id */
+            req_id: string | null;
+            /** Title */
+            title: string | null;
+            /** To At */
+            to_at: string | null;
+            /** Until */
+            until: string | null;
+        };
+        /** HistoryHeadline */
+        HistoryHeadline: {
+            /** Basis */
+            basis: string;
+            /** Days */
+            days: number;
+            /**
+             * Since
+             * Format: date-time
+             */
+            since: string;
+        };
+        /** HistoryRoleAge */
+        HistoryRoleAge: {
+            /** Days */
+            days: number;
+            /** Postings */
+            postings: number;
+            /**
+             * Since
+             * Format: date-time
+             */
+            since: string;
+        };
+        /** HistoryUnconfirmed */
+        HistoryUnconfirmed: {
+            /** Job Id */
+            job_id: number;
+            /** Link Id */
+            link_id: number;
+            /**
+             * Listed Since
+             * Format: date-time
+             */
+            listed_since: string;
+            /** Req Id */
+            req_id: string | null;
+            /** Title */
+            title: string;
         };
         /**
          * InsightsHistoryResponse
@@ -6989,6 +7470,15 @@ export interface components {
             /** Until */
             until: string | null;
         };
+        /** ListingHistory */
+        ListingHistory: {
+            /** Events */
+            events: components["schemas"]["HistoryEvent"][];
+            headline: components["schemas"]["HistoryHeadline"];
+            role: components["schemas"]["HistoryRoleAge"] | null;
+            /** Unconfirmed */
+            unconfirmed: components["schemas"]["HistoryUnconfirmed"][];
+        };
         /**
          * ListingHistoryResponse
          * @description `GET /api/jobs/{job_id}/history`: every dated fact about a
@@ -7935,6 +8425,153 @@ export interface components {
             /** Tool Tiers */
             tool_tiers: ("small" | "standard" | "full")[];
         };
+        /** OpportunityDetail */
+        OpportunityDetail: {
+            /** Company */
+            company: string;
+            /** Department */
+            department: string | null;
+            /** Description */
+            description: string | null;
+            /** Description Sections */
+            description_sections: components["schemas"]["PostingSection"][];
+            employer_stated_pay: components["schemas"]["EmployerStatedPay"] | null;
+            /** Estimate Component */
+            estimate_component: string | null;
+            estimated_base: components["schemas"]["EstimatedBase"] | null;
+            estimated_total_comp: components["schemas"]["EstimatedTotalComp"] | null;
+            excerpt: components["schemas"]["Excerpt"] | null;
+            /** Family */
+            family: string | null;
+            /** First Seen */
+            first_seen: string | null;
+            /** Id */
+            id: number;
+            /** Level Band */
+            level_band: string | null;
+            /** Listed Basis */
+            listed_basis: string | null;
+            /** Listed Days */
+            listed_days: number | null;
+            /** Listed Since */
+            listed_since: string | null;
+            /** Locations */
+            locations: string[];
+            pursuit: components["schemas"]["PursuitState"] | null;
+            /** Saved */
+            saved: boolean;
+            /** Status */
+            status: string;
+            /** Team */
+            team: string | null;
+            /** Title */
+            title: string;
+            /** Track */
+            track: string | null;
+            /** Url */
+            url: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            view: "detail";
+            /** Workplace Type */
+            workplace_type: string | null;
+        };
+        /** OpportunityEvidence */
+        OpportunityEvidence: {
+            /** Company */
+            company: string;
+            employer_stated_pay: components["schemas"]["EmployerStatedPay"] | null;
+            /** Estimate Component */
+            estimate_component: string | null;
+            estimated_base: components["schemas"]["EstimatedBase"] | null;
+            estimated_total_comp: components["schemas"]["EstimatedTotalComp"] | null;
+            evidence: components["schemas"]["Evidence"];
+            /** Family */
+            family: string | null;
+            /** First Seen */
+            first_seen: string | null;
+            /** Id */
+            id: number;
+            /** Level Band */
+            level_band: string | null;
+            /** Listed Basis */
+            listed_basis: string | null;
+            /** Listed Days */
+            listed_days: number | null;
+            /** Listed Since */
+            listed_since: string | null;
+            /** Locations */
+            locations: string[];
+            pursuit: components["schemas"]["PursuitState"] | null;
+            /** Saved */
+            saved: boolean;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+            /** Track */
+            track: string | null;
+            /** Url */
+            url: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            view: "evidence";
+            /** Workplace Type */
+            workplace_type: string | null;
+        };
+        /** OpportunitySummary */
+        OpportunitySummary: {
+            /** Company */
+            company: string;
+            employer_stated_pay: components["schemas"]["EmployerStatedPay"] | null;
+            /** Estimate Component */
+            estimate_component: string | null;
+            estimated_base: components["schemas"]["EstimatedBase"] | null;
+            estimated_total_comp: components["schemas"]["EstimatedTotalComp"] | null;
+            /** Family */
+            family: string | null;
+            /** First Seen */
+            first_seen: string | null;
+            /** Id */
+            id: number;
+            /** Level Band */
+            level_band: string | null;
+            /** Listed Basis */
+            listed_basis: string | null;
+            /** Listed Days */
+            listed_days: number | null;
+            /** Listed Since */
+            listed_since: string | null;
+            /** Locations */
+            locations: string[];
+            pursuit: components["schemas"]["PursuitState"] | null;
+            /** Saved */
+            saved: boolean;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+            /** Track */
+            track: string | null;
+            /** Url */
+            url: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            view: "summary";
+            /** Workplace Type */
+            workplace_type: string | null;
+        };
+        /**
+         * OpportunityView
+         * @description One posting in the view the caller asked for; `view` names which.
+         */
+        OpportunityView: components["schemas"]["OpportunitySummary"] | components["schemas"]["OpportunityDetail"] | components["schemas"]["OpportunityEvidence"];
         /** OptionalTextChange */
         OptionalTextChange: {
             /** From */
@@ -8877,6 +9514,21 @@ export interface components {
             /** Roles */
             roles: number;
         };
+        /** PostingDates */
+        PostingDates: {
+            /** Closed At */
+            closed_at: string | null;
+            /** Description Fetched At */
+            description_fetched_at: string | null;
+            /** Employer First Published At */
+            employer_first_published_at: string | null;
+            /** Employer Published At */
+            employer_published_at: string | null;
+            /** First Seen */
+            first_seen: string | null;
+            /** Last Seen */
+            last_seen: string | null;
+        };
         /**
          * PostingDiff
          * @description `build_member_diff`: one key per field that differs, absent otherwise.
@@ -8932,6 +9584,15 @@ export interface components {
             listings: number;
             /** Met */
             met: ("long_open" | "relisted" | "redated")[];
+        };
+        /** PostingSection */
+        PostingSection: {
+            /** Content */
+            content: string;
+            /** Key */
+            key: string;
+            /** Title */
+            title: string;
         };
         /** PreparationStatus */
         PreparationStatus: {
@@ -9253,6 +9914,21 @@ export interface components {
             /** World */
             world: string;
         };
+        /** ProviderAnswer */
+        ProviderAnswer: {
+            /** Currency */
+            currency: string | null;
+            /** High */
+            high: number | null;
+            /** Low */
+            low: number | null;
+            /** Median */
+            median: number | null;
+            /** Provider */
+            provider: string | null;
+            /** Source */
+            source: string | null;
+        };
         /**
          * ProviderAvailability
          * @description Why a provider can or cannot run: `state` is the code the dashboard says;
@@ -9282,6 +9958,57 @@ export interface components {
             provider: string;
             /** State */
             state: string;
+        };
+        /** PursuedOpportunity */
+        PursuedOpportunity: {
+            /** Company */
+            company: string;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
+        /** PursuitItem */
+        PursuitItem: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: number;
+            /** Job Id */
+            job_id: number;
+            /** Next Action */
+            next_action: string | null;
+            /** Next Action Due */
+            next_action_due: string | null;
+            /** Notes */
+            notes: string | null;
+            opportunity: components["schemas"]["PursuedOpportunity"];
+            /** Priority */
+            priority: number;
+            /** Revision */
+            revision: number;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed";
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** PursuitList */
+        PursuitList: {
+            /** Count */
+            count: number;
+            /** Items */
+            items: components["schemas"]["PursuitItem"][];
         };
         /**
          * PursuitListItem
@@ -9336,6 +10063,41 @@ export interface components {
             /** Url */
             url: string;
         };
+        /**
+         * PursuitState
+         * @description One pursuit's fields as every surface shows them.
+         */
+        PursuitState: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: number;
+            /** Job Id */
+            job_id: number;
+            /** Next Action */
+            next_action: string | null;
+            /** Next Action Due */
+            next_action_due: string | null;
+            /** Notes */
+            notes: string | null;
+            /** Priority */
+            priority: number;
+            /** Revision */
+            revision: number;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed";
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** PursuitUpdate */
         PursuitUpdate: {
             /** Next Action */
@@ -9355,6 +10117,21 @@ export interface components {
          */
         PursuitWriteResponse: {
             pursuit: components["schemas"]["JobPursuit"];
+        };
+        /** RadarSummary */
+        RadarSummary: {
+            /** Active Pursuits */
+            active_pursuits: number;
+            /** Open Opportunities */
+            open_opportunities: number;
+            /** Overdue Next Actions */
+            overdue_next_actions: number;
+            /** Pursuits By Stage */
+            pursuits_by_stage: {
+                [key: string]: number;
+            };
+            /** Saved Opportunities */
+            saved_opportunities: number;
         };
         /**
          * ReasonSaid
@@ -9408,6 +10185,19 @@ export interface components {
             robots: {
                 [key: string]: unknown;
             };
+        };
+        /** RecipeContract */
+        RecipeContract: {
+            /** Rules */
+            rules: string[];
+            /** Schema */
+            schema: {
+                [key: string]: unknown;
+            };
+            /** Transforms */
+            transforms: string[];
+            /** Transports */
+            transports: string[];
         };
         /** RecipeDetail */
         RecipeDetail: {
@@ -9492,6 +10282,27 @@ export interface components {
             status: string;
             /** Versions */
             versions: number;
+        };
+        /** RecipeValidation */
+        RecipeValidation: {
+            /** Compiles */
+            compiles: boolean;
+            /** Errors */
+            errors: string[];
+            /** Found */
+            found: number;
+            /** Jobs */
+            jobs: {
+                [key: string]: unknown;
+            }[];
+            /** Pages */
+            pages: number;
+            /** Problems */
+            problems: string[];
+            /** Robots */
+            robots: {
+                [key: string]: unknown;
+            };
         };
         /** ReconciliationDecisionRow */
         ReconciliationDecisionRow: {
@@ -10919,6 +11730,21 @@ export interface components {
              */
             scope: "within" | "cross" | "all";
         };
+        /** SourceInspection */
+        SourceInspection: {
+            /** Content */
+            content: string;
+            /** Content Truncated */
+            content_truncated: boolean;
+            /** Matches */
+            matches: number | null;
+            /** Status */
+            status: number;
+            /** Truncated */
+            truncated: boolean;
+            /** Url */
+            url: string;
+        };
         /**
          * SourceOutcome
          * @description What one source contributed to a run.
@@ -12072,6 +12898,204 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Envelope_SearchPage_"];
+                };
+            };
+        };
+    };
+    opportunity_get_api_agent_v1_opportunities__opportunity_id__get: {
+        parameters: {
+            query?: {
+                /** @description summary, detail (adds the text) or evidence. */
+                view?: "summary" | "detail" | "evidence";
+                /** @description The caller's tool tier, which bounds a detail view. */
+                tier?: "small" | "standard" | "full";
+            };
+            header?: never;
+            path: {
+                /** @description The opportunity's id, as search returns it. */
+                opportunity_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_OpportunityView_"];
+                };
+            };
+        };
+    };
+    opportunity_history_api_agent_v1_opportunities__opportunity_id__history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The opportunity's id, as search returns it. */
+                opportunity_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_ListingHistory_"];
+                };
+            };
+        };
+    };
+    pursuit_list_api_agent_v1_pursuits_get: {
+        parameters: {
+            query?: {
+                /** @description Only pursuits at this stage. */
+                stage?: ("saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed") | null;
+                /** @description Pursuits on one page. */
+                limit?: number;
+                /** @description The next_cursor of the previous page, read with the same stage. It resumes after that page's last pursuit in the current order, with no snapshot: a pursuit re-prioritised during paging can be skipped or read twice, so read from the first page for a whole list. */
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PursuitList_"];
+                };
+            };
+        };
+    };
+    pursuit_get_api_agent_v1_pursuits__opportunity_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The opportunity the pursuit is about. */
+                opportunity_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PursuitItem_"];
+                };
+            };
+        };
+    };
+    radar_summary_api_agent_v1_radar_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_RadarSummary_"];
+                };
+            };
+        };
+    };
+    recipe_contract_api_agent_v1_recipes_contract_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_RecipeContract_"];
+                };
+            };
+        };
+    };
+    recipe_validate_api_agent_v1_recipes_validate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Document
+                     * @description The listing recipe v1 document to compile and preview.
+                     */
+                    document: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_RecipeValidation_"];
+                };
+            };
+        };
+    };
+    source_inspect_api_agent_v1_sources_inspect_get: {
+        parameters: {
+            query: {
+                /** @description A public careers page, http or https. */
+                url: string;
+                /** @description A CSS selector: list the sanitized HTML of up to 20 matching elements instead of the text. */
+                selector?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_SourceInspection_"];
                 };
             };
         };

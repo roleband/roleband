@@ -572,6 +572,1823 @@
    },
    "examples": [
     {
+     "opportunity_id": 4821,
+     "view": "detail"
+    }
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "opportunity_id": {
+      "description": "The opportunity's id, as search returns it.",
+      "minimum": 1,
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
+     "tier": {
+      "default": "small",
+      "description": "The caller's tool tier, which bounds a detail view.",
+      "enum": [
+       "small",
+       "standard",
+       "full"
+      ],
+      "title": "Tier",
+      "type": "string"
+     },
+     "view": {
+      "default": "summary",
+      "description": "summary, detail (adds the text) or evidence.",
+      "enum": [
+       "summary",
+       "detail",
+       "evidence"
+      ],
+      "title": "View",
+      "type": "string"
+     }
+    },
+    "required": [
+     "opportunity_id"
+    ],
+    "title": "OpportunityGetInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "opportunities.get",
+   "output_schema": {
+    "$defs": {
+     "EmployerStatedPay": {
+      "additionalProperties": false,
+      "description": "The pay band the posting itself states; null bounds when it states none.",
+      "properties": {
+       "basis": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Basis",
+        "x-text": "code"
+       },
+       "currency": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Currency",
+        "x-text": "code"
+       },
+       "high": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "High"
+       },
+       "low": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Low"
+       },
+       "period": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Period",
+        "x-text": "code"
+       },
+       "snippet": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Snippet",
+        "x-text": "content"
+       }
+      },
+      "required": [
+       "low",
+       "high",
+       "currency",
+       "basis",
+       "period",
+       "snippet"
+      ],
+      "title": "EmployerStatedPay",
+      "type": "object"
+     },
+     "EstimateSource": {
+      "additionalProperties": false,
+      "description": "One pay source's estimate for this posting and the answers behind it.\nRoleBand's own data and a plugin's are separate sources, never mixed.",
+      "properties": {
+       "answers": {
+        "items": {
+         "$ref": "#/$defs/ProviderAnswer"
+        },
+        "title": "Answers",
+        "type": "array"
+       },
+       "estimated_at": {
+        "format": "date-time",
+        "title": "Estimated At",
+        "type": "string"
+       },
+       "source": {
+        "title": "Source",
+        "type": "string",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "source",
+       "estimated_at",
+       "answers"
+      ],
+      "title": "EstimateSource",
+      "type": "object"
+     },
+     "EstimatedBase": {
+      "additionalProperties": false,
+      "description": "An estimate of base pay alone, where the data prices the posting by its base.",
+      "properties": {
+       "as_of": {
+        "anyOf": [
+         {
+          "format": "date",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "As Of"
+       },
+       "currency": {
+        "title": "Currency",
+        "type": "string",
+        "x-text": "code"
+       },
+       "high": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "High"
+       },
+       "low": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Low"
+       },
+       "median": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Median"
+       },
+       "provider": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Provider",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "low",
+       "median",
+       "high",
+       "currency",
+       "provider",
+       "as_of"
+      ],
+      "title": "EstimatedBase",
+      "type": "object"
+     },
+     "EstimatedTotalComp": {
+      "additionalProperties": false,
+      "description": "RoleBand's estimate of total pay, from the posting's market data.",
+      "properties": {
+       "currency": {
+        "title": "Currency",
+        "type": "string",
+        "x-text": "code"
+       },
+       "high": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "High"
+       },
+       "low": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Low"
+       },
+       "median": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Median"
+       },
+       "provenance": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Provenance",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "low",
+       "median",
+       "high",
+       "currency",
+       "provenance"
+      ],
+      "title": "EstimatedTotalComp",
+      "type": "object"
+     },
+     "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+       "dates": {
+        "$ref": "#/$defs/PostingDates"
+       },
+       "estimate_sources": {
+        "items": {
+         "$ref": "#/$defs/EstimateSource"
+        },
+        "title": "Estimate Sources",
+        "type": "array"
+       }
+      },
+      "required": [
+       "dates",
+       "estimate_sources"
+      ],
+      "title": "Evidence",
+      "type": "object"
+     },
+     "Excerpt": {
+      "additionalProperties": false,
+      "description": "Present when the detail did not fit the tier's budget. The description\nis cut first; the pursuit's notes only when they alone do not fit, and\n`pursuits.get` reads them whole.",
+      "properties": {
+       "budget_bytes": {
+        "title": "Budget Bytes",
+        "type": "integer"
+       },
+       "description_chars": {
+        "title": "Description Chars",
+        "type": "integer"
+       },
+       "full_bytes": {
+        "title": "Full Bytes",
+        "type": "integer"
+       },
+       "kept_chars": {
+        "title": "Kept Chars",
+        "type": "integer"
+       },
+       "kept_notes_chars": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Kept Notes Chars"
+       },
+       "notes_chars": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Notes Chars"
+       },
+       "omitted_sections": {
+        "title": "Omitted Sections",
+        "type": "integer"
+       },
+       "tier": {
+        "enum": [
+         "small",
+         "standard",
+         "full"
+        ],
+        "title": "Tier",
+        "type": "string",
+        "x-text": "code"
+       },
+       "truncated": {
+        "const": true,
+        "title": "Truncated",
+        "type": "boolean"
+       }
+      },
+      "required": [
+       "truncated",
+       "tier",
+       "budget_bytes",
+       "full_bytes",
+       "description_chars",
+       "kept_chars",
+       "omitted_sections"
+      ],
+      "title": "Excerpt",
+      "type": "object"
+     },
+     "OpportunityDetail": {
+      "additionalProperties": false,
+      "properties": {
+       "company": {
+        "title": "Company",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "department": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Department",
+        "x-text": "content"
+       },
+       "description": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Description",
+        "x-text": "content"
+       },
+       "description_sections": {
+        "items": {
+         "$ref": "#/$defs/PostingSection"
+        },
+        "title": "Description Sections",
+        "type": "array"
+       },
+       "employer_stated_pay": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/EmployerStatedPay"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "estimate_component": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Estimate Component",
+        "x-text": "code"
+       },
+       "estimated_base": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/EstimatedBase"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "estimated_total_comp": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/EstimatedTotalComp"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "excerpt": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/Excerpt"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "family": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Family",
+        "x-text": "code"
+       },
+       "first_seen": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "First Seen"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "level_band": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Level Band",
+        "x-text": "code"
+       },
+       "listed_basis": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Listed Basis",
+        "x-text": "code"
+       },
+       "listed_days": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Listed Days"
+       },
+       "listed_since": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Listed Since"
+       },
+       "locations": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Locations",
+        "type": "array",
+        "x-text": "content"
+       },
+       "pursuit": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/PursuitState"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "saved": {
+        "title": "Saved",
+        "type": "boolean"
+       },
+       "status": {
+        "title": "Status",
+        "type": "string",
+        "x-text": "code"
+       },
+       "team": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Team",
+        "x-text": "content"
+       },
+       "title": {
+        "title": "Title",
+        "type": "string",
+        "x-text": "content"
+       },
+       "track": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Track",
+        "x-text": "code"
+       },
+       "url": {
+        "title": "Url",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "view": {
+        "const": "detail",
+        "title": "View",
+        "type": "string",
+        "x-text": "code"
+       },
+       "workplace_type": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Workplace Type",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "id",
+       "company",
+       "title",
+       "url",
+       "locations",
+       "workplace_type",
+       "level_band",
+       "family",
+       "track",
+       "status",
+       "first_seen",
+       "listed_since",
+       "listed_days",
+       "listed_basis",
+       "estimate_component",
+       "estimated_total_comp",
+       "estimated_base",
+       "employer_stated_pay",
+       "saved",
+       "pursuit",
+       "view",
+       "department",
+       "team",
+       "description",
+       "description_sections",
+       "excerpt"
+      ],
+      "title": "OpportunityDetail",
+      "type": "object"
+     },
+     "OpportunityEvidence": {
+      "additionalProperties": false,
+      "properties": {
+       "company": {
+        "title": "Company",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "employer_stated_pay": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/EmployerStatedPay"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "estimate_component": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Estimate Component",
+        "x-text": "code"
+       },
+       "estimated_base": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/EstimatedBase"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "estimated_total_comp": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/EstimatedTotalComp"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "evidence": {
+        "$ref": "#/$defs/Evidence"
+       },
+       "family": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Family",
+        "x-text": "code"
+       },
+       "first_seen": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "First Seen"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "level_band": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Level Band",
+        "x-text": "code"
+       },
+       "listed_basis": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Listed Basis",
+        "x-text": "code"
+       },
+       "listed_days": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Listed Days"
+       },
+       "listed_since": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Listed Since"
+       },
+       "locations": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Locations",
+        "type": "array",
+        "x-text": "content"
+       },
+       "pursuit": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/PursuitState"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "saved": {
+        "title": "Saved",
+        "type": "boolean"
+       },
+       "status": {
+        "title": "Status",
+        "type": "string",
+        "x-text": "code"
+       },
+       "title": {
+        "title": "Title",
+        "type": "string",
+        "x-text": "content"
+       },
+       "track": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Track",
+        "x-text": "code"
+       },
+       "url": {
+        "title": "Url",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "view": {
+        "const": "evidence",
+        "title": "View",
+        "type": "string",
+        "x-text": "code"
+       },
+       "workplace_type": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Workplace Type",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "id",
+       "company",
+       "title",
+       "url",
+       "locations",
+       "workplace_type",
+       "level_band",
+       "family",
+       "track",
+       "status",
+       "first_seen",
+       "listed_since",
+       "listed_days",
+       "listed_basis",
+       "estimate_component",
+       "estimated_total_comp",
+       "estimated_base",
+       "employer_stated_pay",
+       "saved",
+       "pursuit",
+       "view",
+       "evidence"
+      ],
+      "title": "OpportunityEvidence",
+      "type": "object"
+     },
+     "OpportunitySummary": {
+      "additionalProperties": false,
+      "properties": {
+       "company": {
+        "title": "Company",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "employer_stated_pay": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/EmployerStatedPay"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "estimate_component": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Estimate Component",
+        "x-text": "code"
+       },
+       "estimated_base": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/EstimatedBase"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "estimated_total_comp": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/EstimatedTotalComp"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "family": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Family",
+        "x-text": "code"
+       },
+       "first_seen": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "First Seen"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "level_band": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Level Band",
+        "x-text": "code"
+       },
+       "listed_basis": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Listed Basis",
+        "x-text": "code"
+       },
+       "listed_days": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Listed Days"
+       },
+       "listed_since": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Listed Since"
+       },
+       "locations": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Locations",
+        "type": "array",
+        "x-text": "content"
+       },
+       "pursuit": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/PursuitState"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "saved": {
+        "title": "Saved",
+        "type": "boolean"
+       },
+       "status": {
+        "title": "Status",
+        "type": "string",
+        "x-text": "code"
+       },
+       "title": {
+        "title": "Title",
+        "type": "string",
+        "x-text": "content"
+       },
+       "track": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Track",
+        "x-text": "code"
+       },
+       "url": {
+        "title": "Url",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "view": {
+        "const": "summary",
+        "title": "View",
+        "type": "string",
+        "x-text": "code"
+       },
+       "workplace_type": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Workplace Type",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "id",
+       "company",
+       "title",
+       "url",
+       "locations",
+       "workplace_type",
+       "level_band",
+       "family",
+       "track",
+       "status",
+       "first_seen",
+       "listed_since",
+       "listed_days",
+       "listed_basis",
+       "estimate_component",
+       "estimated_total_comp",
+       "estimated_base",
+       "employer_stated_pay",
+       "saved",
+       "pursuit",
+       "view"
+      ],
+      "title": "OpportunitySummary",
+      "type": "object"
+     },
+     "PostingDates": {
+      "additionalProperties": false,
+      "properties": {
+       "closed_at": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Closed At"
+       },
+       "description_fetched_at": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Description Fetched At"
+       },
+       "employer_first_published_at": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Employer First Published At"
+       },
+       "employer_published_at": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Employer Published At"
+       },
+       "first_seen": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "First Seen"
+       },
+       "last_seen": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Last Seen"
+       }
+      },
+      "required": [
+       "employer_published_at",
+       "employer_first_published_at",
+       "first_seen",
+       "last_seen",
+       "closed_at",
+       "description_fetched_at"
+      ],
+      "title": "PostingDates",
+      "type": "object"
+     },
+     "PostingSection": {
+      "additionalProperties": false,
+      "properties": {
+       "content": {
+        "title": "Content",
+        "type": "string",
+        "x-text": "content"
+       },
+       "key": {
+        "title": "Key",
+        "type": "string",
+        "x-text": "code"
+       },
+       "title": {
+        "title": "Title",
+        "type": "string",
+        "x-text": "content"
+       }
+      },
+      "required": [
+       "key",
+       "title",
+       "content"
+      ],
+      "title": "PostingSection",
+      "type": "object"
+     },
+     "ProviderAnswer": {
+      "additionalProperties": false,
+      "properties": {
+       "currency": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Currency",
+        "x-text": "code"
+       },
+       "high": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "number"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "High"
+       },
+       "low": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "number"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Low"
+       },
+       "median": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "number"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Median"
+       },
+       "provider": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Provider",
+        "x-text": "code"
+       },
+       "source": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Source",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "provider",
+       "median",
+       "low",
+       "high",
+       "currency",
+       "source"
+      ],
+      "title": "ProviderAnswer",
+      "type": "object"
+     },
+     "PursuitState": {
+      "additionalProperties": false,
+      "description": "One pursuit's fields as every surface shows them.",
+      "properties": {
+       "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "job_id": {
+        "title": "Job Id",
+        "type": "integer"
+       },
+       "next_action": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Next Action",
+        "x-text": "content"
+       },
+       "next_action_due": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Next Action Due"
+       },
+       "notes": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Notes",
+        "x-text": "content"
+       },
+       "priority": {
+        "maximum": 5,
+        "minimum": 1,
+        "title": "Priority",
+        "type": "integer"
+       },
+       "revision": {
+        "minimum": 1,
+        "title": "Revision",
+        "type": "integer"
+       },
+       "stage": {
+        "enum": [
+         "saved",
+         "researching",
+         "networking",
+         "applied",
+         "interviewing",
+         "offer",
+         "accepted",
+         "declined",
+         "withdrawn",
+         "rejected",
+         "role_closed"
+        ],
+        "title": "Stage",
+        "type": "string",
+        "x-text": "code"
+       },
+       "updated_at": {
+        "format": "date-time",
+        "title": "Updated At",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id",
+       "job_id",
+       "stage",
+       "priority",
+       "notes",
+       "next_action",
+       "next_action_due",
+       "created_at",
+       "updated_at",
+       "revision"
+      ],
+      "title": "PursuitState",
+      "type": "object"
+     }
+    },
+    "description": "One posting in the view the caller asked for; `view` names which.",
+    "discriminator": {
+     "mapping": {
+      "detail": "#/$defs/OpportunityDetail",
+      "evidence": "#/$defs/OpportunityEvidence",
+      "summary": "#/$defs/OpportunitySummary"
+     },
+     "propertyName": "view"
+    },
+    "oneOf": [
+     {
+      "$ref": "#/$defs/OpportunitySummary"
+     },
+     {
+      "$ref": "#/$defs/OpportunityDetail"
+     },
+     {
+      "$ref": "#/$defs/OpportunityEvidence"
+     }
+    ],
+    "title": "OpportunityView"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "Read one opportunity in a declared view: summary, detail with its text, or evidence.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "public_posting"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {
+     "opportunity_id": 4821
+    }
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "opportunity_id": {
+      "description": "The opportunity's id, as search returns it.",
+      "minimum": 1,
+      "title": "Opportunity Id",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "opportunity_id"
+    ],
+    "title": "OpportunityHistoryInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "opportunities.history",
+   "output_schema": {
+    "$defs": {
+     "HistoryEvent": {
+      "additionalProperties": false,
+      "description": "One dated fact. Every key is sent; those a kind does not use are null.",
+      "properties": {
+       "at": {
+        "format": "date-time",
+        "title": "At",
+        "type": "string"
+       },
+       "count": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Count"
+       },
+       "field": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Field",
+        "x-text": "code"
+       },
+       "from_at": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "From At"
+       },
+       "job_id": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Job Id"
+       },
+       "kind": {
+        "title": "Kind",
+        "type": "string",
+        "x-text": "code"
+       },
+       "link": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Link",
+        "x-text": "code"
+       },
+       "req_id": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Req Id",
+        "x-text": "identifier"
+       },
+       "title": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Title",
+        "x-text": "content"
+       },
+       "to_at": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "To At"
+       },
+       "until": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Until"
+       }
+      },
+      "required": [
+       "at",
+       "kind",
+       "from_at",
+       "to_at",
+       "field",
+       "count",
+       "job_id",
+       "req_id",
+       "title",
+       "until",
+       "link"
+      ],
+      "title": "HistoryEvent",
+      "type": "object"
+     },
+     "HistoryHeadline": {
+      "additionalProperties": false,
+      "properties": {
+       "basis": {
+        "title": "Basis",
+        "type": "string",
+        "x-text": "code"
+       },
+       "days": {
+        "title": "Days",
+        "type": "integer"
+       },
+       "since": {
+        "format": "date-time",
+        "title": "Since",
+        "type": "string"
+       }
+      },
+      "required": [
+       "since",
+       "days",
+       "basis"
+      ],
+      "title": "HistoryHeadline",
+      "type": "object"
+     },
+     "HistoryRoleAge": {
+      "additionalProperties": false,
+      "properties": {
+       "days": {
+        "title": "Days",
+        "type": "integer"
+       },
+       "postings": {
+        "title": "Postings",
+        "type": "integer"
+       },
+       "since": {
+        "format": "date-time",
+        "title": "Since",
+        "type": "string"
+       }
+      },
+      "required": [
+       "since",
+       "days",
+       "postings"
+      ],
+      "title": "HistoryRoleAge",
+      "type": "object"
+     },
+     "HistoryUnconfirmed": {
+      "additionalProperties": false,
+      "properties": {
+       "job_id": {
+        "title": "Job Id",
+        "type": "integer"
+       },
+       "link_id": {
+        "title": "Link Id",
+        "type": "integer"
+       },
+       "listed_since": {
+        "format": "date-time",
+        "title": "Listed Since",
+        "type": "string"
+       },
+       "req_id": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Req Id",
+        "x-text": "identifier"
+       },
+       "title": {
+        "title": "Title",
+        "type": "string",
+        "x-text": "content"
+       }
+      },
+      "required": [
+       "link_id",
+       "job_id",
+       "req_id",
+       "title",
+       "listed_since"
+      ],
+      "title": "HistoryUnconfirmed",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "events": {
+      "items": {
+       "$ref": "#/$defs/HistoryEvent"
+      },
+      "title": "Events",
+      "type": "array"
+     },
+     "headline": {
+      "$ref": "#/$defs/HistoryHeadline"
+     },
+     "role": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/HistoryRoleAge"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "unconfirmed": {
+      "items": {
+       "$ref": "#/$defs/HistoryUnconfirmed"
+      },
+      "title": "Unconfirmed",
+      "type": "array"
+     }
+    },
+    "required": [
+     "headline",
+     "role",
+     "events",
+     "unconfirmed"
+    ],
+    "title": "ListingHistory",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "How long a posting has been listed and why: every dated event and the role's other postings.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "public_posting",
+    "market_statistic",
+    "private_pursuit"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {
      "limit": 10,
      "location": [
       "London"
@@ -1023,6 +2840,864 @@
    },
    "client_effects": [],
    "contract_version": "1.0",
+   "data_classes": [
+    "private_pursuit",
+    "public_posting"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {
+     "opportunity_id": 4821
+    }
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "opportunity_id": {
+      "description": "The opportunity the pursuit is about.",
+      "minimum": 1,
+      "title": "Opportunity Id",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "opportunity_id"
+    ],
+    "title": "PursuitGetInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "pursuits.get",
+   "output_schema": {
+    "$defs": {
+     "PursuedOpportunity": {
+      "additionalProperties": false,
+      "properties": {
+       "company": {
+        "title": "Company",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "status": {
+        "title": "Status",
+        "type": "string",
+        "x-text": "code"
+       },
+       "title": {
+        "title": "Title",
+        "type": "string",
+        "x-text": "content"
+       },
+       "url": {
+        "title": "Url",
+        "type": "string",
+        "x-text": "identifier"
+       }
+      },
+      "required": [
+       "title",
+       "company",
+       "status",
+       "url"
+      ],
+      "title": "PursuedOpportunity",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "job_id": {
+      "title": "Job Id",
+      "type": "integer"
+     },
+     "next_action": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Action",
+      "x-text": "content"
+     },
+     "next_action_due": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Action Due"
+     },
+     "notes": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Notes",
+      "x-text": "content"
+     },
+     "opportunity": {
+      "$ref": "#/$defs/PursuedOpportunity"
+     },
+     "priority": {
+      "maximum": 5,
+      "minimum": 1,
+      "title": "Priority",
+      "type": "integer"
+     },
+     "revision": {
+      "minimum": 1,
+      "title": "Revision",
+      "type": "integer"
+     },
+     "stage": {
+      "enum": [
+       "saved",
+       "researching",
+       "networking",
+       "applied",
+       "interviewing",
+       "offer",
+       "accepted",
+       "declined",
+       "withdrawn",
+       "rejected",
+       "role_closed"
+      ],
+      "title": "Stage",
+      "type": "string",
+      "x-text": "code"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "job_id",
+     "stage",
+     "priority",
+     "notes",
+     "next_action",
+     "next_action_due",
+     "created_at",
+     "updated_at",
+     "revision",
+     "opportunity"
+    ],
+    "title": "PursuitItem",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "Read one pursuit, notes included, by the opportunity it is about.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "private_pursuit",
+    "public_posting"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {
+     "limit": 20,
+     "stage": "applied"
+    }
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "cursor": {
+      "anyOf": [
+       {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "The next_cursor of the previous page, read with the same stage. It resumes after that page's last pursuit in the current order, with no snapshot: a pursuit re-prioritised during paging can be skipped or read twice, so read from the first page for a whole list.",
+      "title": "Cursor"
+     },
+     "limit": {
+      "default": 50,
+      "description": "Pursuits on one page.",
+      "maximum": 100,
+      "minimum": 1,
+      "title": "Limit",
+      "type": "integer"
+     },
+     "stage": {
+      "anyOf": [
+       {
+        "enum": [
+         "saved",
+         "researching",
+         "networking",
+         "applied",
+         "interviewing",
+         "offer",
+         "accepted",
+         "declined",
+         "withdrawn",
+         "rejected",
+         "role_closed"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Only pursuits at this stage.",
+      "title": "Stage"
+     }
+    },
+    "title": "PursuitListInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "pursuits.list",
+   "output_schema": {
+    "$defs": {
+     "PursuedOpportunity": {
+      "additionalProperties": false,
+      "properties": {
+       "company": {
+        "title": "Company",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "status": {
+        "title": "Status",
+        "type": "string",
+        "x-text": "code"
+       },
+       "title": {
+        "title": "Title",
+        "type": "string",
+        "x-text": "content"
+       },
+       "url": {
+        "title": "Url",
+        "type": "string",
+        "x-text": "identifier"
+       }
+      },
+      "required": [
+       "title",
+       "company",
+       "status",
+       "url"
+      ],
+      "title": "PursuedOpportunity",
+      "type": "object"
+     },
+     "PursuitItem": {
+      "additionalProperties": false,
+      "properties": {
+       "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "job_id": {
+        "title": "Job Id",
+        "type": "integer"
+       },
+       "next_action": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Next Action",
+        "x-text": "content"
+       },
+       "next_action_due": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Next Action Due"
+       },
+       "notes": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Notes",
+        "x-text": "content"
+       },
+       "opportunity": {
+        "$ref": "#/$defs/PursuedOpportunity"
+       },
+       "priority": {
+        "maximum": 5,
+        "minimum": 1,
+        "title": "Priority",
+        "type": "integer"
+       },
+       "revision": {
+        "minimum": 1,
+        "title": "Revision",
+        "type": "integer"
+       },
+       "stage": {
+        "enum": [
+         "saved",
+         "researching",
+         "networking",
+         "applied",
+         "interviewing",
+         "offer",
+         "accepted",
+         "declined",
+         "withdrawn",
+         "rejected",
+         "role_closed"
+        ],
+        "title": "Stage",
+        "type": "string",
+        "x-text": "code"
+       },
+       "updated_at": {
+        "format": "date-time",
+        "title": "Updated At",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id",
+       "job_id",
+       "stage",
+       "priority",
+       "notes",
+       "next_action",
+       "next_action_due",
+       "created_at",
+       "updated_at",
+       "revision",
+       "opportunity"
+      ],
+      "title": "PursuitItem",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "count": {
+      "minimum": 0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "items": {
+      "items": {
+       "$ref": "#/$defs/PursuitItem"
+      },
+      "title": "Items",
+      "type": "array"
+     }
+    },
+    "required": [
+     "count",
+     "items"
+    ],
+    "title": "PursuitList",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "List the pursuits with their stage, priority, notes and next action, by priority.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "market_statistic",
+    "private_pursuit"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "description": "The input of an operation that takes none.",
+    "properties": {},
+    "title": "NoInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "radar.summary",
+   "output_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "active_pursuits": {
+      "minimum": 0,
+      "title": "Active Pursuits",
+      "type": "integer"
+     },
+     "open_opportunities": {
+      "minimum": 0,
+      "title": "Open Opportunities",
+      "type": "integer"
+     },
+     "overdue_next_actions": {
+      "minimum": 0,
+      "title": "Overdue Next Actions",
+      "type": "integer"
+     },
+     "pursuits_by_stage": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "propertyNames": {
+       "enum": [
+        "saved",
+        "researching",
+        "networking",
+        "applied",
+        "interviewing",
+        "offer",
+        "accepted",
+        "declined",
+        "withdrawn",
+        "rejected",
+        "role_closed"
+       ]
+      },
+      "title": "Pursuits By Stage",
+      "type": "object"
+     },
+     "saved_opportunities": {
+      "minimum": 0,
+      "title": "Saved Opportunities",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "open_opportunities",
+     "saved_opportunities",
+     "active_pursuits",
+     "overdue_next_actions",
+     "pursuits_by_stage"
+    ],
+    "title": "RadarSummary",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "Count the open and saved roles, the pursuits by stage and the follow-ups overdue.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "description": "The input of an operation that takes none.",
+    "properties": {},
+    "title": "NoInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "recipes.contract.get",
+   "output_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "rules": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Rules",
+      "type": "array",
+      "x-text": "diagnostic"
+     },
+     "schema": {
+      "additionalProperties": true,
+      "title": "Schema",
+      "type": "object"
+     },
+     "transforms": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Transforms",
+      "type": "array",
+      "x-text": "code"
+     },
+     "transports": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Transports",
+      "type": "array",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "schema",
+     "transports",
+     "transforms",
+     "rules"
+    ],
+    "title": "RecipeContract",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "The listing recipe v1 JSON Schema, its transports and transforms, and the rules a recipe follows.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "public_posting"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": true,
+    "state_write": false
+   },
+   "examples": [],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "document": {
+      "additionalProperties": true,
+      "description": "The listing recipe v1 document to compile and preview.",
+      "title": "Document",
+      "type": "object"
+     }
+    },
+    "required": [
+     "document"
+    ],
+    "title": "RecipeValidateInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "recipes.validate",
+   "output_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "compiles": {
+      "title": "Compiles",
+      "type": "boolean"
+     },
+     "errors": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Errors",
+      "type": "array",
+      "x-text": "diagnostic"
+     },
+     "found": {
+      "title": "Found",
+      "type": "integer"
+     },
+     "jobs": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Jobs",
+      "type": "array"
+     },
+     "pages": {
+      "title": "Pages",
+      "type": "integer"
+     },
+     "problems": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Problems",
+      "type": "array",
+      "x-text": "diagnostic"
+     },
+     "robots": {
+      "additionalProperties": true,
+      "title": "Robots",
+      "type": "object"
+     }
+    },
+    "required": [
+     "compiles",
+     "problems",
+     "errors",
+     "found",
+     "pages",
+     "robots",
+     "jobs"
+    ],
+    "title": "RecipeValidation",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "Compile a listing recipe and preview it live: two pages and five postings at most, nothing saved.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "public_posting"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": true,
+    "state_write": false
+   },
+   "examples": [
+    {
+     "selector": "a.job",
+     "url": "https://example.com/careers"
+    }
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "selector": {
+      "anyOf": [
+       {
+        "maxLength": 500,
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "A CSS selector: list the sanitized HTML of up to 20 matching elements instead of the text.",
+      "title": "Selector"
+     },
+     "url": {
+      "description": "A public careers page, http or https.",
+      "maxLength": 2048,
+      "minLength": 1,
+      "title": "Url",
+      "type": "string"
+     }
+    },
+    "required": [
+     "url"
+    ],
+    "title": "SourceInspectInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "sources.inspect",
+   "output_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "content": {
+      "title": "Content",
+      "type": "string",
+      "x-text": "content"
+     },
+     "content_truncated": {
+      "title": "Content Truncated",
+      "type": "boolean"
+     },
+     "matches": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Matches"
+     },
+     "status": {
+      "title": "Status",
+      "type": "integer"
+     },
+     "truncated": {
+      "title": "Truncated",
+      "type": "boolean"
+     },
+     "url": {
+      "title": "Url",
+      "type": "string",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "url",
+     "status",
+     "truncated",
+     "matches",
+     "content",
+     "content_truncated"
+    ],
+    "title": "SourceInspection",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "Fetch one public careers page and return its sanitized text, or the elements a CSS selector matches.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
    "data_classes": [],
    "engine_effects": {
     "external_action": false,
@@ -1343,9 +4018,41 @@
    "method": "GET",
    "path": "/api/agent/v1/operations/{operation}"
   },
+  "opportunities.get": {
+   "method": "GET",
+   "path": "/api/agent/v1/opportunities/{opportunity_id}"
+  },
+  "opportunities.history": {
+   "method": "GET",
+   "path": "/api/agent/v1/opportunities/{opportunity_id}/history"
+  },
   "opportunities.search": {
    "method": "GET",
    "path": "/api/agent/v1/opportunities"
+  },
+  "pursuits.get": {
+   "method": "GET",
+   "path": "/api/agent/v1/pursuits/{opportunity_id}"
+  },
+  "pursuits.list": {
+   "method": "GET",
+   "path": "/api/agent/v1/pursuits"
+  },
+  "radar.summary": {
+   "method": "GET",
+   "path": "/api/agent/v1/radar/summary"
+  },
+  "recipes.contract.get": {
+   "method": "GET",
+   "path": "/api/agent/v1/recipes/contract"
+  },
+  "recipes.validate": {
+   "method": "POST",
+   "path": "/api/agent/v1/recipes/validate"
+  },
+  "sources.inspect": {
+   "method": "GET",
+   "path": "/api/agent/v1/sources/inspect"
   },
   "status": {
    "method": "GET",

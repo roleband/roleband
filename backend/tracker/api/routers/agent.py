@@ -9,12 +9,13 @@ that dispatches by name.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
 
 from tracker import __version__
-from tracker.agents.operations import search, vocabulary
+from tracker.agents.operations import opportunities, pursuits, radar, recipes, search, vocabulary
 from tracker.agents.operations.catalog import CATALOG
 from tracker.agents.operations.envelope import Envelope, EnvelopeNotice, NextAction, OperationError
 from tracker.agents.operations.meta import (
@@ -40,6 +41,7 @@ from tracker.api.agent_operations import (
     engine_session_id,
     operation_route,
 )
+from tracker.api.deps import SessionDep, end_read
 
 router = APIRouter(route_class=AgentRoute, tags=["agent"])
 
@@ -108,6 +110,123 @@ async def describe(
     return op.ok(
         OperationDetail.model_validate(descriptor.full_entry(availability(descriptor, op.switches), source="engine"))
     )
+
+
+@router.get(
+    f"{PREFIX}/radar/summary",
+    response_model=Envelope[radar.RadarSummary],
+    openapi_extra=operation_route(radar.RADAR_SUMMARY),
+)
+async def radar_summary(
+    session: SessionDep,
+    op: Annotated[OperationContext, Depends(admitted(radar.RADAR_SUMMARY))],
+) -> Envelope[Any]:
+    return op.ok(await radar.radar_summary(session, now=datetime.now(UTC)))
+
+
+@router.get(
+    f"{PREFIX}/opportunities/{{opportunity_id}}",
+    response_model=Envelope[opportunities.OpportunityView],
+    openapi_extra=operation_route(opportunities.OPPORTUNITIES_GET),
+)
+async def opportunity_get(
+    session: SessionDep,
+    op: Annotated[OperationContext, Depends(admitted(opportunities.OPPORTUNITIES_GET))],
+) -> Envelope[Any]:
+    found = await opportunities.opportunity(session, op.input_as(opportunities.OpportunityGetInput))
+    view = found.root
+    if isinstance(view, opportunities.OpportunityDetail) and view.excerpt is not None:
+        envelope = op.ok(found, warnings=[EnvelopeNotice(
+            code="truncated",
+            message="The description is longer than this tool tier's budget; this is an excerpt.",
+        )])
+        envelope.meta.truncated = True
+        return envelope
+    return op.ok(found)
+
+
+@router.get(
+    f"{PREFIX}/opportunities/{{opportunity_id}}/history",
+    response_model=Envelope[opportunities.ListingHistory],
+    openapi_extra=operation_route(opportunities.OPPORTUNITIES_HISTORY),
+)
+async def opportunity_history(
+    session: SessionDep,
+    op: Annotated[OperationContext, Depends(admitted(opportunities.OPPORTUNITIES_HISTORY))],
+) -> Envelope[Any]:
+    wanted = op.input_as(opportunities.OpportunityHistoryInput).opportunity_id
+    return op.ok(await opportunities.history(session, wanted))
+
+
+@router.get(
+    f"{PREFIX}/pursuits",
+    response_model=Envelope[pursuits.PursuitList],
+    openapi_extra=operation_route(pursuits.PURSUITS_LIST),
+)
+async def pursuit_list(
+    session: SessionDep,
+    op: Annotated[OperationContext, Depends(admitted(pursuits.PURSUITS_LIST))],
+) -> Envelope[Any]:
+    page, next_cursor = await pursuits.pursuit_page(
+        session, op.input_as(pursuits.PursuitListInput), workspace_id=op.workspace_id
+    )
+    envelope = op.ok(page)
+    envelope.meta.next_cursor = next_cursor
+    return envelope
+
+
+@router.get(
+    f"{PREFIX}/pursuits/{{opportunity_id}}",
+    response_model=Envelope[pursuits.PursuitItem],
+    openapi_extra=operation_route(pursuits.PURSUITS_GET),
+)
+async def pursuit_get(
+    session: SessionDep,
+    op: Annotated[OperationContext, Depends(admitted(pursuits.PURSUITS_GET))],
+) -> Envelope[Any]:
+    wanted = op.input_as(pursuits.PursuitGetInput).opportunity_id
+    return op.ok(await pursuits.pursuit_of(session, wanted))
+
+
+@router.get(
+    f"{PREFIX}/recipes/contract",
+    response_model=Envelope[recipes.RecipeContract],
+    openapi_extra=operation_route(recipes.RECIPES_CONTRACT_GET),
+)
+async def recipe_contract(
+    op: Annotated[OperationContext, Depends(admitted(recipes.RECIPES_CONTRACT_GET))],
+) -> Envelope[Any]:
+    return op.ok(recipes.recipe_contract())
+
+
+@router.get(
+    f"{PREFIX}/sources/inspect",
+    response_model=Envelope[recipes.SourceInspection],
+    openapi_extra=operation_route(recipes.SOURCES_INSPECT),
+)
+async def source_inspect(
+    session: SessionDep,
+    op: Annotated[OperationContext, Depends(admitted(recipes.SOURCES_INSPECT))],
+) -> Envelope[Any]:
+    params = op.input_as(recipes.SourceInspectInput)
+    # Admission read the switches; the page is fetched outside a transaction.
+    await end_read(session)
+    return op.ok(await recipes.inspect_source(params))
+
+
+@router.post(
+    f"{PREFIX}/recipes/validate",
+    response_model=Envelope[recipes.RecipeValidation],
+    openapi_extra=operation_route(recipes.RECIPES_VALIDATE),
+)
+async def recipe_validate(
+    session: SessionDep,
+    op: Annotated[OperationContext, Depends(admitted(recipes.RECIPES_VALIDATE))],
+) -> Envelope[Any]:
+    params = op.input_as(recipes.RecipeValidateInput)
+    # Admission read the switches; the listing is read outside a transaction.
+    await end_read(session)
+    return op.ok(await recipes.validate_recipe(params))
 
 
 @router.get(

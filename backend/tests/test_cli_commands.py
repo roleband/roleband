@@ -430,3 +430,28 @@ def test_a_page_says_its_order(sort, order, label):
     data = {**_PAGE, "sort": sort, "order": order}
     write_human({"ok": True, "operation": "opportunities.search", "data": data, "meta": {}}, out, StringIO())
     assert out.getvalue() == f"0 of 0, {label}\n"
+
+
+def test_a_path_argument_and_a_posted_read_reach_a_real_engine(home, seeded_engine, tmp_path):
+    """The two other shapes a route takes: a field in the path, and a read whose input is a body."""
+    home.contexts(current="dev", dev={"url": seeded_engine.url})
+    listed = cli(home, "opportunities", "search", "--limit", "1", "--json")
+    assert listed.status == 0, listed
+    first = listed.envelope["data"]["rows"][0][0]
+
+    got = cli(home, "opportunities", "get", str(first), "--view", "summary", "--json")
+    assert got.status == 0, got
+    assert got.envelope["operation"] == "opportunities.get"
+    assert got.envelope["data"]["id"] == first
+
+    missing = cli(home, "opportunities", "get", "999999999", "--json")
+    assert missing.envelope["operation"] == "opportunities.get"
+    assert missing.envelope["error"]["code"] == "not_found", missing
+
+    document = tmp_path / "recipe.json"
+    document.write_text(json.dumps({"document": {"version": 99}}))
+    validated = cli(home, "recipes", "validate", "--input", f"@{document}", "--json")
+    assert validated.envelope["operation"] == "recipes.validate"
+    assert validated.status in (0, 2), validated
+    if validated.status == 2:
+        assert validated.envelope["error"]["code"] == "invalid_input", validated
