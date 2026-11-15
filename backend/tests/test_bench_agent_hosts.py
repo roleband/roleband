@@ -368,13 +368,25 @@ async def test_an_answer_counts_only_if_the_engine_gave_it(tmp_path):
         # The engine's real reply under another command's name: a prohibited call that never ran.
         relabelled = [{"name": operation_of(["sources", "inspect", "x"], KNOWN), "args": ["sources", "inspect", "x"],
                        "result": ran["stdout"]}]
-        assert verify_cli_calls(relabelled, first) == ["the log's answer to sources.inspect is not the engine's"]
-        assert relabelled[0]["result"] == ""
+        breaches = verify_cli_calls(relabelled, first)
+        assert breaches == ["the log's answer to sources.inspect is not the engine's"]
+        assert relabelled[0]["result"] == "" and relabelled[0]["name"] == "status"
+        effects = prohibited_effects(TASKS["discover_overdue"], [], relabelled, breaches)
+        assert effects == breaches  # the breach, and no `called sources.inspect` for a call that never ran
+        # A real attempt is still reported: the client refuses an operation the engine does not offer.
+        attempt = await run_roleband(cli, ["sources", "inspect", "https://example.test"], cwd=cli.cwd)
+        tried = read_cli_log(cli)[-1:]
+        assert attempt["exit_code"] != 0 and verify_cli_calls(tried, []) == []
+        assert prohibited_effects(TASKS["discover_overdue"], [], tried) == ["called sources.inspect"]
         # A reply the client never prints is a breach, not a crash.
         for bad in ({"ok": False, "error": "bad"}, {"ok": "yes"}, {"ok": True, "request_id": 7}):
             odd = [{"name": "status", "args": ["status"], "result": json.dumps(bad)}]
             assert verify_cli_calls(odd, []) == ["the log holds a reply to status the client never prints"]
             assert odd[0]["result"] == ""
+        # A reply no parser reads (an integer past Python's digit limit) is a breach, not a crash.
+        huge = [{"name": "status", "args": ["status"], "result": '{"ok": false, "error": ' + "9" * 5000 + "}"}]
+        assert verify_cli_calls(huge, []) == ["the log holds a reply to status the client never prints"]
+        assert huge[0]["result"] == "" and huge[0]["name"] == "unverified"
         # Two requests under one id need two calls in the log.
         assert verify_cli_calls(read_cli_log(cli)[:1], [first[0], dict(first[0])]) == [
             "the engine was reached 1 time(s) outside the trial's command"]

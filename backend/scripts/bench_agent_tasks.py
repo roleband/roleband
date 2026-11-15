@@ -1233,7 +1233,7 @@ _CLIENT_ERRORS = frozenset({
 def _json_object(text: str | None) -> dict | None:
     try:
         value = json.loads(text or "")
-    except json.JSONDecodeError:
+    except (ValueError, RecursionError):  # bad JSON, an integer past the digit limit, deep nesting
         return None
     return value if isinstance(value, dict) else None
 
@@ -1292,14 +1292,23 @@ def verify_cli_calls(logged: list[dict], records: list[dict]) -> list[str]:
             engine = _envelope(record["body"])
             if _as_answered(envelope) != engine or not _same_command(call["name"], (engine or {}).get("operation")):
                 breaches.append(f"the log's answer to {call['name']} is not the engine's")
+                # Graded as what the engine answered, not as the command the log claims.
+                call.update({"logged_name": call["name"], "name": str((engine or {}).get("operation") or "unverified")})
                 call.update({"verified": False, "stdout": call.get("result"), "result": ""})
             else:
                 call["verified"] = True
             continue
-        if envelope is None and "ok" in (_json_object(call.get("result")) or {}):
-            breaches.append(f"the log holds a reply to {call['name']} the client never prints")
+        forged = None
+        text = call.get("result") or ""
+        parsed = _json_object(text)
+        if envelope is None and ("ok" in (parsed or {}) or (parsed is None and text.lstrip().startswith("{"))):
+            forged = f"the log holds a reply to {call['name']} the client never prints"
         elif envelope is not None and not client_error and "--offline" not in call.get("args", []):
-            breaches.append(f"the log holds an answer to {call['name']} the engine never gave")
+            forged = f"the log holds an answer to {call['name']} the engine never gave"
+        if forged:
+            # No such call ran: it is graded as nothing, not as the command the log claims.
+            breaches.append(forged)
+            call.update({"logged_name": call["name"], "name": "unverified"})
         call.update({"verified": False, "stdout": call.get("result"), "result": ""})
     stray = sum(len(left) for left in unmatched.values())
     if stray:
