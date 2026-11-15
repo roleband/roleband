@@ -446,6 +446,35 @@
     "title": "ApplicationActivityResponse",
     "type": "object"
    },
+   "ApplicationBoard": {
+    "additionalProperties": false,
+    "properties": {
+     "applications": {
+      "items": {
+       "$ref": "#/components/schemas/BoardCard"
+      },
+      "title": "Applications",
+      "type": "array"
+     },
+     "count": {
+      "minimum": 0.0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "total": {
+      "minimum": 0.0,
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "total",
+     "count",
+     "applications"
+    ],
+    "title": "ApplicationBoard",
+    "type": "object"
+   },
    "ApplicationBoardResponse": {
     "additionalProperties": false,
     "description": "`GET /api/applications`: every application, in no particular order.",
@@ -462,6 +491,49 @@
      "applications"
     ],
     "title": "ApplicationBoardResponse",
+    "type": "object"
+   },
+   "ApplicationCalendar": {
+    "additionalProperties": false,
+    "properties": {
+     "count": {
+      "minimum": 0.0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "items": {
+      "items": {
+       "discriminator": {
+        "mapping": {
+         "interview": "#/components/schemas/CalendarInterviewEntry",
+         "step": "#/components/schemas/CalendarStepEntry"
+        },
+        "propertyName": "kind"
+       },
+       "oneOf": [
+        {
+         "$ref": "#/components/schemas/CalendarInterviewEntry"
+        },
+        {
+         "$ref": "#/components/schemas/CalendarStepEntry"
+        }
+       ]
+      },
+      "title": "Items",
+      "type": "array"
+     },
+     "total": {
+      "minimum": 0.0,
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "total",
+     "count",
+     "items"
+    ],
+    "title": "ApplicationCalendar",
     "type": "object"
    },
    "ApplicationCalendarResponse": {
@@ -1447,6 +1519,232 @@
     "title": "BindingAttentionItem",
     "type": "object"
    },
+   "BoardCard": {
+    "additionalProperties": false,
+    "description": "One application as the board shows it, keyed by its opportunity's id.",
+    "properties": {
+     "comment_count": {
+      "title": "Comment Count",
+      "type": "integer"
+     },
+     "company": {
+      "title": "Company",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "ended_at_stage": {
+      "anyOf": [
+       {
+        "enum": [
+         "saved",
+         "researching",
+         "networking",
+         "applied",
+         "interviewing",
+         "offer",
+         "accepted",
+         "declined",
+         "withdrawn",
+         "rejected",
+         "role_closed"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ended At Stage",
+      "x-text": "code"
+     },
+     "job_id": {
+      "title": "Job Id",
+      "type": "integer"
+     },
+     "last_activity_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Activity At"
+     },
+     "level_band": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Level Band",
+      "x-text": "code"
+     },
+     "next_action": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Action",
+      "x-text": "content"
+     },
+     "next_action_due": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Action Due"
+     },
+     "next_interview": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/BoardNextInterview"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "posting_status": {
+      "title": "Posting Status",
+      "type": "string",
+      "x-text": "code"
+     },
+     "priority": {
+      "title": "Priority",
+      "type": "integer"
+     },
+     "pursuit_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Pursuit Id"
+     },
+     "stage": {
+      "enum": [
+       "saved",
+       "researching",
+       "networking",
+       "applied",
+       "interviewing",
+       "offer",
+       "accepted",
+       "declined",
+       "withdrawn",
+       "rejected",
+       "role_closed"
+      ],
+      "title": "Stage",
+      "type": "string",
+      "x-text": "code"
+     },
+     "stage_since": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Stage Since"
+     },
+     "starred": {
+      "title": "Starred",
+      "type": "boolean"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "job_id",
+     "pursuit_id",
+     "stage",
+     "priority",
+     "starred",
+     "next_action",
+     "next_action_due",
+     "next_interview",
+     "comment_count",
+     "stage_since",
+     "last_activity_at",
+     "ended_at_stage"
+    ],
+    "title": "BoardCard",
+    "type": "object"
+   },
+   "BoardNextInterview": {
+    "additionalProperties": false,
+    "properties": {
+     "all_day": {
+      "title": "All Day",
+      "type": "boolean"
+     },
+     "format": {
+      "anyOf": [
+       {
+        "enum": [
+         "video",
+         "phone",
+         "onsite"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Format",
+      "x-text": "code"
+     },
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string",
+      "x-text": "content"
+     },
+     "scheduled_at": {
+      "format": "date-time",
+      "title": "Scheduled At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "label",
+     "scheduled_at",
+     "all_day",
+     "format"
+    ],
+    "title": "BoardNextInterview",
+    "type": "object"
+   },
    "BoardRegion": {
     "description": "Which regional deployment of a multi-region ATS holds a tenant's board.\n\nLever runs separate data-residency deployments \u2014 `api.lever.co` and\n`api.eu.lever.co` \u2014 with **separate tenant namespaces**. A global tenant\nasked for on the EU host answers 404 `{\"ok\":false,\"error\":\"Document not\nfound\"}`, byte-identical to what either host answers for a site name that\ndoes not exist anywhere.\n\nThat identical 404 is why the region has to be carried rather than assumed.\nA wrong region is indistinguishable from a wrong board token, so an EU\ntenant fetched from the global host does not fail with a message naming the\nproblem: the listing is invalidated, `scanned` is 0, and every run reads\n`failed` with no hint of the cause. Recognising an EU URL while fetching the\nglobal host would manufacture exactly that.\n\n`None` on a company means \"this family has one deployment\" (Greenhouse,\nAshby, Google), which is why the stored column is nullable rather than\ndefaulting to `GLOBAL` \u2014 absent and global-by-choice are different records.",
     "enum": [
@@ -1618,6 +1916,85 @@
     "title": "CalendarInterview",
     "type": "object"
    },
+   "CalendarInterviewEntry": {
+    "additionalProperties": false,
+    "properties": {
+     "all_day": {
+      "title": "All Day",
+      "type": "boolean"
+     },
+     "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+     },
+     "format": {
+      "anyOf": [
+       {
+        "enum": [
+         "video",
+         "phone",
+         "onsite"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Format",
+      "x-text": "code"
+     },
+     "interview_id": {
+      "title": "Interview Id",
+      "type": "integer"
+     },
+     "job_id": {
+      "title": "Job Id",
+      "type": "integer"
+     },
+     "kind": {
+      "const": "interview",
+      "title": "Kind",
+      "type": "string",
+      "x-text": "code"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string",
+      "x-text": "content"
+     },
+     "outcome": {
+      "anyOf": [
+       {
+        "enum": [
+         "passed",
+         "not_passed",
+         "cancelled"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Outcome",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "kind",
+     "job_id",
+     "at",
+     "interview_id",
+     "label",
+     "all_day",
+     "format",
+     "outcome"
+    ],
+    "title": "CalendarInterviewEntry",
+    "type": "object"
+   },
    "CalendarStep": {
     "additionalProperties": false,
     "properties": {
@@ -1648,6 +2025,39 @@
      "step"
     ],
     "title": "CalendarStep",
+    "type": "object"
+   },
+   "CalendarStepEntry": {
+    "additionalProperties": false,
+    "properties": {
+     "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+     },
+     "job_id": {
+      "title": "Job Id",
+      "type": "integer"
+     },
+     "kind": {
+      "const": "step",
+      "title": "Kind",
+      "type": "string",
+      "x-text": "code"
+     },
+     "step": {
+      "title": "Step",
+      "type": "string",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "kind",
+     "job_id",
+     "at",
+     "step"
+    ],
+    "title": "CalendarStepEntry",
     "type": "object"
    },
    "CapabilitiesResult": {
@@ -4684,6 +5094,38 @@
     "title": "CompensationStatsResponse",
     "type": "object"
    },
+   "ContextExport": {
+    "additionalProperties": false,
+    "properties": {
+     "continue_with": {
+      "items": {
+       "$ref": "#/components/schemas/NextAction"
+      },
+      "title": "Continue With",
+      "type": "array"
+     },
+     "manifest": {
+      "$ref": "#/components/schemas/ExportManifest"
+     },
+     "packet": {
+      "title": "Packet",
+      "type": "string",
+      "x-text": "content"
+     },
+     "packet_offset": {
+      "minimum": 0.0,
+      "title": "Packet Offset",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "manifest",
+     "packet_offset",
+     "packet"
+    ],
+    "title": "ContextExport",
+    "type": "object"
+   },
    "Criterion": {
     "additionalProperties": false,
     "properties": {
@@ -5890,6 +6332,149 @@
     "title": "DismissResponse",
     "type": "object"
    },
+   "DoctorCheck": {
+    "additionalProperties": false,
+    "properties": {
+     "check": {
+      "title": "Check",
+      "type": "string",
+      "x-text": "code"
+     },
+     "state": {
+      "enum": [
+       "ok",
+       "attention",
+       "failing"
+      ],
+      "title": "State",
+      "type": "string",
+      "x-text": "code"
+     },
+     "summary": {
+      "title": "Summary",
+      "type": "string",
+      "x-text": "diagnostic"
+     }
+    },
+    "required": [
+     "check",
+     "state",
+     "summary"
+    ],
+    "title": "DoctorCheck",
+    "type": "object"
+   },
+   "DoctorReport": {
+    "additionalProperties": false,
+    "properties": {
+     "checks": {
+      "items": {
+       "$ref": "#/components/schemas/DoctorCheck"
+      },
+      "title": "Checks",
+      "type": "array"
+     },
+     "continue_with": {
+      "items": {
+       "$ref": "#/components/schemas/NextAction"
+      },
+      "title": "Continue With",
+      "type": "array"
+     },
+     "contract_version": {
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "engine_version": {
+      "title": "Engine Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "install": {
+      "enum": [
+       "app",
+       "source"
+      ],
+      "title": "Install",
+      "type": "string",
+      "x-text": "code"
+     },
+     "redacted": {
+      "minimum": 0.0,
+      "title": "Redacted",
+      "type": "integer"
+     },
+     "settings": {
+      "items": {
+       "$ref": "#/components/schemas/DoctorSetting"
+      },
+      "title": "Settings",
+      "type": "array"
+     },
+     "settings_left_out": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Settings Left Out",
+      "type": "array",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "engine_version",
+     "contract_version",
+     "install",
+     "checks",
+     "settings",
+     "redacted"
+    ],
+    "title": "DoctorReport",
+    "type": "object"
+   },
+   "DoctorSetting": {
+    "additionalProperties": false,
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string",
+      "x-text": "code"
+     },
+     "value": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "integer"
+       },
+       {
+        "type": "number"
+       },
+       {
+        "type": "string"
+       },
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Value",
+      "x-text": "diagnostic"
+     }
+    },
+    "required": [
+     "name",
+     "value"
+    ],
+    "title": "DoctorSetting",
+    "type": "object"
+   },
    "DraftPayload": {
     "additionalProperties": false,
     "properties": {
@@ -6601,6 +7186,162 @@
     "title": "EnvelopeNotice",
     "type": "object"
    },
+   "Envelope_ApplicationBoard_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ApplicationBoard"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[ApplicationBoard]",
+    "type": "object"
+   },
+   "Envelope_ApplicationCalendar_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ApplicationCalendar"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[ApplicationCalendar]",
+    "type": "object"
+   },
    "Envelope_CapabilitiesResult_": {
     "additionalProperties": false,
     "properties": {
@@ -6835,6 +7576,162 @@
     "title": "Envelope[CompanyView]",
     "type": "object"
    },
+   "Envelope_ContextExport_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ContextExport"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[ContextExport]",
+    "type": "object"
+   },
+   "Envelope_DoctorReport_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/DoctorReport"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[DoctorReport]",
+    "type": "object"
+   },
    "Envelope_FactsPage_": {
     "additionalProperties": false,
     "properties": {
@@ -7067,6 +7964,84 @@
      "error"
     ],
     "title": "Envelope[ListingHistory]",
+    "type": "object"
+   },
+   "Envelope_OfferRead_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/OfferRead"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[OfferRead]",
     "type": "object"
    },
    "Envelope_OperationDetail_": {
@@ -8839,6 +9814,68 @@
      "currency"
     ],
     "title": "ExpectedBand",
+    "type": "object"
+   },
+   "ExportManifest": {
+    "additionalProperties": false,
+    "properties": {
+     "components": {
+      "items": {
+       "$ref": "#/components/schemas/PacketComponent"
+      },
+      "title": "Components",
+      "type": "array"
+     },
+     "format": {
+      "const": 1,
+      "title": "Format",
+      "type": "integer"
+     },
+     "left_out": {
+      "items": {
+       "enum": [
+        "public_posting",
+        "market_statistic",
+        "private_pursuit",
+        "offer",
+        "candidate"
+       ],
+       "type": "string"
+      },
+      "title": "Left Out",
+      "type": "array",
+      "x-text": "code"
+     },
+     "opportunity_id": {
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
+     "packet_bytes": {
+      "minimum": 0.0,
+      "title": "Packet Bytes",
+      "type": "integer"
+     },
+     "packet_chars": {
+      "minimum": 0.0,
+      "title": "Packet Chars",
+      "type": "integer"
+     },
+     "packet_sha256": {
+      "title": "Packet Sha256",
+      "type": "string",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "format",
+     "opportunity_id",
+     "packet_sha256",
+     "packet_bytes",
+     "packet_chars",
+     "components",
+     "left_out"
+    ],
+    "title": "ExportManifest",
     "type": "object"
    },
    "ExtractedDisclosedComp": {
@@ -13438,6 +14475,322 @@
     "title": "KeptDecision",
     "type": "object"
    },
+   "KeptOffer": {
+    "additionalProperties": false,
+    "properties": {
+     "answered": {
+      "items": {
+       "enum": [
+        "company",
+        "base",
+        "stock",
+        "strike",
+        "price",
+        "valuation",
+        "vesting",
+        "bonus",
+        "sign_on"
+       ],
+       "type": "string"
+      },
+      "maxItems": 9,
+      "title": "Answered",
+      "type": "array",
+      "x-text": "code"
+     },
+     "inputs": {
+      "$ref": "#/components/schemas/KeptOfferInputs"
+     },
+     "saved_at": {
+      "format": "date-time",
+      "title": "Saved At",
+      "type": "string"
+     },
+     "started_from": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/KeptOfferOrigin"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "inputs",
+     "answered",
+     "started_from",
+     "saved_at"
+    ],
+    "title": "KeptOffer",
+    "type": "object"
+   },
+   "KeptOfferInputs": {
+    "additionalProperties": false,
+    "description": "What the person entered. A null figure is blank, never zero.",
+    "properties": {
+     "base": {
+      "anyOf": [
+       {
+        "exclusiveMaximum": 10000000000000.0,
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Base"
+     },
+     "bonus_pct": {
+      "anyOf": [
+       {
+        "maximum": 1000.0,
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Bonus Pct"
+     },
+     "company": {
+      "maxLength": 120,
+      "pattern": "^(|[a-z0-9][a-z0-9-]*)$",
+      "title": "Company",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "grant": {
+      "anyOf": [
+       {
+        "exclusiveMaximum": 10000000000000.0,
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Grant"
+     },
+     "grant_unit": {
+      "enum": [
+       "dollars",
+       "shares"
+      ],
+      "title": "Grant Unit",
+      "type": "string",
+      "x-text": "code"
+     },
+     "listed": {
+      "title": "Listed",
+      "type": "boolean"
+     },
+     "price": {
+      "anyOf": [
+       {
+        "exclusiveMaximum": 10000000000000.0,
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Price"
+     },
+     "sign_on": {
+      "items": {
+       "anyOf": [
+        {
+         "exclusiveMaximum": 10000000000000.0,
+         "minimum": 0.0,
+         "type": "number"
+        },
+        {
+         "type": "null"
+        }
+       ]
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "title": "Sign On",
+      "type": "array"
+     },
+     "strike": {
+      "anyOf": [
+       {
+        "exclusiveMaximum": 10000000000000.0,
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Strike"
+     },
+     "vehicle": {
+      "enum": [
+       "rsu",
+       "options"
+      ],
+      "title": "Vehicle",
+      "type": "string",
+      "x-text": "code"
+     },
+     "vesting": {
+      "anyOf": [
+       {
+        "items": {
+         "anyOf": [
+          {
+           "maximum": 100.0,
+           "minimum": 0.0,
+           "type": "number"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        "maxItems": 4,
+        "minItems": 1,
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Vesting"
+     }
+    },
+    "required": [
+     "company",
+     "listed",
+     "base",
+     "bonus_pct",
+     "vehicle",
+     "grant_unit",
+     "grant",
+     "strike",
+     "price",
+     "vesting",
+     "sign_on"
+    ],
+    "title": "KeptOfferInputs",
+    "type": "object"
+   },
+   "KeptOfferOrigin": {
+    "additionalProperties": false,
+    "description": "The typical figures the offer was started from: a company's median\nrole, or one role (with its title).",
+    "properties": {
+     "company": {
+      "maxLength": 120,
+      "minLength": 1,
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "title": "Company",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "title": {
+      "anyOf": [
+       {
+        "maxLength": 300,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Title",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "company",
+     "title"
+    ],
+    "title": "KeptOfferOrigin",
+    "type": "object"
+   },
+   "KeptValuation": {
+    "additionalProperties": false,
+    "description": "A private company's value at grant and the one the person tests, per\nshare or for the whole company.",
+    "properties": {
+     "company": {
+      "title": "Company",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "grant_at": {
+      "anyOf": [
+       {
+        "exclusiveMaximum": 10000000000000.0,
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Grant At"
+     },
+     "saved_at": {
+      "format": "date-time",
+      "title": "Saved At",
+      "type": "string"
+     },
+     "share_count": {
+      "anyOf": [
+       {
+        "exclusiveMaximum": 10000000000000.0,
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Share Count"
+     },
+     "test_at": {
+      "anyOf": [
+       {
+        "exclusiveMaximum": 10000000000000.0,
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Test At"
+     },
+     "unit": {
+      "enum": [
+       "per_share",
+       "company"
+      ],
+      "title": "Unit",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "company",
+     "unit",
+     "grant_at",
+     "test_at",
+     "share_count",
+     "saved_at"
+    ],
+    "title": "KeptValuation",
+    "type": "object"
+   },
    "LauncherHealthResponse": {
     "additionalProperties": false,
     "properties": {
@@ -16800,6 +18153,40 @@
     "title": "OfferQuote",
     "type": "object"
    },
+   "OfferRead": {
+    "additionalProperties": false,
+    "properties": {
+     "offer": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/KeptOffer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "valuation_count": {
+      "minimum": 0.0,
+      "title": "Valuation Count",
+      "type": "integer"
+     },
+     "valuations": {
+      "items": {
+       "$ref": "#/components/schemas/KeptValuation"
+      },
+      "title": "Valuations",
+      "type": "array"
+     }
+    },
+    "required": [
+     "offer",
+     "valuation_count",
+     "valuations"
+    ],
+    "title": "OfferRead",
+    "type": "object"
+   },
    "OfferResponse": {
     "additionalProperties": false,
     "description": "Every offer route: the offer (null when none) and the valuations by\ncompany slug.",
@@ -18113,6 +19500,66 @@
      "job_count"
     ],
     "title": "OverviewSkill",
+    "type": "object"
+   },
+   "PacketComponent": {
+    "additionalProperties": false,
+    "properties": {
+     "fingerprint": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Fingerprint",
+      "x-text": "identifier"
+     },
+     "name": {
+      "enum": [
+       "posting",
+       "pay",
+       "company",
+       "pursuit"
+      ],
+      "title": "Name",
+      "type": "string",
+      "x-text": "code"
+     },
+     "sha256": {
+      "title": "Sha256",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "source_timestamps": {
+      "additionalProperties": {
+       "anyOf": [
+        {
+         "format": "date-time",
+         "type": "string"
+        },
+        {
+         "format": "date",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ]
+      },
+      "title": "Source Timestamps",
+      "type": "object"
+     }
+    },
+    "required": [
+     "name",
+     "sha256",
+     "source_timestamps",
+     "fingerprint"
+    ],
+    "title": "PacketComponent",
     "type": "object"
    },
    "ParsedQueryEcho": {
@@ -31767,6 +33214,176 @@
  },
  "openapi": "3.1.0",
  "paths": {
+  "/api/agent/v1/applications": {
+   "get": {
+    "operationId": "application_board_api_agent_v1_applications_get",
+    "parameters": [
+     {
+      "description": "Only the applications at this stage.",
+      "in": "query",
+      "name": "stage",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "saved",
+          "researching",
+          "networking",
+          "applied",
+          "interviewing",
+          "offer",
+          "accepted",
+          "declined",
+          "withdrawn",
+          "rejected",
+          "role_closed"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Stage"
+      }
+     },
+     {
+      "description": "The caller's tool tier, which bounds the page.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     },
+     {
+      "description": "The next_cursor of the previous page, read with the same stage.",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 512,
+         "minLength": 1,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_ApplicationBoard_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Application Board",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "applications.board"
+   }
+  },
+  "/api/agent/v1/applications/calendar": {
+   "get": {
+    "operationId": "application_calendar_api_agent_v1_applications_calendar_get",
+    "parameters": [
+     {
+      "description": "The span's first instant, with its offset.",
+      "in": "query",
+      "name": "start",
+      "required": true,
+      "schema": {
+       "format": "date-time",
+       "title": "Start",
+       "type": "string"
+      }
+     },
+     {
+      "description": "The instant the span stops before, with its offset; at most 42 days after start.",
+      "in": "query",
+      "name": "end",
+      "required": true,
+      "schema": {
+       "format": "date-time",
+       "title": "End",
+       "type": "string"
+      }
+     },
+     {
+      "description": "The caller's tool tier, which bounds the page.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     },
+     {
+      "description": "The next_cursor of the previous page, read with the same span.",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 512,
+         "minLength": 1,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_ApplicationCalendar_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Application Calendar",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "applications.calendar"
+   }
+  },
   "/api/agent/v1/capabilities": {
    "get": {
     "operationId": "capabilities_api_agent_v1_capabilities_get",
@@ -32237,6 +33854,105 @@
      "agent"
     ],
     "x-operation": "companies.prices.get"
+   }
+  },
+  "/api/agent/v1/doctor": {
+   "get": {
+    "operationId": "doctor_api_agent_v1_doctor_get",
+    "parameters": [
+     {
+      "description": "The caller's tool tier, which bounds the report.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_DoctorReport_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Doctor",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "doctor"
+   }
+  },
+  "/api/agent/v1/offer": {
+   "get": {
+    "operationId": "offer_get_api_agent_v1_offer_get",
+    "parameters": [
+     {
+      "description": "The caller's tool tier, which bounds the page of valuations.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     },
+     {
+      "description": "The next_cursor of the previous page: the valuations after it, by company slug.",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 512,
+         "minLength": 1,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_OfferRead_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Offer Get",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "offer.get"
    }
   },
   "/api/agent/v1/operations/{operation}": {
@@ -32759,6 +34475,94 @@
      "agent"
     ],
     "x-operation": "opportunities.get"
+   }
+  },
+  "/api/agent/v1/opportunities/{opportunity_id}/context": {
+   "get": {
+    "operationId": "context_export_api_agent_v1_opportunities__opportunity_id__context_get",
+    "parameters": [
+     {
+      "description": "The opportunity's id, as search returns it.",
+      "in": "path",
+      "name": "opportunity_id",
+      "required": true,
+      "schema": {
+       "minimum": 1,
+       "title": "Opportunity Id",
+       "type": "integer"
+      }
+     },
+     {
+      "description": "The caller's tool tier, which bounds one part of the packet.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Read the packet from this character on, as continue_with gives it; the parts joined are the packet.",
+      "in": "query",
+      "name": "packet_from",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "minimum": 0,
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Packet From"
+      }
+     },
+     {
+      "description": "The manifest's packet_sha256 of the parts read so far, as continue_with gives it. A packet that changed since is refused, so parts of two packets are never joined.",
+      "in": "query",
+      "name": "packet_sha256",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "pattern": "^[0-9a-f]{64}$",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Packet Sha256",
+       "x-text": "identifier"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_ContextExport_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Context Export",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "context.export"
    }
   },
   "/api/agent/v1/opportunities/{opportunity_id}/duplicates": {
