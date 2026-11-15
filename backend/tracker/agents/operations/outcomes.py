@@ -65,6 +65,8 @@ OUTCOMES: dict[str, Outcome] = {
     # 4: the person's settings refuse this operation.
     "access_disabled": Outcome(EXIT_REFUSED, 403, False),
     "writes_disabled": Outcome(EXIT_REFUSED, 403, False),
+    # A data category the operation reads is not shared with assistants.
+    "category_disabled": Outcome(EXIT_REFUSED, 403, False),
     # 5: the resource does not exist.
     "not_found": Outcome(EXIT_NOT_FOUND, 404, False),
     # 6: the resource changed, or the key was used for another request.

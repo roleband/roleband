@@ -3537,6 +3537,13 @@ export interface components {
              */
             allow_writes: boolean;
             /**
+             * Categories
+             * @default {}
+             */
+            categories: {
+                [key: string]: "any_model" | "local_only" | "not_shared";
+            };
+            /**
              * Enabled
              * @default false
              */
@@ -5917,7 +5924,7 @@ export interface components {
         Evidence: {
             dates: components["schemas"]["PostingDates"];
             /** Estimate Sources */
-            estimate_sources: components["schemas"]["EstimateSource"][];
+            estimate_sources?: components["schemas"]["EstimateSource"][];
         };
         /**
          * Excerpt
@@ -8530,9 +8537,11 @@ export interface components {
             description_sections: components["schemas"]["PostingSection"][];
             employer_stated_pay: components["schemas"]["EmployerStatedPay"] | null;
             /** Estimate Component */
-            estimate_component: string | null;
-            estimated_base: components["schemas"]["EstimatedBase"] | null;
-            estimated_total_comp: components["schemas"]["EstimatedTotalComp"] | null;
+            estimate_component?: string | null;
+            /** Estimated Base */
+            estimated_base?: components["schemas"]["EstimatedBase"] | null;
+            /** Estimated Total Comp */
+            estimated_total_comp?: components["schemas"]["EstimatedTotalComp"] | null;
             excerpt: components["schemas"]["Excerpt"] | null;
             /** Family */
             family: string | null;
@@ -8550,9 +8559,10 @@ export interface components {
             listed_since: string | null;
             /** Locations */
             locations: string[];
-            pursuit: components["schemas"]["PursuitState"] | null;
+            /** Pursuit */
+            pursuit?: components["schemas"]["PursuitState"] | null;
             /** Saved */
-            saved: boolean;
+            saved?: boolean;
             /** Status */
             status: string;
             /** Team */
@@ -8577,9 +8587,11 @@ export interface components {
             company: string;
             employer_stated_pay: components["schemas"]["EmployerStatedPay"] | null;
             /** Estimate Component */
-            estimate_component: string | null;
-            estimated_base: components["schemas"]["EstimatedBase"] | null;
-            estimated_total_comp: components["schemas"]["EstimatedTotalComp"] | null;
+            estimate_component?: string | null;
+            /** Estimated Base */
+            estimated_base?: components["schemas"]["EstimatedBase"] | null;
+            /** Estimated Total Comp */
+            estimated_total_comp?: components["schemas"]["EstimatedTotalComp"] | null;
             evidence: components["schemas"]["Evidence"];
             /** Family */
             family: string | null;
@@ -8597,9 +8609,10 @@ export interface components {
             listed_since: string | null;
             /** Locations */
             locations: string[];
-            pursuit: components["schemas"]["PursuitState"] | null;
+            /** Pursuit */
+            pursuit?: components["schemas"]["PursuitState"] | null;
             /** Saved */
-            saved: boolean;
+            saved?: boolean;
             /** Status */
             status: string;
             /** Title */
@@ -8624,9 +8637,11 @@ export interface components {
             continue_with?: components["schemas"]["NextAction"][];
             employer_stated_pay: components["schemas"]["EmployerStatedPay"] | null;
             /** Estimate Component */
-            estimate_component: string | null;
-            estimated_base: components["schemas"]["EstimatedBase"] | null;
-            estimated_total_comp: components["schemas"]["EstimatedTotalComp"] | null;
+            estimate_component?: string | null;
+            /** Estimated Base */
+            estimated_base?: components["schemas"]["EstimatedBase"] | null;
+            /** Estimated Total Comp */
+            estimated_total_comp?: components["schemas"]["EstimatedTotalComp"] | null;
             /** Family */
             family: string | null;
             /** First Seen */
@@ -8643,9 +8658,10 @@ export interface components {
             listed_since: string | null;
             /** Locations */
             locations: string[];
-            pursuit: components["schemas"]["PursuitState"] | null;
+            /** Pursuit */
+            pursuit?: components["schemas"]["PursuitState"] | null;
             /** Saved */
-            saved: boolean;
+            saved?: boolean;
             /** Status */
             status: string;
             /** Title */
@@ -10082,7 +10098,8 @@ export interface components {
             next_action_due: string | null;
             /** Notes */
             notes: string | null;
-            opportunity: components["schemas"]["PursuedOpportunity"];
+            /** Opportunity */
+            opportunity?: components["schemas"]["PursuedOpportunity"];
             /** Priority */
             priority: number;
             /** Revision */
@@ -10213,20 +10230,24 @@ export interface components {
         PursuitWriteResponse: {
             pursuit: components["schemas"]["JobPursuit"];
         };
-        /** RadarSummary */
+        /**
+         * RadarSummary
+         * @description The pursuit counts are absent when the person does not share their
+         *     pursuits with assistants.
+         */
         RadarSummary: {
             /** Active Pursuits */
-            active_pursuits: number;
+            active_pursuits?: number;
             /** Open Opportunities */
             open_opportunities: number;
             /** Overdue Next Actions */
-            overdue_next_actions: number;
+            overdue_next_actions?: number;
             /** Pursuits By Stage */
-            pursuits_by_stage: {
+            pursuits_by_stage?: {
                 [key: string]: number;
             };
             /** Saved Opportunities */
-            saved_opportunities: number;
+            saved_opportunities?: number;
         };
         /**
          * ReasonSaid
@@ -11486,19 +11507,7 @@ export interface components {
              * Rows
              * @description One array per opportunity, its values in the order `columns` names.
              */
-            rows: [
-                number,
-                string,
-                string,
-                string | null,
-                number,
-                string | null,
-                string | null,
-                number | null,
-                string | null,
-                string | null,
-                string | null
-            ][];
+            rows: (number | string | null)[][];
             /**
              * Sort
              * @enum {string}
