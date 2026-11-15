@@ -1165,8 +1165,9 @@ product runs is duplicate review, on a pair the user picks, by their local model
 (`backend/tracker/intelligence/duplicate_review.py`). The one line that can add a
 cloud tier is in `backend/tracker/intelligence_runtime/routing.py`, a ladder only
 the model bench drives. Search query parsing (`backend/tracker/search/llm.py`)
-takes the same switch, and the tool-calling transport below reaches a cloud
-model only through a tier from that ladder; nothing calls it yet.
+takes the same switch. The tool-calling transport below refuses a tier the
+ladder blocked but cannot tell where a tier came from, so its callers take
+their tiers from `build_tiers`; nothing calls it yet.
 
 Tool calling, for a runner that loops a model over operations, is
 `backend/tracker/intelligence/tool_calls/`: a provider-neutral conversation
