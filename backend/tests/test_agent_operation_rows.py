@@ -1,7 +1,8 @@
 """Every operation the engine offers is accounted for where coverage is decided.
 
-The coverage ledger names the operation that covers each dashboard route, and
-the MCP parity checklist names the operation that replaces each MCP tool and
+The coverage ledger names the operation that covers each dashboard route and
+lists those that cover none (`unrouted`); the MCP parity checklist names the
+operation that replaces each MCP tool and
 the switch that gates it, and lists the operations parity added that
 replace no tool (`receipts.get`). An operation in neither was added without anyone
 deciding what it covers, so the catalog may hold no such operation. One the
@@ -44,8 +45,11 @@ SCOPES_FOR_SWITCH = {
 
 
 def _ledger_operations() -> set[str]:
-    rows = json.loads((_FIXTURES / "agent_coverage_ledger.json").read_text())["rows"]
-    return {row["operation"] for row in rows if row.get("operation")}
+    """The operations the ledger names: on a route's row, or as covering none."""
+    ledger = json.loads((_FIXTURES / "agent_coverage_ledger.json").read_text())
+    return {row["operation"] for row in ledger["rows"] if row.get("operation")} | {
+        entry["operation"] for entry in ledger.get("unrouted", [])
+    }
 
 
 def _checklist_switches() -> dict[str, str]:
