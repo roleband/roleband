@@ -442,6 +442,22 @@ STATUS_DATA = {
 }
 
 
+@pytest.mark.parametrize("fmt", ["json", "human"])
+def test_text_beyond_the_locale_code_page_is_written_as_utf8(home, fmt):
+    """A Windows pipe defaults to a code page that cannot hold every posting;
+    `PYTHONIOENCODING` puts any host's pipe in that state."""
+    message = "Agent access is off: Zürich, 東京"
+    reply = Reply(403, _envelope("status", ok=False, error=_failure(message=message)))
+    with Stub(reply) as stub:
+        home.contexts(current="dev", dev={"url": stub.url})
+        result = cli(home, "status", "--format", fmt, PYTHONIOENCODING="cp1252")
+    assert result.status == 4, result
+    if fmt == "json":
+        assert result.envelope["error"]["message"] == message
+    else:
+        assert message in result.stderr
+
+
 @pytest.mark.parametrize(
     "reply",
     [

@@ -1297,6 +1297,8 @@ A read takes its input from the path and query; one that takes a document
 (`recipes.validate`) takes it as a POST body, one JSON object.
 An answer that can grow past the caller's tool tier (the detail view of
 `opportunities.get`) is a typed excerpt marked `truncated`, never cut JSON.
+Its `continue_with` names the calls that read the rest (the description from
+a character on, the notes whole), so following them reads everything.
 A list cursor (`pursuits.list`) resumes after its last row in the current
 order, with no snapshot; a whole list is read from the first page.
 Each read that replaces an MCP tool reuses that tool's query owner, and
