@@ -350,9 +350,13 @@ test("a long history keeps its month in view while it scrolls, and a jump lands 
 test("under reduced motion a jump's ring holds still for a moment, then goes", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await installHistory(page, 240);
+  await page.clock.install();
   await page.goto("/pipeline/101");
   const [, tail] = msg("applications-feed-jump-month", { month: "\u0000" }).split("\u0000");
   const dividers = page.getByRole("button", { name: new RegExp(`${tail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`) });
+  await expect(dividers.first()).toBeVisible();
+  // The page's clock stops here, so only runFor moves the ring's timer.
+  await page.clock.pauseAt(new Date(Date.now() + 60_000));
   await dividers.first().click();
   await page.getByRole("dialog", { name: msg("applications-feed-jump-label") })
     .getByRole("button", { name: new RegExp(msg("applications-feed-jump-applied")) }).click();
@@ -364,9 +368,11 @@ test("under reduced motion a jump's ring holds still for a moment, then goes", a
     const after = getComputedStyle(entry, "::after");
     return after.content === "none" ? 0 : Number(after.opacity);
   });
-  await page.waitForTimeout(1000);
-  expect(await ring(), "the ring is still there a second after landing").toBe(1);
-  await expect.poll(ring, { timeout: 5000 }).toBe(0);
+  expect(await ring(), "the ring is there on landing").toBe(1);
+  await page.clock.runFor(2_000);
+  expect(await ring(), "the ring holds still for two seconds").toBe(1);
+  await page.clock.runFor(500);
+  await expect.poll(ring).toBe(0);
   await expect(landed).toBeFocused();
 });
 
