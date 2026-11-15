@@ -205,7 +205,7 @@ class DoctorReport(Shape):
     #: How many values were redacted.
     redacted: int = Field(ge=0)
     #: Settings whose value alone outgrows the full tier, by name, left out of `settings`.
-    settings_left_out: list[str] = Field(default_factory=list)
+    settings_left_out: list[str] = Field(default_factory=list, json_schema_extra=_CODE)
     continue_with: list[NextAction] = Field(default_factory=list)
 
 

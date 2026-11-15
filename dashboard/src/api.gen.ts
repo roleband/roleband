@@ -5530,6 +5530,8 @@ export interface components {
             redacted: number;
             /** Settings */
             settings: components["schemas"]["DoctorSetting"][];
+            /** Settings Left Out */
+            settings_left_out?: string[];
         };
         /** DoctorSetting */
         DoctorSetting: {

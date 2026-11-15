@@ -1611,6 +1611,14 @@
       },
       "title": "Settings",
       "type": "array"
+     },
+     "settings_left_out": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Settings Left Out",
+      "type": "array",
+      "x-text": "code"
      }
     },
     "required": [
