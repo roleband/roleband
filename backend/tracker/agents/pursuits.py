@@ -150,10 +150,14 @@ async def upsert_pursuit(
     *,
     actor: Literal["user", "agent"],
     expected_revision: int | None = None,
+    via: str | None = None,
 ) -> Pursuit:
     """Create or change the pursuit of one role. Every write that changes the
     row advances its `revision` (the mapper does it on flush); a write that
     changes nothing leaves it.
+
+    `via` names the way an agent's write came in (the agent operations say
+    `agent_api`); the event keeps it beside the actor.
 
     `expected_revision` is the revision the caller read, 0 for a role with no
     pursuit yet. Given, the write is refused with `RevisionConflict` when the
@@ -206,7 +210,12 @@ async def upsert_pursuit(
                 to_stage=pursuit.stage,
                 # Both versions of every field, so a write never loses what
                 # it replaced (an agent's note over the user's own).
-                detail={"changed": sorted(changed), "before": _stored(replaced), "after": _stored(changed)},
+                detail={
+                    "changed": sorted(changed),
+                    "before": _stored(replaced),
+                    "after": _stored(changed),
+                    **({"via": via} if via is not None else {}),
+                },
             )
         )
     await session.flush()

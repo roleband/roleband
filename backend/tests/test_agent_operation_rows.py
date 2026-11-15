@@ -2,7 +2,8 @@
 
 The coverage ledger names the operation that covers each dashboard route, and
 the MCP parity checklist names the operation that replaces each MCP tool and
-the switch that gates it. An operation in neither was added without anyone
+the switch that gates it, and lists the operations parity added that
+replace no tool (`receipts.get`). An operation in neither was added without anyone
 deciding what it covers, so the catalog may hold no such operation. One the
 checklist names must sit under the switch the checklist gives it: the parity
 rule is "the same switch", and a read moved under the write switch, or a write
@@ -48,7 +49,10 @@ def _ledger_operations() -> set[str]:
 
 
 def _checklist_switches() -> dict[str, str]:
-    rows = json.loads((_FIXTURES / "mcp_parity_checklist.json").read_text())["tools"]
+    """The switch of each operation the checklist names: the replacement of
+    each MCP tool, and each operation parity added that replaces none."""
+    checklist = json.loads((_FIXTURES / "mcp_parity_checklist.json").read_text())
+    rows = [*checklist["tools"], *checklist.get("added_operations", [])]
     return {row["operation"]: row["switch"] for row in rows}
 
 

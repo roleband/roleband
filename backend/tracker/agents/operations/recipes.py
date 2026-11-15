@@ -1,8 +1,9 @@
-"""The reads an agent authoring a listing recipe needs: the contract, a public
-careers page, and a live preview of a draft.
+"""What an agent authoring a listing recipe needs: the contract, a public
+careers page, a live preview of a draft, and saving the draft.
 
-The order is inspect, read the contract, write the recipe, validate it; saving a
-draft is a write and lives apart. Nothing here activates or binds a recipe.
+The order is inspect, read the contract, write the recipe, validate it, save
+it. Saving appends a draft revision and is the one write here; nothing here
+activates or binds a recipe, which stays the person's step in the app.
 `sources.inspect` and `recipes.validate` fetch public pages (every connection
 pinned to a public address by `safe_fetch`), so their descriptors declare an
 outbound network effect. Fetched text is sanitized and returned as content:
@@ -17,6 +18,7 @@ import httpx
 from pydantic import Field
 from pydantic.config import JsonDict
 from selectolax.lexbor import LexborHTMLParser as HTMLParser
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.agents.operations.descriptor import (
     EngineEffects,
@@ -28,7 +30,13 @@ from tracker.agents.operations.descriptor import (
 from tracker.agents.operations.envelope import OperationError
 from tracker.config import get_settings
 from tracker.connectors.extract import sanitize_html, visible_text
-from tracker.connectors.recipes import RECIPE_V1_SCHEMA, TRANSFORM_NAMES, TRANSPORT_MODES
+from tracker.connectors.recipes import (
+    RECIPE_V1_SCHEMA,
+    TRANSFORM_NAMES,
+    TRANSPORT_MODES,
+    RecipeError,
+)
+from tracker.db.recipe_store import save_draft_revision
 from tracker.platform.safe_fetch import BlockedDestination, fetch_public, public_client
 from tracker.workflows.recipe_preview import preview_document
 
@@ -137,7 +145,38 @@ RECIPES_VALIDATE = OperationDescriptor(
     data_classes=("public_posting",),
 )
 
-OPERATIONS: tuple[OperationDescriptor, ...] = (RECIPES_CONTRACT_GET, SOURCES_INSPECT, RECIPES_VALIDATE)
+
+class RecipeDraftSaveInput(Shape):
+    document: dict[str, Any] = Field(
+        description="The listing recipe v1 document; its `id` names the recipe. It must compile."
+    )
+
+
+class SavedDraft(Shape):
+    #: The recipe the draft belongs to: the document's `id`.
+    slug: str = Field(json_schema_extra=_IDENTIFIER)
+    revision_id: int
+    #: The draft's number among the recipe's revisions, 1 for its first.
+    version: int = Field(ge=1)
+
+
+RECIPES_DRAFT_SAVE = OperationDescriptor(
+    id="recipes.draft.save",
+    summary="Save a listing recipe as a new draft revision. It never activates the recipe or binds a company.",
+    input=RecipeDraftSaveInput,
+    result=SavedDraft,
+    access="write",
+    idempotency="required_key",
+    engine_effects=EngineEffects(state_write=True),
+    tool_tiers=_AUTHORING_TIERS,
+)
+
+OPERATIONS: tuple[OperationDescriptor, ...] = (
+    RECIPES_CONTRACT_GET, SOURCES_INSPECT, RECIPES_VALIDATE, RECIPES_DRAFT_SAVE,
+)
+
+#: What a draft an agent saves records as its author.
+DRAFT_AUTHOR = "agent"
 
 
 def recipe_contract() -> RecipeContract:
@@ -200,3 +239,22 @@ async def validate_recipe(params: RecipeValidateInput) -> RecipeValidation:
         robots=check.robots,
         jobs=check.jobs,
     )
+
+
+async def save_draft(session: AsyncSession, params: RecipeDraftSaveInput) -> SavedDraft:
+    """Append a draft revision, as the MCP tool and the Settings screen do. A
+    document that does not compile is an input error and stores nothing."""
+    slug = params.document.get("id")
+    if not isinstance(slug, str) or not slug:
+        raise OperationError(
+            "invalid_input", "The recipe document needs an `id`, which names the recipe.",
+            details={"field": "document.id"},
+        )
+    try:
+        revision = await save_draft_revision(session, slug=slug, document=params.document, created_by=DRAFT_AUTHOR)
+    except RecipeError as error:
+        raise OperationError(
+            "invalid_input", "The recipe does not compile; nothing was saved.",
+            details={"field": "document", "problems": [str(problem) for problem in error.problems]},
+        ) from None
+    return SavedDraft(slug=slug, revision_id=revision.id, version=revision.version)

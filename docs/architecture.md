@@ -1286,6 +1286,17 @@ A list cursor (`pursuits.list`) resumes after its last row in the current
 order, with no snapshot; a whole list is read from the first page.
 Each read that replaces an MCP tool reuses that tool's query owner, and
 `backend/tests/test_agent_parity_reads.py` holds the two to the same rows.
+The MCP writes have theirs: `pursuits.save` (PUT) and `pursuits.patch` (PATCH)
+write through `upsert_pursuit` as the agent, and their event records
+`via: agent_api`; `recipes.draft.save` appends a draft revision and never
+activates. A patch states the revision it read (`if_revision`, 0 for a role
+with no pursuit yet) and reads its fields by presence: null clears the notes,
+the next action or its due date, a field left out is untouched, and a null
+stage or priority is an input error. A save may state the revision; without
+one it is last-writer-wins on priority. `receipts.get` reads a write's receipt
+back by operation and key, in this workspace and for the engine's principal;
+it is a read, so it answers with writes off.
+`backend/tests/test_agent_parity_writes.py` holds each to its MCP tool.
 
 **Trust boundary.** Mac and ordinary source mode use loopback access control.
 `LoopbackBoundary` (`backend/tracker/api/boundary.py`, outermost) refuses a Host
