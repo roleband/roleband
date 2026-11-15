@@ -265,13 +265,18 @@ def _offline_capabilities(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _offline_describe(args: argparse.Namespace) -> dict[str, Any]:
-    entry = _bundle().get(args.operation)
+    operations = _bundle()
+    entry = operations.get(args.operation)
     if entry is None:
+        # As the engine answers: a partial id names the operations under it.
+        under = sorted(name for name in operations if name.startswith(args.operation))
         raise ClientError(
             "unknown_operation",
-            "This client knows no operation by that name.",
-            details={"operation": args.operation},
-            next_actions=[{"operation": "capabilities", "arguments": {}}],
+            f"This client knows no operation by that name; {len(under)} start with it." if under
+            else "This client knows no operation by that name.",
+            details={"operation": args.operation, "candidates": under},
+            next_actions=[*({"operation": "describe", "arguments": {"operation": name}} for name in under),
+                          {"operation": "capabilities", "arguments": {}}],
         )
     return entry
 

@@ -525,6 +525,25 @@ async def test_describe_of_an_unknown_operation_points_at_capabilities(api_clien
 
 
 @pytest.mark.asyncio
+async def test_describe_of_a_resource_name_lists_the_operations_under_it(api_client, db_session):
+    await _enable(db_session)
+    body = (await api_client.get(f"{PREFIX}/operations/opportunities")).json()
+    assert body["error"]["code"] == "unknown_operation"
+    under = sorted(descriptor.id for descriptor in CATALOG if descriptor.id.startswith("opportunities."))
+    assert len(under) >= 3, "the catalog must have opportunities operations, or this proves nothing"
+    assert body["error"]["details"]["candidates"] == under
+    assert body["error"]["next_actions"] == [
+        *({"operation": "describe", "arguments": {"operation": name}} for name in under),
+        {"operation": "capabilities", "arguments": {}},
+    ]
+    # A partial id names what it starts; a name that starts nothing names nothing.
+    partial = (await api_client.get(f"{PREFIX}/operations/opportunities.ge")).json()
+    assert partial["error"]["details"]["candidates"] == ["opportunities.get"]
+    none = (await api_client.get(f"{PREFIX}/operations/widgets")).json()
+    assert none["error"]["details"]["candidates"] == []
+
+
+@pytest.mark.asyncio
 async def test_an_operation_id_outside_the_rule_is_invalid_input(api_client, db_session):
     await _enable(db_session)
     body = (await api_client.get(f"{PREFIX}/operations/Status")).json()

@@ -182,7 +182,13 @@ async def test_the_summary_view_is_the_detail_less_its_text(api_client, workspac
     summary = _data(body)
     text_keys = {"department", "team", "description", "description_sections", "excerpt"}
     assert summary["view"] == "summary"
-    assert summary == {**{k: v for k, v in detail.items() if k not in text_keys}, "view": "summary"}
+    # Less its text, and with the one call that reads it.
+    assert summary["continue_with"] == [
+        {"operation": "opportunities.get", "arguments": {"opportunity_id": job_id, "view": "detail", "tier": "small"}}
+    ]
+    assert {k: v for k, v in summary.items() if k != "continue_with"} == {
+        **{k: v for k, v in detail.items() if k not in text_keys}, "view": "summary",
+    }
     assert "description" not in json.dumps(summary)
     # The pursuit rides along, as on the tool.
     assert summary["pursuit"]["stage"] == "applied"
@@ -225,7 +231,7 @@ async def test_the_evidence_view_names_each_date_and_each_pay_source(api_client,
     # The facts are the summary's.
     summary = _data((await _get(api_client, f"/opportunities/{job_id}"))[1])
     assert {k: v for k, v in data.items() if k not in {"view", "evidence"}} == {
-        k: v for k, v in summary.items() if k != "view"
+        k: v for k, v in summary.items() if k not in {"view", "continue_with"}
     }
 
 
