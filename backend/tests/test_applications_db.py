@@ -708,14 +708,25 @@ async def test_a_long_history_reads_whole_and_its_oldest_comment_stays_editable(
 
 
 async def test_a_slice_larger_than_any_page_is_honoured(api_client, db_session):
+    """A slice asks for exactly what it names, however far past any page size
+    the feed was ever cut to."""
     job = await _job(db_session)
     await _comment(api_client, job.id, "One")
-    await _comment(api_client, job.id, "Two")
+    pursuit_id = await db_session.scalar(select(Pursuit.id).where(Pursuit.job_id == job.id))
+    start = datetime.now(UTC) - timedelta(days=30)
+    db_session.add_all(
+        PursuitComment(pursuit_id=pursuit_id, actor="user", body=f"Note {n}", created_at=start + timedelta(hours=n))
+        for n in range(300)
+    )
+    await db_session.commit()
 
-    response = await api_client.get(f"/api/applications/{job.id}/activity", params={"limit": 5000})
+    sliced = await api_client.get(f"/api/applications/{job.id}/activity", params={"limit": 250})
+    beyond = await api_client.get(f"/api/applications/{job.id}/activity", params={"limit": 5000})
 
-    assert response.status_code == 200, response.text
-    assert len(response.json()["items"]) == 3
+    assert sliced.status_code == 200, sliced.text
+    assert len(sliced.json()["items"]) == 250
+    assert beyond.status_code == 200, beyond.text
+    assert len(beyond.json()["items"]) == 1 + 300 + 1  # the comment, the notes, the created event
 
 
 async def test_a_page_that_ends_inside_rows_written_together_loses_none_of_them(api_client, db_session):

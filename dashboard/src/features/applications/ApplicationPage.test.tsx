@@ -331,10 +331,16 @@ describe("the feed", () => {
     expect(within(oldest).getByRole("textbox", { name: msg("applications-comment-label") })).toHaveValue("The very first note");
     expect(screen.getAllByText(/^Note \d+$/)).toHaveLength(200);
 
-    // One divider a month; this year's months by name alone, last year's with the year.
+    // One divider for every month in the reader's zone, newest first, none
+    // skipped; this year's months by name alone, last year's with the year.
     const dividers = screen.getAllByRole("button", { name: /jump to another point/ });
-    const months = new Set(items.map((item) => item.created_at.slice(0, 7))).size;
-    expect(dividers.length).toBeGreaterThanOrEqual(months - 1);
+    const localMonth = (iso: string) => {
+      const day = new Date(iso);
+      return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}`;
+    };
+    const months = [...new Set(items.map((item) => localMonth(item.created_at)))];
+    expect(months.length).toBeGreaterThan(12);
+    expect(dividers.map((divider) => divider.getAttribute("data-month"))).toEqual(months);
     const thisYear = String(new Date(now).getFullYear());
     expect(dividers[0]).not.toHaveTextContent(thisYear);
     const lastYear = String(new Date(now).getFullYear() - 1);
