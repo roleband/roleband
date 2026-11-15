@@ -649,7 +649,7 @@ async def changes_page(
     shared: frozenset[DataClass] = ALL_CATEGORIES,
 ) -> ChangesAnswer:
     """One page of the feed after `params.since`, or from its start."""
-    asked: tuple[Kind, ...] = tuple(sorted(params.kinds)) if params.kinds is not None else KINDS
+    asked: tuple[Kind, ...] = tuple(sorted(params.kinds if params.kinds is not None else KINDS))
     for kind in params.kinds or ():
         # A kind asked for by name is refused, as a search filter is; the whole
         # feed only leaves the withheld kinds out.

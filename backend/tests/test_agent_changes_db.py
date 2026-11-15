@@ -476,6 +476,15 @@ async def _refused(api_client, reason: str, **params) -> dict:
     return hint["arguments"]
 
 
+async def test_every_kind_named_continues_a_read_that_named_none(api_client, feed):
+    """The same selection, left out or written out in any order, is one set of filters."""
+    since = await _start(api_client)
+    for kinds in (list(KINDS), list(reversed(KINDS))):
+        assert (await _page(api_client, since=since, kinds=kinds))["data"]["caught_up"] is True
+    named = await _start(api_client, kinds=list(reversed(KINDS)))
+    assert (await _page(api_client, since=named))["data"]["caught_up"] is True
+
+
 async def test_a_since_that_cannot_continue_is_refused_with_a_lookup_never_reset(api_client, feed):
     job = await _posting(feed, "refusals")
     since = await _start(api_client)
