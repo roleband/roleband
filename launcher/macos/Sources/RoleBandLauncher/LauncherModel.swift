@@ -319,7 +319,8 @@ final class LauncherModel: ObservableObject {
     /// needs to see first: the engine answered, nothing asks for attention, and no update is
     /// running or reporting its result.
     var reopenOpensRadar: Bool {
-        guard let verified, installer?.activity == nil, updateNotice == nil else { return false }
+        guard let verified, installer?.activity == nil, updateNotice == nil,
+              verified.presentation.activity != .updating else { return false }
         switch hostState {
         case .needsAttention, .starting, .backingOff, .stopped: return false
         case .running, nil: return verified.presentation.hold?.kind != .attention
@@ -479,12 +480,16 @@ final class LauncherModel: ObservableObject {
                 failures = 0
                 // A browser that does not open says nothing about the engine, which just answered.
                 if let route = openAfterRead {
-                    if openBrowser(try route.url(for: installation)) { noteRadarOpened() }
+                    // A reopen decided on the last status; this fresh one may have something to say.
+                    if openFailed != nil && !reopenOpensRadar { openFailed?() }
+                    else if openBrowser(try route.url(for: installation)) { noteRadarOpened() }
                     else { controlMessage = "setup-browser-error"; openFailed?() }
                 }
             } catch is CancellationError {
-                // Only `stop()` cancels a read; the next `refresh()` must find the model idle.
+                // A host change or `stop()` cancels a read; the next `refresh()` must find the model
+                // idle. `stop()` clears the fallback first, so only a host change shows the panel.
                 openAfterRead = nil
+                openFailed?()
                 openFailed = nil
                 pending = false
                 checking = false
@@ -533,6 +538,7 @@ final class LauncherModel: ObservableObject {
         timer = next
     }
     func stop() {
+        openFailed = nil
         task?.cancel(); controlTask?.cancel(); timer?.invalidate(); loginTimer?.invalidate(); loginTimer = nil
         hostMonitor?.cancel(); hostMonitor = nil
     }
