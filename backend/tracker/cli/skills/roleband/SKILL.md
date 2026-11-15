@@ -2,16 +2,16 @@
 name: roleband
 description: Read and update the person's job search in RoleBand (opportunities, pursuits, recipes, radar) through the `roleband` command. Use when the person asks about roles, companies, pay or applications they track in RoleBand.
 ---
-<!-- roleband skill, version 2. `roleband connect` installed this file; once you edit it, connect leaves it as it is. -->
+<!-- roleband skill, version 3. `roleband connect` installed this file; once you edit it, connect leaves it as it is. -->
 
 # RoleBand
 
-`roleband` reaches the RoleBand engine running on this computer. Pass `--json` on every call and start the command with `roleband` itself: a variable set before it (`ROLEBAND_AGENT=1 roleband ...`) makes the host ask the person first. Every call prints exactly one JSON envelope: read `ok` first, then `data`, or `error.code` and `error.message` when `ok` is false.
+`roleband` reaches the RoleBand engine running on this computer. Pass `--json` on every call and start the command with `roleband` itself: a variable set before it (`ROLEBAND_AGENT=1 roleband ...`) makes the host ask the person first. Where `roleband` is a tool rather than a shell command, call the tool named `roleband` and put the words after `roleband` in its arguments, one each: `capabilities --json` is `["capabilities", "--json"]`. Every call prints exactly one JSON envelope: read `ok` first, then `data`, or `error.code` and `error.message` when `ok` is false.
 
 1. Run `roleband capabilities --json` to see the operations this engine offers and which of them the person has turned on.
 2. Before calling an operation, run `roleband describe OPERATION --json` with an id from that list. It gives the input and output schemas, the effects and the setting that controls it.
 3. Call an operation by its id as words: `opportunities.search` is `roleband opportunities search`. A field the operation's address names is an argument (`roleband opportunities get 4821`); a plain value or list field is a flag (`level_band` is `--level-band`; repeat a list flag for more values). A nested field, such as the `document` of `recipes validate`, has no flag: give it in one JSON object with `--input @FILE`, or `--input -` reading `echo '{...}' | roleband ...`. Arguments and flags add the fields that object leaves out; a field given both ways fails with exit 2. `--help` after the command lists the flags.
-4. A filter value that names nothing fails with exit 2, and `error.next_actions` names the lookup that lists the accepted values, such as `roleband vocabulary list --kind location`. When `meta.next_cursor` is set, pass it as `--cursor` for the next page. When `meta.truncated` is true on `opportunities get`, `data.excerpt.continue_with` lists the calls that read the rest, an operation and its arguments: make them as given (`description_from` is `--description-from`).
+4. A filter value that names nothing fails with exit 2, and `error.next_actions` names the lookup that lists the accepted values, such as `roleband vocabulary list --kind location`. When `meta.next_cursor` is set, pass it as `--cursor` for the next page. `opportunities get ID` is the posting's facts; its text is `--view detail`, which `data.continue_with` names. When `meta.truncated` is true on a detail view, `data.excerpt.continue_with` lists the calls that read the rest, an operation and its arguments: make them as given (`description_from` is `--description-from`).
 
 ## Changing data
 

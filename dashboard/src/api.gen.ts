@@ -8633,6 +8633,8 @@ export interface components {
         OpportunitySummary: {
             /** Company */
             company: string;
+            /** Continue With */
+            continue_with?: components["schemas"]["NextAction"][];
             employer_stated_pay: components["schemas"]["EmployerStatedPay"] | null;
             /** Estimate Component */
             estimate_component?: string | null;

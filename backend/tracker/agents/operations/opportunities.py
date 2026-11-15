@@ -1,7 +1,7 @@
 """`opportunities.get` and `opportunities.history`: one posting, by its id.
 
 `get` answers one of three declared views. `summary` is the posting's facts and
-pay; `detail` adds its department, team and text; `evidence` adds what each
+pay, with the detail read in `continue_with`; `detail` adds its department, team and text; `evidence` adds what each
 fact rests on: the posting's dates as each side recorded them, and every pay
 source's answers. Employer-stated pay and estimates stay separate fields in
 every view, and an estimate never fills a stated field.
@@ -133,6 +133,8 @@ class _Facts(Shape):
 
 class OpportunitySummary(_Facts):
     view: Literal["summary"] = Field(json_schema_extra=_CODE)
+    #: The read that adds the posting's text, the detail view; empty when it has none.
+    continue_with: list[NextAction] = Field(default_factory=list)
 
 
 class PostingSection(Shape):
@@ -447,7 +449,10 @@ async def opportunity(
     if params.view == "evidence":
         evidence = {**fields, "view": "evidence", "evidence": await _evidence(session, job, estimates=statistics)}
         return OpportunityView(OpportunityEvidence.model_validate(evidence))
-    return OpportunityView(OpportunitySummary.model_validate({**fields, "view": "summary"}))
+    text = [NextAction(operation=OPPORTUNITIES_GET.id, arguments={
+        "opportunity_id": job.id, "view": "detail", "tier": params.tier,
+    })] if job.description_text or job.description_sections else []
+    return OpportunityView(OpportunitySummary.model_validate({**fields, "view": "summary", "continue_with": text}))
 
 
 async def _evidence(session: AsyncSession, job: Job, *, estimates: bool) -> dict[str, Any]:
