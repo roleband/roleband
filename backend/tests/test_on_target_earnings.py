@@ -36,6 +36,12 @@ SALES_ASIDE = (
         # A condition after the name guards it as much as one before it.
         ("The total compensation range is $184,000 to $230,000 (on-target earnings for sales roles only).", False),
         ("For sales roles, the OTE range is $184,000 to $230,000.", False),
+        # Another band's label names that band, not this one.
+        ("Total compensation is $184,000 to $230,000, including base pay and equity.\n\n"
+         "For account executives, OTE is $250,000 to $300,000.", False),
+        # Its own sentence, or a heading with no figure of its own, names it.
+        ("Total compensation is $184,000 to $230,000.\n\n"
+         "For account executives, OTE is $250,000 to $300,000. This role's OTE is $184,000 to $230,000.", True),
         # The band is not in the text: nothing locates it, so nothing is named.
         ("Our OTE ranges are competitive.", False),
         (None, False),

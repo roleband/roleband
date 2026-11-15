@@ -1100,14 +1100,19 @@ def names_on_target_earnings(description_text: str | None, bounds: list[int]) ->
     in a sentence with no condition on either side of the name ("for sales
     roles, the OTE range...", "(on-target earnings for sales roles only)").
     Stricter than the basis markers: a label that names this band for some
-    roles only does not name it for this one."""
+    roles only does not name it for this one, and a sentence that states
+    another figure names that figure, not this band ("For account executives,
+    OTE is $250,000 to $300,000.")."""
     if not description_text:
         return False
     span = locate_pay_span(description_text, bounds)
     if span is None:
         return False
+    band = description_text[span[0] : span[1]]
     return any(
-        _ON_TARGET_RE.search(sentence) and not _CONDITIONAL_RE.search(sentence)
+        _ON_TARGET_RE.search(sentence)
+        and not _CONDITIONAL_RE.search(sentence)
+        and (band in sentence or not _OTHER_AMOUNT_RE.search(sentence))
         for sentence in _SENTENCE_RE.split(basis_context(description_text, span))
     )
 
