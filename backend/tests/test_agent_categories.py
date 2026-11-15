@@ -30,7 +30,7 @@ from tracker.agents.config import (
     get_agent_access,
     set_agent_access,
 )
-from tracker.agents.operations import meta
+from tracker.agents.operations import meta, policy
 from tracker.agents.operations.catalog import REGISTERED
 from tracker.agents.operations.descriptor import OperationDescriptor
 from tracker.agents.operations.opportunities import OpportunitySummary
@@ -41,7 +41,7 @@ from tracker.agents.operations.workspace import ensure_workspace_id
 from tracker.api.agent_operations import IDEMPOTENCY_KEY_HEADER, PREFIX
 from tracker.cli.render import write_human
 from tracker.config import get_settings
-from tracker.db.models import AppSetting, Favorite, Job, Pursuit, TrackedCompany
+from tracker.db.models import AppSetting, Favorite, Job, JobFeedback, Pursuit, TrackedCompany
 from tracker.db.queries.jobs import unplaced_level_expr
 from tracker.settings_store import set_intent_embedding
 
@@ -124,6 +124,27 @@ async def test_the_settings_switches_keep_the_stored_choices(api_client, workspa
     assert "categories" not in response.json()
     stored = await get_agent_access(workspace)
     assert (stored.enabled, stored.allow_writes, stored.categories) == (True, False, {"private_pursuit": "not_shared"})
+
+
+async def test_a_switch_save_keeps_choices_the_engine_cannot_read(api_client, workspace):
+    """Read as no choices, an unreadable row would share every category the
+    person kept back once the switches are saved."""
+    kept = {"private_pursuit": "not_shared", "offer": "everyone"}
+    await workspace.execute(
+        update(AppSetting).where(AppSetting.key == AGENT_ACCESS_KEY).values(
+            value={"enabled": False, "allow_writes": False, "categories": kept}
+        )
+    )
+    await workspace.commit()
+
+    response = await api_client.put("/api/intelligence/agents", json={"enabled": True, "allow_writes": False})
+
+    assert response.status_code == 200 and response.json()["enabled"] is False
+    stored = await workspace.scalar(select(AppSetting.value).where(AppSetting.key == AGENT_ACCESS_KEY))
+    assert stored["categories"] == kept
+    assert not policy.shared(await get_agent_access(workspace), "private_pursuit")
+    _response, body = await _get(api_client, "/opportunities")
+    assert body["error"]["code"] == "access_disabled"
 
 
 async def test_a_switch_save_cannot_put_back_choices_saved_while_it_ran(db_session, scratch_scope, monkeypatch):
@@ -274,6 +295,24 @@ async def test_search_answers_without_the_pursuit_or_estimate_columns(api_client
     assert left == [c for c in columns if c not in {"pursuit", "estimated_pay"}]
     kept = [columns.index(c) for c in left]
     assert closed == [[row[i] for i in kept] for row in rows]
+
+
+async def test_search_lists_dismissed_roles_like_any_other_without_pursuits(api_client, workspace):
+    """Left out, a dismissed role would show in the page and its total which
+    roles the person dismissed."""
+    columns, rows = await _rows(api_client)
+    dismissed = rows[0][columns.index("id")]
+    workspace.add(JobFeedback(job_id=dismissed, verdict="dismissed"))
+    await workspace.commit()
+    shared = _data(*await _get(api_client, "/opportunities", tier="full", limit=100))
+    assert dismissed not in [row[columns.index("id")] for row in shared["rows"]]
+    await _choose(workspace, private_pursuit="not_shared")
+
+    withheld = _data(*await _get(api_client, "/opportunities", tier="full", limit=100))
+
+    at = withheld["columns"].index("id")
+    assert dismissed in [row[at] for row in withheld["rows"]]
+    assert withheld["total"] == shared["total"] + 1
 
 
 async def test_queryless_best_match_leaves_the_profile_statement_out_without_the_candidate_category(

@@ -55,21 +55,24 @@ async def set_agent_access(
     The row is locked from the read of the stored choices to the write, so a
     save of the switches alone cannot put back choices another save changed
     in between. The row is created first when there is none, so the first two
-    saves serialize on it too.
+    saves serialize on it too. Answers the row as the engine reads it.
     """
-    if "categories" not in config.model_fields_set:
-        config = config.model_copy(update={"categories": await _locked_categories(session)})
     value = config.model_dump(mode="json")
+    if "categories" not in config.model_fields_set:
+        value["categories"] = await _locked_categories(session)
     stmt = insert(AppSetting).values(key=AGENT_ACCESS_KEY, value=value)
     stmt = stmt.on_conflict_do_update(
         index_elements=[AppSetting.key], set_={"value": value}
     )
     await session.execute(stmt)
-    return config
+    return _read(value)
 
 
-async def _locked_categories(session: AsyncSession) -> dict[DataClass, CategoryChoice]:
-    """The stored choices, with the row locked until the transaction ends."""
+async def _locked_categories(session: AsyncSession) -> object:
+    """The stored choices as stored, with the row locked until the transaction
+    ends. Choices the engine cannot read are kept as they are, so the row still
+    reads as everything off: read as no choices, they would share every
+    category the person had kept back."""
     await session.execute(
         insert(AppSetting)
         .values(key=AGENT_ACCESS_KEY, value=AgentAccessConfig().model_dump(mode="json"))
@@ -78,4 +81,4 @@ async def _locked_categories(session: AsyncSession) -> dict[DataClass, CategoryC
     stored = await session.scalar(
         select(AppSetting.value).where(AppSetting.key == AGENT_ACCESS_KEY).with_for_update()
     )
-    return _read(stored).categories
+    return stored.get("categories", {}) if isinstance(stored, dict) else {}

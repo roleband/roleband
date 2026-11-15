@@ -1272,10 +1272,14 @@ and `capabilities` shows it unavailable for that reason. An operation leaves
 out the part of its answer from any other class it declares: its keys are
 absent, never null, and optional in the result schema (a search column leaves
 `columns` and every row). It refuses an input that selects by that part, and
-lists only the classes it answered in `meta.data_classes`. A class that only
+lists in `meta.data_classes` the classes it declares that are shared: those
+its answer may draw on, not a trace of what one call used. A class that only
 orders an answer counts the same way: queryless best match blends the profile
 statement and the saved, pursued and dismissed roles into the person's intent,
-each only while its class is shared. A keyed write's receipt keeps the whole result; its
+each only while its class is shared, and without pursuits search lists the
+roles the person dismissed like any other. A Settings save of the two switches
+keeps stored choices the engine cannot read as they are, so the row still
+reads as everything off. A keyed write's receipt keeps the whole result; its
 answer, fresh or replayed, leaves the part out. Every operation but the
 handshake declares at least one data class.
 `workspace_identity` holds the workspace's durable id, which these answers

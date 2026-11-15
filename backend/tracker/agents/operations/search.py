@@ -24,7 +24,7 @@ closes or re-sorts between two pages can be missed or repeated.
 
 A category the person does not share is absent: without their pursuits the
 `pursuit` column is left out of `columns` and every row, `saved_only` is
-refused. Queryless `best_match` ranks by the person's intent, which blends
+refused, and the roles they dismissed are listed like any other. Queryless `best_match` ranks by the person's intent, which blends
 the statement in their candidate profile with the roles they saved, pursue
 and dismissed: each part counts only while its category is shared, and with
 neither the order is the default. Without market statistics the `estimated_pay` column is left out, and
@@ -261,6 +261,8 @@ async def search(
     hidden = await off_board_company_slugs(session)
     board: dict[str, Any] = {
         "status": "open",
+        # Leaving dismissed roles out would tell which ones the person dismissed.
+        "keep_dismissed": not pursuits,
         "company": filters.get("company"),
         "family": filters.get("family"),
         "level_band": filters.get("level_band"),
