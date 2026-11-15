@@ -139,9 +139,14 @@ def test_a_band_stored_whole_over_several_years_becomes_one_year_s_share():
     # A count of years about something else never divides the band.
     beside = "Base pay: $180,000 - $220,000 per month; retention bonus paid per 2 years"
     assert multi_year_share((180_000, 220_000, "USD", "unclear"), beside) is None
-    for joined in ("; bonus", " and bonus"):
-        bonus = f"Base pay: $180,000 - $220,000 per month{joined} $20,000 per 2 years"
-        assert multi_year_share((180_000, 220_000, "USD", "unclear"), bonus) is None, joined
+    for bonus in ("$20,000", "$180,000 - $220,000"):
+        for joined in ("; bonus", " and bonus"):
+            quote = f"Base pay: $180,000 - $220,000 per month{joined} {bonus} per 2 years"
+            assert multi_year_share((180_000, 220_000, "USD", "unclear"), quote) is None, quote
+    # A labelled quote of the one band still counts.
+    assert multi_year_share((180_000, 220_000, "USD", "unclear"), "Salary: $180K - $220K USD per 2 years") == {
+        "disclosed_base_min": 90_000, "disclosed_base_max": 110_000, "disclosed_pay_period": "year",
+    }
     assert multi_year_share((180_000, 220_000, "USD", "unclear"), "$180K - $220K USD per 2 years") == {
         "disclosed_base_min": 90_000, "disclosed_base_max": 110_000, "disclosed_pay_period": "year",
     }

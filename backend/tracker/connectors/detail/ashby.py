@@ -32,37 +32,34 @@ def _interval(raw: object) -> tuple[int, str] | None:
     return (int(words[0]), unit) if unit in _UNITS else None
 
 
-#: The count `_formatted_salary` writes after an amount stated over several
-#: years: "$180,000 - $220,000 per 2 years", "$180K - $220K USD per 2 years".
-_YEARS_RE = re.compile(r"\bper (\d+) years\b")
 _AMOUNT = r"(?:[$£€]\s*)?(\d[\d,]*(?:\.\d+)?)\s*([kKmM])?"
-#: The amount or range that ends right before the count, then at most a
-#: currency code.
-_RANGE_BEFORE_RE = re.compile(
-    rf"{_AMOUNT}(?:\s*(?:-|–|—|to)\s*{_AMOUNT})?(?:\s+[A-Z]{{3}})?\s*$"
+#: The whole quote `_formatted_salary` writes for an amount stated over several
+#: years: an optional label, one amount or range, at most a currency code, then
+#: the count. "$180,000 - $220,000 per 2 years", "$180K - $220K USD per 2 years".
+_YEARS_QUOTE_RE = re.compile(
+    rf"(?:[^:;\n]*:\s*)?{_AMOUNT}(?:\s*(?:-|–|—|to)\s*{_AMOUNT})?"
+    r"(?:\s+[A-Z]{3})?\s+per (\d+) years"
 )
 _SCALE = {"k": 1_000, "m": 1_000_000}
 
 
 def years_in_quote(quote: str | None, low: int | None, high: int | None) -> int:
     """How many years a stored Ashby quote says the band `low`-`high` covers:
-    the count in "per 2 years" when the amount or range right before it is
-    that band; 1 otherwise. A count after any other figure ("and bonus
-    $20,000 per 2 years") describes that figure."""
+    the count when the whole quote is that one band stated over several years,
+    as `_formatted_salary` writes it; 1 otherwise. A quote that states any
+    other figure or clause ("... per month; bonus $180,000 - $220,000 per 2
+    years") is not one band, so it divides nothing."""
+    match = _YEARS_QUOTE_RE.fullmatch((quote or "").strip())
+    if match is None:
+        return 1
+    *numbers, years = match.groups()
+    amounts = {
+        round(float(number.replace(",", "")) * _SCALE.get((scale or "").lower(), 1))
+        for number, scale in zip(numbers[::2], numbers[1::2], strict=True)
+        if number is not None
+    }
     bounds = {bound for bound in (low, high) if bound is not None}
-    for match in _YEARS_RE.finditer(quote or ""):
-        before = _RANGE_BEFORE_RE.search((quote or "")[: match.start()])
-        if before is None:
-            continue
-        numbers = before.groups()
-        amounts = {
-            round(float(number.replace(",", "")) * _SCALE.get((scale or "").lower(), 1))
-            for number, scale in zip(numbers[::2], numbers[1::2], strict=True)
-            if number is not None
-        }
-        if bounds and bounds <= amounts:
-            return int(match.group(1))
-    return 1
+    return int(years) if bounds and bounds <= amounts else 1
 
 
 def _stated_period(raw: object) -> PayPeriod | None:
