@@ -460,6 +460,33 @@ async def test_every_insights_read_is_refused_while_agent_access_is_off(api_clie
         assert response.status_code == outcome("access_disabled").http_status
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("choice", ["local_only", "not_shared"])
+async def test_every_insights_read_is_refused_while_market_statistics_are_withheld(api_client, workspace, choice):
+    cases = await _cases(workspace)
+    await set_agent_access(workspace, AgentAccessConfig(
+        enabled=True, allow_writes=False, categories={"market_statistic": choice},
+    ))
+    await workspace.commit()
+
+    for operation, params in cases:
+        response, body = await _agent(api_client, ROUTES[operation][0], **params)
+        assert body["ok"] is False and body["data"] is None, operation
+        assert body["error"]["code"] == "category_disabled", operation
+        assert response.status_code == outcome("category_disabled").http_status, operation
+        assert body["error"]["details"] == {
+            "category": "market_statistic", "setting": "agent_access.categories.market_statistic",
+        }, operation
+
+    # Shared again, the same reads answer.
+    await set_agent_access(workspace, AgentAccessConfig(
+        enabled=True, allow_writes=False, categories={"market_statistic": "any_model"},
+    ))
+    await workspace.commit()
+    for operation, params in cases:
+        assert (await _agent(api_client, ROUTES[operation][0], **params))[1]["ok"] is True, operation
+
+
 # --------------------------------------------------------------------------- #
 # The tier's budget: pages that stop early and read on, nothing lost.
 # --------------------------------------------------------------------------- #
