@@ -33,13 +33,16 @@ def _interval(raw: object) -> tuple[int, str] | None:
 
 
 #: The count `_formatted_salary` writes after an amount stated over several
-#: years: "$180,000 - $220,000 per 2 years".
-_YEARS_RE = re.compile(r"\bper (\d+) years\b")
+#: years, right after the amount or its currency code: "$180,000 - $220,000
+#: per 2 years", "$180K - $220K USD per 2 years".
+_YEARS_RE = re.compile(r"\d[\d,.]*\s*[kKmM]?(?:\s+[A-Z]{3})?\s+per (\d+) years\b")
 
 
 def years_in_quote(quote: str | None) -> int:
     """How many years a stored Ashby quote says its amount covers: the count
-    in "per 2 years", 1 when it names none."""
+    in "per 2 years" when it follows the amount itself, 1 otherwise. A count
+    elsewhere in the quote ("a retention bonus paid per 2 years") describes
+    something else."""
     match = _YEARS_RE.search(quote or "")
     return int(match.group(1)) if match else 1
 

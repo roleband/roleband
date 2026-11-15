@@ -292,10 +292,12 @@ def test_a_structured_pay_field_may_be_decided_by_size_alone():
 
 
 @pytest.mark.parametrize(("stored", "low", "high", "currency", "shown"), [
-    # An amount only a year can hold is yearly whatever was stored:
+    # An amount only a year can hold is yearly whatever period was stored:
     ("hour", 600_000, 1_066_000, "USD", "year"),  # Netflix, stored before this rule
-    ("unclear", 163_000, 236_000, "USD", "year"),
     ("month", 150_000, 200_000, "USD", "year"),
+    # A stored `unclear` stays unclear whatever its size: a band stated whole
+    # over two years is salary-sized too, and only the pass reads its quote.
+    ("unclear", 180_000, 220_000, "USD", "unclear"),
     ("year", 104, 165, "EUR", "unclear"),  # Elastic, stored before this rule
     # A stored `unclear` the size does not settle stays unclear: month and
     # year share it, or it may be a day or week rate.

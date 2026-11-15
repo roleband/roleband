@@ -54,7 +54,13 @@ from tracker.pay_disclosure import (
     extract_grounded_band,
     settle_band,
 )
-from tracker.pay_period import PayPeriod, decide_period, effective_period, size_classes
+from tracker.pay_period import (
+    PayPeriod,
+    decide_period,
+    effective_period,
+    size_classes,
+    size_settles,
+)
 from tracker.settings_store import get_active_prompt_version
 from tracker.taxonomy.locations import pay_country
 
@@ -449,12 +455,12 @@ def corrected_band(
       removed here; the read-time guard keeps showing it as "could not tell".
 
     A stored `unclear` is a candidate only when its size settles it (an amount
-    only a year can hold): otherwise it is what the rule itself writes when the
-    words contradict the size, so re-reading it every run could only write it
-    again.
+    only a year can hold, `size_settles`): otherwise it is what the rule itself
+    writes when the words contradict the size, so re-reading it every run
+    could only write it again.
     """
     low, high, currency, period = stored
-    if effective_period(period, low, high, currency) == period:
+    if effective_period(period, low, high, currency) == period and not size_settles(period, low, high, currency):
         return None
     if reread is None or not reread.disclosed or reread.base_min is None or reread.base_max is None:
         return None
@@ -482,9 +488,9 @@ def multi_year_share(
 
     Only a stored `unclear` whose quote names the years ("$180,000 - $220,000
     per 2 years"): the Ashby connector divides such a band as it reads it, and
-    a band it stored whole reads as a year's pay by its size alone. A share the
-    size still cannot call yearly is stored `unclear`, which is no longer a
-    candidate, so a band is never divided twice.
+    a band it stored whole is salary-sized by its size alone. Every division
+    writes `year`, which is never divided again; a share no year can hold is
+    left whole and `unclear`.
     """
     low, high, currency, period = stored
     years = years_in_quote(quote)
@@ -495,7 +501,7 @@ def multi_year_share(
     decided = decide_period(
         size_classes(share_low, share_high, currency), PayPeriod.year, structured=True,
     )
-    if decided is None:
+    if decided is not PayPeriod.year:
         return None
     return {
         "disclosed_base_min": share_low,
@@ -527,18 +533,21 @@ async def correct_pay_periods(session: AsyncSession) -> dict:
         await session.execute(
             select(
                 Job.id, Job.disclosed_base_min, Job.disclosed_base_max,
-                Job.disclosed_currency, Job.disclosed_pay_period,
+                Job.disclosed_currency, Job.disclosed_pay_period, Job.disclosed_snippet,
             ).where(or_(Job.disclosed_base_min.isnot(None), Job.disclosed_base_max.isnot(None)))
             .order_by(Job.id)
         )
     ).all()
-    candidates = [
-        row.id for row in rows
-        if effective_period(
-            row.disclosed_pay_period, row.disclosed_base_min,
-            row.disclosed_base_max, row.disclosed_currency,
-        ) != row.disclosed_pay_period
-    ]
+    candidates = []
+    for row in rows:
+        stored = (row.disclosed_base_min, row.disclosed_base_max,
+                  row.disclosed_currency, row.disclosed_pay_period)
+        if (
+            effective_period(row.disclosed_pay_period, *stored[:3]) != row.disclosed_pay_period
+            or size_settles(row.disclosed_pay_period, *stored[:3])
+            or multi_year_share(stored, row.disclosed_snippet) is not None
+        ):
+            candidates.append(row.id)
     summary = {"candidates": len(candidates), "relabelled": 0, "amounts_fixed": 0, "kept": 0}
 
     async def work(chunk_session: AsyncSession, ids: list[int]) -> int:

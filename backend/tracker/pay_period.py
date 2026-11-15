@@ -247,16 +247,18 @@ def effective_period(
 
     Read-time guard for rows written before this rule, and for sources that
     state a period without us checking it. An amount only a year can hold
-    reads `year` whatever was stored beside it, `unclear` included: "$600,000
-    / hr" and "$150,000 per month" are salaries, as `decide_period` reads
-    them. Any other stored period its amount cannot be ("€104 / yr") reads
-    `unclear`, and so does a stored `unclear` the size does not settle: an
-    hourly-sized amount stored `unclear` may be a day or week rate. The
-    `pay_periods` pass relabels stored rows from their own text. A band
-    stored with no period at all reads by its size. Pure: nothing is
-    rewritten.
+    reads `year` whatever period was stored beside it: "$600,000 / hr" is a
+    salary, as `decide_period` reads it. Any other stored period its amount
+    cannot be ("€104 / yr") reads `unclear`. A stored `unclear` stays
+    `unclear` whatever its size: a band stated whole over several years
+    ("$180,000 - $220,000 per 2 years") is salary-sized too, and only its
+    quote tells the two apart. The `pay_periods` pass settles such rows from
+    their quote and text (`size_settles`). A band stored with no period at all
+    reads by its size. Pure: nothing is rewritten.
     """
     sizes = size_classes(low, high, currency)
+    if stored == PayPeriod.unclear.value:
+        return stored
     if sizes == (PayPeriod.year,):
         return PayPeriod.year.value
     if stored is not None and stored in {size.value for size in sizes}:
@@ -264,6 +266,15 @@ def effective_period(
     if stored is None and sizes and sizes[0] is PayPeriod.year:
         return PayPeriod.year.value
     return PayPeriod.unclear.value
+
+
+def size_settles(
+    stored: str | None, low: float | None, high: float | None, currency: str | None
+) -> bool:
+    """A stored `unclear` whose amount only a year can hold: what
+    `decide_period` now reads as a year, which `effective_period` still shows
+    as `unclear` until the `pay_periods` pass has checked its quote and text."""
+    return stored == PayPeriod.unclear.value and size_classes(low, high, currency) == (PayPeriod.year,)
 
 
 def not_yearly_usd(

@@ -16,8 +16,13 @@ from tests.factories import make_job
 from tracker.connectors.detail.ashby import AshbyDetailConnector
 from tracker.db.models import Job
 from tracker.intelligence_runtime import disclosed_comp
-from tracker.intelligence_runtime.disclosed_comp import correct_pay_periods, corrected_band, multi_year_share
+from tracker.intelligence_runtime.disclosed_comp import (
+    correct_pay_periods,
+    corrected_band,
+    multi_year_share,
+)
 from tracker.pay_disclosure import extract_grounded_band
+from tracker.pay_period import effective_period
 
 NETFLIX = (
     "The range for this role is $600,000.00 - $1,066,000.00. This compensation range is "
@@ -123,6 +128,18 @@ def test_a_band_stored_whole_over_several_years_becomes_one_year_s_share():
     }
     # Read since the connector divides: already a year's share, never divided twice.
     assert multi_year_share((90_000, 110_000, "USD", "year"), two_years) is None
+    # Where month and year share the share's size, the stated years still decide.
+    assert multi_year_share((24_000, 28_000, "USD", "unclear"), two_years) == {
+        "disclosed_base_min": 12_000, "disclosed_base_max": 14_000, "disclosed_pay_period": "year",
+    }
+    # A share no year can hold is left whole: dividing it again could never end.
+    assert multi_year_share((600, 800, "USD", "unclear"), two_years) is None
+    # A count of years about something else never divides the band.
+    beside = "Base pay: $180,000 - $220,000 per month; retention bonus paid per 2 years"
+    assert multi_year_share((180_000, 220_000, "USD", "unclear"), beside) is None
+    assert multi_year_share((180_000, 220_000, "USD", "unclear"), "$180K - $220K USD per 2 years") == {
+        "disclosed_base_min": 90_000, "disclosed_base_max": 110_000, "disclosed_pay_period": "year",
+    }
     # A quote that names no count of years is a year's pay as stated.
     assert multi_year_share((180_000, 220_000, "USD", "unclear"), _ashby_quote("1 YEAR")) is None
     assert multi_year_share((180_000, 220_000, "USD", "unclear"), CONTRADICTION) is None
@@ -210,16 +227,27 @@ async def test_a_run_killed_midway_keeps_the_batches_it_saved(db_session, monkey
 @pytest.mark.asyncio
 async def test_the_pass_divides_a_band_stored_whole_over_several_years(db_session):
     quote = _ashby_quote("2 YEAR")
-    legacy = _row("ashby", quote, 180_000, 220_000, "USD", "unclear")
-    legacy.disclosed_snippet = quote
-    legacy.disclosed_source = "connector"
-    db_session.add(legacy)
+    rows = []
+    for key, low, high in (("salary", 180_000, 220_000), ("overlap", 24_000, 28_000)):
+        legacy = _row(key, quote, low, high, "USD", "unclear")
+        legacy.disclosed_snippet = quote
+        legacy.disclosed_source = "connector"
+        rows.append(legacy)
+    db_session.add_all(rows)
     await db_session.commit()
+    # Until the pass reads its quote, a whole multi-year band is never shown as a year.
+    assert effective_period("unclear", 180_000, 220_000, "USD") == "unclear"
 
-    assert (await correct_pay_periods(db_session))["amounts_fixed"] == 1
+    assert (await correct_pay_periods(db_session))["amounts_fixed"] == 2
     db_session.expire_all()
-    job = (await db_session.scalars(select(Job))).one()
-    assert (job.disclosed_base_min, job.disclosed_base_max, job.disclosed_pay_period) == (90_000, 110_000, "year")
-    assert job.disclosed_snippet == quote, "the quote keeps the board's own interval"
+    stored = {
+        job.req_id: (job.disclosed_base_min, job.disclosed_base_max, job.disclosed_pay_period, job.disclosed_snippet)
+        for job in (await db_session.scalars(select(Job))).all()
+    }
+    assert stored == {
+        "salary": (90_000, 110_000, "year", quote),
+        "overlap": (12_000, 14_000, "year", quote),
+    }
 
+    # Divided once: neither row is a candidate again.
     assert (await correct_pay_periods(db_session))["candidates"] == 0
