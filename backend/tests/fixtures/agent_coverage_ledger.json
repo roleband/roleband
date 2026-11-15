@@ -1,5 +1,5 @@
 {
- "_why": "Every route of the dashboard API, with what an agent reaches it through: the ID of the operation that covers it, or an exclusion kind and the reason no operation does. tests/test_agent_coverage_ledger.py fails when a route has no row, so a new route cannot ship without that decision. Routes under /api/agent/v1/ are the operation surface itself and need no row.",
+ "_why": "Every route of the dashboard API, with what an agent reaches it through: the ID of the operation that covers it, or an exclusion kind and the reason no operation does. tests/test_agent_coverage_ledger.py fails when a route has no row, so a new route cannot ship without that decision. Routes under /api/agent/v1/ are the operation surface itself and need no row. agent_only names the operations that cover no dashboard route, each with why.",
  "rows": [
   {
    "method": "DELETE",
@@ -955,6 +955,12 @@
    "path": "/api/usage/consent",
    "excluded": "app_setting",
    "reason": "Usage-data consent and the install ID are the person's answer, given in the app."
+  }
+ ],
+ "agent_only": [
+  {
+   "operation": "changes.list",
+   "why": "Covers no dashboard route: the app shows the current radar, and an agent needs what changed since it last looked, in commit order, from a position it holds."
   }
  ]
 }

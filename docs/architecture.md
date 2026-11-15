@@ -1317,6 +1317,20 @@ one it is last-writer-wins on priority. `receipts.get` reads a write's receipt
 back by operation and key, in this workspace and for the engine's principal;
 it is a read, so it answers with writes off.
 `backend/tests/test_agent_parity_writes.py` holds each to its MCP tool.
+`changes.list` (`backend/tracker/agents/operations/changes.py`) reads what changed
+after a position, in commit order: openings, closings, reopenings and reposts
+from `job_lifecycle_events`, stated-pay changes from its `disclosed_base`
+detail, source health from `scrape_source_runs`, and pursuit actions falling
+due from `pursuits.next_action_due`. Each event says whether it is recorded or
+derived at the read (a repost label, a health move, a due time); a plugin's
+health has no ordered record and is reported unavailable. Both records carry the
+inserting transaction (`change_xact`, `xid8`, and `change_cluster`), and a read
+stops below the oldest transaction of the database still running, so a row that
+commits late is read later, never passed over
+([0020](decisions/0020-changes-feed-commit-order.md)). `next_since` is the
+position after a page, bound to the workspace, the principal, the kinds and the
+cluster; one that cannot continue is refused as `invalid_input` with the call to
+start again, never reset.
 
 **Trust boundary.** Mac and ordinary source mode use loopback access control.
 `LoopbackBoundary` (`backend/tracker/api/boundary.py`, outermost) refuses a Host
