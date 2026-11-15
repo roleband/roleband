@@ -556,8 +556,8 @@ never a bare `<a target="_blank">`.
   click with `page.mouse`; Playwright refuses a locator click on a covered
   element.
 - **A whole-row target** (a notification row, a review option, the posting's
-  folding More like this heading, the next posting at a posting's end) is a bare
-  `<button>` carrying layout and no button chrome. It still owns hover,
+  folding More like this heading, the suggestion to apply at a posting's end) is a
+  bare `<button>` or link carrying layout and no button chrome. It still owns hover,
   focus and disabled, and its ring is drawn inside.
 - `src/test/control-inventory.test.ts` lists every class outside `src/ui/`
   that declares `cursor: pointer` and paints a box. A new name fails, and so
@@ -1259,7 +1259,7 @@ Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs
 | Axe in both themes | `a11y.spec.ts` |
 | Pay split bar: hatch strength, gaps, forced colours; the split label's help mark | `pay-split-bar.spec.ts` |
 | Visible primaries counted | `job-detail.spec.ts`, `profile.spec.ts` |
-| The posting's side column stays in view with no scroll of its own and keeps its first rows, folds More like this, and follows the description in one column; the pay panel's small copy grows with the scroll; a section's heading sticks; the bar carries the role; the pager steps through the list; the next posting turns in place, in one cover, with no loading line | `job-detail.spec.ts` |
+| The posting's side column stays in view with no scroll of its own and keeps its first rows, folds More like this, and follows the description in one column; the pay panel's small copy grows with the scroll; a section's heading sticks; the bar carries the role; the pager steps through the list; the posting ends on applying, which saves the role and opens the pipeline list in a new tab; the next posting turns in place, in one cover, with no loading line | `job-detail.spec.ts` |
 | A posting steps by its box's width alone: frame, columns and type together, the text across its column, the bar, menus and pop-ups at their size, nothing zoomed | `job-detail-steps.spec.ts` |
 | First-run setup | `routing/setupMode.test.tsx`, `features/scope/walk/Walk.test.tsx`, `features/companies/SetupCompanies.test.tsx`, `welcome.spec.ts` |
 | First-run setup magnification: the factor, window units, placed pop-ups, the planet's pointer | `features/scope/setupZoom.test.ts`, `features/scope/welcome/globeDrag.test.ts`, `setup-magnification.spec.ts`, `setup-magnification-webkit.spec.ts`, `setup-magnification-unhinted.spec.ts` |

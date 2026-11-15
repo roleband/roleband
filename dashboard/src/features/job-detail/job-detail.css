@@ -619,8 +619,8 @@
 }
 
 /* ---- the end of the read --------------------------------------------------
-   The text ends on the way on: the next posting in the list it was opened
-   from, under a rule across the column. The whole block is the control; its
+   The text ends on the way on: the suggestion to apply, which saves the
+   role and opens the pipeline in a new tab, under a rule across the column. The whole block is the control; its
    ground shows only under the pointer, reaching out past the text's edges so
    its words stay on the column's line. */
 .jd-end {
@@ -646,6 +646,7 @@
   color: inherit;
   font: inherit;
   text-align: start;
+  text-decoration: none;
   cursor: pointer;
   transition: background-color var(--app-duration-fast) var(--app-ease);
 }
@@ -693,7 +694,7 @@
 
 .jd-next:hover > svg {
   color: var(--app-text);
-  transform: translateX(3px);
+  transform: translate(2px, -2px);
 }
 
 @media (prefers-reduced-motion: reduce) {

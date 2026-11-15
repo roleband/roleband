@@ -933,31 +933,86 @@ test("a posting opened from the board steps to the next row and back, and Back r
   await expect(panel).toHaveCount(0);
 });
 
-/* The read ends on the way on: under the employer's text, the next posting in
-   the list, named, which opens it as J does. The last row of the list has
-   nothing after it, and a posting opened by its link has no list. */
-test("a posting opened from the board ends on the next one, which it opens; the last row and a link end on nothing", async ({ page }) => {
-  await mockGet(page, "/api/jobs?**", (route) => route.fulfill({ json: twoJobList }));
-  await page.goto("/");
-  await page.getByText(jobFixture.title).click();
+/* The read ends on the way on: under the employer's text, a suggestion to
+   apply. Following it saves the role, then shows the pipeline list in a new
+   tab once the save has landed, so the list it loads holds the role. */
+const APPLY = msg("role-job-detail-apply-title");
+
+/** Serves the new tab a stand-in for the pipeline list, so the tab's own app
+ *  never boots, and calls `seen` when the tab asks for it. */
+async function standInList(page: Page, seen: () => void = () => {}) {
+  await page.context().route("**/pipeline/list", (route) => {
+    seen();
+    return route.fulfill({ contentType: "text/html", body: "<!doctype html><title>list</title>" });
+  });
+}
+
+test("a posting ends on applying: the link saves the role, then opens the pipeline list in a new tab", async ({ page }) => {
+  const order: string[] = [];
+  await mockApi(page, "PUT", "/api/jobs/101/favorite", async (route) => {
+    // Slower than a tab opening, so a tab sent to the list at the click fails.
+    await new Promise((settle) => setTimeout(settle, 400));
+    order.push("saved");
+    await route.fulfill({ json: { job_id: 101, is_favorite: true } });
+  });
+  await page.goto("/company/openai/job/101");
   const panel = detail(page);
   const end = panel.locator(".jd-end");
-  const onward = end.getByRole("button");
-  await expect(onward).toContainText(msg("role-job-detail-next-posting"));
-  await expect(onward).toContainText(jobFixture2.title);
-  await expect(onward).toContainText(msg("role-job-detail-pager-place", { place: 2, count: 2 }));
-  await expect(onward).toHaveAttribute("aria-keyshortcuts", "J");
+  const onward = end.getByRole("link", { name: new RegExp(APPLY) });
+  await expect(onward).toContainText(msg("role-job-detail-apply-kicker"));
+  await expect(onward).toContainText(msg("role-job-detail-apply-meta", { choice: "no" }));
   const text = (await panel.locator(".jd-main > .jd-sections, .jd-main > .jd, .jd-main > .jd-empty").last().boundingBox())!;
   expect((await end.boundingBox())!.y, "after the employer's text").toBeGreaterThan(text.y + text.height);
 
+  await standInList(page, () => order.push("list"));
+  const popupOpened = page.waitForEvent("popup");
   await onward.click();
-  await expect(page).toHaveURL(/\/company\/[^/]+\/job\/202$/);
-  await expect(panel.getByRole("heading", { level: 1, name: jobFixture2.title })).toBeVisible(FIRST_TURN);
-  await expect(panel.locator(".jd-end"), "the list's last row").toHaveCount(0);
+  const tab = await popupOpened;
+  await tab.waitForURL(/\/pipeline\/list$/);
+  expect(order, "the list loads only once the save landed").toEqual(["saved", "list"]);
+  expect(await tab.evaluate(() => window.opener), "the new tab has no hold on this one").toBeNull();
+  await expect(page, "the posting stays open here").toHaveURL(/\/job\/101$/);
+  await expect(panel.getByRole("button", { name: msg("jobs-save") }), "the role is saved").toHaveCount(0);
+  await expect(onward).toContainText(msg("role-job-detail-apply-meta", { choice: "yes" }));
+  await tab.close();
+});
 
-  await page.goto(`/job/${jobFixture.id}`);
+test("a failed save keeps the person on the posting: the new tab closes and the failure is said", async ({ page }) => {
+  await mockApi(page, "PUT", "/api/jobs/101/favorite", (route) => route.fulfill({ status: 500, json: { detail: "unavailable" } }));
+  await page.goto("/company/openai/job/101");
+  const popupOpened = page.waitForEvent("popup");
+  await detail(page).locator(".jd-end").getByRole("link", { name: new RegExp(APPLY) }).click();
+  const tab = await popupOpened;
+  await expect.poll(() => tab.isClosed(), { message: "the blank tab goes away" }).toBe(true);
+  await expect(page.getByRole("status").filter({ hasText: "Couldn't save this role" })).toBeVisible();
+});
+
+test("a saved role's link opens the list without writing again; an applied role ends on nothing", async ({ page }) => {
+  let writes = 0;
+  await mockApi(page, "PUT", "/api/jobs/101/favorite", (route) => {
+    writes += 1;
+    return route.fulfill({ json: { job_id: 101, is_favorite: true } });
+  });
+  let pursuit: typeof appliedPursuit | null = null;
+  await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: { ...jobFixture, is_favorite: true, pursuit } }));
+  await page.goto("/company/openai/job/101");
+  const panel = detail(page);
+  const onward = panel.locator(".jd-end").getByRole("link", { name: new RegExp(APPLY) });
+  await expect(onward).toContainText(msg("role-job-detail-apply-meta", { choice: "yes" }));
+  await expect(onward).toHaveAttribute("href", "/pipeline/list");
+  await expect(onward).toHaveAttribute("target", "_blank");
+  const popupOpened = page.waitForEvent("popup");
+  await standInList(page);
+  await onward.click();
+  const tab = await popupOpened;
+  await tab.waitForURL(/\/pipeline\/list$/);
+  expect(writes, "already saved: no second write").toBe(0);
+  await tab.close();
+
+  pursuit = appliedPursuit;
+  await page.goto("/job/101");
   await expect(panel.locator(".jd-hero h1")).toHaveText(jobFixture.title);
-  await expect(panel.locator(".jd-end"), "no list, no next").toHaveCount(0);
+  await expect(panel.locator(".jd-end"), "applied: nothing to suggest").toHaveCount(0);
 });
 
 /* Stepping to another posting turns the posting inside a cover that stays

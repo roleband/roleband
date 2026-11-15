@@ -3,22 +3,23 @@ import { fmtCompIn } from "../../money";
 import { Icon } from "../../ui/Icon";
 import {
   rolePayFloorLineBelowYourPayFloor,
-  rolePayFloorLineClearsYourPayFloor,
   rolePayFloorLineYourPayFloorFallsInside,
 } from "../../copy/gen/role";
 
 /** The pay floor line. The server decides the verdict and sends
  *  nothing it cannot verify, so a missing check is silence, never "unknown".
+ *  A range that clears the floor is silence too: the band drawn above
+ *  already says so, and a line repeating it is noise. Only a range that
+ *  reaches below the floor earns a line.
  *  It lives apart from `JobCompPanel` because it reads the user's
  *  floor against the stated pay, not the package the panel draws. */
 const FLOOR_LINE = {
-  clears: { icon: "checkCircle", text: (floor: string) => rolePayFloorLineClearsYourPayFloor({ floor: String(floor) }) },
   straddles: { icon: "alert", text: (floor: string) => rolePayFloorLineYourPayFloorFallsInside({ floor: String(floor) }) },
   below: { icon: "xCircle", text: (floor: string) => rolePayFloorLineBelowYourPayFloor({ floor: String(floor) }) },
 } as const;
 
 export function PayFloorLine({ check }: { check: Job["pay_floor_check"] }) {
-  if (!check) return null;
+  if (!check || check.verdict === "clears") return null;
   const line = FLOOR_LINE[check.verdict];
   return (
     <div className={`pkg-floor pkg-floor-${check.verdict}`} data-testid="pkg-floor">

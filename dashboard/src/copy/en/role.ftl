@@ -168,8 +168,15 @@ role-job-detail-pager-place = { $place } of { $count }
 role-job-detail-pager-previous = Previous in the list
 # kind=aria note="Button: opens the posting after this one in the list"
 role-job-detail-pager-next = Next in the list
-# kind=label note="Kicker over the next posting's title, at the end of a posting opened from a list"
-role-job-detail-next-posting = Next posting
+# kind=label note="Kicker over the suggestion to apply, at the end of a posting"
+role-job-detail-apply-kicker = Next step
+# kind=label note="Link at the end of a posting: saves the role and opens the pipeline list in a new tab"
+role-job-detail-apply-title = Apply for this role
+# kind=label note="Under the suggestion to apply: yes when the role is already saved"
+role-job-detail-apply-meta = { $choice ->
+    [yes] Already in your pipeline
+   *[no] Saves to your pipeline
+}
 # kind=tooltip
 role-job-detail-compare-is-full-max = Compare is full: { $compareCap } at most
 # kind=label wording=as-is
@@ -447,8 +454,6 @@ role-listing-age-still-listed-at-the-last = Still listed at the last scan
 role-listing-age-events = Events
 
 ## features/job-detail/PayFloorLine.tsx
-# kind=status
-role-pay-floor-line-clears-your-pay-floor = Clears your { $floor } minimum base
 # kind=status
 role-pay-floor-line-your-pay-floor-falls-inside = Your { $floor } minimum base falls inside this range
 # kind=status

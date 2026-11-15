@@ -2,7 +2,7 @@ import "../../patterns/jobs/job-row.css";
 import { ResourceLoadState } from "../../ui/ResourceLoadState";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
-import { type ReactNode, useCallback, useEffect, useId, useRef, useState } from "react";
+import { type MouseEvent as ReactMouseEvent, type ReactNode, useCallback, useEffect, useId, useRef, useState } from "react";
 import { useSyncEpoch } from "../../context/SyncState";
 import { useAsyncResource, useRefetchOn } from "../../hooks/useAsyncResource";
 import { useSaveCommand } from "../../context/useSaveCommand";
@@ -38,10 +38,12 @@ import {
   roleJobDetail1InComparePickOne,
   roleJobDetailBack,
   roleJobDetailBack2,
-  roleJobDetailNextPosting,
   roleJobDetailPager,
   roleJobDetailPagerNext,
   roleJobDetailPagerPlace,
+  roleJobDetailApplyKicker,
+  roleJobDetailApplyMeta,
+  roleJobDetailApplyTitle,
   roleJobDetailPagerPrevious,
   roleJobDetailCompare,
   roleJobDetailCompareIsFullMax,
@@ -78,6 +80,8 @@ const stated = (job: Job): boolean => job.level_basis !== "none" && job.level_ba
 
 /** Similar positions shown per category (same company / other companies). */
 const SIMILAR_PER_CATEGORY = 3;
+/** Where applying is tracked. */
+const PIPELINE_LIST = "/pipeline/list";
 
 /** The pipeline's part of the posting, which the route composes in (a feature
  *  never imports another): the bar's control for the role's place in the
@@ -155,8 +159,6 @@ export function JobDetail({
     count: number;
     onPrevious?: () => void;
     onNext?: () => void;
-    /** The posting `onNext` opens, as the list holds it. */
-    next?: { title?: string; company?: string | null };
   };
   /** The posting was reached by going back or forward in history. */
   returning?: boolean;
@@ -214,19 +216,42 @@ export function JobDetail({
   /** Reads the posting again: its star and stage as the server holds them. */
   const rereadPosting = useCallback(() => void refreshJob({ preserveData: true }), [refreshJob]);
   /** Saves a role that is not in the pipeline. Once it is, the star becomes
-   *  the stage control, which is the way out. */
-  const saveFav = () => {
-    if (!job) return;
+   *  the stage control, which is the way out. Settles true once the write
+   *  is done, false when it failed and the person was told. */
+  const saveFav = (): Promise<boolean> => {
+    if (!job) return Promise.resolve(false);
     // One writer per role across every surface. A failed write that
     // is still the newest rolls the star back to what the server holds at
     // once, rather than leaving it lit until the next load; only that one
     // rejects, so reading the posting back here never undoes a newer write.
     // The read catches a stage set elsewhere while the posting was open.
-    saveRole({ jobId: job.id, was: job.is_favorite, next: true, show: showSaved, send: () => api.setFavorite(job.id, true) })
-      .catch(() => {
+    return saveRole({ jobId: job.id, was: job.is_favorite, next: true, show: showSaved, send: () => api.setFavorite(job.id, true) })
+      .then(() => true, () => {
         rereadPosting();
         toast({ key: "job", text: roleJobDetailCouldNotUnsaveThisRole({ choice: "yes" }) });
+        return false;
       });
+  };
+  /** The way on at the end of the read: save the role, then show the
+   *  pipeline list in a new tab. The tab opens at the click, so no popup
+   *  blocker stands in the way, and goes to the list only once the save has
+   *  landed, so the list it loads holds the role. */
+  const applyOnward = (event: ReactMouseEvent<HTMLAnchorElement>) => {
+    if (!job || job.is_favorite) return;
+    event.preventDefault();
+    const tab = window.open("", "_blank");
+    void saveFav().then((done) => {
+      if (!done) {
+        tab?.close();
+        return;
+      }
+      if (!tab) {
+        window.open(PIPELINE_LIST, "_blank", "noopener");
+        return;
+      }
+      tab.opener = null;
+      tab.location.href = PIPELINE_LIST;
+    });
   };
 
   /** The side column, which the histories open across. */
@@ -541,21 +566,18 @@ export function JobDetail({
                   fallback={job.description_text}
                 />
 
-                {/* The read ends on the way on: the next posting in the list
-                    it was opened from, the step J takes. */}
-                {pager?.onNext && (
+                {/* The read ends on the way on: applying, which starts in
+                    the pipeline. Once applied there is nothing to suggest. */}
+                {!applied && (
                   <footer className="jd-end">
-                    <button type="button" className="jd-next" aria-keyshortcuts="J" onClick={pager.onNext}>
-                      <span className="jd-next-kicker">{roleJobDetailNextPosting()}</span>
-                      {pager.next?.title && (
-                        <span className="jd-next-title"><Content text={pager.next.title} /></span>
-                      )}
+                    <a className="jd-next" href={PIPELINE_LIST} target="_blank" rel="noopener" onClick={applyOnward}>
+                      <span className="jd-next-kicker">{roleJobDetailApplyKicker()}</span>
+                      <span className="jd-next-title">{roleJobDetailApplyTitle()}</span>
                       <span className="jd-next-meta">
-                        {pager.next?.company && <>{companyName(pager.next.company)} · </>}
-                        {roleJobDetailPagerPlace({ place: pager.position + 1, count: pager.count })}
+                        {roleJobDetailApplyMeta({ choice: job.is_favorite ? "yes" : "no" })}
                       </span>
-                      <Icon name="arrowRight" size={16} />
-                    </button>
+                      <Icon name="external" size={16} />
+                    </a>
                   </footer>
                 )}
               </div>

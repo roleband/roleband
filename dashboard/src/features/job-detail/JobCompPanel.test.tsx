@@ -371,6 +371,13 @@ describe("JobCompPanel", () => {
     expect(screen.getByTestId("pkg-floor")).toHaveTextContent(line);
   });
 
+  // Clearing the floor is what the band already shows: no line repeats it.
+  it("says nothing about the pay floor when the stated pay clears it", () => {
+    render(<JobCompPanel job={{ ...withPackage(GOOGLE), pay_floor_check: { verdict: "clears", amount: 250000, currency: "USD", basis: "base" } }} />, { wrapper: MemoryRouter });
+    expect(screen.queryByTestId("pkg-floor")).toBeNull();
+    expect(screen.queryByText(/minimum base/)).toBeNull();
+  });
+
   it("says nothing about the pay floor when the server sends no comparison", () => {
     render(<JobCompPanel job={{ ...withPackage(GOOGLE), pay_floor_check: null }} />, { wrapper: MemoryRouter });
     expect(screen.queryByTestId("pkg-floor")).toBeNull();
