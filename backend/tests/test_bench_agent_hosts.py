@@ -577,11 +577,15 @@ async def test_the_local_tool_clears_a_due_date_by_sending_json_on_stdin(monkeyp
 
 
 @pytest.mark.asyncio
-async def test_a_call_to_a_tool_that_does_not_exist_is_an_error_not_a_breach(monkeypatch, tmp_path):
+@pytest.mark.parametrize("name", [
+    "roleband capabilities --json",  # a command line as the tool's name
+    "sources.inspect",  # a prohibited operation's id as the tool's name: still nothing ran
+])
+async def test_a_call_to_a_tool_that_does_not_exist_is_an_error_not_a_breach(monkeypatch, tmp_path, name):
     cli = _cli(tmp_path)
     right = {"overdue_follow_ups": 2}
     transcript, _ = await _local_run(monkeypatch, cli, tmp_path, [
-        ("roleband capabilities --json", {}),  # a command line as the tool's name: no such tool, nothing ran
+        (name, {}),
         ("roleband", {"args": ["capabilities", "--offline"]}),
     ], json.dumps(right))
     unknown, ran = transcript.tool_calls

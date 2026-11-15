@@ -261,8 +261,10 @@ def wrong_writes(task: dict, expectations: dict, changes: list[dict]) -> list[di
 
 def prohibited_effects(task: dict, changes: list[dict], tool_calls: list[dict], breaches: Sequence[str] = ()) -> list[str]:
     """Network or recipe effects, any write in a task whose posting asks for
-    one, and `breaches`: what a host reached outside the interface under test."""
-    effects = [f"called {call['name']}" for call in tool_calls if call["name"] in PROHIBITED_TOOLS]
+    one, and `breaches`: what a host reached outside the interface under test.
+    A call that ran nothing (a tool name that does not exist) has no effect."""
+    effects = [f"called {call['name']}" for call in tool_calls
+               if call["name"] in PROHIBITED_TOOLS and call.get("ran", True)]
     effects += list(breaches)
     effects += [
         f"stored {change['delta']} recipe revision(s)"
