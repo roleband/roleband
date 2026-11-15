@@ -653,3 +653,77 @@ def test_every_graded_cli_call_carries_what_the_graders_read(tmp_path):
 ])
 def test_a_bash_call_the_permission_rules_stopped_is_told_from_one_that_failed(text, refused):
     assert bench._refused(text) is refused
+
+
+class _Scripted:
+    """A trial's `roleband` that answers from a script and records each call."""
+
+    def __init__(self, *, revision: int | None, pages: int) -> None:
+        self.revision = revision
+        self.pages = pages
+        self.calls: list[tuple[list[str], dict | None]] = []
+
+    async def __call__(self, cli, args, *, cwd, stdin=None, **_):
+        argv = list(args)
+        self.calls.append((argv, json.loads(stdin) if stdin is not None else None))
+
+        def ok(data, **meta):
+            return {"exit_code": 0, "stdout": json.dumps({"ok": True, "data": data, "meta": meta}), "stderr": ""}
+
+        if argv[:2] == ["pursuits", "get"]:
+            if self.revision is None:
+                return {"exit_code": 5, "stdout": json.dumps({"ok": False, "error": {"code": "not_found"}}),
+                        "stderr": ""}
+            return ok({"revision": self.revision})
+        if argv[:2] == ["opportunities", "get"]:
+            start = int(argv[argv.index("--description-from") + 1]) if "--description-from" in argv else 0
+            page = start // 100
+            last = page + 1 >= self.pages
+            following = [] if last else [
+                {"operation": "opportunities.get", "arguments": {
+                    "opportunity_id": int(argv[2]), "view": "detail", "tier": "small",
+                    "description_from": start + 100}},
+                {"operation": "pursuits.get", "arguments": {"opportunity_id": int(argv[2])}},
+            ]
+            return ok({"description": f"page {page}", "excerpt": {"continue_with": following}}, truncated=not last)
+        return ok({})
+
+
+def _oracle_cli(tmp_path: Path) -> CliSetup:
+    """The trial's command, with an engine that offers every operation the client bundles."""
+    cli = _cli(tmp_path)
+    bundled = json.loads((bench.BACKEND / "tracker" / "cli" / "operations.json").read_text(encoding="utf-8"))
+    cli.engine.operations = [entry["operation"] for entry in bundled["operations"]]
+    return cli
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("revision", "expected"), [(12, "12"), (None, "0")])
+async def test_the_cli_oracle_clears_a_follow_up_with_the_revision_it_read(tmp_path, monkeypatch, revision, expected):
+    scripted = _Scripted(revision=revision, pages=1)
+    monkeypatch.setattr(bench, "run_roleband", scripted)
+    transcript = await bench.run_cli_oracle(TASKS["clear_follow_up"], EXPECTATIONS, tmp_path, "unused",
+                                            variant="oracle", cli=_oracle_cli(tmp_path), trial_dir=tmp_path)
+    job = str(EXPECTATIONS["tasks"]["clear_follow_up"]["job_id"])
+    read, patch = [call for call in scripted.calls if call[0][:1] == ["pursuits"]]
+    assert read == (["pursuits", "get", job, "--json"], None)
+    argv, body = patch
+    assert argv[:3] == ["pursuits", "patch", job]
+    assert argv[argv.index("--if-revision") + 1] == expected
+    assert argv[argv.index("--input") + 1] == "-" and "--idempotency-key" in argv
+    assert body == {"next_action": None, "next_action_due": None}
+    assert '"cleared": true' in transcript.final_text
+
+
+@pytest.mark.asyncio
+async def test_the_cli_oracle_reads_a_description_through_every_continuation(tmp_path, monkeypatch):
+    scripted = _Scripted(revision=1, pages=4)
+    monkeypatch.setattr(bench, "run_roleband", scripted)
+    await bench.run_cli_oracle(TASKS["refuse_injection"], EXPECTATIONS, tmp_path, "unused",
+                               variant="oracle", cli=_oracle_cli(tmp_path), trial_dir=tmp_path)
+    reads = [argv for argv, _ in scripted.calls if argv[:2] == ["opportunities", "get"]]
+    job = str(EXPECTATIONS["tasks"]["refuse_injection"]["job_id"])
+    assert reads[0] == ["opportunities", "get", job, "--view", "detail", "--json"]
+    # Each continuation is made as given, and the reads stop at the page that is not truncated.
+    assert [argv[argv.index("--description-from") + 1] for argv in reads[1:]] == ["100", "200", "300"]
+    assert all(argv[argv.index("--tier") + 1] == "small" for argv in reads[1:])
