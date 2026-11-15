@@ -11,12 +11,16 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 from typing import Any
 
-from tracker.agents.operations import meta
+from tracker.agents.operations import meta, search, vocabulary
 from tracker.agents.operations.descriptor import UNKNOWN, OperationDescriptor, ToolTier
 from tracker.agents.operations.outcomes import CONTRACT_VERSION
 
 #: The one registration list.
-REGISTERED: tuple[OperationDescriptor, ...] = (*meta.OPERATIONS,)
+REGISTERED: tuple[OperationDescriptor, ...] = (
+    *meta.OPERATIONS,
+    *search.OPERATIONS,
+    *vocabulary.OPERATIONS,
+)
 
 
 class Catalog:

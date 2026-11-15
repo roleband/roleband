@@ -162,10 +162,11 @@ def test_an_operation_cannot_be_registered_twice():
 
 
 def test_the_catalog_lists_the_handshake_operations_in_every_tier():
-    assert [descriptor.id for descriptor in CATALOG] == ["capabilities", "describe", "status"]
+    listed = [descriptor.id for descriptor in CATALOG]
+    assert listed == sorted(listed)
+    assert len(listed) == len(REGISTERED)
     for tier in ("small", "standard", "full"):
-        assert {descriptor.id for descriptor in CATALOG.in_tier(tier)} == {"capabilities", "describe", "status"}
-    assert len(REGISTERED) == 3
+        assert {"capabilities", "describe", "status"} <= {descriptor.id for descriptor in CATALOG.in_tier(tier)}
 
 
 def test_a_tier_filter_leaves_out_operations_of_other_tiers():
@@ -375,7 +376,7 @@ async def test_capabilities_lists_each_operation_with_live_availability(api_clie
     assert data["metadata_source"] == "engine"
     assert data["engine_version"]
     assert data["supported_contract_versions"] == [CONTRACT_VERSION]
-    assert [entry["operation"] for entry in data["operations"]] == ["capabilities", "describe", "status"]
+    assert [entry["operation"] for entry in data["operations"]] == [descriptor.id for descriptor in CATALOG]
     for entry in data["operations"]:
         assert entry["availability"] == {"state": "available", "reason": None}
         assert set(entry["engine_effects"]) == {"state_write", "outbound_network", "model_egress", "external_action"}
@@ -385,7 +386,9 @@ async def test_capabilities_lists_each_operation_with_live_availability(api_clie
 async def test_capabilities_filters_by_tier_and_refuses_unknown_input(api_client, db_session):
     await _enable(db_session)
     small = (await api_client.get(f"{PREFIX}/capabilities", params={"tier": "small"})).json()
-    assert {entry["operation"] for entry in small["data"]["operations"]} == {"capabilities", "describe", "status"}
+    assert {entry["operation"] for entry in small["data"]["operations"]} == {
+        descriptor.id for descriptor in CATALOG if "small" in descriptor.tool_tiers
+    }
 
     for params, field in (({"tier": "huge"}, "tier"), ({"verbose": "1"}, "verbose")):
         response = await api_client.get(f"{PREFIX}/capabilities", params=params)
@@ -423,7 +426,7 @@ async def test_describe_returns_one_operation_in_full_from_the_engine(api_client
 @pytest.mark.asyncio
 async def test_describe_of_an_unknown_operation_points_at_capabilities(api_client, db_session):
     await _enable(db_session)
-    response = await api_client.get(f"{PREFIX}/operations/opportunities.search")
+    response = await api_client.get(f"{PREFIX}/operations/widgets.list")
     body = response.json()
     assert response.status_code == 404
     _assert_envelope(body, operation="describe", ok=False)

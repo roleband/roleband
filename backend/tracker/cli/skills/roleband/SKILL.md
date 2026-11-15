@@ -10,6 +10,8 @@ description: Read and update the person's job search in RoleBand (opportunities,
 
 1. Run `roleband capabilities` to see the operations this engine offers and which of them the person has turned on.
 2. Before calling an operation, run `roleband describe OPERATION` with an id from that list. It gives the input and output schemas, the effects and the setting that controls it.
+3. Call an operation by its id as words: `opportunities.search` is `roleband opportunities search`. Each input field is a flag (`level_band` is `--level-band`; repeat a list flag for more values), or pass the whole input with `--input @FILE`. `--help` after the command lists them.
+4. A filter value that names nothing fails with exit 2, and `error.next_actions` names the lookup that lists the accepted values, such as `roleband vocabulary list --kind location`. When `meta.next_cursor` is set, pass it as `--cursor` for the next page.
 
 The exit status says what to do next:
 

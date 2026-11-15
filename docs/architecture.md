@@ -23,7 +23,7 @@ Everything runs locally against one database.
 | Scan tick | `backend/tracker/workflows/scheduler.py` | The supervisor's `scan` job: a short tick that runs what is due, a full read when the computer wakes or the last one is old, the rest of a full read something stopped, a quick discovery check on a repeat while it is on (`backend/tracker/workflows/schedule_plan.py`). |
 | API | `backend/tracker/api/app.py` | FastAPI on `127.0.0.1:8010` by default (the Mac app can move it, see `EnginePort`): dashboard reads, the user's own writes, requests for background work, and the built dashboard from `dashboard/dist`. It starts no process: what it asks for, the supervisor runs. |
 | Dashboard | `dashboard/src/` | React 19, TypeScript, Vite. In development Vite serves `:5173` and proxies `/api` to `:8010`. |
-| MCP server | `backend/tracker/mcp/server.py` | Local STDIO server for external agents, reads and pursuit writes gated separately. See [mcp.md](mcp.md). The `roleband` command (`backend/tracker/cli/`), a client of the running engine through `/api/agent/v1/`, is to replace it ([0015](decisions/0015-agents-use-the-cli.md), with its trust and identity in [0016](decisions/0016-agent-trust-and-workspace-identity.md) and its access choices in [0017](decisions/0017-agent-access-open-by-default.md)). The command answers only `status`, `capabilities` and `describe` so far, plus `connect`, which sets up an agent host and asks no engine; until it reads the person's data, this server is the agent interface. |
+| MCP server | `backend/tracker/mcp/server.py` | Local STDIO server for external agents, reads and pursuit writes gated separately. See [mcp.md](mcp.md). The `roleband` command (`backend/tracker/cli/`), a client of the running engine through `/api/agent/v1/`, is to replace it ([0015](decisions/0015-agents-use-the-cli.md), with its trust and identity in [0016](decisions/0016-agent-trust-and-workspace-identity.md) and its access choices in [0017](decisions/0017-agent-access-open-by-default.md)). The command answers `status`, `capabilities`, `describe`, `connect` (which sets up an agent host and asks no engine) and one generated command per catalog operation; this server stays the agent interface until the command does everything it does (`backend/tests/fixtures/mcp_parity_checklist.json`). |
 | Health | `backend/tracker/workflows/watchdog.py` | The supervisor's `health` job: database reachability, stuck runs, stale data (asks for a scan), a stale backup, desktop alerts. |
 
 On macOS, `deploy/install.sh` installs one per-user background item,
@@ -1270,6 +1270,21 @@ counts every write of a pursuit, the dashboard's included; the mapper advances
 it. The actor of an agent write comes from its principal, never its input.
 The client reads its bundled index, `backend/tracker/cli/operations.json`
 (`scripts.export_agent_operations`), for help and offline answers.
+Every other command is generated from that index (`backend/tracker/cli/commands.py`),
+with no code per operation: an operation's dotted id is its words
+(`opportunities.search` is `roleband opportunities search`), a field its route
+takes in the path is a positional argument, every other scalar or list field is
+a flag, and `--input @FILE|-` gives the whole input as one JSON object instead,
+never together with a flag. The index carries each operation's route, and the
+export refuses an operation without one. Help builds from the index alone,
+without the engine's models or an HTTP library.
+`opportunities.search` (`backend/tracker/agents/operations/search.py`) runs the
+Board's query with its filters and sorts. A filter value is strict: one that
+matches no accepted spelling (`agents/operations/vocabulary.py`, listed by
+`vocabulary.list`) fails the search with the lookup to run, never an empty page.
+Its rows are a column table sized to the tool tier's budget; a page whose rows
+outgrow it stops early with a `page_shortened` warning, and an offset cursor
+bound to the request and the workspace (`agents/operations/cursor.py`) continues it.
 `roleband connect claude-code|codex --print|--apply` (`backend/tracker/cli/connect.py`)
 writes what a host needs to run the command without a prompt per call: for
 Claude Code the sandbox exclusion `roleband *` and the rule `Bash(roleband *)`,
