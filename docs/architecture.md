@@ -1278,6 +1278,15 @@ file, keeps a backup, changes nothing on a second run, and installs the skill in
 `backend/tracker/cli/skills/` unless the person edited their copy. Any other host
 is refused as `unsupported_host`.
 
+A read takes its input from the path and query; one that takes a document
+(`recipes.validate`) takes it as a POST body, one JSON object.
+An answer that can grow past the caller's tool tier (the detail view of
+`opportunities.get`) is a typed excerpt marked `truncated`, never cut JSON.
+A list cursor (`pursuits.list`) resumes after its last row in the current
+order, with no snapshot; a whole list is read from the first page.
+Each read that replaces an MCP tool reuses that tool's query owner, and
+`backend/tests/test_agent_parity_reads.py` holds the two to the same rows.
+
 **Trust boundary.** Mac and ordinary source mode use loopback access control.
 `LoopbackBoundary` (`backend/tracker/api/boundary.py`, outermost) refuses a Host
 that does not name this machine and an unsafe request from a foreign origin or

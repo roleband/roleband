@@ -15,7 +15,8 @@
    "switch": "none",
    "differences": [
     "Also reports workspace_id, engine_session_id, the engine version and the trust mode of the connection.",
-    "The transport is loopback HTTP to the engine, not stdio; the command fails as a connection error when no engine runs."
+    "The transport is loopback HTTP to the engine, not stdio; the command fails as a connection error when no engine runs.",
+    "Refused while agent access is off, as every operation is, so a switched-off connection learns nothing; the MCP tool reports the switches with access off."
    ],
    "open": []
   },
@@ -50,7 +51,10 @@
    "differences": [
     "Declared views (summary, detail, evidence); the description comes with --view detail.",
     "A description over the view's budget returns a typed excerpt marked truncated, or payload_too_large with a smaller view; the MCP tool returns the full text unbounded.",
-    "An unknown ID is a not-found error code, not a raised LookupError."
+    "An unknown ID is a not-found error code, not a raised LookupError.",
+    "A posting at a company the person hid is not_found unless the person saved or pursues it; the MCP tool returns any ID.",
+    "The detail view's budget follows the caller's tool tier (--tier, small by default).",
+    "The pursuit in every view carries its revision, as pursuits.get does."
    ],
    "open": []
   },
@@ -58,7 +62,10 @@
    "tool": "listing_history",
    "operation": "opportunities.history",
    "switch": "enabled",
-   "differences": [],
+   "differences": [
+    "A posting at a company the person hid is not_found unless the person saved or pursues it; the MCP tool returns any ID.",
+    "An unknown ID is a not-found error code, not a raised LookupError."
+   ],
    "open": []
   },
   {
@@ -68,7 +75,8 @@
    "differences": [
     "Cursor paging; the MCP tool returns one page of up to 100.",
     "Each pursuit carries its revision, which a patch passes back.",
-    "pursuits.get reads one pursuit with its notes by opportunity ID; the MCP server has no single-pursuit tool."
+    "pursuits.get reads one pursuit with its notes by opportunity ID; the MCP server has no single-pursuit tool.",
+    "A limit outside 1 to 100 is an input error naming the range; the MCP tool clamps it."
    ],
    "open": []
   },
@@ -109,7 +117,8 @@
    "operation": "sources.inspect",
    "switch": "enabled",
    "differences": [
-    "The operation's descriptor declares its outbound network effect."
+    "The operation's descriptor declares its outbound network effect.",
+    "An address that is not a public page is an input error, and a page that does not answer in time is deadline_exceeded; the MCP tool raises."
    ],
    "open": []
   },

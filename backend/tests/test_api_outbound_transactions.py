@@ -18,6 +18,7 @@ import pytest_asyncio
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import tracker.agents.operations.recipes as agent_recipes
 import tracker.api.routers.companies as companies_router
 import tracker.api.routers.intelligence as intelligence_router
 import tracker.api.routers.lineage as lineage_router
@@ -31,12 +32,17 @@ from tests.intelligence_contract_seed import (
 )
 from tests.lineage_contract_seed import pin_lineage_environment, seed_lineage_contract
 from tests.test_recipe_adapter import PAGE, RECIPE
+from tracker.agents.config import AgentAccessConfig, set_agent_access
+from tracker.agents.operations.workspace import ensure_workspace_id
+from tracker.api.agent_operations import PREFIX
 from tracker.api.deps import end_read
 from tracker.connectors.listing import base
 from tracker.db.models import TrackedCompany
 from tracker.intelligence.providers.local import LocalLLMProvider
 from tracker.local_llm.client import LocalLLMClient
+from tracker.platform.safe_fetch import PublicPage
 from tracker.workflows import recipe_preview
+from tracker.workflows.recipe_preview import RecipeCheck
 
 pytestmark = pytest.mark.usefixtures("no_escape")
 
@@ -164,6 +170,49 @@ async def test_a_duplicate_assessment_asks_the_model_outside_a_transaction(api_c
     pin_lineage_environment(monkeypatch)
     monkeypatch.setattr(lineage_router, "assess_duplicate", watch.around(lineage_router.assess_duplicate))
     response = await api_client.post(f"/api/lineage/links/{seeded.pending_link}/analyze")
+    assert response.status_code == 200, response.text
+    assert watch.seen == [0]
+
+
+async def _agent_reads_on(db_session: AsyncSession) -> None:
+    await set_agent_access(db_session, AgentAccessConfig(enabled=True, allow_writes=False))
+    await ensure_workspace_id(db_session)
+    await db_session.commit()
+
+
+class _NoClient:
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_):
+        return False
+
+
+@pytest.mark.asyncio
+async def test_an_agent_source_inspection_fetches_outside_a_transaction(api_client, db_session, watch, monkeypatch):
+    await _agent_reads_on(db_session)
+
+    async def fetch(_client, url, **_kwargs):
+        return PublicPage(final_url=url, status=200, text="<h1>Careers</h1>", truncated=False)
+
+    monkeypatch.setattr(agent_recipes, "public_client", lambda **_: _NoClient())
+    monkeypatch.setattr(agent_recipes, "fetch_public", watch.around(fetch))
+    response = await api_client.get(f"{PREFIX}/sources/inspect", params={"url": "https://jobs.example.com/"})
+    assert response.status_code == 200, response.text
+    assert watch.seen == [0]
+
+
+@pytest.mark.asyncio
+async def test_an_agent_recipe_validation_reads_the_listing_outside_a_transaction(
+    api_client, db_session, watch, monkeypatch,
+):
+    await _agent_reads_on(db_session)
+
+    async def preview(_document):
+        return RecipeCheck(found=0, pages=1)
+
+    monkeypatch.setattr(agent_recipes, "preview_document", watch.around(preview))
+    response = await api_client.post(f"{PREFIX}/recipes/validate", json={"document": {"id": "x"}})
     assert response.status_code == 200, response.text
     assert watch.seen == [0]
 
