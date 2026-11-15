@@ -86,6 +86,7 @@ from tracker.agents.operations.descriptor import (
     ToolTier,
 )
 from tracker.agents.operations.envelope import NextAction, OperationError
+from tracker.agents.operations.policy import category_disabled
 from tracker.agents.operations.search import PAGE_BUDGET_BYTES
 from tracker.company_store import off_board_company_slugs
 from tracker.db.models import Job, JobLifecycleEvent, Pursuit, ScrapeSourceRun
@@ -155,7 +156,8 @@ class ChangesListInput(Shape):
     kinds: list[Kind] | None = Field(
         default=None,
         description=(
-            "Only these kinds; every kind when left out. A since read keeps the kinds of the read it continues."
+            "Only these kinds; every kind the person shares when left out. A since read keeps the kinds "
+            "of the read it continues."
         ),
     )
     limit: int = Field(default=DEFAULT_LIMIT, ge=1, le=MAX_LIMIT, description="Events on one page.")
@@ -648,6 +650,11 @@ async def changes_page(
 ) -> ChangesAnswer:
     """One page of the feed after `params.since`, or from its start."""
     asked: tuple[Kind, ...] = tuple(sorted(params.kinds)) if params.kinds is not None else KINDS
+    for kind in params.kinds or ():
+        # A kind asked for by name is refused, as a search filter is; the whole
+        # feed only leaves the withheld kinds out.
+        if KIND_CATEGORY[kind] not in shared:
+            raise category_disabled(KIND_CATEGORY[kind], field="kinds")
     in_view = frozenset(kind for kind in asked if KIND_CATEGORY[kind] in shared)
     served = frozenset(kind for kind in in_view if kind not in UNAVAILABLE)
     unavailable = [UnavailableKind(kind=kind, reason=UNAVAILABLE[kind]) for kind in KINDS

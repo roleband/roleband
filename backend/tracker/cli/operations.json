@@ -330,7 +330,7 @@
        }
       ],
       "default": null,
-      "description": "Only these kinds; every kind when left out. A since read keeps the kinds of the read it continues.",
+      "description": "Only these kinds; every kind the person shares when left out. A since read keeps the kinds of the read it continues.",
       "title": "Kinds"
      },
      "limit": {

@@ -296,30 +296,37 @@ async def test_a_start_time_still_ahead_keeps_earlier_due_times_out_of_later_win
     assert (await _drain(api_client, since=since, kinds=["pursuit_due"]))[0] == []
 
 
-async def test_pursuit_changes_vanish_when_the_person_does_not_share_pursuits(feed):
+async def _share_pursuits(db_session: AsyncSession, choice: str) -> None:
+    async with _factory(db_session)() as session:
+        await set_agent_access(session, AgentAccessConfig(
+            enabled=True, allow_writes=False, categories={"private_pursuit": choice}))
+        await session.commit()
+
+
+async def test_pursuit_changes_are_absent_while_the_person_does_not_share_pursuits(api_client, feed):
     pursued = await _posting(feed, "private")
     opened = await _posting(feed, "public")
-    async with _factory(feed)() as session:
-        workspace = await ensure_workspace_id(session)
-        start = await changes_page(session, ChangesListInput(), workspace_id=workspace,
-                                   principal_id=LEGACY_AGENT_PRINCIPAL)
+    since = await _start(api_client)
     await _event(feed, opened, "opened")
     async with _factory(feed)() as session:
         session.add(Pursuit(job_id=pursued, stage="applied", next_action="x",
                             next_action_due=(await session.execute(text("SELECT clock_timestamp()"))).scalar_one()))
         await session.commit()
-    async with _factory(feed)() as session:
-        hidden = await changes_page(
-            session, ChangesListInput(since=start.page.next_since), workspace_id=workspace,
-            principal_id=LEGACY_AGENT_PRINCIPAL, shared=frozenset({"public_posting"}),
-        )
-        shared = await changes_page(
-            session, ChangesListInput(since=start.page.next_since), workspace_id=workspace,
-            principal_id=LEGACY_AGENT_PRINCIPAL,
-        )
-    assert [event.kind for event in hidden.page.events] == ["new"]
-    assert all(item.kind != "pursuit_due" for item in hidden.page.unavailable)
-    assert sorted(event.kind for event in shared.page.events) == ["new", "pursuit_due"]
+
+    await _share_pursuits(feed, "not_shared")
+    status, body = await _get(api_client, since=since)
+    assert status == 200 and [event["kind"] for event in body["data"]["events"]] == ["new"]
+    # Absent, not masked: nothing in the answer says a pursuit exists or was left out.
+    assert "pursuit" not in json.dumps(body)
+    # Asked for by name, the kind is refused as a search filter is.
+    status, body = await _get(api_client, kinds=["pursuit_due"])
+    assert status == outcome("category_disabled").http_status
+    assert body["error"]["code"] == "category_disabled"
+    assert body["error"]["details"]["field"] == "kinds"
+
+    await _share_pursuits(feed, "any_model")
+    events, _ = await _drain(api_client, since=since)
+    assert sorted(event["kind"] for event in events) == ["new", "pursuit_due"]
 
 
 # --------------------------------------------------------------------------- #

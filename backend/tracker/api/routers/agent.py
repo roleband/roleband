@@ -381,7 +381,7 @@ async def change_list(
 ) -> Envelope[Any]:
     answer = await changes.changes_page(
         op.session, op.input_as(changes.ChangesListInput),
-        workspace_id=op.workspace_id, principal_id=op.principal_id,
+        workspace_id=op.workspace_id, principal_id=op.principal_id, shared=frozenset(op.answered_classes),
     )
     warnings: list[EnvelopeNotice] = []
     if answer.shortened:

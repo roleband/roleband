@@ -1373,7 +1373,9 @@ commits late is read later, never passed over
 ([0020](decisions/0020-changes-feed-commit-order.md)). `next_since` is the
 position after a page, bound to the workspace, the principal, the kinds and the
 cluster; one that cannot continue is refused as `invalid_input` with the call to
-start again, never reset.
+start again, never reset. Pursuit due times are the `private_pursuit` category
+and the rest `public_posting`: while a category is not shared its kinds are left
+out of the feed, and asking for one by name is refused as `category_disabled`.
 
 **Trust boundary.** Mac and ordinary source mode use loopback access control.
 `LoopbackBoundary` (`backend/tracker/api/boundary.py`, outermost) refuses a Host
