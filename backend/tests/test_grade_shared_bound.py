@@ -62,11 +62,13 @@ def table(monkeypatch):
 # --- the rule ------------------------------------------------------------- #
 
 
-@pytest.mark.parametrize("probe", [(207_000, 302_000), (207_000, 250_000), (150_000, 300_000)],
-                         ids=["top-raised", "top-lowered", "bottom-lowered"])
-def test_a_range_sharing_a_bound_is_that_grade(table, probe):
-    """Either bound may be the shared one, and the other may move either way:
-    what is shared is the grade, not the size of the range."""
+@pytest.mark.parametrize("probe", [(207_000, 302_000), (207_000, 298_000),
+                                   (204_000, 300_000), (210_000, 301_000)],
+                         ids=["top-raised", "top-lowered", "bottom-lowered", "bottom-raised"])
+def test_a_range_with_one_bound_revised_is_that_grade(table, probe):
+    """Either bound may be the shared one, and the free one may move either way,
+    as long as it only moved a little: that is one grade's range being revised
+    rather than two grades that happen to meet at a number."""
     table((_row(207_000, 300_000), _row(207_000, 301_000)))
 
     grade = grade_for_pay("acme", "software_engineering", *probe, 2026)
@@ -88,11 +90,11 @@ def test_the_exact_range_of_a_parent_beats_a_childs_shared_bound(table):
     """The lineage runs twice, exact first: a measured range is never passed
     over for a bound shared with another, at any depth.
 
-    The child's row shares the query's bottom bound, so an implementation that
-    checked exact and shared-bound together for each company in turn would
+    The child's row is the query with its top revised, so an implementation that
+    checked exact and revised-bound together for each company in turn would
     answer the child's L5 here instead of the parent's exact L7.
     """
-    table((_row(400_000, 600_000, "L5", company="google-deepmind"),
+    table((_row(400_000, 503_000, "L5", company="google-deepmind"),
            _row(400_000, 500_000, "L7", company="google")))
 
     grade = grade_for_pay("google-deepmind", "software_engineering", 400_000, 500_000, 2026)
@@ -121,12 +123,34 @@ def test_a_childs_own_ambiguous_bound_is_not_settled_by_its_parent(table):
            _row(120_000, 200_000, "L6", company="google-deepmind"),
            _row(130_000, 200_000, "L7", company="google")))
 
-    assert grade_for_pay("google-deepmind", "software_engineering", 110_000, 200_000, 2026) is None
-    # The control: with the child saying nothing about that bound, the parent
-    # does answer.
+    # The query revises the PARENT's range, within `REVISED_BOUND` of it, so a
+    # fall-through would answer L7 rather than refuse. A query the parent could
+    # not place either would pass whether the refusal is kept or not.
+    assert grade_for_pay("google-deepmind", "software_engineering", 128_000, 200_000, 2026) is None
+    # The control, the same query: with the child saying nothing about that
+    # bound, the parent does answer.
     table((_row(130_000, 200_000, "L7", company="google"),))
-    grade = grade_for_pay("google-deepmind", "software_engineering", 110_000, 200_000, 2026)
+    grade = grade_for_pay("google-deepmind", "software_engineering", 128_000, 200_000, 2026)
     assert grade is not None and grade.rung == "L7"
+
+
+@pytest.mark.parametrize("probe, src, grade", [
+    ((347_000, 385_000), (347_000, 490_000), "L7"),
+    ((184_700, 277_600), (184_700, 324_800), "L6"),
+    ((205_400, 374_300), (205_400, 308_500), "L6"),
+], ids=["floor-shared-105k-apart", "floor-shared-47k-apart", "floor-shared-66k-apart"])
+def test_a_figure_two_grades_open_at_names_neither(table, probe, src, grade):
+    """A company that starts several grades at one figure is the case this rule
+    has to refuse, and the one a bare shared bound gets wrong.
+
+    These are real shapes: a posting topping out at $385,000 is not the grade of
+    a range topping out at $490,000 because both open at $347,000. The clash
+    guard cannot save it, since it needs a second measured row on that figure
+    and here the tables hold one.
+    """
+    table((_row(*src, grade),))
+
+    assert grade_for_pay("acme", "software_engineering", *probe, 2026) is None
 
 
 def test_a_range_inside_another_is_not_that_grade(table):
