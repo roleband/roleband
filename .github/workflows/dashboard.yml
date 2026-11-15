@@ -140,7 +140,7 @@ jobs:
       # The tag names the locked @playwright/test version and the digest pins
       # what it pointed to; a Playwright upgrade moves both in the same change
       # (backend/tests/test_ci_workflow_triggers.py holds the tag to the lock).
-      image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
+      image: mcr.microsoft.com/playwright:v1.65.0-noble@sha256:9beb546099e11f52d62e505537914870e01a67e0e6b00ae41da4775324e73dbe
       # Chromium keeps shared memory in /dev/shm, which Docker sizes at 64MB.
       options: --shm-size=2g
     strategy:

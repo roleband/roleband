@@ -17,7 +17,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import yaml from "js-yaml";
+import * as yaml from "js-yaml";
 import { camel, combinations, contract, dependencies, manifestAt, readLocale } from "./catalog.mjs";
 import { sourceFiles } from "./extract.mjs";
 import { checkCatalog, sourceHash } from "../copy-check.mjs";
