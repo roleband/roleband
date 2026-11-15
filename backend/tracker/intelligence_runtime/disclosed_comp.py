@@ -40,6 +40,7 @@ from tracker.connectors.detail.base import PAY_SECTION_KEY
 from tracker.db.ids import among
 from tracker.db.models import Job, JobLifecycleEvent
 from tracker.db.pay_band import BandChange, apply_band, pay_place_key
+from tracker.db.session import commit_in_batches
 from tracker.enrich.classify import first_place, specific_places
 from tracker.intelligence.extract import EXTRACTOR, EXTRACTOR_ID, TASK
 from tracker.intelligence.prefilter import has_pay_pattern
@@ -472,6 +473,10 @@ def corrected_band(
     return None
 
 
+#: Rows corrected per committed batch: each loads its posting text.
+_PERIOD_BATCH = 200
+
+
 async def correct_pay_periods(session: AsyncSession) -> dict:
     """Rewrite stored periods the period rule shows to be wrong.
 
@@ -483,6 +488,9 @@ async def correct_pay_periods(session: AsyncSession) -> dict:
     Narrow columns first, so the full text is loaded only for
     the rows whose stored period contradicts their amount; once corrected, a
     row stops being a candidate and the pass writes nothing.
+    A change to the period rule can make much of the table a candidate at
+    once, so each batch commits on `session`: a killed run keeps the batches
+    it saved, and the next run's candidates are the rows it did not reach.
     """
     rows = (
         await session.execute(
@@ -490,6 +498,7 @@ async def correct_pay_periods(session: AsyncSession) -> dict:
                 Job.id, Job.disclosed_base_min, Job.disclosed_base_max,
                 Job.disclosed_currency, Job.disclosed_pay_period,
             ).where(or_(Job.disclosed_base_min.isnot(None), Job.disclosed_base_max.isnot(None)))
+            .order_by(Job.id)
         )
     ).all()
     candidates = [
@@ -500,10 +509,9 @@ async def correct_pay_periods(session: AsyncSession) -> dict:
         ) != row.disclosed_pay_period
     ]
     summary = {"candidates": len(candidates), "relabelled": 0, "amounts_fixed": 0, "kept": 0}
-    for start in range(0, len(candidates), 200):
-        for job in (await session.scalars(
-            select(Job).where(Job.id.in_(candidates[start:start + 200]))
-        )).all():
+
+    async def work(chunk_session: AsyncSession, ids: list[int]) -> int:
+        for job in (await chunk_session.scalars(select(Job).where(Job.id.in_(ids)))).all():
             pay_text, _scope = pay_input_text(job)
             reread = (
                 extract_grounded_band(
@@ -529,5 +537,11 @@ async def correct_pay_periods(session: AsyncSession) -> dict:
             # restating it from somewhere else.
             job.structured_at = func.now()
             summary["amounts_fixed" if "disclosed_base_min" in change else "relabelled"] += 1
+        return len(ids)
+
+    await commit_in_batches(
+        candidates, work, size=_PERIOD_BATCH, label="pay periods", session=session,
+        report=lambda line: logger.info("pay period correction: %s", line),
+    )
     logger.info("pay period correction: %s", summary)
     return summary

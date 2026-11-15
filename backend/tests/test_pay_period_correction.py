@@ -14,6 +14,7 @@ from sqlalchemy import select
 
 from tests.factories import make_job
 from tracker.db.models import Job
+from tracker.intelligence_runtime import disclosed_comp
 from tracker.intelligence_runtime.disclosed_comp import correct_pay_periods, corrected_band
 from tracker.pay_disclosure import extract_grounded_band
 
@@ -151,3 +152,33 @@ async def test_the_pass_corrects_what_it_can_and_then_writes_nothing(db_session)
     await db_session.commit()
     assert again == {"candidates": 1, "relabelled": 0, "amounts_fixed": 0, "kept": 1}
     assert await stored() == rows
+
+
+@pytest.mark.asyncio
+async def test_a_run_killed_midway_keeps_the_batches_it_saved(db_session, monkeypatch):
+    db_session.add_all([
+        _row("netflix", NETFLIX, 600_000, 1_066_000, "USD", "hour"),
+        _row("contradiction", CONTRADICTION, 150_000, 200_000, "USD", "unclear"),
+    ])
+    await db_session.commit()
+
+    read = disclosed_comp.extract_grounded_band
+
+    def dies_on_the_second_row(text, *args, **kwargs):
+        if text == CONTRADICTION:
+            raise RuntimeError("killed")
+        return read(text, *args, **kwargs)
+
+    monkeypatch.setattr(disclosed_comp, "_PERIOD_BATCH", 1)
+    monkeypatch.setattr(disclosed_comp, "extract_grounded_band", dies_on_the_second_row)
+    with pytest.raises(RuntimeError, match="killed"):
+        await correct_pay_periods(db_session)
+    await db_session.rollback()
+
+    db_session.expire_all()
+    periods = {job.req_id: job.disclosed_pay_period for job in (await db_session.scalars(select(Job))).all()}
+    assert periods == {"netflix": "year", "contradiction": "unclear"}
+
+    # The next run's candidates are only the row the killed one did not reach.
+    monkeypatch.setattr(disclosed_comp, "extract_grounded_band", read)
+    assert (await correct_pay_periods(db_session))["candidates"] == 1
