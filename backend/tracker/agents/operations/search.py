@@ -57,12 +57,13 @@ _EVERY_TIER: tuple[ToolTier, ...] = ("small", "standard", "full")
 DEFAULT_LIMIT = 20
 MAX_LIMIT = 100
 
-#: The most a page's rows may take, by tool tier, in UTF-8 bytes of their JSON.
-#: Stated in tokens for the whole reply (2,000 for the small tier, 4,000 for
-#: the standard one, 16,000 for full) and enforced at two and a half bytes a
-#: token, the rate this JSON tokenizes at, less what the envelope around the
-#: rows takes.
-PAGE_BUDGET_BYTES: dict[ToolTier, int] = {"small": 4_400, "standard": 9_400, "full": 39_400}
+#: The most a page (its header, the filters it echoes and its rows) may take,
+#: by tool tier, in UTF-8 bytes of its JSON. Stated in tokens for the whole
+#: reply (2,000 for the small tier, 4,000 for the standard one, 16,000 for
+#: full) and enforced at two and a half bytes a token, the rate this JSON
+#: tokenizes at, less what the envelope around the page takes with its
+#: cursor and warnings.
+PAGE_BUDGET_BYTES: dict[ToolTier, int] = {"small": 4_300, "standard": 9_300, "full": 39_300}
 
 #: The Board's sorts, by the names its menu gives them, and the list key each one reads.
 Sort = Literal["best_match", "newest", "age", "pay", "estimated_pay", "level", "company", "title", "location"]
@@ -241,25 +242,29 @@ async def search(
         "hidden": hidden,
         "unfollowed": getattr(hidden, "unfollowed", frozenset()),
     }
-    ordered = await _ordered(session, board, sort=sort, order=params.order, query=params.query,
+    # Best match has its own order; `order` reorders only the other sorts.
+    order = "desc" if sort == "best_match" else params.order
+    ordered = await _ordered(session, board, sort=sort, order=order, query=params.query,
                              offset=offset, limit=params.limit, exact_seen=carried)
 
     rows = await _rows(session, ordered.jobs, now=now)
-    kept = _within_budget(rows, PAGE_BUDGET_BYTES[params.tier])
+    page = SearchPage(
+        total=ordered.total,
+        count=0,
+        sort=sort,
+        order=None if sort == "best_match" else params.order,
+        filters=filters,
+        columns=list(COLUMNS),
+        rows=[],
+    )
+    # The rows share the page's budget with its header, whose filters grow with the request.
+    kept = _within_budget(rows, PAGE_BUDGET_BYTES[params.tier] - _size(page.model_dump(mode="json")))
+    page.count, page.rows = len(kept), kept
     end = offset + len(kept)
     next_cursor = (
         cursor.encode(request=request, offset=end, carried=ordered.exact)
         if end < ordered.total
         else None
-    )
-    page = SearchPage(
-        total=ordered.total,
-        count=len(kept),
-        sort=sort,
-        order=None if sort == "best_match" else params.order,
-        filters=filters,
-        columns=list(COLUMNS),
-        rows=kept,
     )
     return SearchAnswer(
         page, next_cursor, shortened=len(kept) < len(rows), ranking_truncated=ordered.ranking_truncated
@@ -402,13 +407,18 @@ def _whole(value: float | int | None) -> int | None:
     return None if value is None else round(value)
 
 
+def _size(value: object) -> int:
+    """The UTF-8 bytes of `value` as compact JSON."""
+    return len(json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+
+
 def _within_budget(rows: list[SearchRow], budget: int) -> list[SearchRow]:
     """The leading rows whose JSON fits `budget` bytes, and always the first
     row, so a page never stops before it starts."""
     kept: list[SearchRow] = []
     used = 0
     for row in rows:
-        size = len(json.dumps(row, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) + 1
+        size = _size(row) + 1
         if kept and used + size > budget:
             break
         kept.append(row)

@@ -46,6 +46,12 @@ def write_human(envelope: dict[str, Any], stdout: TextIO, stderr: TextIO) -> Non
         lines = [*lines, f"more: --cursor {escape(following)}"]
     stdout.write("".join(f"{line}\n" for line in lines))
     stdout.flush()
+    # A warning qualifies the result (a shortened page, a cut ranking), so a person sees it too.
+    notices = envelope.get("warnings")
+    for notice in notices if isinstance(notices, list) else []:
+        if isinstance(notice, dict) and "message" in notice:
+            stderr.write(f"warning: {escape(notice['message'])}\n")
+    stderr.flush()
 
 
 def _status(data: dict[str, Any]) -> list[str]:

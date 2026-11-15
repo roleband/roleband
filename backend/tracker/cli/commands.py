@@ -353,12 +353,15 @@ def request(command: Command, data: dict[str, Any]) -> tuple[str, dict[str, Any]
         return path, rest
     pairs: list[tuple[str, str]] = []
     for name, value in rest.items():
+        if value is None:
+            # The address cannot say null; leaving the field out asks for its default, as null does.
+            continue
         for item in value if isinstance(value, list) else [value]:
             if item is None or isinstance(item, dict | list):
                 raise ClientError(
                     "invalid_arguments",
-                    f"{name}: this operation reads its input from the address, which carries no null, "
-                    "object or nested list.",
+                    f"{name}: this operation reads its input from the address, which carries no "
+                    "object, nested list or null inside a list.",
                 )
             pairs.append((name, _text(item)))
     return (f"{path}?{urlencode(pairs)}" if pairs else path), None

@@ -364,6 +364,31 @@ async def test_rows_that_outgrow_the_budget_end_the_page_and_the_cursor_carries_
     assert _page(wide)["count"] == 20
 
 
+async def test_a_wide_filter_set_still_fits_the_reply(api_client, workspace):
+    """Broken rule caught: the rows had the whole budget, so the filters a page
+    echoes pushed a small-tier reply past it."""
+    await workspace.execute(update(Job).values(title=Job.title + " " + "x" * 400))
+    await workspace.commit()
+    wide = {}
+    for kind in ("company", "family", "level_band", "track", "domain"):
+        _, listed = await _vocabulary(api_client, kind=kind, limit=500)
+        wide[kind] = [entry["value"] for entry in listed["data"]["items"]][:50]
+    _, narrow = await _search(api_client)
+    response, body = await _search(api_client, **wide)
+    page = _page(body)
+    filters = len(json.dumps(page["filters"], separators=(",", ":")))
+    assert filters > 1_000, "the request must echo a wide filter set"
+    assert len(response.content) <= SMALL_REPLY_BYTES
+    assert 1 <= page["count"] < _page(narrow)["count"]
+
+
+async def test_best_match_without_a_query_ignores_order(api_client, workspace):
+    _, falling = await _search(api_client, sort="best_match", order="desc", limit=40)
+    _, rising = await _search(api_client, sort="best_match", order="asc", limit=40)
+    assert [row[0] for row in _page(rising)["rows"]] == [row[0] for row in _page(falling)["rows"]]
+    assert _page(rising)["order"] is None
+
+
 async def test_a_row_carries_the_persons_own_marks(api_client, workspace):
     saved_id = await workspace.scalar(select(Job.id).where(Job.req_id == task_req_id("ESTONLY")))
     await ensure_favorite(workspace, saved_id)

@@ -277,11 +277,22 @@ def test_a_write_sends_its_input_as_a_body_and_a_document_only_by_input():
     )
 
 
-def test_a_read_cannot_carry_a_null_or_an_object_in_its_address():
-    command = _command("GET", "/api/agent/v1/widgets", {"view": {"type": "string"}})
-    for value in (None, {"a": 1}):
-        with pytest.raises(ClientError, match="carries no null"):
-            commands.request(command, {"view": value})
+def test_a_read_leaves_a_null_out_and_cannot_carry_an_object_in_its_address():
+    command = _command("GET", "/api/agent/v1/widgets", {"view": {"type": "string"}, "tag": {"type": "array"}})
+    assert commands.request(command, {"view": None, "tag": ["a"]}) == ("/api/agent/v1/widgets?tag=a", None)
+    for value in ({"a": 1}, [["a"]], ["a", None]):
+        with pytest.raises(ClientError, match="carries no object"):
+            commands.request(command, {"tag": value})
+
+
+def test_an_input_document_with_a_null_field_searches_as_if_it_were_left_out(home, tmp_path):
+    document = tmp_path / "search.json"
+    document.write_text(json.dumps({"query": None, "location": ["London"]}))
+    with Stub(Reply(200, _envelope("opportunities.search", data=_PAGE))) as stub:
+        home.contexts(current="dev", dev={"url": stub.url})
+        result = cli(home, "opportunities", "search", "--input", f"@{document}", "--json")
+    assert result.status == 0, result
+    assert _query(stub.requests[0]) == {"location": ["London"]}
 
 
 # --------------------------------------------------------------------------- #
@@ -344,7 +355,8 @@ def test_a_search_page_reads_as_a_table_for_a_person(home):
     }
     reply = _envelope("opportunities.search", data=page,
                       meta={"observed_at": "2026-11-13T14:00:00Z", "next_cursor": "c1.2.0.0123456789abcdef",
-                            "partial": False, "truncated": False, "data_classes": []})
+                            "partial": False, "truncated": True, "data_classes": []},
+                      warnings=({"code": "ranking_truncated", "message": "More postings match\x1b[2J than ranked."},))
     with Stub(Reply(200, reply)) as stub:
         home.contexts(current="dev", dev={"url": stub.url})
         result = cli(home, "opportunities", "search", "--location", "london", "--format", "human")
@@ -356,6 +368,8 @@ def test_a_search_page_reads_as_a_table_for_a_person(home):
     assert "estimate 180000 USD total" in lines[1] and "applied" in lines[1]
     assert "\x1b" not in result.stdout
     assert lines[-1] == "more: --cursor c1.2.0.0123456789abcdef"
+    # A warning qualifies the page, so a person sees it, escaped like any text.
+    assert result.stderr == "warning: More postings match\\u001b[2J than ranked.\n"
 
 
 # --------------------------------------------------------------------------- #
