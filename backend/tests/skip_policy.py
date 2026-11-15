@@ -97,6 +97,11 @@ WINDOWS_SKIPS: tuple[tuple[re.Pattern[str], str], ...] = (
         "(tests/test_command_shim.py)",
     ),
     (
+        re.compile(r"the CLI mode runs POSIX shell commands"),
+        "the agent bench's CLI mode gives a host a POSIX shell script as `roleband` and reads POSIX command "
+        "lines, and refuses Windows; the Linux lane runs these tests (tests/test_bench_agent_hosts.py)",
+    ),
+    (
         re.compile(r"preflight\.sh needs git and shasum"),
         "the Mac's unattended-run preflight script",
     ),

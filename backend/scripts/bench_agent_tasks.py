@@ -1,9 +1,11 @@
-"""Run the agent task corpus against an agent host whose MCP server reads a scratch database.
+"""Run the agent task corpus against an agent host, through the MCP server or the `roleband` command.
 
     python -m scripts.bench_agent_tasks prepare --workdir DIR
     python -m scripts.bench_agent_tasks run --workdir DIR --host claude-code --trials 3
+    python -m scripts.bench_agent_tasks run --workdir DIR --host claude-code --interface cli --trials 3
+    python -m scripts.bench_agent_tasks run --workdir DIR --host codex --trials 3
     python -m scripts.bench_agent_tasks run --workdir DIR --host omlx --model MODEL --trials 3
-    python -m scripts.bench_agent_tasks selfcheck --workdir DIR
+    python -m scripts.bench_agent_tasks selfcheck --workdir DIR [--interface cli]
     python -m scripts.bench_agent_tasks budgets --workdir DIR --tokenizer PATH/tokenizer.json
     python -m scripts.bench_agent_tasks report DIR/runs/RUN.ndjson [...]
 
@@ -39,21 +41,50 @@ the largest prompt and whether the model's context window overflowed: a small
 window is where an oversized page shows. Each transcript is kept in
 `DIR/runs/RUN/` so a failure can be read.
 
+**Interfaces.** `--interface mcp` (the default) gives the host the MCP server,
+pointed at the trial's database. `--interface cli` gives it the `roleband`
+command and nothing else: each trial starts its own engine on the trial's
+database (loopback, a free port) and a `roleband` from this checkout that
+reaches only that engine, through a recording proxy the bench runs in its own
+process. That `roleband` logs every call it answers, and the log, not the
+host's account of it, is what the trial is graded on, as far as the proxy's
+record bears it out: an answer counts only if the engine gave it, and a request
+the log does not account for is a prohibited effect, so a host that can write
+to the log cannot forge one. A shell host works in a folder outside the bench's,
+and may write only to the log's folder. A host that reaches anything else in
+CLI mode (an MCP tool, another `roleband`, the bench's own files) records a
+prohibited effect, so a run that fell back to MCP cannot pass. The
+corpus and its graders are the same in both modes. The settings and the skill
+a host gets in CLI mode are the ones `roleband connect HOST --apply` writes,
+applied to a folder of the run's own, never to the person's.
+
 **Hosts.**
 
-* `claude-code`: `claude -p` with only the RoleBand MCP server, no built-in
-  tools and no settings files, started with a minimal environment so the
-  calling session's own variables cannot reach it.
-* `omlx`, `lmstudio`: one loop over the MCP Python client and the server's
-  OpenAI-compatible endpoint (`--base-url`, defaults in `LOCAL_SERVERS`). The
-  corpus and graders are the same for every host; the switch picks only the
-  address, the key (`ROLEBAND_BENCH_API_KEY`, else oMLX's own) and the version
-  probe.
+* `claude-code`: `claude -p`, no settings files, started with a minimal
+  environment so the calling session's own variables cannot reach it. MCP:
+  only the RoleBand server, no built-in tools. CLI: only the Bash tool, allowed
+  only as `Bash(roleband *)`, under the sandbox settings `connect` writes, with
+  the skill as appended instructions.
+* `codex`: `codex exec` without the person's `config.toml` or rules
+  (`--ignore-user-config --ignore-rules`; the login stays where Codex keeps
+  it) and with no session files. MCP: the server and no shell tool. CLI: the
+  shell in `workspace-write` with the network setting `connect` writes, and the
+  skill as developer instructions. Codex has no per-command allow rule, so a
+  shell command that is not a `roleband` call is counted (`off_interface`), and
+  one that names the bench's own files is a prohibited effect.
+* `omlx`, `lmstudio`: one loop over an OpenAI-compatible endpoint
+  (`--base-url`, defaults in `LOCAL_SERVERS`). MCP: the MCP Python client's
+  tools. CLI: one tool, `roleband`, that runs the command with a list of
+  arguments, no shell, and returns its exit status, stdout and stderr. The
+  switch picks only the address, the key (`ROLEBAND_BENCH_API_KEY`, else
+  oMLX's own) and the version probe.
 * `oracle`, `oracle-wrong-answer`, `oracle-wrong-write`: no model. They answer
-  from the expectations through the same MCP server; the first is the best the
-  interface allows, the other two are the negative controls. `selfcheck` runs
-  all three and exits 1 unless each control scores below the oracle on every
-  task: a harness that cannot fail measures nothing.
+  from the expectations through the same interface; the first is the best the
+  interface allows, the other two are the negative controls. In CLI mode an
+  operation the engine does not offer yet is skipped, and the wrong-write
+  control writes straight to the trial's database when no write operation
+  exists. `selfcheck` runs all three and exits 1 unless each control scores
+  below the oracle on every task: a harness that cannot fail measures nothing.
 """
 
 from __future__ import annotations
@@ -64,12 +95,14 @@ import contextlib
 import json
 import os
 import re
+import shlex
 import shutil
 import statistics
 import subprocess
 import sys
+import tempfile
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -80,11 +113,21 @@ CORPUS_PATH = BACKEND / "tests" / "fixtures" / "agent_tasks.json"
 MARKER = "agent-bench.json"
 #: The database the seeder writes; every trial copies it.
 TEMPLATE_DB = "roleband"
-#: Tools that reach the network or store a recipe: never part of a corpus task.
-PROHIBITED_TOOLS = frozenset({"inspect_source", "validate_recipe", "save_recipe_draft"})
+#: Tools that reach the network or store a recipe, and the operations that
+#: replace them (`tests/fixtures/mcp_parity_checklist.json`): never part of a
+#: corpus task.
+PROHIBITED_TOOLS = frozenset({
+    "inspect_source", "validate_recipe", "save_recipe_draft",
+    "sources.inspect", "recipes.validate", "recipes.draft.save",
+})
+#: The search, by its MCP tool name and its operation id.
+SEARCH_CALLS = frozenset({"search_opportunities", "opportunities.search"})
+PARITY_CHECKLIST = BACKEND / "tests" / "fixtures" / "mcp_parity_checklist.json"
 SEED_COUNT = 60
 SEED_VALUE = 20260920
-HOSTS = ("claude-code", "omlx", "lmstudio", "oracle", "oracle-wrong-answer", "oracle-wrong-write")
+HOSTS = ("claude-code", "codex", "omlx", "lmstudio", "oracle", "oracle-wrong-answer", "oracle-wrong-write")
+INTERFACES = ("mcp", "cli")
+ORACLES = ("oracle", "oracle-wrong-answer", "oracle-wrong-write")
 ANSWER_LINE = re.compile(r"^[\s`*]*ANSWER:[\s`*]*(\{.*\})[\s`*]*$", re.MULTILINE)
 
 
@@ -214,8 +257,11 @@ def wrong_writes(task: dict, expectations: dict, changes: list[dict]) -> list[di
     ]
 
 
-def prohibited_effects(task: dict, changes: list[dict], tool_calls: list[dict]) -> list[str]:
+def prohibited_effects(task: dict, changes: list[dict], tool_calls: list[dict], breaches: Sequence[str] = ()) -> list[str]:
+    """Network or recipe effects, any write in a task whose posting asks for
+    one, and `breaches`: what a host reached outside the interface under test."""
     effects = [f"called {call['name']}" for call in tool_calls if call["name"] in PROHIBITED_TOOLS]
+    effects += list(breaches)
     effects += [
         f"stored {change['delta']} recipe revision(s)"
         for change in changes if change["kind"] == "rows" and change["table"] == "connector_recipe_revisions"
@@ -231,12 +277,14 @@ def recovery_turns(tool_calls: list[dict]) -> int:
     for index, call in enumerate(tool_calls):
         if call.get("is_error"):
             return len(tool_calls) - index - 1
-        if call["name"] == "search_opportunities":
+        if call["name"] in SEARCH_CALLS:
             try:
                 body = json.loads(call.get("result") or "{}")
             except json.JSONDecodeError:
                 continue
-            if isinstance(body, dict) and (body.get("ignored") or body.get("dropped_filters")):
+            # The MCP tool answers the page itself; the command, an envelope around it.
+            pages = [body, body.get("data")] if isinstance(body, dict) else []
+            if any(isinstance(page, dict) and (page.get("ignored") or page.get("dropped_filters")) for page in pages):
                 return len(tool_calls) - index - 1
     return 0
 
@@ -342,13 +390,14 @@ GRADERS = {
 
 def grade_trial(
     task: dict, expectations: dict, answer: dict | None, before: dict, after: dict, tool_calls: list[dict],
+    breaches: Sequence[str] = (),
 ) -> dict:
     """Score one trial. `score` is the share of checks that held, the two write
     checks included, so a control that breaks one thing scores lower than the
     run it perturbs even where neither succeeds."""
     changes = diff_state(before, after)
     wrong = wrong_writes(task, expectations, changes)
-    prohibited = prohibited_effects(task, changes, tool_calls)
+    prohibited = prohibited_effects(task, changes, tool_calls, breaches)
     checks = GRADERS[task["grader"]](expectations["tasks"][task["id"]], answer, after, tool_calls)
     checks["answer_line"] = answer is not None
     checks["no_wrong_writes"] = not wrong
@@ -405,6 +454,8 @@ def _workspace_env(workdir: Path, database_url: str = "") -> dict[str, str]:
         "ROLEBAND_PGDATA": str(workdir / "pgdata"),
         "ROLEBAND_POSTGRES_DB": TEMPLATE_DB,
         "ROLEBAND_DATABASE_URL": database_url,
+        # The default is the installed app's key, `~/.roleband/secret.key`.
+        "ROLEBAND_SECRET_KEY_FILE": str(workdir / "secret.key"),
     }
 
 
@@ -512,6 +563,25 @@ async def prepare(workdir: Path, *, count: int = SEED_COUNT, seed_value: int = S
     }
     prepared.write_text(json.dumps(record, indent=1) + "\n")
     return record
+
+
+def code_heads() -> set[str]:
+    """The migration heads of this checkout."""
+    from alembic.script import ScriptDirectory
+
+    return set(ScriptDirectory(str(BACKEND / "alembic")).get_heads())
+
+
+async def check_schema(workdir: Path) -> None:
+    """Refuse a workspace seeded under other migrations than this checkout's:
+    its engine and its MCP server would run this code on an older schema."""
+    from sqlalchemy import text
+
+    async with _session(_server_url(workdir, TEMPLATE_DB), expect_database=TEMPLATE_DB) as session:
+        stored = set((await session.scalars(text("SELECT version_num FROM alembic_version"))).all())
+    if stored != code_heads():
+        raise SystemExit(f"{workdir} is at migration {sorted(stored)}, this checkout at {sorted(code_heads())}: "
+                         "use a new --workdir")
 
 
 async def compute_expectations(session, corpus: dict) -> dict:
@@ -645,6 +715,11 @@ class Transcript:
     #: One entry per model call, for the hosts that report it.
     turns: list[dict] = field(default_factory=list)
     overflow: str | None = None
+    #: CLI mode: what the host itself ran (shell commands, tool calls), apart
+    #: from the graded calls, which come from the trial's `roleband` log.
+    host_calls: list[dict] = field(default_factory=list)
+    #: What the host reached outside the interface under test.
+    breaches: list[str] = field(default_factory=list)
 
 
 def _mcp_params(workdir: Path, database_url: str) -> Any:
@@ -669,28 +744,662 @@ def _result_text(result: Any) -> str:
     return "\n".join(getattr(part, "text", "") for part in result.content if getattr(part, "type", "") == "text")
 
 
+# --- the command-line interface ------------------------------------------------
+#
+# In CLI mode a trial gets its own engine and its own `roleband`. The engine is
+# this checkout's API on the trial's database, on a free loopback port; the
+# command is this checkout's client, pinned by a context file to that engine
+# and that workspace, and it logs every call it answers.
+
+#: The engine's agent routes (`tracker/cli/transport.py`).
+AGENT_PREFIX = "/api/agent/v1"
+#: Global options of `roleband` that take a value (`tracker/cli/main.py`).
+_VALUE_OPTIONS = frozenset({"--format", "--context", "--timeout"})
+_COMMAND_WORD = re.compile(r"^[a-z][a-z0-9-]*$")
+#: Commands of one word: about the connection, not a resource.
+_CONNECTION_COMMANDS = frozenset({"status", "capabilities", "describe", "connect"})
+#: How the client starts, as the app's own command shim starts it: isolated
+#: (`-I`, so no `PYTHONPATH`, no working directory, no user site) and writing
+#: no bytecode, with this checkout put on the path by hand.
+_CLIENT_BOOT = "import sys; sys.path.insert(0, {backend!r}); from tracker.cli.main import main; raise SystemExit(main())"
+#: The variable that names a call of the oMLX tool, so the log can be matched to it.
+CALL_ENV = "ROLEBAND_BENCH_CALL"
+
+_SHIM = '''\
+"""The bench's `roleband`: this checkout's client, one trial's engine, every call logged."""
+import io, json, os, sys, time
+
+sys.path.insert(0, {backend!r})
+os.environ["ROLEBAND_CLI_CONFIG"] = {config!r}
+# `roleband connect` writes where these point: the trial's folders, never the person's.
+os.environ["CLAUDE_CONFIG_DIR"] = {claude_home!r}
+os.environ["CODEX_HOME"] = {codex_home!r}
+
+
+class Tee(io.TextIOBase):
+    def __init__(self, stream):
+        super().__init__()
+        self.stream, self.parts = stream, []
+
+    def write(self, text):
+        self.parts.append(text)
+        return self.stream.write(text)
+
+    def flush(self):
+        self.stream.flush()
+
+
+out, err = Tee(sys.stdout), Tee(sys.stderr)
+sys.stdout, sys.stderr = out, err
+started, status, request_ids = time.time(), 1, []
+try:
+    import tracker.cli.main as client
+
+    # The request id the client sends, so a call printed for people can be
+    # matched to the request the engine answered.
+    def _request_id(make=client.new_request_id):
+        request_ids.append(make())
+        return request_ids[-1]
+
+    client.new_request_id = _request_id
+    status = client.main(sys.argv[1:])
+finally:
+    sys.stdout, sys.stderr = out.stream, err.stream
+    line = json.dumps({{"argv": sys.argv[1:], "exit_code": status, "stdout": "".join(out.parts),
+                       "stderr": "".join(err.parts), "call": os.environ.get({call_env!r}),
+                       "request_id": request_ids[0] if request_ids else None,
+                       "started": started, "wall_s": round(time.time() - started, 3)}}) + "\\n"
+    descriptor = os.open({log!r}, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+    try:
+        os.write(descriptor, line.encode("utf-8"))
+    finally:
+        os.close(descriptor)
+sys.exit(status)
+'''
+
+
+@dataclass
+class Engine:
+    #: Where the trial's command reaches the engine: the bench's recording proxy.
+    url: str
+    workspace_id: str | None
+    operations: list[str]
+    #: Every request the proxy forwarded and the engine's reply, in order.
+    records: list[dict] = field(default_factory=list)
+
+
+#: Headers that belong to one hop, not to the request or reply they travel with.
+_HOP_HEADERS = frozenset({"host", "connection", "keep-alive", "transfer-encoding", "content-length",
+                          "content-encoding", "proxy-connection", "upgrade", "te", "trailer"})
+REQUEST_ID_HEADER = "X-RoleBand-Request-Id"
+
+
+class RecordingProxy:
+    """The engine as the trial's command sees it: each request forwarded as
+    it came, each reply recorded before it is sent back. These records are the
+    bench's own, out of every host's reach, so an answer in the command's log
+    counts only if the engine gave it."""
+
+    def __init__(self, target: str) -> None:
+        self.target = target
+        self.records: list[dict] = []
+
+    async def __call__(self, scope: dict, receive: Any, send: Any) -> None:
+        import httpx
+
+        if scope["type"] != "http":
+            return
+        body, more = b"", True
+        while more:
+            message = await receive()
+            body += message.get("body", b"")
+            more = message.get("more_body", False)
+        headers = {key.decode("latin-1"): value.decode("latin-1") for key, value in scope["headers"]
+                   if key.decode("latin-1").lower() not in _HOP_HEADERS}
+        query = scope.get("query_string") or b""
+        url = f"{self.target}{scope['path']}" + (f"?{query.decode('latin-1')}" if query else "")
+        async with httpx.AsyncClient(timeout=600) as client:
+            reply = await client.request(scope["method"], url, headers=headers, content=body)
+        self.records.append({
+            "method": scope["method"], "path": scope["path"], "status": reply.status_code,
+            "request_id": headers.get(REQUEST_ID_HEADER) or headers.get(REQUEST_ID_HEADER.lower()),
+            "body": reply.text,
+        })
+        await send({"type": "http.response.start", "status": reply.status_code, "headers": [
+            *((key.encode("latin-1"), value.encode("latin-1")) for key, value in reply.headers.items()
+              if key.lower() not in _HOP_HEADERS),
+            (b"content-length", str(len(reply.content)).encode()),
+        ]})
+        await send({"type": "http.response.body", "body": reply.content})
+
+
+@contextlib.asynccontextmanager
+async def recording_proxy(target: str) -> AsyncIterator[tuple[str, RecordingProxy]]:
+    """A loopback proxy to `target`, served in this process until the block ends."""
+    import socket
+
+    import uvicorn
+
+    app = RecordingProxy(target)
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listener.bind(("127.0.0.1", 0))
+    port = listener.getsockname()[1]
+    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, lifespan="off",
+                                           log_level="warning", access_log=False))
+    task = asyncio.create_task(server.serve(sockets=[listener]))
+    try:
+        while not server.started:
+            if task.done():
+                task.result()
+            await asyncio.sleep(0.02)
+        yield f"http://127.0.0.1:{port}", app
+    finally:
+        server.should_exit = True
+        await task
+        listener.close()
+
+
+@dataclass
+class CliSetup:
+    """What a host needs to run `roleband` in one trial."""
+
+    #: The folder put first on the host's PATH; it holds `roleband` alone.
+    bin_dir: Path
+    roleband: Path
+    log: Path
+    #: The variables every host process gets on top of its own.
+    env: dict[str, str]
+    #: The skill `connect` installs, as the host's instructions.
+    instructions: str
+    #: Operation ids, to name a call by the command it ran.
+    known_operations: frozenset[str]
+    engine: Engine
+    #: A shell host's working folder, outside the bench's folder, so no
+    #: relative path from it reaches another trial's files or the answers.
+    cwd: Path
+    connect: dict = field(default_factory=dict)
+
+
+def _free_port() -> int:
+    import socket
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.bind(("127.0.0.1", 0))
+        return int(probe.getsockname()[1])
+
+
+def _engine_env(workdir: Path, database_url: str) -> dict[str, str]:
+    """The trial's database, and nothing of the person's: no usage reports, no
+    plugins, no key from the installed app."""
+    env = _child_env(workdir, database_url)
+    env.update({
+        "ROLEBAND_USAGE_STATS_HOST": "http://127.0.0.1:9",
+        "ROLEBAND_PLUGINS": "false",
+        "ROLEBAND_PLUGINS_DIR": str(workdir / "plugins"),
+    })
+    return env
+
+
+@contextlib.asynccontextmanager
+async def bench_engine(workdir: Path, database_url: str, log_path: Path, *,
+                       ready_timeout: float = 180.0) -> AsyncIterator[Engine]:
+    """This checkout's engine on one trial's database, until the block ends."""
+    import httpx
+
+    port = _free_port()
+    url = f"http://127.0.0.1:{port}"
+    with log_path.open("wb") as log:
+        process = await asyncio.create_subprocess_exec(
+            sys.executable, "-m", "uvicorn", "tracker.api.app:app", "--host", "127.0.0.1", "--port", str(port),
+            cwd=BACKEND, env=_engine_env(workdir, database_url), stdin=asyncio.subprocess.DEVNULL,
+            stdout=log, stderr=asyncio.subprocess.STDOUT, start_new_session=True,
+        )
+        try:
+            deadline = time.monotonic() + ready_timeout
+            body: dict = {}
+            async with httpx.AsyncClient(timeout=5) as client:
+                while True:
+                    if process.returncode is not None:
+                        raise RuntimeError(f"the engine exited ({process.returncode}): "
+                                           f"{log_path.read_text(errors='replace')[-800:]}")
+                    with contextlib.suppress(httpx.TransportError):
+                        response = await client.get(f"{url}{AGENT_PREFIX}/status")
+                        if response.status_code == 200:
+                            body = response.json()
+                            break
+                    if time.monotonic() > deadline:
+                        raise RuntimeError(f"the engine did not answer within {ready_timeout:.0f} s")
+                    await asyncio.sleep(0.25)
+                capabilities = (await client.get(f"{url}{AGENT_PREFIX}/capabilities")).json()
+            operations = [entry["operation"] for entry in (capabilities.get("data") or {}).get("operations", [])]
+            async with recording_proxy(url) as (proxy_url, proxy):
+                yield Engine(url=proxy_url, workspace_id=body.get("workspace_id"), operations=operations,
+                             records=proxy.records)
+        finally:
+            if process.returncode is None:
+                process.terminate()
+                try:
+                    await asyncio.wait_for(process.wait(), timeout=15)
+                except TimeoutError:
+                    process.kill()
+                    await process.wait()
+
+
+def known_operations(engine_operations: Sequence[str] = ()) -> frozenset[str]:
+    """The operations a call can be named after: the connection's own
+    commands, the engine's catalog and every operation that replaces an MCP
+    tool, so a write or a network call is named even before it exists."""
+    checklist = json.loads(PARITY_CHECKLIST.read_text(encoding="utf-8"))
+    return frozenset({*_CONNECTION_COMMANDS, *engine_operations, *(row["operation"] for row in checklist["tools"])})
+
+
+def operation_of(argv: Sequence[str], known: frozenset[str]) -> str:
+    """The operation a `roleband` argument list calls: the longest run of its
+    leading command words that names a known operation, as the command layer
+    maps `opportunities get-many` to `opportunities.get_many`."""
+    index = 0
+    while index < len(argv) and argv[index].startswith("-"):
+        index += 2 if argv[index] in _VALUE_OPTIONS else 1
+    words: list[str] = []
+    for token in argv[index:]:
+        if not _COMMAND_WORD.fullmatch(token):
+            break
+        words.append(token.replace("-", "_"))
+        if len(words) == 1 and token in _CONNECTION_COMMANDS:
+            break
+    for count in range(len(words), 0, -1):
+        candidate = ".".join(words[:count])
+        if candidate in known:
+            return candidate
+    return ".".join(words) or "roleband"
+
+
+def write_cli_shim(directory: Path, *, config: Path, log: Path) -> Path:
+    """`directory/bin/roleband`, the only file in its folder, so putting the
+    folder first on PATH adds this one command."""
+    bin_dir = directory / "bin"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    homes = {name: directory / "connect" / name for name in ("claude", "codex")}
+    for home in homes.values():
+        home.mkdir(parents=True, exist_ok=True)
+    script = directory / "roleband_shim.py"
+    script.write_text(_SHIM.format(backend=str(BACKEND), config=str(config), log=str(log), call_env=CALL_ENV,
+                                   claude_home=str(homes["claude"]), codex_home=str(homes["codex"])))
+    import shlex
+
+    roleband = bin_dir / "roleband"
+    roleband.write_text(f"#!/bin/sh\nexec {shlex.quote(sys.executable)} -I -B {shlex.quote(str(script))} \"$@\"\n")
+    roleband.chmod(0o755)
+    return roleband
+
+
+def write_context(path: Path, engine: Engine) -> None:
+    entry: dict[str, str] = {"url": engine.url}
+    if engine.workspace_id:
+        entry["workspace_id"] = engine.workspace_id
+    path.write_text(json.dumps({"format": 1, "current": "bench", "contexts": {"bench": entry}}, indent=1) + "\n")
+
+
+def cli_setup(trial_dir: Path, engine: Engine, connect: dict, *, cwd: Path | None = None) -> CliSetup:
+    """The trial's command, context and log. The log has a folder of its own:
+    the only one a sandboxed host is given to write."""
+    cli_dir = trial_dir / "cli"
+    (cli_dir / "log").mkdir(parents=True, exist_ok=True)
+    config = cli_dir / "cli.json"
+    write_context(config, engine)
+    log = cli_dir / "log" / "roleband-calls.ndjson"
+    roleband = write_cli_shim(cli_dir, config=config, log=log)
+    env = {
+        "PATH": f"{roleband.parent}{os.pathsep}{os.environ.get('PATH', '')}",
+        "ROLEBAND_CLI_CONFIG": str(config),
+    }
+    if cwd is None:
+        cwd = trial_dir / "cwd"
+        cwd.mkdir(exist_ok=True)
+    return CliSetup(bin_dir=roleband.parent, roleband=roleband, log=log, env=env,
+                    instructions=connect.get("instructions", ""),
+                    known_operations=known_operations(engine.operations), engine=engine, cwd=cwd, connect=connect)
+
+
+def read_cli_log(cli: CliSetup, breaches: list[str] | None = None) -> list[dict]:
+    """Every call the trial's `roleband` answered, as graded tool calls. A
+    host can write to the log's folder, so a line that is not one the command
+    writes is left out and, given `breaches`, recorded there."""
+    if not cli.log.exists():
+        return []
+    calls, unreadable = [], 0
+    for line in cli.log.read_text(encoding="utf-8", errors="replace").splitlines():
+        if not line.strip():
+            continue
+        try:
+            entry = json.loads(line)
+            argv, stdout, stderr = entry["argv"], entry["stdout"], entry["stderr"]
+            if not (isinstance(argv, list) and all(isinstance(arg, str) for arg in argv)
+                    and isinstance(stdout, str) and isinstance(stderr, str)
+                    and (entry["exit_code"] is None or isinstance(entry["exit_code"], int))
+                    and isinstance(entry.get("call"), str | None)):
+                raise TypeError("not a log entry")
+        except (ValueError, TypeError, KeyError, RecursionError):
+            unreadable += 1
+            continue
+        calls.append({
+            "name": operation_of(argv, cli.known_operations), "args": argv,
+            "result": stdout, "stderr": stderr, "exit_code": entry["exit_code"],
+            "is_error": entry["exit_code"] != 0, "call": entry.get("call"), "wall_s": entry.get("wall_s"),
+            "request_id": entry.get("request_id") if isinstance(entry.get("request_id"), str) else None,
+        })
+    if unreadable and breaches is not None:
+        breaches.append(f"the command's log has {unreadable} line(s) it never writes")
+    return calls
+
+
+def _client_command(*args: str) -> list[str]:
+    return [sys.executable, "-I", "-B", "-c", _CLIENT_BOOT.format(backend=str(BACKEND)), *args]
+
+
+def _strip_front_matter(text: str) -> str:
+    if text.startswith("---\n"):
+        end = text.find("\n---\n", 4)
+        if end != -1:
+            return text[end + 5:].lstrip("\n")
+    return text
+
+
+def prepare_connect(run_dir: Path) -> dict:
+    """What `roleband connect HOST --apply` writes for each host, applied to a
+    folder of this run's own, and the skill it installs. The person's
+    `~/.claude` and `~/.codex` are never named."""
+    record: dict[str, Any] = {}
+    homes = {"claude-code": ("CLAUDE_CONFIG_DIR", run_dir / "connect" / "claude-code"),
+             "codex": ("CODEX_HOME", run_dir / "connect" / "codex")}
+    for host, (variable, home) in homes.items():
+        home.mkdir(parents=True, exist_ok=True)
+        env = {key: os.environ[key] for key in ("HOME", "PATH", "LANG", "TMPDIR") if key in os.environ}
+        env[variable] = str(home)
+        result = subprocess.run(_client_command("connect", host, "--apply", "--json"),
+                                capture_output=True, text=True, env=env, check=False)
+        envelope = json.loads(result.stdout or "{}")
+        if result.returncode != 0 or not envelope.get("ok"):
+            raise SystemExit(f"roleband connect {host} --apply failed ({result.returncode}): {result.stdout[-400:]}")
+        record[host] = {"home": str(home), "files": [item["path"] for item in envelope["data"]["files"]],
+                        "skill": envelope["data"]["skill"]}
+    claude_home = homes["claude-code"][1]
+    record["claude_settings"] = json.loads((claude_home / "settings.json").read_text())
+    record["claude_settings_path"] = str(claude_home / "settings.json")
+    import tomllib
+
+    record["codex_config"] = tomllib.loads((homes["codex"][1] / "config.toml").read_text())
+    skill = claude_home / "skills" / "roleband" / "SKILL.md"
+    record["instructions"] = _strip_front_matter(skill.read_text(encoding="utf-8"))
+    return record
+
+
+def _shell_tokens(command: str) -> list[str]:
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
+    try:
+        return list(lexer)
+    except ValueError:
+        return command.split()
+
+
+_SEPARATORS = frozenset({";", "&&", "||", "|", "(", ")", "&", "\n"})
+
+
+def roleband_programs(command: str) -> list[tuple[str, bool]]:
+    """Each `roleband` a shell command line runs, by name or by a path ending
+    in it, at the start of the line or after `;`, `&&`, `||`, `|` or `(`, with
+    whether it runs whatever came before: one after `&&` or `||` may not."""
+    programs: list[tuple[str, bool]] = []
+    at_start, conditional = True, False
+    for token in _shell_tokens(command):
+        if token in _SEPARATORS:
+            at_start = True
+            if token in {"&&", "||"}:
+                conditional = True
+            elif token in {";", "&", "\n"}:
+                conditional = False
+            continue
+        if at_start and (token == "roleband" or token.endswith("/roleband")):
+            programs.append((token, not conditional))
+        # An assignment before the program (`ROLEBAND_AGENT=1 roleband ...`) keeps the start.
+        at_start = at_start and "=" in token and not token.startswith("=")
+    return programs
+
+
+def roleband_invocations(command: str) -> int:
+    """How many times a shell command line runs `roleband`."""
+    return len(roleband_programs(command))
+
+
+#: What a shell command must not name: the bench's answers and its database.
+_OFF_LIMITS = ("expectations.json", "prepared.json", "pgdata", "psql", "pg_dump", MARKER)
+
+
+def _paths_named(command: str, cwd: Path) -> list[Path]:
+    """The paths a command line names, resolved from where it runs."""
+    paths = []
+    for token in _shell_tokens(command):
+        if "/" not in token and not token.startswith("~") and token not in {".", ".."}:
+            continue
+        expanded = os.path.expandvars(os.path.expanduser(token.split("=", 1)[-1]))
+        paths.append(Path(os.path.normpath(cwd / expanded)))
+    return paths
+
+
+def _inside(path: Path, folder: Path) -> bool:
+    try:
+        path.relative_to(folder)
+    except ValueError:
+        return False
+    return True
+
+
+def cli_breaches(host_calls: list[dict], graded: list[dict], cli: CliSetup, workdir: Path) -> list[str]:
+    """What a shell host reached outside the trial's `roleband`: a `roleband`
+    that is not the trial's, a run of it that never reached the trial's log,
+    a tool that is not the shell, or a command that names the bench's answers,
+    its database or any of its files but the trial's log."""
+    breaches = []
+    certain = 0
+    for call in host_calls:
+        command = call.get("command") or ""
+        if call.get("kind") != "shell":
+            breaches.append(f"used {call.get('name')} outside the command line")
+            continue
+        programs = roleband_programs(command)
+        foreign = [name for name, _ in programs if "/" in name and Path(name) != cli.roleband]
+        if foreign:
+            breaches.append(f"ran a roleband that is not the trial's: {foreign[0]}")
+        if not call.get("refused"):
+            certain += sum(1 for _, runs in programs if runs)
+        named = [path for path in _paths_named(command, cli.cwd) if _inside(path, workdir)
+                 and path != cli.roleband and not _inside(path, cli.log.parent)]
+        if named or any(word in command for word in _OFF_LIMITS):
+            breaches.append(f"named the bench's own files in a command: {command[:80]}")
+    if len(graded) < certain:
+        breaches.append(f"{certain - len(graded)} roleband call(s) did not reach the trial's command")
+    return breaches
+
+
+#: Failures the client reports without an answer from the engine.
+_CLIENT_ERRORS = frozenset({
+    "invalid_arguments", "invalid_input", "context_required", "context_invalid", "context_not_found",
+    "engine_unavailable", "transport_error", "deadline_exceeded", "interrupted", "internal_error",
+    "unknown_operation", "unsupported_host", "approval_required", "revision_conflict", "workspace_mismatch",
+    "contract_incompatible", "transport_unverified",
+})
+
+
+def _json_object(text: str | None) -> dict | None:
+    try:
+        value = json.loads(text or "")
+    except (ValueError, RecursionError):  # bad JSON, an integer past the digit limit, deep nesting
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def _envelope(text: str | None) -> dict | None:
+    """The JSON envelope `text` holds, if it has the shape the client prints:
+    `ok` a boolean, `error` absent or an object with a string code, the
+    request id and operation strings."""
+    value = _json_object(text)
+    if value is None or not isinstance(value.get("ok"), bool):
+        return None
+    error = value.get("error")
+    if error is not None and not (isinstance(error, dict) and isinstance(error.get("code"), str)):
+        return None
+    if not all(isinstance(value.get(key), str | None) for key in ("request_id", "operation")):
+        return None
+    return value
+
+
+def _same_command(name: str, operation: object) -> bool:
+    """Whether a call named `name` from its argv is the command the engine
+    says it answered (`operation` in its reply): the same, or a command that
+    names an operation below it."""
+    return isinstance(operation, str) and (name == operation or name.startswith(f"{operation}."))
+
+
+def _as_answered(envelope: dict) -> dict:
+    """An envelope as the engine sent it: the client adds only the context it
+    used to `meta`."""
+    meta = envelope.get("meta")
+    if isinstance(meta, dict) and "context" in meta:
+        envelope = {**envelope, "meta": {key: value for key, value in meta.items() if key != "context"}}
+    return envelope
+
+
+def verify_cli_calls(logged: list[dict], records: list[dict]) -> list[str]:
+    """Hold the command's log to the proxy's records. Each logged call that
+    reached the engine is matched to one request the proxy forwarded, by its
+    request id, and its answer is graded only if it is the engine's reply in
+    every field. A call the client answered alone (help, `--offline`, a
+    refusal before any request) or printed for people is kept for the count,
+    with no result to grade. A request no logged call matched reached the
+    engine some other way."""
+    unmatched: dict[str, list[dict]] = {}
+    for record in records:
+        unmatched.setdefault(record.get("request_id") or "", []).append(record)
+    breaches = []
+    for call in logged:
+        envelope = _envelope(call.get("result"))
+        request_id = envelope.get("request_id") if envelope else call.get("request_id")
+        pending = unmatched.get(request_id) if isinstance(request_id, str) and request_id else None
+        record = pending.pop(0) if pending else None
+        client_error = envelope is not None and not envelope["ok"] and \
+            (envelope.get("error") or {}).get("code") in _CLIENT_ERRORS
+        if envelope is not None and record is not None and not client_error:
+            engine = _envelope(record["body"])
+            if _as_answered(envelope) != engine or not _same_command(call["name"], (engine or {}).get("operation")):
+                breaches.append(f"the log's answer to {call['name']} is not the engine's")
+                # Graded as what the engine answered, not as the command the log claims.
+                call.update({"logged_name": call["name"], "name": str((engine or {}).get("operation") or "unverified")})
+                call.update({"verified": False, "stdout": call.get("result"), "result": ""})
+            else:
+                # Graded on the engine's own reply: the log's copy also holds the
+                # client's context, which no record backs.
+                call.update({"verified": True, "stdout": call.get("result"), "result": record["body"]})
+            continue
+        forged = None
+        text = call.get("result") or ""
+        parsed = _json_object(text)
+        if envelope is None and ("ok" in (parsed or {}) or (parsed is None and text.lstrip().startswith("{"))):
+            forged = f"the log holds a reply to {call['name']} the client never prints"
+        elif envelope is not None and not client_error and "--offline" not in call.get("args", []):
+            forged = f"the log holds an answer to {call['name']} the engine never gave"
+        if forged:
+            # No such call ran: it is graded as nothing, not as the command the log claims.
+            breaches.append(forged)
+            call.update({"logged_name": call["name"], "name": "unverified"})
+        call.update({"verified": False, "stdout": call.get("result"), "result": ""})
+    stray = sum(len(left) for left in unmatched.values())
+    if stray:
+        breaches.append(f"the engine was reached {stray} time(s) outside the trial's command")
+    return breaches
+
+
+async def run_roleband(cli: CliSetup, args: Sequence[str], *, cwd: Path, stdin: bytes | None = None,
+                       call_id: str | None = None, timeout: float = 120.0) -> dict:
+    """Run the trial's `roleband` with an argument list, never through a shell."""
+    if isinstance(args, str) or not all(isinstance(arg, str) for arg in args):
+        raise TypeError("roleband takes a list of strings")
+    env = {key: os.environ[key] for key in ("HOME", "LANG", "TMPDIR", "USER") if key in os.environ}
+    env.update(cli.env)
+    if call_id is not None:
+        env[CALL_ENV] = call_id
+    process = await asyncio.create_subprocess_exec(
+        str(cli.roleband), *args, cwd=cwd, env=env,
+        stdin=asyncio.subprocess.PIPE if stdin is not None else asyncio.subprocess.DEVNULL,
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        stdout, stderr = await asyncio.wait_for(process.communicate(stdin), timeout=timeout)
+    except TimeoutError:
+        process.kill()
+        await process.wait()
+        return {"exit_code": None, "stdout": "", "stderr": f"roleband did not finish within {timeout:.0f} s"}
+    return {"exit_code": process.returncode, "stdout": stdout.decode("utf-8", "replace"),
+            "stderr": stderr.decode("utf-8", "replace")}
+
+
 #: The variables a headless `claude` needs to find its own login. Nothing else
 #: is passed on: a calling session's variables can point it at another endpoint
 #: or another login.
 _CLAUDE_ENV = ("HOME", "PATH", "USER", "LOGNAME", "SHELL", "TMPDIR", "LANG", "ANTHROPIC_API_KEY")
 
 
-async def run_claude_code(prompt: str, workdir: Path, database_url: str, trial_dir: Path, *, model: str | None) -> Transcript:
+def claude_command(claude: str, prompt: str, *, interface: str, mcp_config: Path | None = None,
+                   cli: CliSetup | None = None, model: str | None = None) -> list[str]:
+    """The `claude -p` call of one trial. MCP: the RoleBand server and no
+    built-in tool. CLI: no MCP server, the Bash tool alone, allowed only for
+    `roleband`, under the settings `connect` wrote, with its skill appended."""
+    command = [claude, "-p", prompt, "--output-format", "stream-json", "--verbose", "--strict-mcp-config"]
+    if interface == "mcp":
+        assert mcp_config is not None
+        command += ["--mcp-config", str(mcp_config), "--tools", "", "--allowedTools", "mcp__roleband__*"]
+    else:
+        assert cli is not None
+        command += ["--tools", "Bash", "--allowedTools", "Bash(roleband *)",
+                    "--settings", cli.connect["claude_settings_path"], "--permission-mode", "default",
+                    "--append-system-prompt", cli.instructions]
+    command += ["--setting-sources", "", "--no-session-persistence"]
+    if model:
+        command += ["--model", model]
+    return command
+
+
+def claude_breaches(init: dict) -> list[str]:
+    """What a CLI-mode `claude` was offered besides the Bash tool."""
+    breaches = [f"offered MCP server {server.get('name')}" for server in init.get("mcp_servers") or []]
+    breaches += [f"offered tool {tool}" for tool in init.get("tools") or [] if tool != "Bash"]
+    return breaches
+
+
+#: How Claude Code words a Bash call its permission rules stopped before it ran.
+_REFUSALS = re.compile(r"require[sd]? approval|haven't granted|permission[^.]*denied|was blocked", re.IGNORECASE)
+
+
+def _refused(text: str) -> bool:
+    """A Bash call Claude Code's permission rules refused: it never ran."""
+    return bool(_REFUSALS.search(text[:400]))
+
+
+async def run_claude_code(prompt: str, workdir: Path, database_url: str, trial_dir: Path, *, model: str | None,
+                          interface: str = "mcp", cli: CliSetup | None = None) -> Transcript:
     claude = shutil.which("claude")
     if claude is None:
         raise SystemExit("claude is not on PATH")
-    config = trial_dir / "mcp.json"
-    _mcp_config(workdir, database_url, config)
-    sandbox = trial_dir / "cwd"
+    config = None
+    if interface == "mcp":
+        config = trial_dir / "mcp.json"
+        _mcp_config(workdir, database_url, config)
+    sandbox = cli.cwd if cli is not None else trial_dir / "cwd"
     sandbox.mkdir(exist_ok=True)
-    command = [
-        claude, "-p", prompt, "--output-format", "stream-json", "--verbose",
-        "--mcp-config", str(config), "--strict-mcp-config", "--tools", "",
-        "--allowedTools", "mcp__roleband__*", "--setting-sources", "", "--no-session-persistence",
-    ]
-    if model:
-        command += ["--model", model]
+    command = claude_command(claude, prompt, interface=interface, mcp_config=config, cli=cli, model=model)
     env = {key: os.environ[key] for key in _CLAUDE_ENV if key in os.environ}
+    if cli is not None:
+        env.update(cli.env)
     started = time.monotonic()
     process = await asyncio.create_subprocess_exec(
         *command, cwd=sandbox, env=env, stdin=asyncio.subprocess.DEVNULL,
@@ -702,9 +1411,19 @@ async def run_claude_code(prompt: str, workdir: Path, database_url: str, trial_d
         process.kill()
         await process.wait()
         return Transcript(error="timeout after 900 s", wall_s=time.monotonic() - started)
-    transcript = Transcript(wall_s=time.monotonic() - started)
+    transcript = parse_claude_stream(stdout.decode("utf-8", "replace"), interface=interface)
+    transcript.wall_s = time.monotonic() - started
+    if transcript.final_text is None:
+        transcript.error = transcript.error or f"no result (exit {process.returncode}): {stderr.decode()[-500:]}"
+    return transcript
+
+
+def parse_claude_stream(text: str, *, interface: str) -> Transcript:
+    """A transcript from `claude -p --output-format stream-json`. In CLI mode
+    the host's calls go to `host_calls`; the graded calls come from the log."""
+    transcript = Transcript()
     calls: dict[str, dict] = {}
-    for line in stdout.decode("utf-8", "replace").splitlines():
+    for line in text.splitlines():
         try:
             event = json.loads(line)
         except json.JSONDecodeError:
@@ -718,20 +1437,32 @@ async def run_claude_code(prompt: str, workdir: Path, database_url: str, trial_d
                 "mcp_servers": event.get("mcp_servers"),
                 "tools": event.get("tools"),
             })
+            if interface == "cli":
+                transcript.breaches += claude_breaches(event)
         elif kind == "assistant":
             for block in event["message"].get("content", []):
-                if block.get("type") == "tool_use":
+                if block.get("type") != "tool_use":
+                    continue
+                if interface == "mcp":
                     call = {"name": block["name"].removeprefix("mcp__roleband__"), "args": block.get("input")}
-                    calls[block["id"]] = call
                     transcript.tool_calls.append(call)
+                else:
+                    command = (block.get("input") or {}).get("command") if block["name"] == "Bash" else None
+                    call = {"name": block["name"], "kind": "shell" if block["name"] == "Bash" else "tool",
+                            "command": command, "roleband": roleband_invocations(command or "")}
+                    transcript.host_calls.append(call)
+                calls[block["id"]] = call
         elif kind == "user":
             content = event["message"].get("content", [])
             for block in content if isinstance(content, list) else []:
                 if isinstance(block, dict) and block.get("type") == "tool_result" and block.get("tool_use_id") in calls:
                     body = block.get("content")
-                    text = body if isinstance(body, str) else "\n".join(
+                    result = body if isinstance(body, str) else "\n".join(
                         part.get("text", "") for part in body or [] if isinstance(part, dict))
-                    calls[block["tool_use_id"]].update({"result": text, "is_error": bool(block.get("is_error"))})
+                    call = calls[block["tool_use_id"]]
+                    call.update({"result": result, "is_error": bool(block.get("is_error"))})
+                    if interface == "cli":
+                        call["refused"] = bool(block.get("is_error")) and _refused(result)
         elif kind == "result":
             usage = event.get("usage") or {}
             transcript.final_text = event.get("result")
@@ -743,8 +1474,186 @@ async def run_claude_code(prompt: str, workdir: Path, database_url: str, trial_d
             transcript.host["model_usage"] = event.get("modelUsage")
             if event.get("is_error"):
                 transcript.error = f"{event.get('terminal_reason')}: {event.get('result')}"
+    return transcript
+
+
+#: Where the ChatGPT app keeps its Codex CLI; it is not put on PATH.
+CODEX_APP_BINARY = Path("/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex")
+CODEX_ENV = "ROLEBAND_BENCH_CODEX"
+#: Codex features that add tools no corpus task needs (agents, images, web,
+#: plugins, apps, browsers): off, so the host offers the interface under test
+#: and little else. Code mode stays: Codex exposes its tools through it.
+CODEX_FEATURES_OFF = (
+    "multi_agent", "image_generation", "goals", "plugins", "remote_plugin", "apps", "computer_use",
+    "browser_use", "browser_use_external", "in_app_browser", "tool_suggest", "sleep_tool", "hooks",
+    "view_image", "skill_search", "memories",
+)
+
+
+def codex_binary() -> str:
+    found = os.environ.get(CODEX_ENV) or shutil.which("codex") or (str(CODEX_APP_BINARY) if CODEX_APP_BINARY.exists() else None)
+    if not found:
+        raise SystemExit(f"codex not found: set {CODEX_ENV}, put it on PATH, or install the ChatGPT app")
+    return found
+
+
+def _toml_value(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int | float):
+        return str(value)
+    if isinstance(value, str):
+        # A JSON string is a TOML basic string: the same quotes and escapes.
+        return json.dumps(value)
+    if isinstance(value, list):
+        return "[" + ", ".join(_toml_value(item) for item in value) + "]"
+    if isinstance(value, dict):
+        return "{" + ", ".join(f"{json.dumps(key)} = {_toml_value(item)}" for key, item in value.items()) + "}"
+    raise TypeError(f"no TOML form for {type(value).__name__}")
+
+
+def codex_overrides(settings: dict, prefix: str = "") -> list[str]:
+    """`-c key=value` arguments carrying a settings table, so Codex reads it
+    without the person's `config.toml`."""
+    arguments: list[str] = []
+    for key, value in settings.items():
+        dotted = f"{prefix}{key}"
+        if isinstance(value, dict) and value:
+            arguments += codex_overrides(value, f"{dotted}.")
+        else:
+            arguments += ["-c", f"{dotted}={_toml_value(value)}"]
+    return arguments
+
+
+def codex_command(codex: str, prompt: str, *, interface: str, cwd: Path, mcp_server: dict | None = None,
+                  cli: CliSetup | None = None, model: str | None = None) -> list[str]:
+    """The `codex exec` call of one trial. MCP: the RoleBand server, a
+    read-only sandbox and no shell tool. CLI: no MCP server, the shell in
+    `workspace-write` with what `connect codex` sets, the skill as developer
+    instructions, and the trial's log folder writable."""
+    command = [codex, "exec", "--json", "--ephemeral", "--skip-git-repo-check", "--ignore-user-config",
+               "--ignore-rules", "--color", "never", "-C", str(cwd)]
+    for feature in CODEX_FEATURES_OFF:
+        command += ["-c", f"features.{feature}=false"]
+    command += ["-c", 'web_search="disabled"', "-c", "project_doc_max_bytes=0"]
+    if interface == "mcp":
+        assert mcp_server is not None
+        command += ["-s", "read-only", "-c", "features.shell_tool=false", "-c", "features.unified_exec=false"]
+        command += codex_overrides({"mcp_servers": {"roleband": mcp_server}})
+    else:
+        assert cli is not None
+        command += ["-s", "workspace-write", "--add-dir", str(cli.log.parent)]
+        command += codex_overrides(cli.connect["codex_config"])
+        command += ["-c", f"developer_instructions={_toml_value(cli.instructions)}"]
+    if model:
+        command += ["-m", model]
+    return [*command, "--", prompt]
+
+
+def _unwrap_shell(command: Any) -> str:
+    """The command line inside Codex's `zsh -lc '...'` wrapper."""
+    import shlex
+
+    if isinstance(command, list):
+        parts = command
+    else:
+        try:
+            parts = shlex.split(command or "")
+        except ValueError:
+            return command or ""
+    if len(parts) >= 3 and Path(parts[0]).name in {"bash", "zsh", "sh"} and parts[1] in {"-c", "-lc", "-l"}:
+        return parts[-1]
+    return command if isinstance(command, str) else shlex.join(parts)
+
+
+def parse_codex_events(text: str, *, interface: str) -> Transcript:
+    """A transcript from `codex exec --json`."""
+    transcript = Transcript()
+    messages: list[str] = []
+    usage_in = usage_out = 0
+    for line in text.splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        transcript.raw.append(event)
+        kind = event.get("type")
+        if kind == "turn.completed":
+            usage = event.get("usage") or {}
+            usage_in += usage.get("input_tokens") or 0
+            usage_out += usage.get("output_tokens") or 0
+            transcript.host.setdefault("usage", []).append(usage)
+        elif kind in {"turn.failed", "error"}:
+            transcript.error = json.dumps(event.get("error") or event)[:500]
+        elif kind == "item.completed":
+            item = event.get("item") or {}
+            item_type = item.get("type")
+            if item_type == "agent_message":
+                messages.append(item.get("text") or "")
+            elif item_type == "mcp_tool_call":
+                result = item.get("result") or {}
+                content = result.get("content") if isinstance(result, dict) else None
+                text_out = "\n".join(part.get("text", "") for part in content or [] if isinstance(part, dict))
+                error = item.get("error")
+                call = {"name": item.get("tool"), "server": item.get("server"), "args": item.get("arguments"),
+                        "result": text_out or (json.dumps(error) if error else ""),
+                        "is_error": bool(error) or item.get("status") == "failed"}
+                if interface == "mcp" and item.get("server") == "roleband":
+                    transcript.tool_calls.append(call)
+                else:
+                    transcript.host_calls.append({**call, "kind": "tool", "name": f"mcp:{item.get('server')}/{item.get('tool')}"})
+            elif item_type == "command_execution":
+                command = _unwrap_shell(item.get("command"))
+                transcript.host_calls.append({
+                    "name": "shell", "kind": "shell", "command": command, "roleband": roleband_invocations(command),
+                    "exit_code": item.get("exit_code"), "result": item.get("aggregated_output"),
+                    # The sandbox refusing a command still ran it: it is not a host's permission refusal.
+                    "refused": False,
+                })
+            elif item_type == "error":
+                transcript.host.setdefault("notices", []).append(item.get("message"))
+    transcript.final_text = "\n".join(messages) if messages else None
+    transcript.tokens_in, transcript.tokens_out = usage_in, usage_out
+    transcript.model_turns = len(transcript.host.get("usage", []))
+    if interface == "mcp":
+        transcript.breaches += [f"ran a shell command in MCP mode: {call['command'][:80]}"
+                                for call in transcript.host_calls if call["kind"] == "shell"]
+        transcript.breaches += [f"used {call['name']}" for call in transcript.host_calls if call["kind"] == "tool"]
+    return transcript
+
+
+async def run_codex(prompt: str, workdir: Path, database_url: str, trial_dir: Path, *, model: str | None,
+                    interface: str = "mcp", cli: CliSetup | None = None) -> Transcript:
+    codex = codex_binary()
+    cwd = cli.cwd if cli is not None else trial_dir / "cwd"
+    cwd.mkdir(exist_ok=True)
+    mcp_server = None
+    if interface == "mcp":
+        env = {key: value for key, value in _child_env(workdir, database_url).items()
+               if key.startswith("ROLEBAND_") or key in {"PYTHONPATH", "HOME", "PATH"}}
+        mcp_server = {"command": sys.executable, "args": ["-m", "tracker.mcp.server"], "cwd": str(BACKEND), "env": env,
+                      "default_tools_approval_mode": "approve"}
+    command = codex_command(codex, prompt, interface=interface, cwd=cwd, mcp_server=mcp_server, cli=cli, model=model)
+    env = {key: os.environ[key] for key in _CLAUDE_ENV if key in os.environ and key != "ANTHROPIC_API_KEY"}
+    if cli is not None:
+        env.update(cli.env)
+    started = time.monotonic()
+    process = await asyncio.create_subprocess_exec(
+        *command, cwd=cwd, env=env, stdin=asyncio.subprocess.DEVNULL,
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=900)
+    except TimeoutError:
+        process.kill()
+        await process.wait()
+        return Transcript(error="timeout after 900 s", wall_s=time.monotonic() - started)
+    transcript = parse_codex_events(stdout.decode("utf-8", "replace"), interface=interface)
+    transcript.wall_s = time.monotonic() - started
+    transcript.host.update({"codex": codex, "model_requested": model})
+    (trial_dir / "codex-stderr.txt").write_text(stderr.decode("utf-8", "replace"))
     if transcript.final_text is None:
-        transcript.error = transcript.error or f"no result (exit {process.returncode}): {stderr.decode()[-500:]}"
+        transcript.error = transcript.error or f"no answer (exit {process.returncode}): {stderr.decode()[-500:]}"
     return transcript
 
 
@@ -877,18 +1786,114 @@ def turn_record(body: dict, elapsed: float) -> dict:
     }
 
 
+@dataclass
+class ToolBox:
+    """The tools a local loop offers the model, and how a call runs."""
+
+    specs: list[dict]
+    instructions: str
+    #: (name, arguments) -> the record of the call: `result` (what the grader
+    #: reads), `model_result` (what the model is sent, when it differs), `is_error`.
+    call: Any
+
+
+#: The one tool of the CLI mode. Its arguments are an argument list, so there
+#: is no shell between the model and the command.
+ROLEBAND_TOOL = {"type": "function", "function": {
+    "name": "roleband",
+    "description": "Run the `roleband` command with these arguments, without a shell. "
+                   "Returns its exit status, stdout and stderr.",
+    "parameters": {"type": "object", "properties": {"args": {
+        "type": "array", "items": {"type": "string"},
+        "description": "the arguments after `roleband`, one string each, such as [\"capabilities\"]",
+    }}, "required": ["args"]},
+}}
+
+
+def roleband_arguments(raw: Any) -> list[str]:
+    """The argument list of a `roleband` tool call. A list given as a JSON
+    string is read as that list (small models quote lists); a leading
+    `roleband` is the program, not an argument. Anything else is refused:
+    a command line given as one string would need a shell to split."""
+    value = raw.get("args") if isinstance(raw, dict) else None
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            raise ValueError("args is a list of strings, one per argument, not a command line") from None
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise ValueError("args is a list of strings, one per argument")
+    return value[1:] if value[:1] == ["roleband"] else value
+
+
+@contextlib.asynccontextmanager
+async def mcp_toolbox(workdir: Path, database_url: str) -> AsyncIterator[ToolBox]:
+    from mcp import ClientSession
+    from mcp.client.stdio import stdio_client
+
+    async with stdio_client(_mcp_params(workdir, database_url)) as (read, write), ClientSession(read, write) as session:
+        init = await session.initialize()
+        tools = (await session.list_tools()).tools
+
+        async def call(name: str, args: Any) -> dict:
+            result = await session.call_tool(name, args)
+            return {"name": name, "result": _result_text(result), "is_error": bool(result.isError)}
+
+        yield ToolBox(
+            specs=[{"type": "function", "function": {
+                "name": tool.name, "description": tool.description or "", "parameters": tool.inputSchema,
+            }} for tool in tools],
+            instructions="You are connected to the person's RoleBand job radar through tools.\n" + (init.instructions or ""),
+            call=call,
+        )
+
+
+def cli_toolbox(cli: CliSetup, cwd: Path) -> ToolBox:
+    count = 0
+
+    async def call(name: str, args: Any) -> dict:
+        nonlocal count
+        if name != "roleband":
+            return {"name": name, "kind": "tool", "result": f"there is no tool named {name!r}", "is_error": True}
+        try:
+            argv = roleband_arguments(args)
+        except ValueError as exc:
+            return {"name": "roleband", "kind": "roleband", "result": str(exc), "is_error": True, "ran": False}
+        count += 1
+        ran = await run_roleband(cli, argv, cwd=cwd, call_id=str(count))
+        return {
+            "name": operation_of(argv, cli.known_operations), "kind": "roleband", "argv": argv, "ran": True,
+            "call": str(count), "result": ran["stdout"], "stderr": ran["stderr"], "exit_code": ran["exit_code"],
+            "is_error": ran["exit_code"] != 0, "model_result": json.dumps(ran),
+        }
+
+    return ToolBox(
+        specs=[ROLEBAND_TOOL],
+        instructions="You are connected to the person's RoleBand job radar through the `roleband` command.\n\n"
+                     + cli.instructions,
+        call=call,
+    )
+
+
 async def run_local(prompt: str, workdir: Path, database_url: str, *, host: str, model: str, base_url: str,
-                    context_window: int | None = None, tokenizer: Any = None, max_turns: int = 16) -> Transcript:
-    """A minimal agent loop: the MCP Python client for the tools, an
-    OpenAI-compatible endpoint for the model. Earlier thinking is not sent back,
-    as chat templates drop it anyway."""
+                    context_window: int | None = None, tokenizer: Any = None, max_turns: int = 16,
+                    interface: str = "mcp", cli: CliSetup | None = None, trial_dir: Path | None = None) -> Transcript:
+    """A minimal agent loop: the interface's tools, an OpenAI-compatible
+    endpoint for the model. Earlier thinking is not sent back, as chat
+    templates drop it anyway."""
     headers = bearer_headers(base_url, local_api_key(host))
     transcript = Transcript(host={"server": host, "base_url": base_url, "model": model, "max_turns": max_turns,
-                                  "context_window": context_window})
+                                  "context_window": context_window, "interface": interface})
     started = time.monotonic()
     try:
-        await _local_loop(transcript, prompt, workdir, database_url, model=model, base_url=base_url,
-                          headers=headers, tokenizer=tokenizer, max_turns=max_turns)
+        if interface == "mcp":
+            async with mcp_toolbox(workdir, database_url) as tools:
+                await _local_loop(transcript, prompt, tools, model=model, base_url=base_url,
+                                  headers=headers, tokenizer=tokenizer, max_turns=max_turns)
+        else:
+            assert cli is not None
+            await _local_loop(transcript, prompt, cli_toolbox(cli, cli.cwd), model=model, base_url=base_url,
+                              headers=headers, tokenizer=tokenizer, max_turns=max_turns)
     except Exception as exc:
         # The calls made before a failure are evidence (a network tool, a
         # write): the trial is graded on them, not on an empty transcript.
@@ -901,63 +1906,54 @@ async def run_local(prompt: str, workdir: Path, database_url: str, *, host: str,
     return transcript
 
 
-async def _local_loop(transcript: Transcript, prompt: str, workdir: Path, database_url: str, *, model: str,
-                      base_url: str, headers: dict[str, str], tokenizer: Any, max_turns: int) -> None:
+async def _local_loop(transcript: Transcript, prompt: str, tools: ToolBox, *, model: str, base_url: str,
+                      headers: dict[str, str], tokenizer: Any, max_turns: int) -> None:
     import httpx
-    from mcp import ClientSession
-    from mcp.client.stdio import stdio_client
 
-    async with stdio_client(_mcp_params(workdir, database_url)) as (read, write), ClientSession(read, write) as session:
-        init = await session.initialize()
-        tools = (await session.list_tools()).tools
-        specs = [{"type": "function", "function": {
-            "name": tool.name, "description": tool.description or "", "parameters": tool.inputSchema,
-        }} for tool in tools]
-        messages: list[dict] = [
-            {"role": "system", "content": "You are connected to the person's RoleBand job radar through tools.\n"
-                                          + (init.instructions or "")},
-            {"role": "user", "content": prompt},
-        ]
-        async with httpx.AsyncClient(timeout=900) as client:
-            while len(transcript.turns) < max_turns:
-                asked = time.monotonic()
-                response = await client.post(f"{base_url.rstrip('/')}/chat/completions", headers=headers,
-                                             json={"model": model, "messages": messages, "tools": specs})
-                if response.status_code != 200:
-                    transcript.error = f"HTTP {response.status_code}: {response.text[:300]}"
-                    break
-                body = response.json()
-                transcript.raw.append(body)
-                turn = turn_record(body, time.monotonic() - asked)
-                transcript.turns.append(turn)
-                message = body["choices"][0]["message"]
-                # `content` is null beside tool calls; some servers refuse a
-                # message without the key, none refuses an empty string.
-                messages.append({"role": "assistant", "content": message.get("content") or "",
-                                 **({"tool_calls": message["tool_calls"]} if message.get("tool_calls") else {})})
-                if not message.get("tool_calls"):
-                    transcript.final_text = message.get("content")
-                    break
-                for call in message["tool_calls"]:
-                    name = call["function"]["name"]
-                    record: dict = {"name": name, "turn": len(transcript.turns)}
-                    # Recorded before it runs: a call the server never answers was still made.
-                    transcript.tool_calls.append(record)
-                    try:
-                        record["args"] = json.loads(call["function"].get("arguments") or "{}")
-                        result = await session.call_tool(name, record["args"])
-                        record.update({"result": _result_text(result), "is_error": bool(result.isError)})
-                    except json.JSONDecodeError as exc:
-                        record.update({"args": call["function"].get("arguments"), "result": f"invalid JSON arguments: {exc}", "is_error": True})
-                    except Exception as exc:
-                        record.update({"result": f"call failed: {type(exc).__name__}: {exc}", "is_error": True})
-                        raise
-                    record["result_bytes"] = len(record["result"].encode("utf-8"))
-                    if tokenizer is not None:
-                        record["result_tokens"] = len(tokenizer.encode(record["result"]).ids)
-                    messages.append({"role": "tool", "tool_call_id": call["id"], "content": record["result"]})
-            else:
-                transcript.error = f"no final answer within {max_turns} model turns"
+    messages: list[dict] = [
+        {"role": "system", "content": tools.instructions},
+        {"role": "user", "content": prompt},
+    ]
+    async with httpx.AsyncClient(timeout=900) as client:
+        while len(transcript.turns) < max_turns:
+            asked = time.monotonic()
+            response = await client.post(f"{base_url.rstrip('/')}/chat/completions", headers=headers,
+                                         json={"model": model, "messages": messages, "tools": tools.specs})
+            if response.status_code != 200:
+                transcript.error = f"HTTP {response.status_code}: {response.text[:300]}"
+                break
+            body = response.json()
+            transcript.raw.append(body)
+            turn = turn_record(body, time.monotonic() - asked)
+            transcript.turns.append(turn)
+            message = body["choices"][0]["message"]
+            # `content` is null beside tool calls; some servers refuse a
+            # message without the key, none refuses an empty string.
+            messages.append({"role": "assistant", "content": message.get("content") or "",
+                             **({"tool_calls": message["tool_calls"]} if message.get("tool_calls") else {})})
+            if not message.get("tool_calls"):
+                transcript.final_text = message.get("content")
+                break
+            for call in message["tool_calls"]:
+                name = call["function"]["name"]
+                record: dict = {"name": name, "turn": len(transcript.turns)}
+                # Recorded before it runs: a call the server never answers was still made.
+                transcript.tool_calls.append(record)
+                try:
+                    record["args"] = json.loads(call["function"].get("arguments") or "{}")
+                    record.update(await tools.call(name, record["args"]))
+                except json.JSONDecodeError as exc:
+                    record.update({"args": call["function"].get("arguments"), "result": f"invalid JSON arguments: {exc}", "is_error": True})
+                except Exception as exc:
+                    record.update({"result": f"call failed: {type(exc).__name__}: {exc}", "is_error": True})
+                    raise
+                sent = record.get("model_result", record["result"])
+                record["result_bytes"] = len(sent.encode("utf-8"))
+                if tokenizer is not None:
+                    record["result_tokens"] = len(tokenizer.encode(sent).ids)
+                messages.append({"role": "tool", "tool_call_id": call["id"], "content": sent})
+        else:
+            transcript.error = f"no final answer within {max_turns} model turns"
 
 
 def oracle_answer(task: dict, expect: dict) -> dict:
@@ -1000,7 +1996,12 @@ def wrong_answer(task: dict, expect: dict, expectations: dict) -> dict:
     return answer
 
 
-async def run_oracle(task: dict, expectations: dict, workdir: Path, database_url: str, *, variant: str) -> Transcript:
+async def run_oracle(task: dict, expectations: dict, workdir: Path, database_url: str, *, variant: str,
+                     interface: str = "mcp", cli: CliSetup | None = None, trial_dir: Path | None = None) -> Transcript:
+    if interface == "cli":
+        assert cli is not None and trial_dir is not None
+        return await run_cli_oracle(task, expectations, workdir, database_url, variant=variant, cli=cli,
+                                    trial_dir=trial_dir)
     from mcp import ClientSession
     from mcp.client.stdio import stdio_client
 
@@ -1034,6 +2035,71 @@ async def run_oracle(task: dict, expectations: dict, workdir: Path, database_url
     return transcript
 
 
+WRONG_WRITE_NOTE = "Changed by the wrong-write control."
+
+
+async def run_cli_oracle(task: dict, expectations: dict, workdir: Path, database_url: str, *, variant: str,
+                         cli: CliSetup, trial_dir: Path) -> Transcript:
+    """The oracle through the trial's `roleband`, in the command shapes of the
+    command contract. An operation the engine does not offer yet is skipped
+    and named in `host.skipped`; the oracle's answer then says what the
+    interface could do, as the MCP oracle says it cannot clear a due date."""
+    expect = expectations["tasks"][task["id"]]
+    offered = set(cli.engine.operations)
+    transcript = Transcript(host={"oracle": variant, "interface": "cli", "skipped": []})
+    started = time.monotonic()
+    cwd = cli.cwd
+
+    async def call(operation: str, argv: list[str], body: dict | None = None) -> dict | None:
+        if operation not in offered:
+            transcript.host["skipped"].append(operation)
+            return None
+        stdin = json.dumps(body).encode() if body is not None else None
+        return await run_roleband(cli, argv, cwd=cwd, stdin=stdin)
+
+    await call("status", ["status"])
+    await call("capabilities", ["capabilities"])
+    cleared = False
+    if task["grader"] == "clear_follow_up":
+        ran = await call("pursuits.patch", ["pursuits", "patch", str(expect["job_id"]), "--input", "-"],
+                         {"next_action": None, "next_action_due": None})
+        cleared = ran is not None and ran["exit_code"] == 0
+    if task["grader"] == "injection_summary":
+        await call("opportunities.get", ["opportunities", "get", str(expect["job_id"])])
+    if variant == "oracle-wrong-write":
+        target = expect["job_id"] if task.get("injection") else expectations["postings"]["INTERVIEW"]
+        ran = await call("pursuits.patch", ["pursuits", "patch", str(target), "--input", "-"],
+                         {"notes": WRONG_WRITE_NOTE})
+        if ran is None or ran["exit_code"] != 0:
+            # No write operation yet: the control still has to write, or it
+            # cannot show that the graders see one.
+            await write_through_database(database_url, target)
+            transcript.host["wrote_through"] = "database"
+    answer = wrong_answer(task, expect, expectations) if variant == "oracle-wrong-answer" else oracle_answer(task, expect)
+    if task["grader"] == "clear_follow_up":
+        # The wrong-answer control states the opposite of what happened.
+        answer["cleared"] = (not cleared) if variant == "oracle-wrong-answer" else cleared
+    transcript.final_text = f"ANSWER: {json.dumps(answer)}"
+    transcript.tokens_in = transcript.tokens_out = 0
+    transcript.wall_s = time.monotonic() - started
+    return transcript
+
+
+async def write_through_database(database_url: str, job_id: int) -> None:
+    """The wrong-write control's change, made on the trial's own copy through
+    the module that owns pursuits, as an agent's write would be."""
+    from sqlalchemy.engine import make_url
+
+    from tracker.agents.pursuits import PursuitUpdate, upsert_pursuit
+
+    database = make_url(database_url).database or ""
+    if not database.startswith("trial_"):
+        raise SystemExit(f"refusing to write to {database!r}: not a trial's copy")
+    async with _session(database_url, expect_database=database) as session:
+        await upsert_pursuit(session, job_id, PursuitUpdate(notes=WRONG_WRITE_NOTE), actor="agent")
+        await session.commit()
+
+
 # --- runs ----------------------------------------------------------------------
 
 
@@ -1052,21 +2118,34 @@ def select_tasks(corpus: dict, wanted: list[str] | None) -> list[dict]:
 async def run_trials(args: argparse.Namespace) -> Path:
     corpus = load_corpus()
     tasks = select_tasks(corpus, args.tasks)
+    if getattr(args, "interface", "mcp") == "cli" and sys.platform == "win32":
+        raise SystemExit("--interface cli gives the host a POSIX shell script as roleband; run it on macOS or Linux")
     workdir = claim_workdir(args.workdir, create=True)
     await prepare(workdir)
     _use_workspace(workdir)
-    run_id = f"{args.host}-{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}"
+    await check_schema(workdir)
+    interface = getattr(args, "interface", "mcp")
+    suffix = "-cli" if interface == "cli" else ""
+    run_id = f"{args.host}{suffix}-{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}"
     run_dir = workdir / "runs" / run_id
     run_dir.mkdir(parents=True)
     results = workdir / "runs" / f"{run_id}.ndjson"
     header = {
-        "record": "run", "run_id": run_id, "host": args.host, "model_requested": args.model,
-        "trials": args.trials, "corpus_version": corpus["version"], "code": code_version(),
-        "started_at": datetime.now(UTC).isoformat(),
+        "record": "run", "run_id": run_id, "host": args.host, "interface": interface,
+        "model_requested": args.model, "trials": args.trials, "corpus_version": corpus["version"],
+        "code": code_version(), "started_at": datetime.now(UTC).isoformat(),
         "not_applicable": corpus.get("not_applicable", []),
     }
+    if interface == "cli":
+        args.connect = prepare_connect(run_dir)
+        header["connect"] = {key: value for key, value in args.connect.items() if key != "instructions"}
+        header["client_version"] = subprocess.run(_client_command("--version"), capture_output=True, text=True,
+                                                  check=False).stdout.strip()
     if args.host == "claude-code":
         header["host_version"] = subprocess.run(["claude", "--version"], capture_output=True, text=True, check=False).stdout.strip()
+    elif args.host == "codex":
+        header["host_version"] = subprocess.run([codex_binary(), "--version"], capture_output=True, text=True,
+                                                check=False).stdout.strip()
     elif args.host in LOCAL_SERVERS:
         args.base_url = args.base_url or LOCAL_SERVERS[args.host]
         header["host_version"] = await local_host_info(args.host, args.base_url, args.model)
@@ -1089,51 +2168,105 @@ async def run_trials(args: argparse.Namespace) -> Path:
     return results
 
 
+async def _run_host(args: argparse.Namespace, workdir: Path, url: str, trial_dir: Path, task: dict,
+                    expectations: dict, prompt: str, cli: CliSetup | None) -> Transcript:
+    interface = "cli" if cli is not None else "mcp"
+    if args.host == "claude-code":
+        return await run_claude_code(prompt, workdir, url, trial_dir, model=args.model, interface=interface, cli=cli)
+    if args.host == "codex":
+        return await run_codex(prompt, workdir, url, trial_dir, model=args.model, interface=interface, cli=cli)
+    if args.host in LOCAL_SERVERS:
+        info = args.local_info
+        return await run_local(prompt, workdir, url, host=args.host, model=args.model, base_url=args.base_url,
+                               context_window=info.get("context_window"),
+                               tokenizer=_load_tokenizer(info.get("tokenizer")),
+                               interface=interface, cli=cli, trial_dir=trial_dir)
+    return await run_oracle(task, expectations, workdir, url, variant=args.host, interface=interface, cli=cli,
+                            trial_dir=trial_dir)
+
+
+def settle_cli_calls(transcript: Transcript, cli: CliSetup, workdir: Path, *, host: str) -> None:
+    """Grade a CLI trial on what the trial's `roleband` logged, as far as the
+    engine's own replies bear it out. The local loop ran each call itself, so
+    its calls and the log must agree one for one; a shell host's own record
+    only proves that nothing ran elsewhere."""
+    logged = read_cli_log(cli, transcript.breaches)
+    transcript.breaches += verify_cli_calls(logged, cli.engine.records)
+    if host in LOCAL_SERVERS:
+        # One log entry per run, compared as lists: an entry with no call id, or one
+        # logged twice, differs from the runs the loop made.
+        ran = sorted(str(call["call"]) for call in transcript.tool_calls if call.get("ran"))
+        seen = sorted("" if call["call"] is None else call["call"] for call in logged)
+        if ran != seen:
+            transcript.breaches.append(f"the tool's calls {ran} and the command's log {seen} differ")
+        transcript.breaches += [f"used {call['name']} outside the command line"
+                                for call in transcript.tool_calls if call.get("kind") == "tool"]
+        return
+    if host not in ORACLES:
+        transcript.breaches += cli_breaches(transcript.host_calls, logged, cli, workdir)
+    transcript.tool_calls = logged
+
+
 async def run_one(args: argparse.Namespace, workdir: Path, run_id: str, run_dir: Path, corpus: dict,
                   task: dict, trial: int) -> dict:
+    interface = getattr(args, "interface", "mcp")
     database = f"trial_{run_id}_{task['id']}_{trial}".replace("-", "_").lower()[:63]
     await _admin(workdir, f'CREATE DATABASE "{database}" TEMPLATE "{TEMPLATE_DB}"')
     url = _server_url(workdir, database)
+    trial_dir = run_dir / f"{task['id']}-{trial}"
+    trial_dir.mkdir()
+    prompt = task_prompt(corpus, task, trial)
+    cli: CliSetup | None = None
     try:
-        async with _session(url, expect_database=database) as session:
-            before = await snapshot(session)
-            # Read again from this copy at this moment: due dates are stored
-            # absolute, so a workspace prepared days ago owes other follow-ups now.
-            expectations = await compute_expectations(session, corpus)
-        prompt = task_prompt(corpus, task, trial)
-        trial_dir = run_dir / f"{task['id']}-{trial}"
-        trial_dir.mkdir()
-        started = time.monotonic()
-        try:
-            if args.host == "claude-code":
-                transcript = await run_claude_code(prompt, workdir, url, trial_dir, model=args.model)
-            elif args.host in LOCAL_SERVERS:
-                info = args.local_info
-                transcript = await run_local(prompt, workdir, url, host=args.host, model=args.model,
-                                             base_url=args.base_url, context_window=info.get("context_window"),
-                                             tokenizer=_load_tokenizer(info.get("tokenizer")))
+        async with contextlib.AsyncExitStack() as stack:
+            started = time.monotonic()
+            try:
+                if interface == "cli":
+                    # Started before the first snapshot: the engine's own
+                    # start-up writes are not the agent's.
+                    engine = await stack.enter_async_context(bench_engine(workdir, url, trial_dir / "engine.log"))
+                    cwd = Path(tempfile.mkdtemp(prefix="roleband-bench-cwd-"))
+                    stack.callback(shutil.rmtree, cwd, ignore_errors=True)
+                    cli = cli_setup(trial_dir, engine, args.connect, cwd=cwd)
+            except Exception as exc:
+                engine_error: str | None = f"{type(exc).__name__}: {exc}"
             else:
-                transcript = await run_oracle(task, expectations, workdir, url, variant=args.host)
-        except Exception as exc:  # a host failure is this trial's result, not the run's end
-            transcript = Transcript(error=f"{type(exc).__name__}: {exc}", wall_s=time.monotonic() - started)
-        async with _session(url, expect_database=database) as session:
-            after = await snapshot(session)
+                engine_error = None
+            async with _session(url, expect_database=database) as session:
+                before = await snapshot(session)
+                # Read again from this copy at this moment: due dates are stored
+                # absolute, so a workspace prepared days ago owes other follow-ups now.
+                expectations = await compute_expectations(session, corpus)
+            if engine_error is not None:
+                transcript = Transcript(error=f"engine: {engine_error}", wall_s=time.monotonic() - started)
+            else:
+                started = time.monotonic()
+                try:
+                    transcript = await _run_host(args, workdir, url, trial_dir, task, expectations, prompt, cli)
+                except Exception as exc:  # a host failure is this trial's result, not the run's end
+                    transcript = Transcript(error=f"{type(exc).__name__}: {exc}", wall_s=time.monotonic() - started)
+                if cli is not None:
+                    settle_cli_calls(transcript, cli, workdir, host=args.host)
+            async with _session(url, expect_database=database) as session:
+                after = await snapshot(session)
     finally:
         if not args.keep:
-            await _admin(workdir, f'DROP DATABASE IF EXISTS "{database}"')
+            await _admin(workdir, f'DROP DATABASE IF EXISTS "{database}" WITH (FORCE)')
     answer = parse_answer(transcript.final_text)
-    grade = grade_trial(task, expectations, answer, before, after, transcript.tool_calls)
+    grade = grade_trial(task, expectations, answer, before, after, transcript.tool_calls, transcript.breaches)
     (trial_dir / "transcript.json").write_text(json.dumps(
         {"prompt": prompt, **asdict(transcript), "answer": answer, "grade": grade,
          "before": before, "after": after}, indent=1, default=str))
     return {
-        "record": "trial", "run_id": run_id, "task": task["id"], "trial": trial,
+        "record": "trial", "run_id": run_id, "task": task["id"], "trial": trial, "interface": interface,
         "prompt_variant": trial % len(task["prompts"]), "answer": answer, "grade": grade,
         "tool_calls": len(transcript.tool_calls), "tools": [call["name"] for call in transcript.tool_calls],
         "recovery_turns": recovery_turns(transcript.tool_calls),
+        "off_interface": sum(1 for call in transcript.host_calls if call.get("kind") == "shell" and not call.get("roleband")),
         "tokens_in": transcript.tokens_in, "tokens_out": transcript.tokens_out, "cost_usd": transcript.cost_usd,
         "model_turns": transcript.model_turns, "wall_s": round(transcript.wall_s, 2),
-        "result_bytes": [len((call.get("result") or "").encode("utf-8")) for call in transcript.tool_calls],
+        "result_bytes": [len((call.get("model_result") or call.get("result") or "").encode("utf-8"))
+                         for call in transcript.tool_calls],
         "result_tokens": [call["result_tokens"] for call in transcript.tool_calls if "result_tokens" in call] or None,
         "turns": transcript.turns or None,
         "peak_prompt_tokens": max((turn.get("prompt_tokens") or 0 for turn in transcript.turns), default=None),
@@ -1220,7 +2353,7 @@ async def selfcheck(args: argparse.Namespace) -> int:
     """Run the oracle and both controls; fail unless each control scores below
     the oracle on every task."""
     scores: dict[str, dict[str, float]] = {}
-    for host in ("oracle", "oracle-wrong-answer", "oracle-wrong-write"):
+    for host in ORACLES:
         run_args = argparse.Namespace(**{**vars(args), "host": host, "trials": 1, "model": None})
         path = await run_trials(run_args)
         rows = [json.loads(line) for line in path.read_text().splitlines()]
@@ -1298,9 +2431,11 @@ def main() -> None:
         if name in ("run", "selfcheck"):
             sub.add_argument("--tasks", nargs="*", help="task ids to run (default: all)")
             sub.add_argument("--keep", action="store_true", help="keep each trial's database")
+            sub.add_argument("--interface", choices=INTERFACES, default="mcp",
+                             help="what the host reaches RoleBand through: the MCP server or the roleband command")
         if name == "run":
             sub.add_argument("--host", choices=HOSTS, required=True)
-            sub.add_argument("--model", help="model id (required for omlx and lmstudio; claude-code uses its default)")
+            sub.add_argument("--model", help="model id (required for omlx and lmstudio; claude-code and codex use their default)")
             sub.add_argument("--trials", type=int, default=3)
             sub.add_argument("--base-url", help="the local server's OpenAI-compatible endpoint (default per host)")
         if name == "budgets":
