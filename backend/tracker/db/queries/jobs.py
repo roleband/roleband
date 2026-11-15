@@ -412,7 +412,11 @@ def base_pay(entity=Job):
         return and_(low > 0, high >= low, low * factor >= floor, high * factor <= ceiling)
 
     stored = J.disclosed_pay_period
-    yearly = or_(and_(stored == "year", fits("year")), and_(stored.is_(None), fits("year")))
+    # An amount only a year can hold is yearly whatever period was stored
+    # beside it; a stored `unclear` stays unclear, as `effective_period` reads it.
+    yearly = and_(fits("year"), or_(
+        stored == "year", stored.is_(None), and_(stored != "unclear", not_(fits("month"))),
+    ))
     period_kept = or_(yearly, *(and_(stored == p, fits(p)) for p in ROW_PAY_PERIODS if p != "year"))
     shown = and_(J.disclosed_pay_basis == "base", J.disclosed_currency.isnot(None), period_kept)
     return case(

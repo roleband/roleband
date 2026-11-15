@@ -619,8 +619,8 @@
 }
 
 /* ---- the end of the read --------------------------------------------------
-   The text ends on the way on: the next posting in the list it was opened
-   from, under a rule across the column. The whole block is the control; its
+   The text ends on the way on: the suggestion to apply, which saves the
+   role and opens the pipeline in a new tab, under a rule across the column. The whole block is the control; its
    ground shows only under the pointer, reaching out past the text's edges so
    its words stay on the column's line. */
 .jd-end {
@@ -646,6 +646,7 @@
   color: inherit;
   font: inherit;
   text-align: start;
+  text-decoration: none;
   cursor: pointer;
   transition: background-color var(--app-duration-fast) var(--app-ease);
 }
@@ -693,7 +694,7 @@
 
 .jd-next:hover > svg {
   color: var(--app-text);
-  transform: translateX(3px);
+  transform: translate(2px, -2px);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1084,6 +1085,14 @@
   letter-spacing: 0;
 }
 
+/* The posting's own hourly or monthly rate, under the year the headline
+   shows for it. */
+.pkg-posted-rate {
+  margin: 2px 0 0;
+  font-size: var(--app-type-meta);
+  color: var(--app-text-muted);
+}
+
 /* Which part of the figure the posting states, under an estimated total: a
    mark, the words, and the help mark that says what the total counts. It
    wears the ink the card gives the employer's own numbers, the bar's stated
@@ -1129,17 +1138,6 @@
   left: auto;
   max-width: min(320px, 100%);
 }
-
-/* The pay floor line: one sentence, the verdict's tone. */
-.pkg-floor {
-  display: flex;
-  align-items: center;
-  gap: var(--app-space-1);
-  margin-top: var(--app-space-1);
-  font-size: var(--app-type-meta);
-}
-.pkg-floor-straddles { color: var(--app-warning); }
-.pkg-floor-below { color: var(--app-text-muted); }
 
 .pkg-note {
   display: flex;
@@ -1308,83 +1306,6 @@
   border: 1px solid var(--app-border);
 }
 
-.pkg-tag-warn {
-  color: var(--app-warning);
-  border: 1px solid var(--app-warning-line);
-}
-
-.pkg-unclear {
-  margin-top: var(--app-space-3);
-  padding: var(--app-space-3);
-  border: 1px dashed var(--app-border-strong);
-  border-radius: var(--app-radius-sm);
-}
-
-.pkg-unclear-n {
-  display: flex;
-  align-items: center;
-  gap: var(--app-space-2);
-  font-family: var(--app-font-mono);
-  font-size: var(--app-type-title);
-  font-weight: 700;
-}
-
-.pkg-unclear p {
-  margin: var(--app-space-1) 0 0;
-  font-size: var(--app-type-meta);
-  line-height: 1.5;
-  color: var(--app-text-muted);
-}
-
-.pkg-vs {
-  margin-top: var(--app-space-2);
-  font-size: var(--app-type-meta);
-  color: var(--app-text-muted);
-}
-
-.pkg-vs b {
-  font-family: var(--app-font-mono);
-  color: var(--app-text);
-}
-
-/* The market median as a reading on the headline, not a rival headline: one line,
-   ledger-shaped, sitting directly under the number it comments on. */
-.pkg-market {
-  margin-top: var(--app-space-2);
-  padding-top: var(--app-space-2);
-  border-top: 1px solid var(--app-border);
-  font-size: var(--app-type-meta);
-  color: var(--app-text-muted);
-}
-
-.pkg-market-n {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--app-space-2);
-}
-
-.pkg-market-n b {
-  font-family: var(--app-font-mono);
-  font-weight: 700;
-  color: var(--app-text);
-}
-
-/* The provenance string is a SENTENCE (the estimate's company, level and job
-   family), so it sits at the fact floor and is separated by ink, not by size:
-   whisper is uppercase recognition text, and uppercasing a sentence would make
-   it unreadable. */
-.pkg-market-src {
-  margin-top: 2px;
-  font-size: var(--app-type-meta);
-  color: var(--app-text-faint);
-}
-
-.pkg-market-warn .pkg-market-n b {
-  color: var(--app-warning);
-}
-
-.pkg-market-warn-note,
 .pkg-caution {
   display: flex;
   align-items: flex-start;

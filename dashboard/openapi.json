@@ -8796,6 +8796,11 @@
       "title": "No Split Reason",
       "x-text": "code"
      },
+     "on_target_earnings": {
+      "default": false,
+      "title": "On Target Earnings",
+      "type": "boolean"
+     },
      "pay_period": {
       "anyOf": [
        {
@@ -8901,6 +8906,16 @@
       "anyOf": [
        {
         "$ref": "#/components/schemas/CompTotal"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "yearly_base": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/CompRange"
        },
        {
         "type": "null"

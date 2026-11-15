@@ -111,7 +111,7 @@ def _job_evidence(job) -> dict:
             "max": job.disclosed_base_max,
             "currency": job.disclosed_currency,
             "pay_basis": job.disclosed_pay_basis,
-            # The SERVED period: a stored "$600,000 / hr" reaches
+            # The SERVED period: a stored "€104 / yr" reaches
             # the model as `unclear`, exactly as the reader sees it.
             "pay_period": (
                 effective_period(

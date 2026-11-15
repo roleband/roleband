@@ -92,7 +92,7 @@ def band_relation(
     """Compare disclosed bands: contradiction rejects; overlap never boosts.
 
     Periods are the SERVED ones (`effective_period`): a stored
-    "$600,000 / hr" is `unclear`, never evidence. Any two known periods that
+    "€104 / yr" is `unclear`, never evidence. Any two known periods that
     differ are a mismatch, month included: a monthly posting and its yearly
     repost are ~12x apart, and "disjoint" would state the wrong reason.
     """

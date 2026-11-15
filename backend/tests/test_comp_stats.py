@@ -141,15 +141,18 @@ def test_one_range_posted_at_two_levels_counts_at_each_when_choosing_the_currenc
     assert {level["level_band"]: level["enough"] for level in uk["levels"]} == {"senior": True, "staff": True}
 
 
-def test_hourly_monthly_and_contradicted_periods_are_counted_never_annualised():
+def test_hourly_monthly_and_unsettled_periods_are_counted_never_annualised():
     out = build_posted_pay([
         _posted("intern", lo=60, hi=90, period="hour"),
         _posted("contract", lo=12_000, hi=15_000, period="month"),
+        # A month or a year by size, and words that settle neither.
+        _posted("overlap", lo=12_000, hi=15_000, period="unclear"),
+        # Only a year holds this, whatever the stored word: a salary.
         _posted("typo", lo=600_000, hi=700_000, period="hour"),
         _posted("nodate", lo=200_000, hi=260_000, period=None),
         _posted(),
     ])
-    assert sorted(b["company"] for b in _country(out)["bands"]) == ["google", "nodate"]
+    assert sorted(b["company"] for b in _country(out)["bands"]) == ["google", "nodate", "typo"]
     assert out["excluded"]["not_yearly"] == 3
 
 

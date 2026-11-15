@@ -560,9 +560,10 @@ async def test_a_checked_posting_that_states_no_pay_has_no_period(scoped):
     scoped.add(_company("openai"))
     silent = _job(33, "openai")
     silent.structured_at = NOW
-    salary_stored_hourly = _job(34, "openai", structured=True)
-    salary_stored_hourly.disclosed_pay_period = "hour"
-    scoped.add_all([silent, salary_stored_hourly])
+    # An hourly-sized amount stored as yearly: no period its size settles.
+    rate_stored_yearly = _job(34, "openai", structured=True)
+    rate_stored_yearly.disclosed_base_min, rate_stored_yearly.disclosed_base_max = 104, 120
+    scoped.add_all([silent, rate_stored_yearly])
     await scoped.commit()
 
     stated = (await server.get_opportunity(33))["employer_stated_pay"]

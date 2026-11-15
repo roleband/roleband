@@ -96,22 +96,15 @@ async def test_job_detail_says_how_the_stated_base_compares(api_client, db_sessi
     assert check == {"verdict": "clears", "amount": 250000, "currency": "USD", "basis": "base"}
 
 
-@pytest.mark.parametrize(("low", "high", "period"), [
-    # A salary stored as hourly by a words-anywhere rule (Netflix's benefits line).
-    (290_000, 376_000, "hour"),
+@pytest.mark.asyncio
+async def test_a_period_the_amount_cannot_settle_gets_no_verdict_and_no_split(api_client, db_session):
     # The parser's own "could not tell" ("Base pay: $10,000 - $12,000 per
     # month" against a month ceiling at the yearly floor). Promoted to `year`, it
     # would clear or fall below a floor and be split into base, bonus and equity.
-    (10_000, 12_000, "unclear"),
-])
-@pytest.mark.asyncio
-async def test_a_stored_period_its_amount_contradicts_gets_no_verdict_and_no_split(
-    api_client, db_session, low, high, period
-):
     job = make_job(
-        "contradicts", structured_at=datetime(2026, 9, 1, tzinfo=UTC), disclosed_base_min=low,
-        disclosed_base_max=high, disclosed_currency="USD", disclosed_pay_basis="base",
-        disclosed_pay_period=period,
+        "contradicts", structured_at=datetime(2026, 9, 1, tzinfo=UTC), disclosed_base_min=10_000,
+        disclosed_base_max=12_000, disclosed_currency="USD", disclosed_pay_basis="base",
+        disclosed_pay_period="unclear",
     )
     db_session.add(job)
     await db_session.commit()
@@ -121,6 +114,25 @@ async def test_a_stored_period_its_amount_contradicts_gets_no_verdict_and_no_spl
     assert body["disclosed_comp"]["pay_period"] == "unclear"
     assert body["pay_floor_check"] is None
     assert body["comp_package"]["no_split_reason"] == "period_unclear"
+
+
+@pytest.mark.asyncio
+async def test_a_salary_stored_as_hourly_reads_as_the_yearly_salary_it_is(api_client, db_session):
+    # A salary stored as hourly, as a word elsewhere in the posting can make
+    # it. Only a year holds $290,000, so it is read as one.
+    job = make_job(
+        "salary-as-hour", structured_at=datetime(2026, 9, 1, tzinfo=UTC), disclosed_base_min=290_000,
+        disclosed_base_max=376_000, disclosed_currency="USD", disclosed_pay_basis="base",
+        disclosed_pay_period="hour",
+    )
+    db_session.add(job)
+    await db_session.commit()
+    await api_client.put("/api/profile/pay-floor", json={"amount": 250000, "currency": "USD"})
+
+    body = (await api_client.get(f"/api/jobs/{job.id}")).json()
+    assert body["disclosed_comp"]["pay_period"] == "year"
+    assert body["pay_floor_check"]["verdict"] == "clears"
+    assert body["comp_package"]["yearly_base"] is None
 
 
 @pytest.mark.asyncio

@@ -20,8 +20,9 @@ class PayPeriod(str, Enum):
     year = "year"
     month = "month"
     hour = "hour"
-    #: We could not tell: the posting's own word contradicts the
-    #: size of its amount. Shown verbatim, never split, never counted.
+    #: We could not tell: the posting's own word contradicts the size of its
+    #: amount, and the size fits more than one period, or names a day or a
+    #: week. Shown verbatim, never split, never counted.
     unclear = "unclear"
 
 
@@ -212,7 +213,9 @@ def decide_period(
     | none             | hourly/monthly   | not pay in free text (a "$500       |
     |                  |                  | stipend"); the size in a structured |
     |                  |                  | pay field, which is pay by definition|
-    | disagree         | can be yearly    | unclear: could not tell             |
+    | disagree         | yearly only      | year: the size can be nothing else  |
+    |                  |                  | ("$150,000 per month" is a salary)  |
+    | disagree         | year or month    | unclear: could not tell             |
     | disagree         | hourly/monthly   | not pay in free text ("$1,500 -     |
     |                  |                  | $3,000 annual learning budget"),    |
     |                  |                  | unclear in a structured field       |
@@ -225,6 +228,10 @@ def decide_period(
         return words
     if words is None:
         return sizes[0] if sizes[0] is PayPeriod.year or structured else None
+    # Nobody earns a salary-sized amount an hour, a day, a week or a month:
+    # an amount only a year can hold is yearly, whatever the word beside it.
+    if sizes == (PayPeriod.year,):
+        return PayPeriod.year
     # A small amount whose words disagree with its size is a stipend, a budget
     # or a day rate in prose, not pay we can show; a salary-sized one is pay
     # whose unit we could not tell.
@@ -239,21 +246,35 @@ def effective_period(
     """The period a STORED band may be shown with, checked against its size.
 
     Read-time guard for rows written before this rule, and for sources that
-    state a period without us checking it. A stored period its amount cannot
-    be ("$600,000 / hr", "€104 / yr") reads `unclear`. A stored `unclear`
-    stays `unclear`: under this rule it means the words next to the amount
-    contradict its size ("$150,000 per month"), and promoting it to `year`
-    would split contradictions into base, bonus and equity and compare them
-    with the pay floor. The `pay_periods` pass relabels stored rows from their
-    own text. A band stored with no period at all reads by its size. Pure:
-    nothing is rewritten.
+    state a period without us checking it. An amount only a year can hold
+    reads `year` whatever period was stored beside it: "$600,000 / hr" is a
+    salary, as `decide_period` reads it. Any other stored period its amount
+    cannot be ("€104 / yr") reads `unclear`. A stored `unclear` stays
+    `unclear` whatever its size: a band stated whole over several years
+    ("$180,000 - $220,000 per 2 years") is salary-sized too, and only its
+    quote tells the two apart. The `pay_periods` pass settles such rows from
+    their quote and text (`size_settles`). A band stored with no period at all
+    reads by its size. Pure: nothing is rewritten.
     """
     sizes = size_classes(low, high, currency)
+    if stored == PayPeriod.unclear.value:
+        return stored
+    if sizes == (PayPeriod.year,):
+        return PayPeriod.year.value
     if stored is not None and stored in {size.value for size in sizes}:
         return stored
     if stored is None and sizes and sizes[0] is PayPeriod.year:
         return PayPeriod.year.value
     return PayPeriod.unclear.value
+
+
+def size_settles(
+    stored: str | None, low: float | None, high: float | None, currency: str | None
+) -> bool:
+    """A stored `unclear` whose amount only a year can hold: what
+    `decide_period` now reads as a year, which `effective_period` still shows
+    as `unclear` until the `pay_periods` pass has checked its quote and text."""
+    return stored == PayPeriod.unclear.value and size_classes(low, high, currency) == (PayPeriod.year,)
 
 
 def not_yearly_usd(
@@ -263,7 +284,7 @@ def not_yearly_usd(
 
     `not_usd` for another currency: nothing is converted, and a band stored with
     no currency is a dollar band. `not_yearly` when `effective_period` reads a
-    period other than `year`: hourly and monthly are never annualised. An amount
+    period other than `year`: a rate is never put on a yearly axis. An amount
     that is no pay at any size passes here, for the caller's own plausibility
     floor to count.
     """
