@@ -52,6 +52,9 @@ class Field:
     required: bool
     default: Any
     help: str | None
+    #: True when the schema accepts null and declares null its default, so
+    #: leaving the field out asks for exactly what a null does.
+    null_default: bool = False
 
     @property
     def option(self) -> str:
@@ -167,8 +170,9 @@ def _scalar(prop: dict[str, Any]) -> tuple[str, tuple[str, ...] | None] | None:
 
 def _field(name: str, prop: dict[str, Any], definitions: dict[str, Any], *, required: bool) -> Field | None:
     """The flag for one input field, or None when only `--input` can give it."""
-    options = [_resolve(option, definitions) for option in prop.get("anyOf", [prop])]
-    options = [option for option in options if option.get("type") != "null"]
+    every = [_resolve(option, definitions) for option in prop.get("anyOf", [prop])]
+    options = [option for option in every if option.get("type") != "null"]
+    null_default = len(options) < len(every) and "default" in prop and prop["default"] is None
     if len(options) != 1:
         return None
     resolved = {**options[0], **{k: v for k, v in prop.items() if k not in ("anyOf", "$ref")}}
@@ -181,7 +185,7 @@ def _field(name: str, prop: dict[str, Any], definitions: dict[str, Any], *, requ
         return None
     return Field(
         name=name, kind=kind, is_list=is_list, choices=choices, required=required,
-        default=prop.get("default"), help=prop.get("description"),
+        default=prop.get("default"), help=prop.get("description"), null_default=null_default,
     )
 
 
@@ -352,7 +356,7 @@ def request(command: Command, data: dict[str, Any]) -> tuple[str, dict[str, Any]
     if command.method in _BODY_METHODS:
         return path, rest
     pairs: list[tuple[str, str]] = []
-    nullable = {field.name for field in command.flags if field.default is None and not field.required}
+    nullable = {field.name for field in command.flags if field.null_default}
     for name, value in rest.items():
         if value is None and name in nullable:
             # The address cannot say null; leaving out a field whose default is null asks for the same.
@@ -360,7 +364,8 @@ def request(command: Command, data: dict[str, Any]) -> tuple[str, dict[str, Any]
         if value is None:
             raise ClientError(
                 "invalid_arguments",
-                f"{name} cannot be null: it has a default of its own, or is required. Leave it out or give a value.",
+                f"{name} cannot be null: it takes a value, or has a default other than null. "
+                "Leave it out or give a value.",
             )
         for item in value if isinstance(value, list) else [value]:
             if item is None or isinstance(item, dict | list):

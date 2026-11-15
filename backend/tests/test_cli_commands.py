@@ -284,9 +284,11 @@ def test_a_read_leaves_a_null_out_and_cannot_carry_an_object_in_its_address():
         "limit": {"type": "integer", "default": 20},
     })
     assert commands.request(command, {"view": None, "tag": ["a"]}) == ("/api/agent/v1/widgets?tag=a", None)
-    # A null where the default is not null would silently change the request.
-    with pytest.raises(ClientError, match="limit cannot be null"):
-        commands.request(command, {"limit": None})
+    # A null where the schema takes none, or defaults to something else, would
+    # silently change the request: an integer with a default, a list with none declared.
+    for name in ("limit", "tag"):
+        with pytest.raises(ClientError, match=f"{name} cannot be null"):
+            commands.request(command, {name: None})
     for value in ({"a": 1}, [["a"]], ["a", None]):
         with pytest.raises(ClientError, match="carries no object"):
             commands.request(command, {"tag": value})
@@ -298,8 +300,13 @@ def test_an_input_document_with_a_null_field_searches_as_if_it_were_left_out(hom
     with Stub(Reply(200, _envelope("opportunities.search", data=_PAGE))) as stub:
         home.contexts(current="dev", dev={"url": stub.url})
         result = cli(home, "opportunities", "search", "--input", f"@{document}", "--json")
+        document.write_text(json.dumps({"location": None}))
+        refused = cli(home, "opportunities", "search", "--input", f"@{document}", "--json")
     assert result.status == 0, result
     assert _query(stub.requests[0]) == {"location": ["London"]}
+    # location takes a list and declares no null default: leaving it out would not mean the same.
+    assert refused.status == 2 and "location cannot be null" in refused.envelope["error"]["message"]
+    assert len(stub.requests) == 1
 
 
 # --------------------------------------------------------------------------- #
