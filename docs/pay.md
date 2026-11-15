@@ -308,7 +308,7 @@ basis, a period that is not a year and a stated total, draw no segment.
 
 | Reason | When |
 |---|---|
-| `hourly`, `monthly` | The period is not a year. Unless the band is a stated total, the package carries the rate as `yearly_base`, a full-time year of base salary (2,080 hours, or twelve months), which Job detail shows as the headline with the rate as posted under it ([0018](decisions/0018-a-rate-reads-as-a-yearly-base.md)). No bonus, equity or total is built on it. |
+| `hourly`, `monthly` | The period is not a year. When the band is base, the package carries the rate as `yearly_base`, a full-time year of base salary (2,080 hours, or twelve months), which Job detail shows as the headline with the rate as posted under it ([0018](decisions/0018-a-rate-reads-as-a-yearly-base.md)). No bonus, equity or total is built on it. |
 | `period_unclear` | The amount fits a month and a year, and the posting's words settle neither. Shown with no unit. |
 | `basis_unclear` | The posting did not say what the band covers, and no rule settles it (outside the US and Canada, a selling role, or a range called total or cash pay). Splitting it would assume base. |
 | `total_compensation` | The band is total pay; it is the headline, `stated`. Where the posting calls it on-target earnings (`pay_disclosure.names_on_target_earnings`, read from the posting's text, so Job detail sets it), `on_target_earnings` is true and the headline names it base plus commission: equity is never in it. |
@@ -558,10 +558,13 @@ Staff and Principal: blueprint checks `offer_policy` and `pay_reference` in
   the role does not sell (`taxonomy.roles.sells` is False); a sales role's or
   an unknown family's stays whole. The stored `pay_basis` keeps `unclear`, so
   pay built from postings never counts it as a stated base. An hourly or
-  monthly rate becomes a year only as the package's `yearly_base`, a base
-  salary, never a total; never split a stated total.
+  monthly base rate becomes a year only as the package's `yearly_base`, a
+  base salary, never a total; a rate whose basis stays `unclear` gets no
+  year; never split a stated total.
 - The employer's figure leads Job detail's pay panel whenever the posting
-  states one. Our estimate is the headline only where it states none, and is
+  states one; a split stated base leads as the total built on it, with the
+  base on its own line under the headline. An estimate with no employer
+  figure in it is the headline only where the posting states none, and is
   never shown beside a figure the employer gave that has no split.
 - Never price a level we cannot place. Its band is kept for sorting only: it
   gets no estimate, and nothing is built on it. The base the posting states is

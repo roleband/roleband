@@ -1097,11 +1097,19 @@ _ON_TARGET_RE = re.compile(r"\bon[-\s]target\s+earnings\b|\bOTE\b", re.I)
 
 def names_on_target_earnings(description_text: str | None, bounds: list[int]) -> bool:
     """True when the text around the band at `bounds` calls it on-target earnings,
-    in a sentence no condition guards ("for sales roles, the OTE range...")."""
+    in a sentence with no condition on either side of the name ("for sales
+    roles, the OTE range...", "(on-target earnings for sales roles only)").
+    Stricter than the basis markers: a label that names this band for some
+    roles only does not name it for this one."""
     if not description_text:
         return False
     span = locate_pay_span(description_text, bounds)
-    return span is not None and _fires_unconditionally(_ON_TARGET_RE, basis_context(description_text, span))
+    if span is None:
+        return False
+    return any(
+        _ON_TARGET_RE.search(sentence) and not _CONDITIONAL_RE.search(sentence)
+        for sentence in _SENTENCE_RE.split(basis_context(description_text, span))
+    )
 
 
 def derive_pay_basis(description_text: str, bounds: list[int]) -> PayBasis:

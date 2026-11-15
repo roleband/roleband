@@ -1001,16 +1001,18 @@ its primary is View & apply, an anchor wearing the primary classes.
   box: title, company and level in the bar's middle, at the heading's left
   edge. It is a copy for the eye (`aria-hidden`).
 - **The pay panel leads with the employer's figure and writes each figure
-  once.** Under an estimated total, one sentence says the base is the
-  posting's own, and the base's figure stands in the breakdown. Any other
-  figure the posting states is the headline itself: a yearly base under
-  "Stated base salary", an hourly or monthly rate as its full-time year under
-  "Base salary from the posted rate" with the rate as posted beneath it, and
-  on-target earnings under their own name. Our estimate is the headline only
-  when no figure was found in the posting, and no line says the posting has
-  none: "estimated" on the headline and on every part already says the
-  figure is ours, and the claim would be false whenever the reader missed a
-  figure. Where the posting or its employer is why
+  once.** A stated yearly base that is split leads as the total built on it,
+  "Estimated total compensation", with the base on its own line directly
+  under the headline, in the ink of the employer's figures. Any other figure
+  the posting states is the headline itself: a yearly base under "Stated base
+  salary", an hourly or monthly base rate as its full-time year under "Base
+  salary from the posted rate" with the rate as posted beneath it, a total
+  under "Posted total compensation" or, when the posting calls it so,
+  on-target earnings, and anything else as posted. An estimate with no
+  employer figure in it is the headline only when no figure was found in the
+  posting, and no line says the posting has none: "estimated" on the
+  headline and on every part already says the figure is ours, and the claim
+  would be false whenever the reader missed a figure. Where the posting or its employer is why
   there is no split (a period or basis it leaves open, a mix each person
   picks), one sentence says so, with no tag that says it again in two words.
   Nothing is said that the headline already says (a rate, a stated total),
@@ -1062,10 +1064,13 @@ its primary is View & apply, an anchor wearing the primary classes.
   list's rows in order and carries them in history state; the bar's pager
   (and `j` / `k`) replaces the entry with the row on either side, so Back
   still returns to the list. The Board passes its page of rows; a posting
-  opened by link, or from inside another posting, has no pager. Under the
-  employer's text such a posting ends on the next row, named by its title,
-  company and place in the list (`.jd-end`): the whole block opens it, as
-  `j` does. The list's last row, and a posting with no list, end on nothing.
+  opened by link, or from inside another posting, has no pager.
+- **A posting ends on applying** (`.jd-end`), under the employer's text,
+  however it was opened. The step saves the role, then opens the pipeline
+  list in a new tab once the save has landed; a click and a middle click do
+  the same. A role already saved opens the list with no second write, and a
+  role already applied ends on nothing. The pager and `j` / `k` still move
+  to the next row.
 
 Job detail steps up on a wider window, by the width of its own scroll box
 (a container query, `posting`, so no window breakpoint is added) and never by

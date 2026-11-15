@@ -33,6 +33,9 @@ SALES_ASIDE = (
         ("Annual on-target earnings: $184,000 to $230,000.", True),
         (PLAIN_TOTAL, False),
         (SALES_ASIDE, False),
+        # A condition after the name guards it as much as one before it.
+        ("The total compensation range is $184,000 to $230,000 (on-target earnings for sales roles only).", False),
+        ("For sales roles, the OTE range is $184,000 to $230,000.", False),
         # The band is not in the text: nothing locates it, so nothing is named.
         ("Our OTE ranges are competitive.", False),
         (None, False),

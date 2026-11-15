@@ -368,6 +368,8 @@ def test_a_monthly_rate_is_carried_as_twelve_months_of_base():
         (150_000, 200_000, "year", "base"),  # already yearly
         (15_000, 25_000, "unclear", "base"),  # a month or a year: no factor is known
         (20_000, 25_000, "month", "total"),  # a total is never called a base
+        (85, 110, "hour", "unclear"),  # a rate the posting never calls base may hold commission
+        (16_000, 20_000, "month", "unclear"),
     ],
 )
 def test_no_yearly_base_where_the_rate_is_not_a_known_base_rate(low, high, period, basis):

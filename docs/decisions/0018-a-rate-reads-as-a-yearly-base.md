@@ -15,9 +15,12 @@ bonus or equity, which may or may not exist.
 
 ## Decision
 
-- The package carries an hourly or monthly rate as `yearly_base`: 2,080 hours
-  (40 a week for 52 weeks) or twelve months. A band the posting calls total
-  pay gets none.
+- The package carries an hourly or monthly base rate as `yearly_base`: 2,080
+  hours (40 a week for 52 weeks) or twelve months. A band the posting calls
+  total pay gets none, and so does a rate whose basis stays `unclear` once the
+  base convention has been applied (a role that sells, or one whose kind
+  cannot be told): its rate may include commission. Such a rate is shown as
+  posted.
 - Job detail's pay panel shows that year as its headline, as base salary
   ("Base salary from the posted rate"), with the rate as posted under it. No
   bonus, equity or total is drawn on it, and our estimate is not shown beside

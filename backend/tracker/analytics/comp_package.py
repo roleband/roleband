@@ -577,16 +577,19 @@ def build_job_package(
     package["stated"] = {"low": lo, "high": hi} if lo is not None else None
 
     # An hourly or monthly rate is not split: no level's ratios describe the bonus
-    # or equity of a rate. It is carried as a full-time year of base salary, so
-    # the panel can lead with the employer's figure in the unit every other
-    # posting uses. A band whose period we could not tell is not split either:
-    # splitting it would claim it is a yearly salary.
+    # or equity of a rate. A base rate is carried as a full-time year of base
+    # salary, so the panel can lead with the employer's figure in the unit every
+    # other posting uses. A rate whose basis is still `unclear` here is one the
+    # convention would not read as base (a role that sells, or one whose kind
+    # cannot be told): it may hold commission, so it gets no year. A band whose
+    # period we could not tell is not split either: splitting it would claim it
+    # is a yearly salary.
     period = disclosed.get("pay_period")
     # What a stated total is called holds whatever its period: a monthly
     # on-target figure is still on-target earnings.
     if basis == "total" and lo is not None:
         package["on_target_earnings"] = on_target
-    if period in PERIODS_PER_YEAR and lo is not None and basis != "total":
+    if period in PERIODS_PER_YEAR and lo is not None and basis == "base":
         per_year = PERIODS_PER_YEAR[period]
         package["yearly_base"] = {"low": round(lo * per_year), "high": round(hi * per_year)}
     if period in ("hour", "month", "unclear"):

@@ -216,8 +216,9 @@ export function JobDetail({
   /** Reads the posting again: its star and stage as the server holds them. */
   const rereadPosting = useCallback(() => void refreshJob({ preserveData: true }), [refreshJob]);
   /** Saves a role that is not in the pipeline. Once it is, the star becomes
-   *  the stage control, which is the way out. Settles true once the write
-   *  is done, false when it failed and the person was told. */
+   *  the stage control, which is the way out. Settles true once this write
+   *  landed, false when it failed: told when it was the newest, and silent
+   *  when a newer write for the role was asked for and decides instead. */
   const saveFav = (): Promise<boolean> => {
     if (!job) return Promise.resolve(false);
     // One writer per role across every surface. A failed write that
@@ -226,7 +227,7 @@ export function JobDetail({
     // rejects, so reading the posting back here never undoes a newer write.
     // The read catches a stage set elsewhere while the posting was open.
     return saveRole({ jobId: job.id, was: job.is_favorite, next: true, show: showSaved, send: () => api.setFavorite(job.id, true) })
-      .then(() => true, () => {
+      .then(({ outcome }) => outcome === "saved", () => {
         rereadPosting();
         toast({ key: "job", text: roleJobDetailCouldNotUnsaveThisRole({ choice: "yes" }) });
         return false;
