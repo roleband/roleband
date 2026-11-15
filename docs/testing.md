@@ -489,9 +489,12 @@ against `httpx.MockTransport` and recorded fixtures; a test that builds a real
 adapter takes `no_escape` and mocks `make_tier_client`. Live confidence comes
 from smoke commands run by hand from `backend/`: one adapter with
 `.venv/bin/python -m scripts.smoke_adapters <company> 5`, catalog board tokens
-with `.venv/bin/python -m scripts.check_catalog_tokens`, and a capped pipeline
+with `.venv/bin/python -m scripts.check_catalog_tokens`, a capped pipeline
 run (which never closes postings) with
-`.venv/bin/python -m tracker.daily --max-list 150 --no-hydrate -v`.
+`.venv/bin/python -m tracker.daily --max-list 150 --no-hydrate -v`, and one
+tool-calling round trip against a model server on your own computer with
+`.venv/bin/python -m scripts.smoke_model_tools --model <model>` (the server's key,
+if it needs one, in `ROLEBAND_SMOKE_LOCAL_API_KEY`).
 
 ## Benchmarks carry negative controls
 

@@ -1166,8 +1166,23 @@ on AI egress (`ai_egress_enabled`, off by default). The one model task the
 product runs is duplicate review, on a pair the user picks, by their local model
 (`backend/tracker/intelligence/duplicate_review.py`). The one line that can add a
 cloud tier is in `backend/tracker/intelligence_runtime/routing.py`, a ladder only
-the model bench drives; search query parsing (`backend/tracker/search/llm.py`) is
-the only other path to a cloud model, and it takes the same switch.
+the model bench drives. Search query parsing (`backend/tracker/search/llm.py`)
+takes the same switch. The tool-calling transport below refuses a tier the
+ladder blocked but cannot tell where a tier came from, so its callers take
+their tiers from `build_tiers`; nothing calls it yet.
+
+Tool calling, for a runner that loops a model over operations, is
+`backend/tracker/intelligence/tool_calls/`: a provider-neutral conversation
+(messages, tool definitions, a turn of text or tool calls, usage and a stop
+reason), the OpenAI-compatible and Anthropic wire formats, and a transport made
+only from a rung of that ladder (`transport_for_tier`). A tier the ladder
+blocked is refused before any request exists. The switch itself is read by
+`build_tiers`, so a caller takes its tiers from there, built for each model
+call; a tier made by hand would carry no admission. What a model
+writes never raises: malformed arguments or an unknown tool come back as a
+call with a problem for the runner to answer. Tools are generated from
+operation descriptors by `backend/tracker/agents/tool_definitions.py`. Nothing
+calls it yet; the one-prompt clients in `local_llm` and `cloud_llm` are separate.
 
 Offline level experiments use `analytics/level_context.py` to extract quoted
 facts without writing canonical fields. Component ownership refers to the
