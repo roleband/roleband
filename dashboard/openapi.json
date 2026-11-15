@@ -16208,6 +16208,13 @@
       "type": "string",
       "x-text": "identifier"
      },
+     "continue_with": {
+      "items": {
+       "$ref": "#/components/schemas/NextAction"
+      },
+      "title": "Continue With",
+      "type": "array"
+     },
      "employer_stated_pay": {
       "anyOf": [
        {

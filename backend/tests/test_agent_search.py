@@ -346,6 +346,34 @@ async def test_a_default_page_of_full_rows_fits_the_small_tier(api_client, works
     assert "description" not in json.dumps(page)
 
 
+async def test_a_row_found_by_a_later_place_names_that_place_first(api_client, workspace):
+    """A posting listed in San Francisco and New York, found by New York, shows
+    New York: a reader of the row would otherwise drop it as not in New York."""
+    from tracker.enrich.classify import location_slugs_for
+
+    places = ["San Francisco, CA", "Remote - US", "New York, NY"]
+    target, company = (await workspace.execute(
+        select(Job.id, Job.company).where(Job.status == "open").order_by(Job.id).limit(1)
+    )).one()
+    await workspace.execute(
+        update(Job).where(Job.id == target).values(locations=places, location_groups=location_slugs_for(places))
+    )
+    await workspace.commit()
+
+    async def row_of(**params) -> dict:
+        _, body = await _search(api_client, company=company, **params)
+        page = _page(body)
+        rows = [dict(zip(page["columns"], row, strict=True)) for row in page["rows"] if row[0] == target]
+        assert rows, f"the posting must be on the page for {params}"
+        return rows[0]
+
+    found = await row_of(location="new_york")
+    assert (found["location"], found["more_locations"]) == ("New York, NY", 2)
+    assert (await row_of(location="silicon_valley"))["location"] == "San Francisco, CA"
+    # Without a location filter the row names the posting's own first place.
+    assert (await row_of())["location"] == "San Francisco, CA"
+
+
 async def test_rows_that_outgrow_the_budget_end_the_page_and_the_cursor_carries_on(api_client, workspace):
     board = await _board_ids(api_client, sort="first_seen")
     await workspace.execute(update(Job).values(title=Job.title + " " + "x" * 400))

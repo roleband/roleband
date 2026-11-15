@@ -165,6 +165,15 @@ def test_offline_capabilities_and_describe_read_the_bundle(home):
     unknown = cli(home, "describe", "no.such", "--offline", "--json")
     assert unknown.status == 2
     assert unknown.envelope["error"]["code"] == "unknown_operation"
+    assert unknown.envelope["error"]["details"]["candidates"] == []
+
+    # A resource's name lists the operations under it, as the engine answers.
+    resource = cli(home, "describe", "pursuits", "--offline", "--json")
+    assert resource.status == 2
+    error = resource.envelope["error"]
+    under = sorted(descriptor.id for descriptor in CATALOG if descriptor.id.startswith("pursuits."))
+    assert len(under) >= 2 and error["details"]["candidates"] == under
+    assert [step["arguments"].get("operation") for step in error["next_actions"]] == [*under, None]
 
 
 @pytest.mark.parametrize(
