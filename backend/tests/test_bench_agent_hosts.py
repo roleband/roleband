@@ -508,13 +508,14 @@ async def test_the_local_loop_runs_the_trial_command_and_grades_on_its_log(monke
         assert expected in transcript.breaches
 
 
-async def _local_run(monkeypatch, cli: CliSetup, tmp_path: Path, calls: list[tuple[str, dict]],
+async def _local_run(monkeypatch, cli: CliSetup, tmp_path: Path, calls: list[tuple[str, dict | str]],
                      answer: str) -> tuple[Transcript, list[dict]]:
-    """The local loop through `cli`, with a model that makes `calls` one per turn, then answers."""
+    """The local loop through `cli`, with a model that makes `calls` one per turn, then answers;
+    arguments given as a string are sent as they are."""
     sent: list[dict] = []
     replies = iter([
         *(_reply(tool_calls=[{"id": f"c{index}", "type": "function", "function": {
-            "name": name, "arguments": json.dumps(arguments)}}]) for index, (name, arguments) in enumerate(calls)),
+            "name": name, "arguments": arguments if isinstance(arguments, str) else json.dumps(arguments)}}]) for index, (name, arguments) in enumerate(calls)),
         _reply(content=f"ANSWER: {answer}"),
     ])
 
@@ -601,6 +602,22 @@ async def test_a_call_to_a_tool_that_does_not_exist_is_an_error_not_a_breach(mon
                    {"name": "get_pursuits", "result": "[]", "is_error": False}]
     mcp_grade = grade_trial(TASKS["discover_overdue"], EXPECTATIONS, right, _state(), _state(), through_mcp)
     assert (mcp_grade["success"], mcp_grade["prohibited_effects"], recovery_turns(through_mcp)) == (True, [], 1)
+
+
+@pytest.mark.asyncio
+async def test_a_call_with_arguments_that_are_not_json_ran_nothing(monkeypatch, tmp_path):
+    cli = _cli(tmp_path)
+    right = {"overdue_follow_ups": 2}
+    transcript, _ = await _local_run(monkeypatch, cli, tmp_path, [
+        ("sources.inspect", "{not json"),  # a prohibited operation's id, never handed to the tool
+        ("roleband", {"args": ["capabilities", "--offline"]}),
+    ], json.dumps(right))
+    malformed = transcript.tool_calls[0]
+    assert malformed["is_error"] and malformed["ran"] is False
+    settle_cli_calls(transcript, cli, tmp_path / "ws", host="omlx")
+    grade = grade_trial(TASKS["discover_overdue"], EXPECTATIONS, right, _state(), _state(), transcript.tool_calls,
+                        transcript.breaches)
+    assert grade["success"] and grade["prohibited_effects"] == [] and recovery_turns(transcript.tool_calls) == 1
 
 
 @pytest.mark.asyncio

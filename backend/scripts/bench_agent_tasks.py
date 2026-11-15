@@ -1985,7 +1985,9 @@ async def _local_loop(transcript: Transcript, prompt: str, tools: ToolBox, *, mo
                     record["args"] = json.loads(call["function"].get("arguments") or "{}")
                     record.update(await tools.call(name, record["args"]))
                 except json.JSONDecodeError as exc:
-                    record.update({"args": call["function"].get("arguments"), "result": f"invalid JSON arguments: {exc}", "is_error": True})
+                    # The tool never saw it, so nothing ran, whatever its name.
+                    record.update({"args": call["function"].get("arguments"), "result": f"invalid JSON arguments: {exc}",
+                                   "is_error": True, "ran": False})
                 except Exception as exc:
                     record.update({"result": f"call failed: {type(exc).__name__}: {exc}", "is_error": True})
                     raise
