@@ -261,3 +261,18 @@ async def test_the_pass_divides_a_band_stored_whole_over_several_years(db_sessio
 
     # Divided once: neither row is a candidate again.
     assert (await correct_pay_periods(db_session))["candidates"] == 0
+
+
+@pytest.mark.asyncio
+async def test_a_multi_year_band_whose_share_is_no_salary_is_never_called_a_year(db_session):
+    quote = _ashby_quote("100 YEAR", 400_000, 500_000)
+    legacy = _row("century", quote, 400_000, 500_000, "USD", "unclear")
+    legacy.disclosed_snippet = quote
+    legacy.disclosed_source = "connector"
+    db_session.add(legacy)
+    await db_session.commit()
+
+    assert (await correct_pay_periods(db_session))["kept"] == 1
+    db_session.expire_all()
+    job = (await db_session.scalars(select(Job))).one()
+    assert (job.disclosed_base_min, job.disclosed_base_max, job.disclosed_pay_period) == (400_000, 500_000, "unclear")

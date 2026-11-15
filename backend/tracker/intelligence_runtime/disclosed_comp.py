@@ -555,7 +555,10 @@ async def correct_pay_periods(session: AsyncSession) -> dict:
             stored = (job.disclosed_base_min, job.disclosed_base_max,
                       job.disclosed_currency, job.disclosed_pay_period)
             change = multi_year_share(stored, job.disclosed_snippet)
-            if change is None:
+            # A band its quote states over several years whose share no year
+            # can hold stays as stored: a re-read sees the same amounts and
+            # would call the whole of them a year's pay.
+            if change is None and years_in_quote(job.disclosed_snippet, *stored[:2]) == 1:
                 pay_text, _scope = pay_input_text(job)
                 reread = (
                     extract_grounded_band(

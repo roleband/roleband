@@ -402,9 +402,10 @@ built-in estimate answers no total; job detail shows the package.
 
 `api/serializers/jobs.posted_base` decides which posted range a row carries
 (`pay_disclosure.ROW_PAY_PERIODS`, checked by `pay_period.effective_period`:
-an amount only a year can hold reads as yearly whatever its stored period, a
-stored period the size otherwise rules out shows the estimate instead, and a
-band with no stored period reads by its size), and the dashboard's
+the period rule in [Reading stated pay](#reading-stated-pay): a stored `unclear` stays unclear and shows
+the estimate instead, as does a stored period the size rules out; an amount
+only a year can hold reads as yearly whatever other period is stored; a band
+with no stored period reads by its size), and the dashboard's
 `payShown.baseShown` writes the cell. The `base_pay` sort and the `base_min`
 and `base_max` filters read `db/queries/jobs.base_pay`, the same rule in SQL,
 as yearly US dollars: a posted range per hour or month or in another currency,
