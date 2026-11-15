@@ -419,7 +419,16 @@ final class LauncherModel: ObservableObject {
     func text(_ key: String, _ values: [String: String]) -> String { copy.text(key, values) }
 
     func refresh(open route: BrowserRoute? = nil, includeSchedule: Bool = false, includeNotes: Bool = false) {
-        guard mayReadStatus else { return }
+        // A reopen queued behind a scan or pause request whose engine then stopped shows the
+        // panel now, rather than the radar whenever the engine comes back.
+        guard mayReadStatus else {
+            if let fallback = openFailed {
+                openAfterRead = nil
+                openFailed = nil
+                fallback()
+            }
+            return
+        }
         timer?.invalidate()
         if let route { openAfterRead = route }
         forceScheduleRead = forceScheduleRead || includeSchedule
