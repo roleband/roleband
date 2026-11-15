@@ -38,6 +38,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/v1/opportunities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Opportunity Search */
+        get: operations["opportunity_search_api_agent_v1_opportunities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/v1/opportunities/{opportunity_id}": {
         parameters: {
             query?: never;
@@ -219,6 +236,23 @@ export interface paths {
         };
         /** Status */
         get: operations["status_api_agent_v1_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/vocabulary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Vocabulary List */
+        get: operations["vocabulary_list_api_agent_v1_vocabulary_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5727,6 +5761,27 @@ export interface components {
             /** Workspace Id */
             workspace_id: string | null;
         };
+        /** Envelope[SearchPage] */
+        Envelope_SearchPage_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["SearchPage"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
         /** Envelope[SourceInspection] */
         Envelope_SourceInspection_: {
             /**
@@ -5756,6 +5811,27 @@ export interface components {
              */
             contract_version: string;
             data: components["schemas"]["StatusResult"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[VocabularyPage] */
+        Envelope_VocabularyPage_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["VocabularyPage"] | null;
             error: components["schemas"]["EnvelopeError"] | null;
             meta: components["schemas"]["EnvelopeMeta"];
             /** Ok */
@@ -11377,6 +11453,43 @@ export interface components {
             /** Slug */
             slug: string;
         };
+        /** SearchPage */
+        SearchPage: {
+            /** Columns */
+            columns: string[];
+            /** Count */
+            count: number;
+            /** Filters */
+            filters: {
+                [key: string]: string[];
+            };
+            /** Order */
+            order: ("asc" | "desc") | null;
+            /**
+             * Rows
+             * @description One array per opportunity, its values in the order `columns` names.
+             */
+            rows: [
+                number,
+                string,
+                string,
+                string | null,
+                number,
+                string | null,
+                string | null,
+                number | null,
+                string | null,
+                string | null,
+                string | null
+            ][];
+            /**
+             * Sort
+             * @enum {string}
+             */
+            sort: "best_match" | "newest" | "age" | "pay" | "estimated_pay" | "level" | "company" | "title" | "location";
+            /** Total */
+            total: number;
+        };
         /**
          * SectionSource
          * @description Who answers one kind of data for one company: our data, or one
@@ -12740,6 +12853,31 @@ export interface components {
          *     from its catalog (`dashboard/src/copy/vocab.ts`). No English here.
          */
         VocabFacetOption: Record<string, never>;
+        /** VocabularyEntry */
+        VocabularyEntry: {
+            /** Also */
+            also: string[];
+            /** Name */
+            name: string | null;
+            /** Open Roles */
+            open_roles: number;
+            /** Value */
+            value: string;
+        };
+        /** VocabularyPage */
+        VocabularyPage: {
+            /** Count */
+            count: number;
+            /** Items */
+            items: components["schemas"]["VocabularyEntry"][];
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "company" | "family" | "level_band" | "track" | "workplace_type" | "domain" | "location";
+            /** Total */
+            total: number;
+        };
         /**
          * WiderMarketPass
          * @description The background scan's first read of the wider market: how many companies
@@ -12806,6 +12944,65 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Envelope_OperationDetail_"];
+                };
+            };
+        };
+    };
+    opportunity_search_api_agent_v1_opportunities_get: {
+        parameters: {
+            query?: {
+                /** @description Words to search for, as in the Board's search box. */
+                query?: string | null;
+                /** @description Companies, by slug or name; repeat for more. */
+                company?: string[];
+                /** @description Role families, by slug or name. */
+                family?: string[];
+                /** @description Level bands, such as senior or staff. */
+                level_band?: string[];
+                /** @description Tracks, such as ic or management. */
+                track?: string[];
+                /** @description onsite, remote, hybrid or unknown. */
+                workplace_type?: string[];
+                /** @description Domains (worlds), by slug or name. */
+                domain?: string[];
+                /** @description Places, by slug or a name people use, such as London or USA. */
+                location?: string[];
+                /** @description Lowest yearly base in US dollars, as the Board's pay filter. */
+                base_pay_min?: number | null;
+                /** @description Highest yearly base in US dollars. */
+                base_pay_max?: number | null;
+                /** @description Lowest estimated pay: the estimated total, else the estimated base. */
+                minimum_estimated_pay?: number | null;
+                /** @description Only postings that state a pay band. */
+                discloses_pay?: boolean;
+                /** @description Only roles the person saved. */
+                saved_only?: boolean;
+                /** @description Only postings listed within this many days, by the age each row shows. */
+                listed_within_days?: number | null;
+                /** @description Default: best_match with a query, else newest. */
+                sort?: ("best_match" | "newest" | "age" | "pay" | "estimated_pay" | "level" | "company" | "title" | "location") | null;
+                /** @description Ignored by best_match. */
+                order?: "asc" | "desc";
+                /** @description Most rows on one page. */
+                limit?: number;
+                /** @description The next_cursor of the previous page, read with the same filters and sort. */
+                cursor?: string | null;
+                /** @description The caller's tool tier, which bounds the page. */
+                tier?: "small" | "standard" | "full";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_SearchPage_"];
                 };
             };
         };
@@ -13184,6 +13381,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Envelope_StatusResult_"];
+                };
+            };
+        };
+    };
+    vocabulary_list_api_agent_v1_vocabulary_get: {
+        parameters: {
+            query: {
+                /** @description The filter whose accepted values to list. */
+                kind: "company" | "family" | "level_band" | "track" | "workplace_type" | "domain" | "location";
+                /** @description Only values whose value or a name contains this, ignoring case and separators. */
+                contains?: string | null;
+                /** @description Values on one page. */
+                limit?: number;
+                /** @description The next_cursor of the previous page, read with the same kind and contains. */
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_VocabularyPage_"];
                 };
             };
         };

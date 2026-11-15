@@ -32,14 +32,15 @@
    "operation": "opportunities.search",
    "switch": "enabled",
    "differences": [
-    "Strict filters: a company, family or location that matches nothing fails with a lookup hint naming the vocabulary command. The MCP tool lists it in `ignored`, drops a filter whose every value was unknown and widens the search.",
-    "Case and separators are still normalized, and nothing fuzzier is matched.",
-    "The Board's full filter set: level bands, tracks, workplace types, domains, base pay bounds and discloses pay, besides text, companies, families, locations, minimum estimated pay, saved only and the first-seen window.",
-    "The Board's sorts, best match included; the MCP tool offers newest, oldest and compensation.",
-    "Cursor paging over a deterministic sort with an ID tie-breaker; the MCP tool returns one page.",
-    "The default page is sized to the smallest certified context; more fields need --fields or --view.",
-    "A first-seen window below one day is an input error; the MCP tool lists it in `ignored`.",
-    "The text query takes the Board's search: whole words through the search index, and best match ranks exact, close and related matches. The MCP tool matches the letters anywhere in title, company and description.",
+    "Strict filters: a company, family, location, level band, track, workplace type or domain that matches no accepted value fails the whole search as invalid input, naming each unknown value and the vocabulary.list call that lists the accepted ones. The MCP tool lists it in `ignored`, drops a filter whose every value was unknown and widens the search.",
+    "Case and separators are still normalized, and nothing fuzzier is matched. A known value that matches no posting still narrows to zero.",
+    "The Board's full filter set: level bands, tracks, workplace types, domains, base pay bounds and discloses pay, besides text, companies, families, locations, minimum estimated pay and saved only.",
+    "The time window is the Board's listed-within filter, by how long a posting has been listed; the MCP tool's window is by first seen.",
+    "The Board's sorts: best_match, newest, age, pay, estimated_pay, level, company, title and location, each ascending or descending; the MCP tool offers newest, oldest and compensation.",
+    "Cursor paging over the Board's order with an ID tie-breaker; a cursor continues only the request and workspace it came from. The MCP tool returns one page.",
+    "Rows are a column table: identity, place, workplace, level, days listed, stated pay and the estimate as short strings, and the person's pursuit stage. The default 20-row page stays within the smallest certified context; a page whose rows outgrow its tier's budget stops early with a page_shortened warning and its cursor continues. Descriptions and every other field come from opportunities.get.",
+    "A window below one day is an input error; the MCP tool lists it in `ignored`.",
+    "The text query takes the Board's search: whole words through the search index, and best match ranks exact, close and related matches. It never sends the query to a cloud model. The MCP tool matches the letters anywhere in title, company and description.",
     "A limit outside the declared range is an input error naming the range, as the Board's API refuses one; the MCP tool clamps it to 1 to 100."
    ],
    "open": []

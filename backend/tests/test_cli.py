@@ -111,7 +111,7 @@ def cli(home: Home, *args: str, cwd: Path | None = None, timeout: float = 30, **
         cwd=cwd or home.root,
         env=_env(home, **env),
         capture_output=True,
-        text=True,
+        encoding="utf-8",
         timeout=timeout,
     )
     return Result(process.returncode, process.stdout, process.stderr)
@@ -775,7 +775,7 @@ def test_a_real_engine_refuses_until_the_switch_and_then_names_its_workspace(hom
     described = cli(home, "describe", "capabilities", "--json")
     assert described.status == 0
     assert described.envelope["data"]["metadata_source"] == "engine"
-    unknown = cli(home, "describe", "opportunities.search", "--json")
+    unknown = cli(home, "describe", "widgets.list", "--json")
     assert unknown.status == 2
     assert unknown.envelope["error"]["code"] == "unknown_operation"
 

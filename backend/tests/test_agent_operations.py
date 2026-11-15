@@ -476,7 +476,7 @@ async def test_describe_returns_one_operation_in_full_from_the_engine(api_client
 @pytest.mark.asyncio
 async def test_describe_of_an_unknown_operation_points_at_capabilities(api_client, db_session):
     await _enable(db_session)
-    response = await api_client.get(f"{PREFIX}/operations/opportunities.search")
+    response = await api_client.get(f"{PREFIX}/operations/widgets.list")
     body = response.json()
     assert response.status_code == 404
     _assert_envelope(body, operation="describe", ok=False)

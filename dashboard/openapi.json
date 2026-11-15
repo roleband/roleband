@@ -6723,6 +6723,84 @@
     "title": "Envelope[SavedDraft]",
     "type": "object"
    },
+   "Envelope_SearchPage_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/SearchPage"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[SearchPage]",
+    "type": "object"
+   },
    "Envelope_SourceInspection_": {
     "additionalProperties": false,
     "properties": {
@@ -6877,6 +6955,84 @@
      "error"
     ],
     "title": "Envelope[StatusResult]",
+    "type": "object"
+   },
+   "Envelope_VocabularyPage_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/VocabularyPage"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[VocabularyPage]",
     "type": "object"
    },
    "ErrorCode": {
@@ -24351,6 +24507,178 @@
     "title": "ScopeTrack",
     "type": "object"
    },
+   "SearchPage": {
+    "additionalProperties": false,
+    "properties": {
+     "columns": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Columns",
+      "type": "array",
+      "x-text": "code"
+     },
+     "count": {
+      "minimum": 0.0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "filters": {
+      "additionalProperties": {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      "title": "Filters",
+      "type": "object",
+      "x-text": "identifier"
+     },
+     "order": {
+      "anyOf": [
+       {
+        "enum": [
+         "asc",
+         "desc"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Order",
+      "x-text": "code"
+     },
+     "rows": {
+      "description": "One array per opportunity, its values in the order `columns` names.",
+      "items": {
+       "maxItems": 11,
+       "minItems": 11,
+       "prefixItems": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "string"
+        },
+        {
+         "type": "string"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "type": "integer"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "integer"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        }
+       ],
+       "type": "array"
+      },
+      "title": "Rows",
+      "type": "array",
+      "x-text": "content"
+     },
+     "sort": {
+      "enum": [
+       "best_match",
+       "newest",
+       "age",
+       "pay",
+       "estimated_pay",
+       "level",
+       "company",
+       "title",
+       "location"
+      ],
+      "title": "Sort",
+      "type": "string",
+      "x-text": "code"
+     },
+     "total": {
+      "minimum": 0.0,
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "total",
+     "count",
+     "sort",
+     "order",
+     "filters",
+     "columns",
+     "rows"
+    ],
+    "title": "SearchPage",
+    "type": "object"
+   },
    "SectionSource": {
     "additionalProperties": false,
     "description": "Who answers one kind of data for one company: our data, or one\nplugin; a profile's parts and a job's pay.",
@@ -28394,6 +28722,93 @@
     "title": "VocabFacetOption",
     "type": "object"
    },
+   "VocabularyEntry": {
+    "additionalProperties": false,
+    "properties": {
+     "also": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Also",
+      "type": "array",
+      "x-text": "content"
+     },
+     "name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Name",
+      "x-text": "content"
+     },
+     "open_roles": {
+      "minimum": 0.0,
+      "title": "Open Roles",
+      "type": "integer"
+     },
+     "value": {
+      "title": "Value",
+      "type": "string",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "value",
+     "name",
+     "also",
+     "open_roles"
+    ],
+    "title": "VocabularyEntry",
+    "type": "object"
+   },
+   "VocabularyPage": {
+    "additionalProperties": false,
+    "properties": {
+     "count": {
+      "minimum": 0.0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/VocabularyEntry"
+      },
+      "title": "Items",
+      "type": "array"
+     },
+     "kind": {
+      "enum": [
+       "company",
+       "family",
+       "level_band",
+       "track",
+       "workplace_type",
+       "domain",
+       "location"
+      ],
+      "title": "Kind",
+      "type": "string",
+      "x-text": "code"
+     },
+     "total": {
+      "minimum": 0.0,
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "kind",
+     "total",
+     "count",
+     "items"
+    ],
+    "title": "VocabularyPage",
+    "type": "object"
+   },
    "WiderMarketPass": {
     "additionalProperties": false,
     "description": "The background scan's first read of the wider market: how many companies\nit has read, of how many, and how many of them hire for the radar.",
@@ -28513,6 +28928,350 @@
      "agent"
     ],
     "x-operation": "describe"
+   }
+  },
+  "/api/agent/v1/opportunities": {
+   "get": {
+    "operationId": "opportunity_search_api_agent_v1_opportunities_get",
+    "parameters": [
+     {
+      "description": "Words to search for, as in the Board's search box.",
+      "in": "query",
+      "name": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 200,
+         "minLength": 1,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Query"
+      }
+     },
+     {
+      "description": "Companies, by slug or name; repeat for more.",
+      "in": "query",
+      "name": "company",
+      "required": false,
+      "schema": {
+       "items": {
+        "maxLength": 200,
+        "minLength": 1,
+        "type": "string"
+       },
+       "maxItems": 50,
+       "title": "Company",
+       "type": "array"
+      }
+     },
+     {
+      "description": "Role families, by slug or name.",
+      "in": "query",
+      "name": "family",
+      "required": false,
+      "schema": {
+       "items": {
+        "maxLength": 200,
+        "minLength": 1,
+        "type": "string"
+       },
+       "maxItems": 50,
+       "title": "Family",
+       "type": "array"
+      }
+     },
+     {
+      "description": "Level bands, such as senior or staff.",
+      "in": "query",
+      "name": "level_band",
+      "required": false,
+      "schema": {
+       "items": {
+        "maxLength": 200,
+        "minLength": 1,
+        "type": "string"
+       },
+       "maxItems": 50,
+       "title": "Level Band",
+       "type": "array"
+      }
+     },
+     {
+      "description": "Tracks, such as ic or management.",
+      "in": "query",
+      "name": "track",
+      "required": false,
+      "schema": {
+       "items": {
+        "maxLength": 200,
+        "minLength": 1,
+        "type": "string"
+       },
+       "maxItems": 50,
+       "title": "Track",
+       "type": "array"
+      }
+     },
+     {
+      "description": "onsite, remote, hybrid or unknown.",
+      "in": "query",
+      "name": "workplace_type",
+      "required": false,
+      "schema": {
+       "items": {
+        "maxLength": 200,
+        "minLength": 1,
+        "type": "string"
+       },
+       "maxItems": 50,
+       "title": "Workplace Type",
+       "type": "array"
+      }
+     },
+     {
+      "description": "Domains (worlds), by slug or name.",
+      "in": "query",
+      "name": "domain",
+      "required": false,
+      "schema": {
+       "items": {
+        "maxLength": 200,
+        "minLength": 1,
+        "type": "string"
+       },
+       "maxItems": 50,
+       "title": "Domain",
+       "type": "array"
+      }
+     },
+     {
+      "description": "Places, by slug or a name people use, such as London or USA.",
+      "in": "query",
+      "name": "location",
+      "required": false,
+      "schema": {
+       "items": {
+        "maxLength": 200,
+        "minLength": 1,
+        "type": "string"
+       },
+       "maxItems": 50,
+       "title": "Location",
+       "type": "array"
+      }
+     },
+     {
+      "description": "Lowest yearly base in US dollars, as the Board's pay filter.",
+      "in": "query",
+      "name": "base_pay_min",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maximum": 100000000,
+         "minimum": 0,
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Base Pay Min"
+      }
+     },
+     {
+      "description": "Highest yearly base in US dollars.",
+      "in": "query",
+      "name": "base_pay_max",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maximum": 100000000,
+         "minimum": 0,
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Base Pay Max"
+      }
+     },
+     {
+      "description": "Lowest estimated pay: the estimated total, else the estimated base.",
+      "in": "query",
+      "name": "minimum_estimated_pay",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maximum": 100000000,
+         "minimum": 0,
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Minimum Estimated Pay"
+      }
+     },
+     {
+      "description": "Only postings that state a pay band.",
+      "in": "query",
+      "name": "discloses_pay",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Discloses Pay",
+       "type": "boolean"
+      }
+     },
+     {
+      "description": "Only roles the person saved.",
+      "in": "query",
+      "name": "saved_only",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Saved Only",
+       "type": "boolean"
+      }
+     },
+     {
+      "description": "Only postings listed within this many days, by the age each row shows.",
+      "in": "query",
+      "name": "listed_within_days",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maximum": 3650,
+         "minimum": 1,
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Listed Within Days"
+      }
+     },
+     {
+      "description": "Default: best_match with a query, else newest.",
+      "in": "query",
+      "name": "sort",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "best_match",
+          "newest",
+          "age",
+          "pay",
+          "estimated_pay",
+          "level",
+          "company",
+          "title",
+          "location"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Sort"
+      }
+     },
+     {
+      "description": "Ignored by best_match.",
+      "in": "query",
+      "name": "order",
+      "required": false,
+      "schema": {
+       "default": "desc",
+       "enum": [
+        "asc",
+        "desc"
+       ],
+       "title": "Order",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Most rows on one page.",
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 20,
+       "maximum": 100,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     },
+     {
+      "description": "The next_cursor of the previous page, read with the same filters and sort.",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 512,
+         "minLength": 1,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     },
+     {
+      "description": "The caller's tool tier, which bounds the page.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_SearchPage_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Opportunity Search",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "opportunities.search"
    }
   },
   "/api/agent/v1/opportunities/{opportunity_id}": {
@@ -29210,6 +29969,100 @@
      "agent"
     ],
     "x-operation": "status"
+   }
+  },
+  "/api/agent/v1/vocabulary": {
+   "get": {
+    "operationId": "vocabulary_list_api_agent_v1_vocabulary_get",
+    "parameters": [
+     {
+      "description": "The filter whose accepted values to list.",
+      "in": "query",
+      "name": "kind",
+      "required": true,
+      "schema": {
+       "enum": [
+        "company",
+        "family",
+        "level_band",
+        "track",
+        "workplace_type",
+        "domain",
+        "location"
+       ],
+       "title": "Kind",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Only values whose value or a name contains this, ignoring case and separators.",
+      "in": "query",
+      "name": "contains",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 100,
+         "minLength": 1,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Contains"
+      }
+     },
+     {
+      "description": "Values on one page.",
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 100,
+       "maximum": 500,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     },
+     {
+      "description": "The next_cursor of the previous page, read with the same kind and contains.",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 512,
+         "minLength": 1,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_VocabularyPage_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Vocabulary List",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "vocabulary.list"
    }
   },
   "/api/applications": {
