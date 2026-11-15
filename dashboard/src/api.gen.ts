@@ -6996,6 +6996,11 @@ export interface components {
             market_gap: components["schemas"]["CompMarketGap"] | null;
             /** No Split Reason */
             no_split_reason: ("basis_unclear" | "hourly" | "monthly" | "period_unclear" | "employee_election" | "total_compensation" | "plugin_without_split" | "plugin_not_covered" | "not_us_pay" | "level_unplaced") | null;
+            /**
+             * On Target Earnings
+             * @default false
+             */
+            on_target_earnings: boolean;
             /** Pay Period */
             pay_period: string | null;
             policy: components["schemas"]["OfferPolicy"] | null;
@@ -7015,6 +7020,7 @@ export interface components {
             state: "unchecked" | "none_stated" | "band";
             stated: components["schemas"]["CompRange"] | null;
             total: components["schemas"]["CompTotal"] | null;
+            yearly_base?: components["schemas"]["CompRange"] | null;
         };
         /**
          * JobDetailResponse
@@ -9210,6 +9216,8 @@ export interface components {
         OpportunitySummary: {
             /** Company */
             company: string;
+            /** Continue With */
+            continue_with?: components["schemas"]["NextAction"][];
             employer_stated_pay: components["schemas"]["EmployerStatedPay"] | null;
             /** Estimate Component */
             estimate_component: string | null;

@@ -22,7 +22,7 @@ about this product: they never need to know what a scraper or a sync is. They
 already have words for what it does (*role*, *posting*, *saved*, *applied*,
 *level*, *not for me*). RoleBand uses their words and never makes them learn ours.
 
-### The seven rules
+### The eight rules
 
 1. **One thing, one word. One word, one thing.** A concept has one noun, one verb
    and one adjective, fixed across the product. A screen never renames it because
@@ -55,6 +55,14 @@ already have words for what it does (*role*, *posting*, *saved*, *applied*,
    RoleBand*). *We* is the people behind the project and appears only where they
    ask for something (*Help us improve*). Data that ships with the app is
    **built-in data**, set against a plugin's.
+8. **Never tell people what they already know.** A line earns its place only
+   if it adds something the screen does not already show. The person remembers
+   their own settings, and a figure on screen speaks for itself: no line
+   restates a minimum base against a pay range, repeats a number in words, or
+   confirms a choice the person can see they made. When the same fact is on
+   screen twice, cut the copy, not the figure. Nor does a line explain what the
+   app did not compute or has not reached yet ("US data only", "not checked
+   yet"): that describes the app, not the job. Show less and say nothing.
 
 The metaphor is **radar**. It gives the product one place-word that is not the
 object (*on your radar* is not *a role*), one verb for what RoleBand does

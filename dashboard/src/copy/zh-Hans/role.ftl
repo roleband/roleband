@@ -1,15 +1,9 @@
 ## role：按原样迁移（wording=as-is）
 
 ## features/job-detail/JobCompPanel.tsx
-role-job-comp-panel-no-compensation-data-for-this = 这个职位没有薪酬数据。
-role-job-comp-panel-market-median-at-this-level = 该级别市场中位数
-role-job-comp-panel-this-package-is-the-market = 该估算是该级别市场中位数的 { $toFixed } 倍，通常说明级别或职能有误。
 role-job-comp-panel-base = 基本工资
-role-job-comp-panel-this-employer-publishes-no-pay = 该雇主未公布薪酬区间。以下内容均为估算。
-role-job-comp-panel-we-have-not-checked-this = 还没有检查这条招聘信息是否公布了薪酬区间。
 role-job-comp-panel-stated = 已注明
 role-job-comp-panel-estimated = 估算
-role-job-comp-panel-our-independent-estimate-of-total = 总薪酬的独立估算：{ $range }
 role-job-comp-panel-from-the-posting-s-pay = 来自招聘信息的薪酬字段，而非正文。
 role-job-comp-panel-bonus = 奖金
 role-job-comp-panel-equity = 股权
@@ -27,18 +21,11 @@ role-job-comp-panel-posted-band-sits-well-below = 公布的区间远低于这家
 role-job-comp-panel-yr = / 年
 role-job-comp-panel-mo = / 月
 role-job-comp-panel-hr = / 小时
-role-job-comp-panel-hourly-rate = 时薪
-role-job-comp-panel-the-posting-gives-an-hourly = 招聘信息给出的是时薪，按原样显示。
-role-job-comp-panel-monthly-rate = 月薪
-role-job-comp-panel-the-posting-gives-a-monthly = 招聘信息给出的是月薪，按原样显示。
-role-job-comp-panel-period-unclear = 计薪周期不明
-role-job-comp-panel-the-posting-s-wording-and = 无法判断这是按小时、按月还是按年。请查看下方雇主的原话。
+role-job-comp-panel-the-posting-s-wording-and = 无法判断这是按月还是按年。请查看下方雇主的原话。
 role-job-comp-panel-states-this-as-total-annual = { $company } 让每位员工自行选择基本工资与股权的比例，因此没有固定构成。
-role-job-comp-panel-employee-selected-mix = 比例由你选择
 role-job-comp-panel-total-compensation = 总薪酬
-role-job-comp-panel-the-posting-states-total-compensation = 招聘信息注明了总薪酬，但没有构成明细，因此不显示明细。
 role-job-comp-panel-basis-not-stated = 口径未注明
-role-job-comp-panel-the-posting-states-this-figure = 招聘信息没有说明这个数字是基本工资还是总薪酬，因此不拆分为基本工资、奖金和股权。
+role-job-comp-panel-the-posting-states-this-figure = 招聘信息没有说明这是基本工资还是总薪酬。
 role-job-comp-panel-estimated-total-package = { $choice ->
     [yes] 公布的总薪酬
    *[no] 估算总薪酬
@@ -242,10 +229,6 @@ role-listing-age-reposted = { $choice ->
 role-listing-age-still-listed-at-the-last = 上次扫描时仍在发布
 role-listing-age-events = 事件
 
-## features/job-detail/PayFloorLine.tsx
-role-pay-floor-line-your-pay-floor-falls-inside = 你的最低基本工资 { $floor } 落在这个区间内
-role-pay-floor-line-below-your-pay-floor = 低于你的最低基本工资 { $floor }
-
 ## features/job-detail/PlaceSetSection.tsx
 role-place-set-section-could-not-load-this-role = 无法加载这个职位的其他地点。请重试。
 role-place-set-section-you-marked-this-posting-as = 你已将这条招聘信息标为不同职位，有别于其他地点的相同文本
@@ -330,12 +313,12 @@ role-place-set-section-states-pay = · 公布 { $range }
 role-place-set-section-states-no-pay = · 未公布区间
 
 ## 选择阶段的作用。
-role-job-comp-panel-estimate-of-total = 估算总薪酬：{ $range }
-role-job-comp-panel-split-not-reported = 无构成数据
-role-job-comp-panel-the-plugin-reports-no-split = 薪酬插件没有给出这个级别的基本工资、奖金和股权构成。
-role-job-comp-panel-roleband-splits-us-pay-only = 薪酬仅依据美国数据拆分为基本工资、奖金和股权。此职位在美国以外或跨多个国家，因此不做拆分。
-role-job-comp-panel-level-not-stated-or-mapped = 没有标准级别时，不估算构成或总额。
-role-job-comp-panel-not-read-yet = 尚未读取
+role-job-comp-panel-base-from-posted-rate = 按公布费率折算的基本工资
+role-job-comp-panel-posted-as = { $choice ->
+    [hour] 公布为 { $rate }，按全职计
+   *[other] 公布为 { $rate }
+}
+role-job-comp-panel-on-target-earnings = 目标收入（基本工资 + 佣金）
 role-job-comp-panel-estimated-base = 估算基本工资
 role-job-detail-could-not-unsave-this-role = { $choice ->
     [yes] 无法保存这个职位

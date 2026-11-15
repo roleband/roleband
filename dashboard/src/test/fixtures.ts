@@ -110,6 +110,8 @@ export function compPackageFixture(overrides: Partial<JobCompPackage> = {}): Job
     no_split_reason: null,
     snippet: null,
     confidence: null,
+    yearly_base: null,
+    on_target_earnings: false,
     policy: {
       verified: false,
       bonus_rule: null,

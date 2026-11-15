@@ -1,30 +1,16 @@
 ## role: moved as it was found (wording=as-is)
 
 ## features/job-detail/JobCompPanel.tsx
-# kind=sentence wording=as-is
-role-job-comp-panel-no-compensation-data-for-this = No compensation data for this role.
-# kind=label wording=as-is
-role-job-comp-panel-market-median-at-this-level = Market median at this level
-# kind=sentence
-role-job-comp-panel-this-package-is-the-market = This estimate is { $toFixed }× the market median for this level, usually a sign the level or the discipline is wrong.
 # kind=label wording=as-is
 role-job-comp-panel-base = Base
 # kind=label note="Names the help mark beside the line above"
 role-job-comp-panel-about-base-salary = About base salary
 # kind=tooltip note="What base salary is, for a reader the line beside it assumes too much of"
 role-job-comp-panel-base-salary-is-the-fixed = Base salary is the fixed cash a role pays in a year, before any bonus or equity.
-# kind=sentence
-role-job-comp-panel-this-employer-publishes-no-pay = This employer posts no range. Everything below is an estimate.
-# kind=sentence
-role-job-comp-panel-we-have-not-checked-this = This posting hasn't been checked for a posted range yet.
 # kind=label wording=as-is
 role-job-comp-panel-stated = stated
 # kind=label wording=as-is
 role-job-comp-panel-estimated = estimated
-# kind=status
-role-job-comp-panel-our-independent-estimate-of-total = Independent estimate of total compensation: { $range }
-# kind=label note="Beside an employer's stated pay while a plugin answers pay: the plugin's estimate, never called ours"
-role-job-comp-panel-estimate-of-total = Estimated total compensation: { $range }
 # kind=sentence
 role-job-comp-panel-from-the-posting-s-pay = From the posting's compensation field, not its text.
 # kind=label wording=as-is
@@ -61,42 +47,16 @@ role-job-comp-panel-yr = / yr
 role-job-comp-panel-mo = / mo
 # kind=label wording=as-is
 role-job-comp-panel-hr = / hr
-# kind=label wording=as-is
-role-job-comp-panel-hourly-rate = hourly rate
 # kind=sentence
-role-job-comp-panel-the-posting-gives-an-hourly = The posting gives an hourly rate, shown as stated.
-# kind=label wording=as-is
-role-job-comp-panel-monthly-rate = monthly rate
-# kind=sentence
-role-job-comp-panel-the-posting-gives-a-monthly = The posting gives a monthly rate, shown as stated.
-# kind=label wording=as-is
-role-job-comp-panel-period-unclear = period unclear
-# kind=sentence
-role-job-comp-panel-the-posting-s-wording-and = It's unclear whether this is per hour, month or year. See the employer's own words below.
+role-job-comp-panel-the-posting-s-wording-and = It's unclear whether this is per month or per year. See the employer's own words below.
 # kind=sentence
 role-job-comp-panel-states-this-as-total-annual = { $company } lets each person pick their own mix of base salary and equity, so there's no fixed split.
-# kind=label note="Tag on an employer's pay figure that is not split: each employee chooses how much is salary and how much is stock"
-role-job-comp-panel-employee-selected-mix = you choose the mix
 # kind=label wording=as-is
 role-job-comp-panel-total-compensation = total compensation
-# kind=sentence
-role-job-comp-panel-the-posting-states-total-compensation = The posting states total compensation without a breakdown, so none is shown.
 # kind=label wording=as-is
 role-job-comp-panel-basis-not-stated = basis not stated
 # kind=sentence
-role-job-comp-panel-the-posting-states-this-figure = The posting doesn't say whether this figure is base salary or total compensation, so it isn't split into base, bonus and equity.
-# kind=label note="No base, bonus and stock split for this level: the plugin answering pay states none, or the role's pay is outside the US pay RoleBand splits"
-role-job-comp-panel-split-not-reported = split unavailable
-# kind=sentence note="A plugin answers pay; RoleBand's own split is never put under its figure"
-role-job-comp-panel-the-plugin-reports-no-split = The compensation plugin gives no base, bonus and equity split for this level.
-# kind=sentence note="RoleBand's own split is measured on US pay; this posting is in another country, or names places in several"
-role-job-comp-panel-roleband-splits-us-pay-only = Compensation is split into base, bonus and equity from US data only. This role is outside the US or in several countries, so it isn't split.
-# kind=sentence note="The posting names no level, or one in the company's own terms not yet mapped to the shared levels: its pay is shown as posted, with no estimated bonus, equity or total"
-role-job-comp-panel-level-not-stated-or-mapped = Without a standard level, no split or total is estimated.
-# kind=label note="A plugin answers pay app-wide and has not read this posting's company yet"
-role-job-comp-panel-not-read-yet = not read yet
-# kind=sentence note="Why the pay panel shows no figure: the posting gives none and nothing was estimated"
-role-job-comp-panel-pay-unknown-why = The posting gives no pay figure, and there is not enough data to estimate one.
+role-job-comp-panel-the-posting-states-this-figure = The posting doesn't say whether this is base salary or total compensation.
 # kind=label
 role-job-comp-panel-estimated-total-package = { $choice ->
     [yes] Posted total compensation
@@ -168,8 +128,15 @@ role-job-detail-pager-place = { $place } of { $count }
 role-job-detail-pager-previous = Previous in the list
 # kind=aria note="Button: opens the posting after this one in the list"
 role-job-detail-pager-next = Next in the list
-# kind=label note="Kicker over the next posting's title, at the end of a posting opened from a list"
-role-job-detail-next-posting = Next posting
+# kind=label note="Kicker over the suggestion to apply, at the end of a posting"
+role-job-detail-apply-kicker = Next step
+# kind=label note="Link at the end of a posting: saves the role and opens the pipeline list in a new tab"
+role-job-detail-apply-title = Apply for this role
+# kind=label note="Under the suggestion to apply: yes when the role is already saved"
+role-job-detail-apply-meta = { $choice ->
+    [yes] Already in your pipeline
+   *[no] Saves to your pipeline
+}
 # kind=tooltip
 role-job-detail-compare-is-full-max = Compare is full: { $compareCap } at most
 # kind=label wording=as-is
@@ -446,14 +413,6 @@ role-listing-age-still-listed-at-the-last = Still listed at the last scan
 # kind=aria wording=as-is
 role-listing-age-events = Events
 
-## features/job-detail/PayFloorLine.tsx
-# kind=status
-role-pay-floor-line-clears-your-pay-floor = Clears your { $floor } minimum base
-# kind=status
-role-pay-floor-line-your-pay-floor-falls-inside = Your { $floor } minimum base falls inside this range
-# kind=status
-role-pay-floor-line-below-your-pay-floor = Below your { $floor } minimum base
-
 ## features/job-detail/PlaceSetSection.tsx
 # kind=sentence
 role-place-set-section-could-not-load-this-role = Couldn't load this role's other places. Try again.
@@ -572,13 +531,19 @@ role-job-status-open = open
 role-job-status-closed = closed
 
 ## The base-only estimate
+# kind=heading note="Heading over a yearly base salary worked out from the posting's hourly or monthly rate"
+role-job-comp-panel-base-from-posted-rate = Base salary from the posted rate
+# kind=heading note="Under that yearly figure: the rate as the posting gives it, with its unit; at 40 hours a week for an hourly rate"
+role-job-comp-panel-posted-as = { $choice ->
+    [hour] Posted as { $rate }, full time
+   *[other] Posted as { $rate }
+}
+# kind=heading note="Heading over a posted range the employer calls on-target earnings: base plus commission at target, no equity"
+role-job-comp-panel-on-target-earnings = On-target earnings (base + commission)
 # kind=label
 role-job-comp-panel-estimated-base = Estimated base salary
-# kind=sentence note="Under an estimated base salary, the only figure known; none = the posting states no range"
-role-job-comp-panel-base-only = { $choice ->
-    [none] No range in the posting. Bonus and equity unknown.
-   *[other] Bonus and equity unknown.
-}
+# kind=sentence note="Under an estimated base salary, the only figure known"
+role-job-comp-panel-base-only = Bonus and equity unknown.
 
 ## Who supplied the split
 # kind=sentence

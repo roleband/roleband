@@ -41,7 +41,8 @@ def posting(**updates):
     {"disclosed_pay_basis": "total"}, {"disclosed_pay_basis": "unclear"},
     {"disclosed_currency": "CAD"}, {"location_groups": []},
     {"location_groups": ["united_states", "canada"]},
-    {"disclosed_pay_period": "hour"}, {"disclosed_base_max": None},
+    {"disclosed_pay_period": "hour", "disclosed_base_min": 60, "disclosed_base_max": 90},
+    {"disclosed_base_max": None},
     {"disclosed_base_min": 300000}, {"disclosed_confidence": "low"},
     {"disclosed_base_min": 100, "disclosed_base_max": 200},
 ])

@@ -404,6 +404,13 @@ class JobCompPackage(Built):
     policy: OfferPolicy | None
     #: Only where no total is estimated: the base we can estimate.
     base_estimate: CompBaseEstimate | None = None
+    #: The posting's hourly or monthly rate as a full-time year (2,080 hours, or
+    #: twelve months): a base salary, never a total. Null for any other period.
+    yearly_base: CompRange | None = None
+    #: A stated total the posting calls on-target earnings: base plus
+    #: commission at target, with no equity in it. Read from the posting's text,
+    #: so only Job detail, which loads it, can set it.
+    on_target_earnings: bool = False
 
 
 class JobLifecycleEntry(Built):

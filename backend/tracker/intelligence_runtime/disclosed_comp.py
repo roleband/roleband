@@ -36,10 +36,12 @@ from datetime import datetime
 from sqlalchemy import and_, false, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tracker.connectors.detail.ashby import years_in_quote
 from tracker.connectors.detail.base import PAY_SECTION_KEY
 from tracker.db.ids import among
 from tracker.db.models import Job, JobLifecycleEvent
 from tracker.db.pay_band import BandChange, apply_band, pay_place_key
+from tracker.db.session import commit_in_batches
 from tracker.enrich.classify import first_place, specific_places
 from tracker.intelligence.extract import EXTRACTOR, EXTRACTOR_ID, TASK
 from tracker.intelligence.prefilter import has_pay_pattern
@@ -52,7 +54,13 @@ from tracker.pay_disclosure import (
     extract_grounded_band,
     settle_band,
 )
-from tracker.pay_period import effective_period
+from tracker.pay_period import (
+    PayPeriod,
+    decide_period,
+    effective_period,
+    size_classes,
+    size_settles,
+)
 from tracker.settings_store import get_active_prompt_version
 from tracker.taxonomy.locations import pay_country
 
@@ -446,12 +454,13 @@ def corrected_band(
       range, or nothing found): the row is left as it is. A band is never
       removed here; the read-time guard keeps showing it as "could not tell".
 
-    A stored `unclear` is never a candidate: it is what the rule itself writes
-    when the words contradict the size, so re-reading it every run could only
-    write it again.
+    A stored `unclear` is a candidate only when its size settles it (an amount
+    only a year can hold, `size_settles`): otherwise it is what the rule itself
+    writes when the words contradict the size, so re-reading it every run
+    could only write it again.
     """
     low, high, currency, period = stored
-    if effective_period(period, low, high, currency) == period:
+    if effective_period(period, low, high, currency) == period and not size_settles(period, low, high, currency):
         return None
     if reread is None or not reread.disclosed or reread.base_min is None or reread.base_max is None:
         return None
@@ -471,6 +480,40 @@ def corrected_band(
     return None
 
 
+def multi_year_share(
+    stored: tuple[int | None, int | None, str | None, str | None], quote: str | None,
+) -> dict | None:
+    """The `disclosed_*` columns that turn a stored band stated over several
+    years into one year's share, or None.
+
+    Only a stored `unclear` whose quote names the years ("$180,000 - $220,000
+    per 2 years"): the Ashby connector divides such a band as it reads it, and
+    a band it stored whole is salary-sized by its size alone. Every division
+    writes `year`, which is never divided again; a share no year can hold is
+    left whole and `unclear`.
+    """
+    low, high, currency, period = stored
+    years = years_in_quote(quote, low, high)
+    if period != PayPeriod.unclear.value or years <= 1 or (low is None and high is None):
+        return None
+    share_low = low // years if low is not None else None
+    share_high = high // years if high is not None else None
+    decided = decide_period(
+        size_classes(share_low, share_high, currency), PayPeriod.year, structured=True,
+    )
+    if decided is not PayPeriod.year:
+        return None
+    return {
+        "disclosed_base_min": share_low,
+        "disclosed_base_max": share_high,
+        "disclosed_pay_period": decided.value,
+    }
+
+
+#: Rows corrected per committed batch: each loads its posting text.
+_PERIOD_BATCH = 200
+
+
 async def correct_pay_periods(session: AsyncSession) -> dict:
     """Rewrite stored periods the period rule shows to be wrong.
 
@@ -482,40 +525,49 @@ async def correct_pay_periods(session: AsyncSession) -> dict:
     Narrow columns first, so the full text is loaded only for
     the rows whose stored period contradicts their amount; once corrected, a
     row stops being a candidate and the pass writes nothing.
+    A change to the period rule can make much of the table a candidate at
+    once, so each batch commits on `session`: a killed run keeps the batches
+    it saved, and the next run's candidates are the rows it did not reach.
     """
     rows = (
         await session.execute(
             select(
                 Job.id, Job.disclosed_base_min, Job.disclosed_base_max,
-                Job.disclosed_currency, Job.disclosed_pay_period,
+                Job.disclosed_currency, Job.disclosed_pay_period, Job.disclosed_snippet,
             ).where(or_(Job.disclosed_base_min.isnot(None), Job.disclosed_base_max.isnot(None)))
+            .order_by(Job.id)
         )
     ).all()
-    candidates = [
-        row.id for row in rows
-        if effective_period(
-            row.disclosed_pay_period, row.disclosed_base_min,
-            row.disclosed_base_max, row.disclosed_currency,
-        ) != row.disclosed_pay_period
-    ]
+    candidates = []
+    for row in rows:
+        stored = (row.disclosed_base_min, row.disclosed_base_max,
+                  row.disclosed_currency, row.disclosed_pay_period)
+        if (
+            effective_period(row.disclosed_pay_period, *stored[:3]) != row.disclosed_pay_period
+            or size_settles(row.disclosed_pay_period, *stored[:3])
+            or multi_year_share(stored, row.disclosed_snippet) is not None
+        ):
+            candidates.append(row.id)
     summary = {"candidates": len(candidates), "relabelled": 0, "amounts_fixed": 0, "kept": 0}
-    for start in range(0, len(candidates), 200):
-        for job in (await session.scalars(
-            select(Job).where(Job.id.in_(candidates[start:start + 200]))
-        )).all():
-            pay_text, _scope = pay_input_text(job)
-            reread = (
-                extract_grounded_band(
-                    pay_text, job.description_text or pay_text,
-                    place=first_place(job.locations or []), places_in=specific_places,
+
+    async def work(chunk_session: AsyncSession, ids: list[int]) -> int:
+        for job in (await chunk_session.scalars(select(Job).where(Job.id.in_(ids)))).all():
+            stored = (job.disclosed_base_min, job.disclosed_base_max,
+                      job.disclosed_currency, job.disclosed_pay_period)
+            change = multi_year_share(stored, job.disclosed_snippet)
+            # A band its quote states over several years whose share no year
+            # can hold stays as stored: a re-read sees the same amounts and
+            # would call the whole of them a year's pay.
+            if change is None and years_in_quote(job.disclosed_snippet, *stored[:2]) == 1:
+                pay_text, _scope = pay_input_text(job)
+                reread = (
+                    extract_grounded_band(
+                        pay_text, job.description_text or pay_text,
+                        place=first_place(job.locations or []), places_in=specific_places,
+                    )
+                    if pay_text.strip() else None
                 )
-                if pay_text.strip() else None
-            )
-            change = corrected_band(
-                (job.disclosed_base_min, job.disclosed_base_max,
-                 job.disclosed_currency, job.disclosed_pay_period),
-                reread,
-            )
+                change = corrected_band(stored, reread)
             if change is None:
                 summary["kept"] += 1
                 continue
@@ -528,5 +580,11 @@ async def correct_pay_periods(session: AsyncSession) -> dict:
             # restating it from somewhere else.
             job.structured_at = func.now()
             summary["amounts_fixed" if "disclosed_base_min" in change else "relabelled"] += 1
+        return len(ids)
+
+    await commit_in_batches(
+        candidates, work, size=_PERIOD_BATCH, label="pay periods", session=session,
+        report=lambda line: logger.info("pay period correction: %s", line),
+    )
     logger.info("pay period correction: %s", summary)
     return summary

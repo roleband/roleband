@@ -71,9 +71,13 @@ def test_a_unit_next_to_the_amount_outranks_a_general_word():
     assert band.pay_period is PayPeriod.month
 
 
-def test_a_word_that_contradicts_the_size_is_could_not_tell():
+def test_a_salary_sized_amount_is_yearly_whatever_word_sits_beside_it():
+    # Nobody earns $150,000 an hour: the size settles it.
     band = _band("Hourly rate: $150,000 - $200,000")
-    assert band.disclosed and band.pay_period is PayPeriod.unclear
+    assert band.disclosed and band.pay_period is PayPeriod.year
+    # Control: where month and year share the size, a contradicting word
+    # still leaves it unclear.
+    assert _band("Hourly rate: $10,000 - $12,000").pay_period is PayPeriod.unclear
 
 
 def test_the_label_reaches_back_to_the_start_of_the_amounts_sentence():
@@ -179,14 +183,14 @@ def test_senior_monthly_pay_above_ten_thousand_dollars_is_monthly():
         ), text
     # Controls: the month word decides only where month and year overlap. No
     # word there is still yearly, and a clearly yearly-sized amount with "per
-    # month" is still a contradiction.
+    # month" is a salary: only a year can hold it.
     assert _band("Salary: $12,000 - $15,000").pay_period is PayPeriod.year
-    assert _band("Base pay: $150,000 - $200,000 per month").pay_period is PayPeriod.unclear
+    assert _band("Base pay: $150,000 - $200,000 per month").pay_period is PayPeriod.year
 
 
-def test_a_day_or_week_unit_contradicts_the_size_instead_of_going_unread():
-    # Unread, "per week" left a salary-sized amount to its size: yearly.
-    assert _read("Salary: $150,000 - $200,000 per week") == (150_000, 200_000, PayPeriod.unclear)
+def test_a_day_or_week_unit_never_makes_a_small_rate_hourly_or_monthly():
+    # A salary-sized amount "per week" is a salary: no week pays $150,000.
+    assert _read("Salary: $150,000 - $200,000 per week") == (150_000, 200_000, PayPeriod.year)
     # In prose a day or week rate is never shown as hourly or monthly pay.
     assert _read("The day rate is $600 - $800 per day.") is None
     assert _read("Contract: $3,000 - $4,000 per week.") is None
@@ -275,7 +279,10 @@ def test_a_structured_pay_field_may_be_decided_by_size_alone():
     assert decide_period(PayPeriod.hour, None, structured=True) is PayPeriod.hour
     assert decide_period(PayPeriod.hour, None) is None  # free text: not pay
     assert decide_period(PayPeriod.year, None) is PayPeriod.year
-    assert decide_period(PayPeriod.year, PayPeriod.hour) is PayPeriod.unclear
+    # A size only a year can hold is yearly whatever the word says; where
+    # month and year share the size, a contradicting word leaves it unclear.
+    assert decide_period(PayPeriod.year, PayPeriod.hour) is PayPeriod.year
+    assert decide_period((PayPeriod.year, PayPeriod.month), PayPeriod.hour) is PayPeriod.unclear
     assert decide_period(None, PayPeriod.year) is None
 
 
@@ -285,14 +292,17 @@ def test_a_structured_pay_field_may_be_decided_by_size_alone():
 
 
 @pytest.mark.parametrize(("stored", "low", "high", "currency", "shown"), [
-    ("hour", 600_000, 1_066_000, "USD", "unclear"),  # Netflix, stored before this rule
+    # An amount only a year can hold is yearly whatever period was stored:
+    ("hour", 600_000, 1_066_000, "USD", "year"),  # Netflix, stored before this rule
+    ("month", 150_000, 200_000, "USD", "year"),
+    # A stored `unclear` stays unclear whatever its size: a band stated whole
+    # over two years is salary-sized too, and only the pass reads its quote.
+    ("unclear", 180_000, 220_000, "USD", "unclear"),
     ("year", 104, 165, "EUR", "unclear"),  # Elastic, stored before this rule
-    # A stored `unclear` is the rule's own "the words contradict the size"
-    # ("Base pay: $10,000 - $12,000 per month" against a month ceiling at the
-    # yearly floor):
-    # never promoted to a salary to split and compare with the pay floor.
-    ("unclear", 163_000, 236_000, "USD", "unclear"),
+    # A stored `unclear` the size does not settle stays unclear: month and
+    # year share it, or it may be a day or week rate.
     ("unclear", 10_000, 12_000, "USD", "unclear"),
+    ("unclear", 600, 800, "USD", "unclear"),
     (None, 163_000, 236_000, "USD", "year"),  # no period stored: the size reads
     ("hour", 59, 89, "USD", "hour"),
     ("month", 4_500, 5_500, "EUR", "month"),
@@ -353,12 +363,16 @@ def test_an_ashby_interval_we_do_not_show_is_could_not_tell():
         (600, 800, "1 DAY", "per day"),  # was stored hourly by its size
         (3_000, 4_000, "1 WEEK", "per week"),  # was stored monthly
         (5_000, 6_000, "2 WEEK", "per 2 weeks"),  # was stored monthly
-        (180_000, 220_000, "2 YEAR", "per 2 years"),  # a count other than one
     ):
         comp = _ashby(low, high, interval)
         assert comp.pay_period == "unclear", interval
         # The stored quote states the unit, so "could not tell" has its reason.
         assert unit in comp.source_snippet, interval
+    # A salary-sized amount over several years is that many years' pay: a
+    # year's share, its quote still naming the board's own interval.
+    comp = _ashby(180_000, 220_000, "2 YEAR")
+    assert (comp.base_min, comp.base_max, comp.pay_period) == (90_000, 110_000, "year")
+    assert "per 2 years" in comp.source_snippet
     # Control: only a missing interval lets the size decide alone.
     assert _ashby(45, 60, "NONE").pay_period == "hour"
     assert _ashby(45, 60, None).pay_period == "hour"

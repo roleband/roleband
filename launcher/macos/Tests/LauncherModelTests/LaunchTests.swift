@@ -63,11 +63,13 @@ private func launchDependencies(_ fixture: LaunchFixture, preferences: UserDefau
                                 host: OwnedEngineService? = nil) throws -> LauncherDependencies {
     let bundle = try #require(Bundle(url: fixture.app))
     let installation = try Installation.owned(bundle: bundle, port: 58319)
-    return LauncherDependencies(ownedEngine: host, registration: HomeLayout(fixture.home).registration,
+    var dependencies = LauncherDependencies(ownedEngine: host, registration: HomeLayout(fixture.home).registration,
         installation: .fixed(installation), readStatus: launchReply,
         openBrowser: { _ in true }, preferences: preferences,
         loginService: LoginService(state: { .off }, setEnabled: { _ in Issue.record("Unexpected login registration") }, openSettings: {}),
         bundleURL: fixture.app, homeURL: fixture.home)
+    dependencies.updates = .offline(preferences)
+    return dependencies
 }
 
 @MainActor

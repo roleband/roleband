@@ -71,7 +71,6 @@ export function JobRoute({ asOverlay = false }: { asOverlay?: boolean }) {
         count: postingList.length,
         onPrevious: at > 0 ? () => step(postingList[at - 1]) : undefined,
         onNext: at < postingList.length - 1 ? () => step(postingList[at + 1]) : undefined,
-        next: postingList[at + 1],
       }
     : undefined;
 

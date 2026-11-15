@@ -95,11 +95,13 @@ connection establishes a baseline per installation; newer installed releases
 remain unread until their notes are displayed. This local flow contacts no
 external update service.
 
-Native update checks use the public GitHub releases API only after an explicit
-choice. Automatic checks stay off until enabled. An explicit manual check
-authorizes one request independently of that setting; it neither changes an
-existing choice nor enables automatic checks. A default-off or declined choice
-prevents all passive requests. The native update interaction and
+Native update checks use the public GitHub releases API once a day unless the
+person turns automatic checks off ([decision 0019](decisions/0019-update-checks-on-by-default.md)).
+An install that never chose checks without recording a choice; turning the switch
+off or on records one. An explicit manual check authorizes one request
+independently of that setting and changes no choice. A choice to turn checks off,
+or a declined choice kept in older preferences, prevents all passive requests.
+The native update interaction and
 content rules are in [ui.md](ui.md#native-launcher-updates).
 Daily checks are throttled across restarts, including failed attempts; server
 rate limits also delay manual checks. Requests carry no credentials, refuse
@@ -1274,15 +1276,17 @@ Every other command is generated from that index (`backend/tracker/cli/commands.
 with no code per operation: an operation's dotted id is its words
 (`opportunities.search` is `roleband opportunities search`), a field its route
 takes in the path is a positional argument, every other scalar or list field is
-a flag, and `--input @FILE|-` gives the whole input as one JSON object instead,
-never together with a flag. The index carries each operation's route, and the
+a flag, and `--input @FILE|-` gives the input as one JSON object (a nested
+field, an explicit null). Arguments and flags add the fields that object leaves
+out; a field given both ways is refused, never resolved by precedence. The index carries each operation's route, and the
 export refuses an operation without one. Help builds from the index alone,
 without the engine's models or an HTTP library.
 `opportunities.search` (`backend/tracker/agents/operations/search.py`) runs the
 Board's query with its filters and sorts. A filter value is strict: one that
 matches no accepted spelling (`agents/operations/vocabulary.py`, listed by
 `vocabulary.list`) fails the search with the lookup to run, never an empty page.
-Its rows are a column table sized to the tool tier's budget; a page whose rows
+Its rows are a column table sized to the tool tier's budget; under a location
+filter a row names first a place the filter matched. A page whose rows
 outgrow it stops early with a `page_shortened` warning, and an offset cursor
 bound to the request and the workspace (`agents/operations/cursor.py`) continues it.
 `roleband connect claude-code|codex --print|--apply` (`backend/tracker/cli/connect.py`)
@@ -1298,7 +1302,9 @@ A read takes its input from the path and query; one that takes a document
 An answer that can grow past the caller's tool tier (the detail view of
 `opportunities.get`) is a typed excerpt marked `truncated`, never cut JSON.
 Its `continue_with` names the calls that read the rest (the description from
-a character on, the notes whole), so following them reads everything.
+a character on, the notes whole), so following them reads everything; the
+summary view's `continue_with` names the detail read the same way. `describe`
+of a partial id, such as a resource's name, lists the operations it starts.
 A list cursor (`pursuits.list`) resumes after its last row in the current
 order, with no snapshot; a whole list is read from the first page.
 Each read that replaces an MCP tool reuses that tool's query owner, and

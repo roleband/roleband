@@ -42,6 +42,7 @@ from tracker.analytics.posting_reality import listing_age
 from tracker.company_store import off_board_company_slugs
 from tracker.db.models import Favorite, Job, Pursuit
 from tracker.db.queries.jobs import apply_job_filters, list_rows, resolve_ordering
+from tracker.enrich.classify import location_slugs_for
 from tracker.pay_disclosure import disclosure_known
 from tracker.pay_period import effective_period
 from tracker.platform.util import MAX_WINDOW_DAYS
@@ -135,7 +136,8 @@ COLUMNS: tuple[str, ...] = (
 )
 
 #: One opportunity, positioned as `COLUMNS` names: its id; title; company
-#: slug; the first place it names and how many more; workplace type; level
+#: slug; the first place it names and how many more, where under a location
+#: filter the first is a place the filter matched; workplace type; level
 #: band; the listing age every surface shows, in days; the employer's stated
 #: pay; RoleBand's estimate; the person's mark.
 #:
@@ -251,7 +253,7 @@ async def search(
     ordered = await _ordered(session, board, sort=sort, order=order, query=params.query,
                              offset=offset, limit=params.limit, exact_seen=carried)
 
-    rows = await summary_rows(session, ordered.jobs, now=now)
+    rows = await summary_rows(session, ordered.jobs, now=now, places=frozenset(filters.get("location", ())))
     page = SearchPage(
         total=ordered.total,
         count=0,
@@ -351,9 +353,12 @@ async def _best_match(
 # --- rows -------------------------------------------------------------------- #
 
 
-async def summary_rows(session: AsyncSession, jobs: list[Job], *, now: datetime) -> list[SearchRow]:
+async def summary_rows(
+    session: AsyncSession, jobs: list[Job], *, now: datetime, places: frozenset[str] = frozenset()
+) -> list[SearchRow]:
     """Each posting as a search row, in the order given: what every read that
-    answers postings in the summary shape shows of one."""
+    answers postings in the summary shape shows of one. `places` puts a
+    location the search asked for first in a row's place."""
     ids = [job.id for job in jobs]
     saved: set[int] = set()
     stages: dict[int, str] = {}
@@ -365,16 +370,16 @@ async def summary_rows(session: AsyncSession, jobs: list[Job], *, now: datetime)
                 await session.execute(select(Pursuit.job_id, Pursuit.stage).where(Pursuit.job_id.in_(ids)))
             ).all()
         }
-    return [_row(job, saved=job.id in saved, stage=stages.get(job.id), now=now) for job in jobs]
+    return [_row(job, saved=job.id in saved, stage=stages.get(job.id), now=now, wanted=places) for job in jobs]
 
 
-def _row(job: Job, *, saved: bool, stage: str | None, now: datetime) -> SearchRow:
+def _row(job: Job, *, saved: bool, stage: str | None, now: datetime, wanted: frozenset[str] = frozenset()) -> SearchRow:
     listed_days = (
         listing_age(job.first_posted_at, job.first_seen, status=job.status, closed_at=job.closed_at, now=now)[1]
         if job.first_seen
         else None
     )
-    places = job.locations or []
+    places = _matched_first(job.locations or [], wanted)
     return (
         job.id,
         job.title,
@@ -388,6 +393,15 @@ def _row(job: Job, *, saved: bool, stage: str | None, now: datetime) -> SearchRo
         estimated_pay(job),
         stage or ("saved" if saved else None),
     )
+
+
+def _matched_first(places: list[str], wanted: frozenset[str]) -> list[str]:
+    """`places` with those that fall in a `wanted` location slug first, so a
+    row found by a posting's second place names that place, not its first."""
+    if not wanted:
+        return places
+    matched = [place for place in places if wanted.intersection(location_slugs_for([place]))]
+    return [*matched, *(place for place in places if place not in matched)]
 
 
 def stated_pay(job: Job) -> str | None:

@@ -2,9 +2,13 @@ import Foundation
 import LauncherCore
 import SwiftUI
 
+/// `undecided` is an install that never chose: it checks daily like `daily`, but records no
+/// choice, so only turning the switch off or on writes one. `declined`, which stored preferences
+/// can hold, allows explicit checks only.
 enum UpdateConsent: String {
     case undecided, daily, manual, declined
-    var permitsRequests: Bool { self == .daily || self == .manual }
+    var permitsRequests: Bool { self != .declined }
+    var checksDaily: Bool { self == .daily || self == .undecided }
 }
 
 @MainActor
@@ -69,8 +73,7 @@ final class LauncherUpdates: ObservableObject {
         preferences.set(version, forKey: "updateSuppressedVersion")
     }
     func text(_ key: String) -> String { copy.text(key) }
-    var needsChoice: Bool { consent == .undecided }
-    var automatic: Bool { consent == .daily }
+    var automatic: Bool { consent.checksDaily }
     func choose(_ choice: UpdateConsent, requestNotifications: Bool = true) {
         guard choice != .undecided, choice != consent else { return }
         let wording = text("update-automatic")
@@ -82,14 +85,14 @@ final class LauncherUpdates: ObservableObject {
         preferences.set("en", forKey: "updateConsentLocale")
         preferences.set(now(), forKey: "updateConsentAt")
         if requestNotifications { automaticChoiceChanged?(choice == .daily && notices) }
-        if choice == .daily { start() }
+        if automatic { start() }
     }
     func setAutomaticChecks(_ enabled: Bool, requestNotifications: Bool = true) {
         choose(enabled ? .daily : .manual, requestNotifications: requestNotifications)
     }
     func checkManually() { check(explicitlyRequested: true) }
     func start() {
-        guard consent == .daily else { return }
+        guard automatic else { return }
         check(automatic: true)
     }
     func stop() {
@@ -110,7 +113,7 @@ final class LauncherUpdates: ObservableObject {
         return max(attempt, blocked)
     }
     func check(automatic: Bool = false, explicitlyRequested: Bool = false) {
-        guard consent.permitsRequests || explicitlyRequested, !checking, !automatic || consent == .daily else { return }
+        guard consent.permitsRequests || explicitlyRequested, !checking, !automatic || self.automatic else { return }
         timer?.invalidate()
         let blocked = preferences.object(forKey: "updateBlockedUntil") as? Date ?? .distantPast
         guard now() >= blocked else { messageKey = "update-rate-limited"; schedule(); return }
@@ -167,7 +170,7 @@ final class LauncherUpdates: ObservableObject {
     }
     private func schedule() {
         timer?.invalidate()
-        guard consent == .daily else { return }
+        guard automatic else { return }
         let next = Timer(timeInterval: max(1, nextAutomatic.timeIntervalSince(now())), repeats: false) { [weak self] _ in
             Task { @MainActor in self?.start() }
         }

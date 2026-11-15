@@ -14,7 +14,7 @@ automatic-check and notices switches follow. The manual action works with automa
 checks off and leaves that choice unchanged. Show an up-to-date result only
 after a successful check; an unchecked state must not imply success.
 
-The login page and preferences use the same automatic-check toggle, initially off. The
+The login page and preferences use the same automatic-check toggle, initially on. The
 toggle remains visible after a change; no separate question or pair of choice
 buttons is needed. A routine update setting does not need a paragraph, privacy
 disclosure, provider name or network details,
@@ -62,10 +62,14 @@ the panel opens as a window. Until setup completes, it opens setup.
 
 The Scan tab draws the scan picture while the engine is healthy and has a scan
 to show: the companies in flight with their clocks, or the last scan's facts, the
-tank of roles found, and one schedule line. A scan goes on after its last company
+tank of roles found, and one schedule line. Company names and the last scan's
+facts start on the card's left edge, with the progress line and the schedule line;
+their channels leave from one column of dots. The tank's figure is every role the
+scan has found so far, so it never drops as a company finishes; under it, the roles
+from finished companies while others are still read. A scan goes on after its last company
 is read, and the picture names that step with the Radar's words: Adding the last
-roles, then Finishing up, with the companies scanned, the roles recorded and the
-scan's clock in place of a percent that has reached 100. A hold, an engine update or an engine
+roles, then Finishing up, with the companies scanned, the roles found and those
+still to add, and the scan's clock in place of a percent that has reached 100. A hold, an engine update or an engine
 without scan data keeps the status card, which says why. Companies needing
 attention are the Radar's to show: the panel neither lists nor marks them. Stopping
 lasts only while the stop request is in flight, because the engine ends the run
@@ -106,7 +110,7 @@ completion do not change login items. A copy that has never registered reads as
 off, not unavailable: macOS reports it as not found until the first registration.
 Show the actual approval state and an inline System Settings action when approval
 is needed. Automatic
-update checks start off and share the same explicit choice as Settings.
+update checks start on and share the same choice as Settings.
 
 Ready is a concise completion page with Open Radar as the primary action and
 Not now as the quiet secondary action. Omit repeated checklists, optional settings,
@@ -556,8 +560,8 @@ never a bare `<a target="_blank">`.
   click with `page.mouse`; Playwright refuses a locator click on a covered
   element.
 - **A whole-row target** (a notification row, a review option, the posting's
-  folding More like this heading, the next posting at a posting's end) is a bare
-  `<button>` carrying layout and no button chrome. It still owns hover,
+  folding More like this heading, the suggestion to apply at a posting's end) is a
+  bare `<button>` or link carrying layout and no button chrome. It still owns hover,
   focus and disabled, and its ring is drawn inside.
 - `src/test/control-inventory.test.ts` lists every class outside `src/ui/`
   that declares `cursor: pointer` and paints a box. A new name fails, and so
@@ -996,17 +1000,29 @@ its primary is View & apply, an anchor wearing the primary classes.
 - **The bar carries the role** once the posting's heading has left the scroll
   box: title, company and level in the bar's middle, at the heading's left
   edge. It is a copy for the eye (`aria-hidden`).
-- **The pay panel writes each figure once.** Under an estimated total, one
-  sentence says the base is the posting's own, and the base's figure stands
-  in the breakdown. When the employer's yearly base is all there is, it is
-  the headline under "Stated base salary", and the reason
-  there is no split follows as a note with no figure. The employer's figure
-  gets a box of its own only under a headline that is someone's estimate.
-- **A posting with no pay figure** keeps the panel as a short card: its
-  heading and one sentence of why (the plugin answering pay has not read the
-  company, the posting has not been read for pay yet, or it gives no figure
-  and nothing was estimated). No word stands in the figure's place, and
-  nothing describes a figure: no bar, no note. Nothing docks.
+- **The pay panel leads with the employer's figure and writes each figure
+  once.** A stated yearly base that is split leads as the total built on it,
+  "Estimated total compensation", with the base on its own line directly
+  under the headline, in the ink of the employer's figures. Any other figure
+  the posting states is the headline itself: a yearly base under "Stated base
+  salary", an hourly or monthly base rate as its full-time year under "Base
+  salary from the posted rate" with the rate as posted beneath it, a total
+  under "Posted total compensation" or, when the posting calls it so,
+  on-target earnings, and anything else as posted. An estimate with no
+  employer figure in it is the headline only when no figure was found in the
+  posting, and no line says the posting has none: "estimated" on the
+  headline and on every part already says the figure is ours, and the claim
+  would be false whenever the reader missed a figure. Where the posting or its employer is why
+  there is no split (a period or basis it leaves open, a mix each person
+  picks), one sentence says so, with no tag that says it again in two words.
+  Nothing is said that the headline already says (a rate, a stated total),
+  nor about what RoleBand does not compute: a level it cannot place, pay
+  outside the US, a plugin with no split, a posting not yet read for pay.
+- **A posting with no pay figure and no estimate** draws no panel, read for
+  pay or not; the person reads the posting itself below. The one exception is
+  a plugin answering pay that has not read the company: the panel is that one
+  line, with no heading, no word in the figure's place and no bar. Nothing
+  docks.
 - **One posting gives place to another in a cover that stays open**
   (`postingTurn.ts`): by the pager, or by a link on the posting, whether the
   cover is a dialog over a list or the page itself. Both route error
@@ -1048,10 +1064,13 @@ its primary is View & apply, an anchor wearing the primary classes.
   list's rows in order and carries them in history state; the bar's pager
   (and `j` / `k`) replaces the entry with the row on either side, so Back
   still returns to the list. The Board passes its page of rows; a posting
-  opened by link, or from inside another posting, has no pager. Under the
-  employer's text such a posting ends on the next row, named by its title,
-  company and place in the list (`.jd-end`): the whole block opens it, as
-  `j` does. The list's last row, and a posting with no list, end on nothing.
+  opened by link, or from inside another posting, has no pager.
+- **A posting ends on applying** (`.jd-end`), under the employer's text,
+  however it was opened. The step saves the role, then opens the pipeline
+  list in a new tab once the save has landed; a click and a middle click do
+  the same. A role already saved opens the list with no second write, and a
+  role already applied ends on nothing. The pager and `j` / `k` still move
+  to the next row.
 
 Job detail steps up on a wider window, by the width of its own scroll box
 (a container query, `posting`, so no window breakpoint is added) and never by
@@ -1259,7 +1278,7 @@ Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs
 | Axe in both themes | `a11y.spec.ts` |
 | Pay split bar: hatch strength, gaps, forced colours; the split label's help mark | `pay-split-bar.spec.ts` |
 | Visible primaries counted | `job-detail.spec.ts`, `profile.spec.ts` |
-| The posting's side column stays in view with no scroll of its own and keeps its first rows, folds More like this, and follows the description in one column; the pay panel's small copy grows with the scroll; a section's heading sticks; the bar carries the role; the pager steps through the list; the next posting turns in place, in one cover, with no loading line | `job-detail.spec.ts` |
+| The posting's side column stays in view with no scroll of its own and keeps its first rows, folds More like this, and follows the description in one column; the pay panel's small copy grows with the scroll; a section's heading sticks; the bar carries the role; the pager steps through the list; the posting ends on applying, which saves the role and opens the pipeline list in a new tab; the next posting turns in place, in one cover, with no loading line | `job-detail.spec.ts` |
 | A posting steps by its box's width alone: frame, columns and type together, the text across its column, the bar, menus and pop-ups at their size, nothing zoomed | `job-detail-steps.spec.ts` |
 | First-run setup | `routing/setupMode.test.tsx`, `features/scope/walk/Walk.test.tsx`, `features/companies/SetupCompanies.test.tsx`, `welcome.spec.ts` |
 | First-run setup magnification: the factor, window units, placed pop-ups, the planet's pointer | `features/scope/setupZoom.test.ts`, `features/scope/welcome/globeDrag.test.ts`, `setup-magnification.spec.ts`, `setup-magnification-webkit.spec.ts`, `setup-magnification-unhinted.spec.ts` |

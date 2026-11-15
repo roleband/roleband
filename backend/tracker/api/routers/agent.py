@@ -112,11 +112,15 @@ async def describe(
     wanted = op.input_as(DescribeInput).operation
     descriptor = CATALOG.get(wanted)
     if descriptor is None:
+        # A partial id, such as a resource's name, names the operations under it.
+        under = [entry.id for entry in CATALOG if entry.id.startswith(wanted)]
         raise OperationError(
             "unknown_operation",
-            "This engine offers no operation by that name.",
-            details={"operation": wanted},
-            next_actions=[NextAction(operation=CAPABILITIES.id, arguments={})],
+            f"This engine offers no operation by that name; {len(under)} start with it." if under
+            else "This engine offers no operation by that name.",
+            details={"operation": wanted, "candidates": under},
+            next_actions=[*(NextAction(operation=DESCRIBE.id, arguments={"operation": entry}) for entry in under),
+                          NextAction(operation=CAPABILITIES.id, arguments={})],
         )
     return op.ok(
         OperationDetail.model_validate(descriptor.full_entry(availability(descriptor, op.switches), source="engine"))

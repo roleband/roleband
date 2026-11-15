@@ -298,7 +298,46 @@ def test_the_shipped_skill_starts_from_capabilities_and_describe():
     text = SHIPPED_SKILL.read_text()
     assert text.startswith("---\nname: roleband\ndescription: ")
     assert "roleband capabilities" in text and "roleband describe OPERATION" in text
-    assert "version 1" in text
+    from tracker.cli.connect import SKILL_VERSION
+
+    assert f"<!-- roleband skill, version {SKILL_VERSION}." in text
+
+
+def _skill_commands() -> list[str]:
+    """Every whole `roleband ...` command line the skill shows, piped input
+    dropped, leaving out those with a placeholder (ID, OPERATION) or `...`,
+    and the mention of `roleband connect`, which the person runs, not the agent."""
+    import re
+
+    lines = []
+    for text in SHIPPED_SKILL.read_text().splitlines():
+        for span in re.findall(r"`([^`]+)`", text):
+            line = span.split("| ", 1)[-1]
+            words = line.split()
+            if (len(words) > 1 and words[0] == "roleband" and words[1] != "connect" and "..." not in line
+                    and not any(w.isupper() and w.isalpha() for w in words)):
+                lines.append(line)
+    return lines
+
+
+def test_every_command_the_skill_shows_is_one_the_client_takes():
+    """The skill's examples are what agents copy: each one parses, and its
+    clearing write sends the explicit null with the revision from its flag."""
+    import io
+
+    from tracker.cli import commands
+    from tracker.cli.main import build_parser
+
+    shown = _skill_commands()
+    assert any(line.startswith("roleband pursuits patch") for line in shown), shown
+    parser = build_parser()
+    for line in shown:
+        args = parser.parse_args(line.split()[1:])
+        generated = getattr(args, "generated", None)
+        if generated is not None and generated.operation == "pursuits.patch":
+            sent = commands.payload(generated, args, stdin=io.StringIO('{"next_action_due": null}'))
+            assert sent == {"next_action_due": None, "if_revision": 12, "opportunity_id": 4821}
+            assert generated.keyed and args.idempotency_key
 
 
 # --------------------------------------------------------------------------- #

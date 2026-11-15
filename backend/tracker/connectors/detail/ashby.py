@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 
 from tracker.connectors.detail.base import (
@@ -29,6 +30,36 @@ def _interval(raw: object) -> tuple[int, str] | None:
         return None
     unit = words[1].removesuffix("S")
     return (int(words[0]), unit) if unit in _UNITS else None
+
+
+_AMOUNT = r"(?:[$£€]\s*)?(\d[\d,]*(?:\.\d+)?)\s*([kKmM])?"
+#: The whole quote `_formatted_salary` writes for an amount stated over several
+#: years: an optional label of words alone, one amount or range, at most a
+#: currency code, then the count. "$180,000 - $220,000 per 2 years", "$180K - $220K USD per 2 years".
+_YEARS_QUOTE_RE = re.compile(
+    rf"(?:[^:;\n\d$£€]*:\s*)?{_AMOUNT}(?:\s*(?:-|–|—|to)\s*{_AMOUNT})?"
+    r"(?:\s+[A-Z]{3})?\s+per (\d+) years"
+)
+_SCALE = {"k": 1_000, "m": 1_000_000}
+
+
+def years_in_quote(quote: str | None, low: int | None, high: int | None) -> int:
+    """How many years a stored Ashby quote says the band `low`-`high` covers:
+    the count when the whole quote is that one band stated over several years,
+    as `_formatted_salary` writes it; 1 otherwise. A quote that states any
+    other figure or clause ("... per month; bonus $180,000 - $220,000 per 2
+    years") is not one band, so it divides nothing."""
+    match = _YEARS_QUOTE_RE.fullmatch((quote or "").strip())
+    if match is None:
+        return 1
+    *numbers, years = match.groups()
+    amounts = {
+        round(float(number.replace(",", "")) * _SCALE.get((scale or "").lower(), 1))
+        for number, scale in zip(numbers[::2], numbers[1::2], strict=True)
+        if number is not None
+    }
+    bounds = {bound for bound in (low, high) if bound is not None}
+    return int(years) if bounds and bounds <= amounts else 1
 
 
 def _stated_period(raw: object) -> PayPeriod | None:
@@ -96,6 +127,15 @@ def _source_disclosed_comp_from_salary(
         return None
     currency = salary.get("currencyCode")
     currency = currency if isinstance(currency, str) and currency else "USD"
+    # An amount stated over several years is that many years' pay, never one
+    # year's: the size rule alone would read "$180,000 per 2 years" as a
+    # $180,000 salary. A year's share is the figure, as a yearly band; the
+    # stored quote keeps the board's own words.
+    interval = _interval(salary.get("interval"))
+    years = interval[0] if interval is not None and interval[1] == "YEAR" and interval[0] > 1 else 1
+    if years > 1:
+        low = low / years if isinstance(low, (int, float)) else low
+        high = high / years if isinstance(high, (int, float)) else high
     # The board's own interval is a word next to the amount; a structured pay
     # field is pay by definition, so its size alone may decide when it states
     # no interval. "1 YEAR" on $45 reads `unclear`; "NONE" on
@@ -103,7 +143,7 @@ def _source_disclosed_comp_from_salary(
     decided = decide_period(
         size_classes(low if isinstance(low, (int, float)) else None,
                      high if isinstance(high, (int, float)) else None, currency),
-        _stated_period(salary.get("interval")),
+        PayPeriod.year if years > 1 else _stated_period(salary.get("interval")),
         structured=True,
     )
     if decided is None:
