@@ -389,6 +389,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Run `roleband`. A closed pipe ends it quietly with the outcome it had:
     closing the reader cancels nothing the engine accepted."""
     arguments = list(sys.argv[1:] if argv is None else argv)
+    for stream in (sys.stdout, sys.stderr):
+        _utf8(stream)
     real = sys.stdout
     guarded = _Guarded(real)
     # argparse prints --help to sys.stdout itself.
@@ -402,6 +404,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     if guarded.broken:
         _silence_stdout()
     return status
+
+
+def _utf8(stream: TextIO) -> None:
+    """Write UTF-8 whatever the platform's locale: an envelope is UTF-8 JSON,
+    and on Windows a pipe otherwise takes the ANSI code page, which cannot
+    encode most of the world's job titles."""
+    reconfigure = getattr(stream, "reconfigure", None)
+    if reconfigure is None:
+        return
+    try:
+        reconfigure(encoding="utf-8", errors="backslashreplace")
+    except (OSError, ValueError):
+        pass
 
 
 def _reader_gone(error: OSError) -> bool:
