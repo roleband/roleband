@@ -910,7 +910,9 @@ for the baseline. `backend/tests/test_upgrade_rehearsal.py` holds this boundary.
 **Restore.** `deploy/restore_db.sh` never writes into the live database. Every
 mode restores the dump in one transaction into a new, empty database, so
 `pg_restore` runs without `--clean`, and verifies a schema revision, postings and
-observations there. `--check` and `--into` stop at that copy. A restore that
+observations there. `--check` and `--into` stop at that copy, and a copy
+`--into` keeps gets a new workspace id, so an agent never takes it for the
+original; a restore over the live database keeps the dump's. A restore that
 names no target then swaps: it closes the live database to connections, renames
 it `<live>_before_<timestamp>` and gives the verified copy the live name, and it
 puts the first rename back if the second fails. The displaced database stays
@@ -1257,6 +1259,15 @@ agent switches in Settings admit them: a read needs `enabled`, a write also
 `allow_writes`, and with `enabled` off every operation is refused.
 `workspace_identity` holds the workspace's durable id, which these answers
 carry; it outlives engine restarts and updates, unlike the engine session id.
+A write route takes a JSON body and an idempotency key header, and runs through
+`OperationContext.write` (`backend/tracker/api/agent_operations.py`): the key is
+serialized and its receipt (`command_receipts`, `tracker/agents/receipts.py`)
+looked up before anything else, so an identical retry replays the committed
+result and another request under the key is `idempotency_conflict`; only a
+new execution checks the revision the caller read (`revision_conflict`), and
+the write, its event and the receipt commit together. `pursuits.revision`
+counts every write of a pursuit, the dashboard's included; the mapper advances
+it. The actor of an agent write comes from its principal, never its input.
 The client reads its bundled index, `backend/tracker/cli/operations.json`
 (`scripts.export_agent_operations`), for help and offline answers.
 `roleband connect claude-code|codex --print|--apply` (`backend/tracker/cli/connect.py`)

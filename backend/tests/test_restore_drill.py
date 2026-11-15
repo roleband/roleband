@@ -30,6 +30,7 @@ throwaway cluster, and HOME is the scratch root, so nothing can reach
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -112,6 +113,9 @@ _PSQL_STUB = "#!/bin/sh\n" + _LOG + """case "$*" in
   *"from job_observations"*)
     if [ -n "$FACTS_FAIL" ]; then echo 'ERROR:  relation "jobs" does not exist' >&2; exit 1; fi
     echo "$FACTS" ;;
+  *"public.workspace_identity"*) echo "${IDENTITY_TABLE:-f}" ;;
+  *"UPDATE workspace_identity"*)
+    if [ -n "$IDENTITY_FAIL" ]; then echo 'ERROR:  could not write' >&2; exit 1; fi ;;
   *'RENAME TO "roleband_before_'*)
     if [ -n "$SET_ASIDE_FAIL" ]; then echo 'ERROR:  database "roleband" is being accessed by other users' >&2; exit 1; fi ;;
 esac
@@ -253,6 +257,28 @@ class TestTargets:
         assert not [i for i in _drops(run, "drill_a") if i > restored]
         assert "drill passed" not in run.out
         assert "drill_a verified" in run.out
+
+    def test_into_renews_the_copy_s_workspace_identity_only_in_the_copy(self, stubbed):
+        run = stubbed("--into", "drill_a", env={"IDENTITY_TABLE": "t"})
+        assert run.rc == 0, run.err
+        (renewed,) = [call for call in run.called("psql") if "UPDATE workspace_identity" in call]
+        assert "/drill_a?host=" in renewed
+        assert run.calls.index(renewed) > run.calls.index(run.called("pg_restore")[0])
+
+    @pytest.mark.parametrize("args", [("--check",), ("--check", "--into", "drill_a"), ("--yes",)])
+    def test_only_a_kept_copy_is_given_a_new_identity(self, stubbed, args):
+        run = stubbed(*args, env={"IDENTITY_TABLE": "t"})
+        assert run.rc == 0, run.err
+        assert not [call for call in run.called("psql") if "workspace_identity" in call]
+
+    def test_a_copy_that_cannot_get_its_own_identity_is_dropped(self, stubbed):
+        """A kept copy still naming the original's workspace could be taken
+        for it by an agent, so the script drops it rather than hand it over."""
+        run = stubbed("--into", "drill_a", env={"IDENTITY_TABLE": "t", "IDENTITY_FAIL": "1"})
+        assert run.rc == 1
+        assert "could not give drill_a its own workspace identity" in run.err
+        renew = run.calls.index(next(call for call in run.called("psql") if "UPDATE workspace_identity" in call))
+        assert [i for i in _drops(run, "drill_a") if i > renew]
 
     @pytest.mark.parametrize("answer", ["roleband_x\n", ""])  # a wrong name; no answer at all
     def test_a_live_restore_asks_and_anything_but_the_name_changes_nothing(self, stubbed, answer):
@@ -761,6 +787,72 @@ class TestRealLiveRestore:
             held.wait(timeout=10)
         assert run.rc == 0, run.err
         assert _facts(real.srv, real.live) == ("rev_b", 50)
+
+
+#: The workspace identity table as the migration makes it.
+_IDENTITY_TABLE = (
+    "CREATE TABLE workspace_identity (singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),"
+    " workspace_id varchar(64) NOT NULL UNIQUE CHECK (workspace_id ~ '^ws_[0-9a-f]{32}$'),"
+    " created_at timestamptz NOT NULL DEFAULT now())"
+)
+_ORIGINAL_WORKSPACE = "ws_" + "0123456789abcdef" * 2
+
+
+def _workspace(srv, db: str) -> str:
+    return _sql(srv, db, "SELECT workspace_id FROM workspace_identity")
+
+
+class TestRealWorkspaceIdentity:
+    """A copy restored beside the original is another workspace; the original
+    restored over itself is the same one (decision record 0016)."""
+
+    def _dump_with_identity(self, real, tmp_path) -> Path:
+        _sql(
+            real.srv,
+            real.live,
+            f"{_IDENTITY_TABLE}; INSERT INTO workspace_identity (workspace_id) VALUES ('{_ORIGINAL_WORKSPACE}')",
+        )
+        return _dump(real.srv, real.live, tmp_path / "with_identity.dump")
+
+    def test_a_kept_scratch_copy_gets_its_own_workspace_identity(self, real, tmp_path):
+        dump = self._dump_with_identity(real, tmp_path)
+        scratch = f"copy_{uuid.uuid4().hex[:8]}"
+        try:
+            run = real.run("restore_db.sh", "--into", scratch, str(dump))
+            assert run.rc == 0, run.err
+            assert f"{scratch} has its own workspace identity" in run.out
+            copied = _workspace(real.srv, scratch)
+            assert copied != _ORIGINAL_WORKSPACE
+            assert re.fullmatch(r"ws_[0-9a-f]{32}", copied)
+            # Only the identity changed: the copy holds every row of the dump.
+            assert _facts(real.srv, scratch) == _facts(real.srv, real.live) == ("rev_a", 20_000)
+            assert _sql(real.srv, scratch, "SELECT count(*) FROM job_observations") == "30000"
+            # The original is untouched.
+            assert _workspace(real.srv, real.live) == _ORIGINAL_WORKSPACE
+            # A second copy is a third workspace.
+            again = real.run("restore_db.sh", "--into", scratch, str(dump))
+            assert again.rc == 0, again.err
+            assert _workspace(real.srv, scratch) not in {copied, _ORIGINAL_WORKSPACE}
+        finally:
+            _sql(real.srv, "postgres", f'DROP DATABASE IF EXISTS "{scratch}" WITH (FORCE)')
+
+    def test_restoring_over_the_original_keeps_its_identity(self, real, tmp_path):
+        dump = self._dump_with_identity(real, tmp_path)
+        run = real.run("restore_db.sh", "--yes", str(dump))
+        assert run.rc == 0, run.err
+        assert "workspace identity" not in run.out
+        assert _workspace(real.srv, real.live) == _ORIGINAL_WORKSPACE
+
+    def test_a_copy_of_a_dump_older_than_the_identity_restores_without_one(self, real, tmp_path):
+        dump = _dump(real.srv, real.live, tmp_path / "older.dump")
+        scratch = f"copy_{uuid.uuid4().hex[:8]}"
+        try:
+            run = real.run("restore_db.sh", "--into", scratch, str(dump))
+            assert run.rc == 0, run.err
+            assert "workspace identity" not in run.out
+            assert _sql(real.srv, scratch, "SELECT to_regclass('workspace_identity') IS NULL") == "t"
+        finally:
+            _sql(real.srv, "postgres", f'DROP DATABASE IF EXISTS "{scratch}" WITH (FORCE)')
 
 
 class TestRealBackupPermissions:

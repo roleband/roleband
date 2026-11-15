@@ -5740,6 +5740,11 @@
       "title": "Partial",
       "type": "boolean"
      },
+     "replayed": {
+      "default": false,
+      "title": "Replayed",
+      "type": "boolean"
+     },
      "truncated": {
       "default": false,
       "title": "Truncated",

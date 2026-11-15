@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tracker.agents.receipts import RevisionConflict
 from tracker.db.models import (
     Favorite,
     Job,
@@ -147,21 +148,37 @@ async def upsert_pursuit(
     payload: PursuitUpdate,
     *,
     actor: Literal["user", "agent"],
+    expected_revision: int | None = None,
 ) -> Pursuit:
+    """Create or change the pursuit of one role. Every write that changes the
+    row advances its `revision` (the mapper does it on flush); a write that
+    changes nothing leaves it.
+
+    `expected_revision` is the revision the caller read, 0 for a role with no
+    pursuit yet. Given, the write is refused with `RevisionConflict` when the
+    row has moved since; the check runs under the role's lock, so no write can
+    land between it and this one. Omitted, the write is last-writer-wins, as
+    the dashboard's is.
+    """
     job = await session.get(Job, job_id)
     if job is None:
         raise LookupError("opportunity not found")
 
-    # Before the read the event's `from_stage` is taken from.
+    # Before the read the event's `from_stage` and the revision check are taken from.
     await lock_role_writes(session, job_id)
     pursuit = await session.scalar(
         select(Pursuit).where(Pursuit.job_id == job_id).execution_options(populate_existing=True)
     )
+    if expected_revision is not None:
+        current = 0 if pursuit is None else pursuit.revision
+        if current != expected_revision:
+            raise RevisionConflict(expected=expected_revision, current=current)
     created = pursuit is None
     if pursuit is None:
-        pursuit = Pursuit(job_id=job_id)
+        # The table's defaults, stated, so the fields below compare against
+        # them and the row is inserted once with its values, at revision 1.
+        pursuit = Pursuit(job_id=job_id, stage="saved", priority=3)
         session.add(pursuit)
-        await session.flush()
 
     before = pursuit.stage
     changed: dict[str, object] = {}
@@ -175,6 +192,8 @@ async def upsert_pursuit(
 
     # Pursuing a job implies it is saved.
     await ensure_favorite(session, job_id)
+    # The insert, or the update that advances the revision; the event needs the id.
+    await session.flush()
 
     if created or changed:
         session.add(
