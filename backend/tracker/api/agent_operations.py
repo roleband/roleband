@@ -48,7 +48,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.agents.config import AgentAccessConfig, get_agent_access
 from tracker.agents.operations.catalog import CATALOG
-from tracker.agents.operations.descriptor import OperationDescriptor
+from tracker.agents.operations.descriptor import DataClass, OperationDescriptor
 from tracker.agents.operations.envelope import (
     Envelope,
     EnvelopeNotice,
@@ -59,7 +59,7 @@ from tracker.agents.operations.envelope import (
     success,
 )
 from tracker.agents.operations.outcomes import outcome
-from tracker.agents.operations.policy import admit
+from tracker.agents.operations.policy import admit, shared
 from tracker.agents.operations.workspace import get_workspace_id
 from tracker.agents.receipts import (
     LEGACY_AGENT_PRINCIPAL,
@@ -126,6 +126,16 @@ class OperationContext:
         principal, so no input field can claim to be the person."""
         return "agent"
 
+    def shares(self, category: DataClass) -> bool:
+        """Whether this call may answer `category` (`policy.shared`)."""
+        return shared(self.switches, category)
+
+    @property
+    def answered_classes(self) -> tuple[DataClass, ...]:
+        """The declared categories this call's answer may hold: a category
+        the person does not share is left out of the answer, and of its meta."""
+        return tuple(category for category in self.descriptor.data_classes if self.shares(category))
+
     def input_as(self, model: type[InputT]) -> InputT:
         if not isinstance(self.input, model):
             raise TypeError(f"{self.descriptor.id} takes {type(self.input).__name__}, not {model.__name__}")
@@ -137,7 +147,7 @@ class OperationContext:
             data,
             request_id=self.request_id,
             workspace_id=self.workspace_id,
-            data_classes=self.descriptor.data_classes,
+            data_classes=self.answered_classes,
             warnings=warnings,
         )
 
@@ -146,6 +156,7 @@ class OperationContext:
         apply: Callable[[], Awaitable[BaseModel]],
         *,
         on_revision_conflict: list[NextAction] | None = None,
+        shown: Callable[[Any], BaseModel] | None = None,
     ) -> Envelope[Any]:
         """Run one keyed write, or replay its receipt, and commit.
 
@@ -154,6 +165,8 @@ class OperationContext:
         on; only a new execution runs `apply`, which takes the domain lock and
         checks the revision the caller stated. The write, its audit event and
         the receipt commit together, and any failure rolls all three back.
+        The receipt keeps the result whole; `shown`, when given, makes the
+        answer, fresh or replayed, from it under this call's categories.
         """
         descriptor = self.descriptor
         if descriptor.access != "write" or descriptor.idempotency != "required_key" or self.idempotency_key is None:
@@ -192,12 +205,13 @@ class OperationContext:
         except BaseException:
             await self.session.rollback()
             raise
+        result = descriptor.result.model_validate(executed.result)
         return success(
             descriptor.id,
-            descriptor.result.model_validate(executed.result),
+            result if shown is None else shown(result),
             request_id=self.request_id,
             workspace_id=self.workspace_id,
-            data_classes=descriptor.data_classes,
+            data_classes=self.answered_classes,
             idempotency_key=self.idempotency_key,
             replayed=executed.replayed,
         )

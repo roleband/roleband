@@ -1166,8 +1166,23 @@ on AI egress (`ai_egress_enabled`, off by default). The one model task the
 product runs is duplicate review, on a pair the user picks, by their local model
 (`backend/tracker/intelligence/duplicate_review.py`). The one line that can add a
 cloud tier is in `backend/tracker/intelligence_runtime/routing.py`, a ladder only
-the model bench drives; search query parsing (`backend/tracker/search/llm.py`) is
-the only other path to a cloud model, and it takes the same switch.
+the model bench drives. Search query parsing (`backend/tracker/search/llm.py`)
+takes the same switch. The tool-calling transport below refuses a tier the
+ladder blocked but cannot tell where a tier came from, so its callers take
+their tiers from `build_tiers`; nothing calls it yet.
+
+Tool calling, for a runner that loops a model over operations, is
+`backend/tracker/intelligence/tool_calls/`: a provider-neutral conversation
+(messages, tool definitions, a turn of text or tool calls, usage and a stop
+reason), the OpenAI-compatible and Anthropic wire formats, and a transport made
+only from a rung of that ladder (`transport_for_tier`). A tier the ladder
+blocked is refused before any request exists. The switch itself is read by
+`build_tiers`, so a caller takes its tiers from there, built for each model
+call; a tier made by hand would carry no admission. What a model
+writes never raises: malformed arguments or an unknown tool come back as a
+call with a problem for the runner to answer. Tools are generated from
+operation descriptors by `backend/tracker/agents/tool_definitions.py`. Nothing
+calls it yet; the one-prompt clients in `local_llm` and `cloud_llm` are separate.
 
 Offline level experiments use `analytics/level_context.py` to extract quoted
 facts without writing canonical fields. Component ownership refers to the
@@ -1258,7 +1273,32 @@ and client effects, data classes, tool tiers and idempotency, registered once
 in `catalog.py`. Every answer, a failure included, is one envelope whose error
 code maps to an HTTP status and a process exit status in `outcomes.py`. The
 agent switches in Settings admit them: a read needs `enabled`, a write also
-`allow_writes`, and with `enabled` off every operation is refused.
+`allow_writes`, and with `enabled` off every operation is refused, whatever
+else the row holds. Beside the switches, `agent_access.categories` holds the
+person's choice per data category: `any_model`, `local_only` or `not_shared`
+([decision 0017](decisions/0017-agent-access-open-by-default.md)). A category
+with no choice is shared, and a row the engine cannot read is everything off;
+the Settings switches keep the stored choices when they save. Every caller of
+these operations is outside the engine, so only `any_model` shares a category
+(`policy.shared`). A category that is not shared is absent, not masked: an
+operation whose first declared data class is not shared is refused as
+`category_disabled` (exit 4, HTTP 403, `details.setting` naming the choice),
+and `capabilities` shows it unavailable for that reason. An operation leaves
+out the part of its answer from any other class it declares: its keys are
+absent, never null, and optional in the result schema (a search column leaves
+`columns` and every row). It refuses an input that selects by that part, and
+lists in `meta.data_classes` the classes it declares that are shared: those
+its answer may draw on, not a trace of what one call used. A class that only
+orders an answer counts the same way: queryless best match blends the profile
+statement and the saved, pursued and dismissed roles into the person's intent,
+each only while its class is shared, and without pursuits search lists the
+roles the person dismissed like any other; without market statistics its base
+pay bounds and pay sort read only the range a posting states, never the
+estimate a row falls back to. A Settings save of the two switches
+keeps stored choices the engine cannot read as they are, so the row still
+reads as everything off. A keyed write's receipt keeps the whole result; its
+answer, fresh or replayed, leaves the part out. Every operation but the
+handshake declares at least one data class.
 `workspace_identity` holds the workspace's durable id, which these answers
 carry; it outlives engine restarts and updates, unlike the engine session id.
 A write route takes a JSON body and an idempotency key header, and runs through
@@ -1320,6 +1360,23 @@ one it is last-writer-wins on priority. `receipts.get` reads a write's receipt
 back by operation and key, in this workspace and for the engine's principal;
 it is a read, so it answers with writes off.
 `backend/tests/test_agent_parity_writes.py` holds each to its MCP tool.
+
+`offer.get` (the offer, [0019](decisions/0019-assistants-read-the-offer.md)),
+`applications.board` and `applications.calendar` (the pursuits) call the stores
+their dashboard routes call and answer the same fields, paged to the tool tier's
+budget. `doctor` turns `GET /api/status` into checks and lists the settings that
+differ from their defaults; every string passes a redactor first, so a secret, a
+credential in a URL and a path outside the data folder never reach the caller.
+`context.export` reads one opportunity's posting, pay evidence, company facts and,
+when pursuits are shared, its pursuit in one repeatable-read snapshot, and answers them as
+canonical JSON text with a SHA-256 per component and for the whole packet: the
+same inputs give the same bytes. Values that move without the content moving
+(last seen, an estimate's run time) are in the manifest's source timestamps, not
+the packet. A packet past the tier's budget comes in parts that join to it; each
+continuation names the packet's hash, and a part of a packet that changed since
+is refused as `revision_conflict`. A company fact's observation time is in the
+manifest, not the packet.
+`backend/tests/test_agent_offer_export_reads.py` holds each read to its route.
 
 **Trust boundary.** Mac and ordinary source mode use loopback access control.
 `LoopbackBoundary` (`backend/tracker/api/boundary.py`, outermost) refuses a Host

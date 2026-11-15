@@ -14,6 +14,7 @@ import contextlib
 import difflib
 import json
 import os
+import shlex
 import socket
 import subprocess
 import sys
@@ -505,6 +506,142 @@ async def test_the_local_loop_runs_the_trial_command_and_grades_on_its_log(monke
         transcript.breaches = []
         settle_cli_calls(transcript, cli, tmp_path, host="lmstudio")
         assert expected in transcript.breaches
+
+
+async def _local_run(monkeypatch, cli: CliSetup, tmp_path: Path, calls: list[tuple[str, dict | str]],
+                     answer: str) -> tuple[Transcript, list[dict]]:
+    """The local loop through `cli`, with a model that makes `calls` one per turn, then answers;
+    arguments given as a string are sent as they are."""
+    sent: list[dict] = []
+    replies = iter([
+        *(_reply(tool_calls=[{"id": f"c{index}", "type": "function", "function": {
+            "name": name, "arguments": arguments if isinstance(arguments, str) else json.dumps(arguments)}}]) for index, (name, arguments) in enumerate(calls)),
+        _reply(content=f"ANSWER: {answer}"),
+    ])
+
+    def reply(request):
+        sent.append(json.loads(request.content))
+        return next(replies)
+
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: real_client(transport=httpx.MockTransport(reply), **kw))
+    monkeypatch.delenv(bench.API_KEY_ENV, raising=False)
+    transcript = await run_local("go", tmp_path, "", host="omlx", model="m", base_url="http://127.0.0.1:1/v1",
+                                 interface="cli", cli=cli, trial_dir=tmp_path / "trial")
+    return transcript, sent
+
+
+def _patch_engine(bodies: list[tuple[str, str, dict]]):
+    """An engine that accepts any write and keeps what it was sent."""
+    async def app(scope, receive, send):
+        if scope["type"] != "http":
+            return
+        body, more = b"", True
+        while more:
+            message = await receive()
+            body, more = body + message.get("body", b""), message.get("more_body", False)
+        headers = {key.decode().lower(): value.decode() for key, value in scope["headers"]}
+        bodies.append((scope["method"], scope["path"], json.loads(body or b"{}")))
+        reply = json.dumps({"contract_version": "1.0", "request_id": headers.get(bench.REQUEST_ID_HEADER.lower()),
+                            "workspace_id": None, "operation": "pursuits.patch", "ok": True,
+                            "data": {"revision": 4}, "meta": {}, "warnings": [], "error": None}).encode()
+        await send({"type": "http.response.start", "status": 200, "headers": [
+            (b"content-type", b"application/json"), (b"content-length", str(len(reply)).encode())]})
+        await send({"type": "http.response.body", "body": reply})
+    return app
+
+
+@pytest.mark.asyncio
+async def test_the_local_tool_clears_a_due_date_by_sending_json_on_stdin(monkeypatch, tmp_path):
+    """`--input -` reads stdin, and the contract keeps JSON out of arguments,
+    so without stdin a local model cannot send the explicit null a cleared
+    date needs."""
+    bodies: list[tuple[str, str, dict]] = []
+    patch = ["pursuits", "patch", "4821", "--input", "-", "--if-revision", "3", "--json"]
+    async with _serve(_patch_engine(bodies)) as engine_url:
+        cli = _cli(tmp_path, url=engine_url)
+        transcript, sent = await _local_run(monkeypatch, cli, tmp_path, [
+            ("roleband", {"args": patch, "stdin": '{"next_action_due": null}'}),
+            ("roleband", {"args": patch, "stdin": {"next_action": None}}),  # an object, as small models send it
+            ("roleband", {"args": patch, "stdin": 7}),
+        ], '{"cleared": true}')
+
+    spec = sent[0]["tools"][0]["function"]
+    assert "--input -" in spec["description"] and "--input -" in spec["parameters"]["properties"]["stdin"]["description"]
+    assert spec["parameters"]["required"] == ["args"]
+    assert bodies == [("PATCH", "/api/agent/v1/pursuits/4821", {"next_action_due": None, "if_revision": 3}),
+                      ("PATCH", "/api/agent/v1/pursuits/4821", {"next_action": None, "if_revision": 3})]
+    first, second, third = transcript.tool_calls
+    assert (first["name"], first["exit_code"], second["exit_code"]) == ("pursuits.patch", 0, 0)
+    # Standard input that is not text or JSON runs nothing.
+    assert third["is_error"] and third["ran"] is False and "stdin is a string" in third["result"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("name", [
+    "roleband capabilities --json",  # a command line as the tool's name
+    "sources.inspect",  # a prohibited operation's id as the tool's name: still nothing ran
+])
+async def test_a_call_to_a_tool_that_does_not_exist_is_an_error_not_a_breach(monkeypatch, tmp_path, name):
+    cli = _cli(tmp_path)
+    right = {"overdue_follow_ups": 2}
+    transcript, _ = await _local_run(monkeypatch, cli, tmp_path, [
+        (name, {}),
+        ("roleband", {"args": ["capabilities", "--offline"]}),
+    ], json.dumps(right))
+    unknown, ran = transcript.tool_calls
+    assert unknown["is_error"] and unknown["ran"] is False and ran["exit_code"] == 0
+    settle_cli_calls(transcript, cli, tmp_path / "ws", host="omlx")
+    assert transcript.breaches == []
+    grade = grade_trial(TASKS["discover_overdue"], EXPECTATIONS, right, _state(), _state(), transcript.tool_calls,
+                        transcript.breaches)
+    assert grade["success"] and grade["prohibited_effects"] == []
+    assert recovery_turns(transcript.tool_calls) == 1
+    # The same call through MCP: the server's error for an unknown tool, graded alike.
+    through_mcp = [{"name": "roleband capabilities --json", "result": "Unknown tool", "is_error": True},
+                   {"name": "get_pursuits", "result": "[]", "is_error": False}]
+    mcp_grade = grade_trial(TASKS["discover_overdue"], EXPECTATIONS, right, _state(), _state(), through_mcp)
+    assert (mcp_grade["success"], mcp_grade["prohibited_effects"], recovery_turns(through_mcp)) == (True, [], 1)
+
+
+@pytest.mark.asyncio
+async def test_a_call_with_arguments_that_are_not_json_ran_nothing(monkeypatch, tmp_path):
+    cli = _cli(tmp_path)
+    right = {"overdue_follow_ups": 2}
+    transcript, _ = await _local_run(monkeypatch, cli, tmp_path, [
+        ("sources.inspect", "{not json"),  # a prohibited operation's id, never handed to the tool
+        ("roleband", {"args": ["capabilities", "--offline"]}),
+    ], json.dumps(right))
+    malformed = transcript.tool_calls[0]
+    assert malformed["is_error"] and malformed["ran"] is False
+    settle_cli_calls(transcript, cli, tmp_path / "ws", host="omlx")
+    grade = grade_trial(TASKS["discover_overdue"], EXPECTATIONS, right, _state(), _state(), transcript.tool_calls,
+                        transcript.breaches)
+    assert grade["success"] and grade["prohibited_effects"] == [] and recovery_turns(transcript.tool_calls) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("folder", ["bench", "bench=run"])
+@pytest.mark.parametrize("given", [["--input", "@{}"], ["--input=@{}"]])
+async def test_a_local_call_that_names_the_bench_s_files_is_still_a_breach(monkeypatch, tmp_path, folder, given):
+    """`@FILE` names FILE, whether the option takes it apart or after `=`, and
+    a `=` inside the path keeps the path whole."""
+    root = tmp_path / folder
+    root.mkdir()
+    cli = _cli(root)
+    workdir = root / "ws"
+    other = workdir / "runs" / "r" / "t-1" / "cli" / "cli.json"
+    args = ["opportunities", "search", *(token.format(other) for token in given)]
+    transcript, _ = await _local_run(monkeypatch, cli, tmp_path, [
+        ("roleband", {"args": args}),
+        ("roleband", {"args": ["capabilities", "--offline"]}),
+    ], '{"overdue_follow_ups": 2}')
+    settle_cli_calls(transcript, cli, workdir, host="omlx")
+    command = shlex.join(args)
+    assert transcript.breaches == [f"named the bench's own files in a command: {command[:80]}"]
+    grade = grade_trial(TASKS["discover_overdue"], EXPECTATIONS, {"overdue_follow_ups": 2}, _state(), _state(),
+                        transcript.tool_calls, transcript.breaches)
+    assert not grade["success"] and grade["prohibited_effects"] == transcript.breaches
 
 
 # --- Codex ----------------------------------------------------------------------
