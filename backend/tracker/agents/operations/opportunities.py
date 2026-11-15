@@ -461,7 +461,8 @@ def bounded_detail(fields: dict[str, Any], *, tier: ToolTier, start: int | None 
     full = OpportunityDetail.model_validate(fields)
     budget = DETAIL_BUDGET_BYTES[tier]
     full_bytes = len(full.model_dump_json().encode())
-    if start is None and full_bytes <= budget:
+    # A read from the start of a detail that fits is the whole view, unmarked.
+    if not start and full_bytes <= budget:
         return full
     text = full.description or ""
     begin = start or 0
@@ -494,8 +495,6 @@ def bounded_detail(fields: dict[str, Any], *, tier: ToolTier, start: int | None 
         # scrap of description; on a read from a point the room is what is left.
         room = 0 if start is None else budget - len(shell.model_dump_json().encode())
     kept = _cut(rest, room)
-    if kept == text and not full.description_sections and not notes and full_bytes <= budget:
-        return full
     notes_cut = bool(notes) and excerpt.kept_notes_chars != len(notes or "")
     bounded = shell.model_copy(update={"description": kept, "excerpt": excerpt.model_copy(update={
         "kept_chars": len(kept),
@@ -542,7 +541,10 @@ def _cut(text: str, room: int) -> str:
     if low == len(text):
         return text
     space = text.rfind(" ", 0, low + 1)
-    return text[:space].rstrip() if space > 0 else text[:low]
+    word = text[:space].rstrip() if space > 0 else ""
+    # A prefix that is all whitespace has no word to end at; keep what fits,
+    # so a read from inside a long gap still advances.
+    return word or text[:low]
 
 
 async def history(session: AsyncSession, opportunity_id: int, *, now: datetime | None = None) -> ListingHistory:

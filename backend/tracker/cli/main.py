@@ -12,6 +12,7 @@ of its code.
 from __future__ import annotations
 
 import argparse
+import codecs
 import errno
 import io
 import json
@@ -389,6 +390,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Run `roleband`. A closed pipe ends it quietly with the outcome it had:
     closing the reader cancels nothing the engine accepted."""
     arguments = list(sys.argv[1:] if argv is None else argv)
+    for stream in (sys.stdout, sys.stderr):
+        _write_utf8(stream)
     real = sys.stdout
     guarded = _Guarded(real)
     # argparse prints --help to sys.stdout itself.
@@ -402,6 +405,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     if guarded.broken:
         _silence_stdout()
     return status
+
+
+def _write_utf8(stream: TextIO) -> None:
+    """Write UTF-8 whatever the locale says. On Windows a pipe defaults to the
+    ANSI code page, which cannot hold every posting's text, and the agent that
+    reads the pipe decodes it as UTF-8. A console is UTF-8 already."""
+    reconfigure = getattr(stream, "reconfigure", None)
+    if reconfigure is not None and codecs.lookup(stream.encoding or "ascii").name != "utf-8":
+        reconfigure(encoding="utf-8")
 
 
 def _reader_gone(error: OSError) -> bool:

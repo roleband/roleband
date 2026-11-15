@@ -444,17 +444,33 @@ async def test_cut_notes_are_named_for_pursuits_get_and_left_out_of_later_pages(
     assert _data((await _get(api_client, f"/pursuits/{job_id}"))[1])["notes"] == notes
 
 
-async def test_a_read_from_the_start_of_a_short_detail_is_the_whole_view(api_client, workspace):
-    job_id = await _job_id(workspace, "INTERVIEW")
-    await workspace.execute(update(Pursuit).where(Pursuit.job_id == job_id).values(notes=None))
-    await workspace.execute(update(Job).where(Job.id == job_id).values(description_sections=[]))
+async def test_a_read_from_the_start_of_a_detail_that_fits_is_the_whole_view(api_client, workspace):
+    job_id, _ = await _with_description(workspace, "INTERVIEW", "Lead the payments team.", sections=2)
+    await workspace.execute(update(Pursuit).where(Pursuit.job_id == job_id).values(notes="Ask about on-call."))
     await workspace.commit()
     whole = _data((await _get(api_client, f"/opportunities/{job_id}", view="detail"))[1])
+    assert whole["excerpt"] is None and len(whole["description_sections"]) == 2
+    assert whole["pursuit"]["notes"] == "Ask about on-call."
 
     _, body = await _get(api_client, f"/opportunities/{job_id}", view="detail", description_from=0)
 
-    assert _data(body) == whole and whole["excerpt"] is None
-    assert body["meta"]["truncated"] is False
+    assert _data(body) == whole
+    assert body["meta"]["truncated"] is False and body["warnings"] == []
+
+
+async def test_a_long_run_of_whitespace_is_read_through_not_refused(api_client, workspace):
+    text = "Intro" + " " * 50_000 + "End"
+    job_id, _ = await _with_description(workspace, "FOLLOWUP", text, sections=0)
+
+    _, body = await _get(api_client, f"/opportunities/{job_id}", view="detail")
+    pages = [_data(body)]
+    while (calls := [c for c in pages[-1]["excerpt"]["continue_with"] if c["operation"] == "opportunities.get"]):
+        assert len(pages) < 20
+        pages.append(_data(await _follow(api_client, calls[0])))
+
+    assert len(pages) > 2
+    assert "".join(page["description"] for page in pages) == text
+    assert all(_bytes(page) <= DETAIL_BUDGET_BYTES["small"] for page in pages)
 
 
 @pytest.mark.parametrize(
