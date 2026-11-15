@@ -55,6 +55,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/v1/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Change List */
+        get: operations["change_list_api_agent_v1_changes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/v1/doctor": {
         parameters: {
             query?: never;
@@ -4472,6 +4489,47 @@ export interface components {
              */
             slot: "pay.levels" | "pay.observations" | "company.facts" | "company.benefits";
         };
+        /** ChangeEvent */
+        ChangeEvent: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * Basis
+             * @enum {string}
+             */
+            basis: "recorded" | "derived";
+            /** Company */
+            company?: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "new" | "closed" | "reopened" | "reposted" | "stated_pay_changed" | "pursuit_due" | "source_health" | "plugin_source_health";
+            /** Opportunity Id */
+            opportunity_id?: number | null;
+            pay?: components["schemas"]["StatedPayChange"] | null;
+            /** Sequence */
+            sequence: string;
+            source?: components["schemas"]["SourceHealthChange"] | null;
+        };
+        /** ChangesPage */
+        ChangesPage: {
+            /** Caught Up */
+            caught_up: boolean;
+            /** Continue With */
+            continue_with?: components["schemas"]["NextAction"][];
+            /** Count */
+            count: number;
+            /** Events */
+            events: components["schemas"]["ChangeEvent"][];
+            /** Next Since */
+            next_since: string;
+            /** Unavailable */
+            unavailable: components["schemas"]["UnavailableKind"][];
+        };
         /**
          * ClaudeDesktopConfig
          * @description The `claude_desktop_config.json` fragment, served under its own key names.
@@ -6061,6 +6119,27 @@ export interface components {
              */
             contract_version: string;
             data: components["schemas"]["CapabilitiesResult"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[ChangesPage] */
+        Envelope_ChangesPage_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["ChangesPage"] | null;
             error: components["schemas"]["EnvelopeError"] | null;
             meta: components["schemas"]["EnvelopeMeta"];
             /** Ok */
@@ -13698,6 +13777,20 @@ export interface components {
              */
             scope: "within" | "cross" | "all";
         };
+        /** SourceHealthChange */
+        SourceHealthChange: {
+            /** Outcome */
+            outcome: string;
+            /** Previous State */
+            previous_state: ("healthy" | "degraded" | "failing") | null;
+            /** Provider */
+            provider: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "healthy" | "degraded" | "failing";
+        };
         /** SourceInspection */
         SourceInspection: {
             /** Content */
@@ -13754,6 +13847,25 @@ export interface components {
              * @enum {string}
              */
             reason: "authoritative_stale";
+        };
+        /**
+         * StatedBand
+         * @description One side of a stated-pay change: the employer's base band as stated.
+         */
+        StatedBand: {
+            /** Currency */
+            currency: string | null;
+            /** High */
+            high: number | null;
+            /** Low */
+            low: number | null;
+            /** Period */
+            period: string | null;
+        };
+        /** StatedPayChange */
+        StatedPayChange: {
+            after: components["schemas"]["StatedBand"];
+            before: components["schemas"]["StatedBand"];
         };
         /**
          * StatisticsOverviewResponse
@@ -14455,6 +14567,16 @@ export interface components {
              */
             status: "confirmed" | "rejected" | "pending";
         };
+        /** UnavailableKind */
+        UnavailableKind: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "new" | "closed" | "reopened" | "reposted" | "stated_pay_changed" | "pursuit_due" | "source_health" | "plugin_source_health";
+            /** Reason */
+            reason: string;
+        };
         /**
          * UnconfirmedPosting
          * @description A pending suspected link to another posting: possibly the same role,
@@ -14840,6 +14962,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Envelope_CapabilitiesResult_"];
+                };
+            };
+        };
+    };
+    change_list_api_agent_v1_changes_get: {
+        parameters: {
+            query?: {
+                /** @description The next_since of the previous page: the read continues after it, in commit order, with the same kinds. Without it the read starts at start_time, or at the oldest change kept. */
+                since?: string | null;
+                /** @description Without since: start with the changes recorded at or after this time, with its UTC offset. Pursuits whose next action fell due from this time on are included. Later reads with the since this read gives keep the bound. */
+                start_time?: string | null;
+                /** @description Only these kinds; every kind the person shares when left out. A since read keeps the kinds of the read it continues. */
+                kinds?: ("new" | "closed" | "reopened" | "reposted" | "stated_pay_changed" | "pursuit_due" | "source_health" | "plugin_source_health")[] | null;
+                /** @description Events on one page. */
+                limit?: number;
+                /** @description The caller's tool tier, which bounds the page. */
+                tier?: "small" | "standard" | "full";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_ChangesPage_"];
                 };
             };
         };

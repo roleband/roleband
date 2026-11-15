@@ -2107,6 +2107,145 @@
     "title": "CapabilityView",
     "type": "object"
    },
+   "ChangeEvent": {
+    "additionalProperties": false,
+    "properties": {
+     "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+     },
+     "basis": {
+      "enum": [
+       "recorded",
+       "derived"
+      ],
+      "title": "Basis",
+      "type": "string",
+      "x-text": "code"
+     },
+     "company": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Company",
+      "x-text": "identifier"
+     },
+     "kind": {
+      "enum": [
+       "new",
+       "closed",
+       "reopened",
+       "reposted",
+       "stated_pay_changed",
+       "pursuit_due",
+       "source_health",
+       "plugin_source_health"
+      ],
+      "title": "Kind",
+      "type": "string",
+      "x-text": "code"
+     },
+     "opportunity_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Opportunity Id"
+     },
+     "pay": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/StatedPayChange"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "sequence": {
+      "title": "Sequence",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "source": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/SourceHealthChange"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "sequence",
+     "kind",
+     "basis",
+     "at"
+    ],
+    "title": "ChangeEvent",
+    "type": "object"
+   },
+   "ChangesPage": {
+    "additionalProperties": false,
+    "properties": {
+     "caught_up": {
+      "title": "Caught Up",
+      "type": "boolean"
+     },
+     "continue_with": {
+      "items": {
+       "$ref": "#/components/schemas/NextAction"
+      },
+      "title": "Continue With",
+      "type": "array"
+     },
+     "count": {
+      "minimum": 0.0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "events": {
+      "items": {
+       "$ref": "#/components/schemas/ChangeEvent"
+      },
+      "title": "Events",
+      "type": "array"
+     },
+     "next_since": {
+      "title": "Next Since",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "unavailable": {
+      "items": {
+       "$ref": "#/components/schemas/UnavailableKind"
+      },
+      "title": "Unavailable",
+      "type": "array"
+     }
+    },
+    "required": [
+     "count",
+     "events",
+     "caught_up",
+     "next_since",
+     "unavailable"
+    ],
+    "title": "ChangesPage",
+    "type": "object"
+   },
    "ClaudeDesktopConfig": {
     "additionalProperties": false,
     "description": "The `claude_desktop_config.json` fragment, served under its own key names.",
@@ -6761,6 +6900,84 @@
      "error"
     ],
     "title": "Envelope[CapabilitiesResult]",
+    "type": "object"
+   },
+   "Envelope_ChangesPage_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ChangesPage"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[ChangesPage]",
     "type": "object"
    },
    "Envelope_ContextExport_": {
@@ -31285,6 +31502,56 @@
     "title": "SimilarJobsResponse",
     "type": "object"
    },
+   "SourceHealthChange": {
+    "additionalProperties": false,
+    "properties": {
+     "outcome": {
+      "title": "Outcome",
+      "type": "string",
+      "x-text": "code"
+     },
+     "previous_state": {
+      "anyOf": [
+       {
+        "enum": [
+         "healthy",
+         "degraded",
+         "failing"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Previous State",
+      "x-text": "code"
+     },
+     "provider": {
+      "title": "Provider",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "state": {
+      "enum": [
+       "healthy",
+       "degraded",
+       "failing"
+      ],
+      "title": "State",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "state",
+     "previous_state",
+     "outcome",
+     "provider"
+    ],
+    "title": "SourceHealthChange",
+    "type": "object"
+   },
    "SourceInspection": {
     "additionalProperties": false,
     "properties": {
@@ -31410,6 +31677,83 @@
      "last_reconcile_at"
     ],
     "title": "StaleBinding",
+    "type": "object"
+   },
+   "StatedBand": {
+    "additionalProperties": false,
+    "description": "One side of a stated-pay change: the employer's base band as stated.",
+    "properties": {
+     "currency": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Currency",
+      "x-text": "code"
+     },
+     "high": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "High"
+     },
+     "low": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Low"
+     },
+     "period": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Period",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "low",
+     "high",
+     "currency",
+     "period"
+    ],
+    "title": "StatedBand",
+    "type": "object"
+   },
+   "StatedPayChange": {
+    "additionalProperties": false,
+    "properties": {
+     "after": {
+      "$ref": "#/components/schemas/StatedBand"
+     },
+     "before": {
+      "$ref": "#/components/schemas/StatedBand"
+     }
+    },
+    "required": [
+     "before",
+     "after"
+    ],
+    "title": "StatedPayChange",
     "type": "object"
    },
    "StatisticsOverviewResponse": {
@@ -33349,6 +33693,37 @@
     "title": "TwinVerdictResult",
     "type": "object"
    },
+   "UnavailableKind": {
+    "additionalProperties": false,
+    "properties": {
+     "kind": {
+      "enum": [
+       "new",
+       "closed",
+       "reopened",
+       "reposted",
+       "stated_pay_changed",
+       "pursuit_due",
+       "source_health",
+       "plugin_source_health"
+      ],
+      "title": "Kind",
+      "type": "string",
+      "x-text": "code"
+     },
+     "reason": {
+      "title": "Reason",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "kind",
+     "reason"
+    ],
+    "title": "UnavailableKind",
+    "type": "object"
+   },
    "UnconfirmedPosting": {
     "additionalProperties": false,
     "description": "A pending suspected link to another posting: possibly the same role,\ncounted in no number until a person confirms it.",
@@ -34460,6 +34835,126 @@
      "agent"
     ],
     "x-operation": "capabilities"
+   }
+  },
+  "/api/agent/v1/changes": {
+   "get": {
+    "operationId": "change_list_api_agent_v1_changes_get",
+    "parameters": [
+     {
+      "description": "The next_since of the previous page: the read continues after it, in commit order, with the same kinds. Without it the read starts at start_time, or at the oldest change kept.",
+      "in": "query",
+      "name": "since",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 1024,
+         "minLength": 1,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Since"
+      }
+     },
+     {
+      "description": "Without since: start with the changes recorded at or after this time, with its UTC offset. Pursuits whose next action fell due from this time on are included. Later reads with the since this read gives keep the bound.",
+      "in": "query",
+      "name": "start_time",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "format": "date-time",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Start Time"
+      }
+     },
+     {
+      "description": "Only these kinds; every kind the person shares when left out. A since read keeps the kinds of the read it continues.",
+      "in": "query",
+      "name": "kinds",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "items": {
+          "enum": [
+           "new",
+           "closed",
+           "reopened",
+           "reposted",
+           "stated_pay_changed",
+           "pursuit_due",
+           "source_health",
+           "plugin_source_health"
+          ],
+          "type": "string"
+         },
+         "type": "array"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Kinds"
+      }
+     },
+     {
+      "description": "Events on one page.",
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 20,
+       "maximum": 100,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     },
+     {
+      "description": "The caller's tool tier, which bounds the page.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_ChangesPage_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Change List",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "changes.list"
    }
   },
   "/api/agent/v1/doctor": {

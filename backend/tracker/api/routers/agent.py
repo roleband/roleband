@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, Request
 from tracker import __version__
 from tracker.agents.operations import (
     applications,
+    changes,
     export,
     insights,
     offer,
@@ -377,6 +378,27 @@ async def vocabulary_list(
     envelope = op.ok(page)
     envelope.meta.next_cursor = next_cursor
     return envelope
+
+
+@router.get(
+    f"{PREFIX}/changes",
+    response_model=Envelope[changes.ChangesPage],
+    openapi_extra=operation_route(changes.CHANGES_LIST),
+)
+async def change_list(
+    op: Annotated[OperationContext, Depends(admitted(changes.CHANGES_LIST))],
+) -> Envelope[Any]:
+    answer = await changes.changes_page(
+        op.session, op.input_as(changes.ChangesListInput),
+        workspace_id=op.workspace_id, principal_id=op.principal_id, shared=frozenset(op.answered_classes),
+    )
+    warnings: list[EnvelopeNotice] = []
+    if answer.shortened:
+        warnings.append(EnvelopeNotice(
+            code="page_shortened",
+            message="This page stops before the limit to stay within the tool tier's budget; continue_with reads on.",
+        ))
+    return op.ok(answer.page, warnings=warnings or None)
 
 
 def _paged(op: OperationContext, page: Any, next_cursor: str | None, shortened: bool) -> Envelope[Any]:

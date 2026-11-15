@@ -4,6 +4,10 @@
   {
    "operation": "context.export",
    "why": "The dashboard has no export: it assembles one opportunity's posting, pay evidence, company facts and pursuit as one hashed packet an assistant keeps, from the reads opportunities.get and the company profile serve."
+  },
+  {
+   "operation": "changes.list",
+   "why": "The dashboard shows the current radar: an assistant needs what changed since it last looked, in commit order, from a position it holds."
   }
  ],
  "rows": [
