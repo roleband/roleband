@@ -89,6 +89,210 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/v1/insights/compensation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights Compensation */
+        get: operations["insights_compensation_api_agent_v1_insights_compensation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/insights/demand": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights Demand */
+        get: operations["insights_demand_api_agent_v1_insights_demand_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/insights/disclosure-trends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights Disclosure Trends */
+        get: operations["insights_disclosure_trends_api_agent_v1_insights_disclosure_trends_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/insights/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights History */
+        get: operations["insights_history_api_agent_v1_insights_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/insights/levels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights Levels */
+        get: operations["insights_levels_api_agent_v1_insights_levels_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/insights/offer-terms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights Offer Terms */
+        get: operations["insights_offer_terms_api_agent_v1_insights_offer_terms_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/insights/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights Overview */
+        get: operations["insights_overview_api_agent_v1_insights_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/insights/pay-table": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights Pay Table */
+        get: operations["insights_pay_table_api_agent_v1_insights_pay_table_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/insights/pay-trends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights Pay Trends */
+        get: operations["insights_pay_trends_api_agent_v1_insights_pay_trends_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/insights/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights Skills */
+        get: operations["insights_skills_api_agent_v1_insights_skills_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/insights/trajectory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights Trajectory */
+        get: operations["insights_trajectory_api_agent_v1_insights_trajectory_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/insights/velocity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights Velocity */
+        get: operations["insights_velocity_api_agent_v1_insights_velocity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/v1/offer": {
         parameters: {
             query?: never;
@@ -5174,6 +5378,24 @@ export interface components {
             packet_offset: number;
         };
         /**
+         * CoverageHistory
+         * @description How far back the scope's companies have been read whole: no arrival
+         *     before `since` can be dated, so no window reaches further.
+         */
+        CoverageHistory: {
+            /** Days */
+            days: number;
+            /** Since */
+            since: string | null;
+        };
+        /** CoverageWindow */
+        CoverageWindow: {
+            /** Days */
+            days: number;
+            /** Since */
+            since: string | null;
+        };
+        /**
          * DecoderCell
          * @description How one company grades one stage: a company-wide label or per-track labels.
          */
@@ -5973,6 +6195,258 @@ export interface components {
             /** Workspace Id */
             workspace_id: string | null;
         };
+        /** Envelope[InsightsCompensation] */
+        Envelope_InsightsCompensation_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["InsightsCompensation"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[InsightsDemand] */
+        Envelope_InsightsDemand_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["InsightsDemand"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[InsightsDisclosureTrends] */
+        Envelope_InsightsDisclosureTrends_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["InsightsDisclosureTrends"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[InsightsHistory] */
+        Envelope_InsightsHistory_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["InsightsHistory"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[InsightsLevels] */
+        Envelope_InsightsLevels_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["InsightsLevels"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[InsightsOfferTerms] */
+        Envelope_InsightsOfferTerms_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["InsightsOfferTerms"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[InsightsOverview] */
+        Envelope_InsightsOverview_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["InsightsOverview"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[InsightsPayTable] */
+        Envelope_InsightsPayTable_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["InsightsPayTable"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[InsightsPayTrends] */
+        Envelope_InsightsPayTrends_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["InsightsPayTrends"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[InsightsSkills] */
+        Envelope_InsightsSkills_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["InsightsSkills"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[InsightsTrajectory] */
+        Envelope_InsightsTrajectory_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["InsightsTrajectory"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[InsightsVelocity] */
+        Envelope_InsightsVelocity_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["InsightsVelocity"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
         /** Envelope[ListingHistory] */
         Envelope_ListingHistory_: {
             /**
@@ -6710,6 +7184,211 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** InsightsCompPackage */
+        InsightsCompPackage: {
+            /** Base */
+            base: number;
+            /** Bonus */
+            bonus: number;
+            /** Count */
+            count: number;
+            /** Equity */
+            equity: number;
+            /** Equity Pct */
+            equity_pct: number;
+            /** Median Tc */
+            median_tc: number;
+            sources: components["schemas"]["InsightsPartSources"];
+        };
+        /** InsightsCompensation */
+        InsightsCompensation: {
+            coverage: components["schemas"]["InsightsCoverage"];
+            disclosure: components["schemas"]["InsightsDisclosureRates"];
+            page?: components["schemas"]["InsightsPage"] | null;
+            posted: components["schemas"]["InsightsPostedPay"];
+        };
+        /** InsightsCoverage */
+        InsightsCoverage: {
+            /** Families */
+            families: string[];
+            history: components["schemas"]["CoverageHistory"] | null;
+            /** Last Read At */
+            last_read_at: string | null;
+            /** Off Board Companies */
+            off_board_companies: number | null;
+            /**
+             * Population
+             * @enum {string}
+             */
+            population: "open_roles" | "daily_records" | "source_reads" | "reference";
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "all" | "yours" | "other";
+            window: components["schemas"]["CoverageWindow"] | null;
+        };
+        /** InsightsDemand */
+        InsightsDemand: {
+            /** Closed */
+            closed: number;
+            /** Companies */
+            companies: components["schemas"]["InsightsHiringCompany"][];
+            coverage: components["schemas"]["InsightsCoverage"];
+            /** Employer Dated Share */
+            employer_dated_share: number | null;
+            /** New */
+            new: number;
+            /** Open Total */
+            open_total: number;
+            page?: components["schemas"]["InsightsPage"] | null;
+            /** Regions */
+            regions: components["schemas"]["InsightsHiringRegion"][];
+            /** Unplaced */
+            unplaced: number;
+        };
+        /** InsightsDisclosedBand */
+        InsightsDisclosedBand: {
+            /** Company */
+            company: string;
+            /** High */
+            high: number;
+            /** Level Band */
+            level_band: string;
+            /** Low */
+            low: number;
+            /** Reqs */
+            reqs: number;
+        };
+        /** InsightsDisclosureCohort */
+        InsightsDisclosureCohort: {
+            /** Companies */
+            companies: number;
+            /** Since */
+            since: string;
+        };
+        /** InsightsDisclosureCounts */
+        InsightsDisclosureCounts: {
+            /** Checked */
+            checked: number;
+            /** Disclosed */
+            disclosed: number;
+            /** Open */
+            open: number;
+            /** Rate */
+            rate: number | null;
+        };
+        /** InsightsDisclosureLevel */
+        InsightsDisclosureLevel: {
+            /** Checked */
+            checked: number;
+            /** Disclosed */
+            disclosed: number;
+            /** Level Band */
+            level_band: string;
+            /** Open */
+            open: number;
+            /** Rate */
+            rate: number | null;
+        };
+        /** InsightsDisclosureRates */
+        InsightsDisclosureRates: {
+            /** By Level */
+            by_level: components["schemas"]["InsightsDisclosureLevel"][];
+            overall: components["schemas"]["InsightsDisclosureCounts"];
+        };
+        /** InsightsDisclosureTrendPoint */
+        InsightsDisclosureTrendPoint: {
+            /** Bands */
+            bands: number;
+            /** Checked */
+            checked: number;
+            /** Date */
+            date: string;
+            /** Disclosed */
+            disclosed: number;
+            /** High P50 */
+            high_p50: number | null;
+            /** Low P50 */
+            low_p50: number | null;
+            /** Open */
+            open: number;
+            /** Rate */
+            rate: number | null;
+            /** Reqs */
+            reqs: number;
+        };
+        /** InsightsDisclosureTrendSeries */
+        InsightsDisclosureTrendSeries: {
+            /** Checked */
+            checked: number;
+            /** Disclosed */
+            disclosed: number;
+            /** Key */
+            key: string;
+            /** Points */
+            points: components["schemas"]["InsightsDisclosureTrendPoint"][];
+        };
+        /** InsightsDisclosureTrends */
+        InsightsDisclosureTrends: {
+            /**
+             * Basis
+             * @constant
+             */
+            basis: "base";
+            cohort: components["schemas"]["InsightsDisclosureCohort"] | null;
+            coverage: components["schemas"]["InsightsCoverage"];
+            /** Dates */
+            dates: string[];
+            /** Days */
+            days: number;
+            /**
+             * Dim
+             * @enum {string}
+             */
+            dim: "overall" | "company" | "level";
+            page?: components["schemas"]["InsightsPage"] | null;
+            /** Series */
+            series: components["schemas"]["InsightsDisclosureTrendSeries"][];
+        };
+        /** InsightsHiringCompany */
+        InsightsHiringCompany: {
+            /** Closed */
+            closed: number;
+            /** Company */
+            company: string;
+            /** New */
+            new: number;
+            /** Open */
+            open: number;
+        };
+        /** InsightsHiringCountry */
+        InsightsHiringCountry: {
+            /** Key */
+            key: string;
+            /** Open */
+            open: number;
+        };
+        /** InsightsHiringRegion */
+        InsightsHiringRegion: {
+            /** Countries */
+            countries: components["schemas"]["InsightsHiringCountry"][];
+            /** Key */
+            key: string;
+            /** Open */
+            open: number;
+            /** Region Wide */
+            region_wide: number;
+        };
+        /** InsightsHistory */
+        InsightsHistory: {
+            coverage: components["schemas"]["InsightsCoverage"];
+            /** Days */
+            days: number;
+            page?: components["schemas"]["InsightsPage"] | null;
+            /** Since */
+            since: string | null;
+        };
         /**
          * InsightsHistoryResponse
          * @description `GET /api/statistics/history`: when the history of the scope's companies
@@ -6720,6 +7399,681 @@ export interface components {
             days: number;
             /** Since */
             since: string | null;
+        };
+        /**
+         * InsightsLevelGuideCell
+         * @description How one company names one level: one entry for every function
+         *     (`company_wide`), or one per track (`per_track`); the other is null.
+         */
+        InsightsLevelGuideCell: {
+            company_wide?: components["schemas"]["InsightsLevelGuideEntry"] | null;
+            /** Per Track */
+            per_track?: {
+                [key: string]: components["schemas"]["InsightsLevelGuideEntry"];
+            } | null;
+        };
+        /** InsightsLevelGuideCompany */
+        InsightsLevelGuideCompany: {
+            /** Flat */
+            flat: boolean;
+            /** Levels */
+            levels: {
+                [key: string]: components["schemas"]["InsightsLevelGuideCell"];
+            };
+            /** Slug */
+            slug: string;
+        };
+        /** InsightsLevelGuideEntry */
+        InsightsLevelGuideEntry: {
+            /** Label */
+            label: string;
+            /** Spellings */
+            spellings: string[];
+        };
+        /** InsightsLevelGuideUnguided */
+        InsightsLevelGuideUnguided: {
+            /** Same As */
+            same_as: string | null;
+            /** Slug */
+            slug: string;
+        };
+        /** InsightsLevels */
+        InsightsLevels: {
+            /** Companies */
+            companies: components["schemas"]["InsightsLevelGuideCompany"][];
+            coverage: components["schemas"]["InsightsCoverage"];
+            page?: components["schemas"]["InsightsPage"] | null;
+            /** Tracks */
+            tracks: {
+                [key: string]: string[];
+            };
+            /** Unguided */
+            unguided: components["schemas"]["InsightsLevelGuideUnguided"][];
+        };
+        /** InsightsOfferQuote */
+        InsightsOfferQuote: {
+            /** As Of */
+            as_of: string;
+            /** Price */
+            price: number;
+        };
+        /** InsightsOfferTerms */
+        InsightsOfferTerms: {
+            /** Companies */
+            companies: components["schemas"]["InsightsOfferTermsCompany"][];
+            coverage: components["schemas"]["InsightsCoverage"];
+            /** Feed Configured */
+            feed_configured: boolean;
+            page?: components["schemas"]["InsightsPage"] | null;
+        };
+        /**
+         * InsightsOfferTermsCompany
+         * @description The terms a company states for an offer; a term it does not state is null.
+         */
+        InsightsOfferTermsCompany: {
+            /** Bonus Rule */
+            bonus_rule: ("pct_of_base" | "none") | null;
+            /** Company */
+            company: string;
+            /** Equity Vehicle */
+            equity_vehicle: string | null;
+            /** Listed */
+            listed: boolean;
+            quote: components["schemas"]["InsightsOfferQuote"] | null;
+            /** Sign On Bridges Vesting */
+            sign_on_bridges_vesting: boolean;
+            /** Ticker */
+            ticker: string | null;
+            /** Vesting */
+            vesting: number[] | null;
+            /** Vesting Stated By */
+            vesting_stated_by: ("employer" | "estimated") | null;
+        };
+        /** InsightsOverview */
+        InsightsOverview: {
+            coverage: components["schemas"]["InsightsCoverage"];
+            /** Days */
+            days: number;
+            kpis: components["schemas"]["InsightsOverviewKpis"];
+            page?: components["schemas"]["InsightsPage"] | null;
+            /** Since */
+            since: string | null;
+            /** Top Skills */
+            top_skills: components["schemas"]["InsightsOverviewSkill"][];
+        };
+        /** InsightsOverviewKpis */
+        InsightsOverviewKpis: {
+            /** Already Listed Count */
+            already_listed_count: number;
+            /** Closed Count */
+            closed_count: number;
+            /** Companies */
+            companies: number;
+            /** New Count */
+            new_count: number;
+            /** Open Total */
+            open_total: number;
+            /** Saved Total */
+            saved_total: number;
+        };
+        /** InsightsOverviewSkill */
+        InsightsOverviewSkill: {
+            /** Category */
+            category: string;
+            /** Job Count */
+            job_count: number;
+            /** Term */
+            term: string;
+        };
+        /**
+         * InsightsPage
+         * @description Present when this answer holds part of its lists: the tier's budget
+         *     ended it, or it was asked for from a cursor. The lists are read as one
+         *     sequence in the order `lists` names them; `offset` is where this answer
+         *     starts in it.
+         */
+        InsightsPage: {
+            /** Budget Bytes */
+            budget_bytes: number;
+            /** Continue With */
+            continue_with?: components["schemas"]["NextAction"][];
+            /** Lists */
+            lists: string[];
+            /** Offset */
+            offset: number;
+            /** Returned */
+            returned: number;
+            /**
+             * Tier
+             * @enum {string}
+             */
+            tier: "small" | "standard" | "full";
+            /** Total */
+            total: number;
+        };
+        /**
+         * InsightsPartSources
+         * @description Where each part of a package comes from: what a posting states, what
+         *     the company's rule sets, what was measured, or an estimate.
+         */
+        InsightsPartSources: {
+            /**
+             * Base
+             * @enum {string}
+             */
+            base: "posted" | "company_rule" | "measured" | "estimated" | "mixed";
+            /**
+             * Bonus
+             * @enum {string}
+             */
+            bonus: "posted" | "company_rule" | "measured" | "estimated" | "mixed";
+            /**
+             * Equity
+             * @enum {string}
+             */
+            equity: "posted" | "company_rule" | "measured" | "estimated" | "mixed";
+        };
+        /** InsightsPayByDiscipline */
+        InsightsPayByDiscipline: {
+            /** Disciplines */
+            disciplines: components["schemas"]["InsightsPayDiscipline"][];
+            /** Max Employer Share */
+            max_employer_share: number;
+            /** Min Employers */
+            min_employers: number;
+            /** Min Ranges */
+            min_ranges: number;
+        };
+        /** InsightsPayDiscipline */
+        InsightsPayDiscipline: {
+            /** Employers */
+            employers: number;
+            /** Enough */
+            enough: boolean;
+            /** Family */
+            family: string;
+            /** High */
+            high: number | null;
+            /** Low */
+            low: number | null;
+            /** Mid P25 */
+            mid_p25: number | null;
+            /** Mid P75 */
+            mid_p75: number | null;
+            /** Picked */
+            picked: boolean;
+            /** Ranges */
+            ranges: number;
+            /** Roles */
+            roles: number;
+            /** Top Share */
+            top_share: number;
+            /** Withheld */
+            withheld: ("too_few" | "one_employer") | null;
+        };
+        /** InsightsPayTable */
+        InsightsPayTable: {
+            by_discipline: components["schemas"]["InsightsPayByDiscipline"];
+            /** Country */
+            country: string;
+            coverage: components["schemas"]["InsightsCoverage"];
+            /** Currency */
+            currency: string | null;
+            /** Estimates */
+            estimates: boolean;
+            /** Level Band */
+            level_band: string;
+            /** Min Skill Roles */
+            min_skill_roles: number;
+            /** Not Placed */
+            not_placed: components["schemas"]["InsightsPayTableUnplaced"][];
+            page?: components["schemas"]["InsightsPage"] | null;
+            /** Rows */
+            rows: components["schemas"]["InsightsPayTableRow"][];
+            /** Skill */
+            skill: string | null;
+            /** Skills */
+            skills: components["schemas"]["InsightsPayTableSkill"][];
+        };
+        /** InsightsPayTableEquity */
+        InsightsPayTableEquity: {
+            /** Rule */
+            rule: ("none" | "employee_election") | null;
+            /** Vehicle */
+            vehicle: string | null;
+            /** Vesting */
+            vesting: string | null;
+        };
+        /**
+         * InsightsPayTableEstimate
+         * @description RoleBand's estimate of base salary: a span, never stated pay.
+         */
+        InsightsPayTableEstimate: {
+            /** Families */
+            families: string[];
+            /** High */
+            high: number;
+            /** Low */
+            low: number;
+        };
+        /** InsightsPayTableRange */
+        InsightsPayTableRange: {
+            /** High */
+            high: number;
+            /** Low */
+            low: number;
+            /** Roles */
+            roles: number;
+        };
+        /**
+         * InsightsPayTableRow
+         * @description One company hiring at the level in the country. `low`, `high` and
+         *     `ranges` are what it posts; `estimate_base` and `estimate_total` are
+         *     estimates, never stated pay.
+         */
+        InsightsPayTableRow: {
+            /** Checked */
+            checked: number;
+            /** Company */
+            company: string;
+            /** Currency */
+            currency: string | null;
+            equity: components["schemas"]["InsightsPayTableEquity"] | null;
+            estimate_base: components["schemas"]["InsightsPayTableEstimate"] | null;
+            estimate_total: components["schemas"]["InsightsPayTableTotal"] | null;
+            /** Followed As Set */
+            followed_as_set: boolean;
+            /** High */
+            high: number | null;
+            /** Low */
+            low: number | null;
+            /** Open Roles */
+            open_roles: number;
+            /** Other Currency */
+            other_currency: boolean;
+            /** Posting */
+            posting: number;
+            /** Ranges */
+            ranges: components["schemas"]["InsightsPayTableRange"][];
+            /** Reason */
+            reason: ("total" | "unclear" | "several_countries" | "not_yearly" | "placed_by_pay" | "unread" | "none") | null;
+        };
+        /** InsightsPayTableSkill */
+        InsightsPayTableSkill: {
+            /** Roles */
+            roles: number;
+            /** Term */
+            term: string;
+        };
+        /**
+         * InsightsPayTableTotal
+         * @description RoleBand's estimate of total compensation, as a span.
+         */
+        InsightsPayTableTotal: {
+            /** High */
+            high: number;
+            /** Low */
+            low: number;
+            /** Rung */
+            rung: string | null;
+        };
+        /** InsightsPayTableUnplaced */
+        InsightsPayTableUnplaced: {
+            /** Company */
+            company: string;
+            /** Roles */
+            roles: number;
+        };
+        /** InsightsPayTrendPoint */
+        InsightsPayTrendPoint: {
+            /** Date */
+            date: string;
+            /** P25 */
+            p25: number | null;
+            /** P50 */
+            p50: number | null;
+            /** P75 */
+            p75: number | null;
+            /** P90 */
+            p90: number | null;
+        };
+        /** InsightsPayTrendSeries */
+        InsightsPayTrendSeries: {
+            /** Count */
+            count: number;
+            /** Key */
+            key: string;
+            /** Points */
+            points: components["schemas"]["InsightsPayTrendPoint"][];
+        };
+        /** InsightsPayTrends */
+        InsightsPayTrends: {
+            coverage: components["schemas"]["InsightsCoverage"];
+            /** Dates */
+            dates: string[];
+            /** Days */
+            days: number;
+            /**
+             * Dim
+             * @enum {string}
+             */
+            dim: "overall" | "company" | "level" | "family";
+            page?: components["schemas"]["InsightsPage"] | null;
+            /** Reference Changes */
+            reference_changes: components["schemas"]["InsightsReferenceChange"][];
+            /** Series */
+            series: components["schemas"]["InsightsPayTrendSeries"][];
+        };
+        /** InsightsPostedCountry */
+        InsightsPostedCountry: {
+            /** Bands */
+            bands: components["schemas"]["InsightsDisclosedBand"][];
+            /** Country */
+            country: string;
+            /** Currency */
+            currency: string | null;
+            excluded: components["schemas"]["InsightsPostedCountryExclusions"];
+            /** Levels */
+            levels: components["schemas"]["InsightsPostedLevel"][];
+            not_placed: components["schemas"]["InsightsPostedUnplaced"];
+            /** Other Currency */
+            other_currency: number;
+            /** Ranges */
+            ranges: number;
+            /** Yours */
+            yours: boolean;
+        };
+        /** InsightsPostedCountryExclusions */
+        InsightsPostedCountryExclusions: {
+            /** Implausible */
+            implausible: number;
+            /** Not Base */
+            not_base: number;
+            /** Not Yearly */
+            not_yearly: number;
+            /** Placed By Pay */
+            placed_by_pay: number;
+        };
+        /** InsightsPostedExclusions */
+        InsightsPostedExclusions: {
+            /** Implausible */
+            implausible: number;
+            /** No Country */
+            no_country: number;
+            /** Not Base */
+            not_base: number;
+            /** Not Yearly */
+            not_yearly: number;
+            /** Placed By Pay */
+            placed_by_pay: number;
+            /** Without Country */
+            without_country: number;
+        };
+        /**
+         * InsightsPostedLevel
+         * @description One level's posted yearly base pay in one country and currency. Below
+         *     the minimums `enough` is false and the figures are null.
+         */
+        InsightsPostedLevel: {
+            /** Employers */
+            employers: number;
+            /** Enough */
+            enough: boolean;
+            /** High */
+            high: number | null;
+            /** Level Band */
+            level_band: string;
+            /** Low */
+            low: number | null;
+            /** Mid P25 */
+            mid_p25: number | null;
+            /** Mid P75 */
+            mid_p75: number | null;
+            /** Ranges */
+            ranges: number;
+            /** Roles */
+            roles: number;
+        };
+        /**
+         * InsightsPostedPay
+         * @description What employers post as yearly base pay, per country and level: stated
+         *     pay only, never an estimate.
+         */
+        InsightsPostedPay: {
+            /** Countries */
+            countries: components["schemas"]["InsightsPostedCountry"][];
+            /** Default Country */
+            default_country: string | null;
+            excluded: components["schemas"]["InsightsPostedExclusions"];
+            /** Min Employers */
+            min_employers: number;
+            /** Min Ranges */
+            min_ranges: number;
+            /** Your Levels */
+            your_levels: string[];
+        };
+        /** InsightsPostedUnplaced */
+        InsightsPostedUnplaced: {
+            /** Ranges */
+            ranges: number;
+            /** Roles */
+            roles: number;
+        };
+        /**
+         * InsightsReferenceChange
+         * @description A switch of the pay reference inside the window: a step in a series
+         *     there is a change of sources, not of the market.
+         */
+        InsightsReferenceChange: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Companies */
+            companies: number;
+            /** Gained */
+            gained: number;
+            /** Id */
+            id: number;
+            /** Jobs */
+            jobs: number;
+            /** Lost */
+            lost: number;
+            /** Moved */
+            moved: number;
+        };
+        /** InsightsSkills */
+        InsightsSkills: {
+            /** Competencies */
+            competencies: components["schemas"]["InsightsTopSkill"][];
+            coverage: components["schemas"]["InsightsCoverage"];
+            /** Items */
+            items: components["schemas"]["InsightsTopSkill"][];
+            /** Market Roles */
+            market_roles: number;
+            /** Narrowed */
+            narrowed: boolean;
+            page?: components["schemas"]["InsightsPage"] | null;
+            /** Roles */
+            roles: number;
+        };
+        /** InsightsTopSkill */
+        InsightsTopSkill: {
+            /** Category */
+            category: string;
+            /** Distinctiveness */
+            distinctiveness: number;
+            /** Job Count */
+            job_count: number;
+            /** Lift */
+            lift: number | null;
+            /** Market Share */
+            market_share: number;
+            /** Share */
+            share: number;
+            /** Term */
+            term: string;
+        };
+        /** InsightsTrajectory */
+        InsightsTrajectory: {
+            /** Choice */
+            choice: components["schemas"]["InsightsTrajectoryChoiceCompany"][];
+            coverage: components["schemas"]["InsightsCoverage"];
+            /**
+             * Currency
+             * @constant
+             */
+            currency: "USD";
+            overall: components["schemas"]["InsightsCompPackage"] | null;
+            page?: components["schemas"]["InsightsPage"] | null;
+            /** Private */
+            private: components["schemas"]["InsightsTrajectoryPrivateCompany"][];
+            /** Public */
+            public: components["schemas"]["InsightsTrajectoryPublicCompany"][];
+            /** Set Apart */
+            set_apart: components["schemas"]["InsightsTrajectorySetApart"][];
+        };
+        /** InsightsTrajectoryChoiceCompany */
+        InsightsTrajectoryChoiceCompany: {
+            /** Company */
+            company: string;
+            /** Count */
+            count: number;
+            /** Median Tc */
+            median_tc: number;
+            /** Ticker */
+            ticker: string | null;
+            /**
+             * Total Source
+             * @enum {string}
+             */
+            total_source: "posted" | "estimated" | "mixed";
+        };
+        /** InsightsTrajectoryPrivateCompany */
+        InsightsTrajectoryPrivateCompany: {
+            /** Base */
+            base: number;
+            /** Bonus */
+            bonus: number;
+            /** Company */
+            company: string;
+            /** Count */
+            count: number;
+            /** Equity */
+            equity: number;
+            /** Equity Pct */
+            equity_pct: number;
+            /** Equity Vehicle */
+            equity_vehicle: string | null;
+            /** Median Tc */
+            median_tc: number;
+            sources: components["schemas"]["InsightsPartSources"];
+            /** Vesting */
+            vesting: string | null;
+        };
+        /** InsightsTrajectoryPublicCompany */
+        InsightsTrajectoryPublicCompany: {
+            /** Base */
+            base: number;
+            /** Bonus */
+            bonus: number;
+            /** Company */
+            company: string;
+            /** Count */
+            count: number;
+            /** Equity */
+            equity: number;
+            /** Equity Pct */
+            equity_pct: number;
+            /** Equity Vehicle */
+            equity_vehicle: string | null;
+            /** Median Tc */
+            median_tc: number;
+            sources: components["schemas"]["InsightsPartSources"];
+            /** Ticker */
+            ticker: string | null;
+            /** Vesting */
+            vesting: string | null;
+        };
+        /** InsightsTrajectorySetApart */
+        InsightsTrajectorySetApart: {
+            /** Count */
+            count: number;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "not_us_pay" | "level_unplaced" | "base_only" | "basis_unclear" | "hourly" | "monthly" | "period_unclear" | "total_compensation" | "plugin_without_split" | "plugin_not_covered";
+        };
+        /** InsightsVelocity */
+        InsightsVelocity: {
+            /** Aging */
+            aging: components["schemas"]["InsightsVelocityAgingBand"][];
+            /** By Company */
+            by_company: components["schemas"]["InsightsVelocityCompany"][];
+            coverage: components["schemas"]["InsightsCoverage"];
+            /** Days */
+            days: number;
+            kpis: components["schemas"]["InsightsVelocityKpis"];
+            page?: components["schemas"]["InsightsPage"] | null;
+            /** Posted */
+            posted: components["schemas"]["InsightsVelocityAgingBand"][];
+            /** Since */
+            since: string | null;
+        };
+        /** InsightsVelocityAgingBand */
+        InsightsVelocityAgingBand: {
+            /** Count */
+            count: number;
+            /** Hi */
+            hi: number | null;
+            /** Lo */
+            lo: number;
+        };
+        /** InsightsVelocityCompany */
+        InsightsVelocityCompany: {
+            /** Closed */
+            closed: number;
+            /** Company */
+            company: string;
+            /** Median Days Open */
+            median_days_open: number | null;
+            /** Median Observed Listing Duration Days */
+            median_observed_listing_duration_days: number | null;
+            /** Open */
+            open: number;
+            /** Opened */
+            opened: number;
+            /** Reposted */
+            reposted: number;
+        };
+        /** InsightsVelocityKpis */
+        InsightsVelocityKpis: {
+            /** Age Unknown */
+            age_unknown: number;
+            /** Already Listed */
+            already_listed: number;
+            /** Closed */
+            closed: number;
+            /** Closed Employer Dated Share */
+            closed_employer_dated_share: number | null;
+            /** Closed Sample */
+            closed_sample: number;
+            /** Closed Unknown */
+            closed_unknown: number;
+            /** Employer Dated Share */
+            employer_dated_share: number | null;
+            /** Median Days Open */
+            median_days_open: number | null;
+            /** Median Observed Listing Duration Days */
+            median_observed_listing_duration_days: number | null;
+            /** Open Total */
+            open_total: number;
+            /** Opened */
+            opened: number;
+            /** Reposted */
+            reposted: number;
         };
         /**
          * IntelligenceFitBand
@@ -13666,6 +15020,356 @@ export interface operations {
             };
         };
     };
+    insights_compensation_api_agent_v1_insights_compensation_get: {
+        parameters: {
+            query?: {
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+                /** @description Read on from where an answer stopped, as its continue_with gives it. */
+                cursor?: string | null;
+                /** @description Which companies: all, yours (the ones you picked) or other (followed through the market sweep). */
+                side?: "all" | "yours" | "other";
+                /** @description Narrow to these disciplines (role families); vocabulary.list kind=family lists them. */
+                family?: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InsightsCompensation_"];
+                };
+            };
+        };
+    };
+    insights_demand_api_agent_v1_insights_demand_get: {
+        parameters: {
+            query?: {
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+                /** @description Read on from where an answer stopped, as its continue_with gives it. */
+                cursor?: string | null;
+                /** @description Which companies: all, yours (the ones you picked) or other (followed through the market sweep). */
+                side?: "all" | "yours" | "other";
+                /** @description Narrow to these disciplines (role families); vocabulary.list kind=family lists them. */
+                family?: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InsightsDemand_"];
+                };
+            };
+        };
+    };
+    insights_disclosure_trends_api_agent_v1_insights_disclosure_trends_get: {
+        parameters: {
+            query?: {
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+                /** @description Read on from where an answer stopped, as its continue_with gives it. */
+                cursor?: string | null;
+                /** @description Which companies: all, yours or other. */
+                side?: "all" | "yours" | "other";
+                /** @description One series overall, or one per company or level. */
+                dim?: "overall" | "company" | "level";
+                /** @description The window in days; 0 is all history. */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InsightsDisclosureTrends_"];
+                };
+            };
+        };
+    };
+    insights_history_api_agent_v1_insights_history_get: {
+        parameters: {
+            query?: {
+                /** @description Which companies: all, yours (the ones you picked) or other (followed through the market sweep). */
+                side?: "all" | "yours" | "other";
+                /** @description Narrow to these disciplines (role families); vocabulary.list kind=family lists them. */
+                family?: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InsightsHistory_"];
+                };
+            };
+        };
+    };
+    insights_levels_api_agent_v1_insights_levels_get: {
+        parameters: {
+            query?: {
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+                /** @description Read on from where an answer stopped, as its continue_with gives it. */
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InsightsLevels_"];
+                };
+            };
+        };
+    };
+    insights_offer_terms_api_agent_v1_insights_offer_terms_get: {
+        parameters: {
+            query?: {
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+                /** @description Read on from where an answer stopped, as its continue_with gives it. */
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InsightsOfferTerms_"];
+                };
+            };
+        };
+    };
+    insights_overview_api_agent_v1_insights_overview_get: {
+        parameters: {
+            query?: {
+                /** @description Which companies: all, yours (the ones you picked) or other (followed through the market sweep). */
+                side?: "all" | "yours" | "other";
+                /** @description Narrow to these disciplines (role families); vocabulary.list kind=family lists them. */
+                family?: string[];
+                /** @description The window in days; 0 is all time. */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InsightsOverview_"];
+                };
+            };
+        };
+    };
+    insights_pay_table_api_agent_v1_insights_pay_table_get: {
+        parameters: {
+            query: {
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+                /** @description Read on from where an answer stopped, as its continue_with gives it. */
+                cursor?: string | null;
+                /** @description Which companies: all, yours (the ones you picked) or other (followed through the market sweep). */
+                side?: "all" | "yours" | "other";
+                /** @description Narrow to these disciplines (role families); vocabulary.list kind=family lists them. */
+                family?: string[];
+                /** @description An ISO 3166-1 alpha-2 country code. */
+                country: string;
+                /** @description The level band to compare companies at: one of intern, entry, mid, senior, staff, principal, director_plus. */
+                level: string;
+                /** @description Narrow the companies to roles naming this skill (its slug). */
+                skill?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InsightsPayTable_"];
+                };
+            };
+        };
+    };
+    insights_pay_trends_api_agent_v1_insights_pay_trends_get: {
+        parameters: {
+            query?: {
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+                /** @description Read on from where an answer stopped, as its continue_with gives it. */
+                cursor?: string | null;
+                /** @description Which companies: all, yours (the ones you picked) or other (followed through the market sweep). */
+                side?: "all" | "yours" | "other";
+                /** @description Narrow to these disciplines (role families); vocabulary.list kind=family lists them. */
+                family?: string[];
+                /** @description One series overall, or one per company, level or discipline. */
+                dim?: "overall" | "company" | "level" | "family";
+                /** @description The window in days; 0 is all history. */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InsightsPayTrends_"];
+                };
+            };
+        };
+    };
+    insights_skills_api_agent_v1_insights_skills_get: {
+        parameters: {
+            query?: {
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+                /** @description Read on from where an answer stopped, as its continue_with gives it. */
+                cursor?: string | null;
+                /** @description Which companies: all, yours (the ones you picked) or other (followed through the market sweep). */
+                side?: "all" | "yours" | "other";
+                /** @description Narrow to these disciplines (role families); vocabulary.list kind=family lists them. */
+                family?: string[];
+                /** @description Narrow the slice to these companies. */
+                company?: string[];
+                /** @description Narrow the slice to these places; vocabulary.list kind=location lists them. */
+                location?: string[];
+                /** @description How many skills to rank. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InsightsSkills_"];
+                };
+            };
+        };
+    };
+    insights_trajectory_api_agent_v1_insights_trajectory_get: {
+        parameters: {
+            query?: {
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+                /** @description Read on from where an answer stopped, as its continue_with gives it. */
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InsightsTrajectory_"];
+                };
+            };
+        };
+    };
+    insights_velocity_api_agent_v1_insights_velocity_get: {
+        parameters: {
+            query?: {
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+                /** @description Read on from where an answer stopped, as its continue_with gives it. */
+                cursor?: string | null;
+                /** @description Which companies: all, yours (the ones you picked) or other (followed through the market sweep). */
+                side?: "all" | "yours" | "other";
+                /** @description Narrow to these disciplines (role families); vocabulary.list kind=family lists them. */
+                family?: string[];
+                /** @description The window in days; 0 is all time. */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InsightsVelocity_"];
+                };
+            };
+        };
+    };
     offer_get_api_agent_v1_offer_get: {
         parameters: {
             query?: {
@@ -14300,7 +16004,8 @@ export interface operations {
     activity_ep_api_applications__job_id__activity_get: {
         parameters: {
             query?: {
-                limit?: number;
+                /** @description At most this many entries; the whole history when absent. */
+                limit?: number | null;
                 offset?: number;
             };
             header?: never;

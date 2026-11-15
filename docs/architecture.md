@@ -1377,6 +1377,16 @@ start again, never reset. Pursuit due times are the `private_pursuit` category
 and the rest `public_posting`: while a category is not shared its kinds are left
 out of the feed, and asking for one by name is refused as `category_disabled`.
 
+The Insights reads (`insights.*`, `backend/tracker/agents/operations/insights.py`)
+answer from the dashboard's own route functions: the agent route calls the
+statistics or skills route with the operation's filters and reads its answer
+through a shape that mirrors the route's response field for field, so no
+statistic has a second implementation. Each answer carries its `coverage`
+beside the figures: the population, the scope, the window, the history depth
+and when the radar last read those companies. Its long lists stop at the
+tier's budget with a `page` whose `continue_with` reads on, never cut.
+`backend/tests/test_agent_insights.py` holds each operation to its route.
+
 `offer.get` (the offer, [0019](decisions/0019-assistants-read-the-offer.md)),
 `applications.board` and `applications.calendar` (the pursuits) call the stores
 their dashboard routes call and answer the same fields, paged to the tool tier's

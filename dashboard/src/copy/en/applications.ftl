@@ -456,6 +456,25 @@ applications-feed-next-step = Next step changed
 applications-feed-updated = Updated
 # kind=label note="After a recorded change an agent made"
 applications-feed-by-agent = by an assistant app
+# kind=aria note="Names the menu a month divider opens, which moves the feed to another point in the application's history"
+applications-feed-jump-label = Jump to
+# kind=aria note="A month divider in the feed. $month is the month's name, already formatted"
+applications-feed-jump-month = { $month }, jump to another point
+# kind=label note="Jump menu: the newest entry of the feed"
+applications-feed-jump-recent = Most recent
+# kind=label note="Jump menu: the entry nearest the day the application moved to Applied"
+applications-feed-jump-applied = When you applied
+# kind=label note="Jump menu: the entry nearest the first interview that took place"
+applications-feed-jump-interview = First interview
+# kind=label note="Jump menu: the entry nearest the day the application moved to Offer"
+applications-feed-jump-offer = The offer
+# kind=label note="Jump menu: the oldest entry of the feed"
+applications-feed-jump-beginning = The beginning
+# kind=status note="Beside a month in the jump menu: how many comments it holds"
+applications-feed-jump-comments = { $count ->
+        [one] 1 comment
+       *[other] { $count } comments
+    }
 # kind=aria
 applications-comment-label = Comment
 # kind=label

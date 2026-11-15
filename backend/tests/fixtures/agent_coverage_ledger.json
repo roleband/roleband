@@ -417,7 +417,7 @@
   {
    "method": "GET",
    "path": "/api/statistics/comp-trends",
-   "operation": "insights.trends"
+   "operation": "insights.pay_trends"
   },
   {
    "method": "GET",
@@ -427,7 +427,7 @@
   {
    "method": "GET",
    "path": "/api/statistics/disclosure-trends",
-   "operation": "insights.trends"
+   "operation": "insights.disclosure_trends"
   },
   {
    "method": "GET",

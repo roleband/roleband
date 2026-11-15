@@ -20,6 +20,7 @@ from tracker.agents.operations import (
     applications,
     changes,
     export,
+    insights,
     offer,
     opportunities,
     pursuits,
@@ -55,9 +56,11 @@ from tracker.api.agent_operations import (
     operation_route,
 )
 from tracker.api.deps import SessionDep, end_read
-from tracker.api.routers import ops
+from tracker.api.routers import ops, statistics
+from tracker.api.routers import skills as skill_routes
 from tracker.config import get_settings
 from tracker.platform.paths import DATA_DIR
+from tracker.schema import LevelBand
 
 router = APIRouter(route_class=AgentRoute, tags=["agent"])
 
@@ -507,3 +510,175 @@ async def context_export(
             message="The packet is longer than the tool tier's budget; continue_with reads the next part.",
         )])
     return op.ok(part)
+
+
+# --- Insights: each answer is the dashboard route's own, read through the operation's shape.
+
+
+async def _insights(op: OperationContext, figures: insights.Figures) -> Envelope[Any]:
+    answer = await insights.read(
+        op.session, op.descriptor, op.input, workspace_id=op.workspace_id, figures=figures
+    )
+    envelope = op.ok(answer.data, warnings=[EnvelopeNotice(
+        code="page_shortened",
+        message="This answer stops before its lists end to stay within the tool tier's budget; "
+        "page.continue_with reads on.",
+    )] if answer.shortened else None)
+    envelope.meta.next_cursor = answer.next_cursor
+    return envelope
+
+
+@router.get(
+    f"{PREFIX}/insights/overview",
+    response_model=Envelope[insights.InsightsOverview],
+    openapi_extra=operation_route(insights.INSIGHTS_OVERVIEW),
+)
+async def insights_overview(
+    op: Annotated[OperationContext, Depends(admitted(insights.INSIGHTS_OVERVIEW))],
+) -> Envelope[Any]:
+    return await _insights(op, lambda session, hidden, scope, params: statistics.statistics_overview(
+        session=session, hidden=hidden, scope=scope, days=params.days,
+    ))
+
+
+@router.get(
+    f"{PREFIX}/insights/compensation",
+    response_model=Envelope[insights.InsightsCompensation],
+    openapi_extra=operation_route(insights.INSIGHTS_COMPENSATION),
+)
+async def insights_compensation(
+    op: Annotated[OperationContext, Depends(admitted(insights.INSIGHTS_COMPENSATION))],
+) -> Envelope[Any]:
+    return await _insights(op, lambda session, hidden, scope, params: statistics.statistics_compensation(
+        session=session, hidden=hidden, narrowed=scope,
+    ))
+
+
+@router.get(
+    f"{PREFIX}/insights/pay-table",
+    response_model=Envelope[insights.InsightsPayTable],
+    openapi_extra=operation_route(insights.INSIGHTS_PAY_TABLE),
+)
+async def insights_pay_table(
+    op: Annotated[OperationContext, Depends(admitted(insights.INSIGHTS_PAY_TABLE))],
+) -> Envelope[Any]:
+    return await _insights(op, lambda session, hidden, scope, params: statistics.statistics_pay_table(
+        session=session, hidden=hidden, narrowed=scope, country=params.country, level=LevelBand(params.level),
+        skill=params.skill,
+    ))
+
+
+@router.get(
+    f"{PREFIX}/insights/trajectory",
+    response_model=Envelope[insights.InsightsTrajectory],
+    openapi_extra=operation_route(insights.INSIGHTS_TRAJECTORY),
+)
+async def insights_trajectory(
+    op: Annotated[OperationContext, Depends(admitted(insights.INSIGHTS_TRAJECTORY))],
+) -> Envelope[Any]:
+    return await _insights(op, lambda session, hidden, scope, params: statistics.statistics_comp_trajectory(
+        session=session, hidden=hidden,
+    ))
+
+
+@router.get(
+    f"{PREFIX}/insights/offer-terms",
+    response_model=Envelope[insights.InsightsOfferTerms],
+    openapi_extra=operation_route(insights.INSIGHTS_OFFER_TERMS),
+)
+async def insights_offer_terms(
+    op: Annotated[OperationContext, Depends(admitted(insights.INSIGHTS_OFFER_TERMS))],
+) -> Envelope[Any]:
+    return await _insights(op, lambda session, hidden, scope, params: statistics.statistics_offer_terms(
+        session=session,
+    ))
+
+
+@router.get(
+    f"{PREFIX}/insights/levels",
+    response_model=Envelope[insights.InsightsLevels],
+    openapi_extra=operation_route(insights.INSIGHTS_LEVELS),
+)
+async def insights_levels(
+    op: Annotated[OperationContext, Depends(admitted(insights.INSIGHTS_LEVELS))],
+) -> Envelope[Any]:
+    return await _insights(op, lambda session, hidden, scope, params: statistics.statistics_levels())
+
+
+@router.get(
+    f"{PREFIX}/insights/pay-trends",
+    response_model=Envelope[insights.InsightsPayTrends],
+    openapi_extra=operation_route(insights.INSIGHTS_PAY_TRENDS),
+)
+async def insights_pay_trends(
+    op: Annotated[OperationContext, Depends(admitted(insights.INSIGHTS_PAY_TRENDS))],
+) -> Envelope[Any]:
+    return await _insights(op, lambda session, hidden, scope, params: statistics.statistics_comp_trends(
+        session=session, hidden=hidden, scope=scope, dim=params.dim, days=params.days
+    ))
+
+
+@router.get(
+    f"{PREFIX}/insights/disclosure-trends",
+    response_model=Envelope[insights.InsightsDisclosureTrends],
+    openapi_extra=operation_route(insights.INSIGHTS_DISCLOSURE_TRENDS),
+)
+async def insights_disclosure_trends(
+    op: Annotated[OperationContext, Depends(admitted(insights.INSIGHTS_DISCLOSURE_TRENDS))],
+) -> Envelope[Any]:
+    return await _insights(op, lambda session, hidden, scope, params: statistics.statistics_disclosure_trends(
+        session=session, hidden=hidden, scope=scope, dim=params.dim, days=params.days
+    ))
+
+
+@router.get(
+    f"{PREFIX}/insights/velocity",
+    response_model=Envelope[insights.InsightsVelocity],
+    openapi_extra=operation_route(insights.INSIGHTS_VELOCITY),
+)
+async def insights_velocity(
+    op: Annotated[OperationContext, Depends(admitted(insights.INSIGHTS_VELOCITY))],
+) -> Envelope[Any]:
+    return await _insights(op, lambda session, hidden, scope, params: statistics.statistics_velocity(
+        session=session, hidden=hidden, scope=scope, days=params.days,
+    ))
+
+
+@router.get(
+    f"{PREFIX}/insights/history",
+    response_model=Envelope[insights.InsightsHistory],
+    openapi_extra=operation_route(insights.INSIGHTS_HISTORY),
+)
+async def insights_history(
+    op: Annotated[OperationContext, Depends(admitted(insights.INSIGHTS_HISTORY))],
+) -> Envelope[Any]:
+    return await _insights(op, lambda session, hidden, scope, params: statistics.statistics_history(
+        session=session, hidden=hidden, scope=scope,
+    ))
+
+
+@router.get(
+    f"{PREFIX}/insights/demand",
+    response_model=Envelope[insights.InsightsDemand],
+    openapi_extra=operation_route(insights.INSIGHTS_DEMAND),
+)
+async def insights_demand(
+    op: Annotated[OperationContext, Depends(admitted(insights.INSIGHTS_DEMAND))],
+) -> Envelope[Any]:
+    return await _insights(op, lambda session, hidden, scope, params: statistics.demand(
+        session=session, hidden=hidden, scope=scope,
+    ))
+
+
+@router.get(
+    f"{PREFIX}/insights/skills",
+    response_model=Envelope[insights.InsightsSkills],
+    openapi_extra=operation_route(insights.INSIGHTS_SKILLS),
+)
+async def insights_skills(
+    op: Annotated[OperationContext, Depends(admitted(insights.INSIGHTS_SKILLS))],
+) -> Envelope[Any]:
+    return await _insights(op, lambda session, hidden, scope, params: skill_routes.skills_top(
+        session=session, hidden=hidden, scope=scope, company=params.company or None,
+        family=params.family or None, location_group=params.location or None, limit=params.limit,
+    ))
