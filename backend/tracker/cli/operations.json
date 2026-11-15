@@ -10,6 +10,606 @@
    },
    "client_effects": [],
    "contract_version": "1.0",
+   "data_classes": [
+    "private_pursuit",
+    "public_posting"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {
+     "stage": "interviewing"
+    }
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "cursor": {
+      "anyOf": [
+       {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "The next_cursor of the previous page, read with the same stage.",
+      "title": "Cursor"
+     },
+     "stage": {
+      "anyOf": [
+       {
+        "enum": [
+         "saved",
+         "researching",
+         "networking",
+         "applied",
+         "interviewing",
+         "offer",
+         "accepted",
+         "declined",
+         "withdrawn",
+         "rejected",
+         "role_closed"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Only the applications at this stage.",
+      "title": "Stage"
+     },
+     "tier": {
+      "default": "small",
+      "description": "The caller's tool tier, which bounds the page.",
+      "enum": [
+       "small",
+       "standard",
+       "full"
+      ],
+      "title": "Tier",
+      "type": "string"
+     }
+    },
+    "title": "BoardInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "applications.board",
+   "output_schema": {
+    "$defs": {
+     "BoardCard": {
+      "additionalProperties": false,
+      "description": "One application as the board shows it, keyed by its opportunity's id.",
+      "properties": {
+       "comment_count": {
+        "title": "Comment Count",
+        "type": "integer"
+       },
+       "company": {
+        "title": "Company",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "ended_at_stage": {
+        "anyOf": [
+         {
+          "enum": [
+           "saved",
+           "researching",
+           "networking",
+           "applied",
+           "interviewing",
+           "offer",
+           "accepted",
+           "declined",
+           "withdrawn",
+           "rejected",
+           "role_closed"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Ended At Stage",
+        "x-text": "code"
+       },
+       "job_id": {
+        "title": "Job Id",
+        "type": "integer"
+       },
+       "last_activity_at": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Last Activity At"
+       },
+       "level_band": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Level Band",
+        "x-text": "code"
+       },
+       "next_action": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Next Action",
+        "x-text": "content"
+       },
+       "next_action_due": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Next Action Due"
+       },
+       "next_interview": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/BoardNextInterview"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "posting_status": {
+        "title": "Posting Status",
+        "type": "string",
+        "x-text": "code"
+       },
+       "priority": {
+        "title": "Priority",
+        "type": "integer"
+       },
+       "pursuit_id": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Pursuit Id"
+       },
+       "stage": {
+        "enum": [
+         "saved",
+         "researching",
+         "networking",
+         "applied",
+         "interviewing",
+         "offer",
+         "accepted",
+         "declined",
+         "withdrawn",
+         "rejected",
+         "role_closed"
+        ],
+        "title": "Stage",
+        "type": "string",
+        "x-text": "code"
+       },
+       "stage_since": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Stage Since"
+       },
+       "starred": {
+        "title": "Starred",
+        "type": "boolean"
+       },
+       "title": {
+        "title": "Title",
+        "type": "string",
+        "x-text": "content"
+       }
+      },
+      "required": [
+       "job_id",
+       "pursuit_id",
+       "stage",
+       "priority",
+       "starred",
+       "next_action",
+       "next_action_due",
+       "next_interview",
+       "comment_count",
+       "stage_since",
+       "last_activity_at",
+       "ended_at_stage"
+      ],
+      "title": "BoardCard",
+      "type": "object"
+     },
+     "BoardNextInterview": {
+      "additionalProperties": false,
+      "properties": {
+       "all_day": {
+        "title": "All Day",
+        "type": "boolean"
+       },
+       "format": {
+        "anyOf": [
+         {
+          "enum": [
+           "video",
+           "phone",
+           "onsite"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Format",
+        "x-text": "code"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "label": {
+        "title": "Label",
+        "type": "string",
+        "x-text": "content"
+       },
+       "scheduled_at": {
+        "format": "date-time",
+        "title": "Scheduled At",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id",
+       "label",
+       "scheduled_at",
+       "all_day",
+       "format"
+      ],
+      "title": "BoardNextInterview",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "applications": {
+      "items": {
+       "$ref": "#/$defs/BoardCard"
+      },
+      "title": "Applications",
+      "type": "array"
+     },
+     "count": {
+      "minimum": 0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "total": {
+      "minimum": 0,
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "total",
+     "count",
+     "applications"
+    ],
+    "title": "ApplicationBoard",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "List the application board: each application's stage, next step and next interview.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "private_pursuit"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {
+     "end": "2026-11-23T00:00:00+01:00",
+     "start": "2026-11-16T00:00:00+01:00"
+    }
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "cursor": {
+      "anyOf": [
+       {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "The next_cursor of the previous page, read with the same span.",
+      "title": "Cursor"
+     },
+     "end": {
+      "description": "The instant the span stops before, with its offset; at most 42 days after start.",
+      "format": "date-time",
+      "title": "End",
+      "type": "string"
+     },
+     "start": {
+      "description": "The span's first instant, with its offset.",
+      "format": "date-time",
+      "title": "Start",
+      "type": "string"
+     },
+     "tier": {
+      "default": "small",
+      "description": "The caller's tool tier, which bounds the page.",
+      "enum": [
+       "small",
+       "standard",
+       "full"
+      ],
+      "title": "Tier",
+      "type": "string"
+     }
+    },
+    "required": [
+     "start",
+     "end"
+    ],
+    "title": "CalendarInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "applications.calendar",
+   "output_schema": {
+    "$defs": {
+     "CalendarInterviewEntry": {
+      "additionalProperties": false,
+      "properties": {
+       "all_day": {
+        "title": "All Day",
+        "type": "boolean"
+       },
+       "at": {
+        "format": "date-time",
+        "title": "At",
+        "type": "string"
+       },
+       "format": {
+        "anyOf": [
+         {
+          "enum": [
+           "video",
+           "phone",
+           "onsite"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Format",
+        "x-text": "code"
+       },
+       "interview_id": {
+        "title": "Interview Id",
+        "type": "integer"
+       },
+       "job_id": {
+        "title": "Job Id",
+        "type": "integer"
+       },
+       "kind": {
+        "const": "interview",
+        "title": "Kind",
+        "type": "string",
+        "x-text": "code"
+       },
+       "label": {
+        "title": "Label",
+        "type": "string",
+        "x-text": "content"
+       },
+       "outcome": {
+        "anyOf": [
+         {
+          "enum": [
+           "passed",
+           "not_passed",
+           "cancelled"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Outcome",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "kind",
+       "job_id",
+       "at",
+       "interview_id",
+       "label",
+       "all_day",
+       "format",
+       "outcome"
+      ],
+      "title": "CalendarInterviewEntry",
+      "type": "object"
+     },
+     "CalendarStepEntry": {
+      "additionalProperties": false,
+      "properties": {
+       "at": {
+        "format": "date-time",
+        "title": "At",
+        "type": "string"
+       },
+       "job_id": {
+        "title": "Job Id",
+        "type": "integer"
+       },
+       "kind": {
+        "const": "step",
+        "title": "Kind",
+        "type": "string",
+        "x-text": "code"
+       },
+       "step": {
+        "title": "Step",
+        "type": "string",
+        "x-text": "content"
+       }
+      },
+      "required": [
+       "kind",
+       "job_id",
+       "at",
+       "step"
+      ],
+      "title": "CalendarStepEntry",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "count": {
+      "minimum": 0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "items": {
+      "items": {
+       "discriminator": {
+        "mapping": {
+         "interview": "#/$defs/CalendarInterviewEntry",
+         "step": "#/$defs/CalendarStepEntry"
+        },
+        "propertyName": "kind"
+       },
+       "oneOf": [
+        {
+         "$ref": "#/$defs/CalendarInterviewEntry"
+        },
+        {
+         "$ref": "#/$defs/CalendarStepEntry"
+        }
+       ]
+      },
+      "title": "Items",
+      "type": "array"
+     },
+     "total": {
+      "minimum": 0,
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "total",
+     "count",
+     "items"
+    ],
+    "title": "ApplicationCalendar",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "List the interviews and dated next steps in a span of up to six weeks, soonest first.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
    "data_classes": [],
    "engine_effects": {
     "external_action": false,
@@ -269,6 +869,279 @@
     "agent_access.enabled"
    ],
    "summary": "List the operations this engine offers and whether each can be called now.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "public_posting",
+    "market_statistic",
+    "private_pursuit"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {
+     "opportunity_id": 4821
+    }
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "opportunity_id": {
+      "description": "The opportunity's id, as search returns it.",
+      "minimum": 1,
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
+     "packet_from": {
+      "anyOf": [
+       {
+        "minimum": 0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Read the packet from this character on, as continue_with gives it; the parts joined are the packet.",
+      "title": "Packet From"
+     },
+     "packet_sha256": {
+      "anyOf": [
+       {
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "The manifest's packet_sha256 of the parts read so far, as continue_with gives it. A packet that changed since is refused, so parts of two packets are never joined.",
+      "title": "Packet Sha256",
+      "x-text": "identifier"
+     },
+     "tier": {
+      "default": "small",
+      "description": "The caller's tool tier, which bounds one part of the packet.",
+      "enum": [
+       "small",
+       "standard",
+       "full"
+      ],
+      "title": "Tier",
+      "type": "string"
+     }
+    },
+    "required": [
+     "opportunity_id"
+    ],
+    "title": "ContextExportInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "context.export",
+   "output_schema": {
+    "$defs": {
+     "ExportManifest": {
+      "additionalProperties": false,
+      "properties": {
+       "components": {
+        "items": {
+         "$ref": "#/$defs/PacketComponent"
+        },
+        "title": "Components",
+        "type": "array"
+       },
+       "format": {
+        "const": 1,
+        "title": "Format",
+        "type": "integer"
+       },
+       "left_out": {
+        "items": {
+         "enum": [
+          "public_posting",
+          "market_statistic",
+          "private_pursuit",
+          "offer",
+          "candidate"
+         ],
+         "type": "string"
+        },
+        "title": "Left Out",
+        "type": "array",
+        "x-text": "code"
+       },
+       "opportunity_id": {
+        "title": "Opportunity Id",
+        "type": "integer"
+       },
+       "packet_bytes": {
+        "minimum": 0,
+        "title": "Packet Bytes",
+        "type": "integer"
+       },
+       "packet_chars": {
+        "minimum": 0,
+        "title": "Packet Chars",
+        "type": "integer"
+       },
+       "packet_sha256": {
+        "title": "Packet Sha256",
+        "type": "string",
+        "x-text": "identifier"
+       }
+      },
+      "required": [
+       "format",
+       "opportunity_id",
+       "packet_sha256",
+       "packet_bytes",
+       "packet_chars",
+       "components",
+       "left_out"
+      ],
+      "title": "ExportManifest",
+      "type": "object"
+     },
+     "NextAction": {
+      "additionalProperties": false,
+      "description": "A typed suggestion of an operation to call next. Never a shell string,\nand never a permission the caller did not already have.",
+      "properties": {
+       "arguments": {
+        "additionalProperties": true,
+        "title": "Arguments",
+        "type": "object"
+       },
+       "operation": {
+        "title": "Operation",
+        "type": "string",
+        "x-text": "identifier"
+       }
+      },
+      "required": [
+       "operation"
+      ],
+      "title": "NextAction",
+      "type": "object"
+     },
+     "PacketComponent": {
+      "additionalProperties": false,
+      "properties": {
+       "fingerprint": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Fingerprint",
+        "x-text": "identifier"
+       },
+       "name": {
+        "enum": [
+         "posting",
+         "pay",
+         "company",
+         "pursuit"
+        ],
+        "title": "Name",
+        "type": "string",
+        "x-text": "code"
+       },
+       "sha256": {
+        "title": "Sha256",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "source_timestamps": {
+        "additionalProperties": {
+         "anyOf": [
+          {
+           "format": "date-time",
+           "type": "string"
+          },
+          {
+           "format": "date",
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        "title": "Source Timestamps",
+        "type": "object"
+       }
+      },
+      "required": [
+       "name",
+       "sha256",
+       "source_timestamps",
+       "fingerprint"
+      ],
+      "title": "PacketComponent",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "continue_with": {
+      "items": {
+       "$ref": "#/$defs/NextAction"
+      },
+      "title": "Continue With",
+      "type": "array"
+     },
+     "manifest": {
+      "$ref": "#/$defs/ExportManifest"
+     },
+     "packet": {
+      "title": "Packet",
+      "type": "string",
+      "x-text": "content"
+     },
+     "packet_offset": {
+      "minimum": 0,
+      "title": "Packet Offset",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "manifest",
+     "packet_offset",
+     "packet"
+    ],
+    "title": "ContextExport",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "Export one opportunity's posting text, pay evidence, company facts and pursuit as a hashed packet.",
    "supports_dry_run": false,
    "tool_tiers": [
     "small",
@@ -544,6 +1417,639 @@
     "agent_access.enabled"
    ],
    "summary": "Describe one operation: its input and output schemas, effects and data classes.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "public_posting"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {}
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "tier": {
+      "default": "small",
+      "description": "The caller's tool tier, which bounds the report.",
+      "enum": [
+       "small",
+       "standard",
+       "full"
+      ],
+      "title": "Tier",
+      "type": "string"
+     }
+    },
+    "title": "DoctorInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "doctor",
+   "output_schema": {
+    "$defs": {
+     "DoctorCheck": {
+      "additionalProperties": false,
+      "properties": {
+       "check": {
+        "title": "Check",
+        "type": "string",
+        "x-text": "code"
+       },
+       "state": {
+        "enum": [
+         "ok",
+         "attention",
+         "failing"
+        ],
+        "title": "State",
+        "type": "string",
+        "x-text": "code"
+       },
+       "summary": {
+        "title": "Summary",
+        "type": "string",
+        "x-text": "diagnostic"
+       }
+      },
+      "required": [
+       "check",
+       "state",
+       "summary"
+      ],
+      "title": "DoctorCheck",
+      "type": "object"
+     },
+     "DoctorSetting": {
+      "additionalProperties": false,
+      "properties": {
+       "name": {
+        "title": "Name",
+        "type": "string",
+        "x-text": "code"
+       },
+       "value": {
+        "anyOf": [
+         {
+          "type": "boolean"
+         },
+         {
+          "type": "integer"
+         },
+         {
+          "type": "number"
+         },
+         {
+          "type": "string"
+         },
+         {
+          "items": {
+           "type": "string"
+          },
+          "type": "array"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Value",
+        "x-text": "diagnostic"
+       }
+      },
+      "required": [
+       "name",
+       "value"
+      ],
+      "title": "DoctorSetting",
+      "type": "object"
+     },
+     "NextAction": {
+      "additionalProperties": false,
+      "description": "A typed suggestion of an operation to call next. Never a shell string,\nand never a permission the caller did not already have.",
+      "properties": {
+       "arguments": {
+        "additionalProperties": true,
+        "title": "Arguments",
+        "type": "object"
+       },
+       "operation": {
+        "title": "Operation",
+        "type": "string",
+        "x-text": "identifier"
+       }
+      },
+      "required": [
+       "operation"
+      ],
+      "title": "NextAction",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "checks": {
+      "items": {
+       "$ref": "#/$defs/DoctorCheck"
+      },
+      "title": "Checks",
+      "type": "array"
+     },
+     "continue_with": {
+      "items": {
+       "$ref": "#/$defs/NextAction"
+      },
+      "title": "Continue With",
+      "type": "array"
+     },
+     "contract_version": {
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "engine_version": {
+      "title": "Engine Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "install": {
+      "enum": [
+       "app",
+       "source"
+      ],
+      "title": "Install",
+      "type": "string",
+      "x-text": "code"
+     },
+     "redacted": {
+      "minimum": 0,
+      "title": "Redacted",
+      "type": "integer"
+     },
+     "settings": {
+      "items": {
+       "$ref": "#/$defs/DoctorSetting"
+      },
+      "title": "Settings",
+      "type": "array"
+     }
+    },
+    "required": [
+     "engine_version",
+     "contract_version",
+     "install",
+     "checks",
+     "settings",
+     "redacted"
+    ],
+    "title": "DoctorReport",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "Diagnose the engine: its checks and the settings it runs with, secrets and outside paths redacted.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "offer"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {}
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "cursor": {
+      "anyOf": [
+       {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "The next_cursor of the previous page: the valuations after it, by company slug.",
+      "title": "Cursor"
+     },
+     "tier": {
+      "default": "small",
+      "description": "The caller's tool tier, which bounds the page of valuations.",
+      "enum": [
+       "small",
+       "standard",
+       "full"
+      ],
+      "title": "Tier",
+      "type": "string"
+     }
+    },
+    "title": "OfferGetInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "offer.get",
+   "output_schema": {
+    "$defs": {
+     "KeptOffer": {
+      "additionalProperties": false,
+      "properties": {
+       "answered": {
+        "items": {
+         "enum": [
+          "company",
+          "base",
+          "stock",
+          "strike",
+          "price",
+          "valuation",
+          "vesting",
+          "bonus",
+          "sign_on"
+         ],
+         "type": "string"
+        },
+        "maxItems": 9,
+        "title": "Answered",
+        "type": "array",
+        "x-text": "code"
+       },
+       "inputs": {
+        "$ref": "#/$defs/KeptOfferInputs"
+       },
+       "saved_at": {
+        "format": "date-time",
+        "title": "Saved At",
+        "type": "string"
+       },
+       "started_from": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/KeptOfferOrigin"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       }
+      },
+      "required": [
+       "inputs",
+       "answered",
+       "started_from",
+       "saved_at"
+      ],
+      "title": "KeptOffer",
+      "type": "object"
+     },
+     "KeptOfferInputs": {
+      "additionalProperties": false,
+      "description": "What the person entered. A null figure is blank, never zero.",
+      "properties": {
+       "base": {
+        "anyOf": [
+         {
+          "exclusiveMaximum": 10000000000000.0,
+          "minimum": 0,
+          "type": "number"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Base"
+       },
+       "bonus_pct": {
+        "anyOf": [
+         {
+          "maximum": 1000,
+          "minimum": 0,
+          "type": "number"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Bonus Pct"
+       },
+       "company": {
+        "maxLength": 120,
+        "pattern": "^(|[a-z0-9][a-z0-9-]*)$",
+        "title": "Company",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "grant": {
+        "anyOf": [
+         {
+          "exclusiveMaximum": 10000000000000.0,
+          "minimum": 0,
+          "type": "number"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Grant"
+       },
+       "grant_unit": {
+        "enum": [
+         "dollars",
+         "shares"
+        ],
+        "title": "Grant Unit",
+        "type": "string",
+        "x-text": "code"
+       },
+       "listed": {
+        "title": "Listed",
+        "type": "boolean"
+       },
+       "price": {
+        "anyOf": [
+         {
+          "exclusiveMaximum": 10000000000000.0,
+          "minimum": 0,
+          "type": "number"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Price"
+       },
+       "sign_on": {
+        "items": {
+         "anyOf": [
+          {
+           "exclusiveMaximum": 10000000000000.0,
+           "minimum": 0,
+           "type": "number"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        "maxItems": 2,
+        "minItems": 2,
+        "title": "Sign On",
+        "type": "array"
+       },
+       "strike": {
+        "anyOf": [
+         {
+          "exclusiveMaximum": 10000000000000.0,
+          "minimum": 0,
+          "type": "number"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Strike"
+       },
+       "vehicle": {
+        "enum": [
+         "rsu",
+         "options"
+        ],
+        "title": "Vehicle",
+        "type": "string",
+        "x-text": "code"
+       },
+       "vesting": {
+        "anyOf": [
+         {
+          "items": {
+           "anyOf": [
+            {
+             "maximum": 100,
+             "minimum": 0,
+             "type": "number"
+            },
+            {
+             "type": "null"
+            }
+           ]
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "type": "array"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Vesting"
+       }
+      },
+      "required": [
+       "company",
+       "listed",
+       "base",
+       "bonus_pct",
+       "vehicle",
+       "grant_unit",
+       "grant",
+       "strike",
+       "price",
+       "vesting",
+       "sign_on"
+      ],
+      "title": "KeptOfferInputs",
+      "type": "object"
+     },
+     "KeptOfferOrigin": {
+      "additionalProperties": false,
+      "description": "The typical figures the offer was started from: a company's median\nrole, or one role (with its title).",
+      "properties": {
+       "company": {
+        "maxLength": 120,
+        "minLength": 1,
+        "pattern": "^[a-z0-9][a-z0-9-]*$",
+        "title": "Company",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "title": {
+        "anyOf": [
+         {
+          "maxLength": 300,
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Title",
+        "x-text": "content"
+       }
+      },
+      "required": [
+       "company",
+       "title"
+      ],
+      "title": "KeptOfferOrigin",
+      "type": "object"
+     },
+     "KeptValuation": {
+      "additionalProperties": false,
+      "description": "A private company's value at grant and the one the person tests, per\nshare or for the whole company.",
+      "properties": {
+       "company": {
+        "title": "Company",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "grant_at": {
+        "anyOf": [
+         {
+          "exclusiveMaximum": 10000000000000.0,
+          "minimum": 0,
+          "type": "number"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Grant At"
+       },
+       "saved_at": {
+        "format": "date-time",
+        "title": "Saved At",
+        "type": "string"
+       },
+       "share_count": {
+        "anyOf": [
+         {
+          "exclusiveMaximum": 10000000000000.0,
+          "minimum": 0,
+          "type": "number"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Share Count"
+       },
+       "test_at": {
+        "anyOf": [
+         {
+          "exclusiveMaximum": 10000000000000.0,
+          "minimum": 0,
+          "type": "number"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Test At"
+       },
+       "unit": {
+        "enum": [
+         "per_share",
+         "company"
+        ],
+        "title": "Unit",
+        "type": "string",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "company",
+       "unit",
+       "grant_at",
+       "test_at",
+       "share_count",
+       "saved_at"
+      ],
+      "title": "KeptValuation",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "offer": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/KeptOffer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "valuation_count": {
+      "minimum": 0,
+      "title": "Valuation Count",
+      "type": "integer"
+     },
+     "valuations": {
+      "items": {
+       "$ref": "#/$defs/KeptValuation"
+      },
+      "title": "Valuations",
+      "type": "array"
+     }
+    },
+    "required": [
+     "offer",
+     "valuation_count",
+     "valuations"
+    ],
+    "title": "OfferRead",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "Read the person's own offer and the private-company valuations they entered.",
    "supports_dry_run": false,
    "tool_tiers": [
     "small",
@@ -4659,13 +6165,33 @@
   }
  ],
  "routes": {
+  "applications.board": {
+   "method": "GET",
+   "path": "/api/agent/v1/applications"
+  },
+  "applications.calendar": {
+   "method": "GET",
+   "path": "/api/agent/v1/applications/calendar"
+  },
   "capabilities": {
    "method": "GET",
    "path": "/api/agent/v1/capabilities"
   },
+  "context.export": {
+   "method": "GET",
+   "path": "/api/agent/v1/opportunities/{opportunity_id}/context"
+  },
   "describe": {
    "method": "GET",
    "path": "/api/agent/v1/operations/{operation}"
+  },
+  "doctor": {
+   "method": "GET",
+   "path": "/api/agent/v1/doctor"
+  },
+  "offer.get": {
+   "method": "GET",
+   "path": "/api/agent/v1/offer"
   },
   "opportunities.get": {
    "method": "GET",

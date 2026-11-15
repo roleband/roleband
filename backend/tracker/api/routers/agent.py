@@ -17,6 +17,9 @@ from fastapi import APIRouter, Depends, Request
 
 from tracker import __version__
 from tracker.agents.operations import (
+    applications,
+    export,
+    offer,
     opportunities,
     pursuits,
     radar,
@@ -51,6 +54,9 @@ from tracker.api.agent_operations import (
     operation_route,
 )
 from tracker.api.deps import SessionDep, end_read
+from tracker.api.routers import ops
+from tracker.config import get_settings
+from tracker.platform.paths import DATA_DIR
 
 router = APIRouter(route_class=AgentRoute, tags=["agent"])
 
@@ -364,3 +370,109 @@ async def vocabulary_list(
     envelope = op.ok(page)
     envelope.meta.next_cursor = next_cursor
     return envelope
+
+
+def _paged(op: OperationContext, page: Any, next_cursor: str | None, shortened: bool) -> Envelope[Any]:
+    """A page of a list read; one the tier's budget ended early says so."""
+    warnings = [EnvelopeNotice(
+        code="page_shortened",
+        message="This page stops at the tool tier's budget; next_cursor continues.",
+    )] if shortened else None
+    envelope = op.ok(page, warnings=warnings)
+    envelope.meta.next_cursor = next_cursor
+    return envelope
+
+
+@router.get(
+    f"{PREFIX}/offer",
+    response_model=Envelope[offer.OfferRead],
+    openapi_extra=operation_route(offer.OFFER_GET),
+)
+async def offer_get(
+    op: Annotated[OperationContext, Depends(admitted(offer.OFFER_GET))],
+) -> Envelope[Any]:
+    return _paged(op, *await offer.offer_read(
+        op.session, op.input_as(offer.OfferGetInput), workspace_id=op.workspace_id
+    ))
+
+
+@router.get(
+    f"{PREFIX}/applications",
+    response_model=Envelope[applications.ApplicationBoard],
+    openapi_extra=operation_route(applications.APPLICATIONS_BOARD),
+)
+async def application_board(
+    op: Annotated[OperationContext, Depends(admitted(applications.APPLICATIONS_BOARD))],
+) -> Envelope[Any]:
+    return _paged(op, *await applications.board(
+        op.session, op.input_as(applications.BoardInput), workspace_id=op.workspace_id,
+        postings=op.shares("public_posting"),
+    ))
+
+
+@router.get(
+    f"{PREFIX}/applications/calendar",
+    response_model=Envelope[applications.ApplicationCalendar],
+    openapi_extra=operation_route(applications.APPLICATIONS_CALENDAR),
+)
+async def application_calendar(
+    op: Annotated[OperationContext, Depends(admitted(applications.APPLICATIONS_CALENDAR))],
+) -> Envelope[Any]:
+    return _paged(op, *await applications.calendar(
+        op.session, op.input_as(applications.CalendarInput), workspace_id=op.workspace_id
+    ))
+
+
+@router.get(
+    f"{PREFIX}/doctor",
+    response_model=Envelope[export.DoctorReport],
+    openapi_extra=operation_route(export.DOCTOR),
+)
+async def doctor(
+    session: SessionDep,
+    op: Annotated[OperationContext, Depends(admitted(export.DOCTOR))],
+) -> Envelope[Any]:
+    # The status the dashboard's badge reads, from its own route.
+    status = await ops.status(session)
+    report = export.doctor_report(
+        status,
+        settings=get_settings(),
+        access=op.switches,
+        engine_version=__version__,
+        workspace=DATA_DIR,
+        tier=op.input_as(export.DoctorInput).tier,
+    )
+    if report.continue_with:
+        return op.ok(report, warnings=[EnvelopeNotice(
+            code="page_shortened",
+            message="The settings stop at the tool tier's budget; continue_with reads them all.",
+        )])
+    return op.ok(report)
+
+
+@router.get(
+    f"{PREFIX}/opportunities/{{opportunity_id}}/context",
+    response_model=Envelope[export.ContextExport],
+    openapi_extra=operation_route(export.CONTEXT_EXPORT),
+)
+async def context_export(
+    session: SessionDep,
+    op: Annotated[OperationContext, Depends(admitted(export.CONTEXT_EXPORT))],
+) -> Envelope[Any]:
+    params = op.input_as(export.ContextExportInput)
+    # Admission's read ends here, so the packet is read in a snapshot of its own.
+    await end_read(session)
+    await export.begin_snapshot(session)
+    packet, manifest = await export.context_packet(
+        session, params.opportunity_id, withheld=withheld(export.CONTEXT_EXPORT, op.switches)
+    )
+    export.same_packet(manifest, params)
+    part = export.packet_part(
+        packet, manifest, opportunity_id=params.opportunity_id, tier=params.tier, start=params.packet_from or 0
+    )
+    if part.continue_with:
+        return op.ok(part, warnings=[EnvelopeNotice(
+            code="page_shortened",
+            message="The packet is longer than the tool tier's budget; continue_with reads the next part.",
+        )])
+    return op.ok(part)

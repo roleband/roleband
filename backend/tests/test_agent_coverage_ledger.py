@@ -10,7 +10,9 @@ Routes under `/api/agent/v1/` are the operation surface itself, so they need no
 row and may not have one.
 
 This file checks the form of each operation ID, not that the operation exists:
-a covered route names the operation that is to serve it.
+a covered route names the operation that is to serve it. An operation that
+covers no route is listed under `unrouted` with why it exists, so it too was
+added by a decision.
 """
 
 from __future__ import annotations
@@ -88,6 +90,22 @@ def coverage_problems(served: set[tuple[str, str]], rows: list[dict]) -> list[st
             problems.append(f"{where}: {excluded!r} is not an exclusion kind")
         if not isinstance(reason, str) or not reason.strip():
             problems.append(f"{where}: excluded without a reason")
+    return problems
+
+
+def unrouted_problems(unrouted: list[dict], rows: list[dict]) -> list[str]:
+    """Every way an `unrouted` entry fails to be a reasoned operation without a route."""
+    routed = {row.get("operation") for row in rows}
+    problems: list[str] = []
+    for entry in unrouted:
+        operation, why = entry.get("operation"), entry.get("why")
+        if not isinstance(operation, str) or not OPERATION_ID.fullmatch(operation):
+            problems.append(f"unrouted {operation!r}: not an operation ID")
+            continue
+        if operation in routed:
+            problems.append(f"unrouted {operation}: a route's row names it")
+        if not isinstance(why, str) or not why.strip():
+            problems.append(f"unrouted {operation}: listed without why")
     return problems
 
 
@@ -194,4 +212,24 @@ def test_the_operation_surface_is_exempt_and_takes_no_row():
     row = {"method": "GET", "path": AGENT_PREFIX + "status", "operation": "status"}
     assert coverage_problems(_served(probe), [row]) == [
         f"GET {AGENT_PREFIX}status: the operation surface needs no row"
+    ]
+
+
+def test_an_operation_without_a_route_says_why():
+    ledger = _ledger()
+    assert unrouted_problems(ledger["unrouted"], ledger["rows"]) == []
+
+
+def test_an_unrouted_operation_without_why_or_with_a_route_fails():
+    rows = _ledger()["rows"]
+    routed = next(row["operation"] for row in rows if row.get("operation"))
+
+    problems = unrouted_problems(
+        [{"operation": "widgets.export", "why": " "}, {"operation": routed, "why": "x"}, {"operation": "a b"}], rows
+    )
+
+    assert problems == [
+        "unrouted widgets.export: listed without why",
+        f"unrouted {routed}: a route's row names it",
+        "unrouted 'a b': not an operation ID",
     ]

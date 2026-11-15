@@ -40,7 +40,9 @@ RoleBand is a single-user application that runs on your own computer.
   Each data category (postings, market statistics, pursuits and notes, the offer,
   the candidate profile) can be kept from assistants: an operation that reads a
   kept-back category is refused, or answers without that part, with none of it
-  in the answer ([agent operations](docs/architecture.md#api-contract)).
+  in the answer. `doctor` redacts secrets, credentials in URLs and paths outside
+  the data folder before it answers
+  ([agent operations](docs/architecture.md#api-contract)).
 - The Mac app installs an update only when its release files are signed with one
   of the app's two release keys and the new app meets the signing rule the installed
   app carries. A candidate that fails is discarded. The app sends the person to a
