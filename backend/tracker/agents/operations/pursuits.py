@@ -31,6 +31,7 @@ from pydantic import (
     model_validator,
 )
 from pydantic.config import JsonDict
+from pydantic.experimental.missing_sentinel import MISSING
 from pydantic.json_schema import SkipJsonSchema
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -87,7 +88,8 @@ class PursuedOpportunity(Shape):
 
 
 class PursuitItem(PursuitState):
-    opportunity: PursuedOpportunity
+    #: Absent when the person does not share postings with assistants.
+    opportunity: PursuedOpportunity | MISSING = MISSING
 
 
 class PursuitListInput(Shape):
@@ -290,9 +292,10 @@ def _bad_cursor(reason: str) -> OperationError:
 
 
 async def pursuit_page(
-    session: AsyncSession, params: PursuitListInput, *, workspace_id: str
+    session: AsyncSession, params: PursuitListInput, *, workspace_id: str, postings: bool = True
 ) -> tuple[PursuitList, str | None]:
-    """One page, and the cursor of the next when there may be one."""
+    """One page, and the cursor of the next when there may be one. With
+    `postings` false each pursuit's opportunity is left out."""
     after = (
         decode_cursor(params.cursor, workspace_id=workspace_id, stage=params.stage)
         if params.cursor is not None
@@ -307,10 +310,11 @@ async def pursuit_page(
     next_cursor = (
         encode_cursor(workspace_id=workspace_id, stage=params.stage, last=page[-1]) if more and page else None
     )
-    return PursuitList(count=len(page), items=[PursuitItem.model_validate(row) for row in page]), next_cursor
+    items = [item_of(row, postings=postings) for row in page]
+    return PursuitList(count=len(items), items=items), next_cursor
 
 
-async def pursuit_of(session: AsyncSession, opportunity_id: int) -> PursuitItem:
+async def pursuit_of(session: AsyncSession, opportunity_id: int, *, postings: bool = True) -> PursuitItem:
     row = (
         await session.execute(
             select(Pursuit, Job).join(Job, Job.id == Pursuit.job_id).where(Pursuit.job_id == opportunity_id)
@@ -323,7 +327,21 @@ async def pursuit_of(session: AsyncSession, opportunity_id: int) -> PursuitItem:
             details={"opportunity_id": opportunity_id},
         )
     pursuit, job = row
-    return PursuitItem.model_validate(state_of(pursuit, job))
+    return item_of(state_of(pursuit, job), postings=postings)
+
+
+def item_of(fields: dict[str, Any], *, postings: bool) -> PursuitItem:
+    """A pursuit as an operation answers it: without its opportunity when
+    the person does not share postings."""
+    if not postings:
+        fields = {key: value for key, value in fields.items() if key != "opportunity"}
+    return PursuitItem.model_validate(fields)
+
+
+def shown(item: PursuitItem, *, postings: bool) -> PursuitItem:
+    """`item_of` for a write's answer, fresh or replayed from its receipt,
+    which keeps the result whole."""
+    return item if postings else item.model_copy(update={"opportunity": MISSING})
 
 
 def state_of(pursuit: Pursuit, job: Job | None = None) -> dict[str, Any]:

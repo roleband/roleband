@@ -21,11 +21,19 @@ reads the rest. A page holds at most `limit` rows and stops early rather than
 outgrow its tool tier's budget; `next_cursor` continues where it stopped, so
 no row is cut or lost to the budget. Paging is live, not a snapshot: a posting that appears,
 closes or re-sorts between two pages can be missed or repeated.
+
+A category the person does not share is absent: without their pursuits the
+`pursuit` column is left out of `columns` and every row, `saved_only` is
+refused, and queryless `best_match` takes the default order, since the
+person's intent is learned from the roles they saved and pursue; without
+market statistics the `estimated_pay` column is left out, and
+`minimum_estimated_pay` and the `estimated_pay` sort are refused.
 """
 
 from __future__ import annotations
 
 import json
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
@@ -36,8 +44,15 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.agents.operations import cursor, vocabulary
-from tracker.agents.operations.descriptor import EngineEffects, OperationDescriptor, Shape, ToolTier
+from tracker.agents.operations.descriptor import (
+    DataClass,
+    EngineEffects,
+    OperationDescriptor,
+    Shape,
+    ToolTier,
+)
 from tracker.agents.operations.envelope import OperationError
+from tracker.agents.operations.policy import category_disabled
 from tracker.analytics.posting_reality import listing_age
 from tracker.company_store import off_board_company_slugs
 from tracker.db.models import Favorite, Job, Pursuit
@@ -149,6 +164,12 @@ COLUMNS: tuple[str, ...] = (
 SearchRow = tuple[
     int, str, str, str | None, int, str | None, str | None, int | None, str | None, str | None, str | None
 ]
+#: A row as a page answers it: `SearchRow` less the columns of a category the
+#: person does not share, so its positions are the ones `columns` names.
+PageRow = tuple[int | str | None, ...]
+
+#: The column each category that a row can leave out owns.
+_CATEGORY_COLUMNS: dict[DataClass, str] = {"market_statistic": "estimated_pay", "private_pursuit": "pursuit"}
 
 
 class SearchPage(Shape):
@@ -160,7 +181,7 @@ class SearchPage(Shape):
     #: Each closed-vocabulary filter as the values it was read as.
     filters: dict[str, list[str]] = Field(json_schema_extra=_IDENTIFIER)
     columns: list[str] = Field(json_schema_extra=_CODE)
-    rows: list[SearchRow] = Field(
+    rows: list[PageRow] = Field(
         json_schema_extra={"x-text": "content"},
         description="One array per opportunity, its values in the order `columns` names.",
     )
@@ -205,9 +226,18 @@ class SearchAnswer:
 
 
 async def search(
-    session: AsyncSession, params: SearchInput, *, workspace_id: str, now: datetime | None = None
+    session: AsyncSession, params: SearchInput, *, workspace_id: str, withheld: Collection[DataClass] = (),
+    now: datetime | None = None,
 ) -> SearchAnswer:
     now = now or datetime.now(UTC)
+    pursuits = "private_pursuit" not in withheld
+    statistics = "market_statistic" not in withheld
+    if params.saved_only and not pursuits:
+        raise category_disabled("private_pursuit", field="saved_only")
+    if params.minimum_estimated_pay is not None and not statistics:
+        raise category_disabled("market_statistic", field="minimum_estimated_pay")
+    if params.sort == "estimated_pay" and not statistics:
+        raise category_disabled("market_statistic", field="sort")
     unknown: list[vocabulary.Unknown] = []
     filters: dict[str, list[str]] = {}
     for kind in _CLOSED:
@@ -249,16 +279,21 @@ async def search(
     # Best match has its own order; `order` reorders only the other sorts.
     order = "desc" if sort == "best_match" else params.order
     ordered = await _ordered(session, board, sort=sort, order=order, query=params.query,
-                             offset=offset, limit=params.limit, exact_seen=carried)
+                             offset=offset, limit=params.limit, exact_seen=carried, use_intent=pursuits)
 
-    rows = await _rows(session, ordered.jobs, now=now)
+    left_out = {_CATEGORY_COLUMNS[category] for category in withheld if category in _CATEGORY_COLUMNS}
+    columns = [column for column in COLUMNS if column not in left_out]
+    kept_at = [COLUMNS.index(column) for column in columns]
+    rows: list[PageRow] = [
+        tuple(row[i] for i in kept_at) for row in await _rows(session, ordered.jobs, now=now, pursuits=pursuits)
+    ]
     page = SearchPage(
         total=ordered.total,
         count=0,
         sort=sort,
         order=None if sort == "best_match" else params.order,
         filters=filters,
-        columns=list(COLUMNS),
+        columns=columns,
         rows=[],
     )
     # The rows share the page's budget with its header, whose filters grow with the request.
@@ -299,11 +334,11 @@ class _Ordered:
 
 async def _ordered(
     session: AsyncSession, board: dict[str, Any], *, sort: Sort, order: str, query: str | None,
-    offset: int, limit: int, exact_seen: int,
+    offset: int, limit: int, exact_seen: int, use_intent: bool = True,
 ) -> _Ordered:
     if sort == "best_match" and query:
         return await _best_match(session, board, query, offset=offset, limit=limit, exact_seen=exact_seen)
-    if sort == "best_match":
+    if sort == "best_match" and use_intent:
         stored = await get_intent_embedding(session)
         intent = await build_intent_vector(session, stored["vector"] if stored else None)
         if intent is not None:
@@ -351,11 +386,11 @@ async def _best_match(
 # --- rows -------------------------------------------------------------------- #
 
 
-async def _rows(session: AsyncSession, jobs: list[Job], *, now: datetime) -> list[SearchRow]:
+async def _rows(session: AsyncSession, jobs: list[Job], *, now: datetime, pursuits: bool = True) -> list[SearchRow]:
     ids = [job.id for job in jobs]
     saved: set[int] = set()
     stages: dict[int, str] = {}
-    if ids:
+    if ids and pursuits:
         saved = set((await session.scalars(select(Favorite.job_id).where(Favorite.job_id.in_(ids)))).all())
         stages = {
             job_id: stage
@@ -429,7 +464,7 @@ def _size(value: object) -> int:
 _SHORTEST_CELL = 24
 
 
-def _within_budget(rows: list[SearchRow], budget: int) -> tuple[list[SearchRow], bool]:
+def _within_budget(rows: list[PageRow], budget: int) -> tuple[list[PageRow], bool]:
     """The leading rows whose JSON fits `budget` bytes, and whether the first
     one was cut to fit. A page always holds its first row, so paging never
     stops before it starts: one longer than the whole budget has its longest
@@ -448,7 +483,7 @@ def _within_budget(rows: list[SearchRow], budget: int) -> tuple[list[SearchRow],
     return kept, cut
 
 
-def _fit(row: SearchRow, budget: int) -> tuple[SearchRow, bool]:
+def _fit(row: PageRow, budget: int) -> tuple[PageRow, bool]:
     cells: list[Any] = list(row)
     cut = False
     while (excess := _size(cells) + 1 - budget) > 0:

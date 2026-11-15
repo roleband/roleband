@@ -1258,7 +1258,23 @@ and client effects, data classes, tool tiers and idempotency, registered once
 in `catalog.py`. Every answer, a failure included, is one envelope whose error
 code maps to an HTTP status and a process exit status in `outcomes.py`. The
 agent switches in Settings admit them: a read needs `enabled`, a write also
-`allow_writes`, and with `enabled` off every operation is refused.
+`allow_writes`, and with `enabled` off every operation is refused, whatever
+else the row holds. Beside the switches, `agent_access.categories` holds the
+person's choice per data category: `any_model`, `local_only` or `not_shared`
+([decision 0017](decisions/0017-agent-access-open-by-default.md)). A category
+with no choice is shared, and a row the engine cannot read is everything off;
+the Settings switches keep the stored choices when they save. Every caller of
+these operations is outside the engine, so only `any_model` shares a category
+(`policy.shared`). A category that is not shared is absent, not masked: an
+operation whose first declared data class is not shared is refused as
+`category_disabled` (exit 4, HTTP 403, `details.setting` naming the choice),
+and `capabilities` shows it unavailable for that reason. An operation leaves
+out the part of its answer from any other class it declares: its keys are
+absent, never null, and optional in the result schema (a search column leaves
+`columns` and every row). It refuses an input that selects by that part, and
+lists only the classes it answered in `meta.data_classes`. A keyed write's receipt keeps the whole result; its
+answer, fresh or replayed, leaves the part out. Every operation but the
+handshake declares at least one data class.
 `workspace_identity` holds the workspace's durable id, which these answers
 carry; it outlives engine restarts and updates, unlike the engine session id.
 A write route takes a JSON body and an idempotency key header, and runs through

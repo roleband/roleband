@@ -36,6 +36,11 @@ RoleBand is a single-user application that runs on your own computer.
 - The local MCP server (`docs/mcp.md`) runs over standard input and output for an
   agent you start yourself; its read and write access are separate switches, both off
   until you turn them on.
+- The agent operations under `/api/agent/v1/` answer under the same two switches.
+  Each data category (postings, market statistics, pursuits and notes, the offer,
+  the candidate profile) can be kept from assistants: an operation that reads a
+  kept-back category is refused, or answers without that part, with none of it
+  in the answer ([agent operations](docs/architecture.md#api-contract)).
 - The Mac app installs an update only when its release files are signed with one
   of the app's two release keys and the new app meets the signing rule the installed
   app carries. A candidate that fails is discarded. The app sends the person to a

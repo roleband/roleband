@@ -543,7 +543,8 @@ def _agent_connection_state(config: AgentAccessConfig) -> dict:
     directory = str(backend_dir(REPO_ROOT))
     args = ["-I", str(backend_dir(REPO_ROOT) / "packaged.py"), "mcp.server"] if PACKAGED else ["-m", "tracker.mcp.server"]
     return {
-        **config.model_dump(),
+        "enabled": config.enabled,
+        "allow_writes": config.allow_writes,
         "transport": "stdio",
         "command": str(python),
         "args": args,
