@@ -301,12 +301,13 @@ test("Mark done on the application page asks at once for the next step, and save
   ]);
 });
 
-test("a long history keeps its month in view while it scrolls, and a jump lands its entry in view with focus", async ({ page }) => {
+/** An application with `length` entries a day apart, newest now, whose move
+ *  to Applied (event 201) is the entry 201 days back. */
+async function installHistory(page: Page, length: number) {
   await installPipeline(page);
-  // 300 entries a day apart, so the feed spans ten months; applied 200 days ago.
   const day = 86_400_000;
   const now = Date.now();
-  const items = Array.from({ length: 300 }, (_, n) => n % 3 === 0
+  const items = Array.from({ length }, (_, n) => n % 3 === 0
     ? { kind: "event", id: n, created_at: new Date(now - n * day).toISOString(), actor: "user", source: "app",
       event_type: "updated", from_stage: "networking", to_stage: n === 201 ? "applied" : "networking", changed: n === 201 ? ["stage"] : ["priority"] }
     : { kind: "comment", id: n, created_at: new Date(now - n * day).toISOString(), actor: "user", source: "app", body: `Note ${n}`, edited_at: null });
@@ -315,6 +316,11 @@ test("a long history keeps its month in view while it scrolls, and a jump lands 
     application: cards[0],
     stages_reached: [{ stage: "applied", at: new Date(now - 201 * day).toISOString() }],
   }) }));
+}
+
+test("a long history keeps its month in view while it scrolls, and a jump lands its entry in view with focus", async ({ page }) => {
+  // 300 entries a day apart, so the feed spans ten months.
+  await installHistory(page, 300);
   await page.goto("/pipeline/101");
   await expect(page.getByText("Note 299")).toBeAttached();
 
@@ -326,7 +332,7 @@ test("a long history keeps its month in view while it scrolls, and a jump lands 
     dividers.filter((divider) => Math.abs(divider.getBoundingClientRect().top - scrollTop) < 2).map((divider) => divider.textContent), top);
   expect(pinned, "one month's divider is pinned at the top").toHaveLength(1);
 
-  await page.getByRole("button", { name: new RegExp(`^${pinned[0]}, `) }).click();
+  await page.getByRole("button", { name: msg("applications-feed-jump-month", { month: pinned[0]! }) }).click();
   const menu = page.getByRole("dialog", { name: msg("applications-feed-jump-label") });
   await menu.getByRole("button", { name: new RegExp(msg("applications-feed-jump-applied")) }).click();
 
@@ -339,6 +345,29 @@ test("a long history keeps its month in view while it scrolls, and a jump lands 
     landed.locator("xpath=ancestor::section[1]").locator(".app-feed-divider").boundingBox(),
   ]);
   expect(landedBox!.y).toBeGreaterThanOrEqual(dividerBox!.y + dividerBox!.height - 1);
+});
+
+test("under reduced motion a jump's ring holds still for a moment, then goes", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await installHistory(page, 240);
+  await page.goto("/pipeline/101");
+  const [, tail] = msg("applications-feed-jump-month", { month: "\u0000" }).split("\u0000");
+  const dividers = page.getByRole("button", { name: new RegExp(`${tail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`) });
+  await dividers.first().click();
+  await page.getByRole("dialog", { name: msg("applications-feed-jump-label") })
+    .getByRole("button", { name: new RegExp(msg("applications-feed-jump-applied")) }).click();
+
+  const landed = page.locator('[data-feed~="event-201"]');
+  await expect(landed).toBeFocused();
+  // The ring's opacity, or 0 once it is gone.
+  const ring = () => landed.evaluate((entry) => {
+    const after = getComputedStyle(entry, "::after");
+    return after.content === "none" ? 0 : Number(after.opacity);
+  });
+  await page.waitForTimeout(1000);
+  expect(await ring(), "the ring is still there a second after landing").toBe(1);
+  await expect.poll(ring, { timeout: 5000 }).toBe(0);
+  await expect(landed).toBeFocused();
 });
 
 test("Up next lists what is due by day, overdue first, and a row opens its application", async ({ page }) => {

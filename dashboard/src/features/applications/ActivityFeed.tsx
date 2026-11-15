@@ -46,6 +46,9 @@ import {
   type JumpKind,
 } from "./activity";
 
+/** How long a jump's entry wears its ring; `app-feed-landed` fades over the same span. */
+const LANDED_MS = 2400;
+
 const JUMP_LABEL: Record<JumpKind, () => string> = {
   recent: applicationsFeedJumpRecent,
   applied: applicationsFeedJumpApplied,
@@ -127,9 +130,13 @@ export function ActivityFeed({ items, detail, now, onAdd, onEdit, onDelete }: Ac
     target.removeAttribute("data-landed");
     void target.offsetWidth;
     target.setAttribute("data-landed", "");
-    const done = () => target.removeAttribute("data-landed");
-    target.addEventListener("animationend", done, { once: true });
-    return () => target.removeEventListener("animationend", done);
+    // A timer, not animationend: under reduced motion the ring holds still
+    // and has no animation to end.
+    const done = window.setTimeout(() => target.removeAttribute("data-landed"), LANDED_MS);
+    return () => {
+      window.clearTimeout(done);
+      target.removeAttribute("data-landed");
+    };
   }, [landing]);
 
   const post = async () => {

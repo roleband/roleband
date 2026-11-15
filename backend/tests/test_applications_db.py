@@ -13,7 +13,7 @@ from datetime import UTC, datetime, timedelta
 from typing import get_args
 
 import pytest
-from sqlalchemy import delete, select
+from sqlalchemy import delete, insert, select
 
 from tracker.agents import pursuits as store
 from tracker.agents.applications import OWES_NOTHING
@@ -705,6 +705,31 @@ async def test_a_long_history_reads_whole_and_its_oldest_comment_stays_editable(
     assert deleted.status_code == 200, deleted.text
     after = (await api_client.get(f"/api/applications/{job.id}/activity")).json()["items"]
     assert oldest["id"] not in [i["id"] for i in after if i["kind"] == "comment"]
+
+
+async def test_a_history_with_more_entries_than_one_statement_binds_reads_whole(api_client, db_session):
+    """asyncpg binds at most 32,767 parameters per statement; a whole history
+    holding more comments than that still reads, every one of them."""
+    job = await _job(db_session)
+    await _comment(api_client, job.id, "One")
+    pursuit_id = await db_session.scalar(select(Pursuit.id).where(Pursuit.job_id == job.id))
+    start = datetime.now(UTC) - timedelta(days=400)
+    many = 32_800
+    await db_session.execute(
+        insert(PursuitComment),
+        [
+            {"pursuit_id": pursuit_id, "actor": "user", "body": f"Note {n}", "created_at": start + timedelta(minutes=n)}
+            for n in range(many)
+        ],
+    )
+    await db_session.commit()
+
+    response = await api_client.get(f"/api/applications/{job.id}/activity")
+
+    assert response.status_code == 200, response.text
+    items = response.json()["items"]
+    assert len(items) == 1 + many + 1  # the comment, the notes, the created event
+    assert items[-1]["body"] == "Note 0"
 
 
 async def test_a_slice_larger_than_any_page_is_honoured(api_client, db_session):

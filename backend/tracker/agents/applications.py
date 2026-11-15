@@ -210,6 +210,21 @@ async def application(session: AsyncSession, job_id: int, *, now: datetime) -> d
     return {"application": card, "interviews": interviews, "stages_reached": reached}
 
 
+# Ids per hydrating read: asyncpg binds at most 32,767 parameters in one
+# statement, and a whole history can hold more entries of one kind.
+_HYDRATE_CHUNK = 10_000
+
+
+async def _rows_by_id[Row: (PursuitEvent, PursuitComment)](
+    session: AsyncSession, model: type[Row], ids: list[int]
+) -> dict[int, Row]:
+    rows: dict[int, Row] = {}
+    for start in range(0, len(ids), _HYDRATE_CHUNK):
+        chunk = ids[start : start + _HYDRATE_CHUNK]
+        rows.update((row.id, row) for row in (await session.scalars(select(model).where(model.id.in_(chunk)))).all())
+    return rows
+
+
 async def activity(
     session: AsyncSession, job_id: int, *, offset: int = 0, limit: int | None = None
 ) -> list[dict] | None:
@@ -256,16 +271,8 @@ async def activity(
         ordered = ordered.limit(max(1, limit))
     page = (await session.execute(ordered)).all()
 
-    event_ids = [i for kind, i in page if kind == "event"]
-    comment_ids = [i for kind, i in page if kind == "comment"]
-    event_rows = {
-        e.id: e
-        for e in (await session.scalars(select(PursuitEvent).where(PursuitEvent.id.in_(event_ids)))).all()
-    } if event_ids else {}
-    comment_rows = {
-        c.id: c
-        for c in (await session.scalars(select(PursuitComment).where(PursuitComment.id.in_(comment_ids)))).all()
-    } if comment_ids else {}
+    event_rows = await _rows_by_id(session, PursuitEvent, [i for kind, i in page if kind == "event"])
+    comment_rows = await _rows_by_id(session, PursuitComment, [i for kind, i in page if kind == "comment"])
 
     items: list[dict] = []
     for kind, i in page:

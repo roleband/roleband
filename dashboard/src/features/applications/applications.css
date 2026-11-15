@@ -1515,9 +1515,11 @@
   100% { opacity: 0; }
 }
 
+/* Reduced motion: the ring holds still for the same span, and the feed's
+   timer takes it away. */
 @media (prefers-reduced-motion: reduce) {
   .app-feed-month [data-feed][data-landed]::after {
-    animation-timing-function: steps(1, end);
+    animation: none;
   }
 }
 

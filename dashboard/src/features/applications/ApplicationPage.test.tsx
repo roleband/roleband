@@ -45,6 +45,12 @@ let posting: JobDetail;
 
 const at = (iso: string) => iso;
 
+/** A month divider's name: the catalogue's jump label around any month. */
+const isMonthDivider = (name: string) => {
+  const [before, after] = msg("applications-feed-jump-month", { month: "\u0000" }).split("\u0000");
+  return name.length > before.length + after.length && name.startsWith(before) && name.endsWith(after);
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
@@ -333,7 +339,7 @@ describe("the feed", () => {
 
     // One divider for every month in the reader's zone, newest first, none
     // skipped; this year's months by name alone, last year's with the year.
-    const dividers = screen.getAllByRole("button", { name: /jump to another point/ });
+    const dividers = screen.getAllByRole("button", { name: isMonthDivider });
     const localMonth = (iso: string) => {
       const day = new Date(iso);
       return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}`;
@@ -357,7 +363,7 @@ describe("the feed", () => {
       { kind: "comment", id: 3, created_at: at("2026-10-21T10:00:00Z"), actor: "user", source: "app", body: "Starred it.", edited_at: null },
     ];
     renderPage();
-    const [newest] = await screen.findAllByRole("button", { name: /jump to another point/ });
+    const [newest] = await screen.findAllByRole("button", { name: isMonthDivider });
     await userEvent.click(newest);
 
     const menu = await screen.findByRole("dialog", { name: msg("applications-feed-jump-label") });
@@ -365,7 +371,12 @@ describe("the feed", () => {
     await userEvent.click(within(menu).getByRole("button", { name: new RegExp(msg("applications-feed-jump-applied")) }));
 
     // The move to Applied sits in a folded run, so the jump lands on the fold.
-    const fold = screen.getByRole("button", { name: /^2 updates/ }).closest("li")!;
+    const fold = screen.getByRole("button", {
+      name: msg("applications-feed-fold", {
+        count: 2,
+        changes: `${msg("applications-feed-moved", { stage: "Applied" })} and ${msg("applications-feed-priority")}`,
+      }),
+    }).closest("li")!;
     await waitFor(() => expect(fold).toHaveFocus());
     expect(fold).toHaveAttribute("data-landed");
   });
@@ -376,7 +387,7 @@ describe("the feed", () => {
       { kind: "comment", id: 3, created_at: at("2026-09-21T10:00:00Z"), actor: "user", source: "app", body: "Starred it.", edited_at: null },
     ];
     renderPage();
-    const [newest] = await screen.findAllByRole("button", { name: /jump to another point/ });
+    const [newest] = await screen.findAllByRole("button", { name: isMonthDivider });
     await userEvent.click(newest);
     const menu = await screen.findByRole("dialog", { name: msg("applications-feed-jump-label") });
     await userEvent.click(within(menu).getByRole("button", { name: new RegExp(msg("applications-feed-jump-beginning")) }));
