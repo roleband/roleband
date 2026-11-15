@@ -297,6 +297,29 @@ async def test_search_answers_without_the_pursuit_or_estimate_columns(api_client
     assert closed == [[row[i] for i in kept] for row in rows]
 
 
+async def test_search_pay_bounds_and_sort_read_no_estimate_without_market_statistics(api_client, workspace):
+    """A posting that states no pay falls back to its estimated base; listed
+    by a pay bound or first by pay, it would show the estimate."""
+    columns, rows = await _rows(api_client)
+    estimated = rows[-1][columns.index("id")]
+    await workspace.execute(update(Job).where(Job.id == estimated).values(
+        disclosed_base_min=None, disclosed_base_max=None, disclosed_pay_basis=None, disclosed_currency=None,
+        comp_currency="USD", comp_base_median=9_000_000,
+    ))
+    await workspace.commit()
+
+    async def ids(**params) -> list:
+        page = _data(*await _get(api_client, "/opportunities", tier="full", limit=100, **params))
+        return [row[page["columns"].index("id")] for row in page["rows"]]
+
+    assert await ids(base_pay_min=8_000_000) == [estimated]
+    assert (await ids(sort="pay"))[0] == estimated
+    await _choose(workspace, market_statistic="not_shared")
+
+    assert await ids(base_pay_min=8_000_000) == []
+    assert estimated not in (await ids(sort="pay"))[:1]
+
+
 async def test_search_lists_dismissed_roles_like_any_other_without_pursuits(api_client, workspace):
     """Left out, a dismissed role would show in the page and its total which
     roles the person dismissed."""

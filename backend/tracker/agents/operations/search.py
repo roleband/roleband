@@ -22,13 +22,15 @@ outgrow its tool tier's budget; `next_cursor` continues where it stopped, so
 no row is cut or lost to the budget. Paging is live, not a snapshot: a posting that appears,
 closes or re-sorts between two pages can be missed or repeated.
 
-A category the person does not share is absent: without their pursuits the
+A category the person does not share is absent. Without their pursuits the
 `pursuit` column is left out of `columns` and every row, `saved_only` is
-refused, and the roles they dismissed are listed like any other. Queryless `best_match` ranks by the person's intent, which blends
-the statement in their candidate profile with the roles they saved, pursue
-and dismissed: each part counts only while its category is shared, and with
-neither the order is the default. Without market statistics the `estimated_pay` column is left out, and
-`minimum_estimated_pay` and the `estimated_pay` sort are refused.
+refused, and the roles they dismissed are listed like any other. Queryless
+`best_match` ranks by the person's intent, which blends the statement in their
+candidate profile with the roles they saved, pursue and dismissed: each part
+counts only while its category is shared, and with neither the order is the
+default. Without market statistics the `estimated_pay` column is left out,
+`minimum_estimated_pay` and the `estimated_pay` sort are refused, and the base
+pay bounds and the `pay` sort read only the range a posting states.
 """
 
 from __future__ import annotations
@@ -41,7 +43,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import Field, model_validator
 from pydantic.config import JsonDict
-from sqlalchemy import func, select
+from sqlalchemy import func, nullslast, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.agents.operations import cursor, vocabulary
@@ -57,7 +59,7 @@ from tracker.agents.operations.policy import category_disabled
 from tracker.analytics.posting_reality import listing_age
 from tracker.company_store import off_board_company_slugs
 from tracker.db.models import Favorite, Job, Pursuit
-from tracker.db.queries.jobs import apply_job_filters, list_rows, resolve_ordering
+from tracker.db.queries.jobs import apply_job_filters, base_pay, list_rows, resolve_ordering
 from tracker.pay_disclosure import disclosure_known
 from tracker.pay_period import effective_period
 from tracker.platform.util import MAX_WINDOW_DAYS
@@ -263,6 +265,8 @@ async def search(
         "status": "open",
         # Leaving dismissed roles out would tell which ones the person dismissed.
         "keep_dismissed": not pursuits,
+        # The base pay bounds fall back to the estimated base where a posting states none.
+        "posted_pay_only": not statistics,
         "company": filters.get("company"),
         "family": filters.get("family"),
         "level_band": filters.get("level_band"),
@@ -284,7 +288,7 @@ async def search(
     order = "desc" if sort == "best_match" else params.order
     ordered = await _ordered(session, board, sort=sort, order=order, query=params.query,
                              offset=offset, limit=params.limit, exact_seen=carried,
-                             from_profile=profile, from_taste=pursuits)
+                             from_profile=profile, from_taste=pursuits, estimates=statistics)
 
     left_out = {_CATEGORY_COLUMNS[category] for category in withheld if category in _CATEGORY_COLUMNS}
     columns = [column for column in COLUMNS if column not in left_out]
@@ -340,6 +344,7 @@ class _Ordered:
 async def _ordered(
     session: AsyncSession, board: dict[str, Any], *, sort: Sort, order: str, query: str | None,
     offset: int, limit: int, exact_seen: int, from_profile: bool = True, from_taste: bool = True,
+    estimates: bool = True,
 ) -> _Ordered:
     if sort == "best_match" and query:
         return await _best_match(session, board, query, offset=offset, limit=limit, exact_seen=exact_seen)
@@ -353,7 +358,11 @@ async def _ordered(
             return _Ordered([row.job for row in ranking.rows], ranking.total)
     base = apply_job_filters(select(Job), board)
     total = await session.scalar(select(func.count()).select_from(base.subquery())) or 0
-    statement = list_rows(base.order_by(*resolve_ordering(_SORT_KEYS[sort], order)).limit(limit).offset(offset))
+    ordering = resolve_ordering(_SORT_KEYS[sort], order)
+    if sort == "pay" and not estimates:
+        posted = base_pay(estimates=False)
+        ordering = [nullslast(posted.asc() if order == "asc" else posted.desc()), Job.id.desc()]
+    statement = list_rows(base.order_by(*ordering).limit(limit).offset(offset))
     return _Ordered(list((await session.scalars(statement)).all()), total)
 
 
