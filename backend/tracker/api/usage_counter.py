@@ -126,6 +126,16 @@ NOT_COUNTED: Mapping[tuple[str, str], str] = {
         "an agent read that sends its recipe as a body: it changes nothing, and no agent read is counted"),
     **{
         (method, path): (
+            "an agent's write: a new action would widen the catalogue and re-ask every sharer, and the "
+            "write is recorded in the local audit and its receipt")
+        for method, path in (
+            ("PUT", "/api/agent/v1/pursuits/{opportunity_id}"),
+            ("PATCH", "/api/agent/v1/pursuits/{opportunity_id}"),
+            ("POST", "/api/agent/v1/recipes/drafts"),
+        )
+    },
+    **{
+        (method, path): (
             "an application's own comments and interviews: the stage change is the counted step, and a "
             "new action would widen the catalogue and re-ask every sharer")
         for method, path in (

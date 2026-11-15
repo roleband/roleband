@@ -98,12 +98,14 @@ export interface paths {
         };
         /** Pursuit Get */
         get: operations["pursuit_get_api_agent_v1_pursuits__opportunity_id__get"];
-        put?: never;
+        /** Pursuit Save */
+        put: operations["pursuit_save_api_agent_v1_pursuits__opportunity_id__put"];
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Pursuit Patch */
+        patch: operations["pursuit_patch_api_agent_v1_pursuits__opportunity_id__patch"];
         trace?: never;
     };
     "/api/agent/v1/radar/summary": {
@@ -123,6 +125,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/v1/receipts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Receipt Get */
+        get: operations["receipt_get_api_agent_v1_receipts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/v1/recipes/contract": {
         parameters: {
             query?: never;
@@ -134,6 +153,23 @@ export interface paths {
         get: operations["recipe_contract_api_agent_v1_recipes_contract_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/recipes/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Recipe Draft Save */
+        post: operations["recipe_draft_save_api_agent_v1_recipes_drafts_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5607,6 +5643,27 @@ export interface components {
             /** Workspace Id */
             workspace_id: string | null;
         };
+        /** Envelope[Receipt] */
+        Envelope_Receipt_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["Receipt"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
         /** Envelope[RecipeContract] */
         Envelope_RecipeContract_: {
             /**
@@ -5636,6 +5693,27 @@ export interface components {
              */
             contract_version: string;
             data: components["schemas"]["RecipeValidation"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[SavedDraft] */
+        Envelope_SavedDraft_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["SavedDraft"] | null;
             error: components["schemas"]["EnvelopeError"] | null;
             meta: components["schemas"]["EnvelopeMeta"];
             /** Ok */
@@ -10073,6 +10151,24 @@ export interface components {
                 [key: string]: number;
             };
         };
+        /** Receipt */
+        Receipt: {
+            /** Contract Version */
+            contract_version: string;
+            /** Key */
+            key: string;
+            /** Operation */
+            operation: string;
+            /**
+             * Recorded At
+             * Format: date-time
+             */
+            recorded_at: string;
+            /** Result */
+            result: {
+                [key: string]: unknown;
+            };
+        };
         /** RecipeBindingRow */
         RecipeBindingRow: {
             /** Binding Id */
@@ -10543,6 +10639,15 @@ export interface components {
             started_at: string;
             /** Status */
             status: string;
+        };
+        /** SavedDraft */
+        SavedDraft: {
+            /** Revision Id */
+            revision_id: number;
+            /** Slug */
+            slug: string;
+            /** Version */
+            version: number;
         };
         /** SavedRevision */
         SavedRevision: {
@@ -12806,6 +12911,107 @@ export interface operations {
             };
         };
     };
+    pursuit_save_api_agent_v1_pursuits__opportunity_id__put: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-RoleBand-Idempotency-Key": string;
+            };
+            path: {
+                /** @description The opportunity to save. */
+                opportunity_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * If Revision
+                     * @description The revision you read (pursuits.get or pursuits.list); 0 when the role has no pursuit yet. Given, a pursuit that moved since is not changed (revision_conflict).
+                     */
+                    if_revision?: number;
+                    /**
+                     * Priority
+                     * @description 1 to 5. A new pursuit starts at 3; an existing one keeps its own unless this is given.
+                     */
+                    priority?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PursuitItem_"];
+                };
+            };
+        };
+    };
+    pursuit_patch_api_agent_v1_pursuits__opportunity_id__patch: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-RoleBand-Idempotency-Key": string;
+            };
+            path: {
+                /** @description The opportunity the pursuit is about. */
+                opportunity_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * If Revision
+                     * @description The revision you read (pursuits.get or pursuits.list); 0 when the role has no pursuit yet. A pursuit that moved since is not changed.
+                     */
+                    if_revision: number;
+                    /**
+                     * Next Action
+                     * @description The next step. null clears it; leave the field out to keep it.
+                     */
+                    next_action?: string | null;
+                    /**
+                     * Next Action Due
+                     * @description When the next step falls due. null clears it; leave the field out to keep it.
+                     */
+                    next_action_due?: string | null;
+                    /**
+                     * Notes
+                     * @description Replaces the notes. null clears them; leave the field out to keep them.
+                     */
+                    notes?: string | null;
+                    /**
+                     * Priority
+                     * @description 1 to 5. Cannot be null.
+                     */
+                    priority?: number;
+                    /**
+                     * Stage
+                     * @description The new stage. Cannot be null.
+                     * @enum {string}
+                     */
+                    stage?: "saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed";
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PursuitItem_"];
+                };
+            };
+        };
+    };
     radar_summary_api_agent_v1_radar_summary_get: {
         parameters: {
             query?: never;
@@ -12826,6 +13032,31 @@ export interface operations {
             };
         };
     };
+    receipt_get_api_agent_v1_receipts_get: {
+        parameters: {
+            query: {
+                /** @description The write's operation id, such as pursuits.patch. */
+                operation: string;
+                /** @description The idempotency key the write was sent under: its meta.idempotency_key. */
+                key: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_Receipt_"];
+                };
+            };
+        };
+    };
     recipe_contract_api_agent_v1_recipes_contract_get: {
         parameters: {
             query?: never;
@@ -12842,6 +13073,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Envelope_RecipeContract_"];
+                };
+            };
+        };
+    };
+    recipe_draft_save_api_agent_v1_recipes_drafts_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-RoleBand-Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Document
+                     * @description The listing recipe v1 document; its `id` names the recipe. It must compile.
+                     */
+                    document: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_SavedDraft_"];
                 };
             };
         };

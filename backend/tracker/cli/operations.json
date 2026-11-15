@@ -2825,6 +2825,507 @@
    ]
   },
   {
+   "access": "write",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "private_pursuit",
+    "public_posting"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": true
+   },
+   "examples": [
+    {
+     "if_revision": 12,
+     "next_action": "Follow up",
+     "next_action_due": "2026-12-01T09:00:00Z",
+     "opportunity_id": 4821
+    },
+    {
+     "if_revision": 13,
+     "next_action_due": null,
+     "opportunity_id": 4821
+    }
+   ],
+   "idempotency": "required_key",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "if_revision": {
+      "description": "The revision you read (pursuits.get or pursuits.list); 0 when the role has no pursuit yet. A pursuit that moved since is not changed.",
+      "minimum": 0,
+      "title": "If Revision",
+      "type": "integer"
+     },
+     "next_action": {
+      "anyOf": [
+       {
+        "maxLength": 2000,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "The next step. null clears it; leave the field out to keep it.",
+      "title": "Next Action",
+      "x-text": "content"
+     },
+     "next_action_due": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "When the next step falls due. null clears it; leave the field out to keep it.",
+      "title": "Next Action Due"
+     },
+     "notes": {
+      "anyOf": [
+       {
+        "maxLength": 20000,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Replaces the notes. null clears them; leave the field out to keep them.",
+      "title": "Notes",
+      "x-text": "content"
+     },
+     "opportunity_id": {
+      "description": "The opportunity the pursuit is about.",
+      "minimum": 1,
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
+     "priority": {
+      "default": null,
+      "description": "1 to 5. Cannot be null.",
+      "maximum": 5,
+      "minimum": 1,
+      "title": "Priority",
+      "type": "integer"
+     },
+     "stage": {
+      "default": null,
+      "description": "The new stage. Cannot be null.",
+      "enum": [
+       "saved",
+       "researching",
+       "networking",
+       "applied",
+       "interviewing",
+       "offer",
+       "accepted",
+       "declined",
+       "withdrawn",
+       "rejected",
+       "role_closed"
+      ],
+      "title": "Stage",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "opportunity_id",
+     "if_revision"
+    ],
+    "title": "PursuitPatchInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "pursuits.patch",
+   "output_schema": {
+    "$defs": {
+     "PursuedOpportunity": {
+      "additionalProperties": false,
+      "properties": {
+       "company": {
+        "title": "Company",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "status": {
+        "title": "Status",
+        "type": "string",
+        "x-text": "code"
+       },
+       "title": {
+        "title": "Title",
+        "type": "string",
+        "x-text": "content"
+       },
+       "url": {
+        "title": "Url",
+        "type": "string",
+        "x-text": "identifier"
+       }
+      },
+      "required": [
+       "title",
+       "company",
+       "status",
+       "url"
+      ],
+      "title": "PursuedOpportunity",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "job_id": {
+      "title": "Job Id",
+      "type": "integer"
+     },
+     "next_action": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Action",
+      "x-text": "content"
+     },
+     "next_action_due": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Action Due"
+     },
+     "notes": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Notes",
+      "x-text": "content"
+     },
+     "opportunity": {
+      "$ref": "#/$defs/PursuedOpportunity"
+     },
+     "priority": {
+      "maximum": 5,
+      "minimum": 1,
+      "title": "Priority",
+      "type": "integer"
+     },
+     "revision": {
+      "minimum": 1,
+      "title": "Revision",
+      "type": "integer"
+     },
+     "stage": {
+      "enum": [
+       "saved",
+       "researching",
+       "networking",
+       "applied",
+       "interviewing",
+       "offer",
+       "accepted",
+       "declined",
+       "withdrawn",
+       "rejected",
+       "role_closed"
+      ],
+      "title": "Stage",
+      "type": "string",
+      "x-text": "code"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "job_id",
+     "stage",
+     "priority",
+     "notes",
+     "next_action",
+     "next_action_due",
+     "created_at",
+     "updated_at",
+     "revision",
+     "opportunity"
+    ],
+    "title": "PursuitItem",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled",
+    "agent_access.allow_writes"
+   ],
+   "summary": "Change a pursuit's stage, priority, notes or next action against the revision read. A field sent as null is cleared; a field left out is kept.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "write",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "private_pursuit",
+    "public_posting"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": true
+   },
+   "examples": [
+    {
+     "opportunity_id": 4821
+    },
+    {
+     "if_revision": 0,
+     "opportunity_id": 4821,
+     "priority": 2
+    }
+   ],
+   "idempotency": "required_key",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "if_revision": {
+      "default": null,
+      "description": "The revision you read (pursuits.get or pursuits.list); 0 when the role has no pursuit yet. Given, a pursuit that moved since is not changed (revision_conflict).",
+      "minimum": 0,
+      "title": "If Revision",
+      "type": "integer"
+     },
+     "opportunity_id": {
+      "description": "The opportunity to save.",
+      "minimum": 1,
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
+     "priority": {
+      "default": null,
+      "description": "1 to 5. A new pursuit starts at 3; an existing one keeps its own unless this is given.",
+      "maximum": 5,
+      "minimum": 1,
+      "title": "Priority",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "opportunity_id"
+    ],
+    "title": "PursuitSaveInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "pursuits.save",
+   "output_schema": {
+    "$defs": {
+     "PursuedOpportunity": {
+      "additionalProperties": false,
+      "properties": {
+       "company": {
+        "title": "Company",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "status": {
+        "title": "Status",
+        "type": "string",
+        "x-text": "code"
+       },
+       "title": {
+        "title": "Title",
+        "type": "string",
+        "x-text": "content"
+       },
+       "url": {
+        "title": "Url",
+        "type": "string",
+        "x-text": "identifier"
+       }
+      },
+      "required": [
+       "title",
+       "company",
+       "status",
+       "url"
+      ],
+      "title": "PursuedOpportunity",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "job_id": {
+      "title": "Job Id",
+      "type": "integer"
+     },
+     "next_action": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Action",
+      "x-text": "content"
+     },
+     "next_action_due": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Action Due"
+     },
+     "notes": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Notes",
+      "x-text": "content"
+     },
+     "opportunity": {
+      "$ref": "#/$defs/PursuedOpportunity"
+     },
+     "priority": {
+      "maximum": 5,
+      "minimum": 1,
+      "title": "Priority",
+      "type": "integer"
+     },
+     "revision": {
+      "minimum": 1,
+      "title": "Revision",
+      "type": "integer"
+     },
+     "stage": {
+      "enum": [
+       "saved",
+       "researching",
+       "networking",
+       "applied",
+       "interviewing",
+       "offer",
+       "accepted",
+       "declined",
+       "withdrawn",
+       "rejected",
+       "role_closed"
+      ],
+      "title": "Stage",
+      "type": "string",
+      "x-text": "code"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "job_id",
+     "stage",
+     "priority",
+     "notes",
+     "next_action",
+     "next_action_due",
+     "created_at",
+     "updated_at",
+     "revision",
+     "opportunity"
+    ],
+    "title": "PursuitItem",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled",
+    "agent_access.allow_writes"
+   ],
+   "summary": "Save an opportunity. A new pursuit starts at saved with priority 3; an existing one keeps its stage and notes, and its priority unless one is given.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
    "access": "read",
    "availability": {
     "reason": "offline",
@@ -2930,6 +3431,111 @@
    },
    "client_effects": [],
    "contract_version": "1.0",
+   "data_classes": [
+    "private_pursuit",
+    "public_posting"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {
+     "key": "followup-4821-v1",
+     "operation": "pursuits.patch"
+    }
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "key": {
+      "description": "The idempotency key the write was sent under: its meta.idempotency_key.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}$",
+      "title": "Key",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "operation": {
+      "description": "The write's operation id, such as pursuits.patch.",
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+      "title": "Operation",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "operation",
+     "key"
+    ],
+    "title": "ReceiptGetInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "receipts.get",
+   "output_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "code"
+     },
+     "key": {
+      "title": "Key",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "code"
+     },
+     "recorded_at": {
+      "format": "date-time",
+      "title": "Recorded At",
+      "type": "string"
+     },
+     "result": {
+      "additionalProperties": true,
+      "title": "Result",
+      "type": "object"
+     }
+    },
+    "required": [
+     "operation",
+     "key",
+     "contract_version",
+     "recorded_at",
+     "result"
+    ],
+    "title": "Receipt",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "Read back what a write sent under an idempotency key did. A miss is not proof it failed: send the same write again with the same key, which never writes twice.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
    "data_classes": [],
    "engine_effects": {
     "external_action": false,
@@ -2996,6 +3602,80 @@
     "agent_access.enabled"
    ],
    "summary": "The listing recipe v1 JSON Schema, its transports and transforms, and the rules a recipe follows.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "write",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": true
+   },
+   "examples": [],
+   "idempotency": "required_key",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "document": {
+      "additionalProperties": true,
+      "description": "The listing recipe v1 document; its `id` names the recipe. It must compile.",
+      "title": "Document",
+      "type": "object"
+     }
+    },
+    "required": [
+     "document"
+    ],
+    "title": "RecipeDraftSaveInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "recipes.draft.save",
+   "output_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "revision_id": {
+      "title": "Revision Id",
+      "type": "integer"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "version": {
+      "minimum": 1,
+      "title": "Version",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "slug",
+     "revision_id",
+     "version"
+    ],
+    "title": "SavedDraft",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled",
+    "agent_access.allow_writes"
+   ],
+   "summary": "Save a listing recipe as a new draft revision. It never activates the recipe or binds a company.",
    "supports_dry_run": false,
    "tool_tiers": [
     "standard",

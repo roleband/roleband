@@ -1,9 +1,14 @@
-"""`pursuits.list` and `pursuits.get`: the person's progress on the roles they pursue.
+"""The person's progress on the roles they pursue: `pursuits.list` and
+`pursuits.get` read it, `pursuits.save` and `pursuits.patch` change it.
 
-Both read through `tracker.agents.pursuits`, the store the dashboard and every
-pursuit writer share, and answer its `public_pursuit` fields, notes included,
-with the pursuit's `revision`, which a write passes back.
+All four go through `tracker.agents.pursuits`, the store the dashboard and
+every pursuit writer share, and answer its `public_pursuit` fields, notes
+included, with the pursuit's `revision`, which a write passes back.
 A pursuit is addressed by its opportunity's id, never the pursuit row's.
+
+A patch reads its fields by presence: a field sent as null clears it, a field
+left out is untouched. Stage and priority always have a value, so a null for
+either is an input error rather than a clear.
 
 A pursuit is the person's own record, so neither read hides one because its
 company was later hidden: the Board's visibility rules decide what is offered,
@@ -15,17 +20,26 @@ from __future__ import annotations
 import base64
 import binascii
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 from pydantic.config import JsonDict
+from pydantic.json_schema import SkipJsonSchema
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.agents.operations.descriptor import EngineEffects, OperationDescriptor, Shape, ToolTier
-from tracker.agents.operations.envelope import OperationError
-from tracker.agents.pursuits import PursuitListKey, PursuitStage, list_pursuits, public_pursuit
+from tracker.agents.operations.envelope import NextAction, OperationError
+from tracker.agents.pursuits import (
+    PursuitListKey,
+    PursuitStage,
+    PursuitUpdate,
+    list_pursuits,
+    public_pursuit,
+    upsert_pursuit,
+)
 from tracker.db.models import Job, Pursuit
+from tracker.notifications.pursuit_due import generate_pursuit_due_notifications
 
 _CODE: JsonDict = {"x-text": "code"}
 _IDENTIFIER: JsonDict = {"x-text": "identifier"}
@@ -118,7 +132,108 @@ PURSUITS_GET = OperationDescriptor(
     examples=({"opportunity_id": 4821},),
 )
 
-OPERATIONS: tuple[OperationDescriptor, ...] = (PURSUITS_LIST, PURSUITS_GET)
+
+#: What an agent write records as its way in, beside the actor, in the pursuit's event.
+VIA = "agent_api"
+#: The fields a patch can change; the rest of its input names the pursuit and the revision read.
+PATCH_FIELDS = ("stage", "priority", "notes", "next_action", "next_action_due")
+_REVISION_READ = "The revision you read (pursuits.get or pursuits.list); 0 when the role has no pursuit yet."
+
+
+_Priority = Annotated[int, Field(ge=1, le=5)]
+
+
+def _refuse_null(value: object) -> object:
+    if value is None:
+        raise ValueError("cannot be null; leave the field out to keep it")
+    return value
+
+
+class PursuitSaveInput(Shape):
+    opportunity_id: int = Field(ge=1, description="The opportunity to save.")
+    # `SkipJsonSchema[None]` keeps null out of the published schema: the
+    # default stands for "not given", and an explicit null is refused below.
+    priority: _Priority | SkipJsonSchema[None] = Field(
+        default=None,
+        description="1 to 5. A new pursuit starts at 3; an existing one keeps its own unless this is given.",
+    )
+    if_revision: Annotated[int, Field(ge=0)] | SkipJsonSchema[None] = Field(
+        default=None,
+        description=f"{_REVISION_READ} Given, a pursuit that moved since is not changed (revision_conflict).",
+    )
+
+    _no_null = field_validator("priority", "if_revision", mode="before")(_refuse_null)
+
+
+class PursuitPatchInput(Shape):
+    opportunity_id: int = Field(ge=1, description="The opportunity the pursuit is about.")
+    if_revision: int = Field(ge=0, description=f"{_REVISION_READ} A pursuit that moved since is not changed.")
+    stage: PursuitStage | SkipJsonSchema[None] = Field(
+        default=None, json_schema_extra=_CODE, description="The new stage. Cannot be null."
+    )
+    priority: _Priority | SkipJsonSchema[None] = Field(default=None, description="1 to 5. Cannot be null.")
+    notes: str | None = Field(
+        default=None, max_length=20_000, json_schema_extra=_CONTENT,
+        description="Replaces the notes. null clears them; leave the field out to keep them.",
+    )
+    next_action: str | None = Field(
+        default=None, max_length=2_000, json_schema_extra=_CONTENT,
+        description="The next step. null clears it; leave the field out to keep it.",
+    )
+    next_action_due: datetime | None = Field(
+        default=None, description="When the next step falls due. null clears it; leave the field out to keep it."
+    )
+
+    _no_null = field_validator("stage", "priority", mode="before")(_refuse_null)
+
+    @model_validator(mode="after")
+    def _changes_something(self) -> PursuitPatchInput:
+        if not self.model_fields_set & set(PATCH_FIELDS):
+            raise ValueError(f"name at least one field to change: {', '.join(PATCH_FIELDS)}")
+        return self
+
+    def update(self) -> PursuitUpdate:
+        """The fields sent, nulls included; a field left out is not in it."""
+        return PursuitUpdate(**self.model_dump(include=set(PATCH_FIELDS), exclude_unset=True))
+
+
+PURSUITS_SAVE = OperationDescriptor(
+    id="pursuits.save",
+    summary=(
+        "Save an opportunity. A new pursuit starts at saved with priority 3; an existing one keeps its "
+        "stage and notes, and its priority unless one is given."
+    ),
+    input=PursuitSaveInput,
+    result=PursuitItem,
+    access="write",
+    idempotency="required_key",
+    engine_effects=EngineEffects(state_write=True),
+    tool_tiers=_EVERY_TIER,
+    data_classes=("private_pursuit", "public_posting"),
+    examples=({"opportunity_id": 4821}, {"opportunity_id": 4821, "priority": 2, "if_revision": 0}),
+)
+
+PURSUITS_PATCH = OperationDescriptor(
+    id="pursuits.patch",
+    summary=(
+        "Change a pursuit's stage, priority, notes or next action against the revision read. "
+        "A field sent as null is cleared; a field left out is kept."
+    ),
+    input=PursuitPatchInput,
+    result=PursuitItem,
+    access="write",
+    idempotency="required_key",
+    engine_effects=EngineEffects(state_write=True),
+    tool_tiers=_EVERY_TIER,
+    data_classes=("private_pursuit", "public_posting"),
+    expects_revision=True,
+    examples=(
+        {"opportunity_id": 4821, "if_revision": 12, "next_action": "Follow up", "next_action_due": "2026-12-01T09:00:00Z"},
+        {"opportunity_id": 4821, "if_revision": 13, "next_action_due": None},
+    ),
+)
+
+OPERATIONS: tuple[OperationDescriptor, ...] = (PURSUITS_LIST, PURSUITS_GET, PURSUITS_SAVE, PURSUITS_PATCH)
 
 
 class _CursorBody(BaseModel):
@@ -204,3 +319,38 @@ async def pursuit_of(session: AsyncSession, opportunity_id: int) -> PursuitItem:
 def state_of(pursuit: Pursuit, job: Job | None = None) -> dict[str, Any]:
     """A pursuit's public fields and its revision, from one read of its row."""
     return {**public_pursuit(pursuit, job), "revision": pursuit.revision}
+
+
+def reread(opportunity_id: int) -> list[NextAction]:
+    """What a refused write suggests: read the pursuit again."""
+    return [NextAction(operation=PURSUITS_GET.id, arguments={"opportunity_id": opportunity_id})]
+
+
+async def _write(
+    session: AsyncSession, opportunity_id: int, update: PursuitUpdate, *, actor: Literal["agent"], expected_revision: int | None
+) -> PursuitItem:
+    try:
+        pursuit = await upsert_pursuit(
+            session, opportunity_id, update, actor=actor, expected_revision=expected_revision, via=VIA
+        )
+    except LookupError:
+        raise OperationError(
+            "not_found", "There is no opportunity with this id.", details={"opportunity_id": opportunity_id}
+        ) from None
+    # A reminder follows its pursuit in the same transaction, as every pursuit write's does.
+    await generate_pursuit_due_notifications(session)
+    job = await session.get(Job, opportunity_id)
+    return PursuitItem.model_validate(state_of(pursuit, job))
+
+
+async def save_pursuit(session: AsyncSession, params: PursuitSaveInput, *, actor: Literal["agent"]) -> PursuitItem:
+    update = PursuitUpdate() if params.priority is None else PursuitUpdate(priority=params.priority)
+    return await _write(
+        session, params.opportunity_id, update, actor=actor, expected_revision=params.if_revision
+    )
+
+
+async def patch_pursuit(session: AsyncSession, params: PursuitPatchInput, *, actor: Literal["agent"]) -> PursuitItem:
+    return await _write(
+        session, params.opportunity_id, params.update(), actor=actor, expected_revision=params.if_revision
+    )

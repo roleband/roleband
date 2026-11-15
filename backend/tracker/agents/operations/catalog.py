@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 from typing import Any
 
-from tracker.agents.operations import meta, opportunities, pursuits, radar, recipes
+from tracker.agents.operations import meta, opportunities, pursuits, radar, receipts, recipes
 from tracker.agents.operations.descriptor import UNKNOWN, OperationDescriptor, ToolTier
 from tracker.agents.operations.outcomes import CONTRACT_VERSION
 
@@ -22,6 +22,7 @@ REGISTERED: tuple[OperationDescriptor, ...] = (
     *opportunities.OPERATIONS,
     *pursuits.OPERATIONS,
     *recipes.OPERATIONS,
+    *receipts.OPERATIONS,
 )
 
 
