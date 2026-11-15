@@ -282,6 +282,20 @@ async def test_a_pursuit_due_time_that_passes_is_reported_once_and_a_terminal_on
     assert (await _drain(api_client, since=since, kinds=["pursuit_due"]))[0] == []
 
 
+async def test_a_start_time_still_ahead_keeps_earlier_due_times_out_of_later_windows(api_client, feed):
+    owed = await _posting(feed, "ahead")
+    async with _factory(feed)() as session:
+        now = (await session.execute(text("SELECT clock_timestamp()"))).scalar_one()
+    first, since = await _drain(api_client, kinds=["pursuit_due"], start_time=(now + timedelta(hours=1)).isoformat())
+    assert first == []
+    async with _factory(feed)() as session:
+        # Due after the first window ended, and before start_time.
+        due = (await session.execute(text("SELECT clock_timestamp()"))).scalar_one()
+        session.add(Pursuit(job_id=owed, stage="applied", next_action="Chase", next_action_due=due))
+        await session.commit()
+    assert (await _drain(api_client, since=since, kinds=["pursuit_due"]))[0] == []
+
+
 async def test_pursuit_changes_vanish_when_the_person_does_not_share_pursuits(feed):
     pursued = await _posting(feed, "private")
     opened = await _posting(feed, "public")
@@ -466,6 +480,10 @@ async def test_a_since_that_cannot_continue_is_refused_with_a_lookup_never_reset
     hint = await _refused(api_client, "expired", since=_rewrite(since, c="1"))
     assert datetime.fromisoformat(hint["start_time"]) <= datetime.now(UTC)
     assert await _refused(api_client, "malformed", since=_rewrite(since, lo=10**15)) == {}
+    # A window that ends past the snapshot, or before it starts, is not one a read gave.
+    lo = json.loads(base64.urlsafe_b64decode(since + "=" * (-len(since) % 4)))["lo"]
+    assert await _refused(api_client, "malformed", since=_rewrite(since, hi=10**15, th=0)) == {}
+    assert await _refused(api_client, "malformed", since=_rewrite(since, hi=lo - 1, th=0)) == {}
 
     async with _factory(feed)() as session:
         await session.execute(update(WorkspaceIdentity).values(workspace_id="ws_" + "0" * 32))

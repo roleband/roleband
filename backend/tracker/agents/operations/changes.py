@@ -660,7 +660,9 @@ async def changes_page(
     )
     if params.since is not None:
         position = decode_position(params.since, expected=expected)
-        if position.lo is not None and position.lo > frontier.xmax:
+        past_end = any(bound is not None and bound > frontier.xmax for bound in (position.lo, position.hi))
+        backwards = position.lo is not None and position.hi is not None and position.lo > position.hi
+        if past_end or backwards:
             raise _refused("malformed", "This since value is not one this database gave.")
     else:
         start = None if params.start_time is None else _micros(params.start_time)
@@ -701,6 +703,12 @@ async def changes_page(
     return ChangesAnswer(page, shortened=len(kept) < min(params.limit, len(candidates)))
 
 
+def _later(bound: int | None, end: int | None) -> int | None:
+    """The next due-time window's start: where this one ended, or a start_time
+    still ahead of it, which keeps every due time before start_time out."""
+    return end if bound is None or end is None else max(bound, end)
+
+
 def _page(
     kept: list[_Candidate], position: _Position, *, more: bool, tier: ToolTier, limit: int,
     kinds: list[Kind] | None, unavailable: list[UnavailableKind],
@@ -710,7 +718,7 @@ def _page(
     else:
         # The window is read to its frontier: the next read opens a new one from there.
         following = position.model_copy(
-            update={"lo": position.hi, "hi": None, "tl": position.th, "th": None, "a": None}
+            update={"lo": position.hi, "hi": None, "tl": _later(position.tl, position.th), "th": None, "a": None}
         )
     token = encode_position(following)
     arguments: dict[str, Any] = {"since": token, "limit": limit, "tier": tier}
