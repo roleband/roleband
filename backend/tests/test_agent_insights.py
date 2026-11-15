@@ -671,7 +671,8 @@ def test_no_page_at_any_budget_or_position_exceeds_its_budget(monkeypatch):
             try:
                 read = fit(spec, answer, params, workspace_id="w")
             except insights.OperationError as refused:
-                assert refused.details["reason"] == "over_budget", budget
+                # Only a budget the whole answer does not fit may refuse.
+                assert budget < whole and refused.details["reason"] == "over_budget", budget
                 break
             assert _bytes(read.data) <= budget, (budget, params.cursor)
             seen += [row.company for row in read.data.companies]
@@ -691,7 +692,8 @@ def test_no_page_at_any_budget_or_position_exceeds_its_budget(monkeypatch):
         try:
             read = fit(spec, answer, at_end, workspace_id="w")
         except insights.OperationError as refused:
-            assert refused.details["reason"] == "over_budget", budget
+            # The empty page is smaller than the whole answer, so it fits any budget the whole does.
+            assert budget < whole and refused.details["reason"] == "over_budget", budget
             continue
         assert _bytes(read.data) <= budget, budget
         assert read.data.companies == [] and read.next_cursor is None
