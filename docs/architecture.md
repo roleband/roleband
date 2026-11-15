@@ -95,11 +95,13 @@ connection establishes a baseline per installation; newer installed releases
 remain unread until their notes are displayed. This local flow contacts no
 external update service.
 
-Native update checks use the public GitHub releases API only after an explicit
-choice. Automatic checks stay off until enabled. An explicit manual check
-authorizes one request independently of that setting; it neither changes an
-existing choice nor enables automatic checks. A default-off or declined choice
-prevents all passive requests. The native update interaction and
+Native update checks use the public GitHub releases API once a day unless the
+person turns automatic checks off ([decision 0019](decisions/0019-update-checks-on-by-default.md)).
+An install that never chose checks without recording a choice; turning the switch
+off or on records one. An explicit manual check authorizes one request
+independently of that setting and changes no choice. A choice to turn checks off,
+or a declined choice kept in older preferences, prevents all passive requests.
+The native update interaction and
 content rules are in [ui.md](ui.md#native-launcher-updates).
 Daily checks are throttled across restarts, including failed attempts; server
 rate limits also delay manual checks. Requests carry no credentials, refuse
@@ -1164,8 +1166,23 @@ on AI egress (`ai_egress_enabled`, off by default). The one model task the
 product runs is duplicate review, on a pair the user picks, by their local model
 (`backend/tracker/intelligence/duplicate_review.py`). The one line that can add a
 cloud tier is in `backend/tracker/intelligence_runtime/routing.py`, a ladder only
-the model bench drives; search query parsing (`backend/tracker/search/llm.py`) is
-the only other path to a cloud model, and it takes the same switch.
+the model bench drives. Search query parsing (`backend/tracker/search/llm.py`)
+takes the same switch. The tool-calling transport below refuses a tier the
+ladder blocked but cannot tell where a tier came from, so its callers take
+their tiers from `build_tiers`; nothing calls it yet.
+
+Tool calling, for a runner that loops a model over operations, is
+`backend/tracker/intelligence/tool_calls/`: a provider-neutral conversation
+(messages, tool definitions, a turn of text or tool calls, usage and a stop
+reason), the OpenAI-compatible and Anthropic wire formats, and a transport made
+only from a rung of that ladder (`transport_for_tier`). A tier the ladder
+blocked is refused before any request exists. The switch itself is read by
+`build_tiers`, so a caller takes its tiers from there, built for each model
+call; a tier made by hand would carry no admission. What a model
+writes never raises: malformed arguments or an unknown tool come back as a
+call with a problem for the runner to answer. Tools are generated from
+operation descriptors by `backend/tracker/agents/tool_definitions.py`. Nothing
+calls it yet; the one-prompt clients in `local_llm` and `cloud_llm` are separate.
 
 Offline level experiments use `analytics/level_context.py` to extract quoted
 facts without writing canonical fields. Component ownership refers to the
@@ -1256,7 +1273,32 @@ and client effects, data classes, tool tiers and idempotency, registered once
 in `catalog.py`. Every answer, a failure included, is one envelope whose error
 code maps to an HTTP status and a process exit status in `outcomes.py`. The
 agent switches in Settings admit them: a read needs `enabled`, a write also
-`allow_writes`, and with `enabled` off every operation is refused.
+`allow_writes`, and with `enabled` off every operation is refused, whatever
+else the row holds. Beside the switches, `agent_access.categories` holds the
+person's choice per data category: `any_model`, `local_only` or `not_shared`
+([decision 0017](decisions/0017-agent-access-open-by-default.md)). A category
+with no choice is shared, and a row the engine cannot read is everything off;
+the Settings switches keep the stored choices when they save. Every caller of
+these operations is outside the engine, so only `any_model` shares a category
+(`policy.shared`). A category that is not shared is absent, not masked: an
+operation whose first declared data class is not shared is refused as
+`category_disabled` (exit 4, HTTP 403, `details.setting` naming the choice),
+and `capabilities` shows it unavailable for that reason. An operation leaves
+out the part of its answer from any other class it declares: its keys are
+absent, never null, and optional in the result schema (a search column leaves
+`columns` and every row). It refuses an input that selects by that part, and
+lists in `meta.data_classes` the classes it declares that are shared: those
+its answer may draw on, not a trace of what one call used. A class that only
+orders an answer counts the same way: queryless best match blends the profile
+statement and the saved, pursued and dismissed roles into the person's intent,
+each only while its class is shared, and without pursuits search lists the
+roles the person dismissed like any other; without market statistics its base
+pay bounds and pay sort read only the range a posting states, never the
+estimate a row falls back to. A Settings save of the two switches
+keeps stored choices the engine cannot read as they are, so the row still
+reads as everything off. A keyed write's receipt keeps the whole result; its
+answer, fresh or replayed, leaves the part out. Every operation but the
+handshake declares at least one data class.
 `workspace_identity` holds the workspace's durable id, which these answers
 carry; it outlives engine restarts and updates, unlike the engine session id.
 A write route takes a JSON body and an idempotency key header, and runs through
@@ -1274,15 +1316,17 @@ Every other command is generated from that index (`backend/tracker/cli/commands.
 with no code per operation: an operation's dotted id is its words
 (`opportunities.search` is `roleband opportunities search`), a field its route
 takes in the path is a positional argument, every other scalar or list field is
-a flag, and `--input @FILE|-` gives the whole input as one JSON object instead,
-never together with a flag. The index carries each operation's route, and the
+a flag, and `--input @FILE|-` gives the input as one JSON object (a nested
+field, an explicit null). Arguments and flags add the fields that object leaves
+out; a field given both ways is refused, never resolved by precedence. The index carries each operation's route, and the
 export refuses an operation without one. Help builds from the index alone,
 without the engine's models or an HTTP library.
 `opportunities.search` (`backend/tracker/agents/operations/search.py`) runs the
 Board's query with its filters and sorts. A filter value is strict: one that
 matches no accepted spelling (`agents/operations/vocabulary.py`, listed by
 `vocabulary.list`) fails the search with the lookup to run, never an empty page.
-Its rows are a column table sized to the tool tier's budget; a page whose rows
+Its rows are a column table sized to the tool tier's budget; under a location
+filter a row names first a place the filter matched. A page whose rows
 outgrow it stops early with a `page_shortened` warning, and an offset cursor
 bound to the request and the workspace (`agents/operations/cursor.py`) continues it.
 `roleband connect claude-code|codex --print|--apply` (`backend/tracker/cli/connect.py`)
@@ -1298,7 +1342,9 @@ A read takes its input from the path and query; one that takes a document
 An answer that can grow past the caller's tool tier (the detail view of
 `opportunities.get`) is a typed excerpt marked `truncated`, never cut JSON.
 Its `continue_with` names the calls that read the rest (the description from
-a character on, the notes whole), so following them reads everything.
+a character on, the notes whole), so following them reads everything; the
+summary view's `continue_with` names the detail read the same way. `describe`
+of a partial id, such as a resource's name, lists the operations it starts.
 A list cursor (`pursuits.list`) resumes after its last row in the current
 order, with no snapshot; a whole list is read from the first page.
 Each read that replaces an MCP tool reuses that tool's query owner, and

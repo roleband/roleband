@@ -7,9 +7,10 @@ is the command's words (`opportunities.search` is `opportunities search`,
 is a hyphen), each field the route takes in its path is a positional
 argument, and every other scalar or list field of its input schema is a flag
 (`level_band` is `--level-band`; a list flag is repeated for more values).
-`--input @FILE` or `--input -` gives the whole input as one JSON object
-instead, for nested or long input; it and a field flag together are an error,
-never a silent precedence.
+`--input @FILE` or `--input -` gives the input as one JSON object, for nested
+or long input and for an explicit null; path arguments and field flags add the
+fields it does not carry, and a field given both ways is an error, never a
+silent precedence.
 
 The handshake operations (`status`, `capabilities`, `describe`) keep their own
 commands, which answer offline too. Standard library only: `--help` builds
@@ -270,7 +271,8 @@ def _arguments(parser: argparse.ArgumentParser, command: Command) -> None:
             metavar=None if field.choices else field.name.upper(), help=help_text.strip() or None,
         )
     parser.add_argument("--input", dest="input_source", metavar="@FILE|-", default=None,
-                        help="the whole input as one JSON object, from a file or stdin")
+                        help="the input as one JSON object, from a file or stdin; arguments and flags add "
+                             "the fields it leaves out, and a field given both ways is refused")
     if command.keyed:
         parser.add_argument("--idempotency-key", dest="idempotency_key", metavar="KEY", default=None,
                             help="send under this key; a retry under it never writes twice (default: a new one)")
@@ -280,25 +282,28 @@ def _arguments(parser: argparse.ArgumentParser, command: Command) -> None:
 
 
 def payload(command: Command, args: argparse.Namespace, *, stdin: Any = None) -> dict[str, Any]:
-    """The operation's input from the positional arguments and either the flags or `--input`."""
+    """The operation's input: `--input`'s object, with the positional arguments
+    and flags adding the fields it does not carry. A field given both ways is
+    refused, whatever the two values: neither silently wins."""
     given = {
-        field.name: getattr(args, f"in_{field.name}")
+        field.option: (field.name, getattr(args, f"in_{field.name}"))
         for field in command.flags
         if getattr(args, f"in_{field.name}", None) is not None
     }
     data: dict[str, Any] = {}
     if args.input_source is not None:
-        if given:
+        data = read_input(args.input_source, stdin=stdin)
+        if overlap := [(option, name) for option, (name, _) in given.items() if name in data]:
+            names = ", ".join(name for _, name in overlap)
             raise ClientError(
                 "invalid_arguments",
-                f"--input and {', '.join(f'--{name.replace(chr(95), chr(45))}' for name in given)} both give "
-                "input; give it one way.",
+                f"{', '.join(option for option, _ in overlap)} and --input both give {names}; give each field once.",
+                details={"fields": [name for _, name in overlap]},
             )
-        data = read_input(args.input_source, stdin=stdin)
-    else:
-        data = given
-        if missing := [field.option for field in command.flags if field.required and field.name not in data]:
-            raise ClientError("invalid_arguments", f"{', '.join(missing)} is required.")
+    data.update(dict(given.values()))
+    if missing := [field.option for field in command.flags if field.required and field.name not in data]:
+        where = ", as a flag or in --input" if args.input_source is not None else ""
+        raise ClientError("invalid_arguments", f"{', '.join(missing)} is required{where}.")
     for field in command.positional:
         value = getattr(args, f"pos_{field.name}", None)
         if value is None:
@@ -307,7 +312,8 @@ def payload(command: Command, args: argparse.Namespace, *, stdin: Any = None) ->
             continue
         if field.name in data:
             raise ClientError(
-                "invalid_arguments", f"{field.name} is given both as an argument and in --input; give it once."
+                "invalid_arguments", f"{field.name} is given both as an argument and in --input; give it once.",
+                details={"fields": [field.name]},
             )
         data[field.name] = value
     if missing := [name for name in command.input_only if name not in data]:

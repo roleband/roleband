@@ -4,7 +4,8 @@ import LauncherCore
 
 extension LauncherModel {
     /// A model that reaches nothing on this Mac unless a test passes it: its registration, home,
-    /// preferences and app location are fresh temporary ones, and the browser and login item are stand-ins.
+    /// preferences and app location are fresh temporary ones, the browser and login item are stand-ins,
+    /// and its update feed is offline.
     convenience init(registration: URL? = nil, installation: InstallationSource? = nil,
                      mode: LaunchMode = .owned(leftover: nil), ownedEngine: OwnedEngineService? = nil,
                      readStatus: @escaping @Sendable (Installation) async throws -> VerifiedStatus = StatusClient.read,
@@ -25,17 +26,26 @@ extension LauncherModel {
         let scratch = FileManager.default.temporaryDirectory.appendingPathComponent("launcher-model-\(UUID().uuidString)")
         let home = homeURL ?? scratch.appendingPathComponent("home")
         let registration = registration ?? HomeLayout(home).registration
+        let preferences = preferences ?? .scratch("launcher-model")
         var dependencies = LauncherDependencies(
             mode: mode, ownedEngine: ownedEngine,
             registration: registration, installation: installation ?? .registration(registration), readStatus: readStatus,
             performScan: performScan, readSchedule: readSchedule, performPause: performPause, timezone: timezone,
             engine: engine, readNotes: readNotes, launcherVersion: launcherVersion, openBrowser: openBrowser,
-            preferences: preferences ?? .scratch("launcher-model"),
+            preferences: preferences,
             loginService: loginService, bundleURL: bundleURL ?? scratch.appendingPathComponent("RoleBand.app"),
-            homeURL: home, language: language, updates: updates, installOperations: installOperations,
+            homeURL: home, language: language, updates: updates ?? .offline(preferences), installOperations: installOperations,
             updateNotice: updateNotice, portFree: portFree)
         dependencies.decideMode = decideMode
         dependencies.reopen = reopen
         self.init(dependencies)
+    }
+}
+
+extension LauncherUpdates {
+    /// Checks that never leave this Mac: a fresh install checks daily, so a model a test builds
+    /// without its own updates would otherwise ask the production feed.
+    static func offline(_ preferences: UserDefaults) -> LauncherUpdates {
+        LauncherUpdates(preferences: preferences, fetch: { throw URLError(.notConnectedToInternet) }, authenticate: { _ in nil })
     }
 }
