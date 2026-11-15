@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import csv
 import json
 import sys
 from collections import Counter, defaultdict
@@ -433,16 +434,57 @@ def band_rows(jobs: list, year: int) -> tuple[list[dict], list[str]]:
     return rows, report
 
 
+def band_key(row: dict) -> tuple[str, str, int, int, int]:
+    """A band row's identity: the cell and the exact range it was measured at."""
+    return (row["company"], row["family"], int(row["base_min"]),
+            int(row["base_max"]), int(row["year"]))
+
+
+def merge_rows(held: Iterable[dict], measured: Iterable[dict]) -> list[dict]:
+    """Everything just measured, plus every held row it did not re-measure.
+
+    A range stops being measurable long before it stops being true: the
+    postings that anchored it close, and the corpus holds only what it still
+    sees. A refresh that wrote its measurement alone would forget ranges a
+    company really posted, taking their postings back to no level, and would
+    take every other year's rows with them, since one run measures one year.
+    Fresh evidence wins where both hold the same range.
+    """
+    measured = list(measured)
+    fresh = {band_key(row) for row in measured}
+    carried = [row for row in held if band_key(row) not in fresh]
+    return sorted((*measured, *carried), key=band_key)
+
+
+def held_rows(target: Path | None) -> list[dict]:
+    """The table a refresh starts from: the file it is about to rewrite, or the
+    app's own copy when there is nothing to rewrite yet."""
+    if target is not None and target.exists():
+        with target.open(newline="", encoding="utf-8") as handle:
+            return list(csv.DictReader(handle))
+    return [
+        {"company": row.company, "family": row.family, "base_min": row.base_min,
+         "base_max": row.base_max, "year": row.year,
+         "band": row.band.value if row.band else "",
+         "anchor": row.anchor, "anchors": row.anchors}
+        for row in PAY_BANDS
+    ]
+
+
 def cmd_pay_bands(year: int, write: bool, out: Path | None = None) -> int:
     from scripts.data import build_target
-    from tracker.levels.atlas import PAY_BANDS, pay_bands_text
+    from tracker.levels.atlas import PAY_BANDS as PAY_BANDS_TABLE
+    from tracker.levels.atlas import pay_bands_text
 
-    target = build_target("atlas", PAY_BANDS.file, out) if write else None
+    target = build_target("atlas", PAY_BANDS_TABLE.file, out) if write else None
     jobs, _ = asyncio.run(_corpus())
-    rows, report = band_rows(jobs, year)
+    measured, report = band_rows(jobs, year)
     for line in report:
         print(line)
-    print(f"{len(rows)} band rows; by company {dict(Counter(row['company'] for row in rows).most_common())}")
+    rows = merge_rows(held_rows(target), measured)
+    print(f"{len(measured)} band rows measured for {year}, "
+          f"{len(rows) - len(measured)} carried forward, {len(rows)} in the table")
+    print(f"by company {dict(Counter(row['company'] for row in rows).most_common())}")
     if target is not None:
         # The atlas's canonical form, so a rebuild diffs as data.
         target.write_text(pay_bands_text(rows), encoding="utf-8")
