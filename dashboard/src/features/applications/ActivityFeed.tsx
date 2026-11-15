@@ -1,7 +1,7 @@
-import { FormEvent, KeyboardEvent, useRef, useState } from "react";
-import type { ActivityItem } from "../../api";
-import { date as formatDate, list, relative } from "../../copy/format";
-import { Button, Content, Icon, Segmented } from "../../ui";
+import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
+import type { ActivityItem, ApplicationDetail } from "../../api";
+import { date as formatDate, list, relative, timestamp } from "../../copy/format";
+import { Button, Content, Icon, Menu, MenuGroup, MenuItem, Segmented } from "../../ui";
 import {
   applicationsCommentAuthorAgent,
   applicationsCommentAuthorYou,
@@ -18,6 +18,14 @@ import {
   applicationsFeedByAgent,
   applicationsFeedEmpty,
   applicationsFeedFold,
+  applicationsFeedJumpApplied,
+  applicationsFeedJumpBeginning,
+  applicationsFeedJumpComments,
+  applicationsFeedJumpInterview,
+  applicationsFeedJumpLabel,
+  applicationsFeedJumpMonth,
+  applicationsFeedJumpOffer,
+  applicationsFeedJumpRecent,
   applicationsFeedModeAll,
   applicationsFeedModeComments,
   applicationsFeedModeLabel,
@@ -25,7 +33,33 @@ import {
 } from "../../copy/gen/applications";
 import { useFocusAfter } from "./focusAfter";
 import { useFocusWhen } from "./ApplicationPanels";
-import { eventChanges, feedEntries, runChanges, runOpened, type ActivityComment, type ActivityEvent, type FeedMode } from "./activity";
+import {
+  eventChanges,
+  feedMonths,
+  itemKey,
+  jumpPoints,
+  runChanges,
+  runOpened,
+  type ActivityComment,
+  type ActivityEvent,
+  type FeedMode,
+  type JumpKind,
+} from "./activity";
+
+/** How long a jump's entry wears its ring; `app-feed-landed` fades over the same span. */
+const LANDED_MS = 2400;
+
+const JUMP_LABEL: Record<JumpKind, () => string> = {
+  recent: applicationsFeedJumpRecent,
+  applied: applicationsFeedJumpApplied,
+  interview: applicationsFeedJumpInterview,
+  offer: applicationsFeedJumpOffer,
+  beginning: applicationsFeedJumpBeginning,
+};
+
+/** A month's name, with its year only when that is not this year's. */
+const monthName = (start: Date, now: Date) =>
+  timestamp(start, start.getFullYear() === now.getFullYear() ? { month: "long" } : { month: "long", year: "numeric" });
 
 const ago = (iso: string, now: Date) => relative((new Date(iso).getTime() - now.getTime()) / 1000);
 
@@ -35,7 +69,7 @@ function When({ iso, now }: { iso: string; now: Date }) {
 
 function EventLine({ event, now }: { event: ActivityEvent; now: Date }) {
   return (
-    <li className="app-event">
+    <li className="app-event" data-feed={itemKey(event)} tabIndex={-1}>
       <Icon name="activity" size={12} />
       <span className="app-event-text">
         {list(eventChanges(event))}
@@ -48,23 +82,62 @@ function EventLine({ event, now }: { event: ActivityEvent; now: Date }) {
 
 export interface ActivityFeedProps {
   items: readonly ActivityItem[];
+  /** When the application reached each stage, and its interviews: the
+   *  moments the jump menu offers. */
+  detail: Pick<ApplicationDetail, "stages_reached" | "interviews">;
   now: Date;
   onAdd: (body: string) => Promise<boolean>;
   onEdit: (id: number, body: string) => Promise<boolean>;
   onDelete: (id: number) => Promise<boolean>;
 }
 
-/** The application's history: comments and recorded changes, newest first,
- *  with the composer above the newest. Comments lead; the changes between
- *  two comments fold into one line until opened, and All activity opens
- *  every one. */
-export function ActivityFeed({ items, now, onAdd, onEdit, onDelete }: ActivityFeedProps) {
+/** The application's whole history: comments and recorded changes, newest
+ *  first, with the composer above the newest. Comments lead; the changes
+ *  between two comments fold into one line until opened, and All activity
+ *  opens every one. Every month has a divider that stays at the top while
+ *  its entries pass, and opens a menu that jumps to another month or to a
+ *  moment of the application. Nothing is held back, so the browser's own
+ *  find reaches every entry. */
+export function ActivityFeed({ items, detail, now, onAdd, onEdit, onDelete }: ActivityFeedProps) {
   const [mode, setMode] = useState<FeedMode>("comments");
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   // The ids of the changes in every run the reader opened.
   const [opened, setOpened] = useState<ReadonlySet<number>>(new Set());
-  const entries = feedEntries(items, mode);
+  const months = feedMonths(items, mode);
+  const points = jumpPoints(items, detail, now);
+  // The divider whose menu is open, and the entry the last jump asked for.
+  const [jumpFrom, setJumpFrom] = useState<HTMLElement | null>(null);
+  const [landing, setLanding] = useState<{ key: string; turn: number } | null>(null);
+  const feedList = useRef<HTMLDivElement>(null);
+
+  const jump = (item: ActivityItem) => {
+    setJumpFrom(null);
+    setLanding((was) => ({ key: itemKey(item), turn: (was?.turn ?? 0) + 1 }));
+  };
+
+  // After the menu has closed and handed focus back to its divider: a folded
+  // run is found by any change inside it, so a jump to one change lands on
+  // its fold. The entry takes focus, so its own controls are a Tab away.
+  useEffect(() => {
+    if (!landing) return;
+    const target = [...(feedList.current?.querySelectorAll<HTMLElement>("[data-feed]") ?? [])]
+      .find((element) => element.dataset.feed?.split(" ").includes(landing.key));
+    if (!target) return;
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    target.scrollIntoView?.({ block: "start", behavior: reduced ? "auto" : "smooth" });
+    target.focus({ preventScroll: true });
+    target.removeAttribute("data-landed");
+    void target.offsetWidth;
+    target.setAttribute("data-landed", "");
+    // A timer, not animationend: under reduced motion the ring holds still
+    // and has no animation to end.
+    const done = window.setTimeout(() => target.removeAttribute("data-landed"), LANDED_MS);
+    return () => {
+      window.clearTimeout(done);
+      target.removeAttribute("data-landed");
+    };
+  }, [landing]);
 
   const post = async () => {
     if (!draft.trim() || sending) return;
@@ -113,11 +186,31 @@ export function ActivityFeed({ items, now, onAdd, onEdit, onDelete }: ActivityFe
           {applicationsCommentSubmit()}
         </Button>
       </form>
-      {entries.length === 0 ? (
+      {months.length === 0 ? (
         <p className="app-next-empty">{applicationsFeedEmpty()}</p>
       ) : (
-        <ol className="app-feed-list">
-          {entries.map((entry) => {
+        <div className="app-feed-months" ref={feedList}>
+          {months.map((month) => {
+            const name = monthName(month.start, now);
+            return (
+              <section key={month.key} className="app-feed-month" aria-label={name} data-month={month.key}>
+                <div className="app-feed-divider">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="app-feed-divider-button"
+                    aria-haspopup="dialog"
+                    aria-expanded={jumpFrom?.dataset.month === month.key}
+                    aria-label={applicationsFeedJumpMonth({ month: name })}
+                    data-month={month.key}
+                    onClick={(event) => setJumpFrom(event.currentTarget)}
+                  >
+                    {name}
+                    <Icon name="chevronDown" size={12} />
+                  </Button>
+                </div>
+                <ol className="app-feed-list">
+                  {month.entries.map((entry) => {
             if (entry.kind === "comment") {
               return (
                 <CommentItem key={`comment-${entry.comment.id}`} comment={entry.comment} now={now} onEdit={onEdit} onDelete={onDelete} />
@@ -126,7 +219,7 @@ export function ActivityFeed({ items, now, onAdd, onEdit, onDelete }: ActivityFe
             const folded = mode === "comments" && entry.events.length > 1 && !runOpened(entry.events, opened);
             if (folded) {
               return (
-                <li key={entry.key} className="app-event app-event-fold">
+                <li key={entry.key} className="app-event app-event-fold" data-feed={entry.events.map(itemKey).join(" ")} tabIndex={-1}>
                   <Icon name="activity" size={12} />
                   <Button
                     variant="link"
@@ -140,9 +233,41 @@ export function ActivityFeed({ items, now, onAdd, onEdit, onDelete }: ActivityFe
               );
             }
             return entry.events.map((event) => <EventLine key={`event-${event.id}`} event={event} now={now} />);
+                  })}
+                </ol>
+              </section>
+            );
           })}
-        </ol>
+        </div>
       )}
+      <Menu isOpen={jumpFrom != null} onClose={() => setJumpFrom(null)} anchor={jumpFrom} label={applicationsFeedJumpLabel()} align="start">
+        <MenuGroup>
+          {points.filter((point) => point.kind !== "beginning").map((point) => (
+            <MenuItem key={point.kind} onSelect={() => jump(point.item)} detail={formatDate(point.at, "day")}>
+              {JUMP_LABEL[point.kind]()}
+            </MenuItem>
+          ))}
+        </MenuGroup>
+        <MenuGroup>
+          {months.map((month) => (
+            <MenuItem
+              key={month.key}
+              onSelect={() => jump(month.items[0])}
+              current={jumpFrom?.dataset.month === month.key}
+              detail={month.comments > 0 ? applicationsFeedJumpComments({ count: month.comments }) : undefined}
+            >
+              {monthName(month.start, now)}
+            </MenuItem>
+          ))}
+        </MenuGroup>
+        {points.filter((point) => point.kind === "beginning").map((point) => (
+          <MenuGroup key={point.kind}>
+            <MenuItem onSelect={() => jump(point.item)} detail={formatDate(point.at, "full")}>
+              {JUMP_LABEL[point.kind]()}
+            </MenuItem>
+          </MenuGroup>
+        ))}
+      </Menu>
     </section>
   );
 }
@@ -172,7 +297,7 @@ function CommentItem({ comment, now, onEdit, onDelete }: {
   };
 
   return (
-    <li className="app-comment" data-comment-id={comment.id}>
+    <li className="app-comment" data-comment-id={comment.id} data-feed={itemKey(comment)} tabIndex={-1}>
       <div className="app-comment-head">
         <span className="app-comment-author">
           {own ? applicationsCommentAuthorYou() : applicationsCommentAuthorAgent()}

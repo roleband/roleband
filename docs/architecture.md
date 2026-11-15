@@ -1382,6 +1382,33 @@ Their rows are search's columns less those of a category the person does not
 share (`search.shared_columns`), and without their pursuits a save or a pursuit
 opens no posting at a hidden company.
 
+`changes.list` (`backend/tracker/agents/operations/changes.py`) reads what changed
+after a position, in commit order: openings, closings, reopenings and reposts
+from `job_lifecycle_events`, stated-pay changes from its `disclosed_base`
+detail, source health from `scrape_source_runs`, and pursuit actions falling
+due from `pursuits.next_action_due`. Each event says whether it is recorded or
+derived at the read (a repost label, a health move, a due time); a plugin's
+health has no ordered record and is reported unavailable. Both records carry the
+inserting transaction (`change_xact`, `xid8`, and `change_cluster`), and a read
+stops below the oldest transaction of the database still running, so a row that
+commits late is read later, never passed over
+([0020](decisions/0020-changes-feed-commit-order.md)). `next_since` is the
+position after a page, bound to the workspace, the principal, the kinds and the
+cluster; one that cannot continue is refused as `invalid_input` with the call to
+start again, never reset. Pursuit due times are the `private_pursuit` category
+and the rest `public_posting`: while a category is not shared its kinds are left
+out of the feed, and asking for one by name is refused as `category_disabled`.
+
+The Insights reads (`insights.*`, `backend/tracker/agents/operations/insights.py`)
+answer from the dashboard's own route functions: the agent route calls the
+statistics or skills route with the operation's filters and reads its answer
+through a shape that mirrors the route's response field for field, so no
+statistic has a second implementation. Each answer carries its `coverage`
+beside the figures: the population, the scope, the window, the history depth
+and when the radar last read those companies. Its long lists stop at the
+tier's budget with a `page` whose `continue_with` reads on, never cut.
+`backend/tests/test_agent_insights.py` holds each operation to its route.
+
 `offer.get` (the offer, [0019](decisions/0019-assistants-read-the-offer.md)),
 `applications.board` and `applications.calendar` (the pursuits) call the stores
 their dashboard routes call and answer the same fields, paged to the tool tier's

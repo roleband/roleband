@@ -13,7 +13,7 @@ from datetime import UTC, datetime, timedelta
 from typing import get_args
 
 import pytest
-from sqlalchemy import delete, select
+from sqlalchemy import delete, insert, select
 
 from tracker.agents import pursuits as store
 from tracker.agents.applications import OWES_NOTHING
@@ -663,6 +663,95 @@ async def test_the_feed_runs_newest_first_and_pages_backwards(api_client, db_ses
     ]
     assert first[1]["from_stage"] == "researching" and first[1]["changed"] == ["stage"]
     assert rest[1]["event_type"] == "created" and rest[1]["source"] == "app"
+
+
+async def test_a_long_history_reads_whole_and_its_oldest_comment_stays_editable(api_client, db_session):
+    """An application with far more entries than any one screen holds: the
+    read without a limit returns every one, so the first comment ever written
+    is on the page and can still be edited and deleted."""
+    job = await _job(db_session)
+    oldest = await _comment(api_client, job.id, "The very first note")
+    pursuit_id = await db_session.scalar(select(Pursuit.id).where(Pursuit.job_id == job.id))
+    start = datetime.now(UTC) - timedelta(days=400)
+    await db_session.execute(
+        PursuitComment.__table__.update().where(PursuitComment.id == oldest["id"]).values(created_at=start)
+    )
+    db_session.add_all(
+        PursuitComment(pursuit_id=pursuit_id, actor="user", body=f"Note {n}", created_at=start + timedelta(days=1, hours=n))
+        for n in range(240)
+    )
+    db_session.add_all(
+        PursuitEvent(
+            pursuit_id=pursuit_id, actor="user", event_type="updated", from_stage="saved", to_stage="saved",
+            detail={"changed": ["priority"]}, created_at=start + timedelta(days=1, hours=n, minutes=30),
+        )
+        for n in range(240)
+    )
+    await db_session.commit()
+
+    response = await api_client.get(f"/api/applications/{job.id}/activity")
+
+    assert response.status_code == 200, response.text
+    items = response.json()["items"]
+    created = 1  # the pursuit's own created event, written with the first comment
+    assert len(items) == 1 + 240 + 240 + created
+    assert [i["id"] for i in items if i["kind"] == "comment"][-1] == oldest["id"]
+
+    edited = await api_client.put(
+        f"/api/jobs/{job.id}/pursuit/comments/{oldest['id']}", json={"body": "The very first note, revised"}
+    )
+    assert edited.status_code == 200, edited.text
+    deleted = await api_client.delete(f"/api/jobs/{job.id}/pursuit/comments/{oldest['id']}")
+    assert deleted.status_code == 200, deleted.text
+    after = (await api_client.get(f"/api/applications/{job.id}/activity")).json()["items"]
+    assert oldest["id"] not in [i["id"] for i in after if i["kind"] == "comment"]
+
+
+async def test_a_history_with_more_entries_than_one_statement_binds_reads_whole(api_client, db_session):
+    """asyncpg binds at most 32,767 parameters per statement; a whole history
+    holding more comments than that still reads, every one of them."""
+    job = await _job(db_session)
+    await _comment(api_client, job.id, "One")
+    pursuit_id = await db_session.scalar(select(Pursuit.id).where(Pursuit.job_id == job.id))
+    start = datetime.now(UTC) - timedelta(days=400)
+    many = 32_800
+    await db_session.execute(
+        insert(PursuitComment),
+        [
+            {"pursuit_id": pursuit_id, "actor": "user", "body": f"Note {n}", "created_at": start + timedelta(minutes=n)}
+            for n in range(many)
+        ],
+    )
+    await db_session.commit()
+
+    response = await api_client.get(f"/api/applications/{job.id}/activity")
+
+    assert response.status_code == 200, response.text
+    items = response.json()["items"]
+    assert len(items) == 1 + many + 1  # the comment, the notes, the created event
+    assert items[-1]["body"] == "Note 0"
+
+
+async def test_a_slice_larger_than_any_page_is_honoured(api_client, db_session):
+    """A slice asks for exactly what it names, however far past any page size
+    the feed was ever cut to."""
+    job = await _job(db_session)
+    await _comment(api_client, job.id, "One")
+    pursuit_id = await db_session.scalar(select(Pursuit.id).where(Pursuit.job_id == job.id))
+    start = datetime.now(UTC) - timedelta(days=30)
+    db_session.add_all(
+        PursuitComment(pursuit_id=pursuit_id, actor="user", body=f"Note {n}", created_at=start + timedelta(hours=n))
+        for n in range(300)
+    )
+    await db_session.commit()
+
+    sliced = await api_client.get(f"/api/applications/{job.id}/activity", params={"limit": 250})
+    beyond = await api_client.get(f"/api/applications/{job.id}/activity", params={"limit": 5000})
+
+    assert sliced.status_code == 200, sliced.text
+    assert len(sliced.json()["items"]) == 250
+    assert beyond.status_code == 200, beyond.text
+    assert len(beyond.json()["items"]) == 1 + 300 + 1  # the comment, the notes, the created event
 
 
 async def test_a_page_that_ends_inside_rows_written_together_loses_none_of_them(api_client, db_session):

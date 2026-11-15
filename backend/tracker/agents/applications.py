@@ -33,9 +33,6 @@ NEXT_INTERVIEW_GRACE = timedelta(hours=12)
 #: end by its hour.
 ALL_DAY_SPAN = timedelta(days=1)
 
-#: The most activity entries one read returns.
-ACTIVITY_LIMIT_MAX = 200
-
 #: The longest span one calendar read covers: a month grid, six whole weeks
 #: from local midnight to local midnight. When a clock goes back inside the
 #: grid, those six weeks are an hour longer than 42 days of 24 hours.
@@ -213,14 +210,31 @@ async def application(session: AsyncSession, job_id: int, *, now: datetime) -> d
     return {"application": card, "interviews": interviews, "stages_reached": reached}
 
 
+# Ids per hydrating read: asyncpg binds at most 32,767 parameters in one
+# statement, and a whole history can hold more entries of one kind.
+_HYDRATE_CHUNK = 10_000
+
+
+async def _rows_by_id[Row: (PursuitEvent, PursuitComment)](
+    session: AsyncSession, model: type[Row], ids: list[int]
+) -> dict[int, Row]:
+    rows: dict[int, Row] = {}
+    for start in range(0, len(ids), _HYDRATE_CHUNK):
+        chunk = ids[start : start + _HYDRATE_CHUNK]
+        rows.update((row.id, row) for row in (await session.scalars(select(model).where(model.id.in_(chunk)))).all())
+    return rows
+
+
 async def activity(
-    session: AsyncSession, job_id: int, *, offset: int = 0, limit: int = 100
+    session: AsyncSession, job_id: int, *, offset: int = 0, limit: int | None = None
 ) -> list[dict] | None:
-    """Comments and events on one application, newest first.
+    """Comments and events on one application, newest first: the whole
+    history unless `limit` asks for a slice. The page shows every entry, so
+    any comment can be read, edited and deleted however long the history.
 
     `None` when the role is not on the board (no star, and no pursuit past
     Considering); an empty list when it has a star and nothing has happened
-    yet. Pages by position, not by time: rows
+    yet. A slice pages by position, not by time: rows
     written in one transaction share its `now()`, so a time cursor would skip
     the rest of a tie a page ended inside. The order breaks every tie."""
     on_board = await session.scalar(
@@ -237,7 +251,6 @@ async def activity(
     if pursuit_id is None:
         return []
 
-    limit = max(1, min(limit, ACTIVITY_LIMIT_MAX))
     events = select(
         literal("event").label("kind"),
         PursuitEvent.id,
@@ -249,25 +262,17 @@ async def activity(
         PursuitComment.created_at,
     ).where(PursuitComment.pursuit_id == pursuit_id)
     feed = union(events, notes).subquery()
-    page = (
-        await session.execute(
-            select(feed.c.kind, feed.c.id)
-            .order_by(feed.c.created_at.desc(), feed.c.kind, feed.c.id.desc())
-            .offset(max(0, offset))
-            .limit(limit)
-        )
-    ).all()
+    ordered = (
+        select(feed.c.kind, feed.c.id)
+        .order_by(feed.c.created_at.desc(), feed.c.kind, feed.c.id.desc())
+        .offset(max(0, offset))
+    )
+    if limit is not None:
+        ordered = ordered.limit(max(1, limit))
+    page = (await session.execute(ordered)).all()
 
-    event_ids = [i for kind, i in page if kind == "event"]
-    comment_ids = [i for kind, i in page if kind == "comment"]
-    event_rows = {
-        e.id: e
-        for e in (await session.scalars(select(PursuitEvent).where(PursuitEvent.id.in_(event_ids)))).all()
-    } if event_ids else {}
-    comment_rows = {
-        c.id: c
-        for c in (await session.scalars(select(PursuitComment).where(PursuitComment.id.in_(comment_ids)))).all()
-    } if comment_ids else {}
+    event_rows = await _rows_by_id(session, PursuitEvent, [i for kind, i in page if kind == "event"])
+    comment_rows = await _rows_by_id(session, PursuitComment, [i for kind, i in page if kind == "comment"])
 
     items: list[dict] = []
     for kind, i in page:

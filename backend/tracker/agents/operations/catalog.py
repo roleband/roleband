@@ -13,8 +13,10 @@ from typing import Any
 
 from tracker.agents.operations import (
     applications,
+    changes,
     companies,
     export,
+    insights,
     meta,
     offer,
     opportunities,
@@ -37,6 +39,7 @@ REGISTERED: tuple[OperationDescriptor, ...] = (
     *pursuits.OPERATIONS,
     *recipes.OPERATIONS,
     *receipts.OPERATIONS,
+    *changes.OPERATIONS,
     *search.OPERATIONS,
     *vocabulary.OPERATIONS,
     *companies.OPERATIONS,
@@ -44,6 +47,7 @@ REGISTERED: tuple[OperationDescriptor, ...] = (
     *offer.OPERATIONS,
     *applications.OPERATIONS,
     *export.OPERATIONS,
+    *insights.OPERATIONS,
 )
 
 

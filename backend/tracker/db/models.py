@@ -30,6 +30,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.types import UserDefinedType
 
 from tracker.config import get_settings
 
@@ -45,6 +46,38 @@ def _provider_column():
 
 class Base(DeclarativeBase):
     pass
+
+
+class Xid8(UserDefinedType[int]):
+    """Postgres `xid8`: a 64-bit transaction id that never wraps."""
+
+    cache_ok = True
+
+    def get_col_spec(self, **_kw: object) -> str:
+        return "xid8"
+
+
+def _change_xact_column():
+    """Where a row of a changes-feed record falls in commit order.
+
+    `change_xact` is the id of the transaction that inserted the row and
+    `change_cluster` the system identifier of the cluster that assigned it.
+    A transaction id is ordered by when the transaction began, not when it
+    committed, so the feed reads a row only once every transaction below its
+    id has ended (`tracker/agents/operations/changes.py`, decision 0020). Both
+    are NULL on a row written before the columns existed. A row restored from
+    another cluster keeps that cluster's id, which this cluster's ids say
+    nothing about, so the feed reads it as history from before its cursors.
+    Every writer leaves both to their defaults.
+    """
+    return mapped_column(Xid8(), nullable=True, server_default=text("pg_current_xact_id()"))
+
+
+def _change_cluster_column():
+    """The cluster that assigned `change_xact`; see `_change_xact_column`."""
+    return mapped_column(
+        BigInteger, nullable=True, server_default=text("(pg_control_system()).system_identifier")
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -822,9 +855,18 @@ class JobLifecycleEvent(Base):
         DateTime(timezone=True), server_default=func.now(), index=True
     )
 
+    change_xact: Mapped[int | None] = _change_xact_column()
+    change_cluster: Mapped[int | None] = _change_cluster_column()
+
     job: Mapped[Job] = relationship(back_populates="events")
 
     __table_args__ = (
+        Index(
+            "ix_job_lifecycle_events_change_position",
+            "change_xact",
+            "id",
+            postgresql_where=text("change_xact IS NOT NULL"),
+        ),
         # The closings whose role note names a posting (`queries.motion._reached`):
         # a note is found from the posting it names, not only from its own.
         # Without the pending list: a read probes this index once per posting
@@ -1966,6 +2008,12 @@ class ScrapeSourceRun(Base):
         # `scripts.bench_status_cost` measures it.
         Index("ix_scrape_source_runs_binding_started", "binding_id", "started_at"),
         Index("ix_scrape_source_runs_provider_finished", "provider_key", "finished_at"),
+        Index(
+            "ix_scrape_source_runs_change_position",
+            "change_xact",
+            "id",
+            postgresql_where=text("change_xact IS NOT NULL"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -1994,6 +2042,8 @@ class ScrapeSourceRun(Base):
     errors: Mapped[list] = mapped_column(JSONB, default=list)
     drift: Mapped[list] = mapped_column(JSONB, default=list)
     stats: Mapped[dict] = mapped_column(JSONB, default=dict)
+    change_xact: Mapped[int | None] = _change_xact_column()
+    change_cluster: Mapped[int | None] = _change_cluster_column()
 
 
 class AiTaskLog(Base):

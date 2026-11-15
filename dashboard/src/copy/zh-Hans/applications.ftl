@@ -395,6 +395,22 @@ applications-feed-updated = 已更新
 
 applications-feed-by-agent = 由助手应用操作
 
+applications-feed-jump-label = 跳转到
+
+applications-feed-jump-month = { $month }，跳转到其他时间点
+
+applications-feed-jump-recent = 最新
+
+applications-feed-jump-applied = 你申请时
+
+applications-feed-jump-interview = 第一次面试
+
+applications-feed-jump-offer = 录用通知
+
+applications-feed-jump-beginning = 最初
+
+applications-feed-jump-comments = { $count } 条评论
+
 applications-comment-label = 评论
 
 applications-comment-placeholder = 记下发生了什么

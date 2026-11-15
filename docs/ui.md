@@ -733,6 +733,11 @@ where the ring is drawn:
   browser, so the row it came from is marked when the keyboard closes it.
 - `outline: none` only beside a named carrier, or on an element that only
   script focuses.
+- An entry a jump lands on (the application feed's month menu) takes focus and
+  wears a landing ring for 2.4 s: the same width, hue and place as the focus
+  ring, drawn on its own layer (`::after`), so a pointer jump is marked too and
+  the focus ring underneath never fades with it. It fades out; under reduced
+  motion it holds still until the feed's timer takes it away.
 - In a combobox, focus stays in the field and the active option
   (`aria-activedescendant` or `aria-selected`) wears the ring inside, over the
   hover fill. The command palette's field draws no ring of its own: focus
