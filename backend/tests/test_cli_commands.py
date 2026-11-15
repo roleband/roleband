@@ -3,7 +3,8 @@
 No operation has code of its own in the client. These hold that each catalog
 operation comes out as a command with its fields as arguments, that a bundle
 the client cannot lay out is refused rather than half-built, that a command
-sends exactly the input it was given (flags or `--input`, never both), and
+sends exactly the input it was given (`--input`, with flags adding only the
+fields it leaves out), and
 that help reads the bundle without loading the engine's models or an HTTP
 library. The search and vocabulary commands also run end to end against a
 real engine on a seeded scratch database.
@@ -176,10 +177,29 @@ def test_input_from_a_file_sends_the_same_request(home, tmp_path):
     assert _query(stub.requests[0]) == {"company": ["acme", "Big Co"], "saved_only": ["true"], "limit": ["5"]}
 
 
+def test_flags_add_the_fields_input_leaves_out_and_a_field_given_twice_is_refused(home, tmp_path):
+    document = tmp_path / "search.json"
+    document.write_text(json.dumps({"company": ["acme"], "limit": 5}))
+    with Stub(Reply(200, _envelope("opportunities.search", data=_PAGE))) as stub:
+        home.contexts(current="dev", dev={"url": stub.url})
+        merged = cli(home, "opportunities", "search", "--input", f"@{document}", "--saved-only", "--json")
+        overlapping = cli(home, "opportunities", "search", "--input", f"@{document}", "--company", "Big Co", "--json")
+        # The same value twice is refused too: which one counts is never a question the caller has to ask.
+        repeated = cli(home, "opportunities", "search", "--limit", "5", "--input", f"@{document}", "--json")
+    assert merged.status == 0, merged
+    assert _query(stub.requests[0]) == {"company": ["acme"], "limit": ["5"], "saved_only": ["true"]}
+    for refused, field in ((overlapping, "company"), (repeated, "limit")):
+        assert refused.status == 2, refused
+        error = refused.envelope["error"]
+        assert error["code"] == "invalid_arguments"
+        assert f"--{field} and --input both give {field}" in error["message"]
+        assert error["details"]["fields"] == [field]
+    assert len(stub.requests) == 1
+
+
 @pytest.mark.parametrize(
     ("args", "message"),
     [
-        (("opportunities", "search", "--input", "-", "--company", "acme"), "both give input"),
         (("opportunities", "search", "--input", "search.json"), "@FILE"),
         (("opportunities", "search", "--limit", "many"), "invalid int"),
         (("opportunities", "search", "--sort", "relevance"), "invalid choice"),
@@ -187,7 +207,7 @@ def test_input_from_a_file_sends_the_same_request(home, tmp_path):
         (("vocabulary", "list"), "--kind is required"),
         (("opportunities",), "Name a command after 'opportunities'"),
     ],
-    ids=["input-and-flag", "input-without-at", "not-an-int", "unknown-sort", "unknown-flag", "missing-kind", "group-only"],
+    ids=["input-without-at", "not-an-int", "unknown-sort", "unknown-flag", "missing-kind", "group-only"],
 )
 def test_a_command_refused_before_sending_asks_no_engine(home, args, message):
     with Stub(Reply(200, _envelope("opportunities.search", data=_PAGE))) as stub:
@@ -524,3 +544,63 @@ def test_a_keyed_write_runs_once_under_its_key_against_a_real_engine(home, seede
     receipt = cli(home, "receipts", "get", "--operation", "pursuits.save", "--key", key, "--json")
     assert receipt.status == 0, receipt
     assert receipt.envelope["operation"] == "receipts.get"
+
+
+def test_the_documented_patch_call_clears_a_due_date_with_input_and_control_flags(home, seeded_engine, tmp_path):
+    """The command contract's own call, `pursuits patch ID --input @FILE
+    --if-revision N --idempotency-key KEY --format json`: the file's explicit
+    null clears the due date, every field it leaves out stays put, the call
+    written all in JSON works the same, and a flag naming a field the file
+    also gives is refused before anything is sent."""
+    home.contexts(current="dev", dev={"url": seeded_engine.url})
+
+    def run(*args: str) -> dict:
+        result = cli(home, *args)
+        assert result.status == 0, result
+        return result.envelope
+
+    target = run("pursuits", "list", "--limit", "1", "--json")["data"]["items"][0]["job_id"]
+    revision = run("pursuits", "get", str(target), "--json")["data"]["revision"]
+    due = "2026-12-01T09:00:00+00:00"
+    run("pursuits", "patch", str(target), "--if-revision", str(revision), "--next-action", "Call the recruiter",
+        "--next-action-due", due, "--notes", "Met at the meetup", "--json")
+    before = run("pursuits", "get", str(target), "--json")["data"]
+    assert before["next_action_due"] is not None and before["next_action"] == "Call the recruiter"
+
+    follow_up = tmp_path / "follow-up.json"
+    follow_up.write_text(json.dumps({"next_action_due": None}))
+    documented = ("pursuits", "patch", str(target), "--input", f"@{follow_up}", "--if-revision",
+                  str(before["revision"]), "--idempotency-key", "run-42-followup", "--format", "json")
+    cleared = run(*documented)
+    assert cleared["meta"]["idempotency_key"] == "run-42-followup"
+    after = run("pursuits", "get", str(target), "--json")["data"]
+    assert after["next_action_due"] is None
+    assert {key: after[key] for key in ("next_action", "notes", "stage", "priority")} == {
+        key: before[key] for key in ("next_action", "notes", "stage", "priority")
+    }
+    assert after["revision"] == before["revision"] + 1
+
+    # A retry of the same call under its key replays: it writes nothing more.
+    again = run(*documented)
+    assert again["meta"]["replayed"] is True
+    assert run("pursuits", "get", str(target), "--json")["data"]["revision"] == after["revision"]
+
+    # The same kind of call with the revision inside the file.
+    whole = tmp_path / "whole.json"
+    whole.write_text(json.dumps({"if_revision": after["revision"], "next_action": None}))
+    run("pursuits", "patch", str(target), "--input", f"@{whole}", "--idempotency-key", "run-42-whole", "--json")
+    latest = run("pursuits", "get", str(target), "--json")["data"]
+    assert latest["next_action"] is None and latest["notes"] == "Met at the meetup"
+
+    # The revision in the file and as a flag: refused, naming the field, and nothing is written.
+    overlap = tmp_path / "overlap.json"
+    overlap.write_text(json.dumps({"if_revision": latest["revision"], "notes": None}))
+    refused = cli(home, "pursuits", "patch", str(target), "--input", f"@{overlap}", "--if-revision",
+                  str(latest["revision"]), "--idempotency-key", "run-42-overlap", "--json")
+    assert refused.status == 2, refused
+    assert refused.envelope["error"]["code"] == "invalid_arguments"
+    assert "if_revision" in refused.envelope["error"]["message"]
+    unchanged = run("pursuits", "get", str(target), "--json")["data"]
+    assert unchanged["notes"] == "Met at the meetup" and unchanged["revision"] == latest["revision"]
+    lookup = cli(home, "receipts", "get", "--operation", "pursuits.patch", "--key", "run-42-overlap", "--json")
+    assert lookup.envelope["ok"] is False, lookup

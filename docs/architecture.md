@@ -1274,8 +1274,9 @@ Every other command is generated from that index (`backend/tracker/cli/commands.
 with no code per operation: an operation's dotted id is its words
 (`opportunities.search` is `roleband opportunities search`), a field its route
 takes in the path is a positional argument, every other scalar or list field is
-a flag, and `--input @FILE|-` gives the whole input as one JSON object instead,
-never together with a flag. The index carries each operation's route, and the
+a flag, and `--input @FILE|-` gives the input as one JSON object (a nested
+field, an explicit null). Arguments and flags add the fields that object leaves
+out; a field given both ways is refused, never resolved by precedence. The index carries each operation's route, and the
 export refuses an operation without one. Help builds from the index alone,
 without the engine's models or an HTTP library.
 `opportunities.search` (`backend/tracker/agents/operations/search.py`) runs the
