@@ -26,7 +26,7 @@ from sqlalchemy import func, select, update
 
 from scripts.seed_synthetic import seed
 from tracker.agents.config import AgentAccessConfig, set_agent_access
-from tracker.agents.operations import insights
+from tracker.agents.operations import cursor, insights
 from tracker.agents.operations.catalog import CATALOG
 from tracker.agents.operations.insights import BUDGET_BYTES, READS, fit
 from tracker.agents.operations.outcomes import outcome
@@ -593,6 +593,90 @@ def test_an_answer_that_fits_whole_is_not_paged(monkeypatch):
     monkeypatch.setitem(insights.BUDGET_BYTES, "small", whole - 1)
     short = fit(spec, answer, insights.UnscopedInput(), workspace_id="w")
     assert short.shortened and short.next_cursor is not None
+
+
+def _offer_terms(count: int) -> BaseModel:
+    """`count` companies, each larger than a page block, so a page can hold one."""
+    return insights.InsightsOfferTerms.model_validate({
+        "feed_configured": False,
+        "companies": [{
+            "company": f"company-{index}-" + "x" * 500, "listed": False, "ticker": None, "equity_vehicle": None,
+            "vesting": None, "vesting_stated_by": None, "bonus_rule": None, "sign_on_bridges_vesting": False,
+            "quote": None,
+        } for index in range(count)],
+        "coverage": {
+            "population": "reference", "side": "all", "families": [], "off_board_companies": None,
+            "window": None, "history": None, "last_read_at": None,
+        },
+    })
+
+
+def _bytes(answer: BaseModel) -> int:
+    return len(json.dumps(answer.model_dump(mode="json"), ensure_ascii=False, separators=(",", ":")).encode())
+
+
+def test_the_last_page_needs_no_room_for_a_cursor(monkeypatch):
+    spec = READS["insights.offer_terms"]
+    answer = _offer_terms(2)
+    monkeypatch.setitem(insights.BUDGET_BYTES, "small", _bytes(answer) - 1)
+    first = fit(spec, answer, insights.UnscopedInput(), workspace_id="w")
+    assert first.next_cursor is not None and first.data.model_dump()["page"]["returned"] == 1
+    rest = insights.UnscopedInput(cursor=first.next_cursor)
+
+    # The smallest budget that reads the last page: with no room held for a
+    # cursor it does not need, the page fills that budget to the byte.
+    smallest = None
+    for budget in range(_bytes(answer), 0, -1):
+        monkeypatch.setitem(insights.BUDGET_BYTES, "small", budget)
+        try:
+            read = fit(spec, answer, rest, workspace_id="w")
+        except insights.OperationError:
+            break
+        smallest = (budget, read)
+    assert smallest is not None
+    budget, read = smallest
+
+    assert _bytes(read.data) == budget
+    assert not read.shortened and read.next_cursor is None
+    assert read.data.model_dump()["page"]["returned"] == 1 and read.data.model_dump()["page"]["continue_with"] == []
+
+
+def test_no_page_at_any_budget_or_position_exceeds_its_budget(monkeypatch):
+    spec = READS["insights.offer_terms"]
+    answer = _offer_terms(5)
+    whole = _bytes(answer)
+    for budget in range(40, whole + 200, 7):
+        monkeypatch.setitem(insights.BUDGET_BYTES, "small", budget)
+        params = insights.UnscopedInput()
+        seen: list[str] = []
+        while True:
+            try:
+                read = fit(spec, answer, params, workspace_id="w")
+            except insights.OperationError as refused:
+                assert refused.details["reason"] == "over_budget", budget
+                break
+            assert _bytes(read.data) <= budget, (budget, params.cursor)
+            seen += [row.company for row in read.data.companies]
+            if read.next_cursor is None:
+                assert seen == [f"company-{index}-" + "x" * 500 for index in range(5)], budget
+                break
+            params = insights.UnscopedInput(cursor=read.next_cursor)
+
+    # A cursor at the end of a list that shrank since: the empty page still
+    # carries its page block, and that block counts against the budget.
+    request = cursor.fingerprint(
+        spec.descriptor.id, "w", insights.UnscopedInput().model_dump(mode="json", exclude={"tier", "cursor"})
+    )
+    at_end = insights.UnscopedInput(cursor=cursor.encode(request=request, offset=5))
+    for budget in range(40, whole + 200, 7):
+        monkeypatch.setitem(insights.BUDGET_BYTES, "small", budget)
+        try:
+            read = fit(spec, answer, at_end, workspace_id="w")
+        except insights.OperationError as refused:
+            assert refused.details["reason"] == "over_budget", budget
+            continue
+        assert _bytes(read.data) <= budget, budget
+        assert read.data.companies == [] and read.next_cursor is None
 
 
 # --------------------------------------------------------------------------- #

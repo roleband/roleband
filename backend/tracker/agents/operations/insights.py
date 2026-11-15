@@ -1009,7 +1009,7 @@ def fit(spec: InsightsRead, answer: BaseModel, params: BaseModel, *, workspace_i
     if offset == 0 and _size(data) <= budget:
         # Whole, it needs no page block, so none is reserved for.
         return InsightsAnswer(answer, None, False)
-    slots =[items for path in spec.paged for items in _lists(data, path)]
+    slots = [items for path in spec.paged for items in _lists(data, path)]
     sequence = [(slot, item) for slot, items in enumerate(slots) for item in items]
     for items in slots:
         items.clear()
@@ -1036,27 +1036,43 @@ def fit(spec: InsightsRead, answer: BaseModel, params: BaseModel, *, workspace_i
             tier=tier, budget_bytes=budget, continue_with=follow,
         )
 
-    # The page block at its largest (a cursor to continue with), so filling to
-    # the budget leaves room for it.
-    widest = page(offset, total - 1) if offset < total else None
-    used = _size(data) + (_size(widest.model_dump(mode="json")) if widest is not None else 0)
-    end = offset
-    while end < total:
-        slot, item = sequence[end]
-        cost = _size(item) + 1
-        if used + cost > budget:
-            break
-        slots[slot].append(item)
-        used += cost
-        end += 1
-    if used > budget or (end == offset and offset < total):
-        raise OperationError(
-            "invalid_input",
-            "This answer does not fit the tier's budget even one item at a time; "
-            "narrow it (a shorter window, fewer series) or ask with a larger tier.",
-            details={"field": "tier", "reason": "over_budget", "budget_bytes": budget},
+    def filled(end: int) -> int:
+        """The answer's size holding the items from `offset` to `end` and the
+        page block that says so; `data` is left holding them."""
+        for items in slots:
+            items.clear()
+        for slot, item in sequence[offset:end]:
+            slots[slot].append(item)
+        data["page"] = None if (block := page(offset, end)) is None else block.model_dump(mode="json")
+        return _size(data)
+
+    # Each item costs at most its bytes and a comma, so this bound on a page's
+    # size finds where it stops without rebuilding the answer at every item.
+    empty = filled(offset) - _size(data["page"])
+    reach = [0]
+    for _, item in sequence[offset:]:
+        reach.append(reach[-1] + _size(item) + 1)
+
+    def bound(end: int) -> int:
+        block = page(offset, end)
+        return empty + reach[end - offset] + (
+            _size(block.model_dump(mode="json")) if block is not None else 4
         )
-    data["page"] = None if (block := page(offset, end)) is None else block.model_dump(mode="json")
+
+    # The rest whole needs no cursor, so it may fit where a shorter page would
+    # not; short of that, the most items whose page still fits.
+    end = total
+    if filled(total) > budget:
+        end = offset
+        while end + 1 < total and bound(end + 1) <= budget:
+            end += 1
+        if (end == offset and offset < total) or filled(end) > budget:
+            raise OperationError(
+                "invalid_input",
+                "This answer does not fit the tier's budget even one item at a time; "
+                "narrow it (a shorter window, fewer series) or ask with a larger tier.",
+                details={"field": "tier", "reason": "over_budget", "budget_bytes": budget},
+            )
     fitted = spec.descriptor.result.model_validate(data)
     next_cursor = cursor.encode(request=request, offset=end) if end < total else None
     return InsightsAnswer(fitted, next_cursor, shortened=end < total)
