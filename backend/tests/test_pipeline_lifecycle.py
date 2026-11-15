@@ -58,6 +58,15 @@ def posting(company: str, req_id: str) -> RawJob:
     )
 
 
+#: How long to wait for a drain to reach a point a test planted (`hanging`,
+#: `waiting`). The event fires in well under a second while the loop is free, so
+#: this bound is reached only when the drain is starved, never when it is merely
+#: slow: the wait is wall-clock, and a whole suite under xdist competes for the
+#: same cores. A generous bound costs a passing test nothing, while a drain that
+#: truly never arrives still fails the test, only later.
+PLANTED_POINT_WAIT = 60.0
+
+
 class Board:
     """This run's listings, and what the run did with the things it opened."""
 
@@ -217,7 +226,7 @@ async def test_a_cancelled_run_releases_its_lock_and_heartbeat_and_writes_no_ter
     """
     board.plans["apple"] = (["one"], "hang")
     run_task = asyncio.create_task(pipeline.run_pipeline(companies=["apple"], hydrate=False))
-    await asyncio.wait_for(board.hanging.wait(), timeout=20)
+    await asyncio.wait_for(board.hanging.wait(), timeout=PLANTED_POINT_WAIT)
 
     run_task.cancel()
     with pytest.raises(asyncio.CancelledError):
@@ -379,7 +388,7 @@ async def test_a_posting_is_committed_while_its_board_is_still_being_read(db_ses
     board.plans["apple"] = (["one", "two"], "hang")
     run_task = asyncio.create_task(pipeline.run_pipeline(companies=["apple"], hydrate=False))
     try:
-        await asyncio.wait_for(board.hanging.wait(), timeout=20)
+        await asyncio.wait_for(board.hanging.wait(), timeout=PLANTED_POINT_WAIT)
         jobs = await _poll(
             db_session, select(Job).where(Job.company == "apple"), until=lambda rows: len(rows) == 2
         )
@@ -402,7 +411,7 @@ async def test_a_finished_company_is_recorded_while_another_is_still_read(db_ses
         pipeline.run_pipeline(companies=["apple", "amazon"], hydrate=False)
     )
     try:
-        await asyncio.wait_for(board.hanging.wait(), timeout=20)
+        await asyncio.wait_for(board.hanging.wait(), timeout=PLANTED_POINT_WAIT)
         recorded = await _poll(
             db_session, select(ScrapeSourceRun), until=lambda rows: len(rows) == 1
         )
@@ -496,7 +505,7 @@ async def test_a_long_run_makes_what_it_has_read_searchable_before_it_ends(db_se
     board.plans["amazon"] = (["a1"], "hang")
     run_task = asyncio.create_task(pipeline.run_pipeline(companies=["apple", "amazon"], hydrate=False))
     try:
-        await asyncio.wait_for(board.hanging.wait(), timeout=20)
+        await asyncio.wait_for(board.hanging.wait(), timeout=PLANTED_POINT_WAIT)
         vectors = await _poll(
             db_session, select(Job.search_vector).where(Job.company == "apple"),
             until=lambda rows: len(rows) == 2 and all(vector is not None for vector in rows),
@@ -531,7 +540,7 @@ async def test_a_company_asked_for_during_a_run_is_read_next(db_session, board, 
         pipeline.run_pipeline(companies=["apple", "amazon"], hydrate=False, join_requests=True)
     )
     try:
-        await asyncio.wait_for(board.waiting.wait(), timeout=20)
+        await asyncio.wait_for(board.waiting.wait(), timeout=PLANTED_POINT_WAIT)
         async with pipeline.session_scope() as session:
             assert await scheduler.queue_manual_reconciliation(session, [asked]) == [asked]
         deadline = asyncio.get_running_loop().time() + 10
@@ -567,7 +576,7 @@ async def test_a_stopped_manual_sync_keeps_the_schedule_of_every_company_it_fini
 
     task = asyncio.create_task(scheduler.run_once())
     try:
-        await asyncio.wait_for(board.hanging.wait(), timeout=20)
+        await asyncio.wait_for(board.hanging.wait(), timeout=PLANTED_POINT_WAIT)
         query = (
             select(SyncScheduleState)
             .join(SourceBinding, SourceBinding.id == SyncScheduleState.binding_id)
@@ -611,7 +620,7 @@ async def test_the_tick_after_a_stopped_scan_closes_what_it_left_open(db_session
         await scheduler.queue_manual_reconciliation(session, ["apple", "amazon"])
     stopped = asyncio.create_task(scheduler.run_once())
     try:
-        await asyncio.wait_for(board.hanging.wait(), timeout=20)
+        await asyncio.wait_for(board.hanging.wait(), timeout=PLANTED_POINT_WAIT)
         await _poll(db_session, select(ScrapeSourceRun.company_slug), until=lambda slugs: "amazon" in slugs)
     finally:
         stopped.cancel()
@@ -639,7 +648,7 @@ async def test_a_tick_beside_a_live_scan_closes_nothing(db_session, board):
     board.plans["apple"] = (["one"], "hang")
     live = asyncio.create_task(pipeline.run_pipeline(companies=["apple"], hydrate=False))
     try:
-        await asyncio.wait_for(board.hanging.wait(), timeout=20)
+        await asyncio.wait_for(board.hanging.wait(), timeout=PLANTED_POINT_WAIT)
         await scheduler.close_runs_left_open(datetime.now(UTC))
         run = (await db_session.scalars(select(ScrapeRun))).one()
         await db_session.refresh(run)
@@ -773,12 +782,12 @@ async def test_a_scope_saved_during_a_scan_is_the_scope_its_rows_are_stored_unde
     board.plans["apple"] = (["held", "new"], "gated-hang" if ending == "streamed" else "gated-complete")
     run_task = asyncio.create_task(pipeline.run_pipeline(companies=["apple"], hydrate=False))
     try:
-        await asyncio.wait_for(board.waiting.wait(), timeout=20)
+        await asyncio.wait_for(board.waiting.wait(), timeout=PLANTED_POINT_WAIT)
         await _scope_bands(db_session, ["principal"])
         assert await _in_scope(db_session) == {"held": False}, "the save re-projects at once"
         board.gate.set()
         if ending == "streamed":
-            await asyncio.wait_for(board.hanging.wait(), timeout=20)
+            await asyncio.wait_for(board.hanging.wait(), timeout=PLANTED_POINT_WAIT)
             await _poll(db_session, select(Job).where(Job.company == "apple"), until=lambda rows: len(rows) == 2)
         else:
             await asyncio.wait_for(run_task, timeout=60)
@@ -803,7 +812,7 @@ async def test_a_company_whose_rows_were_reprojected_before_it_finished_still_fi
     board.plans["apple"] = (["held", "new"], "gated-slow")
     run_task = asyncio.create_task(pipeline.run_pipeline(companies=["apple"], hydrate=False))
     try:
-        await asyncio.wait_for(board.waiting.wait(), timeout=20)
+        await asyncio.wait_for(board.waiting.wait(), timeout=PLANTED_POINT_WAIT)
         await _scope_bands(db_session, ["principal"])
         board.gate.set()
         await asyncio.wait_for(run_task, timeout=60)
@@ -935,7 +944,7 @@ async def test_a_scope_widened_during_the_scan_admits_the_moved_posting(db_sessi
     board.facts["held"] = {"locations": ["London, United Kingdom"]}
     board.plans["apple"] = (["held"], "gated-complete")
     run_task = asyncio.create_task(pipeline.run_pipeline(companies=["apple"], hydrate=False))
-    await asyncio.wait_for(board.waiting.wait(), timeout=20)
+    await asyncio.wait_for(board.waiting.wait(), timeout=PLANTED_POINT_WAIT)
     await _scope(db_session, locations=["uk"])
     board.gate.set()
     await asyncio.wait_for(run_task, timeout=60)
