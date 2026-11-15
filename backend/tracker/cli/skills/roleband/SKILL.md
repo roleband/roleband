@@ -18,7 +18,7 @@ description: Read and update the person's job search in RoleBand (opportunities,
 1. Read the item first: `roleband pursuits get ID --json`. Pass its `data.revision` as `--if-revision` (0 when the role has no pursuit yet).
 2. Pass `--idempotency-key KEY`, a token of your own for this one change, such as `task-17-follow-up` (8 to 128 letters, digits and `_.:-`).
 3. A field you leave out stays as it is. A flag sets a value; to clear one, send an explicit null: `echo '{"next_action_due": null}' | roleband pursuits patch 4821 --input - --if-revision 12 --idempotency-key task-17-follow-up --json`.
-4. With no answer, or exit 3 or 8, run the same command again with the same key: a change that landed answers again with `meta.replayed` true and is never made twice. A new key could make it twice.
+4. With no answer, or exit 3 or 8, run the same command again once, with the same key: a change that landed answers again with `meta.replayed` true and is never made twice. A new key could make it twice.
 
 The exit status says what to do next:
 
@@ -31,5 +31,6 @@ The exit status says what to do next:
 | 5 | Not found | Look the item up again |
 | 6 | It changed since you read it | Read it again, then decide |
 | 7 | The person has to decide | Show them the proposal |
+| 8 | Out of time, or too many calls | Retry once, a change under its key; then tell the person |
 
 Never repeat a change under a new key after a failure, and never reach the engine's database or web routes another way.
