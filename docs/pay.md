@@ -48,7 +48,9 @@ and only reports what the posting literally says.
   that contradicts it gives `unclear`: shown with no unit, never split, never
   counted. A range stated over several years ("2 YEAR" on Ashby) is divided to
   one year; one stored whole and `unclear` is divided by the `pay_periods`
-  pass, by the count its quote names ("per 2 years"). Every reader of a stored
+  pass, by the count its quote names ("per 2 years"), when that share can be
+  a year's pay; a smaller one ($600-$800 per 2 years) stays whole and
+  `unclear`. Every reader of a stored
   period goes through `effective_period`, which shows a stored `unclear` as
   `unclear` whatever its size: only the pass, reading its quote and text,
   makes it a year.
