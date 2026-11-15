@@ -1093,6 +1093,13 @@ def _fires_unconditionally(pattern: re.Pattern[str], context: str) -> bool:
 # The posting names the band on-target earnings: the base plus the commission a
 # seller is paid at target. Equity is never part of it.
 _ON_TARGET_RE = re.compile(r"\bon[-\s]target\s+earnings\b|\bOTE\b", re.I)
+# The name denied ("not OTE", "non-OTE", "excluding on-target earnings") says
+# what the band is not.
+_NOT_ON_TARGET_RE = re.compile(
+    r"\b(?:not|no|non|excluding|excludes|without)[-\s]+(?:an?\s+|the\s+)?"
+    r"(?:on[-\s]target\s+earnings|OTE)\b",
+    re.I,
+)
 
 
 def names_on_target_earnings(description_text: str | None, bounds: list[int]) -> bool:
@@ -1102,7 +1109,7 @@ def names_on_target_earnings(description_text: str | None, bounds: list[int]) ->
     Stricter than the basis markers: a label that names this band for some
     roles only does not name it for this one, and a sentence that states
     another figure names that figure, not this band ("For account executives,
-    OTE is $250,000 to $300,000.")."""
+    OTE is $250,000 to $300,000."). A denied name ("not OTE") names nothing."""
     if not description_text:
         return False
     span = locate_pay_span(description_text, bounds)
@@ -1110,7 +1117,7 @@ def names_on_target_earnings(description_text: str | None, bounds: list[int]) ->
         return False
     band = description_text[span[0] : span[1]]
     return any(
-        _ON_TARGET_RE.search(sentence)
+        _ON_TARGET_RE.search(_NOT_ON_TARGET_RE.sub(" ", sentence))
         and not _CONDITIONAL_RE.search(sentence)
         and (band in sentence or not _OTHER_AMOUNT_RE.search(sentence))
         for sentence in _SENTENCE_RE.split(basis_context(description_text, span))

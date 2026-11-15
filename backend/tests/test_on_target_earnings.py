@@ -36,6 +36,9 @@ SALES_ASIDE = (
         # A condition after the name guards it as much as one before it.
         ("The total compensation range is $184,000 to $230,000 (on-target earnings for sales roles only).", False),
         ("For sales roles, the OTE range is $184,000 to $230,000.", False),
+        # A denied name says what the band is not.
+        ("Annual total compensation (not OTE) is $184,000 to $230,000, including base salary and equity.", False),
+        ("This non-OTE role's total compensation is $184,000 to $230,000.", False),
         # Another band's label names that band, not this one.
         ("Total compensation is $184,000 to $230,000, including base pay and equity.\n\n"
          "For account executives, OTE is $250,000 to $300,000.", False),
