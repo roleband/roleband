@@ -49,12 +49,15 @@ def _inline(node: Any, defs: Mapping[str, Any], resolving: tuple[str, ...]) -> A
         resolved = _inline(defs[name], defs, (*resolving, name))
         siblings = _inline({key: value for key, value in node.items() if key != "$ref"}, defs, resolving)
         annotations = {key: siblings.pop(key) for key in list(siblings) if key in _ANNOTATIONS}
-        # A reference and the constraints beside it both apply, each in its
-        # own scope: merged into one object, a sibling `additionalProperties`
-        # would also refuse the referenced properties. Only annotations, which
-        # constrain nothing, are merged.
-        merged = {"allOf": [resolved, siblings]} if siblings else resolved
-        return {**merged, **annotations}
+        if not siblings:
+            # Annotations alone constrain nothing, so they merge.
+            return {**resolved, **annotations}
+        # A `$ref` applies in place, like an `allOf` entry: the constraints
+        # beside it stay at this level, where `additionalProperties` does not
+        # see the referenced properties and `unevaluatedProperties` does.
+        # Merged into one object, or wrapped in an `allOf` of their own,
+        # either would change what is accepted.
+        return {**siblings, **annotations, "allOf": [resolved, *siblings.get("allOf", [])]}
     out: dict[str, Any] = {}
     for key, value in node.items():
         if key in ("$defs", "title") or key.startswith("x-"):
