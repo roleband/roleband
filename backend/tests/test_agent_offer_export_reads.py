@@ -319,7 +319,20 @@ async def test_a_small_doctor_cuts_its_settings_and_says_how_to_read_them_all(wo
     assert _data(small)["continue_with"] == [{"operation": "doctor", "arguments": {"tier": "full"}}]
     assert small["warnings"][0]["code"] == "page_shortened"
     assert len(_data(small)["settings"]) < len(_data(full)["settings"])
-    assert _data(full)["continue_with"] == []
+    assert _data(full)["continue_with"] == [] and _data(full)["settings_left_out"] == []
+
+
+async def test_a_setting_too_long_for_the_full_tier_is_named_not_dropped(workspace, api_client, monkeypatch):
+    long = get_settings().model_copy(update={"scraper_user_agent": "RoleBand " + "x" * 200_000})
+    monkeypatch.setattr(agent_router, "get_settings", lambda: long)
+
+    _, body = await _agent(api_client, "/doctor", tier="full")
+
+    report = _data(body)
+    assert report["settings_left_out"] == ["scraper_user_agent"]
+    assert "scraper_user_agent" not in {entry["name"] for entry in report["settings"]}
+    assert report["settings"], "the settings after it are still listed"
+    assert body["warnings"][0]["code"] == "page_shortened"
 
 
 @pytest.mark.parametrize(("raw", "kept", "gone"), [
@@ -330,6 +343,8 @@ async def test_a_small_doctor_cuts_its_settings_and_says_how_to_read_them_all(wo
     ("read /etc/roleband/secret.env failed", f"read {OUTSIDE} failed", "/etc/roleband"),
     ("data in \\\\nas\\private\\alice\\pgdata", f"data in {OUTSIDE}", "alice"),
     ("data in C:\\Users\\alice\\pgdata", f"data in {OUTSIDE}", "alice"),
+    ("GET https://api.example?api_key=prefix@secretsuffix", "?api_key=[redacted]", "secretsuffix"),
+    ("GET https://api.example#token=prefix@secretsuffix", "#token=[redacted]", "secretsuffix"),
     ("see https://example.com/docs/a/b for help", "see https://example.com/docs/a/b for help", None),
 ])
 async def test_the_redactor_replaces_each_shape_of_secret_and_keeps_ordinary_text(raw, kept, gone):
@@ -342,6 +357,16 @@ async def test_the_redactor_replaces_each_shape_of_secret_and_keeps_ordinary_tex
         assert out == raw and redactor.count == 0
     else:
         assert gone not in out and redactor.count >= 1
+
+
+@pytest.mark.parametrize("path", [
+    "C:\\Users\\Alice Smith\\private\\pgdata", "/Users/Alice Smith/private/pgdata", "~/Alice Smith/pgdata",
+])
+async def test_a_path_valued_setting_is_redacted_whole_spaces_included(path):
+    redactor = Redactor(DATA_DIR)
+
+    assert redactor.value("db_pgdata", path) == OUTSIDE
+    assert redactor.count == 1
 
 
 async def test_a_path_inside_the_workspace_is_kept_relative_to_it():
@@ -473,6 +498,15 @@ async def test_a_part_of_a_packet_that_changed_since_is_refused(workspace, api_c
     assert response.status_code == 409 and body["error"]["code"] == "revision_conflict"
     assert body["error"]["details"]["expected_packet_sha256"] == follow["packet_sha256"]
     assert body["error"]["next_actions"][0]["arguments"] == {"opportunity_id": job_id, "tier": "small"}
+
+
+async def test_a_later_part_without_its_packet_hash_is_refused_before_it_is_read(workspace, api_client):
+    job_id = await _job_id(workspace, "INTERVIEW")
+
+    response, body = await _agent(api_client, f"/opportunities/{job_id}/context", tier="small", packet_from=10)
+
+    assert body["ok"] is False and body["error"]["code"] == "invalid_input", body
+    assert (await _agent(api_client, f"/opportunities/{job_id}/context", tier="small", packet_from=0))[1]["ok"]
 
 
 async def test_an_export_changes_when_an_input_changes_and_only_that_component_moves(workspace, api_client):

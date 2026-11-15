@@ -447,6 +447,11 @@ async def doctor(
             code="page_shortened",
             message="The settings stop at the tool tier's budget; continue_with reads them all.",
         )])
+    if report.settings_left_out:
+        return op.ok(report, warnings=[EnvelopeNotice(
+            code="page_shortened",
+            message="Settings too long for the full tier are left out; settings_left_out names them.",
+        )])
     return op.ok(report)
 
 

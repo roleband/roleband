@@ -34,7 +34,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Literal, get_args
 
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel, Field, SecretStr, model_validator
 from pydantic.config import JsonDict
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -87,15 +87,19 @@ _SECRET_SHAPES = (
     # Any long run of letters and digits mixed: a key in an unknown format.
     re.compile(r"(?<![A-Za-z0-9])(?=[A-Za-z0-9_+=-]*[0-9])(?=[A-Za-z0-9_+=-]*[A-Za-z])[A-Za-z0-9_+=-]{32,}"),
 )
-#: `scheme://user:password@` in a URL.
-_USERINFO = re.compile(r"(?i)\b([a-z][a-z0-9+.-]*://)[^/\s@]+@")
-#: A query parameter that carries a credential.
+#: `scheme://user:password@` in a URL. It stops at `?` and `#`, so an `@` in a
+#: query value cannot swallow the parameter's name and hide it from `_SECRET_QUERY`.
+_USERINFO = re.compile(r"(?i)\b([a-z][a-z0-9+.-]*://)[^/\s@?#]+@")
+#: A query or fragment parameter that carries a credential (`#access_token=`
+#: is how an implicit sign-in returns one).
 _SECRET_QUERY = re.compile(
-    r"(?i)([?&](?:key|api_key|apikey|token|access_token|secret|sig|signature|password|auth)=)[^&#\s]+"
+    r"(?i)([?&#](?:key|api_key|apikey|token|access_token|secret|sig|signature|password|auth)=)[^&#\s]+"
 )
 #: An absolute path, a home-relative one, a Windows drive path or a UNC share
 #: (`\\server\share`), not inside a URL.
 _PATH = re.compile(r"(?<![\w:/.\\-])(?:~/|/|[A-Za-z]:[\\/]|\\\\)[^\s\"'<>|,;]+")
+#: A setting whose whole value is a path: read as one, spaces included.
+_WHOLE_PATH = re.compile(r"(?:~/|/|[A-Za-z]:[\\/]|\\\\)")
 
 
 class Redactor:
@@ -123,8 +127,11 @@ class Redactor:
             return SECRET
         if isinstance(value, bool | int | float):
             return value
-        if isinstance(value, Path):
-            return self.text(str(value))
+        if isinstance(value, Path) or (isinstance(value, str) and _WHOLE_PATH.match(value)):
+            shown = self._path(str(value))
+            if shown != str(value):
+                self.count += 1
+            return shown
         if isinstance(value, str):
             return self.text(value)
         if isinstance(value, Mapping):
@@ -197,6 +204,8 @@ class DoctorReport(Shape):
     settings: list[DoctorSetting]
     #: How many values were redacted.
     redacted: int = Field(ge=0)
+    #: Settings whose value alone outgrows the full tier, by name, left out of `settings`.
+    settings_left_out: list[str] = Field(default_factory=list)
     continue_with: list[NextAction] = Field(default_factory=list)
 
 
@@ -318,8 +327,13 @@ def doctor_report(
     for entry in entries:
         size = _size(entry.model_dump(mode="json")) + 1
         if used + size > room:
-            report.continue_with = [NextAction(operation=DOCTOR.id, arguments={"tier": "full"})] if tier != "full" else []
-            break
+            if tier != "full":
+                report.continue_with = [NextAction(operation=DOCTOR.id, arguments={"tier": "full"})]
+                break
+            report.settings_left_out.append(entry.name)
+            # The name stands in the answer instead.
+            used += _size(entry.name) + 1
+            continue
         report.settings.append(entry)
         used += size
     report.redacted = redactor.count
@@ -347,6 +361,12 @@ class ContextExportInput(Shape):
             "A packet that changed since is refused, so parts of two packets are never joined."
         ),
     )
+
+    @model_validator(mode="after")
+    def _later_part_names_its_packet(self) -> ContextExportInput:
+        if self.packet_from and self.packet_sha256 is None:
+            raise ValueError("packet_from past the start needs the packet_sha256 continue_with gives")
+        return self
 
 
 class PacketComponent(Shape):
