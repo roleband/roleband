@@ -66,7 +66,12 @@ def send(
     headers: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """`get` for any method, with an optional JSON object body and extra headers."""
-    payload = None if body is None else json.dumps(body, ensure_ascii=False, allow_nan=False).encode("utf-8")
+    try:
+        payload = None if body is None else json.dumps(body, ensure_ascii=False, allow_nan=False).encode("utf-8")
+    except (TypeError, ValueError):
+        raise ClientError(
+            "invalid_arguments", "The input is not JSON: it holds a value JSON cannot carry, such as NaN."
+        ) from None
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         raise ClientError("deadline_exceeded", "The deadline passed before the request was sent.")

@@ -149,3 +149,16 @@ def test_a_key_that_is_not_a_plain_token_is_refused_before_sending():
             _send(engine, key="has spaces in it")
     assert raised.value.code == "invalid_arguments"
     assert engine.seen == []
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), object()], ids=["nan", "infinity", "object"])
+def test_an_input_json_cannot_carry_is_refused_with_its_key_before_sending(value):
+    with Engine([]) as engine:
+        with pytest.raises(ClientError) as raised:
+            send_write(
+                engine.context, "PATCH", PATH, operation=OPERATION, body={"if_revision": 1, "score": value},
+                deadline=time.monotonic() + 5, request_id="req_test", user_agent="roleband/test",
+            )
+    assert raised.value.code == "invalid_arguments"
+    assert re.fullmatch(r"idk_[0-9a-f]{32}", raised.value.idempotency_key or "")
+    assert engine.seen == []
