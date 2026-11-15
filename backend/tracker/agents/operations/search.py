@@ -24,9 +24,10 @@ closes or re-sorts between two pages can be missed or repeated.
 
 A category the person does not share is absent: without their pursuits the
 `pursuit` column is left out of `columns` and every row, `saved_only` is
-refused, and queryless `best_match` takes the default order, since the
-person's intent is learned from the roles they saved and pursue; without
-market statistics the `estimated_pay` column is left out, and
+refused. Queryless `best_match` ranks by the person's intent, which blends
+the statement in their candidate profile with the roles they saved, pursue
+and dismissed: each part counts only while its category is shared, and with
+neither the order is the default. Without market statistics the `estimated_pay` column is left out, and
 `minimum_estimated_pay` and the `estimated_pay` sort are refused.
 """
 
@@ -62,7 +63,7 @@ from tracker.pay_period import effective_period
 from tracker.platform.util import MAX_WINDOW_DAYS
 from tracker.search.best_match import intent_ranking, relevance_search
 from tracker.semantic.embed import embed_query
-from tracker.semantic.intent import build_intent_vector
+from tracker.semantic.intent import build_intent_vector, combine_intent_vector
 from tracker.settings_store import get_intent_embedding
 
 _CODE: JsonDict = {"x-text": "code"}
@@ -196,7 +197,7 @@ OPPORTUNITIES_SEARCH = OperationDescriptor(
     idempotency="read",
     engine_effects=EngineEffects(),
     tool_tiers=_EVERY_TIER,
-    data_classes=("public_posting", "market_statistic", "private_pursuit"),
+    data_classes=("public_posting", "market_statistic", "private_pursuit", "candidate"),
     examples=(
         {"query": "product manager", "location": ["London"], "limit": 10},
         {"family": ["product_management"], "level_band": ["senior"], "sort": "estimated_pay"},
@@ -232,6 +233,7 @@ async def search(
     now = now or datetime.now(UTC)
     pursuits = "private_pursuit" not in withheld
     statistics = "market_statistic" not in withheld
+    profile = "candidate" not in withheld
     if params.saved_only and not pursuits:
         raise category_disabled("private_pursuit", field="saved_only")
     if params.minimum_estimated_pay is not None and not statistics:
@@ -279,7 +281,8 @@ async def search(
     # Best match has its own order; `order` reorders only the other sorts.
     order = "desc" if sort == "best_match" else params.order
     ordered = await _ordered(session, board, sort=sort, order=order, query=params.query,
-                             offset=offset, limit=params.limit, exact_seen=carried, use_intent=pursuits)
+                             offset=offset, limit=params.limit, exact_seen=carried,
+                             from_profile=profile, from_taste=pursuits)
 
     left_out = {_CATEGORY_COLUMNS[category] for category in withheld if category in _CATEGORY_COLUMNS}
     columns = [column for column in COLUMNS if column not in left_out]
@@ -334,13 +337,15 @@ class _Ordered:
 
 async def _ordered(
     session: AsyncSession, board: dict[str, Any], *, sort: Sort, order: str, query: str | None,
-    offset: int, limit: int, exact_seen: int, use_intent: bool = True,
+    offset: int, limit: int, exact_seen: int, from_profile: bool = True, from_taste: bool = True,
 ) -> _Ordered:
     if sort == "best_match" and query:
         return await _best_match(session, board, query, offset=offset, limit=limit, exact_seen=exact_seen)
-    if sort == "best_match" and use_intent:
-        stored = await get_intent_embedding(session)
-        intent = await build_intent_vector(session, stored["vector"] if stored else None)
+    if sort == "best_match" and (from_profile or from_taste):
+        stored = await get_intent_embedding(session) if from_profile else None
+        vector = stored["vector"] if stored else None
+        # The taste centroids come from saved, pursued and dismissed roles.
+        intent = await build_intent_vector(session, vector) if from_taste else combine_intent_vector(vector, [], [])
         if intent is not None:
             ranking = await intent_ranking(session, board, intent, limit, offset)
             return _Ordered([row.job for row in ranking.rows], ranking.total)

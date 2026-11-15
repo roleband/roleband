@@ -2419,7 +2419,8 @@
    "data_classes": [
     "public_posting",
     "market_statistic",
-    "private_pursuit"
+    "private_pursuit",
+    "candidate"
    ],
    "engine_effects": {
     "external_action": false,

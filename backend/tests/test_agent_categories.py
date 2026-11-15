@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 import tracker.agents.config as config_module
 from scripts.seed_synthetic import seed, task_req_id
+from tests.barriers import until_waiting
 from tracker.agents.config import (
     AGENT_ACCESS_KEY,
     AgentAccessConfig,
@@ -39,7 +40,10 @@ from tracker.agents.operations.radar import RadarSummary
 from tracker.agents.operations.workspace import ensure_workspace_id
 from tracker.api.agent_operations import IDEMPOTENCY_KEY_HEADER, PREFIX
 from tracker.cli.render import write_human
-from tracker.db.models import AppSetting, Job, TrackedCompany
+from tracker.config import get_settings
+from tracker.db.models import AppSetting, Favorite, Job, Pursuit, TrackedCompany
+from tracker.db.queries.jobs import unplaced_level_expr
+from tracker.settings_store import set_intent_embedding
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("no_escape")]
 
@@ -139,7 +143,7 @@ async def test_a_switch_save_cannot_put_back_choices_saved_while_it_ran(db_sessi
     async def read_then_let_the_other_run(session):
         categories = await read(session)
         other.append(asyncio.create_task(withhold()))
-        await asyncio.wait(other, timeout=1)
+        await until_waiting(db_session.bind, other[0])
         return categories
 
     monkeypatch.setattr(config_module, "_locked_categories", read_then_let_the_other_run)
@@ -270,6 +274,39 @@ async def test_search_answers_without_the_pursuit_or_estimate_columns(api_client
     assert left == [c for c in columns if c not in {"pursuit", "estimated_pay"}]
     kept = [columns.index(c) for c in left]
     assert closed == [[row[i] for i in kept] for row in rows]
+
+
+async def test_queryless_best_match_leaves_the_profile_statement_out_without_the_candidate_category(
+    api_client, workspace
+):
+    """The statement in the candidate profile steers the queryless order only
+    while that category is shared; the saved and pursued roles keep steering it."""
+    dim = get_settings().embedding_dim
+    taste, aim = [0.0] * dim, [0.0] * dim
+    taste[1], aim[0] = 1.0, 1.0
+    pulled = set((await workspace.scalars(select(Favorite.job_id).union(select(Pursuit.job_id)))).all())
+    columns, rows = await _rows(api_client, sort="best_match")
+    placed = set((await workspace.scalars(select(Job.id).where(~unplaced_level_expr(Job)))).all())
+    # A placed role, since those lead whatever the intent, that the default order puts last of them.
+    target = next(row[columns.index("id")] for row in reversed(rows) if row[columns.index("id")] in placed - pulled)
+    await workspace.execute(update(Job).values(embedding=taste))
+    # Mostly the statement's direction, a little of the taste's.
+    await workspace.execute(update(Job).where(Job.id == target).values(embedding=[*[1.0, 0.1], *[0.0] * (dim - 2)]))
+    await workspace.commit()
+
+    async def order() -> list:
+        columns, rows = await _rows(api_client, sort="best_match")
+        return [row[columns.index("id")] for row in rows]
+
+    without_statement = await order()
+    await set_intent_embedding(workspace, "Lead product for developer tools", aim)
+    await workspace.commit()
+    with_statement = await order()
+    await _choose(workspace, candidate="not_shared")
+    withheld = await order()
+
+    assert with_statement[0] == target and without_statement[0] != target
+    assert withheld == without_statement
 
 
 @pytest.mark.parametrize(
