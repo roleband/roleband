@@ -5843,15 +5843,24 @@ export interface components {
         };
         /**
          * Excerpt
-         * @description Present when the detail did not fit the tier's budget. The description
-         *     is cut first; the pursuit's notes only when they alone do not fit, and
-         *     `pursuits.get` reads them whole.
+         * @description Present when the detail is not whole: it did not fit the tier's budget,
+         *     or it was asked for from a point in the description. On a first read the
+         *     description is cut first, and the pursuit's notes only when they alone do
+         *     not fit; a read from a point leaves the notes out. `continue_with` names
+         *     the calls that read the rest, so nothing cut is out of reach.
          */
         Excerpt: {
             /** Budget Bytes */
             budget_bytes: number;
+            /** Continue With */
+            continue_with?: components["schemas"]["NextAction"][];
             /** Description Chars */
             description_chars: number;
+            /**
+             * Description From
+             * @default 0
+             */
+            description_from: number;
             /** Full Bytes */
             full_bytes: number;
             /** Kept Chars */
@@ -12909,6 +12918,8 @@ export interface operations {
                 view?: "summary" | "detail" | "evidence";
                 /** @description The caller's tool tier, which bounds a detail view. */
                 tier?: "small" | "standard" | "full";
+                /** @description Detail view only: read the description from this character on, as an excerpt's continue_with gives it. The pursuit's notes are then left to pursuits.get. */
+                description_from?: number | null;
             };
             header?: never;
             path: {

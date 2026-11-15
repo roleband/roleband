@@ -27,8 +27,8 @@ from sqlalchemy import exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.agents.operations.descriptor import EngineEffects, OperationDescriptor, Shape, ToolTier
-from tracker.agents.operations.envelope import OperationError
-from tracker.agents.operations.pursuits import PursuitState, state_of
+from tracker.agents.operations.envelope import NextAction, OperationError
+from tracker.agents.operations.pursuits import PURSUITS_GET, PursuitState, state_of
 from tracker.analytics.posting_reality import listing_age
 from tracker.db.models import Favorite, Job, JobCompEstimate, Pursuit, TrackedCompany
 from tracker.db.queries.listing_history import listing_history
@@ -125,9 +125,11 @@ class PostingSection(Shape):
 
 
 class Excerpt(Shape):
-    """Present when the detail did not fit the tier's budget. The description
-    is cut first; the pursuit's notes only when they alone do not fit, and
-    `pursuits.get` reads them whole."""
+    """Present when the detail is not whole: it did not fit the tier's budget,
+    or it was asked for from a point in the description. On a first read the
+    description is cut first, and the pursuit's notes only when they alone do
+    not fit; a read from a point leaves the notes out. `continue_with` names
+    the calls that read the rest, so nothing cut is out of reach."""
 
     truncated: Literal[True]
     tier: ToolTier = Field(json_schema_extra=_CODE)
@@ -135,11 +137,16 @@ class Excerpt(Shape):
     #: The size the full detail view would have taken.
     full_bytes: int
     description_chars: int
+    #: The character of the description this answer starts at.
+    description_from: int = 0
     kept_chars: int
     omitted_sections: int
     #: The pursuit notes' length and how much of them is kept; null without notes.
     notes_chars: int | None = None
     kept_notes_chars: int | None = None
+    #: The rest of the description from where this one stops, and the notes
+    #: whole when they were cut; empty when nothing is left to read.
+    continue_with: list[NextAction] = Field(default_factory=list)
 
 
 class OpportunityDetail(_Facts):
@@ -203,6 +210,13 @@ class OpportunityGetInput(Shape):
     opportunity_id: int = Field(ge=1, description="The opportunity's id, as search returns it.")
     view: View = Field(default="summary", description="summary, detail (adds the text) or evidence.")
     tier: ToolTier = Field(default="small", description="The caller's tool tier, which bounds a detail view.")
+    description_from: int | None = Field(
+        default=None, ge=0,
+        description=(
+            "Detail view only: read the description from this character on, as an excerpt's "
+            "continue_with gives it. The pursuit's notes are then left to pursuits.get."
+        ),
+    )
 
 
 class OpportunityHistoryInput(Shape):
@@ -382,6 +396,11 @@ async def opportunity(
     job = await visible_job(session, params.opportunity_id)
     saved = await session.scalar(select(exists().where(Favorite.job_id == job.id)))
     pursuit = await session.scalar(select(Pursuit).where(Pursuit.job_id == job.id))
+    if params.description_from is not None and params.view != "detail":
+        raise OperationError(
+            "invalid_input", "description_from reads a detail view; ask with view detail.",
+            details={"field": "description_from", "reason": "detail_only"},
+        )
     fields = _summary_fields(job, saved=bool(saved), pursuit=pursuit, now=now or datetime.now(UTC))
     if params.view == "detail":
         detail = {
@@ -393,7 +412,7 @@ async def opportunity(
             "description_sections": job.description_sections or [],
             "excerpt": None,
         }
-        return OpportunityView(bounded_detail(detail, tier=params.tier))
+        return OpportunityView(bounded_detail(detail, tier=params.tier, start=params.description_from))
     if params.view == "evidence":
         evidence = {**fields, "view": "evidence", "evidence": await _evidence(session, job)}
         return OpportunityView(OpportunityEvidence.model_validate(evidence))
@@ -434,44 +453,78 @@ def _size(value: object) -> int:
     return len(json.dumps(value, ensure_ascii=False, separators=(",", ":"), default=str).encode())
 
 
-def bounded_detail(fields: dict[str, Any], *, tier: ToolTier) -> OpportunityDetail:
-    """The detail view, whole when it fits the tier's budget, else a typed excerpt."""
+def bounded_detail(fields: dict[str, Any], *, tier: ToolTier, start: int | None = None) -> OpportunityDetail:
+    """The detail view, whole when it fits the tier's budget, else a typed
+    excerpt whose `continue_with` reads the rest. `start` reads the description
+    from that character on, leaving the notes to `pursuits.get`, so a run of
+    such reads always advances and their descriptions join into the whole."""
     full = OpportunityDetail.model_validate(fields)
     budget = DETAIL_BUDGET_BYTES[tier]
     full_bytes = len(full.model_dump_json().encode())
-    if full_bytes <= budget:
+    if start is None and full_bytes <= budget:
         return full
     text = full.description or ""
+    begin = start or 0
+    if begin > len(text):
+        raise OperationError(
+            "invalid_input", "description_from is past the end of the description.",
+            details={"field": "description_from", "reason": "past_end", "description_chars": len(text)},
+        )
+    rest = text[begin:]
     notes = full.pursuit.notes if full.pursuit is not None else None
     excerpt = Excerpt(
         truncated=True, tier=tier, budget_bytes=budget, full_bytes=full_bytes,
-        description_chars=len(text), kept_chars=0, omitted_sections=len(full.description_sections),
+        description_chars=len(text), description_from=begin, kept_chars=0,
+        omitted_sections=len(full.description_sections),
         notes_chars=len(notes) if notes else None, kept_notes_chars=len(notes) if notes else None,
     )
-    # Measured with the largest counts the excerpt can carry, so filling them
-    # in cannot take the answer past the budget.
-    widest = excerpt.model_copy(update={"kept_chars": len(text)})
+    # Measured with the largest counts and calls the excerpt can carry, so
+    # filling them in cannot take the answer past the budget.
+    widest = excerpt.model_copy(update={
+        "kept_chars": len(text), "continue_with": _continuations(full.id, tier, len(text), notes_cut=True),
+    })
     shell = full.model_copy(update={"description": "", "description_sections": [], "excerpt": widest})
     room = budget - len(shell.model_dump_json().encode())
-    if room < 0 and notes and full.pursuit is not None:
-        kept_notes = _cut(notes, _size(notes) - 2 + room)
-        pursuit = full.pursuit.model_copy(update={"notes": kept_notes})
-        shell = shell.model_copy(update={"pursuit": pursuit})
+    if notes and full.pursuit is not None and (room < 0 or start is not None):
+        # A read from a point is for the description; the notes are read whole elsewhere.
+        kept_notes = "" if start is not None else _cut(notes, _size(notes) - 2 + room)
+        shell = shell.model_copy(update={"pursuit": full.pursuit.model_copy(update={"notes": kept_notes})})
         excerpt = excerpt.model_copy(update={"kept_notes_chars": len(kept_notes)})
-        # The notes' word-boundary slack is no room for a scrap of description.
-        room = 0
-    kept = _cut(text, room)
-    excerpt = excerpt.model_copy(update={"kept_chars": len(kept)})
-    bounded = shell.model_copy(update={"description": kept, "excerpt": excerpt})
+        # On a first read the notes' word-boundary slack is no room for a
+        # scrap of description; on a read from a point the room is what is left.
+        room = 0 if start is None else budget - len(shell.model_dump_json().encode())
+    kept = _cut(rest, room)
+    if kept == text and not full.description_sections and not notes and full_bytes <= budget:
+        return full
+    notes_cut = bool(notes) and excerpt.kept_notes_chars != len(notes or "")
+    bounded = shell.model_copy(update={"description": kept, "excerpt": excerpt.model_copy(update={
+        "kept_chars": len(kept),
+        "continue_with": _continuations(full.id, tier, begin + len(kept), notes_cut=notes_cut)
+        if begin + len(kept) < len(text) else _continuations(full.id, tier, None, notes_cut=notes_cut),
+    })})
     # Only the description and the notes are cut. A posting whose other fields
-    # alone pass the budget is refused rather than answered past it.
-    if len(bounded.model_dump_json().encode()) > budget:
+    # alone pass the budget, or a read from a point that cannot advance, is
+    # refused rather than answered past the budget or without progress.
+    if len(bounded.model_dump_json().encode()) > budget or (start is not None and rest and not kept):
         raise OperationError(
             "invalid_input",
             "This posting's detail does not fit the tier's budget, even without its description.",
             details={"field": "tier", "reason": "over_budget", "budget_bytes": budget, "full_bytes": full_bytes},
         )
     return bounded
+
+
+def _continuations(opportunity_id: int, tier: ToolTier, description_from: int | None, *,
+                   notes_cut: bool) -> list[NextAction]:
+    """The calls that read what an excerpt left out."""
+    calls = []
+    if description_from is not None:
+        calls.append(NextAction(operation=OPPORTUNITIES_GET.id, arguments={
+            "opportunity_id": opportunity_id, "view": "detail", "tier": tier, "description_from": description_from,
+        }))
+    if notes_cut:
+        calls.append(NextAction(operation=PURSUITS_GET.id, arguments={"opportunity_id": opportunity_id}))
+    return calls
 
 
 def _cut(text: str, room: int) -> str:

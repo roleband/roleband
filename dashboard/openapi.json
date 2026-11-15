@@ -7183,14 +7183,26 @@
    },
    "Excerpt": {
     "additionalProperties": false,
-    "description": "Present when the detail did not fit the tier's budget. The description\nis cut first; the pursuit's notes only when they alone do not fit, and\n`pursuits.get` reads them whole.",
+    "description": "Present when the detail is not whole: it did not fit the tier's budget,\nor it was asked for from a point in the description. On a first read the\ndescription is cut first, and the pursuit's notes only when they alone do\nnot fit; a read from a point leaves the notes out. `continue_with` names\nthe calls that read the rest, so nothing cut is out of reach.",
     "properties": {
      "budget_bytes": {
       "title": "Budget Bytes",
       "type": "integer"
      },
+     "continue_with": {
+      "items": {
+       "$ref": "#/components/schemas/NextAction"
+      },
+      "title": "Continue With",
+      "type": "array"
+     },
      "description_chars": {
       "title": "Description Chars",
+      "type": "integer"
+     },
+     "description_from": {
+      "default": 0,
+      "title": "Description From",
       "type": "integer"
      },
      "full_bytes": {
@@ -29098,6 +29110,24 @@
        ],
        "title": "Tier",
        "type": "string"
+      }
+     },
+     {
+      "description": "Detail view only: read the description from this character on, as an excerpt's continue_with gives it. The pursuit's notes are then left to pursuits.get.",
+      "in": "query",
+      "name": "description_from",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "minimum": 0,
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Description From"
       }
      }
     ],

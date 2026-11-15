@@ -381,6 +381,100 @@ async def test_notes_that_fit_are_kept_whole_while_the_description_is_cut(api_cl
     assert 0 < data["excerpt"]["kept_chars"] < len(text)
 
 
+async def _follow(api_client, action: dict) -> dict:
+    """Make the call an excerpt names, as an agent would."""
+    assert action["operation"] == "opportunities.get"
+    arguments = dict(action["arguments"])
+    job_id = arguments.pop("opportunity_id")
+    response, body = await _get(api_client, f"/opportunities/{job_id}", **arguments)
+    assert response.status_code == 200, body
+    return body
+
+
+async def test_following_continue_with_reads_the_whole_description_a_page_at_a_time(api_client, workspace):
+    job_id, text = await _with_description(workspace, "FOLLOWUP", _SENTENCE * 1_500, sections=3)
+
+    _, body = await _get(api_client, f"/opportunities/{job_id}", view="detail")
+    pages = [_data(body)]
+    while (calls := [c for c in pages[-1]["excerpt"]["continue_with"] if c["operation"] == "opportunities.get"]):
+        assert len(calls) == 1 and len(pages) < 20
+        assert calls[0]["arguments"] == {
+            "opportunity_id": job_id, "view": "detail", "tier": "small",
+            "description_from": pages[-1]["excerpt"]["description_from"] + pages[-1]["excerpt"]["kept_chars"],
+        }
+        pages.append(_data(await _follow(api_client, calls[0])))
+
+    assert len(pages) > 3
+    assert "".join(page["description"] for page in pages) == text
+    for page in pages:
+        assert _bytes(page) <= DETAIL_BUDGET_BYTES["small"]
+        assert page["excerpt"]["truncated"] is True and page["description_sections"] == []
+        assert page["excerpt"]["description_chars"] == len(text)
+    # The last page names no more description; a later page leaves the
+    # pursuit's notes out, so it names them whole instead.
+    notes = await workspace.scalar(select(Pursuit.notes).where(Pursuit.job_id == job_id))
+    assert notes
+    assert pages[-1]["excerpt"]["continue_with"] == [
+        {"operation": "pursuits.get", "arguments": {"opportunity_id": job_id}}
+    ]
+    assert all(page["pursuit"]["notes"] == "" for page in pages[1:])
+
+
+async def test_cut_notes_are_named_for_pursuits_get_and_left_out_of_later_pages(api_client, workspace):
+    job_id, text = await _with_description(workspace, "FOLLOWUP", _SENTENCE * 600, sections=0)
+    notes = "Recruiter said: \"call back\" — résumé v2 sent\n" * 440
+    await workspace.execute(update(Pursuit).where(Pursuit.job_id == job_id).values(notes=notes))
+    await workspace.commit()
+
+    first = _data((await _get(api_client, f"/opportunities/{job_id}", view="detail"))[1])
+
+    assert first["description"] == "" and first["excerpt"]["kept_notes_chars"] < len(notes)
+    assert first["excerpt"]["continue_with"] == [
+        {"operation": "opportunities.get",
+         "arguments": {"opportunity_id": job_id, "view": "detail", "tier": "small", "description_from": 0}},
+        {"operation": "pursuits.get", "arguments": {"opportunity_id": job_id}},
+    ]
+    # Read from a point, the page is the description's: the notes are left out
+    # and named, so the description advances even though the notes never fit.
+    second = _data(await _follow(api_client, first["excerpt"]["continue_with"][0]))
+    assert second["pursuit"]["notes"] == "" and second["excerpt"]["kept_notes_chars"] == 0
+    assert second["excerpt"]["notes_chars"] == len(notes)
+    assert text.startswith(second["description"]) and second["excerpt"]["kept_chars"] > 0
+    assert {"operation": "pursuits.get", "arguments": {"opportunity_id": job_id}} in second["excerpt"]["continue_with"]
+    assert _data((await _get(api_client, f"/pursuits/{job_id}"))[1])["notes"] == notes
+
+
+async def test_a_read_from_the_start_of_a_short_detail_is_the_whole_view(api_client, workspace):
+    job_id = await _job_id(workspace, "INTERVIEW")
+    await workspace.execute(update(Pursuit).where(Pursuit.job_id == job_id).values(notes=None))
+    await workspace.execute(update(Job).where(Job.id == job_id).values(description_sections=[]))
+    await workspace.commit()
+    whole = _data((await _get(api_client, f"/opportunities/{job_id}", view="detail"))[1])
+
+    _, body = await _get(api_client, f"/opportunities/{job_id}", view="detail", description_from=0)
+
+    assert _data(body) == whole and whole["excerpt"] is None
+    assert body["meta"]["truncated"] is False
+
+
+@pytest.mark.parametrize(
+    ("params", "reason"),
+    [({"view": "summary", "description_from": 5}, "detail_only"),
+     ({"view": "evidence", "description_from": 0}, "detail_only"),
+     ({"view": "detail", "description_from": 10_000_000}, "past_end")],
+)
+async def test_a_description_point_outside_a_detail_or_its_text_is_an_input_error(
+    api_client, workspace, params, reason,
+):
+    job_id = await _job_id(workspace, "INTERVIEW")
+
+    response, body = await _get(api_client, f"/opportunities/{job_id}", **params)
+
+    _error(response, body, "invalid_input", 2)
+    assert body["error"]["details"]["field"] == "description_from"
+    assert body["error"]["details"]["reason"] == reason
+
+
 async def test_a_larger_tier_takes_the_whole_description(api_client, workspace):
     job_id, text = await _with_description(workspace, "FOLLOWUP", _SENTENCE * 300, sections=2)
     small = _data((await _get(api_client, f"/opportunities/{job_id}", view="detail"))[1])

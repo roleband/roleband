@@ -138,7 +138,7 @@ async def opportunity_get(
     if isinstance(view, opportunities.OpportunityDetail) and view.excerpt is not None:
         envelope = op.ok(found, warnings=[EnvelopeNotice(
             code="truncated",
-            message="The description is longer than this tool tier's budget; this is an excerpt.",
+            message="This detail is an excerpt; excerpt.continue_with names the calls that read the rest.",
         )])
         envelope.meta.truncated = True
         return envelope
