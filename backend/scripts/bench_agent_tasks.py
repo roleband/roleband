@@ -1178,6 +1178,11 @@ def roleband_invocations(command: str) -> int:
 _OFF_LIMITS = ("expectations.json", "prepared.json", "pgdata", "psql", "pg_dump", MARKER)
 
 
+#: An option or variable a token assigns a path to (`--input=@FILE`, `HOME=/x`);
+#: a `=` anywhere else is part of the path.
+_ASSIGNMENT = re.compile(r"(?:--?[A-Za-z][\w-]*|[A-Za-z_]\w*)=")
+
+
 def _paths_named(command: str, cwd: Path) -> list[Path]:
     """The paths a command line names, resolved from where it runs; `@FILE`,
     the command's way to read input from a file, names FILE."""
@@ -1185,7 +1190,8 @@ def _paths_named(command: str, cwd: Path) -> list[Path]:
     for token in _shell_tokens(command):
         if "/" not in token and not token.startswith(("~", "@~")) and token not in {".", ".."}:
             continue
-        expanded = os.path.expandvars(os.path.expanduser(token.split("=", 1)[-1].removeprefix("@")))
+        value = token[m.end():] if (m := _ASSIGNMENT.match(token)) else token
+        expanded = os.path.expandvars(os.path.expanduser(value.removeprefix("@")))
         paths.append(Path(os.path.normpath(cwd / expanded)))
     return paths
 
@@ -1812,8 +1818,9 @@ class ToolBox:
 ROLEBAND_TOOL = {"type": "function", "function": {
     "name": "roleband",
     "description": "Run the `roleband` command with these arguments, without a shell. "
-                   "Returns its exit status, stdout and stderr. A command given `--input -` reads its JSON "
-                   "from `stdin`: put the JSON object there, not in the arguments.",
+                   "Returns its exit status, stdout and stderr. To send a command JSON, add `--input -` to "
+                   "`args` and put the JSON object in `stdin`, not in the arguments: the command reads "
+                   "`stdin` only when `--input -` is there.",
     "parameters": {"type": "object", "properties": {
         "args": {
             "type": "array", "items": {"type": "string"},
@@ -1821,7 +1828,7 @@ ROLEBAND_TOOL = {"type": "function", "function": {
         },
         "stdin": {
             "type": "string",
-            "description": "the command's standard input, such as {\"next_action_due\": null} for `--input -`",
+            "description": "the JSON the command reads when `args` holds `--input -`, such as {\"next_action_due\": null}",
         },
     }, "required": ["args"]},
 }}

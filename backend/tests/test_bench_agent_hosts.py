@@ -14,6 +14,7 @@ import contextlib
 import difflib
 import json
 import os
+import shlex
 import socket
 import subprocess
 import sys
@@ -599,16 +600,23 @@ async def test_a_call_to_a_tool_that_does_not_exist_is_an_error_not_a_breach(mon
 
 
 @pytest.mark.asyncio
-async def test_a_local_call_that_names_the_bench_s_files_is_still_a_breach(monkeypatch, tmp_path):
-    cli = _cli(tmp_path)
-    workdir = tmp_path / "ws"
+@pytest.mark.parametrize("folder", ["bench", "bench=run"])
+@pytest.mark.parametrize("given", [["--input", "@{}"], ["--input=@{}"]])
+async def test_a_local_call_that_names_the_bench_s_files_is_still_a_breach(monkeypatch, tmp_path, folder, given):
+    """`@FILE` names FILE, whether the option takes it apart or after `=`, and
+    a `=` inside the path keeps the path whole."""
+    root = tmp_path / folder
+    root.mkdir()
+    cli = _cli(root)
+    workdir = root / "ws"
     other = workdir / "runs" / "r" / "t-1" / "cli" / "cli.json"
+    args = ["opportunities", "search", *(token.format(other) for token in given)]
     transcript, _ = await _local_run(monkeypatch, cli, tmp_path, [
-        ("roleband", {"args": ["opportunities", "search", "--input", f"@{other}"]}),
+        ("roleband", {"args": args}),
         ("roleband", {"args": ["capabilities", "--offline"]}),
     ], '{"overdue_follow_ups": 2}')
     settle_cli_calls(transcript, cli, workdir, host="omlx")
-    command = f"opportunities search --input @{other}"
+    command = shlex.join(args)
     assert transcript.breaches == [f"named the bench's own files in a command: {command[:80]}"]
     grade = grade_trial(TASKS["discover_overdue"], EXPECTATIONS, {"overdue_follow_ups": 2}, _state(), _state(),
                         transcript.tool_calls, transcript.breaches)
