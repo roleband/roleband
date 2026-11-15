@@ -226,6 +226,7 @@ final class LauncherModel: ObservableObject {
     private var scheduleReadAt: Date?
     private var scheduleInstallation: Installation?
     private var openAfterRead: BrowserRoute?
+    private var openFailed: (() -> Void)?
     private var task: Task<Void, Never>?
     private var controlTask: Task<Void, Never>?
     private var timer: Timer?
@@ -307,6 +308,23 @@ final class LauncherModel: ObservableObject {
         updateNotice = nil
     }
     func open(_ route: BrowserRoute) { refresh(open: route) }
+    /// Opens the route after a fresh read, or calls `otherwise` when the engine does not answer or
+    /// the browser does not open, so the person always sees something.
+    func open(_ route: BrowserRoute, otherwise: @escaping () -> Void) {
+        guard mayReadStatus else { otherwise(); return }
+        openFailed = otherwise
+        refresh(open: route)
+    }
+    /// Opening the app again leads straight to the radar when the panel has nothing the person
+    /// needs to see first: the engine answered, nothing asks for attention, and no update is
+    /// running or reporting its result.
+    var reopenOpensRadar: Bool {
+        guard let verified, installer?.activity == nil, updateNotice == nil else { return false }
+        switch hostState {
+        case .needsAttention, .starting, .backingOff, .stopped: return false
+        case .running, nil: return verified.presentation.hold?.kind != .attention
+        }
+    }
     var preview: Bool { Bundle.main.object(forInfoDictionaryKey: "RoleBandPreview") as? Bool ?? false }
     var titleKey: String {
         if let key = hostTitleKey { return key }
@@ -462,11 +480,12 @@ final class LauncherModel: ObservableObject {
                 // A browser that does not open says nothing about the engine, which just answered.
                 if let route = openAfterRead {
                     if openBrowser(try route.url(for: installation)) { noteRadarOpened() }
-                    else { controlMessage = "setup-browser-error" }
+                    else { controlMessage = "setup-browser-error"; openFailed?() }
                 }
             } catch is CancellationError {
                 // Only `stop()` cancels a read; the next `refresh()` must find the model idle.
                 openAfterRead = nil
+                openFailed = nil
                 pending = false
                 checking = false
                 changed?()
@@ -489,8 +508,10 @@ final class LauncherModel: ObservableObject {
                     engineLogDirectory = engine.logDirectory(candidate, registration: registrationURL, home: homeURL) ?? engineLogDirectory
                 }
                 failures = min(6, failures + 1)
+                if openAfterRead != nil { openFailed?() }
             }
             openAfterRead = nil
+            openFailed = nil
             checking = false
             changed?()
             if pending {
