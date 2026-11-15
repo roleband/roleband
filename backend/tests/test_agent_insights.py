@@ -463,7 +463,9 @@ async def test_every_insights_read_is_refused_while_agent_access_is_off(api_clie
 @pytest.mark.asyncio
 @pytest.mark.parametrize("choice", ["local_only", "not_shared"])
 async def test_every_insights_read_is_refused_while_market_statistics_are_withheld(api_client, workspace, choice):
-    cases = await _cases(workspace)
+    # The level guide is held to its route on its own, so it is not among the parity cases.
+    cases = [*await _cases(workspace), ("insights.levels", {"tier": "full"})]
+    assert {operation for operation, _ in cases} == set(READS)
     await set_agent_access(workspace, AgentAccessConfig(
         enabled=True, allow_writes=False, categories={"market_statistic": choice},
     ))
