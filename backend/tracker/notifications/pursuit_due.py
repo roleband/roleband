@@ -173,7 +173,10 @@ async def generate_pursuit_due_notifications(
 
     written = 0
     for pursuit, job in rows:
-        due = pursuit.next_action_due
+        # In UTC, as the database answers it: a pursuit written in this
+        # transaction still holds the offset its writer sent, and the same
+        # instant must give the same `due_at` on every pass.
+        due = pursuit.next_action_due.astimezone(UTC) if pursuit.next_action_due else None
         days_overdue = max(0, (now - due).days) if due else 0
         classified = classify_pursuit_due(
             job.company, job.title, pursuit.stage, pursuit.next_action, days_overdue, names=names

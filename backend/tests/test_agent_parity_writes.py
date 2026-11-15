@@ -16,12 +16,12 @@ from __future__ import annotations
 
 import asyncio
 import copy
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 import tracker.mcp.server as server
@@ -44,6 +44,7 @@ from tracker.db.models import (
     Pursuit,
     PursuitEvent,
 )
+from tracker.notifications.pursuit_due import generate_pursuit_due_notifications
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("no_escape")]
 
@@ -443,6 +444,32 @@ async def test_a_due_date_set_in_the_past_rings_and_clearing_it_retracts_the_rem
 
     assert rung == 1
     assert await _reminders(db_session, job_id) == 0
+
+
+async def test_a_reminder_the_person_read_stays_read_whatever_offset_the_due_time_came_in(
+    api_client, db_session, roles
+):
+    """The write's own reminder pass and a later one read the same instant;
+    a due time sent with another offset than UTC must not look like a new
+    follow-up to the later pass, which would ring it again unread."""
+    job_id, _ = roles
+    due = (datetime.now(UTC) - timedelta(days=2)).astimezone(timezone(timedelta(hours=2)))
+    _data(*await _patch(api_client, job_id, {"if_revision": 0, "next_action": "Chase", "next_action_due": due.isoformat()}))
+    async with _fresh(db_session) as session:
+        await session.execute(
+            update(Notification).where(Notification.job_id == job_id).values(read_at=datetime.now(UTC))
+        )
+        await session.commit()
+
+    async with _fresh(db_session) as session:
+        await generate_pursuit_due_notifications(session)
+        await session.commit()
+
+    async with _fresh(db_session) as session:
+        rows = (await session.execute(
+            select(Notification.read_at).where(Notification.job_id == job_id, Notification.category == "pursuit_due")
+        )).all()
+    assert len(rows) == 1 and rows[0].read_at is not None
 
 
 async def _reminders(db_session, job_id: int) -> int:
