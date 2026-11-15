@@ -306,9 +306,13 @@ def test_every_operation_has_exactly_one_explicit_route_and_no_route_dispatches(
         assert ":path}" not in route.path, route.path
         descriptor = CATALOG.get(route.openapi_extra["x-operation"])
         assert descriptor is not None
-        # A read is a GET unless it takes a document, which travels as a POST body.
-        expected = {"POST"} if _takes_document(descriptor) else {"GET"}
-        assert route.methods == expected, route.path
+        if descriptor.access == "read":
+            # A read is a GET unless it takes a document, which travels as a POST body.
+            expected = {"POST"} if _takes_document(descriptor) else {"GET"}
+            assert route.methods == expected, route.path
+        else:
+            # A write takes a body and never a GET, which commits nothing.
+            assert len(route.methods) == 1 and route.methods <= {"POST", "PUT", "PATCH"}, route.path
 
 
 def _takes_document(descriptor: OperationDescriptor) -> bool:
@@ -332,9 +336,10 @@ def _example_path(route: APIRoute) -> str:
 
 
 async def _call(api_client, route: APIRoute):
-    if "POST" in route.methods:
-        return await api_client.post(_example_path(route), json={})
-    return await api_client.get(_example_path(route))
+    (method,) = route.methods
+    if method == "GET":
+        return await api_client.get(_example_path(route))
+    return await api_client.request(method, _example_path(route), json={})
 
 
 async def _enable(db_session, *, enabled: bool = True, allow_writes: bool = False) -> None:
@@ -416,7 +421,13 @@ async def test_capabilities_lists_each_operation_with_live_availability(api_clie
     assert data["supported_contract_versions"] == [CONTRACT_VERSION]
     assert [entry["operation"] for entry in data["operations"]] == [descriptor.id for descriptor in CATALOG]
     for entry in data["operations"]:
-        assert entry["availability"] == {"state": "available", "reason": None}
+        # Writes stay off until the person allows them; every read is available.
+        expected = (
+            {"state": "unavailable", "reason": "writes_disabled"}
+            if entry["access"] == "write"
+            else {"state": "available", "reason": None}
+        )
+        assert entry["availability"] == expected, entry["operation"]
         assert set(entry["engine_effects"]) == {"state_write", "outbound_network", "model_egress", "external_action"}
 
 

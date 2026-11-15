@@ -21,7 +21,7 @@
 //
 //   node scripts/gen-copy.mjs          write
 //   node scripts/gen-copy.mjs --check  exit 1 if a generated file is stale
-import yaml from "js-yaml";
+import * as yaml from "js-yaml";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";

@@ -93,7 +93,8 @@ class Job(Base):
     raw_level: Mapped[str | None] = mapped_column(String(128), nullable=True)
     level_band: Mapped[str] = mapped_column(String(32), index=True)
     level_confidence: Mapped[str] = mapped_column(String(16), default="confirmed")
-    # stated|company|generic|none (schema.LevelBasis); NULL = not recorded.
+    # A `schema.LevelBasis` value; that enum owns what each basis means and
+    # which of them the scope gate never reads as a level. NULL = not recorded.
     level_basis: Mapped[str | None] = mapped_column(String(16), nullable=True)
     family: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     # Cross-cutting role kind: management | product_program | technical. Classified

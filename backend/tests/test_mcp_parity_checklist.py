@@ -23,6 +23,7 @@ from pathlib import Path
 import pytest
 
 from tracker.agents.config import AgentAccessConfig
+from tracker.agents.operations.catalog import CATALOG
 from tracker.api.routers.intelligence import _agent_connection_state
 from tracker.mcp.server import mcp
 
@@ -88,6 +89,32 @@ def test_the_differences_every_operation_shares_are_stated():
     shared = _checklist()["every_operation"]
 
     assert shared and all(isinstance(line, str) and line.strip() for line in shared)
+
+
+def test_every_write_tool_has_its_keyed_write_in_the_catalog():
+    """The tools the server gates on `allow_writes` each have an operation the
+    engine runs, as a write under a key, not only a row naming one."""
+    writes = {name for name, switch in _published_switches().items() if switch == "allow_writes"}
+    rows = {row["tool"]: row for row in _checklist()["tools"]}
+
+    assert writes == {"save_opportunity", "update_pursuit", "save_recipe_draft"}
+    for name in sorted(writes):
+        descriptor = CATALOG.get(rows[name]["operation"])
+        assert descriptor is not None, f"{name}: {rows[name]['operation']} is not in the catalog"
+        assert (descriptor.access, descriptor.idempotency) == ("write", "required_key"), name
+        assert descriptor.engine_effects.state_write, name
+
+
+def test_an_added_operation_replaces_no_tool_and_says_why():
+    checklist = _checklist()
+    replacing = {row["operation"] for row in checklist["tools"]}
+    added = checklist["added_operations"]
+
+    assert [row["operation"] for row in added] == ["receipts.get"]
+    for row in added:
+        assert row["operation"] in CATALOG and row["operation"] not in replacing
+        assert row["switch"] in SWITCH_FOR_ACCESS.values()
+        assert isinstance(row["why"], str) and row["why"].strip()
 
 
 # --- negative controls

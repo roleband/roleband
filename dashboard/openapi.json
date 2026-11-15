@@ -6411,6 +6411,84 @@
     "title": "Envelope[RadarSummary]",
     "type": "object"
    },
+   "Envelope_Receipt_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Receipt"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[Receipt]",
+    "type": "object"
+   },
    "Envelope_RecipeContract_": {
     "additionalProperties": false,
     "properties": {
@@ -6565,6 +6643,84 @@
      "error"
     ],
     "title": "Envelope[RecipeValidation]",
+    "type": "object"
+   },
+   "Envelope_SavedDraft_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/SavedDraft"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[SavedDraft]",
     "type": "object"
    },
    "Envelope_SearchPage_": {
@@ -20939,6 +21095,45 @@
     "title": "ReasonSaid",
     "type": "object"
    },
+   "Receipt": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "code"
+     },
+     "key": {
+      "title": "Key",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "code"
+     },
+     "recorded_at": {
+      "format": "date-time",
+      "title": "Recorded At",
+      "type": "string"
+     },
+     "result": {
+      "additionalProperties": true,
+      "title": "Result",
+      "type": "object"
+     }
+    },
+    "required": [
+     "operation",
+     "key",
+     "contract_version",
+     "recorded_at",
+     "result"
+    ],
+    "title": "Receipt",
+    "type": "object"
+   },
    "RecipeBindingRow": {
     "additionalProperties": false,
     "properties": {
@@ -22283,6 +22478,32 @@
      "notes"
     ],
     "title": "RunRow",
+    "type": "object"
+   },
+   "SavedDraft": {
+    "additionalProperties": false,
+    "properties": {
+     "revision_id": {
+      "title": "Revision Id",
+      "type": "integer"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "version": {
+      "minimum": 1.0,
+      "title": "Version",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "slug",
+     "revision_id",
+     "version"
+    ],
+    "title": "SavedDraft",
     "type": "object"
    },
    "SavedRevision": {
@@ -29274,6 +29495,206 @@
      "agent"
     ],
     "x-operation": "pursuits.get"
+   },
+   "patch": {
+    "operationId": "pursuit_patch_api_agent_v1_pursuits__opportunity_id__patch",
+    "parameters": [
+     {
+      "description": "The opportunity the pursuit is about.",
+      "in": "path",
+      "name": "opportunity_id",
+      "required": true,
+      "schema": {
+       "minimum": 1,
+       "title": "Opportunity Id",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "header",
+      "name": "X-RoleBand-Idempotency-Key",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": false,
+        "properties": {
+         "if_revision": {
+          "description": "The revision you read (pursuits.get or pursuits.list); 0 when the role has no pursuit yet. A pursuit that moved since is not changed.",
+          "minimum": 0,
+          "title": "If Revision",
+          "type": "integer"
+         },
+         "next_action": {
+          "anyOf": [
+           {
+            "maxLength": 2000,
+            "type": "string"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "The next step. null clears it; leave the field out to keep it.",
+          "title": "Next Action",
+          "x-text": "content"
+         },
+         "next_action_due": {
+          "anyOf": [
+           {
+            "format": "date-time",
+            "type": "string"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "When the next step falls due, with its UTC offset. null clears it; leave the field out to keep it.",
+          "title": "Next Action Due"
+         },
+         "notes": {
+          "anyOf": [
+           {
+            "maxLength": 20000,
+            "type": "string"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "Replaces the notes. null clears them; leave the field out to keep them.",
+          "title": "Notes",
+          "x-text": "content"
+         },
+         "priority": {
+          "description": "1 to 5. Cannot be null.",
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Priority",
+          "type": "integer"
+         },
+         "stage": {
+          "description": "The new stage. Cannot be null.",
+          "enum": [
+           "saved",
+           "researching",
+           "networking",
+           "applied",
+           "interviewing",
+           "offer",
+           "accepted",
+           "declined",
+           "withdrawn",
+           "rejected",
+           "role_closed"
+          ],
+          "title": "Stage",
+          "type": "string",
+          "x-text": "code"
+         }
+        },
+        "required": [
+         "if_revision"
+        ],
+        "title": "PursuitPatchInput",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_PursuitItem_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Pursuit Patch",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "pursuits.patch"
+   },
+   "put": {
+    "operationId": "pursuit_save_api_agent_v1_pursuits__opportunity_id__put",
+    "parameters": [
+     {
+      "description": "The opportunity to save.",
+      "in": "path",
+      "name": "opportunity_id",
+      "required": true,
+      "schema": {
+       "minimum": 1,
+       "title": "Opportunity Id",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "header",
+      "name": "X-RoleBand-Idempotency-Key",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": false,
+        "properties": {
+         "if_revision": {
+          "description": "The revision you read (pursuits.get or pursuits.list); 0 when the role has no pursuit yet. Given, a pursuit that moved since is not changed (revision_conflict).",
+          "minimum": 0,
+          "title": "If Revision",
+          "type": "integer"
+         },
+         "priority": {
+          "description": "1 to 5. A new pursuit starts at 3; an existing one keeps its own unless this is given.",
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Priority",
+          "type": "integer"
+         }
+        },
+        "required": [],
+        "title": "PursuitSaveInput",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_PursuitItem_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Pursuit Save",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "pursuits.save"
    }
   },
   "/api/agent/v1/radar/summary": {
@@ -29299,6 +29720,55 @@
     "x-operation": "radar.summary"
    }
   },
+  "/api/agent/v1/receipts": {
+   "get": {
+    "operationId": "receipt_get_api_agent_v1_receipts_get",
+    "parameters": [
+     {
+      "description": "The write's operation id, such as pursuits.patch.",
+      "in": "query",
+      "name": "operation",
+      "required": true,
+      "schema": {
+       "maxLength": 128,
+       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+       "title": "Operation",
+       "type": "string",
+       "x-text": "code"
+      }
+     },
+     {
+      "description": "The idempotency key the write was sent under: its meta.idempotency_key.",
+      "in": "query",
+      "name": "key",
+      "required": true,
+      "schema": {
+       "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}$",
+       "title": "Key",
+       "type": "string",
+       "x-text": "identifier"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_Receipt_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Receipt Get",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "receipts.get"
+   }
+  },
   "/api/agent/v1/recipes/contract": {
    "get": {
     "operationId": "recipe_contract_api_agent_v1_recipes_contract_get",
@@ -29320,6 +29790,61 @@
      "agent"
     ],
     "x-operation": "recipes.contract.get"
+   }
+  },
+  "/api/agent/v1/recipes/drafts": {
+   "post": {
+    "operationId": "recipe_draft_save_api_agent_v1_recipes_drafts_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "X-RoleBand-Idempotency-Key",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": false,
+        "properties": {
+         "document": {
+          "additionalProperties": true,
+          "description": "The listing recipe v1 document; its `id` names the recipe. It must compile.",
+          "title": "Document",
+          "type": "object"
+         }
+        },
+        "required": [
+         "document"
+        ],
+        "title": "RecipeDraftSaveInput",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_SavedDraft_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Recipe Draft Save",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "recipes.draft.save"
    }
   },
   "/api/agent/v1/recipes/validate": {
