@@ -251,8 +251,34 @@ def group_alive(pgid: int) -> bool:
     except ProcessLookupError:
         return False
     except PermissionError:
-        return True
+        return _holds_a_process_we_may_signal(pgid)
     return True
+
+
+def _holds_a_process_we_may_signal(pgid: int) -> bool:
+    """Whether a running member of the group is one this user may signal.
+
+    `killpg` fails with EPERM when no member accepts the signal. macOS answers
+    that way for a group whose members have all exited but are not yet reaped,
+    and any POSIX system does once the group id belongs to another user's
+    processes. Neither leaves anything of ours to stop, like ESRCH and like
+    `windows_process.owned_process` finding nothing. A running member we may
+    signal means the refusal is real and must not be read as an ended job."""
+    if sys.platform == "win32":
+        return False
+    import psutil
+
+    ours = {os.getuid(), os.geteuid()}
+    for process in psutil.process_iter():
+        try:
+            if os.getpgid(process.pid) != pgid or process.status() == psutil.STATUS_ZOMBIE:
+                continue
+            uids = process.uids()
+        except (OSError, psutil.Error):
+            continue
+        if ours & {uids.real, uids.saved}:
+            return True
+    return False
 
 
 def signal_group(pgid: int, signum: int) -> bool:
@@ -266,6 +292,10 @@ def signal_group(pgid: int, signum: int) -> bool:
     try:
         os.killpg(pgid, signum)
     except ProcessLookupError:
+        return False
+    except PermissionError:
+        if _holds_a_process_we_may_signal(pgid):
+            raise
         return False
     return True
 
