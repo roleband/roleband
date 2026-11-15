@@ -307,6 +307,21 @@ enum AppReopen {
 @MainActor
 final class LauncherWindow: NSWindow {
     override func cancelOperation(_ sender: Any?) { performClose(sender) }
+
+    /// A window that keeps the size it is given and scrolls its content. A hosting controller
+    /// otherwise resizes its window to the view's fitting size, and a ScrollView has no height of
+    /// its own, which leaves only the title bar.
+    static func scrolling(title: String, size: NSSize, content: some View) -> LauncherWindow {
+        let window = LauncherWindow(contentRect: NSRect(origin: .zero, size: size),
+                                    styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
+        window.title = title
+        window.isReleasedWhenClosed = false
+        let host = NSHostingController(rootView: ScrollView { content })
+        host.sizingOptions = []
+        window.contentViewController = host
+        window.setContentSize(size)
+        return window
+    }
 }
 
 @MainActor
@@ -440,15 +455,10 @@ final class LauncherDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate
         popover.closeAtOnce()
         NSApp.setActivationPolicy(.regular)
         if statusWindow == nil {
-            let window = LauncherWindow(contentRect: NSRect(x: 0, y: 0, width: PanelMetrics.width, height: 560),
-                                        styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
-            window.title = "RoleBand"
-            window.isReleasedWhenClosed = false
+            let window = LauncherWindow.scrolling(title: "RoleBand", size: NSSize(width: PanelMetrics.width, height: 560),
+                content: MainPanel(model: model, notes: { [weak self] in self?.showNotes() }, offered: { [weak self] in self?.showOffered() },
+                                   setup: { [weak self] in self?.showSetup() }))
             window.delegate = self
-            window.contentViewController = NSHostingController(rootView: ScrollView {
-                MainPanel(model: model, notes: { [weak self] in self?.showNotes() }, offered: { [weak self] in self?.showOffered() },
-                          setup: { [weak self] in self?.showSetup() })
-            })
             window.center()
             statusWindow = window
         }
@@ -544,6 +554,10 @@ final class LauncherDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate
         else if offeredWindow?.isVisible == true { offeredWindow?.makeKeyAndOrderFront(nil) }
         else if setupWindow?.isVisible == true { setupWindow?.makeKeyAndOrderFront(nil) }
         else if model.ownsEngine && !model.setupCompleted { showSetup() }
+        else if statusWindow?.isVisible == true { statusWindow?.makeKeyAndOrderFront(nil) }
+        // Opening the app is a request for RoleBand itself, which lives in the browser; the panel
+        // comes up instead when it has something to say or the radar does not open.
+        else if model.reopenOpensRadar { model.open(.radar, otherwise: { [weak self] in self?.showStatusWindow() }) }
         else { showStatusWindow() }
         return true
     }

@@ -226,6 +226,7 @@ final class LauncherModel: ObservableObject {
     private var scheduleReadAt: Date?
     private var scheduleInstallation: Installation?
     private var openAfterRead: BrowserRoute?
+    private var openFailed: (() -> Void)?
     private var task: Task<Void, Never>?
     private var controlTask: Task<Void, Never>?
     private var timer: Timer?
@@ -307,6 +308,24 @@ final class LauncherModel: ObservableObject {
         updateNotice = nil
     }
     func open(_ route: BrowserRoute) { refresh(open: route) }
+    /// Opens the route after a fresh read, or calls `otherwise` when the engine does not answer or
+    /// the browser does not open, so the person always sees something.
+    func open(_ route: BrowserRoute, otherwise: @escaping () -> Void) {
+        guard mayReadStatus else { otherwise(); return }
+        openFailed = otherwise
+        refresh(open: route)
+    }
+    /// Opening the app again leads straight to the radar when the panel has nothing the person
+    /// needs to see first: the engine answered, nothing asks for attention, and no update is
+    /// running or reporting its result.
+    var reopenOpensRadar: Bool {
+        guard let verified, installer?.activity == nil, updateNotice == nil,
+              verified.presentation.activity != .updating else { return false }
+        switch hostState {
+        case .needsAttention, .starting, .backingOff, .stopped: return false
+        case .running, nil: return verified.presentation.hold?.kind != .attention
+        }
+    }
     var preview: Bool { Bundle.main.object(forInfoDictionaryKey: "RoleBandPreview") as? Bool ?? false }
     var titleKey: String {
         if let key = hostTitleKey { return key }
@@ -400,7 +419,16 @@ final class LauncherModel: ObservableObject {
     func text(_ key: String, _ values: [String: String]) -> String { copy.text(key, values) }
 
     func refresh(open route: BrowserRoute? = nil, includeSchedule: Bool = false, includeNotes: Bool = false) {
-        guard mayReadStatus else { return }
+        // A reopen queued behind a scan or pause request whose engine then stopped shows the
+        // panel now, rather than the radar whenever the engine comes back.
+        guard mayReadStatus else {
+            if let fallback = openFailed {
+                openAfterRead = nil
+                openFailed = nil
+                fallback()
+            }
+            return
+        }
         timer?.invalidate()
         if let route { openAfterRead = route }
         forceScheduleRead = forceScheduleRead || includeSchedule
@@ -461,12 +489,17 @@ final class LauncherModel: ObservableObject {
                 failures = 0
                 // A browser that does not open says nothing about the engine, which just answered.
                 if let route = openAfterRead {
-                    if openBrowser(try route.url(for: installation)) { noteRadarOpened() }
-                    else { controlMessage = "setup-browser-error" }
+                    // A reopen decided on the last status; this fresh one may have something to say.
+                    if openFailed != nil && !reopenOpensRadar { openFailed?() }
+                    else if openBrowser(try route.url(for: installation)) { noteRadarOpened() }
+                    else { controlMessage = "setup-browser-error"; openFailed?() }
                 }
             } catch is CancellationError {
-                // Only `stop()` cancels a read; the next `refresh()` must find the model idle.
+                // A host change or `stop()` cancels a read; the next `refresh()` must find the model
+                // idle. `stop()` clears the fallback first, so only a host change shows the panel.
                 openAfterRead = nil
+                openFailed?()
+                openFailed = nil
                 pending = false
                 checking = false
                 changed?()
@@ -489,8 +522,10 @@ final class LauncherModel: ObservableObject {
                     engineLogDirectory = engine.logDirectory(candidate, registration: registrationURL, home: homeURL) ?? engineLogDirectory
                 }
                 failures = min(6, failures + 1)
+                if openAfterRead != nil { openFailed?() }
             }
             openAfterRead = nil
+            openFailed = nil
             checking = false
             changed?()
             if pending {
@@ -512,6 +547,7 @@ final class LauncherModel: ObservableObject {
         timer = next
     }
     func stop() {
+        openFailed = nil
         task?.cancel(); controlTask?.cancel(); timer?.invalidate(); loginTimer?.invalidate(); loginTimer = nil
         hostMonitor?.cancel(); hostMonitor = nil
     }

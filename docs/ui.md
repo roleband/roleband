@@ -51,7 +51,14 @@ symbol as a badge in the mark's lower right corner; the accessibility label and
 tooltip say the state in words. The panel header is the gold mark alone, without
 the product name. When the menu-bar item cannot be seen (off screen, or behind the
 camera housing of a notched display), the panel opens as a window instead of a
-popover.
+popover. The window keeps the panel's width and a fixed height, and scrolls.
+
+Opening the running app again (from Applications, Spotlight or the Dock) brings
+forward a window that is already open. Otherwise it opens the Radar in the browser
+when the engine answers and the panel has nothing to say first: no hold that needs
+attention, no engine starting, stopped or needing attention, and no update running
+or reporting its result. In every other case, and when the Radar does not open,
+the panel opens as a window. Until setup completes, it opens setup.
 
 The Scan tab draws the scan picture while the engine is healthy and has a scan
 to show: the companies in flight with their clocks, or the last scan's facts, the
