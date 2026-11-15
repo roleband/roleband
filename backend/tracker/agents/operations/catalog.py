@@ -12,6 +12,7 @@ from collections.abc import Iterable, Iterator
 from typing import Any
 
 from tracker.agents.operations import (
+    insights,
     meta,
     opportunities,
     pursuits,
@@ -34,6 +35,7 @@ REGISTERED: tuple[OperationDescriptor, ...] = (
     *receipts.OPERATIONS,
     *search.OPERATIONS,
     *vocabulary.OPERATIONS,
+    *insights.OPERATIONS,
 )
 
 

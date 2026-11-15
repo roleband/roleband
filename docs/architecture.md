@@ -1314,6 +1314,15 @@ one it is last-writer-wins on priority. `receipts.get` reads a write's receipt
 back by operation and key, in this workspace and for the engine's principal;
 it is a read, so it answers with writes off.
 `backend/tests/test_agent_parity_writes.py` holds each to its MCP tool.
+The Insights reads (`insights.*`, `backend/tracker/agents/operations/insights.py`)
+answer from the dashboard's own route functions: the agent route calls the
+statistics or skills route with the operation's filters and reads its answer
+through a shape that mirrors the route's response field for field, so no
+statistic has a second implementation. Each answer carries its `coverage`
+beside the figures: the population, the scope, the window, the history depth
+and when the radar last read those companies. Its long lists stop at the
+tier's budget with a `page` whose `continue_with` reads on, never cut.
+`backend/tests/test_agent_insights.py` holds each operation to its route.
 
 **Trust boundary.** Mac and ordinary source mode use loopback access control.
 `LoopbackBoundary` (`backend/tracker/api/boundary.py`, outermost) refuses a Host
