@@ -641,6 +641,24 @@ def test_the_last_page_needs_no_room_for_a_cursor(monkeypatch):
     assert read.data.model_dump()["page"]["returned"] == 1 and read.data.model_dump()["page"]["continue_with"] == []
 
 
+def test_a_first_page_fills_its_smallest_budget_to_the_byte(monkeypatch):
+    spec = READS["insights.offer_terms"]
+    answer = _offer_terms(2)
+    smallest = None
+    for budget in range(_bytes(answer) - 1, 0, -1):
+        monkeypatch.setitem(insights.BUDGET_BYTES, "small", budget)
+        try:
+            read = fit(spec, answer, insights.UnscopedInput(), workspace_id="w")
+        except insights.OperationError:
+            break
+        smallest = (budget, read)
+    assert smallest is not None
+    budget, read = smallest
+
+    assert read.shortened and read.data.model_dump()["page"]["returned"] == 1
+    assert _bytes(read.data) == budget
+
+
 def test_no_page_at_any_budget_or_position_exceeds_its_budget(monkeypatch):
     spec = READS["insights.offer_terms"]
     answer = _offer_terms(5)

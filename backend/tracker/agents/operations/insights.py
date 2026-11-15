@@ -1066,6 +1066,10 @@ def fit(spec: InsightsRead, answer: BaseModel, params: BaseModel, *, workspace_i
         end = offset
         while end + 1 < total and bound(end + 1) <= budget:
             end += 1
+        # The bound counts a comma the first item of each list does not take,
+        # so the next page may still fit: measured, it decides.
+        while end + 1 < total and filled(end + 1) <= budget:
+            end += 1
         if (end == offset and offset < total) or filled(end) > budget:
             raise OperationError(
                 "invalid_input",
