@@ -1,5 +1,5 @@
 {
- "version": 2,
+ "version": 3,
  "note": "Tasks an agent runs against the synthetic workspace (`scripts.seed_synthetic --agent-tasks`). `scripts.bench_agent_tasks` runs them and grades each from the database after the run and the answer line. Postings and pursuits are named by their key in `seed_synthetic._TASK_POSTINGS`. A change to a prompt, an answer shape or a grader bumps `version`, so results from two versions are never compared.",
  "answer_protocol": "When you are done, end your reply with exactly one line that starts with `ANSWER: ` followed by a single-line JSON object of this shape: {shape}",
  "tasks": [
@@ -28,15 +28,15 @@
   },
   {
    "id": "invalid_location",
-   "measures": "Recover from a location the search does not know, without widening the answer",
+   "measures": "Recover from a place name the search does not know and no spelling fix reaches, without widening the answer",
    "prompts": [
-    "Show me the open product management roles in Seatle.",
-    "Find the open product management jobs in Seatle on my radar."
+    "Show me the open product management roles in the Puget Sound area.",
+    "Find the open product management jobs around Puget Sound on my radar."
    ],
    "answer_shape": {"opportunity_ids": ["<integer>"]},
    "writes": [],
    "grader": "id_set",
-   "expect": {"families": ["product_management"], "location_groups": ["pacific_northwest"]}
+   "expect": {"families": ["product_management"], "location_groups": ["pacific_northwest"], "place": "Puget Sound"}
   },
   {
    "id": "stated_vs_estimate",
