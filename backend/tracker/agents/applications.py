@@ -33,9 +33,6 @@ NEXT_INTERVIEW_GRACE = timedelta(hours=12)
 #: end by its hour.
 ALL_DAY_SPAN = timedelta(days=1)
 
-#: The most activity entries one read returns.
-ACTIVITY_LIMIT_MAX = 200
-
 #: The longest span one calendar read covers: a month grid, six whole weeks
 #: from local midnight to local midnight. When a clock goes back inside the
 #: grid, those six weeks are an hour longer than 42 days of 24 hours.
@@ -214,13 +211,15 @@ async def application(session: AsyncSession, job_id: int, *, now: datetime) -> d
 
 
 async def activity(
-    session: AsyncSession, job_id: int, *, offset: int = 0, limit: int = 100
+    session: AsyncSession, job_id: int, *, offset: int = 0, limit: int | None = None
 ) -> list[dict] | None:
-    """Comments and events on one application, newest first.
+    """Comments and events on one application, newest first: the whole
+    history unless `limit` asks for a slice. The page shows every entry, so
+    any comment can be read, edited and deleted however long the history.
 
     `None` when the role is not on the board (no star, and no pursuit past
     Considering); an empty list when it has a star and nothing has happened
-    yet. Pages by position, not by time: rows
+    yet. A slice pages by position, not by time: rows
     written in one transaction share its `now()`, so a time cursor would skip
     the rest of a tie a page ended inside. The order breaks every tie."""
     on_board = await session.scalar(
@@ -237,7 +236,6 @@ async def activity(
     if pursuit_id is None:
         return []
 
-    limit = max(1, min(limit, ACTIVITY_LIMIT_MAX))
     events = select(
         literal("event").label("kind"),
         PursuitEvent.id,
@@ -249,14 +247,14 @@ async def activity(
         PursuitComment.created_at,
     ).where(PursuitComment.pursuit_id == pursuit_id)
     feed = union(events, notes).subquery()
-    page = (
-        await session.execute(
-            select(feed.c.kind, feed.c.id)
-            .order_by(feed.c.created_at.desc(), feed.c.kind, feed.c.id.desc())
-            .offset(max(0, offset))
-            .limit(limit)
-        )
-    ).all()
+    ordered = (
+        select(feed.c.kind, feed.c.id)
+        .order_by(feed.c.created_at.desc(), feed.c.kind, feed.c.id.desc())
+        .offset(max(0, offset))
+    )
+    if limit is not None:
+        ordered = ordered.limit(max(1, limit))
+    page = (await session.execute(ordered)).all()
 
     event_ids = [i for kind, i in page if kind == "event"]
     comment_ids = [i for kind, i in page if kind == "comment"]

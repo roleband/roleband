@@ -1457,6 +1457,61 @@
   justify-self: end;
 }
 
+/* A month's divider stays at the top of the scroll while its month passes,
+   and the next month's pushes it out: each sticks only inside its section.
+   Painted as the panel is, its tint over the page ground and wash, so the
+   entries pass under it and it never reads as a plate. */
+.app-feed-divider {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  padding: var(--app-space-2) 0;
+  background-color: var(--app-canvas);
+  background-image: linear-gradient(var(--app-surface), var(--app-surface)), var(--app-ambient-image);
+  background-attachment: scroll, fixed, fixed;
+}
+
+.app-feed-divider::before,
+.app-feed-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--app-border);
+}
+
+.app-feed-divider-button {
+  gap: var(--app-space-1);
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--app-border);
+  font-weight: var(--app-weight-name);
+}
+
+/* A jump lands an entry below its month's divider, not under it. */
+.app-feed-month [data-feed] {
+  scroll-margin-top: calc(var(--app-space-2) * 2 + 32px);
+}
+
+/* The entry a jump landed on wears the ring for a moment, then lets it go. */
+.app-feed-month [data-feed][data-landed] {
+  outline: var(--app-ring-width) solid var(--app-action);
+  outline-offset: var(--app-ring-offset);
+  animation: app-feed-landed 2.4s ease-out forwards;
+}
+
+@keyframes app-feed-landed {
+  0%, 60% { outline-color: var(--app-action); }
+  100% { outline-color: transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-feed-month [data-feed][data-landed] {
+    animation-timing-function: steps(1, end);
+  }
+}
+
 .app-feed-list {
   display: flex;
   flex-direction: column;

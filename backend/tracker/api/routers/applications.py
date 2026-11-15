@@ -76,7 +76,9 @@ async def application_ep(job_id: int, session: SessionDep) -> dict:
 async def activity_ep(
     job_id: int,
     session: SessionDep,
-    limit: Annotated[int, Query(ge=1, le=reads.ACTIVITY_LIMIT_MAX)] = 100,
+    limit: Annotated[
+        int | None, Query(ge=1, description="At most this many entries; the whole history when absent.")
+    ] = None,
     offset: Offset = 0,
 ) -> dict:
     items = await reads.activity(session, job_id, offset=offset, limit=limit)

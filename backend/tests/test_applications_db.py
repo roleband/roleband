@@ -665,6 +665,59 @@ async def test_the_feed_runs_newest_first_and_pages_backwards(api_client, db_ses
     assert rest[1]["event_type"] == "created" and rest[1]["source"] == "app"
 
 
+async def test_a_long_history_reads_whole_and_its_oldest_comment_stays_editable(api_client, db_session):
+    """An application with far more entries than any one screen holds: the
+    read without a limit returns every one, so the first comment ever written
+    is on the page and can still be edited and deleted."""
+    job = await _job(db_session)
+    oldest = await _comment(api_client, job.id, "The very first note")
+    pursuit_id = await db_session.scalar(select(Pursuit.id).where(Pursuit.job_id == job.id))
+    start = datetime.now(UTC) - timedelta(days=400)
+    await db_session.execute(
+        PursuitComment.__table__.update().where(PursuitComment.id == oldest["id"]).values(created_at=start)
+    )
+    db_session.add_all(
+        PursuitComment(pursuit_id=pursuit_id, actor="user", body=f"Note {n}", created_at=start + timedelta(days=1, hours=n))
+        for n in range(240)
+    )
+    db_session.add_all(
+        PursuitEvent(
+            pursuit_id=pursuit_id, actor="user", event_type="updated", from_stage="saved", to_stage="saved",
+            detail={"changed": ["priority"]}, created_at=start + timedelta(days=1, hours=n, minutes=30),
+        )
+        for n in range(240)
+    )
+    await db_session.commit()
+
+    response = await api_client.get(f"/api/applications/{job.id}/activity")
+
+    assert response.status_code == 200, response.text
+    items = response.json()["items"]
+    created = 1  # the pursuit's own created event, written with the first comment
+    assert len(items) == 1 + 240 + 240 + created
+    assert [i["id"] for i in items if i["kind"] == "comment"][-1] == oldest["id"]
+
+    edited = await api_client.put(
+        f"/api/jobs/{job.id}/pursuit/comments/{oldest['id']}", json={"body": "The very first note, revised"}
+    )
+    assert edited.status_code == 200, edited.text
+    deleted = await api_client.delete(f"/api/jobs/{job.id}/pursuit/comments/{oldest['id']}")
+    assert deleted.status_code == 200, deleted.text
+    after = (await api_client.get(f"/api/applications/{job.id}/activity")).json()["items"]
+    assert oldest["id"] not in [i["id"] for i in after if i["kind"] == "comment"]
+
+
+async def test_a_slice_larger_than_any_page_is_honoured(api_client, db_session):
+    job = await _job(db_session)
+    await _comment(api_client, job.id, "One")
+    await _comment(api_client, job.id, "Two")
+
+    response = await api_client.get(f"/api/applications/{job.id}/activity", params={"limit": 5000})
+
+    assert response.status_code == 200, response.text
+    assert len(response.json()["items"]) == 3
+
+
 async def test_a_page_that_ends_inside_rows_written_together_loses_none_of_them(api_client, db_session):
     """Rows one transaction writes share its `now()`: a first comment writes the
     pursuit's created event and the comment at one instant. Paging one item at

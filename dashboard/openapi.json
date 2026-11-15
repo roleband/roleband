@@ -30235,15 +30235,22 @@
       }
      },
      {
+      "description": "At most this many entries; the whole history when absent.",
       "in": "query",
       "name": "limit",
       "required": false,
       "schema": {
-       "default": 100,
-       "maximum": 200,
-       "minimum": 1,
-       "title": "Limit",
-       "type": "integer"
+       "anyOf": [
+        {
+         "minimum": 1,
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "At most this many entries; the whole history when absent.",
+       "title": "Limit"
       }
      },
      {

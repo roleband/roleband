@@ -1,8 +1,10 @@
 /* An application's feed, apart from how it looks: comments stand on their
- * own, and the recorded changes between two comments fold into one quiet
- * line. Pure, so the tests hold the folding without a screen. */
+ * own, the recorded changes between two comments fold into one quiet line,
+ * and the whole history is parted by month, with the points a person can
+ * jump to. Pure, so the tests hold the folding and the jumps without a
+ * screen. */
 
-import type { ActivityItem } from "../../api";
+import type { ActivityItem, ApplicationDetail } from "../../api";
 import { STAGE_LABEL } from "../../copy/vocabulary";
 import {
   applicationsFeedAdded,
@@ -70,4 +72,101 @@ export function eventChanges(event: ActivityEvent): string[] {
 /** Every distinct change a run of events made, newest first. */
 export function runChanges(events: readonly ActivityEvent[]): string[] {
   return [...new Set(events.flatMap(eventChanges))];
+}
+
+export interface FeedMonth {
+  /** The month in the reader's zone, as "YYYY-MM". */
+  key: string;
+  /** Its first day, at the reader's midnight. */
+  start: Date;
+  entries: FeedEntry[];
+  /** Every entry of the month in the feed's order, folded or not. */
+  items: ActivityItem[];
+  comments: number;
+}
+
+/** The month an instant falls in, in the reader's zone, as "YYYY-MM". */
+export function monthKey(at: string | Date): string {
+  const day = new Date(at);
+  return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** The feed parted by month, newest first. A folded run of changes never
+ *  crosses a month: each month folds its own. */
+export function feedMonths(items: readonly ActivityItem[], mode: FeedMode): FeedMonth[] {
+  const groups: ActivityItem[][] = [];
+  let open: string | null = null;
+  for (const item of items) {
+    const key = monthKey(item.created_at);
+    if (key !== open) {
+      groups.push([]);
+      open = key;
+    }
+    groups[groups.length - 1].push(item);
+  }
+  return groups.map((group) => {
+    const first = new Date(group[0].created_at);
+    return {
+      key: monthKey(first),
+      start: new Date(first.getFullYear(), first.getMonth(), 1),
+      entries: feedEntries(group, mode),
+      items: group,
+      comments: group.filter((item) => item.kind === "comment").length,
+    };
+  });
+}
+
+/** The key one entry is found by on the page: a comment's, or a change's. */
+export const itemKey = (item: ActivityItem): string => `${item.kind}-${item.id}`;
+
+export type JumpKind = "recent" | "applied" | "interview" | "offer" | "beginning";
+
+export interface JumpPoint {
+  kind: JumpKind;
+  at: Date;
+  /** The entry the jump lands on. */
+  item: ActivityItem;
+}
+
+/** The entry nearest an instant; of two as near, the newer. */
+export function nearestItem(items: readonly ActivityItem[], at: Date): ActivityItem | undefined {
+  let best: ActivityItem | undefined;
+  let gap = Infinity;
+  for (const item of items) {
+    const distance = Math.abs(new Date(item.created_at).getTime() - at.getTime());
+    if (distance < gap) {
+      best = item;
+      gap = distance;
+    }
+  }
+  return best;
+}
+
+/** The moments of this application a person remembers it by, newest first
+ *  except the beginning, which closes the list. A moment the application has
+ *  not reached is left out, and so is an interview still to come: the feed
+ *  holds only what happened. Each lands on the entry nearest its moment. */
+export function jumpPoints(
+  items: readonly ActivityItem[],
+  detail: Pick<ApplicationDetail, "stages_reached" | "interviews">,
+  now: Date,
+): JumpPoint[] {
+  if (items.length === 0) return [];
+  const reached = (stage: string) => detail.stages_reached.find((step) => step.stage === stage)?.at;
+  const held = detail.interviews
+    .filter((interview) => interview.outcome !== "cancelled" && new Date(interview.scheduled_at) <= now)
+    .map((interview) => new Date(interview.scheduled_at).getTime());
+  const moments: { kind: JumpKind; at: Date | null }[] = [
+    { kind: "offer", at: reached("offer") ? new Date(reached("offer")!) : null },
+    { kind: "interview", at: held.length ? new Date(Math.min(...held)) : null },
+    { kind: "applied", at: reached("applied") ? new Date(reached("applied")!) : null },
+  ];
+  const points: JumpPoint[] = [{ kind: "recent", at: new Date(items[0].created_at), item: items[0] }];
+  for (const { kind, at } of moments.filter((moment) => moment.at != null).sort((a, b) => b.at!.getTime() - a.at!.getTime())) {
+    const item = nearestItem(items, at!);
+    if (item) points.push({ kind, at: at!, item });
+  }
+  const last = items[items.length - 1];
+  if (items.length > 1) points.push({ kind: "beginning", at: new Date(last.created_at), item: last });
+  return points;
 }

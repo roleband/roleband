@@ -301,6 +301,46 @@ test("Mark done on the application page asks at once for the next step, and save
   ]);
 });
 
+test("a long history keeps its month in view while it scrolls, and a jump lands its entry in view with focus", async ({ page }) => {
+  await installPipeline(page);
+  // 300 entries a day apart, so the feed spans ten months; applied 200 days ago.
+  const day = 86_400_000;
+  const now = Date.now();
+  const items = Array.from({ length: 300 }, (_, n) => n % 3 === 0
+    ? { kind: "event", id: n, created_at: new Date(now - n * day).toISOString(), actor: "user", source: "app",
+      event_type: "updated", from_stage: "networking", to_stage: n === 201 ? "applied" : "networking", changed: n === 201 ? ["stage"] : ["priority"] }
+    : { kind: "comment", id: n, created_at: new Date(now - n * day).toISOString(), actor: "user", source: "app", body: `Note ${n}`, edited_at: null });
+  await mockGet(page, "/api/applications/*/activity", (route) => route.fulfill({ json: { items } }));
+  await mockGet(page, "/api/applications/101", (route) => route.fulfill({ json: applicationDetailFixture({
+    application: cards[0],
+    stages_reached: [{ stage: "applied", at: new Date(now - 201 * day).toISOString() }],
+  }) }));
+  await page.goto("/pipeline/101");
+  await expect(page.getByText("Note 299")).toBeAttached();
+
+  // Scrolled deep into the feed, the divider of the month being read is the
+  // one pinned at the top of the scroll, and nothing of the feed shows above it.
+  await page.getByText("Note 100").scrollIntoViewIfNeeded();
+  const top = await page.locator(".main").evaluate((main) => main.getBoundingClientRect().top);
+  const pinned = await page.locator(".app-feed-divider").evaluateAll((dividers, scrollTop) =>
+    dividers.filter((divider) => Math.abs(divider.getBoundingClientRect().top - scrollTop) < 2).map((divider) => divider.textContent), top);
+  expect(pinned, "one month's divider is pinned at the top").toHaveLength(1);
+
+  await page.getByRole("button", { name: new RegExp(`^${pinned[0]}, `) }).click();
+  const menu = page.getByRole("dialog", { name: msg("applications-feed-jump-label") });
+  await menu.getByRole("button", { name: new RegExp(msg("applications-feed-jump-applied")) }).click();
+
+  const landed = page.locator('[data-feed~="event-201"]');
+  await expect(landed).toBeFocused();
+  await expect(landed).toBeInViewport();
+  // It lands below its month's pinned divider, not under it.
+  const [landedBox, dividerBox] = await Promise.all([
+    landed.boundingBox(),
+    landed.locator("xpath=ancestor::section[1]").locator(".app-feed-divider").boundingBox(),
+  ]);
+  expect(landedBox!.y).toBeGreaterThanOrEqual(dividerBox!.y + dividerBox!.height - 1);
+});
+
 test("Up next lists what is due by day, overdue first, and a row opens its application", async ({ page }) => {
   const day = 86_400_000;
   await installPipeline(page, [
