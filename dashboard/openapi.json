@@ -4543,6 +4543,63 @@
     "title": "ContextExport",
     "type": "object"
    },
+   "CoverageHistory": {
+    "additionalProperties": false,
+    "description": "How far back the scope's companies have been read whole: no arrival\nbefore `since` can be dated, so no window reaches further.",
+    "properties": {
+     "days": {
+      "minimum": 0.0,
+      "title": "Days",
+      "type": "integer"
+     },
+     "since": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Since"
+     }
+    },
+    "required": [
+     "since",
+     "days"
+    ],
+    "title": "CoverageHistory",
+    "type": "object"
+   },
+   "CoverageWindow": {
+    "additionalProperties": false,
+    "properties": {
+     "days": {
+      "minimum": 0.0,
+      "title": "Days",
+      "type": "integer"
+     },
+     "since": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Since"
+     }
+    },
+    "required": [
+     "days",
+     "since"
+    ],
+    "title": "CoverageWindow",
+    "type": "object"
+   },
    "DecoderCell": {
     "additionalProperties": false,
     "description": "How one company grades one stage: a company-wide label or per-track labels.",
@@ -6860,6 +6917,942 @@
      "error"
     ],
     "title": "Envelope[DoctorReport]",
+    "type": "object"
+   },
+   "Envelope_InsightsCompensation_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsCompensation"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[InsightsCompensation]",
+    "type": "object"
+   },
+   "Envelope_InsightsDemand_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsDemand"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[InsightsDemand]",
+    "type": "object"
+   },
+   "Envelope_InsightsDisclosureTrends_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsDisclosureTrends"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[InsightsDisclosureTrends]",
+    "type": "object"
+   },
+   "Envelope_InsightsHistory_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsHistory"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[InsightsHistory]",
+    "type": "object"
+   },
+   "Envelope_InsightsLevels_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsLevels"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[InsightsLevels]",
+    "type": "object"
+   },
+   "Envelope_InsightsOfferTerms_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsOfferTerms"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[InsightsOfferTerms]",
+    "type": "object"
+   },
+   "Envelope_InsightsOverview_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsOverview"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[InsightsOverview]",
+    "type": "object"
+   },
+   "Envelope_InsightsPayTable_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsPayTable"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[InsightsPayTable]",
+    "type": "object"
+   },
+   "Envelope_InsightsPayTrends_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsPayTrends"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[InsightsPayTrends]",
+    "type": "object"
+   },
+   "Envelope_InsightsSkills_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsSkills"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[InsightsSkills]",
+    "type": "object"
+   },
+   "Envelope_InsightsTrajectory_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsTrajectory"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[InsightsTrajectory]",
+    "type": "object"
+   },
+   "Envelope_InsightsVelocity_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsVelocity"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[InsightsVelocity]",
     "type": "object"
    },
    "Envelope_ListingHistory_": {
@@ -9199,6 +10192,701 @@
     "title": "HistoryUnconfirmed",
     "type": "object"
    },
+   "InsightsCompPackage": {
+    "additionalProperties": false,
+    "properties": {
+     "base": {
+      "title": "Base",
+      "type": "integer"
+     },
+     "bonus": {
+      "title": "Bonus",
+      "type": "integer"
+     },
+     "count": {
+      "title": "Count",
+      "type": "integer"
+     },
+     "equity": {
+      "title": "Equity",
+      "type": "integer"
+     },
+     "equity_pct": {
+      "title": "Equity Pct",
+      "type": "number"
+     },
+     "median_tc": {
+      "title": "Median Tc",
+      "type": "integer"
+     },
+     "sources": {
+      "$ref": "#/components/schemas/InsightsPartSources"
+     }
+    },
+    "required": [
+     "count",
+     "median_tc",
+     "base",
+     "bonus",
+     "equity",
+     "equity_pct",
+     "sources"
+    ],
+    "title": "InsightsCompPackage",
+    "type": "object"
+   },
+   "InsightsCompensation": {
+    "additionalProperties": false,
+    "properties": {
+     "coverage": {
+      "$ref": "#/components/schemas/InsightsCoverage"
+     },
+     "disclosure": {
+      "$ref": "#/components/schemas/InsightsDisclosureRates"
+     },
+     "page": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsPage"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "posted": {
+      "$ref": "#/components/schemas/InsightsPostedPay"
+     }
+    },
+    "required": [
+     "coverage",
+     "posted",
+     "disclosure"
+    ],
+    "title": "InsightsCompensation",
+    "type": "object"
+   },
+   "InsightsCoverage": {
+    "additionalProperties": false,
+    "properties": {
+     "families": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Families",
+      "type": "array",
+      "x-text": "code"
+     },
+     "history": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/CoverageHistory"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "last_read_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Read At"
+     },
+     "off_board_companies": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Off Board Companies"
+     },
+     "population": {
+      "enum": [
+       "open_roles",
+       "daily_records",
+       "source_reads",
+       "reference"
+      ],
+      "title": "Population",
+      "type": "string",
+      "x-text": "code"
+     },
+     "side": {
+      "enum": [
+       "all",
+       "yours",
+       "other"
+      ],
+      "title": "Side",
+      "type": "string",
+      "x-text": "code"
+     },
+     "window": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/CoverageWindow"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "population",
+     "side",
+     "families",
+     "off_board_companies",
+     "window",
+     "history",
+     "last_read_at"
+    ],
+    "title": "InsightsCoverage",
+    "type": "object"
+   },
+   "InsightsDemand": {
+    "additionalProperties": false,
+    "properties": {
+     "closed": {
+      "title": "Closed",
+      "type": "integer"
+     },
+     "companies": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsHiringCompany"
+      },
+      "title": "Companies",
+      "type": "array"
+     },
+     "coverage": {
+      "$ref": "#/components/schemas/InsightsCoverage"
+     },
+     "employer_dated_share": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Employer Dated Share"
+     },
+     "new": {
+      "title": "New",
+      "type": "integer"
+     },
+     "open_total": {
+      "title": "Open Total",
+      "type": "integer"
+     },
+     "page": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsPage"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "regions": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsHiringRegion"
+      },
+      "title": "Regions",
+      "type": "array"
+     },
+     "unplaced": {
+      "title": "Unplaced",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "coverage",
+     "open_total",
+     "new",
+     "closed",
+     "companies",
+     "regions",
+     "unplaced",
+     "employer_dated_share"
+    ],
+    "title": "InsightsDemand",
+    "type": "object"
+   },
+   "InsightsDisclosedBand": {
+    "additionalProperties": false,
+    "properties": {
+     "company": {
+      "title": "Company",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "high": {
+      "title": "High",
+      "type": "integer"
+     },
+     "level_band": {
+      "title": "Level Band",
+      "type": "string",
+      "x-text": "code"
+     },
+     "low": {
+      "title": "Low",
+      "type": "integer"
+     },
+     "reqs": {
+      "title": "Reqs",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "company",
+     "level_band",
+     "low",
+     "high",
+     "reqs"
+    ],
+    "title": "InsightsDisclosedBand",
+    "type": "object"
+   },
+   "InsightsDisclosureCohort": {
+    "additionalProperties": false,
+    "properties": {
+     "companies": {
+      "title": "Companies",
+      "type": "integer"
+     },
+     "since": {
+      "title": "Since",
+      "type": "string",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "since",
+     "companies"
+    ],
+    "title": "InsightsDisclosureCohort",
+    "type": "object"
+   },
+   "InsightsDisclosureCounts": {
+    "additionalProperties": false,
+    "properties": {
+     "checked": {
+      "title": "Checked",
+      "type": "integer"
+     },
+     "disclosed": {
+      "title": "Disclosed",
+      "type": "integer"
+     },
+     "open": {
+      "title": "Open",
+      "type": "integer"
+     },
+     "rate": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Rate"
+     }
+    },
+    "required": [
+     "open",
+     "checked",
+     "disclosed",
+     "rate"
+    ],
+    "title": "InsightsDisclosureCounts",
+    "type": "object"
+   },
+   "InsightsDisclosureLevel": {
+    "additionalProperties": false,
+    "properties": {
+     "checked": {
+      "title": "Checked",
+      "type": "integer"
+     },
+     "disclosed": {
+      "title": "Disclosed",
+      "type": "integer"
+     },
+     "level_band": {
+      "title": "Level Band",
+      "type": "string",
+      "x-text": "code"
+     },
+     "open": {
+      "title": "Open",
+      "type": "integer"
+     },
+     "rate": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Rate"
+     }
+    },
+    "required": [
+     "level_band",
+     "open",
+     "checked",
+     "disclosed",
+     "rate"
+    ],
+    "title": "InsightsDisclosureLevel",
+    "type": "object"
+   },
+   "InsightsDisclosureRates": {
+    "additionalProperties": false,
+    "properties": {
+     "by_level": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsDisclosureLevel"
+      },
+      "title": "By Level",
+      "type": "array"
+     },
+     "overall": {
+      "$ref": "#/components/schemas/InsightsDisclosureCounts"
+     }
+    },
+    "required": [
+     "overall",
+     "by_level"
+    ],
+    "title": "InsightsDisclosureRates",
+    "type": "object"
+   },
+   "InsightsDisclosureTrendPoint": {
+    "additionalProperties": false,
+    "properties": {
+     "bands": {
+      "title": "Bands",
+      "type": "integer"
+     },
+     "checked": {
+      "title": "Checked",
+      "type": "integer"
+     },
+     "date": {
+      "title": "Date",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "disclosed": {
+      "title": "Disclosed",
+      "type": "integer"
+     },
+     "high_p50": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "High P50"
+     },
+     "low_p50": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Low P50"
+     },
+     "open": {
+      "title": "Open",
+      "type": "integer"
+     },
+     "rate": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Rate"
+     },
+     "reqs": {
+      "title": "Reqs",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "date",
+     "open",
+     "checked",
+     "disclosed",
+     "rate",
+     "bands",
+     "reqs",
+     "low_p50",
+     "high_p50"
+    ],
+    "title": "InsightsDisclosureTrendPoint",
+    "type": "object"
+   },
+   "InsightsDisclosureTrendSeries": {
+    "additionalProperties": false,
+    "properties": {
+     "checked": {
+      "title": "Checked",
+      "type": "integer"
+     },
+     "disclosed": {
+      "title": "Disclosed",
+      "type": "integer"
+     },
+     "key": {
+      "title": "Key",
+      "type": "string",
+      "x-text": "code"
+     },
+     "points": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsDisclosureTrendPoint"
+      },
+      "title": "Points",
+      "type": "array"
+     }
+    },
+    "required": [
+     "key",
+     "checked",
+     "disclosed",
+     "points"
+    ],
+    "title": "InsightsDisclosureTrendSeries",
+    "type": "object"
+   },
+   "InsightsDisclosureTrends": {
+    "additionalProperties": false,
+    "properties": {
+     "basis": {
+      "const": "base",
+      "title": "Basis",
+      "type": "string",
+      "x-text": "code"
+     },
+     "cohort": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsDisclosureCohort"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "coverage": {
+      "$ref": "#/components/schemas/InsightsCoverage"
+     },
+     "dates": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Dates",
+      "type": "array",
+      "x-text": "identifier"
+     },
+     "days": {
+      "title": "Days",
+      "type": "integer"
+     },
+     "dim": {
+      "enum": [
+       "overall",
+       "company",
+       "level"
+      ],
+      "title": "Dim",
+      "type": "string",
+      "x-text": "code"
+     },
+     "page": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsPage"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "series": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsDisclosureTrendSeries"
+      },
+      "title": "Series",
+      "type": "array"
+     }
+    },
+    "required": [
+     "coverage",
+     "dim",
+     "days",
+     "basis",
+     "dates",
+     "series",
+     "cohort"
+    ],
+    "title": "InsightsDisclosureTrends",
+    "type": "object"
+   },
+   "InsightsHiringCompany": {
+    "additionalProperties": false,
+    "properties": {
+     "closed": {
+      "title": "Closed",
+      "type": "integer"
+     },
+     "company": {
+      "title": "Company",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "new": {
+      "title": "New",
+      "type": "integer"
+     },
+     "open": {
+      "title": "Open",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "company",
+     "open",
+     "new",
+     "closed"
+    ],
+    "title": "InsightsHiringCompany",
+    "type": "object"
+   },
+   "InsightsHiringCountry": {
+    "additionalProperties": false,
+    "properties": {
+     "key": {
+      "title": "Key",
+      "type": "string",
+      "x-text": "code"
+     },
+     "open": {
+      "title": "Open",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "key",
+     "open"
+    ],
+    "title": "InsightsHiringCountry",
+    "type": "object"
+   },
+   "InsightsHiringRegion": {
+    "additionalProperties": false,
+    "properties": {
+     "countries": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsHiringCountry"
+      },
+      "title": "Countries",
+      "type": "array"
+     },
+     "key": {
+      "title": "Key",
+      "type": "string",
+      "x-text": "code"
+     },
+     "open": {
+      "title": "Open",
+      "type": "integer"
+     },
+     "region_wide": {
+      "title": "Region Wide",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "key",
+     "open",
+     "region_wide",
+     "countries"
+    ],
+    "title": "InsightsHiringRegion",
+    "type": "object"
+   },
+   "InsightsHistory": {
+    "additionalProperties": false,
+    "properties": {
+     "coverage": {
+      "$ref": "#/components/schemas/InsightsCoverage"
+     },
+     "days": {
+      "title": "Days",
+      "type": "integer"
+     },
+     "page": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsPage"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "since": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Since"
+     }
+    },
+    "required": [
+     "coverage",
+     "since",
+     "days"
+    ],
+    "title": "InsightsHistory",
+    "type": "object"
+   },
    "InsightsHistoryResponse": {
     "additionalProperties": false,
     "description": "`GET /api/statistics/history`: when the history of the scope's companies\nstarts (`queries.insights.history_since`) and how many whole days it covers.",
@@ -9225,6 +10913,2297 @@
      "days"
     ],
     "title": "InsightsHistoryResponse",
+    "type": "object"
+   },
+   "InsightsLevelGuideCell": {
+    "additionalProperties": false,
+    "description": "How one company names one level: one entry for every function\n(`company_wide`), or one per track (`per_track`); the other is null.",
+    "properties": {
+     "company_wide": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsLevelGuideEntry"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "per_track": {
+      "anyOf": [
+       {
+        "additionalProperties": {
+         "$ref": "#/components/schemas/InsightsLevelGuideEntry"
+        },
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Per Track"
+     }
+    },
+    "title": "InsightsLevelGuideCell",
+    "type": "object"
+   },
+   "InsightsLevelGuideCompany": {
+    "additionalProperties": false,
+    "properties": {
+     "flat": {
+      "title": "Flat",
+      "type": "boolean"
+     },
+     "levels": {
+      "additionalProperties": {
+       "$ref": "#/components/schemas/InsightsLevelGuideCell"
+      },
+      "title": "Levels",
+      "type": "object"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "slug",
+     "flat",
+     "levels"
+    ],
+    "title": "InsightsLevelGuideCompany",
+    "type": "object"
+   },
+   "InsightsLevelGuideEntry": {
+    "additionalProperties": false,
+    "properties": {
+     "label": {
+      "title": "Label",
+      "type": "string",
+      "x-text": "content"
+     },
+     "spellings": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Spellings",
+      "type": "array",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "label",
+     "spellings"
+    ],
+    "title": "InsightsLevelGuideEntry",
+    "type": "object"
+   },
+   "InsightsLevelGuideUnguided": {
+    "additionalProperties": false,
+    "properties": {
+     "same_as": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Same As",
+      "x-text": "identifier"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "slug",
+     "same_as"
+    ],
+    "title": "InsightsLevelGuideUnguided",
+    "type": "object"
+   },
+   "InsightsLevels": {
+    "additionalProperties": false,
+    "properties": {
+     "companies": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsLevelGuideCompany"
+      },
+      "title": "Companies",
+      "type": "array"
+     },
+     "coverage": {
+      "$ref": "#/components/schemas/InsightsCoverage"
+     },
+     "page": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsPage"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "tracks": {
+      "additionalProperties": {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      "title": "Tracks",
+      "type": "object"
+     },
+     "unguided": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsLevelGuideUnguided"
+      },
+      "title": "Unguided",
+      "type": "array"
+     }
+    },
+    "required": [
+     "coverage",
+     "companies",
+     "unguided",
+     "tracks"
+    ],
+    "title": "InsightsLevels",
+    "type": "object"
+   },
+   "InsightsOfferQuote": {
+    "additionalProperties": false,
+    "properties": {
+     "as_of": {
+      "title": "As Of",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "price": {
+      "title": "Price",
+      "type": "number"
+     }
+    },
+    "required": [
+     "price",
+     "as_of"
+    ],
+    "title": "InsightsOfferQuote",
+    "type": "object"
+   },
+   "InsightsOfferTerms": {
+    "additionalProperties": false,
+    "properties": {
+     "companies": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsOfferTermsCompany"
+      },
+      "title": "Companies",
+      "type": "array"
+     },
+     "coverage": {
+      "$ref": "#/components/schemas/InsightsCoverage"
+     },
+     "feed_configured": {
+      "title": "Feed Configured",
+      "type": "boolean"
+     },
+     "page": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsPage"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "coverage",
+     "feed_configured",
+     "companies"
+    ],
+    "title": "InsightsOfferTerms",
+    "type": "object"
+   },
+   "InsightsOfferTermsCompany": {
+    "additionalProperties": false,
+    "description": "The terms a company states for an offer; a term it does not state is null.",
+    "properties": {
+     "bonus_rule": {
+      "anyOf": [
+       {
+        "enum": [
+         "pct_of_base",
+         "none"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Bonus Rule",
+      "x-text": "code"
+     },
+     "company": {
+      "title": "Company",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "equity_vehicle": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Equity Vehicle",
+      "x-text": "code"
+     },
+     "listed": {
+      "title": "Listed",
+      "type": "boolean"
+     },
+     "quote": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsOfferQuote"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "sign_on_bridges_vesting": {
+      "title": "Sign On Bridges Vesting",
+      "type": "boolean"
+     },
+     "ticker": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ticker",
+      "x-text": "identifier"
+     },
+     "vesting": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "number"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Vesting"
+     },
+     "vesting_stated_by": {
+      "anyOf": [
+       {
+        "enum": [
+         "employer",
+         "estimated"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Vesting Stated By",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "company",
+     "listed",
+     "ticker",
+     "equity_vehicle",
+     "vesting",
+     "vesting_stated_by",
+     "bonus_rule",
+     "sign_on_bridges_vesting",
+     "quote"
+    ],
+    "title": "InsightsOfferTermsCompany",
+    "type": "object"
+   },
+   "InsightsOverview": {
+    "additionalProperties": false,
+    "properties": {
+     "coverage": {
+      "$ref": "#/components/schemas/InsightsCoverage"
+     },
+     "days": {
+      "title": "Days",
+      "type": "integer"
+     },
+     "kpis": {
+      "$ref": "#/components/schemas/InsightsOverviewKpis"
+     },
+     "page": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsPage"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "since": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Since"
+     },
+     "top_skills": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsOverviewSkill"
+      },
+      "title": "Top Skills",
+      "type": "array"
+     }
+    },
+    "required": [
+     "coverage",
+     "days",
+     "since",
+     "kpis",
+     "top_skills"
+    ],
+    "title": "InsightsOverview",
+    "type": "object"
+   },
+   "InsightsOverviewKpis": {
+    "additionalProperties": false,
+    "properties": {
+     "already_listed_count": {
+      "title": "Already Listed Count",
+      "type": "integer"
+     },
+     "closed_count": {
+      "title": "Closed Count",
+      "type": "integer"
+     },
+     "companies": {
+      "title": "Companies",
+      "type": "integer"
+     },
+     "new_count": {
+      "title": "New Count",
+      "type": "integer"
+     },
+     "open_total": {
+      "title": "Open Total",
+      "type": "integer"
+     },
+     "saved_total": {
+      "title": "Saved Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "open_total",
+     "new_count",
+     "already_listed_count",
+     "closed_count",
+     "companies",
+     "saved_total"
+    ],
+    "title": "InsightsOverviewKpis",
+    "type": "object"
+   },
+   "InsightsOverviewSkill": {
+    "additionalProperties": false,
+    "properties": {
+     "category": {
+      "title": "Category",
+      "type": "string",
+      "x-text": "code"
+     },
+     "job_count": {
+      "title": "Job Count",
+      "type": "integer"
+     },
+     "term": {
+      "title": "Term",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "term",
+     "category",
+     "job_count"
+    ],
+    "title": "InsightsOverviewSkill",
+    "type": "object"
+   },
+   "InsightsPage": {
+    "additionalProperties": false,
+    "description": "Present when this answer holds part of its lists: the tier's budget\nended it, or it was asked for from a cursor. The lists are read as one\nsequence in the order `lists` names them; `offset` is where this answer\nstarts in it.",
+    "properties": {
+     "budget_bytes": {
+      "title": "Budget Bytes",
+      "type": "integer"
+     },
+     "continue_with": {
+      "items": {
+       "$ref": "#/components/schemas/NextAction"
+      },
+      "title": "Continue With",
+      "type": "array"
+     },
+     "lists": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Lists",
+      "type": "array",
+      "x-text": "code"
+     },
+     "offset": {
+      "minimum": 0.0,
+      "title": "Offset",
+      "type": "integer"
+     },
+     "returned": {
+      "minimum": 0.0,
+      "title": "Returned",
+      "type": "integer"
+     },
+     "tier": {
+      "enum": [
+       "small",
+       "standard",
+       "full"
+      ],
+      "title": "Tier",
+      "type": "string",
+      "x-text": "code"
+     },
+     "total": {
+      "minimum": 0.0,
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "lists",
+     "offset",
+     "returned",
+     "total",
+     "tier",
+     "budget_bytes"
+    ],
+    "title": "InsightsPage",
+    "type": "object"
+   },
+   "InsightsPartSources": {
+    "additionalProperties": false,
+    "description": "Where each part of a package comes from: what a posting states, what\nthe company's rule sets, what was measured, or an estimate.",
+    "properties": {
+     "base": {
+      "enum": [
+       "posted",
+       "company_rule",
+       "measured",
+       "estimated",
+       "mixed"
+      ],
+      "title": "Base",
+      "type": "string",
+      "x-text": "code"
+     },
+     "bonus": {
+      "enum": [
+       "posted",
+       "company_rule",
+       "measured",
+       "estimated",
+       "mixed"
+      ],
+      "title": "Bonus",
+      "type": "string",
+      "x-text": "code"
+     },
+     "equity": {
+      "enum": [
+       "posted",
+       "company_rule",
+       "measured",
+       "estimated",
+       "mixed"
+      ],
+      "title": "Equity",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "base",
+     "bonus",
+     "equity"
+    ],
+    "title": "InsightsPartSources",
+    "type": "object"
+   },
+   "InsightsPayByDiscipline": {
+    "additionalProperties": false,
+    "properties": {
+     "disciplines": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsPayDiscipline"
+      },
+      "title": "Disciplines",
+      "type": "array"
+     },
+     "max_employer_share": {
+      "title": "Max Employer Share",
+      "type": "number"
+     },
+     "min_employers": {
+      "title": "Min Employers",
+      "type": "integer"
+     },
+     "min_ranges": {
+      "title": "Min Ranges",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "min_employers",
+     "min_ranges",
+     "max_employer_share",
+     "disciplines"
+    ],
+    "title": "InsightsPayByDiscipline",
+    "type": "object"
+   },
+   "InsightsPayDiscipline": {
+    "additionalProperties": false,
+    "properties": {
+     "employers": {
+      "title": "Employers",
+      "type": "integer"
+     },
+     "enough": {
+      "title": "Enough",
+      "type": "boolean"
+     },
+     "family": {
+      "title": "Family",
+      "type": "string",
+      "x-text": "code"
+     },
+     "high": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "High"
+     },
+     "low": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Low"
+     },
+     "mid_p25": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mid P25"
+     },
+     "mid_p75": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mid P75"
+     },
+     "picked": {
+      "title": "Picked",
+      "type": "boolean"
+     },
+     "ranges": {
+      "title": "Ranges",
+      "type": "integer"
+     },
+     "roles": {
+      "title": "Roles",
+      "type": "integer"
+     },
+     "top_share": {
+      "title": "Top Share",
+      "type": "number"
+     },
+     "withheld": {
+      "anyOf": [
+       {
+        "enum": [
+         "too_few",
+         "one_employer"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Withheld",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "family",
+     "picked",
+     "ranges",
+     "employers",
+     "roles",
+     "enough",
+     "low",
+     "high",
+     "mid_p25",
+     "mid_p75",
+     "top_share",
+     "withheld"
+    ],
+    "title": "InsightsPayDiscipline",
+    "type": "object"
+   },
+   "InsightsPayTable": {
+    "additionalProperties": false,
+    "properties": {
+     "by_discipline": {
+      "$ref": "#/components/schemas/InsightsPayByDiscipline"
+     },
+     "country": {
+      "title": "Country",
+      "type": "string",
+      "x-text": "code"
+     },
+     "coverage": {
+      "$ref": "#/components/schemas/InsightsCoverage"
+     },
+     "currency": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Currency",
+      "x-text": "code"
+     },
+     "estimates": {
+      "title": "Estimates",
+      "type": "boolean"
+     },
+     "level_band": {
+      "title": "Level Band",
+      "type": "string",
+      "x-text": "code"
+     },
+     "min_skill_roles": {
+      "title": "Min Skill Roles",
+      "type": "integer"
+     },
+     "not_placed": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsPayTableUnplaced"
+      },
+      "title": "Not Placed",
+      "type": "array"
+     },
+     "page": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsPage"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "rows": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsPayTableRow"
+      },
+      "title": "Rows",
+      "type": "array"
+     },
+     "skill": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Skill",
+      "x-text": "code"
+     },
+     "skills": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsPayTableSkill"
+      },
+      "title": "Skills",
+      "type": "array"
+     }
+    },
+    "required": [
+     "coverage",
+     "country",
+     "level_band",
+     "currency",
+     "skill",
+     "estimates",
+     "rows",
+     "not_placed",
+     "skills",
+     "min_skill_roles",
+     "by_discipline"
+    ],
+    "title": "InsightsPayTable",
+    "type": "object"
+   },
+   "InsightsPayTableEquity": {
+    "additionalProperties": false,
+    "properties": {
+     "rule": {
+      "anyOf": [
+       {
+        "enum": [
+         "none",
+         "employee_election"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Rule",
+      "x-text": "code"
+     },
+     "vehicle": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Vehicle",
+      "x-text": "code"
+     },
+     "vesting": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Vesting",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "vehicle",
+     "vesting",
+     "rule"
+    ],
+    "title": "InsightsPayTableEquity",
+    "type": "object"
+   },
+   "InsightsPayTableEstimate": {
+    "additionalProperties": false,
+    "description": "RoleBand's estimate of base salary: a span, never stated pay.",
+    "properties": {
+     "families": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Families",
+      "type": "array",
+      "x-text": "code"
+     },
+     "high": {
+      "title": "High",
+      "type": "integer"
+     },
+     "low": {
+      "title": "Low",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "low",
+     "high",
+     "families"
+    ],
+    "title": "InsightsPayTableEstimate",
+    "type": "object"
+   },
+   "InsightsPayTableRange": {
+    "additionalProperties": false,
+    "properties": {
+     "high": {
+      "title": "High",
+      "type": "integer"
+     },
+     "low": {
+      "title": "Low",
+      "type": "integer"
+     },
+     "roles": {
+      "title": "Roles",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "low",
+     "high",
+     "roles"
+    ],
+    "title": "InsightsPayTableRange",
+    "type": "object"
+   },
+   "InsightsPayTableRow": {
+    "additionalProperties": false,
+    "description": "One company hiring at the level in the country. `low`, `high` and\n`ranges` are what it posts; `estimate_base` and `estimate_total` are\nestimates, never stated pay.",
+    "properties": {
+     "checked": {
+      "title": "Checked",
+      "type": "integer"
+     },
+     "company": {
+      "title": "Company",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "currency": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Currency",
+      "x-text": "code"
+     },
+     "equity": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsPayTableEquity"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "estimate_base": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsPayTableEstimate"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "estimate_total": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsPayTableTotal"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "followed_as_set": {
+      "title": "Followed As Set",
+      "type": "boolean"
+     },
+     "high": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "High"
+     },
+     "low": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Low"
+     },
+     "open_roles": {
+      "title": "Open Roles",
+      "type": "integer"
+     },
+     "other_currency": {
+      "title": "Other Currency",
+      "type": "boolean"
+     },
+     "posting": {
+      "title": "Posting",
+      "type": "integer"
+     },
+     "ranges": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsPayTableRange"
+      },
+      "title": "Ranges",
+      "type": "array"
+     },
+     "reason": {
+      "anyOf": [
+       {
+        "enum": [
+         "total",
+         "unclear",
+         "several_countries",
+         "not_yearly",
+         "placed_by_pay",
+         "unread",
+         "none"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reason",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "company",
+     "followed_as_set",
+     "open_roles",
+     "posting",
+     "checked",
+     "currency",
+     "low",
+     "high",
+     "ranges",
+     "other_currency",
+     "reason",
+     "estimate_base",
+     "estimate_total",
+     "equity"
+    ],
+    "title": "InsightsPayTableRow",
+    "type": "object"
+   },
+   "InsightsPayTableSkill": {
+    "additionalProperties": false,
+    "properties": {
+     "roles": {
+      "title": "Roles",
+      "type": "integer"
+     },
+     "term": {
+      "title": "Term",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "term",
+     "roles"
+    ],
+    "title": "InsightsPayTableSkill",
+    "type": "object"
+   },
+   "InsightsPayTableTotal": {
+    "additionalProperties": false,
+    "description": "RoleBand's estimate of total compensation, as a span.",
+    "properties": {
+     "high": {
+      "title": "High",
+      "type": "integer"
+     },
+     "low": {
+      "title": "Low",
+      "type": "integer"
+     },
+     "rung": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Rung",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "low",
+     "high",
+     "rung"
+    ],
+    "title": "InsightsPayTableTotal",
+    "type": "object"
+   },
+   "InsightsPayTableUnplaced": {
+    "additionalProperties": false,
+    "properties": {
+     "company": {
+      "title": "Company",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "roles": {
+      "title": "Roles",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "company",
+     "roles"
+    ],
+    "title": "InsightsPayTableUnplaced",
+    "type": "object"
+   },
+   "InsightsPayTrendPoint": {
+    "additionalProperties": false,
+    "properties": {
+     "date": {
+      "title": "Date",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "p25": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "P25"
+     },
+     "p50": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "P50"
+     },
+     "p75": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "P75"
+     },
+     "p90": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "P90"
+     }
+    },
+    "required": [
+     "date",
+     "p25",
+     "p50",
+     "p75",
+     "p90"
+    ],
+    "title": "InsightsPayTrendPoint",
+    "type": "object"
+   },
+   "InsightsPayTrendSeries": {
+    "additionalProperties": false,
+    "properties": {
+     "count": {
+      "title": "Count",
+      "type": "integer"
+     },
+     "key": {
+      "title": "Key",
+      "type": "string",
+      "x-text": "code"
+     },
+     "points": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsPayTrendPoint"
+      },
+      "title": "Points",
+      "type": "array"
+     }
+    },
+    "required": [
+     "key",
+     "count",
+     "points"
+    ],
+    "title": "InsightsPayTrendSeries",
+    "type": "object"
+   },
+   "InsightsPayTrends": {
+    "additionalProperties": false,
+    "properties": {
+     "coverage": {
+      "$ref": "#/components/schemas/InsightsCoverage"
+     },
+     "dates": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Dates",
+      "type": "array",
+      "x-text": "identifier"
+     },
+     "days": {
+      "title": "Days",
+      "type": "integer"
+     },
+     "dim": {
+      "enum": [
+       "overall",
+       "company",
+       "level",
+       "family"
+      ],
+      "title": "Dim",
+      "type": "string",
+      "x-text": "code"
+     },
+     "page": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsPage"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "reference_changes": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsReferenceChange"
+      },
+      "title": "Reference Changes",
+      "type": "array"
+     },
+     "series": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsPayTrendSeries"
+      },
+      "title": "Series",
+      "type": "array"
+     }
+    },
+    "required": [
+     "coverage",
+     "dim",
+     "days",
+     "dates",
+     "series",
+     "reference_changes"
+    ],
+    "title": "InsightsPayTrends",
+    "type": "object"
+   },
+   "InsightsPostedCountry": {
+    "additionalProperties": false,
+    "properties": {
+     "bands": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsDisclosedBand"
+      },
+      "title": "Bands",
+      "type": "array"
+     },
+     "country": {
+      "title": "Country",
+      "type": "string",
+      "x-text": "code"
+     },
+     "currency": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Currency",
+      "x-text": "code"
+     },
+     "excluded": {
+      "$ref": "#/components/schemas/InsightsPostedCountryExclusions"
+     },
+     "levels": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsPostedLevel"
+      },
+      "title": "Levels",
+      "type": "array"
+     },
+     "not_placed": {
+      "$ref": "#/components/schemas/InsightsPostedUnplaced"
+     },
+     "other_currency": {
+      "title": "Other Currency",
+      "type": "integer"
+     },
+     "ranges": {
+      "title": "Ranges",
+      "type": "integer"
+     },
+     "yours": {
+      "title": "Yours",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "country",
+     "currency",
+     "ranges",
+     "yours",
+     "levels",
+     "not_placed",
+     "other_currency",
+     "bands",
+     "excluded"
+    ],
+    "title": "InsightsPostedCountry",
+    "type": "object"
+   },
+   "InsightsPostedCountryExclusions": {
+    "additionalProperties": false,
+    "properties": {
+     "implausible": {
+      "title": "Implausible",
+      "type": "integer"
+     },
+     "not_base": {
+      "title": "Not Base",
+      "type": "integer"
+     },
+     "not_yearly": {
+      "title": "Not Yearly",
+      "type": "integer"
+     },
+     "placed_by_pay": {
+      "title": "Placed By Pay",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "not_base",
+     "not_yearly",
+     "implausible",
+     "placed_by_pay"
+    ],
+    "title": "InsightsPostedCountryExclusions",
+    "type": "object"
+   },
+   "InsightsPostedExclusions": {
+    "additionalProperties": false,
+    "properties": {
+     "implausible": {
+      "title": "Implausible",
+      "type": "integer"
+     },
+     "no_country": {
+      "title": "No Country",
+      "type": "integer"
+     },
+     "not_base": {
+      "title": "Not Base",
+      "type": "integer"
+     },
+     "not_yearly": {
+      "title": "Not Yearly",
+      "type": "integer"
+     },
+     "placed_by_pay": {
+      "title": "Placed By Pay",
+      "type": "integer"
+     },
+     "without_country": {
+      "title": "Without Country",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "not_base",
+     "not_yearly",
+     "implausible",
+     "no_country",
+     "placed_by_pay",
+     "without_country"
+    ],
+    "title": "InsightsPostedExclusions",
+    "type": "object"
+   },
+   "InsightsPostedLevel": {
+    "additionalProperties": false,
+    "description": "One level's posted yearly base pay in one country and currency. Below\nthe minimums `enough` is false and the figures are null.",
+    "properties": {
+     "employers": {
+      "title": "Employers",
+      "type": "integer"
+     },
+     "enough": {
+      "title": "Enough",
+      "type": "boolean"
+     },
+     "high": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "High"
+     },
+     "level_band": {
+      "title": "Level Band",
+      "type": "string",
+      "x-text": "code"
+     },
+     "low": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Low"
+     },
+     "mid_p25": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mid P25"
+     },
+     "mid_p75": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mid P75"
+     },
+     "ranges": {
+      "title": "Ranges",
+      "type": "integer"
+     },
+     "roles": {
+      "title": "Roles",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "level_band",
+     "ranges",
+     "employers",
+     "roles",
+     "enough",
+     "low",
+     "high",
+     "mid_p25",
+     "mid_p75"
+    ],
+    "title": "InsightsPostedLevel",
+    "type": "object"
+   },
+   "InsightsPostedPay": {
+    "additionalProperties": false,
+    "description": "What employers post as yearly base pay, per country and level: stated\npay only, never an estimate.",
+    "properties": {
+     "countries": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsPostedCountry"
+      },
+      "title": "Countries",
+      "type": "array"
+     },
+     "default_country": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Default Country",
+      "x-text": "code"
+     },
+     "excluded": {
+      "$ref": "#/components/schemas/InsightsPostedExclusions"
+     },
+     "min_employers": {
+      "title": "Min Employers",
+      "type": "integer"
+     },
+     "min_ranges": {
+      "title": "Min Ranges",
+      "type": "integer"
+     },
+     "your_levels": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Your Levels",
+      "type": "array",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "min_employers",
+     "min_ranges",
+     "default_country",
+     "countries",
+     "excluded",
+     "your_levels"
+    ],
+    "title": "InsightsPostedPay",
+    "type": "object"
+   },
+   "InsightsPostedUnplaced": {
+    "additionalProperties": false,
+    "properties": {
+     "ranges": {
+      "title": "Ranges",
+      "type": "integer"
+     },
+     "roles": {
+      "title": "Roles",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "roles",
+     "ranges"
+    ],
+    "title": "InsightsPostedUnplaced",
+    "type": "object"
+   },
+   "InsightsReferenceChange": {
+    "additionalProperties": false,
+    "description": "A switch of the pay reference inside the window: a step in a series\nthere is a change of sources, not of the market.",
+    "properties": {
+     "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+     },
+     "companies": {
+      "title": "Companies",
+      "type": "integer"
+     },
+     "gained": {
+      "title": "Gained",
+      "type": "integer"
+     },
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "jobs": {
+      "title": "Jobs",
+      "type": "integer"
+     },
+     "lost": {
+      "title": "Lost",
+      "type": "integer"
+     },
+     "moved": {
+      "title": "Moved",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "at",
+     "jobs",
+     "moved",
+     "gained",
+     "lost",
+     "companies"
+    ],
+    "title": "InsightsReferenceChange",
+    "type": "object"
+   },
+   "InsightsSkills": {
+    "additionalProperties": false,
+    "properties": {
+     "competencies": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsTopSkill"
+      },
+      "title": "Competencies",
+      "type": "array"
+     },
+     "coverage": {
+      "$ref": "#/components/schemas/InsightsCoverage"
+     },
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsTopSkill"
+      },
+      "title": "Items",
+      "type": "array"
+     },
+     "market_roles": {
+      "title": "Market Roles",
+      "type": "integer"
+     },
+     "narrowed": {
+      "title": "Narrowed",
+      "type": "boolean"
+     },
+     "page": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsPage"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "roles": {
+      "title": "Roles",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "coverage",
+     "items",
+     "competencies",
+     "roles",
+     "market_roles",
+     "narrowed"
+    ],
+    "title": "InsightsSkills",
+    "type": "object"
+   },
+   "InsightsTopSkill": {
+    "additionalProperties": false,
+    "properties": {
+     "category": {
+      "title": "Category",
+      "type": "string",
+      "x-text": "code"
+     },
+     "distinctiveness": {
+      "title": "Distinctiveness",
+      "type": "number"
+     },
+     "job_count": {
+      "title": "Job Count",
+      "type": "integer"
+     },
+     "lift": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Lift"
+     },
+     "market_share": {
+      "title": "Market Share",
+      "type": "number"
+     },
+     "share": {
+      "title": "Share",
+      "type": "number"
+     },
+     "term": {
+      "title": "Term",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "term",
+     "category",
+     "job_count",
+     "share",
+     "market_share",
+     "lift",
+     "distinctiveness"
+    ],
+    "title": "InsightsTopSkill",
+    "type": "object"
+   },
+   "InsightsTrajectory": {
+    "additionalProperties": false,
+    "properties": {
+     "choice": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsTrajectoryChoiceCompany"
+      },
+      "title": "Choice",
+      "type": "array"
+     },
+     "coverage": {
+      "$ref": "#/components/schemas/InsightsCoverage"
+     },
+     "currency": {
+      "const": "USD",
+      "title": "Currency",
+      "type": "string",
+      "x-text": "code"
+     },
+     "overall": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsCompPackage"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "page": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsPage"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "private": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsTrajectoryPrivateCompany"
+      },
+      "title": "Private",
+      "type": "array"
+     },
+     "public": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsTrajectoryPublicCompany"
+      },
+      "title": "Public",
+      "type": "array"
+     },
+     "set_apart": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsTrajectorySetApart"
+      },
+      "title": "Set Apart",
+      "type": "array"
+     }
+    },
+    "required": [
+     "coverage",
+     "currency",
+     "overall",
+     "public",
+     "private",
+     "choice",
+     "set_apart"
+    ],
+    "title": "InsightsTrajectory",
+    "type": "object"
+   },
+   "InsightsTrajectoryChoiceCompany": {
+    "additionalProperties": false,
+    "properties": {
+     "company": {
+      "title": "Company",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "count": {
+      "title": "Count",
+      "type": "integer"
+     },
+     "median_tc": {
+      "title": "Median Tc",
+      "type": "integer"
+     },
+     "ticker": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ticker",
+      "x-text": "identifier"
+     },
+     "total_source": {
+      "enum": [
+       "posted",
+       "estimated",
+       "mixed"
+      ],
+      "title": "Total Source",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "company",
+     "ticker",
+     "count",
+     "median_tc",
+     "total_source"
+    ],
+    "title": "InsightsTrajectoryChoiceCompany",
+    "type": "object"
+   },
+   "InsightsTrajectoryPrivateCompany": {
+    "additionalProperties": false,
+    "properties": {
+     "base": {
+      "title": "Base",
+      "type": "integer"
+     },
+     "bonus": {
+      "title": "Bonus",
+      "type": "integer"
+     },
+     "company": {
+      "title": "Company",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "count": {
+      "title": "Count",
+      "type": "integer"
+     },
+     "equity": {
+      "title": "Equity",
+      "type": "integer"
+     },
+     "equity_pct": {
+      "title": "Equity Pct",
+      "type": "number"
+     },
+     "equity_vehicle": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Equity Vehicle",
+      "x-text": "code"
+     },
+     "median_tc": {
+      "title": "Median Tc",
+      "type": "integer"
+     },
+     "sources": {
+      "$ref": "#/components/schemas/InsightsPartSources"
+     },
+     "vesting": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Vesting",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "company",
+     "count",
+     "median_tc",
+     "base",
+     "bonus",
+     "equity",
+     "equity_pct",
+     "sources",
+     "equity_vehicle",
+     "vesting"
+    ],
+    "title": "InsightsTrajectoryPrivateCompany",
+    "type": "object"
+   },
+   "InsightsTrajectoryPublicCompany": {
+    "additionalProperties": false,
+    "properties": {
+     "base": {
+      "title": "Base",
+      "type": "integer"
+     },
+     "bonus": {
+      "title": "Bonus",
+      "type": "integer"
+     },
+     "company": {
+      "title": "Company",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "count": {
+      "title": "Count",
+      "type": "integer"
+     },
+     "equity": {
+      "title": "Equity",
+      "type": "integer"
+     },
+     "equity_pct": {
+      "title": "Equity Pct",
+      "type": "number"
+     },
+     "equity_vehicle": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Equity Vehicle",
+      "x-text": "code"
+     },
+     "median_tc": {
+      "title": "Median Tc",
+      "type": "integer"
+     },
+     "sources": {
+      "$ref": "#/components/schemas/InsightsPartSources"
+     },
+     "ticker": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ticker",
+      "x-text": "identifier"
+     },
+     "vesting": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Vesting",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "company",
+     "count",
+     "median_tc",
+     "base",
+     "bonus",
+     "equity",
+     "equity_pct",
+     "sources",
+     "equity_vehicle",
+     "vesting",
+     "ticker"
+    ],
+    "title": "InsightsTrajectoryPublicCompany",
+    "type": "object"
+   },
+   "InsightsTrajectorySetApart": {
+    "additionalProperties": false,
+    "properties": {
+     "count": {
+      "title": "Count",
+      "type": "integer"
+     },
+     "reason": {
+      "enum": [
+       "not_us_pay",
+       "level_unplaced",
+       "base_only",
+       "basis_unclear",
+       "hourly",
+       "monthly",
+       "period_unclear",
+       "total_compensation",
+       "plugin_without_split",
+       "plugin_not_covered"
+      ],
+      "title": "Reason",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "reason",
+     "count"
+    ],
+    "title": "InsightsTrajectorySetApart",
+    "type": "object"
+   },
+   "InsightsVelocity": {
+    "additionalProperties": false,
+    "properties": {
+     "aging": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsVelocityAgingBand"
+      },
+      "title": "Aging",
+      "type": "array"
+     },
+     "by_company": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsVelocityCompany"
+      },
+      "title": "By Company",
+      "type": "array"
+     },
+     "coverage": {
+      "$ref": "#/components/schemas/InsightsCoverage"
+     },
+     "days": {
+      "title": "Days",
+      "type": "integer"
+     },
+     "kpis": {
+      "$ref": "#/components/schemas/InsightsVelocityKpis"
+     },
+     "page": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InsightsPage"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "posted": {
+      "items": {
+       "$ref": "#/components/schemas/InsightsVelocityAgingBand"
+      },
+      "title": "Posted",
+      "type": "array"
+     },
+     "since": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Since"
+     }
+    },
+    "required": [
+     "coverage",
+     "days",
+     "since",
+     "kpis",
+     "aging",
+     "posted",
+     "by_company"
+    ],
+    "title": "InsightsVelocity",
+    "type": "object"
+   },
+   "InsightsVelocityAgingBand": {
+    "additionalProperties": false,
+    "properties": {
+     "count": {
+      "title": "Count",
+      "type": "integer"
+     },
+     "hi": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Hi"
+     },
+     "lo": {
+      "title": "Lo",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "lo",
+     "hi",
+     "count"
+    ],
+    "title": "InsightsVelocityAgingBand",
+    "type": "object"
+   },
+   "InsightsVelocityCompany": {
+    "additionalProperties": false,
+    "properties": {
+     "closed": {
+      "title": "Closed",
+      "type": "integer"
+     },
+     "company": {
+      "title": "Company",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "median_days_open": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Median Days Open"
+     },
+     "median_observed_listing_duration_days": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Median Observed Listing Duration Days"
+     },
+     "open": {
+      "title": "Open",
+      "type": "integer"
+     },
+     "opened": {
+      "title": "Opened",
+      "type": "integer"
+     },
+     "reposted": {
+      "title": "Reposted",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "company",
+     "open",
+     "opened",
+     "closed",
+     "reposted",
+     "median_days_open",
+     "median_observed_listing_duration_days"
+    ],
+    "title": "InsightsVelocityCompany",
+    "type": "object"
+   },
+   "InsightsVelocityKpis": {
+    "additionalProperties": false,
+    "properties": {
+     "age_unknown": {
+      "title": "Age Unknown",
+      "type": "integer"
+     },
+     "already_listed": {
+      "title": "Already Listed",
+      "type": "integer"
+     },
+     "closed": {
+      "title": "Closed",
+      "type": "integer"
+     },
+     "closed_employer_dated_share": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Closed Employer Dated Share"
+     },
+     "closed_sample": {
+      "title": "Closed Sample",
+      "type": "integer"
+     },
+     "closed_unknown": {
+      "title": "Closed Unknown",
+      "type": "integer"
+     },
+     "employer_dated_share": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Employer Dated Share"
+     },
+     "median_days_open": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Median Days Open"
+     },
+     "median_observed_listing_duration_days": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Median Observed Listing Duration Days"
+     },
+     "open_total": {
+      "title": "Open Total",
+      "type": "integer"
+     },
+     "opened": {
+      "title": "Opened",
+      "type": "integer"
+     },
+     "reposted": {
+      "title": "Reposted",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "open_total",
+     "opened",
+     "closed",
+     "reposted",
+     "already_listed",
+     "median_days_open",
+     "age_unknown",
+     "employer_dated_share",
+     "median_observed_listing_duration_days",
+     "closed_sample",
+     "closed_unknown",
+     "closed_employer_dated_share"
+    ],
+    "title": "InsightsVelocityKpis",
     "type": "object"
    },
    "IntelligenceFitBand": {
@@ -30521,6 +34500,1056 @@
      "agent"
     ],
     "x-operation": "doctor"
+   }
+  },
+  "/api/agent/v1/insights/compensation": {
+   "get": {
+    "operationId": "insights_compensation_api_agent_v1_insights_compensation_get",
+    "parameters": [
+     {
+      "description": "The caller's tool tier, which bounds the answer.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Read on from where an answer stopped, as its continue_with gives it.",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 128,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     },
+     {
+      "description": "Which companies: all, yours (the ones you picked) or other (followed through the market sweep).",
+      "in": "query",
+      "name": "side",
+      "required": false,
+      "schema": {
+       "default": "all",
+       "enum": [
+        "all",
+        "yours",
+        "other"
+       ],
+       "title": "Side",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Narrow to these disciplines (role families); vocabulary.list kind=family lists them.",
+      "in": "query",
+      "name": "family",
+      "required": false,
+      "schema": {
+       "items": {
+        "type": "string"
+       },
+       "maxItems": 20,
+       "title": "Family",
+       "type": "array"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_InsightsCompensation_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Insights Compensation",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "insights.compensation"
+   }
+  },
+  "/api/agent/v1/insights/demand": {
+   "get": {
+    "operationId": "insights_demand_api_agent_v1_insights_demand_get",
+    "parameters": [
+     {
+      "description": "The caller's tool tier, which bounds the answer.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Read on from where an answer stopped, as its continue_with gives it.",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 128,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     },
+     {
+      "description": "Which companies: all, yours (the ones you picked) or other (followed through the market sweep).",
+      "in": "query",
+      "name": "side",
+      "required": false,
+      "schema": {
+       "default": "all",
+       "enum": [
+        "all",
+        "yours",
+        "other"
+       ],
+       "title": "Side",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Narrow to these disciplines (role families); vocabulary.list kind=family lists them.",
+      "in": "query",
+      "name": "family",
+      "required": false,
+      "schema": {
+       "items": {
+        "type": "string"
+       },
+       "maxItems": 20,
+       "title": "Family",
+       "type": "array"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_InsightsDemand_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Insights Demand",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "insights.demand"
+   }
+  },
+  "/api/agent/v1/insights/disclosure-trends": {
+   "get": {
+    "operationId": "insights_disclosure_trends_api_agent_v1_insights_disclosure_trends_get",
+    "parameters": [
+     {
+      "description": "The caller's tool tier, which bounds the answer.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Read on from where an answer stopped, as its continue_with gives it.",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 128,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     },
+     {
+      "description": "Which companies: all, yours or other.",
+      "in": "query",
+      "name": "side",
+      "required": false,
+      "schema": {
+       "default": "all",
+       "enum": [
+        "all",
+        "yours",
+        "other"
+       ],
+       "title": "Side",
+       "type": "string"
+      }
+     },
+     {
+      "description": "One series overall, or one per company or level.",
+      "in": "query",
+      "name": "dim",
+      "required": false,
+      "schema": {
+       "default": "overall",
+       "enum": [
+        "overall",
+        "company",
+        "level"
+       ],
+       "title": "Dim",
+       "type": "string"
+      }
+     },
+     {
+      "description": "The window in days; 0 is all history.",
+      "in": "query",
+      "name": "days",
+      "required": false,
+      "schema": {
+       "default": 90,
+       "maximum": 3650,
+       "minimum": 0,
+       "title": "Days",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_InsightsDisclosureTrends_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Insights Disclosure Trends",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "insights.disclosure_trends"
+   }
+  },
+  "/api/agent/v1/insights/history": {
+   "get": {
+    "operationId": "insights_history_api_agent_v1_insights_history_get",
+    "parameters": [
+     {
+      "description": "Which companies: all, yours (the ones you picked) or other (followed through the market sweep).",
+      "in": "query",
+      "name": "side",
+      "required": false,
+      "schema": {
+       "default": "all",
+       "enum": [
+        "all",
+        "yours",
+        "other"
+       ],
+       "title": "Side",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Narrow to these disciplines (role families); vocabulary.list kind=family lists them.",
+      "in": "query",
+      "name": "family",
+      "required": false,
+      "schema": {
+       "items": {
+        "type": "string"
+       },
+       "maxItems": 20,
+       "title": "Family",
+       "type": "array"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_InsightsHistory_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Insights History",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "insights.history"
+   }
+  },
+  "/api/agent/v1/insights/levels": {
+   "get": {
+    "operationId": "insights_levels_api_agent_v1_insights_levels_get",
+    "parameters": [
+     {
+      "description": "The caller's tool tier, which bounds the answer.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Read on from where an answer stopped, as its continue_with gives it.",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 128,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_InsightsLevels_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Insights Levels",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "insights.levels"
+   }
+  },
+  "/api/agent/v1/insights/offer-terms": {
+   "get": {
+    "operationId": "insights_offer_terms_api_agent_v1_insights_offer_terms_get",
+    "parameters": [
+     {
+      "description": "The caller's tool tier, which bounds the answer.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Read on from where an answer stopped, as its continue_with gives it.",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 128,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_InsightsOfferTerms_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Insights Offer Terms",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "insights.offer_terms"
+   }
+  },
+  "/api/agent/v1/insights/overview": {
+   "get": {
+    "operationId": "insights_overview_api_agent_v1_insights_overview_get",
+    "parameters": [
+     {
+      "description": "Which companies: all, yours (the ones you picked) or other (followed through the market sweep).",
+      "in": "query",
+      "name": "side",
+      "required": false,
+      "schema": {
+       "default": "all",
+       "enum": [
+        "all",
+        "yours",
+        "other"
+       ],
+       "title": "Side",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Narrow to these disciplines (role families); vocabulary.list kind=family lists them.",
+      "in": "query",
+      "name": "family",
+      "required": false,
+      "schema": {
+       "items": {
+        "type": "string"
+       },
+       "maxItems": 20,
+       "title": "Family",
+       "type": "array"
+      }
+     },
+     {
+      "description": "The window in days; 0 is all time.",
+      "in": "query",
+      "name": "days",
+      "required": false,
+      "schema": {
+       "default": 30,
+       "maximum": 3650,
+       "minimum": 0,
+       "title": "Days",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_InsightsOverview_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Insights Overview",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "insights.overview"
+   }
+  },
+  "/api/agent/v1/insights/pay-table": {
+   "get": {
+    "operationId": "insights_pay_table_api_agent_v1_insights_pay_table_get",
+    "parameters": [
+     {
+      "description": "The caller's tool tier, which bounds the answer.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Read on from where an answer stopped, as its continue_with gives it.",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 128,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     },
+     {
+      "description": "Which companies: all, yours (the ones you picked) or other (followed through the market sweep).",
+      "in": "query",
+      "name": "side",
+      "required": false,
+      "schema": {
+       "default": "all",
+       "enum": [
+        "all",
+        "yours",
+        "other"
+       ],
+       "title": "Side",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Narrow to these disciplines (role families); vocabulary.list kind=family lists them.",
+      "in": "query",
+      "name": "family",
+      "required": false,
+      "schema": {
+       "items": {
+        "type": "string"
+       },
+       "maxItems": 20,
+       "title": "Family",
+       "type": "array"
+      }
+     },
+     {
+      "description": "An ISO 3166-1 alpha-2 country code.",
+      "in": "query",
+      "name": "country",
+      "required": true,
+      "schema": {
+       "pattern": "^[A-Za-z]{2}$",
+       "title": "Country",
+       "type": "string"
+      }
+     },
+     {
+      "description": "The level band to compare companies at: one of intern, entry, mid, senior, staff, principal, director_plus.",
+      "in": "query",
+      "name": "level",
+      "required": true,
+      "schema": {
+       "pattern": "^(intern|entry|mid|senior|staff|principal|director_plus)$",
+       "title": "Level",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Narrow the companies to roles naming this skill (its slug).",
+      "in": "query",
+      "name": "skill",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 128,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Skill"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_InsightsPayTable_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Insights Pay Table",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "insights.pay_table"
+   }
+  },
+  "/api/agent/v1/insights/pay-trends": {
+   "get": {
+    "operationId": "insights_pay_trends_api_agent_v1_insights_pay_trends_get",
+    "parameters": [
+     {
+      "description": "The caller's tool tier, which bounds the answer.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Read on from where an answer stopped, as its continue_with gives it.",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 128,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     },
+     {
+      "description": "Which companies: all, yours (the ones you picked) or other (followed through the market sweep).",
+      "in": "query",
+      "name": "side",
+      "required": false,
+      "schema": {
+       "default": "all",
+       "enum": [
+        "all",
+        "yours",
+        "other"
+       ],
+       "title": "Side",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Narrow to these disciplines (role families); vocabulary.list kind=family lists them.",
+      "in": "query",
+      "name": "family",
+      "required": false,
+      "schema": {
+       "items": {
+        "type": "string"
+       },
+       "maxItems": 20,
+       "title": "Family",
+       "type": "array"
+      }
+     },
+     {
+      "description": "One series overall, or one per company, level or discipline.",
+      "in": "query",
+      "name": "dim",
+      "required": false,
+      "schema": {
+       "default": "overall",
+       "enum": [
+        "overall",
+        "company",
+        "level",
+        "family"
+       ],
+       "title": "Dim",
+       "type": "string"
+      }
+     },
+     {
+      "description": "The window in days; 0 is all history.",
+      "in": "query",
+      "name": "days",
+      "required": false,
+      "schema": {
+       "default": 90,
+       "maximum": 3650,
+       "minimum": 0,
+       "title": "Days",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_InsightsPayTrends_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Insights Pay Trends",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "insights.pay_trends"
+   }
+  },
+  "/api/agent/v1/insights/skills": {
+   "get": {
+    "operationId": "insights_skills_api_agent_v1_insights_skills_get",
+    "parameters": [
+     {
+      "description": "The caller's tool tier, which bounds the answer.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Read on from where an answer stopped, as its continue_with gives it.",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 128,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     },
+     {
+      "description": "Which companies: all, yours (the ones you picked) or other (followed through the market sweep).",
+      "in": "query",
+      "name": "side",
+      "required": false,
+      "schema": {
+       "default": "all",
+       "enum": [
+        "all",
+        "yours",
+        "other"
+       ],
+       "title": "Side",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Narrow to these disciplines (role families); vocabulary.list kind=family lists them.",
+      "in": "query",
+      "name": "family",
+      "required": false,
+      "schema": {
+       "items": {
+        "type": "string"
+       },
+       "maxItems": 20,
+       "title": "Family",
+       "type": "array"
+      }
+     },
+     {
+      "description": "Narrow the slice to these companies.",
+      "in": "query",
+      "name": "company",
+      "required": false,
+      "schema": {
+       "items": {
+        "type": "string"
+       },
+       "maxItems": 50,
+       "title": "Company",
+       "type": "array"
+      }
+     },
+     {
+      "description": "Narrow the slice to these places; vocabulary.list kind=location lists them.",
+      "in": "query",
+      "name": "location",
+      "required": false,
+      "schema": {
+       "items": {
+        "type": "string"
+       },
+       "maxItems": 20,
+       "title": "Location",
+       "type": "array"
+      }
+     },
+     {
+      "description": "How many skills to rank.",
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 30,
+       "maximum": 200,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_InsightsSkills_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Insights Skills",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "insights.skills"
+   }
+  },
+  "/api/agent/v1/insights/trajectory": {
+   "get": {
+    "operationId": "insights_trajectory_api_agent_v1_insights_trajectory_get",
+    "parameters": [
+     {
+      "description": "The caller's tool tier, which bounds the answer.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Read on from where an answer stopped, as its continue_with gives it.",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 128,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_InsightsTrajectory_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Insights Trajectory",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "insights.trajectory"
+   }
+  },
+  "/api/agent/v1/insights/velocity": {
+   "get": {
+    "operationId": "insights_velocity_api_agent_v1_insights_velocity_get",
+    "parameters": [
+     {
+      "description": "The caller's tool tier, which bounds the answer.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Read on from where an answer stopped, as its continue_with gives it.",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 128,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     },
+     {
+      "description": "Which companies: all, yours (the ones you picked) or other (followed through the market sweep).",
+      "in": "query",
+      "name": "side",
+      "required": false,
+      "schema": {
+       "default": "all",
+       "enum": [
+        "all",
+        "yours",
+        "other"
+       ],
+       "title": "Side",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Narrow to these disciplines (role families); vocabulary.list kind=family lists them.",
+      "in": "query",
+      "name": "family",
+      "required": false,
+      "schema": {
+       "items": {
+        "type": "string"
+       },
+       "maxItems": 20,
+       "title": "Family",
+       "type": "array"
+      }
+     },
+     {
+      "description": "The window in days; 0 is all time.",
+      "in": "query",
+      "name": "days",
+      "required": false,
+      "schema": {
+       "default": 30,
+       "maximum": 3650,
+       "minimum": 0,
+       "title": "Days",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_InsightsVelocity_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Insights Velocity",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "insights.velocity"
    }
   },
   "/api/agent/v1/offer": {
