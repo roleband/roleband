@@ -1,0 +1,52 @@
+{
+  "id": "chatcmpl-8e1ab5d4",
+  "object": "chat.completion",
+  "created": 1794759448,
+  "model": "Qwen3.5-9B-MLX-4bit",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "tool_calls": [
+          {
+            "id": "call_9200869c",
+            "type": "function",
+            "function": {
+              "name": "vocabulary_list",
+              "arguments": "{\"kind\": \"workplace_type\"}"
+            }
+          },
+          {
+            "id": "call_d9d4c193",
+            "type": "function",
+            "function": {
+              "name": "vocabulary_list",
+              "arguments": "{\"kind\": \"level_band\"}"
+            }
+          }
+        ]
+      },
+      "finish_reason": "tool_calls"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1681,
+    "completion_tokens": 56,
+    "total_tokens": 1737,
+    "input_tokens": 1681,
+    "output_tokens": 56,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "time_to_first_token": 3.96,
+    "total_time": 5.34,
+    "prompt_eval_duration": 3.96,
+    "generation_duration": 1.38,
+    "prompt_tokens_per_second": 424.85,
+    "generation_tokens_per_second": 40.58
+  }
+}
