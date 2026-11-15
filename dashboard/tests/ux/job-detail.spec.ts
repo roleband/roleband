@@ -813,7 +813,7 @@ test("a section's heading stays at the top of the column, and the role rises int
   await expect(role).not.toHaveAttribute("data-shown", "");
   // In its place a heading draws no ground: nothing lies over its section's first line.
   await expect(heading).not.toHaveAttribute("data-stuck", "");
-  expect(await heading.evaluate((el) => {
+  await expect.poll(() => heading.evaluate((el) => {
     const style = getComputedStyle(el);
     return [style.backgroundColor, style.boxShadow];
   })).toEqual(["rgba(0, 0, 0, 0)", "none"]);
