@@ -32,6 +32,7 @@ from tracker.agents.operations.insights import BUDGET_BYTES, READS, fit
 from tracker.agents.operations.outcomes import outcome
 from tracker.agents.operations.workspace import ensure_workspace_id
 from tracker.analytics.comp_trends import compute_comp_metrics, compute_disclosure_metrics
+from tracker.analytics.posting_reality import NEW_LISTING_WINDOW
 from tracker.api.agent_operations import PREFIX
 from tracker.api.routers.statistics import VelocityOut
 from tracker.api.schemas.skills import TopSkillsResponse
@@ -376,6 +377,51 @@ async def test_every_answer_states_its_population_window_and_freshness(api_clien
     assert demand["coverage"]["window"]["days"] >= 1
 
 
+@pytest.mark.asyncio
+async def test_figures_narrowed_to_a_company_state_that_companys_history_and_last_read(api_client, workspace):
+    company = await _company(workspace)
+    now = datetime.now(UTC)
+    # The chosen company was read whole ten days ago and last two days ago;
+    # every other company three weeks ago and an hour ago.
+    await workspace.execute(update(ScrapeSourceRun).values(finished_at=now - timedelta(hours=1)))
+    await workspace.execute(
+        update(ScrapeSourceRun).where(ScrapeSourceRun.company_slug == company)
+        .values(started_at=now - timedelta(days=10), finished_at=now - timedelta(days=2))
+    )
+    await workspace.commit()
+
+    narrowed = _data((await _agent(api_client, "skills", company=company))[1])["coverage"]
+    everyone = _data((await _agent(api_client, "skills"))[1])["coverage"]
+
+    assert abs(datetime.fromisoformat(narrowed["last_read_at"]) - (now - timedelta(days=2))) < timedelta(minutes=1)
+    assert narrowed["history"]["days"] == 10
+    # The same read over the whole scope reports the others' later read and longer history.
+    assert abs(datetime.fromisoformat(everyone["last_read_at"]) - (now - timedelta(hours=1))) < timedelta(minutes=1)
+    assert everyone["history"]["days"] >= 20
+
+
+@pytest.mark.asyncio
+async def test_the_new_listing_window_starts_no_earlier_than_the_history(api_client, workspace):
+    long_history = _data((await _agent(api_client, "demand", tier="full"))[1])["coverage"]
+    assert datetime.fromisoformat(long_history["window"]["since"]) > datetime.fromisoformat(
+        long_history["history"]["since"]
+    )
+    assert long_history["window"]["days"] == NEW_LISTING_WINDOW.days
+
+    # Read whole only since yesterday: the window cannot reach past that read.
+    yesterday = datetime.now(UTC) - timedelta(days=1)
+    await workspace.execute(update(ScrapeSourceRun).values(started_at=yesterday))
+    await workspace.commit()
+    short_history = _data((await _agent(api_client, "demand", tier="full"))[1])["coverage"]
+    assert short_history["window"]["since"] == short_history["history"]["since"]
+
+    # No whole read at all: no arrival is dated, so the window has no start.
+    await workspace.execute(update(ScrapeSourceRun).values(list_complete=False))
+    await workspace.commit()
+    no_history = _data((await _agent(api_client, "demand", tier="full"))[1])["coverage"]
+    assert no_history["history"]["since"] is None and no_history["window"]["since"] is None
+
+
 # --------------------------------------------------------------------------- #
 # Strict filters, and the switch that refuses.
 # --------------------------------------------------------------------------- #
@@ -520,6 +566,33 @@ def test_an_item_larger_than_the_budget_is_refused_not_cut():
     assert refused.value.code == "invalid_input"
     assert refused.value.details["reason"] == "over_budget"
     assert fit(spec, answer, insights.UnscopedInput(tier="full"), workspace_id="w").next_cursor is None
+
+
+def test_an_answer_that_fits_whole_is_not_paged(monkeypatch):
+    spec = READS["insights.offer_terms"]
+    rows = [{
+        "company": f"company-{index}", "listed": False, "ticker": None, "equity_vehicle": None, "vesting": None,
+        "vesting_stated_by": None, "bonus_rule": None, "sign_on_bridges_vesting": False, "quote": None,
+    } for index in range(3)]
+    answer = insights.InsightsOfferTerms.model_validate({
+        "feed_configured": False, "companies": rows,
+        "coverage": {
+            "population": "reference", "side": "all", "families": [], "off_board_companies": None,
+            "window": None, "history": None, "last_read_at": None,
+        },
+    })
+    whole = len(json.dumps(answer.model_dump(mode="json"), ensure_ascii=False, separators=(",", ":")).encode())
+
+    # A budget the whole answer meets exactly, with no room for a page block.
+    monkeypatch.setitem(insights.BUDGET_BYTES, "small", whole)
+    exact = fit(spec, answer, insights.UnscopedInput(), workspace_id="w")
+    assert not exact.shortened and exact.next_cursor is None
+    assert exact.data.model_dump(mode="json")["companies"] == rows
+
+    # A byte less, and it pages.
+    monkeypatch.setitem(insights.BUDGET_BYTES, "small", whole - 1)
+    short = fit(spec, answer, insights.UnscopedInput(), workspace_id="w")
+    assert short.shortened and short.next_cursor is not None
 
 
 # --------------------------------------------------------------------------- #

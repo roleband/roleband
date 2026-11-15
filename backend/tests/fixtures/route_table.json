@@ -86,62 +86,62 @@
   {
    "method": "GET",
    "path": "/api/agent/v1/insights/compensation",
-   "response_schema": "Envelope[Compensation]"
+   "response_schema": "Envelope[InsightsCompensation]"
   },
   {
    "method": "GET",
    "path": "/api/agent/v1/insights/demand",
-   "response_schema": "Envelope[Demand]"
+   "response_schema": "Envelope[InsightsDemand]"
   },
   {
    "method": "GET",
    "path": "/api/agent/v1/insights/disclosure-trends",
-   "response_schema": "Envelope[DisclosureTrends]"
+   "response_schema": "Envelope[InsightsDisclosureTrends]"
   },
   {
    "method": "GET",
    "path": "/api/agent/v1/insights/history",
-   "response_schema": "Envelope[History]"
+   "response_schema": "Envelope[InsightsHistory]"
   },
   {
    "method": "GET",
    "path": "/api/agent/v1/insights/levels",
-   "response_schema": "Envelope[Levels]"
+   "response_schema": "Envelope[InsightsLevels]"
   },
   {
    "method": "GET",
    "path": "/api/agent/v1/insights/offer-terms",
-   "response_schema": "Envelope[OfferTerms]"
+   "response_schema": "Envelope[InsightsOfferTerms]"
   },
   {
    "method": "GET",
    "path": "/api/agent/v1/insights/overview",
-   "response_schema": "Envelope[Overview]"
+   "response_schema": "Envelope[InsightsOverview]"
   },
   {
    "method": "GET",
    "path": "/api/agent/v1/insights/pay-table",
-   "response_schema": "Envelope[PayTable]"
+   "response_schema": "Envelope[InsightsPayTable]"
   },
   {
    "method": "GET",
    "path": "/api/agent/v1/insights/pay-trends",
-   "response_schema": "Envelope[PayTrends]"
+   "response_schema": "Envelope[InsightsPayTrends]"
   },
   {
    "method": "GET",
    "path": "/api/agent/v1/insights/skills",
-   "response_schema": "Envelope[Skills]"
+   "response_schema": "Envelope[InsightsSkills]"
   },
   {
    "method": "GET",
    "path": "/api/agent/v1/insights/trajectory",
-   "response_schema": "Envelope[Trajectory]"
+   "response_schema": "Envelope[InsightsTrajectory]"
   },
   {
    "method": "GET",
    "path": "/api/agent/v1/insights/velocity",
-   "response_schema": "Envelope[Velocity]"
+   "response_schema": "Envelope[InsightsVelocity]"
   },
   {
    "method": "GET",

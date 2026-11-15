@@ -893,7 +893,10 @@ async def read(
     hidden = await off_board_company_slugs(session)
     scope = await resolve_insights_scope(session, getattr(params, "side", "all"), getattr(params, "family", None))
     raw = await figures(session, hidden, scope, params)
-    coverage = await _coverage(session, spec, raw, hidden, scope, now or datetime.now(UTC))
+    coverage = await _coverage(
+        session, spec, raw, hidden, scope, _companies_read(scope, getattr(params, "company", None)),
+        now or datetime.now(UTC),
+    )
     answer = operation.result.model_validate({**raw, "coverage": coverage})
     return fit(spec, answer, params, workspace_id=workspace_id)
 
@@ -917,15 +920,18 @@ async def _coverage(
     raw: dict[str, Any],
     hidden: OffBoardSlugs,
     scope: InsightsScope,
+    read: InsightsScope,
     now: datetime,
 ) -> InsightsCoverage:
+    """The coverage of an answer over `scope`, its history and last read taken
+    over `read`: the scope's companies, or the ones the figures were narrowed to."""
     reference = spec.population == "reference"
     history: CoverageHistory | None = None
     last_read_at: datetime | None = None
     if not reference:
-        since = await history_since(session, scope, hidden)
+        since = await history_since(session, read, hidden)
         history = CoverageHistory(since=since, days=history_days(since, now))
-        companies = [*scope.company_conds(ScrapeSourceRun.company_slug)]
+        companies = [*read.company_conds(ScrapeSourceRun.company_slug)]
         if hidden:
             companies.append(ScrapeSourceRun.company_slug.notin_(hidden))
         last_read_at = await session.scalar(select(func.max(ScrapeSourceRun.finished_at)).where(*companies))
@@ -934,13 +940,27 @@ async def _coverage(
         side=scope.side,
         families=list(scope.families),
         off_board_companies=None if reference else len(hidden),
-        window=_window(spec.window, raw, now),
+        window=_window(spec.window, raw, now, history.since if history is not None else None),
         history=history,
         last_read_at=last_read_at,
     )
 
 
-def _window(source: WindowSource, raw: dict[str, Any], now: datetime) -> CoverageWindow | None:
+def _companies_read(scope: InsightsScope, companies: list[str] | None) -> InsightsScope:
+    """`scope`'s companies narrowed to `companies`, when the figures were."""
+    if not companies:
+        return scope
+    chosen = frozenset(companies)
+    if scope.side == "other":
+        chosen &= scope.other
+    elif scope.side == "yours":
+        chosen -= scope.other
+    return InsightsScope("other", (), chosen)
+
+
+def _window(
+    source: WindowSource, raw: dict[str, Any], now: datetime, history_since: datetime | None
+) -> CoverageWindow | None:
     if source == "figures":
         return CoverageWindow(days=raw["days"], since=raw["since"])
     if source == "axis":
@@ -948,7 +968,10 @@ def _window(source: WindowSource, raw: dict[str, Any], now: datetime) -> Coverag
         first = datetime.fromisoformat(dates[0]).replace(tzinfo=UTC) if dates else None
         return CoverageWindow(days=raw["days"], since=first)
     if source == "new_listing":
-        return CoverageWindow(days=NEW_LISTING_WINDOW.days, since=now - NEW_LISTING_WINDOW)
+        start = now - NEW_LISTING_WINDOW
+        return CoverageWindow(
+            days=NEW_LISTING_WINDOW.days, since=None if history_since is None else max(start, history_since)
+        )
     return None
 
 
@@ -983,7 +1006,10 @@ def fit(spec: InsightsRead, answer: BaseModel, params: BaseModel, *, workspace_i
     offset = cursor.decode(params.cursor, request=request)[0] if params.cursor is not None else 0
 
     data = answer.model_dump(mode="json")
-    slots = [items for path in spec.paged for items in _lists(data, path)]
+    if offset == 0 and _size(data) <= budget:
+        # Whole, it needs no page block, so none is reserved for.
+        return InsightsAnswer(answer, None, False)
+    slots =[items for path in spec.paged for items in _lists(data, path)]
     sequence = [(slot, item) for slot, items in enumerate(slots) for item in items]
     for items in slots:
         items.clear()
