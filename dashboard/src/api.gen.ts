@@ -12978,7 +12978,7 @@ export interface operations {
                     next_action?: string | null;
                     /**
                      * Next Action Due
-                     * @description When the next step falls due. null clears it; leave the field out to keep it.
+                     * @description When the next step falls due, with its UTC offset. null clears it; leave the field out to keep it.
                      */
                     next_action_due?: string | null;
                     /**

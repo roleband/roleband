@@ -25,13 +25,14 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 import tracker.mcp.server as server
+from tests.test_agent_writes_db import _until_waiting
 from tests.test_recipe_adapter import RECIPE
 from tracker.agents.config import AgentAccessConfig, set_agent_access
 from tracker.agents.operations.outcomes import outcome
 from tracker.agents.operations.pursuits import VIA, PursuitItem
 from tracker.agents.operations.recipes import SavedDraft
 from tracker.agents.operations.workspace import ensure_workspace_id
-from tracker.agents.receipts import LEGACY_AGENT_PRINCIPAL
+from tracker.agents.receipts import LEGACY_AGENT_PRINCIPAL, ReceiptKey, lock_key
 from tracker.api.agent_operations import IDEMPOTENCY_KEY_HEADER, PREFIX
 from tracker.db.models import (
     CommandReceipt,
@@ -254,9 +255,18 @@ async def test_a_retried_save_replays_and_writes_once(api_client, db_session, ro
 
 
 async def test_two_identical_saves_at_once_write_once(api_client, db_session, roles):
+    """Both saves queue on the key's lock, held here until both wait, so they
+    truly overlap: one writes, the other replays its receipt."""
     job_id, _ = roles
-
-    answers = await asyncio.gather(*(_save(api_client, job_id, {"priority": 2}) for _ in range(2)))
+    async with _fresh(db_session) as session:
+        workspace = await ensure_workspace_id(session)
+    async with _fresh(db_session) as holder:
+        await lock_key(holder, ReceiptKey(workspace, LEGACY_AGENT_PRINCIPAL, "pursuits.save", KEY))
+        tasks = [asyncio.create_task(_save(api_client, job_id, {"priority": 2})) for _ in range(2)]
+        await _until_waiting(db_session.bind, 2)
+        assert not any(task.done() for task in tasks)
+        await holder.rollback()
+    answers = await asyncio.gather(*tasks)
 
     assert sorted(body["meta"]["replayed"] for _, body in answers) == [False, True]
     assert answers[0][1]["data"] == answers[1][1]["data"]
@@ -400,6 +410,7 @@ async def test_a_patch_with_revision_zero_starts_the_pursuit_as_the_tool_does(ap
     {},
     {"stage": "hired"},
     {"opportunity": 1, "notes": "x"},
+    {"next_action_due": "2026-01-01T00:00:00"},
 ])
 async def test_an_input_error_writes_nothing_and_leaves_the_key_unused(api_client, db_session, roles, body):
     job_id, _ = roles
@@ -610,3 +621,4 @@ async def test_capabilities_lists_the_writes_unavailable_with_writes_off(api_cli
 async def _get(api_client, path: str):
     response = await api_client.get(f"{PREFIX}{path}")
     return response, response.json()
+

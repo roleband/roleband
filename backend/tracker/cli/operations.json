@@ -2891,7 +2891,7 @@
        }
       ],
       "default": null,
-      "description": "When the next step falls due. null clears it; leave the field out to keep it.",
+      "description": "When the next step falls due, with its UTC offset. null clears it; leave the field out to keep it.",
       "title": "Next Action Due"
      },
      "notes": {

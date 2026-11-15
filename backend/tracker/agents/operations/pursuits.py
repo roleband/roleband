@@ -22,7 +22,14 @@ import binascii
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 from pydantic.config import JsonDict
 from pydantic.json_schema import SkipJsonSchema
 from sqlalchemy import select
@@ -180,8 +187,11 @@ class PursuitPatchInput(Shape):
         default=None, max_length=2_000, json_schema_extra=_CONTENT,
         description="The next step. null clears it; leave the field out to keep it.",
     )
-    next_action_due: datetime | None = Field(
-        default=None, description="When the next step falls due. null clears it; leave the field out to keep it."
+    next_action_due: AwareDatetime | None = Field(
+        default=None,
+        description=(
+            "When the next step falls due, with its UTC offset. null clears it; leave the field out to keep it."
+        ),
     )
 
     _no_null = field_validator("stage", "priority", mode="before")(_refuse_null)
