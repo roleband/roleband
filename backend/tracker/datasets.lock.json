@@ -1,14 +1,14 @@
 {
   "repository": "https://github.com/roleband/roleband-data",
-  "commit": "3a4caa242dbfcdc2c8b45725e7159e047781ef65",
+  "commit": "4024e81c608042bb3cf47749ad175bf5a6d6285d",
   "trial": false,
   "datasets": {
     "atlas": {
       "path": "tracker/levels/atlas",
       "files": {
         "README.md": {
-          "sha256": "19e83abc5cdd288a2217e1b3ce03b5b55d2c4c1aef0a7af03018e68de695c893",
-          "size": 18656
+          "sha256": "35a6ece0cf610cc5642f96c7d1a2748d69ea45aa89a62713499c4d7c8202f618",
+          "size": 19033
         },
         "companies.csv": {
           "sha256": "cd1dd01e6e74b338b1a1328a5992652f5adc73e279cbd2f328901288395ba6df",
@@ -35,12 +35,12 @@
           "size": 12362
         },
         "level_base.csv": {
-          "sha256": "fee4e54c142ae6ec9c4bf49c7cf26291b0b75bdbdf36f6e6221265045b3eb4ed",
-          "size": 141490
+          "sha256": "37ab56607daf61ce63ce06d60d8c1c7b92eebe0bb08b3357e89ef2c70139eab7",
+          "size": 162236
         },
         "pay_bands.csv": {
-          "sha256": "af0c588a2624d0bd55635eae2b2bb30c85a4e9df33fc51638f9e6bd3ae9cdd02",
-          "size": 31623
+          "sha256": "d01a334b8c367130296fad29d252f810496adb950b7450d0a55eb1c7f3c974a5",
+          "size": 117503
         },
         "pay_grades.csv": {
           "sha256": "ed605b4848e1e31118a737dc5f87f6eee78222e361f2ef16b6076752341f094a",
