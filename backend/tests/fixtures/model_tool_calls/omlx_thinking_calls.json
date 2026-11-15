@@ -1,0 +1,53 @@
+{
+  "id": "chatcmpl-94d452e2",
+  "object": "chat.completion",
+  "created": 1794759455,
+  "model": "Qwen3.5-9B-MLX-4bit",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "reasoning_content": "The user wants two lists:\n1. The workplace types they can filter by\n2. The level bands they can filter by\n\nThey want me to call vocabulary_list twice in one reply, once for each filter. Looking at the vocabulary_list function, I need to provide the \"kind\" parameter which can be one of: \"company\", \"family\", \"level_band\", \"track\", \"workplace_type\", \"domain\", \"location\".\n\nSo I need to make two calls:\n1. vocabulary_list with kind=\"workplace_type\"\n2. vocabulary_list with kind=\"level_band\"\n\nLet me make both calls in this reply.",
+        "tool_calls": [
+          {
+            "id": "call_75b8545a",
+            "type": "function",
+            "function": {
+              "name": "vocabulary_list",
+              "arguments": "{\"kind\": \"workplace_type\"}"
+            }
+          },
+          {
+            "id": "call_e5ca0f7c",
+            "type": "function",
+            "function": {
+              "name": "vocabulary_list",
+              "arguments": "{\"kind\": \"level_band\"}"
+            }
+          }
+        ]
+      },
+      "finish_reason": "tool_calls"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1679,
+    "completion_tokens": 191,
+    "total_tokens": 1870,
+    "input_tokens": 1679,
+    "output_tokens": 191,
+    "prompt_tokens_details": {
+      "cached_tokens": 1674
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 132
+    },
+    "time_to_first_token": 0.13,
+    "total_time": 5.41,
+    "prompt_eval_duration": 0.13,
+    "generation_duration": 5.28,
+    "prompt_tokens_per_second": 37.7,
+    "generation_tokens_per_second": 36.19
+  }
+}

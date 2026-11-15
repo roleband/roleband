@@ -1,0 +1,45 @@
+{
+  "id": "chatcmpl-0a1ef2a1",
+  "object": "chat.completion",
+  "created": 1794759425,
+  "model": "Qwen3.5-9B-MLX-4bit",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "tool_calls": [
+          {
+            "id": "call_976660ba",
+            "type": "function",
+            "function": {
+              "name": "vocabulary_list",
+              "arguments": "{\"kind\": \"workplace_type\"}"
+            }
+          }
+        ]
+      },
+      "finish_reason": "tool_calls"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 525,
+    "completion_tokens": 28,
+    "total_tokens": 553,
+    "input_tokens": 525,
+    "output_tokens": 28,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "model_load_duration": 7.22,
+    "time_to_first_token": 6.37,
+    "total_time": 8.09,
+    "prompt_eval_duration": 6.37,
+    "generation_duration": 1.72,
+    "prompt_tokens_per_second": 82.45,
+    "generation_tokens_per_second": 16.25
+  }
+}

@@ -289,6 +289,10 @@ files = [
     "tracker/api/routers/agent.py",
     "tracker/cli",
     "scripts/export_agent_operations.py",
+    # Tool calling for a model: the wire formats, the transport and the tools from descriptors
+    "tracker/intelligence/tool_calls",
+    "tracker/agents/tool_definitions.py",
+    "scripts/smoke_model_tools.py",
     # The one API answer each company-store refusal gets
     "tracker/api/company_errors.py",
     # What a notification says, as catalog keys
