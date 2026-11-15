@@ -42,6 +42,10 @@ SALES_ASIDE = (
         # Another band's label names that band, not this one.
         ("Total compensation is $184,000 to $230,000, including base pay and equity.\n\n"
          "For account executives, OTE is $250,000 to $300,000.", False),
+        # In one sentence, the name belongs to the figure nearest it.
+        ("Total compensation is $184,000 to $230,000, including base pay and equity, "
+         "whereas account executives have OTE of $250,000 to $300,000.", False),
+        ("The OTE is $184,000 to $230,000, while managers earn $250,000 to $300,000 in base salary.", True),
         # Its own sentence, or a heading with no figure of its own, names it.
         ("Total compensation is $184,000 to $230,000.\n\n"
          "For account executives, OTE is $250,000 to $300,000. This role's OTE is $184,000 to $230,000.", True),

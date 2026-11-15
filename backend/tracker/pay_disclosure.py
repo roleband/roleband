@@ -1107,9 +1107,10 @@ def names_on_target_earnings(description_text: str | None, bounds: list[int]) ->
     in a sentence with no condition on either side of the name ("for sales
     roles, the OTE range...", "(on-target earnings for sales roles only)").
     Stricter than the basis markers: a label that names this band for some
-    roles only does not name it for this one, and a sentence that states
-    another figure names that figure, not this band ("For account executives,
-    OTE is $250,000 to $300,000."). A denied name ("not OTE") names nothing."""
+    roles only does not name it for this one, and a name nearer another figure
+    names that figure, not this band ("For account executives, OTE is
+    $250,000 to $300,000.", "... whereas account executives have OTE of
+    $250,000 to $300,000."). A denied name ("not OTE") names nothing."""
     if not description_text:
         return False
     span = locate_pay_span(description_text, bounds)
@@ -1117,11 +1118,35 @@ def names_on_target_earnings(description_text: str | None, bounds: list[int]) ->
         return False
     band = description_text[span[0] : span[1]]
     return any(
-        _ON_TARGET_RE.search(_NOT_ON_TARGET_RE.sub(" ", sentence))
-        and not _CONDITIONAL_RE.search(sentence)
-        and (band in sentence or not _OTHER_AMOUNT_RE.search(sentence))
+        not _CONDITIONAL_RE.search(sentence) and _names_band(sentence, band)
         for sentence in _SENTENCE_RE.split(basis_context(description_text, span))
     )
+
+
+def _names_band(sentence: str, band: str) -> bool:
+    """Whether an on-target name in `sentence` belongs to `band`: the band is
+    the figure nearest the name, or the sentence states no figure at all (a
+    heading over the band). Denied names are blanked first, keeping offsets."""
+    text = _NOT_ON_TARGET_RE.sub(lambda m: " " * len(m.group()), sentence)
+    at = text.find(band)
+    own = (at, at + len(band)) if at != -1 else None
+    others = [
+        (m.start(), m.end()) for m in _OTHER_AMOUNT_RE.finditer(text)
+        if own is None or not (m.start() < own[1] and m.end() > own[0])
+    ]
+
+    def gap(name: tuple[int, int], figure: tuple[int, int]) -> int:
+        return max(figure[0] - name[1], name[0] - figure[1], 0)
+
+    for match in _ON_TARGET_RE.finditer(text):
+        name = (match.start(), match.end())
+        if own is None:
+            if not others:
+                return True
+            continue
+        if not others or gap(name, own) <= min(gap(name, other) for other in others):
+            return True
+    return False
 
 
 def derive_pay_basis(description_text: str, bounds: list[int]) -> PayBasis:
