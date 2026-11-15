@@ -41,7 +41,7 @@ from tracker.api.agent_operations import (
     engine_session_id,
     operation_route,
 )
-from tracker.api.deps import SessionDep
+from tracker.api.deps import SessionDep, end_read
 
 router = APIRouter(route_class=AgentRoute, tags=["agent"])
 
@@ -205,9 +205,13 @@ async def recipe_contract(
     openapi_extra=operation_route(recipes.SOURCES_INSPECT),
 )
 async def source_inspect(
+    session: SessionDep,
     op: Annotated[OperationContext, Depends(admitted(recipes.SOURCES_INSPECT))],
 ) -> Envelope[Any]:
-    return op.ok(await recipes.inspect_source(op.input_as(recipes.SourceInspectInput)))
+    params = op.input_as(recipes.SourceInspectInput)
+    # Admission read the switches; the page is fetched outside a transaction.
+    await end_read(session)
+    return op.ok(await recipes.inspect_source(params))
 
 
 @router.post(
@@ -216,6 +220,10 @@ async def source_inspect(
     openapi_extra=operation_route(recipes.RECIPES_VALIDATE),
 )
 async def recipe_validate(
+    session: SessionDep,
     op: Annotated[OperationContext, Depends(admitted(recipes.RECIPES_VALIDATE))],
 ) -> Envelope[Any]:
-    return op.ok(await recipes.validate_recipe(op.input_as(recipes.RecipeValidateInput)))
+    params = op.input_as(recipes.RecipeValidateInput)
+    # Admission read the switches; the listing is read outside a transaction.
+    await end_read(session)
+    return op.ok(await recipes.validate_recipe(params))

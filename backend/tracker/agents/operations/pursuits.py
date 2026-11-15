@@ -74,7 +74,11 @@ class PursuitListInput(Shape):
     limit: int = Field(default=DEFAULT_LIMIT, ge=1, le=MAX_LIMIT, description="Pursuits on one page.")
     cursor: str | None = Field(
         default=None, min_length=1, max_length=512,
-        description="The next_cursor of the previous page, read with the same stage.",
+        description=(
+            "The next_cursor of the previous page, read with the same stage. It resumes after that "
+            "page's last pursuit in the current order, with no snapshot: a pursuit re-prioritised "
+            "during paging can be skipped or read twice, so read from the first page for a whole list."
+        ),
     )
 
 

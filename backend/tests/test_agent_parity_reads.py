@@ -349,6 +349,26 @@ async def test_notes_too_long_for_the_budget_are_cut_too_and_read_whole_elsewher
     assert whole["notes"] == notes
 
 
+async def test_a_posting_too_large_even_without_its_text_is_refused_not_answered_past_budget(
+    api_client, workspace,
+):
+    job_id = await _job_id(workspace, "FOLLOWUP")
+    title = "Staff engineer " * 1_100
+    assert _bytes({"t": title}) > DETAIL_BUDGET_BYTES["small"]
+    await workspace.execute(update(Job).where(Job.id == job_id).values(title=title))
+    await workspace.commit()
+
+    response, body = await _get(api_client, f"/opportunities/{job_id}", view="detail")
+
+    _error(response, body, "invalid_input", 2)
+    details = body["error"]["details"]
+    assert details["field"] == "tier" and details["reason"] == "over_budget"
+    assert details["budget_bytes"] == DETAIL_BUDGET_BYTES["small"] < details["full_bytes"]
+    # A larger tier holds it whole.
+    _, whole = await _get(api_client, f"/opportunities/{job_id}", view="detail", tier="standard")
+    assert _data(whole)["title"] == title and _data(whole)["excerpt"] is None
+
+
 async def test_notes_that_fit_are_kept_whole_while_the_description_is_cut(api_client, workspace):
     job_id, text = await _with_description(workspace, "FOLLOWUP", _SENTENCE * 1_500, sections=0)
     await workspace.execute(update(Pursuit).where(Pursuit.job_id == job_id).values(notes="Follow up Tuesday."))
@@ -463,6 +483,27 @@ async def test_cursor_pages_read_every_pursuit_once_in_the_tools_order(api_clien
 
     assert seen == _items(tool, await _revisions(workspace))
     assert pages == -(-tool["count"] // 3)
+
+
+async def test_a_cursor_reads_the_list_as_it_stands_and_the_first_page_reads_it_whole(api_client, workspace):
+    """A cursor resumes after the last row's place in the order, with no
+    snapshot: a pursuit re-prioritised ahead of it during paging is not seen
+    by the later pages, and a read from the first page sees it."""
+    await _many_pursuits(workspace)
+    _, first = await _get(api_client, "/pursuits", limit=3)
+    cursor = first["meta"]["next_cursor"]
+    rest_before = _data((await _get(api_client, "/pursuits", limit=100, cursor=cursor))[1])["items"]
+    moved = rest_before[-1]["job_id"]
+    lowest = min(item["priority"] for item in _data(first)["items"])
+    await workspace.execute(update(Pursuit).where(Pursuit.job_id == moved).values(priority=lowest - 1))
+    await workspace.commit()
+
+    rest_after = _data((await _get(api_client, "/pursuits", limit=100, cursor=cursor))[1])["items"]
+    restarted = _data((await _get(api_client, "/pursuits", limit=100))[1])["items"]
+
+    assert moved not in [item["job_id"] for item in rest_after]
+    assert restarted[0]["job_id"] == moved
+    assert len(restarted) == len(_data(first)["items"]) + len(rest_before)
 
 
 async def test_a_full_last_page_hands_out_no_cursor(api_client, workspace):

@@ -1282,6 +1282,8 @@ A read takes its input from the path and query; one that takes a document
 (`recipes.validate`) takes it as a POST body, one JSON object.
 An answer that can grow past the caller's tool tier (the detail view of
 `opportunities.get`) is a typed excerpt marked `truncated`, never cut JSON.
+A list cursor (`pursuits.list`) resumes after its last row in the current
+order, with no snapshot; a whole list is read from the first page.
 Each read that replaces an MCP tool reuses that tool's query owner, and
 `backend/tests/test_agent_parity_reads.py` holds the two to the same rows.
 

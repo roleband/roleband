@@ -462,7 +462,16 @@ def bounded_detail(fields: dict[str, Any], *, tier: ToolTier) -> OpportunityDeta
         room = 0
     kept = _cut(text, room)
     excerpt = excerpt.model_copy(update={"kept_chars": len(kept)})
-    return shell.model_copy(update={"description": kept, "excerpt": excerpt})
+    bounded = shell.model_copy(update={"description": kept, "excerpt": excerpt})
+    # Only the description and the notes are cut. A posting whose other fields
+    # alone pass the budget is refused rather than answered past it.
+    if len(bounded.model_dump_json().encode()) > budget:
+        raise OperationError(
+            "invalid_input",
+            "This posting's detail does not fit the tier's budget, even without its description.",
+            details={"field": "tier", "reason": "over_budget", "budget_bytes": budget, "full_bytes": full_bytes},
+        )
+    return bounded
 
 
 def _cut(text: str, room: int) -> str:
