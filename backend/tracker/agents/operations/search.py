@@ -251,7 +251,7 @@ async def search(
     ordered = await _ordered(session, board, sort=sort, order=order, query=params.query,
                              offset=offset, limit=params.limit, exact_seen=carried)
 
-    rows = await _rows(session, ordered.jobs, now=now)
+    rows = await summary_rows(session, ordered.jobs, now=now)
     page = SearchPage(
         total=ordered.total,
         count=0,
@@ -264,7 +264,7 @@ async def search(
     # The rows share the page's budget with its header, whose filters grow with the request.
     budget = PAGE_BUDGET_BYTES[params.tier]
     header = _size(page.model_dump(mode="json"))
-    kept, cut = _within_budget(rows, budget - header)
+    kept, cut = rows_within_budget(rows, budget - header)
     if kept and _size(kept[0]) + 1 > budget - header or header > budget:
         raise OperationError(
             "invalid_input",
@@ -351,7 +351,9 @@ async def _best_match(
 # --- rows -------------------------------------------------------------------- #
 
 
-async def _rows(session: AsyncSession, jobs: list[Job], *, now: datetime) -> list[SearchRow]:
+async def summary_rows(session: AsyncSession, jobs: list[Job], *, now: datetime) -> list[SearchRow]:
+    """Each posting as a search row, in the order given: what every read that
+    answers postings in the summary shape shows of one."""
     ids = [job.id for job in jobs]
     saved: set[int] = set()
     stages: dict[int, str] = {}
@@ -429,7 +431,7 @@ def _size(value: object) -> int:
 _SHORTEST_CELL = 24
 
 
-def _within_budget(rows: list[SearchRow], budget: int) -> tuple[list[SearchRow], bool]:
+def rows_within_budget(rows: list[SearchRow], budget: int) -> tuple[list[SearchRow], bool]:
     """The leading rows whose JSON fits `budget` bytes, and whether the first
     one was cut to fit. A page always holds its first row, so paging never
     stops before it starts: one longer than the whole budget has its longest

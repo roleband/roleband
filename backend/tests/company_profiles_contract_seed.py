@@ -55,8 +55,9 @@ class _Clock(datetime):
 def pin_profile_clock(monkeypatch) -> None:
     """`datetime.now` answers `NOW` wherever these routes read the clock."""
     import tracker.api.routers.companies as router
+    import tracker.profiles.read as profile_read
 
-    for module in (router, profile_store, price_store):
+    for module in (router, profile_read, profile_store, price_store):
         monkeypatch.setattr(module, "datetime", _Clock)
 
 

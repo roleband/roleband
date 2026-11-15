@@ -13,14 +13,17 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse
 
 from tracker import __version__
 from tracker.agents.operations import (
+    companies,
     opportunities,
     pursuits,
     radar,
     receipts,
     recipes,
+    relations,
     search,
     vocabulary,
 )
@@ -130,6 +133,25 @@ async def radar_summary(
     op: Annotated[OperationContext, Depends(admitted(radar.RADAR_SUMMARY))],
 ) -> Envelope[Any]:
     return op.ok(await radar.radar_summary(session, now=datetime.now(UTC)))
+
+
+# Before `/opportunities/{opportunity_id}`, which would otherwise take `get-many` for an id.
+@router.get(
+    f"{PREFIX}/opportunities/get-many",
+    response_model=Envelope[opportunities.GetManyPage],
+    openapi_extra=operation_route(opportunities.OPPORTUNITIES_GET_MANY),
+)
+async def opportunity_get_many(
+    op: Annotated[OperationContext, Depends(admitted(opportunities.OPPORTUNITIES_GET_MANY))],
+) -> Envelope[Any] | JSONResponse:
+    params = op.input_as(opportunities.GetManyInput)
+    answer = await opportunities.get_many(op.session, params)
+    if answer.page.not_found:
+        return op.partial(
+            answer.page, opportunities.missing_ids(answer.page, params.ids),
+            warnings=_fitting(rows_left=answer.shortened, row_cut=answer.row_cut) or None, truncated=answer.row_cut,
+        )
+    return _fitted(op, answer.page, rows_left=answer.shortened, row_cut=answer.row_cut)
 
 
 @router.get(
@@ -351,3 +373,121 @@ async def vocabulary_list(
     envelope = op.ok(page)
     envelope.meta.next_cursor = next_cursor
     return envelope
+
+
+def _paged(op: OperationContext, paged: companies.Paged) -> Envelope[Any]:
+    envelope = op.ok(paged.data, warnings=[_PAGE_SHORTENED] if paged.shortened else None)
+    envelope.meta.next_cursor = paged.next_cursor
+    return envelope
+
+
+_PAGE_SHORTENED = EnvelopeNotice(
+    code="page_shortened",
+    message="This page stops before the limit to stay within the tool tier's budget; next_cursor continues.",
+)
+_ROWS_LEFT = EnvelopeNotice(
+    code="page_shortened",
+    message="Some postings did not fit the tool tier's budget; data.continue_with reads them.",
+)
+_ROW_SHORTENED = EnvelopeNotice(
+    code="row_shortened",
+    message="A row's text is longer than this tool tier's budget, so it is cut; opportunities.get gives it whole.",
+)
+
+
+def _fitting(*, rows_left: bool, row_cut: bool) -> list[EnvelopeNotice]:
+    return [notice for notice, on in ((_ROWS_LEFT, rows_left), (_ROW_SHORTENED, row_cut)) if on]
+
+
+def _fitted(op: OperationContext, data: Any, *, rows_left: bool, row_cut: bool) -> Envelope[Any]:
+    envelope = op.ok(data, warnings=_fitting(rows_left=rows_left, row_cut=row_cut) or None)
+    envelope.meta.truncated = row_cut
+    return envelope
+
+
+@router.get(
+    f"{PREFIX}/companies",
+    response_model=Envelope[companies.CompanyPage],
+    openapi_extra=operation_route(companies.COMPANIES_LIST),
+)
+async def company_list(
+    op: Annotated[OperationContext, Depends(admitted(companies.COMPANIES_LIST))],
+) -> Envelope[Any]:
+    return _paged(op, await companies.company_page(
+        op.session, op.input_as(companies.CompanyListInput), workspace_id=op.workspace_id,
+    ))
+
+
+@router.get(
+    f"{PREFIX}/companies/{{company}}",
+    response_model=Envelope[companies.CompanyView],
+    openapi_extra=operation_route(companies.COMPANIES_GET),
+)
+async def company_get(
+    op: Annotated[OperationContext, Depends(admitted(companies.COMPANIES_GET))],
+) -> Envelope[Any]:
+    return _paged(op, await companies.company(
+        op.session, op.input_as(companies.CompanyGetInput), workspace_id=op.workspace_id,
+    ))
+
+
+@router.get(
+    f"{PREFIX}/companies/{{company}}/facts",
+    response_model=Envelope[companies.FactsPage],
+    openapi_extra=operation_route(companies.COMPANIES_FACTS_LIST),
+)
+async def company_facts(
+    op: Annotated[OperationContext, Depends(admitted(companies.COMPANIES_FACTS_LIST))],
+) -> Envelope[Any]:
+    return _paged(op, await companies.facts(
+        op.session, op.input_as(companies.FactsListInput), workspace_id=op.workspace_id,
+    ))
+
+
+@router.get(
+    f"{PREFIX}/companies/{{company}}/prices",
+    response_model=Envelope[companies.PricesPage],
+    openapi_extra=operation_route(companies.COMPANIES_PRICES_GET),
+)
+async def company_prices(
+    op: Annotated[OperationContext, Depends(admitted(companies.COMPANIES_PRICES_GET))],
+) -> Envelope[Any]:
+    return _paged(op, await companies.prices(
+        op.session, op.input_as(companies.PricesInput), workspace_id=op.workspace_id,
+    ))
+
+
+@router.get(
+    f"{PREFIX}/opportunities/{{opportunity_id}}/similar",
+    response_model=Envelope[relations.SimilarRoles],
+    openapi_extra=operation_route(relations.OPPORTUNITIES_SIMILAR),
+)
+async def opportunity_similar(
+    op: Annotated[OperationContext, Depends(admitted(relations.OPPORTUNITIES_SIMILAR))],
+) -> Envelope[Any]:
+    data, fitted = await relations.similar(op.session, op.input_as(relations.SimilarInput))
+    return _fitted(op, data, rows_left=bool(fitted.rest), row_cut=fitted.row_cut)
+
+
+@router.get(
+    f"{PREFIX}/opportunities/{{opportunity_id}}/duplicates",
+    response_model=Envelope[relations.PostingDecks],
+    openapi_extra=operation_route(relations.OPPORTUNITIES_DUPLICATES),
+)
+async def opportunity_duplicates(
+    op: Annotated[OperationContext, Depends(admitted(relations.OPPORTUNITIES_DUPLICATES))],
+) -> Envelope[Any]:
+    data, fitted = await relations.decks(op.session, op.input_as(relations.RelationInput))
+    return _fitted(op, data, rows_left=bool(fitted.rest), row_cut=fitted.row_cut)
+
+
+@router.get(
+    f"{PREFIX}/opportunities/{{opportunity_id}}/reality",
+    response_model=Envelope[relations.PostingVerdict],
+    openapi_extra=operation_route(relations.OPPORTUNITIES_REALITY),
+)
+async def opportunity_reality(
+    op: Annotated[OperationContext, Depends(admitted(relations.OPPORTUNITIES_REALITY))],
+) -> Envelope[Any]:
+    wanted = op.input_as(relations.RelationInput).opportunity_id
+    return op.ok(await relations.reality(op.session, wanted))

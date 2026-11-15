@@ -145,6 +145,35 @@ def success(
     )
 
 
+def partial(
+    operation: str,
+    data: BaseModel,
+    error: OperationError,
+    *,
+    request_id: str,
+    workspace_id: str | None,
+    data_classes: tuple[DataClass, ...] = (),
+    warnings: list[EnvelopeNotice] | None = None,
+    truncated: bool = False,
+) -> Envelope[Any]:
+    """A batch some of whose items failed: the one failure that carries `data`,
+    the typed per-item outcomes. `ok` stays false, so a caller that checks one
+    field never takes a partial result for a complete one. `truncated` marks
+    a value in `data` that was cut to fit, as on a complete answer."""
+    if error.code != "partial_result":
+        raise ValueError(f"a partial batch answers partial_result, not {error.code!r}")
+    return Envelope[Any](
+        request_id=request_id,
+        workspace_id=workspace_id,
+        operation=operation,
+        ok=False,
+        data=data,
+        meta=EnvelopeMeta(observed_at=now(), partial=True, truncated=truncated, data_classes=list(data_classes)),
+        warnings=warnings or [],
+        error=error.body(),
+    )
+
+
 def failure(
     operation: str,
     error: OperationError,

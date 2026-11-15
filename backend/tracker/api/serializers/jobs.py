@@ -13,10 +13,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from tracker.analytics.posting_reality import PostingFacts, is_new_listing, listing_age
 from tracker.analytics.posting_reality import classify as classify_posting
+from tracker.analytics.posting_reality import is_new_listing, listing_age
 from tracker.db.models import Job, JobLineage
-from tracker.db.queries.jobs import PlaceSetCounts
+from tracker.db.queries.jobs import PlaceSetCounts, standing_facts
 from tracker.pay_disclosure import ROW_PAY_PERIODS, band_stated, disclosure_known
 from tracker.pay_period import effective_period
 from tracker.workflows.posting_pages import band_from_page
@@ -162,21 +162,13 @@ def serialize_job(
     # detail serves, from the same stored facts, read off the page context
     # (`row_context`) so a page costs the same round trips at any size. Sent
     # only when the context carries them; null for a closed posting.
-    if role_starts is not None and reopened_ids is not None and first_seen:
-        data["posting_reality"] = classify_posting(
-            PostingFacts(
-                status=job.status,
-                posted_at=job.posted_at,
-                first_posted_at=job.first_posted_at,
-                first_seen=first_seen,
-                role_since=role_starts.get(job.lineage_id) if job.lineage_id is not None else None,
-                lineage_size=lineage_size,
-                repost_count=job.repost_count or 0,
-                listed_here=counts.here if counts is not None else 0,
-                reopened=job.id in reopened_ids,
-            ),
-            now,
+    if role_starts is not None and reopened_ids is not None and (
+        facts := standing_facts(
+            job, lineage_meta=lineage_meta or {}, role_starts=role_starts,
+            reopened_ids=reopened_ids, place_counts=place_counts or {},
         )
+    ):
+        data["posting_reality"] = classify_posting(facts, now)
     if detail:
         data["description_text"] = job.description_text
         data["description_html"] = job.description_html

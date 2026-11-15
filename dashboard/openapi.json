@@ -351,6 +351,47 @@
     "title": "AmountChange",
     "type": "object"
    },
+   "Answering": {
+    "additionalProperties": false,
+    "description": "Who answers one part of the profile: RoleBand's data or one plugin.",
+    "properties": {
+     "covered": {
+      "title": "Covered",
+      "type": "boolean"
+     },
+     "plugin": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Plugin",
+      "x-text": "identifier"
+     },
+     "plugin_name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Plugin Name",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "plugin",
+     "plugin_name",
+     "covered"
+    ],
+    "title": "Answering",
+    "type": "object"
+   },
    "ApplicationActivityResponse": {
     "additionalProperties": false,
     "description": "`GET /api/applications/{job_id}/activity`: newest first. Pass the\nnumber of items already read as `offset` for the page after it.",
@@ -2693,6 +2734,151 @@
     "title": "CompanyBenefitWording",
     "type": "object"
    },
+   "CompanyBenefitsPage": {
+    "additionalProperties": false,
+    "properties": {
+     "answered_by": {
+      "$ref": "#/components/schemas/Answering"
+     },
+     "columns": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Columns",
+      "type": "array",
+      "x-text": "code"
+     },
+     "count": {
+      "minimum": 0.0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "notes": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Notes",
+      "type": "array",
+      "x-text": "content"
+     },
+     "rows": {
+      "description": "One array per row, its values in the order `columns` names.",
+      "items": {
+       "maxItems": 11,
+       "minItems": 11,
+       "prefixItems": [
+        {
+         "type": "string"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "integer"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "type": "string"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "type": "boolean"
+        },
+        {
+         "type": "integer"
+        },
+        {
+         "type": "string"
+        }
+       ],
+       "type": "array"
+      },
+      "title": "Rows",
+      "type": "array",
+      "x-text": "content"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "total": {
+      "minimum": 0.0,
+      "title": "Total",
+      "type": "integer"
+     },
+     "view": {
+      "const": "benefits",
+      "title": "View",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "view",
+     "slug",
+     "total",
+     "count",
+     "notes",
+     "answered_by",
+     "columns",
+     "rows"
+    ],
+    "title": "CompanyBenefitsPage",
+    "type": "object"
+   },
    "CompanyCardResponse": {
     "additionalProperties": false,
     "description": "`GET /api/companies/{slug}/card`: the chip's hover card, with or without a profile.",
@@ -3306,6 +3492,82 @@
     "title": "CompanyLocationRow",
     "type": "object"
    },
+   "CompanyLocationsPage": {
+    "additionalProperties": false,
+    "properties": {
+     "columns": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Columns",
+      "type": "array",
+      "x-text": "code"
+     },
+     "count": {
+      "minimum": 0.0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "rows": {
+      "description": "One array per row, its values in the order `columns` names.",
+      "items": {
+       "maxItems": 4,
+       "minItems": 4,
+       "prefixItems": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "integer"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "type": "boolean"
+        }
+       ],
+       "type": "array"
+      },
+      "title": "Rows",
+      "type": "array",
+      "x-text": "content"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "total": {
+      "minimum": 0.0,
+      "title": "Total",
+      "type": "integer"
+     },
+     "view": {
+      "const": "locations",
+      "title": "View",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "view",
+     "slug",
+     "total",
+     "count",
+     "columns",
+     "rows"
+    ],
+    "title": "CompanyLocationsPage",
+    "type": "object"
+   },
    "CompanyNamesResponse": {
     "additionalProperties": false,
     "description": "`GET /api/companies/names`: every catalog and tracked company's name by\nslug, read once by the dashboard before it renders so no screen prints a\nslug. A slug absent here is a directory company the install does not track.",
@@ -3478,6 +3740,161 @@
      "last_read"
     ],
     "title": "CompanyOpenCountsResponse",
+    "type": "object"
+   },
+   "CompanyPage": {
+    "additionalProperties": false,
+    "properties": {
+     "columns": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Columns",
+      "type": "array",
+      "x-text": "code"
+     },
+     "count": {
+      "minimum": 0.0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "rows": {
+      "description": "One array per row, its values in the order `columns` names.",
+      "items": {
+       "maxItems": 14,
+       "minItems": 14,
+       "prefixItems": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "string"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "boolean"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "items": {
+          "type": "string"
+         },
+         "type": "array"
+        },
+        {
+         "type": "boolean"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "integer"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "type": "integer"
+        },
+        {
+         "type": "integer"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "number"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "number"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "format": "date",
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        }
+       ],
+       "type": "array"
+      },
+      "title": "Rows",
+      "type": "array",
+      "x-text": "content"
+     },
+     "sectors": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Sectors",
+      "type": "array",
+      "x-text": "code"
+     },
+     "total": {
+      "minimum": 0.0,
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "total",
+     "count",
+     "sectors",
+     "columns",
+     "rows"
+    ],
+    "title": "CompanyPage",
     "type": "object"
    },
    "CompanyPricesResponse": {
@@ -3997,6 +4414,123 @@
     "title": "CompanyProfileSummary",
     "type": "object"
    },
+   "CompanyProfileView": {
+    "additionalProperties": false,
+    "properties": {
+     "attribution": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Attribution",
+      "x-text": "content"
+     },
+     "benefits": {
+      "title": "Benefits",
+      "type": "integer"
+     },
+     "benefits_answered_by": {
+      "$ref": "#/components/schemas/Answering"
+     },
+     "facts": {
+      "items": {
+       "$ref": "#/components/schemas/ProfileFact"
+      },
+      "title": "Facts",
+      "type": "array"
+     },
+     "health": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Health",
+      "x-text": "code"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string",
+      "x-text": "content"
+     },
+     "needs_review": {
+      "items": {
+       "$ref": "#/components/schemas/ReviewItem"
+      },
+      "title": "Needs Review",
+      "type": "array"
+     },
+     "open_roles": {
+      "title": "Open Roles",
+      "type": "integer"
+     },
+     "pay": {
+      "$ref": "#/components/schemas/Pay"
+     },
+     "place_count": {
+      "title": "Place Count",
+      "type": "integer"
+     },
+     "places": {
+      "items": {
+       "$ref": "#/components/schemas/Place"
+      },
+      "title": "Places",
+      "type": "array"
+     },
+     "price": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Quote"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "unfollowed": {
+      "title": "Unfollowed",
+      "type": "boolean"
+     },
+     "view": {
+      "const": "profile",
+      "title": "View",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "view",
+     "slug",
+     "name",
+     "health",
+     "facts",
+     "needs_review",
+     "pay",
+     "benefits",
+     "benefits_answered_by",
+     "open_roles",
+     "unfollowed",
+     "places",
+     "place_count",
+     "price",
+     "attribution"
+    ],
+    "title": "CompanyProfileView",
+    "type": "object"
+   },
    "CompanySelectionPayload": {
     "properties": {
      "consents": {
@@ -4026,6 +4560,29 @@
     },
     "title": "CompanySelectionPayload",
     "type": "object"
+   },
+   "CompanyView": {
+    "description": "One company in the view the caller asked for; `view` names which.",
+    "discriminator": {
+     "mapping": {
+      "benefits": "#/components/schemas/CompanyBenefitsPage",
+      "locations": "#/components/schemas/CompanyLocationsPage",
+      "profile": "#/components/schemas/CompanyProfileView"
+     },
+     "propertyName": "view"
+    },
+    "oneOf": [
+     {
+      "$ref": "#/components/schemas/CompanyProfileView"
+     },
+     {
+      "$ref": "#/components/schemas/CompanyBenefitsPage"
+     },
+     {
+      "$ref": "#/components/schemas/CompanyLocationsPage"
+     }
+    ],
+    "title": "CompanyView"
    },
    "CompareSelectionOut": {
     "description": "What is STORED, which is not always what was asked for.\n\nThe endpoint echoes rather than 404s so the dashboard can reconcile its\noptimistic state against the truth in one round trip: ids past the cap and\nids whose job is gone come back absent, and the rail count follows\nwhat is really there.",
@@ -4077,6 +4634,137 @@
      "disclosure"
     ],
     "title": "CompensationStatsResponse",
+    "type": "object"
+   },
+   "Criterion": {
+    "additionalProperties": false,
+    "properties": {
+     "key": {
+      "enum": [
+       "long_open",
+       "relisted",
+       "redated"
+      ],
+      "title": "Key",
+      "type": "string",
+      "x-text": "code"
+     },
+     "met": {
+      "title": "Met",
+      "type": "boolean"
+     },
+     "observed": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Observed"
+     },
+     "threshold": {
+      "title": "Threshold",
+      "type": "integer"
+     },
+     "unit": {
+      "enum": [
+       "days",
+       "listings"
+      ],
+      "title": "Unit",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "key",
+     "met",
+     "unit",
+     "threshold",
+     "observed"
+    ],
+    "title": "Criterion",
+    "type": "object"
+   },
+   "DeckLink": {
+    "additionalProperties": false,
+    "description": "Why a member is in its deck: the link that placed it and who decided.",
+    "properties": {
+     "confidence": {
+      "title": "Confidence",
+      "type": "string",
+      "x-text": "code"
+     },
+     "decision": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Decision",
+      "x-text": "code"
+     },
+     "gap_days": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Gap Days"
+     },
+     "method": {
+      "title": "Method",
+      "type": "string",
+      "x-text": "code"
+     },
+     "reasons": {
+      "items": {
+       "$ref": "#/components/schemas/Reason"
+      },
+      "title": "Reasons",
+      "type": "array"
+     },
+     "relation": {
+      "title": "Relation",
+      "type": "string",
+      "x-text": "code"
+     },
+     "score": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Score"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "relation",
+     "method",
+     "confidence",
+     "status",
+     "decision",
+     "score",
+     "gap_days",
+     "reasons"
+    ],
+    "title": "DeckLink",
     "type": "object"
    },
    "DecoderCell": {
@@ -5943,6 +6631,318 @@
     "title": "Envelope[CapabilitiesResult]",
     "type": "object"
    },
+   "Envelope_CompanyPage_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/CompanyPage"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[CompanyPage]",
+    "type": "object"
+   },
+   "Envelope_CompanyView_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/CompanyView"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[CompanyView]",
+    "type": "object"
+   },
+   "Envelope_FactsPage_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/FactsPage"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[FactsPage]",
+    "type": "object"
+   },
+   "Envelope_GetManyPage_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/GetManyPage"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[GetManyPage]",
+    "type": "object"
+   },
    "Envelope_ListingHistory_": {
     "additionalProperties": false,
     "properties": {
@@ -6175,6 +7175,240 @@
      "error"
     ],
     "title": "Envelope[OpportunityView]",
+    "type": "object"
+   },
+   "Envelope_PostingDecks_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PostingDecks"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[PostingDecks]",
+    "type": "object"
+   },
+   "Envelope_PostingVerdict_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PostingVerdict"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[PostingVerdict]",
+    "type": "object"
+   },
+   "Envelope_PricesPage_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PricesPage"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[PricesPage]",
     "type": "object"
    },
    "Envelope_PursuitItem_": {
@@ -6799,6 +8033,84 @@
      "error"
     ],
     "title": "Envelope[SearchPage]",
+    "type": "object"
+   },
+   "Envelope_SimilarRoles_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/SimilarRoles"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[SimilarRoles]",
     "type": "object"
    },
    "Envelope_SourceInspection_": {
@@ -7735,6 +9047,187 @@
     "title": "FacetsResponse",
     "type": "object"
    },
+   "FactConflict": {
+    "additionalProperties": false,
+    "description": "Another source asserting a materially different value.",
+    "properties": {
+     "basis": {
+      "anyOf": [
+       {
+        "enum": [
+         "official",
+         "estimated",
+         "dataset",
+         "seed",
+         "inferred",
+         "human",
+         "plugin"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Basis",
+      "x-text": "code"
+     },
+     "observed_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Observed At"
+     },
+     "source": {
+      "title": "Source",
+      "type": "string",
+      "x-text": "code"
+     },
+     "value": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "integer"
+       },
+       {
+        "type": "number"
+       },
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Value",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "value",
+     "source",
+     "basis",
+     "observed_at"
+    ],
+    "title": "FactConflict",
+    "type": "object"
+   },
+   "FactsPage": {
+    "additionalProperties": false,
+    "properties": {
+     "columns": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Columns",
+      "type": "array",
+      "x-text": "code"
+     },
+     "count": {
+      "minimum": 0.0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "rows": {
+      "description": "One array per row, its values in the order `columns` names.",
+      "items": {
+       "maxItems": 6,
+       "minItems": 6,
+       "prefixItems": [
+        {
+         "type": "string"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "integer"
+          },
+          {
+           "type": "number"
+          },
+          {
+           "type": "boolean"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "type": "string"
+        },
+        {
+         "anyOf": [
+          {
+           "enum": [
+            "official",
+            "estimated",
+            "dataset",
+            "seed",
+            "inferred",
+            "human",
+            "plugin"
+           ],
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "type": "integer"
+        },
+        {
+         "anyOf": [
+          {
+           "format": "date-time",
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        }
+       ],
+       "type": "array"
+      },
+      "title": "Rows",
+      "type": "array",
+      "x-text": "content"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "total": {
+      "minimum": 0.0,
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "slug",
+     "total",
+     "count",
+     "columns",
+     "rows"
+    ],
+    "title": "FactsPage",
+    "type": "object"
+   },
    "FavoriteResponse": {
     "additionalProperties": false,
     "properties": {
@@ -7796,6 +9289,142 @@
      }
     },
     "title": "FindBoardPayload",
+    "type": "object"
+   },
+   "GetManyPage": {
+    "additionalProperties": false,
+    "properties": {
+     "columns": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Columns",
+      "type": "array",
+      "x-text": "code"
+     },
+     "continue_with": {
+      "items": {
+       "$ref": "#/components/schemas/NextAction"
+      },
+      "title": "Continue With",
+      "type": "array"
+     },
+     "count": {
+      "minimum": 0.0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "not_found": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Not Found",
+      "type": "array"
+     },
+     "rows": {
+      "description": "One array per opportunity found, in the order asked, its values in the order `columns` names.",
+      "items": {
+       "maxItems": 11,
+       "minItems": 11,
+       "prefixItems": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "string"
+        },
+        {
+         "type": "string"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "type": "integer"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "integer"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        }
+       ],
+       "type": "array"
+      },
+      "title": "Rows",
+      "type": "array",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "count",
+     "columns",
+     "rows",
+     "not_found",
+     "continue_with"
+    ],
+    "title": "GetManyPage",
     "type": "object"
    },
    "HTTPValidationError": {
@@ -12306,6 +13935,80 @@
     "title": "LevelBand",
     "type": "string"
    },
+   "LevelBase": {
+    "additionalProperties": false,
+    "description": "RoleBand's own base pay for one band, in US dollars; a total only when\nbase, bonus and stock are all known.",
+    "properties": {
+     "band": {
+      "title": "Band",
+      "type": "string",
+      "x-text": "code"
+     },
+     "base_usd": {
+      "title": "Base Usd",
+      "type": "integer"
+     },
+     "below_lower": {
+      "title": "Below Lower",
+      "type": "boolean"
+     },
+     "bonus_ratio": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Bonus Ratio"
+     },
+     "bonus_usd": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Bonus Usd"
+     },
+     "stock_usd": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Stock Usd"
+     },
+     "total_usd": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Total Usd"
+     }
+    },
+    "required": [
+     "band",
+     "base_usd",
+     "bonus_ratio",
+     "bonus_usd",
+     "stock_usd",
+     "total_usd",
+     "below_lower"
+    ],
+    "title": "LevelBase",
+    "type": "object"
+   },
    "LevelGuideCell": {
     "additionalProperties": false,
     "description": "How one company names one level: one entry for every function, or one\nper track. Exactly one key is present (`response_model_exclude_unset`).",
@@ -14724,6 +16427,57 @@
     "title": "OfferDraft",
     "type": "object"
    },
+   "OfferFact": {
+    "additionalProperties": false,
+    "properties": {
+     "fact": {
+      "title": "Fact",
+      "type": "string",
+      "x-text": "code"
+     },
+     "stated_by": {
+      "anyOf": [
+       {
+        "enum": [
+         "employer",
+         "estimated"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Stated By",
+      "x-text": "code"
+     },
+     "value": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "integer"
+       },
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Value",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "fact",
+     "value",
+     "stated_by"
+    ],
+    "title": "OfferFact",
+    "type": "object"
+   },
    "OfferInputs": {
     "additionalProperties": false,
     "description": "What the person entered. A null figure is blank, never zero.",
@@ -15084,6 +16838,46 @@
      "valuations"
     ],
     "title": "OfferResponse",
+    "type": "object"
+   },
+   "OfferRules": {
+    "additionalProperties": false,
+    "description": "How the company builds an offer, from the level atlas.",
+    "properties": {
+     "facts": {
+      "items": {
+       "$ref": "#/components/schemas/OfferFact"
+      },
+      "title": "Facts",
+      "type": "array"
+     },
+     "unknown_fields": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Unknown Fields",
+      "type": "array",
+      "x-text": "code"
+     },
+     "verified_on": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Verified On"
+     }
+    },
+    "required": [
+     "verified_on",
+     "facts",
+     "unknown_fields"
+    ],
+    "title": "OfferRules",
     "type": "object"
    },
    "OfferTermsCompany": {
@@ -16456,6 +18250,59 @@
     "title": "PartSources",
     "type": "object"
    },
+   "Pay": {
+    "additionalProperties": false,
+    "properties": {
+     "answered_by": {
+      "$ref": "#/components/schemas/Answering"
+     },
+     "level_base": {
+      "items": {
+       "$ref": "#/components/schemas/LevelBase"
+      },
+      "title": "Level Base",
+      "type": "array"
+     },
+     "levels": {
+      "items": {
+       "$ref": "#/components/schemas/PayRung"
+      },
+      "title": "Levels",
+      "type": "array"
+     },
+     "notes": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Notes",
+      "x-text": "content"
+     },
+     "offer_policy": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/OfferRules"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "levels",
+     "level_base",
+     "offer_policy",
+     "notes",
+     "answered_by"
+    ],
+    "title": "Pay",
+    "type": "object"
+   },
    "PayBasis": {
     "enum": [
      "base",
@@ -16766,6 +18613,144 @@
     ],
     "title": "PayPeriod",
     "type": "string"
+   },
+   "PayRung": {
+    "additionalProperties": false,
+    "description": "One level of the company's pay ladder, in whole units of `currency` as\nits publisher stated them, never converted; shares are fractions.",
+    "properties": {
+     "band": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Band",
+      "x-text": "code"
+     },
+     "base": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Base"
+     },
+     "base_share": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Base Share"
+     },
+     "bonus": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Bonus"
+     },
+     "bonus_share": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Bonus Share"
+     },
+     "currency": {
+      "title": "Currency",
+      "type": "string",
+      "x-text": "code"
+     },
+     "level": {
+      "title": "Level",
+      "type": "string",
+      "x-text": "content"
+     },
+     "source": {
+      "title": "Source",
+      "type": "string",
+      "x-text": "code"
+     },
+     "source_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Url",
+      "x-text": "identifier"
+     },
+     "stock": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Stock"
+     },
+     "stock_share": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Stock Share"
+     },
+     "total_median": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Total Median"
+     }
+    },
+    "required": [
+     "level",
+     "band",
+     "currency",
+     "total_median",
+     "base",
+     "stock",
+     "bonus",
+     "base_share",
+     "stock_share",
+     "bonus_share",
+     "source",
+     "source_url"
+    ],
+    "title": "PayRung",
+    "type": "object"
    },
    "PayTableEquity": {
     "additionalProperties": false,
@@ -17169,6 +19154,74 @@
     "title": "PayTableUnplaced",
     "type": "object"
    },
+   "Place": {
+    "additionalProperties": false,
+    "properties": {
+     "city": {
+      "title": "City",
+      "type": "string",
+      "x-text": "content"
+     },
+     "country": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Country",
+      "x-text": "code"
+     },
+     "is_hq": {
+      "title": "Is Hq",
+      "type": "boolean"
+     },
+     "open_roles": {
+      "title": "Open Roles",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "city",
+     "open_roles",
+     "country",
+     "is_hq"
+    ],
+    "title": "Place",
+    "type": "object"
+   },
+   "PlaceMember": {
+    "additionalProperties": false,
+    "properties": {
+     "is_this": {
+      "title": "Is This",
+      "type": "boolean"
+     },
+     "opportunity_id": {
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
+     "relation": {
+      "title": "Relation",
+      "type": "string",
+      "x-text": "code"
+     },
+     "same_place": {
+      "title": "Same Place",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "opportunity_id",
+     "is_this",
+     "relation",
+     "same_place"
+    ],
+    "title": "PlaceMember",
+    "type": "object"
+   },
    "PlaceResult": {
     "additionalProperties": false,
     "description": "One place the location search offers (`GET /api/scope/places`).",
@@ -17255,6 +19308,64 @@
      "unions"
     ],
     "title": "PlaceSearchResponse",
+    "type": "object"
+   },
+   "PlaceSetDeck": {
+    "additionalProperties": false,
+    "description": "The role listed once per place, by rule: same title and text, each at a different place.",
+    "properties": {
+     "employer_label": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Employer Label",
+      "x-text": "content"
+     },
+     "members": {
+      "items": {
+       "$ref": "#/components/schemas/PlaceMember"
+      },
+      "title": "Members",
+      "type": "array"
+     },
+     "places": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Places",
+      "type": "array",
+      "x-text": "content"
+     },
+     "rule_version": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Rule Version",
+      "x-text": "code"
+     },
+     "size": {
+      "title": "Size",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "size",
+     "places",
+     "employer_label",
+     "rule_version",
+     "members"
+    ],
+    "title": "PlaceSetDeck",
     "type": "object"
    },
    "PlaceSetInfo": {
@@ -19248,6 +21359,171 @@
     "title": "PostingDates",
     "type": "object"
    },
+   "PostingDecks": {
+    "additionalProperties": false,
+    "properties": {
+     "columns": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Columns",
+      "type": "array",
+      "x-text": "code"
+     },
+     "continue_with": {
+      "items": {
+       "$ref": "#/components/schemas/NextAction"
+      },
+      "title": "Continue With",
+      "type": "array"
+     },
+     "opportunity_id": {
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
+     "place_set": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PlaceSetDeck"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "place_set_split": {
+      "title": "Place Set Split",
+      "type": "boolean"
+     },
+     "reposts": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/RepostDeck"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "rows": {
+      "description": "One array per posting, its values in the order `columns` names.",
+      "items": {
+       "maxItems": 11,
+       "minItems": 11,
+       "prefixItems": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "string"
+        },
+        {
+         "type": "string"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "type": "integer"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "integer"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        }
+       ],
+       "type": "array"
+      },
+      "title": "Rows",
+      "type": "array",
+      "x-text": "content"
+     },
+     "twins": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/TwinDeck"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "opportunity_id",
+     "reposts",
+     "twins",
+     "place_set",
+     "place_set_split",
+     "columns",
+     "rows",
+     "continue_with"
+    ],
+    "title": "PostingDecks",
+    "type": "object"
+   },
    "PostingDiff": {
     "additionalProperties": false,
     "description": "`build_member_diff`: one key per field that differs, absent otherwise.",
@@ -19379,6 +21655,122 @@
      "content"
     ],
     "title": "PostingSection",
+    "type": "object"
+   },
+   "PostingVerdict": {
+    "additionalProperties": false,
+    "properties": {
+     "counted_from": {
+      "anyOf": [
+       {
+        "enum": [
+         "role",
+         "posting"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Counted From",
+      "x-text": "code"
+     },
+     "criteria": {
+      "items": {
+       "$ref": "#/components/schemas/Criterion"
+      },
+      "title": "Criteria",
+      "type": "array"
+     },
+     "criteria_total": {
+      "title": "Criteria Total",
+      "type": "integer"
+     },
+     "opportunity_id": {
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
+     "relisted_here": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Relisted Here"
+     },
+     "returns": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Returns"
+     },
+     "role_postings": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Role Postings"
+     },
+     "standing_since": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Standing Since"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string",
+      "x-text": "code"
+     },
+     "verdict": {
+      "anyOf": [
+       {
+        "enum": [
+         "possible",
+         "none"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Verdict",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "opportunity_id",
+     "status",
+     "verdict",
+     "criteria_total",
+     "criteria",
+     "standing_since",
+     "counted_from",
+     "role_postings",
+     "returns",
+     "relisted_here"
+    ],
+    "title": "PostingVerdict",
     "type": "object"
    },
    "PreparationStatus": {
@@ -19790,6 +22182,274 @@
      "as_of"
     ],
     "title": "PriceQuote",
+    "type": "object"
+   },
+   "PricesPage": {
+    "additionalProperties": false,
+    "properties": {
+     "attribution": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Attribution",
+      "x-text": "content"
+     },
+     "columns": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Columns",
+      "type": "array",
+      "x-text": "code"
+     },
+     "count": {
+      "minimum": 0.0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "currency": {
+      "title": "Currency",
+      "type": "string",
+      "x-text": "code"
+     },
+     "feed_configured": {
+      "title": "Feed Configured",
+      "type": "boolean"
+     },
+     "latest": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Quote"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "range": {
+      "enum": [
+       "1m",
+       "3m",
+       "6m",
+       "1y"
+      ],
+      "title": "Range",
+      "type": "string",
+      "x-text": "code"
+     },
+     "rows": {
+      "description": "One array per row, its values in the order `columns` names.",
+      "items": {
+       "maxItems": 6,
+       "minItems": 6,
+       "prefixItems": [
+        {
+         "type": "string"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "number"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "number"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "number"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "type": "number"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "integer"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        }
+       ],
+       "type": "array"
+      },
+      "title": "Rows",
+      "type": "array",
+      "x-text": "content"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "total": {
+      "minimum": 0.0,
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "slug",
+     "range",
+     "currency",
+     "latest",
+     "attribution",
+     "feed_configured",
+     "total",
+     "count",
+     "columns",
+     "rows"
+    ],
+    "title": "PricesPage",
+    "type": "object"
+   },
+   "ProfileFact": {
+    "additionalProperties": false,
+    "description": "A resolved fact and how far to trust it. An unasserted one has a null\nvalue and null provenance.",
+    "properties": {
+     "answered_by": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Answered By",
+      "x-text": "identifier"
+     },
+     "basis": {
+      "anyOf": [
+       {
+        "enum": [
+         "official",
+         "estimated",
+         "dataset",
+         "seed",
+         "inferred",
+         "human",
+         "plugin"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Basis",
+      "x-text": "code"
+     },
+     "conflicts": {
+      "items": {
+       "$ref": "#/components/schemas/FactConflict"
+      },
+      "title": "Conflicts",
+      "type": "array"
+     },
+     "field": {
+      "title": "Field",
+      "type": "string",
+      "x-text": "code"
+     },
+     "freshness": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Freshness",
+      "x-text": "code"
+     },
+     "observed_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Observed At"
+     },
+     "pinned": {
+      "title": "Pinned",
+      "type": "boolean"
+     },
+     "source": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source",
+      "x-text": "code"
+     },
+     "value": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "integer"
+       },
+       {
+        "type": "number"
+       },
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Value",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "field",
+     "value",
+     "source",
+     "basis",
+     "observed_at",
+     "freshness",
+     "pinned",
+     "answered_by",
+     "conflicts"
+    ],
+    "title": "ProfileFact",
     "type": "object"
    },
    "ProfileFieldCandidate": {
@@ -21018,6 +23678,63 @@
     "title": "PursuitWriteResponse",
     "type": "object"
    },
+   "Quote": {
+    "additionalProperties": false,
+    "description": "The latest cached quote. `as_of` is a market date.",
+    "properties": {
+     "as_of": {
+      "format": "date",
+      "title": "As Of",
+      "type": "string"
+     },
+     "change_abs": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Change Abs"
+     },
+     "change_pct": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Change Pct"
+     },
+     "currency": {
+      "title": "Currency",
+      "type": "string",
+      "x-text": "code"
+     },
+     "price": {
+      "title": "Price",
+      "type": "number"
+     },
+     "ticker": {
+      "title": "Ticker",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "ticker",
+     "price",
+     "currency",
+     "change_abs",
+     "change_pct",
+     "as_of"
+    ],
+    "title": "Quote",
+    "type": "object"
+   },
    "RadarSummary": {
     "additionalProperties": false,
     "properties": {
@@ -21072,6 +23789,37 @@
      "pursuits_by_stage"
     ],
     "title": "RadarSummary",
+    "type": "object"
+   },
+   "Reason": {
+    "additionalProperties": false,
+    "description": "One reason a link gives, as a code and its numbers (`lineage.reasons`).",
+    "properties": {
+     "code": {
+      "title": "Code",
+      "type": "string",
+      "x-text": "code"
+     },
+     "params": {
+      "additionalProperties": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ]
+      },
+      "title": "Params",
+      "type": "object"
+     }
+    },
+    "required": [
+     "code",
+     "params"
+    ],
+    "title": "Reason",
     "type": "object"
    },
    "ReasonSaid": {
@@ -21896,6 +24644,127 @@
     "title": "ReleaseNotesResponse",
     "type": "object"
    },
+   "RepostDeck": {
+    "additionalProperties": false,
+    "description": "The role listed again over time: every posting of it, oldest first.",
+    "properties": {
+     "first_seen": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "First Seen"
+     },
+     "last_seen": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Seen"
+     },
+     "lineage_id": {
+      "title": "Lineage Id",
+      "type": "integer"
+     },
+     "members": {
+      "items": {
+       "$ref": "#/components/schemas/RepostMember"
+      },
+      "title": "Members",
+      "type": "array"
+     },
+     "open_members": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Open Members"
+     },
+     "size": {
+      "title": "Size",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "lineage_id",
+     "size",
+     "open_members",
+     "first_seen",
+     "last_seen",
+     "members"
+    ],
+    "title": "RepostDeck",
+    "type": "object"
+   },
+   "RepostMember": {
+    "additionalProperties": false,
+    "properties": {
+     "effective": {
+      "title": "Effective",
+      "type": "boolean"
+     },
+     "link": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/DeckLink"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "opportunity_id": {
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
+     "role": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Role",
+      "x-text": "code"
+     },
+     "seq": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seq"
+     }
+    },
+    "required": [
+     "opportunity_id",
+     "seq",
+     "role",
+     "link",
+     "effective"
+    ],
+    "title": "RepostMember",
+    "type": "object"
+   },
    "RequirementEvidence": {
     "additionalProperties": false,
     "properties": {
@@ -22201,6 +25070,63 @@
      "days"
     ],
     "title": "RetentionUpdate",
+    "type": "object"
+   },
+   "ReviewItem": {
+    "additionalProperties": false,
+    "description": "A fact the person is asked to confirm or correct, with the best-trusted value on offer.",
+    "properties": {
+     "field": {
+      "title": "Field",
+      "type": "string",
+      "x-text": "code"
+     },
+     "reason": {
+      "title": "Reason",
+      "type": "string",
+      "x-text": "code"
+     },
+     "suggestion": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "integer"
+       },
+       {
+        "type": "number"
+       },
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Suggestion",
+      "x-text": "content"
+     },
+     "suggestion_source": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Suggestion Source",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "field",
+     "reason",
+     "suggestion",
+     "suggestion_source"
+    ],
+    "title": "ReviewItem",
     "type": "object"
    },
    "RoleAge": {
@@ -25898,6 +28824,162 @@
     "title": "SimilarJobsResponse",
     "type": "object"
    },
+   "SimilarRoles": {
+    "additionalProperties": false,
+    "properties": {
+     "columns": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Columns",
+      "type": "array",
+      "x-text": "code"
+     },
+     "continue_with": {
+      "items": {
+       "$ref": "#/components/schemas/NextAction"
+      },
+      "title": "Continue With",
+      "type": "array"
+     },
+     "opportunity_id": {
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
+     "rows": {
+      "description": "One array per posting, its values in the order `columns` names.",
+      "items": {
+       "maxItems": 11,
+       "minItems": 11,
+       "prefixItems": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "string"
+        },
+        {
+         "type": "string"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "type": "integer"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "integer"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        }
+       ],
+       "type": "array"
+      },
+      "title": "Rows",
+      "type": "array",
+      "x-text": "content"
+     },
+     "scope": {
+      "enum": [
+       "within",
+       "cross",
+       "all"
+      ],
+      "title": "Scope",
+      "type": "string",
+      "x-text": "code"
+     },
+     "similar": {
+      "items": {
+       "maxItems": 2,
+       "minItems": 2,
+       "prefixItems": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "number"
+        }
+       ],
+       "type": "array"
+      },
+      "title": "Similar",
+      "type": "array"
+     }
+    },
+    "required": [
+     "opportunity_id",
+     "scope",
+     "similar",
+     "columns",
+     "rows",
+     "continue_with"
+    ],
+    "title": "SimilarRoles",
+    "type": "object"
+   },
    "SourceInspection": {
     "additionalProperties": false,
     "properties": {
@@ -27531,6 +30613,64 @@
     "title": "TrajectorySetApart",
     "type": "object"
    },
+   "TwinDeck": {
+    "additionalProperties": false,
+    "description": "The role listed more than once at the same time: the asked posting first.",
+    "properties": {
+     "direct_count": {
+      "title": "Direct Count",
+      "type": "integer"
+     },
+     "members": {
+      "items": {
+       "$ref": "#/components/schemas/TwinDeckMember"
+      },
+      "title": "Members",
+      "type": "array"
+     },
+     "size": {
+      "title": "Size",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "size",
+     "direct_count",
+     "members"
+    ],
+    "title": "TwinDeck",
+    "type": "object"
+   },
+   "TwinDeckMember": {
+    "additionalProperties": false,
+    "properties": {
+     "direct": {
+      "title": "Direct",
+      "type": "boolean"
+     },
+     "link": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/DeckLink"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "opportunity_id": {
+      "title": "Opportunity Id",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "opportunity_id",
+     "direct",
+     "link"
+    ],
+    "title": "TwinDeckMember",
+    "type": "object"
+   },
    "TwinLinkCreated": {
     "additionalProperties": false,
     "description": "`POST /api/twins/links`: a human-confirmed twin, new or re-confirmed.",
@@ -28905,6 +32045,432 @@
     "x-operation": "capabilities"
    }
   },
+  "/api/agent/v1/companies": {
+   "get": {
+    "operationId": "company_list_api_agent_v1_companies_get",
+    "parameters": [
+     {
+      "description": "Words a company's name, slug or ticker contains, as the Companies search box matches.",
+      "in": "query",
+      "name": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 200,
+         "minLength": 1,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Query"
+      }
+     },
+     {
+      "description": "Sectors, by slug; repeat for more. Any one matches.",
+      "in": "query",
+      "name": "sector",
+      "required": false,
+      "schema": {
+       "items": {
+        "maxLength": 200,
+        "minLength": 1,
+        "type": "string"
+       },
+       "maxItems": 20,
+       "title": "Sector",
+       "type": "array"
+      }
+     },
+     {
+      "description": "Only companies the level atlas researched (true), or only the others (false).",
+      "in": "query",
+      "name": "researched",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "boolean"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Researched"
+      }
+     },
+     {
+      "description": "Only companies whose facts need a person's review.",
+      "in": "query",
+      "name": "needs_review",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Needs Review",
+       "type": "boolean"
+      }
+     },
+     {
+      "description": "Most rows on one page.",
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 20,
+       "maximum": 100,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     },
+     {
+      "description": "The next_cursor of the previous page, read with the same filters.",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 512,
+         "minLength": 1,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     },
+     {
+      "description": "The caller's tool tier, which bounds the page.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_CompanyPage_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Company List",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "companies.list"
+   }
+  },
+  "/api/agent/v1/companies/{company}": {
+   "get": {
+    "operationId": "company_get_api_agent_v1_companies__company__get",
+    "parameters": [
+     {
+      "description": "The company's slug, as companies.list returns it.",
+      "in": "path",
+      "name": "company",
+      "required": true,
+      "schema": {
+       "maxLength": 200,
+       "minLength": 1,
+       "title": "Company",
+       "type": "string"
+      }
+     },
+     {
+      "description": "profile (facts, pay, price), or benefits or locations whole, a page at a time.",
+      "in": "query",
+      "name": "view",
+      "required": false,
+      "schema": {
+       "default": "profile",
+       "enum": [
+        "profile",
+        "benefits",
+        "locations"
+       ],
+       "title": "View",
+       "type": "string"
+      }
+     },
+     {
+      "description": "benefits and locations: most rows on one page.",
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 20,
+       "maximum": 100,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     },
+     {
+      "description": "benefits and locations: the next_cursor of the previous page.",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 512,
+         "minLength": 1,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     },
+     {
+      "description": "The caller's tool tier, which bounds the answer.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_CompanyView_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Company Get",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "companies.get"
+   }
+  },
+  "/api/agent/v1/companies/{company}/facts": {
+   "get": {
+    "operationId": "company_facts_api_agent_v1_companies__company__facts_get",
+    "parameters": [
+     {
+      "description": "The company's slug, as companies.list returns it.",
+      "in": "path",
+      "name": "company",
+      "required": true,
+      "schema": {
+       "maxLength": 200,
+       "minLength": 1,
+       "title": "Company",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Only the claims about this fact, such as headcount.",
+      "in": "query",
+      "name": "field",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 64,
+         "minLength": 1,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Field"
+      }
+     },
+     {
+      "description": "Most rows on one page.",
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 20,
+       "maximum": 100,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     },
+     {
+      "description": "The next_cursor of the previous page, read with the same filters.",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 512,
+         "minLength": 1,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     },
+     {
+      "description": "The caller's tool tier, which bounds the page.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_FactsPage_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Company Facts",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "companies.facts.list"
+   }
+  },
+  "/api/agent/v1/companies/{company}/prices": {
+   "get": {
+    "operationId": "company_prices_api_agent_v1_companies__company__prices_get",
+    "parameters": [
+     {
+      "description": "The company's slug, as companies.list returns it.",
+      "in": "path",
+      "name": "company",
+      "required": true,
+      "schema": {
+       "maxLength": 200,
+       "minLength": 1,
+       "title": "Company",
+       "type": "string"
+      }
+     },
+     {
+      "description": "How far back: 1m, 3m, 6m or 1y.",
+      "in": "query",
+      "name": "range",
+      "required": false,
+      "schema": {
+       "default": "3m",
+       "enum": [
+        "1m",
+        "3m",
+        "6m",
+        "1y"
+       ],
+       "title": "Range",
+       "type": "string"
+      }
+     },
+     {
+      "description": "The next_cursor of the previous page.",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 512,
+         "minLength": 1,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     },
+     {
+      "description": "The caller's tool tier, which bounds the page.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_PricesPage_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Company Prices",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "companies.prices.get"
+   }
+  },
   "/api/agent/v1/operations/{operation}": {
    "get": {
     "operationId": "describe_api_agent_v1_operations__operation__get",
@@ -29286,6 +32852,62 @@
     "x-operation": "opportunities.search"
    }
   },
+  "/api/agent/v1/opportunities/get-many": {
+   "get": {
+    "operationId": "opportunity_get_many_api_agent_v1_opportunities_get_many_get",
+    "parameters": [
+     {
+      "description": "Opportunity ids, as search returns them; 1 to 100. A repeated id is read once.",
+      "in": "query",
+      "name": "ids",
+      "required": true,
+      "schema": {
+       "items": {
+        "minimum": 1,
+        "type": "integer"
+       },
+       "maxItems": 100,
+       "minItems": 1,
+       "title": "Ids",
+       "type": "array"
+      }
+     },
+     {
+      "description": "The caller's tool tier, which bounds the answer.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_GetManyPage_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Opportunity Get Many",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "opportunities.get_many"
+   }
+  },
   "/api/agent/v1/opportunities/{opportunity_id}": {
    "get": {
     "operationId": "opportunity_get_api_agent_v1_opportunities__opportunity_id__get",
@@ -29371,6 +32993,57 @@
     "x-operation": "opportunities.get"
    }
   },
+  "/api/agent/v1/opportunities/{opportunity_id}/duplicates": {
+   "get": {
+    "operationId": "opportunity_duplicates_api_agent_v1_opportunities__opportunity_id__duplicates_get",
+    "parameters": [
+     {
+      "description": "The opportunity's id, as search returns it.",
+      "in": "path",
+      "name": "opportunity_id",
+      "required": true,
+      "schema": {
+       "minimum": 1,
+       "title": "Opportunity Id",
+       "type": "integer"
+      }
+     },
+     {
+      "description": "The caller's tool tier, which bounds the answer.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_PostingDecks_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Opportunity Duplicates",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "opportunities.duplicates"
+   }
+  },
   "/api/agent/v1/opportunities/{opportunity_id}/history": {
    "get": {
     "operationId": "opportunity_history_api_agent_v1_opportunities__opportunity_id__history_get",
@@ -29404,6 +33077,137 @@
      "agent"
     ],
     "x-operation": "opportunities.history"
+   }
+  },
+  "/api/agent/v1/opportunities/{opportunity_id}/reality": {
+   "get": {
+    "operationId": "opportunity_reality_api_agent_v1_opportunities__opportunity_id__reality_get",
+    "parameters": [
+     {
+      "description": "The opportunity's id, as search returns it.",
+      "in": "path",
+      "name": "opportunity_id",
+      "required": true,
+      "schema": {
+       "minimum": 1,
+       "title": "Opportunity Id",
+       "type": "integer"
+      }
+     },
+     {
+      "description": "The caller's tool tier, which bounds the answer.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_PostingVerdict_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Opportunity Reality",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "opportunities.reality"
+   }
+  },
+  "/api/agent/v1/opportunities/{opportunity_id}/similar": {
+   "get": {
+    "operationId": "opportunity_similar_api_agent_v1_opportunities__opportunity_id__similar_get",
+    "parameters": [
+     {
+      "description": "The opportunity's id, as search returns it.",
+      "in": "path",
+      "name": "opportunity_id",
+      "required": true,
+      "schema": {
+       "minimum": 1,
+       "title": "Opportunity Id",
+       "type": "integer"
+      }
+     },
+     {
+      "description": "within (the same company), cross (other companies) or all.",
+      "in": "query",
+      "name": "scope",
+      "required": false,
+      "schema": {
+       "default": "cross",
+       "enum": [
+        "within",
+        "cross",
+        "all"
+       ],
+       "title": "Scope",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Most similar roles to name.",
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 8,
+       "maximum": 50,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     },
+     {
+      "description": "The caller's tool tier, which bounds the answer.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_SimilarRoles_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Opportunity Similar",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "opportunities.similar"
    }
   },
   "/api/agent/v1/pursuits": {
@@ -31220,7 +35024,7 @@
   },
   "/api/company-profiles/{slug}/prices": {
    "get": {
-    "description": "Daily OHLC bars for one company's sparkline. Empty (not 404) when a company\nsimply has no prices \u2014 a private company is a valid, price-less profile. The\ncredit names the source of the bars shown, and `feed_configured` says whether\na price key is set, so an empty chart can say what to do.",
+    "description": "Daily OHLC bars for one company's sparkline (`profiles.read.profile_prices`).",
     "operationId": "company_prices_api_company_profiles__slug__prices_get",
     "parameters": [
      {

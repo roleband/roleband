@@ -153,6 +153,16 @@
    "operation": "receipts.get",
    "switch": "enabled",
    "why": "Replaces no tool: it reads back what a keyed write did after a lost reply, which the MCP server cannot, since its writes keep no receipt. A read, so it answers with writes off too."
+  },
+  {
+   "operation": "opportunities.get_many",
+   "switch": "enabled",
+   "why": "Replaces no tool and covers no dashboard route: it reads up to 100 named postings in one call, in the summary shape opportunities.search answers, so an agent holding ids from an earlier answer needs no call per posting. A read, so it answers with writes off too."
+  },
+  {
+   "operation": "opportunities.reality",
+   "switch": "enabled",
+   "why": "Replaces no tool and covers no dashboard route of its own: the posting screen shows the verdict inside /api/jobs/{job_id}, which opportunities.get covers. This read answers the verdict with each criterion, its threshold and what was observed, which the screen reads from the same facts. A read, so it answers with writes off too."
   }
  ]
 }
