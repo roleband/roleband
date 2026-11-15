@@ -1230,12 +1230,34 @@ _CLIENT_ERRORS = frozenset({
 })
 
 
-def _envelope(text: str | None) -> dict | None:
+def _json_object(text: str | None) -> dict | None:
     try:
         value = json.loads(text or "")
     except json.JSONDecodeError:
         return None
-    return value if isinstance(value, dict) and "ok" in value else None
+    return value if isinstance(value, dict) else None
+
+
+def _envelope(text: str | None) -> dict | None:
+    """The JSON envelope `text` holds, if it has the shape the client prints:
+    `ok` a boolean, `error` absent or an object with a string code, the
+    request id and operation strings."""
+    value = _json_object(text)
+    if value is None or not isinstance(value.get("ok"), bool):
+        return None
+    error = value.get("error")
+    if error is not None and not (isinstance(error, dict) and isinstance(error.get("code"), str)):
+        return None
+    if not all(isinstance(value.get(key), str | None) for key in ("request_id", "operation")):
+        return None
+    return value
+
+
+def _same_command(name: str, operation: object) -> bool:
+    """Whether a call named `name` from its argv is the command the engine
+    says it answered (`operation` in its reply): the same, or a command that
+    names an operation below it."""
+    return isinstance(operation, str) and (name == operation or name.startswith(f"{operation}."))
 
 
 def _as_answered(envelope: dict) -> dict:
@@ -1267,13 +1289,16 @@ def verify_cli_calls(logged: list[dict], records: list[dict]) -> list[str]:
         client_error = envelope is not None and not envelope["ok"] and \
             (envelope.get("error") or {}).get("code") in _CLIENT_ERRORS
         if envelope is not None and record is not None and not client_error:
-            if _as_answered(envelope) != _envelope(record["body"]):
+            engine = _envelope(record["body"])
+            if _as_answered(envelope) != engine or not _same_command(call["name"], (engine or {}).get("operation")):
                 breaches.append(f"the log's answer to {call['name']} is not the engine's")
                 call.update({"verified": False, "stdout": call.get("result"), "result": ""})
             else:
                 call["verified"] = True
             continue
-        if envelope is not None and not client_error and "--offline" not in call.get("args", []):
+        if envelope is None and "ok" in (_json_object(call.get("result")) or {}):
+            breaches.append(f"the log holds a reply to {call['name']} the client never prints")
+        elif envelope is not None and not client_error and "--offline" not in call.get("args", []):
             breaches.append(f"the log holds an answer to {call['name']} the engine never gave")
         call.update({"verified": False, "stdout": call.get("result"), "result": ""})
     stray = sum(len(left) for left in unmatched.values())

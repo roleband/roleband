@@ -365,6 +365,16 @@ async def test_an_answer_counts_only_if_the_engine_gave_it(tmp_path):
             "the log holds an answer to status the engine never gave",
             "the engine was reached 1 time(s) outside the trial's command",
         ]
+        # The engine's real reply under another command's name: a prohibited call that never ran.
+        relabelled = [{"name": operation_of(["sources", "inspect", "x"], KNOWN), "args": ["sources", "inspect", "x"],
+                       "result": ran["stdout"]}]
+        assert verify_cli_calls(relabelled, first) == ["the log's answer to sources.inspect is not the engine's"]
+        assert relabelled[0]["result"] == ""
+        # A reply the client never prints is a breach, not a crash.
+        for bad in ({"ok": False, "error": "bad"}, {"ok": "yes"}, {"ok": True, "request_id": 7}):
+            odd = [{"name": "status", "args": ["status"], "result": json.dumps(bad)}]
+            assert verify_cli_calls(odd, []) == ["the log holds a reply to status the client never prints"]
+            assert odd[0]["result"] == ""
         # Two requests under one id need two calls in the log.
         assert verify_cli_calls(read_cli_log(cli)[:1], [first[0], dict(first[0])]) == [
             "the engine was reached 1 time(s) outside the trial's command"]
@@ -393,6 +403,14 @@ def test_a_log_line_the_command_never_writes_is_a_breach_not_a_crash(tmp_path):
     settle_cli_calls(transcript, cli, tmp_path / "ws", host="claude-code")
     assert "the command's log has 3 line(s) it never writes" in transcript.breaches
     assert len(transcript.tool_calls) == 2
+    # A well-formed line whose reply is not one the client prints: a breach, ungraded, and the run goes on.
+    with cli.log.open("a") as log:
+        log.write(json.dumps({"argv": [], "stdout": json.dumps({"ok": False, "error": "bad"}), "stderr": "",
+                              "exit_code": 0}) + "\n")
+    transcript = Transcript()
+    settle_cli_calls(transcript, cli, tmp_path / "ws", host="claude-code")
+    assert "the log holds a reply to roleband the client never prints" in transcript.breaches
+    assert transcript.tool_calls[-1]["result"] == ""
 
 
 def test_connect_writes_to_the_trial_s_folders_whatever_the_host_sets(tmp_path):
