@@ -1,8 +1,9 @@
 """The person's own job offer and the private-company valuations they enter.
 
-Both live in `app_settings` on this computer and are never sent anywhere else:
-no usage event counts them (`api/usage_counter.py` lists the routes as not
-counted), and no other reader touches the keys. The API validates every value
+Both live in `app_settings` on this computer. No usage event counts them
+(`api/usage_counter.py` lists the routes as not counted); besides the offer
+routes, only the agent read `offer.get` reads the keys, and only while the person
+shares the offer with assistants (decision 0019). The API validates every value
 before it reaches here and again when it reads one back, so a row from another
 version of the shape reads as nothing rather than as wrong figures.
 """

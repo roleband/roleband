@@ -1361,6 +1361,23 @@ back by operation and key, in this workspace and for the engine's principal;
 it is a read, so it answers with writes off.
 `backend/tests/test_agent_parity_writes.py` holds each to its MCP tool.
 
+`offer.get` (the offer, [0019](decisions/0019-assistants-read-the-offer.md)),
+`applications.board` and `applications.calendar` (the pursuits) call the stores
+their dashboard routes call and answer the same fields, paged to the tool tier's
+budget. `doctor` turns `GET /api/status` into checks and lists the settings that
+differ from their defaults; every string passes a redactor first, so a secret, a
+credential in a URL and a path outside the data folder never reach the caller.
+`context.export` reads one opportunity's posting, pay evidence, company facts and,
+when pursuits are shared, its pursuit in one repeatable-read snapshot, and answers them as
+canonical JSON text with a SHA-256 per component and for the whole packet: the
+same inputs give the same bytes. Values that move without the content moving
+(last seen, an estimate's run time) are in the manifest's source timestamps, not
+the packet. A packet past the tier's budget comes in parts that join to it; each
+continuation names the packet's hash, and a part of a packet that changed since
+is refused as `revision_conflict`. A company fact's observation time is in the
+manifest, not the packet.
+`backend/tests/test_agent_offer_export_reads.py` holds each read to its route.
+
 **Trust boundary.** Mac and ordinary source mode use loopback access control.
 `LoopbackBoundary` (`backend/tracker/api/boundary.py`, outermost) refuses a Host
 that does not name this machine and an unsafe request from a foreign origin or

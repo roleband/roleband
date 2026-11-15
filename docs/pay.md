@@ -384,9 +384,11 @@ refuses a figure the shape cannot hold (negative, not finite, a schedule over
 100% or longer than four years) and stores nothing; a stored row the current
 shape cannot read comes back as nothing, never as other figures. At most
 `MAX_VALUATIONS` companies are kept. None of these routes is a usage action
-(`api/usage_counter.py` lists them as not counted), so nothing about an offer,
-not even that one was saved, leaves the computer. Why the database and not the
-browser: `docs/decisions/0003-offer-in-local-database.md`.
+(`api/usage_counter.py` lists them as not counted), so no usage event says
+anything about an offer, not even that one was saved. With agent access on, the
+person's assistant reads both through `offer.get`, unless the person keeps the
+offer from assistants ([0019](decisions/0019-assistants-read-the-offer.md)). Why the
+database and not the browser: `docs/decisions/0003-offer-in-local-database.md`.
 
 ## A role list's Base column
 
