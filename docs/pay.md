@@ -226,7 +226,7 @@ own data (the dataset, the seed pay and our stored rows) is US pay
 plugin's rung is for the `country` it states; one that states none prices no
 posting. Readers match a row to the posting by country (`pay_level_index`,
 `package_rows`, `comp_package.country_rows`); the company page shows US rows
-(`api/routers/companies.py`), and so does the estimate in Insights' company
+(`profiles/read.py`), and so does the estimate in Insights' company
 table ([the company table at one level](#the-company-table-at-one-level)).
 Posted pay on Insights is read per country instead
 ([Posted pay on Insights](#posted-pay-on-insights)).
