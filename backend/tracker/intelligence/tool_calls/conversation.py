@@ -257,7 +257,7 @@ def parse_arguments(raw: Any, *, name: str, offered: frozenset[str]) -> tuple[di
     """
     if isinstance(raw, Mapping):
         arguments: Any = dict(raw)
-        text = json.dumps(arguments, ensure_ascii=False)
+        text = json.dumps(arguments, ensure_ascii=False, default=str)
     elif raw is not None and not isinstance(raw, str):
         # A format that delivers parsed arguments delivered something else.
         arguments = raw
@@ -280,6 +280,11 @@ def parse_arguments(raw: Any, *, name: str, offered: frozenset[str]) -> tuple[di
         return {}, text, CallProblem(
             CallProblemKind.MALFORMED_ARGUMENTS, f"a JSON {type(arguments).__name__}, not an object"
         )
+    try:
+        # Python reads NaN and Infinity, but no format may send them back.
+        json.dumps(arguments, allow_nan=False)
+    except (ValueError, TypeError, RecursionError):
+        return {}, text, CallProblem(CallProblemKind.MALFORMED_ARGUMENTS, "a number that is not finite (NaN or Infinity)")
     if name not in offered:
         listed = ", ".join(sorted(offered)) or "none"
         return {}, text, CallProblem(CallProblemKind.UNKNOWN_TOOL, f"The tools offered are: {listed}.")

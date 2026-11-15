@@ -136,3 +136,13 @@ def test_json_no_reader_should_accept_is_a_problem_not_an_error(raw):
     arguments, _, problem = parse_arguments(raw, name="vocabulary_list", offered=OFFERED)
     assert arguments == {}
     assert problem is not None and problem.kind is CallProblemKind.MALFORMED_ARGUMENTS
+
+
+@pytest.mark.parametrize(
+    "raw", ['{"n": NaN}', '{"n": Infinity}', '{"deep": [{"n": -Infinity}]}', {"n": float("nan")}]
+)
+def test_numbers_no_format_can_send_back_are_a_problem(raw):
+    arguments, _, problem = parse_arguments(raw, name="vocabulary_list", offered=OFFERED)
+    assert arguments == {}
+    assert problem is not None and problem.kind is CallProblemKind.MALFORMED_ARGUMENTS
+    assert "not finite" in problem.detail

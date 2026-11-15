@@ -27,6 +27,8 @@ _ONE = ("additionalProperties", "items", "not", "if", "then", "else", "contains"
 _MANY = ("anyOf", "allOf", "oneOf", "prefixItems")
 #: Keywords whose value maps names to subschemas.
 _NAMED = ("properties", "patternProperties", "dependentSchemas")
+#: Keywords that describe a value without constraining it.
+_ANNOTATIONS = ("description", "default", "examples", "deprecated", "readOnly", "writeOnly")
 
 
 def tool_name(operation_id: str) -> str:
@@ -45,8 +47,12 @@ def _inline(node: Any, defs: Mapping[str, Any], resolving: tuple[str, ...]) -> A
         if name in resolving:
             raise ValueError(f"input shape {name!r} refers to itself and cannot be inlined")
         resolved = _inline(defs[name], defs, (*resolving, name))
-        siblings = {key: value for key, value in node.items() if key != "$ref"}
-        return {**resolved, **_inline(siblings, defs, resolving)}
+        siblings = _inline({key: value for key, value in node.items() if key != "$ref"}, defs, resolving)
+        annotations = {key: siblings.pop(key) for key in list(siblings) if key in _ANNOTATIONS}
+        # A reference and the constraints beside it both apply. Where they
+        # name the same keyword, merging would let one replace the other.
+        merged = {"allOf": [resolved, siblings]} if set(siblings) & set(resolved) else {**resolved, **siblings}
+        return {**merged, **annotations}
     out: dict[str, Any] = {}
     for key, value in node.items():
         if key in ("$defs", "title") or key.startswith("x-"):
@@ -62,10 +68,15 @@ def _inline(node: Any, defs: Mapping[str, Any], resolving: tuple[str, ...]) -> A
     return out
 
 
+def self_contained(schema: Mapping[str, Any]) -> dict[str, Any]:
+    """A JSON Schema with its `$defs` inlined and its token-only annotations dropped."""
+    inlined: dict[str, Any] = _inline(dict(schema), schema.get("$defs") or {}, ())
+    return inlined
+
+
 def input_schema(model: type[BaseModel]) -> dict[str, Any]:
     """The model's JSON Schema, self-contained, as a tool's parameters."""
-    schema = model.model_json_schema()
-    inlined = _inline(schema, schema.get("$defs") or {}, ())
+    inlined = self_contained(model.model_json_schema())
     inlined.setdefault("properties", {})
     return inlined
 

@@ -1,10 +1,12 @@
 """One tool-calling request to a model, and the only way to get a transport.
 
-`transport_for_tier` takes a rung of the routing ladder that
-`intelligence_runtime.routing.build_tiers` assembled and refuses one it
-blocked, so a cloud model is reached through the egress switch or not at all.
-No caller passes an address or a key: both come from the saved profile the
-tier carries.
+`transport_for_tier` takes a rung of the routing ladder and refuses one the
+ladder blocked. It trusts the tier: the egress switch is read by
+`intelligence_runtime.routing.build_tiers`, not here, so a caller reaches a
+cloud model only through the switch when its tiers come from `build_tiers`,
+built for the call at hand. A `Tier` made by hand carries no admission. No
+caller passes an address or a key: both come from the saved profile the tier
+carries.
 
 A request runs under one deadline for the whole exchange, beside httpx's own
 per-operation timeouts. Cancelling the task that awaits `complete` cancels the

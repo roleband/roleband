@@ -33,7 +33,7 @@ from tracker.intelligence.tool_calls.conversation import (
     string_of,
 )
 
-_TEXT_CALL = re.compile(r"<tool_call>\s*(.*?)\s*</tool_call>", re.DOTALL)
+_OPEN, _CLOSE = "<tool_call>", "</tool_call>"
 _TEXT_CALL_NAME = re.compile(r'"name"\s*:\s*"([^"]+)"')
 _THINK = re.compile(r"^\s*<think>(.*?)</think>\s*", re.DOTALL)
 
@@ -137,36 +137,49 @@ def _structured_calls(message: Mapping[str, Any], offered: frozenset[str]) -> li
     return calls
 
 
+def _text_call(body: str, offered: frozenset[str]) -> ToolCall | None:
+    """The call one `<tool_call>` block holds, or None when it names no
+    offered tool."""
+    try:
+        data = json.loads(body)
+    except (ValueError, RecursionError):
+        named = _TEXT_CALL_NAME.search(body)
+        if named is None or named.group(1) not in offered:
+            return None
+        broken = CallProblem(CallProblemKind.MALFORMED_ARGUMENTS, "the call block is not valid JSON")
+        return ToolCall(id=_new_id(), name=named.group(1), raw_arguments=body, problem=broken, from_text=True)
+    name = data.get("name") if isinstance(data, dict) else None
+    if not isinstance(name, str) or name not in offered:
+        return None
+    arguments, raw, problem = parse_arguments(data.get("arguments", {}), name=name, offered=offered)
+    return ToolCall(id=_new_id(), name=name, arguments=arguments, raw_arguments=raw, problem=problem, from_text=True)
+
+
 def _calls_in_text(text: str, offered: frozenset[str]) -> tuple[list[ToolCall], str]:
     """Calls the model wrote as `<tool_call>` blocks, and the text without them.
 
     Only a block that names an offered tool is a call; anything else stays
-    in the text, since the model may be quoting or explaining.
+    in the text, since the model may be quoting or explaining. The blocks are
+    found by scanning for the tags, not by a pattern: a pattern with
+    whitespace on both sides of the body backtracks without end over an
+    unclosed block, and this runs on the event loop.
     """
     calls: list[ToolCall] = []
-
-    def take(match: re.Match[str]) -> str:
-        body = match.group(1)
-        try:
-            data = json.loads(body)
-        except (ValueError, RecursionError):
-            named = _TEXT_CALL_NAME.search(body)
-            if named is None or named.group(1) not in offered:
-                return match.group(0)
-            broken = CallProblem(CallProblemKind.MALFORMED_ARGUMENTS, "the call block is not valid JSON")
-            calls.append(ToolCall(id=_new_id(), name=named.group(1), raw_arguments=body, problem=broken, from_text=True))
-            return ""
-        name = data.get("name") if isinstance(data, dict) else None
-        if not isinstance(name, str) or name not in offered:
-            return match.group(0)
-        arguments, raw, problem = parse_arguments(data.get("arguments", {}), name=name, offered=offered)
-        calls.append(
-            ToolCall(id=_new_id(), name=name, arguments=arguments, raw_arguments=raw, problem=problem, from_text=True)
-        )
-        return ""
-
-    remaining = _TEXT_CALL.sub(take, text)
-    return calls, remaining.strip() if calls else text
+    kept: list[str] = []
+    position = 0
+    while (start := text.find(_OPEN, position)) >= 0:
+        end = text.find(_CLOSE, start + len(_OPEN))
+        if end < 0:
+            break
+        kept.append(text[position:start])
+        call = _text_call(text[start + len(_OPEN):end].strip(), offered)
+        if call is None:
+            kept.append(text[start:end + len(_CLOSE)])
+        else:
+            calls.append(call)
+        position = end + len(_CLOSE)
+    kept.append(text[position:])
+    return (calls, "".join(kept).strip()) if calls else (calls, text)
 
 
 def _usage(body: Mapping[str, Any], wall_time_ms: int | None) -> Usage:
@@ -193,7 +206,9 @@ def read_turn(body: object, *, request: ToolRequest, model: str, wall_time_ms: i
     if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
         raise ToolTransportError("The model's response had no completion choice.", failure_class="validation")
     choice = choices[0]
-    message = mapping_of(choice.get("message"))
+    message = choice.get("message")
+    if not isinstance(message, dict):
+        raise ToolTransportError("The model's completion carried no message.", failure_class="validation")
     text = _text_of(message.get("content"))
     reasoning = message.get("reasoning_content") or message.get("reasoning")
     reasoning = reasoning if isinstance(reasoning, str) and reasoning else None

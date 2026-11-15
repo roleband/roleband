@@ -491,3 +491,31 @@ async def test_a_redirect_is_never_followed_with_the_conversation():
         with pytest.raises(ToolTransportError) as caught:
             await transport_for_tier(_local_tier(), http_client=client).complete([QUESTION])
     assert caught.value.status_code == 307 and elsewhere == []
+
+
+def test_an_unclosed_call_block_with_a_long_tail_returns_promptly():
+    import time
+
+    body = _fixture("omlx_final_answer")
+    _message(body)["content"] = "<tool_call>" + " " * 20_000
+    started = time.perf_counter()
+    turn = read_turn(body, request=_request(), model="m")
+    assert time.perf_counter() - started < 0.5
+    assert turn.tool_calls == ()
+
+
+def test_text_around_and_between_call_blocks_is_kept_in_order():
+    body = _fixture("omlx_final_answer")
+    block = '<tool_call>{"name": "vocabulary_list", "arguments": {"kind": "%s"}}</tool_call>'
+    quoted = '<tool_call>{"name": "rm", "arguments": {}}</tool_call>'
+    _message(body)["content"] = f"First {block % 'family'} then {quoted} and {block % 'track'} done"
+    turn = read_turn(body, request=_request(), model="m")
+    assert [dict(call.arguments) for call in turn.tool_calls] == [{"kind": "family"}, {"kind": "track"}]
+    assert turn.text == f"First  then {quoted} and  done"
+
+
+@pytest.mark.parametrize("choice", [{}, {"message": None, "finish_reason": "stop"}, {"message": "hi"}])
+def test_a_choice_without_a_message_is_a_validation_error_not_an_empty_answer(choice):
+    with pytest.raises(ToolTransportError) as caught:
+        read_turn({"choices": [choice]}, request=_request(), model="m")
+    assert caught.value.failure_class == "validation"

@@ -139,3 +139,24 @@ class Node(Shape):
 def test_a_shape_that_refers_to_itself_is_refused_rather_than_cut():
     with pytest.raises(ValueError, match="refers to itself"):
         input_schema(Node)
+
+
+def test_constraints_beside_a_reference_apply_together_with_the_referenced_ones():
+    from tracker.agents.tool_definitions import self_contained
+
+    schema = self_contained({
+        "type": "object",
+        "properties": {
+            "to": {"$ref": "#/$defs/Address", "required": ["country"], "description": "Where it goes."},
+            "from": {"$ref": "#/$defs/Address", "maxProperties": 3},
+        },
+        "$defs": {"Address": {"type": "object", "title": "Address", "required": ["city"],
+                              "properties": {"city": {"type": "string"}, "country": {"type": "string"}}}},
+    })
+    to = schema["properties"]["to"]
+    assert to["description"] == "Where it goes."
+    assert to["allOf"][0]["required"] == ["city"] and to["allOf"][1] == {"required": ["country"]}
+    # No keyword in common: one merged object, nothing lost.
+    assert schema["properties"]["from"]["maxProperties"] == 3
+    assert schema["properties"]["from"]["required"] == ["city"]
+    _assert_portable({**schema, "properties": {"from": schema["properties"]["from"]}})

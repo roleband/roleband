@@ -1172,7 +1172,9 @@ Tool calling, for a runner that loops a model over operations, is
 (messages, tool definitions, a turn of text or tool calls, usage and a stop
 reason), the OpenAI-compatible and Anthropic wire formats, and a transport made
 only from a rung of that ladder (`transport_for_tier`). A tier the ladder
-blocked is refused before any request exists, so it adds no door. What a model
+blocked is refused before any request exists. The switch itself is read by
+`build_tiers`, so a caller takes its tiers from there, built for each model
+call; a tier made by hand would carry no admission. What a model
 writes never raises: malformed arguments or an unknown tool come back as a
 call with a problem for the runner to answer. Tools are generated from
 operation descriptors by `backend/tracker/agents/tool_definitions.py`. Nothing
