@@ -177,6 +177,66 @@ def test_input_from_a_file_sends_the_same_request(home, tmp_path):
     assert _query(stub.requests[0]) == {"company": ["acme", "Big Co"], "saved_only": ["true"], "limit": ["5"]}
 
 
+def _piped(home, *args: str, stdin) -> test_cli.Result:
+    """The command with `stdin` as its standard input: bytes in a pipe that
+    then closes, `subprocess.DEVNULL`, or `open` for a pipe nothing writes to
+    and that stays open until the command has ended."""
+    command = [sys.executable, "-m", "tracker.cli", *args]
+    if stdin == "open":
+        process = subprocess.Popen(command, cwd=home.root, env=test_cli._env(home), stdin=subprocess.PIPE,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            process.wait(timeout=30)
+        finally:
+            process.stdin.close()
+        out, err = process.stdout.read(), process.stderr.read()
+        process.stdout.close()
+        process.stderr.close()
+        return test_cli.Result(process.returncode, out.decode(), err.decode())
+    pipe = {"input": stdin} if isinstance(stdin, bytes) else {"stdin": stdin}
+    done = subprocess.run(command, cwd=home.root, env=test_cli._env(home), capture_output=True, timeout=30, **pipe)
+    return test_cli.Result(done.returncode, done.stdout.decode(), done.stderr.decode())
+
+
+@pytest.mark.parametrize("args", [
+    ("opportunities", "search", "--json"),
+    ("opportunities", "get", "--json"),
+])
+@pytest.mark.parametrize("lead", [b"", b" " * 9000], ids=["at-once", "after-whitespace"])
+def test_data_piped_without_input_dash_is_refused_and_asks_no_engine(home, args, lead):
+    """`echo '{...}' | roleband opportunities search` would otherwise answer every
+    role, the filters silently dropped; a piped id would fail as a missing argument.
+    Whitespace longer than one read before the data is still read past."""
+    piped = lead + b'{"location": ["New York, NY"], "opportunity_id": 3}\n'
+    with Stub(Reply(200, _envelope("opportunities.search", data=_PAGE))) as stub:
+        home.contexts(current="dev", dev={"url": stub.url})
+        refused = _piped(home, *args, stdin=piped)
+    assert refused.status == 2, refused
+    error = refused.envelope["error"]
+    assert error["code"] == "invalid_arguments"
+    assert "add --input - to read it" in error["message"]
+    assert stub.requests == []
+
+
+@pytest.mark.parametrize("stdin", [b"", b"\n  \n", subprocess.DEVNULL, "open"],
+                         ids=["empty-pipe", "blank-lines", "dev-null", "open-pipe-never-written"])
+def test_a_standard_input_with_no_data_runs_the_command(home, stdin):
+    """Agent hosts start commands with each of these; none holds input, so the search runs."""
+    with Stub(Reply(200, _envelope("opportunities.search", data=_PAGE))) as stub:
+        home.contexts(current="dev", dev={"url": stub.url})
+        ran = _piped(home, "opportunities", "search", "--company", "acme", "--json", stdin=stdin)
+    assert ran.status == 0, ran
+    assert len(stub.requests) == 1 and _query(stub.requests[0]) == {"company": ["acme"]}
+
+
+def test_data_piped_with_input_dash_is_the_input(home):
+    with Stub(Reply(200, _envelope("opportunities.search", data=_PAGE))) as stub:
+        home.contexts(current="dev", dev={"url": stub.url})
+        ran = _piped(home, "opportunities", "search", "--input", "-", "--json", stdin=b'{"company": ["acme"]}')
+    assert ran.status == 0, ran
+    assert _query(stub.requests[0]) == {"company": ["acme"]}
+
+
 def test_flags_add_the_fields_input_leaves_out_and_a_field_given_twice_is_refused(home, tmp_path):
     document = tmp_path / "search.json"
     document.write_text(json.dumps({"company": ["acme"], "limit": 5}))

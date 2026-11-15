@@ -43,7 +43,7 @@ CLAUDE_EXCLUDED = "roleband *"
 CLAUDE_RULE = "Bash(roleband *)"
 
 SKILL_SOURCE = Path(__file__).with_name("skills") / "roleband" / "SKILL.md"
-SKILL_VERSION = 3
+SKILL_VERSION = 4
 SKILL_RECORD = ".roleband-skill.json"
 
 COSTS = {

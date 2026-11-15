@@ -288,6 +288,8 @@ def _live(args: argparse.Namespace, request_id: str) -> dict[str, Any]:
     operation = generated.operation if generated is not None else args.command
     method, body, key = "GET", None, None
     if generated is not None:
+        if args.input_source is None:
+            commands.refuse_unread_input(sys.stdin)
         path, body = commands.request(generated, commands.payload(generated, args))
         method = generated.method
         key = args.idempotency_key if generated.keyed else None

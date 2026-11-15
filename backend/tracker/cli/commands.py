@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import select
 import sys
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -319,6 +321,46 @@ def payload(command: Command, args: argparse.Namespace, *, stdin: Any = None) ->
     if missing := [name for name in command.input_only if name not in data]:
         raise ClientError("invalid_arguments", f"{', '.join(missing)} can only be given with --input.")
     return data
+
+
+#: How much of an unread standard input is looked at to tell data from blank lines.
+_STDIN_PEEK_BYTES = 4096
+
+
+def refuse_unread_input(stream: Any) -> None:
+    """Refuse a call whose standard input holds data that no `--input -` reads.
+
+    Without it, `echo '{"location": ["London"]}' | roleband opportunities
+    search` runs with no filter and answers every role. Only input already
+    there counts, read without waiting: a terminal, an empty or closed pipe,
+    `/dev/null`, or a pipe nothing has written to yet runs as it would
+    without input, since agent hosts start commands with each of these.
+    Windows pipes cannot be polled this way, so there the call runs as given."""
+    if sys.platform == "win32":
+        return
+    try:
+        descriptor = stream.fileno()
+        if os.isatty(descriptor):
+            return
+        held = False
+        seen = 0
+        # Leading whitespace can fill a whole read; keep reading what is already
+        # there until a non-blank byte, the end, or a pause in the input.
+        while seen <= MAX_INPUT_BYTES and select.select([descriptor], [], [], 0)[0]:
+            chunk = os.read(descriptor, _STDIN_PEEK_BYTES)
+            if not chunk:
+                break
+            if chunk.strip():
+                held = True
+                break
+            seen += len(chunk)
+    except (AttributeError, OSError, ValueError):
+        return
+    if held:
+        raise ClientError(
+            "invalid_arguments",
+            "Standard input holds data, which this command reads only with --input -; add --input - to read it.",
+        )
 
 
 def read_input(source: str, *, stdin: Any = None) -> dict[str, Any]:
