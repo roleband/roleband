@@ -393,7 +393,7 @@ _LISTED_FOR = (
     func.coalesce(case((Job.status != "open", Job.closed_at)), func.now()) - _LISTED_SINCE
 )
 
-def base_pay(entity=Job):
+def base_pay(entity=Job, *, estimates: bool = True):
     """The yearly base in US dollars a list row shows, as one comparable
     figure: the posting's own base range from its low end, else the estimated
     base. Which posted range the row shows is the serializer's `posted_base`,
@@ -401,7 +401,8 @@ def base_pay(entity=Job):
     this is that rule in SQL. A posted range shown per hour or month, or in
     another currency, and an estimate in another currency, compare with nothing
     (the filters are yearly dollars), and a shown range never falls back to the
-    estimate the row does not show."""
+    estimate the row does not show. Without `estimates` only a posted range
+    counts, for a reader that may not learn the estimate."""
     J = entity
     low = func.coalesce(J.disclosed_base_min, J.disclosed_base_max)
     high = func.coalesce(J.disclosed_base_max, J.disclosed_base_min)
@@ -422,7 +423,7 @@ def base_pay(entity=Job):
     return case(
         (and_(shown, yearly, J.disclosed_currency == "USD"), low),
         (shown, None),
-        (J.comp_currency == "USD", J.comp_base_median),
+        *([(J.comp_currency == "USD", J.comp_base_median)] if estimates else []),
         else_=None,
     )
 
@@ -533,10 +534,11 @@ def posting_conds(params: dict, entity=Job) -> list:
         conds.append(shown_pay >= params["comp_min"])
     if params.get("comp_max") is not None:
         conds.append(shown_pay <= params["comp_max"])
+    pay = base_pay(J, estimates=not params.get("posted_pay_only"))
     if params.get("base_min") is not None:
-        conds.append(base_pay(J) >= params["base_min"])
+        conds.append(pay >= params["base_min"])
     if params.get("base_max") is not None:
-        conds.append(base_pay(J) <= params["base_max"])
+        conds.append(pay <= params["base_max"])
     if params.get("posted_within_days") is not None:
         cutoff = datetime.now(UTC) - timedelta(days=params["posted_within_days"])
         # The same start the row's age shows: a posting listed 90

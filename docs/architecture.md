@@ -1277,7 +1277,9 @@ its answer may draw on, not a trace of what one call used. A class that only
 orders an answer counts the same way: queryless best match blends the profile
 statement and the saved, pursued and dismissed roles into the person's intent,
 each only while its class is shared, and without pursuits search lists the
-roles the person dismissed like any other. A Settings save of the two switches
+roles the person dismissed like any other; without market statistics its base
+pay bounds and pay sort read only the range a posting states, never the
+estimate a row falls back to. A Settings save of the two switches
 keeps stored choices the engine cannot read as they are, so the row still
 reads as everything off. A keyed write's receipt keeps the whole result; its
 answer, fresh or replayed, leaves the part out. Every operation but the
