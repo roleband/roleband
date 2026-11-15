@@ -35,22 +35,30 @@ def _interval(raw: object) -> tuple[int, str] | None:
 #: The count `_formatted_salary` writes after an amount stated over several
 #: years: "$180,000 - $220,000 per 2 years", "$180K - $220K USD per 2 years".
 _YEARS_RE = re.compile(r"\bper (\d+) years\b")
-_AMOUNT_RE = re.compile(r"(\d[\d,]*(?:\.\d+)?)\s*([kKmM])?(?![\d,])")
+_AMOUNT = r"(?:[$£€]\s*)?(\d[\d,]*(?:\.\d+)?)\s*([kKmM])?"
+#: The amount or range that ends right before the count, then at most a
+#: currency code.
+_RANGE_BEFORE_RE = re.compile(
+    rf"{_AMOUNT}(?:\s*(?:-|–|—|to)\s*{_AMOUNT})?(?:\s+[A-Z]{{3}})?\s*$"
+)
 _SCALE = {"k": 1_000, "m": 1_000_000}
 
 
 def years_in_quote(quote: str | None, low: int | None, high: int | None) -> int:
     """How many years a stored Ashby quote says the band `low`-`high` covers:
-    the count in "per 2 years" when the amounts just before it, in the same
-    clause, are that band's; 1 otherwise. A count beside another figure
-    ("bonus $20,000 per 2 years") describes that figure."""
+    the count in "per 2 years" when the amount or range right before it is
+    that band; 1 otherwise. A count after any other figure ("and bonus
+    $20,000 per 2 years") describes that figure."""
     bounds = {bound for bound in (low, high) if bound is not None}
     for match in _YEARS_RE.finditer(quote or ""):
-        clause = re.split(r"[;:\n]", (quote or "")[: match.start()])[-1]
+        before = _RANGE_BEFORE_RE.search((quote or "")[: match.start()])
+        if before is None:
+            continue
+        numbers = before.groups()
         amounts = {
-            round(float(number.replace(",", "")) * _SCALE.get(scale.lower(), 1) if scale else
-                  float(number.replace(",", "")))
-            for number, scale in _AMOUNT_RE.findall(clause)
+            round(float(number.replace(",", "")) * _SCALE.get((scale or "").lower(), 1))
+            for number, scale in zip(numbers[::2], numbers[1::2], strict=True)
+            if number is not None
         }
         if bounds and bounds <= amounts:
             return int(match.group(1))
