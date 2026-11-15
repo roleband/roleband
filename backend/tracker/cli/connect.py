@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import argparse
 import copy
-import fnmatch
 import json
 import os
 import re
@@ -133,15 +132,28 @@ def _no_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return dict(pairs)
 
 
-#: Calls an agent makes first, by the skill's own steps.
-_SAMPLE_CALLS = ("roleband status", "roleband capabilities", "roleband describe status")
+def _calls() -> list[str]:
+    """The calls the skill teaches, for every operation this client knows: `status`,
+    `capabilities`, `describe OPERATION` and the operation's own command, each with and
+    without `--json`."""
+    try:
+        document = json.loads(Path(__file__).with_name("operations.json").read_text(encoding="utf-8"))
+        operations = [entry["operation"] for entry in document["operations"]]
+    except (OSError, ValueError, KeyError, TypeError):
+        operations = ["status", "capabilities", "describe"]
+    calls = {"roleband status", "roleband capabilities", "roleband capabilities --offline"}
+    for operation in operations:
+        calls.add(f"roleband describe {operation}")
+        calls.add("roleband " + operation.replace(".", " ").replace("_", "-"))
+    return sorted(calls | {f"{call} --json" for call in calls})
 
 
 def _covers(rule: str) -> bool:
-    """Whether a Claude Code Bash rule applies to some roleband call: `Bash` alone, a pattern
-    (with `*` wildcards, or the older `prefix:*` form) that matches a call the skill starts
-    with, or one whose fixed start is itself a roleband command, such as
-    `Bash(roleband describe *)`."""
+    """Whether a Claude Code Bash rule applies to a roleband call an agent makes: `Bash` alone,
+    a pattern (`*` is its one wildcard; `prefix:*` is the older prefix form) whose fixed start
+    is a roleband command, such as `Bash(roleband describe *)`, or one that matches a call
+    from `_calls()`. A pattern that matches only some other text in a call's arguments, such as
+    `Bash(*sudo*)`, does not count: no call the skill teaches carries it."""
     if rule == "Bash":
         return True
     match = re.fullmatch(r"Bash\((.*)\)", rule)
@@ -150,8 +162,10 @@ def _covers(rule: str) -> bool:
     pattern = match.group(1)
     if pattern.endswith(":*"):
         pattern = pattern[:-2] + "*"
-    fixed = re.split(r"[*?\[]", pattern, maxsplit=1)[0]
-    return fixed.startswith("roleband ") or any(fnmatch.fnmatchcase(call, pattern) for call in _SAMPLE_CALLS)
+    if pattern.split("*", 1)[0].startswith("roleband "):
+        return True
+    compiled = re.compile(".*".join(re.escape(part) for part in pattern.split("*")), re.DOTALL)
+    return any(compiled.fullmatch(call) for call in _calls())
 
 
 def _claude_settings(path: Path) -> FileChange:

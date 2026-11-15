@@ -170,7 +170,8 @@ def test_a_settings_file_it_cannot_merge_into_is_left_untouched(home, content):
 @pytest.mark.parametrize(("kind", "rule"), [
     ("deny", "Bash"), ("deny", "Bash(*)"), ("ask", "Bash(roleband *)"), ("ask", "Bash(roleband:*)"),
     ("deny", "Bash(roleband*)"), ("ask", "Bash(roleband capabilities)"), ("deny", "Bash(roleband describe *)"),
-    ("ask", "Bash(roleband opportunities search *)"),
+    ("ask", "Bash(roleband opportunities search *)"), ("ask", "Bash(*describe capabilities)"),
+    ("deny", "Bash(* --json)"), ("ask", "Bash(*status)"),
 ])
 def test_an_ask_or_deny_rule_that_would_still_stop_roleband_is_the_persons_to_change(home, kind, rule):
     home.claude.parent.mkdir()
@@ -186,12 +187,14 @@ def test_an_ask_or_deny_rule_that_would_still_stop_roleband_is_the_persons_to_ch
 def test_ask_and_deny_rules_for_other_commands_are_kept(home):
     home.claude.parent.mkdir()
     home.claude.write_text(json.dumps({"permissions": {"deny": ["Bash(rm *)", "Bash(*rm -rf*)", "Read(.env)"],
-                                                       "ask": ["Bash(git push:*)", "Bash(rolebandx *)"]}}))
+                                                       "ask": ["Bash(git push:*)", "Bash(rolebandx *)", "Bash(*sudo*)",
+                                                               "Bash(roleband)", "Bash(rolebAND[x] *)"]}}))
     status, _ = home.connect("claude-code", "apply")
     assert status == 0
     permissions = json.loads(home.claude.read_text())["permissions"]
     assert permissions["deny"] == ["Bash(rm *)", "Bash(*rm -rf*)", "Read(.env)"]
-    assert permissions["ask"] == ["Bash(git push:*)", "Bash(rolebandx *)"]
+    assert permissions["ask"] == ["Bash(git push:*)", "Bash(rolebandx *)", "Bash(*sudo*)", "Bash(roleband)",
+                                  "Bash(rolebAND[x] *)"]
     assert permissions["allow"] == ["Bash(roleband *)"]
 
 
