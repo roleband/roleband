@@ -315,6 +315,22 @@ async def test_a_plugins_fact_is_named_as_the_plugins(api_client, workspace):
     assert data["attribution"] == screen["attribution"]
 
 
+async def test_every_page_a_plugin_answers_carries_its_credit(api_client, workspace):
+    _, ours = await _agent(api_client, "/companies", limit=1)
+    assert _data(ours)["attribution"] is None
+    await install_plugin(workspace)
+    roster = await _screen(api_client, "/api/company-profiles")
+    profile = await _screen(api_client, "/api/company-profiles/google")
+    assert roster["attribution"] and profile["attribution"]
+
+    _, roster_pages = await _every_row(api_client, "/companies", limit=1)
+    _, benefit_pages = await _every_row(api_client, "/companies/google", view="benefits", limit=1)
+
+    assert len(roster_pages) > 1 and len(benefit_pages) > 1
+    assert {_data(body)["attribution"] for body in roster_pages} == {roster["attribution"]}
+    assert {_data(body)["attribution"] for body in benefit_pages} == {profile["attribution"]}
+
+
 @pytest.mark.parametrize("view", ["benefits", "locations"])
 async def test_the_list_views_page_the_screens_lists_whole(api_client, workspace, view):
     screen = await _screen(api_client, "/api/company-profiles/google")

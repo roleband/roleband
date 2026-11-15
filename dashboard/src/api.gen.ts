@@ -4558,6 +4558,8 @@ export interface components {
         /** CompanyBenefitsPage */
         CompanyBenefitsPage: {
             answered_by: components["schemas"]["Answering"];
+            /** Attribution */
+            attribution: string | null;
             /** Columns */
             columns: string[];
             /** Count */
@@ -4902,6 +4904,8 @@ export interface components {
         };
         /** CompanyPage */
         CompanyPage: {
+            /** Attribution */
+            attribution: string | null;
             /** Columns */
             columns: string[];
             /** Count */

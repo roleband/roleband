@@ -2740,6 +2740,18 @@
      "answered_by": {
       "$ref": "#/components/schemas/Answering"
      },
+     "attribution": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Attribution",
+      "x-text": "content"
+     },
      "columns": {
       "items": {
        "type": "string"
@@ -2873,6 +2885,7 @@
      "count",
      "notes",
      "answered_by",
+     "attribution",
      "columns",
      "rows"
     ],
@@ -3745,6 +3758,18 @@
    "CompanyPage": {
     "additionalProperties": false,
     "properties": {
+     "attribution": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Attribution",
+      "x-text": "content"
+     },
      "columns": {
       "items": {
        "type": "string"
@@ -3892,7 +3917,8 @@
      "count",
      "sectors",
      "columns",
-     "rows"
+     "rows",
+     "attribution"
     ],
     "title": "CompanyPage",
     "type": "object"

@@ -130,6 +130,8 @@ class CompanyPage(Shape):
     sectors: list[str] = Field(json_schema_extra=_CODE)
     columns: list[str] = Field(json_schema_extra=_CODE)
     rows: list[CompanyRow] = Field(json_schema_extra=_CONTENT, description=_ROWS)
+    #: The credit every plugin answering the roster requires; on every page.
+    attribution: str | None = Field(json_schema_extra=_CONTENT)
 
 
 COMPANIES_LIST = OperationDescriptor(
@@ -345,6 +347,8 @@ class CompanyBenefitsPage(Shape):
     #: Sentences several benefits share, said once; on the first page only.
     notes: list[str] = Field(json_schema_extra=_CONTENT)
     answered_by: Answering
+    #: The credit every plugin answering this profile requires; on every page.
+    attribution: str | None = Field(json_schema_extra=_CONTENT)
     columns: list[str] = Field(json_schema_extra=_CODE)
     rows: list[BenefitRow] = Field(json_schema_extra=_CONTENT, description=_ROWS)
 
@@ -586,7 +590,8 @@ async def company_page(session: AsyncSession, params: CompanyListInput, *, works
         )
         for item in matching
     ]
-    page = CompanyPage(total=len(rows), count=0, sectors=roster["sectors"], columns=list(COMPANY_COLUMNS), rows=[])
+    page = CompanyPage(total=len(rows), count=0, sectors=roster["sectors"], columns=list(COMPANY_COLUMNS), rows=[],
+                       attribution=roster["attribution"])
     return _finish(page, all_rows=rows, offset=offset, limit=params.limit,
                    budget=PAGE_BUDGET_BYTES[params.tier], fingerprint=fingerprint)
 
@@ -704,7 +709,8 @@ async def _company_list_view(session: AsyncSession, params: CompanyGetInput, *, 
         page = CompanyBenefitsPage(
             view="benefits", slug=found["slug"], total=len(benefits), count=0,
             notes=[note["text"] for note in found["benefit_notes"]] if offset == 0 else [],
-            answered_by=_answering(found["sources"]["benefits"]), columns=list(BENEFIT_COLUMNS), rows=[],
+            answered_by=_answering(found["sources"]["benefits"]), attribution=found["attribution"],
+            columns=list(BENEFIT_COLUMNS), rows=[],
         )
         paged = _finish(page, all_rows=benefits, offset=offset, limit=params.limit, budget=budget,
                         fingerprint=fingerprint)
