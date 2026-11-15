@@ -58,7 +58,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any, Literal, get_args
+from typing import Annotated, Any, Literal, get_args
 
 from pydantic import AwareDatetime, BaseModel, Field, ValidationError, model_validator
 from pydantic.config import JsonDict
@@ -148,7 +148,8 @@ class ChangesListInput(Shape):
         default=None,
         description=(
             "Without since: start with the changes recorded at or after this time, with its UTC offset. "
-            "Pursuits whose next action fell due from this time on are included."
+            "Pursuits whose next action fell due from this time on are included. Later reads with "
+            "the since this read gives keep the bound."
         ),
     )
     kinds: list[Kind] | None = Field(
@@ -251,6 +252,15 @@ OPERATIONS: tuple[OperationDescriptor, ...] = (CHANGES_LIST,)
 # --- positions ----------------------------------------------------------------- #
 
 
+#: The range a position's times may take, in microseconds from the epoch: the
+#: datetimes Python can hold, so a forged position is refused, not overflowed.
+_EARLIEST = -62_135_596_800_000_000
+_LATEST = 253_402_300_799_999_999
+_Micros = Annotated[int, Field(ge=_EARLIEST, le=_LATEST)]
+_Xact = Annotated[int, Field(ge=0, le=2**63 - 1)]
+_Phase = Annotated[int, Field(ge=0, le=2)]
+
+
 class _Position(BaseModel):
     """What a `since` token holds. `lo` None reads the history before positions."""
 
@@ -261,16 +271,25 @@ class _Position(BaseModel):
     k: str
     #: The cluster's system identifier, as text: JSON numbers lose its low bits.
     c: str
-    lo: int | None
+    lo: _Xact | None
     #: The window's frontier and wall-clock end, fixed when the window opens.
-    hi: int | None
-    th: int | None
+    hi: _Xact | None
+    th: _Micros | None
     #: The due-time window's exclusive start, in microseconds; None is no bound.
-    tl: int | None
-    #: A first window's start_time, in microseconds.
-    st: int | None
-    #: The last key read in this window: (phase, transaction, stream, id).
-    a: tuple[int, int, int, int] | None
+    tl: _Micros | None
+    #: The read's start_time, in microseconds: a row recorded before it is
+    #: never answered, even one whose transaction commits after a later window.
+    st: _Micros | None
+    #: The last key read in this window: (phase, transaction or due time, stream, id).
+    a: tuple[_Phase, Annotated[int, Field(ge=_EARLIEST, le=2**63 - 1)], _Phase, _Xact] | None
+
+    @model_validator(mode="after")
+    def _key_in_range(self) -> _Position:
+        if self.a is not None and self.a[0] == _DERIVED and self.a[1] > _LATEST:
+            raise ValueError("a due time past the datetimes a position can hold")
+        if self.a is not None and self.a[0] != _DERIVED and self.a[1] < 0:
+            raise ValueError("a transaction id below zero")
+        return self
 
 
 def _digest(*parts: object) -> str:
@@ -648,7 +667,11 @@ async def changes_page(
         position = expected.model_copy(update={"st": start, "tl": None if start is None else start - 1})
     if position.hi is None:
         # A window opens: its frontier and its wall-clock end are fixed for every page of it.
-        position = position.model_copy(update={"hi": frontier.xmin, "th": _micros(frontier.now)})
+        # Never below where the position starts: a frontier read with less
+        # sight (the cluster's, when sessions cannot all be seen) may be lower,
+        # and a window that moved back would answer its rows again.
+        hi = frontier.xmin if position.lo is None else max(frontier.xmin, position.lo)
+        position = position.model_copy(update={"hi": hi, "th": _micros(frontier.now)})
 
     room = params.limit + 1
     hidden = list(await off_board_company_slugs(session))
@@ -665,7 +688,7 @@ async def changes_page(
     kept = candidates[: params.limit]
     while True:
         page = _page(kept, position, more=len(candidates) > len(kept), tier=params.tier,
-                     limit=params.limit, unavailable=unavailable)
+                     limit=params.limit, kinds=params.kinds, unavailable=unavailable)
         if _size(page) <= budget or len(kept) <= 1:
             break
         kept = kept[:-1]
@@ -680,17 +703,20 @@ async def changes_page(
 
 def _page(
     kept: list[_Candidate], position: _Position, *, more: bool, tier: ToolTier, limit: int,
-    unavailable: list[UnavailableKind],
+    kinds: list[Kind] | None, unavailable: list[UnavailableKind],
 ) -> ChangesPage:
     if more:
         following = position.model_copy(update={"a": kept[-1].key if kept else position.a})
     else:
         # The window is read to its frontier: the next read opens a new one from there.
         following = position.model_copy(
-            update={"lo": position.hi, "hi": None, "tl": position.th, "th": None, "st": None, "a": None}
+            update={"lo": position.hi, "hi": None, "tl": position.th, "th": None, "a": None}
         )
     token = encode_position(following)
-    continuing = [NextAction(operation=CHANGES_LIST.id, arguments={"since": token, "limit": limit, "tier": tier})]
+    arguments: dict[str, Any] = {"since": token, "limit": limit, "tier": tier}
+    if kinds is not None:
+        arguments["kinds"] = list(kinds)
+    continuing = [NextAction(operation=CHANGES_LIST.id, arguments=arguments)]
     return ChangesPage(
         count=len(kept),
         events=[candidate.event for candidate in kept],

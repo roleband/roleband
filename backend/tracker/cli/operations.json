@@ -367,7 +367,7 @@
        }
       ],
       "default": null,
-      "description": "Without since: start with the changes recorded at or after this time, with its UTC offset. Pursuits whose next action fell due from this time on are included.",
+      "description": "Without since: start with the changes recorded at or after this time, with its UTC offset. Pursuits whose next action fell due from this time on are included. Later reads with the since this read gives keep the bound.",
       "title": "Start Time"
      },
      "tier": {

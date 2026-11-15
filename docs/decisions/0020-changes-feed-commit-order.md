@@ -28,11 +28,15 @@ commit there. `xid8` gives that id in 64 bits, so it never wraps.
   and id; a row of a transaction still open waits for a later read. Only this
   database's transactions can write its rows, so another database's long
   transaction does not hold the feed. A role that cannot see every session falls
-  back to the cluster's oldest running transaction.
+  back to the cluster's oldest running transaction. A window never opens below
+  the position it continues, even when that fallback finds a lower frontier: a
+  window that moved back would answer its rows again.
 - The position (`next_since`) is opaque: the frontier reached, the last row
   read within a window, the wall-clock window for derived due times, and digests
   binding it to the workspace, the principal and the kinds asked for, with the
-  cluster's identifier. It lives with the caller; nothing about it is held in the
+  cluster's identifier. A read that starts from a `start_time` keeps that bound
+  in every position after it, so a row of an older transaction that commits
+  later is still left out. It lives with the caller; nothing about it is held in the
   engine process, so an engine restart changes nothing.
 - A position that cannot continue is refused as `invalid_input` with a reason
   (`malformed`, `other_workspace`, `other_principal`, `other_filters`,

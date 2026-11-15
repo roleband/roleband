@@ -13067,7 +13067,7 @@ export interface operations {
             query?: {
                 /** @description The next_since of the previous page: the read continues after it, in commit order, with the same kinds. Without it the read starts at start_time, or at the oldest change kept. */
                 since?: string | null;
-                /** @description Without since: start with the changes recorded at or after this time, with its UTC offset. Pursuits whose next action fell due from this time on are included. */
+                /** @description Without since: start with the changes recorded at or after this time, with its UTC offset. Pursuits whose next action fell due from this time on are included. Later reads with the since this read gives keep the bound. */
                 start_time?: string | null;
                 /** @description Only these kinds; every kind when left out. A since read keeps the kinds of the read it continues. */
                 kinds?: ("new" | "closed" | "reopened" | "reposted" | "stated_pay_changed" | "pursuit_due" | "source_health" | "plugin_source_health")[] | null;

@@ -525,3 +525,65 @@ async def test_a_session_list_read_earlier_in_the_same_transaction_does_not_hide
         rest = (await changes_page(reader, ChangesListInput(since=page.next_since), workspace_id=workspace,
                                    principal_id=LEGACY_AGENT_PRINCIPAL)).page
     assert [event.sequence for event in rest.events] == [f"job_event:{held.id}", f"job_event:{quick}"]
+
+
+async def test_a_filtered_read_follows_its_own_continue_with_page_by_page(api_client, feed):
+    job = await _posting(feed, "filtered")
+    since = await _start(api_client, kinds=["closed"])
+    closings = []
+    for _ in range(3):
+        closings.append(await _event(feed, job, "closed"))
+        await _event(feed, job, "reopened")
+    events, _ = await _drain(api_client, since=since, kinds=["closed"], limit=1)
+    assert [event["sequence"] for event in events] == [f"job_event:{i}" for i in closings]
+
+
+async def test_start_time_still_bounds_a_row_whose_transaction_commits_after_the_first_window(api_client, feed):
+    job = await _posting(feed, "late-but-old")
+    slow = _factory(feed)()
+    try:
+        # The transaction's time is when it began, before the read's start_time.
+        held = JobLifecycleEvent(job_id=job, event_type="opened", detail={})
+        slow.add(held)
+        await slow.flush()
+        async with _factory(feed)() as session:
+            cut = (await session.execute(text("SELECT clock_timestamp()"))).scalar_one()
+        after = await _event(feed, job, "closed")
+        first, since = await _drain(api_client, start_time=cut.isoformat())
+        assert first == []
+        await slow.commit()
+    finally:
+        await slow.close()
+    events, _ = await _drain(api_client, since=since)
+    assert [event["sequence"] for event in events] == [f"job_event:{after}"]
+
+
+async def test_a_position_with_a_time_no_datetime_can_hold_is_refused_as_malformed(api_client, feed):
+    since = await _start(api_client)
+    for forged in (_rewrite(since, tl=10**30), _rewrite(since, st=-(10**30)), _rewrite(since, a=[2, 10**30, 2, 1]),
+                   _rewrite(since, hi=5, th=10**30, a=[1, -1, 0, 1])):
+        assert await _refused(api_client, "malformed", since=forged) == {}
+
+
+async def test_a_window_never_opens_below_where_its_position_starts(api_client, feed):
+    """The frontier a read finds can be lower than the position it continues
+    (a role that cannot see every session reads the cluster's), and a window
+    that moved back would answer its rows again."""
+    job = await _posting(feed, "behind")
+    slow = _factory(feed)()
+    try:
+        slow.add(JobLifecycleEvent(job_id=job, event_type="opened", detail={}))
+        await slow.flush()
+        # A later commit moves the snapshot's end past the open transaction,
+        # so the frontier (that transaction) is below the position's start.
+        await _event(feed, job, "closed")
+        async with _factory(feed)() as session:
+            xmax = int((await session.execute(text("SELECT pg_snapshot_xmax(pg_current_snapshot())"))).scalar_one())
+        since = _rewrite(await _start(api_client), lo=xmax)
+        data = (await _page(api_client, since=since))["data"]
+        assert data["events"] == [] and data["caught_up"] is True
+        following = json.loads(base64.urlsafe_b64decode(data["next_since"] + "=" * (-len(data["next_since"]) % 4)))
+        assert following["lo"] == xmax
+        await slow.commit()
+    finally:
+        await slow.close()
