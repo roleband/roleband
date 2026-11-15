@@ -226,10 +226,16 @@ function headlineOf(pkg: JobCompPackage) {
   if (stated) {
     // The figure is the whole of what is known, so its heading says what kind
     // of pay it is; no line under it has to. An unclear period has no unit,
-    // never a guessed one.
+    // never a guessed one. A total stays a total in any unit: it is never
+    // annualised, but it is named for what the posting says it is.
+    const label = pkg.on_target_earnings
+      ? roleJobCompPanelOnTargetEarnings()
+      : pkg.basis === "total"
+        ? roleJobCompPanelEstimatedTotalPackage({ choice: "yes" })
+        : statedIsYearlyBase(pkg) ? roleJobCompPanelBaseStatedByTheEmployer() : roleJobCompPanelStatedByTheEmployer();
     return {
       headline: stated,
-      headlineLabel: statedIsYearlyBase(pkg) ? roleJobCompPanelBaseStatedByTheEmployer() : roleJobCompPanelStatedByTheEmployer(),
+      headlineLabel: label,
       headlineUnit: PERIOD_UNIT[pkg.pay_period ?? ""] ?? "",
       headlineCurrency: cur,
       fromStated: true,

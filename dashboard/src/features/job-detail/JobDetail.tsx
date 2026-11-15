@@ -235,8 +235,10 @@ export function JobDetail({
   /** The way on at the end of the read: save the role, then show the
    *  pipeline list in a new tab. The tab opens at the click, so no popup
    *  blocker stands in the way, and goes to the list only once the save has
-   *  landed, so the list it loads holds the role. */
+   *  landed, so the list it loads holds the role. A middle click opens the
+   *  link without a click event, so it comes here through `auxclick`. */
   const applyOnward = (event: ReactMouseEvent<HTMLAnchorElement>) => {
+    if (event.type === "auxclick" && event.button !== 1) return;
     if (!job || job.is_favorite) return;
     event.preventDefault();
     const tab = window.open("", "_blank");
@@ -570,7 +572,8 @@ export function JobDetail({
                     the pipeline. Once applied there is nothing to suggest. */}
                 {!applied && (
                   <footer className="jd-end">
-                    <a className="jd-next" href={PIPELINE_LIST} target="_blank" rel="noopener" onClick={applyOnward}>
+                    <a className="jd-next" href={PIPELINE_LIST} target="_blank" rel="noopener"
+                       onClick={applyOnward} onAuxClick={applyOnward}>
                       <span className="jd-next-kicker">{roleJobDetailApplyKicker()}</span>
                       <span className="jd-next-title">{roleJobDetailApplyTitle()}</span>
                       <span className="jd-next-meta">

@@ -986,7 +986,30 @@ test("a failed save keeps the person on the posting: the new tab closes and the 
   await detail(page).locator(".jd-end").getByRole("link", { name: new RegExp(APPLY) }).click();
   const tab = await popupOpened;
   await expect.poll(() => tab.isClosed(), { message: "the blank tab goes away" }).toBe(true);
-  await expect(page.getByRole("status").filter({ hasText: "Couldn't save this role" })).toBeVisible();
+  await expect(page.getByRole("status").filter({
+    hasText: msg("role-job-detail-could-not-unsave-this-role", { choice: "yes" }),
+  })).toBeVisible();
+});
+
+test("a middle click on the onward link saves the role before the list opens, as a click does", async ({ page }) => {
+  const order: string[] = [];
+  await mockApi(page, "PUT", "/api/jobs/101/favorite", async (route) => {
+    await new Promise((settle) => setTimeout(settle, 400));
+    order.push("saved");
+    await route.fulfill({ json: { job_id: 101, is_favorite: true } });
+  });
+  await page.goto("/company/openai/job/101");
+  const panel = detail(page);
+  const onward = panel.locator(".jd-end").getByRole("link", { name: new RegExp(APPLY) });
+  await standInList(page, () => order.push("list"));
+  const popupOpened = page.waitForEvent("popup");
+  await onward.click({ button: "middle" });
+  const tab = await popupOpened;
+  await tab.waitForURL(/\/pipeline\/list$/);
+  expect(order, "the list loads only once the save landed").toEqual(["saved", "list"]);
+  await expect(page, "the posting stays open here").toHaveURL(/\/job\/101$/);
+  await expect(onward).toContainText(msg("role-job-detail-apply-meta", { choice: "yes" }));
+  await tab.close();
 });
 
 test("a saved role's link opens the list without writing again; an applied role ends on nothing", async ({ page }) => {

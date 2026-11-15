@@ -305,7 +305,7 @@ def test_unclear_basis_is_never_decomposed():
     assert pkg["estimate"]["median"] == 563325
 
 
-def _rate_package(low, high, period, basis="base"):
+def _rate_package(low, high, period, basis="base", on_target=False):
     return build_job_package(
         company="google",
         band="staff",
@@ -326,7 +326,23 @@ def _rate_package(low, high, period, basis="base"):
             "confidence": "high",
         },
         baselines=BASELINES,
+        on_target=on_target,
     )
+
+
+@pytest.mark.parametrize("period", ["year", "month", "hour", "unclear"])
+def test_a_stated_on_target_total_is_named_so_whatever_its_period(period):
+    pkg = _rate_package(15_000, 20_000, period, basis="total", on_target=True)
+    assert pkg["on_target_earnings"] is True
+    assert pkg["yearly_base"] is None
+
+
+@pytest.mark.parametrize(("period", "basis"), [("month", "base"), ("hour", "unclear"), ("month", "total")])
+def test_only_a_stated_total_the_posting_calls_on_target_is_named_so(period, basis):
+    # Negative controls: the caller's flag names a total only, and a total the
+    # posting does not call on-target is not named so.
+    on_target = basis != "total"
+    assert _rate_package(15_000, 20_000, period, basis=basis, on_target=on_target)["on_target_earnings"] is False
 
 
 def test_an_hourly_rate_is_carried_as_a_full_time_yearly_base_and_never_split():

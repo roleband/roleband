@@ -582,6 +582,10 @@ def build_job_package(
     # posting uses. A band whose period we could not tell is not split either:
     # splitting it would claim it is a yearly salary.
     period = disclosed.get("pay_period")
+    # What a stated total is called holds whatever its period: a monthly
+    # on-target figure is still on-target earnings.
+    if basis == "total" and lo is not None:
+        package["on_target_earnings"] = on_target
     if period in PERIODS_PER_YEAR and lo is not None and basis != "total":
         per_year = PERIODS_PER_YEAR[period]
         package["yearly_base"] = {"low": round(lo * per_year), "high": round(hi * per_year)}
@@ -597,7 +601,6 @@ def build_job_package(
     # estimated split. Netflix explicitly makes the mix an employee election.
     if basis == "total" and lo is not None:
         package["total"] = {"low": lo, "high": hi, "provenance": PROV_STATED}
-        package["on_target_earnings"] = on_target
         package["no_split_reason"] = (
             NO_SPLIT_EMPLOYEE_ELECTION if employee_election(company) else NO_SPLIT_TOTAL
         )
