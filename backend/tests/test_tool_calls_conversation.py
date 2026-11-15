@@ -129,3 +129,10 @@ def test_the_answer_to_an_unknown_tool_names_the_tools_offered():
 def test_a_call_without_a_problem_has_nothing_to_report():
     with pytest.raises(ValueError, match="no problem"):
         ToolResult.for_problem(_call())
+
+
+@pytest.mark.parametrize("raw", ['{"n": ' + "9" * 5000 + "}", "[" * 100_000 + "]" * 100_000])
+def test_json_no_reader_should_accept_is_a_problem_not_an_error(raw):
+    arguments, _, problem = parse_arguments(raw, name="vocabulary_list", offered=OFFERED)
+    assert arguments == {}
+    assert problem is not None and problem.kind is CallProblemKind.MALFORMED_ARGUMENTS

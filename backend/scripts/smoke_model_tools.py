@@ -92,6 +92,7 @@ async def main(argv: list[str] | None = None) -> int:
         if first.stop_reason is not StopReason.TOOL_USE or not first.tool_calls:
             print("FAIL: the model did not call the tool", file=sys.stderr)
             return 1
+        valid = any(call.problem is None for call in first.tool_calls)
         conversation.append(first.message)
         conversation.append(ToolResults(tuple(
             ToolResult.for_problem(call) if call.problem else ToolResult(call.id, CANNED_RESULT)
@@ -107,6 +108,9 @@ async def main(argv: list[str] | None = None) -> int:
     total_in = sum(turn.usage.input_tokens or 0 for turn in (first, second))
     total_out = sum(turn.usage.output_tokens or 0 for turn in (first, second))
     print(f"total tokens in={total_in} out={total_out}")
+    if not valid:
+        print("FAIL: no call to the tool had valid arguments", file=sys.stderr)
+        return 1
     if second.stop_reason is not StopReason.END or not second.text:
         print("FAIL: no final answer after the tool result", file=sys.stderr)
         return 1

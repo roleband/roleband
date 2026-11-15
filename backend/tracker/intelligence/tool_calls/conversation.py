@@ -94,8 +94,9 @@ class ToolCall:
     """One call the model asked for.
 
     `arguments` is the parsed object, empty when `problem` is set.
-    `raw_arguments` is the JSON text as the model wrote it; a format that
-    carries arguments as text sends it back verbatim when it parsed.
+    `raw_arguments` is the JSON text as the model wrote it, or None for a
+    call a runner built itself; a format that carries arguments as text sends
+    it back verbatim when it parsed, and serializes `arguments` otherwise.
     `from_text` marks a call recovered from a `<tool_call>` block the model
     wrote into its answer instead of the structured field.
     """
@@ -103,7 +104,7 @@ class ToolCall:
     id: str
     name: str
     arguments: Mapping[str, Any] = field(default_factory=dict)
-    raw_arguments: str = "{}"
+    raw_arguments: str | None = None
     problem: CallProblem | None = None
     from_text: bool = False
 
@@ -135,7 +136,7 @@ class ToolResult:
         else:
             text = (
                 f"The arguments for {call.name!r} were not a JSON object ({call.problem.detail}). "
-                f"You sent: {call.raw_arguments[:500]}. Call it again with a JSON object."
+                f"You sent: {(call.raw_arguments or '')[:500]}. Call it again with a JSON object."
             )
         return cls(call_id=call.id, content=text, is_error=True)
 
@@ -271,6 +272,10 @@ def parse_arguments(raw: Any, *, name: str, offered: frozenset[str]) -> tuple[di
                 arguments = json.loads(stripped)
             except json.JSONDecodeError as exc:
                 return {}, text, CallProblem(CallProblemKind.MALFORMED_ARGUMENTS, f"invalid JSON: {exc.msg}")
+            except (ValueError, RecursionError) as exc:
+                # An integer past Python's digit limit, or nesting past the
+                # recursion limit: valid-looking text no reader should accept.
+                return {}, text, CallProblem(CallProblemKind.MALFORMED_ARGUMENTS, f"unreadable JSON: {type(exc).__name__}")
     if not isinstance(arguments, dict):
         return {}, text, CallProblem(
             CallProblemKind.MALFORMED_ARGUMENTS, f"a JSON {type(arguments).__name__}, not an object"

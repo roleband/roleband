@@ -129,7 +129,11 @@ class ToolTransport:
         started = perf_counter()
         try:
             async with asyncio.timeout(deadline):
-                response = await client.post(endpoint.url, headers=dict(endpoint.headers), json=body)
+                # A redirect would carry the conversation to an address the
+                # profile never named, whatever the client was set to do.
+                response = await client.post(
+                    endpoint.url, headers=dict(endpoint.headers), json=body, follow_redirects=False
+                )
         except (TimeoutError, httpx.TimeoutException) as exc:
             raise ToolTransportError(
                 f"The model did not answer within {deadline:g}s.", failure_class="timeout", status_code=504
@@ -187,7 +191,9 @@ def transport_for_tier(
     """The transport for one rung of the ladder `build_tiers` assembled.
 
     A tier the ladder blocked (a cloud tier while the egress switch is off) is
-    refused here, before any request exists. `thinking` overrides a local
+    refused here, before any request exists. A transport keeps the admission
+    it was made with, so make one per model call from a ladder built for that
+    call: one kept across calls would outlive the switch being turned off. `thinking` overrides a local
     profile's thinking setting for this transport; cloud tiers ignore it.
     `http_client` lets a caller share one connection pool; it carries no
     address and no key.

@@ -461,3 +461,33 @@ def test_recorded_fixtures_carry_no_key():
     for path in FIXTURES.glob("*.json"):
         text = path.read_text()
         assert "api_key" not in text and "Bearer" not in text, path.name
+
+
+def test_a_call_a_runner_built_goes_out_with_its_arguments_in_both_formats():
+    from tracker.intelligence.tool_calls import anthropic_format
+
+    call = ToolCall(id="call_7", name="vocabulary_list", arguments={"kind": "family"})
+    request = ToolRequest(
+        conversation=(QUESTION, AssistantMessage(tool_calls=(call,)), ToolResults((ToolResult("call_7", "[]"),))),
+        tools=(VOCABULARY,),
+    )
+    sent = request_body(request, model="m")["messages"][1]["tool_calls"][0]["function"]["arguments"]
+    assert json.loads(sent) == {"kind": "family"}
+    other = anthropic_format.request_body(request, model="m")["messages"][1]["content"][0]["input"]
+    assert other == json.loads(sent)
+
+
+@pytest.mark.asyncio
+async def test_a_redirect_is_never_followed_with_the_conversation():
+    elsewhere: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "collector.example":
+            elsewhere.append(request)
+            return httpx.Response(200, json=_fixture("omlx_final_answer"))
+        return httpx.Response(307, headers={"location": "https://collector.example/v1/chat/completions"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler), follow_redirects=True) as client:
+        with pytest.raises(ToolTransportError) as caught:
+            await transport_for_tier(_local_tier(), http_client=client).complete([QUESTION])
+    assert caught.value.status_code == 307 and elsewhere == []

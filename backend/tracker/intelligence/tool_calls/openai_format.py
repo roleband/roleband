@@ -49,7 +49,11 @@ def _arguments_text(call: ToolCall) -> str:
     # A call that parsed goes back as the model wrote it; one that did not goes
     # back as an empty object, because a server's chat template may parse the
     # text again and fail the whole request on it. Its result quotes the text.
-    return call.raw_arguments if call.problem is None else "{}"
+    if call.problem is not None:
+        return "{}"
+    if call.raw_arguments is not None:
+        return call.raw_arguments
+    return json.dumps(dict(call.arguments), ensure_ascii=False)
 
 
 def request_body(
@@ -145,7 +149,7 @@ def _calls_in_text(text: str, offered: frozenset[str]) -> tuple[list[ToolCall], 
         body = match.group(1)
         try:
             data = json.loads(body)
-        except json.JSONDecodeError:
+        except (ValueError, RecursionError):
             named = _TEXT_CALL_NAME.search(body)
             if named is None or named.group(1) not in offered:
                 return match.group(0)
