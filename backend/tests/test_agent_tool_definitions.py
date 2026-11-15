@@ -141,22 +141,28 @@ def test_a_shape_that_refers_to_itself_is_refused_rather_than_cut():
         input_schema(Node)
 
 
-def test_constraints_beside_a_reference_apply_together_with_the_referenced_ones():
+def test_constraints_beside_a_reference_keep_their_own_scope():
     from tracker.agents.tool_definitions import self_contained
 
     schema = self_contained({
         "type": "object",
         "properties": {
             "to": {"$ref": "#/$defs/Address", "required": ["country"], "description": "Where it goes."},
-            "from": {"$ref": "#/$defs/Address", "maxProperties": 3},
+            "strict": {"$ref": "#/$defs/Address", "additionalProperties": False},
+            "plain": {"$ref": "#/$defs/Address", "description": "Only an annotation."},
         },
         "$defs": {"Address": {"type": "object", "title": "Address", "required": ["city"],
                               "properties": {"city": {"type": "string"}, "country": {"type": "string"}}}},
     })
-    to = schema["properties"]["to"]
-    assert to["description"] == "Where it goes."
-    assert to["allOf"][0]["required"] == ["city"] and to["allOf"][1] == {"required": ["country"]}
-    # No keyword in common: one merged object, nothing lost.
-    assert schema["properties"]["from"]["maxProperties"] == 3
-    assert schema["properties"]["from"]["required"] == ["city"]
-    _assert_portable({**schema, "properties": {"from": schema["properties"]["from"]}})
+    address = {"type": "object", "required": ["city"],
+               "properties": {"city": {"type": "string"}, "country": {"type": "string"}}}
+    to, strict, plain = (schema["properties"][name] for name in ("to", "strict", "plain"))
+    # Both requirements stand, each in its own subschema.
+    assert to == {"allOf": [address, {"required": ["country"]}], "description": "Where it goes."}
+    # In the original this sibling sees no declared properties, so it refuses
+    # {"city": "York"}; flattened beside `properties.city` it would accept it.
+    assert strict == {"allOf": [address, {"additionalProperties": False}]}
+    assert "additionalProperties" not in strict["allOf"][0]
+    # An annotation alone constrains nothing and merges.
+    assert plain == {**address, "description": "Only an annotation."}
+    _assert_portable(schema)

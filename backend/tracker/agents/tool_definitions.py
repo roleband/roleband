@@ -49,9 +49,11 @@ def _inline(node: Any, defs: Mapping[str, Any], resolving: tuple[str, ...]) -> A
         resolved = _inline(defs[name], defs, (*resolving, name))
         siblings = _inline({key: value for key, value in node.items() if key != "$ref"}, defs, resolving)
         annotations = {key: siblings.pop(key) for key in list(siblings) if key in _ANNOTATIONS}
-        # A reference and the constraints beside it both apply. Where they
-        # name the same keyword, merging would let one replace the other.
-        merged = {"allOf": [resolved, siblings]} if set(siblings) & set(resolved) else {**resolved, **siblings}
+        # A reference and the constraints beside it both apply, each in its
+        # own scope: merged into one object, a sibling `additionalProperties`
+        # would also refuse the referenced properties. Only annotations, which
+        # constrain nothing, are merged.
+        merged = {"allOf": [resolved, siblings]} if siblings else resolved
         return {**merged, **annotations}
     out: dict[str, Any] = {}
     for key, value in node.items():
