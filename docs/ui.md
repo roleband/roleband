@@ -48,7 +48,9 @@ download by hand can install it.
 The menu bar shows the product mark in every state, as a template image. A state
 other than at rest (starting or scanning, paused, an engine hold, no engine) adds its
 symbol as a badge in the mark's lower right corner; the accessibility label and
-tooltip say the state in words. The panel header is the gold mark alone, without
+tooltip say the state in words. At rest, an update the person can install takes the
+badge as a download arrow, and the label and tooltip add its version; any other
+state's badge outranks it. The panel header is the gold mark alone, without
 the product name. When the menu-bar item cannot be seen (off screen, or behind the
 camera housing of a notched display), the panel opens as a window instead of a
 popover. The window keeps the panel's width and a fixed height, and scrolls.
