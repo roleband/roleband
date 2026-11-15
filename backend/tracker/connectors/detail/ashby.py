@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 
 from tracker.connectors.detail.base import (
@@ -29,6 +30,18 @@ def _interval(raw: object) -> tuple[int, str] | None:
         return None
     unit = words[1].removesuffix("S")
     return (int(words[0]), unit) if unit in _UNITS else None
+
+
+#: The count `_formatted_salary` writes after an amount stated over several
+#: years: "$180,000 - $220,000 per 2 years".
+_YEARS_RE = re.compile(r"\bper (\d+) years\b")
+
+
+def years_in_quote(quote: str | None) -> int:
+    """How many years a stored Ashby quote says its amount covers: the count
+    in "per 2 years", 1 when it names none."""
+    match = _YEARS_RE.search(quote or "")
+    return int(match.group(1)) if match else 1
 
 
 def _stated_period(raw: object) -> PayPeriod | None:

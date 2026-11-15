@@ -36,6 +36,7 @@ from datetime import datetime
 from sqlalchemy import and_, false, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tracker.connectors.detail.ashby import years_in_quote
 from tracker.connectors.detail.base import PAY_SECTION_KEY
 from tracker.db.ids import among
 from tracker.db.models import Job, JobLifecycleEvent
@@ -53,7 +54,7 @@ from tracker.pay_disclosure import (
     extract_grounded_band,
     settle_band,
 )
-from tracker.pay_period import effective_period
+from tracker.pay_period import PayPeriod, decide_period, effective_period, size_classes
 from tracker.settings_store import get_active_prompt_version
 from tracker.taxonomy.locations import pay_country
 
@@ -473,6 +474,36 @@ def corrected_band(
     return None
 
 
+def multi_year_share(
+    stored: tuple[int | None, int | None, str | None, str | None], quote: str | None,
+) -> dict | None:
+    """The `disclosed_*` columns that turn a stored band stated over several
+    years into one year's share, or None.
+
+    Only a stored `unclear` whose quote names the years ("$180,000 - $220,000
+    per 2 years"): the Ashby connector divides such a band as it reads it, and
+    a band it stored whole reads as a year's pay by its size alone. A share the
+    size still cannot call yearly is stored `unclear`, which is no longer a
+    candidate, so a band is never divided twice.
+    """
+    low, high, currency, period = stored
+    years = years_in_quote(quote)
+    if period != PayPeriod.unclear.value or years <= 1 or (low is None and high is None):
+        return None
+    share_low = low // years if low is not None else None
+    share_high = high // years if high is not None else None
+    decided = decide_period(
+        size_classes(share_low, share_high, currency), PayPeriod.year, structured=True,
+    )
+    if decided is None:
+        return None
+    return {
+        "disclosed_base_min": share_low,
+        "disclosed_base_max": share_high,
+        "disclosed_pay_period": decided.value,
+    }
+
+
 #: Rows corrected per committed batch: each loads its posting text.
 _PERIOD_BATCH = 200
 
@@ -512,19 +543,19 @@ async def correct_pay_periods(session: AsyncSession) -> dict:
 
     async def work(chunk_session: AsyncSession, ids: list[int]) -> int:
         for job in (await chunk_session.scalars(select(Job).where(Job.id.in_(ids)))).all():
-            pay_text, _scope = pay_input_text(job)
-            reread = (
-                extract_grounded_band(
-                    pay_text, job.description_text or pay_text,
-                    place=first_place(job.locations or []), places_in=specific_places,
+            stored = (job.disclosed_base_min, job.disclosed_base_max,
+                      job.disclosed_currency, job.disclosed_pay_period)
+            change = multi_year_share(stored, job.disclosed_snippet)
+            if change is None:
+                pay_text, _scope = pay_input_text(job)
+                reread = (
+                    extract_grounded_band(
+                        pay_text, job.description_text or pay_text,
+                        place=first_place(job.locations or []), places_in=specific_places,
+                    )
+                    if pay_text.strip() else None
                 )
-                if pay_text.strip() else None
-            )
-            change = corrected_band(
-                (job.disclosed_base_min, job.disclosed_base_max,
-                 job.disclosed_currency, job.disclosed_pay_period),
-                reread,
-            )
+                change = corrected_band(stored, reread)
             if change is None:
                 summary["kept"] += 1
                 continue

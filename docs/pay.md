@@ -47,7 +47,9 @@ and only reports what the posting literally says.
   $150,000 an hour or a month. Where the size fits more than one period, a word
   that contradicts it gives `unclear`: shown with no unit, never split, never
   counted. A range stated over several years ("2 YEAR" on Ashby) is divided to
-  one year. Every reader of a stored period goes through `effective_period`.
+  one year; one stored whole and `unclear` is divided by the `pay_periods`
+  pass, by the count its quote names ("per 2 years"). Every reader of a stored
+  period goes through `effective_period`.
 - **Bounds**: a band is two amounts in one currency, and its code or symbol
   may sit on either amount or both ("USD $160,200.00 - USD $425,000.00").
   A k written once on the high amount scales a bare low under a thousand

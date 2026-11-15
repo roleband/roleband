@@ -13,9 +13,10 @@ import pytest
 from sqlalchemy import select
 
 from tests.factories import make_job
+from tracker.connectors.detail.ashby import AshbyDetailConnector
 from tracker.db.models import Job
 from tracker.intelligence_runtime import disclosed_comp
-from tracker.intelligence_runtime.disclosed_comp import correct_pay_periods, corrected_band
+from tracker.intelligence_runtime.disclosed_comp import correct_pay_periods, corrected_band, multi_year_share
 from tracker.pay_disclosure import extract_grounded_band
 
 NETFLIX = (
@@ -33,6 +34,15 @@ COHERE = "Everyone receives a $500 home office stipend to set up your workspace.
 CONTRADICTION = "Base pay: $150,000 - $200,000 per month, paid in arrears."
 # Words that contradict a size month and year share: the rule cannot tell.
 OVERLAP = "Base pay: $10,000 - $12,000 per hour."
+
+
+def _ashby_quote(interval: str) -> str:
+    """The quote the Ashby connector stores for a $180,000 - $220,000 band."""
+    payload = {"compensation": {"summaryComponents": [{
+        "compensationType": "Salary", "minValue": 180_000, "maxValue": 220_000,
+        "currencyCode": "USD", "interval": interval,
+    }]}}
+    return AshbyDetailConnector().parse_payload(payload).source_disclosed_comp.source_snippet
 
 
 def _read(text: str):
@@ -103,6 +113,19 @@ def test_a_band_already_consistent_is_not_touched():
     worded = "Hourly rate: $150,000 - $200,000"
     assert _read(worded).pay_period.value == "year"
     assert corrected_band((150_000, 200_000, "USD", "year"), _read(worded)) is None
+
+
+def test_a_band_stored_whole_over_several_years_becomes_one_year_s_share():
+    two_years = _ashby_quote("2 YEAR")
+    assert "per 2 years" in two_years
+    assert multi_year_share((180_000, 220_000, "USD", "unclear"), two_years) == {
+        "disclosed_base_min": 90_000, "disclosed_base_max": 110_000, "disclosed_pay_period": "year",
+    }
+    # Read since the connector divides: already a year's share, never divided twice.
+    assert multi_year_share((90_000, 110_000, "USD", "year"), two_years) is None
+    # A quote that names no count of years is a year's pay as stated.
+    assert multi_year_share((180_000, 220_000, "USD", "unclear"), _ashby_quote("1 YEAR")) is None
+    assert multi_year_share((180_000, 220_000, "USD", "unclear"), CONTRADICTION) is None
 
 
 def _row(key: str, text: str, low, high, currency, period) -> Job:
@@ -182,3 +205,21 @@ async def test_a_run_killed_midway_keeps_the_batches_it_saved(db_session, monkey
     # The next run's candidates are only the row the killed one did not reach.
     monkeypatch.setattr(disclosed_comp, "extract_grounded_band", read)
     assert (await correct_pay_periods(db_session))["candidates"] == 1
+
+
+@pytest.mark.asyncio
+async def test_the_pass_divides_a_band_stored_whole_over_several_years(db_session):
+    quote = _ashby_quote("2 YEAR")
+    legacy = _row("ashby", quote, 180_000, 220_000, "USD", "unclear")
+    legacy.disclosed_snippet = quote
+    legacy.disclosed_source = "connector"
+    db_session.add(legacy)
+    await db_session.commit()
+
+    assert (await correct_pay_periods(db_session))["amounts_fixed"] == 1
+    db_session.expire_all()
+    job = (await db_session.scalars(select(Job))).one()
+    assert (job.disclosed_base_min, job.disclosed_base_max, job.disclosed_pay_period) == (90_000, 110_000, "year")
+    assert job.disclosed_snippet == quote, "the quote keeps the board's own interval"
+
+    assert (await correct_pay_periods(db_session))["candidates"] == 0
