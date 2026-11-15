@@ -108,16 +108,23 @@ def _payload(prompt: str) -> dict:
 
 
 def test_the_model_sees_the_period_the_reader_sees():
-    """A yearly salary stored as hourly would reach the reviewer as a
-    $600,000 hourly rate beside its yearly repost: a difference that is not
-    there. The served period says "could not tell"."""
+    """A yearly salary stored as hourly reaches the reviewer as the yearly
+    salary the reader sees, never as a $600,000 hourly rate beside its yearly
+    repost: a difference that is not there."""
     prior, newer = _job(1, "Staff Engineer"), _job(2, "Staff Engineer")
     for job, period in ((prior, "hour"), (newer, "year")):
         job.disclosed_base_min, job.disclosed_base_max = 600_000, 1_066_000
         job.disclosed_currency, job.disclosed_pay_period = "USD", period
     payload = _payload(build_duplicate_prompt(_link(), prior, newer))
-    assert payload["earlier_posting"]["disclosed_comp"]["pay_period"] == "unclear"
+    assert payload["earlier_posting"]["disclosed_comp"]["pay_period"] == "year"
     assert payload["newer_posting"]["disclosed_comp"]["pay_period"] == "year"
+    # A stored period the size rules out, with no other period it settles,
+    # says "could not tell".
+    rate = _job(5, "Staff Engineer")
+    rate.disclosed_base_min, rate.disclosed_base_max = 104, 120
+    rate.disclosed_currency, rate.disclosed_pay_period = "EUR", "year"
+    assert _payload(build_duplicate_prompt(_link(), rate, newer))[
+        "earlier_posting"]["disclosed_comp"]["pay_period"] == "unclear"
     # No band: nothing to check, so the stored value passes through.
     assert _payload(build_duplicate_prompt(_link(), _job(3, "A"), _job(4, "B")))[
         "earlier_posting"]["disclosed_comp"]["pay_period"] is None

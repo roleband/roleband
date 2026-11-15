@@ -171,7 +171,8 @@ for (const [width, read] of [[1440, READ_PX], [1600, 18]] as const) {
   test(`the description is set for reading at ${width}px, under the pay panel`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await mockGet(page, "/api/jobs/303", (route) =>
-      route.fulfill({ json: { ...appleJobFixture, requirements: readyRequirements } }),
+      // A package with a figure: a posting with none draws no pay panel to measure against.
+      route.fulfill({ json: { ...appleJobFixture, comp_package: compPackageFixture(), requirements: readyRequirements } }),
     );
     await page.goto("/company/apple/job/303");
 
@@ -196,7 +197,7 @@ for (const [width, read] of [[1440, READ_PX], [1600, 18]] as const) {
 test("a plain-text description is set for reading too", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await mockGet(page, "/api/jobs/101", (route) =>
-    route.fulfill({ json: { ...jobFixture, requirements: readyRequirements } }),
+    route.fulfill({ json: { ...jobFixture, comp_package: compPackageFixture(), requirements: readyRequirements } }),
   );
   await page.goto("/company/openai/job/101");
 
@@ -861,10 +862,12 @@ test("the pay panel's small copy grows above Pipeline as the panel leaves, and g
   expect(await height()).toBeCloseTo(full, 0);
 });
 
-/* A posting with no pay figure says so where the panel stands, and that
-   stays there: nothing docks, because there is nothing to keep in view. */
+/* A posting with no pay figure and no estimate draws no pay panel, and nothing
+   docks, because there is nothing to keep in view. */
 test("a posting with no pay figure docks nothing above Pipeline", async ({ page }) => {
-  await mockGet(page, "/api/jobs/303", (route) => route.fulfill({ json: { ...longPosting, comp_package: compPackageFixture({ estimate: null }) } }));
+  await mockGet(page, "/api/jobs/303", (route) => route.fulfill({ json: {
+    ...longPosting, comp_package: compPackageFixture({ state: "none_stated", estimate: null }),
+  } }));
   await mockGet(page, "/api/applications/303", (route) => route.fulfill({ json: applicationDetailFixture({
     application: applicationCardFixture({ job_id: 303, pursuit_id: 10, stage: "applied", company: "apple" }),
   }) }));
@@ -872,9 +875,8 @@ test("a posting with no pay figure docks nothing above Pipeline", async ({ page 
   await page.goto("/company/apple/job/303");
   const panel = detail(page);
   await expect(panel.getByRole("heading", { name: "Responsibilities" })).toBeVisible();
-  const unknown = panel.getByTestId("pkg-unknown");
-  await expect(unknown.locator(".pkg-eyebrow")).toHaveText(msg("role-job-comp-panel-estimated-total-comp"));
-  await expect(unknown.locator(".big, .pkg-bar"), "no figure, no stand-in for one, no bar").toHaveCount(0);
+  await expect(panel.locator(".comp-panel"), "no pay panel").toHaveCount(0);
+  await expect(panel.getByText(/no pay|no range/i), "no line about the posting's pay").toHaveCount(0);
   const scroll = panel.locator(".cover-scroll");
   const column = panel.locator(".jd-aside");
   await scrollPosting(scroll, 1500);

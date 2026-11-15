@@ -59,6 +59,10 @@ NO_SPLIT_NOT_US = "not_us_pay"
 # for sorting, so no level's split, equity or total is built on it.
 NO_SPLIT_LEVEL_UNPLACED = "level_unplaced"
 
+# An hourly or monthly rate as a year of full-time work: 40 hours a week for
+# 52 weeks, or twelve months.
+PERIODS_PER_YEAR = {"hour": 2080, "month": 12}
+
 PROV_STATED = "stated"
 PROV_ESTIMATED = "estimated"
 
@@ -417,6 +421,7 @@ def build_job_package(
     us_pay: bool = True,
     covered: bool = True,
     level_placed: bool = True,
+    on_target: bool = False,
 ) -> dict:
     """The full comp story for one role, ready to render.
 
@@ -437,6 +442,9 @@ def build_job_package(
     read for it (`NO_SPLIT_LEVEL_UNPLACED`) and no estimated total is split by its
     ratios; a yearly base the posting states is still the bar's one stated
     segment (`_stated_base_only`), with no bonus, equity or total beside it.
+    `on_target`: the posting calls its band on-target earnings
+    (`pay_disclosure.names_on_target_earnings`); a stated total then carries
+    `on_target_earnings`, so it is named base plus commission, never total pay.
     """
     baselines = baselines or {}
     estimate = (
@@ -484,6 +492,13 @@ def build_job_package(
         "policy": describe_policy(company) if heuristic else None,
         # Our base alone where no total is estimated: "Est. base", labelled.
         "base_estimate": base_estimate if comp_median is None and base_estimate else None,
+        # The posting's hourly or monthly rate as a full-time year. A rate is
+        # what the job pays for the time worked, so the year is base salary:
+        # bonus and equity are unknown, and it is never read as a total.
+        "yearly_base": None,
+        # A stated total the posting calls on-target earnings: base plus
+        # commission at target, with no equity in it.
+        "on_target_earnings": False,
     }
 
     if disclosed is None:
@@ -561,11 +576,15 @@ def build_job_package(
     hi = hi if hi is not None else lo
     package["stated"] = {"low": lo, "high": hi} if lo is not None else None
 
-    # An hourly or monthly rate cannot be scaled by annual base->equity ratios, and
-    # we will not annualize it ourselves — that is inference, not disclosure.
-    # A band whose period we could not tell is not split
-    # either: splitting it would claim it is a yearly salary.
+    # An hourly or monthly rate is not split: no level's ratios describe the bonus
+    # or equity of a rate. It is carried as a full-time year of base salary, so
+    # the panel can lead with the employer's figure in the unit every other
+    # posting uses. A band whose period we could not tell is not split either:
+    # splitting it would claim it is a yearly salary.
     period = disclosed.get("pay_period")
+    if period in PERIODS_PER_YEAR and lo is not None and basis != "total":
+        per_year = PERIODS_PER_YEAR[period]
+        package["yearly_base"] = {"low": round(lo * per_year), "high": round(hi * per_year)}
     if period in ("hour", "month", "unclear"):
         package["no_split_reason"] = {
             "hour": NO_SPLIT_HOURLY,
@@ -578,6 +597,7 @@ def build_job_package(
     # estimated split. Netflix explicitly makes the mix an employee election.
     if basis == "total" and lo is not None:
         package["total"] = {"low": lo, "high": hi, "provenance": PROV_STATED}
+        package["on_target_earnings"] = on_target
         package["no_split_reason"] = (
             NO_SPLIT_EMPLOYEE_ELECTION if employee_election(company) else NO_SPLIT_TOTAL
         )

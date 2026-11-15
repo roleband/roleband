@@ -96,6 +96,15 @@ def _source_disclosed_comp_from_salary(
         return None
     currency = salary.get("currencyCode")
     currency = currency if isinstance(currency, str) and currency else "USD"
+    # An amount stated over several years is that many years' pay, never one
+    # year's: the size rule alone would read "$180,000 per 2 years" as a
+    # $180,000 salary. A year's share is the figure, as a yearly band; the
+    # stored quote keeps the board's own words.
+    interval = _interval(salary.get("interval"))
+    years = interval[0] if interval is not None and interval[1] == "YEAR" and interval[0] > 1 else 1
+    if years > 1:
+        low = low / years if isinstance(low, (int, float)) else low
+        high = high / years if isinstance(high, (int, float)) else high
     # The board's own interval is a word next to the amount; a structured pay
     # field is pay by definition, so its size alone may decide when it states
     # no interval. "1 YEAR" on $45 reads `unclear`; "NONE" on
@@ -103,7 +112,7 @@ def _source_disclosed_comp_from_salary(
     decided = decide_period(
         size_classes(low if isinstance(low, (int, float)) else None,
                      high if isinstance(high, (int, float)) else None, currency),
-        _stated_period(salary.get("interval")),
+        PayPeriod.year if years > 1 else _stated_period(salary.get("interval")),
         structured=True,
     )
     if decided is None:

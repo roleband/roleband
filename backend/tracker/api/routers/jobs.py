@@ -440,6 +440,7 @@ async def get_job(job_id: int, session: SessionDep) -> dict:
         baselines=baselines_for(await package_rows(session, providers, job.company, country), country),
         providers=providers,
         disclosed=data.get("disclosed_comp"),
+        text=job.description_text,
     )
 
     events = (

@@ -1,15 +1,9 @@
 ## role: movido tal como se encontró (wording=as-is)
 
 ## features/job-detail/JobCompPanel.tsx
-role-job-comp-panel-no-compensation-data-for-this = No hay datos de compensación para este puesto.
-role-job-comp-panel-market-median-at-this-level = Mediana de mercado del nivel
-role-job-comp-panel-this-package-is-the-market = Esta estimación es { $toFixed }× la mediana del mercado para este nivel, normalmente señal de que el nivel o la disciplina no son correctos.
 role-job-comp-panel-base = Base
-role-job-comp-panel-this-employer-publishes-no-pay = Este empleador no publica ningún rango. Todo lo de abajo es una estimación.
-role-job-comp-panel-we-have-not-checked-this = Aún no se ha revisado si esta oferta publica un rango.
 role-job-comp-panel-stated = indicado
 role-job-comp-panel-estimated = estimado
-role-job-comp-panel-our-independent-estimate-of-total = Estimación independiente de la compensación total: { $range }
 role-job-comp-panel-from-the-posting-s-pay = Del campo de compensación de la oferta, no de su texto.
 role-job-comp-panel-bonus = Bono
 role-job-comp-panel-equity = Acciones
@@ -27,18 +21,11 @@ role-job-comp-panel-posted-band-sits-well-below = El rango publicado está muy p
 role-job-comp-panel-yr = / año
 role-job-comp-panel-mo = / mes
 role-job-comp-panel-hr = / h
-role-job-comp-panel-hourly-rate = tarifa por hora
-role-job-comp-panel-the-posting-gives-an-hourly = La oferta indica una tarifa por hora, mostrada tal cual.
-role-job-comp-panel-monthly-rate = tarifa mensual
-role-job-comp-panel-the-posting-gives-a-monthly = La oferta indica una tarifa mensual, mostrada tal cual.
-role-job-comp-panel-period-unclear = periodo poco claro
-role-job-comp-panel-the-posting-s-wording-and = No está claro si es por hora, por mes o por año. Consulta abajo las palabras del propio empleador.
+role-job-comp-panel-the-posting-s-wording-and = No está claro si es por mes o por año. Consulta abajo las palabras del propio empleador.
 role-job-comp-panel-states-this-as-total-annual = { $company } deja que cada persona elija su propia mezcla de salario base y acciones, así que no hay un reparto fijo.
-role-job-comp-panel-employee-selected-mix = tú eliges la mezcla
 role-job-comp-panel-total-compensation = compensación total
-role-job-comp-panel-the-posting-states-total-compensation = La oferta indica la compensación total sin desglose, así que no se muestra ninguno.
 role-job-comp-panel-basis-not-stated = tipo no indicado
-role-job-comp-panel-the-posting-states-this-figure = La oferta no dice si esta cifra es salario base o compensación total, así que no se divide en base, bonus y acciones.
+role-job-comp-panel-the-posting-states-this-figure = La oferta no indica si es salario base o compensación total.
 role-job-comp-panel-estimated-total-package = { $choice ->
     [yes] Compensación total publicada
    *[no] Compensación total estimada
@@ -250,10 +237,6 @@ role-listing-age-reposted = { $choice ->
 role-listing-age-still-listed-at-the-last = Seguía publicado en el último escaneo
 role-listing-age-events = Eventos
 
-## features/job-detail/PayFloorLine.tsx
-role-pay-floor-line-your-pay-floor-falls-inside = Tu base mínima de { $floor } está dentro de este rango
-role-pay-floor-line-below-your-pay-floor = Por debajo de tu base mínima de { $floor }
-
 ## features/job-detail/PlaceSetSection.tsx
 role-place-set-section-could-not-load-this-role = No se pudieron cargar los otros lugares de este puesto. Inténtalo de nuevo.
 role-place-set-section-you-marked-this-posting-as = Marcaste esta oferta como un puesto distinto del mismo texto en otros lugares.
@@ -346,12 +329,12 @@ role-place-set-section-states-pay = · publica { $range }
 role-place-set-section-states-no-pay = · no publica rango
 
 ## Qué hace elegir una etapa.
-role-job-comp-panel-estimate-of-total = Compensación total estimada: { $range }
-role-job-comp-panel-split-not-reported = reparto no disponible
-role-job-comp-panel-the-plugin-reports-no-split = El plugin de compensación no da un reparto entre base, bonus y acciones para este nivel.
-role-job-comp-panel-roleband-splits-us-pay-only = La compensación se divide en base, bonus y acciones solo con datos de EE. UU. Este puesto está fuera de EE. UU. o en varios países, así que no se divide.
-role-job-comp-panel-level-not-stated-or-mapped = Sin un nivel estándar, no se estima ningún reparto ni total.
-role-job-comp-panel-not-read-yet = aún sin leer
+role-job-comp-panel-base-from-posted-rate = Salario base según la tarifa publicada
+role-job-comp-panel-posted-as = { $choice ->
+    [hour] Publicado como { $rate }, a tiempo completo
+   *[other] Publicado como { $rate }
+}
+role-job-comp-panel-on-target-earnings = Ingresos objetivo (base + comisión)
 role-job-comp-panel-estimated-base = Salario base estimado
 role-job-detail-could-not-unsave-this-role = { $choice ->
     [yes] No se pudo guardar este puesto

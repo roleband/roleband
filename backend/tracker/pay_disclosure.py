@@ -1090,6 +1090,20 @@ def _fires_unconditionally(pattern: re.Pattern[str], context: str) -> bool:
     return False
 
 
+# The posting names the band on-target earnings: the base plus the commission a
+# seller is paid at target. Equity is never part of it.
+_ON_TARGET_RE = re.compile(r"\bon[-\s]target\s+earnings\b|\bOTE\b", re.I)
+
+
+def names_on_target_earnings(description_text: str | None, bounds: list[int]) -> bool:
+    """True when the text around the band at `bounds` calls it on-target earnings,
+    in a sentence no condition guards ("for sales roles, the OTE range...")."""
+    if not description_text:
+        return False
+    span = locate_pay_span(description_text, bounds)
+    return span is not None and _fires_unconditionally(_ON_TARGET_RE, basis_context(description_text, span))
+
+
 def derive_pay_basis(description_text: str, bounds: list[int]) -> PayBasis:
     """Derive pay_basis from the posting text around the located band.
 

@@ -62,10 +62,14 @@ the panel opens as a window. Until setup completes, it opens setup.
 
 The Scan tab draws the scan picture while the engine is healthy and has a scan
 to show: the companies in flight with their clocks, or the last scan's facts, the
-tank of roles found, and one schedule line. A scan goes on after its last company
+tank of roles found, and one schedule line. Company names and the last scan's
+facts start on the card's left edge, with the progress line and the schedule line;
+their channels leave from one column of dots. The tank's figure is every role the
+scan has found so far, so it never drops as a company finishes; under it, the roles
+from finished companies while others are still read. A scan goes on after its last company
 is read, and the picture names that step with the Radar's words: Adding the last
-roles, then Finishing up, with the companies scanned, the roles recorded and the
-scan's clock in place of a percent that has reached 100. A hold, an engine update or an engine
+roles, then Finishing up, with the companies scanned, the roles found and those
+still to add, and the scan's clock in place of a percent that has reached 100. A hold, an engine update or an engine
 without scan data keeps the status card, which says why. Companies needing
 attention are the Radar's to show: the panel neither lists nor marks them. Stopping
 lasts only while the stop request is in flight, because the engine ends the run
@@ -996,17 +1000,27 @@ its primary is View & apply, an anchor wearing the primary classes.
 - **The bar carries the role** once the posting's heading has left the scroll
   box: title, company and level in the bar's middle, at the heading's left
   edge. It is a copy for the eye (`aria-hidden`).
-- **The pay panel writes each figure once.** Under an estimated total, one
-  sentence says the base is the posting's own, and the base's figure stands
-  in the breakdown. When the employer's yearly base is all there is, it is
-  the headline under "Stated base salary", and the reason
-  there is no split follows as a note with no figure. The employer's figure
-  gets a box of its own only under a headline that is someone's estimate.
-- **A posting with no pay figure** keeps the panel as a short card: its
-  heading and one sentence of why (the plugin answering pay has not read the
-  company, the posting has not been read for pay yet, or it gives no figure
-  and nothing was estimated). No word stands in the figure's place, and
-  nothing describes a figure: no bar, no note. Nothing docks.
+- **The pay panel leads with the employer's figure and writes each figure
+  once.** Under an estimated total, one sentence says the base is the
+  posting's own, and the base's figure stands in the breakdown. Any other
+  figure the posting states is the headline itself: a yearly base under
+  "Stated base salary", an hourly or monthly rate as its full-time year under
+  "Base salary from the posted rate" with the rate as posted beneath it, and
+  on-target earnings under their own name. Our estimate is the headline only
+  when no figure was found in the posting, and no line says the posting has
+  none: "estimated" on the headline and on every part already says the
+  figure is ours, and the claim would be false whenever the reader missed a
+  figure. Where the posting or its employer is why
+  there is no split (a period or basis it leaves open, a mix each person
+  picks), one sentence says so, with no tag that says it again in two words.
+  Nothing is said that the headline already says (a rate, a stated total),
+  nor about what RoleBand does not compute: a level it cannot place, pay
+  outside the US, a plugin with no split, a posting not yet read for pay.
+- **A posting with no pay figure and no estimate** draws no panel, read for
+  pay or not; the person reads the posting itself below. The one exception is
+  a plugin answering pay that has not read the company: the panel is that one
+  line, with no heading, no word in the figure's place and no bar. Nothing
+  docks.
 - **One posting gives place to another in a cover that stays open**
   (`postingTurn.ts`): by the pager, or by a link on the posting, whether the
   cover is a dialog over a list or the page itself. Both route error

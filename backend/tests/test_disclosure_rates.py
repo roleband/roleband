@@ -127,14 +127,14 @@ def test_a_placeholder_band_counts_in_the_rate_but_never_as_a_salary():
 
 
 def test_a_band_in_another_currency_or_period_discloses_but_never_enters_the_dollar_bands():
-    # The trend draws these bands as yearly US dollars. A pound band, a rupee
-    # band and a monthly band all clear the floor by size, so only their
-    # currency and period keep them out; a band stored with no currency is a
-    # dollar band.
+    # The trend draws these bands as yearly US dollars. A pound band and a
+    # rupee band clear the floor by size, so only their currency keeps them
+    # out; a monthly rate never enters a yearly axis; a band stored with no
+    # currency is a dollar band.
     rows = [
         _role("deepmind", "senior", lo=80_000, hi=120_000, basis="base", currency="GBP", period="year"),
         _role("flipkart", "senior", lo=3_500_000, hi=6_000_000, basis="base", currency="INR", period="year"),
-        _role("acme", "senior", lo=55_000, hi=70_000, basis="base", currency="USD", period="month"),
+        _role("acme", "senior", lo=15_000, hi=20_000, basis="base", currency="USD", period="month"),
         _role("google", "senior", lo=200_000, hi=300_000, basis="base", currency=None, period=None),
     ]
     cells = {c["company"]: c for c in build_disclosure_snapshot_rows(rows)}

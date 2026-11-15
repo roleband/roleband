@@ -137,17 +137,19 @@ describe("JobCompPanel", () => {
   it("refuses to split a band whose basis the employer never stated", () => {
     render(<JobCompPanel job={withPackage(ANTHROPIC)} />, { wrapper: MemoryRouter });
 
-    expect(screen.getByText("basis not stated")).toBeInTheDocument();
-    expect(
-      screen.getByText(/doesn't say whether this figure is base salary or total compensation/),
-    ).toBeInTheDocument();
+    // The sentence alone: no tag says it again in two words.
+    const note = screen.getByTestId("pkg-no-split");
+    expect(note).toHaveTextContent(msg("role-job-comp-panel-the-posting-states-this-figure"));
+    expect(note.querySelector(".pkg-tag")).toBeNull();
+    expect(note).not.toHaveTextContent(/basis not stated|isn't split/);
     // ...and it must not have invented a breakdown to fill the bar.
     expect(screen.queryByText("Base")).not.toBeInTheDocument();
     expect(screen.queryByText("Equity")).not.toBeInTheDocument();
-    // The stated figure and our independent estimate are both still shown.
-    expect(screen.getAllByText(/\$210K–\$260K/).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Independent estimate of total compensation/)).toBeInTheDocument();
-    expect(screen.getAllByText("$479K–$648K").length).toBeGreaterThan(0);
+    // The employer's figure is the headline, and our estimate is nowhere on
+    // the card: not above it, and not repeated in a line under it.
+    expect(document.querySelector(".pkg-head .big")).toHaveTextContent("$210K–$260K");
+    expect(screen.queryByText(/estimate of total compensation/i)).not.toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent("$479K");
   });
 
   // A level we cannot place: the posted base stands, nothing is built on the guess.
@@ -166,12 +168,6 @@ describe("JobCompPanel", () => {
     snippet: "$151,200 - $223,200 base",
     confidence: "high",
   });
-
-  function expectPostedBaseWhole() {
-    expect(screen.getAllByText("$151K–$223K").length).toBeGreaterThan(0);
-    expect(screen.getByText(msg("role-job-comp-panel-level-not-stated-or-mapped"))).toBeInTheDocument();
-    expect(screen.queryByText("Equity")).not.toBeInTheDocument();
-  }
 
   it("draws the stated base as the bar's one segment, and models nothing on it", () => {
     const { container } = render(
@@ -192,22 +188,18 @@ describe("JobCompPanel", () => {
     expect(container.querySelector(".big")).toHaveTextContent("$151K–$223K");
     expect(container.querySelector(".pkg-leg-n")).toHaveTextContent("$151K–$223K");
     expect(screen.queryByTestId("pkg-stated-base")).toBeNull();
-    expect(container.querySelector(".pkg-unclear-n")).toBeNull();
-    // And it still says why there is no split.
-    expect(screen.getByTestId("pkg-no-split")).toBeInTheDocument();
   });
 
-  it("shows an unmapped level's posted base whole, tagged as the job card tags it", () => {
-    render(<JobCompPanel job={{ ...withPackage(UNPLACED), level_basis: "unmapped" }} />, { wrapper: MemoryRouter });
-    expectPostedBaseWhole();
-    expect(screen.getByText(msg("taxonomy-level-not-mapped"))).toBeInTheDocument();
-  });
-
-  it("tags a posting that names no level as not stated, never as not mapped", () => {
-    render(<JobCompPanel job={{ ...withPackage(UNPLACED), level_basis: "none" }} />, { wrapper: MemoryRouter });
-    expectPostedBaseWhole();
-    expect(screen.getByText(msg("taxonomy-level-not-stated"))).toBeInTheDocument();
-    expect(screen.queryByText(msg("taxonomy-level-not-mapped"))).not.toBeInTheDocument();
+  // A level RoleBand cannot place is about the app, not the job: the posted
+  // figure stands, and nothing says what was not computed.
+  it.each(["unmapped", "none"] as const)("says nothing about a level it cannot place (%s)", (basis) => {
+    render(<JobCompPanel job={{ ...withPackage(UNPLACED), level_basis: basis }} />, { wrapper: MemoryRouter });
+    expect(screen.getAllByText("$151K–$223K").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Equity")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("pkg-no-split")).toBeNull();
+    expect(screen.queryByText(msg("taxonomy-level-not-mapped"))).toBeNull();
+    expect(screen.queryByText(msg("taxonomy-level-not-stated"))).toBeNull();
+    expect(document.body).not.toHaveTextContent(/level/i);
   });
 
   it("names the posting's own employer for an employee-selected mix, never a fixed one", () => {
@@ -229,25 +221,21 @@ describe("JobCompPanel", () => {
     ).toBeInTheDocument();
 
     expect(screen.getByText("Posted total compensation")).toBeInTheDocument();
-    expect(screen.getByText(msg("role-job-comp-panel-employee-selected-mix"))).toBeInTheDocument();
+    // The sentence names the mix; no tag repeats it.
+    expect(screen.getByTestId("pkg-no-split").querySelector(".pkg-tag")).toBeNull();
     expect(screen.queryByText(/never says whether it is base salary/)).not.toBeInTheDocument();
     expect(screen.queryByText("Base")).not.toBeInTheDocument();
   });
 
-  it("never labels our own estimate as a figure the employer stated", () => {
-    /**
-     * With an `unclear` basis there is no package, so the headline falls back to our
-     * ESTIMATE while the fixture employer stated $210K-$260K. The label has to describe
-     * the number printed under it, or the panel lies in exactly the way it exists to
-     * prevent.
-     */
+  it("leads with the employer's figure, never our estimate above it", () => {
+    // The posting states $210K-$260K without saying what it covers, and we hold
+    // an estimate of $479K-$648K: the employer's figure is the headline, under
+    // the plain heading, and is written once.
     render(<JobCompPanel job={withPackage(ANTHROPIC)} />, { wrapper: MemoryRouter });
 
-    expect(screen.getByText("Estimated total compensation")).toBeInTheDocument();
-    expect(screen.queryByText("Stated by the employer")).not.toBeInTheDocument();
-
-    // The employer's actual figure is still shown, just not as the headline.
-    expect(screen.getAllByText(/\$210K–\$260K/).length).toBeGreaterThan(0);
+    expect(screen.getByText(msg("role-job-comp-panel-stated-by-the-employer"))).toBeInTheDocument();
+    expect(screen.queryByText(msg("role-job-comp-panel-estimated-total-comp"))).not.toBeInTheDocument();
+    expect(document.body.textContent?.match(/\$210K–\$260K/g)).toHaveLength(1);
   });
 
   it("flags a split borrowed from another job family instead of passing it off as measured", () => {
@@ -255,7 +243,10 @@ describe("JobCompPanel", () => {
     expect(screen.getByText("Split from another discipline")).toBeInTheDocument();
   });
 
-  it("distinguishes 'employer stated nothing' from 'we have not looked yet'", () => {
+  // With no figure found, the estimate stands alone whether the posting was
+  // read or not: "estimated" already says the figure is ours, and a line
+  // saying the posting has none would be false whenever the reader missed one.
+  it("shows an estimate with no word about the posting's own pay, read or not", () => {
     const checked: JobCompPackage = {
       ...GOOGLE,
       state: "none_stated",
@@ -268,29 +259,46 @@ describe("JobCompPanel", () => {
         { kind: "equity", low: 200000, high: 260000, provenance: "estimated" },
       ],
     };
-    const { unmount } = render(<JobCompPanel job={withPackage(checked)} />, { wrapper: MemoryRouter });
-    expect(screen.getByText(/posts no range/)).toBeInTheDocument();
-    expect(screen.queryByText(/hasn't been checked/)).not.toBeInTheDocument();
-    unmount();
-
-    const unchecked: JobCompPackage = { ...checked, state: "unchecked" };
-    render(<JobCompPanel job={withPackage(unchecked)} />, { wrapper: MemoryRouter });
-    expect(screen.getByText(/posting hasn't been checked/)).toBeInTheDocument();
-    expect(screen.queryByText(/posts no range/)).not.toBeInTheDocument();
+    for (const state of ["none_stated", "unchecked"] as const) {
+      const { unmount } = render(<JobCompPanel job={withPackage({ ...checked, state })} />, { wrapper: MemoryRouter });
+      expect(screen.getByText("Estimated total compensation")).toBeInTheDocument();
+      expect(document.querySelector(".pkg-head .big")).toHaveTextContent("$592K–$824K");
+      expect(document.querySelector(".pkg-note"), state).toBeNull();
+      expect(document.body, state).not.toHaveTextContent(/no pay|no range|checked|posting/i);
+      unmount();
+    }
   });
 
-  it("does not annualize an hourly rate", () => {
-    const hourly: JobCompPackage = {
-      ...ANTHROPIC,
-      basis: "base",
-      pay_period: "hour",
-      stated: { low: 100, high: 150 },
-      no_split_reason: "hourly",
-      estimate: null,
-    };
-    render(<JobCompPanel job={withPackage(hourly)} />, { wrapper: MemoryRouter });
-    expect(screen.getByText("hourly rate")).toBeInTheDocument();
-    expect(screen.getByText(/shown as stated/)).toBeInTheDocument();
+  // $85-$110 an hour is $176,800-$228,800 over a full-time year. The package
+  // carries that year as base: a rate says nothing about bonus or equity.
+  const HOURLY: JobCompPackage = {
+    ...ANTHROPIC,
+    basis: "base",
+    pay_period: "hour",
+    stated: { low: 85, high: 110 },
+    yearly_base: { low: 176800, high: 228800 },
+    no_split_reason: "hourly",
+  };
+
+  it("shows an hourly rate as a full-time year of base salary, with the posted rate under it", () => {
+    const { container } = render(<JobCompPanel job={withPackage(HOURLY)} />, { wrapper: MemoryRouter });
+    expect(container.querySelector(".pkg-eyebrow")).toHaveTextContent(msg("role-job-comp-panel-base-from-posted-rate"));
+    expect(container.querySelector(".pkg-head .big")).toHaveTextContent("$177K–$229K / yr");
+    expect(screen.getByTestId("pkg-posted-rate")).toHaveTextContent(
+      msg("role-job-comp-panel-posted-as", { choice: "hour", rate: "$85–$110 / hr" }),
+    );
+    // Base, never a total: no bonus, equity or total is drawn or named.
+    expect(container).not.toHaveTextContent(/total compensation/i);
+    expect(container.querySelector(".pkg-bar")).toBeNull();
+    // The headline and the posted rate already say what the figure is.
+    expect(screen.queryByTestId("pkg-no-split")).toBeNull();
+  });
+
+  it("never puts our estimate above an hourly rate, or anywhere on its card", () => {
+    // The fixture holds an estimate of $479K-$648K a year.
+    const { container } = render(<JobCompPanel job={withPackage(HOURLY)} />, { wrapper: MemoryRouter });
+    expect(container).not.toHaveTextContent("$479K");
+    expect(container).not.toHaveTextContent(/median/i);
   });
 
   // The server serves a period checked against the amount's size.
@@ -299,90 +307,63 @@ describe("JobCompPanel", () => {
       ...ANTHROPIC,
       basis: "base",
       pay_period: "unclear",
-      stated: { low: 150000, high: 200000 },
+      // A size both a month and a year can hold, with no word that settles it.
+      stated: { low: 15000, high: 25000 },
       no_split_reason: "period_unclear",
       estimate: null,
-      snippet: "Hourly rate: $150,000 - $200,000",
+      snippet: "Compensation: $15,000 - $25,000",
     };
     const { container } = render(<JobCompPanel job={withPackage(unclear)} />, { wrapper: MemoryRouter });
-    expect(screen.getByText("period unclear")).toBeInTheDocument();
-    expect(screen.getByText(msg("role-job-comp-panel-the-posting-s-wording-and"))).toBeInTheDocument();
+    const note = screen.getByTestId("pkg-no-split");
+    expect(note).toHaveTextContent(msg("role-job-comp-panel-the-posting-s-wording-and"));
+    expect(note.querySelector(".pkg-tag")).toBeNull();
     expect(container).not.toHaveTextContent("/ hr");
     expect(container).not.toHaveTextContent("/ yr");
     expect(screen.queryByText("Base")).not.toBeInTheDocument();
   });
 
-  it("gives a monthly rate its own unit and never annualizes it", () => {
+  it("shows a monthly rate as twelve months of base, in the posting's own currency", () => {
     const monthly: JobCompPackage = {
       ...ANTHROPIC,
       basis: "base",
       currency: "EUR",
       pay_period: "month",
       stated: { low: 4500, high: 5500 },
+      yearly_base: { low: 54000, high: 66000 },
       no_split_reason: "monthly",
-      estimate: null,
     };
     const { container } = render(<JobCompPanel job={withPackage(monthly)} />, { wrapper: MemoryRouter });
-    expect(screen.getByText("monthly rate")).toBeInTheDocument();
-    expect(container).toHaveTextContent("/ mo");
-    expect(container).not.toHaveTextContent("/ yr");
-    // In the posting's own currency, never a dollar sign on euros.
-    // The employer's figure is the headline, and is written there only.
-    expect(container.querySelector(".pkg-head .big")).toHaveTextContent("€5K–€6K");
-    expect(container.querySelector(".pkg-unclear")).toBeNull();
-    expect(container.textContent?.match(/€5K–€6K/g)).toHaveLength(1);
+    expect(container.querySelector(".pkg-head .big")).toHaveTextContent("€54K–€66K / yr");
+    // The rate as posted, with no full-time hours: a month is a month.
+    expect(screen.getByTestId("pkg-posted-rate")).toHaveTextContent(
+      msg("role-job-comp-panel-posted-as", { choice: "other", rate: "€5K–€6K / mo" }),
+    );
+    expect(container).not.toHaveTextContent("$");
+    expect(screen.queryByTestId("pkg-no-split")).toBeNull();
     expect(screen.queryByTestId("pkg-stated-base")).toBeNull();
   });
 
-  it("writes a stated band and the pay floor beside it in one currency and one format", () => {
+  it("writes a stated band in the posting's currency and one format", () => {
     const pounds: JobCompPackage = { ...GOOGLE, currency: "GBP" };
-    render(<JobCompPanel job={{
-      ...withPackage(pounds),
-      pay_floor_check: { verdict: "straddles", amount: 300000, currency: "GBP", basis: "base" },
-    }} />, { wrapper: MemoryRouter });
-    expect(screen.getByTestId("pkg-floor")).toHaveTextContent(
-      msg("role-pay-floor-line-your-pay-floor-falls-inside", { floor: "£300K" }),
-    );
+    render(<JobCompPanel job={withPackage(pounds)} />, { wrapper: MemoryRouter });
     const base = document.querySelector(".pkg-legend .pkg-leg-n");
     expect(base).toHaveTextContent(/^£\d+K–£\d+K/);
     expect(base).not.toHaveTextContent("$");
   });
 
-  it("labels our yearly estimate per year even when the posting's rate is hourly", () => {
-    // The headline is the estimate here, so it must not take the posting's "/ hr".
-    const hourly: JobCompPackage = {
-      ...ANTHROPIC,
-      basis: "base",
-      pay_period: "hour",
-      stated: { low: 100, high: 150 },
-      no_split_reason: "hourly",
-    };
-    const { container } = render(<JobCompPanel job={withPackage(hourly)} />, { wrapper: MemoryRouter });
-    expect(container.querySelector(".pkg-head .pkg-per")).toHaveTextContent("/ yr");
-    expect(container.querySelector(".pkg-unclear-n")).toHaveTextContent("/ hr");
-  });
-
-  // The server decides the verdict; the panel says it in one line.
-  it.each([
-    ["straddles", "Your $250K minimum base falls inside this range"],
-    ["below", "Below your $250K minimum base"],
-  ] as const)("says how the stated pay compares with the pay floor: %s", (verdict, line) => {
-    render(<JobCompPanel job={{ ...withPackage(GOOGLE), pay_floor_check: { verdict, amount: 250000, currency: "USD", basis: "base" } }} />, { wrapper: MemoryRouter });
-    expect(screen.getByTestId("pkg-floor")).toHaveTextContent(line);
-  });
-
-  // Clearing the floor is what the band already shows: no line repeats it.
-  it("says nothing about the pay floor when the stated pay clears it", () => {
-    render(<JobCompPanel job={{ ...withPackage(GOOGLE), pay_floor_check: { verdict: "clears", amount: 250000, currency: "USD", basis: "base" } }} />, { wrapper: MemoryRouter });
-    expect(screen.queryByTestId("pkg-floor")).toBeNull();
-    expect(screen.queryByText(/minimum base/)).toBeNull();
-  });
-
-  it("says nothing about the pay floor when the server sends no comparison", () => {
-    render(<JobCompPanel job={{ ...withPackage(GOOGLE), pay_floor_check: null }} />, { wrapper: MemoryRouter });
-    expect(screen.queryByTestId("pkg-floor")).toBeNull();
-    expect(screen.queryByText(/minimum base/)).toBeNull();
-  });
+  // The person knows their own minimum base, and the band beside it shows
+  // where it falls: the card never restates the comparison, whatever it is.
+  it.each(["clears", "straddles", "below"] as const)(
+    "says nothing about the minimum base when the stated pay %s it",
+    (verdict) => {
+      const { container } = render(
+        <JobCompPanel job={{ ...withPackage(GOOGLE), pay_floor_check: { verdict, amount: 250000, currency: "USD", basis: "base" } }} />,
+        { wrapper: MemoryRouter },
+      );
+      expect(container).not.toHaveTextContent(/minimum base/i);
+      expect(container).not.toHaveTextContent("$250K");
+    },
+  );
 
   it("says a band came from the posting's pay field", () => {
     const fromField = { ...withPackage({ ...GOOGLE, snippet: null }) };
@@ -400,41 +381,29 @@ describe("JobCompPanel", () => {
     expect(container.querySelector("details, q")).toBeNull();
   });
 
-  it("degrades to a placeholder rather than throwing when there is no package", () => {
-    render(<JobCompPanel job={withPackage(null)} />, { wrapper: MemoryRouter });
-    expect(screen.getByTestId("pkg-unknown")).toHaveTextContent(
-      msg("role-job-comp-panel-estimated-total-comp") + msg("role-job-comp-panel-no-compensation-data-for-this"),
-    );
+  it("draws no panel rather than throwing when there is no package", () => {
+    const { container } = render(<JobCompPanel job={withPackage(null)} />, { wrapper: MemoryRouter });
+    expect(container).toBeEmptyDOMElement();
   });
 
-  // No posted figure and no estimate: the panel keeps its heading and gives
-  // the one reason, with no stand-in word where a figure would stand and
-  // nothing that describes a figure.
-  it("with no figure at all, says why and nothing else", () => {
-    const none: JobCompPackage = {
-      ...GOOGLE, state: "none_stated", basis: null, stated: null, bonus_pct: null, snippet: null,
-      components: [], total: null, estimate: null, split_source: null,
-    };
-    const { unmount } = render(<JobCompPanel job={withPackage(none)} />, { wrapper: MemoryRouter });
-    const panel = screen.getByTestId("pkg-unknown");
-    expect(panel.textContent).toBe(
-      msg("role-job-comp-panel-estimated-total-comp") + msg("role-job-comp-panel-pay-unknown-why"),
-    );
-    expect(panel.querySelector(".big, .pkg-bar, .pkg-note")).toBeNull();
-    expect(screen.queryByText(/Everything below is an estimate/)).toBeNull();
-    expect(panel).not.toHaveTextContent("—");
-    unmount();
-
-    // A posting not read for pay yet gives that reason instead.
-    render(<JobCompPanel job={withPackage({ ...none, state: "unchecked" })} />, { wrapper: MemoryRouter });
-    expect(screen.getByTestId("pkg-unknown")).toHaveTextContent(msg("role-job-comp-panel-we-have-not-checked-this"));
-    expect(screen.queryByText(msg("role-job-comp-panel-pay-unknown-why"))).toBeNull();
-  });
+  // No posted figure and no estimate: no panel, read for pay or not. A line
+  // saying the posting has none would be the card's only content, and false
+  // whenever the reader missed a figure the person can read below.
+  it.each(["none_stated", "unchecked"] as const)(
+    "draws no panel with no figure and no estimate (%s)",
+    (state) => {
+      const none: JobCompPackage = {
+        ...GOOGLE, state, basis: null, stated: null, bonus_pct: null, snippet: null,
+        components: [], total: null, estimate: null, split_source: null,
+      };
+      const { container } = render(<JobCompPanel job={withPackage(none)} />, { wrapper: MemoryRouter });
+      expect(container).toBeEmptyDOMElement();
+    },
+  );
 
   it("a package with a figure is never the unknown panel", () => {
     render(<JobCompPanel job={withPackage(GOOGLE)} />, { wrapper: MemoryRouter });
     expect(screen.queryByTestId("pkg-unknown")).toBeNull();
-    expect(screen.queryByText(msg("role-job-comp-panel-pay-unknown-why"))).toBeNull();
   });
 
   // The company's offer rules say nothing about the figures above them: the
@@ -468,7 +437,7 @@ describe("JobCompPanel", () => {
     expect(document.querySelector(".pkg-panel")!.textContent).toBe(withPolicy);
   });
 
-  // --- one headline, market median as a reading on it (docs/pay.md) ---------------
+  // --- one headline, and no market median beside it (docs/pay.md) ----------------
 
   it("keeps the estimate without displaying source traceability", () => {
     render(<JobCompPanel job={withPackage({ ...GOOGLE, split_source: "heuristic",
@@ -478,42 +447,52 @@ describe("JobCompPanel", () => {
     expect(screen.queryByText(/Splits from/)).not.toBeInTheDocument();
   });
 
-  it("shows the market median as a reading on the headline, not a second headline", () => {
-    render(<JobCompPanel job={withPackage({ ...GOOGLE, market_gap: { ratio: 1.04, verdict: "consistent" } })} />, { wrapper: MemoryRouter });
-
-    // One headline, and it is the package total.
+  // The package total is a stated base plus a modelled bonus and grant; the
+  // median is a reported total. They differ by a wide margin as ordinary
+  // statistics, so no gap between them tells the person the offer is low.
+  // GOOGLE's estimated total is $592K-$824K.
+  it.each([
+    ["sits wholly below it", 900000, "$900K", 0.79, "consistent"],
+    ["tops out just under it", 830000, "$830K", 0.85, "consistent"],
+    ["straddles it", 700000, "$700K", 1.01, "consistent"],
+    ["sits above it", 460000, "$460K", 1.54, "consistent"],
+    ["is far from it", 400000, "$400K", 1.71, "diverges"],
+  ] as const)("names no market median when the total %s", (_name, median, shown, ratio, verdict) => {
+    render(
+      <JobCompPanel job={withPackage({
+        ...GOOGLE,
+        estimate: { ...GOOGLE.estimate!, median },
+        market_gap: { ratio, verdict },
+      })} />,
+      { wrapper: MemoryRouter },
+    );
     expect(screen.getByText("Estimated total compensation")).toBeInTheDocument();
-    expect(screen.queryByText("Market estimate")).not.toBeInTheDocument();
-
-    const market = screen.getByTestId("pkg-market");
-    expect(market).toHaveTextContent("Market median at this level");
-    expect(market).toHaveTextContent("$460K");
-    expect(market).not.toHaveTextContent("Google L6 estimated median");
-    expect(market).not.toHaveTextContent(/sign the level/);
+    expect(document.body).not.toHaveTextContent(/market|median|×/i);
+    expect(document.body).not.toHaveTextContent(shown);
   });
 
-  it("warns when the package and the market median disagree past the tolerance", () => {
+  // What the posting states is read first, then the cautions drawn from it,
+  // then the bar.
+  it("puts the stated base before the cautions, and the cautions before the bar", () => {
     render(
       <JobCompPanel
-        job={withPackage({ ...GOOGLE, market_gap: { ratio: 1.71, verdict: "diverges" } })}
+        job={withPackage({
+          ...GOOGLE,
+          split_source: "measured",
+          reconciliation: { measured_base: 171000, ratio_high: 1.63, verdict: "stated_above_measured" },
+        })}
       />,
-    { wrapper: MemoryRouter },
+      { wrapper: MemoryRouter },
     );
-
-    const market = screen.getByTestId("pkg-market");
-    expect(market).toHaveTextContent("1.71×");
-    expect(market).toHaveTextContent(/level or the discipline is wrong/);
-  });
-
-  it("says nothing about the market when there is no estimate to compare", () => {
-    render(
-      <JobCompPanel
-        job={withPackage({ ...GOOGLE, estimate: null, market_gap: null })}
-      />,
-    { wrapper: MemoryRouter },
-    );
-
-    expect(screen.queryByTestId("pkg-market")).not.toBeInTheDocument();
+    const inOrder = [
+      document.querySelector(".pkg-head .big"),
+      screen.getByTestId("pkg-stated-base"),
+      screen.getByTestId("pkg-reconciliation"),
+      document.querySelector(".pkg-bar"),
+    ];
+    for (let i = 1; i < inOrder.length; i += 1) {
+      expect(inOrder[i - 1]!.compareDocumentPosition(inOrder[i]!) & Node.DOCUMENT_POSITION_FOLLOWING, `step ${i} follows step ${i - 1}`).toBeTruthy();
+    }
   });
 
   // --- posted band vs measured base (docs/pay.md) ---------------------------------
@@ -587,51 +566,42 @@ describe("a base-only estimate", () => {
     base_estimate: { low: 170000, median: 200000, high: 230000, provider: "builtin", as_of: null },
   });
 
-  it("shows the base once, and says in one line what is missing", () => {
-    const { container } = render(<JobCompPanel job={withPackage(BASE_ONLY)} />, { wrapper: MemoryRouter });
-    expect(screen.getByText(msg("role-job-comp-panel-estimated-base"))).toBeInTheDocument();
-    expect(screen.getByTestId("comp-base-only")).toHaveTextContent(
-      msg("role-job-comp-panel-base-only", { choice: "none" }),
+  // Read for pay or not, the one line says what the figure leaves out, and
+  // nothing about the posting's own pay.
+  it.each([
+    ["none_stated", null],
+    ["unchecked", "heuristic"],
+  ] as const)("shows the base once, and says only that bonus and equity are unknown (%s)", (state, split_source) => {
+    const { container } = render(
+      <JobCompPanel job={withPackage({ ...BASE_ONLY, state, split_source })} />,
+      { wrapper: MemoryRouter },
     );
+    expect(screen.getByText(msg("role-job-comp-panel-estimated-base"))).toBeInTheDocument();
+    expect(screen.getByTestId("comp-base-only")).toHaveTextContent(/^Bonus and equity unknown\.$/);
     // The one component is the headline: no bar, legend, split badge or second figure.
     expect(container.querySelector(".pkg-bar, .pkg-legend, .pkg-split")).toBeNull();
     expect(screen.getAllByText(/\$170K/)).toHaveLength(1);
-    // The no-range sentence is in the line above, not said twice.
-    expect(screen.queryByText(msg("role-job-comp-panel-this-employer-publishes-no-pay"))).toBeNull();
+    expect(container).not.toHaveTextContent(/no pay|no range|posting/i);
     expect(screen.queryByText(msg("role-job-comp-panel-estimated-total-comp"))).toBeNull();
-  });
-
-  it("says only what is missing when the posting has not been checked for a range", () => {
-    render(<JobCompPanel job={withPackage({ ...BASE_ONLY, state: "unchecked", split_source: "heuristic" })} />, { wrapper: MemoryRouter });
-    expect(screen.getByTestId("comp-base-only")).toHaveTextContent(
-      msg("role-job-comp-panel-base-only", { choice: "other" }),
-    );
-    expect(screen.getByTestId("comp-base-only")).not.toHaveTextContent(
-      msg("role-job-comp-panel-base-only", { choice: "none" }),
-    );
-    expect(document.querySelector(".pkg-split")).toBeNull();
   });
 });
 
 describe("a stated base outside US pay, with RoleBand answering", () => {
-  it("is shown whole, and names RoleBand's US data and no plugin", () => {
+  it("is the headline, shown whole, and says nothing about where our split is measured", () => {
     const LONDON: JobCompPackage = compPackageFixture({
       state: "band", basis: "base", currency: "GBP", pay_period: "year",
       stated: { low: 90000, high: 130000 }, components: [], total: null, split_source: null,
       no_split_reason: "not_us_pay",
     });
     render(<JobCompPanel job={withPackage(LONDON)} />, { wrapper: MemoryRouter });
-    // Under an estimate, the employer's own figure stands apart from it: in
-    // the box that explains why it is not split, and in the certain-pay row
-    // that holds the headline off the bar. Both are the employer's figure;
-    // neither is the headline, which is ours.
-    const note = document.querySelector<HTMLElement>(".pkg-unclear")!;
-    expect(note).toHaveTextContent(/£90K/);
-    expect(document.body.textContent?.match(/£90K/g)).toHaveLength(2);
-    expect(screen.getByTestId("pkg-stated-base")).toHaveTextContent(msg("role-job-comp-panel-base"));
-    expect(note).toHaveTextContent(msg("role-job-comp-panel-split-not-reported"));
-    expect(note).toHaveTextContent(msg("role-job-comp-panel-roleband-splits-us-pay-only"));
-    expect(note).not.toHaveTextContent(/plugin/i);
+    // The employer's figure leads in its own currency, written once, whatever
+    // we estimate in dollars.
+    expect(document.querySelector(".pkg-head .big")).toHaveTextContent("£90K–£130K");
+    expect(document.body.textContent?.match(/£90K/g)).toHaveLength(1);
+    expect(screen.queryByText(msg("role-job-comp-panel-estimated-total-comp"))).toBeNull();
+    // Our split is measured on US pay: that is about the app, so nothing says it.
+    expect(screen.queryByTestId("pkg-no-split")).toBeNull();
+    expect(document.body).not.toHaveTextContent(/US data|split/i);
     expect(document.querySelector(".pkg-bar")).toBeNull();
   });
 });
@@ -649,9 +619,7 @@ describe("a stated yearly base that is all there is to show", () => {
     expect(document.body.textContent?.match(/\$174K/g)).toHaveLength(1);
     // The heading already says base: no line says it again, and no box holds the figure.
     expect(screen.queryByTestId("pkg-stated-base")).toBeNull();
-    expect(document.querySelector(".pkg-unclear")).toBeNull();
-    // Why there is no split is still said.
-    expect(screen.getByTestId("pkg-no-split")).toHaveTextContent(msg("role-job-comp-panel-level-not-stated-or-mapped"));
+    expect(screen.queryByTestId("pkg-no-split")).toBeNull();
   });
 
   it("writes a stated total once, though the package carries it twice", () => {
@@ -663,10 +631,33 @@ describe("a stated yearly base that is all there is to show", () => {
       { wrapper: MemoryRouter },
     );
     expect(container.querySelector(".pkg-head .big")).toHaveTextContent("$440K–$725K");
-    expect(container.querySelector(".pkg-unclear")).toBeNull();
     expect(container.textContent?.match(/\$440K–\$725K/g)).toHaveLength(1);
     // Why it is not split is still said.
     expect(screen.getByTestId("pkg-no-split")).toBeInTheDocument();
+  });
+
+  it("names a total the posting calls on-target earnings as base plus commission", () => {
+    const OTE: JobCompPackage = compPackageFixture({
+      state: "band", basis: "total", currency: "USD", pay_period: "year",
+      stated: { low: 184000, high: 230000 }, components: [], total: { low: 184000, high: 230000, provenance: "stated" },
+      estimate: null, split_source: null, no_split_reason: "total_compensation", on_target_earnings: true,
+    });
+    const { container } = render(<JobCompPanel job={withPackage(OTE)} />, { wrapper: MemoryRouter });
+    expect(container.querySelector(".pkg-eyebrow")).toHaveTextContent(msg("role-job-comp-panel-on-target-earnings"));
+    // Never total pay, and no equity drawn into it.
+    expect(container).not.toHaveTextContent(/total compensation/i);
+    expect(screen.queryByText(msg("role-job-comp-panel-equity"))).toBeNull();
+    expect(screen.queryByTestId("pkg-no-split")).toBeNull();
+  });
+
+  it("a stated total the posting does not call on-target earnings stays total compensation", () => {
+    render(<JobCompPanel job={withPackage({ ...NETFLIX, no_split_reason: "total_compensation", on_target_earnings: false })} />,
+      { wrapper: MemoryRouter });
+    expect(screen.getByText(msg("role-job-comp-panel-estimated-total-package", { choice: "yes" }))).toBeInTheDocument();
+    expect(screen.queryByText(msg("role-job-comp-panel-on-target-earnings"))).toBeNull();
+    // The headline says total compensation: no tag or sentence says it again.
+    expect(screen.queryByTestId("pkg-no-split")).toBeNull();
+    expect(document.body.textContent?.match(/total compensation/gi)).toHaveLength(1);
   });
 
   it("a figure whose kind the posting does not give keeps the plain heading", () => {
@@ -692,12 +683,10 @@ describe("a plugin's figure with no split of its own", () => {
     policy: null,
   });
 
-  it("shows the plugin's figure whole, with no bar, and says why it is not split", () => {
+  it("shows the plugin's figure whole, with no bar, and no word about the split it lacks", () => {
     render(<JobCompPanel job={withPackage(PLUGIN_TOTAL)} />, { wrapper: MemoryRouter });
     expect(screen.getByText(msg("role-job-comp-panel-estimated-total-comp"))).toBeInTheDocument();
-    const note = screen.getByTestId("pkg-no-split");
-    expect(note).toHaveTextContent(msg("role-job-comp-panel-split-not-reported"));
-    expect(note).toHaveTextContent(msg("role-job-comp-panel-the-plugin-reports-no-split"));
+    expect(screen.queryByTestId("pkg-no-split")).toBeNull();
     // No segment of ours under it: no base, bonus or equity label anywhere.
     expect(screen.queryByText(msg("role-job-comp-panel-estimated-split"))).toBeNull();
     expect(document.querySelector(".pkg-bar")).toBeNull();
@@ -707,40 +696,38 @@ describe("a plugin's figure with no split of its own", () => {
     const unread = { plugin: "ladder", plugin_name: "Example ladder data", covered: false };
     const empty = { ...PLUGIN_TOTAL, estimate: null, no_split_reason: null };
     const { unmount } = render(<JobCompPanel job={{ ...withPackage(empty), pay_source: unread }} />, { wrapper: MemoryRouter });
-    expect(screen.getByTestId("pkg-unknown")).toHaveTextContent(msg("shared-pay-not-covered-hint", { plugin: "Example ladder data" }));
-    expect(screen.queryByText(msg("role-job-comp-panel-pay-unknown-why"))).toBeNull();
+    expect(screen.getByTestId("pkg-unknown")).toHaveTextContent(
+      new RegExp(`^${msg("shared-pay-not-covered-hint", { plugin: "Example ladder data" }).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`),
+    );
     unmount();
 
     render(<JobCompPanel job={{ ...withPackage({
       ...empty, state: "band", basis: "base", currency: "USD", pay_period: "year",
       stated: { low: 240000, high: 334000 }, no_split_reason: "plugin_not_covered",
     }), pay_source: unread }} />, { wrapper: MemoryRouter });
-    expect(screen.getByText(msg("role-job-comp-panel-not-read-yet"))).toBeInTheDocument();
-    expect(screen.getByText(msg("shared-pay-not-covered-hint", { plugin: "Example ladder data" }))).toBeInTheDocument();
-    expect(screen.queryByText(msg("role-job-comp-panel-split-not-reported"))).toBeNull();
+    // The sentence alone, with no tag that says it again.
+    const note = screen.getByTestId("pkg-no-split");
+    expect(note).toHaveTextContent(msg("shared-pay-not-covered-hint", { plugin: "Example ladder data" }));
+    expect(note.querySelector(".pkg-tag")).toBeNull();
   });
 
-  it("the plugin's figure is never called ours, and its raw provenance is not shown", () => {
+  it("an employer's figure under a plugin leads, and no estimate is set beside it", () => {
     const plugin = { plugin: "ladder", plugin_name: "Example ladder data", covered: true };
     const stated = { ...PLUGIN_TOTAL, state: "band" as const, basis: "base" as const, currency: "USD",
                      pay_period: "year" as const, stated: { low: 240000, high: 334000 } };
-    const { unmount } = render(<JobCompPanel job={{ ...withPackage(stated), pay_source: plugin }} />, { wrapper: MemoryRouter });
-    expect(screen.queryByText(/Independent estimate/)).toBeNull();
-    expect(document.querySelector(".pkg-vs")).toHaveTextContent(/^Estimated total compensation:/);
-    expect(screen.queryByText(/estimated median/)).toBeNull();
-    unmount();
-
-    const ours = { plugin: null, plugin_name: null, covered: true };
-    render(<JobCompPanel job={{ ...withPackage(stated), pay_source: ours }} />, { wrapper: MemoryRouter });
-    expect(screen.getByText(/Independent estimate/)).toBeInTheDocument();
-    expect(screen.queryByText(/estimated median/)).not.toBeInTheDocument();
+    render(<JobCompPanel job={{ ...withPackage(stated), pay_source: plugin }} />, { wrapper: MemoryRouter });
+    expect(document.querySelector(".pkg-head .big")).toHaveTextContent("$240K–$334K");
+    expect(screen.queryByText(/estimate/i)).toBeNull();
+    expect(document.body).not.toHaveTextContent("$793K");
   });
 
-  it("a company it has read with no figure for this role says the pay is unknown", () => {
+  // Negative control for the not-covered line: a plugin that has read the
+  // company leaves nothing to explain, so a role with no figure has no panel.
+  it("a company it has read with no figure for this role draws no panel", () => {
     const read = { plugin: "ladder", plugin_name: "Example ladder data", covered: true };
-    render(<JobCompPanel job={{ ...withPackage({ ...PLUGIN_TOTAL, estimate: null, no_split_reason: null }),
+    const { container } = render(<JobCompPanel job={{ ...withPackage({ ...PLUGIN_TOTAL, estimate: null, no_split_reason: null }),
                                 pay_source: read }} />, { wrapper: MemoryRouter });
-    expect(screen.getByTestId("pkg-unknown")).toHaveTextContent(msg("role-job-comp-panel-pay-unknown-why"));
+    expect(container).toBeEmptyDOMElement();
   });
 
   it("a stated base under such a plugin is shown as the employer stated it, unsplit", () => {
@@ -748,9 +735,8 @@ describe("a plugin's figure with no split of its own", () => {
       ...PLUGIN_TOTAL, state: "band", basis: "base", currency: "USD", pay_period: "year",
       stated: { low: 240000, high: 334000 },
     })} />, { wrapper: MemoryRouter });
+    expect(document.querySelector(".pkg-head .big")).toHaveTextContent("$240K–$334K");
     expect(screen.queryByTestId("pkg-no-split")).toBeNull();
-    expect(screen.getByText(msg("role-job-comp-panel-split-not-reported"))).toBeInTheDocument();
-    expect(screen.getByText(msg("role-job-comp-panel-the-plugin-reports-no-split"))).toBeInTheDocument();
   });
 });
 
@@ -817,8 +803,10 @@ describe("the panel's own words, in the reader's language", () => {
   it("names an employee-selected mix in Spanish", async () => {
     await activate("es");
     render(<JobCompPanel job={{ ...withPackage(NETFLIX), company: "netflix" }} />, { wrapper: MemoryRouter });
-    expect(screen.getByText(msg("role-job-comp-panel-employee-selected-mix"))).toHaveClass("pkg-tag-warn");
-    expect(screen.queryByText("you choose the mix")).toBeNull();
+    expect(screen.getByTestId("pkg-no-split")).toHaveTextContent(
+      msg("role-job-comp-panel-states-this-as-total-annual", { company: "Netflix" }),
+    );
+    expect(screen.queryByText(/lets each person pick/)).toBeNull();
   });
 
   it("names the doubted level as the catalog writes it, never recased", () => {

@@ -199,9 +199,9 @@ def disclosed_comp(job: Job) -> dict | None:
         "base_max": job.disclosed_base_max,
         "currency": job.disclosed_currency,
         "pay_basis": job.disclosed_pay_basis,
-        # Checked against the amount's size: a stored
-        # "$600,000 / hr" or "€104 / yr" is served as `unclear`, and
-        # the package then refuses to split or label it.
+        # Checked against the amount's size: a stored "$600,000 / hr"
+        # is served as the yearly salary it is, and a stored "€104 / yr"
+        # as `unclear`, which the package refuses to split or label.
         "pay_period": (
             effective_period(
                 job.disclosed_pay_period,

@@ -305,32 +305,57 @@ def test_unclear_basis_is_never_decomposed():
     assert pkg["estimate"]["median"] == 563325
 
 
-def test_hourly_band_is_not_annualized():
-    """Turning $100/hr into $208k is inference, not disclosure."""
-    pkg = build_job_package(
+def _rate_package(low, high, period, basis="base"):
+    return build_job_package(
         company="google",
         band="staff",
         family="software_engineering",
-        comp_low=None,
-        comp_median=None,
-        comp_high=None,
-        comp_provenance=None,
+        comp_low=480_000,
+        comp_median=560_000,
+        comp_high=650_000,
+        comp_provenance="estimated",
         disclosed={
             "disclosed": True,
-            "base_min": 100,
-            "base_max": 150,
+            "base_min": low,
+            "base_max": high,
             "currency": "USD",
-            "pay_basis": "base",
-            "pay_period": "hour",
+            "pay_basis": basis,
+            "pay_period": period,
             "bonus_pct": None,
-            "snippet": "$100 - $150 per hour",
+            "snippet": f"${low} - ${high} per {period}",
             "confidence": "high",
         },
         baselines=BASELINES,
     )
+
+
+def test_an_hourly_rate_is_carried_as_a_full_time_yearly_base_and_never_split():
+    """$85-$110 an hour is $176,800-$228,800 of base a full-time year: the base,
+    because a rate says nothing about bonus or equity."""
+    pkg = _rate_package(85, 110, "hour")
+    assert pkg["yearly_base"] == {"low": 176_800, "high": 228_800}
+    assert pkg["stated"] == {"low": 85, "high": 110}
     assert pkg["components"] == []
+    assert pkg["total"] is None
     assert pkg["no_split_reason"] == NO_SPLIT_HOURLY
-    assert pkg["stated"] == {"low": 100, "high": 150}
+
+
+def test_a_monthly_rate_is_carried_as_twelve_months_of_base():
+    pkg = _rate_package(16_000, 20_000, "month")
+    assert pkg["yearly_base"] == {"low": 192_000, "high": 240_000}
+    assert pkg["components"] == [] and pkg["total"] is None
+
+
+@pytest.mark.parametrize(
+    ("low", "high", "period", "basis"),
+    [
+        (150_000, 200_000, "year", "base"),  # already yearly
+        (15_000, 25_000, "unclear", "base"),  # a month or a year: no factor is known
+        (20_000, 25_000, "month", "total"),  # a total is never called a base
+    ],
+)
+def test_no_yearly_base_where_the_rate_is_not_a_known_base_rate(low, high, period, basis):
+    assert _rate_package(low, high, period, basis)["yearly_base"] is None
 
 
 def test_zero_observed_equity_baseline_gets_no_equity_segment():

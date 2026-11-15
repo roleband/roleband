@@ -216,10 +216,11 @@ _BASE_ROWS = {
     "posted-hourly": ("base", "hour", "USD", 45, 60, 400_000, "USD"),
     "posted-gbp": ("base", "year", "GBP", 60_000, 80_000, 390_000, "USD"),
     "posted-total": ("total", "year", "USD", 250_000, 300_000, 170_000, "USD"),
-    "posted-period-unclear": ("base", "unclear", "USD", 150_000, 200_000, 210_000, "USD"),
+    # A size both a month and a year can hold, with wording that settles neither.
+    "posted-period-unclear": ("base", "unclear", "USD", 12_000, 15_000, 210_000, "USD"),
     "posted-max-only": ("base", "year", "USD", None, 160_000, None, "USD"),
-    # A stored period its size rules out: the row shows the estimate, so the figure is the estimate.
-    "posted-hour-too-big": ("base", "hour", "USD", 150_000, 200_000, 300_000, "USD"),
+    # A salary-sized amount stored as hourly: only a year holds it, so the row shows it yearly.
+    "posted-hour-salary-sized": ("base", "hour", "USD", 165_000, 200_000, 300_000, "USD"),
     # No stored period: read by size, as yearly.
     "posted-no-period": ("base", None, "USD", 155_000, 190_000, 390_000, "USD"),
     # An estimate in another currency is shown in it and compares with nothing.
@@ -266,7 +267,7 @@ async def test_the_sort_figure_is_the_base_the_row_shows_in_yearly_dollars_or_no
 async def test_base_pay_sort_reads_the_posted_low_end_else_the_estimate(db_session):
     await _base_rows(db_session)
     order = lambda direction: select(Job.req_id).order_by(*resolve_ordering("base_pay", direction))  # noqa: E731
-    ranked = ["posted-hour-too-big", "posted-period-unclear", "estimate-only", "posted-total",
+    ranked = ["posted-period-unclear", "estimate-only", "posted-total", "posted-hour-salary-sized",
               "posted-max-only", "posted-no-period", "posted-usd"]
     desc = list((await db_session.execute(order("desc"))).scalars())
     assert desc[:7] == ranked
@@ -284,9 +285,10 @@ async def test_base_pay_bounds_read_the_figure_the_row_shows(db_session):
         return set((await db_session.execute(select(Job.req_id).where(*posting_conds(params)))).scalars())
 
     # posted-usd's estimate (300k), and the hourly, pound and no-period rows' estimates, are not what they show.
-    assert await kept({"base_min": 175_000}) == {"posted-hour-too-big", "posted-period-unclear", "estimate-only"}
+    assert await kept({"base_min": 175_000}) == {"posted-period-unclear", "estimate-only"}
     assert await kept({"base_max": 160_000}) == {"posted-usd", "posted-max-only", "posted-no-period"}
-    assert await kept({"base_min": 160_000, "base_max": 175_000}) == {"posted-total", "posted-max-only"}
+    assert await kept({"base_min": 160_000, "base_max": 175_000}) == {
+        "posted-total", "posted-hour-salary-sized", "posted-max-only"}
 
 
 def test_a_row_carries_only_a_posted_base_it_can_write():
@@ -298,7 +300,8 @@ def test_a_row_carries_only_a_posted_base_it_can_write():
     assert posted_base(_base_job("posted-no-period"))["period"] == "year"
     assert posted_base(_base_job("posted-total")) is None
     assert posted_base(_base_job("posted-period-unclear")) is None
-    assert posted_base(_base_job("posted-hour-too-big")) is None
+    assert posted_base(_base_job("posted-hour-salary-sized")) == {
+        "min": 165_000, "max": 200_000, "currency": "USD", "period": "year"}
     assert posted_base(_base_job("nothing")) is None
 
 
@@ -307,7 +310,7 @@ async def test_the_list_sorts_and_bounds_by_base_and_sends_the_posted_range(api_
     await _base_rows(db_session)
     body = (await api_client.get("/api/jobs?sort=base_pay&order=desc&base_min=150000&status=open")).json()
     reqs = [job["req_id"] for job in body["items"]]
-    assert reqs == ["posted-hour-too-big", "posted-period-unclear", "estimate-only", "posted-total",
+    assert reqs == ["posted-period-unclear", "estimate-only", "posted-total", "posted-hour-salary-sized",
                     "posted-max-only", "posted-no-period", "posted-usd"]
     by_req = {job["req_id"]: job for job in body["items"]}
     assert by_req["posted-usd"]["posted_base"] == {"min": 150_000, "max": 200_000, "currency": "USD", "period": "year"}

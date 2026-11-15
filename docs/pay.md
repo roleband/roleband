@@ -42,9 +42,12 @@ and only reports what the posting literally says.
   second, and only words next to the amount count (`decide_period`). In US
   dollars a yearly amount sits in 10,000..5,000,000, monthly in 1,000..30,000,
   hourly in 7..1,000; other currencies are sized through
-  `pay_numbers.USD_PER_UNIT`, never converted for display. A word that
-  contradicts the size gives `unclear`: shown with no unit, never split, never
-  counted. Every reader of a stored period goes through `effective_period`.
+  `pay_numbers.USD_PER_UNIT`, never converted for display. An amount only a
+  year can hold is yearly whatever word sits beside it: no one is paid
+  $150,000 an hour or a month. Where the size fits more than one period, a word
+  that contradicts it gives `unclear`: shown with no unit, never split, never
+  counted. A range stated over several years ("2 YEAR" on Ashby) is divided to
+  one year. Every reader of a stored period goes through `effective_period`.
 - **Bounds**: a band is two amounts in one currency, and its code or symbol
   may sit on either amount or both ("USD $160,200.00 - USD $425,000.00").
   A k written once on the high amount scales a bare low under a thousand
@@ -305,9 +308,10 @@ basis, a period that is not a year and a stated total, draw no segment.
 
 | Reason | When |
 |---|---|
-| `hourly`, `monthly`, `period_unclear` | The period is not a year. RoleBand never annualises. |
+| `hourly`, `monthly` | The period is not a year. Unless the band is a stated total, the package carries the rate as `yearly_base`, a full-time year of base salary (2,080 hours, or twelve months), which Job detail shows as the headline with the rate as posted under it ([0018](decisions/0018-a-rate-reads-as-a-yearly-base.md)). No bonus, equity or total is built on it. |
+| `period_unclear` | The amount fits a month and a year, and the posting's words settle neither. Shown with no unit. |
 | `basis_unclear` | The posting did not say what the band covers, and no rule settles it (outside the US and Canada, a selling role, or a range called total or cash pay). Splitting it would assume base. |
-| `total_compensation` | The band is total pay; it is the headline, `stated`. |
+| `total_compensation` | The band is total pay; it is the headline, `stated`. Where the posting calls it on-target earnings (`pay_disclosure.names_on_target_earnings`, read from the posting's text, so Job detail sets it), `on_target_earnings` is true and the headline names it base plus commission: equity is never in it. |
 | `employee_election` | The company states that each person picks the cash and equity mix: `equity_rule = employee_election` or `equity_vehicle = cash_election` in the atlas (Netflix is one). No figure of its is split, whether a stated total, a stated base or an estimated total. |
 | `plugin_without_split` | A plugin answers pay and its rows give no split for this level. Our heuristic and policy are our data and never split a plugin's figure. |
 | `plugin_not_covered` | A plugin answers pay and has not read this company. |
@@ -392,7 +396,8 @@ built-in estimate answers no total; job detail shows the package.
 
 `api/serializers/jobs.posted_base` decides which posted range a row carries
 (`pay_disclosure.ROW_PAY_PERIODS`, checked by `pay_period.effective_period`:
-a stored period the amount's size rules out shows the estimate instead, and a
+an amount only a year can hold reads as yearly whatever its stored period, a
+stored period the size otherwise rules out shows the estimate instead, and a
 band with no stored period reads by its size), and the dashboard's
 `payShown.baseShown` writes the cell. The `base_pay` sort and the `base_min`
 and `base_max` filters read `db/queries/jobs.base_pay`, the same rule in SQL,
@@ -498,6 +503,10 @@ The thresholds sit outside the ordinary spread on purpose: a range that spans
 locations and adjacent levels has a top well above a median, and the package
 total and a median total disagree by a wide margin as normal statistics.
 
+Job detail never shows the median. A gap under 50% is the two statistics being
+different, not the offer being low, and a gap past it says the level or the
+family is wrong; neither tells the person anything about the posting.
+
 ## Company offer policy
 
 `levels/pay.PAY_POLICIES` loads one `levels/model.PayPolicy` per company from
@@ -548,8 +557,12 @@ Staff and Principal: blueprint checks `offer_policy` and `pay_reference` in
 - A yearly band whose basis is `unclear` is read as base in the package when
   the role does not sell (`taxonomy.roles.sells` is False); a sales role's or
   an unknown family's stays whole. The stored `pay_basis` keeps `unclear`, so
-  pay built from postings never counts it as a stated base. Never annualise an
-  hourly or monthly rate, never split a stated total.
+  pay built from postings never counts it as a stated base. An hourly or
+  monthly rate becomes a year only as the package's `yearly_base`, a base
+  salary, never a total; never split a stated total.
+- The employer's figure leads Job detail's pay panel whenever the posting
+  states one. Our estimate is the headline only where it states none, and is
+  never shown beside a figure the employer gave that has no split.
 - Never price a level we cannot place. Its band is kept for sorting only: it
   gets no estimate, and nothing is built on it. The base the posting states is
   not priced by us, so it is still shown

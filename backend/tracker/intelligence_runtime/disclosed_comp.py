@@ -446,9 +446,10 @@ def corrected_band(
       range, or nothing found): the row is left as it is. A band is never
       removed here; the read-time guard keeps showing it as "could not tell".
 
-    A stored `unclear` is never a candidate: it is what the rule itself writes
-    when the words contradict the size, so re-reading it every run could only
-    write it again.
+    A stored `unclear` is a candidate only when its size settles it (an amount
+    only a year can hold): otherwise it is what the rule itself writes when the
+    words contradict the size, so re-reading it every run could only write it
+    again.
     """
     low, high, currency, period = stored
     if effective_period(period, low, high, currency) == period:

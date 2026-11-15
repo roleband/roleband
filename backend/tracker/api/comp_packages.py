@@ -25,6 +25,7 @@ from tracker.comp_providers.base import OUR_PAY_COUNTRY
 from tracker.db.models import Job, JobCompEstimate
 from tracker.db.queries.reference_pay import package_rows_for
 from tracker.enrich.enricher import ESTIMATE_FIELDS
+from tracker.pay_disclosure import names_on_target_earnings
 from tracker.plugins.registry import PAY_LEVELS, Providers
 from tracker.schema import OUR_ESTIMATE_SOURCE, UNPLACED_BASIS_VALUES
 from tracker.taxonomy.locations import pay_country
@@ -49,10 +50,19 @@ def role_package(
     baselines: Baselines,
     providers: Providers,
     disclosed: dict | None,
+    text: str | None = None,
 ) -> dict:
     """One role's package. `estimate` carries `ESTIMATE_FIELDS` of the shown
-    source; `baselines` are the company's rungs for the posting's country."""
+    source; `baselines` are the company's rungs for the posting's country.
+    `text`, the posting's description where the caller loaded it, names a
+    stated total on-target earnings; only the label reads it."""
     country = pay_country(job.location_groups)
+    on_target = bool(
+        text and disclosed and disclosed.get("pay_basis") == "total"
+        and names_on_target_earnings(
+            text, [b for b in (disclosed.get("base_min"), disclosed.get("base_max")) if b is not None]
+        )
+    )
     return build_job_package(
         company=job.company,
         band=job.level_band,
@@ -75,6 +85,7 @@ def role_package(
         covered=providers.answering(PAY_LEVELS, job.company)["covered"],
         # A NULL basis is an older row whose band was read as a level.
         level_placed=job.level_basis not in UNPLACED_BASIS_VALUES,
+        on_target=on_target,
     )
 
 
