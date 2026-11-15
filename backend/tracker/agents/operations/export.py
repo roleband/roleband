@@ -302,6 +302,33 @@ def _settings(settings: BaseModel, redactor: Redactor) -> list[DoctorSetting]:
     return out
 
 
+def _fit_full(entries: list[DoctorSetting], room: int) -> tuple[list[DoctorSetting], list[str]]:
+    """The settings the full tier holds, and the names of those it cannot.
+
+    A name left out takes room too, so the fit is redone with the names
+    reserved until no further setting is cut. Each pass cuts at least one more,
+    so it ends.
+    """
+    left_out: set[str] = set()
+    while True:
+        used = sum(_size(name) + 1 for name in left_out)
+        kept: list[DoctorSetting] = []
+        cut = False
+        for entry in entries:
+            if entry.name in left_out:
+                continue
+            size = _size(entry.model_dump(mode="json")) + 1
+            if used + size > room:
+                left_out.add(entry.name)
+                used += _size(entry.name) + 1
+                cut = True
+                continue
+            kept.append(entry)
+            used += size
+        if not cut:
+            return kept, [entry.name for entry in entries if entry.name in left_out]
+
+
 def doctor_report(
     status: Mapping[str, Any],
     *,
@@ -323,19 +350,17 @@ def doctor_report(
         install=status.get("install", "source"), checks=checks, settings=[], redacted=0,
     )
     room = PAGE_BUDGET_BYTES[tier] - _size(report.model_dump(mode="json"))
-    used = 0
-    for entry in entries:
-        size = _size(entry.model_dump(mode="json")) + 1
-        if used + size > room:
-            if tier != "full":
+    if tier != "full":
+        used = 0
+        for entry in entries:
+            size = _size(entry.model_dump(mode="json")) + 1
+            if used + size > room:
                 report.continue_with = [NextAction(operation=DOCTOR.id, arguments={"tier": "full"})]
                 break
-            report.settings_left_out.append(entry.name)
-            # The name stands in the answer instead.
-            used += _size(entry.name) + 1
-            continue
-        report.settings.append(entry)
-        used += size
+            report.settings.append(entry)
+            used += size
+    else:
+        report.settings, report.settings_left_out = _fit_full(entries, room)
     report.redacted = redactor.count
     return report
 

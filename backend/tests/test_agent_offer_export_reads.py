@@ -24,7 +24,9 @@ from sqlalchemy import select, update
 import tracker.api.routers.agent as agent_router
 from scripts.seed_synthetic import seed, task_req_id
 from tracker.agents.config import AgentAccessConfig, set_agent_access
+from tracker.agents.operations import export
 from tracker.agents.operations.export import OUTSIDE, SECRET, Redactor, canonical
+from tracker.agents.operations.search import PAGE_BUDGET_BYTES
 from tracker.agents.operations.workspace import ensure_workspace_id
 from tracker.agents.pursuits import InterviewWrite, add_interview, ensure_favorite
 from tracker.api.agent_operations import PREFIX
@@ -333,6 +335,32 @@ async def test_a_setting_too_long_for_the_full_tier_is_named_not_dropped(workspa
     assert "scraper_user_agent" not in {entry["name"] for entry in report["settings"]}
     assert report["settings"], "the settings after it are still listed"
     assert body["warnings"][0]["code"] == "page_shortened"
+
+
+def _json_size(value: object) -> int:
+    return len(json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+
+
+async def test_a_full_doctor_stays_within_its_budget_whatever_it_leaves_out():
+    """A long setting near the edge of the full tier: the names of the settings
+    left out must still fit beside the ones kept."""
+    status = {"db": "ok", "supervisor": {"state": "running"}}
+    base = get_settings().model_copy(update={"search_llm_model": "m" * 40, "stale_run_minutes": 12_345})
+
+    def report(length: int) -> dict:
+        settings = base.model_copy(update={"scraper_user_agent": "R" + "x" * length})
+        return export.doctor_report(
+            status, settings=settings, access=AgentAccessConfig(enabled=True), engine_version="0",
+            workspace=DATA_DIR, tier="full",
+        ).model_dump(mode="json")
+
+    budget = PAGE_BUDGET_BYTES["full"]
+    edge = budget - _json_size(report(0)) + 10
+    sizes = [_json_size(r) for r in (report(length) for length in range(edge - 200, edge + 40))]
+    assert max(sizes) <= budget
+    assert any(len(report(length)["settings_left_out"]) > 1 for length in range(edge - 200, edge + 40)), (
+        "the sweep reaches a setting cut only for want of the room a name takes"
+    )
 
 
 @pytest.mark.parametrize(("raw", "kept", "gone"), [
