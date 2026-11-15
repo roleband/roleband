@@ -24,7 +24,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import yaml from "js-yaml";
+import * as yaml from "js-yaml";
 import { flatten,build } from "./gen-copy.mjs";
 import { readLocale, manifestAt, branches, dependencies, semantic, pluralSelector, parity } from "./copy/catalog.mjs";
 import { createRequire } from "node:module";
