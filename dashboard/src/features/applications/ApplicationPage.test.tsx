@@ -45,6 +45,12 @@ let posting: JobDetail;
 
 const at = (iso: string) => iso;
 
+/** A month divider's name: the catalogue's jump label around any month. */
+const isMonthDivider = (name: string) => {
+  const [before, after] = msg("applications-feed-jump-month", { month: "\u0000" }).split("\u0000");
+  return name.length > before.length + after.length && name.startsWith(before) && name.endsWith(after);
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
@@ -313,6 +319,79 @@ describe("the feed", () => {
     await userEvent.click(within(comment).getByRole("button", { name: msg("applications-comment-edit") }));
     await userEvent.click(within(comment).getByRole("button", { name: msg("applications-interview-cancel") }));
     await waitFor(() => expect(within(comment).getByRole("button", { name: msg("applications-comment-edit") })).toHaveFocus());
+  });
+
+  it("shows the whole of a long history, parted by month, with the oldest comment still the person's to edit", async () => {
+    // 400 entries, a day apart going back from now, so they reach into last
+    // year: more than any page the feed was ever cut to. The oldest is a
+    // comment of the person's own.
+    const now = Date.now();
+    items = Array.from({ length: 400 }, (_, n): ActivityItem => n % 2 === 0
+      ? { kind: "comment", id: 1000 + n, created_at: new Date(now - n * 86_400_000).toISOString(), actor: "user", source: "app", body: `Note ${n}`, edited_at: null }
+      : { kind: "event", id: 1000 + n, created_at: new Date(now - n * 86_400_000).toISOString(), actor: "user", source: "app", event_type: "updated", from_stage: "applied", to_stage: "applied", changed: ["priority"] });
+    items.push({ kind: "comment", id: 1, created_at: new Date(now - 400 * 86_400_000).toISOString(), actor: "user", source: "app", body: "The very first note", edited_at: null });
+    renderPage();
+
+    const oldest = (await screen.findByText("The very first note")).closest("li")!;
+    await userEvent.click(within(oldest).getByRole("button", { name: msg("applications-comment-edit") }));
+    expect(within(oldest).getByRole("textbox", { name: msg("applications-comment-label") })).toHaveValue("The very first note");
+    expect(screen.getAllByText(/^Note \d+$/)).toHaveLength(200);
+
+    // One divider for every month in the reader's zone, newest first, none
+    // skipped; this year's months by name alone, last year's with the year.
+    const dividers = screen.getAllByRole("button", { name: isMonthDivider });
+    const localMonth = (iso: string) => {
+      const day = new Date(iso);
+      return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}`;
+    };
+    const months = [...new Set(items.map((item) => localMonth(item.created_at)))];
+    expect(months.length).toBeGreaterThan(12);
+    expect(dividers.map((divider) => divider.getAttribute("data-month"))).toEqual(months);
+    const thisYear = String(new Date(now).getFullYear());
+    expect(dividers[0]).not.toHaveTextContent(thisYear);
+    const lastYear = String(new Date(now).getFullYear() - 1);
+    expect(dividers.some((divider) => divider.textContent?.includes(lastYear))).toBe(true);
+  });
+
+  it("jumps from a month's divider to when the person applied, and hands that entry focus", async () => {
+    detail = { ...detail, stages_reached: [
+      { stage: "saved", at: "2026-10-20T09:00:00Z" },
+      { stage: "applied", at: "2026-11-02T10:00:00Z" },
+    ] };
+    items = [
+      ...items,
+      { kind: "comment", id: 3, created_at: at("2026-10-21T10:00:00Z"), actor: "user", source: "app", body: "Starred it.", edited_at: null },
+    ];
+    renderPage();
+    const [newest] = await screen.findAllByRole("button", { name: isMonthDivider });
+    await userEvent.click(newest);
+
+    const menu = await screen.findByRole("dialog", { name: msg("applications-feed-jump-label") });
+    expect(within(menu).queryByRole("button", { name: new RegExp(msg("applications-feed-jump-offer")) })).toBeNull();
+    await userEvent.click(within(menu).getByRole("button", { name: new RegExp(msg("applications-feed-jump-applied")) }));
+
+    // The move to Applied sits in a folded run, so the jump lands on the fold.
+    const fold = screen.getByRole("button", {
+      name: msg("applications-feed-fold", {
+        count: 2,
+        changes: `${msg("applications-feed-moved", { stage: "Applied" })} and ${msg("applications-feed-priority")}`,
+      }),
+    }).closest("li")!;
+    await waitFor(() => expect(fold).toHaveFocus());
+    expect(fold).toHaveAttribute("data-landed");
+  });
+
+  it("jumps to the beginning, the oldest entry, from the menu", async () => {
+    items = [
+      ...items,
+      { kind: "comment", id: 3, created_at: at("2026-09-21T10:00:00Z"), actor: "user", source: "app", body: "Starred it.", edited_at: null },
+    ];
+    renderPage();
+    const [newest] = await screen.findAllByRole("button", { name: isMonthDivider });
+    await userEvent.click(newest);
+    const menu = await screen.findByRole("dialog", { name: msg("applications-feed-jump-label") });
+    await userEvent.click(within(menu).getByRole("button", { name: new RegExp(msg("applications-feed-jump-beginning")) }));
+    await waitFor(() => expect(screen.getByText("Starred it.").closest("li")).toHaveFocus());
   });
 
   it("lets the person change their own comments and not an agent's", async () => {

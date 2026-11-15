@@ -262,6 +262,7 @@ export function ApplicationPage({ jobId }: { jobId: number }) {
                   <NotesBlock notes={job?.pursuit?.notes ?? null} onSave={ctl.saveNotes} />
                   <ActivityFeed
                     items={activity.data?.items ?? []}
+                    detail={data}
                     now={now}
                     onAdd={ctl.addComment}
                     onEdit={ctl.editComment}

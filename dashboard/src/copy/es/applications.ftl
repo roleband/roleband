@@ -441,6 +441,26 @@ applications-feed-updated = Actualizado
 
 applications-feed-by-agent = por una app de asistente
 
+applications-feed-jump-label = Ir a
+
+applications-feed-jump-month = { $month }, ir a otro momento
+
+applications-feed-jump-recent = Lo más reciente
+
+applications-feed-jump-applied = Cuando te postulaste
+
+applications-feed-jump-interview = Primera entrevista
+
+applications-feed-jump-offer = La oferta
+
+applications-feed-jump-beginning = El principio
+
+applications-feed-jump-comments = { $count ->
+    [one] 1 comentario
+    [many] { $count } de comentarios
+   *[other] { $count } comentarios
+}
+
 applications-comment-label = Comentario
 
 applications-comment-placeholder = Escribe lo que pasó

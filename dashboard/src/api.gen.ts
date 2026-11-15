@@ -14147,7 +14147,8 @@ export interface operations {
     activity_ep_api_applications__job_id__activity_get: {
         parameters: {
             query?: {
-                limit?: number;
+                /** @description At most this many entries; the whole history when absent. */
+                limit?: number | null;
                 offset?: number;
             };
             header?: never;
