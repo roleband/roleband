@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import csv
 import json
 import sys
 from collections import Counter, defaultdict
@@ -385,13 +386,17 @@ def cmd_pay_grades(company: str, year: int) -> int:
     return 0
 
 
-def band_rows(jobs: list, year: int) -> tuple[list[dict], list[str]]:
+def band_rows(jobs: list, year: int) -> tuple[list[dict], list[str], set[tuple]]:
     """Band-level pay rows for every company outside a rung table.
 
     Per (company, family, exact range, year), the anchors are postings whose
     title alone, read without the range, states a band confirmed (a printed
     rung, the company's words or a generic rung word). A row needs 2+ anchors
-    with four of every five on one band. Returns (rows, report lines).
+    with four of every five on one band.
+
+    Returns (rows, report lines, the keys of ranges whose anchors disagree). A
+    refusal is a result, not an absence: `merge_rows` has to tell a range this
+    corpus cannot see from one it is contradicting.
     """
     ruled = {g.company for g in PAY_GRADES}
     groups: dict[tuple, Counter] = defaultdict(Counter)
@@ -417,7 +422,7 @@ def band_rows(jobs: list, year: int) -> tuple[list[dict], list[str]]:
             # in brackets when that is what stated the band.
             printed = f" [{raw.raw_level}]" if reading.basis is LevelBasis.STATED else ""
             titles[key][(reading.band.value, f"{r.title.strip()}{printed}")] += 1
-    rows, report = [], []
+    rows, report, rejected = [], [], set()
     for key, bands in sorted(groups.items()):
         total = sum(bands.values())
         band, n = bands.most_common(1)[0]
@@ -425,24 +430,77 @@ def band_rows(jobs: list, year: int) -> tuple[list[dict], list[str]]:
             continue
         if n * 5 < total * 4:
             report.append(f"UNMAPPED {key}: anchors disagree {dict(bands)}")
+            rejected.add((*key, year))
             continue
         company, family, low, high = key
         anchor = max(((t, c) for (b, t), c in titles[key].items() if b == band), key=lambda tc: tc[1])[0]
         rows.append({"company": company, "family": family, "base_min": low, "base_max": high,
                      "year": year, "band": band, "anchor": anchor, "anchors": n})
-    return rows, report
+    return rows, report, rejected
+
+
+def band_key(row: dict) -> tuple[str, str, int, int, int]:
+    """A band row's identity: the cell and the exact range it was measured at."""
+    return (row["company"], row["family"], int(row["base_min"]),
+            int(row["base_max"]), int(row["year"]))
+
+
+def merge_rows(
+    held: Iterable[dict], measured: Iterable[dict], rejected: Iterable[tuple],
+) -> list[dict]:
+    """Everything just measured, plus every held row the corpus is silent on.
+
+    A range stops being measurable long before it stops being true: the
+    postings that anchored it close, and the corpus holds only what it still
+    sees. A refresh that wrote its measurement alone would forget ranges a
+    company really posted, taking their postings back to no level, and would
+    take every other year's rows with them, since one run measures one year.
+    Fresh evidence wins where both hold the same range.
+
+    Silence is not the same as disagreement, which is why `rejected` is here. A
+    range whose anchors now disagree is not carried: this corpus says the range
+    names no one band, and the dissenting postings are never guessed into
+    agreement. A range with too little evidence to decide either way keeps what
+    was measured when there was enough.
+    """
+    measured = list(measured)
+    decided = {band_key(row) for row in measured} | set(rejected)
+    carried = [row for row in held if band_key(row) not in decided]
+    return sorted((*measured, *carried), key=band_key)
+
+
+def held_rows(target: Path | None) -> list[dict]:
+    """The table a refresh starts from: the file it is about to rewrite, or the
+    app's own copy when there is nothing to rewrite yet."""
+    if target is not None and target.exists():
+        with target.open(newline="", encoding="utf-8") as handle:
+            return list(csv.DictReader(handle))
+    return [
+        {"company": row.company, "family": row.family, "base_min": row.base_min,
+         "base_max": row.base_max, "year": row.year,
+         "band": row.band.value if row.band else "",
+         "anchor": row.anchor, "anchors": row.anchors}
+        for row in PAY_BANDS
+    ]
 
 
 def cmd_pay_bands(year: int, write: bool, out: Path | None = None) -> int:
     from scripts.data import build_target
-    from tracker.levels.atlas import PAY_BANDS, pay_bands_text
+    from tracker.levels.atlas import PAY_BANDS as PAY_BANDS_TABLE
+    from tracker.levels.atlas import pay_bands_text
 
-    target = build_target("atlas", PAY_BANDS.file, out) if write else None
+    target = build_target("atlas", PAY_BANDS_TABLE.file, out) if write else None
     jobs, _ = asyncio.run(_corpus())
-    rows, report = band_rows(jobs, year)
+    measured, report, rejected = band_rows(jobs, year)
     for line in report:
         print(line)
-    print(f"{len(rows)} band rows; by company {dict(Counter(row['company'] for row in rows).most_common())}")
+    held = held_rows(target)
+    rows = merge_rows(held, measured, rejected)
+    dropped = sum(1 for row in held if band_key(row) in set(rejected))
+    print(f"{len(measured)} band rows measured for {year}, "
+          f"{len(rows) - len(measured)} carried forward, "
+          f"{dropped} dropped for anchors that now disagree, {len(rows)} in the table")
+    print(f"by company {dict(Counter(row['company'] for row in rows).most_common())}")
     if target is not None:
         # The atlas's canonical form, so a rebuild diffs as data.
         target.write_text(pay_bands_text(rows), encoding="utf-8")

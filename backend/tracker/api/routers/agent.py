@@ -15,7 +15,15 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Request
 
 from tracker import __version__
-from tracker.agents.operations import opportunities, pursuits, radar, recipes, search, vocabulary
+from tracker.agents.operations import (
+    opportunities,
+    pursuits,
+    radar,
+    receipts,
+    recipes,
+    search,
+    vocabulary,
+)
 from tracker.agents.operations.catalog import CATALOG
 from tracker.agents.operations.envelope import Envelope, EnvelopeNotice, NextAction, OperationError
 from tracker.agents.operations.meta import (
@@ -188,6 +196,36 @@ async def pursuit_get(
     return op.ok(await pursuits.pursuit_of(session, wanted))
 
 
+@router.put(
+    f"{PREFIX}/pursuits/{{opportunity_id}}",
+    response_model=Envelope[pursuits.PursuitItem],
+    openapi_extra=operation_route(pursuits.PURSUITS_SAVE),
+)
+async def pursuit_save(
+    op: Annotated[OperationContext, Depends(admitted(pursuits.PURSUITS_SAVE))],
+) -> Envelope[Any]:
+    params = op.input_as(pursuits.PursuitSaveInput)
+    return await op.write(
+        lambda: pursuits.save_pursuit(op.session, params, actor=op.actor),
+        on_revision_conflict=pursuits.reread(params.opportunity_id),
+    )
+
+
+@router.patch(
+    f"{PREFIX}/pursuits/{{opportunity_id}}",
+    response_model=Envelope[pursuits.PursuitItem],
+    openapi_extra=operation_route(pursuits.PURSUITS_PATCH),
+)
+async def pursuit_patch(
+    op: Annotated[OperationContext, Depends(admitted(pursuits.PURSUITS_PATCH))],
+) -> Envelope[Any]:
+    params = op.input_as(pursuits.PursuitPatchInput)
+    return await op.write(
+        lambda: pursuits.patch_pursuit(op.session, params, actor=op.actor),
+        on_revision_conflict=pursuits.reread(params.opportunity_id),
+    )
+
+
 @router.get(
     f"{PREFIX}/recipes/contract",
     response_model=Envelope[recipes.RecipeContract],
@@ -227,6 +265,44 @@ async def recipe_validate(
     # Admission read the switches; the listing is read outside a transaction.
     await end_read(session)
     return op.ok(await recipes.validate_recipe(params))
+
+
+@router.post(
+    f"{PREFIX}/recipes/drafts",
+    response_model=Envelope[recipes.SavedDraft],
+    openapi_extra=operation_route(recipes.RECIPES_DRAFT_SAVE),
+)
+async def recipe_draft_save(
+    op: Annotated[OperationContext, Depends(admitted(recipes.RECIPES_DRAFT_SAVE))],
+) -> Envelope[Any]:
+    params = op.input_as(recipes.RecipeDraftSaveInput)
+    return await op.write(lambda: recipes.save_draft(op.session, params))
+
+
+@router.get(
+    f"{PREFIX}/receipts",
+    response_model=Envelope[receipts.Receipt],
+    openapi_extra=operation_route(receipts.RECEIPTS_GET),
+)
+async def receipt_get(
+    session: SessionDep,
+    op: Annotated[OperationContext, Depends(admitted(receipts.RECEIPTS_GET))],
+) -> Envelope[Any]:
+    params = op.input_as(receipts.ReceiptGetInput)
+    descriptor = CATALOG.get(params.operation)
+    if descriptor is None:
+        raise OperationError(
+            "unknown_operation",
+            "This engine offers no operation by that name.",
+            details={"operation": params.operation},
+            next_actions=[NextAction(operation=CAPABILITIES.id, arguments={})],
+        )
+    return op.ok(
+        await receipts.receipt_of(
+            session, params, workspace_id=op.workspace_id, principal_id=op.principal_id,
+            keyed=descriptor.idempotency == "required_key",
+        )
+    )
 
 
 @router.get(

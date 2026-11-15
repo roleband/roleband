@@ -3,8 +3,8 @@
 # its platform: `-c constraints/<platform>.txt` (scripts/lock_dependencies.py).
 
 # Lint / layer contracts
-ruff==0.17.3
-import-linter==2.15
+ruff==0.17.4
+import-linter==2.16
 
 # Types. Checks the set named in `[tool.mypy]`, not the tree: `follow_imports =
 # silent` is what keeps a narrow set narrow — without it those same modules drag

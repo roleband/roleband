@@ -783,7 +783,10 @@ def test_a_real_engine_refuses_until_the_switch_and_then_names_its_workspace(hom
     capabilities = cli(home, "capabilities", "--tier", "small", "--json")
     assert capabilities.status == 0
     assert capabilities.envelope["data"]["metadata_source"] == "engine"
-    assert {e["availability"]["state"] for e in capabilities.envelope["data"]["operations"]} == {"available"}
+    # Reads are available; writes wait for the second switch, which is still off.
+    assert {
+        (e["access"], e["availability"]["state"]) for e in capabilities.envelope["data"]["operations"]
+    } == {("read", "available"), ("write", "unavailable")}
 
     described = cli(home, "describe", "capabilities", "--json")
     assert described.status == 0

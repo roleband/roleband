@@ -416,7 +416,7 @@ def seeded_engine(engine):
         try:
             async with AsyncSession(database, expire_on_commit=False) as session:
                 await seed(session, 30, seed_value=1, derived=False, agent_tasks=True)
-                await set_agent_access(session, AgentAccessConfig(enabled=True, allow_writes=False))
+                await set_agent_access(session, AgentAccessConfig(enabled=True, allow_writes=True))
                 await session.commit()
         finally:
             await database.dispose()
@@ -498,3 +498,29 @@ def test_a_path_argument_and_a_posted_read_reach_a_real_engine(home, seeded_engi
     assert validated.status in (0, 2), validated
     if validated.status == 2:
         assert validated.envelope["error"]["code"] == "invalid_input", validated
+
+
+def test_a_keyed_write_runs_once_under_its_key_against_a_real_engine(home, seeded_engine):
+    """A generated write command sends its input as the body under an
+    idempotency key; the same key again replays, and the receipt reads back."""
+    home.contexts(current="dev", dev={"url": seeded_engine.url})
+    listed = cli(home, "opportunities", "search", "--limit", "1", "--json")
+    first = listed.envelope["data"]["rows"][0][0]
+    key = "idk_cli_commands_test_0001"
+
+    saved = cli(home, "pursuits", "save", str(first), "--priority", "4", "--idempotency-key", key, "--json")
+    assert saved.status == 0, saved
+    assert saved.envelope["operation"] == "pursuits.save"
+    assert saved.envelope["meta"]["idempotency_key"] == key
+    assert saved.envelope["meta"]["replayed"] is False
+
+    again = cli(home, "pursuits", "save", str(first), "--priority", "4", "--idempotency-key", key, "--json")
+    assert again.status == 0, again
+    assert again.envelope["meta"]["replayed"] is True
+
+    other = cli(home, "pursuits", "save", str(first), "--priority", "2", "--idempotency-key", key, "--json")
+    assert other.envelope["error"]["code"] == "idempotency_conflict", other
+
+    receipt = cli(home, "receipts", "get", "--operation", "pursuits.save", "--key", key, "--json")
+    assert receipt.status == 0, receipt
+    assert receipt.envelope["operation"] == "receipts.get"

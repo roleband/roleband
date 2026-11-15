@@ -8,7 +8,7 @@ annotated-doc==0.0.5
     # via fastapi
 annotated-types==0.7.0
     # via pydantic
-anyio==4.14.2
+anyio==4.16.0
     # via
     #   httpx
     #   mcp
@@ -72,7 +72,7 @@ greenlet==3.1.1
     #   -r requirements.txt
     #   playwright
     #   sqlalchemy
-grimp==3.17
+grimp==3.20
     # via import-linter
 h11==0.16.0
     # via
@@ -105,7 +105,7 @@ idna==3.18
     #   requests
 ijson==3.6.0
     # via -r requirements.txt
-import-linter==2.15
+import-linter==2.16
     # via -r requirements-dev.txt
 iniconfig==2.3.0
     # via pytest
@@ -241,7 +241,7 @@ rpds-py==2026.6.3
     # via
     #   jsonschema
     #   referencing
-ruff==0.17.3
+ruff==0.17.4
     # via -r requirements-dev.txt
 selectolax==1.0.2
     # via -r requirements.txt
@@ -275,7 +275,6 @@ typing-extensions==4.16.0
     #   cyclonedx-python-lib
     #   fastapi
     #   huggingface-hub
-    #   import-linter
     #   mcp
     #   mypy
     #   pixeltable-pgserver
@@ -298,7 +297,7 @@ uvicorn==0.34.0
     # via
     #   -r requirements.txt
     #   mcp
-uvloop==0.22.1
+uvloop==0.23.0
     # via uvicorn
 watchfiles==1.2.0
     # via uvicorn

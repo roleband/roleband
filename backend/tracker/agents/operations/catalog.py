@@ -16,6 +16,7 @@ from tracker.agents.operations import (
     opportunities,
     pursuits,
     radar,
+    receipts,
     recipes,
     search,
     vocabulary,
@@ -30,6 +31,7 @@ REGISTERED: tuple[OperationDescriptor, ...] = (
     *opportunities.OPERATIONS,
     *pursuits.OPERATIONS,
     *recipes.OPERATIONS,
+    *receipts.OPERATIONS,
     *search.OPERATIONS,
     *vocabulary.OPERATIONS,
 )
