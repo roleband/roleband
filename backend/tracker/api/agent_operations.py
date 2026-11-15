@@ -213,6 +213,7 @@ def admitted(descriptor: OperationDescriptor) -> Callable[..., Awaitable[Operati
     A keyed write also needs its idempotency key, checked before its input,
     so a request refused here never reaches a receipt.
     """
+    lists = list_fields(descriptor)
 
     async def dependency(request: Request, session: SessionDep) -> OperationContext:
         switches = await get_agent_access(session)
@@ -234,7 +235,7 @@ def admitted(descriptor: OperationDescriptor) -> Callable[..., Awaitable[Operati
             descriptor,
             request.state.agent_request_id,
             workspace_id,
-            await _input(descriptor, request),
+            await _input(descriptor, request, lists),
             switches,
             session,
             idempotency_key=key,
@@ -282,13 +283,24 @@ async def _body(request: Request) -> dict[str, Any]:
     return body
 
 
-async def _input(descriptor: OperationDescriptor, request: Request) -> BaseModel:
+def list_fields(descriptor: OperationDescriptor) -> frozenset[str]:
+    """The input fields that take a list. A query string cannot tell one value
+    from a list of one, so these read every value given as a list, and the
+    others refuse a key given more than once."""
+    properties = descriptor.input.model_json_schema().get("properties", {})
+    return frozenset(
+        name for name, prop in properties.items()
+        if prop.get("type") == "array" or any(option.get("type") == "array" for option in prop.get("anyOf", ()))
+    )
+
+
+async def _input(descriptor: OperationDescriptor, request: Request, lists: frozenset[str]) -> BaseModel:
     raw: dict[str, Any] = await _body(request)
     for key in request.query_params:
         if key in raw:
             raise OperationError("invalid_input", f"{key!r} is given twice.", details={"field": key})
         values = request.query_params.getlist(key)
-        raw[key] = values[0] if len(values) == 1 else values
+        raw[key] = values if key in lists else values[0] if len(values) == 1 else values
     for key, value in request.path_params.items():
         if key in raw:
             raise OperationError("invalid_input", f"{key!r} is given twice.", details={"field": key})

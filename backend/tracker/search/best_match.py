@@ -294,6 +294,7 @@ async def relevance_search(
     include_related: bool = False,
     *,
     embed: QueryEmbedder,
+    parse_with_model: bool = True,
 ) -> RelevanceResult:
     """Best-match search: direct identity first, then hybrid ranked retrieval.
 
@@ -306,11 +307,16 @@ async def relevance_search(
 
     `embed` turns the remainder into the query vector. It is called only for a
     non-identifier query, and only while `search_semantic_enabled`.
+
+    `parse_with_model=False` parses the query on this computer whatever the
+    person's model settings, for a caller whose query must not leave it.
     """
     settings = get_settings()
     q = fold_query(q)
     # The switch is read only when a model could be asked at all.
-    egress_allowed = settings.search_llm_enabled and await get_ai_egress_enabled(session)
+    egress_allowed = (
+        parse_with_model and settings.search_llm_enabled and await get_ai_egress_enabled(session)
+    )
     # A model may name a company the text only describes, so it is offered
     # every company the Board shows; the local parser needs only those named.
     parsed = await resolve_query(

@@ -2377,6 +2377,470 @@
    "client_effects": [],
    "contract_version": "1.0",
    "data_classes": [
+    "public_posting",
+    "market_statistic",
+    "private_pursuit"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {
+     "limit": 10,
+     "location": [
+      "London"
+     ],
+     "query": "product manager"
+    },
+    {
+     "family": [
+      "product_management"
+     ],
+     "level_band": [
+      "senior"
+     ],
+     "sort": "estimated_pay"
+    }
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "base_pay_max": {
+      "anyOf": [
+       {
+        "maximum": 100000000,
+        "minimum": 0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Highest yearly base in US dollars.",
+      "title": "Base Pay Max"
+     },
+     "base_pay_min": {
+      "anyOf": [
+       {
+        "maximum": 100000000,
+        "minimum": 0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Lowest yearly base in US dollars, as the Board's pay filter.",
+      "title": "Base Pay Min"
+     },
+     "company": {
+      "description": "Companies, by slug or name; repeat for more.",
+      "items": {
+       "maxLength": 200,
+       "minLength": 1,
+       "type": "string"
+      },
+      "maxItems": 50,
+      "title": "Company",
+      "type": "array"
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "The next_cursor of the previous page, read with the same filters and sort.",
+      "title": "Cursor"
+     },
+     "discloses_pay": {
+      "default": false,
+      "description": "Only postings that state a pay band.",
+      "title": "Discloses Pay",
+      "type": "boolean"
+     },
+     "domain": {
+      "description": "Domains (worlds), by slug or name.",
+      "items": {
+       "maxLength": 200,
+       "minLength": 1,
+       "type": "string"
+      },
+      "maxItems": 50,
+      "title": "Domain",
+      "type": "array"
+     },
+     "family": {
+      "description": "Role families, by slug or name.",
+      "items": {
+       "maxLength": 200,
+       "minLength": 1,
+       "type": "string"
+      },
+      "maxItems": 50,
+      "title": "Family",
+      "type": "array"
+     },
+     "level_band": {
+      "description": "Level bands, such as senior or staff.",
+      "items": {
+       "maxLength": 200,
+       "minLength": 1,
+       "type": "string"
+      },
+      "maxItems": 50,
+      "title": "Level Band",
+      "type": "array"
+     },
+     "limit": {
+      "default": 20,
+      "description": "Most rows on one page.",
+      "maximum": 100,
+      "minimum": 1,
+      "title": "Limit",
+      "type": "integer"
+     },
+     "listed_within_days": {
+      "anyOf": [
+       {
+        "maximum": 3650,
+        "minimum": 1,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Only postings listed within this many days, by the age each row shows.",
+      "title": "Listed Within Days"
+     },
+     "location": {
+      "description": "Places, by slug or a name people use, such as London or USA.",
+      "items": {
+       "maxLength": 200,
+       "minLength": 1,
+       "type": "string"
+      },
+      "maxItems": 50,
+      "title": "Location",
+      "type": "array"
+     },
+     "minimum_estimated_pay": {
+      "anyOf": [
+       {
+        "maximum": 100000000,
+        "minimum": 0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Lowest estimated pay: the estimated total, else the estimated base.",
+      "title": "Minimum Estimated Pay"
+     },
+     "order": {
+      "default": "desc",
+      "description": "Ignored by best_match.",
+      "enum": [
+       "asc",
+       "desc"
+      ],
+      "title": "Order",
+      "type": "string"
+     },
+     "query": {
+      "anyOf": [
+       {
+        "maxLength": 200,
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Words to search for, as in the Board's search box.",
+      "title": "Query"
+     },
+     "saved_only": {
+      "default": false,
+      "description": "Only roles the person saved.",
+      "title": "Saved Only",
+      "type": "boolean"
+     },
+     "sort": {
+      "anyOf": [
+       {
+        "enum": [
+         "best_match",
+         "newest",
+         "age",
+         "pay",
+         "estimated_pay",
+         "level",
+         "company",
+         "title",
+         "location"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Default: best_match with a query, else newest.",
+      "title": "Sort"
+     },
+     "tier": {
+      "default": "small",
+      "description": "The caller's tool tier, which bounds the page.",
+      "enum": [
+       "small",
+       "standard",
+       "full"
+      ],
+      "title": "Tier",
+      "type": "string"
+     },
+     "track": {
+      "description": "Tracks, such as ic or management.",
+      "items": {
+       "maxLength": 200,
+       "minLength": 1,
+       "type": "string"
+      },
+      "maxItems": 50,
+      "title": "Track",
+      "type": "array"
+     },
+     "workplace_type": {
+      "description": "onsite, remote, hybrid or unknown.",
+      "items": {
+       "maxLength": 200,
+       "minLength": 1,
+       "type": "string"
+      },
+      "maxItems": 50,
+      "title": "Workplace Type",
+      "type": "array"
+     }
+    },
+    "title": "SearchInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "opportunities.search",
+   "output_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "columns": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Columns",
+      "type": "array",
+      "x-text": "code"
+     },
+     "count": {
+      "minimum": 0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "filters": {
+      "additionalProperties": {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      "title": "Filters",
+      "type": "object",
+      "x-text": "identifier"
+     },
+     "order": {
+      "anyOf": [
+       {
+        "enum": [
+         "asc",
+         "desc"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Order",
+      "x-text": "code"
+     },
+     "rows": {
+      "description": "One array per opportunity, its values in the order `columns` names.",
+      "items": {
+       "maxItems": 11,
+       "minItems": 11,
+       "prefixItems": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "string"
+        },
+        {
+         "type": "string"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "type": "integer"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "integer"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        }
+       ],
+       "type": "array"
+      },
+      "title": "Rows",
+      "type": "array",
+      "x-text": "content"
+     },
+     "sort": {
+      "enum": [
+       "best_match",
+       "newest",
+       "age",
+       "pay",
+       "estimated_pay",
+       "level",
+       "company",
+       "title",
+       "location"
+      ],
+      "title": "Sort",
+      "type": "string",
+      "x-text": "code"
+     },
+     "total": {
+      "minimum": 0,
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "total",
+     "count",
+     "sort",
+     "order",
+     "filters",
+     "columns",
+     "rows"
+    ],
+    "title": "SearchPage",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "Search the Board's open roles with its filters and sorts; one page of summary rows.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
     "private_pursuit",
     "public_posting"
    ],
@@ -4030,6 +4494,269 @@
     "standard",
     "full"
    ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "public_posting"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {
+     "contains": "york",
+     "kind": "location"
+    },
+    {
+     "kind": "family"
+    }
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "contains": {
+      "anyOf": [
+       {
+        "maxLength": 100,
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Only values whose value or a name contains this, ignoring case and separators.",
+      "title": "Contains"
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "The next_cursor of the previous page, read with the same kind and contains.",
+      "title": "Cursor"
+     },
+     "kind": {
+      "description": "The filter whose accepted values to list.",
+      "enum": [
+       "company",
+       "family",
+       "level_band",
+       "track",
+       "workplace_type",
+       "domain",
+       "location"
+      ],
+      "title": "Kind",
+      "type": "string"
+     },
+     "limit": {
+      "default": 100,
+      "description": "Values on one page.",
+      "maximum": 500,
+      "minimum": 1,
+      "title": "Limit",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "kind"
+    ],
+    "title": "VocabularyListInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "vocabulary.list",
+   "output_schema": {
+    "$defs": {
+     "VocabularyEntry": {
+      "additionalProperties": false,
+      "properties": {
+       "also": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Also",
+        "type": "array",
+        "x-text": "content"
+       },
+       "name": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Name",
+        "x-text": "content"
+       },
+       "open_roles": {
+        "minimum": 0,
+        "title": "Open Roles",
+        "type": "integer"
+       },
+       "value": {
+        "title": "Value",
+        "type": "string",
+        "x-text": "identifier"
+       }
+      },
+      "required": [
+       "value",
+       "name",
+       "also",
+       "open_roles"
+      ],
+      "title": "VocabularyEntry",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "count": {
+      "minimum": 0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "items": {
+      "items": {
+       "$ref": "#/$defs/VocabularyEntry"
+      },
+      "title": "Items",
+      "type": "array"
+     },
+     "kind": {
+      "enum": [
+       "company",
+       "family",
+       "level_band",
+       "track",
+       "workplace_type",
+       "domain",
+       "location"
+      ],
+      "title": "Kind",
+      "type": "string",
+      "x-text": "code"
+     },
+     "total": {
+      "minimum": 0,
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "kind",
+     "total",
+     "count",
+     "items"
+    ],
+    "title": "VocabularyPage",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "List the values a search filter accepts, with their names and open roles.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
   }
- ]
+ ],
+ "routes": {
+  "capabilities": {
+   "method": "GET",
+   "path": "/api/agent/v1/capabilities"
+  },
+  "describe": {
+   "method": "GET",
+   "path": "/api/agent/v1/operations/{operation}"
+  },
+  "opportunities.get": {
+   "method": "GET",
+   "path": "/api/agent/v1/opportunities/{opportunity_id}"
+  },
+  "opportunities.history": {
+   "method": "GET",
+   "path": "/api/agent/v1/opportunities/{opportunity_id}/history"
+  },
+  "opportunities.search": {
+   "method": "GET",
+   "path": "/api/agent/v1/opportunities"
+  },
+  "pursuits.get": {
+   "method": "GET",
+   "path": "/api/agent/v1/pursuits/{opportunity_id}"
+  },
+  "pursuits.list": {
+   "method": "GET",
+   "path": "/api/agent/v1/pursuits"
+  },
+  "pursuits.patch": {
+   "method": "PATCH",
+   "path": "/api/agent/v1/pursuits/{opportunity_id}"
+  },
+  "pursuits.save": {
+   "method": "PUT",
+   "path": "/api/agent/v1/pursuits/{opportunity_id}"
+  },
+  "radar.summary": {
+   "method": "GET",
+   "path": "/api/agent/v1/radar/summary"
+  },
+  "receipts.get": {
+   "method": "GET",
+   "path": "/api/agent/v1/receipts"
+  },
+  "recipes.contract.get": {
+   "method": "GET",
+   "path": "/api/agent/v1/recipes/contract"
+  },
+  "recipes.draft.save": {
+   "method": "POST",
+   "path": "/api/agent/v1/recipes/drafts"
+  },
+  "recipes.validate": {
+   "method": "POST",
+   "path": "/api/agent/v1/recipes/validate"
+  },
+  "sources.inspect": {
+   "method": "GET",
+   "path": "/api/agent/v1/sources/inspect"
+  },
+  "status": {
+   "method": "GET",
+   "path": "/api/agent/v1/status"
+  },
+  "vocabulary.list": {
+   "method": "GET",
+   "path": "/api/agent/v1/vocabulary"
+  }
+ }
 }

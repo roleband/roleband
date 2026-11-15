@@ -15,7 +15,15 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Request
 
 from tracker import __version__
-from tracker.agents.operations import opportunities, pursuits, radar, receipts, recipes
+from tracker.agents.operations import (
+    opportunities,
+    pursuits,
+    radar,
+    receipts,
+    recipes,
+    search,
+    vocabulary,
+)
 from tracker.agents.operations.catalog import CATALOG
 from tracker.agents.operations.envelope import Envelope, EnvelopeNotice, NextAction, OperationError
 from tracker.agents.operations.meta import (
@@ -295,3 +303,51 @@ async def receipt_get(
             keyed=descriptor.idempotency == "required_key",
         )
     )
+
+
+@router.get(
+    f"{PREFIX}/opportunities",
+    response_model=Envelope[search.SearchPage],
+    openapi_extra=operation_route(search.OPPORTUNITIES_SEARCH),
+)
+async def opportunity_search(
+    op: Annotated[OperationContext, Depends(admitted(search.OPPORTUNITIES_SEARCH))],
+) -> Envelope[Any]:
+    answer = await search.search(op.session, op.input_as(search.SearchInput), workspace_id=op.workspace_id)
+    warnings: list[EnvelopeNotice] = []
+    if answer.shortened:
+        warnings.append(EnvelopeNotice(
+            code="page_shortened",
+            message="This page stops before the limit to stay within the tool tier's budget; next_cursor continues.",
+        ))
+    if answer.ranking_truncated:
+        warnings.append(EnvelopeNotice(
+            code="ranking_truncated",
+            message="More postings match than best match ranks, so paging does not reach them all; "
+            "narrow the search or sort by another key.",
+        ))
+    if answer.row_cut:
+        warnings.append(EnvelopeNotice(
+            code="row_shortened",
+            message="A row's text is longer than this tool tier's budget, so it is cut; opportunities.get gives it whole.",
+        ))
+    envelope = op.ok(answer.page, warnings=warnings or None)
+    envelope.meta.next_cursor = answer.next_cursor
+    envelope.meta.truncated = answer.ranking_truncated or answer.row_cut
+    return envelope
+
+
+@router.get(
+    f"{PREFIX}/vocabulary",
+    response_model=Envelope[vocabulary.VocabularyPage],
+    openapi_extra=operation_route(vocabulary.VOCABULARY_LIST),
+)
+async def vocabulary_list(
+    op: Annotated[OperationContext, Depends(admitted(vocabulary.VOCABULARY_LIST))],
+) -> Envelope[Any]:
+    page, next_cursor = await vocabulary.vocabulary_page(
+        op.session, op.input_as(vocabulary.VocabularyListInput), workspace_id=op.workspace_id
+    )
+    envelope = op.ok(page)
+    envelope.meta.next_cursor = next_cursor
+    return envelope
