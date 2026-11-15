@@ -250,9 +250,14 @@ async def opportunity_search(
             message="More postings match than best match ranks, so paging does not reach them all; "
             "narrow the search or sort by another key.",
         ))
+    if answer.row_cut:
+        warnings.append(EnvelopeNotice(
+            code="row_shortened",
+            message="A row's text is longer than this tool tier's budget, so it is cut; opportunities.get gives it whole.",
+        ))
     envelope = op.ok(answer.page, warnings=warnings or None)
     envelope.meta.next_cursor = answer.next_cursor
-    envelope.meta.truncated = answer.ranking_truncated
+    envelope.meta.truncated = answer.ranking_truncated or answer.row_cut
     return envelope
 
 

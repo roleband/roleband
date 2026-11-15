@@ -352,10 +352,16 @@ def request(command: Command, data: dict[str, Any]) -> tuple[str, dict[str, Any]
     if command.method in _BODY_METHODS:
         return path, rest
     pairs: list[tuple[str, str]] = []
+    nullable = {field.name for field in command.flags if field.default is None and not field.required}
     for name, value in rest.items():
-        if value is None:
-            # The address cannot say null; leaving the field out asks for its default, as null does.
+        if value is None and name in nullable:
+            # The address cannot say null; leaving out a field whose default is null asks for the same.
             continue
+        if value is None:
+            raise ClientError(
+                "invalid_arguments",
+                f"{name} cannot be null: it has a default of its own, or is required. Leave it out or give a value.",
+            )
         for item in value if isinstance(value, list) else [value]:
             if item is None or isinstance(item, dict | list):
                 raise ClientError(

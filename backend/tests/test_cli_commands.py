@@ -278,8 +278,15 @@ def test_a_write_sends_its_input_as_a_body_and_a_document_only_by_input():
 
 
 def test_a_read_leaves_a_null_out_and_cannot_carry_an_object_in_its_address():
-    command = _command("GET", "/api/agent/v1/widgets", {"view": {"type": "string"}, "tag": {"type": "array"}})
+    command = _command("GET", "/api/agent/v1/widgets", {
+        "view": {"anyOf": [{"type": "string"}, {"type": "null"}], "default": None},
+        "tag": {"type": "array", "items": {"type": "string"}},
+        "limit": {"type": "integer", "default": 20},
+    })
     assert commands.request(command, {"view": None, "tag": ["a"]}) == ("/api/agent/v1/widgets?tag=a", None)
+    # A null where the default is not null would silently change the request.
+    with pytest.raises(ClientError, match="limit cannot be null"):
+        commands.request(command, {"limit": None})
     for value in ({"a": 1}, [["a"]], ["a", None]):
         with pytest.raises(ClientError, match="carries no object"):
             commands.request(command, {"tag": value})

@@ -382,6 +382,37 @@ async def test_a_wide_filter_set_still_fits_the_reply(api_client, workspace):
     assert 1 <= page["count"] < _page(narrow)["count"]
 
 
+async def test_a_row_longer_than_the_budget_is_cut_and_paging_goes_on(api_client, workspace):
+    """Broken rule caught: the first row was always kept whole, so one long
+    title took a small-tier reply past its budget."""
+    board = await _board_ids(api_client, sort="first_seen")
+    await workspace.execute(update(Job).values(title=Job.title + " " + "y" * 6_000))
+    await workspace.commit()
+
+    response, body = await _search(api_client)
+    page = _page(body)
+    assert len(response.content) <= SMALL_REPLY_BYTES
+    assert page["count"] == 1
+    title = page["rows"][0][page["columns"].index("title")]
+    assert title.endswith("…") and len(title) < 6_000
+    assert "row_shortened" in [warning["code"] for warning in body["warnings"]]
+    assert body["meta"]["truncated"] is True
+    # Every row is still read, once, a cut one at a time.
+    assert await _every_page(api_client) == board
+    # The full tier has room for the title whole.
+    _, wide = await _search(api_client, tier="full", limit=1)
+    assert _page(wide)["rows"][0][1].endswith("y" * 50)
+
+
+async def test_filters_that_leave_no_room_for_a_row_are_refused_on_tier(api_client, workspace, monkeypatch):
+    monkeypatch.setitem(search_ops.PAGE_BUDGET_BYTES, "small", 260)
+    response, body = await _search(api_client, family=["product_management", "engineering_management"])
+    error = _error(response, body)
+    assert error["details"]["field"] == "tier" and error["details"]["reason"] == "over_budget"
+    _, roomy = await _search(api_client, family=["product_management", "engineering_management"], tier="standard")
+    _page(roomy)
+
+
 async def test_best_match_without_a_query_ignores_order(api_client, workspace):
     _, falling = await _search(api_client, sort="best_match", order="desc", limit=40)
     _, rising = await _search(api_client, sort="best_match", order="asc", limit=40)

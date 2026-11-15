@@ -37,6 +37,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.agents.operations import cursor, vocabulary
 from tracker.agents.operations.descriptor import EngineEffects, OperationDescriptor, Shape, ToolTier
+from tracker.agents.operations.envelope import OperationError
 from tracker.analytics.posting_reality import listing_age
 from tracker.company_store import off_board_company_slugs
 from tracker.db.models import Favorite, Job, Pursuit
@@ -61,9 +62,9 @@ MAX_LIMIT = 100
 #: by tool tier, in UTF-8 bytes of its JSON. Stated in tokens for the whole
 #: reply (2,000 for the small tier, 4,000 for the standard one, 16,000 for
 #: full) and enforced at two and a half bytes a token, the rate this JSON
-#: tokenizes at, less what the envelope around the page takes with its
-#: cursor and warnings.
-PAGE_BUDGET_BYTES: dict[ToolTier, int] = {"small": 4_300, "standard": 9_300, "full": 39_300}
+#: tokenizes at, less 900 bytes for the envelope around the page with its
+#: cursor and every warning a page can carry.
+PAGE_BUDGET_BYTES: dict[ToolTier, int] = {"small": 4_100, "standard": 9_100, "full": 39_100}
 
 #: The Board's sorts, by the names its menu gives them, and the list key each one reads.
 Sort = Literal["best_match", "newest", "age", "pay", "estimated_pay", "level", "company", "title", "location"]
@@ -198,6 +199,9 @@ class SearchAnswer:
     #: True when more postings match than best match could rank, as the
     #: Board reports it: paging to the end does not reach them all.
     ranking_truncated: bool = False
+    #: True when the page's only row was longer than the budget and its
+    #: longest text was cut to fit; `opportunities.get` gives it whole.
+    row_cut: bool = False
 
 
 async def search(
@@ -258,7 +262,15 @@ async def search(
         rows=[],
     )
     # The rows share the page's budget with its header, whose filters grow with the request.
-    kept = _within_budget(rows, PAGE_BUDGET_BYTES[params.tier] - _size(page.model_dump(mode="json")))
+    budget = PAGE_BUDGET_BYTES[params.tier]
+    header = _size(page.model_dump(mode="json"))
+    kept, cut = _within_budget(rows, budget - header)
+    if kept and _size(kept[0]) + 1 > budget - header or header > budget:
+        raise OperationError(
+            "invalid_input",
+            "These filters leave no room for a row in the tier's budget; pass fewer filter values or a larger tier.",
+            details={"field": "tier", "reason": "over_budget", "budget_bytes": budget, "header_bytes": header},
+        )
     page.count, page.rows = len(kept), kept
     end = offset + len(kept)
     next_cursor = (
@@ -267,7 +279,8 @@ async def search(
         else None
     )
     return SearchAnswer(
-        page, next_cursor, shortened=len(kept) < len(rows), ranking_truncated=ordered.ranking_truncated
+        page, next_cursor, shortened=len(kept) < len(rows), ranking_truncated=ordered.ranking_truncated,
+        row_cut=cut,
     )
 
 
@@ -412,15 +425,40 @@ def _size(value: object) -> int:
     return len(json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
 
 
-def _within_budget(rows: list[SearchRow], budget: int) -> list[SearchRow]:
-    """The leading rows whose JSON fits `budget` bytes, and always the first
-    row, so a page never stops before it starts."""
-    kept: list[SearchRow] = []
-    used = 0
-    for row in rows:
+#: The shortest a cut text cell becomes: enough to recognise the posting by.
+_SHORTEST_CELL = 24
+
+
+def _within_budget(rows: list[SearchRow], budget: int) -> tuple[list[SearchRow], bool]:
+    """The leading rows whose JSON fits `budget` bytes, and whether the first
+    one was cut to fit. A page always holds its first row, so paging never
+    stops before it starts: one longer than the whole budget has its longest
+    text cut until it fits, down to `_SHORTEST_CELL` characters a cell."""
+    if not rows:
+        return [], False
+    first, cut = _fit(rows[0], budget)
+    kept = [first]
+    used = _size(first) + 1
+    for row in rows[1:]:
         size = _size(row) + 1
-        if kept and used + size > budget:
+        if used + size > budget:
             break
         kept.append(row)
         used += size
-    return kept
+    return kept, cut
+
+
+def _fit(row: SearchRow, budget: int) -> tuple[SearchRow, bool]:
+    cells: list[Any] = list(row)
+    cut = False
+    while (excess := _size(cells) + 1 - budget) > 0:
+        # A cell cut to the floor is that and its mark; it is not cut again.
+        texts = [i for i, value in enumerate(cells) if isinstance(value, str) and len(value) > _SHORTEST_CELL + 1]
+        if not texts:
+            break
+        longest = max(texts, key=lambda i: len(cells[i]))
+        # A character takes at least one byte, so cutting `excess` of them (and one for the mark) suffices.
+        keep = max(_SHORTEST_CELL, len(cells[longest]) - excess - 1)
+        cells[longest] = cells[longest][:keep].rstrip() + "…"
+        cut = True
+    return tuple(cells), cut
