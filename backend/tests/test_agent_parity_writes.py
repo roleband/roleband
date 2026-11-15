@@ -472,6 +472,52 @@ async def test_a_reminder_the_person_read_stays_read_whatever_offset_the_due_tim
     assert len(rows) == 1 and rows[0].read_at is not None
 
 
+async def test_a_read_reminder_whose_due_time_was_stored_with_another_offset_stays_read(
+    api_client, db_session, roles
+):
+    """A reminder already stored with its writer's offset names the same
+    instant as the pass's UTC value: it is the same follow-up, so it keeps the
+    person's read state instead of ringing again."""
+    job_id, _ = roles
+    due = datetime.now(UTC) - timedelta(days=2)
+    _data(*await _patch(api_client, job_id, {"if_revision": 0, "next_action": "Chase", "next_action_due": due.isoformat()}))
+    async with _fresh(db_session) as session:
+        reminder = await session.scalar(select(Notification).where(Notification.job_id == job_id))
+        reminder.meta = {**reminder.meta, "due_at": due.astimezone(timezone(timedelta(hours=-5))).isoformat()}
+        reminder.read_at = datetime.now(UTC)
+        await session.commit()
+
+    async with _fresh(db_session) as session:
+        await generate_pursuit_due_notifications(session)
+        await session.commit()
+
+    async with _fresh(db_session) as session:
+        rows = (await session.execute(
+            select(Notification.read_at).where(Notification.job_id == job_id, Notification.category == "pursuit_due")
+        )).all()
+    assert len(rows) == 1 and rows[0].read_at is not None
+
+
+async def test_a_new_due_time_rings_again_unread_though_the_last_was_read(api_client, db_session, roles):
+    job_id, _ = roles
+    due = datetime.now(UTC) - timedelta(days=3)
+    _data(*await _patch(api_client, job_id, {"if_revision": 0, "next_action": "Chase", "next_action_due": due.isoformat()}))
+    async with _fresh(db_session) as session:
+        await session.execute(
+            update(Notification).where(Notification.job_id == job_id).values(read_at=datetime.now(UTC))
+        )
+        await session.commit()
+
+    later = due + timedelta(days=1)
+    _data(*await _patch(api_client, job_id, {"if_revision": 1, "next_action_due": later.isoformat()}, key=OTHER_KEY))
+
+    async with _fresh(db_session) as session:
+        rows = (await session.execute(
+            select(Notification.read_at).where(Notification.job_id == job_id, Notification.category == "pursuit_due")
+        )).all()
+    assert len(rows) == 1 and rows[0].read_at is None
+
+
 async def _reminders(db_session, job_id: int) -> int:
     async with _fresh(db_session) as session:
         return await session.scalar(

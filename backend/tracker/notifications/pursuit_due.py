@@ -16,7 +16,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import and_, delete, not_, or_, select
+from sqlalchemy import DateTime, and_, cast, delete, not_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.db.models import Job, Notification, Pursuit
@@ -184,15 +184,14 @@ async def generate_pursuit_due_notifications(
         # A row that stands for an EARLIER follow-up (another due time) is not
         # this one: delete it, so the new debt rings unread instead of
         # inheriting the read or dismissed state the person gave the old one.
-        # The same due time keeps its row, and the person's word.
+        # The same due time keeps its row, and the person's word. Compared as
+        # instants: a row may hold the same moment written with another offset.
         await session.execute(
             delete(Notification).where(
                 Notification.source_type == "pursuit",
                 Notification.source_id == pursuit.id,
                 Notification.category == classified.category,
-                Notification.meta["due_at"].astext.is_distinct_from(
-                    due.isoformat() if due else None
-                ),
+                cast(Notification.meta["due_at"].astext, DateTime(timezone=True)).is_distinct_from(due),
             )
         )
         # Refreshed in place so the row ages with the debt ("2d overdue" becomes
