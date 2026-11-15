@@ -1296,7 +1296,9 @@ def verify_cli_calls(logged: list[dict], records: list[dict]) -> list[str]:
                 call.update({"logged_name": call["name"], "name": str((engine or {}).get("operation") or "unverified")})
                 call.update({"verified": False, "stdout": call.get("result"), "result": ""})
             else:
-                call["verified"] = True
+                # Graded on the engine's own reply: the log's copy also holds the
+                # client's context, which no record backs.
+                call.update({"verified": True, "stdout": call.get("result"), "result": record["body"]})
             continue
         forged = None
         text = call.get("result") or ""
