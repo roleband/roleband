@@ -143,6 +143,9 @@ def test_a_band_stored_whole_over_several_years_becomes_one_year_s_share():
         for joined in ("; bonus", " and bonus"):
             quote = f"Base pay: $180,000 - $220,000 per month{joined} {bonus} per 2 years"
             assert multi_year_share((180_000, 220_000, "USD", "unclear"), quote) is None, quote
+    # A label holds no figure of its own: one that does is another clause.
+    swallowed = "Base pay $180K-$220K per month and bonus: $180K-$220K per 2 years"
+    assert multi_year_share((180_000, 220_000, "USD", "unclear"), swallowed) is None
     # A labelled quote of the one band still counts.
     assert multi_year_share((180_000, 220_000, "USD", "unclear"), "Salary: $180K - $220K USD per 2 years") == {
         "disclosed_base_min": 90_000, "disclosed_base_max": 110_000, "disclosed_pay_period": "year",

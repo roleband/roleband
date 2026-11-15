@@ -34,10 +34,10 @@ def _interval(raw: object) -> tuple[int, str] | None:
 
 _AMOUNT = r"(?:[$£€]\s*)?(\d[\d,]*(?:\.\d+)?)\s*([kKmM])?"
 #: The whole quote `_formatted_salary` writes for an amount stated over several
-#: years: an optional label, one amount or range, at most a currency code, then
-#: the count. "$180,000 - $220,000 per 2 years", "$180K - $220K USD per 2 years".
+#: years: an optional label of words alone, one amount or range, at most a
+#: currency code, then the count. "$180,000 - $220,000 per 2 years", "$180K - $220K USD per 2 years".
 _YEARS_QUOTE_RE = re.compile(
-    rf"(?:[^:;\n]*:\s*)?{_AMOUNT}(?:\s*(?:-|–|—|to)\s*{_AMOUNT})?"
+    rf"(?:[^:;\n\d$£€]*:\s*)?{_AMOUNT}(?:\s*(?:-|–|—|to)\s*{_AMOUNT})?"
     r"(?:\s+[A-Z]{3})?\s+per (\d+) years"
 )
 _SCALE = {"k": 1_000, "m": 1_000_000}
