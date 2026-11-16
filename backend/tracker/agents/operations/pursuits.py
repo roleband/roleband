@@ -366,12 +366,13 @@ def reread(opportunity_id: int) -> list[NextAction]:
 def no_pursuit(opportunity_id: int, expected_revision: int) -> OperationError:
     """The refusal of a write that states a revision above 0 for an
     opportunity with no pursuit. It is `not_found`, not a conflict: reading
-    again finds nothing newer, so the caller checks the id or creates."""
+    again finds nothing newer. The likely cause is a wrong id, so it points
+    to the ids and never suggests creating a pursuit, which on a wrong id
+    would be a write the person never asked for."""
     return OperationError(
         "not_found",
-        "There is no pursuit for this opportunity yet, so its revision is 0. "
-        "Check the id: pursuits.list names each pursuit's opportunity_id. "
-        "To start pursuing this opportunity, send the change with if_revision 0.",
+        "There is no pursuit for this opportunity, so its revision is 0. "
+        "Check the id: pursuits.list names each pursuit's opportunity_id.",
         details={"opportunity_id": opportunity_id, "expected_revision": expected_revision, "current_revision": 0},
         next_actions=[NextAction(operation=PURSUITS_LIST.id, arguments={})],
     )

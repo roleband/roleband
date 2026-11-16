@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import re
 from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
@@ -28,6 +29,7 @@ import tracker.mcp.server as server
 from tests.test_agent_writes_db import _until_waiting
 from tests.test_recipe_adapter import RECIPE
 from tracker.agents.config import AgentAccessConfig, set_agent_access
+from tracker.agents.operations.catalog import CATALOG
 from tracker.agents.operations.outcomes import EXIT_NOT_FOUND, outcome
 from tracker.agents.operations.pursuits import VIA, PursuitItem
 from tracker.agents.operations.recipes import SavedDraft
@@ -436,7 +438,7 @@ async def test_a_patch_at_a_revision_of_an_opportunity_with_no_pursuit_says_ther
 
     assert outcome("not_found").exit_status == EXIT_NOT_FOUND
     assert error["details"] == {"opportunity_id": unpursued, "expected_revision": 1, "current_revision": 0}
-    assert "no pursuit for this opportunity" in error["message"] and "if_revision 0" in error["message"]
+    assert "no pursuit for this opportunity" in error["message"] and "pursuits.list" in error["message"]
     assert error["next_actions"] == [{"operation": "pursuits.list", "arguments": {}}]
     assert await _pursuit(db_session, unpursued) is None
     kept = await _pursuit(db_session, pursued)
@@ -449,6 +451,40 @@ async def test_a_patch_at_a_revision_of_an_opportunity_with_no_pursuit_says_ther
     assert (created["opportunity_id"], created["revision"]) == (unpursued, 1)
     stale = _refused(*await _save(api_client, pursued, {"priority": 1, "if_revision": 7}), "revision_conflict")
     assert stale["details"] == {"expected_revision": 7, "current_revision": 1}
+
+
+#: Words a refusal would use to steer the caller towards a write.
+_WRITE_WORDS = re.compile(r"\b(creat|start|begin|send|save|patch|write|retry|if_revision|revision 0 to)", re.I)
+
+
+@pytest.mark.parametrize("write", ["patch", "save"])
+@pytest.mark.parametrize("revision", [1, 7])
+async def test_the_no_pursuit_refusal_never_suggests_a_create(api_client, db_session, roles, write, revision):
+    """The caller most likely holds a wrong id; a create suggested there is a
+    pursuit on an opportunity the person never chose. So neither the message
+    nor a suggested call leads to a write."""
+    unpursued, _ = roles
+    body = {"if_revision": revision, **({"next_action": None} if write == "patch" else {"priority": 2})}
+    send = _patch if write == "patch" else _save
+
+    error = _refused(*await send(api_client, unpursued, body), "not_found")
+
+    assert not _WRITE_WORDS.search(error["message"]), error["message"]
+    assert error["next_actions"], "the refusal points somewhere to look"
+    for action in error["next_actions"]:
+        assert CATALOG.get(action["operation"]).access == "read", action
+        assert "if_revision" not in action["arguments"], action
+    assert await _pursuit(db_session, unpursued) is None
+
+
+async def test_the_write_word_check_catches_a_create_hint():
+    # Negative control: the message this refusal must not carry is caught.
+    assert _WRITE_WORDS.search("To start pursuing this opportunity, send the change with if_revision 0.")
+    assert _WRITE_WORDS.search("Create it with revision 0.")
+    assert not _WRITE_WORDS.search(
+        "There is no pursuit for this opportunity, so its revision is 0. "
+        "Check the id: pursuits.list names each pursuit's opportunity_id."
+    )
 
 
 @pytest.mark.parametrize("body", [
