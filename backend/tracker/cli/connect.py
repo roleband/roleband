@@ -366,7 +366,12 @@ def refresh_installed_skills() -> list[dict[str, str]]:
     and so does one they deleted. Nothing here fails the call it runs in."""
     notices: list[dict[str, str]] = []
     for host, base in (("claude-code", claude_dir), ("codex", codex_dir)):
-        directory = base() / "skills" / "roleband"
+        try:
+            directory = base() / "skills" / "roleband"
+        except (OSError, RuntimeError):
+            # No home folder to find (`Path.home()` raises where the
+            # environment names none): no installed skill to keep current.
+            continue
         record = _recorded(directory)
         installed = record.get("version") if isinstance(record, dict) else None
         if not isinstance(installed, int) or isinstance(installed, bool) or installed >= SKILL_VERSION:

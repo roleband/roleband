@@ -403,7 +403,7 @@ def test_a_newer_client_installing_meanwhile_keeps_its_copy(tmp_path, monkeypatc
     assert json.loads((directory / ".roleband-skill.json").read_text())["version"] == connect.SKILL_VERSION + 1
 
 
-@pytest.mark.skipif(os.geteuid() == 0, reason="root writes through a read-only folder")
+@pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0, reason="root writes through a read-only folder")
 def test_a_skill_that_cannot_be_written_leaves_capabilities_answering(home):
     from tracker.cli.connect import SKILL_VERSION
 

@@ -656,6 +656,25 @@ def test_offline_discovery_fits_the_capability_index_budget(home):
     assert len(cli(home, "capabilities", "--offline", "--view", "full", "--json").stdout) > DISCOVERY_BUDGET
 
 
+def test_capabilities_answers_where_no_home_folder_can_be_found(monkeypatch):
+    """Keeping an installed skill current never fails the call: an environment
+    that names no home folder (a Windows service, a stripped CI job) has no
+    installed skill to look at."""
+    from tracker.cli import connect
+    from tracker.cli import main as cli_main
+
+    def no_home() -> Path:
+        raise RuntimeError("Could not determine home directory.")
+
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    monkeypatch.delenv("CODEX_HOME", raising=False)
+    monkeypatch.setattr(connect, "_home", no_home)
+    assert connect.refresh_installed_skills() == []
+    out = io.StringIO()
+    status = cli_main.run(["capabilities", "--offline", "--json"], stdout=out, stderr=io.StringIO(), environ={})
+    assert status == 0 and json.loads(out.getvalue())["ok"] is True
+
+
 def test_the_client_asks_for_a_full_view_only_when_told(home):
     with Stub(Reply(503)) as stub:
         home.contexts(current="dev", dev={"url": stub.url})
