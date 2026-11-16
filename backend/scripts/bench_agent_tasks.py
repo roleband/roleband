@@ -75,9 +75,12 @@ applied to a folder of the run's own, never to the person's.
 * `omlx`, `lmstudio`: one loop over an OpenAI-compatible endpoint
   (`--base-url`, defaults in `LOCAL_SERVERS`). MCP: the MCP Python client's
   tools. CLI: one tool, `roleband`, that runs the command with a list of
-  arguments and an optional standard input (the JSON `--input -` reads), no
-  shell, and returns its exit status, stdout and stderr. A call to any other
-  tool name runs nothing and is graded as the error it returns, as an unknown
+  arguments and an optional `input` (the command's JSON input, which the tool
+  sends on standard input with `--input -` added, as an exported tool sends
+  its arguments with `--input @FILE`), no shell, and returns its exit status,
+  stdout and stderr. The run's header names the tool's fields
+  (`local_tool`), and the report prints them: runs whose tools differ are not
+  compared as one measure. A call to any other tool name runs nothing and is graded as the error it returns, as an unknown
   MCP tool is. The switch picks only the address, the key (`ROLEBAND_BENCH_API_KEY`, else
   oMLX's own) and the version probe.
 * `oracle`, `oracle-wrong-answer`, `oracle-wrong-write`: no model. They answer
@@ -1814,26 +1817,35 @@ class ToolBox:
     call: Any
 
 
-#: The one tool of the CLI mode. Its arguments are an argument list and its
-#: standard input a string, so there is no shell between the model and the
-#: command: `stdin` is where a shell host would pipe (`echo '{...}' | roleband`).
+#: The one tool of the CLI mode. Its arguments are an argument list and the
+#: command's input, so there is no shell between the model and the command.
+#: The input reaches the command as a tool-calling host sends one: on standard
+#: input, with `--input -` added by the tool, never by the model.
 ROLEBAND_TOOL = {"type": "function", "function": {
     "name": "roleband",
     "description": "Run the `roleband` command with these arguments, without a shell. "
-                   "Returns its exit status, stdout and stderr. To send a command JSON, add `--input -` to "
-                   "`args` and put the JSON object in `stdin`, not in the arguments: the command reads "
-                   "`stdin` only when `--input -` is there.",
+                   "Returns its exit status, stdout and stderr. A command that takes a JSON input "
+                   "(filters, fields to change) gets it in `input`, not in the arguments.",
     "parameters": {"type": "object", "properties": {
         "args": {
             "type": "array", "items": {"type": "string"},
             "description": "the arguments after `roleband`, one string each, such as [\"capabilities\"]",
         },
-        "stdin": {
-            "type": "string",
-            "description": "the JSON the command reads when `args` holds `--input -`, such as {\"next_action_due\": null}",
+        "input": {
+            "type": ["object", "string"],
+            "description": "the command's JSON input, such as {\"next_action_due\": null}",
         },
-    }, "required": ["args"]},
+    }, "required": ["args"], "additionalProperties": False},
 }}
+
+#: The fields a `roleband` tool call may carry. Any other is refused, never
+#: dropped: a dropped input would run the command without it.
+ROLEBAND_FIELDS = frozenset({"args", "input"})
+
+
+def local_tool_fields() -> list[str]:
+    """The fields of the local hosts' `roleband` tool, as a run records them."""
+    return sorted(ROLEBAND_TOOL["function"]["parameters"]["properties"])
 
 
 def roleband_arguments(raw: Any) -> list[str]:
@@ -1852,28 +1864,54 @@ def roleband_arguments(raw: Any) -> list[str]:
     return value[1:] if value[:1] == ["roleband"] else value
 
 
-def roleband_stdin(raw: Any) -> bytes | None:
-    """The standard input of a `roleband` tool call: a string, or a JSON
-    object or list given as itself (small models send the object, not its
-    text). Absent means none."""
-    value = raw.get("stdin") if isinstance(raw, dict) else None
-    if value is None:
+def roleband_input(raw: Any) -> bytes | None:
+    """The command's input in a `roleband` tool call: a JSON object, or its
+    text. Absent, null, blank, an empty object, or text that reads as null or
+    an empty object means none: models fill every field of a tool's schema,
+    and an empty one on a command that takes no input must not add
+    `--input -`, which that command refuses as an unknown argument."""
+    value = raw.get("input") if isinstance(raw, dict) else None
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value) if value.strip() else None
+        except json.JSONDecodeError:
+            parsed = value
+        except RecursionError:
+            # Nesting past the decoder's limit: refused like any bad input, so the trial goes on.
+            raise ValueError("input is nested too deeply to read") from None
+        if parsed is None or parsed == {}:
+            return None
+    if value is None or value == {}:
         return None
-    if isinstance(value, dict | list):
+    if isinstance(value, dict):
         value = json.dumps(value)
     if not isinstance(value, str):
-        raise ValueError("stdin is a string: the JSON text the command reads with --input -")
+        raise ValueError("input is the command's JSON input: an object such as {\"next_action_due\": null}")
     return value.encode("utf-8")
 
 
-#: What the tool answers for `stdin` the arguments never read, as the command
-#: answers data piped to it without `--input -`.
-UNREAD_STDIN = "stdin holds data, which the command reads only with --input -; add --input - to args to read it."
+def names_input(argv: Sequence[str]) -> bool:
+    """Whether an argument list gives `--input` itself, in either form."""
+    return any(arg == "--input" or arg.startswith("--input=") for arg in argv)
 
 
-def reads_stdin(argv: Sequence[str]) -> bool:
-    """Whether an argument list reads standard input: `--input -` or `--input=-`."""
-    return "--input=-" in argv or any(a == "--input" and b == "-" for a, b in zip(argv, argv[1:], strict=False))
+#: What the tool answers when `input` and `--input` both name the command's input.
+TWO_INPUTS = "input and --input in args both give the command's input; send it in input alone."
+
+
+def roleband_call(raw: Any) -> tuple[list[str], bytes | None]:
+    """The argument list and standard input a `roleband` tool call runs: with
+    an `input`, `--input -` is added and the input goes on standard input.
+    Refused (ValueError) before anything runs when the call is ambiguous."""
+    if isinstance(raw, dict) and (unknown := sorted(set(raw) - ROLEBAND_FIELDS)):
+        raise ValueError(f"the roleband tool has no field {', '.join(map(repr, unknown))}; "
+                         "send the command's input in input")
+    argv, data = roleband_arguments(raw), roleband_input(raw)
+    if data is None:
+        return argv, None
+    if names_input(argv):
+        raise ValueError(TWO_INPUTS)
+    return [*argv, "--input", "-"], data
 
 
 @contextlib.asynccontextmanager
@@ -1908,10 +1946,7 @@ def cli_toolbox(cli: CliSetup, cwd: Path) -> ToolBox:
             return {"name": name, "kind": "unknown_tool", "result": f"there is no tool named {name!r}",
                     "is_error": True, "ran": False}
         try:
-            argv, stdin = roleband_arguments(args), roleband_stdin(args)
-            if stdin is not None and stdin.strip() and not reads_stdin(argv):
-                # Refused before it runs: the command would ignore the JSON and answer unfiltered.
-                raise ValueError(UNREAD_STDIN)
+            argv, stdin = roleband_call(args)
         except ValueError as exc:
             return {"name": "roleband", "kind": "roleband", "result": str(exc), "is_error": True, "ran": False}
         count += 1
@@ -2243,6 +2278,8 @@ async def run_trials(args: argparse.Namespace) -> Path:
         args.base_url = args.base_url or LOCAL_SERVERS[args.host]
         header["host_version"] = await local_host_info(args.host, args.base_url, args.model)
         args.local_info = header["host_version"]
+        if interface == "cli":
+            header["local_tool"] = local_tool_fields()
     with results.open("w") as out:
         out.write(json.dumps(header) + "\n")
     print(f"run {run_id}: {len(tasks)} task(s) x {args.trials} trial(s) -> {results}")
@@ -2426,6 +2463,9 @@ def report(paths: list[Path]) -> None:
         rows = [line for line in lines if line["record"] == "trial"]
         print(f"\n== {header.get('run_id')} corpus v{header.get('corpus_version')} "
               f"head {str(header.get('code', {}).get('head'))[:10]} host {_host_line(header)}")
+        if header.get("interface") == "cli" and header.get("host") in LOCAL_SERVERS:
+            # A header without `local_tool` comes from the tool whose fields are `args` and `stdin`.
+            print(f"   local tool fields: {', '.join(header.get('local_tool') or ['args', 'stdin'])}")
         models = sorted({str(row["host"].get("model")) for row in rows if row["host"].get("model")})
         if models:
             print(f"   model(s): {', '.join(models)}")

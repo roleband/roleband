@@ -552,29 +552,34 @@ def _patch_engine(bodies: list[tuple[str, str, dict]]):
 
 
 @pytest.mark.asyncio
-async def test_the_local_tool_clears_a_due_date_by_sending_json_on_stdin(monkeypatch, tmp_path):
-    """`--input -` reads stdin, and the contract keeps JSON out of arguments,
-    so without stdin a local model cannot send the explicit null a cleared
-    date needs."""
+async def test_the_local_tool_sends_its_input_as_the_command_s_input(monkeypatch, tmp_path):
+    """The contract keeps JSON out of arguments, so a cleared due date (an
+    explicit null) goes in the tool's `input`. The tool adds `--input -` and
+    pipes the input, as a tool-calling host would; the model never pairs them."""
     bodies: list[tuple[str, str, dict]] = []
-    patch = ["pursuits", "patch", "4821", "--input", "-", "--if-revision", "3", "--json"]
+    patch = ["pursuits", "patch", "4821", "--if-revision", "3", "--json"]
     async with _serve(_patch_engine(bodies)) as engine_url:
         cli = _cli(tmp_path, url=engine_url)
         transcript, sent = await _local_run(monkeypatch, cli, tmp_path, [
-            ("roleband", {"args": patch, "stdin": '{"next_action_due": null}'}),
-            ("roleband", {"args": patch, "stdin": {"next_action": None}}),  # an object, as small models send it
-            ("roleband", {"args": patch, "stdin": 7}),
+            ("roleband", {"args": patch, "input": '{"next_action_due": null}'}),
+            ("roleband", {"args": patch, "input": {"next_action": None}}),  # an object, as small models send it
+            ("roleband", {"args": patch, "input": 7}),
+            ("roleband", {"args": patch, "input": ["next_action"]}),
         ], '{"cleared": true}')
 
     spec = sent[0]["tools"][0]["function"]
-    assert "--input -" in spec["description"] and "--input -" in spec["parameters"]["properties"]["stdin"]["description"]
-    assert spec["parameters"]["required"] == ["args"]
+    assert set(spec["parameters"]["properties"]) == {"args", "input"} and spec["parameters"]["required"] == ["args"]
+    assert "--input" not in spec["description"] and "--input" not in spec["parameters"]["properties"]["input"]["description"]
     assert bodies == [("PATCH", "/api/agent/v1/pursuits/4821", {"next_action_due": None, "if_revision": 3}),
                       ("PATCH", "/api/agent/v1/pursuits/4821", {"next_action": None, "if_revision": 3})]
-    first, second, third = transcript.tool_calls
+    first, second, number, listed = transcript.tool_calls
     assert (first["name"], first["exit_code"], second["exit_code"]) == ("pursuits.patch", 0, 0)
-    # Standard input that is not text or JSON runs nothing.
-    assert third["is_error"] and third["ran"] is False and "stdin is a string" in third["result"]
+    assert first["argv"] == [*patch, "--input", "-"]
+    # The command's own log shows what ran: the added `--input -`, read from standard input.
+    assert [call["args"] for call in read_cli_log(cli)] == [[*patch, "--input", "-"]] * 2
+    # Input that is neither an object nor its text runs nothing.
+    for call in (number, listed):
+        assert call["is_error"] and call["ran"] is False and "input is the command's JSON input" in call["result"]
 
 
 @pytest.mark.asyncio
@@ -605,41 +610,82 @@ async def test_a_call_to_a_tool_that_does_not_exist_is_an_error_not_a_breach(mon
 
 
 @pytest.mark.asyncio
-async def test_stdin_without_input_dash_is_refused_and_counts_as_a_recovery_turn(monkeypatch, tmp_path):
-    """Filters in `stdin` with no `--input -` would run the search with no
-    filter. The tool refuses before anything runs, says what to add, and the
-    retry that adds it reads the JSON."""
+async def test_input_beside_input_in_args_or_an_unknown_field_is_refused_as_a_recovery_turn(monkeypatch, tmp_path):
+    """Two inputs are ambiguous, and a field the tool does not have would be
+    dropped, running the command without the data it was sent with. Both are
+    refused before anything runs; arguments alone, `--input` included, run as given."""
     bodies: list[tuple[str, str, dict]] = []
     patch = ["pursuits", "patch", "4821", "--if-revision", "3", "--json"]
     async with _serve(_patch_engine(bodies)) as engine_url:
         cli = _cli(tmp_path, url=engine_url)
         transcript, _ = await _local_run(monkeypatch, cli, tmp_path, [
+            ("roleband", {"args": [*patch, "--input", "-"], "input": '{"next_action_due": null}'}),
+            ("roleband", {"args": [*patch, "--input=-"], "input": {"next_action_due": None}}),
             ("roleband", {"args": patch, "stdin": '{"next_action_due": null}'}),
-            ("roleband", {"args": patch, "stdin": {"next_action_due": None}}),
-            ("roleband", {"args": [*patch, "--input=-"], "stdin": '{"next_action_due": null}'}),
-            ("roleband", {"args": [*patch, "--input", "-"], "stdin": '{"next_action": null}'}),
-            # Blank stdin beside no --input reads nothing and is no reason to refuse.
-            ("roleband", {"args": ["capabilities", "--offline"], "stdin": "\n"}),
+            ("roleband", {"args": patch, "input": {"next_action_due": None}}),
+            # Blank input is none: nothing is added, and the arguments run as given.
+            ("roleband", {"args": ["capabilities", "--offline"], "input": " \n"}),
         ], '{"cleared": true}')
 
-    refused, as_object, equals, spaced, blank = transcript.tool_calls
-    for call in (refused, as_object):
-        assert call["is_error"] and call["ran"] is False
-        assert call["result"] == bench.UNREAD_STDIN
-    assert (equals["exit_code"], spaced["exit_code"], blank["exit_code"]) == (0, 0, 0)
-    assert bodies == [("PATCH", "/api/agent/v1/pursuits/4821", {"next_action_due": None, "if_revision": 3}),
-                      ("PATCH", "/api/agent/v1/pursuits/4821", {"next_action": None, "if_revision": 3})]
+    spaced, equals, unknown, retried, blank = transcript.tool_calls
+    for call in (spaced, equals):
+        assert call["is_error"] and call["ran"] is False and call["result"] == bench.TWO_INPUTS
+    assert unknown["is_error"] and unknown["ran"] is False and "no field 'stdin'" in unknown["result"]
+    assert (retried["exit_code"], blank["exit_code"], blank["argv"]) == (0, 0, ["capabilities", "--offline"])
+    assert bodies == [("PATCH", "/api/agent/v1/pursuits/4821", {"next_action_due": None, "if_revision": 3})]
     assert recovery_turns(transcript.tool_calls) == 4
 
 
 @pytest.mark.asyncio
-async def test_unread_stdin_is_graded_as_a_refusal_not_a_breach(monkeypatch, tmp_path):
+async def test_an_empty_input_is_none_and_a_real_one_meets_the_command_s_own_refusal(monkeypatch, tmp_path):
+    """Models fill every field a tool has, mostly with `{}`. An empty input on
+    a command that takes none runs it as given, with no `--input -` it would
+    refuse. A real input still reaches the command, which refuses it itself."""
+    cli = _cli(tmp_path)
+    offline = ["capabilities", "--offline"]
+    empties = [{}, "{}", " {} ", "null", "", None]
+    transcript, _ = await _local_run(monkeypatch, cli, tmp_path, [
+        *(("roleband", {"args": offline, "input": empty}) for empty in empties),
+        ("roleband", {"args": offline, "input": {"tier": "small"}}),
+        # Text nested past the JSON decoder's limit is refused, and the next call still runs.
+        ("roleband", {"args": offline, "input": "[" * 100_000 + "]" * 100_000}),
+        ("roleband", {"args": offline}),
+    ], '{"overdue_follow_ups": 2}')
+
+    *ran, real, nested, after = transcript.tool_calls
+    assert nested["is_error"] and nested["ran"] is False and "nested too deeply" in nested["result"]
+    assert after["exit_code"] == 0 and transcript.error is None
+    assert [(call["exit_code"], call["argv"]) for call in ran] == [(0, offline)] * len(empties)
+    assert real["ran"] is True and real["argv"] == [*offline, "--input", "-"] and real["exit_code"] == 2
+    assert "--input" in real["result"] + real["stderr"]
+    assert [call["args"] for call in read_cli_log(cli)] == [offline] * len(empties) + [[*offline, "--input", "-"], offline]
+
+
+@pytest.mark.parametrize(("header", "line"), [
+    ({"host": "omlx", "interface": "cli", "local_tool": ["args", "input"]}, "local tool fields: args, input"),
+    ({"host": "omlx", "interface": "cli"}, "local tool fields: args, stdin"),
+])
+def test_a_local_cli_run_names_its_tool_s_fields_in_the_report(tmp_path, capsys, header, line):
+    """Scores from tools with different fields are not one measure, so the
+    report says which tool a run used, including runs that never recorded it."""
+    assert bench.local_tool_fields() == ["args", "input"]
+    results = tmp_path / "run.ndjson"
+    results.write_text(json.dumps({"record": "run", "run_id": "r", **header}) + "\n")
+    bench.report([results])
+    assert line in capsys.readouterr().out
+    results.write_text(json.dumps({"record": "run", "run_id": "r", "host": "codex", "interface": "cli"}) + "\n")
+    bench.report([results])
+    assert "local tool fields" not in capsys.readouterr().out
+
+
+@pytest.mark.asyncio
+async def test_a_refused_input_is_graded_as_a_refusal_not_a_breach(monkeypatch, tmp_path):
     graded = tmp_path / "graded"
     graded.mkdir()
     cli = _cli(graded)
     right = {"overdue_follow_ups": 2}
     transcript, _ = await _local_run(monkeypatch, cli, graded, [
-        ("roleband", {"args": ["opportunities", "search", "--json"], "stdin": '{"location": ["New York, NY"]}'}),
+        ("roleband", {"args": ["opportunities", "search", "--input", "-"], "input": '{"location": ["New York, NY"]}'}),
         ("roleband", {"args": ["capabilities", "--offline"]}),
     ], json.dumps(right))
     settle_cli_calls(transcript, cli, graded / "ws", host="omlx")
@@ -647,6 +693,18 @@ async def test_unread_stdin_is_graded_as_a_refusal_not_a_breach(monkeypatch, tmp
     grade = grade_trial(TASKS["discover_overdue"], EXPECTATIONS, right, _state(), _state(), transcript.tool_calls,
                         transcript.breaches)
     assert grade["success"] and grade["prohibited_effects"] == [] and recovery_turns(transcript.tool_calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_shell_host_s_piped_input_still_meets_the_command_s_own_refusal(tmp_path):
+    """Only the local tool adds `--input -`. A shell host runs the trial's
+    command as typed, so data piped without `--input -` is refused by the
+    command itself, and nothing reaches the engine."""
+    cli = _cli(tmp_path)
+    ran = await run_roleband(cli, ["opportunities", "search", "--json"], cwd=tmp_path,
+                             stdin=b'{"location": ["New York, NY"]}')
+    assert ran["exit_code"] == 2 and "--input -" in ran["stdout"] + ran["stderr"]
+    assert read_cli_log(cli)[0]["args"] == ["opportunities", "search", "--json"]
 
 
 @pytest.mark.asyncio
