@@ -903,6 +903,14 @@ test("a stuck section heading is level with the side column's first line", async
   expect(Math.abs(heading - kicker), "the heading's words and the column's first kicker").toBeLessThanOrEqual(1.5);
 });
 
+/** Waits until the posting titled `title` is drawn and its turn has ended. A
+ *  key pressed while a turn runs reaches a posting that is still turning in,
+ *  so a person, and a test, wait for it to arrive before stepping again. */
+async function arrived(page: Page, title: string) {
+  await expect(detail(page).getByRole("heading", { level: 1, name: title })).toBeVisible(FIRST_TURN);
+  await expect(page.locator("html"), "the turn has ended").not.toHaveAttribute("data-posting-turn", FIRST_TURN);
+}
+
 /* Opened from a list, a posting knows its place there: the bar steps to the
    rows on either side, J and K do the same, and Back still returns to the
    list. Opened by its link it has no list, and no pager. */
@@ -919,13 +927,14 @@ test("a posting opened from the board steps to the next row and back, and Back r
 
   await next.click();
   await expect(page).toHaveURL(/\/company\/[^/]+\/job\/202$/);
-  await expect(panel.getByRole("heading", { level: 1, name: jobFixture2.title })).toBeVisible(FIRST_TURN);
+  await arrived(page, jobFixture2.title);
   await expect(pager).toContainText(msg("role-job-detail-pager-place", { place: 2, count: 2 }));
   await expect(next, "nothing after the last row").toHaveAttribute("aria-disabled", "true");
 
   await page.keyboard.press("k");
   await expect(page).toHaveURL(/\/job\/101$/);
   await expect(pager).toContainText(msg("role-job-detail-pager-place", { place: 1, count: 2 }));
+  await arrived(page, jobFixture.title);
   await page.keyboard.press("j");
   await expect(page).toHaveURL(/\/job\/202$/);
 

@@ -294,8 +294,10 @@ export function reviewData(root = ROOT, src = SRC) {
 /** Record an editorial review of `ids` in `code`: the English, the translation
     and the rules it was reviewed against. Any of them changing makes it stale.
     Separate from translation tracking (`copy:check -- --translated`). */
-export function recordReview(root, code, ids) {
-  const data = reviewData(root);
+/** Records `ids` as reviewed in `code`. `src` is the source tree whose usages
+    `reviewData` also reads; a scratch catalog passes its own. */
+export function recordReview(root, code, ids, src = SRC) {
+  const data = reviewData(root, src);
   const path = join(root, code, "reviewed-from.json");
   const ledger = readJSON(path);
   for (const id of ids) {

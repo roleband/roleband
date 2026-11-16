@@ -88,21 +88,46 @@ def test_route_table_is_frozen():
     )
 
 
-def test_a_modelled_route_still_declares_its_model():
-    """A route that HAD a response model may not quietly lose it."""
+def _changed_models(frozen_rows: list[dict], current_rows: list[dict]) -> dict:
+    """Each frozen route whose recorded model name the app no longer declares,
+    with the name the table holds and the one the app declares now."""
 
-    frozen = {(r["method"], r["path"]): r["response_schema"] for r in _fixture()["routes"]}
-    current = {(r["method"], r["path"]): r["response_schema"] for r in route_rows()}
-    lost = {
-        key: was
+    frozen = {(r["method"], r["path"]): r["response_schema"] for r in frozen_rows}
+    current = {(r["method"], r["path"]): r["response_schema"] for r in current_rows}
+    return {
+        key: (was, current.get(key))
         for key, was in frozen.items()
         if was and current.get(key) != was
     }
+
+
+def test_a_modelled_route_still_declares_its_model():
+    """A route that HAD a response model may not quietly lose it, and the name
+    the table records is the model the route declares now."""
+
+    lost = _changed_models(_fixture()["routes"], route_rows())
     assert not lost, (
         f"these routes lost or changed their declared response model: {lost}. "
         "A response_model is the only thing in this repo that catches a renamed "
-        "response field, so dropping one is a deliberate act, not a refactor."
+        "response field, so dropping one is a deliberate act, not a refactor. "
+        "A renamed model regenerates tests/fixtures/route_table.json."
     )
+
+
+def test_a_stale_or_dropped_model_name_is_named():
+    """Negative control for the comparison above: a table that still holds a
+    model's old name, or a route that lost its model, fails by route; a table
+    that matches the app does not."""
+
+    current = route_rows()
+    modelled = next(r for r in current if r["response_schema"])
+    key = (modelled["method"], modelled["path"])
+    renamed = [dict(r, response_schema="StaleName") if r is modelled else r for r in current]
+    dropped = [dict(r, response_schema=None) if r is modelled else r for r in current]
+
+    assert _changed_models(current, current) == {}
+    assert _changed_models(renamed, current) == {key: ("StaleName", modelled["response_schema"])}
+    assert _changed_models(current, dropped) == {key: (modelled["response_schema"], None)}
 
 
 def test_response_model_coverage_is_reported_and_may_only_rise():
