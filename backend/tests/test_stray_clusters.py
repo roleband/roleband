@@ -18,7 +18,7 @@ import pytest
 from scripts import stray_clusters
 from scripts.stray_clusters import (
     HOLDERS,
-    Cluster,
+    RunningCluster,
     _why_kept,
     live_holders,
     running_clusters,
@@ -55,7 +55,7 @@ def test_only_a_recorded_unclaimed_throwaway_cluster_is_a_stray(tmp_path, monkey
 
     def state(pgdata: Path) -> str:
         holders = live_holders(pgdata)
-        return Cluster(pgdata, 1, holders, _why_kept(pgdata, holders)).state
+        return RunningCluster(pgdata, 1, holders, _why_kept(pgdata, holders)).state
 
     assert state(stray) == "stray"
     assert state(claimed) == "kept"

@@ -40,7 +40,7 @@ HOLDERS = ".handle_pids.json"
 
 
 @dataclass(frozen=True)
-class Cluster:
+class RunningCluster:
     pgdata: Path
     postmaster: int
     #: Holders still running, or None when the cluster keeps no holder record.
@@ -107,7 +107,7 @@ def _arguments(proc) -> list[str]:
         return []
 
 
-def running_clusters() -> list[Cluster]:
+def running_clusters() -> list[RunningCluster]:
     """Every cluster this account's postmasters serve now, read from the
     process table: a `postmaster.pid` can outlive its server."""
     import psutil
@@ -123,7 +123,7 @@ def running_clusters() -> list[Cluster]:
             continue
         pgdata = Path(arguments[arguments.index("-D") + 1]).resolve()
         holders = live_holders(pgdata)
-        found.append(Cluster(pgdata, proc.info["pid"], holders, _why_kept(pgdata, holders)))
+        found.append(RunningCluster(pgdata, proc.info["pid"], holders, _why_kept(pgdata, holders)))
     return sorted(found, key=lambda cluster: str(cluster.pgdata))
 
 
