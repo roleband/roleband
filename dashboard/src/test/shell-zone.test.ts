@@ -2,7 +2,7 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ESLint } from "eslint";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const RULE = "import-x/no-restricted-paths";
@@ -21,18 +21,29 @@ const RULE = "import-x/no-restricted-paths";
  * shell zones carry a fixture that really commits the violation, and the rule
  * is required to fire on it by name.
  */
-async function messagesFor(fixture: string) {
+const FIXTURES = ["src/ui/zone-probe.fixture.ts", "src/shell/zone-probe.fixture.ts"];
+
+/* Both fixtures are linted once, before the tests. ESLint's first lint loads
+ * its configuration, the TypeScript parser and the import resolver: about two
+ * seconds on an idle machine and past ten on a busy one. That is setup, so it
+ * gets a limit of its own rather than spending a test's. */
+let linted: ESLint.LintResult[] = [];
+beforeAll(async () => {
   // `ignore: false` — the fixtures are excluded from `npm run lint` precisely
   // because they violate the rules they exist to prove.
   const eslint = new ESLint({ cwd: ROOT, ignore: false });
-  const results = await eslint.lintFiles([join(ROOT, fixture)]);
+  linted = await eslint.lintFiles(FIXTURES.map((fixture) => join(ROOT, fixture)));
+}, 60_000);
+
+function messagesFor(fixture: string) {
+  const results = linted.filter((result) => result.filePath === join(ROOT, fixture));
   expect(results.length, `${fixture} was not linted at all`).toBe(1);
   return results[0].messages.filter((m) => m.ruleId === RULE);
 }
 
 describe("the shell tier's import zones", () => {
-  it("stops a primitive reaching up into the shell", async () => {
-    const violations = await messagesFor("src/ui/zone-probe.fixture.ts");
+  it("stops a primitive reaching up into the shell", () => {
+    const violations = messagesFor("src/ui/zone-probe.fixture.ts");
     expect(
       violations.length,
       "A ui/ module imported src/shell/ and the zone said nothing. F1 depends " +
@@ -42,8 +53,8 @@ describe("the shell tier's import zones", () => {
     ).toBeGreaterThan(0);
   });
 
-  it("stops the shell importing a route", async () => {
-    const violations = await messagesFor("src/shell/zone-probe.fixture.ts");
+  it("stops the shell importing a route", () => {
+    const violations = messagesFor("src/shell/zone-probe.fixture.ts");
     expect(
       violations.length,
       "A shell module imported src/routes/ and the zone said nothing. The shell " +
@@ -53,7 +64,7 @@ describe("the shell tier's import zones", () => {
 
   it("keeps both fixtures out of the linted tree, so `npm run lint` stays green", async () => {
     const eslint = new ESLint({ cwd: ROOT });
-    for (const fixture of ["src/ui/zone-probe.fixture.ts", "src/shell/zone-probe.fixture.ts"]) {
+    for (const fixture of FIXTURES) {
       expect(await eslint.isPathIgnored(join(ROOT, fixture)), fixture).toBe(true);
     }
   });

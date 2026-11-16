@@ -228,6 +228,9 @@ export function build({ root = DEFAULT_ROOT, gen = join(root, "gen"), runtime = 
       .join("\n")}\n} as const;\n`,
   );
 
+  const englishById = new Map(en.messages.map((m) => [m.id, m]));
+  const englishOnly = new Set(manifest.englishOnly ?? []);
+
   function table(locale, list, terms, { text, wrap = (b) => b, rtl = false } = {}) {
     const fns = new Array(ids.length).fill(null);
     for (const msg of list) {
@@ -235,7 +238,7 @@ export function build({ root = DEFAULT_ROOT, gen = join(root, "gen"), runtime = 
       if (i === undefined) throw new CopyError(`${msg.file}: ${msg.id} is not in the English catalog`);
       dependencies(msg);
       if (locale !== "keys" && locale !== "en-XA") {
-        const errors = parity(en.messages.find((e) => e.id === msg.id), msg);
+        const errors = parity(englishById.get(msg.id), msg);
         if (errors.length) {
           const saved = quarantine[msg.origin ?? locale]?.[msg.id];
           if (saved !== JSON.stringify(semantic(msg.pattern))) throw new CopyError(`${msg.file}: ${msg.id}: ${errors.join("; ")}`);
@@ -277,7 +280,7 @@ export function build({ root = DEFAULT_ROOT, gen = join(root, "gen"), runtime = 
       t = table(loc.code, en.messages, en.terms, { wrap: (_b, _e, id) => lit(`⟦${id}⟧`) });
     } else {
       const l = catalog(loc.code);
-      for (const msg of l.messages) if ((manifest.englishOnly ?? []).includes(msg.id)) throw new CopyError(`${msg.file}: ${msg.id} is deliberately English-only`);
+      for (const msg of l.messages) if (englishOnly.has(msg.id)) throw new CopyError(`${msg.file}: ${msg.id} is deliberately English-only`);
       const merged = new Map(l.messages.map(m => [m.id,m]));
       function addFallback(code) {
         if (code === "en") return;
@@ -288,7 +291,8 @@ export function build({ root = DEFAULT_ROOT, gen = join(root, "gen"), runtime = 
       }
       for (const code of loc.fallback ?? []) addFallback(code);
       t = table(loc.code, [...merged.values()], l.terms, { rtl: loc.dir === "rtl" });
-      const missing = ids.filter((id) => (!l.messages.some((m) => m.id === id) || quarantine[loc.code]?.[id]) && !(manifest.englishOnly ?? []).includes(id));
+      const own = new Set(l.messages.map((m) => m.id));
+      const missing = ids.filter((id) => (!own.has(id) || quarantine[loc.code]?.[id]) && !englishOnly.has(id));
       if (loc.status === "complete" && missing.length) {
         throw new CopyError(`${loc.code} is complete but ${missing.length} messages are missing`);
       }
