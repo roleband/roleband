@@ -259,6 +259,29 @@ async def test_a_retried_save_replays_and_writes_once(api_client, db_session, ro
     assert await _count(db_session, CommandReceipt) == 1
 
 
+@pytest.mark.parametrize("write", ["save", "patch"])
+async def test_a_receipt_stored_with_the_row_keys_replays_in_the_record_shape(api_client, db_session, roles, write):
+    """A receipt keeps the result in the keys it was stored with. One that
+    names the pursuit row's `id` and `job_id` still replays, as the
+    `opportunity_id` record, and writes nothing again."""
+    job_id, _ = roles
+    body = {"priority": 2} if write == "save" else {"if_revision": 0, "notes": "first"}
+    send = _save if write == "save" else _patch
+    first = _data(*await send(api_client, job_id, body))
+    async with _fresh(db_session) as session:
+        receipt = await session.scalar(select(CommandReceipt))
+        row_id = (await session.scalar(select(Pursuit.id).where(Pursuit.job_id == job_id)))
+        stored = {key: value for key, value in receipt.result.items() if key != "opportunity_id"}
+        receipt.result = {"id": row_id, "job_id": job_id, **stored}
+        await session.commit()
+
+    response, replayed = await send(api_client, job_id, body)
+
+    assert _data(response, replayed) == first and replayed["meta"]["replayed"] is True
+    assert "id" not in replayed["data"] and "job_id" not in replayed["data"]
+    assert len(await _events(db_session, job_id)) == 1
+
+
 async def test_two_identical_saves_at_once_write_once(api_client, db_session, roles):
     """Both saves queue on the key's lock, held here until both wait, so they
     truly overlap: one writes, the other replays its receipt."""

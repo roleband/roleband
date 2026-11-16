@@ -81,6 +81,16 @@ class PursuitState(Shape):
     #: write passes back the revision it read and is refused if it moved.
     revision: int = Field(ge=1)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _from_row_keys(cls, data: Any) -> Any:
+        """A write's receipt keeps its result in the keys it was stored with,
+        which may be the row's `id` and `job_id`; a same-key retry replays it
+        in this shape all the same."""
+        if isinstance(data, dict) and "job_id" in data and "opportunity_id" not in data:
+            return agent_fields(data)
+        return data
+
 
 class PursuedOpportunity(Shape):
     title: str = Field(json_schema_extra=_CONTENT)
