@@ -1240,6 +1240,17 @@
         ],
         "default": null
        },
+       "plugin": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/PluginHealthChange"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null
+       },
        "sequence": {
         "title": "Sequence",
         "type": "string",
@@ -1285,6 +1296,62 @@
        "operation"
       ],
       "title": "NextAction",
+      "type": "object"
+     },
+     "PluginHealthChange": {
+      "additionalProperties": false,
+      "properties": {
+       "job": {
+        "title": "Job",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "outcome": {
+        "title": "Outcome",
+        "type": "string",
+        "x-text": "code"
+       },
+       "plugin": {
+        "title": "Plugin",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "previous_state": {
+        "anyOf": [
+         {
+          "enum": [
+           "healthy",
+           "degraded",
+           "failing"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Previous State",
+        "x-text": "code"
+       },
+       "state": {
+        "enum": [
+         "healthy",
+         "degraded",
+         "failing"
+        ],
+        "title": "State",
+        "type": "string",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "state",
+       "previous_state",
+       "outcome",
+       "plugin",
+       "job"
+      ],
+      "title": "PluginHealthChange",
       "type": "object"
      },
      "SourceHealthChange": {
@@ -4670,6 +4737,14 @@
      "InsightsCoverage": {
       "additionalProperties": false,
       "properties": {
+       "companies": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Companies",
+        "type": "array",
+        "x-text": "identifier"
+       },
        "families": {
         "items": {
          "type": "string"
@@ -4711,6 +4786,14 @@
         ],
         "title": "Off Board Companies"
        },
+       "places": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Places",
+        "type": "array",
+        "x-text": "code"
+       },
        "population": {
         "enum": [
          "open_roles",
@@ -4747,6 +4830,8 @@
        "population",
        "side",
        "families",
+       "companies",
+       "places",
        "off_board_companies",
        "window",
        "history",
@@ -5443,6 +5528,14 @@
      "InsightsCoverage": {
       "additionalProperties": false,
       "properties": {
+       "companies": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Companies",
+        "type": "array",
+        "x-text": "identifier"
+       },
        "families": {
         "items": {
          "type": "string"
@@ -5484,6 +5577,14 @@
         ],
         "title": "Off Board Companies"
        },
+       "places": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Places",
+        "type": "array",
+        "x-text": "code"
+       },
        "population": {
         "enum": [
          "open_roles",
@@ -5520,6 +5621,8 @@
        "population",
        "side",
        "families",
+       "companies",
+       "places",
        "off_board_companies",
        "window",
        "history",
@@ -5926,6 +6029,14 @@
      "InsightsCoverage": {
       "additionalProperties": false,
       "properties": {
+       "companies": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Companies",
+        "type": "array",
+        "x-text": "identifier"
+       },
        "families": {
         "items": {
          "type": "string"
@@ -5967,6 +6078,14 @@
         ],
         "title": "Off Board Companies"
        },
+       "places": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Places",
+        "type": "array",
+        "x-text": "code"
+       },
        "population": {
         "enum": [
          "open_roles",
@@ -6003,6 +6122,8 @@
        "population",
        "side",
        "families",
+       "companies",
+       "places",
        "off_board_companies",
        "window",
        "history",
@@ -6418,6 +6539,14 @@
      "InsightsCoverage": {
       "additionalProperties": false,
       "properties": {
+       "companies": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Companies",
+        "type": "array",
+        "x-text": "identifier"
+       },
        "families": {
         "items": {
          "type": "string"
@@ -6459,6 +6588,14 @@
         ],
         "title": "Off Board Companies"
        },
+       "places": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Places",
+        "type": "array",
+        "x-text": "code"
+       },
        "population": {
         "enum": [
          "open_roles",
@@ -6495,6 +6632,8 @@
        "population",
        "side",
        "families",
+       "companies",
+       "places",
        "off_board_companies",
        "window",
        "history",
@@ -6754,6 +6893,14 @@
      "InsightsCoverage": {
       "additionalProperties": false,
       "properties": {
+       "companies": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Companies",
+        "type": "array",
+        "x-text": "identifier"
+       },
        "families": {
         "items": {
          "type": "string"
@@ -6795,6 +6942,14 @@
         ],
         "title": "Off Board Companies"
        },
+       "places": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Places",
+        "type": "array",
+        "x-text": "code"
+       },
        "population": {
         "enum": [
          "open_roles",
@@ -6831,6 +6986,8 @@
        "population",
        "side",
        "families",
+       "companies",
+       "places",
        "off_board_companies",
        "window",
        "history",
@@ -7212,6 +7369,14 @@
      "InsightsCoverage": {
       "additionalProperties": false,
       "properties": {
+       "companies": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Companies",
+        "type": "array",
+        "x-text": "identifier"
+       },
        "families": {
         "items": {
          "type": "string"
@@ -7253,6 +7418,14 @@
         ],
         "title": "Off Board Companies"
        },
+       "places": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Places",
+        "type": "array",
+        "x-text": "code"
+       },
        "population": {
         "enum": [
          "open_roles",
@@ -7289,6 +7462,8 @@
        "population",
        "side",
        "families",
+       "companies",
+       "places",
        "off_board_companies",
        "window",
        "history",
@@ -7567,7 +7742,8 @@
    "client_effects": [],
    "contract_version": "1.0",
    "data_classes": [
-    "market_statistic"
+    "market_statistic",
+    "private_pursuit"
    ],
    "engine_effects": {
     "external_action": false,
@@ -7681,6 +7857,14 @@
      "InsightsCoverage": {
       "additionalProperties": false,
       "properties": {
+       "companies": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Companies",
+        "type": "array",
+        "x-text": "identifier"
+       },
        "families": {
         "items": {
          "type": "string"
@@ -7722,6 +7906,14 @@
         ],
         "title": "Off Board Companies"
        },
+       "places": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Places",
+        "type": "array",
+        "x-text": "code"
+       },
        "population": {
         "enum": [
          "open_roles",
@@ -7758,6 +7950,8 @@
        "population",
        "side",
        "families",
+       "companies",
+       "places",
        "off_board_companies",
        "window",
        "history",
@@ -7799,8 +7993,7 @@
        "new_count",
        "already_listed_count",
        "closed_count",
-       "companies",
-       "saved_total"
+       "companies"
       ],
       "title": "InsightsOverviewKpis",
       "type": "object"
@@ -8149,6 +8342,14 @@
      "InsightsCoverage": {
       "additionalProperties": false,
       "properties": {
+       "companies": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Companies",
+        "type": "array",
+        "x-text": "identifier"
+       },
        "families": {
         "items": {
          "type": "string"
@@ -8190,6 +8391,14 @@
         ],
         "title": "Off Board Companies"
        },
+       "places": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Places",
+        "type": "array",
+        "x-text": "code"
+       },
        "population": {
         "enum": [
          "open_roles",
@@ -8226,6 +8435,8 @@
        "population",
        "side",
        "families",
+       "companies",
+       "places",
        "off_board_companies",
        "window",
        "history",
@@ -9048,6 +9259,14 @@
      "InsightsCoverage": {
       "additionalProperties": false,
       "properties": {
+       "companies": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Companies",
+        "type": "array",
+        "x-text": "identifier"
+       },
        "families": {
         "items": {
          "type": "string"
@@ -9089,6 +9308,14 @@
         ],
         "title": "Off Board Companies"
        },
+       "places": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Places",
+        "type": "array",
+        "x-text": "code"
+       },
        "population": {
         "enum": [
          "open_roles",
@@ -9125,6 +9352,8 @@
        "population",
        "side",
        "families",
+       "companies",
+       "places",
        "off_board_companies",
        "window",
        "history",
@@ -9594,6 +9823,14 @@
      "InsightsCoverage": {
       "additionalProperties": false,
       "properties": {
+       "companies": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Companies",
+        "type": "array",
+        "x-text": "identifier"
+       },
        "families": {
         "items": {
          "type": "string"
@@ -9635,6 +9872,14 @@
         ],
         "title": "Off Board Companies"
        },
+       "places": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Places",
+        "type": "array",
+        "x-text": "code"
+       },
        "population": {
         "enum": [
          "open_roles",
@@ -9671,6 +9916,8 @@
        "population",
        "side",
        "families",
+       "companies",
+       "places",
        "off_board_companies",
        "window",
        "history",
@@ -10039,6 +10286,14 @@
      "InsightsCoverage": {
       "additionalProperties": false,
       "properties": {
+       "companies": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Companies",
+        "type": "array",
+        "x-text": "identifier"
+       },
        "families": {
         "items": {
          "type": "string"
@@ -10080,6 +10335,14 @@
         ],
         "title": "Off Board Companies"
        },
+       "places": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Places",
+        "type": "array",
+        "x-text": "code"
+       },
        "population": {
         "enum": [
          "open_roles",
@@ -10116,6 +10379,8 @@
        "population",
        "side",
        "families",
+       "companies",
+       "places",
        "off_board_companies",
        "window",
        "history",
@@ -10731,6 +10996,14 @@
      "InsightsCoverage": {
       "additionalProperties": false,
       "properties": {
+       "companies": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Companies",
+        "type": "array",
+        "x-text": "identifier"
+       },
        "families": {
         "items": {
          "type": "string"
@@ -10772,6 +11045,14 @@
         ],
         "title": "Off Board Companies"
        },
+       "places": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Places",
+        "type": "array",
+        "x-text": "code"
+       },
        "population": {
         "enum": [
          "open_roles",
@@ -10808,6 +11089,8 @@
        "population",
        "side",
        "families",
+       "companies",
+       "places",
        "off_board_companies",
        "window",
        "history",
@@ -13852,7 +14135,8 @@
    "client_effects": [],
    "contract_version": "1.0",
    "data_classes": [
-    "public_posting"
+    "public_posting",
+    "private_pursuit"
    ],
    "engine_effects": {
     "external_action": false,
@@ -14180,7 +14464,8 @@
    "client_effects": [],
    "contract_version": "1.0",
    "data_classes": [
-    "public_posting"
+    "public_posting",
+    "private_pursuit"
    ],
    "engine_effects": {
     "external_action": false,

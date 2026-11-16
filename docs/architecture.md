@@ -1299,6 +1299,23 @@ keeps stored choices the engine cannot read as they are, so the row still
 reads as everything off. A keyed write's receipt keeps the whole result; its
 answer, fresh or replayed, leaves the part out. Every operation but the
 handshake declares at least one data class.
+A class covers what its part reveals, not where the part is stored. Public
+postings are the postings themselves, their fields, and the vocabulary and
+counts that page through them. Market statistics are figures read across
+postings or from outside data: estimates, pay ladders and offer rules, a
+company's facts and share price, its open roles and their places, and the
+Insights. Pursuits and notes are the person's saves, pursuits, notes,
+dismissals and due steps, and any count of them, such as the overview's saved
+roles. A class that decides whether a posting is found counts too: a saved or
+pursued posting at a hidden company is found only while pursuits are shared,
+so `opportunities.history` and `opportunities.reality` declare them. The radar's
+scope (the companies followed or hidden, the person's places) bounds every
+answer and is no category of its own: `companies.list` lists the followed
+companies, so `companies.get` marking one `unfollowed` and the compensation
+figures marking a country `yours` say nothing the scope does not.
+`backend/tests/test_agent_categories.py` refuses every operation whose first
+class is off, and names for each later class the test that shows its part left
+out; a class declared without one fails it.
 `workspace_identity` holds the workspace's durable id, which these answers
 carry; it outlives engine restarts and updates, unlike the engine session id.
 A write route takes a JSON body and an idempotency key header, and runs through
@@ -1405,10 +1422,11 @@ opens no posting at a hidden company.
 `changes.list` (`backend/tracker/agents/operations/changes.py`) reads what changed
 after a position, in commit order: openings, closings, reopenings and reposts
 from `job_lifecycle_events`, stated-pay changes from its `disclosed_base`
-detail, source health from `scrape_source_runs`, and pursuit actions falling
-due from `pursuits.next_action_due`. Each event says whether it is recorded or
-derived at the read (a repost label, a health move, a due time); a plugin's
-health has no ordered record and is reported unavailable. Both records carry the
+detail, source health from `scrape_source_runs`, a plugin job's health from
+`plugin_run_ends` (one row per plugin run closed since the table exists,
+inserted by the transaction that closes it), and pursuit actions falling due from
+`pursuits.next_action_due`. Each event says whether it is recorded or derived
+at the read (a repost label, a health move, a due time). The records carry the
 inserting transaction (`change_xact`, `xid8`, and `change_cluster`), and a read
 stops below the oldest transaction of the database still running, so a row that
 commits late is read later, never passed over
@@ -1424,8 +1442,9 @@ answer from the dashboard's own route functions: the agent route calls the
 statistics or skills route with the operation's filters and reads its answer
 through a shape that mirrors the route's response field for field, so no
 statistic has a second implementation. Each answer carries its `coverage`
-beside the figures: the population, the scope, the window, the history depth
-and when the radar last read those companies. Its long lists stop at the
+beside the figures: the population, the scope (side, disciplines, and the
+companies and places it was narrowed to), the window, the history depth and
+when the radar last read those companies. Its long lists stop at the
 tier's budget with a `page` whose `continue_with` reads on, never cut.
 `backend/tests/test_agent_insights.py` holds each operation to its route.
 
@@ -1435,8 +1454,9 @@ their dashboard routes call and answer the same fields, paged to the tool tier's
 budget. `doctor` turns `GET /api/status` into checks and lists the settings that
 differ from their defaults; every string passes a redactor first, so a secret, a
 credential in a URL and a path outside the data folder never reach the caller.
-`context.export` reads one opportunity's posting, pay evidence, company facts and,
-when pursuits are shared, its pursuit in one repeatable-read snapshot, and answers them as
+`context.export` reads one opportunity's posting, pay evidence, company facts
+(with market statistics) and, when pursuits are shared, its pursuit in one
+repeatable-read snapshot, and answers them as
 canonical JSON text with a SHA-256 per component and for the whole packet: the
 same inputs give the same bytes. Values that move without the content moving
 (last seen, an estimate's run time) are in the manifest's source timestamps, not

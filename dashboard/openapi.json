@@ -2335,6 +2335,16 @@
        }
       ]
      },
+     "plugin": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PluginHealthChange"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "sequence": {
       "title": "Sequence",
       "type": "string",
@@ -12190,6 +12200,14 @@
    "InsightsCoverage": {
     "additionalProperties": false,
     "properties": {
+     "companies": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Companies",
+      "type": "array",
+      "x-text": "identifier"
+     },
      "families": {
       "items": {
        "type": "string"
@@ -12231,6 +12249,14 @@
       ],
       "title": "Off Board Companies"
      },
+     "places": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Places",
+      "type": "array",
+      "x-text": "code"
+     },
      "population": {
       "enum": [
        "open_roles",
@@ -12267,6 +12293,8 @@
      "population",
      "side",
      "families",
+     "companies",
+     "places",
      "off_board_companies",
      "window",
      "history",
@@ -13252,8 +13280,7 @@
      "new_count",
      "already_listed_count",
      "closed_count",
-     "companies",
-     "saved_total"
+     "companies"
     ],
     "title": "InsightsOverviewKpis",
     "type": "object"
@@ -26035,6 +26062,62 @@
      "fingerprint"
     ],
     "title": "PluginDetail",
+    "type": "object"
+   },
+   "PluginHealthChange": {
+    "additionalProperties": false,
+    "properties": {
+     "job": {
+      "title": "Job",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "outcome": {
+      "title": "Outcome",
+      "type": "string",
+      "x-text": "code"
+     },
+     "plugin": {
+      "title": "Plugin",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "previous_state": {
+      "anyOf": [
+       {
+        "enum": [
+         "healthy",
+         "degraded",
+         "failing"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Previous State",
+      "x-text": "code"
+     },
+     "state": {
+      "enum": [
+       "healthy",
+       "degraded",
+       "failing"
+      ],
+      "title": "State",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "state",
+     "previous_state",
+     "outcome",
+     "plugin",
+     "job"
+    ],
+    "title": "PluginHealthChange",
     "type": "object"
    },
    "PluginJobView": {

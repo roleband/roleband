@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import importlib
 import io
 import json
 
@@ -32,13 +33,14 @@ from tracker.agents.config import (
 )
 from tracker.agents.operations import meta, policy
 from tracker.agents.operations.catalog import REGISTERED
-from tracker.agents.operations.descriptor import OperationDescriptor
+from tracker.agents.operations.descriptor import DataClass, OperationDescriptor
+from tracker.agents.operations.insights import InsightsOverviewKpis
 from tracker.agents.operations.opportunities import OpportunitySummary
 from tracker.agents.operations.outcomes import outcome
 from tracker.agents.operations.pursuits import PursuitItem
 from tracker.agents.operations.radar import RadarSummary
 from tracker.agents.operations.workspace import ensure_workspace_id
-from tracker.api.agent_operations import IDEMPOTENCY_KEY_HEADER, PREFIX
+from tracker.api.agent_operations import IDEMPOTENCY_KEY_HEADER, PREFIX, AgentRoute
 from tracker.cli.render import write_human
 from tracker.config import get_settings
 from tracker.db.models import AppSetting, Favorite, Job, JobFeedback, Pursuit, TrackedCompany
@@ -69,6 +71,12 @@ async def _choose(session, **categories: str) -> None:
 
 async def _job(session, key: str) -> int:
     return await session.scalar(select(Job.id).where(Job.req_id == task_req_id(key)))
+
+
+async def _save(session, job_id: int) -> None:
+    if await session.scalar(select(Favorite.id).where(Favorite.job_id == job_id)) is None:
+        session.add(Favorite(job_id=job_id))
+        await session.commit()
 
 
 async def _get(api_client, path: str, **params):
@@ -222,6 +230,33 @@ async def test_capabilities_names_the_category_that_closes_an_operation(api_clie
     for open_ in ("opportunities.get", "opportunities.search", "radar.summary", "receipts.get"):
         assert operations[open_] == {"state": "available", "reason": None}
         assert open_ not in unavailable
+
+
+def _routes() -> dict[str, AgentRoute]:
+    from tracker.api.app import app
+
+    return {route.openapi_extra["x-operation"]: route for route in app.routes if isinstance(route, AgentRoute)}
+
+
+@pytest.mark.parametrize(
+    "descriptor", [d for d in REGISTERED if d.data_classes], ids=lambda descriptor: descriptor.id,
+)
+async def test_each_operation_is_refused_while_its_primary_category_is_not_shared(api_client, workspace, descriptor):
+    """The switches are read before the input, so any path reaches the refusal."""
+    primary = descriptor.data_classes[0]
+    await _choose(workspace, **{primary: "not_shared"})
+    route = _routes()[descriptor.id]
+    (method,) = route.methods
+    path = route.path.replace("{opportunity_id}", str(await _job(workspace, "INTERVIEW"))).replace(
+        "{company}", "acme"
+    )
+
+    response = await api_client.request(method, path, json={} if method != "GET" else None,
+                                        headers={IDEMPOTENCY_KEY_HEADER: KEY})
+
+    body = response.json()
+    assert body["operation"] == descriptor.id
+    _disabled(response, body, primary)
 
 
 async def test_postings_off_refuses_the_posting_reads(api_client, workspace):
@@ -414,25 +449,66 @@ async def test_pursuits_answer_without_their_posting_when_postings_are_off(api_c
     assert listed and all("opportunity" not in item for item in listed)
 
 
-async def test_a_pursuit_write_and_its_replay_answer_without_the_posting(api_client, workspace):
+@pytest.mark.parametrize(("method", "operation"), [("PATCH", "pursuits.patch"), ("PUT", "pursuits.save")])
+async def test_a_pursuit_write_and_its_replay_answer_without_the_posting(api_client, workspace, method, operation):
     job_id = await _job(workspace, "INTERVIEW")
     revision = _data(*await _get(api_client, f"/pursuits/{job_id}"))["revision"]
     await _choose(workspace, public_posting="not_shared")
 
-    async def patch():
-        response = await api_client.patch(
-            f"{PREFIX}/pursuits/{job_id}", json={"if_revision": revision, "priority": 2},
+    async def write():
+        response = await api_client.request(
+            method, f"{PREFIX}/pursuits/{job_id}", json={"if_revision": revision, "priority": 2},
             headers={IDEMPOTENCY_KEY_HEADER: KEY},
         )
         return response, response.json()
 
-    fresh, replayed = _data(*await patch()), await patch()
-    assert replayed[1]["meta"]["replayed"] is True
+    fresh, replayed = _data(*await write()), await write()
+    assert replayed[1]["meta"]["replayed"] is True and replayed[1]["operation"] == operation
     assert "opportunity" not in fresh and "opportunity" not in _data(*replayed)
+    assert fresh["stage"] == "interviewing"
     await _choose(workspace)
     # The receipt keeps the whole answer for when postings are shared again.
-    receipt = _data(*await _get(api_client, "/receipts", operation="pursuits.patch", key=KEY))
+    receipt = _data(*await _get(api_client, "/receipts", operation=operation, key=KEY))
     assert receipt["result"]["opportunity"]["title"]
+
+
+async def test_the_overview_counts_saved_roles_only_while_pursuits_are_shared(api_client, workspace):
+    await _save(workspace, await _job(workspace, "RESEARCH"))
+    response, body = await _get(api_client, "/insights/overview")
+    shared = _data(response, body)
+    assert shared["kpis"]["saved_total"] >= 1
+    assert body["meta"]["data_classes"] == ["market_statistic", "private_pursuit"]
+    await _choose(workspace, private_pursuit="not_shared")
+
+    response, body = await _get(api_client, "/insights/overview")
+
+    data = _data(response, body)
+    assert "saved_total" not in data["kpis"]
+    assert data["kpis"] == {k: v for k, v in shared["kpis"].items() if k != "saved_total"}
+    assert body["meta"]["data_classes"] == ["market_statistic"]
+
+
+@pytest.mark.parametrize("read", ["history", "reality"])
+async def test_a_saved_posting_at_a_hidden_company_is_found_only_while_pursuits_are_shared(
+    api_client, workspace, read
+):
+    """Found, such a posting says the person chose it: the pursuits decide
+    it, and the answer names them among the categories it drew on."""
+    job_id = await _job(workspace, "RESEARCH")
+    await _save(workspace, job_id)
+    company = (await workspace.get(Job, job_id)).company
+    await workspace.execute(update(TrackedCompany).where(TrackedCompany.slug == company).values(visible=False))
+    await workspace.commit()
+    path = f"/opportunities/{job_id}/{read}"
+    response, body = await _get(api_client, path)
+    _data(response, body)
+    assert body["meta"]["data_classes"] == ["public_posting", "private_pursuit"]
+    await _choose(workspace, private_pursuit="not_shared")
+
+    response, body = await _get(api_client, path)
+
+    assert body["error"]["code"] == "not_found"
+    assert body["error"]["details"] == {"opportunity_id": job_id}
 
 
 async def test_a_receipt_of_a_pursuit_write_is_refused_while_pursuits_are_off(api_client, workspace):
@@ -477,10 +553,82 @@ async def test_a_part_a_category_can_leave_out_is_optional_in_the_schema():
         (OpportunitySummary, {"saved", "pursuit", "estimate_component", "estimated_total_comp", "estimated_base"}),
         (RadarSummary, {"saved_opportunities", "active_pursuits", "overdue_next_actions", "pursuits_by_stage"}),
         (PursuitItem, {"opportunity"}),
+        (InsightsOverviewKpis, {"saved_total"}),
     ):
         schema = model.model_json_schema()
         assert keys <= schema["properties"].keys()
         assert not keys & set(schema["required"]), model.__name__
+
+
+#: For each category an operation declares after its primary one, the test
+#: that shows the operation leave that category's part out of its answer (or
+#: refuse an input that selects by it), as `module::test`.
+LEFT_OUT_BY: dict[tuple[str, DataClass], str] = {
+    ("applications.board", "public_posting"):
+        "test_agent_offer_export_reads::test_a_board_card_leaves_its_posting_out_when_postings_are_not_shared",
+    ("changes.list", "private_pursuit"):
+        "test_agent_changes_db::test_pursuit_changes_are_absent_while_the_person_does_not_share_pursuits",
+    ("context.export", "market_statistic"):
+        "test_agent_offer_export_reads::test_market_statistics_not_shared_leave_the_estimates_out_of_the_export",
+    ("context.export", "private_pursuit"):
+        "test_agent_offer_export_reads::test_pursuits_kept_from_assistants_are_left_out_of_the_export",
+    ("insights.overview", "private_pursuit"):
+        "test_agent_categories::test_the_overview_counts_saved_roles_only_while_pursuits_are_shared",
+    ("opportunities.duplicates", "market_statistic"):
+        "test_agent_relation_reads::test_rows_leave_out_the_pursuit_and_estimate_columns_of_a_category_off",
+    ("opportunities.duplicates", "private_pursuit"):
+        "test_agent_relation_reads::test_rows_leave_out_the_pursuit_and_estimate_columns_of_a_category_off",
+    ("opportunities.get", "market_statistic"):
+        "test_agent_categories::test_market_statistics_off_leaves_the_estimates_out",
+    ("opportunities.get", "private_pursuit"):
+        "test_agent_categories::test_opportunities_get_keeps_the_posting_without_the_pursuit",
+    ("opportunities.get_many", "market_statistic"):
+        "test_agent_relation_reads::test_rows_leave_out_the_pursuit_and_estimate_columns_of_a_category_off",
+    ("opportunities.get_many", "private_pursuit"):
+        "test_agent_relation_reads::test_rows_leave_out_the_pursuit_and_estimate_columns_of_a_category_off",
+    ("opportunities.history", "private_pursuit"):
+        "test_agent_categories::test_a_saved_posting_at_a_hidden_company_is_found_only_while_pursuits_are_shared",
+    ("opportunities.reality", "private_pursuit"):
+        "test_agent_categories::test_a_saved_posting_at_a_hidden_company_is_found_only_while_pursuits_are_shared",
+    ("opportunities.search", "market_statistic"):
+        "test_agent_categories::test_search_answers_without_the_pursuit_or_estimate_columns",
+    ("opportunities.search", "private_pursuit"):
+        "test_agent_categories::test_search_answers_without_the_pursuit_or_estimate_columns",
+    ("opportunities.search", "candidate"):
+        "test_agent_categories::test_queryless_best_match_leaves_the_profile_statement_out_without_the_candidate_category",
+    ("opportunities.similar", "market_statistic"):
+        "test_agent_relation_reads::test_similar_rows_leave_out_the_pursuit_and_estimate_columns_of_a_category_off",
+    ("opportunities.similar", "private_pursuit"):
+        "test_agent_relation_reads::test_similar_rows_leave_out_the_pursuit_and_estimate_columns_of_a_category_off",
+    ("pursuits.get", "public_posting"):
+        "test_agent_categories::test_pursuits_answer_without_their_posting_when_postings_are_off",
+    ("pursuits.list", "public_posting"):
+        "test_agent_categories::test_pursuits_answer_without_their_posting_when_postings_are_off",
+    ("pursuits.patch", "public_posting"):
+        "test_agent_categories::test_a_pursuit_write_and_its_replay_answer_without_the_posting",
+    ("pursuits.save", "public_posting"):
+        "test_agent_categories::test_a_pursuit_write_and_its_replay_answer_without_the_posting",
+    ("radar.summary", "private_pursuit"):
+        "test_agent_categories::test_radar_summary_counts_only_the_open_roles_without_pursuits",
+    ("receipts.get", "private_pursuit"):
+        "test_agent_categories::test_a_receipt_of_a_pursuit_write_is_refused_while_pursuits_are_off",
+}
+
+
+def secondary_categories(descriptors: tuple[OperationDescriptor, ...]) -> set[tuple[str, DataClass]]:
+    return {(d.id, category) for d in descriptors for category in d.data_classes[1:]}
+
+
+async def test_every_secondary_category_has_a_test_that_leaves_its_part_out():
+    assert secondary_categories(REGISTERED) == LEFT_OUT_BY.keys()
+    for reference in LEFT_OUT_BY.values():
+        module, name = reference.split("::")
+        assert callable(getattr(importlib.import_module(f"tests.{module}"), name, None)), reference
+
+
+async def test_a_secondary_category_declared_without_its_test_fails_the_check():
+    widened = dataclasses.replace(REGISTERED[-1], data_classes=(*REGISTERED[-1].data_classes, "offer"))
+    assert secondary_categories((*REGISTERED[:-1], widened)) - LEFT_OUT_BY.keys() == {(widened.id, "offer")}
 
 
 async def test_the_client_lays_out_a_page_without_the_columns_left_out():

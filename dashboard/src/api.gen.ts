@@ -4699,6 +4699,7 @@ export interface components {
             /** Opportunity Id */
             opportunity_id?: number | null;
             pay?: components["schemas"]["StatedPayChange"] | null;
+            plugin?: components["schemas"]["PluginHealthChange"] | null;
             /** Sequence */
             sequence: string;
             source?: components["schemas"]["SourceHealthChange"] | null;
@@ -7794,6 +7795,8 @@ export interface components {
         };
         /** InsightsCoverage */
         InsightsCoverage: {
+            /** Companies */
+            companies: string[];
             /** Families */
             families: string[];
             history: components["schemas"]["CoverageHistory"] | null;
@@ -7801,6 +7804,8 @@ export interface components {
             last_read_at: string | null;
             /** Off Board Companies */
             off_board_companies: number | null;
+            /** Places */
+            places: string[];
             /**
              * Population
              * @enum {string}
@@ -8099,7 +8104,7 @@ export interface components {
             /** Open Total */
             open_total: number;
             /** Saved Total */
-            saved_total: number;
+            saved_total?: number;
         };
         /** InsightsOverviewSkill */
         InsightsOverviewSkill: {
@@ -11932,6 +11937,22 @@ export interface components {
             state: "needs_approval" | "enabled" | "disabled" | "removed";
             /** Version */
             version: string;
+        };
+        /** PluginHealthChange */
+        PluginHealthChange: {
+            /** Job */
+            job: string;
+            /** Outcome */
+            outcome: string;
+            /** Plugin */
+            plugin: string;
+            /** Previous State */
+            previous_state: ("healthy" | "degraded" | "failing") | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "healthy" | "degraded" | "failing";
         };
         /** PluginJobView */
         PluginJobView: {
