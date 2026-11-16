@@ -34,6 +34,8 @@ import LauncherCore
         try Data("{}".utf8).write(to: file, options: .atomic)
         await updates.checkManuallyAndWait()
         #expect(updates.messageKey == "update-failed" && updates.offered?.version == "0.2.0")
+        // A valid feed again, so only the missing preview identity can fail the next check.
+        try JSONSerialization.data(withJSONObject: release).write(to: file, options: .atomic)
         let invalid = UpdateDemo.updates(preferences: preferences, copy: LauncherCopy(),
                                         info: ["RoleBandDemoReleaseFile": file.path])
         defer { invalid.stop() }

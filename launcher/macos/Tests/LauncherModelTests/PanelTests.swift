@@ -94,6 +94,16 @@ private actor Engine {
     updates.later("0.1.1")
     #expect(!model.opensUpdateWindow(for: "0.1.1", automatic: true))
 
+    // A find held back by setup opens once setup closes, not a day later; a manual find is never held.
+    let (held, heldUpdates) = await offered()
+    defer { held.stop(); heldUpdates.stop() }
+    held.setSetupVisible(true)
+    #expect(!held.updateFound("0.1.1", automatic: false) && !held.heldUpdateWindowOpens())
+    #expect(!held.updateFound("0.1.1", automatic: true) && !held.heldUpdateWindowOpens())
+    held.setSetupVisible(false)
+    #expect(held.heldUpdateWindowOpens() && !held.heldUpdateWindowOpens())
+    #expect(held.updateFound("0.1.1", automatic: true))
+
     let (updating, updatingUpdates) = await offered()
     defer { updating.stop(); updatingUpdates.stop() }
     try #require(updating.installer).show(.downloading(received: 1, total: 2), version: "0.1.1")

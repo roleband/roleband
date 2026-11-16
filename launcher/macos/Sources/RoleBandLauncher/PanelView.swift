@@ -184,6 +184,19 @@ extension LauncherModel {
               updates.offered?.version == version, updateOffered else { return false }
         return updates.windowAllows(version)
     }
+    /// A check's find: whether the update window opens now. An automatic find held back (by setup,
+    /// say) is kept, so `heldUpdateWindowOpens` can open it once that clears instead of a day later.
+    func updateFound(_ version: String, automatic: Bool) -> Bool {
+        guard automatic else { return false }
+        let opens = opensUpdateWindow(for: version, automatic: true)
+        heldUpdateWindow = opens ? nil : version
+        return opens
+    }
+    func heldUpdateWindowOpens() -> Bool {
+        guard let held = heldUpdateWindow, opensUpdateWindow(for: held, automatic: true) else { return false }
+        heldUpdateWindow = nil
+        return true
+    }
 }
 
 /// The update above everything, on every tab: the offer, its progress or failure, and the notice

@@ -407,7 +407,7 @@ final class LauncherDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate
         updateIcon()
         session.launch()
         model.updates.didCheck = { [weak self] release, automatic in
-            guard let self, self.model.opensUpdateWindow(for: release.version, automatic: automatic) else { return }
+            guard let self, self.model.updateFound(release.version, automatic: automatic) else { return }
             self.showUpdateWindow()
         }
         model.updates.start()
@@ -505,12 +505,13 @@ final class LauncherDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate
         guard updateWindow?.isVisible != true, let installer = model.installer, let offered = model.updates.offered else { return }
         let updates = model.updates
         let window = UpdatePanel(title: model.text("update-ready", ["version": offered.version]), content: LiveUpdateWindow(
-            updates: updates, installer: installer, copy: model.copy, actions: { [weak self] release in
+            updates: updates, installer: installer, copy: model.copy, actions: { [weak self] release, version in
                 UpdateWindowActions(
-                    later: { updates.later(release.version); self?.updateWindow?.close() },
-                    update: { installer.install(release.version) },
+                    later: { updates.later(version); self?.updateWindow?.close() },
+                    update: { installer.install(version) },
                     cancel: { installer.cancel() },
-                    notes: { self?.showOffered() })
+                    notes: { self?.showOffered() },
+                    page: { NSWorkspace.shared.open(release.page) })
             }))
         updateWindow = window
         window.present()
@@ -558,6 +559,7 @@ final class LauncherDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate
         if let window = notification.object as? NSWindow, window === setupWindow {
             model.setSetupVisible(false)
             model.dismissSetup()
+            if model.heldUpdateWindowOpens() { showUpdateWindow() }
         }
         model.panelOpen = statusWindow?.isVisible == true && notification.object as? NSWindow !== statusWindow
         let closing = notification.object as? NSWindow

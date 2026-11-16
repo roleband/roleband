@@ -70,6 +70,40 @@ private func releaseData(_ version: String) -> Data {
     #expect(UpdateWindowView.buttons(for: .paused(received: 1, total: 2)) == [.cancel])
     #expect(UpdateWindowView.buttons(for: .verifying).isEmpty && UpdateWindowView.buttons(for: .restarting).isEmpty)
     #expect(UpdateWindowView.buttons(for: .failed(.download)) == [.later, .retry])
+    // A release signed differently installs only from its page, so Retry could only fail again.
+    #expect(UpdateWindowView.buttons(for: .failed(.signer)) == [.later, .page])
+}
+
+@MainActor @Test func anUpdateInProgressKeepsItsVersionWhenANewerOfferArrives() async throws {
+    let defaults = UserDefaults.scratch("update-window-version")
+    let feed = Feed(version: "0.2.0")
+    let updates = LauncherUpdates(preferences: defaults, fetch: { feed.data() }, authenticate: { _ in nil })
+    defer { updates.stop() }
+    await updates.checkManuallyAndWait()
+    let installer = UpdateInstaller(operations: UpdateInstallerOperations(reserve: { 0 }, download: { _, _, _ in throw CancellationError() },
+        prepare: { _ in throw CancellationError() }, discard: { _ in }, handOff: { _ in }))
+    var acted: [String] = []
+    let view = LiveUpdateWindow(updates: updates, installer: installer, copy: LauncherCopy(), actions: { _, version in
+        acted.append(version)
+        return UpdateWindowActions()
+    })
+    _ = view.body
+    installer.show(.downloading(received: 1, total: 2), version: "0.2.0")
+    feed.version = "0.3.0"
+    await updates.checkManuallyAndWait()
+    #expect(updates.offered?.version == "0.3.0")
+    _ = view.body
+    #expect(acted == ["0.2.0", "0.2.0"])
+    // Once the update is answered, the window offers the newer version.
+    installer.cancel()
+    _ = view.body
+    #expect(acted.last == "0.3.0")
+}
+
+private final class Feed: @unchecked Sendable {
+    var version: String
+    init(version: String) { self.version = version }
+    func data() -> Data { releaseData(version) }
 }
 
 @MainActor @Test func theWindowGrowsWhenTheOfferTurnsIntoProgress() async throws {
@@ -80,7 +114,7 @@ private func releaseData(_ version: String) -> Data {
     let installer = UpdateInstaller(operations: UpdateInstallerOperations(reserve: { 0 }, download: { _, _, _ in throw CancellationError() },
         prepare: { _ in throw CancellationError() }, discard: { _ in }, handOff: { _ in }))
     let panel = UpdatePanel(title: "Version 0.2.1 is ready", content: LiveUpdateWindow(updates: updates, installer: installer,
-        copy: LauncherCopy(), actions: { _ in UpdateWindowActions() }))
+        copy: LauncherCopy(), actions: { _, _ in UpdateWindowActions() }))
     defer { panel.close() }
     panel.present()
     let offer = panel.frame.height
