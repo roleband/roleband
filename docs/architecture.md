@@ -23,7 +23,7 @@ Everything runs locally against one database.
 | Scan tick | `backend/tracker/workflows/scheduler.py` | The supervisor's `scan` job: a short tick that runs what is due, a full read when the computer wakes or the last one is old, the rest of a full read something stopped, a quick discovery check on a repeat while it is on (`backend/tracker/workflows/schedule_plan.py`). |
 | API | `backend/tracker/api/app.py` | FastAPI on `127.0.0.1:8010` by default (the Mac app can move it, see `EnginePort`): dashboard reads, the user's own writes, requests for background work, and the built dashboard from `dashboard/dist`. It starts no process: what it asks for, the supervisor runs. |
 | Dashboard | `dashboard/src/` | React 19, TypeScript, Vite. In development Vite serves `:5173` and proxies `/api` to `:8010`. |
-| MCP server | `backend/tracker/mcp/server.py` | Local STDIO server for external agents, reads and pursuit writes gated separately. See [mcp.md](mcp.md). The `roleband` command (`backend/tracker/cli/`), a client of the running engine through `/api/agent/v1/`, is to replace it ([0015](decisions/0015-agents-use-the-cli.md), with its trust and identity in [0016](decisions/0016-agent-trust-and-workspace-identity.md) and its access choices in [0017](decisions/0017-agent-access-open-by-default.md)). The command answers `status`, `capabilities`, `describe`, `connect` (which sets up an agent host and asks no engine) and one generated command per catalog operation; this server stays the agent interface until the command does everything it does (`backend/tests/fixtures/mcp_parity_checklist.json`). |
+| MCP server | `backend/tracker/mcp/server.py` | Local STDIO server for external agents, reads and pursuit writes gated separately. See [mcp.md](mcp.md). The `roleband` command (`backend/tracker/cli/`), a client of the running engine through `/api/agent/v1/`, is to replace it ([0015](decisions/0015-agents-use-the-cli.md), with its trust and identity in [0016](decisions/0016-agent-trust-and-workspace-identity.md) and its access choices in [0017](decisions/0017-agent-access-open-by-default.md)). The command answers `status`, `capabilities`, `describe`, `connect` (which sets up an agent host and asks no engine), `tools export` (the operations as tool definitions for someone's own agent) and one generated command per catalog operation; this server stays the agent interface until the command does everything it does (`backend/tests/fixtures/mcp_parity_checklist.json`). |
 | Health | `backend/tracker/workflows/watchdog.py` | The supervisor's `health` job: database reachability, stuck runs, stale data (asks for a scan), a stale backup, desktop alerts. |
 
 On macOS, `deploy/install.sh` installs one per-user background item,
@@ -1299,6 +1299,23 @@ keeps stored choices the engine cannot read as they are, so the row still
 reads as everything off. A keyed write's receipt keeps the whole result; its
 answer, fresh or replayed, leaves the part out. Every operation but the
 handshake declares at least one data class.
+A class covers what its part reveals, not where the part is stored. Public
+postings are the postings themselves, their fields, and the vocabulary and
+counts that page through them. Market statistics are figures read across
+postings or from outside data: estimates, pay ladders and offer rules, a
+company's facts and share price, its open roles and their places, and the
+Insights. Pursuits and notes are the person's saves, pursuits, notes,
+dismissals and due steps, and any count of them, such as the overview's saved
+roles. A class that decides whether a posting is found counts too: a saved or
+pursued posting at a hidden company is found only while pursuits are shared,
+so `opportunities.history` and `opportunities.reality` declare them. The radar's
+scope (the companies followed or hidden, the person's places) bounds every
+answer and is no category of its own: `companies.list` lists the followed
+companies, so `companies.get` marking one `unfollowed` and the compensation
+figures marking a country `yours` say nothing the scope does not.
+`backend/tests/test_agent_categories.py` refuses every operation whose first
+class is off, and names for each later class the test that shows its part left
+out; a class declared without one fails it.
 `workspace_identity` holds the workspace's durable id, which these answers
 carry; it outlives engine restarts and updates, unlike the engine session id.
 A write route takes a JSON body and an idempotency key header, and runs through
@@ -1340,6 +1357,23 @@ for Codex `network_access` in workspace-write mode. It merges into the person's
 file, keeps a backup, changes nothing on a second run, and installs the skill in
 `backend/tracker/cli/skills/` unless the person edited their copy. Any other host
 is refused as `unsupported_host`.
+`roleband tools export --dialect openai|anthropic [--tier small|standard|full]`
+(`backend/tracker/cli/tools.py`) gives someone who builds their own agent one
+tool per operation, in the OpenAI-compatible or Anthropic format. The tools come
+from the builder the engine's runner uses (`backend/tracker/agents/tool_definitions.py`),
+applied to the input schemas of the bundled index, so the client loads no engine
+model. Like `capabilities`, it asks the engine which operations are available and
+exports only those, so a write appears only while changes are allowed and a
+category that is not shared takes its operations with it; `not_exported` names
+the rest with their reason. `--offline` exports every bundled operation of the tier
+with availability unknown. The connection's own operations (`status`,
+`capabilities`, `describe`) are not tools. Beside the tools, the document maps each
+tool name to its operation and command words, since a tool name cannot be read
+back as an id: a call's arguments are that command's `--input`. `--output FILE`
+writes the document atomically, refuses to replace a file or follow a link unless
+`--overwrite` is given (a folder without hard links cannot place a new file
+atomically, so there only `--overwrite` writes), and reports its path, size and SHA-256. The export grants
+nothing: the switches still decide each call.
 
 A read takes its input from the path and query; one that takes a document
 (`recipes.validate`) takes it as a POST body, one JSON object.
@@ -1389,10 +1423,11 @@ opens no posting at a hidden company.
 `changes.list` (`backend/tracker/agents/operations/changes.py`) reads what changed
 after a position, in commit order: openings, closings, reopenings and reposts
 from `job_lifecycle_events`, stated-pay changes from its `disclosed_base`
-detail, source health from `scrape_source_runs`, and pursuit actions falling
-due from `pursuits.next_action_due`. Each event says whether it is recorded or
-derived at the read (a repost label, a health move, a due time); a plugin's
-health has no ordered record and is reported unavailable. Both records carry the
+detail, source health from `scrape_source_runs`, a plugin job's health from
+`plugin_run_ends` (one row per plugin run closed since the table exists,
+inserted by the transaction that closes it), and pursuit actions falling due from
+`pursuits.next_action_due`. Each event says whether it is recorded or derived
+at the read (a repost label, a health move, a due time). The records carry the
 inserting transaction (`change_xact`, `xid8`, and `change_cluster`), and a read
 stops below the oldest transaction of the database still running, so a row that
 commits late is read later, never passed over
@@ -1408,8 +1443,9 @@ answer from the dashboard's own route functions: the agent route calls the
 statistics or skills route with the operation's filters and reads its answer
 through a shape that mirrors the route's response field for field, so no
 statistic has a second implementation. Each answer carries its `coverage`
-beside the figures: the population, the scope, the window, the history depth
-and when the radar last read those companies. Its long lists stop at the
+beside the figures: the population, the scope (side, disciplines, and the
+companies and places it was narrowed to), the window, the history depth and
+when the radar last read those companies. Its long lists stop at the
 tier's budget with a `page` whose `continue_with` reads on, never cut.
 `backend/tests/test_agent_insights.py` holds each operation to its route.
 
@@ -1419,8 +1455,9 @@ their dashboard routes call and answer the same fields, paged to the tool tier's
 budget. `doctor` turns `GET /api/status` into checks and lists the settings that
 differ from their defaults; every string passes a redactor first, so a secret, a
 credential in a URL and a path outside the data folder never reach the caller.
-`context.export` reads one opportunity's posting, pay evidence, company facts and,
-when pursuits are shared, its pursuit in one repeatable-read snapshot, and answers them as
+`context.export` reads one opportunity's posting, pay evidence, company facts
+(with market statistics) and, when pursuits are shared, its pursuit in one
+repeatable-read snapshot, and answers them as
 canonical JSON text with a SHA-256 per component and for the whole packet: the
 same inputs give the same bytes. Values that move without the content moving
 (last seen, an estimate's run time) are in the manifest's source timestamps, not
