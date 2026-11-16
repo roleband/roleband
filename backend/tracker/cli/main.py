@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any, NoReturn, TextIO, cast
 
 from tracker.agents.operations.outcomes import CONTRACT_VERSION, EXIT_OK, outcome
-from tracker.cli import commands, connect, tools
+from tracker.cli import commands, connect, output, tools
 from tracker.cli.errors import (
     PARSE_OPERATION,
     ClientError,
@@ -290,10 +290,17 @@ def _live(args: argparse.Namespace, request_id: str) -> dict[str, Any]:
     generated: commands.Command | None = getattr(args, "generated", None)
     operation = generated.operation if generated is not None else args.command
     method, body, key = "GET", None, None
+    target: Path | None = None
+    overwrite = bool(getattr(args, "overwrite", False))
+    if overwrite and getattr(args, "output", None) is None:
+        raise ClientError("invalid_arguments", "--overwrite only goes with --output.")
     if generated is not None:
         if args.input_source is None:
             commands.refuse_unread_input(sys.stdin)
-        path, body = commands.request(generated, commands.payload(generated, args))
+        data = commands.payload(generated, args)
+        if getattr(args, "output", None) is not None:
+            target = output.destination(args.output, operation=generated.operation, data=data, overwrite=overwrite)
+        path, body = commands.request(generated, data)
         method = generated.method
         key = args.idempotency_key if generated.keyed else None
     elif args.command == "status":
@@ -326,6 +333,20 @@ def _live(args: argparse.Namespace, request_id: str) -> dict[str, Any]:
             details={"context": context.name, "expected": context.workspace_id,
                      "answered": answered},
         )
+    if target is not None and generated is not None and envelope["ok"] is True:
+        command = generated
+
+        def follow(arguments: dict[str, Any]) -> dict[str, Any]:
+            following, sent = commands.request(command, arguments)
+            part = transport.send(context, command.method, following, operation=operation, deadline=deadline,
+                                  request_id=request_id, user_agent=user_agent, body=sent)
+            if part.get("workspace_id") != answered:
+                raise ClientError("workspace_mismatch", "A later part came from another workspace than the first.",
+                                  details={"context": context.name, "expected": answered,
+                                           "answered": part.get("workspace_id")})
+            return part
+
+        envelope = output.write(envelope, target, overwrite=overwrite, follow=follow)
     meta = envelope.get("meta")
     if isinstance(meta, dict):
         meta["context"] = {"name": context.name, "url": context.url, "discovery": "configured"}

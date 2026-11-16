@@ -953,7 +953,7 @@
        }
       ],
       "default": null,
-      "description": "The next_since of the previous page: the read continues after it, in commit order, with the same kinds. Without it the read starts at start_time, or at the oldest change kept.",
+      "description": "The next_since of the previous page: the read continues after it, in commit order, with the same kinds. Without it the read starts at start_time, or at the oldest change kept. A read made while pursuits are not shared can move past pursuit due times that passed meanwhile; those are not caught up when sharing turns back on.",
       "title": "Since"
      },
      "start_time": {
@@ -1383,7 +1383,7 @@
    "required_scopes": [
     "agent_access.enabled"
    ],
-   "summary": "List what changed after a position, in commit order: new, closed, reopened and reposted postings, stated-pay changes, pursuit actions falling due and source health. Pass next_since back as since.",
+   "summary": "List what changed after a position, in commit order: new, closed, reopened and reposted postings, stated-pay changes, pursuit actions falling due and the health of built-in and plugin sources. Pass next_since back as since.",
    "supports_dry_run": false,
    "tool_tiers": [
     "small",
@@ -3431,7 +3431,9 @@
     "reason": "offline",
     "state": "unknown"
    },
-   "client_effects": [],
+   "client_effects": [
+    "file_write"
+   ],
    "contract_version": "1.0",
    "data_classes": [
     "public_posting",
@@ -4166,6 +4168,14 @@
        "type": "string"
       },
       "title": "Settings Left Out",
+      "type": "array",
+      "x-text": "code"
+     },
+     "settings_shortened": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Settings Shortened",
       "type": "array",
       "x-text": "code"
      }
@@ -7792,6 +7802,22 @@
    ],
    "idempotency": "read",
    "input_schema": {
+    "$defs": {
+     "LevelBand": {
+      "description": "Career stages \u2014 a full-market ladder where every rung is first-class.\n\nCoarser than any company's ladder; `levels/ladder.walk_guide` decodes\neach stage to per-company level labels.",
+      "enum": [
+       "intern",
+       "entry",
+       "mid",
+       "senior",
+       "staff",
+       "principal",
+       "director_plus"
+      ],
+      "title": "LevelBand",
+      "type": "string"
+     }
+    },
     "additionalProperties": false,
     "properties": {
      "country": {
@@ -7824,10 +7850,8 @@
       "type": "array"
      },
      "level": {
-      "description": "The level band to compare companies at: one of intern, entry, mid, senior, staff, principal, director_plus.",
-      "pattern": "^(intern|entry|mid|senior|staff|principal|director_plus)$",
-      "title": "Level",
-      "type": "string"
+      "$ref": "#/$defs/LevelBand",
+      "description": "The level band to compare companies at."
      },
      "side": {
       "default": "all",

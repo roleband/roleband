@@ -83,9 +83,9 @@ WINDOWS_SKIPS: tuple[tuple[re.Pattern[str], str], ...] = (
         "Linux lane runs it (tests/test_cli.py)",
     ),
     (
-        re.compile(r"Windows pipes cannot be polled, so piped data runs as given"),
-        "the client refuses piped data without --input - only where it can poll standard input without "
-        "waiting; on Windows the call runs as given, and the Linux lane runs the refusal (tests/test_cli_commands.py)",
+        re.compile(r"Windows renames without replacing, with no hard link"),
+        "`--output` on a file system without hard links; Windows places a new file with a rename that refuses "
+        "an existing one and never links (tests/test_cli_commands.py)",
     ),
     (
         re.compile(r"macOS bundle state redirects through HOME"),
@@ -121,6 +121,10 @@ WINDOWS_SKIPS: tuple[tuple[re.Pattern[str], str], ...] = (
     (
         re.compile(r"the POSIX database start clears a crash's lock files"),
         "Windows starts its database natively and handles its own stale lock file (tracker/platform/windows_db.py)",
+    ),
+    (
+        re.compile(r"the holder record is POSIX's; Windows' runner stops its own clusters"),
+        "Windows starts its database natively and keeps no holder record; its runner stops the clusters it starts",
     ),
     (
         re.compile(r"no zoneinfo file for [A-Za-z_/+-]+ on this machine"),
