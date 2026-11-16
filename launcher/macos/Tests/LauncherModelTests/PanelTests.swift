@@ -89,6 +89,33 @@ private final class PanelClock: @unchecked Sendable {
     #expect(model.updateFound("0.1.1", automatic: true))
 }
 
+/// A signed important mark brings the window back a day after Later, while an unmarked offer waits
+/// three. The person's switch still holds it closed.
+@MainActor @Test func anImportantOfferOpensItsWindowADayAfterLaterUnlessSwitchedOff() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("panel-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let clock = PanelClock()
+    let defaults = preferences()
+    defaults.set(true, forKey: "setupCompleted")
+    let listing = try JSONSerialization.data(withJSONObject: ["tag_name": "v0.1.1",
+        "html_url": "https://github.com/roleband/roleband/releases/tag/v0.1.1", "body": "", "draft": false, "prerelease": false,
+        "assets": (ReleaseFiles.all("0.1.1") + [ReleaseFiles.important("0.1.1")]).map { ["name": $0, "state": "uploaded"] }])
+    let updates = LauncherUpdates(preferences: defaults, fetch: { listing }, now: { clock.now }, authenticate: { _ in nil },
+                                  important: { $0 == "0.1.1" })
+    let model = LauncherModel(launcherVersion: "0.1.0", preferences: defaults, updates: updates,
+                              installOperations: operations(home: root, handOffs: HandOffs()))
+    defer { model.stop(); updates.stop() }
+    await updates.checkManuallyAndWait()
+    #expect(updates.offered?.important == true)
+    updates.later("0.1.1")
+    clock.now = clock.now.addingTimeInterval(86400 - 1)
+    #expect(!model.opensUpdateWindow(for: "0.1.1", automatic: true))
+    clock.now = clock.now.addingTimeInterval(1)
+    #expect(model.opensUpdateWindow(for: "0.1.1", automatic: true))
+    updates.setShowsWindow(false)
+    #expect(!model.opensUpdateWindow(for: "0.1.1", automatic: true))
+}
+
 @MainActor @Test func onlyADailyFindOpensTheUpdateWindowAndNeverDuringSetupAnUpdateOrWhenSwitchedOff() async throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent("panel-\(UUID().uuidString)")
     defer { try? FileManager.default.removeItem(at: root) }

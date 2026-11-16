@@ -38,7 +38,7 @@ struct UpdateWindowView: View {
                     }.padding(.top, 6)
                     Spacer(minLength: 0)
                 }
-                Text(copy.text("update-window-body")).font(PanelType.body).foregroundStyle(p.secondary)
+                Text(copy.text(Self.bodyKey(release, installing: version))).font(PanelType.body).foregroundStyle(p.secondary)
                     .lineSpacing(3).fixedSize(horizontal: false, vertical: true)
                 if activity == nil, let notice = release.beforeYouUpdate { noticeBox(notice, p) }
                 if let activity { progress(activity, p) }
@@ -117,6 +117,12 @@ struct UpdateWindowView: View {
                 }
             }
         }.frame(minHeight: 28)
+    }
+
+    /// An important release says it is recommended; the line speaks for the offered release only, so
+    /// an older version still installing keeps the plain one.
+    nonisolated static func bodyKey(_ release: OfferedRelease, installing version: String) -> String {
+        release.important && version == release.version ? "update-window-body-important" : "update-window-body"
     }
 
     enum Choice { case later, update, retry, cancel, page }

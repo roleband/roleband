@@ -577,6 +577,7 @@ launcher-panel-status-failed = 无法检查
 # kind=status
 launcher-update-ready = 版本 { $version } 已就绪
 launcher-update-window-body = 此更新包括改进和错误修复。
+launcher-update-window-body-important = 此更新包括重要修复，建议所有用户安装。
 # kind=button
 launcher-update-install = 更新
 launcher-update-read-first = 先阅读

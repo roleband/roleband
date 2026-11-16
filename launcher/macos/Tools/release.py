@@ -312,6 +312,51 @@ def attach(directory, tag, commit, repository, public_key, root=ROOT):
         'previous_release_dmg_bytes': json.loads(files[2].read_text())['bytes'], 'growth_note': None}, indent=2) + '\n')
 
 
+def important_message(version):
+    # Apps check the mark against these exact bytes. They name the version, so a mark cannot move to
+    # another release, and they cannot be read as release metadata, whose signed bytes open with a checksum.
+    return f'roleband-important v{version}\n'.encode()
+
+
+def important(tag, repository, signing_key, passphrase, root=ROOT):
+    """Signs a published release's important mark and attaches it beside the release's files."""
+    if repository != FEED:
+        raise ValueError("Releases attach only to the update feed " + FEED)
+    if not tag.startswith('v'):
+        raise ValueError('Expected an exact release tag')
+    version = tag[1:]
+    files = names(version)
+    try:
+        private = serialization.load_pem_private_key(signing_key.read_bytes(), passphrase)
+    except TypeError:
+        raise ValueError('The release key and its passphrase do not go together') from None
+    if not isinstance(private, ed25519.Ed25519PrivateKey):
+        raise ValueError('The release key must use Ed25519')
+    if passphrase is None:
+        raise ValueError('The production release key must be passphrase-protected')
+    public = private.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+    if public != release_identity(root, repository)[1]:
+        raise ValueError('The signing key is not the recorded release key')
+    listing = json.loads(output(["gh", "release", "view", tag, "--repo", repository, "--json", "tagName,isDraft,isPrerelease,assets"]))
+    uploaded = {asset.get('name') for asset in listing.get('assets') or [] if asset.get('state', 'uploaded') == 'uploaded'}
+    mark_name = files[0].removesuffix('.dmg') + '.important'
+    # Apps offer only a published, non-prerelease release with all four files, so a mark anywhere else
+    # would never be read. A mark already there stays: without --clobber the upload could not replace it.
+    if listing.get('tagName') != tag or listing.get('isDraft') is not False or listing.get('isPrerelease') is not False:
+        raise ValueError('The important mark attaches only to a published release')
+    if not set(files) <= uploaded:
+        raise ValueError('Attach the release files before marking it important')
+    if mark_name in {asset.get('name') for asset in listing.get('assets') or []}:
+        raise ValueError('The release is already marked important')
+    mark = private.sign(important_message(version))
+    ed25519.Ed25519PublicKey.from_public_bytes(public).verify(mark, important_message(version))
+    with tempfile.TemporaryDirectory(prefix='roleband-important-') as directory:
+        path = Path(directory) / mark_name
+        path.write_bytes(mark)
+        subprocess.run(["gh", "release", "upload", tag, "--repo", repository, str(path)], check=True)
+    return mark_name
+
+
 def main():
     parser = argparse.ArgumentParser()
     commands = parser.add_subparsers(dest="command", required=True)
@@ -325,6 +370,10 @@ def main():
     unsigned = commands.add_parser('candidate')
     unsigned.add_argument('app', type=Path)
     unsigned.add_argument('directory', type=Path)
+    mark = commands.add_parser('important', help='Mark a published release important: its window returns daily')
+    mark.add_argument('--tag', required=True)
+    mark.add_argument('--repository', required=True)
+    mark.add_argument('--signing-key', type=Path, required=True)
     publish = commands.add_parser("attach")
     publish.add_argument("directory", type=Path)
     publish.add_argument("--tag", required=True)
@@ -341,6 +390,9 @@ def main():
                 passphrase = getpass.getpass('Release key passphrase: ').encode()
             print(prepare(args.app.resolve(), args.directory.absolute(), args.tag,
                           signing_key=args.signing_key, passphrase=passphrase, notice=args.notice))
+        elif args.command == 'important':
+            print(important(args.tag, args.repository, args.signing_key,
+                            getpass.getpass('Release key passphrase: ').encode()))
         elif args.command == 'candidate':
             print(candidate(args.app.resolve(), args.directory.absolute()))
         else:

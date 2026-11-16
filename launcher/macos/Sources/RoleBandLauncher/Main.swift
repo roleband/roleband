@@ -120,7 +120,7 @@ enum LauncherMain {
             case "failed-space": .failed(.space(required: 2_400 * mb))
             default: nil
             }
-            let view = NSHostingView(rootView: UpdateWindowView(release: release.signed(notice: value("--notice")),
+            let view = NSHostingView(rootView: UpdateWindowView(release: release.signed(notice: value("--notice"), important: arguments.contains("--important")),
                                                                   copy: LauncherCopy(language: value("--lang")), activity: activity)
                 .environment(\.colorScheme, dark ? .dark : .light))
             view.frame = NSRect(origin: .zero, size: view.fittingSize)

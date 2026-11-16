@@ -44,6 +44,41 @@ private func releaseData(_ version: String) -> Data {
     #expect(restored.windowAllows("0.2.1"))
 }
 
+/// An important release comes back a day after each Later, however many Laters there were, and a
+/// mark that arrives during a three-day wait shortens it to a day from that Later.
+@MainActor @Test func anImportantReleaseComesBackADayAfterEveryLater() {
+    let clock = Clock()
+    let defaults = UserDefaults.scratch("update-window-important")
+    let updates = LauncherUpdates(preferences: defaults, fetch: { releaseData("0.2.0") }, now: { clock.now }, authenticate: { _ in nil })
+    defer { updates.stop() }
+    updates.later("0.2.0")
+    clock.advance(86400 - 1)
+    #expect(!updates.windowAllows("0.2.0", important: true))
+    clock.advance(1)
+    #expect(updates.windowAllows("0.2.0", important: true))
+    #expect(!updates.windowAllows("0.2.0"))
+    for _ in 1...4 {
+        updates.later("0.2.0")
+        clock.advance(86400)
+    }
+    #expect(updates.windowAllows("0.2.0", important: true))
+    clock.advance(30 * 86400)
+    #expect(!updates.windowAllows("0.2.0"))
+    // Another version is not held by this one's Laters.
+    #expect(updates.windowAllows("0.2.1", important: true))
+}
+
+@Test func onlyTheOfferedImportantReleaseSaysItIsRecommended() throws {
+    let release = try OfferedRelease.decode(releaseData("0.2.1"), from: .production)
+    #expect(UpdateWindowView.bodyKey(release, installing: "0.2.1") == "update-window-body")
+    let important = release.signed(notice: nil, important: true)
+    #expect(UpdateWindowView.bodyKey(important, installing: "0.2.1") == "update-window-body-important")
+    // An older version still installing is not the one the mark is on.
+    #expect(UpdateWindowView.bodyKey(important, installing: "0.2.0") == "update-window-body")
+    let copy = LauncherCopy()
+    #expect(copy.text("update-window-body-important") != copy.text("update-window-body"))
+}
+
 @MainActor @Test func theUpdateWindowFloatsWithoutTakingFocusAndAnswersTheFirstClick() throws {
     _ = NSApplication.shared
     let release = try OfferedRelease.decode(releaseData("0.2.1"), from: .production)

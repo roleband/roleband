@@ -224,6 +224,23 @@ public actor UpdateDownloader {
                                    spareKey: try VerifiedArtifact.installedSpareKey(in: bundle), origin: origin)
     }
 
+    /// Reads a release's important mark and checks it against this app's release keys. A mark that is
+    /// missing, unreadable or not signed by those keys counts as none: the next check reads it again.
+    public static func important(version: String, in bundle: Bundle = .main) async -> Bool {
+        guard let repository = UpdateRepository.stamped(in: bundle), let base = try? repository.releaseURL(version: version),
+              let publicKey = try? VerifiedArtifact.installedPublicKey(in: bundle),
+              let spareKey = try? VerifiedArtifact.installedSpareKey(in: bundle) else { return false }
+        return await important(version: version, publicKey: publicKey, spareKey: spareKey,
+                               origin: AssetOrigin(base: base, loopback: false))
+    }
+
+    static func important(version: String, publicKey: Data, spareKey: Data? = nil, origin: AssetOrigin) async -> Bool {
+        guard ReleaseVersion(version) != nil,
+              let mark = try? await AssetTransfer(file: nil, origin: origin, maximum: 64, exact: false, offset: 0, report: { _ in })
+                .read(origin.base.appendingPathComponent(ReleaseFiles.important(version))) else { return false }
+        return VerifiedArtifact.isImportant(mark: mark, version: version, publicKey: publicKey, spareKey: spareKey)
+    }
+
     static func authenticate(version: String, publicKey: Data, spareKey: Data? = nil, origin: AssetOrigin) async throws -> VerifiedArtifact {
         guard ReleaseVersion(version) != nil else { throw ArtifactProblem.untrustedKey }
         return try await signedMetadata(version: version, publicKey: publicKey, spareKey: spareKey) { name, limit in

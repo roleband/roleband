@@ -11,6 +11,8 @@ private actor UpdateTransport {
     var suspend = false
     var uploaded = 4
     var notes = "New release notes."
+    var marked = false
+    func set(marked: Bool) { self.marked = marked }
     func set(version: String) { self.version = version }
     func set(notes: String) { self.notes = notes }
     func set(uploaded: Int) { self.uploaded = uploaded }
@@ -21,7 +23,8 @@ private actor UpdateTransport {
         try JSONSerialization.data(withJSONObject: ["tag_name": "v" + version,
             "html_url": "https://github.com/roleband/roleband/releases/tag/v" + version,
             "body": notes, "draft": false, "prerelease": false,
-            "assets": ReleaseFiles.all(version).sorted().prefix(uploaded).map { ["name": $0, "state": "uploaded"] }])
+            "assets": (ReleaseFiles.all(version).sorted().prefix(uploaded) + (marked ? [ReleaseFiles.important(version)] : []))
+                .map { ["name": $0, "state": "uploaded"] }])
     }
     func fetch() async throws -> Data {
         calls += 1
@@ -381,6 +384,10 @@ private actor ReleaseSignatures {
     func forge(_ version: String) { forged.insert(version) }
     func set(offline: Bool) { self.offline = offline }
     func sign(_ version: String, notice: String) { notices[version] = notice }
+    var marks: Set<String> = []
+    var marksRead: [String] = []
+    func mark(_ version: String) { marks.insert(version) }
+    func important(_ version: String) -> Bool { marksRead.append(version); return marks.contains(version) }
     func check(_ version: String) throws -> String? {
         asked.append(version)
         if offline { throw URLError(.notConnectedToInternet) }
@@ -468,4 +475,44 @@ private actor ReleaseSignatures {
     let again = LauncherUpdates(preferences: preferences, fetch: { try await transport.fetch() },
                                 authenticate: { try await signatures.check($0) })
     #expect(again.offered?.beforeYouUpdate == nil)
+}
+
+/// An important mark counts only once its signature verifies, is read only when the listing names it,
+/// and stays with its offer across a restart. A newer release without one clears it.
+@MainActor @Test func theOffersImportantMarkIsReadOnlyWhenListedAndOnlyTrustedWhenSigned() async throws {
+    let preferences = UserDefaults.scratch("update-important")
+    let transport = UpdateTransport()
+    let signatures = ReleaseSignatures()
+    func launcher() -> LauncherUpdates {
+        LauncherUpdates(preferences: preferences, fetch: { try await transport.fetch() },
+                        authenticate: { try await signatures.check($0) }, important: { await signatures.important($0) })
+    }
+    let updates = launcher()
+    defer { updates.stop() }
+    updates.choose(.manual)
+
+    // Signed, but not listed: never read.
+    await signatures.mark("0.2.0")
+    await updates.checkManuallyAndWait()
+    #expect(updates.offered?.version == "0.2.0" && updates.offered?.important == false)
+    #expect(await signatures.marksRead.isEmpty)
+
+    // Listed, but its signature fails: no mark.
+    await transport.set(version: "0.3.0")
+    await transport.set(marked: true)
+    await updates.checkManuallyAndWait()
+    #expect(updates.offered?.version == "0.3.0" && updates.offered?.important == false)
+
+    // The mark may be attached after the release: the next check of the same version picks it up.
+    await signatures.mark("0.3.0")
+    await updates.checkManuallyAndWait()
+    #expect(updates.offered?.important == true)
+    #expect(await signatures.marksRead == ["0.3.0", "0.3.0"])
+    #expect(launcher().offered?.important == true)
+
+    await transport.set(version: "0.4.0")
+    await transport.set(marked: false)
+    await updates.checkManuallyAndWait()
+    #expect(updates.offered?.version == "0.4.0" && updates.offered?.important == false)
+    #expect(launcher().offered?.important == false)
 }

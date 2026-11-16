@@ -28,6 +28,8 @@ final class LauncherUpdates: ObservableObject {
     /// Checks a version's signed metadata against this app's release keys and returns its signed notice;
     /// throws `ArtifactProblem` when it fails.
     private let authenticate: @Sendable (String) async throws -> String?
+    /// Whether a version's listed important mark is signed by this app's release keys.
+    private let important: @Sendable (String) async -> Bool
     private let repository: UpdateRepository?
     private let now: @Sendable () -> Date
     private let copy: LauncherCopy
@@ -42,18 +44,20 @@ final class LauncherUpdates: ObservableObject {
          repository: UpdateRepository? = UpdateRepository.stamped(),
          authenticate: @escaping @Sendable (String) async throws -> String? = {
              try await UpdateDownloader.authenticate(version: $0).beforeYouUpdate
-         }) {
+         },
+         important: @escaping @Sendable (String) async -> Bool = { await UpdateDownloader.important(version: $0) }) {
         self.preferences = preferences
         self.repository = repository
         self.copy = copy
         self.fetch = fetch
         self.authenticate = authenticate
+        self.important = important
         self.now = now
         self.automaticInterval = max(1, automaticInterval)
         consent = UpdateConsent(rawValue: preferences.string(forKey: "updateConsent") ?? "") ?? .undecided
         offered = repository.flatMap { repository in
             preferences.data(forKey: "offeredRelease").flatMap { try? OfferedRelease.decode($0, from: repository) }
-                .map { $0.signed(notice: preferences.string(forKey: "offeredNotice")) }
+                .map { $0.signed(notice: preferences.string(forKey: "offeredNotice"), important: preferences.bool(forKey: "offeredImportant")) }
         }
         lastSuccess = preferences.object(forKey: "updateLastSuccess") as? Date
         showsWindow = preferences.object(forKey: "updateNotices") as? Bool ?? true
@@ -64,8 +68,10 @@ final class LauncherUpdates: ObservableObject {
         preferences.set(enabled, forKey: "updateNotices")
     }
     /// How long Later keeps the update window away, and how many Laters it takes for a version to
-    /// leave it to the menu-bar badge alone.
+    /// leave it to the menu-bar badge alone. An important release comes back after a day, after any
+    /// number of Laters.
     static let laterInterval: TimeInterval = 3 * 86400
+    static let importantLaterInterval: TimeInterval = 86400
     static let laterLimit = 3
     /// Later on the update window. A newer version starts its own count.
     func later(_ version: String) {
@@ -74,11 +80,14 @@ final class LauncherUpdates: ObservableObject {
         preferences.set(count + 1, forKey: "updateLaterCount")
         preferences.set(now().addingTimeInterval(Self.laterInterval), forKey: "updateLaterUntil")
     }
-    /// Whether the person's Laters still let the window open for this version.
-    func windowAllows(_ version: String) -> Bool {
+    /// Whether the person's Laters still let the window open for this version. The wait is measured
+    /// from the last Later, so a mark that arrives during a three-day wait shortens it to a day.
+    func windowAllows(_ version: String, important: Bool = false) -> Bool {
         guard preferences.string(forKey: "updateLaterVersion") == version else { return true }
+        guard let until = preferences.object(forKey: "updateLaterUntil") as? Date else { return true }
+        if important { return now() >= until.addingTimeInterval(Self.importantLaterInterval - Self.laterInterval) }
         guard preferences.integer(forKey: "updateLaterCount") < Self.laterLimit else { return false }
-        return now() >= preferences.object(forKey: "updateLaterUntil") as? Date ?? .distantPast
+        return now() >= until
     }
     func suppress(_ version: String) {
         suppressedVersion = version
@@ -149,7 +158,10 @@ final class LauncherUpdates: ObservableObject {
                 // one that fails is treated as no release at all, while a network failure fails the check.
                 let signed: OfferedRelease?
                 if release.filesReady {
-                    do { signed = release.signed(notice: try await authenticate(release.version)) } catch is ArtifactProblem { signed = nil }
+                    do {
+                        let notice = try await authenticate(release.version)
+                        signed = release.signed(notice: notice, important: release.markListed ? await important(release.version) : false)
+                    } catch is ArtifactProblem { signed = nil }
                 } else { signed = nil }
                 try Task.checkCancellation()
                 guard generation == token, consent.permitsRequests || explicitlyRequested else { return }
@@ -159,6 +171,7 @@ final class LauncherUpdates: ObservableObject {
                         offered = signed
                         preferences.set(data, forKey: "offeredRelease")
                         preferences.set(signed.beforeYouUpdate, forKey: "offeredNotice")
+                        preferences.set(signed.important, forKey: "offeredImportant")
                     }
                     if explicitlyRequested && release.version == suppressedVersion {
                         suppressedVersion = nil

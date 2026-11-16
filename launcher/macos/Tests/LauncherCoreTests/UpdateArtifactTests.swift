@@ -174,6 +174,26 @@ func theInstalledSpareKeyIsOptionalButNeverMalformedOrTheCurrentKey(kind: String
     }
 }
 
+/// The important mark is this version's signature by a release key, as `Tools/release.py important`
+/// writes it. The same signature for another version, the release's own metadata signature, a key
+/// the app does not hold, or a mark of another size, is no mark.
+@Test func anImportantMarkIsTheToolsSignatureOnThisVersionAlone() throws {
+    struct Mark: Decodable { let publicKey: Data; let mark: Data }
+    let fixture = try JSONDecoder().decode(Mark.self, from: Data(contentsOf: URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent().appendingPathComponent("Fixtures/update-important.json")))
+    #expect(VerifiedArtifact.importantMessage("0.1.1") == Data("roleband-important v0.1.1\n".utf8))
+    #expect(VerifiedArtifact.isImportant(mark: fixture.mark, version: "0.1.1", publicKey: fixture.publicKey))
+    #expect(!VerifiedArtifact.isImportant(mark: fixture.mark, version: "0.1.2", publicKey: fixture.publicKey))
+    let other = Curve25519.Signing.PrivateKey().publicKey.rawRepresentation
+    #expect(!VerifiedArtifact.isImportant(mark: fixture.mark, version: "0.1.1", publicKey: other))
+    #expect(VerifiedArtifact.isImportant(mark: fixture.mark, version: "0.1.1", publicKey: other, spareKey: fixture.publicKey))
+    #expect(!VerifiedArtifact.isImportant(mark: fixture.mark + Data([0]), version: "0.1.1", publicKey: fixture.publicKey))
+    #expect(!VerifiedArtifact.isImportant(mark: fixture.mark.prefix(63), version: "0.1.1", publicKey: fixture.publicKey))
+    let release = try ArtifactFixture.load()
+    #expect(release.publicKey == fixture.publicKey)
+    #expect(!VerifiedArtifact.isImportant(mark: release.signature, version: "0.1.1", publicKey: release.publicKey))
+}
+
 /// The "Before you update" notice is trusted only inside the signed metadata: format 3 carries one
 /// valid paragraph, format 2 carries none, and any other shape is refused even when properly signed.
 @Test func aSignedNoticeComesOnlyFromFormat3MetadataTheToolWrote() throws {

@@ -346,6 +346,7 @@
   "panel-status-failed": "Couldn't check",
   "update-ready": "Version {version} is ready",
   "update-window-body": "This update includes improvements and bug fixes.",
+  "update-window-body-important": "This update includes important fixes and is recommended for all users.",
   "update-install": "Update",
   "update-read-first": "Read first",
   "update-released": "Released {date}",

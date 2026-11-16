@@ -129,7 +129,9 @@ presses Update. The update window is a non-activating floating panel the app sho
 itself, so it needs no notification permission. It opens only for a release an
 automatic check found and verified, and launcher preferences record each version's
 Laters (see [ui.md](ui.md#native-launcher-updates) and
-[decision 0021](decisions/0021-update-window-replaces-notifications.md)).
+[decision 0021](decisions/0021-update-window-replaces-notifications.md)); a verified
+important mark shortens the wait after Later to a day
+([decision 0022](decisions/0022-important-mark-is-its-own-signed-file.md)).
 An offline demo feed and faster interval require a preview bundle with an
 explicit registration; normal source installation and release packaging reject
 bundles containing that feed configuration.
@@ -489,7 +491,12 @@ signature over the checksum and metadata bytes together. `prepare
 --before-you-update` adds one paragraph of at most 400 characters and makes the
 metadata format 3, format 2 plus `before_you_update`; a release without a notice
 stays format 2, which older apps accept, and an app accepts format 3 only with a
-valid notice. `prepare` requires the sealed app to carry and meet the recorded
+valid notice. `release.py important` marks a published release important: it signs
+`roleband-important v<version>` and a newline with the release key and attaches the
+64-byte signature as `RoleBand-<version>-macOS-arm64.important`, once, only beside all four
+files. An app reads the mark only when the listing names it and trusts it only when a
+release key it holds signed that version; older apps never read it.
+`prepare` requires the sealed app to carry and meet the recorded
 rule and refuses any file group or others may write, setuid or setgid files, and
 anything but regular files, folders and links, because code signatures do not
 cover modes; installed apps refuse the same in an update. Pre-releases get the

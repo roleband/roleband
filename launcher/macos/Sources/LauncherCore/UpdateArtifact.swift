@@ -97,6 +97,20 @@ public struct VerifiedArtifact: Sendable {
                     bytes: manifest.bytes, sha256: manifest.sha256, beforeYouUpdate: manifest.before_you_update)
     }
 
+    /// What an important mark signs. It names the version, so a mark cannot be moved to another
+    /// release, and it cannot be mistaken for release metadata, whose signed bytes open with a checksum.
+    public static func importantMessage(_ version: String) -> Data { Data("roleband-important v\(version)\n".utf8) }
+
+    /// Whether a release's important mark is a signature by one of this app's release keys on that
+    /// version. Anything else, of any size, is no mark.
+    public static func isImportant(mark: Data, version: String, publicKey: Data, spareKey: Data? = nil) -> Bool {
+        guard mark.count == 64, ReleaseVersion(version) != nil else { return false }
+        return ([publicKey] + (spareKey.map { [$0] } ?? [])).contains { key in
+            key.count == 32 && (try? Curve25519.Signing.PublicKey(rawRepresentation: key))?
+                .isValidSignature(mark, for: importantMessage(version)) == true
+        }
+    }
+
     /// One paragraph of at most `noticeLimit` Unicode scalars, with no edge spaces, controls or line breaks.
     static func isNotice(_ text: String) -> Bool {
         let scalars = text.unicodeScalars
