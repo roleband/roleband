@@ -6,6 +6,10 @@ operation's summary, its parameters the operation's input schema. The schema
 is made self-contained, because a local server pastes it into the prompt
 where a `$ref` points nowhere: definitions are inlined, and `title` and `x-`
 annotations, which only cost tokens, are dropped.
+
+A tool is made from the schema, not the model, so the `roleband` client builds
+the same tools from its bundled index (`tools export`) without the engine's
+models.
 """
 
 from __future__ import annotations
@@ -79,19 +83,25 @@ def self_contained(schema: Mapping[str, Any]) -> dict[str, Any]:
     return inlined
 
 
-def input_schema(model: type[BaseModel]) -> dict[str, Any]:
-    """The model's JSON Schema, self-contained, as a tool's parameters."""
-    inlined = self_contained(model.model_json_schema())
+def parameters(schema: Mapping[str, Any]) -> dict[str, Any]:
+    """An input JSON Schema, self-contained, as a tool's parameters."""
+    inlined = self_contained(schema)
     inlined.setdefault("properties", {})
     return inlined
 
 
+def input_schema(model: type[BaseModel]) -> dict[str, Any]:
+    """The model's JSON Schema, self-contained, as a tool's parameters."""
+    return parameters(model.model_json_schema())
+
+
+def schema_tool(operation_id: str, summary: str, schema: Mapping[str, Any]) -> ToolDefinition:
+    """The tool for an operation, from its id, summary and input JSON Schema."""
+    return ToolDefinition(name=tool_name(operation_id), description=summary, parameters=parameters(schema))
+
+
 def tool_definition(descriptor: OperationDescriptor) -> ToolDefinition:
-    return ToolDefinition(
-        name=tool_name(descriptor.id),
-        description=descriptor.summary,
-        parameters=input_schema(descriptor.input),
-    )
+    return schema_tool(descriptor.id, descriptor.summary, descriptor.input.model_json_schema())
 
 
 @dataclass(frozen=True)
@@ -105,15 +115,21 @@ class ToolSet:
         return self.operations.get(name)
 
 
-def tool_set(descriptors: Iterable[OperationDescriptor]) -> ToolSet:
+def assemble(tools: Iterable[tuple[str, ToolDefinition]]) -> ToolSet:
+    """A tool set from (operation id, tool) pairs. Two ids that differ only by
+    a dot and an underscore share a tool name, so that is refused rather than
+    one shadowing the other."""
     definitions: list[ToolDefinition] = []
     operations: dict[str, str] = {}
-    for descriptor in descriptors:
-        definition = tool_definition(descriptor)
+    for operation_id, definition in tools:
         if definition.name in operations:
             raise ValueError(
-                f"operations {operations[definition.name]!r} and {descriptor.id!r} share the tool name {definition.name!r}"
+                f"operations {operations[definition.name]!r} and {operation_id!r} share the tool name {definition.name!r}"
             )
-        operations[definition.name] = descriptor.id
+        operations[definition.name] = operation_id
         definitions.append(definition)
     return ToolSet(definitions=tuple(definitions), operations=operations)
+
+
+def tool_set(descriptors: Iterable[OperationDescriptor]) -> ToolSet:
+    return assemble((descriptor.id, tool_definition(descriptor)) for descriptor in descriptors)

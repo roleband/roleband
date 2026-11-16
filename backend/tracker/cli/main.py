@@ -1,9 +1,9 @@
 """Parse, call one operation, print one envelope, exit with its status.
 
 Every operation of the bundled index is a command (`tracker/cli/commands.py`);
-`status`, `capabilities`, `describe` and `connect` are written here. Global
-options may come before the command or after it; the same option given
-twice with different values is an error. `ROLEBAND_AGENT=1` selects JSON and
+`status`, `capabilities`, `describe`, `connect` and `tools export` are
+written here. Global options may come before the command or after it; the
+same option given twice with different values is an error. `ROLEBAND_AGENT=1` selects JSON and
 non-interactive behaviour unless a flag says otherwise. Every failure, the
 parser's included, is an envelope in the selected format with the exit status
 of its code.
@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any, NoReturn, TextIO, cast
 
 from tracker.agents.operations.outcomes import CONTRACT_VERSION, EXIT_OK, outcome
-from tracker.cli import commands, connect, output
+from tracker.cli import commands, connect, output, tools
 from tracker.cli.errors import (
     PARSE_OPERATION,
     ClientError,
@@ -137,6 +137,7 @@ def build_parser(bundle: dict[str, Any] | None = None) -> Parser:
     except (KeyError, TypeError, ValueError):
         raise ClientError("internal_error", "The client's bundled operation index cannot be laid out as commands.") from None
     commands.register(commands_, generated, parser_class=Parser, add_globals=_add_globals)
+    tools.register(commands_, parser_class=Parser, add_globals=_add_globals)
     return parser
 
 
@@ -199,6 +200,8 @@ def _attempted(argv: Sequence[str]) -> str:
         elif not token.startswith("-"):
             words.append(token)
     known = ("status", "capabilities", "describe", "connect")
+    if words[:2] == ["tools", "export"]:
+        return tools.OPERATION
     if words and words[0] in known:
         return words[0]
     try:
@@ -378,13 +381,17 @@ def run(argv: Sequence[str], *, stdout: TextIO, stderr: TextIO, environ: dict[st
             words = " ".join(args.group)
             raise ClientError("invalid_arguments", f"Name a command after {words!r}; see roleband {words} --help.",
                               details={"usage": _usage(parser)})
-        operation = generated.operation if generated is not None else args.command
+        operation = generated.operation if generated is not None else getattr(args, "client_operation", args.command)
         if args.format is None:
             args.format = _default_format(environ, stdout)
         fmt = args.format
         if fmt == "ndjson":
             raise ClientError("invalid_arguments", f"{operation} answers one object, not a stream; use --format json.")
-        if getattr(args, "offline", False):
+        if operation == tools.OPERATION:
+            asking = argparse.Namespace(**{**vars(args), "command": "capabilities", "generated": None})
+            envelope = tools.export(args, bundle=_bundle(), engine=lambda: _live(asking, request_id),
+                                    request_id=request_id)
+        elif getattr(args, "offline", False):
             envelope = success_envelope(operation, _OFFLINE[operation](args), request_id=request_id)
         else:
             envelope = _live(args, request_id)

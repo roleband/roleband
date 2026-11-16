@@ -23,7 +23,7 @@ Everything runs locally against one database.
 | Scan tick | `backend/tracker/workflows/scheduler.py` | The supervisor's `scan` job: a short tick that runs what is due, a full read when the computer wakes or the last one is old, the rest of a full read something stopped, a quick discovery check on a repeat while it is on (`backend/tracker/workflows/schedule_plan.py`). |
 | API | `backend/tracker/api/app.py` | FastAPI on `127.0.0.1:8010` by default (the Mac app can move it, see `EnginePort`): dashboard reads, the user's own writes, requests for background work, and the built dashboard from `dashboard/dist`. It starts no process: what it asks for, the supervisor runs. |
 | Dashboard | `dashboard/src/` | React 19, TypeScript, Vite. In development Vite serves `:5173` and proxies `/api` to `:8010`. |
-| MCP server | `backend/tracker/mcp/server.py` | Local STDIO server for external agents, reads and pursuit writes gated separately. See [mcp.md](mcp.md). The `roleband` command (`backend/tracker/cli/`), a client of the running engine through `/api/agent/v1/`, is to replace it ([0015](decisions/0015-agents-use-the-cli.md), with its trust and identity in [0016](decisions/0016-agent-trust-and-workspace-identity.md) and its access choices in [0017](decisions/0017-agent-access-open-by-default.md)). The command answers `status`, `capabilities`, `describe`, `connect` (which sets up an agent host and asks no engine) and one generated command per catalog operation; this server stays the agent interface until the command does everything it does (`backend/tests/fixtures/mcp_parity_checklist.json`). |
+| MCP server | `backend/tracker/mcp/server.py` | Local STDIO server for external agents, reads and pursuit writes gated separately. See [mcp.md](mcp.md). The `roleband` command (`backend/tracker/cli/`), a client of the running engine through `/api/agent/v1/`, is to replace it ([0015](decisions/0015-agents-use-the-cli.md), with its trust and identity in [0016](decisions/0016-agent-trust-and-workspace-identity.md) and its access choices in [0017](decisions/0017-agent-access-open-by-default.md)). The command answers `status`, `capabilities`, `describe`, `connect` (which sets up an agent host and asks no engine), `tools export` (the operations as tool definitions for someone's own agent) and one generated command per catalog operation; this server stays the agent interface until the command does everything it does (`backend/tests/fixtures/mcp_parity_checklist.json`). |
 | Health | `backend/tracker/workflows/watchdog.py` | The supervisor's `health` job: database reachability, stuck runs, stale data (asks for a scan), a stale backup, desktop alerts. |
 
 On macOS, `deploy/install.sh` installs one per-user background item,
@@ -1361,6 +1361,23 @@ for Codex `network_access` in workspace-write mode. It merges into the person's
 file, keeps a backup, changes nothing on a second run, and installs the skill in
 `backend/tracker/cli/skills/` unless the person edited their copy. Any other host
 is refused as `unsupported_host`.
+`roleband tools export --dialect openai|anthropic [--tier small|standard|full]`
+(`backend/tracker/cli/tools.py`) gives someone who builds their own agent one
+tool per operation, in the OpenAI-compatible or Anthropic format. The tools come
+from the builder the engine's runner uses (`backend/tracker/agents/tool_definitions.py`),
+applied to the input schemas of the bundled index, so the client loads no engine
+model. Like `capabilities`, it asks the engine which operations are available and
+exports only those, so a write appears only while changes are allowed and a
+category that is not shared takes its operations with it; `not_exported` names
+the rest with their reason. `--offline` exports every bundled operation of the tier
+with availability unknown. The connection's own operations (`status`,
+`capabilities`, `describe`) are not tools. Beside the tools, the document maps each
+tool name to its operation and command words, since a tool name cannot be read
+back as an id: a call's arguments are that command's `--input`. `--output FILE`
+writes the document atomically, refuses to replace a file or follow a link unless
+`--overwrite` is given (a folder without hard links cannot place a new file
+atomically, so there only `--overwrite` writes), and reports its path, size and SHA-256. The export grants
+nothing: the switches still decide each call.
 
 A read takes its input from the path and query; one that takes a document
 (`recipes.validate`) takes it as a POST body, one JSON object.
