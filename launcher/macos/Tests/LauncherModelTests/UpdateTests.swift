@@ -288,12 +288,10 @@ private final class UpdateClock: @unchecked Sendable {
         let updates = LauncherUpdates(preferences: preferences, fetch: { try await transport.fetch() },
                                       now: { clock.now() }, automaticInterval: 15, authenticate: { _ in nil })
         defer { updates.stop() }
-        var choices: [Bool] = []
         var discoveries: [Bool] = []
-        updates.automaticChoiceChanged = { choices.append($0) }
         updates.didCheck = { _, automatic in discoveries.append(automatic) }
         await updates.checkManuallyAndWait()
-        #expect(discoveries == [false] && choices.isEmpty)
+        #expect(discoveries == [false])
         updates.setAutomaticChecks(true)
         await updates.checkAndWait(automatic: true)
         #expect(await transport.calls == 1)
@@ -304,7 +302,6 @@ private final class UpdateClock: @unchecked Sendable {
         clock.advance(16)
         await updates.checkAndWait(automatic: true)
         #expect(await transport.calls == 2)
-        #expect(choices == [true, false])
     }
 }
 

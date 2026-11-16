@@ -125,11 +125,11 @@ The native core stages the signed image and a helper replaces the app and
 database as one recoverable transaction, as [Mac app updates](#mac-app-updates)
 describes.
 Release checks only find an offer; these operations run only after the person
-presses Update. Desktop update notices use the local UserNotifications API, with
-permission requested when the person turns on notices with automatic checks in
-About. Setup can enable
-checks without asking for notification permission. Delivery is deduplicated by release
-version and rechecks the automatic choice and current offer before posting.
+presses Update. The update window is a non-activating floating panel the app shows
+itself, so it needs no notification permission. It opens only for a release an
+automatic check found and verified, and launcher preferences record each version's
+Laters (see [ui.md](ui.md#native-launcher-updates) and
+[decision 0021](decisions/0021-update-window-replaces-notifications.md)).
 An offline demo feed and faster interval require a preview bundle with an
 explicit registration; normal source installation and release packaging reject
 bundles containing that feed configuration.

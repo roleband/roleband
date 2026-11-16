@@ -130,7 +130,7 @@ struct SetupView: View {
                     rowDivider
                     row("arrow.triangle.2.circlepath", title: "update-automatic", caption: "first-updates-caption") {
                         Toggle(model.text("update-automatic"), isOn: Binding(get: { model.updates.automatic },
-                            set: { model.updates.setAutomaticChecks($0, requestNotifications: false) }))
+                            set: { model.updates.setAutomaticChecks($0) }))
                             .labelsHidden().toggleStyle(InkSwitchStyle())
                     }
                 }
