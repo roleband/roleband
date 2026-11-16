@@ -48,33 +48,130 @@ private actor Engine {
     }, discard: { _ in }, handOff: { handOffs.plans.append($0) })
 }
 
-@MainActor @Test func noticesFollowAutomaticChecksUntilChosenAndOnlyTurningThemOnAsksMacOS() async throws {
-    let defaults = preferences()
-    let updates = LauncherUpdates(preferences: defaults, fetch: { release("0.1.1") }, authenticate: { _ in nil })
-    var asked: [Bool] = []
-    updates.noticesChanged = { asked.append($0) }
-    #expect(updates.notices)
-    updates.setAutomaticChecks(false, requestNotifications: false)
-    #expect(!updates.notices)
-    updates.setAutomaticChecks(true, requestNotifications: false)
-    #expect(updates.notices)
-    updates.setNotices(false)
-    #expect(!updates.notices && asked.isEmpty)
-    updates.stop()
+@MainActor @Test func theUpdateWindowSwitchStartsOnAndKeepsTheChoiceTheNoticesSwitchLeft() async throws {
+    let fresh = LauncherUpdates(preferences: preferences(), fetch: { release("0.1.1") }, authenticate: { _ in nil })
+    #expect(fresh.showsWindow)
+    fresh.stop()
 
+    // Someone who turned desktop notices off before the window replaced them keeps it off.
+    let defaults = preferences()
+    defaults.set(false, forKey: "updateNotices")
+    let earlier = LauncherUpdates(preferences: defaults, fetch: { release("0.1.1") }, authenticate: { _ in nil })
+    #expect(!earlier.showsWindow)
+    earlier.setShowsWindow(true)
+    earlier.stop()
     let restored = LauncherUpdates(preferences: defaults, fetch: { release("0.1.1") }, authenticate: { _ in nil })
-    restored.noticesChanged = { asked.append($0) }
-    #expect(restored.automatic && !restored.notices)
-    restored.setNotices(true)
-    restored.setNotices(true)
-    #expect(restored.notices && asked == [true])
+    #expect(restored.showsWindow)
     restored.stop()
+}
+
+private final class PanelClock: @unchecked Sendable {
+    var now = Date(timeIntervalSince1970: 1_800_000_000)
+}
+
+@MainActor @Test func aFailedUpdateSetAsideWithLaterOpensItsWindowAgainAfterThreeDays() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("panel-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let clock = PanelClock()
+    let defaults = preferences()
+    defaults.set(true, forKey: "setupCompleted")
+    let updates = LauncherUpdates(preferences: defaults, fetch: { release("0.1.1") }, now: { clock.now }, authenticate: { _ in nil })
+    let model = LauncherModel(launcherVersion: "0.1.0", preferences: defaults, updates: updates,
+                              installOperations: operations(home: root, handOffs: HandOffs()))
+    defer { model.stop(); updates.stop() }
+    await updates.checkManuallyAndWait()
+    try #require(model.installer).show(.failed(.download), version: "0.1.1")
+    #expect(model.updateFound("0.1.1", automatic: true))
+    updates.later("0.1.1")
+    clock.now = clock.now.addingTimeInterval(3 * 86400 - 1)
+    #expect(!model.updateFound("0.1.1", automatic: true))
+    clock.now = clock.now.addingTimeInterval(1)
+    #expect(model.updateFound("0.1.1", automatic: true))
+}
+
+@MainActor @Test func onlyADailyFindOpensTheUpdateWindowAndNeverDuringSetupAnUpdateOrWhenSwitchedOff() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("panel-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: root) }
+    func offered(setupCompleted: Bool = true, mode: LaunchMode = .owned(leftover: nil)) async -> (LauncherModel, LauncherUpdates) {
+        let defaults = preferences()
+        defaults.set(setupCompleted, forKey: "setupCompleted")
+        let updates = LauncherUpdates(preferences: defaults, fetch: { release("0.1.1") }, authenticate: { _ in nil })
+        let model = LauncherModel(mode: mode, launcherVersion: "0.1.0", preferences: defaults, updates: updates,
+                                  installOperations: operations(home: root, handOffs: HandOffs()))
+        await updates.checkManuallyAndWait()
+        return (model, updates)
+    }
+
+    let (model, updates) = await offered()
+    defer { model.stop(); updates.stop() }
+    #expect(model.opensUpdateWindow(for: "0.1.1", automatic: true))
+    // Check now answers in About; a version that is no longer the offer opens nothing.
+    #expect(!model.opensUpdateWindow(for: "0.1.1", automatic: false))
+    #expect(!model.opensUpdateWindow(for: "0.1.2", automatic: true))
+    updates.setShowsWindow(false)
+    #expect(!model.opensUpdateWindow(for: "0.1.1", automatic: true))
+    updates.setShowsWindow(true)
+    model.setSetupVisible(true)
+    #expect(!model.opensUpdateWindow(for: "0.1.1", automatic: true))
+    model.setSetupVisible(false)
+    #expect(model.opensUpdateWindow(for: "0.1.1", automatic: true))
+    updates.later("0.1.1")
+    #expect(!model.opensUpdateWindow(for: "0.1.1", automatic: true))
+
+    // A find held back by setup opens once setup closes, not a day later; a manual find is never held.
+    let (held, heldUpdates) = await offered()
+    defer { held.stop(); heldUpdates.stop() }
+    held.setSetupVisible(true)
+    #expect(!held.updateFound("0.1.1", automatic: false) && !held.heldUpdateWindowOpens())
+    #expect(!held.updateFound("0.1.1", automatic: true) && !held.heldUpdateWindowOpens())
+    held.setSetupVisible(false)
+    #expect(held.heldUpdateWindowOpens() && !held.heldUpdateWindowOpens())
+    #expect(held.updateFound("0.1.1", automatic: true))
+
+    // A running update holds a find back and lets it open once cancelled; a failed one does not
+    // hold the offer back, so it can come again after Later.
+    let (updating, updatingUpdates) = await offered()
+    defer { updating.stop(); updatingUpdates.stop() }
+    let installer = try #require(updating.installer)
+    installer.show(.downloading(received: 1, total: 2), version: "0.1.1")
+    #expect(!updating.updateFound("0.1.1", automatic: true) && !updating.heldUpdateWindowOpens())
+    installer.cancel()
+    #expect(updating.heldUpdateWindowOpens())
+    installer.show(.failed(.download), version: "0.1.1")
+    #expect(updating.opensUpdateWindow(for: "0.1.1", automatic: true))
+
+    // An idle window goes when its switch is turned off or the offer goes; a failed update keeps it.
+    #expect(!updating.updateWindowStale)
+    updatingUpdates.setShowsWindow(false)
+    #expect(updating.updateWindowStale == false)
+    let (idle, idleUpdates) = await offered()
+    defer { idle.stop(); idleUpdates.stop() }
+    #expect(!idle.updateWindowStale)
+    idleUpdates.setShowsWindow(false)
+    #expect(idle.updateWindowStale)
+    idleUpdates.setShowsWindow(true)
+    idleUpdates.suppress("0.1.1")
+    #expect(idle.updateWindowStale)
+
+    let (unfinished, unfinishedUpdates) = await offered(setupCompleted: false)
+    defer { unfinished.stop(); unfinishedUpdates.stop() }
+    #expect(!unfinished.opensUpdateWindow(for: "0.1.1", automatic: true))
+
+    // A source checkout updates with its own tools, so its offer stays in the banner and the badge.
+    let (attached, attachedUpdates) = await offered(mode: .attach)
+    defer { attached.stop(); attachedUpdates.stop() }
+    #expect(attached.updateOffered && !attached.opensUpdateWindow(for: "0.1.1", automatic: true))
+
+    let (rolledBack, rolledBackUpdates) = await offered()
+    defer { rolledBack.stop(); rolledBackUpdates.stop() }
+    rolledBackUpdates.suppress("0.1.1")
+    #expect(!rolledBack.opensUpdateWindow(for: "0.1.1", automatic: true))
 }
 
 @MainActor @Test func aRolledBackVersionIsNotOfferedAgainUntilAnExplicitCheckFindsIt() async throws {
     let defaults = preferences()
     let updates = LauncherUpdates(preferences: defaults, fetch: { release("0.1.1") }, authenticate: { _ in nil })
-    updates.setAutomaticChecks(true, requestNotifications: false)
+    updates.setAutomaticChecks(true)
     let back = UpdateNotice(id: UUID(), kind: .rolledBack, from: "0.1.0", to: "0.1.1")
     let model = LauncherModel(launcherVersion: "0.1.0", preferences: defaults, updates: updates, updateNotice: back)
     defer { model.stop(); updates.stop() }
@@ -230,12 +327,6 @@ private actor Engine {
             #expect(item.action == action && item.title == copy.text(key) && item.title != key)
         }
     }
-}
-
-@Test func notificationSettingsOpenOnThisAppsOwnPage() throws {
-    let parts = try #require(URLComponents(url: SystemSettings.notifications, resolvingAgainstBaseURL: false))
-    #expect(parts.scheme == "x-apple.systempreferences" && parts.path == "com.apple.Notifications-Settings.extension")
-    #expect(parts.queryItems == [URLQueryItem(name: "id", value: "com.roleband.launcher")])
 }
 
 @MainActor @Test func theSwitchJumpsInsteadOfSlidingUnderReduceMotion() {

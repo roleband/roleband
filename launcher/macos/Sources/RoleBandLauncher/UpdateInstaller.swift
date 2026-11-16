@@ -10,6 +10,9 @@ struct UpdateInstallerOperations: Sendable {
     var discard: @Sendable (String) -> Void
     /// Starts the helper and quits, so the helper can replace this app.
     var handOff: @MainActor @Sendable (UpdatePlan) throws -> Void
+    /// Deletes a plan set aside for another version once its helper has stopped waiting; false when
+    /// cancelled or when the plan could not be moved out of reach, and then nothing may be handed over.
+    var retire: @Sendable (UpdatePlan) async -> Bool = { await $0.retire() }
 }
 
 extension UpdateInstallerOperations {
@@ -40,6 +43,8 @@ final class UpdateInstaller: ObservableObject {
     private let operations: UpdateInstallerOperations
     private var task: Task<Void, Never>?
     private var plan: UpdatePlan?
+    /// A plan handed over for another version, whose helper may still wait for this app to quit.
+    private var setAside: UpdatePlan?
     private var generation = 0
 
     init(operations: UpdateInstallerOperations) {
@@ -57,8 +62,13 @@ final class UpdateInstaller: ObservableObject {
         // A refused quit keeps its plan, and that plan's helper may still be waiting for this app to
         // quit. Handing the same plan over again means a second helper finds its lease taken and
         // stands aside, so two helpers never wait to replace this app, and the hand-off restarts the
-        // first helper's wait.
-        if plan != nil { return restart() }
+        // first helper's wait. A held plan for another version is set aside: Update names the version
+        // to install, and the newer offer is the one the person sees.
+        if let plan {
+            if plan.to == version { return restart() }
+            setAside = plan
+            self.plan = nil
+        }
         generation += 1
         let token = generation
         self.version = version
@@ -76,6 +86,17 @@ final class UpdateInstaller: ObservableObject {
                 guard generation == token else { return }
                 activity = .verifying
                 let plan = try await operations.prepare(update)
+                // The set-aside plan's helper would run once this app quits, so the new plan waits for it.
+                // A plan that could not be retired may have a helper starting on it, so nothing is
+                // handed over until it is gone; Try again waits for it again.
+                if let held = setAside {
+                    guard await operations.retire(held) else {
+                        try? FileManager.default.removeItem(at: plan.paths.directory)
+                        if generation == token { activity = .failed(.restart) }
+                        return
+                    }
+                    if setAside?.id == held.id { setAside = nil }
+                }
                 guard generation == token else {
                     try? FileManager.default.removeItem(at: plan.paths.directory)
                     return

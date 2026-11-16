@@ -29,6 +29,9 @@ enum PanelType {
     static let fact = Font.system(size: 11)
     static let link = Font.system(size: 11, weight: .medium)
     static let label = Font.system(size: 10, weight: .semibold)
+    /// The update window's title and its sentence under it.
+    static let heading = Font.system(size: 15, weight: .semibold)
+    static let body = Font.system(size: 13)
 }
 
 /// The panel's tokens beyond the launch windows' palette. Light gold and cyan are a step deeper

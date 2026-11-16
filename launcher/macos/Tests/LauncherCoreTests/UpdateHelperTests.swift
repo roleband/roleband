@@ -557,3 +557,92 @@ private final class StandInEngine: @unchecked Sendable {
     #expect(!(try await operations.healthy("0.1.1")), "an engine still creating its database is not healthy yet")
     #expect(Set(engine.paths) == ["/api/status", "/api/launcher-health"])
 }
+
+/// Counts a retirement's waits and holds each one until the test lets it go on.
+private actor Pauses {
+    private(set) var count = 0
+    private var held: CheckedContinuation<Void, Never>?
+    func pause() async { count += 1; await withCheckedContinuation { held = $0 } }
+    func resume() { held?.resume(); held = nil }
+    var waiting: Bool { held != nil }
+}
+
+private func until(_ condition: () async -> Bool) async -> Bool {
+    for _ in 0..<500 where !(await condition()) { await Task.yield() ; try? await Task.sleep(for: .milliseconds(5)) }
+    return await condition()
+}
+
+@Test func aSetAsidePlanIsDeletedOnlyOnceItsWaitingHelperGivesUp() async throws {
+    let f = try HelperFixture(); defer { f.remove() }
+    var helper: HelperLease? = try HelperLease(f.plan.paths.directory)
+    let pauses = Pauses()
+    let retire = Task { await f.plan.retire(pause: { await pauses.pause(); try Task.checkCancellation() }) }
+    // Its lease attempt failed while the helper held it, and the plan is still there.
+    #expect(await until { await pauses.waiting })
+    #expect(FileManager.default.fileExists(atPath: f.plan.candidate.path))
+    helper = nil
+    await pauses.resume()
+    #expect(await retire.value)
+    _ = helper
+    #expect(await pauses.count == 1)
+    #expect(!FileManager.default.fileExists(atPath: f.plan.paths.directory.path))
+    // A helper that starts only now finds no plan to run.
+    #expect(await f.helper().apply() == .busy)
+
+    // Cancelled while the helper still waits, it keeps the plan.
+    let g = try HelperFixture(); defer { g.remove() }
+    let waiting = try HelperLease(g.plan.paths.directory)
+    let held = Pauses()
+    let cancelled = Task { await g.plan.retire(pause: { await held.pause(); try Task.checkCancellation() }) }
+    #expect(await until { await held.waiting })
+    cancelled.cancel()
+    await held.resume()
+    #expect(await cancelled.value == false)
+    #expect(FileManager.default.fileExists(atPath: g.plan.candidate.path))
+    withExtendedLifetime(waiting) {}
+}
+
+@Test func aHelperWhosePlanIsRetiredBeforeItLocksStandsAside() throws {
+    let f = try HelperFixture(); defer { f.remove() }
+    let directory = f.plan.paths.directory
+    #expect(throws: UpdateHelperProblem.helperRunning) {
+        try HelperLease(directory, beforeLock: { try? FileManager.default.removeItem(at: directory) })
+    }
+    // A lock file put back under the same name is a different file, and is not the one locked.
+    let other = try HelperFixture(); defer { other.remove() }
+    let lock = other.plan.paths.directory.appendingPathComponent("helper.lock")
+    #expect(throws: UpdateHelperProblem.helperRunning) {
+        try HelperLease(other.plan.paths.directory, beforeLock: {
+            try? FileManager.default.removeItem(at: lock)
+            FileManager.default.createFile(atPath: lock.path, contents: nil, attributes: [.posixPermissions: 0o600])
+        })
+    }
+    _ = try HelperLease(other.plan.paths.directory)
+}
+
+@Test func aSetAsidePlanThatCannotBeDeletedIsReportedSoItIsTriedAgain() async throws {
+    let f = try HelperFixture(); defer { f.remove() }
+    let updates = f.plan.paths.directory.deletingLastPathComponent()
+    let mode = try #require(try FileManager.default.attributesOfItem(atPath: updates.path)[.posixPermissions] as? Int)
+    try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: updates.path)
+    #expect(await f.plan.retire(pause: { Issue.record("no helper holds the lease") }) == false)
+    try FileManager.default.setAttributes([.posixPermissions: mode], ofItemAtPath: updates.path)
+    #expect(FileManager.default.fileExists(atPath: f.plan.paths.directory.path))
+    #expect(await f.plan.retire())
+    #expect(!FileManager.default.fileExists(atPath: f.plan.paths.directory.path))
+}
+
+@Test func aRetiredPlanLeavesNothingAtItsPathEvenWhenItsContentsCannotBeDeleted() async throws {
+    let f = try HelperFixture(); defer { f.remove() }
+    let directory = f.plan.paths.directory
+    let stuck = f.plan.candidate.deletingLastPathComponent()
+    try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: stuck.path)
+    #expect(await f.plan.retire(pause: { Issue.record("no helper holds the lease") }))
+    #expect(!FileManager.default.fileExists(atPath: directory.path))
+    // A helper starting on the plan now has no folder to make a lock file in.
+    #expect(throws: UpdateHelperProblem.helperRunning) { try HelperLease(directory) }
+    let retired = directory.deletingLastPathComponent().appendingPathComponent(".retired-" + f.plan.id.uuidString)
+    let moved = retired.appendingPathComponent(stuck.lastPathComponent)
+    #expect(FileManager.default.fileExists(atPath: moved.path))
+    try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: moved.path)
+}

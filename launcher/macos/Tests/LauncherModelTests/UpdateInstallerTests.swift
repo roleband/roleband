@@ -44,16 +44,27 @@ private actor FakeRelease {
         return DownloadedUpdate(artifact: artifact, image: URL(fileURLWithPath: "/nonexistent/" + artifact.imageName))
     }
 
-    func prepare(_ home: URL) throws -> UpdatePlan {
+    func prepare(_ home: URL, version: String) throws -> UpdatePlan {
         prepared += 1
         if let prepareFailure { throw prepareFailure }
         let trust = InstalledUpdateIdentity(version: "0.1.0", commit: String(repeating: "a", count: 40),
                                             publicKey: Data(repeating: 7, count: 32), certificateSHA256: String(repeating: "c", count: 64))
         let plan = try UpdatePlan(id: UUID(), installed: home.appendingPathComponent("Applications/RoleBand.app"), home: home,
-                                  trust: trust, to: "0.1.1", toCommit: String(repeating: "b", count: 40), parent: getpid())
+                                  trust: trust, to: version, toCommit: String(repeating: "b", count: 40), parent: getpid())
         try FileManager.default.createDirectory(at: plan.candidate, withIntermediateDirectories: true)
         return plan
     }
+}
+
+/// Holds each wait of a set-aside plan's retirement until the test lets it go on.
+private actor RetirePauses {
+    private var held: CheckedContinuation<Void, Never>?
+    /// When set, retirement reports that the plan could not be moved out of reach.
+    var fails = false
+    func set(fails: Bool) { self.fails = fails }
+    func pause() async { await withCheckedContinuation { held = $0 } }
+    func resume() { held?.resume(); held = nil }
+    var waiting: Bool { held != nil }
 }
 
 /// Which threads computed the space reserve.
@@ -67,6 +78,7 @@ private final class ReserveThreads: @unchecked Sendable {
 @MainActor private final class Harness {
     let release: FakeRelease
     let reserveThreads = ReserveThreads()
+    let pauses = RetirePauses()
     let home = FileManager.default.temporaryDirectory.appendingPathComponent("update-installer-" + UUID().uuidString)
     var handedOff: [UpdatePlan] = []
     var handOffFails = false
@@ -75,15 +87,20 @@ private final class ReserveThreads: @unchecked Sendable {
         let release = FakeRelease()
         let home = home
         let reserveThreads = reserveThreads
+        let pauses = pauses
         self.release = release
         installer = UpdateInstaller(operations: UpdateInstallerOperations(
             reserve: { reserveThreads.record(Thread.isMainThread); return 5_000_000_000 },
             download: { try await release.download($0, $1, $2) },
-            prepare: { _ in try await release.prepare(home) },
+            prepare: { try await release.prepare(home, version: $0.artifact.version) },
             discard: { version in Task { await release.discard(version) } },
             handOff: { [unowned self] plan in
                 if handOffFails { throw Injected.handOff }
                 handedOff.append(plan)
+            },
+            retire: { plan in
+                if await pauses.fails { return false }
+                return await plan.retire(pause: { await pauses.pause(); try Task.checkCancellation() })
             }))
     }
     deinit { try? FileManager.default.removeItem(at: home) }
@@ -232,4 +249,50 @@ private final class ReserveThreads: @unchecked Sendable {
     #expect(await eventually { h.installer.activity == .downloading(received: 10_000_000, total: 280_000_000) })
     await h.release.release()
     #expect(await eventually { h.installer.activity == .restarting })
+}
+
+@MainActor @Test func afterARefusedQuitUpdateRestartsTheHeldPlanOnlyForItsOwnVersion() async throws {
+    let h = Harness()
+    await h.installer.installAndWait("0.1.1")
+    h.installer.quitRefused()
+    #expect(h.installer.activity == .failed(.restart))
+    h.installer.install("0.1.1")
+    #expect(h.handedOff.count == 2 && h.handedOff[0].id == h.handedOff[1].id)
+    #expect(await h.release.downloads.count == 1)
+
+    // A newer version found meanwhile installs itself, never the plan held for the older one. The
+    // older plan's helper still waits for this app to quit, so the newer one waits until it gives up.
+    h.installer.quitRefused()
+    let held = h.handedOff[0]
+    var helper: HelperLease? = try HelperLease(held.paths.directory)
+    h.installer.install("0.1.2")
+    #expect(await eventually { await h.pauses.waiting })
+    #expect(await h.release.prepared == 2)
+    #expect(h.installer.activity == .verifying && h.handedOff.count == 2)
+    #expect(FileManager.default.fileExists(atPath: held.candidate.path))
+    helper = nil
+    await h.pauses.resume()
+    #expect(await eventually { h.installer.activity == .restarting })
+    _ = helper
+    #expect(await h.release.downloads.map(\.version) == ["0.1.1", "0.1.2"])
+    #expect(h.installer.activity == .restarting && h.installer.version == "0.1.2")
+    #expect(h.handedOff.count == 3 && h.handedOff[2].to == "0.1.2" && h.handedOff[2].id != held.id)
+    #expect(!FileManager.default.fileExists(atPath: held.paths.directory.path))
+}
+
+@MainActor @Test func anOlderPlanThatCannotBeDeletedHoldsBackTheNewerUpdateUntilItIs() async throws {
+    let h = Harness()
+    await h.installer.installAndWait("0.1.1")
+    h.installer.quitRefused()
+    let held = h.handedOff[0]
+    await h.pauses.set(fails: true)
+    await h.installer.installAndWait("0.1.2")
+    #expect(h.installer.activity == .failed(.restart))
+    #expect(h.handedOff.count == 1)
+    #expect(FileManager.default.fileExists(atPath: held.paths.directory.path))
+
+    await h.pauses.set(fails: false)
+    await h.installer.installAndWait("0.1.2")
+    #expect(h.installer.activity == .restarting && h.handedOff.count == 2 && h.handedOff[1].to == "0.1.2")
+    #expect(!FileManager.default.fileExists(atPath: held.paths.directory.path))
 }
