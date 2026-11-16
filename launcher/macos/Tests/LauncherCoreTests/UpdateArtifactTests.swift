@@ -40,6 +40,32 @@ func updateTrustComesOnlyFromTheInstalledReleaseBundle(kind: String) throws {
     else { #expect(throws: ArtifactProblem.self) { _ = try VerifiedArtifact.installedPublicKey(in: bundle) } }
 }
 
+/// Marks are checked with the keys the release bundle holds: its current key alone when it has no
+/// spare, both when it has one, and none when a key it holds cannot be read.
+@Test(arguments: ["no-spare", "spare", "bad-spare", "candidate"])
+func anImportantMarkIsCheckedWithTheBundlesReleaseKeys(kind: String) throws {
+    let fixture = try ArtifactFixture.load()
+    let spare = Curve25519.Signing.PrivateKey().publicKey.rawRepresentation
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let contents = root.appendingPathComponent("RoleBand.app/Contents")
+    try FileManager.default.createDirectory(at: contents, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    var info: [String: Any] = ["CFBundleIdentifier": "com.roleband.launcher", "RoleBandPackagedEngine": true,
+                               "RoleBandUpdatePublicKey": fixture.publicKey.base64EncodedString()]
+    if kind == "spare" { info["RoleBandUpdateSpareKey"] = spare.base64EncodedString() }
+    if kind == "bad-spare" { info["RoleBandUpdateSpareKey"] = "not-base64" }
+    if kind == "candidate" { info["RoleBandReleaseCandidate"] = true }
+    try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
+        .write(to: contents.appendingPathComponent("Info.plist"))
+    let bundle = try #require(Bundle(url: contents.deletingLastPathComponent()))
+    let keys = UpdateDownloader.markKeys(in: bundle)
+    switch kind {
+    case "no-spare": #expect(keys?.publicKey == fixture.publicKey && keys?.spareKey == nil)
+    case "spare": #expect(keys?.publicKey == fixture.publicKey && keys?.spareKey == spare)
+    default: #expect(keys == nil)
+    }
+}
+
 @Test func nativeUpdaterAcceptsThePythonReleaseToolsExactSignedBytes() throws {
     let fixture = try ArtifactFixture.load()
     let artifact = try fixture.authenticate()
@@ -172,6 +198,26 @@ func theInstalledSpareKeyIsOptionalButNeverMalformedOrTheCurrentKey(kind: String
     case "spare": #expect(try VerifiedArtifact.installedSpareKey(in: bundle) == spare)
     default: #expect(throws: ArtifactProblem.untrustedKey) { _ = try VerifiedArtifact.installedSpareKey(in: bundle) }
     }
+}
+
+/// The important mark is this version's signature by a release key, as `Tools/release.py important`
+/// writes it. The same signature for another version, the release's own metadata signature, a key
+/// the app does not hold, or a mark of another size, is no mark.
+@Test func anImportantMarkIsTheToolsSignatureOnThisVersionAlone() throws {
+    struct Mark: Decodable { let publicKey: Data; let mark: Data }
+    let fixture = try JSONDecoder().decode(Mark.self, from: Data(contentsOf: URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent().appendingPathComponent("Fixtures/update-important.json")))
+    #expect(VerifiedArtifact.importantMessage("0.1.1") == Data("roleband-important v0.1.1\n".utf8))
+    #expect(VerifiedArtifact.isImportant(mark: fixture.mark, version: "0.1.1", publicKey: fixture.publicKey))
+    #expect(!VerifiedArtifact.isImportant(mark: fixture.mark, version: "0.1.2", publicKey: fixture.publicKey))
+    let other = Curve25519.Signing.PrivateKey().publicKey.rawRepresentation
+    #expect(!VerifiedArtifact.isImportant(mark: fixture.mark, version: "0.1.1", publicKey: other))
+    #expect(VerifiedArtifact.isImportant(mark: fixture.mark, version: "0.1.1", publicKey: other, spareKey: fixture.publicKey))
+    #expect(!VerifiedArtifact.isImportant(mark: fixture.mark + Data([0]), version: "0.1.1", publicKey: fixture.publicKey))
+    #expect(!VerifiedArtifact.isImportant(mark: fixture.mark.prefix(63), version: "0.1.1", publicKey: fixture.publicKey))
+    let release = try ArtifactFixture.load()
+    #expect(release.publicKey == fixture.publicKey)
+    #expect(!VerifiedArtifact.isImportant(mark: release.signature, version: "0.1.1", publicKey: release.publicKey))
 }
 
 /// The "Before you update" notice is trusted only inside the signed metadata: format 3 carries one

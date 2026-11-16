@@ -182,7 +182,7 @@ extension LauncherModel {
     func opensUpdateWindow(for version: String, automatic: Bool) -> Bool {
         guard automatic, updates.showsWindow, installer != nil, !updateRunning, setupCompleted, !setupVisible,
               updates.offered?.version == version, updateOffered else { return false }
-        return updates.windowAllows(version)
+        return updates.windowAllows(version, important: updates.offered?.important == true)
     }
     /// An update on its way holds the window back; a failed one does not, since after Later its
     /// offer stands again like any other.

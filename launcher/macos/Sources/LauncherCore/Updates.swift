@@ -5,6 +5,9 @@ public enum ReleaseFiles {
     public static func prefix(_ version: String) -> String { "RoleBand-\(version)-macOS-arm64" }
     /// What an install reads: the image, its checksum, the metadata and their signature.
     public static func all(_ version: String) -> Set<String> { Set([".dmg", ".sha256", ".json", ".sig"].map { prefix(version) + $0 }) }
+    /// The important mark: a signature on its own, which `Tools/release.py important` can attach to a
+    /// published release at any time. It is not one of `all`, so apps that do not know it never read it.
+    public static func important(_ version: String) -> String { prefix(version) + ".important" }
 }
 
 public struct OfferedRelease: Sendable, Equatable {
@@ -15,15 +18,22 @@ public struct OfferedRelease: Sendable, Equatable {
     /// newest release can have none or only some of them for a while.
     public let filesReady: Bool
     public let published: Date?
+    /// The listing names an important mark. The listing is not signed, so this only says the mark is
+    /// worth reading; `important` holds whether it verified.
+    public let markListed: Bool
 
     /// The signed "Before you update" notice, which makes the release read-first: the offer opens the
     /// notes with it above them. It comes only from the release's verified metadata, never from the
     /// notes, which are not signed.
     public private(set) var beforeYouUpdate: String?
+    /// The release carries an important mark signed by this app's release keys: its window comes back
+    /// sooner and says the update is recommended.
+    public private(set) var important = false
 
-    public func signed(notice: String?) -> Self {
+    public func signed(notice: String?, important: Bool = false) -> Self {
         var release = self
         release.beforeYouUpdate = notice
+        release.important = important
         return release
     }
     public static func decode(_ data: Data, from repository: UpdateRepository) throws -> Self {
@@ -50,7 +60,8 @@ public struct OfferedRelease: Sendable, Equatable {
         }
         let uploaded = Set((reply.assets ?? []).filter { $0.state == "uploaded" }.map(\.name))
         return Self(version: version, notes: reply.body, page: page, filesReady: ReleaseFiles.all(version).isSubset(of: uploaded),
-                    published: reply.published_at.flatMap { ISO8601DateFormatter().date(from: $0) })
+                    published: reply.published_at.flatMap { ISO8601DateFormatter().date(from: $0) },
+                    markListed: uploaded.contains(ReleaseFiles.important(version)))
     }
 }
 

@@ -12,6 +12,7 @@ from unittest.mock import patch
 import bundle
 import release
 import signing
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
@@ -38,6 +39,13 @@ class ReleaseAssetTests(unittest.TestCase):
         self.assertEqual(fixture['metadata'], metadata)
         self.assertEqual(fixture['checksum'], checksum)
         self.assertEqual(fixture['signature'], private.sign(checksum + metadata))
+
+    def test_native_important_fixture_is_the_tools_mark(self):
+        path = Path(__file__).resolve().parents[1] / 'Tests/LauncherCoreTests/Fixtures/update-important.json'
+        fixture = {key: base64.b64decode(value, validate=True) for key, value in json.loads(path.read_text()).items()}
+        private = ed25519.Ed25519PrivateKey.from_private_bytes(bytes(range(32)))
+        self.assertEqual(fixture['publicKey'], private.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw))
+        self.assertEqual(fixture['mark'], private.sign(release.important_message('0.1.1')))
 
     def test_native_notice_fixture_is_the_tools_format_3_bytes(self):
         path = Path(__file__).resolve().parents[1] / 'Tests/LauncherCoreTests/Fixtures/update-artifact-notice.json'
@@ -90,6 +98,8 @@ class ReleaseAssetTests(unittest.TestCase):
         self.draft = False
         self.architecture = 'arm64'
         self.prerelease = False
+        self.assets = [{'name': name, 'state': 'uploaded'} for name in release.names('0.1.0')]
+        self.marks = []
 
         def output(command, **kwargs):
             self.calls.append(command)
@@ -102,13 +112,18 @@ class ReleaseAssetTests(unittest.TestCase):
             if command[:3] == ['xcrun', 'vtool', '-show-build']:
                 return 'platform MACOS\nminos 14.0\nsdk 26.0'
             if command[:3] == ['gh', 'release', 'view']:
-                return json.dumps({'tagName': command[3], 'isDraft': self.draft, 'isPrerelease': self.prerelease})
+                listing = {'tagName': command[3], 'isDraft': self.draft, 'isPrerelease': self.prerelease}
+                if 'assets' in command[-1].split(','):
+                    listing['assets'] = self.assets
+                return json.dumps(listing)
             if command[:2] == ['gh', 'api']:
                 return self.remote_commit
             raise AssertionError(command)
 
         def run(command, **kwargs):
             self.calls.append(command)
+            if command[:3] == ['gh', 'release', 'upload'] and command[-1].endswith('.important'):
+                self.marks.append((Path(command[-1]).name, Path(command[-1]).read_bytes()))
             if command[0].endswith('make-dmg.sh'):
                 Path(command[-1]).write_bytes(b'fixture disk image')
             if '--extract-certificates' in command:
@@ -266,6 +281,48 @@ class ReleaseAssetTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             release.attach(self.destination, 'v0.1.0', COMMIT, 'roleband/roleband', self.public_key, self.root)
         self.assertFalse(any(call[0] == 'gh' for call in self.calls))
+
+    def test_an_important_mark_signs_this_version_and_attaches_beside_its_files_once(self):
+        name = release.important('v0.1.0', 'roleband/roleband', self.signing_key, PASSPHRASE, self.root)
+        self.assertEqual(name, 'RoleBand-0.1.0-macOS-arm64.important')
+        uploads = [call for call in self.calls if call[:3] == ['gh', 'release', 'upload']]
+        self.assertEqual(len(uploads), 1)
+        self.assertNotIn('--clobber', uploads[0])
+        self.assertEqual(uploads[0][3:6], ['v0.1.0', '--repo', 'roleband/roleband'])
+        [(uploaded, mark)] = self.marks
+        public = ed25519.Ed25519PublicKey.from_public_bytes(release.raw_key(self.public_key))
+        public.verify(mark, release.important_message('0.1.0'))
+        with self.assertRaises(InvalidSignature):
+            public.verify(mark, release.important_message('0.1.1'))
+
+    def test_an_important_mark_goes_only_where_apps_read_it_and_only_with_the_release_key(self):
+        def refused(**change):
+            self.calls.clear()
+            arguments = {'tag': 'v0.1.0', 'repository': 'roleband/roleband', 'signing_key': self.signing_key,
+                         'passphrase': PASSPHRASE, 'root': self.root} | change
+            with self.assertRaises(ValueError):
+                release.important(**arguments)
+            self.assertFalse(any(call[:3] == ['gh', 'release', 'upload'] for call in self.calls))
+        refused(repository='someone/fork')
+        refused(tag='0.1.0')
+        refused(passphrase=b'wrong passphrase')
+        other = self.root / 'other-keys'
+        protected(other, 'Other')
+        refused(signing_key=other / 'release-private.pem')
+        self.draft = True
+        refused()
+        self.draft, self.prerelease = False, True
+        refused()
+        self.prerelease = False
+        complete = list(self.assets)
+        self.assets = complete[:3]
+        refused()
+        self.assets = complete[:3] + [{'name': complete[3]['name'], 'state': 'new'}]
+        refused()
+        self.assets = complete + [{'name': 'RoleBand-0.1.0-macOS-arm64.important', 'state': 'uploaded'}]
+        refused()
+        self.assets = complete
+        release.important('v0.1.0', 'roleband/roleband', self.signing_key, PASSPHRASE, self.root)
 
     def test_moved_tags_and_draft_releases_never_upload(self):
         self.prepare()
