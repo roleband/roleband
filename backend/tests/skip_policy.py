@@ -83,6 +83,11 @@ WINDOWS_SKIPS: tuple[tuple[re.Pattern[str], str], ...] = (
         "Linux lane runs it (tests/test_cli.py)",
     ),
     (
+        re.compile(r"Windows renames without replacing, with no hard link"),
+        "`--output` on a file system without hard links; Windows places a new file with a rename that refuses "
+        "an existing one and never links (tests/test_cli_commands.py)",
+    ),
+    (
         re.compile(r"macOS bundle state redirects through HOME"),
         "the Mac app bundle's state; the Windows package keeps its own (tests/test_windows_state.py)",
     ),

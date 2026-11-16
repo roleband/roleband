@@ -359,10 +359,20 @@ def _fit_full(entries: list[DoctorSetting], room: int) -> tuple[list[DoctorSetti
         used = sum(_size(held.model_dump(mode="json")) + 1 for held in kept)
         return kept, names, used + sum(_size(name) + 1 for name in names)
 
-    longest = max((_size(entry.value) for entry in entries), default=0)
-    if fitted(longest)[2] <= room:
+    # Raising the length grows the list only while the same values are cut:
+    # at a value's own size it is whole again, and its marker and name go.
+    # So the longest length that fits is found between those sizes: the
+    # largest size that fits starts the stretch that is then halved.
+    sizes = sorted({_size(entry.value) for entry in entries})
+    if not sizes or fitted(sizes[-1])[2] <= room:
         return entries, [], []
-    kept, shortened, used = fitted(_longest(longest, lambda cap: fitted(cap)[2] <= room))
+    start, end = 0, sizes[0] - 1
+    for lower, upper in reversed(list(zip(sizes, sizes[1:], strict=False))):
+        if fitted(lower)[2] <= room:
+            start, end = lower, upper - 1
+            break
+    best = start + _longest(end - start, lambda extra: fitted(start + extra)[2] <= room)
+    kept, shortened, used = fitted(best)
     if used <= room:
         return kept, shortened, []
     held, left_out = _leave_out(kept, room - sum(_size(name) + 1 for name in shortened))

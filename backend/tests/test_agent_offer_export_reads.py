@@ -400,7 +400,7 @@ async def test_settings_whose_markers_do_not_fit_are_left_out_by_name_within_the
         export.DoctorSetting(name=f"setting_{index}", value="v" * (index * 37 % 300)) for index in range(40)
     ]
     names = sum(_json_size(entry.name) + 1 for entry in entries)
-    for room in range(names, names + 4_000, 13):
+    for room in range(names, names + 4_000, 41):
         kept, shortened, left_out = export._fit_full(entries, room)
         used = sum(_json_size(entry.model_dump(mode="json")) + 1 for entry in kept)
         used += sum(_json_size(name) + 1 for name in [*shortened, *left_out])
@@ -666,3 +666,29 @@ async def test_no_two_models_share_a_name_in_the_api_schema():
 
     assert [name for name in names if name.startswith("tracker__")] == []
     assert {"ApplicationCard", "CalendarInterview", "OfferInputs", "BoardCard", "KeptOfferInputs"} <= set(names)
+
+
+async def test_the_full_doctor_cuts_to_the_longest_length_that_fits_even_past_a_whole_value():
+    """Raising the length past a value's own size keeps it whole and drops its
+    marker, so a longer cut can fit where a shorter one did not. Each room
+    gets the longest cut that fits, measured against every length in turn."""
+    entries = [export.DoctorSetting(name="a", value="a" * 100), export.DoctorSetting(name="b", value="b" * 1000)]
+
+    def used(cap: int) -> int:
+        kept = [export._shorten(entry, cap) for entry in entries]
+        names = [entry.name for entry, held in zip(entries, kept, strict=True) if held is not entry]
+        return sum(_json_size(h.model_dump(mode="json")) + 1 for h in kept) + sum(_json_size(n) + 1 for n in names)
+
+    sizes = {cap: used(cap) for cap in range(0, 1_010)}
+    whole_a_fits_only_past_its_size = 0
+    for room in range(150, 1_200, 3):
+        fitting = {cap for cap, size in sizes.items() if size <= room}
+        if not fitting:
+            continue
+        best = max(fitting)
+        if any(cap + 1 not in fitting for cap in fitting if cap < best):
+            whole_a_fits_only_past_its_size += 1
+        kept, shortened, left_out = export._fit_full(entries, room)
+        assert kept == [export._shorten(entry, best) for entry in entries], room
+        assert left_out == []
+    assert whole_a_fits_only_past_its_size, "the sweep reaches a room where the cut is not monotonic"

@@ -783,19 +783,12 @@ def test_a_bundle_whose_file_writing_operation_the_client_cannot_lay_out_is_refu
         commands.build(bundle)
 
 
-@pytest.mark.parametrize("links", [True, False], ids=["hard-link", "no-hard-links"])
-def test_the_atomic_write_refuses_a_file_that_appeared_and_leaves_nothing_behind(tmp_path, monkeypatch, links):
+def test_the_atomic_write_refuses_a_file_that_appeared_and_leaves_nothing_behind(out):
     """A file that appears after the first check, between the check and the
-    write, is still never replaced; a file system without hard links gets the
-    same answer."""
+    write, is still never replaced."""
     from tracker.cli import output
 
-    if not links:
-        def no_link(source, target):
-            raise PermissionError("no hard links here")
-
-        monkeypatch.setattr(output.os, "link", no_link)
-    target = tmp_path / "role.json"
+    target = out / "role.json"
     output.write_atomically(target, b"first", overwrite=False)
     assert target.read_bytes() == b"first"
     with pytest.raises(ClientError) as refused:
@@ -804,7 +797,24 @@ def test_the_atomic_write_refuses_a_file_that_appeared_and_leaves_nothing_behind
     assert target.read_bytes() == b"first"
     output.write_atomically(target, b"third", overwrite=True)
     assert target.read_bytes() == b"third"
-    assert [entry.name for entry in tmp_path.iterdir()] == ["role.json"]
+    assert [entry.name for entry in out.iterdir()] == ["role.json"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows renames without replacing, with no hard link")
+def test_a_file_system_without_hard_links_refuses_a_new_file_rather_than_show_it_empty(out, monkeypatch):
+    from tracker.cli import output
+
+    def no_link(source, target):
+        raise PermissionError("no hard links here")
+
+    monkeypatch.setattr(output.os, "link", no_link)
+    target = out / "role.json"
+    with pytest.raises(ClientError) as refused:
+        output.write_atomically(target, b"first", overwrite=False)
+    assert "--overwrite" in refused.value.message
+    assert list(out.iterdir()) == []
+    output.write_atomically(target, b"first", overwrite=True)
+    assert [entry.name for entry in out.iterdir()] == ["role.json"] and target.read_bytes() == b"first"
 
 
 def _part(packet: str, offset: int, sha: str, *, following: list | None = None) -> dict:

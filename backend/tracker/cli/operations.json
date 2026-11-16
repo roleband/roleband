@@ -953,7 +953,7 @@
        }
       ],
       "default": null,
-      "description": "The next_since of the previous page: the read continues after it, in commit order, with the same kinds. Without it the read starts at start_time, or at the oldest change kept. A read made while pursuits are not shared moves past the pursuit due times that passed before it; they are not caught up when sharing turns back on.",
+      "description": "The next_since of the previous page: the read continues after it, in commit order, with the same kinds. Without it the read starts at start_time, or at the oldest change kept. A read made while pursuits are not shared can move past pursuit due times that passed meanwhile; those are not caught up when sharing turns back on.",
       "title": "Since"
      },
      "start_time": {

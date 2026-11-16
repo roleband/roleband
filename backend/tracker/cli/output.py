@@ -162,8 +162,8 @@ def _unwritable(target: Path, error: OSError) -> ClientError:
 def _place_new(temporary: str, target: Path) -> None:
     """Move `temporary` to `target`, refusing a `target` that exists, in one
     step: Windows refuses to rename onto a file, and a hard link refuses an
-    existing name. A file system with no hard links gets a name reserved
-    first and then replaced, so the file may show empty for that moment."""
+    existing name. A file system with no hard links has no such step, so the
+    write is refused there rather than showing an empty or partial file."""
     if sys.platform == "win32":
         os.rename(temporary, target)
         return
@@ -171,10 +171,10 @@ def _place_new(temporary: str, target: Path) -> None:
         os.link(temporary, target)
     except FileExistsError:
         raise
-    except OSError:
-        os.close(os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600))
-        try:
-            os.replace(temporary, target)
-        except OSError:
-            os.unlink(target)
-            raise
+    except OSError as error:
+        raise ClientError(
+            "invalid_arguments",
+            "This folder's file system cannot add the file at once without replacing one; "
+            "write to another folder, or add --overwrite.",
+            details={"path": str(target), "reason": type(error).__name__},
+        ) from None
