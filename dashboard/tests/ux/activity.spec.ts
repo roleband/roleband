@@ -4,7 +4,7 @@
    chosen look of the picked entry, and the requests the controls make. */
 
 import type { Page } from "@playwright/test";
-import { expect, test } from "./fixtures";
+import { expect, mockGet, test } from "./fixtures";
 import { expectMeasuredToolbar } from "./measuredToolbar";
 import { installSettingsRoutes } from "./settingsHarness";
 import { activityPage, olderActivityPage } from "./activityFixtures";
@@ -13,7 +13,7 @@ const ACTIVITY = "/settings/intelligence/activity";
 
 async function routeActivity(page: Page, sink: URL[] = []) {
   const first = activityPage();
-  await page.route("/api/agent-activity?**", (route) => {
+  await mockGet(page, "/api/agent-activity?**", (route) => {
     const url = new URL(route.request().url());
     sink.push(url);
     return route.fulfill({ json: url.searchParams.get("cursor") === "older-page" ? olderActivityPage : first });

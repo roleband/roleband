@@ -72,6 +72,22 @@ function rangeStart(range: Range, now: Date): string | null {
   return start.toISOString();
 }
 
+const localMidnight = (now: Date) => new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+/** The reader's local midnight, moving on to the next one while the screen
+ *  stays open. A timer never fires early; the margin covers a clock that
+ *  lands a little short of the day's edge. */
+function useLocalMidnight(): number {
+  const [midnight, setMidnight] = useState(() => localMidnight(new Date()));
+  useEffect(() => {
+    const today = new Date(midnight);
+    const next = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime();
+    const id = window.setTimeout(() => setMidnight(localMidnight(new Date())), next - Date.now() + 1000);
+    return () => window.clearTimeout(id);
+  }, [midnight]);
+  return midnight;
+}
+
 /** The Activity screen: every read, change and refusal by a connected
  *  assistant app, newest first, a page of 50 at a time, with the picked
  *  entry in the inspector beside the list. Filters live in the address
@@ -96,8 +112,10 @@ export function ActivityScreen() {
     return () => window.clearTimeout(id);
   }, [search]);
 
-  // Read once per range: a start that moved on every render would refetch forever.
-  const since = useMemo(() => rangeStart(range, new Date()), [range]);
+  // Read once per range and day: a start that moved on every render would
+  // refetch forever, and one that stayed put past midnight would name yesterday.
+  const today = useLocalMidnight();
+  const since = useMemo(() => rangeStart(range, new Date(today)), [range, today]);
   // The pages read so far, by the cursor each was read with. Any filter edit
   // starts over at the newest: a cursor belongs to the list it was read from.
   const filterKey = [kind, category, since, query].join("\u001f");

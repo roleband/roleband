@@ -1,14 +1,16 @@
 /* The Activity screen's list, as `/api/agent-activity` answers it: a full
    first page over three days, led by a change, a refusal and a read, and the
-   cursor of an older page. Times are relative to the run, so the first day
-   is always today. */
+   cursor of an older page. Times count back from today's local noon, not
+   from the wall clock, so the first day is today at any hour of the run. */
 
 import type { ActivityEntry, ActivityPage } from "../../src/api/agentActivity";
 
 const MINUTE = 60_000;
 const minutesAgo = (minutes: number, now: number) => new Date(now - minutes * MINUTE).toISOString();
 
-export function activityPage(now = Date.now()): ActivityPage {
+const todayNoon = () => new Date(new Date().setHours(12, 0, 0, 0)).getTime();
+
+export function activityPage(now = todayNoon()): ActivityPage {
   const lead: ActivityEntry[] = [
     {
       id: 500, occurred_at: minutesAgo(1, now), operation: "pursuits.patch", kind: "change",

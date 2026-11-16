@@ -23,7 +23,7 @@ export async function installEveryRoute(page: Page) {
   await page.route("/api/scope/catalog", (route) => route.fulfill({ json: scopeCatalog }));
   await page.route("/api/scope/preview", (route) => route.fulfill({ json: scopePreview }));
   await page.route("/api/scope/rules", (route) => route.fulfill({ json: { rules: [] } }));
-  await page.route("/api/agent-activity?**", (route) => route.fulfill({ json: activityPage() }));
+  await mockGet(page, "/api/agent-activity?**", (route) => route.fulfill({ json: activityPage() }));
   await page.route("/api/profile/suggestions", (route) =>
     route.fulfill({ json: { suggestions: [] } }));
   await page.route("/api/statistics/overview**", (route) =>

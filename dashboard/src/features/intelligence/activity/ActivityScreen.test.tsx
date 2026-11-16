@@ -176,6 +176,21 @@ describe("ActivityScreen: filters and pages", () => {
     expect(button(msg("activity-kind-all"))).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("moves the range on at the reader's midnight while the screen stays open", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.setSystemTime(new Date(2026, 10, 16, 23, 59, 30));
+      renderScreen("/settings/intelligence/activity?range=today");
+      await screen.findByText(ASKED_OFFER);
+      expect(lastParams()).toMatchObject({ since: new Date(2026, 10, 16).toISOString() });
+
+      await vi.advanceTimersByTimeAsync(60_000);
+      await waitFor(() => expect(lastParams()).toMatchObject({ since: new Date(2026, 10, 17).toISOString() }));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("asks the server for one kind, one kind of data and a span of days", async () => {
     const user = userEvent.setup();
     renderScreen();
