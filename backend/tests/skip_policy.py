@@ -123,6 +123,10 @@ WINDOWS_SKIPS: tuple[tuple[re.Pattern[str], str], ...] = (
         "Windows starts its database natively and handles its own stale lock file (tracker/platform/windows_db.py)",
     ),
     (
+        re.compile(r"the holder record is POSIX's; Windows' runner stops its own clusters"),
+        "Windows starts its database natively and keeps no holder record; its runner stops the clusters it starts",
+    ),
+    (
         re.compile(r"no zoneinfo file for [A-Za-z_/+-]+ on this machine"),
         "Windows has no system zoneinfo files; the tzdata package answers instead",
     ),
