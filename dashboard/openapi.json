@@ -12068,6 +12068,14 @@
    "InsightsCoverage": {
     "additionalProperties": false,
     "properties": {
+     "companies": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Companies",
+      "type": "array",
+      "x-text": "identifier"
+     },
      "families": {
       "items": {
        "type": "string"
@@ -12109,6 +12117,14 @@
       ],
       "title": "Off Board Companies"
      },
+     "places": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Places",
+      "type": "array",
+      "x-text": "code"
+     },
      "population": {
       "enum": [
        "open_roles",
@@ -12145,6 +12161,8 @@
      "population",
      "side",
      "families",
+     "companies",
+     "places",
      "off_board_companies",
      "window",
      "history",
@@ -13130,8 +13148,7 @@
      "new_count",
      "already_listed_count",
      "closed_count",
-     "companies",
-     "saved_total"
+     "companies"
     ],
     "title": "InsightsOverviewKpis",
     "type": "object"

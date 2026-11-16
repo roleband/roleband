@@ -575,9 +575,14 @@ async def test_market_statistics_not_shared_leave_the_estimates_out_of_the_expor
 
     kept, manifest, _ = await _export(api_client, job_id)
 
-    assert json.loads(kept)["components"]["pay"] == {"employer_stated_pay": pay["employer_stated_pay"]}
+    components = json.loads(kept)["components"]
+    assert components["pay"] == {"employer_stated_pay": pay["employer_stated_pay"]}
+    # The company's facts are market statistics, as companies.get answers them.
+    assert "company" in json.loads(shared)["components"]
+    assert "company" not in components
     assert manifest["left_out"] == ["market_statistic", "private_pursuit"]
     stamps = {c["name"]: c["source_timestamps"] for c in manifest["components"]}
+    assert list(stamps) == ["posting", "pay"]
     assert list(stamps["pay"]) == ["stated_pay_read_at"]
 
 
