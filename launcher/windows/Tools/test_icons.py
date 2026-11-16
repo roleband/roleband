@@ -174,6 +174,26 @@ class TrayIconTests(unittest.TestCase):
                                          and pixels[(y * px + x) * 4 + 3] == 255)
                         self.assertEqual(inside.most_common(1)[0][0], colours[theme])
 
+    def test_each_state_draws_its_own_glyph(self):
+        """The glyph, not the colour, carries the state: no two badges share the pixels their glyph covers."""
+        for theme in THEMES:
+            for px in TRAY_SIZES:
+                br, _, bc = badge_geometry(px)
+                glyphs = {}
+                for state, colours in BADGES.items():
+                    pixels = tray_frame(theme, state, px)
+                    fill = bytes.fromhex(colours[theme])
+                    glyphs[state] = frozenset(
+                        (x, y) for y in range(px) for x in range(px)
+                        if math.hypot(x + 0.5 - bc, y + 0.5 - bc) <= br - 0.75
+                        and max(abs(a - b) for a, b in zip(pixels[(y * px + x) * 4:(y * px + x) * 4 + 3], fill)) > 96)
+                for state, covered in glyphs.items():
+                    with self.subTest(theme=theme, px=px, state=state):
+                        self.assertTrue(covered, "the badge has no glyph")
+                        for other, theirs in glyphs.items():
+                            if other != state:
+                                self.assertNotEqual(covered, theirs, f"{state} draws the same glyph as {other}")
+
 
 def reference_filter(kind, line, prev, bpp=4):
     """The PNG specification's row filters, written out byte by byte."""
