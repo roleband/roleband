@@ -70,16 +70,3 @@ private actor PreparationHost {
     #expect(await host.stops == 1)
 }
 
-@MainActor
-@Test func setupAutomaticChecksNeverAskForNotificationPermission() throws {
-    let preferences = UserDefaults.scratch("prepare-updates")
-    let updates = LauncherUpdates(preferences: preferences, fetch: { throw CancellationError() }, authenticate: { _ in nil })
-    defer { updates.stop() }
-    var choices: [Bool] = []
-    updates.automaticChoiceChanged = { choices.append($0) }
-    updates.setAutomaticChecks(true, requestNotifications: false)
-    #expect(updates.automatic && choices.isEmpty)
-    updates.setAutomaticChecks(false)
-    updates.setAutomaticChecks(true)
-    #expect(choices == [false, true])
-}

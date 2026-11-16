@@ -231,7 +231,7 @@ final class LauncherModel: ObservableObject {
     private var controlTask: Task<Void, Never>?
     private var timer: Timer?
     private(set) var loginTimer: Timer?
-    private var setupVisible = false
+    private(set) var setupVisible = false
     let registrationURL: URL
     private let installationSource: InstallationSource
     private let readStatus: @Sendable (Installation) async throws -> VerifiedStatus

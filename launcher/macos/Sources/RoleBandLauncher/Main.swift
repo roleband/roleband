@@ -102,6 +102,36 @@ enum LauncherMain {
                 exit(0)
             } catch { exit(1) }
         }
+        if arguments.count >= 3, arguments[1] == "--render-update-window" {
+            let app = NSApplication.shared
+            app.setActivationPolicy(.prohibited)
+            let dark = arguments.contains("dark")
+            app.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+            let value = { (flag: String) in arguments.first(where: { $0.hasPrefix(flag + "=") }).map { String($0.dropFirst(flag.count + 1)) } }
+            guard let path = value("--release-fixture"), let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+                  let release = try? OfferedRelease.decode(data, from: .production) else { exit(1) }
+            let mb: Int64 = 1_048_576
+            let activity: UpdateActivity? = switch value("--state") {
+            case "downloading": .downloading(received: 31 * mb, total: 84 * mb)
+            case "paused": .paused(received: 31 * mb, total: 84 * mb)
+            case "verifying": .verifying
+            case "restarting": .restarting
+            case "failed-download": .failed(.download)
+            case "failed-space": .failed(.space(required: 2_400 * mb))
+            default: nil
+            }
+            let view = NSHostingView(rootView: UpdateWindowView(release: release.signed(notice: value("--notice")),
+                                                                  copy: LauncherCopy(language: value("--lang")), activity: activity)
+                .environment(\.colorScheme, dark ? .dark : .light))
+            view.frame = NSRect(origin: .zero, size: view.fittingSize)
+            view.layoutSubtreeIfNeeded()
+            guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { exit(1) }
+            view.cacheDisplay(in: view.bounds, to: bitmap)
+            do {
+                try bitmap.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: arguments[2]))
+                exit(0)
+            } catch { exit(1) }
+        }
         let renderPanel = arguments.count >= 3 && arguments[1] == "--render-panel"
         let renderNotes = arguments.count >= 3 && arguments[1] == "--render-notes"
         let renderOffered = arguments.count >= 3 && arguments[1] == "--render-offered"
@@ -345,8 +375,7 @@ final class LauncherDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate
     private var offeredWindow: NSWindow?
     private var wakeObserver: NSObjectProtocol?
     private var offerWatch: AnyCancellable?
-    private var nativeNotifications: NativeUpdateNotifications?
-    private var updateNotices: UpdateNotices?
+    private var updateWindow: UpdatePanel?
     private var termination: DispatchSourceSignal?
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -366,7 +395,10 @@ final class LauncherDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate
         }
         model.changed = { [weak self] in self?.updateIcon() }
         // An offer arrives from the update check, not the engine, so it redraws the icon itself.
-        offerWatch = model.updates.objectWillChange.receive(on: RunLoop.main).sink { [weak self] _ in self?.updateIcon() }
+        offerWatch = model.updates.objectWillChange.receive(on: RunLoop.main).sink { [weak self] _ in
+            self?.updateIcon()
+            self?.closeStaleUpdateWindow()
+        }
         popover.behavior = .transient
         popover.delegate = self
         popover.contentViewController = NSHostingController(rootView: MainPanel(model: model,
@@ -374,35 +406,9 @@ final class LauncherDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate
             setup: { [weak self] in self?.showSetup() }))
         updateIcon()
         session.launch()
-        let native = NativeUpdateNotifications(copy: model.copy) { [weak self] version in
-            guard let self else { return }
-            if self.model.updates.offered?.version == version,
-               self.model.updates.offersUpdate(launcher: self.model.launcherVersion, engine: self.model.verified?.engineVersion) {
-                self.showOffered()
-            } else { self.showAbout() }
-        }
-        nativeNotifications = native
-        let eligible: (String) -> Bool = { [weak model] version in
-            guard let model else { return false }
-            return model.updates.automatic && model.updates.notices && model.updates.offered?.version == version &&
-                model.updates.offersUpdate(launcher: model.launcherVersion, engine: model.verified?.engineVersion)
-        }
-        let notices = UpdateNotices(authorize: { [weak model] in
-            let allowed = await native.authorize()
-            model?.updates.notificationsDenied = await native.denied()
-            return allowed
-        }, deliver: { [weak model] version in
-            model?.updates.notificationsDenied = await native.denied()
-            return try await native.deliver(version: version, ifEligible: { eligible(version) })
-        },
-            eligible: eligible)
-        updateNotices = notices
-        model.updates.automaticChoiceChanged = { [weak notices] in notices?.automaticChoiceChanged($0) }
-        model.updates.noticesChanged = { [weak notices, weak model] enabled in
-            notices?.automaticChoiceChanged(enabled && model?.updates.automatic == true)
-        }
-        model.updates.didCheck = { [weak notices] release, automatic in
-            Task { await notices?.checked(version: release.version, automatic: automatic) }
+        model.updates.didCheck = { [weak self] release, automatic in
+            guard let self, self.model.opensUpdateWindow(for: release.version, automatic: automatic) else { return }
+            self.showUpdateWindow()
         }
         model.updates.start()
         wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
@@ -495,11 +501,25 @@ final class LauncherDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate
         statusInterface.cancel()
         model.panelOpen = statusWindow?.isVisible == true
     }
-    /// A notice that no longer leads to an offer, because it was installed or withdrawn, opens the
-    /// panel where updates are checked.
-    private func showAbout() {
-        model.panelTab = .about
-        showPanel()
+    private func showUpdateWindow() {
+        guard updateWindow?.isVisible != true, let installer = model.installer, let offered = model.updates.offered else { return }
+        let updates = model.updates
+        let window = UpdatePanel(title: model.text("update-ready", ["version": offered.version]), content: LiveUpdateWindow(
+            updates: updates, installer: installer, copy: model.copy, actions: { [weak self] release in
+                UpdateWindowActions(
+                    later: { updates.later(release.version); self?.updateWindow?.close() },
+                    update: { installer.install(release.version) },
+                    cancel: { installer.cancel() },
+                    notes: { self?.showOffered() })
+            }))
+        updateWindow = window
+        window.present()
+    }
+    /// The window leaves once nothing is left to offer: the version was installed, withdrawn or
+    /// rolled back. A failed or running update keeps it, so its result stays in view.
+    private func closeStaleUpdateWindow() {
+        guard updateWindow?.isVisible == true, model.installer?.activity == nil, !model.updateOffered else { return }
+        updateWindow?.close()
     }
     private func showOffered() {
         guard let release = model.updates.offered else { return }
@@ -546,9 +566,6 @@ final class LauncherDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate
         }
     }
     func applicationDidBecomeActive(_ notification: Notification) {
-        if let nativeNotifications {
-            Task { [weak model] in model?.updates.notificationsDenied = await nativeNotifications.denied() }
-        }
         model.refreshLogin()
         model.becameActive()
         if popover.isShown { popover.contentViewController?.view.window?.makeKeyAndOrderFront(nil) }

@@ -175,6 +175,15 @@ extension LauncherModel {
     /// Something asks the person to decide: the banner is tinted gold and the About tab has a dot.
     /// A newer offer takes the banner from the last update's result, which says nothing about it.
     var updateAsks: Bool { installer?.activity == nil && updateOffered }
+    /// Whether a version a check just found opens the update window by itself. Only a daily check
+    /// opens it, never Check now, whose answer shows in About. It waits while setup is unfinished or
+    /// open and while an update runs. It needs the app's own installer: a source checkout updates
+    /// with its own tools, so the banner and the menu-bar badge carry its offer.
+    func opensUpdateWindow(for version: String, automatic: Bool) -> Bool {
+        guard automatic, updates.showsWindow, let installer, installer.activity == nil, setupCompleted, !setupVisible,
+              updates.offered?.version == version, updateOffered else { return false }
+        return updates.windowAllows(version)
+    }
 }
 
 /// The update above everything, on every tab: the offer, its progress or failure, and the notice
@@ -388,11 +397,6 @@ private struct SizeTip: View {
     }
 }
 
-enum SystemSettings {
-    /// This app's own page in Notifications; without `id` the pane opens on its list of apps.
-    static let notifications = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id="
-                                   + LaunchMode.bundleIdentifier)!
-}
 
 enum UpdateSize {
     /// The download's progress in whole megabytes, the unit only once: "31 of 181 MB". Nil until
@@ -588,7 +592,7 @@ private struct AboutTab: View {
                             .toggleStyle(InkSwitchStyle()).labelsHidden()
                     }
                     RowDivider()
-                    notices(p)
+                    window(p)
                 }
             }
         }
@@ -619,25 +623,11 @@ private struct AboutTab: View {
         }
     }
 
-    /// Turning notices on is the only moment the app asks macOS for permission. If the person
-    /// refused it there, the row says so and offers the way back.
-    @ViewBuilder
-    private func notices(_ p: LaunchPalette) -> some View {
-        let toggle = Toggle(model.text("panel-notices"), isOn: Binding(get: { updates.notices }, set: { updates.setNotices($0) }))
-            .toggleStyle(InkSwitchStyle()).labelsHidden()
-        if updates.notices && updates.notificationsDenied {
-            VStack(alignment: .leading, spacing: 6) {
-                PanelRow(symbol: "bell.slash", title: model.text("panel-notices"), caption: model.text("panel-notices-refused"),
-                         symbolTint: p.warning, captionTint: p.warning) { toggle }
-                Button(model.text("update-notification-settings")) {
-                    NSWorkspace.shared.open(SystemSettings.notifications)
-                }
-                .buttonStyle(MiniButtonStyle())
-                .padding(.leading, PanelMetrics.separatorInset).padding(.bottom, 9).padding(.top, -4)
-            }
-        } else {
-            PanelRow(symbol: "bell", title: model.text("panel-notices"), caption: model.text("panel-notices-caption"),
-                     symbolTint: updates.notices ? p.ink : nil) { toggle }
+    private func window(_ p: LaunchPalette) -> some View {
+        PanelRow(symbol: "macwindow", title: model.text("panel-update-window"), caption: model.text("panel-update-window-caption"),
+                 symbolTint: updates.showsWindow ? p.ink : nil) {
+            Toggle(model.text("panel-update-window"), isOn: Binding(get: { updates.showsWindow }, set: { updates.setShowsWindow($0) }))
+                .toggleStyle(InkSwitchStyle()).labelsHidden()
         }
     }
 
