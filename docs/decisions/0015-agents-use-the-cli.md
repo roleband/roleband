@@ -37,7 +37,7 @@ adds them.
   export, no general HTTP passthrough and no general process execution.
 - Each tool of the MCP server has an operation that replaces it under the
   same switch, with every deliberate difference stated, before the server is
-  removed ([0022](0022-the-mcp-server-is-removed.md)).
+  removed ([0023](0023-the-mcp-server-is-removed.md)).
 
 ## Consequences
 

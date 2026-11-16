@@ -5,7 +5,7 @@ model) reads the radar and records progress through the `roleband` command. The
 command is a client of the running engine: it calls the engine's operations
 under `/api/agent/v1/` over loopback HTTP and opens no database
 ([decision 0015](decisions/0015-agents-use-the-cli.md)). There is no other
-agent interface ([decision 0022](decisions/0022-the-mcp-server-is-removed.md)).
+agent interface ([decision 0023](decisions/0023-the-mcp-server-is-removed.md)).
 How the operations and the command are built is in
 [architecture.md](architecture.md#api-contract).
 
