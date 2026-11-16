@@ -98,7 +98,7 @@ const APPS: Record<
 };
 
 /** What the open door's app is asked to run first. */
-const FIRST_COMMAND = "roleband capabilities";
+const FIRST_COMMAND = /* not copy */ "roleband capabilities";
 
 export function AssistantsCard() {
   const [state, setState] = useState<AgentAccessState | null>(null);

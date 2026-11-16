@@ -4,7 +4,7 @@ RoleBand is a job-seeker's opportunity radar that runs on your own computer. It
 reads the careers boards of the companies you follow, classifies every posting
 (role, level, location, pay) and keeps every observation, so it can tell you what
 is new, what closed and how hiring moves. A React dashboard shows the best
-openings, and a local MCP server lets an AI agent you run ask the same questions.
+openings, and the `roleband` command lets an AI agent you run ask the same questions.
 
 This document explains how the pieces fit, the rules that hold them together and
 the tests that enforce them. Setup and daily commands are in
@@ -159,7 +159,7 @@ persist: jobs (current) + job_observations (append-only) + lifecycle events
 post-passes: embeddings, skills, lineage, place sets, demand, pay metrics, ...
    v
 Postgres -> api/routers -> dashboard/src/api -> screens
-         -> mcp/server  -> your agent
+         -> api/routers/agent -> cli (roleband) -> your agent
 ```
 
 One writer collects at a time: the pipeline holds a file lock (`data/daily.lock`)
@@ -670,7 +670,7 @@ dispatching twice.
 
 | Layer | Modules | Notes |
 |---|---|---|
-| L6 interface | `api`, `mcp`, `cli` | Independent front doors onto the same services. `api/app.py` only composes. `cli` is the `roleband` client: it reaches the engine over HTTP and imports no database module. |
+| L6 interface | `api`, `mcp`, `cli` | Independent front doors onto the same services. `api/app.py` only composes. `cli` is the `roleband` client: it reaches the engine over HTTP and imports no database module. `mcp` holds only the entry point older agent hosts launch, which imports nothing and names `roleband connect` ([0022](decisions/0022-the-mcp-server-is-removed.md)). |
 | L5 workflows | `workflows`, `daily`, `scheduler`, `watchdog`, `discover_roles`, `agents`, `supervisor` | Runs, scheduling, supervision. |
 | L4 services | The L4 row of the layers contract in `backend/pyproject.toml` is the list: `db`, the services (`enrich`, `skills`, `lineage`, `semantic`, `search`, `scope`, `profiles`, `analytics`, `notifications`, `intelligence_runtime`, `plugins`, ...) and the stores (`settings_store`, `pay_store`, `company_store`, ...) | Same-layer imports allowed; `db` is the shared store. `intelligence` sits just above L3 and composes the model backends. |
 | L3 implementations | `connectors`, `comp_providers`, `prices`, `cloud_llm`, `local_llm` | Never import each other. Their contracts and registries live inside them. |

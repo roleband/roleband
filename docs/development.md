@@ -82,13 +82,12 @@ For development, also know:
    scrape                    enrich                      serve
    ------                    ------                      -----
  connectors/  --jobs-->  workflows/pipeline  -->  db/  -->  api/routers/  -->  dashboard/
- (listing                 collect, persist,       jobs +                        (React,
-  adapters: one           post-passes             observations                   lazy routes)
-  per ATS or per                                  + derived            ^
-  company board)                                        |              |
-                                                        +--  mcp/  ----+
-                                                          (the agent transport,
-                                                           independent of api/)
+ (listing                 collect, persist,       jobs +         |              (React,
+  adapters: one           post-passes             observations   |               lazy routes)
+  per ATS or per                                  + derived      +-- agent.py  -->  cli/
+  company board)                                                                   (the `roleband`
+                                                                                    command, a client
+                                                                                    over HTTP)
 ```
 
 Two rules hold this together, and both are enforced rather than described:
@@ -98,7 +97,7 @@ Two rules hold this together, and both are enforced rather than described:
   above workflows (L5) above services (L4) above implementations (L3) above
   vocabulary (L1) above primitives (L0). An implementation never imports a
   sibling implementation, nothing imports a concrete adapter module, and `api/`
-  and `mcp/` never import each other.
+  and `cli/` never import each other.
 - **History is append-only.** `jobs` holds current canonical state, upserted
   every run; `job_observations` appends one row per job per run. Everything
   analytical is reconstructable from that history, so it is never overwritten.

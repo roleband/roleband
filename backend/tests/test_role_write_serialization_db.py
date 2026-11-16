@@ -1,7 +1,7 @@
 """Saves, pursuits and recipe drafts serialize across clients.
 
 `ensure_favorite`, `upsert_pursuit` and `save_draft_revision` each read, then
-write. Without a lock, two writers on one job (a second tab, the MCP agent and a
+write. Without a lock, two writers on one job (a second tab, an agent and a
 click) both see no row and both insert: the second commit is a
 UniqueViolation, a 500 over HTTP and a raw IntegrityError to the agent. Two
 pursuit updates both record the same old stage as `from_stage`. Two drafts

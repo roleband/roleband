@@ -8,7 +8,7 @@ dismissed for one follow-up must not swallow the next one on that pursuit (a
 row keyed by pursuit keeps `dismissed_at`), and a reconcile run at write time
 beside the run's own must not deadlock on the reminder rows.
 
-Real Postgres; the pursuit writes go through the real HTTP route and MCP tool.
+Real Postgres; the pursuit writes go through the real HTTP route and agent operation.
 """
 
 from __future__ import annotations
