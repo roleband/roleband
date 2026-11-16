@@ -411,6 +411,51 @@ async def test_pursuit_changes_are_absent_while_the_person_does_not_share_pursui
     assert sorted(event["kind"] for event in events) == ["new", "pursuit_due"]
 
 
+async def test_due_times_that_passed_while_pursuits_were_not_shared_are_not_caught_up_and_the_input_says_so(
+    api_client, feed
+):
+    pursued = await _posting(feed, "unshared-due")
+    since = await _start(api_client)
+    async with _factory(feed)() as session:
+        session.add(Pursuit(job_id=pursued, stage="applied", next_action="x",
+                            next_action_due=(await session.execute(text("SELECT clock_timestamp()"))).scalar_one()))
+        await session.commit()
+    await _share_pursuits(feed, "not_shared")
+    unshared, since = await _drain(api_client, since=since)
+    assert unshared == []
+
+    await _share_pursuits(feed, "any_model")
+    shared_again, _ = await _drain(api_client, since=since)
+
+    assert shared_again == []
+    described = ChangesListInput.model_json_schema()["properties"]["since"]["description"]
+    assert "A read made while pursuits are not shared can move past pursuit due times" in described
+
+
+async def test_an_unshared_read_that_finishes_an_open_window_leaves_later_due_times_to_the_next(api_client, feed):
+    """The due-time window is fixed when it opens: a read made while pursuits
+    are not shared that only finishes it moves past nothing that fell due
+    after it opened, so that due time is still read once sharing is back."""
+    first, second, pursued = [await _posting(feed, k) for k in ("first", "second", "late-due")]
+    since = await _start(api_client)
+    await _event(feed, first, "opened")
+    await _event(feed, second, "opened")
+    page = (await _page(api_client, since=since, limit=1))["data"]
+    assert page["caught_up"] is False and len(page["events"]) == 1
+    async with _factory(feed)() as session:
+        session.add(Pursuit(job_id=pursued, stage="applied", next_action="x",
+                            next_action_due=(await session.execute(text("SELECT clock_timestamp()"))).scalar_one()))
+        await session.commit()
+    await _share_pursuits(feed, "not_shared")
+    rest, since = await _drain(api_client, since=page["next_since"], limit=1)
+    assert [event["kind"] for event in rest] == ["new"]
+
+    await _share_pursuits(feed, "any_model")
+    shared_again, _ = await _drain(api_client, since=since)
+
+    assert [(event["kind"], event["opportunity_id"]) for event in shared_again] == [("pursuit_due", pursued)]
+
+
 # --------------------------------------------------------------------------- #
 # Commit order
 # --------------------------------------------------------------------------- #

@@ -367,12 +367,15 @@ def _parameters(descriptor: OperationDescriptor, path: str, *, body: bool = Fals
     in_path = set(re.findall(r"{([^}:]+)}", path))
     if missing := in_path - set(properties):
         raise ValueError(f"{path} names {sorted(missing)}, which {descriptor.id}'s input does not")
+    # A parameter's schema stands alone: an enum field's `#/$defs/` reference
+    # resolves nowhere in the OpenAPI document, so it is inlined.
+    definitions = schema.get("$defs", {})
     return [
         {
             "name": name,
             "in": "path" if name in in_path else "query",
             "required": name in in_path or name in required,
-            "schema": {key: value for key, value in prop.items() if key != "description"},
+            "schema": {key: value for key, value in _inline(prop, definitions).items() if key != "description"},
             **({"description": prop["description"]} if "description" in prop else {}),
         }
         for name, prop in properties.items()
