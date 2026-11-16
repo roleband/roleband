@@ -73,7 +73,7 @@ def _job(
         disclosed_base_min=300_000 if structured else None,
         disclosed_base_max=360_000 if structured else None,
         disclosed_currency="USD" if structured else None,
-        disclosed_pay_basis="salary" if structured else None,
+        disclosed_pay_basis="base" if structured else None,
         disclosed_pay_period="year" if structured else None,
         disclosed_snippet="$300,000 - $360,000" if structured else None,
         structured_at=NOW if structured else None,
@@ -431,6 +431,7 @@ async def test_employer_stated_pay_is_absent_until_the_posting_was_parsed(api_cl
     assert unparsed["employer_stated_pay"] is None
     assert parsed["employer_stated_pay"]["low"] == 300_000
     assert parsed["employer_stated_pay"]["snippet"] == "$300,000 - $360,000"
+    assert parsed["employer_stated_pay"]["basis"] == "base"
     assert unparsed["estimated_total_comp"]["provenance"] == "model"
 
 

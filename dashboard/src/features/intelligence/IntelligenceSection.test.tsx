@@ -602,7 +602,7 @@ describe("assistants card", () => {
     const card = await screen.findByRole("region", { name: msg("ai-assistants-card-assistant-apps-2") });
     // Three tiles: the two hosts `roleband connect` sets up plus the open
     // door, so the card may not imply only two products can connect.
-    const setup = within(card).getAllByRole("button", { name: "Set up" });
+    const setup = within(card).getAllByRole("button", { name: msg("ai-assistants-card-set-up") });
     expect(setup).toHaveLength(3);
     expect(within(card).getByText("Other app")).toBeInTheDocument();
     expect(within(card).getByText(msg("ai-assistants-card-any-app-that-can-run-commands"), { exact: false })).toBeInTheDocument();
@@ -616,7 +616,7 @@ describe("assistants card", () => {
     await userEvent.click(within(card).getByLabelText("Allow assistant apps to connect"));
     expect(mocked.setAgentAccess).toHaveBeenCalledWith(true, false);
     await waitFor(() => {
-      expect(within(card).getAllByRole("button", { name: "Set up" })[0]).toBeEnabled();
+      expect(within(card).getAllByRole("button", { name: msg("ai-assistants-card-set-up") })[0]).toBeEnabled();
     });
     expect(within(card).getByLabelText("Allow assistant apps to update your progress")).toBeEnabled();
   });
@@ -632,7 +632,7 @@ describe("assistants card", () => {
     });
     mount();
     const card = await screen.findByRole("region", { name: msg("ai-assistants-card-assistant-apps-2") });
-    const [claude, codex, other] = within(card).getAllByRole("button", { name: "Set up" });
+    const [claude, codex, other] = within(card).getAllByRole("button", { name: msg("ai-assistants-card-set-up") });
     await waitFor(() => expect(claude).toBeEnabled());
 
     await userEvent.click(claude);
