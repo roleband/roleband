@@ -636,6 +636,26 @@ async def test_input_beside_input_in_args_or_an_unknown_field_is_refused_as_a_re
     assert recovery_turns(transcript.tool_calls) == 4
 
 
+@pytest.mark.asyncio
+async def test_an_empty_input_is_none_and_a_real_one_meets_the_command_s_own_refusal(monkeypatch, tmp_path):
+    """Models fill every field a tool has, mostly with `{}`. An empty input on
+    a command that takes none runs it as given, with no `--input -` it would
+    refuse. A real input still reaches the command, which refuses it itself."""
+    cli = _cli(tmp_path)
+    offline = ["capabilities", "--offline"]
+    empties = [{}, "{}", " {} ", "null", "", None]
+    transcript, _ = await _local_run(monkeypatch, cli, tmp_path, [
+        *(("roleband", {"args": offline, "input": empty}) for empty in empties),
+        ("roleband", {"args": offline, "input": {"tier": "small"}}),
+    ], '{"overdue_follow_ups": 2}')
+
+    *ran, real = transcript.tool_calls
+    assert [(call["exit_code"], call["argv"]) for call in ran] == [(0, offline)] * len(empties)
+    assert real["ran"] is True and real["argv"] == [*offline, "--input", "-"] and real["exit_code"] == 2
+    assert "--input" in real["result"] + real["stderr"]
+    assert [call["args"] for call in read_cli_log(cli)] == [offline] * len(empties) + [[*offline, "--input", "-"]]
+
+
 @pytest.mark.parametrize(("header", "line"), [
     ({"host": "omlx", "interface": "cli", "local_tool": ["args", "input"]}, "local tool fields: args, input"),
     ({"host": "omlx", "interface": "cli"}, "local tool fields: args, stdin"),

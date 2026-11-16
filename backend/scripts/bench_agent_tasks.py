@@ -1866,12 +1866,22 @@ def roleband_arguments(raw: Any) -> list[str]:
 
 def roleband_input(raw: Any) -> bytes | None:
     """The command's input in a `roleband` tool call: a JSON object, or its
-    text. Absent, null or blank means none."""
+    text. Absent, null, blank, an empty object, or text that reads as null or
+    an empty object means none: models fill every field of a tool's schema,
+    and an empty one on a command that takes no input must not add
+    `--input -`, which that command refuses as an unknown argument."""
     value = raw.get("input") if isinstance(raw, dict) else None
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value) if value.strip() else None
+        except json.JSONDecodeError:
+            parsed = value
+        if parsed is None or parsed == {}:
+            return None
+    if value is None or value == {}:
+        return None
     if isinstance(value, dict):
         value = json.dumps(value)
-    if value is None or (isinstance(value, str) and not value.strip()):
-        return None
     if not isinstance(value, str):
         raise ValueError("input is the command's JSON input: an object such as {\"next_action_due\": null}")
     return value.encode("utf-8")
